@@ -158,7 +158,7 @@ test('physical and deterministic sources mount the identical full Founder presen
   assert.deepEqual([...rightOrder].sort((a, b) => a - b), rightOrder);
 });
 
-test('physical runtime starts and stops the fail-closed local transcript timing producer', async () => {
+test('Start analytics activates every physical metric, including WPM, before interview start', async () => {
   const calls = { start: 0, stop: 0 };
   const producer = {
     async start({ onState, onTiming }) {
@@ -187,15 +187,19 @@ test('physical runtime starts and stops the fail-closed local transcript timing 
   };
   bridge.requestMedia = async () => bridge.media;
   await runtime.connect();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.start, 1);
+  assert.equal(runtime.active, false);
+  assert.equal(runtime.captureMeasuring, true);
+  assert.equal(runtime.projector.latest.metrics.SPEED_WPM.available, true);
+  assert.equal(runtime.projector.latest.metrics.SPEED_WPM.wordsPerMinute, 180);
+  assert.equal(runtime.transcriptTimingState.reason, 'LOCAL_TRANSCRIPT_TIMING_LIVE');
   runtime.behavior.setup.ingestAudio({ available: true, speechMs: 3_100, noiseFloorDb: -55, speechLevelDb: -25, clippedFraction: 0 });
   runtime.behavior.setup.ingestVideo({ facePresent: true, faceFraction: 0.28, centerX: 0.5, centerY: 0.4, headPitchDegrees: 0, confidence: 0.9 });
   runtime.latestBehavior = runtime.behavior.snapshot(4_000);
   await runtime.start();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(calls.start, 1);
-  assert.equal(runtime.projector.latest.metrics.SPEED_WPM.available, true);
-  assert.equal(runtime.projector.latest.metrics.SPEED_WPM.wordsPerMinute, 180);
-  assert.equal(runtime.transcriptTimingState.reason, 'LOCAL_TRANSCRIPT_TIMING_LIVE');
   await runtime.finish();
   assert.ok(calls.stop >= 1);
 });
@@ -240,6 +244,7 @@ test('physical WPM start waits for the authenticated admission token instead of 
 test('physical WPM waiting state never renders the contradictory producer-live reason', () => {
   const { runtime, renderer } = runtimeHarness();
   runtime.active = true;
+  runtime.captureMeasuring = true;
   runtime.consumeTranscriptTimingState({ state: 'live', reason: 'LOCAL_TRANSCRIPT_TIMING_LIVE' });
   assert.equal(renderer.frames.at(-1).speed.available, false);
   assert.equal(renderer.frames.at(-1).speed.reason, 'WAITING_FOR_LOCAL_TIMED_WORDS');
@@ -259,10 +264,33 @@ test('switching the active microphone restarts local timing on the replacement t
     AC: { state: 'running', sampleRate: 48_000 },
   };
   runtime.active = true;
+  runtime.captureMeasuring = true;
   runtime.activeClock = { sessionMs: () => 1_000 };
   await runtime.switchDevice('microphone', 'replacement-microphone');
   assert.equal(calls.stop, 1);
   assert.equal(calls.start, 1);
+});
+
+test('stopping pre-interview analytics stops transcript timing and releases capture', async () => {
+  const calls = { start: 0, stop: 0 };
+  const producer = {
+    async start() { calls.start += 1; return true; },
+    stop() { calls.stop += 1; return true; },
+  };
+  const { runtime, bridge } = runtimeHarness({ transcriptTimingProducer: producer });
+  bridge.media = {
+    cam: true,
+    mic: true,
+    stream: { getAudioTracks: () => [{ readyState: 'live', enabled: true }] },
+    AC: { state: 'running', sampleRate: 48_000 },
+  };
+  bridge.requestMedia = async () => bridge.media;
+  await runtime.connect();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.start, 1);
+  await runtime.stopCapture();
+  assert.ok(calls.stop >= 1);
+  assert.equal(runtime.captureMeasuring, false);
 });
 
 test('all six analytics modules are independently hideable and restore their prior presentation state', () => {

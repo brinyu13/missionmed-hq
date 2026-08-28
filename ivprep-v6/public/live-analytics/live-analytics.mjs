@@ -292,6 +292,7 @@ export class LiveAnalyticsRuntime {
     this.renderer = renderer || new LiveHudRenderers(documentRef);
     this.transcriptTiming = transcriptTimingProducer || new LocalTranscriptTimingProducer();
     this.transcriptTimingState = Object.freeze({ state: 'idle', reason: 'LOCAL_TRANSCRIPT_TIMING_IDLE' });
+    this.transcriptTimingStartPromise = null;
     this.fixtureMode = Boolean(fixtureMode);
     this.fixture = fixture || (this.fixtureMode ? new DeterministicLocalSignalFixture() : null);
     this.behavior = behavior;
@@ -839,6 +840,7 @@ export class LiveAnalyticsRuntime {
     this.elements.captureIndicator.dataset.state = 'setup';
     this.elements.measurement.dataset.state = 'setup';
     setText(this.elements.measurement, 'Setup measurement live');
+    void this.#ensureTranscriptTiming();
     return true;
   }
 
@@ -881,9 +883,10 @@ export class LiveAnalyticsRuntime {
         this.pipeline?.reselectPrimary?.();
         if (!this.pipeline?.visionTimer) this.pipeline?.startVision?.(this.elements.video);
       }
-      if (kind === 'microphone' && this.active) {
+      if (kind === 'microphone' && this.captureMeasuring) {
         this.transcriptTiming.stop();
-        await this.#startTranscriptTiming();
+        this.transcriptTimingStartPromise = null;
+        await this.#ensureTranscriptTiming();
       }
       setText(this.elements.status, `${kind === 'camera' ? 'Camera' : 'Microphone'} switched · measurement continuous`);
       this.updateDiagnostics();
@@ -924,26 +927,39 @@ export class LiveAnalyticsRuntime {
     setText(this.elements.measurement, this.fixtureMode ? 'TEST INPUT · measurement live' : 'Measurement live');
     this.#startClockDisplay();
     this.updateDiagnostics();
-    if (!this.fixtureMode) void this.#startTranscriptTiming();
+    if (!this.fixtureMode) void this.#ensureTranscriptTiming();
     return true;
   }
 
-  async #startTranscriptTiming() {
+  async #ensureTranscriptTiming() {
+    if (this.fixtureMode || !this.captureMeasuring) return false;
+    if (this.transcriptTiming.active || this.transcriptTimingState.state === 'live') return true;
+    if (this.transcriptTimingStartPromise) return this.transcriptTimingStartPromise;
     const clock = this.activeClock;
     const stream = this.bridge.media.stream;
-    const started = await this.transcriptTiming.start({
-      stream,
-      pipeline: this.pipeline,
-      clock,
-      csrfToken: this.mutationCsrfToken,
-      onTiming: (evidence) => this.consumeTranscriptTiming(evidence),
-      onState: (state) => this.consumeTranscriptTimingState(state),
-    });
-    if (!this.active || clock !== this.activeClock) {
-      this.transcriptTiming.stop();
-      return false;
+    const starting = (async () => {
+      if (this.admissionPromise) await this.admissionPromise;
+      if (!this.captureMeasuring || clock !== this.activeClock || stream !== this.bridge.media.stream) return false;
+      const started = await this.transcriptTiming.start({
+        stream,
+        pipeline: this.pipeline,
+        clock,
+        csrfToken: this.mutationCsrfToken,
+        onTiming: (evidence) => this.consumeTranscriptTiming(evidence),
+        onState: (state) => this.consumeTranscriptTimingState(state),
+      });
+      if (!this.captureMeasuring || clock !== this.activeClock || stream !== this.bridge.media.stream) {
+        this.transcriptTiming.stop();
+        return false;
+      }
+      return started;
+    })();
+    this.transcriptTimingStartPromise = starting;
+    try {
+      return await starting;
+    } finally {
+      if (this.transcriptTimingStartPromise === starting) this.transcriptTimingStartPromise = null;
     }
-    return started;
   }
 
   #resetMeasurementSession() {
@@ -1078,7 +1094,7 @@ export class LiveAnalyticsRuntime {
       reason: state?.reason || 'LOCAL_TRANSCRIPT_TIMING_UNAVAILABLE',
       ...(state?.detail ? { detail: Object.freeze({ ...state.detail }) } : {}),
     });
-    if (this.active && !this.fixtureMode) this.render(this.projector.latest);
+    if (this.captureMeasuring && !this.fixtureMode) this.render(this.projector.latest);
     this.updateDiagnostics();
     return this.transcriptTimingState;
   }
@@ -1216,6 +1232,8 @@ export class LiveAnalyticsRuntime {
     if (this.active || this.fixture?.running) await this.finish();
     else if (this.fixtureMode) this.fixtureConnected = false;
     else {
+      this.transcriptTiming.stop();
+      this.transcriptTimingStartPromise = null;
       this.pipeline?.removeEventListener?.('diagnostic', this.boundDiagnostic);
       this.pipeline?.removeEventListener?.('state', this.boundPipelineState);
       this.bridge.endAnalytics?.({ transcript: '', mediaAvailable: Boolean(this.bridge.media.stream) });
@@ -1432,6 +1450,7 @@ export class LiveAnalyticsRuntime {
       this.fixture.stop();
     } else {
       this.transcriptTiming.stop();
+      this.transcriptTimingStartPromise = null;
       analyticsResult = this.bridge.endAnalytics({ transcript: '', mediaAvailable: Boolean(this.bridge.media.stream) });
       this.pipeline?.removeEventListener?.('diagnostic', this.boundDiagnostic);
       this.pipeline?.removeEventListener?.('state', this.boundPipelineState);
@@ -1482,6 +1501,7 @@ export class LiveAnalyticsRuntime {
     this.#hidePostAnswer();
     this.fixture?.stop?.();
     this.transcriptTiming.stop();
+    this.transcriptTimingStartPromise = null;
     this.pipeline?.removeEventListener?.('diagnostic', this.boundDiagnostic);
     this.pipeline?.removeEventListener?.('state', this.boundPipelineState);
     this.bridge.destroy?.();
