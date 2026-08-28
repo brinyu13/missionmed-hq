@@ -386,12 +386,23 @@ export function advancedStudioState(document={}){
 export function normalizeAdvancedStudioDocument(document={}){
   const next=clone(document&&typeof document==="object"?document:{});
   next.mode=normalizeMode(next.mode);
-  next.layoutLock=next.layoutLock!==false;
   next.advanced=advancedStudioState(next);
   next.preferences={
     ...(next.preferences&&typeof next.preferences==="object"?next.preferences:{}),
-    advancedDialogSeen:!!next.preferences?.advancedDialogSeen
+    advancedDialogSeen:!!next.preferences?.advancedDialogSeen,
+    advancedFreePlacementInitialized:!!next.preferences?.advancedFreePlacementInitialized
   };
+  /* Older documents inherited Guided mode's locked layout when they entered
+   * Advanced Studio. The modern editor then hid the only lock control inside
+   * its legacy contract, leaving every direct-manipulation gesture inert. A
+   * one-time preference migrates those documents to free placement without
+   * overriding a lock the student deliberately enables afterward. */
+  if(next.mode===ADVANCED_MODE&&!next.preferences.advancedFreePlacementInitialized){
+    next.layoutLock=false;
+    next.preferences.advancedFreePlacementInitialized=true;
+  }else{
+    next.layoutLock=next.layoutLock!==false;
+  }
   return next;
 }
 
@@ -640,6 +651,8 @@ export function applyModeSwitch(document,plan,decision){
       throw new Error("Advanced Studio entry requires an explicit decision.");
     }
     next.mode=ADVANCED_MODE;
+    next.layoutLock=false;
+    next.preferences.advancedFreePlacementInitialized=true;
     next.advanced.enteredBefore=true;
     return{
       document:next,
@@ -721,6 +734,7 @@ export function setLayoutLock(document,locked){
     };
   }
   const nextLocked=!!locked;
+  state.preferences.advancedFreePlacementInitialized=true;
   if(nextLocked===state.layoutLock){
     return{document:state,changed:false,mutation:null,effects:layoutPolicy(state)};
   }
@@ -1731,10 +1745,13 @@ export function renderModeDialog(model){
   </section>`;
 }
 
-export function renderInsertStrip(document={}){
+export function renderInsertStrip(document={},options={}){
   const items=buildInsertStripModel(document);
   if(!items)return"";
-  return`<div class="advanced-insert-strip" role="toolbar" aria-label="Advanced Studio insert tools" data-advanced-insert-strip>${items.map((item)=>{
+  const visibleItems=options.includeLayoutLock===false
+    ?items.filter((item)=>item.id!=="layout-lock")
+    :items;
+  return`<div class="advanced-insert-strip" role="toolbar" aria-label="Advanced Studio insert tools" data-advanced-insert-strip>${visibleItems.map((item)=>{
     if(item.kind==="divider")return'<span class="toolbar-divider" role="separator" data-advanced-divider></span>';
     if(item.kind==="toggle"){
       return`<label class="layout-lock-toggle"><input type="checkbox" data-layout-lock ${item.pressed?"checked":""}><span>${escapeHtml(item.label)}</span></label>`;
@@ -2135,7 +2152,8 @@ export function renderAdvancedStudio(document={},options={}){
     query:options.query,
     resolveObjectUrl:options.resolveObjectUrl
   });
-  return`<aside class="advanced-editor-sidebar" data-advanced-editor-sidebar>${renderAdvancedToolRail(activePanel)}<div class="advanced-content-panel" data-advanced-content-panel>${panel}</div><div class="advanced-legacy-insert-contract" hidden aria-hidden="true">${renderInsertStrip(state)}</div></aside>`;
+  const lockControl=`<label class="layout-lock-toggle advanced-layout-lock-control" data-advanced-layout-lock-control><input type="checkbox" data-layout-lock ${state.layoutLock?"checked":""}><span>Layout lock</span></label>`;
+  return`<aside class="advanced-editor-sidebar" data-advanced-editor-sidebar>${renderAdvancedToolRail(activePanel)}<div class="advanced-content-panel" data-advanced-content-panel>${lockControl}${panel}</div><div class="advanced-legacy-insert-contract" hidden aria-hidden="true">${renderInsertStrip(state,{includeLayoutLock:false})}</div></aside>`;
 }
 
 /*

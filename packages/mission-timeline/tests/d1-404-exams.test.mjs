@@ -4,17 +4,33 @@ import test from "node:test";
 
 import {
   apply407FStateToDocument,
-  applyDocumentTo407FState
+  applyDocumentTo407FState,
+  examMutationNeedsImmediateRender
 } from "../web/js/407f-engineering-adapter.js";
+import {MemoryPersistenceAdapter} from "../web/js/persistence/memory-adapter.js";
+import {AUTOSAVE_DELAY} from "../web/js/uxr-002/constants.js";
 import {
   addBuilderExam,
   deleteBuilderExamAttempt,
   setBuilderExamSystem,
   updateBuilderExamAttempt
 } from "../web/js/uxr-002/exam-integration.js";
+import {TimelineStore} from "../web/js/uxr-002/store.js";
 
 const indexPath=new URL("../web/index.html",import.meta.url);
+const adapterPath=new URL("../web/js/407f-engineering-adapter.js",import.meta.url);
 const stylePath=new URL("../web/styles/407f-upgrade.css",import.meta.url);
+
+const FULL_ENTITLEMENT=Object.freeze({
+  schemaVersion:"d1-405.timeline-entitlement.1",
+  access:"FULL",
+  verified:true,
+  canRead:true,
+  canCreate:true,
+  canMutate:true,
+  canExport:true,
+  reason:"Verified test entitlement."
+});
 
 test("M4 renders independent USMLE and COMLEX selection with add-via-chip exams",async()=>{
   const html=await readFile(indexPath,"utf8");
@@ -139,5 +155,101 @@ test("M7 exam mutations restore focus, announce automation, and retain 44px targ
   assert.match(
     css,
     /\.retakeChip\{[\s\S]*?min-height:44px;/
+  );
+});
+
+test("P0 exam field commits preserve the active click while persistence and result painting remain live",async(t)=>{
+  t.mock.timers.enable({apis:["setTimeout"]});
+  const persistence=new MemoryPersistenceAdapter();
+  const store=new TimelineStore({adapter:persistence,entitlement:FULL_ENTITLEMENT});
+  await store.initialize();
+
+  let notifications=0;
+  store.subscribe(()=>{notifications+=1;});
+  const beforeMutationNotifications=notifications;
+
+  const changed=store.mutate("Update exam date",(document)=>{
+    document.exams=[{
+      id:"exam-step-2",
+      system:"USMLE",
+      examId:"step-2-ck",
+      attempt:1,
+      result:"",
+      examDate:"2026-08"
+    }];
+  },{emit:false});
+
+  assert.equal(changed,true);
+  assert.equal(
+    notifications,
+    beforeMutationNotifications,
+    "a field blur must not notify subscribers that remount the click target"
+  );
+  assert.equal(store.saveStatus,"saving");
+  assert.ok(store.timer,"the silent field mutation must still schedule autosave");
+  assert.equal(
+    store.scheduledAuthorization.document.exams[0].examDate,
+    "2026-08"
+  );
+
+  t.mock.timers.tick(AUTOSAVE_DELAY);
+  await Promise.resolve();
+  if(store.pendingSave)await store.pendingSave;
+  const persisted=await persistence.get("documents",store.document.id);
+  assert.equal(persisted.document.exams[0].examDate,"2026-08");
+  assert.equal(persisted.reason,"AUTOSAVE");
+
+  assert.equal(examMutationNeedsImmediateRender({examDate:"2026-08"}),false);
+  assert.equal(examMutationNeedsImmediateRender({studyStartDate:"2026-01"}),false);
+  assert.equal(examMutationNeedsImmediateRender({score:"250"}),false);
+  assert.equal(examMutationNeedsImmediateRender({result:"Passed"}),true);
+
+  const adapterSource=await readFile(adapterPath,"utf8");
+  const mutationSeam=adapterSource.slice(
+    adapterSource.indexOf("const commitExamMutation="),
+    adapterSource.indexOf("const commitDomainMutation=")
+  );
+  assert.match(mutationSeam,/\},\{emit:render\}\);/);
+  assert.match(
+    mutationSeam,
+    /render:examMutationNeedsImmediateRender\(changes\)/
+  );
+  assert.match(mutationSeam,/if\(render\)\{[\s\S]*bridge\.renderAll\(\)/);
+
+  const document={
+    studentProfile:{},
+    builder:{step:2,examSystems:["USMLE"]},
+    exams:[{
+      id:"exam-step-2",
+      system:"USMLE",
+      examId:"step-2-ck",
+      attempt:1,
+      result:"",
+      examDate:"2026-08"
+    }],
+    events:[],
+    metadata:{}
+  };
+  updateBuilderExamAttempt(document,"exam-step-2",{result:"Passed"});
+  const state={
+    user:{events:[],interview:{}},
+    profile:{},
+    wiz:{},
+    builder:{step:1},
+    media:{},
+    canvasTheme:"keynote"
+  };
+  applyDocumentTo407FState(document,state);
+  assert.equal(state.builder.exams[0].result,"Passed");
+
+  const html=await readFile(indexPath,"utf8");
+  const card=html.slice(
+    html.indexOf("function examCard404"),
+    html.indexOf("function examsMarkup404")
+  );
+  assert.match(
+    card,
+    /record\.result===result\?' on':''/,
+    "the immediate result render must paint the selected Passed segment"
   );
 });

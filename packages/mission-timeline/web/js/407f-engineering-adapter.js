@@ -1013,6 +1013,10 @@ export function timelineRenderSignature(document){
   });
 }
 
+export function examMutationNeedsImmediateRender(changes={}){
+  return Object.prototype.hasOwnProperty.call(changes||{},"result");
+}
+
 const MAX_IMAGE_DIMENSION=8192;
 const MAX_IMAGE_PIXELS=40_000_000;
 
@@ -5366,13 +5370,14 @@ export async function boot407FEngineeringAdapter({
     store.mutate(label,(document)=>{
       apply407FStateToDocument(bridge.state,document);
       result=mutation(document);
-    });
+    },{emit:render});
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
     if(render){
       bridge.renderAll();
       canvasController?.render();
     }else{
+      reflectStoreStatus();
       queueBuilderEmbeddedPreview({force:true});
     }
     lastState=stableState(bridge.state);
@@ -5393,7 +5398,7 @@ export async function boot407FEngineeringAdapter({
     update(recordId,changes){
       commitExamMutation("Update exam",(document)=>{
         updateBuilderExamAttempt(document,recordId,changes);
-      },{render:false});
+      },{render:examMutationNeedsImmediateRender(changes)});
     },
     delete(recordId){
       commitExamMutation("Delete exam",(document)=>{

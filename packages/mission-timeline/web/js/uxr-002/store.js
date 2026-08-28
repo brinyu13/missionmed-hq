@@ -437,7 +437,7 @@ export class TimelineStore{
     return true;
   }
 
-  mutate(label,operation,{history=true,material=true}={}){
+  mutate(label,operation,{history=true,material=true,emit=true}={}){
     const persistenceLease=this.capturePersistenceLease();
     const before=this.snapshot();
     const advisorEventDataBefore=stable({events:before.events,exams:before.exams});
@@ -463,7 +463,7 @@ export class TimelineStore{
     this.scheduleSave(
       this.capturePersistenceAuthorization(persistenceLease)
     );
-    this.emit();
+    if(emit)this.emit();
     return true;
   }
 

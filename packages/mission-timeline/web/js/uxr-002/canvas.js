@@ -1,6 +1,7 @@
 import {CATEGORIES,HISTORY_LIMIT,VISIBILITY} from "./constants.js";
 import {renderKeynoteClassicBoard} from "./board-renderer.js";
 import {assignStableLanes} from "./adaptive-layout.js";
+import {normalizeAdvancedStudioDocument} from "./advanced-studio.js";
 import {
   compareExactDates,
   shiftExactDateByMonths
@@ -1625,6 +1626,28 @@ export function installCanvas(
   } = {}
 ) {
   if (!root?.addEventListener) throw new TypeError("installCanvas requires a DOM root.");
+  /* Persist the one-time Advanced free-placement migration before the first
+   * board gesture. Rendering a normalized clone is not enough because the
+   * high-frequency interaction layer correctly guards against the canonical
+   * store document, not the sidebar markup. */
+  const needsAdvancedFreePlacement=
+    store.document?.mode==="advanced"&&
+    store.document?.layoutLock!==false&&
+    store.document?.preferences?.advancedFreePlacementInitialized!==true;
+  if(
+    needsAdvancedFreePlacement&&
+    initialState.entitlementEditable===true&&
+    typeof store.mutate==="function"
+  ){
+    const migrated=normalizeAdvancedStudioDocument(store.document);
+    store.mutate("Enable Advanced Studio free placement",(document)=>{
+      document.layoutLock=migrated.layoutLock;
+      document.preferences={
+        ...(document.preferences||{}),
+        advancedFreePlacementInitialized:true
+      };
+    },{history:false});
+  }
   let state = initialState;
   let versions = [];
   let destroyed = false;

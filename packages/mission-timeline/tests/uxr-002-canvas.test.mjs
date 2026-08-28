@@ -817,6 +817,22 @@ test("M8 install owns delegated Canvas listeners, canonical rendering, responsiv
   assert.equal(root.listeners.size,0);
 });
 
+test("M8 an existing Advanced document is unlocked in the canonical store before its first gesture",()=>{
+  const document=canonicalDocument();
+  document.mode="advanced";
+  document.layoutLock=true;
+  delete document.preferences.advancedFreePlacementInitialized;
+  const root=new FakeRoot();
+  const store=new FakeStore(document);
+  const controller=installCanvas(root,store,{
+    state:{...createCanvasState({mode:"advanced"}),entitlementEditable:true},
+    currentMonth:()=>"2026-07"
+  });
+  assert.equal(store.document.layoutLock,false);
+  assert.equal(store.document.preferences.advancedFreePlacementInitialized,true);
+  controller.destroy();
+});
+
 test("M10 Canvas theme picker moves focus on open and restores the trigger on close, selection, and Escape",()=>{
   assert.match(
     canvasSource,

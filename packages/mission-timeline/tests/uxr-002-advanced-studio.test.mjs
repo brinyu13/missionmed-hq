@@ -177,8 +177,27 @@ test("first Advanced activation is gated once and carries the pre-mutation autom
   assert.equal(secondPlan.dialog,null);
   const entered=applyModeSwitch(stayed.document,secondPlan);
   assert.equal(entered.document.mode,"advanced");
+  assert.equal(entered.document.layoutLock,false,"Advanced Studio must open ready for direct manipulation");
+  assert.equal(entered.document.preferences.advancedFreePlacementInitialized,true);
   assert.equal(entered.document.advanced.enteredBefore,true);
   assert.equal(entered.versionRequest.requiredBeforeMutation,true);
+});
+
+test("legacy Advanced documents unlock once while an intentional lock still persists",()=>{
+  const legacy=normalizeAdvancedStudioDocument(documentFixture({
+    mode:"advanced",
+    layoutLock:true
+  }));
+  assert.equal(legacy.layoutLock,false);
+  assert.equal(legacy.preferences.advancedFreePlacementInitialized,true);
+
+  const locked=setLayoutLock(legacy,true);
+  assert.equal(locked.changed,true);
+  assert.equal(locked.document.layoutLock,true);
+  assert.equal(locked.document.preferences.advancedFreePlacementInitialized,true);
+
+  const reloaded=normalizeAdvancedStudioDocument(structuredClone(locked.document));
+  assert.equal(reloaded.layoutLock,true,"a student-selected lock must survive save and reload");
 });
 
 test("enter confirmation, return confirmation, Guided hiding, and exact re-entry restoration preserve Advanced data",()=>{
@@ -254,7 +273,7 @@ test("the second row contains exactly Image, GIF, Logo, Text, Background, divide
   assert.equal(buildInsertStripModel(documentFixture()),null);
   const model=buildInsertStripModel(documentFixture({mode:"advanced"}));
   assert.equal(model.length,7);
-  assert.equal(model.at(-1).pressed,true);
+  assert.equal(model.at(-1).pressed,false);
 
   const guidedHtml=renderInsertStrip(documentFixture());
   assert.equal(guidedHtml,"");
@@ -813,7 +832,7 @@ test("native EyeDropper sampling is capability-bound and normalized",async()=>{
   });
 });
 
-test("Layout lock defaults ON, preserves horizontal month snapping, and re-arranges when restored",()=>{
+test("Advanced defaults to free placement, preserves horizontal month snapping, and re-arranges when locked",()=>{
   const guided=documentFixture({layoutLock:false});
   assert.deepEqual(layoutPolicy(guided),{
     mode:"guided",
@@ -826,19 +845,17 @@ test("Layout lock defaults ON, preserves horizontal month snapping, and re-arran
   });
   assert.equal(setLayoutLock(guided,false).changed,false);
 
-  const advanced=documentFixture({mode:"advanced"});
+  const advanced=normalizeAdvancedStudioDocument(documentFixture({mode:"advanced"}));
   const unlocked=setLayoutLock(advanced,false);
-  assert.equal(unlocked.changed,true);
-  assert.deepEqual(unlocked.effects,{
+  assert.equal(unlocked.changed,false);
+  assert.deepEqual(layoutPolicy(unlocked.document),{
     mode:"advanced",
     layoutLock:false,
     controlVisible:true,
     autoArrange:false,
     laneSnapping:false,
     freeVerticalPlacement:true,
-    horizontalMonthSnapping:true,
-    rerunAutoArrange:false,
-    undoable:true
+    horizontalMonthSnapping:true
   });
   const relocked=setLayoutLock(unlocked.document,true);
   assert.equal(relocked.effects.rerunAutoArrange,true);
@@ -853,6 +870,11 @@ test("Guided render contains no Advanced controls; Advanced render contains only
   const advanced=documentFixture({mode:"advanced"});
   const closed=renderAdvancedStudio(advanced);
   assert.ok(closed.includes("data-advanced-insert-strip"));
+  assert.equal((closed.match(/data-layout-lock/g)||[]).length,1,"only the visible editor control owns the layout lock");
+  assert.ok(closed.includes("data-advanced-layout-lock-control"));
+  const hiddenContract=closed.slice(closed.indexOf("advanced-legacy-insert-contract"));
+  assert.equal(hiddenContract.includes("data-layout-lock"),false);
+  assert.ok(closed.indexOf("data-advanced-layout-lock-control")<closed.indexOf("advanced-legacy-insert-contract"));
   assert.equal(closed.includes("data-background-panel"),false);
   const open=renderAdvancedStudio(advanced,{backgroundOpen:true,activeTab:"Presets"});
   assert.ok(open.includes("data-advanced-insert-strip"));
