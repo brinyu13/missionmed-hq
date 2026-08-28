@@ -457,6 +457,23 @@ async function studentFlow(browser) {
 	}
 }
 
+async function emptyPremiumShortcutFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "student", scenario: "empty" });
+	try {
+		assert(await page.locator(".fv2-shortcut-card").count() === 4, "empty student: premium destinations are missing");
+		await page.locator(".fv2-shortcut-card").nth(0).click();
+		assert(await page.getByRole("dialog", { name: "Upload a document" }).isVisible(), "empty student: CV card did not open the canonical upload workflow");
+		assert(await page.locator("[data-fv2-upload-type]").inputValue() === "curriculum_vitae", "empty student: CV card selected the wrong document type");
+		await page.getByRole("button", { name: "Close upload" }).click();
+		await page.locator(".fv2-shortcut-card").nth(2).click();
+		assert(await page.getByRole("dialog", { name: "Upload a document" }).isVisible(), "empty student: Personal Statement card did not open the canonical upload workflow");
+		assert(await page.locator("[data-fv2-upload-type]").inputValue() === "personal_statement", "empty student: Personal Statement card selected the wrong document type");
+		assert(diagnostics.length === 0, `empty student: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
 async function rapidStudentSwitchFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "switch-race" }, { width: 1280, height: 800 });
 	try {
@@ -1160,6 +1177,7 @@ async function main() {
 		await nonceRecoveryFlow(browser);
 		await abortedMountRemountFlow(browser);
 		await studentFlow(browser);
+		await emptyPremiumShortcutFlow(browser);
 		await rapidStudentSwitchFlow(browser);
 		await failedStudentSwitchFlow(browser);
 		await documentSwitchIsolationFlow(browser);
