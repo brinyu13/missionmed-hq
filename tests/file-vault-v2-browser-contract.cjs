@@ -851,6 +851,11 @@ async function adminFlow(browser) {
 		assert(await page.getByText("Inside Avery Rivera (Fixture)'s File Vault", { exact: true }).isVisible(), "admin: student context banner missing");
 		assert(await page.locator("[data-fv2-page-heading]").evaluate(node => document.activeElement === node), "admin: entering a student Vault did not focus its Home heading");
 		assert(await page.locator("[data-fv2-live]").textContent() === "Opened Avery Rivera (Fixture)'s File Vault.", "admin: entering a student Vault was not announced");
+		await page.locator(".fv2-shortcut-timeline").click();
+		assert(await page.getByRole("heading", { name: "Journey", exact: true }).isVisible(), "admin: Timeline premium card did not open the selected student's Journey");
+		assert(await page.locator(".fv2-subject-banner").isVisible(), "admin: Journey lost selected-student context");
+		await page.getByRole("button", { name: "Home", exact: true }).click();
+		assert(await page.locator(".fv2-home-greeting h1").isVisible(), "admin: Home did not return from the selected student's Journey");
 		await page.getByRole("button", { name: "Your Files", exact: true }).click();
 		assert(await page.locator("[data-fv2-student-picker]").count() === 1, "admin: Your Files renders duplicate student pickers");
 		await page.waitForSelector('[data-fv2-action="select-document"][data-fv2-document-id="1102"]');

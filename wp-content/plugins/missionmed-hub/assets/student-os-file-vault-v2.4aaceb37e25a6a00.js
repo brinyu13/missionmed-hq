@@ -20,7 +20,7 @@
 		jpeg: "image/jpeg"
 	};
 	var STUDENT_VIEWS = ["vault", "upload", "files", "recent", "library", "activity", "journey"];
-	var STAFF_VIEWS = ["command", "review", "vault", "upload", "files", "recent", "library", "activity", "audit"];
+	var STAFF_VIEWS = ["command", "review", "vault", "upload", "files", "recent", "library", "activity", "journey", "audit"];
 	var PREFS_KEY = "mmed.fileVaultV2.preferences";
 	var LEGACY_V1_ROUTE_MARKER = "Private student file metadata with direct R2 upload wiring";
 	var LEGACY_V1_ROUTE_SAFE_MARKER = "Private student file metadata with direct R2 upload\u200b wiring";
