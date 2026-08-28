@@ -48,6 +48,12 @@ const STATE_COLOR = Object.freeze({
 });
 
 export const VOCAL_VARIATION_TRACES = Object.freeze(['volume', 'pitch', 'speed']);
+export const VOCAL_VARIATION_SIGNAL_HOLD_MS = Object.freeze({
+  volume: 0,
+  pitch: 1_200,
+  speed: 2_000,
+});
+export const PITCH_VISUAL_HOLD_MS = 1_200;
 
 export function normalizeVocalVariationValue(trace, value) {
   if (!finite(value)) return null;
@@ -101,6 +107,31 @@ function setText(node, text, state) {
 
 function formatNumber(value, digits = 1) {
   return finite(value) ? Number(value).toFixed(digits) : 'UNAVAILABLE';
+}
+
+export function continuousVocalVariationPoints(history, { holdGapMs = 0, endAtMs = null } = {}) {
+  const ordered = (Array.isArray(history) ? history : [])
+    .filter((sample) => finite(sample?.atMs))
+    .sort((a, b) => a.atMs - b.atMs);
+  const points = [];
+  let lastObserved = null;
+  for (const sample of ordered) {
+    if (finite(sample.value)) {
+      lastObserved = { atMs: Number(sample.atMs), value: Number(sample.value) };
+      points.push({ ...lastObserved, observed: true });
+      continue;
+    }
+    const gapMs = lastObserved ? Number(sample.atMs) - lastObserved.atMs : Infinity;
+    points.push(lastObserved && gapMs <= holdGapMs
+      ? { atMs: Number(sample.atMs), value: lastObserved.value, observed: false }
+      : { atMs: Number(sample.atMs), value: null, observed: false });
+  }
+  const tailAtMs = finite(endAtMs) ? Number(endAtMs) : null;
+  if (lastObserved && tailAtMs !== null && tailAtMs > (points.at(-1)?.atMs ?? -Infinity)) {
+    const gapMs = tailAtMs - lastObserved.atMs;
+    if (gapMs <= holdGapMs) points.push({ atMs: tailAtMs, value: lastObserved.value, observed: false });
+  }
+  return points;
 }
 
 function fitCanvas(canvas) {
@@ -750,29 +781,18 @@ export class VolumeHudRenderer extends HudRenderer {
 export class SpeedHudRenderer extends HudRenderer {
   constructor(root) { super(root, 'speed'); }
 
-  draw(frame) {
-    if (!finite(frame.wpm)) {
-      this.unavailable(frame.reason || 'OBSERVED_WORD_TIMING_REQUIRED');
-      return;
-    }
-    const fit = this.context();
-    if (!fit) return;
-    clearScreen(fit.context, fit.width, fit.height, { grid: false });
+  #paintDial(fit, { normalized = null, corridor = [.70, .80] } = {}) {
     const cx = fit.width / 2;
     const cy = fit.height * .91;
     const radius = Math.min(fit.width * .43, fit.height * .78);
     const segments = 28;
-    const corridor = Array.isArray(frame.corridor) && frame.corridor.length === 2 && frame.corridor.every(finite)
-      ? [clamp(frame.corridor[0]), clamp(frame.corridor[1])]
-      : [.70, .80];
-    const normalized = finite(frame.normalized) ? clamp(frame.normalized) : clamp(Number(frame.wpm) / 240);
     for (let index = 0; index < segments; index += 1) {
       const position = index / (segments - 1);
       const angle = Math.PI + position * Math.PI;
       const innerRadius = radius - Math.max(10, radius * .14);
       const inTarget = position >= corridor[0] && position <= corridor[1];
       const extreme = index === 0 || index === segments - 1;
-      const traversed = position <= normalized;
+      const traversed = finite(normalized) && position <= normalized;
       fit.context.strokeStyle = extreme ? COLORS.bad : inTarget ? COLORS.ok : traversed ? '#2388ff' : 'rgba(97,111,135,.62)';
       fit.context.lineWidth = Math.max(3, radius * .052);
       fit.context.lineCap = 'butt';
@@ -781,6 +801,7 @@ export class SpeedHudRenderer extends HudRenderer {
       fit.context.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
       fit.context.stroke();
     }
+    if (!finite(normalized)) return;
     const angle = Math.PI + normalized * Math.PI;
     fit.context.strokeStyle = COLORS.ok;
     fit.context.lineWidth = 3;
@@ -792,6 +813,37 @@ export class SpeedHudRenderer extends HudRenderer {
     fit.context.beginPath();
     fit.context.arc(cx, cy, 3.2, 0, Math.PI * 2);
     fit.context.fill();
+  }
+
+  unavailable(reason = 'OBSERVED_WORD_TIMING_REQUIRED') {
+    this.lastFrame = Object.freeze({ available: false, reason });
+    const fit = this.context();
+    if (fit) {
+      clearScreen(fit.context, fit.width, fit.height, { grid: false });
+      this.#paintDial(fit);
+      fit.context.fillStyle = COLORS.warn;
+      fit.context.font = '700 8px "Space Grotesk", ui-monospace, monospace';
+      fit.context.textAlign = 'center';
+      fit.context.textBaseline = 'middle';
+      fit.context.fillText('WAITING FOR TIMED WORDS', fit.width / 2, fit.height * .62, Math.max(80, fit.width - 18));
+    }
+    setText(this.value, '—', 'unavailable');
+    setText(this.status, `UNAVAILABLE — ${labelReason(reason)}`, 'unavailable');
+  }
+
+  draw(frame) {
+    if (!finite(frame.wpm)) {
+      this.unavailable(frame.reason || 'OBSERVED_WORD_TIMING_REQUIRED');
+      return;
+    }
+    const fit = this.context();
+    if (!fit) return;
+    clearScreen(fit.context, fit.width, fit.height, { grid: false });
+    const corridor = Array.isArray(frame.corridor) && frame.corridor.length === 2 && frame.corridor.every(finite)
+      ? [clamp(frame.corridor[0]), clamp(frame.corridor[1])]
+      : [.70, .80];
+    const normalized = finite(frame.normalized) ? clamp(frame.normalized) : clamp(Number(frame.wpm) / 240);
+    this.#paintDial(fit, { normalized, corridor });
     setText(this.value, `${Math.round(Number(frame.wpm))}`, frame.zone || frame.state || 'neutral');
     setText(this.status, frame.label || String(frame.zone || 'OBSERVED WORD TIMING').replaceAll('_', ' '), frame.zone || frame.state || 'neutral');
   }
@@ -856,29 +908,36 @@ export class VocalVariationHudRenderer extends HudRenderer {
 
     for (const trace of VOCAL_VARIATION_TRACES) {
       if (!visible.has(trace)) continue;
-      const history = (Array.isArray(histories[trace]) ? histories[trace] : [])
-        .filter((sample) => finite(sample?.atMs) && sample.atMs >= startAtMs)
-        .sort((a, b) => a.atMs - b.atMs);
-      let segmentOpen = false;
-      let pointCount = 0;
-      fit.context.beginPath();
+      const history = continuousVocalVariationPoints(histories[trace], {
+        holdGapMs: VOCAL_VARIATION_SIGNAL_HOLD_MS[trace],
+        endAtMs,
+      }).filter((sample) => sample.atMs >= startAtMs);
+      let previous = null;
+      let segmentCount = 0;
       for (const sample of history) {
         const normalized = normalizeVocalVariationValue(trace, sample.value);
-        if (!finite(normalized)) { segmentOpen = false; continue; }
+        if (!finite(normalized)) { previous = null; continue; }
         const x = ((sample.atMs - startAtMs) / durationMs) * fit.width;
         const y = fit.height - (normalized * fit.height * .76 + fit.height * .12);
-        if (!segmentOpen) fit.context.moveTo(x, y);
-        else fit.context.lineTo(x, y);
-        segmentOpen = true;
-        pointCount += 1;
+        if (previous) {
+          const bridged = previous.observed === false || sample.observed === false;
+          fit.context.save();
+          fit.context.beginPath();
+          fit.context.moveTo(previous.x, previous.y);
+          fit.context.lineTo(x, y);
+          fit.context.strokeStyle = colors[trace];
+          fit.context.lineWidth = trace === 'volume' ? 2 : 1.7;
+          fit.context.globalAlpha = bridged ? .48 : 1;
+          fit.context.setLineDash(bridged ? [4, 3] : []);
+          fit.context.shadowColor = colors[trace];
+          fit.context.shadowBlur = bridged ? 0 : 4;
+          fit.context.stroke();
+          fit.context.restore();
+          segmentCount += 1;
+        }
+        previous = { x, y, observed: sample.observed };
       }
-      if (pointCount >= 2) {
-        fit.context.strokeStyle = colors[trace];
-        fit.context.lineWidth = trace === 'volume' ? 2 : 1.7;
-        fit.context.shadowColor = colors[trace];
-        fit.context.shadowBlur = 4;
-        fit.context.stroke();
-        fit.context.shadowBlur = 0;
+      if (segmentCount > 0) {
         drawnTraces += 1;
       }
     }
@@ -896,10 +955,26 @@ export class VocalVariationHudRenderer extends HudRenderer {
 export const ModulationHudRenderer = VocalVariationHudRenderer;
 
 export class PitchHudRenderer extends HudRenderer {
-  constructor(root) { super(root, 'pitch'); }
+  constructor(root) {
+    super(root, 'pitch');
+    this.lastVoicedFrame = null;
+  }
+
+  unavailable(reason = 'VOICED_F0_REQUIRED') {
+    this.lastVoicedFrame = null;
+    super.unavailable(reason);
+  }
 
   draw(frame) {
-    if (frame.voiced === false && frame.available !== false) {
+    let displayFrame = frame;
+    let recentHold = false;
+    if (frame.voiced === true && finite(frame.semitones)) {
+      this.lastVoicedFrame = Object.freeze({ ...frame });
+    } else if (frame.voiced === false && this.lastVoicedFrame && finite(frame.atMs) && finite(this.lastVoicedFrame.atMs)) {
+      recentHold = frame.atMs - this.lastVoicedFrame.atMs <= PITCH_VISUAL_HOLD_MS;
+      if (recentHold) displayFrame = this.lastVoicedFrame;
+    }
+    if (frame.voiced === false && frame.available !== false && !recentHold) {
       const fit = this.context();
       if (fit) {
         clearScreen(fit.context, fit.width, fit.height, { grid: false });
@@ -913,7 +988,7 @@ export class PitchHudRenderer extends HudRenderer {
       setText(this.status, 'UNVOICED — WAITING FOR VALID F0', 'idle');
       return;
     }
-    if (!finite(frame.semitones)) {
+    if (!finite(displayFrame.semitones)) {
       this.unavailable(frame.reason || 'VOICED_F0_REQUIRED');
       return;
     }
@@ -921,7 +996,7 @@ export class PitchHudRenderer extends HudRenderer {
     if (!fit) return;
     clearScreen(fit.context, fit.width, fit.height, { grid: false });
     const rows = [2, 1, 0, -1, -2];
-    const register = finite(frame.register) ? clamp(Math.round(Number(frame.register)), -2, 2) : clamp(Math.round(Number(frame.semitones) / 2), -2, 2);
+    const register = finite(displayFrame.register) ? clamp(Math.round(Number(displayFrame.register)), -2, 2) : clamp(Math.round(Number(displayFrame.semitones) / 2), -2, 2);
     const rowHeight = fit.height / rows.length;
     rows.forEach((row, index) => {
       const active = row === register;
@@ -947,9 +1022,9 @@ export class PitchHudRenderer extends HudRenderer {
       fit.context.textBaseline = 'middle';
       fit.context.fillText(row === 0 ? 'MEDIAN' : `${row > 0 ? '+' : ''}${row}`, 8, y + rowHeight / 2);
     });
-    const semitones = Number(frame.semitones);
-    setText(this.value, `${semitones >= 0 ? '+' : ''}${semitones.toFixed(1)} st`, frame.state || 'neutral');
-    setText(this.status, frame.label || 'SPEAKER-RELATIVE REGISTER', frame.state || 'neutral');
+    const semitones = Number(displayFrame.semitones);
+    setText(this.value, `${semitones >= 0 ? '+' : ''}${semitones.toFixed(1)} st`, recentHold ? 'idle' : frame.state || 'neutral');
+    setText(this.status, recentHold ? 'RECENT VALID F0 · CURRENT FRAME UNVOICED' : frame.label || 'SPEAKER-RELATIVE REGISTER', recentHold ? 'idle' : frame.state || 'neutral');
   }
 }
 

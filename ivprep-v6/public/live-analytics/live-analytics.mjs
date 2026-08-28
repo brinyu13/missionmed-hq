@@ -979,10 +979,7 @@ export class LiveAnalyticsRuntime {
       this.counts.audio += 1;
       if (detail.pitch?.voiced === true) this.counts.pitch += 1;
       for (const name of ['VOLUME', 'VOLUME_MODULATION', 'PITCH']) this.metricEvents[name] += 1;
-      const speechObserved = detail.vad?.available === true
-        ? detail.vad.speaking === true
-        : detail.speaking === true;
-      this.#recordVocalVariationAudio(snapshot, detail.atMs, speechObserved);
+      this.#recordVocalVariationAudio(snapshot, detail.atMs);
     }
     if (detail.modality === 'vision' && detail.geometry) {
       if (detail.geometry.face?.present) this.counts.face += 1;
@@ -1029,13 +1026,13 @@ export class LiveAnalyticsRuntime {
     return true;
   }
 
-  #recordVocalVariationAudio(snapshot, atMs, speechObserved) {
+  #recordVocalVariationAudio(snapshot, atMs) {
     const volume = snapshot?.metrics?.VOLUME;
     const pitch = snapshot?.metrics?.PITCH;
     this.#appendVocalVariationSample(
       'volume',
       atMs,
-      speechObserved === true && volume?.available === true ? volume.dbfs : null,
+      volume?.available === true ? volume.dbfs : null,
     );
     this.#appendVocalVariationSample(
       'pitch',
@@ -1049,7 +1046,7 @@ export class LiveAnalyticsRuntime {
     this.#appendVocalVariationSample('speed', atMs, speed?.available === true ? speed.wordsPerMinute : null);
   }
 
-  #vocalVariationFrame({ modulation, pitch, speed }) {
+  #vocalVariationFrame({ volume, modulation, pitch, speed }) {
     const clone = (trace) => trace.map((sample) => ({ ...sample }));
     return {
       available: true,
@@ -1060,13 +1057,13 @@ export class LiveAnalyticsRuntime {
         speed: clone(this.vocalVariationHistory.speed),
       },
       signalAvailability: {
-        volume: modulation?.available === true,
+        volume: volume?.available === true,
         pitch: pitch?.available === true && pitch.voiced === true,
         pitchUnvoiced: pitch?.available === true && pitch.voiced === false,
         speed: speed?.available === true,
       },
       sources: {
-        volume: modulation?.source || 'SPEECH_GATED_MIC_RMS_HISTORY',
+        volume: volume?.source || modulation?.source || 'MIC_RMS_LIVE_HISTORY',
         pitch: pitch?.source || 'VALIDATED_F0',
         speed: speed?.timingSource || null,
       },
@@ -1269,6 +1266,7 @@ export class LiveAnalyticsRuntime {
     const personalLoudness = this.latestBehavior?.corridors?.loudnessLufsK || null;
     const loudnessScale = (value) => Math.max(0, Math.min(1, (Number(value) + 60) / 60));
     const measuredLoudness = Number.isFinite(volume.speechLufsK) ? volume.speechLufsK : null;
+    const liveLevelDbfs = Number.isFinite(volume.dbfs) ? volume.dbfs : null;
     const speedCorridor = speed.deliverySpeed?.corridor || {
       minimum: COACHING_CONFIG.deliverySpeed.globalMinimumWpm,
       maximum: COACHING_CONFIG.deliverySpeed.globalMaximumWpm,
@@ -1277,11 +1275,9 @@ export class LiveAnalyticsRuntime {
       || speedCorridor.maximum + COACHING_CONFIG.deliverySpeed.highCapAdditionalWpm;
 
     const volumeUnit = this.document.querySelector('[data-hud-unit="volume"]');
-    if (volumeUnit) volumeUnit.textContent = measuredLoudness === null ? 'dBFS' : 'LUFS-K';
+    if (volumeUnit) volumeUnit.textContent = 'dBFS';
     const volumeSource = this.document.querySelector('#volume-title + .module-source');
-    if (volumeSource) volumeSource.textContent = measuredLoudness === null
-      ? 'Captured level · dBFS diagnostic'
-      : 'Speech-only K-weighted loudness';
+    if (volumeSource) volumeSource.textContent = 'Live captured level · dBFS';
     const speedTarget = this.document.querySelector('.speed-target');
     if (speedTarget) speedTarget.textContent = speed.deliverySpeed?.corridor?.basis === 'PERSONAL_CALIBRATION'
       ? `Personal corridor ${Math.round(speedCorridor.minimum)}–${Math.round(speedCorridor.maximum)} WPM`
@@ -1290,8 +1286,8 @@ export class LiveAnalyticsRuntime {
     this.renderer.renderAll({
       volume: volume.available === false ? volume : {
         ...volume,
-        level: measuredLoudness ?? volume.dbfs,
-        normalized: measuredLoudness === null ? volume.normalized : loudnessScale(measuredLoudness),
+        level: liveLevelDbfs,
+        normalized: volume.normalized,
         corridor: personalLoudness
           ? [loudnessScale(personalLoudness.minimum), loudnessScale(personalLoudness.maximum)]
           : null,
@@ -1302,9 +1298,9 @@ export class LiveAnalyticsRuntime {
               ? 'loud'
               : 'target'
           : 'observed',
-        label: personalLoudness && measuredLoudness !== null
-          ? 'SPEECH-ONLY LUFS-K · PERSONAL CORRIDOR'
-          : `${this.fixtureMode ? 'DETERMINISTIC TEST LEVEL' : 'OBSERVED DEVICE LEVEL'} · NO BASELINE`,
+        label: measuredLoudness !== null
+          ? `LIVE INPUT DBFS · SPEECH LOUDNESS ${measuredLoudness.toFixed(1)} LUFS-K${personalLoudness ? ' · PERSONAL CORRIDOR' : ''}`
+          : `${this.fixtureMode ? 'DETERMINISTIC TEST LEVEL' : 'LIVE INPUT DBFS'} · NO SPEECH BASELINE`,
       },
       speed: speed.available === false ? speed : {
         ...speed,
@@ -1316,7 +1312,7 @@ export class LiveAnalyticsRuntime {
         zone: String(speed.deliverySpeed?.zone || 'neutral').toLowerCase(),
         label: `${speed.fixture ? 'DETERMINISTIC TEST TIMING' : 'OBSERVED WORD TIMING'} · TIER ${speed.tier} · ${speed.windowDurationMs} MS`,
       },
-      modulation: this.#vocalVariationFrame({ modulation, pitch, speed }),
+      modulation: this.#vocalVariationFrame({ volume, modulation, pitch, speed }),
       pitch: pitch.available === false ? pitch : {
         ...pitch,
         semitones: pitch.semitonesFromSpeakerMedian,

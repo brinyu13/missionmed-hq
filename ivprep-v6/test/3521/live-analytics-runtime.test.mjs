@@ -336,7 +336,7 @@ test('Vocal Variation keeps genuine raw histories while its presentation is hidd
   assert.deepEqual(before.histories.volume.map((sample) => sample.value), [-26.02, -20]);
   assert.equal(before.histories.pitch.length, 2);
   assert.deepEqual(before.histories.speed.map((sample) => sample.value), [120]);
-  assert.equal(before.sources.volume, 'SPEECH_GATED_MIC_RMS_HISTORY');
+  assert.equal(before.sources.volume, 'MIC_RMS');
   assert.equal(before.sources.pitch, 'VALIDATED_F0');
   assert.equal(before.sources.speed, 'LOCAL_TIMED_TRANSCRIPT');
 
