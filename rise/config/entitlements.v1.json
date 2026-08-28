@@ -1,37 +1,29 @@
 {
-  "schemaVersion": 1,
-  "policyId": "rise-entitlements-2026-08-28",
+  "schemaVersion": 2,
+  "policyId": "rise-private-beta-entitlements-2026-08-28",
   "core": {
     "requiredCapability": "rise:read",
-    "grantRule": "authenticated MissionMed learner session with audience rise",
+    "grantRule": "server-verified administrator or exact eligible LearnDash course enrollment with audience rise",
     "default": "deny"
   },
-  "premium": {
-    "requiredCapability": "rise:premium",
+  "privateBeta": {
+    "requiredCapability": "rise:private-beta",
+    "featureEntitlement": "FULL_RISE_BETA_ACCESS",
     "default": "deny",
-    "mappingStatus": "unresolved_fail_closed",
-    "notes": "No current production entitlement identifier has been approved to mint rise:premium. Product labels alone do not grant access."
+    "eligibleCourseIds": [3893, 3646],
+    "eligibleRoles": ["administrator"],
+    "notes": "Eligibility is calculated server-side from exact course access. Labels, browser claims, and unrelated product entitlements never grant RISE access."
   },
-  "observedCurrentProducts": {
+  "authorizedBetaProducts": {
     "missionResidency360": {
       "courseId": 3893,
-      "meaning": "current Matrix course shell identifier; does not grant RISE premium"
-    },
-    "matchPrepPro": {
-      "labelObserved": true,
-      "technicalIdentifier": null
+      "meaning": "360 Match Mentorship private-beta access"
     },
     "interviewPrepComplete": {
-      "labelObserved": false,
-      "technicalIdentifier": null
+      "courseId": 3646,
+      "meaning": "IV Prep Complete private-beta access"
     }
   },
-  "deferredPremiumFeatures": [
-    "resident atomic detail",
-    "advanced people and outcomes depth",
-    "Mission Alumni Connections",
-    "Letter of Interest",
-    "Match Bridge",
-    "RankList IQ"
-  ]
+  "betaCapabilities": ["rise:read", "rise:premium", "rise:private-beta", "rise:contribute"],
+  "adminCapabilities": ["rise:read", "rise:premium", "rise:private-beta", "rise:contribute", "rise:operator", "rise:admin"]
 }

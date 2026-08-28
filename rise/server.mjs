@@ -17,6 +17,25 @@ const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SESSION_ROLES = new Set(["student", "mentor", "operator", "admin"]);
 const STUDENT_PROGRAM_STATES = new Set(["SAVED", "APPLIED", "INTERVIEWING", "RANKED"]);
 const MAX_PROGRAM_NOTES_LENGTH = 4_000;
+const STUDENT_INTEL_CATEGORIES = new Set([
+  "Application Requirements", "Visa", "USMLE", "COMLEX", "YOG", "USCE", "Interview",
+  "Residents", "Faculty / Leadership", "Fellowships", "Rotations", "Curriculum", "Research",
+  "Culture", "Salary / Benefits", "Facilities", "Program Update", "Other",
+]);
+const STUDENT_INTEL_STATUSES = new Set([
+  "STUDENT_REPORT", "VERIFICATION_PENDING", "VERIFIED_BY_MISSIONMED", "PARTIALLY_VERIFIED",
+  "COULD_NOT_VERIFY", "CONFLICTING", "OUTDATED", "REJECTED_HIDDEN",
+]);
+const STUDENT_INTEL_MODERATION_ACTIONS = new Set([
+  "EDIT_DISPLAY", "ANNOTATE", "REQUEST_CLARIFICATION", "FEATURE", "HIDE", "UNHIDE", "REJECT",
+  "DELETE", "MARK_OUTDATED", "MARK_CONFLICTING", "MARK_VERIFIED", "MARK_PARTIAL",
+  "COULD_NOT_VERIFY", "SEND_TO_VERIFICATION", "PROMOTE_CANONICAL",
+]);
+const HIGH_IMPACT_CATEGORIES = new Set(["Visa", "USMLE", "COMLEX", "YOG", "USCE", "Faculty / Leadership", "Program Update", "Application Requirements"]);
+const HIGH_IMPACT_PATTERN = /\b(?:program\s+closed|closure|accreditation|probation|withdrawn|program\s+director|associate\s+program\s+director|\bpd\b|\bapd\b|visa|h-?1b|j-?1|deadline|cutoff|minimum\s+score|attempts?|year\s+of\s+graduation|\byog\b|\busce\b|comlex|usmle)\b/i;
+const BETA_NOTICE_VERSION = "rise-private-beta-notice-2026-08-28";
+const MAX_INTEL_CLAIM_LENGTH = 8_000;
+const MAX_INTEL_CONTEXT_LENGTH = 4_000;
 
 const REGION_BY_JURISDICTION = new Map(Object.entries({
   CT: "Northeast", ME: "Northeast", MA: "Northeast", NH: "Northeast", RI: "Northeast", VT: "Northeast",
@@ -141,6 +160,158 @@ export function createMemoryStudentStore() {
   };
 }
 
+function publicIntelRecord(record) {
+  return {
+    submissionId: record.submissionId,
+    programSpecialtyId: record.programSpecialtyId,
+    category: record.category,
+    claim: record.displayClaim,
+    observedOn: record.observedOn,
+    submittedAt: record.submittedAt,
+    status: record.status,
+    contributor: record.anonymousToStudents ? "Anonymous MissionMed Student" : record.publicContributorName,
+    adminNotation: record.publicAdminNotation || "",
+    featured: record.featured,
+    highPriority: record.highPriority,
+    corroborationCount: record.corroborators.size,
+    source: record.source ? { ...record.source } : null,
+  };
+}
+
+function adminIntelRecord(record) {
+  return {
+    ...publicIntelRecord(record),
+    originalClaim: record.originalClaim,
+    contextNotes: record.contextNotes,
+    submitterSubject: record.submitterSubject,
+    submitterDisplayName: record.submitterDisplayName,
+    anonymousToStudents: record.anonymousToStudents,
+    visible: record.visible,
+    moderationLocked: record.moderationLocked,
+    deletedAt: record.deletedAt,
+    lastVerificationAttemptAt: record.lastVerificationAttemptAt,
+    nextEligibleVerificationAt: record.nextEligibleVerificationAt,
+  };
+}
+
+export function createMemoryStudentIntelStore({ canonicalPromotionMode = "live" } = {}) {
+  const records = new Map();
+  const audit = [];
+  const promotions = [];
+  const notices = new Map();
+  let sequence = 0;
+  return {
+    scope: "process_local_test_only",
+    canonicalPromotionMode,
+    async betaNotice({ subject }) {
+      return { version: BETA_NOTICE_VERSION, acknowledged: notices.get(subject) === BETA_NOTICE_VERSION };
+    },
+    async acknowledgeBetaNotice({ subject }) {
+      notices.set(subject, BETA_NOTICE_VERSION);
+      return { version: BETA_NOTICE_VERSION, acknowledged: true };
+    },
+    async listProgram({ subject, isAdmin, programSpecialtyId }) {
+      return [...records.values()]
+        .filter((record) => record.programSpecialtyId === programSpecialtyId)
+        .filter((record) => isAdmin || (record.visible && !record.deletedAt && record.status !== "REJECTED_HIDDEN"))
+        .map((record) => isAdmin ? adminIntelRecord(record) : publicIntelRecord(record));
+    },
+    async submit({ subject, displayName, releaseId, programSpecialtyId, input }) {
+      const submittedAt = new Date().toISOString();
+      const submissionId = `intel-${++sequence}`;
+      const record = {
+        submissionId, releaseId, programSpecialtyId,
+        submitterSubject: subject,
+        submitterDisplayName: displayName || "MissionMed Student",
+        publicContributorName: input.anonymousToStudents ? "" : (displayName || "MissionMed Student"),
+        anonymousToStudents: input.anonymousToStudents,
+        category: input.category,
+        originalClaim: input.claim,
+        displayClaim: input.claim,
+        contextNotes: input.contextNotes,
+        observedOn: input.observedOn,
+        submittedAt,
+        status: "VERIFICATION_PENDING",
+        publicAdminNotation: "",
+        featured: false,
+        visible: true,
+        moderationLocked: false,
+        deletedAt: null,
+        highPriority: input.highPriority,
+        source: input.source,
+        corroborators: new Set(),
+        lastVerificationAttemptAt: null,
+        nextEligibleVerificationAt: null,
+      };
+      records.set(submissionId, record);
+      return publicIntelRecord(record);
+    },
+    async corroborate({ subject, submissionId }) {
+      const record = records.get(submissionId);
+      if (!record || !record.visible || record.deletedAt) return null;
+      if (record.submitterSubject !== subject) record.corroborators.add(subject);
+      return { submissionId, corroborationCount: record.corroborators.size };
+    },
+    async adminList() {
+      return [...records.values()].map(adminIntelRecord).sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
+    },
+    async moderate({ actorSubject, submissionId, action, input }) {
+      const record = records.get(submissionId);
+      if (!record) return null;
+      const before = adminIntelRecord(record);
+      if (action === "EDIT_DISPLAY") record.displayClaim = input.displayClaim;
+      if (action === "ANNOTATE") record.publicAdminNotation = input.adminNotation;
+      if (action === "REQUEST_CLARIFICATION") record.moderationLocked = true;
+      if (action === "FEATURE") record.featured = input.featured !== false;
+      if (action === "HIDE") record.visible = false;
+      if (action === "UNHIDE") { record.visible = true; if (record.status === "REJECTED_HIDDEN") record.status = "VERIFICATION_PENDING"; }
+      if (action === "REJECT") { record.visible = false; record.status = "REJECTED_HIDDEN"; record.moderationLocked = true; }
+      if (action === "DELETE") { record.visible = false; record.status = "REJECTED_HIDDEN"; record.moderationLocked = true; record.deletedAt = new Date().toISOString(); }
+      if (action === "MARK_OUTDATED") record.status = "OUTDATED";
+      if (action === "MARK_CONFLICTING") record.status = "CONFLICTING";
+      if (action === "MARK_VERIFIED") record.status = "VERIFIED_BY_MISSIONMED";
+      if (action === "MARK_PARTIAL") record.status = "PARTIALLY_VERIFIED";
+      if (action === "COULD_NOT_VERIFY") record.status = "COULD_NOT_VERIFY";
+      if (action === "SEND_TO_VERIFICATION") record.status = "VERIFICATION_PENDING";
+      if (action === "PROMOTE_CANONICAL") {
+        if (record.status !== "VERIFIED_BY_MISSIONMED") {
+          const error = new Error("Only MissionMed-verified Student Intel may be promoted");
+          error.code = "INTEL_PROMOTION_NOT_VERIFIED";
+          throw error;
+        }
+        promotions.push({ submissionId, actorSubject, field: input.canonicalField, value: input.canonicalValue, sourceUrl: record.source?.url || null, promotedAt: new Date().toISOString() });
+      }
+      const after = adminIntelRecord(record);
+      audit.push({ submissionId, actorSubject, action, reason: input.reason || "", before, after, createdAt: new Date().toISOString() });
+      return after;
+    },
+    async audit({ submissionId }) { return audit.filter((event) => event.submissionId === submissionId).map((event) => structuredClone(event)); },
+    async analytics() {
+      const list = [...records.values()];
+      const counts = Object.fromEntries([...STUDENT_INTEL_STATUSES].map((status) => [status, list.filter((record) => record.status === status).length]));
+      const countBy = (field, key) => [...list.reduce((map, record) => map.set(record[field], (map.get(record[field]) || 0) + 1), new Map())]
+        .sort((left, right) => right[1] - left[1] || String(left[0]).localeCompare(String(right[0])))
+        .slice(0, 5).map(([value, count]) => ({ [key]: value, count }));
+      return {
+        total: list.length, newThisWeek: list.length,
+        highPriority: list.filter((record) => record.highPriority).length,
+        counts, topPrograms: countBy("programSpecialtyId", "programSpecialtyId"),
+        topCategories: countBy("category", "category"), verificationCost: 0, verificationYield: null,
+      };
+    },
+    async verificationPreview() {
+      const queued = [...records.values()].filter((record) => record.status === "VERIFICATION_PENDING" && !record.deletedAt);
+      return {
+        connected: false, budgetStatus: "UNAVAILABLE", paidSubmissionAuthorized: false,
+        taskClass: "RISE_STUDENT_INTEL_CLAIM_VERIFICATION", queueClasses: ["HIGH_PRIORITY", "TWICE_MONTHLY"],
+        cadence: { timezone: "America/New_York", daysOfMonth: [1, 15], active: false },
+        selectedProduct: null, selectedProcessor: null, submissions: queued.map(adminIntelRecord),
+        estimatedCost: null, routerPolicy: "P1-RISE-PARALLEL-COST-QUALITY-OPTIMIZATION-007", suppliedUrlFirst: true,
+      };
+    },
+  };
+}
+
 function resolveStudentStore(store, { production }) {
   const candidate = store ?? createMemoryStudentStore();
   if (
@@ -150,6 +321,15 @@ function resolveStudentStore(store, { production }) {
     (production && candidate.scope !== "durable_private")
   ) {
     throw new Error("RISE student store must provide list(), put(), and delete(); production scope must be durable_private");
+  }
+  return candidate;
+}
+
+function resolveStudentIntelStore(store, { production }) {
+  const candidate = store ?? createMemoryStudentIntelStore();
+  const required = ["betaNotice", "acknowledgeBetaNotice", "listProgram", "submit", "corroborate", "adminList", "moderate", "audit", "analytics", "verificationPreview"];
+  if (required.some((name) => typeof candidate[name] !== "function") || (production && candidate.scope !== "durable_private")) {
+    throw new Error("RISE Student Intel store is incomplete; production scope must be durable_private");
   }
   return candidate;
 }
@@ -168,6 +348,57 @@ function validateStudentProgramInput(body) {
     throw error;
   }
   return { state, notes };
+}
+
+function validDateOnly(value) {
+  const normalized = String(value ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+  const parsed = Date.parse(`${normalized}T00:00:00.000Z`);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().startsWith(normalized) ? normalized : null;
+}
+
+function validateStudentIntelInput(body) {
+  const category = String(body?.category ?? "").trim();
+  const claim = String(body?.claim ?? "").trim();
+  const contextNotes = String(body?.contextNotes ?? "").trim();
+  const observedOn = validDateOnly(body?.observedOn);
+  const sourceKind = String(body?.sourceKind ?? "ONLINE").trim().toUpperCase();
+  const sourceUrl = String(body?.sourceUrl ?? "").trim();
+  const anonymousToStudents = body?.displayIdentity !== "SHOW_MY_NAME";
+  if (!STUDENT_INTEL_CATEGORIES.has(category)) throw Object.assign(new Error("Select a valid Student Intel category"), { code: "INVALID_INTEL_CATEGORY" });
+  if (!claim || claim.length > MAX_INTEL_CLAIM_LENGTH || /\0/.test(claim)) throw Object.assign(new Error(`Student Intel claim must be 1-${MAX_INTEL_CLAIM_LENGTH} characters`), { code: "INVALID_INTEL_CLAIM" });
+  if (contextNotes.length > MAX_INTEL_CONTEXT_LENGTH || /\0/.test(contextNotes)) throw Object.assign(new Error(`Student Intel context must be at most ${MAX_INTEL_CONTEXT_LENGTH} characters`), { code: "INVALID_INTEL_CONTEXT" });
+  if (!observedOn || observedOn > new Date().toISOString().slice(0, 10)) throw Object.assign(new Error("Observed/source date must be a valid date that is not in the future"), { code: "INVALID_INTEL_DATE" });
+  if (!new Set(["ONLINE", "FIRSTHAND", "DIRECT_COMMUNICATION", "OTHER"]).has(sourceKind)) throw Object.assign(new Error("Select a valid Student Intel source kind"), { code: "INVALID_INTEL_SOURCE" });
+  let normalizedSourceUrl = null;
+  if (sourceUrl) {
+    try {
+      const parsed = new URL(sourceUrl);
+      if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.hash || sourceUrl.length > 2_048) throw new Error();
+      normalizedSourceUrl = parsed.toString();
+    } catch {
+      throw Object.assign(new Error("Student Intel source URL must be a valid HTTPS URL"), { code: "INVALID_INTEL_SOURCE_URL" });
+    }
+  }
+  if (sourceKind === "ONLINE" && !normalizedSourceUrl) throw Object.assign(new Error("A source URL is required for online information"), { code: "INTEL_SOURCE_URL_REQUIRED" });
+  const highPriority = HIGH_IMPACT_CATEGORIES.has(category) && HIGH_IMPACT_PATTERN.test(claim);
+  return {
+    category, claim, contextNotes, observedOn, anonymousToStudents, highPriority,
+    source: { kind: sourceKind, url: normalizedSourceUrl, label: String(body?.sourceLabel ?? "").trim().slice(0, 240) },
+  };
+}
+
+function validateModerationInput(body) {
+  const action = String(body?.action ?? "").trim().toUpperCase();
+  if (!STUDENT_INTEL_MODERATION_ACTIONS.has(action)) throw Object.assign(new Error("Select a valid Student Intel moderation action"), { code: "INVALID_INTEL_MODERATION_ACTION" });
+  const displayClaim = String(body?.displayClaim ?? "").trim();
+  const adminNotation = String(body?.adminNotation ?? "").trim();
+  const reason = String(body?.reason ?? "").trim();
+  if (action === "EDIT_DISPLAY" && (!displayClaim || displayClaim.length > MAX_INTEL_CLAIM_LENGTH)) throw Object.assign(new Error("Edited display text is required"), { code: "INVALID_INTEL_DISPLAY" });
+  if (adminNotation.length > MAX_INTEL_CONTEXT_LENGTH || reason.length > MAX_INTEL_CONTEXT_LENGTH) throw Object.assign(new Error("Moderation notes are too long"), { code: "INVALID_INTEL_MODERATION_NOTE" });
+  const canonicalField = String(body?.canonicalField ?? "").trim();
+  if (action === "PROMOTE_CANONICAL" && (!canonicalField || canonicalField.length > 128 || body?.canonicalValue === undefined)) throw Object.assign(new Error("Canonical field and value are required for promotion"), { code: "INVALID_INTEL_PROMOTION" });
+  return { action, displayClaim, adminNotation, reason, featured: body?.featured, canonicalField, canonicalValue: body?.canonicalValue };
 }
 
 function normalizeQuery(value) {
@@ -463,6 +694,7 @@ function normalizeSession(session, { audience, issuer, now = Date.now() }) {
   ) return null;
   const subject = String(session.subject ?? "").trim();
   const role = String(session.role ?? "student").trim().toLowerCase();
+  const displayName = String(session.displayName ?? "").trim().slice(0, 120);
   const validatedAt = validTimestamp(session.validatedAt);
   const expiresAt = validTimestamp(session.expiresAt);
   const sessionId = String(session.sessionId ?? "");
@@ -489,6 +721,7 @@ function normalizeSession(session, { audience, issuer, now = Date.now() }) {
   return {
     subject,
     role,
+    displayName,
     audience,
     issuer: expectedIssuer,
     capabilities,
@@ -505,6 +738,7 @@ function publicSession(session) {
     role: session.role,
     audience: session.audience,
     capabilities: session.capabilities,
+    privateBeta: session.capabilities.includes("rise:private-beta") || session.capabilities.includes("rise:admin"),
     expiresAt: session.expiresAt,
     csrfToken: session.csrfToken,
     preview: session.preview,
@@ -537,7 +771,7 @@ function createAuthenticator({ mode, authenticator, audience = "rise", issuer, p
       role: "admin",
       audience,
       issuer: "rise:local-preview",
-      capabilities: ["rise:read", "rise:operator"],
+      capabilities: ["rise:read", "rise:operator", "rise:admin", "rise:premium", "rise:private-beta", "rise:contribute"],
       sessionId: randomBytes(32).toString("hex"),
       csrfToken: randomBytes(24).toString("base64url"),
       expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
@@ -771,6 +1005,7 @@ export function createRiseServer({
   abuseController,
   sourceRightsController,
   studentStore,
+  studentIntelStore,
   matrixProfileAdapter,
   logger = createJsonLogger(),
 } = {}) {
@@ -804,6 +1039,7 @@ export function createRiseServer({
     ? null
     : resolveSourceRightsController(sourceRightsController, { production });
   const studentPrograms = resolveStudentStore(studentStore, { production });
+  const studentIntel = resolveStudentIntelStore(studentIntelStore, { production });
   const matrixProfile = resolveMatrixProfileAdapter(matrixProfileAdapter, { production });
   const authorizationSha256s = registryIndex.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [];
   async function assertLiveSourceRights() {
@@ -957,17 +1193,27 @@ export function createRiseServer({
             matrixProfile: matrixProfile ? "read_write" : "disabled",
             fileVault: "disabled",
             rankListIq: "disabled",
-            researchFactory: "disabled",
+            researchFactory: "verification_preview_only",
+            studentIntel: studentIntel.scope === "durable_private" ? "durable" : "process_local_test_only",
             actn: "disabled",
             cam: "disabled",
             storyforge: "disabled",
           },
           persistence: studentPrograms.scope === "durable_private" ? "durable" : "process_local_test_only",
+          privateBeta: true,
           sourcePolicy: registryIndex.sourcePolicy ?? {
             freida: "written_authorization_required",
             residencyExplorer: "written_authorization_required",
           },
         }, { requestId });
+        return;
+      }
+      if (url.pathname === "/api/rise/v1/me/beta-notice" && (request.method === "GET" || request.method === "POST")) {
+        const payload = request.method === "GET"
+          ? await studentIntel.betaNotice({ subject: session.subject })
+          : await studentIntel.acknowledgeBetaNotice({ subject: session.subject });
+        status = 200;
+        sendJson(response, 200, payload, { cache: "no-store", requestId });
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/me/programs") {
@@ -980,6 +1226,55 @@ export function createRiseServer({
           records,
           persistence: studentPrograms.scope === "durable_private" ? "durable" : "process_local_test_only",
         }, { cache: "no-store", requestId });
+        return;
+      }
+      const intelProgramMatch = url.pathname.match(/^\/api\/rise\/v1\/program-specialties\/([^/]+)\/student-intel$/);
+      if (intelProgramMatch && (request.method === "GET" || request.method === "POST")) {
+        const programSpecialtyId = decodeURIComponent(intelProgramMatch[1]);
+        if (!byProgramSpecialtyId.has(programSpecialtyId)) {
+          status = 404;
+          apiError(response, 404, "PROGRAM_NOT_FOUND", "Program specialty not found", requestId);
+          return;
+        }
+        if (request.method === "POST" && !hasCapability(session, "rise:contribute")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "RISE private-beta contribution capability required", requestId);
+          return;
+        }
+        const isAdmin = hasCapability(session, "rise:operator");
+        if (request.method === "GET") {
+          const records = await studentIntel.listProgram({ subject: session.subject, isAdmin, programSpecialtyId });
+          status = 200;
+          sendJson(response, 200, { programSpecialtyId, records }, { cache: "no-store", requestId });
+          return;
+        }
+        const input = validateStudentIntelInput(await readBody(request));
+        const record = await studentIntel.submit({
+          subject: session.subject,
+          displayName: session.displayName,
+          releaseId: registryIndex.registryReleaseId,
+          programSpecialtyId,
+          input,
+        });
+        status = 201;
+        sendJson(response, 201, { record }, { cache: "no-store", requestId });
+        return;
+      }
+      const corroborationMatch = url.pathname.match(/^\/api\/rise\/v1\/student-intel\/([^/]+)\/corroborate$/);
+      if (request.method === "POST" && corroborationMatch) {
+        if (!hasCapability(session, "rise:contribute")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "RISE private-beta contribution capability required", requestId);
+          return;
+        }
+        const result = await studentIntel.corroborate({ subject: session.subject, submissionId: decodeURIComponent(corroborationMatch[1]) });
+        if (!result) {
+          status = 404;
+          apiError(response, 404, "INTEL_NOT_FOUND", "Student Intel submission not found", requestId);
+          return;
+        }
+        status = 200;
+        sendJson(response, 200, result, { cache: "no-store", requestId });
         return;
       }
       const studentProgramMatch = url.pathname.match(/^\/api\/rise\/v1\/me\/programs\/([^/]+)$/);
@@ -1108,6 +1403,79 @@ export function createRiseServer({
         apiError(response, 409, "INTEGRATION_DISABLED", `${handoffMatch[1]} integration is disabled`, requestId);
         return;
       }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/operator/student-intel") {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const [records, analytics] = await Promise.all([studentIntel.adminList(), studentIntel.analytics()]);
+        status = 200;
+        sendJson(response, 200, { records, analytics }, { cache: "no-store", requestId });
+        return;
+      }
+      const intelAuditMatch = url.pathname.match(/^\/api\/rise\/v1\/operator\/student-intel\/([^/]+)\/audit$/);
+      if (request.method === "GET" && intelAuditMatch) {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const records = await studentIntel.audit({ submissionId: decodeURIComponent(intelAuditMatch[1]) });
+        status = 200;
+        sendJson(response, 200, { records }, { cache: "no-store", requestId });
+        return;
+      }
+      const intelModerationMatch = url.pathname.match(/^\/api\/rise\/v1\/operator\/student-intel\/([^/]+)$/);
+      if (request.method === "PATCH" && intelModerationMatch) {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const input = validateModerationInput(await readBody(request));
+        if (input.action === "PROMOTE_CANONICAL" && studentIntel.canonicalPromotionMode !== "live") {
+          status = 409;
+          apiError(response, 409, "CANONICAL_PROMOTION_SINK_UNAVAILABLE", "Canonical promotion is disabled until the canonical evidence sink is connected", requestId);
+          return;
+        }
+        const record = await studentIntel.moderate({
+          actorSubject: session.subject,
+          submissionId: decodeURIComponent(intelModerationMatch[1]),
+          action: input.action,
+          input,
+        });
+        if (!record) {
+          status = 404;
+          apiError(response, 404, "INTEL_NOT_FOUND", "Student Intel submission not found", requestId);
+          return;
+        }
+        status = 200;
+        sendJson(response, 200, { record }, { cache: "no-store", requestId });
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/api/rise/v1/operator/student-intel/verification:preview") {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const preview = await studentIntel.verificationPreview();
+        status = 200;
+        sendJson(response, 200, preview, { cache: "no-store", requestId });
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/api/rise/v1/operator/student-intel/verification:run") {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        await readBody(request);
+        status = 409;
+        apiError(response, 409, "RESEARCH_FACTORY_UNAVAILABLE", "Student Intel paid verification is not connected to a bounded server-side factory bridge", requestId, { paidSubmissionAuthorized: false });
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/operator/queue") {
         if (!hasCapability(session, "rise:operator")) {
           status = 403;
@@ -1140,7 +1508,11 @@ export function createRiseServer({
       } else if (error.code === "INVALID_JSON") {
         status = 400;
         apiError(response, 400, error.code, error.message, requestId);
-      } else if (error.code === "INVALID_STUDENT_PROGRAM_STATE" || error.code === "INVALID_PROGRAM_NOTES") {
+      } else if (
+        error.code === "INVALID_STUDENT_PROGRAM_STATE" || error.code === "INVALID_PROGRAM_NOTES" ||
+        String(error.code ?? "").startsWith("INVALID_INTEL_") || error.code === "INTEL_SOURCE_URL_REQUIRED" ||
+        error.code === "INTEL_PROMOTION_NOT_VERIFIED"
+      ) {
         status = 400;
         apiError(response, 400, error.code, error.message, requestId);
       } else if (error.code === "SOURCE_RIGHTS_UNAVAILABLE") {
@@ -1324,6 +1696,7 @@ export async function startFromEnvironment() {
   let abuseController;
   let sourceRightsController;
   let studentStore;
+  let studentIntelStore;
   let matrixProfileAdapter;
   if (authMode === "injected") {
     const adapterPath = process.env.RISE_AUTH_ADAPTER_MODULE;
@@ -1357,6 +1730,14 @@ export async function startFromEnvironment() {
       throw new Error("RISE student-state adapter must export createRiseStudentStore()");
     }
     studentStore = await adapter.createRiseStudentStore();
+  }
+  const studentIntelAdapterPath = process.env.RISE_STUDENT_INTEL_ADAPTER_MODULE ?? studentStateAdapterPath;
+  if (studentIntelAdapterPath) {
+    const adapter = await import(pathToFileURL(path.resolve(studentIntelAdapterPath)).href);
+    if (typeof adapter.createRiseStudentIntelStore !== "function") {
+      throw new Error("RISE Student Intel adapter must export createRiseStudentIntelStore()");
+    }
+    studentIntelStore = await adapter.createRiseStudentIntelStore();
   }
   const matrixProfileAdapterPath = process.env.RISE_MATRIX_PROFILE_ADAPTER_MODULE;
   if (matrixProfileAdapterPath) {
@@ -1393,6 +1774,7 @@ export async function startFromEnvironment() {
     abuseController,
     sourceRightsController,
     studentStore,
+    studentIntelStore,
     matrixProfileAdapter,
     buildId: webBuild.buildId,
     production,

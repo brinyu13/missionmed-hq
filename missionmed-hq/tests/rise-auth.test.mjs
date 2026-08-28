@@ -11,7 +11,7 @@ function base64url(value) {
   return Buffer.from(value).toString("base64url");
 }
 
-function handoffToken(secret, audience = "rise") {
+function handoffToken(secret, audience = "rise", overrides = {}) {
   const now = Math.floor(Date.now() / 1000);
   const payload = base64url(JSON.stringify({
     wp_user_id: 42,
@@ -19,10 +19,14 @@ function handoffToken(secret, audience = "rise") {
     username: "rise-test",
     display_name: "RISE Test",
     roles: ["subscriber"],
+    rise_beta_access: true,
+    rise_beta_course_ids: [3893],
+    rise_beta_entitlements: ["FULL_RISE_BETA_ACCESS"],
     auth_audience: audience,
     iat: now,
     exp: now + 60,
     nonce: "test-nonce",
+    ...overrides,
   }));
   return `${payload}.${createHmac("sha256", secret).update(payload).digest("hex")}`;
 }
@@ -82,6 +86,8 @@ test("HQ mints and isolates a learner-safe audience=rise session", async () => {
     assert.equal(payload.authAudience, "rise");
     assert.equal(payload.revoked, false);
     assert.equal(payload.revokedAt, null);
+    assert.equal(payload.risePrivateBeta, true);
+    assert.deepEqual(payload.riseEntitlements, ["FULL_RISE_BETA_ACCESS"]);
     assert.equal(payload.user.id, 42);
     assert.deepEqual(payload.user.roles, ["subscriber"]);
     const cookie = String(exchanged.headers.get("set-cookie") ?? "").match(/mmhq_session=([^;]+)/)?.[1];
@@ -100,6 +106,14 @@ test("HQ mints and isolates a learner-safe audience=rise session", async () => {
 
     const mismatch = await fetch(`${runtime.origin}/api/auth/session?token=${encodeURIComponent(token)}`);
     assert.equal(mismatch.status, 401);
+
+    const ineligibleToken = handoffToken(runtime.secret, "rise", {
+      rise_beta_access: false,
+      rise_beta_course_ids: [],
+      rise_beta_entitlements: [],
+    });
+    const ineligible = await fetch(`${runtime.origin}/api/auth/session?audience=rise&token=${encodeURIComponent(ineligibleToken)}`);
+    assert.equal(ineligible.status, 403);
   } finally {
     runtime.child.kill("SIGTERM");
     await new Promise((resolve) => runtime.child.once("exit", resolve));

@@ -19,10 +19,12 @@ test("production shell is mechanically derived from the immutable Fable 5002 loc
   const locked = lockedBytes.toString("utf8");
   const style = locked.match(/<style>\n([\s\S]*?)\n<\/style>/)?.[1];
   assert.ok(style);
-  assert.equal(await fs.readFile(path.join(riseRoot, "web/styles.css"), "utf8"), `${style.replace(/\n+$/, "")}\n`);
+  const lockedStyle = style.replace(/\n+$/, "");
+  const extensionStyle = (await fs.readFile(path.join(riseRoot, "web/_student-intel-extension.css"), "utf8")).replace(/\n+$/, "");
+  assert.equal(await fs.readFile(path.join(riseRoot, "web/styles.css"), "utf8"), `${lockedStyle}\n\n${extensionStyle}\n`);
 
   const productionHtml = await fs.readFile(path.join(riseRoot, "web/index.html"), "utf8");
-  assert.match(productionHtml, /Founder-approved Fable 5002 · Production data/);
+  assert.match(productionHtml, /Founder-approved Fable 5002 · BETA · VERIFY WITH PROGRAM/);
   assert.match(productionHtml, /<script type="module" src="\/rise\/assets\/app"><\/script>/);
   assert.match(productionHtml, /<link rel="stylesheet" href="\/rise\/assets\/styles">/);
   assert.doesNotMatch(productionHtml, /\/rise\/(?:app\.js|styles\.css)/);

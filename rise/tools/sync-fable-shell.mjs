@@ -152,11 +152,12 @@ async function loadRuntime() {
     unavailable: true,
     message: error?.message || 'Matrix profile integration is unavailable',
   }));
-  const [status, registry, savedResult, matrixProfile] = await Promise.all([
+  const [status, registry, savedResult, matrixProfile, betaNotice] = await Promise.all([
     riseFetch('/api/rise/v1/status'),
     loadAllPrograms(),
     riseFetch('/api/rise/v1/me/programs'),
     matrixProfileRequest,
+    riseFetch('/api/rise/v1/me/beta-notice'),
   ]);
   const saved = new Map((savedResult.records || []).map(record => [record.programSpecialtyId, {
     state: record.state,
@@ -165,6 +166,7 @@ async function loadRuntime() {
   return {
     session,
     status,
+    betaNotice,
     saved,
     persistence: savedResult.persistence || 'unavailable',
     data: {
@@ -195,7 +197,7 @@ const D = runtime.data;
 `;
 }
 
-function transformCore(source) {
+function transformCore(source, { studentIntelExtension = "" } = {}) {
   let core = replaceExact(source, "'use strict';\nconst D = window.RISE_DATA;\n", "", "founder data binding");
   core = replaceRange(
     core,
@@ -462,7 +464,7 @@ window.saveMatrixProfile = async event => {
   core = core.replace("SOL56-150 research matrix (MissionMed)", "Canonical registry source");
   core = core.replace(
     "/* ============ boot ============ */",
-    () => "Object.assign(globalThis, { state, D, $, $$, adminDraft, FAMILIES, byId, fitCache, renderMain, renderShell, openFileFor });\n\n/* ============ boot ============ */",
+    () => `Object.assign(globalThis, { state, D, $, $$, adminDraft, FAMILIES, byId, fitCache, renderMain, renderShell, openFileFor });\n\n${studentIntelExtension}\n\n/* ============ boot ============ */`,
   );
   core = core.replace("document.addEventListener('DOMContentLoaded', init);", "if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();");
   core = core.replaceAll("Founder shell", "Production wiring");
@@ -471,7 +473,11 @@ window.saveMatrixProfile = async event => {
 }
 
 async function main() {
-  const lockedBytes = await fs.readFile(lockedHtmlPath);
+  const [lockedBytes, studentIntelExtension, studentIntelStyles] = await Promise.all([
+    fs.readFile(lockedHtmlPath),
+    fs.readFile(path.join(webDirectory, "_student-intel-extension.js"), "utf8"),
+    fs.readFile(path.join(webDirectory, "_student-intel-extension.css"), "utf8"),
+  ]);
   const actualSha256 = sha256(lockedBytes);
   if (actualSha256 !== expectedSha256) {
     throw new Error(`Fable UI lock hash mismatch: expected ${expectedSha256}, received ${actualSha256}`);
@@ -480,16 +486,16 @@ async function main() {
   const styleMatch = source.match(/<style>\n([\s\S]*?)\n<\/style>/);
   const scripts = [...source.matchAll(/<script>\n([\s\S]*?)\n<\/script>/g)];
   if (!styleMatch || scripts.length !== 2) throw new Error("Unexpected locked-shell structure");
-  const styles = `${styleMatch[1].replace(/\n+$/, "")}\n`;
+  const styles = `${styleMatch[1].replace(/\n+$/, "")}\n\n${studentIntelStyles.replace(/\n+$/, "")}\n`;
 
   let html = source
     .replace(styleMatch[0], '<link rel="stylesheet" href="/rise/assets/styles">')
     .replace(scripts[0][0], "")
     .replace(scripts[1][0], '<script type="module" src="/rise/assets/app"></script>')
     .replace("<title>RISE · MissionMed Intelligence — Founder Shell (P1-RISE-5002)</title>", "<title>RISE · MissionMed Intelligence</title>")
-    .replace("Founder Shell 5002 · Real corpus + demo profile", "Founder-approved Fable 5002 · Production data");
+    .replace("Founder Shell 5002 · Real corpus + demo profile", "Founder-approved Fable 5002 · BETA · VERIFY WITH PROGRAM");
 
-  const app = transformCore(scripts[1][1]);
+  const app = transformCore(scripts[1][1], { studentIntelExtension });
   const forbidden = ["demo-brookdale", "Ignacio", "Representative preview", "window.RISE_DATA", "state.campaigns.push"];
   for (const term of forbidden) {
     if (html.includes(term) || app.includes(term)) throw new Error(`Generated student bundle retains forbidden demo seam: ${term}`);

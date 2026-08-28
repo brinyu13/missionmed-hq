@@ -2,11 +2,35 @@
 /**
  * Plugin Name: MissionMed RISE SSO
  * Description: Server-side WordPress to MissionMed HQ audience=rise handoff.
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if (!defined('ABSPATH')) {
     exit;
+}
+
+function mmrise_sso_beta_course_ids() {
+    return array(3893, 3646);
+}
+
+function mmrise_sso_user_is_admin($user) {
+    return $user instanceof WP_User && (
+        user_can($user, 'manage_options') ||
+        in_array('administrator', array_map('strtolower', (array) $user->roles), true)
+    );
+}
+
+function mmrise_sso_user_beta_course_ids($user_id) {
+    $granted = array();
+    foreach (mmrise_sso_beta_course_ids() as $course_id) {
+        $has_access = function_exists('sfwd_lms_has_access')
+            ? sfwd_lms_has_access((int) $course_id, (int) $user_id)
+            : false;
+        if ($has_access) {
+            $granted[] = (int) $course_id;
+        }
+    }
+    return $granted;
 }
 
 function mmrise_sso_secret() {
@@ -67,12 +91,20 @@ function mmrise_sso_handle() {
     }
 
     $user = wp_get_current_user();
+    $beta_course_ids = mmrise_sso_user_beta_course_ids((int) $user->ID);
+    if (!mmrise_sso_user_is_admin($user) && count($beta_course_ids) === 0) {
+        status_header(403);
+        wp_die('RISE is currently available only to authorized private-beta students.');
+    }
     $payload = array(
         'wp_user_id' => (int) $user->ID,
         'email' => (string) $user->user_email,
         'username' => (string) $user->user_login,
         'display_name' => (string) $user->display_name,
         'roles' => array_values((array) $user->roles),
+        'rise_beta_access' => true,
+        'rise_beta_course_ids' => $beta_course_ids,
+        'rise_beta_entitlements' => array('FULL_RISE_BETA_ACCESS'),
         'auth_audience' => 'rise',
         'iat' => time(),
         'exp' => time() + 60,

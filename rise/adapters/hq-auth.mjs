@@ -113,6 +113,12 @@ export function createHqAuthenticator({
       ? payload.user.roles.map((role) => String(role).trim().toLowerCase())
       : [];
     const admin = roles.includes("administrator");
+    const betaEntitlements = Array.isArray(payload.riseEntitlements)
+      ? payload.riseEntitlements.map((value) => String(value).trim())
+      : [];
+    if (payload.risePrivateBeta !== true || !betaEntitlements.includes("FULL_RISE_BETA_ACCESS")) {
+      return null;
+    }
     const subject = `wp:${userId}`;
     const sessionId = createHmac("sha256", hmacKey)
       .update("rise-hq-session-v1\0")
@@ -125,11 +131,12 @@ export function createHqAuthenticator({
     return {
       subject,
       role: admin ? "admin" : "student",
+      displayName: String(payload.user?.displayName ?? "").trim().slice(0, 120),
       audience: "rise",
       issuer: endpoint.origin,
       capabilities: admin
-        ? ["rise:read", "rise:operator", "rise:admin"]
-        : ["rise:read"],
+        ? ["rise:read", "rise:operator", "rise:admin", "rise:premium", "rise:private-beta", "rise:contribute"]
+        : ["rise:read", "rise:premium", "rise:private-beta", "rise:contribute"],
       sessionId,
       csrfToken,
       validatedAt: new Date(now()).toISOString(),

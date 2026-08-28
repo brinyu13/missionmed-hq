@@ -30,11 +30,14 @@ test("HQ adapter introspects the exact audience and exposes only a bound RISE se
       authAudience: "rise",
       revoked: false,
       revokedAt: null,
+      risePrivateBeta: true,
+      riseEntitlements: ["FULL_RISE_BETA_ACCESS"],
       csrfToken: "upstreamCsrfTokenForRise00000000",
       expiresAt: "2026-07-22T13:00:00.000Z",
       accessToken: "must-never-leave-the-adapter",
       user: {
         id: 42,
+        displayName: "Beta Student",
         email: "private@example.test",
         roles: ["subscriber"],
       },
@@ -56,7 +59,8 @@ test("HQ adapter introspects the exact audience and exposes only a bound RISE se
     assert.equal(session.subject, "wp:42");
     assert.equal(session.issuer, fixture.origin);
     assert.equal(session.audience, "rise");
-    assert.deepEqual(session.capabilities, ["rise:read"]);
+    assert.deepEqual(session.capabilities, ["rise:read", "rise:premium", "rise:private-beta", "rise:contribute"]);
+    assert.equal(session.displayName, "Beta Student");
     assert.match(session.sessionId, /^[a-f0-9]{64}$/);
     assert.equal(session.email, undefined);
     assert.equal(session.accessToken, undefined);
@@ -85,6 +89,8 @@ test("HQ adapter rejects expired, revoked, malformed-revocation, and audience-dr
       authenticated: true,
       sessionPersistent: true,
       authAudience: mode === "audience" ? "arena" : "rise",
+      risePrivateBeta: true,
+      riseEntitlements: ["FULL_RISE_BETA_ACCESS"],
       ...revocation,
       csrfToken: "upstreamCsrfTokenForRise00000000",
       expiresAt: mode === "expired" ? "2026-07-22T11:59:00.000Z" : "2026-07-22T13:00:00.000Z",

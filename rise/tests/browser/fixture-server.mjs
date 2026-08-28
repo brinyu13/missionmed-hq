@@ -164,6 +164,11 @@ const server = createRiseServer({
   buildId: "synthetic-browser-fixture",
   environment: "test",
   webDirectory: fileURLToPath(new URL("../../dist/", import.meta.url)),
+  abuseController: {
+    scope: "browser_test_fixture",
+    async allowPreAuth() { return true; },
+    async allowAuthenticatedSubject() { return true; },
+  },
   logger: { info() {}, error() {} },
 });
 

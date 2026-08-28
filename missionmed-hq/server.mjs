@@ -56,6 +56,8 @@ const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
 const RISE_WORDPRESS_AUTH_REDIRECT_ACTION = 'mmed_rise_auth_redirect';
 const DEFAULT_AUTH_AUDIENCE = 'missionmed-hq';
 const RISE_AUTH_AUDIENCE = 'rise';
+const RISE_PRIVATE_BETA_COURSE_IDS = new Set([3893, 3646]);
+const RISE_PRIVATE_BETA_ENTITLEMENT = 'FULL_RISE_BETA_ACCESS';
 const MMC_PRIVATE_ROUTE_PREFIX = '/mmc-private';
 const MMC_PRIVATE_INDEX_PATH = `${MMC_PRIVATE_ROUTE_PREFIX}/index.html`;
 const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
@@ -1196,6 +1198,7 @@ function buildSessionPayload(session = null, request = null) {
     };
   }
 
+  const risePrivateBeta = sessionAuthAudience(session) === RISE_AUTH_AUDIENCE && isRisePrivateBetaUser(session.user);
   return {
     authenticated: true,
     authRequired: CONFIG.authRequired,
@@ -1203,6 +1206,8 @@ function buildSessionPayload(session = null, request = null) {
     revoked: false,
     revokedAt: null,
     authAudience: sessionAuthAudience(session),
+    risePrivateBeta,
+    riseEntitlements: risePrivateBeta ? [RISE_PRIVATE_BETA_ENTITLEMENT] : [],
     csrfToken: session.csrfToken,
     expiresAt: session.expiresAt,
     user: {
@@ -6987,6 +6992,9 @@ function parseWordPressHandoffToken(wpToken = '', requestedAudience = DEFAULT_AU
     display_name: payload?.display_name || payload?.name,
     email: payload?.email,
     roles: Array.isArray(payload?.roles) ? payload.roles : [],
+    rise_beta_access: payload?.rise_beta_access,
+    rise_beta_course_ids: payload?.rise_beta_course_ids,
+    rise_beta_entitlements: payload?.rise_beta_entitlements,
   });
 
   if (!Number(wpUser.id || 0) || !String(wpUser.email || '').trim()) {
@@ -7034,6 +7042,9 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
             displayName: wpUser.displayName,
             email: wpUser.email,
             roles: wpUser.roles,
+            risePrivateBeta: wpUser.risePrivateBeta,
+            riseBetaCourseIds: wpUser.riseBetaCourseIds,
+            riseBetaEntitlements: wpUser.riseBetaEntitlements,
             scope: wpUser.scope || resolveOperatorScope(wpUser),
           },
           {
@@ -7083,6 +7094,9 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
           displayName: wpUser.displayName,
           email: wpUser.email,
           roles: wpUser.roles,
+          risePrivateBeta: wpUser.risePrivateBeta,
+          riseBetaCourseIds: wpUser.riseBetaCourseIds,
+          riseBetaEntitlements: wpUser.riseBetaEntitlements,
           scope: wpUser.scope || resolveOperatorScope(wpUser),
         },
         {
@@ -7305,6 +7319,16 @@ async function bootstrapSupabaseSessionFromWordPressSession(authSession = null) 
 }
 
 function normalizeWordPressUser(user) {
+  const riseBetaCourseIds = [...new Set((Array.isArray(user?.rise_beta_course_ids)
+    ? user.rise_beta_course_ids
+    : Array.isArray(user?.riseBetaCourseIds) ? user.riseBetaCourseIds : [])
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && RISE_PRIVATE_BETA_COURSE_IDS.has(value)))];
+  const riseBetaEntitlements = [...new Set((Array.isArray(user?.rise_beta_entitlements)
+    ? user.rise_beta_entitlements
+    : Array.isArray(user?.riseBetaEntitlements) ? user.riseBetaEntitlements : [])
+    .map((value) => String(value).trim())
+    .filter((value) => value === RISE_PRIVATE_BETA_ENTITLEMENT))];
   return {
     id: Number(user?.id || 0),
     login: String(user?.login || user?.user_login || user?.slug || user?.username || user?.name || '').trim(),
@@ -7312,13 +7336,25 @@ function normalizeWordPressUser(user) {
     email: String(user?.email || '').trim(),
     roles: Array.isArray(user?.roles) ? user.roles.map((role) => String(role).toLowerCase()) : [],
     capabilities: user?.capabilities || user?.extra_capabilities || {},
+    risePrivateBeta: (user?.rise_beta_access === true || user?.risePrivateBeta === true) &&
+      riseBetaEntitlements.includes(RISE_PRIVATE_BETA_ENTITLEMENT),
+    riseBetaCourseIds,
+    riseBetaEntitlements,
     scope: user?.scope || null,
   };
 }
 
+function isRisePrivateBetaUser(user) {
+  const roles = Array.isArray(user?.roles) ? user.roles.map((role) => String(role).toLowerCase()) : [];
+  if (roles.includes('administrator') || user?.capabilities?.manage_options) return true;
+  return user?.risePrivateBeta === true &&
+    user?.riseBetaEntitlements?.includes(RISE_PRIVATE_BETA_ENTITLEMENT) &&
+    user?.riseBetaCourseIds?.some((courseId) => RISE_PRIVATE_BETA_COURSE_IDS.has(Number(courseId)));
+}
+
 function isAuthorizedWordPressUser(user, audience = DEFAULT_AUTH_AUDIENCE) {
   if (normalizeAuthAudience(audience) === RISE_AUTH_AUDIENCE) {
-    return Number(user?.id || 0) > 0 && Boolean(String(user?.email || '').trim());
+    return Number(user?.id || 0) > 0 && Boolean(String(user?.email || '').trim()) && isRisePrivateBetaUser(user);
   }
   const roles = Array.isArray(user.roles) ? user.roles : [];
   if (roles.some((role) => CONFIG.wpAllowedRoles.includes(String(role).toLowerCase()))) {

@@ -15,6 +15,9 @@ const studentStateUpPath = path.resolve(here, "../sql/004_student_program_state.
 const studentStateDownPath = path.resolve(here, "../sql/004_student_program_state.down.proposed.sql");
 const rightsSafeUpPath = path.resolve(here, "../sql/005_rights_safe_runtime.sql");
 const rightsSafeDownPath = path.resolve(here, "../sql/005_rights_safe_runtime.down.sql");
+const studentIntelUpPath = path.resolve(here, "../sql/006_student_intel.sql");
+const studentIntelDownPath = path.resolve(here, "../sql/006_student_intel.down.sql");
+const studentIntelVerificationPolicyPath = path.resolve(here, "../config/student-intel-verification.v1.json");
 
 async function readUp() {
   return fs.readFile(upPath, "utf8");
@@ -360,4 +363,53 @@ test("migration 005 is paired with an empty-database-only controlled rollback", 
   assert.match(down, /DROP SCHEMA IF EXISTS rise_runtime/);
   assert.doesNotMatch(down, /DROP\s+(?:DATABASE|ROLE)/i);
   assert.doesNotMatch(down, /CASCADE/i);
+});
+
+test("migration 006 keeps private contributor identity behind forced RLS and immutable audit", async () => {
+  const up = await fs.readFile(studentIntelUpPath, "utf8");
+  const down = await fs.readFile(studentIntelDownPath, "utf8");
+
+  assert.match(up, /^BEGIN;/m);
+  assert.match(up, /^COMMIT;/m);
+  for (const table of [
+    "beta_notice_acknowledgments", "student_intel_submitter_identities", "student_intel_submissions",
+    "student_intel_sources", "student_intel_moderation_events", "student_intel_verification_runs",
+    "student_intel_corroborations", "student_intel_canonical_promotions",
+  ]) assert.match(up, new RegExp(`CREATE TABLE rise_runtime\\.${table} \\(`));
+  assert.match(up, /ALTER TABLE rise_runtime\.student_intel_submitter_identities ENABLE ROW LEVEL SECURITY/);
+  assert.match(up, /ALTER TABLE rise_runtime\.student_intel_submitter_identities FORCE ROW LEVEL SECURITY/);
+  assert.match(up, /CREATE POLICY rise_student_intel_identity_isolation/);
+  assert.match(up, /CREATE POLICY rise_student_intel_visible_or_owner/);
+  assert.match(up, /CREATE POLICY rise_student_intel_admin_update/);
+  assert.doesNotMatch(up, /submitter_subject_ref/);
+  assert.doesNotMatch(up, /submitter_display_name/);
+  assert.match(up, /original_claim text NOT NULL/);
+  assert.match(up, /reject_student_intel_audit_mutation/);
+  assert.match(up, /BEFORE UPDATE OR DELETE ON rise_runtime\.student_intel_moderation_events/);
+  assert.match(up, /BEFORE UPDATE OR DELETE ON rise_runtime\.student_intel_canonical_promotions/);
+  assert.match(up, /factory_campaign_id IS NULL OR factory_campaign_id <> 'RISE-BOOTSTRAP-001'/);
+  assert.match(up, /status IN \('VERIFICATION_PENDING', 'CONFLICTING'\)/);
+  assert.match(up, /source_url ~ '\^https:\/\/'/);
+  assert.match(up, /REVOKE ALL ON ALL TABLES IN SCHEMA rise_runtime FROM PUBLIC/);
+  assert.doesNotMatch(up, /GRANT[\s\S]+TO PUBLIC/i);
+  assert.doesNotMatch(up, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
+
+  assert.match(down, /Preserve every submission and audit record/);
+  assert.match(down, /REVOKE ALL ON rise_runtime\.student_intel_submitter_identities FROM rise_app_runtime/);
+  assert.match(down, /REVOKE ALL ON rise_runtime\.student_intel_submissions FROM rise_app_runtime/);
+  assert.doesNotMatch(down, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
+  assert.doesNotMatch(down, /DELETE\s+FROM/i);
+});
+
+test("Student Intel verification policy stages the required cadence without authorizing spend", async () => {
+  const policy = JSON.parse(await fs.readFile(studentIntelVerificationPolicyPath, "utf8"));
+  assert.equal(policy.activationStatus, "disabled_pending_factory_bridge_and_separate_budget");
+  assert.equal(policy.taskClass, "RISE_STUDENT_INTEL_CLAIM_VERIFICATION");
+  assert.equal(policy.routerPolicy, "P1-RISE-PARALLEL-COST-QUALITY-OPTIMIZATION-007");
+  assert.deepEqual(policy.cadence.daysOfMonth, [1, 15]);
+  assert.equal(policy.highPriority.expedited, true);
+  assert.equal(policy.highPriority.bypassBudgetControls, false);
+  assert.equal(policy.sourceStrategy.studentSuppliedUrlFirst, true);
+  assert.equal(policy.budget.paidSubmissionAuthorized, false);
+  assert.deepEqual(policy.budget.protectedCampaignIds, ["RISE-BOOTSTRAP-001"]);
 });

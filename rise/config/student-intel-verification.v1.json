@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "policyId": "rise-student-intel-verification-2026-08-28",
+  "activationStatus": "disabled_pending_factory_bridge_and_separate_budget",
+  "taskClass": "RISE_STUDENT_INTEL_CLAIM_VERIFICATION",
+  "routerPolicy": "P1-RISE-PARALLEL-COST-QUALITY-OPTIMIZATION-007",
+  "cadence": {
+    "timezone": "America/New_York",
+    "daysOfMonth": [1, 15],
+    "queueClass": "TWICE_MONTHLY"
+  },
+  "highPriority": {
+    "queueClass": "HIGH_PRIORITY",
+    "expedited": true,
+    "bypassBudgetControls": false,
+    "pausedLabel": "HIGH PRIORITY · WAITING FOR RESEARCH BUDGET"
+  },
+  "sourceStrategy": {
+    "studentSuppliedUrlFirst": true,
+    "authoritativeCurrentSourcesNext": true,
+    "wholeProgramResearch": false
+  },
+  "budget": {
+    "surface": "SEPARATE_STUDENT_INTEL_BUDGET",
+    "paidSubmissionAuthorized": false,
+    "protectedCampaignIds": ["RISE-BOOTSTRAP-001"],
+    "previewBeforeSpend": true
+  }
+}

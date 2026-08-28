@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  createMemoryStudentIntelStore,
   createMemoryStudentStore,
   createRiseServer,
   isProductionEnvironment,
@@ -20,6 +21,10 @@ const AUDIT_HMAC_KEY = "audit-test-key-000000000000000000";
 
 function durableStudentStore() {
   return { ...createMemoryStudentStore(), scope: "durable_private" };
+}
+
+function durableStudentIntelStore() {
+  return { ...createMemoryStudentIntelStore(), scope: "durable_private" };
 }
 
 function canonicalMatrixProfileAdapter() {
@@ -494,6 +499,7 @@ test("production requires a shared durable abuse controller", () => {
     production: true,
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
     studentStore: durableStudentStore(),
+    studentIntelStore: durableStudentIntelStore(),
     matrixProfileAdapter: canonicalMatrixProfileAdapter(),
   };
   assert.throws(() => createRiseServer(options), /shared durable abuse controller/);
@@ -539,6 +545,7 @@ test("production source rights fail closed after activation when the live decisi
     production: true,
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
     studentStore: durableStudentStore(),
+    studentIntelStore: durableStudentIntelStore(),
     abuseController: {
       scope: "shared_durable",
       async allowPreAuth() { return true; },

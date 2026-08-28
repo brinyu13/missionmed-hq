@@ -8,7 +8,7 @@ import axe from "axe-core";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const artifactDirectory = path.resolve(
   here,
-  "../../../_AI_HANDOFFS/from_codex/P1_RISE_5003_PRODUCTION_WIRING_AND_LIVE_DEPLOY/artifacts/browser",
+  "../../../_AI_HANDOFFS/from_codex/P1_RISE_5007_PRIVATE_BETA_FULL_REGISTRY_STUDENT_INTEL/artifacts/browser",
 );
 
 async function openRise(page, hash = "home") {
@@ -28,6 +28,17 @@ async function expectNoCriticalA11yViolations(page) {
 
 test.beforeAll(async () => {
   await fs.mkdir(artifactDirectory, { recursive: true });
+});
+
+test("private-beta notice is explicit, persistent, and acknowledged server-side", async ({ page }) => {
+  await openRise(page);
+  await expect(page.locator("#modal")).toContainText("RISE private beta");
+  await expect(page.locator("#modal")).toContainText("Missing means unknown—not no");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await expect(page.locator("#modal")).not.toHaveClass(/open/);
+  await expect(page.locator(".founderChip")).toContainText("BETA · VERIFY WITH PROGRAM");
+  await page.reload();
+  await expect(page.locator("#modal")).not.toHaveClass(/open/);
 });
 
 test("home preserves the approved consumer shell, hierarchy, and four feature doors", async ({ page }) => {
@@ -79,7 +90,35 @@ test("Program File remains a routed immersive overlay with exactly six primary t
   ]);
   await expect(page.locator("#file")).toContainText("synthetic-atlas_im");
   await expect(page.locator("#file")).not.toContainText("demo");
+  await expect(page.locator("#file")).toContainText("Student Intel");
+  await expect(page.locator("#file .coverageBadge")).toContainText("BASIC PROFILE");
   await page.screenshot({ path: path.join(artifactDirectory, "program-file-desktop.png"), fullPage: true });
+});
+
+test("Student Intel contribution and admin moderation remain inside the Fable Program File", async ({ page }) => {
+  await openRise(page, "program/rise_ps_atlas_im/overview");
+  await expect(page.locator(".intelEmpty")).toContainText("No Student Intel published yet");
+  await page.getByRole("button", { name: "+ Contribute Intel" }).click();
+  await page.locator("#studentIntelForm select[name='category']").selectOption({ label: "Visa" });
+  await page.locator("#studentIntelForm select[name='sourceKind']").selectOption("FIRSTHAND");
+  await page.locator("#studentIntelForm textarea[name='claim']").fill("Interview-day materials described a J-1 policy change for this cycle.");
+  await page.locator("#studentIntelForm input[name='sourceLabel']").fill("Interview-day materials");
+  await page.getByRole("button", { name: "Submit for verification" }).click();
+  await expect(page.locator(".intelCard")).toContainText("Verification pending");
+  await expect(page.locator(".intelCard")).toContainText("Anonymous MissionMed Student");
+  await page.screenshot({ path: path.join(artifactDirectory, "student-intel-student.png"), fullPage: true });
+
+  await openRise(page, "admin/student-intel");
+  await expect(page.locator("#main")).toContainText("MissionMed Student");
+  await expect(page.locator("#main")).toContainText("Original · immutable");
+  await page.getByRole("button", { name: "Mark verified" }).click();
+  await page.locator("#modal textarea[name='reason']").fill("Confirmed against an official program source.");
+  await page.getByRole("button", { name: "Confirm action" }).click();
+  await expect(page.locator("#main")).toContainText("Verified by MissionMed");
+  await expect(page.locator("#modal")).not.toHaveClass(/open/);
+  await page.screenshot({ path: path.join(artifactDirectory, "student-intel-admin.png"), fullPage: true });
+  await page.getByRole("button", { name: "Preview verification queue" }).click();
+  await expect(page.locator("#modal")).toContainText("Paid submission is unavailable");
 });
 
 test("all six Program File tabs expose evidence-safe content or honest empty states", async ({ page }) => {
@@ -104,6 +143,7 @@ test("Sources & Freshness stays available as a utility drawer", async ({ page })
   await expect(page.locator("#srcPanel")).toHaveClass(/open/);
   await expect(page.locator("#srcPanel")).toContainText("Freshness by family");
   await expect(page.locator("#srcPanel")).toContainText("Canonical registry source");
+  await expect(page.locator("#srcPanel")).toContainText("BETA · VERIFY WITH PROGRAM");
 });
 
 test("My Programs save, state, and notes survive a browser reload", async ({ page }) => {
