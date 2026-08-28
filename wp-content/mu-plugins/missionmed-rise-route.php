@@ -133,10 +133,22 @@ function mmrise_route_handle() {
     }
     $status = (int) wp_remote_retrieve_response_code($response);
     status_header($status > 0 ? $status : 502);
-    foreach (array('content-type', 'cache-control', 'etag', 'x-request-id') as $header_name) {
+    foreach (array(
+        'content-type',
+        'cache-control',
+        'etag',
+        'x-request-id',
+        'content-security-policy',
+        'cross-origin-opener-policy',
+        'cross-origin-resource-policy',
+        'permissions-policy',
+        'referrer-policy',
+        'x-content-type-options',
+        'x-frame-options',
+    ) as $header_name) {
         $header_value = wp_remote_retrieve_header($response, $header_name);
-        if ($header_value !== '') {
-            header($header_name . ': ' . (string) $header_value);
+        if ($header_value !== '' && strpos((string) $header_value, "\r") === false && strpos((string) $header_value, "\n") === false) {
+            header($header_name . ': ' . (string) $header_value, true);
         }
     }
     header('X-MissionMed-RISE-Proxy: 1');

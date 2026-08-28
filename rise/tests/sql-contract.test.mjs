@@ -13,6 +13,8 @@ const hardeningUpPath = path.resolve(here, "../sql/003_rise_release_security_har
 const hardeningDownPath = path.resolve(here, "../sql/003_rise_release_security_hardening.down.proposed.sql");
 const studentStateUpPath = path.resolve(here, "../sql/004_student_program_state.proposed.sql");
 const studentStateDownPath = path.resolve(here, "../sql/004_student_program_state.down.proposed.sql");
+const rightsSafeUpPath = path.resolve(here, "../sql/005_rights_safe_runtime.sql");
+const rightsSafeDownPath = path.resolve(here, "../sql/005_rights_safe_runtime.down.sql");
 
 async function readUp() {
   return fs.readFile(upPath, "utf8");
@@ -334,4 +336,28 @@ test("student-state rollback preserves user data", async () => {
   assert.match(sql, /preserve student program state/);
   assert.match(sql, /RAISE EXCEPTION/);
   assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
+});
+
+test("migration 005 is paired with an empty-database-only controlled rollback", async () => {
+  const up = await fs.readFile(rightsSafeUpPath, "utf8");
+  const down = await fs.readFile(rightsSafeDownPath, "utf8");
+
+  assert.match(up, /^BEGIN;/m);
+  assert.match(up, /^COMMIT;/m);
+  assert.match(up, /CREATE SCHEMA IF NOT EXISTS rise_runtime/);
+  assert.match(up, /ENABLE ROW LEVEL SECURITY/);
+  assert.match(up, /FORCE ROW LEVEL SECURITY/);
+  assert.match(up, /CREATE POLICY rise_runtime_student_subject_isolation/);
+  assert.match(up, /TO rise_app_runtime/);
+
+  assert.match(down, /^BEGIN;/m);
+  assert.match(down, /^COMMIT;/m);
+  assert.match(down, /rise\.rollback_005_empty_confirmed/);
+  assert.match(down, /current_database\(\) !~ '\^rise_rollback_005_/);
+  assert.match(down, /rollback refuses non-empty table/);
+  assert.match(down, /DROP POLICY IF EXISTS rise_runtime_student_subject_isolation/);
+  assert.match(down, /DROP TABLE IF EXISTS rise_runtime\.student_program_states/);
+  assert.match(down, /DROP SCHEMA IF EXISTS rise_runtime/);
+  assert.doesNotMatch(down, /DROP\s+(?:DATABASE|ROLE)/i);
+  assert.doesNotMatch(down, /CASCADE/i);
 });
