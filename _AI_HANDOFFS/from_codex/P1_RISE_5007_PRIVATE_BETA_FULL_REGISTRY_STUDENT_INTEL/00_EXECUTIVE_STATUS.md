@@ -14,6 +14,7 @@ Production activation is prohibited because the ticket's complete release condit
 The current 5006 deployment remains intact at `https://missionmedinstitute.com/rise/`. Read-only verification on 2026-08-28 returned anonymous HTTP 302 and health build `rise_web_08a83ea8553d`, active release `rise_rights_safe_hrsa_20260828_716fceb7d0ac`, with current source rights.
 
 ```text
+IMPLEMENTATION_COMMIT = 5422500b03adbd2d1e71f6fbe1d323f58b0837c0
 LOCAL_5007_BUILD = rise_web_ae4c6b97e856
 UNIT_CONTRACT_TESTS = 126/126 PASS
 BROWSER_TESTS = 14/14 PASS
@@ -26,4 +27,3 @@ DEPLOYMENT_STATUS = BLOCKED
 ```
 
 No source-rights record, provider variable, database, WordPress installation, Railway service, Parallel campaign, or production artifact was changed.
-

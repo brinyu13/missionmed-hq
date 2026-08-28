@@ -5,6 +5,7 @@ Result: **BLOCKED; NO 5007 DEPLOYMENT ATTEMPTED**
 The locally built artifact is:
 
 ```text
+implementation commit = 5422500b03adbd2d1e71f6fbe1d323f58b0837c0
 buildId = rise_web_ae4c6b97e856
 activationStatus = offline_shadow_only
 ```
@@ -27,4 +28,3 @@ live registry = rise_rights_safe_hrsa_20260828_716fceb7d0ac
 Mandatory blockers are the all-program source-rights grant/independent replacement, a secure bounded factory bridge plus separate budget, a canonical evidence sink, production migration acceptance, and subsequent role-complete live QA.
 
 Deploying the 5007 partial would violate the ticket's success and safety gates. The 5006 live service was therefore preserved.
-
