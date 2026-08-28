@@ -51,7 +51,7 @@ function mmrise_route_cookie_header() {
     foreach ($_COOKIE as $name => $value) {
         $name = (string) $name;
         if (
-            $name === 'mmhq_session' || $name === 'mmed_rise_wp_nonce' ||
+            $name === 'mmhq_session' || $name === 'mmed_rise_wp_nonce' || $name === 'mmed_rise_session_ready' ||
             strpos($name, 'wordpress_') === 0 || strpos($name, 'wordpress_logged_in_') === 0 ||
             strpos($name, 'wordpress_sec_') === 0
         ) {
@@ -83,7 +83,7 @@ function mmrise_route_handle() {
         wp_safe_redirect(wp_login_url(home_url('/rise/')));
         exit;
     }
-    if (!$is_health && empty($_COOKIE['mmhq_session'])) {
+    if (!$is_health && (empty($_COOKIE['mmhq_session']) || empty($_COOKIE['mmed_rise_session_ready']))) {
         if ($is_api) {
             mmrise_route_json_error(401, 'RISE_SESSION_REQUIRED', 'The RISE audience session must be established.');
         }

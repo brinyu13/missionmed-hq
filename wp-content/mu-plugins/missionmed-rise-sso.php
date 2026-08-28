@@ -120,6 +120,7 @@ function mmrise_sso_handle() {
         wp_die('RISE authentication session was invalid.');
     }
     mmrise_sso_set_cookie('mmhq_session', $session_cookie, time() + 28800, true);
+    mmrise_sso_set_cookie('mmed_rise_session_ready', '1', time() + 28800, true);
     mmrise_sso_set_cookie('mmed_rise_wp_nonce', wp_create_nonce('wp_rest'), time() + 43200, false);
     wp_safe_redirect(mmrise_sso_final_url());
     exit;

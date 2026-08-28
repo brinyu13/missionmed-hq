@@ -58,5 +58,6 @@ function wp_remote_retrieve_header($response, $name) { return $response['headers
 function wp_remote_retrieve_body($response) { return $response['body']; }
 
 $_COOKIE['mmhq_session'] = 'fixture-session';
+$_COOKIE['mmed_rise_session_ready'] = '1';
 require getenv('RISE_ROUTE_PLUGIN_PATH');
 mmrise_route_handle();
