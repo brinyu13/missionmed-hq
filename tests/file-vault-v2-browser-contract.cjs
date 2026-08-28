@@ -242,6 +242,7 @@ async function studentFlow(browser) {
 		assert(await page.locator(".fv2-upload-choice").nth(3).getAttribute("data-fv2-document-type") === "timeline", "student: Timeline is not a distinct upload type");
 		assert(await page.locator(".fv2-upload-choice").nth(6).getAttribute("data-fv2-document-type") === "other", "student: Miscellaneous upload type changed unexpectedly");
 		assert(await page.locator(".fv2-upload-launcher").isVisible(), "student: dominant document-type launcher missing");
+		assert(await page.locator(".fv2-matrix-return").isVisible() && await page.locator(".fv2-header-search").isVisible() && await page.locator(".fv2-header-upload").isVisible(), "student: StoryForge-family Matrix/search/upload header is incomplete");
 		assert(await page.locator(".fv2-shortcut-card").count() === 4, "student: expected four first-class visual shortcuts");
 		assert(await page.getByRole("button", { name: "Journey", exact: true }).count() === 0, "student: Journey remains an equal top-level destination");
 		assert(await page.locator('[data-fv2-action="next-action"]').count() === 0, "student: analytics-like next action still competes with the upload prompt");
@@ -387,7 +388,7 @@ async function studentFlow(browser) {
 		});
 		await page.locator("[data-fv2-upload-type]").selectOption("other");
 		await page.locator("[data-fv2-upload-next]").click();
-		assert(await page.locator(".fv2-upload-review").getByText("Other Document", { exact: true }).isVisible(), "student: upload review used an existing filename instead of the server-owned document-type label");
+		assert(await page.locator(".fv2-upload-review").getByRole("heading", { name: "Other Document", exact: true }).isVisible(), "student: upload review used an existing filename instead of the server-owned document-type label");
 		await page.getByRole("button", { name: "Close upload" }).click();
 		await page.evaluate(() => {
 			window.__FV2_HARNESS__.instance.state.data.documents = window.__FV2_HARNESS__.instance.state.data.documents.filter(documentItem => Number(documentItem.id) !== 1999);
@@ -400,12 +401,17 @@ async function studentFlow(browser) {
 			});
 			await page.locator("[data-fv2-upload-type]").selectOption("curriculum_vitae");
 			assert(!(await page.locator("[data-fv2-upload-next]").isDisabled()), "student: natural file-then-type upload flow left Review disabled");
+			assert(await page.locator("[data-fv2-canonical-preview]").getByText("Avery_Rivera_360Elite_A_CurriculumVitae_Draft01_2026-07-15.pdf", { exact: true }).isVisible(), "student: canonical filename preview is missing or out of order");
+			await page.locator("[data-fv2-upload-replaces]").selectOption("1102");
+			assert(await page.locator("[data-fv2-canonical-preview]").getByText("Avery_Rivera_360Elite_A_CurriculumVitae_Draft04_2026-07-15.pdf", { exact: true }).isVisible(), "student: replacement selection does not advance the visible canonical version");
 			await page.locator("[data-fv2-upload-next]").click();
-			assert(await page.getByRole("heading", { name: "fixture_cv", exact: true }).isVisible(), "student: upload review step missing");
+			assert(await page.getByRole("heading", { name: "Curriculum Vitae", exact: true }).isVisible(), "student: upload review step missing");
+			assert(await page.locator(".fv2-review-filename").getByText("Avery_Rivera_360Elite_A_CurriculumVitae_Draft04_2026-07-15.pdf", { exact: true }).isVisible(), "student: review step does not show the canonical filename");
 		await saveEvidence(page, "04-upload-review.png");
 		await page.locator('[data-fv2-action="upload-start"]').click();
 		await page.getByRole("heading", { name: "Upload confirmed" }).waitFor({ timeout: 8000 });
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.mutations.some(item => item.type === "confirm")), "student: upload confirmation mutation missing");
+		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/files/1102/versions" && call.body.program === "360 Elite" && call.body.session_letter === "A")), "student: canonical upload did not use the single version route with enrollment metadata");
 		assert(await page.locator('[role="progressbar"][aria-valuenow="100"]').count() === 1, "student: upload progress did not reach 100");
 		assert(diagnostics.length === 0, `student: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {

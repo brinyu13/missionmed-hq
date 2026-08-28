@@ -22,8 +22,8 @@ class MMED_File_Vault_V2 {
 	const CAP_MANAGE        = 'mmed_manage_file_vault';
 	const CAP_FINALIZE      = 'mmed_finalize_file_vault';
 	const CAP_AUDIT         = 'mmed_view_file_vault_audit';
-	const ASSET_CSS         = 'student-os-file-vault-v2.ea5100ed2573a88a.css';
-	const ASSET_JS          = 'student-os-file-vault-v2.f89cfe5f87e6e57f.js';
+	const ASSET_CSS         = 'student-os-file-vault-v2.cf6da2cae13eaad9.css';
+	const ASSET_JS          = 'student-os-file-vault-v2.025518ce835ab8fe.js';
 
 	/**
 	 * Register runtime hooks.
@@ -113,6 +113,7 @@ class MMED_File_Vault_V2 {
 				'mode'        => self::get_mode(),
 				'role'        => self::role_for_user(),
 				'restUrl'     => untrailingslashit( rest_url( self::NAMESPACE . '/file-vault' ) ),
+				'matrixUrl'   => home_url( '/member-dashboard/' ),
 				'nonce'       => wp_create_nonce( 'wp_rest' ),
 				'maxFileSize'     => MMED_File_Vault_V2_Repository::MAX_FILE_SIZE,
 				'nonceRefreshUrl' => admin_url( 'admin-ajax.php?action=mmed_file_vault_v2_nonce' ),
@@ -605,6 +606,8 @@ class MMED_File_Vault_V2 {
 			'file_size'        => array( 'required' => true, 'type' => 'integer', 'minimum' => 1 ),
 			'document_type'    => array( 'type' => 'string' ),
 			'display_name'     => array( 'type' => 'string' ),
+			'program'          => array( 'type' => 'string', 'maxLength' => 180 ),
+			'session_letter'   => array( 'type' => 'string', 'pattern' => '^[A-Za-z]$' ),
 			'note'             => array( 'type' => 'string' ),
 			'sha256'           => array( 'required' => true, 'type' => 'string', 'pattern' => '^[a-fA-F0-9]{64}$' ),
 			'ready_for_review' => array( 'type' => 'boolean' ),

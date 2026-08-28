@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 
 	const META_KEY      = 'file_vault_v2';
-	const META_VERSION  = 1;
+	const META_VERSION  = 2;
 	const MAX_FILE_SIZE = 26214400;
 	const APPLICATION_PHOTO_MAX_FILE_SIZE = 153600;
 	const INTENT_TTL    = 1200;
@@ -330,10 +330,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 					}
 				)
 			),
-				'activity'    => $activity,
-				'document_types' => self::document_type_labels(),
-			'next_action' => self::next_action( $documents, $journey ),
-			'storage'     => array(
+			'activity'       => $activity,
+			'document_types' => self::document_type_labels(),
+			'upload_context' => self::upload_context( $user_id ),
+			'next_action'    => self::next_action( $documents, $journey ),
+			'storage'        => array(
 				'ready'         => self::storage_ready(),
 				'max_file_size' => self::MAX_FILE_SIZE,
 				'extensions'    => array_keys( self::accepted_files() ),
@@ -341,6 +342,153 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			),
 			'rubrics'     => self::rubrics(),
 		);
+	}
+
+	/**
+	 * Return the server-owned identity and enrollment labels used by uploads.
+	 *
+	 * Session may be supplied by the student only when no authoritative cohort
+	 * value exists. Identity and available programs always come from WordPress.
+	 *
+	 * @param int $user_id Student owner.
+	 * @return array
+	 */
+	public static function upload_context( $user_id ) {
+		$user_id    = absint( $user_id );
+		$user       = $user_id ? get_user_by( 'id', $user_id ) : null;
+		$first_name = trim( sanitize_text_field( get_user_meta( $user_id, 'first_name', true ) ) );
+		$last_name  = trim( sanitize_text_field( get_user_meta( $user_id, 'last_name', true ) ) );
+		if ( ( ! $first_name || ! $last_name ) && $user ) {
+			$parts = preg_split( '/\s+/', trim( sanitize_text_field( $user->display_name ) ) );
+			$parts = is_array( $parts ) ? array_values( array_filter( $parts ) ) : array();
+			if ( ! $first_name && ! empty( $parts ) ) {
+				$first_name = array_shift( $parts );
+			}
+			if ( ! $last_name && ! empty( $parts ) ) {
+				$last_name = array_pop( $parts );
+			}
+		}
+		$first_name = $first_name ?: 'Student';
+		$last_name  = $last_name ?: ( $user_id ? 'User' . $user_id : 'User' );
+
+		$programs     = array();
+		$program_tier = trim( sanitize_text_field( get_user_meta( $user_id, '_mmed_program_tier', true ) ) );
+		if ( $program_tier ) {
+			$programs[] = $program_tier;
+		}
+		if ( function_exists( 'learndash_user_get_enrolled_courses' ) && function_exists( 'get_the_title' ) ) {
+			$course_ids = learndash_user_get_enrolled_courses( $user_id );
+			foreach ( is_array( $course_ids ) ? $course_ids : array() as $course_id ) {
+				$title = trim( sanitize_text_field( get_the_title( absint( $course_id ) ) ) );
+				if ( $title ) {
+					$programs[] = $title;
+				}
+			}
+		}
+		$programs = array_values( array_unique( $programs ) );
+		$session  = strtoupper( trim( sanitize_text_field( get_user_meta( $user_id, '_mmed_session_letter', true ) ) ) );
+		$session  = preg_match( '/^[A-Z]$/', $session ) ? $session : '';
+
+		return array(
+			'identity'        => array(
+				'first_name' => $first_name,
+				'last_name'  => $last_name,
+			),
+			'division'        => trim( sanitize_text_field( get_user_meta( $user_id, '_mmed_primary_division', true ) ) ),
+			'program'         => $programs[0] ?? '',
+			'programs'        => $programs,
+			'program_locked'  => ! empty( $programs ),
+			'session_letter'  => $session,
+			'session_locked'  => '' !== $session,
+			'submission_date' => gmdate( 'Y-m-d' ),
+			'naming_pattern'  => 'FIRSTNAME_LASTNAME_COURSE_SESSIONLETTER_DOCUMENTTYPE_DRAFTVERSION_DATESUBMITTED',
+		);
+	}
+
+	/**
+	 * Normalize one human-readable filename segment to portable ASCII.
+	 *
+	 * @param string $value Raw label.
+	 * @param string $fallback Safe fallback.
+	 * @return string
+	 */
+	protected static function canonical_filename_token( $value, $fallback ) {
+		$value = trim( sanitize_text_field( $value ) );
+		if ( function_exists( 'remove_accents' ) ) {
+			$value = remove_accents( $value );
+		}
+		$value = preg_replace( '/[^A-Za-z0-9]+/', '', $value );
+		$value = is_string( $value ) ? substr( $value, 0, 60 ) : '';
+		return $value ?: $fallback;
+	}
+
+	/**
+	 * Resolve protected upload metadata and validate the one correctable field.
+	 *
+	 * @param int    $user_id Student owner.
+	 * @param array  $params Request fields.
+	 * @param string $document_type Server-resolved document type.
+	 * @param string $display_name Server-sanitized display name.
+	 * @param int    $version Server-owned version number.
+	 * @return array|WP_Error
+	 */
+	protected static function resolve_upload_metadata( $user_id, $params, $document_type, $display_name, $version ) {
+		$context  = self::upload_context( $user_id );
+		$programs = array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $context['programs'] ?? array() ) ) ) );
+		$requested_program = trim( sanitize_text_field( $params['program'] ?? '' ) );
+		if ( ! empty( $programs ) && $requested_program && ! in_array( $requested_program, $programs, true ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_program_invalid', 'Choose a program returned by your current MissionMed enrollment.', array( 'status' => 422 ) );
+		}
+		$program = ! empty( $programs ) ? ( $requested_program ?: $programs[0] ) : 'MissionMed';
+
+		$authoritative_session = strtoupper( trim( sanitize_text_field( $context['session_letter'] ?? '' ) ) );
+		$requested_session     = strtoupper( trim( sanitize_text_field( $params['session_letter'] ?? '' ) ) );
+		if ( $authoritative_session && $requested_session && ! hash_equals( $authoritative_session, $requested_session ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_session_invalid', 'This upload must use the session assigned to your MissionMed account.', array( 'status' => 422 ) );
+		}
+		$session = $authoritative_session ?: $requested_session;
+		if ( ! preg_match( '/^[A-Z]$/', $session ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_session_required', 'Choose the one-letter session for this document.', array( 'status' => 422 ) );
+		}
+
+		$types          = self::document_types();
+		$definition     = $types[ $document_type ] ?? $types['other'];
+		$document_label = 'other' === $document_type ? $display_name : sanitize_text_field( $definition['label'] );
+		$draft_label    = 'Draft' . str_pad( (string) max( 1, absint( $version ) ), 2, '0', STR_PAD_LEFT );
+		$submission_date = gmdate( 'Y-m-d' );
+
+		return array(
+			'first_name'      => sanitize_text_field( $context['identity']['first_name'] ?? 'Student' ),
+			'last_name'       => sanitize_text_field( $context['identity']['last_name'] ?? 'User' ),
+			'division'        => sanitize_text_field( $context['division'] ?? '' ),
+			'program'         => $program,
+			'session_letter'  => $session,
+			'document_label'  => $document_label,
+			'draft_label'     => $draft_label,
+			'submission_date' => $submission_date,
+		);
+	}
+
+	/**
+	 * Build the deterministic download/display filename for one version.
+	 *
+	 * @param array  $metadata Resolved server metadata.
+	 * @param string $extension Validated source extension.
+	 * @return string
+	 */
+	protected static function canonical_upload_filename( $metadata, $extension ) {
+		$submission_date = sanitize_text_field( $metadata['submission_date'] ?? '' );
+		$submission_date = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $submission_date ) ? $submission_date : gmdate( 'Y-m-d' );
+		$segments = array(
+			self::canonical_filename_token( $metadata['first_name'] ?? '', 'Student' ),
+			self::canonical_filename_token( $metadata['last_name'] ?? '', 'User' ),
+			self::canonical_filename_token( $metadata['program'] ?? '', 'MissionMed' ),
+			self::canonical_filename_token( $metadata['session_letter'] ?? '', 'X' ),
+			self::canonical_filename_token( $metadata['document_label'] ?? '', 'Document' ),
+			self::canonical_filename_token( $metadata['draft_label'] ?? '', 'Draft01' ),
+			$submission_date,
+		);
+		return sanitize_file_name( implode( '_', $segments ) . '.' . strtolower( $extension ) );
 	}
 
 	/**
@@ -531,7 +679,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$extension     = strtolower( pathinfo( $validated['filename'], PATHINFO_EXTENSION ) );
 			$version_uuid  = wp_generate_uuid4();
 			$document_uuid = ! empty( $row_meta['document_uuid'] ) ? sanitize_text_field( $row_meta['document_uuid'] ) : wp_generate_uuid4();
-			$filename      = 'MMED_' . $document_type . '_v' . $version . '_' . gmdate( 'Ymd_His' ) . '_' . substr( $version_uuid, 0, 8 ) . '.' . $extension;
+			$upload_metadata = self::resolve_upload_metadata( $user_id, $params, $document_type, $display_name ?: sanitize_text_field( $definition['label'] ), $version );
+			if ( is_wp_error( $upload_metadata ) ) {
+				return $upload_metadata;
+			}
+			$filename      = self::canonical_upload_filename( $upload_metadata, $extension );
 			$r2_key        = 'student-files/v2/staging/' . $upload_id . '.' . $extension;
 			$intent        = array(
 				'upload_id'        => $upload_id,
@@ -549,6 +701,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				'document_type'    => $document_type,
 				'display_name'     => $display_name ?: sanitize_text_field( $definition['label'] ),
 				'note'             => $note,
+				'division'         => sanitize_text_field( $upload_metadata['division'] ),
+				'program'          => sanitize_text_field( $upload_metadata['program'] ),
+				'session_letter'   => sanitize_text_field( $upload_metadata['session_letter'] ),
+				'draft_label'      => sanitize_text_field( $upload_metadata['draft_label'] ),
+				'submission_date'  => sanitize_text_field( $upload_metadata['submission_date'] ),
 				'ready_for_review' => rest_sanitize_boolean( $params['ready_for_review'] ?? false ),
 				'version'          => $version,
 				'document_uuid'    => $document_uuid,
@@ -701,6 +858,9 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$meta['document_uuid'] = sanitize_text_field( $intent['document_uuid'] );
 			$meta['versions'] = self::internal_versions( $row, $meta );
 			$meta['versions'][] = self::version_entry( $intent, $probe, $actor_id );
+			$meta['division']          = sanitize_text_field( $intent['division'] ?? '' );
+			$meta['program']           = sanitize_text_field( $intent['program'] ?? '' );
+			$meta['session_letter']    = sanitize_text_field( $intent['session_letter'] ?? '' );
 			$meta['workflow_status'] = $status;
 			$meta['note']             = sanitize_textarea_field( $intent['note'] ?? '' );
 			$meta                     = self::append_activity( $meta, $event );
@@ -745,6 +905,9 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$meta['document_type']  = self::normalize_document_type( $intent['document_type'] );
 			$meta['document_uuid']  = sanitize_text_field( $intent['document_uuid'] );
 			$meta['display_name']   = sanitize_text_field( $intent['display_name'] );
+			$meta['division']       = sanitize_text_field( $intent['division'] ?? '' );
+			$meta['program']        = sanitize_text_field( $intent['program'] ?? '' );
+			$meta['session_letter'] = sanitize_text_field( $intent['session_letter'] ?? '' );
 			$meta['note']           = sanitize_textarea_field( $intent['note'] );
 			$meta['workflow_status'] = $status;
 			$meta['versions'][]     = self::version_entry( $intent, $probe, $actor_id );
@@ -867,7 +1030,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			return new WP_Error( 'mmed_file_vault_v2_download_unverified', 'This legacy or unverified file is available only through the unchanged V1 fallback.', array( 'status' => 409 ) );
 		}
 
-		$download_name = sanitize_file_name( $selected['original_name'] ?? $row->original_name );
+		$download_name = sanitize_file_name( $selected['canonical_name'] ?? $row->filename ?? $selected['original_name'] ?? $row->original_name );
 		$url = self::presign_download_url( $selected['r2_key'], $download_name );
 		if ( '' === $url ) {
 			return new WP_Error( 'mmed_file_vault_v2_r2_adapter_unavailable', 'A private download URL could not be issued.', array( 'status' => 503 ) );
@@ -1461,6 +1624,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			'name'              => sanitize_text_field( $meta['display_name'] ?: $row->original_name ),
 			'original_name'     => sanitize_file_name( $row->original_name ),
 			'canonical_name'    => sanitize_file_name( $row->filename ),
+			'division'          => sanitize_text_field( $meta['division'] ?? '' ),
+			'program'           => sanitize_text_field( $meta['program'] ?? '' ),
+			'session_letter'    => sanitize_text_field( $meta['session_letter'] ?? '' ),
+			'draft_label'       => sanitize_text_field( $current_version['draft_label'] ?? '' ),
+			'submission_date'   => sanitize_text_field( $current_version['submission_date'] ?? '' ),
 			'document_type'     => self::normalize_document_type( $meta['document_type'] ),
 			'category'          => sanitize_key( $row->category ),
 			'mime_type'         => sanitize_text_field( $row->mime_type ),
@@ -1556,6 +1724,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				'number'        => max( 1, absint( $row->version ) ),
 				'r2_key'        => (string) $row->r2_key,
 				'original_name' => sanitize_file_name( $row->original_name ),
+				'canonical_name'=> sanitize_file_name( $row->filename ),
 				'mime_type'     => sanitize_text_field( $row->mime_type ),
 				'file_size'     => absint( $row->file_size ),
 				'uploaded_at'   => mysql_to_rfc3339( $row->created_at ),
@@ -1580,6 +1749,12 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			'number'        => absint( $intent['version'] ),
 			'r2_key'        => (string) $intent['r2_key'],
 			'original_name' => sanitize_file_name( $intent['original_name'] ),
+			'canonical_name'=> sanitize_file_name( $intent['filename'] ?? '' ),
+			'division'      => sanitize_text_field( $intent['division'] ?? '' ),
+			'program'       => sanitize_text_field( $intent['program'] ?? '' ),
+			'session_letter'=> sanitize_text_field( $intent['session_letter'] ?? '' ),
+			'draft_label'   => sanitize_text_field( $intent['draft_label'] ?? '' ),
+			'submission_date'=> sanitize_text_field( $intent['submission_date'] ?? '' ),
 			'mime_type'     => sanitize_text_field( $intent['mime_type'] ),
 			'file_size'     => absint( $probe['size'] ),
 			'etag'          => sanitize_text_field( $probe['etag'] ?? '' ),
@@ -1828,6 +2003,9 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$meta['document_uuid']    = sanitize_text_field( $intent['document_uuid'] );
 			$meta['versions']         = self::internal_versions( $row, $meta );
 			$meta['versions'][]       = self::version_entry( $projected_intent, $probe, $actor_id );
+			$meta['division']         = sanitize_text_field( $intent['division'] ?? '' );
+			$meta['program']          = sanitize_text_field( $intent['program'] ?? '' );
+			$meta['session_letter']   = sanitize_text_field( $intent['session_letter'] ?? '' );
 			$meta['workflow_status']  = $status;
 			$meta['note']             = sanitize_textarea_field( $intent['note'] ?? '' );
 			$meta                     = self::append_activity( $meta, self::event( 'version_uploaded', $actor_id, 'New version uploaded.' ) );
@@ -1838,6 +2016,9 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		$meta['document_type']   = self::normalize_document_type( $intent['document_type'] );
 		$meta['document_uuid']   = sanitize_text_field( $intent['document_uuid'] );
 		$meta['display_name']    = sanitize_text_field( $intent['display_name'] );
+		$meta['division']        = sanitize_text_field( $intent['division'] ?? '' );
+		$meta['program']         = sanitize_text_field( $intent['program'] ?? '' );
+		$meta['session_letter']  = sanitize_text_field( $intent['session_letter'] ?? '' );
 		$meta['note']            = sanitize_textarea_field( $intent['note'] );
 		$meta['workflow_status'] = $status;
 		$meta['versions'][]      = self::version_entry( $projected_intent, $probe, $actor_id );
@@ -2244,10 +2425,13 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 */
 	protected static function empty_meta() {
 		return array(
-				'schema_version'  => self::META_VERSION,
+			'schema_version'  => self::META_VERSION,
 			'document_uuid'   => '',
 			'document_type'   => 'other',
 			'display_name'    => '',
+			'division'        => '',
+			'program'         => '',
+			'session_letter'  => '',
 			'workflow_status' => 'draft',
 			'note'            => '',
 			'review_note'     => '',

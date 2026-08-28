@@ -174,6 +174,7 @@ fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/uploads/(?P<upload
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/score'] ), 'score route uses numeric legacy IDs' );
 $upload_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/uploads']['args'];
 fv2_assert( 'string' === $upload_route_args['filename']['type'] && 'integer' === $upload_route_args['file_size']['type'] && 'boolean' === $upload_route_args['ready_for_review']['type'], 'upload request bodies have explicit scalar schemas' );
+fv2_assert( 'string' === $upload_route_args['program']['type'] && '^[A-Za-z]$' === $upload_route_args['session_letter']['pattern'], 'canonical program and one-letter session metadata have bounded route schemas' );
 $score_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/score']['args'];
 fv2_assert( 'object' === $score_route_args['category_scores']['type'] && 'string' === $score_route_args['notes']['type'], 'score request bodies reject malformed collection and note types' );
 foreach ( array_keys( $GLOBALS['fv2_routes'] ) as $route ) {

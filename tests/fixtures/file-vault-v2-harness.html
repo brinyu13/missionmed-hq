@@ -295,6 +295,44 @@
 				};
 			}
 
+			function uploadContextFor(studentId) {
+				var student = studentById(studentId);
+				var names = String(student && student.display_name || "Student User").replace(/\s*\(Fixture\)\s*$/, "").trim().split(/\s+/);
+				return {
+					identity: { first_name: names[0] || "Student", last_name: names[names.length - 1] || "User" },
+					division: "Mission Residency",
+					program: "360 Elite",
+					programs: ["360 Elite"],
+					program_locked: true,
+					session_letter: studentId === 102 ? "B" : "A",
+					session_locked: true,
+					submission_date: "2026-07-15",
+					naming_pattern: "FIRSTNAME_LASTNAME_COURSE_SESSIONLETTER_DOCUMENTTYPE_DRAFTVERSION_DATESUBMITTED"
+				};
+			}
+
+			function canonicalToken(value, fallback) {
+				value = String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "").slice(0, 60);
+				return value || fallback;
+			}
+
+			function canonicalFixtureName(studentId, body, documentId) {
+				var context = uploadContextFor(studentId);
+				var existing = documentId ? findDocument(studentId, documentId) : null;
+				var version = existing ? Number(existing.version || 0) + 1 : 1;
+				var label = body.document_type === "other" ? body.display_name : documentTypes[body.document_type] || "Other Document";
+				var extension = String(body.filename || "document.ext").split(".").pop().toLowerCase();
+				return [
+					canonicalToken(context.identity.first_name, "Student"),
+					canonicalToken(context.identity.last_name, "User"),
+					canonicalToken(context.program, "MissionMed"),
+					canonicalToken(context.session_letter, "X"),
+					canonicalToken(label, "Document"),
+					"Draft" + String(version).padStart(2, "0"),
+					context.submission_date
+				].join("_") + "." + extension;
+			}
+
 			function activeDocuments(studentId) {
 				if (scenario === "empty") return [];
 				return documentsByStudent[studentId] || [];
@@ -398,7 +436,8 @@
 					documents: clone(activeDocuments(studentId)),
 					journey: clone(journeyFor(studentId)),
 					library: clone(libraryFor(studentId)),
-						activity: clone(activityFor(studentId)),
+					activity: clone(activityFor(studentId)),
+					upload_context: clone(uploadContextFor(studentId)),
 						document_types: clone(documentTypes),
 						rubrics: clone(rubrics),
 					storage: storageState(),
@@ -423,7 +462,8 @@
 					documents: [],
 						journey: { label: "No document set assigned", requirement_set: { id: "", label: "No document set assigned", source: "" }, items: [], gates: [], complete_count: 0, total_count: 0, coverage_percent: 0 },
 					library: [],
-						activity: [],
+					activity: [],
+					upload_context: {},
 						document_types: clone(documentTypes),
 						rubrics: clone(rubrics),
 					storage: storageState(),
@@ -630,11 +670,14 @@
 				if ((path === "/uploads" || /^\/files\/\d+\/versions$/.test(path)) && method === "POST") {
 					if (fail === "upload") return reject("Fixture upload signing failed.", 503);
 					if (!studentById(requestStudentId)) return reject("Student Vault not found.", 404);
-					harness.pendingUpload = { body: clone(body), documentId: Number((path.match(/^\/files\/(\d+)/) || [])[1] || 0), studentId: requestStudentId };
+					var pendingDocumentId = Number((path.match(/^\/files\/(\d+)/) || [])[1] || 0);
+					var canonicalName = canonicalFixtureName(requestStudentId, body, pendingDocumentId);
+					harness.pendingUpload = { body: clone(body), documentId: pendingDocumentId, studentId: requestStudentId, canonicalName: canonicalName };
 					return mutationResponse({
 						upload_id: "123e4567-e89b-42d3-a456-426614174000",
 						confirm_token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 						upload_url: "https://secure-files.fixture.invalid/upload/123e4567-e89b-42d3-a456-426614174000",
+						canonical_name: canonicalName,
 						required_headers: {
 							"Content-Type": body.mime_type,
 							"x-amz-checksum-sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -652,6 +695,9 @@
 						if (!confirmed) return reject("Document not found.", 404);
 						confirmed.version += 1;
 						confirmed.original_name = pending.body.filename;
+						confirmed.canonical_name = pending.canonicalName;
+						confirmed.program = pending.body.program;
+						confirmed.session_letter = pending.body.session_letter;
 						confirmed.file_size = pending.body.file_size;
 						confirmed.updated_at = now;
 						confirmed.status = pending.body.ready_for_review ? "submitted" : "uploaded";
@@ -661,7 +707,10 @@
 							id: 1199,
 							name: pending.body.display_name || "Fixture Upload",
 							original_name: pending.body.filename,
-							canonical_name: pending.body.filename,
+							canonical_name: pending.canonicalName,
+							division: "Mission Residency",
+							program: pending.body.program,
+							session_letter: pending.body.session_letter,
 							document_type: pending.body.document_type || "other",
 							category: "student",
 							mime_type: pending.body.mime_type,
@@ -676,7 +725,7 @@
 								download_available: true,
 								verification_state: "ready_clean",
 							open_comment_count: 0,
-							versions: [{ number: 1, original_name: pending.body.filename, uploader_name: role === "student" ? "Avery Rivera (Fixture)" : "Admin Fixture", uploaded_at: now, file_size: pending.body.file_size, note: pending.body.note || "" }],
+							versions: [{ number: 1, original_name: pending.body.filename, canonical_name: pending.canonicalName, uploader_name: role === "student" ? "Avery Rivera (Fixture)" : "Admin Fixture", uploaded_at: now, file_size: pending.body.file_size, note: pending.body.note || "" }],
 							comments: [],
 							scores: [],
 							latest_score: null

@@ -83,7 +83,22 @@ class FV2_Fake_DB {
 $GLOBALS['wpdb'] = new FV2_Fake_DB();
 $GLOBALS['fv2_transients'] = array();
 $GLOBALS['fv2_users'] = array();
-$GLOBALS['fv2_user_meta'] = array();
+$GLOBALS['fv2_user_meta'] = array(
+	10 => array(
+		'first_name' => 'Avery',
+		'last_name' => 'Rivera',
+		'_mmed_primary_division' => 'Mission Residency',
+		'_mmed_program_tier' => '360 Elite',
+		'_mmed_session_letter' => 'A',
+	),
+	12 => array(
+		'first_name' => 'Jordan',
+		'last_name' => 'Lee',
+		'_mmed_primary_division' => 'Mission Residency',
+		'_mmed_program_tier' => 'Foundation',
+		'_mmed_session_letter' => 'B',
+	),
+);
 $GLOBALS['fv2_admins'] = array( 20 => true );
 $GLOBALS['fv2_options'] = array(
 	'mmed_file_vault_v2_user_quota_bytes' => 104857600,
@@ -244,7 +259,7 @@ $intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 	)
 );
 fv2_repo_assert( ! is_wp_error( $intent ), 'new upload intent created' );
-fv2_repo_assert( preg_match( '/^MMED_personal_statement_v1_/', $intent['canonical_name'] ), 'canonical filename is server-generated' );
+fv2_repo_assert( 'Avery_Rivera_360Elite_A_PersonalStatement_Draft01_' . gmdate( 'Y-m-d' ) . '.docx' === $intent['canonical_name'], 'canonical filename is deterministic and server-generated from authoritative account metadata' );
 $internal_intent = $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $intent['upload_id']];
 fv2_repo_assert( 0 === strpos( $internal_intent['r2_key'], 'student-files/v2/staging/' ) && 0 === strpos( $internal_intent['final_r2_key'], 'student-files/v2/objects/' ), 'uploads use private V2 staging and immutable object prefixes' );
 
@@ -253,6 +268,7 @@ $document = MMED_File_Vault_V2_Repository::confirm_upload_intent( $intent['uploa
 unset( $GLOBALS['fv2_fail_transient'] );
 fv2_repo_assert( ! is_wp_error( $document ) && 1 === $document['id'], 'upload finalizes a document' );
 fv2_repo_assert( 'draft' === $document['status'] && 1 === $document['version'], 'initial workflow state and version are truthful' );
+fv2_repo_assert( '360 Elite' === $document['program'] && 'A' === $document['session_letter'] && 'Draft01' === $document['versions'][0]['draft_label'], 'canonical enrollment and version metadata persist with the document' );
 fv2_repo_assert( MMED_File_Vault_V2_Repository::current_version_verified( 1 ), 'confirmed V2 document has a verified current version' );
 fv2_repo_assert( false === strpos( json_encode( $document ), 'r2_key' ) && false === strpos( json_encode( $document ), 'student-files/' ), 'object keys are scrubbed from public responses' );
 fv2_repo_assert( 'completed' === $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $intent['upload_id']]['state'], 'failed primary completion receipt falls back to a checked completed intent receipt' );
@@ -321,6 +337,7 @@ $version_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 );
 $versioned = MMED_File_Vault_V2_Repository::confirm_upload_intent( $version_intent['upload_id'], $version_intent['confirm_token'], 10 );
 fv2_repo_assert( ! is_wp_error( $versioned ) && 2 === $versioned['version'] && 2 === count( $versioned['versions'] ), 'new upload creates immutable version history' );
+fv2_repo_assert( 'Avery_Rivera_360Elite_A_PersonalStatement_Draft02_' . gmdate( 'Y-m-d' ) . '.docx' === $versioned['canonical_name'] && 'Draft02' === $versioned['versions'][1]['draft_label'], 'replacement upload increments the canonical version without deleting prior history' );
 fv2_repo_assert( 'submitted' === $versioned['status'], 'version can submit for review at confirmation' );
 fv2_repo_assert( 32 === $versioned['versions'][0]['score'] && 40 === $versioned['versions'][0]['score_max'], 'historical score and denominator remain attached to their version' );
 
