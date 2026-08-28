@@ -14,7 +14,7 @@
     "start": "node server.mjs",
     "start:production": "node tools/start-production.mjs",
     "verify:railway-target": "node tools/assert-railway-project.mjs",
-    "deploy:production": "npm run verify:railway-target && railway up --project c0113625-951e-46ab-939b-dd57acc0e87c --environment 549d6597-1962-44cb-b0f5-7d88bd025e31 --service 9bce2090-ce45-4572-8291-e8da5d42acb6 --detach --json --message P1-RISE-5006-remediated-release",
+    "deploy:production": "npm run verify:railway-target && railway up .. --path-as-root --project c0113625-951e-46ab-939b-dd57acc0e87c --environment 549d6597-1962-44cb-b0f5-7d88bd025e31 --service 9bce2090-ce45-4572-8291-e8da5d42acb6 --detach --json --message P1-RISE-5006-remediated-release",
     "test": "node --test tests/*.test.mjs",
     "pretest:browser": "npm run build",
     "test:browser": "playwright test --config playwright.config.mjs",
