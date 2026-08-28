@@ -61,37 +61,30 @@
             </button>
           </header>
           <div class="module-body metric-mosaic head-face-mosaic" id="head-face-body">
-            <section class="metric-module face-region-module" data-visibility-metric="head-face.region-status" aria-label="Facial region status">
-              <button class="metric-eye" type="button" data-metric-toggle="head-face.region-status" aria-label="Hide facial region status" aria-pressed="true">◉</button>
+            <section class="metric-module face-region-module" data-visibility-metric="head-face.region-status" aria-label="Facial signal map">
+              <button class="metric-eye" type="button" data-metric-toggle="head-face.region-status" aria-label="Hide facial signal map" aria-pressed="true">◉</button>
               <div class="scan-well scan-well-face">
                 <canvas class="hud-canvas" data-hud-canvas="head-face" aria-label="Head and face observable geometry display"></canvas>
-                <div class="scan-reticle" aria-hidden="true"></div>
+                <svg class="anatomical-signal-map face-signal-map" viewBox="0 0 222 165" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                  <g class="signal-region signal-region-stroke" data-face-map-region="eyebrows"><path d="M51 57 Q70 47 91 57 M131 57 Q151 47 171 57"/></g>
+                  <g class="signal-region" data-face-map-region="eyes"><path d="M51 68 Q70 55 91 68 Q70 83 51 68Z M131 68 Q151 55 172 68 Q151 83 131 68Z"/></g>
+                  <g class="signal-region" data-face-map-region="cheeks"><path d="M39 84 Q54 75 76 83 L70 116 Q54 126 44 108Z M183 84 Q168 75 146 83 L152 116 Q168 126 178 108Z"/></g>
+                  <g class="signal-region" data-face-map-region="mouth"><path d="M77 120 Q111 103 145 120 Q111 143 77 120Z"/></g>
+                  <g class="signal-region signal-region-stroke" data-face-map-region="chin"><path d="M82 140 Q111 158 141 140"/></g>
+                </svg>
                 <span class="scan-label scan-label-top">Face scan</span>
                 <span class="scan-label scan-label-bottom" data-hud-state="head-face">NO CAMERA SIGNAL</span>
-              </div>
-              <div class="face-region-list" aria-label="Observable facial signal regions">
-                <h3>Facial region status</h3>
-                <span data-face-region="eyes"><i></i>Eyes<strong>Unavailable</strong></span>
-                <span data-face-region="eyebrows"><i></i>Eyebrows<strong>Unavailable</strong></span>
-                <span data-face-region="cheeks"><i></i>Cheeks<strong>Unavailable</strong></span>
-                <span data-face-region="mouth"><i></i>Mouth / smile<strong>Unavailable</strong></span>
-                <span data-face-region="lips"><i></i>Lips / opening<strong>Unavailable</strong></span>
-                <span data-face-region="chin"><i></i>Chin / jaw<strong>Unavailable</strong></span>
               </div>
             </section>
 
             <section class="metric-module smile-pattern-module" data-visibility-metric="head-face.smile-pattern">
               <button class="metric-eye" type="button" data-metric-toggle="head-face.smile-pattern" aria-label="Hide smile geometry activity" aria-pressed="true">◉</button>
               <h3>Smile-pattern activity</h3>
-              <div class="metric-arc" data-face-smile-gauge><span data-face-smile-value>—</span><small>Observed pattern</small></div>
+              <div class="smile-pattern-content">
+                <div class="metric-arc" data-face-smile-gauge><span data-face-smile-value>—</span><small>Observed pattern</small></div>
+                <div class="smile-event-inline"><span>Qualifying events</span><strong data-face-smile-events>—</strong></div>
+              </div>
               <p data-face-smile-status>Unavailable</p>
-            </section>
-
-            <section class="metric-module smile-events-module" data-visibility-metric="head-face.smile-events">
-              <button class="metric-eye" type="button" data-metric-toggle="head-face.smile-events" aria-label="Hide smile pattern events" aria-pressed="true">◉</button>
-              <h3>Smile-pattern events</h3>
-              <strong class="event-value" data-face-smile-events>—</strong>
-              <p>Qualifying observable patterns</p>
             </section>
 
             <section class="metric-module camera-facing-module" data-visibility-metric="head-face.camera-facing-balance">
@@ -148,19 +141,15 @@
             <section class="metric-module body-wireframe-module" data-visibility-metric="body-posture.wireframe">
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.wireframe" aria-label="Hide body wireframe" aria-pressed="true">◉</button>
               <canvas class="hud-canvas" data-hud-canvas="body" aria-label="Body, posture, and hand observable geometry display"></canvas>
+              <svg class="anatomical-signal-map body-signal-map" viewBox="0 0 200 221" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <g class="signal-region signal-region-stroke" data-body-map-region="shoulders"><path d="M70 50 Q100 37 130 50"/></g>
+                <g class="signal-region" data-body-map-region="torso"><path d="M73 51 Q84 44 99 50 L96 82 Q82 87 72 72Z M127 51 Q116 44 101 50 L104 82 Q118 87 128 72Z"/></g>
+                <g class="signal-region" data-body-map-region="left-hand"><path d="M45 111 L54 106 L59 121 L52 132 L43 126Z"/></g>
+                <g class="signal-region" data-body-map-region="right-hand"><path d="M155 111 L146 106 L141 121 L148 132 L157 126Z"/></g>
+                <g class="signal-region signal-region-stroke" data-body-map-region="movement"><path d="M82 87 Q100 98 118 87 M78 104 Q100 116 122 104"/></g>
+              </svg>
               <span class="scan-label scan-label-top">Body scan</span>
               <span class="scan-label scan-label-bottom" data-hud-state="body">NO CAMERA SIGNAL</span>
-            </section>
-            <section class="metric-module body-alignment-module" data-visibility-metric="body-posture.alignment">
-              <button class="metric-eye" type="button" data-metric-toggle="body-posture.alignment" aria-label="Hide alignment proxy" aria-pressed="true">◉</button>
-              <h3>Framing / alignment proxy</h3>
-              <div class="alignment-gauge"><i data-body-alignment-needle></i><strong data-body-alignment>—</strong></div>
-              <dl class="posture-status-list">
-                <div><dt>Torso framing</dt><dd data-body-spine>UNAVAILABLE</dd></div>
-                <div><dt>Shoulder line</dt><dd data-hud-readout="body:shoulders">UNAVAILABLE</dd></div>
-                <div><dt>Body center</dt><dd data-body-head-position>UNAVAILABLE</dd></div>
-                <div><dt>Centered in frame</dt><dd data-body-centered-summary>UNAVAILABLE</dd></div>
-              </dl>
             </section>
             <section class="metric-module body-status-module" data-visibility-metric="body-posture.in-frame">
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.in-frame" aria-label="Hide in-frame status" aria-pressed="true">◉</button>
@@ -360,7 +349,7 @@
           </header>
           <div class="module-body" id="pitch-body">
             <div class="pitch-layout">
-              <canvas class="hud-canvas instrument-canvas pitch-canvas" data-hud-canvas="pitch" aria-label="Speaker-relative pitch register"></canvas>
+              <canvas class="hud-canvas instrument-canvas pitch-canvas" data-hud-canvas="pitch" aria-label="Speaker-relative piano-key pitch register"></canvas>
               <div class="pitch-readout"><span class="hud-value" data-hud-value="pitch">—</span><span>semitones from your median</span></div>
             </div>
             <p class="instrument-status" data-hud-state="pitch" data-state="unavailable">UNAVAILABLE — voiced F0 frames required</p>
@@ -383,9 +372,8 @@
       </div>
       <div class="customizer-groups">
         <fieldset data-customizer-family="head-face"><legend><label><input type="checkbox" data-family-checkbox="head-face"> Head / Face</label></legend>
-          <label><input type="checkbox" data-visibility-toggle="head-face.region-status"> Facial region status</label>
+          <label><input type="checkbox" data-visibility-toggle="head-face.region-status"> Facial signal map</label>
           <label><input type="checkbox" data-visibility-toggle="head-face.smile-pattern"> Smile geometry activity</label>
-          <label><input type="checkbox" data-visibility-toggle="head-face.smile-events"> Smile pattern events</label>
           <label><input type="checkbox" data-visibility-toggle="head-face.camera-facing-balance"> Camera-facing dwell proxy</label>
           <label><input type="checkbox" data-visibility-toggle="head-face.blink-rate"> Blink rate</label>
           <label><input type="checkbox" data-visibility-toggle="head-face.speaking-pace"> Speaking pace mirror</label>
@@ -394,7 +382,6 @@
         </fieldset>
         <fieldset data-customizer-family="body-posture"><legend><label><input type="checkbox" data-family-checkbox="body-posture"> Body / Posture</label></legend>
           <label><input type="checkbox" data-visibility-toggle="body-posture.wireframe"> Body wireframe</label>
-          <label><input type="checkbox" data-visibility-toggle="body-posture.alignment"> Alignment proxy</label>
           <label><input type="checkbox" data-visibility-toggle="body-posture.in-frame"> In-frame status</label>
           <label><input type="checkbox" data-visibility-toggle="body-posture.hands-visible"> Hands visible</label>
           <label><input type="checkbox" data-visibility-toggle="body-posture.gesture-activity"> Gesture activity</label>

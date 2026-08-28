@@ -193,20 +193,60 @@ function drawUnavailable(context, width, height, reason) {
   context.fillText(message, width / 2, height / 2, Math.max(80, width - 18));
 }
 
-function paintTeachingRegion(context, width, height, { x, y, rx, ry, color, active = false }) {
-  context.save();
-  const centerX = width * x;
-  const centerY = height * y;
-  context.globalAlpha = active ? .56 : .18;
-  context.fillStyle = color;
-  context.beginPath();
-  context.ellipse(centerX, centerY, width * rx, height * ry, 0, 0, Math.PI * 2);
-  context.fill();
-  context.globalAlpha = active ? .92 : .36;
-  context.lineWidth = active ? 1.7 : 1;
-  context.strokeStyle = color;
-  context.stroke();
-  context.restore();
+function setSignalRegion(node, state) {
+  if (node?.dataset) node.dataset.state = stateName(state);
+}
+
+const PIANO_WHITE_KEYS = Object.freeze([
+  { offset: -7, index: 0 }, { offset: -5, index: 1 }, { offset: -3, index: 2 },
+  { offset: -1, index: 3 }, { offset: 0, index: 4 }, { offset: 2, index: 5 },
+  { offset: 4, index: 6 }, { offset: 5, index: 7 }, { offset: 7, index: 8 },
+]);
+const PIANO_BLACK_KEYS = Object.freeze([
+  { offset: -6, after: 0 }, { offset: -4, after: 1 }, { offset: -2, after: 2 },
+  { offset: 1, after: 4 }, { offset: 3, after: 5 }, { offset: 6, after: 7 },
+]);
+
+function drawPianoKeyboard(context, width, height, { activeSemitone = null, held = false } = {}) {
+  clearScreen(context, width, height, { grid: false });
+  const left = 5;
+  const top = 5;
+  const labelHeight = 15;
+  const keyHeight = Math.max(24, height - top - labelHeight);
+  const whiteWidth = Math.max(5, (width - left * 2) / PIANO_WHITE_KEYS.length);
+  const active = finite(activeSemitone) ? clamp(Math.round(activeSemitone), -7, 7) : null;
+  for (const key of PIANO_WHITE_KEYS) {
+    const x = left + key.index * whiteWidth;
+    context.fillStyle = key.offset === active ? (held ? '#7f7142' : COLORS.gold) : '#dce5ea';
+    context.fillRect(x, top, Math.max(2, whiteWidth - 1), keyHeight);
+    context.strokeStyle = '#172536';
+    context.lineWidth = 1;
+    context.strokeRect(x, top, Math.max(2, whiteWidth - 1), keyHeight);
+    if (key.offset === 0) {
+      context.fillStyle = COLORS.cyan;
+      context.fillRect(x + 2, top + keyHeight - 5, Math.max(1, whiteWidth - 5), 3);
+    }
+  }
+  const blackWidth = whiteWidth * .58;
+  const blackHeight = keyHeight * .62;
+  for (const key of PIANO_BLACK_KEYS) {
+    const x = left + (key.after + 1) * whiteWidth - blackWidth / 2;
+    context.fillStyle = key.offset === active ? (held ? '#6f5b2c' : COLORS.orange) : '#07101d';
+    context.fillRect(x, top, blackWidth, blackHeight);
+    context.strokeStyle = key.offset === active ? COLORS.gold : '#2e4355';
+    context.strokeRect(x, top, blackWidth, blackHeight);
+  }
+  context.font = '700 8px ui-monospace, monospace';
+  context.textBaseline = 'alphabetic';
+  context.fillStyle = COLORS.dim;
+  context.textAlign = 'left';
+  context.fillText('LOW', left, height - 3);
+  context.textAlign = 'center';
+  context.fillStyle = COLORS.cyan;
+  context.fillText('MEDIAN', width / 2, height - 3);
+  context.textAlign = 'right';
+  context.fillStyle = COLORS.dim;
+  context.fillText('HIGH', width - left, height - 3);
 }
 
 function drawTrend(canvas, values, { color = COLORS.cyan, floor = null, ceiling = null } = {}) {
@@ -494,7 +534,7 @@ export class HeadFaceHudRenderer extends HudRenderer {
     super(root, 'head-face');
     this.captureState = root.querySelector('[data-module="head-face"] .capture-state');
     this.readouts = Object.fromEntries(['framing', 'orientation', 'movement', 'events'].map((key) => [key, root.querySelector(`[data-hud-readout="head-face:${key}"]`)]));
-    this.regions = Object.fromEntries(['eyes', 'eyebrows', 'cheeks', 'mouth', 'lips', 'chin'].map((key) => [key, root.querySelector(`[data-face-region="${key}"]`)]));
+    this.signalRegions = Object.fromEntries(['eyes', 'eyebrows', 'cheeks', 'mouth', 'chin'].map((key) => [key, root.querySelector(`[data-face-map-region="${key}"]`)]));
     this.smileGauge = root.querySelector('[data-face-smile-gauge]');
     this.smileValue = root.querySelector('[data-face-smile-value]');
     this.smileStatus = root.querySelector('[data-face-smile-status]');
@@ -516,10 +556,7 @@ export class HeadFaceHudRenderer extends HudRenderer {
     const idle = ['NO_VISION_FRAMES', 'NO_CAMERA_SIGNAL'].includes(reason);
     setText(this.captureState, idle ? '● Idle' : '● Signal gap', idle ? 'idle' : 'unavailable');
     Object.values(this.readouts).forEach((node) => setText(node, 'UNAVAILABLE', 'unavailable'));
-    Object.values(this.regions).forEach((node) => {
-      node?.setAttribute('data-state', 'unavailable');
-      setText(node?.querySelector('strong'), 'Unavailable', 'unavailable');
-    });
+    Object.values(this.signalRegions).forEach((node) => setSignalRegion(node, 'unavailable'));
     setText(this.smileValue, '—', 'unavailable');
     setText(this.smileStatus, 'Unavailable', 'unavailable');
     setText(this.smileEvents, '—', 'unavailable');
@@ -543,36 +580,19 @@ export class HeadFaceHudRenderer extends HudRenderer {
     // Raw landmarks and camera pixels belong only on the center camera.
     fit.context.clearRect(0, 0, fit.width, fit.height);
     const mouthActive = frame.mouthCornerElevation?.active === true;
+    const browObserved = frame.movementLabel !== 'UNAVAILABLE';
     const browActive = frame.movementLabel === 'OBSERVED';
     const periocularActive = frame.periocularContraction?.active === true;
     const gazeAvailable = frame.gazeProxy?.available === true;
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .39, y: .38, rx: .11, ry: .055, color: COLORS.ok, active: gazeAvailable });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .61, y: .38, rx: .11, ry: .055, color: COLORS.ok, active: gazeAvailable });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .39, y: .29, rx: .13, ry: .035, color: COLORS.cyan, active: browActive });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .61, y: .29, rx: .13, ry: .035, color: COLORS.cyan, active: browActive });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .30, y: .56, rx: .12, ry: .10, color: COLORS.orange, active: periocularActive });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .70, y: .56, rx: .12, ry: .10, color: COLORS.orange, active: periocularActive });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .50, y: .68, rx: .19, ry: .07, color: COLORS.bad, active: mouthActive });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .50, y: .84, rx: .13, ry: .055, color: COLORS.cyan, active: true });
+    setSignalRegion(this.signalRegions.eyes, gazeAvailable ? 'ok' : 'bad');
+    setSignalRegion(this.signalRegions.eyebrows, browActive ? 'ok' : (browObserved ? 'warn' : 'bad'));
+    setSignalRegion(this.signalRegions.cheeks, periocularActive ? 'ok' : (frame.periocularContraction?.available ? 'warn' : 'bad'));
+    setSignalRegion(this.signalRegions.mouth, mouthActive ? 'ok' : (frame.mouthCornerElevation?.available ? 'warn' : 'bad'));
+    setSignalRegion(this.signalRegions.chin, frame.present ? 'ok' : 'bad');
 
     const yaw = frame.yawProxyDeg ?? frame.yawDeg;
     const pitch = frame.pitchProxyDeg ?? frame.pitchDeg;
     const roll = frame.rollProxyDeg ?? frame.rollDeg;
-    if (finite(yaw) || finite(pitch)) {
-      const cx = fit.width / 2;
-      const cy = fit.height / 2;
-      fit.context.strokeStyle = COLORS.gold;
-      fit.context.lineWidth = 2;
-      fit.context.beginPath();
-      fit.context.moveTo(cx, cy);
-      fit.context.lineTo(cx + clamp(yaw || 0, -35, 35) / 35 * fit.width * .16, cy + clamp(pitch || 0, -30, 30) / 30 * fit.height * .13);
-      fit.context.stroke();
-      fit.context.fillStyle = COLORS.gold;
-      fit.context.beginPath();
-      fit.context.arc(cx, cy, 2.5, 0, Math.PI * 2);
-      fit.context.fill();
-    }
-
     const framing = frame.framingLabel || (typeof frame.centered === 'boolean' ? (frame.centered ? 'CENTERED' : 'OFF CENTER') : (frame.present ? 'IN FRAME' : 'UNAVAILABLE'));
     const orientation = [yaw, pitch, roll].every(finite)
       ? `Y ${formatNumber(yaw, 0)}° · P ${formatNumber(pitch, 0)}° · R ${formatNumber(roll, 0)}°`
@@ -589,20 +609,6 @@ export class HeadFaceHudRenderer extends HudRenderer {
     setText(this.status, `TEACHING HUD · ${conversationState}`, frame.state || 'ok');
     setText(this.captureState, '● Live', 'live');
 
-    const regionStatus = {
-      eyes: frame.gazeProxy?.available,
-      eyebrows: frame.movementLabel !== 'UNAVAILABLE',
-      cheeks: frame.periocularContraction?.available,
-      mouth: frame.mouthCornerElevation?.available,
-      lips: frame.mouthCornerElevation?.available,
-      chin: frame.present === true,
-    };
-    for (const [key, available] of Object.entries(regionStatus)) {
-      const node = this.regions[key];
-      const state = available ? 'tracked' : 'limited';
-      node?.setAttribute('data-state', state);
-      setText(node?.querySelector('strong'), available ? 'Tracked' : 'Limited signal', available ? 'ok' : 'warn');
-    }
     const smile = frame.mouthCornerElevation;
     const smileLevel = smile?.available ? clamp(smile.bilateral ?? (smile.active ? .7 : .25)) : null;
     if (this.smileGauge) {
@@ -637,6 +643,7 @@ export class BodyHudRenderer extends HudRenderer {
     this.centeredSummary = root.querySelector('[data-body-centered-summary]');
     this.movement = root.querySelector('[data-body-movement]');
     this.trend = root.querySelector('[data-body-trend]');
+    this.signalRegions = Object.fromEntries(['shoulders', 'torso', 'left-hand', 'right-hand', 'movement'].map((key) => [key, root.querySelector(`[data-body-map-region="${key}"]`)]));
   }
 
   unavailable(reason = 'NO_CAMERA_SIGNAL') {
@@ -652,6 +659,7 @@ export class BodyHudRenderer extends HudRenderer {
     setText(this.headPosition, 'UNAVAILABLE', 'unavailable');
     setText(this.centeredSummary, 'UNAVAILABLE', 'unavailable');
     setText(this.movement, 'UNAVAILABLE', 'unavailable');
+    Object.values(this.signalRegions).forEach((node) => setSignalRegion(node, 'unavailable'));
     if (this.alignmentNeedle) this.alignmentNeedle.style.transform = 'rotate(0deg)';
     drawTrend(this.trend, []);
   }
@@ -672,12 +680,11 @@ export class BodyHudRenderer extends HudRenderer {
     const centeredObserved = frame.centered === true;
     const movementActive = frame.movementLevel?.active === true;
     const activeRegion = ['left', 'right', 'both'].includes(frame.activeRegion) ? frame.activeRegion : null;
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .50, y: .37, rx: .14, ry: .15, color: COLORS.ok, active: centeredObserved });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .42, y: .27, rx: .09, ry: .06, color: COLORS.cyan, active: frame.present === true });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .58, y: .27, rx: .09, ry: .06, color: COLORS.cyan, active: frame.present === true });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .21, y: .61, rx: .08, ry: .09, color: COLORS.gold, active: leftHandPresent || ['left', 'both'].includes(activeRegion) });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .79, y: .61, rx: .08, ry: .09, color: COLORS.orange, active: rightHandPresent || ['right', 'both'].includes(activeRegion) });
-    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .50, y: .62, rx: .12, ry: .12, color: COLORS.warn, active: movementActive });
+    setSignalRegion(this.signalRegions.torso, centeredObserved ? 'ok' : (frame.present ? 'warn' : 'bad'));
+    setSignalRegion(this.signalRegions.shoulders, frame.present ? (finite(frame.shoulderTiltDeg) && Math.abs(frame.shoulderTiltDeg) <= 8 ? 'ok' : 'warn') : 'bad');
+    setSignalRegion(this.signalRegions['left-hand'], leftHandPresent ? 'ok' : 'bad');
+    setSignalRegion(this.signalRegions['right-hand'], rightHandPresent ? 'ok' : 'bad');
+    setSignalRegion(this.signalRegions.movement, movementActive ? 'warn' : (frame.movementLevel?.available ? 'ok' : 'neutral'));
     const centered = frame.centeredLabel || (typeof frame.centered === 'boolean' ? (frame.centered ? 'CENTERED' : 'OFF CENTER') : 'UNAVAILABLE');
     const shoulders = frame.shoulderLabel || (finite(frame.shoulderTiltDeg) ? `${formatNumber(frame.shoulderTiltDeg, 1)}° TILT` : 'UNAVAILABLE');
     const hands = frame.handsLabel || ((leftHandPresent || rightHandPresent) ? `${leftHandPresent ? 'L' : '—'} / ${rightHandPresent ? 'R' : '—'} VISIBLE` : 'UNAVAILABLE');
@@ -962,7 +969,11 @@ export class PitchHudRenderer extends HudRenderer {
 
   unavailable(reason = 'VOICED_F0_REQUIRED') {
     this.lastVoicedFrame = null;
-    super.unavailable(reason);
+    this.lastFrame = Object.freeze({ available: false, reason });
+    const fit = this.context();
+    if (fit) drawPianoKeyboard(fit.context, fit.width, fit.height);
+    setText(this.value, '—', 'unavailable');
+    setText(this.status, `UNAVAILABLE — ${labelReason(reason)}`, 'unavailable');
   }
 
   draw(frame) {
@@ -976,14 +987,7 @@ export class PitchHudRenderer extends HudRenderer {
     }
     if (frame.voiced === false && frame.available !== false && !recentHold) {
       const fit = this.context();
-      if (fit) {
-        clearScreen(fit.context, fit.width, fit.height, { grid: false });
-        fit.context.fillStyle = COLORS.dim;
-        fit.context.font = '700 9px "Space Grotesk", ui-monospace, monospace';
-        fit.context.textAlign = 'center';
-        fit.context.textBaseline = 'middle';
-        fit.context.fillText('UNVOICED FRAME', fit.width / 2, fit.height / 2);
-      }
+      if (fit) drawPianoKeyboard(fit.context, fit.width, fit.height);
       setText(this.value, '—', 'idle');
       setText(this.status, 'UNVOICED — WAITING FOR VALID F0', 'idle');
       return;
@@ -994,35 +998,8 @@ export class PitchHudRenderer extends HudRenderer {
     }
     const fit = this.context();
     if (!fit) return;
-    clearScreen(fit.context, fit.width, fit.height, { grid: false });
-    const rows = [2, 1, 0, -1, -2];
-    const register = finite(displayFrame.register) ? clamp(Math.round(Number(displayFrame.register)), -2, 2) : clamp(Math.round(Number(displayFrame.semitones) / 2), -2, 2);
-    const rowHeight = fit.height / rows.length;
-    rows.forEach((row, index) => {
-      const active = row === register;
-      const median = row === 0;
-      const y = index * rowHeight;
-      fit.context.fillStyle = median ? 'rgba(57,214,255,.82)' : 'rgba(27,42,82,.68)';
-      fit.context.fillRect(4, y + 2, fit.width - 8, Math.max(2, rowHeight - 4));
-      if (active) {
-        fit.context.strokeStyle = COLORS.gold;
-        fit.context.lineWidth = 2;
-        fit.context.strokeRect(3, y + 1, fit.width - 6, Math.max(3, rowHeight - 2));
-        fit.context.fillStyle = COLORS.gold;
-        fit.context.beginPath();
-        fit.context.moveTo(fit.width - 16, y + rowHeight / 2);
-        fit.context.lineTo(fit.width - 7, y + rowHeight / 2 - 4);
-        fit.context.lineTo(fit.width - 7, y + rowHeight / 2 + 4);
-        fit.context.closePath();
-        fit.context.fill();
-      }
-      fit.context.fillStyle = median ? '#03151b' : COLORS.dim;
-      fit.context.font = '700 9px ui-monospace, monospace';
-      fit.context.textAlign = 'left';
-      fit.context.textBaseline = 'middle';
-      fit.context.fillText(row === 0 ? 'MEDIAN' : `${row > 0 ? '+' : ''}${row}`, 8, y + rowHeight / 2);
-    });
     const semitones = Number(displayFrame.semitones);
+    drawPianoKeyboard(fit.context, fit.width, fit.height, { activeSemitone: semitones, held: recentHold });
     setText(this.value, `${semitones >= 0 ? '+' : ''}${semitones.toFixed(1)} st`, recentHold ? 'idle' : frame.state || 'neutral');
     setText(this.status, recentHold ? 'RECENT VALID F0 · CURRENT FRAME UNVOICED' : frame.label || 'SPEAKER-RELATIVE REGISTER', recentHold ? 'idle' : frame.state || 'neutral');
   }

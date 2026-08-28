@@ -145,6 +145,11 @@ test('physical and deterministic sources mount the identical full Founder presen
   const css = await readFile(new URL('../../public/live-analytics/live-analytics.css', import.meta.url), 'utf8');
   assert.match(css, /founder-face-scanner\.png/u);
   assert.match(css, /founder-body-scanner\.png/u);
+  assert.doesNotMatch(html, /Facial region status|smile-events-module|body-alignment-module/u);
+  assert.match(html, /smile-pattern-content[\s\S]*data-face-smile-events/u);
+  assert.match(html, /data-face-map-region="mouth"/u);
+  assert.match(html, /data-body-map-region="torso"/u);
+  assert.match(html, /Speaker-relative piano-key pitch register/u);
   const renderers = await readFile(new URL('../../public/live-analytics/hud-renderers.mjs', import.meta.url), 'utf8');
   const headUnavailable = renderers.split('export class HeadFaceHudRenderer')[1]?.split('  draw(frame) {')[0] || '';
   const bodyUnavailable = renderers.split('export class BodyHudRenderer')[1]?.split('  draw(frame) {')[0] || '';

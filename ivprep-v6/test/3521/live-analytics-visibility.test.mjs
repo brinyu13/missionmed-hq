@@ -70,7 +70,7 @@ function visionFrame(atMs, movement = 0.2) {
 }
 
 test('the presentation registry is canonical and every metric has one surface and one drawer control', async () => {
-  assert.equal(ANALYTICS_METRIC_IDS.length, 22);
+  assert.equal(ANALYTICS_METRIC_IDS.length, 20);
   assert.equal(new Set(ANALYTICS_METRIC_IDS).size, ANALYTICS_METRIC_IDS.length);
   assert.deepEqual(ANALYTICS_METRIC_IDS, Object.values(ANALYTICS_FAMILIES).flat());
   const html = await readFile(new URL('../../public/live-analytics/index.html', import.meta.url), 'utf8');
@@ -92,7 +92,7 @@ test('Minimal is the no-preference default and presets are exact', () => {
 test('individual controls create Custom without collapsing a partially visible family', () => {
   const state = new AnalyticsVisibilityState({ preset: 'full', storage: new MemoryStorage() });
   for (const id of [
-    'head-face.smile-events',
+    'head-face.smile-pattern',
     'head-face.camera-facing-balance',
     'head-face.geometry-trend',
   ]) state.setMetricVisible(id, false);
@@ -106,7 +106,7 @@ test('individual controls create Custom without collapsing a partially visible f
 
 test('family off/on remembers the prior subset and rails remain independent', () => {
   const state = new AnalyticsVisibilityState({ preset: 'full', storage: new MemoryStorage() });
-  state.setMetricVisible('body-posture.alignment', false);
+  state.setMetricVisible('body-posture.in-frame', false);
   const priorBody = state.snapshot().visibleMetricIds.filter((id) => id.startsWith('body-posture.'));
   state.setFamilyVisible('body-posture', false);
   assert.equal(state.snapshot().familyState['body-posture'], 'off');
@@ -121,7 +121,7 @@ test('family off/on remembers the prior subset and rails remain independent', ()
 
 test('visible module and rail collapse controls restore prior Custom subsets', () => {
   const state = new AnalyticsVisibilityState({ preset: 'full', storage: new MemoryStorage() });
-  state.setMetricVisible('head-face.smile-events', false);
+  state.setMetricVisible('head-face.smile-pattern', false);
   const priorHead = state.snapshot().visibleMetricIds.filter((id) => id.startsWith('head-face.'));
   state.setModuleVisible('head-face', false);
   state.setModuleVisible('head-face', true);
@@ -145,7 +145,7 @@ test('Interview Only restores Minimal as well as Custom', () => {
 test('Interview Only preserves the saved Custom set', () => {
   const storage = new MemoryStorage();
   const state = new AnalyticsVisibilityState({ preset: 'full', storage });
-  state.setMetricVisible('head-face.smile-events', false);
+  state.setMetricVisible('head-face.smile-pattern', false);
   const custom = state.snapshot().visibleMetricIds;
   state.setMode('interview');
   assert.deepEqual(state.snapshot().visibleMetricIds, []);
@@ -186,10 +186,10 @@ test('metric histories and counters advance while their presentation IDs are hid
   const projector = new LiveMetricProjector();
   projector.ingest(visionFrame(1_000, 0.1));
   for (const id of [
-    'head-face.smile-events',
+    'head-face.smile-pattern',
     'head-face.camera-facing-balance',
     'head-face.geometry-trend',
-    'body-posture.alignment',
+    'body-posture.in-frame',
     'body-posture.hands-visible',
     'body-posture.gesture-activity',
   ]) state.setMetricVisible(id, false);
@@ -202,10 +202,10 @@ test('metric histories and counters advance while their presentation IDs are hid
   assert.equal(state.snapshot().familyState['head-face'], 'mixed');
   assert.equal(state.snapshot().familyState['body-posture'], 'mixed');
   for (const id of [
-    'head-face.smile-events',
+    'head-face.smile-pattern',
     'head-face.camera-facing-balance',
     'head-face.geometry-trend',
-    'body-posture.alignment',
+    'body-posture.in-frame',
     'body-posture.hands-visible',
     'body-posture.gesture-activity',
   ]) assert.equal(state.snapshot().visibleMetricIds.includes(id), false);

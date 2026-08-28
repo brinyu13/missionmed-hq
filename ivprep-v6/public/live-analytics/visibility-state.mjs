@@ -9,7 +9,6 @@ export const ANALYTICS_FAMILIES = Object.freeze({
   'head-face': Object.freeze([
     'head-face.region-status',
     'head-face.smile-pattern',
-    'head-face.smile-events',
     'head-face.camera-facing-balance',
     'head-face.blink-rate',
     'head-face.speaking-pace',
@@ -18,7 +17,6 @@ export const ANALYTICS_FAMILIES = Object.freeze({
   ]),
   'body-posture': Object.freeze([
     'body-posture.wireframe',
-    'body-posture.alignment',
     'body-posture.in-frame',
     'body-posture.hands-visible',
     'body-posture.gesture-activity',

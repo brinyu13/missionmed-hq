@@ -109,6 +109,18 @@ test('Pitch holds the last validated register briefly without claiming a current
   renderer.update({ available: true, voiced: false, semitones: null, atMs: 2_500, state: 'idle' });
   assert.equal(surface.value.textContent, '—');
   assert.equal(surface.status.textContent, 'UNVOICED — WAITING FOR VALID F0');
+  assert(surface.calls.some((call) => call[0] === 'fillText' && call[1] === 'MEDIAN'));
+});
+
+test('Pitch keeps a horizontal piano-key scaffold when F0 is unavailable', () => {
+  const surface = hudRoot();
+  const renderer = new PitchHudRenderer(surface.root);
+  renderer.update({ available: false, reason: 'VOICED_F0_REQUIRED' });
+  assert.equal(surface.value.textContent, '—');
+  assert.match(surface.status.textContent, /VOICED F0 REQUIRED/u);
+  assert(surface.calls.some((call) => call[0] === 'fillText' && call[1] === 'LOW'));
+  assert(surface.calls.some((call) => call[0] === 'fillText' && call[1] === 'MEDIAN'));
+  assert(surface.calls.some((call) => call[0] === 'fillText' && call[1] === 'HIGH'));
 });
 
 test('the right rail exposes the exact Vocal Variation control and trace contract', async () => {
