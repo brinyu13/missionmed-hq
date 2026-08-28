@@ -175,12 +175,10 @@ function deployment(id, createdAt, { canRollback = false, status = 'SUCCESS' } =
   return { id, status, createdAt, canRollback };
 }
 
-function deploymentLogsUrl(id, { reversed = false } = {}) {
+function deploymentLogsUrl() {
   const base = `https://railway.com/project/${DR133_TARGET.projectId}`
     + `/service/${DR133_TARGET.applicationServiceId}`;
-  const environment = `environmentId=${DR133_TARGET.environmentId}`;
-  const deploymentId = `id=${id}`;
-  return `${base}?${reversed ? `${deploymentId}&${environment}` : `${environment}&${deploymentId}`}`;
+  return `${base}?environmentId=${DR133_TARGET.environmentId}`;
 }
 
 function deploymentListOutcome(records) {
@@ -694,7 +692,7 @@ test('immutable dark deploy requires dark flag hashes and uploads only a fixed c
       assert.equal(descriptor.args[0], 'up');
       return outcome({
         deploymentId: CANDIDATE_ID,
-        logsUrl: deploymentLogsUrl(CANDIDATE_ID),
+        logsUrl: deploymentLogsUrl(),
       });
     },
     async createArchive(options) {
@@ -760,7 +758,7 @@ test('immutable dark deploy preserves the exact legacy one-key upload receipt', 
   assert.equal(listCalls, 2);
 });
 
-test('immutable dark deploy accepts the exact current receipt with query order reversed', async () => {
+test('immutable dark deploy accepts the exact current Railway receipt', async () => {
   const before = deployment(PREIMAGE_ID, CREATED_PREIMAGE);
   const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
   let listCalls = 0;
@@ -778,7 +776,7 @@ test('immutable dark deploy accepts the exact current receipt with query order r
       assert.equal(descriptor.args[0], 'up');
       return outcome({
         deploymentId: CANDIDATE_ID,
-        logsUrl: deploymentLogsUrl(CANDIDATE_ID, { reversed: true }),
+        logsUrl: deploymentLogsUrl(),
       });
     },
     async createArchive() {
@@ -797,7 +795,7 @@ test('immutable dark deploy accepts the exact current receipt with query order r
 });
 
 test('immutable dark deploy rejects unbound upload receipts with unknown mutation state', async () => {
-  const validLogsUrl = deploymentLogsUrl(CANDIDATE_ID);
+  const validLogsUrl = deploymentLogsUrl();
   const expectedPath = `/project/${DR133_TARGET.projectId}`
     + `/service/${DR133_TARGET.applicationServiceId}`;
   const invalidReceipts = [
@@ -812,6 +810,7 @@ test('immutable dark deploy rejects unbound upload receipts with unknown mutatio
     { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace('railway.com', 'railway.example') },
     { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace('railway.com', 'railway.com.evil.example') },
     { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace('https://', 'https://operator@') },
+    { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace('https://', 'https://operator:secret@') },
     { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace('railway.com', 'railway.com:443') },
     { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace(DR133_TARGET.projectId, UNRELATED_ID) },
     {
@@ -822,13 +821,14 @@ test('immutable dark deploy rejects unbound upload receipts with unknown mutatio
       deploymentId: CANDIDATE_ID,
       logsUrl: validLogsUrl.replace(DR133_TARGET.environmentId, UNRELATED_ID),
     },
-    { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace(CANDIDATE_ID, UNRELATED_ID) },
     { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}&view=build` },
+    { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}&id=${CANDIDATE_ID}` },
+    { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}&id=${UNRELATED_ID}` },
+    { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}&token=secret` },
     {
       deploymentId: CANDIDATE_ID,
       logsUrl: `${validLogsUrl}&environmentId=${DR133_TARGET.environmentId}`,
     },
-    { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}&id=${CANDIDATE_ID}` },
     { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}#build` },
     { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}\n` },
     {

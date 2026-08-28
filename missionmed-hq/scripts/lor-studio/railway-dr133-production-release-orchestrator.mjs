@@ -1210,13 +1210,13 @@ function uploadedDeploymentId(bytes) {
   if ((!legacy && !current)
     || typeof payload.deploymentId !== 'string'
     || !UUID.test(payload.deploymentId)
-    || (current && !validDeploymentLogsUrl(payload.logsUrl, payload.deploymentId))) {
+    || (current && !validDeploymentLogsUrl(payload.logsUrl))) {
     fail('DEPLOYMENT_UPLOAD_RECEIPT_INVALID', failure);
   }
   return payload.deploymentId;
 }
 
-function validDeploymentLogsUrl(value, deploymentId) {
+function validDeploymentLogsUrl(value) {
   if (typeof value !== 'string' || value.length > 2_048 || CONTROL.test(value)
     || /\s/u.test(value) || value.includes('%') || value.includes('+')) return false;
   const expectedPath = `/project/${DR133_TARGET.projectId}`
@@ -1231,12 +1231,10 @@ function validDeploymentLogsUrl(value, deploymentId) {
       && url.password === ''
       && url.pathname === expectedPath
       && url.hash === ''
-      && entries.length === 2
+      && entries.length === 1
       && url.searchParams.getAll('environmentId').length === 1
       && url.searchParams.get('environmentId') === DR133_TARGET.environmentId
-      && url.searchParams.getAll('id').length === 1
-      && url.searchParams.get('id') === deploymentId
-      && entries.every(([key]) => key === 'environmentId' || key === 'id');
+      && entries.every(([key]) => key === 'environmentId');
   } catch {
     return false;
   }
