@@ -15,7 +15,11 @@ export const LOOPBACK_WORD_TIMING_TRANSPORT = 'ON_DEVICE_LOOPBACK';
 export const FIRST_PARTY_WORD_TIMING_TRANSPORT = 'FIRST_PARTY_SAME_ORIGIN_EPHEMERAL';
 
 const TARGET_SAMPLE_RATE = 16_000;
-const DEFAULT_WINDOW_MS = 10_000;
+// Keep the first physical reading responsive. Four seconds is still bounded by
+// the truth gate downstream (at least eight observed words, three seconds of
+// speech, and 70% timing coverage), but avoids making the student wait through
+// a ten-second apparently idle speedometer before the first decode begins.
+const DEFAULT_WINDOW_MS = 4_000;
 const MAX_PENDING_WINDOWS = 2;
 const MINIMUM_ACOUSTIC_EVIDENCE_MS = 500;
 const MINIMUM_VOICED_SPEECH_PROBABILITY = 0.35;
@@ -156,6 +160,7 @@ export class LocalTranscriptTimingProducer {
     this.requestController = null;
     this.pcmConsumer = (frame) => this.ingestPcmFrame(frame);
     this.window = null;
+    this.lastProgressMs = 0;
     this.state = frozenState('idle', 'LOCAL_TRANSCRIPT_TIMING_IDLE');
   }
 
@@ -238,6 +243,7 @@ export class LocalTranscriptTimingProducer {
     const capability = await this.probe({ generation });
     if (generation !== this.generation || capability.state !== 'ready') return false;
     this.window = null;
+    this.lastProgressMs = 0;
     this.active = true;
     this.pipeline.setPcmConsumer(this.pcmConsumer);
     this.#setState('live', 'LOCAL_SHERPA_WORD_TIMING_LIVE', capability.detail);
@@ -277,6 +283,14 @@ export class LocalTranscriptTimingProducer {
       && Number.isFinite(frame.speechProbability)
       && frame.speechProbability >= MINIMUM_VOICED_SPEECH_PROBABILITY;
     if (frame.speaking === true || softSpeechEvidence) this.window.speechDurationMs += durationMs;
+    const progressMs = Math.min(this.windowMs, this.window.durationMs);
+    if (progressMs < this.windowMs && progressMs - this.lastProgressMs >= 1_000) {
+      this.lastProgressMs = progressMs;
+      this.#setState('live', 'COLLECTING_TIMED_WORD_WINDOW', {
+        captureDurationMs: Math.round(progressMs),
+        requiredDurationMs: this.windowMs,
+      });
+    }
     if (this.window.durationMs >= this.windowMs) this.flush();
     return true;
   }
@@ -284,6 +298,7 @@ export class LocalTranscriptTimingProducer {
   flush() {
     const window = this.window;
     this.window = null;
+    this.lastProgressMs = 0;
     if (!window || window.sampleCount === 0) return false;
     const joined = new Float32Array(window.sampleCount);
     let offset = 0;
@@ -308,6 +323,10 @@ export class LocalTranscriptTimingProducer {
       });
       return false;
     }
+    this.#setState('live', 'DECODING_TIMED_WORD_WINDOW', {
+      captureDurationMs: Math.round(window.durationMs),
+      speechDurationMs: Math.round(window.speechDurationMs),
+    });
     return this.#enqueueWindow({
       pcm,
       windowStartedAtMs: window.startedAtMs,
@@ -465,6 +484,7 @@ export class LocalTranscriptTimingProducer {
       for (const chunk of this.window.chunks) chunk.fill(0);
     }
     this.window = null;
+    this.lastProgressMs = 0;
     this.pipeline = null;
     this.clock = null;
     this.csrfToken = null;

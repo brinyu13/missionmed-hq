@@ -1265,7 +1265,10 @@ export class LiveAnalyticsRuntime {
     const timingFailure = ['unavailable', 'partial'].includes(this.transcriptTimingState.state);
     const timingWaiting = ['ready', 'live'].includes(this.transcriptTimingState.state)
       && projectedSpeed.reason === 'NO_TRUSTWORTHY_TRANSCRIPT_TIMING';
-    const speed = projectedSpeed.available === false && this.active && !this.fixtureMode
+    // Setup capture is already a real measurement session. Surface live timing
+    // progress before the interview clock starts instead of leaving the
+    // speedometer on its generic idle reason.
+    const speed = projectedSpeed.available === false && this.captureMeasuring && !this.fixtureMode
       ? {
           ...projectedSpeed,
           reason: timingFailure
@@ -1273,7 +1276,11 @@ export class LiveAnalyticsRuntime {
             : timingWaiting
               ? (this.transcriptTimingState.reason === 'NEED_MORE_TIMED_WORDS'
                   ? 'NEED_MORE_TIMED_WORDS'
-                  : 'WAITING_FOR_LOCAL_TIMED_WORDS')
+                  : this.transcriptTimingState.reason === 'COLLECTING_TIMED_WORD_WINDOW'
+                    ? 'COLLECTING_TIMED_WORD_WINDOW'
+                    : this.transcriptTimingState.reason === 'DECODING_TIMED_WORD_WINDOW'
+                      ? 'DECODING_TIMED_WORD_WINDOW'
+                      : 'WAITING_FOR_LOCAL_TIMED_WORDS')
               : projectedSpeed.reason,
         }
       : projectedSpeed;

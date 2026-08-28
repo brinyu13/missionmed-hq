@@ -129,6 +129,45 @@ test('local timing producer emits only authenticated, timing-only observed evide
   now = 5_000;
 });
 
+test('default physical timing window begins decoding after four seconds instead of appearing idle for ten', async () => {
+  const calls = [];
+  const states = [];
+  const pipeline = new FakePipeline();
+  const words = Array.from({ length: 8 }, (_, index) => ({
+    startMs: 100 + index * 430,
+    endMs: 350 + index * 430,
+    probability: 0.9,
+  }));
+  const producer = new LocalTranscriptTimingProducer({
+    async fetchImpl(_url, options) {
+      calls.push(options);
+      if (options.method === 'GET') return response(capability());
+      return response({
+        available: true,
+        providerSessions: 0,
+        rawAudioPersisted: false,
+        rawTextReturned: false,
+        source: LOCAL_SHERPA_TIMING_SOURCE,
+        speechDurationMs: 4_000,
+        wordCount: words.length,
+        words,
+      });
+    },
+  });
+  await producer.start({
+    stream: liveStream(), pipeline, csrfToken: 'local_harness_csrf_3521',
+    clock: { sessionMs: () => 4_000 }, onTiming() {}, onState: (state) => states.push(state),
+  });
+  pushSpeechWindow(pipeline);
+  await producer.queue;
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].body.byteLength, 4_000 * 16 * 4);
+  assert.ok(states.some((state) => state.reason === 'COLLECTING_TIMED_WORD_WINDOW'));
+  assert.ok(states.some((state) => state.reason === 'DECODING_TIMED_WORD_WINDOW'));
+  producer.stop();
+});
+
 test('producer fails closed without a live mic, PCM lane, CSRF, or exact local capability', async () => {
   const cases = [
     { stream: { getAudioTracks: () => [] }, pipeline: new FakePipeline(), csrfToken: 'local_harness_csrf_3521', reason: 'LIVE_MICROPHONE_TRACK_REQUIRED' },

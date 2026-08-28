@@ -255,6 +255,15 @@ test('physical WPM waiting state never renders the contradictory producer-live r
   assert.equal(renderer.frames.at(-1).speed.reason, 'WAITING_FOR_LOCAL_TIMED_WORDS');
 });
 
+test('pre-interview capture renders live WPM collection and decode progress', () => {
+  const { runtime, renderer } = runtimeHarness();
+  runtime.captureMeasuring = true;
+  runtime.consumeTranscriptTimingState({ state: 'live', reason: 'COLLECTING_TIMED_WORD_WINDOW' });
+  assert.equal(renderer.frames.at(-1).speed.reason, 'COLLECTING_TIMED_WORD_WINDOW');
+  runtime.consumeTranscriptTimingState({ state: 'live', reason: 'DECODING_TIMED_WORD_WINDOW' });
+  assert.equal(renderer.frames.at(-1).speed.reason, 'DECODING_TIMED_WORD_WINDOW');
+});
+
 test('switching the active microphone restarts local timing on the replacement track', async () => {
   const calls = { start: 0, stop: 0 };
   const producer = {
