@@ -53,7 +53,7 @@ const DARK_CONTAINMENT_PROBES = Object.freeze([
 ]);
 const REMOTE_PROBE_PATH =
   'missionmed-hq/scripts/lor-studio/run-dr133-railway-production-release-variable-probe.mjs';
-const REMOTE_NODE_BINARY = '/usr/local/bin/node';
+const REMOTE_NODE_BINARY = '/nix/var/nix/profiles/default/bin/node';
 const RAILWAY_DASHBOARD_ORIGIN = 'https://railway.com';
 
 const RAILWAY_BINARY = '/opt/homebrew/Cellar/railway/5.30.4/bin/railway';

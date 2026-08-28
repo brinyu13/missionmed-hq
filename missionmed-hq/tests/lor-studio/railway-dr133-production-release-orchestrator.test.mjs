@@ -586,7 +586,7 @@ test('remote verification invokes only the fixed deployed probe and validates it
     '--environment', DR133_TARGET.environmentId,
     '--service', DR133_TARGET.applicationServiceId,
   ]);
-  assert.equal(descriptor.args[7], '/usr/local/bin/node');
+  assert.equal(descriptor.args[7], '/nix/var/nix/profiles/default/bin/node');
   assert.equal(descriptor.args[8],
     'missionmed-hq/scripts/lor-studio/run-dr133-railway-production-release-variable-probe.mjs');
   assert.equal(descriptor.args[9], expected.encoded);
