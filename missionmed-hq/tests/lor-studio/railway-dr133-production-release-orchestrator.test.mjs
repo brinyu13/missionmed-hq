@@ -688,6 +688,13 @@ test('deployment list parser rejects extra or malformed provider fields', () => 
   const bytes = deploymentListOutcome([record]).stdout;
   assert.deepEqual(parseDr133ReleaseDeploymentList(bytes), [record]);
   bytes.fill(0);
+  const transitional = deploymentListOutcome([{
+    ...record, status: 'BUILDING', snapshotId: null,
+  }]).stdout;
+  assert.deepEqual(parseDr133ReleaseDeploymentList(transitional), [{
+    ...record, status: 'BUILDING', snapshotId: null,
+  }]);
+  transitional.fill(0);
   const malformed = deploymentListOutcome([{ ...record, secretBearingMeta: 'forbidden' }]).stdout;
   assert.throws(
     () => parseDr133ReleaseDeploymentList(malformed),
@@ -854,6 +861,40 @@ test('immutable dark deploy preserves the exact legacy one-key upload receipt', 
   });
   assert.equal(receipt.candidateDeploymentId, CANDIDATE_ID);
   assert.equal(listCalls, 2);
+});
+
+test('immutable dark deploy tolerates Railway null snapshotId only during transition', async () => {
+  const before = deployment(PREIMAGE_ID, CREATED_PREIMAGE);
+  const building = deployment(CANDIDATE_ID, CREATED_CANDIDATE, {
+    snapshotId: null, status: 'BUILDING',
+  });
+  const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
+  let listCalls = 0;
+  const receipt = await deployDr133ImmutableDarkCandidate({
+    sourceCommit: PATH_B_FIXTURE_RELEASE_COMMIT,
+    encodedExpectations: variableExpectations().encoded,
+    environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
+    clock: () => 0,
+    async sleep() {},
+    async commandRunner(descriptor) {
+      if (descriptor.args[0] === 'api') {
+        listCalls += 1;
+        return deploymentListOutcome(
+          listCalls === 1 ? [before] : listCalls === 2 ? [building, before] : [candidate, before],
+        );
+      }
+      return outcome({ deploymentId: CANDIDATE_ID });
+    },
+    async createArchive() {
+      return {
+        archiveSha256: 'b'.repeat(64), treeSha256: 'c'.repeat(64), fileCount: 321,
+        stageDirectory: '/tmp/f2-lor-dr133-release-test/stage',
+        async verify() { return true; }, async cleanup() { return true; },
+      };
+    },
+  });
+  assert.equal(receipt.candidateDeploymentId, CANDIDATE_ID);
+  assert.equal(listCalls, 3);
 });
 
 test('immutable dark deploy accepts the exact current Railway receipt', async () => {
@@ -1551,7 +1592,12 @@ test('exact rollback/redeploy proves both deployment identities and uses fixed G
       if (descriptor.args[1]?.includes('query LorReleaseDeployments')) {
         listCalls += 1;
         if (listCalls === 1) return deploymentListOutcome([candidate, preimage]);
-        if (listCalls <= ROLLBACK_STABLE_SUCCESS_POLLS + 1) {
+        if (listCalls === 2) {
+          return deploymentListOutcome([{
+            ...rollback, status: 'BUILDING', snapshotId: null,
+          }, candidate, preimage]);
+        }
+        if (listCalls <= ROLLBACK_STABLE_SUCCESS_POLLS + 2) {
           return deploymentListOutcome([rollback, candidate, preimage]);
         }
         return deploymentListOutcome([redeploy, rollback, candidate, preimage]);
@@ -1583,7 +1629,7 @@ test('exact rollback/redeploy proves both deployment identities and uses fixed G
   assert.equal(receipt.redeployedDeploymentId, REDEPLOY_ID);
   assert.equal(receipt.operatorReadiness, 'VERIFIED_METADATA_ONLY');
   assert.equal(receipt.launchReady, true);
-  assert.equal(listCalls, ROLLBACK_STABLE_SUCCESS_POLLS + 2);
+  assert.equal(listCalls, ROLLBACK_STABLE_SUCCESS_POLLS + 3);
   assert.equal(recorder.calls.length, 10);
 });
 

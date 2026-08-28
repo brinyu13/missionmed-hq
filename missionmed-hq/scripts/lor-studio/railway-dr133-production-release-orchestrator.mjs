@@ -996,7 +996,8 @@ function deploymentRecord(raw) {
     fail('DEPLOYMENT_LIST_RECEIPT_INVALID');
   }
   const id = exactUuid(raw.id);
-  const snapshotId = exactUuid(raw.snapshotId, 'DEPLOYMENT_LIST_RECEIPT_INVALID');
+  const snapshotId = raw.snapshotId === null
+    ? null : exactUuid(raw.snapshotId, 'DEPLOYMENT_LIST_RECEIPT_INVALID');
   if (typeof raw.status !== 'string' || !DEPLOYMENT_STATUSES.has(raw.status)) {
     fail('DEPLOYMENT_LIST_RECEIPT_INVALID');
   }
@@ -1359,7 +1360,7 @@ async function waitForRollbackDeployment({
     const target = newlyObserved[0];
     if (target) {
       if (Date.parse(target.createdAt) <= latestBeforeCreatedAt
-        || target.snapshotId !== preimage.snapshotId) {
+        || (target.snapshotId !== null && target.snapshotId !== preimage.snapshotId)) {
         fail('ROLLBACK_DEPLOYMENT_PROVENANCE_MISMATCH', {
           mutationState: 'OUTCOME_UNKNOWN',
         });
@@ -1367,7 +1368,8 @@ async function waitForRollbackDeployment({
       if (TERMINAL_FAILURE_STATUSES.has(target.status)) {
         fail('DEPLOYMENT_TERMINAL_FAILURE', { mutationState: 'PROVIDER_CONFIRMED' });
       }
-      stableSuccessPolls = target.status === 'SUCCESS' ? stableSuccessPolls + 1 : 0;
+      stableSuccessPolls = target.status === 'SUCCESS' && target.snapshotId !== null
+        ? stableSuccessPolls + 1 : 0;
       if (stableSuccessPolls >= ROLLBACK_STABLE_SUCCESS_POLLS) return target;
     }
     await sleep(DEPLOYMENT_POLL_MS);
@@ -1992,7 +1994,8 @@ export async function runDr133ExactRollbackRedeployDrill({
   const capturedPreimageRef = preimage && ['SUCCESS', 'REMOVED'].includes(preimage.status)
     ? dr133ReleaseDeploymentRef({ ...preimage, status: 'SUCCESS' })
     : null;
-  if (!preimage || !candidate || !['SUCCESS', 'REMOVED'].includes(preimage.status)
+  if (!preimage || !candidate || preimage.snapshotId === null
+    || !['SUCCESS', 'REMOVED'].includes(preimage.status)
     || candidate.status !== 'SUCCESS'
     || preimage.canRollback !== true
     || capturedPreimageRef !== preimageDeploymentRef
