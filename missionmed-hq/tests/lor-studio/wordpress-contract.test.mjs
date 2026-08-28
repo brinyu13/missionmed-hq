@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDirectory, '..', '..', '..');
 const contractPath = path.join(repositoryRoot, 'wp-content', 'mu-plugins', 'missionmed-lor-studio-contract.php');
+const authHandoffPath = path.join(repositoryRoot, 'wp-content', 'mu-plugins', 'missionmed-hq-auth-handoff.php');
 const phpAvailable = spawnSync('php', ['--version'], { encoding: 'utf8' }).status === 0;
 
 const enabledConstants = `
@@ -191,9 +192,7 @@ function add_option($name, $value = '', $deprecated = '', $autoload = 'yes') {
 function delete_option($name) { if (!array_key_exists($name, $GLOBALS['lor_options'])) return false; unset($GLOBALS['lor_options'][$name]); return true; }
 function mmhq_cam_build_entitlement($user_id) {
     $GLOBALS['lor_entitlement_calls']++;
-    $entitlement = $GLOBALS['lor_entitlement'];
-    if (is_array($entitlement)) $entitlement['subject'] = 'wp:' . $user_id;
-    return $entitlement;
+    return $GLOBALS['lor_entitlement'];
 }
 function wp_using_ext_object_cache() { return true; }
 function lor_headers($path, $raw_body, $nonce) {
@@ -218,7 +217,7 @@ function lor_valid_fixture() {
         '_missionmed_lor_consent_revoked_at' => '', '_missionmed_lor_revoked_at' => '',
     );
     $GLOBALS['lor_entitlement'] = array(
-        'product' => 'cam', 'source' => 'wordpress_learndash_handoff', 'verified' => true,
+        'subject' => 'wp:123', 'product' => 'cam', 'source' => 'wordpress_learndash_handoff', 'verified' => true,
         'trusted' => true, 'active' => true, 'status' => 'active', 'course_ids' => array('4000'),
         'program_tier' => '360_match_mentorship', 'restricted' => false, 'revoked' => false,
         'current_access_verified' => true, 'purchase_verified' => true,
@@ -257,6 +256,15 @@ test('source exposes only signed POST routes, atomic exact CAS, and no browser g
   assert.match(source, /missionmed\.lor\.s2s\.key\.v1/u);
   assert.doesNotMatch(source, /lorAdmissionGrant|refresh_grant|Authorization:\s*Bearer/iu);
   assert.doesNotMatch(source, /DELETE[^\n]+LIKE|DELETE[^\n]+prefix/iu);
+});
+
+test('the live CAM entitlement producer binds its canonical WordPress subject', async () => {
+  const source = await readFile(authHandoffPath, 'utf8');
+  const start = source.indexOf('function mmhq_cam_build_entitlement($user_id)');
+  const end = source.indexOf('function mmhq_cam_build_admin_override', start);
+  assert.ok(start >= 0 && end > start);
+  const producer = source.slice(start, end);
+  assert.match(producer, /'subject'\s*=>\s*'wp:'\s*\.\s*absint\(\$user_id\)/u);
 });
 
 test('feature-off default registers no route; enabled mode registers exactly five POST routes', { skip: !phpAvailable }, () => {

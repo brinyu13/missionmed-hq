@@ -665,6 +665,7 @@ function mmhq_cam_build_entitlement($user_id) {
     $authority_ttl = min(900, max(60, absint(MMHQ_CAM_AUTHORITY_TTL_SECONDS)));
 
     return array(
+        'subject' => 'wp:' . absint($user_id),
         'product' => 'cam',
         'source' => 'wordpress_learndash_handoff',
         'verified' => $source_available,
