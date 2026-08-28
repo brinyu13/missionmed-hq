@@ -1,0 +1,500 @@
+{
+  "config": {
+    "argv": [
+      "/usr/local/bin/node",
+      "/Users/brianb/MissionMed_worktrees/p1-rise-5003-production-wiring/rise/node_modules/.bin/playwright",
+      "test",
+      "--config",
+      "playwright.config.mjs"
+    ],
+    "configFile": "/Users/brianb/MissionMed_worktrees/p1-rise-5003-production-wiring/rise/playwright.config.mjs",
+    "rootDir": "/Users/brianb/MissionMed_worktrees/p1-rise-5003-production-wiring/rise/tests/browser",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/tmp/p1-rise-5003-playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/brianb/MissionMed_worktrees/p1-rise-5003-production-wiring/rise/tests/browser",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/Users/brianb/MissionMed_worktrees/p1-rise-5003-production-wiring/_AI_HANDOFFS/from_codex/P1_RISE_5003_PRODUCTION_WIRING_AND_LIVE_DEPLOY/artifacts/playwright-report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "node tests/browser/fixture-server.mjs",
+      "url": "http://127.0.0.1:4178/api/rise/v1/health",
+      "reuseExistingServer": false,
+      "timeout": 15000
+    }
+  },
+  "suites": [
+    {
+      "title": "rise.spec.mjs",
+      "file": "rise.spec.mjs",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "home preserves the approved consumer shell, hierarchy, and four feature doors",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 689,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:02.704Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-4d8f62df55e7bc102d13",
+          "file": "rise.spec.mjs",
+          "line": 33,
+          "column": 1
+        },
+        {
+          "title": "list-first Find Programs loads canonical identities and toggles to grid",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2119,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:03.609Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-bdecd25b7f1295c91bbe",
+          "file": "rise.spec.mjs",
+          "line": 50,
+          "column": 1
+        },
+        {
+          "title": "global program lookup and state filters preserve unknown-first program results",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 446,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:05.733Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-997392b0818125448969",
+          "file": "rise.spec.mjs",
+          "line": 62,
+          "column": 1
+        },
+        {
+          "title": "Program File remains a routed immersive overlay with exactly six primary tabs",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1433,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:06.185Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-a8454c4882bd5c81af86",
+          "file": "rise.spec.mjs",
+          "line": 72,
+          "column": 1
+        },
+        {
+          "title": "all six Program File tabs expose evidence-safe content or honest empty states",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1391,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:07.628Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-a1f073803bb34afdfa1e",
+          "file": "rise.spec.mjs",
+          "line": 85,
+          "column": 1
+        },
+        {
+          "title": "Sources & Freshness stays available as a utility drawer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1280,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:09.027Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-be734b4bdd3971e7618c",
+          "file": "rise.spec.mjs",
+          "line": 101,
+          "column": 1
+        },
+        {
+          "title": "My Programs save, state, and notes survive a browser reload",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2200,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:10.313Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-1d458018a926cfc9c521",
+          "file": "rise.spec.mjs",
+          "line": 109,
+          "column": 1
+        },
+        {
+          "title": "Compare preserves the four-program cap and unknown states",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4356,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:12.519Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-cd20f23b61bd40646919",
+          "file": "rise.spec.mjs",
+          "line": 125,
+          "column": 1
+        },
+        {
+          "title": "profile, CV, entitlement, RankList IQ, and premium integrations fail closed honestly",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3550,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:16.881Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-a9dc7c801b9d76abfa0d",
+          "file": "rise.spec.mjs",
+          "line": 136,
+          "column": 1
+        },
+        {
+          "title": "admin command center preserves preview-before-spend and disables unbound paid work",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1350,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:20.437Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-1d30995971c22bdc9ed7",
+          "file": "rise.spec.mjs",
+          "line": 150,
+          "column": 1
+        },
+        {
+          "title": "narrow viewport preserves the consumer shell without horizontal document overflow",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 428,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:21.793Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-85adf0a860e32ffc9cf5",
+          "file": "rise.spec.mjs",
+          "line": 166,
+          "column": 1
+        },
+        {
+          "title": "production-wired shell has no critical accessibility violations on core routes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 877,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-28T03:38:22.226Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "255503fb083ba7f35606-2727d63777da4be12467",
+          "file": "rise.spec.mjs",
+          "line": 178,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-28T03:38:02.333Z",
+    "duration": 46263.850000000006,
+    "expected": 12,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

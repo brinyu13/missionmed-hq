@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a0d14">
+<title>RISE · MissionMed Intelligence</title>
+<link rel="stylesheet" href="/rise/styles.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="aur a" aria-hidden="true"></div>
+<div class="aur b" aria-hidden="true"></div>
+<div class="aur c" aria-hidden="true"></div>
+<div class="vg" aria-hidden="true"></div>
+
+<header id="hdr">
+  <div class="brand" onclick="nav('home')" title="RISE home">
+    <span class="brandTitle">MissionMed<b>//RISE</b></span>
+    <span class="brandSub">Residency Intelligence · Mission:Residency Division</span>
+  </div>
+  <span class="founderChip">Founder-approved Fable 5002 · Production data</span>
+  <div class="hdrRight">
+    <button class="cmpTray" onclick="openCompare()" title="Compare tray">⊞ <span>Compare ·</span> <b id="cmpCount">0</b></button>
+    <button class="cmpTray" id="themeBtn" title="Switch theme">◐ <span>Theme</span></button>
+    <div class="hSearch" onclick="document.getElementById('omni').focus()" style="position:relative">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="omni" type="search" placeholder="Tell me about…" aria-label="Program lookup" autocomplete="off">
+      <span class="kbd">/</span>
+      <div id="omniAC" style="position:absolute;left:0;right:0;top:100%"></div>
+    </div>
+  </div>
+</header>
+
+<nav id="rail" aria-label="RISE navigation"></nav>
+<main id="main"></main>
+
+<div id="file" aria-hidden="false"></div>
+<div id="srcPanel"></div>
+<div id="filterDrawer" class="drawerWrap"></div>
+<div id="modal"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+
+<script type="module" src="/rise/app.js"></script>
+</body>
+</html>
