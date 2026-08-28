@@ -98,7 +98,15 @@ $GLOBALS['fv2_user_meta'] = array(
 		'_mmed_program_tier' => 'Foundation',
 		'_mmed_session_letter' => 'B',
 	),
+	13 => array(
+		'first_name' => 'Taylor',
+		'last_name' => 'Morgan',
+		'_mmed_primary_division' => 'Mission Residency',
+		'_mmed_session_letter' => 'C',
+	),
 );
+$GLOBALS['fv2_enrolled_courses'] = array( 13 => array( 901 ) );
+$GLOBALS['fv2_course_titles'] = array( 901 => 'Mission Residency: 360 Match Mentorship Student Dashboard &#038; Guidance Hub' );
 $GLOBALS['fv2_admins'] = array( 20 => true );
 $GLOBALS['fv2_options'] = array(
 	'mmed_file_vault_v2_user_quota_bytes' => 104857600,
@@ -186,7 +194,9 @@ function get_users( $args = array() ) {
 	return $number < 0 ? array_slice( $users, $offset ) : array_slice( $users, $offset, $number );
 }
 function get_user_meta( $user_id, $key, $single = false ) { return $GLOBALS['fv2_user_meta'][ absint( $user_id ) ][ $key ] ?? ''; }
+function get_the_title( $course_id ) { return $GLOBALS['fv2_course_titles'][ absint( $course_id ) ] ?? ''; }
 function is_wp_error( $value ) { return $value instanceof WP_Error; }
+function learndash_user_get_enrolled_courses( $user_id ) { return $GLOBALS['fv2_enrolled_courses'][ absint( $user_id ) ] ?? array(); }
 function maybe_serialize( $value ) { return is_array( $value ) || is_object( $value ) ? serialize( $value ) : $value; }
 function maybe_unserialize( $value ) { return is_string( $value ) && preg_match( '/^[aObisdN]:/', $value ) ? unserialize( $value ) : $value; }
 function mysql_to_rfc3339( $value ) { return gmdate( 'c', strtotime( $value . ' UTC' ) ); }
@@ -260,6 +270,21 @@ $intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 );
 fv2_repo_assert( ! is_wp_error( $intent ), 'new upload intent created' );
 fv2_repo_assert( 'Avery_Rivera_360Elite_A_PersonalStatement_Draft01_' . gmdate( 'Y-m-d' ) . '.docx' === $intent['canonical_name'], 'canonical filename is deterministic and server-generated from authoritative account metadata' );
+$encoded_course_context = MMED_File_Vault_V2_Repository::upload_context( 13 );
+fv2_repo_assert( 'Mission Residency: 360 Match Mentorship Student Dashboard & Guidance Hub' === $encoded_course_context['program'], 'LearnDash course titles are decoded before upload UI display' );
+$encoded_course_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
+	13,
+	13,
+	array(
+		'filename' => 'course-title.pdf',
+		'mime_type' => 'application/pdf',
+		'file_size' => 100,
+		'document_type' => 'other',
+		'display_name' => 'Course Title Check',
+		'sha256' => str_repeat( 'b', 64 ),
+	)
+);
+fv2_repo_assert( ! is_wp_error( $encoded_course_intent ) && false === strpos( $encoded_course_intent['canonical_name'], '038' ), 'decoded course titles cannot leak numeric entity text into canonical filenames' );
 $internal_intent = $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $intent['upload_id']];
 fv2_repo_assert( 0 === strpos( $internal_intent['r2_key'], 'student-files/v2/staging/' ) && 0 === strpos( $internal_intent['final_r2_key'], 'student-files/v2/objects/' ), 'uploads use private V2 staging and immutable object prefixes' );
 

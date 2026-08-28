@@ -345,6 +345,21 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	}
 
 	/**
+	 * Decode stored display labels before applying WordPress text sanitization.
+	 *
+	 * WordPress post titles may contain entities such as &#038;. Leaving those
+	 * encoded leaks numeric entity text into both the upload UI and canonical
+	 * filenames.
+	 *
+	 * @param mixed $value Raw label.
+	 * @return string
+	 */
+	protected static function upload_label( $value ) {
+		$value = html_entity_decode( (string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		return trim( sanitize_text_field( $value ) );
+	}
+
+	/**
 	 * Return the server-owned identity and enrollment labels used by uploads.
 	 *
 	 * Session may be supplied by the student only when no authoritative cohort
@@ -356,10 +371,10 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	public static function upload_context( $user_id ) {
 		$user_id    = absint( $user_id );
 		$user       = $user_id ? get_user_by( 'id', $user_id ) : null;
-		$first_name = trim( sanitize_text_field( get_user_meta( $user_id, 'first_name', true ) ) );
-		$last_name  = trim( sanitize_text_field( get_user_meta( $user_id, 'last_name', true ) ) );
+		$first_name = self::upload_label( get_user_meta( $user_id, 'first_name', true ) );
+		$last_name  = self::upload_label( get_user_meta( $user_id, 'last_name', true ) );
 		if ( ( ! $first_name || ! $last_name ) && $user ) {
-			$parts = preg_split( '/\s+/', trim( sanitize_text_field( $user->display_name ) ) );
+			$parts = preg_split( '/\s+/', self::upload_label( $user->display_name ) );
 			$parts = is_array( $parts ) ? array_values( array_filter( $parts ) ) : array();
 			if ( ! $first_name && ! empty( $parts ) ) {
 				$first_name = array_shift( $parts );
@@ -372,14 +387,14 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		$last_name  = $last_name ?: ( $user_id ? 'User' . $user_id : 'User' );
 
 		$programs     = array();
-		$program_tier = trim( sanitize_text_field( get_user_meta( $user_id, '_mmed_program_tier', true ) ) );
+		$program_tier = self::upload_label( get_user_meta( $user_id, '_mmed_program_tier', true ) );
 		if ( $program_tier ) {
 			$programs[] = $program_tier;
 		}
 		if ( function_exists( 'learndash_user_get_enrolled_courses' ) && function_exists( 'get_the_title' ) ) {
 			$course_ids = learndash_user_get_enrolled_courses( $user_id );
 			foreach ( is_array( $course_ids ) ? $course_ids : array() as $course_id ) {
-				$title = trim( sanitize_text_field( get_the_title( absint( $course_id ) ) ) );
+				$title = self::upload_label( get_the_title( absint( $course_id ) ) );
 				if ( $title ) {
 					$programs[] = $title;
 				}
@@ -394,7 +409,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				'first_name' => $first_name,
 				'last_name'  => $last_name,
 			),
-			'division'        => trim( sanitize_text_field( get_user_meta( $user_id, '_mmed_primary_division', true ) ) ),
+			'division'        => self::upload_label( get_user_meta( $user_id, '_mmed_primary_division', true ) ),
 			'program'         => $programs[0] ?? '',
 			'programs'        => $programs,
 			'program_locked'  => ! empty( $programs ),
@@ -413,7 +428,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 * @return string
 	 */
 	protected static function canonical_filename_token( $value, $fallback ) {
-		$value = trim( sanitize_text_field( $value ) );
+		$value = self::upload_label( $value );
 		if ( function_exists( 'remove_accents' ) ) {
 			$value = remove_accents( $value );
 		}
