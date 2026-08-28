@@ -143,6 +143,7 @@ class Lor_Test_Wpdb {
 $GLOBALS['wpdb'] = new Lor_Test_Wpdb();
 $GLOBALS['lor_actions'] = array(); $GLOBALS['lor_filters'] = array(); $GLOBALS['lor_routes'] = array();
 $GLOBALS['lor_options'] = array(); $GLOBALS['lor_user_id'] = 123; $GLOBALS['lor_meta'] = array();
+$GLOBALS['lor_user_login'] = 'student'; $GLOBALS['lor_manage_options'] = false;
 $GLOBALS['lor_query_fail_names'] = array(); $GLOBALS['lor_query_fail_once_names'] = array();
 $GLOBALS['lor_fail_add_contains'] = '';
 $GLOBALS['lor_entitlement_calls'] = 0; $GLOBALS['lor_after_add_option'] = null;
@@ -155,11 +156,16 @@ function add_filter($hook, $callback, $priority = 10, $accepted_args = 1) {
 function register_rest_route($namespace, $route, $arguments) { $GLOBALS['lor_routes'][] = array($namespace, $route, $arguments); }
 function __return_true() { return true; }
 function wp_get_current_user() {
-    return (object) array('ID' => $GLOBALS['lor_user_id'], 'user_email' => 'student@example.test', 'user_login' => 'student', 'display_name' => 'Student', 'roles' => array('subscriber'));
+    return (object) array('ID' => $GLOBALS['lor_user_id'], 'user_email' => 'student@example.test', 'user_login' => $GLOBALS['lor_user_login'], 'display_name' => 'Student', 'roles' => array('subscriber'));
 }
 function is_user_logged_in() { return (int) $GLOBALS['lor_user_id'] > 0; }
 function get_userdata($user_id) {
     return (int) $user_id === (int) $GLOBALS['lor_user_id'] ? wp_get_current_user() : false;
+}
+function user_can($user_id, $capability) {
+    return (int) $user_id === (int) $GLOBALS['lor_user_id']
+        && 'manage_options' === $capability
+        && true === $GLOBALS['lor_manage_options'];
 }
 function get_user_meta($user_id, $key, $single) { return $GLOBALS['lor_meta'][$key] ?? ''; }
 function is_wp_error($value) { return $value instanceof WP_Error; }
@@ -216,6 +222,8 @@ function lor_valid_fixture() {
         'trusted' => true, 'active' => true, 'status' => 'active', 'course_ids' => array('4000'),
         'program_tier' => '360_match_mentorship', 'restricted' => false, 'revoked' => false,
         'current_access_verified' => true, 'purchase_verified' => true,
+        'purchase_match_found' => true, 'enrollment_verified' => true,
+        'authority_mode' => 'learndash_and_woocommerce',
         'expires_at' => gmdate('c', time() + 3600), 'evaluated_at' => gmdate('c', time() - 30),
     );
 }
@@ -1035,6 +1043,251 @@ echo json_encode(array(
   assert.equal(result.missing_consent.admitted, true);
   assert.equal(result.missing_consent.canaryEnabled, true);
   assert.equal(result.missing_consent.canaryConsented, false);
+});
+
+test('DR-145 direct LearnDash enrollment is exact and cannot be hybridized with commerce authority', { skip: !phpAvailable }, () => {
+  const directConstants = enabledConstants
+    .replace("define('MMHQ_LOR_STUDIO_VERIFIED_COURSE_IDS', '4000');", "define('MMHQ_LOR_STUDIO_VERIFIED_COURSE_IDS', '3893');")
+    .replace("define('MMHQ_LOR_STUDIO_VERIFIED_PROGRAM_TIERS', '360_match_mentorship');", "define('MMHQ_LOR_STUDIO_VERIFIED_PROGRAM_TIERS', '360elite');");
+  const result = runPhp(phpProgram({
+    constants: directConstants,
+    body: `
+lor_valid_fixture();
+$GLOBALS['lor_entitlement']['course_ids'] = array('3893');
+$GLOBALS['lor_entitlement']['program_tier'] = '360elite';
+$GLOBALS['lor_entitlement']['purchase_verified'] = false;
+$GLOBALS['lor_entitlement']['purchase_match_found'] = false;
+$GLOBALS['lor_entitlement']['enrollment_verified'] = true;
+$GLOBALS['lor_entitlement']['authority_mode'] = 'learndash_current_access';
+$direct = mmhq_lor_studio_identity_entitlement_for_user(123);
+
+$GLOBALS['lor_entitlement']['purchase_match_found'] = true;
+$hybrid_match = mmhq_lor_studio_identity_entitlement_for_user(123);
+$GLOBALS['lor_entitlement']['purchase_match_found'] = false;
+$GLOBALS['lor_entitlement']['enrollment_verified'] = false;
+$unverified = mmhq_lor_studio_identity_entitlement_for_user(123);
+$GLOBALS['lor_entitlement']['enrollment_verified'] = true;
+$GLOBALS['lor_entitlement']['authority_mode'] = 'learndash_and_woocommerce';
+$hybrid_mode = mmhq_lor_studio_identity_entitlement_for_user(123);
+$GLOBALS['lor_entitlement']['authority_mode'] = 'learndash_current_access';
+unset($GLOBALS['lor_entitlement']['purchase_match_found']);
+$missing_axis = mmhq_lor_studio_identity_entitlement_for_user(123);
+
+echo json_encode(array(
+    'direct' => $direct,
+    'hybrid_match' => is_wp_error($hybrid_match),
+    'unverified' => is_wp_error($unverified),
+    'hybrid_mode' => is_wp_error($hybrid_mode),
+    'missing_axis' => is_wp_error($missing_axis),
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    direct: {
+      contract: 'missionmed.lor.wordpress-entitlement.v1',
+      subject: 'wp:123',
+      admitted: true,
+      canaryEnabled: true,
+      canaryConsented: true,
+    },
+    hybrid_match: true,
+    unverified: true,
+    hybrid_mode: true,
+    missing_axis: true,
+  });
+});
+
+test('DR-145 Founder canary is exact, server-owned, gate-complete, and admin alone is denied', { skip: !phpAvailable }, () => {
+  const founderConstants = `${enabledConstants}
+define('MMHQ_LOR_STUDIO_FOUNDER_CANARY_LOGIN', 'brinyu');
+`;
+  const result = runPhp(phpProgram({
+    constants: founderConstants,
+    body: `
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'brinyu';
+$GLOBALS['lor_manage_options'] = true;
+$GLOBALS['lor_entitlement'] = null;
+$accepted = mmhq_lor_studio_identity_entitlement_for_user(123);
+$accepted_entitlement_calls = $GLOBALS['lor_entitlement_calls'];
+
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'another_admin'; $GLOBALS['lor_manage_options'] = true;
+$wrong_login = mmhq_lor_studio_identity_entitlement_for_user(123);
+
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'brinyu'; $GLOBALS['lor_manage_options'] = false;
+$no_capability = mmhq_lor_studio_identity_entitlement_for_user(123);
+
+$GLOBALS['lor_meta'] = array(); $GLOBALS['lor_entitlement'] = null;
+$GLOBALS['lor_user_login'] = 'brinyu'; $GLOBALS['lor_manage_options'] = true;
+$admin_alone = mmhq_lor_studio_identity_entitlement_for_user(123);
+
+lor_valid_fixture(); $GLOBALS['lor_entitlement'] = null;
+unset($GLOBALS['lor_meta']['_missionmed_lor_canary_enabled']);
+$no_membership = mmhq_lor_studio_identity_entitlement_for_user(123);
+
+lor_valid_fixture(); $GLOBALS['lor_entitlement'] = null;
+unset($GLOBALS['lor_meta']['_missionmed_lor_consent_accepted']);
+$no_consent = mmhq_lor_studio_identity_entitlement_for_user(123);
+
+lor_valid_fixture(); $GLOBALS['lor_entitlement'] = null;
+$GLOBALS['lor_meta']['_missionmed_lor_revoked_at'] = gmdate('c', time() - 1);
+$revoked = mmhq_lor_studio_identity_entitlement_for_user(123);
+
+$gate_denials = array();
+foreach (array(
+    '_missionmed_lor_enabled',
+    '_missionmed_lor_canary_enabled',
+    '_missionmed_lor_consent_accepted',
+    '_missionmed_lor_consent_version',
+    '_missionmed_lor_consent_at',
+) as $missing_key) {
+    lor_valid_fixture();
+    unset($GLOBALS['lor_meta'][$missing_key]);
+    $gate_denials[$missing_key] = is_wp_error(mmhq_lor_studio_identity_entitlement_for_user(123));
+}
+foreach (array(
+    '_missionmed_lor_revoked_at',
+    '_missionmed_lor_consent_revoked_at',
+) as $revoked_key) {
+    lor_valid_fixture();
+    $GLOBALS['lor_meta'][$revoked_key] = gmdate('c', time() - 1);
+    $gate_denials[$revoked_key] = is_wp_error(mmhq_lor_studio_identity_entitlement_for_user(123));
+}
+
+echo json_encode(array(
+    'accepted' => $accepted,
+    'accepted_entitlement_calls' => $accepted_entitlement_calls,
+    'wrong_login' => is_wp_error($wrong_login),
+    'no_capability' => is_wp_error($no_capability),
+    'admin_alone' => is_wp_error($admin_alone),
+    'no_membership' => is_wp_error($no_membership),
+    'no_consent' => is_wp_error($no_consent),
+    'revoked' => is_wp_error($revoked),
+    'gate_denials' => $gate_denials,
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    accepted: {
+      contract: 'missionmed.lor.wordpress-entitlement.v1',
+      subject: 'wp:123',
+      admitted: true,
+      canaryEnabled: true,
+      canaryConsented: true,
+    },
+    accepted_entitlement_calls: 0,
+    wrong_login: true,
+    no_capability: true,
+    admin_alone: true,
+    no_membership: true,
+    no_consent: true,
+    revoked: true,
+    gate_denials: {
+      _missionmed_lor_enabled: true,
+      _missionmed_lor_canary_enabled: true,
+      _missionmed_lor_consent_accepted: true,
+      _missionmed_lor_consent_version: true,
+      _missionmed_lor_consent_at: true,
+      _missionmed_lor_revoked_at: true,
+      _missionmed_lor_consent_revoked_at: true,
+    },
+  });
+
+  const wrongConfiguration = runPhp(phpProgram({
+    constants: `${enabledConstants}
+define('MMHQ_LOR_STUDIO_FOUNDER_CANARY_LOGIN', 'another_admin');
+`,
+    body: `
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'brinyu';
+$GLOBALS['lor_manage_options'] = true;
+$projection = mmhq_lor_studio_identity_entitlement_for_user(123);
+echo json_encode(array('denied' => is_wp_error($projection)));
+`,
+  }));
+  assert.deepEqual(wrongConfiguration, { denied: true });
+
+  for (const configuredLogin of ['BRINYU', ' brinyu', 'brinyu ', 'brinyu,other', '']) {
+    const aliasedConfiguration = runPhp(phpProgram({
+      constants: `${enabledConstants}
+define('MMHQ_LOR_STUDIO_FOUNDER_CANARY_LOGIN', ${JSON.stringify(configuredLogin)});
+`,
+      body: `
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'brinyu';
+$GLOBALS['lor_manage_options'] = true;
+$projection = mmhq_lor_studio_identity_entitlement_for_user(123);
+echo json_encode(array('denied' => is_wp_error($projection)));
+`,
+    }));
+    assert.deepEqual(aliasedConfiguration, { denied: true });
+
+    const revokedCapabilityConfiguration = runPhp(phpProgram({
+      constants: `${enabledConstants}
+define('MMHQ_LOR_STUDIO_FOUNDER_CANARY_LOGIN', ${JSON.stringify(configuredLogin)});
+`,
+      body: `
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'brinyu';
+$GLOBALS['lor_manage_options'] = false;
+$projection = mmhq_lor_studio_identity_entitlement_for_user(123);
+echo json_encode(array('denied' => is_wp_error($projection), 'entitlement_calls' => $GLOBALS['lor_entitlement_calls']));
+`,
+    }));
+    assert.deepEqual(revokedCapabilityConfiguration, { denied: true, entitlement_calls: 0 });
+  }
+
+  const missingConfiguration = runPhp(phpProgram({
+    body: `
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'brinyu';
+$GLOBALS['lor_manage_options'] = true;
+$projection = mmhq_lor_studio_identity_entitlement_for_user(123);
+echo json_encode(array('denied' => is_wp_error($projection)));
+`,
+  }));
+  assert.deepEqual(missingConfiguration, { denied: true });
+
+  const missingConfigurationAndCapability = runPhp(phpProgram({
+    body: `
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'brinyu';
+$GLOBALS['lor_manage_options'] = false;
+$projection = mmhq_lor_studio_identity_entitlement_for_user(123);
+echo json_encode(array('denied' => is_wp_error($projection), 'entitlement_calls' => $GLOBALS['lor_entitlement_calls']));
+`,
+  }));
+  assert.deepEqual(missingConfigurationAndCapability, { denied: true, entitlement_calls: 0 });
+
+  const nonStringConfiguration = runPhp(phpProgram({
+    constants: `${enabledConstants}
+define('MMHQ_LOR_STUDIO_FOUNDER_CANARY_LOGIN', 123);
+`,
+    body: `
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'brinyu';
+$GLOBALS['lor_manage_options'] = true;
+$projection = mmhq_lor_studio_identity_entitlement_for_user(123);
+echo json_encode(array('denied' => is_wp_error($projection)));
+`,
+  }));
+  assert.deepEqual(nonStringConfiguration, { denied: true });
+
+  const nonStringConfigurationAndCapability = runPhp(phpProgram({
+    constants: `${enabledConstants}
+define('MMHQ_LOR_STUDIO_FOUNDER_CANARY_LOGIN', 123);
+`,
+    body: `
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'brinyu';
+$GLOBALS['lor_manage_options'] = false;
+$projection = mmhq_lor_studio_identity_entitlement_for_user(123);
+echo json_encode(array('denied' => is_wp_error($projection), 'entitlement_calls' => $GLOBALS['lor_entitlement_calls']));
+`,
+  }));
+  assert.deepEqual(nonStringConfigurationAndCapability, { denied: true, entitlement_calls: 0 });
 });
 
 test('WordPress admission always emits actual canary facts and never applies release policy', { skip: !phpAvailable }, () => {

@@ -208,8 +208,23 @@ function mmhq_lor_studio_entitlement_allows(
 		|| false !== ($entitlement['restricted'] ?? null)
 		|| false !== ($entitlement['revoked'] ?? null)
 		|| true !== ($entitlement['current_access_verified'] ?? null)
-		|| true !== ($entitlement['purchase_verified'] ?? null)
 	) {
+		return false;
+	}
+
+	$commerce_authority = (
+		true === ($entitlement['purchase_verified'] ?? null)
+		&& true === ($entitlement['purchase_match_found'] ?? null)
+		&& true === ($entitlement['enrollment_verified'] ?? null)
+		&& 'learndash_and_woocommerce' === ($entitlement['authority_mode'] ?? null)
+	);
+	$direct_learndash_authority = (
+		false === ($entitlement['purchase_verified'] ?? null)
+		&& false === ($entitlement['purchase_match_found'] ?? null)
+		&& true === ($entitlement['enrollment_verified'] ?? null)
+		&& 'learndash_current_access' === ($entitlement['authority_mode'] ?? null)
+	);
+	if (!$commerce_authority && !$direct_learndash_authority) {
 		return false;
 	}
 
@@ -305,6 +320,62 @@ function mmhq_lor_studio_user_gates_allow($user_id, $now) {
 }
 
 /**
+ * Resolve the one DR-145 Founder admin-canary exception from server-owned
+ * WordPress state. The configured login is deliberately exact and has no
+ * default: changing the named principal requires a source-reviewed successor.
+ * Admin capability alone grants nothing, and no allowlist fact leaves this
+ * boolean boundary.
+ */
+function mmhq_lor_studio_user_is_named_founder($user_id) {
+	if (
+		!is_int($user_id)
+		|| $user_id < 1
+		|| !function_exists('get_userdata')
+	) {
+		return false;
+	}
+
+	$wp_user = get_userdata($user_id);
+	if (
+		!is_object($wp_user)
+		|| !isset($wp_user->ID, $wp_user->user_login)
+		|| (int) $wp_user->ID !== $user_id
+		|| !is_string($wp_user->user_login)
+	) {
+		return false;
+	}
+	return hash_equals('brinyu', $wp_user->user_login);
+}
+
+function mmhq_lor_studio_founder_canary_login_matches($user_id) {
+	if (
+		!defined('MMHQ_LOR_STUDIO_FOUNDER_CANARY_LOGIN')
+		|| !mmhq_lor_studio_user_is_named_founder($user_id)
+	) {
+		return false;
+	}
+
+	$configured_login = constant('MMHQ_LOR_STUDIO_FOUNDER_CANARY_LOGIN');
+	return is_string($configured_login)
+		&& 'brinyu' === $configured_login;
+}
+
+function mmhq_lor_studio_founder_canary_allows($user_id, $now) {
+	if (
+		!is_int($now)
+		|| !function_exists('user_can')
+		|| !mmhq_lor_studio_founder_canary_login_matches($user_id)
+		|| true !== user_can($user_id, 'manage_options')
+		|| !mmhq_lor_studio_user_gates_allow($user_id, $now)
+	) {
+		return false;
+	}
+
+	$canary = mmhq_lor_studio_user_canary_facts($user_id, $now);
+	return true === $canary['canaryEnabled'] && true === $canary['canaryConsented'];
+}
+
+/**
  * Return one generic denial shape for all unavailable or ineligible states.
  */
 function mmhq_lor_studio_contract_denied() {
@@ -352,6 +423,23 @@ function mmhq_lor_studio_identity_entitlement_for_user($raw_user_id) {
 	$user_id = (int) $raw_user_id;
 	$subject = 'wp:' . $user_id;
 	$now = time();
+	$is_named_founder = mmhq_lor_studio_user_is_named_founder($user_id);
+	$founder_canary_login_matches = mmhq_lor_studio_founder_canary_login_matches($user_id);
+	$has_admin_capability = function_exists('user_can')
+		&& true === user_can($user_id, 'manage_options');
+	if ($is_named_founder || $has_admin_capability) {
+		if (!mmhq_lor_studio_founder_canary_allows($user_id, $now)) {
+			return mmhq_lor_studio_contract_denied();
+		}
+		return array(
+			'contract' => 'missionmed.lor.wordpress-entitlement.v1',
+			'subject' => $subject,
+			'admitted' => true,
+			'canaryEnabled' => true,
+			'canaryConsented' => true,
+		);
+	}
+
 	$verified_course_ids = mmhq_lor_studio_verified_course_ids();
 	$verified_program_tiers = mmhq_lor_studio_verified_program_tiers();
 	$max_age_seconds = mmhq_lor_studio_entitlement_max_age_seconds();
