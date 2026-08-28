@@ -98,18 +98,19 @@ const COMMAND_TIMEOUT_MS = 30_000;
 const QUERY_TIMEOUT_MS = 20_000;
 const DEPLOYMENT_WAIT_MS = 10 * 60 * 1_000;
 const DEPLOYMENT_POLL_MS = 2_000;
+const ROLLBACK_STABLE_SUCCESS_POLLS = 15;
 const HTTP_TIMEOUT_MS = 10_000;
 
 const LIST_DEPLOYMENTS_DOCUMENT = [
   'query LorReleaseDeployments($input: DeploymentListInput!) {',
   '  deployments(input: $input, first: 50) {',
-  '    edges { node { id status createdAt canRollback } }',
+  '    edges { node { id status createdAt canRollback snapshotId } }',
   '  }',
   '}',
 ].join(' ');
 const ROLLBACK_DOCUMENT = [
   'mutation LorReleaseRollback($id: String!) {',
-  '  deploymentRollback(id: $id) { id }',
+  '  deploymentRollback(id: $id)',
   '}',
 ].join(' ');
 const REDEPLOY_DOCUMENT = [
@@ -989,10 +990,13 @@ function deploymentListArgs() {
 }
 
 function deploymentRecord(raw) {
-  if (!exactKeys(raw, new Set(['canRollback', 'createdAt', 'id', 'status']))) {
+  if (!exactKeys(raw, new Set([
+    'canRollback', 'createdAt', 'id', 'snapshotId', 'status',
+  ]))) {
     fail('DEPLOYMENT_LIST_RECEIPT_INVALID');
   }
   const id = exactUuid(raw.id);
+  const snapshotId = exactUuid(raw.snapshotId, 'DEPLOYMENT_LIST_RECEIPT_INVALID');
   if (typeof raw.status !== 'string' || !DEPLOYMENT_STATUSES.has(raw.status)) {
     fail('DEPLOYMENT_LIST_RECEIPT_INVALID');
   }
@@ -1006,6 +1010,7 @@ function deploymentRecord(raw) {
     status: raw.status,
     createdAt: raw.createdAt,
     canRollback: raw.canRollback,
+    snapshotId,
   });
 }
 
@@ -1306,20 +1311,65 @@ async function waitForDeployment({
   clock,
   commandRunner,
   environment,
-  expectedId = null,
-  excludedIds = new Set(),
+  expectedId,
   sleep,
 }) {
   const startedAt = clock();
   while (clock() - startedAt <= DEPLOYMENT_WAIT_MS) {
     const deployments = await listDeployments(commandRunner, environment);
-    const target = expectedId
-      ? deployments.find((deployment) => deployment.id === expectedId)
-      : deployments.find((deployment) => !excludedIds.has(deployment.id));
+    const target = deployments.find((deployment) => deployment.id === expectedId);
     if (target?.status === 'SUCCESS') return target;
     if (target && TERMINAL_FAILURE_STATUSES.has(target.status)) fail('DEPLOYMENT_TERMINAL_FAILURE', {
       mutationState: 'PROVIDER_CONFIRMED',
     });
+    await sleep(DEPLOYMENT_POLL_MS);
+  }
+  fail('DEPLOYMENT_WAIT_TIMEOUT', { mutationState: 'OUTCOME_UNKNOWN' });
+}
+
+async function waitForRollbackDeployment({
+  before,
+  clock,
+  commandRunner,
+  environment,
+  preimage,
+  sleep,
+}) {
+  const beforeIds = new Set(before.map(({ id }) => id));
+  const latestBeforeCreatedAt = Math.max(
+    ...before.map(({ createdAt }) => Date.parse(createdAt)),
+  );
+  const startedAt = clock();
+  let observedId = null;
+  let stableSuccessPolls = 0;
+  while (clock() - startedAt <= DEPLOYMENT_WAIT_MS) {
+    const deployments = await listDeployments(commandRunner, environment);
+    const newlyObserved = deployments.filter(
+      (deployment) => !beforeIds.has(deployment.id),
+    );
+    if (newlyObserved.length > 1) {
+      fail('ROLLBACK_DEPLOYMENT_AMBIGUOUS', { mutationState: 'OUTCOME_UNKNOWN' });
+    }
+    if (newlyObserved.length === 1 && observedId === null) {
+      observedId = newlyObserved[0].id;
+    }
+    if (observedId !== null && (
+      newlyObserved.length !== 1 || newlyObserved[0].id !== observedId
+    )) fail('ROLLBACK_DEPLOYMENT_AMBIGUOUS', { mutationState: 'OUTCOME_UNKNOWN' });
+    const target = newlyObserved[0];
+    if (target) {
+      if (Date.parse(target.createdAt) <= latestBeforeCreatedAt
+        || target.snapshotId !== preimage.snapshotId) {
+        fail('ROLLBACK_DEPLOYMENT_PROVENANCE_MISMATCH', {
+          mutationState: 'OUTCOME_UNKNOWN',
+        });
+      }
+      if (TERMINAL_FAILURE_STATUSES.has(target.status)) {
+        fail('DEPLOYMENT_TERMINAL_FAILURE', { mutationState: 'PROVIDER_CONFIRMED' });
+      }
+      stableSuccessPolls = target.status === 'SUCCESS' ? stableSuccessPolls + 1 : 0;
+      if (stableSuccessPolls >= ROLLBACK_STABLE_SUCCESS_POLLS) return target;
+    }
     await sleep(DEPLOYMENT_POLL_MS);
   }
   fail('DEPLOYMENT_WAIT_TIMEOUT', { mutationState: 'OUTCOME_UNKNOWN' });
@@ -1604,21 +1654,30 @@ function deploymentMutationArgs(operation, deploymentId) {
     'api', document,
     '--variables', canonicalJson({ id: deploymentId }),
     '--operation-name', operationName,
+    '--allow-errors',
     '--compact',
   ]);
 }
 
-function mutationDeploymentId(bytes, operation) {
+function mutationDeploymentResult(bytes, operation) {
   const failure = { mutationState: 'OUTCOME_UNKNOWN' };
   const payload = parseJsonBytes(bytes, 'DEPLOYMENT_MUTATION_RECEIPT_INVALID', failure);
   const field = operation === 'rollback' ? 'deploymentRollback' : 'deploymentRedeploy';
   if (!exactKeys(payload, new Set(['data']))
-    || !exactKeys(payload.data, new Set([field]))
-    || !exactKeys(payload.data[field], new Set(['id']))) {
+    || !exactKeys(payload.data, new Set([field]))) {
+    fail('DEPLOYMENT_MUTATION_RECEIPT_INVALID', failure);
+  }
+  if (operation === 'rollback') {
+    if (payload.data.deploymentRollback !== true) {
+      fail('DEPLOYMENT_MUTATION_RECEIPT_INVALID', failure);
+    }
+    return null;
+  }
+  if (!exactKeys(payload.data.deploymentRedeploy, new Set(['id']))) {
     fail('DEPLOYMENT_MUTATION_RECEIPT_INVALID', failure);
   }
   return exactUuid(
-    payload.data[field].id,
+    payload.data.deploymentRedeploy.id,
     'DEPLOYMENT_MUTATION_RECEIPT_INVALID',
     failure,
   );
@@ -1634,7 +1693,7 @@ async function mutateDeployment({ commandRunner, deploymentId, environment, oper
       timeoutMs: QUERY_TIMEOUT_MS,
     }));
     output = acceptedCommandOutput(outcome, { mutation: true });
-    return mutationDeploymentId(output, operation);
+    return mutationDeploymentResult(output, operation);
   } finally {
     output?.fill(0);
   }
@@ -1941,11 +2000,11 @@ export async function runDr133ExactRollbackRedeployDrill({
     fail('ROLLBACK_PREIMAGE_UNPROVEN');
   }
 
-  const rollbackId = await mutateDeployment({
+  await mutateDeployment({
     commandRunner, deploymentId: preimageId, environment, operation: 'rollback',
   });
-  await waitForDeployment({
-    clock, commandRunner, environment, expectedId: rollbackId, sleep,
+  const rollback = await waitForRollbackDeployment({
+    before, clock, commandRunner, environment, preimage, sleep,
   });
   let rollbackHealth = 'VERIFIED';
   try {
@@ -1975,7 +2034,7 @@ export async function runDr133ExactRollbackRedeployDrill({
     result: 'EXACT_PREIMAGE_ROLLBACK_AND_CANDIDATE_REDEPLOY_VERIFIED',
     preimageDeploymentId: preimageId,
     preimageDeploymentRef,
-    rollbackDeploymentId: rollbackId,
+    rollbackDeploymentId: rollback.id,
     candidateDeploymentId: candidateId,
     candidateDeploymentRef,
     redeployedDeploymentId: redeployed.id,

@@ -51,6 +51,7 @@ const REDEPLOY_ID = '44444444-4444-4444-8444-444444444444';
 const UNRELATED_ID = '55555555-5555-4555-8555-555555555555';
 const CREATED_PREIMAGE = '2026-08-26T20:00:00.000Z';
 const CREATED_CANDIDATE = '2026-08-26T21:00:00.000Z';
+const ROLLBACK_STABLE_SUCCESS_POLLS = 15;
 const OPENAI_PRIVACY = signedOpenAiPrivacyEnvironment(PATH_B_FIXTURE_PROJECT_ID);
 const GIT_ROOT = fileURLToPath(new URL('../../../', import.meta.url)).replace(/\/$/u, '');
 
@@ -254,8 +255,12 @@ test('release stderr policy is exact, near-miss strict, and order independent', 
   }
 });
 
-function deployment(id, createdAt, { canRollback = false, status = 'SUCCESS' } = {}) {
-  return { id, status, createdAt, canRollback };
+function deployment(id, createdAt, {
+  canRollback = false,
+  snapshotId = id,
+  status = 'SUCCESS',
+} = {}) {
+  return { id, status, createdAt, canRollback, snapshotId };
 }
 
 function deploymentLogsUrl({
@@ -1525,7 +1530,9 @@ test('exact rollback/redeploy proves both deployment identities and uses fixed G
     status: 'REMOVED',
   });
   const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
-  const rollback = deployment(ROLLBACK_ID, '2026-08-26T22:00:00.000Z');
+  const rollback = deployment(ROLLBACK_ID, '2026-08-26T22:00:00.000Z', {
+    snapshotId: PREIMAGE_ID,
+  });
   const redeploy = deployment(REDEPLOY_ID, '2026-08-26T23:00:00.000Z');
   const descriptors = [];
   let listCalls = 0;
@@ -1544,11 +1551,13 @@ test('exact rollback/redeploy proves both deployment identities and uses fixed G
       if (descriptor.args[1]?.includes('query LorReleaseDeployments')) {
         listCalls += 1;
         if (listCalls === 1) return deploymentListOutcome([candidate, preimage]);
-        if (listCalls === 2) return deploymentListOutcome([rollback, candidate, preimage]);
+        if (listCalls <= ROLLBACK_STABLE_SUCCESS_POLLS + 1) {
+          return deploymentListOutcome([rollback, candidate, preimage]);
+        }
         return deploymentListOutcome([redeploy, rollback, candidate, preimage]);
       }
       if (descriptor.args[1]?.includes('mutation LorReleaseRollback')) {
-        return outcome({ data: { deploymentRollback: { id: ROLLBACK_ID } } });
+        return outcome({ data: { deploymentRollback: true } });
       }
       if (descriptor.args[1]?.includes('mutation LorReleaseRedeploy')) {
         return outcome({ data: { deploymentRedeploy: { id: REDEPLOY_ID } } });
@@ -1560,6 +1569,13 @@ test('exact rollback/redeploy proves both deployment identities and uses fixed G
     ({ args }) => args[1]?.includes('mutation LorRelease'),
   );
   assert.equal(mutationDescriptors.length, 2);
+  assert.equal(mutationDescriptors.every(({ args }) => (
+    args.includes('--allow-errors') && args.at(-1) === '--compact'
+  )), true);
+  assert.equal(
+    mutationDescriptors[0].args[1],
+    'mutation LorReleaseRollback($id: String!) {   deploymentRollback(id: $id) }',
+  );
   assert.deepEqual(JSON.parse(mutationDescriptors[0].args[3]), { id: PREIMAGE_ID });
   assert.deepEqual(JSON.parse(mutationDescriptors[1].args[3]), { id: CANDIDATE_ID });
   assert.equal(receipt.result, 'EXACT_PREIMAGE_ROLLBACK_AND_CANDIDATE_REDEPLOY_VERIFIED');
@@ -1567,6 +1583,7 @@ test('exact rollback/redeploy proves both deployment identities and uses fixed G
   assert.equal(receipt.redeployedDeploymentId, REDEPLOY_ID);
   assert.equal(receipt.operatorReadiness, 'VERIFIED_METADATA_ONLY');
   assert.equal(receipt.launchReady, true);
+  assert.equal(listCalls, ROLLBACK_STABLE_SUCCESS_POLLS + 2);
   assert.equal(recorder.calls.length, 10);
 });
 
@@ -1610,13 +1627,85 @@ test('rollback drill rejects a provider-state ref and a non-rollback-capable rem
   }
 });
 
+test('rollback drill fails unknown when more than one new deployment appears', async () => {
+  const preimage = deployment(PREIMAGE_ID, CREATED_PREIMAGE, { canRollback: true });
+  const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
+  const firstNew = deployment(ROLLBACK_ID, '2026-08-26T22:00:00.000Z');
+  const secondNew = deployment(UNRELATED_ID, '2026-08-26T22:00:01.000Z');
+  let listCalls = 0;
+  await assert.rejects(
+    runDr133ExactRollbackRedeployDrill({
+      preimageDeploymentId: PREIMAGE_ID,
+      preimageDeploymentRef: dr133ReleaseDeploymentRef(preimage),
+      candidateDeploymentId: CANDIDATE_ID,
+      candidateDeploymentRef: dr133ReleaseDeploymentRef(candidate),
+      environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
+      clock: () => 0,
+      sleep: async () => undefined,
+      async commandRunner(descriptor) {
+        if (descriptor.args[1]?.includes('query LorReleaseDeployments')) {
+          listCalls += 1;
+          return listCalls === 1
+            ? deploymentListOutcome([candidate, preimage])
+            : deploymentListOutcome([secondNew, firstNew, candidate, preimage]);
+        }
+        if (descriptor.args[1]?.includes('mutation LorReleaseRollback')) {
+          return outcome({ data: { deploymentRollback: true } });
+        }
+        return assert.fail('ambiguous rollback must not continue');
+      },
+    }),
+    (error) => error.code === 'ROLLBACK_DEPLOYMENT_AMBIGUOUS'
+      && error.mutationState === 'OUTCOME_UNKNOWN',
+  );
+});
+
+test('rollback drill never attributes an earlier unrelated sole deployment', async () => {
+  const preimage = deployment(PREIMAGE_ID, CREATED_PREIMAGE, { canRollback: true });
+  const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
+  const unrelated = deployment(UNRELATED_ID, '2026-08-26T22:00:00.000Z');
+  let listCalls = 0;
+  let redeployCalls = 0;
+  await assert.rejects(
+    runDr133ExactRollbackRedeployDrill({
+      preimageDeploymentId: PREIMAGE_ID,
+      preimageDeploymentRef: dr133ReleaseDeploymentRef(preimage),
+      candidateDeploymentId: CANDIDATE_ID,
+      candidateDeploymentRef: dr133ReleaseDeploymentRef(candidate),
+      environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
+      clock: () => 0,
+      sleep: async () => undefined,
+      async commandRunner(descriptor) {
+        if (descriptor.args[1]?.includes('query LorReleaseDeployments')) {
+          listCalls += 1;
+          return listCalls === 1
+            ? deploymentListOutcome([candidate, preimage])
+            : deploymentListOutcome([unrelated, candidate, preimage]);
+        }
+        if (descriptor.args[1]?.includes('mutation LorReleaseRollback')) {
+          return outcome({ data: { deploymentRollback: true } });
+        }
+        if (descriptor.args[1]?.includes('mutation LorReleaseRedeploy')) {
+          redeployCalls += 1;
+        }
+        return assert.fail('unrelated deployment must stop rollback attribution');
+      },
+    }),
+    (error) => error.code === 'ROLLBACK_DEPLOYMENT_PROVENANCE_MISMATCH'
+      && error.mutationState === 'OUTCOME_UNKNOWN',
+  );
+  assert.equal(redeployCalls, 0);
+});
+
 test('every malformed deployment mutation receipt is outcome-unknown after provider start', async () => {
   const preimage = deployment(PREIMAGE_ID, CREATED_PREIMAGE, { canRollback: true });
   const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
   for (const invalidReceipt of [
     Buffer.alloc(0),
     Buffer.from('{', 'utf8'),
+    { data: { deploymentRollback: false } },
     { data: { deploymentRollback: { id: 'not-a-deployment-id' } } },
+    { data: { deploymentRollback: true }, errors: [] },
   ]) {
     await assert.rejects(
       runDr133ExactRollbackRedeployDrill({
