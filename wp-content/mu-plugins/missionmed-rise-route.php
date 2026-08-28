@@ -50,10 +50,13 @@ function mmrise_route_cookie_header() {
     $allowed = array();
     foreach ($_COOKIE as $name => $value) {
         $name = (string) $name;
-        if (
-            $name === 'mmhq_session' || $name === 'mmed_rise_wp_nonce' || $name === 'mmed_rise_session_ready' ||
-            strpos($name, 'wordpress_') === 0 || strpos($name, 'wordpress_logged_in_') === 0 ||
-            strpos($name, 'wordpress_sec_') === 0
+        if ($name === 'mmhq_rise_session') {
+            // Keep the browser's RISE audience session isolated from the
+            // generic HQ session while preserving HQ's upstream cookie name.
+            $allowed[] = 'mmhq_session=' . rawurlencode((string) $value);
+        } elseif (
+            $name === 'mmed_rise_wp_nonce' || strpos($name, 'wordpress_') === 0 ||
+            strpos($name, 'wordpress_logged_in_') === 0 || strpos($name, 'wordpress_sec_') === 0
         ) {
             $allowed[] = $name . '=' . rawurlencode((string) $value);
         }
@@ -83,7 +86,7 @@ function mmrise_route_handle() {
         wp_safe_redirect(wp_login_url(home_url('/rise/')));
         exit;
     }
-    if (!$is_health && (empty($_COOKIE['mmhq_session']) || empty($_COOKIE['mmed_rise_session_ready']))) {
+    if (!$is_health && (empty($_COOKIE['mmhq_rise_session']) || empty($_COOKIE['mmed_rise_session_ready']))) {
         if ($is_api) {
             mmrise_route_json_error(401, 'RISE_SESSION_REQUIRED', 'The RISE audience session must be established.');
         }

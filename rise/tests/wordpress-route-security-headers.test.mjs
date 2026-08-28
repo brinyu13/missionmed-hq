@@ -27,7 +27,7 @@ test("WordPress /rise/ proxy serves the complete upstream security header set", 
   let response;
   for (let attempt = 0; attempt < 30; attempt += 1) {
     try {
-      response = await fetch(`http://127.0.0.1:${port}/rise/`, { headers: { Cookie: "mmhq_session=fixture-session; mmed_rise_session_ready=1" } });
+      response = await fetch(`http://127.0.0.1:${port}/rise/`, { headers: { Cookie: "mmhq_session=generic-wrong-audience-session; mmhq_rise_session=fixture-session; mmed_rise_session_ready=1" } });
       break;
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -54,12 +54,12 @@ test("WordPress /rise/ proxy serves the complete upstream security header set", 
   assert.doesNotMatch(response.headers.get("set-cookie") ?? "", /must-not-forward/);
   assert.notEqual(response.headers.get("connection"), "keep-alive");
 
-  const script = await fetch(`http://127.0.0.1:${port}/rise/assets/app`, { headers: { Cookie: "mmhq_session=fixture-session; mmed_rise_session_ready=1" } });
+  const script = await fetch(`http://127.0.0.1:${port}/rise/assets/app`, { headers: { Cookie: "mmhq_session=generic-wrong-audience-session; mmhq_rise_session=fixture-session; mmed_rise_session_ready=1" } });
   assert.equal(script.status, 200);
   assert.equal(script.headers.get("content-type"), "text/javascript; charset=utf-8");
   assert.equal(await script.text(), "globalThis.RISE_FIXTURE = true;");
 
-  const styles = await fetch(`http://127.0.0.1:${port}/rise/assets/styles`, { headers: { Cookie: "mmhq_session=fixture-session; mmed_rise_session_ready=1" } });
+  const styles = await fetch(`http://127.0.0.1:${port}/rise/assets/styles`, { headers: { Cookie: "mmhq_session=generic-wrong-audience-session; mmhq_rise_session=fixture-session; mmed_rise_session_ready=1" } });
   assert.equal(styles.status, 200);
   assert.equal(styles.headers.get("content-type"), "text/css; charset=utf-8");
   assert.equal(await styles.text(), "body { color: #111; }");

@@ -119,7 +119,10 @@ function mmrise_sso_handle() {
         status_header(503);
         wp_die('RISE authentication session was invalid.');
     }
-    mmrise_sso_set_cookie('mmhq_session', $session_cookie, time() + 28800, true);
+    // A distinct browser cookie prevents Matrix/HQ audience sessions from
+    // overwriting the RISE session. The route proxy renames it to the exact
+    // mmhq_session cookie expected by HQ on the server-to-server request.
+    mmrise_sso_set_cookie('mmhq_rise_session', $session_cookie, time() + 28800, true);
     mmrise_sso_set_cookie('mmed_rise_session_ready', '1', time() + 28800, true);
     mmrise_sso_set_cookie('mmed_rise_wp_nonce', wp_create_nonce('wp_rest'), time() + 43200, false);
     wp_safe_redirect(mmrise_sso_final_url());

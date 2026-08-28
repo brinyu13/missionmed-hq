@@ -23,6 +23,13 @@ function add_action($name, $callback, $priority = 10) {}
 
 function wp_remote_request($url, $options) {
     $path = (string) parse_url($url, PHP_URL_PATH);
+    if (($options['headers']['Cookie'] ?? '') !== 'mmhq_session=fixture-session') {
+        return array(
+            'response' => array('code' => 500),
+            'headers' => array('content-type' => 'application/json; charset=utf-8'),
+            'body' => '{"error":"fixture_cookie_isolation_failed"}',
+        );
+    }
     $content_type = 'text/html; charset=utf-8';
     $body = '<!doctype html><link rel="stylesheet" href="/rise/styles.css"><script type="module" src="/rise/app.js"></script>';
     if ($path === '/rise/app.js') {
@@ -57,7 +64,8 @@ function wp_remote_retrieve_response_code($response) { return $response['respons
 function wp_remote_retrieve_header($response, $name) { return $response['headers'][strtolower($name)] ?? ''; }
 function wp_remote_retrieve_body($response) { return $response['body']; }
 
-$_COOKIE['mmhq_session'] = 'fixture-session';
+$_COOKIE['mmhq_session'] = 'generic-wrong-audience-session';
+$_COOKIE['mmhq_rise_session'] = 'fixture-session';
 $_COOKIE['mmed_rise_session_ready'] = '1';
 require getenv('RISE_ROUTE_PLUGIN_PATH');
 mmrise_route_handle();
