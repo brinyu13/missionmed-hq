@@ -1803,9 +1803,17 @@ export async function runDr133ExactRollbackRedeployDrill({
   const before = await listDeployments(commandRunner, environment);
   const preimage = before.find(({ id }) => id === preimageId);
   const candidate = before.find(({ id }) => id === candidateId);
-  if (!preimage || !candidate || preimage.status !== 'SUCCESS' || candidate.status !== 'SUCCESS'
+  // Railway changes the formerly active deployment from SUCCESS to REMOVED
+  // when a new candidate becomes current. Preserve the pre-deploy SUCCESS ref
+  // as the authority receipt, but admit the provider's exact post-deploy state
+  // only when that same deployment remains explicitly rollback-capable.
+  const capturedPreimageRef = preimage && ['SUCCESS', 'REMOVED'].includes(preimage.status)
+    ? dr133ReleaseDeploymentRef({ ...preimage, status: 'SUCCESS' })
+    : null;
+  if (!preimage || !candidate || !['SUCCESS', 'REMOVED'].includes(preimage.status)
+    || candidate.status !== 'SUCCESS'
     || preimage.canRollback !== true
-    || dr133ReleaseDeploymentRef(preimage) !== preimageDeploymentRef
+    || capturedPreimageRef !== preimageDeploymentRef
     || dr133ReleaseDeploymentRef(candidate) !== candidateDeploymentRef) {
     fail('ROLLBACK_PREIMAGE_UNPROVEN');
   }

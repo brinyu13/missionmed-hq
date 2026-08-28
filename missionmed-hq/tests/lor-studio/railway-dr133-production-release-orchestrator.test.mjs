@@ -1436,7 +1436,11 @@ test('failed rollout verification restores and remotely proves the canonical dar
 });
 
 test('exact rollback/redeploy proves both deployment identities and uses fixed GraphQL mutations', async () => {
-  const preimage = deployment(PREIMAGE_ID, CREATED_PREIMAGE, { canRollback: true });
+  const capturedPreimage = deployment(PREIMAGE_ID, CREATED_PREIMAGE, { canRollback: true });
+  const preimage = deployment(PREIMAGE_ID, CREATED_PREIMAGE, {
+    canRollback: true,
+    status: 'REMOVED',
+  });
   const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
   const rollback = deployment(ROLLBACK_ID, '2026-08-26T22:00:00.000Z');
   const redeploy = deployment(REDEPLOY_ID, '2026-08-26T23:00:00.000Z');
@@ -1445,7 +1449,7 @@ test('exact rollback/redeploy proves both deployment identities and uses fixed G
   const recorder = darkFetchRecorder();
   const receipt = await runDr133ExactRollbackRedeployDrill({
     preimageDeploymentId: PREIMAGE_ID,
-    preimageDeploymentRef: dr133ReleaseDeploymentRef(preimage),
+    preimageDeploymentRef: dr133ReleaseDeploymentRef(capturedPreimage),
     candidateDeploymentId: CANDIDATE_ID,
     candidateDeploymentRef: dr133ReleaseDeploymentRef(candidate),
     environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
@@ -1481,6 +1485,46 @@ test('exact rollback/redeploy proves both deployment identities and uses fixed G
   assert.equal(receipt.operatorReadiness, 'VERIFIED_METADATA_ONLY');
   assert.equal(receipt.launchReady, true);
   assert.equal(recorder.calls.length, 10);
+});
+
+test('rollback drill rejects a provider-state ref and a non-rollback-capable removed preimage', async () => {
+  const capturedPreimage = deployment(PREIMAGE_ID, CREATED_PREIMAGE, { canRollback: true });
+  const removedPreimage = deployment(PREIMAGE_ID, CREATED_PREIMAGE, {
+    canRollback: true,
+    status: 'REMOVED',
+  });
+  const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
+  for (const { preimage, preimageDeploymentRef } of [
+    {
+      preimage: removedPreimage,
+      preimageDeploymentRef: dr133ReleaseDeploymentRef(removedPreimage),
+    },
+    {
+      preimage: { ...removedPreimage, canRollback: false },
+      preimageDeploymentRef: dr133ReleaseDeploymentRef(capturedPreimage),
+    },
+  ]) {
+    let mutationCalls = 0;
+    await assert.rejects(
+      runDr133ExactRollbackRedeployDrill({
+        preimageDeploymentId: PREIMAGE_ID,
+        preimageDeploymentRef,
+        candidateDeploymentId: CANDIDATE_ID,
+        candidateDeploymentRef: dr133ReleaseDeploymentRef(candidate),
+        environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
+        async commandRunner(descriptor) {
+          if (descriptor.args[1]?.includes('query LorReleaseDeployments')) {
+            return deploymentListOutcome([candidate, preimage]);
+          }
+          mutationCalls += 1;
+          return assert.fail('must not mutate with an unproven rollback preimage');
+        },
+      }),
+      (error) => error.code === 'ROLLBACK_PREIMAGE_UNPROVEN'
+        && error.mutationState === 'NOT_ATTEMPTED',
+    );
+    assert.equal(mutationCalls, 0);
+  }
 });
 
 test('every malformed deployment mutation receipt is outcome-unknown after provider start', async () => {
