@@ -2,6 +2,7 @@ import { HmacFacultyInvitationSecretDeriver } from './faculty-invitation-hmac-de
 import { PostmarkFacultyInvitationAdapter } from './faculty-otp-postmark-adapters.mjs';
 import {
   OPENAI_GROUNDED_PROPOSAL_CONTRACT,
+  OPENAI_PRODUCTION_PROJECT_ID,
   OpenAiGroundedProposalAdapter,
 } from './openai-grounded-proposal-adapter.mjs';
 import { PostmarkFacultyInvitationTransport } from './postmark-faculty-invitation-transport.mjs';
@@ -167,7 +168,7 @@ export async function createProductionProviderRuntime({
       try {
         token = await bindings.openai.credentialProvider.getBearerToken({
           provider: 'openai',
-          projectId: bindings.openai.binding.projectId,
+          projectId: OPENAI_PRODUCTION_PROJECT_ID,
           purpose: 'lor_grounded_proposal',
         });
         if (typeof token !== 'string' || token.length < 8 || token.length > 4_096 || /\s/u.test(token)) {
@@ -178,7 +179,7 @@ export async function createProductionProviderRuntime({
           headers: {
             Accept: 'application/json',
             Authorization: `Bearer ${token}`,
-            'OpenAI-Project': bindings.openai.binding.projectId,
+            'OpenAI-Project': OPENAI_PRODUCTION_PROJECT_ID,
           },
         }, signal);
         const payload = await boundedJson(response);
@@ -197,7 +198,7 @@ export async function createProductionProviderRuntime({
         return readyEvidence('ai', Object.freeze({
           endpoint: 'openai_models',
           modelRef: sha256(OPENAI_GROUNDED_PROPOSAL_CONTRACT.model),
-          projectRef: sha256(bindings.openai.binding.projectId),
+          projectRef: sha256(OPENAI_PRODUCTION_PROJECT_ID),
           responseShape: 'list',
         }));
       } finally {
@@ -265,7 +266,11 @@ export async function createProductionProviderRuntime({
 
 export const PRODUCTION_PROVIDER_RUNTIME_CONTRACT = Object.freeze({
   openAiProbe: 'GET_/v1/models_exact_project_and_exact_proposal_model_no_customer_content',
-  openAiPrivacyAuthority: 'source_pinned_signed_exact_project_and_model_attestation',
+  openAiProjectId: OPENAI_PRODUCTION_PROJECT_ID,
+  openAiPrivacyAuthority:
+    'source_pinned_signed_dr139_standard_retention_exact_project_model_release_policy_attestation',
+  openAiRuntimeReleaseIdentity:
+    'MMHQ_LOR_RELEASE_COMMIT_exact_40_hex_must_equal_signed_releaseCommit',
   postmarkProbe: 'GET_exact_active_template_alias_and_server',
   invitationSecretProbe: 'local_hmac_derivation_only',
   candidateHandoffKey: 'same_provider_key_with_hkdf_domain_separation',

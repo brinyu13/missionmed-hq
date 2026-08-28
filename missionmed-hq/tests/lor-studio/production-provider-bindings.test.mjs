@@ -8,6 +8,9 @@ import {
   createPostmarkProductionProviderBinding,
   createProductionProviderBindings,
 } from '../../lor-studio/adapters/production-provider-bindings.mjs';
+import {
+  OPENAI_PATH_B_PROCESSING_POLICY_DIGEST,
+} from '../../lor-studio/adapters/openai-grounded-proposal-adapter.mjs';
 import { IntegrationDisabledError } from '../../lor-studio/domain/errors.js';
 import { canonicalize } from '../../lor-studio/domain/value-utils.js';
 import {
@@ -18,7 +21,8 @@ import {
 const OPENAI_SECRET = 'sk-project-lor-test-secret-value';
 const POSTMARK_SECRET = 'postmark-test-server-token-value';
 const HMAC_KEY = Buffer.alloc(32, 0x5a).toString('base64url');
-const PROJECT_ID = 'proj_lorproduction123';
+const PROJECT_ID = 'proj_UTCDEhLVMT6aQnCXnBElihZT';
+const RELEASE_COMMIT = '9a7a5f56bbc584ace07472e283b1013ab7897fca';
 const SERVER_ID = 'postmark-server-lor-production';
 const NOW = new Date('2026-08-26T12:00:00.000Z');
 const OPENAI_OPTIONS = Object.freeze({ clock: () => NOW });
@@ -58,12 +62,17 @@ function assertSafeFailure(error) {
 test('dedicated production factory binds exact OpenAI, Postmark and invitation-secret resources', async () => {
   const result = createProductionProviderBindings(environment(), OPENAI_OPTIONS);
   assert.deepEqual(result.openai.binding, {
-    schemaVersion: 'missionmed.lor.openai-project-binding.v1',
+    schemaVersion: 'missionmed.lor.openai-project-binding.v2',
     provider: 'openai',
     providerResourceBound: true,
+    missionId: 'F2-LOR-1012',
     projectId: PROJECT_ID,
-    projectDataRetention: 'zero_data_retention',
-    apiDataTrainingOptOut: true,
+    releaseCommit: RELEASE_COMMIT,
+    privacyAuthority: 'DR-139',
+    privacyPosture: 'standard_api_retention',
+    zeroDataRetentionClaimed: false,
+    apiDataTrainingPosture: 'api_content_not_used_for_model_training_by_default',
+    processingPolicyDigest: OPENAI_PATH_B_PROCESSING_POLICY_DIGEST,
     educationRecordProcessingAuthorized: true,
     independentlyVerified: true,
   });
@@ -174,13 +183,26 @@ test('partial provider evidence and non-exact truth values fail closed', () => {
   const openaiOverrides = [
     { MMHQ_LOR_OPENAI_API_KEY: '' },
     { MMHQ_LOR_OPENAI_PROJECT_ID: 'project-default' },
+    { MMHQ_LOR_OPENAI_PROJECT_ID: 'proj_lorproduction123' },
     { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: '' },
     { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: '***' },
+    { MMHQ_LOR_RELEASE_COMMIT: '' },
+    { MMHQ_LOR_RELEASE_COMMIT: 'A'.repeat(40) },
+    { MMHQ_LOR_RELEASE_COMMIT: 'b'.repeat(40) },
     { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: tamperedClaims({
-      projectDataRetention: 'provider_default',
+      privacyAuthority: 'DR-133',
     }) },
     { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: tamperedClaims({
-      apiDataTrainingOptOut: false,
+      privacyPosture: 'zero_data_retention',
+    }) },
+    { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: tamperedClaims({
+      zeroDataRetentionClaimed: true,
+    }) },
+    { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: tamperedClaims({
+      apiDataTrainingPosture: 'training_opt_out',
+    }) },
+    { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: tamperedClaims({
+      processingPolicyDigest: 'a'.repeat(64),
     }) },
     { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: tamperedClaims({
       educationRecordProcessingAuthorized: false,
@@ -266,9 +288,15 @@ test('contract publishes the exact allowlisted env names without generic provide
   assert.equal(names.includes('MMHQ_LOR_OPENAI_ZDR_VERIFIED'), false);
   assert.equal(names.includes('MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL'), true);
   assert.equal(names.includes('MMHQ_LOR_OPENAI_PRIVACY_VERIFICATION_SPKI_BASE64'), true);
+  assert.equal(names.includes('MMHQ_LOR_RELEASE_COMMIT'), true);
+  assert.equal(names.includes('RAILWAY_GIT_COMMIT_SHA'), false);
   assert.equal(
     PRODUCTION_PROVIDER_BINDINGS_CONTRACT.openaiPrivacyAuthority,
-    'source_pinned_signed_attestation_only',
+    'source_pinned_signed_dr139_standard_retention_project_model_release_policy_attestation_only',
+  );
+  assert.equal(
+    PRODUCTION_PROVIDER_BINDINGS_CONTRACT.openaiRuntimeReleaseIdentity,
+    'MMHQ_LOR_RELEASE_COMMIT_exact_40_hex_release_inventory_probe_and_signed_attestation_binding',
   );
   assert.equal(PRODUCTION_PROVIDER_BINDINGS_CONTRACT.genericCredentialFallback, false);
   assert.equal(

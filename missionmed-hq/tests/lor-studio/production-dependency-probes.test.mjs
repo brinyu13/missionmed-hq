@@ -101,8 +101,8 @@ function configuration(overrides = {}) {
 function providerEnvironment() {
   return {
     MMHQ_LOR_OPENAI_API_KEY: 'sk-proj-bounded-test-token',
-    MMHQ_LOR_OPENAI_PROJECT_ID: 'proj_lordependencyprobe',
-    ...signedOpenAiPrivacyEnvironment('proj_lordependencyprobe'),
+    MMHQ_LOR_OPENAI_PROJECT_ID: 'proj_UTCDEhLVMT6aQnCXnBElihZT',
+    ...signedOpenAiPrivacyEnvironment('proj_UTCDEhLVMT6aQnCXnBElihZT'),
     MMHQ_LOR_POSTMARK_SERVER_TOKEN: 'postmark-bounded-test-token',
     MMHQ_LOR_POSTMARK_SERVER_ID: '12345',
     MMHQ_LOR_POSTMARK_FROM_EMAIL: 'letters@example.test',

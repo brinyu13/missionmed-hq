@@ -9,6 +9,8 @@ import {
   DR133_TARGET,
 } from '../../scripts/lor-studio/railway-dr133-production-runner-core.mjs';
 import {
+  PATH_B_FIXTURE_PROJECT_ID,
+  PATH_B_FIXTURE_RELEASE_COMMIT,
   signedOpenAiPrivacyEnvironment,
 } from './fixtures/signed-openai-privacy-attestations.mjs';
 import {
@@ -48,7 +50,7 @@ const REDEPLOY_ID = '44444444-4444-4444-8444-444444444444';
 const UNRELATED_ID = '55555555-5555-4555-8555-555555555555';
 const CREATED_PREIMAGE = '2026-08-26T20:00:00.000Z';
 const CREATED_CANDIDATE = '2026-08-26T21:00:00.000Z';
-const OPENAI_PRIVACY = signedOpenAiPrivacyEnvironment('proj_lorproduction');
+const OPENAI_PRIVACY = signedOpenAiPrivacyEnvironment(PATH_B_FIXTURE_PROJECT_ID);
 
 const TARGET_VALUES = Object.freeze({
   MMHQ_LOR_STUDIO_TARGET_SCHEMA_VERSION: 'missionmed.lor.target-binding.v2',
@@ -107,7 +109,7 @@ function validVariableValue(key) {
       return OPENAI_PRIVACY.MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL;
     case 'MMHQ_LOR_OPENAI_PRIVACY_VERIFICATION_SPKI_BASE64':
       return OPENAI_PRIVACY.MMHQ_LOR_OPENAI_PRIVACY_VERIFICATION_SPKI_BASE64;
-    case 'MMHQ_LOR_OPENAI_PROJECT_ID': return 'proj_lorproduction';
+    case 'MMHQ_LOR_OPENAI_PROJECT_ID': return PATH_B_FIXTURE_PROJECT_ID;
     case 'MMHQ_LOR_POSTMARK_FROM_EMAIL': return 'lor@missionmedinstitute.com';
     case 'MMHQ_LOR_POSTMARK_REPLY_TO_EMAIL': return '';
     case 'MMHQ_LOR_POSTMARK_SERVER_ID': return 'missionmed-lor-production';
@@ -115,6 +117,7 @@ function validVariableValue(key) {
     case 'MMHQ_LOR_PRIVATE_STORAGE_IDENTITY': return 'railway-postgres-lor-writer-depot';
     case 'MMHQ_LOR_PRIVATE_STORAGE_KEK_BASE64': return Buffer.alloc(32, 5).toString('base64');
     case 'MMHQ_LOR_PRIVATE_STORAGE_KEY_VERSION': return 'lor-storage-k1';
+    case 'MMHQ_LOR_RELEASE_COMMIT': return PATH_B_FIXTURE_RELEASE_COMMIT;
     case 'MMHQ_LOR_RESTORE_PROOF_BASE64URL':
       return Buffer.from('{"proof":"metadata-only"}', 'utf8').toString('base64url');
     case 'MMHQ_LOR_RESTORE_VERIFICATION_SPKI_BASE64':
@@ -289,14 +292,15 @@ function failingRolloutFetchRecorder() {
 }
 
 test('release inventory is exact, sorted, dedicated, and exposes no arbitrary-command surface', () => {
-  assert.equal(DR133_RELEASE_VARIABLE_KEYS.length, 54);
+  assert.equal(DR133_RELEASE_VARIABLE_KEYS.length, 55);
   assert.deepEqual(DR133_RELEASE_VARIABLE_KEYS, [...DR133_RELEASE_VARIABLE_KEYS].sort());
-  assert.equal(new Set(DR133_RELEASE_VARIABLE_KEYS).size, 54);
+  assert.equal(new Set(DR133_RELEASE_VARIABLE_KEYS).size, 55);
   assert.ok(DR133_RELEASE_VARIABLE_KEYS.every(
     (key) => key.startsWith('MMHQ_LOR_') || key.startsWith('LOR_DR133_'),
   ));
   assert.ok(!DR133_RELEASE_VARIABLE_KEYS.includes('OPENAI_API_KEY'));
   assert.ok(!DR133_RELEASE_VARIABLE_KEYS.includes('DATABASE_URL'));
+  assert.ok(DR133_RELEASE_VARIABLE_KEYS.includes('MMHQ_LOR_RELEASE_COMMIT'));
   assert.deepEqual(
     DR133_RELEASE_VARIABLE_KEYS.filter((key) => key.startsWith('MMHQ_LOR_OPENAI_')),
     [
@@ -323,6 +327,10 @@ test('release inventory is exact, sorted, dedicated, and exposes no arbitrary-co
   assert.equal(DR133_PRODUCTION_RELEASE_CONTRACT.environmentDump, false);
   assert.equal(DR133_PRODUCTION_RELEASE_CONTRACT.secretOutput, false);
   assert.equal(DR133_PRODUCTION_RELEASE_CONTRACT.operatorReadinessRoute, '/health/lor-studio');
+  assert.equal(DR133_PRODUCTION_RELEASE_CONTRACT.openAiProjectId,
+    PATH_B_FIXTURE_PROJECT_ID);
+  assert.equal(DR133_PRODUCTION_RELEASE_CONTRACT.sourceCommitBinding,
+    'MMHQ_LOR_RELEASE_COMMIT_domain_separated_expectation_hash');
   assert.deepEqual(DR133_PRODUCTION_RELEASE_CONTRACT.archivePaths, [
     '.railwayignore', 'missionmed-hq', 'package-lock.json', 'package.json', 'railway.json',
   ]);
@@ -354,12 +362,27 @@ test('every fixed release variable passes the runtime-aligned shape contract', (
     (error) => error instanceof Dr133ProductionReleaseError
       && error.code === 'VARIABLE_VALUE_SHAPE_INVALID',
   );
+  assert.equal(
+    validVariableValue('MMHQ_LOR_RELEASE_COMMIT'),
+    PATH_B_FIXTURE_RELEASE_COMMIT,
+  );
+  for (const [key, value] of [
+    ['MMHQ_LOR_RELEASE_COMMIT', PATH_B_FIXTURE_RELEASE_COMMIT.toUpperCase()],
+    ['MMHQ_LOR_RELEASE_COMMIT', PATH_B_FIXTURE_RELEASE_COMMIT.slice(0, -1)],
+    ['MMHQ_LOR_OPENAI_PROJECT_ID', 'proj_lorproduction'],
+  ]) {
+    assert.throws(
+      () => inspectDr133ReleaseVariableValue(key, Buffer.from(value, 'utf8')),
+      (error) => error instanceof Dr133ProductionReleaseError
+        && error.code === 'VARIABLE_VALUE_SHAPE_INVALID',
+    );
+  }
 });
 
 test('expectation manifest is exact, complete, canonical, ordered, and hash-only', () => {
   const created = variableExpectations();
   assert.equal(created.manifest.schemaVersion, DR133_RELEASE_VARIABLE_EXPECTATION_SCHEMA);
-  assert.equal(created.manifest.variables.length, 54);
+  assert.equal(created.manifest.variables.length, 55);
   assert.equal(JSON.stringify(created.manifest).includes('sk-proj-'), false);
   assert.deepEqual(parseDr133ReleaseVariableExpectationManifest(created.encoded), created);
 
@@ -406,7 +429,7 @@ test('service-side variable verification emits only aggregate shape/hash evidenc
     contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
     result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
     manifestSha256: expected.manifestSha256,
-    variableCount: 54,
+    variableCount: 55,
   });
   assert.equal(JSON.stringify(receipt).includes(environment.MMHQ_LOR_OPENAI_API_KEY), false);
   environment.MMHQ_LOR_STUDIO_ENABLED = 'true';
@@ -538,7 +561,7 @@ test('remote verification invokes only the fixed deployed probe and validates it
         contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
         result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
         manifestSha256: expected.manifestSha256,
-        variableCount: 54,
+        variableCount: 55,
       });
     },
   });
@@ -647,7 +670,7 @@ test('immutable dark deploy requires dark flag hashes and uploads only a fixed c
   let verifies = 0;
   let cleanups = 0;
   const receipt = await deployDr133ImmutableDarkCandidate({
-    sourceCommit: 'a'.repeat(40),
+    sourceCommit: PATH_B_FIXTURE_RELEASE_COMMIT,
     encodedExpectations: expected.encoded,
     environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
     clock: () => 0,
@@ -664,7 +687,7 @@ test('immutable dark deploy requires dark flag hashes and uploads only a fixed c
       return outcome({ deploymentId: CANDIDATE_ID });
     },
     async createArchive(options) {
-      assert.equal(options.sourceCommit, 'a'.repeat(40));
+      assert.equal(options.sourceCommit, PATH_B_FIXTURE_RELEASE_COMMIT);
       return {
         archiveSha256: 'b'.repeat(64),
         treeSha256: 'c'.repeat(64),
@@ -679,7 +702,7 @@ test('immutable dark deploy requires dark flag hashes and uploads only a fixed c
   assert.deepEqual(upload.args, [
     'up', '/tmp/f2-lor-dr133-release-test/stage',
     '--path-as-root', '--detach', '--json', '--yes',
-    '--message', `F2-LOR-1012 DR-133 ${'a'.repeat(40)}`,
+    '--message', `F2-LOR-1012 DR-133 ${PATH_B_FIXTURE_RELEASE_COMMIT}`,
     '--project', DR133_TARGET.projectId,
     '--environment', DR133_TARGET.environmentId,
     '--service', DR133_TARGET.applicationServiceId,
@@ -704,7 +727,7 @@ test('immutable dark deploy rejects unbound upload receipts with unknown mutatio
     let listCalls = 0;
     await assert.rejects(
       deployDr133ImmutableDarkCandidate({
-        sourceCommit: 'a'.repeat(40),
+        sourceCommit: PATH_B_FIXTURE_RELEASE_COMMIT,
         encodedExpectations: variableExpectations().encoded,
         environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
         clock: () => 0,
@@ -744,7 +767,7 @@ test('deploy-dark rejects a non-dark expectation before provider commands', asyn
   let called = false;
   await assert.rejects(
     deployDr133ImmutableDarkCandidate({
-      sourceCommit: 'a'.repeat(40),
+      sourceCommit: PATH_B_FIXTURE_RELEASE_COMMIT,
       encodedExpectations: expected.encoded,
       environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
       async commandRunner() { called = true; return outcome(); },
@@ -752,6 +775,30 @@ test('deploy-dark rejects a non-dark expectation before provider commands', asyn
     (error) => error.code === 'DARK_FLAG_EXPECTATION_INVALID',
   );
   assert.equal(called, false);
+});
+
+test('deploy-dark rejects a sourceCommit versus release-manifest mismatch before provider or archive work', async () => {
+  let providerCalled = false;
+  let archiveCalled = false;
+  await assert.rejects(
+    deployDr133ImmutableDarkCandidate({
+      sourceCommit: 'b'.repeat(40),
+      encodedExpectations: variableExpectations().encoded,
+      environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
+      async commandRunner() {
+        providerCalled = true;
+        return outcome();
+      },
+      async createArchive() {
+        archiveCalled = true;
+        return assert.fail('release mismatch reached archive creation');
+      },
+    }),
+    (error) => error.code === 'RELEASE_COMMIT_EXPECTATION_INVALID'
+      && error.mutationState === 'NOT_ATTEMPTED',
+  );
+  assert.equal(providerCalled, false);
+  assert.equal(archiveCalled, false);
 });
 
 test('dark health verifies public containment and metadata-only LOR readiness', async () => {
@@ -885,7 +932,7 @@ test('activate-canary binds only known flags, redeploys the exact candidate, and
           contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
           result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
           manifestSha256: activeExpectations.manifestSha256,
-          variableCount: 54,
+          variableCount: 55,
         });
       }
       return assert.fail('unexpected canary command');
@@ -970,7 +1017,7 @@ test('failed canary verification restores and remotely proves the dark candidate
             contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
             result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
             manifestSha256: darkExpectations.manifestSha256,
-            variableCount: 54,
+            variableCount: 55,
           });
         }
         return assert.fail('unexpected canary compensation command');
@@ -1024,7 +1071,7 @@ test('activate-rollout promotes only the current remotely verified canary deploy
           contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
           result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
           manifestSha256: expected.manifestSha256,
-          variableCount: 54,
+          variableCount: 55,
         });
       }
       return assert.fail('unexpected rollout command');
@@ -1130,7 +1177,7 @@ test('activate-rollout rejects current-deployment drift after the generic canary
             contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
             result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
             manifestSha256: canaryExpectations.manifestSha256,
-            variableCount: 54,
+            variableCount: 55,
           });
         }
         return assert.fail('drifted rollout reached a mutation command');
@@ -1199,7 +1246,7 @@ test('failed rollout verification restores and remotely proves the canonical dar
             contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
             result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
             manifestSha256: expected.manifestSha256,
-            variableCount: 54,
+            variableCount: 55,
           });
         }
         return assert.fail('unexpected rollout compensation command');
@@ -1376,6 +1423,6 @@ test('standalone service probe scrubs unrelated environment values and emits one
     contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
     result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
     manifestSha256: expected.manifestSha256,
-    variableCount: 54,
+    variableCount: 55,
   });
 });

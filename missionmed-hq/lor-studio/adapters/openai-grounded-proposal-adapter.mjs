@@ -1,22 +1,56 @@
 import { IntegrationDisabledError, ValidationError } from '../domain/errors.js';
-import { deepFreeze, sha256 } from '../domain/value-utils.js';
+import { canonicalize, deepFreeze, sha256 } from '../domain/value-utils.js';
 import { AiProposalPort } from '../services/ports.js';
 
 const OPENAI_RESPONSES_ENDPOINT = 'https://api.openai.com/v1/responses';
 const OPENAI_MODEL = 'gpt-5.6-terra';
 const PROVIDER_ID = 'openai';
-const OPENAI_BINDING_SCHEMA = 'missionmed.lor.openai-project-binding.v1';
+const OPENAI_BINDING_SCHEMA = 'missionmed.lor.openai-project-binding.v2';
+export const OPENAI_PRODUCTION_PROJECT_ID = 'proj_UTCDEhLVMT6aQnCXnBElihZT';
+const OPENAI_PATH_B_MISSION_ID = 'F2-LOR-1012';
+const OPENAI_PATH_B_PRIVACY_AUTHORITY = 'DR-139';
+const OPENAI_PATH_B_PRIVACY_POSTURE = 'standard_api_retention';
+const OPENAI_PATH_B_TRAINING_POSTURE =
+  'api_content_not_used_for_model_training_by_default';
+
+export const OPENAI_PATH_B_PROCESSING_POLICY = deepFreeze({
+  automaticFinalization: false,
+  background: false,
+  conversationsApi: false,
+  credentialMode: 'server_only',
+  filesApi: false,
+  groundingProvenance: 'required',
+  hostedTools: false,
+  humanReview: 'required',
+  providerPayload: 'minimum_necessary_grounded_fact_subset_without_case_identifier',
+  rawProviderRequestDurableRetention: false,
+  rawProviderResponseDurableRetention: false,
+  sensitiveTelemetryAllowed: false,
+  store: false,
+  structuredOutput: true,
+  vectorStores: false,
+});
+
+export const OPENAI_PATH_B_PROCESSING_POLICY_DIGEST = sha256(
+  canonicalize(OPENAI_PATH_B_PROCESSING_POLICY),
+);
+
 const OPENAI_BINDING_KEYS = new Set([
-  'apiDataTrainingOptOut',
+  'apiDataTrainingPosture',
   'educationRecordProcessingAuthorized',
   'independentlyVerified',
-  'projectDataRetention',
+  'missionId',
+  'privacyAuthority',
+  'privacyPosture',
+  'processingPolicyDigest',
   'projectId',
   'provider',
   'providerResourceBound',
+  'releaseCommit',
   'schemaVersion',
+  'zeroDataRetentionClaimed',
 ]);
-const OPENAI_PROJECT_ID_PATTERN = /^proj_[A-Za-z0-9_-]{6,200}$/u;
+const RELEASE_COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
 const MAX_REQUEST_BYTES = 256_000;
 const MAX_RESPONSE_BYTES = 512_000;
 const MAX_OUTPUT_TOKENS = 8_000;
@@ -171,10 +205,15 @@ function assertBinding(rawBinding) {
     || binding.provider !== PROVIDER_ID
     || binding.providerResourceBound !== true
     || binding.independentlyVerified !== true
-    || typeof binding.projectId !== 'string'
-    || !OPENAI_PROJECT_ID_PATTERN.test(binding.projectId)
-    || binding.projectDataRetention !== 'zero_data_retention'
-    || binding.apiDataTrainingOptOut !== true
+    || binding.missionId !== OPENAI_PATH_B_MISSION_ID
+    || binding.projectId !== OPENAI_PRODUCTION_PROJECT_ID
+    || typeof binding.releaseCommit !== 'string'
+    || !RELEASE_COMMIT_PATTERN.test(binding.releaseCommit)
+    || binding.privacyAuthority !== OPENAI_PATH_B_PRIVACY_AUTHORITY
+    || binding.privacyPosture !== OPENAI_PATH_B_PRIVACY_POSTURE
+    || binding.zeroDataRetentionClaimed !== false
+    || binding.apiDataTrainingPosture !== OPENAI_PATH_B_TRAINING_POSTURE
+    || binding.processingPolicyDigest !== OPENAI_PATH_B_PROCESSING_POLICY_DIGEST
     || binding.educationRecordProcessingAuthorized !== true
   ) {
     throw unavailable('OPENAI_PROJECT_PRIVACY_BINDING_REQUIRED');
@@ -185,9 +224,14 @@ function assertBinding(rawBinding) {
       schemaVersion: OPENAI_BINDING_SCHEMA,
       provider: PROVIDER_ID,
       providerResourceBound: true,
+      missionId: OPENAI_PATH_B_MISSION_ID,
       projectRef: sha256(`missionmed:lor:openai-project:${binding.projectId}`),
-      projectDataRetention: 'zero_data_retention',
-      apiDataTrainingOptOut: true,
+      releaseCommit: binding.releaseCommit,
+      privacyAuthority: OPENAI_PATH_B_PRIVACY_AUTHORITY,
+      privacyPosture: OPENAI_PATH_B_PRIVACY_POSTURE,
+      zeroDataRetentionClaimed: false,
+      apiDataTrainingPosture: OPENAI_PATH_B_TRAINING_POSTURE,
+      processingPolicyDigest: OPENAI_PATH_B_PROCESSING_POLICY_DIGEST,
       educationRecordProcessingAuthorized: true,
       independentlyVerified: true,
     }),
@@ -463,9 +507,10 @@ function normalizeProviderProposal(value, allowedFactIds) {
 }
 
 /**
- * Server-only OpenAI Responses adapter. Construction is disabled unless an independently verified
- * project binding attests Zero Data Retention, API training opt-out, and explicit authority to
- * process identified education records for this exact LOR workflow.
+ * Server-only OpenAI Responses adapter. Construction is disabled unless an independently verified,
+ * source-pinned project binding records the Founder-approved standard API retention posture,
+ * explicitly declines to claim ZDR, binds the exact Path B processing policy, and authorizes this
+ * education-record workflow.
  */
 export class OpenAiGroundedProposalAdapter extends AiProposalPort {
   #credentialProvider;
@@ -494,7 +539,7 @@ export class OpenAiGroundedProposalAdapter extends AiProposalPort {
     this.#timeoutMs = timeoutMs;
     this.providerId = PROVIDER_ID;
     this.modelId = OPENAI_MODEL;
-    this.durability = 'EXTERNAL_PROVIDER_ZDR_BOUND';
+    this.durability = 'EXTERNAL_PROVIDER_STANDARD_API_RETENTION_BOUND';
     Object.freeze(this);
     AUTHENTIC_OPENAI_GROUNDED_PROPOSAL_ADAPTERS.add(this);
   }
@@ -614,17 +659,41 @@ export function isAuthenticOpenAiGroundedProposalAdapter(value) {
 }
 
 export const OPENAI_GROUNDED_PROPOSAL_CONTRACT = deepFreeze({
+  bindingSchema: OPENAI_BINDING_SCHEMA,
   endpoint: OPENAI_RESPONSES_ENDPOINT,
   model: OPENAI_MODEL,
   provider: PROVIDER_ID,
+  missionId: OPENAI_PATH_B_MISSION_ID,
+  privacyAuthority: OPENAI_PATH_B_PRIVACY_AUTHORITY,
+  privacyPosture: OPENAI_PATH_B_PRIVACY_POSTURE,
+  standardApiRetentionAccepted: true,
+  zeroDataRetentionClaimed: false,
+  apiDataTrainingPosture: OPENAI_PATH_B_TRAINING_POSTURE,
+  processingPolicy: OPENAI_PATH_B_PROCESSING_POLICY,
+  processingPolicyDigest: OPENAI_PATH_B_PROCESSING_POLICY_DIGEST,
   store: false,
   background: false,
   structuredOutput: true,
   toolsEnabled: false,
   promptCacheConfigured: false,
   exactProjectBindingRequired: true,
-  projectZeroDataRetentionRequired: true,
-  apiDataTrainingOptOutRequired: true,
+  projectId: OPENAI_PRODUCTION_PROJECT_ID,
+  exactReleaseCommitBindingRequired: true,
+  runtimeReleaseIdentity:
+    'MMHQ_LOR_RELEASE_COMMIT_exact_40_hex_signed_attestation_and_provider_binding',
+  projectZeroDataRetentionRequired: false,
+  serverSideCredentialsRequired: true,
+  minimumNecessaryProviderPayloadRequired: true,
+  conversationsApiEnabled: false,
+  filesApiEnabled: false,
+  vectorStoresEnabled: false,
+  hostedToolsEnabled: false,
+  groundingProvenanceRequired: true,
+  humanReviewRequired: true,
+  automaticFinalization: false,
+  sensitiveTelemetryAllowed: false,
+  rawProviderRequestDurableRetention: false,
+  rawProviderResponseDurableRetention: false,
   educationRecordProcessingAuthorizationRequired: true,
   caseIdentifierSent: false,
 });

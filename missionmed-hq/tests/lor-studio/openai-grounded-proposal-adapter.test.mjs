@@ -4,6 +4,8 @@ import test from 'node:test';
 import {
   isAuthenticOpenAiGroundedProposalAdapter,
   OPENAI_GROUNDED_PROPOSAL_CONTRACT,
+  OPENAI_PATH_B_PROCESSING_POLICY,
+  OPENAI_PATH_B_PROCESSING_POLICY_DIGEST,
   OpenAiGroundedProposalAdapter,
 } from '../../lor-studio/adapters/openai-grounded-proposal-adapter.mjs';
 import { IntegrationDisabledError, ValidationError } from '../../lor-studio/domain/errors.js';
@@ -15,16 +17,22 @@ const MODEL = 'gpt-5.6-terra';
 const SECRET = 'sk-project-super-secret-test-value';
 const FACT_TEXT = 'The applicant consistently prepared thoughtful case summaries.';
 const CASE_ID = 'case-openai-adapter';
-const PROJECT_ID = 'proj_lorproduction123';
+const PROJECT_ID = 'proj_UTCDEhLVMT6aQnCXnBElihZT';
+const RELEASE_COMMIT = '9a7a5f56bbc584ace07472e283b1013ab7897fca';
 
 const PRIVACY_BINDING = Object.freeze({
-  schemaVersion: 'missionmed.lor.openai-project-binding.v1',
+  schemaVersion: 'missionmed.lor.openai-project-binding.v2',
   provider: 'openai',
   providerResourceBound: true,
   independentlyVerified: true,
+  missionId: 'F2-LOR-1012',
   projectId: PROJECT_ID,
-  projectDataRetention: 'zero_data_retention',
-  apiDataTrainingOptOut: true,
+  releaseCommit: RELEASE_COMMIT,
+  privacyAuthority: 'DR-139',
+  privacyPosture: 'standard_api_retention',
+  zeroDataRetentionClaimed: false,
+  apiDataTrainingPosture: 'api_content_not_used_for_model_training_by_default',
+  processingPolicyDigest: OPENAI_PATH_B_PROCESSING_POLICY_DIGEST,
   educationRecordProcessingAuthorized: true,
 });
 
@@ -156,7 +164,7 @@ test('only exact successfully constructed OpenAI adapters satisfy the private au
     {
       providerId: 'openai',
       modelId: MODEL,
-      durability: 'EXTERNAL_PROVIDER_ZDR_BOUND',
+      durability: 'EXTERNAL_PROVIDER_STANDARD_API_RETENTION_BOUND',
       async generateProposal() {},
     },
     Object.create(OpenAiGroundedProposalAdapter.prototype),
@@ -187,9 +195,15 @@ test('constructor fails closed without verified privacy controls and education-r
     {},
     { ...PRIVACY_BINDING, independentlyVerified: false },
     { ...PRIVACY_BINDING, providerResourceBound: false },
+    { ...PRIVACY_BINDING, missionId: 'F2-LOR-1013' },
     { ...PRIVACY_BINDING, projectId: 'wrong-project-shape' },
-    { ...PRIVACY_BINDING, projectDataRetention: 'organization_default' },
-    { ...PRIVACY_BINDING, apiDataTrainingOptOut: false },
+    { ...PRIVACY_BINDING, projectId: 'proj_lorproduction123' },
+    { ...PRIVACY_BINDING, releaseCommit: 'wrong-release' },
+    { ...PRIVACY_BINDING, privacyAuthority: 'DR-133' },
+    { ...PRIVACY_BINDING, privacyPosture: 'zero_data_retention' },
+    { ...PRIVACY_BINDING, zeroDataRetentionClaimed: true },
+    { ...PRIVACY_BINDING, apiDataTrainingPosture: 'training_opt_out' },
+    { ...PRIVACY_BINDING, processingPolicyDigest: 'a'.repeat(64) },
     { ...PRIVACY_BINDING, educationRecordProcessingAuthorized: false },
     Object.fromEntries(
       Object.entries(PRIVACY_BINDING).filter(
@@ -306,17 +320,41 @@ test('Responses request has the exact stateless foreground body and server-only 
   assert.equal(JSON.stringify(adapter).includes(SECRET), false);
   assert.equal(calls[1].options.headers.Authorization, 'Bearer sk-project-second-request-token');
   assert.deepEqual(OPENAI_GROUNDED_PROPOSAL_CONTRACT, {
+    bindingSchema: 'missionmed.lor.openai-project-binding.v2',
     endpoint: ENDPOINT,
     model: MODEL,
     provider: 'openai',
+    missionId: 'F2-LOR-1012',
+    privacyAuthority: 'DR-139',
+    privacyPosture: 'standard_api_retention',
+    standardApiRetentionAccepted: true,
+    zeroDataRetentionClaimed: false,
+    apiDataTrainingPosture: 'api_content_not_used_for_model_training_by_default',
+    processingPolicy: OPENAI_PATH_B_PROCESSING_POLICY,
+    processingPolicyDigest: OPENAI_PATH_B_PROCESSING_POLICY_DIGEST,
     store: false,
     background: false,
     structuredOutput: true,
     toolsEnabled: false,
     promptCacheConfigured: false,
     exactProjectBindingRequired: true,
-    projectZeroDataRetentionRequired: true,
-    apiDataTrainingOptOutRequired: true,
+    projectId: PROJECT_ID,
+    exactReleaseCommitBindingRequired: true,
+    runtimeReleaseIdentity:
+      'MMHQ_LOR_RELEASE_COMMIT_exact_40_hex_signed_attestation_and_provider_binding',
+    projectZeroDataRetentionRequired: false,
+    serverSideCredentialsRequired: true,
+    minimumNecessaryProviderPayloadRequired: true,
+    conversationsApiEnabled: false,
+    filesApiEnabled: false,
+    vectorStoresEnabled: false,
+    hostedToolsEnabled: false,
+    groundingProvenanceRequired: true,
+    humanReviewRequired: true,
+    automaticFinalization: false,
+    sensitiveTelemetryAllowed: false,
+    rawProviderRequestDurableRetention: false,
+    rawProviderResponseDurableRetention: false,
     educationRecordProcessingAuthorizationRequired: true,
     caseIdentifierSent: false,
   });
@@ -348,6 +386,9 @@ test('project bindings reject accessors without invoking them and expose only a 
     adapter.privacyBinding.projectRef,
     sha256(`missionmed:lor:openai-project:${PROJECT_ID}`),
   );
+  assert.equal(adapter.privacyBinding.missionId, 'F2-LOR-1012');
+  assert.equal(adapter.privacyBinding.releaseCommit, RELEASE_COMMIT);
+  assert.equal(adapter.privacyBinding.zeroDataRetentionClaimed, false);
   assert.equal(adapter.privacyBinding.educationRecordProcessingAuthorized, true);
 });
 

@@ -1,12 +1,14 @@
 import { IntegrationDisabledError } from '../domain/errors.js';
 import { deepFreeze } from '../domain/value-utils.js';
+import { OPENAI_PRODUCTION_PROJECT_ID } from './openai-grounded-proposal-adapter.mjs';
 import {
   OPENAI_PRODUCTION_PRIVACY_ATTESTATION_CONTRACT,
   createOpenAiPrivacyBindingFromVerifiedAttestation,
   verifyOpenAiProductionPrivacyAttestationFromEnvironment,
 } from './openai-production-privacy-attestation.mjs';
 
-const OPENAI_BINDING_SCHEMA = 'missionmed.lor.openai-project-binding.v1';
+const OPENAI_BINDING_SCHEMA = 'missionmed.lor.openai-project-binding.v2';
+const OPENAI_RUNTIME_RELEASE_ENV_NAME = 'MMHQ_LOR_RELEASE_COMMIT';
 const POSTMARK_TRANSPORT_BINDING_SCHEMA = 'missionmed.lor.postmark-transport-binding.v1';
 const INVITATION_SECRET_BINDING_SCHEMA = 'missionmed.lor.faculty-invitation-secret-binding.v1';
 const POSTMARK_TEMPLATE_ALIAS = 'lor-faculty-invitation-v1';
@@ -16,6 +18,7 @@ const POSTMARK_MESSAGE_STREAM = 'outbound';
 const OPENAI_ENV_NAMES = Object.freeze([
   'MMHQ_LOR_OPENAI_API_KEY',
   'MMHQ_LOR_OPENAI_PROJECT_ID',
+  OPENAI_RUNTIME_RELEASE_ENV_NAME,
   ...OPENAI_PRODUCTION_PRIVACY_ATTESTATION_CONTRACT.environmentKeys,
 ]);
 const POSTMARK_ENV_NAMES = Object.freeze([
@@ -258,14 +261,25 @@ export function createOpenAiProductionProviderBinding(
     integration,
     'OPENAI_EXACT_PROJECT_BINDING_REQUIRED',
   );
+  if (projectId !== OPENAI_PRODUCTION_PROJECT_ID) {
+    throw unavailable(integration, 'OPENAI_EXACT_PROJECT_BINDING_REQUIRED');
+  }
+  const releaseCommit = exactString(
+    env[OPENAI_RUNTIME_RELEASE_ENV_NAME],
+    /^[a-f0-9]{40}$/u,
+    integration,
+    'OPENAI_EXACT_RELEASE_BINDING_REQUIRED',
+  );
   const verifiedAttestation = verifyOpenAiProductionPrivacyAttestationFromEnvironment({
     environment: env,
     projectId,
+    releaseCommit,
     clock,
   });
   return Object.freeze({
     binding: createOpenAiPrivacyBindingFromVerifiedAttestation({
       projectId,
+      releaseCommit,
       verifiedAttestation,
     }),
     credentialProvider: new OpenAiServerCredentialProvider(token, projectId),
@@ -427,5 +441,9 @@ export const PRODUCTION_PROVIDER_BINDINGS_CONTRACT = deepFreeze({
   genericCredentialFallback: false,
   secretSerialization: 'private_fields_only',
   invitationHmacEncoding: 'canonical_base64url_32_to_256_bytes',
-  openaiPrivacyAuthority: 'source_pinned_signed_attestation_only',
+  openaiProjectId: OPENAI_PRODUCTION_PROJECT_ID,
+  openaiPrivacyAuthority:
+    'source_pinned_signed_dr139_standard_retention_project_model_release_policy_attestation_only',
+  openaiRuntimeReleaseIdentity:
+    'MMHQ_LOR_RELEASE_COMMIT_exact_40_hex_release_inventory_probe_and_signed_attestation_binding',
 });

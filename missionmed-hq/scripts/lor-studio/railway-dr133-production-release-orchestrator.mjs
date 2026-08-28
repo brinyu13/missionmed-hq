@@ -37,6 +37,7 @@ export const DR133_RELEASE_VARIABLE_PROBE_CONTRACT =
 
 const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const GIT_ROOT = path.resolve(MODULE_DIRECTORY, '..', '..', '..');
+const OPENAI_PRODUCTION_PROJECT_ID = 'proj_UTCDEhLVMT6aQnCXnBElihZT';
 const PRODUCTION_ORIGIN = 'https://missionmed-hq-production.up.railway.app';
 const HEALTH_URL = `${PRODUCTION_ORIGIN}/health`;
 const LOR_READINESS_URL = `${PRODUCTION_ORIGIN}/health/lor-studio`;
@@ -174,6 +175,7 @@ const RELEASE_VARIABLE_KEYS_INTERNAL = Object.freeze([
   'MMHQ_LOR_PRIVATE_STORAGE_KEK_BASE64',
   'MMHQ_LOR_PRIVATE_STORAGE_KEY_VERSION',
   ...PROOF_TRUE_KEYS.filter((key) => key.startsWith('MMHQ_LOR_PRIVATE_STORAGE_')),
+  'MMHQ_LOR_RELEASE_COMMIT',
   'MMHQ_LOR_RESTORE_PROOF_BASE64URL',
   'MMHQ_LOR_RESTORE_VERIFICATION_SPKI_BASE64',
   'MMHQ_LOR_STUDIO_ENABLED',
@@ -383,7 +385,10 @@ function assertVariableTextShape(key, value) {
       }
       return;
     case 'MMHQ_LOR_OPENAI_PROJECT_ID':
-      if (!/^proj_[A-Za-z0-9_-]{6,200}$/u.test(value)) fail('VARIABLE_VALUE_SHAPE_INVALID');
+      if (value !== OPENAI_PRODUCTION_PROJECT_ID) fail('VARIABLE_VALUE_SHAPE_INVALID');
+      return;
+    case 'MMHQ_LOR_RELEASE_COMMIT':
+      if (!COMMIT.test(value)) fail('VARIABLE_VALUE_SHAPE_INVALID');
       return;
     case 'MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL':
       if (!validEncodedBytes(value, {
@@ -531,6 +536,18 @@ export function parseDr133ReleaseVariableExpectationManifest(encoded) {
 
 function expectationMap(parsed) {
   return new Map(parsed.manifest.variables.map((entry) => [entry.key, entry.sha256]));
+}
+
+function assertReleaseCommitExpectation(parsed, releaseCommit) {
+  const key = 'MMHQ_LOR_RELEASE_COMMIT';
+  const bytes = Buffer.from(releaseCommit, 'utf8');
+  try {
+    if (expectationMap(parsed).get(key) !== variableValueSha256(key, bytes)) {
+      fail('RELEASE_COMMIT_EXPECTATION_INVALID');
+    }
+  } finally {
+    bytes.fill(0);
+  }
 }
 
 function assertDarkFlagExpectations(parsed) {
@@ -1206,6 +1223,7 @@ export async function deployDr133ImmutableDarkCandidate({
 } = {}) {
   const commit = exactCommit(sourceCommit);
   const parsed = parseDr133ReleaseVariableExpectationManifest(encodedExpectations);
+  assertReleaseCommitExpectation(parsed, commit);
   assertDarkFlagExpectations(parsed);
   const before = await listDeployments(commandRunner, environment);
   const preimage = newestSuccessful(before);
@@ -1910,10 +1928,12 @@ export const DR133_PRODUCTION_RELEASE_CONTRACT = Object.freeze({
   darkContainmentSurfaces: DARK_CONTAINMENT_PROBES,
   healthUrl: HEALTH_URL,
   operatorReadinessRoute: '/health/lor-studio',
+  openAiProjectId: OPENAI_PRODUCTION_PROJECT_ID,
   operations: [...OPERATIONS].sort(),
   projectId: DR133_TARGET.projectId,
   environmentId: DR133_TARGET.environmentId,
   serviceId: DR133_TARGET.applicationServiceId,
+  sourceCommitBinding: 'MMHQ_LOR_RELEASE_COMMIT_domain_separated_expectation_hash',
   variableCount: DR133_RELEASE_VARIABLE_KEYS.length,
   variableKeys: DR133_RELEASE_VARIABLE_KEYS,
   variableMutation: 'railway variable set KEY --stdin --skip-deploys --json',

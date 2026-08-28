@@ -29,8 +29,8 @@ function assertReadyProbe(result) {
 function environment() {
   return {
     MMHQ_LOR_OPENAI_API_KEY: 'sk-proj-test-token-value',
-    MMHQ_LOR_OPENAI_PROJECT_ID: 'proj_lorproduction',
-    ...signedOpenAiPrivacyEnvironment('proj_lorproduction'),
+    MMHQ_LOR_OPENAI_PROJECT_ID: 'proj_UTCDEhLVMT6aQnCXnBElihZT',
+    ...signedOpenAiPrivacyEnvironment('proj_UTCDEhLVMT6aQnCXnBElihZT'),
     MMHQ_LOR_POSTMARK_SERVER_TOKEN: 'postmark-test-token-value',
     MMHQ_LOR_POSTMARK_SERVER_ID: '12345',
     MMHQ_LOR_POSTMARK_FROM_EMAIL: 'letters@example.test',

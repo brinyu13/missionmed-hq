@@ -5,7 +5,12 @@ import {
 
 import { IntegrationDisabledError } from '../domain/errors.js';
 import { canonicalize, deepFreeze, sha256 } from '../domain/value-utils.js';
-import { OPENAI_GROUNDED_PROPOSAL_CONTRACT } from './openai-grounded-proposal-adapter.mjs';
+import {
+  OPENAI_GROUNDED_PROPOSAL_CONTRACT,
+  OPENAI_PATH_B_PROCESSING_POLICY,
+  OPENAI_PATH_B_PROCESSING_POLICY_DIGEST,
+  OPENAI_PRODUCTION_PROJECT_ID,
+} from './openai-grounded-proposal-adapter.mjs';
 import {
   PINNED_PRODUCTION_RELEASE_CAPTAIN_SIGNER_KEY_REF,
   productionRestoreSignerKeyRef,
@@ -13,9 +18,9 @@ import {
 
 const INTEGRATION = 'openai_grounded_proposal';
 export const OPENAI_PRIVACY_ATTESTATION_SCHEMA =
-  'missionmed.lor.openai-privacy-attestation.v1';
+  'missionmed.lor.openai-privacy-attestation.v2';
 export const VERIFIED_OPENAI_PRIVACY_ATTESTATION_SCHEMA =
-  'missionmed.lor.verified-openai-privacy-attestation.v1';
+  'missionmed.lor.verified-openai-privacy-attestation.v2';
 
 const PRIVACY_ATTESTATION_ENV_KEY = 'MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL';
 const PRIVACY_VERIFICATION_SPKI_ENV_KEY = 'MMHQ_LOR_OPENAI_PRIVACY_VERIFICATION_SPKI_BASE64';
@@ -27,38 +32,47 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 const BASE64URL_SIGNATURE = /^[A-Za-z0-9_-]{86}$/u;
 const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
-const PROJECT_ID = /^proj_[A-Za-z0-9_-]{6,200}$/u;
+const RELEASE_COMMIT = /^[a-f0-9]{40}$/u;
 const ATTESTATION_KEYS = new Set([
-  'apiDataTrainingOptOut',
+  'apiDataTrainingPosture',
   'educationRecordProcessingAuthorized',
   'evidenceDigest',
   'expiresAt',
   'independentlyVerified',
   'issuedAt',
+  'missionId',
   'model',
-  'projectDataRetention',
+  'privacyAuthority',
+  'privacyPosture',
+  'processingPolicyDigest',
   'projectId',
   'provider',
+  'releaseCommit',
   'schemaVersion',
   'signature',
   'signatureAlgorithm',
   'signerKeyRef',
+  'zeroDataRetentionClaimed',
 ]);
 const UNSIGNED_ATTESTATION_KEYS = [...ATTESTATION_KEYS]
   .filter((key) => key !== 'signature');
 const VERIFY_OPTIONS_KEYS = new Set([
-  'attestation', 'clock', 'projectId', 'verificationKey',
+  'attestation', 'clock', 'projectId', 'releaseCommit', 'verificationKey',
 ]);
-const ENVIRONMENT_OPTIONS_KEYS = new Set(['clock', 'environment', 'projectId']);
-const CLAIM_OPTIONS_KEYS = new Set(['projectId', 'verifiedAttestation']);
+const ENVIRONMENT_OPTIONS_KEYS = new Set([
+  'clock', 'environment', 'projectId', 'releaseCommit',
+]);
+const CLAIM_OPTIONS_KEYS = new Set(['projectId', 'releaseCommit', 'verifiedAttestation']);
 const VERIFIED_DESCRIPTOR_KEYS = new Set([
   'attestationRef',
   'evidenceRef',
   'expiresAt',
   'issuedAt',
+  'missionId',
   'model',
   'projectRef',
   'provider',
+  'releaseCommit',
   'schemaVersion',
 ]);
 
@@ -154,8 +168,15 @@ function nowFrom(clock) {
 }
 
 function exactProjectId(value) {
-  if (typeof value !== 'string' || !PROJECT_ID.test(value)) {
+  if (value !== OPENAI_PRODUCTION_PROJECT_ID) {
     fail('OPENAI_EXACT_PROJECT_BINDING_REQUIRED');
+  }
+  return value;
+}
+
+function exactReleaseCommit(value) {
+  if (typeof value !== 'string' || !RELEASE_COMMIT.test(value)) {
+    fail('OPENAI_EXACT_RELEASE_BINDING_REQUIRED');
   }
   return value;
 }
@@ -196,7 +217,7 @@ function strictSignature(value) {
   return bytes;
 }
 
-function snapshotAttestation(rawAttestation, expectedProjectId) {
+function snapshotAttestation(rawAttestation, expectedProjectId, expectedReleaseCommit) {
   const attestation = exactSnapshot(
     rawAttestation,
     ATTESTATION_KEYS,
@@ -213,10 +234,16 @@ function snapshotAttestation(rawAttestation, expectedProjectId) {
   if (
     attestation.schemaVersion !== OPENAI_PRIVACY_ATTESTATION_SCHEMA
     || attestation.provider !== 'openai'
+    || attestation.missionId !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.missionId
     || attestation.projectId !== expectedProjectId
+    || attestation.releaseCommit !== expectedReleaseCommit
     || attestation.model !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.model
-    || attestation.projectDataRetention !== 'zero_data_retention'
-    || attestation.apiDataTrainingOptOut !== true
+    || attestation.privacyAuthority !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.privacyAuthority
+    || attestation.privacyPosture !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.privacyPosture
+    || attestation.zeroDataRetentionClaimed !== false
+    || attestation.apiDataTrainingPosture
+      !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.apiDataTrainingPosture
+    || attestation.processingPolicyDigest !== OPENAI_PATH_B_PROCESSING_POLICY_DIGEST
     || attestation.educationRecordProcessingAuthorized !== true
     || attestation.independentlyVerified !== true
     || !SHA256.test(attestation.evidenceDigest ?? '')
@@ -351,12 +378,13 @@ export function verifyOpenAiProductionPrivacyAttestation(rawOptions = {}) {
   const options = optionSnapshot(
     rawOptions,
     VERIFY_OPTIONS_KEYS,
-    ['attestation', 'projectId', 'verificationKey'],
+    ['attestation', 'projectId', 'releaseCommit', 'verificationKey'],
     'OPENAI_PRIVACY_ATTESTATION_OPTIONS_INVALID',
   );
   const projectId = exactProjectId(options.projectId);
+  const releaseCommit = exactReleaseCommit(options.releaseCommit);
   const clock = options.clock ?? (() => new Date());
-  const attestation = snapshotAttestation(options.attestation, projectId);
+  const attestation = snapshotAttestation(options.attestation, projectId, releaseCommit);
   const now = nowFrom(clock);
   assertUsable({
     issuedAtMilliseconds: attestation.issuedAt.milliseconds,
@@ -387,7 +415,9 @@ export function verifyOpenAiProductionPrivacyAttestation(rawOptions = {}) {
   const descriptor = deepFreeze({
     schemaVersion: VERIFIED_OPENAI_PRIVACY_ATTESTATION_SCHEMA,
     provider: 'openai',
+    missionId: OPENAI_GROUNDED_PROPOSAL_CONTRACT.missionId,
     projectRef: sha256(`missionmed:lor:openai-project:${projectId}`),
+    releaseCommit,
     model: OPENAI_GROUNDED_PROPOSAL_CONTRACT.model,
     issuedAt: attestation.issuedAt.iso,
     expiresAt: attestation.expiresAt.iso,
@@ -397,10 +427,20 @@ export function verifyOpenAiProductionPrivacyAttestation(rawOptions = {}) {
   VERIFIED_ATTESTATIONS.set(descriptor, {
     claimed: false,
     clock,
+    missionId: OPENAI_GROUNDED_PROPOSAL_CONTRACT.missionId,
     projectId,
+    releaseCommit,
     model: OPENAI_GROUNDED_PROPOSAL_CONTRACT.model,
     issuedAtMilliseconds: attestation.issuedAt.milliseconds,
     expiresAtMilliseconds: attestation.expiresAt.milliseconds,
+    privacyAuthority: attestation.unsigned.privacyAuthority,
+    privacyPosture: attestation.unsigned.privacyPosture,
+    zeroDataRetentionClaimed: attestation.unsigned.zeroDataRetentionClaimed,
+    apiDataTrainingPosture: attestation.unsigned.apiDataTrainingPosture,
+    processingPolicyDigest: attestation.unsigned.processingPolicyDigest,
+    educationRecordProcessingAuthorized:
+      attestation.unsigned.educationRecordProcessingAuthorized,
+    independentlyVerified: attestation.unsigned.independentlyVerified,
     evidenceRef: attestation.unsigned.evidenceDigest,
     attestationRef,
   });
@@ -412,7 +452,7 @@ export function verifyOpenAiProductionPrivacyAttestationFromEnvironment(rawOptio
   const options = optionSnapshot(
     rawOptions,
     ENVIRONMENT_OPTIONS_KEYS,
-    ['environment', 'projectId'],
+    ['environment', 'projectId', 'releaseCommit'],
     'OPENAI_PRIVACY_ATTESTATION_ENVIRONMENT_OPTIONS_INVALID',
   );
   const encodedAttestation = environmentValue(
@@ -435,11 +475,12 @@ export function verifyOpenAiProductionPrivacyAttestationFromEnvironment(rawOptio
     attestation,
     verificationKey,
     projectId: options.projectId,
+    releaseCommit: options.releaseCommit,
     ...(options.clock === undefined ? {} : { clock: options.clock }),
   });
 }
 
-/** Mint the legacy provider binding only from this module's verified descriptor brand. */
+/** Mint the v2 provider binding only from this module's verified descriptor brand. */
 export function createOpenAiPrivacyBindingFromVerifiedAttestation(rawOptions = {}) {
   const options = exactSnapshot(
     rawOptions,
@@ -447,6 +488,7 @@ export function createOpenAiPrivacyBindingFromVerifiedAttestation(rawOptions = {
     'OPENAI_PRIVACY_BINDING_OPTIONS_INVALID',
   );
   const projectId = exactProjectId(options.projectId);
+  const releaseCommit = exactReleaseCommit(options.releaseCommit);
   const descriptor = exactSnapshot(
     options.verifiedAttestation,
     VERIFIED_DESCRIPTOR_KEYS,
@@ -459,24 +501,41 @@ export function createOpenAiPrivacyBindingFromVerifiedAttestation(rawOptions = {
     || state.claimed
     || descriptor.schemaVersion !== VERIFIED_OPENAI_PRIVACY_ATTESTATION_SCHEMA
     || descriptor.provider !== 'openai'
+    || descriptor.missionId !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.missionId
     || descriptor.projectRef !== sha256(`missionmed:lor:openai-project:${projectId}`)
+    || descriptor.releaseCommit !== releaseCommit
     || descriptor.model !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.model
     || descriptor.evidenceRef !== state.evidenceRef
     || descriptor.attestationRef !== state.attestationRef
     || state.projectId !== projectId
+    || state.missionId !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.missionId
+    || state.releaseCommit !== releaseCommit
     || state.model !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.model
+    || state.privacyAuthority !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.privacyAuthority
+    || state.privacyPosture !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.privacyPosture
+    || state.zeroDataRetentionClaimed !== false
+    || state.apiDataTrainingPosture
+      !== OPENAI_GROUNDED_PROPOSAL_CONTRACT.apiDataTrainingPosture
+    || state.processingPolicyDigest !== OPENAI_PATH_B_PROCESSING_POLICY_DIGEST
+    || state.educationRecordProcessingAuthorized !== true
+    || state.independentlyVerified !== true
   ) fail(state?.claimed
     ? 'VERIFIED_OPENAI_PRIVACY_ATTESTATION_REPLAYED'
     : 'VERIFIED_OPENAI_PRIVACY_ATTESTATION_REQUIRED');
   assertUsable(state, nowFrom(state.clock));
   state.claimed = true;
   return deepFreeze({
-    schemaVersion: 'missionmed.lor.openai-project-binding.v1',
+    schemaVersion: OPENAI_GROUNDED_PROPOSAL_CONTRACT.bindingSchema,
     provider: 'openai',
     providerResourceBound: true,
+    missionId: state.missionId,
     projectId,
-    projectDataRetention: 'zero_data_retention',
-    apiDataTrainingOptOut: true,
+    releaseCommit: state.releaseCommit,
+    privacyAuthority: state.privacyAuthority,
+    privacyPosture: state.privacyPosture,
+    zeroDataRetentionClaimed: false,
+    apiDataTrainingPosture: state.apiDataTrainingPosture,
+    processingPolicyDigest: state.processingPolicyDigest,
     educationRecordProcessingAuthorized: true,
     independentlyVerified: true,
   });
@@ -491,11 +550,20 @@ export const OPENAI_PRODUCTION_PRIVACY_ATTESTATION_CONTRACT = deepFreeze({
   pinnedSignerKeyRef: PINNED_PRODUCTION_RELEASE_CAPTAIN_SIGNER_KEY_REF,
   maximumValidityMilliseconds: MAXIMUM_VALIDITY_MS,
   exactClaims: Object.freeze({
-    projectDataRetention: 'zero_data_retention',
-    apiDataTrainingOptOut: true,
+    missionId: OPENAI_GROUNDED_PROPOSAL_CONTRACT.missionId,
+    projectId: OPENAI_PRODUCTION_PROJECT_ID,
+    releaseCommit: 'exact_40_hex_runtime_release_commit',
+    privacyAuthority: OPENAI_GROUNDED_PROPOSAL_CONTRACT.privacyAuthority,
+    privacyPosture: OPENAI_GROUNDED_PROPOSAL_CONTRACT.privacyPosture,
+    zeroDataRetentionClaimed: false,
+    apiDataTrainingPosture: OPENAI_GROUNDED_PROPOSAL_CONTRACT.apiDataTrainingPosture,
+    processingPolicyDigest: OPENAI_PATH_B_PROCESSING_POLICY_DIGEST,
     educationRecordProcessingAuthorized: true,
     independentlyVerified: true,
   }),
+  processingPolicy: OPENAI_PATH_B_PROCESSING_POLICY,
+  runtimeReleaseIdentity:
+    'MMHQ_LOR_RELEASE_COMMIT_exact_40_hex_must_equal_signed_releaseCommit',
   evidence: 'required_sha256_digest',
   bindingAuthority: 'single_claim_module_branded_verified_descriptor_only',
   environmentKeys: Object.freeze([
