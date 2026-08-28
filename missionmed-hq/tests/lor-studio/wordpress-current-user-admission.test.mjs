@@ -12,6 +12,7 @@ import {
   WordPressCurrentUserAdmissionError,
   createWordPressCurrentUserAdmission,
 } from '../../lor-studio/adapters/wordpress-current-user-admission.mjs';
+import { hashValue } from '../../lor-studio/domain/value-utils.js';
 import { runWithTrustedRequestContext } from '../../lor-studio/security/trusted-request-context.mjs';
 
 const NOW = Date.parse('2026-08-25T16:00:00.000Z');
@@ -121,6 +122,74 @@ test('stable database identity proof excludes ephemeral binding and receipt time
   });
   assert.equal(first.context.sourceReferenceHash, second.context.sourceReferenceHash);
   assert.equal(first.context.proofHash, second.context.proofHash);
+});
+
+test('student identity proof replays across create, case reload, and rollout policy', async () => {
+  function studentAdapter({ requireCanary = true, canaryEnabled = true } = {}) {
+    return createWordPressCurrentUserAdmission({
+      s2sClient: {
+        async admit() {
+          return receipt({
+            canaryEnabled,
+            canaryConsented: canaryEnabled,
+          });
+        },
+      },
+      actorResolver: {
+        async resolve({ authenticatedSubject, caseId }) {
+          return {
+            schemaVersion: 'missionmed.lor.actor-case-access.v1',
+            authoritySource: 'database_verified_case_access',
+            actorRole: 'student',
+            actorId: authenticatedSubject,
+            resourceStudentId: authenticatedSubject,
+            caseId,
+          };
+        },
+      },
+      requireCanary,
+      clock: () => new Date(NOW),
+    });
+  }
+
+  const namedCanary = studentAdapter();
+  const createProjection = await namedCanary.resolve({
+    subject: 'wp:123',
+    session: session(),
+    request: { url: '/api/lor-studio/cases' },
+  });
+  const createContext = namedCanary.consumeTrustedRequestContext(createProjection);
+  assert.equal(createContext.proofHash, hashValue({
+    schemaVersion: 'missionmed.lor.wordpress-admission-proof.v4',
+    sourceReferenceHash: createContext.sourceReferenceHash,
+    subject: 'wp:123',
+    identityClass: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
+    actorRole: 'student',
+    canaryEnabled: true,
+    canaryConsented: true,
+    requireCanary: true,
+    invitationCandidateAuthorized: false,
+  }));
+
+  const reloadProjection = await namedCanary.resolve({
+    subject: 'wp:123',
+    session: session(),
+    request: { url: '/api/lor-studio/cases/case-reload-1' },
+  });
+  const reloadContext = namedCanary.consumeTrustedRequestContext(reloadProjection);
+  assert.equal(reloadContext.proofHash, createContext.proofHash);
+
+  const rollout = studentAdapter({ requireCanary: false, canaryEnabled: false });
+  const rolloutProjection = await rollout.resolve({
+    subject: 'wp:123',
+    session: session(),
+    request: { url: '/api/lor-studio/cases/case-reload-1' },
+  });
+  assert.equal(rolloutProjection.canaryEnabled, false);
+  assert.equal(rolloutProjection.canaryConsented, false);
+  const rolloutContext = rollout.consumeTrustedRequestContext(rolloutProjection);
+  assert.equal(rolloutContext.canaryAuthorized, true);
+  assert.equal(rolloutContext.proofHash, createContext.proofHash);
 });
 
 test('database-owned case access selects faculty and mentor roles without trusting session role fields', async () => {

@@ -512,32 +512,48 @@ export function createWordPressCurrentUserAdmission({
       const canaryAuthorized = invitationCandidateAuthorized || requireCanary !== true
         || (canaryEnabled === true && canaryConsented === true);
       if (!canaryAuthorized) fail('CANARY_ADMISSION_DENIED');
-      const proofHash = hashValue({
-        schemaVersion: 'missionmed.lor.wordpress-admission-proof.v4',
-        sourceReferenceHash,
-        subject: authenticatedSubject,
-        identityClass: binding.identityClass,
-        actorRole,
-        canaryEnabled,
-        canaryConsented,
-        requireCanary,
-        invitationCandidateAuthorized,
-        ...(actorAccess === null
-          ? {}
-          : {
-            actorCaseAccessAuthority: actorAccess.authoritySource,
-            caseId: actorAccess.caseId,
-            resourceStudentId,
-          }),
-        ...(candidateInvitationId === null
-          ? {}
-          : {
-            invitationCandidateRef: hashValue({
-              schemaVersion: 'missionmed.lor.invitation-candidate-reference.v1',
-              invitationId: candidateInvitationId,
+      const proofHash = hashValue(actorRole === 'student'
+        ? {
+          // Preserve the original named-canary v4 identity form already bound in
+          // production. These literals are compatibility data only: current case,
+          // entitlement, consent, and release-policy authorization were evaluated
+          // above and are never derived from this durable identity proof.
+          schemaVersion: 'missionmed.lor.wordpress-admission-proof.v4',
+          sourceReferenceHash,
+          subject: authenticatedSubject,
+          identityClass: binding.identityClass,
+          actorRole: 'student',
+          canaryEnabled: true,
+          canaryConsented: true,
+          requireCanary: true,
+          invitationCandidateAuthorized: false,
+        }
+        : {
+          schemaVersion: 'missionmed.lor.wordpress-admission-proof.v4',
+          sourceReferenceHash,
+          subject: authenticatedSubject,
+          identityClass: binding.identityClass,
+          actorRole,
+          canaryEnabled,
+          canaryConsented,
+          requireCanary,
+          invitationCandidateAuthorized,
+          ...(actorAccess === null
+            ? {}
+            : {
+              actorCaseAccessAuthority: actorAccess.authoritySource,
+              caseId: actorAccess.caseId,
+              resourceStudentId,
             }),
-          }),
-      });
+          ...(candidateInvitationId === null
+            ? {}
+            : {
+              invitationCandidateRef: hashValue({
+                schemaVersion: 'missionmed.lor.invitation-candidate-reference.v1',
+                invitationId: candidateInvitationId,
+              }),
+            }),
+        });
       const context = createTrustedRequestContext({
         schemaVersion: 'missionmed.lor.trusted-request-context.v1',
         authenticatedSubject,
@@ -641,15 +657,21 @@ export const WORDPRESS_CURRENT_USER_ADMISSION_CONTRACT = Object.freeze({
     'subject',
     'identityClass',
     'actorRole',
-    'canaryEnabled',
-    'canaryConsented',
-    'requireCanary',
-    'invitationCandidateAuthorized',
-    'actorCaseAccessAuthority_if_case_resolved',
-    'caseId_if_case_resolved',
-    'resourceStudentId_if_case_resolved',
+    'stable_named_canary_compatibility_form_if_student',
+    'effectiveCanaryEnabled_if_non_student',
+    'effectiveCanaryConsented_if_non_student',
+    'requireCanary_if_non_student',
+    'invitationCandidateAuthorized_if_non_student',
+    'actorCaseAccessAuthority_if_non_student_case_resolved',
+    'caseId_if_non_student_case_resolved',
+    'resourceStudentId_if_non_student_case_resolved',
     'invitationCandidateRef_if_candidate_route',
   ],
+  studentIdentityProof: Object.freeze({
+    stability: 'request_case_entitlement_consent_and_release_policy_neutral',
+    compatibilityForm: 'named_canary_v4',
+    authorizationSource: 'fresh_signed_admission_case_access_entitlement_and_release_policy',
+  }),
   actorCaseAccess: Object.freeze({
     schemaVersion: ACTOR_CASE_ACCESS_SCHEMA,
     authoritySource: 'database_verified_case_access',
