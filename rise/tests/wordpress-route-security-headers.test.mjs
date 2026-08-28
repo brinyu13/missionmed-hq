@@ -63,4 +63,8 @@ test("WordPress /rise/ proxy serves the complete upstream security header set", 
   assert.equal(styles.status, 200);
   assert.equal(styles.headers.get("content-type"), "text/css; charset=utf-8");
   assert.equal(await styles.text(), "body { color: #111; }");
+
+  const health = await fetch(`http://127.0.0.1:${port}/api/rise/v1/health`);
+  assert.equal(health.status, 200);
+  assert.equal(health.headers.get("cache-control"), "private, no-store");
 });

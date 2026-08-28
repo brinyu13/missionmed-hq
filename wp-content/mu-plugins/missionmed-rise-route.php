@@ -163,6 +163,12 @@ function mmrise_route_handle() {
             header($header_name . ': ' . (string) $header_value, true);
         }
     }
+    if ($is_api) {
+        // API responses must not be retained by the WordPress/Kinsta edge.
+        // This protects user-specific payloads and keeps deployment health
+        // evidence current instead of serving an older build identifier.
+        header('Cache-Control: private, no-store', true);
+    }
     header('X-MissionMed-RISE-Proxy: 1');
     if ($method !== 'HEAD') {
         $response_body = (string) wp_remote_retrieve_body($response);

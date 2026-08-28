@@ -38,12 +38,15 @@ function wp_remote_request($url, $options) {
     } elseif ($path === '/rise/styles.css') {
         $content_type = 'text/css; charset=utf-8';
         $body = 'body { color: #111; }';
+    } elseif ($path === '/api/rise/v1/health') {
+        $content_type = 'application/json; charset=utf-8';
+        $body = '{"status":"ok"}';
     }
     return array(
         'response' => array('code' => 200),
         'headers' => array(
             'content-type' => $content_type,
-            'cache-control' => 'private, no-store',
+            'cache-control' => $path === '/api/rise/v1/health' ? 'public, max-age=86400' : 'private, no-store',
             'etag' => '"rise-fixture"',
             'x-request-id' => 'rise-fixture-request',
             'content-security-policy' => "default-src 'self'; frame-ancestors 'none'",
