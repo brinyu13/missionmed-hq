@@ -1095,7 +1095,10 @@ function mmhq_lor_dr145_without_hooks($hooks, $callback) {
 	if (!is_array($hooks) || !is_callable($callback)) {
 		mmhq_lor_dr145_fail();
 	}
-	if (defined('MMHQ_LOR_DR145_TEST_HARNESS')) {
+	if (
+		defined('MMHQ_LOR_DR145_TEST_HARNESS')
+		&& !defined('MMHQ_LOR_DR145_EXERCISE_PRODUCTION_HOOKS')
+	) {
 		return $callback();
 	}
 	if (!isset($GLOBALS['wp_filter']) || !is_array($GLOBALS['wp_filter'])) {
@@ -1104,6 +1107,7 @@ function mmhq_lor_dr145_without_hooks($hooks, $callback) {
 	$current = isset($GLOBALS['wp_current_filter']) && is_array($GLOBALS['wp_current_filter'])
 		? $GLOBALS['wp_current_filter']
 		: array();
+	$filter_snapshot = $GLOBALS['wp_filter'];
 	$snapshot = array();
 	foreach ($hooks as $hook) {
 		if (
@@ -1120,9 +1124,11 @@ function mmhq_lor_dr145_without_hooks($hooks, $callback) {
 			mmhq_lor_dr145_fail();
 		}
 		$snapshot[$hook] = array('present' => $present, 'value' => $value);
-		unset($GLOBALS['wp_filter'][$hook]);
 	}
 	try {
+		foreach (array_keys($snapshot) as $hook) {
+			unset($GLOBALS['wp_filter'][$hook]);
+		}
 		return $callback();
 	} finally {
 		$conflict = false;
@@ -1130,12 +1136,21 @@ function mmhq_lor_dr145_without_hooks($hooks, $callback) {
 			if (array_key_exists($hook, $GLOBALS['wp_filter'])) {
 				$conflict = true;
 			}
-			if ($entry['present']) {
-				$GLOBALS['wp_filter'][$hook] = $entry['value'];
-			} else {
-				unset($GLOBALS['wp_filter'][$hook]);
+		}
+		foreach ($filter_snapshot as $hook => $value) {
+			if (
+				!array_key_exists($hook, $snapshot)
+				&& (!array_key_exists($hook, $GLOBALS['wp_filter']) || $GLOBALS['wp_filter'][$hook] !== $value)
+			) {
+				$conflict = true;
 			}
 		}
+		foreach ($GLOBALS['wp_filter'] as $hook => $value) {
+			if (!array_key_exists($hook, $snapshot) && !array_key_exists($hook, $filter_snapshot)) {
+				$conflict = true;
+			}
+		}
+		$GLOBALS['wp_filter'] = $filter_snapshot;
 		if ($conflict) {
 			mmhq_lor_dr145_fail();
 		}
@@ -2540,7 +2555,8 @@ function mmhq_lor_dr145_assert_subject($principal, $user) {
 
 function mmhq_lor_dr145_assert_identity($principal, $user, $email = null) {
 	mmhq_lor_dr145_assert_subject($principal, $user);
-	$is_admin = true === mmhq_lor_dr145_without_hooks(
+	$filtered_admin = true === user_can((int) $user->ID, 'manage_options');
+	$canonical_admin = true === mmhq_lor_dr145_without_hooks(
 		array('user_has_cap', 'map_meta_cap', 'role_has_cap'),
 		function () use ($user) {
 			return user_can((int) $user->ID, 'manage_options');
@@ -2548,7 +2564,8 @@ function mmhq_lor_dr145_assert_identity($principal, $user, $email = null) {
 	);
 	if ('founder' === $principal) {
 		if (
-			!$is_admin
+			!$filtered_admin
+			|| !$canonical_admin
 			|| !defined('MMHQ_LOR_STUDIO_FOUNDER_CANARY_LOGIN')
 			|| 'brinyu' !== constant('MMHQ_LOR_STUDIO_FOUNDER_CANARY_LOGIN')
 		) {
@@ -2556,7 +2573,7 @@ function mmhq_lor_dr145_assert_identity($principal, $user, $email = null) {
 		}
 	} else {
 		$roles = isset($user->roles) && is_array($user->roles) ? array_values($user->roles) : null;
-		if ($is_admin || array() !== $roles) {
+		if ($filtered_admin || $canonical_admin || array() !== $roles) {
 			mmhq_lor_dr145_fail();
 		}
 		if (

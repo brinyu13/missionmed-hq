@@ -106,6 +106,11 @@ function harness(config = {}) {
     crashAddAt: 0,
     crashDeleteAt: 0,
 		crashAfterCommitAt: 0,
+		simulateProductionHooks: false,
+		filteredAdmin: null,
+		requireActionHookSuppression: false,
+		hookConflictAt: 0,
+		invalidHookTopology: false,
     ...config,
   }), 'utf8').toString('base64');
   return `<?php
@@ -122,6 +127,20 @@ define('LEARNDASH_TRANSIENTS_DISABLED', true);
 	define('WC_VERSION', '10.6.1');
 class WP_Error {}
 $GLOBALS['cfg'] = json_decode(base64_decode('${encoded}'), true);
+	if (true === $GLOBALS['cfg']['simulateProductionHooks']) {
+		define('MMHQ_LOR_DR145_EXERCISE_PRODUCTION_HOOKS', true);
+	}
+	class WP_Hook { public $callbacks = array(); }
+	$GLOBALS['wp_filter'] = array();
+	if (true === $GLOBALS['cfg']['simulateProductionHooks']) {
+		foreach (array('user_has_cap', 'map_meta_cap', 'role_has_cap', 'added_user_meta', 'deleted_user_meta') as $hook_name) {
+			$GLOBALS['wp_filter'][$hook_name] = new WP_Hook();
+		}
+		if (true === $GLOBALS['cfg']['invalidHookTopology']) {
+			$GLOBALS['wp_filter']['role_has_cap'] = 'invalid';
+		}
+	}
+	$GLOBALS['initial_wp_filter'] = $GLOBALS['wp_filter'];
 	$GLOBALS['wp_version'] = $GLOBALS['cfg']['wpVersion'];
 	if (true === $GLOBALS['cfg']['wpHasherActive']) $GLOBALS['wp_hasher'] = new stdClass();
 class MMHQ_Test_OrderUtil {
@@ -363,8 +382,16 @@ function get_userdata($id) {
     return is_object($GLOBALS['user']) && (int) $GLOBALS['user']->ID === (int) $id ? $GLOBALS['user'] : false;
 }
 function user_can($id, $capability) {
-    return is_object($GLOBALS['user']) && (int) $GLOBALS['user']->ID === (int) $id
-        && 'manage_options' === $capability && true === $GLOBALS['cfg']['admin'];
+	$core = is_object($GLOBALS['user']) && (int) $GLOBALS['user']->ID === (int) $id
+		&& 'manage_options' === $capability && true === $GLOBALS['cfg']['admin'];
+	if (
+		true === $GLOBALS['cfg']['simulateProductionHooks']
+		&& array_key_exists('user_has_cap', $GLOBALS['wp_filter'])
+		&& is_bool($GLOBALS['cfg']['filteredAdmin'])
+	) {
+		return $GLOBALS['cfg']['filteredAdmin'];
+	}
+	return $core;
 }
 function get_user_meta($id, $key = null, $single = false) {
     if (null === $key) return $GLOBALS['meta'];
@@ -372,6 +399,7 @@ function get_user_meta($id, $key = null, $single = false) {
     return $single ? (empty($rows) ? '' : $rows[0]) : $rows;
 }
 function delete_user_meta($id, $key) {
+	if (true === $GLOBALS['cfg']['requireActionHookSuppression'] && array_key_exists('deleted_user_meta', $GLOBALS['wp_filter'])) throw new RuntimeException('deleted_user_meta hook was not suppressed');
     if (0 !== $GLOBALS['wpdb']->reconnect_retries_for_test()) throw new RuntimeException('reconnect guard inactive');
     $GLOBALS['calls']['delete'][] = $key;
     unset($GLOBALS['meta'][$key]);
@@ -380,9 +408,11 @@ function delete_user_meta($id, $key) {
     return true;
 }
 function add_user_meta($id, $key, $value, $unique = false) {
+	if (true === $GLOBALS['cfg']['requireActionHookSuppression'] && array_key_exists('added_user_meta', $GLOBALS['wp_filter'])) throw new RuntimeException('added_user_meta hook was not suppressed');
     if (0 !== $GLOBALS['wpdb']->reconnect_retries_for_test()) throw new RuntimeException('reconnect guard inactive');
     $GLOBALS['add_count']++;
     $GLOBALS['calls']['add'][] = $key;
+	if ((int) $GLOBALS['cfg']['hookConflictAt'] === $GLOBALS['add_count']) $GLOBALS['wp_filter']['added_user_meta'] = new WP_Hook();
     if ((int) $GLOBALS['cfg']['failAddAt'] === $GLOBALS['add_count']) return false;
     if (!isset($GLOBALS['meta'][$key])) $GLOBALS['meta'][$key] = array();
     $GLOBALS['meta'][$key][] = $value;
@@ -538,6 +568,9 @@ register_shutdown_function(function () {
         'dbReconnectRetries' => $GLOBALS['wpdb']->reconnect_retries_for_test(),
         'dbErrorsSuppressed' => $GLOBALS['wpdb']->suppress_errors,
 		'inTxProducerCalls' => $GLOBALS['in_tx_producer_calls'],
+		'hookTopologyRestored' => $GLOBALS['wp_filter'] === $GLOBALS['initial_wp_filter'],
+		'hookTopologyKeys' => array_keys($GLOBALS['wp_filter']),
+		'initialHookTopologyKeys' => array_keys($GLOBALS['initial_wp_filter']),
     )));
 });
 require ${phpString(runnerPath)};
@@ -711,6 +744,40 @@ test('transactional runtime rejects caches, unsafe tables, indexes, triggers, or
       assert.equal(result.trace.addCount, 0);
       assert.equal(result.trace.deleteCount, 0);
 	      assert.equal(existsSync(custody), false, `case ${index}`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test('production hook isolation requires filtered and canonical capability truth and restores exact topology', { skip: !phpAvailable }, () => {
+  const cases = [
+    { config: { admin: true, filteredAdmin: false }, status: 1, unchanged: true },
+    { config: { admin: false, filteredAdmin: true }, status: 1, unchanged: true },
+    { config: { admin: true, filteredAdmin: true, invalidHookTopology: true }, status: 1, unchanged: true },
+    { config: { admin: true, filteredAdmin: true, requireActionHookSuppression: true }, status: 0, unchanged: false },
+    { config: { admin: true, filteredAdmin: true, requireActionHookSuppression: true, failAddAt: 4 }, status: 1, unchanged: true },
+    { config: { admin: true, filteredAdmin: true, requireActionHookSuppression: true, hookConflictAt: 1 }, status: 1, unchanged: true },
+  ];
+  for (const [index, item] of cases.entries()) {
+    const root = privateRoot();
+    try {
+      const custody = custodyPath(root, 'founder');
+      const trace = join(root, `production-hooks-${index}.json`);
+      const result = runPhp({
+        config: { simulateProductionHooks: true, ...item.config },
+        env: {
+          MMHQ_LOR_DR145_OPERATION: 'apply',
+          MMHQ_LOR_DR145_PRINCIPAL: 'founder',
+          MMHQ_LOR_DR145_CUSTODY_FILE: custody,
+          MMHQ_LOR_DR145_CUSTODY_SHA256: 'NEW',
+          MMHQ_LOR_DR145_TEST_TRACE_FILE: trace,
+        },
+      });
+      assert.equal(result.status, item.status, `case ${index}`);
+      assert.equal(result.trace.hookTopologyRestored, true, `case ${index}: ${JSON.stringify(result.trace)}`);
+      if (item.unchanged) assert.equal(result.trace.stateEqualsInitial, true, `case ${index}`);
+      if (0 === item.status) assert.equal(JSON.parse(result.stdout).status, 'APPLIED', `case ${index}`);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
