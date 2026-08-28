@@ -37,7 +37,10 @@ export class SetupReadinessGate {
     const speechEnough = Number(a.speechMs) >= this.config.audio.setupSpeechMinimumMs;
     const signalAboveNoise = Number.isFinite(Number(a.speechLevelDb))
       && Number.isFinite(Number(a.noiseFloorDb))
-      && Number(a.speechLevelDb) - Number(a.noiseFloorDb) >= this.config.audio.speechAboveNoiseDb;
+      && Number(a.speechLevelDb) >= Math.max(
+        Number(a.noiseFloorDb) + this.config.audio.speechAboveNoiseDb,
+        this.config.audio.minimumSpeechDbfs,
+      );
     const notClipping = Number(a.clippedFraction) < this.config.audio.clippingFractionWarning;
     const audioSignal = a.available && speechEnough && signalAboveNoise && notClipping;
     const faceFound = v.facePresent && Number(v.confidence) >= 0.45;
@@ -49,7 +52,7 @@ export class SetupReadinessGate {
       && Math.abs(Number(v.centerY) - this.config.framing.centerTargetY) <= this.config.framing.centerToleranceY;
     const cameraHeight = !Number.isFinite(Number(v.headPitchDegrees))
       || Math.abs(Number(v.headPitchDegrees)) <= this.config.framing.restPitchMaximumDegrees;
-    const videoFraming = faceFound && faceSize && centered && cameraHeight;
+    const videoFraming = faceFound && faceSize && centered;
     const reasons = [];
     if (!a.available || !speechEnough || !signalAboveNoise) reasons.push('NO_AUDIO_SIGNAL');
     if (!notClipping) reasons.push('CHECK_MIC_CLIPPING');
@@ -71,6 +74,7 @@ export class SetupReadinessGate {
       faceSize,
       centered,
       cameraHeight,
+      cameraHeightAdvisory: !cameraHeight,
       audioProcessing: processingState(a.processing, a.speechLevelStdLu, this.config),
       correction,
       reasons: Object.freeze(reasons),

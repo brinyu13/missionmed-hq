@@ -70,7 +70,7 @@ function visionFrame(atMs, movement = 0.2) {
 }
 
 test('the presentation registry is canonical and every metric has one surface and one drawer control', async () => {
-  assert.equal(ANALYTICS_METRIC_IDS.length, 20);
+  assert.equal(ANALYTICS_METRIC_IDS.length, 13);
   assert.equal(new Set(ANALYTICS_METRIC_IDS).size, ANALYTICS_METRIC_IDS.length);
   assert.deepEqual(ANALYTICS_METRIC_IDS, Object.values(ANALYTICS_FAMILIES).flat());
   const html = await readFile(new URL('../../public/live-analytics/index.html', import.meta.url), 'utf8');
@@ -94,7 +94,7 @@ test('individual controls create Custom without collapsing a partially visible f
   for (const id of [
     'head-face.smile-pattern',
     'head-face.camera-facing-balance',
-    'head-face.geometry-trend',
+    'head-face.presence',
   ]) state.setMetricVisible(id, false);
   const snapshot = state.snapshot();
   assert.equal(snapshot.preset, 'custom');
@@ -160,7 +160,7 @@ test('persistence contains only schema version and allowlisted presentation IDs'
   state.setMetricVisible('body-posture.hands-visible', true);
   const stored = JSON.parse(storage.getItem(VISIBILITY_STORAGE_KEY));
   assert.deepEqual(Object.keys(stored), ['version', 'visibleMetricIds']);
-  assert.equal(stored.version, 1);
+  assert.equal(stored.version, 2);
   assert.ok(stored.visibleMetricIds.every((id) => ANALYTICS_METRIC_IDS.includes(id)));
   assert.doesNotMatch(JSON.stringify(stored), /timestamp|device|session|history|telemetry/iu);
   state.resetCustom();
@@ -171,7 +171,7 @@ test('corrupt, oversized, and unknown persisted choices fail safely to Minimal',
   for (const raw of [
     '{broken',
     'x'.repeat(10_001),
-    JSON.stringify({ version: 1, visibleMetricIds: ['unknown.metric'] }),
+    JSON.stringify({ version: 2, visibleMetricIds: ['unknown.metric'] }),
   ]) {
     const storage = new MemoryStorage({ [VISIBILITY_STORAGE_KEY]: raw });
     assert.deepEqual(
@@ -188,7 +188,7 @@ test('metric histories and counters advance while their presentation IDs are hid
   for (const id of [
     'head-face.smile-pattern',
     'head-face.camera-facing-balance',
-    'head-face.geometry-trend',
+    'head-face.presence',
     'body-posture.in-frame',
     'body-posture.hands-visible',
     'body-posture.gesture-activity',
@@ -204,7 +204,7 @@ test('metric histories and counters advance while their presentation IDs are hid
   for (const id of [
     'head-face.smile-pattern',
     'head-face.camera-facing-balance',
-    'head-face.geometry-trend',
+    'head-face.presence',
     'body-posture.in-frame',
     'body-posture.hands-visible',
     'body-posture.gesture-activity',
@@ -216,10 +216,10 @@ test('metric histories and counters advance while their presentation IDs are hid
   assert.ok(afterBody.gestureEvents.count > beforeBody.gestureEvents.count);
 });
 
-test('paired body presentation metrics remain independently addressable', () => {
+test('retained body presentation metrics remain independently addressable', () => {
   for (const [primary, companion] of [
-    ['body-posture.gesture-activity', 'body-posture.movement-trend'],
-    ['body-posture.notes-detection', 'body-posture.notes-confidence'],
+    ['body-posture.gesture-activity', 'body-posture.hands-visible'],
+    ['body-posture.in-frame', 'body-posture.wireframe'],
   ]) {
     const first = new AnalyticsVisibilityState({ preset: 'full', storage: new MemoryStorage() });
     first.setMetricVisible(primary, false);

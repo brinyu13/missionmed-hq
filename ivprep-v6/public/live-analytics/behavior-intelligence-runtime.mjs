@@ -230,6 +230,7 @@ export class BehaviorIntelligenceRuntime {
     this.audio = deepFreeze({
       available: detail.available !== false,
       captureMethod: detail.captureMethod || 'ANALYSER_FALLBACK',
+      speaking,
       vad: detail.vad || { available: false, reason: 'SILERO_V5_UNAVAILABLE' },
       loudness: detail.loudness || { available: false, reason: 'LUFS_K_UNAVAILABLE' },
       estimatedSyllableRate: detail.estimatedSyllableRate || { available: false, tier: 'D', reason: 'NEED_MORE_SPEECH_ENVELOPE' },
@@ -249,9 +250,11 @@ export class BehaviorIntelligenceRuntime {
       setupAdvanced = true;
     }
     if (speaking && (!this.priorSpeaking || setupAdvanced)) {
-      this.#dispatchConversation(this.conversation.state === 'PAUSE' ? 'USER_SPEECH_RESUME' : 'USER_SPEECH_START', atMs);
+      this.#dispatchConversation(['PAUSE_SHORT', 'PAUSE_LONG'].includes(this.conversation.state) ? 'USER_SPEECH_RESUME' : 'USER_SPEECH_START', atMs);
     } else if (!speaking && this.priorSpeaking) {
       this.#dispatchConversation('USER_SPEECH_END', atMs);
+    } else if (!speaking) {
+      this.#dispatchConversation('TICK', atMs);
     }
     this.priorSpeaking = speaking;
   }
@@ -322,6 +325,7 @@ export class BehaviorIntelligenceRuntime {
       atMs,
       leftHand: left?.present ? { x: left.centerX, y: left.centerY } : null,
       rightHand: right?.present ? { x: right.centerX, y: right.centerY } : null,
+      faceBox: box,
       speaking: this.conversation.state === 'ANSWERING',
       ...shoulders,
     });

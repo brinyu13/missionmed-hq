@@ -115,7 +115,7 @@ export function evaluateWordTiming(evidence = {}, {
     coverage,
     startMs,
     endMs,
-    deliverySpeed: deriveDeliverySpeed(wordsPerMinute, corridor, config),
+    deliverySpeed: deriveDeliverySpeed(articulationWordsPerMinute, corridor, config),
     provenance: frozen({
       source: provenance.source || WORD_TIMING_TIERS[tier] || 'UNKNOWN',
       method: fixture ? 'DETERMINISTIC_TEST_WORD_TIMESTAMPS' : 'OBSERVED_WORD_TIMESTAMPS',

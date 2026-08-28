@@ -7,6 +7,8 @@
 // sherpa-onnx in an isolated Node worker and returns timing aggregates only: never
 // transcript text and never persisted audio.
 
+import { WordEventStream } from './word-stream.mjs';
+
 export const LOCAL_TRANSCRIPT_TIMING_SOURCE = 'LOCAL_TIMED_TRANSCRIPT';
 export const FIRST_PARTY_TRANSCRIPT_TIMING_SOURCE = 'FIRST_PARTY_TIMED_TRANSCRIPT';
 export const LOCAL_SHERPA_TIMING_SOURCE = 'LOCAL_SHERPA_ONNX_WORD_TIMESTAMPS';
@@ -160,6 +162,8 @@ export class LocalTranscriptTimingProducer {
     this.requestController = null;
     this.pcmConsumer = (frame) => this.ingestPcmFrame(frame);
     this.window = null;
+    this.wordStream = new WordEventStream();
+    this.timingWindows = [];
     this.lastProgressMs = 0;
     this.state = frozenState('idle', 'LOCAL_TRANSCRIPT_TIMING_IDLE');
   }
@@ -244,6 +248,8 @@ export class LocalTranscriptTimingProducer {
     if (generation !== this.generation || capability.state !== 'ready') return false;
     this.window = null;
     this.lastProgressMs = 0;
+    this.wordStream.reset();
+    this.timingWindows = [];
     this.active = true;
     this.pipeline.setPcmConsumer(this.pcmConsumer);
     this.#setState('live', 'LOCAL_SHERPA_WORD_TIMING_LIVE', capability.detail);
@@ -442,14 +448,34 @@ export class LocalTranscriptTimingProducer {
     const admittedCoverage = Math.max(coverage, clamp(timedSpeechDurationMs / captureDurationMs, 0, 1));
     const atMs = Math.max(windowEndedAtMs, Number(this.clock.sessionMs()));
     const firstParty = this.#transport === FIRST_PARTY_WORD_TIMING_TRANSPORT;
+    this.wordStream.ingest(confidentWords, { atMs, source: LOCAL_SHERPA_TIMING_SOURCE });
+    this.timingWindows.push(Object.freeze({
+      startedAtMs: windowStartedAtMs,
+      endedAtMs: windowEndedAtMs,
+      speechDurationMs: admittedSpeechDurationMs,
+      captureDurationMs,
+    }));
+    if (this.timingWindows.length > 4) this.timingWindows.shift();
+    const firstWindow = this.timingWindows[0];
+    const streamWords = this.wordStream.snapshot().events
+      .filter((word) => word.startMs >= firstWindow.startedAtMs && word.endMs <= windowEndedAtMs + 25);
+    const streamSpeechDurationMs = this.timingWindows.reduce((sum, item) => sum + item.speechDurationMs, 0);
+    const streamCaptureDurationMs = this.timingWindows.reduce((sum, item) => sum + item.captureDurationMs, 0);
+    const streamCoverage = streamCaptureDurationMs > 0
+      ? clamp(this.timingWindows.reduce((sum, item) => sum + item.speechDurationMs, 0) / streamCaptureDurationMs, 0, 1)
+      : 0;
     this.onTiming(Object.freeze({
       atMs,
-      windowStartedAtMs,
+      windowStartedAtMs: firstWindow.startedAtMs,
       windowEndedAtMs,
-      speechDurationMs: admittedSpeechDurationMs,
-      coverage: admittedCoverage,
-      words: Object.freeze(confidentWords.map((word) => Object.freeze(word))),
-      wordCount: confidentWords.length,
+      speechDurationMs: streamSpeechDurationMs,
+      coverage: Math.max(streamCoverage, admittedCoverage),
+      words: Object.freeze(streamWords.map((word) => Object.freeze({
+        startMs: word.startMs,
+        endMs: word.endMs,
+        probability: word.probability,
+      }))),
+      wordCount: streamWords.length,
       provenance: Object.freeze({
         kind: 'OBSERVED_TRANSCRIPT_TIMING',
         observed: true,
@@ -463,9 +489,9 @@ export class LocalTranscriptTimingProducer {
         rawAudioPersisted: false,
       }),
     }));
-    this.#setState('live', confidentWords.length >= 8 ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
-      wordCount: confidentWords.length,
-      windowDurationMs: Math.round(captureDurationMs),
+    this.#setState('live', streamWords.length >= 8 ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
+      wordCount: streamWords.length,
+      windowDurationMs: Math.round(windowEndedAtMs - firstWindow.startedAtMs),
     });
       return true;
     } finally {
@@ -485,6 +511,8 @@ export class LocalTranscriptTimingProducer {
     }
     this.window = null;
     this.lastProgressMs = 0;
+    this.wordStream.reset();
+    this.timingWindows = [];
     this.pipeline = null;
     this.clock = null;
     this.csrfToken = null;

@@ -31,11 +31,18 @@ export class GestureUnitDetector {
     this.outOfRestSpeakingMs = 0;
     this.noiseSpeeds = [];
     this.energy = [];
+    this.eventTimes = [];
   }
 
-  ingest({ atMs, leftHand = null, rightHand = null, leftShoulder, rightShoulder, speaking = false } = {}) {
+  ingest({ atMs, leftHand = null, rightHand = null, leftShoulder, rightShoulder, faceBox = null, speaking = false } = {}) {
     const time = Number(atMs);
-    const shoulderWidth = distance(leftShoulder, rightShoulder);
+    const observedShoulderWidth = distance(leftShoulder, rightShoulder);
+    const faceNormalizedWidth = Number(faceBox?.width) * Number(this.config.faceBoxNormalizerK || 2.2);
+    const shoulderWidth = observedShoulderWidth > 0.02
+      ? observedShoulderWidth
+      : Number.isFinite(faceNormalizedWidth) && faceNormalizedWidth > 0.02
+        ? faceNormalizedWidth
+        : 0;
     const visible = Boolean(leftHand || rightHand);
     const deltaMs = this.prior && time > this.prior.atMs ? Math.min(500, time - this.prior.atMs) : 0;
     if (speaking) {
@@ -86,6 +93,7 @@ export class GestureUnitDetector {
         if (durationMs >= this.config.minimumDurationMs && durationMs <= this.config.maximumDurationMs) {
           this.eventCount += 1;
           this.lastEventAtMs = time;
+          this.eventTimes.push(time);
           event = Object.freeze({ type: 'GESTURE_UNIT', startMs: this.activeSinceMs, endMs: time, durationMs, state: 'ANSWERING' });
         }
         this.active = false;
@@ -96,7 +104,16 @@ export class GestureUnitDetector {
     if (speaking && visible && !atRest) this.outOfRestSpeakingMs += deltaMs;
     this.prior = { atMs: time, leftHand, rightHand, rested };
     const coverage = this.speakingFrames ? this.handsVisibleSpeakingFrames / this.speakingFrames : 0;
-    const rateAvailable = this.speakingDurationMs >= 1_000 && coverage >= this.config.minimumHandsCoverage;
+    const rollingWindowMs = Number(this.config.rollingRateWindowMs) || 45_000;
+    this.eventTimes = this.eventTimes.filter((eventAtMs) => time - eventAtMs <= rollingWindowMs);
+    const rateSpeechMs = Math.min(this.speakingDurationMs, rollingWindowMs);
+    const rateAvailable = rateSpeechMs >= (Number(this.config.minimumRateSpeechMs) || 15_000)
+      && coverage >= this.config.minimumHandsCoverage;
+    const unitsPerSpeakingMinute = rateAvailable ? this.eventTimes.length * 60_000 / rateSpeechMs : null;
+    const corridorState = !rateAvailable ? 'UNAVAILABLE'
+      : unitsPerSpeakingMinute < this.config.personalMinimumPerMinute ? 'LOW'
+        : unitsPerSpeakingMinute > this.config.personalMaximumPerMinute ? 'EXCESSIVE'
+          : 'HEALTHY';
     return Object.freeze({
       active: this.active,
       speedShoulderWidthsPerSecond: speed,
@@ -107,10 +124,20 @@ export class GestureUnitDetector {
       handsCoverage: coverage,
       speakingDurationMs: this.speakingDurationMs,
       rateAvailable,
-      unitsPerSpeakingMinute: rateAvailable ? this.eventCount * 60_000 / this.speakingDurationMs : null,
+      rollingEventCount: this.eventTimes.length,
+      unitsPerSpeakingMinute,
+      corridorState,
+      corridor: Object.freeze({ minimum: this.config.personalMinimumPerMinute, maximum: this.config.personalMaximumPerMinute, basis: 'PERSONAL_TUNABLE_HEURISTIC' }),
       outOfRestSpeakingFraction: this.speakingDurationMs ? this.outOfRestSpeakingMs / this.speakingDurationMs : null,
       rateUnavailableReason: rateAvailable ? null : coverage < this.config.minimumHandsCoverage ? 'INSUFFICIENT_HANDS_COVERAGE' : 'INSUFFICIENT_SPEAKING_TIME',
-      provenance: Object.freeze({ source: 'LOCAL_HAND_GEOMETRY', method: 'SHOULDER_WIDTH_REST_CLUSTER_GESTURE_UNITS' }),
+      provenance: Object.freeze({
+        source: 'LOCAL_HAND_GEOMETRY',
+        method: observedShoulderWidth > 0.02
+          ? 'SHOULDER_WIDTH_REST_CLUSTER_GESTURE_UNITS'
+          : shoulderWidth > 0
+            ? 'FACE_BOX_NORMALIZED_REST_CLUSTER_GESTURE_UNITS'
+            : 'NORMALIZER_UNAVAILABLE',
+      }),
     });
   }
 }

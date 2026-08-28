@@ -223,7 +223,8 @@ test('WPM fails closed unless per-word observed transcript timing has trusted pr
   });
   const speed = trusted.metrics.SPEED_WPM;
   assert.equal(speed.available, true);
-  assert.equal(speed.wordsPerMinute, 120);
+  assert.equal(speed.wordsPerMinute, 150);
+  assert.equal(speed.deliveryWordsPerMinute, 120);
   assert.equal(speed.wordCount, 60);
   assert.equal(speed.windowDurationMs, 30_000);
   assert.equal(speed.source, 'OBSERVED_TRANSCRIPT_TIMING');

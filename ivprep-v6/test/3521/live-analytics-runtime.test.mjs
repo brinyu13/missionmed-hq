@@ -197,7 +197,8 @@ test('Start analytics activates every physical metric, including WPM, before int
   assert.equal(runtime.active, false);
   assert.equal(runtime.captureMeasuring, true);
   assert.equal(runtime.projector.latest.metrics.SPEED_WPM.available, true);
-  assert.equal(runtime.projector.latest.metrics.SPEED_WPM.wordsPerMinute, 180);
+  assert.equal(runtime.projector.latest.metrics.SPEED_WPM.wordsPerMinute, 205.7);
+  assert.equal(runtime.projector.latest.metrics.SPEED_WPM.deliveryWordsPerMinute, 180);
   assert.equal(runtime.transcriptTimingState.reason, 'LOCAL_TRANSCRIPT_TIMING_LIVE');
   runtime.behavior.setup.ingestAudio({ available: true, speechMs: 3_100, noiseFloorDb: -55, speechLevelDb: -25, clippedFraction: 0 });
   runtime.behavior.setup.ingestVideo({ facePresent: true, faceFraction: 0.28, centerX: 0.5, centerY: 0.4, headPitchDegrees: 0, confidence: 0.9 });
@@ -205,6 +206,7 @@ test('Start analytics activates every physical metric, including WPM, before int
   await runtime.start();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(calls.start, 1);
+  assert.equal(runtime.interviewStartedAtMs, 0, 'interview timer receives an explicit start boundary');
   await runtime.finish();
   assert.ok(calls.stop >= 1);
 });
@@ -377,7 +379,7 @@ test('Vocal Variation keeps genuine raw histories while its presentation is hidd
   const before = renderer.frames.at(-1).modulation;
   assert.deepEqual(before.histories.volume.map((sample) => sample.value), [-26.02, -20]);
   assert.equal(before.histories.pitch.length, 2);
-  assert.deepEqual(before.histories.speed.map((sample) => sample.value), [120]);
+  assert.deepEqual(before.histories.speed.map((sample) => sample.value), [137.1]);
   assert.equal(before.sources.volume, 'MIC_RMS');
   assert.equal(before.sources.pitch, 'VALIDATED_F0');
   assert.equal(before.sources.speed, 'LOCAL_TIMED_TRANSCRIPT');
@@ -460,7 +462,8 @@ test('deterministic fixture runs the production RMS, F0, compact geometry, and t
   assert.equal(snapshot.metrics.SPEED_WPM.fixture, true);
   assert.ok(diagnostics.filter((detail) => detail.modality === 'audio').length >= 220);
   assert.ok(diagnostics.filter((detail) => detail.modality === 'vision').length >= 20);
-  assert.equal(timings.length, 1);
+  assert.ok(timings.length >= 4);
+  assert.ok(timings[0].atMs <= 4_050, 'first deterministic pace value must arrive within the four-second contract');
   fixture.stop();
 });
 
@@ -519,7 +522,7 @@ test('deterministic transcript timing refreshes as labelled per-word windows wit
   assert.ok(timings.every((timing) => timing.provenance.observed === false));
   assert.ok(timings.every((timing) => timing.provenance.source === 'DETERMINISTIC_TEST_TRANSCRIPT_TIMING'));
   assert.equal(projector.latest.metrics.SPEED_WPM.available, true);
-  assert.equal(projector.latest.metrics.SPEED_WPM.wordsPerMinute, 120);
+  assert.equal(projector.latest.metrics.SPEED_WPM.wordsPerMinute, 150);
   assert.equal(projector.latest.metrics.SPEED_WPM.fixture, true);
   fixture.stop();
 });
@@ -615,7 +618,8 @@ test('default instruments fail closed and deterministic data is prominently iden
   assert.match(html, /id="body-overlay"/u);
   assert.doesNotMatch(html, /id="conversation-state"/u);
   assert.match(runtime, /stage\.dataset\.conversationState = conversationState/u);
-  assert.match(html, /data-face-activity-state/u);
+  assert.match(html, /data-face-map-region="mouth"/u);
+  assert.doesNotMatch(html, /data-face-activity-state/u);
   assert.doesNotMatch(runtime, /scanFaceOverlay|scanBodyOverlay|#drawWorkerScanBitmap/u);
   assert.match(renderers, /TEACHING HUD/u);
   assert.doesNotMatch(renderers, /pointsFrom|drawConnections|drawLandmarks|POSE_CONNECTIONS|HAND_CONNECTIONS/u);

@@ -52,7 +52,7 @@ test('conversation state machine preserves transitions, pauses, and overlap with
   assert.equal(machine.dispatch('INTERVIEWER_SPEECH_END', 200).state, 'TRANSITION_TO_ANSWER');
   assert.equal(machine.dispatch('USER_SPEECH_START', 350).state, 'ANSWERING');
   assert.equal(machine.dispatch('INTERVIEWER_SPEECH_START', 400).overlap, true);
-  assert.equal(machine.dispatch('USER_SPEECH_END', 900).state, 'PAUSE');
+  assert.equal(machine.dispatch('USER_SPEECH_END', 900).state, 'PAUSE_SHORT');
   assert.equal(machine.dispatch('USER_SPEECH_RESUME', 1_200).state, 'ANSWERING');
   assert.equal(machine.dispatch('ANSWER_END', 2_000).state, 'TRANSITION_TO_LISTENING');
   assert.equal(machine.dispatch('INTERVIEWER_TURN_READY', 2_100).state, 'LISTENING');
@@ -260,7 +260,7 @@ test('word timing requires per-word timestamps and Fable minimum evidence', () =
 });
 
 test('gesture units use shoulder-width velocity, speaking state, and coverage withholding', () => {
-  const detector = new GestureUnitDetector({ config: { ...COACHING_CONFIG.gesture, onsetDwellMs: 100, releaseDwellMs: 100, restDwellMs: 500, minimumDurationMs: 150, refractoryMs: 0 } });
+  const detector = new GestureUnitDetector({ config: { ...COACHING_CONFIG.gesture, onsetDwellMs: 100, releaseDwellMs: 100, restDwellMs: 500, minimumDurationMs: 150, refractoryMs: 0, minimumRateSpeechMs: 1_000 } });
   const shoulders = { leftShoulder: { x: 0, y: 0 }, rightShoulder: { x: 1, y: 0 } };
   detector.ingest({ atMs: 0, leftHand: { x: 0, y: 1 }, speaking: true, ...shoulders });
   detector.ingest({ atMs: 500, leftHand: { x: 0, y: 1 }, speaking: true, ...shoulders });

@@ -102,9 +102,9 @@ test('Speaking Speed keeps a visible dial scaffold while truthful WPM is still u
 test('Pitch holds the last validated register briefly without claiming a current voiced F0', () => {
   const surface = hudRoot();
   const renderer = new PitchHudRenderer(surface.root);
-  renderer.update({ available: true, voiced: true, semitones: 1.2, register: 1, atMs: 1_000, state: 'neutral' });
+  renderer.update({ available: true, voiced: true, semitones: 1.2, score: 7.4, register: 1, atMs: 1_000, state: 'neutral' });
   renderer.update({ available: true, voiced: false, semitones: null, atMs: 1_500, state: 'idle' });
-  assert.equal(surface.value.textContent, '+1.2 st');
+  assert.equal(surface.value.textContent, '7.4');
   assert.equal(surface.status.textContent, 'RECENT VALID F0 · CURRENT FRAME UNVOICED');
   renderer.update({ available: true, voiced: false, semitones: null, atMs: 2_500, state: 'idle' });
   assert.equal(surface.value.textContent, '—');

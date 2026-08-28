@@ -680,10 +680,17 @@ export class BodyHudRenderer extends HudRenderer {
     const centeredObserved = frame.centered === true;
     const movementActive = frame.movementLevel?.active === true;
     const activeRegion = ['left', 'right', 'both'].includes(frame.activeRegion) ? frame.activeRegion : null;
+    const answering = frame.conversationState === 'ANSWERING';
+    const gestureState = String(frame.gestureCorridorState || frame.gestureUnits?.corridorState || 'UNAVAILABLE');
     setSignalRegion(this.signalRegions.torso, centeredObserved ? 'ok' : (frame.present ? 'warn' : 'bad'));
     setSignalRegion(this.signalRegions.shoulders, frame.present ? (finite(frame.shoulderTiltDeg) && Math.abs(frame.shoulderTiltDeg) <= 8 ? 'ok' : 'warn') : 'bad');
-    setSignalRegion(this.signalRegions['left-hand'], leftHandPresent ? 'ok' : 'bad');
-    setSignalRegion(this.signalRegions['right-hand'], rightHandPresent ? 'ok' : 'bad');
+    const handState = !answering ? 'neutral'
+      : (!leftHandPresent && !rightHandPresent) ? 'bad'
+        : gestureState === 'HEALTHY' ? 'ok'
+          : ['LOW', 'EXCESSIVE'].includes(gestureState) ? 'warn'
+            : 'neutral';
+    setSignalRegion(this.signalRegions['left-hand'], leftHandPresent ? handState : (answering ? 'bad' : 'neutral'));
+    setSignalRegion(this.signalRegions['right-hand'], rightHandPresent ? handState : (answering ? 'bad' : 'neutral'));
     setSignalRegion(this.signalRegions.movement, movementActive ? 'warn' : (frame.movementLevel?.available ? 'ok' : 'neutral'));
     const centered = frame.centeredLabel || (typeof frame.centered === 'boolean' ? (frame.centered ? 'CENTERED' : 'OFF CENTER') : 'UNAVAILABLE');
     const shoulders = frame.shoulderLabel || (finite(frame.shoulderTiltDeg) ? `${formatNumber(frame.shoulderTiltDeg, 1)}° TILT` : 'UNAVAILABLE');
@@ -728,7 +735,7 @@ export class VolumeHudRenderer extends HudRenderer {
     const fit = this.context();
     if (!fit) return;
     clearScreen(fit.context, fit.width, fit.height, { grid: false });
-    const normalized = finite(frame.normalized) ? clamp(frame.normalized) : clamp((Number(level) + 60) / 60);
+    const normalized = frame.silent === true ? 0 : finite(frame.normalized) ? clamp(frame.normalized) : clamp((Number(level) + 60) / 60);
     const segments = 16;
     const gap = 3;
     const segmentWidth = Math.max(2, (fit.width - gap * (segments - 1)) / segments);
@@ -770,7 +777,9 @@ export class VolumeHudRenderer extends HudRenderer {
       }
     }
     const zone = stateName(frame.zone || frame.state || 'neutral');
-    const cue = !corridor
+    const cue = frame.cue || (frame.silent === true
+      ? '—'
+      : !corridor
       ? 'NO BASELINE'
       : zone === 'target' || zone === 'ok'
       ? 'TARGET — HOLD'
@@ -778,15 +787,18 @@ export class VolumeHudRenderer extends HudRenderer {
         ? 'QUIET — LIFT'
         : zone === 'loud' || zone === 'bad'
           ? 'LOUD — EASE'
-          : 'LIVE LEVEL';
-    setText(this.value, `${formatNumber(level, 1)}`, zone);
+          : 'LIVE LEVEL');
+    setText(this.value, frame.silent === true ? '—' : finite(frame.score) ? `${formatNumber(frame.score, 1)}` : '—', zone);
     setText(this.cue, cue, zone);
     setText(this.status, frame.label || String(frame.zone || 'LIVE LEVEL').replaceAll('_', ' '), zone);
   }
 }
 
 export class SpeedHudRenderer extends HudRenderer {
-  constructor(root) { super(root, 'speed'); }
+  constructor(root) {
+    super(root, 'speed');
+    this.cue = root.querySelector('[data-speed-state-cue]');
+  }
 
   #paintDial(fit, { normalized = null, corridor = [.70, .80] } = {}) {
     const cx = fit.width / 2;
@@ -800,7 +812,7 @@ export class SpeedHudRenderer extends HudRenderer {
       const inTarget = position >= corridor[0] && position <= corridor[1];
       const extreme = index === 0 || index === segments - 1;
       const traversed = finite(normalized) && position <= normalized;
-      fit.context.strokeStyle = extreme ? COLORS.bad : inTarget ? COLORS.ok : traversed ? '#2388ff' : 'rgba(97,111,135,.62)';
+      fit.context.strokeStyle = extreme ? COLORS.warn : inTarget ? COLORS.ok : traversed ? '#2388ff' : 'rgba(97,111,135,.62)';
       fit.context.lineWidth = Math.max(3, radius * .052);
       fit.context.lineCap = 'butt';
       fit.context.beginPath();
@@ -835,6 +847,7 @@ export class SpeedHudRenderer extends HudRenderer {
       fit.context.fillText('WAITING FOR TIMED WORDS', fit.width / 2, fit.height * .62, Math.max(80, fit.width - 18));
     }
     setText(this.value, '—', 'unavailable');
+    setText(this.cue, 'LISTENING FOR YOUR PACE…', 'unavailable');
     setText(this.status, `UNAVAILABLE — ${labelReason(reason)}`, 'unavailable');
   }
 
@@ -851,7 +864,8 @@ export class SpeedHudRenderer extends HudRenderer {
       : [.70, .80];
     const normalized = finite(frame.normalized) ? clamp(frame.normalized) : clamp(Number(frame.wpm) / 240);
     this.#paintDial(fit, { normalized, corridor });
-    setText(this.value, `${Math.round(Number(frame.wpm))}`, frame.zone || frame.state || 'neutral');
+    setText(this.value, finite(frame.score) ? `${formatNumber(frame.score, 1)}` : '—', frame.zone || frame.state || 'neutral');
+    setText(this.cue, frame.cue || 'MEASURING PACE', frame.zone || frame.state || 'neutral');
     setText(this.status, frame.label || String(frame.zone || 'OBSERVED WORD TIMING').replaceAll('_', ' '), frame.zone || frame.state || 'neutral');
   }
 }
@@ -964,6 +978,8 @@ export const ModulationHudRenderer = VocalVariationHudRenderer;
 export class PitchHudRenderer extends HudRenderer {
   constructor(root) {
     super(root, 'pitch');
+    this.cue = root.querySelector('[data-pitch-state-cue]');
+    this.raw = root.querySelector('[data-pitch-raw]');
     this.lastVoicedFrame = null;
   }
 
@@ -973,6 +989,8 @@ export class PitchHudRenderer extends HudRenderer {
     const fit = this.context();
     if (fit) drawPianoKeyboard(fit.context, fit.width, fit.height);
     setText(this.value, '—', 'unavailable');
+    setText(this.raw, '— st variation', 'unavailable');
+    setText(this.cue, 'ESTABLISHING SPEAKER RANGE', 'unavailable');
     setText(this.status, `UNAVAILABLE — ${labelReason(reason)}`, 'unavailable');
   }
 
@@ -989,6 +1007,7 @@ export class PitchHudRenderer extends HudRenderer {
       const fit = this.context();
       if (fit) drawPianoKeyboard(fit.context, fit.width, fit.height);
       setText(this.value, '—', 'idle');
+      setText(this.cue, 'UNVOICED', 'idle');
       setText(this.status, 'UNVOICED — WAITING FOR VALID F0', 'idle');
       return;
     }
@@ -1000,7 +1019,8 @@ export class PitchHudRenderer extends HudRenderer {
     if (!fit) return;
     const semitones = Number(displayFrame.semitones);
     drawPianoKeyboard(fit.context, fit.width, fit.height, { activeSemitone: semitones, held: recentHold });
-    setText(this.value, `${semitones >= 0 ? '+' : ''}${semitones.toFixed(1)} st`, recentHold ? 'idle' : frame.state || 'neutral');
+    setText(this.value, finite(displayFrame.score) ? formatNumber(displayFrame.score, 1) : '—', recentHold ? 'idle' : frame.state || 'neutral');
+    setText(this.cue, recentHold ? 'HOLDING RECENT VARIETY' : frame.cue || 'ESTABLISHING SPEAKER RANGE', recentHold ? 'holding' : frame.zone || frame.state || 'neutral');
     setText(this.status, recentHold ? 'RECENT VALID F0 · CURRENT FRAME UNVOICED' : frame.label || 'SPEAKER-RELATIVE REGISTER', recentHold ? 'idle' : frame.state || 'neutral');
   }
 }

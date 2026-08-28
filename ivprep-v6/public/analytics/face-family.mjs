@@ -294,7 +294,9 @@ export class FaceFamily {
     for (const cartridge of this.#cartridges) {
       if (Number.isFinite(mapping[cartridge.id])) cartridge.baseline = Number(mapping[cartridge.id]);
     }
-    if (Number.isFinite(values.smileBaseline)) this.#smilePattern.setBaseline(values.smileBaseline);
+    if (Number.isFinite(values.smileBaseline)) {
+      this.#smilePattern.setBaseline(values.smileBaseline, values.periocularBaseline);
+    }
     this.#baselineCapturing = false;
     return this;
   }
@@ -358,9 +360,11 @@ export class FaceFamily {
     }
 
     const smile = frame['FACE.SMILE'];
+    const cheekPeriocular = frame['FACE.PERIOCULAR'];
     const smilePattern = this.#smilePattern.ingest({
       atMs,
       bilateral: smile?.bilateral,
+      cheekBilateral: cheekPeriocular?.bilateral,
       faceAvailable: smile?.availability !== FACE_AVAILABILITY.UNAVAILABLE,
       state,
       confidence,

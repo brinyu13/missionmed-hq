@@ -6,6 +6,7 @@
 // into the six instruments in the Live Analytics Runtime.
 
 import { evaluateWordTiming } from '../analytics/word-timing-ladder.mjs';
+import { COACHING_CONFIG } from '../analytics/coaching-config.mjs';
 
 export const LIVE_METRIC_IDS = Object.freeze([
   'VOLUME',
@@ -24,7 +25,7 @@ export const OBSERVED_TRANSCRIPT_TIMING_SOURCES = Object.freeze([
 const DETERMINISTIC_TEST_TIMING_SOURCE = 'DETERMINISTIC_TEST_TRANSCRIPT_TIMING';
 
 const UNSUPPORTED_REASON = 'UNSUPPORTED_INFERENCE';
-const DEFAULT_MAXIMUM_TRANSCRIPT_GAP_MS = 5_000;
+const DEFAULT_MAXIMUM_TRANSCRIPT_GAP_MS = COACHING_CONFIG.deliverySpeed.staleAfterMs;
 
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
@@ -218,7 +219,7 @@ export class LiveMetricProjector {
     };
 
     if (!candidate) {
-      this.#metrics.SPEED_WPM = unavailable('NO_TRUSTWORTHY_TRANSCRIPT_TIMING');
+      if (!this.#metrics.SPEED_WPM?.available) this.#metrics.SPEED_WPM = unavailable('NO_TRUSTWORTHY_TRANSCRIPT_TIMING');
       this.#latest = this.#snapshot(atMs);
       return this.#latest;
     }
@@ -243,15 +244,21 @@ export class LiveMetricProjector {
     } else {
       const evaluated = evaluateWordTiming(evidence, { allowDeterministicFixture });
       if (!evaluated.available) {
-        this.#metrics.SPEED_WPM = unavailable(evaluated.reason, {
-          tier: evaluated.tier,
-          ...(evaluated.missingDependency ? { missingDependency: evaluated.missingDependency } : {}),
-        });
+        const priorAgeMs = Number.isFinite(this.#lastTranscriptWindowEndedAtMs)
+          ? atMs - this.#lastTranscriptWindowEndedAtMs
+          : Infinity;
+        if (!this.#metrics.SPEED_WPM?.available || priorAgeMs > this.#maximumTranscriptGapMs) {
+          this.#metrics.SPEED_WPM = unavailable(evaluated.reason, {
+            tier: evaluated.tier,
+            ...(evaluated.missingDependency ? { missingDependency: evaluated.missingDependency } : {}),
+          });
+        }
       } else {
         this.#provenance.transcript.method = evaluated.provenance.method;
         this.#metrics.SPEED_WPM = deepFreeze({
           available: true,
-          wordsPerMinute: evaluated.wordsPerMinute,
+          wordsPerMinute: evaluated.articulationWordsPerMinute,
+          deliveryWordsPerMinute: evaluated.wordsPerMinute,
           articulationWordsPerMinute: evaluated.articulationWordsPerMinute,
           deliverySpeed: evaluated.deliverySpeed,
           wordCount: evaluated.wordCount,
@@ -266,9 +273,9 @@ export class LiveMetricProjector {
           timingAccuracyValidated: deterministicCandidate ? false : evaluated.provenance.timingAccuracyValidated === true,
           fixture: deterministicCandidate,
         });
+        this.#lastTranscriptWindowEndedAtMs = endedAtMs;
       }
     }
-    this.#lastTranscriptWindowEndedAtMs = endedAtMs;
     this.#lastAcceptedAtMs.transcript = atMs;
     this.#latest = this.#snapshot(atMs);
     return this.#latest;
@@ -383,6 +390,7 @@ export class LiveMetricProjector {
       p10Semitones: finite(summary.p10Semitones),
       p90Semitones: finite(summary.p90Semitones),
       p10P90RangeSemitones: finite(summary.p10P90RangeSemitones),
+      voicedFrames: finite(summary.voicedFrames),
       absoluteHzTarget: null,
       source: 'VALIDATED_F0',
       atMs,
@@ -654,6 +662,7 @@ export class LiveMetricProjector {
     if (!this.#metrics.SPEED_WPM?.available
       || !Number.isFinite(this.#lastTranscriptWindowEndedAtMs)
       || !Number.isFinite(atMs)) return false;
+    if (['LISTENING', 'TRANSITION_TO_ANSWER', 'TRANSITION_TO_LISTENING', 'PAUSE_SHORT', 'PAUSE_LONG'].includes(this.#conversationState)) return false;
     const timingGapMs = atMs - this.#lastTranscriptWindowEndedAtMs;
     if (timingGapMs <= this.#maximumTranscriptGapMs) return false;
     this.#metrics.SPEED_WPM = unavailable('STALE_TRANSCRIPT_TIMING', {

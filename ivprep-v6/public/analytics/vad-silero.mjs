@@ -19,6 +19,9 @@ export class VadHysteresis {
     this.candidateOnAtMs = null;
     this.candidateOffAtMs = null;
     this.lastAtMs = null;
+    this.profile = 'normal';
+    this.profileSinceMs = null;
+    this.background = [];
   }
 
   ingest({ atMs, speechProbability }) {
@@ -28,9 +31,26 @@ export class VadHysteresis {
       throw new TypeError('VAD frames require monotonic time and probability in [0,1].');
     }
     this.lastAtMs = time;
+    if (!this.speaking) {
+      this.background.push(probability);
+      if (this.background.length > 80) this.background.shift();
+      const sorted = [...this.background].sort((a, b) => a - b);
+      const backgroundMedian = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+      const nextProfile = backgroundMedian >= 0.28 ? 'noisy' : backgroundMedian <= 0.08 ? 'quiet' : 'normal';
+      if (nextProfile !== this.profile) {
+        this.profileSinceMs ??= time;
+        if (time - this.profileSinceMs >= COACHING_CONFIG.vad.profileHysteresisMs) {
+          this.profile = nextProfile;
+          this.profileSinceMs = null;
+        }
+      } else this.profileSinceMs = null;
+    }
+    const profile = COACHING_CONFIG.vad.adaptiveProfiles[this.profile];
+    const positiveThreshold = profile?.positiveSpeechThreshold ?? this.positiveSpeechThreshold;
+    const negativeThreshold = profile?.negativeSpeechThreshold ?? this.negativeSpeechThreshold;
     let event = null;
     if (!this.speaking) {
-      if (probability >= this.positiveSpeechThreshold) {
+      if (probability >= positiveThreshold) {
         this.candidateOnAtMs ??= time;
         if (time - this.candidateOnAtMs >= this.minimumSpeechMs) {
           this.speaking = true;
@@ -38,7 +58,7 @@ export class VadHysteresis {
           event = { type: 'SPEECH_START', atMs: this.candidateOnAtMs };
         }
       } else this.candidateOnAtMs = null;
-    } else if (probability <= this.negativeSpeechThreshold) {
+    } else if (probability <= negativeThreshold) {
       this.candidateOffAtMs ??= time;
       if (time - this.candidateOffAtMs >= this.redemptionMs) {
         this.speaking = false;
@@ -46,7 +66,15 @@ export class VadHysteresis {
         event = { type: 'SPEECH_END', atMs: this.candidateOffAtMs };
       }
     } else this.candidateOffAtMs = null;
-    return Object.freeze({ speaking: this.speaking, probability, atMs: time, event });
+    return Object.freeze({
+      speaking: this.speaking,
+      probability,
+      atMs: time,
+      event,
+      profile: this.profile,
+      positiveSpeechThreshold: positiveThreshold,
+      negativeSpeechThreshold: negativeThreshold,
+    });
   }
 }
 

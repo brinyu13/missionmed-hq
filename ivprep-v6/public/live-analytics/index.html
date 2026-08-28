@@ -30,12 +30,21 @@
       </div>
 
       <div class="view-controls" role="group" aria-label="Analytics visibility">
+        <div class="density-switch" role="group" aria-label="Coaching density">
+          <button type="button" data-density-choice="simple" aria-pressed="true">Simple</button>
+          <button type="button" data-density-choice="standard" aria-pressed="false">Standard</button>
+          <button type="button" data-density-choice="lab" aria-pressed="false">Lab</button>
+        </div>
+        <button class="mode-button live-cues-button" id="toggle-live-cues" type="button" aria-pressed="true">
+          <span aria-hidden="true">↟</span> Cues on
+        </button>
         <button class="mode-button" id="mode-full-coaching" type="button" aria-pressed="true">
           <span aria-hidden="true">⌁</span> Full coaching
         </button>
         <button class="mode-button" id="mode-hidden-analytics" type="button" aria-pressed="false">
           <span aria-hidden="true">◫</span> Interview only
         </button>
+        <button class="mode-button mentor-button" id="toggle-mentor" type="button" aria-expanded="false" aria-controls="mentor-drawer">Mentor</button>
         <button class="icon-button" id="toggle-customize" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="analytics-customizer">
           <span aria-hidden="true">⋯</span><span class="sr-only">Customize analytics</span>
         </button>
@@ -95,24 +104,13 @@
               <p>Distribution only · no eye-contact target</p>
             </section>
 
-            <section class="metric-module compact-readout" data-visibility-metric="head-face.blink-rate">
-              <button class="metric-eye" type="button" data-metric-toggle="head-face.blink-rate" aria-label="Hide blink rate" aria-pressed="true">◉</button>
-              <h3>Blink rate</h3><strong data-face-blink-rate>—</strong><p>events / min</p>
-            </section>
-            <section class="metric-module compact-readout" data-visibility-metric="head-face.speaking-pace">
-              <button class="metric-eye" type="button" data-metric-toggle="head-face.speaking-pace" aria-label="Hide speaking pace mirror" aria-pressed="true">◉</button>
-              <h3>Speaking pace</h3><strong data-face-wpm>—</strong><p>WPM · shared source</p>
+            <section class="metric-module compact-readout" data-visibility-metric="head-face.presence">
+              <button class="metric-eye" type="button" data-metric-toggle="head-face.presence" aria-label="Hide face presence" aria-pressed="true">◉</button>
+              <h3>Presence</h3><strong data-face-presence>—</strong><p>Camera geometry</p>
             </section>
             <section class="metric-module compact-readout" data-visibility-metric="head-face.head-nods">
               <button class="metric-eye" type="button" data-metric-toggle="head-face.head-nods" aria-label="Hide head nod count" aria-pressed="true">◉</button>
               <h3>Head nods</h3><strong data-face-head-nods>—</strong><p>Listening-only cycles</p>
-            </section>
-
-            <section class="metric-module face-trend-module" data-visibility-metric="head-face.geometry-trend">
-              <button class="metric-eye" type="button" data-metric-toggle="head-face.geometry-trend" aria-label="Hide facial geometry activity trend" aria-pressed="true">◉</button>
-              <h3>Facial activity trend <span data-face-activity-state>STATE GATED</span></h3>
-              <canvas class="metric-trend" data-face-trend aria-label="Observed facial geometry activity history"></canvas>
-              <div class="trend-key"><span><i class="good"></i>Observed</span><span><i class="gap"></i>Signal gap</span></div>
             </section>
 
             <span class="sr-only" data-hud-readout="head-face:framing">UNAVAILABLE</span>
@@ -159,30 +157,17 @@
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.hands-visible" aria-label="Hide hands visible" aria-pressed="true">◉</button>
               <h3>Hands visible</h3><strong data-hud-readout="body:hands">UNAVAILABLE</strong>
             </section>
-            <section class="metric-module body-status-module" data-visibility-metric="body-posture.gesture-activity">
+            <section class="metric-module body-status-module gesture-intelligence-module" data-visibility-metric="body-posture.gesture-activity">
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.gesture-activity" aria-label="Hide gesture activity" aria-pressed="true">◉</button>
-              <h3>Gesture activity</h3><strong data-hud-readout="body:gesture">UNAVAILABLE</strong>
-            </section>
-            <section class="metric-module body-status-module" data-visibility-metric="body-posture.movement-level">
-              <button class="metric-eye" type="button" data-metric-toggle="body-posture.movement-level" aria-label="Hide movement level" aria-pressed="true">◉</button>
-              <h3>Movement</h3><strong data-body-movement>UNAVAILABLE</strong>
-            </section>
-            <section class="metric-module body-status-module" data-visibility-metric="body-posture.repetitive-movement">
-              <button class="metric-eye" type="button" data-metric-toggle="body-posture.repetitive-movement" aria-label="Hide repetitive movement observation" aria-pressed="true">◉</button>
-              <h3>Repetitive motion</h3><strong>UNAVAILABLE</strong>
-            </section>
-            <section class="metric-module body-status-module" data-visibility-metric="body-posture.notes-detection">
-              <button class="metric-eye" type="button" data-metric-toggle="body-posture.notes-detection" aria-label="Hide notes detection" aria-pressed="true">◉</button>
-              <h3>Notes state</h3><strong data-body-notes>INACTIVE</strong>
-            </section>
-            <section class="metric-module embedded-metric-trend" data-visibility-metric="body-posture.movement-trend">
-              <button class="metric-eye" type="button" data-metric-toggle="body-posture.movement-trend" aria-label="Hide movement trend" aria-pressed="true">◉</button>
-              <h3>Movement over time</h3>
-              <canvas class="metric-trend" data-body-trend aria-label="Observed upper-body movement history"></canvas>
-            </section>
-            <section class="metric-module notes-confidence-inline" data-visibility-metric="body-posture.notes-confidence">
-              <button class="metric-eye" type="button" data-metric-toggle="body-posture.notes-confidence" aria-label="Hide notes confidence" aria-pressed="true">◉</button>
-              <h3>Notes confidence</h3><i aria-hidden="true"></i><span>NO VALIDATED PROXY</span>
+              <button class="metric-tune" type="button" data-tune="gesture" aria-expanded="false" aria-controls="gesture-tune-popover" aria-label="Tune personal gesture corridor">⚙</button>
+              <h3>Effective gestures</h3>
+              <div class="gesture-score"><strong data-gesture-count>—</strong><span>count</span><strong data-gesture-rate>—</strong><span>/ min</span></div>
+              <p data-hud-readout="body:gesture">UNAVAILABLE</p>
+              <div class="metric-tune-popover" id="gesture-tune-popover" data-tune-popover="gesture" hidden>
+                <label>Minimum / min <input type="range" min="2" max="16" value="6" data-tune-input="gesture-min"><output>6</output></label>
+                <label>Maximum / min <input type="range" min="6" max="28" value="14" data-tune-input="gesture-max"><output>14</output></label>
+                <p>Personal mentor corridor · measurement unchanged</p>
+              </div>
             </section>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="body" aria-label="Show Body and Posture analytics">
@@ -209,6 +194,11 @@
           <canvas class="stage-overlay" id="body-overlay" data-overlay="body" aria-hidden="true"></canvas>
           <canvas class="stage-overlay" id="face-overlay" data-overlay="face" aria-hidden="true"></canvas>
           <canvas class="stage-overlay" id="head-overlay" data-overlay="head" aria-hidden="true"></canvas>
+          <div class="position-guide" id="position-guide" aria-hidden="true">
+            <span class="position-guide-corner corner-tl"></span><span class="position-guide-corner corner-tr"></span>
+            <span class="position-guide-corner corner-bl"></span><span class="position-guide-corner corner-br"></span>
+            <span class="position-guide-label">Align head in guide</span>
+          </div>
 
           <div class="camera-empty" id="camera-empty-state">
             <span class="empty-orbit" aria-hidden="true"><i></i></span>
@@ -293,14 +283,20 @@
           <header class="module-head">
             <span class="instrument-icon" aria-hidden="true">◉</span>
             <div class="module-title-wrap"><h2 id="volume-title">Volume</h2><span class="module-source">Captured level · dBFS</span></div>
+            <button class="metric-tune" type="button" data-tune="volume" aria-expanded="false" aria-controls="volume-tune-popover" aria-label="Tune personal volume corridor">⚙</button>
             <button class="module-toggle" type="button" data-module-toggle="volume" aria-label="Hide Volume analytics" aria-expanded="true" aria-controls="volume-body"><span class="sr-only">Hide Volume analytics</span><span class="toggle-glyph" aria-hidden="true">›</span></button>
           </header>
           <div class="module-body" id="volume-body">
-            <div class="instrument-readout"><span class="instrument-target">Reference corridor</span><span class="hud-value" data-hud-value="volume">UNAVAILABLE</span><span data-hud-unit="volume">dBFS</span></div>
+            <div class="instrument-readout"><span class="instrument-target">Personal corridor 7–8</span><span class="hud-value" data-hud-value="volume">—</span><span data-hud-unit="volume">/ 10</span><small data-volume-raw>— LU</small></div>
             <canvas class="hud-canvas instrument-canvas" data-hud-canvas="volume" aria-label="Captured microphone signal level gauge"></canvas>
-            <div class="volume-state-cue" data-volume-state-cue data-state="unavailable">UNAVAILABLE</div>
+            <div class="volume-state-cue coaching-cue" data-volume-state-cue data-state="unavailable">UNAVAILABLE</div>
             <div class="instrument-scale"><span>Quiet</span><span>Reference corridor</span><span>Loud</span></div>
             <p class="instrument-status" data-hud-state="volume" data-state="unavailable">UNAVAILABLE — connect microphone</p>
+            <div class="metric-tune-popover" id="volume-tune-popover" data-tune-popover="volume" hidden>
+              <label>Quiet edge (LU) <input type="range" min="-42" max="-16" value="-30" data-tune-input="volume-min"><output>-30</output></label>
+              <label>Loud edge (LU) <input type="range" min="-34" max="-8" value="-18" data-tune-input="volume-max"><output>-18</output></label>
+              <p>Personal mentor corridor · measurement unchanged</p>
+            </div>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="volume" aria-label="Show Volume analytics"><span>VOL</span><strong>Volume</strong><i aria-hidden="true">‹</i></button>
         </section>
@@ -309,15 +305,22 @@
           <header class="module-head">
             <span class="instrument-icon" aria-hidden="true">◉</span>
             <div class="module-title-wrap"><h2 id="speed-title">Speaking Speed</h2><span class="module-source">Observed word timing</span></div>
+            <button class="metric-tune" type="button" data-tune="pace" aria-expanded="false" aria-controls="pace-tune-popover" aria-label="Tune personal pace corridor">⚙</button>
             <button class="module-toggle" type="button" data-module-toggle="speed" aria-label="Hide Speaking Speed analytics" aria-expanded="true" aria-controls="speed-body"><span class="sr-only">Hide Speaking Speed analytics</span><span class="toggle-glyph" aria-hidden="true">›</span></button>
           </header>
           <div class="module-body" id="speed-body">
             <div class="speed-instrument">
               <canvas class="hud-canvas instrument-canvas" data-hud-canvas="speed" aria-label="Words per minute speedometer"></canvas>
-              <div class="dial-readout"><span class="hud-value" data-hud-value="speed">—</span><span>WPM</span></div>
+              <div class="dial-readout"><span class="hud-value" data-hud-value="speed">—</span><span>/ 10</span><small data-speed-raw>— WPM</small></div>
             </div>
             <div class="speed-target">Global context 140–180 WPM · no baseline</div>
+            <div class="instrument-coaching-cue coaching-cue" data-speed-state-cue data-state="unavailable">LISTENING FOR YOUR PACE…</div>
             <p class="instrument-status" data-hud-state="speed" data-state="unavailable">UNAVAILABLE — observed word timing required</p>
+            <div class="metric-tune-popover" id="pace-tune-popover" data-tune-popover="pace" hidden>
+              <label>Minimum WPM <input type="range" min="90" max="190" value="140" data-tune-input="pace-min"><output>140</output></label>
+              <label>Maximum WPM <input type="range" min="110" max="230" value="175" data-tune-input="pace-max"><output>175</output></label>
+              <p>Personal mentor corridor · measurement unchanged</p>
+            </div>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="speed" aria-label="Show Speaking Speed analytics"><span>SPD</span><strong>Speed / WPM</strong><i aria-hidden="true">‹</i></button>
         </section>
@@ -334,6 +337,13 @@
               <button type="button" data-vocal-trace-toggle="pitch" aria-pressed="true"><i aria-hidden="true"></i>Pitch</button>
               <button type="button" data-vocal-trace-toggle="speed" aria-pressed="true"><i aria-hidden="true"></i>Speed</button>
               <button type="button" data-vocal-trace-toggle="all" aria-pressed="true">Hide all</button>
+              <span class="variation-window-controls" role="group" aria-label="History window">
+                <button type="button" data-vocal-window="30000">30S</button>
+                <button type="button" data-vocal-window="60000" aria-pressed="true">1M</button>
+                <button type="button" data-vocal-window="180000">3M</button>
+                <button type="button" data-vocal-window="300000">5M</button>
+                <button type="button" data-vocal-window="full">FULL</button>
+              </span>
             </div>
             <canvas class="hud-canvas instrument-canvas trace-canvas" data-hud-canvas="modulation" aria-label="Normalized recent history of speech-only measured volume, validated pitch, and observed speaking speed"></canvas>
             <p class="instrument-status" data-hud-state="modulation" data-state="unavailable">WAITING FOR OBSERVED MEASURED HISTORY</p>
@@ -345,19 +355,36 @@
           <header class="module-head">
             <span class="instrument-icon" aria-hidden="true">◉</span>
             <div class="module-title-wrap"><h2 id="pitch-title">Pitch</h2><span class="module-source">Speaker-relative register</span></div>
+            <button class="metric-tune" type="button" data-tune="pitch" aria-expanded="false" aria-controls="pitch-tune-popover" aria-label="Tune personal vocal-variety corridor">⚙</button>
             <button class="module-toggle" type="button" data-module-toggle="pitch" aria-label="Hide Pitch analytics" aria-expanded="true" aria-controls="pitch-body"><span class="sr-only">Hide Pitch analytics</span><span class="toggle-glyph" aria-hidden="true">›</span></button>
           </header>
           <div class="module-body" id="pitch-body">
             <div class="pitch-layout">
               <canvas class="hud-canvas instrument-canvas pitch-canvas" data-hud-canvas="pitch" aria-label="Speaker-relative piano-key pitch register"></canvas>
-              <div class="pitch-readout"><span class="hud-value" data-hud-value="pitch">—</span><span>semitones from your median</span></div>
+              <div class="pitch-readout"><span class="hud-value" data-hud-value="pitch">—</span><span>/ 10 vocal variety</span><small data-pitch-raw>— st</small></div>
             </div>
+            <div class="instrument-coaching-cue coaching-cue" data-pitch-state-cue data-state="unavailable">ESTABLISHING SPEAKER RANGE</div>
             <p class="instrument-status" data-hud-state="pitch" data-state="unavailable">UNAVAILABLE — voiced F0 frames required</p>
+            <div class="metric-tune-popover" id="pitch-tune-popover" data-tune-popover="pitch" hidden>
+              <label>Variety floor (st) <input type="range" min="0.5" max="6" step="0.1" value="2.5" data-tune-input="pitch-min"><output>2.5</output></label>
+              <label>Variety ceiling (st) <input type="range" min="1" max="9" step="0.1" value="4.5" data-tune-input="pitch-max"><output>4.5</output></label>
+              <p>Speaker-relative personal corridor · no absolute pitch target</p>
+            </div>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="pitch" aria-label="Show Pitch analytics"><span>PIT</span><strong>Pitch</strong><i aria-hidden="true">‹</i></button>
         </section>
       </aside>
     </main>
+
+    <aside class="mentor-drawer" id="mentor-drawer" aria-labelledby="mentor-drawer-title" hidden>
+      <header><div><span>Raw-first coaching evidence</span><h2 id="mentor-drawer-title">Mentor view</h2></div><button type="button" id="close-mentor" aria-label="Close mentor view">×</button></header>
+      <div class="mentor-grid">
+        <section><h3>Delivery</h3><p data-mentor-pace>WPM —</p><p data-mentor-volume>LU —</p><p data-mentor-pitch>Pitch SD —</p></section>
+        <section><h3>Behavior</h3><p data-mentor-smiles>Qualifying smiles —</p><p data-mentor-nods>Listening nods —</p><p data-mentor-gestures>Effective gestures —</p></section>
+      </div>
+      <ol class="mentor-event-log" data-mentor-log><li>Measurement has not started.</li></ol>
+      <p>Observed and derived signals only. No emotion, sincerity, honesty, personality, confidence, or intent inference.</p>
+    </aside>
 
     <aside class="analytics-customizer" id="analytics-customizer" role="dialog" aria-modal="false" aria-labelledby="customizer-title" hidden>
       <header>
@@ -375,21 +402,14 @@
           <label><input type="checkbox" data-visibility-toggle="head-face.region-status"> Facial signal map</label>
           <label><input type="checkbox" data-visibility-toggle="head-face.smile-pattern"> Smile geometry activity</label>
           <label><input type="checkbox" data-visibility-toggle="head-face.camera-facing-balance"> Camera-facing dwell proxy</label>
-          <label><input type="checkbox" data-visibility-toggle="head-face.blink-rate"> Blink rate</label>
-          <label><input type="checkbox" data-visibility-toggle="head-face.speaking-pace"> Speaking pace mirror</label>
+          <label><input type="checkbox" data-visibility-toggle="head-face.presence"> Presence</label>
           <label><input type="checkbox" data-visibility-toggle="head-face.head-nods"> Head nods</label>
-          <label><input type="checkbox" data-visibility-toggle="head-face.geometry-trend"> Geometry activity trend</label>
         </fieldset>
         <fieldset data-customizer-family="body-posture"><legend><label><input type="checkbox" data-family-checkbox="body-posture"> Body / Posture</label></legend>
           <label><input type="checkbox" data-visibility-toggle="body-posture.wireframe"> Body wireframe</label>
           <label><input type="checkbox" data-visibility-toggle="body-posture.in-frame"> In-frame status</label>
           <label><input type="checkbox" data-visibility-toggle="body-posture.hands-visible"> Hands visible</label>
           <label><input type="checkbox" data-visibility-toggle="body-posture.gesture-activity"> Gesture activity</label>
-          <label><input type="checkbox" data-visibility-toggle="body-posture.movement-level"> Movement level</label>
-          <label><input type="checkbox" data-visibility-toggle="body-posture.repetitive-movement"> Repetitive motion</label>
-          <label><input type="checkbox" data-visibility-toggle="body-posture.notes-detection"> Notes detection</label>
-          <label><input type="checkbox" data-visibility-toggle="body-posture.movement-trend"> Movement trend</label>
-          <label><input type="checkbox" data-visibility-toggle="body-posture.notes-confidence"> Notes confidence</label>
         </fieldset>
         <fieldset data-customizer-family="voice-delivery"><legend><label><input type="checkbox" data-family-checkbox="voice-delivery"> Voice / Delivery</label></legend>
           <label><input type="checkbox" data-visibility-toggle="voice-delivery.volume"> Volume</label>

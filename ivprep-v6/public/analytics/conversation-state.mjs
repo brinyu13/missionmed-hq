@@ -3,7 +3,9 @@ export const CONVERSATION_STATES = Object.freeze({
   LISTENING: 'LISTENING',
   TRANSITION_TO_ANSWER: 'TRANSITION_TO_ANSWER',
   ANSWERING: 'ANSWERING',
-  PAUSE: 'PAUSE',
+  PAUSE: 'PAUSE_SHORT',
+  PAUSE_SHORT: 'PAUSE_SHORT',
+  PAUSE_LONG: 'PAUSE_LONG',
   NOTES: 'NOTES',
   TRANSITION_TO_LISTENING: 'TRANSITION_TO_LISTENING',
 });
@@ -58,7 +60,12 @@ export class ConversationStateMachine {
         break;
       case 'USER_SPEECH_END':
         this.userSpeaking = false;
-        if (this.state === CONVERSATION_STATES.ANSWERING) this.#enter(this.degraded ? CONVERSATION_STATES.ANSWERING : CONVERSATION_STATES.PAUSE, time, event);
+        if (this.state === CONVERSATION_STATES.ANSWERING) this.#enter(this.degraded ? CONVERSATION_STATES.ANSWERING : CONVERSATION_STATES.PAUSE_SHORT, time, event);
+        break;
+      case 'TICK':
+        if (this.state === CONVERSATION_STATES.PAUSE_SHORT && time - this.enteredAtMs >= 1_000) {
+          this.#enter(CONVERSATION_STATES.PAUSE_LONG, time, event);
+        }
         break;
       case 'USER_SPEECH_RESUME':
         this.userSpeaking = true;
@@ -78,7 +85,7 @@ export class ConversationStateMachine {
       case 'NOTES_END':
         if (this.state === CONVERSATION_STATES.NOTES) {
           const restore = this.preNotesState === CONVERSATION_STATES.ANSWERING
-            ? CONVERSATION_STATES.PAUSE
+            ? CONVERSATION_STATES.PAUSE_SHORT
             : this.preNotesState || CONVERSATION_STATES.LISTENING;
           this.preNotesState = null;
           this.#enter(restore, time, event);

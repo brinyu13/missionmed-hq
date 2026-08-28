@@ -11,7 +11,8 @@ export const PRIMARY_LOCK_DEFAULTS = Object.freeze({
   acquisitionHoldMs: 650,
   initialAmbiguityMs: 500,
   reacquireHoldMs: 300,
-  selectionRequiredMs: 3_000,
+  selectionRequiredMs: 2_500,
+  occlusionGraceMs: 5_000,
   maximumCenterDistance: 0.24,
   minimumAreaRatio: 0.42,
   maximumAreaRatio: 2.4,
@@ -170,7 +171,7 @@ export class PrimaryIntervieweeLock {
       ...options,
       strikeZone: Object.freeze({ ...PRIMARY_LOCK_DEFAULTS.strikeZone, ...(options.strikeZone || {}) }),
     });
-    for (const key of ['acquisitionHoldMs', 'initialAmbiguityMs', 'reacquireHoldMs', 'selectionRequiredMs']) {
+    for (const key of ['acquisitionHoldMs', 'initialAmbiguityMs', 'reacquireHoldMs', 'selectionRequiredMs', 'occlusionGraceMs']) {
       if (!Number.isFinite(this.config[key]) || this.config[key] < 0) throw new TypeError(`Invalid primary-lock ${key}.`);
     }
     if (!Number.isInteger(this.config.maximumWithheldIntervals) || this.config.maximumWithheldIntervals < 1) throw new TypeError('Invalid primary-lock interval capacity.');
@@ -419,7 +420,8 @@ export class PrimaryIntervieweeLock {
     this.reacquireSinceMs = null;
     this.continuity = boxes.length ? 'ambiguous_or_discontinuous' : 'temporarily_occluded';
     this.setWithheld(atMs, this.continuity);
-    if (this.lastSeenAtMs !== null && atMs - this.lastSeenAtMs >= this.config.selectionRequiredMs) this.requireSelection(atMs, 'primary_absence_selection_required');
+    const absenceLimitMs = boxes.length ? this.config.selectionRequiredMs : this.config.occlusionGraceMs;
+    if (this.lastSeenAtMs !== null && atMs - this.lastSeenAtMs >= absenceLimitMs) this.requireSelection(atMs, 'primary_absence_selection_required');
   }
 
   update({ atMs, candidates = [] } = {}) {

@@ -58,10 +58,10 @@ test('behavior runtime gates setup then state-tags answering, pause, orientation
   assert.equal(runtime.latest.audio.captureMethod, 'AUDIO_WORKLET_PCM');
   assert.equal(runtime.latest.audio.estimatedSyllableRate.tier, 'D');
   runtime.ingestDiagnostic(audio(3_900, false));
-  assert.equal(runtime.latest.conversation.state, 'PAUSE');
+  assert.equal(runtime.latest.conversation.state, 'PAUSE_SHORT');
   for (let atMs = 5_000; atMs <= 5_800; atMs += 100) runtime.ingestDiagnostic(vision(atMs, 35));
   assert.equal(runtime.latest.orientation.orientation, 'AWAY');
-  assert.equal(runtime.latest.orientation.state, 'PAUSE');
+  assert.equal(runtime.latest.orientation.state, 'PAUSE_LONG');
 });
 
 test('WPM stays unavailable without observed per-word timestamps even when aggregate counts exist', () => {

@@ -3,41 +3,45 @@
 // This module deliberately knows nothing about media, detectors, projectors, sessions,
 // or persistence of analytics evidence. It stores only an allowlisted set of visual IDs.
 
-export const VISIBILITY_STORAGE_KEY = 'missionmed.ivprep.live-analytics.visibility.v1';
+export const VISIBILITY_STORAGE_KEY = 'missionmed.ivprep.live-analytics.visibility.v2';
 
 export const ANALYTICS_FAMILIES = Object.freeze({
   'head-face': Object.freeze([
     'head-face.region-status',
     'head-face.smile-pattern',
     'head-face.camera-facing-balance',
-    'head-face.blink-rate',
-    'head-face.speaking-pace',
+    'head-face.presence',
     'head-face.head-nods',
-    'head-face.geometry-trend',
   ]),
   'body-posture': Object.freeze([
     'body-posture.wireframe',
     'body-posture.in-frame',
     'body-posture.hands-visible',
     'body-posture.gesture-activity',
-    'body-posture.movement-level',
-    'body-posture.repetitive-movement',
-    'body-posture.notes-detection',
-    'body-posture.movement-trend',
-    'body-posture.notes-confidence',
   ]),
   'voice-delivery': Object.freeze([
-    'voice-delivery.volume',
     'voice-delivery.speaking-speed',
-    'voice-delivery.volume-modulation',
+    'voice-delivery.volume',
     'voice-delivery.pitch',
+    'voice-delivery.volume-modulation',
   ]),
 });
 
 export const ANALYTICS_METRIC_IDS = Object.freeze(Object.values(ANALYTICS_FAMILIES).flat());
 export const MINIMAL_ANALYTICS_METRICS = Object.freeze([
+  'head-face.region-status',
+  'head-face.smile-pattern',
   'head-face.camera-facing-balance',
+  'head-face.presence',
+  'head-face.head-nods',
+  'body-posture.wireframe',
+  'body-posture.in-frame',
+  'body-posture.hands-visible',
+  'body-posture.gesture-activity',
+  'voice-delivery.speaking-speed',
   'voice-delivery.volume',
+  'voice-delivery.pitch',
+  'voice-delivery.volume-modulation',
 ]);
 export const ANALYTICS_PRESETS = Object.freeze(['full', 'custom', 'minimal', 'interview']);
 const ALLOWED = new Set(ANALYTICS_METRIC_IDS);
@@ -104,7 +108,7 @@ export class AnalyticsVisibilityState {
       const raw = this.storage.getItem(VISIBILITY_STORAGE_KEY);
       if (!raw || raw.length > 10_000) return new Set(MINIMAL_ANALYTICS_METRICS);
       const parsed = JSON.parse(raw);
-      if (parsed?.version !== 1 || !Array.isArray(parsed.visibleMetricIds)) return new Set(MINIMAL_ANALYTICS_METRICS);
+      if (parsed?.version !== 2 || !Array.isArray(parsed.visibleMetricIds)) return new Set(MINIMAL_ANALYTICS_METRICS);
       const values = parsed.visibleMetricIds.filter((id) => typeof id === 'string' && ALLOWED.has(id));
       if (values.length !== parsed.visibleMetricIds.length) return new Set(MINIMAL_ANALYTICS_METRICS);
       return new Set(values);
@@ -117,7 +121,7 @@ export class AnalyticsVisibilityState {
     if (!this.storage) return false;
     try {
       this.storage.setItem(VISIBILITY_STORAGE_KEY, JSON.stringify({
-        version: 1,
+        version: 2,
         visibleMetricIds: ordered(this.savedCustom),
       }));
       return true;

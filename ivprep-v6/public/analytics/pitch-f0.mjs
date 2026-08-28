@@ -229,6 +229,7 @@ export class PitchTrack {
       return Object.freeze({
         available: false,
         reason: 'INSUFFICIENT_VOICED_AUDIO',
+        voicedFrames: this.#voiced.length,
         voicedRatio,
       });
     }
@@ -257,6 +258,7 @@ export class PitchTrack {
       p10Semitones,
       p90Semitones,
       p10P90RangeSemitones: p90Semitones - p10Semitones,
+      voicedFrames: this.#voiced.length,
       voicedRatio,
       octaveCorrections: this.#octaveCorrections,
     });
