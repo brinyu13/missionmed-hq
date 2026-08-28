@@ -28,6 +28,7 @@ import {
   createDr133ImmutableReleaseArchive,
   createDr133ReleaseVariableExpectationManifest,
   deployDr133ImmutableDarkCandidate,
+  dr133ReleaseCommandStderrPolicy,
   dr133ReleaseVariableValueSha256,
   dr133ProductionReleaseErrorReceipt,
   dr133ReleaseDeploymentRef,
@@ -51,6 +52,7 @@ const UNRELATED_ID = '55555555-5555-4555-8555-555555555555';
 const CREATED_PREIMAGE = '2026-08-26T20:00:00.000Z';
 const CREATED_CANDIDATE = '2026-08-26T21:00:00.000Z';
 const OPENAI_PRIVACY = signedOpenAiPrivacyEnvironment(PATH_B_FIXTURE_PROJECT_ID);
+const GIT_ROOT = fileURLToPath(new URL('../../../', import.meta.url)).replace(/\/$/u, '');
 
 const TARGET_VALUES = Object.freeze({
   MMHQ_LOR_STUDIO_TARGET_SCHEMA_VERSION: 'missionmed.lor.target-binding.v2',
@@ -170,6 +172,87 @@ function outcome(stdout = Buffer.alloc(0), overrides = {}) {
     ...overrides,
   };
 }
+
+function exactReleaseProbeDescriptor(overrides = {}) {
+  return {
+    args: [
+      'ssh',
+      '--project', DR133_TARGET.projectId,
+      '--environment', DR133_TARGET.environmentId,
+      '--service', DR133_TARGET.applicationServiceId,
+      '/nix/var/nix/profiles/default/bin/node',
+      'missionmed-hq/scripts/lor-studio/'
+        + 'run-dr133-railway-production-release-variable-probe.mjs',
+      'YWJj',
+    ],
+    binary: 'railway',
+    cwd: GIT_ROOT,
+    env: {
+      PATH: '/usr/bin:/bin',
+      HOME: '/private/missionmed/home',
+      TMPDIR: '/private/missionmed/tmp',
+      LANG: 'C',
+      LC_ALL: 'C',
+      TZ: 'UTC',
+      TERM: 'dumb',
+      NO_COLOR: '1',
+      CI: '1',
+      DO_NOT_TRACK: '1',
+      RAILWAY_NO_TELEMETRY: '1',
+      RAILWAY_NO_AUTO_UPDATE: '1',
+      RAILWAY_API_TOKEN: `railway_${'r'.repeat(32)}`,
+      SSH_AUTH_SOCK: '/private/missionmed/ssh-agent.sock',
+    },
+    stdin: null,
+    timeoutMs: 30_000,
+    ...overrides,
+  };
+}
+
+test('release stderr policy is exact, near-miss strict, and order independent', () => {
+  const exact = exactReleaseProbeDescriptor();
+  const configAuthenticated = exactReleaseProbeDescriptor({
+    env: Object.fromEntries(Object.entries(exact.env).filter(
+      ([key]) => key !== 'RAILWAY_API_TOKEN',
+    )),
+  });
+  const nearArgument = exactReleaseProbeDescriptor({
+    args: [...exact.args.slice(0, -1), 'YWJj='],
+  });
+  const nearEnvironment = exactReleaseProbeDescriptor({
+    env: { ...exact.env, TERM: 'xterm' },
+  });
+  const extraEnvironment = exactReleaseProbeDescriptor({
+    env: { ...exact.env, EXTRA: '1' },
+  });
+  const nearCwd = exactReleaseProbeDescriptor({ cwd: `${GIT_ROOT}/missionmed-hq` });
+  const nearStdin = exactReleaseProbeDescriptor({ stdin: Buffer.from('x', 'utf8') });
+  const nearTimeout = exactReleaseProbeDescriptor({ timeoutMs: 29_999 });
+  try {
+    assert.equal(
+      dr133ReleaseCommandStderrPolicy(exact),
+      'PINNED_RAILWAY_SSH_NOTICE',
+    );
+    assert.equal(
+      dr133ReleaseCommandStderrPolicy(configAuthenticated),
+      'PINNED_RAILWAY_SSH_NOTICE',
+    );
+    for (const descriptor of [
+      nearArgument, nearEnvironment, extraEnvironment, nearCwd, nearStdin, nearTimeout,
+    ]) {
+      assert.equal(
+        dr133ReleaseCommandStderrPolicy(descriptor),
+        'REJECT_NONEMPTY_STDERR',
+      );
+    }
+    assert.equal(
+      dr133ReleaseCommandStderrPolicy(exact),
+      'PINNED_RAILWAY_SSH_NOTICE',
+    );
+  } finally {
+    nearStdin.stdin.fill(0);
+  }
+});
 
 function deployment(id, createdAt, { canRollback = false, status = 'SUCCESS' } = {}) {
   return { id, status, createdAt, canRollback };

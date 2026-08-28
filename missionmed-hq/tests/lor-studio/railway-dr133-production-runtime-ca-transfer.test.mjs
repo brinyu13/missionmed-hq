@@ -108,6 +108,107 @@ test('production CA runner accepts only a detached leader with a proven empty gr
   assert.equal(spawnOptions[0].options.detached, true);
 });
 
+test('secret-safe runner suppresses only the exact pinned stderr digest', async () => {
+  assert.throws(
+    () => runnerFor(fakeChild(), { acceptedStderrSha256: 'not-a-digest' }),
+    (error) => error.code === 'ACCEPTED_STDERR_SHA256_INVALID',
+  );
+  const notice = Buffer.from('Using fixed release test key 202608280001.\n', 'utf8');
+  const acceptedStderrSha256 = createHash('sha256').update(notice).digest('hex');
+  const acceptedChild = fakeChild();
+  const { runner: acceptedRunner } = runnerFor(acceptedChild, { acceptedStderrSha256 });
+  setImmediate(() => {
+    acceptedChild.stderr.end(notice);
+    acceptedChild.stdout.end('{"safe":true}');
+    acceptedChild.emit('close', 0);
+  });
+  const accepted = await acceptedRunner(descriptor());
+  assert.equal(accepted.exitCode, 0);
+  assert.equal(accepted.stderrBytes, 0);
+  accepted.stdout.fill(0);
+
+  const rejectedChild = fakeChild();
+  const { runner: rejectedRunner } = runnerFor(rejectedChild, {
+    acceptedStderrSha256: '0'.repeat(64),
+  });
+  setImmediate(() => {
+    rejectedChild.stderr.end(notice);
+    rejectedChild.stdout.end('{"safe":true}');
+    rejectedChild.emit('close', 0);
+  });
+  const rejected = await rejectedRunner(descriptor());
+  assert.equal(rejected.exitCode, 0);
+  assert.equal(rejected.stderrBytes, notice.length);
+  rejected.stdout.fill(0);
+  notice.fill(0);
+});
+
+test('secret-safe runner snapshots every command field before executable verification', async () => {
+  const child = fakeChild();
+  let releaseFirstVerification;
+  let verificationCount = 0;
+  const firstVerification = new Promise((resolve) => {
+    releaseFirstVerification = resolve;
+  });
+  const stdinChunks = [];
+  child.stdin.on('data', (chunk) => stdinChunks.push(Buffer.from(chunk)));
+  const { runner, spawnOptions } = runnerFor(child, {
+    verifyExecutable: async () => {
+      verificationCount += 1;
+      if (verificationCount === 1) await firstVerification;
+      return true;
+    },
+  });
+  const originalStdin = Buffer.from('original-input', 'utf8');
+  const command = descriptor({ stdin: originalStdin, timeoutMs: 2_000 });
+  const running = runner(command);
+
+  command.args[0] = 'mutated-command';
+  command.args.push('--mutated');
+  command.cwd = '/private/mutated';
+  command.env.HOME = '/private/mutated/home';
+  command.env.EXTRA = 'mutated';
+  originalStdin.fill(0x78);
+  command.stdin = Buffer.from('mutated-input', 'utf8');
+  command.timeoutMs = 30_000;
+  releaseFirstVerification();
+  setImmediate(() => {
+    child.stdout.end('{"safe":true}');
+    child.emit('close', 0);
+  });
+
+  const receipt = await running;
+  assert.equal(receipt.exitCode, 0);
+  receipt.stdout.fill(0);
+  assert.equal(verificationCount, 2);
+  assert.deepEqual(spawnOptions[0].args, ['whoami', '--json']);
+  assert.equal(spawnOptions[0].options.cwd, '/private/missionmed');
+  assert.deepEqual(spawnOptions[0].options.env, {
+    HOME: '/private/missionmed/home',
+    PATH: '/usr/bin:/bin',
+  });
+  assert.equal(Buffer.concat(stdinChunks).toString('utf8'), 'original-input');
+  for (const chunk of stdinChunks) chunk.fill(0);
+  command.stdin.fill(0);
+});
+
+test('secret-safe runner rejects accessor and hole-based argument descriptors', async () => {
+  const { runner } = runnerFor(fakeChild());
+  const accessorArgs = [];
+  Object.defineProperty(accessorArgs, '0', { get: () => 'whoami', enumerable: true });
+  accessorArgs.length = 1;
+  await assert.rejects(
+    runner(descriptor({ args: accessorArgs })),
+    (error) => error.code === 'COMMAND_ARGUMENTS_INVALID',
+  );
+  const holeyArgs = new Array(2);
+  holeyArgs[1] = '--json';
+  await assert.rejects(
+    runner(descriptor({ args: holeyArgs })),
+    (error) => error.code === 'COMMAND_ARGUMENTS_INVALID',
+  );
+});
+
 test('leader close with a surviving descendant is reaped but still rejected', async () => {
   const child = fakeChild();
   let alive = true;

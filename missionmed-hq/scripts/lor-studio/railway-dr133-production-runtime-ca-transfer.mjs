@@ -64,6 +64,7 @@ const OPENSSL_KEY_USAGES = new Set([
 ]);
 const OPTION_KEYS = new Set(['commandRunner', 'environment', 'now', 'sink']);
 const RUNNER_OPTION_KEYS = new Set([
+  'acceptedStderrSha256',
   'isProcessGroupAlive',
   'killGraceMs',
   'processGroupProbeDelayMs',
@@ -200,22 +201,54 @@ export function validateDr133SshAgentInventory(bytes) {
   return true;
 }
 
-function assertCommandDescriptor(descriptor) {
+function snapshotCommandDescriptor(descriptor) {
   if (!plain(descriptor)) fail('COMMAND_DESCRIPTOR_INVALID');
   const keys = new Set(['args', 'cwd', 'env', 'stdin', 'timeoutMs']);
   if (!exactKeys(descriptor, keys)) fail('COMMAND_DESCRIPTOR_INVALID');
+  const properties = Object.getOwnPropertyDescriptors(descriptor);
+  if (Object.values(properties).some((property) => !Object.hasOwn(property, 'value'))) {
+    fail('COMMAND_DESCRIPTOR_INVALID');
+  }
+  const rawArgs = properties.args.value;
   if (
-    !Array.isArray(descriptor.args)
-    || descriptor.args.length < 1
-    || descriptor.args.some((entry) => typeof entry !== 'string' || /[\u0000\r\n]/u.test(entry))
+    !Array.isArray(rawArgs)
+    || rawArgs.length < 1
+    || Reflect.ownKeys(rawArgs).length !== rawArgs.length + 1
   ) fail('COMMAND_ARGUMENTS_INVALID');
-  safeAbsolutePath(descriptor.cwd, 'COMMAND_CWD_INVALID');
-  if (!plain(descriptor.env)) fail('COMMAND_ENVIRONMENT_INVALID');
-  if (descriptor.stdin !== null && !Buffer.isBuffer(descriptor.stdin)) {
+  const args = [];
+  for (let index = 0; index < rawArgs.length; index += 1) {
+    const property = Object.getOwnPropertyDescriptor(rawArgs, String(index));
+    if (!property || !Object.hasOwn(property, 'value')
+      || typeof property.value !== 'string' || /[\u0000\r\n]/u.test(property.value)) {
+      fail('COMMAND_ARGUMENTS_INVALID');
+    }
+    args.push(property.value);
+  }
+  const cwd = safeAbsolutePath(properties.cwd.value, 'COMMAND_CWD_INVALID');
+  const rawEnvironment = properties.env.value;
+  if (!plain(rawEnvironment)) fail('COMMAND_ENVIRONMENT_INVALID');
+  const environmentProperties = Object.getOwnPropertyDescriptors(rawEnvironment);
+  if (Reflect.ownKeys(rawEnvironment).some((key) => typeof key !== 'string')
+    || Object.values(environmentProperties).some(
+      (property) => !Object.hasOwn(property, 'value') || typeof property.value !== 'string',
+    )) fail('COMMAND_ENVIRONMENT_INVALID');
+  const env = Object.freeze(Object.fromEntries(Object.entries(environmentProperties).map(
+    ([key, property]) => [key, property.value],
+  )));
+  const rawStdin = properties.stdin.value;
+  if (rawStdin !== null && !Buffer.isBuffer(rawStdin)) {
     fail('COMMAND_STDIN_INVALID');
   }
-  if (!Number.isSafeInteger(descriptor.timeoutMs) || descriptor.timeoutMs < 1_000
-    || descriptor.timeoutMs > 30_000) fail('COMMAND_TIMEOUT_INVALID');
+  const timeoutMs = properties.timeoutMs.value;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1_000
+    || timeoutMs > 30_000) fail('COMMAND_TIMEOUT_INVALID');
+  return Object.freeze({
+    args: Object.freeze(args),
+    cwd,
+    env,
+    stdin: rawStdin === null ? null : Buffer.from(rawStdin),
+    timeoutMs,
+  });
 }
 
 function signalProcessGroup(pid, signal) {
@@ -249,6 +282,7 @@ export function createSecretSafeRailwayCommandRunner(executablePath, options = {
     fail('COMMAND_RUNNER_OPTIONS_INVALID');
   }
   const {
+    acceptedStderrSha256,
     isProcessGroupAlive: probeProcessGroup = isProcessGroupAlive,
     killGraceMs = 1_000,
     processGroupProbeDelayMs = 25,
@@ -259,6 +293,11 @@ export function createSecretSafeRailwayCommandRunner(executablePath, options = {
   } = options;
   if (typeof spawnProcess !== 'function') fail('SPAWN_PROCESS_INVALID');
   if (typeof verifyExecutable !== 'function') fail('EXECUTABLE_VERIFIER_INVALID');
+  if (acceptedStderrSha256 !== undefined
+    && (typeof acceptedStderrSha256 !== 'string'
+      || !/^[a-f0-9]{64}$/u.test(acceptedStderrSha256))) {
+    fail('ACCEPTED_STDERR_SHA256_INVALID');
+  }
   if (typeof probeProcessGroup !== 'function' || typeof signalGroup !== 'function'
     || typeof sleepFn !== 'function') fail('PROCESS_GROUP_VERIFIER_INVALID');
   if (!Number.isSafeInteger(killGraceMs) || killGraceMs < 10 || killGraceMs > 5_000) {
@@ -268,30 +307,31 @@ export function createSecretSafeRailwayCommandRunner(executablePath, options = {
     || processGroupProbeDelayMs < 1 || processGroupProbeDelayMs > 1_000) {
     fail('PROCESS_GROUP_PROBE_DELAY_INVALID');
   }
-  return async (descriptor) => {
-    assertCommandDescriptor(descriptor);
+  return async (rawDescriptor) => {
+    const descriptor = snapshotCommandDescriptor(rawDescriptor);
     try {
-      await verifyExecutable(executablePath);
-    } catch {
-      return Object.freeze({
-        exitCode: null,
-        stdout: Buffer.alloc(0),
-        stderrBytes: 0,
-        childStarted: false,
-        spawnFailed: true,
-        timedOut: false,
-        overflow: false,
-        killFailed: false,
-        closeObserved: false,
-        uncertainChild: false,
-        processError: false,
-        stdinError: false,
-        stdoutError: false,
-        stderrError: false,
-        executableDrift: true,
-      });
-    }
-    const outcome = await new Promise((resolve) => {
+      try {
+        await verifyExecutable(executablePath);
+      } catch {
+        return Object.freeze({
+          exitCode: null,
+          stdout: Buffer.alloc(0),
+          stderrBytes: 0,
+          childStarted: false,
+          spawnFailed: true,
+          timedOut: false,
+          overflow: false,
+          killFailed: false,
+          closeObserved: false,
+          uncertainChild: false,
+          processError: false,
+          stdinError: false,
+          stdoutError: false,
+          stderrError: false,
+          executableDrift: true,
+        });
+      }
+      const outcome = await new Promise((resolve) => {
       let child;
       let settled = false;
       let finalizing = false;
@@ -306,6 +346,7 @@ export function createSecretSafeRailwayCommandRunner(executablePath, options = {
       let stdoutError = false;
       let stderrError = false;
       let stderrBytes = 0;
+      const stderrHash = createHash('sha256');
       let stdoutBytes = 0;
       const stdout = [];
       let executionTimer;
@@ -321,10 +362,13 @@ export function createSecretSafeRailwayCommandRunner(executablePath, options = {
         clearTimeout(executionTimer);
         const bytes = Buffer.concat(stdout);
         for (const chunk of stdout) chunk.fill(0);
+        const stderrSha256 = stderrHash.digest('hex');
+        const reportedStderrBytes = stderrBytes > 0
+          && stderrSha256 === acceptedStderrSha256 ? 0 : stderrBytes;
         resolve(Object.freeze({
           exitCode,
           stdout: bytes,
-          stderrBytes,
+          stderrBytes: reportedStderrBytes,
           childStarted,
           spawnFailed,
           timedOut,
@@ -434,6 +478,7 @@ export function createSecretSafeRailwayCommandRunner(executablePath, options = {
       };
       const discardStderr = (value) => {
         stderrBytes += Buffer.byteLength(value);
+        stderrHash.update(value);
         if (stderrBytes > MAX_CAPTURE_BYTES) {
           overflow = true;
           terminate();
@@ -475,11 +520,14 @@ export function createSecretSafeRailwayCommandRunner(executablePath, options = {
         }, descriptor.timeoutMs);
       }
     });
-    try {
-      await verifyExecutable(executablePath);
-      return outcome;
-    } catch {
-      return Object.freeze({ ...outcome, executableDrift: true });
+      try {
+        await verifyExecutable(executablePath);
+        return outcome;
+      } catch {
+        return Object.freeze({ ...outcome, executableDrift: true });
+      }
+    } finally {
+      descriptor.stdin?.fill(0);
     }
   };
 }

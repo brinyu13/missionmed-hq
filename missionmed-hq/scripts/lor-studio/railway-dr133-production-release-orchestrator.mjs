@@ -59,6 +59,8 @@ const RAILWAY_DASHBOARD_ORIGIN = 'https://railway.com';
 const RAILWAY_BINARY = '/opt/homebrew/Cellar/railway/5.30.4/bin/railway';
 const RAILWAY_BINARY_SHA256 =
   '6b508973c6b3f43c7926e5345a4460cef40ed22b766d0e2fcc6a498d00262684';
+const RAILWAY_SSH_KEY_NOTICE_SHA256 =
+  '0569c99fdbb7704f187ba9f8f9ac0d93e25458947ad7aa2d09fb989fa1eff70a';
 const GIT_BINARY = '/Library/Developer/CommandLineTools/usr/bin/git';
 const GIT_BINARY_SHA256 =
   'be4afb2b003904725826250de9fb76567bbacf82323457b5a1ec26706b66bcae';
@@ -705,36 +707,157 @@ async function verifyPinnedExecutable(executablePath, expectedSha256) {
   return true;
 }
 
+function snapshotDr133ReleaseCommandDescriptor(descriptor) {
+  if (!exactKeys(descriptor, new Set([
+    'args', 'binary', 'cwd', 'env', 'stdin', 'timeoutMs',
+  ]))) fail('COMMAND_DESCRIPTOR_INVALID');
+  const properties = Object.getOwnPropertyDescriptors(descriptor);
+  const binary = properties.binary.value;
+  if (typeof binary !== 'string') fail('COMMAND_BINARY_NOT_ALLOWED');
+  const rawArgs = properties.args.value;
+  if (!Array.isArray(rawArgs) || rawArgs.length < 1
+    || Reflect.ownKeys(rawArgs).length !== rawArgs.length + 1) {
+    fail('COMMAND_ARGUMENTS_INVALID');
+  }
+  const args = [];
+  for (let index = 0; index < rawArgs.length; index += 1) {
+    const property = Object.getOwnPropertyDescriptor(rawArgs, String(index));
+    if (!property || !Object.hasOwn(property, 'value')
+      || typeof property.value !== 'string' || /[\u0000\r\n]/u.test(property.value)) {
+      fail('COMMAND_ARGUMENTS_INVALID');
+    }
+    args.push(property.value);
+  }
+  const cwd = safeAbsolutePath(properties.cwd.value, 'COMMAND_CWD_INVALID');
+  const rawEnvironment = properties.env.value;
+  if (!plain(rawEnvironment)) fail('COMMAND_ENVIRONMENT_INVALID');
+  const environmentProperties = Object.getOwnPropertyDescriptors(rawEnvironment);
+  if (Reflect.ownKeys(rawEnvironment).some((key) => typeof key !== 'string')
+    || Object.values(environmentProperties).some(
+      (property) => !Object.hasOwn(property, 'value') || typeof property.value !== 'string',
+    )) fail('COMMAND_ENVIRONMENT_INVALID');
+  const env = Object.freeze(Object.fromEntries(Object.entries(environmentProperties).map(
+    ([key, property]) => [key, property.value],
+  )));
+  const rawStdin = properties.stdin.value;
+  if (rawStdin !== null && !Buffer.isBuffer(rawStdin)) fail('COMMAND_STDIN_INVALID');
+  const timeoutMs = properties.timeoutMs.value;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1_000
+    || timeoutMs > 30_000) fail('COMMAND_TIMEOUT_INVALID');
+  return Object.freeze({
+    args: Object.freeze(args),
+    binary,
+    cwd,
+    env,
+    stdin: rawStdin === null ? null : Buffer.from(rawStdin),
+    timeoutMs,
+  });
+}
+
+const RELEASE_PROBE_ENVIRONMENT_KEYS = new Set([
+  'CI',
+  'DO_NOT_TRACK',
+  'HOME',
+  'LANG',
+  'LC_ALL',
+  'NO_COLOR',
+  'PATH',
+  'RAILWAY_NO_AUTO_UPDATE',
+  'RAILWAY_NO_TELEMETRY',
+  'SSH_AUTH_SOCK',
+  'TERM',
+  'TMPDIR',
+  'TZ',
+]);
+const RELEASE_PROBE_TOKEN_ENVIRONMENT_KEYS = new Set([
+  ...RELEASE_PROBE_ENVIRONMENT_KEYS,
+  'RAILWAY_API_TOKEN',
+]);
+
+function safeDescriptorPath(value) {
+  return typeof value === 'string' && path.isAbsolute(value)
+    && value.length <= 4_096 && !CONTROL.test(value);
+}
+
+function exactRailwayReleaseProbe(descriptor) {
+  const environment = descriptor.env;
+  return descriptor.binary === 'railway'
+    && descriptor.cwd === GIT_ROOT
+    && descriptor.stdin === null
+    && descriptor.timeoutMs === COMMAND_TIMEOUT_MS
+    && (exactKeys(environment, RELEASE_PROBE_ENVIRONMENT_KEYS)
+      || exactKeys(environment, RELEASE_PROBE_TOKEN_ENVIRONMENT_KEYS))
+    && environment.PATH === SAFE_PATH
+    && safeDescriptorPath(environment.HOME)
+    && safeDescriptorPath(environment.TMPDIR)
+    && environment.LANG === 'C'
+    && environment.LC_ALL === 'C'
+    && environment.TZ === 'UTC'
+    && environment.TERM === 'dumb'
+    && environment.NO_COLOR === '1'
+    && environment.CI === '1'
+    && environment.DO_NOT_TRACK === '1'
+    && environment.RAILWAY_NO_TELEMETRY === '1'
+    && environment.RAILWAY_NO_AUTO_UPDATE === '1'
+    && (environment.RAILWAY_API_TOKEN === undefined
+      || (environment.RAILWAY_API_TOKEN.length >= 20
+        && environment.RAILWAY_API_TOKEN.length <= 2_048
+        && !/[\u0000-\u0020\u007f]/u.test(environment.RAILWAY_API_TOKEN)))
+    && safeDescriptorPath(environment.SSH_AUTH_SOCK)
+    && descriptor.args.length === 10
+    && descriptor.args[0] === 'ssh'
+    && descriptor.args[1] === '--project'
+    && descriptor.args[2] === DR133_TARGET.projectId
+    && descriptor.args[3] === '--environment'
+    && descriptor.args[4] === DR133_TARGET.environmentId
+    && descriptor.args[5] === '--service'
+    && descriptor.args[6] === DR133_TARGET.applicationServiceId
+    && descriptor.args[7] === REMOTE_NODE_BINARY
+    && descriptor.args[8] === REMOTE_PROBE_PATH
+    && /^[A-Za-z0-9_-]{1,32768}$/u.test(descriptor.args[9]);
+}
+
+export function dr133ReleaseCommandStderrPolicy(rawDescriptor) {
+  const descriptor = snapshotDr133ReleaseCommandDescriptor(rawDescriptor);
+  try {
+    return exactRailwayReleaseProbe(descriptor)
+      ? 'PINNED_RAILWAY_SSH_NOTICE'
+      : 'REJECT_NONEMPTY_STDERR';
+  } finally {
+    descriptor.stdin?.fill(0);
+  }
+}
+
 export function createDr133ReleaseCommandRunner() {
   const definitions = Object.freeze({
     git: Object.freeze({ path: GIT_BINARY, sha256: GIT_BINARY_SHA256 }),
     railway: Object.freeze({ path: RAILWAY_BINARY, sha256: RAILWAY_BINARY_SHA256 }),
     tar: Object.freeze({ path: TAR_BINARY, sha256: TAR_BINARY_SHA256 }),
   });
-  const runners = new Map();
-  return async (descriptor) => {
-    if (!exactKeys(descriptor, new Set([
-      'args', 'binary', 'cwd', 'env', 'stdin', 'timeoutMs',
-    ]))) fail('COMMAND_DESCRIPTOR_INVALID');
+  return async (rawDescriptor) => {
+    const descriptor = snapshotDr133ReleaseCommandDescriptor(rawDescriptor);
     const definition = definitions[descriptor.binary];
-    if (!definition) fail('COMMAND_BINARY_NOT_ALLOWED');
-    let runner = runners.get(descriptor.binary);
-    if (!runner) {
-      runner = createSecretSafeRailwayCommandRunner(definition.path, {
+    try {
+      if (!definition) fail('COMMAND_BINARY_NOT_ALLOWED');
+      const exactReleaseProbe = exactRailwayReleaseProbe(descriptor);
+      const runner = createSecretSafeRailwayCommandRunner(definition.path, {
+        ...(exactReleaseProbe
+          ? { acceptedStderrSha256: RAILWAY_SSH_KEY_NOTICE_SHA256 } : {}),
         verifyExecutable: async (filePath) => {
           if (filePath !== definition.path) fail('EXECUTABLE_DRIFT');
           return await verifyPinnedExecutable(filePath, definition.sha256);
         },
       });
-      runners.set(descriptor.binary, runner);
+      return await runner({
+        args: descriptor.args,
+        cwd: descriptor.cwd,
+        env: descriptor.env,
+        stdin: descriptor.stdin,
+        timeoutMs: descriptor.timeoutMs,
+      });
+    } finally {
+      descriptor.stdin?.fill(0);
     }
-    return await runner({
-      args: descriptor.args,
-      cwd: descriptor.cwd,
-      env: descriptor.env,
-      stdin: descriptor.stdin,
-      timeoutMs: descriptor.timeoutMs,
-    });
   };
 }
 
