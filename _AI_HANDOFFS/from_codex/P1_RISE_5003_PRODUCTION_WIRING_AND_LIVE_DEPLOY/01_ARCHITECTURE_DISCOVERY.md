@@ -133,4 +133,6 @@ These blockers prevent a truthful live deployment. They do not block worktree-lo
 - UI-lock checkpoint: `f738f58003859b6d21fae1d12f5b48f79bc7166f`.
 - Older isolated RISE branch: `codex/p1-rise-4006-production`, current inspected commit `2d0fc6b986ab1cc010e521c54b7b42ec916c1e32`.
 - Fable 5002 HTML SHA-256: `1e1a16aa630449c9e763a04f6f720b51df0afa46822044de165687d7f8758987`.
+- Production-safe local implementation checkpoint: `52f85f8b8764c993a114bb07880c1f51b94d0b3b`.
+- Current offline candidate build: `rise_web_b025eb60a364`.
 - Current Supabase guidance reviewed: [Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security), [Securing your data](https://supabase.com/docs/guides/database/secure-data), and [Database migrations](https://supabase.com/docs/guides/deployment/database-migrations).
