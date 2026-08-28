@@ -1083,6 +1083,109 @@ function mmhq_lor_dr145_assert_core_wpdb_runtime() {
 	}
 }
 
+/**
+ * Run one bounded callback without selected WordPress hooks.
+ *
+ * This is used only to evaluate the canonical role map and to suppress
+ * unrelated user-meta action listeners while the exact allowlisted rows are
+ * changed. WP_Hook objects are restored by identity even when the callback
+ * throws, so the suppression is process-local and exception-safe.
+ */
+function mmhq_lor_dr145_without_hooks($hooks, $callback) {
+	if (!is_array($hooks) || !is_callable($callback)) {
+		mmhq_lor_dr145_fail();
+	}
+	if (defined('MMHQ_LOR_DR145_TEST_HARNESS')) {
+		return $callback();
+	}
+	if (!isset($GLOBALS['wp_filter']) || !is_array($GLOBALS['wp_filter'])) {
+		mmhq_lor_dr145_fail();
+	}
+	$current = isset($GLOBALS['wp_current_filter']) && is_array($GLOBALS['wp_current_filter'])
+		? $GLOBALS['wp_current_filter']
+		: array();
+	$snapshot = array();
+	foreach ($hooks as $hook) {
+		if (
+			!is_string($hook)
+			|| 1 !== preg_match('/^[a-z0-9_]+$/D', $hook)
+			|| in_array($hook, $current, true)
+			|| array_key_exists($hook, $snapshot)
+		) {
+			mmhq_lor_dr145_fail();
+		}
+		$present = array_key_exists($hook, $GLOBALS['wp_filter']);
+		$value = $present ? $GLOBALS['wp_filter'][$hook] : null;
+		if ($present && !($value instanceof WP_Hook)) {
+			mmhq_lor_dr145_fail();
+		}
+		$snapshot[$hook] = array('present' => $present, 'value' => $value);
+		unset($GLOBALS['wp_filter'][$hook]);
+	}
+	try {
+		return $callback();
+	} finally {
+		$conflict = false;
+		foreach ($snapshot as $hook => $entry) {
+			if (array_key_exists($hook, $GLOBALS['wp_filter'])) {
+				$conflict = true;
+			}
+			if ($entry['present']) {
+				$GLOBALS['wp_filter'][$hook] = $entry['value'];
+			} else {
+				unset($GLOBALS['wp_filter'][$hook]);
+			}
+		}
+		if ($conflict) {
+			mmhq_lor_dr145_fail();
+		}
+	}
+}
+
+/**
+ * Pin WordPress core's required SQL placeholder-removal filter.
+ */
+function mmhq_lor_dr145_assert_core_query_filter() {
+	global $wpdb;
+	if (defined('MMHQ_LOR_DR145_TEST_HARNESS')) {
+		if (false !== has_filter('query')) {
+			mmhq_lor_dr145_fail();
+		}
+		return;
+	}
+	$hook = $GLOBALS['wp_filter']['query'] ?? null;
+	$callbacks = $hook instanceof WP_Hook && isset($hook->callbacks) && is_array($hook->callbacks)
+		? $hook->callbacks
+		: null;
+	$priority = is_array($callbacks) && 1 === count($callbacks) && isset($callbacks[0]) && is_array($callbacks[0])
+		? $callbacks[0]
+		: null;
+	$entry = is_array($priority) && 1 === count($priority) ? reset($priority) : null;
+	$filter = is_array($entry) ? ($entry['function'] ?? null) : null;
+	if (
+		!is_array($entry)
+		|| 1 !== ($entry['accepted_args'] ?? null)
+		|| !is_array($filter)
+		|| 2 !== count($filter)
+		|| !is_object($filter[0])
+		|| $filter[0] !== $wpdb
+		|| 'remove_placeholder_escape' !== $filter[1]
+	) {
+		mmhq_lor_dr145_fail();
+	}
+	$reflection = new ReflectionMethod($filter[0], $filter[1]);
+	$core_path = realpath(rtrim(ABSPATH, '/\\') . '/' . trim(WPINC, '/\\') . '/class-wpdb.php');
+	$method_path = $reflection->getFileName();
+	if (
+		'wpdb' !== $reflection->getDeclaringClass()->getName()
+		|| !is_string($core_path)
+		|| !is_string($method_path)
+		|| $core_path !== realpath($method_path)
+	) {
+		mmhq_lor_dr145_fail();
+	}
+}
+
 function mmhq_lor_dr145_db_assert_active() {
 	global $wpdb;
 	$expected_connection_id = $GLOBALS['mmhq_lor_dr145_transaction_connection_id'] ?? null;
@@ -2211,6 +2314,7 @@ function mmhq_lor_dr145_assert_transaction_schema_locked($principal) {
 function mmhq_lor_dr145_assert_transactional_runtime($principal) {
 	global $wpdb;
 	mmhq_lor_dr145_assert_core_wpdb_runtime();
+	mmhq_lor_dr145_assert_core_query_filter();
 	mmhq_lor_dr145_assert_core_password_runtime();
 	if (
 		true === wp_using_ext_object_cache()
@@ -2302,28 +2406,28 @@ function mmhq_lor_dr145_assert_transactional_runtime($principal) {
 		}
 	}
 	$mutation_hooks = array(
-		'all', 'query', 'clean_user_cache', 'get_user_metadata', 'update_user_metadata_cache', 'default_user_metadata',
+		'all', 'clean_user_cache', 'get_user_metadata', 'update_user_metadata_cache', 'default_user_metadata',
 		'check_password', 'wp_hash_password_algorithm', 'wp_hash_password_options', 'is_email',
-		'sfwd_lms_has_access',
-		'mmhq_cam_restricted',
-		'woocommerce_data_stores', 'woocommerce_order_query_args', 'woocommerce_order_query',
-		'woocommerce_orders_table_query_clauses', 'woocommerce_order_data_store_cpt_get_orders_query',
-		'woocommerce_order_data_store_cpt_query_unsupported_args',
-		'woocommerce_orders_table_datastore_get_orders_query',
-		'woocommerce_hpos_pre_query', 'woocommerce_orders_table_query_sql', 'woocommerce_orders_table_query_count_sql',
-		'woocommerce_orders_table_query_status_union_optimization',
-		'woocommerce_order_get_items', 'woocommerce_order_get_status', 'woocommerce_order_get_total_refunded',
-		'woocommerce_order_class', 'woocommerce_get_order_item_classname',
-		'woocommerce_order_item_product_get_product_id', 'woocommerce_order_item_product_get_variation_id',
-		'woocommerce_order_item_get_product_id', 'woocommerce_order_item_get_variation_id',
-		'sanitize_email', 'sanitize_key', 'learndash_use_legacy_course_access_list',
+		'mmhq_cam_restricted', 'sanitize_email', 'sanitize_key', 'learndash_use_legacy_course_access_list',
 		'learndash_get_user_groups_courses_ids', 'learndash_override_course_auto_enroll',
-		'learndash_group_course_auto_enroll', 'learndash_user_get_enrolled_courses',
-		'ld_course_access_expires_on', 'learndash_process_user_course_access_expire',
-		'user_has_cap', 'map_meta_cap',
-		'role_has_cap', 'add_user_metadata', 'add_user_meta', 'added_user_meta',
-		'delete_user_metadata', 'delete_user_meta', 'deleted_user_meta', 'sanitize_user_meta',
+		'learndash_group_course_auto_enroll', 'learndash_process_user_course_access_expire',
+		'add_user_metadata', 'add_user_meta', 'delete_user_metadata', 'delete_user_meta', 'sanitize_user_meta',
 	);
+	if (defined('MMHQ_LOR_DR145_TEST_HARNESS')) {
+		$mutation_hooks = array_merge($mutation_hooks, array(
+			'sfwd_lms_has_access', 'woocommerce_data_stores', 'woocommerce_order_query_args', 'woocommerce_order_query',
+			'woocommerce_orders_table_query_clauses', 'woocommerce_order_data_store_cpt_get_orders_query',
+			'woocommerce_order_data_store_cpt_query_unsupported_args', 'woocommerce_orders_table_datastore_get_orders_query',
+			'woocommerce_hpos_pre_query', 'woocommerce_orders_table_query_sql', 'woocommerce_orders_table_query_count_sql',
+			'woocommerce_orders_table_query_status_union_optimization', 'woocommerce_order_get_items',
+			'woocommerce_order_get_status', 'woocommerce_order_get_total_refunded', 'woocommerce_order_class',
+			'woocommerce_get_order_item_classname', 'woocommerce_order_item_product_get_product_id',
+			'woocommerce_order_item_product_get_variation_id', 'woocommerce_order_item_get_product_id',
+			'woocommerce_order_item_get_variation_id', 'learndash_user_get_enrolled_courses',
+			'ld_course_access_expires_on', 'user_has_cap', 'map_meta_cap', 'role_has_cap',
+			'added_user_meta', 'deleted_user_meta'
+		));
+	}
 	foreach (array_merge(MMHQ_LOR_DR145_META_KEYS, array('_mmed_program_tier'), MMHQ_LOR_DR145_COURSE_META_KEYS) as $key) {
 		$mutation_hooks[] = 'sanitize_user_meta_' . $key;
 	}
@@ -2404,14 +2508,20 @@ function mmhq_lor_dr145_replace_rows($user_id, $key, $rows) {
 	if ($current === $rows) {
 		return;
 	}
-	delete_user_meta($user_id, $key);
-	mmhq_lor_dr145_db_assert_active();
-	foreach ($rows as $row) {
-		if (false === add_user_meta($user_id, $key, $row, false)) {
-			mmhq_lor_dr145_fail();
+	mmhq_lor_dr145_without_hooks(
+		array('added_user_meta', 'deleted_user_meta'),
+		function () use ($user_id, $key, $rows) {
+			delete_user_meta($user_id, $key);
+			mmhq_lor_dr145_db_assert_active();
+			foreach ($rows as $row) {
+				if (false === add_user_meta($user_id, $key, $row, false)) {
+					mmhq_lor_dr145_fail();
+				}
+				mmhq_lor_dr145_db_assert_active();
+			}
 		}
-		mmhq_lor_dr145_db_assert_active();
-	}
+	);
+	mmhq_lor_dr145_db_assert_active();
 	if (get_user_meta($user_id, $key, false) !== $rows) {
 		mmhq_lor_dr145_fail();
 	}
@@ -2430,7 +2540,12 @@ function mmhq_lor_dr145_assert_subject($principal, $user) {
 
 function mmhq_lor_dr145_assert_identity($principal, $user, $email = null) {
 	mmhq_lor_dr145_assert_subject($principal, $user);
-	$is_admin = true === user_can((int) $user->ID, 'manage_options');
+	$is_admin = true === mmhq_lor_dr145_without_hooks(
+		array('user_has_cap', 'map_meta_cap', 'role_has_cap'),
+		function () use ($user) {
+			return user_can((int) $user->ID, 'manage_options');
+		}
+	);
 	if ('founder' === $principal) {
 		if (
 			!$is_admin
