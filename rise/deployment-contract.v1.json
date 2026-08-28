@@ -29,6 +29,10 @@
     "RISE_SOURCE_RIGHTS_ADAPTER_MODULE",
     "RISE_SOURCE_RIGHTS_CONTROL_URL",
     "RISE_SOURCE_RIGHTS_CONTROL_TOKEN",
+    "RISE_STUDENT_STATE_ADAPTER_MODULE",
+    "RISE_STUDENT_STATE_CONTROL_URL",
+    "RISE_STUDENT_STATE_CONTROL_TOKEN",
+    "RISE_STUDENT_STATE_SUBJECT_HMAC_KEY",
     "RISE_ARTIFACT_ORIGIN",
     "RISE_ARTIFACT_BEARER_TOKEN",
     "RISE_INDEX_URL",
@@ -51,7 +55,8 @@
     "RISE_AUTH_MODE": "injected",
     "RISE_AUTH_ADAPTER_MODULE": "/app/adapters/hq-auth.mjs",
     "RISE_ABUSE_ADAPTER_MODULE": "/app/adapters/http-abuse.mjs",
-    "RISE_SOURCE_RIGHTS_ADAPTER_MODULE": "/app/adapters/http-source-rights.mjs"
+    "RISE_SOURCE_RIGHTS_ADAPTER_MODULE": "/app/adapters/http-source-rights.mjs",
+    "RISE_STUDENT_STATE_ADAPTER_MODULE": "/app/adapters/http-student-state.mjs"
   },
   "runtimeArtifactPolicy": {
     "registryIndexEmbeddedInImage": false,
@@ -68,6 +73,7 @@
     "webAssetManifestMustCoverEveryServedAsset": true,
     "webAssetsMustRemainRootOwned": true,
     "registryResponsesMustNotBeCached": true,
-    "readOnlyRootFilesystemRequired": true
+    "readOnlyRootFilesystemRequired": true,
+    "studentProgramStateMustUseDurablePrivateServerAdapter": true
   }
 }

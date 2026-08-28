@@ -1,100 +1,47 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <title>MissionMed RISE</title>
-  <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/rise/styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a0d14">
+<title>RISE · MissionMed Intelligence</title>
+<link rel="stylesheet" href="/rise/styles.css">
 </head>
 <body>
-  <a class="skip-link" id="skip-link" href="#viewport">Skip to main content</a>
-  <div id="app" class="app-shell">
-    <aside class="sidebar" aria-label="Primary navigation">
-      <div class="brand-block">
-        <div class="brand">RISE</div>
-        <div class="brand-sub">MissionMed Residency Intelligence</div>
-      </div>
-      <nav class="side-nav" aria-label="RISE views">
-        <button type="button" class="nav-item" data-route="home" aria-label="Command" title="Command">
-          <i data-lucide="layout-dashboard" aria-hidden="true"></i><span>Command</span>
-        </button>
-        <button type="button" class="nav-item" data-route="explorer" aria-label="Explorer" title="Explorer">
-          <i data-lucide="search" aria-hidden="true"></i><span>Explorer</span>
-        </button>
-        <button type="button" class="nav-item" data-route="compare" aria-label="Compare" title="Compare">
-          <i data-lucide="columns-3" aria-hidden="true"></i><span>Compare</span><span class="nav-count" data-compare-count>0</span>
-        </button>
-        <button type="button" class="nav-item" data-route="actn" aria-label="ACTN" title="ACTN">
-          <i data-lucide="network" aria-hidden="true"></i><span>ACTN</span>
-        </button>
-        <button type="button" class="nav-item" data-route="queue" aria-label="Queue" title="Queue">
-          <i data-lucide="list-checks" aria-hidden="true"></i><span>Queue</span>
-        </button>
-      </nav>
-      <div class="system-state" aria-label="System state">
-        <div><span class="status-dot status-dot-teal" aria-hidden="true"></span><span>Registry</span><strong id="sidebar-registry">Loading</strong></div>
-        <div><span class="status-dot status-dot-gold" aria-hidden="true"></span><span>Mode</span><strong>Offline shadow</strong></div>
-      </div>
-    </aside>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="aur a" aria-hidden="true"></div>
+<div class="aur b" aria-hidden="true"></div>
+<div class="aur c" aria-hidden="true"></div>
+<div class="vg" aria-hidden="true"></div>
 
-    <div class="main-shell">
-      <header class="topbar">
-        <div class="view-heading">
-          <div class="view-name" id="view-name">Command</div>
-          <div class="view-path" id="view-path">RISE / Registry</div>
-        </div>
-        <div class="topbar-actions">
-          <button type="button" class="command-button" id="command-button" aria-label="Search RISE" data-tooltip="Search RISE">
-            <i data-lucide="search" aria-hidden="true"></i><span>Search RISE</span>
-          </button>
-          <button type="button" class="icon-button" id="compare-button" aria-label="Open program comparison" data-tooltip="Compare programs">
-            <i data-lucide="columns-3" aria-hidden="true"></i><span class="button-count" data-compare-count>0</span>
-          </button>
-        </div>
-      </header>
-      <main id="viewport" class="viewport" tabindex="-1"></main>
-      <div class="sr-only" id="route-announcer" aria-live="polite" aria-atomic="true"></div>
+<header id="hdr">
+  <div class="brand" onclick="nav('home')" title="RISE home">
+    <span class="brandTitle">MissionMed<b>//RISE</b></span>
+    <span class="brandSub">Residency Intelligence · Mission:Residency Division</span>
+  </div>
+  <span class="founderChip">Founder-approved Fable 5002 · Production data</span>
+  <div class="hdrRight">
+    <button class="cmpTray" onclick="openCompare()" title="Compare tray">⊞ <span>Compare ·</span> <b id="cmpCount">0</b></button>
+    <button class="cmpTray" id="themeBtn" title="Switch theme">◐ <span>Theme</span></button>
+    <div class="hSearch" onclick="document.getElementById('omni').focus()" style="position:relative">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="omni" type="search" placeholder="Tell me about…" aria-label="Program lookup" autocomplete="off">
+      <span class="kbd">/</span>
+      <div id="omniAC" style="position:absolute;left:0;right:0;top:100%"></div>
     </div>
-
-    <nav class="bottom-nav" aria-label="Mobile navigation">
-      <button type="button" class="bottom-nav-item" data-route="home" aria-label="Command">
-        <i data-lucide="layout-dashboard" aria-hidden="true"></i><span>Command</span>
-      </button>
-      <button type="button" class="bottom-nav-item" data-route="explorer" aria-label="Explorer">
-        <i data-lucide="search" aria-hidden="true"></i><span>Explorer</span>
-      </button>
-      <button type="button" class="bottom-nav-item" data-route="compare" aria-label="Compare">
-        <i data-lucide="columns-3" aria-hidden="true"></i><span>Compare</span>
-      </button>
-      <button type="button" class="bottom-nav-item" data-route="actn" aria-label="ACTN">
-        <i data-lucide="network" aria-hidden="true"></i><span>ACTN</span>
-      </button>
-      <button type="button" class="bottom-nav-item" data-route="queue" aria-label="Queue">
-        <i data-lucide="list-checks" aria-hidden="true"></i><span>Queue</span>
-      </button>
-    </nav>
   </div>
+</header>
 
-  <div class="toast-root" id="toast-root" aria-live="polite" aria-atomic="true"></div>
+<nav id="rail" aria-label="RISE navigation"></nav>
+<main id="main"></main>
 
-  <div class="layer-backdrop" id="layer-backdrop" hidden>
-    <section class="dialog" id="app-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
-      <header class="dialog-header">
-        <div>
-          <div class="dialog-kicker" id="dialog-kicker">RISE</div>
-          <h2 id="dialog-title" tabindex="-1">Dialog</h2>
-        </div>
-        <button type="button" class="icon-button" id="dialog-close" aria-label="Close dialog" data-tooltip="Close">
-          <i data-lucide="x" aria-hidden="true"></i>
-        </button>
-      </header>
-      <div class="dialog-body" id="dialog-body"></div>
-    </section>
-  </div>
+<div id="file" aria-hidden="false"></div>
+<div id="srcPanel"></div>
+<div id="filterDrawer" class="drawerWrap"></div>
+<div id="modal"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
-  <script src="/rise/vendor/lucide.js"></script>
-  <script type="module" src="/rise/app.js"></script>
+
+<script type="module" src="/rise/app.js"></script>
 </body>
 </html>

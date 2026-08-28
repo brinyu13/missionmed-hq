@@ -11,6 +11,8 @@ const appUpPath = path.resolve(here, "../sql/002_rise_app_and_audit.proposed.sql
 const appDownPath = path.resolve(here, "../sql/002_rise_app_and_audit.down.proposed.sql");
 const hardeningUpPath = path.resolve(here, "../sql/003_rise_release_security_hardening.proposed.sql");
 const hardeningDownPath = path.resolve(here, "../sql/003_rise_release_security_hardening.down.proposed.sql");
+const studentStateUpPath = path.resolve(here, "../sql/004_student_program_state.proposed.sql");
+const studentStateDownPath = path.resolve(here, "../sql/004_student_program_state.down.proposed.sql");
 
 async function readUp() {
   return fs.readFile(upPath, "utf8");
@@ -301,6 +303,35 @@ test("registry readers can select only active, non-quarantine views", async () =
 test("security-hardening rollback refuses weakening the evidence guards", async () => {
   const sql = await fs.readFile(hardeningDownPath, "utf8");
   assert.match(sql, /intentionally fail-closed/);
+  assert.match(sql, /RAISE EXCEPTION/);
+  assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
+});
+
+test("student program state is durable, subject-isolated, and release-aware", async () => {
+  const sql = await fs.readFile(studentStateUpPath, "utf8");
+  assert.match(sql, /^BEGIN;/m);
+  assert.match(sql, /^COMMIT;/m);
+  assert.match(sql, /CREATE ROLE rise_student_state_runtime NOLOGIN/);
+  assert.match(sql, /CREATE TABLE rise_app\.student_program_states/);
+  assert.match(sql, /PRIMARY KEY \(subject_key, program_specialty_id\)/);
+  assert.match(sql, /FOREIGN KEY \(last_bound_release_id, program_specialty_id\)/);
+  assert.match(sql, /REFERENCES rise\.program_specialties\(release_id, program_specialty_id\)/);
+  assert.match(sql, /state IN \('SAVED', 'APPLIED', 'INTERVIEWING', 'RANKED'\)/);
+  assert.match(sql, /length\(notes\) <= 4000/);
+  assert.match(sql, /CREATE INDEX rise_student_program_states_subject_updated_idx/);
+  assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
+  assert.match(sql, /FORCE ROW LEVEL SECURITY/);
+  assert.match(sql, /current_setting\('rise\.subject_key', true\)/);
+  assert.match(sql, /REVOKE ALL ON rise_app\.student_program_states FROM PUBLIC/);
+  assert.match(sql, /GRANT SELECT, INSERT, UPDATE, DELETE ON rise_app\.student_program_states TO rise_student_state_runtime/);
+  assert.doesNotMatch(sql, /GRANT[\s\S]+TO PUBLIC/i);
+  assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
+});
+
+test("student-state rollback preserves user data", async () => {
+  const sql = await fs.readFile(studentStateDownPath, "utf8");
+  assert.match(sql, /Destructive rollback refused/);
+  assert.match(sql, /preserve student program state/);
   assert.match(sql, /RAISE EXCEPTION/);
   assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
 });

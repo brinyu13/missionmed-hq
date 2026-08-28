@@ -9,7 +9,8 @@
   },
   "packageManager": "npm@11.9.0",
   "scripts": {
-    "build": "node tools/build-app.mjs",
+    "sync:fable": "node tools/sync-fable-shell.mjs",
+    "build": "npm run sync:fable && node tools/build-app.mjs",
     "start": "node server.mjs",
     "start:production": "node tools/start-production.mjs",
     "test": "node --test tests/*.test.mjs",
@@ -26,6 +27,8 @@
     "exceljs": "4.4.0"
   },
   "overrides": {
+    "brace-expansion@<=1.1.17": "1.1.18",
+    "brace-expansion@>=2.0.0 <2.1.4": "2.1.4",
     "uuid": "11.1.1"
   }
 }

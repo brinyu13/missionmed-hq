@@ -15,6 +15,8 @@ const MAX_SESSION_LIFETIME_MS = 12 * 60 * 60 * 1000;
 const MAX_AUTH_VALIDATION_AGE_MS = 60 * 1000;
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SESSION_ROLES = new Set(["student", "mentor", "operator", "admin"]);
+const STUDENT_PROGRAM_STATES = new Set(["SAVED", "APPLIED", "INTERVIEWING", "RANKED"]);
+const MAX_PROGRAM_NOTES_LENGTH = 4_000;
 
 const REGION_BY_JURISDICTION = new Map(Object.entries({
   CT: "Northeast", ME: "Northeast", MA: "Northeast", NH: "Northeast", RI: "Northeast", VT: "Northeast",
@@ -43,7 +45,9 @@ function securityHeaders(response, requestId) {
   response.setHeader("Content-Security-Policy", [
     "default-src 'self'",
     "script-src 'self'",
+    "script-src-attr 'unsafe-inline'",
     "style-src 'self'",
+    "style-src-attr 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
     "connect-src 'self'",
@@ -112,6 +116,60 @@ function createRuntimeMetrics() {
   };
 }
 
+export function createMemoryStudentStore() {
+  const recordsBySubject = new Map();
+  const recordsFor = (subject) => {
+    if (!recordsBySubject.has(subject)) recordsBySubject.set(subject, new Map());
+    return recordsBySubject.get(subject);
+  };
+  return {
+    scope: "process_local_test_only",
+    async list({ subject }) {
+      return [...recordsFor(subject).values()]
+        .map((record) => ({ ...record }))
+        .sort((left, right) => left.programSpecialtyId.localeCompare(right.programSpecialtyId));
+    },
+    async put({ subject, programSpecialtyId, state, notes }) {
+      const updatedAt = new Date().toISOString();
+      const record = { programSpecialtyId, state, notes, updatedAt };
+      recordsFor(subject).set(programSpecialtyId, record);
+      return { ...record };
+    },
+    async delete({ subject, programSpecialtyId }) {
+      return recordsFor(subject).delete(programSpecialtyId);
+    },
+  };
+}
+
+function resolveStudentStore(store, { production }) {
+  const candidate = store ?? createMemoryStudentStore();
+  if (
+    typeof candidate.list !== "function" ||
+    typeof candidate.put !== "function" ||
+    typeof candidate.delete !== "function" ||
+    (production && candidate.scope !== "durable_private")
+  ) {
+    throw new Error("RISE student store must provide list(), put(), and delete(); production scope must be durable_private");
+  }
+  return candidate;
+}
+
+function validateStudentProgramInput(body) {
+  const state = String(body?.state ?? "").trim().toUpperCase();
+  const notes = String(body?.notes ?? "");
+  if (!STUDENT_PROGRAM_STATES.has(state)) {
+    const error = new Error("Student program state must be SAVED, APPLIED, INTERVIEWING, or RANKED");
+    error.code = "INVALID_STUDENT_PROGRAM_STATE";
+    throw error;
+  }
+  if (notes.length > MAX_PROGRAM_NOTES_LENGTH || /\0/.test(notes)) {
+    const error = new Error(`Program notes must be at most ${MAX_PROGRAM_NOTES_LENGTH} characters and contain no null bytes`);
+    error.code = "INVALID_PROGRAM_NOTES";
+    throw error;
+  }
+  return { state, notes };
+}
+
 function normalizeQuery(value) {
   return String(value ?? "").trim().toLocaleLowerCase("en-US");
 }
@@ -130,6 +188,7 @@ function listView(record) {
   return {
     id: record.id,
     programSpecialtyId: record.programSpecialtyId,
+    identifiers: record.identifiers ?? [],
     lifecycle: record.lifecycle ?? "unknown",
     display: { ...record.display, region: regionFor(record.display.state) },
     designation: record.designation,
@@ -137,6 +196,7 @@ function listView(record) {
     entryFormat: record.entryFormat,
     browseMemberships: record.browseMemberships,
     programType: knownValue(record.fields["Program Best Described As"]) ?? null,
+    officialUrl: knownValue(record.fields["Program Website"]) ?? null,
     visa: {
       j1: j1 === true ? "known_yes" : "unknown",
       h1b: h1b === true ? "known_yes" : "unknown",
@@ -288,6 +348,10 @@ const PRODUCTION_REQUIRED_ENVIRONMENT = [
   "RISE_SOURCE_RIGHTS_ADAPTER_MODULE",
   "RISE_SOURCE_RIGHTS_CONTROL_URL",
   "RISE_SOURCE_RIGHTS_CONTROL_TOKEN",
+  "RISE_STUDENT_STATE_ADAPTER_MODULE",
+  "RISE_STUDENT_STATE_CONTROL_URL",
+  "RISE_STUDENT_STATE_CONTROL_TOKEN",
+  "RISE_STUDENT_STATE_SUBJECT_HMAC_KEY",
   "RISE_ARTIFACT_ORIGIN",
   "RISE_ARTIFACT_BEARER_TOKEN",
   "RISE_INDEX_URL",
@@ -318,6 +382,7 @@ export function validateProductionEnvironment(environment = process.env) {
     "RISE_ALLOW_INSECURE_LOOPBACK_AUTH",
     "RISE_ALLOW_INSECURE_LOOPBACK_ABUSE",
     "RISE_ALLOW_INSECURE_LOOPBACK_SOURCE_RIGHTS",
+    "RISE_ALLOW_INSECURE_LOOPBACK_STUDENT_STATE",
     "RISE_ALLOW_INSECURE_LOOPBACK_ARTIFACTS",
   ]) {
     if (environment[name] === "true") throw new Error(`${name} is prohibited in production`);
@@ -325,13 +390,14 @@ export function validateProductionEnvironment(environment = process.env) {
   for (const name of ["RISE_INDEX_SHA256", "RISE_INDEX_MANIFEST_SHA256", "RISE_ACTIVATION_RECEIPT_SHA256", "RISE_ASSET_MANIFEST_SHA256"]) {
     if (!/^[a-f0-9]{64}$/.test(environment[name])) throw new Error(`${name} must be a lowercase SHA-256`);
   }
-  for (const name of ["RISE_AUTH_ADAPTER_MODULE", "RISE_ABUSE_ADAPTER_MODULE", "RISE_SOURCE_RIGHTS_ADAPTER_MODULE", "RISE_INDEX_PATH", "RISE_INDEX_MANIFEST_PATH", "RISE_ACTIVATION_RECEIPT_PATH"]) {
+  for (const name of ["RISE_AUTH_ADAPTER_MODULE", "RISE_ABUSE_ADAPTER_MODULE", "RISE_SOURCE_RIGHTS_ADAPTER_MODULE", "RISE_STUDENT_STATE_ADAPTER_MODULE", "RISE_INDEX_PATH", "RISE_INDEX_MANIFEST_PATH", "RISE_ACTIVATION_RECEIPT_PATH"]) {
     if (!path.isAbsolute(environment[name])) throw new Error(`${name} must be an absolute path`);
   }
   for (const [name, expected] of Object.entries({
     RISE_AUTH_ADAPTER_MODULE: "/app/adapters/hq-auth.mjs",
     RISE_ABUSE_ADAPTER_MODULE: "/app/adapters/http-abuse.mjs",
     RISE_SOURCE_RIGHTS_ADAPTER_MODULE: "/app/adapters/http-source-rights.mjs",
+    RISE_STUDENT_STATE_ADAPTER_MODULE: "/app/adapters/http-student-state.mjs",
   })) {
     if (environment[name] !== expected) throw new Error(`${name} must be ${expected}`);
   }
@@ -339,14 +405,20 @@ export function validateProductionEnvironment(environment = process.env) {
   const authIssuer = new URL(environment.RISE_AUTH_ISSUER);
   const hqSessionUrl = new URL(environment.RISE_HQ_AUTH_SESSION_URL);
   const loginUrl = new URL(environment.RISE_LOGIN_URL);
+  const studentStateUrl = new URL(environment.RISE_STUDENT_STATE_CONTROL_URL);
   if (
     publicOrigin.protocol !== "https:" || publicOrigin.pathname !== "/" || publicOrigin.search || publicOrigin.hash ||
     authIssuer.protocol !== "https:" || authIssuer.href !== `${authIssuer.origin}/` ||
     hqSessionUrl.protocol !== "https:" || hqSessionUrl.origin !== authIssuer.origin || hqSessionUrl.pathname !== "/api/auth/session" ||
     loginUrl.protocol !== "https:" || loginUrl.origin !== authIssuer.origin ||
-    loginUrl.username || loginUrl.password || loginUrl.hash
+    loginUrl.username || loginUrl.password || loginUrl.hash ||
+    studentStateUrl.protocol !== "https:" || studentStateUrl.username || studentStateUrl.password ||
+    studentStateUrl.search || studentStateUrl.hash
   ) {
     throw new Error("RISE public-origin and HQ-auth topology is invalid");
+  }
+  if (Buffer.byteLength(environment.RISE_STUDENT_STATE_SUBJECT_HMAC_KEY) < 32) {
+    throw new Error("RISE_STUDENT_STATE_SUBJECT_HMAC_KEY must contain at least 32 bytes");
   }
   return true;
 }
@@ -547,6 +619,7 @@ function rateLimiter({ limit = 120, windowMs = 60_000, maxBuckets = 10_000 } = {
 }
 
 function requestRateCost(url) {
+  if (url.pathname === "/api/rise/v1/programs/catalog") return 5;
   if (url.pathname !== "/api/rise/v1/programs") return 1;
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number.parseInt(url.searchParams.get("pageSize") ?? "24", 10) || 24));
   return 1 + Math.ceil(pageSize / 10);
@@ -665,6 +738,7 @@ export function createRiseServer({
   auditHmacKey = process.env.RISE_AUDIT_HMAC_KEY,
   abuseController,
   sourceRightsController,
+  studentStore,
   logger = createJsonLogger(),
 } = {}) {
   if (!registryIndex?.programs || !registryIndex?.registryReleaseId) {
@@ -696,6 +770,7 @@ export function createRiseServer({
   const sourceRights = syntheticTestFixture
     ? null
     : resolveSourceRightsController(sourceRightsController, { production });
+  const studentPrograms = resolveStudentStore(studentStore, { production });
   const authorizationSha256s = registryIndex.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [];
   async function assertLiveSourceRights() {
     if (syntheticTestFixture) return true;
@@ -843,12 +918,86 @@ export function createRiseServer({
           buildId,
           environment,
           activationDecisionRecordId: registryIndex.activationReceipt?.decisionRecordId ?? null,
-          integrations: { matrix: "disabled", actn: "disabled", cam: "disabled", storyforge: "disabled" },
+          integrations: {
+            matrix: "disabled",
+            matrixProfile: "disabled",
+            fileVault: "disabled",
+            rankListIq: "disabled",
+            researchFactory: "disabled",
+            actn: "disabled",
+            cam: "disabled",
+            storyforge: "disabled",
+          },
+          persistence: studentPrograms.scope === "durable_private" ? "durable" : "process_local_test_only",
           sourcePolicy: registryIndex.sourcePolicy ?? {
             freida: "written_authorization_required",
             residencyExplorer: "written_authorization_required",
           },
         }, { requestId });
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/me/programs") {
+        const records = await studentPrograms.list({
+          subject: session.subject,
+          releaseId: registryIndex.registryReleaseId,
+        });
+        status = 200;
+        sendJson(response, 200, {
+          records,
+          persistence: studentPrograms.scope === "durable_private" ? "durable" : "process_local_test_only",
+        }, { cache: "no-store", requestId });
+        return;
+      }
+      const studentProgramMatch = url.pathname.match(/^\/api\/rise\/v1\/me\/programs\/([^/]+)$/);
+      if (studentProgramMatch && (request.method === "PUT" || request.method === "DELETE")) {
+        let programSpecialtyId;
+        try {
+          programSpecialtyId = decodeURIComponent(studentProgramMatch[1]);
+        } catch {
+          status = 400;
+          apiError(response, 400, "INVALID_PROGRAM_ID", "Program specialty identifier is malformed", requestId);
+          return;
+        }
+        if (!byProgramSpecialtyId.has(programSpecialtyId)) {
+          status = 404;
+          apiError(response, 404, "PROGRAM_NOT_FOUND", "Program specialty not found", requestId);
+          return;
+        }
+        if (request.method === "DELETE") {
+          await studentPrograms.delete({
+            subject: session.subject,
+            releaseId: registryIndex.registryReleaseId,
+            programSpecialtyId,
+          });
+          status = 200;
+          sendJson(response, 200, { deleted: true, programSpecialtyId }, { requestId });
+          return;
+        }
+        const input = validateStudentProgramInput(await readBody(request));
+        const record = await studentPrograms.put({
+          subject: session.subject,
+          releaseId: registryIndex.registryReleaseId,
+          programSpecialtyId,
+          ...input,
+        });
+        status = 200;
+        sendJson(response, 200, { record }, { requestId });
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/me/profile") {
+        status = 409;
+        apiError(response, 409, "MATRIX_PROFILE_UNAVAILABLE",
+          "No authorized canonical Matrix profile adapter is configured for this release", requestId);
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/programs/catalog") {
+        const records = searchReadModel.byName.map(listView);
+        status = 200;
+        sendJson(response, 200, {
+          registryReleaseId: registryIndex.registryReleaseId,
+          total: records.length,
+          records,
+        }, { cache: "private, no-cache", requestId });
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/programs") {
@@ -939,6 +1088,9 @@ export function createRiseServer({
         status = 413;
         apiError(response, 413, error.code, error.message, requestId);
       } else if (error.code === "INVALID_JSON") {
+        status = 400;
+        apiError(response, 400, error.code, error.message, requestId);
+      } else if (error.code === "INVALID_STUDENT_PROGRAM_STATE" || error.code === "INVALID_PROGRAM_NOTES") {
         status = 400;
         apiError(response, 400, error.code, error.message, requestId);
       } else if (error.code === "SOURCE_RIGHTS_UNAVAILABLE") {
@@ -1109,6 +1261,7 @@ export async function startFromEnvironment() {
   let authenticator;
   let abuseController;
   let sourceRightsController;
+  let studentStore;
   if (authMode === "injected") {
     const adapterPath = process.env.RISE_AUTH_ADAPTER_MODULE;
     if (!adapterPath) throw new Error("RISE_AUTH_ADAPTER_MODULE is required for injected authentication");
@@ -1133,6 +1286,14 @@ export async function startFromEnvironment() {
       throw new Error("RISE source-rights adapter must export createRiseSourceRightsController()");
     }
     sourceRightsController = await adapter.createRiseSourceRightsController();
+  }
+  const studentStateAdapterPath = process.env.RISE_STUDENT_STATE_ADAPTER_MODULE;
+  if (studentStateAdapterPath) {
+    const adapter = await import(pathToFileURL(path.resolve(studentStateAdapterPath)).href);
+    if (typeof adapter.createRiseStudentStore !== "function") {
+      throw new Error("RISE student-state adapter must export createRiseStudentStore()");
+    }
+    studentStore = await adapter.createRiseStudentStore();
   }
   if (production && index.dataClassification !== "synthetic_test_fixture") {
     const current = await sourceRightsController?.assertCurrent({
@@ -1160,6 +1321,7 @@ export async function startFromEnvironment() {
     auditHmacKey: process.env.RISE_AUDIT_HMAC_KEY,
     abuseController,
     sourceRightsController,
+    studentStore,
     buildId: webBuild.buildId,
     production,
   });

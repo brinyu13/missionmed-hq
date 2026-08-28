@@ -8,7 +8,7 @@ const root = path.resolve(here, "..");
 
 export default defineConfig({
   testDir: path.join(here, "tests/browser"),
-  outputDir: "/tmp/p1-rise-4006-playwright",
+  outputDir: "/tmp/p1-rise-5003-playwright",
   timeout: 60_000,
   expect: { timeout: 12_000 },
   fullyParallel: false,
@@ -16,7 +16,7 @@ export default defineConfig({
   workers: 1,
   reporter: [
     ["line"],
-    ["json", { outputFile: path.join(root, "_AI_HANDOFFS/from_codex/P1_RISE_4006_PRODUCTION_CONNECTED_RC/artifacts/playwright-report.json") }],
+    ["json", { outputFile: path.join(root, "_AI_HANDOFFS/from_codex/P1_RISE_5003_PRODUCTION_WIRING_AND_LIVE_DEPLOY/artifacts/playwright-report.json") }],
   ],
   webServer: process.env.RISE_BASE_URL ? undefined : {
     command: "node tests/browser/fixture-server.mjs",

@@ -60,6 +60,10 @@ test("production contract pins auth, source rights, index, assets, and abuse con
     "RISE_SOURCE_RIGHTS_ADAPTER_MODULE",
     "RISE_SOURCE_RIGHTS_CONTROL_URL",
     "RISE_SOURCE_RIGHTS_CONTROL_TOKEN",
+    "RISE_STUDENT_STATE_ADAPTER_MODULE",
+    "RISE_STUDENT_STATE_CONTROL_URL",
+    "RISE_STUDENT_STATE_CONTROL_TOKEN",
+    "RISE_STUDENT_STATE_SUBJECT_HMAC_KEY",
     "RISE_ARTIFACT_ORIGIN",
     "RISE_INDEX_URL",
     "RISE_INDEX_SHA256",
@@ -76,6 +80,7 @@ test("production contract pins auth, source rights, index, assets, and abuse con
   }
   assert.equal(contract.requiredValues.RISE_AUTH_MODE, "injected");
   assert.equal(contract.requiredValues.RISE_SOURCE_RIGHTS_ADAPTER_MODULE, "/app/adapters/http-source-rights.mjs");
+  assert.equal(contract.requiredValues.RISE_STUDENT_STATE_ADAPTER_MODULE, "/app/adapters/http-student-state.mjs");
   assert.equal(contract.runtimeArtifactPolicy.registryIndexEmbeddedInImage, false);
   assert.equal(contract.runtimeArtifactPolicy.registryArtifactsFetchedFromOnePinnedOrigin, true);
   assert.equal(contract.runtimeArtifactPolicy.activationReceiptMustBindIndexAndManifest, true);
@@ -88,6 +93,7 @@ test("production contract pins auth, source rights, index, assets, and abuse con
   assert.equal(contract.runtimeArtifactPolicy.webAssetsMustRemainRootOwned, true);
   assert.equal(contract.runtimeArtifactPolicy.registryResponsesMustNotBeCached, true);
   assert.equal(contract.runtimeArtifactPolicy.readOnlyRootFilesystemRequired, true);
+  assert.equal(contract.runtimeArtifactPolicy.studentProgramStateMustUseDurablePrivateServerAdapter, true);
 });
 
 test("production environment validation enforces the deployment contract", () => {
@@ -109,6 +115,10 @@ test("production environment validation enforces the deployment contract", () =>
     RISE_SOURCE_RIGHTS_ADAPTER_MODULE: "/app/adapters/http-source-rights.mjs",
     RISE_SOURCE_RIGHTS_CONTROL_URL: "https://rights.example.test/v1/current",
     RISE_SOURCE_RIGHTS_CONTROL_TOKEN: "rights-token-00000000000000000000",
+    RISE_STUDENT_STATE_ADAPTER_MODULE: "/app/adapters/http-student-state.mjs",
+    RISE_STUDENT_STATE_CONTROL_URL: "https://state.example.test/v1/rise/student-programs",
+    RISE_STUDENT_STATE_CONTROL_TOKEN: "state-token-0000000000000000000000",
+    RISE_STUDENT_STATE_SUBJECT_HMAC_KEY: "state-subject-key-0000000000000000000",
     RISE_ARTIFACT_ORIGIN: "https://artifacts.example.test",
     RISE_ARTIFACT_BEARER_TOKEN: "artifact-token-0000000000000000000",
     RISE_INDEX_URL: "https://artifacts.example.test/rise/api-index.json",
@@ -138,6 +148,7 @@ test("production environment validation enforces the deployment contract", () =>
     "RISE_ALLOW_INSECURE_LOOPBACK_AUTH",
     "RISE_ALLOW_INSECURE_LOOPBACK_ABUSE",
     "RISE_ALLOW_INSECURE_LOOPBACK_SOURCE_RIGHTS",
+    "RISE_ALLOW_INSECURE_LOOPBACK_STUDENT_STATE",
     "RISE_ALLOW_INSECURE_LOOPBACK_ARTIFACTS",
   ]) {
     assert.throws(

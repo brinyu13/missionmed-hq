@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  createMemoryStudentStore,
   createRiseServer,
   isProductionEnvironment,
   loadRegistryIndex,
@@ -16,6 +17,10 @@ import {
 
 const AUTH_ISSUER = "https://auth.example.test";
 const AUDIT_HMAC_KEY = "audit-test-key-000000000000000000";
+
+function durableStudentStore() {
+  return { ...createMemoryStudentStore(), scope: "durable_private" };
+}
 
 function authenticatedSession(overrides = {}) {
   const subject = String(overrides.subject ?? "test-subject");
@@ -263,6 +268,17 @@ test("pagination is bounded and malformed filter values fail harmlessly", async 
   assert.equal(malformedBody.total, 0);
 });
 
+test("authenticated catalog bootstrap returns every canonical identity in one bounded request", async () => {
+  const response = await fetch(`${baseUrl}/api/rise/v1/programs/catalog`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.registryReleaseId, "rise_registry_test");
+  assert.equal(body.total, 3);
+  assert.equal(body.records.length, 3);
+  assert.deepEqual(body.records.map((record) => record.programSpecialtyId).sort(), ["ps-combined", "ps-im", "ps-psych"]);
+  assert.equal(response.headers.get("cache-control"), "private, no-cache");
+});
+
 test("profiles return evidence records and unknowns without coercion", async () => {
   const response = await fetch(`${baseUrl}/api/rise/v1/program-specialties/ps-psych`);
   const body = await response.json();
@@ -319,6 +335,45 @@ test("state-changing APIs require the authenticated session CSRF token", async (
   });
   assert.equal(invalid.status, 403);
   assert.equal((await invalid.json()).error.code, "CSRF_INVALID");
+});
+
+test("My Programs state and notes persist through the authenticated server contract", async () => {
+  const initiallyEmpty = await fetch(`${baseUrl}/api/rise/v1/me/programs`);
+  const initialBody = await initiallyEmpty.json();
+  assert.equal(initiallyEmpty.status, 200);
+  assert.equal(initialBody.persistence, "process_local_test_only");
+  assert.deepEqual(initialBody.records, []);
+
+  const saved = await fetch(`${baseUrl}/api/rise/v1/me/programs/ps-im`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "X-RISE-CSRF": csrfToken },
+    body: JSON.stringify({ state: "interviewing", notes: "Interview on October 12" }),
+  });
+  const savedBody = await saved.json();
+  assert.equal(saved.status, 200);
+  assert.equal(savedBody.record.state, "INTERVIEWING");
+  assert.equal(savedBody.record.notes, "Interview on October 12");
+
+  const reloaded = await fetch(`${baseUrl}/api/rise/v1/me/programs`);
+  const reloadedBody = await reloaded.json();
+  assert.equal(reloadedBody.records.length, 1);
+  assert.equal(reloadedBody.records[0].programSpecialtyId, "ps-im");
+
+  const invalid = await fetch(`${baseUrl}/api/rise/v1/me/programs/ps-im`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "X-RISE-CSRF": csrfToken },
+    body: JSON.stringify({ state: "MATCHED", notes: "" }),
+  });
+  assert.equal(invalid.status, 400);
+  assert.equal((await invalid.json()).error.code, "INVALID_STUDENT_PROGRAM_STATE");
+
+  const removed = await fetch(`${baseUrl}/api/rise/v1/me/programs/ps-im`, {
+    method: "DELETE",
+    headers: { "X-RISE-CSRF": csrfToken },
+  });
+  assert.equal(removed.status, 200);
+  assert.equal((await removed.json()).deleted, true);
+  assert.deepEqual((await (await fetch(`${baseUrl}/api/rise/v1/me/programs`)).json()).records, []);
 });
 
 test("oversized and invalid request bodies are rejected", async () => {
@@ -423,6 +478,7 @@ test("production requires a shared durable abuse controller", () => {
     auditHmacKey: AUDIT_HMAC_KEY,
     production: true,
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
+    studentStore: durableStudentStore(),
   };
   assert.throws(() => createRiseServer(options), /shared durable abuse controller/);
   const abuseController = {
@@ -434,6 +490,15 @@ test("production requires a shared durable abuse controller", () => {
     ...options,
     abuseController,
   }), /shared current source-rights controller/);
+  assert.throws(() => createRiseServer({
+    ...options,
+    abuseController,
+    sourceRightsController: {
+      scope: "shared_durable_current",
+      async assertCurrent() { return true; },
+    },
+    studentStore: undefined,
+  }), /durable_private/);
   createRiseServer({
     ...options,
     abuseController,
@@ -457,6 +522,7 @@ test("production source rights fail closed after activation when the live decisi
     auditHmacKey: AUDIT_HMAC_KEY,
     production: true,
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
+    studentStore: durableStudentStore(),
     abuseController: {
       scope: "shared_durable",
       async allowPreAuth() { return true; },

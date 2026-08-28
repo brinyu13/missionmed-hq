@@ -53,6 +53,7 @@ function program({ id, name, designation, city, state, memberships, j1, h1b, dir
     kind: designation.includes("/") ? "combined" : "single",
     entryFormat: "categorical",
     components: designation.split("/"),
+    identifiers: [{ namespace: "ACGME_PROGRAM", value: `synthetic-${id}` }],
     browseMemberships: memberships,
     fields,
     evidence: {
