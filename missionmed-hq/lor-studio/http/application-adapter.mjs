@@ -771,12 +771,18 @@ export function createLorApplicationAdapter({
         // The database derives every evidence row, consent binding, content hash, provenance
         // record, and audit-chain value. The client may identify only the revision it read.
         assertExactKeys(payload, ['expectedRevision']);
-        const projection = await caseService.publishStudentEvidence({
+        await caseService.publishStudentEvidence({
           caseId: route.caseId,
           actor,
           expectedRevision: payload.expectedRevision,
           idempotencyKey: idempotencyKey(request),
         });
+        // The command returns the domain's student-safe aggregate, whose field names are not the
+        // browser projection contract (`id` versus `caseId`, `releasedDocument` versus
+        // `finalDocument`). Re-read through the actor-aware projection boundary just like every
+        // other successful write route. Returning the command object directly makes the durable
+        // write succeed while the UI truthfully rejects its acknowledgement as unreadable.
+        const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
         return { status: 200, body: { case: projection } };
       }
 

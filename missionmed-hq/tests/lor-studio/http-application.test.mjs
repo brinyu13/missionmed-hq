@@ -166,16 +166,27 @@ test('student case creation, autosave, completion, and resume work end to end wi
 
 test('student evidence publication is reachable only through the narrow database-owned command', async () => {
   const calls = [];
+  const projectionReads = [];
   const repository = new InMemoryRecommendationCaseRepository();
   const safeProjection = Object.freeze({
     schemaVersion: 'missionmed.lor.student-projection.v1',
     caseId: 'case-1',
     revision: 8,
   });
+  const commandAggregate = Object.freeze({
+    schemaVersion: 'missionmed.lor.student-safe-case.v1',
+    id: 'case-1',
+    studentId: 'wp:41',
+    revision: 8,
+  });
   const adapter = createLorApplicationAdapter({
     caseService: {
       async publishStudentEvidence(input) {
         calls.push(structuredClone(input));
+        return commandAggregate;
+      },
+      async getCaseProjection(input) {
+        projectionReads.push(structuredClone(input));
         return safeProjection;
       },
     },
@@ -190,12 +201,14 @@ test('student evidence publication is reachable only through the narrow database
     body: { expectedRevision: 7 },
   });
   assert.deepEqual(published, { status: 200, body: { case: safeProjection } });
+  assert.equal('studentId' in published.body.case, false);
   assert.deepEqual(calls, [{
     caseId: 'case-1',
     actor,
     expectedRevision: 7,
     idempotencyKey: 'publish-evidence-1',
   }]);
+  assert.deepEqual(projectionReads, [{ caseId: 'case-1', actor }]);
 
   const forged = await call(adapter, '/api/lor-studio/cases/case-1/evidence/publish', {
     method: 'POST',
@@ -205,6 +218,7 @@ test('student evidence publication is reachable only through the narrow database
   });
   assert.equal(forged.status, 400);
   assert.equal(calls.length, 1);
+  assert.equal(projectionReads.length, 1);
 
   const wrongMethod = await call(adapter, '/api/lor-studio/cases/case-1/evidence/publish', {
     method: 'GET',
