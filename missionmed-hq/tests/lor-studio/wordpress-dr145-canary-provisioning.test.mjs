@@ -628,6 +628,9 @@ test('DR-145 provisioner is an exact no-secret, no-commerce, no-delete WP-CLI su
   assert.match(runnerSource, /mysqli_query\(\$dbh, \$query\)/u);
   assert.match(runnerSource, /mysqli_prepare\(\$dbh, \$query\)/u);
   assert.match(runnerSource, /mysqli_stmt_bind_param/u);
+  assert.match(runnerSource, /mysqli_stmt_affected_rows\(\$stmt\)[\s\S]*mysqli_stmt_insert_id\(\$stmt\)[\s\S]*mysqli_stmt_close\(\$stmt\)/u);
+  assert.match(runnerSource, /\$insert_result\['affectedRows'\][\s\S]*\$insert_result\['insertId'\]/u);
+  assert.doesNotMatch(runnerSource, /mysqli_insert_id\(\$dbh\)/u);
   assert.doesNotMatch(runnerSource, /mysqli_real_escape_string/u);
   assert.match(runnerSource, /`user_login`,`user_pass`,`user_nicename`,`user_email`,`user_url`,`user_registered`,`user_activation_key`,`user_status`,`display_name`/u);
 	assert.match(runnerSource, /LEARNDASH_TRANSIENTS_DISABLED/u);

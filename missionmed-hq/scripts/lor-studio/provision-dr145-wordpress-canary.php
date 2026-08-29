@@ -1434,8 +1434,13 @@ function mmhq_lor_dr145_native_prepared($dbh, $query, $types, $values, $return_r
 			mmhq_lor_dr145_fail();
 		}
 		if (!$return_rows) {
+			$affected_rows = mysqli_stmt_affected_rows($stmt);
+			$insert_id = mysqli_stmt_insert_id($stmt);
 			mysqli_stmt_close($stmt);
-			return true;
+			return array(
+				'affectedRows' => $affected_rows,
+				'insertId' => $insert_id,
+			);
 		}
 		$metadata = mysqli_stmt_result_metadata($stmt);
 		if (!($metadata instanceof mysqli_result)) {
@@ -1612,17 +1617,23 @@ function mmhq_lor_dr145_insert_inert_student($email, $registered_at, $password_h
 		) {
 			mmhq_lor_dr145_fail();
 		}
-		mmhq_lor_dr145_native_prepared(
+		$insert_result = mmhq_lor_dr145_native_prepared(
 			$dbh,
 			"INSERT INTO `{$wpdb->users}` (`user_login`,`user_pass`,`user_nicename`,`user_email`,`user_url`,`user_registered`,`user_activation_key`,`user_status`,`display_name`) VALUES (?,?,?,?,?,?,?,?,?)",
 			'sssssssis',
 			array_values($fields),
 			false
 		);
-		$user_id = (int) mysqli_insert_id($dbh);
-		if ($user_id < 1) {
+		$affected_rows = is_array($insert_result) ? ($insert_result['affectedRows'] ?? null) : null;
+		$insert_id = is_array($insert_result) ? ($insert_result['insertId'] ?? null) : null;
+		if (
+			1 !== $affected_rows
+			|| !is_int($insert_id)
+			|| $insert_id < 1
+		) {
 			mmhq_lor_dr145_fail();
 		}
+		$user_id = $insert_id;
 		$created_rows = mmhq_lor_dr145_native_prepared(
 			$dbh,
 			"SELECT `ID`,`user_login`,`user_pass`,`user_nicename`,`user_email`,`user_url`,`user_registered`,`user_activation_key`,`user_status`,`display_name` FROM `{$wpdb->users}` WHERE `ID` = ? FOR UPDATE",
@@ -1659,7 +1670,7 @@ function mmhq_lor_dr145_insert_inert_student($email, $registered_at, $password_h
 		}
 		mmhq_lor_dr145_fail();
 	}
-	unset($fields, $created_rows, $password_hash, $email);
+	unset($fields, $created_rows, $insert_result, $affected_rows, $insert_id, $password_hash, $email);
 	if (
 		$user_id < 1
 		|| spl_object_id($dbh) !== $connection_object_id
