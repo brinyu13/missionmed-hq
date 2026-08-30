@@ -25,7 +25,7 @@ export function createIvocStorage({ mediaBase, sessionSecret, now = () => Date.n
   if (!secret) throw new Error('ivoc_storage_signing_secret_missing');
 
   function objectKey({ ownerSubject, recordingId, extension = 'webm' }) {
-    return `dboc-iv/${safeSegment(ownerSubject)}/ivoc/${safeSegment(recordingId || randomUUID())}.${safeSegment(extension, 'webm')}`;
+    return `dboc-iv/${safeSegment(ownerSubject)}/ivoc_${safeSegment(recordingId || randomUUID())}.${safeSegment(extension, 'webm')}`;
   }
 
   function signedUrl(key, ttlMs = 15 * 60 * 1000) {
@@ -63,4 +63,3 @@ export function createIvocStorage({ mediaBase, sessionSecret, now = () => Date.n
 
   return Object.freeze({ createUpload, validateUploadToken, signedUrl, verifyObject });
 }
-
