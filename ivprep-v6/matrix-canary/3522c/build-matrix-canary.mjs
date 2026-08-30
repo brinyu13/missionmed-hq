@@ -5,10 +5,11 @@ import { pathToFileURL } from 'node:url';
 
 export const PREIMAGE_SHA256 = Object.freeze({
   php: '80d510b4bb5531b7ad23689084f7173372dfbd5d5c7102365d85ab3e645f7a51',
-  javascript: '809093d2b5b2bc05cdd4f355511f2c8d5303c71edbca4f71823d319976ced54f',
+  javascript: '30068939fc54fb4a21209de4962977b9aa1a89a9557a046d367b1737624c570b',
   runtimePin: 'f3c2d7e0c409c94d85e638382c0d2a439bb12138e66e43249c6f6ee6ca5b4988',
 });
 
+export const PINNED_ASSET_SHA256 = '809093d2b5b2bc05cdd4f355511f2c8d5303c71edbca4f71823d319976ced54f';
 const OLD_ASSET = 'student-os.809093d2b5b2bc05.js';
 
 function sha256(value) {
@@ -139,7 +140,7 @@ export function transformJavascript(source) {
 }
 
 export function transformRuntimePin(source, { assetName, assetSha256 }) {
-  let transformed = replaceExactly(source, PREIMAGE_SHA256.javascript, assetSha256, 'PIN_HASH');
+  let transformed = replaceExactly(source, PINNED_ASSET_SHA256, assetSha256, 'PIN_HASH');
   transformed = replaceExactly(transformed, OLD_ASSET, assetName, 'PIN_ASSET');
   return transformed;
 }

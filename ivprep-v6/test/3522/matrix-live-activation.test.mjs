@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  PINNED_ASSET_SHA256,
   PREIMAGE_SHA256,
   transformJavascript,
   transformPhp,
@@ -87,7 +88,7 @@ test('Matrix presentation unlocks only IV Prep and preserves the server permissi
 test('runtime pin uses the content-addressed immutable candidate and exact full hash', () => {
   const nextHash = 'a'.repeat(64);
   const nextAsset = `student-os.${nextHash.slice(0, 16)}.js`;
-  const fixture = `${PREIMAGE_SHA256.javascript}\nconst MMED_MATRIX_RUNTIME_PINNED_ASSET = 'student-os.809093d2b5b2bc05.js';`;
+  const fixture = `${PINNED_ASSET_SHA256}\nconst MMED_MATRIX_RUNTIME_PINNED_ASSET = 'student-os.809093d2b5b2bc05.js';`;
   const result = transformRuntimePin(fixture, { assetName: nextAsset, assetSha256: nextHash });
   assert.equal(result, `${nextHash}\nconst MMED_MATRIX_RUNTIME_PINNED_ASSET = '${nextAsset}';`);
 });
