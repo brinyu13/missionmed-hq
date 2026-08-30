@@ -582,7 +582,7 @@ export class OpenAiGroundedProposalAdapter extends AiProposalPort {
         purpose: 'lor_grounded_proposal',
       });
     } catch {
-      throw unavailable('OPENAI_CREDENTIAL_UNAVAILABLE');
+      throw invalidProviderResponse('credential_provider');
     }
     if (
       typeof bearerToken !== 'string'
@@ -612,7 +612,9 @@ export class OpenAiGroundedProposalAdapter extends AiProposalPort {
           signal: controller.signal,
         });
       } catch {
-        throw unavailable('OPENAI_PROVIDER_UNAVAILABLE');
+        throw invalidProviderResponse(
+          controller.signal.aborted ? 'provider_transport_timeout' : 'provider_transport',
+        );
       } finally {
         bearerToken = '';
       }
@@ -659,7 +661,7 @@ export class OpenAiGroundedProposalAdapter extends AiProposalPort {
       return normalizeProviderProposal(structured, new Set(input.facts.map((fact) => fact.id)));
     } catch (error) {
       if (error instanceof IntegrationDisabledError || error instanceof ValidationError) throw error;
-      throw unavailable('OPENAI_PROVIDER_UNAVAILABLE');
+      throw invalidProviderResponse('provider_unexpected_exception');
     } finally {
       clearTimeout(timeout);
       bearerToken = '';
