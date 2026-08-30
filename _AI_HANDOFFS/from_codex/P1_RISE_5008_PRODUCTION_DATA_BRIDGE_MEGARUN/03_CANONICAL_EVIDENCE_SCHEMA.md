@@ -10,3 +10,4 @@ SHA-256:
 
 All new tables force RLS. Canonical sources and claims reject update/delete. Runtime projection admits only approved private-beta/student-visible claims; review-required and internal-only evidence remains admin-only. Provider receipts enforce `new_spend_usd = 0`.
 
+PostgreSQL 18 parity was proved by applying 006/007 to the isolated restore of the exact production preimage, then ingesting the complete SOAP and Parallel/Claude corpora.

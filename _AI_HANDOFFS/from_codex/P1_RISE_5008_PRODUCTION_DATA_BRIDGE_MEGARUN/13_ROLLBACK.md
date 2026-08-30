@@ -11,3 +11,4 @@ PostgreSQL 18 isolated restore passed after recreating the declared NOLOGIN runt
 
 Migration 007 recovery revokes old-runtime access while preserving one source, 925 SOAP claims, 886 identities, and one ingest receipt in the focused rehearsal. Application rollback selects prior Railway deployment `b0301470-ec0a-4e03-9340-2b06fda4befb`; applied migrations remain forward history.
 
+On the PostgreSQL 18 restored production preimage, the same recovery preserved all 542 sources, 3,965 claims, 886 identities, and 542 ingest receipts while revoking runtime access.

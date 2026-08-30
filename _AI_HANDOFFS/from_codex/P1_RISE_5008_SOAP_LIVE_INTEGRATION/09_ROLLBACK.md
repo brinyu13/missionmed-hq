@@ -4,3 +4,4 @@ Rollback uses the prior isolated RISE deployment `b0301470-ec0a-4e03-9340-2b06fd
 
 Production backup SHA-256 is `7d3888a891b34935191f476e5e8426f622220f6bff8a1bd887f21ccfb2fa4b91`; PostgreSQL 18 isolated restore readback passed. Because production was not mutated, no rollback was executed against live state.
 
+The PostgreSQL 18 restored production preimage recovery preserved 542 sources, 3,965 claims, 886 identities, and 542 ingest receipts while revoking runtime access.
