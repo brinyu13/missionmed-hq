@@ -583,6 +583,7 @@ export function createAiDraftingService({
     }
 
     let proposal;
+    let failureStage = 'provider_generation';
     try {
       proposal = await proposalService.generate({
         caseId: caseRecord.id,
@@ -590,7 +591,9 @@ export function createAiDraftingService({
         facts: selected.facts,
         templateVersion,
       });
+      failureStage = 'proposal_record_build';
       const record = buildProposalRecord({ proposal, caseRecord, actorId: actor.id, at });
+      failureStage = 'proposal_persistence_finalize';
       const stored = await proposalStore.finalizeProposalGeneration({
         caseId: caseRecord.id,
         idempotencyKey,
@@ -599,6 +602,10 @@ export function createAiDraftingService({
       });
       return deepFreeze(stored?.record ?? stored);
     } catch {
+      if (process.env.RAILWAY_ENVIRONMENT_ID) {
+        // Fixed stage only: never log proposal text, facts, identifiers, credentials, or errors.
+        console.warn(`MissionMed LOR AI generation failed | stage=${failureStage}`);
+      }
       // Once provider IO starts, absence of a response cannot prove absence of an external side
       // effect. Seal the key as unknown. If finalize actually committed but its response was
       // lost, the atomic transition returns the accepted record and that record is safe to replay.
