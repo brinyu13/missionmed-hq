@@ -371,6 +371,7 @@ export const DR133_SUCCESSOR_STAGES = Object.freeze([
     id: 'faculty-scope-durable-verification',
     rollbackId: 'faculty-scope-durable-verification-rollback',
     sentinelSuffix: 'facultyScopeDurableVerification=20260830073256',
+    liveDataSafe: true,
   }),
 ]);
 
@@ -1128,6 +1129,21 @@ export function assertFoundationSentinelRow(row) {
   }
 }
 
+function optionalRuntimeLoginState(row, code) {
+  if (row.runtime_login_count === '0') return Object.freeze({ runtimeLoginActive: false });
+  if (
+    row.runtime_login_count !== '1'
+    || row.lor_role_count !== '3'
+    || row.runtime_role_active_safe !== true
+    || row.runtime_membership_safe !== true
+    || row.runtime_membership_count !== '1'
+    || row.runtime_owned_object_count !== '0'
+    || row.runtime_default_acl_count !== '0'
+    || row.runtime_unsafe_dependency_count !== '0'
+  ) failDr133(code);
+  return Object.freeze({ runtimeLoginActive: true });
+}
+
 export function assertSuccessorSchemaPreflightRow(row) {
   if (!row || typeof row !== 'object') failDr133('SUCCESSOR_PREFLIGHT_RESULT_INVALID');
   if (
@@ -1147,8 +1163,8 @@ export function assertSuccessorSchemaPreflightRow(row) {
     || row.schema_count !== '1'
     || row.app_role_count !== '1'
     || row.command_owner_count !== '1'
-    || row.runtime_login_count !== '0'
   ) failDr133('SUCCESSOR_PREFLIGHT_TARGET_INVALID');
+  return optionalRuntimeLoginState(row, 'SUCCESSOR_PREFLIGHT_TARGET_INVALID');
 }
 
 export function assertBaseSchemaPreflightRow(row) {
@@ -1174,8 +1190,9 @@ export function assertBaseSchemaPreflightRow(row) {
   ) failDr133('BASE_SCHEMA_PREFLIGHT_TARGET_INVALID');
 }
 
-export function assertPostflightRow(row) {
+export function assertPostflightRow(row, { allowNonempty = false } = {}) {
   if (!row || typeof row !== 'object') failDr133('POSTFLIGHT_RESULT_INVALID');
+  if (typeof allowNonempty !== 'boolean') failDr133('POSTFLIGHT_OPTIONS_INVALID');
   const observedDefiners = Array.isArray(row.definer_identities) ? row.definer_identities : [];
   const observedAppDefiners = Array.isArray(row.app_execute_identities)
     ? row.app_execute_identities
@@ -1194,7 +1211,8 @@ export function assertPostflightRow(row) {
     || row.pre_evidence_public_execute_denied !== true
     || row.public_function_execute_count !== '0'
     || row.public_table_privilege_count !== '0'
-    || row.nonempty_relation_count !== '0'
+    || (!allowNonempty && row.nonempty_relation_count !== '0')
+    || (allowNonempty && !/^(?:0|[1-9][0-9]{0,9})$/u.test(row.nonempty_relation_count))
     || row.view_count !== '1'
     || row.view_identity !== 'student_recommendation_case_projection@postgres'
     || row.app_role_safe !== true

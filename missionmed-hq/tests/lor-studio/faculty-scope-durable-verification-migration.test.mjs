@@ -44,6 +44,7 @@ test('faculty-scope successor is hash-pinned and is the last production stage', 
     id: 'faculty-scope-durable-verification',
     rollbackId: 'faculty-scope-durable-verification-rollback',
     sentinelSuffix: 'facultyScopeDurableVerification=20260830073256',
+    liveDataSafe: true,
   });
   assert.match(
     expectedDr133SuccessorSentinel(),
@@ -81,6 +82,11 @@ test('successor makes verified faculty access durable without weakening revocati
   assert.match(migration, /OWNER TO lor_studio_command_owner/u);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION[\s\S]*TO lor_studio_app/u);
   assert.doesNotMatch(migration, /\bCASCADE\b/u);
+  assert.doesNotMatch(
+    migration,
+    /\b(?:DELETE|INSERT|MERGE|TRUNCATE|UPDATE)\b/u,
+    'the live-safe successor must not mutate production relation data',
+  );
 });
 
 test('rollback is guarded, literal, exact, and restores predecessor semantics without CASCADE', async () => {

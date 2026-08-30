@@ -572,7 +572,7 @@ function productionMigrationEnvironment(mode) {
   };
 }
 
-function productionCursorRow(cursor) {
+function productionCursorRow(cursor, { runtimeLoginActive = false } = {}) {
   const common = {
     database_name: DR133_TARGET.databaseName,
     current_user: DR133_TARGET.databaseAdmin,
@@ -583,7 +583,13 @@ function productionCursorRow(cursor) {
     ssl_active: true,
     ssl_version: 'TLSv1.3',
     ssl_cipher: 'TLS_AES_256_GCM_SHA384',
-    runtime_login_count: '0',
+    runtime_login_count: runtimeLoginActive ? '1' : '0',
+    runtime_role_active_safe: runtimeLoginActive,
+    runtime_membership_safe: runtimeLoginActive,
+    runtime_membership_count: runtimeLoginActive ? '1' : '0',
+    runtime_owned_object_count: '0',
+    runtime_default_acl_count: '0',
+    runtime_unsafe_dependency_count: '0',
   };
   if (cursor.state === 'absent') {
     return {
@@ -605,11 +611,13 @@ function productionCursorRow(cursor) {
     schema_count: '1',
     app_role_count: '1',
     command_owner_count: cursor.state === 'foundation' ? '0' : '1',
-    lor_role_count: cursor.state === 'foundation' ? '1' : '2',
+    lor_role_count: cursor.state === 'foundation'
+      ? '1'
+      : runtimeLoginActive ? '3' : '2',
   };
 }
 
-function productionPostflightRow() {
+function productionPostflightRow({ nonemptyRelationCount = '0' } = {}) {
   return {
     schema_sentinel: expectedDr133SuccessorSentinel(),
     schema_owner: DR133_TARGET.databaseAdmin,
@@ -625,7 +633,7 @@ function productionPostflightRow() {
     pre_evidence_public_execute_denied: true,
     public_function_execute_count: '0',
     public_table_privilege_count: '0',
-    nonempty_relation_count: '0',
+    nonempty_relation_count: nonemptyRelationCount,
     view_count: '1',
     view_identity: 'student_recommendation_case_projection@postgres',
     app_role_safe: true,
@@ -645,6 +653,8 @@ function receiptCapture() {
 async function createProductionMigrationStatefulFake({
   cursor,
   failAfterCommitId = null,
+  nonemptyRelationCount = '0',
+  runtimeLoginActive = false,
 } = {}) {
   const calls = [];
   let failureConsumed = false;
@@ -678,7 +688,7 @@ async function createProductionMigrationStatefulFake({
       const sql = typeof input === 'string' ? input : input?.text;
       calls.push({ sql, values });
       if (sql === DR133_SUCCESSOR_PREFLIGHT_SQL) {
-        return { rows: [productionCursorRow(cursor)] };
+        return { rows: [productionCursorRow(cursor, { runtimeLoginActive })] };
       }
       if (sql === DR133_ADVISORY_LOCK_SQL) return { rows: [{ acquired: true }] };
       if (sql === DR133_ADVISORY_UNLOCK_SQL) return { rows: [{ released: true }] };
@@ -689,10 +699,10 @@ async function createProductionMigrationStatefulFake({
         if (cursor.state !== 'committed' || cursor.index !== DR133_SUCCESSOR_STAGES.length) {
           throw Object.assign(new Error('postflight before final cursor'), { code: '55000' });
         }
-        return { rows: [productionPostflightRow()] };
+        return { rows: [productionPostflightRow({ nonemptyRelationCount })] };
       }
       if (sql === buildNonemptyRelationsSql()) {
-        return { rows: [{ nonempty_relation_count: '0' }] };
+        return { rows: [{ nonempty_relation_count: nonemptyRelationCount }] };
       }
       if (values?.length === 2 && sql.includes('set_config($1, $2, false)')) {
         return { rows: [{ configured_value: values[1] }] };
@@ -860,6 +870,38 @@ test('successor migration and schema verifier resume the exact next stage direct
     const id = DR133_SUCCESSOR_STAGES[index].id;
     const expectedCount = index < 2 ? 0 : 1;
     assert.equal(fake.calls.filter(({ sql }) => sql === fake.sources.get(id)).length, expectedCount, id);
+  }
+
+  assert.deepEqual(await verifyDr133ProductionSuccessorSchema({
+    environment: productionMigrationEnvironment('schema-verifier'),
+    ClientClass: fake.ClientClass,
+    output: receiptCapture().stream,
+  }), { result: 'SCHEMA_VERIFIED_NO_MUTATION' });
+});
+
+test('live successor applies only the explicitly live-safe final stage with runtime custody intact', async () => {
+  const finalStageIndex = DR133_SUCCESSOR_STAGES.length - 1;
+  const cursor = { state: 'committed', index: finalStageIndex };
+  const fake = await createProductionMigrationStatefulFake({
+    cursor,
+    nonemptyRelationCount: '4',
+    runtimeLoginActive: true,
+  });
+  const capture = receiptCapture();
+
+  assert.deepEqual(await runDr133ProductionSuccessorMigration({
+    environment: productionMigrationEnvironment('successor-migration'),
+    ClientClass: fake.ClientClass,
+    output: capture.stream,
+  }), { result: 'SUCCESSOR_COMMITTED_VERIFIED' });
+  assert.equal(capture.receipt().result, 'SUCCESSOR_COMMITTED_VERIFIED');
+  for (let index = 0; index < DR133_SUCCESSOR_STAGES.length; index += 1) {
+    const id = DR133_SUCCESSOR_STAGES[index].id;
+    assert.equal(
+      fake.calls.filter(({ sql }) => sql === fake.sources.get(id)).length,
+      index === finalStageIndex ? 1 : 0,
+      id,
+    );
   }
 
   assert.deepEqual(await verifyDr133ProductionSuccessorSchema({

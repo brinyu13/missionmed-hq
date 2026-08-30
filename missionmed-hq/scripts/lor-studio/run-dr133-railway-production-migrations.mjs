@@ -114,6 +114,36 @@ database_identity AS (
   SELECT pg_catalog.pg_get_userbyid(datdba)::text AS database_owner
   FROM pg_catalog.pg_database
   WHERE datname = pg_catalog.current_database()
+),
+role_oids AS (
+  SELECT
+    (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = 'lor_studio_app') AS app_oid,
+    (
+      SELECT oid
+      FROM pg_catalog.pg_roles
+      WHERE rolname = 'lor_studio_runtime_login'
+    ) AS runtime_oid
+),
+runtime_role_state AS (
+  SELECT role.*, auth_identity.rolpassword AS auth_rolpassword
+  FROM pg_catalog.pg_roles AS role
+  JOIN pg_catalog.pg_authid AS auth_identity ON auth_identity.oid = role.oid
+  CROSS JOIN role_oids
+  WHERE role.oid = role_oids.runtime_oid
+),
+runtime_memberships AS (
+  SELECT membership.*
+  FROM pg_catalog.pg_auth_members AS membership
+  CROSS JOIN role_oids
+  WHERE membership.roleid IN (role_oids.app_oid, role_oids.runtime_oid)
+    OR membership.member IN (role_oids.app_oid, role_oids.runtime_oid)
+),
+runtime_dependencies AS (
+  SELECT dependency.*
+  FROM pg_catalog.pg_shdepend AS dependency
+  CROSS JOIN role_oids
+  WHERE dependency.refclassid = 'pg_catalog.pg_authid'::pg_catalog.regclass
+    AND dependency.refobjid = role_oids.runtime_oid
 )
 SELECT
   pg_catalog.current_database()::text AS database_name,
@@ -174,7 +204,56 @@ SELECT
     SELECT pg_catalog.count(*)::text
     FROM pg_catalog.pg_roles
     WHERE rolname LIKE 'lor\\_studio\\_%' ESCAPE '\\'
-  ) AS lor_role_count
+  ) AS lor_role_count,
+  (
+    SELECT pg_catalog.count(*) = 1
+    FROM runtime_role_state AS role
+    WHERE role.rolname = 'lor_studio_runtime_login'
+      AND role.rolsuper IS FALSE
+      AND role.rolinherit IS FALSE
+      AND role.rolcreaterole IS FALSE
+      AND role.rolcreatedb IS FALSE
+      AND role.rolcanlogin IS TRUE
+      AND role.rolreplication IS FALSE
+      AND role.rolbypassrls IS FALSE
+      AND role.rolconnlimit = 20
+      AND role.rolvaliduntil IS NULL
+      AND role.auth_rolpassword LIKE 'SCRAM-SHA-256$%'
+      AND role.rolconfig @> ARRAY[
+        'search_path=pg_catalog',
+        'statement_timeout=15s',
+        'lock_timeout=5s',
+        'idle_in_transaction_session_timeout=15s'
+      ]::text[]
+      AND pg_catalog.cardinality(role.rolconfig) = 4
+  ) AS runtime_role_active_safe,
+  (
+    SELECT pg_catalog.count(*) = 1
+    FROM pg_catalog.pg_auth_members AS membership
+    CROSS JOIN role_oids
+    WHERE membership.roleid = role_oids.app_oid
+      AND membership.member = role_oids.runtime_oid
+      AND membership.grantor = (
+        SELECT oid FROM pg_catalog.pg_roles WHERE rolname = current_user
+      )
+      AND membership.admin_option IS FALSE
+      AND membership.inherit_option IS FALSE
+      AND membership.set_option IS TRUE
+  ) AS runtime_membership_safe,
+  (SELECT pg_catalog.count(*)::text FROM runtime_memberships) AS runtime_membership_count,
+  (
+    SELECT pg_catalog.count(*)::text
+    FROM runtime_dependencies
+    WHERE deptype = 'o'
+  ) AS runtime_owned_object_count,
+  (
+    SELECT pg_catalog.count(*)::text
+    FROM pg_catalog.pg_default_acl AS default_acl
+    CROSS JOIN role_oids
+    WHERE default_acl.defaclrole = role_oids.runtime_oid
+  ) AS runtime_default_acl_count,
+  (SELECT pg_catalog.count(*)::text FROM runtime_dependencies)
+    AS runtime_unsafe_dependency_count
 FROM database_identity
 LEFT JOIN ssl_session ON true
 `;
@@ -207,7 +286,7 @@ export function classifyDr133ProductionSchemaCursor(row) {
     || row.ssl_version.length === 0
     || typeof row.ssl_cipher !== 'string'
     || row.ssl_cipher.length === 0
-    || row.runtime_login_count !== '0') {
+    || !['0', '1'].includes(row.runtime_login_count)) {
     failDr133('PRODUCTION_SCHEMA_CURSOR_INVALID');
   }
   if (row.schema_count === '0'
@@ -228,7 +307,17 @@ export function classifyDr133ProductionSchemaCursor(row) {
     && row.lor_role_count === '1') {
     return Object.freeze({ state: 'foundation', successorStageIndex: -1 });
   }
-  if (row.command_owner_count !== '1' || row.lor_role_count !== '2') {
+  const runtimeLoginActive = row.runtime_login_count === '1';
+  if (row.command_owner_count !== '1'
+    || row.lor_role_count !== (runtimeLoginActive ? '3' : '2')
+    || (runtimeLoginActive && (
+      row.runtime_role_active_safe !== true
+      || row.runtime_membership_safe !== true
+      || row.runtime_membership_count !== '1'
+      || row.runtime_owned_object_count !== '0'
+      || row.runtime_default_acl_count !== '0'
+      || row.runtime_unsafe_dependency_count !== '0'
+    ))) {
     failDr133('PRODUCTION_SCHEMA_CURSOR_INVALID');
   }
   const successorStageIndex = Array.from(
@@ -236,7 +325,7 @@ export function classifyDr133ProductionSchemaCursor(row) {
     (_, index) => index,
   ).find((index) => row.schema_sentinel === expectedDr133SuccessorSentinelAt(index));
   if (successorStageIndex === undefined) failDr133('PRODUCTION_SCHEMA_CURSOR_INVALID');
-  return Object.freeze({ state: 'committed', successorStageIndex });
+  return Object.freeze({ state: 'committed', successorStageIndex, runtimeLoginActive });
 }
 
 function productionSchemaCursorRank(cursor) {
@@ -750,7 +839,7 @@ export async function runDr133ProductionMigration({
   return Object.freeze({ result: 'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED' });
 }
 
-function successorSchemaStageIndex(row) {
+function successorSchemaCursor(row) {
   let cursor;
   try {
     cursor = classifyDr133ProductionSchemaCursor(row);
@@ -760,7 +849,7 @@ function successorSchemaStageIndex(row) {
   if (cursor.state !== 'committed') {
     failDr133('SUCCESSOR_MIGRATION_PREFLIGHT_TARGET_INVALID');
   }
-  return cursor.successorStageIndex;
+  return cursor;
 }
 
 function successorResultForFailure(stage, error, { alreadyCommitted, mutationDispatched }) {
@@ -841,7 +930,8 @@ export async function runDr133ProductionSuccessorMigration({
 
     const preflightResult = await client.query(DR133_SUCCESSOR_PREFLIGHT_SQL);
     preflightRow = preflightResult.rows?.[0];
-    const preflightStageIndex = successorSchemaStageIndex(preflightRow);
+    const preflightCursor = successorSchemaCursor(preflightRow);
+    const preflightStageIndex = preflightCursor.successorStageIndex;
     stage = 'BASE_PREFLIGHT_VERIFIED';
 
     const lockResult = await client.query(DR133_ADVISORY_LOCK_SQL);
@@ -850,11 +940,22 @@ export async function runDr133ProductionSuccessorMigration({
     stage = 'LOCKED';
 
     const lockedPreflight = await client.query(DR133_SUCCESSOR_PREFLIGHT_SQL);
-    const lockedStageIndex = successorSchemaStageIndex(lockedPreflight.rows?.[0]);
+    const lockedCursor = successorSchemaCursor(lockedPreflight.rows?.[0]);
+    const lockedStageIndex = lockedCursor.successorStageIndex;
     if (lockedStageIndex < preflightStageIndex) {
       failDr133('SUCCESSOR_SCHEMA_STATE_REGRESSED');
     }
+    if (lockedCursor.runtimeLoginActive !== preflightCursor.runtimeLoginActive) {
+      failDr133('SUCCESSOR_RUNTIME_LOGIN_STATE_CHANGED');
+    }
     alreadyCommitted = lockedStageIndex === DR133_SUCCESSOR_STAGES.length;
+    const liveDataUpgrade = lockedCursor.runtimeLoginActive;
+    if (liveDataUpgrade && !alreadyCommitted) {
+      const remainingStages = DR133_SUCCESSOR_STAGES.slice(lockedStageIndex);
+      if (remainingStages.length !== 1 || remainingStages[0].liveDataSafe !== true) {
+        failDr133('SUCCESSOR_LIVE_DATA_STAGE_NOT_APPROVED');
+      }
+    }
     await client.query("SET statement_timeout = '300s'");
     await client.query("SET lock_timeout = '15s'");
     await client.query("SET idle_in_transaction_session_timeout = '120s'");
@@ -864,6 +965,15 @@ export async function runDr133ProductionSuccessorMigration({
         [name, value],
       );
       if (gucResult.rows?.[0]?.configured_value !== value) failDr133('TARGET_GUC_REJECTED');
+    }
+
+    let preMutationNonemptyCount = '0';
+    if (liveDataUpgrade) {
+      const preMutationNonempty = await client.query(buildNonemptyRelationsSql());
+      preMutationNonemptyCount = preMutationNonempty.rows?.[0]?.nonempty_relation_count;
+      if (!/^(?:0|[1-9][0-9]{0,9})$/u.test(preMutationNonemptyCount ?? '')) {
+        failDr133('SUCCESSOR_DATA_CUSTODY_PREFLIGHT_INVALID');
+      }
     }
 
     if (!alreadyCommitted) {
@@ -894,7 +1004,10 @@ export async function runDr133ProductionSuccessorMigration({
       ...catalogResult.rows?.[0],
       ...nonemptyResult.rows?.[0],
     };
-    assertPostflightRow(postflightRow);
+    assertPostflightRow(postflightRow, { allowNonempty: liveDataUpgrade });
+    if (postflightRow.nonempty_relation_count !== preMutationNonemptyCount) {
+      failDr133('SUCCESSOR_DATA_CUSTODY_CHANGED');
+    }
     stage = 'POSTFLIGHT_VERIFIED';
   } catch (error) {
     primaryError = error;
@@ -985,7 +1098,7 @@ export async function verifyDr133ProductionSuccessorSchema({
 
     const preflightResult = await client.query(DR133_SUCCESSOR_PREFLIGHT_SQL);
     preflightRow = preflightResult.rows?.[0];
-    assertSuccessorSchemaPreflightRow(preflightRow);
+    const preflightState = assertSuccessorSchemaPreflightRow(preflightRow);
     stage = 'PREFLIGHT_VERIFIED';
 
     const lockResult = await client.query(DR133_ADVISORY_LOCK_SQL);
@@ -994,7 +1107,10 @@ export async function verifyDr133ProductionSuccessorSchema({
     stage = 'LOCKED';
 
     const lockedPreflight = await client.query(DR133_SUCCESSOR_PREFLIGHT_SQL);
-    assertSuccessorSchemaPreflightRow(lockedPreflight.rows?.[0]);
+    const lockedState = assertSuccessorSchemaPreflightRow(lockedPreflight.rows?.[0]);
+    if (lockedState.runtimeLoginActive !== preflightState.runtimeLoginActive) {
+      failDr133('SUCCESSOR_RUNTIME_LOGIN_STATE_CHANGED');
+    }
     await client.query("SET statement_timeout = '300s'");
     await client.query("SET lock_timeout = '15s'");
     await client.query("SET idle_in_transaction_session_timeout = '120s'");
@@ -1013,7 +1129,9 @@ export async function verifyDr133ProductionSuccessorSchema({
       ...catalogResult.rows?.[0],
       ...nonemptyResult.rows?.[0],
     };
-    assertPostflightRow(postflightRow);
+    assertPostflightRow(postflightRow, {
+      allowNonempty: lockedState.runtimeLoginActive,
+    });
     stage = 'POSTFLIGHT_VERIFIED';
   } catch (error) {
     primaryError = error;
