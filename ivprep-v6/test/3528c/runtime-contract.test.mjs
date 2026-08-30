@@ -1,12 +1,26 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import test from 'node:test';
 
 const root = new URL('../../public/ivoc-standalone/app/', import.meta.url);
 const read = (name) => readFileSync(new URL(name, root), 'utf8');
 const browserPipeline = readFileSync(new URL('../../public/analytics/browser-pipeline.mjs', import.meta.url), 'utf8');
 const cockpit = readFileSync(new URL('../../public/ivoc-standalone/styles/cockpit.css', import.meta.url), 'utf8');
+const standalone = new URL('../../public/ivoc-standalone/', import.meta.url);
+const tokens = readFileSync(new URL('styles/tokens.css', standalone), 'utf8');
 const migration = readFileSync(new URL('../../../supabase/migrations/20260830040054_ivoc_3528c_session_recording_results.sql', import.meta.url), 'utf8');
+
+test('frozen visual package includes its design tokens and approved bitmap art', () => {
+  assert.match(tokens, /:root\s*\{/u);
+  assert.match(tokens, /--g-bg:/u);
+  assert.match(tokens, /--g-font:/u);
+  for (const asset of [
+    'assets/arena-world-day.jpg',
+    'assets/arena-world-sunset.jpg',
+    'assets/founder-face-scanner.png',
+    'assets/founder-body-scanner.png',
+  ]) assert.ok(statSync(new URL(asset, standalone)).size > 1_000, `${asset} must ship in the release archive`);
+});
 
 test('frozen cockpit uses only real analytics and account persistence', () => {
   const live = read('live.mjs');

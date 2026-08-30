@@ -161,6 +161,24 @@ test('authenticated UI response carries camera, microphone, and font policy', as
   assert.match(response.headers['Content-Security-Policy'], /fonts\.googleapis\.com.*fonts\.gstatic\.com/u);
 });
 
+test('authenticated UI serves the frozen design tokens and arena art with exact MIME types', async () => {
+  const { route } = handler();
+  const tokens = new ResponseCapture();
+  await route({ ...base, request: request('HEAD'), response: tokens, url: new URL('https://hq.test/iv-prep-analytics/styles/tokens.css'), hqSession: session() });
+  assert.equal(tokens.status, 200);
+  assert.equal(tokens.headers['Content-Type'], 'text/css; charset=utf-8');
+
+  const arena = new ResponseCapture();
+  await route({ ...base, request: request('HEAD'), response: arena, url: new URL('https://hq.test/iv-prep-analytics/assets/arena-world-day.jpg'), hqSession: session() });
+  assert.equal(arena.status, 200);
+  assert.equal(arena.headers['Content-Type'], 'image/jpeg');
+
+  const scanner = new ResponseCapture();
+  await route({ ...base, request: request('HEAD'), response: scanner, url: new URL('https://hq.test/iv-prep-analytics/assets/founder-face-scanner.png'), hqSession: session() });
+  assert.equal(scanner.status, 200);
+  assert.equal(scanner.headers['Content-Type'], 'image/png');
+});
+
 test('recording media upload is same-origin proxied without exposing the private object key', async () => {
   const recordingId = '00000000-0000-4000-8000-000000000099';
   const bytes = Buffer.from('private-media-bytes');
