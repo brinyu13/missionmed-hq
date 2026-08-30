@@ -619,21 +619,26 @@ export class OpenAiGroundedProposalAdapter extends AiProposalPort {
       if (
         !response
         || response.url !== OPENAI_RESPONSES_ENDPOINT
-        || response.ok !== true
-        || Number(response.status) !== 200
       ) {
-        throw unavailable('OPENAI_PROVIDER_UNAVAILABLE');
+        throw invalidProviderResponse('provider_endpoint_shape');
+      }
+      if (response.ok !== true || Number(response.status) !== 200) {
+        const status = Number(response.status);
+        const safeStatus = Number.isInteger(status) && status >= 100 && status <= 599
+          ? status
+          : 'invalid';
+        throw invalidProviderResponse(`provider_http_status_${safeStatus}`);
       }
       const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
       if (!contentType.startsWith('application/json')) {
-        throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+        throw invalidProviderResponse('provider_content_type');
       }
       const raw = await readBoundedBody(response);
       let parsed;
       try {
         parsed = JSON.parse(raw);
       } catch {
-        throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+        throw invalidProviderResponse('provider_response_json');
       }
       if (
         !isPlainObject(parsed)
@@ -642,14 +647,14 @@ export class OpenAiGroundedProposalAdapter extends AiProposalPort {
         || parsed.model !== OPENAI_MODEL
         || parsed.error
       ) {
-        throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+        throw invalidProviderResponse('provider_response_envelope');
       }
       let structured;
       try {
         structured = JSON.parse(outputText(parsed));
       } catch (error) {
         if (error instanceof IntegrationDisabledError) throw error;
-        throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+        throw invalidProviderResponse('structured_output_json');
       }
       return normalizeProviderProposal(structured, new Set(input.facts.map((fact) => fact.id)));
     } catch (error) {
