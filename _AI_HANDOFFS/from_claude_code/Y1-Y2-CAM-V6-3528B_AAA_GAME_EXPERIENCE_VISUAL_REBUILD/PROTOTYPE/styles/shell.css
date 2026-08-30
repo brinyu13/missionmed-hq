@@ -43,6 +43,7 @@
   position: relative;
 }
 #rail.min { width: var(--nav-w-min); }
+#rail.gone { width: 0; min-width: 0; border-right: none; }
 
 .rail-brand {
   display: flex; align-items: center; gap: 12px;

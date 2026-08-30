@@ -608,6 +608,6 @@ function processingScreen(el) {
 }
 
 export const LIVE_SCREENS = {
-  live: { render: liveScreen, env: false, hilite: 'practice', autoFocus: false, railMin: true },
+  live: { render: liveScreen, env: false, hilite: 'practice', autoFocus: false, railHidden: true },
   processing: { render: processingScreen, envTheme: 'results', hilite: 'results' },
 };

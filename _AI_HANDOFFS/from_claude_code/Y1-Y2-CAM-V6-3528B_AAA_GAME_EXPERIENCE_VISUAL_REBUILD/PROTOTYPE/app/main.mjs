@@ -248,6 +248,7 @@ async function renderRoute() {
   if (def.env === false) { env.setEnabled(false); } else { env.setEnabled(true); env.setTheme(def.envTheme || 'lobby'); }
   setWorld(def.world || null);
   rail.classList.toggle('min', !!def.railMin || ui.railMin);
+  rail.classList.toggle('gone', !!def.railHidden);   // live room: no nav chrome at all
 
   stage.innerHTML = '';
   const el = document.createElement('div');

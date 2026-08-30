@@ -88,6 +88,9 @@ with the rail auto-collapsed. Menu screens fluid across the same set.
 ## Interaction model delivered
 - Controller grammar: arrow-key spatial focus, Enter activates, Esc = back / pause menu
   (in-room: RESUME / END & SAVE), focus ring + white-frame card focus everywhere.
+- Left nav rail: expanded/collapsible in all menus; icon rail on READY; **fully hidden
+  during the live interview** (Founder directive 2026-08-29 — the room owns the full
+  width; exits are FINISH and the Esc pause menu, and the rail returns on Results).
 - Zero required typing (only optional session-title rename).
 - Back/Next footer on every multi-step screen; refresh restores state; a live-session
   refresh lands on the RECOVERY screen (save-partial / resume-setup / discard).
