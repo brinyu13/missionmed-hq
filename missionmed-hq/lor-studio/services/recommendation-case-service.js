@@ -1026,12 +1026,15 @@ export class RecommendationCaseService {
       throw new ValidationError('expectedRevision must be a non-negative integer');
     }
     const occurredAt = toIso(this.clock(), 'faculty-private occurredAt');
+    const serverBoundFinalDocument = finalDocument !== null && finalDocument?.id === null
+      ? { ...finalDocument, id: makeId('document', this.protectedIdFactory) }
+      : finalDocument;
     const content = normalizeFacultyPrivateAuthoring({
       actor,
       answers,
       notes,
       draftText,
-      finalDocument,
+      finalDocument: serverBoundFinalDocument,
       documentState,
       facultyApproval,
       approvedAt: occurredAt,

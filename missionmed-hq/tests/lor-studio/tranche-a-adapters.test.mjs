@@ -1151,6 +1151,7 @@ test('durable faculty service reads, authors, and releases through actor-safe DT
           ...beforeRelease.facultyPrivate,
           finalDocument: {
             ...beforeRelease.facultyPrivate.finalDocument,
+            id: command.documentId,
             releasedToStudentAt: command.event.occurredAt,
           },
         },
@@ -1182,6 +1183,7 @@ test('durable faculty service reads, authors, and releases through actor-safe DT
       },
     },
     clock: () => new Date('2026-08-09T15:00:00.000Z'),
+    protectedIdFactory: () => 'server-final-1',
   });
 
   const exportRead = await repository.readFinalDocumentExport({
@@ -1203,7 +1205,7 @@ test('durable faculty service reads, authors, and releases through actor-safe DT
     draftText: 'Updated private draft',
     finalDocument: {
       contentHash: null,
-      id: 'document-1',
+      id: null,
       mimeType: 'text/plain',
       text: 'Approved final letter',
     },
@@ -1214,7 +1216,7 @@ test('durable faculty service reads, authors, and releases through actor-safe DT
     caseId: 'case-1',
     actor: { id: 'wp:43', role: 'faculty' },
     expectedRevision: 8,
-    documentId: 'document-1',
+    documentId: 'document_server-final-1',
     idempotencyKey: 'faculty-release-1',
   });
 
@@ -1252,6 +1254,7 @@ test('durable faculty service reads, authors, and releases through actor-safe DT
     facultyId: 'wp:43',
     signatureAttested: true,
   });
+  assert.equal(calls[2].command.content.finalDocument.id, 'document_server-final-1');
   assert.equal('releasedToStudentAt' in calls[2].command.content.finalDocument, false);
   assert.deepEqual(Object.keys(calls[3].command), [
     'binding',
