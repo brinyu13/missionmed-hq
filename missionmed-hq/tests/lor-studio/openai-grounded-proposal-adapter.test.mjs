@@ -477,14 +477,21 @@ test('malformed structured outputs fail closed without returning partial wording
       }],
       claims: [{ text: FACT_TEXT, supportIds: ['foreign-fact'] }],
     }))),
-    jsonResponse(providerPayload(validProposal({
-      text: `${FACT_TEXT} Extra text.`,
-    }))),
   ];
   for (const response of cases) {
     const { adapter } = harness({ response });
     await assert.rejects(() => adapter.generateProposal(input()), assertSafeFailure);
   }
+});
+
+test('canonical proposal text is derived only from validated grounded segments', async () => {
+  const response = jsonResponse(providerPayload(validProposal({
+    text: `${FACT_TEXT} Ungrounded duplicate text must be discarded.`,
+  })));
+  const { adapter } = harness({ response });
+  const proposal = await adapter.generateProposal(input());
+  assert.equal(proposal.text, FACT_TEXT);
+  assert.equal(proposal.text.includes('Ungrounded duplicate'), false);
 });
 
 test('request and response size limits reject before unsafe processing', async () => {

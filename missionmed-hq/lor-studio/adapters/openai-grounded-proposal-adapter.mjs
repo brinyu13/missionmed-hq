@@ -501,7 +501,12 @@ function normalizeProviderProposal(value, allowedFactIds) {
   const composed = segments
     .map((segment, index) => (index === 0 ? '' : SEPARATORS[segment.separator]) + segment.text)
     .join('');
-  if (value.text !== composed) throw invalidProviderResponse('composed_text_mismatch');
+  // The top-level text is a redundant provider convenience field. Persist and display only the
+  // deterministic composition of the individually validated, provenance-bound segments; this
+  // prevents any ungrounded or formatting-drift text in the duplicate field from surviving.
+  if (composed.length > MAX_TEXT_LENGTH) {
+    throw invalidProviderResponse('composed_text_bounds');
+  }
 
   const factualClaims = segments
     .filter((segment) => segment.kind === 'factual')
@@ -516,7 +521,7 @@ function normalizeProviderProposal(value, allowedFactIds) {
 
   return deepFreeze({
     state: 'proposal',
-    text: value.text,
+    text: composed,
     segments,
     claims: factualClaims,
     provider: PROVIDER_ID,
