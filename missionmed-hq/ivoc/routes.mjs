@@ -129,12 +129,21 @@ export function createIvocHandler({
   env = process.env,
   fetchImpl = fetch,
 } = {}) {
-  const mediaBase = String(env.MMHQ_MEDIA_UPLOAD_BASE || 'https://cdn.missionmedinstitute.com').replace(/\/+$/u, '');
+  const mediaBase = '';
   const db = repository || createIvocRepository({
     baseUrl: env.IVPREP_SUPABASE_URL,
     serviceRoleKey: env.IVPREP_SUPABASE_SERVICE_ROLE_KEY,
   });
-  const media = storage || createIvocStorage({ mediaBase, sessionSecret: env.MMHQ_SESSION_SECRET });
+  const media = storage || createIvocStorage({
+    endpoint: env.MMHQ_R2_ENDPOINT,
+    accountId: env.MMHQ_R2_ACCOUNT_ID,
+    accessKeyId: env.MMHQ_R2_ACCESS_KEY_ID,
+    secretAccessKey: env.MMHQ_R2_SECRET_ACCESS_KEY,
+    bucket: env.MMHQ_R2_BUCKET || 'missionmed-cam-production',
+    prefix: env.MMHQ_R2_IVOC_PREFIX || 'ivoc/recordings',
+    sessionSecret: env.MMHQ_SESSION_SECRET,
+    fetchImpl,
+  });
   const enabled = bool(env.IVPREP_ENABLED) && bool(env.IVPREP_ADMIN_CANARY_ENABLED);
   const requireHead = bool(env.IVOC_REQUIRE_MEDIA_HEAD, false);
 
@@ -227,10 +236,11 @@ export function createIvocHandler({
         if (!sessionRow || sessionRow.owner_subject !== actor) { await audit({ actor, sessionId, action: 'recording_create', decision: 'deny', reason: 'not_owner' }); sendError(response, 404, 'not_found', mediaBase); return true; }
         const input = await readJson(request);
         const recordingId = randomUUID();
-        const upload = media.createUpload({ ownerSubject: actor, recordingId, extension: extensionForMime(input.mime) });
+        const mime = safeText(input.mime, 120) || 'video/webm';
+        const upload = await media.createUpload({ ownerSubject: actor, recordingId, extension: extensionForMime(mime), mime });
         const row = await db.insert('ivoc_recordings', {
           id: recordingId, session_id: sessionId, owner_subject: actor, storage_object_key: upload.objectKey,
-          status: 'uploading', mime_type: safeText(input.mime, 120) || 'video/webm',
+          status: 'uploading', mime_type: mime, etag: upload.uploadState,
         });
         sendJson(response, 201, {
           ...publicRecording(row),
@@ -260,30 +270,23 @@ export function createIvocHandler({
         const end = Number(range[2]);
         const total = Number(range[3]);
         const expectedBytes = end - start + 1;
+        const contractStart = (part - 1) * MAX_MEDIA_CHUNK_BYTES;
+        const contractEnd = Math.min(contractStart + MAX_MEDIA_CHUNK_BYTES, total) - 1;
+        const contractParts = Math.ceil(total / MAX_MEDIA_CHUNK_BYTES);
         if (![start, end, total, expectedBytes].every(Number.isSafeInteger)
-          || start < 0 || end < start || total <= end || expectedBytes > MAX_MEDIA_CHUNK_BYTES) {
+          || start < 0 || end < start || total <= end || expectedBytes > MAX_MEDIA_CHUNK_BYTES
+          || start !== contractStart || end !== contractEnd || parts !== contractParts) {
           sendError(response, 400, 'recording_chunk_range_invalid', mediaBase); return true;
         }
         const chunk = await readMediaChunk(request);
         try {
           if (chunk.length !== expectedBytes) { sendError(response, 400, 'recording_chunk_length_invalid', mediaBase); return true; }
-          const signed = media.signedUrl(row.storage_object_key, Math.max(1_000, Math.min(10 * 60 * 1_000, expiresAtMs - now())));
-          const target = new URL(signed.url);
-          target.searchParams.set('part', String(part));
-          target.searchParams.set('parts', String(parts));
-          const upstream = await fetchImpl(target, {
-            method: 'PUT', redirect: 'error',
-            headers: { 'Content-Type': 'application/octet-stream', 'Content-Range': `bytes ${start}-${end}/${total}` },
-            body: chunk,
-          }).catch(() => null);
-          if (!upstream?.ok) {
-            console.error(JSON.stringify({
-              event: 'ivoc_media_gateway_failed',
-              upstreamStatus: Number(upstream?.status || 0),
-              upstreamStatusText: safeText(upstream?.statusText || 'network_error', 80),
-            }));
-            sendError(response, 502, 'recording_media_gateway_failed', mediaBase); return true;
-          }
+          const uploaded = await media.uploadPart({
+            objectKey: row.storage_object_key, uploadState: row.etag, part, parts, body: chunk,
+          });
+          await db.update(`ivoc_recordings?id=eq.${recordingId}&owner_subject=eq.${encodeURIComponent(actor)}&status=eq.uploading&select=*`, {
+            etag: uploaded.uploadState,
+          });
           await audit({ actor, owner: actor, sessionId: row.session_id, recordingId, action: 'recording_media_upload', decision: 'allow', reason: `part_${part}_of_${parts}` });
           response.writeHead(204, securityHeaders(mediaBase)); response.end(); return true;
         } finally { chunk.fill(0); }
@@ -297,11 +300,12 @@ export function createIvocHandler({
         const input = await readJson(request);
         const tokenValid = media.validateUploadToken({ recordingId, objectKey: row.storage_object_key, expiresAtMs: Number(input.uploadExpiresAtMs), uploadToken: input.uploadToken });
         if (!tokenValid) { sendError(response, 403, 'recording_upload_token_invalid', mediaBase); return true; }
+        const completed = await media.completeUpload({ objectKey: row.storage_object_key, uploadState: row.etag });
         if (requireHead && !(await media.verifyObject(row.storage_object_key))) { sendError(response, 409, 'recording_media_not_confirmed', mediaBase); return true; }
         const saved = await db.update(`ivoc_recordings?id=eq.${recordingId}&owner_subject=eq.${encodeURIComponent(actor)}&select=*`, {
           status: 'saved', size_bytes: Math.max(0, Math.trunc(Number(input.sizeBytes) || 0)),
           duration_ms: Math.max(0, Math.trunc(Number(input.durationMs) || 0)), mime_type: safeText(input.mime, 120) || row.mime_type,
-          sealed_at: new Date(now()).toISOString(), paused_spans: Array.isArray(input.pausedSpans) ? input.pausedSpans : [],
+          sealed_at: new Date(now()).toISOString(), paused_spans: Array.isArray(input.pausedSpans) ? input.pausedSpans : [], etag: completed.etag || null,
         });
         await audit({ actor, owner: actor, sessionId: row.session_id, recordingId, action: 'recording_seal', decision: 'allow', reason: requireHead ? 'head_confirmed' : 'signed_upload_completed' });
         sendJson(response, 200, { recording: publicRecording(saved) }, mediaBase); return true;
@@ -373,9 +377,46 @@ export function createIvocHandler({
         const recording = await db.single(`ivoc_recordings?id=eq.${match[1]}&status=eq.saved&select=*&limit=1`);
         const sessionRow = recording ? await db.single(`ivoc_sessions?id=eq.${recording.session_id}&select=*&limit=1`) : null;
         if (!recording || !(await canReadSession({ row: sessionRow, actor, session: hqSession, admission }))) { await audit({ actor, owner: recording?.owner_subject, recordingId: match[1], action: 'recording_playback', decision: 'deny', reason: 'scope' }); sendError(response, 404, 'not_found', mediaBase); return true; }
-        const signed = media.signedUrl(recording.storage_object_key, 10 * 60 * 1000);
+        const disposition = url.searchParams.get('disposition') === 'attachment' ? 'attachment' : 'inline';
+        const playback = media.createPlayback({ recordingId: recording.id, objectKey: recording.storage_object_key, disposition });
         await audit({ actor, owner: recording.owner_subject, sessionId: recording.session_id, recordingId: recording.id, action: 'recording_playback', decision: 'allow', reason: recording.owner_subject === actor ? 'owner' : 'authorized_review' });
-        sendJson(response, 200, { recordingId: recording.id, url: signed.url, expiresAt: signed.expiresAt, disposition: url.searchParams.get('disposition') === 'attachment' ? 'attachment' : 'inline' }, mediaBase); return true;
+        const playbackUrl = `${API_PREFIX}/recordings/${recording.id}/playback?token=${encodeURIComponent(playback.token)}&expires=${playback.expiresAtMs}&disposition=${playback.disposition}`;
+        sendJson(response, 200, { recordingId: recording.id, url: playbackUrl, expiresAt: playback.expiresAt, disposition: playback.disposition }, mediaBase); return true;
+      }
+
+      match = pathname.match(/^\/api\/ivoc\/v1\/recordings\/([0-9a-f-]{36})\/playback$/u);
+      if (['GET', 'HEAD'].includes(request.method) && match) {
+        const recording = await db.single(`ivoc_recordings?id=eq.${match[1]}&status=eq.saved&select=*&limit=1`);
+        const sessionRow = recording ? await db.single(`ivoc_sessions?id=eq.${recording.session_id}&select=*&limit=1`) : null;
+        if (!recording || !(await canReadSession({ row: sessionRow, actor, session: hqSession, admission }))) { sendError(response, 404, 'not_found', mediaBase); return true; }
+        const disposition = url.searchParams.get('disposition') === 'attachment' ? 'attachment' : 'inline';
+        const tokenValid = media.validatePlaybackToken({
+          recordingId: recording.id,
+          objectKey: recording.storage_object_key,
+          expiresAtMs: Number(url.searchParams.get('expires')),
+          playbackToken: url.searchParams.get('token'),
+          disposition,
+        });
+        if (!tokenValid) { sendError(response, 403, 'recording_playback_token_invalid', mediaBase); return true; }
+        const upstream = await media.fetchObject(recording.storage_object_key, {
+          method: request.method,
+          range: safeText(request.headers.range, 160),
+        });
+        const headers = securityHeaders(mediaBase, {
+          'Accept-Ranges': upstream.headers.get('accept-ranges') || 'bytes',
+          'Content-Type': upstream.headers.get('content-type') || recording.mime_type || 'application/octet-stream',
+          'Content-Disposition': `${disposition}; filename="iv-prep-recording.${extensionForMime(recording.mime_type)}"`,
+          ...(upstream.headers.get('content-length') ? { 'Content-Length': upstream.headers.get('content-length') } : {}),
+          ...(upstream.headers.get('content-range') ? { 'Content-Range': upstream.headers.get('content-range') } : {}),
+          ...(upstream.headers.get('etag') ? { ETag: upstream.headers.get('etag') } : {}),
+        });
+        response.writeHead(upstream.status, headers);
+        if (request.method === 'HEAD' || !upstream.body) response.end();
+        else {
+          for await (const chunk of upstream.body) response.write(Buffer.from(chunk));
+          response.end();
+        }
+        return true;
       }
 
       if (request.method === 'GET' && pathname === `${API_PREFIX}/preferences`) {

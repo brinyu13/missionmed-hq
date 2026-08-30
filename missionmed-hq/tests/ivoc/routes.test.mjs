@@ -6,7 +6,8 @@ import { createIvocHandler } from '../../ivoc/routes.mjs';
 
 class ResponseCapture {
   writeHead(status, headers) { this.status = status; this.headers = headers; }
-  end(body = '') { this.body = String(body); }
+  write(body = '') { this.body = `${this.body || ''}${Buffer.from(body).toString()}`; return true; }
+  end(body = '') { this.body = `${this.body || ''}${Buffer.from(body).toString()}`; }
   json() { return this.body ? JSON.parse(this.body) : null; }
 }
 
@@ -42,8 +43,9 @@ function registry() {
 
 function repository() {
   const inserts = [];
+  const updates = [];
   return {
-    inserts,
+    inserts, updates,
     single: async () => null,
     request: async (path) => path.startsWith('ivoc_sessions?owner_subject=eq.wp%3A42') ? [] : [],
     insert: async (table, body) => {
@@ -51,14 +53,14 @@ function repository() {
       if (table === 'ivoc_sessions') return { id: '00000000-0000-4000-8000-000000000042', ...body, started_at: new Date().toISOString(), created_at: new Date().toISOString() };
       return { id: 1, ...body };
     },
-    update: async () => null,
+    update: async (path, body) => { updates.push({ path, body }); return { ...body }; },
   };
 }
 
 function handler(repo = repository()) {
   return { repo, route: createIvocHandler({
     registry: registry(), repository: repo,
-    storage: { createUpload: () => { throw new Error('not used'); }, validateUploadToken: () => false, signedUrl: () => ({}) },
+    storage: { createUpload: () => { throw new Error('not used'); }, validateUploadToken: () => false },
     env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64), MMHQ_CIE_BASE: 'https://media.test' },
   }) };
 }
@@ -164,19 +166,18 @@ test('recording media upload is same-origin proxied without exposing the private
   const bytes = Buffer.from('private-media-bytes');
   const recording = {
     id: recordingId, session_id: foreignSessionId, owner_subject: 'wp:42', status: 'uploading',
-    storage_object_key: 'dboc-iv/wp_42/ivoc/private.webm', mime_type: 'video/webm', created_at: new Date().toISOString(),
+    storage_object_key: 'ivoc/recordings/wp_42/ivoc_private.webm', mime_type: 'video/webm', etag: 'opaque-upload-state', created_at: new Date().toISOString(),
   };
   const repo = repository();
   repo.single = async (path) => path.startsWith(`ivoc_recordings?id=eq.${recordingId}`) ? recording : null;
-  const forwarded = [];
+  const uploaded = [];
   const route = createIvocHandler({
     registry: registry(), repository: repo,
     storage: {
       createUpload: () => { throw new Error('not used'); },
       validateUploadToken: ({ recordingId: id, uploadToken, expiresAtMs }) => id === recordingId && uploadToken === 'opaque-token' && expiresAtMs > Date.now(),
-      signedUrl: () => ({ url: 'https://media.test/dboc-iv/private?x-dboc-signature=sig&x-dboc-expires=9999999999999' }),
+      uploadPart: async (input) => { uploaded.push({ ...input, body: Buffer.from(input.body) }); return { etag: '"part-etag"', uploadState: 'next-opaque-upload-state' }; },
     },
-    fetchImpl: async (url, options) => { forwarded.push({ url: String(url), options }); return { ok: true }; },
     env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64), MMHQ_CIE_BASE: 'https://media.test' },
   });
   const response = new ResponseCapture();
@@ -193,8 +194,53 @@ test('recording media upload is same-origin proxied without exposing the private
     hqSession: session(),
   });
   assert.equal(response.status, 204);
-  assert.equal(forwarded.length, 1);
-  assert.match(forwarded[0].url, /part=1&parts=1/u);
-  assert.equal(forwarded[0].options.headers['Content-Range'], `bytes 0-${bytes.length - 1}/${bytes.length}`);
+  assert.equal(uploaded.length, 1);
+  assert.equal(uploaded[0].part, 1);
+  assert.equal(uploaded[0].parts, 1);
+  assert.equal(uploaded[0].body.toString(), bytes.toString());
+  assert.equal(repo.updates.at(-1).body.etag, 'next-opaque-upload-state');
   assert.doesNotMatch(response.body || '', /storage_object_key|dboc-iv/u);
+});
+
+test('authorized playback remains same-origin and never returns the private object key', async () => {
+  const repo = scopedRepository({ assigned: true });
+  repo.single = async (path) => {
+    if (path.startsWith(`ivoc_recordings?id=eq.${foreignRecordingId}`)) return {
+      id: foreignRecordingId, session_id: foreignSessionId, owner_subject: 'wp:7', status: 'saved',
+      mime_type: 'video/webm', storage_object_key: 'ivoc/recordings/private/never-return.webm',
+    };
+    if (path.startsWith(`ivoc_sessions?id=eq.${foreignSessionId}`)) return {
+      id: foreignSessionId, owner_subject: 'wp:7', title: 'Foreign take', state: 'saved',
+    };
+    if (path.startsWith(`ivoc_reviews?session_id=eq.${foreignSessionId}`)) return { id: 'review-1', status: 'assigned', mentor_subject: 'wp:42' };
+    return null;
+  };
+  const storage = {
+    createPlayback: () => ({ token: 'opaque-playback-token', expiresAt: '2027-01-15T09:10:00.000Z', expiresAtMs: 1_800_000_600_000, disposition: 'inline' }),
+    validatePlaybackToken: ({ playbackToken }) => playbackToken === 'opaque-playback-token',
+    fetchObject: async () => new Response('private-media', { headers: { 'Content-Type': 'video/webm', ETag: 'private-etag' } }),
+  };
+  const route = createIvocHandler({
+    registry: registry(), repository: repo, storage,
+    env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64) },
+  });
+  const linkResponse = new ResponseCapture();
+  await route({
+    ...base, request: request('GET'), response: linkResponse,
+    url: new URL(`https://hq.test/api/ivoc/v1/recordings/${foreignRecordingId}/playback-url`),
+    hqSession: session(42, ['mentor']),
+  });
+  assert.equal(linkResponse.status, 200);
+  assert.match(linkResponse.json().url, new RegExp(`^/api/ivoc/v1/recordings/${foreignRecordingId}/playback\\?`, 'u'));
+  assert.doesNotMatch(linkResponse.body, /storage_object_key|never-return|cloudflarestorage/u);
+
+  const mediaResponse = new ResponseCapture();
+  await route({
+    ...base, request: request('GET'), response: mediaResponse,
+    url: new URL(`https://hq.test/api/ivoc/v1/recordings/${foreignRecordingId}/playback?token=opaque-playback-token&expires=1800000600000&disposition=inline`),
+    hqSession: session(42, ['mentor']),
+  });
+  assert.equal(mediaResponse.status, 200);
+  assert.equal(mediaResponse.body, 'private-media');
+  assert.equal(mediaResponse.headers['Content-Type'], 'video/webm');
 });
