@@ -129,7 +129,7 @@ export function createIvocHandler({
   env = process.env,
   fetchImpl = fetch,
 } = {}) {
-  const mediaBase = String(env.MMHQ_MEDIA_UPLOAD_BASE || env.MMHQ_CIE_BASE || 'https://cdn.missionmedinstitute.com').replace(/\/+$/u, '');
+  const mediaBase = String(env.MMHQ_MEDIA_UPLOAD_BASE || 'https://cdn.missionmedinstitute.com').replace(/\/+$/u, '');
   const db = repository || createIvocRepository({
     baseUrl: env.IVPREP_SUPABASE_URL,
     serviceRoleKey: env.IVPREP_SUPABASE_SERVICE_ROLE_KEY,
