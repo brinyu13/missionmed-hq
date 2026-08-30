@@ -276,7 +276,14 @@ export function createIvocHandler({
             headers: { 'Content-Type': 'application/octet-stream', 'Content-Range': `bytes ${start}-${end}/${total}` },
             body: chunk,
           }).catch(() => null);
-          if (!upstream?.ok) { sendError(response, 502, 'recording_media_gateway_failed', mediaBase); return true; }
+          if (!upstream?.ok) {
+            console.error(JSON.stringify({
+              event: 'ivoc_media_gateway_failed',
+              upstreamStatus: Number(upstream?.status || 0),
+              upstreamStatusText: safeText(upstream?.statusText || 'network_error', 80),
+            }));
+            sendError(response, 502, 'recording_media_gateway_failed', mediaBase); return true;
+          }
           await audit({ actor, owner: actor, sessionId: row.session_id, recordingId, action: 'recording_media_upload', decision: 'allow', reason: `part_${part}_of_${parts}` });
           response.writeHead(204, securityHeaders(mediaBase)); response.end(); return true;
         } finally { chunk.fill(0); }
