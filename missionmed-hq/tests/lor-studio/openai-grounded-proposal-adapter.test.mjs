@@ -515,6 +515,24 @@ test('factual wording is reconstructed from the exact consented fact text', asyn
   assert.deepEqual(proposal.claims, [{ text: FACT_TEXT, supportIds: ['fact-1'] }]);
 });
 
+test('provider-authored connective prose is discarded before grounding', async () => {
+  const response = jsonResponse(providerPayload(validProposal({
+    text: `Unsupported introduction.\n\n${FACT_TEXT}\n\nUnsupported closing.`,
+    segments: [
+      { kind: 'connective', text: 'Unsupported introduction.', separator: 'paragraph' },
+      {
+        kind: 'factual', text: FACT_TEXT, separator: 'paragraph', supportIds: ['fact-1'],
+      },
+      { kind: 'connective', text: 'Unsupported closing.', separator: 'paragraph' },
+    ],
+  })));
+  const { adapter } = harness({ response });
+  const proposal = await adapter.generateProposal(input());
+  assert.equal(proposal.text, FACT_TEXT);
+  assert.equal(proposal.segments.length, 1);
+  assert.equal(proposal.segments[0].kind, 'factual');
+});
+
 test('request and response size limits reject before unsafe processing', async () => {
   const facts = Array.from({ length: 500 }, (_, index) => ({
     id: `fact-${index}`,

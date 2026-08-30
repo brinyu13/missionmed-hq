@@ -500,7 +500,20 @@ function normalizeProviderProposal(value, approvedFactTextById) {
     };
   });
 
-  const composed = segments
+  // Production intentionally binds the conservative verbatim entailment verifier. Provider-authored
+  // connective prose cannot be proven against the consented evidence, so it is discarded. Keep
+  // each supported fact once, in provider-selected order, and reconstruct the complete proposal
+  // solely from those exact source facts.
+  const seenSupportIds = new Set();
+  const groundedSegments = segments.filter((segment) => {
+    if (segment.kind !== 'factual') return false;
+    const supportId = segment.supportIds[0];
+    if (seenSupportIds.has(supportId)) return false;
+    seenSupportIds.add(supportId);
+    return true;
+  });
+
+  const composed = groundedSegments
     .map((segment, index) => (index === 0 ? '' : SEPARATORS[segment.separator]) + segment.text)
     .join('');
   // The top-level text is a redundant provider convenience field. Persist and display only the
@@ -510,8 +523,7 @@ function normalizeProviderProposal(value, approvedFactTextById) {
     throw invalidProviderResponse('composed_text_bounds');
   }
 
-  const factualClaims = segments
-    .filter((segment) => segment.kind === 'factual')
+  const factualClaims = groundedSegments
     .map((segment) => ({ text: segment.text, supportIds: [...segment.supportIds] }));
   if (factualClaims.length === 0) {
     throw invalidProviderResponse('claims_grounding_mismatch');
@@ -520,7 +532,7 @@ function normalizeProviderProposal(value, approvedFactTextById) {
   return deepFreeze({
     state: 'proposal',
     text: composed,
-    segments,
+    segments: groundedSegments,
     claims: factualClaims,
     provider: PROVIDER_ID,
     model: OPENAI_MODEL,
