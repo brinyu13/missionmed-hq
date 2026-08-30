@@ -424,7 +424,13 @@ function outputText(response) {
       texts.push(content.text);
     }
   }
-  if (texts.length !== 1 || response.output_text !== texts[0]) {
+  // `output_text` is an SDK convenience property and is not guaranteed on the raw Responses API
+  // JSON. The canonical wire value is the single completed message content item. If a provider
+  // does include the convenience duplicate, it must still match exactly.
+  if (
+    texts.length !== 1
+    || (Object.hasOwn(response, 'output_text') && response.output_text !== texts[0])
+  ) {
     throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
   }
   return texts[0];

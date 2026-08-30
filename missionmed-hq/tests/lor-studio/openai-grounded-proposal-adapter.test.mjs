@@ -365,6 +365,20 @@ test('Responses request has the exact stateless foreground body and server-only 
   });
 });
 
+test('raw Responses API output is accepted without the SDK-only output_text convenience field', async () => {
+  const payload = providerPayload();
+  delete payload.output_text;
+  const { adapter } = harness({ response: jsonResponse(payload) });
+  const proposal = await adapter.generateProposal(input());
+  assert.equal(proposal.state, 'proposal');
+  assert.equal(proposal.text, FACT_TEXT);
+
+  const mismatched = providerPayload();
+  mismatched.output_text = JSON.stringify({ ...validProposal(), text: 'Different duplicate.' });
+  const rejected = harness({ response: jsonResponse(mismatched) });
+  await assert.rejects(() => rejected.adapter.generateProposal(input()), assertSafeFailure);
+});
+
 test('project bindings reject accessors without invoking them and expose only a one-way project reference', () => {
   let getterCalls = 0;
   const accessorBinding = { ...PRIVACY_BINDING };
