@@ -106,7 +106,14 @@ export function transformPhp(source) {
 \t\treturn $access;
 \t}`;
 
-  return replaceExactly(source, before, after, 'PHP_IVPREP_METHOD');
+  let transformed = replaceExactly(source, before, after, 'PHP_IVPREP_METHOD');
+  transformed = replaceExactly(
+    transformed,
+    "\t\t$final    = $origin . '/iv-prep-on-call/';",
+    "\t\t$final    = $origin . '/iv-prep-analytics/';",
+    'PHP_IVPREP_LAUNCH_ROUTE',
+  );
+  return transformed;
 }
 
 export function transformJavascript(source) {

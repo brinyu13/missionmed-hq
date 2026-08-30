@@ -41,6 +41,12 @@ const phpFixture = `\t/**
 \t\t);
 
 \t\treturn $access;
+\t}
+
+\tprivate static function get_ivprep_launch_url() {
+\t\t$origin   = 'https://missionmed-hq-production.up.railway.app';
+\t\t$final    = $origin . '/iv-prep-on-call/';
+\t\t$auth_url = $origin . '/api/auth/start';
 \t}`;
 
 test('PHP activation grants only administrators or exact course 3893 enrollment', () => {
@@ -51,6 +57,8 @@ test('PHP activation grants only administrators or exact course 3893 enrollment'
   assert.match(result, /required_course_id' => 3893/u);
   assert.match(result, /ivprep_entitlement_required/u);
   assert.match(result, /'launch_url'\s+=> \$unlocked \? \$launch_url : ''/u);
+  assert.match(result, /\$final\s+= \$origin \. '\/iv-prep-analytics\/'/u);
+  assert.doesNotMatch(result, /\$origin \. '\/iv-prep-on-call\/'/u);
   assert.doesNotMatch(result, /\$allowed\s+= \$user_id > 0 && user_can/u);
 });
 
