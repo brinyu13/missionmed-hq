@@ -45,6 +45,17 @@ import {
   WORDPRESS_LOR_AUDIENCE,
   WORDPRESS_LOR_BINDING_PROVENANCE,
 } from './lor-studio/adapters/wordpress-lor-s2s-protocol.mjs';
+import {
+  handleGmailSyncPreviewRoute,
+  isGmailSyncPreviewPath,
+} from './routes/gmail-sync-preview.mjs';
+import {
+  handleGmailCommsReviewWriteRoute,
+  isGmailCommsReviewWritePath,
+} from './routes/gmail-comms-review-write.mjs';
+import { handleIvPrepV6Request } from '../ivprep-v6/server/hq-mount.mjs';
+import { fingerprintIvPrepHqCookie, recordIvPrepHqLogout } from '../ivprep-v6/server/hq-auth-lifecycle.mjs';
+import { handleIvocRequest } from './ivoc/routes.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -455,6 +466,46 @@ const server = http.createServer(async (request, response) => {
   try {
     const url = new URL(request.url || '/', getRequestOrigin(request));
     pathname = decodeURIComponent(url.pathname);
+
+    if (
+      pathname === '/iv-prep-analytics'
+      || pathname.startsWith('/iv-prep-analytics/')
+      || pathname.startsWith('/iv-prep-on-call/analytics/')
+      || pathname === '/api/ivoc/v1'
+      || pathname.startsWith('/api/ivoc/v1/')
+    ) {
+      const ivocCookies = parseCookies(request.headers.cookie || '');
+      const handled = await handleIvocRequest({
+        request,
+        response,
+        url,
+        hqSession: request.headers.authorization ? null : readSessionFromRequest(request),
+        cookieFingerprint: fingerprintIvPrepHqCookie(ivocCookies[CONFIG.sessionCookieName]),
+        hqSessionMaxTtlSeconds: CONFIG.sessionTtlSeconds,
+        expectedOrigin: CONFIG.hqBaseUrl,
+      });
+      if (handled) return;
+    }
+
+    if (
+      pathname === '/iv-prep-on-call'
+      || pathname.startsWith('/iv-prep-on-call/')
+      || pathname === '/api/ivprep-v6'
+      || pathname.startsWith('/api/ivprep-v6/')
+    ) {
+      const ivPrepCookies = parseCookies(request.headers.cookie || '');
+      const ivPrepCookieFingerprint = fingerprintIvPrepHqCookie(ivPrepCookies[CONFIG.sessionCookieName]);
+      const handled = await handleIvPrepV6Request({
+        request,
+        response,
+        url,
+        hqSession: request.headers.authorization ? null : readSessionFromRequest(request),
+        cookieFingerprint: ivPrepCookieFingerprint,
+        hqSessionMaxTtlSeconds: CONFIG.sessionTtlSeconds,
+        expectedOrigin: CONFIG.hqBaseUrl,
+      });
+      if (handled) return;
+    }
 
     if (request.method === 'GET' && request.url === '/health') {
       response.writeHead(200, { 'Content-Type': 'application/json' });
@@ -3052,6 +3103,12 @@ async function handleApiRoute(request, response, url, context) {
       }, authHeaders);
       return;
     }
+
+    const ivPrepLogoutCookies = parseCookies(request.headers.cookie || '');
+    recordIvPrepHqLogout({
+      cookieFingerprint: fingerprintIvPrepHqCookie(ivPrepLogoutCookies[CONFIG.sessionCookieName]),
+      reason: 'hq_logout',
+    });
 
     sendJson(
       response,

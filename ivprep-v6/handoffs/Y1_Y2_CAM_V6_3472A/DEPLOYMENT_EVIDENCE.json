@@ -1,0 +1,109 @@
+{
+  "mission": "Y1-Y2-CAM-V6-3472A",
+  "terminal_state": "HOSTED DR KELLY PATH READY - WAITING FOR FOUNDER PHYSICAL TEST",
+  "recorded_at_utc": "2026-08-16T01:51:41Z",
+  "authority": {
+    "missionmed_os_commit": "ca1470aefe3b51d0577c2390a94d0241df3f82bb",
+    "decisions": ["DR-109", "DR-110"]
+  },
+  "product": {
+    "accepted_start": "ce5dc34f807704822703b351eff5178f16b1f456",
+    "implementation_commit": "c7aa071a05af4dbc89a6320bfbdb3bba1b42e772",
+    "branch": "codex/y1-y2-cam-v6-3440-aaa-unified-production-admin-canary",
+    "remote_equal": true,
+    "focused_tests": {"total": 218, "passed": 218, "failed": 0, "skipped": 0},
+    "preserved_unrelated_state": [
+      "supabase/.temp/cli-latest",
+      "_AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3440/MMOS_SHARED_WRITER_CHECKPOINT_20260812/",
+      "_AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3440/Y1_Y2_CAM_V6_3440_ORCHESTRATOR_FABLE5_COORDINATION_REPORT.md"
+    ]
+  },
+  "database": {
+    "project_ref": "tufzqxeucfugdovtjyqk",
+    "migration": {
+      "live_version": "20260816012608",
+      "name": "ivprep_3440_admin_canary",
+      "canonical_file_sha256": "b6a517f0edccb1ec2f8e68a835cda7d9b84074401ad3ce6637cbf857dd19847a"
+    },
+    "catalog": {"tables": 6, "runtime_rpcs": 10, "indexes": 17, "trigger_event_rows": 2},
+    "authorization": {
+      "rls_enabled_tables": 6,
+      "rls_forced_tables": 6,
+      "policies": 0,
+      "anonymous_dml": false,
+      "authenticated_dml": false,
+      "service_role_select": true,
+      "runtime_rpc_execute_anon": false,
+      "runtime_rpc_execute_authenticated": false,
+      "runtime_rpc_execute_service_role": true,
+      "intent": "deny_by_default_until_additive_canary_authority"
+    },
+    "live_state": {
+      "entitlements": 1,
+      "reservations": 0,
+      "interview_bindings": 0,
+      "cookie_revocations": 0,
+      "founder_subject": "wp:1",
+      "voice_enabled": true,
+      "video_enabled": false,
+      "reserved_video_seconds": 0,
+      "consumed_video_seconds": 0,
+      "paid_tests_enabled": false,
+      "kill_switch_tripped": true,
+      "kill_reason": "not_activated"
+    },
+    "advisor_findings": {
+      "ivprep_security_errors": 0,
+      "ivprep_security_warnings": 0,
+      "ivprep_security_info": 6,
+      "ivprep_performance_warnings": 0,
+      "ivprep_performance_info": 4,
+      "notes": ["six intentional RLS-enabled tables have no permissive policy", "one composite foreign key is not independently indexed", "three new indexes are not yet used"]
+    }
+  },
+  "railway": {
+    "project_id": "29afe885-b9b1-425d-8fd8-8611cd275409",
+    "environment_id": "ed3353f7-bcc7-4e25-a000-3c9fc628a9a7",
+    "hq": {
+      "service_id": "3d18b017-4fc9-4b22-b097-ba879816d374",
+      "deployment_id": "1e3be267-0a5a-4a2f-a197-baf78e48189b",
+      "image_digest": "sha256:6726d6e558e143655f06d966ceeadd60571b224b9f4789942814ab9e8b65506b",
+      "status": "SUCCESS",
+      "url": "https://missionmed-hq-production.up.railway.app/iv-prep-on-call/"
+    },
+    "worker": {
+      "service_id": "294a0bef-9cd2-43ff-97e8-4b88fa9e873d",
+      "deployment_id": "c99c2196-a63c-429b-a0fa-5df3ec9c3094",
+      "image_digest": "sha256:683e3f738570bcc7b86023a7e8d2a4ce90ed35f914b960b56b86416b5268fb9b",
+      "status": "SUCCESS",
+      "health_url": "https://ivprep-profile-b-worker-production.up.railway.app/health",
+      "worker_registered": true,
+      "provider_sessions_created": 0,
+      "profile": "PROFILE_B_OPENAI_NATIVE_AUDIO",
+      "agent": "agent_9bdfc50ec0086043"
+    }
+  },
+  "hosted_verification": {
+    "anonymous_product_status": 401,
+    "founder_wordpress_user_id": 1,
+    "founder_is_administrator": true,
+    "founder_hq_authenticated": true,
+    "founder_ivprep_admitted": true,
+    "voice_enabled": true,
+    "video_enabled": false,
+    "delivery_intelligence_present": true,
+    "runtime_mode": "hosted",
+    "worker_registration_state": "READY",
+    "provider_sessions_created_at_readiness": 0,
+    "paid_provider_creation_enabled": false
+  },
+  "spend": {"provider_sessions_created": 0, "lemonslice_credits_consumed": 0, "paid_test_run": false},
+  "lease": {
+    "resource": "PRODUCT:IV-PREP-ON-CALL",
+    "lease_id": "c5c117fe-5503-47d3-82f9-704423678d87",
+    "fencing_epoch": 41,
+    "binding_sha256": "2a2cd132e0b4f98a275587edd4e6699f223fc794029d5aecdb17bff20a08f530",
+    "nonce_sha256": "9a8172a2f66cf2ea5b677d5b2e59b2f8c1fad0385ff0801da24dae26564cfa8d",
+    "state_at_evidence_freeze": "HEARTBEATING_PENDING_POST_PUSH_RELEASE"
+  }
+}

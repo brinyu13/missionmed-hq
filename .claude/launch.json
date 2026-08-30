@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ivoc-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4173", "--directory", "/Users/brianb/MissionMed_worktrees/Y1-Y2-CAM-V6-3521"],
+      "port": 4173
+    },
+    {
+      "name": "ivoc-3528b",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/Users/brianb/MissionMed_worktrees/Y1-Y2-CAM-V6-3521/_AI_HANDOFFS/from_claude_code/Y1-Y2-CAM-V6-3528B_AAA_GAME_EXPERIENCE_VISUAL_REBUILD/PROTOTYPE/serve.py", "4174"],
+      "port": 4174
+    }
+  ]
+}

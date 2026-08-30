@@ -15,14 +15,14 @@ const PREDECESSOR_PROOFS = Object.freeze({
 // verified by the production adapter; this helper never signs or weakens a
 // proof at test time.
 const SUCCESSOR_SENTINEL_REF =
-  '3ba31b9978821207f2adb3def398c41622f8046c684eaec0baedc7155733d1e0';
+  'fdabe457b3db401734cabec3d40546f1746b86dabb23a82232ff3b536947c14f';
 const SUCCESSOR_SIGNATURES = Object.freeze({
   primary:
-    'UCk9qKA2Sa_wyIsG0Eistfq90m8alGJ5wuuquoc87uM5z-duCOldlDZqZXOVnPuq1QDKf6p1yW1TzVcJibVqAA',
+    'PaH1ogNtA_Ku1JulAFAOEw-rGMSA5eiI3hbYiSWm2XABWiRMFInPFvAnlPbsCqFJG_c80j43y31AKkVV6RA0Ag',
   replay:
-    'Vn266DFYzxlNZppiTwIkl0lkeVEyq_kyxgwTKO5GW3mE3bBf9188pwYJrXpcqTgNcbc-SbYhOxcWXkm8WmxzAw',
+    'sKoG-EJygA7SKE_SfW6RU0ViECj7GweEC_eNfDtmP-SYnPkfhUE6ZwzexKoDmNLwvl4V9M_YqOouDhs1ODrZBQ',
   environment:
-    'M1ygH34UDwmcdoAnfthDRC7ZZ4Zx271mOjEFuTuXpq3dZ5yT1EQNWirPo8YJByCh-bM5UOXvr6_fPTHDfBeCCQ',
+    '8-htstzPaYUW2KnK1TqVIhhclTxa5ey_nJox-_Q1yWOtPjq-69Bwxig1OoO5RO_TIGlmftGsq68c4h2-gCwCBQ',
 });
 
 function successorProof(encoded, signature) {

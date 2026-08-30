@@ -1,0 +1,19 @@
+{
+  "schema": "missionmed.ivoc.art-manifest.v1",
+  "note": "All scene art is ORIGINAL inline SVG generated in app/art.mjs (one MissionMed visual universe: navy night world, warm practice-room light, cyan/gold rim lighting, silhouette figures). No Epic/Fortnite assets, logos, characters, or trade dress anywhere. Bitmap assets below are the Founder's own art.",
+  "assets": [
+    { "id": "art-quick", "source": "app/art.mjs sceneQuick()", "license": "MissionMed original (generated SVG)", "subject": "applicant seated at practice desk, camera rig + ring light on, one glowing question card, lightning quick-start cue", "use": "Quick Practice tiles" },
+    { "id": "art-question", "source": "app/art.mjs sceneQuestion()", "license": "MissionMed original (generated SVG)", "subject": "wall of category question cards, applicant reaching to select one highlighted card", "use": "Question Practice tiles" },
+    { "id": "art-mock", "source": "app/art.mjs sceneMock()", "license": "MissionMed original (generated SVG)", "subject": "formal interview room, interviewer and applicant across a desk, REC lamp burning", "use": "Self Mock tiles, replay poster fallback" },
+    { "id": "art-library", "source": "app/art.mjs sceneLibrary()", "license": "MissionMed original (generated SVG)", "subject": "dark archive wall of replay frames, one selected frame playing with scrub bar", "use": "Video Library tiles / empty state" },
+    { "id": "art-results", "source": "app/art.mjs sceneResults()", "license": "MissionMed original (generated SVG)", "subject": "replay frame + three score plates + rising analytic traces", "use": "Results tiles" },
+    { "id": "art-progress", "source": "app/art.mjs sceneProgress()", "license": "MissionMed original (generated SVG)", "subject": "milestone pylons ascending with rising trace and summit flag", "use": "Progress tiles" },
+    { "id": "art-setup", "source": "app/art.mjs sceneSetup()", "license": "MissionMed original (generated SVG)", "subject": "calibration bench: camera on tripod, studio mic, headset, live level bars", "use": "Setup backdrop (reserved)" },
+    { "id": "art-mentor", "source": "app/art.mjs sceneMentor()", "license": "MissionMed original (generated SVG)", "subject": "mentor at review console: student replay large, annotation ticks", "use": "Mentor Review tiles" },
+    { "id": "arena-world-day.jpg", "source": "Founder Arena key art (bg_missionmed_arena_v2_blue, crop via 3528A capture)", "license": "MissionMed owned", "subject": "MissionMed Arena campus, day", "use": "Home lobby full-bleed world", "codex_note": "replace with a crop from the original 2560px PNG at build time (3528A ART_PROVENANCE.md)" },
+    { "id": "arena-world-sunset.jpg", "source": "Founder Arena key art (bg_missionmed_arena_v1, crop via 3528A capture)", "license": "MissionMed owned", "subject": "MissionMed Arena campus, sunset", "use": "reserved alternate world", "codex_note": "same as above" },
+    { "id": "founder-face-scanner.png", "source": "ivprep-v6/public/live-analytics/founder-face-scanner.png (verbatim copy)", "license": "MissionMed owned — Founder-approved instrument art, DO NOT REPLACE", "use": "HEAD/FACE scan well" },
+    { "id": "founder-body-scanner.png", "source": "ivprep-v6/public/live-analytics/founder-body-scanner.png (verbatim copy)", "license": "MissionMed owned — Founder-approved instrument art, DO NOT REPLACE, never crop", "use": "BODY scan well" }
+  ],
+  "upgrade_path": "doc-07 tiers: these generated scenes are the v1 semantic layer; swapping any tile to graded photographic/painted art is a file/URI replacement in art.mjs or assets/ — never a layout change."
+}

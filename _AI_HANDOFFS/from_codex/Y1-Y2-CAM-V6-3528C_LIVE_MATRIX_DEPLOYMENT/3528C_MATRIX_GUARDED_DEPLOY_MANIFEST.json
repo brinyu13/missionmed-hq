@@ -1,0 +1,33 @@
+{
+  "production": {
+    "ssh_alias": "missionmed-kinsta",
+    "plugin_root": "/www/theresidencyacademy_209/public/wp-content",
+    "public_base_url": "https://missionmedinstitute.com/wp-content",
+    "backup_required_before_deploy": true,
+    "broad_cache_purge_allowed": false
+  },
+  "assets": {
+    "ivoc_matrix_runtime_js": {
+      "app": "iv-prep-on-call",
+      "role": "LOR-preserving immutable Matrix shell with IV Prep route activation",
+      "source_path": "student-os.373a4be9d77ebaf4.js",
+      "production_path": "plugins/missionmed-hub/assets/student-os.373a4be9d77ebaf4.js",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os.373a4be9d77ebaf4.js",
+      "approved_sha256": "373a4be9d77ebaf4e8c55f664ffc481d300d24d0e78bf30e5aff94b993caac98"
+    },
+    "ivoc_matrix_controller_php": {
+      "app": "iv-prep-on-call",
+      "role": "Admin and LearnDash 3893 entitlement projection with fixed analytics auth handoff",
+      "source_path": "class-mmed-student-os.php",
+      "production_path": "plugins/missionmed-hub/includes/class-mmed-student-os.php",
+      "approved_sha256": "af2eb5fd2177904ec1b3873787eed6b185a873119dc979f0846c237b466f2c3c"
+    },
+    "ivoc_matrix_runtime_pin_php": {
+      "app": "iv-prep-on-call",
+      "role": "Immutable Matrix runtime selector",
+      "source_path": "missionmed-matrix-runtime-pin.php",
+      "production_path": "mu-plugins/missionmed-matrix-runtime-pin.php",
+      "approved_sha256": "73de44ad8effefa77df8fb02eda6ce96456900e9697d86bc9d7065b590835625"
+    }
+  }
+}
