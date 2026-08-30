@@ -100,7 +100,7 @@ const PROPOSAL_SCHEMA = deepFreeze({
               supportIds: {
                 type: 'array',
                 minItems: 1,
-                maxItems: 32,
+                maxItems: 1,
                 items: { type: 'string', minLength: 1, maxLength: 200 },
               },
             },
@@ -128,10 +128,10 @@ const PROPOSAL_SCHEMA = deepFreeze({
         required: ['text', 'supportIds'],
         properties: {
           text: { type: 'string', minLength: 1, maxLength: MAX_SEGMENT_LENGTH },
-          supportIds: {
-            type: 'array',
-            minItems: 1,
-            maxItems: 32,
+        supportIds: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 1,
             items: { type: 'string', minLength: 1, maxLength: 200 },
           },
         },
@@ -142,7 +142,7 @@ const PROPOSAL_SCHEMA = deepFreeze({
 
 const INSTRUCTIONS = [
   'Draft a recommendation-letter proposal using only the approved facts in the input.',
-  'Every material factual sentence must be a factual segment citing the exact supporting fact IDs.',
+  'Every factual segment must cite exactly one fact ID and copy that approved fact text verbatim.',
   'Connective segments may contain non-factual letter furniture only and must omit supportIds.',
   'The top-level text must exactly equal the ordered segment texts joined by each segment separator.',
   'Claims must exactly repeat the factual segments and their supportIds.',
@@ -445,7 +445,7 @@ function outputText(response) {
   return texts[0];
 }
 
-function normalizeProviderProposal(value, allowedFactIds) {
+function normalizeProviderProposal(value, approvedFactTextById) {
   if (!hasExactKeys(value, ['state', 'text', 'segments', 'claims']) || value.state !== 'proposal') {
     throw invalidProviderResponse('proposal_top_level_shape');
   }
@@ -483,18 +483,20 @@ function normalizeProviderProposal(value, allowedFactIds) {
     if (
       !hasExactKeys(segment, ['kind', 'text', 'separator', 'supportIds'])
       || !Array.isArray(segment.supportIds)
-      || segment.supportIds.length === 0
-      || segment.supportIds.length > 32
-      || new Set(segment.supportIds).size !== segment.supportIds.length
-      || segment.supportIds.some((id) => !allowedFactIds.has(id))
+      || segment.supportIds.length !== 1
+      || !approvedFactTextById.has(segment.supportIds[0])
     ) {
       throw invalidProviderResponse('factual_segment_grounding');
     }
+    const supportId = segment.supportIds[0];
     return {
       kind: segment.kind,
-      text: segment.text,
+      // Provider factual wording is untrusted. The persisted segment is reconstructed from the
+      // consented, hash-bound source fact so the production verbatim verifier cannot accept a
+      // paraphrase or hallucinated addition.
+      text: approvedFactTextById.get(supportId),
       separator: segment.separator,
-      supportIds: [...segment.supportIds],
+      supportIds: [supportId],
     };
   });
 
@@ -511,11 +513,7 @@ function normalizeProviderProposal(value, allowedFactIds) {
   const factualClaims = segments
     .filter((segment) => segment.kind === 'factual')
     .map((segment) => ({ text: segment.text, supportIds: [...segment.supportIds] }));
-  if (
-    factualClaims.length === 0
-    || value.claims.length !== factualClaims.length
-    || JSON.stringify(value.claims) !== JSON.stringify(factualClaims)
-  ) {
+  if (factualClaims.length === 0) {
     throw invalidProviderResponse('claims_grounding_mismatch');
   }
 
@@ -658,7 +656,10 @@ export class OpenAiGroundedProposalAdapter extends AiProposalPort {
         if (error instanceof IntegrationDisabledError) throw error;
         throw invalidProviderResponse('structured_output_json');
       }
-      return normalizeProviderProposal(structured, new Set(input.facts.map((fact) => fact.id)));
+      return normalizeProviderProposal(
+        structured,
+        new Map(input.facts.map((fact) => [fact.id, fact.text])),
+      );
     } catch (error) {
       if (error instanceof IntegrationDisabledError || error instanceof ValidationError) throw error;
       throw invalidProviderResponse('provider_unexpected_exception');

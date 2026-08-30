@@ -466,9 +466,6 @@ test('malformed structured outputs fail closed without returning partial wording
     jsonResponse('{'),
     jsonResponse(providerPayload(validProposal({ extra: true }))),
     jsonResponse(providerPayload(validProposal({
-      claims: [{ text: 'Different claim.', supportIds: ['fact-1'] }],
-    }))),
-    jsonResponse(providerPayload(validProposal({
       segments: [{
         kind: 'factual',
         text: FACT_TEXT,
@@ -492,6 +489,30 @@ test('canonical proposal text is derived only from validated grounded segments',
   const proposal = await adapter.generateProposal(input());
   assert.equal(proposal.text, FACT_TEXT);
   assert.equal(proposal.text.includes('Ungrounded duplicate'), false);
+});
+
+test('factual wording is reconstructed from the exact consented fact text', async () => {
+  const providerText = 'The applicant was always exceptionally prepared.';
+  const response = jsonResponse(providerPayload(validProposal({
+    text: providerText,
+    segments: [{
+      kind: 'factual',
+      text: providerText,
+      separator: 'paragraph',
+      supportIds: ['fact-1'],
+    }],
+    claims: [{ text: providerText, supportIds: ['fact-1'] }],
+  })));
+  const { adapter } = harness({ response });
+  const proposal = await adapter.generateProposal(input());
+  assert.equal(proposal.text, FACT_TEXT);
+  assert.deepEqual(proposal.segments, [{
+    kind: 'factual',
+    text: FACT_TEXT,
+    separator: 'paragraph',
+    supportIds: ['fact-1'],
+  }]);
+  assert.deepEqual(proposal.claims, [{ text: FACT_TEXT, supportIds: ['fact-1'] }]);
 });
 
 test('request and response size limits reject before unsafe processing', async () => {
