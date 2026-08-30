@@ -52,7 +52,7 @@ export function visionFrameDimensions(sourceWidth, sourceHeight, maximumWidth = 
   });
 }
 
-export function transcriptPcmFrame({ atMs, sampleRate, samples, speaking, speechProbability, f0 } = {}) {
+export function transcriptPcmFrame({ atMs, sampleRate, samples, speaking, speechProbability, f0, method = 'AUDIO_WORKLET_PCM' } = {}) {
   return Object.freeze({
     atMs,
     sampleRate: Number(sampleRate),
@@ -62,7 +62,7 @@ export function transcriptPcmFrame({ atMs, sampleRate, samples, speaking, speech
     // the local recognizer's separately observed word timestamps.
     voiced: f0?.voiced === true,
     speechProbability: Number.isFinite(speechProbability) ? Number(speechProbability) : null,
-    provenance: Object.freeze({ source: 'MICROPHONE', method: 'AUDIO_WORKLET_PCM' }),
+    provenance: Object.freeze({ source: 'MICROPHONE', method }),
   });
 }
 
@@ -334,6 +334,28 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       const f0 = advanced?.f0 || estimateF0(media.data, sampleRate);
       if (!advanced) this.pitchTrack.push(f0, { speaking: analyzer.speaking });
       const pitchSummary = advanced?.pitchSummary || this.pitchTrack.summary();
+      // The authenticated Sherpa timing lane must receive genuine microphone PCM
+      // even when AudioWorklet/Silero is unavailable or still initializing. The
+      // legacy AnalyserNode is already the real level-meter source; copy its
+      // current time-domain frame so the downstream producer can build bounded
+      // timing windows without retaining or fabricating transcript content.
+      // Once fresh AudioWorklet frames exist, that higher-fidelity lane owns PCM
+      // delivery and this fallback stays silent, preventing duplicate samples.
+      if (!advanced && this.pcmConsumer) {
+        try {
+          this.pcmConsumer(transcriptPcmFrame({
+            atMs,
+            sampleRate,
+            samples: new Float32Array(media.data),
+            speaking: analyzer.speaking,
+            speechProbability: null,
+            f0,
+            method: 'ANALYSER_PCM_FALLBACK',
+          }));
+        } catch (error) {
+          this.recordWorkerError(`PCM consumer fallback: ${error?.message || error}`);
+        }
+      }
       this.dispatch('diagnostic', {
         modality: 'audio', atMs, available: true, ...measured,
         pitch: Object.freeze({

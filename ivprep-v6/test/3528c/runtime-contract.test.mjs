@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const root = new URL('../../public/ivoc-standalone/app/', import.meta.url);
 const read = (name) => readFileSync(new URL(name, root), 'utf8');
+const browserPipeline = readFileSync(new URL('../../public/analytics/browser-pipeline.mjs', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../../../supabase/migrations/20260830040054_ivoc_3528c_session_recording_results.sql', import.meta.url), 'utf8');
 
 test('frozen cockpit uses only real analytics and account persistence', () => {
@@ -13,6 +14,9 @@ test('frozen cockpit uses only real analytics and account persistence', () => {
   assert.match(live, /RealAnalyticsEngine/u);
   assert.match(live, /AccountRecordingController/u);
   assert.match(live, /ivoc\.analytics\.v1/u);
+  assert.match(live, /Math\.min\(99, Math\.round\(rec\.finalizeT \* 83\)\)/u);
+  assert.match(browserPipeline, /!advanced && this\.pcmConsumer/u);
+  assert.match(browserPipeline, /method: 'ANALYSER_PCM_FALLBACK'/u);
   assert.doesNotMatch(data, /SimEngine|SESSIONS|STUDENT/u);
   assert.doesNotMatch(post, /Codex wires|prototype|SIMULATED/u);
 });

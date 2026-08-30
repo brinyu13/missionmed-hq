@@ -280,7 +280,7 @@ async function liveScreen(el) {
         <div class="dock-note">Analytics keep measuring — the paused span is excluded from your recording.</div>`;
     } else if (s === 'FINALIZING') {
       dock.innerHTML = `<div class="dock-line"><i class="dock-ring"></i><b class="dock-label">SAVING TO MISSIONMED…</b>
-        <b class="dock-timer">${Math.round(rec.finalizeT * 83)}%</b></div>
+        <b class="dock-timer">${Math.min(99, Math.round(rec.finalizeT * 83))}%</b></div>
         <div class="dock-note">Sealing recording · uploading chunks</div>`;
     } else if (s === 'SAVED') {
       dock.innerHTML = `<div class="dock-line"><i class="dock-dot saved"></i><b class="dock-label teal">✓ SAVED TO VIDEO LIBRARY</b>

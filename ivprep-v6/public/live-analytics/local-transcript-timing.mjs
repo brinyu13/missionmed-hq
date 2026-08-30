@@ -145,6 +145,8 @@ export class LocalTranscriptTimingProducer {
     endpoint = LOCAL_TRANSCRIPT_ENDPOINT,
     windowMs = DEFAULT_WINDOW_MS,
     locationHref = globalThis.location?.href || 'http://127.0.0.1/',
+    setTimeoutImpl = globalThis.setTimeout?.bind(globalThis),
+    clearTimeoutImpl = globalThis.clearTimeout?.bind(globalThis),
   } = {}) {
     this.fetchImpl = fetchImpl;
     this.endpoint = String(endpoint || '');
@@ -165,6 +167,10 @@ export class LocalTranscriptTimingProducer {
     this.wordStream = new WordEventStream();
     this.timingWindows = [];
     this.lastProgressMs = 0;
+    this.pcmFramesReceived = 0;
+    this.captureWatchdog = null;
+    this.setTimeoutImpl = setTimeoutImpl;
+    this.clearTimeoutImpl = clearTimeoutImpl;
     this.state = frozenState('idle', 'LOCAL_TRANSCRIPT_TIMING_IDLE');
   }
 
@@ -250,9 +256,17 @@ export class LocalTranscriptTimingProducer {
     this.lastProgressMs = 0;
     this.wordStream.reset();
     this.timingWindows = [];
+    this.pcmFramesReceived = 0;
     this.active = true;
     this.pipeline.setPcmConsumer(this.pcmConsumer);
     this.#setState('live', 'LOCAL_SHERPA_WORD_TIMING_LIVE', capability.detail);
+    if (typeof this.setTimeoutImpl === 'function') {
+      this.captureWatchdog = this.setTimeoutImpl(() => {
+        if (this.active && generation === this.generation && this.pcmFramesReceived === 0) {
+          this.#setState('partial', 'MICROPHONE_PCM_CAPTURE_STALLED');
+        }
+      }, 6_000);
+    }
     return true;
   }
 
@@ -263,6 +277,11 @@ export class LocalTranscriptTimingProducer {
     if (!Number.isFinite(sampleRate) || sampleRate < 8_000 || sampleRate > 192_000 || !Number.isFinite(atMs)) return false;
     const durationMs = frame.samples.length / sampleRate * 1_000;
     if (!(durationMs > 0 && durationMs <= 250)) return false;
+    this.pcmFramesReceived += 1;
+    if (this.captureWatchdog !== null) {
+      this.clearTimeoutImpl?.(this.captureWatchdog);
+      this.captureWatchdog = null;
+    }
 
     if (!this.window || this.window.sampleRate !== sampleRate
       || atMs < this.window.lastAtMs
@@ -505,12 +524,15 @@ export class LocalTranscriptTimingProducer {
     this.generation += 1;
     this.requestController?.abort?.();
     this.requestController = null;
+    if (this.captureWatchdog !== null) this.clearTimeoutImpl?.(this.captureWatchdog);
+    this.captureWatchdog = null;
     this.pipeline?.setPcmConsumer?.(null);
     if (this.window) {
       for (const chunk of this.window.chunks) chunk.fill(0);
     }
     this.window = null;
     this.lastProgressMs = 0;
+    this.pcmFramesReceived = 0;
     this.wordStream.reset();
     this.timingWindows = [];
     this.pipeline = null;
