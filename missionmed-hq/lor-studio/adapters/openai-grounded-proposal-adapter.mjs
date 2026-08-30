@@ -153,6 +153,15 @@ function unavailable(status) {
   return new IntegrationDisabledError('openai_grounded_proposal', status);
 }
 
+function invalidProviderResponse(stage) {
+  // Railway receives a fixed stage code only. Never include provider content, prompts, facts,
+  // identifiers, credentials, or thrown error text in production diagnostics.
+  if (process.env.RAILWAY_ENVIRONMENT_ID) {
+    console.warn(`MissionMed LOR OpenAI response rejected | stage=${stage}`);
+  }
+  return unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+}
+
 function isPlainObject(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   try {
@@ -372,7 +381,7 @@ function requestBody(input) {
 async function readBoundedBody(response) {
   const declared = Number(response?.headers?.get?.('content-length'));
   if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
-    throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+    throw invalidProviderResponse('response_body_size');
   }
 
   if (response?.body && typeof response.body.getReader === 'function') {
@@ -395,10 +404,10 @@ async function readBoundedBody(response) {
     return text;
   }
 
-  if (typeof response?.text !== 'function') throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+  if (typeof response?.text !== 'function') throw invalidProviderResponse('response_body_shape');
   const text = await response.text();
   if (Buffer.byteLength(text, 'utf8') > MAX_RESPONSE_BYTES) {
-    throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+    throw invalidProviderResponse('response_body_size');
   }
   return text;
 }
@@ -431,14 +440,14 @@ function outputText(response) {
     texts.length !== 1
     || (Object.hasOwn(response, 'output_text') && response.output_text !== texts[0])
   ) {
-    throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+    throw invalidProviderResponse('output_text_shape');
   }
   return texts[0];
 }
 
 function normalizeProviderProposal(value, allowedFactIds) {
   if (!hasExactKeys(value, ['state', 'text', 'segments', 'claims']) || value.state !== 'proposal') {
-    throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+    throw invalidProviderResponse('proposal_top_level_shape');
   }
   if (
     typeof value.text !== 'string'
@@ -450,7 +459,7 @@ function normalizeProviderProposal(value, allowedFactIds) {
     || value.segments.length > MAX_SEGMENTS
     || !Array.isArray(value.claims)
   ) {
-    throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+    throw invalidProviderResponse('proposal_value_bounds');
   }
 
   const segments = value.segments.map((segment) => {
@@ -463,11 +472,11 @@ function normalizeProviderProposal(value, allowedFactIds) {
       || segment.text.length > MAX_SEGMENT_LENGTH
       || !Object.hasOwn(SEPARATORS, segment.separator)
     ) {
-      throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+      throw invalidProviderResponse('segment_shape');
     }
     if (segment.kind === 'connective') {
       if (!hasExactKeys(segment, ['kind', 'text', 'separator'])) {
-        throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+        throw invalidProviderResponse('connective_segment_shape');
       }
       return { kind: segment.kind, text: segment.text, separator: segment.separator };
     }
@@ -479,7 +488,7 @@ function normalizeProviderProposal(value, allowedFactIds) {
       || new Set(segment.supportIds).size !== segment.supportIds.length
       || segment.supportIds.some((id) => !allowedFactIds.has(id))
     ) {
-      throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+      throw invalidProviderResponse('factual_segment_grounding');
     }
     return {
       kind: segment.kind,
@@ -492,7 +501,7 @@ function normalizeProviderProposal(value, allowedFactIds) {
   const composed = segments
     .map((segment, index) => (index === 0 ? '' : SEPARATORS[segment.separator]) + segment.text)
     .join('');
-  if (value.text !== composed) throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+  if (value.text !== composed) throw invalidProviderResponse('composed_text_mismatch');
 
   const factualClaims = segments
     .filter((segment) => segment.kind === 'factual')
@@ -502,7 +511,7 @@ function normalizeProviderProposal(value, allowedFactIds) {
     || value.claims.length !== factualClaims.length
     || JSON.stringify(value.claims) !== JSON.stringify(factualClaims)
   ) {
-    throw unavailable('OPENAI_PROVIDER_RESPONSE_INVALID');
+    throw invalidProviderResponse('claims_grounding_mismatch');
   }
 
   return deepFreeze({
