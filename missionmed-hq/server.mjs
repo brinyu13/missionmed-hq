@@ -43,6 +43,7 @@ import {
 } from './routes/gmail-comms-review-write.mjs';
 import { handleIvPrepV6Request } from '../ivprep-v6/server/hq-mount.mjs';
 import { fingerprintIvPrepHqCookie, recordIvPrepHqLogout } from '../ivprep-v6/server/hq-auth-lifecycle.mjs';
+import { handleIvocRequest } from './ivoc/routes.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -224,6 +225,26 @@ const server = http.createServer(async (request, response) => {
   try {
     const url = new URL(request.url || '/', getRequestOrigin(request));
     pathname = decodeURIComponent(url.pathname);
+
+    if (
+      pathname === '/iv-prep-analytics'
+      || pathname.startsWith('/iv-prep-analytics/')
+      || pathname.startsWith('/iv-prep-on-call/analytics/')
+      || pathname === '/api/ivoc/v1'
+      || pathname.startsWith('/api/ivoc/v1/')
+    ) {
+      const ivocCookies = parseCookies(request.headers.cookie || '');
+      const handled = await handleIvocRequest({
+        request,
+        response,
+        url,
+        hqSession: request.headers.authorization ? null : readSessionFromRequest(request),
+        cookieFingerprint: fingerprintIvPrepHqCookie(ivocCookies[CONFIG.sessionCookieName]),
+        hqSessionMaxTtlSeconds: CONFIG.sessionTtlSeconds,
+        expectedOrigin: CONFIG.hqBaseUrl,
+      });
+      if (handled) return;
+    }
 
     if (
       pathname === '/iv-prep-on-call'
