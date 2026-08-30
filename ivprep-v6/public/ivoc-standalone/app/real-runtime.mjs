@@ -2,6 +2,7 @@ import { BehaviorIntelligenceRuntime } from '/iv-prep-on-call/live-analytics/beh
 import { LiveMetricProjector } from '/iv-prep-on-call/live-analytics/live-metric-projector.mjs';
 import { LocalTranscriptTimingProducer } from '/iv-prep-on-call/live-analytics/local-transcript-timing.mjs';
 import { createLiveAnalyticsMediaBridge } from '/iv-prep-on-call/live-analytics/media-bridge.mjs';
+import { COACHING_CONFIG, mapToLiveScale } from '/iv-prep-on-call/analytics/coaching-config.mjs';
 import { CALIBRATION } from './data.mjs';
 
 const clamp = (value, lo, hi) => Math.max(lo, Math.min(hi, value));
@@ -20,8 +21,36 @@ function corridorScore(value, [lo, hi]) {
 function stateName(value) {
   const name = String(value || 'LISTENING').toUpperCase();
   if (name.includes('ANSWER')) return 'ANSWERING';
-  if (name.includes('THINK') || name.includes('PAUSE')) return 'THINKING';
+  if (name.includes('PAUSE_LONG')) return 'PAUSE';
+  if (name.includes('THINK') || name.includes('PAUSE_SHORT') || name.includes('TRANSITION_TO_ANSWER')) return 'THINKING';
+  if (name.includes('TRANSITION')) return 'TRANSITION';
   return 'LISTENING';
+}
+
+function vocalVarietyProjection(pitch, modulation) {
+  const pitchVariation = Number(pitch?.voicedFrames) >= COACHING_CONFIG.varietyScale.minimumVoicedFrames
+    ? finite(pitch?.variationSemitones)
+    : null;
+  const loudnessVariation = finite(modulation?.speechModulationRangeLu, finite(modulation?.rangeDb));
+  const pitchScore = pitchVariation === null ? null : mapToLiveScale(
+    pitchVariation,
+    COACHING_CONFIG.varietyScale.defaultMinimumSemitones,
+    COACHING_CONFIG.varietyScale.defaultMaximumSemitones,
+    COACHING_CONFIG.varietyScale.defaultMaximumSemitones + COACHING_CONFIG.varietyScale.highCapAdditionalSemitones,
+  );
+  const loudnessScore = loudnessVariation === null ? null : mapToLiveScale(
+    loudnessVariation,
+    COACHING_CONFIG.varietyScale.loudnessMinimumRangeDb,
+    COACHING_CONFIG.varietyScale.loudnessMaximumRangeDb,
+    COACHING_CONFIG.varietyScale.loudnessMaximumRangeDb + COACHING_CONFIG.varietyScale.loudnessHighCapAdditionalDb,
+  );
+  const score = pitchScore === null
+    ? null
+    : loudnessScore === null
+      ? pitchScore
+      : Number((pitchScore * COACHING_CONFIG.varietyScale.pitchWeight
+        + loudnessScore * COACHING_CONFIG.varietyScale.loudnessWeight).toFixed(1));
+  return { pitchVariation, loudnessVariation, pitchScore, loudnessScore, score };
 }
 
 export class RealAnalyticsEngine extends EventTarget {
@@ -44,6 +73,8 @@ export class RealAnalyticsEngine extends EventTarget {
     this.lastHistoryAt = -Infinity;
     this.lastCounts = { smiles: 0, nods: 0, gestures: 0 };
     this.wordTimingState = { state: 'idle', reason: 'WAITING_FOR_TIMED_WORDS' };
+    this.latestAudioSpeaking = false;
+    this.overlayVisibility = { face: true, hands: true, body: true, position: true };
     this.onDiagnostic = (event) => this.consumeDiagnostic(event.detail || {});
     this.onPipelineState = (event) => this.dispatchEvent(new CustomEvent('pipeline-state', { detail: event.detail || {} }));
   }
@@ -59,17 +90,15 @@ export class RealAnalyticsEngine extends EventTarget {
     this.pipeline = this.bridge.ensureAnalytics();
     this.pipeline.addEventListener('diagnostic', this.onDiagnostic);
     this.pipeline.addEventListener('state', this.onPipelineState);
-    this.pipeline.setInstrumentation({
-      overlayEnabled: true,
-      faceOverlayEnabled: true,
-      bodyHandsOverlayEnabled: true,
-      handsOverlayEnabled: true,
-      bodyOverlayEnabled: true,
-      framingOverlayEnabled: true,
-    });
+    this.setOverlayVisibility(this.overlayVisibility);
     this.pipeline.setOverlayConsumer((frame) => this.drawOverlay(frame));
     this.projector.reset();
     this.behavior.reset(0);
+    // Entering the cockpit begins the real measurement/interview state machine.
+    // Without this explicit boundary the behavior runtime remains in SETUP and
+    // every genuine microphone observation is mislabeled as LISTENING.
+    this.behavior.beginInterview(0);
+    this.latestAudioSpeaking = false;
     this.bridge.startAnalytics({ videoElement: this.video });
     this.clock = this.bridge.sessionClock;
     this.running = true;
@@ -96,6 +125,11 @@ export class RealAnalyticsEngine extends EventTarget {
   frame() { return this.latest || this.mapFrame(this.projector.latest); }
 
   consumeDiagnostic(detail) {
+    if (detail.modality === 'audio') {
+      this.latestAudioSpeaking = detail.vad?.available === true
+        ? detail.vad.speaking === true
+        : detail.speaking === true;
+    }
     this.behavior.setCoachingMode('TRAINING');
     const enriched = detail.modality === 'vision' && !detail.faceFamilySummary
       ? { ...detail, faceFamilySummary: this.pipeline?.faceFamily?.summary?.() || null }
@@ -127,8 +161,12 @@ export class RealAnalyticsEngine extends EventTarget {
     this.history.push({
       t: frame.t,
       vol: frame.volume.available ? clamp((frame.volume.speechLufsK + 48) / 48, 0, 1) : null,
-      pitch: frame.pitch.available && frame.pitch.semitonesFromSpeakerMedian != null ? clamp((frame.pitch.semitonesFromSpeakerMedian + 6) / 12, 0, 1) : null,
-      pace: frame.speedWpm.available ? clamp((frame.speedWpm.wordsPerMinute - 90) / 130, 0, 1) : null,
+      pitch: frame.speaking && frame.pitch.available && frame.pitch.voiced && frame.pitch.semitonesFromSpeakerMedian != null
+        ? clamp((frame.pitch.semitonesFromSpeakerMedian + 6) / 12, 0, 1)
+        : null,
+      pace: frame.speaking && frame.speedWpm.available
+        ? clamp((frame.speedWpm.wordsPerMinute - 90) / 130, 0, 1)
+        : null,
       speaking: frame.speaking,
     });
     if (this.history.length > 3_000) this.history.splice(0, 500);
@@ -158,11 +196,14 @@ export class RealAnalyticsEngine extends EventTarget {
     const loudness = finite(volume.speechLufsK, finite(volume.dbfs));
     const range = finite(modulation.speechModulationRangeLu, finite(modulation.rangeDb));
     const paceScore = speed.available ? corridorScore(wpm, CALIBRATION.paceCorridor) : null;
-    const speaking = detail?.speaking === true || stateName(behavior?.conversation?.state) === 'ANSWERING';
+    // Camera diagnostics arrive much faster than audio diagnostics. Persist the
+    // latest microphone/VAD truth so a vision frame cannot erase speaking state.
+    const speaking = this.latestAudioSpeaking || stateName(behavior?.conversation?.state) === 'ANSWERING';
     const volumeObserved = volume.available === true && speaking;
-    const varietyObserved = modulation.available === true && speaking;
+    const variety = vocalVarietyProjection(pitch, modulation);
+    const varietyObserved = variety.score !== null && speaking;
     const volumeScore = volumeObserved ? corridorScore(loudness, [-30, -18]) : null;
-    const varietyScore = varietyObserved ? corridorScore(range, [3.4, 8]) : null;
+    const varietyScore = varietyObserved ? variety.score : null;
     const hands = body.hands || {};
     const nods = finite(head.headNods?.eventCount, finite(head.headNods?.count, 0));
     const smiles = finite(head.smileEvents?.count, 0);
@@ -191,9 +232,17 @@ export class RealAnalyticsEngine extends EventTarget {
       volumeModulation: {
         available: varietyObserved,
         rangeLu: range,
+        pitchVariationSemitones: variety.pitchVariation,
+        loudnessVariationLu: variety.loudnessVariation,
+        pitchComponentScore: variety.pitchScore,
+        loudnessComponentScore: variety.loudnessScore,
         score: varietyScore,
-        cue: direction(range, [3.4, 8]),
-        holdReason: varietyObserved ? null : speaking ? modulation.reason || 'BUILDING SPEECH HISTORY' : 'SPEECH-GATED · LISTENING',
+        cue: varietyScore === null ? null : varietyScore < 7 ? 1 : varietyScore > 9.5 ? -1 : 0,
+        holdReason: varietyObserved
+          ? null
+          : speaking
+            ? variety.pitchVariation === null ? 'ESTABLISHING VOICED RANGE' : modulation.reason || 'BUILDING SPEECH HISTORY'
+            : 'SPEECH-GATED · LISTENING',
       },
       pitch: {
         available: pitch.available === true,
@@ -201,6 +250,8 @@ export class RealAnalyticsEngine extends EventTarget {
         f0Hz: finite(pitch.f0Hz),
         semitonesFromSpeakerMedian: finite(pitch.semitonesFromSpeakerMedian),
         register: finite(pitch.register),
+        variationSemitones: finite(pitch.variationSemitones),
+        voicedFrames: finite(pitch.voicedFrames),
       },
       headFace: {
         nods,
@@ -211,11 +262,21 @@ export class RealAnalyticsEngine extends EventTarget {
         eyesActive: head.periocularContraction?.active === true,
       },
       bodyHands: {
-        handsVisible: hands.bothPresent === true,
+        handsVisible: hands.left?.present === true || hands.right?.present === true,
+        bothHandsVisible: hands.bothPresent === true,
         leftVisible: hands.left?.present === true,
         rightVisible: hands.right?.present === true,
+        handCount: Number(hands.left?.present === true) + Number(hands.right?.present === true),
+        visibility: hands.bothPresent === true
+          ? 'BOTH'
+          : hands.left?.present === true
+            ? 'LEFT'
+            : hands.right?.present === true
+              ? 'RIGHT'
+              : 'NONE',
         gestures,
         gestureRate,
+        gestureState: body.gestureUnits?.corridorState || 'UNAVAILABLE',
         inFrame: body.upperBodyPresent === true,
         activity: body.observableActivity?.handRegionActive || (body.movementLevel?.active ? 'active' : 'observing'),
       },
@@ -235,6 +296,20 @@ export class RealAnalyticsEngine extends EventTarget {
     const dw = bitmap.width * scale;
     const dh = bitmap.height * scale;
     context.drawImage(bitmap, (width - dw) / 2, (height - dh) / 2, dw, dh);
+  }
+
+  setOverlayVisibility(next = {}) {
+    this.overlayVisibility = { ...this.overlayVisibility, ...next };
+    const { face, hands, body, position } = this.overlayVisibility;
+    this.pipeline?.setInstrumentation({
+      overlayEnabled: Boolean(face || hands || body || position),
+      faceOverlayEnabled: Boolean(face),
+      bodyHandsOverlayEnabled: Boolean(hands || body),
+      handsOverlayEnabled: Boolean(hands),
+      bodyOverlayEnabled: Boolean(body),
+      framingOverlayEnabled: Boolean(position),
+    });
+    return { ...this.overlayVisibility };
   }
 
   async finish() {
@@ -260,5 +335,6 @@ export class RealAnalyticsEngine extends EventTarget {
     const context = this.overlayCanvas?.getContext?.('2d');
     context?.clearRect?.(0, 0, this.overlayCanvas.width || 1, this.overlayCanvas.height || 1);
     this.running = false;
+    this.latestAudioSpeaking = false;
   }
 }
