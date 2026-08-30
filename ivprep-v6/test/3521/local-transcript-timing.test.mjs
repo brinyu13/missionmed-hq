@@ -197,6 +197,45 @@ test('producer fails closed without a live mic, PCM lane, CSRF, or exact local c
   }
 });
 
+test('producer reports a stalled microphone PCM lane instead of claiming live timing forever', async () => {
+  let watchdog = null;
+  const states = [];
+  const producer = new LocalTranscriptTimingProducer({
+    fetchImpl: async () => response(capability()),
+    setTimeoutImpl(callback, delay) { watchdog = { callback, delay }; return 17; },
+    clearTimeoutImpl() {},
+  });
+  assert.equal(await producer.start({
+    stream: liveStream(), pipeline: new FakePipeline(), csrfToken: 'local_harness_csrf_3521',
+    clock: { sessionMs: () => 0 }, onTiming() {}, onState: (state) => states.push(state),
+  }), true);
+  assert.equal(watchdog.delay, 6_000);
+  watchdog.callback();
+  assert.equal(producer.state.reason, 'MICROPHONE_PCM_CAPTURE_STALLED');
+  assert.equal(states.at(-1).state, 'partial');
+  producer.stop();
+});
+
+test('first genuine microphone PCM frame disarms the capture watchdog', async () => {
+  let watchdog = null;
+  const cleared = [];
+  const pipeline = new FakePipeline();
+  const producer = new LocalTranscriptTimingProducer({
+    fetchImpl: async () => response(capability()),
+    setTimeoutImpl(callback, delay) { watchdog = { callback, delay }; return 23; },
+    clearTimeoutImpl(id) { cleared.push(id); },
+  });
+  await producer.start({
+    stream: liveStream(), pipeline, csrfToken: 'local_harness_csrf_3521',
+    clock: { sessionMs: () => 0 }, onTiming() {},
+  });
+  pipeline.push({ atMs: 0, sampleRate: 16_000, samples: new Float32Array(1_600), speaking: false });
+  assert.deepEqual(cleared, [23]);
+  watchdog.callback();
+  assert.notEqual(producer.state.reason, 'MICROPHONE_PCM_CAPTURE_STALLED');
+  producer.stop();
+});
+
 test('local word timestamps recover real duration and coverage when VAD undercounts voiced speech', async () => {
   const calls = [];
   const timings = [];
