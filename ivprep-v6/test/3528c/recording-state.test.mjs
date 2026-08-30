@@ -19,8 +19,9 @@ class FakeRecorder extends EventTarget {
 test('recording state machine saves, preserves pause spans, and seals account media', async () => {
   const oldRecorder = globalThis.MediaRecorder;
   const oldFetch = globalThis.fetch;
+  const uploads = [];
   globalThis.MediaRecorder = FakeRecorder;
-  globalThis.fetch = async () => ({ ok: true });
+  globalThis.fetch = async (url, options) => { uploads.push({ url, options }); return { ok: true }; };
   let seal = null;
   const api = {
     createRecording: async () => ({ id: 'r1', uploadUrl: 'https://media.test/upload', uploadToken: 'token', uploadExpiresAtMs: Date.now() + 60_000 }),
@@ -39,9 +40,12 @@ test('recording state machine saves, preserves pause spans, and seals account me
     assert.equal(seal.uploadToken, 'token');
     assert.equal(seal.pausedSpans.length, 1);
     assert.ok(seal.sizeBytes > 0);
+    assert.equal(uploads.length, 1);
+    assert.equal(uploads[0].url, 'https://media.test/upload?part=1&parts=1');
+    assert.equal(uploads[0].options.headers['Content-Type'], 'application/octet-stream');
+    assert.equal(uploads[0].options.headers['Content-Range'], `bytes 0-${seal.sizeBytes - 1}/${seal.sizeBytes}`);
   } finally {
     globalThis.MediaRecorder = oldRecorder;
     globalThis.fetch = oldFetch;
   }
 });
-

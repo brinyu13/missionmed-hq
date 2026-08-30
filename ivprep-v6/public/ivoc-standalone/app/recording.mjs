@@ -10,22 +10,39 @@ function supportedMime() {
 
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
-async function putWithRetry(url, blob, { attempts = 4 } = {}) {
+async function putWithRetry(url, blob, { attempts = 4, chunkSize = 5 * 1024 * 1024 } = {}) {
+  const total = blob.size;
+  if (!(total > 0)) throw new Error('recording_upload_empty');
+  const parts = Math.max(1, Math.ceil(total / chunkSize));
   let last = null;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url, {
-        method: 'PUT',
-        redirect: 'error',
-        headers: { 'Content-Type': blob.type || 'application/octet-stream' },
-        body: blob,
-      });
-      if (response.ok) return response;
-      last = new Error(`recording_upload_${response.status}`);
-    } catch (error) { last = error; }
-    if (attempt + 1 < attempts) await sleep(400 * (2 ** attempt));
+  for (let index = 0; index < parts; index += 1) {
+    const start = index * chunkSize;
+    const endExclusive = Math.min(start + chunkSize, total);
+    const endInclusive = endExclusive - 1;
+    const chunk = blob.slice(start, endExclusive);
+    const chunkUrl = `${url}${url.includes('?') ? '&' : '?'}part=${index + 1}&parts=${parts}`;
+    let uploaded = false;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        // This is the proven DBOC/CIE private-R2 contract. The worker requires
+        // octet-stream chunks, an exact Content-Range, and part coordinates.
+        const response = await fetch(chunkUrl, {
+          method: 'PUT',
+          redirect: 'error',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'Content-Range': `bytes ${start}-${endInclusive}/${total}`,
+          },
+          body: chunk,
+        });
+        if (response.ok) { uploaded = true; break; }
+        last = new Error(`recording_upload_${response.status}`);
+      } catch (error) { last = error; }
+      if (attempt + 1 < attempts) await sleep(400 * (2 ** attempt));
+    }
+    if (!uploaded) throw last || new Error('recording_upload_failed');
   }
-  throw last || new Error('recording_upload_failed');
+  return true;
 }
 
 export class AccountRecordingController extends EventTarget {
