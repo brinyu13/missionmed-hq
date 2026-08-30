@@ -93,7 +93,7 @@ async function liveScreen(el) {
       <aside class="room-left" ${showAnalytics ? '' : 'hidden'}>
         <div class="scan-card" id="faceCard">
           <div class="scan-head"><b>HEAD · FACE</b><span class="live-tag" id="faceLive">● LIVE</span></div>
-          <div class="scan-well"><img src="/iv-prep-on-call/analytics/founder-face-scanner.png" alt="Face scanner instrument"><i class="scan-sweep"></i></div>
+          <div class="scan-well"><img src="/iv-prep-on-call/live-analytics/founder-face-scanner.png" alt="Face scanner instrument"><i class="scan-sweep"></i></div>
           <div class="counter-row">
             <div class="counter"><em>SMILE EVENTS</em><b id="cSmiles">0</b><small>qualifying · full-face</small></div>
             <div class="counter"><em>HEAD NODS</em><b id="cNods">0</b><small>listening-only</small></div>
@@ -105,7 +105,7 @@ async function liveScreen(el) {
         </div>
         <div class="scan-card" id="bodyCard">
           <div class="scan-head"><b>BODY · GESTURES</b><span class="live-tag">● LIVE</span></div>
-          <div class="scan-well body"><img src="/iv-prep-on-call/analytics/founder-body-scanner.png" alt="Body scanner instrument"><i class="scan-sweep"></i></div>
+          <div class="scan-well body"><img src="/iv-prep-on-call/live-analytics/founder-body-scanner.png" alt="Body scanner instrument"><i class="scan-sweep"></i></div>
           <div class="hands-state ok" id="handsState">HANDS VISIBLE · L + R</div>
           <div class="counter-row">
             <div class="counter wide"><em>EFFECTIVE GESTURES</em><b id="cGestures">0</b><small id="gRate">corridor ${CALIBRATION.gestureCorridor[0]}–${CALIBRATION.gestureCorridor[1]} / min</small></div>

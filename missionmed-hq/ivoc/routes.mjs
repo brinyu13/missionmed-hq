@@ -15,6 +15,7 @@ const UI_PREFIX = '/iv-prep-analytics';
 const ANALYTICS_PREFIX = '/iv-prep-on-call/analytics';
 const API_PREFIX = '/api/ivoc/v1';
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
+const MAX_MEDIA_CHUNK_BYTES = 5 * 1024 * 1024;
 const MIME = Object.freeze({
   '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -70,6 +71,23 @@ async function readJson(request) {
   return value;
 }
 
+async function readMediaChunk(request) {
+  const chunks = [];
+  let bytes = 0;
+  try {
+    for await (const source of request) {
+      const chunk = Buffer.isBuffer(source) ? source : Buffer.from(source);
+      bytes += chunk.length;
+      if (bytes > MAX_MEDIA_CHUNK_BYTES) throw Object.assign(new Error('recording_chunk_too_large'), { status: 413 });
+      chunks.push(chunk);
+    }
+    if (!bytes) throw Object.assign(new Error('recording_chunk_empty'), { status: 400 });
+    return Buffer.concat(chunks, bytes);
+  } finally {
+    for (const chunk of chunks) chunk.fill(0);
+  }
+}
+
 function staticPath(pathname, root = STATIC_ROOT, prefix = UI_PREFIX) {
   let name = pathname === prefix || pathname === `${prefix}/`
     ? 'index.html' : pathname.slice(`${prefix}/`.length);
@@ -109,6 +127,7 @@ export function createIvocHandler({
   storage = null,
   now = () => Date.now(),
   env = process.env,
+  fetchImpl = fetch,
 } = {}) {
   const mediaBase = String(env.MMHQ_MEDIA_UPLOAD_BASE || env.MMHQ_CIE_BASE || 'https://cdn.missionmedinstitute.com').replace(/\/+$/u, '');
   const db = repository || createIvocRepository({
@@ -213,7 +232,54 @@ export function createIvocHandler({
           id: recordingId, session_id: sessionId, owner_subject: actor, storage_object_key: upload.objectKey,
           status: 'uploading', mime_type: safeText(input.mime, 120) || 'video/webm',
         });
-        sendJson(response, 201, { ...publicRecording(row), uploadUrl: upload.uploadUrl, uploadToken: upload.uploadToken, uploadExpiresAt: upload.expiresAt, uploadExpiresAtMs: upload.tokenExpiresAtMs }, mediaBase); return true;
+        sendJson(response, 201, {
+          ...publicRecording(row),
+          uploadUrl: `${API_PREFIX}/recordings/${recordingId}/media`,
+          uploadToken: upload.uploadToken,
+          uploadExpiresAt: upload.expiresAt,
+          uploadExpiresAtMs: upload.tokenExpiresAtMs,
+        }, mediaBase); return true;
+      }
+
+      match = pathname.match(/^\/api\/ivoc\/v1\/recordings\/([0-9a-f-]{36})\/media$/u);
+      if (request.method === 'PUT' && match) {
+        const recordingId = match[1];
+        const row = await db.single(`ivoc_recordings?id=eq.${recordingId}&select=*&limit=1`);
+        if (!row || row.owner_subject !== actor) { await audit({ actor, recordingId, action: 'recording_media_upload', decision: 'deny', reason: 'not_owner' }); sendError(response, 404, 'not_found', mediaBase); return true; }
+        const expiresAtMs = Number(request.headers['x-ivoc-upload-expires']);
+        const tokenValid = media.validateUploadToken({ recordingId, objectKey: row.storage_object_key, expiresAtMs, uploadToken: request.headers['x-ivoc-upload-token'] });
+        if (!tokenValid) { sendError(response, 403, 'recording_upload_token_invalid', mediaBase); return true; }
+
+        const part = Number(url.searchParams.get('part'));
+        const parts = Number(url.searchParams.get('parts'));
+        const range = String(request.headers['content-range'] || '').match(/^bytes (\d+)-(\d+)\/(\d+)$/u);
+        if (!Number.isSafeInteger(part) || !Number.isSafeInteger(parts) || part < 1 || parts < 1 || part > parts || parts > 1_000 || !range) {
+          sendError(response, 400, 'recording_chunk_contract_invalid', mediaBase); return true;
+        }
+        const start = Number(range[1]);
+        const end = Number(range[2]);
+        const total = Number(range[3]);
+        const expectedBytes = end - start + 1;
+        if (![start, end, total, expectedBytes].every(Number.isSafeInteger)
+          || start < 0 || end < start || total <= end || expectedBytes > MAX_MEDIA_CHUNK_BYTES) {
+          sendError(response, 400, 'recording_chunk_range_invalid', mediaBase); return true;
+        }
+        const chunk = await readMediaChunk(request);
+        try {
+          if (chunk.length !== expectedBytes) { sendError(response, 400, 'recording_chunk_length_invalid', mediaBase); return true; }
+          const signed = media.signedUrl(row.storage_object_key, Math.max(1_000, Math.min(10 * 60 * 1_000, expiresAtMs - now())));
+          const target = new URL(signed.url);
+          target.searchParams.set('part', String(part));
+          target.searchParams.set('parts', String(parts));
+          const upstream = await fetchImpl(target, {
+            method: 'PUT', redirect: 'error',
+            headers: { 'Content-Type': 'application/octet-stream', 'Content-Range': `bytes ${start}-${end}/${total}` },
+            body: chunk,
+          }).catch(() => null);
+          if (!upstream?.ok) { sendError(response, 502, 'recording_media_gateway_failed', mediaBase); return true; }
+          await audit({ actor, owner: actor, sessionId: row.session_id, recordingId, action: 'recording_media_upload', decision: 'allow', reason: `part_${part}_of_${parts}` });
+          response.writeHead(204, securityHeaders(mediaBase)); response.end(); return true;
+        } finally { chunk.fill(0); }
       }
 
       match = pathname.match(/^\/api\/ivoc\/v1\/recordings\/([0-9a-f-]{36})\/seal$/u);

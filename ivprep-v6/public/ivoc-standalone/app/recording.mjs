@@ -10,7 +10,7 @@ function supportedMime() {
 
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
-async function putWithRetry(url, blob, { attempts = 4, chunkSize = 5 * 1024 * 1024 } = {}) {
+async function putWithRetry(url, blob, { attempts = 4, chunkSize = 5 * 1024 * 1024, csrfToken = '', uploadToken = '', uploadExpiresAtMs = 0 } = {}) {
   const total = blob.size;
   if (!(total > 0)) throw new Error('recording_upload_empty');
   const parts = Math.max(1, Math.ceil(total / chunkSize));
@@ -28,10 +28,14 @@ async function putWithRetry(url, blob, { attempts = 4, chunkSize = 5 * 1024 * 10
         // octet-stream chunks, an exact Content-Range, and part coordinates.
         const response = await fetch(chunkUrl, {
           method: 'PUT',
+          credentials: 'same-origin',
           redirect: 'error',
           headers: {
             'Content-Type': 'application/octet-stream',
             'Content-Range': `bytes ${start}-${endInclusive}/${total}`,
+            'X-MMHQ-CSRF': csrfToken,
+            'X-IVOC-Upload-Token': uploadToken,
+            'X-IVOC-Upload-Expires': String(uploadExpiresAtMs),
           },
           body: chunk,
         });
@@ -132,7 +136,11 @@ export class AccountRecordingController extends EventTarget {
   async uploadAndSeal(blob) {
     this.state = 'FINALIZING'; this.emit();
     try {
-      await putWithRetry(this.recording.uploadUrl, blob);
+      await putWithRetry(this.recording.uploadUrl, blob, {
+        csrfToken: this.api.csrfToken,
+        uploadToken: this.recording.uploadToken,
+        uploadExpiresAtMs: this.recording.uploadExpiresAtMs,
+      });
       const sealed = await this.api.sealRecording(this.recording.id, {
         sizeBytes: blob.size,
         durationMs: Math.round(this.snapshot().elapsedMs),

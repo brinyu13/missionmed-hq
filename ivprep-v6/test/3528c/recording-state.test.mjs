@@ -24,6 +24,7 @@ test('recording state machine saves, preserves pause spans, and seals account me
   globalThis.fetch = async (url, options) => { uploads.push({ url, options }); return { ok: true }; };
   let seal = null;
   const api = {
+    csrfToken: 'csrf-token',
     createRecording: async () => ({ id: 'r1', uploadUrl: 'https://media.test/upload', uploadToken: 'token', uploadExpiresAtMs: Date.now() + 60_000 }),
     sealRecording: async (_id, body) => { seal = body; return { recording: { id: 'r1', status: 'saved' } }; },
   };
@@ -44,6 +45,8 @@ test('recording state machine saves, preserves pause spans, and seals account me
     assert.equal(uploads[0].url, 'https://media.test/upload?part=1&parts=1');
     assert.equal(uploads[0].options.headers['Content-Type'], 'application/octet-stream');
     assert.equal(uploads[0].options.headers['Content-Range'], `bytes 0-${seal.sizeBytes - 1}/${seal.sizeBytes}`);
+    assert.equal(uploads[0].options.headers['X-MMHQ-CSRF'], 'csrf-token');
+    assert.equal(uploads[0].options.headers['X-IVOC-Upload-Token'], 'token');
   } finally {
     globalThis.MediaRecorder = oldRecorder;
     globalThis.fetch = oldFetch;

@@ -17,6 +17,14 @@ function request(method = 'GET', body = null, headers = {}) {
   return stream;
 }
 
+function rawRequest(method, body, headers = {}) {
+  const bytes = Buffer.from(body);
+  const stream = Readable.from([bytes]);
+  stream.method = method;
+  stream.headers = { 'content-length': String(bytes.length), ...headers };
+  return stream;
+}
+
 function session(id = 42, roles = ['student']) {
   return {
     version: 1, issuedAt: new Date(Date.now() - 1000).toISOString(), expiresAt: new Date(Date.now() + 60_000).toISOString(),
@@ -149,4 +157,44 @@ test('authenticated UI response carries camera, microphone, and font policy', as
   assert.equal(response.status, 200);
   assert.match(response.headers['Permissions-Policy'], /camera=\(self\).*microphone=\(self\)/u);
   assert.match(response.headers['Content-Security-Policy'], /fonts\.googleapis\.com.*fonts\.gstatic\.com/u);
+});
+
+test('recording media upload is same-origin proxied without exposing the private object key', async () => {
+  const recordingId = '00000000-0000-4000-8000-000000000099';
+  const bytes = Buffer.from('private-media-bytes');
+  const recording = {
+    id: recordingId, session_id: foreignSessionId, owner_subject: 'wp:42', status: 'uploading',
+    storage_object_key: 'dboc-iv/wp_42/ivoc/private.webm', mime_type: 'video/webm', created_at: new Date().toISOString(),
+  };
+  const repo = repository();
+  repo.single = async (path) => path.startsWith(`ivoc_recordings?id=eq.${recordingId}`) ? recording : null;
+  const forwarded = [];
+  const route = createIvocHandler({
+    registry: registry(), repository: repo,
+    storage: {
+      createUpload: () => { throw new Error('not used'); },
+      validateUploadToken: ({ recordingId: id, uploadToken, expiresAtMs }) => id === recordingId && uploadToken === 'opaque-token' && expiresAtMs > Date.now(),
+      signedUrl: () => ({ url: 'https://media.test/dboc-iv/private?x-dboc-signature=sig&x-dboc-expires=9999999999999' }),
+    },
+    fetchImpl: async (url, options) => { forwarded.push({ url: String(url), options }); return { ok: true }; },
+    env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64), MMHQ_CIE_BASE: 'https://media.test' },
+  });
+  const response = new ResponseCapture();
+  const expiresAtMs = Date.now() + 60_000;
+  await route({
+    ...base,
+    request: rawRequest('PUT', bytes, {
+      origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24),
+      'x-ivoc-upload-token': 'opaque-token', 'x-ivoc-upload-expires': String(expiresAtMs),
+      'content-type': 'application/octet-stream', 'content-range': `bytes 0-${bytes.length - 1}/${bytes.length}`,
+    }),
+    response,
+    url: new URL(`https://hq.test/api/ivoc/v1/recordings/${recordingId}/media?part=1&parts=1`),
+    hqSession: session(),
+  });
+  assert.equal(response.status, 204);
+  assert.equal(forwarded.length, 1);
+  assert.match(forwarded[0].url, /part=1&parts=1/u);
+  assert.equal(forwarded[0].options.headers['Content-Range'], `bytes 0-${bytes.length - 1}/${bytes.length}`);
+  assert.doesNotMatch(response.body || '', /storage_object_key|dboc-iv/u);
 });
