@@ -1004,7 +1004,10 @@ export async function runDr133ProductionSuccessorMigration({
       ...catalogResult.rows?.[0],
       ...nonemptyResult.rows?.[0],
     };
-    assertPostflightRow(postflightRow, { allowNonempty: liveDataUpgrade });
+    assertPostflightRow(postflightRow, {
+      allowNonempty: liveDataUpgrade,
+      runtimeLoginActive: liveDataUpgrade,
+    });
     if (postflightRow.nonempty_relation_count !== preMutationNonemptyCount) {
       failDr133('SUCCESSOR_DATA_CUSTODY_CHANGED');
     }
@@ -1131,6 +1134,7 @@ export async function verifyDr133ProductionSuccessorSchema({
     };
     assertPostflightRow(postflightRow, {
       allowNonempty: lockedState.runtimeLoginActive,
+      runtimeLoginActive: lockedState.runtimeLoginActive,
     });
     stage = 'POSTFLIGHT_VERIFIED';
   } catch (error) {

@@ -617,7 +617,10 @@ function productionCursorRow(cursor, { runtimeLoginActive = false } = {}) {
   };
 }
 
-function productionPostflightRow({ nonemptyRelationCount = '0' } = {}) {
+function productionPostflightRow({
+  nonemptyRelationCount = '0',
+  runtimeLoginActive = false,
+} = {}) {
   return {
     schema_sentinel: expectedDr133SuccessorSentinel(),
     schema_owner: DR133_TARGET.databaseAdmin,
@@ -638,7 +641,7 @@ function productionPostflightRow({ nonemptyRelationCount = '0' } = {}) {
     view_identity: 'student_recommendation_case_projection@postgres',
     app_role_safe: true,
     command_owner_safe: true,
-    nologin_role_membership_count: '0',
+    nologin_role_membership_count: runtimeLoginActive ? '1' : '0',
   };
 }
 
@@ -699,7 +702,9 @@ async function createProductionMigrationStatefulFake({
         if (cursor.state !== 'committed' || cursor.index !== DR133_SUCCESSOR_STAGES.length) {
           throw Object.assign(new Error('postflight before final cursor'), { code: '55000' });
         }
-        return { rows: [productionPostflightRow({ nonemptyRelationCount })] };
+        return {
+          rows: [productionPostflightRow({ nonemptyRelationCount, runtimeLoginActive })],
+        };
       }
       if (sql === buildNonemptyRelationsSql()) {
         return { rows: [{ nonempty_relation_count: nonemptyRelationCount }] };

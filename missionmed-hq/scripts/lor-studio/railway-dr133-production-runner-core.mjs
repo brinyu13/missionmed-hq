@@ -1190,9 +1190,14 @@ export function assertBaseSchemaPreflightRow(row) {
   ) failDr133('BASE_SCHEMA_PREFLIGHT_TARGET_INVALID');
 }
 
-export function assertPostflightRow(row, { allowNonempty = false } = {}) {
+export function assertPostflightRow(row, {
+  allowNonempty = false,
+  runtimeLoginActive = false,
+} = {}) {
   if (!row || typeof row !== 'object') failDr133('POSTFLIGHT_RESULT_INVALID');
-  if (typeof allowNonempty !== 'boolean') failDr133('POSTFLIGHT_OPTIONS_INVALID');
+  if (typeof allowNonempty !== 'boolean' || typeof runtimeLoginActive !== 'boolean') {
+    failDr133('POSTFLIGHT_OPTIONS_INVALID');
+  }
   const observedDefiners = Array.isArray(row.definer_identities) ? row.definer_identities : [];
   const observedAppDefiners = Array.isArray(row.app_execute_identities)
     ? row.app_execute_identities
@@ -1218,7 +1223,7 @@ export function assertPostflightRow(row, { allowNonempty = false } = {}) {
     || row.app_role_safe !== true
     || row.command_owner_safe !== true
     || row.definer_custody_safe !== true
-    || row.nologin_role_membership_count !== '0'
+    || row.nologin_role_membership_count !== (runtimeLoginActive ? '1' : '0')
     || JSON.stringify(observedRelations) !== JSON.stringify([...DR133_RELATIONS].sort())
     || JSON.stringify(observedDefiners)
       !== JSON.stringify([...DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES].sort())
