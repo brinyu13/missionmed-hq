@@ -145,6 +145,7 @@ $GLOBALS['wpdb'] = new Lor_Test_Wpdb();
 $GLOBALS['lor_actions'] = array(); $GLOBALS['lor_filters'] = array(); $GLOBALS['lor_routes'] = array();
 $GLOBALS['lor_options'] = array(); $GLOBALS['lor_user_id'] = 123; $GLOBALS['lor_meta'] = array();
 $GLOBALS['lor_user_login'] = 'student'; $GLOBALS['lor_manage_options'] = false;
+$GLOBALS['lor_pages'] = array();
 $GLOBALS['lor_query_fail_names'] = array(); $GLOBALS['lor_query_fail_once_names'] = array();
 $GLOBALS['lor_fail_add_contains'] = '';
 $GLOBALS['lor_entitlement_calls'] = 0; $GLOBALS['lor_after_add_option'] = null;
@@ -163,6 +164,7 @@ function is_user_logged_in() { return (int) $GLOBALS['lor_user_id'] > 0; }
 function get_userdata($user_id) {
     return (int) $user_id === (int) $GLOBALS['lor_user_id'] ? wp_get_current_user() : false;
 }
+function get_page_by_path($path) { return $GLOBALS['lor_pages'][$path] ?? null; }
 function user_can($user_id, $capability) {
     return (int) $user_id === (int) $GLOBALS['lor_user_id']
         && 'manage_options' === $capability
@@ -1103,6 +1105,182 @@ echo json_encode(array(
     hybrid_mode: true,
     missing_axis: true,
   });
+});
+
+test('DR-145 student canary receives only the two exact Matrix page capabilities', { skip: !phpAvailable }, () => {
+  const directConstants = enabledConstants
+    .replace("define('MMHQ_LOR_STUDIO_VERIFIED_COURSE_IDS', '4000');", "define('MMHQ_LOR_STUDIO_VERIFIED_COURSE_IDS', '3893');")
+    .replace("define('MMHQ_LOR_STUDIO_VERIFIED_PROGRAM_TIERS', '360_match_mentorship');", "define('MMHQ_LOR_STUDIO_VERIFIED_PROGRAM_TIERS', '360elite');");
+  const result = runPhp(phpProgram({
+    constants: directConstants,
+    body: `
+lor_valid_fixture();
+$GLOBALS['lor_user_login'] = 'brinyu_test';
+$GLOBALS['lor_entitlement']['course_ids'] = array('3893');
+$GLOBALS['lor_entitlement']['program_tier'] = '360elite';
+$GLOBALS['lor_entitlement']['purchase_verified'] = false;
+$GLOBALS['lor_entitlement']['purchase_match_found'] = false;
+$GLOBALS['lor_entitlement']['enrollment_verified'] = true;
+$GLOBALS['lor_entitlement']['authority_mode'] = 'learndash_current_access';
+$GLOBALS['lor_pages']['member-dashboard'] = (object) array(
+    'ID' => 4243,
+    'post_name' => 'member-dashboard',
+    'post_type' => 'page',
+    'post_status' => 'publish',
+);
+$user = wp_get_current_user();
+$view_cap = 'wc_memberships_view_restricted_post_content';
+$delayed_cap = 'wc_memberships_view_delayed_post_content';
+$view = mmhq_lor_studio_matrix_canary_user_has_cap(
+    array($view_cap => false), array($view_cap), array($view_cap, 123, 4243), $user
+);
+$delayed = mmhq_lor_studio_matrix_canary_user_has_cap(
+    array($delayed_cap => false), array($delayed_cap), array($delayed_cap, '123', '4243'), $user
+);
+$unrelated = array('edit_posts' => true, 'read' => true);
+$unrelated_result = mmhq_lor_studio_matrix_canary_user_has_cap(
+    $unrelated, array('edit_posts'), array('edit_posts', 123), $user
+);
+echo json_encode(array(
+    'view' => $view,
+    'delayed' => $delayed,
+    'unrelated_unchanged' => $unrelated === $unrelated_result,
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    view: { wc_memberships_view_restricted_post_content: true },
+    delayed: { wc_memberships_view_delayed_post_content: true },
+    unrelated_unchanged: true,
+  });
+});
+
+test('DR-145 Matrix page capability bridge fails closed for every widened or stale state', { skip: !phpAvailable }, () => {
+  const directConstants = enabledConstants
+    .replace("define('MMHQ_LOR_STUDIO_VERIFIED_COURSE_IDS', '4000');", "define('MMHQ_LOR_STUDIO_VERIFIED_COURSE_IDS', '3893');")
+    .replace("define('MMHQ_LOR_STUDIO_VERIFIED_PROGRAM_TIERS', '360_match_mentorship');", "define('MMHQ_LOR_STUDIO_VERIFIED_PROGRAM_TIERS', '360elite');");
+  const result = runPhp(phpProgram({
+    constants: directConstants,
+    body: `
+function lor_matrix_cap_result($overrides = array()) {
+    lor_valid_fixture();
+    $GLOBALS['lor_user_login'] = 'brinyu_test';
+    $GLOBALS['lor_entitlement']['course_ids'] = array('3893');
+    $GLOBALS['lor_entitlement']['program_tier'] = '360elite';
+    $GLOBALS['lor_entitlement']['purchase_verified'] = false;
+    $GLOBALS['lor_entitlement']['purchase_match_found'] = false;
+    $GLOBALS['lor_entitlement']['enrollment_verified'] = true;
+    $GLOBALS['lor_entitlement']['authority_mode'] = 'learndash_current_access';
+    $GLOBALS['lor_pages']['member-dashboard'] = (object) array(
+        'ID' => 4243,
+        'post_name' => 'member-dashboard',
+        'post_type' => 'page',
+        'post_status' => 'publish',
+    );
+    foreach ($overrides as $key => $value) {
+        if ('login' === $key) $GLOBALS['lor_user_login'] = $value;
+        elseif ('meta' === $key) $GLOBALS['lor_meta'] = $value;
+        elseif ('entitlement' === $key) $GLOBALS['lor_entitlement'] = $value;
+        elseif ('page' === $key) $GLOBALS['lor_pages']['member-dashboard'] = $value;
+    }
+    $cap = 'wc_memberships_view_restricted_post_content';
+    $args = $overrides['args'] ?? array($cap, 123, 4243);
+    $caps = $overrides['caps'] ?? array($cap);
+    $user = $overrides['user'] ?? wp_get_current_user();
+    $initial = array($cap => false, 'read' => true);
+    return $initial === mmhq_lor_studio_matrix_canary_user_has_cap($initial, $caps, $args, $user);
+}
+
+lor_valid_fixture();
+$valid_meta = $GLOBALS['lor_meta'];
+lor_valid_fixture();
+$valid_entitlement = $GLOBALS['lor_entitlement'];
+$valid_entitlement['course_ids'] = array('3893');
+$valid_entitlement['program_tier'] = '360elite';
+$valid_entitlement['purchase_verified'] = false;
+$valid_entitlement['purchase_match_found'] = false;
+$valid_entitlement['enrollment_verified'] = true;
+$valid_entitlement['authority_mode'] = 'learndash_current_access';
+
+$revoked_meta = $valid_meta; $revoked_meta['_missionmed_lor_revoked_at'] = gmdate('c', time() - 1);
+$no_canary_meta = $valid_meta; unset($no_canary_meta['_missionmed_lor_canary_enabled']);
+$no_consent_meta = $valid_meta; unset($no_consent_meta['_missionmed_lor_consent_accepted']);
+$stale_entitlement = $valid_entitlement; $stale_entitlement['evaluated_at'] = gmdate('c', time() - 3600);
+$wrong_page_id = (object) array('ID' => 4244, 'post_name' => 'member-dashboard', 'post_type' => 'page', 'post_status' => 'publish');
+$wrong_slug = (object) array('ID' => 4243, 'post_name' => 'dashboard', 'post_type' => 'page', 'post_status' => 'publish');
+$wrong_type = (object) array('ID' => 4243, 'post_name' => 'member-dashboard', 'post_type' => 'post', 'post_status' => 'publish');
+$draft = (object) array('ID' => 4243, 'post_name' => 'member-dashboard', 'post_type' => 'page', 'post_status' => 'draft');
+
+$cases = array(
+    'wrong_login' => array('login' => 'another_student'),
+    'wrong_post_argument' => array('args' => array('wc_memberships_view_restricted_post_content', 123, 4244)),
+    'wrong_user_argument' => array('args' => array('wc_memberships_view_restricted_post_content', 124, 4243)),
+    'mismatched_user_object' => array('user' => (object) array('ID' => 124)),
+    'wrong_capability' => array('caps' => array('edit_posts'), 'args' => array('edit_posts', 123, 4243)),
+    'missing_object_argument' => array('args' => array('wc_memberships_view_restricted_post_content', 123)),
+    'aliased_user_id' => array('args' => array('wc_memberships_view_restricted_post_content', '0123', 4243)),
+    'aliased_post_id' => array('args' => array('wc_memberships_view_restricted_post_content', 123, '04243')),
+    'missing_page' => array('page' => null),
+    'wrong_page_id' => array('page' => $wrong_page_id),
+    'wrong_slug' => array('page' => $wrong_slug),
+    'wrong_type' => array('page' => $wrong_type),
+    'draft' => array('page' => $draft),
+    'revoked' => array('meta' => $revoked_meta),
+    'no_canary' => array('meta' => $no_canary_meta),
+    'no_consent' => array('meta' => $no_consent_meta),
+    'stale_entitlement' => array('entitlement' => $stale_entitlement),
+);
+$results = array();
+foreach ($cases as $name => $overrides) $results[$name] = lor_matrix_cap_result($overrides);
+
+$already_granted = array('wc_memberships_view_restricted_post_content' => true, 'read' => true);
+$GLOBALS['lor_user_login'] = 'another_student';
+$preserved = $already_granted === mmhq_lor_studio_matrix_canary_user_has_cap(
+    $already_granted,
+    array('wc_memberships_view_restricted_post_content'),
+    array('wc_memberships_view_restricted_post_content', 123, 4243),
+    wp_get_current_user()
+);
+echo json_encode(array('denials' => $results, 'existing_membership_preserved' => $preserved));
+`,
+  }));
+  assert.deepEqual(result.denials, {
+    wrong_login: true,
+    wrong_post_argument: true,
+    wrong_user_argument: true,
+    mismatched_user_object: true,
+    wrong_capability: true,
+    missing_object_argument: true,
+    aliased_user_id: true,
+    aliased_post_id: true,
+    missing_page: true,
+    wrong_page_id: true,
+    wrong_slug: true,
+    wrong_type: true,
+    draft: true,
+    revoked: true,
+    no_canary: true,
+    no_consent: true,
+    stale_entitlement: true,
+  });
+  assert.equal(result.existing_membership_preserved, true);
+});
+
+test('Matrix page capability bridge is inert while the LOR WordPress contract is off', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    constants: '',
+    body: `
+$GLOBALS['lor_user_login'] = 'brinyu_test';
+$GLOBALS['lor_pages']['member-dashboard'] = (object) array(
+    'ID' => 4243, 'post_name' => 'member-dashboard', 'post_type' => 'page', 'post_status' => 'publish'
+);
+$cap = 'wc_memberships_view_restricted_post_content';
+$initial = array($cap => false);
+$result = mmhq_lor_studio_matrix_canary_user_has_cap($initial, array($cap), array($cap, 123, 4243), wp_get_current_user());
+echo json_encode(array('unchanged' => $initial === $result));
+`,
+  }));
+  assert.deepEqual(result, { unchanged: true });
 });
 
 test('DR-145 Founder canary is exact, server-owned, gate-complete, and admin alone is denied', { skip: !phpAvailable }, () => {

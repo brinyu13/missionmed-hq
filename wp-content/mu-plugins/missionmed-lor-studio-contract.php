@@ -5,9 +5,10 @@
  * Version: 1.0.0
  * Author: MissionMed
  *
- * This plugin does not send email, register user metadata, or modify a global
- * auth gate. It stores only short-lived hashed code/non-secret binding/nonce
- * records in exact WordPress transient option rows.
+ * This plugin does not send email, register user metadata, or grant a role or
+ * membership. It stores only short-lived hashed code/non-secret binding/nonce
+ * records in exact WordPress transient option rows and exposes one fail-closed,
+ * page-scoped Matrix capability bridge for the named DR-145 student canary.
  */
 
 defined('ABSPATH') || exit;
@@ -479,6 +480,90 @@ function mmhq_lor_studio_identity_entitlement_for_user($raw_user_id) {
 		'canaryEnabled' => $canary['canaryEnabled'],
 		'canaryConsented' => $canary['canaryConsented'],
 	);
+}
+
+/**
+ * Admit the exact DR-145 student canary through the already-restricted Matrix
+ * page without granting a WordPress role, WooCommerce membership, commerce
+ * authority, or access to any other restricted content. WooCommerce
+ * Memberships evaluates both the view and delayed-content capabilities while
+ * rendering a restricted page, so both exact capability names share the same
+ * server-owned LOR decision. Every malformed or incomplete call is unchanged.
+ */
+function mmhq_lor_studio_matrix_canary_user_has_cap($all_caps, $caps, $args, $user) {
+	$matrix_caps = array(
+		'wc_memberships_view_restricted_post_content',
+		'wc_memberships_view_delayed_post_content',
+	);
+	if (
+		!is_array($all_caps)
+		|| !is_array($caps)
+		|| !is_array($args)
+		|| !is_object($user)
+		|| !mmhq_lor_studio_contract_enabled()
+		|| !isset($args[0], $args[1], $args[2], $user->ID)
+		|| !is_string($args[0])
+		|| !in_array($args[0], $matrix_caps, true)
+		|| !in_array($args[0], $caps, true)
+		|| (!is_int($args[1]) && (!is_string($args[1]) || 1 !== preg_match('/^[1-9][0-9]*$/D', $args[1])))
+		|| (!is_int($args[2]) && (!is_string($args[2]) || 1 !== preg_match('/^[1-9][0-9]*$/D', $args[2])))
+		|| (int) $args[1] < 1
+		|| (int) $args[2] < 1
+		|| (string) (int) $args[1] !== (string) $args[1]
+		|| (string) (int) $args[2] !== (string) $args[2]
+		|| (int) $user->ID !== (int) $args[1]
+		|| !function_exists('get_userdata')
+		|| !function_exists('get_page_by_path')
+	) {
+		return $all_caps;
+	}
+
+	$user_id = (int) $args[1];
+	$post_id = (int) $args[2];
+	$wp_user = get_userdata($user_id);
+	if (
+		!is_object($wp_user)
+		|| !isset($wp_user->ID, $wp_user->user_login)
+		|| (int) $wp_user->ID !== $user_id
+		|| !is_string($wp_user->user_login)
+		|| !hash_equals('brinyu_test', $wp_user->user_login)
+	) {
+		return $all_caps;
+	}
+
+	$matrix_page = get_page_by_path('member-dashboard');
+	if (
+		!is_object($matrix_page)
+		|| !isset(
+			$matrix_page->ID,
+			$matrix_page->post_name,
+			$matrix_page->post_type,
+			$matrix_page->post_status
+		)
+		|| (int) $matrix_page->ID !== $post_id
+		|| 'member-dashboard' !== $matrix_page->post_name
+		|| 'page' !== $matrix_page->post_type
+		|| 'publish' !== $matrix_page->post_status
+	) {
+		return $all_caps;
+	}
+
+	$projection = mmhq_lor_studio_identity_entitlement_for_user($user_id);
+	if (
+		is_wp_error($projection)
+		|| !is_array($projection)
+		|| true !== ($projection['admitted'] ?? false)
+		|| true !== ($projection['canaryEnabled'] ?? false)
+		|| true !== ($projection['canaryConsented'] ?? false)
+		|| !isset($projection['subject'])
+		|| !is_string($projection['subject'])
+		|| !hash_equals('wp:' . $user_id, $projection['subject'])
+	) {
+		return $all_caps;
+	}
+
+	$all_caps[$args[0]] = true;
+	return $all_caps;
 }
 
 /**
@@ -2052,4 +2137,5 @@ function mmhq_lor_studio_register_rest_contract() {
 	);
 }
 
+add_filter('user_has_cap', 'mmhq_lor_studio_matrix_canary_user_has_cap', 10, 4);
 add_action('rest_api_init', 'mmhq_lor_studio_register_rest_contract');
