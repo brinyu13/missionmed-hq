@@ -401,10 +401,10 @@
   }
 
   const DEFAULT_API_TIMEOUT_MS = 10_000;
-  // The production OpenAI adapter owns a bounded 15-second foreground timeout. The browser must
+  // The production OpenAI adapter owns a bounded 30-second foreground timeout. The browser must
   // outlive that server decision so it can receive the durable accepted/unknown result instead of
-  // aborting at 10 seconds and manufacturing a 499 while the server is still resolving custody.
-  const AI_PROPOSAL_API_TIMEOUT_MS = 25_000;
+  // aborting early and manufacturing a 499 while the server is still resolving custody.
+  const AI_PROPOSAL_API_TIMEOUT_MS = 40_000;
 
   async function requestApi(path, {
     method = 'GET', csrfToken = '', body = null, timeoutMilliseconds = DEFAULT_API_TIMEOUT_MS,

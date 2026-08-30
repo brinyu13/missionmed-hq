@@ -1091,7 +1091,7 @@ test('AI proposal transport outlives the bounded server provider timeout', async
   const outcome = await commands.requestAiProposal({ caseId: 'case-42', factIds: null });
   assert.equal(outcome.reached, true);
   assert.equal(outcome.status, 201);
-  assert.deepEqual(delays, [25_000]);
+  assert.deepEqual(delays, [40_000]);
 });
 
 test('a command naming a case this page was not authorized for is refused before any request', async () => {

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   isAuthenticOpenAiGroundedProposalAdapter,
+  OPENAI_FOREGROUND_TIMEOUT_MS,
   OPENAI_GROUNDED_PROPOSAL_CONTRACT,
   OPENAI_PATH_B_PROCESSING_POLICY,
   OPENAI_PATH_B_PROCESSING_POLICY_DIGEST,
@@ -19,6 +20,10 @@ const FACT_TEXT = 'The applicant consistently prepared thoughtful case summaries
 const CASE_ID = 'case-openai-adapter';
 const PROJECT_ID = 'proj_UTCDEhLVMT6aQnCXnBElihZT';
 const RELEASE_COMMIT = '9a7a5f56bbc584ace07472e283b1013ab7897fca';
+
+test('production foreground timeout uses the bounded 30-second provider ceiling', () => {
+  assert.equal(OPENAI_FOREGROUND_TIMEOUT_MS, 30_000);
+});
 
 const PRIVACY_BINDING = Object.freeze({
   schemaVersion: 'missionmed.lor.openai-project-binding.v2',

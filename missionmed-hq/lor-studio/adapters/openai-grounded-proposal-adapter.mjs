@@ -58,7 +58,10 @@ const MAX_FACTS = 500;
 const MAX_SEGMENTS = 400;
 const MAX_TEXT_LENGTH = 40_000;
 const MAX_SEGMENT_LENGTH = 4_000;
-const DEFAULT_TIMEOUT_MS = 15_000;
+// Keep the provider request bounded, but allow the production reasoning model enough foreground
+// time to complete. The live canary proved that 15 seconds can terminate a healthy request before
+// the provider returns; 30 seconds remains the adapter's existing fail-closed maximum.
+export const OPENAI_FOREGROUND_TIMEOUT_MS = 30_000;
 const SEPARATORS = Object.freeze({ paragraph: '\n\n', line: '\n', inline: ' ' });
 const AUTHENTIC_OPENAI_GROUNDED_PROPOSAL_ADAPTERS = new WeakSet();
 
@@ -522,7 +525,7 @@ export class OpenAiGroundedProposalAdapter extends AiProposalPort {
     binding,
     credentialProvider,
     fetchImplementation = globalThis.fetch,
-    timeoutMs = DEFAULT_TIMEOUT_MS,
+    timeoutMs = OPENAI_FOREGROUND_TIMEOUT_MS,
   } = {}) {
     super();
     const validatedBinding = assertBinding(binding);
