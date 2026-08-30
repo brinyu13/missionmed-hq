@@ -69,6 +69,12 @@ async function liveScreen(el) {
   const q = qOf(draft.qids[0]);
   const showAnalytics = ui.analyticsVisible !== false;
 
+  // Instrument hold-last-valid state belongs to one interview session only.
+  for (const instrument of INSTRUMENTS) {
+    instrument._last = null;
+    instrument._lastWpm = null;
+  }
+
   /* recording state machine (doc 05) */
   const rec = {
     state: ui.recording ? 'READY' : 'OFF',
@@ -390,6 +396,9 @@ async function liveScreen(el) {
         num.style.color = scoreColor(score);
         inst.classList.remove('unavail');
         ins._last = score;
+        if (ins.id === 'pace' && Number.isFinite(f.speedWpm.wordsPerMinute)) {
+          ins._lastWpm = f.speedWpm.wordsPerMinute;
+        }
       } else if (ins._last != null) {
         num.textContent = ins._last.toFixed(1);
         num.style.color = '';
@@ -570,6 +579,8 @@ async function liveScreen(el) {
         volume: INSTRUMENTS[1]._last ?? null,
         variety: INSTRUMENTS[2]._last ?? null,
       },
+      wpmLastObserved: INSTRUMENTS[0]._lastWpm ?? null,
+      wpmAvg: INSTRUMENTS[0]._lastWpm ?? null,
       counters: { nods: f.headFace.nods, smiles: f.headFace.smileEvents, gestures: f.bodyHands.gestures },
       events: runtimeResult?.events || engine.events.slice(),
       history: runtimeResult?.history || engine.history.slice(),
@@ -589,7 +600,7 @@ async function liveScreen(el) {
         volume: INSTRUMENTS[1]._last ?? null,
         variety: INSTRUMENTS[2]._last ?? null,
       },
-      wpmAvg: f.speedWpm.wordsPerMinute || null,
+      wpmAvg: INSTRUMENTS[0]._lastWpm ?? null,
       counters: { nods: f.headFace.nods, smiles: f.headFace.smileEvents, gestures: f.bodyHands.gestures, handsPct: f.bodyHands.handsVisible ? 100 : null },
       events: resultEnvelope.events,
       history: resultEnvelope.history,

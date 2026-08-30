@@ -41,7 +41,7 @@ async function resultsModel(param) {
     date: row.endedAt ? new Date(row.endedAt).toLocaleString() : new Date(row.startedAt).toLocaleString(),
     dur: fmt(durS), recorded: row.recording?.status === 'saved', recordingId: row.recording?.id || null,
     scores: { pace: payload.scores?.pace ?? null, volume: payload.scores?.volume ?? null, variety: payload.scores?.variety ?? null },
-    wpmAvg: payload.metrics?.SPEED_WPM?.wordsPerMinute ?? payload.wpmAvg ?? null, total: Math.max(1, durS),
+    wpmAvg: payload.wpmLastObserved ?? payload.metrics?.SPEED_WPM?.wordsPerMinute ?? payload.wpmAvg ?? null, total: Math.max(1, durS),
     counters: { nods: payload.counters?.nods ?? 0, smiles: payload.counters?.smiles ?? 0, gestures: payload.counters?.gestures ?? 0, handsPct: payload.counters?.handsPct ?? null },
     events: Array.isArray(payload.events) ? payload.events : [], payload,
   };
