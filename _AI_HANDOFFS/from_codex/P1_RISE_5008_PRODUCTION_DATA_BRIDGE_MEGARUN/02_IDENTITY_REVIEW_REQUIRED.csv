@@ -1,0 +1,6 @@
+category,count,exposure_state,reason,governed_locator
+SOAP_2026_UNMATCHED_EXACT_ACGME,3,INTERNAL_ONLY,No exact ACGME match in the canonical workbook,rise/releases/private-beta/program-identity.v1.json
+CANONICAL_UNSUPPORTED_REMAINDER,5230,INTERNAL_ONLY,No independently supportable rights-safe identity source for beta projection,canonical workbook SHA-256 c627397c69d2fad42c07a0b66951f3f3a4957a86c231d93a5bd925cdb2d87b9e
+SOAP_2026_EXACT_MATCHED,883,PRIVATE_BETA,Exact ACGME reconciliation and DR-148 bounded historical authority,rise/releases/private-beta/program-identity.v1.json
+HRSA_THCGME_BOUNDED,26,PRIVATE_BETA,Government public-domain factual projection,rise/data-sources/hrsa-thcgme-ay2025-2026.v1.json
+
