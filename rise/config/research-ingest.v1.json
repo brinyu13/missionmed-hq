@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "providers": {
+    "PARALLEL": {
+      "campaignId": "RISE-BOOTSTRAP-001",
+      "inputKind": "completed_ingest_staging",
+      "newSpendAuthorizedUsd": 0,
+      "publicationDefault": "REVIEW_REQUIRED"
+    },
+    "CLAUDE_OPUS": {
+      "campaignId": "CLAUDE-SPRINT-009",
+      "inputKind": "completed_ingest_staging",
+      "newSpendAuthorizedUsd": 0,
+      "publicationDefault": "REVIEW_REQUIRED"
+    }
+  },
+  "blockedStudentFields": [
+    "leadership",
+    "resident_roster",
+    "fellowship_inventory",
+    "img_accessibility",
+    "caribbean_accessibility",
+    "do_accessibility",
+    "abim"
+  ],
+  "privacyRule": "Provider research remains review-required until a source-located field is separately approved; people and roster facts are never auto-published.",
+  "idempotency": "provider + campaign_id + acgme_id + source_file_sha256"
+}

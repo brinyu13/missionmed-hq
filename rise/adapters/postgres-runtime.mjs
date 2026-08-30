@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import pg from "pg";
 
 const { Pool } = pg;
@@ -53,6 +53,14 @@ function subjectKey(subject, key) {
     .update("rise-student-state-v1\0")
     .update(String(subject))
     .digest("hex");
+}
+
+function sha256(value) {
+  return createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+}
+
+function stableDatabaseId(prefix, value) {
+  return `${prefix}_${sha256(value).slice(0, 32)}`;
 }
 
 async function withSubject(pool, key, operation, { isAdmin = false } = {}) {
@@ -184,9 +192,10 @@ export async function createRiseStudentIntelStore({
 } = {}) {
   const hmacKey = requiredString(subjectHmacKey, "RISE_STUDENT_STATE_SUBJECT_HMAC_KEY", 32);
   await pool.query("SELECT 1 FROM rise_runtime.student_intel_submissions LIMIT 1");
+  await pool.query("SELECT 1 FROM rise_runtime.canonical_evidence_claims LIMIT 1");
   return {
     scope: "durable_private",
-    canonicalPromotionMode: "staging_only",
+    canonicalPromotionMode: "live",
     async betaNotice({ subject }) {
       const key = subjectKey(subject, hmacKey);
       return withSubject(pool, key, async (client) => {
@@ -349,6 +358,46 @@ export async function createRiseStudentIntelStore({
             JSON.stringify({ studentIntelSubmissionId: submissionId, originalClaimPreserved: true }),
             requiredString(actorSubject, "actor subject").slice(0, 256),
           ]);
+          const sourceId = stableDatabaseId("rise_src", `STUDENT_INTEL:${submissionId}`);
+          const claimCanonical = {
+            subjectId: before.programSpecialtyId,
+            field: input.canonicalField,
+            value: input.canonicalValue,
+            provider: "STUDENT_INTEL",
+            providerRunId: submissionId,
+            sourceType: "verified_student_intel_promotion",
+            sourceUrl: before.source?.url ?? null,
+            retrievedAt: before.lastVerificationAttemptAt ?? new Date().toISOString(),
+            publicationState: "PRIVATE_BETA",
+            reviewState: "APPROVED",
+          };
+          const contentSha256 = sha256(claimCanonical);
+          await client.query(`
+            INSERT INTO rise_runtime.canonical_evidence_sources (
+              source_id, provider, provider_run_id, source_type, source_url,
+              retrieved_at, rights_state, exposure_state, metadata
+            ) VALUES ($1, 'STUDENT_INTEL', $2, 'verified_student_intel_promotion', $3, $4, 'APPROVED', 'PRIVATE_BETA', $5::jsonb)
+            ON CONFLICT (source_id) DO NOTHING
+          `, [
+            sourceId, submissionId, before.source?.url ?? null,
+            before.lastVerificationAttemptAt ?? new Date().toISOString(),
+            JSON.stringify({ studentIntelSubmissionId: submissionId, originalClaimPreserved: true }),
+          ]);
+          await client.query(`
+            INSERT INTO rise_runtime.canonical_evidence_claims (
+              claim_id, subject_id, field, knowledge, canonical_value, assertion_class,
+              publication_state, review_state, conflict_state, source_id, source_locator,
+              observed_period, retrieved_at, content_sha256
+            ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, 'missionmed_verified',
+                      'PRIVATE_BETA', 'APPROVED', 'NONE', $6, $7, $8::jsonb, $9, $10)
+            ON CONFLICT (content_sha256) DO NOTHING
+          `, [
+            stableDatabaseId("rise_claim", contentSha256), before.programSpecialtyId, input.canonicalField,
+            JSON.stringify({ state: "known", value: input.canonicalValue }), JSON.stringify(input.canonicalValue),
+            sourceId, before.source?.url ?? null,
+            JSON.stringify({ kind: "student_observation", observedOn: before.observedOn }),
+            before.lastVerificationAttemptAt ?? new Date().toISOString(), contentSha256,
+          ]);
         }
         const after = await readIntelRecord(client, submissionId, { admin: true });
         await client.query(`
@@ -451,6 +500,187 @@ export async function createRiseStudentIntelStore({
   };
 }
 
+export async function createRiseCanonicalEvidenceStore({ pool = databasePool() } = {}) {
+  await pool.query("SELECT 1 FROM rise_runtime.canonical_evidence_claims LIMIT 1");
+  const systemKey = "0".repeat(64);
+  return {
+    scope: "durable_canonical_evidence",
+    async ingestSoapDataset({ release, claims, sourceFile, sourceFileSha256 }) {
+      if (release?.counts?.sourceRows !== 925 || release?.identities?.length !== 886 || claims?.length !== 925) {
+        throw new Error("SOAP canonical backfill count contract drifted");
+      }
+      if (!/^[a-f0-9]{64}$/.test(String(sourceFileSha256 ?? ""))) {
+        throw new Error("SOAP canonical backfill requires the pinned source SHA-256");
+      }
+      const providerRunId = "P1_RISE_SOAP_2026_CLOSURE_006";
+      const idempotencyKey = sha256(`NRMP_SOAP_CLOSURE\0${providerRunId}\0${sourceFileSha256}`);
+      return withSubject(pool, systemKey, async (client) => {
+        const run = await client.query(`
+          INSERT INTO rise_runtime.provider_ingest_runs (
+            idempotency_key, provider, campaign_id, acgme_id, source_file,
+            source_file_sha256, staged_at, status, new_spend_usd, claim_count
+          ) VALUES ($1, 'NRMP_SOAP_CLOSURE', 'P1-RISE-5008-SOAP-2026', NULL, $2, $3,
+                    $4, 'INGESTED', 0, $5)
+          ON CONFLICT (idempotency_key) DO UPDATE SET
+            replay_count = rise_runtime.provider_ingest_runs.replay_count + 1
+          RETURNING ingest_run_id, (xmax = 0) AS inserted, replay_count
+        `, [idempotencyKey, sourceFile, sourceFileSha256, release.source.retrievedAt, claims.length]);
+        await client.query(`
+          INSERT INTO rise_runtime.canonical_evidence_sources (
+            source_id, provider, provider_run_id, source_type, source_file_sha256,
+            source_locator, retrieved_at, rights_state, exposure_state, metadata
+          ) VALUES ('rise_src_soap_2026', 'NRMP_SOAP_CLOSURE', $1,
+                    'historical_match_cycle_result', $2, $3, $4,
+                    'APPROVED', 'PRIVATE_BETA', $5::jsonb)
+          ON CONFLICT (source_id) DO NOTHING
+        `, [
+          providerRunId, sourceFileSha256, sourceFile, release.source.retrievedAt,
+          JSON.stringify({
+            cycle: 2026,
+            sourceRows: release.counts.sourceRows,
+            exactAcgmeMatches: release.counts.exactAcgmeMatches,
+            reviewRequired: release.counts.reviewRequired,
+            newSpendUsd: 0,
+          }),
+        ]);
+        let insertedClaims = 0;
+        for (const claim of claims) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.canonical_evidence_claims (
+              claim_id, subject_id, field, knowledge, canonical_value, assertion_class,
+              publication_state, review_state, conflict_state, source_id, source_locator,
+              observed_period, retrieved_at, content_sha256
+            ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8, $9,
+                      'rise_src_soap_2026', $10, $11::jsonb, $12, $13)
+            ON CONFLICT (content_sha256) DO NOTHING
+          `, [
+            claim.id, claim.subjectId, claim.field, JSON.stringify(claim.knowledge), JSON.stringify(claim.value),
+            claim.assertionClass, claim.publicationState, claim.reviewState, claim.conflictState,
+            claim.sourceLocator, JSON.stringify(claim.observedPeriod), claim.retrievedAt, claim.contentSha256,
+          ]);
+          insertedClaims += result.rowCount;
+        }
+        let upsertedIdentities = 0;
+        for (const identity of release.identities) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.canonical_program_identities (
+              program_identity_id, acgme_id, program_specialty_id, program_name, institution,
+              city, state, specialty, reconciliation_status, exposure_state, source_id, content_sha256
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                      'rise_src_soap_2026', $11)
+            ON CONFLICT (acgme_id) DO UPDATE SET
+              program_specialty_id = EXCLUDED.program_specialty_id,
+              program_name = EXCLUDED.program_name,
+              institution = EXCLUDED.institution,
+              city = EXCLUDED.city,
+              state = EXCLUDED.state,
+              specialty = EXCLUDED.specialty,
+              reconciliation_status = EXCLUDED.reconciliation_status,
+              exposure_state = EXCLUDED.exposure_state,
+              source_id = EXCLUDED.source_id,
+              content_sha256 = EXCLUDED.content_sha256,
+              updated_at = now()
+          `, [
+            identity.programIdentityId, identity.acgmeId, identity.programSpecialtyId,
+            identity.programName, identity.institution, identity.city || null, identity.state,
+            identity.specialty, identity.reconciliationStatus, identity.exposureState, identity.contentSha256,
+          ]);
+          upsertedIdentities += result.rowCount;
+        }
+        return {
+          ingestRunId: run.rows[0].ingest_run_id,
+          insertedRun: run.rows[0].inserted,
+          replayCount: run.rows[0].replay_count,
+          insertedClaims,
+          claimCount: claims.length,
+          upsertedIdentities,
+          identityCount: release.identities.length,
+          newSpendUsd: 0,
+        };
+      }, { isAdmin: true });
+    },
+    async ingestProviderRecord({ ingest }) {
+      return withSubject(pool, systemKey, async (client) => {
+        const sourceId = stableDatabaseId("rise_src", `${ingest.provider}:${ingest.providerRunId}`);
+        const run = await client.query(`
+          INSERT INTO rise_runtime.provider_ingest_runs (
+            idempotency_key, provider, campaign_id, acgme_id, source_file,
+            source_file_sha256, staged_at, status, new_spend_usd, claim_count
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'INGESTED', 0, $8)
+          ON CONFLICT (idempotency_key) DO UPDATE SET replay_count = rise_runtime.provider_ingest_runs.replay_count + 1
+          RETURNING ingest_run_id, (xmax = 0) AS inserted, replay_count
+        `, [
+          ingest.idempotencyKey, ingest.provider, ingest.campaignId, ingest.acgmeId,
+          ingest.sourceFile, ingest.sourceFileSha256, ingest.stagedAt, ingest.claims.length,
+        ]);
+        await client.query(`
+          INSERT INTO rise_runtime.canonical_evidence_sources (
+            source_id, provider, provider_run_id, source_type, source_file_sha256,
+            source_locator, retrieved_at, rights_state, exposure_state, metadata
+          ) VALUES ($1, $2, $3, 'completed_research_factory', $4, $5, $6, 'REVIEW_REQUIRED', 'INTERNAL_ONLY', $7::jsonb)
+          ON CONFLICT (source_id) DO NOTHING
+        `, [
+          sourceId, ingest.provider, ingest.providerRunId, ingest.sourceFileSha256,
+          ingest.sourceFile, ingest.stagedAt,
+          JSON.stringify({ campaignId: ingest.campaignId, acgmeId: ingest.acgmeId, newSpendUsd: 0 }),
+        ]);
+        let insertedClaims = 0;
+        for (const claim of ingest.claims) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.canonical_evidence_claims (
+              claim_id, subject_id, field, knowledge, canonical_value, assertion_class,
+              publication_state, review_state, conflict_state, source_id, source_locator,
+              observed_period, retrieved_at, content_sha256
+            ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14)
+            ON CONFLICT (content_sha256) DO NOTHING
+          `, [
+            claim.id, claim.subjectId, claim.field, JSON.stringify(claim.knowledge), JSON.stringify(claim.value),
+            claim.assertionClass, claim.publicationState, claim.reviewState, claim.conflictState,
+            sourceId, claim.sourceLocator, JSON.stringify(claim.observedPeriod), claim.retrievedAt, claim.contentSha256,
+          ]);
+          insertedClaims += result.rowCount;
+        }
+        return {
+          ingestRunId: run.rows[0].ingest_run_id,
+          insertedRun: run.rows[0].inserted,
+          replayCount: run.rows[0].replay_count,
+          insertedClaims,
+          claimCount: ingest.claims.length,
+        };
+      }, { isAdmin: true });
+    },
+    async upsertProgramIdentity(identity) {
+      return withSubject(pool, systemKey, async (client) => {
+        const result = await client.query(`
+          INSERT INTO rise_runtime.canonical_program_identities (
+            program_identity_id, acgme_id, program_specialty_id, program_name, institution,
+            city, state, specialty, reconciliation_status, exposure_state, source_id, content_sha256
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          ON CONFLICT (acgme_id) DO UPDATE SET
+            program_specialty_id = EXCLUDED.program_specialty_id,
+            program_name = EXCLUDED.program_name,
+            institution = EXCLUDED.institution,
+            city = EXCLUDED.city,
+            state = EXCLUDED.state,
+            specialty = EXCLUDED.specialty,
+            reconciliation_status = EXCLUDED.reconciliation_status,
+            exposure_state = EXCLUDED.exposure_state,
+            source_id = EXCLUDED.source_id,
+            content_sha256 = EXCLUDED.content_sha256,
+            updated_at = now()
+          RETURNING program_identity_id AS "programIdentityId", exposure_state AS "exposureState"
+        `, [
+          identity.programIdentityId, identity.acgmeId, identity.programSpecialtyId,
+          identity.programName, identity.institution, identity.city || null, identity.state,
+          identity.specialty, identity.reconciliationStatus, identity.exposureState,
+          identity.sourceId, identity.contentSha256,
+        ]);
+        return result.rows[0];
+      }, { isAdmin: true });
+    },
+  };
+}
+
 async function consumeBudget(pool, key, cost, limit) {
   const result = await pool.query(`
     INSERT INTO rise_runtime.request_budget_windows (budget_key, window_start, request_cost)
@@ -478,14 +708,29 @@ export async function createRiseAbuseController({ pool = databasePool() } = {}) 
 
 export async function createRiseSourceRightsController({ pool = databasePool() } = {}) {
   await pool.query("SELECT 1 FROM rise_runtime.source_authorizations LIMIT 1");
+  const bridge = await pool.query("SELECT to_regclass('rise_runtime.release_source_rights') AS relation");
+  const hasBridgeRights = Boolean(bridge.rows[0]?.relation);
   return {
     scope: "shared_durable_current",
     async assertCurrent({ registryReleaseId, authorizationSha256s }) {
       const expected = [...new Set((authorizationSha256s ?? []).map(String))].sort();
+      const relation = hasBridgeRights ? `
+        SELECT authorization_sha256, decision_record_id, revoked_at, valid_through
+        FROM rise_runtime.source_authorizations
+        WHERE release_id = $1
+        UNION
+        SELECT authorization_sha256, decision_record_id, revoked_at, valid_through
+        FROM rise_runtime.release_source_rights
+        WHERE release_id = $1
+      ` : `
+        SELECT authorization_sha256, decision_record_id, revoked_at, valid_through
+        FROM rise_runtime.source_authorizations
+        WHERE release_id = $1
+      `;
       const result = await pool.query(`
         SELECT a.authorization_sha256, a.decision_record_id
         FROM rise_runtime.registry_releases r
-        JOIN rise_runtime.source_authorizations a ON a.release_id = r.release_id
+        JOIN (${relation}) a ON true
         WHERE r.release_id = $1
           AND r.active = true
           AND a.revoked_at IS NULL

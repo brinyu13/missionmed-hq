@@ -71,7 +71,7 @@ function unknown() {
   return { knowledge: { state: "unknown", explicit: true } };
 }
 
-function record({ id, name, designation, state = "NY", memberships, j1, h1b, type = "University-based" }) {
+function record({ id, name, designation, state = "NY", memberships, j1, h1b, type = "University-based", soap2026 = null }) {
   return {
     id: `program-${id}`,
     programSpecialtyId: `ps-${id}`,
@@ -82,6 +82,7 @@ function record({ id, name, designation, state = "NY", memberships, j1, h1b, typ
     components: designation.split("/"),
     identifiers: [{ namespace: "ACGME_PROGRAM", value: id === "im" ? "1400000001" : `fixture-${id}` }],
     browseMemberships: memberships,
+    soap2026,
     fields: {
       "Program Best Described As": known(type),
       J1: j1 === undefined ? unknown() : known(j1),
@@ -123,6 +124,13 @@ const registryIndex = {
       designation: "Internal Medicine",
       j1: true,
       memberships: [{ browseSpecialty: "Internal Medicine", relationship: "EXACT_DESIGNATION" }],
+      soap2026: {
+        appeared: true,
+        cycle: 2026,
+        wording: "SOAP 2026 - This program appeared in the 2026 SOAP results.",
+        context: "SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.",
+        tracks: [{ programType: "Categorical", nrmpProgramCode: "9999140C0", availablePositions: 3 }],
+      },
     }),
     record({
       id: "combined",
@@ -297,6 +305,18 @@ test("authenticated catalog bootstrap returns every canonical identity in one bo
   assert.equal(body.records.length, 3);
   assert.deepEqual(body.records.map((record) => record.programSpecialtyId).sort(), ["ps-combined", "ps-im", "ps-psych"]);
   assert.equal(response.headers.get("cache-control"), "private, no-cache");
+});
+
+test("SOAP 2026 endpoint is historical-only, filterable, and returns bounded track evidence", async () => {
+  const response = await fetch(`${baseUrl}/api/rise/v1/soap-2026?pageSize=10`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.cycle, 2026);
+  assert.equal(body.total, 1);
+  assert.equal(body.records[0].programSpecialtyId, "ps-im");
+  assert.equal(body.records[0].soap2026.tracks[0].availablePositions, 3);
+  assert.match(body.context, /does not predict future availability or match likelihood/);
+  assert.doesNotMatch(JSON.stringify(body), /currently unfilled|easy match|guaranteed match/i);
 });
 
 test("profiles return evidence records and unknowns without coercion", async () => {

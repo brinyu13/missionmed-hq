@@ -433,6 +433,13 @@ function listView(record) {
       h1b: h1b === true ? "known_yes" : "unknown",
     },
     evidence: record.evidence,
+    soap2026: record.soap2026 ? {
+      appeared: true,
+      cycle: 2026,
+      tracks: record.soap2026.tracks,
+      wording: record.soap2026.wording,
+      context: record.soap2026.context,
+    } : null,
     source: {
       authority: record.source.authority,
       retrievedAt: record.source.retrievedAt,
@@ -470,6 +477,8 @@ function buildSearchReadModel(programs) {
       j1: knownValue(record.fields.J1) === true,
       h1b: knownValue(record.fields.H1B) === true,
       evidence: evidenceBand(record.evidence.coveragePercent),
+      soap2026: record.soap2026?.appeared === true,
+      soapPositions: (record.soap2026?.tracks ?? []).reduce((sum, track) => sum + Number(track.availablePositions ?? 0), 0),
       specialtyRelationships: new Map(record.browseMemberships.map((membership) =>
         [membership.browseSpecialty, membership.relationship])),
     });
@@ -494,6 +503,7 @@ function searchPrograms(readModel, searchParams) {
   const visa = String(searchParams.get("visa") ?? "").trim().toUpperCase();
   const evidence = String(searchParams.get("evidence") ?? "").trim().toLowerCase();
   const includeCombined = searchParams.get("includeCombined") === "true";
+  const soap2026 = searchParams.get("soap2026") === "true";
   const sort = String(searchParams.get("sort") ?? "name");
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number.parseInt(searchParams.get("pageSize") ?? "24", 10) || 24));
@@ -508,9 +518,10 @@ function searchPrograms(readModel, searchParams) {
     if (visa === "J1" && !metadata.j1) return false;
     if (visa === "H1B" && !metadata.h1b) return false;
     if (evidence && metadata.evidence !== evidence) return false;
+    if (soap2026 && !metadata.soap2026) return false;
     return !query || metadata.haystack.includes(query);
   });
-  if (sort === "jurisdiction" || sort === "evidence") records = [...records].sort((left, right) => {
+  if (sort === "jurisdiction" || sort === "evidence" || sort === "soap_positions") records = [...records].sort((left, right) => {
     if (sort === "jurisdiction") {
       return String(left.display.state).localeCompare(String(right.display.state)) ||
         String(left.display.programName).localeCompare(String(right.display.programName));
@@ -519,13 +530,17 @@ function searchPrograms(readModel, searchParams) {
       return right.evidence.coveragePercent - left.evidence.coveragePercent ||
         String(left.display.programName).localeCompare(String(right.display.programName));
     }
+    if (sort === "soap_positions") {
+      return readModel.metadata.get(right).soapPositions - readModel.metadata.get(left).soapPositions ||
+        String(left.display.programName).localeCompare(String(right.display.programName));
+    }
     return String(left.display.programName).localeCompare(String(right.display.programName));
   });
   const total = records.length;
   const start = (page - 1) * pageSize;
   const pageRecords = records.slice(start, start + pageSize).map(listView);
   return {
-    query: { q: query, specialty, designation, jurisdiction, region, programType, visa, evidence, includeCombined, sort },
+    query: { q: query, specialty, designation, jurisdiction, region, programType, visa, evidence, includeCombined, soap2026, sort },
     page,
     pageSize,
     total,
@@ -1193,7 +1208,9 @@ export function createRiseServer({
             matrixProfile: matrixProfile ? "read_write" : "disabled",
             fileVault: "disabled",
             rankListIq: "disabled",
-            researchFactory: "verification_preview_only",
+            researchFactory: "canonical_sink_zero_spend",
+            canonicalEvidence: studentIntel.canonicalPromotionMode === "live" ? "durable" : "unavailable",
+            soap2026: registryIndex.programs.some((program) => program.soap2026?.appeared) ? "historical_private_beta" : "unavailable",
             studentIntel: studentIntel.scope === "durable_private" ? "durable" : "process_local_test_only",
             actn: "disabled",
             cam: "disabled",
@@ -1342,6 +1359,22 @@ export function createRiseServer({
           registryReleaseId: registryIndex.registryReleaseId,
           total: records.length,
           records,
+        }, { cache: "private, no-cache", requestId });
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/soap-2026") {
+        const parameters = new URLSearchParams(url.searchParams);
+        parameters.set("soap2026", "true");
+        if (!parameters.has("sort")) parameters.set("sort", "soap_positions");
+        const result = searchPrograms(searchReadModel, parameters);
+        status = 200;
+        sendJson(response, 200, {
+          registryReleaseId: registryIndex.registryReleaseId,
+          cycle: 2026,
+          wording: "SOAP 2026 - This program appeared in the 2026 SOAP results.",
+          context: "SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.",
+          ...result,
+          filterOptions: registryIndex.filters,
         }, { cache: "private, no-cache", requestId });
         return;
       }

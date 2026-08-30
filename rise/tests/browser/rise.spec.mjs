@@ -6,10 +6,7 @@ import { expect, test } from "@playwright/test";
 import axe from "axe-core";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const artifactDirectory = path.resolve(
-  here,
-  "../../../_AI_HANDOFFS/from_codex/P1_RISE_5007_PRIVATE_BETA_FULL_REGISTRY_STUDENT_INTEL/artifacts/browser",
-);
+const artifactDirectory = path.resolve(process.env.RISE_BROWSER_ARTIFACT_DIR ?? "/tmp/p1-rise-5008-browser-artifacts");
 
 async function openRise(page, hash = "home") {
   await page.goto(`/rise/#/${hash}`);
@@ -45,17 +42,34 @@ test("home preserves the approved consumer shell, hierarchy, and four feature do
   await openRise(page);
   await expect(page).toHaveTitle("RISE · MissionMed Intelligence");
   await expect(page.locator("#rail .rtab")).toHaveText([
-    "Home", "Find Programs", "My Programs", "Rank List", "My Profile",
+    "Home", "Find Programs", "SOAP Explorer", "My Programs", "Rank List", "My Profile",
   ]);
   await expect(page.getByText("Tell me about", { exact: true })).toBeVisible();
   await expect(page.locator(".door")).toHaveCount(4);
   await expect(page.locator(".door .dTitle")).toHaveText([
-    "SOAP 2026 Openings", "Alumni Connections", "Letter of Interest", "Match Bridge",
+    "SOAP 2026 history", "Alumni Connections", "Letter of Interest", "Match Bridge",
   ]);
   await expect(page.getByText("Integration unavailable", { exact: true })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Ignacio");
   await expect(page.locator("body")).not.toContainText("Brookdale");
   await page.screenshot({ path: path.join(artifactDirectory, "home-desktop.png"), fullPage: true });
+});
+
+test("SOAP Explorer is an additive routed, searchable, filterable historical view using canonical My Programs", async ({ page }) => {
+  await openRise(page, "soap");
+  await expect(page.locator('[data-view="soap"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: /historical SOAP 2026 program/i })).toContainText("1");
+  await expect(page.locator(".soapContext")).toContainText("does not predict future availability or match likelihood");
+  await expect(page.locator(".pRow")).toHaveCount(1);
+  await expect(page.locator(".pRow")).toContainText("Atlas Internal Medicine Program");
+  await page.locator("#soapQuery").fill("not present");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.locator(".pRow")).toHaveCount(0);
+  await page.locator("#soapQuery").fill("Atlas");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.locator(".pRow .starBtn").click();
+  await page.getByRole("button", { name: /^My Programs/ }).click();
+  await expect(page.locator('[data-view="my"] .pRow')).toContainText("Atlas Internal Medicine Program");
 });
 
 test("list-first Find Programs loads canonical identities and toggles to grid", async ({ page }) => {
@@ -148,7 +162,11 @@ test("Sources & Freshness stays available as a utility drawer", async ({ page })
 
 test("My Programs save, state, and notes survive a browser reload", async ({ page }) => {
   await openRise(page, "program/rise_ps_atlas_im/overview");
-  await page.getByRole("button", { name: "★ Save", exact: true }).click();
+  const saveButton = page.locator("#file .fAct.pri");
+  if (await saveButton.getAttribute("aria-pressed") !== "true" && await saveButton.textContent() === "★ Save") {
+    await saveButton.click();
+  }
+  await expect(saveButton).toHaveText("★ Saved");
   await page.getByRole("button", { name: "Close file", exact: true }).click();
   await page.getByRole("button", { name: /^My Programs/ }).click();
   await expect(page.locator(".pRow")).toHaveCount(1);
@@ -216,7 +234,7 @@ test("narrow viewport preserves the consumer shell without horizontal document o
 });
 
 test("production-wired shell has no critical accessibility violations on core routes", async ({ page }) => {
-  for (const route of ["home", "find", "profile", "program/rise_ps_atlas_im/overview"]) {
+  for (const route of ["home", "find", "soap", "profile", "program/rise_ps_atlas_im/overview"]) {
     await openRise(page, route);
     await expectNoCriticalA11yViolations(page);
   }

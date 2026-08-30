@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmed.local/rise/contracts/research-ingest.schema.json",
+  "title": "RISE provider-neutral completed research ingestion record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["acgme_id", "campaign_id", "staged_at", "safe_facts", "needs_review", "source_result"],
+  "properties": {
+    "acgme_id": { "type": "string", "pattern": "^[0-9]{10}$" },
+    "campaign_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "staged_at": { "type": "string", "format": "date-time" },
+    "safe_facts": { "type": "object" },
+    "needs_review": { "type": "object" },
+    "source_result": { "type": "string", "minLength": 1 }
+  }
+}

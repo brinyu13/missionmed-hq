@@ -57,7 +57,13 @@ function toFableProgram(record) {
     positions: 'Not published',
     abim: { state: 'NOT_PUBLISHED' },
     domains: { ...UNKNOWN_DOMAINS },
-    soap: [],
+    soap: (record.soap2026?.tracks || []).map(track => ({
+      year: 2026,
+      positions: Number(track.availablePositions || 0),
+      track: track.programType || 'Track not stated',
+      nrmpProgramCode: track.nrmpProgramCode || null,
+      source: 'SOAP 2026 bounded historical evidence',
+    })),
     aliases: [],
     maturity: 'CANONICAL_IDENTITY_ONLY',
     demo: false,
@@ -141,7 +147,7 @@ async function loadRuntime() {
         corpus: registry.registryReleaseId,
         generated: new Date().toISOString().slice(0, 10),
         programCount: registry.total,
-        soapJoined: 0,
+        soapJoined: registry.records.filter(record => record.soap2026?.appeared).length,
       },
       profile: profileFromMatrix(matrixProfile),
       programs: registry.records.map(toFableProgram),
@@ -356,7 +362,7 @@ function renderShell() {
   const activeBase = r.startsWith('program/') ? (state.fileFrom === 'my' ? 'my' : state.fileFrom === 'home' ? 'home' : 'find') : r.split('/')[0] || 'home';
   const adminView = r.split('/')[1] || 'research';
   const student = [
-    ['home', 'Home', ICONS.home], ['find', 'Find Programs', ICONS.find], ['my', 'My Programs', ICONS.my],
+    ['home', 'Home', ICONS.home], ['find', 'Find Programs', ICONS.find], ['soap', 'SOAP Explorer', ICONS.find], ['my', 'My Programs', ICONS.my],
     ['rank', 'Rank List', ICONS.rank], ['profile', 'My Profile', ICONS.prof],
   ];
   const admin = [['admin/research', 'Research', ICONS.res], ['admin/queue', 'Queue', ICONS.queue], ['admin/review', 'Review', ICONS.review], ['admin/coverage', 'Coverage', ICONS.cov]];
@@ -459,7 +465,7 @@ function lookupBind(inputSel, acSel, origin) {
     }
     const top = items.slice(0, 7);
     ac.innerHTML = `<div class="acList" role="listbox">
-      ${intent && intent.kind !== 'fact' ? `<button class="acRow" data-i="-2"><span class="acMain"><span class="acName" style="color:var(--cy)">→ ${intent.kind === 'soap' ? 'Show SOAP 2026 openings' + (intent.st ? ' in ' + stateNames[intent.st] : '') : intent.kind === 'similar' ? 'Show programs like ' + esc(intent.p.name) : 'Show programs in ' + stateNames[intent.st] + ' that fit me'}</span><span class="acSub">Opens Find Programs with these filters</span></span></button>` : ''}
+      ${intent && intent.kind !== 'fact' ? `<button class="acRow" data-i="-2"><span class="acMain"><span class="acName" style="color:var(--cy)">→ ${intent.kind === 'soap' ? 'Show SOAP 2026 history' + (intent.st ? ' in ' + stateNames[intent.st] : '') : intent.kind === 'similar' ? 'Show programs like ' + esc(intent.p.name) : 'Show programs in ' + stateNames[intent.st] + ' that fit me'}</span><span class="acSub">Opens Find Programs with these filters</span></span></button>` : ''}
       ${top.length ? `<div class="acGroup">Programs</div>` : ''}
       ${top.map((p, i) => { const f = computeFit(p); return `<button class="acRow" role="option" data-i="${i}">
           <span class="specTag">${p.spec}</span>
@@ -502,6 +508,7 @@ function renderMain(route) {
   const base = route.split('/')[0] || 'home';
   if (base === 'home') main.innerHTML = viewHome();
   else if (base === 'find') main.innerHTML = viewFind();
+  else if (base === 'soap') main.innerHTML = viewSoapExplorer();
   else if (base === 'my') main.innerHTML = viewMy();
   else if (base === 'rank') main.innerHTML = viewRank();
   else if (base === 'profile') main.innerHTML = viewProfile();
@@ -512,7 +519,7 @@ function renderMain(route) {
 }
 function afterRender(base) {
   if (base === 'home' && $('#heroInput')) lookupBind('#heroInput', '#heroAC', 'home');
-  if (base === 'find') bindFind();
+  if (base === 'find' || base === 'soap') bindFind();
   if (base === 'admin') bindAdmin();
 }
 
@@ -591,7 +598,7 @@ function viewHome() {
       </div>
     </div>
     <div class="doorRow">
-      ${door('EVIDENCE', 'SOAP 2026 Openings', 'Programs that had unfilled spots last March. Evidence, not a promise.', `${soapCount} corpus programs · Categorical, Prelim & Primary Care`, false, `Object.assign(state.find,{soap:true,state:'',q:''});nav('find')`)}
+      ${door('EVIDENCE', 'SOAP 2026 history', 'Programs that appeared in the 2026 SOAP results. Historical evidence, not a prediction.', `${soapCount} corpus programs · Categorical, Prelim & Primary Care`, false, `nav('soap')`)}
       ${door('NETWORK', 'Alumni Connections', 'MissionMed alumni at programs you’re looking at.', 'Integration unavailable', !state.member, `doorAlumni()`)}
       ${door('WRITE', 'Letter of Interest', 'Specific letters built from a program’s real differentiators and your facts.', '', !state.member, `doorLetter()`)}
       ${door('OPENINGS', 'Match Bridge', 'Off-cycle and unexpected openings, with RISE’s file on each program.', '', !state.member, `doorBridge()`)}
@@ -722,7 +729,7 @@ function viewFind() {
   const shown = list.slice(0, f.shown);
   const soapSeg = f.soap ? `<div class="modeSeg" role="radiogroup" aria-label="SOAP track" style="margin:0 0 10px">
       ${['', 'Categorical', 'Preliminary', 'Primary Care'].map(t => `<button class="${f.soapTrack === t ? 'on' : ''}" onclick="state.find.soapTrack='${t}';rerender()">${t || 'All tracks'}</button>`).join('')}
-    </div><div class="covBanner">SOAP is historical accessibility evidence — programs that had unfilled positions in a past cycle. It is not a friendliness rating, and never a promise.</div>` : '';
+    </div><div class="covBanner">SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.</div>` : '';
   return `<div class="view" data-view="find">
     <p class="eyebrow">Find Programs</p>
     <h1 class="h1"><em>${list.length}</em> ${f.soap ? 'SOAP 2026 ' : ''}Internal Medicine programs</h1>
@@ -743,7 +750,7 @@ function viewFind() {
     ${pills.length ? `<div class="pillRow">${pills.map(p => `<span class="pill">${esc(p.label)}<button class="x" aria-label="Remove filter ${esc(p.label)}" onclick="dropPill('${p.k}')">✕</button></span>`).join('')}</div>` : ''}
     <div class="listBar">
       <select class="fSel" aria-label="Sort" onchange="state.find.sort=this.value;rerender()">
-        ${[['fit', 'Sort: Best fit for me'], ['name', 'Sort: Program name A–Z'], ['state', 'Sort: State'], ['abim', 'Sort: ABIM pass rate (verified)'], ['updated', 'Sort: Recently updated'], ['soap', 'Sort: SOAP openings']].map(([k, l]) => `<option value="${k}" ${f.sort === k ? 'selected' : ''}>${l}</option>`).join('')}
+        ${[['fit', 'Sort: Best fit for me'], ['name', 'Sort: Program name A–Z'], ['state', 'Sort: State'], ['abim', 'Sort: ABIM pass rate (verified)'], ['updated', 'Sort: Recently updated'], ['soap', 'Sort: SOAP history']].map(([k, l]) => `<option value="${k}" ${f.sort === k ? 'selected' : ''}>${l}</option>`).join('')}
       </select>
       <span class="countNote">Showing ${shown.length} of ${list.length}</span>
       <div class="viewToggle" role="radiogroup" aria-label="View">
@@ -850,6 +857,55 @@ function viewMy() {
   </div>`;
 }
 
+/* ---------- SOAP EXPLORER ---------- */
+const soapExplorerState = { q: '', specialty: '', jurisdiction: '', sort: 'positions', shown: 50 };
+function soapExplorerPrograms() {
+  const q = soapExplorerState.q.trim().toLocaleLowerCase('en-US');
+  const positions = p => p.soap.reduce((sum, row) => sum + Number(row.positions || 0), 0);
+  const records = D.programs.filter(p => p.soap.length)
+    .filter(p => !q || [p.name, p.inst, p.city, p.state, p.specName, p.acgme].filter(Boolean).join(' ').toLocaleLowerCase('en-US').includes(q))
+    .filter(p => !soapExplorerState.specialty || p.specName === soapExplorerState.specialty)
+    .filter(p => !soapExplorerState.jurisdiction || p.state === soapExplorerState.jurisdiction);
+  return records.sort((a, b) => soapExplorerState.sort === 'name'
+    ? a.name.localeCompare(b.name)
+    : soapExplorerState.sort === 'state'
+      ? a.state.localeCompare(b.state) || a.name.localeCompare(b.name)
+      : positions(b) - positions(a) || a.name.localeCompare(b.name));
+}
+window.applySoapSearch = event => {
+  event.preventDefault();
+  soapExplorerState.q = String(new FormData(event.currentTarget).get('q') || '').trim();
+  soapExplorerState.shown = 50;
+  rerender();
+};
+window.setSoapExplorerFilter = (key, value) => {
+  soapExplorerState[key] = value;
+  soapExplorerState.shown = 50;
+  rerender();
+};
+window.loadMoreSoap = () => { soapExplorerState.shown += 50; rerender(); };
+function viewSoapExplorer() {
+  const all = D.programs.filter(p => p.soap.length);
+  const records = soapExplorerPrograms();
+  const shown = records.slice(0, soapExplorerState.shown);
+  const specialties = [...new Set(all.map(p => p.specName))].sort();
+  const jurisdictions = [...new Set(all.map(p => p.state).filter(Boolean))].sort();
+  const specialtyOptions = specialties.map(value => '<option value="' + esc(value) + '" ' + (soapExplorerState.specialty === value ? 'selected' : '') + '>' + esc(value) + '</option>').join('');
+  const jurisdictionOptions = jurisdictions.map(value => '<option value="' + esc(value) + '" ' + (soapExplorerState.jurisdiction === value ? 'selected' : '') + '>' + esc(value) + '</option>').join('');
+  return '<div class="view soapExplorer" data-view="soap">' +
+    '<p class="eyebrow">SOAP Explorer</p>' +
+    '<h1 class="h1"><em>' + records.length + '</em> historical SOAP 2026 program' + (records.length === 1 ? '' : 's') + '</h1>' +
+    '<div class="soapContext"><b>SOAP 2026</b> — This program appeared in the 2026 SOAP results. SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.</div>' +
+    '<form class="soapSearch" onsubmit="applySoapSearch(event)" role="search"><label class="srOnly" for="soapQuery">Search SOAP 2026 programs</label>' +
+    '<input id="soapQuery" name="q" value="' + esc(soapExplorerState.q) + '" placeholder="Program, institution, state, specialty, or ACGME ID"><button class="rowBtn pri" type="submit">Search</button></form>' +
+    '<div class="soapFilters"><select class="fSel" aria-label="SOAP specialty" onchange="setSoapExplorerFilter(&quot;specialty&quot;,this.value)"><option value="">All specialties</option>' + specialtyOptions + '</select>' +
+    '<select class="fSel" aria-label="SOAP state" onchange="setSoapExplorerFilter(&quot;jurisdiction&quot;,this.value)"><option value="">All states</option>' + jurisdictionOptions + '</select>' +
+    '<select class="fSel" aria-label="Sort SOAP results" onchange="setSoapExplorerFilter(&quot;sort&quot;,this.value)"><option value="positions" ' + (soapExplorerState.sort === 'positions' ? 'selected' : '') + '>Sort: reported positions</option><option value="name" ' + (soapExplorerState.sort === 'name' ? 'selected' : '') + '>Sort: program name</option><option value="state" ' + (soapExplorerState.sort === 'state' ? 'selected' : '') + '>Sort: state</option></select>' +
+    '<span class="countNote">Showing ' + shown.length + ' of ' + records.length + '</span></div>' +
+    '<div id="results">' + (shown.length ? shown.map(p => programRow(p, 'soap')).join('') : '<div class="emptyLib"><div class="big">No SOAP 2026 programs match.</div>Adjust the search or filters.</div>') + '</div>' +
+    (records.length > shown.length ? '<button class="loadMore" onclick="loadMoreSoap()">Load 50 more</button>' : '') + '</div>';
+}
+
 /* ---------- COMPARE ---------- */
 window.openCompare = () => {
   const ps = state.compare.map(id => byId.get(id)).filter(Boolean);
@@ -931,7 +987,7 @@ window.openFilterDrawer = () => {
     <h3>More filters</h3>
     <p class="sub" style="font-size:14px">Every filter states its evidence caveat. Nothing here guesses.</p>
     <div class="fGroup"><div class="fLbl">SOAP</div>
-      <button class="tgl ${f.soap ? 'on' : ''}" onclick="state.find.soap=!state.find.soap;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>SOAP 2026 openings<span class="cav">Historical accessibility evidence, not a friendliness rating.</span></span></button>
+      <button class="tgl ${f.soap ? 'on' : ''}" onclick="state.find.soap=!state.find.soap;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>SOAP 2026 history<span class="cav">Historical cycle evidence; no future availability or match-likelihood inference.</span></span></button>
     </div>
     <div class="fGroup"><div class="fLbl">Evidence depth</div>
       ${[['', 'Any depth'], ['gold', 'Gold dossier'], ['enriched', 'Enriched (Tier A)'], ['registry', 'Registry']].map(([k, l]) => `
@@ -1087,7 +1143,7 @@ function tabOverview(p, R) {
     return `<div class="fileGrid"><div>
       <h2 class="h2" style="margin-bottom:8px">Why this <em>program</em></h2>
       <p class="sub">Evidence-backed differentiators appear here after deep research. This release has the canonical identity; narrative layers remain pending until source-located evidence is published.</p>
-      ${p.soap.length ? `<div class="lawBanner">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} unfilled position${s.positions > 1 ? 's' : ''}`).join(' · ')}. Historical accessibility evidence, not a friendliness rating.</div>` : ''}
+      ${p.soap.length ? `<div class="lawBanner">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} reported position${s.positions > 1 ? 's' : ''}`).join(' · ')}. Historical cycle evidence; no future availability or match-likelihood inference.</div>` : ''}
       ${unknownFooter(p, ['Why This Program — deep research pending', 'Mission & curriculum — deep research pending'])}
     </div><div>${snapshotRail(p)}</div></div>`;
   }
@@ -1145,7 +1201,7 @@ function tabFit(p, R) {
         <div class="sumStat"><span class="n">○</span><span class="l">Requirements</span></div>
         <div class="sumStat"><span class="n" style="font-size:17px;font-weight:600;color:var(--mid)">${p.domains.requirements === 'NOT_PUBLICLY_FOUND' ? 'Not published by the program' : 'Not yet verified by RISE'}</span><span class="l">Current state</span></div>
       </div>
-      ${p.soap.length ? `<h2 class="h2" style="margin:20px 0 8px">SOAP history</h2><p class="sub">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} unfilled`).join(' · ')} <i>(NRMP dataset)</i>. Historical evidence, not a promise.</p>` : ''}
+      ${p.soap.length ? `<h2 class="h2" style="margin:20px 0 8px">SOAP history</h2><p class="sub">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} reported positions`).join(' · ')} <i>(NRMP dataset)</i>. Historical evidence, not a promise.</p>` : ''}
       ${unknownFooter(p)}
     </div>`;
   }
@@ -1181,7 +1237,7 @@ function tabFit(p, R) {
         <li>US-DO representation confirmed (LECOM, Lake Erie COM, William Carey COM)</li>
       </ul>
       <div class="gateNote">Roster composition percentages are withheld — the roster is PARTIAL and the denominator is not safe. Current roster composition is observational evidence, not an admissions rule.</div>`}
-    ${p.soap.length ? `<h2 class="h2" style="margin:24px 0 8px">SOAP history</h2><p class="sub">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} unfilled`).join(' · ')} (NRMP). Historical evidence, not a promise.</p>` : ''}
+    ${p.soap.length ? `<h2 class="h2" style="margin:24px 0 8px">SOAP history</h2><p class="sub">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} reported positions`).join(' · ')} (NRMP). Historical evidence, not a promise.</p>` : ''}
     <h2 class="h2" style="margin:24px 0 8px">Interview & signals</h2>
     <p class="sub">${p.demo ? 'Interview evidence is not published.' : 'Interview format and signaling are not yet verified for this program.'}</p>
     <button class="rowBtn" style="margin-top:8px" onclick="toast('CAM handoff seam — interview prep opens with this program’s verified facts.')">◇ Use for Interview Prep</button>

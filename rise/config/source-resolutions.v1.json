@@ -1,7 +1,13 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": null,
-  "reviewedBy": null,
-  "authorizationStatus": "blocked_pending_source_owner_rights",
-  "resolutions": {}
+  "reviewedAt": "2026-08-29T00:00:00.000Z",
+  "reviewedBy": "DR-148 independent authority review 085c00dac4032da2c283f4834bba97a8d2cf13a9",
+  "authorizationStatus": "mixed_field_level",
+  "resolutions": {
+    "HRSA THCGME": "APPROVED_BOUNDED_FACTUAL_PROJECTION",
+    "SOAP 2026": "APPROVED_HISTORICAL_EXACT_ACGME_PRIVATE_BETA",
+    "FREIDA": "INTERNAL_ONLY_PENDING_WRITTEN_AUTHORIZATION",
+    "Residency Explorer": "INTERNAL_ONLY_PENDING_WRITTEN_AUTHORIZATION",
+    "Provider Research Factory": "CANONICAL_INGEST_REVIEW_REQUIRED"
+  }
 }

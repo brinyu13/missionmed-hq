@@ -5,6 +5,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
+import { importSoap2026 } from "./import-soap-2026.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const riseRoot = path.resolve(here, "..");
@@ -104,6 +105,75 @@ function rightsSafeProgram([grantee, city, state, specialty], source) {
   };
 }
 
+function soapRightsSafeProgram(identity, claims) {
+  const soapClaims = claims.filter((claim) => claim.subjectId === identity.programSpecialtyId);
+  return {
+    id: identity.programIdentityId,
+    programSpecialtyId: identity.programSpecialtyId,
+    lifecycle: "unknown",
+    researchStatus: "RESEARCH_PENDING",
+    display: {
+      programName: identity.programName,
+      institution: identity.institution,
+      hospital: null,
+      city: identity.city,
+      state: identity.state,
+      zip: null
+    },
+    designation: identity.specialty,
+    kind: identity.tracks.length > 1 ? "multi_track" : "single",
+    entryFormat: identity.tracks.map((track) => track.programType).filter(Boolean).join(" / ") || "not_published",
+    components: [identity.specialty],
+    browseMemberships: [{ browseSpecialty: identity.specialty, relationship: "EXACT_DESIGNATION" }],
+    identifiers: [
+      { namespace: "MISSIONMED_RISE_ID", value: identity.programIdentityId },
+      { namespace: "ACGME_PROGRAM", value: identity.acgmeId }
+    ],
+    fields: {
+      "SOAP 2026 Appearance": {
+        knowledge: { state: "known", value: true },
+        authority: "NRMP_SOAP_CLOSURE",
+        assertionClass: "historical_cycle_fact",
+        period: { kind: "match_cycle", label: "2026" },
+        retrievedAt: RETRIEVED_AT,
+        wording: "SOAP 2026 - This program appeared in the 2026 SOAP results.",
+        context: "SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood."
+      }
+    },
+    soap2026: {
+      appeared: true,
+      cycle: 2026,
+      tracks: identity.tracks,
+      wording: "SOAP 2026 - This program appeared in the 2026 SOAP results.",
+      context: "SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.",
+      claimIds: soapClaims.map((claim) => claim.id)
+    },
+    evidence: {
+      knownClaims: soapClaims.length + 5,
+      knownEvidenceLabeledClaims: soapClaims.length + 5,
+      knownSelectedClaims: 0,
+      evidenceLabeledClaims: soapClaims.length + 5,
+      quarantinedClaims: 0,
+      coveragePercent: 0,
+      selectedFieldCount: 0,
+      absentSelectedClaims: 0,
+      unknownSelectedClaims: 0,
+      matchableClaims: 0
+    },
+    source: {
+      sourceDocumentId: "soap_2026_import_data",
+      authority: "NRMP_SOAP_CLOSURE",
+      assertionClass: "historical_cycle_fact",
+      urls: [],
+      retrievedAt: RETRIEVED_AT,
+      sourceUpdatedAt: null,
+      surveyReceivedAt: null,
+      missionMedVerifiedAt: RETRIEVED_AT,
+      missionMedVerifiedBy: "P1-RISE-5008 exact ACGME reconciliation"
+    }
+  };
+}
+
 export async function buildRightsSafeRelease({
   inspectionPath = DEFAULT_INSPECTION,
   workbookPath = DEFAULT_WORKBOOK,
@@ -158,20 +228,58 @@ export async function buildRightsSafeRelease({
     decisionRecordId: authorization.missionMedReview.decisionRecordId,
     validThrough: authorization.validThrough
   };
-  const programs = source.records.map((record) => rightsSafeProgram(record, source))
+  const soap = await importSoap2026({ write: false, workbookPath });
+  const soapAuthorization = {
+    schemaVersion: 1,
+    authorizationId: "rise-auth-soap-2026-dr-148-v1",
+    status: "approved",
+    provider: "NRMP R3 SOAP Unfilled Positions 2026",
+    product: "SOAP 2026 bounded historical projection",
+    writtenAuthorizationReference: "MissionMed OS decision record DR-148",
+    sourceOwnerGrantSha256: soap.manifest.sourceSha256,
+    allowedUses: ["create_or_supplement_missionmed_rise_database"],
+    effectiveFrom: "2026-08-29T00:00:00.000Z",
+    validThrough: "2027-08-29T23:59:59.999Z",
+    projection: ["acgme_id", "program_name", "institution", "state", "specialty", "program_type", "nrmp_program_code", "available_positions", "historical_cycle_appearance"],
+    excluded: soap.manifest.prohibitedInferences,
+    missionMedReview: {
+      decision: "approved",
+      decisionRecordId: "DR-148",
+      reviewerSubject: "independent-authority-review:085c00dac4032da2c283f4834bba97a8d2cf13a9",
+      reviewedAt: "2026-08-29T00:00:00.000Z",
+      legalStatus: "bounded technical publication authority; not legal advice"
+    }
+  };
+  const soapAuthorizationBytes = Buffer.from(`${JSON.stringify(soapAuthorization, null, 2)}\n`);
+  const soapAuthorizationSha256 = sha256(soapAuthorizationBytes);
+  await fsp.writeFile(path.join(outputDirectory, "soap-source-authorization.json"), soapAuthorizationBytes, { flag: "wx" });
+  const soapRight = {
+    source: "SOAP 2026",
+    status: "approved",
+    sha256: soapAuthorizationSha256,
+    sourceOwnerGrantSha256: soap.manifest.sourceSha256,
+    sourceOwnerGrantBytesVerified: true,
+    authorizationId: soapAuthorization.authorizationId,
+    decisionRecordId: "DR-148",
+    validThrough: soapAuthorization.validThrough
+  };
+  const soapPrograms = soap.release.identities
+    .filter((identity) => identity.exposureState === "PRIVATE_BETA")
+    .map((identity) => soapRightsSafeProgram(identity, soap.claims));
+  const programs = [...source.records.map((record) => rightsSafeProgram(record, source)), ...soapPrograms]
     .sort((left, right) => left.display.programName.localeCompare(right.display.programName));
-  if (programs.length !== 26 || new Set(programs.map((program) => program.programSpecialtyId)).size !== programs.length) {
-    throw new Error("Rights-safe registry must contain 26 unique HRSA awardee-specialty records");
+  if (programs.length !== 909 || new Set(programs.map((program) => program.programSpecialtyId)).size !== programs.length) {
+    throw new Error("Rights-safe registry must contain 909 unique HRSA and reconciled SOAP program-specialty records");
   }
   const states = [...new Set(programs.map((record) => record.display.state))].sort();
   const specialties = [...new Set(programs.map((record) => record.designation))].sort();
-  const releaseId = `rise_rights_safe_hrsa_${RETRIEVED_AT.replaceAll("-", "")}_${sha256(JSON.stringify(programs)).slice(0, 12)}`;
+  const releaseId = `rise_rights_safe_beta_${RETRIEVED_AT.replaceAll("-", "")}_${sha256(JSON.stringify(programs)).slice(0, 12)}`;
   const index = {
     schemaVersion: 1,
     indexId: `rise_index_${releaseId}`,
     registryReleaseId: releaseId,
     registryReleaseManifestSha256: null,
-    sourceSnapshotId: "hrsa_thcgme_ay2025_2026",
+    sourceSnapshotId: "hrsa_thcgme_ay2025_2026+soap_2026",
     activationStatus: "offline_shadow_only",
     dataClassification: "source_controlled_registry",
     releaseProjection: "STUDENT_RIGHTS_SAFE_RISE",
@@ -179,9 +287,10 @@ export async function buildRightsSafeRelease({
       hrsaThcgme: "government_public_domain_factual_projection",
       freida: "excluded_no_written_authorization",
       residencyExplorer: "excluded_no_written_authorization",
-      acgmeIdentifiers: "internal_only_not_in_projection"
+      acgmeIdentifiers: "private_beta_only_when_exactly_reconciled_from_soap_2026",
+      soap2026: "historical_cycle_only_no_future_or_quality_inference"
     },
-    releaseGate: { sourceRightsApproved: true, sourceRights: [sourceRight] },
+    releaseGate: { sourceRightsApproved: true, sourceRights: [sourceRight, soapRight] },
     source: {
       authority: "HRSA_THCGME",
       sourceUrl: source.sourceUrl,
@@ -191,16 +300,16 @@ export async function buildRightsSafeRelease({
       legacyFieldsExcluded: headers.length
     },
     counts: {
-      rawSourceRows: programs.length,
+      rawSourceRows: source.records.length + soap.release.counts.sourceRows,
       activeSourceRows: programs.length,
-      quarantinedSourceRows: 0,
+      quarantinedSourceRows: soap.release.counts.reviewRequired,
       uniquePrograms: programs.length,
       programSpecialties: programs.length,
       browseMemberships: programs.length,
-      additionalBrowseMemberships: 0,
+      additionalBrowseMemberships: soap.release.counts.additionalTrackRows,
       specialtyTabs: specialties.length,
       exactSpecialtyDesignations: specialties.length,
-      evidenceLabeledClaims: programs.length * 4,
+      evidenceLabeledClaims: source.records.length * 4 + soap.claims.length + soapPrograms.length * 5,
       unknownClaimsFromAmbiguousNegatives: 0,
       omittedBlankCells: 0,
       matchableClaims: 0,
@@ -224,7 +333,7 @@ export async function buildRightsSafeRelease({
     dataClassification: "source_controlled_registry",
     releaseProjection: "STUDENT_RIGHTS_SAFE_RISE",
     sourceRightsApproved: true,
-    sourceRights: [sourceRight],
+    sourceRights: [sourceRight, soapRight],
     programCount: programs.length,
     selectedFieldCount: 0,
     rightsBlockedFieldCount: headers.length,
@@ -242,9 +351,9 @@ export async function buildRightsSafeRelease({
     registryReleaseId: releaseId,
     apiIndexSha256: indexSha256,
     indexManifestSha256: manifestSha256,
-    decisionRecordId: "P1-RISE-5005-RIGHTS-SAFE-CORE-ACTIVATION",
-    approvedBySubject: "founder-ticket:P1-RISE-5005",
-    approvedAt: REVIEWED_AT
+    decisionRecordId: "PENDING-P1-RISE-5008-INDEPENDENT-RELEASE-APPROVAL",
+    approvedBySubject: "pending-independent-release-review",
+    approvedAt: null
   };
   const activationBytes = Buffer.from(`${JSON.stringify(activationReceipt, null, 2)}\n`);
   await fsp.writeFile(path.join(outputDirectory, "activation-receipt.json"), activationBytes, { flag: "wx" });
@@ -258,7 +367,12 @@ export async function buildRightsSafeRelease({
     canonicalContentSha256: EXPECTED_CONTENT_SHA256,
     canonicalFieldCount: headers.length,
     copiedIntoStudentRelease: false,
-    note: "This manifest binds the internal corpus without copying restricted field values into Git, the image, or the student API."
+    soap2026: {
+      exactAcgmeMatchesProjected: soap.release.counts.exactAcgmeMatches,
+      reviewRequiredNotProjected: soap.release.counts.reviewRequired,
+      additionalTrackRowsPreserved: soap.release.counts.additionalTrackRows
+    },
+    note: "This manifest binds the internal corpus without copying restricted field values into Git, the image, or the student API. SOAP identities are projected only after exact ACGME reconciliation."
   };
   await fsp.writeFile(path.join(outputDirectory, "internal-full-rise-manifest.json"), `${JSON.stringify(internalManifest, null, 2)}\n`, { flag: "wx" });
 
@@ -273,7 +387,7 @@ export async function buildRightsSafeRelease({
   reviewRows.push(
     ["ALL_FIELDS", "SOL56 official-source corpus", "INTERNAL_FULL_RISE only", "Student display authorization is false and per-domain rights decisions are incomplete.", "Per-source terms review and affirmative student-display decision."],
     ["ALL_FIELDS", "P1-RISE-4102 official-source corpus", "INTERNAL_FULL_RISE only", "Current-publishable fact count is zero and source-domain decisions are incomplete or deny reuse.", "Field-level re-verification plus affirmative source-domain rights decision."],
-    ["SOAP 2026 fields", "Recovered SOAP 2026 corpus", "INTERNAL_FULL_RISE only", "Student-display/republication basis has not been evidenced for this release.", "Source-specific rights review and approved projection."],
+    ["3 unmatched SOAP 2026 program identities", "Recovered SOAP 2026 corpus", "INTERNAL_FULL_RISE only", "No exact ACGME identity exists in the canonical workbook.", "A verified RISE crosswalk; display-name-only joins remain prohibited."],
     ["HRSA narrative, award amount, and deeper enrichment", "HRSA THCGME", "Excluded", "Only the bounded factual awardee projection is approved; broader reuse was not evaluated.", "Legal/rights review for any broader or paid-tier reproduction."]
   );
   await fsp.writeFile(path.join(governanceDirectory, "RIGHTS_REVIEW_REQUIRED.csv"), csv(reviewRows));
@@ -290,6 +404,15 @@ export async function buildRightsSafeRelease({
     ["research_status", "A", "MissionMed-generated release state."],
     ["source_and_freshness", "A/B", "MissionMed projection of HRSA source URL and retrieval date."]
   ]) auditRows.push([field, "STUDENT_RIGHTS_SAFE_RISE", category, category === "A" ? "MissionMed" : "HRSA THCGME", "INCLUDE", notes]);
+  for (const [field, notes] of [
+    ["acgme_id", "Exact ACGME identity used only for the 883 reconciled private-beta records."],
+    ["program_name", "SOAP 2026 source identity; exact ACGME reconciliation required."],
+    ["institution", "SOAP 2026 source identity; exact ACGME reconciliation required."],
+    ["state", "SOAP 2026 source identity; exact ACGME reconciliation required."],
+    ["specialty", "SOAP 2026 source identity; exact ACGME reconciliation required."],
+    ["soap_2026_appearance", "Historical cycle fact only; no future availability or match-likelihood inference."],
+    ["track_and_reported_positions", "Track rows remain separate and are never silently merged."]
+  ]) auditRows.push([field, "PRIVATE_BETA_RIGHTS_SAFE_IDENTITY", "B", "NRMP SOAP 2026 bounded corpus", "INCLUDE", notes]);
   await fsp.writeFile(path.join(governanceDirectory, "FIELD_PROVENANCE_AUDIT.csv"), csv(auditRows));
 
   const checksums = [
@@ -297,6 +420,7 @@ export async function buildRightsSafeRelease({
     "index-manifest.json",
     "activation-receipt.json",
     "hrsa-source-authorization.json",
+    "soap-source-authorization.json",
     "internal-full-rise-manifest.json"
   ];
   const checksumLines = [];
@@ -314,6 +438,7 @@ export async function buildRightsSafeRelease({
     manifestSha256,
     activationReceiptSha256: sha256(activationBytes),
     authorizationSha256,
+    soapAuthorizationSha256,
     rightsEvidenceSha256
   };
 }

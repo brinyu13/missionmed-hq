@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "projection": "PRIVATE_BETA_RIGHTS_SAFE_IDENTITY",
+  "sources": {
+    "HRSA_THCGME": {
+      "status": "APPROVED",
+      "fields": ["program_name", "institution", "city", "state", "specialty"]
+    },
+    "SOAP_2026": {
+      "status": "APPROVED_HISTORICAL_BOUNDED",
+      "fields": ["acgme_id", "program_name", "institution", "state", "specialty", "program_type", "nrmp_program_code", "available_positions"],
+      "reconciliation": "exact_acgme_id_required",
+      "unmatched": "REVIEW_REQUIRED"
+    },
+    "FREIDA_WORKBOOK": {
+      "status": "INTERNAL_ONLY",
+      "use": "exact_acgme_reconciliation_only",
+      "studentProjection": false
+    }
+  }
+}

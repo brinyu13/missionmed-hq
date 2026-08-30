@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmed.local/rise/contracts/soap-2026.schema.json",
+  "title": "RISE SOAP 2026 bounded historical import",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["title", "source", "total_rows", "total_positions", "specialties", "columns", "rows"],
+  "properties": {
+    "total_rows": { "const": 925 },
+    "total_positions": { "const": 2854 },
+    "rows": {
+      "type": "array",
+      "minItems": 925,
+      "maxItems": 925,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["Specialty", "Program_Name", "Institution", "City", "State", "Program_Type", "Program_Type_Full", "NRMP_Program_Code", "ACGME_ID", "Available_Positions"],
+        "properties": {
+          "Specialty": { "type": "string", "minLength": 1 },
+          "Program_Name": { "type": "string", "minLength": 1 },
+          "Institution": { "type": "string", "minLength": 1 },
+          "City": { "type": "string" },
+          "State": { "type": "string", "minLength": 1 },
+          "Program_Type": { "type": "string", "minLength": 1 },
+          "Program_Type_Full": { "type": "string", "minLength": 1 },
+          "NRMP_Program_Code": { "type": "string", "minLength": 1 },
+          "ACGME_ID": { "type": "string", "pattern": "^[0-9]{10}$" },
+          "Available_Positions": { "type": "string", "pattern": "^[0-9]+$" }
+        }
+      }
+    }
+  }
+}

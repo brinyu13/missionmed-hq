@@ -91,7 +91,13 @@ function toFableProgram(record) {
     positions: 'Not published',
     abim: { state: 'NOT_PUBLISHED' },
     domains: { ...UNKNOWN_DOMAINS },
-    soap: [],
+    soap: (record.soap2026?.tracks || []).map(track => ({
+      year: 2026,
+      positions: Number(track.availablePositions || 0),
+      track: track.programType || 'Track not stated',
+      nrmpProgramCode: track.nrmpProgramCode || null,
+      source: 'SOAP 2026 bounded historical evidence',
+    })),
     aliases: [],
     maturity: 'CANONICAL_IDENTITY_ONLY',
     demo: false,
@@ -175,7 +181,7 @@ async function loadRuntime() {
         corpus: registry.registryReleaseId,
         generated: new Date().toISOString().slice(0, 10),
         programCount: registry.total,
-        soapJoined: 0,
+        soapJoined: registry.records.filter(record => record.soap2026?.appeared).length,
       },
       profile: profileFromMatrix(matrixProfile),
       programs: registry.records.map(toFableProgram),
@@ -320,6 +326,18 @@ async function toggleSave(id, ev) {
   );
   core = core.replace("window.toggleSave = toggleSave;", "window.toggleSave = toggleSave;");
   core = core.replace(
+    "['home', 'Home', ICONS.home], ['find', 'Find Programs', ICONS.find], ['my', 'My Programs', ICONS.my],",
+    "['home', 'Home', ICONS.home], ['find', 'Find Programs', ICONS.find], ['soap', 'SOAP Explorer', ICONS.find], ['my', 'My Programs', ICONS.my],",
+  );
+  core = core.replace(
+    "else if (base === 'find') main.innerHTML = viewFind();",
+    "else if (base === 'find') main.innerHTML = viewFind();\n  else if (base === 'soap') main.innerHTML = viewSoapExplorer();",
+  );
+  core = core.replace(
+    "if (base === 'find') bindFind();",
+    "if (base === 'find' || base === 'soap') bindFind();",
+  );
+  core = core.replace(
     "const base = r.split('/')[0] || 'home';\n  if ((base === 'admin') !== (state.role === 'admin')) { state.role = base === 'admin' ? 'admin' : 'student'; }",
     "const base = r.split('/')[0] || 'home';\n  if (base === 'admin' && !state.canAdmin) { toast('Admin access is not available for this account.'); nav('home'); return; }\n  if ((base === 'admin') !== (state.role === 'admin')) { state.role = base === 'admin' ? 'admin' : 'student'; }",
   );
@@ -458,10 +476,74 @@ window.saveMatrixProfile = async event => {
 /* ---------- MY PROGRAMS ---------- */`,
   );
   core = core.replace(
+    "/* ---------- COMPARE ---------- */",
+    `/* ---------- SOAP EXPLORER ---------- */
+const soapExplorerState = { q: '', specialty: '', jurisdiction: '', sort: 'positions', shown: 50 };
+function soapExplorerPrograms() {
+  const q = soapExplorerState.q.trim().toLocaleLowerCase('en-US');
+  const positions = p => p.soap.reduce((sum, row) => sum + Number(row.positions || 0), 0);
+  const records = D.programs.filter(p => p.soap.length)
+    .filter(p => !q || [p.name, p.inst, p.city, p.state, p.specName, p.acgme].filter(Boolean).join(' ').toLocaleLowerCase('en-US').includes(q))
+    .filter(p => !soapExplorerState.specialty || p.specName === soapExplorerState.specialty)
+    .filter(p => !soapExplorerState.jurisdiction || p.state === soapExplorerState.jurisdiction);
+  return records.sort((a, b) => soapExplorerState.sort === 'name'
+    ? a.name.localeCompare(b.name)
+    : soapExplorerState.sort === 'state'
+      ? a.state.localeCompare(b.state) || a.name.localeCompare(b.name)
+      : positions(b) - positions(a) || a.name.localeCompare(b.name));
+}
+window.applySoapSearch = event => {
+  event.preventDefault();
+  soapExplorerState.q = String(new FormData(event.currentTarget).get('q') || '').trim();
+  soapExplorerState.shown = 50;
+  rerender();
+};
+window.setSoapExplorerFilter = (key, value) => {
+  soapExplorerState[key] = value;
+  soapExplorerState.shown = 50;
+  rerender();
+};
+window.loadMoreSoap = () => { soapExplorerState.shown += 50; rerender(); };
+function viewSoapExplorer() {
+  const all = D.programs.filter(p => p.soap.length);
+  const records = soapExplorerPrograms();
+  const shown = records.slice(0, soapExplorerState.shown);
+  const specialties = [...new Set(all.map(p => p.specName))].sort();
+  const jurisdictions = [...new Set(all.map(p => p.state).filter(Boolean))].sort();
+  const specialtyOptions = specialties.map(value => '<option value="' + esc(value) + '" ' + (soapExplorerState.specialty === value ? 'selected' : '') + '>' + esc(value) + '</option>').join('');
+  const jurisdictionOptions = jurisdictions.map(value => '<option value="' + esc(value) + '" ' + (soapExplorerState.jurisdiction === value ? 'selected' : '') + '>' + esc(value) + '</option>').join('');
+  return '<div class="view soapExplorer" data-view="soap">' +
+    '<p class="eyebrow">SOAP Explorer</p>' +
+    '<h1 class="h1"><em>' + records.length + '</em> historical SOAP 2026 program' + (records.length === 1 ? '' : 's') + '</h1>' +
+    '<div class="soapContext"><b>SOAP 2026</b> — This program appeared in the 2026 SOAP results. SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.</div>' +
+    '<form class="soapSearch" onsubmit="applySoapSearch(event)" role="search"><label class="srOnly" for="soapQuery">Search SOAP 2026 programs</label>' +
+    '<input id="soapQuery" name="q" value="' + esc(soapExplorerState.q) + '" placeholder="Program, institution, state, specialty, or ACGME ID"><button class="rowBtn pri" type="submit">Search</button></form>' +
+    '<div class="soapFilters"><select class="fSel" aria-label="SOAP specialty" onchange="setSoapExplorerFilter(&quot;specialty&quot;,this.value)"><option value="">All specialties</option>' + specialtyOptions + '</select>' +
+    '<select class="fSel" aria-label="SOAP state" onchange="setSoapExplorerFilter(&quot;jurisdiction&quot;,this.value)"><option value="">All states</option>' + jurisdictionOptions + '</select>' +
+    '<select class="fSel" aria-label="Sort SOAP results" onchange="setSoapExplorerFilter(&quot;sort&quot;,this.value)"><option value="positions" ' + (soapExplorerState.sort === 'positions' ? 'selected' : '') + '>Sort: reported positions</option><option value="name" ' + (soapExplorerState.sort === 'name' ? 'selected' : '') + '>Sort: program name</option><option value="state" ' + (soapExplorerState.sort === 'state' ? 'selected' : '') + '>Sort: state</option></select>' +
+    '<span class="countNote">Showing ' + shown.length + ' of ' + records.length + '</span></div>' +
+    '<div id="results">' + (shown.length ? shown.map(p => programRow(p, 'soap')).join('') : '<div class="emptyLib"><div class="big">No SOAP 2026 programs match.</div>Adjust the search or filters.</div>') + '</div>' +
+    (records.length > shown.length ? '<button class="loadMore" onclick="loadMoreSoap()">Load 50 more</button>' : '') + '</div>';
+}
+
+/* ---------- COMPARE ---------- */`,
+  );
+  core = core.replace(
     "<div class=\"sumStat\"><span class=\"n\"><em>150</em></span><span class=\"l\">SOL56 wave</span></div>\n      <div class=\"sumStat\"><span class=\"n\">18</span><span class=\"l\">Enriched (Tier A)</span></div>\n      <div class=\"sumStat\"><span class=\"n\">1</span><span class=\"l\">Gold dossier</span></div>\n      <div class=\"sumStat\"><span class=\"n\">25</span><span class=\"l\">SOAP 2026 joins</span></div>\n      <div class=\"sumStat\"><span class=\"n\">1,504</span><span class=\"l\">IM/FM identities (W1, pending ingest)</span></div>",
     "<div class=\"sumStat\"><span class=\"n\"><em>${D.meta.programCount}</em></span><span class=\"l\">Canonical identities</span></div>\n      <div class=\"sumStat\"><span class=\"n\">0</span><span class=\"l\">Published deep dossiers</span></div>\n      <div class=\"sumStat\"><span class=\"n\">0</span><span class=\"l\">Published SOAP joins</span></div>\n      <div class=\"sumStat\"><span class=\"n\">—</span><span class=\"l\">Research adapter unavailable</span></div>",
   );
   core = core.replace("SOL56-150 research matrix (MissionMed)", "Canonical registry source");
+  core = core.replaceAll("SOAP 2026 openings", "SOAP 2026 history");
+  core = core.replaceAll("SOAP 2026 Openings", "SOAP 2026 history");
+  core = core.replaceAll("SOAP openings", "SOAP history");
+  core = core.replaceAll("historical accessibility evidence", "historical cycle evidence");
+  core = core.replaceAll("Historical accessibility evidence", "Historical cycle evidence");
+  core = core.replaceAll("unfilled position", "reported position");
+  core = core.replaceAll("${s.positions} unfilled", "${s.positions} reported positions");
+  core = core.replaceAll("Programs that had unfilled spots last March. Evidence, not a promise.", "Programs that appeared in the 2026 SOAP results. Historical evidence, not a prediction.");
+  core = core.replaceAll("SOAP is historical cycle evidence — programs that had reported positions in a past cycle. It is not a friendliness rating, and never a promise.", "SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.");
+  core = core.replaceAll("Historical cycle evidence, not a friendliness rating.", "Historical cycle evidence; no future availability or match-likelihood inference.");
+  core = core.replaceAll("Object.assign(state.find,{soap:true,state:'',q:''});nav('find')", "nav('soap')");
   core = core.replace(
     "/* ============ boot ============ */",
     () => `Object.assign(globalThis, { state, D, $, $$, adminDraft, FAMILIES, byId, fitCache, renderMain, renderShell, openFileFor });\n\n${studentIntelExtension}\n\n/* ============ boot ============ */`,
@@ -486,7 +568,8 @@ async function main() {
   const styleMatch = source.match(/<style>\n([\s\S]*?)\n<\/style>/);
   const scripts = [...source.matchAll(/<script>\n([\s\S]*?)\n<\/script>/g)];
   if (!styleMatch || scripts.length !== 2) throw new Error("Unexpected locked-shell structure");
-  const styles = `${styleMatch[1].replace(/\n+$/, "")}\n\n${studentIntelStyles.replace(/\n+$/, "")}\n`;
+  const soapStyles = `.soapContext{margin:12px 0 18px;padding:14px 16px;border:1px solid rgba(74,222,128,.28);border-radius:14px;background:rgba(74,222,128,.07);color:var(--muted);line-height:1.55}.soapContext b{color:var(--gn)}.soapSearch{display:flex;gap:10px;margin-bottom:12px}.soapSearch input{min-width:0;flex:1;border:1px solid var(--edge);border-radius:12px;background:rgba(13,19,32,.72);color:var(--tx);font:inherit;padding:11px 13px}.soapSearch input:focus-visible{outline:2px solid var(--cy);outline-offset:2px}.soapFilters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px}@media(max-width:720px){.soapSearch{align-items:stretch;flex-direction:column}.soapFilters .fSel{width:100%}}`;
+  const styles = `${styleMatch[1].replace(/\n+$/, "")}\n\n${studentIntelStyles.replace(/\n+$/, "")}\n\n${soapStyles}\n`;
 
   let html = source
     .replace(styleMatch[0], '<link rel="stylesheet" href="/rise/assets/styles">')
@@ -500,13 +583,14 @@ async function main() {
   for (const term of forbidden) {
     if (html.includes(term) || app.includes(term)) throw new Error(`Generated student bundle retains forbidden demo seam: ${term}`);
   }
+  const existingIndex = await fs.readFile(path.join(webDirectory, "index.html"), "utf8");
+  if (existingIndex !== html) throw new Error("Locked generated index drifted; SOAP authority does not permit an index.html write");
   await fs.mkdir(webDirectory, { recursive: true });
   await Promise.all([
-    fs.writeFile(path.join(webDirectory, "index.html"), html),
     fs.writeFile(path.join(webDirectory, "styles.css"), styles),
     fs.writeFile(path.join(webDirectory, "app.js"), app),
   ]);
-  process.stdout.write(`${JSON.stringify({ source: lockedHtmlPath, sha256: actualSha256, outputs: ["web/index.html", "web/styles.css", "web/app.js"] })}\n`);
+  process.stdout.write(`${JSON.stringify({ source: lockedHtmlPath, sha256: actualSha256, asserted: ["web/index.html"], outputs: ["web/styles.css", "web/app.js"] })}\n`);
 }
 
 main().catch((error) => {

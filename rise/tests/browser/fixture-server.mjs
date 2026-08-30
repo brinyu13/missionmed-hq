@@ -20,7 +20,7 @@ function unknown() {
   return { knowledge: { state: "unknown", explicit: true } };
 }
 
-function program({ id, name, designation, city, state, memberships, j1, h1b, director }) {
+function program({ id, name, designation, city, state, memberships, j1, h1b, director, soap2026 = null }) {
   const fields = {
     "Program Website": known("https://example.test/program"),
     "Program Best Described As": known("University-based"),
@@ -55,6 +55,7 @@ function program({ id, name, designation, city, state, memberships, j1, h1b, dir
     components: designation.split("/"),
     identifiers: [{ namespace: "ACGME_PROGRAM", value: `synthetic-${id}` }],
     browseMemberships: memberships,
+    soap2026,
     fields,
     evidence: {
       knownClaims: knownSelectedClaims,
@@ -122,6 +123,13 @@ const registryIndex = {
       j1: true,
       director: "Dr. Test Director",
       memberships: [{ browseSpecialty: "Internal Medicine", relationship: "EXACT_DESIGNATION" }],
+      soap2026: {
+        appeared: true,
+        cycle: 2026,
+        wording: "SOAP 2026 - This program appeared in the 2026 SOAP results.",
+        context: "SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.",
+        tracks: [{ programType: "Categorical", nrmpProgramCode: "9999140C0", availablePositions: 3 }],
+      },
     }),
     program({
       id: "beacon_medpeds",

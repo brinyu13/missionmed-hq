@@ -17,6 +17,8 @@ const rightsSafeUpPath = path.resolve(here, "../sql/005_rights_safe_runtime.sql"
 const rightsSafeDownPath = path.resolve(here, "../sql/005_rights_safe_runtime.down.sql");
 const studentIntelUpPath = path.resolve(here, "../sql/006_student_intel.sql");
 const studentIntelDownPath = path.resolve(here, "../sql/006_student_intel.down.sql");
+const canonicalEvidenceUpPath = path.resolve(here, "../sql/007_canonical_evidence_bridge.sql");
+const canonicalEvidenceDownPath = path.resolve(here, "../sql/007_canonical_evidence_bridge.down.sql");
 const studentIntelVerificationPolicyPath = path.resolve(here, "../config/student-intel-verification.v1.json");
 
 async function readUp() {
@@ -399,6 +401,34 @@ test("migration 006 keeps private contributor identity behind forced RLS and imm
   assert.match(down, /REVOKE ALL ON rise_runtime\.student_intel_submissions FROM rise_app_runtime/);
   assert.doesNotMatch(down, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
   assert.doesNotMatch(down, /DELETE\s+FROM/i);
+});
+
+test("migration 007 is an additive provider-neutral canonical sink with forced RLS and zero-spend receipts", async () => {
+  const sql = await fs.readFile(canonicalEvidenceUpPath, "utf8");
+  assert.match(sql, /^BEGIN;/m);
+  assert.match(sql, /^COMMIT;/m);
+  for (const table of [
+    "release_source_rights", "canonical_evidence_sources", "canonical_evidence_claims",
+    "canonical_program_identities", "provider_ingest_runs",
+  ]) {
+    assert.match(sql, new RegExp(`CREATE TABLE rise_runtime\\.${table} \\(`));
+    assert.match(sql, new RegExp(`ALTER TABLE rise_runtime\\.${table} ENABLE ROW LEVEL SECURITY;`));
+    assert.match(sql, new RegExp(`ALTER TABLE rise_runtime\\.${table} FORCE ROW LEVEL SECURITY;`));
+  }
+  assert.match(sql, /provider IN \('PARALLEL', 'CLAUDE_OPUS', 'NRMP_SOAP_CLOSURE', 'STUDENT_INTEL'\)/);
+  assert.match(sql, /new_spend_usd numeric\(10,4\) NOT NULL DEFAULT 0 CHECK \(new_spend_usd = 0\)/);
+  assert.match(sql, /CREATE TRIGGER rise_canonical_claims_immutable/);
+  assert.match(sql, /publication_state IN \('STUDENT_VISIBLE', 'PRIVATE_BETA'\)/);
+  assert.match(sql, /review_state = 'APPROVED'/);
+  assert.doesNotMatch(sql, /DROP\s+(?:TABLE|SCHEMA|COLUMN)/i);
+});
+
+test("migration 007 rollback preserves evidence and disables older runtime access", async () => {
+  const sql = await fs.readFile(canonicalEvidenceDownPath, "utf8");
+  assert.match(sql, /Preserve all canonical identities, evidence, provenance, rights, and ingest/);
+  assert.match(sql, /REVOKE ALL ON rise_runtime\.canonical_evidence_claims FROM rise_app_runtime/);
+  assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE|COLUMN)/i);
+  assert.doesNotMatch(sql, /DELETE\s+FROM|TRUNCATE/i);
 });
 
 test("Student Intel verification policy stages the required cadence without authorizing spend", async () => {

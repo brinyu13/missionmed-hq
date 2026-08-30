@@ -169,3 +169,80 @@ export function knowledgeForField(claims, subjectId, field) {
   if (distinct.size > 1) return { state: "conflict", claimIds: known.map((claim) => claim.id) };
   return known[0].knowledge;
 }
+
+const CANONICAL_PUBLICATION_STATES = new Set([
+  "STUDENT_VISIBLE", "PRIVATE_BETA", "REVIEW_REQUIRED", "INTERNAL_ONLY", "REJECTED",
+]);
+
+export function createCanonicalEvidenceClaim({
+  subjectId,
+  field,
+  value,
+  provider,
+  providerRunId,
+  sourceType,
+  sourceUrl = null,
+  sourceLocator = null,
+  retrievedAt,
+  observedPeriod = { kind: "not_stated" },
+  assertionClass = "source_attributed",
+  publicationState = "REVIEW_REQUIRED",
+  reviewState = "PENDING",
+  conflictState = "NONE",
+}) {
+  if (!subjectId || !field || !provider || !providerRunId || !sourceType || !retrievedAt) {
+    throw new TypeError("Canonical evidence identity, source, and retrieval fields are required");
+  }
+  if (!CANONICAL_PUBLICATION_STATES.has(publicationState)) {
+    throw new Error(`Unsupported canonical publication state: ${publicationState}`);
+  }
+  if (publicationState === "STUDENT_VISIBLE" && reviewState !== "APPROVED") {
+    throw new Error("Student-visible canonical evidence must be approved");
+  }
+  const canonical = {
+    subjectId: String(subjectId), field: String(field), value,
+    provider: String(provider), providerRunId: String(providerRunId), sourceType: String(sourceType),
+    sourceUrl: sourceUrl || null, sourceLocator: sourceLocator || null,
+    retrievedAt: String(retrievedAt), observedPeriod, assertionClass,
+    publicationState, reviewState, conflictState,
+  };
+  const contentSha256 = createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
+  return {
+    ...canonical,
+    id: stableOpaqueId("rise_claim", contentSha256),
+    contentSha256,
+    knowledge: { state: value === null || value === undefined ? "unknown" : "known", value },
+  };
+}
+
+export function soap2026EvidenceClaim({
+  programSpecialtyId,
+  sourceRow,
+  sourceLocator,
+  retrievedAt,
+  publicationState = "PRIVATE_BETA",
+  reviewState = "APPROVED",
+}) {
+  const positions = Number.parseInt(String(sourceRow.Available_Positions ?? ""), 10);
+  return createCanonicalEvidenceClaim({
+    subjectId: programSpecialtyId,
+    field: "SOAP_2026_APPEARANCE",
+    value: {
+      appeared: true,
+      availablePositions: Number.isInteger(positions) && positions >= 0 ? positions : null,
+      programType: String(sourceRow.Program_Type_Full ?? "").trim() || null,
+      nrmpProgramCode: String(sourceRow.NRMP_Program_Code ?? "").trim() || null,
+      wording: "SOAP 2026 - This program appeared in the 2026 SOAP results.",
+      context: "SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.",
+    },
+    provider: "NRMP_SOAP_CLOSURE",
+    providerRunId: "P1_RISE_SOAP_2026_CLOSURE_006",
+    sourceType: "historical_match_cycle_result",
+    sourceLocator,
+    retrievedAt,
+    observedPeriod: { kind: "match_cycle", label: "2026" },
+    assertionClass: "historical_cycle_fact",
+    publicationState,
+    reviewState,
+  });
+}

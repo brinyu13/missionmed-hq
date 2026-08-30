@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "immutable": true,
+  "releaseId": "rise_program_identity_soap_2026_86b4c5f56cce",
+  "releaseSha256": "4db03fe03faa61a14a525aada5fed071a588e77c227ceecb51ce6e31207ce47a",
+  "sourceSha256": "af7215525bb3b974bc5092f18bd6b42f19c3c397d259ea60ab32dd89418b68ac",
+  "canonicalWorkbookSha256": "c627397c69d2fad42c07a0b66951f3f3a4957a86c231d93a5bd925cdb2d87b9e",
+  "studentVisibleIdentityCount": 883,
+  "internalReviewRequiredIdentityCount": 3,
+  "historicalClaimCount": 925,
+  "wording": "SOAP 2026 - This program appeared in the 2026 SOAP results.",
+  "prohibitedInferences": [
+    "currently_unfilled",
+    "quality",
+    "friendliness",
+    "accessibility",
+    "easy_match",
+    "guaranteed_match",
+    "future_participation"
+  ]
+}

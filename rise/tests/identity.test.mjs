@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertUniqueExternalIdentifiers,
+  canonicalProgramSpecialtyIdentity,
   programIdentity,
   programSpecialtyIdentity,
 } from "../src/identity.mjs";
@@ -15,6 +16,15 @@ test("program identity is independent of row order and display-name changes", ()
     id: programIdentity(externalId).id,
   }));
   for (const record of reorderedAndRenamed) assert.equal(record.id, first.get(record.externalId));
+});
+
+test("canonical ACGME identities use their own namespace and remain specialty-specific", () => {
+  const im = canonicalProgramSpecialtyIdentity("1400000001", "Internal Medicine");
+  const prelim = canonicalProgramSpecialtyIdentity("1400000001", "Preliminary Medicine");
+  assert.equal(im.program.acgmeId, "1400000001");
+  assert.match(im.program.externalKey, /^ACGME_PROGRAM:/);
+  assert.equal(im.program.id, prelim.program.id);
+  assert.notEqual(im.id, prelim.id);
 });
 
 test("program-specialty identity distinguishes exact combined intent", () => {

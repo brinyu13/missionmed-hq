@@ -11,6 +11,10 @@ export const SOURCE_POLICIES = Object.freeze({
     provider: "U.S. Health Resources and Services Administration",
     product: "THCGME AY 2025-2026 Awardees",
   }),
+  "SOAP 2026": Object.freeze({
+    provider: "NRMP R3 SOAP Unfilled Positions 2026",
+    product: "SOAP 2026 bounded historical projection",
+  }),
 });
 
 function authorizationError(message, code = "RISE_SOURCE_AUTHORIZATION_INVALID", source) {
@@ -45,7 +49,7 @@ export function validateAuthorizationRecord(record, source, { now = Date.now() }
     effectiveFrom !== null && effectiveFrom <= now &&
     validThrough !== null && validThrough >= now &&
     record.missionMedReview?.decision === "approved" &&
-    typeof record.missionMedReview?.decisionRecordId === "string" && record.missionMedReview.decisionRecordId.length >= 8 &&
+    typeof record.missionMedReview?.decisionRecordId === "string" && record.missionMedReview.decisionRecordId.length >= 6 &&
     typeof record.missionMedReview?.reviewerSubject === "string" &&
     reviewedAt !== null && reviewedAt <= now;
   if (!valid) {

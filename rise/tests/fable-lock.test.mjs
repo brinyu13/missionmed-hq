@@ -21,7 +21,9 @@ test("production shell is mechanically derived from the immutable Fable 5002 loc
   assert.ok(style);
   const lockedStyle = style.replace(/\n+$/, "");
   const extensionStyle = (await fs.readFile(path.join(riseRoot, "web/_student-intel-extension.css"), "utf8")).replace(/\n+$/, "");
-  assert.equal(await fs.readFile(path.join(riseRoot, "web/styles.css"), "utf8"), `${lockedStyle}\n\n${extensionStyle}\n`);
+  const styles = await fs.readFile(path.join(riseRoot, "web/styles.css"), "utf8");
+  assert.ok(styles.startsWith(`${lockedStyle}\n\n${extensionStyle}\n\n`));
+  assert.match(styles, /\.soapContext\{[\s\S]*\.soapSearch input:focus-visible[\s\S]*@media\(max-width:720px\)/);
 
   const productionHtml = await fs.readFile(path.join(riseRoot, "web/index.html"), "utf8");
   assert.match(productionHtml, /Founder-approved Fable 5002 · BETA · VERIFY WITH PROGRAM/);
@@ -50,6 +52,10 @@ test("student bundle excludes representative medical facts and unsafe production
   assert.match(app, /\/api\/rise\/v1\/me\/programs/);
   assert.match(app, /Needs more verified data — fit is not forced/);
   assert.match(app, /Research submission is disabled/);
+  assert.match(app, /SOAP Explorer/);
+  assert.match(app, /viewSoapExplorer/);
+  assert.match(app, /does not predict future availability or match likelihood/);
+  assert.doesNotMatch(app, /currently unfilled|easy match|guaranteed match|historical accessibility evidence/i);
   assert.doesNotMatch(app, /hashN\(/);
 });
 

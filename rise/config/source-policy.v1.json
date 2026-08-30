@@ -16,6 +16,29 @@
       "termsUrl": "https://students-residents.aamc.org/applying-residency/residency-explorer-terms-and-conditions",
       "termsLastUpdated": "2026-04-08",
       "notes": "The current terms prohibit using Residency Explorer material to create or supplement a database, product, or service absent written AAMC authorization."
+    },
+    "HRSA THCGME": {
+      "ingestion": "approved_public_domain_factual_projection",
+      "authority": "HRSA_THCGME",
+      "assertionClass": "authoritative_government_awardee_listing",
+      "publication": "STUDENT_VISIBLE"
+    },
+    "SOAP 2026": {
+      "ingestion": "approved_bounded_historical_projection",
+      "authority": "NRMP_SOAP_CLOSURE",
+      "acceptedSourceSha256": "af7215525bb3b974bc5092f18bd6b42f19c3c397d259ea60ab32dd89418b68ac",
+      "assertionClass": "historical_cycle_fact",
+      "publication": "PRIVATE_BETA_EXACT_ACGME_MATCH_ONLY",
+      "requiredWording": "SOAP 2026 - This program appeared in the 2026 SOAP results.",
+      "notes": "Historical cycle-2026 evidence only. It does not establish current availability, quality, friendliness, accessibility, match likelihood, or future participation."
+    },
+    "Provider Research Factory": {
+      "ingestion": "completed_validated_files_only",
+      "authority": "PROVIDER_NEUTRAL_RESEARCH_FACTORY",
+      "assertionClass": "source_attributed_research",
+      "publication": "REVIEW_REQUIRED",
+      "newParallelSpendAuthorizedUsd": 0,
+      "notes": "Parallel and Claude/Opus completed results converge into the canonical evidence sink. No record auto-publishes."
     }
   }
 }

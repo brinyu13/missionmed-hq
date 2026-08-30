@@ -39,6 +39,26 @@ export function programIdentity(externalProgramId) {
   };
 }
 
+export function acgmeProgramIdentity(acgmeId) {
+  const value = normalizeExternalProgramId(acgmeId);
+  return {
+    id: stableOpaqueId("rise_prg", `ACGME_PROGRAM:${value}`),
+    externalKey: `ACGME_PROGRAM:${value}`,
+    acgmeId: value,
+  };
+}
+
+export function canonicalProgramSpecialtyIdentity(acgmeId, specialty) {
+  const program = acgmeProgramIdentity(acgmeId);
+  const normalizedSpecialty = String(specialty ?? "").trim();
+  if (!normalizedSpecialty) throw new Error("Specialty is required");
+  return {
+    program,
+    id: stableOpaqueId("rise_ps", `${program.id}:${normalizedSpecialty}`),
+    specialty: specialtyIdentity(normalizedSpecialty),
+  };
+}
+
 export function specialtyIdentity(label) {
   const normalized = String(label ?? "").trim();
   if (!normalized) throw new Error("Specialty label is required");
