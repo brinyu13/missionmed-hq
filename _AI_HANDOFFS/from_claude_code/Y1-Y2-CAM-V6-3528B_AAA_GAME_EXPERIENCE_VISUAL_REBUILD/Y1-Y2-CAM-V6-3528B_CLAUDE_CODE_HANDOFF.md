@@ -88,9 +88,12 @@ with the rail auto-collapsed. Menu screens fluid across the same set.
 ## Interaction model delivered
 - Controller grammar: arrow-key spatial focus, Enter activates, Esc = back / pause menu
   (in-room: RESUME / END & SAVE), focus ring + white-frame card focus everywhere.
-- Left nav rail: expanded/collapsible in all menus; icon rail on READY; **fully hidden
-  during the live interview** (Founder directive 2026-08-29 — the room owns the full
-  width; exits are FINISH and the Esc pause menu, and the rail returns on Results).
+- Left nav rail: expanded/collapsible in the menu flow only. Per the Founder ROOM-IMMERSION
+  addendum (2026-08-29) the rail is **completely absent for the entire interview-room flow**:
+  READY → countdown → LIVE (incl. PAUSED and INTERVIEW-ONLY) → FINISH/PROCESSING. It returns
+  on RESULTS. The room is a dedicated full-screen session environment; exits are FINISH and
+  the Esc pause menu. The recovered width feeds the 16:9 stage, wider instrument rails
+  (306/352px) and larger Founder scanner wells (126/158px).
 - Zero required typing (only optional session-title rename).
 - Back/Next footer on every multi-step screen; refresh restores state; a live-session
   refresh lands on the RECOVERY screen (save-partial / resume-setup / discard).

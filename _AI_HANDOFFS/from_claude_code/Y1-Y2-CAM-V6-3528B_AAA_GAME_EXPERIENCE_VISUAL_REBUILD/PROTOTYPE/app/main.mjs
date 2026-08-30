@@ -270,6 +270,7 @@ addEventListener('hashchange', renderRoute);
 /* ---------- boot ---------- */
 renderRail();
 const devMode = new URLSearchParams(location.search).has('dev');
+if (devMode && (!draft.qids || !draft.qids.length)) { draft.mode = 'question'; draft.qids = ['q1']; }
 if (!location.hash || location.hash === '#/') {
   const last = ui.lastRoute;
   location.hash = last && last !== '#/live' ? last : '#/home';

@@ -509,6 +509,6 @@ export const MENU_SCREENS = {
   practice: { render: practiceScreen, envTheme: 'practice', back: 'home', hilite: 'practice' },
   questions: { render: questionsScreen, envTheme: 'practice', back: 'practice', hilite: 'practice' },
   setup: { render: setupScreen, envTheme: 'practice', back: 'questions', hilite: 'practice' },
-  ready: { render: readyScreen, envTheme: 'practice', back: 'setup', hilite: 'practice', railMin: true },
+  ready: { render: readyScreen, envTheme: 'practice', back: 'setup', hilite: 'practice', railHidden: true },
   recovery: { render: recoveryScreen, envTheme: 'lobby', back: 'home', hilite: 'home' },
 };

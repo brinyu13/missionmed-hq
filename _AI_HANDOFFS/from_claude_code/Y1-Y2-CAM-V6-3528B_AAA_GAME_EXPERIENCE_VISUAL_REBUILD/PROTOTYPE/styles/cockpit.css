@@ -59,8 +59,8 @@
 
 /* ---------- main grid ---------- */
 .room-main { flex: 1; display: flex; gap: 12px; min-height: 0; }
-.room-left { flex: 0 0 296px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
-.room-right { flex: 0 0 336px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.room-left { flex: 0 0 306px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.room-right { flex: 0 0 352px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 .room-center { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 
 .interview-only .room-center { max-width: none; }
@@ -129,8 +129,8 @@
   overflow: hidden;
   flex: 0 0 auto;
 }
-.scan-well img { height: 118px; width: auto; filter: drop-shadow(0 0 14px rgba(57, 214, 255, .35)); }
-.scan-well.body img { height: 148px; }
+.scan-well img { height: 126px; width: auto; filter: drop-shadow(0 0 14px rgba(57, 214, 255, .35)); }
+.scan-well.body img { height: 158px; }
 .scan-sweep {
   position: absolute; left: 0; right: 0; height: 26px; top: -26px;
   background: linear-gradient(180deg, rgba(57, 214, 255, 0), rgba(57, 214, 255, .16), rgba(57, 214, 255, 0));

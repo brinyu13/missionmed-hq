@@ -609,5 +609,5 @@ function processingScreen(el) {
 
 export const LIVE_SCREENS = {
   live: { render: liveScreen, env: false, hilite: 'practice', autoFocus: false, railHidden: true },
-  processing: { render: processingScreen, envTheme: 'results', hilite: 'results' },
+  processing: { render: processingScreen, envTheme: 'results', hilite: 'results', railHidden: true },
 };
