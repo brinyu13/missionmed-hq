@@ -472,6 +472,10 @@ function artifactReceiptHashes() {
     privateStorageObjectIdRegexSha256: hash('private-storage-object-id-regex'),
     privateStorageObjectIdRegexRollbackSha256:
       hash('private-storage-object-id-regex-rollback'),
+    facultyScopeDurableVerificationSha256:
+      hash('faculty-scope-durable-verification'),
+    facultyScopeDurableVerificationRollbackSha256:
+      hash('faculty-scope-durable-verification-rollback'),
   };
   if (Object.values(receipt).some((value) => typeof value !== 'string')) {
     failDr133('ARTIFACT_INVENTORY_INVALID');

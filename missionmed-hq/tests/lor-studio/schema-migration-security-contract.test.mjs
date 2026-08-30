@@ -56,6 +56,11 @@ const productionFacultyInvitationPath = path.join(
   'migrations',
   '20260825010500_f2_lor_1012_production_faculty_invitation_commands.sql',
 );
+const facultyScopeDurableVerificationPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260830073256_f2_lor_1012_faculty_scope_durable_verification.sql',
+);
 
 const RELATIONS = Object.freeze([
   'student_auth_bindings',
@@ -757,4 +762,33 @@ test('production faculty invitation successor preserves the reviewed command bod
   assert.match(productionSql, /inet_server_addr\(\) IS NULL/u);
   assert.match(productionSql, /current_setting\('ssl'\) IS DISTINCT FROM 'on'/u);
   assert.match(productionSql, /observed_sentinel IS DISTINCT FROM expected_sentinel/u);
+});
+
+test('live faculty scope uses durable one-time verification rather than current OTP lifetime', async () => {
+  const sql = await readFile(facultyScopeDurableVerificationPath, 'utf8');
+  const resolverStart = sql.indexOf(
+    'CREATE OR REPLACE FUNCTION lor_studio.resolve_faculty_case_scope(',
+  );
+  const resolverEnd = sql.indexOf('$faculty_scope$;', resolverStart);
+  assert.ok(resolverStart >= 0 && resolverEnd > resolverStart);
+  const resolver = sql.slice(resolverStart, resolverEnd);
+  assert.match(resolver, /invitation\.used_at < invitation\.expires_at/u);
+  assert.match(
+    resolver,
+    /verification\.otp_verified_at <= verification\.invitation_used_at/u,
+  );
+  assert.match(
+    resolver,
+    /verification\.invitation_used_at < verification\.otp_expires_at/u,
+  );
+  assert.doesNotMatch(
+    resolver,
+    /invitation\.expires_at > pg_catalog\.statement_timestamp\(\)/u,
+  );
+  assert.doesNotMatch(
+    resolver,
+    /verification\.otp_expires_at > pg_catalog\.statement_timestamp\(\)/u,
+  );
+  assert.match(resolver, /faculty_otp_proof_revocations/u);
+  assert.match(resolver, /eligible_count <> 1/u);
 });

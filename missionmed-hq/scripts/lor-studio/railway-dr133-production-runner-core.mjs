@@ -184,6 +184,20 @@ export const DR133_ARTIFACTS = Object.freeze([
       'rollbacks/20260826011900_f2_lor_1012_live_production_private_storage_object_id_regex.rollback.sql',
     sha256: '1a275b93d5e07a8d922d5b3da0bd4a5fd38a1eced805b4c8926a14a9d7d91f8f',
   }),
+  Object.freeze({
+    id: 'faculty-scope-durable-verification',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260830073256_f2_lor_1012_faculty_scope_durable_verification.sql',
+    sha256: 'fa6eabffd7964477dbdaf5ea21a5095ee0f581d89fa127371ef4d76883c1b2bd',
+  }),
+  Object.freeze({
+    id: 'faculty-scope-durable-verification-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260830073256_f2_lor_1012_faculty_scope_durable_verification.rollback.sql',
+    sha256: 'fde6445fecf89202f5e4724966d6e3ea42a947d44614a2dd8fa255b40e2e6e72',
+  }),
 ]);
 
 export const DR133_RELATIONS = Object.freeze([
@@ -353,6 +367,11 @@ export const DR133_SUCCESSOR_STAGES = Object.freeze([
     rollbackId: 'private-storage-object-id-regex-rollback',
     sentinelSuffix: 'privateStorageObjectIdRegex=20260826011900',
   }),
+  Object.freeze({
+    id: 'faculty-scope-durable-verification',
+    rollbackId: 'faculty-scope-durable-verification-rollback',
+    sentinelSuffix: 'facultyScopeDurableVerification=20260830073256',
+  }),
 ]);
 
 const DENIED_IDENTIFIERS = Object.freeze([
@@ -428,6 +447,13 @@ const SUCCESSOR_ROLLBACK_GUARD_BOUNDARIES = Object.freeze({
     guardTerminator: 'END\n$catalog_guard$;',
     literalMarker: ROLLBACK_LITERAL_MARKER,
   }),
+  'faculty-scope-durable-verification-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'CREATE OR REPLACE FUNCTION lor_studio.resolve_faculty_case_scope(',
+    guardTerminator: 'END\n$catalog_guard$;',
+    literalMarker:
+      '-- Literal reverse operation follows. This marker is consumed by static custody tests.',
+  }),
 });
 const DR133_RECEIPT_KEYS = Object.freeze([
   'aiProposalRollbackSha256',
@@ -442,6 +468,8 @@ const DR133_RECEIPT_KEYS = Object.freeze([
   'facultyInvitationSha256',
   'facultyPrivateExportRollbackSha256',
   'facultyPrivateExportSha256',
+  'facultyScopeDurableVerificationRollbackSha256',
+  'facultyScopeDurableVerificationSha256',
   'foundationSha256',
   'identityScopeRollbackSha256',
   'identityScopeSha256',
@@ -902,6 +930,8 @@ export function writeDr133Receipt(stream, payload) {
     'facultyInvitationSha256',
     'facultyPrivateExportRollbackSha256',
     'facultyPrivateExportSha256',
+    'facultyScopeDurableVerificationRollbackSha256',
+    'facultyScopeDurableVerificationSha256',
     'foundationSha256',
     'identityScopeRollbackSha256',
     'identityScopeSha256',
@@ -952,6 +982,8 @@ export function writeDr133Receipt(stream, payload) {
       'facultyInvitationSha256',
       'facultyPrivateExportRollbackSha256',
       'facultyPrivateExportSha256',
+      'facultyScopeDurableVerificationRollbackSha256',
+      'facultyScopeDurableVerificationSha256',
       'foundationSha256',
       'identityScopeRollbackSha256',
       'identityScopeSha256',
@@ -979,6 +1011,8 @@ export function writeDr133Receipt(stream, payload) {
       'facultyInvitationSha256',
       'facultyPrivateExportRollbackSha256',
       'facultyPrivateExportSha256',
+      'facultyScopeDurableVerificationRollbackSha256',
+      'facultyScopeDurableVerificationSha256',
       'foundationSha256',
       'identityScopeRollbackSha256',
       'identityScopeSha256',
@@ -1009,6 +1043,8 @@ export function writeDr133Receipt(stream, payload) {
       'facultyInvitationSha256',
       'facultyPrivateExportRollbackSha256',
       'facultyPrivateExportSha256',
+      'facultyScopeDurableVerificationRollbackSha256',
+      'facultyScopeDurableVerificationSha256',
       'foundationSha256',
       'identityScopeRollbackSha256',
       'identityScopeSha256',
@@ -1027,7 +1063,7 @@ export function writeDr133Receipt(stream, payload) {
   if (
     payload.mode === 'runtime-login'
     && payload.result !== 'NO_MUTATION'
-  ) requireKeys(['privateStorageObjectIdRegexRollbackSha256']);
+  ) requireKeys(['facultyScopeDurableVerificationRollbackSha256']);
   if (
     payload.mode === 'runtime-login-deprovision'
     && payload.result !== 'NO_MUTATION'

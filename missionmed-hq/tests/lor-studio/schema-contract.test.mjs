@@ -54,9 +54,11 @@ const PRODUCTION_FORWARD_LEDGER = Object.freeze([
   'missionmed-hq/scripts/lor-studio/migrations/20260826011500_f2_lor_1012_faculty_candidate_auth_handoff_commands.sql',
   'missionmed-hq/scripts/lor-studio/migrations/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.sql',
   'missionmed-hq/scripts/lor-studio/migrations/20260826011900_f2_lor_1012_live_production_private_storage_object_id_regex.sql',
+  'missionmed-hq/scripts/lor-studio/migrations/20260830073256_f2_lor_1012_faculty_scope_durable_verification.sql',
 ]);
 
 const PRODUCTION_ROLLBACK_LEDGER = Object.freeze([
+  'missionmed-hq/scripts/lor-studio/rollbacks/20260830073256_f2_lor_1012_faculty_scope_durable_verification.rollback.sql',
   'missionmed-hq/scripts/lor-studio/rollbacks/20260826011900_f2_lor_1012_live_production_private_storage_object_id_regex.rollback.sql',
   'missionmed-hq/scripts/lor-studio/rollbacks/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.rollback.sql',
   'missionmed-hq/scripts/lor-studio/rollbacks/20260826011500_f2_lor_1012_faculty_candidate_auth_handoff_commands.rollback.sql',
@@ -427,14 +429,29 @@ test('schema contract freezes encrypted storage and faculty candidate handoff cu
     productionSentinelSuffix: 'facultyCandidateAuthHandoff=20260826011500',
   });
   assert.deepEqual(contract.liveProductionSuccessorCatalog, {
-    artifactCount: 22,
-    rollbackCount: 11,
+    artifactCount: 24,
+    rollbackCount: 12,
     relationCount: 36,
     forcedRlsCount: 36,
     securityDefinerCount: 34,
     applicationExecutableSecurityDefinerCount: 33,
     policyCount: 155,
-    productionSentinelSuffix: 'privateStorageObjectIdRegex=20260826011900',
+    productionSentinelSuffix: 'facultyScopeDurableVerification=20260830073256',
+  });
+  assert.deepEqual(contract.facultyScopeDurableVerificationContract, {
+    securityDefinerFunction: 'resolve_faculty_case_scope(text,text,text)',
+    authorizationLifetime: 'durable_after_valid_invitation_use',
+    invitationUseMustPrecedeInvitationExpiry: true,
+    otpVerificationMustNotFollowInvitationUse: true,
+    invitationUseMustPrecedeOtpExpiry: true,
+    invitationRevocationEnforced: true,
+    otpRevocationEnforced: true,
+    otpProofRevocationEnforced: true,
+    currentOtpExpiryDoesNotRevokeDurableFacultyAccess: true,
+    ambiguousScopeDenied: true,
+    directApplicationTableDml: false,
+    rollback: 'exact_no_cascade_function_definition_restore',
+    productionSentinelSuffix: 'facultyScopeDurableVerification=20260830073256',
   });
   assert.deepEqual(contract.mentorAssignmentCommandContract, {
     securityDefinerFunctions: [

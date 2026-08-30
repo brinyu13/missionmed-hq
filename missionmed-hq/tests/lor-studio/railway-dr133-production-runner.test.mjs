@@ -139,21 +139,21 @@ test('production runner is pinned to the exact isolated provider target', () => 
   assert.match(expectedDr133Sentinel(), /^missionmed\.lor\.railway-postgres-target\.v2\|deploymentEnvironment=production\|migrationLedger=lor_studio\/migrations\/production\|/u);
   assert.match(
     expectedDr133SuccessorSentinel(),
-    /privateStorageObjectIdRegex=20260826011900$/u,
+    /facultyScopeDurableVerification=20260830073256$/u,
   );
   assert.doesNotMatch(expectedDr133SuccessorSentinel(), /f5705d38|b49a52e7|lor-staging/u);
 });
 
-test('all twenty-two live-production artifacts are hash-pinned and target-exclusive', async () => {
-  assert.equal(DR133_ARTIFACTS.length, 22);
-  assert.equal(new Set(DR133_ARTIFACTS.map((artifact) => artifact.id)).size, 22);
+test('all twenty-four live-production artifacts are hash-pinned and target-exclusive', async () => {
+  assert.equal(DR133_ARTIFACTS.length, 24);
+  assert.equal(new Set(DR133_ARTIFACTS.map((artifact) => artifact.id)).size, 24);
   for (const artifact of DR133_ARTIFACTS) {
     const source = await readFile(path.join(scriptDirectory, artifact.relativePath));
     const text = source.toString('utf8');
     assert.equal(createHash('sha256').update(source).digest('hex'), artifact.sha256, artifact.id);
     assert.match(
       artifact.relativePath,
-      /2026082601(?:00|01|03|05|07|09|11|13|15|17|19)00_f2_lor_1012_(?:live_production_)?/u,
+      /(?:2026082601(?:00|01|03|05|07|09|11|13|15|17|19)00|20260830073256)_f2_lor_1012_(?:live_production_)?/u,
     );
     assert.match(text, /ed3353f7-bcc7-4e25-a000-3c9fc628a9a7/u);
     assert.match(text, /576520f5-a702-4343-a277-decdeeed57f6/u);
@@ -225,7 +225,7 @@ test('production runtime deprovision accepts only exact empty-schema cursor pref
   );
   assert.equal(
     dr133RuntimeDeprovisionRollbackArtifactId(DR133_SUCCESSOR_STAGES.length),
-    'private-storage-object-id-regex-rollback',
+    'faculty-scope-durable-verification-rollback',
   );
   assert.throws(
     () => assertRuntimeDeprovisionPreflightRow({ ...row, schema_sentinel: 'foreign' }),
@@ -1728,7 +1728,7 @@ test('production entrypoints recover exact interruption cursors on disposable Po
         assert.deepEqual(recoveredRollback, {
           result: 'ROLLBACK_DRILL_COMMITTED_VERIFIED',
         });
-        assert.equal(rollbackSuccess.receipt().rollbackCount, 11);
+        assert.equal(rollbackSuccess.receipt().rollbackCount, 12);
         for (const rollbackId of [
           ...[...DR133_SUCCESSOR_STAGES].reverse().map((stage) => stage.rollbackId),
           'rls-rollback',

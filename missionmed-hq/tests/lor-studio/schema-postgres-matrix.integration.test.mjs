@@ -131,6 +131,16 @@ const aiProposalCommandsRollbackPath = path.join(
   'rollbacks',
   '20260825010800_f2_lor_1012_ai_proposal_commands.rollback.sql',
 );
+const facultyScopeDurableVerificationPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260830073256_f2_lor_1012_faculty_scope_durable_verification.sql',
+);
+const facultyScopeDurableVerificationRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260830073256_f2_lor_1012_faculty_scope_durable_verification.rollback.sql',
+);
 
 const RUN_REAL_MATRIX = process.env.LOR_RUN_REAL_POSTGRES_MATRIX === '1';
 const TOOLCHAINS = Object.freeze([
@@ -173,6 +183,17 @@ const MENTOR = 'wp:96';
 const MENTOR_AUTH_UID = '9b6c907d-6e6f-4fb2-af6f-20515241ad06';
 const MENTOR_ASSIGNMENT_ID = 'assignment_disposable_pg_matrix_0001';
 const MENTOR_ASSIGNMENT_ID_TWO = 'assignment_disposable_pg_matrix_0002';
+
+async function facultyScopeResolverReplacementSql(filePath) {
+  const sql = await readFile(filePath, 'utf8');
+  const start = sql.indexOf(
+    'CREATE OR REPLACE FUNCTION lor_studio.resolve_faculty_case_scope(',
+  );
+  const terminator = 'TO lor_studio_app;';
+  const end = sql.indexOf(terminator, start);
+  assert.ok(start >= 0 && end > start);
+  return sql.slice(start, end + terminator.length);
+}
 
 const BINDING = resolveLorTargetBinding({
   schemaVersion: LOR_TARGET_BINDING_SCHEMA,
@@ -3039,7 +3060,10 @@ function releasedStudentSnapshot() {
 
 async function seedSyntheticFacultyPrerequisites(
   pool,
-  { principalAuthority = 'durable_otp_provider_proof' } = {},
+  {
+    principalAuthority = 'durable_otp_provider_proof',
+    otpExpiresAt = FACULTY_FIXTURE_EXPIRES_AT,
+  } = {},
 ) {
   // Privileged disposable-local fixture only. This does not claim that invitation or OTP
   // issuance, delivery, verification, or provider binding is operational in any environment.
@@ -3095,7 +3119,7 @@ async function seedSyntheticFacultyPrerequisites(
         recipientEmailHash,
         challengeCodeHash,
         '2026-08-20T12:04:30.000Z',
-        FACULTY_FIXTURE_EXPIRES_AT,
+        otpExpiresAt,
         hashValue({
           schemaVersion: 'missionmed.lor.synthetic-local-otp-challenge.v1',
           challengeId: FACULTY_CHALLENGE_ID,
@@ -3143,7 +3167,7 @@ async function seedSyntheticFacultyPrerequisites(
         recipientEmailHash,
         sha256('synthetic-local-faculty-otp-proof'),
         '2026-08-20T12:04:40.000Z',
-        FACULTY_FIXTURE_EXPIRES_AT,
+        otpExpiresAt,
         '2026-08-20T12:04:50.000Z',
         audit.event_ref,
         hashValue({
@@ -3379,7 +3403,26 @@ async function proveIdentityScopeSuccessor({ harness, pool, contract, postgresMa
   await assert.rejects(revokeBinding, (error) => error?.code === 'P1102');
 
   await proveActorSafeStudentCommand(pool);
-  await seedSyntheticFacultyPrerequisites(pool);
+  await seedSyntheticFacultyPrerequisites(pool, {
+    otpExpiresAt: '2026-08-20T12:05:00.000Z',
+  });
+
+  await pool.query(await facultyScopeResolverReplacementSql(
+    facultyScopeDurableVerificationPath,
+  ));
+  const { rows: [durableResolverCatalog] } = await pool.query(`SELECT
+    pg_catalog.encode(
+      pg_catalog.sha256(pg_catalog.convert_to(procedure.prosrc, 'UTF8')),
+      'hex'
+    ) AS source_hash
+    FROM pg_catalog.pg_proc AS procedure
+    WHERE procedure.oid = pg_catalog.to_regprocedure(
+      'lor_studio.resolve_faculty_case_scope(text,text,text)'
+    )::oid`);
+  assert.equal(
+    durableResolverCatalog.source_hash,
+    '29468d5e551725d858b0d64c5f0bd89083a6599a549dd4cfdefc376535f7c45a',
+  );
 
   const resolveFaculty = ({
     subject = FACULTY,
@@ -3597,6 +3640,22 @@ async function proveIdentityScopeSuccessor({ harness, pool, contract, postgresMa
   const { rows: [beforeRollback] } = await pool.query(`SELECT
     (SELECT pg_catalog.count(*) FROM lor_studio.student_auth_bindings) AS binding_count,
     (SELECT pg_catalog.count(*) FROM lor_studio.recommendation_cases) AS case_count`);
+  await pool.query(await facultyScopeResolverReplacementSql(
+    facultyScopeDurableVerificationRollbackPath,
+  ));
+  const { rows: [restoredResolverCatalog] } = await pool.query(`SELECT
+    pg_catalog.encode(
+      pg_catalog.sha256(pg_catalog.convert_to(procedure.prosrc, 'UTF8')),
+      'hex'
+    ) AS source_hash
+    FROM pg_catalog.pg_proc AS procedure
+    WHERE procedure.oid = pg_catalog.to_regprocedure(
+      'lor_studio.resolve_faculty_case_scope(text,text,text)'
+    )::oid`);
+  assert.equal(
+    restoredResolverCatalog.source_hash,
+    '64914c2f1293644c1da045e0ae8bc6ca61ed80cd835aea882a9fdb3426b055ea',
+  );
   await harness.applySqlFile(identityScopeRollbackPath);
   await assertFinalCatalog(pool, contract, postgresMajor);
   const { rows: [afterRollback] } = await pool.query(`SELECT

@@ -40,9 +40,9 @@ const DR133_ROLLBACK_ORDER = Object.freeze([
   'rls-rollback',
   'foundation-rollback',
 ]);
-const DR133_EXPECTED_ARTIFACT_COUNT = 22;
+const DR133_EXPECTED_ARTIFACT_COUNT = 24;
 const DR133_EXPECTED_RELATION_COUNT = 36;
-const DR133_EXPECTED_ROLLBACK_COUNT = 11;
+const DR133_EXPECTED_ROLLBACK_COUNT = 12;
 const DR133_ROLLBACK_DRILL_ENV_KEYS = Object.freeze([
   'LOR_DR133_ADMIN_DATABASE_URL',
   'LOR_DR133_MODE',
@@ -70,6 +70,10 @@ const ARTIFACT_RECEIPT_KEYS = Object.freeze({
   'faculty-invitation-rollback': 'facultyInvitationRollbackSha256',
   'faculty-private-export': 'facultyPrivateExportSha256',
   'faculty-private-export-rollback': 'facultyPrivateExportRollbackSha256',
+  'faculty-scope-durable-verification':
+    'facultyScopeDurableVerificationSha256',
+  'faculty-scope-durable-verification-rollback':
+    'facultyScopeDurableVerificationRollbackSha256',
   'ai-proposal': 'aiProposalSha256',
   'ai-proposal-rollback': 'aiProposalRollbackSha256',
   'student-evidence': 'studentEvidenceSha256',

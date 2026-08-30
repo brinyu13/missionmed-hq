@@ -57,6 +57,10 @@ const HASH_KEYS = Object.freeze({
   facultyCandidateAuthHandoffRollbackSha256:
     'faculty-candidate-auth-handoff-rollback',
   facultyCandidateAuthHandoffSha256: 'faculty-candidate-auth-handoff',
+  facultyScopeDurableVerificationRollbackSha256:
+    'faculty-scope-durable-verification-rollback',
+  facultyScopeDurableVerificationSha256:
+    'faculty-scope-durable-verification',
   facultyInvitationRollbackSha256: 'faculty-invitation-rollback',
   facultyInvitationSha256: 'faculty-invitation',
   facultyPrivateExportRollbackSha256: 'faculty-private-export-rollback',
@@ -97,8 +101,8 @@ function successReceipt(mode) {
       result: 'ROLLBACK_DRILL_COMMITTED_VERIFIED',
       postgresMajor: 18,
       relationCount: DR133_RELATIONS.length,
-      rollbackCount: 11,
-      verifiedArtifactCount: 22,
+      rollbackCount: 12,
+      verifiedArtifactCount: 24,
       ...runnerHashes(),
       foundationRollbackSha256: artifactHash('foundation-rollback'),
       rlsRollbackSha256: artifactHash('rls-rollback'),
@@ -120,16 +124,16 @@ function successReceipt(mode) {
     });
   }
   if (mode === 'runtime-login') {
-    receipt.privateStorageObjectIdRegexRollbackSha256 = artifactHash(
-      'private-storage-object-id-regex-rollback',
+    receipt.facultyScopeDurableVerificationRollbackSha256 = artifactHash(
+      'faculty-scope-durable-verification-rollback',
     );
   }
   if (mode === 'runtime-login-deprovision') {
     receipt.postgresMajor = 18;
     receipt.runtimeDeprovisionGuardRollbackSha256 = artifactHash(
-      'private-storage-object-id-regex-rollback',
+      'faculty-scope-durable-verification-rollback',
     );
-    receipt.runtimeDeprovisionGuardStage = 9;
+    receipt.runtimeDeprovisionGuardStage = 10;
   }
   return receipt;
 }
@@ -146,15 +150,15 @@ function failureReceipt(mode, result) {
     Object.assign(receipt, runnerHashes());
   }
   if (mode === 'runtime-login' && result !== 'NO_MUTATION') {
-    receipt.privateStorageObjectIdRegexRollbackSha256 = artifactHash(
-      'private-storage-object-id-regex-rollback',
+    receipt.facultyScopeDurableVerificationRollbackSha256 = artifactHash(
+      'faculty-scope-durable-verification-rollback',
     );
   }
   if (mode === 'runtime-login-deprovision' && result !== 'NO_MUTATION') {
     receipt.runtimeDeprovisionGuardRollbackSha256 = artifactHash(
-      'private-storage-object-id-regex-rollback',
+      'faculty-scope-durable-verification-rollback',
     );
-    receipt.runtimeDeprovisionGuardStage = 9;
+    receipt.runtimeDeprovisionGuardStage = 10;
   }
   return receipt;
 }

@@ -110,7 +110,7 @@ test('rollback is exact, drift-fenced, data-custody-safe, and contains no broad 
   }
 });
 
-test('runner and artifact ledgers pin the repair as the final no-count-change successor', async () => {
+test('runner and artifact ledgers retain the repair as an ordered no-count-change successor', async () => {
   const migrationBytes = await readFile(MIGRATION);
   const rollbackBytes = await readFile(ROLLBACK);
   const forward = DR133_ARTIFACTS.find(
@@ -121,13 +121,15 @@ test('runner and artifact ledgers pin the repair as the final no-count-change su
   );
   assert.equal(forward.sha256, sha256(migrationBytes));
   assert.equal(reverse.sha256, sha256(rollbackBytes));
-  assert.deepEqual(DR133_SUCCESSOR_STAGES.at(-1), {
+  assert.deepEqual(DR133_SUCCESSOR_STAGES.find(
+    ({ id }) => id === 'private-storage-object-id-regex',
+  ), {
     id: 'private-storage-object-id-regex',
     rollbackId: 'private-storage-object-id-regex-rollback',
     sentinelSuffix: 'privateStorageObjectIdRegex=20260826011900',
   });
   assert.match(
     expectedDr133SuccessorSentinel(),
-    /\|mentorAssignmentCommands=20260826011700\|privateStorageObjectIdRegex=20260826011900$/u,
+    /\|mentorAssignmentCommands=20260826011700\|privateStorageObjectIdRegex=20260826011900\|facultyScopeDurableVerification=20260830073256$/u,
   );
 });

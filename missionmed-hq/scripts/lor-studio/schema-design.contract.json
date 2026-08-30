@@ -44,9 +44,11 @@
     "missionmed-hq/scripts/lor-studio/migrations/20260826011300_f2_lor_1012_live_production_encrypted_private_storage_commands.sql",
     "missionmed-hq/scripts/lor-studio/migrations/20260826011500_f2_lor_1012_faculty_candidate_auth_handoff_commands.sql",
     "missionmed-hq/scripts/lor-studio/migrations/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.sql",
-    "missionmed-hq/scripts/lor-studio/migrations/20260826011900_f2_lor_1012_live_production_private_storage_object_id_regex.sql"
+    "missionmed-hq/scripts/lor-studio/migrations/20260826011900_f2_lor_1012_live_production_private_storage_object_id_regex.sql",
+    "missionmed-hq/scripts/lor-studio/migrations/20260830073256_f2_lor_1012_faculty_scope_durable_verification.sql"
   ],
   "productionRollbackLedger": [
+    "missionmed-hq/scripts/lor-studio/rollbacks/20260830073256_f2_lor_1012_faculty_scope_durable_verification.rollback.sql",
     "missionmed-hq/scripts/lor-studio/rollbacks/20260826011900_f2_lor_1012_live_production_private_storage_object_id_regex.rollback.sql",
     "missionmed-hq/scripts/lor-studio/rollbacks/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.rollback.sql",
     "missionmed-hq/scripts/lor-studio/rollbacks/20260826011500_f2_lor_1012_faculty_candidate_auth_handoff_commands.rollback.sql",
@@ -682,15 +684,30 @@
     "rollback": "exact_no_cascade_refuses_nonempty_command_custody",
     "productionSentinelSuffix": "mentorAssignmentCommands=20260826011700"
   },
+  "facultyScopeDurableVerificationContract": {
+    "securityDefinerFunction": "resolve_faculty_case_scope(text,text,text)",
+    "authorizationLifetime": "durable_after_valid_invitation_use",
+    "invitationUseMustPrecedeInvitationExpiry": true,
+    "otpVerificationMustNotFollowInvitationUse": true,
+    "invitationUseMustPrecedeOtpExpiry": true,
+    "invitationRevocationEnforced": true,
+    "otpRevocationEnforced": true,
+    "otpProofRevocationEnforced": true,
+    "currentOtpExpiryDoesNotRevokeDurableFacultyAccess": true,
+    "ambiguousScopeDenied": true,
+    "directApplicationTableDml": false,
+    "rollback": "exact_no_cascade_function_definition_restore",
+    "productionSentinelSuffix": "facultyScopeDurableVerification=20260830073256"
+  },
   "liveProductionSuccessorCatalog": {
-    "artifactCount": 22,
-    "rollbackCount": 11,
+    "artifactCount": 24,
+    "rollbackCount": 12,
     "relationCount": 36,
     "forcedRlsCount": 36,
     "securityDefinerCount": 34,
     "applicationExecutableSecurityDefinerCount": 33,
     "policyCount": 155,
-    "productionSentinelSuffix": "privateStorageObjectIdRegex=20260826011900"
+    "productionSentinelSuffix": "facultyScopeDurableVerification=20260830073256"
   },
   "expectedFoundationFunctionCount": 31,
   "expectedFinalFunctionCount": 45,
