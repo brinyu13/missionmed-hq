@@ -368,7 +368,7 @@
   transition: all var(--e-fast);
 }
 .vv-w.on { color: #14100a; background: linear-gradient(180deg, var(--g-gold-hot), #efa72a); border-color: transparent; }
-#vvCanvas { flex: 1; width: 100%; min-height: 0; border-radius: 8px; background: rgba(6, 9, 15, .6); }
+#vvCanvas { flex: 1 1 72px; width: 100%; min-height: 72px; border-radius: 8px; background: rgba(6, 9, 15, .6); }
 
 /* doc-04: XL numerals grow to 62px on large viewports */
 @media (min-width: 1500px) and (min-height: 940px) {
@@ -410,7 +410,7 @@
   .scan-well.body img { height: 106px; }
   .counter b { font-size: 36px; }
   .counter.wide b { font-size: 36px; }
-  .room-bottom { flex-basis: 152px; }
+  .room-bottom { flex-basis: 230px; }
   .inst-tech { min-height: 14px; margin-top: 2px; }
   .inst-corr { display: none; }               /* DETAIL collapses */
   .inst-verb { margin-top: 3px; }

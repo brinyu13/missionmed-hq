@@ -5,6 +5,7 @@ import test from 'node:test';
 const root = new URL('../../public/ivoc-standalone/app/', import.meta.url);
 const read = (name) => readFileSync(new URL(name, root), 'utf8');
 const browserPipeline = readFileSync(new URL('../../public/analytics/browser-pipeline.mjs', import.meta.url), 'utf8');
+const cockpit = readFileSync(new URL('../../public/ivoc-standalone/styles/cockpit.css', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../../../supabase/migrations/20260830040054_ivoc_3528c_session_recording_results.sql', import.meta.url), 'utf8');
 
 test('frozen cockpit uses only real analytics and account persistence', () => {
@@ -15,6 +16,13 @@ test('frozen cockpit uses only real analytics and account persistence', () => {
   assert.match(live, /AccountRecordingController/u);
   assert.match(live, /ivoc\.analytics\.v1/u);
   assert.match(live, /Math\.min\(99, Math\.round\(rec\.finalizeT \* 83\)\)/u);
+  assert.match(live, /instrument\._lastWpm = null/u);
+  assert.match(live, /ins\._lastWpm = f\.speedWpm\.wordsPerMinute/u);
+  assert.match(live, /wpmLastObserved: INSTRUMENTS\[0\]\._lastWpm \?\? null/u);
+  assert.match(live, /wpmAvg: INSTRUMENTS\[0\]\._lastWpm \?\? null/u);
+  assert.match(post, /payload\.wpmLastObserved \?\? payload\.metrics/u);
+  assert.match(cockpit, /#vvCanvas \{ flex: 1 1 72px; width: 100%; min-height: 72px;/u);
+  assert.match(cockpit, /@media \(max-height: 830px\) \{[\s\S]*?\.room-bottom \{ flex-basis: 230px; \}/u);
   assert.match(browserPipeline, /!advanced && this\.pcmConsumer/u);
   assert.match(browserPipeline, /method: 'ANALYSER_PCM_FALLBACK'/u);
   assert.doesNotMatch(data, /SimEngine|SESSIONS|STUDENT/u);
