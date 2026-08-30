@@ -2,15 +2,17 @@
 
 ## Evidence actually observed
 
-- Chrome acquired `FaceTime HD Camera` and `MacBook Pro Microphone` tracks in the real runtime.
-- The production analytics engine entered live state.
-- Audio stimulus changed real microphone-derived Volume/Vocal Variation signals during the run.
-- The production Sherpa worker loaded after the vocabulary packaging repair and reported `LOCAL_SHERPA_WORD_TIMING_LIVE`.
-- A real MediaRecorder blob was produced in the production session.
+- Production Chrome acquired `FaceTime HD Camera` and `MacBook Pro Microphone` tracks.
+- Analytics entered live state before interview start.
+- The production Sherpa worker reported `LOCAL_SHERPA_WORD_TIMING_LIVE`.
+- Two real MediaRecorder sessions captured, multipart-uploaded, sealed, and saved to the production Library.
+- Recording `42ba1811-9218-4ea8-b700-1ede12c06357` used two successful media parts.
+- Recording `47412fd7-0149-482d-8f2f-e2f3252d2d4d` used six successful media parts.
+- Reopened playback returned `206 video/webm` through the authenticated same-origin proxy.
 
-## Not yet truthfully accepted
+## Human action matrix
 
-No human remained at the camera/microphone for the complete scripted matrix. The camera view available during unattended validation was dark and contained no observable person. System speech was not treated as a substitute for a human slow/normal/fast WPM test.
+No speech or reliable person movement was observed during the final guided session. Device acquisition is not evidence that each coaching metric responds correctly to a human action.
 
 | Physical action | Status |
 |---|---|
@@ -25,8 +27,8 @@ No human remained at the camera/microphone for the complete scripted matrix. The
 | Monotone/normal/exaggerated variation | PENDING |
 | 1s/3s/long pause and recovery | PENDING |
 | Voiced/unvoiced pitch behavior | PENDING |
-| Record/pause/resume/stop/finalize/reopen | BLOCKED at final upload |
+| Record/stop/finalize/reopen/replay | PASS |
 
-## Required rerun
+## Required completion
 
-After the CDN signing configuration is synchronized, open the existing production route in authenticated Chrome, retry the retained recording or start a fresh session, and complete the table above with a visible human. Fixtures and synthetic speech do not satisfy this gate.
+Return to the existing production route with a visible human and complete the table above. Fixtures, system speech, and device-open state do not satisfy the metric-response gates.

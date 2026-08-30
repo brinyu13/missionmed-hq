@@ -1,6 +1,6 @@
 # 3528C Results and Library Acceptance
 
-## Implemented permanent contracts
+## Permanent contracts
 
 - Durable sessions: `ivoc_sessions`.
 - Private recording metadata: `ivoc_recordings`.
@@ -9,11 +9,21 @@
 - Personal calibration/visibility/coaching/recording defaults: `ivoc_preferences`.
 - Access audit: `ivoc_access_log`.
 - Results, Library, Recording Detail, Progress, Settings, and Mentor/Admin screens consume the server API.
-- Results export is a structured JSON download; video export uses a server-authorized expiring media URL.
+- Results export is structured JSON; video export uses a server-authorized expiring same-origin media URL.
 - Result events/history share the analytics/recording time basis for seekable moments.
 
-## Acceptance
+## Production acceptance
 
-Schema, ownership behavior, API projection, result serialization, library scope, preferences, and recording-detail contracts pass automated tests. Production authenticated session creation was exercised. End-to-end production Results -> saved Library -> reopen -> replay -> timestamp seek -> downloads is **not accepted**, because private media cannot be sealed while the CDN signing mismatch returns `401`.
+| Vertical-slice step | Result |
+|---|---|
+| Authenticated session creation | PASS |
+| Real recording persistence | PASS |
+| Structured Results persistence | PASS |
+| Library list after save | PASS |
+| Reopen recording detail | PASS |
+| Request scoped playback URL | PASS |
+| Stream private recording after reopen | PASS — `206 video/webm` |
+| Timestamp seek interaction | Present; not separately physically exercised |
+| JSON/video download controls | Present; not separately physically exercised |
 
-No placeholder recording or fake Results row was inserted to manufacture a pass.
+Two real production sessions completed the durable save path. No placeholder recording or fake Results row was inserted.

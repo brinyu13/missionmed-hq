@@ -1,31 +1,66 @@
 {
-  "production": {
+  "status": "LIVE_WITH_HUMAN_ACCEPTANCE_PENDING",
+  "production_runtime": {
+    "service": "missionmed-hq",
+    "railway_project": "missionmed-hq-fix005",
+    "route": "https://missionmed-hq-production.up.railway.app/iv-prep-analytics/",
+    "source_commit": "a9a3e41e771e95c346cb74ee40468e1c1177348c",
+    "deployment_id": "33ed7dcd-41cb-410d-a309-29e3d019065c",
+    "deployment_status": "SUCCESS",
+    "image": "sha256:8fb93c570ed5fef6c98115851466be2cf86ae7981000bc1b40d9a4f5d62159d6",
+    "health": "PASS",
+    "anonymous_denial": "PASS",
+    "admin_founder_360": "PASS",
+    "separate_student_personas": "PENDING"
+  },
+  "private_recording_storage": {
+    "provider": "Cloudflare R2 S3-compatible API",
+    "bucket": "missionmed-cam-production",
+    "prefix": "ivoc/recordings",
+    "browser_boundary": "same-origin authenticated MissionMed HQ",
+    "multipart_write_seal_head": "PASS",
+    "library_reopen_playback": "PASS",
+    "playback_response": "206 video/webm",
+    "credentials_exposed_to_browser": false,
+    "private_object_key_exposed_to_browser": false
+  },
+  "acceptance": {
+    "focused_frontend_tests": "3/3 PASS",
+    "focused_server_tests": "11/11 PASS",
+    "real_camera_microphone_acquisition": "PASS",
+    "real_recording_storage_replay": "PASS",
+    "sherpa_engine_ready": "PASS",
+    "human_wpm_voice_cv_matrix": "PENDING",
+    "separate_entitled_non_entitled_personas": "PENDING",
+    "paid_provider_sessions": 0
+  },
+  "matrix_guard": {
     "ssh_alias": "missionmed-kinsta",
     "plugin_root": "/www/theresidencyacademy_209/public/wp-content",
     "public_base_url": "https://missionmedinstitute.com/wp-content",
     "backup_required_before_deploy": true,
-    "broad_cache_purge_allowed": false
+    "broad_cache_purge_allowed": false,
+    "backups": [
+      "/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/Y1-Y2-CAM-V6-3528C/20260830T045016Z",
+      "/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/Y1-Y2-CAM-V6-3528C/20260830T045419Z-fix"
+    ]
   },
   "assets": {
     "ivoc_matrix_runtime_js": {
       "app": "iv-prep-on-call",
       "role": "LOR-preserving immutable Matrix shell with IV Prep route activation",
-      "source_path": "student-os.373a4be9d77ebaf4.js",
       "production_path": "plugins/missionmed-hub/assets/student-os.373a4be9d77ebaf4.js",
-      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os.373a4be9d77ebaf4.js",
       "approved_sha256": "373a4be9d77ebaf4e8c55f664ffc481d300d24d0e78bf30e5aff94b993caac98"
     },
     "ivoc_matrix_controller_php": {
       "app": "iv-prep-on-call",
-      "role": "Admin and LearnDash 3893 entitlement projection with fixed analytics auth handoff",
-      "source_path": "class-mmed-student-os.php",
+      "role": "Admin and LearnDash 3893 entitlement projection with analytics auth handoff",
       "production_path": "plugins/missionmed-hub/includes/class-mmed-student-os.php",
       "approved_sha256": "af2eb5fd2177904ec1b3873787eed6b185a873119dc979f0846c237b466f2c3c"
     },
     "ivoc_matrix_runtime_pin_php": {
       "app": "iv-prep-on-call",
       "role": "Immutable Matrix runtime selector",
-      "source_path": "missionmed-matrix-runtime-pin.php",
       "production_path": "mu-plugins/missionmed-matrix-runtime-pin.php",
       "approved_sha256": "73de44ad8effefa77df8fb02eda6ce96456900e9697d86bc9d7065b590835625"
     }

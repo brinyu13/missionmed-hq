@@ -2,48 +2,51 @@
 
 ## Outcome
 
-The frozen 3528B interface was mounted as an authenticated MissionMed HQ module, connected to the existing real analytics engines, backed by additive server-side session/result/recording persistence, activated from Matrix, and deployed to Railway. The release is usable for authenticated Admin analytics review but is not end-to-end accepted because the production CDN rejects valid-looking private-media signed PUTs with `401 Unauthorized`.
+The frozen 3528B interface is live as an authenticated MissionMed HQ module, connected to the real analytics engines, durable session/result/recording persistence, private R2 media, Results, Library, and Matrix. The former production media `401` is closed. Full AAA acceptance remains pending only where human metric actions and separate live identities were not observed.
 
 ## Immutable release facts
 
 - Branch: `codex/y1-y2-cam-v6-3521-live-analytics-runtime`
-- Deployed source commit: `7d7ff104b9a1d4a8897915672e35436901c7844c`
+- Deployed source commit: `a9a3e41e771e95c346cb74ee40468e1c1177348c`
 - Frozen frontend baseline: `83265dfe9777c9bccc06ec65dc6d972bc4eac777`
 - Production URL: `https://missionmed-hq-production.up.railway.app/iv-prep-analytics/`
-- Final Railway deployment: `646ac336-9afd-4db5-9ac1-cdaa20ab12a3`
-- Final image: `sha256:dba943d20cbfe2d99e9e22f4f773a1e926dea8af640f839a0c8fdca164f80979`
+- Railway deployment: `33ed7dcd-41cb-410d-a309-29e3d019065c`
+- Image: `sha256:8fb93c570ed5fef6c98115851466be2cf86ae7981000bc1b40d9a4f5d62159d6`
 - Matrix route: `IV Prep On-Call` -> `/iv-prep-analytics/#/home`
 - Supabase migration: `20260830043305` from `20260830040054_ivoc_3528c_session_recording_results.sql`
+- Private media: existing `missionmed-cam-production` R2 bucket, `ivoc/recordings` prefix
 - Paid provider sessions: `0`
 - Donor 3440 modified: `NO`
 
-## Execution chronology
+## Final repair chronology
 
-1. Preserved the unrelated staged/untracked worktree state and established the pre-mutation Railway, Matrix, Supabase, and source baselines.
-2. Registered the bounded 3528C authority/write set and used Lease V2 keepers for product, backend, routing, Matrix, and documentation paths.
-3. Added the authenticated frontend/API boundary, real analytics adapter, recording controller, durable server repository/storage/routes, additive Supabase schema, and Matrix handoff.
-4. Applied the migration with RLS enabled and all browser-role grants revoked.
-5. Activated the guarded Matrix route after creating immutable production backups and validating source/deployed hashes.
-6. Deployed the MissionMed HQ service. A wrongly rooted CLI archive produced one short failed deployment (`34e9103c-3559-4c30-a16d-62b025b9b01f`); the canonical repository-root deploy immediately restored service.
-7. Fixed same-origin recording upload proxying, the established private-media key format, canonical CDN target, sanitized upstream diagnostics, and Railway packaging of the Sherpa vocabulary.
-8. Verified authenticated Admin Matrix entry, anonymous denial, real device acquisition, and production Sherpa engine readiness.
-9. Recorded a real browser media blob. Final upload failed after bounded retries because the canonical CDN returned `401`; the blob remains in the originating Chrome tab for retry and was not represented as saved.
-10. Rehearsed Railway rollback to prior known-good image `sha256:be571da5...` as deployment `06d5c9b3-019c-4940-bff0-f156a4830949`, verified `/health`, then reapplied exact current image as `646ac336-9afd-4db5-9ac1-cdaa20ab12a3` and verified `/health` plus anonymous `401` again.
+1. Preserved unrelated staged/untracked worktree state.
+2. Diagnosed the custom CDN query-signing seam as incompatible with the production private-media endpoint.
+3. Reused the existing private R2 bucket and existing provisioned credentials; no new provider or migration.
+4. Implemented server-side S3 SigV4 multipart initiate/upload/complete/HEAD and authenticated same-origin range playback.
+5. Passed a real local R2 round trip and the focused `11/11` server suite.
+6. Committed/pushed only the four repair files at `a9a3e41`.
+7. Deployed from a clean archive of that exact commit.
+8. Verified `/health` 200, anonymous denial 401, zero observed 5xx, and zero matching production error logs.
+9. Captured and sealed two real production recordings (two-part and six-part), persisted structured Results, reopened Library detail, and streamed private playback as `206 video/webm`.
+10. Started a fresh physical analytics session. Camera/microphone and Sherpa readiness were live; no human speech/action signal was observed, so WPM/voice/CV semantic rows remain pending.
+11. Released GLOBAL epoch 515 normally; provider table readback reported released, expired, inactive, and zero active leases.
 
 ## Test ledger
 
 | Gate | Current result |
 |---|---|
-| Full `ivprep-v6` suite | `529/529 PASS` |
 | Focused 3528C suite | `3/3 PASS` |
-| MissionMed HQ IVOC suite | `9/9 PASS` |
-| Analytics syntax/module check | `PASS`, 65 modules |
-| Local word-timing focused suite | `20/20 PASS` |
+| MissionMed HQ IVOC suite | `11/11 PASS` |
+| Historical full `ivprep-v6` baseline before the repair | `529/529 PASS` |
+| Post-repair full-suite attempt | Interrupted after 78 passes for Founder serialization; not claimed as a completed run |
+| Historical analytics syntax/module check | `PASS`, 65 modules |
+| Historical local word-timing focused suite | `20/20 PASS` |
 | Production `/health` | `200 {"status":"ok"}` |
 | Production anonymous IV Prep request | `401 ivprep_authentication_required` |
-| Authenticated Matrix -> IV Prep | `PASS` as Admin/founder entitlement |
-| Production recording upload | `BLOCKED`, upstream CDN `401` |
+| Authenticated Matrix -> IV Prep | PASS as Admin/founder entitlement |
+| Production recording storage/replay | PASS |
 
 ## Truth boundary
 
-No paid transcription or avatar provider was invoked. Local/automated/device evidence does not equal human physical acceptance. The final release status is `BLOCKED`, not `LIVE_ACCEPTED`.
+No paid transcription or avatar provider was invoked. Device, engine, automated, and storage evidence does not equal human semantic acceptance. The release is `LIVE_WITH_HUMAN_ACCEPTANCE_PENDING`, not `AAA_FULL_ACCEPTANCE`.
