@@ -1270,7 +1270,9 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
       throw new AuthorizationDeniedError('FINAL_DOCUMENT_EXPORT_ACTOR_INVALID');
     }
     const scope = assertScope(
-      await this.scopeProvider({ caseId, operation: 'read' }),
+      await this.scopeProvider(actorRole === 'student'
+        ? { caseId, operation: 'read', resourceStudentId: actorId }
+        : { caseId, operation: 'read' }),
       { caseId, operation: 'read' },
     );
     if (

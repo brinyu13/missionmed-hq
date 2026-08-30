@@ -1085,6 +1085,70 @@ test('durable repository exposes only actor-safe DTO reads and validates the exa
   }), state);
 });
 
+test('student final-document export binds the authenticated student subject into the scope request', async () => {
+  const scopeRequests = [];
+  const exportDto = {
+    schemaVersion: 'missionmed.lor.final-document-export.v1',
+    caseId: 'case-1',
+    studentId: 'wp:42',
+    actorRef: `actor_${sha256('lor-studio:actor:wp:42')}`,
+    actorRole: 'student',
+    revision: 8,
+    finalDocument: {
+      contentHash: null,
+      id: 'document-1',
+      mimeType: 'text/plain',
+      releasedToStudentAt: '2026-08-09T15:00:00.000Z',
+      text: 'Released final letter',
+    },
+    documentState: 'faculty_final',
+    facultyApproval: {
+      approved: true,
+      approvedAt: '2026-08-09T14:59:00.000Z',
+      facultyRef: `faculty_${sha256('lor-studio:faculty:wp:43')}`,
+      signatureAttested: true,
+    },
+    waiverState: { decided: true, receiptId: 'waiver-receipt-1', waived: false },
+    release: {
+      documentHash: sha256('canonical-release-document'),
+      documentId: 'document-1',
+      releasedAt: '2026-08-09T15:00:00.000Z',
+      releasedAtRevision: 8,
+      waiverReceiptId: 'waiver-receipt-1',
+    },
+    exportProjection: 'student_visible',
+  };
+  const repository = new SupabaseDurableRecommendationCaseRepository({
+    binding: SUPABASE_BINDING,
+    driver: durableDriver({
+      async readFinalDocumentExport(command) {
+        assert.equal(command.scope.resourceStudentId, 'wp:42');
+        return { found: true, exportDto };
+      },
+    }),
+    scopeProvider: (request) => {
+      scopeRequests.push(request);
+      return serverScope({
+        caseId: request.caseId,
+        operation: request.operation,
+        purpose: 'student_case_read',
+        resourceStudentId: request.resourceStudentId,
+      });
+    },
+  });
+
+  assert.deepEqual(await repository.readFinalDocumentExport({
+    caseId: 'case-1',
+    actorId: 'wp:42',
+    actorRole: 'student',
+  }), exportDto);
+  assert.deepEqual(scopeRequests, [{
+    caseId: 'case-1',
+    operation: 'read',
+    resourceStudentId: 'wp:42',
+  }]);
+});
+
 test('durable faculty service reads, authors, and releases through actor-safe DTOs without hydrating an aggregate', async () => {
   const beforeRelease = facultyProjection();
   const exportDto = {
