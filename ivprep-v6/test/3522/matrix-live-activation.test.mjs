@@ -76,6 +76,7 @@ test('Matrix presentation unlocks only IV Prep and preserves the server permissi
     'if (route === "ivprep") return !hasModulePermission("ivprep");',
     'This hosted Founder/Admin surface requires a current administrator session.',
     'IV Prep On-Call is coming. Access will open when the module is released.',
+    'finalUrl.pathname !== "/iv-prep-on-call/"',
   ].join('\n');
   const result = transformJavascript(fixture);
   assert.match(result, /route: "ivprep"[^\n]+section: "MATCH TOOLS"[^\n]+state: "unlocked"/u);
@@ -83,6 +84,8 @@ test('Matrix presentation unlocks only IV Prep and preserves the server permissi
   assert.match(result, /route: "messages"[^\n]+COMING \/ LOCKED[^\n]+state: "locked"/u);
   assert.match(result, /requires current IV Prep On-Call access/u);
   assert.match(result, /requires current access through MissionMed/u);
+  assert.match(result, /finalUrl\.pathname !== "\/iv-prep-analytics\/"/u);
+  assert.doesNotMatch(result, /finalUrl\.pathname !== "\/iv-prep-on-call\/"/u);
 });
 
 test('runtime pin uses the content-addressed immutable candidate and exact full hash', () => {

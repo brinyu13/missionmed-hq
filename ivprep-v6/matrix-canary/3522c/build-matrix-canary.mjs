@@ -136,6 +136,12 @@ export function transformJavascript(source) {
     'IV Prep On-Call requires current access through MissionMed.',
     'JS_IVPREP_LOCK_COPY',
   );
+  transformed = replaceExactly(
+    transformed,
+    'finalUrl.pathname !== "/iv-prep-on-call/"',
+    'finalUrl.pathname !== "/iv-prep-analytics/"',
+    'JS_IVPREP_FINAL_URL_ALLOWLIST',
+  );
   return transformed;
 }
 
