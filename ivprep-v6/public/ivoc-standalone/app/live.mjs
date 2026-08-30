@@ -48,11 +48,13 @@ const INSTRUMENTS = [
   },
   {
     id: 'variety', name: 'VOCAL VARIETY', unit: 'SD',
-    tech: f => f.volumeModulation.available ? `${f.volumeModulation.rangeLu} LU range · speaker-relative` : null,
-    corridorLabel: () => 'YOUR RANGE 3.4–6.2 LU',
+    tech: f => f.volumeModulation.available
+      ? `${f.volumeModulation.pitchVariationSemitones?.toFixed(1) ?? '—'} st pitch · ${f.volumeModulation.loudnessVariationLu?.toFixed(1) ?? '—'} LU energy`
+      : null,
+    corridorLabel: () => 'SPEAKER-RELATIVE · TARGET 7–8',
     score: f => f.volumeModulation.available ? f.volumeModulation.score : null,
     cue: f => f.volumeModulation.cue,
-    holdReason: f => f.speedWpm.holdReason,
+    holdReason: f => f.volumeModulation.holdReason,
     verbs: { raise: 'ADD VARIATION', lower: 'STABILIZE', hold: 'HOLD' },
     gauge: 'piano',
   },
@@ -112,7 +114,7 @@ async function liveScreen(el) {
         <div class="scan-card" id="bodyCard">
           <div class="scan-head"><b>BODY · GESTURES</b><span class="live-tag">● LIVE</span></div>
           <div class="scan-well body"><img src="/iv-prep-on-call/live-analytics/founder-body-scanner.png" alt="Body scanner instrument"><i class="scan-sweep"></i></div>
-          <div class="hands-state ok" id="handsState">HANDS VISIBLE · L + R</div>
+          <div class="hands-state listening" id="handsState">HANDS · OBSERVING</div>
           <div class="counter-row">
             <div class="counter wide"><em>EFFECTIVE GESTURES</em><b id="cGestures">0</b><small id="gRate">corridor ${CALIBRATION.gestureCorridor[0]}–${CALIBRATION.gestureCorridor[1]} / min</small></div>
           </div>
@@ -133,6 +135,12 @@ async function liveScreen(el) {
             <span class="feed-tag">YOU · REAL CAMERA · LOCAL ANALYTICS</span>
             <span class="stage-corner tl"></span><span class="stage-corner tr"></span>
             <span class="stage-corner bl"></span><span class="stage-corner br"></span>
+            <div class="overlay-controls" aria-label="Camera overlay visibility">
+              <button class="overlay-toggle on" data-overlay="face" aria-pressed="true">FACE</button>
+              <button class="overlay-toggle on" data-overlay="hands" aria-pressed="true">HANDS</button>
+              <button class="overlay-toggle on" data-overlay="body" aria-pressed="true">BODY</button>
+              <button class="overlay-toggle on" data-overlay="position" aria-pressed="true">POSITION</button>
+            </div>
           </div>
         </div>
         <div class="prompt-bar">
@@ -349,12 +357,22 @@ async function liveScreen(el) {
       c.strokeStyle = color; c.lineWidth = Math.max(1.5, h * .018); c.lineJoin = 'round';
       c.beginPath();
       let pen = false;
+      let previousAt = null;
+      let eased = null;
+      const maximumJoinGap = k === 'pace' ? 6 : .8;
       for (const p of hist) {
         if (p.t < t0) continue;
         const v = p[k];
-        if (v == null) { pen = false; continue; }
-        const x = X(p.t), y = Y(v);
+        if (v == null || previousAt !== null && p.t - previousAt > maximumJoinGap) {
+          pen = false; eased = null; previousAt = null;
+          if (v == null) continue;
+        }
+        // Visual easing is confined to one continuous observed run. It never
+        // bridges silence/unvoiced gaps or invents an unavailable sample.
+        eased = eased === null ? v : eased * .58 + v * .42;
+        const x = X(p.t), y = Y(eased);
         if (!pen) { c.moveTo(x, y); pen = true; } else c.lineTo(x, y);
+        previousAt = p.t;
       }
       c.stroke();
     }
@@ -384,7 +402,15 @@ async function liveScreen(el) {
     const sc = $('stateChip');
     sc.textContent = f.state;
     sc.className = `state-chip s-${f.state.toLowerCase()}`;
-    $('promptState').textContent = f.state === 'ANSWERING' ? '● ANSWER IN PROGRESS' : f.state === 'THINKING' ? '● TAKE YOUR TIME' : '● LISTENING';
+    $('promptState').textContent = f.state === 'ANSWERING'
+      ? '● ANSWER IN PROGRESS'
+      : f.state === 'THINKING'
+        ? '● THINKING'
+        : f.state === 'PAUSE'
+          ? '● DELIBERATE PAUSE'
+          : f.state === 'TRANSITION'
+            ? '● TURN TRANSITION'
+            : '● LISTENING';
 
     /* instruments */
     for (const ins of INSTRUMENTS) {
@@ -445,6 +471,8 @@ async function liveScreen(el) {
     /* face / body */
     $('cSmiles').textContent = f.headFace.smileEvents;
     $('cNods').textContent = f.headFace.nods;
+    $('rPresence').textContent = f.headFace.presence;
+    $('rPresence').className = f.headFace.presence === 'TRACKED' ? 'ok' : 'warn';
     $('rFacing').textContent = f.headFace.cameraFacingPct + '% FACING';
     $('rFacing').className = f.headFace.cameraFacingPct >= 85 ? 'ok' : 'warn';
     $('cGestures').textContent = f.bodyHands.gestures;
@@ -453,10 +481,20 @@ async function liveScreen(el) {
       ? `${f.bodyHands.gestureRate} / min · corridor ${CALIBRATION.gestureCorridor[0]}–${CALIBRATION.gestureCorridor[1]}`
       : `corridor ${CALIBRATION.gestureCorridor[0]}–${CALIBRATION.gestureCorridor[1]} / min`;
     const hs = $('handsState');
-    if (!f.bodyHands.handsVisible) { hs.className = 'hands-state bad'; hs.textContent = '⚠ HANDS NOT VISIBLE'; }
-    else { hs.className = 'hands-state ok'; hs.textContent = 'HANDS VISIBLE · L + R'; }
+    if (f.bodyHands.visibility === 'BOTH') { hs.className = 'hands-state ok'; hs.textContent = 'BOTH HANDS VISIBLE · L + R'; }
+    else if (f.bodyHands.visibility === 'LEFT') { hs.className = 'hands-state partial'; hs.textContent = 'ONE HAND VISIBLE · LEFT'; }
+    else if (f.bodyHands.visibility === 'RIGHT') { hs.className = 'hands-state partial'; hs.textContent = 'ONE HAND VISIBLE · RIGHT'; }
+    else if (f.state === 'LISTENING' || f.state === 'THINKING' || f.state === 'PAUSE') {
+      hs.className = 'hands-state listening'; hs.textContent = 'HANDS OUT OF FRAME · OK WHILE LISTENING';
+    } else { hs.className = 'hands-state bad'; hs.textContent = '⚠ HANDS NOT OBSERVABLE'; }
     const body = $('bodyCard');
-    body.dataset.activity = f.bodyHands.handsVisible ? f.bodyHands.activity : 'hidden';
+    body.dataset.activity = ['LISTENING', 'THINKING', 'PAUSE'].includes(f.state)
+      ? 'listening'
+      : !f.bodyHands.handsVisible
+        ? 'hidden'
+        : f.bodyHands.gestureState === 'HEALTHY'
+          ? 'healthy'
+          : 'low';
 
     /* whisper escalation: sustained deviation ≥3.5 s, one at a time */
     if (ui.coaching && f.speaking) {
@@ -627,6 +665,16 @@ async function liveScreen(el) {
     if (t.closest('#dockResume')) { recorder?.resume(); toast('Recording resumed', 'rec'); return; }
     if (t.closest('#dockRetry')) { void sealAndStop(); return; }
     if (t.closest('#dockStop')) { sealAndStop(); return; }
+    const overlayToggle = t.closest('[data-overlay]');
+    if (overlayToggle) {
+      const key = overlayToggle.dataset.overlay;
+      const enabled = overlayToggle.getAttribute('aria-pressed') !== 'true';
+      overlayToggle.setAttribute('aria-pressed', String(enabled));
+      overlayToggle.classList.toggle('on', enabled);
+      engine.setOverlayVisibility({ [key]: enabled });
+      toast(`${key.toUpperCase()} overlay ${enabled ? 'ON' : 'OFF'} — measurement continues`, 'info');
+      return;
+    }
     const gear = t.closest('[data-gear]');
     if (gear) {
       const id = gear.dataset.gear;
