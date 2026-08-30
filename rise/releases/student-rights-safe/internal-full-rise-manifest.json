@@ -7,5 +7,10 @@
   "canonicalContentSha256": "40d86561cf08ff56ede703d999849740bad36ac536518da23495cbada1262494",
   "canonicalFieldCount": 196,
   "copiedIntoStudentRelease": false,
-  "note": "This manifest binds the internal corpus without copying restricted field values into Git, the image, or the student API."
+  "soap2026": {
+    "exactAcgmeMatchesProjected": 883,
+    "reviewRequiredNotProjected": 3,
+    "additionalTrackRowsPreserved": 39
+  },
+  "note": "This manifest binds the internal corpus without copying restricted field values into Git, the image, or the student API. SOAP identities are projected only after exact ACGME reconciliation."
 }

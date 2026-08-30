@@ -203,3 +203,10 @@ specialty,STUDENT_RIGHTS_SAFE_RISE,B,HRSA THCGME,INCLUDE,HRSA awardee table.
 RISE_ID,STUDENT_RIGHTS_SAFE_RISE,A,MissionMed,INCLUDE,MissionMed-generated opaque identifier.
 research_status,STUDENT_RIGHTS_SAFE_RISE,A,MissionMed,INCLUDE,MissionMed-generated release state.
 source_and_freshness,STUDENT_RIGHTS_SAFE_RISE,A/B,HRSA THCGME,INCLUDE,MissionMed projection of HRSA source URL and retrieval date.
+acgme_id,PRIVATE_BETA_RIGHTS_SAFE_IDENTITY,B,NRMP SOAP 2026 bounded corpus,INCLUDE,Exact ACGME identity used only for the 883 reconciled private-beta records.
+program_name,PRIVATE_BETA_RIGHTS_SAFE_IDENTITY,B,NRMP SOAP 2026 bounded corpus,INCLUDE,SOAP 2026 source identity; exact ACGME reconciliation required.
+institution,PRIVATE_BETA_RIGHTS_SAFE_IDENTITY,B,NRMP SOAP 2026 bounded corpus,INCLUDE,SOAP 2026 source identity; exact ACGME reconciliation required.
+state,PRIVATE_BETA_RIGHTS_SAFE_IDENTITY,B,NRMP SOAP 2026 bounded corpus,INCLUDE,SOAP 2026 source identity; exact ACGME reconciliation required.
+specialty,PRIVATE_BETA_RIGHTS_SAFE_IDENTITY,B,NRMP SOAP 2026 bounded corpus,INCLUDE,SOAP 2026 source identity; exact ACGME reconciliation required.
+soap_2026_appearance,PRIVATE_BETA_RIGHTS_SAFE_IDENTITY,B,NRMP SOAP 2026 bounded corpus,INCLUDE,Historical cycle fact only; no future availability or match-likelihood inference.
+track_and_reported_positions,PRIVATE_BETA_RIGHTS_SAFE_IDENTITY,B,NRMP SOAP 2026 bounded corpus,INCLUDE,Track rows remain separate and are never silently merged.

@@ -3,10 +3,10 @@
   "immutable": true,
   "action": "activate",
   "revoked": false,
-  "registryReleaseId": "rise_rights_safe_hrsa_20260828_716fceb7d0ac",
-  "apiIndexSha256": "119982e51d38e4294bb05bf33122718ec76275736b233f4ddd7d21aca5765486",
-  "indexManifestSha256": "ea2b77c0a9f3861bb98461bc4db3b864b8628d8b8e4335aa5b6926503bdbda68",
-  "decisionRecordId": "P1-RISE-5005-RIGHTS-SAFE-CORE-ACTIVATION",
-  "approvedBySubject": "founder-ticket:P1-RISE-5005",
-  "approvedAt": "2026-08-28T00:00:00.000Z"
+  "registryReleaseId": "rise_rights_safe_beta_20260828_460f459a0359",
+  "apiIndexSha256": "9b5860f4b18f73a933a065e78fb21be529ea21feca6ac10608c2fa8a3170e4f9",
+  "indexManifestSha256": "488b3c3d95151bca65ea750b05e9df3ceb560e1fc446f974e4eead037888e7ab",
+  "decisionRecordId": "P1-RISE-5008-FINAL-COMBINED-INDEPENDENT-REVIEW",
+  "approvedBySubject": "independent-non-builder-review:d11291ba740dc39ed5c680c3f3e777f0f111032b51a8286a9b2421dbec587c79",
+  "approvedAt": "2026-08-30T14:49:24.000Z"
 }
