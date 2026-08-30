@@ -400,9 +400,17 @@
     return `lor-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
   }
 
-  async function requestApi(path, { method = 'GET', csrfToken = '', body = null } = {}) {
+  const DEFAULT_API_TIMEOUT_MS = 10_000;
+  // The production OpenAI adapter owns a bounded 15-second foreground timeout. The browser must
+  // outlive that server decision so it can receive the durable accepted/unknown result instead of
+  // aborting at 10 seconds and manufacturing a 499 while the server is still resolving custody.
+  const AI_PROPOSAL_API_TIMEOUT_MS = 25_000;
+
+  async function requestApi(path, {
+    method = 'GET', csrfToken = '', body = null, timeoutMilliseconds = DEFAULT_API_TIMEOUT_MS,
+  } = {}) {
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 10_000);
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMilliseconds);
     try {
       const headers = { Accept: 'application/json' };
       if (method !== 'GET') {
@@ -651,6 +659,7 @@
           method: 'POST',
           csrfToken: activeCsrfToken,
           body: { factIds },
+          timeoutMilliseconds: AI_PROPOSAL_API_TIMEOUT_MS,
         });
       },
       readAiProposal: async ({ caseId, proposalId }) => {

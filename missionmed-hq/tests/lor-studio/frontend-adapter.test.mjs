@@ -1074,6 +1074,26 @@ test('a transport failure is an outcome, never an exception, so the renderer can
   }
 });
 
+test('AI proposal transport outlives the bounded server provider timeout', async () => {
+  const { commands, dom } = await liveAdapterWithCommands({
+    routes: {
+      '/api/lor-studio/cases/case-42/ai-proposals': jsonResponse(201, {
+        proposal: { proposalId: 'proposal-1' },
+      }),
+    },
+  });
+  const delays = [];
+  const originalSetTimeout = dom.window.setTimeout.bind(dom.window);
+  dom.window.setTimeout = (callback, delay, ...args) => {
+    delays.push(delay);
+    return originalSetTimeout(callback, delay, ...args);
+  };
+  const outcome = await commands.requestAiProposal({ caseId: 'case-42', factIds: null });
+  assert.equal(outcome.reached, true);
+  assert.equal(outcome.status, 201);
+  assert.deepEqual(delays, [25_000]);
+});
+
 test('a command naming a case this page was not authorized for is refused before any request', async () => {
   const { commands, requests } = await liveAdapterWithCommands();
   const before = requests.length;
