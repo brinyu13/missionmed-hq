@@ -39,7 +39,7 @@
       "bytes": 259335,
       "sha256": "d944208d660d67c8d72cd2acaeac971fa5ceb8c80e76c1968148846fedd6e297"
     },
-    "models/streaming-zipformer-en-2023-06-26/tokens.txt": {
+    "models/streaming-zipformer-en-2023-06-26/vocabulary.txt": {
       "bytes": 5048,
       "sha256": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb"
     }

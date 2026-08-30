@@ -60,7 +60,7 @@ const recognizer = sherpa.createOnlineRecognizer({
       decoder: join(modelRoot, 'decoder.int8.onnx'),
       joiner: join(modelRoot, 'joiner.int8.onnx'),
     },
-    tokens: join(modelRoot, 'tokens.txt'),
+    tokens: join(modelRoot, 'vocabulary.txt'),
     numThreads: 1,
     provider: 'cpu',
     debug: 0,
