@@ -1,9 +1,15 @@
 # Existing Research Backfill
 
-Read-only factory audit found 811 completed input files. After removing 270 exact duplicate Claude/Opus inputs, 541 unique ingests remained: 271 Parallel and 270 Claude/Opus. They normalized to 3,040 review-required claims.
+The live production backfill consumed only completed, validated research inputs. It found 811 completed files, removed 270 exact duplicate Claude/Opus inputs, and ingested 541 unique runs: 271 Parallel and 270 Claude/Opus.
 
-Real PostgreSQL rehearsal first pass: 541 inserted runs and 3,040 inserted claims. Exact replay: 0 inserted runs, 541 replayed runs, and 0 inserted claims. Database readback contained 542 total runs including SOAP, 3,965 claims including 925 SOAP claims, and total new spend `0.0000`.
+Provider-native production readback:
 
-The complete first pass was repeated successfully on the PostgreSQL 18 restored production preimage: 541 research runs, 3,040 research claims, 925 SOAP claims, 886 identities, and zero spend.
+- `CLAUDE_OPUS`: 270 runs / 977 claims.
+- `PARALLEL`: 271 runs / 2,063 claims.
+- `NRMP_SOAP_CLOSURE`: 1 run / 925 claims.
+- Total: 542 runs / 3,965 claims / 886 identities.
+- New spend: `0.0000`.
+- Research claims: 3,015 `REVIEW_REQUIRED / PENDING` plus 25 `REVIEW_REQUIRED / PENDING_RIGHTS_AND_FIELD_REVIEW`.
+- SOAP claims: 922 `PRIVATE_BETA / APPROVED` and 3 `INTERNAL_ONLY / REVIEW_REQUIRED`.
 
-Production backfill was not run because migration 007 lacks the mandatory independent database/security approval.
+Dry-run and replay validation remained idempotent. Existing Parallel and Claude/Opus research converged into the same canonical evidence tables. No producer, queue, sprint script, or reserved tranche was changed.

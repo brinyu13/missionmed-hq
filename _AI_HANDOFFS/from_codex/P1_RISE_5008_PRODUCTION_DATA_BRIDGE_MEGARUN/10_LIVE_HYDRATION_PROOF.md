@@ -1,6 +1,8 @@
 # Live Hydration Proof
 
-Isolated PostgreSQL proves normalized Parallel/Claude research and SOAP evidence converge into the same canonical source, claim, identity, and ingest-receipt tables. Replay is idempotent and review-required research remains non-beta.
+Production database hydration is proven. SOAP, Parallel, and Claude/Opus inputs converge into `provider_ingest_runs`, `canonical_evidence_claims`, `canonical_program_identities`, and the canonical source/rights tables.
 
-Live hydration is not claimed. Production migration, backfill, deployment, and role-complete live QA were not authorized past the mandatory independent-review gates.
+Provider readback after backfill and again after application rollback remained 542 runs, 3,965 claims, and 886 identities at total spend `0.0000`. Provider distribution is 270 Claude/Opus runs, 271 Parallel runs, and one SOAP run. Research claims remain review-required and are not promoted to the student beta projection.
+
+Live UI hydration is not claimed because the eligible production path failed at the separately governed WordPress entitlement seam and both application deployments were rolled back.
 

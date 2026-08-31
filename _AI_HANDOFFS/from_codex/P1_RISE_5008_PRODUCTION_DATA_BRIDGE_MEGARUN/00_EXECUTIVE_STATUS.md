@@ -1,42 +1,36 @@
 # P1-RISE-5008 Executive Status
 
-Implementation commit `db19fc4cb744137d5b0ba6499485f20979489c6d` is pushed to `origin/codex/p1-rise-5007-private-beta-full-registry-student-intel`.
+The reviewed product tree is commit `2c27deb84f1a7b542ef5a700ec1fccc9f25a1c72`, pushed remote-exact. Independent review approved migration 007, the bounded HQ auth seam, and the 5008 release. Migrations 006/007 and the provider-neutral SOAP, Parallel, and Claude/Opus backfills were then applied to the isolated production RISE database at zero new Parallel spend.
 
-Local implementation, PostgreSQL 16 hostile rehearsal, PostgreSQL 18 production backup/restore, provider-neutral Parallel/Claude backfill rehearsal, and browser QA are complete. Production mutation is intentionally stopped at the mandatory DR-146 gates: migration 007 still requires an independent database/security review; the candidate release still requires final non-builder release approval; and the current production HQ deployment lacks the RISE audience/entitlement auth code while DR-147 does not authorize deploying the shared HQ service.
+Eligible live browser QA exposed a production WordPress authority mismatch: the deployed `missionmed-rise-sso.php` is version 1.0.0, SHA-256 `23a26612fea0587773c14e1a614991babb817ee749dc9d06862bdf41b5450370`, while DR-151 accepts version 1.1.0, SHA-256 `4a220d00fee05784a3baf8c08d3b744c0c0c889b8372647a974f246d337a5829`. DR-151 explicitly prohibits WordPress mutation and requires a new exact WordPress decision at this boundary. The shared HQ and isolated RISE application deployments were therefore rolled back to their exact provider preimages. Forward database migrations and canonical evidence remain preserved.
 
 `BASE_PRODUCTION_URL = https://missionmedinstitute.com/rise/`
 `FABLE_UI_LOCK_PRESERVED = YES`
+`FABLE_SOURCE_SHA256 = 1e1a16aa630449c9e763a04f6f720b51df0afa46822044de165687d7f8758987`
 `CANONICAL_INTERNAL_PROGRAM_COUNT = 6139`
 `INDEPENDENTLY_SUPPORTABLE_IDENTITY_COUNT = 909`
-`BETA_VISIBLE_PROGRAM_COUNT = 26`
-`SPECIALTY_COUNT_VISIBLE = 22 CANDIDATE / CURRENT LIVE 2`
+`ACTIVE_APPLICATION_PROGRAM_COUNT = 26 (ROLLED BACK PREIMAGE)`
 `IDENTITY_REVIEW_REQUIRED_COUNT = 5230`
 `PROGRAMS_HIDDEN_DUE_TO_UNRESOLVED_IDENTITY = 5230`
-`CANONICAL_EVIDENCE_SINK_LIVE = NO`
-`RESEARCH_FACTORY_BRIDGE_LIVE = NO`
-`PARALLEL_RESULTS_INGESTIBLE = YES`
-`CLAUDE_RESULTS_INGESTIBLE = YES`
-`EXISTING_RESEARCH_BACKFILLED = NO (PRODUCTION) / YES (ISOLATED REHEARSAL)`
-`DEEP_RESEARCH_PROGRAM_COUNT = 0 BETA-APPROVED`
-`PARTIAL_RESEARCH_PROGRAM_COUNT = 0 BETA-APPROVED`
-`BASIC_PROFILE_PROGRAM_COUNT = 909 CANDIDATE`
-`MIGRATION_006_LIVE = NO`
+`CANONICAL_EVIDENCE_SINK_LIVE = YES`
+`RESEARCH_FACTORY_BRIDGE_LIVE = YES`
+`PARALLEL_RESULTS_INGESTED = 271 RUNS / 2063 CLAIMS`
+`CLAUDE_OPUS_RESULTS_INGESTED = 270 RUNS / 977 CLAIMS`
+`SOAP_RESULTS_INGESTED = 1 RUN / 925 CLAIMS`
+`CANONICAL_INGEST_TOTAL = 542 RUNS / 3965 CLAIMS / 886 IDENTITIES`
+`NEW_PARALLEL_SPEND_BY_5008 = $0`
+`SONNET_RESERVED_50_UNCHANGED = YES`
+`MIGRATION_006_LIVE = YES`
+`MIGRATION_007_LIVE = YES`
+`STUDENT_INTEL_SCHEMA_AND_RLS_LIVE = YES`
 `360_BETA_ACCESS_LIVE = NO`
 `IV_PREP_COMPLETE_BETA_ACCESS_LIVE = NO`
-`STUDENT_INTEL_LIVE = NO`
-`ADMIN_MODERATION_LIVE = NO`
-`CANONICAL_PROMOTION_LIVE = NO`
-`STUDENT_INTEL_VERIFICATION_BRIDGE_LIVE = NO`
-`TWICE_MONTHLY_VERIFICATION_QUEUE_LIVE = NO`
-`PAID_STUDENT_INTEL_VERIFICATION_STATE = PAUSED_AWAITING_BUDGET`
-`SONNET_RESERVED_50_UNCHANGED = YES`
-`NEW_PARALLEL_SPEND_BY_5008 = $0`
-`LIVE_HYDRATION_PROVEN = NO`
-`DEMO_DATA_VISIBLE = NO IN CANDIDATE QA`
-`RESTRICTED_DATA_LEAK = NO IN TESTED PROJECTION`
-`RLS_SECURITY_PASS = YES ISOLATED`
-`LIVE_QA_PASS = NO`
-`ZERO_BLAST_RADIUS_PASS = YES; NO PRODUCTION MUTATION OCCURRED`
-`ROLLBACK_READY = YES`
-`DEPLOYMENT_STATUS = BLOCKED`
+`STUDENT_INTEL_PRODUCT_ACTIVATION_LIVE = NO`
+`CANONICAL_PROMOTION_LIVE = NO; RESEARCH CLAIMS REMAIN REVIEW_REQUIRED`
+`LIVE_DATABASE_HYDRATION_PROVEN = YES`
+`LIVE_ELIGIBLE_UI_QA_PASS = NO; WORDPRESS AUTHORITY BLOCKER`
+`SHARED_HQ_ROLLBACK_VERIFIED = YES`
+`ISOLATED_RISE_APP_ROLLBACK_VERIFIED = YES`
+`ROLLBACK_PRESERVES_MIGRATIONS_AND_EVIDENCE = YES`
+`DEPLOYMENT_STATUS = BLOCKED_PENDING_NEW_EXACT_WORDPRESS_DECISION`
 

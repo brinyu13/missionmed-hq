@@ -1,7 +1,13 @@
 # SOAP Rollback
 
-Rollback uses the prior isolated RISE deployment `b0301470-ec0a-4e03-9340-2b06fda4befb` and the migration 007 recovery script, which revokes older-runtime access without deleting SOAP, Student Intel, My Programs, canonical research evidence, or provider receipts.
+Fresh production backup `rise-production-pre-006-007-20260831T0514Z.dump` is 16,854 bytes, mode 0600, SHA-256 `3bca4312b0a0acdab2b5c35bd85f9c1eeae3c6c1c8da559926fca0976cfd1d2c`; PostgreSQL 18 `pg_restore --list` passed.
 
-Production backup SHA-256 is `7d3888a891b34935191f476e5e8426f622220f6bff8a1bd887f21ccfb2fa4b91`; PostgreSQL 18 isolated restore readback passed. Because production was not mutated, no rollback was executed against live state.
+The live QA failure triggered the specified rollback:
 
-The PostgreSQL 18 restored production preimage recovery preserved 542 sources, 3,965 claims, 886 identities, and 542 ingest receipts while revoking runtime access.
+- Shared HQ restored to exact prior image `sha256:12d7c914a504241c04899eab74a4aa3b95e4b5ade57cd08b0bbda03f60f02d7d`.
+- RISE database active-release pointer restored transactionally to the prior 26-program release.
+- Isolated RISE config restored to the exact original 40-key names/value fingerprints.
+- Isolated RISE app restored to exact prior image `sha256:87ff26522b3cdde1459ad35351c38b436e33749a20da3a1b701f7f16e3c77d2c`.
+- Post-rollback health returned 200; protected endpoints returned 401 anonymous; no error-level deployment logs were present.
+
+Migrations 006/007 and all canonical evidence were intentionally preserved as forward history. Provider readback remained 542 runs, 3,965 claims, and 886 identities, including the 925 SOAP claims. No WordPress file was changed. All rollback leases were normally released.

@@ -1,14 +1,15 @@
 # SOAP Test Report
 
-- Full unit/contract: 137/137 pass.
-- Browser/accessibility: 15/15 pass.
-- SOAP source reconciliation: 925 rows, 886 IDs, 883 exact, 3 internal-only, 39 extra track rows.
-- PostgreSQL first ingest: 925 claims, 886 identities, zero spend.
-- Exact replay: 0 duplicate claims.
-- RLS: 922 beta claims and 883 identities visible; three claims and identities remain admin-only.
-- Hostile insert: denied.
-- PostgreSQL 18 restored production preimage: 006/007, 925 SOAP claims, 886 identities, all 3,040 research claims, RLS, and recovery passed at zero spend.
+- Full unit/contract suite: 137/137 pass.
+- Focused rights-safe suite: 3/3 pass.
+- Independent browser/accessibility suite: 15/15 pass.
+- SOAP source reconciliation: 925 rows, 886 identities, 883 private-beta identities, 3 internal-only identities, 0 ambiguous identities.
+- Production first ingest: 925 claims, 886 identities, zero spend.
+- Production readback: 922 private-beta approved claims and 3 internal review-required claims.
+- Forced RLS: pass across canonical evidence and Student Intel tables.
+- Least-privilege live verifier: pass, including cross-subject denial and rollback.
+- Provider-neutral totals: 542 runs, 3,965 claims, 886 identities, spend `0.0000`.
+- Post-rollback health: 200 with prior 26-program release; protected session, catalog, and SOAP endpoints: 401 anonymous.
 - Fable hash: exact expected match.
-- Prohibited wording scan: pass.
 
-Screenshots are under `artifacts/browser/`.
+Local candidate behavior passed, but eligible live browser QA did not pass because the production WordPress SSO file lacks the reviewed RISE entitlement projection.

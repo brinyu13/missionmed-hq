@@ -1,6 +1,8 @@
 # Beta Entitlement Activation
 
-The local HQ auth contract passes 1/1, but the current production HQ deployment is commit `e2c40ce8f3a6f4771895fa407681b0527af35f03`, which does not contain the RISE audience/course entitlement implementation from commit `5422500`. Live `/rise/` currently reports that RISE authentication is temporarily unavailable.
+The reviewed HQ audience/entitlement candidate `7a4c59c75bcbb954dd4be433fcc236f2a007c1be` was deployed under serialized `SHARED:AUTH` custody and passed anonymous, audience-validation, redirect, health, configuration, and error-log checks.
 
-DR-147 permits shared-seam verification but explicitly does not authorize deployment to `missionmed-hq-fix005`. Therefore 360 and IV Prep Complete beta activation cannot be safely completed in this ticket without a new exact shared HQ deployment decision preserving the current LOR lineage.
+Eligible live browser QA then failed at the WordPress side of the seam. Live Kinsta has `missionmed-rise-sso.php` version 1.0.0, SHA-256 `23a26612fea0587773c14e1a614991babb817ee749dc9d06862bdf41b5450370`. It omits `rise_beta_access`, `rise_beta_course_ids`, `rise_beta_entitlements`, and `FULL_RISE_BETA_ACCESS`. DR-151 accepts only version 1.1.0, SHA-256 `4a220d00fee05784a3baf8c08d3b744c0c0c889b8372647a974f246d337a5829`, and explicitly authorizes no WordPress mutation or deployment.
+
+The shared HQ deployment was rolled back provider-native to the exact prior image. Consequently 360 and IV Prep Complete beta activation and Student Intel UI activation are not live. A new exact WordPress decision is required before those activations may resume.
 

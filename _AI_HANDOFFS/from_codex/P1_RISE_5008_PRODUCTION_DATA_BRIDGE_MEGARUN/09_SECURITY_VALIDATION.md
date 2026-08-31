@@ -1,18 +1,14 @@
 # Security Validation
 
-- Unit/contract: 137/137 pass.
-- Browser/accessibility: 15/15 pass.
-- HQ auth: 1/1 pass locally.
-- PHP syntax: pass.
-- PostgreSQL first SOAP ingest: 925 claims, 886 identities, zero spend.
-- SOAP replay: 0 duplicate claims; replay count incremented.
-- Non-admin RLS readback: 922 beta claims and 883 beta identities.
-- Admin-only tail: 3 review-required claims and 3 review-required identities.
-- Hostile non-admin source insert: denied.
-- PostgreSQL 18 restored-production parity: 26 existing registry programs, 542 sources, 3,965 claims, 886 identities, 542 provider receipts, spend `0.0000`.
-- Provider-neutral replay: 541 replayed runs and 0 new claims.
-- Fable source SHA-256: `1e1a16aa630449c9e763a04f6f720b51df0afa46822044de165687d7f8758987`.
-- Client bundle contains no provider credentials; the only token reference is the runtime CSRF field.
-- New Parallel spend: $0; reserved tranche untouched.
+- Product unit/contract suite: 137/137 pass.
+- Focused rights-safe suite: 3/3 pass.
+- Independent browser/accessibility review: 15/15 pass.
+- Independent final review: migration 007, HQ seam, security, final release, and builder-deploy gates all `YES`; review artifact SHA-256 `e0eec1436c51978d7f288055736cfff53d61bcc8cd05617b6a5fd955fdf55f8b`.
+- Production RLS: all seven Student Intel tables and all five canonical evidence tables use enabled and forced RLS.
+- Tunnel-based least-privilege verifier: pass for `rise_app_login`, including two-subject denial and synthetic transaction rollback.
+- Provider readback: 542 ingest runs, 3,965 claims, 886 identities, total spend `0.0000`.
+- Anonymous production checks after rollback: health 200; session, catalog, and SOAP endpoints 401; `Cache-Control: no-store`; CSP `frame-ancestors 'none'`; `X-Frame-Options: DENY`.
+- Fable source SHA-256 remained `1e1a16aa630449c9e763a04f6f720b51df0afa46822044de165687d7f8758987`.
+- New Parallel spend: $0; reserved tranche unchanged.
 
-Production security review remains pending because DR-146 requires an independent database/security review for migration 007.
+The failed live QA condition is governance/auth integration, not a passed security condition: the deployed WordPress SSO file is outside the accepted DR-151 hash and lacks the reviewed entitlement fields. No WordPress mutation was attempted.
