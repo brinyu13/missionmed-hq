@@ -28,34 +28,43 @@ const INSTRUMENTS = [
     cue: f => f.speedWpm.cue,
     holdReason: f => f.speedWpm.holdReason,
     verbs: { raise: 'SPEED UP', lower: 'SLOW DOWN', hold: 'HOLD' },
-    gauge: 'meter',
+    gauge: 'speedometer',
     labels: ['SLOW', 'TARGET ZONE', 'FAST'],
     gaugeNorm: f => f.speedWpm.available ? Math.max(0, Math.min(1, (f.speedWpm.wordsPerMinute - 90) / 130)) : null,
     corridorNorm: () => [(CALIBRATION.paceCorridor[0] - 90) / 130, (CALIBRATION.paceCorridor[1] - 90) / 130],
   },
   {
-    id: 'volume', name: 'VOLUME', unit: 'LU',
-    tech: f => f.volume.available ? `${f.volume.deltaLu > 0 ? '+' : ''}${f.volume.deltaLu} LU vs baseline` : null,
-    corridorLabel: () => `YOUR CORRIDOR ${CALIBRATION.volumeCorridorLu[0]}…+${CALIBRATION.volumeCorridorLu[1]} LU`,
+    id: 'volume', name: 'VOLUME', unit: 'REAL LEVEL',
+    tech: f => f.volume.available
+      ? `${Number(f.volume.scientificValue).toFixed(1)} ${f.volume.scientificUnit}`
+      : null,
+    corridorLabel: f => f?.volume?.corridor
+      ? `REAL ${f.volume.scientificUnit} CORRIDOR ${f.volume.corridor[0]}…${f.volume.corridor[1]}`
+      : 'PERSONAL SPEAKING CORRIDOR',
     score: f => f.volume.available ? f.volume.score : null,
     cue: f => f.volume.cue,
     holdReason: f => f.volume.holdReason,
     verbs: { raise: 'SPEAK UP', lower: 'LOWER VOLUME', hold: 'HOLD' },
-    gauge: 'meter',
+    gauge: 'segments',
     labels: ['QUIET', 'CORRIDOR', 'LOUD'],
-    gaugeNorm: f => f.volume.available ? Math.max(0, Math.min(1, (f.volume.speechLufsK + 34) / 22)) : null,
-    corridorNorm: () => [(-27 + 34) / 22, (-15 + 34) / 22],
+    gaugeNorm: f => f.volume.available ? Math.max(0, Math.min(1, f.volume.normalized ?? ((f.volume.scientificValue + 60) / 60))) : null,
+    corridorNorm: f => {
+      const [lo, hi] = f?.volume?.corridor || [-42, -18];
+      return [Math.max(0, (lo + 60) / 60), Math.min(1, (hi + 60) / 60)];
+    },
   },
   {
-    id: 'variety', name: 'VOCAL VARIETY', unit: 'SD',
-    tech: f => f.volumeModulation.available
-      ? `${f.volumeModulation.pitchVariationSemitones?.toFixed(1) ?? '—'} st pitch · ${f.volumeModulation.loudnessVariationLu?.toFixed(1) ?? '—'} LU energy`
+    id: 'pitch', name: 'PITCH', unit: 'HZ', kind: 'pitch',
+    tech: f => f.pitch.available && f.pitch.voiced && Number.isFinite(f.pitch.f0Hz)
+      ? `${f.pitch.f0Hz.toFixed(1)} Hz · validated F0`
       : null,
-    corridorLabel: () => 'SPEAKER-RELATIVE · TARGET 7–8',
-    score: f => f.volumeModulation.available ? f.volumeModulation.score : null,
-    cue: f => f.volumeModulation.cue,
-    holdReason: f => f.volumeModulation.holdReason,
-    verbs: { raise: 'ADD VARIATION', lower: 'STABILIZE', hold: 'HOLD' },
+    corridorLabel: () => 'SPEAKER-RELATIVE REGISTER · YOUR MEDIAN',
+    score: f => f.pitch.available && f.pitch.voiced && Number.isFinite(f.pitch.semitonesFromSpeakerMedian)
+      ? f.pitch.semitonesFromSpeakerMedian
+      : null,
+    cue: () => 0,
+    holdReason: f => f.pitch.voiced ? 'ESTABLISHING SPEAKER MEDIAN' : 'UNVOICED · NO VALIDATED F0',
+    verbs: { raise: 'VOICED', lower: 'VOICED', hold: 'VOICED' },
     gauge: 'piano',
   },
 ];
@@ -101,7 +110,7 @@ async function liveScreen(el) {
       <aside class="room-left" ${showAnalytics ? '' : 'hidden'}>
         <div class="scan-card" id="faceCard">
           <div class="scan-head"><b>HEAD · FACE</b><span class="live-tag" id="faceLive">● LIVE</span></div>
-          <div class="scan-well"><img src="/iv-prep-on-call/live-analytics/founder-face-scanner.png" alt="Face scanner instrument"><i class="scan-sweep"></i></div>
+          <div class="scan-well"><img src="assets/founder-face-scanner.png" alt="Face scanner instrument"><i class="scan-sweep"></i></div>
           <div class="counter-row">
             <div class="counter"><em>SMILE EVENTS</em><b id="cSmiles">0</b><small>qualifying · full-face</small></div>
             <div class="counter"><em>HEAD NODS</em><b id="cNods">0</b><small>listening-only</small></div>
@@ -113,7 +122,7 @@ async function liveScreen(el) {
         </div>
         <div class="scan-card" id="bodyCard">
           <div class="scan-head"><b>BODY · GESTURES</b><span class="live-tag">● LIVE</span></div>
-          <div class="scan-well body"><img src="/iv-prep-on-call/live-analytics/founder-body-scanner.png" alt="Body scanner instrument"><i class="scan-sweep"></i></div>
+          <div class="scan-well body"><img src="assets/founder-body-scanner.png" alt="Body scanner instrument"><i class="scan-sweep"></i></div>
           <div class="hands-state listening" id="handsState">HANDS · OBSERVING</div>
           <div class="counter-row">
             <div class="counter wide"><em>EFFECTIVE GESTURES</em><b id="cGestures">0</b><small id="gRate">corridor ${CALIBRATION.gestureCorridor[0]}–${CALIBRATION.gestureCorridor[1]} / min</small></div>
@@ -122,8 +131,8 @@ async function liveScreen(el) {
       </aside>
 
       <div class="room-center">
-        <div class="stage-wrap">
-          <div class="stage" id="stage16">
+        <div class="video-stack">
+          <div class="stage-wrap"><div class="stage" id="stage16">
             <video id="liveVideo" playsinline muted></video>
             <canvas id="liveOverlay" aria-hidden="true"></canvas>
             <div class="capture-start" id="captureStart">
@@ -141,7 +150,8 @@ async function liveScreen(el) {
               <button class="overlay-toggle on" data-overlay="body" aria-pressed="true">BODY</button>
               <button class="overlay-toggle on" data-overlay="position" aria-pressed="true">POSITION</button>
             </div>
-          </div>
+          </div></div>
+          <div class="rec-dock" id="recDock"></div>
         </div>
         <div class="prompt-bar">
           <span class="prompt-ava">MC</span>
@@ -158,11 +168,11 @@ async function liveScreen(el) {
         <div class="inst" id="inst-${ins.id}">
           <div class="inst-head">
             <b>${ins.name}</b>
-            <button class="inst-gear" data-gear="${ins.id}" title="Tune your personal corridor">⚙</button>
+            ${ins.kind === 'pitch' ? '<span class="inst-source">REAL F0</span>' : `<button class="inst-gear" data-gear="${ins.id}" title="Tune your personal corridor">⚙</button>`}
           </div>
-          <div class="inst-score">
+          <div class="inst-score ${ins.kind === 'pitch' ? 'pitch-score' : ''}">
             <b class="inst-num" id="num-${ins.id}">—</b>
-            <span class="inst-of">/10</span>
+            <span class="inst-of">${ins.kind === 'pitch' ? 'st' : '/10'}</span>
             <span class="coach-arrow" id="arrow-${ins.id}"></span>
           </div>
           <div class="inst-tech" id="tech-${ins.id}">&nbsp;</div>
@@ -175,7 +185,6 @@ async function liveScreen(el) {
     </div>
 
     <div class="room-bottom">
-      <div class="rec-dock" id="recDock"></div>
       <div class="vv-deck" ${showAnalytics ? '' : 'hidden'}>
         <div class="vv-head">
           <div class="vv-title"><b>VOCAL VARIATION</b><small>speech-gated history · silence visible</small></div>
@@ -193,6 +202,12 @@ async function liveScreen(el) {
         </div>
         <canvas id="vvCanvas"></canvas>
       </div>
+      <div class="variety-score" id="varietyScore" ${showAnalytics ? '' : 'hidden'}>
+        <div class="variety-kicker">VOCAL VARIETY</div>
+        <div class="variety-number"><b id="varietyNum">—</b><span>/10</span></div>
+        <div class="variety-tech" id="varietyTech">No voiced history yet</div>
+        <div class="variety-verb" id="varietyVerb">SPEECH-GATED · LISTENING</div>
+      </div>
     </div>
   </div>`;
 
@@ -209,19 +224,25 @@ async function liveScreen(el) {
   const vvCtx = vvCanvas.getContext('2d');
   const traces = { vol: true, pitch: true, pace: true };
   let vvWindow = 60;
+  let lastVarietyScore = null;
 
-  /* gauges — one shared corridor-band grammar; variety adds the piano */
+  /* gauges — dedicated instruments, one shared truth grammar */
   const gaugeEls = {};
   for (const ins of INSTRUMENTS) {
     const host = $(`gauge-${ins.id}`);
-    if (ins.gauge === 'meter') {
-      const [a, b] = ins.corridorNorm();
-      host.innerHTML = `<div class="lu-meter">
-        <i class="lu-corr" style="left:${a * 100}%;width:${(b - a) * 100}%"></i>
-        <i class="lu-fill"></i>
-        <i class="lu-tick"></i>
+    if (ins.gauge === 'speedometer') {
+      const ticks = Array.from({ length: 31 }, (_, index) => {
+        const angle = -90 + index * 6;
+        return `<i class="speed-tick" data-tick="${index}" style="transform:rotate(${angle}deg)"></i>`;
+      }).join('');
+      host.innerHTML = `<div class="speedometer">
+        <div class="speed-arc">${ticks}<i class="speed-needle"></i><i class="speed-hub"></i></div>
       </div><div class="gauge-labels"><span>${ins.labels[0]}</span><span class="gl-mid">${ins.labels[1]}</span><span>${ins.labels[2]}</span></div>`;
-      gaugeEls[ins.id] = { fill: host.querySelector('.lu-fill'), tick: host.querySelector('.lu-tick'), corr: host.querySelector('.lu-corr') };
+      gaugeEls[ins.id] = { ticks: [...host.querySelectorAll('.speed-tick')], needle: host.querySelector('.speed-needle') };
+    } else if (ins.gauge === 'segments') {
+      host.innerHTML = `<div class="volume-segments">${Array.from({ length: 16 }, (_, index) => `<i data-segment="${index}"></i>`).join('')}<span class="segment-corridor"></span></div>
+        <div class="gauge-labels"><span>${ins.labels[0]}</span><span class="gl-mid">${ins.labels[1]}</span><span>${ins.labels[2]}</span></div>`;
+      gaugeEls[ins.id] = { segments: [...host.querySelectorAll('[data-segment]')], corr: host.querySelector('.segment-corridor') };
     } else if (ins.gauge === 'piano') {
       const whites = 15, W = 300, ww = W / whites;
       let keys = '', blacks = '';
@@ -257,13 +278,9 @@ async function liveScreen(el) {
         <input type="range" min="-12" max="0" value="${CALIBRATION.volumeCorridorLu[0]}" data-t="vol0">
         <input type="range" min="0" max="12" value="${CALIBRATION.volumeCorridorLu[1]}" data-t="vol1">
         <span>+${CALIBRATION.volumeCorridorLu[1]}</span></div>`;
-    } else {
-      host.innerHTML = `<em>VARIETY RANGE · SPEAKER-RELATIVE</em>
-        <div class="tune-row"><span>3.4</span><input type="range" min="1" max="8" value="3.4" step=".2" data-t="var0">
-        <input type="range" min="2" max="10" value="6.2" step=".2" data-t="var1"><span>6.2</span></div>`;
     }
   }
-  INSTRUMENTS.forEach(i => renderTuner(i.id));
+  INSTRUMENTS.filter(i => i.kind !== 'pitch').forEach(i => renderTuner(i.id));
   if (devTuner && $(`tune-${devTuner}`)) { $(`tune-${devTuner}`).hidden = false; $(`inst-${devTuner}`).classList.add('focus'); }
 
   /* recording dock */
@@ -418,14 +435,14 @@ async function liveScreen(el) {
       const num = $(`num-${ins.id}`);
       const inst = $(`inst-${ins.id}`);
       if (score != null) {
-        num.textContent = score.toFixed(1);
-        num.style.color = scoreColor(score);
+        num.textContent = ins.kind === 'pitch' ? `${score > 0 ? '+' : ''}${score.toFixed(1)}` : score.toFixed(1);
+        num.style.color = ins.kind === 'pitch' ? 'var(--g-cyan)' : scoreColor(score);
         inst.classList.remove('unavail');
         ins._last = score;
         if (ins.id === 'pace' && Number.isFinite(f.speedWpm.wordsPerMinute)) {
           ins._lastWpm = f.speedWpm.wordsPerMinute;
         }
-      } else if (ins._last != null) {
+      } else if (ins._last != null && ins.kind !== 'pitch') {
         num.textContent = ins._last.toFixed(1);
         num.style.color = '';
         inst.classList.add('unavail');
@@ -434,30 +451,43 @@ async function liveScreen(el) {
         inst.classList.add('unavail');
       }
       const tech = ins.tech(f);
-      $(`tech-${ins.id}`).textContent = tech || (score == null ? (ins._last != null ? 'holding last valid' : 'no speech observed yet') : '');
+      $(`tech-${ins.id}`).textContent = tech || (score == null ? (ins.kind === 'pitch' ? 'Unvoiced · no validated F0' : ins._last != null ? 'holding last valid' : 'no speech observed yet') : '');
+      $(`corr-${ins.id}`).textContent = ins.corridorLabel(f);
       const verb = $(`verb-${ins.id}`);
       const cue = ins.cue(f);
       if (score == null) {
         verb.textContent = ins.holdReason(f) || 'HOLDING · LISTENING';
         verb.className = 'verb-pill hold';
+      } else if (ins.kind === 'pitch') {
+        verb.textContent = 'VOICED · LIVE F0';
+        verb.className = 'verb-pill ok';
       } else if (cue === 0) { verb.textContent = `IN RANGE — ${ins.verbs.hold}`; verb.className = 'verb-pill ok'; }
       else if (cue === 1) { verb.textContent = ins.verbs.raise; verb.className = 'verb-pill push'; }
       else { verb.textContent = ins.verbs.lower; verb.className = 'verb-pill push'; }
       const arrow = $(`arrow-${ins.id}`);
-      if (ui.coaching && score != null) {
+      if (ui.coaching && score != null && ins.kind !== 'pitch') {
         arrow.innerHTML = cue === 0 ? '<i class="ca ok">✓</i>' : cue === 1 ? '<i class="ca up">↑</i>' : '<i class="ca down">↓</i>';
       } else arrow.innerHTML = '';
       // gauges
       const g = gaugeEls[ins.id];
-      if (ins.gauge === 'meter' && g.fill) {
-        const [a, b] = ins.corridorNorm();
-        g.corr.style.left = `${a * 100}%`;
-        g.corr.style.width = `${(b - a) * 100}%`;
+      if (ins.gauge === 'speedometer' && g.needle) {
         const n = ins.gaugeNorm(f);
         const nn = n == null ? 0 : n;
-        g.fill.style.width = `${nn * 100}%`;
-        g.tick.style.left = `${nn * 100}%`;
-        g.fill.style.opacity = n == null ? .3 : 1;
+        g.needle.style.transform = `rotate(${-90 + nn * 180}deg)`;
+        g.ticks.forEach((tick, index) => {
+          tick.classList.toggle('active', n != null && index <= Math.round(nn * 30));
+          tick.classList.toggle('target', index >= 14 && index <= 20);
+        });
+      } else if (ins.gauge === 'segments' && g.segments) {
+        const n = ins.gaugeNorm(f);
+        const [a, b] = ins.corridorNorm(f);
+        g.corr.style.left = `${a * 100}%`;
+        g.corr.style.width = `${Math.max(.04, b - a) * 100}%`;
+        g.segments.forEach((segment, index) => {
+          const position = (index + .5) / g.segments.length;
+          segment.classList.toggle('active', n != null && position <= n);
+          segment.classList.toggle('target', position >= a && position <= b);
+        });
       } else if (ins.gauge === 'piano' && g.keys) {
         const semis = f.pitch.available ? f.pitch.semitonesFromSpeakerMedian : null;
         const idx = semis == null ? null : Math.max(0, Math.min(14, Math.round(7 + semis)));
@@ -466,6 +496,22 @@ async function liveScreen(el) {
           k.classList.toggle('range', semis != null && Math.abs(i - 7) <= 3);
         });
       }
+    }
+
+    /* aligned Vocal Variation coaching score; traces stay in the deck */
+    const variety = f.volumeModulation;
+    if (variety.available && Number.isFinite(variety.score)) {
+      lastVarietyScore = variety.score;
+      $('varietyNum').textContent = variety.score.toFixed(1);
+      $('varietyNum').style.color = scoreColor(variety.score);
+      $('varietyTech').textContent = `${variety.pitchVariationSemitones?.toFixed(1) ?? '—'} st pitch · ${variety.loudnessVariationLu?.toFixed(1) ?? '—'} LU energy`;
+      $('varietyVerb').textContent = variety.cue === 1 ? 'ADD VARIATION' : variety.cue === -1 ? 'STABILIZE' : 'IN RANGE · HOLD';
+      $('varietyScore').classList.remove('unavail');
+    } else {
+      $('varietyNum').textContent = lastVarietyScore == null ? '—' : lastVarietyScore.toFixed(1);
+      $('varietyTech').textContent = lastVarietyScore == null ? 'No voiced history yet' : 'Holding last validated score';
+      $('varietyVerb').textContent = variety.holdReason || 'SPEECH-GATED · LISTENING';
+      $('varietyScore').classList.add('unavail');
     }
 
     /* face / body */
@@ -549,7 +595,10 @@ async function liveScreen(el) {
     try {
       const bootstrap = await ivocApi.bootstrap();
       engine.csrfToken = ivocApi.csrfToken;
-      const stream = await engine.start();
+      const stream = await engine.start({
+        cameraDeviceId: draft.cameraDeviceId,
+        microphoneDeviceId: draft.microphoneDeviceId,
+      });
       accountSession = await ivocApi.createSession({
         title: draft.title || q.text.split(' ').slice(0, 6).join(' '),
         sessionType: draft.mode || 'question',
@@ -606,24 +655,48 @@ async function liveScreen(el) {
   }
   async function finishToProcessing(runtimeResult = null, recordingResult = null) {
     const f = runtimeResult?.frame || engine.frame();
+    const analyticsDurationMs = Math.max(0, Math.round(runtimeResult?.analytics?.durationMs ?? (runtimeResult?.frame?.t || f.t || 0) * 1000));
+    const recordingDurationMs = recordingResult?.durationMs ?? recordingResult?.recording?.durationMs ?? null;
+    const playableDurationMs = ui.recording && Number.isFinite(Number(recordingDurationMs))
+      ? Math.max(0, Math.round(Number(recordingDurationMs)))
+      : analyticsDurationMs;
+    const handPresenceEvent = runtimeResult?.analytics?.events?.find?.((event) => event.metric === 'hand_presence') || null;
+    const handPresenceFraction = Number.isFinite(Number(handPresenceEvent?.observation?.value))
+      ? Math.max(0, Math.min(1, Number(handPresenceEvent.observation.value)))
+      : null;
+    const handsPresence = {
+      available: handPresenceFraction !== null && handPresenceEvent?.eventQuality?.available !== false,
+      fraction: handPresenceFraction,
+      analyzableFrames: runtimeResult?.analytics?.modalities?.camera?.analyzableFrames ?? null,
+      provenance: 'FULL_SESSION_CAMERA_OBSERVATION',
+    };
     const resultEnvelope = {
       schema: 'ivoc.analytics.v1',
       schemaVersion: 1,
       sessionId: accountSession?.id || null,
       capturedAt: new Date().toISOString(),
-      durationMs: Math.round((runtimeResult?.frame?.t || f.t || 0) * 1000),
+      durationMs: playableDurationMs,
+      sessionDurationMs: analyticsDurationMs,
+      recordingDurationMs: Number.isFinite(Number(recordingDurationMs)) ? Math.round(Number(recordingDurationMs)) : null,
       scores: {
         pace: INSTRUMENTS[0]._last ?? null,
         volume: INSTRUMENTS[1]._last ?? null,
-        variety: INSTRUMENTS[2]._last ?? null,
+        variety: lastVarietyScore,
       },
       wpmLastObserved: INSTRUMENTS[0]._lastWpm ?? null,
       wpmAvg: INSTRUMENTS[0]._lastWpm ?? null,
-      counters: { nods: f.headFace.nods, smiles: f.headFace.smileEvents, gestures: f.bodyHands.gestures },
+      counters: {
+        nods: f.headFace.nodsAvailable ? f.headFace.nods : null,
+        smiles: f.headFace.smileEventsAvailable ? f.headFace.smileEvents : null,
+        gestures: f.bodyHands.gesturesAvailable ? f.bodyHands.gestures : null,
+        handsPct: handsPresence.available ? Math.round(handsPresence.fraction * 100) : null,
+      },
+      handsPresence,
       events: runtimeResult?.events || engine.events.slice(),
       history: runtimeResult?.history || engine.history.slice(),
       metrics: runtimeResult?.snapshot?.metrics || null,
       behavior: runtimeResult?.behavior || null,
+      analytics: runtimeResult?.analytics || null,
     };
     if (accountSession?.id) await ivocApi.saveResults(accountSession.id, resultEnvelope);
     session.last = {
@@ -631,15 +704,17 @@ async function liveScreen(el) {
       recordingId: recordingResult?.recording?.id || recorder?.recording?.id || null,
       title: draft.title || q.text.split(' ').slice(0, 4).join(' '),
       question: q,
-      dur: rec.elapsed || f.t,
+      dur: playableDurationMs / 1000,
+      sessionDur: analyticsDurationMs / 1000,
       recorded: ui.recording,
       scores: {
         pace: INSTRUMENTS[0]._last ?? null,
         volume: INSTRUMENTS[1]._last ?? null,
-        variety: INSTRUMENTS[2]._last ?? null,
+        variety: lastVarietyScore,
       },
       wpmAvg: INSTRUMENTS[0]._lastWpm ?? null,
-      counters: { nods: f.headFace.nods, smiles: f.headFace.smileEvents, gestures: f.bodyHands.gestures, handsPct: f.bodyHands.handsVisible ? 100 : null },
+      counters: resultEnvelope.counters,
+      handsPresence,
       events: resultEnvelope.events,
       history: resultEnvelope.history,
       t: f.t,

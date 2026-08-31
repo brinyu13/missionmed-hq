@@ -40,7 +40,10 @@ export class BehaviorIntelligenceRuntime {
     this.conversation = new ConversationStateMachine({ now, degraded: degradedConversation });
     this.setup = new SetupReadinessGate();
     this.gestures = new GestureUnitDetector();
-    this.nods = new NodDetector();
+    // The production vision scheduler is deliberately capped at 8 FPS. Keep
+    // the detector fail-closed below that observed cadence, but do not make a
+    // validated production signal impossible by requiring 15 FPS here.
+    this.nods = new NodDetector({ minimumFps: 8 });
     this.orientationTracker = new OrientationTracker();
     this.facialActivityTracker = new FacialActivityTracker();
     this.turnMetrics = new TurnMetrics();
@@ -135,10 +138,17 @@ export class BehaviorIntelligenceRuntime {
     return this.latest;
   }
 
-  beginInterview(atMs = this.latest?.atMs ?? 0) {
+  beginInterview(atMs = this.latest?.atMs ?? 0, { explicitMeasurementStart = false } = {}) {
+    const time = Number(atMs);
     this.interviewRequested = true;
-    this.#advanceConversation({ atMs: Number(atMs), speaking: this.priorSpeaking });
-    this.latest = this.snapshot(Number(atMs));
+    // START ANALYTICS is an explicit Tier-0 user action. It establishes the
+    // measurement boundary immediately; the readiness gate remains coaching
+    // feedback and must not masquerade as a hidden state-machine prerequisite.
+    if (explicitMeasurementStart && this.conversation.state === 'SETUP') {
+      this.#dispatchConversation('SETUP_READY', time);
+    }
+    this.#advanceConversation({ atMs: time, speaking: this.priorSpeaking });
+    this.latest = this.snapshot(time);
     return this.latest;
   }
 
@@ -203,8 +213,12 @@ export class BehaviorIntelligenceRuntime {
     const level = dbfs(Number(detail.rms));
     const deltaMs = this.lastAudioAtMs === null ? 0 : Math.max(0, Math.min(250, atMs - this.lastAudioAtMs));
     this.lastAudioAtMs = atMs;
-    const sileroAvailable = detail.vad?.available === true && detail.vad?.provenance?.source === 'SILERO_V5';
-    const speaking = sileroAvailable ? detail.vad.speaking === true : detail.speaking === true;
+    // No single producer may erase independent real speech evidence. Silero,
+    // the envelope detector, and validated voiced F0 are complementary local
+    // observations; the union drives the conversational boundary.
+    const speaking = detail.vad?.speaking === true
+      || detail.speaking === true
+      || detail.pitch?.voiced === true;
     if (speaking) {
       this.speechMs += deltaMs;
       this.speechLevels.push(level);

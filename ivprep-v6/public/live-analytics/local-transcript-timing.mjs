@@ -468,27 +468,18 @@ export class LocalTranscriptTimingProducer {
     const atMs = Math.max(windowEndedAtMs, Number(this.clock.sessionMs()));
     const firstParty = this.#transport === FIRST_PARTY_WORD_TIMING_TRANSPORT;
     this.wordStream.ingest(confidentWords, { atMs, source: LOCAL_SHERPA_TIMING_SOURCE });
-    this.timingWindows.push(Object.freeze({
-      startedAtMs: windowStartedAtMs,
-      endedAtMs: windowEndedAtMs,
-      speechDurationMs: admittedSpeechDurationMs,
-      captureDurationMs,
-    }));
-    if (this.timingWindows.length > 4) this.timingWindows.shift();
-    const firstWindow = this.timingWindows[0];
+    // A live pace reading represents this newest four-second decode, not a
+    // cumulative 16-second average. Keep the stream for overlap de-duplication,
+    // then project only events belonging to the current observed window.
     const streamWords = this.wordStream.snapshot().events
-      .filter((word) => word.startMs >= firstWindow.startedAtMs && word.endMs <= windowEndedAtMs + 25);
-    const streamSpeechDurationMs = this.timingWindows.reduce((sum, item) => sum + item.speechDurationMs, 0);
-    const streamCaptureDurationMs = this.timingWindows.reduce((sum, item) => sum + item.captureDurationMs, 0);
-    const streamCoverage = streamCaptureDurationMs > 0
-      ? clamp(this.timingWindows.reduce((sum, item) => sum + item.speechDurationMs, 0) / streamCaptureDurationMs, 0, 1)
-      : 0;
+      .filter((word) => word.startMs >= windowStartedAtMs && word.endMs <= windowEndedAtMs + 25);
+    const currentWindowAvailable = streamWords.length >= 8 && admittedSpeechDurationMs >= 3_000;
     this.onTiming(Object.freeze({
       atMs,
-      windowStartedAtMs: firstWindow.startedAtMs,
+      windowStartedAtMs,
       windowEndedAtMs,
-      speechDurationMs: streamSpeechDurationMs,
-      coverage: Math.max(streamCoverage, admittedCoverage),
+      speechDurationMs: admittedSpeechDurationMs,
+      coverage: admittedCoverage,
       words: Object.freeze(streamWords.map((word) => Object.freeze({
         startMs: word.startMs,
         endMs: word.endMs,
@@ -508,9 +499,9 @@ export class LocalTranscriptTimingProducer {
         rawAudioPersisted: false,
       }),
     }));
-    this.#setState('live', streamWords.length >= 8 ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
+    this.#setState('live', currentWindowAvailable ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
       wordCount: streamWords.length,
-      windowDurationMs: Math.round(windowEndedAtMs - firstWindow.startedAtMs),
+      windowDurationMs: Math.round(windowEndedAtMs - windowStartedAtMs),
     });
       return true;
     } finally {

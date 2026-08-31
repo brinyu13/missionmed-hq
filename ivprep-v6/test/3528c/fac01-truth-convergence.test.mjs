@@ -10,8 +10,8 @@ async function source(path) {
 
 test('FAC-01 explicitly starts the behavior state machine and preserves audio speech truth across camera frames', async () => {
   const runtime = await source('public/ivoc-standalone/app/real-runtime.mjs');
-  assert.match(runtime, /this\.behavior\.beginInterview\(0\)/u);
-  assert.match(runtime, /this\.latestAudioSpeaking\s*=\s*detail\.vad\?\.available/u);
+  assert.match(runtime, /this\.behavior\.beginInterview\(0, \{ explicitMeasurementStart: true \}\)/u);
+  assert.match(runtime, /this\.latestAudioSpeaking\s*=\s*detail\.vad\?\.speaking/u);
   assert.match(runtime, /const speaking = this\.latestAudioSpeaking \|\| stateName/u);
 });
 
@@ -50,8 +50,9 @@ test('FAC-01 keeps the frozen cockpit macro layout and makes recording secondary
   assert.match(css, /\.room-center/u);
   assert.match(css, /\.room-right/u);
   assert.match(css, /aspect-ratio: 16 \/ 9/u);
-  assert.match(css, /\.rec-dock[\s\S]*flex: 0 0 340px/u);
-  assert.match(css, /\.vv-deck[\s\S]*flex: 1/u);
+  assert.match(css, /\.rec-dock[\s\S]*flex: 0 0 58px/u);
+  assert.match(css, /\.vv-deck[\s\S]*grid-column: 1 \/ 3/u);
+  assert.match(css, /\.variety-score[\s\S]*grid-column: 3/u);
 });
 
 test('FAC-01 trace deck eases only inside observed runs and breaks silence or unvoiced gaps', async () => {

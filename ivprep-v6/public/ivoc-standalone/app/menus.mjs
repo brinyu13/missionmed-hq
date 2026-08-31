@@ -18,10 +18,27 @@ function pips(n) {
   return `<span class="pips">${[1, 2, 3].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`;
 }
 
-async function mountDevicePreview(video, meter = null) {
+function fillDeviceSelect(select, devices, selectedId, fallbackLabel) {
+  select.replaceChildren();
+  for (const [index, device] of devices.entries()) {
+    const option = document.createElement('option');
+    option.value = device.deviceId;
+    option.textContent = device.label || `${fallbackLabel} ${index + 1}`;
+    option.selected = device.deviceId === selectedId;
+    select.appendChild(option);
+  }
+}
+
+async function mountDevicePreview(video, meter = null, { cameraDeviceId = '', microphoneDeviceId = '' } = {}) {
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-    audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+    video: {
+      width: { ideal: 1280 }, height: { ideal: 720 },
+      ...(cameraDeviceId ? { deviceId: { exact: cameraDeviceId } } : { facingMode: 'user' }),
+    },
+    audio: {
+      channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false,
+      ...(microphoneDeviceId ? { deviceId: { exact: microphoneDeviceId } } : {}),
+    },
   });
   video.srcObject = stream;
   await video.play();
@@ -43,10 +60,20 @@ async function mountDevicePreview(video, meter = null) {
   };
   loop();
   const devices = await navigator.mediaDevices.enumerateDevices();
+  const cameras = devices.filter((d) => d.kind === 'videoinput');
+  const microphones = devices.filter((d) => d.kind === 'audioinput');
+  const cameraTrack = stream.getVideoTracks()[0] || null;
+  const microphoneTrack = stream.getAudioTracks()[0] || null;
+  const cameraId = cameraTrack?.getSettings?.().deviceId || cameraDeviceId || cameras[0]?.deviceId || '';
+  const microphoneId = microphoneTrack?.getSettings?.().deviceId || microphoneDeviceId || microphones[0]?.deviceId || '';
   return {
     stream,
-    camera: devices.find((d) => d.kind === 'videoinput' && d.label)?.label || 'Browser camera',
-    microphone: devices.find((d) => d.kind === 'audioinput' && d.label)?.label || 'Browser microphone',
+    cameras,
+    microphones,
+    cameraId,
+    microphoneId,
+    camera: cameras.find((d) => d.deviceId === cameraId)?.label || cameraTrack?.label || 'Browser camera',
+    microphone: microphones.find((d) => d.deviceId === microphoneId)?.label || microphoneTrack?.label || 'Browser microphone',
     destroy: () => { cancelAnimationFrame(raf); stream.getTracks().forEach((track) => track.stop()); void context.close(); video.srcObject = null; },
   };
 }
@@ -355,14 +382,15 @@ async function setupScreen(el) {
     <section class="setup-left">
       <div class="panel">
         <div class="t-label pl-title">CAMERA</div>
-        <div class="wheel" data-focusable data-wheel="cam">${svgIcon('M3 7h12v10H3zM15 11l6-3.5v9L15 13', 16)}<span>${draft.cam}</span><i>▾</i></div>
+        <label class="device-select">${svgIcon('M3 7h12v10H3zM15 11l6-3.5v9L15 13', 16)}<select id="camSelect" data-focusable aria-label="Camera"><option>Requesting camera permission…</option></select><i>▾</i></label>
         <div class="setup-feed">
           <video id="setupFeed" playsinline muted></video>
           <span class="feed-tag">LIVE PREVIEW · REAL CAMERA</span>
           <span class="feed-guide"></span>
         </div>
-        <div class="miclevel"><span class="t-label">MIC</span><div class="micbar"><i id="micFill"></i></div></div>
-        <div class="wheel" data-focusable data-wheel="mic">${svgIcon('M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3zM6 11a6 6 0 0012 0M12 17v4', 16)}<span>${draft.mic}</span><i>▾</i></div>
+        <div class="miclevel"><span class="t-label">MIC</span><div class="micbar"><i id="micFill"></i></div><b class="device-state" id="micState">REQUESTING</b></div>
+        <label class="device-select">${svgIcon('M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 6 0 0012 0M12 17v4', 16)}<select id="micSelect" data-focusable aria-label="Microphone"><option>Requesting microphone permission…</option></select><i>▾</i></label>
+        <div class="device-readiness" id="deviceReadiness"><span>CAMERA · REQUESTING</span><span>MICROPHONE · REQUESTING</span></div>
       </div>
     </section>
     <section class="setup-mid">
@@ -420,15 +448,48 @@ async function setupScreen(el) {
   syncRec();
 
   const micFill = el.querySelector('#micFill');
+  const camSelect = el.querySelector('#camSelect');
+  const micSelect = el.querySelector('#micSelect');
+  const readiness = el.querySelector('#deviceReadiness');
+  const micState = el.querySelector('#micState');
   let preview = null;
   let previewCancelled = false;
-  void mountDevicePreview(el.querySelector('#setupFeed'), micFill).then((mounted) => {
-    if (previewCancelled) { mounted.destroy(); return; }
+  let previewGeneration = 0;
+  async function mountSelectedPreview() {
+    const generation = ++previewGeneration;
+    preview?.destroy();
+    readiness.innerHTML = '<span>CAMERA · CONNECTING</span><span>MICROPHONE · CONNECTING</span>';
+    micState.textContent = 'CONNECTING';
+    const mounted = await mountDevicePreview(el.querySelector('#setupFeed'), micFill, {
+      cameraDeviceId: draft.cameraDeviceId,
+      microphoneDeviceId: draft.microphoneDeviceId,
+    });
+    if (previewCancelled || generation !== previewGeneration) { mounted.destroy(); return; }
     preview = mounted;
-    draft.cam = preview.camera; draft.mic = preview.microphone; saveDraft();
-    el.querySelectorAll('[data-wheel="cam"] span')[0].textContent = preview.camera;
-    el.querySelectorAll('[data-wheel="mic"] span')[0].textContent = preview.microphone;
-  }).catch((error) => toast(`Camera/microphone unavailable: ${error.message}`, 'rec'));
+    draft.cameraDeviceId = mounted.cameraId;
+    draft.microphoneDeviceId = mounted.microphoneId;
+    draft.cam = mounted.camera;
+    draft.mic = mounted.microphone;
+    saveDraft();
+    fillDeviceSelect(camSelect, mounted.cameras, mounted.cameraId, 'Camera');
+    fillDeviceSelect(micSelect, mounted.microphones, mounted.microphoneId, 'Microphone');
+    readiness.innerHTML = '<span class="ok">CAMERA · LIVE</span><span class="ok">MICROPHONE · LIVE</span>';
+    micState.textContent = 'LIVE';
+    micState.classList.add('ok');
+  }
+  void mountSelectedPreview().catch((error) => {
+    readiness.innerHTML = '<span class="warn">CAMERA / MICROPHONE · UNAVAILABLE</span>';
+    micState.textContent = 'CHECK PERMISSION';
+    toast(`Camera/microphone unavailable: ${error.message}`, 'rec');
+  });
+
+  el.addEventListener('change', (event) => {
+    if (event.target === camSelect) draft.cameraDeviceId = camSelect.value;
+    else if (event.target === micSelect) draft.microphoneDeviceId = micSelect.value;
+    else return;
+    saveDraft();
+    void mountSelectedPreview().catch((error) => toast(`Device switch failed: ${error.message}`, 'rec'));
+  });
 
   el.addEventListener('click', async e => {
     const tog = e.target.closest('[data-tog]');
@@ -440,8 +501,6 @@ async function setupScreen(el) {
       if (k === 'recording') syncRec();
       return;
     }
-    const wheel = e.target.closest('[data-wheel]');
-    if (wheel) { toast('Device changes use your browser camera/microphone selector.', 'info'); return; }
     if (e.target.closest('[data-rename]')) {
       const t = prompt('Session title (optional — the only typing in the app):', el.querySelector('#sessTitle').textContent.trim());
       if (t) { draft.title = t; saveDraft(); el.querySelector('#sessTitle').textContent = t; }
@@ -491,7 +550,10 @@ async function readyScreen(el) {
 
   let preview = null;
   let previewCancelled = false;
-  void mountDevicePreview(el.querySelector('#readyFeed')).then((mounted) => {
+  void mountDevicePreview(el.querySelector('#readyFeed'), null, {
+    cameraDeviceId: draft.cameraDeviceId,
+    microphoneDeviceId: draft.microphoneDeviceId,
+  }).then((mounted) => {
     if (previewCancelled) { mounted.destroy(); return; }
     preview = mounted;
   }).catch((error) => toast(`Camera unavailable: ${error.message}`, 'rec'));

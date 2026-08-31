@@ -7,6 +7,7 @@ import { sceneDataUri } from './art.mjs';
 import { QUESTIONS, CATEGORIES, CALIBRATION } from './data.mjs';
 import { account, accountName } from './account.mjs';
 import { ivocApi } from './api.mjs';
+import { intervalRuns, selectLibrarySessions, selectMentorSessions, tracePath } from './post-model.mjs';
 import { ui, saveUi, draft, saveDraft, go, toast, session, setReducedMotion } from './main.mjs';
 
 const qOf = id => QUESTIONS.find(q => q.id === id);
@@ -21,7 +22,7 @@ async function resultsModel(param) {
     return {
       title: s.title, q: s.question, date: 'Just now', dur: fmt(s.dur), recorded: s.recorded,
       scores: { pace: s.scores.pace, volume: s.scores.volume, variety: s.scores.variety },
-      wpmAvg: s.wpmAvg, counters: s.counters, events: s.events, total: s.t, live: true,
+      wpmAvg: s.wpmAvg, counters: s.counters, events: s.events, history: s.history || [], total: Math.max(1, s.t), live: true,
       recordingId: s.recordingId, payload: { scores: s.scores, counters: s.counters, events: s.events, history: s.history },
     };
   }
@@ -31,19 +32,20 @@ async function resultsModel(param) {
   if (!row) return {
     title: 'No completed session', q: null, date: '—', dur: '00:00', recorded: false,
     scores: { pace: null, volume: null, variety: null }, wpmAvg: null, total: 1,
-    counters: { nods: 0, smiles: 0, gestures: 0, handsPct: null }, events: [], payload: null,
+    counters: { nods: null, smiles: null, gestures: null, handsPct: null }, events: [], history: [], payload: null,
   };
   const payload = row.results?.payload || {};
   const q = qOf(row.questionId) || (row.questionText ? { id: row.questionId, text: row.questionText } : null);
-  const durS = Math.max(0, Number(row.durationMs || row.recording?.durationMs || 0) / 1000);
+  const durS = Math.max(0, Number(row.recording?.durationMs ?? row.durationMs ?? 0) / 1000);
   return {
     id: row.id, title: row.title, q,
     date: row.endedAt ? new Date(row.endedAt).toLocaleString() : new Date(row.startedAt).toLocaleString(),
     dur: fmt(durS), recorded: row.recording?.status === 'saved', recordingId: row.recording?.id || null,
     scores: { pace: payload.scores?.pace ?? null, volume: payload.scores?.volume ?? null, variety: payload.scores?.variety ?? null },
     wpmAvg: payload.wpmLastObserved ?? payload.metrics?.SPEED_WPM?.wordsPerMinute ?? payload.wpmAvg ?? null, total: Math.max(1, durS),
-    counters: { nods: payload.counters?.nods ?? 0, smiles: payload.counters?.smiles ?? 0, gestures: payload.counters?.gestures ?? 0, handsPct: payload.counters?.handsPct ?? null },
-    events: Array.isArray(payload.events) ? payload.events : [], payload,
+    counters: { nods: payload.counters?.nods ?? null, smiles: payload.counters?.smiles ?? null, gestures: payload.counters?.gestures ?? null, handsPct: payload.counters?.handsPct ?? null },
+    events: Array.isArray(payload.events) ? payload.events : [],
+    history: Array.isArray(payload.history) ? payload.history : [], payload,
   };
 }
 
@@ -54,6 +56,46 @@ const EV_META = {
   answer: { color: 'var(--g-gold)', icon: '■', pos: true },
   cue: { color: 'var(--g-gold)', icon: '↕', pos: false },
 };
+
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
+function flightRecorderMarkup(model) {
+  const total = Math.max(1, model.total);
+  const history = model.history || [];
+  const traces = [
+    ['VOLUME', 'vol', 'var(--g-teal)'],
+    ['PITCH', 'pitch', 'var(--g-violet)'],
+    ['PACE', 'pace', 'var(--g-cyan)'],
+  ];
+  const stateColors = { LISTENING: '#3f6bd8', THINKING: '#8b7cf7', ANSWERING: '#2fbf63', PAUSE: '#ffc24b', TRANSITION: '#8fa0d9', SETUP: '#57628a' };
+  const stateRuns = intervalRuns(history, point => point.state || 'UNAVAILABLE', total);
+  const handRuns = intervalRuns(history, point => point.hands || 'NONE', total);
+  const eventRows = [
+    ['GESTURES', model.events.filter(event => event.kind === 'gesture')],
+    ['SMILES + NODS', model.events.filter(event => event.kind === 'smile' || event.kind === 'nod')],
+    ['COACHING', model.events.filter(event => event.kind === 'cue')],
+  ];
+  const lane = (label, body, group) => `<div class="fr-lane" data-fr-lane="${group}"><div class="fr-label">${label}</div><div class="fr-track">${body}</div></div>`;
+  const realTraceLanes = traces.map(([label, key, color]) => lane(label,
+    tracePath(history, key, total)
+      ? `<svg viewBox="0 0 100 30" preserveAspectRatio="none"><path d="${tracePath(history, key, total)}" stroke="${color}"/></svg>`
+      : '<span class="fr-unavail">UNAVAILABLE · NO OBSERVED RUN</span>', 'voice')).join('');
+  const stateLane = lane('CONVERSATION STATE', stateRuns.map(run => `<i class="fr-run" style="left:${run.left}%;width:${run.width}%;background:${stateColors[run.value] || '#57628a'}" title="${esc(run.value)}"></i>`).join('') || '<span class="fr-unavail">NO STATE HISTORY</span>', 'behavior');
+  const handsLane = lane('HAND VISIBILITY', handRuns.map(run => `<i class="fr-run hands-${esc(run.value).toLowerCase()}" style="left:${run.left}%;width:${run.width}%" title="${esc(run.value)}"></i>`).join('') || '<span class="fr-unavail">NO HAND HISTORY</span>', 'behavior');
+  const chipLanes = eventRows.map(([label, events]) => lane(label,
+    events.length ? events.map(event => `<button class="fr-chip" data-seek="${Number(event.t) || 0}" style="left:${Math.max(0, Math.min(100, (Number(event.t) || 0) / total * 100))}%" title="${esc(event.label)}">${esc(event.label)}</button>`).join('') : '<span class="fr-unavail">NO VALIDATED EVENTS</span>', 'events')).join('');
+  return `<section class="flight-recorder">
+    <div class="fr-head">
+      <span class="fr-badge">FR-C</span>
+      <div><b>SESSION FLIGHT RECORDER</b><small>EVIDENCE, NOT VERDICT · CHIPS SEEK WITH 2-SECOND PRE-ROLL · GAPS STAY VISIBLE</small></div>
+      <div class="fr-groups"><button class="on" data-fr-group="voice">VOICE</button><button class="on" data-fr-group="behavior">BEHAVIOR</button><button class="on" data-fr-group="events">EVENTS</button></div>
+    </div>
+    <div class="fr-ruler"><span>00:00</span><span>${fmt(total / 2)}</span><span>${fmt(total)}</span></div>
+    <div class="fr-lanes">${realTraceLanes}${stateLane}${handsLane}${chipLanes}<i class="fr-playhead" id="frPlayhead"></i></div>
+  </section>`;
+}
 
 /* ================= RESULTS ================= */
 async function resultsScreen(el, { param }) {
@@ -109,7 +151,7 @@ async function resultsScreen(el, { param }) {
         </div>`).join('')}
       </div>
       <div class="res-counters">
-        ${counters.map(([k, v]) => `<div class="rcount"><em>${k}</em><b>${v}</b></div>`).join('')}
+        ${counters.map(([k, v]) => `<div class="rcount"><em>${k}</em><b>${v ?? '—'}</b></div>`).join('')}
       </div>
       <div class="res-progression">
         <span class="chip teal"><span class="dot"></span>STRUCTURED RESULTS SAVED</span>
@@ -118,6 +160,8 @@ async function resultsScreen(el, { param }) {
       </div>
     </div>
   </div>
+
+  ${flightRecorderMarkup(m)}
 
   <div class="res-moments">
     <div class="mom-col">
@@ -182,6 +226,18 @@ async function resultsScreen(el, { param }) {
     if (video.src !== playback.url) video.src = playback.url;
     video.hidden = false;
     el.querySelector('.rr-art').hidden = true;
+    if (!video.dataset.flightBound) {
+      video.dataset.flightBound = 'true';
+      video.addEventListener('timeupdate', () => {
+        const percent = Math.max(0, Math.min(100, video.currentTime / m.total * 100));
+        const flightHead = el.querySelector('#frPlayhead');
+        const replayHead = el.querySelector('#rrHead');
+        if (flightHead) flightHead.style.left = `calc(176px + (100% - 176px) * ${percent / 100})`;
+        if (replayHead) replayHead.style.left = `${percent}%`;
+        const pos = el.querySelector('#rrPos');
+        if (pos) pos.textContent = fmt(video.currentTime);
+      });
+    }
     return video;
   }
   function downloadJson() {
@@ -193,11 +249,20 @@ async function resultsScreen(el, { param }) {
   el.addEventListener('click', e => {
     const seek = e.target.closest('[data-seek]');
     if (seek) {
-      const t = +seek.dataset.seek;
+      const eventT = +seek.dataset.seek;
+      const t = seek.classList.contains('fr-chip') ? Math.max(0, eventT - 2) : eventT;
       const head = el.querySelector('#rrHead');
       const pos = el.querySelector('#rrPos');
       if (head) { head.style.left = `${(t / m.total) * 100}%`; pos.textContent = fmt(t); }
-      void ensureReplay().then((video) => { if (video) { video.currentTime = t; void video.play(); toast(`Replay seek → ${fmt(t)}`, 'info'); } });
+      const flightHead = el.querySelector('#frPlayhead');
+      if (flightHead) flightHead.style.left = `calc(176px + (100% - 176px) * ${Math.max(0, Math.min(1, t / m.total))})`;
+      void ensureReplay().then((video) => { if (video) { video.currentTime = t; void video.play(); toast(`Replay seek → ${fmt(t)}${seek.classList.contains('fr-chip') ? ' (−2s context)' : ''}`, 'info'); } });
+      return;
+    }
+    const group = e.target.closest('[data-fr-group]');
+    if (group) {
+      group.classList.toggle('on');
+      el.querySelectorAll(`[data-fr-lane="${group.dataset.frGroup}"]`).forEach(lane => { lane.hidden = !group.classList.contains('on'); });
       return;
     }
     if (e.target.closest('[data-replay]')) { void ensureReplay().then((video) => video?.play()); return; }
@@ -220,10 +285,13 @@ function rowScores(row) {
   const scores = row.results?.payload?.scores || {};
   return { pace: scores.pace ?? null, volume: scores.volume ?? null, variety: scores.variety ?? null };
 }
-function rowDuration(row) { return fmt(Number(row.durationMs || row.recording?.durationMs || 0) / 1000); }
+function rowDuration(row) { return fmt(Number(row.recording?.durationMs ?? row.durationMs ?? 0) / 1000); }
 function scoreText(value) { return value != null && Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '—'; }
 async function libraryScreen(el) {
   let filter = 'all';
+  let query = '';
+  let sort = 'newest';
+  let view = 'list';
   const payload = await ivocApi.library();
   const sessions = payload.sessions || [];
   el.innerHTML = `
@@ -236,14 +304,17 @@ async function libraryScreen(el) {
     ${[['all', 'ALL'], ['quick', 'QUICK'], ['question', 'QUESTION'], ['mock', 'MOCK'], ['reviewed', 'REVIEWED'], ['pending', 'PENDING REVIEW']]
       .map(([v, l]) => `<button class="qcat ${v === 'all' ? 'on' : ''}" data-focusable data-f="${v}" style="--cc:var(--g-gold)"><span>${l}</span></button>`).join('')}
   </div>
-  <div class="lib-grid" id="libGrid"></div>`;
+  <div class="lib-tools">
+    <label class="lib-search"><span>SEARCH</span><input id="libSearch" type="search" placeholder="Session title or interview question" autocomplete="off"></label>
+    <label class="lib-sort"><span>SORT</span><select id="libSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="score">Highest coaching score</option></select></label>
+    <div class="lib-view" aria-label="Library view"><button class="on" data-view="list">LIST</button><button data-view="grid">GRID</button></div>
+  </div>
+  <div class="lib-grid list" id="libGrid"></div>`;
 
   const grid = el.querySelector('#libGrid');
   function paint() {
-    const rows = sessions.filter(s =>
-      filter === 'all' ? true :
-        filter === 'reviewed' ? s.reviewStatus === 'reviewed' :
-          filter === 'pending' ? s.reviewStatus !== 'reviewed' : s.sessionType === filter);
+    const rows = selectLibrarySessions(sessions, { filter, query, sort, scoreOf: rowScores });
+    grid.className = `lib-grid ${view}`;
     grid.innerHTML = rows.map((s, i) => {
       const scores = rowScores(s);
       const q = qOf(s.questionId);
@@ -263,11 +334,19 @@ async function libraryScreen(el) {
       `<div class="lib-empty"><span class="le-art" style="background-image:${sceneDataUri('library')}"></span><b>No recordings here yet.</b><span>Start your first session — it lands in your library automatically.</span></div>`;
   }
   paint();
+  el.querySelector('#libSearch').addEventListener('input', event => { query = event.target.value.trim().toLowerCase(); paint(); });
+  el.querySelector('#libSort').addEventListener('change', event => { sort = event.target.value; paint(); });
   el.addEventListener('click', e => {
     const f = e.target.closest('[data-f]');
     if (f) {
       filter = f.dataset.f;
       el.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('on', x === f));
+      paint(); return;
+    }
+    const viewButton = e.target.closest('[data-view]');
+    if (viewButton) {
+      view = viewButton.dataset.view;
+      el.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('on', button === viewButton));
       paint(); return;
     }
     const open = e.target.closest('[data-open]');
@@ -392,7 +471,9 @@ function settingsScreen(el) {
 /* ================= MENTOR ================= */
 async function mentorScreen(el) {
   if (!account.identity?.mentor && !account.identity?.admin) { go('home'); return; }
-  const queue = (await ivocApi.library(account.identity.admin ? 'all' : 'assigned')).sessions?.filter((s) => s.reviewStatus !== 'reviewed') || [];
+  const sessions = (await ivocApi.library(account.identity.admin ? 'all' : 'assigned')).sessions || [];
+  let mentorFilter = 'pending';
+  let mentorQuery = '';
   el.innerHTML = `
   <div class="topline">
     <span class="crumb">MENTOR REVIEW / <b>YOUR STUDENTS</b></span>
@@ -401,16 +482,12 @@ async function mentorScreen(el) {
   </div>
   <div class="mentor-body">
     <section class="panel">
-      <div class="t-label pl-title">REVIEW QUEUE · ${queue.length} PENDING</div>
-      ${queue.map((s, i) => { const scores = rowScores(s); return `
-      <div class="ment-row">
-        <button class="hist-row" data-focusable ${i === 0 ? 'data-autofocus' : ''} data-open="${s.id}" style="flex:1">
-          <span class="hr-art" style="background-image:${sceneDataUri(MODE_ART[s.sessionType] || 'mock')}"></span>
-          <span class="hr-tx"><b>${s.title}</b><small>${new Date(s.startedAt).toLocaleString()} · ${rowDuration(s)}</small></span>
-          <span class="hr-scores">${scoreText(scores.pace)} · ${scoreText(scores.volume)} · ${scoreText(scores.variety)}</span>
-        </button>
-        <button class="btn btn-quiet" data-focusable data-rev="${s.id}">✓ MARK REVIEWED</button>
-      </div>`; }).join('') || '<div class="mom-empty">Queue clear — every assigned recording reviewed.</div>'}
+      <div class="mentor-toolbar">
+        <div><div class="t-label pl-title">REVIEW QUEUE</div><small>${sessions.filter(row => row.reviewStatus !== 'reviewed').length} PENDING · ${sessions.length} ASSIGNED</small></div>
+        <label class="lib-search"><span>FIND STUDENT / SESSION</span><input id="mentorSearch" type="search" placeholder="Search review queue"></label>
+        <div class="mentor-filters"><button class="on" data-mf="pending">PENDING</button><button data-mf="reviewed">REVIEWED</button><button data-mf="all">ALL</button></div>
+      </div>
+      <div id="mentorRows"></div>
     </section>
     <section class="panel">
       <div class="t-label pl-title">HOW MENTOR ACCESS WORKS</div>
@@ -419,7 +496,28 @@ async function mentorScreen(el) {
       </div>
     </section>
   </div>`;
+  const rowsHost = el.querySelector('#mentorRows');
+  function paintMentorRows() {
+    const rows = selectMentorSessions(sessions, { filter: mentorFilter, query: mentorQuery });
+    rowsHost.innerHTML = rows.map((s, i) => { const scores = rowScores(s); const reviewed = s.reviewStatus === 'reviewed'; return `
+    <div class="ment-row ${reviewed ? 'reviewed' : ''}">
+      <button class="hist-row" data-focusable ${i === 0 ? 'data-autofocus' : ''} data-open="${s.id}" style="flex:1">
+        <span class="hr-art" style="background-image:${sceneDataUri(MODE_ART[s.sessionType] || 'mock')}"></span>
+        <span class="hr-tx"><b>${esc(s.studentName || s.title)}</b><small>${esc(s.title)} · ${new Date(s.startedAt).toLocaleString()} · ${rowDuration(s)}</small></span>
+        <span class="hr-scores">PACE ${scoreText(scores.pace)} · VOL ${scoreText(scores.volume)} · VAR ${scoreText(scores.variety)}</span>
+      </button>
+      ${reviewed ? '<span class="chip teal">✓ REVIEWED</span>' : `<button class="btn btn-quiet" data-focusable data-rev="${s.id}">✓ MARK REVIEWED</button>`}
+    </div>`; }).join('') || '<div class="mom-empty">No sessions match this review view.</div>';
+  }
+  paintMentorRows();
+  el.querySelector('#mentorSearch').addEventListener('input', event => { mentorQuery = event.target.value.trim().toLowerCase(); paintMentorRows(); });
   el.addEventListener('click', e => {
+    const filterButton = e.target.closest('[data-mf]');
+    if (filterButton) {
+      mentorFilter = filterButton.dataset.mf;
+      el.querySelectorAll('[data-mf]').forEach(button => button.classList.toggle('on', button === filterButton));
+      paintMentorRows(); return;
+    }
     const rev = e.target.closest('[data-rev]');
     if (rev) {
       void ivocApi.markReviewed(rev.dataset.rev).then(() => { toast('Marked reviewed — the student sees this immediately.', 'save'); mentorScreen(el); });

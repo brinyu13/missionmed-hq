@@ -1147,6 +1147,25 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     });
   }
 
+  beginPersonalFaceBaseline() {
+    if (this.faceFamily.hasPersonalBaseline()) {
+      return Object.freeze({ capturing: false, available: true, reason: 'PERSONAL_BASELINE_RETAINED' });
+    }
+    this.faceFamily.beginBaseline();
+    this.faceBaselineCapturing = true;
+    return Object.freeze({ capturing: true, available: false, reason: 'CAPTURING_PERSONAL_FACE_BASELINE' });
+  }
+
+  endPersonalFaceBaseline() {
+    if (this.faceBaselineCapturing) this.faceFamily.endBaseline();
+    this.faceBaselineCapturing = false;
+    return Object.freeze({
+      capturing: false,
+      available: this.faceFamily.hasPersonalBaseline(),
+      reason: this.faceFamily.hasPersonalBaseline() ? null : 'INSUFFICIENT_FACE_BASELINE_FRAMES',
+    });
+  }
+
   clearPersonalCalibration() {
     this.pitchTrack.reset({ preserveCalibration: false });
     this.faceFamily.clearPersonalBaseline();

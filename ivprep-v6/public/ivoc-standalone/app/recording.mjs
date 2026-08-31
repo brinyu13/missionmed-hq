@@ -50,7 +50,7 @@ async function putWithRetry(url, blob, { attempts = 4, chunkSize = 5 * 1024 * 10
 }
 
 export class AccountRecordingController extends EventTarget {
-  constructor({ api, stream, enabled = true, sessionId, title, questionId } = {}) {
+  constructor({ api, stream, enabled = true, sessionId, title, questionId, now = () => performance.now() } = {}) {
     super();
     this.api = api;
     this.stream = stream;
@@ -58,24 +58,26 @@ export class AccountRecordingController extends EventTarget {
     this.sessionId = sessionId;
     this.title = title;
     this.questionId = questionId;
+    this.now = now;
     this.mime = supportedMime();
     this.recorder = null;
     this.chunks = [];
     this.recording = null;
-    this.startedAt = 0;
+    this.startedAt = null;
     this.pausedAt = null;
     this.pausedMs = 0;
     this.pausedSpans = [];
     this.finalBlob = null;
+    this.finalElapsedMs = null;
     this.state = this.enabled ? 'READY' : 'OFF';
   }
 
   emit() { this.dispatchEvent(new CustomEvent('state', { detail: this.snapshot() })); }
   snapshot() {
-    const now = performance.now();
-    const elapsedMs = this.startedAt
+    const now = this.now();
+    const elapsedMs = this.finalElapsedMs ?? (this.startedAt !== null
       ? Math.max(0, (this.pausedAt ?? now) - this.startedAt - this.pausedMs)
-      : 0;
+      : 0);
     return Object.freeze({ state: this.state, elapsedMs, recordingId: this.recording?.id || null });
   }
 
@@ -91,7 +93,11 @@ export class AccountRecordingController extends EventTarget {
     this.recorder.addEventListener('dataavailable', (event) => {
       if (event.data?.size) this.chunks.push(event.data);
     });
-    this.startedAt = performance.now();
+    this.startedAt = this.now();
+    this.pausedAt = null;
+    this.pausedMs = 0;
+    this.pausedSpans = [];
+    this.finalElapsedMs = null;
     this.state = 'RECORDING';
     this.recorder.start(5_000);
     this.emit();
@@ -101,7 +107,7 @@ export class AccountRecordingController extends EventTarget {
   pause() {
     if (this.state !== 'RECORDING') return false;
     this.recorder.pause();
-    this.pausedAt = performance.now();
+    this.pausedAt = this.now();
     this.pausedSpans.push({ startMs: Math.round(this.pausedAt - this.startedAt) });
     this.state = 'PAUSED';
     this.emit();
@@ -110,9 +116,10 @@ export class AccountRecordingController extends EventTarget {
 
   resume() {
     if (this.state !== 'PAUSED') return false;
-    this.pausedMs += performance.now() - this.pausedAt;
+    const now = this.now();
+    this.pausedMs += now - this.pausedAt;
     const span = this.pausedSpans.at(-1);
-    if (span && span.endMs == null) span.endMs = Math.round(performance.now() - this.startedAt);
+    if (span && span.endMs == null) span.endMs = Math.round(now - this.startedAt);
     this.pausedAt = null;
     this.recorder.resume();
     this.state = 'RECORDING';
@@ -123,7 +130,14 @@ export class AccountRecordingController extends EventTarget {
   async stopAndSeal() {
     if (this.state === 'ERROR' && this.finalBlob) return this.uploadAndSeal(this.finalBlob);
     if (!['RECORDING', 'PAUSED'].includes(this.state)) return null;
-    if (this.state === 'PAUSED') this.resume();
+    const stoppedAt = this.now();
+    if (this.pausedAt !== null) {
+      this.pausedMs += stoppedAt - this.pausedAt;
+      const span = this.pausedSpans.at(-1);
+      if (span && span.endMs == null) span.endMs = Math.round(stoppedAt - this.startedAt);
+      this.pausedAt = null;
+    }
+    this.finalElapsedMs = Math.max(0, stoppedAt - this.startedAt - this.pausedMs);
     this.state = 'FINALIZING';
     this.emit();
     const stopped = new Promise((resolve) => this.recorder.addEventListener('stop', resolve, { once: true }));
@@ -143,14 +157,14 @@ export class AccountRecordingController extends EventTarget {
       });
       const sealed = await this.api.sealRecording(this.recording.id, {
         sizeBytes: blob.size,
-        durationMs: Math.round(this.snapshot().elapsedMs),
+        durationMs: Math.round(this.finalElapsedMs ?? 0),
         mime: blob.type,
         uploadToken: this.recording.uploadToken,
         uploadExpiresAtMs: this.recording.uploadExpiresAtMs,
         pausedSpans: this.pausedSpans,
       });
       this.state = 'SAVED'; this.emit();
-      return { ...sealed, blob };
+      return { ...sealed, blob, durationMs: Math.round(this.finalElapsedMs ?? 0), pausedSpans: this.pausedSpans.map((span) => ({ ...span })) };
     } catch (error) {
       this.state = 'ERROR'; this.emit();
       throw error;

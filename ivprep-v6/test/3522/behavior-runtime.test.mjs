@@ -64,6 +64,35 @@ test('behavior runtime gates setup then state-tags answering, pause, orientation
   assert.equal(runtime.latest.orientation.state, 'PAUSE_LONG');
 });
 
+test('explicit analytics start establishes listening immediately and independent voiced F0 can begin answering', () => {
+  const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
+  runtime.beginInterview(0, { explicitMeasurementStart: true });
+  assert.equal(runtime.latest.conversation.state, 'LISTENING');
+  runtime.ingestDiagnostic(audio(100, false, {
+    speaking: false,
+    pitch: { voiced: true, f0Hz: 150, summary: { available: true, medianHz: 150 } },
+  }));
+  assert.equal(runtime.latest.audio.speaking, true);
+  assert.equal(runtime.latest.conversation.state, 'ANSWERING');
+  runtime.ingestDiagnostic(vision(200));
+  assert.equal(runtime.latest.conversation.state, 'ANSWERING');
+});
+
+test('standalone behavior runtime admits listening nod evidence at the production 8 FPS floor', () => {
+  const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
+  runtime.beginInterview(0, { explicitMeasurementStart: true });
+  for (let index = 0; index < 10; index += 1) {
+    runtime.ingestDiagnostic({ ...vision(index * 125), targetFps: 8 });
+  }
+  runtime.ingestDiagnostic({ ...vision(1_250), targetFps: 8, geometry: {
+    ...vision(1_250).geometry,
+    face: { ...vision(1_250).geometry.face, pitchDeg: 9 },
+  } });
+  runtime.ingestDiagnostic({ ...vision(1_375), targetFps: 8 });
+  assert.equal(runtime.latest.nod.available, true);
+  assert.equal(runtime.latest.nod.count, 1);
+});
+
 test('WPM stays unavailable without observed per-word timestamps even when aggregate counts exist', () => {
   const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
   runtime.ingestWordTiming({

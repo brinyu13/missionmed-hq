@@ -19,7 +19,8 @@ function corridorScore(value, [lo, hi]) {
 }
 
 function stateName(value) {
-  const name = String(value || 'LISTENING').toUpperCase();
+  const name = String(value || 'SETUP').toUpperCase();
+  if (name === 'SETUP') return 'SETUP';
   if (name.includes('ANSWER')) return 'ANSWERING';
   if (name.includes('PAUSE_LONG')) return 'PAUSE';
   if (name.includes('THINK') || name.includes('PAUSE_SHORT') || name.includes('TRANSITION_TO_ANSWER')) return 'THINKING';
@@ -74,16 +75,24 @@ export class RealAnalyticsEngine extends EventTarget {
     this.lastCounts = { smiles: 0, nods: 0, gestures: 0 };
     this.wordTimingState = { state: 'idle', reason: 'WAITING_FOR_TIMED_WORDS' };
     this.latestAudioSpeaking = false;
+    this.faceBaselineTimer = null;
+    this.faceBaselineState = { capturing: false, available: false, reason: 'NOT_STARTED' };
     this.overlayVisibility = { face: true, hands: true, body: true, position: true };
     this.onDiagnostic = (event) => this.consumeDiagnostic(event.detail || {});
     this.onPipelineState = (event) => this.dispatchEvent(new CustomEvent('pipeline-state', { detail: event.detail || {} }));
   }
 
-  async start() {
+  async start({ cameraDeviceId = '', microphoneDeviceId = '' } = {}) {
     this.bridge.primeAudioContext();
     const media = await this.bridge.requestMedia({
-      audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+      audio: {
+        channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false,
+        ...(microphoneDeviceId ? { deviceId: { exact: microphoneDeviceId } } : {}),
+      },
+      video: {
+        width: { ideal: 1280 }, height: { ideal: 720 },
+        ...(cameraDeviceId ? { deviceId: { exact: cameraDeviceId } } : { facingMode: 'user' }),
+      },
     });
     this.video.srcObject = media.stream;
     await this.video.play();
@@ -97,11 +106,18 @@ export class RealAnalyticsEngine extends EventTarget {
     // Entering the cockpit begins the real measurement/interview state machine.
     // Without this explicit boundary the behavior runtime remains in SETUP and
     // every genuine microphone observation is mislabeled as LISTENING.
-    this.behavior.beginInterview(0);
+    this.behavior.beginInterview(0, { explicitMeasurementStart: true });
     this.latestAudioSpeaking = false;
     this.bridge.startAnalytics({ videoElement: this.video });
     this.clock = this.bridge.sessionClock;
     this.running = true;
+    this.faceBaselineState = this.pipeline.beginPersonalFaceBaseline?.() || this.faceBaselineState;
+    if (this.faceBaselineState.capturing) {
+      this.faceBaselineTimer = setTimeout(() => {
+        this.faceBaselineState = this.pipeline?.endPersonalFaceBaseline?.() || this.faceBaselineState;
+        this.faceBaselineTimer = null;
+      }, 3_000);
+    }
     void this.transcript.start({
       stream: media.stream,
       pipeline: this.pipeline,
@@ -126,9 +142,9 @@ export class RealAnalyticsEngine extends EventTarget {
 
   consumeDiagnostic(detail) {
     if (detail.modality === 'audio') {
-      this.latestAudioSpeaking = detail.vad?.available === true
-        ? detail.vad.speaking === true
-        : detail.speaking === true;
+      this.latestAudioSpeaking = detail.vad?.speaking === true
+        || detail.speaking === true
+        || detail.pitch?.voiced === true;
     }
     this.behavior.setCoachingMode('TRAINING');
     const enriched = detail.modality === 'vision' && !detail.faceFamilySummary
@@ -156,11 +172,11 @@ export class RealAnalyticsEngine extends EventTarget {
   }
 
   recordHistory(frame, force = false) {
-    if (!frame || (!force && frame.t - this.lastHistoryAt < .2)) return;
+    if (!frame || (!force && frame.t - this.lastHistoryAt < .5)) return;
     this.lastHistoryAt = frame.t;
     this.history.push({
       t: frame.t,
-      vol: frame.volume.available ? clamp((frame.volume.speechLufsK + 48) / 48, 0, 1) : null,
+      vol: frame.volume.available ? frame.volume.normalized : null,
       pitch: frame.speaking && frame.pitch.available && frame.pitch.voiced && frame.pitch.semitonesFromSpeakerMedian != null
         ? clamp((frame.pitch.semitonesFromSpeakerMedian + 6) / 12, 0, 1)
         : null,
@@ -168,8 +184,15 @@ export class RealAnalyticsEngine extends EventTarget {
         ? clamp((frame.speedWpm.wordsPerMinute - 90) / 130, 0, 1)
         : null,
       speaking: frame.speaking,
+      state: frame.state,
+      hands: frame.bodyHands.visibility,
+      nods: frame.headFace.nods,
+      smiles: frame.headFace.smileEvents,
+      gestures: frame.bodyHands.gestures,
     });
-    if (this.history.length > 3_000) this.history.splice(0, 500);
+    // 0.5 s cadence retains a complete two-hour observation timeline without
+    // deleting the beginning of a long session.
+    if (this.history.length > 14_400) this.history.shift();
   }
 
   recordCountEvents(frame) {
@@ -179,6 +202,7 @@ export class RealAnalyticsEngine extends EventTarget {
       ['gestures', 'gesture', 'Observed gesture unit'],
     ]) {
       const current = key === 'smiles' ? frame.headFace.smileEvents : key === 'nods' ? frame.headFace.nods : frame.bodyHands.gestures;
+      if (!Number.isFinite(current)) continue;
       if (current > this.lastCounts[key]) this.events.push({ t: frame.t, kind, label });
       this.lastCounts[key] = current;
     }
@@ -193,21 +217,29 @@ export class RealAnalyticsEngine extends EventTarget {
     const head = m.HEAD_FACE || {};
     const body = m.BODY_HANDS || {};
     const wpm = finite(speed.wordsPerMinute);
-    const loudness = finite(volume.speechLufsK, finite(volume.dbfs));
+    const speechLufsK = finite(volume.speechLufsK);
+    const dbfs = finite(volume.dbfs);
+    const loudness = speechLufsK ?? dbfs;
+    const loudnessUnit = speechLufsK !== null ? 'LUFS-K' : dbfs !== null ? 'dBFS' : null;
+    const loudnessCorridor = speechLufsK !== null ? [-30, -18] : [-42, -18];
     const range = finite(modulation.speechModulationRangeLu, finite(modulation.rangeDb));
     const paceScore = speed.available ? corridorScore(wpm, CALIBRATION.paceCorridor) : null;
     // Camera diagnostics arrive much faster than audio diagnostics. Persist the
     // latest microphone/VAD truth so a vision frame cannot erase speaking state.
     const speaking = this.latestAudioSpeaking || stateName(behavior?.conversation?.state) === 'ANSWERING';
-    const volumeObserved = volume.available === true && speaking;
+    const volumeObserved = volume.available === true && loudness !== null;
     const variety = vocalVarietyProjection(pitch, modulation);
     const varietyObserved = variety.score !== null && speaking;
-    const volumeScore = volumeObserved ? corridorScore(loudness, [-30, -18]) : null;
+    const volumeScore = volumeObserved ? corridorScore(loudness, loudnessCorridor) : null;
     const varietyScore = varietyObserved ? variety.score : null;
     const hands = body.hands || {};
-    const nods = finite(head.headNods?.eventCount, finite(head.headNods?.count, 0));
-    const smiles = finite(head.smileEvents?.count, 0);
-    const gestures = finite(body.gestureUnits?.eventCount, finite(body.gestureEvents?.count, 0));
+    const nodsAvailable = head.headNods?.available === true;
+    const smilesAvailable = head.smileEvents?.available === true;
+    const gesturesAvailable = body.gestureUnits?.rateAvailable === true
+      || body.gestureUnits?.available === true;
+    const nods = nodsAvailable ? finite(head.headNods?.eventCount, finite(head.headNods?.count, 0)) : null;
+    const smiles = smilesAvailable ? finite(head.smileEvents?.count, 0) : null;
+    const gestures = gesturesAvailable ? finite(body.gestureUnits?.eventCount, 0) : null;
     const facingRatio = finite(head.cameraFacingDwell?.cameraFacingRatio);
     const gestureRate = finite(body.gestureUnits?.unitsPerSpeakingMinute);
     return {
@@ -223,11 +255,18 @@ export class RealAnalyticsEngine extends EventTarget {
       },
       volume: {
         available: volumeObserved,
-        speechLufsK: loudness,
-        deltaLu: loudness == null ? null : loudness + 24,
+        speakingObserved: speaking,
+        scientificValue: loudness,
+        scientificUnit: loudnessUnit,
+        speechLufsK,
+        dbfs,
+        normalized: finite(volume.normalized),
+        deltaLu: speechLufsK == null ? null : speechLufsK + 24,
         score: volumeScore,
-        cue: direction(loudness, [-30, -18]),
-        holdReason: volumeObserved ? null : speaking ? volume.reason || 'WAITING FOR MICROPHONE' : 'SPEECH-GATED · LISTENING',
+        cue: direction(loudness, loudnessCorridor),
+        corridor: loudnessCorridor,
+        corridorBasis: speechLufsK !== null ? 'VALIDATED_LUFS_K_REFERENCE' : 'DEVICE_DBFS_REFERENCE',
+        holdReason: volumeObserved ? null : volume.reason || 'WAITING FOR MICROPHONE',
       },
       volumeModulation: {
         available: varietyObserved,
@@ -255,7 +294,12 @@ export class RealAnalyticsEngine extends EventTarget {
       },
       headFace: {
         nods,
+        nodsAvailable,
+        nodsUnavailableReason: nodsAvailable ? null : head.headNods?.reason || 'NO_VALIDATED_HEAD_NOD_DETECTOR',
         smileEvents: smiles,
+        smileEventsAvailable: smilesAvailable,
+        smileEventsUnavailableReason: smilesAvailable ? null : head.smileEvents?.reason || 'PERSONAL_BASELINE_REQUIRED',
+        faceBaseline: { ...this.faceBaselineState },
         presence: head.facePresent ? 'TRACKED' : 'SEARCHING',
         cameraFacingPct: facingRatio == null ? (head.orientation?.cameraFacingProxy === true ? 100 : 0) : Math.round(facingRatio * 100),
         mouthActive: head.mouthCornerElevation?.active === true,
@@ -275,6 +319,9 @@ export class RealAnalyticsEngine extends EventTarget {
               ? 'RIGHT'
               : 'NONE',
         gestures,
+        gesturesAvailable,
+        gestureUnavailableReason: gesturesAvailable ? null : body.gestureUnits?.rateUnavailableReason || body.gestureUnits?.reason || 'NO_GESTURE_UNIT_EVIDENCE',
+        rawGestureActivityCount: finite(body.gestureEvents?.count),
         gestureRate,
         gestureState: body.gestureUnits?.corridorState || 'UNAVAILABLE',
         inFrame: body.upperBodyPresent === true,
@@ -315,6 +362,11 @@ export class RealAnalyticsEngine extends EventTarget {
   async finish() {
     if (!this.running) return null;
     this.transcript.stop();
+    if (this.faceBaselineTimer !== null) {
+      clearTimeout(this.faceBaselineTimer);
+      this.faceBaselineState = this.pipeline?.endPersonalFaceBaseline?.() || this.faceBaselineState;
+      this.faceBaselineTimer = null;
+    }
     const analytics = this.bridge.endAnalytics({ transcript: '', mediaAvailable: true });
     const result = this.behavior.finish({
       answerId: this.pipeline?.answer?.answerId || `ivoc-${Date.now()}`,
@@ -328,6 +380,8 @@ export class RealAnalyticsEngine extends EventTarget {
 
   destroy({ releaseMedia = true } = {}) {
     this.transcript.stop();
+    if (this.faceBaselineTimer !== null) clearTimeout(this.faceBaselineTimer);
+    this.faceBaselineTimer = null;
     this.pipeline?.removeEventListener?.('diagnostic', this.onDiagnostic);
     this.pipeline?.removeEventListener?.('state', this.onPipelineState);
     if (releaseMedia) this.bridge.destroy();

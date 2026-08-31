@@ -52,3 +52,39 @@ test('recording state machine saves, preserves pause spans, and seals account me
     globalThis.fetch = oldFetch;
   }
 });
+
+test('recording duration freezes at stop and excludes pause and upload latency', async () => {
+  const oldRecorder = globalThis.MediaRecorder;
+  const oldFetch = globalThis.fetch;
+  let now = 0;
+  let releaseUpload;
+  globalThis.MediaRecorder = FakeRecorder;
+  globalThis.fetch = async () => new Promise((resolve) => { releaseUpload = () => resolve({ ok: true }); });
+  let seal = null;
+  const api = {
+    csrfToken: 'csrf-token',
+    createRecording: async () => ({ id: 'r2', uploadUrl: 'https://media.test/upload', uploadToken: 'token', uploadExpiresAtMs: Date.now() + 60_000 }),
+    sealRecording: async (_id, body) => { seal = body; return { recording: { id: 'r2', status: 'saved', durationMs: body.durationMs } }; },
+  };
+  try {
+    const controller = new AccountRecordingController({ api, stream: {}, sessionId: 's2', enabled: true, now: () => now });
+    await controller.start();
+    now = 5_000;
+    controller.pause();
+    now = 8_000;
+    controller.resume();
+    now = 12_000;
+    const pending = controller.stopAndSeal();
+    await Promise.resolve();
+    now = 112_000;
+    releaseUpload();
+    const result = await pending;
+    assert.equal(seal.durationMs, 9_000);
+    assert.equal(result.durationMs, 9_000);
+    assert.deepEqual(seal.pausedSpans, [{ startMs: 5_000, endMs: 8_000 }]);
+    assert.equal(controller.snapshot().elapsedMs, 9_000);
+  } finally {
+    globalThis.MediaRecorder = oldRecorder;
+    globalThis.fetch = oldFetch;
+  }
+});
