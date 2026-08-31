@@ -28,13 +28,35 @@ html[data-lor-runtime="live"] body > :not(#lorProductionRoot):not(script) {
   --accentGlow: 57, 214, 255;
 }
 
+.lor-production-root[data-actor="faculty"] {
+  --accent: #55d59f;
+  --accent2: #2bbd8f;
+  --accentGlow: 85, 213, 159;
+}
+
 .lorApprovedHeader {
   visibility: visible !important;
 }
 
 .lorApprovedHeader .logo {
+  flex: 0 0 auto;
   padding: 0;
   text-align: left;
+}
+
+.lorApprovedHeader .top {
+  justify-content: flex-start;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lorApprovedHeader .top::-webkit-scrollbar {
+  display: none;
+}
+
+.lorApprovedHeader .hRight {
+  flex: 0 0 auto;
 }
 
 .lorRoleIdentity {
@@ -84,7 +106,160 @@ html[data-lor-runtime="live"] body > :not(#lorProductionRoot):not(script) {
 
 .lorViewIntro {
   margin-top: 10px;
-  max-width: 780px;
+  max-width: 900px;
+}
+
+.lorApprovedHero {
+  align-items: center;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 179, 64, .13), transparent 68%),
+    linear-gradient(145deg, rgba(38, 28, 23, .76), rgba(19, 25, 38, .88));
+  border: 1px solid rgba(255, 179, 64, .48);
+  border-radius: 20px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .27), inset 0 1px 0 rgba(255, 255, 255, .035);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 24px auto 0;
+  max-width: 920px;
+  padding: 30px clamp(20px, 4vw, 48px);
+  text-align: center;
+}
+
+.lorApprovedHome > .lorViewTitle,
+.lorApprovedHome > .lorViewIntro {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.lorApprovedHome > .lorViewTitle {
+  font-size: clamp(34px, 4.6vw, 58px);
+  max-width: 1200px;
+}
+
+.lorApprovedHero .h2 {
+  font-size: clamp(20px, 2.3vw, 29px);
+  letter-spacing: -.025em;
+}
+
+.lorApprovedHero .sub {
+  max-width: 720px;
+}
+
+.lorHeroAction {
+  margin-top: 8px;
+  min-width: min(310px, 100%);
+}
+
+.lorHomeSecondaryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin: 16px auto 0;
+}
+
+.lorPathGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.lorPathCard {
+  appearance: none;
+  background: linear-gradient(145deg, rgba(19, 25, 39, .92), rgba(15, 20, 33, .9));
+  border: 1px solid var(--line, rgba(255, 255, 255, .1));
+  border-radius: 16px;
+  color: var(--tx, #e9eefb);
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 34px 1fr;
+  min-height: 112px;
+  padding: 18px;
+  text-align: left;
+  transition: border-color .18s ease, transform .18s ease, background .18s ease;
+}
+
+.lorPathCard:hover,
+.lorPathCard:focus-visible {
+  background: linear-gradient(145deg, rgba(31, 32, 43, .98), rgba(18, 24, 37, .96));
+  border-color: rgba(255, 179, 64, .46);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.lorPathIcon {
+  font-size: 23px;
+  line-height: 1.2;
+}
+
+.lorPathCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.lorPathCopy strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.lorPathCopy > span {
+  color: var(--mut, #9aa7bd);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.lorHomeProgress {
+  align-items: center;
+  background: rgba(13, 18, 29, .72);
+  border: 1px solid var(--line, rgba(255, 255, 255, .1));
+  border-radius: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 14px 16px;
+}
+
+.lorHomeProgress .pipe {
+  flex: 1 1 220px;
+  margin: 0 12px 0 0;
+  min-width: 180px;
+}
+
+.lorFounderPrinciple {
+  color: var(--mut, #9aa7bd);
+  font-family: var(--ser, Georgia, serif);
+  font-size: 13px;
+  font-style: italic;
+  margin: 18px auto 0;
+  max-width: 830px;
+  text-align: center;
+}
+
+.lorBuilderBack {
+  margin-top: 18px;
+}
+
+.lorBuilderOverview {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.lorBuilderOverview .lorMetricValue {
+  font-size: clamp(22px, 2.8vw, 34px);
+  overflow-wrap: anywhere;
+}
+
+.lorCompactStart {
+  margin-top: 18px;
+  padding: 20px;
 }
 
 .lorCaseBand {
@@ -147,6 +322,94 @@ html[data-lor-runtime="live"] body > :not(#lorProductionRoot):not(script) {
 
 .lorTemplateDetail {
   padding: 0 16px 14px;
+}
+
+.lorLibraryFilters {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 1.5fr) minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  margin-top: 20px;
+}
+
+.lorLibraryFilters input,
+.lorLibraryFilters select {
+  background: rgba(9, 18, 31, .78);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--tx);
+  font: inherit;
+  min-height: 42px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.lorLibraryFilters input:focus-visible,
+.lorLibraryFilters select:focus-visible {
+  border-color: var(--cy);
+  outline: 2px solid rgba(78, 205, 196, .2);
+  outline-offset: 2px;
+}
+
+.lorLibraryFilters option {
+  color: #111;
+}
+
+.lorLibraryCount {
+  align-self: center;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.lorLibraryDisclosure {
+  margin-top: 14px;
+}
+
+.lorFavoriteButton {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--em);
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  margin-left: auto;
+  padding: 2px 4px;
+}
+
+.lorFavoriteButton:focus-visible {
+  border-radius: 8px;
+  outline: 2px solid var(--cy);
+  outline-offset: 2px;
+}
+
+.lorSyntheticChip {
+  margin: 0 16px 12px;
+}
+
+.lorTemplateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.lorSampleLetter {
+  background: rgba(5, 12, 23, .78);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--tx);
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+  font-size: .95rem;
+  line-height: 1.72;
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+  padding: 20px;
+  white-space: pre-wrap;
+}
+
+.lorFacultyAssistActions {
+  justify-content: center;
+  margin-top: 18px;
 }
 
 .lorMetricsGrid {
@@ -456,12 +719,25 @@ html:not([data-lor-runtime="live"]):not([data-lor-runtime="verification"]) .lor-
   .lorRoleIdentity .plbl { display: none; }
   .lorBuildCallout { padding: 22px 16px; }
   .lorMetricsGrid { grid-template-columns: 1fr; }
+  .lorPathGrid,
+  .lorBuilderOverview { grid-template-columns: 1fr; }
+  .lorApprovedHero { padding: 24px 16px; }
+  .lorHomeSecondaryActions { display: grid; }
+  .lorHomeSecondaryActions .btn { width: 100%; }
+  .lorLibraryFilters { grid-template-columns: 1fr; }
+  .lorLibraryCount { justify-self: start; }
 }
 
 @media (min-width: 561px) and (max-width: 980px) {
   .lorMetricsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lorBuilderOverview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .lorApprovedHeader { gap: 8px; padding-inline: 10px; }
   .lorApprovedHeader .ntab { padding-inline: 9px; }
+}
+
+@media (max-width: 900px) {
+  .lorLiveDataChip,
+  .lorRoleIdentity .plbl { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

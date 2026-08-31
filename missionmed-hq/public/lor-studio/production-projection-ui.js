@@ -52,14 +52,14 @@
   ]);
 
   const BUILDER_STEP_LABELS = Object.freeze({
-    case_basics: 'Case basics',
-    writer_relationship: 'Writer relationship',
-    evidence_selection: 'Evidence selection',
-    timeline_highlights: 'Timeline & highlights',
-    writer_preferences: 'Writer preferences',
-    consent_and_waiver: 'Consent & waiver',
-    review: 'Review',
-    faculty_handoff: 'Faculty handoff',
+    case_basics: 'Letter context',
+    writer_relationship: 'Choose your writer',
+    evidence_selection: 'Evidence portfolio',
+    timeline_highlights: 'Clinical story',
+    writer_preferences: 'Letter direction',
+    consent_and_waiver: 'Privacy & access',
+    review: 'Review packet',
+    faculty_handoff: 'Writer handoff',
   });
 
   const STUDENT_PROJECTION_SCHEMA = 'missionmed.lor.student-projection.v1';
@@ -103,24 +103,31 @@
    */
   const STEP_FIELDS = Object.freeze({
     case_basics: Object.freeze([
+      Object.freeze({ key: 'intentPath', label: 'How you want MissionMed to help', control: 'text' }),
       Object.freeze({ key: 'programType', label: 'Program you are applying to', control: 'text' }),
       Object.freeze({ key: 'applicationCycle', label: 'Application cycle', control: 'text' }),
       Object.freeze({ key: 'summary', label: 'What this letter needs to prove', control: 'textarea' }),
     ]),
     writer_relationship: Object.freeze([
-      Object.freeze({ key: 'writerRole', label: 'How you know this writer', control: 'text' }),
+      Object.freeze({ key: 'writerName', label: 'Faculty writer name', control: 'text' }),
+      Object.freeze({ key: 'writerRole', label: 'Role and specialty', control: 'text' }),
+      Object.freeze({ key: 'institution', label: 'Institution or rotation', control: 'text' }),
+      Object.freeze({ key: 'relationshipLength', label: 'How long they observed your work', control: 'text' }),
       Object.freeze({ key: 'relationshipSummary', label: 'What they have seen you do', control: 'textarea' }),
     ]),
     evidence_selection: Object.freeze([
       Object.freeze({ key: 'priorityEvidence', label: 'The evidence that matters most', control: 'text' }),
       Object.freeze({ key: 'evidenceSummary', label: 'Why that evidence matters', control: 'textarea' }),
+      Object.freeze({ key: 'competencyEvidence', label: 'Competencies this evidence demonstrates', control: 'textarea' }),
     ]),
     timeline_highlights: Object.freeze([
       Object.freeze({ key: 'standoutMoment', label: 'The moment you want named', control: 'text' }),
       Object.freeze({ key: 'timelineSummary', label: 'How that moment unfolded', control: 'textarea' }),
+      Object.freeze({ key: 'outcome', label: 'What changed because of your actions', control: 'textarea' }),
     ]),
     writer_preferences: Object.freeze([
       Object.freeze({ key: 'tonePreference', label: 'Tone you are asking for', control: 'text' }),
+      Object.freeze({ key: 'writingRequest', label: 'What the writer asked you to prepare', control: 'text' }),
       Object.freeze({ key: 'notesForWriter', label: 'Anything else the writer should know', control: 'textarea' }),
     ]),
     consent_and_waiver: Object.freeze([
@@ -614,6 +621,9 @@
     let renderedKind = 'student';
     let selectedStepId = null;
     let selectedAppView = null;
+    let selectedBuildSurface = 'home';
+    let pendingIntentPath = null;
+    let pendingTemplateSelection = null;
     let emptyStartCase = null;
     /** Baseline revision captured when a write left the browser; null when no write is in flight. */
     let pendingSaveBaselineRevision = null;
@@ -658,6 +668,19 @@
     let aiProposal = null;
     let aiEditedText = '';
     let aiNotice = null;
+    let librarySearch = '';
+    let librarySpecialty = 'all';
+    let libraryContext = 'all';
+    let libraryRole = 'all';
+    let libraryDuration = 'all';
+    let libraryTone = 'all';
+    let libraryLength = 'all';
+    let libraryStructure = 'all';
+    let libraryStrength = 'all';
+    let libraryFavoritesOnly = false;
+    const libraryFavorites = new Set();
+    let libraryCompare = [];
+    let libraryOpenSampleId = null;
 
     function resolveMount() {
       if (mount && mount.isConnected !== false) return mount;
@@ -744,6 +767,7 @@
 
       const logo = button('', 'logo', () => {
         selectedAppView = DEFAULT_ROLE_VIEW[kind];
+        if (kind === 'student') selectedBuildSurface = 'home';
         if (renderedProjection) renderCase(renderedProjection, currentState);
         else showEmptyWorkspace({ startCase: emptyStartCase });
       });
@@ -760,6 +784,8 @@
       for (const [viewId, label] of availableViews(kind)) {
         const control = button(label, `ntab${viewId === active ? ' on' : ''}`, () => {
           selectedAppView = viewId;
+          if (kind === 'student' && viewId === 'build') selectedBuildSurface = 'home';
+          if (kind === 'student' && viewId === 'library') libraryFavoritesOnly = false;
           if (renderedProjection) renderCase(renderedProjection, currentState);
           else showEmptyWorkspace({ startCase: emptyStartCase });
         });
@@ -909,7 +935,7 @@
       return Object.assign(Object.create(null), savedStepData(stepId), editsFor(stepId) || {});
     }
 
-    function recordEdit(stepId, key, value) {
+    function stageEdit(stepId, key, value) {
       // Object.create(null), not {}. On a normal object literal `edits['__proto__'] = value`
       // does not create an own property - it hits the prototype setter and the edit vanishes.
       // The student would then type into a field, see "Up to date", and lose the content
@@ -920,6 +946,10 @@
       });
       draftEdits.set(stepId, edits);
       editSequence += 1;
+    }
+
+    function recordEdit(stepId, key, value) {
+      stageEdit(stepId, key, value);
       scheduleAutosave(stepId);
       markUnsavedIndicator();
     }
@@ -1702,7 +1732,7 @@
         children.push(el(
           'p',
           'sub',
-          'The builder is empty. Nothing has been saved to your account for this case yet.',
+          'Your writer-ready packet is ready to begin. Nothing has been saved to this case yet.',
         ));
       }
 
@@ -1732,7 +1762,7 @@
       if (nextStepId) extras.push(el('span', 'chip dashed', `Next: ${BUILDER_STEP_LABELS[nextStepId]}`));
       const saveChip = buildSaveStateChip();
       if (saveChip) extras.push(saveChip);
-      return panel('Eight-step builder', children, extras);
+      return panel('Evidence-first LOR Builder', children, extras);
     }
 
     function buildReceiptsPanel(projection) {
@@ -2324,50 +2354,549 @@
       return panel(title, children, [el('span', 'chip gn', 'Live record')]);
     }
 
-    function buildStudentGuidanceLibrary() {
-      const guides = [
-        {
-          title: 'Direct-observation letter',
-          badge: 'Clinical',
-          detail: 'Open with the writer’s role and observation scope, anchor the body in one witnessed scene, then connect the consequence to the competency it demonstrates.',
-          sequence: 'Role → observed moment → action → consequence → grounded assessment',
-        },
-        {
-          title: 'Department or chair letter',
-          badge: 'Requirement',
-          detail: 'Keep the claim as narrow as the writer’s real observation. Program-required authority never substitutes for direct evidence.',
-          sequence: 'Relationship scope → verified context → bounded claim → program fit',
-        },
-        {
-          title: 'Research mentor letter',
-          badge: 'Longitudinal',
-          detail: 'Use the arc of the work: the question, the student’s contribution, how they handled uncertainty, and what changed because of their work.',
-          sequence: 'Question → contribution → judgment → growth → impact',
-        },
-        {
-          title: 'Applicant-prepared draft',
-          badge: 'Ethical handoff',
-          detail: 'Label authorship, separate student-supplied evidence from faculty judgment, and leave endorsement language for the writer to confirm or replace.',
-          sequence: 'Disclose draft → cite evidence → mark faculty decisions → writer owns final',
-        },
+    function storedBuilderText(projection, stepId, key) {
+      const staged = editsFor(stepId);
+      if (staged && Object.prototype.hasOwnProperty.call(staged, key) && isNonEmptyString(staged[key])) {
+        return staged[key].trim();
+      }
+      const value = projection?.builder?.stepData?.[stepId]?.[key];
+      return isNonEmptyString(value) ? value.trim() : null;
+    }
+
+    function buildPathCard(icon, title, detail, activate) {
+      const card = button('', 'lorPathCard', activate);
+      card.appendChild(el('span', 'lorPathIcon', icon));
+      const copy = el('span', 'lorPathCopy');
+      copy.appendChild(el('strong', null, title));
+      copy.appendChild(el('span', null, detail));
+      card.appendChild(copy);
+      return card;
+    }
+
+    /**
+     * The Founder-approved product home, backed only by the current authorized case. The three
+     * pathways are presentation choices into the same durable builder; they do not invent a writer,
+     * a Timeline rotation, or a synthetic portfolio. Starting a case remains an explicit command.
+     */
+    function buildApprovedStudentHome(view, projection) {
+      view.classList.add('lorApprovedHome');
+      appendViewHeading(
+        view,
+        '',
+        'Build the letter',
+        'they asked you to write.',
+        'LOR Builder turns your real rotations, clinical stories, and verified accomplishments into complete letter materials — your faculty writer reviews, edits, signs, and owns the final.',
+      );
+
+      const hasCase = Boolean(projection);
+      const completed = hasCase ? projection.builder.completedStepIds.length : 0;
+      const enterPath = (intentPath, surface = 'builder', stepId = null) => {
+        selectedBuildSurface = surface;
+        if (stepId) selectedStepId = stepId;
+        if (intentPath) {
+          if (hasCase) stageEdit('case_basics', 'intentPath', intentPath);
+          else pendingIntentPath = intentPath;
+        }
+        if (hasCase) renderCase(renderedProjection, currentState);
+        else if (emptyStartCase) void emptyStartCase();
+      };
+      const openLibrary = (favoritesOnly = false) => {
+        libraryFavoritesOnly = favoritesOnly;
+        selectedAppView = 'library';
+        if (hasCase) renderCase(renderedProjection, currentState);
+        else showEmptyWorkspace({ startCase: emptyStartCase });
+      };
+
+      const hero = el('section', 'lorApprovedHero');
+      hero.appendChild(el('div', 'h2', 'Did your preceptor ask you to write the letter?'));
+      hero.appendChild(el(
+        'p',
+        'sub',
+        'Build a complete, evidence-grounded option, refine the handoff, and give your writer a professional starting point they can freely revise or replace.',
+      ));
+      const heroButton = button(
+        hasCase ? '✦ Continue Build My LOR' : '✦ Build My LOR',
+        'btn pri hero lorHeroAction',
+        () => enterPath(null),
+      );
+      heroButton.id = hasCase ? 'lorContinueBuilder' : 'lorStartCase';
+      hero.appendChild(heroButton);
+      view.appendChild(hero);
+
+      const secondaryActions = el('div', 'lorHomeSecondaryActions');
+      secondaryActions.appendChild(button('Browse Examples & Templates', 'btn alt sm', () => openLibrary(false)));
+      secondaryActions.appendChild(button('Build from a Favorite Template', 'btn alt sm', () => openLibrary(true)));
+      view.appendChild(secondaryActions);
+
+      const paths = el('div', 'lorPathGrid');
+      paths.appendChild(buildPathCard(
+        '✍️',
+        'My preceptor asked me to write the letter',
+        'The guided Builder creates an evidence packet, applicant-prepared option, and polished handoff for their review and signature.',
+        () => enterPath('My preceptor asked me to write the letter', 'builder', 'case_basics'),
+      ));
+      paths.appendChild(buildPathCard(
+        '🧭',
+        'I want to prepare before I ask',
+        'Use the same Builder to organize the request, evidence, deadlines, and writer strategy before an invitation is sent.',
+        () => enterPath('I want to prepare before I ask', 'builder', 'case_basics'),
+      ));
+      paths.appendChild(buildPathCard(
+        '🩺',
+        'My preceptor wants MissionMed to help them draft it',
+        'Prepare the student-owned evidence packet, then invite them into the recipient-bound faculty-private workspace.',
+        () => enterPath('My preceptor wants MissionMed to help them draft it', 'faculty_assist', 'writer_relationship'),
+      ));
+      const continueDetail = hasCase
+        ? `${completed} of ${BUILDER_STEP_IDS.length} sections complete · ${humanize(projection.status)} · Version ${projection.revision}`
+        : 'No case yet — your in-progress recommendation will appear here after you start.';
+      paths.appendChild(buildPathCard(
+        '↩',
+        'Continue a letter',
+        continueDetail,
+        () => enterPath(null, 'builder', projection?.builder?.currentStepId || 'case_basics'),
+      ));
+      view.appendChild(paths);
+
+      if (hasCase) {
+        const progress = el('div', 'lorHomeProgress');
+        progress.appendChild(buildProgressPipe(new Set(projection.builder.completedStepIds), projection.builder.currentStepId));
+        progress.appendChild(el('strong', null, `${completed} of ${BUILDER_STEP_IDS.length} steps complete`));
+        progress.appendChild(el('span', 'sub', ` · ${humanize(projection.status)} · changes are live only after MissionMed confirms them.`));
+        view.appendChild(progress);
+      }
+      view.appendChild(el(
+        'p',
+        'lorFounderPrinciple',
+        'Your preceptor always reviews, edits, approves, and signs the final letter — LOR Builder prepares; it never impersonates.',
+      ));
+    }
+
+    function buildFacultyAssistStart(view, projection) {
+      appendViewHeading(
+        view,
+        'Faculty-assisted path · writer-owned from the start',
+        'Prepare the private handoff.',
+        'Your writer owns the letter.',
+        'Name the writer, publish only the evidence you select, and invite them into a recipient-bound workspace for review, judgment, approval, and release.',
+      );
+      view.appendChild(buildHeader(projection));
+      const grid = el('div', 'grid2 lorViewGrid');
+      grid.appendChild(panel('What you prepare', [
+        row('Writer identity', storedBuilderText(projection, 'writer_relationship', 'writerName') || 'Name the faculty writer and their role.'),
+        row('Observation context', storedBuilderText(projection, 'writer_relationship', 'relationshipSummary') || 'Describe only what they directly observed.'),
+        row('Selected evidence', `${projection.studentEvidence.length} published item(s)`),
+        row('Applicant-prepared material', `${projection.applicantOptions.length} proposal(s), never a faculty endorsement.`),
+      ], [el('span', 'chip cy', 'Student controlled')]));
+      grid.appendChild(panel('What the writer controls', [
+        row('Secure entry', 'Recipient-bound invitation and one-time verification'),
+        row('Private assessment', 'Never returned to the student or mentor projection'),
+        row('Letter wording', 'Writer reviews, edits, replaces, and owns the final'),
+        row('Release', 'Requires explicit faculty approval and signature attestation'),
+      ], [el('span', 'chip gn', 'Faculty owned')]));
+      view.appendChild(grid);
+      const actions = el('div', 'lorProductionActions lorFacultyAssistActions');
+      actions.appendChild(button('Set up this writer', 'btn pri', () => {
+        selectedBuildSurface = 'builder';
+        selectedStepId = 'writer_relationship';
+        renderCase(renderedProjection, currentState);
+      }));
+      actions.appendChild(button('Preview Writer Depot', 'btn alt', () => {
+        selectedAppView = 'depot';
+        renderCase(renderedProjection, currentState);
+      }));
+      view.appendChild(actions);
+      view.appendChild(el(
+        'p',
+        'lorFounderPrinciple',
+        'MissionMed can organize evidence and propose grounded wording. It never impersonates the faculty writer or supplies their judgment.',
+      ));
+    }
+
+    function buildStudentBuilderExperience(view, projection) {
+      appendViewHeading(
+        view,
+        'Build My LOR · evidence-first drafting',
+        'Turn witnessed moments into',
+        'a writer-ready case.',
+        'Move from writer context to grounded evidence, story, privacy, and handoff. Every change stays pending until MissionMed confirms the durable revision.',
+      );
+      const back = button('‹ LOR Studio home', 'btn alt sm lorBuilderBack', () => {
+        selectedBuildSurface = 'home';
+        renderCase(renderedProjection, currentState);
+      });
+      view.appendChild(back);
+      view.appendChild(buildHeader(projection));
+
+      const templateLabel = storedBuilderText(projection, 'case_basics', 'templateLabel');
+      if (templateLabel) {
+        view.appendChild(panel('Template selected', [
+          row('Educational structure', templateLabel, el('span', 'chip em', 'Synthetic source')),
+          row('Tone', storedBuilderText(projection, 'case_basics', 'templateTone') || 'Not set'),
+          row('Structure', storedBuilderText(projection, 'case_basics', 'templateStructure') || 'Not set'),
+          row('Length', storedBuilderText(projection, 'case_basics', 'templateLength') || 'Not set'),
+          el('p', 'micNote', 'Only this educational structure metadata carries into the case. No sample claim, person, event, or endorsement is copied.'),
+        ], [el('span', hasEdits('case_basics') ? 'chip em' : 'chip gn', hasEdits('case_basics') ? 'Save Letter context' : 'Stored in case')]));
+      }
+
+      const writerName = storedBuilderText(projection, 'writer_relationship', 'writerName');
+      const writerRole = storedBuilderText(projection, 'writer_relationship', 'writerRole');
+      const deadline = storedBuilderText(projection, 'faculty_handoff', 'deadline');
+      const overview = el('div', 'lorBuilderOverview');
+      overview.appendChild(metricCard(
+        'Writer',
+        writerName || 'Choose',
+        writerRole || 'Name the person whose direct observation gives this letter credibility.',
+        writerName ? 'gn' : 'em',
+      ));
+      overview.appendChild(metricCard(
+        'Evidence',
+        String(projection.studentEvidence.length),
+        projection.studentEvidence.length > 0 ? 'Published into the protected writer packet.' : 'Build and publish the evidence your writer may use.',
+        projection.studentEvidence.length > 0 ? 'gn' : 'em',
+      ));
+      overview.appendChild(metricCard(
+        'Deadline',
+        deadline || 'Set it',
+        'Kept with your writer handoff so the request remains actionable.',
+        deadline ? 'cy' : 'em',
+      ));
+      view.appendChild(overview);
+
+      const grid = el('div', 'homeGrid lorViewGrid lorBuilderWorkspace');
+      const primary = el('div');
+      primary.appendChild(buildBuilderPanel(projection));
+      const secondary = el('div');
+      secondary.appendChild(panel('Writer-readiness checklist', [
+        row('Relationship', writerName || writerRole ? 'Writer context is taking shape.' : 'Name the writer and what they directly observed.', el('span', writerName || writerRole ? 'chip gn' : 'chip em', writerName || writerRole ? 'In progress' : 'Next')),
+        row('Evidence packet', `${projection.studentEvidence.length} published item(s)`, el('span', projection.studentEvidence.length > 0 ? 'chip gn' : 'chip em', projection.studentEvidence.length > 0 ? 'Grounded' : 'Needed')),
+        row('Consent', readConsentState(projection.consentReceipts).active ? 'Current sharing and AI consent is active.' : 'Review and record the current disclosure.', el('span', readConsentState(projection.consentReceipts).active ? 'chip gn' : 'chip em', readConsentState(projection.consentReceipts).active ? 'Active' : 'Required')),
+      ], [el('span', 'chip cy', 'Evidence first')]));
+      secondary.appendChild(buildReceiptsPanel(projection));
+      const invitationPanel = buildFacultyInvitationPanel(projection);
+      if (invitationPanel) secondary.appendChild(invitationPanel);
+      secondary.appendChild(buildEvidencePanel(projection));
+      grid.appendChild(primary);
+      grid.appendChild(secondary);
+      view.appendChild(grid);
+    }
+
+    function buildStudentGuidanceLibrary(projection = null) {
+      const specialties = [
+        'Anesthesiology', 'Dermatology', 'Emergency Medicine', 'Family Medicine',
+        'Internal Medicine', 'Medicine-Pediatrics', 'Neurology', 'Neurological Surgery',
+        'Obstetrics & Gynecology', 'Ophthalmology', 'Orthopaedic Surgery', 'Otolaryngology',
+        'Pathology', 'Pediatrics', 'Physical Medicine & Rehabilitation', 'Plastic Surgery',
+        'Psychiatry', 'Diagnostic Radiology', 'Interventional Radiology', 'Radiation Oncology',
+        'General Surgery', 'Urology', 'Preliminary / Transitional Year',
       ];
+      const contexts = [
+        'Core / elective clerkship',
+        'Hands-on externship',
+        'Observership — teaching hospital',
+        'Observership — community hospital',
+        'Private clinic experience',
+        'Private practice experience',
+      ];
+      const roles = ['Attending physician', 'Program director', 'Department chair', 'Community preceptor', 'Associate professor', 'Clinic medical director'];
+      const structures = ['traditional', 'story-led', 'clinical'];
+      const tones = ['warm', 'balanced', 'formal'];
+      const durations = ['four weeks', 'six weeks', 'eight weeks', 'three months'];
+      const lengths = ['concise', 'standard', 'detailed'];
+      const strengths = ['Clinical reasoning', 'Communication', 'Work ethic', 'Teamwork', 'Professionalism', 'Teaching', 'Growth mindset'];
+      const guides = [];
+      specialties.forEach((specialty, specialtyIndex) => {
+        for (let variant = 0; variant < 2; variant += 1) {
+          const context = contexts[(specialtyIndex * 2 + variant) % contexts.length];
+          const structure = structures[(specialtyIndex + variant) % structures.length];
+          const tone = tones[(specialtyIndex * 2 + variant) % tones.length];
+          const duration = durations[(specialtyIndex + variant) % durations.length];
+          const length = lengths[(specialtyIndex + variant) % lengths.length];
+          guides.push({
+            specialty,
+            context,
+            role: roles[(specialtyIndex + variant) % roles.length],
+            structure,
+            tone,
+            duration,
+            length,
+            strengths: [
+              strengths[specialtyIndex % strengths.length],
+              strengths[(specialtyIndex + 2 + variant) % strengths.length],
+              strengths[(specialtyIndex + 4) % strengths.length],
+            ],
+            title: `${specialty} · ${context}`,
+            detail: structure === 'story-led'
+              ? 'Open on one directly witnessed moment, show the consequence, then earn the broader assessment.'
+              : structure === 'clinical'
+                ? 'Lead with observation scope, move through evidence efficiently, and keep every evaluative claim bounded.'
+                : 'Use the classic relationship → evidence → qualities → endorsement structure without generic praise.',
+            sequence: structure === 'story-led'
+              ? 'Observed moment → action → consequence → pattern → writer-owned endorsement'
+              : structure === 'clinical'
+                ? 'Scope → observed performance → consequence → competency → bounded assessment'
+                : 'Relationship → evidence → qualities → program fit → endorsement',
+          });
+        }
+      });
+      for (const extra of [
+        ['Internal Medicine', 'Observership — teaching hospital', 'story-led', 'warm'],
+        ['Family Medicine', 'Private clinic experience', 'traditional', 'warm'],
+        ['General Surgery', 'Hands-on externship', 'clinical', 'formal'],
+        ['Psychiatry', 'Core / elective clerkship', 'story-led', 'balanced'],
+      ]) {
+        guides.push({
+          specialty: extra[0],
+          context: extra[1],
+          role: roles[guides.length % roles.length],
+          structure: extra[2],
+          tone: extra[3],
+          duration: durations[guides.length % durations.length],
+          length: lengths[guides.length % lengths.length],
+          strengths: [
+            strengths[guides.length % strengths.length],
+            strengths[(guides.length + 2) % strengths.length],
+            strengths[(guides.length + 4) % strengths.length],
+          ],
+          title: `${extra[0]} · ${extra[1]}`,
+          detail: extra[2] === 'story-led'
+            ? 'Open on one directly witnessed moment, show the consequence, then earn the broader assessment.'
+            : extra[2] === 'clinical'
+              ? 'Lead with observation scope, move through evidence efficiently, and keep every evaluative claim bounded.'
+              : 'Use the classic relationship → evidence → qualities → endorsement structure without generic praise.',
+          sequence: 'Observation scope → specific evidence → consequence → writer-owned endorsement',
+        });
+      }
+
+      guides.forEach((guide, index) => {
+        guide.id = `approved-synthetic-${String(index + 1).padStart(2, '0')}`;
+        const observation = guide.context.toLowerCase();
+        const emphasis = guide.strengths.map((strength) => strength.toLowerCase()).join(', ');
+        guide.letter = [
+          `Dear ${guide.specialty} Residency Selection Committee:`,
+          `This clearly synthetic teaching sample demonstrates a ${guide.structure} recommendation structure. In a real letter, the faculty writer would first identify their role, institution, and the exact scope of direct observation.`,
+          `For ${guide.duration} in a ${observation}, [Faculty writer] directly observed [Applicant] prepare carefully, communicate clearly, and follow through on feedback. This paragraph deliberately stays inside the relationship the writer could truthfully verify.`,
+          guide.structure === 'story-led'
+            ? 'One specific witnessed moment would open the letter here: the applicant notices a meaningful problem, takes an appropriate action, and the writer explains what changed because of it.'
+            : guide.structure === 'clinical'
+              ? 'A bounded clinical performance example would appear here, moving from observed action to consequence before the writer names the competency it demonstrates.'
+              : 'The body would move from relationship to one directly observed example, its consequence, and the broader pattern the writer can honestly support.',
+          `Across the relationship, the writer could ground discussion of ${emphasis}. These are teaching categories only; a production letter must replace them with the writer's own evidence and judgment.`,
+          `I recommend [Applicant] for ${guide.specialty} training only to the degree supported by my direct observations above. [Faculty writer] would review, edit, approve, sign, and own every word of the final letter.`,
+          'Sincerely,\n[Faculty writer]\n[Verified role and institution]',
+        ].join('\n\n');
+      });
+
+      const rerender = () => {
+        if (renderedProjection) renderCase(renderedProjection, currentState);
+        else showEmptyWorkspace({ startCase: emptyStartCase });
+      };
+
+      const useTemplate = (guide) => {
+        const selection = {
+          templateId: guide.id,
+          templateLabel: guide.title,
+          templateTone: guide.tone,
+          templateStructure: guide.structure,
+          templateLength: guide.length,
+          templateGuidance: `Educational starting point: ${guide.sequence}. Replace every sample claim with case-specific evidence and faculty-owned judgment.`,
+        };
+        selectedAppView = 'build';
+        selectedBuildSurface = 'builder';
+        selectedStepId = 'case_basics';
+        if (projection) {
+          for (const [key, value] of Object.entries(selection)) stageEdit('case_basics', key, value);
+          renderCase(renderedProjection, currentState);
+        } else {
+          pendingTemplateSelection = selection;
+          if (emptyStartCase) void emptyStartCase();
+        }
+      };
+
+      const container = el('div', 'lorLibrary');
+      if (libraryFavoritesOnly) {
+        const favoriteNotice = panel('Favorite templates', [
+          el(
+            'p',
+            'sub',
+            libraryFavorites.size === 0
+              ? 'You have not starred a template in this browser session yet. Show all samples, open one, and use its ☆ control to add it here.'
+              : `${libraryFavorites.size} starred template(s) are available in this browser session. Your live case changes only when you explicitly use a template and save it.`,
+          ),
+          button('Show all samples', 'btn alt sm', () => {
+            libraryFavoritesOnly = false;
+            rerender();
+          }),
+        ], [el('span', 'chip em', 'Session favorites')]);
+        container.appendChild(favoriteNotice);
+      }
+      const filters = el('div', 'lorLibraryFilters');
+      const search = doc.createElement('input');
+      search.type = 'search';
+      search.value = librarySearch;
+      search.placeholder = 'Search 50 samples';
+      search.setAttribute('aria-label', 'Search samples');
+      search.dataset.step = 'library';
+      search.dataset.field = 'search';
+      search.addEventListener('input', () => {
+        librarySearch = search.value;
+        rerender();
+      });
+      filters.appendChild(search);
+      const selectFilter = (label, value, options, update) => {
+        const select = doc.createElement('select');
+        select.setAttribute('aria-label', label);
+        const all = doc.createElement('option');
+        all.value = 'all';
+        all.textContent = `${label}: all`;
+        select.appendChild(all);
+        for (const optionValue of options) {
+          const option = doc.createElement('option');
+          option.value = optionValue;
+          option.textContent = optionValue;
+          select.appendChild(option);
+        }
+        select.value = value;
+        select.addEventListener('change', () => {
+          update(select.value);
+          rerender();
+        });
+        return select;
+      };
+      filters.appendChild(selectFilter('Specialty', librarySpecialty, specialties, (value) => { librarySpecialty = value; }));
+      filters.appendChild(selectFilter('USCE', libraryContext, contexts, (value) => { libraryContext = value; }));
+      filters.appendChild(selectFilter('Writer role', libraryRole, roles, (value) => { libraryRole = value; }));
+      filters.appendChild(selectFilter('Duration', libraryDuration, durations, (value) => { libraryDuration = value; }));
+      filters.appendChild(selectFilter('Tone', libraryTone, tones, (value) => { libraryTone = value; }));
+      filters.appendChild(selectFilter('Length', libraryLength, lengths, (value) => { libraryLength = value; }));
+      filters.appendChild(selectFilter('Structure', libraryStructure, structures, (value) => { libraryStructure = value; }));
+      filters.appendChild(selectFilter('Strength', libraryStrength, strengths, (value) => { libraryStrength = value; }));
+
+      const query = librarySearch.trim().toLowerCase();
+      const visibleGuides = guides.filter((guide) => (
+        (!libraryFavoritesOnly || libraryFavorites.has(guide.id))
+        && (librarySpecialty === 'all' || guide.specialty === librarySpecialty)
+        && (libraryContext === 'all' || guide.context === libraryContext)
+        && (libraryRole === 'all' || guide.role === libraryRole)
+        && (libraryDuration === 'all' || guide.duration === libraryDuration)
+        && (libraryTone === 'all' || guide.tone === libraryTone)
+        && (libraryLength === 'all' || guide.length === libraryLength)
+        && (libraryStructure === 'all' || guide.structure === libraryStructure)
+        && (libraryStrength === 'all' || guide.strengths.includes(libraryStrength))
+        && (query === '' || `${guide.title} ${guide.role} ${guide.duration} ${guide.structure} ${guide.tone} ${guide.length} ${guide.strengths.join(' ')} ${guide.letter}`.toLowerCase().includes(query))
+      ));
+      const hasFilter = query !== ''
+        || librarySpecialty !== 'all'
+        || libraryContext !== 'all'
+        || libraryRole !== 'all'
+        || libraryDuration !== 'all'
+        || libraryTone !== 'all'
+        || libraryLength !== 'all'
+        || libraryStructure !== 'all'
+        || libraryStrength !== 'all';
+      if (hasFilter) {
+        filters.appendChild(button('Clear filters', 'btn alt sm', () => {
+          librarySearch = '';
+          librarySpecialty = 'all';
+          libraryContext = 'all';
+          libraryRole = 'all';
+          libraryDuration = 'all';
+          libraryTone = 'all';
+          libraryLength = 'all';
+          libraryStructure = 'all';
+          libraryStrength = 'all';
+          rerender();
+        }));
+      }
+      filters.appendChild(el('span', 'chip cy lorLibraryCount', `${visibleGuides.length} of ${guides.length}`));
+      container.appendChild(filters);
+
+      if (libraryCompare.length === 2) {
+        const compared = libraryCompare.map((id) => guides.find((guide) => guide.id === id)).filter(Boolean);
+        if (compared.length === 2) {
+          container.appendChild(panel('Compare two structures', [
+            row(compared[0].title, `${compared[0].structure} · ${compared[0].tone} · ${compared[0].length}`),
+            row(compared[1].title, `${compared[1].structure} · ${compared[1].tone} · ${compared[1].length}`),
+            row('Key difference', `${compared[0].sequence}  /  ${compared[1].sequence}`),
+            button('Clear comparison', 'btn alt sm', () => {
+              libraryCompare = [];
+              rerender();
+            }),
+          ], [el('span', 'chip cy', '2 selected')]));
+        }
+      }
+
+      const openGuide = guides.find((guide) => guide.id === libraryOpenSampleId);
+      if (openGuide) {
+        const letter = el('pre', 'lorSampleLetter', openGuide.letter);
+        const actions = el('div', 'lorProductionActions');
+        actions.appendChild(button(projection ? 'Use this structure in Builder' : 'Start a case with this structure', 'btn pri sm', () => useTemplate(openGuide)));
+        actions.appendChild(button('Close sample', 'btn alt sm', () => {
+          libraryOpenSampleId = null;
+          rerender();
+        }));
+        container.appendChild(panel(openGuide.title, [
+          el('p', 'sub', `${openGuide.role} · ${openGuide.duration} · ${openGuide.tone} · ${openGuide.structure} · ${openGuide.length}`),
+          letter,
+          row('Why it works', openGuide.detail),
+          row('Teaching sequence', openGuide.sequence),
+          actions,
+          el('p', 'micNote', 'Synthetic — every name placeholder, event, and endorsement is instructional. Only structure, tone, and length may carry into the Builder.'),
+        ], [el('span', 'chip em', 'Synthetic example')]));
+      }
+
       const grid = el('div', 'grid2 lorTemplateGrid');
-      for (const guide of guides) {
+      for (const guide of visibleGuides) {
         const card = el('article', 'draftCard');
         const head = el('div', 'dHead');
         head.appendChild(el('div', 'h2', guide.title));
-        head.appendChild(el('span', 'chip em', guide.badge));
+        const favorite = button(libraryFavorites.has(guide.id) ? '★' : '☆', 'lorFavoriteButton', () => {
+          if (libraryFavorites.has(guide.id)) libraryFavorites.delete(guide.id);
+          else libraryFavorites.add(guide.id);
+          rerender();
+        });
+        favorite.setAttribute('aria-label', libraryFavorites.has(guide.id) ? `Remove ${guide.title} from favorites` : `Add ${guide.title} to favorites`);
+        favorite.setAttribute('aria-pressed', libraryFavorites.has(guide.id) ? 'true' : 'false');
+        head.appendChild(favorite);
         card.appendChild(head);
+        card.appendChild(el('span', 'chip em lorSyntheticChip', 'Synthetic example'));
         card.appendChild(el('p', 'sub lorTemplateDetail', guide.detail));
         const body = el('div', 'dBody', guide.sequence);
         card.appendChild(body);
         const foot = el('div', 'dFoot');
-        foot.appendChild(el('span', 'prov stu', 'Student evidence'));
-        foot.appendChild(el('span', 'prov obs', 'Writer confirms'));
+        foot.appendChild(el('span', 'chip', guide.role));
+        foot.appendChild(el('span', 'chip', guide.duration));
+        foot.appendChild(el('span', 'chip', guide.tone));
+        foot.appendChild(el('span', 'chip', guide.structure));
+        foot.appendChild(el('span', 'chip', guide.length));
         card.appendChild(foot);
+        const actions = el('div', 'lorTemplateActions');
+        actions.appendChild(button('Open complete sample', 'btn alt sm', () => {
+          libraryOpenSampleId = guide.id;
+          rerender();
+        }));
+        actions.appendChild(button(libraryCompare.includes(guide.id) ? '✓ Comparing' : '+ Compare', 'btn alt sm', () => {
+          if (libraryCompare.includes(guide.id)) libraryCompare = libraryCompare.filter((id) => id !== guide.id);
+          else libraryCompare = [...libraryCompare.slice(-1), guide.id];
+          rerender();
+        }));
+        card.appendChild(actions);
         grid.appendChild(card);
       }
-      return grid;
+      if (visibleGuides.length === 0) {
+        grid.appendChild(panel('No examples match those filters', [
+          el('p', 'sub', libraryFavoritesOnly && libraryFavorites.size === 0
+            ? 'Show all samples and star the structures you want to revisit in this browser session.'
+            : 'Clear or broaden the search to return to the full educational library.'),
+        ]));
+      }
+      container.appendChild(grid);
+      container.appendChild(el(
+        'p',
+        'micNote lorLibraryDisclosure',
+        'All 50 samples are de-identified synthetic educational structures. Starting from one carries only structure, tone, and length — never its claims or people — into your live case.',
+      ));
+      return container;
     }
 
     function buildStudentIntelligence(projection) {
@@ -2406,6 +2935,136 @@
       return grid;
     }
 
+    function nextCaseAction(projection) {
+      const completed = projection.builder.completedStepIds.length;
+      if (projection.status === 'draft' && completed < BUILDER_STEP_IDS.length) {
+        return `Complete ${BUILDER_STEP_LABELS[projection.builder.currentStepId] || 'the next Builder step'}.`;
+      }
+      if (projection.status === 'draft' && projection.studentEvidence.length === 0) {
+        return 'Publish the evidence packet you want the verified writer to receive.';
+      }
+      if (projection.status === 'draft') return 'Preview the Writer Depot, then send the recipient-bound invitation.';
+      if (projection.status === 'faculty_invited') return 'The invitation is pending; use the existing resend or replacement controls only if needed.';
+      if (projection.status === 'faculty_verified') return 'The writer is verified and can begin their private review.';
+      if (projection.status === 'faculty_review') return 'The writer owns the next step: private review, editing, approval, and signature.';
+      if (projection.status === 'faculty_approved') return 'The approved letter is held until the writer releases it under your access decision.';
+      if (projection.status === 'delivered') return 'Confirm the recorded destination and retain the permitted export for your records.';
+      return 'Review the live case stage and delivery record.';
+    }
+
+    function buildLetterPlanCard(projection) {
+      const writerName = storedBuilderText(projection, 'writer_relationship', 'writerName');
+      const writerRole = storedBuilderText(projection, 'writer_relationship', 'writerRole');
+      const institution = storedBuilderText(projection, 'writer_relationship', 'institution');
+      const programType = storedBuilderText(projection, 'case_basics', 'programType');
+      const deadline = storedBuilderText(projection, 'faculty_handoff', 'deadline');
+      const waiver = readWaiverState(projection.waiverReceipts);
+      const invitationActive = projection.status !== 'draft';
+      const released = isPlainObject(projection.finalDocument)
+        && isNonEmptyString(projection.finalDocument.releasedToStudentAt);
+      return panel(writerName || 'Current recommendation plan', [
+        row('Writer', [writerRole, institution].filter(Boolean).join(' · ') || 'Complete Choose your writer.'),
+        row('Target', programType || 'Add the target program or training path in Letter context.'),
+        row('Deadline', deadline || 'Set a deadline in Writer handoff.'),
+        row('Access decision', waiver.decided ? (waiver.waived ? 'Waived' : 'Keep access') : 'Not decided'),
+        row('Request status', invitationActive ? humanize(projection.status) : 'Not sent'),
+        row('Letter status', released ? 'Released to the student under the recorded access decision' : 'Not released'),
+        row('Next recommended action', nextCaseAction(projection), el('span', 'chip cy', 'Next')),
+        el('p', 'micNote', 'This card contains only the recommendation case authorized in your current MissionMed route. It does not invent other writers or letters.'),
+      ], [el('span', 'chip gn', 'Live portfolio card')]);
+    }
+
+    function buildRecommendationInsights(projection) {
+      const completed = new Set(projection.builder.completedStepIds);
+      const writer = storedBuilderText(projection, 'writer_relationship', 'writerName');
+      const rotation = storedBuilderText(projection, 'writer_relationship', 'institution');
+      const observedFor = storedBuilderText(projection, 'writer_relationship', 'relationshipLength');
+      const program = storedBuilderText(projection, 'case_basics', 'programType');
+      const missing = [];
+      if (!writer) missing.push('writer identity');
+      if (!rotation) missing.push('rotation or institution');
+      if (!observedFor) missing.push('observation duration');
+      if (projection.studentEvidence.length === 0) missing.push('published evidence');
+      if (!readConsentState(projection.consentReceipts).active) missing.push('current consent');
+      if (!completed.has('faculty_handoff')) missing.push('writer handoff');
+      const grid = el('div', 'grid2 lorViewGrid');
+      grid.appendChild(panel('Writer readiness explained', [
+        row('Writer', writer || 'Not named'),
+        row('Observed relationship', observedFor || 'Not described'),
+        row('Rotation context', rotation || 'Not connected in this case'),
+        row('Evidence available', `${projection.studentEvidence.length} published item(s)`),
+        row('What is still missing', missing.length === 0 ? 'No visible readiness gap.' : missing.join(', ')),
+      ], [el('span', missing.length === 0 ? 'chip gn' : 'chip em', missing.length === 0 ? 'Writer ready' : `${missing.length} gap(s)`) ]));
+      grid.appendChild(panel('Program & assignment context', [
+        row('Target training path', program || 'Not set in Letter context'),
+        row('Current case stage', humanize(projection.status)),
+        row('Deadline', storedBuilderText(projection, 'faculty_handoff', 'deadline') || 'Not set'),
+        row('Recommended next action', nextCaseAction(projection)),
+        el('p', 'micNote', 'No program requirement, assignment, or Timeline fact is invented when the authorized case projection does not contain it.'),
+      ], [el('span', 'chip cy', 'Explainable') ]));
+      return grid;
+    }
+
+    function buildWriterPacketPreview(projection) {
+      const writerName = storedBuilderText(projection, 'writer_relationship', 'writerName');
+      const writerRole = storedBuilderText(projection, 'writer_relationship', 'writerRole');
+      const relationship = storedBuilderText(projection, 'writer_relationship', 'relationshipSummary');
+      const evidence = storedBuilderText(projection, 'evidence_selection', 'priorityEvidence');
+      const story = storedBuilderText(projection, 'timeline_highlights', 'standoutMoment');
+      const deadline = storedBuilderText(projection, 'faculty_handoff', 'deadline');
+      const rows = [
+        row('Faculty writer', writerName || writerRole || 'Add your writer in the Builder.', el('span', writerName || writerRole ? 'chip gn' : 'chip em', writerName || writerRole ? 'Named' : 'Needed')),
+        row('Observation scope', relationship || 'Describe what this writer directly observed.'),
+        row('Priority evidence', evidence || 'Choose the evidence that carries the recommendation.'),
+        row('Signature story', story || 'Add the witnessed moment that makes the evidence memorable.'),
+        row('Requested by', deadline || 'Set a deadline in Writer handoff.'),
+        row('Published evidence', `${projection.studentEvidence.length} item(s) available to the verified writer.`),
+        row('Applicant-prepared options', `${projection.applicantOptions.length} proposal(s), always subject to faculty review.`),
+      ];
+      rows.push(el(
+        'p',
+        'micNote',
+        'This preview is assembled from your live case. Faculty-private assessment and letter wording never appear here.',
+      ));
+      return panel('Writer-ready package preview', rows, [el('span', 'chip cy', 'Live case')]);
+    }
+
+    function buildWriterPrivatePagePreview(projection) {
+      const writerName = storedBuilderText(projection, 'writer_relationship', 'writerName');
+      const relationship = storedBuilderText(projection, 'writer_relationship', 'relationshipSummary');
+      const institution = storedBuilderText(projection, 'writer_relationship', 'institution');
+      const invitationStarted = projection.status !== 'draft';
+      return panel(writerName ? `Welcome, ${writerName}` : 'Writer-specific private page', [
+        el('p', 'sub', writerName
+          ? 'This professional preview is the exact student-controlled packet for this writer.'
+          : 'Name the writer in Build My LOR to personalize this private-page preview.'),
+        row('Relationship context', relationship || 'Not described yet'),
+        row('Rotation or institution', institution || 'Not set'),
+        row('Selected evidence only', `${projection.studentEvidence.length} published item(s)`),
+        row('Applicant-prepared proposals', `${projection.applicantOptions.length} option(s), never a faculty endorsement`),
+        row('Secure access', invitationStarted ? `${humanize(projection.status)} · recipient-bound verification` : 'Created only when you send the production invitation'),
+        row('Faculty-private work', 'Assessment, notes, edits, approval, signature, and final wording stay private'),
+        el('p', 'micNote', 'MissionMed never exposes the invite token or one-time code in this student preview.'),
+      ], [el('span', invitationStarted ? 'chip gn' : 'chip dashed', invitationStarted ? 'Active handoff' : 'Preview')]);
+    }
+
+    function buildLetterTimeline(projection) {
+      const completed = projection.builder.completedStepIds.length;
+      const percent = Math.round((completed / BUILDER_STEP_IDS.length) * 100);
+      const consent = readConsentState(projection.consentReceipts).active;
+      const waiver = readWaiverState(projection.waiverReceipts);
+      const released = isPlainObject(projection.finalDocument)
+        && isNonEmptyString(projection.finalDocument.releasedToStudentAt);
+      return panel('Recommendation journey', [
+        row('1 · Prepare', `${completed} of ${BUILDER_STEP_IDS.length} steps complete · ${percent}%`, el('span', completed === BUILDER_STEP_IDS.length ? 'chip gn' : 'chip cy', completed === BUILDER_STEP_IDS.length ? 'Complete' : 'In progress')),
+        row('2 · Protect', consent ? 'Current consent is recorded.' : 'Current consent still needs your decision.', el('span', consent ? 'chip gn' : 'chip em', consent ? 'Recorded' : 'Action needed')),
+        row('Access decision', waiver.decided ? (waiver.waived ? 'You waived your right to read the finished letter.' : 'You kept your right to read the finished letter.') : 'You have not recorded a waiver decision yet.'),
+        row('3 · Invite', ['faculty_invited', 'faculty_verified', 'faculty_review', 'faculty_approved', 'delivered', 'closed'].includes(projection.status) ? 'Faculty handoff has begun.' : 'Invitation has not been sent.', el('span', projection.status === 'draft' ? 'chip dashed' : 'chip cy', projection.status === 'draft' ? 'Not sent' : 'Active')),
+        row('4 · Faculty owns final', ['faculty_review', 'faculty_approved', 'delivered', 'closed'].includes(projection.status) ? 'The recipient-bound faculty workspace is active.' : 'Begins after recipient verification.'),
+        row('5 · Release & delivery', released ? 'A finished letter was released under the recorded access decision.' : humanize(projection.delivery.status), el('span', released ? 'chip gn' : 'chip dashed', released ? 'Released' : 'Pending')),
+      ], [el('span', 'chip gn', 'Server-confirmed state')]);
+    }
+
     function buildStudentAppView(view, projection) {
       const current = ensureAppView('student');
       if (current === 'library') {
@@ -2416,7 +3075,7 @@
           'keep every claim honest.',
           'Reusable patterns for common recommendation situations. These are guidance structures, not case records or finished letters.',
         );
-        view.appendChild(buildStudentGuidanceLibrary());
+        view.appendChild(buildStudentGuidanceLibrary(projection));
         return;
       }
 
@@ -2431,6 +3090,8 @@
         view.appendChild(buildHeader(projection));
         const grid = el('div', 'grid2 lorViewGrid');
         const left = el('div');
+        left.appendChild(buildWriterPrivatePagePreview(projection));
+        left.appendChild(buildWriterPacketPreview(projection));
         left.appendChild(buildEvidencePanel(projection));
         const right = el('div');
         const invitation = buildFacultyInvitationPanel(projection);
@@ -2458,9 +3119,11 @@
         view.appendChild(buildHeader(projection));
         const grid = el('div', 'grid2 lorViewGrid');
         const left = el('div');
-        left.appendChild(buildStatusPanel(projection, 'Your current letter plan'));
+        left.appendChild(buildLetterPlanCard(projection));
+        left.appendChild(buildLetterTimeline(projection));
         left.appendChild(buildDeliveryPanel(projection));
         const right = el('div');
+        right.appendChild(buildStatusPanel(projection, storedBuilderText(projection, 'writer_relationship', 'writerName') || 'Your current letter plan'));
         right.appendChild(buildFinalDocumentPanel(projection));
         const invitation = buildFacultyInvitationPanel(projection);
         if (invitation) right.appendChild(invitation);
@@ -2480,6 +3143,7 @@
         );
         view.appendChild(buildHeader(projection));
         view.appendChild(buildStudentIntelligence(projection));
+        view.appendChild(buildRecommendationInsights(projection));
         view.appendChild(panel('Provenance & grounding visibility', [
           row('Student-supplied evidence', `${projection.studentEvidence.length} published item(s)`, el('span', 'prov stu', 'Student')),
           row('Applicant-prepared options', `${projection.applicantOptions.length} stored option(s)`, el('span', 'prov ai', 'Proposal only')),
@@ -2499,47 +3163,40 @@
         );
         view.appendChild(buildHeader(projection));
         const grid = el('div', 'grid2 lorViewGrid');
-        grid.appendChild(buildReceiptsPanel(projection));
-        grid.appendChild(panel('Role boundaries', [
+        const left = el('div');
+        left.appendChild(panel('LOR Studio preferences', [
+          row('Current workspace', 'Student recommendation case'),
+          row('Target training path', storedBuilderText(projection, 'case_basics', 'programType') || 'Set in Letter context'),
+          row('Selected template', storedBuilderText(projection, 'case_basics', 'templateLabel') || 'None selected'),
+          row('Matrix return', 'Always available from the fixed header control'),
+          row('Case continuity', `Case ${projection.caseId} · Version ${projection.revision}`),
+        ], [el('span', 'chip gn', 'Live account') ]));
+        left.appendChild(buildReceiptsPanel(projection));
+        const right = el('div');
+        right.appendChild(panel('Role boundaries', [
           row('Student', 'Builder, selected evidence, invitations, status, and permitted released letter.'),
           row('Mentor', 'Strategy and milestone projection only.'),
           row('Faculty writer', 'Recipient-bound private workspace and final release authority.'),
           el('p', 'micNote', 'Return to Matrix from the fixed control in the LOR Studio header. Authentication and entitlement remain server-owned.'),
         ], [el('span', 'chip gn', 'Server enforced')]));
+        right.appendChild(panel('Privacy controls', [
+          row('Future AI and sharing', readConsentState(projection.consentReceipts).active ? 'Current consent is active and can be withdrawn below.' : 'No current consent is active.'),
+          row('Final-letter access', readWaiverState(projection.waiverReceipts).decided ? (readWaiverState(projection.waiverReceipts).waived ? 'Waived' : 'Keep access') : 'Not decided'),
+          row('Invitation access', projection.status === 'draft' ? 'No verified faculty writer yet' : humanize(projection.status)),
+        ], [el('span', 'chip cy', 'Case scoped')]));
+        grid.appendChild(left);
+        grid.appendChild(right);
         view.appendChild(grid);
         return;
       }
 
-      appendViewHeading(
-        view,
-        'Build My LOR · evidence-first drafting',
-        'Build the letter they asked',
-        'you to write.',
-        'Turn your saved evidence and goals into an organized writer handoff. Your faculty writer reviews, edits, approves, and owns the final.',
-      );
-      view.appendChild(buildHeader(projection));
-      const hero = el('div', 'lorBuildCallout');
-      hero.appendChild(el('div', 'h2', 'Your live eight-step builder is ready.'));
-      hero.appendChild(el('p', 'sub', 'Every change stays pending until MissionMed confirms the durable revision.'));
-      hero.appendChild(button('Continue Build My LOR', 'btn pri hero', () => {
-        const selected = resolveMount().querySelector('.stepRail button[aria-selected="true"]')
-          || resolveMount().querySelector('.stepRail button');
-        if (selected && typeof selected.focus === 'function') selected.focus();
-      }));
-      view.appendChild(hero);
-      const grid = el('div', 'homeGrid lorViewGrid');
-      const primary = el('div');
-      primary.appendChild(buildBuilderPanel(projection));
-      const secondary = el('div');
-      secondary.appendChild(buildReceiptsPanel(projection));
-      const invitationPanel = buildFacultyInvitationPanel(projection);
-      if (invitationPanel) secondary.appendChild(invitationPanel);
-      secondary.appendChild(buildFinalDocumentPanel(projection));
-      secondary.appendChild(buildEvidencePanel(projection));
-      secondary.appendChild(buildDeliveryPanel(projection));
-      grid.appendChild(primary);
-      grid.appendChild(secondary);
-      view.appendChild(grid);
+      if (selectedBuildSurface === 'builder') {
+        buildStudentBuilderExperience(view, projection);
+      } else if (selectedBuildSurface === 'faculty_assist') {
+        buildFacultyAssistStart(view, projection);
+      } else {
+        buildApprovedStudentHome(view, projection);
+      }
     }
 
     function readableSharedItem(item, index, fallback) {
@@ -2744,6 +3401,19 @@
         return;
       }
       const host = resolveMount();
+      if (pendingIntentPath) {
+        stageEdit('case_basics', 'intentPath', pendingIntentPath);
+        pendingIntentPath = null;
+      }
+      if (pendingTemplateSelection) {
+        for (const [key, value] of Object.entries(pendingTemplateSelection)) {
+          stageEdit('case_basics', key, value);
+        }
+        pendingTemplateSelection = null;
+        selectedAppView = 'build';
+        selectedBuildSurface = 'builder';
+        selectedStepId = 'case_basics';
+      }
       selectedStepId = pickSelectedStep(projection);
       clear(host);
       const view = buildApprovedShell(projection, 'student', stateName);
@@ -2988,7 +3658,9 @@
       const view = buildApprovedShell(null, 'student', null);
       const active = ensureAppView('student');
 
-      if (active === 'library') {
+      if (active === 'build') {
+        buildApprovedStudentHome(view, null);
+      } else if (active === 'library') {
         appendViewHeading(
           view,
           'Examples & Templates · evidence-first structures',
@@ -2999,7 +3671,6 @@
         view.appendChild(buildStudentGuidanceLibrary());
       } else {
         const emptyViewCopy = Object.freeze({
-          build: Object.freeze(['Build My LOR · evidence-first drafting', 'Build the letter they asked', 'you to write.']),
           depot: Object.freeze(['Writer Depot · protected faculty handoff', 'Prepare the evidence.', 'Invite the right writer.']),
           letters: Object.freeze(['My letters & tracking', 'Every stage,', 'one honest timeline.']),
           intel: Object.freeze(['Recommendation intelligence', 'Know what is grounded,', 'and what comes next.']),
@@ -3013,25 +3684,42 @@
           copy[2],
           'Start one live recommendation case to connect this approved workspace to your durable MissionMed record.',
         );
-        const callout = el('div', 'lorBuildCallout');
-        callout.appendChild(el('div', 'h2', 'Start your first recommendation case.'));
-        callout.appendChild(el(
-          'p',
-          'sub',
-          'The case opens the eight-step builder, evidence handoff, writer invitation, tracking, intelligence, and privacy controls in one workspace.',
-        ));
+        if (active === 'depot') {
+          view.appendChild(panel('Your writer package starts in Build My LOR', [
+            row('Relationship brief', 'Who the writer is and what they directly observed.'),
+            row('Evidence portfolio', 'Only evidence you deliberately publish into the case.'),
+            row('Protected invitation', 'A recipient-bound link and one-time verification code.'),
+            row('Private faculty workspace', 'Assessment, draft, approval, and final wording stay faculty-private.'),
+          ], [el('span', 'chip gn', 'Least privilege')]));
+        } else if (active === 'letters') {
+          view.appendChild(panel('Your recommendation portfolio', [
+            row('No active letter yet', 'Start a case to create a live, durable tracking timeline.'),
+            row('What will appear here', 'Writer, deadline, stage, delivery, release, and permitted export.'),
+          ], [el('span', 'chip dashed', 'No case yet')]));
+        } else if (active === 'intel') {
+          view.appendChild(panel('Explainable recommendation intelligence', [
+            row('Coverage', 'Builder completion and grounded evidence — no hidden score.'),
+            row('Readiness', 'Consent, evidence, writer handoff, and delivery gates.'),
+            row('Provenance', 'Student evidence, AI proposals, and faculty decisions remain visibly distinct.'),
+          ], [el('span', 'chip cy', 'Evidence first')]));
+        } else {
+          view.appendChild(panel('LOR Studio preferences', [
+            row('MissionMed Matrix', 'Return from the fixed control in the header.'),
+            row('Consent and access', 'Visible and reversible after a recommendation case exists.'),
+            row('Role separation', 'Student, mentor, and faculty views remain server-authorized.'),
+          ], [el('span', 'chip gn', 'Privacy by design')]));
+        }
         if (emptyStartCase) {
-          const start = button('✦ Build My LOR', 'btn pri hero', () => { void emptyStartCase(); });
+          const callout = el('div', 'lorBuildCallout lorCompactStart');
+          callout.appendChild(el('div', 'h2', 'Ready to begin?'));
+          const start = button('✦ Build My LOR', 'btn pri hero', () => {
+            selectedBuildSurface = 'builder';
+            void emptyStartCase();
+          });
           start.id = 'lorStartCase';
           callout.appendChild(start);
+          view.appendChild(callout);
         }
-        view.appendChild(callout);
-        view.appendChild(panel('What opens with your case', [
-          row('Build My LOR', 'Eight evidence-first steps with durable autosave.'),
-          row('Writer Depot', 'Published evidence and recipient-bound faculty invitation.'),
-          row('My Letters', 'Live stage, release, delivery, and export status.'),
-          row('Intelligence', 'Explainable readiness based on completion, consent, and grounding.'),
-        ], [el('span', 'chip gn', 'Real production record')]));
       }
 
       return Object.freeze({ rendered: true, surface: 'empty' });

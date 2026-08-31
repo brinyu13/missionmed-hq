@@ -462,6 +462,19 @@ function assertNoInlineHandlers(harness) {
   }
 }
 
+function openBuilder(harness) {
+  const control = harness.mount.querySelector('#lorContinueBuilder');
+  assert.notEqual(control, null, 'the live case home must offer the approved Builder route');
+  control.dispatchEvent(new harness.win.Event('click', { bubbles: true }));
+  assert.notEqual(harness.mount.querySelector('.stepRail'), null, 'the Builder route must open the live step rail');
+}
+
+function openStudentView(harness, viewId) {
+  const control = harness.mount.querySelector(`button[data-lor-nav="${viewId}"]`);
+  assert.notEqual(control, null, `the approved shell must offer ${viewId}`);
+  control.dispatchEvent(new harness.win.Event('click', { bubbles: true }));
+}
+
 function readyHealthSnapshot() {
   const dependencies = {};
   for (const name of OPERATIONAL_READINESS_CONTRACT.dependencies) {
@@ -569,6 +582,7 @@ test('a full production hydration paints the durable case and touches no storage
   assertNoInlineHandlers(harness);
   assertNoInternalLeak(harness);
 
+  openStudentView(harness, 'letters');
   const rendered = harness.text();
   assert.match(rendered, /Faculty review/u);
   assert.match(rendered, new RegExp(`Case ${CASE_ID}`, 'u'));
@@ -583,6 +597,7 @@ test('the eight-step builder renders per-step state and honest progress', async 
   const harness = createHarness();
   const projection = plain(studentProjection(draftCase()));
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openBuilder(harness);
 
   const rail = harness.mount.querySelector('.stepRail');
   const buttons = [...rail.querySelectorAll('button')];
@@ -609,6 +624,7 @@ test('the eight-step builder renders per-step state and honest progress', async 
 test('selecting a step shows that step and never reaches for storage or the network', async () => {
   const harness = createHarness();
   await harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+  openBuilder(harness);
 
   const first = harness.mount.querySelector('button[data-step="case_basics"]');
   first.dispatchEvent(new harness.win.Event('click', { bubbles: true }));
@@ -622,6 +638,7 @@ test('selecting a step shows that step and never reaches for storage or the netw
 test('an unreleased letter is never described as released', async () => {
   const harness = createHarness();
   await harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+  openStudentView(harness, 'letters');
   const rendered = harness.text();
   assert.match(rendered, /No finished letter has been released to you/u);
   assert.ok(!rendered.includes('Released'), 'an unreleased case must not show a released marker');
@@ -633,8 +650,11 @@ test('a waived case shows the waiver decision and withholds the letter', async (
   assert.equal(projection.finalDocument, null, 'the server must withhold a waived letter');
 
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openStudentView(harness, 'settings');
+  const settingsText = harness.text();
+  assert.match(settingsText, /You waived your right to read the finished letter\./u);
+  openStudentView(harness, 'letters');
   const rendered = harness.text();
-  assert.match(rendered, /You waived your right to read the finished letter\./u);
   assert.match(rendered, /the finished letter is not shared with you/u);
   assert.ok(!rendered.includes(FINAL_TEXT), 'a waived case must never show letter wording');
 });
@@ -643,6 +663,7 @@ test('a released letter is shown with the release timestamp the server recorded'
   const harness = createHarness();
   const projection = plain(studentProjection(releasedCase()));
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openStudentView(harness, 'letters');
   const rendered = harness.text();
   assert.match(rendered, /Released 2026-08-09 15:00 UTC/u);
   assert.ok(rendered.includes(FINAL_TEXT));
@@ -656,6 +677,7 @@ test('student data is rendered as text, never as markup', async () => {
     summary: '<img src=x onerror="window.__XSS__=true">',
   };
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openBuilder(harness);
   harness.mount
     .querySelector('button[data-step="case_basics"]')
     .dispatchEvent(new harness.win.Event('click', { bubbles: true }));
@@ -706,7 +728,7 @@ test('the approved no-case landing replaces the rejected engineering gate and st
 
   assert.deepEqual({ ...result }, { rendered: true, surface: 'empty' });
   assert.match(harness.text(), /Build the letter they asked you to write\./u);
-  assert.match(harness.text(), /Start your first recommendation case\./u);
+  assert.match(harness.text(), /Did your preceptor ask you to write the letter\?/u);
   assert.equal(harness.mount.querySelector('#lorRuntimeGate'), null);
   assert.deepEqual(
     [...harness.mount.querySelectorAll('button[data-lor-nav]')].map((button) => button.dataset.lorNav),
@@ -721,11 +743,114 @@ test('the approved no-case landing replaces the rejected engineering gate and st
     .querySelector('button[data-lor-nav="library"]')
     .dispatchEvent(new harness.win.Event('click', { bubbles: true }));
   assert.match(harness.text(), /Examples & Templates/u);
-  assert.match(harness.text(), /Direct-observation letter/u);
+  assert.match(harness.text(), /50 of 50/u);
+  assert.equal(harness.mount.querySelectorAll('.lorTemplateGrid .draftCard').length, 50);
+  assert.match(harness.text(), /Synthetic example/u);
   assert.equal(harness.storageTouches.length, 0);
   assert.equal(harness.networkCalls.length, 0);
   assertPrototypeStillQuarantined(harness);
   assertNoInlineHandlers(harness);
+});
+
+test('the 50-sample educational library filters without storing or transmitting input', async () => {
+  const harness = createHarness();
+  await harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+  openStudentView(harness, 'library');
+
+  let search = harness.mount.querySelector('input[aria-label="Search samples"]');
+  assert.notEqual(search, null);
+  search.focus();
+  for (const character of 'General Surgery') {
+    search.value += character;
+    search.setSelectionRange(search.value.length, search.value.length);
+    search.dispatchEvent(new harness.win.Event('input', { bubbles: true }));
+    search = harness.mount.querySelector('input[aria-label="Search samples"]');
+    assert.equal(harness.win.document.activeElement, search, 'sequential typing must keep the search focused');
+  }
+
+  assert.match(harness.text(), /3 of 50/u);
+  assert.equal(harness.mount.querySelectorAll('.lorTemplateGrid .draftCard').length, 3);
+  assert.ok([...harness.mount.querySelectorAll('.lorTemplateGrid .h2')]
+    .every((heading) => heading.textContent.startsWith('General Surgery ·')));
+  assert.equal(harness.storageTouches.length, 0);
+  assert.equal(harness.networkCalls.length, 0);
+  assertNoInlineHandlers(harness);
+});
+
+test('favorite templates open, compare, and carry only educational structure into the live Builder', async () => {
+  const harness = createHarness();
+  harness.ui.attachCommands(commandRecorder().commands);
+  await harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+
+  press(controlLabelled(harness, 'Build from a Favorite Template'));
+  assert.match(harness.text(), /You have not starred a template/u);
+  press(controlLabelled(harness, 'Show all samples'));
+
+  let compareButtons = [...harness.mount.querySelectorAll('.lorTemplateActions button')]
+    .filter((button) => button.textContent.trim() === '+ Compare');
+  assert.ok(compareButtons.length >= 2);
+  press(compareButtons[0]);
+  compareButtons = [...harness.mount.querySelectorAll('.lorTemplateActions button')]
+    .filter((button) => button.textContent.trim() === '+ Compare');
+  press(compareButtons[0]);
+  assert.match(harness.text(), /Compare two structures/u);
+  assert.match(harness.text(), /2 selected/u);
+  press(controlLabelled(harness, 'Clear comparison'));
+
+  const firstFavorite = harness.mount.querySelector('.lorFavoriteButton');
+  assert.notEqual(firstFavorite, null);
+  press(firstFavorite);
+  assert.equal(firstFavorite.isConnected, false, 'the library rerenders after a favorite decision');
+
+  press(harness.mount.querySelector('button.logo'));
+  press(controlLabelled(harness, 'Build from a Favorite Template'));
+  assert.match(harness.text(), /1 of 50/u);
+  assert.equal(harness.mount.querySelectorAll('.lorTemplateGrid .draftCard').length, 1);
+
+  press(controlLabelled(harness, 'Open complete sample'));
+  assert.match(harness.text(), /Sincerely,/u);
+  assert.match(harness.text(), /Synthetic — every name placeholder/u);
+  press(controlLabelled(harness, 'Use this structure in Builder'));
+
+  assert.match(harness.text(), /Template selected/u);
+  assert.match(harness.text(), /Anesthesiology · Core \/ elective clerkship/u);
+  assert.match(harness.text(), /Save Letter context/u);
+  assert.equal(harness.ui.hasUnsavedEdits, true);
+  assert.equal(harness.storageTouches.length, 0);
+  assert.equal(harness.networkCalls.length, 0);
+});
+
+test('the approved onboarding choices preserve intent and the faculty-assisted route stays distinct', async () => {
+  const asked = createHarness();
+  asked.ui.attachCommands(commandRecorder().commands);
+  await asked.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+  press(controlContaining(asked, 'My preceptor asked me to write the letter'));
+  assert.equal(fieldControl(asked, 'case_basics', 'intentPath').value, 'My preceptor asked me to write the letter');
+  assert.match(asked.text(), /Turn witnessed moments into a writer-ready case/u);
+
+  const preparing = createHarness();
+  preparing.ui.attachCommands(commandRecorder().commands);
+  await preparing.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+  press(controlContaining(preparing, 'I want to prepare before I ask'));
+  assert.equal(fieldControl(preparing, 'case_basics', 'intentPath').value, 'I want to prepare before I ask');
+
+  const assisted = createHarness();
+  assisted.ui.attachCommands(commandRecorder().commands);
+  await assisted.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+  press(controlContaining(assisted, 'My preceptor wants MissionMed to help them draft it'));
+  assert.match(assisted.text(), /Prepare the private handoff/u);
+  assert.match(assisted.text(), /Your writer owns the letter/u);
+  assert.equal(assisted.mount.querySelector('.stepRail'), null);
+  press(controlLabelled(assisted, 'Set up this writer'));
+  assert.notEqual(fieldControl(assisted, 'writer_relationship', 'writerName'), null);
+  press(assisted.mount.querySelector('button[data-step="case_basics"]'));
+  assert.equal(fieldControl(assisted, 'case_basics', 'intentPath').value, 'My preceptor wants MissionMed to help them draft it');
+
+  for (const harness of [asked, preparing, assisted]) {
+    assert.equal(harness.storageTouches.length, 0);
+    assert.equal(harness.networkCalls.length, 0);
+    assertNoInlineHandlers(harness);
+  }
 });
 
 /* ----------------------------------------------------------------- isolation */
@@ -770,14 +895,14 @@ test('the source references no storage, no network, no eval and no HTML sinks', 
 test('block refuses to reveal the prototype and closes the surface before refusing', async () => {
   const harness = createHarness();
   await harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
-  assert.match(harness.text(), /Eight-step builder/u);
+  assert.match(harness.text(), /Did your preceptor ask you to write the letter\?/u);
 
   await assert.rejects(
     () => harness.ui.block({ reasonCode: 'HYDRATION_BLOCKED', revealPrototype: true }),
     /cannot reveal the frozen prototype/u,
   );
 
-  assert.ok(!harness.text().includes('Eight-step builder'), 'the workspace must be torn down');
+  assert.ok(!harness.text().includes('Did your preceptor ask you to write the letter?'), 'the workspace must be torn down');
   assert.match(harness.text(), /LOR Studio cannot open your case right now/u);
   assertPrototypeStillQuarantined(harness);
 });
@@ -792,7 +917,7 @@ test('rendering is refused when something else has already un-quarantined the pr
     () => harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID)),
     /not quarantined/u,
   );
-  assert.ok(!harness.text().includes('Eight-step builder'));
+  assert.ok(!harness.text().includes('Did your preceptor ask you to write the letter?'));
   assert.match(harness.text(), /LOR Studio cannot open your case right now/u);
 });
 
@@ -821,7 +946,7 @@ test('rendering is refused when the caller asks for prototype reveal or local pe
     }),
     /requires the live runtime/u,
   );
-  assert.ok(!harness.text().includes('Eight-step builder'));
+  assert.ok(!harness.text().includes('Did your preceptor ask you to write the letter?'));
   assertPrototypeStillQuarantined(harness);
 });
 
@@ -1208,7 +1333,7 @@ test('the factory creates its own mount when the page has not provided one', asy
   const mount = harness.win.document.getElementById('lorProductionRoot');
   assert.ok(mount, 'the renderer must establish its own production mount');
   assert.equal(mount.className, 'lor-production-root');
-  assert.match(mount.textContent, /Eight-step builder/u);
+  assert.match(mount.textContent, /Did your preceptor ask you to write the letter\?/u);
 });
 
 /* --------------------------------------------------------------- writing, not just reading */
@@ -1271,6 +1396,7 @@ async function editableHarness(responders = {}) {
   const recorder = commandRecorder(responders);
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openBuilder(harness);
   return { harness, projection, recorder };
 }
 
@@ -1304,6 +1430,12 @@ function typeInto(harness, stepId, key, value) {
 function controlLabelled(harness, label) {
   return [...harness.mount.querySelectorAll('button')].find(
     (button) => button.textContent.trim() === label,
+  ) || null;
+}
+
+function controlContaining(harness, label) {
+  return [...harness.mount.querySelectorAll('button')].find(
+    (button) => button.textContent.includes(label),
   ) || null;
 }
 
@@ -1413,6 +1545,7 @@ test('re-entering a case with an empty builder still offers somewhere to type', 
 
   harness.ui.attachCommands(commandRecorder({}).commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openBuilder(harness);
 
   const fields = [...harness.mount.querySelectorAll('[data-step][data-field]')];
   assert.ok(fields.length > 0, 'a re-entered empty case must render editable fields');
@@ -1448,6 +1581,7 @@ test('a server field named __proto__ is edited as data and never silently discar
   });
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openBuilder(harness);
 
   typeInto(harness, stepId, '__proto__', 'TYPED BY STUDENT');
 
@@ -1567,6 +1701,7 @@ test('a step the server would refuse offers no editor and says why in plain word
   const recorder = commandRecorder();
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+  openBuilder(harness);
 
   harness.mount
     .querySelector('button[data-step="faculty_handoff"]')
@@ -1581,6 +1716,7 @@ test('a case that has left the student builder is read only and says so without 
   const harness = createHarness();
   harness.ui.attachCommands(commandRecorder().commands);
   await harness.ui.renderProductionProjection(plain(studentProjection(releasedCase())), liveContext(CASE_ID));
+  openBuilder(harness);
 
   assert.equal(harness.mount.querySelector('.lorProductionStepForm'), null);
   assert.match(harness.text(), /Your case is with your faculty writer now/u);
@@ -1593,6 +1729,7 @@ test('consent and the waiver decision are recorded through the receipts route', 
   const recorder = commandRecorder({ recordReceipt: () => accepted(projectionSource) });
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projectionSource, liveContext(CASE_ID));
+  openStudentView(harness, 'settings');
 
   press(controlLabelled(harness, 'Waive my access to the letter'));
   await settle(harness);
@@ -1621,6 +1758,7 @@ test('a waiver change names the receipt it supersedes, exactly as the chain requ
   const recorder = commandRecorder({ recordReceipt: () => accepted(projectionSource) });
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projectionSource, liveContext(CASE_ID));
+  openStudentView(harness, 'settings');
 
   press(controlLabelled(harness, 'Change to: keep my access'));
   await settle(harness);
@@ -1638,6 +1776,7 @@ test('consent requires a presented disclosure and explicit checkbox before recor
 
   const withoutConsent = { ...projectionSource, consentReceipts: [] };
   await harness.ui.renderProductionProjection(withoutConsent, liveContext(CASE_ID));
+  openStudentView(harness, 'settings');
   const consentButton = controlLabelled(harness, 'Record my explicit consent');
   assert.notEqual(consentButton, null);
   assert.equal(consentButton.disabled, true);
@@ -1665,6 +1804,7 @@ test('the latest active consent can be withdrawn with an append-only withdrawal 
   const recorder = commandRecorder({ recordReceipt: () => accepted(projection) });
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openStudentView(harness, 'settings');
 
   press(controlLabelled(harness, 'Withdraw future sharing and AI consent'));
   await settle(harness);
@@ -1685,6 +1825,7 @@ test('evidence publication stays disabled until completed source steps and exact
     plain(studentProjection(draftCase())),
     liveContext(CASE_ID),
   );
+  openStudentView(harness, 'depot');
 
   const control = controlLabelled(harness, 'Publish evidence for my writer');
   assert.notEqual(control, null);
@@ -1702,6 +1843,7 @@ test('eligible evidence publication sends only this case and its current durable
   });
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openStudentView(harness, 'depot');
 
   const control = controlLabelled(harness, 'Publish evidence for my writer');
   assert.notEqual(control, null);
@@ -1727,6 +1869,7 @@ test('evidence publication serializes double clicks and adopts a server conflict
   const recorder = commandRecorder({ publishStudentEvidence: () => firstOutcome });
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openStudentView(harness, 'depot');
 
   const control = controlLabelled(harness, 'Publish evidence for my writer');
   press(control);
@@ -1753,6 +1896,7 @@ test('the student faculty invitation sends only the bound case revision and reci
   const recorder = commandRecorder({ inviteFaculty: () => accepted(projection, { status: 201 }) });
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openStudentView(harness, 'depot');
 
   const email = harness.mount.querySelector('#lorFacultyInvitationEmail');
   assert.notEqual(email, null);
@@ -1794,6 +1938,7 @@ test('a latest consent withdrawal disables every new faculty invitation send pat
   const recorder = commandRecorder();
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openStudentView(harness, 'depot');
 
   assert.equal(harness.mount.querySelector('#lorFacultyInvitationEmail').disabled, true);
   const invitation = controlLabelled(harness, 'Invite faculty writer');
@@ -1821,6 +1966,7 @@ test('a pending invitation exposes bounded resend, revoke, and replacement contr
   });
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openStudentView(harness, 'depot');
 
   const email = harness.mount.querySelector('#lorFacultyInvitationEmail');
   email.value = 'writer@example.test';
@@ -2063,6 +2209,7 @@ test('export asks the export command for this case and only claims a download th
   });
   harness.ui.attachCommands(recorder.commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openStudentView(harness, 'letters');
 
   press(controlLabelled(harness, 'Download a copy'));
   await settle(harness);
@@ -2080,6 +2227,7 @@ test('an export the browser refused to take is not described as a download', asy
     exportFinalDocument: () => ({ reached: true, status: 200, downloadStarted: false }),
   }).commands);
   await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  openStudentView(harness, 'letters');
 
   press(controlLabelled(harness, 'Download a copy'));
   await settle(harness);
@@ -2148,6 +2296,7 @@ test('attaching commands keeps every isolation property and cannot install anyth
 test('with no commands attached the surface is exactly the read-only screen it was before', async () => {
   const harness = createHarness();
   await harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+  openBuilder(harness);
   assert.equal(harness.mount.querySelector('.lorProductionStepForm'), null);
   assert.equal(harness.mount.querySelector('#lorReceiptActions'), null);
   assert.equal(harness.mount.querySelector('#lorExportActions'), null);
