@@ -450,7 +450,14 @@ async function liveScreen(el) {
         num.textContent = '—';
         inst.classList.add('unavail');
       }
-      const tech = ins.tech(f);
+      // WPM arrives as discrete, genuine four-second transcript-timing
+      // windows.  Keep the most recent validated raw value visible while the
+      // next window is collecting so the instrument does not look dead or
+      // snap back to zero between real decodes.
+      const heldPaceTech = ins.id === 'pace' && Number.isFinite(ins._lastWpm)
+        ? `${ins._lastWpm} WPM · last validated window`
+        : null;
+      const tech = ins.tech(f) || heldPaceTech;
       $(`tech-${ins.id}`).textContent = tech || (score == null ? (ins.kind === 'pitch' ? 'Unvoiced · no validated F0' : ins._last != null ? 'holding last valid' : 'no speech observed yet') : '');
       $(`corr-${ins.id}`).textContent = ins.corridorLabel(f);
       const verb = $(`verb-${ins.id}`);
@@ -471,7 +478,11 @@ async function liveScreen(el) {
       // gauges
       const g = gaugeEls[ins.id];
       if (ins.gauge === 'speedometer' && g.needle) {
-        const n = ins.gaugeNorm(f);
+        const liveNorm = ins.gaugeNorm(f);
+        const heldNorm = Number.isFinite(ins._lastWpm)
+          ? Math.max(0, Math.min(1, (ins._lastWpm - 90) / 130))
+          : null;
+        const n = liveNorm ?? heldNorm;
         const nn = n == null ? 0 : n;
         g.needle.style.transform = `rotate(${-90 + nn * 180}deg)`;
         g.ticks.forEach((tick, index) => {
