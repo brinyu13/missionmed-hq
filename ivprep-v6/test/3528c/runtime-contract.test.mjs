@@ -36,7 +36,7 @@ test('frozen cockpit uses only real analytics and account persistence', () => {
   assert.match(live, /wpmAvg: INSTRUMENTS\[0\]\._lastWpm \?\? null/u);
   assert.match(post, /payload\.wpmLastObserved \?\? payload\.metrics/u);
   assert.match(cockpit, /#vvCanvas \{ flex: 1 1 72px; width: 100%; min-height: 72px;/u);
-  assert.match(cockpit, /@media \(max-height: 830px\) \{[\s\S]*?\.room-bottom \{ flex-basis: 230px; \}/u);
+  assert.match(cockpit, /@media \(max-height: 830px\) \{[\s\S]*?\.room-bottom \{ flex-basis: 142px; \}/u);
   assert.match(browserPipeline, /!advanced && this\.pcmConsumer/u);
   assert.match(browserPipeline, /method: 'ANALYSER_PCM_FALLBACK'/u);
   assert.doesNotMatch(data, /SimEngine|SESSIONS|STUDENT/u);
