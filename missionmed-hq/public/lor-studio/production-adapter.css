@@ -3,23 +3,182 @@ html[data-lor-runtime="checking"] body > :not(#lorRuntimeGate):not(script) {
   visibility: hidden !important;
 }
 
-/* Live mode is production-projection-only: the frozen prototype markup that ships in the same
-   document stays visually hidden (and inert, enforced by the adapter) while the hydrated
-   projection owns the viewport. */
+/* Live mode is production-projection-only: the frozen fixture runtime remains visually hidden
+   and inert. The hydrated projection now renders through the Founder-approved LOR Studio shell,
+   using the original design language without reviving any fixture state. */
 html[data-lor-runtime="live"] body > :not(#lorProductionRoot):not(script) {
   visibility: hidden !important;
 }
 
 .lor-production-root {
-  background: #07181a;
+  background: var(--bg, #0a0d14);
   box-sizing: border-box;
-  color: #f7fbfb;
+  color: var(--tx, #e9eefb);
   inset: 0;
-  overflow: auto;
+  overflow: hidden;
   position: fixed;
   visibility: visible !important;
   width: 100%;
   z-index: 2147483646;
+}
+
+.lor-production-root[data-actor="mentor"] {
+  --accent: #39d6ff;
+  --accent2: #5a8dff;
+  --accentGlow: 57, 214, 255;
+}
+
+.lorApprovedHeader {
+  visibility: visible !important;
+}
+
+.lorApprovedHeader .logo {
+  padding: 0;
+  text-align: left;
+}
+
+.lorRoleIdentity {
+  cursor: default;
+}
+
+.lorRoleIdentity .pp {
+  cursor: default;
+}
+
+.lorLiveDataChip {
+  border-style: dashed;
+  white-space: nowrap;
+}
+
+.lorMentorBanner {
+  align-items: center;
+  backdrop-filter: blur(8px);
+  background: linear-gradient(90deg, rgba(57, 214, 255, .13), rgba(90, 141, 255, .07));
+  border-bottom: 1px solid rgba(57, 214, 255, .25);
+  color: #bfe9ff;
+  display: flex;
+  font-family: var(--num);
+  font-size: 11.5px;
+  font-weight: 600;
+  gap: 12px;
+  left: 0;
+  letter-spacing: .05em;
+  padding: 6px 22px;
+  position: fixed;
+  right: 0;
+  top: var(--hdr);
+  z-index: 60;
+}
+
+.lorMentorBanner b {
+  color: var(--cy);
+}
+
+.lor-production-root[data-actor="mentor"] #lorApprovedMain {
+  top: calc(var(--hdr) + 30px);
+}
+
+.lorViewTitle {
+  margin-top: 8px;
+}
+
+.lorViewIntro {
+  margin-top: 10px;
+  max-width: 780px;
+}
+
+.lorCaseBand {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.lorCaseBandInner {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lorCaseBand > .micNote {
+  margin: 0;
+}
+
+.lorBuildCallout {
+  align-items: center;
+  background:
+    linear-gradient(145deg, rgba(255, 179, 64, .1), rgba(255, 122, 61, .025)),
+    rgba(18, 25, 39, .82);
+  border: 1px solid rgba(255, 179, 64, .46);
+  border-radius: 20px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .2);
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  margin: 22px auto 0;
+  max-width: 760px;
+  padding: 26px;
+  text-align: center;
+}
+
+.lorBuildCallout .btn {
+  margin-top: 5px;
+}
+
+.lorViewGrid,
+.lorTemplateGrid,
+.lorMetricsGrid {
+  margin-top: 20px;
+}
+
+.lorViewGrid > div > .panel + .panel {
+  margin-top: 16px;
+}
+
+.lorTemplateGrid {
+  align-items: stretch;
+}
+
+.lorTemplateGrid .draftCard {
+  height: 100%;
+}
+
+.lorTemplateDetail {
+  padding: 0 16px 14px;
+}
+
+.lorMetricsGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.lorMetricCard .pBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+}
+
+.lorMetricValue {
+  color: var(--tx);
+  font-family: var(--num);
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+
+.lorMatrixReturnLink {
+  text-decoration: none;
+}
+
+.lor-production-root section[data-view="case"] > .panel,
+.lor-production-root section[data-view="case"] > .grid2,
+.lor-production-root section[data-view="case"] > .homeGrid,
+.lor-production-root section[data-view="case"] > .lorMetricsGrid {
+  margin-top: 20px;
 }
 
 html:not([data-lor-runtime="live"]):not([data-lor-runtime="verification"]) .lor-production-root {
@@ -155,8 +314,14 @@ html:not([data-lor-runtime="live"]):not([data-lor-runtime="verification"]) .lor-
 }
 
 .lorMatrixReturnLink {
-  margin-left: auto;
+  font-size: 0;
+  margin-left: 0;
   text-decoration: none;
+}
+
+.lorMatrixReturnLink::before {
+  content: '‹ Matrix';
+  font-size: 11px;
 }
 
 .lorProductionStepForm {
@@ -287,6 +452,16 @@ html:not([data-lor-runtime="live"]):not([data-lor-runtime="verification"]) .lor-
   .lorCandidateVerification { padding: 16px; }
   .lorCandidateVerification__card { border-radius: 18px; padding: 28px 22px; }
   .lorCandidateVerification__form button { justify-self: stretch; }
+  .lorLiveDataChip { display: none; }
+  .lorRoleIdentity .plbl { display: none; }
+  .lorBuildCallout { padding: 22px 16px; }
+  .lorMetricsGrid { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 561px) and (max-width: 980px) {
+  .lorMetricsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lorApprovedHeader { gap: 8px; padding-inline: 10px; }
+  .lorApprovedHeader .ntab { padding-inline: 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

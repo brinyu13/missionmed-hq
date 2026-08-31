@@ -666,6 +666,37 @@ test('student data is rendered as text, never as markup', async () => {
   assertNoInlineHandlers(harness);
 });
 
+test('the approved student shell restores all six Founder navigation views over one live case', async () => {
+  const harness = createHarness();
+  await harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+
+  const expected = [
+    ['build', 'Build the letter they asked you to write.'],
+    ['library', 'Examples & Templates'],
+    ['depot', 'Writer Depot'],
+    ['letters', 'My letters & tracking'],
+    ['intel', 'Recommendation intelligence'],
+    ['settings', 'Settings'],
+  ];
+  assert.deepEqual(
+    [...harness.mount.querySelectorAll('button[data-lor-nav]')].map((button) => button.dataset.lorNav),
+    expected.map(([id]) => id),
+  );
+  assert.match(harness.text(), /Build the letter they asked you to write\./u);
+
+  for (const [viewId, copy] of expected.slice(1)) {
+    harness.mount
+      .querySelector(`button[data-lor-nav="${viewId}"]`)
+      .dispatchEvent(new harness.win.Event('click', { bubbles: true }));
+    assert.equal(harness.mount.querySelector('section[data-view="case"]').dataset.appView, viewId);
+    assert.match(harness.text(), new RegExp(copy, 'u'));
+    assert.equal(harness.storageTouches.length, 0);
+    assert.equal(harness.networkCalls.length, 0);
+    assertPrototypeStillQuarantined(harness);
+    assertNoInlineHandlers(harness);
+  }
+});
+
 /* ----------------------------------------------------------------- isolation */
 
 test('the source references no storage, no network, no eval and no HTML sinks', () => {
@@ -783,8 +814,48 @@ test('the exact five-field mentor projection renders read only and never becomes
   assert.match(harness.text(), /Faculty approval/u);
   assert.match(harness.text(), /This is the exact read-only mentor projection/u);
   assert.equal(harness.mount.querySelector('.stepRail'), null);
-  assert.equal(harness.mount.querySelector('button'), null);
+  const navButtons = [...harness.mount.querySelectorAll('button[data-lor-nav]')];
+  assert.deepEqual(navButtons.map((button) => button.dataset.lorNav), [
+    'overview',
+    'coverage',
+    'deadlines',
+    'settings',
+  ]);
+  assert.equal(harness.mount.querySelector('[data-lor-nav="build"]'), null);
+  assert.equal(harness.mount.querySelector('#lorReleaseActions'), null);
   assertNoInternalLeak(harness);
+});
+
+test('the approved faculty shell exposes eight real workspace stages without widening the projection', async () => {
+  const harness = createHarness();
+  const projection = plain(facultyProjection(releasedCase({ released: false })));
+  await harness.ui.renderProductionProjection(
+    projection,
+    {
+      ...liveContext(CASE_ID),
+      actorRole: 'faculty',
+      projectionSchema: 'missionmed.lor.faculty-projection.v1',
+    },
+  );
+
+  const stageIds = ['request', 'evidence', 'assess', 'draft', 'review', 'approval', 'release', 'delivery'];
+  assert.deepEqual(
+    [...harness.mount.querySelectorAll('button[data-lor-nav]')].map((button) => button.dataset.lorNav),
+    stageIds,
+  );
+  assert.match(harness.text(), /Faculty secure workspace/u);
+  assert.ok(harness.mount.querySelector('#lorFacultyDraft'));
+
+  for (const viewId of ['evidence', 'assess', 'release', 'delivery']) {
+    harness.mount
+      .querySelector(`button[data-lor-nav="${viewId}"]`)
+      .dispatchEvent(new harness.win.Event('click', { bubbles: true }));
+    assert.equal(harness.mount.querySelector('section[data-view="case"]').dataset.appView, viewId);
+    assert.equal(harness.storageTouches.length, 0);
+    assert.equal(harness.networkCalls.length, 0);
+    assertPrototypeStillQuarantined(harness);
+    assertNoInlineHandlers(harness);
+  }
 });
 
 test('every live role surface offers exactly one fixed, inert Return to Matrix link', async () => {
@@ -829,6 +900,7 @@ test('every live role surface offers exactly one fixed, inert Return to Matrix l
     assert.equal(links.length, 1, `${entry.role} must receive exactly one return control`);
     const [link] = links;
     assert.equal(link.textContent, 'Return to Matrix');
+    assert.equal(link.getAttribute('aria-label'), 'Return to MissionMed Matrix');
     assert.equal(link.getAttribute('href'), 'https://missionmedinstitute.com/member-dashboard/#dashboard');
     assert.equal(link.getAttribute('referrerpolicy'), 'no-referrer');
     assert.equal(link.getAttribute('target'), null);
