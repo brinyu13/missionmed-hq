@@ -244,6 +244,7 @@
   position: relative;
   overflow: hidden;
 }
+#inst-pace { flex: 1.22; }
 #inst-pitch { flex: 1.12; }
 .inst:hover { border-color: var(--g-edge-hi); }
 .inst.focus { border-color: var(--g-gold); transform: scale(1.02); z-index: 3; }
@@ -294,24 +295,68 @@
 .gauge-labels { display: flex; justify-content: space-between; font: 600 11px/1 var(--g-mono); color: var(--g-faint); letter-spacing: 1px; margin-top: 3px; }
 .gl-mid { color: var(--g-dim); }
 
-/* Pace: unmistakable live speedometer */
-.speedometer { position: relative; height: 72px; display: grid; place-items: end center; overflow: hidden; }
-.speed-arc { position: relative; width: 176px; height: 88px; transform: translateY(28px); }
+/* Pace: full analog speedometer. Its SVG geometry cannot fall below the
+   instrument bounds when a short viewport activates the compact tier. */
+.speedometer {
+  position: relative;
+  height: 104px;
+  min-height: 104px;
+  display: grid;
+  place-items: center;
+  overflow: visible;
+}
+.speed-dial {
+  display: block;
+  width: min(100%, 310px);
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .38));
+}
+.speed-rim {
+  fill: none;
+  stroke: rgba(80, 94, 123, .34);
+  stroke-width: 8;
+  stroke-linecap: round;
+}
 .speed-tick {
-  position: absolute; left: 86px; bottom: 0; width: 4px; height: 14px;
-  border-radius: 3px; background: #34405a; transform-origin: 2px 86px;
-  transition: background 120ms, box-shadow 120ms;
+  stroke: #3c4863;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke 140ms ease, filter 140ms ease, stroke-width 140ms ease;
 }
-.speed-tick.target { background: rgba(47, 231, 176, .48); }
-.speed-tick.active { background: var(--g-cyan); box-shadow: 0 0 8px rgba(57, 214, 255, .75); }
-.speed-tick.target.active { background: var(--g-teal); }
+.speed-tick:nth-child(5n + 1) { stroke-width: 7; }
+.speed-tick.target { stroke: rgba(47, 231, 176, .72); }
+.speed-tick.active { stroke: var(--g-cyan); filter: drop-shadow(0 0 5px rgba(57, 214, 255, .88)); }
+.speed-tick.target.active { stroke: var(--g-teal); filter: drop-shadow(0 0 6px rgba(47, 231, 176, .9)); }
 .speed-needle {
-  position: absolute; left: 86px; bottom: 0; width: 3px; height: 66px;
-  border-radius: 3px; background: linear-gradient(180deg, var(--g-gold), #ffefb6);
-  box-shadow: 0 0 12px rgba(255, 194, 75, .7); transform-origin: 50% 100%;
-  transform: rotate(-90deg); transition: transform 180ms linear;
+  transform-box: view-box;
+  transform-origin: 160px 100px;
+  transition: transform 560ms cubic-bezier(.16, .78, .22, 1);
 }
-.speed-hub { position: absolute; left: 79px; bottom: -7px; width: 17px; height: 17px; border-radius: 50%; background: var(--g-gold); box-shadow: 0 0 12px rgba(255, 194, 75, .65); }
+.speed-needle path { fill: var(--g-gold); filter: drop-shadow(0 0 6px rgba(255, 194, 75, .78)); }
+.speed-needle.observed path { animation: speedNeedleGlow 1.8s ease-in-out infinite; }
+.speedometer.held .speed-tick.active { stroke: rgba(57, 214, 255, .38); filter: none; }
+.speedometer.held .speed-tick.target.active { stroke: rgba(47, 231, 176, .46); filter: none; }
+.speedometer.held .speed-needle path { fill: var(--g-mid); filter: none; animation: none; }
+.speed-hub-outer { fill: #172035; stroke: rgba(255, 194, 75, .72); stroke-width: 3; }
+.speed-hub { fill: var(--g-gold); filter: drop-shadow(0 0 6px rgba(255, 194, 75, .8)); }
+.speed-label {
+  fill: var(--g-faint);
+  font: 700 11px/1 var(--g-mono);
+  letter-spacing: 1.2px;
+}
+.speed-label-target { fill: var(--g-teal); }
+.speed-hold-label {
+  display: none;
+  fill: var(--g-mid);
+  font: 700 10px/1 var(--g-mono);
+  letter-spacing: 1.4px;
+}
+.speedometer.held .speed-hold-label { display: block; }
+@keyframes speedNeedleGlow {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(255, 194, 75, .55)); }
+  50% { filter: drop-shadow(0 0 10px rgba(255, 194, 75, .95)); }
+}
 
 /* Volume: hardware-style level segments with a real corridor bracket */
 .volume-segments { position: relative; height: 38px; display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; padding: 4px 0 7px; }
@@ -480,11 +525,13 @@
   .inst-num { font-size: 32px; }
   .inst-score.pitch-score .inst-num { font-size: 30px; }
   .inst-tech { display: none; }
+  #inst-pace .inst-tech { display: block; font-size: 10px; min-height: 11px; }
   .inst-corr { display: none; }               /* DETAIL collapses */
   .inst-verb { margin-top: 3px; }
   .verb-pill { height: 18px; padding: 0 7px; font-size: 8.5px; }
-  .speedometer { height: 44px; }
-  .speed-arc { position: absolute; left: 50%; bottom: 0; margin-left: -88px; transform: scale(.5); transform-origin: center bottom; }
+  #inst-pace { flex: 1.62; }
+  .speedometer { height: 76px; min-height: 76px; }
+  .speed-dial { width: min(100%, 258px); height: 76px; }
   .piano-svg { max-height: 44px; }
   .volume-segments { height: 31px; }
   .inst-gauge { padding-top: 2px; }
@@ -494,6 +541,11 @@
   .vv-t, .vv-w { height: 32px; padding: 0 9px; font-size: 10.5px; }
   .vv-head { margin-bottom: 4px; gap: 8px; }
   .variety-number b { font-size: 42px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speed-needle { transition-duration: 0ms; }
+  .speed-needle.observed path { animation: none; }
 }
 
 /* ---------- processing ---------- */

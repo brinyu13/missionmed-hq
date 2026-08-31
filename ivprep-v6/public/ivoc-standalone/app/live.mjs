@@ -233,12 +233,28 @@ async function liveScreen(el) {
     if (ins.gauge === 'speedometer') {
       const ticks = Array.from({ length: 31 }, (_, index) => {
         const angle = -90 + index * 6;
-        return `<i class="speed-tick" data-tick="${index}" style="transform:rotate(${angle}deg)"></i>`;
+        return `<line class="speed-tick" data-tick="${index}" x1="160" y1="8" x2="160" y2="23" transform="rotate(${angle} 160 100)"/>`;
       }).join('');
       host.innerHTML = `<div class="speedometer">
-        <div class="speed-arc">${ticks}<i class="speed-needle"></i><i class="speed-hub"></i></div>
-      </div><div class="gauge-labels"><span>${ins.labels[0]}</span><span class="gl-mid">${ins.labels[1]}</span><span>${ins.labels[2]}</span></div>`;
-      gaugeEls[ins.id] = { ticks: [...host.querySelectorAll('.speed-tick')], needle: host.querySelector('.speed-needle') };
+        <svg class="speed-dial" viewBox="0 0 320 120" role="img" aria-label="Live speaking pace analog speedometer">
+          <path class="speed-rim" d="M68 100 A92 92 0 0 1 252 100" pathLength="100"/>
+          <g class="speed-ticks">${ticks}</g>
+          <g class="speed-needle" style="transform:rotate(-90deg)">
+            <path d="M157.5 100 L160 22 L162.5 100 Z"/>
+          </g>
+          <circle class="speed-hub-outer" cx="160" cy="100" r="12"/>
+          <circle class="speed-hub" cx="160" cy="100" r="5.5"/>
+          <text class="speed-hold-label" x="160" y="58" text-anchor="middle">LAST VALIDATED</text>
+          <text class="speed-label speed-label-slow" x="38" y="116">${ins.labels[0]}</text>
+          <text class="speed-label speed-label-target" x="160" y="116" text-anchor="middle">${ins.labels[1]}</text>
+          <text class="speed-label speed-label-fast" x="282" y="116" text-anchor="end">${ins.labels[2]}</text>
+        </svg>
+      </div>`;
+      gaugeEls[ins.id] = {
+        root: host.querySelector('.speedometer'),
+        ticks: [...host.querySelectorAll('.speed-tick')],
+        needle: host.querySelector('.speed-needle'),
+      };
     } else if (ins.gauge === 'segments') {
       host.innerHTML = `<div class="volume-segments">${Array.from({ length: 16 }, (_, index) => `<i data-segment="${index}"></i>`).join('')}<span class="segment-corridor"></span></div>
         <div class="gauge-labels"><span>${ins.labels[0]}</span><span class="gl-mid">${ins.labels[1]}</span><span>${ins.labels[2]}</span></div>`;
@@ -484,10 +500,16 @@ async function liveScreen(el) {
           : null;
         const n = liveNorm ?? heldNorm;
         const nn = n == null ? 0 : n;
+        const [targetStart, targetEnd] = ins.corridorNorm(f);
+        const targetStartTick = Math.round(Math.max(0, Math.min(1, targetStart)) * 30);
+        const targetEndTick = Math.round(Math.max(0, Math.min(1, targetEnd)) * 30);
         g.needle.style.transform = `rotate(${-90 + nn * 180}deg)`;
+        const held = liveNorm == null && heldNorm != null;
+        g.root.classList.toggle('held', held);
+        g.needle.classList.toggle('observed', liveNorm != null);
         g.ticks.forEach((tick, index) => {
           tick.classList.toggle('active', n != null && index <= Math.round(nn * 30));
-          tick.classList.toggle('target', index >= 14 && index <= 20);
+          tick.classList.toggle('target', index >= targetStartTick && index <= targetEndTick);
         });
       } else if (ins.gauge === 'segments' && g.segments) {
         const n = ins.gaugeNorm(f);
