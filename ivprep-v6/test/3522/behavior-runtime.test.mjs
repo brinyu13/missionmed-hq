@@ -78,6 +78,19 @@ test('explicit analytics start establishes listening immediately and independent
   assert.equal(runtime.latest.conversation.state, 'ANSWERING');
 });
 
+test('cross-modality observations cannot regress the live conversation clock', () => {
+  const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
+  runtime.beginInterview(0, { explicitMeasurementStart: true });
+  runtime.ingestDiagnostic(audio(220, true));
+  assert.equal(runtime.latest.conversation.state, 'ANSWERING');
+  assert.doesNotThrow(() => runtime.ingestDiagnostic(vision(180)));
+  assert.equal(runtime.latest.conversation.state, 'ANSWERING');
+  runtime.ingestDiagnostic(audio(260, false));
+  assert.equal(runtime.latest.conversation.state, 'PAUSE_SHORT');
+  assert.doesNotThrow(() => runtime.ingestDiagnostic(vision(240)));
+  assert.equal(runtime.latest.conversation.state, 'PAUSE_SHORT');
+});
+
 test('standalone behavior runtime admits listening nod evidence at the production 8 FPS floor', () => {
   const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
   runtime.beginInterview(0, { explicitMeasurementStart: true });

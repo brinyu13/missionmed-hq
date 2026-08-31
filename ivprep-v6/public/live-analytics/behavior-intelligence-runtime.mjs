@@ -202,8 +202,18 @@ export class BehaviorIntelligenceRuntime {
   }
 
   #dispatchConversation(event, atMs) {
-    const result = this.conversation.dispatch(event, atMs);
-    this.turnMetrics.ingest(event, atMs, { state: result.state });
+    // Audio and vision are independent real-time producers. A vision frame may
+    // finish after a newer audio frame has already advanced the conversation
+    // state, so its observed timestamp can legitimately arrive slightly behind
+    // the current state boundary. Preserve the observation while projecting it
+    // onto the latest truthful conversation instant; never let cross-modality
+    // scheduling regress the state machine clock or flood the live cockpit.
+    const observedAtMs = Math.round(Number(atMs));
+    const effectiveAtMs = Number.isFinite(observedAtMs)
+      ? Math.max(observedAtMs, this.conversation.enteredAtMs)
+      : this.conversation.enteredAtMs;
+    const result = this.conversation.dispatch(event, effectiveAtMs);
+    this.turnMetrics.ingest(event, effectiveAtMs, { state: result.state });
     return result;
   }
 
