@@ -73,13 +73,14 @@ function studentProjection(overrides = {}) {
 }
 
 function stubProjectionUi(overrides = {}) {
-  const calls = { block: [], render: [], commands: [] };
+  const calls = { block: [], render: [], empty: [], commands: [] };
   const ui = {
     presentationIsolation: 'production_projection_only',
     usesLocalStorage: false,
     canRevealPrototype: false,
     async block(input) { calls.block.push(input); },
     async renderProductionProjection(projection, meta) { calls.render.push({ projection, meta }); },
+    async showEmptyWorkspace(input) { calls.empty.push(input); },
     attachCommands(commands) { calls.commands.push(commands); return { attached: Object.keys(commands || {}) }; },
     ...overrides,
   };
@@ -579,7 +580,7 @@ test('fixture mode cannot be requested into existence on a production origin', a
   assertPrototypeNeverRevealed(dom);
 });
 
-test('with no case selected the gate stays closed and starting a case carries CSRF and idempotency', async () => {
+test('with no case selected the approved empty shell opens and starting a case carries CSRF and idempotency', async () => {
   const { ui, calls } = stubProjectionUi();
   const { dom, requests } = await runProductionAdapter({
     url: 'https://hq.example.test/lor-studio/',
@@ -592,13 +593,13 @@ test('with no case selected the gate stays closed and starting a case carries CS
   });
   const { document } = dom.window;
 
-  assert.equal(document.documentElement.dataset.lorRuntime, 'gated');
-  assert.equal(document.getElementById('lorRuntimeGateCode').textContent, 'Reference: case_not_selected');
+  assert.equal(document.documentElement.dataset.lorRuntime, 'live');
+  assert.equal(document.getElementById('lorRuntimeGate').hidden, true);
   assert.equal(calls.render.length, 0, 'no case means nothing is rendered');
+  assert.equal(calls.empty.length, 1, 'the approved zero-state surface is rendered');
+  assert.equal(typeof calls.empty[0].startCase, 'function');
 
-  const start = document.querySelector('#lorRuntimeGateActions button');
-  assert.notEqual(start, null);
-  start.click();
+  await calls.empty[0].startCase();
   for (let tick = 0; tick < 16; tick += 1) {
     await new Promise((resolve) => dom.window.setTimeout(resolve, 0));
   }

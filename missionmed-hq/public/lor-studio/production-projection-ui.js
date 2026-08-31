@@ -5,7 +5,10 @@
  * lor-studio/adapters/production-hydration-adapter.mjs refuses to build a ProductionHydrationAdapter
  * without a UI that can paint durable server state, and public/lor-studio/production-adapter.js
  * keeps the Studio dark unless `window.LorProductionProjectionUi` resolves to such an object. This
- * file supplies exactly that object and nothing more.
+ * file supplies that object through the Founder-approved LOR Studio shell. The visual shell is
+ * preserved from the frozen prototype, while every case fact and every write comes from the
+ * production projection/command boundary below. No synthetic person, writer, program, score, or
+ * letter is ever revived.
  *
  * Three properties are load bearing and are asserted on both sides of the boundary:
  *
@@ -314,6 +317,43 @@
     bad: 'chip rd',
   });
 
+  /**
+   * Founder-approved information architecture. These are presentation routes inside the already
+   * authorized projection; changing a route never fetches, stores, or broadens a field.
+   */
+  const ROLE_VIEWS = Object.freeze({
+    student: Object.freeze([
+      Object.freeze(['build', '✦ Build My LOR']),
+      Object.freeze(['library', 'Examples & Templates']),
+      Object.freeze(['depot', 'Writer Depot']),
+      Object.freeze(['letters', 'My Letters']),
+      Object.freeze(['intel', 'Intelligence']),
+      Object.freeze(['settings', 'Settings']),
+    ]),
+    mentor: Object.freeze([
+      Object.freeze(['overview', 'Overview']),
+      Object.freeze(['coverage', 'Coverage']),
+      Object.freeze(['deadlines', 'Deadlines']),
+      Object.freeze(['settings', 'Settings']),
+    ]),
+    faculty: Object.freeze([
+      Object.freeze(['request', 'Request']),
+      Object.freeze(['evidence', 'Evidence']),
+      Object.freeze(['assess', 'Assess']),
+      Object.freeze(['draft', 'Draft']),
+      Object.freeze(['review', 'Review']),
+      Object.freeze(['approval', 'Approval']),
+      Object.freeze(['release', 'Release']),
+      Object.freeze(['delivery', 'Delivery']),
+    ]),
+  });
+
+  const DEFAULT_ROLE_VIEW = Object.freeze({
+    student: 'build',
+    mentor: 'overview',
+    faculty: 'draft',
+  });
+
   function isPlainObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
   }
@@ -573,6 +613,8 @@
     let renderedProjection = null;
     let renderedKind = 'student';
     let selectedStepId = null;
+    let selectedAppView = null;
+    let emptyStartCase = null;
     /** Baseline revision captured when a write left the browser; null when no write is in flight. */
     let pendingSaveBaselineRevision = null;
     let pendingSaveStepId = null;
@@ -648,10 +690,11 @@
     }
 
     function buildMatrixReturnLink() {
-      const link = el('a', 'btn alt sm lorMatrixReturnLink', 'Return to Matrix');
+      const link = el('a', 'matrixBtn lorMatrixReturnLink', 'Return to Matrix');
       link.setAttribute('href', MATRIX_DASHBOARD_URL);
       link.setAttribute('referrerpolicy', 'no-referrer');
       link.setAttribute('data-lor-return-matrix', '');
+      link.setAttribute('aria-label', 'Return to MissionMed Matrix');
       return link;
     }
 
@@ -660,6 +703,116 @@
         if (child) parent.appendChild(child);
       }
       return parent;
+    }
+
+    function availableViews(kind) {
+      return ROLE_VIEWS[kind] || ROLE_VIEWS.student;
+    }
+
+    function ensureAppView(kind) {
+      const ids = availableViews(kind).map(([id]) => id);
+      if (!ids.includes(selectedAppView)) selectedAppView = DEFAULT_ROLE_VIEW[kind];
+      return selectedAppView;
+    }
+
+    function buildRoleIdentity(kind) {
+      const pill = el('div', 'rolePill lorRoleIdentity');
+      const item = el('div', 'pp on');
+      const initials = kind === 'faculty' ? 'FW' : (kind === 'mentor' ? 'M' : 'S');
+      item.appendChild(el('span', `avc ${kind === 'mentor' ? 'men' : 'stu'}`, initials));
+      item.appendChild(el('span', 'plbl', kind === 'faculty' ? 'Faculty writer' : humanize(kind)));
+      pill.appendChild(item);
+      return pill;
+    }
+
+    /**
+     * Rebuild the approved global shell from DOM primitives. The original frozen document remains
+     * inert; this is its production presentation contract, not its fixture runtime.
+     */
+    function buildApprovedShell(projection, kind, stateName) {
+      const host = resolveMount();
+      host.dataset.actor = kind;
+      const active = ensureAppView(kind);
+
+      host.appendChild(el('div', 'aur a'));
+      host.appendChild(el('div', 'aur b'));
+      host.appendChild(el('div', 'vg'));
+
+      const header = doc.createElement('header');
+      header.className = 'lorApprovedHeader';
+      header.appendChild(buildMatrixReturnLink());
+
+      const logo = button('', 'logo', () => {
+        selectedAppView = DEFAULT_ROLE_VIEW[kind];
+        if (renderedProjection) renderCase(renderedProjection, currentState);
+        else showEmptyWorkspace({ startCase: emptyStartCase });
+      });
+      logo.id = 'lorApprovedLogo';
+      logo.setAttribute('aria-label', 'LOR Studio home');
+      logo.appendChild(doc.createTextNode('LOR '));
+      logo.appendChild(el('b', null, 'Studio'));
+      logo.appendChild(el('div', 'logoSub', 'Recommendation Intelligence'));
+      header.appendChild(logo);
+
+      const nav = doc.createElement('nav');
+      nav.className = 'top';
+      nav.setAttribute('aria-label', kind === 'faculty' ? 'Faculty workspace stages' : 'Main navigation');
+      for (const [viewId, label] of availableViews(kind)) {
+        const control = button(label, `ntab${viewId === active ? ' on' : ''}`, () => {
+          selectedAppView = viewId;
+          if (renderedProjection) renderCase(renderedProjection, currentState);
+          else showEmptyWorkspace({ startCase: emptyStartCase });
+        });
+        control.dataset.lorNav = viewId;
+        if (viewId === active) control.setAttribute('aria-current', 'page');
+        nav.appendChild(control);
+      }
+      header.appendChild(nav);
+
+      const right = el('div', 'hRight');
+      right.appendChild(el('span', 'chip gn lorLiveDataChip', 'Live data'));
+      right.appendChild(buildRoleIdentity(kind));
+      header.appendChild(right);
+      host.appendChild(header);
+
+      if (kind === 'mentor') {
+        const banner = el('div', 'lorMentorBanner');
+        banner.appendChild(el('b', null, 'Mentor View'));
+        banner.appendChild(doc.createTextNode(' — strategy and milestones only. Faculty-private content and letter wording are never included.'));
+        host.appendChild(banner);
+      }
+
+      const main = doc.createElement('main');
+      main.id = 'lorApprovedMain';
+      const view = el('section', 'live');
+      view.dataset.view = 'case';
+      view.dataset.actor = kind;
+      view.dataset.appView = active;
+      if (stateName && Object.prototype.hasOwnProperty.call(STATE_COPY, stateName)) {
+        view.appendChild(stateBanner(stateName));
+      }
+      main.appendChild(view);
+      host.appendChild(main);
+      return view;
+    }
+
+    function appendViewHeading(view, eyebrow, lead, accent, detail) {
+      view.appendChild(el('div', 'eyebrow', eyebrow));
+      const heading = el('h1', 'h1 lorViewTitle');
+      heading.appendChild(doc.createTextNode(`${lead} `));
+      heading.appendChild(el('em', null, accent));
+      view.appendChild(heading);
+      if (detail) view.appendChild(el('p', 'sub lorViewIntro', detail));
+    }
+
+    function metricCard(label, value, detail, tone = 'cy') {
+      const card = el('div', 'panel lorMetricCard');
+      const body = el('div', 'pBody');
+      body.appendChild(el('div', `chip ${tone}`, label));
+      body.appendChild(el('div', 'lorMetricValue', value));
+      body.appendChild(el('p', 'sub', detail));
+      card.appendChild(body);
+      return card;
     }
 
     function panel(headingText, children, headerExtras) {
@@ -1320,24 +1473,17 @@
     }
 
     function buildHeader(projection) {
-      const header = el('div', 'lorProductionHeader');
-      header.appendChild(el('p', 'eyebrow', 'MissionMed LOR Studio · Live case'));
-      const heading = el('h1', 'h1');
-      heading.appendChild(doc.createTextNode('Recommendation '));
-      heading.appendChild(el('em', null, 'case'));
-      header.appendChild(heading);
-
-      const strip = el('div', 'pHead');
+      const header = el('div', 'lorCaseBand');
+      const strip = el('div', 'lorCaseBandInner');
       const tone = CASE_STATUS_TONES[projection.status] || 'info';
       strip.appendChild(el('span', TONE_STAGE_CLASS[tone], humanize(projection.status)));
       strip.appendChild(el('span', 'chip', `Case ${projection.caseId}`));
       strip.appendChild(el('span', 'chip', `Version ${projection.revision}`));
-      strip.appendChild(buildMatrixReturnLink());
       header.appendChild(strip);
       header.appendChild(el(
         'p',
-        'sub',
-        'This is the version stored in your MissionMed account. Changes are only saved once MissionMed confirms them.',
+        'micNote',
+        'Live MissionMed record · changes count only after the server confirms them.',
       ));
       return header;
     }
@@ -2162,70 +2308,393 @@
       );
     }
 
+    function buildStatusPanel(projection, title = 'Current recommendation case') {
+      const completed = projection.builder
+        ? projection.builder.completedStepIds.length
+        : null;
+      const children = [
+        row('Case stage', humanize(projection.status)),
+      ];
+      if (completed !== null) {
+        children.push(row('Builder progress', `${completed} of ${BUILDER_STEP_IDS.length} steps complete`));
+      }
+      if (projection.delivery) {
+        children.push(row('Delivery', humanize(projection.delivery.status)));
+      }
+      return panel(title, children, [el('span', 'chip gn', 'Live record')]);
+    }
+
+    function buildStudentGuidanceLibrary() {
+      const guides = [
+        {
+          title: 'Direct-observation letter',
+          badge: 'Clinical',
+          detail: 'Open with the writer’s role and observation scope, anchor the body in one witnessed scene, then connect the consequence to the competency it demonstrates.',
+          sequence: 'Role → observed moment → action → consequence → grounded assessment',
+        },
+        {
+          title: 'Department or chair letter',
+          badge: 'Requirement',
+          detail: 'Keep the claim as narrow as the writer’s real observation. Program-required authority never substitutes for direct evidence.',
+          sequence: 'Relationship scope → verified context → bounded claim → program fit',
+        },
+        {
+          title: 'Research mentor letter',
+          badge: 'Longitudinal',
+          detail: 'Use the arc of the work: the question, the student’s contribution, how they handled uncertainty, and what changed because of their work.',
+          sequence: 'Question → contribution → judgment → growth → impact',
+        },
+        {
+          title: 'Applicant-prepared draft',
+          badge: 'Ethical handoff',
+          detail: 'Label authorship, separate student-supplied evidence from faculty judgment, and leave endorsement language for the writer to confirm or replace.',
+          sequence: 'Disclose draft → cite evidence → mark faculty decisions → writer owns final',
+        },
+      ];
+      const grid = el('div', 'grid2 lorTemplateGrid');
+      for (const guide of guides) {
+        const card = el('article', 'draftCard');
+        const head = el('div', 'dHead');
+        head.appendChild(el('div', 'h2', guide.title));
+        head.appendChild(el('span', 'chip em', guide.badge));
+        card.appendChild(head);
+        card.appendChild(el('p', 'sub lorTemplateDetail', guide.detail));
+        const body = el('div', 'dBody', guide.sequence);
+        card.appendChild(body);
+        const foot = el('div', 'dFoot');
+        foot.appendChild(el('span', 'prov stu', 'Student evidence'));
+        foot.appendChild(el('span', 'prov obs', 'Writer confirms'));
+        card.appendChild(foot);
+        grid.appendChild(card);
+      }
+      return grid;
+    }
+
+    function buildStudentIntelligence(projection) {
+      const completed = projection.builder.completedStepIds.length;
+      const consent = readConsentState(projection.consentReceipts);
+      const evidence = projection.studentEvidence.length;
+      const options = projection.applicantOptions.length;
+      const readyForHandoff = completed === BUILDER_STEP_IDS.length && consent.active && evidence > 0;
+      const grid = el('div', 'lorMetricsGrid');
+      grid.appendChild(metricCard(
+        'Builder coverage',
+        `${completed}/${BUILDER_STEP_IDS.length}`,
+        completed === BUILDER_STEP_IDS.length ? 'The evidence packet is structurally complete.' : 'Complete the remaining evidence-first steps.',
+        completed === BUILDER_STEP_IDS.length ? 'gn' : 'em',
+      ));
+      grid.appendChild(metricCard(
+        'Grounded evidence',
+        String(evidence),
+        evidence === 1 ? 'One published evidence item is available to the verified writer.' : `${evidence} published evidence items are available to the verified writer.`,
+        evidence > 0 ? 'gn' : 'em',
+      ));
+      grid.appendChild(metricCard(
+        'Applicant options',
+        String(options),
+        options === 0 ? 'No applicant-prepared option is stored yet.' : 'Options remain proposals until the writer reviews them.',
+        options > 0 ? 'cy' : 'em',
+      ));
+      grid.appendChild(metricCard(
+        'Writer readiness',
+        readyForHandoff ? 'Ready' : 'Building',
+        readyForHandoff
+          ? 'Builder, consent, and grounded evidence gates are satisfied.'
+          : 'Readiness is based only on visible completion, consent, and evidence — never a hidden score.',
+        readyForHandoff ? 'gn' : 'em',
+      ));
+      return grid;
+    }
+
+    function buildStudentAppView(view, projection) {
+      const current = ensureAppView('student');
+      if (current === 'library') {
+        appendViewHeading(
+          view,
+          'Examples & Templates · evidence-first structures',
+          'Study the structure,',
+          'keep every claim honest.',
+          'Reusable patterns for common recommendation situations. These are guidance structures, not case records or finished letters.',
+        );
+        view.appendChild(buildStudentGuidanceLibrary());
+        return;
+      }
+
+      if (current === 'depot') {
+        appendViewHeading(
+          view,
+          'Writer Depot · one protected handoff per case',
+          'Look exceptionally',
+          'prepared.',
+          'Publish only the evidence you selected, then invite the faculty writer into their recipient-bound private workspace.',
+        );
+        view.appendChild(buildHeader(projection));
+        const grid = el('div', 'grid2 lorViewGrid');
+        const left = el('div');
+        left.appendChild(buildEvidencePanel(projection));
+        const right = el('div');
+        const invitation = buildFacultyInvitationPanel(projection);
+        if (invitation) right.appendChild(invitation);
+        right.appendChild(panel('Exactly what the writer receives', [
+          row('Published evidence', `${projection.studentEvidence.length} item(s)`),
+          row('Applicant options', `${projection.applicantOptions.length} option(s)`),
+          row('Case access', 'Recipient-bound invitation and one-time verification'),
+          el('p', 'micNote', 'The writer does not receive your full MissionMed profile. Faculty-private work never returns to the student or mentor projection.'),
+        ], [el('span', 'chip gn', 'Least privilege')]));
+        grid.appendChild(left);
+        grid.appendChild(right);
+        view.appendChild(grid);
+        return;
+      }
+
+      if (current === 'letters') {
+        appendViewHeading(
+          view,
+          'My letters & tracking',
+          'Every stage,',
+          'one honest timeline.',
+          'This view follows the recommendation case authorized in your current MissionMed route.',
+        );
+        view.appendChild(buildHeader(projection));
+        const grid = el('div', 'grid2 lorViewGrid');
+        const left = el('div');
+        left.appendChild(buildStatusPanel(projection, 'Your current letter plan'));
+        left.appendChild(buildDeliveryPanel(projection));
+        const right = el('div');
+        right.appendChild(buildFinalDocumentPanel(projection));
+        const invitation = buildFacultyInvitationPanel(projection);
+        if (invitation) right.appendChild(invitation);
+        grid.appendChild(left);
+        grid.appendChild(right);
+        view.appendChild(grid);
+        return;
+      }
+
+      if (current === 'intel') {
+        appendViewHeading(
+          view,
+          'Recommendation intelligence · explainable readiness',
+          'Know what is grounded,',
+          'and what is still missing.',
+          'Every indicator below is derived from this live case. There is no hidden score and no fixture portfolio.',
+        );
+        view.appendChild(buildHeader(projection));
+        view.appendChild(buildStudentIntelligence(projection));
+        view.appendChild(panel('Provenance & grounding visibility', [
+          row('Student-supplied evidence', `${projection.studentEvidence.length} published item(s)`, el('span', 'prov stu', 'Student')),
+          row('Applicant-prepared options', `${projection.applicantOptions.length} stored option(s)`, el('span', 'prov ai', 'Proposal only')),
+          row('Explicit consent', readConsentState(projection.consentReceipts).active ? 'Current policy consent is active.' : 'Current policy consent is not active.', el('span', readConsentState(projection.consentReceipts).active ? 'chip gn' : 'chip em', readConsentState(projection.consentReceipts).active ? 'Active' : 'Required')),
+          el('p', 'micNote', 'Faculty evaluation and final endorsement remain faculty-owned even when AI proposes grounded wording.'),
+        ]));
+        return;
+      }
+
+      if (current === 'settings') {
+        appendViewHeading(
+          view,
+          'Settings · privacy and access',
+          'Your choices stay',
+          'visible and reversible.',
+          'Consent and waiver records are durable, append-only decisions tied to this recommendation case.',
+        );
+        view.appendChild(buildHeader(projection));
+        const grid = el('div', 'grid2 lorViewGrid');
+        grid.appendChild(buildReceiptsPanel(projection));
+        grid.appendChild(panel('Role boundaries', [
+          row('Student', 'Builder, selected evidence, invitations, status, and permitted released letter.'),
+          row('Mentor', 'Strategy and milestone projection only.'),
+          row('Faculty writer', 'Recipient-bound private workspace and final release authority.'),
+          el('p', 'micNote', 'Return to Matrix from the fixed control in the LOR Studio header. Authentication and entitlement remain server-owned.'),
+        ], [el('span', 'chip gn', 'Server enforced')]));
+        view.appendChild(grid);
+        return;
+      }
+
+      appendViewHeading(
+        view,
+        'Build My LOR · evidence-first drafting',
+        'Build the letter they asked',
+        'you to write.',
+        'Turn your saved evidence and goals into an organized writer handoff. Your faculty writer reviews, edits, approves, and owns the final.',
+      );
+      view.appendChild(buildHeader(projection));
+      const hero = el('div', 'lorBuildCallout');
+      hero.appendChild(el('div', 'h2', 'Your live eight-step builder is ready.'));
+      hero.appendChild(el('p', 'sub', 'Every change stays pending until MissionMed confirms the durable revision.'));
+      hero.appendChild(button('Continue Build My LOR', 'btn pri hero', () => {
+        const selected = resolveMount().querySelector('.stepRail button[aria-selected="true"]')
+          || resolveMount().querySelector('.stepRail button');
+        if (selected && typeof selected.focus === 'function') selected.focus();
+      }));
+      view.appendChild(hero);
+      const grid = el('div', 'homeGrid lorViewGrid');
+      const primary = el('div');
+      primary.appendChild(buildBuilderPanel(projection));
+      const secondary = el('div');
+      secondary.appendChild(buildReceiptsPanel(projection));
+      const invitationPanel = buildFacultyInvitationPanel(projection);
+      if (invitationPanel) secondary.appendChild(invitationPanel);
+      secondary.appendChild(buildFinalDocumentPanel(projection));
+      secondary.appendChild(buildEvidencePanel(projection));
+      secondary.appendChild(buildDeliveryPanel(projection));
+      grid.appendChild(primary);
+      grid.appendChild(secondary);
+      view.appendChild(grid);
+    }
+
+    function readableSharedItem(item, index, fallback) {
+      if (!isPlainObject(item)) return `${fallback} ${index + 1}`;
+      for (const key of ['title', 'label', 'name', 'summary', 'type']) {
+        if (isNonEmptyString(item[key])) return truncate(item[key]);
+      }
+      return `${fallback} ${index + 1}`;
+    }
+
+    function buildFacultySharedEvidence(projection) {
+      const evidence = projection.studentShared.evidence;
+      const options = projection.studentShared.applicantOptions;
+      const children = [];
+      if (evidence.length === 0) children.push(el('p', 'sub', 'No student evidence has been published to this writer workspace.'));
+      evidence.forEach((item, index) => {
+        children.push(row(readableSharedItem(item, index, 'Evidence item'), describeValue(item), el('span', 'prov stu', 'Student supplied')));
+      });
+      options.forEach((item, index) => {
+        children.push(row(readableSharedItem(item, index, 'Applicant option'), describeValue(item), el('span', 'prov ai', 'Proposal only')));
+      });
+      children.push(el('p', 'micNote', 'Everything in this panel was deliberately published into this recipient-bound case. Your private notes and final wording remain separate.'));
+      return panel('Evidence packet', children, [el('span', 'chip cy', `${evidence.length} evidence · ${options.length} option`)]);
+    }
+
+    function buildFacultyRequestPanel(projection) {
+      const waiver = projection.studentShared.waiverState;
+      return panel('Request at a glance', [
+        row('Case stage', humanize(projection.status)),
+        row('Student access decision', waiver.decided ? (waiver.waived ? 'Student waived access.' : 'Student kept access.') : 'No decision recorded.'),
+        row('Shared evidence', `${projection.studentShared.evidence.length} published item(s)`),
+        row('Applicant options', `${projection.studentShared.applicantOptions.length} proposal(s)`),
+        el('p', 'micNote', 'Applicant-prepared wording and AI output are evidence or proposals only. The faculty writer owns evaluation, endorsement, approval, signature attestation, and release.'),
+      ], [el('span', 'chip gn', 'Verified writer')]);
+    }
+
     function renderFacultyCase(projection, stateName) {
       const host = resolveMount();
       clear(host);
-      const view = el('section', 'live');
-      view.dataset.view = 'case';
-      view.dataset.actor = 'faculty';
-      if (stateName && Object.prototype.hasOwnProperty.call(STATE_COPY, stateName)) {
-        view.appendChild(stateBanner(stateName));
-      }
-      const header = el('div', 'lorProductionHeader');
-      header.appendChild(el('p', 'eyebrow', 'MissionMed LOR Studio · Faculty writer'));
-      const heading = el('h1', 'h1');
-      heading.appendChild(doc.createTextNode('Recommendation '));
-      heading.appendChild(el('em', null, 'case'));
-      header.appendChild(heading);
-      const strip = el('div', 'pHead');
-      strip.appendChild(el('span', TONE_STAGE_CLASS[CASE_STATUS_TONES[projection.status] || 'info'], humanize(projection.status)));
-      strip.appendChild(el('span', 'chip', `Case ${projection.caseId}`));
-      strip.appendChild(el('span', 'chip', `Version ${projection.revision}`));
+      const view = buildApprovedShell(projection, 'faculty', stateName);
+      appendViewHeading(
+        view,
+        'Faculty secure workspace · private by design',
+        'Review the evidence.',
+        'Own the final.',
+        'The student can see status, not your private work. Release happens only after your explicit review and attestation.',
+      );
+      const strip = el('div', 'lorCaseBand');
+      const band = el('div', 'lorCaseBandInner');
+      band.appendChild(el('span', TONE_STAGE_CLASS[CASE_STATUS_TONES[projection.status] || 'info'], humanize(projection.status)));
+      band.appendChild(el('span', 'chip', `Case ${projection.caseId}`));
+      band.appendChild(el('span', 'chip', `Version ${projection.revision}`));
       const saveChip = buildSaveStateChip();
-      if (saveChip) strip.appendChild(saveChip);
-      strip.appendChild(buildMatrixReturnLink());
-      header.appendChild(strip);
-      view.appendChild(header);
+      if (saveChip) band.appendChild(saveChip);
+      strip.appendChild(band);
+      view.appendChild(strip);
 
-      view.appendChild(buildFacultyAuthoring(projection));
-      const aiPanel = buildAiProposalPanel();
-      if (aiPanel) view.appendChild(aiPanel);
-      view.appendChild(buildFacultyRelease(projection));
-      view.appendChild(buildDeliveryPanel(projection));
-      host.appendChild(view);
+      const active = ensureAppView('faculty');
+      if (active === 'request') {
+        view.appendChild(buildFacultyRequestPanel(projection));
+      } else if (active === 'evidence') {
+        view.appendChild(buildFacultySharedEvidence(projection));
+      } else if (active === 'assess') {
+        view.appendChild(buildFacultySharedEvidence(projection));
+        view.appendChild(panel('Private assessment record', [
+          row('Private answers', `${projection.facultyPrivate.answers.length} recorded`),
+          row('Private notes', `${projection.facultyPrivate.notes.length} recorded`),
+          el('p', 'micNote', 'These counts come from your faculty-private record. No student or mentor projection contains their content.'),
+        ], [el('span', 'chip cy', 'Faculty private')]));
+      } else if (active === 'release') {
+        view.appendChild(buildFacultyRelease(projection));
+      } else if (active === 'delivery') {
+        view.appendChild(buildDeliveryPanel(projection));
+      } else {
+        view.appendChild(buildFacultyRequestPanel(projection));
+        view.appendChild(buildFacultySharedEvidence(projection));
+        view.appendChild(buildFacultyAuthoring(projection));
+        const aiPanel = buildAiProposalPanel();
+        if (aiPanel) view.appendChild(aiPanel);
+        view.appendChild(buildFacultyRelease(projection));
+        view.appendChild(buildDeliveryPanel(projection));
+      }
       renderedProjection = projection;
     }
 
     function renderMentorCase(projection, stateName) {
       const host = resolveMount();
       clear(host);
-      const view = el('section', 'live');
-      view.dataset.view = 'case';
-      view.dataset.actor = 'mentor';
-      if (stateName && Object.prototype.hasOwnProperty.call(STATE_COPY, stateName)) {
-        view.appendChild(stateBanner(stateName));
+      const view = buildApprovedShell(projection, 'mentor', stateName);
+      const active = ensureAppView('mentor');
+      if (active === 'coverage') {
+        appendViewHeading(
+          view,
+          'Mentor · portfolio coverage',
+          'Coach the gaps,',
+          'never read the letter.',
+          'Coverage here means the real case, strategy, milestone, and delivery signals the mentor-safe projection permits.',
+        );
+        const grid = el('div', 'lorMetricsGrid');
+        grid.appendChild(metricCard('Case', humanize(projection.status), 'Current case progression.', 'cy'));
+        grid.appendChild(metricCard('Strategy', projection.strategyStatus === null ? 'Not set' : humanize(projection.strategyStatus), 'Student strategy signal.', projection.strategyStatus === null ? 'em' : 'gn'));
+        grid.appendChild(metricCard('Milestone', projection.nextMilestone === null ? 'Not set' : humanize(projection.nextMilestone), 'Next coaching milestone.', projection.nextMilestone === null ? 'em' : 'gn'));
+        grid.appendChild(metricCard('Delivery', projection.deliveryStatus === null ? 'Not set' : humanize(projection.deliveryStatus), 'Delivery progression only.', projection.deliveryStatus === null ? 'em' : 'cy'));
+        view.appendChild(grid);
+        view.appendChild(panel('Privacy boundary', [
+          row('Faculty-private answers', 'Not included'),
+          row('Draft and final wording', 'Not included'),
+          row('Student evidence content', 'Not included'),
+          el('p', 'micNote', 'The mentor can coach strategy from approved signals without receiving the education-record content or waived letter.'),
+        ], [el('span', 'chip gn', 'Least privilege')]));
+      } else if (active === 'deadlines') {
+        appendViewHeading(
+          view,
+          'Mentor · deadlines & exceptions',
+          'Know what moves next,',
+          'and what needs attention.',
+          'The mentor-safe contract exposes a next milestone and delivery state without disclosing private case content.',
+        );
+        view.appendChild(panel('Milestone watch', [
+          row('Case stage', humanize(projection.status), el('span', 'chip cy', 'Live')),
+          row('Next milestone', projection.nextMilestone === null ? 'Not set.' : humanize(projection.nextMilestone), el('span', projection.nextMilestone === null ? 'chip em' : 'chip gn', projection.nextMilestone === null ? 'Needs plan' : 'Tracked')),
+          row('Delivery state', projection.deliveryStatus === null ? 'Not set.' : humanize(projection.deliveryStatus)),
+          el('p', 'micNote', 'No date is invented when the authorized mentor projection does not contain one.'),
+        ], [el('span', 'chip', 'Read only')]));
+      } else if (active === 'settings') {
+        appendViewHeading(
+          view,
+          'Mentor · settings',
+          'Strategy access,',
+          'bounded by role.',
+          'Your current MissionMed identity determines the cases and fields available here.',
+        );
+        view.appendChild(panel('Mentor access', [
+          row('Assigned case', projection.caseId),
+          row('Mode', 'Read-only strategy projection'),
+          row('Faculty-private workspace', 'No access'),
+          row('Letter export or release', 'No access'),
+          el('p', 'micNote', 'Return to Matrix from the fixed header control. This interface cannot become a student or faculty workspace.'),
+        ], [el('span', 'chip gn', 'Server enforced')]));
+      } else {
+        appendViewHeading(
+          view,
+          'Mentor · letter strategy',
+          'Recommendation',
+          'portfolio overview.',
+          'See enough to coach readiness and progression. Faculty-private answers and letter wording stay behind a separate authorization boundary.',
+        );
+        view.appendChild(panel('Mentor case status', [
+          row('Case stage', humanize(projection.status)),
+          row('Strategy status', projection.strategyStatus === null ? 'Not set.' : humanize(projection.strategyStatus)),
+          row('Next milestone', projection.nextMilestone === null ? 'Not set.' : humanize(projection.nextMilestone)),
+          row('Delivery status', projection.deliveryStatus === null ? 'Not set.' : humanize(projection.deliveryStatus)),
+          el('p', 'micNote', 'This is the exact read-only mentor projection. Student and faculty-private content is not included.'),
+        ], [el('span', 'chip', 'Read only')]));
       }
-      const header = el('div', 'lorProductionHeader');
-      header.appendChild(el('p', 'eyebrow', 'MissionMed LOR Studio · Mentor'));
-      header.appendChild(el('h1', 'h1', 'Recommendation case'));
-      const strip = el('div', 'pHead');
-      strip.appendChild(el(
-        'span',
-        TONE_STAGE_CLASS[CASE_STATUS_TONES[projection.status] || 'info'],
-        humanize(projection.status),
-      ));
-      strip.appendChild(el('span', 'chip', `Case ${projection.caseId}`));
-      strip.appendChild(buildMatrixReturnLink());
-      header.appendChild(strip);
-      view.appendChild(header);
-      view.appendChild(panel('Mentor case status', [
-        row('Case stage', humanize(projection.status)),
-        row('Strategy status', projection.strategyStatus === null ? 'Not set.' : humanize(projection.strategyStatus)),
-        row('Next milestone', projection.nextMilestone === null ? 'Not set.' : humanize(projection.nextMilestone)),
-        row('Delivery status', projection.deliveryStatus === null ? 'Not set.' : humanize(projection.deliveryStatus)),
-        el('p', 'micNote', 'This is the exact read-only mentor projection. Student and faculty-private content is not included.'),
-      ], [el('span', 'chip', 'Read only')]));
-      host.appendChild(view);
       renderedProjection = projection;
     }
 
@@ -2277,27 +2746,8 @@
       const host = resolveMount();
       selectedStepId = pickSelectedStep(projection);
       clear(host);
-      const view = el('section', 'live');
-      view.dataset.view = 'case';
-      if (stateName && Object.prototype.hasOwnProperty.call(STATE_COPY, stateName)) {
-        view.appendChild(stateBanner(stateName));
-      }
-      view.appendChild(buildHeader(projection));
-
-      const grid = el('div', 'homeGrid');
-      const primary = el('div');
-      primary.appendChild(buildBuilderPanel(projection));
-      const secondary = el('div');
-      secondary.appendChild(buildReceiptsPanel(projection));
-      const invitationPanel = buildFacultyInvitationPanel(projection);
-      if (invitationPanel) secondary.appendChild(invitationPanel);
-      secondary.appendChild(buildFinalDocumentPanel(projection));
-      secondary.appendChild(buildEvidencePanel(projection));
-      secondary.appendChild(buildDeliveryPanel(projection));
-      grid.appendChild(primary);
-      grid.appendChild(secondary);
-      view.appendChild(grid);
-      host.appendChild(view);
+      const view = buildApprovedShell(projection, 'student', stateName);
+      buildStudentAppView(view, projection);
       renderedProjection = projection;
       restoreFocus(focus);
     }
@@ -2521,11 +2971,70 @@
       return Object.freeze({ saved: false, state });
     }
 
-    function showEmptyWorkspace() {
+    function showEmptyWorkspace(request) {
       pendingSaveBaselineRevision = null;
       pendingSaveStepId = null;
       clearDebounce();
-      return applyState('empty');
+      renderedProjection = null;
+      renderedKind = 'student';
+      selectedStepId = null;
+      currentState = 'empty';
+      emptyStartCase = isPlainObject(request) && typeof request.startCase === 'function'
+        ? request.startCase
+        : null;
+
+      const host = resolveMount();
+      clear(host);
+      const view = buildApprovedShell(null, 'student', null);
+      const active = ensureAppView('student');
+
+      if (active === 'library') {
+        appendViewHeading(
+          view,
+          'Examples & Templates · evidence-first structures',
+          'Study the structure,',
+          'keep every claim honest.',
+          'Reusable patterns for common recommendation situations. These are guidance structures, not case records or finished letters.',
+        );
+        view.appendChild(buildStudentGuidanceLibrary());
+      } else {
+        const emptyViewCopy = Object.freeze({
+          build: Object.freeze(['Build My LOR · evidence-first drafting', 'Build the letter they asked', 'you to write.']),
+          depot: Object.freeze(['Writer Depot · protected faculty handoff', 'Prepare the evidence.', 'Invite the right writer.']),
+          letters: Object.freeze(['My letters & tracking', 'Every stage,', 'one honest timeline.']),
+          intel: Object.freeze(['Recommendation intelligence', 'Know what is grounded,', 'and what comes next.']),
+          settings: Object.freeze(['Settings · privacy and access', 'Your choices stay', 'visible and reversible.']),
+        });
+        const copy = emptyViewCopy[active] || emptyViewCopy.build;
+        appendViewHeading(
+          view,
+          copy[0],
+          copy[1],
+          copy[2],
+          'Start one live recommendation case to connect this approved workspace to your durable MissionMed record.',
+        );
+        const callout = el('div', 'lorBuildCallout');
+        callout.appendChild(el('div', 'h2', 'Start your first recommendation case.'));
+        callout.appendChild(el(
+          'p',
+          'sub',
+          'The case opens the eight-step builder, evidence handoff, writer invitation, tracking, intelligence, and privacy controls in one workspace.',
+        ));
+        if (emptyStartCase) {
+          const start = button('✦ Build My LOR', 'btn pri hero', () => { void emptyStartCase(); });
+          start.id = 'lorStartCase';
+          callout.appendChild(start);
+        }
+        view.appendChild(callout);
+        view.appendChild(panel('What opens with your case', [
+          row('Build My LOR', 'Eight evidence-first steps with durable autosave.'),
+          row('Writer Depot', 'Published evidence and recipient-bound faculty invitation.'),
+          row('My Letters', 'Live stage, release, delivery, and export status.'),
+          row('Intelligence', 'Explainable readiness based on completion, consent, and grounding.'),
+        ], [el('span', 'chip gn', 'Real production record')]));
+      }
+
+      return Object.freeze({ rendered: true, surface: 'empty' });
     }
 
     const COMMAND_NAMES = Object.freeze([
