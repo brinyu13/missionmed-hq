@@ -711,10 +711,34 @@ test('mentor login class requires an exact database mentor assignment and denies
     request: { url: '/api/lor-studio/cases/case-mentor-1' },
   });
   assert.equal(projection.role, 'mentor');
+  for (const asset of [
+    '/lor-studio/production-adapter.css?v=7',
+    '/lor-studio/production-adapter.js?v=7',
+    '/lor-studio/production-projection-ui.js?v=7',
+  ]) {
+    const assetProjection = await adapter.resolve({
+      subject: 'wp:123',
+      session: mentorSession,
+      request: { url: asset },
+    });
+    assert.equal(assetProjection.role, 'mentor');
+    assert.equal(adapter.consumeTrustedRequestContext(assetProjection).canaryAuthorized, true);
+  }
   await assert.rejects(
     adapter.resolve({ subject: 'wp:123', session: mentorSession, request: { url: '/lor-studio/' } }),
     /IDENTITY_CLASS_SCOPE_DENIED/u,
   );
+  for (const url of [
+    '/lor-studio/production-adapter.js',
+    '/lor-studio/production-adapter.js?v=8',
+    '/lor-studio/index.html?v=7',
+    '/api/lor-studio/bootstrap?v=7',
+  ]) {
+    await assert.rejects(
+      adapter.resolve({ subject: 'wp:123', session: mentorSession, request: { url } }),
+      /IDENTITY_CLASS_SCOPE_DENIED/u,
+    );
+  }
   await assert.rejects(
     build('student').resolve({
       subject: 'wp:123',

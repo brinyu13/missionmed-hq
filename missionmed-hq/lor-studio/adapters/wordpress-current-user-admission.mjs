@@ -42,6 +42,11 @@ const CASE_PAGE_PATHS = new Set([
   '/lor-studio/index.html',
 ]);
 const CASE_BOOTSTRAP_PATH = '/api/lor-studio/bootstrap';
+const MENTOR_PRODUCTION_ASSET_PATHS = new Set([
+  '/lor-studio/production-adapter.css',
+  '/lor-studio/production-adapter.js',
+  '/lor-studio/production-projection-ui.js',
+]);
 const FACULTY_CANDIDATE_API_PATTERN =
   /^\/api\/lor-studio\/invitations\/([^/?#]+)\/(?:bootstrap|verify)(?:[?#]|$)/u;
 const FACULTY_CANDIDATE_PAGE_PATTERN =
@@ -210,6 +215,21 @@ function requestFacultyCandidateInvitationId(request) {
     fail('INVITATION_CANDIDATE_INVALID');
   }
   return invitationId;
+}
+
+function isExactMentorProductionAssetRequest(request) {
+  const raw = typeof request?.url === 'string' ? request.url : '';
+  let parsed;
+  try {
+    parsed = new URL(raw, 'https://lor-request.invalid');
+  } catch {
+    return false;
+  }
+  return parsed.hash === ''
+    && MENTOR_PRODUCTION_ASSET_PATHS.has(parsed.pathname)
+    && [...parsed.searchParams.keys()].length === 1
+    && parsed.searchParams.getAll('v').length === 1
+    && parsed.searchParams.get('v') === '7';
 }
 
 function exactActorCaseAccess(value, { authenticatedSubject, caseId }) {
@@ -460,6 +480,9 @@ export function createWordPressCurrentUserAdmission({
 
       const caseId = requestCaseId(input.request);
       const candidateInvitationId = requestFacultyCandidateInvitationId(input.request);
+      const mentorProductionAssetAuthorized = binding.identityClass
+        === WORDPRESS_LOR_MENTOR_IDENTITY_CLASS
+        && isExactMentorProductionAssetRequest(input.request);
       let actorRole = 'student';
       let resourceStudentId = authenticatedSubject;
       let actorAccess = null;
@@ -504,7 +527,8 @@ export function createWordPressCurrentUserAdmission({
       } else if (binding.identityClass === WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS) {
         fail('IDENTITY_CLASS_SCOPE_DENIED');
       } else if (binding.identityClass === WORDPRESS_LOR_MENTOR_IDENTITY_CLASS) {
-        fail('IDENTITY_CLASS_SCOPE_DENIED');
+        if (!mentorProductionAssetAuthorized) fail('IDENTITY_CLASS_SCOPE_DENIED');
+        actorRole = 'mentor';
       }
 
       // This stable proof identifies the verified identity source for the
@@ -518,7 +542,9 @@ export function createWordPressCurrentUserAdmission({
       // a case resolves, the target student's fresh signed resource entitlement is decisive.
       const canaryEnabled = resourceEntitlement?.canaryEnabled ?? receipt.canaryEnabled;
       const canaryConsented = resourceEntitlement?.canaryConsented ?? receipt.canaryConsented;
-      const canaryAuthorized = invitationCandidateAuthorized || requireCanary !== true
+      const canaryAuthorized = invitationCandidateAuthorized
+        || mentorProductionAssetAuthorized
+        || requireCanary !== true
         || (canaryEnabled === true && canaryConsented === true);
       if (!canaryAuthorized) fail('CANARY_ADMISSION_DENIED');
       const proofHash = hashValue(actorRole === 'student'
@@ -547,6 +573,9 @@ export function createWordPressCurrentUserAdmission({
           canaryConsented,
           requireCanary,
           invitationCandidateAuthorized,
+          ...(binding.identityClass === WORDPRESS_LOR_MENTOR_IDENTITY_CLASS
+            ? { mentorProductionAssetAuthorized }
+            : {}),
           ...(actorAccess === null
             ? {}
             : {
@@ -671,6 +700,7 @@ export const WORDPRESS_CURRENT_USER_ADMISSION_CONTRACT = Object.freeze({
     'effectiveCanaryConsented_if_non_student',
     'requireCanary_if_non_student',
     'invitationCandidateAuthorized_if_non_student',
+    'mentorProductionAssetAuthorized_if_non_student',
     'actorCaseAccessAuthority_if_non_student_case_resolved',
     'caseId_if_non_student_case_resolved',
     'resourceStudentId_if_non_student_case_resolved',
