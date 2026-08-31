@@ -614,6 +614,7 @@
     let renderedKind = 'student';
     let selectedStepId = null;
     let selectedAppView = null;
+    let emptyStartCase = null;
     /** Baseline revision captured when a write left the browser; null when no write is in flight. */
     let pendingSaveBaselineRevision = null;
     let pendingSaveStepId = null;
@@ -743,7 +744,8 @@
 
       const logo = button('', 'logo', () => {
         selectedAppView = DEFAULT_ROLE_VIEW[kind];
-        renderCase(renderedProjection, currentState);
+        if (renderedProjection) renderCase(renderedProjection, currentState);
+        else showEmptyWorkspace({ startCase: emptyStartCase });
       });
       logo.id = 'lorApprovedLogo';
       logo.setAttribute('aria-label', 'LOR Studio home');
@@ -758,7 +760,8 @@
       for (const [viewId, label] of availableViews(kind)) {
         const control = button(label, `ntab${viewId === active ? ' on' : ''}`, () => {
           selectedAppView = viewId;
-          renderCase(renderedProjection, currentState);
+          if (renderedProjection) renderCase(renderedProjection, currentState);
+          else showEmptyWorkspace({ startCase: emptyStartCase });
         });
         control.dataset.lorNav = viewId;
         if (viewId === active) control.setAttribute('aria-current', 'page');
@@ -2968,11 +2971,70 @@
       return Object.freeze({ saved: false, state });
     }
 
-    function showEmptyWorkspace() {
+    function showEmptyWorkspace(request) {
       pendingSaveBaselineRevision = null;
       pendingSaveStepId = null;
       clearDebounce();
-      return applyState('empty');
+      renderedProjection = null;
+      renderedKind = 'student';
+      selectedStepId = null;
+      currentState = 'empty';
+      emptyStartCase = isPlainObject(request) && typeof request.startCase === 'function'
+        ? request.startCase
+        : null;
+
+      const host = resolveMount();
+      clear(host);
+      const view = buildApprovedShell(null, 'student', null);
+      const active = ensureAppView('student');
+
+      if (active === 'library') {
+        appendViewHeading(
+          view,
+          'Examples & Templates · evidence-first structures',
+          'Study the structure,',
+          'keep every claim honest.',
+          'Reusable patterns for common recommendation situations. These are guidance structures, not case records or finished letters.',
+        );
+        view.appendChild(buildStudentGuidanceLibrary());
+      } else {
+        const emptyViewCopy = Object.freeze({
+          build: Object.freeze(['Build My LOR · evidence-first drafting', 'Build the letter they asked', 'you to write.']),
+          depot: Object.freeze(['Writer Depot · protected faculty handoff', 'Prepare the evidence.', 'Invite the right writer.']),
+          letters: Object.freeze(['My letters & tracking', 'Every stage,', 'one honest timeline.']),
+          intel: Object.freeze(['Recommendation intelligence', 'Know what is grounded,', 'and what comes next.']),
+          settings: Object.freeze(['Settings · privacy and access', 'Your choices stay', 'visible and reversible.']),
+        });
+        const copy = emptyViewCopy[active] || emptyViewCopy.build;
+        appendViewHeading(
+          view,
+          copy[0],
+          copy[1],
+          copy[2],
+          'Start one live recommendation case to connect this approved workspace to your durable MissionMed record.',
+        );
+        const callout = el('div', 'lorBuildCallout');
+        callout.appendChild(el('div', 'h2', 'Start your first recommendation case.'));
+        callout.appendChild(el(
+          'p',
+          'sub',
+          'The case opens the eight-step builder, evidence handoff, writer invitation, tracking, intelligence, and privacy controls in one workspace.',
+        ));
+        if (emptyStartCase) {
+          const start = button('✦ Build My LOR', 'btn pri hero', () => { void emptyStartCase(); });
+          start.id = 'lorStartCase';
+          callout.appendChild(start);
+        }
+        view.appendChild(callout);
+        view.appendChild(panel('What opens with your case', [
+          row('Build My LOR', 'Eight evidence-first steps with durable autosave.'),
+          row('Writer Depot', 'Published evidence and recipient-bound faculty invitation.'),
+          row('My Letters', 'Live stage, release, delivery, and export status.'),
+          row('Intelligence', 'Explainable readiness based on completion, consent, and grounding.'),
+        ], [el('span', 'chip gn', 'Real production record')]));
+      }
+
+      return Object.freeze({ rendered: true, surface: 'empty' });
     }
 
     const COMMAND_NAMES = Object.freeze([

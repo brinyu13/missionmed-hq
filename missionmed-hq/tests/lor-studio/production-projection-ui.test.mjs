@@ -697,6 +697,37 @@ test('the approved student shell restores all six Founder navigation views over 
   }
 });
 
+test('the approved no-case landing replaces the rejected engineering gate and starts only on command', async () => {
+  const harness = createHarness();
+  let starts = 0;
+  const result = harness.ui.showEmptyWorkspace({
+    startCase: async () => { starts += 1; },
+  });
+
+  assert.deepEqual({ ...result }, { rendered: true, surface: 'empty' });
+  assert.match(harness.text(), /Build the letter they asked you to write\./u);
+  assert.match(harness.text(), /Start your first recommendation case\./u);
+  assert.equal(harness.mount.querySelector('#lorRuntimeGate'), null);
+  assert.deepEqual(
+    [...harness.mount.querySelectorAll('button[data-lor-nav]')].map((button) => button.dataset.lorNav),
+    ['build', 'library', 'depot', 'letters', 'intel', 'settings'],
+  );
+
+  harness.mount.querySelector('#lorStartCase').dispatchEvent(new harness.win.Event('click', { bubbles: true }));
+  await Promise.resolve();
+  assert.equal(starts, 1);
+
+  harness.mount
+    .querySelector('button[data-lor-nav="library"]')
+    .dispatchEvent(new harness.win.Event('click', { bubbles: true }));
+  assert.match(harness.text(), /Examples & Templates/u);
+  assert.match(harness.text(), /Direct-observation letter/u);
+  assert.equal(harness.storageTouches.length, 0);
+  assert.equal(harness.networkCalls.length, 0);
+  assertPrototypeStillQuarantined(harness);
+  assertNoInlineHandlers(harness);
+});
+
 /* ----------------------------------------------------------------- isolation */
 
 test('the source references no storage, no network, no eval and no HTML sinks', () => {

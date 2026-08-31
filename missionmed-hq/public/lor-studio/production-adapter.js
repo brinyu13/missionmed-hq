@@ -159,6 +159,7 @@
     if (!ui || typeof ui !== 'object') return null;
     if (typeof ui.block !== 'function') return null;
     if (typeof ui.renderProductionProjection !== 'function') return null;
+    if (typeof ui.showEmptyWorkspace !== 'function') return null;
     if (ui.presentationIsolation !== 'production_projection_only') return null;
     if (ui.usesLocalStorage !== false) return null;
     if (ui.canRevealPrototype !== false) return null;
@@ -880,14 +881,17 @@
       return;
     }
 
-    showState({
-      heading: 'Start your recommendation case',
-      detail: 'You are signed in and entitled. Open an existing case link, or start a new case to continue.',
-      reason: 'case_not_selected',
-    });
-    if (activeCsrfToken) {
-      addAction('Start a recommendation case', () => { void startProductionCase(ui, activeCsrfToken); });
+    try {
+      await ui.showEmptyWorkspace({
+        startCase: activeCsrfToken
+          ? () => startProductionCase(ui, activeCsrfToken)
+          : null,
+      });
+    } catch {
+      blockUnhydratedLiveRuntime();
+      return;
     }
+    revealProductionRuntime();
   }
 
   async function readJsonSafe(response) {
