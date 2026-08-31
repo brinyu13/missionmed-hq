@@ -42,3 +42,12 @@ Dangler Cartoon Solos 22/
 *.csv
 *.xlsx
 *.numbers
+
+# Exact production runtime exceptions. Keep the broad binary exclusions above,
+# but ship the tracked IV Prep arena/scanner art and the shared auth module that
+# the MissionMed HQ build validates before startup.
+!missionmed-hq/lib/auth/session-token.mjs
+!ivprep-v6/public/ivoc-standalone/assets/arena-world-day.jpg
+!ivprep-v6/public/ivoc-standalone/assets/arena-world-sunset.jpg
+!ivprep-v6/public/ivoc-standalone/assets/founder-body-scanner.png
+!ivprep-v6/public/ivoc-standalone/assets/founder-face-scanner.png
