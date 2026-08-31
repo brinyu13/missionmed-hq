@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   DR133_ARTIFACTS,
@@ -37,6 +38,15 @@ import {
 const PRODUCTION_CA = await readFile(
   new URL('./dr133-production-root-ca.pem', import.meta.url),
   'utf8',
+);
+const MISSIONMED_HQ_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+);
+const SERVICE_WRAPPER_PATH = path.join(
+  MISSIONMED_HQ_ROOT,
+  'scripts/lor-studio/run-dr133-railway-production-service-operation.mjs',
 );
 const TOKEN = 'r'.repeat(48);
 const PORT = 55_432;
@@ -349,11 +359,7 @@ test('descriptors pin exact connect name and exact no-local sanitizer-only servi
   assert.equal(operation.includes('-E'), true);
   assert.equal(operation.includes('-s'), true);
   assert.equal(operation.at(-4), '/usr/local/bin/node');
-  assert.equal(
-    operation.at(-3),
-    '/Users/brianb/MissionMed_worktrees/F2-LOR-1009/missionmed-hq/'
-      + 'scripts/lor-studio/run-dr133-railway-production-service-operation.mjs',
-  );
+  assert.equal(operation.at(-3), SERVICE_WRAPPER_PATH);
   assert.equal(operation.at(-2), 'connectivity-preflight');
   assert.equal(operation.at(-1), String(PORT));
   assert.equal(operation.some((value) => value === '-c' || value === 'node'), false);
@@ -642,7 +648,7 @@ test('isolated sanitizer argv contains no secret and hostile startup variables c
     assert.doesNotMatch(argv, /BEGIN CERTIFICATE|postgres(?:ql)?:\/\//u);
     const code = await new Promise((resolve, reject) => {
       const child = spawn(executable, args, {
-        cwd: '/Users/brianb/MissionMed_worktrees/F2-LOR-1009/missionmed-hq',
+        cwd: MISSIONMED_HQ_ROOT,
         env: hostileEnvironment,
         shell: false,
         stdio: ['ignore', 'ignore', 'ignore'],
@@ -690,6 +696,11 @@ test('source guard proves pre-pg custody, dynamic post-scrub import, and exact c
     true,
   );
   assert.equal(sanitizerSource.indexOf('os.environ.clear()') < sanitizerSource.indexOf('os.execve('), true);
+  assert.match(
+    sanitizerSource,
+    /SANITIZER_DIRECTORY = os\.path\.dirname\(os\.path\.realpath\(__file__\)\)/u,
+  );
+  assert.doesNotMatch(sanitizerSource, /MissionMed_worktrees\/F2-LOR-1009/u);
   assert.doesNotMatch(
     `${sanitizerSource}\n${wrapperSource}`,
     /RAILWAY_(?:DEPLOYMENT_ID|REPLICA_REGION)/u,

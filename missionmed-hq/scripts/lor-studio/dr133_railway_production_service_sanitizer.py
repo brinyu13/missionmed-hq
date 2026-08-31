@@ -6,9 +6,10 @@ import sys
 
 
 NODE_BINARY = "/usr/local/bin/node"
-SERVICE_WRAPPER = (
-    "/Users/brianb/MissionMed_worktrees/F2-LOR-1009/missionmed-hq/"
-    "scripts/lor-studio/run-dr133-railway-production-service-operation.mjs"
+SANITIZER_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
+SERVICE_WRAPPER = os.path.join(
+    SANITIZER_DIRECTORY,
+    "run-dr133-railway-production-service-operation.mjs",
 )
 MODES = {
     "connectivity-preflight",
