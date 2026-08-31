@@ -19,7 +19,7 @@ function requiredString(value, name) {
   return normalized;
 }
 
-function assertStudentSafeProgram(program) {
+export function assertStudentSafeProgram(program) {
   const soap = program.soap2026?.appeared === true;
   const fields = Object.keys(program.fields ?? {});
   if (soap ? fields.some((field) => field !== "SOAP 2026 Appearance") : fields.length !== 0) {
@@ -31,7 +31,9 @@ function assertStudentSafeProgram(program) {
     throw new Error(`Student program has a restricted external identifier: ${program.id}`);
   }
   const serialized = JSON.stringify(program);
-  for (const prohibited of ["ACGME_PROGRAM", "NRMP", "FREIDA URL", "Program Director", "Visa Sponsorship", "Salary PGY1"]) {
+  const prohibitedMaterial = ["FREIDA URL", "Program Director", "Visa Sponsorship", "Salary PGY1"];
+  if (!soap) prohibitedMaterial.unshift("ACGME_PROGRAM", "NRMP");
+  for (const prohibited of prohibitedMaterial) {
     if (serialized.includes(prohibited)) throw new Error(`Student program contains prohibited field material: ${prohibited}`);
   }
 }
