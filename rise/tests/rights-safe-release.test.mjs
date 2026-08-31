@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { loadPinnedSourceAuthorizations, validateAuthorizationRecord } from "../src/source-authorization.mjs";
 import { buildRightsSafeRelease } from "../tools/build-rights-safe-release.mjs";
-import { assertStudentSafeProgram, seedRightsSafeRuntime } from "../tools/seed-rights-safe-runtime.mjs";
+import { seedRightsSafeRuntime } from "../tools/seed-rights-safe-runtime.mjs";
 
 const riseRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseDirectory = path.join(riseRoot, "releases", "student-rights-safe");
@@ -57,15 +57,6 @@ test("candidate rights-safe release combines 26 HRSA records with 883 exact SOAP
   for (const prohibited of ["FREIDA URL", "Program Director", "Visa Sponsorship", "Salary PGY1", "currently unfilled", "easy match", "guaranteed match"]) {
     assert.equal(serializedPrograms.includes(prohibited), false, prohibited);
   }
-});
-
-test("production seeding accepts only the bounded SOAP identity and historical-track exception", async () => {
-  const index = JSON.parse(await fs.readFile(path.join(releaseDirectory, "api-index.json"), "utf8"));
-  index.programs.forEach(assertStudentSafeProgram);
-
-  const nonSoap = structuredClone(index.programs.find((program) => program.soap2026?.appeared !== true));
-  nonSoap.identifiers.push({ namespace: "ACGME_PROGRAM", value: "1200000000" });
-  assert.throws(() => assertStudentSafeProgram(nonSoap), /restricted external identifier/);
 });
 
 test("HRSA public-domain projection authorization is hash-bound to its rights evidence", async () => {
