@@ -16,6 +16,7 @@ export const LOR_STUDIO_API_PREFIX = '/api/lor-studio';
 export const LOR_CANDIDATE_AUTH_START_PATH = `${LOR_STUDIO_API_PREFIX}/auth/candidate/start`;
 export const LOR_CANDIDATE_HANDOFF_COOKIE_NAME = '__Secure-mmhq_lor_candidate_handoff';
 export const LOR_CANDIDATE_IDENTITY_CLASS = 'faculty_candidate';
+export const LOR_MENTOR_IDENTITY_CLASS = 'mentor';
 export const LOR_STUDENT_IDENTITY_CLASS = 'student';
 export const LOR_SESSION_IDENTITY_CLASS_FIELD = 'lorAdmissionIdentityClass';
 export const LOR_SESSION_CANDIDATE_INVITATION_FIELD = 'lorFacultyCandidateInvitationId';

@@ -20,6 +20,7 @@ import {
   LOR_CANDIDATE_HANDOFF_COOKIE_NAME,
   LOR_CANDIDATE_HANDOFF_COOKIE_PATH,
   LOR_CANDIDATE_IDENTITY_CLASS,
+  LOR_MENTOR_IDENTITY_CLASS,
   LOR_SESSION_CANDIDATE_INVITATION_FIELD,
   LOR_SESSION_IDENTITY_CLASS_FIELD,
   LOR_STUDENT_IDENTITY_CLASS,
@@ -1329,20 +1330,32 @@ function createLorStateCookie(
   {
     identityClass = LOR_STUDENT_IDENTITY_CLASS,
     candidateInvitationId = null,
+    mentorCaseId = null,
   } = {},
 ) {
   const names = lorCookieNames(request);
   const issuedAt = new Date();
   const expiresAt = new Date(issuedAt.getTime() + LOR_AUTH_STATE_TTL_MS);
   if (
-    ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS].includes(identityClass)
+    ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS, LOR_MENTOR_IDENTITY_CLASS]
+      .includes(identityClass)
     || (
       identityClass === LOR_STUDENT_IDENTITY_CLASS
-      && candidateInvitationId !== null
+      && (candidateInvitationId !== null || mentorCaseId !== null)
     )
     || (
       identityClass === LOR_CANDIDATE_IDENTITY_CLASS
-      && !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(candidateInvitationId ?? '')
+      && (
+        !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(candidateInvitationId ?? '')
+        || mentorCaseId !== null
+      )
+    )
+    || (
+      identityClass === LOR_MENTOR_IDENTITY_CLASS
+      && (
+        candidateInvitationId !== null
+        || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(mentorCaseId ?? '')
+      )
     )
   ) throw new Error('LOR_AUTH_INVALID');
   const token = createLorSealedToken({
@@ -1351,6 +1364,7 @@ function createLorStateCookie(
     callback,
     identityClass,
     candidateInvitationId,
+    mentorCaseId,
     issuedAt: issuedAt.toISOString(),
     expiresAt: expiresAt.toISOString(),
   }, LOR_STATE_KEY, 'lors1');
@@ -1365,7 +1379,7 @@ function readLorStateCookie(request) {
     const state = readLorSealedToken(token, LOR_STATE_KEY, 'lors1');
     const exactKeys = [
       'schemaVersion', 'stateHash', 'callback', 'identityClass',
-      'candidateInvitationId', 'issuedAt', 'expiresAt',
+      'candidateInvitationId', 'mentorCaseId', 'issuedAt', 'expiresAt',
     ];
     const issuedAt = exactLorInstant(state?.issuedAt);
     const expiresAt = exactLorInstant(state?.expiresAt);
@@ -1377,16 +1391,26 @@ function readLorStateCookie(request) {
       || exactKeys.some((key) => !Object.hasOwn(state, key))
       || state.schemaVersion !== 'missionmed.lor.auth-state.v1'
       || !/^[a-f0-9]{64}$/u.test(state.stateHash ?? '')
-      || ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS]
+      || ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS, LOR_MENTOR_IDENTITY_CLASS]
         .includes(state.identityClass)
       || (
         state.identityClass === LOR_STUDENT_IDENTITY_CLASS
-        && state.candidateInvitationId !== null
+        && (state.candidateInvitationId !== null || state.mentorCaseId !== null)
       )
       || (
         state.identityClass === LOR_CANDIDATE_IDENTITY_CLASS
-        && !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(
-          state.candidateInvitationId ?? '',
+        && (
+          !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(
+            state.candidateInvitationId ?? '',
+          )
+          || state.mentorCaseId !== null
+        )
+      )
+      || (
+        state.identityClass === LOR_MENTOR_IDENTITY_CLASS
+        && (
+          state.candidateInvitationId !== null
+          || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(state.mentorCaseId ?? '')
         )
       )
       || issuedAt === null
@@ -1408,9 +1432,10 @@ function createLorSessionCookie(request, bootstrap, candidateCredential = null) 
   const bindingExpiry = Date.parse(bootstrap.bindingExpiresAt);
   const identityClass = bootstrap.identityClass;
   if (
-    ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS].includes(identityClass)
+    ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS, LOR_MENTOR_IDENTITY_CLASS]
+      .includes(identityClass)
     || (
-      identityClass === LOR_STUDENT_IDENTITY_CLASS
+      identityClass !== LOR_CANDIDATE_IDENTITY_CLASS
       && candidateCredential !== null
     )
   ) throw new Error('LOR_AUTH_INVALID');
@@ -1440,8 +1465,16 @@ function createLorSessionCookie(request, bootstrap, candidateCredential = null) 
       verifiedCandidateCredential?.invitationId ?? null,
     user: {
       id: bootstrap.subject,
-      role: identityClass === LOR_CANDIDATE_IDENTITY_CLASS ? 'faculty' : 'student',
-      roles: [identityClass === LOR_CANDIDATE_IDENTITY_CLASS ? 'faculty' : 'student'],
+      role: identityClass === LOR_CANDIDATE_IDENTITY_CLASS
+        ? 'faculty'
+        : identityClass === LOR_MENTOR_IDENTITY_CLASS
+          ? 'mentor'
+          : 'student',
+      roles: [identityClass === LOR_CANDIDATE_IDENTITY_CLASS
+        ? 'faculty'
+        : identityClass === LOR_MENTOR_IDENTITY_CLASS
+          ? 'mentor'
+          : 'student'],
     },
   };
   const token = createLorSealedToken(session, LOR_SESSION_KEY, 'lor1');
@@ -1483,7 +1516,7 @@ function readLorStudioSession(request) {
       || !/^lorb1_[A-Za-z0-9_-]{43}$/u.test(session.lorAdmissionBindingId ?? '')
       || !/^[A-Za-z0-9_-]{24}$/u.test(session.csrfToken ?? '')
       || !/^wp:[1-9][0-9]*$/u.test(session.user?.id ?? '')
-      || ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS]
+      || ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS, LOR_MENTOR_IDENTITY_CLASS]
         .includes(session[LOR_SESSION_IDENTITY_CLASS_FIELD])
       || (
         session[LOR_SESSION_IDENTITY_CLASS_FIELD] === LOR_STUDENT_IDENTITY_CLASS
@@ -1499,6 +1532,13 @@ function readLorStudioSession(request) {
             session[LOR_SESSION_CANDIDATE_INVITATION_FIELD] ?? '',
           )
           || session.user?.role !== 'faculty'
+        )
+      )
+      || (
+        session[LOR_SESSION_IDENTITY_CLASS_FIELD] === LOR_MENTOR_IDENTITY_CLASS
+        && (
+          session[LOR_SESSION_CANDIDATE_INVITATION_FIELD] !== null
+          || session.user?.role !== 'mentor'
         )
       )
       || Object.keys(session.user ?? {}).length !== 3
@@ -1772,7 +1812,8 @@ function buildWordPressLorAuthRedirectUrl(
   identityClass = LOR_STUDENT_IDENTITY_CLASS,
 ) {
   if (!CONFIG.wpBase) return '';
-  if (![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS].includes(identityClass)) {
+  if (![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS, LOR_MENTOR_IDENTITY_CLASS]
+    .includes(identityClass)) {
     return '';
   }
   const target = new URL('/wp-admin/admin-post.php', CONFIG.wpBase);
@@ -1860,15 +1901,25 @@ async function handleLorStudioAuthRoute(request, response, url) {
       return true;
     }
     try {
-      if (
-        !LOR_WORDPRESS_S2S_CLIENT
-        || !LOR_STATE_KEY
-        || !LOR_SESSION_KEY
-        || !hasExactSearchKeys(searchParams, [])
-      ) throw new Error('LOR_AUTH_UNAVAILABLE');
+      if (!LOR_WORDPRESS_S2S_CLIENT || !LOR_STATE_KEY || !LOR_SESSION_KEY) {
+        throw new Error('LOR_AUTH_UNAVAILABLE');
+      }
       const hqOrigin = canonicalLorHqOrigin(request);
       if (IS_PRODUCTION && url.origin !== hqOrigin) throw new Error('LOR_AUTH_UNAVAILABLE');
-      const authIntent = await inspectLorCandidateAuthIntent(request);
+      const mentorAuthRequested = hasExactSearchKeys(searchParams, ['case', 'identity_class'])
+        && searchParams.get('identity_class') === LOR_MENTOR_IDENTITY_CLASS
+        && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(searchParams.get('case') ?? '');
+      if (!mentorAuthRequested && !hasExactSearchKeys(searchParams, [])) {
+        throw new Error('LOR_AUTH_UNAVAILABLE');
+      }
+      const authIntent = mentorAuthRequested
+        ? Object.freeze({
+          identityClass: LOR_MENTOR_IDENTITY_CLASS,
+          candidateInvitationId: null,
+          mentorCaseId: searchParams.get('case'),
+          sealedHandoff: null,
+        })
+        : await inspectLorCandidateAuthIntent(request);
       const stateHash = createWordPressLorAuthState();
       const callback = new URL(LOR_AUTH_CALLBACK_PATH, hqOrigin);
       callback.searchParams.set('audience', WORDPRESS_LOR_AUDIENCE);
@@ -1993,8 +2044,10 @@ async function handleLorStudioAuthRoute(request, response, url) {
     const candidateCredentialCookie = candidateCredential === null
       ? clearLorCookie(request, names.candidateCredential)
       : createLorCandidateCredentialCookie(request, candidateCredential);
-    const finalPath = candidateCredential === null
-      ? LOR_AUTH_FINAL_PATH
+    const finalPath = state.identityClass === LOR_MENTOR_IDENTITY_CLASS
+      ? `/lor-studio/?case=${encodeURIComponent(state.mentorCaseId)}`
+      : candidateCredential === null
+        ? LOR_AUTH_FINAL_PATH
       : candidateCredential.requiresOtpVerification
         ? `/lor-studio/invitations/${encodeURIComponent(candidateCredential.invitationId)}/`
         : `/lor-studio/?case=${encodeURIComponent(candidateCredential.caseId)}`;

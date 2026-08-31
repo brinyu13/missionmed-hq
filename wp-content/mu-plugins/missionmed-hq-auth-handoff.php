@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed HQ Auth Handoff
  * Description: WordPress -> Railway runtime auth handoff for Arena/STAT exchange bootstrap.
- * Version: 1.0.5
+ * Version: 1.0.6
  */
 
 if (!defined('ABSPATH')) {
@@ -818,7 +818,7 @@ function mmhq_handoff_handle() {
                 ? (string) wp_unslash($_GET['identity_class'])
                 : '';
         }
-        if (!in_array($identity_class, array('student', 'faculty_candidate'), true)) {
+        if (!in_array($identity_class, array('student', 'faculty_candidate', 'mentor'), true)) {
             status_header(403);
             wp_die('LOR Studio access is unavailable.');
         }

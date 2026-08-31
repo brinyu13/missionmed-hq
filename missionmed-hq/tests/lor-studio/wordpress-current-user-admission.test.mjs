@@ -6,6 +6,7 @@ import {
   WORDPRESS_LOR_ADMISSION_PATH,
   WORDPRESS_LOR_BINDING_PROVENANCE,
   WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+  WORDPRESS_LOR_MENTOR_IDENTITY_CLASS,
   WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD,
   WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD,
   WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
@@ -673,6 +674,55 @@ test('candidate case access requires a database-resolved faculty role and signed
       /IDENTITY_CLASS_SCOPE_DENIED/u,
     );
   }
+});
+
+test('mentor login class requires an exact database mentor assignment and denies unscoped access', async () => {
+  const mentorSession = session({
+    user: { id: 'wp:123', role: 'mentor', roles: ['mentor'] },
+    [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]: WORDPRESS_LOR_MENTOR_IDENTITY_CLASS,
+  });
+  const build = (actorRole) => createWordPressCurrentUserAdmission({
+    s2sClient: {
+      async admit({ identityClass }) { return receipt({ identityClass }); },
+    },
+    actorResolver: {
+      async resolve() {
+        return {
+          schemaVersion: 'missionmed.lor.actor-case-access.v1',
+          authoritySource: 'database_verified_case_access',
+          actorRole,
+          actorId: 'wp:123',
+          resourceStudentId: actorRole === 'student' ? 'wp:123' : 'wp:456',
+          caseId: 'case-mentor-1',
+        };
+      },
+    },
+    resourceEntitlementResolver: {
+      signedS2s: true,
+      async resolve() { return resourceEntitlement('wp:456', { actorRole }); },
+    },
+    clock: () => new Date(NOW),
+  });
+
+  const adapter = build('mentor');
+  const projection = await adapter.resolve({
+    subject: 'wp:123',
+    session: mentorSession,
+    request: { url: '/api/lor-studio/cases/case-mentor-1' },
+  });
+  assert.equal(projection.role, 'mentor');
+  await assert.rejects(
+    adapter.resolve({ subject: 'wp:123', session: mentorSession, request: { url: '/lor-studio/' } }),
+    /IDENTITY_CLASS_SCOPE_DENIED/u,
+  );
+  await assert.rejects(
+    build('student').resolve({
+      subject: 'wp:123',
+      session: mentorSession,
+      request: { url: '/api/lor-studio/cases/case-mentor-1' },
+    }),
+    /IDENTITY_CLASS_SCOPE_DENIED/u,
+  );
 });
 
 test('verified faculty can re-enter only through one canonical actor-resolved page or bootstrap case query', async () => {

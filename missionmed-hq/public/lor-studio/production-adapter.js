@@ -85,7 +85,15 @@
     if (message) message.textContent = detail;
     if (code) code.textContent = reason ? `Reference: ${reason}` : '';
     clearActions();
-    if (login) addAction('Sign in through MissionMed', null, { href: '/api/lor-studio/auth/start' });
+    if (login) {
+      addAction('Sign in through MissionMed', null, { href: '/api/lor-studio/auth/start' });
+      const caseId = requestedCaseId();
+      if (caseId) {
+        addAction('Mentor sign in', null, {
+          href: `/api/lor-studio/auth/start?case=${encodeURIComponent(caseId)}&identity_class=mentor`,
+        });
+      }
+    }
     if (retry) addAction('Try again', checkRuntime);
   }
 

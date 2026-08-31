@@ -249,6 +249,18 @@ test('authentication response offers the same-origin MissionMed login handoff', 
   assert.equal(link.getAttribute('href'), '/api/lor-studio/auth/start');
 });
 
+test('case-scoped authentication also offers the bounded mentor login handoff', async () => {
+  const { dom } = await runProductionAdapter({
+    routes: { '/api/lor-studio/bootstrap': jsonResponse(401, { error: 'session_expired' }) },
+  });
+  const links = [...dom.window.document.querySelectorAll('#lorRuntimeGateActions a')];
+  assert.equal(links.length, 2);
+  assert.equal(
+    links[1].getAttribute('href'),
+    '/api/lor-studio/auth/start?case=case-42&identity_class=mentor',
+  );
+});
+
 test('adapter keeps frozen presentation blocked even when backend reports live without an authorized hydration adapter', async () => {
   const dom = await runAdapter({
     response: {

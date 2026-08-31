@@ -10,6 +10,7 @@ import {
   WORDPRESS_LOR_ADMISSION_PATH,
   WORDPRESS_LOR_BINDING_PROVENANCE,
   WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+  WORDPRESS_LOR_MENTOR_IDENTITY_CLASS,
   WORDPRESS_LOR_RESOURCE_ENTITLEMENT_PRODUCER,
   WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_CONTRACT,
   WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
@@ -20,6 +21,7 @@ export {
   WORDPRESS_LOR_ADMISSION_PATH,
   WORDPRESS_LOR_BINDING_PROVENANCE,
   WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+  WORDPRESS_LOR_MENTOR_IDENTITY_CLASS,
   WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
 };
 
@@ -105,6 +107,7 @@ function canonicalIdentityClass(value) {
   if (![
     WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
     WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+    WORDPRESS_LOR_MENTOR_IDENTITY_CLASS,
   ].includes(value)) fail('IDENTITY_CLASS_INVALID');
   return value;
 }
@@ -477,6 +480,10 @@ export function createWordPressCurrentUserAdmission({
           binding.identityClass === WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS
           && actorRole !== 'faculty'
         ) fail('IDENTITY_CLASS_SCOPE_DENIED');
+        if (
+          binding.identityClass === WORDPRESS_LOR_MENTOR_IDENTITY_CLASS
+          && actorRole !== 'mentor'
+        ) fail('IDENTITY_CLASS_SCOPE_DENIED');
         if (actorRole !== 'student') {
           resourceEntitlement = await resolveResourceEntitlement({
             authenticatedSubject,
@@ -495,6 +502,8 @@ export function createWordPressCurrentUserAdmission({
         ) fail('IDENTITY_CLASS_SCOPE_DENIED');
         actorRole = 'faculty';
       } else if (binding.identityClass === WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS) {
+        fail('IDENTITY_CLASS_SCOPE_DENIED');
+      } else if (binding.identityClass === WORDPRESS_LOR_MENTOR_IDENTITY_CLASS) {
         fail('IDENTITY_CLASS_SCOPE_DENIED');
       }
 

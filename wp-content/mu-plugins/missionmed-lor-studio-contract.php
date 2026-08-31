@@ -610,7 +610,49 @@ function mmhq_lor_studio_faculty_candidate_identity_for_user($user_or_id) {
 }
 
 /**
- * Normalize the two isolated login classes to the one subject/class pair
+ * Resolve an active WordPress identity for the mentor login class. This grants
+ * no case or student access: the HQ runtime must still resolve an active,
+ * exact-case database mentor assignment and the target student's current
+ * entitlement before producing the read-only mentor projection.
+ */
+function mmhq_lor_studio_mentor_identity_for_user($user_or_id) {
+	$wp_user = $user_or_id;
+	if (!is_object($wp_user)) {
+		if (
+			(!is_int($user_or_id) && (!is_string($user_or_id) || 1 !== preg_match('/^[1-9][0-9]*$/D', $user_or_id)))
+			|| (int) $user_or_id < 1
+			|| !function_exists('get_userdata')
+		) {
+			return mmhq_lor_studio_contract_denied();
+		}
+		$wp_user = get_userdata((int) $user_or_id);
+	}
+
+	$raw_user_id = is_object($wp_user) && isset($wp_user->ID) ? $wp_user->ID : null;
+	if (
+		(!is_int($raw_user_id) && (!is_string($raw_user_id) || 1 !== preg_match('/^[1-9][0-9]*$/D', $raw_user_id)))
+		|| (int) $raw_user_id < 1
+		|| (string) (int) $raw_user_id !== (string) $raw_user_id
+		|| (method_exists($wp_user, 'exists') && true !== $wp_user->exists())
+		|| (isset($wp_user->user_status) && 0 !== (int) $wp_user->user_status)
+	) {
+		return mmhq_lor_studio_contract_denied();
+	}
+
+	$canary = mmhq_lor_studio_user_canary_facts((int) $raw_user_id, time());
+	return array(
+		'contract' => 'missionmed.lor.wordpress-mentor-identity.v1',
+		'subject' => 'wp:' . (int) $raw_user_id,
+		'identityClass' => 'mentor',
+		'studentEntitled' => false,
+		'rootEntitled' => false,
+		'canaryEnabled' => $canary['canaryEnabled'],
+		'canaryConsented' => $canary['canaryConsented'],
+	);
+}
+
+/**
+ * Normalize the three isolated login classes to the one subject/class pair
  * stored in every code, binding, and subject index.
  */
 function mmhq_lor_studio_identity_projection_for_class($user_or_id, $identity_class) {
@@ -633,6 +675,9 @@ function mmhq_lor_studio_identity_projection_for_class($user_or_id, $identity_cl
 			'canaryEnabled' => $projection['canaryEnabled'],
 			'canaryConsented' => $projection['canaryConsented'],
 		);
+	}
+	if ('mentor' === $identity_class) {
+		return mmhq_lor_studio_mentor_identity_for_user($user_or_id);
 	}
 
 	$projection = mmhq_lor_studio_faculty_candidate_identity_for_user($user_or_id);
@@ -707,7 +752,7 @@ function mmhq_lor_studio_s2s_contract() {
 }
 
 function mmhq_lor_studio_exact_identity_class($value) {
-	return is_string($value) && in_array($value, array('student', 'faculty_candidate'), true)
+	return is_string($value) && in_array($value, array('student', 'faculty_candidate', 'mentor'), true)
 		? $value
 		: '';
 }
@@ -1584,7 +1629,7 @@ function mmhq_lor_studio_issue_browser_bootstrap_code(
 	) {
 		return mmhq_lor_studio_s2s_denied(503);
 	}
-	if ('faculty_candidate' === $identity_class) {
+	if (in_array($identity_class, array('faculty_candidate', 'mentor'), true)) {
 		$current_user = function_exists('wp_get_current_user') ? wp_get_current_user() : false;
 		if (
 			!function_exists('is_user_logged_in')

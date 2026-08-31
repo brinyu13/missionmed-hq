@@ -19,6 +19,7 @@ import {
   WORDPRESS_LOR_BOOTSTRAP_REQUEST_CONTRACT,
   WORDPRESS_LOR_BOOTSTRAP_RESPONSE_CONTRACT,
   WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+  WORDPRESS_LOR_MENTOR_IDENTITY_CLASS,
   WORDPRESS_LOR_RESOURCE_ENTITLEMENT_PRODUCER,
   WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_CONTRACT,
   WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_PATH,
@@ -345,6 +346,26 @@ test('faculty-candidate identity class is signed through bootstrap, admission, a
     s2s.admit({ bindingId: BINDING, subject: 'wp:123', identityClass: 'faculty' }),
     /IDENTITY_CLASS_INVALID/u,
   );
+});
+
+test('mentor identity class is signed end to end without becoming a client-selected case role', async () => {
+  const bodies = [];
+  const identityClass = WORDPRESS_LOR_MENTOR_IDENTITY_CLASS;
+  const s2s = client(async (_url, options) => {
+    const body = JSON.parse(options.body);
+    bodies.push(body);
+    if (body.contract === WORDPRESS_LOR_BOOTSTRAP_REQUEST_CONTRACT) {
+      return response(bootstrap({ identityClass }), WORDPRESS_LOR_BOOTSTRAP_REDEEM_PATH);
+    }
+    if (body.contract === WORDPRESS_LOR_ADMISSION_REQUEST_CONTRACT) {
+      return response(receipt({ identityClass }), WORDPRESS_LOR_ADMISSION_PATH);
+    }
+    return response(revocation({ identityClass }), WORDPRESS_LOR_BINDING_REVOCATION_PATH);
+  });
+  await s2s.redeemBootstrap({ code: CODE, state: STATE_HASH, callback: CALLBACK, identityClass });
+  await s2s.admit({ bindingId: BINDING, subject: 'wp:123', identityClass });
+  await s2s.revokeBinding({ bindingId: BINDING, subject: 'wp:123', identityClass });
+  assert.deepEqual(bodies.map((body) => body.identityClass), [identityClass, identityClass, identityClass]);
 });
 
 test('resource-student entitlement and readiness probe are exact signed metadata-only calls', async () => {

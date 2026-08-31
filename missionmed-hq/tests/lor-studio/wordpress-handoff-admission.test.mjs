@@ -10,7 +10,7 @@ const repositoryRoot = path.resolve(testDirectory, '..', '..', '..');
 const handoffPath = path.join(repositoryRoot, 'wp-content', 'mu-plugins', 'missionmed-hq-auth-handoff.php');
 const phpAvailable = spawnSync('php', ['--version'], { encoding: 'utf8' }).status === 0;
 
-function harness({ audience = '', callbackAudience = audience === 'lor-studio' ? 'lor-studio' : '', issue = 'success' } = {}) {
+function harness({ audience = '', callbackAudience = audience === 'lor-studio' ? 'lor-studio' : '', identityClass = '', issue = 'success' } = {}) {
   const callback = callbackAudience === 'lor-studio'
     ? `https://missionmed-hq-production.up.railway.app/api/lor-studio/auth/callback?audience=lor-studio&state=${'a'.repeat(64)}`
     : 'https://missionmed-hq-production.up.railway.app/api/auth/session';
@@ -18,7 +18,7 @@ function harness({ audience = '', callbackAudience = audience === 'lor-studio' ?
 define('ABSPATH', ${JSON.stringify(repositoryRoot + path.sep)});
 define('MMHQ_HANDOFF_SECRET', '0123456789abcdef0123456789abcdef0123456789abcdef');
 $_SERVER['REQUEST_URI'] = '/wp-admin/admin-post.php?action=mmac_hq_auth_redirect';
-$_GET = array('return_to' => ${JSON.stringify(callback)}${audience ? `, 'audience' => ${JSON.stringify(audience)}` : ''});
+$_GET = array('return_to' => ${JSON.stringify(callback)}${audience ? `, 'audience' => ${JSON.stringify(audience)}` : ''}${identityClass ? `, 'identity_class' => ${JSON.stringify(identityClass)}` : ''});
 class WP_Error {
     public $data;
     public function __construct($data = array()) { $this->data = $data; }
@@ -76,7 +76,7 @@ test('source grafts the exact LOR branch onto the live hardened handoff without 
   const lorBranch = source.indexOf("if ('lor-studio' === $audience_raw)");
   const genericPayload = source.indexOf('$payload = mmhq_handoff_build_token_payload($wp_user, $audience, $handoff_state);');
   assert.ok(lorBranch > 0 && genericPayload > lorBranch);
-  assert.match(source, /\* Version: 1\.0\.5/u);
+  assert.match(source, /\* Version: 1\.0\.6/u);
   assert.match(source, /function mmhq_handoff_limit_endpoint_plugins/u);
   assert.match(source, /function mmhq_handoff_is_allowed_cam_return_url/u);
   assert.match(source, /MMHQ_HANDOFF_LOGIN_STATE_COOKIE/u);
@@ -97,6 +97,14 @@ test('exact LOR audience redirects with one opaque code and no identity evidence
   assert.equal(target.searchParams.get('code'), `lorc1_${'c'.repeat(43)}`);
   assert.equal(target.searchParams.has('token'), false);
   assert.doesNotMatch(result.target, /student@example|wp_user_id|roles/iu);
+});
+
+test('mentor login class reaches only the opaque LOR bootstrap issuer', { skip: !phpAvailable }, () => {
+  const result = runPhp(harness({ audience: 'lor-studio', identityClass: 'mentor' }));
+  const target = new URL(result.target);
+  assert.equal(result.status, 303);
+  assert.equal(target.pathname, '/api/lor-studio/auth/callback');
+  assert.equal(target.searchParams.get('code'), `lorc1_${'c'.repeat(43)}`);
 });
 
 test('missing LOR issuer fails closed as 503 and never falls through to generic handoff', { skip: !phpAvailable }, () => {
