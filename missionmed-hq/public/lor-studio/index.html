@@ -17,6 +17,7 @@
 }
 body[data-role="mentor"]{--accent:#39d6ff;--accent2:#5a8dff;--accentGlow:57,214,255}
 *{margin:0;padding:0;box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%}
 body{background:var(--bg);color:var(--tx);font-family:var(--disp);overflow:hidden}
 button{cursor:pointer;font-family:inherit;border:0;background:none;color:inherit}
@@ -3650,7 +3651,7 @@ function lorPresentProjection(projection,role){
   $('#demoBadge').textContent=role==='faculty'?'Private workspace':'Live data';
   $('#demoBadge').title=role==='faculty'?'Recipient-bound faculty workspace':'Durable MissionMed production data';
   $('#demoBadge').onclick=()=>modal(`<div class="h2">MissionMed <em>LOR Studio</em></div><p class="sub" style="margin-top:10px">This is your durable production workspace. Data and actions are scoped to the signed-in role and current recommendation case.</p><button class="btn alt" style="margin-top:16px" onclick="closeModal()">Close</button>`);
-  $('#rolePill').hidden=true;
+  $('#rolePill').hidden=true;$('#rolePill').style.setProperty('display','none','important');
   $('#btnMatrix').onclick=()=>{location.href='https://missionmedinstitute.com/member-dashboard/#dashboard'};
   $('#sheet').classList.remove('open');$('#depotWrap').classList.remove('open');$('#facWrap').classList.remove('open');closeModal();
   if(role==='faculty'){
@@ -3659,6 +3660,7 @@ function lorPresentProjection(projection,role){
 }
 
 const lorApprovedWireBuildLanding=wireBuildLanding;
+const lorApprovedRenderDepot=VIEWS.depot[0];
 const lorApprovedWireDepot=wireDepot;
 const lorApprovedRenderLetters=VIEWS.letters[0];
 const lorApprovedWireLetters=VIEWS.letters[1];
@@ -3705,7 +3707,17 @@ function lorAppendHandoffPanel(){
   }
   body.appendChild(actions);const note=document.createElement('p');note.className='micNote';note.textContent='Invitation access is recipient-bound and verified by one-time code. Faculty-private answers and letter wording never appear in the student or mentor view.';body.appendChild(note);panel.appendChild(body);section.appendChild(panel);
 }
+function lorRenderProductionDepot(){
+  if(!D.production)return lorApprovedRenderDepot();
+  const c=D.cases[0],w=c&&wOf(c.writerId);
+  if(c&&w)return lorApprovedRenderDepot();
+  return `<section data-view="depot" class="live"><div class="eyebrow">Writer Depot · private handoff</div><div class="h1" style="margin-top:8px">Prepare the right packet for the <em>right writer</em>.</div><div class="panel" style="margin-top:20px"><div class="pBody"><div class="row"><div class="rowMain"><div class="rowT">Choose a faculty writer first</div><div class="rowS">Add the intended writer and relationship context in Build My LOR. Writer Depot will then show only that case's protected invitation, evidence, draft, and tracking controls.</div></div><span class="stage warn">Writer needed</span><button class="rowBtn pri" id="lorDepotChooseWriter">Choose writer</button></div></div></div></section>`;
+}
 function lorWireProductionDepot(){
+  if(D.production){
+    const c=D.cases[0],w=c&&wOf(c.writerId),choose=$('#lorDepotChooseWriter');
+    if(!w){if(choose)choose.onclick=()=>{D.ui.pick={situation:c&&D.builds[c.id]&&D.builds[c.id].situation||'asked',templateId:null};go('build')};return}
+  }
   lorApprovedWireDepot();if(!D.production)return;
   const fakeWriter=$('#dpAsWriter');if(fakeWriter)fakeWriter.remove();
   const make=$('#dpMakeLink');if(make){make.textContent='Use secure production invitation below';make.disabled=true}
@@ -3713,7 +3725,7 @@ function lorWireProductionDepot(){
   const revoke=$('#dpRevoke');if(revoke)revoke.remove();
   lorAppendHandoffPanel();
 }
-VIEWS.depot[1]=lorWireProductionDepot;
+VIEWS.depot=[lorRenderProductionDepot,lorWireProductionDepot];
 
 function lorRenderProductionSettings(){
   const projection=D.production&&D.production.projection;
@@ -3809,7 +3821,7 @@ function createFounderApprovedProductionUi(){
     },
     showState(){return {shown:true}},
     showEmptyWorkspace(request){
-      LOR_EMPTY_START=request&&typeof request.startCase==='function'?request.startCase:null;D=emptyProductionState();D.production.commands=LOR_PRODUCTION_COMMANDS;D.production.role='student';render();$('#demoBadge').textContent='Live data';$('#demoBadge').title='Durable MissionMed production data';$('#rolePill').hidden=true;
+      LOR_EMPTY_START=request&&typeof request.startCase==='function'?request.startCase:null;D=emptyProductionState();D.production.commands=LOR_PRODUCTION_COMMANDS;D.production.role='student';render();$('#demoBadge').textContent='Live data';$('#demoBadge').title='Durable MissionMed production data';$('#rolePill').hidden=true;$('#rolePill').style.setProperty('display','none','important');
       $('#demoBadge').onclick=()=>modal(`<div class="h2">MissionMed <em>LOR Studio</em></div><p class="sub" style="margin-top:10px">Start a durable recommendation case from any approved Build My LOR on-ramp.</p><button class="btn alt" style="margin-top:16px" onclick="closeModal()">Close</button>`);
       return {rendered:true,surface:'empty'};
     },

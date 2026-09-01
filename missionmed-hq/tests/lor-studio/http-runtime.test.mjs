@@ -1190,6 +1190,8 @@ test('public snapshot executes the Founder-approved application and rejects the 
     'faculty_ai_case_boundary_enforced',
     'student_release_export_restored',
     'durable_applicant_options_only',
+    'production_server_role_selector_hidden',
+    'writer_depot_missing_writer_fail_safe',
   ]);
   assert.match(html, new RegExp(manifest.sourceSha256, 'u'));
   assert.match(html, /data-lor-runtime="gated"/u);

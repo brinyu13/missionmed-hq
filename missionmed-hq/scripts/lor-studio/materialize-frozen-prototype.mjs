@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url';
 
 export const CANONICAL_PROTOTYPE_SHA256 = 'c249373619a45c31a1b895363fb1d3806d966c8fc413e0acdc4df0870c5a51b7';
 export const CANONICAL_PROTOTYPE_BYTES = 451550;
-export const CANONICAL_MATERIALIZED_OUTPUT_SHA256 = 'a1e66f87e01e88637325137a873079023126b4e2c645d74f3433a408f02b8fd9';
-export const CANONICAL_MATERIALIZED_OUTPUT_BYTES = 390117;
+export const CANONICAL_MATERIALIZED_OUTPUT_SHA256 = '9635e797a07cd7975f003055123f8e892bd31e2334ca66a5b0d6c3e7fa38b3bb';
+export const CANONICAL_MATERIALIZED_OUTPUT_BYTES = 391492;
 export const PRODUCTION_ADAPTER_VERSION = 8;
 export const PROTOTYPE_SOURCE_ENV_VAR = 'LOR_STUDIO_PROTOTYPE_SOURCE';
 
@@ -34,6 +34,8 @@ const SECURITY_TRANSFORMS = Object.freeze([
   'faculty_ai_case_boundary_enforced',
   'student_release_export_restored',
   'durable_applicant_options_only',
+  'production_server_role_selector_hidden',
+  'writer_depot_missing_writer_fail_safe',
 ]);
 const EXPECTED_MANIFEST_KEYS = Object.freeze([
   'adapterVersion',

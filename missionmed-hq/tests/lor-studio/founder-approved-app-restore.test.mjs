@@ -111,6 +111,8 @@ test('student production hydration opens the approved Home and every approved pr
   assert.equal(document.documentElement.dataset.lorRuntime, 'live');
   assert.equal(dom.window.localStorage.length, 0);
   assert.equal(document.getElementById('lorProductionRoot').childElementCount, 0);
+  assert.equal(document.getElementById('rolePill').hidden, true);
+  assert.equal(dom.window.getComputedStyle(document.getElementById('rolePill')).display, 'none');
   assert.match(document.getElementById('main').textContent, /Did your preceptor ask you to write the letter\?/u);
   assert.deepEqual([...document.querySelectorAll('#topNav button')].map((node) => node.textContent.trim()), [
     '✦ Build My LOR', 'Examples & Templates', 'Writer Depot', 'My Letters', 'Intelligence', 'Settings',
@@ -136,6 +138,27 @@ test('student production hydration opens the approved Home and every approved pr
   assert.match(depotText, /Production invitation & privacy/u);
   assert.match(depotText, /recipient-bound invitation/u);
   assert.doesNotMatch(depotText, /prototype|simulated security|demo data|coming soon/iu);
+});
+
+test('a student case without a selected writer renders a coherent Writer Depot gate', async (t) => {
+  const projection = structuredClone(studentProjection);
+  projection.builder.stepData.writer_relationship = {};
+  projection.builder.stepData.timeline_highlights = {};
+  projection.builder.stepData.faculty_handoff = {};
+  const { dom } = await boot(projection);
+  t.after(() => dom.window.close());
+  const { document } = dom.window;
+
+  document.querySelector('#topNav [data-nav="settings"]').click();
+  assert.match(document.getElementById('main').textContent, /Reference data/u);
+  document.querySelector('#topNav [data-nav="depot"]').click();
+
+  assert.equal(document.querySelector('#topNav [data-nav="depot"]').classList.contains('on'), true);
+  assert.equal(document.querySelector('#main section').dataset.view, 'depot');
+  assert.match(document.getElementById('main').textContent, /Choose a faculty writer first/u);
+  assert.match(document.getElementById('main').textContent, /Writer needed/u);
+  assert.notEqual(document.getElementById('lorDepotChooseWriter'), null);
+  assert.equal(dom.window.localStorage.length, 0);
 });
 
 test('mentor production hydration keeps the approved mentor information architecture and exact read-only boundary', async (t) => {
