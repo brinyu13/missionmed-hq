@@ -5469,7 +5469,7 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
 		border: 0;
 		border-radius: 0;
 		clip-path: none;
-		color: #9ba7bd;
+		color: #9ba7bd !important;
 		background: transparent;
 		box-shadow: none;
 		font-size: 10px;
@@ -5489,7 +5489,7 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
 
 	.fv2-rail .fv2-nav-item:hover,
 	.fv2-rail .fv2-nav-item:focus-visible {
-		color: #f3f6fd;
+		color: #f3f6fd !important;
 		background: transparent;
 		transform: translateX(2px);
 	}
@@ -5501,7 +5501,7 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
 		padding-left: 18px;
 		border: 0;
 		clip-path: polygon(5% 0, 100% 0, 93% 100%, 0 100%);
-		color: #15100a;
+		color: #15100a !important;
 		background: linear-gradient(100deg, #ffc052, #ff7547);
 		box-shadow: none;
 		transform: none;

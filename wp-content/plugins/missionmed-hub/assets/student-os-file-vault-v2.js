@@ -771,7 +771,7 @@
 			["activity", "bell", "Notifications"],
 			["settings", "settings", "Settings"]
 		];
-		var items = isStaffRole(role) && !subjectMode && !this.isStudentLens()
+		var items = isStaffRole(role) && !subjectMode
 			? [["command", "users", "Students"], ["settings", "settings", "Settings"]]
 			: studentItems;
 		var queueCount = this.state.data && Array.isArray(this.state.data.review_queue) ? this.state.data.review_queue.length : 0;

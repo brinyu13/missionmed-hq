@@ -1328,6 +1328,9 @@ async function adminResponsiveLensFlow(browser) {
 			await page.getByRole("button", { name: "Student view", exact: true }).click();
 			assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Student view", `${label}: Student View did not activate`);
 			assert(await page.locator(".fv2-mobile-nav-menu").count() === 0, `${label}: menu remained open after lens switch`);
+			const directoryLensLabels = await page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
+			assert(directoryLensLabels.join("|") === "Students|Settings", `${label}: Student View without a selected student exposed an incoherent student rail ${directoryLensLabels.join("|")}`);
+			assert(await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).isVisible(), `${label}: Student View lost the student chooser before a student was selected`);
 			await page.getByRole("button", { name: "More", exact: true }).click();
 			await page.getByRole("button", { name: "Administrator view", exact: true }).click();
 			assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Staff view", `${label}: Administrator View did not return`);
@@ -1342,7 +1345,9 @@ async function adminResponsiveLensFlow(browser) {
 
 async function main() {
 	assert(fs.existsSync(destinationArt), "destination artwork is absent from the release source");
-	assert(fs.readFileSync(mutableCss, "utf8").includes(path.basename(destinationArt)), "mutable CSS does not reference the destination artwork");
+	const mutableCssSource = fs.readFileSync(mutableCss, "utf8");
+	assert(mutableCssSource.includes(path.basename(destinationArt)), "mutable CSS does not reference the destination artwork");
+	assert(mutableCssSource.includes("color: #9ba7bd !important;") && mutableCssSource.includes("color: #15100a !important;"), "StoryForge rail colors are not protected from the WordPress theme cascade");
 	const mutableJsSource = fs.readFileSync(mutableJs, "utf8");
 	assert(mutableJsSource.includes("mountPromise") && mutableJsSource.includes("mountRoot"), "Matrix takeover is missing single-flight mount guards");
 	assert(mutableJsSource.includes("nonceRefreshUrl") && mutableJsSource.includes("refreshNonce"), "student: invalid REST nonces do not have an authenticated recovery path");
