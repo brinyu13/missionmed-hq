@@ -27,12 +27,12 @@ test('FAC-02B Pace remains a full analog speedometer at compact viewport heights
   assert.doesNotMatch(css, /\.speed-arc[\s\S]*scale\(\.5\)/u);
 });
 
-test('FAC-02B Pace needle eases between genuine timed-word windows without fabricating continuous WPM', async () => {
+test('FAC-02B Pace needle eases between genuine two-second rolling timed-word windows without fabricating WPM', async () => {
   const live = await source('public/ivoc-standalone/app/live.mjs');
   const css = await source('public/ivoc-standalone/styles/cockpit.css');
 
-  assert.match(live, /four-second transcript-timing/u);
-  assert.match(live, /last validated window/u);
+  assert.match(live, /two-second rolling transcript-timing/u);
+  assert.match(live, /last observed rolling window/u);
   assert.match(live, /const held = liveNorm == null && heldNorm != null/u);
   assert.match(live, /classList\.toggle\('observed', liveNorm != null\)/u);
   assert.match(live, /classList\.toggle\('held', held\)/u);
@@ -40,4 +40,19 @@ test('FAC-02B Pace needle eases between genuine timed-word windows without fabri
   assert.match(css, /#inst-pace \.inst-tech \{ display: block;/u);
   assert.match(css, /transition:\s*transform 560ms cubic-bezier/u);
   assert.match(css, /prefers-reduced-motion:\s*reduce/u);
+});
+
+test('FAC-02B Pitch piano heat maps validated voiced occupancy without treating frequency as quality', async () => {
+  const live = await source('public/ivoc-standalone/app/live.mjs');
+  const css = await source('public/ivoc-standalone/styles/cockpit.css');
+
+  assert.match(live, /Pitch zone \$\{i \+ 1\}: \$\{count\} validated voiced sample/u);
+  assert.match(live, /point\.pitch \* 14/u);
+  assert.match(live, /KEY HEAT = VOICED OCCUPANCY · LINE = YOUR MEDIAN/u);
+  assert.match(live, /heat-low/u);
+  assert.match(live, /heat-medium/u);
+  assert.match(live, /heat-high/u);
+  assert.match(css, /\.pk-w\.heat-low\s*\{\s*fill:\s*#c84b54/u);
+  assert.match(css, /\.pk-w\.heat-medium\s*\{\s*fill:\s*#e58b2d/u);
+  assert.match(css, /\.pk-w\.heat-high\s*\{\s*fill:\s*#42c889/u);
 });

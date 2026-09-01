@@ -109,6 +109,13 @@ export const COACHING_CONFIG = deepFreeze({
     highCapAdditionalWpm: 60,
     minimumWords: 8,
     minimumSpeechMs: 3_000,
+    // The live cockpit may admit this smaller rolling floor only when the
+    // evidence is genuine observed word timestamps from the realtime producer.
+    // Fixtures, reports, and non-realtime evidence retain the stricter floor
+    // above so presentation latency never weakens evidence truth.
+    realtimeMinimumWords: 4,
+    realtimeMinimumSpeechMs: 1_500,
+    realtimeWindowMs: 2_000,
     minimumCoverage: 0.70,
     liveWindowMs: 10_000,
     trendWindowMs: 30_000,

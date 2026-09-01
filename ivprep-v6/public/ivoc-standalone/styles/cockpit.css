@@ -398,9 +398,12 @@
 
 /* piano (variety / pitch) — Founder requirement, large + readable */
 .piano-svg { width: 100%; height: auto; display: block; }
-.pk-w { fill: #dfe6f2; }
-.pk-w.range { fill: #bfe9dd; }
-.pk-w.active { fill: var(--g-gold); filter: drop-shadow(0 0 8px rgba(255, 194, 75, .8)); }
+.pk-w { fill: #dfe6f2; stroke: rgba(15, 22, 36, .7); stroke-width: 1; transition: fill 180ms ease, stroke 120ms ease, filter 120ms ease; }
+.pk-w.range { stroke: rgba(47, 231, 176, .8); stroke-width: 1.4; }
+.pk-w.heat-low { fill: #c84b54; }
+.pk-w.heat-medium { fill: #e58b2d; }
+.pk-w.heat-high { fill: #42c889; }
+.pk-w.active { stroke: var(--g-gold-hot); stroke-width: 3; filter: drop-shadow(0 0 8px rgba(255, 194, 75, .9)); }
 .pk-b { fill: #10141f; pointer-events: none; }
 .p-median { stroke: var(--g-cyan); stroke-width: 2.5; stroke-dasharray: 4 3; filter: drop-shadow(0 0 4px rgba(57, 214, 255, .6)); }
 .p-label { font: 600 11px "Space Grotesk", monospace; fill: #93a1ba; letter-spacing: 1px; }

@@ -59,7 +59,7 @@ const INSTRUMENTS = [
     tech: f => f.pitch.available && f.pitch.voiced && Number.isFinite(f.pitch.f0Hz)
       ? `${f.pitch.f0Hz.toFixed(1)} Hz · validated F0`
       : null,
-    corridorLabel: () => 'SPEAKER-RELATIVE REGISTER · YOUR MEDIAN',
+    corridorLabel: () => 'KEY HEAT = VOICED OCCUPANCY · LINE = YOUR MEDIAN',
     score: f => f.pitch.available && f.pitch.voiced && Number.isFinite(f.pitch.semitonesFromSpeakerMedian)
       ? f.pitch.semitonesFromSpeakerMedian
       : null,
@@ -355,7 +355,7 @@ async function liveScreen(el) {
         if ([0, 1, 3, 4, 5].includes(i % 7) && i < whites - 1)
           blacks += `<rect class="pk-b" x="${(i + 1) * ww - 5}" y="0" width="10" height="31" rx="2"/>`;
       }
-      host.innerHTML = `<svg viewBox="0 0 ${W} 70" class="piano-svg">
+      host.innerHTML = `<svg viewBox="0 0 ${W} 70" class="piano-svg" role="img" aria-label="Speaker-relative pitch occupancy heat map">
         <g id="pianoKeys">${keys}</g>${blacks}
         <line x1="${W / 2}" y1="-3" x2="${W / 2}" y2="56" class="p-median"/>
         <text x="${W / 2}" y="67" text-anchor="middle" class="p-label">YOUR MEDIAN</text>
@@ -477,18 +477,62 @@ async function liveScreen(el) {
       if (!traces[k]) continue;
       const laneTop = laneHeight * laneIndex;
       const Y = v => laneTop + lanePad + (1 - v) * Math.max(1, laneHeight - lanePad * 2);
+      const inWindow = hist.filter((point) => point.t >= t0);
+      let lastKnown = null;
+      for (const point of hist) {
+        if (point.t > t0) break;
+        if (point[k] != null) lastKnown = { t: t0, value: point[k] };
+      }
+
+      // First paint a thin, dim sample-and-hold trace. It makes the timeline
+      // continuous without fabricating motion during silence or unavailable
+      // evidence. Vertical reconnects are also dim because the intervening
+      // trajectory was not observed.
+      c.save();
+      c.globalAlpha = .28;
+      c.strokeStyle = color;
+      c.lineWidth = Math.max(1, h * .009);
+      c.lineJoin = 'round';
+      c.beginPath();
+      let heldPen = false;
+      for (const point of inWindow) {
+        const value = point[k];
+        if (value == null) continue;
+        if (lastKnown === null) {
+          c.moveTo(X(point.t), Y(value));
+          heldPen = true;
+        } else {
+          if (!heldPen) { c.moveTo(X(lastKnown.t), Y(lastKnown.value)); heldPen = true; }
+          c.lineTo(X(point.t), Y(lastKnown.value));
+          c.lineTo(X(point.t), Y(value));
+        }
+        lastKnown = { t: point.t, value };
+      }
+      if (lastKnown !== null) {
+        if (!heldPen) c.moveTo(X(lastKnown.t), Y(lastKnown.value));
+        c.lineTo(X(tEnd), Y(lastKnown.value));
+      }
+      c.stroke();
+      c.restore();
+
+      // Bright segments are fresh observed samples only. A missing sample or a
+      // cadence gap begins a new observed run; the dim held trace above is the
+      // only connection across that truthful evidence gap.
       c.strokeStyle = color; c.lineWidth = Math.max(1.5, h * .018); c.lineJoin = 'round';
       c.beginPath();
       let pen = false;
       let previousAt = null;
       let eased = null;
+      let missingSincePrevious = false;
       const maximumJoinGap = k === 'pace' ? 6 : .8;
-      for (const p of hist) {
-        if (p.t < t0) continue;
+      for (const p of inWindow) {
         const v = p[k];
-        if (v == null || previousAt !== null && p.t - previousAt > maximumJoinGap) {
-          pen = false; eased = null; previousAt = null;
-          if (v == null) continue;
+        if (v == null) {
+          missingSincePrevious = true;
+          continue;
+        }
+        if (previousAt !== null && (missingSincePrevious || p.t - previousAt > maximumJoinGap)) {
+          pen = false; eased = null;
         }
         // Visual easing is confined to one continuous observed run. It never
         // bridges silence/unvoiced gaps or invents an unavailable sample.
@@ -496,6 +540,7 @@ async function liveScreen(el) {
         const x = X(p.t), y = Y(eased);
         if (!pen) { c.moveTo(x, y); pen = true; } else c.lineTo(x, y);
         previousAt = p.t;
+        missingSincePrevious = false;
       }
       c.stroke();
       c.fillStyle = color;
@@ -560,12 +605,12 @@ async function liveScreen(el) {
         num.textContent = '—';
         inst.classList.add('unavail');
       }
-      // WPM arrives as discrete, genuine four-second transcript-timing
+      // WPM arrives as discrete, genuine two-second rolling transcript-timing
       // windows.  Keep the most recent validated raw value visible while the
       // next window is collecting so the instrument does not look dead or
       // snap back to zero between real decodes.
       const heldPaceTech = ins.id === 'pace' && Number.isFinite(ins._lastWpm)
-        ? `${ins._lastWpm} WPM · last validated window`
+        ? `${ins._lastWpm} WPM · last observed rolling window`
         : null;
       const tech = ins.tech(f) || heldPaceTech;
       $(`tech-${ins.id}`).textContent = tech || (score == null ? (ins.kind === 'pitch' ? 'Unvoiced · no validated F0' : ins._last != null ? 'holding last valid' : 'no speech observed yet') : '');
@@ -622,9 +667,24 @@ async function liveScreen(el) {
       } else if (ins.gauge === 'piano' && g.keys) {
         const semis = f.pitch.available ? f.pitch.semitonesFromSpeakerMedian : null;
         const idx = semis == null ? null : Math.max(0, Math.min(14, Math.round(7 + semis)));
+        const pitchOccupancy = Array(15).fill(0);
+        for (const point of engine.history) {
+          if (!Number.isFinite(point.pitch)) continue;
+          pitchOccupancy[Math.max(0, Math.min(14, Math.round(point.pitch * 14)))] += 1;
+        }
+        const maximumOccupancy = Math.max(0, ...pitchOccupancy);
         g.keys.forEach((k, i) => {
+          const count = pitchOccupancy[i];
+          const relativeOccupancy = maximumOccupancy > 0 ? count / maximumOccupancy : 0;
+          const heat = count === 0 ? 'none' : relativeOccupancy < .34 ? 'low' : relativeOccupancy < .67 ? 'medium' : 'high';
+          k.dataset.heat = heat;
+          k.dataset.occupancy = String(count);
+          k.setAttribute('aria-label', `Pitch zone ${i + 1}: ${count} validated voiced sample${count === 1 ? '' : 's'}; occupancy ${heat}`);
           k.classList.toggle('active', idx === i);
           k.classList.toggle('range', semis != null && Math.abs(i - 7) <= 3);
+          k.classList.toggle('heat-low', heat === 'low');
+          k.classList.toggle('heat-medium', heat === 'medium');
+          k.classList.toggle('heat-high', heat === 'high');
         });
       }
     }

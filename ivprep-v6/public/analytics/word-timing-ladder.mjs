@@ -98,8 +98,17 @@ export function evaluateWordTiming(evidence = {}, {
   if (claimedCount !== words.length) return unavailable('WORD_COUNT_TIMESTAMP_MISMATCH', tier);
   const speechDurationMs = finite(evidence.speechDurationMs);
   const coverage = finite(evidence.coverage);
-  if (words.length < config.minimumWords) return unavailable('NEED_MORE_TIMED_WORDS', tier, { wordCount: words.length, minimumWords: config.minimumWords });
-  if (speechDurationMs === null || speechDurationMs < config.minimumSpeechMs) return unavailable('NEED_MORE_SPEECH_TIME', tier, { speechDurationMs });
+  const realtimeRolling = fixture !== true
+    && MEASURED_TIERS.has(tier)
+    && evidence.cadence === 'REALTIME_ROLLING';
+  const minimumWords = realtimeRolling
+    ? finite(config.realtimeMinimumWords) ?? config.minimumWords
+    : config.minimumWords;
+  const minimumSpeechMs = realtimeRolling
+    ? finite(config.realtimeMinimumSpeechMs) ?? config.minimumSpeechMs
+    : config.minimumSpeechMs;
+  if (words.length < minimumWords) return unavailable('NEED_MORE_TIMED_WORDS', tier, { wordCount: words.length, minimumWords });
+  if (speechDurationMs === null || speechDurationMs < minimumSpeechMs) return unavailable('NEED_MORE_SPEECH_TIME', tier, { speechDurationMs, minimumSpeechMs });
   if (coverage === null || coverage < config.minimumCoverage) return unavailable('INSUFFICIENT_WORD_TIMING_COVERAGE', tier, { coverage });
   const windowDurationMs = endMs - startMs;
   const wordsPerMinute = Number((words.length * 60_000 / windowDurationMs).toFixed(1));
@@ -113,6 +122,7 @@ export function evaluateWordTiming(evidence = {}, {
     wordCount: words.length,
     speechDurationMs,
     coverage,
+    cadence: realtimeRolling ? 'REALTIME_ROLLING' : 'VALIDATED_WINDOW',
     startMs,
     endMs,
     deliverySpeed: deriveDeliverySpeed(articulationWordsPerMinute, corridor, config),

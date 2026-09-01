@@ -17,19 +17,19 @@ export const LOOPBACK_WORD_TIMING_TRANSPORT = 'ON_DEVICE_LOOPBACK';
 export const FIRST_PARTY_WORD_TIMING_TRANSPORT = 'FIRST_PARTY_SAME_ORIGIN_EPHEMERAL';
 
 const TARGET_SAMPLE_RATE = 16_000;
-// Keep the first physical reading responsive. Four seconds is still bounded by
-// the truth gate downstream (at least eight observed words, three seconds of
-// speech, and 70% timing coverage), but avoids making the student wait through
-// a ten-second apparently idle speedometer before the first decode begins.
-const DEFAULT_WINDOW_MS = 4_000;
+// A two-second rolling acoustic window is the smallest admitted physical lane.
+// It reports only words the recognizer actually timestamped; it never estimates
+// or extrapolates words between decodes. Slow speech may borrow the immediately
+// preceding window to reach the realtime evidence floor.
+const DEFAULT_WINDOW_MS = 2_000;
 const MAX_PENDING_WINDOWS = 2;
 const MINIMUM_ACOUSTIC_EVIDENCE_MS = 500;
 const MINIMUM_VOICED_SPEECH_PROBABILITY = 0.35;
 const MINIMUM_WORD_PROBABILITY = 0.35;
 const MAXIMUM_PLAUSIBLE_WPM = 360;
 const MAXIMUM_RECENT_TIMING_WINDOWS = 2;
-const MINIMUM_LIVE_WORDS = 8;
-const MINIMUM_LIVE_SPEECH_MS = 3_000;
+const MINIMUM_LIVE_WORDS = 4;
+const MINIMUM_LIVE_SPEECH_MS = 1_500;
 const WORD_TIMING_RESPONSE_KEYS = Object.freeze([
   'available',
   'providerSessions',
@@ -480,12 +480,10 @@ export class LocalTranscriptTimingProducer {
     }));
     if (this.timingWindows.length > MAXIMUM_RECENT_TIMING_WINDOWS) this.timingWindows.shift();
 
-    // Select the smallest recent suffix that satisfies the evidence floor. A
-    // fast four-second window therefore updates immediately, while genuine slow
-    // speech may borrow only the immediately preceding window to reach eight
-    // observed words. This avoids both failure modes: a slow six-word window no
-    // longer leaves the prior WPM stuck forever, and old speech can never dilute
-    // the live reading beyond the bounded eight-second suffix.
+    // Select the smallest recent suffix that satisfies the realtime evidence
+    // floor. A normal or fast two-second window updates immediately, while
+    // genuine slow speech may borrow only the immediately preceding window.
+    // Old speech can therefore never dilute the live reading beyond four seconds.
     const streamEvents = this.wordStream.snapshot().events;
     let selectedWindows = [];
     let streamWords = [];
@@ -508,6 +506,7 @@ export class LocalTranscriptTimingProducer {
       && streamSpeechDurationMs >= MINIMUM_LIVE_SPEECH_MS;
     this.onTiming(Object.freeze({
       atMs,
+      cadence: 'REALTIME_ROLLING',
       windowStartedAtMs: firstWindow.startedAtMs,
       windowEndedAtMs,
       speechDurationMs: streamSpeechDurationMs,
