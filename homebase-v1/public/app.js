@@ -40,6 +40,7 @@ const NAV = Object.freeze({
   student: [
     ['home', 'Home', '⌂'],
     ['progress', 'My Progress', '◎'],
+    ['class-progress', 'Class Progress', '◉'],
     ['tasks', 'Tasks', '◫'],
     ['priorities', 'Priorities & Alerts', '⚑'],
     ['calendar', 'Calendar', '▤'],
@@ -66,6 +67,7 @@ const state = {
   routeId: null,
   home: null,
   progress: null,
+  classProgress: null,
   tasks: [],
   alerts: { priorities: [], alerts: [] },
   activity: [],
@@ -246,6 +248,7 @@ const api = Object.freeze({
   session: () => auth.request('/api/session'),
   home: () => auth.request('/api/home'),
   progress: () => auth.request('/api/progress'),
+  classProgress: () => auth.request('/api/class-progress'),
   tasks: () => auth.request('/api/tasks'),
   submitTask: (assignmentId, comment) => auth.request(`/api/tasks/${assignmentId}/submit`, jsonOptions('POST', { comment })),
   commentTask: (assignmentId, comment) => auth.request(`/api/tasks/${assignmentId}/comment`, jsonOptions('POST', { comment })),
@@ -259,6 +262,7 @@ const api = Object.freeze({
   adminStudent: (id) => auth.request(`/api/admin/students/${id}`),
   adminPatchStudent: (id, body) => auth.request(`/api/admin/students/${id}`, jsonOptions('PATCH', body)),
   adminSubjectHome: (id) => auth.request(`/api/admin/subjects/${id}/home`),
+  adminSubjectClassProgress: (id) => auth.request(`/api/admin/subjects/${id}/class-progress`),
   adminChecklist: () => auth.request('/api/admin/checklist'),
   adminCreateCategory: (body) => auth.request('/api/admin/checklist/categories', jsonOptions('POST', body)),
   adminPatchCategory: (id, body) => auth.request(`/api/admin/checklist/categories/${id}`, jsonOptions('PATCH', body)),
@@ -318,6 +322,7 @@ function navFor() {
     return [
       ['home', 'Home', '⌂'],
       ['progress', 'My Progress', '◎'],
+      ['class-progress', 'Class Progress', '◉'],
       ['tasks', 'Tasks', '◫'],
     ];
   }
@@ -641,6 +646,43 @@ function renderProgress() {
         </div>
       </div>`;
     }).join('')}
+  </section>`;
+}
+
+function renderClassProgress() {
+  const payload = state.classProgress;
+  if (!payload) {
+    main.innerHTML = loadingView('Opening class progress…');
+    return;
+  }
+  const categories = asArray(payload.categories);
+  const students = asArray(payload.students);
+  const allItems = categories.flatMap((category) => asArray(category.items));
+  const completed = (student) => allItems.filter((item) => (
+    ['completed', 'approved'].includes(student.items?.[item.key])
+  )).length;
+  main.innerHTML = `<section data-view="class-progress" class="live">
+    <div class="hbPageHead">
+      <h1 class="h1">Class <em>Progress</em></h1>
+      <p class="hbPageSub">A read-only view of our authorized Session A class. Only shared checklist progress appears here.</p>
+    </div>
+    <div class="hbClassGrid" role="list">
+      ${students.map((student) => `<article class="panel hbClassCard" role="listitem">
+        <div class="hbClassIdentity">
+          ${studentAvatarMarkup({ name: student.displayName, photoUrl: student.avatarUrl })}
+          <div><h2>${esc(student.displayName)}</h2><p>${esc(student.psStageLabel)}</p></div>
+          <span class="hbClassCount">${completed(student)}/${allItems.length}</span>
+        </div>
+        <div class="hbClassStages" aria-label="Personal statement stage ${Number(student.psStage)} of 7">
+          ${Array.from({ length: 8 }, (_, index) => `<span class="${index < Number(student.psStage) ? 'done' : ''} ${index === Number(student.psStage) ? 'now' : ''}">${index}</span>`).join('')}
+        </div>
+        ${categories.map((category) => `<div class="hbClassCategory">
+          <h3>${esc(category.title)}</h3>
+          <div class="hbClassItems">${asArray(category.items).map((item) => `
+            <div><span>${esc(item.title)}${item.required ? '' : ' (optional)'}</span>${statusChip(student.items?.[item.key] || 'not_started')}</div>`).join('')}</div>
+        </div>`).join('')}
+      </article>`).join('') || '<div class="panel"><div class="pBody"><div class="storyEmpty">No active classmates are available.</div></div></div>'}
+    </div>
   </section>`;
 }
 
@@ -1208,6 +1250,12 @@ async function renderRoute() {
 
   try {
     if (subjectContext()) {
+      if (state.route === 'class-progress') {
+        state.classProgress = await api.adminSubjectClassProgress(state.subject.id);
+        renderClassProgress();
+        renderShell();
+        return;
+      }
       const payload = await api.adminSubjectHome(state.subject.id);
       state.home = payload;
       state.progress = payload;
@@ -1287,6 +1335,11 @@ async function renderRoute() {
         state.progress = await api.progress();
         state.psStages = state.progress.psStages || state.psStages;
         renderProgress();
+        return;
+      }
+      case 'class-progress': {
+        state.classProgress = await api.classProgress();
+        renderClassProgress();
         return;
       }
       case 'tasks': {
@@ -1711,7 +1764,7 @@ async function bootstrapSession() {
   state.subject = null;
   state.lockout = null;
   parseRoute();
-  const studentRoutes = new Set(['home', 'progress', 'tasks', 'priorities', 'calendar', 'files']);
+  const studentRoutes = new Set(['home', 'progress', 'class-progress', 'tasks', 'priorities', 'calendar', 'files']);
   const adminRoutes = new Set(['home', 'roster', 'student', 'checklist', 'tasks', 'priorities', 'activity']);
   const allowed = adminLens() ? adminRoutes : studentRoutes;
   if (!allowed.has(state.route)) {

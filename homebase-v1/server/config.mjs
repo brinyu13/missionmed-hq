@@ -38,17 +38,23 @@ const staticDirSetting = text('HOMEBASE_STATIC_DIR', 'public');
 const staticDir = path.resolve(packageDir, staticDirSetting);
 const publicOrigin = text('HOMEBASE_PUBLIC_ORIGIN', 'http://127.0.0.1:4190');
 const providerPort = boundedInteger('PORT', 4190, 1, 65535);
+const requestedDevAuth = flag('HOMEBASE_DEV_AUTH');
+const providerRuntime = [
+  'RAILWAY_ENVIRONMENT', 'RAILWAY_ENVIRONMENT_ID', 'RAILWAY_PROJECT_ID',
+  'RAILWAY_SERVICE_ID', 'RAILWAY_REPLICA_ID', 'RAILWAY_STATIC_URL',
+].some((name) => text(name) !== '');
+const devAuth = requestedDevAuth && !providerRuntime;
 
 export const config = Object.freeze({
   packageDir,
   publicDir: staticDir,
   port: boundedInteger('HOMEBASE_PORT', providerPort, 1, 65535),
-  host: text('HOMEBASE_HOST', flag('HOMEBASE_DEV_AUTH') ? '127.0.0.1' : '0.0.0.0'),
+  host: text('HOMEBASE_HOST', devAuth ? '127.0.0.1' : '0.0.0.0'),
   databaseUrl: text('HOMEBASE_DATABASE_URL'),
   publicOrigin,
-  basePath: normalizedBasePath(text('HOMEBASE_BASE_PATH', flag('HOMEBASE_DEV_AUTH') ? '/' : '/homebase/')),
+  basePath: normalizedBasePath(text('HOMEBASE_BASE_PATH', devAuth ? '/' : '/homebase/')),
   matrixBaseUrl: text('HOMEBASE_MATRIX_BASE_URL', `${originOf(publicOrigin)}/member-dashboard/`),
-  originApiOnly: flag('HOMEBASE_ORIGIN_API_ONLY', !flag('HOMEBASE_DEV_AUTH')),
+  originApiOnly: flag('HOMEBASE_ORIGIN_API_ONLY', !devAuth),
   wpBootstrapPath: text(
     'HOMEBASE_WP_BOOTSTRAP_PATH',
     '/wp-admin/admin-ajax.php?action=missionmed_homebase_bootstrap',
@@ -60,7 +66,9 @@ export const config = Object.freeze({
   jwtAudience: text('HOMEBASE_JWT_AUDIENCE', 'homebase'),
   jwksUrl: text('HOMEBASE_JWKS_URL'),
   jwtSecret: text('HOMEBASE_JWT_SECRET'),
-  devAuth: flag('HOMEBASE_DEV_AUTH'),
+  devAuth,
+  requestedDevAuth,
+  providerRuntime,
   devJwtSecret: text('HOMEBASE_DEV_JWT_SECRET'),
   premiumMotion: flag('HOMEBASE_PREMIUM_MOTION'),
   betaBadge: flag('HOMEBASE_BETA_BADGE', true),
@@ -68,6 +76,9 @@ export const config = Object.freeze({
 
 export function validateConfig() {
   const errors = [];
+  if (config.requestedDevAuth && config.providerRuntime) {
+    errors.push('HOMEBASE_DEV_AUTH is forbidden in provider environments');
+  }
   if (!config.publicDir.startsWith(`${config.packageDir}${path.sep}`)) {
     errors.push('HOMEBASE_STATIC_DIR must stay inside the HomeBase package');
   }

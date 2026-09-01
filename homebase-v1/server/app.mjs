@@ -77,7 +77,10 @@ function sendJson(response, status, payload) {
 }
 
 function sendError(response, error) {
-  const status = Number(error?.status) || (String(error?.code || '').includes('auth') ? 401 : 500);
+  const code = String(error?.code || '');
+  const authStatus = code === 'auth_required' || code.startsWith('ERR_J') ? 401
+    : (code.startsWith('invalid_') || code === 'eligibility_required' ? 403 : 0);
+  const status = Number(error?.status) || authStatus || 500;
   sendJson(response, status, {
     error: {
       code: String(error?.code || 'internal_error'),
@@ -134,6 +137,28 @@ function requireUuid(value, label = 'id') {
 
 function psStageInfo(stage) {
   return PS_STAGES[Number(stage)] || PS_STAGES[0];
+}
+
+export function safeClassAvatarUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    return url.protocol === 'https:' && url.hostname === 'cdn.missionmedinstitute.com'
+      ? url.href
+      : '';
+  } catch {
+    return '';
+  }
+}
+
+export function classProgressStudentView(row, stateByItem = new Map()) {
+  const stage = psStageInfo(row.ps_stage);
+  return {
+    displayName: `${text(row.first_name, 80)} ${text(row.last_name, 80)}`.trim(),
+    avatarUrl: safeClassAvatarUrl(row.photo_url),
+    psStage: Number(stage.stage),
+    psStageLabel: stage.student,
+    items: Object.fromEntries([...stateByItem].map(([key, status]) => [key, status])),
+  };
 }
 
 function enrollmentView(row, { admin = false } = {}) {
@@ -197,9 +222,12 @@ async function findOwnEnrollment(client, identity) {
     const byEmail = await client.query(
       `${enrollmentSelect}
        WHERE lower(e.email) = $1 AND e.wp_user_id IS NULL AND e.status = 'active'
-       ORDER BY e.created_at LIMIT 1`,
+       ORDER BY e.created_at LIMIT 2`,
       [email],
     );
+    if (byEmail.rows.length > 1) {
+      throw httpError(409, 'identity_match_needs_review', 'IDENTITY MATCH NEEDS REVIEW');
+    }
     if (byEmail.rows[0]) return { row: byEmail.rows[0], bound: true, via: 'email' };
   }
   const username = text(identity.username, 80).toLowerCase();
@@ -207,9 +235,12 @@ async function findOwnEnrollment(client, identity) {
     const byUsername = await client.query(
       `${enrollmentSelect}
        WHERE lower(e.username) = $1 AND e.wp_user_id IS NULL AND e.status = 'active'
-       ORDER BY e.created_at LIMIT 1`,
+       ORDER BY e.created_at LIMIT 2`,
       [username],
     );
+    if (byUsername.rows.length > 1) {
+      throw httpError(409, 'identity_match_needs_review', 'IDENTITY MATCH NEEDS REVIEW');
+    }
     if (byUsername.rows[0]) return { row: byUsername.rows[0], bound: true, via: 'username' };
   }
   return { row: null, bound: false };
@@ -324,6 +355,70 @@ async function progressPayload(client, enrollmentId, sessionId, { admin = false 
         updatedAt: item.state_updated_at,
       })),
   }));
+}
+
+async function classProgressPayload(client, sessionId) {
+  const roster = await client.query(
+    `SELECT id, first_name, last_name, photo_url, ps_stage
+     FROM public.hb_enrollments
+     WHERE session_id = $1 AND status = 'active'
+     ORDER BY last_name, first_name, id`,
+    [sessionId],
+  );
+  const taxonomy = await client.query(
+    `SELECT c.key AS category_key, c.title AS category_title, c.sort_order AS category_sort,
+            i.id AS item_id, i.key AS item_key, i.title AS item_title,
+            i.required, i.is_ps_tracker, i.default_status, i.sort_order AS item_sort
+     FROM public.hb_checklist_categories c
+     JOIN public.hb_checklist_items i ON i.category_id = c.id
+     WHERE c.state = 'active' AND i.state = 'active'
+       AND c.scope_type IN ('global', 'session', 'program')
+       AND (c.scope_type <> 'session' OR c.scope_session = $1)
+       AND (c.scope_type <> 'program' OR c.scope_program = (
+         SELECT program_id FROM public.hb_sessions WHERE id = $1
+       ))
+       AND i.scope_enrollment IS NULL
+     ORDER BY c.sort_order, c.created_at, i.sort_order, i.created_at`,
+    [sessionId],
+  );
+  const states = roster.rows.length && taxonomy.rows.length
+    ? await client.query(
+      `SELECT enrollment_id, item_id, status
+       FROM public.hb_item_states
+       WHERE enrollment_id = ANY($1::uuid[]) AND item_id = ANY($2::uuid[])`,
+      [roster.rows.map((row) => row.id), taxonomy.rows.map((row) => row.item_id)],
+    )
+    : { rows: [] };
+  const statusByEnrollment = new Map();
+  for (const row of states.rows) {
+    if (!statusByEnrollment.has(row.enrollment_id)) statusByEnrollment.set(row.enrollment_id, new Map());
+    statusByEnrollment.get(row.enrollment_id).set(row.item_id, row.status);
+  }
+  const categories = [];
+  for (const row of taxonomy.rows) {
+    let category = categories.find((entry) => entry.key === row.category_key);
+    if (!category) {
+      category = { key: row.category_key, title: row.category_title, items: [] };
+      categories.push(category);
+    }
+    category.items.push({
+      key: row.item_key,
+      title: row.item_title,
+      required: row.required === true,
+      isPsTracker: row.is_ps_tracker === true,
+    });
+  }
+  return {
+    categories,
+    students: roster.rows.map((student) => {
+      const statesForStudent = statusByEnrollment.get(student.id) || new Map();
+      const keyed = new Map(taxonomy.rows.map((item) => [
+        item.item_key,
+        statesForStudent.get(item.item_id) || item.default_status,
+      ]));
+      return classProgressStudentView(student, keyed);
+    }),
+  };
 }
 
 async function alertsPayload(client, enrollmentId, sessionId) {
@@ -1385,6 +1480,15 @@ async function adminSubjectHome(identity, enrollmentId) {
   return { ...payload, subject: enrollmentView(row, { admin: true }) };
 }
 
+async function adminSubjectClassProgress(identity, enrollmentId) {
+  requireAdmin(identity);
+  const id = requireUuid(enrollmentId, 'student id');
+  return withServiceTransaction(async (client) => {
+    const row = await adminEnrollment(client, id);
+    return classProgressPayload(client, row.session_id);
+  });
+}
+
 async function adminAddFile(identity, body) {
   requireAdmin(identity);
   const enrollmentId = requireUuid(body.enrollmentId, 'student id');
@@ -1575,6 +1679,10 @@ export function createAppServer() {
         sendJson(response, 200, { token, personas: Object.keys(fixtureIdentities) });
         return;
       }
+      if (url.pathname.startsWith('/api/dev/')) {
+        sendJson(response, 404, { error: { code: 'not_found', message: 'Not found.' } });
+        return;
+      }
 
       if (!url.pathname.startsWith('/api/')) {
         if (config.originApiOnly) {
@@ -1629,6 +1737,14 @@ export function createAppServer() {
           psStages: PS_STAGES,
           progress: await progressPayload(client, enrollment.id, enrollment.session_id),
         }));
+        sendJson(response, 200, payload);
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/class-progress') {
+        const enrollment = await requireStudentEnrollment(identity);
+        const payload = await withServiceTransaction(
+          (client) => classProgressPayload(client, enrollment.session_id),
+        );
         sendJson(response, 200, payload);
         return;
       }
@@ -1705,6 +1821,13 @@ export function createAppServer() {
         const subjectMatch = url.pathname.match(/^\/api\/admin\/subjects\/([a-f0-9-]{36})\/home$/i);
         if (request.method === 'GET' && subjectMatch) {
           sendJson(response, 200, await adminSubjectHome(identity, subjectMatch[1]));
+          return;
+        }
+        const subjectClassProgressMatch = url.pathname.match(
+          /^\/api\/admin\/subjects\/([a-f0-9-]{36})\/class-progress$/i,
+        );
+        if (request.method === 'GET' && subjectClassProgressMatch) {
+          sendJson(response, 200, await adminSubjectClassProgress(identity, subjectClassProgressMatch[1]));
           return;
         }
         if (request.method === 'GET' && url.pathname === '/api/admin/checklist') {

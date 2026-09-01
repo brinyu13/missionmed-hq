@@ -8,7 +8,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 
-import { assertPhaseOneStudentOnlyRecordingPolicies } from './phase-one-release-safety.mjs';
+import { assertHomeBaseReleaseSafety } from './phase-one-release-safety.mjs';
 
 const fullCommitPattern = /^[a-f0-9]{40}$/;
 const forbiddenGitEnvironment = new Set([
@@ -211,7 +211,7 @@ export function assertReleaseSource({
         + `${expectedRepositoryDir}.`,
     );
   }
-  assertPhaseOneStudentOnlyRecordingPolicies({
+  assertHomeBaseReleaseSafety({
     packageDir: realpathSync(startDirectory),
   });
   const expectedCommit = releaseExpectedCommit(environment);

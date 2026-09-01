@@ -52,7 +52,7 @@ HOMEBASE_JWT_ISSUER=http://127.0.0.1:4190 \
 HOMEBASE_DATABASE_URL=postgres://... npm start
 ```
 
-Personas: `admin` (Dr Brian lens), `student` (Afthab fixture), `studentOther`,
+Personas: `admin`, `student`, `studentOther`,
 `studentOutsideRoster` (proves the roster gate denies non-Session-A students).
 
 ## Waves

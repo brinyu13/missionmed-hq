@@ -1,205 +1,66 @@
 <?php
 /**
- * Plugin Name: MissionMed HomeBase V1 Route
- * Description: Isolated same-origin static and API gateway for HomeBase V1.
- * Version: 0.1.0
- * Requires PHP: 8.1
- * Author: MissionMed
+ * MissionMed HomeBase immutable route and API gateway.
+ *
+ * HomeBase owns only /homebase/. Matrix and StoryForge routes are untouched.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-
 if ( defined( 'MMHBR_VERSION' ) ) {
 	return;
 }
 
-if ( defined( 'MISSIONMED_HOMEBASE_ROUTE_ENABLED' ) && ! MISSIONMED_HOMEBASE_ROUTE_ENABLED ) {
-	return;
-}
-
-define( 'MMHBR_VERSION', '0.1.0' );
+define( 'MMHBR_VERSION', '0.2.0' );
 define( 'MMHBR_BASE_PATH', '/homebase/' );
-define( 'MMHBR_MAX_BODY_BYTES', 6291456 );
-define( 'MMHBR_MAX_RESPONSE_BYTES', 33554432 );
+define( 'MMHBR_MAX_BODY_BYTES', 1048576 );
+define( 'MMHBR_MAX_RESPONSE_BYTES', 4194304 );
 define( 'MMHBR_TIMEOUT_SECONDS', 9 );
 // BEGIN GENERATED HOMEBASE RELEASE ID.
-define( 'MMHBR_RELEASE_ID', 'v-693db9354e71b908' );
-define( 'MMHBR_RELEASE_PHP_SHA256', 'e59a7a7fdb1469a825c80f6d8eccb36a4c15045e9190beed1cd1b846b3da37c5' );
-define( 'MMHBR_RELEASE_PHP_SIZE', 1528743 );
+define( 'MMHBR_RELEASE_ID', 'v-0000000000000000' );
+define( 'MMHBR_RELEASE_PHP_SHA256', '0000000000000000000000000000000000000000000000000000000000000000' );
+define( 'MMHBR_RELEASE_PHP_SIZE', 1 );
 // END GENERATED HOMEBASE RELEASE ID.
 
-/**
- * Return the release manifest generated from homebase-v1/dist.
- *
- * @return array<string,array{alias:string,sha256:string,size:int,type:string,cache:string}>
- */
+/** @return array<string,array<string,mixed>> */
 function mmhbr_asset_manifest() {
 	return array(
 		// BEGIN GENERATED HOMEBASE ASSET MANIFEST.
-		'assets/app.071134bd72de.js' => array(
-			'alias' => '071134bd72de',
-			'sha256' => '071134bd72de646453a3bb867766169c1a4291098e2555b91208665340bca304',
-			'size' => 609979,
-			'type' => 'text/javascript; charset=utf-8',
-			'cache' => 'immutable',
-		),
-		'assets/auth.d2cfc4e447d2.js' => array(
-			'alias' => 'd2cfc4e447d2',
-			'sha256' => 'd2cfc4e447d23c2e6c164978221417a333764b33fd1dfea7cb1ae415b99118e6',
-			'size' => 7236,
-			'type' => 'text/javascript; charset=utf-8',
-			'cache' => 'immutable',
-		),
-		'assets/fonts/archivo-italic.e1989a572737.woff2' => array(
-			'alias' => 'e1989a572737',
-			'sha256' => 'e1989a5727374fcd299979407c8087669ca223f5281f8645891e5400f3e61aeb',
-			'size' => 39132,
-			'type' => 'font/woff2',
-			'cache' => 'immutable',
-		),
-		'assets/fonts/archivo-normal.7150c0ec5ad3.woff2' => array(
-			'alias' => '7150c0ec5ad3',
-			'sha256' => '7150c0ec5ad356453013d11affec1fbab95de0dd2dcecb043b4f1cb7f87c4ba4',
-			'size' => 34940,
-			'type' => 'font/woff2',
-			'cache' => 'immutable',
-		),
-		'assets/fonts/lora-italic.3d536d49566e.woff2' => array(
-			'alias' => '3d536d49566e',
-			'sha256' => '3d536d49566e82a7905c8b0096758005f6616029ac08528d1f4789c1100dff6a',
-			'size' => 40648,
-			'type' => 'font/woff2',
-			'cache' => 'immutable',
-		),
-		'assets/fonts/lora-normal.6b102ab35aa1.woff2' => array(
-			'alias' => '6b102ab35aa1',
-			'sha256' => '6b102ab35aa1f2b315788bb4853434ed1e52137603bf7a3da71a682276748d45',
-			'size' => 37792,
-			'type' => 'font/woff2',
-			'cache' => 'immutable',
-		),
-		'assets/fonts/OFL-Archivo.txt' => array(
-			'alias' => '1778201b7bd3',
-			'sha256' => '1778201b7bd33e8c08a2eda32a4ad2f69bc38ced9731b01cc3fc47f268c8ef3c',
-			'size' => 4387,
-			'type' => 'text/plain; charset=utf-8',
-			'cache' => 'revalidate',
-		),
-		'assets/fonts/OFL-Lora.txt' => array(
-			'alias' => '6d6bc7bbb828',
-			'sha256' => '6d6bc7bbb828514925dabcaf89e4771398d12c60dd1cb2bbb90eea129535d0f4',
-			'size' => 4422,
-			'type' => 'text/plain; charset=utf-8',
-			'cache' => 'revalidate',
-		),
-		'assets/fonts/OFL-Rajdhani.txt' => array(
-			'alias' => '793bdd8538a0',
-			'sha256' => '793bdd8538a0c03afb5bc10906be27ad1dc76f143cfeac8c55cd9075a5b3a55c',
-			'size' => 4372,
-			'type' => 'text/plain; charset=utf-8',
-			'cache' => 'revalidate',
-		),
-		'assets/fonts/rajdhani-500.4745b75b6e92.woff2' => array(
-			'alias' => '4745b75b6e92',
-			'sha256' => '4745b75b6e92d917e2402925dc1a6c1c6300e6e0f607a1ce286da54b33d80d3b',
-			'size' => 8964,
-			'type' => 'font/woff2',
-			'cache' => 'immutable',
-		),
-		'assets/fonts/rajdhani-600.35f7e628ec8e.woff2' => array(
-			'alias' => '35f7e628ec8e',
-			'sha256' => '35f7e628ec8e7dd3bf434e95ce28289803401f12d8605c56ca83db2b4b301d33',
-			'size' => 9400,
-			'type' => 'font/woff2',
-			'cache' => 'immutable',
-		),
-		'assets/fonts/rajdhani-700.7597c31a957a.woff2' => array(
-			'alias' => '7597c31a957a',
-			'sha256' => '7597c31a957ae3d2e1ebc786238752d883c15ce2e6b5da617dc3453a9fd86335',
-			'size' => 9304,
-			'type' => 'font/woff2',
-			'cache' => 'immutable',
-		),
-		'assets/missionmed-logo.f091d62ac584.png' => array(
-			'alias' => 'f091d62ac584',
-			'sha256' => 'f091d62ac5842cde0e9e455321839fd98b291598478aae6ce13b09ea3896ff56',
-			'size' => 65897,
-			'type' => 'image/png',
-			'cache' => 'immutable',
-		),
-		'assets/styles.71c94547613b.css' => array(
-			'alias' => '71c94547613b',
-			'sha256' => '71c94547613b1b2cf1360c7c965a3989aca142f82619e68e6c70543c4b305ac6',
-			'size' => 184235,
-			'type' => 'text/css; charset=utf-8',
-			'cache' => 'immutable',
-		),
-		'index.html' => array(
-			'alias' => 'caee12d92a6b',
-			'sha256' => 'caee12d92a6bfe6bfc99463c96db8f27058c4bafe2b79a858276ea988b68f907',
-			'size' => 2276,
-			'type' => 'text/html; charset=utf-8',
-			'cache' => 'html',
-		),
 		// END GENERATED HOMEBASE ASSET MANIFEST.
 	);
 }
 
-/**
- * Resolve the request path without trusting a caller-supplied host.
- *
- * @return string
- */
-function mmhbr_request_path() {
-	$request_uri = isset( $_SERVER['REQUEST_URI'] )
-		? (string) wp_unslash( $_SERVER['REQUEST_URI'] )
-		: '';
-	if ( '' === $request_uri ) {
-		return '';
-	}
+function mmhbr_request_method() {
+	return isset( $_SERVER['REQUEST_METHOD'] )
+		? strtoupper( (string) $_SERVER['REQUEST_METHOD'] )
+		: 'GET';
+}
 
+function mmhbr_request_path() {
+	$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
 	$path = wp_parse_url( $request_uri, PHP_URL_PATH );
 	if ( ! is_string( $path ) || '' === $path ) {
 		return '';
 	}
-
 	$home_path = wp_parse_url( home_url( '/' ), PHP_URL_PATH );
-	if ( is_string( $home_path ) && '' !== $home_path && '/' !== $home_path ) {
+	if ( is_string( $home_path ) && ! in_array( $home_path, array( '', '/' ), true ) ) {
 		$home_path = rtrim( $home_path, '/' );
 		if ( str_starts_with( $path, $home_path . '/' ) ) {
 			$path = substr( $path, strlen( $home_path ) );
-		} elseif ( $path === $home_path ) {
-			$path = '/';
 		}
 	}
-
 	if ( str_starts_with( $path, '/index.php/' ) ) {
 		$path = substr( $path, strlen( '/index.php' ) );
-	} elseif ( '/index.php' === $path ) {
-		$path = '/';
 	}
-
 	return '' !== $path ? $path : '/';
 }
 
-/**
- * Check whether the exact HomeBase route owns this request.
- *
- * @param string $path Request path.
- * @return bool
- */
 function mmhbr_is_target_path( $path ) {
 	$canonical = rtrim( MMHBR_BASE_PATH, '/' );
 	return $path === $canonical || str_starts_with( $path, MMHBR_BASE_PATH );
 }
 
-/**
- * Ensure the route is served only on the canonical WordPress authority.
- *
- * @return bool
- */
 function mmhbr_is_canonical_host() {
 	$home = wp_parse_url( home_url( '/' ) );
 	if ( ! is_array( $home ) || empty( $home['host'] ) ) {
@@ -212,32 +73,18 @@ function mmhbr_is_canonical_host() {
 	$incoming = isset( $_SERVER['HTTP_HOST'] )
 		? strtolower( trim( (string) wp_unslash( $_SERVER['HTTP_HOST'] ) ) )
 		: '';
-	if ( '' === $incoming || 1 !== preg_match( '/^[a-z0-9.-]+(?::[0-9]{1,5})?$/', $incoming ) ) {
-		return false;
-	}
-	return hash_equals( $expected, $incoming );
+	return 1 === preg_match( '/^[a-z0-9.-]+(?::[0-9]{1,5})?$/', $incoming )
+		&& hash_equals( $expected, $incoming );
 }
 
-/**
- * Mark HomeBase responses as ineligible for WordPress/Kinsta page caching.
- */
 function mmhbr_set_cache_guard() {
-	if ( ! defined( 'DONOTCACHEPAGE' ) ) {
-		define( 'DONOTCACHEPAGE', true );
-	}
-	if ( ! defined( 'DONOTCDN' ) ) {
-		define( 'DONOTCDN', true );
+	foreach ( array( 'DONOTCACHEPAGE', 'DONOTCDN' ) as $constant ) {
+		if ( ! defined( $constant ) ) {
+			define( $constant, true );
+		}
 	}
 }
 
-/**
- * Mark a response as ineligible for every provider cache layer.
- *
- * Kinsta's edge cache can evaluate a response independently of WordPress page
- * caching, so dynamic HomeBase responses require both runtime constants and
- * explicit surrogate/CDN response policy. Fingerprinted assets do not call
- * this guard and retain their manifest-approved cache class.
- */
 function mmhbr_set_no_store_guard() {
 	mmhbr_set_cache_guard();
 	if ( ! defined( 'DONOTCACHEOBJECT' ) ) {
@@ -249,9 +96,6 @@ if ( mmhbr_is_target_path( mmhbr_request_path() ) && mmhbr_is_canonical_host() )
 	mmhbr_set_cache_guard();
 }
 
-/**
- * Remove buffered WordPress/theme output before emitting a gateway response.
- */
 function mmhbr_clear_output_buffers() {
 	while ( ob_get_level() > 0 ) {
 		if ( ! @ob_end_clean() ) {
@@ -260,116 +104,40 @@ function mmhbr_clear_output_buffers() {
 	}
 }
 
-/**
- * Resolve the exact private-audio origin for CSP. The endpoint is not a
- * credential; deployments define MISSIONMED_HOMEBASE_R2_ENDPOINT only after
- * the RP-6 bucket authority is verified.
- *
- * @return string Exact http(s) origin, or an empty string when unavailable.
- */
-function mmhbr_audio_origin() {
-	if ( ! defined( 'MISSIONMED_HOMEBASE_R2_ENDPOINT' ) ) {
-		return '';
-	}
-	$parts = wp_parse_url( (string) constant( 'MISSIONMED_HOMEBASE_R2_ENDPOINT' ) );
-	if (
-		! is_array( $parts )
-		|| empty( $parts['scheme'] )
-		|| empty( $parts['host'] )
-		|| ! in_array( strtolower( $parts['scheme'] ), array( 'http', 'https' ), true )
-		|| isset( $parts['user'] )
-		|| isset( $parts['pass'] )
-	) {
-		return '';
-	}
-	$origin = strtolower( $parts['scheme'] ) . '://' . strtolower( $parts['host'] );
-	if ( isset( $parts['port'] ) ) {
-		$origin .= ':' . (int) $parts['port'];
-	}
-	return preg_match( '#^https?://[a-z0-9.-]+(?::[0-9]{1,5})?$#', $origin ) ? $origin : '';
-}
-
-/**
- * Resolve the canonical public CDN origin for active Arena Lobby avatars.
- * HomeBase receives only an allowlisted presentation URL and never an R2
- * object key or write credential.
- *
- * @return string Exact HTTPS origin.
- */
-function mmhbr_arena_avatar_origin() {
-	return 'https://cdn.missionmedinstitute.com';
-}
-
-/**
- * Apply the shared HomeBase security and cache headers.
- *
- * @param string $cache_control Cache-Control value.
- * @param bool   $private       Whether to add Pragma: no-cache.
- */
 function mmhbr_send_security_headers( $cache_control, $private = false ) {
 	if ( headers_sent() ) {
 		return;
 	}
-
-	$no_store = str_contains( strtolower( $cache_control ), 'no-store' );
-	if ( $no_store ) {
+	if ( str_contains( strtolower( $cache_control ), 'no-store' ) ) {
 		mmhbr_set_no_store_guard();
 	}
-
-	header_remove( 'Location' );
-	header_remove( 'Set-Cookie' );
-	header_remove( 'Access-Control-Allow-Origin' );
-	header_remove( 'Access-Control-Allow-Credentials' );
-	header_remove( 'Content-Encoding' );
-	header_remove( 'Transfer-Encoding' );
+	foreach ( array( 'Location', 'Set-Cookie', 'Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials', 'Content-Encoding', 'Transfer-Encoding' ) as $name ) {
+		header_remove( $name );
+	}
 	header( 'Cache-Control: ' . $cache_control, true );
 	header( 'Surrogate-Control: no-store', true );
 	header( 'CDN-Cache-Control: no-store', true );
-	header( 'Cloudflare-CDN-Cache-Control: no-store', true );
 	header( 'X-Accel-Expires: 0', true );
-	if ( $no_store ) {
-		header( 'Vary: Cookie, Authorization', true );
-	}
 	if ( $private ) {
 		header( 'Pragma: no-cache', true );
-	} else {
-		header_remove( 'Pragma' );
+		header( 'Vary: Cookie, Authorization', true );
 	}
-	$audio_origin = mmhbr_audio_origin();
-	$audio_source = '' !== $audio_origin ? ' ' . $audio_origin : '';
-	$avatar_source = ' ' . mmhbr_arena_avatar_origin();
-	header(
-		"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:" . $audio_source . $avatar_source . "; media-src 'self' blob:" . $audio_source . "; connect-src 'self'" . $audio_source . "; font-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
-		true
-	);
+	header( "Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://cdn.missionmedinstitute.com; connect-src 'self'; font-src 'self'; media-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'", true );
 	header( 'Referrer-Policy: no-referrer', true );
 	header( 'X-Content-Type-Options: nosniff', true );
 	header( 'X-Frame-Options: SAMEORIGIN', true );
-	header( 'Permissions-Policy: camera=(), geolocation=(), microphone=(self)', true );
+	header( 'Permissions-Policy: camera=(), geolocation=(), microphone=()', true );
 	header( 'X-Robots-Tag: noindex, nofollow, noarchive', true );
 	header( 'X-HomeBase-Route: wordpress-gateway', true );
 }
 
-/**
- * Emit a bounded JSON error without provider or filesystem details.
- *
- * @param int    $status  HTTP status.
- * @param string $code    Stable error code.
- * @param string $message Public message.
- */
 function mmhbr_send_error( $status, $code, $message ) {
 	mmhbr_clear_output_buffers();
-	status_header( $status );
+	status_header( (int) $status );
 	mmhbr_send_security_headers( 'no-store, private', true );
 	header( 'Content-Type: application/json; charset=utf-8', true );
-
 	$body = wp_json_encode(
-		array(
-			'error' => array(
-				'code'    => sanitize_key( $code ),
-				'message' => (string) $message,
-			),
-		)
+		array( 'error' => array( 'code' => sanitize_key( $code ), 'message' => (string) $message ) )
 	);
 	if ( ! is_string( $body ) ) {
 		$body = '{"error":{"code":"route_failed","message":"HomeBase could not complete this request."}}';
@@ -381,56 +149,27 @@ function mmhbr_send_error( $status, $code, $message ) {
 	exit;
 }
 
-/**
- * Return the normalized request method.
- *
- * @return string
- */
-function mmhbr_request_method() {
-	return isset( $_SERVER['REQUEST_METHOD'] )
-		? strtoupper( (string) $_SERVER['REQUEST_METHOD'] )
-		: 'GET';
-}
-
-/**
- * Preserve the raw query string while excluding response-splitting bytes.
- *
- * @return string
- */
 function mmhbr_query_suffix() {
 	$query = isset( $_SERVER['QUERY_STRING'] ) ? (string) $_SERVER['QUERY_STRING'] : '';
 	$query = str_replace( array( "\r", "\n" ), '', $query );
 	return '' === $query ? '' : '?' . $query;
 }
 
-/**
- * Reject malformed request targets before route classification or proxying.
- *
- * @param string $path Request path.
- */
 function mmhbr_validate_request_target( $path ) {
 	$query = isset( $_SERVER['QUERY_STRING'] ) ? (string) $_SERVER['QUERY_STRING'] : '';
 	if ( strlen( $path ) > 2048 || strlen( $query ) > 4096 ) {
 		mmhbr_send_error( 414, 'request_target_too_long', 'The HomeBase request target is too long.' );
 	}
-	if (
-		1 === preg_match( '/[\x00-\x1F\x7F]/', $path )
-		|| 1 !== preg_match( '#^/[A-Za-z0-9/_.-]*$#', $path )
-	) {
+	if ( 1 === preg_match( '/[\x00-\x1F\x7F]/', $path ) || 1 !== preg_match( '#^/[A-Za-z0-9/_.-]*$#', $path ) ) {
 		mmhbr_send_error( 400, 'invalid_request_path', 'The HomeBase request path is invalid.' );
 	}
 	foreach ( explode( '/', $path ) as $segment ) {
-		if ( '.' === $segment || '..' === $segment ) {
+		if ( in_array( $segment, array( '.', '..' ), true ) ) {
 			mmhbr_send_error( 400, 'invalid_request_path', 'The HomeBase request path is invalid.' );
 		}
 	}
 }
 
-/**
- * Emit a relative permanent redirect.
- *
- * @param string $path Destination path.
- */
 function mmhbr_send_redirect( $path ) {
 	mmhbr_clear_output_buffers();
 	status_header( 308 );
@@ -440,152 +179,90 @@ function mmhbr_send_redirect( $path ) {
 	exit;
 }
 
-/**
- * Resolve and validate the pinned Railway origin.
- *
- * @return string
- */
-function mmhbr_origin() {
-	$default = 'https://homebase-v1-api-production.up.railway.app';
-	$value   = defined( 'MISSIONMED_HOMEBASE_ORIGIN' )
-		? (string) MISSIONMED_HOMEBASE_ORIGIN
-		: $default;
-	$value   = rtrim(
-		esc_url_raw( (string) apply_filters( 'missionmed_homebase_route_origin', $value ) ),
-		'/'
-	);
-	$parts   = wp_parse_url( $value );
+function mmhbr_feature_enabled() {
+	if ( ! function_exists( 'mmhb_settings' ) ) {
+		return false;
+	}
+	$settings = mmhb_settings();
+	return is_array( $settings ) && ! empty( $settings['homebase_enabled'] );
+}
 
+function mmhbr_origin() {
+	if ( ! defined( 'MISSIONMED_HOMEBASE_ORIGIN' ) ) {
+		return '';
+	}
+	$value = rtrim( esc_url_raw( (string) MISSIONMED_HOMEBASE_ORIGIN ), '/' );
+	$parts = wp_parse_url( $value );
 	if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
 		return '';
 	}
-	$scheme        = strtolower( (string) $parts['scheme'] );
-	$local_fixture = 'local' === wp_get_environment_type()
+	$local = 'local' === wp_get_environment_type()
 		&& defined( 'MISSIONMED_HOMEBASE_LOCAL_FIXTURES' )
 		&& MISSIONMED_HOMEBASE_LOCAL_FIXTURES;
-	$local_http    = 'http' === $scheme
-		&& $local_fixture
+	$local_http = $local && 'http' === strtolower( (string) $parts['scheme'] )
 		&& 'host.docker.internal' === strtolower( (string) $parts['host'] )
 		&& ! empty( $parts['port'] );
-	if ( 'https' !== $scheme && ! $local_http ) {
+	$railway = 'https' === strtolower( (string) $parts['scheme'] )
+		&& str_ends_with( strtolower( (string) $parts['host'] ), '.up.railway.app' )
+		&& empty( $parts['port'] );
+	if ( ! $local_http && ! $railway ) {
 		return '';
 	}
-	if (
-		! $local_fixture
-		&& (
-			'homebase-v1-api-production.up.railway.app' !== strtolower( (string) $parts['host'] )
-			|| ! empty( $parts['port'] )
-		)
-	) {
+	if ( ! empty( $parts['user'] ) || ! empty( $parts['pass'] ) || ! empty( $parts['query'] )
+		|| ! empty( $parts['fragment'] ) || ( ! empty( $parts['path'] ) && '/' !== $parts['path'] ) ) {
 		return '';
 	}
-	if (
-		! empty( $parts['user'] )
-		|| ! empty( $parts['pass'] )
-		|| ! empty( $parts['query'] )
-		|| ! empty( $parts['fragment'] )
-		|| ( ! empty( $parts['path'] ) && '/' !== $parts['path'] )
-	) {
-		return '';
-	}
-
 	return $value;
 }
 
-/**
- * Return the exact WordPress origin used for same-origin API requests.
- *
- * @return string
- */
 function mmhbr_wordpress_origin() {
 	$parts = wp_parse_url( home_url( '/' ) );
 	if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
 		return '';
 	}
 	$origin = strtolower( (string) $parts['scheme'] ) . '://' . strtolower( (string) $parts['host'] );
-	if ( ! empty( $parts['port'] ) ) {
-		$origin .= ':' . absint( $parts['port'] );
-	}
-	return $origin;
+	return ! empty( $parts['port'] ) ? $origin . ':' . absint( $parts['port'] ) : $origin;
 }
 
-/**
- * Read the global HomeBase feature switch and fail closed if its owner is unavailable.
- *
- * @return bool
- */
-function mmhbr_feature_enabled() {
-	if ( ! function_exists( 'mmsf_settings' ) ) {
-		return false;
-	}
-	$settings = mmsf_settings();
-	return is_array( $settings ) && ! empty( $settings['homebase_enabled'] );
-}
-
-/**
- * Ensure an asset-relative path cannot escape the approved release.
- *
- * @param string $encoded Encoded path relative to /homebase/.
- * @return string
- */
 function mmhbr_safe_relative_path( $encoded ) {
 	$decoded = rawurldecode( (string) $encoded );
 	if ( str_contains( $decoded, "\0" ) || str_contains( $decoded, '\\' ) || str_starts_with( $decoded, '/' ) ) {
 		return '';
 	}
 	foreach ( explode( '/', $decoded ) as $segment ) {
-		if ( '.' === $segment || '..' === $segment || '' === $segment ) {
+		if ( in_array( $segment, array( '', '.', '..' ), true ) ) {
 			return '';
 		}
 	}
 	return $decoded;
 }
 
-/**
- * Resolve the approved manifest key for a static request.
- *
- * @param string $path Request path.
- * @return string
- */
 function mmhbr_static_manifest_key( $path ) {
 	$relative = substr( $path, strlen( MMHBR_BASE_PATH ) );
 	if ( '' === $relative ) {
 		return 'index.html';
 	}
-
 	$safe = mmhbr_safe_relative_path( $relative );
 	if ( '' === $safe ) {
 		return '';
 	}
 	$manifest = mmhbr_asset_manifest();
 	if ( 1 === preg_match( '#^_asset/([a-f0-9]{12})$#', $safe, $matches ) ) {
-		foreach ( $manifest as $manifest_key => $entry ) {
-			if (
-				'index.html' !== $manifest_key
-				&& isset( $entry['alias'] )
-				&& is_string( $entry['alias'] )
-				&& hash_equals( $entry['alias'], $matches[1] )
-			) {
-				return $manifest_key;
+		foreach ( $manifest as $key => $entry ) {
+			if ( 'index.html' !== $key && isset( $entry['alias'] ) && hash_equals( (string) $entry['alias'], $matches[1] ) ) {
+				return $key;
 			}
 		}
 		return '';
 	}
-	if (
-		str_starts_with( $safe, '_asset/' )
-		|| str_starts_with( $safe, 'assets/' )
-		|| '' !== pathinfo( basename( $safe ), PATHINFO_EXTENSION )
-	) {
+	if ( str_starts_with( $safe, '_asset/' ) || str_starts_with( $safe, 'assets/' )
+		|| '' !== pathinfo( basename( $safe ), PATHINFO_EXTENSION ) ) {
 		return '';
 	}
 	return 'index.html';
 }
 
-/**
- * Load the exact nested release bundle without relying on a sibling filesystem path.
- *
- * @return array{release_id:string,assets:array<string,array<string,mixed>>}|null
- */
+/** @return array<string,mixed>|null */
 function mmhbr_release_bundle() {
 	static $loaded = false;
 	static $bundle = null;
@@ -593,893 +270,226 @@ function mmhbr_release_bundle() {
 		return $bundle;
 	}
 	$loaded = true;
-
-	if (
-		1 !== preg_match( '/^v-[a-f0-9]{16}$/', MMHBR_RELEASE_ID )
-		|| 1 !== preg_match( '/^[a-f0-9]{64}$/', MMHBR_RELEASE_PHP_SHA256 )
-		|| MMHBR_RELEASE_PHP_SIZE < 1
-	) {
+	if ( 1 !== preg_match( '/^v-[a-f0-9]{16}$/', MMHBR_RELEASE_ID )
+		|| 1 !== preg_match( '/^[a-f0-9]{64}$/', MMHBR_RELEASE_PHP_SHA256 ) || MMHBR_RELEASE_PHP_SIZE < 2 ) {
 		return null;
 	}
-	$runtime_root  = __DIR__ . '/missionmed-homebase-runtime';
-	$releases_path = $runtime_root . '/releases';
-	$current_link  = $runtime_root . '/current';
-	if (
-		is_link( $runtime_root )
-		|| ! is_dir( $runtime_root )
-		|| is_link( $releases_path )
-		|| ! is_dir( $releases_path )
-		|| ! is_link( $current_link )
-	) {
+	$runtime = __DIR__ . '/missionmed-homebase-runtime';
+	$releases = $runtime . '/releases';
+	$current = $runtime . '/current';
+	if ( is_link( $runtime ) || ! is_dir( $runtime ) || is_link( $releases ) || ! is_dir( $releases ) || ! is_link( $current ) ) {
 		return null;
 	}
-	$releases_root = realpath( $releases_path );
-	$current_target = readlink( $current_link );
-	if (
-		false === $releases_root
-		|| ! is_string( $current_target )
-		|| 1 !== preg_match( '#^releases/([a-f0-9]{40})$#', $current_target, $matches )
-	) {
+	$target = readlink( $current );
+	if ( ! is_string( $target ) || 1 !== preg_match( '#^releases/([a-f0-9]{40})$#', $target, $matches ) ) {
 		return null;
 	}
-	$selected_path = $releases_path . '/' . $matches[1];
-	if ( is_link( $selected_path ) || ! is_dir( $selected_path ) ) {
+	$releases_real = realpath( $releases );
+	$selected = realpath( $releases . '/' . $matches[1] );
+	$current_real = realpath( $current );
+	if ( false === $releases_real || false === $selected || false === $current_real
+		|| $selected !== $releases_real . '/' . $matches[1] || $current_real !== $selected ) {
 		return null;
 	}
-	$selected = realpath( $selected_path );
-	$current  = realpath( $current_link );
-	if (
-		false === $selected
-		|| false === $current
-		|| $selected !== $releases_root . '/' . $matches[1]
-		|| $current !== $selected
-	) {
+	$file = $selected . '/release.php';
+	if ( realpath( $file ) !== $file || ! is_file( $file ) || is_link( $file )
+		|| filesize( $file ) !== MMHBR_RELEASE_PHP_SIZE
+		|| ! hash_equals( MMHBR_RELEASE_PHP_SHA256, (string) hash_file( 'sha256', $file ) ) ) {
 		return null;
 	}
-	$bundle_file = $selected . '/release.php';
-	$bundle_real = realpath( $bundle_file );
-	if (
-		false === $bundle_real
-		|| $bundle_real !== $bundle_file
-		|| ! is_file( $bundle_real )
-		|| is_link( $bundle_file )
-	) {
+	$candidate = require $file;
+	if ( ! is_array( $candidate ) || ! isset( $candidate['release_id'], $candidate['assets'] )
+		|| ! hash_equals( MMHBR_RELEASE_ID, (string) $candidate['release_id'] ) || ! is_array( $candidate['assets'] ) ) {
 		return null;
-	}
-	$bundle_size = filesize( $bundle_real );
-	$bundle_hash = hash_file( 'sha256', $bundle_real );
-	if (
-		false === $bundle_size
-		|| (int) $bundle_size !== MMHBR_RELEASE_PHP_SIZE
-		|| ! is_string( $bundle_hash )
-		|| ! hash_equals( MMHBR_RELEASE_PHP_SHA256, $bundle_hash )
-	) {
-		return null;
-	}
-	$candidate = require $bundle_real;
-	if (
-		! is_array( $candidate )
-		|| ! isset( $candidate['release_id'], $candidate['assets'] )
-		|| ! is_string( $candidate['release_id'] )
-		|| ! hash_equals( MMHBR_RELEASE_ID, $candidate['release_id'] )
-		|| ! is_array( $candidate['assets'] )
-	) {
-		return null;
-	}
-
-	$manifest = mmhbr_asset_manifest();
-	if ( count( $candidate['assets'] ) !== count( $manifest ) ) {
-		return null;
-	}
-	foreach ( $manifest as $entry ) {
-		if (
-			! isset( $entry['alias'] )
-			|| ! is_string( $entry['alias'] )
-			|| ! isset( $candidate['assets'][ $entry['alias'] ] )
-		) {
-			return null;
-		}
 	}
 	$bundle = $candidate;
 	return $bundle;
 }
 
-/**
- * Return verified bytes for one exact manifest-approved asset.
- *
- * @param string $manifest_key Manifest path.
- * @return array{bytes:string,entry:array{alias:string,sha256:string,size:int,type:string,cache:string}}|null
- */
+/** @return array<string,mixed>|null */
 function mmhbr_release_asset( $manifest_key ) {
 	$manifest = mmhbr_asset_manifest();
-	$bundle   = mmhbr_release_bundle();
-	if (
-		null === $bundle
-		|| ! isset( $manifest[ $manifest_key ] )
-		|| ! is_array( $manifest[ $manifest_key ] )
-	) {
+	$bundle = mmhbr_release_bundle();
+	if ( null === $bundle || ! isset( $manifest[ $manifest_key ] ) ) {
 		return null;
 	}
 	$entry = $manifest[ $manifest_key ];
-	if (
-		! isset(
-			$entry['alias'],
-			$entry['sha256'],
-			$entry['size'],
-			$entry['type'],
-			$entry['cache'],
-			$bundle['assets'][ $entry['alias'] ]
-		)
-		|| ! is_array( $bundle['assets'][ $entry['alias'] ] )
-	) {
+	$asset = $bundle['assets'][ $entry['alias'] ] ?? null;
+	if ( ! is_array( $asset ) ) {
 		return null;
 	}
-	$bundled = $bundle['assets'][ $entry['alias'] ];
 	foreach ( array( 'path', 'alias', 'sha256', 'size', 'type', 'cache', 'bytes_base64' ) as $field ) {
-		if ( ! array_key_exists( $field, $bundled ) ) {
+		if ( ! array_key_exists( $field, $asset ) ) {
 			return null;
 		}
 	}
-	if (
-		! is_string( $bundled['path'] )
-		|| ! hash_equals( $manifest_key, $bundled['path'] )
-		|| ! is_string( $bundled['alias'] )
-		|| ! hash_equals( (string) $entry['alias'], $bundled['alias'] )
-		|| ! is_string( $bundled['sha256'] )
-		|| ! hash_equals( (string) $entry['sha256'], $bundled['sha256'] )
-		|| (int) $entry['size'] !== (int) $bundled['size']
-		|| ! is_string( $bundled['type'] )
-		|| ! hash_equals( (string) $entry['type'], $bundled['type'] )
-		|| ! is_string( $bundled['cache'] )
-		|| ! hash_equals( (string) $entry['cache'], $bundled['cache'] )
-		|| ! is_string( $bundled['bytes_base64'] )
-	) {
+	if ( ! hash_equals( $manifest_key, (string) $asset['path'] )
+		|| ! hash_equals( (string) $entry['alias'], (string) $asset['alias'] )
+		|| ! hash_equals( (string) $entry['sha256'], (string) $asset['sha256'] )
+		|| (int) $entry['size'] !== (int) $asset['size']
+		|| ! hash_equals( (string) $entry['type'], (string) $asset['type'] )
+		|| ! hash_equals( (string) $entry['cache'], (string) $asset['cache'] ) ) {
 		return null;
 	}
-	$bytes = base64_decode( $bundled['bytes_base64'], true );
-	if (
-		! is_string( $bytes )
-		|| strlen( $bytes ) !== (int) $entry['size']
-		|| ! hash_equals( (string) $entry['sha256'], hash( 'sha256', $bytes ) )
-	) {
+	$bytes = base64_decode( (string) $asset['bytes_base64'], true );
+	if ( ! is_string( $bytes ) || strlen( $bytes ) !== (int) $entry['size']
+		|| ! hash_equals( (string) $entry['sha256'], hash( 'sha256', $bytes ) ) ) {
 		return null;
 	}
-	return array(
-		'bytes' => $bytes,
-		'entry' => $entry,
-	);
+	return array( 'entry' => $entry, 'bytes' => $bytes );
 }
 
-/**
- * Serve one exact manifest-approved bundle asset.
- *
- * @param string $manifest_key Manifest path.
- */
 function mmhbr_serve_static( $manifest_key ) {
 	if ( ! in_array( mmhbr_request_method(), array( 'GET', 'HEAD' ), true ) ) {
-		if ( ! headers_sent() ) {
-			header( 'Allow: GET, HEAD', true );
-		}
+		header( 'Allow: GET, HEAD', true );
 		mmhbr_send_error( 405, 'method_not_allowed', 'This method is not allowed for HomeBase assets.' );
 	}
-
-	$manifest = mmhbr_asset_manifest();
-	if ( '' === $manifest_key || ! isset( $manifest[ $manifest_key ] ) ) {
-		mmhbr_send_error( 404, 'asset_not_found', 'HomeBase asset not found.' );
-	}
-	$asset = mmhbr_release_asset( $manifest_key );
+	$asset = '' !== $manifest_key ? mmhbr_release_asset( $manifest_key ) : null;
 	if ( null === $asset ) {
 		mmhbr_send_error( 503, 'release_integrity_failed', 'HomeBase is temporarily unavailable.' );
 	}
-	$entry = $asset['entry'];
-	$bytes = $asset['bytes'];
-
-	$cache = 'no-cache';
-	if ( 'html' === $entry['cache'] ) {
-		$cache = 'no-store, max-age=0';
-	} elseif ( 'immutable' === $entry['cache'] ) {
-		$cache = 'public, max-age=31536000, immutable';
-	}
-
+	$cache = 'immutable' === $asset['entry']['cache']
+		? 'public, max-age=31536000, immutable'
+		: 'no-store, max-age=0';
 	mmhbr_clear_output_buffers();
 	status_header( 200 );
 	mmhbr_send_security_headers( $cache, false );
-	header( 'Content-Type: ' . $entry['type'], true );
-	header( 'Content-Length: ' . strlen( $bytes ), true );
+	header( 'Content-Type: ' . $asset['entry']['type'], true );
+	header( 'Content-Length: ' . strlen( $asset['bytes'] ), true );
 	if ( 'HEAD' !== mmhbr_request_method() ) {
-		echo $bytes;
+		echo $asset['bytes'];
 	}
 	exit;
 }
 
-/**
- * Read a single incoming header from explicit server variables.
- *
- * @param string $name Header name.
- * @return string
- */
 function mmhbr_incoming_header( $name ) {
-	$server_keys = array(
-		'accept'        => array( 'HTTP_ACCEPT' ),
+	$keys = array(
+		'accept' => array( 'HTTP_ACCEPT' ),
 		'authorization' => array( 'HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION' ),
-		'content-type'  => array( 'CONTENT_TYPE', 'HTTP_CONTENT_TYPE' ),
-		'origin'        => array( 'HTTP_ORIGIN' ),
-		'x-homebase-webhook-token' => array( 'HTTP_X_HOMEBASE_WEBHOOK_TOKEN' ),
+		'content-type' => array( 'CONTENT_TYPE', 'HTTP_CONTENT_TYPE' ),
+		'origin' => array( 'HTTP_ORIGIN' ),
 	);
-	foreach ( $server_keys[ $name ] ?? array() as $key ) {
+	foreach ( $keys[ $name ] ?? array() as $key ) {
 		if ( isset( $_SERVER[ $key ] ) && is_scalar( $_SERVER[ $key ] ) ) {
-			$value = trim( (string) wp_unslash( $_SERVER[ $key ] ) );
-			if ( strlen( $value ) <= 16384 && ! str_contains( $value, "\r" ) && ! str_contains( $value, "\n" ) ) {
-				return $value;
-			}
-		}
-	}
-	if ( function_exists( 'getallheaders' ) ) {
-		$headers = getallheaders();
-		if ( is_array( $headers ) ) {
-			foreach ( $headers as $header_name => $header_value ) {
-				if ( strtolower( (string) $header_name ) !== $name || ! is_scalar( $header_value ) ) {
-					continue;
-				}
-				$value = trim( (string) $header_value );
-				if ( strlen( $value ) <= 16384 && ! str_contains( $value, "\r" ) && ! str_contains( $value, "\n" ) ) {
-					return $value;
-				}
-			}
+			$value = trim( str_replace( array( "\r", "\n" ), '', (string) wp_unslash( $_SERVER[ $key ] ) ) );
+			return strlen( $value ) <= 8192 ? $value : '';
 		}
 	}
 	return '';
 }
 
-/**
- * Build authenticated, privacy-safe guest ingress headers for Railway.
- *
- * The raw client address never leaves WordPress. The shared secret is supplied
- * through wp-config.php and the matching Railway environment; it is never
- * stored in this plugin or sent to the browser.
- *
- * @param string $method HTTP method.
- * @param string $target_path Railway path.
- * @return array<string,string>
- */
-function mmhbr_guest_ingress_headers( $method, $target_path ) {
-	$secret = defined( 'MISSIONMED_HOMEBASE_GATEWAY_SHARED_SECRET' )
-		? (string) MISSIONMED_HOMEBASE_GATEWAY_SHARED_SECRET
-		: '';
-	if ( strlen( $secret ) < 32 ) {
-		mmhbr_send_error( 503, 'gateway_ingress_unavailable', 'HomeBase guest access is unavailable.' );
-	}
-	$candidates = array(
-		isset( $_SERVER['HTTP_CF_CONNECTING_IP'] ) ? (string) wp_unslash( $_SERVER['HTTP_CF_CONNECTING_IP'] ) : '',
-		isset( $_SERVER['REMOTE_ADDR'] ) ? (string) wp_unslash( $_SERVER['REMOTE_ADDR'] ) : '',
-	);
-	$client_address = '';
-	foreach ( $candidates as $candidate ) {
-		$candidate = trim( $candidate );
-		if ( false !== filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
-			$client_address = $candidate;
-			break;
-		}
-	}
-	if ( '' === $client_address ) {
-		mmhbr_send_error( 503, 'gateway_client_unavailable', 'HomeBase guest access is unavailable.' );
-	}
-	$pseudonym = hash_hmac( 'sha256', $client_address, $secret );
-	$timestamp = (string) time();
-	$canonical = strtoupper( $method ) . "\n" . $target_path . "\n" . $timestamp . "\n" . $pseudonym;
-	return array(
-		'x-homebase-client-pseudonym' => $pseudonym,
-		'x-homebase-gateway-timestamp' => $timestamp,
-		'x-homebase-gateway-signature' => hash_hmac( 'sha256', $canonical, $secret ),
-	);
-}
-
-/**
- * Authenticate one native Postmark custom header, then replace it with the
- * body-bound HMAC consumed by the private Railway handler. Postmark supports
- * custom webhook headers but does not generate HMAC webhook signatures.
- *
- * @param string $request_body Exact JSON bytes received from Postmark.
- * @return array<string,string>
- */
-function mmhbr_postmark_webhook_headers( $request_body ) {
-	$secret = defined( 'MISSIONMED_HOMEBASE_POSTMARK_WEBHOOK_SECRET' )
-		? (string) MISSIONMED_HOMEBASE_POSTMARK_WEBHOOK_SECRET
-		: '';
-	$provided = mmhbr_incoming_header( 'x-homebase-webhook-token' );
-	if ( strlen( $secret ) < 32 || strlen( $provided ) < 32 || ! hash_equals( $secret, $provided ) ) {
-		mmhbr_send_error( 401, 'webhook_auth_required', 'HomeBase webhook authentication failed.' );
-	}
-	return array(
-		'x-homebase-webhook-signature' => hash_hmac( 'sha256', $request_body, $secret ),
-	);
-}
-
-/**
- * Read a bounded request body.
- *
- * @return string
- */
 function mmhbr_request_body() {
-	$content_length_raw = isset( $_SERVER['CONTENT_LENGTH'] ) ? trim( (string) $_SERVER['CONTENT_LENGTH'] ) : '';
-	if ( '' !== $content_length_raw && ! ctype_digit( $content_length_raw ) ) {
-		mmhbr_send_error( 400, 'invalid_content_length', 'The HomeBase request is invalid.' );
-	}
-	$content_length = '' !== $content_length_raw ? (int) $content_length_raw : 0;
-	if ( $content_length > MMHBR_MAX_BODY_BYTES ) {
-		mmhbr_send_error( 413, 'request_too_large', 'Request exceeds the 6 MB limit.' );
+	$length = isset( $_SERVER['CONTENT_LENGTH'] ) ? absint( $_SERVER['CONTENT_LENGTH'] ) : 0;
+	if ( $length > MMHBR_MAX_BODY_BYTES ) {
+		mmhbr_send_error( 413, 'payload_too_large', 'The HomeBase request body is too large.' );
 	}
 	$stream = fopen( 'php://input', 'rb' );
-	if ( false === $stream ) {
-		mmhbr_send_error( 400, 'invalid_request_body', 'The HomeBase request is invalid.' );
+	$body = is_resource( $stream ) ? stream_get_contents( $stream, MMHBR_MAX_BODY_BYTES + 1 ) : false;
+	if ( is_resource( $stream ) ) {
+		fclose( $stream );
 	}
-	$body = stream_get_contents( $stream, MMHBR_MAX_BODY_BYTES + 1 );
-	fclose( $stream );
-	$body = is_string( $body ) ? $body : '';
-	if ( strlen( $body ) > MMHBR_MAX_BODY_BYTES ) {
-		mmhbr_send_error( 413, 'request_too_large', 'Request exceeds the 6 MB limit.' );
+	if ( ! is_string( $body ) || strlen( $body ) > MMHBR_MAX_BODY_BYTES ) {
+		mmhbr_send_error( 413, 'payload_too_large', 'The HomeBase request body is too large.' );
 	}
 	return $body;
 }
 
-/**
- * Return whether a path is the exact Phase 1 recording-segment upload route.
- *
- * @param string $path Request path.
- * @return bool
- */
-function mmhbr_is_recording_segment_upload_path( $path ) {
-	return 1 === preg_match(
-		'#^' . preg_quote( MMHBR_BASE_PATH, '#' ) . 'api/recordings/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/segments$#i',
-		$path
-	);
-}
-
-/**
- * Return whether a path is the exact B1-511 mentor-note audio upload route.
- *
- * @param string $path Request path.
- * @return bool
- */
-function mmhbr_is_mentor_note_audio_upload_path( $path ) {
-	return 1 === preg_match(
-		'#^' . preg_quote( MMHBR_BASE_PATH, '#' ) . 'api/mentor-notes/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/(?:audio|segments)$#i',
-		$path
-	);
-}
-
-/**
- * Return whether a path is the exact Phase 1 audio deletion route.
- *
- * @param string $path Request path.
- * @return bool
- */
-function mmhbr_is_audio_delete_path( $path ) {
-	return 1 === preg_match(
-		'#^' . preg_quote( MMHBR_BASE_PATH, '#' ) . 'api/audio/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
-		$path
-	);
-}
-
-/**
- * Return whether a path is the exact B1-512 private story-media deletion route.
- *
- * @param string $path Request path.
- * @return bool
- */
-function mmhbr_is_story_media_delete_path( $path ) {
-	return 1 === preg_match(
-		'#^' . preg_quote( MMHBR_BASE_PATH, '#' ) . 'api/story-media/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
-		$path
-	);
-}
-
-/**
- * Return whether a path is one exact unauthenticated guest-contribution API route.
- *
- * The opaque 256-bit invitation token is the only guest credential.  This
- * gateway exception is deliberately narrower than the authenticated API tree;
- * the Railway service still validates expiry, revocation, rate limits, and the
- * hashed token before returning any invitation data.
- *
- * @param string $path Request path.
- * @return bool
- */
-function mmhbr_is_guest_contribution_path( $path ) {
-	return 1 === preg_match(
-		'#^' . preg_quote( MMHBR_BASE_PATH, '#' ) . 'api/requests/guest/[A-Za-z0-9_-]{43}(?:/(?:contributions|started|voice(?:/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:/(?:segments|retry|finish))?)?))?$#i',
-		$path
-	);
-}
-
-/** Return whether POST targets one exact guest-voice segment upload. */
-function mmhbr_is_guest_voice_segment_upload_path( $path ) {
-	return 1 === preg_match(
-		'#^' . preg_quote( MMHBR_BASE_PATH, '#' ) . 'api/requests/guest/[A-Za-z0-9_-]{43}/voice/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/segments$#i',
-		$path
-	);
-}
-
-/** Return whether DELETE targets one exact guest-voice recording. */
-function mmhbr_is_guest_voice_delete_path( $path ) {
-	return 1 === preg_match(
-		'#^' . preg_quote( MMHBR_BASE_PATH, '#' ) . 'api/requests/guest/[A-Za-z0-9_-]{43}/voice/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
-		$path
-	);
-}
-
-/**
- * Return whether a path is the exact provider-webhook ingress route.
- *
- * @param string $path Request path.
- * @return bool
- */
-function mmhbr_is_postmark_webhook_path( $path ) {
-	return $path === MMHBR_BASE_PATH . 'api/webhooks/postmark';
-}
-
-/**
- * Return whether DELETE targets one bounded Inspiration preference resource.
- *
- * @param string $path Request path.
- * @return bool
- */
-function mmhbr_is_inspiration_delete_path( $path ) {
-	return 1 === preg_match(
-		'#^' . preg_quote( MMHBR_BASE_PATH, '#' ) . 'api/inspiration/(?:save-later|favorites|pins)/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
-		$path
-	);
-}
-
-/** Return whether a write targets the one bounded Inspiration pin-order route. */
-function mmhbr_is_inspiration_put_path( $path ) {
-	return $path === MMHBR_BASE_PATH . 'api/inspiration/pins';
-}
-
-/** Return whether DELETE targets one administrator-owned saved view. */
-function mmhbr_is_admin_saved_view_delete_path( $path ) {
-	return 1 === preg_match(
-		'#^' . preg_quote( MMHBR_BASE_PATH, '#' ) . 'api/admin/console/saved-views/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
-		$path
-	);
-}
-
-/** Return whether DELETE revokes one exact recipient-bound peer grant. */
-function mmhbr_is_peer_grant_delete_path( $path ) {
-	return 1 === preg_match(
-		'#^' . preg_quote( MMHBR_BASE_PATH, '#' ) . 'api/peer/grants/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
-		$path
-	);
-}
-
-/**
- * Accept the browser-generated multipart content type only when it contains
- * one bounded RFC-compatible boundary and no additional parameters.
- *
- * @param string $content_type Content-Type header value.
- * @return bool
- */
-function mmhbr_is_bounded_multipart_content_type( $content_type ) {
-	return 1 === preg_match(
-		'#^multipart/form-data\s*;\s*boundary=(?:"[A-Za-z0-9\'()+_,./:=?-]{1,70}"|[A-Za-z0-9\'()+_,./:=?-]{1,70})\s*$#i',
-		$content_type
-	);
-}
-
-/**
- * Rebuild PHP's parsed multipart upload into one bounded upstream request.
- *
- * PHP consumes multipart request bodies into $_POST and $_FILES before
- * WordPress runs. The upstream boundary is therefore intentionally new; no
- * client-supplied filename or multipart header is forwarded.
- *
- * @param array  $fields   Validated scalar fields.
- * @param string $bytes    Validated segment bytes.
- * @param string $mime_type Validated audio MIME type.
- * @param string $boundary New upstream multipart boundary.
- * @return string
- */
-function mmhbr_build_segment_multipart_body( $fields, $bytes, $mime_type, $boundary ) {
-	$body = '';
-	foreach ( array( 'seq', 'durationMs' ) as $name ) {
-		$body .= '--' . $boundary . "\r\n";
-		$body .= 'Content-Disposition: form-data; name="' . $name . "\"\r\n\r\n";
-		$body .= $fields[ $name ] . "\r\n";
-	}
-	$body .= '--' . $boundary . "\r\n";
-	$body .= "Content-Disposition: form-data; name=\"segment\"; filename=\"segment\"\r\n";
-	$body .= 'Content-Type: ' . $mime_type . "\r\n\r\n";
-	$body .= $bytes . "\r\n";
-	$body .= '--' . $boundary . "--\r\n";
-	return $body;
-}
-
-/**
- * Rebuild the exact B1-511 mentor-note audio form for the upstream API.
- *
- * @param array  $fields    Validated scalar fields.
- * @param string $bytes     Validated audio bytes.
- * @param string $mime_type Validated audio MIME type.
- * @param string $boundary  New upstream multipart boundary.
- * @return string
- */
-function mmhbr_build_mentor_note_multipart_body( $fields, $bytes, $mime_type, $boundary ) {
-	$body = '';
-	foreach ( array( 'durationMs', 'expectedVersion', 'mimeType', 'seq', 'promptTail' ) as $name ) {
-		if ( ! array_key_exists( $name, $fields ) ) {
-			continue;
-		}
-		$body .= '--' . $boundary . "\r\n";
-		$body .= 'Content-Disposition: form-data; name="' . $name . "\"\r\n\r\n";
-		$body .= $fields[ $name ] . "\r\n";
-	}
-	$body .= '--' . $boundary . "\r\n";
-	$body .= "Content-Disposition: form-data; name=\"segment\"; filename=\"segment\"\r\n";
-	$body .= 'Content-Type: ' . $mime_type . "\r\n\r\n";
-	$body .= $bytes . "\r\n";
-	$body .= '--' . $boundary . "--\r\n";
-	return $body;
-}
-
-/**
- * Read and validate the one exact multipart shape used by Phase 1 recording.
- *
- * @return array{body:string,content_type:string}
- */
-function mmhbr_segment_multipart_request() {
-	$field_names = array_keys( $_POST );
-	$file_names  = array_keys( $_FILES );
-	sort( $field_names );
-	sort( $file_names );
-	if ( array( 'durationMs', 'seq' ) !== $field_names || array( 'segment' ) !== $file_names ) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The audio segment form is invalid.' );
-	}
-	$seq      = $_POST['seq'];
-	$duration = $_POST['durationMs'];
-	if (
-		! is_string( $seq )
-		|| ! is_string( $duration )
-		|| 1 !== preg_match( '/^(?:0|[1-9][0-9]{0,2})$/', $seq )
-		|| 1 !== preg_match( '/^[1-9][0-9]{0,6}$/', $duration )
-	) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The audio segment form is invalid.' );
-	}
-	$file = $_FILES['segment'];
-	if (
-		! is_array( $file )
-		|| UPLOAD_ERR_OK !== ( $file['error'] ?? null )
-		|| ! is_int( $file['size'] ?? null )
-		|| ! is_string( $file['tmp_name'] ?? null )
-		|| ! is_string( $file['type'] ?? null )
-	) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The audio segment upload is invalid.' );
-	}
-	if ( $file['size'] <= 0 ) {
-		mmhbr_send_error( 400, 'invalid_audio_size', 'An audio segment is required.' );
-	}
-	if ( $file['size'] > MMHBR_MAX_BODY_BYTES ) {
-		mmhbr_send_error( 413, 'request_too_large', 'Request exceeds the 6 MB limit.' );
-	}
-	$mime_type = strtolower( trim( $file['type'] ) );
-	if ( 1 !== preg_match( '#^audio/(?:webm|mp4|ogg|wav)(?:\s*;\s*codecs=[A-Za-z0-9._-]+)?$#', $mime_type ) ) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The audio segment type is invalid.' );
-	}
-	if ( ! is_uploaded_file( $file['tmp_name'] ) || ! is_readable( $file['tmp_name'] ) ) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The audio segment upload is invalid.' );
-	}
-	$bytes = file_get_contents( $file['tmp_name'] );
-	if ( ! is_string( $bytes ) || strlen( $bytes ) !== $file['size'] ) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The audio segment upload is invalid.' );
-	}
-	try {
-		$boundary = 'mmsfr-' . bin2hex( random_bytes( 18 ) );
-	} catch ( Exception $error ) {
-		mmhbr_send_error( 503, 'origin_unavailable', 'HomeBase is temporarily unavailable.' );
-	}
-	$body = mmhbr_build_segment_multipart_body(
-		array(
-			'seq'        => $seq,
-			'durationMs' => $duration,
-		),
-		$bytes,
-		$mime_type,
-		$boundary
-	);
-	if ( strlen( $body ) > MMHBR_MAX_BODY_BYTES ) {
-		mmhbr_send_error( 413, 'request_too_large', 'Request exceeds the 6 MB limit.' );
-	}
-	return array(
-		'body'         => $body,
-		'content_type' => 'multipart/form-data; boundary=' . $boundary,
-	);
-}
-
-/**
- * Read and validate the one exact multipart shape used by B1-511 mentor audio.
- *
- * @return array{body:string,content_type:string}
- */
-function mmhbr_mentor_note_multipart_request() {
-	$field_names = array_keys( $_POST );
-	$file_names  = array_keys( $_FILES );
-	sort( $field_names );
-	sort( $file_names );
-	$is_segment = array( 'durationMs', 'expectedVersion', 'mimeType', 'promptTail', 'seq' ) === $field_names;
-	if (
-		array( 'durationMs', 'expectedVersion', 'mimeType' ) !== $field_names
-		&& ! $is_segment
-		|| array( 'segment' ) !== $file_names
-	) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The mentor audio form is invalid.' );
-	}
-	$duration         = $_POST['durationMs'];
-	$expected_version = $_POST['expectedVersion'];
-	$declared_mime    = strtolower( trim( (string) $_POST['mimeType'] ) );
-	$sequence         = $is_segment ? $_POST['seq'] : null;
-	$prompt_tail      = $is_segment ? (string) $_POST['promptTail'] : null;
-	if (
-		! is_string( $duration )
-		|| ! is_string( $expected_version )
-		|| ! is_string( $_POST['mimeType'] )
-		|| 1 !== preg_match( '/^[1-9][0-9]{0,6}$/', $duration )
-		|| 1 !== preg_match( '/^(?:0|[1-9][0-9]{0,18})$/', $expected_version )
-		|| ( $is_segment && ( ! is_string( $sequence ) || 1 !== preg_match( '/^(?:0|[1-9][0-9]{0,2})$/', $sequence ) || absint( $sequence ) > 199 ) )
-		|| ( $is_segment && strlen( $prompt_tail ) > 2000 )
-		|| 1 !== preg_match( '#^audio/(?:webm|mp4|ogg|wav)(?:\s*;\s*codecs=[A-Za-z0-9._-]+)?$#', $declared_mime )
-	) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The mentor audio form is invalid.' );
-	}
-	$file = $_FILES['segment'];
-	if (
-		! is_array( $file )
-		|| UPLOAD_ERR_OK !== ( $file['error'] ?? null )
-		|| ! is_int( $file['size'] ?? null )
-		|| ! is_string( $file['tmp_name'] ?? null )
-		|| ! is_string( $file['type'] ?? null )
-	) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The mentor audio upload is invalid.' );
-	}
-	if ( $file['size'] <= 0 ) {
-		mmhbr_send_error( 400, 'invalid_audio_size', 'Mentor audio is required.' );
-	}
-	if ( $file['size'] > MMHBR_MAX_BODY_BYTES ) {
-		mmhbr_send_error( 413, 'request_too_large', 'Request exceeds the 6 MB limit.' );
-	}
-	$mime_type = strtolower( trim( $file['type'] ) );
-	if (
-		1 !== preg_match( '#^audio/(?:webm|mp4|ogg|wav)(?:\s*;\s*codecs=[A-Za-z0-9._-]+)?$#', $mime_type )
-		|| $declared_mime !== $mime_type
-	) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The mentor audio type is invalid.' );
-	}
-	if ( ! is_uploaded_file( $file['tmp_name'] ) || ! is_readable( $file['tmp_name'] ) ) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The mentor audio upload is invalid.' );
-	}
-	$bytes = file_get_contents( $file['tmp_name'] );
-	if ( ! is_string( $bytes ) || strlen( $bytes ) !== $file['size'] ) {
-		mmhbr_send_error( 400, 'invalid_multipart', 'The mentor audio upload is invalid.' );
-	}
-	try {
-		$boundary = 'mmsfr-' . bin2hex( random_bytes( 18 ) );
-	} catch ( Exception $error ) {
-		mmhbr_send_error( 503, 'origin_unavailable', 'HomeBase is temporarily unavailable.' );
-	}
-	$fields = array(
-			'durationMs'     => $duration,
-			'expectedVersion' => $expected_version,
-			'mimeType'       => $declared_mime,
-		);
-	if ( $is_segment ) {
-		$fields['seq']        = (string) absint( $sequence );
-		$fields['promptTail'] = sanitize_textarea_field( $prompt_tail );
-	}
-	$body = mmhbr_build_mentor_note_multipart_body(
-		$fields,
-		$bytes,
-		$mime_type,
-		$boundary
-	);
-	if ( strlen( $body ) > MMHBR_MAX_BODY_BYTES ) {
-		mmhbr_send_error( 413, 'request_too_large', 'Request exceeds the 6 MB limit.' );
-	}
-	return array(
-		'body'         => $body,
-		'content_type' => 'multipart/form-data; boundary=' . $boundary,
-	);
-}
-
-/**
- * Proxy a strict HomeBase API or health request to the pinned origin.
- *
- * @param string $path Request path.
- */
 function mmhbr_proxy_request( $path ) {
-	$method       = mmhbr_request_method();
-	$is_audio_delete = 'DELETE' === $method && mmhbr_is_audio_delete_path( $path );
-	$is_story_media_delete = 'DELETE' === $method && mmhbr_is_story_media_delete_path( $path );
-	$is_inspiration_delete = 'DELETE' === $method && mmhbr_is_inspiration_delete_path( $path );
-	$is_saved_view_delete = 'DELETE' === $method && mmhbr_is_admin_saved_view_delete_path( $path );
-	$is_guest_voice_delete = 'DELETE' === $method && mmhbr_is_guest_voice_delete_path( $path );
-	$is_peer_grant_delete = 'DELETE' === $method && mmhbr_is_peer_grant_delete_path( $path );
-	$is_inspiration_put = 'PUT' === $method && mmhbr_is_inspiration_put_path( $path );
-	$is_privacy_delete = $is_audio_delete || $is_story_media_delete;
-	$is_bounded_delete = $is_privacy_delete || $is_inspiration_delete || $is_saved_view_delete || $is_guest_voice_delete || $is_peer_grant_delete;
-	$is_guest = mmhbr_is_guest_contribution_path( $path )
-		&& in_array( $method, array( 'GET', 'POST', 'DELETE' ), true );
-	$is_postmark_webhook = 'POST' === $method && mmhbr_is_postmark_webhook_path( $path );
-	$is_anonymous_ingress = $is_guest || $is_postmark_webhook;
-	$allowed      = array( 'GET', 'POST', 'PATCH' );
-	$health_path  = MMHBR_BASE_PATH . 'healthz';
-	$is_health    = $path === $health_path;
-	$health_allow = array( 'GET' );
-	if ( ! in_array( $method, $is_health ? $health_allow : $allowed, true ) && ! $is_bounded_delete && ! $is_inspiration_put ) {
-		if ( ! headers_sent() ) {
-			header( 'Allow: ' . implode( ', ', $is_health ? $health_allow : $allowed ), true );
-		}
+	$method = mmhbr_request_method();
+	$health = MMHBR_BASE_PATH . 'healthz' === $path;
+	$public_config = MMHBR_BASE_PATH . 'api/config' === $path && 'GET' === $method;
+	$allowed = $health ? array( 'GET' ) : array( 'GET', 'POST', 'PATCH', 'DELETE' );
+	if ( ! in_array( $method, $allowed, true ) ) {
+		header( 'Allow: ' . implode( ', ', $allowed ), true );
 		mmhbr_send_error( 405, 'method_not_allowed', 'This method is not allowed for HomeBase.' );
 	}
-	$is_public_config = $path === MMHBR_BASE_PATH . 'api/config' && 'GET' === $method;
 	if ( str_starts_with( $path, MMHBR_BASE_PATH . 'api/dev/' ) ) {
 		mmhbr_send_error( 404, 'not_found', 'HomeBase resource not found.' );
 	}
-	if ( ! $is_health && ! $is_public_config && ! mmhbr_feature_enabled() ) {
+	if ( ! $health && ! $public_config && ! mmhbr_feature_enabled() ) {
 		mmhbr_send_error( 403, 'homebase_disabled', 'HomeBase is not enabled for this pilot.' );
 	}
-
 	$origin = mmhbr_origin();
 	if ( '' === $origin ) {
 		mmhbr_send_error( 503, 'origin_unavailable', 'HomeBase is temporarily unavailable.' );
 	}
-	$canonical   = rtrim( MMHBR_BASE_PATH, '/' );
-	$target_path = substr( $path, strlen( $canonical ) );
-	$target_url  = $origin . $target_path . mmhbr_query_suffix();
-	$headers     = array();
-	foreach ( array( 'accept', 'authorization', 'content-type', 'origin', 'x-homebase-webhook-token' ) as $name ) {
+	$headers = array();
+	foreach ( array( 'accept', 'authorization', 'content-type', 'origin' ) as $name ) {
 		$value = mmhbr_incoming_header( $name );
 		if ( '' !== $value ) {
 			$headers[ $name ] = $value;
 		}
 	}
-	if ( $is_guest ) {
-		$headers = array_merge( $headers, mmhbr_guest_ingress_headers( $method, $target_path ) );
+	if ( ! $health && ! $public_config
+		&& 1 !== preg_match( '/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/', $headers['authorization'] ?? '' ) ) {
+		mmhbr_send_error( 401, 'auth_required', 'A valid HomeBase session is required.' );
 	}
-	if ( ! $is_health && ! $is_public_config && ! $is_anonymous_ingress ) {
-		$authorization = $headers['authorization'] ?? '';
-		if ( 1 !== preg_match( '/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/', $authorization ) ) {
-			mmhbr_send_error( 401, 'auth_required', 'A valid HomeBase session is required.' );
+	if ( isset( $headers['origin'] ) && ! hash_equals( mmhbr_wordpress_origin(), strtolower( rtrim( $headers['origin'], '/' ) ) ) ) {
+		mmhbr_send_error( 403, 'origin_not_allowed', 'This origin is not allowed to call HomeBase.' );
+	}
+	$body = '';
+	if ( in_array( $method, array( 'POST', 'PATCH', 'DELETE' ), true ) ) {
+		if ( 1 !== preg_match( '#^application/json(?:\s*;|$)#i', $headers['content-type'] ?? '' ) ) {
+			mmhbr_send_error( 415, 'unsupported_content_type', 'HomeBase accepts JSON requests only.' );
 		}
+		$body = mmhbr_request_body();
 	}
-	$incoming_origin = $headers['origin'] ?? '';
-	if ( '' !== $incoming_origin ) {
-		$origin_parts = wp_parse_url( $incoming_origin );
-		$normalized   = '';
-		if ( is_array( $origin_parts ) && ! empty( $origin_parts['scheme'] ) && ! empty( $origin_parts['host'] ) ) {
-			$normalized = strtolower( (string) $origin_parts['scheme'] )
-				. '://'
-				. strtolower( (string) $origin_parts['host'] );
-			if ( ! empty( $origin_parts['port'] ) ) {
-				$normalized .= ':' . absint( $origin_parts['port'] );
-			}
-		}
-		if (
-			$normalized !== strtolower( rtrim( $incoming_origin, '/' ) )
-			|| ! hash_equals( mmhbr_wordpress_origin(), $normalized )
-		) {
-			mmhbr_send_error( 403, 'origin_not_allowed', 'This origin is not allowed to call HomeBase.' );
-		}
-	}
-	$is_segment_upload     = 'POST' === $method && mmhbr_is_recording_segment_upload_path( $path );
-	$is_guest_voice_segment_upload = 'POST' === $method && mmhbr_is_guest_voice_segment_upload_path( $path );
-	$is_mentor_audio_upload = 'POST' === $method && mmhbr_is_mentor_note_audio_upload_path( $path );
-	$is_audio_upload       = $is_segment_upload || $is_guest_voice_segment_upload || $is_mentor_audio_upload;
-	if ( in_array( $method, array( 'POST', 'PATCH', 'PUT' ), true ) ) {
-		$content_type = $headers['content-type'] ?? '';
-		$is_json           = 1 === preg_match( '#^application/json(?:\s*;|$)#i', $content_type );
-		$is_multipart      = $is_audio_upload && mmhbr_is_bounded_multipart_content_type( $content_type );
-		if ( ( $is_audio_upload && ! $is_multipart ) || ( ! $is_audio_upload && ! $is_json ) ) {
-			mmhbr_send_error(
-				415,
-				'unsupported_content_type',
-				$is_audio_upload
-					? 'HomeBase accepts bounded multipart audio only on this route.'
-					: 'HomeBase accepts JSON requests only.'
-			);
-		}
-	}
-	$request_body = '';
-	if ( $is_audio_upload && isset( $is_multipart ) && $is_multipart ) {
-		$multipart              = $is_mentor_audio_upload
-			? mmhbr_mentor_note_multipart_request()
-			: mmhbr_segment_multipart_request();
-		$request_body           = $multipart['body'];
-		$headers['content-type'] = $multipart['content_type'];
-	} elseif ( in_array( $method, array( 'POST', 'PATCH', 'PUT' ), true ) ) {
-		$request_body = mmhbr_request_body();
-	}
-	if ( $is_postmark_webhook ) {
-		unset( $headers['x-homebase-webhook-token'] );
-		$headers = array_merge( $headers, mmhbr_postmark_webhook_headers( $request_body ) );
-	}
-
-	$local_fixture = 'http' === (string) wp_parse_url( $origin, PHP_URL_SCHEME );
-	$args          = array(
-		'method'              => $method,
-		'headers'             => $headers,
-		'body'                => $request_body,
-		'timeout'             => MMHBR_TIMEOUT_SECONDS,
-		'redirection'         => 0,
-		'blocking'            => true,
-		'sslverify'           => true,
-		'reject_unsafe_urls'  => ! $local_fixture,
-		'limit_response_size' => MMHBR_MAX_RESPONSE_BYTES + 1,
+	$target_path = substr( $path, strlen( rtrim( MMHBR_BASE_PATH, '/' ) ) );
+	$response = wp_safe_remote_request(
+		$origin . $target_path . mmhbr_query_suffix(),
+		array(
+			'method' => $method,
+			'headers' => $headers,
+			'body' => $body,
+			'timeout' => MMHBR_TIMEOUT_SECONDS,
+			'redirection' => 0,
+			'blocking' => true,
+			'sslverify' => true,
+			'reject_unsafe_urls' => true,
+			'limit_response_size' => MMHBR_MAX_RESPONSE_BYTES + 1,
+		)
 	);
-
-	$response = $local_fixture
-		? wp_remote_request( $target_url, $args )
-		: wp_safe_remote_request( $target_url, $args );
 	if ( is_wp_error( $response ) ) {
 		mmhbr_send_error( 502, 'origin_request_failed', 'HomeBase is temporarily unavailable.' );
 	}
-
 	$status = (int) wp_remote_retrieve_response_code( $response );
-	$body   = (string) wp_remote_retrieve_body( $response );
-	$length = wp_remote_retrieve_header( $response, 'content-length' );
-	if (
-		$status < 100
-		|| $status > 599
-		|| ( $status >= 300 && $status < 400 )
-		|| ( is_scalar( $length ) && absint( $length ) > MMHBR_MAX_RESPONSE_BYTES )
-		|| strlen( $body ) > MMHBR_MAX_RESPONSE_BYTES
-	) {
-		mmhbr_send_error( 502, 'origin_response_rejected', 'HomeBase is temporarily unavailable.' );
-	}
-
+	$response_body = (string) wp_remote_retrieve_body( $response );
 	$content_type = (string) wp_remote_retrieve_header( $response, 'content-type' );
-	if ( 204 !== $status && '' !== $body && ! str_starts_with( strtolower( $content_type ), 'application/json' ) ) {
+	if ( $status < 100 || $status > 599 || ( $status >= 300 && $status < 400 )
+		|| strlen( $response_body ) > MMHBR_MAX_RESPONSE_BYTES
+		|| ( 204 !== $status && '' !== $response_body && ! str_starts_with( strtolower( $content_type ), 'application/json' ) ) ) {
 		mmhbr_send_error( 502, 'origin_response_rejected', 'HomeBase is temporarily unavailable.' );
 	}
-	if ( '' === $content_type ) {
-		$content_type = 'application/json; charset=utf-8';
-	}
-	$decoded = null;
-	if ( '' !== $body ) {
-		$decoded = json_decode( $body, true );
+	if ( '' !== $response_body ) {
+		json_decode( $response_body, true );
 		if ( JSON_ERROR_NONE !== json_last_error() ) {
 			mmhbr_send_error( 502, 'origin_response_rejected', 'HomeBase is temporarily unavailable.' );
 		}
 	}
-	if ( $is_health ) {
-		if (
-			200 !== $status
-			|| ! is_array( $decoded )
-			|| true !== ( $decoded['ok'] ?? false )
-			|| 'homebase-v1' !== ( $decoded['service'] ?? '' )
-		) {
+	if ( $health ) {
+		$decoded = json_decode( $response_body, true );
+		if ( 200 !== $status || ! is_array( $decoded ) || true !== ( $decoded['ok'] ?? false )
+			|| 'homebase-v1' !== ( $decoded['service'] ?? '' ) ) {
 			mmhbr_send_error( 503, 'health_unavailable', 'HomeBase is temporarily unavailable.' );
 		}
-		$body         = '{"ok":true,"service":"homebase-v1"}';
+		$response_body = '{"ok":true,"service":"homebase-v1"}';
 		$content_type = 'application/json; charset=utf-8';
 	}
-
 	mmhbr_clear_output_buffers();
 	status_header( $status );
 	mmhbr_send_security_headers( 'no-store, private', true );
-	header( 'Content-Type: ' . str_replace( array( "\r", "\n" ), '', $content_type ), true );
-	header( 'Content-Length: ' . strlen( $body ), true );
-	if ( 'HEAD' !== $method && 204 !== $status ) {
-		echo $body;
+	header( 'Content-Type: ' . ( '' !== $content_type ? str_replace( array( "\r", "\n" ), '', $content_type ) : 'application/json; charset=utf-8' ), true );
+	header( 'Content-Length: ' . strlen( $response_body ), true );
+	if ( 204 !== $status && 'HEAD' !== $method ) {
+		echo $response_body;
 	}
 	exit;
 }
 
-/**
- * Dispatch only the exact HomeBase route and leave all other paths untouched.
- */
 function mmhbr_dispatch() {
 	if ( ! empty( $GLOBALS['mmhbr_dispatched'] ) ) {
 		return;
 	}
-
 	$path = mmhbr_request_path();
 	if ( ! mmhbr_is_target_path( $path ) || ! mmhbr_is_canonical_host() ) {
 		return;
@@ -1487,7 +497,6 @@ function mmhbr_dispatch() {
 	$GLOBALS['mmhbr_dispatched'] = true;
 	mmhbr_set_cache_guard();
 	mmhbr_validate_request_target( $path );
-
 	$normalized = preg_replace( '#/+#', '/', $path );
 	if ( is_string( $normalized ) && $normalized !== $path ) {
 		mmhbr_send_redirect( $normalized );
@@ -1495,16 +504,10 @@ function mmhbr_dispatch() {
 	if ( rtrim( MMHBR_BASE_PATH, '/' ) === $path ) {
 		mmhbr_send_redirect( MMHBR_BASE_PATH );
 	}
-
-	$api_path = MMHBR_BASE_PATH . 'api';
-	if (
-		$path === MMHBR_BASE_PATH . 'healthz'
-		|| $path === $api_path
-		|| str_starts_with( $path, $api_path . '/' )
-	) {
+	$api = MMHBR_BASE_PATH . 'api';
+	if ( MMHBR_BASE_PATH . 'healthz' === $path || $api === $path || str_starts_with( $path, $api . '/' ) ) {
 		mmhbr_proxy_request( $path );
 	}
-
 	mmhbr_serve_static( mmhbr_static_manifest_key( $path ) );
 }
 

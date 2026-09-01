@@ -217,7 +217,7 @@ manifestLines.push(manifestEndMarker);
 const bundleLines = [
   '<?php',
   '/**',
-  ' * Generated HomeBase V5 execution-private release bundle.',
+  ' * Generated HomeBase execution-private release bundle.',
   ' *',
   ' * This nested file is not a WordPress MU-plugin entrypoint.',
   ' */',
@@ -277,9 +277,9 @@ const edgeAliasSource = [
 ].join('\n');
 const releaseLines = [
   releaseStartMarker,
-  `define( 'MMSFR_RELEASE_ID', ${phpString(releaseId)} );`,
-  `define( 'MMSFR_RELEASE_PHP_SHA256', ${phpString(releasePhpSha256)} );`,
-  `define( 'MMSFR_RELEASE_PHP_SIZE', ${releasePhpBytes.length} );`,
+  `define( 'MMHBR_RELEASE_ID', ${phpString(releaseId)} );`,
+  `define( 'MMHBR_RELEASE_PHP_SHA256', ${phpString(releasePhpSha256)} );`,
+  `define( 'MMHBR_RELEASE_PHP_SIZE', ${releasePhpBytes.length} );`,
   releaseEndMarker,
 ];
 

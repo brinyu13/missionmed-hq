@@ -1,22 +1,22 @@
 (() => {
   'use strict';
 
-  const settings = window.MissionMedStoryForgeLaunch || {};
+  const settings = window.MissionMedHomeBaseLaunch || {};
   let target;
   try {
     target = new URL(String(settings.target || ''), window.location.origin);
   } catch {
     return;
   }
-  if (target.origin !== window.location.origin || !target.pathname.startsWith('/storyforge/')) {
+  if (target.origin !== window.location.origin || !target.pathname.startsWith('/homebase/')) {
     return;
   }
 
   const matrixPath = String(settings.matrixPath || '/member-dashboard/').replace(/\/+$/, '') || '/';
   const onMatrix = () => window.location.pathname.replace(/\/+$/, '') === matrixPath;
-  const storyForgeControl = (node) => {
+  const homeBaseControl = (node) => {
     if (!(node instanceof Element)) return null;
-    return node.closest('a[href="#storyforge"], [data-route="storyforge"]');
+    return node.closest('a[href="#homebase"], [data-route="homebase"]');
   };
   const launch = (replace = false) => {
     if (replace) window.location.replace(target.href);
@@ -24,14 +24,14 @@
   };
 
   document.addEventListener('click', (event) => {
-    if (!onMatrix() || !storyForgeControl(event.target)) return;
+    if (!onMatrix() || !homeBaseControl(event.target)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     launch(false);
   }, true);
 
   const launchDirectHash = () => {
-    if (onMatrix() && window.location.hash.toLowerCase() === '#storyforge') {
+    if (onMatrix() && window.location.hash.toLowerCase() === '#homebase') {
       launch(true);
     }
   };

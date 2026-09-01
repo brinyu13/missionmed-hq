@@ -245,7 +245,7 @@ function mmhb_access_state($user) {
 
     $role = mmhb_role_for_user($user, $settings);
     $allowlisted = mmhb_user_is_allowlisted($user, $settings);
-    if (!$allowlisted && $role !== 'student') {
+    if (!$allowlisted) {
         return new WP_Error(
             'user_not_enabled',
             'HomeBase is not enabled for this account.',
@@ -294,9 +294,25 @@ function mmhb_access_state($user) {
 function mmhb_homebase_user_id($user_id) {
     $id = strtolower(trim((string) get_user_meta($user_id, '_missionmed_homebase_user_id', true)));
     $id = (string) apply_filters('missionmed_homebase_user_id', $id, $user_id);
-    return preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $id)
-        ? $id
-        : '';
+    if (preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $id)) {
+        return $id;
+    }
+
+    // Stable, non-reversible RFC 4122 v5 subject derived from the WordPress
+    // authority. This avoids a production-blocking user-meta mutation while
+    // keeping raw WordPress identifiers out of HomeBase primary keys.
+    $namespace = hex2bin('5f3a16dfec7f5a04a47fc962a0d6f2d8');
+    $hash = sha1($namespace . home_url('/') . '|wp-user|' . absint($user_id));
+    $hash[12] = '5';
+    $hash[16] = dechex((hexdec($hash[16]) & 0x3) | 0x8);
+    return sprintf(
+        '%s-%s-%s-%s-%s',
+        substr($hash, 0, 8),
+        substr($hash, 8, 4),
+        substr($hash, 12, 4),
+        substr($hash, 16, 4),
+        substr($hash, 20, 12)
+    );
 }
 
 function mmhb_secret() {

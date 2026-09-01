@@ -11,9 +11,9 @@
     "build": "npm run build:development",
     "build:api": "node scripts/check-api-only-build.mjs",
     "build:development": "node scripts/build-static.mjs --mode=development",
-    "build:release": "node scripts/assert-release-source.mjs --mode=release && node scripts/build-static.mjs --mode=release && node scripts/build-wordpress-route-manifest.mjs --mode=release",
+    "build:release": "node scripts/assert-release-source.mjs --mode=release && node scripts/build-static.mjs --mode=release && node scripts/scan-release.mjs && node scripts/build-wordpress-route-manifest.mjs --mode=release",
     "check:wp-route-manifest": "node scripts/assert-release-source.mjs --mode=release && node scripts/build-wordpress-route-manifest.mjs --mode=release --check",
-    "scan:secrets": "node scripts/scan-bundle-secrets.mjs",
+    "scan:release": "node scripts/scan-release.mjs",
     "test": "node --test tests/unit/*.test.mjs"
   },
   "dependencies": {
