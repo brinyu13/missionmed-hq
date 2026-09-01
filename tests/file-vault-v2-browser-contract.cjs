@@ -252,7 +252,26 @@ async function studentFlow(browser) {
 		assert(await page.locator(".fv2-home-greeting h1").isVisible(), "student: StoryForge-family Home greeting missing");
 		assert(/^Good (morning|afternoon|evening), Avery\.$/.test((await page.locator(".fv2-home-greeting h1").textContent()).trim()), "student: personalized daypart greeting is incorrect");
 		const navLabels = await page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
-		assert(navLabels.join("|") === "Home|Upload|Your Files|Recently Uploaded|Mission Files|Notifications|Settings", `student: navigation is incorrect ${navLabels.join("|")}`);
+		assert(navLabels.join("|") === "Home|Your Files|Recently Uploaded|Mission Files|Notifications|Settings", `student: navigation is incorrect ${navLabels.join("|")}`);
+		assert(await page.locator('.fv2-rail [data-fv2-action="navigate"][data-fv2-view="upload"]').count() === 1, "student: StoryForge rail must expose exactly one premium Upload CTA");
+		const railVisual = await page.locator(".fv2-rail").evaluate(rail => {
+			const active = rail.querySelector(".fv2-nav-item.is-active");
+			const inactive = rail.querySelector('.fv2-nav-item[data-fv2-view="files"]');
+			const inactiveStyle = getComputedStyle(inactive);
+			return {
+				activeClip: getComputedStyle(active).clipPath,
+				activeBackground: getComputedStyle(active).backgroundImage,
+				inactiveBackground: inactiveStyle.backgroundColor,
+				inactiveImage: inactiveStyle.backgroundImage,
+				inactiveIcon: getComputedStyle(inactive.querySelector("svg")).display,
+				inactiveWhiteSpace: getComputedStyle(inactive.querySelector("span")).whiteSpace,
+				roleLabel: getComputedStyle(rail.querySelector(".fv2-rail-label")).display,
+				foot: getComputedStyle(rail.querySelector(".fv2-rail-foot")).display
+			};
+		});
+		assert(railVisual.activeClip !== "none" && railVisual.activeBackground.includes("linear-gradient"), `student: active rail destination does not match StoryForge geometry ${JSON.stringify(railVisual)}`);
+		assert(railVisual.inactiveBackground === "rgba(0, 0, 0, 0)" && railVisual.inactiveImage === "none", `student: inactive rail destinations still render as utility cards ${JSON.stringify(railVisual)}`);
+		assert(railVisual.inactiveIcon === "none" && railVisual.inactiveWhiteSpace === "nowrap" && railVisual.roleLabel === "none" && railVisual.foot === "none", `student: rejected legacy rail chrome remains visible ${JSON.stringify(railVisual)}`);
 		assert(await page.locator(".fv2-nav-key").count() === 0, "student: obsolete numeric shortcut badges remain visible");
 		assert(await page.locator(".fv2-upload-choice").count() === 0, "student: utility document tiles still dominate Home");
 		assert(await page.locator(".fv2-home-selector").isVisible(), "student: central guided-upload selector missing from Home");
@@ -264,7 +283,7 @@ async function studentFlow(browser) {
 		assert(await page.getByRole("dialog", { name: "Upload a document" }).isVisible(), "student: central Home selector did not open the guided upload");
 		assert(await page.locator("[data-fv2-upload-type]").inputValue() === "curriculum_vitae", "student: central Home selector lost the selected document type");
 		await page.getByRole("button", { name: "Close upload" }).click();
-		await page.locator('.fv2-nav-item[data-fv2-view="upload"]').click();
+		await page.locator('.fv2-rail [data-fv2-action="navigate"][data-fv2-view="upload"]').click();
 		assert(await page.getByRole("heading", { name: "Upload", exact: true }).isVisible(), "student: primary Home upload command did not open Upload");
 			const primaryActions = await page.locator(".fv2-upload-choice strong").allTextContents();
 			assert(primaryActions.join("|") === "CV|Personal Statement|LOR-Related|Timeline|Score Report|Certification|Miscellaneous", `student: upload categories are incorrect ${primaryActions.join("|")}`);
@@ -676,7 +695,7 @@ async function asyncMutationSwitchIsolationFlow(browser) {
 		assert(reviewState.selectedStudentId === 102 && reviewState.documentDetail === null && !reviewState.data.documents.some(document => Number(document.id) === 1102), "admin async isolation: late review response contaminated student B state");
 
 		await loadA();
-		await page.locator('.fv2-nav-item[data-fv2-view="upload"]').click();
+		await page.locator('.fv2-rail [data-fv2-action="navigate"][data-fv2-view="upload"]').click();
 		await page.locator('[data-fv2-action="open-upload"][data-fv2-document-type="curriculum_vitae"]').click();
 		await page.setInputFiles("[data-fv2-upload-file]", { name: "async_cv.pdf", mimeType: "application/pdf", buffer: Buffer.from("async fixture PDF bytes") });
 		await page.locator("[data-fv2-upload-next]").click();
@@ -1233,11 +1252,11 @@ async function responsiveFlow(browser) {
 				if (viewport.width === 320) {
 					assert(await page.locator(".fv2-brand strong").isVisible() && (await page.locator(".fv2-brand strong").textContent()).trim() === "FileVault", "responsive 320: File Vault product identity disappeared from the mobile header");
 					const visibleNav = await page.locator(".fv2-nav-item:visible, .fv2-nav-more:visible").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
-					assert(visibleNav.join("|") === "Home|Upload|Your Files|Recently Uploaded|More", `responsive 320: primary mobile destinations are not all visible ${visibleNav.join("|")}`);
+					assert(visibleNav.join("|") === "Home|Your Files|Recently Uploaded|Mission Files|More", `responsive 320: primary mobile destinations are not all visible ${visibleNav.join("|")}`);
 					await page.getByRole("button", { name: "More", exact: true }).click();
 					assert(await page.getByRole("group", { name: "More File Vault destinations", exact: true }).isVisible(), "responsive 320: More destinations disclosure did not open");
 					const overflowLabels = await page.locator(".fv2-mobile-nav-option").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
-					assert(overflowLabels.join("|") === "Mission Files|Notifications|Settings", `responsive 320: mobile overflow destinations are incomplete ${overflowLabels.join("|")}`);
+					assert(overflowLabels.join("|") === "Notifications|Settings", `responsive 320: mobile overflow destinations are incomplete ${overflowLabels.join("|")}`);
 					await page.keyboard.press("Escape");
 					assert(await page.locator(".fv2-mobile-nav-menu").count() === 0, "responsive 320: Escape did not close More destinations");
 					assert(await page.getByRole("button", { name: "More", exact: true }).evaluate(button => document.activeElement === button), "responsive 320: More menu focus did not return to its trigger");
@@ -1251,7 +1270,7 @@ async function responsiveFlow(browser) {
 					assert(await page.locator('.fv2-mobile-sheet[role="dialog"]').isVisible(), `responsive ${viewport.width}: detail sheet missing`);
 					await page.getByRole("button", { name: "Close document details", exact: true }).click();
 				}
-				await page.locator('.fv2-nav-item[data-fv2-view="upload"]').click();
+				await page.evaluate(() => window.__FV2_HARNESS__.instance.navigate("upload"));
 				const uploadLayout = await page.locator(".fv2-upload-choices").evaluate(grid => ({
 					count: grid.querySelectorAll(".fv2-upload-choice").length,
 					columns: getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length

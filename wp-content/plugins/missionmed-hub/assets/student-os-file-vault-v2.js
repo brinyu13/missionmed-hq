@@ -762,14 +762,13 @@
 		var subjectMode = isStaffRole(role) && !!this.state.selectedStudentId;
 		var studentItems = [
 			["vault", "home", "Home"],
-			["upload", "upload", "Upload"],
 			["files", "folder", "Your Files"],
 			["recent", "clock", "Recently Uploaded"],
 			["library", "library", "Mission Files"],
 			["activity", "bell", "Notifications"],
 			["settings", "settings", "Settings"]
 		];
-		var items = isStaffRole(role) && !subjectMode
+		var items = isStaffRole(role) && !subjectMode && !this.isStudentLens()
 			? [["command", "users", "Students"], ["settings", "settings", "Settings"]]
 			: studentItems;
 		var queueCount = this.state.data && Array.isArray(this.state.data.review_queue) ? this.state.data.review_queue.length : 0;
@@ -792,8 +791,8 @@
 			}
 		}
 		var roleLabel = subjectMode ? "Student Vault" : (role === "mentor" ? "Mentor tools" : (role === "admin" ? "Administrator" : "Student Vault"));
-		var uploadCta = subjectMode || !isStaffRole(role)
-			? '<button type="button" class="fv2-rail-upload" data-fv2-action="open-upload"' + (this.capability("upload") && this.storageReady() ? "" : " disabled") + '>' + icon("upload") + '<span>Upload</span></button>'
+		var uploadCta = subjectMode || !isStaffRole(role) || this.isStudentLens()
+			? '<button type="button" class="fv2-rail-upload" data-fv2-action="navigate" data-fv2-view="upload"' + (this.capability("upload") && this.storageReady() ? "" : " disabled") + '>' + icon("upload") + '<span>Upload</span></button>'
 			: "";
 		var matrixUrl = String(this.config.matrixUrl || "/member-dashboard/");
 		var viewAs = role === "admin" ? '<div class="fv2-view-as"><span>Viewing as</span><button type="button" data-fv2-action="set-lens" data-fv2-lens-mode="student" aria-pressed="' + (this.state.lensMode === "student" ? "true" : "false") + '" class="' + (this.state.lensMode === "student" ? "is-active" : "") + '">Student view</button><button type="button" data-fv2-action="set-lens" data-fv2-lens-mode="administrator" aria-pressed="' + (this.state.lensMode === "administrator" ? "true" : "false") + '" class="' + (this.state.lensMode === "administrator" ? "is-active" : "") + '">Administrator view</button></div>' : "";
