@@ -315,6 +315,8 @@
 		this.activateAppMode(true);
 		this.root.classList.add("mmed-fv2-host");
 		this.root.innerHTML = this.shellMarkup();
+		var matrixFallback = document.getElementById("mmed-matrix-app-return");
+		if (matrixFallback && matrixFallback.parentNode) matrixFallback.parentNode.removeChild(matrixFallback);
 		this.refs.app = this.root.querySelector("[data-fv2-app]");
 		this.refs.frame = this.root.querySelector("[data-fv2-frame]");
 		this.refs.nav = this.root.querySelector("[data-fv2-nav]");
@@ -403,7 +405,7 @@
 			'<span class="sos-filevault-v1 fv2-v1-guard-sentinel" hidden aria-hidden="true"></span>',
 			'<div class="fv2-frame" data-fv2-frame' + (this.introVisible ? ' aria-hidden="true" inert' : '') + '>',
 			'<header class="fv2-hud">',
-			'<a class="fv2-matrix-return" href="' + escAttr(matrixUrl) + '" aria-label="Return to Matrix">' + icon("arrowLeft") + '<span>Matrix</span></a>',
+			'<a class="fv2-matrix-return" href="' + escAttr(matrixUrl) + '" aria-label="Return to Matrix" data-matrix-app-mode-return="1" data-matrix-dashboard-return="true">' + icon("arrowLeft") + '<span>Matrix</span></a>',
 			'<div class="fv2-brand" aria-label="MissionMed File Vault"><span class="fv2-brand-matrix">MissionMed</span><span class="fv2-brand-slash">//</span><strong>FileVault</strong></div>',
 			'<div class="fv2-hud-context"><span class="fv2-lens" data-fv2-lens>Vault</span><span class="fv2-student" data-fv2-student></span></div>',
 			'<div class="fv2-hud-actions">',
@@ -759,6 +761,7 @@
 	FileVaultV2.prototype.navigationMarkup = function () {
 		var self = this;
 		var role = this.role();
+		var isAdmin = role === "admin";
 		var subjectMode = isStaffRole(role) && !!this.state.selectedStudentId;
 		var studentItems = [
 			["vault", "home", "Home"],
@@ -778,16 +781,19 @@
 			var action = item[0] === "settings" ? "open-settings" : "navigate";
 			return '<button type="button" class="' + escAttr(className || "fv2-nav-item") + (active ? " is-active" : "") + '" aria-label="' + escAttr(item[2]) + '" data-fv2-action="' + action + '"' + (item[0] === "settings" ? "" : ' data-fv2-view="' + escAttr(item[0]) + '"') + ' data-fv2-focus-key="nav-' + escAttr(item[0]) + '"' + (active ? ' aria-current="page"' : "") + ">" + icon(item[1]) + "<span>" + esc(item[2]) + "</span>" + count + "</button>";
 		}
+		var lensButtons = isAdmin ? '<button type="button" data-fv2-action="set-lens" data-fv2-lens-mode="student" aria-pressed="' + (this.state.lensMode === "student" ? "true" : "false") + '" class="' + (this.state.lensMode === "student" ? "is-active" : "") + '">Student view</button><button type="button" data-fv2-action="set-lens" data-fv2-lens-mode="administrator" aria-pressed="' + (this.state.lensMode === "administrator" ? "true" : "false") + '" class="' + (this.state.lensMode === "administrator" ? "is-active" : "") + '">Administrator view</button>' : "";
+		var mobileViewAs = isAdmin ? '<div class="fv2-mobile-view-as" role="group" aria-label="View File Vault as"><span>Viewing as</span>' + lensButtons + "</div>" : "";
 		var markup = items.map(function (item, index) {
 			return itemMarkup(item, "fv2-nav-item" + (index >= 4 ? " fv2-nav-overflow" : ""));
 		}).join("");
 		var overflow = items.slice(4);
-		if (overflow.length) {
-			markup += '<button type="button" class="fv2-nav-more" aria-label="More" aria-controls="fv2-mobile-nav-menu" aria-expanded="' + (this.state.mobileNavOpen ? "true" : "false") + '" data-fv2-action="toggle-mobile-nav" data-fv2-focus-key="nav-more">' + icon("grid") + "<span>More</span></button>";
+		if (overflow.length || isAdmin) {
+			var mobileMenuLabel = overflow.length ? "More File Vault destinations" : "More File Vault controls";
+			markup += '<button type="button" class="fv2-nav-more' + (isAdmin ? " fv2-admin-nav-more" : "") + '" aria-label="More" aria-controls="fv2-mobile-nav-menu" aria-expanded="' + (this.state.mobileNavOpen ? "true" : "false") + '" data-fv2-action="toggle-mobile-nav" data-fv2-focus-key="nav-more">' + icon("grid") + "<span>More</span></button>";
 			if (this.state.mobileNavOpen) {
-				markup += '<div id="fv2-mobile-nav-menu" class="fv2-mobile-nav-menu" role="group" aria-label="More File Vault destinations">' + overflow.map(function (item) {
+				markup += '<div id="fv2-mobile-nav-menu" class="fv2-mobile-nav-menu' + (isAdmin ? " fv2-mobile-nav-admin" : "") + '" role="group" aria-label="' + mobileMenuLabel + '">' + overflow.map(function (item) {
 					return itemMarkup(item, "fv2-mobile-nav-option");
-				}).join("") + "</div>";
+				}).join("") + mobileViewAs + "</div>";
 			}
 		}
 		var roleLabel = subjectMode ? "Student Vault" : (role === "mentor" ? "Mentor tools" : (role === "admin" ? "Administrator" : "Student Vault"));
@@ -795,7 +801,7 @@
 			? '<button type="button" class="fv2-rail-upload" data-fv2-action="navigate" data-fv2-view="upload"' + (this.capability("upload") && this.storageReady() ? "" : " disabled") + '>' + icon("upload") + '<span>Upload</span></button>'
 			: "";
 		var matrixUrl = String(this.config.matrixUrl || "/member-dashboard/");
-		var viewAs = role === "admin" ? '<div class="fv2-view-as"><span>Viewing as</span><button type="button" data-fv2-action="set-lens" data-fv2-lens-mode="student" aria-pressed="' + (this.state.lensMode === "student" ? "true" : "false") + '" class="' + (this.state.lensMode === "student" ? "is-active" : "") + '">Student view</button><button type="button" data-fv2-action="set-lens" data-fv2-lens-mode="administrator" aria-pressed="' + (this.state.lensMode === "administrator" ? "true" : "false") + '" class="' + (this.state.lensMode === "administrator" ? "is-active" : "") + '">Administrator view</button></div>' : "";
+		var viewAs = isAdmin ? '<div class="fv2-view-as"><span>Viewing as</span>' + lensButtons + "</div>" : "";
 		var accountName = String(this.config.viewerName || (role === "admin" ? "MissionMed administrator" : (role === "mentor" ? "MissionMed mentor" : (this.state.data && this.state.data.student && this.state.data.student.display_name) || "MissionMed student")));
 		return '<div class="fv2-rail-brand"><strong>File<em>Vault</em></strong><span>MISSIONMED</span></div>' + uploadCta + '<div class="fv2-rail-label">' + esc(roleLabel) + "</div>" + markup + '<a class="fv2-rail-matrix" href="' + escAttr(matrixUrl) + '">' + icon("arrowLeft") + '<span>Back to Matrix</span></a><div class="fv2-rail-bottom">' + viewAs + '<div class="fv2-rail-account"><span>' + esc(accountName.charAt(0).toUpperCase() || "M") + '</span><strong>' + esc(accountName) + '</strong></div><div class="fv2-rail-foot"><span>Private by design</span><span>Secure document workflow</span></div></div>';
 	};
@@ -1417,6 +1423,12 @@
 				if (this.role() !== "admin") break;
 				this.state.lensMode = button.getAttribute("data-fv2-lens-mode") === "student" ? "student" : "administrator";
 				this.state.mobileNavOpen = false;
+				if (this.state.lensMode === "student") {
+					if (this.state.workspaceTab === "internal-notes") this.state.workspaceTab = "comments";
+					this.state.internalNotes = [];
+					this.state.internalNotesLoading = false;
+					this.state.internalNotesError = "";
+				}
 				if (this.state.lensMode === "administrator" && !this.state.selectedStudentId) this.state.view = "command";
 				else if (this.state.lensMode === "student") this.state.view = this.state.selectedStudentId ? "vault" : "command";
 				this.render({ focusKey: "" });

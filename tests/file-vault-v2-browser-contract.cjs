@@ -320,6 +320,19 @@ async function studentFlow(browser) {
 		assert(await page.getByRole("heading", { name: "Mission Files", exact: true }).isVisible(), "student: Mission Files premium card did not open the shared library");
 		await page.locator('.fv2-nav-item[data-fv2-view="vault"]').click();
 		assert(await page.locator(".fv2-matrix-return").isVisible() && await page.locator(".fv2-header-search").isVisible() && await page.locator(".fv2-header-upload").isVisible(), "student: StoryForge-family Matrix/search/upload header is incomplete");
+		assert(await page.locator("#mmed-matrix-app-return").count() === 0, "student: duplicate Matrix shell return remained after File Vault mounted");
+		assert(await page.locator('.fv2-matrix-return[data-matrix-app-mode-return="1"][data-matrix-dashboard-return="true"]').count() === 1, "student: native File Vault Matrix return is not registered with the shared shell");
+		const quietRailContrast = await page.locator('.fv2-nav-item[aria-label="Your Files"]').evaluate(node => {
+			const parse = value => String(value || "").match(/[\d.]+/g).slice(0, 3).map(Number);
+			const luminance = rgb => rgb.map(value => {
+				const normalized = value / 255;
+				return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+			}).reduce((total, value, index) => total + value * [0.2126, 0.7152, 0.0722][index], 0);
+			const foreground = luminance(parse(getComputedStyle(node).color));
+			const background = luminance(parse(getComputedStyle(node.closest(".fv2-rail")).backgroundColor));
+			return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+		});
+		assert(quietRailContrast >= 7, `student: quiet StoryForge rail contrast is below AAA ${quietRailContrast.toFixed(2)}:1`);
 		assert(await page.locator(".fv2-shortcut-card").count() === 4, "student: expected four first-class visual shortcuts");
 		assert(await page.getByRole("button", { name: "Journey", exact: true }).count() === 0, "student: Journey remains an equal top-level destination");
 		assert(await page.locator('[data-fv2-action="next-action"]').count() === 0, "student: analytics-like next action still competes with the upload prompt");
@@ -879,6 +892,8 @@ async function matrixShellIntegrationFlow(browser) {
 		const label = `Matrix shell ${viewport.width}x${viewport.height}`;
 		const { context, page, diagnostics } = await createPage(browser, { role: "admin", shell: "adminbar" }, viewport);
 		try {
+			assert(await page.locator("#mmed-matrix-app-return").count() === 0, `${label}: duplicate Matrix shell return survived V2 mount`);
+			assert(await page.locator('.fv2-matrix-return[data-matrix-app-mode-return="1"][data-matrix-dashboard-return="true"]').count() === 1, `${label}: native Matrix return is not registered`);
 			const geometry = await page.locator('[data-fv2-action="open-settings"]').evaluate(button => {
 				const root = document.getElementById("student-os-root").getBoundingClientRect();
 				const app = document.querySelector(".mmed-fv2").getBoundingClientRect();
@@ -901,12 +916,12 @@ async function matrixShellIntegrationFlow(browser) {
 			const isolation = await page.evaluate(() => ({
 				bodyClass: document.body.classList.contains("mmed-fv2-overlay-open"),
 				adminInert: document.getElementById("wpadminbar").hasAttribute("inert"),
-				returnInert: document.getElementById("mmed-matrix-app-return").hasAttribute("inert"),
-				returnVisibility: getComputedStyle(document.getElementById("mmed-matrix-app-return")).visibility
+				frameInert: document.querySelector(".fv2-frame").hasAttribute("inert"),
+				returnInsideFrame: !!document.querySelector(".fv2-frame .fv2-matrix-return")
 			}));
-			assert(isolation.bodyClass && isolation.adminInert && isolation.returnInert && isolation.returnVisibility === "hidden", `${label}: dialog did not isolate external Matrix controls ${JSON.stringify(isolation)}`);
+			assert(isolation.bodyClass && isolation.adminInert && isolation.frameInert && isolation.returnInsideFrame, `${label}: dialog did not isolate Matrix controls ${JSON.stringify(isolation)}`);
 			await page.getByRole("button", { name: "Close settings" }).click();
-			assert(await page.evaluate(() => !document.getElementById("wpadminbar").hasAttribute("inert") && !document.getElementById("mmed-matrix-app-return").hasAttribute("inert") && !document.body.classList.contains("mmed-fv2-overlay-open")), `${label}: external Matrix controls were not restored`);
+			assert(await page.evaluate(() => !document.getElementById("wpadminbar").hasAttribute("inert") && !document.querySelector(".fv2-frame").hasAttribute("inert") && !document.body.classList.contains("mmed-fv2-overlay-open")), `${label}: Matrix controls were not restored`);
 			assert(diagnostics.length === 0, `${label}: browser diagnostics ${diagnostics.join(" | ")}`);
 		} finally {
 			await context.close();
@@ -968,6 +983,20 @@ async function adminFlow(browser) {
 		await page.getByRole("button", { name: "Save internal note", exact: true }).click();
 		await page.waitForFunction(() => window.__FV2_HARNESS__.mutations.some(item => item.type === "internal-note"));
 		assert(await page.getByText("Fixture admin private follow-up.", { exact: true }).isVisible(), "admin: internal note did not return through the staff-only channel");
+		await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="student"]').click();
+		const studentLensState = await page.evaluate(() => ({
+			workspaceTab: window.__FV2_HARNESS__.instance.state.workspaceTab,
+			internalNoteCount: window.__FV2_HARNESS__.instance.state.internalNotes.length
+		}));
+		assert(studentLensState.workspaceTab === "comments" && studentLensState.internalNoteCount === 0, `admin student lens: staff-only workspace state was retained ${JSON.stringify(studentLensState)}`);
+		assert(await page.getByRole("tab", { name: "Internal notes", exact: true }).count() === 0, "admin student lens: Internal notes remained visible");
+		await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="administrator"]').click();
+		await page.locator(".fv2-subject-banner").waitFor();
+		await page.getByRole("button", { name: "Your Files", exact: true }).click();
+		await page.waitForSelector('[data-fv2-action="select-document"][data-fv2-document-id="1102"]');
+		await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1102"]').click();
+		await page.locator('[data-fv2-action="open-workspace"][data-fv2-document-id="1102"]').click();
+		await page.waitForSelector("[data-fv2-review-status]");
 		await page.getByRole("tab", { name: "Score", exact: true }).click();
 		const adminOptions = await page.locator("[data-fv2-review-status] option").evaluateAll(options => options.map(option => option.value));
 		assert(adminOptions.join(",") === "in_review,needs_changes,reviewed,final", `admin: unexpected transition options ${adminOptions.join(",")}`);
@@ -1287,6 +1316,30 @@ async function responsiveFlow(browser) {
 	}
 }
 
+async function adminResponsiveLensFlow(browser) {
+	for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 600 }]) {
+		const label = `responsive admin lens ${viewport.width}x${viewport.height}`;
+		const { context, page, diagnostics } = await createPage(browser, { role: "admin" }, viewport);
+		try {
+			assert(await page.getByRole("button", { name: "More", exact: true }).isVisible(), `${label}: mobile administrator controls are unreachable`);
+			await page.getByRole("button", { name: "More", exact: true }).click();
+			assert(await page.getByRole("group", { name: "More File Vault controls", exact: true }).isVisible(), `${label}: administrator More menu did not open`);
+			assert(await page.getByRole("group", { name: "View File Vault as", exact: true }).isVisible(), `${label}: dual-view controls are absent`);
+			await page.getByRole("button", { name: "Student view", exact: true }).click();
+			assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Student view", `${label}: Student View did not activate`);
+			assert(await page.locator(".fv2-mobile-nav-menu").count() === 0, `${label}: menu remained open after lens switch`);
+			await page.getByRole("button", { name: "More", exact: true }).click();
+			await page.getByRole("button", { name: "Administrator view", exact: true }).click();
+			assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Staff view", `${label}: Administrator View did not return`);
+			await overflowAudit(page, label);
+			await browserAccessibilityAudit(page, label);
+			assert(diagnostics.length === 0, `${label}: browser diagnostics ${diagnostics.join(" | ")}`);
+		} finally {
+			await context.close();
+		}
+	}
+}
+
 async function main() {
 	assert(fs.existsSync(destinationArt), "destination artwork is absent from the release source");
 	assert(fs.readFileSync(mutableCss, "utf8").includes(path.basename(destinationArt)), "mutable CSS does not reference the destination artwork");
@@ -1320,6 +1373,7 @@ async function main() {
 		await mentorFlow(browser);
 		await stateAndFallbackFlow(browser);
 		await responsiveFlow(browser);
+		await adminResponsiveLensFlow(browser);
 	} finally {
 		await browser.close();
 	}
