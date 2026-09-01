@@ -5424,7 +5424,7 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
 		display: none;
 	}
 
-	.fv2-nav-item {
+	.fv2-rail .fv2-nav-item {
 		justify-content: flex-start;
 		gap: 0;
 		min-height: 52px;
@@ -5441,25 +5441,25 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
 		transition: color 160ms ease, transform 160ms ease;
 	}
 
-	.fv2-nav-item > svg {
+	.fv2-rail .fv2-nav-item > svg {
 		display: none;
 	}
 
-	.fv2-nav-item > span {
+	.fv2-rail .fv2-nav-item > span {
 		letter-spacing: 0;
 		white-space: nowrap;
 	}
 
-	.fv2-nav-item:hover,
-	.fv2-nav-item:focus-visible {
+	.fv2-rail .fv2-nav-item:hover,
+	.fv2-rail .fv2-nav-item:focus-visible {
 		color: #f3f6fd;
 		background: transparent;
 		transform: translateX(2px);
 	}
 
-	.fv2-nav-item.is-active,
-	.fv2-nav-item.is-active:hover,
-	.fv2-nav-item.is-active:focus-visible {
+	.fv2-rail .fv2-nav-item.is-active,
+	.fv2-rail .fv2-nav-item.is-active:hover,
+	.fv2-rail .fv2-nav-item.is-active:focus-visible {
 		min-height: 54px;
 		padding-left: 18px;
 		border: 0;
@@ -5470,7 +5470,7 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
 		transform: none;
 	}
 
-	.fv2-nav-item .fv2-nav-count {
+	.fv2-rail .fv2-nav-item .fv2-nav-count {
 		margin-left: auto;
 	}
 
