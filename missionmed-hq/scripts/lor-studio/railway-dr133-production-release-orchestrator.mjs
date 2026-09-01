@@ -70,6 +70,7 @@ const TAR_BINARY_SHA256 =
 
 const RELEASE_ARCHIVE_PATHS = Object.freeze([
   '.railwayignore',
+  'ivprep-v6',
   'missionmed-hq',
   'package-lock.json',
   'package.json',

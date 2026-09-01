@@ -436,7 +436,7 @@ test('release inventory is exact, sorted, dedicated, and exposes no arbitrary-co
   assert.equal(DR133_PRODUCTION_RELEASE_CONTRACT.sourceCommitBinding,
     'MMHQ_LOR_RELEASE_COMMIT_domain_separated_expectation_hash');
   assert.deepEqual(DR133_PRODUCTION_RELEASE_CONTRACT.archivePaths, [
-    '.railwayignore', 'missionmed-hq', 'package-lock.json', 'package.json', 'railway.json',
+    '.railwayignore', 'ivprep-v6', 'missionmed-hq', 'package-lock.json', 'package.json', 'railway.json',
   ]);
 });
 
@@ -746,10 +746,12 @@ test('custody archive uses fixed Git/Tar operations and never forwards Railway c
       }
       if (descriptor.binary === 'tar') {
         const stage = descriptor.args.at(-1);
+        await mkdir(`${stage}/ivprep-v6/server`, { recursive: true });
         await mkdir(`${stage}/missionmed-hq`, { recursive: true });
         for (const file of ['.railwayignore', 'package-lock.json', 'package.json', 'railway.json']) {
           await writeFile(`${stage}/${file}`, `${file}\n`);
         }
+        await writeFile(`${stage}/ivprep-v6/server/hq-mount.mjs`, 'export {};\n');
         await writeFile(`${stage}/missionmed-hq/package.json`, '{}\n');
         return outcome();
       }
@@ -758,13 +760,13 @@ test('custody archive uses fixed Git/Tar operations and never forwards Railway c
   });
   try {
     assert.deepEqual(descriptors.map(({ binary }) => binary), ['git', 'git', 'tar']);
-    assert.deepEqual(descriptors[1].args.slice(-7), [
-      commit, '--', '.railwayignore', 'missionmed-hq', 'package-lock.json', 'package.json',
+    assert.deepEqual(descriptors[1].args.slice(-8), [
+      commit, '--', '.railwayignore', 'ivprep-v6', 'missionmed-hq', 'package-lock.json', 'package.json',
       'railway.json',
     ]);
     assert.match(archive.archiveSha256, /^[a-f0-9]{64}$/u);
     assert.match(archive.treeSha256, /^[a-f0-9]{64}$/u);
-    assert.equal(archive.fileCount, 5);
+    assert.equal(archive.fileCount, 6);
     assert.equal(await archive.verify(), true);
   } finally {
     await archive.cleanup();
