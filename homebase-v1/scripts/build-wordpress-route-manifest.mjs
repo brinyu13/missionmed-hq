@@ -344,6 +344,7 @@ if (checkOnly) {
 } else {
   await rm(runtimeRoot, { recursive: true, force: true });
   await mkdir(runtimeRoot, { recursive: true });
+  await mkdir(path.dirname(edgeAliasFile), { recursive: true });
   await writeFile(bundleFile, bundleSource);
   await writeFile(edgeAliasFile, edgeAliasSource);
   await writeFile(routeFile, next);
