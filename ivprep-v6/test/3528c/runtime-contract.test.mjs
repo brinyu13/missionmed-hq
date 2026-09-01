@@ -41,6 +41,7 @@ test('frozen visual package includes its design tokens and approved bitmap art',
 test('frozen cockpit uses only real analytics and account persistence', () => {
   const live = read('live.mjs');
   const data = read('data.mjs');
+  const menus = read('menus.mjs');
   const post = read('post.mjs');
   assert.match(live, /RealAnalyticsEngine/u);
   assert.match(live, /AccountRecordingController/u);
@@ -57,6 +58,11 @@ test('frozen cockpit uses only real analytics and account persistence', () => {
   assert.match(browserPipeline, /method: 'ANALYSER_PCM_FALLBACK'/u);
   assert.doesNotMatch(data, /SimEngine|SESSIONS|STUDENT/u);
   assert.doesNotMatch(post, /Codex wires|prototype|SIMULATED/u);
+  assert.match(menus, /THIS TAKE COULD NOT BE SEALED/u);
+  assert.match(menus, /No recording or analytics result was saved for this interrupted take/u);
+  assert.match(menus, /START A FRESH TAKE/u);
+  assert.match(menus, /VIEW SAVED LIBRARY/u);
+  assert.doesNotMatch(menus, /SAVE WHAT WAS RECORDED|Partial session saved to your library/u);
 });
 
 test('private persistence migration denies browser roles and enables RLS everywhere', () => {
