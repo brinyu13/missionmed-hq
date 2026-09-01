@@ -8,7 +8,7 @@ function median(values) {
 
 /** Geometry-only nod pattern; it does not infer agreement, engagement, or comprehension. */
 export class NodDetector {
-  constructor({ minimumFps = 15, excursionDegrees = 7, returnToleranceDegrees = 3.5, maximumCycleMs = 1_200, refractoryMs = 700 } = {}) {
+  constructor({ minimumFps = 15, excursionDegrees = 5, returnToleranceDegrees = 3, maximumCycleMs = 1_800, refractoryMs = 700 } = {}) {
     this.minimumFps = minimumFps;
     this.excursionDegrees = excursionDegrees;
     this.returnToleranceDegrees = returnToleranceDegrees;

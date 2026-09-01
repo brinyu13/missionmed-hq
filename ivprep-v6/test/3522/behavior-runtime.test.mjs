@@ -106,6 +106,33 @@ test('standalone behavior runtime admits listening nod evidence at the productio
   assert.equal(runtime.latest.nod.count, 1);
 });
 
+test('standalone gesture unit survives a bounded natural VAD gap inside an answer', () => {
+  const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
+  runtime.beginInterview(0, { explicitMeasurementStart: true });
+  const handFrame = (atMs, leftX) => ({
+    ...vision(atMs),
+    geometry: {
+      ...vision(atMs).geometry,
+      hands: {
+        left: { present: true, centerX: leftX, centerY: 0.6 },
+        right: { present: false },
+      },
+    },
+  });
+  for (let atMs = 0; atMs <= 1_000; atMs += 125) runtime.ingestDiagnostic(handFrame(atMs, 0.35));
+  runtime.ingestDiagnostic(audio(1_100, true));
+  runtime.ingestDiagnostic(handFrame(1_125, 0.35));
+  runtime.ingestDiagnostic(audio(1_200, false));
+  assert.equal(runtime.latest.conversation.state, 'PAUSE_SHORT');
+  runtime.ingestDiagnostic(handFrame(1_250, 0.55));
+  runtime.ingestDiagnostic(handFrame(1_375, 0.75));
+  runtime.ingestDiagnostic(audio(1_425, true));
+  runtime.ingestDiagnostic(handFrame(1_500, 0.75));
+  runtime.ingestDiagnostic(handFrame(2_050, 0.75));
+  assert.equal(runtime.latest.gesture.eventCount, 1);
+  assert.equal(runtime.latest.gesture.event.type, 'GESTURE_UNIT');
+});
+
 test('WPM stays unavailable without observed per-word timestamps even when aggregate counts exist', () => {
   const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
   runtime.ingestWordTiming({

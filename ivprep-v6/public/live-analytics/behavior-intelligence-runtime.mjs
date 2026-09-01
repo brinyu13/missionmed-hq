@@ -345,12 +345,18 @@ export class BehaviorIntelligenceRuntime {
       : {};
     const left = detail.geometry?.hands?.left;
     const right = detail.geometry?.hands?.right;
+    // A natural syllable or breath boundary can move the audio state into a
+    // short pause for a few vision frames while the student's gesture remains
+    // one continuous answering action. Preserve that bounded answer window;
+    // LISTENING and long/thinking pauses remain excluded.
+    const gestureSpeakingWindow = ['ANSWERING', 'PAUSE_SHORT', 'TRANSITION_TO_ANSWER']
+      .includes(this.conversation.state);
     this.gesture = this.gestures.ingest({
       atMs,
       leftHand: left?.present ? { x: left.centerX, y: left.centerY } : null,
       rightHand: right?.present ? { x: right.centerX, y: right.centerY } : null,
       faceBox: box,
-      speaking: this.conversation.state === 'ANSWERING',
+      speaking: gestureSpeakingWindow,
       ...shoulders,
     });
     this.calibration.ingestVision({ atMs, faceFamily, faceFraction: box.height });
