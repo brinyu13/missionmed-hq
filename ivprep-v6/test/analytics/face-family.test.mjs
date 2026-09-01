@@ -10,6 +10,7 @@ import {
   FORBIDDEN_FACE_CLAIMS,
   FaceFamily,
 } from '../../public/analytics/face-family.mjs';
+import { SmilePatternEventDetector } from '../../public/analytics/smile-pattern.mjs';
 
 /** Build a blendshape category list the way MediaPipe emits it. */
 const cats = (values) => Object.entries(values).map(([categoryName, score]) => ({ categoryName, score }));
@@ -91,6 +92,23 @@ test('smile geometry activates, records events and reports symmetry', () => {
   assert.equal(summary.cartridges['FACE.SMILE'].eventCount, 1, 'one smile event with a duration');
   assert.ok(summary.cartridges['FACE.SMILE'].events[0].durationMs > 0);
   assert.equal(summary.cartridges['FACE.SMILE'].events[0].kind, 'mouth_corner_elevation');
+});
+
+test('a qualifying full-face smile increments while the smile is still visible', () => {
+  const detector = new SmilePatternEventDetector();
+  detector.beginBaseline();
+  for (let atMs = 0; atMs < 1_000; atMs += 100) detector.ingest({
+    atMs, bilateral: 0.05, cheekBilateral: 0.04, faceAvailable: true,
+    state: 'LISTENING', confidence: 0.9, faceFraction: 0.3,
+  });
+  detector.endBaseline();
+  detector.ingest({ atMs: 1_100, bilateral: 0.6, cheekBilateral: 0.3, faceAvailable: true, state: 'LISTENING', confidence: 0.9, faceFraction: 0.3 });
+  const qualified = detector.ingest({ atMs: 1_700, bilateral: 0.62, cheekBilateral: 0.31, faceAvailable: true, state: 'LISTENING', confidence: 0.9, faceFraction: 0.3 });
+  assert.equal(qualified.active, true);
+  assert.equal(qualified.eventCount, 1);
+  assert.equal(qualified.event.kind, 'full_face_smile_pattern');
+  const stillSmiling = detector.ingest({ atMs: 1_900, bilateral: 0.64, cheekBilateral: 0.32, faceAvailable: true, state: 'LISTENING', confidence: 0.9, faceFraction: 0.3 });
+  assert.equal(stillSmiling.eventCount, 1, 'one sustained smile must not double-count');
 });
 
 test('blink events are counted without any target or penalty', () => {

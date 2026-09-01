@@ -106,6 +106,7 @@ test('local timing producer emits only authenticated, timing-only observed evide
   assert.deepEqual(timings[0], {
     atMs: 4_000,
     cadence: 'REALTIME_ROLLING',
+    rateBasis: 'RECENT_WORD_START_INTERVALS',
     windowStartedAtMs: 0,
     windowEndedAtMs: 4_000,
     speechDurationMs: 4_000,
@@ -170,7 +171,7 @@ test('default physical timing window begins decoding after two seconds for near-
   producer.stop();
 });
 
-test('adaptive recent timing admits genuine slow speech without diluting a later fast window', async () => {
+test('adaptive recent timing uses the latest five-to-ten genuine words without diluting a later fast window', async () => {
   let now = 4_000;
   let decode = 0;
   const timings = [];
@@ -227,7 +228,7 @@ test('adaptive recent timing admits genuine slow speech without diluting a later
   await producer.queue;
   assert.equal(timings[2].windowStartedAtMs, 8_000, 'fast speech uses only the newest sufficient window');
   assert.equal(timings[2].windowEndedAtMs, 12_000);
-  assert.equal(timings[2].wordCount, 12);
+  assert.equal(timings[2].wordCount, 10);
   assert.equal(timings[2].speechDurationMs, 3_000);
   producer.stop();
 });
@@ -255,6 +256,49 @@ test('realtime rolling evidence admits four genuine timed words while ordinary e
 
   assert.equal(evaluateWordTiming({ ...evidence, cadence: 'REALTIME_ROLLING' }).available, true);
   assert.equal(evaluateWordTiming(evidence).reason, 'NEED_MORE_TIMED_WORDS');
+});
+
+test('realtime rolling pace uses genuine start-to-start intervals from the recent word window', () => {
+  const words = Array.from({ length: 6 }, (_, index) => ({
+    startMs: 500 + index * 500,
+    endMs: 750 + index * 500,
+    probability: 0.9,
+  }));
+  const result = evaluateWordTiming({
+    cadence: 'REALTIME_ROLLING',
+    rateBasis: 'RECENT_WORD_START_INTERVALS',
+    windowStartedAtMs: 0,
+    windowEndedAtMs: 4_000,
+    speechDurationMs: 3_000,
+    coverage: 0.75,
+    words,
+    wordCount: words.length,
+    provenance: { observed: true, tier: 'A_PRIME', wordTimestampsObserved: true },
+  });
+  assert.equal(result.available, true);
+  assert.equal(result.wordsPerMinute, 120);
+  assert.equal(result.articulationWordsPerMinute, 120);
+  assert.equal(result.rateBasis, 'RECENT_WORD_START_INTERVALS');
+});
+
+test('a stalled same-origin decode times out and leaves the queue available for the next window', async () => {
+  const pipeline = new FakePipeline();
+  const producer = new LocalTranscriptTimingProducer({
+    requestTimeoutMs: 2_000,
+    fetchImpl: async (_url, options) => {
+      if (options.method === 'GET') return response(capability());
+      return new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))));
+    },
+  });
+  await producer.start({
+    stream: liveStream(), pipeline, csrfToken: 'local_harness_csrf_3521',
+    clock: { sessionMs: () => 2_000 }, onTiming() {},
+  });
+  pushSpeechWindow(pipeline, { durationMs: 2_000 });
+  await producer.queue;
+  assert.equal(producer.state.reason, 'LOCAL_TRANSCRIPT_WINDOW_TIMED_OUT');
+  assert.equal(producer.pendingWindows, 0);
+  producer.stop();
 });
 
 test('producer fails closed without a live mic, PCM lane, CSRF, or exact local capability', async () => {

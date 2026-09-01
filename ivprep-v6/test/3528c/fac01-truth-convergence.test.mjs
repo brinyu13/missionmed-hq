@@ -57,15 +57,16 @@ test('FAC-01 keeps the frozen cockpit macro layout and makes recording secondary
   assert.match(css, /\.variety-score[\s\S]*grid-column: 3/u);
 });
 
-test('FAC-01 trace deck keeps a continuous dim hold while bright traces remain observed-only', async () => {
+test('FAC-01 trace deck renders three continuous live lines without changing the truthful stored history', async () => {
   const runtime = await source('public/ivoc-standalone/app/real-runtime.mjs');
   const live = await source('public/ivoc-standalone/app/live.mjs');
   assert.match(runtime, /frame\.speaking && frame\.pitch\.available && frame\.pitch\.voiced/u);
   assert.match(runtime, /pace: frame\.speaking && frame\.speedWpm\.available/u);
-  assert.match(live, /thin, dim sample-and-hold trace/u);
-  assert.match(live, /missingSincePrevious/u);
-  assert.match(live, /only connection across that truthful evidence gap/u);
-  assert.match(live, /maximumJoinGap/u);
+  assert.match(live, /One continuous bright telemetry trace per lane/u);
+  assert.match(live, /underlying history retains null gaps/u);
+  assert.match(live, /c\.lineJoin = 'round'/u);
+  assert.match(live, /c\.lineTo\(x, y\)/u);
+  assert.match(live, /c\.lineTo\(X\(tEnd\), Y\(lastKnown\.value\)\)/u);
   assert.doesNotMatch(runtime, /pitch:\s*Math\.random/u);
   assert.doesNotMatch(runtime, /pace:\s*Math\.random/u);
 });

@@ -10,6 +10,9 @@ const finite = (value, fallback = null) => Number.isFinite(value) ? Number(value
 const direction = (value, [lo, hi]) => value == null ? null : value < lo ? 1 : value > hi ? -1 : 0;
 const FACE_BASELINE_MINIMUM_MS = 3_000;
 const FACE_BASELINE_MINIMUM_FRAMES = 16;
+const FACE_BASELINE_MAXIMUM_MS = 12_000;
+const FACE_BASELINE_MAXIMUM_GAP_MS = 2_000;
+const OVERLAY_STALE_AFTER_MS = 1_500;
 
 function corridorScore(value, [lo, hi]) {
   if (!Number.isFinite(value)) return null;
@@ -78,12 +81,15 @@ export class RealAnalyticsEngine extends EventTarget {
     this.lastRecordedState = null;
     this.wordTimingState = { state: 'idle', reason: 'WAITING_FOR_TIMED_WORDS' };
     this.latestAudioSpeaking = false;
+    this.overlayFreshnessTimer = null;
     this.faceBaselineState = {
       capturing: false,
       available: false,
       reason: 'WAITING_FOR_ADMITTED_FACE',
       admittedFrames: 0,
+      rejectedFrames: 0,
       startedAtMs: null,
+      lastAdmittedAtMs: null,
       attempts: 0,
     };
     this.overlayVisibility = { face: true, hands: true, body: true, position: true };
@@ -126,7 +132,9 @@ export class RealAnalyticsEngine extends EventTarget {
       available: false,
       reason: 'WAITING_FOR_ADMITTED_FACE',
       admittedFrames: 0,
+      rejectedFrames: 0,
       startedAtMs: null,
+      lastAdmittedAtMs: null,
       attempts: 0,
     };
     void this.startTranscriptTiming(media.stream);
@@ -225,7 +233,9 @@ export class RealAnalyticsEngine extends EventTarget {
       available: false,
       reason,
       admittedFrames: 0,
+      rejectedFrames: 0,
       startedAtMs: null,
+      lastAdmittedAtMs: null,
       attempts: this.faceBaselineState.attempts || 0,
     };
     return this.faceBaselineState;
@@ -244,22 +254,36 @@ export class RealAnalyticsEngine extends EventTarget {
         reason: 'PERSONAL_FACE_BASELINE_UNSUPPORTED',
       };
       this.faceBaselineState = started.available === true
-        ? { capturing: false, available: true, reason: null, admittedFrames: 0, startedAtMs: null, attempts }
+        ? { capturing: false, available: true, reason: null, admittedFrames: 0, rejectedFrames: 0, startedAtMs: null, lastAdmittedAtMs: atMs, attempts }
         : {
             capturing: started.capturing === true,
             available: false,
             reason: started.reason || 'CAPTURING_PERSONAL_FACE_BASELINE',
             admittedFrames: 0,
+            rejectedFrames: 0,
             startedAtMs: atMs,
+            lastAdmittedAtMs: atMs,
             attempts,
           };
       return this.faceBaselineState;
     }
-    if (!admitted) return this.cancelFaceBaseline('FACE_BASELINE_FRAME_REJECTED_RETRY');
+    if (!admitted) {
+      const elapsedMs = Math.max(0, atMs - this.faceBaselineState.startedAtMs);
+      const gapMs = Math.max(0, atMs - (this.faceBaselineState.lastAdmittedAtMs ?? this.faceBaselineState.startedAtMs));
+      if (elapsedMs > FACE_BASELINE_MAXIMUM_MS || gapMs > FACE_BASELINE_MAXIMUM_GAP_MS) {
+        return this.cancelFaceBaseline('FACE_BASELINE_SIGNAL_LOST_RETRY');
+      }
+      this.faceBaselineState = {
+        ...this.faceBaselineState,
+        reason: 'CAPTURING_PERSONAL_FACE_BASELINE',
+        rejectedFrames: this.faceBaselineState.rejectedFrames + 1,
+      };
+      return this.faceBaselineState;
+    }
 
     const admittedFrames = this.faceBaselineState.admittedFrames + 1;
     const elapsedMs = Math.max(0, atMs - this.faceBaselineState.startedAtMs);
-    this.faceBaselineState = { ...this.faceBaselineState, admittedFrames };
+    this.faceBaselineState = { ...this.faceBaselineState, admittedFrames, lastAdmittedAtMs: atMs };
     if (admittedFrames < FACE_BASELINE_MINIMUM_FRAMES || elapsedMs < FACE_BASELINE_MINIMUM_MS) return this.faceBaselineState;
 
     const ended = this.pipeline?.endPersonalFaceBaseline?.() || {
@@ -276,7 +300,9 @@ export class RealAnalyticsEngine extends EventTarget {
       available: true,
       reason: null,
       admittedFrames,
+      rejectedFrames: this.faceBaselineState.rejectedFrames,
       startedAtMs: this.faceBaselineState.startedAtMs,
+      lastAdmittedAtMs: atMs,
       attempts: this.faceBaselineState.attempts,
     };
     return this.faceBaselineState;
@@ -372,7 +398,7 @@ export class RealAnalyticsEngine extends EventTarget {
   recordCountEvents(frame) {
     for (const [key, kind, label] of [
       ['smiles', 'smile', 'Qualifying observable smile pattern'],
-      ['nods', 'nod', 'Listening nod'],
+      ['nods', 'nod', 'Observed head-pitch cycle'],
       ['gestures', 'gesture', 'Observed gesture unit'],
     ]) {
       const current = key === 'smiles' ? frame.headFace.smileEvents : key === 'nods' ? frame.headFace.nods : frame.bodyHands.gestures;
@@ -538,9 +564,20 @@ export class RealAnalyticsEngine extends EventTarget {
     };
   }
 
-  drawOverlay({ bitmap }) {
+  clearOverlay() {
+    clearTimeout(this.overlayFreshnessTimer);
+    this.overlayFreshnessTimer = null;
+    const context = this.overlayCanvas?.getContext?.('2d');
+    context?.clearRect?.(0, 0, this.overlayCanvas.width || 1, this.overlayCanvas.height || 1);
+  }
+
+  drawOverlay({ bitmap, clear = false } = {}) {
     const canvas = this.overlayCanvas;
-    if (!canvas || !bitmap) return;
+    if (!canvas) return;
+    if (clear || !bitmap) {
+      this.clearOverlay();
+      return;
+    }
     const dpr = Math.min(devicePixelRatio || 1, 1.5);
     const width = Math.max(1, Math.round(canvas.clientWidth * dpr));
     const height = Math.max(1, Math.round(canvas.clientHeight * dpr));
@@ -551,6 +588,8 @@ export class RealAnalyticsEngine extends EventTarget {
     const dw = bitmap.width * scale;
     const dh = bitmap.height * scale;
     context.drawImage(bitmap, (width - dw) / 2, (height - dh) / 2, dw, dh);
+    clearTimeout(this.overlayFreshnessTimer);
+    this.overlayFreshnessTimer = setTimeout(() => this.clearOverlay(), OVERLAY_STALE_AFTER_MS);
   }
 
   setOverlayVisibility(next = {}) {
@@ -589,8 +628,7 @@ export class RealAnalyticsEngine extends EventTarget {
     this.pipeline?.removeEventListener?.('state', this.onPipelineState);
     if (releaseMedia) this.bridge.destroy();
     if (this.video) this.video.srcObject = null;
-    const context = this.overlayCanvas?.getContext?.('2d');
-    context?.clearRect?.(0, 0, this.overlayCanvas.width || 1, this.overlayCanvas.height || 1);
+    this.clearOverlay();
     this.running = false;
     this.latestAudioSpeaking = false;
   }

@@ -173,22 +173,55 @@ test('same-frame FaceDetector result is joined before Holistic inference',()=>{
   pipeline.destroy();
 });
 
-test('face timeout disables the safety worker and cannot queue another face frame',()=>{
+test('face timeout recycles the paired vision workers instead of leaving face analytics permanently absent',()=>{
   const pipeline=new BrowserAnalyticsPipeline({bridge:{media:{}},now:()=>0});
   pipeline.beginAnswer({answerId:'a'});
   let terminated=0;const posted=[];
   pipeline.faceWorker={terminate(){terminated+=1}};
   pipeline.faceWorkerReady=true;
-  pipeline.worker={postMessage(message){posted.push(message)},terminate(){}};
+  let holisticTerminated=0;
+  pipeline.worker={postMessage(message){posted.push(message)},terminate(){holisticTerminated+=1}};
   pipeline.pendingVisionFrame={bitmap:{close(){}},generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:pipeline.visionEpoch,frameId:3,timestampMs:50,expectedFrameMs:125,captureStartedAt:0};
   pipeline.frameInFlight=true;
   pipeline.failFaceWorker('face safety frame timed out');
   assert.equal(terminated,1);
   assert.equal(pipeline.faceWorker,null);
+  assert.equal(pipeline.worker,null);
   assert.equal(pipeline.faceWorkerReady,false);
-  assert.equal(posted.length,1);
-  assert.equal(posted[0].faceCount,null);
+  assert.equal(holisticTerminated,1);
+  assert.equal(posted.length,1, 'invalidate sends only the reset before terminating');
+  assert.equal(posted[0].type,'reset');
   pipeline.destroy();
+});
+
+test('an active camera automatically restarts local vision after a worker timeout',()=>{
+  const priorSetTimeout=globalThis.setTimeout;
+  const priorClearTimeout=globalThis.clearTimeout;
+  const timers=new Map();let nextTimer=0;
+  globalThis.setTimeout=(callback,delay)=>{const id=++nextTimer;timers.set(id,{callback,delay});return id};
+  globalThis.clearTimeout=(id)=>{timers.delete(id)};
+  const track={readyState:'live',enabled:true,muted:false};
+  const bridge={media:{cam:true,stream:{getVideoTracks:()=>[track]}}};
+  const pipeline=new BrowserAnalyticsPipeline({bridge,now:()=>0});
+  try{
+    pipeline.beginAnswer({answerId:'recovering'});
+    const video={};
+    pipeline.visionVideo=video;
+    let restarted=0;
+    pipeline.startVision=(candidate)=>{assert.equal(candidate,video);restarted+=1};
+    pipeline.worker={terminate(){}};
+    pipeline.faceWorker={terminate(){}};
+    pipeline.failVisionWorker('holistic frame timed out');
+    assert.equal(pipeline.visionRecoveryAttempts,1);
+    const recovery=timers.get(pipeline.visionRecoveryTimer);
+    assert.equal(recovery.delay,250);
+    recovery.callback();
+    assert.equal(restarted,1);
+  }finally{
+    pipeline.destroy();
+    globalThis.setTimeout=priorSetTimeout;
+    globalThis.clearTimeout=priorClearTimeout;
+  }
 });
 
 test('hidden or disconnected vision invalidates every older reply and closes its overlay',()=>{

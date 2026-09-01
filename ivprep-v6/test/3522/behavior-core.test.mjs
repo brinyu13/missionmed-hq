@@ -138,13 +138,15 @@ test('nod detector is frame-rate and listening-state gated and makes no agreemen
   assert.equal(lowFps.available, false);
 });
 
-test('nod detector excludes speaking windows from listening rate denominator and count', () => {
+test('nod detector counts speaking head-pitch cycles without contaminating the listening-only rate', () => {
   const detector = new NodDetector({ excursionDegrees: 5 });
   for (let index = 0; index < 20; index += 1) detector.ingest({ atMs: index * 50, pitchDegrees: 0, state: 'LISTENING', targetFps: 15, confidence: 0.9 });
   const beforeSpeaking = detector.latest.eligibleListeningMs;
   detector.ingest({ atMs: 1_000, pitchDegrees: 9, state: 'ANSWERING', targetFps: 15, confidence: 0.9 });
   detector.ingest({ atMs: 1_200, pitchDegrees: 0, state: 'ANSWERING', targetFps: 15, confidence: 0.9 });
-  assert.equal(detector.latest.count, 0);
+  assert.equal(detector.latest.count, 1);
+  assert.equal(detector.latest.listeningCount, 0);
+  assert.equal(detector.latest.listeningNodsPerMinute, 0);
   assert.equal(detector.latest.eligibleListeningMs, beforeSpeaking + 50);
 });
 

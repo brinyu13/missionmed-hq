@@ -27,9 +27,12 @@ const MINIMUM_ACOUSTIC_EVIDENCE_MS = 500;
 const MINIMUM_VOICED_SPEECH_PROBABILITY = 0.35;
 const MINIMUM_WORD_PROBABILITY = 0.35;
 const MAXIMUM_PLAUSIBLE_WPM = 360;
-const MAXIMUM_RECENT_TIMING_WINDOWS = 2;
-const MINIMUM_LIVE_WORDS = 4;
+const MAXIMUM_RECENT_TIMING_WINDOWS = 6;
+const MINIMUM_LIVE_WORDS = 5;
+const MAXIMUM_LIVE_WORDS = 10;
+const MAXIMUM_LIVE_LOOKBACK_MS = 12_000;
 const MINIMUM_LIVE_SPEECH_MS = 1_500;
+const TRANSCRIPT_REQUEST_TIMEOUT_MS = 8_000;
 const WORD_TIMING_RESPONSE_KEYS = Object.freeze([
   'available',
   'providerSessions',
@@ -150,6 +153,7 @@ export class LocalTranscriptTimingProducer {
     locationHref = globalThis.location?.href || 'http://127.0.0.1/',
     setTimeoutImpl = globalThis.setTimeout?.bind(globalThis),
     clearTimeoutImpl = globalThis.clearTimeout?.bind(globalThis),
+    requestTimeoutMs = TRANSCRIPT_REQUEST_TIMEOUT_MS,
   } = {}) {
     this.fetchImpl = fetchImpl;
     this.endpoint = String(endpoint || '');
@@ -172,6 +176,8 @@ export class LocalTranscriptTimingProducer {
     this.lastProgressMs = 0;
     this.pcmFramesReceived = 0;
     this.captureWatchdog = null;
+    this.requestTimeout = null;
+    this.requestTimeoutMs = Math.max(2_000, Math.min(20_000, Number(requestTimeoutMs) || TRANSCRIPT_REQUEST_TIMEOUT_MS));
     this.setTimeoutImpl = setTimeoutImpl;
     this.clearTimeoutImpl = clearTimeoutImpl;
     this.state = frozenState('idle', 'LOCAL_TRANSCRIPT_TIMING_IDLE');
@@ -396,6 +402,11 @@ export class LocalTranscriptTimingProducer {
     const controller = new AbortController();
     this.requestController = controller;
     const body = encodeFloat32Le(pcm);
+    let requestTimedOut = false;
+    this.requestTimeout = this.setTimeoutImpl?.(() => {
+      requestTimedOut = true;
+      controller.abort();
+    }, this.requestTimeoutMs) ?? null;
     try {
       const response = await this.fetchImpl(this.#admittedEndpoint, {
       method: 'POST',
@@ -480,25 +491,25 @@ export class LocalTranscriptTimingProducer {
     }));
     if (this.timingWindows.length > MAXIMUM_RECENT_TIMING_WINDOWS) this.timingWindows.shift();
 
-    // Select the smallest recent suffix that satisfies the realtime evidence
-    // floor. A normal or fast two-second window updates immediately, while
-    // genuine slow speech may borrow only the immediately preceding window.
-    // Old speech can therefore never dilute the live reading beyond four seconds.
-    const streamEvents = this.wordStream.snapshot().events;
-    let selectedWindows = [];
-    let streamWords = [];
-    let streamSpeechDurationMs = 0;
-    let streamCaptureDurationMs = 0;
-    for (let index = this.timingWindows.length - 1; index >= 0; index -= 1) {
-      selectedWindows = [this.timingWindows[index], ...selectedWindows];
-      const firstWindow = selectedWindows[0];
-      streamWords = streamEvents
-        .filter((word) => word.startMs >= firstWindow.startedAtMs && word.endMs <= windowEndedAtMs + 25);
-      streamSpeechDurationMs = selectedWindows.reduce((sum, item) => sum + item.speechDurationMs, 0);
-      streamCaptureDurationMs = selectedWindows.reduce((sum, item) => sum + item.captureDurationMs, 0);
-      if (streamWords.length >= MINIMUM_LIVE_WORDS && streamSpeechDurationMs >= MINIMUM_LIVE_SPEECH_MS) break;
-    }
+    // Drive the live dial from the student's most recent five-to-ten observed
+    // words. Every point is still a recognizer timestamp; this is a short,
+    // truthful delivery-rate window rather than a transcript or syllable proxy.
+    const eligibleWords = this.wordStream.snapshot().events
+      .filter((word) => word.endMs <= windowEndedAtMs + 25
+        && word.startMs >= windowEndedAtMs - MAXIMUM_LIVE_LOOKBACK_MS);
+    const streamWords = eligibleWords.slice(-MAXIMUM_LIVE_WORDS);
+    const firstObservedWord = streamWords[0] || null;
+    const lastObservedWord = streamWords.at(-1) || null;
+    const selectedWindows = firstObservedWord && lastObservedWord
+      ? this.timingWindows.filter((item) => item.endedAtMs >= firstObservedWord.startMs
+        && item.startedAtMs <= lastObservedWord.endMs)
+      : [this.timingWindows.at(-1)].filter(Boolean);
     const firstWindow = selectedWindows[0] || Object.freeze({ startedAtMs: windowStartedAtMs });
+    const lastWindow = selectedWindows.at(-1) || Object.freeze({ endedAtMs: windowEndedAtMs });
+    const streamWindowStartedAtMs = firstWindow.startedAtMs;
+    const streamWindowEndedAtMs = lastWindow.endedAtMs;
+    const streamSpeechDurationMs = selectedWindows.reduce((sum, item) => sum + item.speechDurationMs, 0) || admittedSpeechDurationMs;
+    const streamCaptureDurationMs = selectedWindows.reduce((sum, item) => sum + item.captureDurationMs, 0) || Math.max(1, streamWindowEndedAtMs - streamWindowStartedAtMs);
     const streamCoverage = streamCaptureDurationMs > 0
       ? clamp(selectedWindows.reduce((sum, item) => sum + item.coverage * item.captureDurationMs, 0) / streamCaptureDurationMs, 0, 1)
       : admittedCoverage;
@@ -507,8 +518,9 @@ export class LocalTranscriptTimingProducer {
     this.onTiming(Object.freeze({
       atMs,
       cadence: 'REALTIME_ROLLING',
-      windowStartedAtMs: firstWindow.startedAtMs,
-      windowEndedAtMs,
+      rateBasis: 'RECENT_WORD_START_INTERVALS',
+      windowStartedAtMs: streamWindowStartedAtMs,
+      windowEndedAtMs: streamWindowEndedAtMs,
       speechDurationMs: streamSpeechDurationMs,
       coverage: streamCoverage,
       words: Object.freeze(streamWords.map((word) => Object.freeze({
@@ -532,10 +544,19 @@ export class LocalTranscriptTimingProducer {
     }));
     this.#setState('live', recentEvidenceAvailable ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
       wordCount: streamWords.length,
-      windowDurationMs: Math.round(windowEndedAtMs - firstWindow.startedAtMs),
+      windowDurationMs: Math.round(streamWindowEndedAtMs - streamWindowStartedAtMs),
     });
       return true;
+    } catch (error) {
+      if (requestTimedOut) {
+        this.#setState('partial', 'LOCAL_TRANSCRIPT_WINDOW_TIMED_OUT');
+        return false;
+      }
+      throw error;
     } finally {
+      if (this.requestTimeout !== null) this.clearTimeoutImpl?.(this.requestTimeout);
+      this.requestTimeout = null;
+      if (this.requestController === controller) this.requestController = null;
       new Uint8Array(body).fill(0);
     }
   }
@@ -546,6 +567,8 @@ export class LocalTranscriptTimingProducer {
     this.generation += 1;
     this.requestController?.abort?.();
     this.requestController = null;
+    if (this.requestTimeout !== null) this.clearTimeoutImpl?.(this.requestTimeout);
+    this.requestTimeout = null;
     if (this.captureWatchdog !== null) this.clearTimeoutImpl?.(this.captureWatchdog);
     this.captureWatchdog = null;
     this.pipeline?.setPcmConsumer?.(null);

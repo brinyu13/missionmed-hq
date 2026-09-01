@@ -172,7 +172,7 @@ test('hand absence is reported only after the hand channel is available', async 
   assert.equal(frame.bodyHands.bothHandsVisible, false);
 });
 
-test('face baseline begins on admitted frames, rejects broken runs, and retries to measured availability', async () => {
+test('face baseline tolerates intermittent rejected frames and reaches measured availability', async () => {
   const { RealAnalyticsEngine } = await loadRuntimeModule();
   const engine = bareEngine(RealAnalyticsEngine);
   let begins = 0;
@@ -196,15 +196,14 @@ test('face baseline begins on admitted frames, rejects broken runs, and retries 
   assert.equal(begins, 1);
 
   const rejected = admittedFace(125, { present: false });
-  assert.equal(engine.advanceFaceBaseline(rejected).reason, 'FACE_BASELINE_FRAME_REJECTED_RETRY');
-  assert.equal(ends, 1);
-  assert.equal(clears, 1);
+  assert.equal(engine.advanceFaceBaseline(rejected).reason, 'CAPTURING_PERSONAL_FACE_BASELINE');
+  assert.equal(engine.faceBaselineState.rejectedFrames, 1);
+  assert.equal(ends, 0);
+  assert.equal(clears, 0);
 
-  assert.equal(engine.advanceFaceBaseline(admittedFace(1_000)).capturing, true);
-  assert.equal(begins, 2);
-  for (let atMs = 1_125; atMs <= 4_000; atMs += 125) engine.advanceFaceBaseline(admittedFace(atMs));
+  for (let atMs = 250; atMs <= 3_250; atMs += 125) engine.advanceFaceBaseline(admittedFace(atMs));
   assert.equal(engine.faceBaselineState.available, true);
   assert.equal(engine.faceBaselineState.capturing, false);
-  assert.equal(engine.faceBaselineState.attempts, 2);
-  assert.equal(ends, 2);
+  assert.equal(engine.faceBaselineState.attempts, 1);
+  assert.equal(ends, 1);
 });

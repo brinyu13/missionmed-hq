@@ -123,7 +123,7 @@ async function liveScreen(el) {
           <div class="scan-well"><img src="assets/founder-face-scanner.png" alt="Face scanner instrument"><i class="scan-sweep"></i></div>
           <div class="counter-row">
             <div class="counter"><em>SMILE EVENTS</em><b id="cSmiles">0</b><small>qualifying · full-face</small></div>
-            <div class="counter"><em>HEAD NODS</em><b id="cNods">0</b><small>listening-only</small></div>
+            <div class="counter"><em>HEAD NODS</em><b id="cNods">0</b><small>observed · state-aware</small></div>
           </div>
           <div class="scan-rows">
             <div class="scan-row"><em>PRESENCE</em><b id="rPresence" class="ok">TRACKED</b></div>
@@ -484,64 +484,28 @@ async function liveScreen(el) {
         if (point[k] != null) lastKnown = { t: t0, value: point[k] };
       }
 
-      // First paint a thin, dim sample-and-hold trace. It makes the timeline
-      // continuous without fabricating motion during silence or unavailable
-      // evidence. Vertical reconnects are also dim because the intervening
-      // trajectory was not observed.
-      c.save();
-      c.globalAlpha = .28;
-      c.strokeStyle = color;
-      c.lineWidth = Math.max(1, h * .009);
-      c.lineJoin = 'round';
-      c.beginPath();
-      let heldPen = false;
-      for (const point of inWindow) {
-        const value = point[k];
-        if (value == null) continue;
-        if (lastKnown === null) {
-          c.moveTo(X(point.t), Y(value));
-          heldPen = true;
-        } else {
-          if (!heldPen) { c.moveTo(X(lastKnown.t), Y(lastKnown.value)); heldPen = true; }
-          c.lineTo(X(point.t), Y(lastKnown.value));
-          c.lineTo(X(point.t), Y(value));
-        }
-        lastKnown = { t: point.t, value };
-      }
-      if (lastKnown !== null) {
-        if (!heldPen) c.moveTo(X(lastKnown.t), Y(lastKnown.value));
-        c.lineTo(X(tEnd), Y(lastKnown.value));
-      }
-      c.stroke();
-      c.restore();
-
-      // Bright segments are fresh observed samples only. A missing sample or a
-      // cadence gap begins a new observed run; the dim held trace above is the
-      // only connection across that truthful evidence gap.
-      c.strokeStyle = color; c.lineWidth = Math.max(1.5, h * .018); c.lineJoin = 'round';
+      // One continuous bright telemetry trace per lane. Silence remains visible
+      // in the shaded background, while the line connects only genuine observed
+      // samples and carries the last measured point to the live edge. This is a
+      // visualization interpolation; the underlying history retains null gaps.
+      c.strokeStyle = color; c.lineWidth = Math.max(1.5, h * .018); c.lineJoin = 'round'; c.lineCap = 'round';
       c.beginPath();
       let pen = false;
-      let previousAt = null;
       let eased = null;
-      let missingSincePrevious = false;
-      const maximumJoinGap = k === 'pace' ? 6 : .8;
+      if (lastKnown !== null) {
+        c.moveTo(X(t0), Y(lastKnown.value));
+        pen = true;
+        eased = lastKnown.value;
+      }
       for (const p of inWindow) {
         const v = p[k];
-        if (v == null) {
-          missingSincePrevious = true;
-          continue;
-        }
-        if (previousAt !== null && (missingSincePrevious || p.t - previousAt > maximumJoinGap)) {
-          pen = false; eased = null;
-        }
-        // Visual easing is confined to one continuous observed run. It never
-        // bridges silence/unvoiced gaps or invents an unavailable sample.
+        if (v == null) continue;
         eased = eased === null ? v : eased * .58 + v * .42;
         const x = X(p.t), y = Y(eased);
         if (!pen) { c.moveTo(x, y); pen = true; } else c.lineTo(x, y);
-        previousAt = p.t;
-        missingSincePrevious = false;
+        lastKnown = { t: p.t, value: eased };
       }
+      if (lastKnown !== null && pen) c.lineTo(X(tEnd), Y(lastKnown.value));
       c.stroke();
       c.fillStyle = color;
       c.font = `700 ${Math.max(8, h * .07)}px "Space Grotesk", monospace`;
@@ -709,7 +673,7 @@ async function liveScreen(el) {
     $('cSmiles').textContent = f.headFace.smileEventsAvailable ? f.headFace.smileEvents : '—';
     $('cSmiles').title = f.headFace.smileEventsAvailable ? 'Measured qualifying smile-pattern events' : f.headFace.smileEventsUnavailableReason;
     $('cNods').textContent = f.headFace.nodsAvailable ? f.headFace.nods : '—';
-    $('cNods').title = f.headFace.nodsAvailable ? 'Measured listening nods' : f.headFace.nodsUnavailableReason;
+    $('cNods').title = f.headFace.nodsAvailable ? 'Measured observed head-pitch cycles' : f.headFace.nodsUnavailableReason;
     $('rPresence').textContent = f.headFace.presence;
     $('rPresence').className = f.headFace.presence === 'TRACKED' ? 'ok' : 'warn';
     $('rFacing').textContent = f.headFace.cameraFacingPct + '% FACING';

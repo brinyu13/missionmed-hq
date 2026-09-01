@@ -111,8 +111,21 @@ export function evaluateWordTiming(evidence = {}, {
   if (speechDurationMs === null || speechDurationMs < minimumSpeechMs) return unavailable('NEED_MORE_SPEECH_TIME', tier, { speechDurationMs, minimumSpeechMs });
   if (coverage === null || coverage < config.minimumCoverage) return unavailable('INSUFFICIENT_WORD_TIMING_COVERAGE', tier, { coverage });
   const windowDurationMs = endMs - startMs;
-  const wordsPerMinute = Number((words.length * 60_000 / windowDurationMs).toFixed(1));
-  const articulationWordsPerMinute = Number((words.length * 60_000 / speechDurationMs).toFixed(1));
+  const recentIntervalBasis = realtimeRolling
+    && evidence.rateBasis === 'RECENT_WORD_START_INTERVALS'
+    && words.length >= 2;
+  const recentIntervalDurationMs = recentIntervalBasis
+    ? words.at(-1).startMs - words[0].startMs
+    : null;
+  if (recentIntervalBasis && !(recentIntervalDurationMs > 0)) return unavailable('INVALID_RECENT_WORD_INTERVALS', tier);
+  // For live feedback, N observed words contain N-1 start-to-start intervals.
+  // Using those genuine intervals gives the current five-to-ten-word delivery
+  // rate without the one-word inflation produced by dividing N by the span.
+  const rollingWordsPerMinute = recentIntervalBasis
+    ? (words.length - 1) * 60_000 / recentIntervalDurationMs
+    : null;
+  const wordsPerMinute = Number((rollingWordsPerMinute ?? (words.length * 60_000 / windowDurationMs)).toFixed(1));
+  const articulationWordsPerMinute = Number((rollingWordsPerMinute ?? (words.length * 60_000 / speechDurationMs)).toFixed(1));
   return frozen({
     available: true,
     tier,
@@ -123,6 +136,7 @@ export function evaluateWordTiming(evidence = {}, {
     speechDurationMs,
     coverage,
     cadence: realtimeRolling ? 'REALTIME_ROLLING' : 'VALIDATED_WINDOW',
+    rateBasis: recentIntervalBasis ? 'RECENT_WORD_START_INTERVALS' : 'WINDOW_WORD_COUNT',
     startMs,
     endMs,
     deliverySpeed: deriveDeliverySpeed(articulationWordsPerMinute, corridor, config),

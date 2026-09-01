@@ -35,6 +35,8 @@ const HOLISTIC_FRAME_TIMEOUT_MAX_MS = 5_000;
 // for a follow-up rather than bent to fit here.
 const VISION_MIN_FPS = 8;
 const VISION_MAX_FPS = 8;
+const VISION_RECOVERY_BASE_MS = 250;
+const VISION_RECOVERY_MAX_MS = 4_000;
 
 export function visionFrameWatchdogMs(expectedFrameMs = 125) {
   const frameBudget = Number.isFinite(expectedFrameMs) && expectedFrameMs > 0 ? expectedFrameMs : 125;
@@ -126,6 +128,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.inFlightVision = null;
     this.faceFrameTimer = null;
     this.visionFrameTimer = null;
+    this.visionRecoveryTimer = null;
+    this.visionRecoveryAttempts = 0;
     this.faceInitTimer = null;
     this.frameId = 0;
     this.targetFps = 8;
@@ -534,6 +538,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
   }
 
   startVision(video) {
+    clearTimeout(this.visionTimer);
+    clearTimeout(this.visionRecoveryTimer);
+    this.visionTimer = null;
+    this.visionRecoveryTimer = null;
     this.visionVideo = video;
     this.frameInFlight = false;
     this.workerErrors = [];
@@ -901,6 +909,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
           inferenceMs: pipelineMs,
           expectedFrameMs: message.expectedFrameMs,
         });
+        this.visionRecoveryAttempts = 0;
         // Y1-Y2-CAM-V6-3508: the overlay felt detached because this floor was 2 FPS -
         // a 500ms update interval, which reads as lag even though frames are never
         // queued (capture is skipped while a frame is in flight, so landmarks are
@@ -1007,6 +1016,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.inFlightVision = null;
     this.frameInFlight = false;
     this.resetEphemeralVisionState();
+    this.overlayConsumer?.({ bitmap: null, clear: true, reason, atMs });
     this.dispatch('state', { state: 'partial', subsystem, atMs, message: reason });
   }
 
@@ -1038,23 +1048,42 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.clearVisionFrameWatchdog();
     this.inFlightVision = null;
     this.generation += 1;
+    this.scheduleVisionRecovery(message);
   }
 
   failFaceWorker(message) {
-    clearTimeout(this.faceInitTimer);
-    this.faceInitTimer = null;
-    this.recordWorkerError(`multi-face protection: ${message}`);
-    if (this.faceWorker) this.faceWorker.terminate();
-    this.faceWorker = null;
-    this.faceWorkerReady = false;
-    this.multiFaceProtection = false;
-    const pending = this.pendingVisionFrame;
-    if (pending) this.forwardPendingVision(null, pending.generation, pending.answerEpoch, pending.visionEpoch, pending.frameId, pending.timestampMs, null, { primaryLock: null });
+    // Primary-person association is required by every face metric. A timed-out
+    // safety worker cannot be left permanently absent while Holistic continues;
+    // recycle the paired local workers and resume the same answer epoch.
+    this.failVisionWorker(`multi-face protection: ${message}`);
+  }
+
+  scheduleVisionRecovery(reason = 'vision_worker_unavailable') {
+    clearTimeout(this.visionRecoveryTimer);
+    this.visionRecoveryTimer = null;
+    const video = this.visionVideo;
+    const answerEpoch = this.answerEpoch;
+    if (!this.answer || this.answerSealed || document.hidden || !video || !this.visionSourceIsLive(video)) return false;
+    const attempt = ++this.visionRecoveryAttempts;
+    const delay = Math.min(VISION_RECOVERY_MAX_MS, VISION_RECOVERY_BASE_MS * (2 ** Math.min(4, attempt - 1)));
     this.dispatch('state', {
-      state: 'partial', subsystem: 'multi-face-protection',
-      atMs: this.answer ? this.session.clock.sessionMs() : null,
-      message: 'Person-specific visual analytics are unavailable.',
+      state: 'recovering', subsystem: 'vision',
+      atMs: this.session.clock.sessionMs(),
+      message: String(reason || 'vision worker unavailable'),
+      attempt,
+      retryInMs: delay,
     });
+    this.visionRecoveryTimer = setTimeout(() => {
+      this.visionRecoveryTimer = null;
+      if (!this.answer || this.answerSealed || this.answerEpoch !== answerEpoch || document.hidden || !this.visionSourceIsLive(video)) return;
+      try {
+        this.startVision(video);
+      } catch (error) {
+        this.recordWorkerError(`vision recovery: ${error?.message || error}`);
+        this.scheduleVisionRecovery('vision recovery initialization failed');
+      }
+    }, delay);
+    return true;
   }
 
   onVisibilityChange() {
@@ -1067,6 +1096,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     else if (this.hiddenAt !== null) {
       this.session.observationGap({ startMs: this.hiddenAt, endMs: at, reason: 'document_hidden', modality: 'all' });
       this.hiddenAt = null;
+      if (!this.worker || !this.faceWorker) this.scheduleVisionRecovery('document_visible_worker_recovery');
     }
   }
 
@@ -1142,8 +1172,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     clearInterval(this.audioTimer);
     this.stopAdvancedAudio();
     clearTimeout(this.visionTimer);
+    clearTimeout(this.visionRecoveryTimer);
     this.audioTimer = null;
     this.visionTimer = null;
+    this.visionRecoveryTimer = null;
     this.clearPendingVision();
     this.clearVisionFrameWatchdog();
     this.inFlightVision = null;
