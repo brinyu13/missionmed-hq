@@ -877,6 +877,11 @@ async function adminFlow(browser) {
 				width: Math.round(workspace.getBoundingClientRect().width)
 			}));
 			assert(staffLayout.display === "grid" && staffLayout.columns === 2 && staffLayout.width > 1200, `admin: wide staff command workspace did not activate ${JSON.stringify(staffLayout)}`);
+			const staffEntryAlignment = await page.locator(".fv2-staff-entry").evaluate(entry => ({
+				justifyContent: getComputedStyle(entry).justifyContent,
+				firstChildOffset: Math.round(entry.firstElementChild.getBoundingClientRect().top - entry.getBoundingClientRect().top)
+			}));
+			assert(staffEntryAlignment.justifyContent === "flex-start" && staffEntryAlignment.firstChildOffset === 0, `admin: staff controls are not anchored to the roster top ${JSON.stringify(staffEntryAlignment)}`);
 		assert(await page.locator(".fv2-metric").count() === 0, "admin: dashboard KPI cards still define the Students experience");
 		assert(await page.locator("[data-fv2-command-search]").isVisible(), "admin: prominent student search missing");
 		assert(await page.getByRole("button", { name: /Review Queue/ }).isVisible(), "admin: Review Queue action missing");
