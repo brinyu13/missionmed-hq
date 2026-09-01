@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { AccountRecordingController } from '../../public/ivoc-standalone/app/recording.mjs';
+import { AccountRecordingController, putWithRetry } from '../../public/ivoc-standalone/app/recording.mjs';
 
 class FakeRecorder extends EventTarget {
   static isTypeSupported() { return true; }
@@ -15,6 +15,25 @@ class FakeRecorder extends EventTarget {
     this.dispatchEvent(new Event('stop'));
   }
 }
+
+test('a hung private upload request fails into the retained retry path instead of waiting forever', async () => {
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Promise(() => {});
+  try {
+    await assert.rejects(
+      putWithRetry('https://media.test/upload', new Blob(['real-media-bytes']), {
+        attempts: 1,
+        requestTimeoutMs: 5,
+        csrfToken: 'csrf-token',
+        uploadToken: 'token',
+        uploadExpiresAtMs: Date.now() + 60_000,
+      }),
+      /recording_upload_timeout/u,
+    );
+  } finally {
+    globalThis.fetch = oldFetch;
+  }
+});
 
 test('recording state machine saves, preserves pause spans, and seals account media', async () => {
   const oldRecorder = globalThis.MediaRecorder;

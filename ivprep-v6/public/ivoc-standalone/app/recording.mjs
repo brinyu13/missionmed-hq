@@ -41,7 +41,33 @@ async function browserPlayableDurationMs(blob) {
   }
 }
 
-async function putWithRetry(url, blob, { attempts = 4, chunkSize = 5 * 1024 * 1024, csrfToken = '', uploadToken = '', uploadExpiresAtMs = 0 } = {}) {
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  let timer = null;
+  const timedOut = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error('recording_upload_timeout'));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([
+      fetch(url, { ...options, signal: controller.signal }),
+      timedOut,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function putWithRetry(url, blob, {
+  attempts = 4,
+  chunkSize = 5 * 1024 * 1024,
+  requestTimeoutMs = 15_000,
+  csrfToken = '',
+  uploadToken = '',
+  uploadExpiresAtMs = 0,
+} = {}) {
   const total = blob.size;
   if (!(total > 0)) throw new Error('recording_upload_empty');
   const parts = Math.max(1, Math.ceil(total / chunkSize));
@@ -57,7 +83,7 @@ async function putWithRetry(url, blob, { attempts = 4, chunkSize = 5 * 1024 * 10
       try {
         // This is the proven DBOC/CIE private-R2 contract. The worker requires
         // octet-stream chunks, an exact Content-Range, and part coordinates.
-        const response = await fetch(chunkUrl, {
+        const response = await fetchWithTimeout(chunkUrl, {
           method: 'PUT',
           credentials: 'same-origin',
           redirect: 'error',
@@ -69,7 +95,7 @@ async function putWithRetry(url, blob, { attempts = 4, chunkSize = 5 * 1024 * 10
             'X-IVOC-Upload-Expires': String(uploadExpiresAtMs),
           },
           body: chunk,
-        });
+        }, requestTimeoutMs);
         if (response.ok) { uploaded = true; break; }
         last = new Error(`recording_upload_${response.status}`);
       } catch (error) { last = error; }
