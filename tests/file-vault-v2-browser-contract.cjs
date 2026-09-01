@@ -960,10 +960,12 @@ async function adminFlow(browser) {
 		await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="student"]').click();
 		assert(await page.locator(".fv2-subject-banner").count() === 0, "admin student lens: staff subject banner remained visible");
 		assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Student view", "admin student lens: header role did not change");
+		assert(await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="student"]:visible').evaluate(button => document.activeElement === button), "admin student lens: focus did not return to the active lens control");
 		assert(await page.locator('[data-fv2-action="open-upload"]:not([disabled])').count() === 0, "admin student lens: a staff mutation control remained enabled");
 		await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="administrator"]').click();
 		await page.locator(".fv2-subject-banner").waitFor();
 		assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Staff view", "admin lens: administrator controls did not return");
+		assert(await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="administrator"]:visible').evaluate(button => document.activeElement === button), "admin lens: focus did not return to the active administrator control");
 		await page.locator(".fv2-shortcut-timeline").click();
 		assert(await page.getByRole("heading", { name: "Journey", exact: true }).isVisible(), "admin: Timeline premium card did not open the selected student's Journey");
 		assert(await page.locator(".fv2-subject-banner").isVisible(), "admin: Journey lost selected-student context");
@@ -1328,12 +1330,14 @@ async function adminResponsiveLensFlow(browser) {
 			await page.getByRole("button", { name: "Student view", exact: true }).click();
 			assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Student view", `${label}: Student View did not activate`);
 			assert(await page.locator(".fv2-mobile-nav-menu").count() === 0, `${label}: menu remained open after lens switch`);
+			assert(await page.getByRole("button", { name: "More", exact: true }).evaluate(button => document.activeElement === button), `${label}: Student View switch did not return focus to More`);
 			const directoryLensLabels = await page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
 			assert(directoryLensLabels.join("|") === "Students|Settings", `${label}: Student View without a selected student exposed an incoherent student rail ${directoryLensLabels.join("|")}`);
 			assert(await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).isVisible(), `${label}: Student View lost the student chooser before a student was selected`);
 			await page.getByRole("button", { name: "More", exact: true }).click();
 			await page.getByRole("button", { name: "Administrator view", exact: true }).click();
 			assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Staff view", `${label}: Administrator View did not return`);
+			assert(await page.getByRole("button", { name: "More", exact: true }).evaluate(button => document.activeElement === button), `${label}: Administrator View switch did not return focus to More`);
 			await overflowAudit(page, label);
 			await browserAccessibilityAudit(page, label);
 			assert(diagnostics.length === 0, `${label}: browser diagnostics ${diagnostics.join(" | ")}`);

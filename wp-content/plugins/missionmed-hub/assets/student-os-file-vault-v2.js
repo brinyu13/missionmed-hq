@@ -838,6 +838,18 @@
 		if (heading && typeof heading.focus === "function") heading.focus({ preventScroll: true });
 	};
 
+	FileVaultV2.prototype.focusLensContext = function () {
+		var mode = this.state.lensMode === "student" ? "student" : "administrator";
+		var candidates = Array.prototype.slice.call(this.root.querySelectorAll('[data-fv2-action="set-lens"][data-fv2-lens-mode="' + mode + '"]'));
+		var target = candidates.find(function (candidate) { return candidate.getClientRects().length > 0; });
+		if (!target) {
+			var mobileMore = this.root.querySelector('[data-fv2-focus-key="nav-more"]');
+			if (mobileMore && mobileMore.getClientRects().length > 0) target = mobileMore;
+		}
+		if (!target && this.refs.stage) target = this.refs.stage.querySelector("[data-fv2-page-heading]");
+		if (target && typeof target.focus === "function") target.focus({ preventScroll: true });
+	};
+
 	FileVaultV2.prototype.nextActionMarkup = function () {
 		var action = this.state.data && this.state.data.next_action;
 		if (!action || typeof action !== "object" || !action.title) return "";
@@ -1432,6 +1444,7 @@
 				if (this.state.lensMode === "administrator" && !this.state.selectedStudentId) this.state.view = "command";
 				else if (this.state.lensMode === "student") this.state.view = this.state.selectedStudentId ? "vault" : "command";
 				this.render({ focusKey: "" });
+				this.focusLensContext();
 				this.toast(this.state.lensMode === "student" ? "Student view" : "Administrator view", this.state.lensMode === "student" ? "Staff-only controls are hidden. Choose a student to inspect their real student-facing File Vault." : "Staff workflow controls are available again.", "success");
 				break;
 			case "navigate":
