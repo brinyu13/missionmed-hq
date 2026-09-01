@@ -30,8 +30,8 @@ foreach ( $files as $path => $expected ) {
 
 $immutable_assets = array(
 	'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js' => array(
-		'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.3bd3e4d3ff6264b0.js',
-		'3bd3e4d3ff6264b0eb71c7d855ea3202953ffa924ec630306073cd3e46faaf50',
+		'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.960d13569b47298b.js',
+		'960d13569b47298baf926880889162be4dcccf2f88abe8184121378f0a5fa32c',
 	),
 	'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.css' => array(
 		'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.6e54865c02397e21.css',
@@ -49,7 +49,7 @@ foreach ( $immutable_assets as $canonical => $lock ) {
 }
 
 $v2_controller = file_get_contents( $root . '/wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php' );
-fv2_v1_assert( false !== strpos( $v2_controller, "const ASSET_JS          = 'student-os-file-vault-v2.3bd3e4d3ff6264b0.js';" ), 'V2 controller pins the immutable JavaScript asset' );
+fv2_v1_assert( false !== strpos( $v2_controller, "const ASSET_JS          = 'student-os-file-vault-v2.960d13569b47298b.js';" ), 'V2 controller pins the immutable JavaScript asset' );
 fv2_v1_assert( false !== strpos( $v2_controller, "const ASSET_CSS         = 'student-os-file-vault-v2.6e54865c02397e21.css';" ), 'V2 controller pins the immutable CSS asset' );
 fv2_v1_assert( false === strpos( $v2_controller, 'filemtime( $js_path )' ) && false === strpos( $v2_controller, 'filemtime( $css_path )' ), 'immutable V2 assets do not depend on mutable filemtime cache keys' );
 
