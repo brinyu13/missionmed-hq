@@ -207,3 +207,46 @@ test('face baseline tolerates intermittent rejected frames and reaches measured 
   assert.equal(engine.faceBaselineState.attempts, 1);
   assert.equal(ends, 1);
 });
+
+test('brief vision reacquisition cannot erase cumulative smile and nod counts', async () => {
+  const { RealAnalyticsEngine } = await loadRuntimeModule();
+  const engine = bareEngine(RealAnalyticsEngine);
+  engine.latest = engine.mapFrame(snapshot({
+    HEAD_FACE: {
+      available: true,
+      facePresent: true,
+      smileEvents: { available: true, count: 2 },
+      headNods: { available: true, count: 3 },
+    },
+  }), behavior({ state: 'ANSWERING' }));
+
+  const reacquiring = engine.mapFrame(snapshot({
+    HEAD_FACE: { available: false, reason: 'PRIMARY_TEMPORARILY_UNAVAILABLE' },
+  }), behavior({ state: 'ANSWERING' }));
+  assert.equal(reacquiring.headFace.smileEvents, 2);
+  assert.equal(reacquiring.headFace.nods, 3);
+  assert.equal(reacquiring.headFace.smileEventsLiveAvailable, false);
+  assert.equal(reacquiring.headFace.nodsLiveAvailable, false);
+});
+
+test('an incomplete decode cannot erase the last validated rolling WPM', async () => {
+  const { RealAnalyticsEngine } = await loadRuntimeModule();
+  const engine = bareEngine(RealAnalyticsEngine);
+  const retained = snapshot({ SPEED_WPM: { available: true, wordsPerMinute: 156 } });
+  let transcriptIngestions = 0;
+  engine.behavior = {
+    ingestWordTiming() { return { ...behavior({ state: 'ANSWERING' }), wordTiming: { available: false, reason: 'NEED_MORE_TIMED_WORDS' } }; },
+  };
+  engine.projector = {
+    latest: retained,
+    setConversationState() {},
+    ingestTranscriptTiming() { transcriptIngestions += 1; return snapshot({ SPEED_WPM: { available: false } }); },
+  };
+  engine.recordHistory = () => {};
+  engine.recordStateEvent = () => {};
+  engine.dispatchEvent = () => true;
+  engine.consumeWordTiming({ atMs: 2_000 });
+  assert.equal(transcriptIngestions, 0);
+  assert.equal(engine.latest.speedWpm.available, true);
+  assert.equal(engine.latest.speedWpm.wordsPerMinute, 156);
+});

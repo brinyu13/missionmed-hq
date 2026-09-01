@@ -25,7 +25,12 @@ const DEFAULT_WINDOW_MS = 2_000;
 const MAX_PENDING_WINDOWS = 2;
 const MINIMUM_ACOUSTIC_EVIDENCE_MS = 500;
 const MINIMUM_VOICED_SPEECH_PROBABILITY = 0.35;
-const MINIMUM_WORD_PROBABILITY = 0.35;
+// Sherpa's physical production model emits calibrated token probabilities well
+// below the deterministic acoustic preflight (commonly 0.05-0.35 for correctly
+// timestamped words). VAD/F0 has already admitted the acoustic window, and the
+// server has already produced a bounded word interval, so retain non-zero model
+// evidence while continuing to reject zero-confidence output.
+const MINIMUM_WORD_PROBABILITY = 0.05;
 const MAXIMUM_PLAUSIBLE_WPM = 360;
 const MAXIMUM_RECENT_TIMING_WINDOWS = 6;
 const MINIMUM_LIVE_WORDS = 5;

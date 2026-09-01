@@ -27,3 +27,14 @@ test('listening exposure remains a separate denominator for mentor interpretatio
   assert.equal(listening.eligibleListeningMs, 125);
   assert.equal(answering.eligibleListeningMs, 250);
 });
+
+test('a natural three-degree physical nod keeps a stable resting reference and counts', () => {
+  const detector = new NodDetector({ minimumFps: 8 });
+  establishRest(detector, 'ANSWERING');
+  detector.ingest({ atMs: 1_125, pitchDegrees: 1.4, state: 'ANSWERING', targetFps: 8, confidence: 0.9 });
+  detector.ingest({ atMs: 1_250, pitchDegrees: 3.8, state: 'ANSWERING', targetFps: 8, confidence: 0.9 });
+  detector.ingest({ atMs: 1_375, pitchDegrees: 5.2, state: 'ANSWERING', targetFps: 8, confidence: 0.9 });
+  const result = detector.ingest({ atMs: 1_625, pitchDegrees: 0.8, state: 'ANSWERING', targetFps: 8, confidence: 0.9 });
+  assert.equal(result.count, 1);
+  assert.equal(result.event.type, 'HEAD_PITCH_CYCLE');
+});

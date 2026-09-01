@@ -32,7 +32,9 @@ test('FAC-02B Pace needle eases between genuine two-second rolling timed-word wi
   const css = await source('public/ivoc-standalone/styles/cockpit.css');
 
   assert.match(live, /two-second rolling transcript-timing/u);
-  assert.match(live, /last observed rolling window/u);
+  assert.match(live, /last validated 5–10 words/u);
+  assert.match(live, /live rolling 5–10 words/u);
+  assert.match(live, /ins\.id === 'pace' \? 'WPM'/u);
   assert.match(live, /const held = liveNorm == null && heldNorm != null/u);
   assert.match(live, /classList\.toggle\('observed', liveNorm != null\)/u);
   assert.match(live, /classList\.toggle\('held', held\)/u);

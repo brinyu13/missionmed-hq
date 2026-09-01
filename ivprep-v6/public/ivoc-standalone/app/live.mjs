@@ -122,7 +122,7 @@ async function liveScreen(el) {
           <div class="scan-head"><b>HEAD · FACE</b><span class="live-tag" id="faceLive">● LIVE</span></div>
           <div class="scan-well"><img src="assets/founder-face-scanner.png" alt="Face scanner instrument"><i class="scan-sweep"></i></div>
           <div class="counter-row">
-            <div class="counter"><em>SMILE EVENTS</em><b id="cSmiles">0</b><small>qualifying · full-face</small></div>
+            <div class="counter"><em>SMILE EVENTS</em><b id="cSmiles">0</b><small>observable · mouth/cheek</small></div>
             <div class="counter"><em>HEAD NODS</em><b id="cNods">0</b><small>observed · state-aware</small></div>
           </div>
           <div class="scan-rows">
@@ -182,7 +182,7 @@ async function liveScreen(el) {
           </div>
           <div class="inst-score ${ins.kind === 'pitch' ? 'pitch-score' : ''}">
             <b class="inst-num" id="num-${ins.id}">—</b>
-            <span class="inst-of">${ins.kind === 'pitch' ? 'st' : '/10'}</span>
+            <span class="inst-of" id="unit-${ins.id}">${ins.kind === 'pitch' ? 'st' : ins.id === 'pace' ? 'WPM' : '/10'}</span>
             <span class="coach-arrow" id="arrow-${ins.id}"></span>
           </div>
           <div class="inst-tech" id="tech-${ins.id}">&nbsp;</div>
@@ -552,9 +552,13 @@ async function liveScreen(el) {
     for (const ins of INSTRUMENTS) {
       const score = ins.score(f);
       const num = $(`num-${ins.id}`);
+      const unit = $(`unit-${ins.id}`);
       const inst = $(`inst-${ins.id}`);
       if (score != null) {
-        num.textContent = ins.kind === 'pitch' ? `${score > 0 ? '+' : ''}${score.toFixed(1)}` : score.toFixed(1);
+        num.textContent = ins.id === 'pace'
+          ? String(Math.round(f.speedWpm.wordsPerMinute))
+          : ins.kind === 'pitch' ? `${score > 0 ? '+' : ''}${score.toFixed(1)}` : score.toFixed(1);
+        if (unit) unit.textContent = ins.id === 'pace' ? 'WPM' : ins.kind === 'pitch' ? 'st' : '/10';
         num.style.color = ins.kind === 'pitch' ? 'var(--g-cyan)' : scoreColor(score);
         inst.classList.remove('unavail');
         ins._last = score;
@@ -562,7 +566,9 @@ async function liveScreen(el) {
           ins._lastWpm = f.speedWpm.wordsPerMinute;
         }
       } else if (ins._last != null && ins.kind !== 'pitch') {
-        num.textContent = ins._last.toFixed(1);
+        num.textContent = ins.id === 'pace' && Number.isFinite(ins._lastWpm)
+          ? String(Math.round(ins._lastWpm))
+          : ins._last.toFixed(1);
         num.style.color = '';
         inst.classList.add('unavail');
       } else {
@@ -574,9 +580,12 @@ async function liveScreen(el) {
       // next window is collecting so the instrument does not look dead or
       // snap back to zero between real decodes.
       const heldPaceTech = ins.id === 'pace' && Number.isFinite(ins._lastWpm)
-        ? `${ins._lastWpm} WPM · last observed rolling window`
+        ? `${ins._last.toFixed(1)}/10 coaching · last validated 5–10 words`
         : null;
-      const tech = ins.tech(f) || heldPaceTech;
+      const livePaceTech = ins.id === 'pace' && f.speedWpm.available
+        ? `${score.toFixed(1)}/10 coaching · live rolling 5–10 words`
+        : null;
+      const tech = livePaceTech || ins.tech(f) || heldPaceTech;
       $(`tech-${ins.id}`).textContent = tech || (score == null ? (ins.kind === 'pitch' ? 'Unvoiced · no validated F0' : ins._last != null ? 'holding last valid' : 'no speech observed yet') : '');
       $(`corr-${ins.id}`).textContent = ins.corridorLabel(f);
       const verb = $(`verb-${ins.id}`);
@@ -671,9 +680,9 @@ async function liveScreen(el) {
 
     /* face / body */
     $('cSmiles').textContent = f.headFace.smileEventsAvailable ? f.headFace.smileEvents : '—';
-    $('cSmiles').title = f.headFace.smileEventsAvailable ? 'Measured qualifying smile-pattern events' : f.headFace.smileEventsUnavailableReason;
+    $('cSmiles').title = f.headFace.smileEventsLiveAvailable ? 'Measured qualifying smile-pattern events' : f.headFace.smileEventsAvailable ? `Last observed count · ${f.headFace.smileEventsUnavailableReason}` : f.headFace.smileEventsUnavailableReason;
     $('cNods').textContent = f.headFace.nodsAvailable ? f.headFace.nods : '—';
-    $('cNods').title = f.headFace.nodsAvailable ? 'Measured observed head-pitch cycles' : f.headFace.nodsUnavailableReason;
+    $('cNods').title = f.headFace.nodsLiveAvailable ? 'Measured observed head-pitch cycles' : f.headFace.nodsAvailable ? `Last observed count · ${f.headFace.nodsUnavailableReason}` : f.headFace.nodsUnavailableReason;
     $('rPresence').textContent = f.headFace.presence;
     $('rPresence').className = f.headFace.presence === 'TRACKED' ? 'ok' : 'warn';
     $('rFacing').textContent = f.headFace.cameraFacingPct + '% FACING';

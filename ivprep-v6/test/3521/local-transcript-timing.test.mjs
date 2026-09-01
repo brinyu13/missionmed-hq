@@ -233,15 +233,15 @@ test('adaptive recent timing uses the latest five-to-ten genuine words without d
   producer.stop();
 });
 
-test('realtime rolling evidence admits four genuine timed words while ordinary evidence retains the strict floor', () => {
-  const words = Array.from({ length: 4 }, (_, index) => ({
+test('realtime rolling evidence admits five genuine timed words while ordinary evidence retains the strict floor', () => {
+  const words = Array.from({ length: 5 }, (_, index) => ({
     startMs: 100 + index * 400,
     endMs: 300 + index * 400,
     probability: 0.9,
   }));
   const evidence = {
     windowStartedAtMs: 0,
-    windowEndedAtMs: 2_000,
+    windowEndedAtMs: 2_400,
     speechDurationMs: 1_600,
     coverage: 0.8,
     words,
@@ -256,6 +256,59 @@ test('realtime rolling evidence admits four genuine timed words while ordinary e
 
   assert.equal(evaluateWordTiming({ ...evidence, cadence: 'REALTIME_ROLLING' }).available, true);
   assert.equal(evaluateWordTiming(evidence).reason, 'NEED_MORE_TIMED_WORDS');
+});
+
+test('physical Sherpa low-confidence timestamps accumulate into a truthful rolling rate', async () => {
+  let now = 2_000;
+  let decode = 0;
+  const timings = [];
+  const pipeline = new FakePipeline();
+  const windows = [
+    [
+      { startMs: 320, endMs: 620, probability: 0.09 },
+      { startMs: 760, endMs: 1_040, probability: 0.18 },
+      { startMs: 1_200, endMs: 1_500, probability: 0.12 },
+    ],
+    [
+      { startMs: 240, endMs: 520, probability: 0.08 },
+      { startMs: 700, endMs: 980, probability: 0.21 },
+      { startMs: 1_140, endMs: 1_440, probability: 0.11 },
+    ],
+  ];
+  const producer = new LocalTranscriptTimingProducer({
+    async fetchImpl(_url, options) {
+      if (options.method === 'GET') return response(capability());
+      const words = windows[Math.min(decode, windows.length - 1)];
+      decode += 1;
+      return response({
+        available: true,
+        providerSessions: 0,
+        rawAudioPersisted: false,
+        rawTextReturned: false,
+        source: LOCAL_SHERPA_TIMING_SOURCE,
+        speechDurationMs: 1_400,
+        wordCount: words.length,
+        words,
+      });
+    },
+  });
+  await producer.start({
+    stream: liveStream(), pipeline, csrfToken: 'local_harness_csrf_3521',
+    clock: { sessionMs: () => now }, onTiming: (timing) => timings.push(timing),
+  });
+
+  pushSpeechWindow(pipeline, { durationMs: 2_000, startAtMs: 0 });
+  await producer.queue;
+  now = 4_000;
+  pushSpeechWindow(pipeline, { durationMs: 2_000, startAtMs: 2_000 });
+  await producer.queue;
+
+  const evaluated = evaluateWordTiming(timings.at(-1));
+  assert.equal(timings.at(-1).wordCount, 6);
+  assert.equal(evaluated.available, true);
+  assert.equal(evaluated.rateBasis, 'RECENT_WORD_START_INTERVALS');
+  assert.ok(evaluated.wordsPerMinute > 100 && evaluated.wordsPerMinute < 220);
+  producer.stop();
 });
 
 test('realtime rolling pace uses genuine start-to-start intervals from the recent word window', () => {

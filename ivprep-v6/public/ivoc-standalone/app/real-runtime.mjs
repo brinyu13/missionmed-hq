@@ -334,7 +334,13 @@ export class RealAnalyticsEngine extends EventTarget {
   consumeWordTiming(evidence) {
     const behavior = this.behavior.ingestWordTiming(evidence);
     this.projector.setConversationState(behavior.conversation.state);
-    const snapshot = this.projector.ingestTranscriptTiming(evidence);
+    // A one- or two-word decode is useful accumulation evidence, but it must
+    // not erase the last validated five-to-ten-word rate while the next rolling
+    // window is being assembled. Vision/audio frames still expire a genuinely
+    // stale transcript metric through the projector's normal eight-second gate.
+    const snapshot = behavior.wordTiming?.available === true
+      ? this.projector.ingestTranscriptTiming(evidence)
+      : this.projector.latest;
     this.t = finite(evidence.atMs, this.t);
     this.latest = this.mapFrame(snapshot, behavior);
     this.recordHistory(this.latest, true);
@@ -459,13 +465,20 @@ export class RealAnalyticsEngine extends EventTarget {
         : hands.right?.present === true
           ? 'RIGHT'
           : 'NONE';
-    const nodsAvailable = head.headNods?.available === true;
-    const smilesAvailable = head.smileEvents?.available === true;
+    const priorHead = this.latest?.headFace || {};
+    const nodsLiveAvailable = head.headNods?.available === true;
+    const smilesLiveAvailable = head.smileEvents?.available === true;
     const gestureEventCount = finite(body.gestureUnits?.eventCount);
     const gesturesAvailable = gestureEventCount !== null;
     const gestureRateAvailable = body.gestureUnits?.rateAvailable === true;
-    const nods = nodsAvailable ? finite(head.headNods?.eventCount, finite(head.headNods?.count, 0)) : null;
-    const smiles = smilesAvailable ? finite(head.smileEvents?.count, 0) : null;
+    const currentNods = nodsLiveAvailable ? finite(head.headNods?.eventCount, finite(head.headNods?.count, 0)) : null;
+    const currentSmiles = smilesLiveAvailable ? finite(head.smileEvents?.count, 0) : null;
+    // Counts are cumulative observed events. A brief reacquisition frame may
+    // withhold new geometry, but it cannot truthfully erase events already seen.
+    const nods = currentNods ?? finite(priorHead.nods);
+    const smiles = currentSmiles ?? finite(priorHead.smileEvents);
+    const nodsAvailable = nods !== null;
+    const smilesAvailable = smiles !== null;
     const gestures = gesturesAvailable ? gestureEventCount : null;
     const facingRatio = finite(head.cameraFacingDwell?.cameraFacingRatio);
     const gestureRate = finite(body.gestureUnits?.unitsPerSpeakingMinute);
@@ -532,10 +545,12 @@ export class RealAnalyticsEngine extends EventTarget {
       headFace: {
         nods,
         nodsAvailable,
-        nodsUnavailableReason: nodsAvailable ? null : head.headNods?.reason || 'NO_VALIDATED_HEAD_NOD_DETECTOR',
+        nodsLiveAvailable,
+        nodsUnavailableReason: nodsLiveAvailable ? null : head.headNods?.reason || 'NO_VALIDATED_HEAD_NOD_DETECTOR',
         smileEvents: smiles,
         smileEventsAvailable: smilesAvailable,
-        smileEventsUnavailableReason: smilesAvailable ? null : head.smileEvents?.reason || 'PERSONAL_BASELINE_REQUIRED',
+        smileEventsLiveAvailable: smilesLiveAvailable,
+        smileEventsUnavailableReason: smilesLiveAvailable ? null : head.smileEvents?.reason || 'PERSONAL_BASELINE_REQUIRED',
         faceBaseline: { ...this.faceBaselineState },
         presence: head.facePresent ? 'TRACKED' : 'SEARCHING',
         cameraFacingPct: facingRatio == null ? (head.orientation?.cameraFacingProxy === true ? 100 : 0) : Math.round(facingRatio * 100),

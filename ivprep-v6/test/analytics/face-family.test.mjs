@@ -111,6 +111,21 @@ test('a qualifying full-face smile increments while the smile is still visible',
   assert.equal(stillSmiling.eventCount, 1, 'one sustained smile must not double-count');
 });
 
+test('an observable mouth-corner smile event remains countable when cheek evidence is quiet', () => {
+  const detector = new SmilePatternEventDetector();
+  detector.beginBaseline();
+  for (let atMs = 0; atMs < 1_000; atMs += 100) detector.ingest({
+    atMs, bilateral: 0.04, cheekBilateral: 0.04, faceAvailable: true,
+    state: 'ANSWERING', confidence: 0.9, faceFraction: 0.3,
+  });
+  detector.endBaseline();
+  detector.ingest({ atMs: 1_100, bilateral: 0.30, cheekBilateral: 0.045, faceAvailable: true, state: 'ANSWERING', confidence: 0.9, faceFraction: 0.3 });
+  const qualified = detector.ingest({ atMs: 1_750, bilateral: 0.32, cheekBilateral: 0.05, faceAvailable: true, state: 'ANSWERING', confidence: 0.9, faceFraction: 0.3 });
+  assert.equal(qualified.eventCount, 1);
+  assert.equal(qualified.event.kind, 'mouth_corner_elevation_pattern');
+  assert.equal(qualified.fullFacePattern, false);
+});
+
 test('blink events are counted without any target or penalty', () => {
   const family = new FaceFamily();
   let t = 0;

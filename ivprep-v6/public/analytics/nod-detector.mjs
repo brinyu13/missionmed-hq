@@ -13,7 +13,7 @@ function median(values) {
 
 /** Geometry-only nod pattern; it does not infer agreement, engagement, or comprehension. */
 export class NodDetector {
-  constructor({ minimumFps = 15, excursionDegrees = 5, returnToleranceDegrees = 3, maximumCycleMs = 1_800, refractoryMs = 700 } = {}) {
+  constructor({ minimumFps = 15, excursionDegrees = 3, returnToleranceDegrees = 1.8, maximumCycleMs = 2_200, refractoryMs = 650 } = {}) {
     this.minimumFps = minimumFps;
     this.excursionDegrees = excursionDegrees;
     this.returnToleranceDegrees = returnToleranceDegrees;
@@ -75,8 +75,6 @@ export class NodDetector {
       });
       return this.latest;
     }
-    this.rest.push(pitch);
-    if (this.rest.length > 45) this.rest.shift();
     const baseline = median(this.rest) ?? pitch;
     const displacement = pitch - baseline;
     let event = null;
@@ -97,6 +95,13 @@ export class NodDetector {
         }
         this.excursionStartedAtMs = null;
       } else if (time - this.excursionStartedAtMs > this.maximumCycleMs) this.excursionStartedAtMs = null;
+    }
+    // Keep the neutral reference stable during an excursion. Feeding the nod
+    // itself into the resting median made a physical down/up cycle chase its
+    // own baseline and disappear before the return frame arrived.
+    if (this.excursionStartedAtMs === null && Math.abs(displacement) <= this.returnToleranceDegrees) {
+      this.rest.push(pitch);
+      if (this.rest.length > 45) this.rest.shift();
     }
     this.latest = Object.freeze({
       available: true,

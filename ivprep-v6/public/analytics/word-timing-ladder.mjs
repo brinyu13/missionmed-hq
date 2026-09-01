@@ -107,9 +107,12 @@ export function evaluateWordTiming(evidence = {}, {
   const minimumSpeechMs = realtimeRolling
     ? finite(config.realtimeMinimumSpeechMs) ?? config.minimumSpeechMs
     : config.minimumSpeechMs;
+  const minimumCoverage = realtimeRolling
+    ? finite(config.realtimeMinimumCoverage) ?? config.minimumCoverage
+    : config.minimumCoverage;
   if (words.length < minimumWords) return unavailable('NEED_MORE_TIMED_WORDS', tier, { wordCount: words.length, minimumWords });
   if (speechDurationMs === null || speechDurationMs < minimumSpeechMs) return unavailable('NEED_MORE_SPEECH_TIME', tier, { speechDurationMs, minimumSpeechMs });
-  if (coverage === null || coverage < config.minimumCoverage) return unavailable('INSUFFICIENT_WORD_TIMING_COVERAGE', tier, { coverage });
+  if (coverage === null || coverage < minimumCoverage) return unavailable('INSUFFICIENT_WORD_TIMING_COVERAGE', tier, { coverage, minimumCoverage });
   const windowDurationMs = endMs - startMs;
   const recentIntervalBasis = realtimeRolling
     && evidence.rateBasis === 'RECENT_WORD_START_INTERVALS'
