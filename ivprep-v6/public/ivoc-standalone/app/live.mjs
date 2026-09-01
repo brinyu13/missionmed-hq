@@ -9,7 +9,7 @@ import { CALIBRATION, QUESTIONS } from './data.mjs';
 import { ivocApi } from './api.mjs';
 import { RealAnalyticsEngine } from './real-runtime.mjs';
 import { AccountRecordingController } from './recording.mjs';
-import { ui, saveUi, draft, go, toast, whisper, confirmModal, session } from './main.mjs';
+import { ui, saveUi, draft, saveDraft, go, toast, whisper, confirmModal, session } from './main.mjs';
 
 const qOf = id => QUESTIONS.find(q => q.id === id);
 const fmt = s => {
@@ -104,8 +104,17 @@ async function liveScreen(el) {
       <button class="coach-master ${ui.coaching ? 'on' : ''}" id="coachMaster" role="switch" aria-checked="${ui.coaching}">
         <i></i>LIVE COACHING <b>${ui.coaching ? 'ON' : 'OFF'}</b>
       </button>
+      <button class="btn btn-quiet room-devices" id="roomDevices" aria-expanded="false" aria-controls="roomDevicePanel">⚙ CAMERA + MIC</button>
       <button class="btn btn-quiet room-finish" id="finishBtn">FINISH ▸</button>
     </div>
+
+    <section class="room-device-panel" id="roomDevicePanel" hidden aria-label="Live camera and microphone settings">
+      <div class="room-device-head"><b>LIVE DEVICES</b><button type="button" id="roomDeviceClose" aria-label="Close device settings">×</button></div>
+      <p>Switch hardware without leaving the interview room. Measurement and the session clock continue.</p>
+      <label><span>CAMERA</span><select id="liveCameraSelect" aria-label="Live camera"><option value="">Start analytics to load cameras</option></select></label>
+      <label><span>MICROPHONE</span><select id="liveMicrophoneSelect" aria-label="Live microphone"><option value="">Start analytics to load microphones</option></select></label>
+      <div class="room-device-foot"><button type="button" id="roomDeviceRefresh">↻ RESCAN</button><span id="roomDeviceStatus" role="status">READY</span></div>
+    </section>
 
     <div class="room-main">
       <aside class="room-left" ${showAnalytics ? '' : 'hidden'}>
@@ -226,6 +235,84 @@ async function liveScreen(el) {
   const traces = { vol: true, pitch: true, pace: true };
   let vvWindow = 60;
   let lastVarietyScore = null;
+  let deviceRefreshTimer = 0;
+  let deviceSwitching = false;
+
+  function fillLiveDeviceSelect(select, devices, selectedId, fallbackLabel) {
+    select.replaceChildren();
+    for (const [index, device] of devices.entries()) {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      option.textContent = device.label || `${fallbackLabel} ${index + 1}`;
+      option.selected = device.deviceId === selectedId;
+      select.appendChild(option);
+    }
+    if (!select.options.length) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = `No ${fallbackLabel.toLowerCase()} detected`;
+      select.appendChild(option);
+    }
+  }
+
+  async function refreshLiveDevices(message = '') {
+    const status = $('roomDeviceStatus');
+    status.textContent = message || 'SCANNING…';
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const current = analyticsStarted ? engine.currentDevices() : {
+      cameraDeviceId: draft.cameraDeviceId || '',
+      microphoneDeviceId: draft.microphoneDeviceId || '',
+    };
+    fillLiveDeviceSelect($('liveCameraSelect'), devices.filter(device => device.kind === 'videoinput'), current.cameraDeviceId, 'Camera');
+    fillLiveDeviceSelect($('liveMicrophoneSelect'), devices.filter(device => device.kind === 'audioinput'), current.microphoneDeviceId, 'Microphone');
+    status.textContent = analyticsStarted ? (message || 'MEASUREMENT CONTINUOUS') : 'SELECTION APPLIES WHEN ANALYTICS STARTS';
+  }
+
+  async function switchLiveDevice(kind, deviceId) {
+    if (!deviceId || deviceSwitching) return;
+    const status = $('roomDeviceStatus');
+    const label = kind === 'camera' ? 'CAMERA' : 'MICROPHONE';
+    if (!analyticsStarted) {
+      if (kind === 'camera') draft.cameraDeviceId = deviceId;
+      else draft.microphoneDeviceId = deviceId;
+      saveDraft();
+      status.textContent = `${label} SELECTED · START ANALYTICS TO APPLY`;
+      return;
+    }
+    deviceSwitching = true;
+    status.textContent = `${label} SWITCHING…`;
+    $('liveCameraSelect').disabled = true;
+    $('liveMicrophoneSelect').disabled = true;
+    try {
+      const selected = await engine.switchDevice(kind, deviceId);
+      draft.cameraDeviceId = selected.cameraDeviceId;
+      draft.microphoneDeviceId = selected.microphoneDeviceId;
+      draft.cam = selected.cameraLabel;
+      draft.mic = selected.microphoneLabel;
+      saveDraft();
+      await refreshLiveDevices(`${label} LIVE · SESSION CONTINUOUS`);
+      engine.events.push({ t: engine.frame().t, kind: 'device-switch', label: `${label} switched` });
+      toast(`${label[0]}${label.slice(1).toLowerCase()} switched — measurement continues.`, 'save');
+    } catch (error) {
+      status.textContent = `${label} SWITCH FAILED · CURRENT DEVICE RETAINED`;
+      toast(`${label[0]}${label.slice(1).toLowerCase()} switch failed: ${error.message}`, 'rec');
+      await refreshLiveDevices(`${label} SWITCH FAILED · CURRENT DEVICE RETAINED`).catch(() => {});
+    } finally {
+      deviceSwitching = false;
+      $('liveCameraSelect').disabled = false;
+      $('liveMicrophoneSelect').disabled = false;
+    }
+  }
+
+  const handleDeviceChange = () => {
+    clearTimeout(deviceRefreshTimer);
+    deviceRefreshTimer = setTimeout(() => {
+      void refreshLiveDevices('DEVICE LIST CHANGED').catch(() => {
+        $('roomDeviceStatus').textContent = 'DEVICE REFRESH FAILED';
+      });
+    }, 250);
+  };
+  navigator.mediaDevices?.addEventListener?.('devicechange', handleDeviceChange);
 
   /* gauges — dedicated instruments, one shared truth grammar */
   const gaugeEls = {};
@@ -676,6 +763,7 @@ async function liveScreen(el) {
       analyticsStarted = true;
       $('captureStart').hidden = true;
       $('captureStatus').textContent = `Authenticated as ${bootstrap.identity?.displayName || 'MissionMed student'}`;
+      await refreshLiveDevices('ANALYTICS LIVE · DEVICES READY');
       toast('Analytics live — speak and move to test every instrument.', 'save');
     } catch (error) {
       button.disabled = false;
@@ -816,6 +904,26 @@ async function liveScreen(el) {
       return;
     }
     if (t.closest('#startAnalytics')) { void startAnalytics(); return; }
+    if (t.closest('#roomDevices')) {
+      const panel = $('roomDevicePanel');
+      panel.hidden = !panel.hidden;
+      $('roomDevices').setAttribute('aria-expanded', String(!panel.hidden));
+      if (!panel.hidden) void refreshLiveDevices().catch((error) => {
+        $('roomDeviceStatus').textContent = `DEVICE LIST UNAVAILABLE · ${error.message}`;
+      });
+      return;
+    }
+    if (t.closest('#roomDeviceClose')) {
+      $('roomDevicePanel').hidden = true;
+      $('roomDevices').setAttribute('aria-expanded', 'false');
+      return;
+    }
+    if (t.closest('#roomDeviceRefresh')) {
+      void refreshLiveDevices().catch((error) => {
+        $('roomDeviceStatus').textContent = `DEVICE REFRESH FAILED · ${error.message}`;
+      });
+      return;
+    }
     if (t.closest('#finishBtn')) { void sealAndStop(); return; }
     if (t.closest('#dockPause')) {
       if (recorder?.pause()) engine.events.push({ t: engine.frame().t, kind: 'recording-pause', label: 'Recording paused' });
@@ -888,6 +996,11 @@ async function liveScreen(el) {
     }, 450);
   });
 
+  el.addEventListener('change', e => {
+    if (e.target === $('liveCameraSelect')) { void switchLiveDevice('camera', e.target.value); return; }
+    if (e.target === $('liveMicrophoneSelect')) void switchLiveDevice('microphone', e.target.value);
+  });
+
   async function escMenu() {
     cancelAnimationFrame(raf);
     const resume = await confirmModal({
@@ -900,7 +1013,15 @@ async function liveScreen(el) {
   }
 
   return {
-    destroy: () => { cancelAnimationFrame(raf); clearInterval(hiddenIv); whisper(null); recorder?.destroy(); engine.destroy(); },
+    destroy: () => {
+      cancelAnimationFrame(raf);
+      clearInterval(hiddenIv);
+      clearTimeout(deviceRefreshTimer);
+      navigator.mediaDevices?.removeEventListener?.('devicechange', handleDeviceChange);
+      whisper(null);
+      recorder?.destroy();
+      engine.destroy();
+    },
     onEscape: escMenu,
   };
 }

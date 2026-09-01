@@ -129,8 +129,14 @@ export class RealAnalyticsEngine extends EventTarget {
       startedAtMs: null,
       attempts: 0,
     };
-    void this.transcript.start({
-      stream: media.stream,
+    void this.startTranscriptTiming(media.stream);
+    this.latest = this.mapFrame(this.projector.latest);
+    return media.stream;
+  }
+
+  startTranscriptTiming(stream) {
+    return this.transcript.start({
+      stream,
       pipeline: this.pipeline,
       clock: this.clock,
       csrfToken: this.csrfToken,
@@ -140,8 +146,51 @@ export class RealAnalyticsEngine extends EventTarget {
         this.dispatchEvent(new CustomEvent('word-timing-state', { detail: state }));
       },
     });
-    this.latest = this.mapFrame(this.projector.latest);
-    return media.stream;
+  }
+
+  currentDevices() {
+    const media = this.bridge.media || {};
+    const cameraTrack = media.cameraTrack || media.stream?.getVideoTracks?.()[0] || null;
+    const microphoneTrack = media.microphoneTrack || media.stream?.getAudioTracks?.()[0] || null;
+    return Object.freeze({
+      cameraDeviceId: cameraTrack?.getSettings?.().deviceId || '',
+      cameraLabel: cameraTrack?.label || 'Browser camera',
+      microphoneDeviceId: microphoneTrack?.getSettings?.().deviceId || '',
+      microphoneLabel: microphoneTrack?.label || 'Browser microphone',
+      readiness: this.bridge.readiness,
+    });
+  }
+
+  async switchDevice(kind, deviceId) {
+    const deviceKind = kind === 'camera' ? 'camera' : kind === 'microphone' ? 'microphone' : null;
+    const id = String(deviceId || '').trim();
+    if (!deviceKind) throw new TypeError('Device kind must be camera or microphone.');
+    if (!id) throw new TypeError('deviceId is required.');
+    if (!this.running || !this.bridge.media?.stream) throw new Error('Live analytics must be running before an in-room device switch.');
+
+    const clock = this.clock;
+    const pipeline = this.pipeline;
+    const media = await this.bridge.switchDevice(deviceKind, id);
+    this.video.srcObject = media.stream;
+    await this.video.play();
+    if (clock !== this.clock || pipeline !== this.pipeline) {
+      throw new Error('Active analytics identity changed during device switch.');
+    }
+
+    if (deviceKind === 'camera') {
+      this.cancelFaceBaseline('CAMERA_CHANGED_RECALIBRATION_REQUIRED');
+      const context = this.overlayCanvas?.getContext?.('2d');
+      context?.clearRect?.(0, 0, this.overlayCanvas.width || 1, this.overlayCanvas.height || 1);
+      this.pipeline?.reselectPrimary?.();
+      if (!this.pipeline?.visionTimer) this.pipeline?.startVision?.(this.video);
+    } else {
+      this.transcript.stop({ preserveState: true });
+      this.wordTimingState = { state: 'live', reason: 'MICROPHONE_SWITCHING' };
+      this.dispatchEvent(new CustomEvent('word-timing-state', { detail: this.wordTimingState }));
+      await this.startTranscriptTiming(media.stream);
+    }
+
+    return this.currentDevices();
   }
 
   tick() {

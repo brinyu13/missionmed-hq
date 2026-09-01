@@ -60,6 +60,29 @@
 .coach-master.on i::after { transform: translateX(16px); background: var(--g-gold); }
 .coach-master b { min-width: 26px; text-align: left; }
 .room-finish { min-height: 42px; padding: 0 20px; font-size: 13px; }
+.room-devices { min-height: 42px; padding: 0 13px; font-size: 11px; white-space: nowrap; }
+.room-device-panel {
+  position: absolute; z-index: 30; top: 62px; right: 18px; width: min(390px, calc(100vw - 36px));
+  padding: 16px; border: 1px solid rgba(57, 214, 255, .38); border-radius: 14px;
+  background: linear-gradient(165deg, rgba(20, 27, 44, .985), rgba(8, 12, 21, .99));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .72), 0 0 30px rgba(57, 214, 255, .06);
+}
+.room-device-panel[hidden] { display: none; }
+.room-device-head { display: flex; align-items: center; justify-content: space-between; }
+.room-device-head b { font: 700 13px/1 var(--g-mono); letter-spacing: 2px; color: var(--g-cyan); }
+.room-device-head button { width: 30px; height: 30px; border-radius: 7px; color: var(--g-mid); font-size: 20px; }
+.room-device-panel p { margin: 8px 0 13px; color: var(--g-faint); font: 500 11px/1.45 var(--g-font); }
+.room-device-panel label { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 10px; margin-top: 9px; }
+.room-device-panel label span { color: var(--g-dim); font: 700 10px/1 var(--g-mono); letter-spacing: 1.2px; }
+.room-device-panel select {
+  min-width: 0; height: 40px; padding: 0 10px; border: 1px solid var(--g-edge-hi); border-radius: 8px;
+  background: #111827; color: var(--g-text); font: 600 12px/1 var(--g-font);
+}
+.room-device-panel select:focus { outline: 1px solid var(--g-cyan); border-color: var(--g-cyan); }
+.room-device-panel select:disabled { opacity: .5; cursor: wait; }
+.room-device-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.room-device-foot button { color: var(--g-gold); font: 700 10px/1 var(--g-mono); letter-spacing: 1px; }
+.room-device-foot span { color: var(--g-teal); font: 700 9px/1.25 var(--g-mono); letter-spacing: .6px; text-align: right; }
 
 /* ---------- exact three-column cockpit grid ---------- */
 .room-main,

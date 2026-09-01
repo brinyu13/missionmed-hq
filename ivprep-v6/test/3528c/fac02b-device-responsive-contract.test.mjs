@@ -21,6 +21,27 @@ test('FAC-02B Setup owns an explicit device rescan and refreshes after hardware 
   assert.match(menus, /clearTimeout\(deviceRefreshTimer\)/u);
 });
 
+test('FAC-02B READY and LIVE expose explicit device controls without restoring persistent navigation', async () => {
+  const menus = await source('public/ivoc-standalone/app/menus.mjs');
+  const live = await source('public/ivoc-standalone/app/live.mjs');
+  const runtime = await source('public/ivoc-standalone/app/real-runtime.mjs');
+  const css = await source('public/ivoc-standalone/styles/cockpit.css');
+
+  assert.match(menus, /data-devices>⚙ CAMERA \+ MICROPHONE/u);
+  assert.match(menus, /closest\('\[data-devices\]'\)\) \{ go\('setup'\); return; \}/u);
+  assert.match(live, /id="roomDevices"[^>]*aria-controls="roomDevicePanel"/u);
+  assert.match(live, /id="liveCameraSelect"/u);
+  assert.match(live, /id="liveMicrophoneSelect"/u);
+  assert.match(live, /engine\.switchDevice\(kind, deviceId\)/u);
+  assert.match(live, /saveDraft\(\)/u);
+  assert.match(live, /removeEventListener\?\.\('devicechange', handleDeviceChange\)/u);
+  assert.match(runtime, /this\.bridge\.switchDevice\(deviceKind, id\)/u);
+  assert.match(runtime, /this\.transcript\.stop\(\{ preserveState: true \}\)/u);
+  assert.match(runtime, /await this\.startTranscriptTiming\(media\.stream\)/u);
+  assert.match(css, /\.room-device-panel \{/u);
+  assert.doesNotMatch(live, /persistent[^\n]*navigation/iu);
+});
+
 test('FAC-02B responsive tier compacts every right-rail instrument without changing its analog or grid contract', async () => {
   const live = await source('public/ivoc-standalone/app/live.mjs');
   const css = await source('public/ivoc-standalone/styles/cockpit.css');

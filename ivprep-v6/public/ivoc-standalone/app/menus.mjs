@@ -587,6 +587,7 @@ async function readyScreen(el) {
       </div>
       <button class="btn btn-gold btn-xl ready-start" data-focusable data-autofocus data-start>▸ ENTER INTERVIEW ROOM</button>
       <div class="ready-note">Inside the room, Start Analytics arms real capture before you answer. Esc opens the pause menu at any time.</div>
+      <button class="btn btn-quiet" data-focusable data-devices>⚙ CAMERA + MICROPHONE</button>
       <button class="btn btn-quiet" data-focusable data-back>◂ BACK</button>
     </aside>
   </div>
@@ -603,6 +604,7 @@ async function readyScreen(el) {
   }).catch((error) => toast(`Camera unavailable: ${error.message}`, 'rec'));
   let counting = false;
   el.addEventListener('click', e => {
+    if (e.target.closest('[data-devices]')) { go('setup'); return; }
     if (e.target.closest('[data-back]')) { go('setup'); return; }
     if (e.target.closest('[data-start]') && !counting) {
       counting = true;
