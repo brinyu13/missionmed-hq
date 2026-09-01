@@ -1,39 +1,39 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
 import {
-  lstat,
-  mkdir,
   open,
   readFile,
-  rename,
-  unlink,
 } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const CANONICAL_PROTOTYPE_SHA256 = '8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037';
-export const CANONICAL_PROTOTYPE_BYTES = 332807;
-export const CANONICAL_MATERIALIZED_OUTPUT_SHA256 = 'a9ac6af59acbacedf23d8603f43a90aa6209017ab9b4d1a19503b588f5e946f8';
-export const CANONICAL_MATERIALIZED_OUTPUT_BYTES = 333791;
-export const PRODUCTION_ADAPTER_VERSION = 7;
+export const CANONICAL_PROTOTYPE_SHA256 = 'c249373619a45c31a1b895363fb1d3806d966c8fc413e0acdc4df0870c5a51b7';
+export const CANONICAL_PROTOTYPE_BYTES = 451550;
+export const CANONICAL_MATERIALIZED_OUTPUT_SHA256 = 'a1e66f87e01e88637325137a873079023126b4e2c645d74f3433a408f02b8fd9';
+export const CANONICAL_MATERIALIZED_OUTPUT_BYTES = 390117;
+export const PRODUCTION_ADAPTER_VERSION = 8;
 export const PROTOTYPE_SOURCE_ENV_VAR = 'LOR_STUDIO_PROTOTYPE_SOURCE';
 
 const UNSAFE_TOAST_IMPLEMENTATION = "function toast(m,ms){const t=$('#toast');t.innerHTML=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms||3200)}";
 const SAFE_TOAST_IMPLEMENTATION = "function toast(m,ms){const t=$('#toast');t.textContent=String(m??'');t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms||3200)}";
-const FROZEN_SCRIPT_MARKER = '<script id="lorFrozenPrototypeRuntime" type="application/x-lor-frozen-prototype">';
+const APPROVED_RUNTIME_MARKER = '<script id="lorFounderApprovedRuntime" type="text/javascript">';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const runtimeDirectory = path.resolve(scriptDirectory, '..', '..');
-const defaultSource = '/Users/brianb/MissionMed/F2-LOR-1003-functional-prototype.html';
+const defaultSource = '/Users/brianb/Dropbox (Personal)/SCREENSHOTS/F2-LOR-1012_LOR_STUDIO_STANDALONE_REVIEW_2026-08-24.html';
 const defaultOutput = path.join(runtimeDirectory, 'public', 'lor-studio', 'index.html');
 const defaultManifest = path.join(runtimeDirectory, 'public', 'lor-studio', 'FROZEN_PRESENTATION_MANIFEST.json');
 const MISSING_SOURCE_CODES = new Set(['ENOENT', 'ENOTDIR', 'EISDIR']);
 const ABSENT_SOURCE_CODES = new Set(['ENOENT', 'ENOTDIR']);
-const MISSING_OUTPUT_CODES = new Set(['ENOENT', 'ENOTDIR']);
-const CANONICAL_SOURCE_NAME = 'F2-LOR-1003-functional-prototype.html';
+const CANONICAL_SOURCE_NAME = 'F2-LOR-1012_LOR_STUDIO_STANDALONE_REVIEW_2026-08-24.html';
 const SECURITY_TRANSFORMS = Object.freeze([
   'toast_text_only',
-  'prototype_script_execution_quarantine',
+  'production_local_storage_disabled',
+  'founder_approved_runtime_executable',
+  'reduced_projection_runtime_rejected',
+  'faculty_ai_case_boundary_enforced',
+  'student_release_export_restored',
+  'durable_applicant_options_only',
 ]);
 const EXPECTED_MANIFEST_KEYS = Object.freeze([
   'adapterVersion',
@@ -146,11 +146,12 @@ function assertExactManifest(manifest) {
 
 function assertMaterializedSecurityMarkers(output) {
   const expectedMarkers = [
-    `Frozen source SHA-256: ${CANONICAL_PROTOTYPE_SHA256}`,
+    `approvedArtifactSha256:'${CANONICAL_PROTOTYPE_SHA256}'`,
     `production-adapter.css?v=${PRODUCTION_ADAPTER_VERSION}`,
     'id="lorRuntimeGate"',
-    FROZEN_SCRIPT_MARKER,
-    `production-projection-ui.js?v=${PRODUCTION_ADAPTER_VERSION}`,
+    APPROVED_RUNTIME_MARKER,
+    "presentationIsolation:{value:'founder_approved_application_with_production_adapters'",
+    'founderApprovedExecutable:{value:true',
     `production-adapter.js?v=${PRODUCTION_ADAPTER_VERSION}`,
     SAFE_TOAST_IMPLEMENTATION,
   ];
@@ -159,11 +160,14 @@ function assertMaterializedSecurityMarkers(output) {
       throw new Error(`Committed materialized output is missing required security marker: ${marker}`);
     }
   }
-  if (output.indexOf(FROZEN_SCRIPT_MARKER) !== output.lastIndexOf(FROZEN_SCRIPT_MARKER)) {
-    throw new Error('Committed materialized output must contain exactly one quarantined prototype script marker.');
+  if (output.indexOf(APPROVED_RUNTIME_MARKER) !== output.lastIndexOf(APPROVED_RUNTIME_MARKER)) {
+    throw new Error('Committed materialized output must contain exactly one executable Founder-approved runtime marker.');
   }
   if (output.includes(UNSAFE_TOAST_IMPLEMENTATION)) {
     throw new Error('Committed materialized output contains the unsafe toast implementation.');
+  }
+  if (output.includes('production-projection-ui.js')) {
+    throw new Error('Committed materialized output still loads the rejected reduced projection runtime.');
   }
 }
 
@@ -193,99 +197,12 @@ export async function verifyCommittedMaterialization({
   return { outputPath, manifestPath, ...manifest };
 }
 
-function replaceLast(value, needle, replacement) {
-  const index = value.lastIndexOf(needle);
-  if (index < 0) throw new Error(`Required closing marker ${needle} was not found.`);
-  return `${value.slice(0, index)}${replacement}${value.slice(index + needle.length)}`;
-}
-
-async function writeAtomicallyIfChanged(targetPath, value) {
-  const content = Buffer.isBuffer(value) ? value : Buffer.from(value);
-  let outputMode = 0o644;
-  try {
-    const outputStat = await lstat(targetPath);
-    if (!outputStat.isFile() || outputStat.isSymbolicLink()) {
-      throw new Error(`Refusing unsafe materialization target at ${targetPath}`);
-    }
-    outputMode = outputStat.mode & 0o777;
-    if ((await readFile(targetPath)).equals(content)) return false;
-  } catch (error) {
-    if (!error || !MISSING_OUTPUT_CODES.has(error.code)) throw error;
-  }
-
-  const temporaryPath = path.join(
-    path.dirname(targetPath),
-    `.${path.basename(targetPath)}.${process.pid}.${randomUUID()}.tmp`,
-  );
-  let handle;
-  try {
-    handle = await open(temporaryPath, 'wx', 0o600);
-    await handle.writeFile(content);
-    await handle.sync();
-    await handle.chmod(outputMode);
-    await handle.close();
-    handle = undefined;
-    await rename(temporaryPath, targetPath);
-    return true;
-  } catch (error) {
-    if (handle) await handle.close().catch(() => {});
-    await unlink(temporaryPath).catch((cleanupError) => {
-      if (!cleanupError || cleanupError.code !== 'ENOENT') {
-        Object.defineProperty(error, 'cleanupError', { value: cleanupError });
-      }
-    });
-    throw error;
-  }
-}
-
 export function materializeFrozenPrototype(sourceHtml) {
   const sourceDigest = digest(sourceHtml);
   if (sourceDigest !== CANONICAL_PROTOTYPE_SHA256) {
     throw new Error(`Canonical prototype digest mismatch: expected ${CANONICAL_PROTOTYPE_SHA256}, received ${sourceDigest}`);
   }
-
-  const headMarker = `
-<!-- F2-LOR-1009 production adapter. Frozen source SHA-256: ${CANONICAL_PROTOTYPE_SHA256}. -->
-<link rel="stylesheet" href="/lor-studio/production-adapter.css?v=${PRODUCTION_ADAPTER_VERSION}">
-`;
-  const bodyMarker = `
-<section id="lorRuntimeGate" class="lor-runtime-gate" role="status" aria-live="polite" aria-busy="true">
-  <div class="lor-runtime-gate__card">
-    <p class="lor-runtime-gate__eyebrow">MissionMed LOR Studio</p>
-    <h1 id="lorRuntimeGateTitle">Checking secure access</h1>
-    <p id="lorRuntimeGateMessage">Confirming your session, LOR entitlement, and runtime readiness.</p>
-    <div id="lorRuntimeGateActions" class="lor-runtime-gate__actions"></div>
-    <p id="lorRuntimeGateCode" class="lor-runtime-gate__code"></p>
-  </div>
-</section>
-`;
-  // Order matters. production-projection-ui.js publishes the renderer factory the adapter looks
-  // for; loading it second would leave the adapter with no renderer on first paint and fall back
-  // to the closed state. Both are classic scripts, so this is load order, not module resolution.
-  const scriptMarker = `
-<script src="/lor-studio/production-projection-ui.js?v=${PRODUCTION_ADAPTER_VERSION}"></script>
-<script src="/lor-studio/production-adapter.js?v=${PRODUCTION_ADAPTER_VERSION}"></script>
-`;
-
-  let generated = sourceHtml;
-  if (!generated.includes(UNSAFE_TOAST_IMPLEMENTATION)) {
-    throw new Error('Expected frozen toast implementation was not found; security transform cannot be proven.');
-  }
-  generated = generated.replace(UNSAFE_TOAST_IMPLEMENTATION, SAFE_TOAST_IMPLEMENTATION);
-  if ((generated.match(/<script>/gu) || []).length !== 1) {
-    throw new Error('Expected exactly one frozen prototype script before execution quarantine.');
-  }
-  generated = generated.replace('<script>', FROZEN_SCRIPT_MARKER);
-  generated = generated.replace(/<html\b([^>]*)>/u, '<html$1 data-lor-runtime="gated">');
-  generated = generated.replace('</head>', `${headMarker}</head>`);
-  generated = generated.replace(/<body([^>]*)>/u, `<body$1>${bodyMarker}`);
-  generated = replaceLast(generated, '</body>', `${scriptMarker}</body>`);
-
-  if (generated === sourceHtml || !generated.includes('id="lorRuntimeGate"') || !generated.includes('production-adapter.js') || !generated.includes('production-projection-ui.js')) {
-    throw new Error('Production adapter injection failed.');
-  }
-
-  return generated;
+  throw new Error('Ticket 024 production adapters are custody-reviewed source and may not be regenerated from a lossy transform. Verify the committed materialization instead.');
 }
 
 export async function materialize({
@@ -310,26 +227,15 @@ export async function materialize({
       reusedCommittedMaterialization: true,
     };
   }
-  const generated = materializeFrozenPrototype(source.toString('utf8'));
-  await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeAtomicallyIfChanged(outputPath, generated);
-  const result = {
-    sourceName: path.basename(resolvedSourcePath),
-    sourceSha256: digest(source),
-    sourceBytes: source.byteLength,
-    outputSha256: digest(generated),
-    outputBytes: Buffer.byteLength(generated),
-    adapterVersion: PRODUCTION_ADAPTER_VERSION,
-    securityTransforms: [...SECURITY_TRANSFORMS],
-  };
-  await mkdir(path.dirname(manifestPath), { recursive: true });
-  await writeAtomicallyIfChanged(manifestPath, `${JSON.stringify(result, null, 2)}\n`);
+  const sourceDigest = digest(source);
+  if (sourceDigest !== CANONICAL_PROTOTYPE_SHA256 || source.byteLength !== CANONICAL_PROTOTYPE_BYTES) {
+    throw new Error(`Canonical prototype digest mismatch: expected ${CANONICAL_PROTOTYPE_SHA256}, received ${sourceDigest}`);
+  }
+  const result = await verifyCommittedMaterialization({ outputPath, manifestPath });
   return {
     sourcePath: resolvedSourcePath,
-    outputPath,
-    manifestPath,
     ...result,
-    reusedCommittedMaterialization: false,
+    reusedCommittedMaterialization: true,
   };
 }
 

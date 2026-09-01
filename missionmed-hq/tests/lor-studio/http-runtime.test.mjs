@@ -1176,19 +1176,20 @@ test('the LOR CSP admits the brand font stylesheet and font files, and nothing e
   assert.equal(/googleapis/u.test(csp.replace(/style-src[^;]*/u, '')), false);
 });
 
-test('frozen public snapshot contains the adapter gate and source digest declaration', async () => {
+test('public snapshot executes the Founder-approved application and rejects the reduced renderer', async () => {
   const manifest = JSON.parse(await readFile(path.join(publicDirectory, 'FROZEN_PRESENTATION_MANIFEST.json'), 'utf8'));
   const html = await readFile(path.join(publicDirectory, 'index.html'), 'utf8');
-  assert.equal(manifest.sourceSha256, '8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037');
+  assert.equal(manifest.sourceSha256, 'c249373619a45c31a1b895363fb1d3806d966c8fc413e0acdc4df0870c5a51b7');
   assert.equal(createHash('sha256').update(html).digest('hex'), manifest.outputSha256);
-  // Bumped 6 -> 7 when the materializer began injecting production-projection-ui.js ahead of
-  // production-adapter.js. The page previously loaded no renderer at all, so the adapter had
-  // nothing to hydrate into and always fell through to the closed state. This pin exists to catch
-  // UNintended drift in the frozen snapshot; this drift is intended and recorded.
-  assert.equal(manifest.adapterVersion, 7);
+  assert.equal(manifest.adapterVersion, 8);
   assert.deepEqual(manifest.securityTransforms, [
     'toast_text_only',
-    'prototype_script_execution_quarantine',
+    'production_local_storage_disabled',
+    'founder_approved_runtime_executable',
+    'reduced_projection_runtime_rejected',
+    'faculty_ai_case_boundary_enforced',
+    'student_release_export_restored',
+    'durable_applicant_options_only',
   ]);
   assert.match(html, new RegExp(manifest.sourceSha256, 'u'));
   assert.match(html, /data-lor-runtime="gated"/u);
@@ -1196,15 +1197,11 @@ test('frozen public snapshot contains the adapter gate and source digest declara
   assert.match(html, /production-adapter\.js/u);
   assert.match(html, /t\.textContent=String\(m\?\?''\)/u);
   assert.doesNotMatch(html, /t\.innerHTML=m/u);
-  assert.match(html, /<script id="lorFrozenPrototypeRuntime" type="application\/x-lor-frozen-prototype">/u);
-  assert.doesNotMatch(html, /<script>\s*'use strict';\s*\/\* =+ LOR STUDIO F2-LOR-1002/u);
-  // Both bundles, in this exact order, immediately before </body>. The order is load-bearing:
-  // production-projection-ui.js publishes the renderer factory that production-adapter.js looks
-  // for on first paint, so reversing them would leave the adapter with no renderer and fall the
-  // page back to the closed state - which is precisely the bug that kept Studio dark, since the
-  // renderer bundle was not injected at all.
+  assert.match(html, /<script id="lorFounderApprovedRuntime" type="text\/javascript">/u);
+  assert.match(html, /approvedArtifactSha256:'c249373619a45c31a1b895363fb1d3806d966c8fc413e0acdc4df0870c5a51b7'/u);
+  assert.doesNotMatch(html, /production-projection-ui\.js/u);
   assert.match(
     html,
-    /<\/script>\s*<script src="\/lor-studio\/production-projection-ui\.js\?v=7"><\/script>\s*<script src="\/lor-studio\/production-adapter\.js\?v=7"><\/script>\s*<\/body>\s*<\/html>\s*$/u,
+    /<\/script>\s*<script src="\/lor-studio\/production-adapter\.js\?v=8"><\/script>\s*<\/body>\s*<\/html>\s*$/u,
   );
 });

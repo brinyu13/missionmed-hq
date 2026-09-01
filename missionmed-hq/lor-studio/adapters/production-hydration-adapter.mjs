@@ -558,9 +558,10 @@ function assertProductionUi(ui) {
   assertDependency(ui, 'block', 'ui_block');
   assertDependency(ui, 'renderProductionProjection', 'ui_render');
   if (
-    ui.presentationIsolation !== 'production_projection_only'
+    ui.presentationIsolation !== 'founder_approved_application_with_production_adapters'
     || ui.usesLocalStorage !== false
     || ui.canRevealPrototype !== false
+    || ui.founderApprovedExecutable !== true
   ) {
     throw new IntegrationDisabledError('lor_production_hydration', 'PRODUCTION_UI_ISOLATION_REQUIRED');
   }

@@ -1,12 +1,17 @@
 {
-  "sourceName": "F2-LOR-1003-functional-prototype.html",
-  "sourceSha256": "8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037",
-  "sourceBytes": 332807,
-  "outputSha256": "a9ac6af59acbacedf23d8603f43a90aa6209017ab9b4d1a19503b588f5e946f8",
-  "outputBytes": 333791,
-  "adapterVersion": 7,
+  "sourceName": "F2-LOR-1012_LOR_STUDIO_STANDALONE_REVIEW_2026-08-24.html",
+  "sourceSha256": "c249373619a45c31a1b895363fb1d3806d966c8fc413e0acdc4df0870c5a51b7",
+  "sourceBytes": 451550,
+  "outputSha256": "a1e66f87e01e88637325137a873079023126b4e2c645d74f3433a408f02b8fd9",
+  "outputBytes": 390117,
+  "adapterVersion": 8,
   "securityTransforms": [
     "toast_text_only",
-    "prototype_script_execution_quarantine"
+    "production_local_storage_disabled",
+    "founder_approved_runtime_executable",
+    "reduced_projection_runtime_rejected",
+    "faculty_ai_case_boundary_enforced",
+    "student_release_export_restored",
+    "durable_applicant_options_only"
   ]
 }

@@ -53,7 +53,7 @@ async function createCommittedFixture(name) {
 
 async function loadWithDefaultSource(defaultSourcePath) {
   const original = await readFile(materializerPath, 'utf8');
-  const originalDeclaration = "const defaultSource = '/Users/brianb/MissionMed/F2-LOR-1003-functional-prototype.html';";
+  const originalDeclaration = "const defaultSource = '/Users/brianb/Dropbox (Personal)/SCREENSHOTS/F2-LOR-1012_LOR_STUDIO_STANDALONE_REVIEW_2026-08-24.html';";
   assert.equal(original.split(originalDeclaration).length, 2, 'test seam must replace exactly one default source declaration');
   const isolated = original.replace(
     originalDeclaration,
@@ -220,7 +220,7 @@ test('rejects invalid JSON, extra manifest keys, and every security-bound manife
   }
 });
 
-test('rejects changed output bytes and removed quarantine markers', async (context) => {
+test('rejects changed output bytes and removed approved-runtime custody markers', async (context) => {
   await context.test('changed byte count', async () => {
     const fixture = await createCommittedFixture('changed-byte-count');
     await writeFile(fixture.outputPath, `${await readFile(fixture.outputPath, 'utf8')}\n`);

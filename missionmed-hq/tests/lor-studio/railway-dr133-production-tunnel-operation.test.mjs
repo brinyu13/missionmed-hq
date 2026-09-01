@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   DR133_ARTIFACTS,
@@ -38,6 +39,7 @@ const PRODUCTION_CA = await readFile(
   new URL('./dr133-production-root-ca.pem', import.meta.url),
   'utf8',
 );
+const missionmedHqDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const TOKEN = 'r'.repeat(48);
 const PORT = 55_432;
 const SOURCE_COMMIT = 'a'.repeat(40);
@@ -351,8 +353,7 @@ test('descriptors pin exact connect name and exact no-local sanitizer-only servi
   assert.equal(operation.at(-4), '/usr/local/bin/node');
   assert.equal(
     operation.at(-3),
-    '/Users/brianb/MissionMed_worktrees/F2-LOR-1009/missionmed-hq/'
-      + 'scripts/lor-studio/run-dr133-railway-production-service-operation.mjs',
+    path.join(missionmedHqDirectory, 'scripts', 'lor-studio', 'run-dr133-railway-production-service-operation.mjs'),
   );
   assert.equal(operation.at(-2), 'connectivity-preflight');
   assert.equal(operation.at(-1), String(PORT));
@@ -642,7 +643,7 @@ test('isolated sanitizer argv contains no secret and hostile startup variables c
     assert.doesNotMatch(argv, /BEGIN CERTIFICATE|postgres(?:ql)?:\/\//u);
     const code = await new Promise((resolve, reject) => {
       const child = spawn(executable, args, {
-        cwd: '/Users/brianb/MissionMed_worktrees/F2-LOR-1009/missionmed-hq',
+        cwd: missionmedHqDirectory,
         env: hostileEnvironment,
         shell: false,
         stdio: ['ignore', 'ignore', 'ignore'],

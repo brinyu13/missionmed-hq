@@ -10,11 +10,9 @@
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
   const fixtureRequested = new URLSearchParams(window.location.search).get('fidelity') === '1';
   const isLocalFixture = window.location.protocol === 'file:' || (localHosts.has(window.location.hostname) && fixtureRequested);
-  // The concurrent projection-UI lane had not landed public/lor-studio/production-projection-ui.js
-  // when this adapter was written, so the handshake is this global. It accepts either a factory
-  // (called with { mount, document }) or an already-constructed UI object; either way the object
-  // must satisfy the same isolation contract the server-side adapter enforces in
-  // adapters/production-hydration-adapter.mjs assertProductionUi.
+  // The August 24 Founder-approved application publishes this handshake after its executable
+  // runtime boots. The adapter supplies role-safe DTOs and command functions only; it does not
+  // own screen structure, navigation, terminology or the information architecture.
   const PRODUCTION_UI_GLOBAL = 'LorProductionProjectionUi';
   const PROTOTYPE_MARKER_KEYS = /^(?:demo|fixture|fixtureData|localStorage|prototypeState|synthetic|syntheticData)$/u;
   const PRODUCTION_MOUNT_ID = 'lorProductionRoot';
@@ -116,25 +114,6 @@
     });
   }
 
-  function activateFrozenFixtureRuntime() {
-    // Un-quarantining the frozen prototype script is a fixture-only capability. Production must
-    // never reach this, so the refusal lives here rather than only at the call site.
-    if (!isLocalFixture) return false;
-    const frozenRuntime = document.getElementById('lorFrozenPrototypeRuntime');
-    if (!frozenRuntime) return false;
-    if (
-      !(frozenRuntime instanceof HTMLScriptElement)
-      || frozenRuntime.type !== 'application/x-lor-frozen-prototype'
-    ) {
-      return false;
-    }
-    const executable = document.createElement('script');
-    executable.dataset.lorFixtureRuntime = 'active';
-    executable.textContent = `${frozenRuntime.textContent || ''}\n;window.__LOR_FROZEN_PROTOTYPE_READY__=true;`;
-    frozenRuntime.replaceWith(executable);
-    return Reflect.get(window, '__LOR_FROZEN_PROTOTYPE_READY__') === true;
-  }
-
   function blockUnhydratedLiveRuntime() {
     Object.assign(window, {
       __LOR_STUDIO_RUNTIME__: Object.freeze({
@@ -144,7 +123,7 @@
     });
     showState({
       heading: 'LOR Studio is not yet available',
-      detail: 'The protected data runtime reported ready, but the frozen prototype has no authorized production hydration adapter. Access remains closed.',
+      detail: 'The protected data runtime reported ready, but the Founder-approved application adapter did not pass its production contract. Access remains closed.',
       reason: 'frontend_hydration_unavailable',
       retry: false,
     });
@@ -152,7 +131,7 @@
 
   /**
    * Mirrors adapters/production-hydration-adapter.mjs assertProductionUi. The browser cannot
-   * import that module, so the same five conditions are re-checked here before any authoritative
+   * import that module, so the same conditions are re-checked here before any authoritative
    * projection is handed over. Anything that fails returns null and the caller fails closed.
    */
   function assertProductionUiContract(ui) {
@@ -160,9 +139,10 @@
     if (typeof ui.block !== 'function') return null;
     if (typeof ui.renderProductionProjection !== 'function') return null;
     if (typeof ui.showEmptyWorkspace !== 'function') return null;
-    if (ui.presentationIsolation !== 'production_projection_only') return null;
+    if (ui.presentationIsolation !== 'founder_approved_application_with_production_adapters') return null;
     if (ui.usesLocalStorage !== false) return null;
     if (ui.canRevealPrototype !== false) return null;
+    if (ui.founderApprovedExecutable !== true) return null;
     return ui;
   }
 
@@ -724,10 +704,9 @@
 
   function revealProductionRuntime() {
     root.dataset.lorRuntime = 'live';
-    // Deliberately still `true`: only the production mount and the gate are exempt from the
-    // inert sweep, so the frozen prototype markup underneath stays inert and aria-hidden even
-    // once the real projection is on screen. Production shows the projection, nothing else.
-    setUnderlyingState(true);
+    // Ticket 024 reverses the rejected architecture: the approved application itself is the live
+    // surface. The production mount remains an adapter implementation detail and stays empty.
+    setUnderlyingState(false);
     if (gate) {
       gate.hidden = true;
       gate.style.display = 'none';
@@ -962,7 +941,7 @@
       } else {
         showState({
           heading: 'LOR Studio is not ready yet',
-          detail: 'The protected application runtime is unavailable. The prototype beneath this screen remains synthetic and is not being presented as production.',
+          detail: 'The protected application runtime is unavailable. No case data is being presented.',
           reason,
           retry: true,
         });
@@ -1050,7 +1029,7 @@
   }, { once: true });
   setUnderlyingState(true);
   if (isLocalFixture) {
-    if (activateFrozenFixtureRuntime()) {
+    if (Reflect.get(window, 'MissionMedLorFounderApprovedApp')) {
       installDialogAccessibility();
       revealFixture();
     } else {

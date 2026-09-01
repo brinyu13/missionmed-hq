@@ -3,11 +3,11 @@ html[data-lor-runtime="checking"] body > :not(#lorRuntimeGate):not(script) {
   visibility: hidden !important;
 }
 
-/* Live mode is production-projection-only: the frozen fixture runtime remains visually hidden
-   and inert. The hydrated projection now renders through the Founder-approved LOR Studio shell,
-   using the original design language without reviving any fixture state. */
-html[data-lor-runtime="live"] body > :not(#lorProductionRoot):not(script) {
-  visibility: hidden !important;
+/* Ticket 024: the August 24 Founder-approved application is the live renderer. The dedicated
+   mount remains an empty transport implementation detail; it may never cover or replace the
+   approved header, navigation, sheets, Depot, Builder, mentor views, or faculty workspace. */
+html[data-lor-runtime="live"] #lorProductionRoot {
+  display: none !important;
 }
 
 .lor-production-root {

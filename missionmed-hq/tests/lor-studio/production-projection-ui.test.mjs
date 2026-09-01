@@ -535,7 +535,7 @@ function hydrationAdapterFor(ui, projection) {
 
 /* ------------------------------------------------------------------ contract */
 
-test('the factory produces an object the server-side assertProductionUi accepts verbatim', () => {
+test('the superseded reduced renderer is rejected by the Ticket 024 production UI contract', () => {
   const harness = createHarness();
   const { ui } = harness;
   assert.equal(ui.presentationIsolation, 'production_projection_only');
@@ -544,9 +544,10 @@ test('the factory produces an object the server-side assertProductionUi accepts 
   assert.equal(typeof ui.block, 'function');
   assert.equal(typeof ui.renderProductionProjection, 'function');
 
-  // Constructing the real adapter is the assertion: assertProductionUi runs inside it.
-  const adapter = hydrationAdapterFor(ui, studentProjection(draftCase()));
-  assert.ok(adapter instanceof ProductionHydrationAdapter);
+  assert.throws(
+    () => hydrationAdapterFor(ui, studentProjection(draftCase())),
+    /lor_production_hydration integration is unavailable/u,
+  );
 });
 
 test('the isolation flags cannot be flipped after the adapter has read them', () => {
@@ -561,34 +562,17 @@ test('the isolation flags cannot be flipped after the adapter has read them', ()
   assert.equal(ui.usesLocalStorage, false);
 });
 
-test('a full production hydration paints the durable case and touches no storage or network', async () => {
+test('the superseded reduced renderer cannot receive a full production hydration', () => {
   const harness = createHarness();
   const projection = studentProjection(releasedCase());
-  const adapter = hydrationAdapterFor(harness.ui, projection);
-
-  const result = await adapter.hydrate({ caseId: CASE_ID });
-
-  assert.deepEqual({ ...result }, {
-    hydrated: true,
-    runtimeMode: 'live',
-    caseId: CASE_ID,
-    fixtureRevealed: false,
-    localStorageUsed: false,
-  });
+  assert.throws(
+    () => hydrationAdapterFor(harness.ui, projection),
+    /lor_production_hydration integration is unavailable/u,
+  );
   assert.equal(harness.storageTouches.length, 0);
   assert.equal(harness.cookieTouches.length, 0);
   assert.equal(harness.networkCalls.length, 0);
   assertPrototypeStillQuarantined(harness);
-  assertNoInlineHandlers(harness);
-  assertNoInternalLeak(harness);
-
-  openStudentView(harness, 'letters');
-  const rendered = harness.text();
-  assert.match(rendered, /Faculty review/u);
-  assert.match(rendered, new RegExp(`Case ${CASE_ID}`, 'u'));
-  assert.match(rendered, new RegExp(`Version ${projection.revision}`, 'u'));
-  assert.match(rendered, /8 of 8 steps complete · 100%/u);
-  assert.ok(rendered.includes(FINAL_TEXT), 'the released letter text must be shown');
 });
 
 /* ------------------------------------------------ projection rendering fidelity */
@@ -1096,33 +1080,30 @@ test('a mentor projection with any extra field is refused instead of widening th
   assert.ok(!harness.text().includes('must never render'));
 });
 
-test('a hydration failure leaves a closed, honest screen and no case content', async () => {
+test('the superseded reduced renderer is refused before even a closed hydration branch', () => {
   const harness = createHarness();
-  const adapter = new ProductionHydrationAdapter({
-    bootstrapLoader: {
-      source: 'protected_lor_bootstrap',
-      fixtureBacked: false,
-      load: async () => ({ operational: false, runtimeMode: 'unavailable' }),
-    },
-    dependencyHealth: { metadataOnly: true, snapshot: async () => readyHealthSnapshot() },
-    projectionLoader: {
-      source: 'durable_repository',
-      fixtureBacked: false,
-      loadProductionProjection: async () => null,
-    },
-    ui: harness.ui,
-    clock: () => NOW,
-  });
-
-  const result = await adapter.hydrate({ caseId: CASE_ID });
-  assert.equal(result.hydrated, false);
-  assert.equal(result.fixtureRevealed, false);
-  assert.equal(result.localStorageUsed, false);
-  assert.match(harness.text(), /LOR Studio cannot open your case right now/u);
-  assert.equal(harness.mount.querySelector('.stepRail'), null);
+  assert.throws(
+    () => new ProductionHydrationAdapter({
+      bootstrapLoader: {
+        source: 'protected_lor_bootstrap',
+        fixtureBacked: false,
+        load: async () => ({ operational: false, runtimeMode: 'unavailable' }),
+      },
+      dependencyHealth: { metadataOnly: true, snapshot: async () => readyHealthSnapshot() },
+      projectionLoader: {
+        source: 'durable_repository',
+        fixtureBacked: false,
+        loadProductionProjection: async () => null,
+      },
+      ui: harness.ui,
+      clock: () => NOW,
+    }),
+    /lor_production_hydration integration is unavailable/u,
+  );
   assert.equal(harness.storageTouches.length, 0);
+  assert.equal(harness.text(), '');
+  assert.equal(harness.mount.querySelector('.stepRail'), null);
   assertPrototypeStillQuarantined(harness);
-  assertNoInternalLeak(harness);
 });
 
 /* -------------------------------------------------------------------- states */

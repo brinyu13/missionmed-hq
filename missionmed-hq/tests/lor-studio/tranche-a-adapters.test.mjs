@@ -3119,9 +3119,10 @@ function hydrationEnvelope(binding, overrides = {}) {
 function hydrationUi() {
   const calls = { blocked: [], rendered: [] };
   return {
-    presentationIsolation: 'production_projection_only',
+    presentationIsolation: 'founder_approved_application_with_production_adapters',
     usesLocalStorage: false,
     canRevealPrototype: false,
+    founderApprovedExecutable: true,
     calls,
     async block(request) { calls.blocked.push(request); },
     async renderProductionProjection(projection, options) { calls.rendered.push({ projection, options }); },

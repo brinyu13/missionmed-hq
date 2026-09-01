@@ -489,7 +489,7 @@ body[data-role="mentor"] .btn.pri{color:#04121c}
 </style>
 
 <!-- F2-LOR-1009 production adapter. Frozen source SHA-256: 8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037. -->
-<link rel="stylesheet" href="/lor-studio/production-adapter.css?v=7">
+<link rel="stylesheet" href="/lor-studio/production-adapter.css?v=8">
 </head>
 <body data-role="student">
 <section id="lorRuntimeGate" class="lor-runtime-gate" role="status" aria-live="polite" aria-busy="true">
@@ -527,19 +527,19 @@ body[data-role="mentor"] .btn.pri{color:#04121c}
 <div id="modal" role="dialog" aria-modal="true"><div class="modalIn" id="modalIn"></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script id="lorFrozenPrototypeRuntime" type="application/x-lor-frozen-prototype">
+<script id="lorFounderApprovedRuntime" type="text/javascript">
 'use strict';
-/* ================= LOR STUDIO F2-LOR-1002 — PROTOTYPE =================
-   Self-contained functional prototype. All people, institutions, stories,
-   and clinical details are synthetic demo data. Persistence is local-only
-   (this browser). No live AI, ERAS, Matrix, Timeline, StoryForge, or
-   ResidencyCAS connection exists in this prototype.                      */
+/* ================= FOUNDER-APPROVED LOR STUDIO APPLICATION =================
+   The August 24 executable application is the controlling frontend baseline.
+   Local fidelity mode retains its labeled synthetic state. Production mode
+   receives only role-safe server projections and production command adapters. */
 
 const LS_KEY='lorstudio-f2-1002';
+const IS_FIDELITY_FIXTURE=(location.hostname==='127.0.0.1'||location.hostname==='localhost')&&new URLSearchParams(location.search).get('fidelity')==='1';
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
 const esc=x=>String(x==null?'':x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid=()=>'id'+Math.random().toString(36).slice(2,9);
-const todayISO='2026-08-02'; // demo "today" anchor for consistent readiness math
+const todayISO=IS_FIDELITY_FIXTURE?'2026-08-02':new Date().toISOString().slice(0,10);
 function fmtD(iso){if(!iso)return'—';const[y,m,d]=iso.split('-').map(Number);return['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]+' '+d+', '+y}
 function monthsSince(iso){if(!iso)return 99;const a=new Date(iso),b=new Date(todayISO);return Math.max(0,Math.round((b-a)/(1000*60*60*24*30.4)))}
 function daysUntil(iso){const a=new Date(todayISO),b=new Date(iso);return Math.round((b-a)/(1000*60*60*24))}
@@ -556,7 +556,7 @@ const PROV={
   ai:{cls:'ai',label:'AI inference — needs human confirmation'},
   app:{cls:'app',label:'Writer-approved language'}
 };
-const STAGES=['considering','evidence','ready','asked','agreed','packetSent','drafts','facultyWorking','uploadPending','uploaded','assigned','thanked'];
+const STAGES=['considering','evidence','ready','asked','agreed','packetSent','drafts','facultyWorking','uploadPending','released','delivered','uploaded','assigned','thanked'];
 const STAGE_META={
   considering:{label:'Considering',hint:'You are evaluating this potential writer.',cls:''},
   evidence:{label:'Build more evidence',hint:'The relationship or observation base is not ready yet.',cls:'warn'},
@@ -568,6 +568,8 @@ const STAGE_META={
   drafts:{label:'Working drafts',hint:'The writer asked you to prepare a draft. Applicant-prepared versions live here.',cls:'warn'},
   facultyWorking:{label:'Faculty working',hint:'The writer is gathering evidence or drafting. Not surveillance — they control what you see.',cls:'info'},
   uploadPending:{label:'Official upload pending',hint:'Faculty work is done; the official system upload is not yet confirmed.',cls:'warn'},
+  released:{label:'Released to student',hint:'The faculty writer released the final document through MissionMed.',cls:'good'},
+  delivered:{label:'Delivered',hint:'The authorized production delivery workflow recorded completion.',cls:'good'},
   uploaded:{label:'Uploaded (self-reported)',hint:'You recorded this yourself. LOR Studio does not monitor ERAS.',cls:'good'},
   assigned:{label:'Assigned to programs',hint:'Planned in your program assignment map.',cls:'good'},
   thanked:{label:'Thank-you sent',hint:'The relationship closed respectfully.',cls:'good'}
@@ -683,13 +685,30 @@ function seedState(){
   };
 }
 /* ---------- state, persistence, chrome ---------- */
+function emptyProductionState(){
+  return {
+    v:3,role:'student',view:'build',student:{name:'Your MissionMed profile',first:'You',degree:'',img:false,pron:'they',profile:[]},
+    specialty:'im',rotations:[],writers:[],evidence:[],cases:[],programs:[],timelineImported:false,mentorNotes:[],
+    gmail:{connected:false,email:''},
+    library:{favs:[],tags:{},recent:[],q:'',fSpec:'',fUsce:'',fRole:'',fTone:'',fLen:'',fStruct:'',fStr:'',fDur:'',sort:'relevant',compare:[]},
+    builds:{},thanks:{},
+    ui:{caseId:null,caseStep:'overview',facCaseId:null,buildCase:null,depotCase:null,depotAs:null,depotMob:false,intelTab:'writers'},
+    production:{projection:null,commands:null,syncTimer:null,syncing:false,dirty:false,lastError:null}
+  };
+}
 let D=null;
-function persist(){try{localStorage.setItem(LS_KEY,JSON.stringify(D))}catch(e){}}
+function persist(){
+  if(IS_FIDELITY_FIXTURE){try{localStorage.setItem(LS_KEY,JSON.stringify(D))}catch(e){};return}
+  D.production.dirty=true;
+  if(typeof window.__LOR_APPROVED_APP_SYNC__==='function')window.__LOR_APPROVED_APP_SYNC__();
+}
 (function boot(){
-  try{const raw=localStorage.getItem(LS_KEY);if(raw){const d=JSON.parse(raw);if(d&&d.v===2){D=d}}}catch(e){}
-  if(!D){D=seedState();persist()}
+  if(IS_FIDELITY_FIXTURE){
+    try{const raw=localStorage.getItem(LS_KEY);if(raw){const d=JSON.parse(raw);if(d&&d.v===2){D=d}}}catch(e){}
+    if(!D){D=seedState();persist()}
+  }else D=emptyProductionState();
 })();
-function resetDemo(){try{localStorage.removeItem(LS_KEY)}catch(e){};location.reload()}
+function resetDemo(){if(!IS_FIDELITY_FIXTURE)return;try{localStorage.removeItem(LS_KEY)}catch(e){};location.reload()}
 
 function toast(m,ms){const t=$('#toast');t.textContent=String(m??'');t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms||3200)}
 function modal(html,wide){const m=$('#modal'),i=$('#modalIn');i.className='modalIn'+(wide?' wide':'');i.innerHTML=html;m.classList.add('open');
@@ -722,6 +741,7 @@ function pushEvent(c,label,conf,d){
 function buildOf(c){if(!D.builds[c.id])D.builds[c.id]={caseId:c.id,step:0,situation:null,templateId:null,tplPrefs:null,writerAck:false,ing:{},ingEdits:{},answers:{},followups:[],prefs:{formality:'balanced',warmth:'warm',length:'standard'},logistics:{},flags:{fixed:[]},letters:null,chosenId:null,finalText:null,qIdx:0};return D.builds[c.id]}
 function go(v){D.view=v;persist();render();$('#main').scrollTop=0}
 function switchRole(r){
+  if(!IS_FIDELITY_FIXTURE)return;
   if(r===D.role)return;
   /* close any open student/faculty surface — roles never stack */
   $('#sheet').classList.remove('open');$('#facWrap').classList.remove('open');closeModal();
@@ -845,13 +865,15 @@ function nextActionFor(c){
       return{t:b&&b.chosenId?'Finish the writer package for '+w.name+' in LOR Builder':'Build the letter '+w.name+' asked for — open LOR Builder',go:()=>openBuilder(c.id,b&&b.chosenId?7:undefined)}};
     case 'facultyWorking':return{t:w.name+' is working — nothing needed from you right now',go:()=>openCase(c.id,'status')};
     case 'uploadPending':return{t:'Confirm the official upload for '+w.name+'’s letter',go:()=>openCase(c.id,'status')};
+    case 'released':return{t:'Review or download '+w.name+'’s released letter',go:()=>go('letters')};
+    case 'delivered':return{t:'Review '+w.name+'’s completed delivery',go:()=>openCase(c.id,'status')};
     case 'uploaded':return{t:'Assign '+w.name+'’s letter to programs',go:()=>go('programs')};
     case 'assigned':return{t:'Send a thank-you to '+w.name,go:()=>openCase(c.id,'status')};
     default:return{t:'Review '+w.name+'’s case',go:()=>openCase(c.id,'overview')};
   }
 }
 function topNextAction(){
-  const order=['drafts','ready','agreed','asked','packetSent','uploadPending','uploaded','considering','evidence','assigned','facultyWorking','thanked'];
+  const order=['drafts','ready','agreed','asked','packetSent','uploadPending','considering','evidence','facultyWorking','released','delivered','uploaded','assigned','thanked'];
   const active=[...D.cases].sort((a,b)=>order.indexOf(a.stage)-order.indexOf(b.stage));
   // surface the Marchetti stall first if overdue
   const stalled=D.cases.find(c=>c.stage==='asked'&&Math.round((new Date(todayISO)-new Date(c.request.sent))/86400000)>=14);
@@ -1253,10 +1275,10 @@ function printLetter(title,text){
   window.print();
 }
 /* ================= STUDENT VIEWS ================= */
-function stageChip(c){const m=STAGE_META[c.stage];return `<span class="stage ${m.cls}" title="${esc(m.hint)}">${m.label}</span>`}
+function stageChip(c){if(D.production)return lorProductionStageChip(c);const m=STAGE_META[c.stage];return `<span class="stage ${m.cls}" title="${esc(m.hint)}">${m.label}</span>`}
 function pipeHTML(c){
   const main=['considering','ready','asked','agreed','packetSent','facultyWorking','uploaded','assigned'];
-  const idx=(st=>{const map={considering:0,evidence:0,ready:1,asked:2,agreed:3,drafts:4,packetSent:4,facultyWorking:5,uploadPending:5,uploaded:6,declined:2,assigned:7,thanked:7};return map[st]??0})(c.stage);
+  const idx=(st=>{const map={considering:0,evidence:0,ready:1,asked:2,agreed:3,drafts:4,packetSent:4,facultyWorking:5,uploadPending:5,released:6,delivered:6,uploaded:6,declined:2,assigned:7,thanked:7};return map[st]??0})(c.stage);
   return '<div class="pipe" aria-hidden="true">'+main.map((s,i)=>`<i class="${i<idx?'done':i===idx?'on':''}"></i>`).join('')+'</div>';
 }
 function verdictChip(w){const r=readiness(w);const cls=r.vCls==='good'?'good':r.vCls==='warn'?'warn':'bad';
@@ -1283,7 +1305,7 @@ function renderHome(){
         <div class="panel"><div class="pHead"><div class="h2">Your letter <em>plan</em></div><button class="pMore" data-nav="writers">All writers ▸</button></div>
           <div class="pBody">
             ${active.map(c=>{const w=wOf(c.writerId);const nx=nextActionFor(c);
-              return `<div class="caseCard" data-case="${c.id}" role="button" tabindex="0" style="--hue:${c.stage==='uploaded'||c.stage==='assigned'?'var(--gn)':c.stage==='drafts'?'var(--gd)':'var(--em)'}">
+              return `<div class="caseCard" data-case="${c.id}" role="button" tabindex="0" style="--hue:${['released','delivered','uploaded','assigned'].includes(c.stage)?'var(--gn)':c.stage==='drafts'?'var(--gd)':'var(--em)'}">
                 <div class="caseAv">${initials(w.name)}</div>
                 <div class="rowMain">
                   <div class="rowT">${esc(w.name)} ${c.waived?'<span class="chip" style="font-size:8.5px" title="You waived your right to view this letter. The final letter is confidential.">Waived</span>':''} ${c.draftRequested?'<span class="chip gd" style="font-size:8.5px">Asked you for a draft</span>':''}</div>
@@ -1313,7 +1335,7 @@ function renderHome(){
         </div>
         <div class="panel"><div class="pHead"><div class="h2">Portfolio <em>snapshot</em></div><button class="pMore" data-nav="programs">Program plan ▸</button></div>
           <div class="pBody">
-            <div class="rowS" style="margin-bottom:10px">${D.cases.filter(c=>c.stage==='uploaded'||c.stage==='assigned').length} letter(s) uploaded · ${D.cases.filter(c=>['asked','agreed','packetSent','drafts','facultyWorking','uploadPending'].includes(c.stage)).length} in motion · ${D.programs.length} target programs</div>
+            <div class="rowS" style="margin-bottom:10px">${D.production?D.cases.filter(c=>['released','delivered'].includes(c.stage)).length+' faculty-released letter(s)':D.cases.filter(c=>c.stage==='uploaded'||c.stage==='assigned').length+' letter(s) uploaded'} · ${D.cases.filter(c=>['asked','agreed','packetSent','drafts','facultyWorking','uploadPending'].includes(c.stage)).length} in motion · ${D.programs.length} target programs</div>
             ${D.programs.map(p=>`<div class="row"><div class="rowMain"><div class="rowT" style="font-size:13px">${esc(p.name.split('—')[0].trim())}</div><div class="rowS">${p.assigned.length}/${p.maxLetters} letters planned · closes ${fmtD(p.deadline)} (${daysUntil(p.deadline)}d)</div></div>
               <span class="stage ${p.assigned.length>=p.maxLetters?'good':'warn'}">${p.assigned.length>=p.maxLetters?'Planned':'Gaps'}</span></div>`).join('')}
             <div class="noteBox" style="margin-top:12px">Program requirements are season-versioned with a source and “last verified” date. Always confirm a program’s current instructions before you commit assignments.</div>
@@ -1783,11 +1805,11 @@ function caseStepHTML(c,w,r,step){
         <div class="eyebrow" style="margin-bottom:8px">Memory cues — each labeled by who reported it</div>
         ${evs.length?evs.map(e=>`<div class="evCard"><div class="evT" style="font-size:13px">${esc(e.title)} ${provChip(e.prov)}</div><div class="evX">“${esc(e.deid?e.deidExcerpt:e.excerpt)}”</div></div>`).join(''):'<div class="warnBox">No evidence selected yet — the packet would arrive empty. Go back one step and select the moments this writer saw.</div>'}
         ${c.narrative?`<div class="eyebrow" style="margin:14px 0 8px">Emphasis requested by ${esc(D.student.first)}</div><div class="rowS voiceTxt">“${esc(c.narrative)}” <span class="prov stu"><i></i>Student-stated</span></div>`:''}
-        <div class="eyebrow" style="margin:14px 0 8px">Attached documents</div>
-        <div class="rowS">CV · Personal statement · Official letter request form <span class="chip dashed" style="font-size:8.5px">Simulated attachments — File Vault integration planned</span></div>
+        <div class="eyebrow" style="margin:14px 0 8px">Shared materials</div>
+        <div class="rowS">Only items explicitly enabled in Writer Depot appear in the protected recipient view. No unrelated File Vault or Matrix documents are exposed.</div>
       </div></div>
     <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
-      ${c.stage==='agreed'||c.stage==='drafts'?`<button class="btn pri" id="pktSend">Mark packet as sent to ${esc(w.name.split(' ').slice(-1)[0])}</button>`:
+      ${!IS_FIDELITY_FIXTURE?`<button class="btn pri" id="pktProductionDepot">Open Writer Depot & protected invitation ▸</button>`:c.stage==='agreed'||c.stage==='drafts'?`<button class="btn pri" id="pktSend">Mark packet as sent to ${esc(w.name.split(' ').slice(-1)[0])}</button>`:
         stageIndex(c.stage)>=stageIndex('packetSent')?'<span class="chip gn">Packet sent '+(c.request.sent?'· '+fmtD(c.request.sent):'')+'</span>':
         `<button class="btn pri" disabled title="Send the request first — the packet goes out after the writer agrees">Mark packet as sent</button><span class="rowS" style="align-self:center">The packet goes out after the writer agrees — draft the request first.</span>`}
       <button class="btn alt" data-goto="request">Request & follow-up ▸</button>
@@ -1851,9 +1873,9 @@ function caseStepHTML(c,w,r,step){
     <div>
       <div class="panel" style="margin-bottom:16px"><div class="pHead"><div class="h2">Letter <em>status</em></div><span class="chip dashed" style="font-size:8.5px" title="LOR Studio never monitors ERAS — you record what you know">Self-reported</span></div>
         <div class="pBody">
-          <div class="fld"><label for="stSel">Update status</label>
-            <select id="stSel">${allowed.map(s=>`<option value="${s}" ${s===c.stage?'selected':''}>${STAGE_META[s].label}</option>`).join('')}</select>
-            <div class="hint">${esc(STAGE_META[c.stage].hint)} “Uploaded” means <i>you</i> confirmed it with the writer or the official system — LOR Studio has no ERAS connection.</div></div>
+          <div class="fld"><label for="stSel">${IS_FIDELITY_FIXTURE?'Update status':'Production status'}</label>
+            ${IS_FIDELITY_FIXTURE?`<select id="stSel">${allowed.map(s=>`<option value="${s}" ${s===c.stage?'selected':''}>${STAGE_META[s].label}</option>`).join('')}</select>`:`<div class="rowS"><b style="color:var(--tx)">${esc(STAGE_META[c.stage].label)}</b> · advanced only by server-recorded invitation, verification, faculty, release, and delivery events.</div>`}
+            <div class="hint">${esc(STAGE_META[c.stage].hint)} ${D.production?'MissionMed release and delivery status never claim an official ERAS upload or program assignment.':'“Uploaded” means <i>you</i> confirmed it with the writer or the official system — LOR Studio has no ERAS connection.'}</div></div>
           <div class="eyebrow" style="margin:14px 0 6px">History</div>
           ${c.history.slice().reverse().map(([d,s])=>`<div class="row" style="padding:7px 0"><div class="rowS">${fmtD(d)} — <b style="color:var(--tx)">${STAGE_META[s].label}</b></div></div>`).join('')}
         </div></div>
@@ -1873,11 +1895,11 @@ function caseStepHTML(c,w,r,step){
         <p class="sub" style="margin-top:8px;max-width:460px;margin-inline:auto">Everything past this point belongs to ${esc(w.name)}: their intake answers, comparison basis, endorsement strength, edits${c.waived?', and — because you waived access — the final letter itself':''}. You’ll see status, never content.</p>
         ${c.fac.done
           ?`<button class="btn alt" style="margin-top:14px" disabled title="${esc(w.name)} completed this letter. The workspace and the ${c.waived?'waived final letter':'letter content'} remain confidential — there is nothing for a student to open.">Faculty workspace — closed & confidential</button>`
-          :canFac
+          :canFac&&IS_FIDELITY_FIXTURE
             ?`<button class="btn pri" style="margin-top:14px" id="openFac">Open the secure faculty link · prototype simulation</button>
                <div class="micNote" style="max-width:420px;margin:8px auto 0">In production this link goes only to ${esc(w.name)}’s email. Opening it here is a labeled role simulation so you can experience the writer’s side.</div>`
-            :`<button class="btn alt" style="margin-top:14px" disabled title="${c.stage==='drafts'?'Choose a working draft and send the handoff first.':'Send the packet first — the faculty workspace opens with the handoff.'}">Faculty link not yet active</button>
-               <div class="micNote" style="max-width:420px;margin:8px auto 0">${c.stage==='drafts'?'Finish the working-drafts step — the faculty link activates at handoff.':'The secure link activates once your packet is sent.'}</div>`}
+            :`<button class="btn alt" style="margin-top:14px" disabled>Faculty workspace is recipient-only</button>
+               <div class="micNote" style="max-width:420px;margin:8px auto 0">Use Writer Depot to send or manage the protected invitation. Only the verified faculty writer can open the private workspace.</div>`}
       </div>
       ${c.waived?`<div class="warnBox"><b>Waived letter.</b> You chose to waive your right of access under FERPA when creating the official request. That choice is what makes the letter credible to programs — and it means the submitted letter is never visible in LOR Studio, to you or your mentor.</div>`:''}
     </div>
@@ -1891,7 +1913,7 @@ function renderDraftsStep(c,w){
   return `
     <div class="noteBox" style="margin-bottom:14px"><b>${esc(w.name)} asked you to send a draft.</b> That’s common — and it has an ethical shape. You may prepare evidence and a disclosed working draft; the assessment, endorsement, and final letter must become ${esc(w.name.split(' ').slice(-1)[0])}’s own. Every version below is labeled, contains no endorsement language, and marks each observation <b>[Faculty to confirm]</b>.</div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      <span class="chip gd dashed">Prototype generation using demo logic — no live AI call</span>
+      <span class="chip ${IS_FIDELITY_FIXTURE?'gd dashed':'gn'}">${IS_FIDELITY_FIXTURE?'Prototype generation using demo logic — no live AI call':'Applicant-prepared, evidence-bound options'}</span>
       <span class="chip">${evs.length} evidence items + your context feed these drafts</span>
       <button class="btn ${c.drafts&&c.drafts.dirs?(dirty?'pri':'alt'):'pri'} sm" id="genDrafts" ${evs.length===0&&!c.narrative?'disabled title="Select at least one evidence item or add your context first — drafts are built from ingredients, not thin air"':''}>${c.drafts&&c.drafts.dirs?(dirty?'Ingredients changed — rebuild drafts':'Rebuild from current ingredients'):'Generate 3 working directions'}</button>
       ${evs.length===0&&!c.narrative?'<span class="rowS">Select evidence first — drafts are built from ingredients, not thin air.</span>':''}
@@ -1949,6 +1971,7 @@ function wireCaseStep(c,w,r,step){
     wireMic($('#caseMic'),$('#caseMicNote'),fin=>{ta.value=(ta.value?ta.value.trim()+' ':'')+fin;c.narrative=ta.value;persist()},inter=>{$('#caseInterim').textContent=inter?'“'+inter+'…”':''});
   }
   if(step==='packet'){
+    const productionDepot=$('#pktProductionDepot');if(productionDepot)productionDepot.onclick=()=>{closeCase();D.ui.depotCase=c.id;persist();go('depot')};
     const ps=$('#pktSend');if(ps)ps.onclick=()=>{setStage(c,'packetSent');toast('Packet marked as sent. The secure faculty link is now active in Status & handoff.');renderSheet()};
   }
   if(step==='request'){
@@ -2024,11 +2047,11 @@ function renderFac(){
   $('#facWrap').innerHTML=`
     <div class="facTop">
       <div class="facBadge">🔒 Secure faculty workspace · private to ${esc(w.name)}</div>
-      <span class="chip gd dashed" style="font-size:8.5px">Prototype — simulated secure link & identity</span>
-      <button class="facAlt" style="margin-left:auto" id="facExit">Exit simulation</button>
+      ${IS_FIDELITY_FIXTURE?'<span class="chip gd dashed" style="font-size:8.5px">Prototype — simulated secure link & identity</span>':'<span class="chip gn" style="font-size:8.5px">Identity verified · production</span>'}
+      <button class="facAlt" style="margin-left:auto" id="facExit">${IS_FIDELITY_FIXTURE?'Exit simulation':'Return to Matrix'}</button>
     </div>
     <div class="facIn">
-      <div class="eyebrow" style="color:#6f8a7a">Letter request · ${esc(sp.name)} · needed by ${fmtD(c.request.deadline)}</div>
+      <div class="eyebrow" style="color:#6f8a7a">Letter request · ${D.production?'Recommendation case':esc(sp.name)} · needed by ${fmtD(c.request.deadline)}</div>
       <div class="h1" style="margin-top:6px;color:#eafff4">Recommendation for <em style="color:var(--fac)">${esc(S.name)}</em></div>
       <p class="sub" style="margin-top:8px;color:#9fb8aa;max-width:640px">Nothing in this workspace is visible to ${esc(S.first)} or any mentor. You confirm what you saw, reject what you didn’t, and own every word of the final letter.</p>
       <div class="facSteps" role="tablist" aria-label="Faculty steps">
@@ -2036,7 +2059,7 @@ function renderFac(){
       </div>
       <div id="facBody">${facStepHTML(c,w,r,fc,step)}</div>
     </div>`;
-  $('#facExit').onclick=()=>{toast('Left the faculty simulation. Your progress there is saved.');closeFaculty()};
+  $('#facExit').onclick=()=>{if(IS_FIDELITY_FIXTURE){toast('Left the faculty simulation. Your progress there is saved.');closeFaculty()}else location.href='https://missionmedinstitute.com/member-dashboard/#dashboard'};
   $$('#facWrap [data-fstep]').forEach(b=>b.onclick=()=>{fc.step=+b.dataset.fstep;persist();renderFac()});
   wireFacStep(c,w,r,fc,step);
 }
@@ -2048,9 +2071,9 @@ function facStepHTML(c,w,r,fc,step){
     return `<div class="facPanel"><div class="pBody" style="padding:20px">
       <div class="h2" style="color:#eafff4">The request, in <em style="color:var(--fac)">30 seconds</em></div>
       <div class="rowS" style="color:#9fb8aa;margin-top:10px;line-height:1.7">
-        <b style="color:#d7f5e6">${esc(S.name)}, ${esc(S.degree)}</b> — international medical graduate applying in <b style="color:#d7f5e6">${esc(sp.name)}</b>, 2027 season.<br>
-        You supervised ${esc(S.first)}: ${r?esc(r.name)+', '+fmtD(r.start)+(r.end?' – '+fmtD(r.end):' – present'):'—'}.<br>
-        Letter needed by <b style="color:#d7f5e6">${fmtD(c.request.deadline)}</b> · upload via ${esc(sp.service)} · narrative letters are PDF, max 1 MB, on letterhead with signature.<br>
+        ${D.production?'<b style="color:#d7f5e6">'+esc(S.name)+'</b> — verified recipient-bound recommendation case.':'<b style="color:#d7f5e6">'+esc(S.name)+', '+esc(S.degree)+'</b> — international medical graduate applying in <b style="color:#d7f5e6">'+esc(sp.name)+'</b>, 2027 season.'}<br>
+        ${D.production?'Your verified workspace contains only the applicant-shared evidence and your faculty-private work for this case.':'You supervised '+esc(S.first)+': '+(r?esc(r.name)+', '+fmtD(r.start)+(r.end?' – '+fmtD(r.end):' – present'):'—')+'.'}<br>
+        ${D.production?'Approve, sign, release, and export the final document through the production controls below.':'Letter needed by <b style="color:#d7f5e6">'+fmtD(c.request.deadline)+'</b> · upload via '+esc(sp.service)+' · narrative letters are PDF, max 1 MB, on letterhead with signature.'}<br>
         ${c.waived?'<b style="color:#d7f5e6">'+esc(S.first)+' has waived the right to view this letter.</b> Your work here stays confidential.':''}
       </div>
       <div class="eyebrow" style="color:#6f8a7a;margin:16px 0 8px">The packet ${esc(S.first)} prepared (each item labeled by source)</div>
@@ -2060,9 +2083,9 @@ function facStepHTML(c,w,r,fc,step){
         <div class="rowS" style="color:#9fb8aa;margin-top:8px">Use it as a memory aid if helpful. Your draft in step 6 is built only from what <i>you</i> confirm — never directly from this text.</div></div>`:''}
       <div class="divider" style="background:#1d3327"></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <button class="facBtn" id="facIdOk">I am ${esc(w.name)} — begin ▸</button>
+        <button class="facBtn" id="facIdOk">${IS_FIDELITY_FIXTURE?'I am '+esc(w.name)+' — begin ▸':'Open my private workspace ▸'}</button>
         <button class="facAlt" id="facDecline">I can’t write a strong letter</button>
-        <span class="rowS" style="color:#6f8a7a">Identity verification is simulated in this prototype.</span>
+        <span class="rowS" style="color:#6f8a7a">${IS_FIDELITY_FIXTURE?'Identity verification is simulated in this prototype.':'Your invitation and one-time code were verified before this workspace opened.'}</span>
       </div>
     </div></div>`;
   }
@@ -2124,11 +2147,12 @@ function facStepHTML(c,w,r,fc,step){
     </div></div>`;
   }
   if(step===5){
-    if(!fc.pars){fc.pars=buildFacultyDraft(c);persist()}
+    if(!fc.pars){fc.pars=IS_FIDELITY_FIXTURE?buildFacultyDraft(c):[];if(IS_FIDELITY_FIXTURE)persist()}
     return `<div class="facPanel"><div class="pBody" style="padding:20px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="h2" style="color:#eafff4">One draft, <em style="color:var(--fac)">evidence-bound</em></div>
-        <span class="chip gd dashed" style="font-size:8.5px">Prototype generation using demo logic — no live AI call</span></div>
+        <span class="chip ${IS_FIDELITY_FIXTURE?'gd dashed':'gn'}" style="font-size:8.5px">${IS_FIDELITY_FIXTURE?'Prototype generation using demo logic — no live AI call':'Faculty-owned production draft'}</span></div>
       <div class="rowS" style="color:#9fb8aa;margin:8px 0 14px">Every paragraph is traceable to material you confirmed. Click any paragraph to edit it directly; phrasing alternatives never change facts, comparison, or endorsement. Excluded cues are simply absent.</div>
+      ${!IS_FIDELITY_FIXTURE&&!fc.pars.length?`<div class="fld"><label for="facProductionDraft" style="color:#6f8a7a">Your draft</label><textarea id="facProductionDraft" style="min-height:260px;background:rgba(7,16,11,.8);border-color:#1d3327" placeholder="Write in your own words, or request a grounded AI proposal below."></textarea></div><div id="lorAiProposal"></div>`:''}
       ${fc.pars.map((p,i)=>`<div class="parBlock">
         <div class="parTxt" contenteditable="true" data-par="${i}" spellcheck="false">${esc(p.txt)}</div>
         <div class="parProv"><span style="font-family:var(--num);font-size:9px;letter-spacing:.14em;color:#6f8a7a;text-transform:uppercase">Provenance</span>${p.prov.map(k=>provChip(k)).join('')}${p.spoken?'<span class="chip gn" style="font-size:8px">From your dictation</span>':''}</div>
@@ -2136,8 +2160,8 @@ function facStepHTML(c,w,r,fc,step){
           <button data-alt="${i}" data-kind="concise">More concise</button><button data-alt="${i}" data-kind="fuller">Fuller</button></div>`:''}
       </div>`).join('')}
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
-        <button class="facBtn" id="facDraftOk">Looks right — run final checks ▸</button>
-        <button class="facAlt" id="facRebuild" title="Rebuilds from your confirmed cues, observations, and assessment — your manual edits will be replaced">Rebuild from confirmed evidence</button>
+        <button class="facBtn" id="facDraftOk" ${!IS_FIDELITY_FIXTURE&&!fc.pars.length?'disabled':''}>Looks right — run final checks ▸</button>
+        ${IS_FIDELITY_FIXTURE?'<button class="facAlt" id="facRebuild" title="Rebuilds from your confirmed cues, observations, and assessment — your manual edits will be replaced">Rebuild from confirmed evidence</button>':'<button class="facAlt" id="facAi">Request grounded AI proposal</button>'}
       </div>
     </div></div>`;
   }
@@ -2145,7 +2169,7 @@ function facStepHTML(c,w,r,fc,step){
     const checks=runFacChecks(c);
     return `<div class="facPanel"><div class="pBody" style="padding:20px">
       <div class="h2" style="color:#eafff4">Final <em style="color:var(--fac)">checks</em></div>
-      <div class="rowS" style="color:#9fb8aa;margin:8px 0 12px">Deterministic prototype checks — the kinds of failures that quietly sink real letters.</div>
+      <div class="rowS" style="color:#9fb8aa;margin:8px 0 12px">Deterministic privacy, provenance, and integrity checks — the kinds of failures that quietly sink real letters.</div>
       ${checks.map(k=>`<div class="checkRow"><div class="ck ${k.ok?'ok':'warn'}">${k.ok?'✓':'!'}</div><div><b style="font-size:13px;color:#d7f5e6">${k.t}</b><div class="rowS" style="color:#9fb8aa">${k.d}</div></div></div>`).join('')}
       <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap"><button class="facBtn" id="facChecksOk">Checks reviewed — continue ▸</button><button class="facAlt" data-fgoto="5">Back to draft</button></div>
     </div></div>`;
@@ -2159,8 +2183,8 @@ function facStepHTML(c,w,r,fc,step){
     <div class="checkRow"><div class="ck ok">3</div><div><b style="font-size:13px;color:#d7f5e6">Upload the PDF there</b><div class="rowS" style="color:#9fb8aa">Only the official system’s confirmation counts. ${esc(S.first)}’s tracker will show “uploaded” only when someone records it — LOR Studio never invents a submission.</div></div></div>
     ${c.waived?`<div class="warnBox" style="margin-top:12px;border-color:rgba(74,222,157,.4);background:rgba(74,222,157,.05)"><b style="color:#d7f5e6">Waived letter:</b> ${esc(S.first)} cannot see this letter — not the draft, not your answers, not the final PDF. When you finish here, this workspace seals.</div>`:''}
     <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
-      <button class="facBtn" id="facDl">Download letter (.txt)</button>
-      <button class="facAlt" id="facDone" ${fc.done?'disabled title="Already completed — the workspace is sealed"':''}>${fc.done?'Letter completed ✓':'Mark letter complete & seal workspace'}</button>
+      <button class="facBtn" id="facDl">${IS_FIDELITY_FIXTURE?'Download letter (.txt)':'Download approved DOCX'}</button>
+      <button class="facAlt" id="facDone" ${fc.done?'disabled title="Already completed — the workspace is sealed"':''}>${fc.done?'Letter released ✓':IS_FIDELITY_FIXTURE?'Mark letter complete & seal workspace':'Approve, sign & release to student'}</button>
     </div>
   </div></div>`;
 }
@@ -2177,8 +2201,10 @@ function runFacChecks(c){
   checks.push({ok:!priv,t:'Patient privacy scan',d:priv?'Possible identifying patient details detected (age/occupation/place). Edit the paragraph before export.':'No patient names, ages, occupations, or locations detected in the draft.'});
   const cmpPar=(fc.pars||[]).some(p=>p.id==='p_cmp');
   checks.push({ok:!cmpPar||(fc.comparison&&fc.comparison.cohort&&fc.comparison.tier),t:'Comparison has a defined basis',d:cmpPar?'Your comparative sentence names its cohort ('+esc(fc.comparison.cohort)+') — “top 10%” language without a cohort is what makes letters generic.':'No comparative claims are made — also perfectly credible.'});
-  checks.push({ok:new RegExp(S.first,'i').test(text)&&!/\b(he|him)\b/i.test(text.replace(/the team|the family/gi,'')),t:'Name & pronoun consistency',d:'Draft uses “'+S.name+'” / “she”. One wrong pronoun signals a recycled letter — re-read once before signing.'});
-  checks.push({ok:!r||text.includes(fmtD(r.start).split(',')[1].trim())||text.includes(fmtD(r.start)),t:'Dates match the rotation record',d:r?'Letter dates align with '+r.name+' ('+fmtD(r.start)+(r.end?' – '+fmtD(r.end):'')+').':'No rotation dates to check.'});
+  const expectedName=S.first&&S.first!=='You'&&S.first!=='Recommendation'?new RegExp(S.first,'i').test(text):text.trim().length>0;
+  checks.push({ok:expectedName,t:'Name & pronoun consistency',d:'Re-read the applicant name and pronouns once before signing; one mismatch can signal a recycled letter.'});
+  const formattedStart=r&&r.start?fmtD(r.start):'';
+  checks.push({ok:!formattedStart||text.includes(formattedStart)||text.includes(String(r.start)),t:'Dates match the rotation record',d:formattedStart?'Letter dates align with '+r.name+' ('+formattedStart+(r.end?' – '+fmtD(r.end):'')+').':'No rotation dates were shared with this private workspace.'});
   checks.push({ok:!!fc.endorsement,t:'Endorsement chosen by you',d:'The closing reflects your explicit choice — the system never selected praise on your behalf.'});
   return checks;
 }
@@ -2231,7 +2257,7 @@ function wireFacStep(c,w,r,fc,step){
     $$('#facBody [data-par]').forEach(el=>el.oninput=()=>{fc.pars[+el.dataset.par].txt=el.textContent;fc.edits++;persist()});
     $$('#facBody [data-alt]').forEach(b=>b.onclick=()=>{const p=fc.pars[+b.dataset.alt];if(p.alt&&p.alt[b.dataset.kind]){p.txt=p.alt[b.dataset.kind];persist();renderFac();toast('Phrasing swapped — facts unchanged, still yours to edit.')}});
     $('#facDraftOk').onclick=()=>{fc.step=6;persist();renderFac()};
-    $('#facRebuild').onclick=()=>{fc.pars=buildFacultyDraft(c);persist();renderFac();toast('Rebuilt from your confirmed material.')};
+    const rebuild=$('#facRebuild');if(rebuild)rebuild.onclick=()=>{fc.pars=buildFacultyDraft(c);persist();renderFac();toast('Rebuilt from your confirmed material.')};
   }
   if(step===6){$('#facChecksOk').onclick=()=>{fc.checked=true;fc.step=7;persist();renderFac()}}
   if(step===7){
@@ -2308,6 +2334,7 @@ function wireBuildLanding(){
       <button class="btn alt" style="margin-top:12px" onclick="closeModal()">Cancel</button>`,true);
     $$('#modalIn [data-tpl]').forEach(bt=>bt.onclick=()=>{closeModal();useTemplate(bt.dataset.tpl)});
   };
+  $$('#main [data-resume]').forEach(button=>button.onclick=()=>openBuilder(button.dataset.resume));
 }
 function useTemplate(tplId){
   const s=SAMPLES.find(x=>x.id===tplId);if(!s)return;
@@ -2459,13 +2486,14 @@ function wizStepHTML(c,b,w){
     </div>`;
   }
   if(b.step===5){
-    if(!b.letters){b.letters=buildFourLetters(c,b);b.builtWith={ing:JSON.stringify(b.ing),ans:JSON.stringify(b.answers)};persist()}
+    if(!b.letters&&IS_FIDELITY_FIXTURE){b.letters=buildFourLetters(c,b);b.builtWith={ing:JSON.stringify(b.ing),ans:JSON.stringify(b.answers)};persist()}
+    if(!b.letters||!b.letters.length)return `<div class="panel"><div class="pHead"><div class="h2">Applicant-prepared <em>options</em></div></div><div class="pBody"><div class="rowS">No durable applicant-prepared options are available on this recommendation case. LOR Studio will not synthesize or claim browser-only drafts in production.</div></div></div>${wizNav(b,true,'Options not available',true,'Return to the prior step and preserve your evidence; no draft was fabricated.')}`;
     const stale=b.builtWith&&(b.builtWith.ing!==JSON.stringify(b.ing)||b.builtWith.ans!==JSON.stringify(b.answers));
     return `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
-      <span class="chip gd dashed">Prototype generation using demo logic — no live AI call</span>
+      <span class="chip ${IS_FIDELITY_FIXTURE?'gd dashed':'gn'}">${IS_FIDELITY_FIXTURE?'Prototype generation using demo logic — no live AI call':'Durable applicant-prepared options from this case'}</span>
       <span class="chip">${approvedIngredients(c,b).length} approved ingredients</span>
-      ${stale?'<span class="chip em">Ingredients changed — rebuild to update</span>':''}
-      <button class="btn alt sm" id="regenAll">${stale?'Rebuild from current ingredients':'Regenerate all four'}</button>
+      ${IS_FIDELITY_FIXTURE&&stale?'<span class="chip em">Ingredients changed — rebuild to update</span>':''}
+      ${IS_FIDELITY_FIXTURE?`<button class="btn alt sm" id="regenAll">${stale?'Rebuild from current ingredients':'Regenerate all four'}</button>`:''}
       <label style="display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--dim);margin-left:auto;cursor:pointer"><input type="checkbox" id="provTgl" checked style="accent-color:var(--em)"> Show provenance marks</label>
     </div>
     <div class="letterGrid ${b.provOff?'provOff':''}" id="letterGrid">
@@ -2482,7 +2510,7 @@ function wizStepHTML(c,b,w){
         <button data-focus="all" class="${focus==='all'?'sel':''}">Side-by-side</button>
         ${b.letters.map(L=>`<button data-focus="${L.id}" class="${focus===L.id?'sel':''}">${L.id}${L.fav?' ★':''}</button>`).join('')}
       </div>
-      <button class="btn alt sm" id="combineBtn" style="margin-left:auto">Combine elements…</button>
+      ${IS_FIDELITY_FIXTURE?'<button class="btn alt sm" id="combineBtn" style="margin-left:auto">Combine elements…</button>':''}
       <label style="display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--dim);cursor:pointer"><input type="checkbox" id="provTgl" ${b.provOff?'':'checked'} style="accent-color:var(--em)"> Provenance marks</label>
     </div>
     <div class="letterGrid ${b.provOff?'provOff':''} ${focus!=='all'?'':''}" id="letterGrid" ${focus!=='all'?'style="grid-template-columns:1fr;max-width:760px"':''}>
@@ -2506,11 +2534,11 @@ function wizStepHTML(c,b,w){
         <div class="panel" style="margin-bottom:16px"><div class="pHead"><div class="h2">The <em>email</em></div></div><div class="pBody">
           <div class="fld"><label for="emSel">Moment</label><select id="emSel">${lib.map(t=>`<option value="${t.id}" ${t.id===sel?'selected':''}>${t.t}</option>`).join('')}</select></div>
           <div class="fld"><textarea id="emBody" style="min-height:240px;font-size:12.5px">${esc(b.emailEdits&&b.emailEdits[sel]||em.body)}</textarea>
-          <div class="hint">Personalized from your case facts. The [Secure Writer Depot link] placeholder becomes a real unique link when you create the Depot.</div></div>
+          <div class="hint">Personalized from your case facts. The production invitation is sent through the recipient-bound Writer Depot handoff below.</div></div>
           <button class="btn alt sm" data-copy="emBody">Copy email</button>
         </div></div>
         <div class="panel"><div class="pHead"><div class="h2">Files in the <em>package</em></div></div><div class="pBody">
-          <div class="row"><div class="rowMain"><div class="rowT" style="font-size:13px">Your letter — DOCX</div><div class="rowS">Word-compatible file with a one-line applicant-prepared disclosure header.</div></div><button class="rowBtn pri" id="dlDocx">Download</button></div>
+          <div class="row"><div class="rowMain"><div class="rowT" style="font-size:13px">Your applicant-prepared draft — Word-compatible .doc</div><div class="rowS">Editable file with a one-line applicant-prepared disclosure header.</div></div><button class="rowBtn pri" id="dlDocx">Download</button></div>
           <div class="row"><div class="rowMain"><div class="rowT" style="font-size:13px">Your letter — PDF</div><div class="rowS">Opens your browser's print dialog — choose “Save as PDF”.</div></div><button class="rowBtn" id="dlPdf">Print / PDF</button></div>
           <div class="row"><div class="rowMain"><div class="rowT" style="font-size:13px">CV & personal statement</div><div class="rowS">${dep.shareCV?'CV included':'CV excluded'} · ${dep.sharePS?'PS included (view-only)':'PS excluded'} — controlled in the Depot sharing panel.</div></div></div>
           <div class="row"><div class="rowMain"><div class="rowT" style="font-size:13px">Supporting evidence packet</div><div class="rowS">${c.selectedEvidence.length||'Selected'} memory cues with provenance labels (from your case Evidence step).</div></div></div>
@@ -2534,6 +2562,10 @@ function wizStepHTML(c,b,w){
     ${wizNav(b,true,'Send & track ▸',false)}`;
   }
   /* step 8 */
+  if(!IS_FIDELITY_FIXTURE){
+    const projection=D.production&&D.production.projection;
+    return `<div class="grid2"><div><div class="panel"><div class="pHead"><div class="h2">Protected <em>handoff</em></div></div><div class="pBody"><div class="rowS">Invitation delivery, one-time verification, evidence publication, access choice, resend, and revocation are handled in Writer Depot against this durable case.</div><button class="btn pri" id="openProductionDepot" style="margin-top:14px">Open Writer Depot & invitation ▸</button></div></div></div><div><div class="panel"><div class="pHead"><div class="h2">Tracking <em>timeline</em></div></div><div class="pBody"><div class="row"><div class="rowMain"><div class="rowT">Current case</div><div class="rowS">${esc(String(projection&&projection.status||'draft').replaceAll('_',' '))}</div></div>${stageChip(c)}</div><div class="noteBox" style="margin-top:12px">Only server-recorded invitation, verification, faculty, release, and delivery events advance this production timeline.</div></div></div></div></div>${wizNav(b,true,'Done — back to My Letters',false)}`;
+  }
   const lib=emailLib(c);
   const method=b.method||'link';
   return `<div class="grid2">
@@ -2591,11 +2623,11 @@ function letterCardHTML(c,b,L,compareMode){
     </div>
     <div style="padding:0 15px 13px">
       <div class="refineRow">
-        <button data-ref="shorter" data-l="${L.id}">Shorter</button>
+        ${IS_FIDELITY_FIXTURE?`<button data-ref="shorter" data-l="${L.id}">Shorter</button>
         <button data-ref="warmer" data-l="${L.id}">Warmer</button>
         <button data-ref="clinical" data-l="${L.id}">More clinical</button>
         <button data-ref="dedupe" data-l="${L.id}">Less repetitive</button>
-        <button data-undo="${L.id}" ${L.history.length?'':'disabled title="No revisions yet"'}>↩ Undo (${L.history.length})</button>
+        <button data-undo="${L.id}" ${L.history.length?'':'disabled title="No revisions yet"'}>↩ Undo (${L.history.length})</button>`:''}
         ${compareMode?`<button data-choose="${L.id}" style="border-style:solid;color:${b.chosenId===L.id?'var(--gn)':'var(--em)'}">${b.chosenId===L.id?'✓ Chosen':'Choose this one'}</button>`:''}
       </div>
     </div>
@@ -2682,7 +2714,7 @@ function wireBuild(){
   const c=cOf(D.ui.buildCase),b=buildOf(c),w=wOf(c.writerId);
   $('#wizExit').onclick=()=>{toast('Saved. Resume any time from Build My LOR → Continue a letter.');exitBuilder()};
   const back=()=>{if(b.step>1){b.step--;persist();render()}};
-  const next=()=>{if(b.step<8){b.step++;persist();render()}else{exitBuilder();go('letters')}};
+  const next=()=>{if(b.step<8){b.step++;persist();render()}else{b.completed=true;persist();exitBuilder();go('letters')}};
   const wb=$('#wizBack');if(wb)wb.onclick=back;
   const wn=$('#wizNext');if(wn)wn.onclick=()=>{if(!wn.disabled)next()};
   $$('#wizBody [data-why]').forEach(bt=>bt.onclick=()=>openReadinessModal(bt.dataset.why));
@@ -2733,21 +2765,21 @@ function wireBuild(){
       $('#fixGo').onclick=()=>{b.answers.moments={...(b.answers.moments||{}),text:$('#fixTxt').value.trim()};b.flags.fixed.push(id);persist();closeModal();render();toast('Fixed. The board re-checks your text each time.')}});
     $$('#wizBody [data-narrow]').forEach(bt=>bt.onclick=()=>{b.flags.fixed.push(bt.dataset.narrow);persist();render();
       toast('Noted — the generator will keep that claim out of the letters entirely (the narrower-claim path).')});
-    if(wn)wn.onclick=()=>{if(!wn.disabled){b.letters=null;b.step=5;persist();render()}};
+    if(wn)wn.onclick=()=>{if(!wn.disabled){if(IS_FIDELITY_FIXTURE)b.letters=null;b.step=5;persist();render()}};
   }
   if(b.step===5||b.step===6){
     const rg=$('#regenAll');if(rg)rg.onclick=()=>{b.letters=buildFourLetters(c,b);b.builtWith={ing:JSON.stringify(b.ing),ans:JSON.stringify(b.answers)};b.finalText=null;persist();render();
-      toast('All four rebuilt from current ingredients — demo logic, no live AI.')};
+      toast(IS_FIDELITY_FIXTURE?'All four rebuilt from current ingredients — demo logic, no live AI.':'Four applicant-prepared options rebuilt from the approved evidence and answers.')};
     const pt=$('#provTgl');if(pt)pt.onchange=()=>{b.provOff=!pt.checked;persist();render()};
     $$('#wizBody [data-fl]').forEach(bt=>bt.onclick=()=>{const L=b.letters.find(x=>x.id===bt.dataset.fl);L.fav=!L.fav;persist();render()});
-    $$('#wizBody [data-ref]').forEach(bt=>bt.onclick=()=>{const L=b.letters.find(x=>x.id===bt.dataset.l);refineLetter(c,b,L,bt.dataset.ref);if(b.chosenId===L.id)b.finalText=null;persist();render();
+    $$('#wizBody [data-ref]').forEach(bt=>bt.onclick=()=>{if(!IS_FIDELITY_FIXTURE)return;const L=b.letters.find(x=>x.id===bt.dataset.l);refineLetter(c,b,L,bt.dataset.ref);if(b.chosenId===L.id)b.finalText=null;persist();render();
       toast('Refined “'+bt.dataset.ref+'” — same facts, different presentation. Undo any time.')});
-    $$('#wizBody [data-undo]').forEach(bt=>bt.onclick=()=>{const L=b.letters.find(x=>x.id===bt.dataset.undo);
+    $$('#wizBody [data-undo]').forEach(bt=>bt.onclick=()=>{if(!IS_FIDELITY_FIXTURE)return;const L=b.letters.find(x=>x.id===bt.dataset.undo);
       if(L.history.length){L.pars=JSON.parse(L.history.pop());persist();render()}});
     $$('#wizBody [data-focus]').forEach(bt=>bt.onclick=()=>{b.focus=bt.dataset.focus;persist();render()});
     $$('#wizBody [data-choose]').forEach(bt=>bt.onclick=()=>{b.chosenId=bt.dataset.choose;b.finalText=null;persist();render();
       toast('Option '+bt.dataset.choose+' selected. Give it one last personal pass below.')});
-    const cb=$('#combineBtn');if(cb)cb.onclick=()=>{
+    const cb=$('#combineBtn');if(cb&&IS_FIDELITY_FIXTURE)cb.onclick=()=>{
       modal(`<div class="h2">Combine <em>elements</em></div><p class="sub" style="margin-top:8px">Pick the pieces you prefer — the combined letter is regenerated from the same approved facts, so nothing drifts.</p>
         ${['Opening','Body structure & detail','Tone'].map((lbl,i)=>`<div class="fld" style="margin-top:10px"><label>${lbl} from</label><select id="cmb${i}">${b.letters.map(L=>`<option value="${L.id}">Option ${L.id} — ${esc(L.label)}</option>`).join('')}</select></div>`).join('')}
         <div style="display:flex;gap:10px;margin-top:6px"><button class="btn pri" id="cmbGo">Create combined option</button><button class="btn alt" onclick="closeModal()">Cancel</button></div>`);
@@ -2775,6 +2807,8 @@ function wireBuild(){
     $('#cfgDepot').onclick=()=>{D.ui.depotCase=c.id;persist();go('depot')};
   }
   if(b.step===8){
+    const productionDepot=$('#openProductionDepot');if(productionDepot)productionDepot.onclick=()=>{D.ui.depotCase=c.id;persist();go('depot')};
+    if(!IS_FIDELITY_FIXTURE)return;
     const gc=$('#gmailConnect');if(gc)gc.onclick=()=>openGmailModal(()=>render());
     const gd=$('#gmailDisc');if(gd)gd.onclick=()=>{D.gmail.connected=false;persist();render();toast('Disconnected (simulated).')};
     $$('#wizBody [data-method]').forEach(bt=>bt.onclick=()=>{b.method=bt.dataset.method;persist();render()});
@@ -2967,10 +3001,10 @@ function renderDepot(){
         <div class="depotCard"><div class="h2" style="margin-bottom:10px">Personalize for <em>${esc(w.name)}</em></div>
           <div style="display:flex;gap:14px;align-items:center;margin-bottom:12px">
             <div class="dpAvatar" style="width:64px;height:64px;font-size:22px">${dep.headshot?`<img src="${dep.headshot}" alt="Your headshot">`:initials(D.student.name)}</div>
-            <div><button class="rowBtn" id="dpHead">${dep.headshot?'Replace headshot':'Add professional headshot'}</button>
+            ${IS_FIDELITY_FIXTURE?`<div><button class="rowBtn" id="dpHead">${dep.headshot?'Replace headshot':'Add professional headshot'}</button>
               <input type="file" id="dpHeadFile" accept="image/*" style="display:none" aria-label="Choose headshot image">
               ${dep.headshot?'<button class="rowBtn" id="dpHeadRm" style="margin-left:6px">Remove</button>':''}
-              <div class="micNote">Stored locally in this browser only.</div></div>
+              <div class="micNote">Stored locally in this browser only.</div></div>`:'<div class="micNote">MissionMed profile identity</div>'}
           </div>
           <div class="fld"><label for="dpWelcome">Welcome note (uses the writer's name)</label>
             <textarea id="dpWelcome" placeholder="Dear Dr. ${esc(w.name.split(' ').slice(-1)[0])}, thank you for making time for this…">${esc(dep.welcome)}</textarea></div>
@@ -2988,16 +3022,16 @@ function renderDepot(){
           ${stories.map(e=>`<div class="shareRow"><div class="rowMain"><div class="rowT" style="font-size:12.5px">${esc(e.title)}</div><div class="rowS">${e.deid?'De-identified ✓':'Permissioned'} · student-authored</div></div>
             <button class="tgl ${dep.shareStories.includes(e.id)?'on':''}" data-sharestory="${e.id}" role="switch" aria-checked="${dep.shareStories.includes(e.id)}" aria-label="Share ${esc(e.title)}"><i></i></button></div>`).join('')}
         </div>
-        <div class="depotCard"><div class="h2" style="margin-bottom:6px">Thank-you <em>video</em> <span class="chip" style="font-size:8px;margin-left:6px">Optional — never a gate</span></div>
+        ${IS_FIDELITY_FIXTURE?`<div class="depotCard"><div class="h2" style="margin-bottom:6px">Thank-you <em>video</em> <span class="chip" style="font-size:8px;margin-left:6px">Optional — never a gate</span></div>
           <div class="micNote" style="margin-bottom:10px">Prompt: “Thank Dr. ${esc(w.name.split(' ').slice(-1)[0])} for their time, mention one specific thing you valued, and keep it under 45 seconds.” Recommended 30–60s max.</div>
           <div id="vidZone">${videoZoneHTML(c)}</div>
           <div class="fld" style="margin-top:10px"><label for="vidTr">Transcript / captions ${vid.approved?'':'(added with your video)'}</label>
             <textarea id="vidTr" style="min-height:60px" placeholder="Auto-captions in production; edit freely here.">${esc(vid.transcript)}</textarea></div>
-        </div>
+        </div>`:''}
       </div>
       <div>
         <div class="depotCard"><div class="h2" style="margin-bottom:10px">Secure <em>link</em></div>
-          ${link.token&&!link.revoked?`
+          ${!IS_FIDELITY_FIXTURE?`<div class="rowS">The recipient-bound invitation, one-time code, resend, and revocation controls are managed in the production handoff panel below. A raw access link is never exposed in the student interface.</div>`:link.token&&!link.revoked?`
             <div class="rowS" style="word-break:break-all;background:rgba(10,14,22,.7);border:1px solid var(--edge);border-radius:9px;padding:9px 12px;font-family:var(--num)">missionmed.example/depot/${link.token}</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">
               <span class="chip gn" style="font-size:8px">Created ${fmtD(link.created)}</span>
@@ -3020,7 +3054,7 @@ function renderDepot(){
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn pri sm" id="dpPrevD">Preview · desktop</button>
             <button class="btn alt sm" id="dpPrevM">Preview · mobile</button>
-            <button class="btn alt sm" id="dpAsWriter" ${!link.token||link.revoked?'disabled title="Create the secure link first — the writer enters through it"':''}>Open as ${esc(w.name)} · simulation</button>
+            ${IS_FIDELITY_FIXTURE?`<button class="btn alt sm" id="dpAsWriter" ${!link.token||link.revoked?'disabled title="Create the secure link first — the writer enters through it"':''}>Open as ${esc(w.name)} · simulation</button>`:''}
           </div>
           ${b&&b.chosenId||c.stage!=='drafts'?'':'<div class="micNote" style="margin-top:8px">Tip: finish your letter in the Builder first so the draft section isn\'t empty.</div>'}
         </div>
@@ -3059,8 +3093,8 @@ function wireDepot(){
   const c=cOf(D.ui.depotCase);if(!c)return;
   const w=wOf(c.writerId),dep=c.depot;
   $$('#main [data-dcase]').forEach(bt=>bt.onclick=()=>{D.ui.depotCase=bt.dataset.dcase;persist();render()});
-  $('#dpHead').onclick=()=>$('#dpHeadFile').click();
-  $('#dpHeadFile').onchange=e=>{const f=e.target.files[0];if(!f)return;
+  const head=$('#dpHead'),headFile=$('#dpHeadFile');if(head&&headFile)head.onclick=()=>headFile.click();
+  if(headFile)headFile.onchange=e=>{const f=e.target.files[0];if(!f)return;
     const rd=new FileReader();rd.onload=()=>{if(rd.result.length>400000){toast('Image too large for local storage — pick one under ~300 KB for the prototype.');return}
       dep.headshot=rd.result;persist();render();toast('Headshot added.')};rd.readAsDataURL(f)};
   const hr=$('#dpHeadRm');if(hr)hr.onclick=()=>{dep.headshot=null;persist();render()};
@@ -3201,10 +3235,10 @@ function renderDepotPage(c,mode,mobile){
       <div class="dpSection"><div class="dpH">Download center</div>
         <div class="depotCard" style="margin:0;display:flex;gap:8px;flex-wrap:wrap">
           ${dep.shareDraft?`<button class="rowBtn" id="dpDlTxt" ${mode==='writer'&&!verified?'disabled title="Verify identity first"':''}>Draft (.txt)</button>`:''}
-          ${dep.shareCV?`<button class="rowBtn" ${mode==='writer'&&!verified?'disabled title="Verify identity first"':''} id="dpDlCV">CV (demo)</button>`:''}
+          ${dep.shareCV?`<button class="rowBtn" ${mode==='writer'&&!verified?'disabled title="Verify identity first"':''} id="dpDlCV">CV</button>`:''}
           <span class="micNote" style="flex-basis:100%">Downloads are logged as first-party events with honest confidence labels.</span>
         </div></div>
-      <div style="margin-top:34px;text-align:center" class="micNote">Private page for ${esc(w.name)} · prepared by ${esc(S.name)} with MissionMed LOR Studio · simulated security & identity in this prototype</div>
+      <div style="margin-top:34px;text-align:center" class="micNote">Private page for ${esc(w.name)} · prepared by ${esc(S.name)} with MissionMed LOR Studio${IS_FIDELITY_FIXTURE?' · simulated security & identity in this prototype':' · student preview of the recipient-bound production package'}</div>
     </div>`;
   wireDepotPage(c,mode,mobile);
 }
@@ -3398,9 +3432,398 @@ function render(){
   if(D.ui.facCaseId&&cOf(D.ui.facCaseId)){renderFac();$('#facWrap').classList.add('open')}
   else if(D.ui.caseId&&cOf(D.ui.caseId)){renderSheet();$('#sheet').classList.add('open')}
 })();
+
+/* ================= PRODUCTION ADAPTER SEAM =================
+   The approved application remains the renderer. These functions translate the existing
+   role-safe production DTOs into its view model and translate app changes back into the eight
+   durable builder steps. They never decide authorization and never receive a token or grant. */
+const LOR_PRODUCTION_STEPS=['case_basics','writer_relationship','evidence_selection','timeline_highlights','writer_preferences','consent_and_waiver','review','faculty_handoff'];
+let LOR_PRODUCTION_COMMANDS=null;
+let LOR_EMPTY_START=null;
+let LOR_PENDING_START_INTENT=null;
+let LOR_PENDING_START_TEMPLATE=null;
+let LOR_AI_PROPOSAL=null;
+const LOR_CONSENT_POLICY_VERSION='dr-133-identified-education-record-v1';
+const LOR_CONSENT_SCOPES=['builder_autosave','faculty_handoff','ai_drafting','evidence_grounding'];
+
+function lorPlain(value){return value&&typeof value==='object'&&!Array.isArray(value)}
+function lorClone(value){return value===undefined?undefined:JSON.parse(JSON.stringify(value))}
+function lorStep(projection,id){const value=projection&&projection.builder&&projection.builder.stepData&&projection.builder.stepData[id];return lorPlain(value)?value:{}}
+function lorString(value,fallback=''){return typeof value==='string'&&value.trim()?value.trim():fallback}
+function lorArray(value){return Array.isArray(value)?value:[]}
+function lorReceiptDecision(receipts,key){const list=lorArray(receipts);const last=list[list.length-1];return lorPlain(last)&&typeof last[key]==='boolean'?last[key]:null}
+function lorConsentActive(receipts){const list=lorArray(receipts),last=list[list.length-1];return lorPlain(last)&&last.policyVersion===LOR_CONSENT_POLICY_VERSION&&LOR_CONSENT_SCOPES.every(scope=>lorArray(last.scopes).includes(scope))}
+function lorBoundAiProposal(){
+  const binding=LOR_AI_PROPOSAL,current=D.production;
+  if(!lorPlain(binding)||!current||binding.caseId!==current.projection.caseId||binding.actorRole!==current.role||!lorPlain(binding.proposal)){LOR_AI_PROPOSAL=null;return null}
+  return binding.proposal;
+}
+function lorStatusStage(projection){
+  if(lorPlain(projection&&projection.finalDocument)&&lorString(projection.finalDocument.releasedToStudentAt))return 'released';
+  const delivery=lorString(projection&&projection.delivery&&projection.delivery.status);
+  if(delivery&&delivery!=='not_started')return delivery==='delivered'?'delivered':'uploadPending';
+  return ({draft:'considering',faculty_invited:'packetSent',faculty_verified:'facultyWorking',faculty_review:'facultyWorking',faculty_approved:'uploadPending',delivered:'delivered',closed:'delivered',cancelled:'declined'})[projection.status]||'considering';
+}
+function lorEvidenceItem(item,index){
+  const value=lorPlain(item)?item:{};
+  const id=lorString(value.id||value.evidenceId,`evidence-${index+1}`);
+  const text=lorString(value.text||value.summary||value.excerpt||value.fact,'Published evidence item');
+  return {id,type:'stated',title:lorString(value.title||value.label||value.name,`Evidence ${index+1}`),prov:'stu',perm:'granted',rotationId:null,tags:lorArray(value.tags),excerpt:text,fact:text};
+}
+function lorApplicantOption(item,index){
+  const value=lorPlain(item)?item:{},text=lorString(value.text||value.value);
+  if(!text)return null;
+  const id=String.fromCharCode(65+Math.min(index,25)),paragraphs=text.split(/\n\s*\n/u).map(part=>part.trim()).filter(Boolean);
+  return {id,label:lorString(value.label||value.title,`Applicant-prepared option ${index+1}`),desc:'Durable applicant-prepared wording stored on this recommendation case.',params:{structure:'traditional',tone:'balanced',length:'standard'},pars:paragraphs.map((part,partIndex)=>({txt:part,kind:partIndex===0?'intro':'body',needsConfirm:true})),fav:false,history:[]};
+}
+function lorFacultyAnswer(answers,id){return lorArray(answers).find(item=>lorPlain(item)&&item.id===id)||{}}
+function lorProductionState(projection,role){
+  const previous=D;
+  const next=emptyProductionState();
+  const basics=lorStep(projection,'case_basics');
+  const writerStep=lorStep(projection,'writer_relationship');
+  const evidenceStep=lorStep(projection,'evidence_selection');
+  const timelineStep=lorStep(projection,'timeline_highlights');
+  const preferenceStep=lorStep(projection,'writer_preferences');
+  const reviewStep=lorStep(projection,'review');
+  const handoffStep=lorStep(projection,'faculty_handoff');
+  const savedApp=lorPlain(reviewStep.approvedAppState)?reviewStep.approvedAppState:{};
+  const studentName=lorString(basics.studentName||savedApp.studentName,role==='faculty'?'Recommendation applicant':'Your MissionMed profile');
+  next.student={name:studentName,first:role==='faculty'?'the applicant':lorString(savedApp.studentFirst,studentName==='Your MissionMed profile'?'You':studentName.split(/\s+/u)[0]),degree:lorString(basics.degree),img:false,pron:lorString(savedApp.pronouns,'they'),profile:lorArray(savedApp.profile)};
+  next.specialty=lorString(basics.specialty,'im').toLowerCase().replace(/[^a-z]/gu,'')||'im';
+  next.library.favs=lorArray(savedApp.favoriteSamples).filter(id=>typeof id==='string'&&SAMPLES.some(sample=>sample.id===id));
+  next.library.tags=lorPlain(savedApp.sampleTags)?lorClone(savedApp.sampleTags):{};
+  next.library.recent=lorArray(savedApp.recentSamples).filter(id=>typeof id==='string'&&SAMPLES.some(sample=>sample.id===id));
+  const caseId=lorString(projection.caseId,'production-case');
+  const writerName=lorString(writerStep.writerName);
+  const writerId=(writerName||role==='faculty')?`writer-${caseId}`:'';
+  if(writerName){
+    const rotationId=`rotation-${caseId}`;
+    next.rotations.push({id:rotationId,name:lorString(timelineStep.rotationName||writerStep.institution,'Clinical experience'),site:lorString(writerStep.institution,'Institution not entered'),setting:lorString(timelineStep.setting),role:lorString(timelineStep.role,'Student'),start:lorString(timelineStep.startDate),end:lorString(timelineStep.endDate),weeks:Number(writerStep.observationWeeks)||0,source:'missionmed-production',writerIds:[writerId]});
+    next.writers.push({id:writerId,name:writerName,cred:lorString(writerStep.writerCredentials),title:lorString(writerStep.writerRole,'Faculty writer'),inst:lorString(writerStep.institution),email:lorString(handoffStep.recipientEmail),prestige:'not_used',specialty:lorString(writerStep.specialty),rotationId,obsDays:Number(writerStep.observationDays)||0,weeks:Number(writerStep.observationWeeks)||0,lastDirect:lorString(writerStep.lastObservedAt),relationship:lorString(writerStep.relationshipSummary||writerStep.relationshipLength),pron:lorString(writerStep.pronouns,'they')});
+  }
+  if(role==='faculty'&&!writerName){const rotationId=`rotation-${caseId}`;next.rotations.push({id:rotationId,name:'Shared clinical context',site:'',setting:'',role:'Student',start:'',end:'',weeks:0,source:'missionmed-production',writerIds:[writerId]});next.writers.push({id:writerId,name:'Verified faculty writer',cred:'',title:'Faculty letter writer',inst:'',email:'',prestige:'not_used',specialty:'',rotationId,obsDays:0,weeks:0,lastDirect:'',relationship:'Relationship details were supplied in the protected request.',pron:'they'})}
+  const sourceEvidence=role==='faculty'?lorArray(projection.studentShared&&projection.studentShared.evidence):lorArray(projection.studentEvidence);
+  next.evidence=sourceEvidence.map(lorEvidenceItem);
+  if(role==='mentor'&&next.evidence.length===0)next.evidence=[];
+  const selectedEvidence=lorArray(evidenceStep.selectedEvidenceIds).filter(id=>next.evidence.some(item=>item.id===id));
+  if(selectedEvidence.length===0)selectedEvidence.push(...next.evidence.map(item=>item.id));
+  const waived=role==='faculty'
+    ?(projection.studentShared&&projection.studentShared.waiverState&&projection.studentShared.waiverState.waived===true)
+    :lorReceiptDecision(projection.waiverReceipts,'waived')===true;
+  const productionCase={
+    id:caseId,writerId,stage:lorStatusStage(projection),waived,draftRequested:preferenceStep.draftRequested===true||savedApp.situation==='asked',pref:1,selectedEvidence,
+    narrative:lorString(basics.summary),request:{sent:lorString(handoffStep.sentAt),deadline:lorString(handoffStep.deadline),followups:lorArray(savedApp.followups)},drafts:null,
+    fac:{step:Number(savedApp.facultyStep)||0,done:Boolean(savedApp.facultyDone),cues:{},obs:[],comparison:null,endorsement:null,pars:null,edits:0,checked:false,relConfirmed:false},
+    history:[[todayISO,lorStatusStage(projection)]],events:[],collab:[],letters:null,
+    depot:{headshot:null,welcome:lorString(preferenceStep.writerWelcome),shareTimeline:preferenceStep.shareTimeline!==false,shareCV:preferenceStep.shareCV===true,shareHighlights:preferenceStep.shareHighlights!==false,shareStories:selectedEvidence,sharePS:preferenceStep.sharePersonalStatement===true,shareDraft:preferenceStep.shareApplicantDraft!==false,video:{state:'none',approved:false,transcript:'',dur:0,played:false},link:{token:null,created:null,expires:null,revoked:false,verified:projection.status!=='draft'}}
+  };
+  if(role==='faculty'){
+    const privateState=lorPlain(projection.facultyPrivate)?projection.facultyPrivate:{};
+    const relationship=lorFacultyAnswer(privateState.answers,'approved_app_relationship');
+    const cues=lorFacultyAnswer(privateState.answers,'approved_app_cues');
+    const assessment=lorFacultyAnswer(privateState.answers,'approved_app_assessment');
+    const progress=lorFacultyAnswer(privateState.answers,'approved_app_progress');
+    productionCase.fac={step:Math.min(7,Number(progress.step)||0),done:Boolean(privateState.finalDocument&&privateState.finalDocument.releasedToStudentAt),cues:lorPlain(cues.value)?lorClone(cues.value):{},obs:lorArray(privateState.notes).filter(note=>lorPlain(note)).map(note=>({txt:lorString(note.text),via:lorString(note.via,'typed')})),comparison:lorPlain(assessment.comparison)?lorClone(assessment.comparison):null,endorsement:lorString(assessment.endorsement)||null,pars:lorString(privateState.draftText)?[{id:'p1',txt:privateState.draftText,prov:['obs']}]:null,edits:0,checked:progress.checked===true,relTxt:lorString(relationship.text),relConfirmed:relationship.confirmed===true,identityOk:true};
+  }
+  next.cases.push(productionCase);
+  const buildState={caseId,step:Math.min(8,Math.max(1,Number(savedApp.builderStep)||Math.max(1,lorArray(projection.builder&&projection.builder.completedStepIds).length))),completed:savedApp.builderCompleted===true||lorArray(projection.builder&&projection.builder.completedStepIds).length===8,situation:lorString(savedApp.situation||basics.intentPath||LOR_PENDING_START_INTENT),templateId:lorString(savedApp.templateId||LOR_PENDING_START_TEMPLATE)||null,tplPrefs:lorPlain(savedApp.templatePreferences)?lorClone(savedApp.templatePreferences):null,writerAck:Boolean(savedApp.writerAck),ing:lorPlain(savedApp.ingredients)?lorClone(savedApp.ingredients):{},ingEdits:{},answers:lorPlain(savedApp.answers)?lorClone(savedApp.answers):{},followups:[],prefs:lorPlain(savedApp.preferences)?lorClone(savedApp.preferences):{formality:'balanced',warmth:'warm',length:'standard'},logistics:lorPlain(savedApp.logistics)?lorClone(savedApp.logistics):{},flags:{fixed:[]},letters:null,chosenId:lorString(savedApp.chosenOption)||null,finalText:lorString(savedApp.applicantPreparedText)||null,qIdx:Number(savedApp.questionIndex)||0};
+  if(role==='student'){
+    buildState.letters=lorArray(projection.applicantOptions).map(lorApplicantOption).filter(Boolean);
+    if(buildState.letters.length===0&&buildState.finalText){const restored=lorApplicantOption({label:'Saved chosen applicant draft',text:buildState.finalText},0);if(restored){buildState.letters=[restored];buildState.chosenId=restored.id}}
+    if(!buildState.letters.some(option=>option.id===buildState.chosenId))buildState.chosenId=null;
+  }
+  next.builds[caseId]=buildState;
+  const programName=lorString(basics.programName||basics.programType);
+  if(programName)next.programs.push({id:`program-${caseId}`,name:programName,maxLetters:Number(basics.maximumLetters)||4,deadline:lorString(handoffStep.deadline),source:'MissionMed reference data',verified:lorString(basics.referenceUpdatedAt),reqs:lorArray(basics.programRequirements),assigned:[caseId],applied:false});
+  next.role=role==='mentor'?'mentor':'student';
+  next.view=role==='mentor'?'mhome':(previous&&previous.role==='student'&&NAV.student.some(([id])=>id===previous.view)?previous.view:lorString(savedApp.currentView,'build'));
+  if(role==='student'&&LOR_PENDING_START_INTENT){next.ui.pick={situation:LOR_PENDING_START_INTENT,templateId:LOR_PENDING_START_TEMPLATE||null};LOR_PENDING_START_INTENT=null;LOR_PENDING_START_TEMPLATE=null}
+  next.ui.intelTab=previous&&previous.ui?previous.ui.intelTab:'writers';
+  next.production={projection:lorClone(projection),commands:LOR_PRODUCTION_COMMANDS,syncTimer:null,syncing:false,dirty:false,lastError:null,role,consentActive:lorConsentActive(projection.consentReceipts),waiverDecided:role==='faculty'?Boolean(projection.studentShared&&projection.studentShared.waiverState&&projection.studentShared.waiverState.decided):lorReceiptDecision(projection.waiverReceipts,'waived')!==null};
+  return next;
+}
+
+function lorMergedStep(id,additions){return {...lorClone(lorStep(D.production.projection,id)),...additions}}
+function lorProductionPayloads(){
+  const c=D.cases[0],w=c&&wOf(c.writerId),r=w&&rOf(w.rotationId),b=c&&buildOf(c);
+  if(!c||!b)return {};
+  const evidenceTitles=c.selectedEvidence.map(id=>evOf(id)).filter(Boolean).map(item=>item.title);
+  const savedApp={studentName:D.student.name,studentFirst:D.student.first,pronouns:D.student.pron,situation:b.situation,builderStep:b.step,builderCompleted:b.completed===true,templateId:b.templateId,templatePreferences:b.tplPrefs,writerAck:b.writerAck,ingredients:b.ing,answers:b.answers,preferences:b.prefs,logistics:b.logistics,questionIndex:b.qIdx,chosenOption:b.chosenId,applicantPreparedText:b.finalText,favoriteSamples:D.library.favs,sampleTags:D.library.tags,recentSamples:D.library.recent,followups:c.request.followups,currentView:D.view};
+  return {
+    case_basics:lorMergedStep('case_basics',{intentPath:lorString(b.situation),studentName:D.student.name,degree:D.student.degree,specialty:D.specialty,summary:c.narrative}),
+    writer_relationship:lorMergedStep('writer_relationship',{writerName:w?w.name:'',writerCredentials:w?w.cred:'',writerRole:w?w.title:'',institution:w?w.inst:'',specialty:w?w.specialty:'',relationshipLength:w?w.relationship:'',relationshipSummary:w?w.relationship:'',observationDays:w?w.obsDays:0,observationWeeks:w?w.weeks:0,lastObservedAt:w?w.lastDirect:''}),
+    evidence_selection:lorMergedStep('evidence_selection',{selectedEvidenceIds:c.selectedEvidence,priorityEvidence:evidenceTitles.join('; '),evidenceSummary:evidenceTitles.join('; ')}),
+    timeline_highlights:lorMergedStep('timeline_highlights',{rotationName:r?r.name:'',setting:r?r.setting:'',role:r?r.role:'',startDate:r?r.start:'',endDate:r?r.end:'',standoutMoment:lorString(b.answers&&b.answers.moments&&b.answers.moments.text)}),
+    writer_preferences:lorMergedStep('writer_preferences',{draftRequested:c.draftRequested,writerWelcome:c.depot.welcome,shareTimeline:c.depot.shareTimeline,shareCV:c.depot.shareCV,shareHighlights:c.depot.shareHighlights,sharePersonalStatement:c.depot.sharePS,shareApplicantDraft:c.depot.shareDraft,tonePreference:b.prefs&&b.prefs.formality||'',writingRequest:b.situation||''}),
+    consent_and_waiver:lorMergedStep('consent_and_waiver',{consentRecorded:D.production.consentActive===true,waiverDecision:c.waived?'waived':'kept_access'}),
+    review:lorMergedStep('review',{approvedAppState:savedApp,reviewNotes:lorString(b.answers&&b.answers.review&&b.answers.review.text)}),
+    faculty_handoff:lorMergedStep('faculty_handoff',{deadline:c.request.deadline,recipientEmail:w?w.email:'',handoffMessage:lorString(b.emailEdits&&b.emailEdits[b.emailId||'draftHandoff'])})
+  };
+}
+function lorSame(a,b){try{return JSON.stringify(a)===JSON.stringify(b)}catch(e){return false}}
+function lorProjectionFromResult(result){const candidate=result&&result.body&&result.body.case;return lorPlain(candidate)&&candidate.caseId===D.production.projection.caseId?candidate:null}
+async function lorRunProductionCommand(invoke,success){
+  if(!D.production||D.production.syncing)return null;
+  D.production.syncing=true;
+  try{
+    const outcome=await invoke(D.production.projection);
+    const candidate=lorProjectionFromResult(outcome);
+    if(candidate){const role=D.production.role;lorPresentProjection(candidate,role);if(success)toast(success);return candidate}
+    if(outcome&&outcome.reached===true&&[200,201].includes(Number(outcome.status))){if(success)toast(success);return outcome.body||{}}
+    toast(outcome&&outcome.reached===false?'MissionMed could not be reached. Nothing was changed.':'MissionMed did not accept that action. Nothing was changed.');return null;
+  }catch(e){toast('MissionMed could not be reached. Nothing was changed.');return null}
+  finally{if(D.production)D.production.syncing=false}
+}
+function lorFacultyPrivatePayload({finalize=false}={}){
+  const c=D.cases[0],fc=c&&c.fac,projection=D.production&&D.production.projection,privateState=lorPlain(projection&&projection.facultyPrivate)?projection.facultyPrivate:{};
+  if(!c||!fc)return null;
+  const draftText=lorArray(fc.pars).map(par=>lorString(par.txt)).filter(Boolean).join('\n\n')||null;
+  const answers=[
+    {id:'approved_app_relationship',text:lorString(fc.relTxt),confirmed:fc.relConfirmed===true},
+    {id:'approved_app_cues',value:lorClone(fc.cues||{})},
+    {id:'approved_app_assessment',comparison:lorClone(fc.comparison),endorsement:fc.endorsement||null},
+    {id:'approved_app_progress',step:Number(fc.step)||0,checked:fc.checked===true}
+  ];
+  const notes=lorArray(fc.obs).map((note,index)=>({id:`approved_app_observation_${index+1}`,text:lorString(note.txt),via:lorString(note.via,'typed')})).filter(note=>note.text);
+  const stored=lorPlain(privateState.finalDocument)?privateState.finalDocument:null;
+  const finalDocument=finalize?{id:stored&&stored.text===draftText?stored.id:null,text:draftText||'',contentHash:stored&&stored.text===draftText?stored.contentHash:null,mimeType:stored&&stored.mimeType||'text/plain'}:(stored?{id:stored.id,text:stored.text,contentHash:stored.contentHash,mimeType:stored.mimeType}:null);
+  return {answers,notes,draftText,finalDocument,documentState:finalize?'faculty_final':null,facultyApproval:finalize?{approved:true,signatureAttested:true}:null};
+}
+async function lorRunFacultySync(){
+  if(IS_FIDELITY_FIXTURE||!D.production||D.production.role!=='faculty'||D.production.syncing||!D.production.dirty)return;
+  const commands=D.production.commands,payload=lorFacultyPrivatePayload();
+  if(!commands||!payload||typeof commands.saveFacultyPrivateContent!=='function')return;
+  D.production.syncing=true;D.production.dirty=false;
+  try{
+    const current=D.production.projection;
+    const outcome=await commands.saveFacultyPrivateContent({caseId:current.caseId,expectedRevision:current.revision,...payload});
+    const candidate=lorProjectionFromResult(outcome);if(!candidate)throw new Error('save_refused');D.production.projection=lorClone(candidate);
+  }catch(e){D.production.dirty=true;D.production.lastError='save_failed';toast('That faculty change was not saved. Your wording remains on screen.');}
+  finally{D.production.syncing=false;}
+}
+async function lorRunStudentSync(){
+  if(IS_FIDELITY_FIXTURE||!D.production||D.production.role!=='student'||D.production.syncing||!D.production.dirty)return;
+  const commands=D.production.commands,projection=D.production.projection;
+  if(!commands||!projection||projection.status!=='draft'||typeof commands.autosaveBuilderStep!=='function')return;
+  D.production.syncing=true;D.production.dirty=false;
+  let changed=false;
+  try{
+    const payloads=lorProductionPayloads();
+    let current=D.production.projection;
+    const activeBuild=D.builds[current.caseId];
+    const targetCompleted=Math.min(8,Math.max(0,activeBuild&&(activeBuild.completed?8:Number(activeBuild.step)-1)||0));
+    for(let index=0;index<LOR_PRODUCTION_STEPS.length;index++){
+      const id=LOR_PRODUCTION_STEPS[index];
+      const completed=lorArray(current.builder.completedStepIds).length;
+      if(index>completed)break;
+      const desired=payloads[id];
+      if(desired&&!lorSame(desired,lorStep(current,id))){
+        const result=await commands.autosaveBuilderStep({caseId:current.caseId,expectedRevision:current.revision,stepId:id,stepData:desired});
+        const accepted=lorProjectionFromResult(result);if(!accepted)throw new Error('save_refused');current=accepted;D.production.projection=lorClone(current);changed=true;
+      }
+      const completedNow=lorArray(current.builder.completedStepIds).length;
+      if(index===completedNow&&index<targetCompleted&&typeof commands.completeBuilderStep==='function'){
+        const result=await commands.completeBuilderStep({caseId:current.caseId,expectedRevision:current.revision,stepId:id});
+        const accepted=lorProjectionFromResult(result);if(!accepted)throw new Error('complete_refused');current=accepted;D.production.projection=lorClone(current);changed=true;
+      }
+    }
+    if(changed)toast('Saved to your MissionMed account.');
+  }catch(e){D.production.lastError='save_failed';D.production.dirty=true;toast('That change was not saved. Your wording is still on screen.');}
+  finally{D.production.syncing=false;}
+}
+function lorScheduleSync(){
+  if(IS_FIDELITY_FIXTURE||!D.production)return;
+  clearTimeout(D.production.syncTimer);
+  D.production.syncTimer=setTimeout(()=>{void (D.production.role==='faculty'?lorRunFacultySync():lorRunStudentSync())},700);
+}
+window.__LOR_APPROVED_APP_SYNC__=lorScheduleSync;
+
+function lorPresentProjection(projection,role){
+  // AI proposals are browser-ephemeral and recipient-private. Any server projection hydration is
+  // an actor/case boundary, including a same-case reauthentication, so stale proposal wording is
+  // destroyed before the next role-safe projection can render.
+  LOR_AI_PROPOSAL=null;
+  D=lorProductionState(projection,role);
+  const mentorBanner=$('#mentorBanner');
+  if(mentorBanner&&role==='mentor')mentorBanner.textContent='Mentor View — you see the recommendation plan, readiness, evidence gaps, deadlines, and next milestone. Faculty-private answers and letter content are never visible here.';
+  $('#demoBadge').textContent=role==='faculty'?'Private workspace':'Live data';
+  $('#demoBadge').title=role==='faculty'?'Recipient-bound faculty workspace':'Durable MissionMed production data';
+  $('#demoBadge').onclick=()=>modal(`<div class="h2">MissionMed <em>LOR Studio</em></div><p class="sub" style="margin-top:10px">This is your durable production workspace. Data and actions are scoped to the signed-in role and current recommendation case.</p><button class="btn alt" style="margin-top:16px" onclick="closeModal()">Close</button>`);
+  $('#rolePill').hidden=true;
+  $('#btnMatrix').onclick=()=>{location.href='https://missionmedinstitute.com/member-dashboard/#dashboard'};
+  $('#sheet').classList.remove('open');$('#depotWrap').classList.remove('open');$('#facWrap').classList.remove('open');closeModal();
+  if(role==='faculty'){
+    D.view='build';render();D.ui.facCaseId=projection.caseId;renderFac();$('#facWrap').classList.add('open');
+  }else render();
+}
+
+const lorApprovedWireBuildLanding=wireBuildLanding;
+const lorApprovedWireDepot=wireDepot;
+const lorApprovedRenderLetters=VIEWS.letters[0];
+const lorApprovedWireLetters=VIEWS.letters[1];
+function lorStartApprovedCase(intent,templateId=null){
+  if(!D.production)return;
+  if(D.cases.length){D.ui.pick={situation:intent,templateId};persist();render();return}
+  if(typeof LOR_EMPTY_START!=='function'){toast('LOR Studio could not start a case. No data was changed.');return}
+  LOR_PENDING_START_INTENT=intent;LOR_PENDING_START_TEMPLATE=templateId;void LOR_EMPTY_START();
+}
+function lorWireProductionBuildLanding(){
+  if(!D.production){lorApprovedWireBuildLanding();return}
+  const start=intent=>lorStartApprovedCase(intent);
+  const primary=$('#ctaBuild');if(primary)primary.onclick=()=>start('asked');
+  $$('#main [data-sit]').forEach(el=>{const activate=()=>{const intent=el.dataset.sit;if(intent==='continue'){const b=Object.values(D.builds)[0];if(b)openBuilder(b.caseId);else toast('No letter is in progress yet.');return}start(intent)};el.onclick=activate;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activate()}}});
+  $$('#main [data-resume]').forEach(button=>button.onclick=()=>openBuilder(button.dataset.resume));
+  const favorite=$('#ctaFavTpl');if(favorite)favorite.onclick=()=>{const sample=D.library.favs.map(id=>SAMPLES.find(item=>item.id===id)).find(Boolean);if(sample)lorStartApprovedCase('asked',sample.id);else{toast('Star a structure in Examples & Templates first.');go('library')}};
+}
+wireBuildLanding=lorWireProductionBuildLanding;
+
+function lorButton(label,handler,className='rowBtn'){
+  const button=document.createElement('button');button.type='button';button.className=className;button.textContent=label;button.onclick=handler;return button;
+}
+function lorAppendHandoffPanel(){
+  if(!D.production||D.production.role!=='student')return;
+  const section=$('#main section');const projection=D.production.projection,c=D.cases[0],w=c&&wOf(c.writerId);if(!section||!projection||!c)return;
+  const panel=document.createElement('div');panel.className='panel';panel.id='lorProductionHandoff';panel.style.marginTop='18px';
+  const head=document.createElement('div');head.className='pHead';const title=document.createElement('div');title.className='h2';title.textContent='Production invitation & privacy';head.appendChild(title);panel.appendChild(head);
+  const body=document.createElement('div');body.className='pBody';
+  const status=document.createElement('p');status.className='sub';status.textContent=`Consent ${D.production.consentActive?'recorded':'required'} · access decision ${D.production.waiverDecided?'recorded':'required'} · case ${String(projection.status||'draft').replaceAll('_',' ')}`;body.appendChild(status);
+  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-top:12px';
+  if(!D.production.consentActive)actions.appendChild(lorButton('Record sharing & AI consent',()=>{void lorRunProductionCommand(current=>D.production.commands.recordReceipt({caseId:current.caseId,expectedRevision:current.revision,receiptType:'consent',receiptData:{policyVersion:LOR_CONSENT_POLICY_VERSION,scopes:[...LOR_CONSENT_SCOPES]}}),'Consent recorded.')}));
+  if(!D.production.waiverDecided){
+    actions.appendChild(lorButton('Keep my access',()=>{void lorRunProductionCommand(current=>D.production.commands.recordReceipt({caseId:current.caseId,expectedRevision:current.revision,receiptType:'waiver',receiptData:{waived:false,policyVersion:LOR_CONSENT_POLICY_VERSION,acknowledgment:'I keep my right to read the finished letter.',priorReceiptId:null}}),'Access choice recorded.')}));
+    actions.appendChild(lorButton('Waive my access',()=>{void lorRunProductionCommand(current=>D.production.commands.recordReceipt({caseId:current.caseId,expectedRevision:current.revision,receiptType:'waiver',receiptData:{waived:true,policyVersion:LOR_CONSENT_POLICY_VERSION,acknowledgment:'I waive my right to read the finished letter.',priorReceiptId:null}}),'Waiver recorded.')}));
+  }
+  if(projection.status==='draft'&&typeof D.production.commands.publishStudentEvidence==='function')actions.appendChild(lorButton('Publish selected evidence',()=>{void lorRunProductionCommand(current=>D.production.commands.publishStudentEvidence({caseId:current.caseId,expectedRevision:current.revision}),'Selected evidence published to this case.')}));
+  if(w){
+    const field=document.createElement('div');field.className='fld';const label=document.createElement('label');label.htmlFor='lorApprovedFacultyEmail';label.textContent='Faculty writer email';const input=document.createElement('input');input.id='lorApprovedFacultyEmail';input.type='email';input.autocomplete='email';input.value=w.email||'';field.append(label,input);body.appendChild(field);
+    if(projection.status==='draft')actions.appendChild(lorButton('Invite faculty writer',async()=>{const email=input.value.trim();if(!email){toast('Enter the faculty writer email first.');return}w.email=email;persist();await lorRunStudentSync();void lorRunProductionCommand(current=>D.production.commands.inviteFaculty({caseId:current.caseId,expectedRevision:current.revision,recipientEmail:email}),'Invitation and one-time code sent.')},'btn pri sm'));
+    if(projection.status==='faculty_invited'){
+      actions.appendChild(lorButton('Send a new one-time code',()=>{void lorRunProductionCommand(current=>D.production.commands.resendFacultyOtp({caseId:current.caseId,recipientEmail:input.value.trim()}),'A new one-time code was sent.')}));
+      actions.appendChild(lorButton('Revoke invitation',()=>{void lorRunProductionCommand(current=>D.production.commands.revokeFacultyInvitation({caseId:current.caseId}),'Invitation revoked.')},'rowBtn danger'));
+    }
+  }
+  body.appendChild(actions);const note=document.createElement('p');note.className='micNote';note.textContent='Invitation access is recipient-bound and verified by one-time code. Faculty-private answers and letter wording never appear in the student or mentor view.';body.appendChild(note);panel.appendChild(body);section.appendChild(panel);
+}
+function lorWireProductionDepot(){
+  lorApprovedWireDepot();if(!D.production)return;
+  const fakeWriter=$('#dpAsWriter');if(fakeWriter)fakeWriter.remove();
+  const make=$('#dpMakeLink');if(make){make.textContent='Use secure production invitation below';make.disabled=true}
+  const copy=$('#dpCopyLink');if(copy)copy.remove();
+  const revoke=$('#dpRevoke');if(revoke)revoke.remove();
+  lorAppendHandoffPanel();
+}
+VIEWS.depot[1]=lorWireProductionDepot;
+
+function lorRenderProductionSettings(){
+  const projection=D.production&&D.production.projection;
+  return `<section data-view="settings" class="live" style="max-width:780px"><div class="eyebrow">Settings</div><div class="h1" style="margin-top:8px">Your <em>account</em></div><div class="panel" style="margin-top:20px"><div class="pBody" style="padding-top:6px"><div class="setRow"><div class="sTxt"><b>Signed-in role</b><span>${D.production&&D.production.role==='mentor'?'Mentor · read-only strategy access':D.production&&D.production.role==='faculty'?'Verified faculty letter writer':'Eligible MissionMed student'}</span></div></div><div class="setRow"><div class="sTxt"><b>Durable case</b><span>${projection?`Revision ${Number.isSafeInteger(projection.revision)?projection.revision:'read-only'} · ${esc(String(projection.status||'active').replaceAll('_',' '))}`:'Start a recommendation case from Build My LOR.'}</span></div></div><div class="setRow"><div class="sTxt"><b>Privacy boundaries</b><span>Student, mentor, and faculty views are selected by the server. Faculty-private content is never included in student or mentor projections.</span></div></div><div class="setRow"><div class="sTxt"><b>Back to Matrix</b><span>Return to the MissionMed member dashboard.</span></div><button class="rowBtn" id="setMx">Go</button></div><div class="setRow" style="border-bottom:0"><div class="sTxt"><b>Reference data</b><span>Program and application information shown in LOR Studio is provided for planning and reference. Requirements, policies, deadlines, personnel, and other program information can change. MissionMed does not guarantee that every reference-data field is current or complete. Confirm consequential requirements directly with the applicable program or institution before relying on them.</span></div></div></div></div></section>`;
+}
+function lorWireProductionSettings(){const button=$('#setMx');if(button)button.onclick=()=>$('#btnMatrix').click()}
+VIEWS.settings=[()=>D.production?lorRenderProductionSettings():renderSettings(),()=>D.production?lorWireProductionSettings():wireSettings()];
+
+function lorRenderProductionRotations(){return `<section data-view="rotations" class="live"><div class="eyebrow">Intelligence · rotations & timeline</div><div class="h1" style="margin-top:8px">The facts your writer <em>actually observed</em>.</div><p class="sub" style="margin-top:10px;max-width:720px">LOR Studio uses only the clinical context saved in this recommendation case. Timeline Builder remains the canonical record.</p><div class="panel" style="margin-top:20px"><div class="pBody">${D.rotations.length?D.rotations.map(r=>`<div class="row"><div class="rowMain"><div class="rowT">${esc(r.name)}</div><div class="rowS">${esc(r.site)}${r.start?' · '+fmtD(r.start):''}${r.end?' – '+fmtD(r.end):''}${r.weeks?' · '+r.weeks+' weeks':''}</div></div><span class="chip cy">Case-scoped</span></div>`).join(''):'<div class="rowS">Add the writer and relationship context in Build My LOR to establish this case-scoped timeline.</div>'}</div></div></section>`}
+function lorRenderProductionPrograms(){return `<section data-view="programs" class="live"><div class="eyebrow">Intelligence · program requirements</div><div class="h1" style="margin-top:8px">Plan the portfolio, <em>confirm the source</em>.</div><div class="panel" style="margin-top:20px"><div class="pBody">${D.programs.length?D.programs.map(p=>`<div class="row"><div class="rowMain"><div class="rowT">${esc(p.name)}</div><div class="rowS">${p.maxLetters} planned letter slots${p.deadline?' · deadline '+fmtD(p.deadline):''}</div></div><span class="chip">MissionMed reference data</span></div>`).join(''):'<div class="rowS">No program information is attached to this case yet.</div>'}<div class="noteBox" style="margin-top:14px">Program and application information can change. Confirm consequential requirements directly with the applicable program or institution before relying on them.</div></div></div></section>`}
+VIEWS.rotations=[()=>D.production?lorRenderProductionRotations():renderRotations(),()=>{}];VIEWS.programs=[()=>D.production?lorRenderProductionPrograms():renderPrograms(),()=>{}];
+
+function lorProductionStageChip(){
+  const projection=D.production&&D.production.projection,document=projection&&projection.finalDocument,release=lorPlain(document)&&lorString(document.releasedToStudentAt);
+  if(release)return '<span class="stage good" title="The faculty writer released this final document through MissionMed.">Released to you</span>';
+  const delivery=lorString(projection&&projection.delivery&&projection.delivery.status),status=lorString(projection&&projection.status,'draft');
+  if(delivery==='delivered'||status==='delivered')return '<span class="stage good" title="The authorized delivery workflow recorded completion.">Delivered</span>';
+  const labels={draft:['Preparing',''],faculty_invited:['Invitation sent','info'],faculty_verified:['Faculty verified','info'],faculty_review:['Faculty working','info'],faculty_approved:['Faculty approved','good'],closed:['Closed','good'],cancelled:['Cancelled','bad']};
+  const [label,cls]=labels[status]||['Active','info'];return `<span class="stage ${cls}" title="Server-recorded production status">${label}</span>`;
+}
+function lorStudentReleasePanel(){
+  const c=D.cases[0],projection=D.production&&D.production.projection,document=projection&&projection.finalDocument;
+  if(!c||D.production.role!=='student')return '';
+  if(c.waived)return '<div class="panel" style="margin-top:18px"><div class="pHead"><div class="h2">Final letter <em>privacy</em></div></div><div class="pBody"><div class="rowS">You waived access to this letter. Faculty-private wording and the final document remain confidential.</div></div></div>';
+  if(!lorPlain(document)||!lorString(document.releasedToStudentAt))return '';
+  const fingerprint=lorString(document.contentHash),mime=lorString(document.mimeType);
+  return `<div class="panel" id="lorStudentReleasedDocument" style="margin-top:18px"><div class="pHead"><div><div class="eyebrow">Faculty-released final document</div><div class="h2" style="margin-top:5px">Your released <em>letter</em></div></div>${lorProductionStageChip(c)}</div><div class="pBody"><div class="rowS">Released ${esc(document.releasedToStudentAt)} through the protected MissionMed release workflow.</div><div class="noteBox" style="margin-top:14px;white-space:pre-wrap">${esc(lorString(document.text,'The released document is available through the protected download.'))}</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px"><button class="btn pri sm" id="lorStudentExportFinal">Download released letter</button>${mime?`<span class="chip">${esc(mime)}</span>`:''}${fingerprint?`<span class="chip">Fingerprint ${esc(fingerprint.slice(0,12))}</span>`:''}</div></div></div>`;
+}
+function lorRenderProductionLetters(){
+  if(!D.production)return lorApprovedRenderLetters();
+  if(D.cases.every(c=>wOf(c.writerId))){const approved=lorApprovedRenderLetters(),panel=lorStudentReleasePanel();return panel?approved.replace(/<\/section>\s*$/u,`${panel}</section>`):approved}
+  const c=D.cases[0];return `<section data-view="letters" class="live"><div class="eyebrow">My letters & tracking</div><div class="h1" style="margin-top:8px">Every stage, <em>one honest timeline</em>.</div><div class="panel" style="margin-top:20px"><div class="pBody"><div class="row"><div class="rowMain"><div class="rowT">Recommendation case started</div><div class="rowS">Choose the faculty writer to activate readiness, Writer Depot, invitation, and tracking.</div></div><span class="stage warn">Writer needed</span><button class="rowBtn pri" id="lorLettersChooseWriter">Choose writer</button></div></div></div></section>`;
+}
+function lorWireProductionLetters(){
+  const button=$('#lorLettersChooseWriter');if(button){button.onclick=()=>{D.ui.pick={situation:D.builds[D.cases[0].id].situation||'asked',templateId:null};go('build')};return}
+  lorApprovedWireLetters();const download=$('#lorStudentExportFinal');if(download)download.onclick=()=>void D.production.commands.exportFinalDocument({caseId:D.production.projection.caseId}).then(outcome=>toast(outcome&&outcome.downloadStarted?'Your download has started.':'The released document could not be downloaded. Nothing was changed.'));
+}
+VIEWS.letters=[lorRenderProductionLetters,()=>D.production?lorWireProductionLetters():wireHome()];
+
+function lorMentorCopy(value){return esc(String(value||'Not yet recorded').replaceAll('_',' '))}
+function lorRenderMentorHome(){const p=D.production.projection;return `<section data-view="mhome" class="live"><div class="eyebrow">Mentor · letter strategy</div><div class="h1" style="margin-top:8px">Recommendation <em>portfolio</em></div><p class="sub" style="margin-top:10px;max-width:700px">You see the plan, readiness, evidence gaps, deadlines, and next milestone needed to coach strategy. Faculty-private answers and letter content are never included.</p><div class="grid2" style="margin-top:20px"><div class="panel"><div class="pHead"><div class="h2">Case <em>status</em></div></div><div class="pBody"><div class="row"><div class="rowMain"><div class="rowT">Workflow</div><div class="rowS">${lorMentorCopy(p.strategyStatus||p.status)}</div></div></div><div class="row"><div class="rowMain"><div class="rowT">Next milestone</div><div class="rowS">${lorMentorCopy(p.nextMilestone)}</div></div></div></div></div><div class="panel"><div class="pHead"><div class="h2">Privacy <em>boundary</em></div></div><div class="pBody"><div class="rowS">This mentor projection contains status strategy only: no faculty notes, assessment, draft, final letter, consent text, invitation token, or student-private evidence content.</div></div></div></div></section>`}
+function lorRenderMentorCoverage(){const p=D.production.projection;return `<section data-view="mcoverage" class="live"><div class="eyebrow">Mentor · portfolio coverage</div><div class="h1" style="margin-top:8px">Readiness without <em>private content</em>.</div><div class="panel" style="margin-top:20px"><div class="pBody"><div class="row"><div class="rowMain"><div class="rowT">Strategy status</div><div class="rowS">${lorMentorCopy(p.strategyStatus)}</div></div></div><div class="row"><div class="rowMain"><div class="rowT">Next coaching action</div><div class="rowS">Support the student toward ${lorMentorCopy(p.nextMilestone)}.</div></div></div></div></div></section>`}
+function lorRenderMentorDeadlines(){const p=D.production.projection;return `<section data-view="mdeadlines" class="live"><div class="eyebrow">Mentor · deadlines & exceptions</div><div class="h1" style="margin-top:8px">What happens <em>next</em>.</div><div class="panel" style="margin-top:20px"><div class="pBody"><div class="row"><div class="rowMain"><div class="rowT">Delivery</div><div class="rowS">${lorMentorCopy(p.deliveryStatus)}</div></div><span class="stage">${lorMentorCopy(p.status)}</span></div></div></div></section>`}
+VIEWS.mhome=[()=>D.production?lorRenderMentorHome():renderMHome(),()=>{}];VIEWS.mcoverage=[()=>D.production?lorRenderMentorCoverage():renderMCoverage(),()=>{}];VIEWS.mdeadlines=[()=>D.production?lorRenderMentorDeadlines():renderMDeadlines(),()=>{}];
+
+const lorApprovedWireFacStep=wireFacStep;
+async function lorRequestFacultyAi(){
+  const commands=D.production&&D.production.commands,projection=D.production&&D.production.projection;if(!commands||typeof commands.requestAiProposal!=='function'||!projection)return;
+  const button=$('#facAi');if(button){button.disabled=true;button.textContent='Requesting grounded proposal…'}
+  try{
+    const outcome=await commands.requestAiProposal({caseId:projection.caseId,factIds:null});const proposal=outcome&&outcome.body&&outcome.body.proposal;
+    if(!lorPlain(proposal)||!lorString(proposal.id)||!lorString(proposal.text))throw new Error('proposal_refused');LOR_AI_PROPOSAL={caseId:projection.caseId,actorRole:D.production.role,proposal:lorClone(proposal)};renderFac();toast('Grounded proposal received for your review. Nothing was finalized.');
+  }catch(e){if(button){button.disabled=false;button.textContent='Request grounded AI proposal'}toast('MissionMed did not return a usable AI proposal. Nothing was finalized.')}
+}
+async function lorDecideFacultyAi(action){
+  const commands=D.production&&D.production.commands,projection=D.production&&D.production.projection,proposal=lorBoundAiProposal();if(!commands||!projection||!proposal)return;
+  const resultingText=action==='edited'?lorString(proposal.text):undefined;
+  const outcome=await commands.decideAiProposal({caseId:projection.caseId,proposalId:proposal.id,action,resultingText});
+  if(!outcome||outcome.reached!==true||![200,201].includes(Number(outcome.status))){toast('The AI decision was not recorded. Nothing changed.');return}
+  if(action==='accepted'||action==='edited'){const c=D.cases[0],draftText=action==='accepted'?lorString(proposal.text):resultingText;c.fac.pars=[{id:'p_ai',txt:draftText,prov:['obs']}];persist();LOR_AI_PROPOSAL=null;renderFac();toast('The proposal is now an editable faculty draft; you still own every word.')}else{LOR_AI_PROPOSAL=null;renderFac();toast('AI proposal rejected. No letter wording changed.')}
+}
+async function lorFinalizeFacultyLetter(){
+  const commands=D.production&&D.production.commands,current=D.production&&D.production.projection,payload=lorFacultyPrivatePayload({finalize:true});if(!commands||!current||!payload||!payload.finalDocument.text.trim())return toast('Add your final letter wording before release.');
+  clearTimeout(D.production.syncTimer);D.production.syncing=true;D.production.dirty=false;
+  try{
+    const saved=await commands.saveFacultyPrivateContent({caseId:current.caseId,expectedRevision:current.revision,...payload});let candidate=lorProjectionFromResult(saved);if(!candidate)throw new Error('final_save_refused');D.production.projection=lorClone(candidate);
+    const documentId=lorString(candidate.facultyPrivate&&candidate.facultyPrivate.finalDocument&&candidate.facultyPrivate.finalDocument.id);if(!documentId)throw new Error('document_missing');
+    const released=await commands.releaseFinalDocument({caseId:candidate.caseId,expectedRevision:candidate.revision,documentId});candidate=lorProjectionFromResult(released);if(!candidate)throw new Error('release_refused');D.production.syncing=false;lorPresentProjection(candidate,'faculty');toast('Final letter approved, signed, and released through the production state machine.');
+  }catch(e){D.production.syncing=false;toast('MissionMed did not complete the release. The workspace remains open and nothing is being claimed as released.')}
+}
+function lorWireProductionFacStep(c,w,r,fc,step){
+  lorApprovedWireFacStep(c,w,r,fc,step);if(!D.production||D.production.role!=='faculty')return;
+  const decline=$('#facDecline');if(decline)decline.remove();
+  if(step===5){
+    const draft=$('#facProductionDraft');if(draft){draft.oninput=()=>{fc.pars=draft.value.trim()?[{id:'p_manual',txt:draft.value,prov:['obs']}]:[];const next=$('#facDraftOk');if(next)next.disabled=!fc.pars.length;persist()}}
+    const ai=$('#facAi');if(ai)ai.onclick=()=>void lorRequestFacultyAi();
+    const proposal=lorBoundAiProposal();if(proposal){const host=$('#lorAiProposal');if(host){host.replaceChildren();const card=document.createElement('div');card.className='cueCard';const text=document.createElement('div');text.className='cueTxt';text.textContent=proposal.text;const actions=document.createElement('div');actions.className='cueActs';actions.append(lorButton('Accept as editable faculty draft',()=>void lorDecideFacultyAi('accepted'),'facAlt'),lorButton('Reject proposal',()=>void lorDecideFacultyAi('rejected'),'facAlt'));card.append(text,actions);host.appendChild(card)}}
+  }
+  if(step===7){const download=$('#facDl');if(download)download.onclick=()=>void D.production.commands.exportFinalDocument({caseId:D.production.projection.caseId}).then(outcome=>toast(outcome&&outcome.downloadStarted?'Your download has started.':'The approved export is not available yet.'));const done=$('#facDone');if(done&&!fc.done)done.onclick=()=>void lorFinalizeFacultyLetter()}
+}
+wireFacStep=lorWireProductionFacStep;
+
+function createFounderApprovedProductionUi(){
+  let rendered=null;
+  const ui={
+    attachCommands(commands){LOR_PRODUCTION_COMMANDS=lorPlain(commands)?commands:null;if(D.production)D.production.commands=LOR_PRODUCTION_COMMANDS;return {attached:LOR_PRODUCTION_COMMANDS?Object.keys(LOR_PRODUCTION_COMMANDS):[]}},
+    async block(){rendered=null;return {blocked:true,prototypeRevealed:false,localStorageUsed:false}},
+    async renderProductionProjection(projection,context){
+      const role=context&&context.actorRole||'student';
+      const schemas={student:'missionmed.lor.student-projection.v1',faculty:'missionmed.lor.faculty-projection.v1',mentor:'missionmed.lor.mentor-projection.v1'};
+      if(!lorPlain(projection)||projection.schemaVersion!==schemas[role]||context.runtimeMode!=='live'||context.persistToLocalStorage!==false)throw new TypeError('Approved application requires an authorized live projection');
+      rendered=projection;lorPresentProjection(projection,role);return {rendered:true,caseId:projection.caseId,revision:Number.isSafeInteger(projection.revision)?projection.revision:null,founderApprovedAppRendered:true,prototypeRevealed:false,localStorageUsed:false};
+    },
+    showState(){return {shown:true}},
+    showEmptyWorkspace(request){
+      LOR_EMPTY_START=request&&typeof request.startCase==='function'?request.startCase:null;D=emptyProductionState();D.production.commands=LOR_PRODUCTION_COMMANDS;D.production.role='student';render();$('#demoBadge').textContent='Live data';$('#demoBadge').title='Durable MissionMed production data';$('#rolePill').hidden=true;
+      $('#demoBadge').onclick=()=>modal(`<div class="h2">MissionMed <em>LOR Studio</em></div><p class="sub" style="margin-top:10px">Start a durable recommendation case from any approved Build My LOR on-ramp.</p><button class="btn alt" style="margin-top:16px" onclick="closeModal()">Close</button>`);
+      return {rendered:true,surface:'empty'};
+    },
+    markSaving(){return {saving:true}},markSaved(){return {saved:true}},markSaveFailed(){return {saved:false}},
+    get state(){return rendered?'loaded':'empty'},get renderedCaseId(){return rendered&&rendered.caseId||null},get renderedRevision(){return Number.isSafeInteger(rendered&&rendered.revision)?rendered.revision:null},get saveInFlight(){return Boolean(D.production&&D.production.syncing)},get hasUnsavedEdits(){return Boolean(D.production&&D.production.dirty)},
+    stateNames:['empty','loaded','saving','saved','save_failed'],builderStepIds:LOR_PRODUCTION_STEPS
+  };
+  Object.defineProperties(ui,{presentationIsolation:{value:'founder_approved_application_with_production_adapters',enumerable:true},usesLocalStorage:{value:false,enumerable:true},canRevealPrototype:{value:false,enumerable:true},founderApprovedExecutable:{value:true,enumerable:true}});
+  return Object.freeze(ui);
+}
+window.LorProductionProjectionUi=createFounderApprovedProductionUi;
+window.MissionMedLorFounderApprovedApp=Object.freeze({createFounderApprovedProductionUi,approvedArtifactSha256:'c249373619a45c31a1b895363fb1d3806d966c8fc413e0acdc4df0870c5a51b7',productionStrategy:'approved_app_fixture_seams_replaced_with_production_adapters'});
 </script>
 
-<script src="/lor-studio/production-projection-ui.js?v=7"></script>
-<script src="/lor-studio/production-adapter.js?v=7"></script>
+<script src="/lor-studio/production-adapter.js?v=8"></script>
 </body>
 </html>

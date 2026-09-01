@@ -38,6 +38,9 @@ const shell = `<!doctype html><html data-lor-runtime="gated"><body>
 
 async function runAdapter({ url = 'https://hq.example.test/lor-studio/', response = null } = {}) {
   const dom = new JSDOM(shell, { runScripts: 'dangerously', url });
+  if (/^http:\/\/(?:localhost|127\.0\.0\.1).*\bfidelity=1/u.test(url)) {
+    dom.window.MissionMedLorFounderApprovedApp = Object.freeze({ localFixtureReady: true });
+  }
   dom.window.fetch = async () => response || {
     ok: false,
     status: 503,
@@ -75,9 +78,10 @@ function studentProjection(overrides = {}) {
 function stubProjectionUi(overrides = {}) {
   const calls = { block: [], render: [], empty: [], commands: [] };
   const ui = {
-    presentationIsolation: 'production_projection_only',
+    presentationIsolation: 'founder_approved_application_with_production_adapters',
     usesLocalStorage: false,
     canRevealPrototype: false,
+    founderApprovedExecutable: true,
     async block(input) { calls.block.push(input); },
     async renderProductionProjection(projection, meta) { calls.render.push({ projection, meta }); },
     async showEmptyWorkspace(input) { calls.empty.push(input); },
@@ -151,19 +155,19 @@ function assertPrototypeNeverRevealed(dom) {
   );
   assert.equal(document.querySelector('.lor-fidelity-badge'), null, 'fixture badge must never appear');
   assert.notEqual(document.documentElement.dataset.lorRuntime, 'fixture');
-  assert.equal(document.getElementById('prototype').inert, true);
-  assert.equal(document.getElementById('prototype').getAttribute('aria-hidden'), 'true');
 }
 
-test('materialized production document keeps the entire frozen prototype runtime inert before the governed adapter runs', () => {
+test('materialized production document executes the Founder-approved application without local fixture state', () => {
   const dom = new JSDOM(materializedHtml, {
     runScripts: 'dangerously',
     url: 'https://hq.example.test/lor-studio/',
   });
   assert.equal(dom.window.localStorage.getItem('lorstudio-f2-1002'), null);
   assert.equal(dom.window.__LOR_FROZEN_PROTOTYPE_READY__, undefined);
-  assert.equal(dom.window.document.getElementById('main').childElementCount, 0);
-  assert.equal(dom.window.document.getElementById('lorFrozenPrototypeRuntime').type, 'application/x-lor-frozen-prototype');
+  assert.ok(dom.window.document.getElementById('main').childElementCount > 0);
+  assert.equal(dom.window.document.getElementById('lorFounderApprovedRuntime').type, 'text/javascript');
+  assert.equal(dom.window.MissionMedLorFounderApprovedApp.approvedArtifactSha256, 'c249373619a45c31a1b895363fb1d3806d966c8fc413e0acdc4df0870c5a51b7');
+  assert.equal(dom.window.LorProductionProjectionUi().founderApprovedExecutable, true);
 });
 
 test('anonymous candidate shell scrubs the token before any request and seals it only on user action', async () => {
@@ -282,7 +286,7 @@ test('adapter keeps frozen presentation blocked even when backend reports live w
   assert.equal(document.getElementById('lorRuntimeGate').hidden, false);
   assert.equal(document.getElementById('prototype').inert, true);
   assert.equal(document.getElementById('lorRuntimeGateTitle').textContent, 'LOR Studio is not yet available');
-  assert.match(document.getElementById('lorRuntimeGateMessage').textContent, /no authorized production hydration adapter/u);
+  assert.match(document.getElementById('lorRuntimeGateMessage').textContent, /Founder-approved application adapter did not pass its production contract/u);
   assert.doesNotMatch(document.getElementById('lorRuntimeGateMessage').textContent, /undefined/u);
   assert.equal(document.getElementById('lorRuntimeGateCode').textContent, 'Reference: frontend_hydration_unavailable');
   assert.deepEqual({ ...dom.window.__LOR_STUDIO_RUNTIME__ }, {
@@ -299,8 +303,8 @@ test('local fidelity mode is visibly labeled synthetic and never marked operatio
   assert.match(badge.textContent, /Synthetic fidelity fixture/u);
   assert.equal(dom.window.__LOR_STUDIO_RUNTIME__.operational, false);
   assert.equal(dom.window.__LOR_STUDIO_RUNTIME__.mode, 'synthetic_fixture');
-  assert.equal(dom.window.__FROZEN_TEST_EXECUTIONS__, 1);
-  assert.equal(dom.window.localStorage.getItem('lor-frozen-test-write'), 'fixture-only');
+  assert.equal(dom.window.__FROZEN_TEST_EXECUTIONS__, undefined);
+  assert.equal(dom.window.localStorage.getItem('lor-frozen-test-write'), null);
 });
 
 test('localhost does not bypass the gate unless fidelity mode is explicit', async () => {
@@ -648,7 +652,7 @@ test('every fail-closed gate branch is unchanged by hydration', async () => {
   );
 });
 
-test('end to end: the real projection UI bundle hydrates production without ever revealing the prototype', { skip: projectionUiSource ? false : 'production-projection-ui.js not present in this worktree' }, async () => {
+test('the rejected reduced projection renderer cannot take control after Ticket 024', { skip: projectionUiSource ? false : 'production-projection-ui.js not present in this worktree' }, async () => {
   const liveProjection = {
     schemaVersion: 'missionmed.lor.student-projection.v1',
     caseId: 'case-42',
@@ -685,26 +689,13 @@ test('end to end: the real projection UI bundle hydrates production without ever
   }
 
   const { document } = dom.window;
-  assert.equal(document.documentElement.dataset.lorRuntime, 'live', 'the real UI drove the runtime live');
+  assert.equal(document.documentElement.dataset.lorRuntime, 'gated', 'the rejected renderer must fail the Ticket 024 contract');
   const mount = document.getElementById('lorProductionRoot');
   assert.notEqual(mount, null);
   assert.equal(mount.className, 'lor-production-root', 'the mount matches the class the adapter stylesheet targets');
-  assert.notEqual(mount.childElementCount, 0, 'the real renderer painted the projection');
-  const matrixLinks = [...mount.querySelectorAll('a[data-lor-return-matrix]')];
-  assert.equal(matrixLinks.length, 1, 'the live student surface exposes one Matrix return control');
-  assert.equal(matrixLinks[0].textContent, 'Return to Matrix');
-  assert.equal(
-    matrixLinks[0].getAttribute('href'),
-    'https://missionmedinstitute.com/member-dashboard/#dashboard',
-  );
-  assert.equal(matrixLinks[0].getAttribute('referrerpolicy'), 'no-referrer');
-  assert.equal(matrixLinks[0].getAttribute('target'), null);
-  assert.equal(matrixLinks[0].getAttribute('onclick'), null);
-  assert.equal(mount.contains(document.getElementById('btnMatrix')), false, 'the frozen control remains outside the live mount');
-
-  // The whole point: real production data on screen, prototype still sealed.
+  assert.equal(mount.childElementCount, 0, 'the rejected renderer paints no production surface');
   assertPrototypeNeverRevealed(dom);
-  assert.deepEqual({ ...dom.window.__LOR_STUDIO_RUNTIME__ }, { mode: 'live', operational: true });
+  assert.deepEqual({ ...dom.window.__LOR_STUDIO_RUNTIME__ }, { mode: 'blocked_unhydrated', operational: false });
   assert.equal(dom.window.localStorage.length, 0, 'production hydration wrote nothing to localStorage');
 });
 
