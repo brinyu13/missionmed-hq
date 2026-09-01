@@ -324,6 +324,11 @@ fv2_repo_assert( is_wp_error( $comment_rate_limited ) && 429 === $comment_rate_l
 unset( $GLOBALS['fv2_transients']['mmed_fv2_comment_rate_1_10'] );
 $resolved = MMED_File_Vault_V2_Repository::resolve_comment( 1, $comment['id'], 20 );
 fv2_repo_assert( ! is_wp_error( $resolved ) && true === $resolved['resolved'], 'comment resolution persists' );
+$internal_note = MMED_File_Vault_V2_Repository::add_internal_note( 1, 20, 'Confirm final review ownership before approval.' );
+fv2_repo_assert( ! is_wp_error( $internal_note ) && ! isset( $internal_note['author_id'] ) && 'MissionMed Reviewer' === $internal_note['author_name'], 'staff internal note persists without exposing its actor ID' );
+$internal_notes = MMED_File_Vault_V2_Repository::internal_notes( 1 );
+fv2_repo_assert( 1 === count( $internal_notes ) && $internal_note['id'] === $internal_notes[0]['id'], 'staff internal notes return through their dedicated collection' );
+fv2_repo_assert( ! array_key_exists( 'internal_notes', MMED_File_Vault_V2_Repository::get_document( 1 ) ), 'public document responses exclude the internal-note collection' );
 
 $submitted = MMED_File_Vault_V2_Repository::update_status( 1, 'submitted', 10 );
 fv2_repo_assert( 'submitted' === $submitted['status'], 'owner submit transition persists' );
@@ -354,15 +359,18 @@ $version_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 		'filename' => 'personal-statement-v2.docx',
 		'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 		'file_size' => 222,
-		'note' => 'Reworked closing paragraph.',
-		'ready_for_review' => true,
-		'sha256' => str_repeat( 'b', 64 ),
+			'note' => 'Reworked closing paragraph.',
+			'ready_for_review' => true,
+			'draft_label' => 'Final',
+			'sha256' => str_repeat( 'b', 64 ),
 	),
 	1
 );
 $versioned = MMED_File_Vault_V2_Repository::confirm_upload_intent( $version_intent['upload_id'], $version_intent['confirm_token'], 10 );
 fv2_repo_assert( ! is_wp_error( $versioned ) && 2 === $versioned['version'] && 2 === count( $versioned['versions'] ), 'new upload creates immutable version history' );
-fv2_repo_assert( 'Avery_Rivera_360Elite_A_PersonalStatement_Draft02_' . gmdate( 'Y-m-d' ) . '.docx' === $versioned['canonical_name'] && 'Draft02' === $versioned['versions'][1]['draft_label'], 'replacement upload increments the canonical version without deleting prior history' );
+fv2_repo_assert( 'Avery_Rivera_360Elite_A_PersonalStatement_Final_' . gmdate( 'Y-m-d' ) . '.docx' === $versioned['canonical_name'] && 'Final' === $versioned['versions'][1]['draft_label'], 'replacement upload accepts controlled Final labeling without deleting prior history' );
+$invalid_draft_label = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'invalid-label.docx', 'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'file_size' => 64, 'draft_label' => 'Draft99', 'sha256' => str_repeat( 'e', 64 ) ), 1 );
+fv2_repo_assert( is_wp_error( $invalid_draft_label ) && 'mmed_file_vault_v2_draft_label_invalid' === $invalid_draft_label->get_error_code(), 'server rejects a draft label that does not match the next immutable version' );
 fv2_repo_assert( 'submitted' === $versioned['status'], 'version can submit for review at confirmation' );
 fv2_repo_assert( 32 === $versioned['versions'][0]['score'] && 40 === $versioned['versions'][0]['score_max'], 'historical score and denominator remain attached to their version' );
 
@@ -555,6 +563,14 @@ $GLOBALS['wpdb']->rows = array( 1 => $comment_limit_row );
 $comment_limited = MMED_File_Vault_V2_Repository::add_comment( 1, 10, 'student', 'One comment beyond the retained limit.' );
 fv2_repo_assert( is_wp_error( $comment_limited ) && 'mmed_file_vault_v2_comment_limit' === $comment_limited->get_error_code(), 'retained comment collection limit fails closed' );
 
+$internal_note_limit_row  = clone $saved_rows[1];
+$internal_note_limit_root = json_decode( $internal_note_limit_row->meta_json, true );
+$internal_note_limit_root[ MMED_File_Vault_V2_Repository::META_KEY ]['internal_notes'] = array_fill( 0, MMED_File_Vault_V2_Repository::MAX_INTERNAL_NOTES, array( 'id' => 'bounded-internal-note', 'body' => 'fixture' ) );
+$internal_note_limit_row->meta_json = wp_json_encode( $internal_note_limit_root );
+$GLOBALS['wpdb']->rows = array( 1 => $internal_note_limit_row );
+$internal_note_limited = MMED_File_Vault_V2_Repository::add_internal_note( 1, 20, 'One internal note beyond the retained limit.' );
+fv2_repo_assert( is_wp_error( $internal_note_limited ) && 'mmed_file_vault_v2_internal_note_limit' === $internal_note_limited->get_error_code(), 'retained internal-note collection limit fails closed' );
+
 $version_limit_row  = clone $saved_rows[1];
 $version_limit_root = json_decode( $version_limit_row->meta_json, true );
 $existing_version   = $version_limit_root[ MMED_File_Vault_V2_Repository::META_KEY ]['versions'][0];
@@ -606,5 +622,39 @@ $GLOBALS['wpdb']->rows = $saved_rows;
 $GLOBALS['fv2_users']  = $saved_users;
 $GLOBALS['fv2_user_meta'][11]['_mmed_file_vault_mentor_id'] = 20;
 fv2_repo_assert( MMED_File_Vault_V2_Repository::mentor_can_view( 20, 11 ) && ! MMED_File_Vault_V2_Repository::mentor_can_view( 21, 11 ) && ! MMED_File_Vault_V2_Repository::mentor_can_view( 0, 12 ), 'mentor authorization checks a valid target assignment directly without roster truncation or anonymous equality' );
+
+$mission_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
+	12,
+	20,
+	array(
+		'filename' => 'missionmed-interview-guide.pdf',
+		'mime_type' => 'application/pdf',
+		'file_size' => 128,
+		'document_type' => 'other',
+		'display_name' => 'MissionMed Interview Guide',
+		'share_as_mission_file' => true,
+		'sha256' => str_repeat( 'f', 64 ),
+	)
+);
+$mission_document = MMED_File_Vault_V2_Repository::confirm_upload_intent( $mission_intent['upload_id'], $mission_intent['confirm_token'], 20 );
+fv2_repo_assert( ! is_wp_error( $mission_document ) && 'admin' === $mission_document['category'] && 'MissionMed' === $mission_document['source'] && '' !== $mission_document['shared_at'], 'authorized staff upload records Mission File category and provenance' );
+$mission_bootstrap = MMED_File_Vault_V2_Repository::bootstrap( 12, 'student' );
+fv2_repo_assert( 1 === count( $mission_bootstrap['library'] ) && 'MissionMed Interview Guide' === $mission_bootstrap['library'][0]['name'], 'Mission File appears in the student Shared by MissionMed collection' );
+
+$student_share_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
+	12,
+	12,
+	array(
+		'filename' => 'student-document.pdf',
+		'mime_type' => 'application/pdf',
+		'file_size' => 64,
+		'document_type' => 'other',
+		'display_name' => 'Student Document',
+		'share_as_mission_file' => true,
+		'sha256' => str_repeat( 'e', 64 ),
+	)
+);
+$student_share_document = MMED_File_Vault_V2_Repository::confirm_upload_intent( $student_share_intent['upload_id'], $student_share_intent['confirm_token'], 12 );
+fv2_repo_assert( ! is_wp_error( $student_share_document ) && 'admin' !== $student_share_document['category'] && '' === $student_share_document['source'] && '' === $student_share_document['shared_at'], 'repository defense-in-depth ignores student attempts to self-declare Mission File provenance' );
 
 echo "PASS: {$checks} File Vault V2 repository workflow checks\n";

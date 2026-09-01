@@ -272,6 +272,10 @@
 				}],
 				103: []
 			};
+			var internalNotesByDocument = {
+				1101: [{ id: "internal-note-fixture-1", author_name: "Admin Fixture", created_at: now, body: "Confirm final review ownership before approval." }],
+				1102: [{ id: "internal-note-fixture-2", author_name: "Admin Fixture", created_at: now, body: "Confirm final review ownership before approval." }]
+			};
 
 			function clone(value) {
 				return JSON.parse(JSON.stringify(value));
@@ -290,6 +294,8 @@
 					review: hasStudent && viewerRole !== "student",
 					score: hasStudent && viewerRole !== "student",
 					finalize: hasStudent && viewerRole === "admin",
+					internal_notes: hasStudent && viewerRole !== "student",
+					share_mission_file: hasStudent && viewerRole === "admin",
 					view_audit: viewerRole !== "student",
 					view_student_list: viewerRole !== "student"
 				};
@@ -305,7 +311,7 @@
 					programs: ["360 Elite"],
 					program_locked: true,
 					session_letter: studentId === 102 ? "B" : "A",
-					session_locked: true,
+					session_locked: scenario !== "unlocked-session",
 					submission_date: "2026-07-15",
 					naming_pattern: "FIRSTNAME_LASTNAME_COURSE_SESSIONLETTER_DOCUMENTTYPE_DRAFTVERSION_DATESUBMITTED"
 				};
@@ -550,6 +556,7 @@
 			window.mmedFileVaultV2Config = {
 				maxFileSize: 26214400,
 				role: role,
+				viewerName: role === "student" ? "Avery Rivera (Fixture)" : (role === "mentor" ? "Mentor Fixture" : "Admin Fixture"),
 				v1: {
 					css: new URL("../../wp-content/plugins/missionmed-hub/assets/student-os-file-vault.css", window.location.href).toString()
 				}
@@ -712,7 +719,9 @@
 							program: pending.body.program,
 							session_letter: pending.body.session_letter,
 							document_type: pending.body.document_type || "other",
-							category: "student",
+							category: pending.body.share_as_mission_file ? "admin" : "student",
+							source: pending.body.share_as_mission_file ? "MissionMed" : "",
+							shared_at: pending.body.share_as_mission_file ? now : "",
 							mime_type: pending.body.mime_type,
 							file_size: pending.body.file_size,
 							version: 1,
@@ -764,6 +773,20 @@
 					resolvedDocument.open_comment_count = resolvedDocument.comments.filter(function (commentItem) { return !commentItem.resolved; }).length;
 					harness.mutations.push({ type: "resolve", documentId: resolvedDocument.id });
 					return mutationResponse(clone(resolved), request);
+				}
+				var internalNoteMatch = path.match(/^\/files\/(\d+)\/internal-notes$/);
+				if (internalNoteMatch && method === "GET") {
+					if (role === "student") return reject("Staff access required.", 403);
+					if (!findDocument(requestStudentId, internalNoteMatch[1])) return reject("Document not found.", 404);
+					return Promise.resolve(clone(internalNotesByDocument[Number(internalNoteMatch[1])] || []));
+				}
+				if (internalNoteMatch && method === "POST") {
+					if (role === "student") return reject("Staff access required.", 403);
+					if (!findDocument(requestStudentId, internalNoteMatch[1])) return reject("Document not found.", 404);
+					var note = { id: "internal-note-fixture-" + Date.now(), author_name: role === "mentor" ? "Mentor Fixture" : "Admin Fixture", created_at: now, body: body.body };
+					internalNotesByDocument[Number(internalNoteMatch[1])] = (internalNotesByDocument[Number(internalNoteMatch[1])] || []).concat([note]);
+					harness.mutations.push({ type: "internal-note", documentId: Number(internalNoteMatch[1]) });
+					return mutationResponse(clone(note), request);
 				}
 				var statusMatch = path.match(/^\/files\/(\d+)\/status$/);
 				if (statusMatch && method === "PUT") {

@@ -32,6 +32,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	const NOTE_LENGTH_LIMIT = 2000;
 	const MAX_VERSIONS = 100;
 	const MAX_COMMENTS = 100;
+	const MAX_INTERNAL_NOTES = 100;
 	const MAX_SCORES = 100;
 	const MAX_ACTIVITY_EVENTS = 500;
 	const COMMENT_RATE_LIMIT = 20;
@@ -469,7 +470,12 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		$types          = self::document_types();
 		$definition     = $types[ $document_type ] ?? $types['other'];
 		$document_label = 'other' === $document_type ? $display_name : sanitize_text_field( $definition['label'] );
-		$draft_label    = 'Draft' . str_pad( (string) max( 1, absint( $version ) ), 2, '0', STR_PAD_LEFT );
+		$expected_draft  = 'Draft' . str_pad( (string) max( 1, absint( $version ) ), 2, '0', STR_PAD_LEFT );
+		$requested_draft = trim( sanitize_text_field( $params['draft_label'] ?? '' ) );
+		if ( $requested_draft && ! in_array( $requested_draft, array( $expected_draft, 'Final' ), true ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_draft_label_invalid', 'Choose the next server-assigned draft or Final.', array( 'status' => 422 ) );
+		}
+		$draft_label     = $requested_draft ?: $expected_draft;
 		$submission_date = gmdate( 'Y-m-d' );
 
 		return array(
@@ -689,7 +695,8 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		try {
 			$upload_id     = wp_generate_uuid4();
 			$confirm_token = self::random_token();
-			$category      = $row ? self::sanitize_category( $row->category, 'other' ) : $definition['category'];
+			$share_as_mission_file = ! $row && rest_sanitize_boolean( $params['share_as_mission_file'] ?? false ) && user_can( $actor_id, 'mmed_manage_file_vault' );
+			$category      = $row ? self::sanitize_category( $row->category, 'other' ) : ( $share_as_mission_file ? 'admin' : $definition['category'] );
 			$version       = $row ? max( 1, absint( $row->version ) + 1 ) : 1;
 			$extension     = strtolower( pathinfo( $validated['filename'], PATHINFO_EXTENSION ) );
 			$version_uuid  = wp_generate_uuid4();
@@ -722,6 +729,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				'draft_label'      => sanitize_text_field( $upload_metadata['draft_label'] ),
 				'submission_date'  => sanitize_text_field( $upload_metadata['submission_date'] ),
 				'ready_for_review' => rest_sanitize_boolean( $params['ready_for_review'] ?? false ),
+				'mission_file'     => $share_as_mission_file,
 				'version'          => $version,
 				'document_uuid'    => $document_uuid,
 				'version_uuid'     => $version_uuid,
@@ -878,6 +886,10 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$meta['session_letter']    = sanitize_text_field( $intent['session_letter'] ?? '' );
 			$meta['workflow_status'] = $status;
 			$meta['note']             = sanitize_textarea_field( $intent['note'] ?? '' );
+			if ( ! empty( $intent['mission_file'] ) ) {
+				$meta['source']    = 'MissionMed';
+				$meta['shared_at'] = gmdate( 'c' );
+			}
 			$meta                     = self::append_activity( $meta, $event );
 			$meta_json                = self::encode_meta_json( $row, $meta );
 			if ( is_wp_error( $meta_json ) ) {
@@ -925,6 +937,10 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$meta['session_letter'] = sanitize_text_field( $intent['session_letter'] ?? '' );
 			$meta['note']           = sanitize_textarea_field( $intent['note'] );
 			$meta['workflow_status'] = $status;
+			if ( ! empty( $intent['mission_file'] ) ) {
+				$meta['source']    = 'MissionMed';
+				$meta['shared_at'] = gmdate( 'c' );
+			}
 			$meta['versions'][]     = self::version_entry( $intent, $probe, $actor_id );
 			$meta                   = self::append_activity( $meta, $event );
 			$meta_json              = self::encode_meta_json( null, $meta );
@@ -1111,6 +1127,66 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			return $saved;
 		}
 		return self::public_comment( $comment );
+	}
+
+	/**
+	 * Return staff-only notes for one document.
+	 *
+	 * This collection is intentionally excluded from every public document and
+	 * bootstrap projection. The controller exposes it only after a fresh
+	 * server-side staff and owner/assignment check.
+	 *
+	 * @param int $file_id File ID.
+	 * @return array|WP_Error
+	 */
+	public static function internal_notes( $file_id ) {
+		$row = self::get_file_by_id( absint( $file_id ) );
+		if ( ! $row ) {
+			return new WP_Error( 'mmed_file_vault_v2_not_found', 'Document not found.', array( 'status' => 404 ) );
+		}
+		$meta = self::meta_for_row( $row );
+		return array_values( array_map( array( __CLASS__, 'public_internal_note' ), (array) $meta['internal_notes'] ) );
+	}
+
+	/**
+	 * Add a note that is visible only to authorized File Vault staff.
+	 *
+	 * @param int    $file_id File ID.
+	 * @param int    $actor_id Actor ID.
+	 * @param string $body Note body.
+	 * @return array|WP_Error
+	 */
+	public static function add_internal_note( $file_id, $actor_id, $body ) {
+		$row      = self::get_file_by_id( absint( $file_id ) );
+		$raw_body = (string) $body;
+		if ( ! $row ) {
+			return new WP_Error( 'mmed_file_vault_v2_not_found', 'Document not found.', array( 'status' => 404 ) );
+		}
+		if ( strlen( $raw_body ) > self::NOTE_LENGTH_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_internal_note_invalid', 'Internal notes must be between 1 and 2,000 characters.', array( 'status' => 422 ) );
+		}
+		$body = trim( sanitize_textarea_field( $raw_body ) );
+		if ( '' === $body ) {
+			return new WP_Error( 'mmed_file_vault_v2_internal_note_invalid', 'Internal notes must be between 1 and 2,000 characters.', array( 'status' => 422 ) );
+		}
+		$meta = self::meta_for_row( $row );
+		if ( count( $meta['internal_notes'] ) >= self::MAX_INTERNAL_NOTES ) {
+			return new WP_Error( 'mmed_file_vault_v2_internal_note_limit', 'This document has reached its retained internal-note limit.', array( 'status' => 409 ) );
+		}
+		$note = array(
+			'id'          => wp_generate_uuid4(),
+			'author_id'   => absint( $actor_id ),
+			'author_name' => self::actor_name( $actor_id ),
+			'body'        => $body,
+			'created_at'  => gmdate( 'c' ),
+		);
+		$meta['internal_notes'][] = $note;
+		$meta = self::append_activity( $meta, self::event( 'internal_note_added', $actor_id, 'Internal staff note added.' ) );
+		$saved = self::save_meta( $row, $meta );
+		if ( is_wp_error( $saved ) ) {
+			return $saved;
+		}
+		return self::public_internal_note( $note );
 	}
 
 	/**
@@ -1646,6 +1722,8 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			'submission_date'   => sanitize_text_field( $current_version['submission_date'] ?? '' ),
 			'document_type'     => self::normalize_document_type( $meta['document_type'] ),
 			'category'          => sanitize_key( $row->category ),
+			'source'            => sanitize_text_field( $meta['source'] ?? ( 'admin' === sanitize_key( $row->category ) ? 'MissionMed' : '' ) ),
+			'shared_at'         => sanitize_text_field( $meta['shared_at'] ?? '' ),
 			'mime_type'         => sanitize_text_field( $row->mime_type ),
 			'file_size'         => absint( $row->file_size ),
 			'version'           => max( 1, absint( $row->version ) ),
@@ -1719,7 +1797,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		$meta['workflow_status'] = $has_v2_meta
 			? self::normalize_workflow_status( $meta['workflow_status'], self::workflow_from_legacy( $row->status ) )
 			: self::workflow_from_legacy( $row->status );
-		foreach ( array( 'versions', 'comments', 'scores', 'activity' ) as $collection ) {
+		foreach ( array( 'versions', 'comments', 'internal_notes', 'scores', 'activity' ) as $collection ) {
 			$meta[ $collection ] = is_array( $meta[ $collection ] ) ? $meta[ $collection ] : array();
 		}
 		return $meta;
@@ -1802,6 +1880,17 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	protected static function public_comment( $comment ) {
 		unset( $comment['author_id'], $comment['resolved_by'] );
 		return $comment;
+	}
+
+	/**
+	 * Remove internal actor identifiers from a staff-note response.
+	 *
+	 * @param array $note Internal note payload.
+	 * @return array
+	 */
+	protected static function public_internal_note( $note ) {
+		unset( $note['author_id'] );
+		return $note;
 	}
 
 	/**
@@ -2023,6 +2112,10 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$meta['session_letter']   = sanitize_text_field( $intent['session_letter'] ?? '' );
 			$meta['workflow_status']  = $status;
 			$meta['note']             = sanitize_textarea_field( $intent['note'] ?? '' );
+			if ( ! empty( $intent['mission_file'] ) ) {
+				$meta['source']    = 'MissionMed';
+				$meta['shared_at'] = gmdate( 'c' );
+			}
 			$meta                     = self::append_activity( $meta, self::event( 'version_uploaded', $actor_id, 'New version uploaded.' ) );
 			return self::encode_meta_json( $row, $meta );
 		}
@@ -2036,6 +2129,10 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		$meta['session_letter']  = sanitize_text_field( $intent['session_letter'] ?? '' );
 		$meta['note']            = sanitize_textarea_field( $intent['note'] );
 		$meta['workflow_status'] = $status;
+		if ( ! empty( $intent['mission_file'] ) ) {
+			$meta['source']    = 'MissionMed';
+			$meta['shared_at'] = gmdate( 'c' );
+		}
 		$meta['versions'][]      = self::version_entry( $projected_intent, $probe, $actor_id );
 		$meta                    = self::append_activity( $meta, self::event( 'document_uploaded', $actor_id, 'Document uploaded.' ) );
 		return self::encode_meta_json( null, $meta );
@@ -2450,8 +2547,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			'workflow_status' => 'draft',
 			'note'            => '',
 			'review_note'     => '',
+			'source'          => '',
+			'shared_at'       => '',
 			'versions'        => array(),
 			'comments'        => array(),
+			'internal_notes'  => array(),
 			'scores'          => array(),
 			'activity'        => array(),
 		);

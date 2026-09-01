@@ -60,6 +60,8 @@ class MMED_File_Vault_V2 {
 		self::route( '/file-vault/files/(?P<id>\d+)/versions', WP_REST_Server::CREATABLE, 'create_version', 'can_use_v2', array_merge( self::id_args(), self::upload_args( false ) ) );
 		self::route( '/file-vault/files/(?P<id>\d+)/comments', WP_REST_Server::CREATABLE, 'add_comment', 'can_use_v2', array_merge( self::id_args(), self::comment_args() ) );
 		self::route( '/file-vault/files/(?P<id>\d+)/comments/(?P<comment_id>[a-f0-9-]{36})/resolve', WP_REST_Server::EDITABLE, 'resolve_comment', 'can_staff', self::id_args() );
+		self::route( '/file-vault/files/(?P<id>\d+)/internal-notes', WP_REST_Server::READABLE, 'get_internal_notes', 'can_staff', self::id_args() );
+		self::route( '/file-vault/files/(?P<id>\d+)/internal-notes', WP_REST_Server::CREATABLE, 'add_internal_note', 'can_staff', array_merge( self::id_args(), self::comment_args() ) );
 		self::route( '/file-vault/files/(?P<id>\d+)/submit', WP_REST_Server::CREATABLE, 'submit_file', 'can_use_v2', self::id_args() );
 		self::route( '/file-vault/files/(?P<id>\d+)/status', WP_REST_Server::EDITABLE, 'update_status', 'can_staff', array_merge( self::id_args(), self::status_args() ) );
 		self::route( '/file-vault/files/(?P<id>\d+)/score', WP_REST_Server::CREATABLE, 'add_score', 'can_staff', array_merge( self::id_args(), self::score_args() ) );
@@ -112,6 +114,7 @@ class MMED_File_Vault_V2 {
 			array(
 				'mode'        => self::get_mode(),
 				'role'        => self::role_for_user(),
+				'viewerName'  => sanitize_text_field( wp_get_current_user()->display_name ),
 				'restUrl'     => untrailingslashit( rest_url( self::NAMESPACE . '/file-vault' ) ),
 				'matrixUrl'   => home_url( '/member-dashboard/' ),
 				'nonce'       => wp_create_nonce( 'wp_rest' ),
@@ -384,6 +387,9 @@ class MMED_File_Vault_V2 {
 	 */
 	public static function create_upload( $request ) {
 		$params    = self::json_params( $request );
+		if ( ! empty( $params['share_as_mission_file'] ) && 'admin' !== self::role_for_user() ) {
+			return new WP_Error( 'mmed_file_vault_v2_mission_file_forbidden', 'Only File Vault administrators can share a Mission File.', array( 'status' => 403 ) );
+		}
 		$target_id = self::target_student_id( $params['student_id'] ?? 0 );
 		if ( is_wp_error( $target_id ) ) {
 			return $target_id;
@@ -464,6 +470,35 @@ class MMED_File_Vault_V2 {
 			return $access;
 		}
 		return self::response( MMED_File_Vault_V2_Repository::resolve_comment( $request['id'], $request['comment_id'], get_current_user_id() ) );
+	}
+
+	/**
+	 * Return staff-only notes without including them in student document data.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function get_internal_notes( $request ) {
+		$access = self::assert_file_access( $request['id'], true );
+		if ( is_wp_error( $access ) ) {
+			return $access;
+		}
+		return self::response( MMED_File_Vault_V2_Repository::internal_notes( $request['id'] ) );
+	}
+
+	/**
+	 * Add one staff-only note to an authorized document.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function add_internal_note( $request ) {
+		$access = self::assert_file_access( $request['id'], true );
+		if ( is_wp_error( $access ) ) {
+			return $access;
+		}
+		$params = self::json_params( $request );
+		return self::response( MMED_File_Vault_V2_Repository::add_internal_note( $request['id'], get_current_user_id(), $params['body'] ?? '' ), 201 );
 	}
 
 	/**
@@ -608,9 +643,11 @@ class MMED_File_Vault_V2 {
 			'display_name'     => array( 'type' => 'string' ),
 			'program'          => array( 'type' => 'string', 'maxLength' => 180 ),
 			'session_letter'   => array( 'type' => 'string', 'pattern' => '^[A-Za-z]$' ),
+			'draft_label'      => array( 'type' => 'string', 'pattern' => '^(?:Draft[0-9]{2,3}|Final)$' ),
 			'note'             => array( 'type' => 'string' ),
 			'sha256'           => array( 'required' => true, 'type' => 'string', 'pattern' => '^[a-fA-F0-9]{64}$' ),
 			'ready_for_review' => array( 'type' => 'boolean' ),
+			'share_as_mission_file' => array( 'type' => 'boolean' ),
 		);
 		if ( $include_student ) {
 			$args['student_id'] = array( 'type' => 'integer', 'minimum' => 1 );
@@ -733,6 +770,8 @@ class MMED_File_Vault_V2 {
 			'finalize'         => current_user_can( self::CAP_FINALIZE ) || current_user_can( self::CAP_MANAGE ),
 			'view_audit'       => current_user_can( self::CAP_AUDIT ) || current_user_can( self::CAP_MANAGE ),
 			'view_student_list'=> in_array( $role, array( 'admin', 'mentor' ), true ),
+			'internal_notes'   => in_array( $role, array( 'admin', 'mentor' ), true ) && $student_id > 0,
+			'share_mission_file'=> 'admin' === $role && $student_id > 0,
 		);
 	}
 
