@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed HomeBase SSO
  * Description: Default-off WordPress session bridge, entitlement gate, and Matrix navigation seam for HomeBase V5.
- * Version: 0.1.2
+ * Version: 0.1.3
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: MissionMed
@@ -16,7 +16,7 @@ const MMHB_OPTION = 'missionmed_homebase_settings';
 const MMHB_RATE_KEYS_OPTION = 'missionmed_homebase_rate_keys';
 const MMHB_REST_NAMESPACE = 'missionmed/v1';
 const MMHB_REST_ROUTE = '/homebase/token';
-const MMHB_VERSION = '0.1.2';
+const MMHB_VERSION = '0.1.3';
 
 function mmhb_defaults() {
     return array(
@@ -715,7 +715,7 @@ function mmhb_enqueue_matrix_launch_adapter() {
     $handle = 'missionmed-homebase-matrix-launch';
     wp_enqueue_script(
         $handle,
-        plugins_url('assets/matrix-launch.js', __FILE__),
+        plugins_url('assets/matrix-launch.0df7627ca9e0.js', __FILE__),
         array(),
         MMHB_VERSION,
         false
