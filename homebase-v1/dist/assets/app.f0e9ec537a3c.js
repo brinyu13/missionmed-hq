@@ -661,27 +661,53 @@ function renderClassProgress() {
   const completed = (student) => allItems.filter((item) => (
     ['completed', 'approved'].includes(student.items?.[item.key])
   )).length;
+  const categorySummary = (student, category) => {
+    const items = asArray(category.items);
+    const statuses = items.map((item) => student.items?.[item.key] || 'not_started');
+    const done = statuses.filter((status) => ['completed', 'approved', 'not_applicable'].includes(status)).length;
+    if (!items.length) return { label: 'NOT SET', cls: 'empty', done: 0, total: 0 };
+    if (done === items.length) return { label: 'COMPLETE', cls: 'complete', done, total: items.length };
+    if (statuses.some((status) => ['in_review', 'submitted', 'waiting_on_drb'].includes(status))) {
+      return { label: 'WAITING ON DR B', cls: 'review', done, total: items.length };
+    }
+    if (statuses.some((status) => ['waiting_on_student', 'revision_needed'].includes(status))) {
+      return { label: 'WAITING ON STUDENT', cls: 'waiting', done, total: items.length };
+    }
+    return { label: done ? `${done} / ${items.length}` : 'NOT STARTED', cls: done ? 'started' : 'empty', done, total: items.length };
+  };
+  const signedStudentName = !isAdmin() && !subjectContext()
+    ? String(state.enrollment?.name || '').trim().toLowerCase()
+    : '';
+  const matrixTemplate = `minmax(230px,1.4fr) 112px 150px repeat(${categories.length},minmax(150px,1fr))`;
+  const matrixWidth = Math.max(920, 492 + (categories.length * 150));
   main.innerHTML = `<section data-view="class-progress" class="live">
     <div class="hbPageHead">
       <h1 class="h1">Class <em>Progress</em></h1>
-      <p class="hbPageSub">A read-only view of our authorized Session A class. Only shared checklist progress appears here.</p>
+      <p class="hbPageSub">A read-only, class-wide matrix built from the same live checklist as My Progress. Only shared progress appears here.</p>
     </div>
-    <div class="hbClassGrid" role="list">
-      ${students.map((student) => `<article class="panel hbClassCard" role="listitem">
-        <div class="hbClassIdentity">
-          ${studentAvatarMarkup({ name: student.displayName, photoUrl: student.avatarUrl })}
-          <div><h2>${esc(student.displayName)}</h2><p>${esc(student.psStageLabel)}</p></div>
-          <span class="hbClassCount">${completed(student)}/${allItems.length}</span>
+    <div class="hbClassViewport" role="region" aria-label="Session A class progress matrix" tabindex="0">
+      <div class="hbClassMatrix" role="table" aria-readonly="true" style="min-width:${matrixWidth}px">
+        <div class="hbMatrixHeader" role="row" style="grid-template-columns:${matrixTemplate}">
+          <span role="columnheader">Student</span><span role="columnheader">Overall</span><span role="columnheader">PS Stage</span>
+          ${categories.map((category) => `<span role="columnheader">${esc(category.title)}</span>`).join('')}
         </div>
-        <div class="hbClassStages" aria-label="Personal statement stage ${Number(student.psStage)} of 7">
-          ${Array.from({ length: 8 }, (_, index) => `<span class="${index < Number(student.psStage) ? 'done' : ''} ${index === Number(student.psStage) ? 'now' : ''}">${index}</span>`).join('')}
-        </div>
-        ${categories.map((category) => `<div class="hbClassCategory">
-          <h3>${esc(category.title)}</h3>
-          <div class="hbClassItems">${asArray(category.items).map((item) => `
-            <div><span>${esc(item.title)}${item.required ? '' : ' (optional)'}</span>${statusChip(student.items?.[item.key] || 'not_started')}</div>`).join('')}</div>
-        </div>`).join('')}
-      </article>`).join('') || '<div class="panel"><div class="pBody"><div class="storyEmpty">No active classmates are available.</div></div></div>'}
+        ${students.map((student) => {
+          const done = completed(student);
+          const isYou = signedStudentName && String(student.displayName || '').trim().toLowerCase() === signedStudentName;
+          return `<div class="hbMatrixRow ${isYou ? 'isYou' : ''}" role="row" style="grid-template-columns:${matrixTemplate}">
+            <div class="hbMatrixIdentity" role="rowheader">
+              ${studentAvatarMarkup({ name: student.displayName, photoUrl: student.avatarUrl })}
+              <span><strong>${esc(student.displayName)}</strong>${isYou ? '<b class="hbYouBadge">YOU</b>' : ''}<small>Session A</small></span>
+            </div>
+            <div class="hbMatrixOverall" role="cell"><span class="hbMatrixLabel">Overall</span><strong>${done}/${allItems.length}</strong><span class="hbMatrixBar"><i style="width:${allItems.length ? Math.round((done / allItems.length) * 100) : 0}%"></i></span></div>
+            <div class="hbMatrixPs" role="cell"><span class="hbMatrixLabel">PS Stage</span><strong>${esc(student.psStageLabel)}</strong><small>Stage ${Number(student.psStage)} of 7</small></div>
+            ${categories.map((category) => {
+              const summary = categorySummary(student, category);
+              return `<div class="hbMatrixCategory ${summary.cls}" role="cell"><span class="hbMatrixLabel">${esc(category.title)}</span><strong>${esc(summary.label)}</strong><small>${summary.done}/${summary.total} complete</small></div>`;
+            }).join('')}
+          </div>`;
+        }).join('') || '<div class="storyEmpty">No active classmates are available.</div>'}
+      </div>
     </div>
   </section>`;
 }
@@ -770,7 +796,12 @@ function rosterCard(student, { compact = false } = {}) {
     attention.push('<span class="hbChip hb-waiting_on_student">IDENTITY MATCH NEEDS REVIEW</span>');
   }
   if (student.status !== 'active') attention.push(`<span class="hbChip hb-not_applicable">${esc(student.status.toUpperCase())}</span>`);
-  return `<div class="hbRosterCard ${compact ? 'compact' : ''}">
+  const nextAction = student.ballOwner === 'drb'
+    ? student.drbNextAction
+    : student.ballOwner === 'student'
+      ? student.studentNextAction
+      : (student.studentNextAction || student.drbNextAction);
+  if (compact) return `<div class="hbRosterCard compact">
     <button class="hbRosterMain" type="button" data-open-student="${attr(student.id)}">
       ${studentAvatarMarkup(student, { className: 'hbAvatar' })}
       <span class="hbRosterName"><b>${esc(student.name)}</b>
@@ -783,10 +814,22 @@ function rosterCard(student, { compact = false } = {}) {
       ${student.deadline ? deadlineChip(student.deadline) : ''}
       ${attention.join('')}
     </div>
-    ${compact ? '' : `<div class="hbRosterActions">
+  </div>`;
+  return `<div class="hbRosterCard hbRosterRow" role="row">
+    <button class="hbRosterMain" role="cell" type="button" data-open-student="${attr(student.id)}">
+      ${studentAvatarMarkup(student, { className: 'hbAvatar' })}
+      <span class="hbRosterName"><b>${esc(student.name)}</b><span class="hbRosterMeta">${esc(student.email || 'email NOT SUPPLIED')}</span></span>
+    </button>
+    <div class="hbRosterCell" role="cell"><span class="hbRosterCellLabel">Current status</span><strong>${esc(student.currentStatus || 'No current status')}</strong></div>
+    <div class="hbRosterCell" role="cell"><span class="hbRosterCellLabel">PS stage</span><span class="hbRosterStage">${esc(student.psStageAdminLabel || psStageMeta(student.psStage).admin)}</span></div>
+    <div class="hbRosterCell" role="cell"><span class="hbRosterCellLabel">Who has the ball</span>${adminBallChip(student.ballOwner)}</div>
+    <div class="hbRosterCell hbRosterNext" role="cell"><span class="hbRosterCellLabel">Next action</span><strong>${esc(nextAction || 'No next action')}</strong></div>
+    <div class="hbRosterCell" role="cell"><span class="hbRosterCellLabel">Deadline</span>${student.deadline ? deadlineChip(student.deadline) : '<span class="hbRosterMeta">No deadline</span>'}</div>
+    <div class="hbRosterCell hbRosterAttention" role="cell"><span class="hbRosterCellLabel">Attention</span>${attention.join('') || '<span class="hbChip hb-completed">CLEAR</span>'}</div>
+    <div class="hbRosterActions" role="cell">
       <button class="rowBtn" type="button" data-open-student="${attr(student.id)}">Open</button>
       <button class="rowBtn" type="button" data-preview-student="${attr(student.id)}" data-student-name="${attr(student.name)}">Preview as student</button>
-    </div>`}
+    </div>
   </div>`;
 }
 
@@ -859,7 +902,10 @@ function renderRoster() {
       <input id="rosterSearch" type="search" placeholder="Search name or email…" value="${attr(state.admin.rosterQuery)}" aria-label="Search roster">
       ${filters.map(([key, label]) => `<button type="button" class="hbFilterBtn ${state.admin.rosterFilter === key ? 'on' : ''}" data-roster-filter="${attr(key)}">${esc(label)}</button>`).join('')}
     </div>
-    <div class="hbRosterGrid">
+    <div class="hbRosterStack" role="table" aria-label="Session A roster">
+      <div class="hbRosterHeader" role="row">
+        <span role="columnheader">Student</span><span role="columnheader">Current status</span><span role="columnheader">PS stage</span><span role="columnheader">Who has the ball</span><span role="columnheader">Next action</span><span role="columnheader">Deadline</span><span role="columnheader">Attention</span><span role="columnheader">Actions</span>
+      </div>
       ${students.length ? students.map((student) => rosterCard(student)).join('') : '<div class="storyEmpty">No students match this view.</div>'}
     </div>
   </section>`;
