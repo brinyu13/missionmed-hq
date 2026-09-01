@@ -3,7 +3,13 @@ import { AudioWorkletPcmCapture } from './audio-worklet-capture.mjs';
 import { measurePcmFrame } from './audio-signal.mjs';
 import { FaceFamily } from './face-family.mjs';
 import { KWeightedLoudness } from './k-weighted-loudness.mjs';
-import { PitchTrack, estimateF0 } from './pitch-f0.mjs';
+import {
+  DEFAULT_CLARITY_THRESHOLD,
+  F0_MAX_HZ,
+  F0_MIN_HZ,
+  PitchTrack,
+  estimateF0,
+} from './pitch-f0.mjs';
 import { EstimatedSyllableRate } from './syllable-rate.mjs';
 import { SileroVadLane, VadHysteresis } from './vad-silero.mjs';
 
@@ -63,6 +69,34 @@ export function transcriptPcmFrame({ atMs, sampleRate, samples, speaking, speech
     voiced: f0?.voiced === true,
     speechProbability: Number.isFinite(speechProbability) ? Number(speechProbability) : null,
     provenance: Object.freeze({ source: 'MICROPHONE', method }),
+  });
+}
+
+// Silero remains the primary speech gate. A validated periodic F0 is a bounded
+// acoustic rescue when the model starts late or momentarily drops voiced speech.
+// This does not create words, WPM, or pitch: it only admits the same real PCM frame
+// to the K-weighted speech-loudness accumulator when the independent F0 cartridge
+// has already proved that the frame contains an in-range periodic human-voice
+// candidate at its normal confidence threshold.
+export function advancedSpeechEvidence({ sileroState = null, f0 = null } = {}) {
+  const sileroSpeaking = sileroState?.speaking === true;
+  const validatedPeriodicF0 = f0?.voiced === true
+    && Number.isFinite(f0?.f0Hz)
+    && f0.f0Hz >= F0_MIN_HZ
+    && f0.f0Hz <= F0_MAX_HZ
+    && Number.isFinite(f0?.confidence)
+    && f0.confidence >= DEFAULT_CLARITY_THRESHOLD;
+  return Object.freeze({
+    speaking: sileroSpeaking || validatedPeriodicF0,
+    sileroSpeaking,
+    validatedPeriodicF0,
+    method: sileroSpeaking
+      ? 'SILERO_V5_LOCAL_ONNX'
+      : validatedPeriodicF0
+        ? 'VALIDATED_PERIODIC_F0_RESCUE'
+        : sileroState
+          ? 'SILERO_V5_LOCAL_ONNX'
+          : 'NO_VALIDATED_SPEECH_EVIDENCE',
   });
 }
 
@@ -443,8 +477,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     if (!this.answer || !(frame?.samples instanceof Float32Array)) return;
     const atMs = this.session.clock.sessionMs();
     const measured = measurePcmFrame(frame.samples);
-    const speaking = this.sileroState?.speaking === true;
     const f0 = estimateF0(frame.samples, frame.sampleRate);
+    const speechEvidence = advancedSpeechEvidence({ sileroState: this.sileroState, f0 });
+    const speaking = speechEvidence.speaking;
     this.pitchTrack.push(f0, { speaking });
     const loudness = this.kWeightedLoudness.ingest(frame.samples, { speaking });
     const db = measured.rms > 0 ? 20 * Math.log10(measured.rms) : -96;
@@ -455,10 +490,15 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       f0,
       pitchSummary: this.pitchTrack.summary(),
       vad: Object.freeze({
-        available: Boolean(this.sileroState),
+        available: Boolean(this.sileroState) || speechEvidence.validatedPeriodicF0,
         speaking,
         probability: this.sileroState?.probability ?? null,
-        provenance: Object.freeze({ source: 'SILERO_V5', method: 'LOCAL_ONNX_AUDIOWORKLET' }),
+        evidence: speechEvidence.validatedPeriodicF0 && !speechEvidence.sileroSpeaking
+          ? 'VALIDATED_PERIODIC_F0'
+          : speechEvidence.sileroSpeaking
+            ? 'SILERO_V5'
+            : 'NONE',
+        provenance: Object.freeze({ source: 'MICROPHONE', method: speechEvidence.method }),
       }),
       loudness,
       estimatedSyllableRate,
