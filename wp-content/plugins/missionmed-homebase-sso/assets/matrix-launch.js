@@ -23,6 +23,29 @@
     else window.location.assign(target.href);
   };
 
+  const ensureMatrixEntry = () => {
+    if (!onMatrix()) return false;
+    if (document.querySelector('a[href="#homebase"], [data-route="homebase"]')) return true;
+    const nextControl = document.querySelector('.sos-nav-list > li > a[href="#arena"]');
+    const nextRow = nextControl?.closest('li');
+    if (!nextControl || !nextRow?.parentElement) return false;
+
+    const row = document.createElement('li');
+    const link = document.createElement('a');
+    const icon = document.createElement('span');
+    const label = document.createElement('span');
+    link.className = nextControl.className;
+    link.href = '#homebase';
+    link.setAttribute('aria-label', 'HomeBase');
+    icon.className = nextControl.querySelector('span')?.className || 'sos-nav-icon';
+    icon.textContent = 'HB';
+    label.textContent = 'HomeBase';
+    link.append(icon, label);
+    row.append(link);
+    nextRow.insertAdjacentElement('beforebegin', row);
+    return true;
+  };
+
   document.addEventListener('click', (event) => {
     if (!onMatrix() || !homeBaseControl(event.target)) return;
     event.preventDefault();
@@ -36,5 +59,15 @@
     }
   };
   window.addEventListener('hashchange', launchDirectHash);
+  let observer;
+  const renderMatrixEntry = () => {
+    if (ensureMatrixEntry()) observer?.disconnect();
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderMatrixEntry, { once: true });
+  }
+  observer = new MutationObserver(renderMatrixEntry);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  renderMatrixEntry();
   launchDirectHash();
 })();
