@@ -4851,10 +4851,10 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
 	background-blend-mode: multiply;
 }
 
-.fv2-upload-choice.is-art-1 .fv2-upload-choice-art { background-position: 0 0; }
-.fv2-upload-choice.is-art-2 .fv2-upload-choice-art { background-position: 0 100%; }
-.fv2-upload-choice.is-art-3 .fv2-upload-choice-art { background-position: 100% 100%; }
-.fv2-upload-choice.is-art-4 .fv2-upload-choice-art { background-position: 100% 0; }
+.fv2-upload-choice.is-art-1 > span.fv2-upload-choice-art:first-child { background-position: 0 0; }
+.fv2-upload-choice.is-art-2 > span.fv2-upload-choice-art:first-child { background-position: 0 100%; }
+.fv2-upload-choice.is-art-3 > span.fv2-upload-choice-art:first-child { background-position: 100% 100%; }
+.fv2-upload-choice.is-art-4 > span.fv2-upload-choice-art:first-child { background-position: 100% 0; }
 
 .fv2-upload-choice-copy {
 	position: relative;
@@ -4910,7 +4910,7 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
 	margin: 0 auto;
 }
 
-.fv2-modal {
+.fv2-upload-modal {
 	width: min(900px, 100%);
 }
 

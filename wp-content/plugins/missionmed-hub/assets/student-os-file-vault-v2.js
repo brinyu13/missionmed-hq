@@ -813,7 +813,7 @@
 			["ecfmg_status_report", "Certification", "Credential records", "check"],
 			["other", "Miscellaneous", "Name it yourself", "folder"]
 		];
-			return '<div class="fv2-upload-launcher"><span class="fv2-upload-launcher-label">Choose a document type</span><div class="fv2-upload-choices" aria-label="Choose what to upload">' + categories.map(function (category, index) {
+			return '<div class="fv2-upload-launcher"><span class="fv2-upload-launcher-label">Choose a document type</span><div class="fv2-upload-choices" role="group" aria-label="Choose what to upload">' + categories.map(function (category, index) {
 				return '<button type="button" class="fv2-upload-choice is-art-' + ((index % 4) + 1) + '" data-fv2-action="open-upload" data-fv2-document-type="' + escAttr(category[0]) + '" data-fv2-display-name="' + (category[1] === "Miscellaneous" ? "" : escAttr(category[1])) + '"' + (canUpload ? "" : " disabled") + '><span class="fv2-upload-choice-art" aria-hidden="true"></span><span class="fv2-upload-choice-copy"><small>' + esc(category[2]) + '</small><strong>' + esc(category[1]) + '</strong><em>Upload</em></span><span class="fv2-upload-choice-icon" aria-hidden="true">' + icon(category[3]) + "</span></button>";
 			}).join("") + "</div></div>";
 	};
@@ -2457,9 +2457,10 @@
 			content = this.settingsMarkup();
 			panelClass = "fv2-drawer";
 			label = "File Vault settings";
-		} else if (type === "upload") {
-			content = this.uploadMarkup();
-			label = this.state.upload && this.state.upload.documentId ? "Upload a new document version" : "Upload a document";
+			} else if (type === "upload") {
+				content = this.uploadMarkup();
+				panelClass += " fv2-upload-modal";
+				label = this.state.upload && this.state.upload.documentId ? "Upload a new document version" : "Upload a document";
 		} else if (type === "detail") {
 			var documentItem = this.getDocument(this.state.selectedDocumentId);
 			if (!documentItem) {

@@ -268,10 +268,14 @@ async function studentFlow(browser) {
 				return {
 					hasArt: !!art && getComputedStyle(art).backgroundImage.includes("student-os-file-vault-v2-destinations"),
 					hasReadableCopy: !!copy && getComputedStyle(copy).textShadow !== "none",
+					position: art ? getComputedStyle(art).backgroundPosition : "",
 					height: Math.round(card.getBoundingClientRect().height)
 				};
 			}));
 			assert(uploadDestinationVisuals.length === 7 && uploadDestinationVisuals.every(card => card.hasArt && card.hasReadableCopy && card.height >= 160), `student: premium upload destinations are incomplete ${JSON.stringify(uploadDestinationVisuals)}`);
+			const artworkPositions = uploadDestinationVisuals.map(card => card.position.replace(/0px/g, "0%"));
+			assert(artworkPositions.join("|") === "0% 0%|0% 100%|100% 100%|100% 0%|0% 0%|0% 100%|100% 100%", `student: premium upload destination artwork is mapped incorrectly ${JSON.stringify(uploadDestinationVisuals)}`);
+			assert(await page.getByRole("group", { name: "Choose what to upload", exact: true }).isVisible(), "student: upload destinations are not exposed as a named control group");
 		assert(await page.locator(".fv2-upload-choice").nth(3).getAttribute("data-fv2-document-type") === "timeline", "student: Timeline is not a distinct upload type");
 		assert(await page.locator(".fv2-upload-choice").nth(6).getAttribute("data-fv2-document-type") === "other", "student: Miscellaneous upload type changed unexpectedly");
 		assert(await page.locator(".fv2-upload-launcher").isVisible(), "student: dedicated Upload page document-type launcher missing");
@@ -863,10 +867,16 @@ async function matrixShellIntegrationFlow(browser) {
 }
 
 async function adminFlow(browser) {
-	const { context, page, diagnostics } = await createPage(browser, { role: "admin" }, { width: 1440, height: 1000 });
+	const { context, page, diagnostics } = await createPage(browser, { role: "admin" }, { width: 1600, height: 1000 });
 	try {
 			assert(await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).isVisible(), "admin: Students entry heading missing");
 			assert(await page.locator(".fv2-staff-workspace").count() === 1, "admin: staff command workspace wrapper missing");
+			const staffLayout = await page.locator(".fv2-staff-workspace").evaluate(workspace => ({
+				display: getComputedStyle(workspace).display,
+				columns: getComputedStyle(workspace).gridTemplateColumns.split(" ").filter(Boolean).length,
+				width: Math.round(workspace.getBoundingClientRect().width)
+			}));
+			assert(staffLayout.display === "grid" && staffLayout.columns === 2 && staffLayout.width > 1200, `admin: wide staff command workspace did not activate ${JSON.stringify(staffLayout)}`);
 		assert(await page.locator(".fv2-metric").count() === 0, "admin: dashboard KPI cards still define the Students experience");
 		assert(await page.locator("[data-fv2-command-search]").isVisible(), "admin: prominent student search missing");
 		assert(await page.getByRole("button", { name: /Review Queue/ }).isVisible(), "admin: Review Queue action missing");
@@ -1160,13 +1170,22 @@ async function responsiveFlow(browser) {
 					await saveEvidence(page, "09-mobile-student-vault.png");
 				}
 			}
-			if (viewport.width <= 980) {
+				if (viewport.width <= 980) {
 				await page.getByRole("button", { name: "Your Files", exact: true }).click();
-				await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1101"]').click();
-				await page.waitForSelector('.fv2-mobile-sheet[role="dialog"]');
-				assert(await page.locator('.fv2-mobile-sheet[role="dialog"]').isVisible(), `responsive ${viewport.width}: detail sheet missing`);
-			}
-			const motion = await page.locator(".fv2-nav-item").first().evaluate(node => getComputedStyle(node).transitionDuration);
+					await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1101"]').click();
+					await page.waitForSelector('.fv2-mobile-sheet[role="dialog"]');
+					assert(await page.locator('.fv2-mobile-sheet[role="dialog"]').isVisible(), `responsive ${viewport.width}: detail sheet missing`);
+					await page.getByRole("button", { name: "Close document details", exact: true }).click();
+				}
+				await page.locator('.fv2-nav-item[data-fv2-view="upload"]').click();
+				const uploadLayout = await page.locator(".fv2-upload-choices").evaluate(grid => ({
+					count: grid.querySelectorAll(".fv2-upload-choice").length,
+					columns: getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length
+				}));
+				const expectedUploadColumns = viewport.width <= 480 ? 1 : (viewport.width <= 1180 ? 2 : 4);
+				assert(uploadLayout.count === 7 && uploadLayout.columns === expectedUploadColumns, `responsive ${viewport.width}: premium Upload layout is incorrect ${JSON.stringify(uploadLayout)}`);
+				await overflowAudit(page, `responsive Upload ${viewport.width}x${viewport.height}`);
+				const motion = await page.locator(".fv2-nav-item").first().evaluate(node => getComputedStyle(node).transitionDuration);
 			assert(motion === "1e-05s" || motion === "0.00001s" || motion === "0s", `responsive ${viewport.width}: reduced motion duration is ${motion}`);
 			assert(diagnostics.length === 0, `responsive ${viewport.width}: browser diagnostics ${diagnostics.join(" | ")}`);
 		} finally {
