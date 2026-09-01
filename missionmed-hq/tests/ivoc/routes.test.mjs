@@ -78,7 +78,8 @@ function scopedRepository({ assigned = false } = {}) {
   const recording = {
     id: foreignRecordingId, session_id: foreignSessionId, owner_subject: 'wp:7', status: 'saved',
     mime_type: 'video/webm', storage_object_key: 'private/never-return-this.webm', size_bytes: 1234,
-    duration_ms: 12_000, sealed_at: new Date().toISOString(), created_at: new Date().toISOString(),
+    duration_ms: 12_000, paused_spans: [{ startMs: 4_000, endMs: 5_500 }],
+    sealed_at: new Date().toISOString(), created_at: new Date().toISOString(),
   };
   return {
     single: async (path) => {
@@ -127,6 +128,47 @@ test('session creation requires same-origin CSRF and persists server identity', 
   assert.equal(repo.inserts.find((row) => row.table === 'ivoc_sessions').body.owner_subject, 'wp:42');
 });
 
+test('results preserve explicit duration vocabulary while the library duration follows playable media', async () => {
+  const repo = repository();
+  const sessionId = '00000000-0000-4000-8000-000000000042';
+  repo.single = async (path) => {
+    if (path.startsWith(`ivoc_sessions?id=eq.${sessionId}`)) return { id: sessionId, owner_subject: 'wp:42' };
+    if (path.startsWith(`ivoc_results?session_id=eq.${sessionId}`)) return null;
+    return null;
+  };
+  const { route } = handler(repo);
+  const response = new ResponseCapture();
+  const resultEnvelope = {
+    schema: 'ivoc.analytics.v1', schemaVersion: 1,
+    durationMs: 25_000, sessionDurationMs: 41_000, recordingDurationMs: 25_000,
+    playableDurationMs: 24_500, activeAnsweringDurationMs: 18_000,
+    analyticsObservationDurationMs: 39_500,
+    recordingStartSessionMs: 8_000,
+    pausedSpans: [{ startMs: 11_000, endMs: 13_000 }],
+    scores: { pace: 7.4, volume: 7.8, variety: 8.1 }, counters: { gestures: 4 }, history: [],
+  };
+  await route({
+    ...base,
+    request: request('POST', resultEnvelope, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }),
+    response,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${sessionId}/results`),
+    hqSession: session(),
+  });
+  assert.equal(response.status, 200);
+  const resultInsert = repo.inserts.find((entry) => entry.table === 'ivoc_results');
+  assert.deepEqual(resultInsert.body.summary.durations, {
+    sessionDurationMs: 41_000,
+    recordingDurationMs: 25_000,
+    playableDurationMs: 24_500,
+    activeAnsweringDurationMs: 18_000,
+    analyticsObservationDurationMs: 39_500,
+  });
+  assert.equal(resultInsert.body.payload.recordingStartSessionMs, 8_000);
+  assert.deepEqual(resultInsert.body.payload.pausedSpans, [{ startMs: 11_000, endMs: 13_000 }]);
+  const sessionUpdate = repo.updates.find((entry) => entry.path.startsWith(`ivoc_sessions?id=eq.${sessionId}`));
+  assert.equal(sessionUpdate.body.duration_ms, 24_500);
+});
+
 test('student cannot read another student session', async () => {
   const { route } = handler(scopedRepository());
   const response = new ResponseCapture();
@@ -141,6 +183,9 @@ test('assigned mentor can read results without receiving the private object key'
   await route({ ...base, request: request('GET'), response, url: new URL(`https://hq.test/api/ivoc/v1/sessions/${foreignSessionId}`), hqSession: session(42, ['mentor']) });
   assert.equal(response.status, 200);
   assert.equal(response.json().recording.id, foreignRecordingId);
+  assert.equal(response.json().ownerDisplayName, 'Student 7');
+  assert.deepEqual(response.json().recording.pausedSpans, [{ startMs: 4_000, endMs: 5_500 }]);
+  assert.equal(response.json().reviewStatus, 'assigned');
   assert.doesNotMatch(response.body, /storage_object_key|never-return-this/u);
 });
 

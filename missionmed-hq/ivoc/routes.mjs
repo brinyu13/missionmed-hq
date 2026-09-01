@@ -30,6 +30,9 @@ function bool(value, fallback = false) {
 }
 
 function safeText(value, max = 400) { return String(value || '').trim().slice(0, max); }
+function optionalDurationMs(value) {
+  return value != null && Number.isFinite(Number(value)) ? Math.max(0, Math.trunc(Number(value))) : null;
+}
 function rolesOf(session) { return Array.isArray(session?.user?.roles) ? session.user.roles.map((r) => String(r).toLowerCase()) : []; }
 function isAdmin(session, admission) { return admission?.entitlement?.founder === true || rolesOf(session).some((r) => ['administrator', 'admin'].includes(r)); }
 function isMentor(session) { return rolesOf(session).some((r) => ['mentor', 'coach', 'faculty', 'teacher'].includes(r)); }
@@ -105,6 +108,7 @@ function publicRecording(row) {
   return {
     id: row.id, sessionId: row.session_id, status: row.status, mime: row.mime_type,
     sizeBytes: row.size_bytes, durationMs: row.duration_ms, sealedAt: row.sealed_at,
+    pausedSpans: Array.isArray(row.paused_spans) ? row.paused_spans : [],
     createdAt: row.created_at,
   };
 }
@@ -114,9 +118,11 @@ function publicSession(row, recording = null, result = null, review = null) {
     id: row.id, title: row.title, sessionType: row.session_type, questionId: row.question_id,
     questionText: row.question_text, state: row.state, startedAt: row.started_at,
     endedAt: row.ended_at, durationMs: row.duration_ms,
+    ownerDisplayName: safeText(row.owner_display_name, 200) || null,
     interviewerProvider: row.interviewer_provider, recording: publicRecording(recording),
     results: result ? { schema: result.schema_name, schemaVersion: result.schema_version, payload: result.payload, summary: result.summary } : null,
     reviewStatus: review?.status || null,
+    review: review ? { status: review.status || null, reviewedAt: review.reviewed_at || null } : null,
   };
 }
 
@@ -320,11 +326,24 @@ export function createIvocHandler({
         const input = await readJson(request);
         if (input.schema !== 'ivoc.analytics.v1' || Number(input.schemaVersion) !== 1) { sendError(response, 400, 'analytics_schema_invalid', mediaBase); return true; }
         const existing = await db.single(`ivoc_results?session_id=eq.${sessionId}&select=id&limit=1`);
-        const payload = { owner_subject: actor, schema_name: input.schema, schema_version: 1, payload: input, summary: { scores: input.scores || {}, counters: input.counters || {} } };
+        const summaryDurations = {
+          sessionDurationMs: optionalDurationMs(input.sessionDurationMs),
+          recordingDurationMs: optionalDurationMs(input.recordingDurationMs),
+          playableDurationMs: optionalDurationMs(input.playableDurationMs ?? input.durationMs),
+          activeAnsweringDurationMs: optionalDurationMs(input.activeAnsweringDurationMs),
+          analyticsObservationDurationMs: optionalDurationMs(input.analyticsObservationDurationMs),
+        };
+        const payload = {
+          owner_subject: actor,
+          schema_name: input.schema,
+          schema_version: 1,
+          payload: input,
+          summary: { scores: input.scores || {}, counters: input.counters || {}, durations: summaryDurations },
+        };
         const result = existing
           ? await db.update(`ivoc_results?id=eq.${existing.id}&select=*`, payload)
           : await db.insert('ivoc_results', { session_id: sessionId, ...payload });
-        const durationMs = Math.max(0, Math.trunc(Number(input.durationMs || input.history?.at(-1)?.t * 1000) || 0));
+        const durationMs = Math.max(0, Math.trunc(Number(input.playableDurationMs ?? input.durationMs ?? input.history?.at(-1)?.t * 1000) || 0));
         await db.update(`ivoc_sessions?id=eq.${sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&select=*`, { state: 'saved', ended_at: new Date(now()).toISOString(), duration_ms: durationMs });
         sendJson(response, 200, { id: result.id, sessionId, schema: result.schema_name, schemaVersion: result.schema_version }, mediaBase); return true;
       }
@@ -359,7 +378,7 @@ export function createIvocHandler({
         const ids = rows.map((r) => r.id);
         const recordings = ids.length ? await db.request(`ivoc_recordings?session_id=in.(${ids.join(',')})&select=*`) : [];
         const results = ids.length ? await db.request(`ivoc_results?session_id=in.(${ids.join(',')})&select=*`) : [];
-        const reviews = ids.length ? await db.request(`ivoc_reviews?session_id=in.(${ids.join(',')})&status=neq.revoked&select=session_id,status,mentor_subject`) : [];
+        const reviews = ids.length ? await db.request(`ivoc_reviews?session_id=in.(${ids.join(',')})&status=neq.revoked&select=session_id,status,mentor_subject,reviewed_at,assigned_by_subject`) : [];
         sendJson(response, 200, { sessions: rows.map((row) => publicSession(row, recordings.find((x) => x.session_id === row.id), results.find((x) => x.session_id === row.id), reviews.find((x) => x.session_id === row.id))) }, mediaBase); return true;
       }
 
@@ -369,8 +388,9 @@ export function createIvocHandler({
         if (!(await canReadSession({ row, actor, session: hqSession, admission }))) { await audit({ actor, owner: row?.owner_subject, sessionId: match[1], action: 'session_read', decision: 'deny', reason: 'scope' }); sendError(response, 404, 'not_found', mediaBase); return true; }
         const recording = await db.single(`ivoc_recordings?session_id=eq.${row.id}&select=*&limit=1`);
         const result = await db.single(`ivoc_results?session_id=eq.${row.id}&select=*&limit=1`);
+        const review = await db.single(`ivoc_reviews?session_id=eq.${row.id}&status=neq.revoked&select=status,reviewed_at&limit=1`);
         await audit({ actor, owner: row.owner_subject, sessionId: row.id, action: 'session_read', decision: 'allow', reason: row.owner_subject === actor ? 'owner' : 'authorized_review' });
-        sendJson(response, 200, publicSession(row, recording, result), mediaBase); return true;
+        sendJson(response, 200, publicSession(row, recording, result, review), mediaBase); return true;
       }
 
       match = pathname.match(/^\/api\/ivoc\/v1\/recordings\/([0-9a-f-]{36})\/playback-url$/u);
