@@ -631,27 +631,20 @@ function recoveryScreen(el) {
   el.innerHTML = `
   <div class="recovery">
     <div class="t-label" style="color:var(--g-amber)">SESSION INTERRUPTED</div>
-    <h1 class="t-display-md">YOUR LAST TAKE WAS CUT SHORT.</h1>
-    <p class="t-body" style="color:var(--g-mid)">A live interview refresh never splices — a broken take ends honestly. What was captured up to the interruption is safe.</p>
+    <h1 class="t-display-md">THIS TAKE COULD NOT BE SEALED.</h1>
+    <p class="t-body" style="color:var(--g-mid)">The browser lost the tab-local recording before it could be sealed. No recording or analytics result was saved for this interrupted take.</p>
     <div class="rec-choices">
-      <button class="rc-tile" data-focusable data-autofocus data-save>
-        <b>SAVE WHAT WAS RECORDED</b><span>Seal the partial recording, compute results, mark the session interrupted.</span>
+      <button class="rc-tile" data-focusable data-autofocus data-resume>
+        <b>START A FRESH TAKE</b><span>Keep the same question and setup, then record a new clean take.</span>
       </button>
-      <button class="rc-tile" data-focusable data-resume>
-        <b>RESUME SETUP</b><span>Same question and config — a fresh, clean take.</span>
-      </button>
-      <button class="rc-tile danger" data-focusable data-discard>
-        <b>DISCARD</b><span>Delete the partial capture permanently.</span>
+      <button class="rc-tile" data-focusable data-library>
+        <b>VIEW SAVED LIBRARY</b><span>Open recordings that completed the normal Stop and Save sequence.</span>
       </button>
     </div>
   </div>`;
-  el.addEventListener('click', async e => {
-    if (e.target.closest('[data-save]')) { toast('Partial session saved to your library.', 'save'); go('results'); }
+  el.addEventListener('click', e => {
     if (e.target.closest('[data-resume]')) go('ready');
-    if (e.target.closest('[data-discard]')) {
-      const { confirmModal } = await import('./main.mjs');
-      if (await confirmModal({ title: 'Discard partial take?', body: 'The interrupted capture is deleted permanently. This cannot be undone.', okLabel: 'DISCARD', okClass: 'btn-red' })) go('home');
-    }
+    if (e.target.closest('[data-library]')) go('library');
   });
 }
 
