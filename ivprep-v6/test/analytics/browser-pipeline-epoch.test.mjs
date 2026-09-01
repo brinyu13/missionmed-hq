@@ -517,13 +517,13 @@ test('Holistic-ready startup waits for FaceDetector protection before the first 
   const priorCreateImageBitmap=globalThis.createImageBitmap;
   const priorSetTimeout=globalThis.setTimeout;
   const priorClearTimeout=globalThis.clearTimeout;
-  const scheduled=[];const workers=[];let bitmapCalls=0;
+  const scheduled=[];const workers=[];let bitmapCalls=0;let faceWorkerTerminations=0;
   globalThis.setTimeout=(callback,delay)=>{scheduled.push({callback,delay});return scheduled.length};
   globalThis.clearTimeout=()=>{};
   globalThis.Worker=class FakeWorker{
     constructor(_url,options={}){this.name=options.name;this.messages=[];workers.push(this)}
     postMessage(message){this.messages.push(message)}
-    terminate(){}
+    terminate(){if(this.name?.includes('face-safety'))faceWorkerTerminations+=1}
   };
   globalThis.createImageBitmap=async()=>{bitmapCalls+=1;return {close(){}}};
   const videoTrack={readyState:'live',enabled:true,muted:false};
@@ -537,6 +537,13 @@ test('Holistic-ready startup waits for FaceDetector protection before the first 
     await firstVision.callback();
     assert.equal(bitmapCalls,0);
     assert.equal(workers.flatMap((worker)=>worker.messages).filter((message)=>message.type==='frame').length,0);
+
+    const faceWarningIndex=scheduled.findIndex((item)=>item.delay===10_000);
+    assert.ok(faceWarningIndex>=0,'face-safety delay warning must be scheduled');
+    scheduled.splice(faceWarningIndex,1)[0].callback();
+    assert.equal(faceWorkerTerminations,0,'a slow but live face worker must not be permanently abandoned');
+    assert.ok(pipeline.faceWorker,'the privacy worker must remain attached until ready or an actual error');
+    assert.deepEqual(pipeline.diagnostics().workerErrors,['multi-face protection initialization delayed']);
 
     pipeline.onFaceWorkerMessage({type:'ready',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch},pipeline.generation);
     const protectedVisionIndex=scheduled.findIndex((item)=>item.delay===125);

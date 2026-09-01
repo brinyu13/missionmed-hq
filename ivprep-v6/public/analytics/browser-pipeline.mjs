@@ -20,7 +20,7 @@ const FACE_MODEL = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/models/face_detector/b
 const ANALYTICS_ROOT = `${IVPREP_ASSET_ROOT}/analytics`;
 const FACE_WORKER = `${ANALYTICS_ROOT}/face-detector-worker.mjs`;
 const WORKER_REVISION = '3522c-primary-face-association-1';
-const FACE_INITIALIZATION_TIMEOUT_MS = 10_000;
+const FACE_INITIALIZATION_WARNING_MS = 10_000;
 const HOLISTIC_FRAME_TIMEOUT_MIN_MS = 1_000;
 const HOLISTIC_FRAME_TIMEOUT_MAX_MS = 5_000;
 // Overlay cadence. The Founder-reported lag came from the FLOOR: under load targetFps
@@ -666,8 +666,21 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     if (this.faceWorker && !this.faceWorkerReady && !this.faceInitTimer) {
       this.faceInitTimer = setTimeout(() => {
         this.faceInitTimer = null;
-        if (generation === this.generation && this.faceWorker && !this.faceWorkerReady) this.failFaceWorker('face safety initialization timed out');
-      }, FACE_INITIALIZATION_TIMEOUT_MS);
+        if (generation === this.generation && this.faceWorker && !this.faceWorkerReady) {
+          // Initializing MediaPipe can exceed ten seconds on a thermally or
+          // battery-throttled laptop. Permanently terminating the privacy worker at
+          // this warning boundary made the whole six-minute session report
+          // PRIMARY_LOCK_UNAVAILABLE even though the worker could still become ready.
+          // Keep the fail-closed gate in place, report the delay, and accept the
+          // eventual ready event. Actual worker errors still take failFaceWorker().
+          this.recordWorkerError('multi-face protection initialization delayed');
+          this.dispatch('state', {
+            state: 'partial', subsystem: 'vision-primary-lock',
+            atMs: this.answer ? this.session.clock.sessionMs() : null,
+            message: 'Face-safety initialization is taking longer than expected.',
+          });
+        }
+      }, FACE_INITIALIZATION_WARNING_MS);
     }
   }
 
