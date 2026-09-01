@@ -473,7 +473,7 @@ async function studentFlow(browser) {
 		assert(!(await page.locator("[data-fv2-upload-next]").isDisabled()), "student: valid JPEG application photo did not enable Review");
 		await page.getByRole("button", { name: "Close upload" }).click();
 		await page.evaluate(() => {
-			window.__FV2_HARNESS__.instance.state.data.documents.push({ id: 1999, name: "Legacy filename.pdf", document_type: "other" });
+			window.__FV2_HARNESS__.instance.state.data.documents.push({ id: 1999, name: "Other Document", document_type: "other", version: 2 });
 		});
 		await page.locator('.fv2-dropzone [data-fv2-action="open-upload"]').click();
 		await page.setInputFiles("[data-fv2-upload-file]", {
@@ -483,6 +483,13 @@ async function studentFlow(browser) {
 		});
 		await page.locator("[data-fv2-upload-type]").selectOption("other");
 		await page.locator("[data-fv2-upload-name]").fill("Other Document");
+		assert(await page.locator("[data-fv2-upload-replaces]").inputValue() === "1999", "student: matching custom-name lineage did not default to the immediately prior document");
+		assert(await page.locator("[data-fv2-upload-version]").inputValue() === "3", "student: matching custom-name lineage did not advance to the next immutable version");
+		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_Version03_"), "student: matching custom-name lineage preview did not advance immediately while typing");
+		await page.locator("[data-fv2-upload-replaces]").selectOption("");
+		await page.locator("[data-fv2-upload-name]").fill("Other Document");
+		assert(await page.locator("[data-fv2-upload-replaces]").inputValue() === "", "student: explicit separate-document choice was overwritten by later name input");
+		assert(await page.locator("[data-fv2-upload-version]").inputValue() === "1", "student: explicit separate-document choice did not preserve Version 1");
 		await page.locator("[data-fv2-upload-next]").click();
 		assert(await page.locator(".fv2-upload-review").getByRole("heading", { name: "Other Document", exact: true }).isVisible(), "student: custom Miscellaneous upload did not preserve its explicit document name");
 		await page.getByRole("button", { name: "Close upload" }).click();

@@ -1833,6 +1833,11 @@
 		}
 		if (target.matches("[data-fv2-upload-name]") && this.state.upload) {
 			this.state.upload.displayName = target.value;
+			if (!this.state.upload.replacementChoiceTouched) this.syncUploadLineage();
+			var replacementSelect = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-replaces]");
+			if (replacementSelect) replacementSelect.value = this.state.upload.replacesDocumentId ? String(this.state.upload.replacesDocumentId) : "";
+			var versionSelect = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-version]");
+			if (versionSelect) versionSelect.innerHTML = this.uploadVersionOptionsMarkup();
 			this.updateUploadNextButton();
 			var namePreview = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-canonical-preview]");
 			if (namePreview) namePreview.textContent = this.canonicalFilenamePreview();
