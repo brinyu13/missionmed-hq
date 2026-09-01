@@ -10,6 +10,7 @@ import {
   inspectLocalWordTimingAssets,
   LOCAL_WORD_TIMING_SAMPLE_RATE,
   LOCAL_WORD_TIMING_SOURCE,
+  normalizeWordTimingPcm,
 } from '../../server/local-word-timing-runtime.mjs';
 
 const NOW = Date.parse('2026-08-25T16:00:00.000Z');
@@ -70,6 +71,20 @@ test('float32 decoder requires finite, normalized, aligned PCM', () => {
   assert.throws(() => decodeFloat32Le(Buffer.alloc(3)), /aligned/u);
   assert.throws(() => decodeFloat32Le(pcmBody([Number.NaN])), /finite/u);
   assert.throws(() => decodeFloat32Le(pcmBody([1.5])), /normalized/u);
+});
+
+test('word timing normalizes only its private low-level ASR copy', () => {
+  const quiet = new Float32Array(16_000).fill(10 ** (-50 / 20));
+  const original = new Float32Array(quiet);
+  const normalized = normalizeWordTimingPcm(quiet);
+  const rms = Math.sqrt(normalized.reduce((sum, value) => sum + value * value, 0) / normalized.length);
+  assert.deepEqual(quiet, original);
+  assert.notEqual(normalized.buffer, quiet.buffer);
+  assert.ok(Math.abs(20 * Math.log10(rms) - (-22)) < 0.1);
+  assert.ok(Math.max(...normalized) <= 0.92);
+  const silence = new Float32Array(800);
+  assert.deepEqual(normalizeWordTimingPcm(silence), silence);
+  assert.throws(() => normalizeWordTimingPcm(new Float32Array([Number.NaN])), /PCM_INVALID/u);
 });
 
 test('authenticated HQ endpoint exposes capability and returns timing-only aggregates', async () => {
