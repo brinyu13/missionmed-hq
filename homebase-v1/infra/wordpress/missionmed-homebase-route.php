@@ -18,15 +18,120 @@ define( 'MMHBR_MAX_BODY_BYTES', 1048576 );
 define( 'MMHBR_MAX_RESPONSE_BYTES', 4194304 );
 define( 'MMHBR_TIMEOUT_SECONDS', 9 );
 // BEGIN GENERATED HOMEBASE RELEASE ID.
-define( 'MMHBR_RELEASE_ID', 'v-0000000000000000' );
-define( 'MMHBR_RELEASE_PHP_SHA256', '0000000000000000000000000000000000000000000000000000000000000000' );
-define( 'MMHBR_RELEASE_PHP_SIZE', 1 );
+define( 'MMHBR_RELEASE_ID', 'v-d50487babc9e138b' );
+define( 'MMHBR_RELEASE_PHP_SHA256', '37d8d7cf9c3fd5ec5f402a643964805206f3c177428b01c68f35795d8fb1b022' );
+define( 'MMHBR_RELEASE_PHP_SIZE', 804894 );
 // END GENERATED HOMEBASE RELEASE ID.
 
 /** @return array<string,array<string,mixed>> */
 function mmhbr_asset_manifest() {
 	return array(
 		// BEGIN GENERATED HOMEBASE ASSET MANIFEST.
+		'assets/app.f0a77e696159.js' => array(
+			'alias' => 'f0a77e696159',
+			'sha256' => 'f0a77e696159871b8350c27d54e8af9fe019fe2e44fac2c51a11f18e5e7ef150',
+			'size' => 85141,
+			'type' => 'text/javascript; charset=utf-8',
+			'cache' => 'immutable',
+		),
+		'assets/auth.32b3822b8597.js' => array(
+			'alias' => '32b3822b8597',
+			'sha256' => '32b3822b85973a002e637bd2e32a015aa3254a588925a16e794847d4936d8271',
+			'size' => 8306,
+			'type' => 'text/javascript; charset=utf-8',
+			'cache' => 'immutable',
+		),
+		'assets/fonts/archivo-italic.e1989a572737.woff2' => array(
+			'alias' => 'e1989a572737',
+			'sha256' => 'e1989a5727374fcd299979407c8087669ca223f5281f8645891e5400f3e61aeb',
+			'size' => 39132,
+			'type' => 'font/woff2',
+			'cache' => 'immutable',
+		),
+		'assets/fonts/archivo-normal.7150c0ec5ad3.woff2' => array(
+			'alias' => '7150c0ec5ad3',
+			'sha256' => '7150c0ec5ad356453013d11affec1fbab95de0dd2dcecb043b4f1cb7f87c4ba4',
+			'size' => 34940,
+			'type' => 'font/woff2',
+			'cache' => 'immutable',
+		),
+		'assets/fonts/lora-italic.3d536d49566e.woff2' => array(
+			'alias' => '3d536d49566e',
+			'sha256' => '3d536d49566e82a7905c8b0096758005f6616029ac08528d1f4789c1100dff6a',
+			'size' => 40648,
+			'type' => 'font/woff2',
+			'cache' => 'immutable',
+		),
+		'assets/fonts/lora-normal.6b102ab35aa1.woff2' => array(
+			'alias' => '6b102ab35aa1',
+			'sha256' => '6b102ab35aa1f2b315788bb4853434ed1e52137603bf7a3da71a682276748d45',
+			'size' => 37792,
+			'type' => 'font/woff2',
+			'cache' => 'immutable',
+		),
+		'assets/fonts/OFL-Archivo.txt' => array(
+			'alias' => '1778201b7bd3',
+			'sha256' => '1778201b7bd33e8c08a2eda32a4ad2f69bc38ced9731b01cc3fc47f268c8ef3c',
+			'size' => 4387,
+			'type' => 'text/plain; charset=utf-8',
+			'cache' => 'revalidate',
+		),
+		'assets/fonts/OFL-Lora.txt' => array(
+			'alias' => '6d6bc7bbb828',
+			'sha256' => '6d6bc7bbb828514925dabcaf89e4771398d12c60dd1cb2bbb90eea129535d0f4',
+			'size' => 4422,
+			'type' => 'text/plain; charset=utf-8',
+			'cache' => 'revalidate',
+		),
+		'assets/fonts/OFL-Rajdhani.txt' => array(
+			'alias' => '793bdd8538a0',
+			'sha256' => '793bdd8538a0c03afb5bc10906be27ad1dc76f143cfeac8c55cd9075a5b3a55c',
+			'size' => 4372,
+			'type' => 'text/plain; charset=utf-8',
+			'cache' => 'revalidate',
+		),
+		'assets/fonts/rajdhani-500.4745b75b6e92.woff2' => array(
+			'alias' => '4745b75b6e92',
+			'sha256' => '4745b75b6e92d917e2402925dc1a6c1c6300e6e0f607a1ce286da54b33d80d3b',
+			'size' => 8964,
+			'type' => 'font/woff2',
+			'cache' => 'immutable',
+		),
+		'assets/fonts/rajdhani-600.35f7e628ec8e.woff2' => array(
+			'alias' => '35f7e628ec8e',
+			'sha256' => '35f7e628ec8e7dd3bf434e95ce28289803401f12d8605c56ca83db2b4b301d33',
+			'size' => 9400,
+			'type' => 'font/woff2',
+			'cache' => 'immutable',
+		),
+		'assets/fonts/rajdhani-700.7597c31a957a.woff2' => array(
+			'alias' => '7597c31a957a',
+			'sha256' => '7597c31a957ae3d2e1ebc786238752d883c15ce2e6b5da617dc3453a9fd86335',
+			'size' => 9304,
+			'type' => 'font/woff2',
+			'cache' => 'immutable',
+		),
+		'assets/missionmed-logo.f091d62ac584.png' => array(
+			'alias' => 'f091d62ac584',
+			'sha256' => 'f091d62ac5842cde0e9e455321839fd98b291598478aae6ce13b09ea3896ff56',
+			'size' => 65897,
+			'type' => 'image/png',
+			'cache' => 'immutable',
+		),
+		'assets/styles.745a0f420e5e.css' => array(
+			'alias' => '745a0f420e5e',
+			'sha256' => '745a0f420e5eabf7d0202d697ffce4b74b1c595d099a9b24ee5e9c712ad22c48',
+			'size' => 203016,
+			'type' => 'text/css; charset=utf-8',
+			'cache' => 'immutable',
+		),
+		'index.html' => array(
+			'alias' => '7ebd4cadd3d7',
+			'sha256' => '7ebd4cadd3d7dc608a5df186d3272b947f31beec69c80d04f29b0a7f64bacea4',
+			'size' => 2255,
+			'type' => 'text/html; charset=utf-8',
+			'cache' => 'html',
+		),
 		// END GENERATED HOMEBASE ASSET MANIFEST.
 	);
 }
