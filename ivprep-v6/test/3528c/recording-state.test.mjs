@@ -88,3 +88,90 @@ test('recording duration freezes at stop and excludes pause and upload latency',
     globalThis.fetch = oldFetch;
   }
 });
+
+test('recording emits session-relative timebase and prefers probed playable duration', async () => {
+  const oldRecorder = globalThis.MediaRecorder;
+  const oldFetch = globalThis.fetch;
+  let now = 1_000;
+  let sessionNow = 4_000;
+  globalThis.MediaRecorder = FakeRecorder;
+  globalThis.fetch = async () => ({ ok: true });
+  let seal = null;
+  const api = {
+    csrfToken: 'csrf-token',
+    createRecording: async () => ({ id: 'r3', uploadUrl: 'https://media.test/upload', uploadToken: 'token', uploadExpiresAtMs: Date.now() + 60_000 }),
+    sealRecording: async (_id, body) => { seal = body; return { recording: { id: 'r3', status: 'saved', durationMs: body.durationMs } }; },
+  };
+  try {
+    const controller = new AccountRecordingController({
+      api,
+      stream: {},
+      sessionId: 's3',
+      enabled: true,
+      now: () => now,
+      sessionNow: () => sessionNow,
+      probePlayableDuration: async () => 8_750,
+    });
+    await controller.start();
+    assert.equal(controller.snapshot().recordingStartSessionMs, 4_000);
+    now = 6_000;
+    sessionNow = 9_000;
+    controller.pause();
+    now = 8_000;
+    sessionNow = 11_000;
+    controller.resume();
+    now = 12_000;
+    sessionNow = 15_000;
+    const result = await controller.stopAndSeal();
+    assert.equal(result.recordingDurationMs, 9_000);
+    assert.equal(result.playableDurationMs, 8_750);
+    assert.equal(result.durationMs, 8_750);
+    assert.equal(result.recordingStartSessionMs, 4_000);
+    assert.deepEqual(result.pausedSpans, [{ startMs: 9_000, endMs: 11_000 }]);
+    assert.deepEqual(seal.timebase, {
+      canonical: 'session',
+      recordingStartSessionMs: 4_000,
+      pausedSpans: [{ startMs: 9_000, endMs: 11_000 }],
+    });
+    assert.equal(seal.recordingDurationMs, 9_000);
+    assert.equal(seal.playableDurationMs, 8_750);
+    assert.equal(seal.durationMs, 8_750);
+  } finally {
+    globalThis.MediaRecorder = oldRecorder;
+    globalThis.fetch = oldFetch;
+  }
+});
+
+test('playable-duration probing fails soft and retains stopwatch duration', async () => {
+  const oldRecorder = globalThis.MediaRecorder;
+  const oldFetch = globalThis.fetch;
+  let now = 0;
+  globalThis.MediaRecorder = FakeRecorder;
+  globalThis.fetch = async () => ({ ok: true });
+  let seal = null;
+  const api = {
+    csrfToken: 'csrf-token',
+    createRecording: async () => ({ id: 'r4', uploadUrl: 'https://media.test/upload', uploadToken: 'token', uploadExpiresAtMs: Date.now() + 60_000 }),
+    sealRecording: async (_id, body) => { seal = body; return { recording: { id: 'r4', status: 'saved' } }; },
+  };
+  try {
+    const controller = new AccountRecordingController({
+      api,
+      stream: {},
+      sessionId: 's4',
+      enabled: true,
+      now: () => now,
+      probePlayableDuration: async () => { throw new Error('metadata_unavailable'); },
+    });
+    await controller.start();
+    now = 4_500;
+    const result = await controller.stopAndSeal();
+    assert.equal(result.durationMs, 4_500);
+    assert.equal(result.recordingDurationMs, 4_500);
+    assert.equal(result.playableDurationMs, null);
+    assert.equal(seal.durationMs, 4_500);
+  } finally {
+    globalThis.MediaRecorder = oldRecorder;
+    globalThis.fetch = oldFetch;
+  }
+});

@@ -49,7 +49,8 @@ const INSTRUMENTS = [
     labels: ['QUIET', 'CORRIDOR', 'LOUD'],
     gaugeNorm: f => f.volume.available ? Math.max(0, Math.min(1, f.volume.normalized ?? ((f.volume.scientificValue + 60) / 60))) : null,
     corridorNorm: f => {
-      const [lo, hi] = f?.volume?.corridor || [-42, -18];
+      if (!Array.isArray(f?.volume?.corridor) || f.volume.corridor.length !== 2) return [null, null];
+      const [lo, hi] = f.volume.corridor;
       return [Math.max(0, (lo + 60) / 60), Math.min(1, (hi + 60) / 60)];
     },
   },
@@ -290,10 +291,10 @@ async function liveScreen(el) {
     } else if (id === 'volume') {
       host.innerHTML = `
         <em>PERSONAL CORRIDOR · LU vs BASELINE</em>
-        <div class="tune-row"><span>${CALIBRATION.volumeCorridorLu[0]}</span>
+        <div class="tune-row"><span id="volTuneLo">${CALIBRATION.volumeCorridorLu[0]}</span>
         <input type="range" min="-12" max="0" value="${CALIBRATION.volumeCorridorLu[0]}" data-t="vol0">
         <input type="range" min="0" max="12" value="${CALIBRATION.volumeCorridorLu[1]}" data-t="vol1">
-        <span>+${CALIBRATION.volumeCorridorLu[1]}</span></div>`;
+        <span id="volTuneHi">+${CALIBRATION.volumeCorridorLu[1]}</span></div>`;
     }
   }
   INSTRUMENTS.filter(i => i.kind !== 'pitch').forEach(i => renderTuner(i.id));
@@ -367,8 +368,8 @@ async function liveScreen(el) {
     const span = vvWindow === 0 ? Math.max(30, tEnd) : vvWindow;
     const t0 = tEnd - span; // "now" always anchors the right edge
     const X = t => ((t - t0) / span) * w;
-    const pad = h * .08;
-    const Y = v => h - pad - v * (h - pad * 2);
+    const lanePad = Math.max(4, h * .035);
+    const laneHeight = h / 3;
     // silence shading
     c.fillStyle = 'rgba(120,132,160,.08)';
     let runStart = null;
@@ -383,10 +384,12 @@ async function liveScreen(el) {
     }
     // grid
     c.strokeStyle = 'rgba(66,80,106,.35)'; c.lineWidth = 1;
-    for (let gy = 1; gy < 4; gy++) { c.beginPath(); c.moveTo(0, h * gy / 4); c.lineTo(w, h * gy / 4); c.stroke(); }
+    for (let gy = 1; gy < 3; gy++) { c.beginPath(); c.moveTo(0, laneHeight * gy); c.lineTo(w, laneHeight * gy); c.stroke(); }
     const lanes = [['vol', '#2fe7b0'], ['pitch', '#a696ff'], ['pace', '#39d6ff']];
-    for (const [k, color] of lanes) {
+    for (const [laneIndex, [k, color]] of lanes.entries()) {
       if (!traces[k]) continue;
+      const laneTop = laneHeight * laneIndex;
+      const Y = v => laneTop + lanePad + (1 - v) * Math.max(1, laneHeight - lanePad * 2);
       c.strokeStyle = color; c.lineWidth = Math.max(1.5, h * .018); c.lineJoin = 'round';
       c.beginPath();
       let pen = false;
@@ -408,13 +411,17 @@ async function liveScreen(el) {
         previousAt = p.t;
       }
       c.stroke();
+      c.fillStyle = color;
+      c.font = `700 ${Math.max(8, h * .07)}px "Space Grotesk", monospace`;
+      c.textBaseline = 'top';
+      c.fillText(k === 'vol' ? 'VOLUME' : k.toUpperCase(), 7, laneTop + 4);
     }
     // pre-speech hint (honest empty state)
     if (!hist.some(p => p.speaking)) {
       c.fillStyle = 'rgba(147,161,186,.75)';
       c.font = `600 ${Math.max(12, h * .12)}px "Space Grotesk", monospace`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText('WAITING FOR OBSERVED SPEECH — SILENCE STAYS VISIBLE', w / 2, h * .42);
+      c.fillText('WAITING FOR OBSERVED SPEECH — SILENCE STAYS VISIBLE', w / 2, h * .5);
       c.textAlign = 'left';
     }
     // time labels along the bottom edge
@@ -514,12 +521,16 @@ async function liveScreen(el) {
       } else if (ins.gauge === 'segments' && g.segments) {
         const n = ins.gaugeNorm(f);
         const [a, b] = ins.corridorNorm(f);
-        g.corr.style.left = `${a * 100}%`;
-        g.corr.style.width = `${Math.max(.04, b - a) * 100}%`;
+        const corridorAvailable = Number.isFinite(a) && Number.isFinite(b);
+        g.corr.hidden = !corridorAvailable;
+        if (corridorAvailable) {
+          g.corr.style.left = `${a * 100}%`;
+          g.corr.style.width = `${Math.max(.04, b - a) * 100}%`;
+        }
         g.segments.forEach((segment, index) => {
           const position = (index + .5) / g.segments.length;
           segment.classList.toggle('active', n != null && position <= n);
-          segment.classList.toggle('target', position >= a && position <= b);
+          segment.classList.toggle('target', corridorAvailable && position >= a && position <= b);
         });
       } else if (ins.gauge === 'piano' && g.keys) {
         const semis = f.pitch.available ? f.pitch.semitonesFromSpeakerMedian : null;
@@ -548,13 +559,16 @@ async function liveScreen(el) {
     }
 
     /* face / body */
-    $('cSmiles').textContent = f.headFace.smileEvents;
-    $('cNods').textContent = f.headFace.nods;
+    $('cSmiles').textContent = f.headFace.smileEventsAvailable ? f.headFace.smileEvents : '—';
+    $('cSmiles').title = f.headFace.smileEventsAvailable ? 'Measured qualifying smile-pattern events' : f.headFace.smileEventsUnavailableReason;
+    $('cNods').textContent = f.headFace.nodsAvailable ? f.headFace.nods : '—';
+    $('cNods').title = f.headFace.nodsAvailable ? 'Measured listening nods' : f.headFace.nodsUnavailableReason;
     $('rPresence').textContent = f.headFace.presence;
     $('rPresence').className = f.headFace.presence === 'TRACKED' ? 'ok' : 'warn';
     $('rFacing').textContent = f.headFace.cameraFacingPct + '% FACING';
     $('rFacing').className = f.headFace.cameraFacingPct >= 85 ? 'ok' : 'warn';
-    $('cGestures').textContent = f.bodyHands.gestures;
+    $('cGestures').textContent = f.bodyHands.gesturesAvailable ? f.bodyHands.gestures : '—';
+    $('cGestures').title = f.bodyHands.gesturesAvailable ? 'Qualified gesture events' : f.bodyHands.gestureUnavailableReason;
     const gr = $('gRate');
     gr.textContent = f.bodyHands.gestureRate != null
       ? `${f.bodyHands.gestureRate} / min · corridor ${CALIBRATION.gestureCorridor[0]}–${CALIBRATION.gestureCorridor[1]}`
@@ -647,13 +661,18 @@ async function liveScreen(el) {
         sessionId: accountSession.id,
         title: draft.title || q.text,
         questionId: q.id,
+        sessionNow: () => Math.max(0, Number(engine.frame()?.t || 0) * 1000),
       });
       recorder.addEventListener('state', (event) => {
         rec.state = event.detail.state;
         rec.elapsed = event.detail.elapsedMs / 1000;
         renderDock(); recMirrorSync();
       });
-      if (ui.recording) await recorder.start();
+      if (ui.recording) {
+        await recorder.start();
+        engine.events.push({ t: engine.frame().t, kind: 'recording-start', label: 'Recording started' });
+      }
+      engine.events.push({ t: engine.frame().t, kind: 'question', label: `Question · ${q.text}` });
       analyticsStarted = true;
       $('captureStart').hidden = true;
       $('captureStatus').textContent = `Authenticated as ${bootstrap.identity?.displayName || 'MissionMed student'}`;
@@ -672,6 +691,7 @@ async function liveScreen(el) {
     rec.state = ui.recording ? 'FINALIZING' : 'OFF'; rec.finalizeT = 0;
     renderDock(); recMirrorSync();
     try {
+      if (ui.recording) engine.events.push({ t: engine.frame().t, kind: 'recording-stop', label: 'Recording stopped' });
       const [recordingResult, runtimeResult] = await Promise.all([
         recorder?.stopAndSeal?.() || Promise.resolve(null),
         engine.finish(),
@@ -690,15 +710,28 @@ async function liveScreen(el) {
     const f = runtimeResult?.frame || engine.frame();
     const analyticsDurationMs = Math.max(0, Math.round(runtimeResult?.analytics?.durationMs ?? (runtimeResult?.frame?.t || f.t || 0) * 1000));
     const recordingDurationMs = recordingResult?.durationMs ?? recordingResult?.recording?.durationMs ?? null;
-    const playableDurationMs = ui.recording && Number.isFinite(Number(recordingDurationMs))
-      ? Math.max(0, Math.round(Number(recordingDurationMs)))
+    const playableDurationMs = ui.recording && Number.isFinite(Number(recordingResult?.playableDurationMs ?? recordingDurationMs))
+      ? Math.max(0, Math.round(Number(recordingResult?.playableDurationMs ?? recordingDurationMs)))
       : analyticsDurationMs;
+    const history = runtimeResult?.history || engine.history.slice();
+    const activeAnsweringDurationMs = history.reduce((total, point, index) => {
+      const next = history[index + 1];
+      if (point?.state !== 'ANSWERING' || !Number.isFinite(point?.t)) return total;
+      const end = Number.isFinite(next?.t) ? next.t : analyticsDurationMs / 1000;
+      return total + Math.max(0, Math.min(5, end - point.t)) * 1000;
+    }, 0);
+    const observedTimes = history.map(point => Number(point?.t)).filter(Number.isFinite);
+    const analyticsObservationDurationMs = observedTimes.length > 1
+      ? Math.max(0, Math.round((observedTimes.at(-1) - observedTimes[0]) * 1000))
+      : 0;
     const handPresenceEvent = runtimeResult?.analytics?.events?.find?.((event) => event.metric === 'hand_presence') || null;
     const handPresenceFraction = Number.isFinite(Number(handPresenceEvent?.observation?.value))
       ? Math.max(0, Math.min(1, Number(handPresenceEvent.observation.value)))
       : null;
     const handsPresence = {
-      available: handPresenceFraction !== null && handPresenceEvent?.eventQuality?.available !== false,
+      available: handPresenceFraction !== null
+        && handPresenceEvent?.quality?.reliability !== 'unavailable'
+        && Number(handPresenceEvent?.quality?.coverage || 0) > 0,
       fraction: handPresenceFraction,
       analyzableFrames: runtimeResult?.analytics?.modalities?.camera?.analyzableFrames ?? null,
       provenance: 'FULL_SESSION_CAMERA_OBSERVATION',
@@ -711,6 +744,15 @@ async function liveScreen(el) {
       durationMs: playableDurationMs,
       sessionDurationMs: analyticsDurationMs,
       recordingDurationMs: Number.isFinite(Number(recordingDurationMs)) ? Math.round(Number(recordingDurationMs)) : null,
+      playableDurationMs,
+      activeAnsweringDurationMs: Math.round(activeAnsweringDurationMs),
+      analyticsObservationDurationMs,
+      recordingStartSessionMs: Number.isFinite(Number(recordingResult?.recordingStartSessionMs))
+        ? Math.round(Number(recordingResult.recordingStartSessionMs))
+        : null,
+      pausedSpans: Array.isArray(recordingResult?.pausedSpans)
+        ? recordingResult.pausedSpans.map(span => ({ startMs: Number(span.startMs), endMs: Number(span.endMs) }))
+        : [],
       scores: {
         pace: INSTRUMENTS[0]._last ?? null,
         volume: INSTRUMENTS[1]._last ?? null,
@@ -726,7 +768,7 @@ async function liveScreen(el) {
       },
       handsPresence,
       events: runtimeResult?.events || engine.events.slice(),
-      history: runtimeResult?.history || engine.history.slice(),
+      history,
       metrics: runtimeResult?.snapshot?.metrics || null,
       behavior: runtimeResult?.behavior || null,
       analytics: runtimeResult?.analytics || null,
@@ -739,6 +781,12 @@ async function liveScreen(el) {
       question: q,
       dur: playableDurationMs / 1000,
       sessionDur: analyticsDurationMs / 1000,
+      recordingDur: Number.isFinite(Number(recordingDurationMs)) ? Number(recordingDurationMs) / 1000 : null,
+      playableDur: playableDurationMs / 1000,
+      answeringDur: activeAnsweringDurationMs / 1000,
+      analyticsObservationDur: analyticsObservationDurationMs / 1000,
+      recordingStartSessionMs: resultEnvelope.recordingStartSessionMs,
+      pausedSpans: resultEnvelope.pausedSpans,
       recorded: ui.recording,
       scores: {
         pace: INSTRUMENTS[0]._last ?? null,
@@ -769,8 +817,14 @@ async function liveScreen(el) {
     }
     if (t.closest('#startAnalytics')) { void startAnalytics(); return; }
     if (t.closest('#finishBtn')) { void sealAndStop(); return; }
-    if (t.closest('#dockPause')) { recorder?.pause(); toast('Recording paused', 'rec'); return; }
-    if (t.closest('#dockResume')) { recorder?.resume(); toast('Recording resumed', 'rec'); return; }
+    if (t.closest('#dockPause')) {
+      if (recorder?.pause()) engine.events.push({ t: engine.frame().t, kind: 'recording-pause', label: 'Recording paused' });
+      toast('Recording paused', 'rec'); return;
+    }
+    if (t.closest('#dockResume')) {
+      if (recorder?.resume()) engine.events.push({ t: engine.frame().t, kind: 'recording-resume', label: 'Recording resumed' });
+      toast('Recording resumed', 'rec'); return;
+    }
     if (t.closest('#dockRetry')) { void sealAndStop(); return; }
     if (t.closest('#dockStop')) { sealAndStop(); return; }
     const overlayToggle = t.closest('[data-overlay]');
@@ -821,6 +875,8 @@ async function liveScreen(el) {
     if (t.dataset.t === 'pace1') CALIBRATION.paceCorridor[1] = Math.max(v, CALIBRATION.paceCorridor[0] + 10);
     if (t.dataset.t === 'vol0') CALIBRATION.volumeCorridorLu[0] = v;
     if (t.dataset.t === 'vol1') CALIBRATION.volumeCorridorLu[1] = v;
+    if ($('volTuneLo')) $('volTuneLo').textContent = CALIBRATION.volumeCorridorLu[0];
+    if ($('volTuneHi')) $('volTuneHi').textContent = `+${CALIBRATION.volumeCorridorLu[1]}`;
     $('corr-pace').textContent = INSTRUMENTS[0].corridorLabel();
     $('corr-volume').textContent = INSTRUMENTS[1].corridorLabel();
     clearTimeout(liveScreen._preferenceTimer);

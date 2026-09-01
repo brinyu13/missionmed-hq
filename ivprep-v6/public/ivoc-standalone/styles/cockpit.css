@@ -232,6 +232,13 @@
 #bodyCard[data-activity="listening"] .scan-well.body img { filter: drop-shadow(0 0 16px rgba(57, 214, 255, .38)); }
 
 /* ---------- instrument family (exact shared geometry) ---------- */
+.setup-device-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 14px;
+}
+.setup-device-head .pl-title { margin-bottom: 0; }
+.setup-device-head .chip:disabled { opacity: .55; cursor: wait; }
+
 .inst {
   flex: 1;
   display: flex; flex-direction: column;
@@ -504,6 +511,20 @@
   .room-q { display: none; }
   .dock-note { display: none; }
   .room-bottom { flex-basis: 190px; }
+}
+@media (max-height: 1000px) {
+  /* Keep all three founder instruments inside their cards at the two FAC-02B
+     acceptance viewports without changing the frozen three-column grid. */
+  #inst-pace { flex: 1.42; }
+  .inst-num { font-size: 48px; }
+  .inst-score.pitch-score .inst-num { font-size: 44px; }
+  .inst-verb { margin-top: 3px; }
+  .verb-pill { height: 24px; padding: 0 9px; font-size: 10.5px; }
+  .speedometer { height: 76px; min-height: 76px; }
+  .speed-dial { width: min(100%, 258px); height: 76px; }
+  .piano-svg { max-height: 52px; }
+  .volume-segments { height: 26px; min-height: 26px; max-height: 26px; }
+  .inst-gauge { padding-top: 2px; }
 }
 @media (max-height: 950px) {
   .scan-rows { display: none; }               /* MEDIUM tier collapses first */

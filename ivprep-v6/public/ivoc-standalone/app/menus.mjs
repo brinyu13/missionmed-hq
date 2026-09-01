@@ -381,7 +381,10 @@ async function setupScreen(el) {
   <div class="setup-body">
     <section class="setup-left">
       <div class="panel">
-        <div class="t-label pl-title">CAMERA</div>
+        <div class="setup-device-head">
+          <div class="t-label pl-title">CAMERA &amp; MICROPHONE</div>
+          <button class="chip" type="button" data-focusable data-refresh-devices aria-label="Refresh camera and microphone list">↻ RESCAN DEVICES</button>
+        </div>
         <label class="device-select">${svgIcon('M3 7h12v10H3zM15 11l6-3.5v9L15 13', 16)}<select id="camSelect" data-focusable aria-label="Camera"><option>Requesting camera permission…</option></select><i>▾</i></label>
         <div class="setup-feed">
           <video id="setupFeed" playsinline muted></video>
@@ -452,30 +455,46 @@ async function setupScreen(el) {
   const micSelect = el.querySelector('#micSelect');
   const readiness = el.querySelector('#deviceReadiness');
   const micState = el.querySelector('#micState');
+  const refreshDevices = el.querySelector('[data-refresh-devices]');
   let preview = null;
   let previewCancelled = false;
   let previewGeneration = 0;
-  async function mountSelectedPreview() {
+  let deviceRefreshTimer = 0;
+  async function mountSelectedPreview({ rescan = false } = {}) {
     const generation = ++previewGeneration;
     preview?.destroy();
+    preview = null;
+    refreshDevices.disabled = true;
     readiness.innerHTML = '<span>CAMERA · CONNECTING</span><span>MICROPHONE · CONNECTING</span>';
     micState.textContent = 'CONNECTING';
-    const mounted = await mountDevicePreview(el.querySelector('#setupFeed'), micFill, {
-      cameraDeviceId: draft.cameraDeviceId,
-      microphoneDeviceId: draft.microphoneDeviceId,
-    });
-    if (previewCancelled || generation !== previewGeneration) { mounted.destroy(); return; }
-    preview = mounted;
-    draft.cameraDeviceId = mounted.cameraId;
-    draft.microphoneDeviceId = mounted.microphoneId;
-    draft.cam = mounted.camera;
-    draft.mic = mounted.microphone;
-    saveDraft();
-    fillDeviceSelect(camSelect, mounted.cameras, mounted.cameraId, 'Camera');
-    fillDeviceSelect(micSelect, mounted.microphones, mounted.microphoneId, 'Microphone');
-    readiness.innerHTML = '<span class="ok">CAMERA · LIVE</span><span class="ok">MICROPHONE · LIVE</span>';
-    micState.textContent = 'LIVE';
-    micState.classList.add('ok');
+    micState.classList.remove('ok');
+    try {
+      let cameraDeviceId = draft.cameraDeviceId;
+      let microphoneDeviceId = draft.microphoneDeviceId;
+      if (rescan) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        if (!devices.some((device) => device.kind === 'videoinput' && device.deviceId === cameraDeviceId)) cameraDeviceId = '';
+        if (!devices.some((device) => device.kind === 'audioinput' && device.deviceId === microphoneDeviceId)) microphoneDeviceId = '';
+      }
+      const mounted = await mountDevicePreview(el.querySelector('#setupFeed'), micFill, {
+        cameraDeviceId,
+        microphoneDeviceId,
+      });
+      if (previewCancelled || generation !== previewGeneration) { mounted.destroy(); return; }
+      preview = mounted;
+      draft.cameraDeviceId = mounted.cameraId;
+      draft.microphoneDeviceId = mounted.microphoneId;
+      draft.cam = mounted.camera;
+      draft.mic = mounted.microphone;
+      saveDraft();
+      fillDeviceSelect(camSelect, mounted.cameras, mounted.cameraId, 'Camera');
+      fillDeviceSelect(micSelect, mounted.microphones, mounted.microphoneId, 'Microphone');
+      readiness.innerHTML = '<span class="ok">CAMERA · LIVE</span><span class="ok">MICROPHONE · LIVE</span>';
+      micState.textContent = 'LIVE';
+      micState.classList.add('ok');
+    } finally {
+      if (generation === previewGeneration) refreshDevices.disabled = false;
+    }
   }
   void mountSelectedPreview().catch((error) => {
     readiness.innerHTML = '<span class="warn">CAMERA / MICROPHONE · UNAVAILABLE</span>';
@@ -491,7 +510,27 @@ async function setupScreen(el) {
     void mountSelectedPreview().catch((error) => toast(`Device switch failed: ${error.message}`, 'rec'));
   });
 
+  const handleDeviceChange = () => {
+    clearTimeout(deviceRefreshTimer);
+    deviceRefreshTimer = setTimeout(() => {
+      void mountSelectedPreview({ rescan: true }).catch((error) => {
+        readiness.innerHTML = '<span class="warn">DEVICE LIST CHANGED · RESCAN FAILED</span>';
+        micState.textContent = 'CHECK DEVICES';
+        toast(`Device refresh failed: ${error.message}`, 'rec');
+      });
+    }, 250);
+  };
+  navigator.mediaDevices?.addEventListener?.('devicechange', handleDeviceChange);
+
   el.addEventListener('click', async e => {
+    if (e.target.closest('[data-refresh-devices]')) {
+      void mountSelectedPreview({ rescan: true }).catch((error) => {
+        readiness.innerHTML = '<span class="warn">CAMERA / MICROPHONE · RESCAN FAILED</span>';
+        micState.textContent = 'CHECK DEVICES';
+        toast(`Device rescan failed: ${error.message}`, 'rec');
+      });
+      return;
+    }
     const tog = e.target.closest('[data-tog]');
     if (tog) {
       const k = tog.dataset.tog;
@@ -511,7 +550,12 @@ async function setupScreen(el) {
     if (e.target.closest('[data-next]')) go('ready');
   });
 
-  return { destroy: () => { previewCancelled = true; preview?.destroy(); } };
+  return { destroy: () => {
+    previewCancelled = true;
+    clearTimeout(deviceRefreshTimer);
+    navigator.mediaDevices?.removeEventListener?.('devicechange', handleDeviceChange);
+    preview?.destroy();
+  } };
 }
 
 /* ================= READY — frame up, then go ================= */

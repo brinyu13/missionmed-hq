@@ -24,10 +24,12 @@ test('FAC-01 projects vocal variety from validated speaker-relative pitch and lo
   assert.doesNotMatch(runtime, /const varietyScore = varietyObserved \? corridorScore\(range/u);
 });
 
-test('FAC-01 exposes zero, one-left, one-right, and both-hand truth without a binary contradiction', async () => {
+test('FAC-01 distinguishes unavailable hand evidence from measured zero, one-left, one-right, and both-hand truth', async () => {
   const runtime = await source('public/ivoc-standalone/app/real-runtime.mjs');
   const live = await source('public/ivoc-standalone/app/live.mjs');
-  assert.match(runtime, /visibility: hands\.bothPresent === true/u);
+  assert.match(runtime, /const handsAvailable = body\.available === true && hands\.available === true/u);
+  assert.match(runtime, /const handVisibility = hands\.bothPresent === true/u);
+  assert.match(runtime, /visibility: handsAvailable \? handVisibility : 'UNAVAILABLE'/u);
   assert.match(live, /ONE HAND VISIBLE · LEFT/u);
   assert.match(live, /ONE HAND VISIBLE · RIGHT/u);
   assert.match(live, /BOTH HANDS VISIBLE · L \+ R/u);
