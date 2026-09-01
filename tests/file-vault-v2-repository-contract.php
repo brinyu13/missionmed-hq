@@ -263,15 +263,15 @@ $intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 		'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 		'file_size' => 123,
 		'document_type' => 'personal_statement',
-		'display_name' => 'Personal Statement',
+		'display_name' => 'Client Controlled Wrong Name',
 		'note' => 'First complete draft.',
 		'sha256' => str_repeat( 'a', 64 ),
 	)
 );
 fv2_repo_assert( ! is_wp_error( $intent ), 'new upload intent created' );
-fv2_repo_assert( 'Avery_Rivera_360Elite_A_PersonalStatement_Draft01_' . gmdate( 'Y-m-d' ) . '.docx' === $intent['canonical_name'], 'canonical filename is deterministic and server-generated from authoritative account metadata' );
+fv2_repo_assert( 'Avery_Rivera_360MatchMentorship_A_PersonalStatement_Version01_' . gmdate( 'Y-m-d' ) . '.docx' === $intent['canonical_name'], 'canonical filename is deterministic and server-generated from authoritative account metadata' );
 $encoded_course_context = MMED_File_Vault_V2_Repository::upload_context( 13 );
-fv2_repo_assert( 'Mission Residency: 360 Match Mentorship Student Dashboard & Guidance Hub' === $encoded_course_context['program'], 'LearnDash course titles are decoded before upload UI display' );
+fv2_repo_assert( '360 Match Mentorship' === $encoded_course_context['program'] && MMED_File_Vault_V2_Repository::approved_programs() === $encoded_course_context['programs'], 'historical enrollment labels map to the approved upload program vocabulary' );
 $encoded_course_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 	13,
 	13,
@@ -286,14 +286,16 @@ $encoded_course_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 );
 fv2_repo_assert( ! is_wp_error( $encoded_course_intent ) && false === strpos( $encoded_course_intent['canonical_name'], '038' ), 'decoded course titles cannot leak numeric entity text into canonical filenames' );
 $internal_intent = $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $intent['upload_id']];
+fv2_repo_assert( 'Personal Statement' === $internal_intent['display_name'], 'standard document names are canonicalized server-side instead of trusting the client display name' );
 fv2_repo_assert( 0 === strpos( $internal_intent['r2_key'], 'student-files/v2/staging/' ) && 0 === strpos( $internal_intent['final_r2_key'], 'student-files/v2/objects/' ), 'uploads use private V2 staging and immutable object prefixes' );
 
 $GLOBALS['fv2_fail_transient'] = 'mmed_fv2_done_' . $intent['upload_id'];
 $document = MMED_File_Vault_V2_Repository::confirm_upload_intent( $intent['upload_id'], $intent['confirm_token'], 10 );
 unset( $GLOBALS['fv2_fail_transient'] );
 fv2_repo_assert( ! is_wp_error( $document ) && 1 === $document['id'], 'upload finalizes a document' );
+fv2_repo_assert( 'Personal Statement' === $document['name'], 'canonical standard document name persists after confirmation' );
 fv2_repo_assert( 'draft' === $document['status'] && 1 === $document['version'], 'initial workflow state and version are truthful' );
-fv2_repo_assert( '360 Elite' === $document['program'] && 'A' === $document['session_letter'] && 'Draft01' === $document['versions'][0]['draft_label'], 'canonical enrollment and version metadata persist with the document' );
+fv2_repo_assert( '360 Match Mentorship' === $document['program'] && 'A' === $document['session_letter'] && 'Version01' === $document['versions'][0]['draft_label'] && false === $document['versions'][0]['is_final'], 'canonical program, session, and version metadata persist with the document' );
 fv2_repo_assert( MMED_File_Vault_V2_Repository::current_version_verified( 1 ), 'confirmed V2 document has a verified current version' );
 fv2_repo_assert( false === strpos( json_encode( $document ), 'r2_key' ) && false === strpos( json_encode( $document ), 'student-files/' ), 'object keys are scrubbed from public responses' );
 fv2_repo_assert( 'completed' === $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $intent['upload_id']]['state'], 'failed primary completion receipt falls back to a checked completed intent receipt' );
@@ -352,6 +354,13 @@ fv2_repo_assert( 'needs_changes' === $needs['status'], 'needs-changes verdict pe
 $long_review_note = MMED_File_Vault_V2_Repository::update_status( 1, 'needs_changes', 20, str_repeat( 'x', MMED_File_Vault_V2_Repository::NOTE_LENGTH_LIMIT + 1 ) );
 fv2_repo_assert( is_wp_error( $long_review_note ) && 'mmed_file_vault_v2_review_note_invalid' === $long_review_note->get_error_code(), 'oversized review notes are rejected before persistence' );
 
+$invalid_program = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'invalid-program.docx', 'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'file_size' => 64, 'program' => 'Unapproved Program', 'session_letter' => 'A', 'version_number' => 2, 'sha256' => str_repeat( 'e', 64 ) ), 1 );
+fv2_repo_assert( is_wp_error( $invalid_program ) && 'mmed_file_vault_v2_program_invalid' === $invalid_program->get_error_code(), 'upload program metadata fails closed outside the Founder-approved vocabulary' );
+$invalid_session = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'invalid-session.docx', 'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'file_size' => 64, 'program' => '360 Match Mentorship', 'session_letter' => 'H', 'version_number' => 2, 'sha256' => str_repeat( 'e', 64 ) ), 1 );
+fv2_repo_assert( is_wp_error( $invalid_session ) && 'mmed_file_vault_v2_session_required' === $invalid_session->get_error_code(), 'upload session metadata fails closed outside A through G' );
+$invalid_version = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'invalid-version.docx', 'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'file_size' => 64, 'program' => '360 Match Mentorship', 'session_letter' => 'A', 'version_number' => 9, 'sha256' => str_repeat( 'e', 64 ) ), 1 );
+fv2_repo_assert( is_wp_error( $invalid_version ) && 'mmed_file_vault_v2_version_invalid' === $invalid_version->get_error_code(), 'upload cannot skip the server-assigned next immutable version' );
+
 $version_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 	10,
 	10,
@@ -359,16 +368,20 @@ $version_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 		'filename' => 'personal-statement-v2.docx',
 		'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 		'file_size' => 222,
-			'note' => 'Reworked closing paragraph.',
-			'ready_for_review' => true,
-			'draft_label' => 'Final',
-			'sha256' => str_repeat( 'b', 64 ),
+		'note' => 'Reworked closing paragraph.',
+		'ready_for_review' => true,
+		'draft_label' => 'Version02',
+		'version_number' => 2,
+		'is_final' => true,
+		'program' => 'PS-Only',
+		'session_letter' => 'G',
+		'sha256' => str_repeat( 'b', 64 ),
 	),
 	1
 );
 $versioned = MMED_File_Vault_V2_Repository::confirm_upload_intent( $version_intent['upload_id'], $version_intent['confirm_token'], 10 );
 fv2_repo_assert( ! is_wp_error( $versioned ) && 2 === $versioned['version'] && 2 === count( $versioned['versions'] ), 'new upload creates immutable version history' );
-fv2_repo_assert( 'Avery_Rivera_360Elite_A_PersonalStatement_Final_' . gmdate( 'Y-m-d' ) . '.docx' === $versioned['canonical_name'] && 'Final' === $versioned['versions'][1]['draft_label'], 'replacement upload accepts controlled Final labeling without deleting prior history' );
+fv2_repo_assert( 'Avery_Rivera_PSOnly_G_PersonalStatement_Version02_' . gmdate( 'Y-m-d' ) . '.docx' === $versioned['canonical_name'] && 'Version02' === $versioned['versions'][1]['draft_label'] && true === $versioned['versions'][1]['is_final'], 'replacement upload keeps selected metadata, a numbered immutable version, and a separate Final marker' );
 $invalid_draft_label = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'invalid-label.docx', 'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'file_size' => 64, 'draft_label' => 'Draft99', 'sha256' => str_repeat( 'e', 64 ) ), 1 );
 fv2_repo_assert( is_wp_error( $invalid_draft_label ) && 'mmed_file_vault_v2_draft_label_invalid' === $invalid_draft_label->get_error_code(), 'server rejects a draft label that does not match the next immutable version' );
 fv2_repo_assert( 'submitted' === $versioned['status'], 'version can submit for review at confirmation' );
@@ -409,7 +422,7 @@ fv2_repo_assert( 6 === count( $bootstrap['journey']['gates'] ) && 'server_config
 fv2_repo_assert( 3 === $bootstrap['journey']['total_count'], 'Journey exposes only the assigned student requirement set' );
 fv2_repo_assert( 'fixture-application-set' === $bootstrap['journey']['requirement_set']['id'] && 'Deterministic repository contract fixture' === $bootstrap['journey']['requirement_set']['source'], 'Journey exposes requirement-set identity and provenance' );
 fv2_repo_assert( 'upload' === $bootstrap['next_action']['kind'], 'next action is computed from missing server requirements' );
-fv2_repo_assert( 'Curriculum Vitae' === $bootstrap['document_types']['curriculum_vitae'], 'upload vocabulary is server-owned without making every type a requirement' );
+fv2_repo_assert( 'CV / Resume' === $bootstrap['document_types']['curriculum_vitae'] && 'LOR-Related' === $bootstrap['document_types']['lor_related'] && 'Score Report' === $bootstrap['document_types']['score_report'] && 'Certification' === $bootstrap['document_types']['certification'], 'Founder upload vocabulary is server-owned without removing granular document types' );
 fv2_repo_assert( 4 === count( $bootstrap['rubrics']['personal_statement'] ) && ! isset( $bootstrap['rubrics']['medical_school_transcript'] ), 'only valid document-scoped rubrics are exposed' );
 
 $GLOBALS['wpdb']->insert(

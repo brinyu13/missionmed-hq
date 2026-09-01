@@ -12,6 +12,9 @@
 		missing: { label: "Missing", tone: "red" }
 	};
 	var ACCEPTED_EXTENSIONS = ["pdf", "docx", "png", "jpg", "jpeg"];
+	var PROGRAM_OPTIONS = ["360 Match Mentorship", "IV Prep Complete", "IV Prep Essentials", "PS-Only"];
+	var SESSION_OPTIONS = ["A", "B", "C", "D", "E", "F", "G"];
+	var CUSTOM_NAME_TYPES = ["lor_related", "other"];
 	var MIME_FALLBACKS = {
 		pdf: "application/pdf",
 		docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -156,6 +159,17 @@
 		return role === "admin" || role === "mentor";
 	}
 
+	function normalizedProgramOption(value) {
+		var label = String(value || "").trim();
+		if (PROGRAM_OPTIONS.indexOf(label) !== -1) return label;
+		var normalized = label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+		if (/\b360\b/.test(normalized)) return "360 Match Mentorship";
+		if (/\biv prep complete\b/.test(normalized) || normalized === "complete") return "IV Prep Complete";
+		if (/\biv prep essentials?\b/.test(normalized) || normalized === "foundation") return "IV Prep Essentials";
+		if (/\bps only\b/.test(normalized) || /\bpersonal statement only\b/.test(normalized)) return "PS-Only";
+		return "";
+	}
+
 	function isTypingTarget(target) {
 		if (!target) return false;
 		return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable;
@@ -249,6 +263,7 @@
 		this.staffSearchController = null;
 		this.studentRequestToken = 0;
 		this.studentRequestController = null;
+		this.internalNotesRequestToken = 0;
 		this.overlayIsolation = [];
 		this.legacyGuardObserver = null;
 		this.audioContext = null;
@@ -292,6 +307,7 @@
 			staffLoadError: "",
 			paginationAnnouncement: "",
 			selectedStudentId: 0,
+			lastStudentId: 0,
 			studentLoading: false,
 			busy: {},
 			overlay: "",
@@ -664,7 +680,7 @@
 	};
 
 	FileVaultV2.prototype.capability = function (name) {
-		if (this.isStudentLens() && ["upload", "comment", "submit", "review", "score", "finalize", "internal_notes", "share_mission_file"].indexOf(name) !== -1) return false;
+		if (this.isStudentLens() && ["review", "score", "finalize", "internal_notes", "share_mission_file", "view_audit"].indexOf(name) !== -1) return false;
 		return !!(this.state.data && this.state.data.capabilities && this.state.data.capabilities[name]);
 	};
 
@@ -878,18 +894,13 @@
 	};
 
 	FileVaultV2.prototype.uploadCategories = function () {
-		var lorTypes = ["letter_of_recommendation_1", "letter_of_recommendation_2", "letter_of_recommendation_3"];
-		var documents = this.studentDocuments();
-		var lorType = lorTypes.find(function (type) {
-			return !documents.some(function (documentItem) { return documentItem.document_type === type; });
-		}) || lorTypes[0];
 		return [
 			["curriculum_vitae", "CV", "Core profile", "file"],
 			["personal_statement", "Personal Statement", "Written narrative", "file"],
-			[lorType, "LOR-Related", "Letters and requests", "comment"],
+			["lor_related", "LOR-Related", "Letters and requests", "comment"],
 			["timeline", "Timeline", "Application chronology", "journey"],
-			["usmle_transcript", "Score Report", "Exam records", "activity"],
-			["ecfmg_status_report", "Certification", "Credential records", "check"],
+			["score_report", "Score Report", "Exam records", "activity"],
+			["certification", "Certification", "Credential records", "check"],
 			["other", "Miscellaneous", "Name it yourself", "folder"]
 		];
 	};
@@ -922,8 +933,8 @@
 		var documents = this.studentDocuments();
 		var groups = [
 			["Profile", "profile", ["curriculum_vitae", "personal_statement", "application_photo"]],
-			["Academic", "academic", ["mspe", "medical_school_transcript", "usmle_transcript", "ecfmg_status_report", "timeline"]],
-			["LOR-Related", "letters", ["letter_of_recommendation_1", "letter_of_recommendation_2", "letter_of_recommendation_3"]],
+			["Academic", "academic", ["mspe", "medical_school_transcript", "usmle_transcript", "ecfmg_status_report", "score_report", "certification", "timeline"]],
+			["LOR-Related", "letters", ["lor_related", "letter_of_recommendation_1", "letter_of_recommendation_2", "letter_of_recommendation_3"]],
 			["Miscellaneous", "other", ["other"]]
 		];
 		var counts = '<div class="fv2-home-counts">' + groups.map(function (group) {
@@ -1125,7 +1136,7 @@
 		var kind = documentFileKind(documentItem);
 		var dateValue = options.dateKind === "uploaded" ? documentUploadedAt(documentItem) : documentItem.updated_at;
 		var dateLabel = options.dateKind === "uploaded" ? "Uploaded " + formatDate(dateValue) : formatDate(dateValue);
-		var metadata = ["v" + Math.max(1, positiveInt(documentItem.version)), formatSize(documentItem.file_size), dateLabel].join(" / ");
+		var metadata = ["v" + Math.max(1, positiveInt(documentItem.version)), documentItem.is_final ? "Final" : "", formatSize(documentItem.file_size), dateLabel].filter(Boolean).join(" / ");
 		return [
 				'<button type="button" class="fv2-document-row' + (selected ? " is-selected" : "") + '" data-fv2-action="select-document" data-fv2-document-id="' + id + '" data-fv2-focus-key="document-' + id + '"' + (selected ? ' aria-current="true"' : "") + ">",
 			'<span class="fv2-file-glyph fv2-file-kind-' + escAttr(kind.key) + '">' + icon("file") + "<small>" + esc(kind.label) + "</small></span>",
@@ -1158,7 +1169,7 @@
 			'<div class="fv2-detail-top"><span>Selected document</span><button type="button" class="fv2-icon-button" data-fv2-action="close-detail" aria-label="Close document details">' + icon("close") + "</button></div>",
 			'<div class="fv2-detail-file">' + icon("file") + '<div><h2 id="fv2-detail-title">' + esc(documentItem.name || "Document") + "</h2><p>" + esc(documentItem.original_name || documentItem.canonical_name || "Private file") + "</p></div></div>",
 			statusBadge(documentItem.status, documentItem.status_label),
-			'<dl class="fv2-detail-ledger"><div><dt>Version</dt><dd>' + esc(Math.max(1, positiveInt(documentItem.version))) + "</dd></div><div><dt>Size</dt><dd>" + esc(formatSize(documentItem.file_size)) + "</dd></div><div><dt>Updated</dt><dd>" + esc(formatDate(documentItem.updated_at)) + "</dd></div><div><dt>Comments</dt><dd>" + esc(Math.max(0, Number(documentItem.open_comment_count) || 0)) + " open</dd></div></dl>",
+			'<dl class="fv2-detail-ledger"><div><dt>Version</dt><dd>' + esc(Math.max(1, positiveInt(documentItem.version))) + (documentItem.is_final ? " · Final" : "") + "</dd></div><div><dt>Size</dt><dd>" + esc(formatSize(documentItem.file_size)) + "</dd></div><div><dt>Updated</dt><dd>" + esc(formatDate(documentItem.updated_at)) + "</dd></div><div><dt>Comments</dt><dd>" + esc(Math.max(0, Number(documentItem.open_comment_count) || 0)) + " open</dd></div></dl>",
 			notes,
 			'<div class="fv2-detail-actions">' + actions.join("") + "</div>",
 			"</aside>"
@@ -1388,8 +1399,25 @@
 		return '<div class="fv2-version-list">' + versions.map(function (version) {
 			var number = Math.max(1, positiveInt(version.number));
 			var scoreMaximum = Math.max(1, positiveInt(version.score_max) || 100);
-			return '<article class="fv2-version-row"><span class="fv2-version-number">v' + number + '</span><div><h2>' + esc(version.original_name || documentItem.name || "Document") + "</h2><p>" + esc([version.uploader_name || "MissionMed user", formatDate(version.uploaded_at, true), formatSize(version.file_size)].join(" / ")) + "</p>" + (version.note ? "<small>" + esc(version.note) + "</small>" : "") + "</div>" + (version.score !== undefined ? '<span class="fv2-version-score">' + esc(boundedInt(version.score, 0, scoreMaximum)) + "/" + esc(scoreMaximum) + "</span>" : "") + (canDownload ? '<button type="button" class="fv2-icon-button" data-fv2-action="download" data-fv2-document-id="' + positiveInt(documentItem.id) + '" data-fv2-version="' + number + '" aria-label="Download version ' + number + '" title="Download version">' + icon("download") + "</button>" : "") + "</article>";
+			return '<article class="fv2-version-row"><span class="fv2-version-number">v' + number + '</span><div><h2>' + esc(version.original_name || documentItem.name || "Document") + "</h2><p>" + esc([version.uploader_name || "MissionMed user", formatDate(version.uploaded_at, true), formatSize(version.file_size)].join(" / ")) + "</p>" + (version.note ? "<small>" + esc(version.note) + "</small>" : "") + "</div>" + (version.is_final ? statusBadge("final", "Final") : "") + (version.score !== undefined ? '<span class="fv2-version-score">' + esc(boundedInt(version.score, 0, scoreMaximum)) + "/" + esc(scoreMaximum) + "</span>" : "") + (canDownload ? '<button type="button" class="fv2-icon-button" data-fv2-action="download" data-fv2-document-id="' + positiveInt(documentItem.id) + '" data-fv2-version="' + number + '" aria-label="Download version ' + number + '" title="Download version">' + icon("download") + "</button>" : "") + "</article>";
 		}).join("") + "</div>";
+	};
+
+	FileVaultV2.prototype.resetInternalNotes = function () {
+		this.internalNotesRequestToken += 1;
+		this.state.internalNotes = [];
+		this.state.internalNotesLoading = false;
+		this.state.internalNotesError = "";
+		this.state.busy.internalNote = false;
+	};
+
+	FileVaultV2.prototype.internalNotesContextMatches = function (studentContext, documentId, requestToken) {
+		return requestToken === this.internalNotesRequestToken &&
+			!this.isStudentLens() &&
+			this.roleIsStaff() &&
+			this.capability("internal_notes") &&
+			this.studentContextMatches(studentContext) &&
+			positiveInt(this.state.selectedDocumentId) === positiveInt(documentId);
 	};
 
 	FileVaultV2.prototype.commentsMarkup = function (documentItem) {
@@ -1433,19 +1461,38 @@
 				break;
 			case "set-lens":
 				if (this.role() !== "admin") break;
-				this.state.lensMode = button.getAttribute("data-fv2-lens-mode") === "student" ? "student" : "administrator";
+				var requestedLens = button.getAttribute("data-fv2-lens-mode") === "student" ? "student" : "administrator";
+				if (requestedLens === this.state.lensMode) {
+					this.state.mobileNavOpen = false;
+					this.render({ focusKey: "" });
+					this.focusLensContext();
+					break;
+				}
+				this.state.lensMode = requestedLens;
 				this.state.mobileNavOpen = false;
 				if (this.state.lensMode === "student") {
 					if (this.state.workspaceTab === "internal-notes") this.state.workspaceTab = "comments";
-					this.state.internalNotes = [];
-					this.state.internalNotesLoading = false;
-					this.state.internalNotesError = "";
+					this.resetInternalNotes();
+					var availableStudents = this.state.staffData && Array.isArray(this.state.staffData.students) ? this.state.staffData.students : [];
+					var lensStudentId = positiveInt(this.state.selectedStudentId) || positiveInt(this.state.lastStudentId) || positiveInt(availableStudents[0] && availableStudents[0].id);
+					if (lensStudentId && positiveInt(this.state.selectedStudentId) !== lensStudentId) {
+						this.loadStudent(lensStudentId, { view: "vault" }).then(function () {
+							if (this.destroyed || this.state.lensMode !== "student") return;
+							this.focusLensContext();
+							this.toast("Student view", "You are viewing the selected student's real File Vault experience. Staff-only controls remain hidden.", "success");
+						}.bind(this));
+						break;
+					}
+					this.state.view = lensStudentId ? "vault" : "command";
+					this.render({ focusKey: "" });
+					this.focusLensContext();
+					this.toast("Student view", lensStudentId ? "Staff-only controls are hidden in the selected student's File Vault." : "No authorized student is available to preview.", lensStudentId ? "success" : "error");
+					break;
 				}
-				if (this.state.lensMode === "administrator" && !this.state.selectedStudentId) this.state.view = "command";
-				else if (this.state.lensMode === "student") this.state.view = this.state.selectedStudentId ? "vault" : "command";
-				this.render({ focusKey: "" });
+				this.state.lastStudentId = positiveInt(this.state.selectedStudentId) || positiveInt(this.state.lastStudentId);
+				this.exitStudentVault();
 				this.focusLensContext();
-				this.toast(this.state.lensMode === "student" ? "Student view" : "Administrator view", this.state.lensMode === "student" ? "Staff-only controls are hidden. Choose a student to inspect their real student-facing File Vault." : "Staff workflow controls are available again.", "success");
+				this.toast("Administrator view", "The staff directory and authorized student Vault tools are available again.", "success");
 				break;
 			case "navigate":
 				this.state.mobileNavOpen = false;
@@ -1461,6 +1508,10 @@
 				break;
 			case "close-overlay":
 				this.closeOverlay();
+				break;
+			case "choose-upload-file":
+				var uploadInput = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-file]");
+				if (uploadInput) uploadInput.click();
 				break;
 			case "retry-bootstrap":
 				this.reload({ preserveView: true });
@@ -1651,22 +1702,35 @@
 				this.state.upload.file = file;
 				this.state.upload.fileError = this.validateFile(file, this.state.upload.documentType);
 				this.state.upload.sha256 = "";
-				if (file && !this.state.upload.displayName && !this.state.upload.documentId) {
+				if (file && !this.state.upload.displayName && !this.state.upload.documentId && this.documentNameRequiresInput(this.state.upload.documentType)) {
 					this.state.upload.displayName = file.name.replace(/\.[^.]+$/, "");
 				}
 				this.renderOverlay();
 			}
 			return;
 		}
+		if (target.matches("[data-fv2-upload-name]") && this.state.upload) {
+			this.state.upload.displayName = target.value.trim();
+			if (!this.state.upload.replacementChoiceTouched) this.syncUploadLineage();
+			var replacementSelect = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-replaces]");
+			if (replacementSelect) replacementSelect.value = this.state.upload.replacesDocumentId ? String(this.state.upload.replacesDocumentId) : "";
+			var versionSelect = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-version]");
+			if (versionSelect) versionSelect.innerHTML = this.uploadVersionOptionsMarkup();
+			var changedNamePreview = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-canonical-preview]");
+			if (changedNamePreview) changedNamePreview.textContent = this.canonicalFilenamePreview();
+			this.updateUploadNextButton();
+			return;
+		}
 		if (target.matches("[data-fv2-upload-type]") && this.state.upload) {
-			var previousType = this.state.upload.documentType;
 			this.state.upload.documentType = target.value || "other";
-			var selectedOption = target.options[target.selectedIndex];
-			if (selectedOption && (previousType !== "other" || !this.state.upload.displayName)) this.state.upload.displayName = selectedOption.textContent;
+			this.state.upload.displayName = this.canonicalDocumentName(this.state.upload.documentType);
 			this.state.upload.documentId = 0;
 			this.state.upload.replacesDocumentId = 0;
 			this.state.upload.version = 1;
-			this.state.upload.draftLabel = "Draft01";
+			this.state.upload.draftLabel = "Version01";
+			this.state.upload.isFinal = false;
+			this.state.upload.replacementChoiceTouched = false;
+			this.syncUploadLineage();
 			this.state.upload.fileError = this.validateFile(this.state.upload.file, this.state.upload.documentType);
 			this.renderOverlay();
 			return;
@@ -1678,11 +1742,8 @@
 		}
 		if (target.matches("[data-fv2-upload-replaces]") && this.state.upload) {
 			var replacement = this.getDocument(positiveInt(target.value));
-			this.state.upload.replacesDocumentId = replacement ? positiveInt(replacement.id) : 0;
-			this.state.upload.documentId = this.state.upload.replacesDocumentId;
-			this.state.upload.version = replacement ? Math.max(1, positiveInt(replacement.version) + 1) : 1;
-			this.state.upload.draftLabel = "Draft" + String(this.state.upload.version).padStart(2, "0");
-			if (replacement) this.state.upload.displayName = String(replacement.name || this.state.upload.displayName);
+			this.state.upload.replacementChoiceTouched = true;
+			this.applyUploadReplacement(replacement);
 			this.renderOverlay();
 			return;
 		}
@@ -1690,8 +1751,14 @@
 			this.state.upload.readyForReview = target.checked;
 			return;
 		}
-		if (target.matches("[data-fv2-upload-draft]") && this.state.upload) {
-			this.state.upload.draftLabel = target.value;
+		if (target.matches("[data-fv2-upload-version]") && this.state.upload) {
+			this.state.upload.version = Math.max(1, positiveInt(target.value));
+			this.state.upload.draftLabel = "Version" + String(this.state.upload.version).padStart(2, "0");
+			this.renderOverlay();
+			return;
+		}
+		if (target.matches("[data-fv2-upload-final]") && this.state.upload) {
+			this.state.upload.isFinal = !!target.checked;
 			this.renderOverlay();
 			return;
 		}
@@ -1733,7 +1800,7 @@
 				self.timers.delete(self.fileSearchTimer);
 				self.fileSearchTimer = 0;
 				if (!self.destroyed) self.render({ focusKey: "file-search" });
-			}, 150);
+			}, 500);
 			this.timers.add(this.fileSearchTimer);
 			return;
 		}
@@ -1767,6 +1834,8 @@
 		if (target.matches("[data-fv2-upload-name]") && this.state.upload) {
 			this.state.upload.displayName = target.value;
 			this.updateUploadNextButton();
+			var namePreview = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-canonical-preview]");
+			if (namePreview) namePreview.textContent = this.canonicalFilenamePreview();
 			return;
 		}
 		if (target.matches("[data-fv2-upload-note]") && this.state.upload) {
@@ -1931,9 +2000,7 @@
 		this.state.documentDetail = null;
 		this.state.documentError = "";
 		this.state.studentLoading = false;
-		this.state.internalNotes = [];
-		this.state.internalNotesLoading = false;
-		this.state.internalNotesError = "";
+		this.resetInternalNotes();
 		this.state.busy = {};
 		this.state.view = "command";
 		this.render({ focusKey: "" });
@@ -1979,9 +2046,7 @@
 		this.state.reviewNote = "";
 		this.state.scoreDraft = {};
 		this.state.scoreNotes = "";
-		this.state.internalNotes = [];
-		this.state.internalNotesLoading = false;
-		this.state.internalNotesError = "";
+		this.resetInternalNotes();
 		this.state.busy = {};
 		this.render();
 		return this.request("GET", "/students/" + studentId, null, null, requestController && requestController.signal).then(function (scoped) {
@@ -2001,6 +2066,7 @@
 			self.studentRequestController = null;
 			self.state.studentLoading = false;
 			self.acceptBootstrap(validated, true);
+			self.state.lastStudentId = studentId;
 			self.state.view = "vault";
 			self.render();
 			if (self.refs.live) self.refs.live.textContent = "Opened " + String(validated.student && validated.student.display_name || "student") + "'s File Vault.";
@@ -2204,9 +2270,7 @@
 		this.state.workspaceTab = "score";
 		this.state.documentLoading = true;
 		this.state.documentError = "";
-		this.state.internalNotes = [];
-		this.state.internalNotesLoading = false;
-		this.state.internalNotesError = "";
+		this.resetInternalNotes();
 		var studentContext = this.captureStudentContext();
 		this.render();
 		this.focusStageStart();
@@ -2339,17 +2403,18 @@
 		var self = this;
 		if (!documentId || !this.roleIsStaff() || !this.capability("internal_notes") || this.state.internalNotesLoading) return Promise.resolve();
 		var studentContext = this.captureStudentContext();
+		var requestToken = ++this.internalNotesRequestToken;
 		this.state.internalNotesLoading = true;
 		this.state.internalNotesError = "";
 		this.render({ focusKey: "workspace-internal-notes" });
 		return this.request("GET", "/files/" + positiveInt(documentId) + "/internal-notes").then(function (notes) {
-			if (!self.studentContextMatches(studentContext) || positiveInt(self.state.selectedDocumentId) !== positiveInt(documentId)) return;
+			if (!self.internalNotesContextMatches(studentContext, documentId, requestToken)) return;
 			if (!Array.isArray(notes)) throw new Error("File Vault returned malformed internal note data.");
 			self.state.internalNotes = notes;
 			self.state.internalNotesLoading = false;
 			self.render({ focusKey: "workspace-internal-notes" });
 		}).catch(function (error) {
-			if (!self.studentContextMatches(studentContext) || positiveInt(self.state.selectedDocumentId) !== positiveInt(documentId) || (error && error.name === "AbortError")) return;
+			if (!self.internalNotesContextMatches(studentContext, documentId, requestToken) || (error && error.name === "AbortError")) return;
 			self.state.internalNotesLoading = false;
 			self.state.internalNotesError = errorMessage(error, "Internal notes could not be loaded.");
 			self.render({ focusKey: "workspace-internal-notes" });
@@ -2363,18 +2428,19 @@
 		var documentId = positiveInt(this.state.selectedDocumentId);
 		if (!documentId || !this.roleIsStaff() || !this.capability("internal_notes") || !body || body.length > 2000 || this.state.busy.internalNote) return;
 		var studentContext = this.captureStudentContext();
+		var requestToken = ++this.internalNotesRequestToken;
 		this.state.busy.internalNote = true;
 		this.render({ focusKey: "workspace-internal-notes" });
 		this.request("POST", "/files/" + documentId + "/internal-notes", { body: body }).then(function (note) {
-			if (!self.studentContextMatches(studentContext) || positiveInt(self.state.selectedDocumentId) !== documentId) return;
+			if (!self.internalNotesContextMatches(studentContext, documentId, requestToken)) return;
 			self.state.internalNotes = (Array.isArray(self.state.internalNotes) ? self.state.internalNotes : []).concat([note]);
 			self.toast("Internal note saved", "The note is available only to authorized MissionMed staff.", "success");
 			self.playSuccessSound();
 		}).catch(function (error) {
-			if (!self.studentContextMatches(studentContext) || (error && error.name === "AbortError")) return;
+			if (!self.internalNotesContextMatches(studentContext, documentId, requestToken) || (error && error.name === "AbortError")) return;
 			self.toast("Internal note not saved", errorMessage(error), "error");
 		}).finally(function () {
-			if (!self.studentContextMatches(studentContext)) return;
+			if (!self.internalNotesContextMatches(studentContext, documentId, requestToken)) return;
 			self.state.busy.internalNote = false;
 			self.render({ focusKey: "workspace-internal-notes" });
 		});
@@ -2654,9 +2720,9 @@
 		if (!this.refs.overlay || !document.contains(this.refs.overlay)) this.refs.overlay = this.root.querySelector("[data-fv2-overlay]");
 		if (!this.refs.overlay || !this.state.overlay) return;
 		var type = this.state.overlay;
-		var settingsFocus = "";
-		if (type === "settings" && document.activeElement && this.refs.overlay.contains(document.activeElement)) {
-			settingsFocus = document.activeElement.getAttribute("data-fv2-settings-focus") || "";
+		var overlayFocus = "";
+		if (document.activeElement && this.refs.overlay.contains(document.activeElement)) {
+			overlayFocus = document.activeElement.getAttribute("data-fv2-overlay-focus") || document.activeElement.getAttribute("data-fv2-settings-focus") || "";
 		}
 		var content = "";
 		var panelClass = "fv2-modal";
@@ -2665,10 +2731,10 @@
 			content = this.settingsMarkup();
 			panelClass = "fv2-drawer";
 			label = "File Vault settings";
-			} else if (type === "upload") {
-				content = this.uploadMarkup();
-				panelClass += " fv2-upload-modal";
-				label = this.state.upload && this.state.upload.documentId ? "Upload a new document version" : "Upload a document";
+		} else if (type === "upload") {
+			content = this.uploadMarkup();
+			panelClass += " fv2-upload-modal";
+			label = this.state.upload && this.state.upload.documentId ? "Upload a new document version" : "Upload a document";
 		} else if (type === "detail") {
 			var documentItem = this.getDocument(this.state.selectedDocumentId);
 			if (!documentItem) {
@@ -2680,21 +2746,22 @@
 			label = "Document details";
 		}
 		this.refs.overlay.innerHTML = '<div class="fv2-scrim" data-fv2-action="close-overlay" aria-hidden="true"></div><section class="fv2-overlay-panel ' + panelClass + '" data-fv2-overlay-panel role="dialog" aria-modal="true" aria-label="' + escAttr(label) + '">' + content + "</section>";
-		window.requestAnimationFrame(function () {
-			if (self.destroyed || !self.state.overlay) return;
-			var preferred = null;
-			if (settingsFocus) {
-				preferred = Array.prototype.slice.call(self.refs.overlay.querySelectorAll("[data-fv2-settings-focus]")).find(function (candidate) {
-					return candidate.getAttribute("data-fv2-settings-focus") === settingsFocus;
-				}) || null;
-			}
-			preferred = preferred || self.refs.overlay.querySelector("[data-fv2-autofocus]");
-			var focusable = preferred || self.focusableElements(self.refs.overlay)[0] || self.refs.overlay.querySelector("[data-fv2-overlay-panel]");
-			if (focusable) {
-				if (!focusable.hasAttribute("tabindex") && focusable.matches("[data-fv2-overlay-panel]")) focusable.setAttribute("tabindex", "-1");
+		var preferred = null;
+		if (overlayFocus) {
+			preferred = Array.prototype.slice.call(this.refs.overlay.querySelectorAll("[data-fv2-overlay-focus],[data-fv2-settings-focus]")).find(function (candidate) {
+					return (candidate.getAttribute("data-fv2-overlay-focus") || candidate.getAttribute("data-fv2-settings-focus")) === overlayFocus;
+			}) || null;
+		}
+		preferred = preferred || this.refs.overlay.querySelector("[data-fv2-autofocus]");
+		var focusable = preferred || this.focusableElements(this.refs.overlay)[0] || this.refs.overlay.querySelector("[data-fv2-overlay-panel]");
+		if (focusable) {
+			if (!focusable.hasAttribute("tabindex") && focusable.matches("[data-fv2-overlay-panel]")) focusable.setAttribute("tabindex", "-1");
+			focusable.focus({ preventScroll: true });
+			window.requestAnimationFrame(function () {
+				if (self.destroyed || !self.state.overlay || !document.contains(focusable)) return;
 				focusable.focus({ preventScroll: true });
-			}
-		});
+			});
+		}
 	};
 
 	FileVaultV2.prototype.focusableElements = function (root) {
@@ -2763,8 +2830,8 @@
 		}
 		var documentItem = options.documentId ? this.getDocument(options.documentId) : null;
 		var context = this.uploadContext();
-		var programs = Array.isArray(context.programs) ? context.programs.map(String).filter(Boolean) : [];
-		var initialProgram = documentItem && documentItem.program ? String(documentItem.program) : String(context.program || programs[0] || "MissionMed");
+		var contextPrograms = Array.isArray(context.programs) ? context.programs.map(String).filter(Boolean) : [];
+		var initialProgram = [documentItem && documentItem.program, context.program].concat(contextPrograms).map(normalizedProgramOption).find(Boolean) || "";
 		var initialSession = documentItem && documentItem.session_letter ? String(documentItem.session_letter) : String(context.session_letter || "");
 		var initialVersion = documentItem ? Math.max(1, positiveInt(documentItem.version) + 1) : 1;
 		this.state.upload = {
@@ -2774,15 +2841,15 @@
 			displayName: documentItem ? String(documentItem.name || "Document") : String(options.displayName || ""),
 			division: documentItem && documentItem.division ? String(documentItem.division) : String(context.division || ""),
 			program: initialProgram,
-			programs: programs,
-			programLocked: !!context.program_locked,
-			sessionLetter: initialSession.toUpperCase(),
-			sessionLocked: !!context.session_locked,
+			programs: PROGRAM_OPTIONS.slice(),
+			sessionLetter: SESSION_OPTIONS.indexOf(initialSession.toUpperCase()) !== -1 ? initialSession.toUpperCase() : "",
 			submissionDate: String(context.submission_date || new Date().toISOString().slice(0, 10)),
 			version: initialVersion,
-			draftLabel: "Draft" + String(initialVersion).padStart(2, "0"),
+			draftLabel: "Version" + String(initialVersion).padStart(2, "0"),
+			isFinal: false,
 			replacesDocumentId: documentItem ? positiveInt(documentItem.id) : 0,
 			forcedVersion: !!documentItem,
+			replacementChoiceTouched: !!documentItem,
 			canonicalName: "",
 			note: "",
 			readyForReview: false,
@@ -2802,6 +2869,10 @@
 			currentStage: "sign",
 			sha256: ""
 		};
+		if (!documentItem && this.state.upload.documentType) {
+			if (!this.state.upload.displayName) this.state.upload.displayName = this.canonicalDocumentName(this.state.upload.documentType);
+			this.syncUploadLineage();
+		}
 		this.state.upload.fileError = this.validateFile(this.state.upload.file, this.state.upload.documentType);
 		this.openOverlay("upload");
 	};
@@ -2824,32 +2895,30 @@
 		var contract = this.uploadContract(upload.documentType);
 		var fileTypeLabel = upload.documentType === "application_photo" ? "JPEG application photo" : (upload.documentType ? "PDF, DOCX, or PNG" : "PDF, DOCX, PNG, or JPEG");
 		var fileSummary = file ? '<div class="fv2-file-choice ' + (upload.fileError ? "has-error" : "is-valid") + '">' + icon(upload.fileError ? "alert" : "file") + '<div><strong>' + esc(file.name) + "</strong><span>" + esc(formatSize(file.size)) + (upload.fileError ? " / " + esc(upload.fileError) : " / Ready to review") + "</span></div></div>" : '<div class="fv2-file-choice"><span class="fv2-file-glyph">' + icon("upload") + "</span><div><strong>No file chosen</strong><span>" + esc(fileTypeLabel) + " up to " + esc(formatSize(contract.maxFileSize)) + ".</span></div></div>";
-		var typeField = upload.documentId
+		var typeField = upload.forcedVersion
 			? '<div class="fv2-field"><span>Document type</span><strong class="fv2-readonly-value">' + esc(this.documentTypeLabel(upload.documentType)) + "</strong></div>"
-			: '<label class="fv2-field"><span>Document type</span><select data-fv2-upload-type required><option value="">Choose a document type</option>' + this.uploadTypeOptionsMarkup(upload.documentType) + "</select></label>";
-		var programField = upload.programs.length > 1
-			? '<label class="fv2-field"><span>Course / program</span><select data-fv2-upload-program>' + upload.programs.map(function (program) { return '<option value="' + escAttr(program) + '"' + (program === upload.program ? " selected" : "") + '>' + esc(program) + '</option>'; }).join("") + '</select><small>From current enrollment</small></label>'
-			: '<div class="fv2-field"><span>Course / program</span><strong class="fv2-readonly-value">' + esc(upload.program || "MissionMed") + '</strong><small>' + (upload.programLocked ? "From current enrollment" : "MissionMed account fallback") + '</small></div>';
-		var sessionOptions = ["A", "B", "C", "D"];
-		if (upload.sessionLetter && sessionOptions.indexOf(upload.sessionLetter) === -1) sessionOptions.push(upload.sessionLetter);
-		var sessionField = upload.sessionLocked
-			? '<div class="fv2-field"><span>Session letter</span><strong class="fv2-readonly-value">' + esc(upload.sessionLetter) + '</strong><small>From your MissionMed record</small></div>'
-			: '<label class="fv2-field"><span>Session letter</span><select required data-fv2-upload-session><option value="">Choose session</option>' + sessionOptions.map(function (session) { return '<option value="' + session + '"' + (upload.sessionLetter === session ? " selected" : "") + '>Session ' + session + '</option>'; }).join("") + '</select><small>Choose your assigned one-letter session</small></label>';
+			: '<label class="fv2-field"><span>Document type</span><select data-fv2-upload-type data-fv2-overlay-focus="upload-type" required><option value="">Choose a document type</option>' + this.uploadTypeOptionsMarkup(upload.documentType) + "</select></label>";
+		var nameField = this.documentNameRequiresInput(upload.documentType)
+			? '<label class="fv2-field"><span>Document name</span><input type="text" maxlength="140" required value="' + escAttr(upload.displayName) + '" data-fv2-upload-name data-fv2-overlay-focus="upload-name" placeholder="Name this document"></label>'
+			: '<div class="fv2-field"><span>Document name</span><strong class="fv2-readonly-value">' + esc(upload.displayName || this.canonicalDocumentName(upload.documentType)) + '</strong><small>Standardized automatically</small></div>';
+		var programField = '<label class="fv2-field"><span>Course / program</span><select required data-fv2-upload-program data-fv2-overlay-focus="upload-program"><option value="">Choose course / program</option>' + PROGRAM_OPTIONS.map(function (program) { return '<option value="' + escAttr(program) + '"' + (program === upload.program ? " selected" : "") + '>' + esc(program) + '</option>'; }).join("") + '</select><small>Metadata only; access remains server authorized.</small></label>';
+		var sessionField = '<label class="fv2-field"><span>Session letter</span><select required data-fv2-upload-session data-fv2-overlay-focus="upload-session"><option value="">Choose session</option>' + SESSION_OPTIONS.map(function (session) { return '<option value="' + session + '"' + (upload.sessionLetter === session ? " selected" : "") + '>Session ' + session + '</option>'; }).join("") + '</select><small>Preselected from the student record when known.</small></label>';
 		var candidates = upload.forcedVersion ? [] : this.uploadReplacementCandidates(upload.documentType);
 		var replacementField = candidates.length
-			? '<label class="fv2-field fv2-field-wide"><span>Replaces previous version?</span><select data-fv2-upload-replaces><option value="">No, create a separate document</option>' + candidates.map(function (documentItem) { return '<option value="' + positiveInt(documentItem.id) + '"' + (positiveInt(documentItem.id) === upload.replacesDocumentId ? " selected" : "") + '>' + esc(documentItem.name || "Document") + ' (v' + esc(Math.max(1, positiveInt(documentItem.version))) + ')</option>'; }).join("") + '</select><small>Prior versions remain available in history.</small></label>'
+			? '<label class="fv2-field fv2-field-wide"><span>Replaces previous version?</span><select data-fv2-upload-replaces data-fv2-overlay-focus="upload-replaces">' + candidates.map(function (documentItem) { return '<option value="' + positiveInt(documentItem.id) + '"' + (positiveInt(documentItem.id) === upload.replacesDocumentId ? " selected" : "") + '>Yes — continue ' + esc(documentItem.name || "Document") + ' · Version ' + esc(Math.max(1, positiveInt(documentItem.version))) + '</option>'; }).join("") + '<option value=""' + (!upload.replacesDocumentId ? " selected" : "") + '>No — create a separate document</option></select><small>The immediate prior version is selected when a matching lineage exists. History is never overwritten.</small></label>'
 			: "";
 		var ready = this.capability("submit") ? '<label class="fv2-check-row"><input type="checkbox" data-fv2-upload-ready' + (upload.readyForReview ? " checked" : "") + '><span>' + icon("check") + '</span><div><strong>Ready for review</strong><small>Submit this confirmed version to the staff review queue after upload.</small></div></label>' : "";
 		var missionShare = this.role() === "admin" && this.capability("share_mission_file") && !upload.documentId ? '<label class="fv2-check-row fv2-mission-share"><input type="checkbox" data-fv2-upload-mission-file' + (upload.shareAsMissionFile ? " checked" : "") + '><span>' + icon("library") + '</span><div><strong>Share as a Mission File</strong><small>MissionMed provenance is recorded and the student receives this in Shared by MissionMed, not as a student-owned upload.</small></div></label>' : "";
-		var draftLabel = "Draft" + String(Math.max(1, positiveInt(upload.version))).padStart(2, "0");
-		return '<div class="fv2-upload-file-field"><label class="fv2-button fv2-button-secondary" for="fv2-upload-file">' + icon("folder") + 'Choose file</label><input id="fv2-upload-file" type="file" accept="' + escAttr(this.uploadAccept(contract)) + '" data-fv2-upload-file><span>The source name is preserved as metadata. MissionMed assigns the final name.</span></div>' + fileSummary + '<div class="fv2-form-grid">' + typeField + '<label class="fv2-field"><span>Document name</span><input type="text" maxlength="140" required value="' + escAttr(upload.displayName) + '" data-fv2-upload-name placeholder="Document name"></label><div class="fv2-field"><span>Division</span><strong class="fv2-readonly-value">' + esc(upload.division || "Not recorded") + '</strong><small>From your MissionMed account</small></div>' + programField + sessionField + '<label class="fv2-field"><span>Draft / version</span><select data-fv2-upload-draft aria-label="Choose draft or final"><option value="' + escAttr(draftLabel) + '"' + (upload.draftLabel === draftLabel ? " selected" : "") + '>Draft ' + esc(upload.version) + '</option><option value="Final"' + (upload.draftLabel === "Final" ? " selected" : "") + '>Final</option></select><small>The numbered lineage remains server assigned.</small></label>' + replacementField + '</div><label class="fv2-field"><span>Note to advisor (optional)</span><textarea rows="3" maxlength="1000" data-fv2-upload-note placeholder="What changed, or what should your advisor know?">' + esc(upload.note) + '</textarea></label><section class="fv2-canonical-preview"><span>MissionMed will save this as</span><strong data-fv2-canonical-preview>' + esc(this.canonicalFilenamePreview()) + '</strong><small>The server verifies identity, enrollment, date, and version before signing.</small></section>' + ready + missionShare + '<div class="fv2-modal-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="close-overlay">Cancel</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-next" data-fv2-upload-next' + (this.uploadStepOneError() ? " disabled" : "") + ">Review" + icon("arrowRight") + "</button></div>";
+		var versionField = '<label class="fv2-field"><span>Version</span><select data-fv2-upload-version data-fv2-overlay-focus="upload-version" aria-label="Document version">' + this.uploadVersionOptionsMarkup() + '</select><small>The server permits only the next immutable version.</small></label>';
+		var finalField = '<label class="fv2-check-row fv2-final-version"><input type="checkbox" data-fv2-upload-final data-fv2-overlay-focus="upload-final"' + (upload.isFinal ? " checked" : "") + '><span>' + icon("check") + '</span><div><strong>Mark this version Final</strong><small>Final is a status marker. It does not replace the version number or delete prior versions.</small></div></label>';
+		return '<div class="fv2-upload-file-field"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="choose-upload-file" data-fv2-overlay-focus="choose-file">' + icon("folder") + 'Choose file</button><input id="fv2-upload-file" type="file" tabindex="-1" aria-label="Upload file" accept="' + escAttr(this.uploadAccept(contract)) + '" data-fv2-upload-file><span>The source name is preserved as metadata. MissionMed assigns the final name.</span></div>' + fileSummary + '<div class="fv2-form-grid">' + typeField + nameField + '<div class="fv2-field"><span>Division</span><strong class="fv2-readonly-value">' + esc(upload.division || "Not recorded") + '</strong><small>From your MissionMed account</small></div>' + programField + sessionField + versionField + replacementField + '</div>' + finalField + '<label class="fv2-field"><span>Note to advisor (optional)</span><textarea rows="3" maxlength="1000" data-fv2-upload-note placeholder="What changed, or what should your advisor know?">' + esc(upload.note) + '</textarea></label><section class="fv2-canonical-preview"><span>MissionMed will save this as</span><strong data-fv2-canonical-preview>' + esc(this.canonicalFilenamePreview()) + '</strong><small>The server verifies identity, course, session, date, and next immutable version before signing.</small></section>' + ready + missionShare + '<div class="fv2-modal-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="close-overlay">Cancel</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-next" data-fv2-upload-next' + (this.uploadStepOneError() ? " disabled" : "") + ">Review" + icon("arrowRight") + "</button></div>";
 	};
 
 	FileVaultV2.prototype.uploadReviewMarkup = function () {
 		var upload = this.state.upload;
 		var file = upload.file;
-		var versionLabel = upload.draftLabel === "Final" ? "Final" : "Draft " + esc(upload.version);
-		return '<section class="fv2-upload-review"><span>Confirm before transfer</span><h2>' + esc(upload.displayName || "Document") + '</h2><dl><div><dt>Original file</dt><dd>' + esc(file ? file.name : "No file") + "</dd></div><div><dt>Size</dt><dd>" + esc(file ? formatSize(file.size) : "0 B") + "</dd></div><div><dt>Type</dt><dd>" + esc(this.documentTypeLabel(upload.documentType)) + "</dd></div><div><dt>Course / session</dt><dd>" + esc(upload.program + " / " + upload.sessionLetter) + "</dd></div><div><dt>Version</dt><dd>" + versionLabel + "</dd></div><div><dt>Workflow</dt><dd>" + esc(upload.shareAsMissionFile ? "Share as a Mission File" : (upload.readyForReview ? "Submit after confirmation" : "Keep as draft")) + "</dd></div></dl><div class=\"fv2-review-note fv2-review-filename\"><span>MissionMed will save this as</span><p>" + esc(upload.canonicalName || this.canonicalFilenamePreview()) + "</p></div>" + (upload.note ? '<div class="fv2-review-note"><span>Note to advisor</span><p>' + esc(upload.note).replace(/\n/g, "<br>") + "</p></div>" : "") + '<p class="fv2-security-copy">' + icon("lock") + "The browser requests a short-lived signed URL, uploads the binary directly, then asks MissionMed to verify and confirm it.</p></section><div class=\"fv2-modal-actions\"><button type=\"button\" class=\"fv2-button fv2-button-secondary\" data-fv2-action=\"upload-back\">" + icon("arrowLeft") + 'Back</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-start">' + icon("upload") + "Start secure upload</button></div>";
+		var versionLabel = "Version " + esc(upload.version) + (upload.isFinal ? " · Final" : "");
+		return '<section class="fv2-upload-review"><span>Confirm before transfer</span><h2>' + esc(upload.displayName || "Document") + '</h2><dl><div><dt>Original file</dt><dd>' + esc(file ? file.name : "No file") + "</dd></div><div><dt>Size</dt><dd>" + esc(file ? formatSize(file.size) : "0 B") + "</dd></div><div><dt>Type</dt><dd>" + esc(this.documentTypeLabel(upload.documentType)) + "</dd></div><div><dt>Course / session</dt><dd>" + esc(upload.program + " / " + upload.sessionLetter) + "</dd></div><div><dt>Version</dt><dd>" + versionLabel + "</dd></div><div><dt>Workflow</dt><dd>" + esc(upload.shareAsMissionFile ? "Share as a Mission File" : (upload.readyForReview ? "Submit after confirmation" : "Keep in the Vault")) + "</dd></div></dl><div class=\"fv2-review-note fv2-review-filename\"><span>MissionMed will save this as</span><p>" + esc(upload.canonicalName || this.canonicalFilenamePreview()) + "</p></div>" + (upload.note ? '<div class="fv2-review-note"><span>Note to advisor</span><p>' + esc(upload.note).replace(/\n/g, "<br>") + "</p></div>" : "") + '<p class="fv2-security-copy">' + icon("lock") + "The browser requests a short-lived signed URL, uploads the binary directly, then asks MissionMed to verify and confirm it.</p></section><div class=\"fv2-modal-actions\"><button type=\"button\" class=\"fv2-button fv2-button-secondary\" data-fv2-action=\"upload-back\">" + icon("arrowLeft") + 'Back</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-start">' + icon("upload") + "Start secure upload</button></div>";
 	};
 
 	FileVaultV2.prototype.uploadProgressMarkup = function () {
@@ -2900,6 +2969,25 @@
 		return documentItem && documentItem.name ? documentItem.name : (type === "other" ? "Other Document" : String(type || "Document").replace(/_/g, " "));
 	};
 
+	FileVaultV2.prototype.documentNameRequiresInput = function (type) {
+		return CUSTOM_NAME_TYPES.indexOf(String(type || "")) !== -1;
+	};
+
+	FileVaultV2.prototype.canonicalDocumentName = function (type) {
+		return this.documentNameRequiresInput(type) ? "" : String(this.documentTypeLabel(type) || "Document");
+	};
+
+	FileVaultV2.prototype.uploadVersionOptionsMarkup = function () {
+		var upload = this.state.upload || {};
+		var version = Math.max(1, positiveInt(upload.version));
+		var maximum = Math.max(10, version);
+		var markup = "";
+		for (var number = 1; number <= maximum; number += 1) {
+			markup += '<option value="' + number + '"' + (number === version ? " selected" : " disabled") + '>Version ' + number + "</option>";
+		}
+		return markup;
+	};
+
 	FileVaultV2.prototype.uploadContext = function () {
 		var context = this.state.data && this.state.data.upload_context;
 		return context && typeof context === "object" && !Array.isArray(context) ? context : {};
@@ -2909,7 +2997,38 @@
 		if (!documentType) return [];
 		return this.studentDocuments().filter(function (documentItem) {
 			return String(documentItem.document_type || "other") === documentType;
+		}).sort(function (left, right) {
+			return positiveInt(right.version) - positiveInt(left.version) || positiveInt(right.id) - positiveInt(left.id);
 		});
+	};
+
+	FileVaultV2.prototype.preferredUploadReplacement = function (documentType, displayName) {
+		var candidates = this.uploadReplacementCandidates(documentType);
+		if (!candidates.length) return null;
+		var normalizedName = String(displayName || "").trim().toLowerCase();
+		var exact = normalizedName ? candidates.find(function (documentItem) {
+			return String(documentItem.name || "").trim().toLowerCase() === normalizedName;
+		}) : null;
+		if (exact) return exact;
+		return this.documentNameRequiresInput(documentType) ? null : candidates[0];
+	};
+
+	FileVaultV2.prototype.applyUploadReplacement = function (replacement) {
+		var upload = this.state.upload;
+		if (!upload) return;
+		upload.replacesDocumentId = replacement ? positiveInt(replacement.id) : 0;
+		upload.documentId = upload.replacesDocumentId;
+		upload.version = replacement ? Math.max(1, positiveInt(replacement.version) + 1) : 1;
+		upload.draftLabel = "Version" + String(upload.version).padStart(2, "0");
+		if (replacement && (upload.forcedVersion || this.documentNameRequiresInput(upload.documentType))) {
+			upload.displayName = String(replacement.name || upload.displayName);
+		}
+	};
+
+	FileVaultV2.prototype.syncUploadLineage = function () {
+		var upload = this.state.upload;
+		if (!upload || upload.forcedVersion || upload.replacementChoiceTouched) return;
+		this.applyUploadReplacement(this.preferredUploadReplacement(upload.documentType, upload.displayName));
 	};
 
 	FileVaultV2.prototype.canonicalFilenameToken = function (value, fallback) {
@@ -2922,7 +3041,7 @@
 		var upload = this.state.upload || {};
 		var context = this.uploadContext();
 		var identity = context.identity && typeof context.identity === "object" ? context.identity : {};
-		var label = upload.documentType === "other" ? upload.displayName : this.documentTypeLabel(upload.documentType);
+		var label = this.documentNameRequiresInput(upload.documentType) ? upload.displayName : this.documentTypeLabel(upload.documentType);
 		var fileName = String(upload.file && upload.file.name || "");
 		var extension = fileName.indexOf(".") !== -1 ? fileName.split(".").pop().toLowerCase() : "ext";
 		return [
@@ -2931,7 +3050,7 @@
 			this.canonicalFilenameToken(upload.program, "MissionMed"),
 			this.canonicalFilenameToken(upload.sessionLetter, "X"),
 			this.canonicalFilenameToken(label, "Document"),
-			this.canonicalFilenameToken(upload.draftLabel || ("Draft" + String(Math.max(1, positiveInt(upload.version))).padStart(2, "0")), "Draft01"),
+			this.canonicalFilenameToken(upload.draftLabel || ("Version" + String(Math.max(1, positiveInt(upload.version))).padStart(2, "0")), "Version01"),
 			/^\d{4}-\d{2}-\d{2}$/.test(String(upload.submissionDate || "")) ? String(upload.submissionDate) : new Date().toISOString().slice(0, 10)
 		].join("_") + "." + extension;
 	};
@@ -2983,8 +3102,8 @@
 	FileVaultV2.prototype.uploadStepOneError = function () {
 		var upload = this.state.upload;
 		if (!upload) return "Upload is unavailable.";
-		var expectedDraft = "Draft" + String(Math.max(1, positiveInt(upload.version))).padStart(2, "0");
-		return this.validateFile(upload.file, upload.documentType) || (!upload.documentType ? "Choose a document type." : "") || (!upload.displayName.trim() ? "Enter a display name." : "") || (!upload.program.trim() ? "Choose a current course or program." : "") || (!/^[A-Z]$/.test(upload.sessionLetter) ? "Enter your one-letter session." : "") || ([expectedDraft, "Final"].indexOf(upload.draftLabel) === -1 ? "Choose the next draft or Final." : "");
+		var expectedVersion = "Version" + String(Math.max(1, positiveInt(upload.version))).padStart(2, "0");
+		return this.validateFile(upload.file, upload.documentType) || (!upload.documentType ? "Choose a document type." : "") || (!upload.displayName.trim() ? "Enter a document name." : "") || (PROGRAM_OPTIONS.indexOf(upload.program) === -1 ? "Choose a MissionMed course or program." : "") || (SESSION_OPTIONS.indexOf(upload.sessionLetter) === -1 ? "Choose session A through G." : "") || (upload.draftLabel !== expectedVersion ? "Choose the next server-assigned version." : "");
 	};
 
 	FileVaultV2.prototype.updateUploadNextButton = function () {
@@ -3131,6 +3250,8 @@
 				program: upload.program.trim(),
 				session_letter: upload.sessionLetter,
 				draft_label: upload.draftLabel,
+				version_number: upload.version,
+				is_final: !!upload.isFinal,
 				note: upload.note.trim(),
 				ready_for_review: !!upload.readyForReview,
 				share_as_mission_file: !!upload.shareAsMissionFile

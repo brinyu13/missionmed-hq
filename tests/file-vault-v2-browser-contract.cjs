@@ -280,7 +280,7 @@ async function studentFlow(browser) {
 		await page.locator("[data-fv2-home-upload-type]").selectOption("curriculum_vitae");
 		assert(!(await page.locator('[data-fv2-action="launch-home-upload"]').isDisabled()), "student: choosing a Home document type did not enable Continue");
 		await page.locator('[data-fv2-action="launch-home-upload"]').click();
-		assert(await page.getByRole("dialog", { name: "Upload a document" }).isVisible(), "student: central Home selector did not open the guided upload");
+		assert(await page.getByRole("dialog", { name: "Upload a new document version" }).isVisible(), "student: central Home selector did not open the guided upload with intelligent lineage");
 		assert(await page.locator("[data-fv2-upload-type]").inputValue() === "curriculum_vitae", "student: central Home selector lost the selected document type");
 		await page.getByRole("button", { name: "Close upload" }).click();
 		await page.locator('.fv2-rail [data-fv2-action="navigate"][data-fv2-view="upload"]').click();
@@ -308,6 +308,8 @@ async function studentFlow(browser) {
 		await page.locator(".fv2-shortcut-card").nth(0).click();
 		await page.waitForSelector(".fv2-binary-workspace");
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.instance.state.view === "docdocs" && window.__FV2_HARNESS__.instance.state.selectedDocumentId === 1102), "student: CV premium card did not open its workspace");
+		await page.getByRole("tab", { name: /^Versions/ }).click();
+		assert(await page.locator(".fv2-version-row").getByText("Final", { exact: true }).isVisible(), "student: persisted Final version marker disappeared after reload");
 		await page.locator('.fv2-nav-item[data-fv2-view="vault"]').click();
 		await page.locator(".fv2-shortcut-card").nth(1).click();
 		assert(await page.getByRole("heading", { name: "Journey", exact: true }).isVisible(), "student: Timeline premium card did not open Journey");
@@ -345,6 +347,7 @@ async function studentFlow(browser) {
 		await page.getByRole("button", { name: "Your Files", exact: true }).click();
 		assert((await page.locator(".fv2-library-hero h1").textContent()).includes("4 documents, nothing lost."), "student: StoryForge-style library hero is missing or incorrect");
 		assert(await page.locator('[data-fv2-action="select-document"]').count() === 4, "student: expected four document rows");
+		assert((await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1102"]').textContent()).includes("v3 / Final"), "student: current Final status is absent from the file row");
 		const folderLabels = await page.locator(".fv2-folder-strip button").allTextContents();
 		assert(folderLabels.map(label => label.trim()).join("|") === "All Files|Profile|Academic|LOR-Related|Miscellaneous", `student: folder strip is incorrect ${folderLabels.join("|")}`);
 		assert(await page.locator(".fv2-file-kind-docx small").getByText("DOCX", { exact: true }).count() === 1, "student: DOCX file-kind glyph missing");
@@ -352,11 +355,11 @@ async function studentFlow(browser) {
 		assert(await page.locator(".fv2-file-kind-image small").getByText("IMG", { exact: true }).count() === 1, "student: image file-kind glyph missing");
 		const finderSearch = page.locator("[data-fv2-file-search]");
 		await finderSearch.pressSequentially("Personal Statement", { delay: 15 });
-		await page.waitForTimeout(220);
+		await page.waitForTimeout(620);
 		assert(await finderSearch.inputValue() === "Personal Statement", "student: Finder typing corrupted or reordered the query");
 		assert(await page.locator('[data-fv2-action="select-document"]').count() === 1, "student: Finder search did not filter files");
 		await finderSearch.fill("");
-		await page.waitForTimeout(220);
+		await page.waitForTimeout(620);
 		await page.getByRole("button", { name: "Grid view" }).click();
 		assert(await page.locator(".fv2-document-grid").count() === 1, "student: Finder grid mode did not apply");
 		await page.getByRole("button", { name: "List view" }).click();
@@ -434,7 +437,7 @@ async function studentFlow(browser) {
 
 		await page.getByRole("button", { name: "Your Files", exact: true }).click();
 		await page.locator('.fv2-dropzone [data-fv2-action="open-upload"]').click();
-		await page.locator("[data-fv2-upload-file]").focus();
+		await page.locator(".fv2-upload-file-field > .fv2-button").focus();
 		const filePickerFocus = await page.locator(".fv2-upload-file-field > .fv2-button").evaluate(node => {
 			const style = getComputedStyle(node);
 			return { style: style.outlineStyle, width: parseFloat(style.outlineWidth), offset: parseFloat(style.outlineOffset) };
@@ -479,8 +482,9 @@ async function studentFlow(browser) {
 			buffer: Buffer.from("deterministic other-document bytes")
 		});
 		await page.locator("[data-fv2-upload-type]").selectOption("other");
+		await page.locator("[data-fv2-upload-name]").fill("Other Document");
 		await page.locator("[data-fv2-upload-next]").click();
-		assert(await page.locator(".fv2-upload-review").getByRole("heading", { name: "Other Document", exact: true }).isVisible(), "student: upload review used an existing filename instead of the server-owned document-type label");
+		assert(await page.locator(".fv2-upload-review").getByRole("heading", { name: "Other Document", exact: true }).isVisible(), "student: custom Miscellaneous upload did not preserve its explicit document name");
 		await page.getByRole("button", { name: "Close upload" }).click();
 		await page.evaluate(() => {
 			window.__FV2_HARNESS__.instance.state.data.documents = window.__FV2_HARNESS__.instance.state.data.documents.filter(documentItem => Number(documentItem.id) !== 1999);
@@ -491,19 +495,28 @@ async function studentFlow(browser) {
 			mimeType: "application/pdf",
 			buffer: Buffer.from("deterministic fixture PDF bytes")
 			});
+			await page.locator("[data-fv2-upload-type]").focus();
 			await page.locator("[data-fv2-upload-type]").selectOption("curriculum_vitae");
+			await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-fv2-overlay-focus") === "upload-type");
+			assert(await page.locator("[data-fv2-upload-type]").evaluate(node => document.activeElement === node), "student: document type change lost keyboard focus");
 			assert(!(await page.locator("[data-fv2-upload-next]").isDisabled()), "student: natural file-then-type upload flow left Review disabled");
-			assert(await page.locator("[data-fv2-canonical-preview]").getByText("Avery_Rivera_360Elite_A_CurriculumVitae_Draft01_2026-07-15.pdf", { exact: true }).isVisible(), "student: canonical filename preview is missing or out of order");
+			assert(await page.locator("[data-fv2-upload-replaces]").inputValue() === "1102", "student: matching CV lineage was not selected intelligently");
+			assert(await page.locator("[data-fv2-canonical-preview]").getByText("Avery_Rivera_360MatchMentorship_A_CVResume_Version04_2026-07-15.pdf", { exact: true }).isVisible(), "student: intelligent replacement preview is missing or out of order");
+			await page.locator("[data-fv2-upload-replaces]").focus();
+			await page.locator("[data-fv2-upload-replaces]").selectOption("");
+			await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-fv2-overlay-focus") === "upload-replaces");
+			assert(await page.locator("[data-fv2-upload-replaces]").evaluate(node => document.activeElement === node), "student: replacement choice lost keyboard focus");
+			assert(await page.locator("[data-fv2-canonical-preview]").getByText("Avery_Rivera_360MatchMentorship_A_CVResume_Version01_2026-07-15.pdf", { exact: true }).isVisible(), "student: separate-document choice did not reset to Version 1");
 			await page.locator("[data-fv2-upload-replaces]").selectOption("1102");
-			assert(await page.locator("[data-fv2-canonical-preview]").getByText("Avery_Rivera_360Elite_A_CurriculumVitae_Draft04_2026-07-15.pdf", { exact: true }).isVisible(), "student: replacement selection does not advance the visible canonical version");
+			assert(await page.locator("[data-fv2-canonical-preview]").getByText("Avery_Rivera_360MatchMentorship_A_CVResume_Version04_2026-07-15.pdf", { exact: true }).isVisible(), "student: replacement selection does not advance the visible canonical version");
 			await page.locator("[data-fv2-upload-next]").click();
-			assert(await page.getByRole("heading", { name: "Curriculum Vitae", exact: true }).isVisible(), "student: upload review step missing");
-			assert(await page.locator(".fv2-review-filename").getByText("Avery_Rivera_360Elite_A_CurriculumVitae_Draft04_2026-07-15.pdf", { exact: true }).isVisible(), "student: review step does not show the canonical filename");
+			assert(await page.getByRole("heading", { name: "CV / Resume", exact: true }).isVisible(), "student: upload review step missing");
+			assert(await page.locator(".fv2-review-filename").getByText("Avery_Rivera_360MatchMentorship_A_CVResume_Version04_2026-07-15.pdf", { exact: true }).isVisible(), "student: review step does not show the canonical filename");
 		await saveEvidence(page, "04-upload-review.png");
 		await page.locator('[data-fv2-action="upload-start"]').click();
 		await page.getByRole("heading", { name: "Upload confirmed" }).waitFor({ timeout: 8000 });
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.mutations.some(item => item.type === "confirm")), "student: upload confirmation mutation missing");
-		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/files/1102/versions" && call.body.program === "360 Elite" && call.body.session_letter === "A")), "student: canonical upload did not use the single version route with enrollment metadata");
+		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/files/1102/versions" && call.body.program === "360 Match Mentorship" && call.body.session_letter === "A" && call.body.version_number === 4 && call.body.draft_label === "Version04" && call.body.is_final === false)), "student: canonical upload did not use the single immutable version route with controlled metadata");
 		assert(await page.locator('[role="progressbar"][aria-valuenow="100"]').count() === 1, "student: upload progress did not reach 100");
 		assert(diagnostics.length === 0, `student: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
@@ -518,14 +531,25 @@ async function controlledUploadMetadataFlow(browser) {
 		await page.locator('[data-fv2-action="launch-home-upload"]').click();
 		const session = page.locator("[data-fv2-upload-session]");
 		assert(await session.isVisible(), "controlled upload: editable session selector is missing when the server leaves session unlocked");
-		assert(await session.locator("option").allTextContents().then(options => options.join("|") === "Choose session|Session A|Session B|Session C|Session D"), "controlled upload: session options are not the controlled A-D set");
+		assert(await session.locator("option").allTextContents().then(options => options.join("|") === "Choose session|Session A|Session B|Session C|Session D|Session E|Session F|Session G"), "controlled upload: session options are not the controlled A-G set");
+		await session.focus();
 		await session.selectOption("C");
+		await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-fv2-overlay-focus") === "upload-session");
+		assert(await session.evaluate(node => document.activeElement === node), "controlled upload: session change lost keyboard focus");
 		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_C_"), "controlled upload: selected session did not update the canonical filename preview");
-		const version = page.getByLabel("Choose draft or final");
-		const versionOptions = await version.locator("option").evaluateAll(options => options.map(option => [option.value, option.textContent.trim()]));
-		assert(JSON.stringify(versionOptions) === JSON.stringify([["Draft01", "Draft 1"], ["Final", "Final"]]), `controlled upload: Draft/Final choices are not controlled ${JSON.stringify(versionOptions)}`);
-		await version.selectOption("Final");
-		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_Final_"), "controlled upload: Final choice did not update the canonical filename preview");
+		const program = page.locator("[data-fv2-upload-program]");
+		assert(await program.locator("option").allTextContents().then(options => options.join("|") === "Choose course / program|360 Match Mentorship|IV Prep Complete|IV Prep Essentials|PS-Only"), "controlled upload: course/program options do not match the Founder contract");
+		await program.focus();
+		await program.selectOption("PS-Only");
+		await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-fv2-overlay-focus") === "upload-program");
+		assert(await program.evaluate(node => document.activeElement === node), "controlled upload: program change lost keyboard focus");
+		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_PSOnly_C_"), "controlled upload: selected program did not update canonical metadata");
+		const version = page.locator("[data-fv2-upload-version]");
+		const versionOptions = await version.locator("option").evaluateAll(options => options.map(option => [option.value, option.textContent.trim(), option.disabled, option.selected]));
+		assert(versionOptions.length === 10 && JSON.stringify(versionOptions[3]) === JSON.stringify(["4", "Version 4", false, true]) && versionOptions.filter(option => option[2] === false).length === 1, `controlled upload: numbered immutable version choices are not controlled ${JSON.stringify(versionOptions)}`);
+		await page.locator("[data-fv2-upload-final]").check();
+		assert(await page.locator("[data-fv2-upload-final]").evaluate(node => document.activeElement === node), "controlled upload: Final change lost keyboard focus");
+		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_Version04_"), "controlled upload: Final status incorrectly replaced the numbered canonical version");
 		assert(diagnostics.length === 0, `controlled upload: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
 		await context.close();
@@ -713,7 +737,7 @@ async function asyncMutationSwitchIsolationFlow(browser) {
 		await page.setInputFiles("[data-fv2-upload-file]", { name: "async_cv.pdf", mimeType: "application/pdf", buffer: Buffer.from("async fixture PDF bytes") });
 		await page.locator("[data-fv2-upload-next]").click();
 		await page.locator('[data-fv2-action="upload-start"]').click();
-		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/uploads" && call.method === "POST"));
+		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => (call.path === "/uploads" || /^\/files\/\d+\/versions$/.test(call.path)) && call.method === "POST"));
 		await switchToB();
 		await page.waitForTimeout(220);
 		const uploadState = await page.evaluate(() => ({ state: window.__FV2_HARNESS__.instance.state, mutations: window.__FV2_HARNESS__.mutations, errors: window.__FV2_HARNESS__.errors }));
@@ -929,6 +953,31 @@ async function matrixShellIntegrationFlow(browser) {
 	}
 }
 
+async function internalNoteLensRaceFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "internal-note-lens-race" }, { width: 1440, height: 900 });
+	try {
+		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
+		await page.locator(".fv2-subject-banner").waitFor();
+		await page.getByRole("button", { name: "Your Files", exact: true }).click();
+		await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1102"]').click();
+		await page.locator('[data-fv2-action="open-workspace"][data-fv2-document-id="1102"]').click();
+		await page.getByRole("tab", { name: "Internal notes", exact: true }).click();
+		await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="student"]:visible').click();
+		await page.waitForTimeout(260);
+		const state = await page.evaluate(() => ({
+			lensMode: window.__FV2_HARNESS__.instance.state.lensMode,
+			workspaceTab: window.__FV2_HARNESS__.instance.state.workspaceTab,
+			internalNoteCount: window.__FV2_HARNESS__.instance.state.internalNotes.length,
+			internalNotesLoading: window.__FV2_HARNESS__.instance.state.internalNotesLoading
+		}));
+		assert(state.lensMode === "student" && state.workspaceTab === "comments" && state.internalNoteCount === 0 && state.internalNotesLoading === false, `admin student lens: delayed staff notes repopulated after the lens switch ${JSON.stringify(state)}`);
+		assert(await page.getByText("Confirm final review ownership before approval.", { exact: true }).count() === 0, "admin student lens: delayed staff-note content became visible");
+		assert(diagnostics.length === 0, `admin student lens race: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
 async function adminFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "admin" }, { width: 1600, height: 1000 });
 	try {
@@ -961,11 +1010,15 @@ async function adminFlow(browser) {
 		assert(await page.locator(".fv2-subject-banner").count() === 0, "admin student lens: staff subject banner remained visible");
 		assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Student view", "admin student lens: header role did not change");
 		assert(await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="student"]:visible').evaluate(button => document.activeElement === button), "admin student lens: focus did not return to the active lens control");
-		assert(await page.locator('[data-fv2-action="open-upload"]:not([disabled])').count() === 0, "admin student lens: a staff mutation control remained enabled");
+		assert(await page.locator('[data-fv2-action="open-upload"]:not([disabled])').count() > 0, "admin student lens: ordinary student upload access is unavailable");
+		assert(await page.getByRole("tab", { name: "Internal notes", exact: true }).count() === 0, "admin student lens: staff-only notes leaked into the student experience");
 		await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="administrator"]').click();
-		await page.locator(".fv2-subject-banner").waitFor();
+		await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).waitFor();
 		assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Staff view", "admin lens: administrator controls did not return");
 		assert(await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="administrator"]:visible').evaluate(button => document.activeElement === button), "admin lens: focus did not return to the active administrator control");
+		assert(await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').isVisible(), "admin lens: returning to Administrator View did not restore the student directory");
+		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
+		await page.locator(".fv2-subject-banner").waitFor();
 		await page.locator(".fv2-shortcut-timeline").click();
 		assert(await page.getByRole("heading", { name: "Journey", exact: true }).isVisible(), "admin: Timeline premium card did not open the selected student's Journey");
 		assert(await page.locator(".fv2-subject-banner").isVisible(), "admin: Journey lost selected-student context");
@@ -993,6 +1046,8 @@ async function adminFlow(browser) {
 		assert(studentLensState.workspaceTab === "comments" && studentLensState.internalNoteCount === 0, `admin student lens: staff-only workspace state was retained ${JSON.stringify(studentLensState)}`);
 		assert(await page.getByRole("tab", { name: "Internal notes", exact: true }).count() === 0, "admin student lens: Internal notes remained visible");
 		await page.locator('[data-fv2-action="set-lens"][data-fv2-lens-mode="administrator"]').click();
+		await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).waitFor();
+		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
 		await page.locator(".fv2-subject-banner").waitFor();
 		await page.getByRole("button", { name: "Your Files", exact: true }).click();
 		await page.waitForSelector('[data-fv2-action="select-document"][data-fv2-document-id="1102"]');
@@ -1019,17 +1074,17 @@ async function adminFlow(browser) {
 		await page.locator("[data-fv2-upload-type]").selectOption("other");
 		await page.locator("[data-fv2-upload-name]").fill("MissionMed Interview Guide");
 		await page.locator("[data-fv2-upload-mission-file]").check();
-		const draftOptions = await page.locator("[data-fv2-upload-draft] option").evaluateAll(options => options.map(option => [option.value, option.textContent.trim()]));
-		assert(JSON.stringify(draftOptions) === JSON.stringify([["Draft01", "Draft 1"], ["Final", "Final"]]), `admin: upload Draft/Final choices are not controlled ${JSON.stringify(draftOptions)}`);
-		await page.locator("[data-fv2-upload-draft]").selectOption("Final");
-		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_Final_"), "admin: Final choice did not update canonical filename preview");
+		const versionOptions = await page.locator("[data-fv2-upload-version] option").evaluateAll(options => options.map(option => [option.value, option.textContent.trim(), option.disabled, option.selected]));
+		assert(versionOptions.length === 10 && JSON.stringify(versionOptions[0]) === JSON.stringify(["1", "Version 1", false, true]) && versionOptions.filter(option => option[2] === false).length === 1, `admin: numbered version choices are not controlled ${JSON.stringify(versionOptions)}`);
+		await page.locator("[data-fv2-upload-final]").check();
+		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_Version01_"), "admin: Final status incorrectly replaced the numbered canonical version");
 		await page.locator("[data-fv2-upload-next]").click();
 		assert(await page.locator(".fv2-upload-review").getByText("Share as a Mission File", { exact: true }).isVisible(), "admin: Mission File provenance choice is missing from upload review");
-		assert(await page.locator(".fv2-upload-review dd").getByText("Final", { exact: true }).isVisible(), "admin: upload review does not show the controlled Final label");
+		assert(await page.locator(".fv2-upload-review dd").getByText("Version 1 · Final", { exact: true }).isVisible(), "admin: upload review does not keep numbered version and Final status separate");
 		await page.locator('[data-fv2-action="upload-start"]').click();
 		await page.getByRole("heading", { name: "Upload confirmed" }).waitFor({ timeout: 8000 });
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/uploads" && call.body.share_as_mission_file === true)), "admin: Mission File upload did not send the explicit provenance flag");
-		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/uploads" && call.body.draft_label === "Final")), "admin: upload did not send the controlled Final label");
+		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/uploads" && call.body.draft_label === "Version01" && call.body.version_number === 1 && call.body.is_final === true)), "admin: upload did not send numbered version plus separate Final status");
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.instance.state.data.documents.some(documentItem => documentItem.category === "admin" && documentItem.source === "MissionMed" && !!documentItem.shared_at)), "admin: confirmed Mission File lacks MissionMed source and sharing provenance");
 		await page.getByRole("button", { name: "Done", exact: true }).click();
 		await browserAccessibilityAudit(page, "admin Doc Docs");
@@ -1182,7 +1237,12 @@ async function staffPaginationStudentRaceFlow(browser) {
 		assert(state.selectedStudentId === 102 && state.studentId === 102 && state.view === "vault", `staff pagination race: late roster page replaced the selected student scope ${JSON.stringify(state)}`);
 		assert(await page.getByText("Inside Jordan Lee (Fixture)'s File Vault", { exact: true }).isVisible(), "staff pagination race: selected-student context banner was lost");
 		await page.getByRole("button", { name: "Back to Students" }).click();
-		assert(await page.getByRole("button", { name: "Load more students" }).isEnabled(), "staff pagination race: stale continuation left base-roster pagination disabled");
+		const paginationBoundary = await page.evaluate(() => ({
+			loading: window.__FV2_HARNESS__.instance.state.staffLoadingMore,
+			hasMore: !!(window.__FV2_HARNESS__.instance.state.staffData && window.__FV2_HARNESS__.instance.state.staffData.staff_pagination && window.__FV2_HARNESS__.instance.state.staffData.staff_pagination.has_more),
+			loadMoreDisabled: !!document.querySelector('[data-fv2-action="load-more-staff"]:disabled')
+		}));
+		assert(!paginationBoundary.loading && (!paginationBoundary.hasMore || !paginationBoundary.loadMoreDisabled), `staff pagination race: directory returned at an incoherent pagination boundary ${JSON.stringify(paginationBoundary)}`);
 		assert(diagnostics.length === 0, `staff pagination race: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
 		await context.close();
@@ -1328,14 +1388,16 @@ async function adminResponsiveLensFlow(browser) {
 			assert(await page.getByRole("group", { name: "More File Vault controls", exact: true }).isVisible(), `${label}: administrator More menu did not open`);
 			assert(await page.getByRole("group", { name: "View File Vault as", exact: true }).isVisible(), `${label}: dual-view controls are absent`);
 			await page.getByRole("button", { name: "Student view", exact: true }).click();
+			await page.locator(".fv2-home-greeting h1").waitFor();
 			assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Student view", `${label}: Student View did not activate`);
 			assert(await page.locator(".fv2-mobile-nav-menu").count() === 0, `${label}: menu remained open after lens switch`);
 			assert(await page.getByRole("button", { name: "More", exact: true }).evaluate(button => document.activeElement === button), `${label}: Student View switch did not return focus to More`);
 			const directoryLensLabels = await page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
-			assert(directoryLensLabels.join("|") === "Students|Settings", `${label}: Student View without a selected student exposed an incoherent student rail ${directoryLensLabels.join("|")}`);
-			assert(await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).isVisible(), `${label}: Student View lost the student chooser before a student was selected`);
+			assert(directoryLensLabels.join("|") === "Home|Your Files|Recently Uploaded|Mission Files|Notifications|Settings", `${label}: Student View did not expose the real student rail ${directoryLensLabels.join("|")}`);
+			assert(await page.locator('[data-fv2-action="open-upload"]:not([disabled])').count() > 0, `${label}: Student View did not expose ordinary student upload access`);
 			await page.getByRole("button", { name: "More", exact: true }).click();
 			await page.getByRole("button", { name: "Administrator view", exact: true }).click();
+			await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).waitFor();
 			assert((await page.locator("[data-fv2-role]").textContent()).trim() === "Staff view", `${label}: Administrator View did not return`);
 			assert(await page.getByRole("button", { name: "More", exact: true }).evaluate(button => document.activeElement === button), `${label}: Administrator View switch did not return focus to More`);
 			await overflowAudit(page, label);
@@ -1373,6 +1435,7 @@ async function main() {
 		await mobileAdminActivityFlow(browser);
 		await lateMatrixTakeoverRecoveryFlow(browser);
 		await matrixShellIntegrationFlow(browser);
+		await internalNoteLensRaceFlow(browser);
 		await adminFlow(browser);
 		await staffPaginationFlow(browser);
 		await auditCursorBoundaryFlow(browser);

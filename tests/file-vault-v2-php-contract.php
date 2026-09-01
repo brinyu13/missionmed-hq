@@ -178,8 +178,9 @@ fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/internal-notes'] ), 'staff-only internal note route is registered' );
 $upload_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/uploads']['args'];
 fv2_assert( 'string' === $upload_route_args['filename']['type'] && 'integer' === $upload_route_args['file_size']['type'] && 'boolean' === $upload_route_args['ready_for_review']['type'], 'upload request bodies have explicit scalar schemas' );
-fv2_assert( 'string' === $upload_route_args['program']['type'] && '^[A-Za-z]$' === $upload_route_args['session_letter']['pattern'], 'canonical program and one-letter session metadata have bounded route schemas' );
-fv2_assert( '^(?:Draft[0-9]{2,3}|Final)$' === $upload_route_args['draft_label']['pattern'], 'controlled Draft/Final labels have an explicit request schema' );
+fv2_assert( 'string' === $upload_route_args['program']['type'] && MMED_File_Vault_V2_Repository::approved_programs() === $upload_route_args['program']['enum'] && '^[A-Ga-g]$' === $upload_route_args['session_letter']['pattern'], 'Founder-approved programs and sessions A through G have bounded route schemas' );
+fv2_assert( '^(?:(?:Draft|Version)[0-9]{2,3}|Final)$' === $upload_route_args['draft_label']['pattern'], 'legacy and numbered version labels have an explicit request schema' );
+fv2_assert( 'integer' === $upload_route_args['version_number']['type'] && 1 === $upload_route_args['version_number']['minimum'] && 'boolean' === $upload_route_args['is_final']['type'], 'numbered versions and Final status are separate bounded fields' );
 fv2_assert( 'boolean' === $upload_route_args['share_as_mission_file']['type'], 'Mission File intent is an explicit boolean request field' );
 $internal_note_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/internal-notes']['args'];
 fv2_assert( 'string' === $internal_note_route_args['body']['type'], 'internal note writes use the bounded comment-body schema' );

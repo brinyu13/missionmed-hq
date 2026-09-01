@@ -2299,6 +2299,11 @@ body.mmed-fv2-overlay-open.matrix-app-mode-file-vault #wpadminbar {
 	outline-offset: 2px;
 }
 
+.fv2-upload-file-field > .fv2-button:focus {
+	outline: 2px solid var(--fv2-ember);
+	outline-offset: 2px;
+}
+
 .fv2-upload-file-field > span {
 	min-width: 0;
 	overflow-wrap: anywhere;
@@ -5423,6 +5428,42 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
 .fv2-mission-share {
 	border-color: rgba(66, 209, 223, 0.4);
 	background: rgba(66, 209, 223, 0.06);
+}
+
+/* J1-1017: explicit immutable versioning and readable upload metadata controls. */
+.fv2-upload-modal select option:disabled {
+	color: #778398;
+}
+
+.fv2-final-version {
+	margin-bottom: 12px;
+	border-color: rgba(255, 173, 63, 0.42);
+	background: rgba(255, 173, 63, 0.06);
+}
+
+.fv2-final-version > span {
+	color: var(--fv2-gold);
+}
+
+.fv2-upload-modal .fv2-field > span,
+.fv2-upload-modal .fv2-check-row strong {
+	color: #f4f6fb;
+}
+
+.fv2-upload-modal .fv2-field > small,
+.fv2-upload-modal .fv2-check-row small,
+.fv2-upload-modal .fv2-upload-file-field > span {
+	color: #b4bfd0;
+}
+
+@media (max-width: 640px) {
+	.fv2-upload-modal .fv2-form-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.fv2-upload-modal .fv2-field-wide {
+		grid-column: auto;
+	}
 }
 
 /* StoryForge rail parity: one premium CTA, quiet destinations, clear active state. */

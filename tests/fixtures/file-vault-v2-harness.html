@@ -127,8 +127,11 @@
 				};
 				var documentTypes = {
 					personal_statement: "Personal Statement",
-					curriculum_vitae: "Curriculum Vitae",
+					curriculum_vitae: "CV / Resume",
 					timeline: "Timeline",
+					lor_related: "LOR-Related",
+					score_report: "Score Report",
+					certification: "Certification",
 					mspe: "MSPE",
 					medical_school_transcript: "Medical School Transcript",
 					usmle_transcript: "USMLE Transcript",
@@ -137,7 +140,7 @@
 					letter_of_recommendation_3: "Letter of Recommendation 3",
 					ecfmg_status_report: "ECFMG Status Report",
 					application_photo: "Application Photo",
-					other: "Other Document"
+					other: "Miscellaneous"
 				};
 			var documentsByStudent = {
 				101: [
@@ -181,8 +184,9 @@
 						document_type: "curriculum_vitae",
 						category: "student",
 						mime_type: "application/pdf",
-						file_size: 226314,
-						version: 3,
+							file_size: 226314,
+							version: 3,
+							is_final: true,
 						status: "submitted",
 						status_label: "Submitted",
 						note: "Updated experience section.",
@@ -192,7 +196,7 @@
 						download_available: true,
 						verification_state: "ready_clean",
 						open_comment_count: 0,
-						versions: [{ number: 3, original_name: "avery_cv.pdf", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-07-13T15:25:00Z", file_size: 226314, note: "Updated experience section" }],
+							versions: [{ number: 3, original_name: "avery_cv.pdf", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-07-13T15:25:00Z", file_size: 226314, note: "Updated experience section", is_final: true }],
 						comments: [],
 						scores: [],
 						latest_score: null
@@ -307,13 +311,14 @@
 				return {
 					identity: { first_name: names[0] || "Student", last_name: names[names.length - 1] || "User" },
 					division: "Mission Residency",
-					program: "360 Elite",
-					programs: ["360 Elite"],
-					program_locked: true,
+					program: "360 Match Mentorship",
+					programs: ["360 Match Mentorship", "IV Prep Complete", "IV Prep Essentials", "PS-Only"],
+					program_locked: false,
 					session_letter: studentId === 102 ? "B" : "A",
-					session_locked: scenario !== "unlocked-session",
+					session_locked: false,
+					session_known: scenario !== "unlocked-session",
 					submission_date: "2026-07-15",
-					naming_pattern: "FIRSTNAME_LASTNAME_COURSE_SESSIONLETTER_DOCUMENTTYPE_DRAFTVERSION_DATESUBMITTED"
+					naming_pattern: "FIRSTNAME_LASTNAME_COURSE_SESSIONLETTER_DOCUMENTTYPE_VERSION_DATESUBMITTED"
 				};
 			}
 
@@ -326,15 +331,15 @@
 				var context = uploadContextFor(studentId);
 				var existing = documentId ? findDocument(studentId, documentId) : null;
 				var version = existing ? Number(existing.version || 0) + 1 : 1;
-				var label = body.document_type === "other" ? body.display_name : documentTypes[body.document_type] || "Other Document";
+				var label = ["other", "lor_related"].indexOf(body.document_type) !== -1 ? body.display_name : documentTypes[body.document_type] || "Miscellaneous";
 				var extension = String(body.filename || "document.ext").split(".").pop().toLowerCase();
 				return [
 					canonicalToken(context.identity.first_name, "Student"),
 					canonicalToken(context.identity.last_name, "User"),
-					canonicalToken(context.program, "MissionMed"),
-					canonicalToken(context.session_letter, "X"),
+					canonicalToken(body.program, "MissionMed"),
+					canonicalToken(body.session_letter, "X"),
 					canonicalToken(label, "Document"),
-					"Draft" + String(version).padStart(2, "0"),
+					"Version" + String(version).padStart(2, "0"),
 					context.submission_date
 				].join("_") + "." + extension;
 			}
@@ -703,8 +708,10 @@
 						confirmed.version += 1;
 						confirmed.original_name = pending.body.filename;
 						confirmed.canonical_name = pending.canonicalName;
-						confirmed.program = pending.body.program;
-						confirmed.session_letter = pending.body.session_letter;
+							confirmed.program = pending.body.program;
+							confirmed.session_letter = pending.body.session_letter;
+							confirmed.draft_label = "Version" + String(confirmed.version).padStart(2, "0");
+							confirmed.is_final = !!pending.body.is_final;
 						confirmed.file_size = pending.body.file_size;
 						confirmed.updated_at = now;
 						confirmed.status = pending.body.ready_for_review ? "submitted" : "uploaded";
@@ -712,12 +719,14 @@
 					} else {
 						confirmed = {
 							id: 1199,
-							name: pending.body.display_name || "Fixture Upload",
+								name: ["other", "lor_related"].indexOf(pending.body.document_type) !== -1 ? (pending.body.display_name || "Fixture Upload") : (documentTypes[pending.body.document_type] || "Miscellaneous"),
 							original_name: pending.body.filename,
 							canonical_name: pending.canonicalName,
 							division: "Mission Residency",
-							program: pending.body.program,
-							session_letter: pending.body.session_letter,
+								program: pending.body.program,
+								session_letter: pending.body.session_letter,
+								draft_label: "Version01",
+								is_final: !!pending.body.is_final,
 							document_type: pending.body.document_type || "other",
 							category: pending.body.share_as_mission_file ? "admin" : "student",
 							source: pending.body.share_as_mission_file ? "MissionMed" : "",
@@ -734,7 +743,7 @@
 								download_available: true,
 								verification_state: "ready_clean",
 							open_comment_count: 0,
-							versions: [{ number: 1, original_name: pending.body.filename, canonical_name: pending.canonicalName, uploader_name: role === "student" ? "Avery Rivera (Fixture)" : "Admin Fixture", uploaded_at: now, file_size: pending.body.file_size, note: pending.body.note || "" }],
+								versions: [{ number: 1, original_name: pending.body.filename, canonical_name: pending.canonicalName, uploader_name: role === "student" ? "Avery Rivera (Fixture)" : "Admin Fixture", uploaded_at: now, file_size: pending.body.file_size, note: pending.body.note || "", is_final: !!pending.body.is_final }],
 							comments: [],
 							scores: [],
 							latest_score: null
@@ -775,10 +784,11 @@
 					return mutationResponse(clone(resolved), request);
 				}
 				var internalNoteMatch = path.match(/^\/files\/(\d+)\/internal-notes$/);
-				if (internalNoteMatch && method === "GET") {
-					if (role === "student") return reject("Staff access required.", 403);
-					if (!findDocument(requestStudentId, internalNoteMatch[1])) return reject("Document not found.", 404);
-					return Promise.resolve(clone(internalNotesByDocument[Number(internalNoteMatch[1])] || []));
+					if (internalNoteMatch && method === "GET") {
+						if (role === "student") return reject("Staff access required.", 403);
+						if (!findDocument(requestStudentId, internalNoteMatch[1])) return reject("Document not found.", 404);
+						var internalNotePayload = clone(internalNotesByDocument[Number(internalNoteMatch[1])] || []);
+						return scenario === "internal-note-lens-race" ? delayedResolve(internalNotePayload, 180, request.signal) : Promise.resolve(internalNotePayload);
 				}
 				if (internalNoteMatch && method === "POST") {
 					if (role === "student") return reject("Staff access required.", 403);
