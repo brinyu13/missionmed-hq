@@ -83,50 +83,67 @@ export class SmilePatternEventDetector {
     const cheekDelta = Number.isFinite(cheek) && Number.isFinite(this.cheekBaseline)
       ? cheek - this.cheekBaseline
       : null;
-    const requireFullFace = Number.isFinite(this.config.smileCheekOnDelta)
-      && Number.isFinite(this.config.smileCheekOffDelta);
-    const cheekActive = !requireFullFace
-      || (Number.isFinite(cheekDelta)
-        && cheekDelta >= (this.active ? this.config.smileCheekOffDelta : this.config.smileCheekOnDelta));
-    const minimumDurationMs = state === 'ANSWERING'
+    const cheekEvidenceAvailable = Number.isFinite(this.config.smileCheekOnDelta)
+      && Number.isFinite(this.config.smileCheekOffDelta)
+      && Number.isFinite(cheekDelta);
+    const cheekActive = cheekEvidenceAvailable
+      && cheekDelta >= (this.active ? this.config.smileCheekOffDelta : this.config.smileCheekOnDelta);
+    const minimumDurationMs = (this.activeState || state) === 'ANSWERING'
       ? (this.config.smileAnsweringMinimumDurationMs || this.config.smileMinimumDurationMs)
       : this.config.smileMinimumDurationMs;
     let event = null;
     if (!this.active
       && delta >= this.config.smileOnDelta
-      && cheekActive
       && time - this.lastEventAtMs >= this.config.smileRefractoryMs) {
       this.active = true;
       this.activeSinceMs = time;
       this.activeState = state;
-    } else if (this.active && (delta <= this.config.smileOffDelta || !cheekActive)) {
+      this.activeEventRecorded = false;
+      this.peakDelta = delta;
+      this.peakCheekDelta = cheekDelta;
+    } else if (this.active) {
+      this.peakDelta = Math.max(Number(this.peakDelta) || 0, delta);
+      if (Number.isFinite(cheekDelta)) this.peakCheekDelta = Math.max(Number(this.peakCheekDelta) || 0, cheekDelta);
       const durationMs = time - this.activeSinceMs;
-      if (durationMs >= minimumDurationMs) {
+      const released = delta <= this.config.smileOffDelta;
+      // Count the event as soon as the observed pattern has genuinely met its
+      // duration gate. Waiting for the student's smile to end made the live
+      // counter look inert while the qualifying smile was still on screen.
+      if (!this.activeEventRecorded && durationMs >= minimumDurationMs) {
         event = Object.freeze({
-          kind: requireFullFace ? 'full_face_smile_pattern' : 'mouth_corner_elevation_pattern',
+          kind: Number(this.peakCheekDelta) >= this.config.smileCheekOnDelta
+            ? 'full_face_smile_pattern'
+            : 'mouth_corner_elevation_pattern',
           startMs: this.activeSinceMs,
           endMs: time,
           durationMs,
           state: this.activeState,
           confidence: confidence >= 0.75 ? 'HIGH' : confidence >= 0.45 ? 'MODERATE' : 'LOW',
-          components: Object.freeze({ mouthCornerDelta: delta, cheekPeriocularDelta: cheekDelta }),
-          provenance: Object.freeze({ source: 'LOCAL_FACE_BLENDSHAPES', method: requireFullFace ? 'MOUTH_PLUS_CHEEK_PERSONAL_BASELINE_HYSTERESIS' : 'PERSONAL_BASELINE_HYSTERESIS' }),
+          components: Object.freeze({ mouthCornerDelta: this.peakDelta, cheekPeriocularDelta: this.peakCheekDelta }),
+          provenance: Object.freeze({ source: 'LOCAL_FACE_BLENDSHAPES', method: Number(this.peakCheekDelta) >= this.config.smileCheekOnDelta ? 'MOUTH_PLUS_CHEEK_PERSONAL_BASELINE_HYSTERESIS' : 'MOUTH_CORNER_PERSONAL_BASELINE_HYSTERESIS' }),
         });
         this.events.push(event);
         if (this.events.length > this.maximumEvents) this.events.shift();
         this.lastEventAtMs = time;
+        this.activeEventRecorded = true;
       }
-      this.active = false;
-      this.activeSinceMs = null;
-      this.activeState = null;
+      if (released) {
+        this.active = false;
+        this.activeSinceMs = null;
+        this.activeState = null;
+        this.activeEventRecorded = false;
+        this.peakDelta = null;
+        this.peakCheekDelta = null;
+      }
     }
     return Object.freeze({
       available: true,
       active: this.active,
       deltaFromPersonalBaseline: delta,
       cheekDeltaFromPersonalBaseline: cheekDelta,
-      qualificationAvailable: !requireFullFace || Number.isFinite(cheekDelta),
-      fullFacePattern: this.active && requireFullFace,
+      qualificationAvailable: true,
+      cheekEvidenceAvailable,
+      fullFacePattern: this.active && cheekActive,
       state,
       event,
       eventCount: this.events.length,
@@ -157,6 +174,9 @@ export class SmilePatternEventDetector {
     this.active = false;
     this.activeSinceMs = null;
     this.activeState = null;
+    this.activeEventRecorded = false;
+    this.peakDelta = null;
+    this.peakCheekDelta = null;
     this.lastEventAtMs = -Infinity;
     this.events = [];
     this.observedFrames = 0;

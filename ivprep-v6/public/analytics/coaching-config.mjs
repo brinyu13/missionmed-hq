@@ -47,13 +47,16 @@ export const COACHING_CONFIG = deepFreeze({
     corridorAboveBaselineSemitones: 5,
   },
   face: {
-    smileOnDelta: 0.30,
-    smileOffDelta: 0.18,
-    smileCheekOnDelta: 0.12,
-    smileCheekOffDelta: 0.06,
-    smileMinimumDurationMs: 500,
+    // MediaPipe's physical-camera blendshape scores are materially quieter
+    // than the deterministic fixtures. These remain changes from the same
+    // speaker's neutral baseline; they are not universal anatomy thresholds.
+    smileOnDelta: 0.18,
+    smileOffDelta: 0.10,
+    smileCheekOnDelta: 0.06,
+    smileCheekOffDelta: 0.03,
+    smileMinimumDurationMs: 450,
     smileRefractoryMs: 8_000,
-    smileAnsweringMinimumDurationMs: 700,
+    smileAnsweringMinimumDurationMs: 600,
     smileQualityMinimumConfidence: 0.50,
     smileQualityMaximumPoseDegrees: 30,
     smileQualityMinimumFaceFraction: 0.15,
@@ -109,6 +112,17 @@ export const COACHING_CONFIG = deepFreeze({
     highCapAdditionalWpm: 60,
     minimumWords: 8,
     minimumSpeechMs: 3_000,
+    // The live cockpit may admit this smaller rolling floor only when the
+    // evidence is genuine observed word timestamps from the realtime producer.
+    // Fixtures, reports, and non-realtime evidence retain the stricter floor
+    // above so presentation latency never weakens evidence truth.
+    realtimeMinimumWords: 5,
+    realtimeMinimumSpeechMs: 1_500,
+    // Recent-word WPM is derived from start-to-start word timestamps, not from
+    // total window occupancy. A lower coverage floor is therefore appropriate
+    // for the realtime lane while the stricter report/window gate remains 0.70.
+    realtimeMinimumCoverage: 0.25,
+    realtimeWindowMs: 2_000,
     minimumCoverage: 0.70,
     liveWindowMs: 10_000,
     trendWindowMs: 30_000,

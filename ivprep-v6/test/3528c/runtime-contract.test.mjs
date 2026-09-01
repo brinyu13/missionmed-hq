@@ -8,6 +8,9 @@ const browserPipeline = readFileSync(new URL('../../public/analytics/browser-pip
 const cockpit = readFileSync(new URL('../../public/ivoc-standalone/styles/cockpit.css', import.meta.url), 'utf8');
 const standalone = new URL('../../public/ivoc-standalone/', import.meta.url);
 const tokens = readFileSync(new URL('styles/tokens.css', standalone), 'utf8');
+const standaloneHtml = readFileSync(new URL('index.html', standalone), 'utf8');
+const railwayIgnore = readFileSync(new URL('../../../.railwayignore', import.meta.url), 'utf8');
+const railwayIgnoreLines = new Set(railwayIgnore.split(/\r?\n/u));
 const migration = readFileSync(new URL('../../../supabase/migrations/20260830040054_ivoc_3528c_session_recording_results.sql', import.meta.url), 'utf8');
 
 test('frozen visual package includes its design tokens and approved bitmap art', () => {
@@ -20,6 +23,19 @@ test('frozen visual package includes its design tokens and approved bitmap art',
     'assets/founder-face-scanner.png',
     'assets/founder-body-scanner.png',
   ]) assert.ok(statSync(new URL(asset, standalone)).size > 1_000, `${asset} must ship in the release archive`);
+  assert.match(standaloneHtml, /\/iv-prep-on-call\/assets\/vendor\/vad-web\/0\.0\.30\/ort\.min\.js/u);
+  assert.match(standaloneHtml, /\/iv-prep-on-call\/assets\/vendor\/vad-web\/0\.0\.30\/bundle\.min\.js/u);
+  for (const asset of [
+    'arena-world-day.jpg',
+    'arena-world-sunset.jpg',
+    'founder-face-scanner.png',
+    'founder-body-scanner.png',
+  ]) {
+    assert.ok(
+      railwayIgnoreLines.has(`!ivprep-v6/public/ivoc-standalone/assets/${asset}`),
+      `${asset} must be explicitly restored after the global bitmap exclusion`,
+    );
+  }
 });
 
 test('frozen cockpit uses only real analytics and account persistence', () => {
@@ -36,7 +52,7 @@ test('frozen cockpit uses only real analytics and account persistence', () => {
   assert.match(live, /wpmAvg: INSTRUMENTS\[0\]\._lastWpm \?\? null/u);
   assert.match(post, /payload\.wpmLastObserved \?\? payload\.metrics/u);
   assert.match(cockpit, /#vvCanvas \{ flex: 1 1 72px; width: 100%; min-height: 72px;/u);
-  assert.match(cockpit, /@media \(max-height: 830px\) \{[\s\S]*?\.room-bottom \{ flex-basis: 230px; \}/u);
+  assert.match(cockpit, /@media \(max-height: 830px\) \{[\s\S]*?\.room-bottom \{ flex-basis: 142px; \}/u);
   assert.match(browserPipeline, /!advanced && this\.pcmConsumer/u);
   assert.match(browserPipeline, /method: 'ANALYSER_PCM_FALLBACK'/u);
   assert.doesNotMatch(data, /SimEngine|SESSIONS|STUDENT/u);

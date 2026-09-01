@@ -17,16 +17,27 @@ export const LOOPBACK_WORD_TIMING_TRANSPORT = 'ON_DEVICE_LOOPBACK';
 export const FIRST_PARTY_WORD_TIMING_TRANSPORT = 'FIRST_PARTY_SAME_ORIGIN_EPHEMERAL';
 
 const TARGET_SAMPLE_RATE = 16_000;
-// Keep the first physical reading responsive. Four seconds is still bounded by
-// the truth gate downstream (at least eight observed words, three seconds of
-// speech, and 70% timing coverage), but avoids making the student wait through
-// a ten-second apparently idle speedometer before the first decode begins.
-const DEFAULT_WINDOW_MS = 4_000;
+// A two-second rolling acoustic window is the smallest admitted physical lane.
+// It reports only words the recognizer actually timestamped; it never estimates
+// or extrapolates words between decodes. Slow speech may borrow the immediately
+// preceding window to reach the realtime evidence floor.
+const DEFAULT_WINDOW_MS = 2_000;
 const MAX_PENDING_WINDOWS = 2;
 const MINIMUM_ACOUSTIC_EVIDENCE_MS = 500;
 const MINIMUM_VOICED_SPEECH_PROBABILITY = 0.35;
-const MINIMUM_WORD_PROBABILITY = 0.35;
+// Sherpa's physical production model emits calibrated token probabilities well
+// below the deterministic acoustic preflight (commonly 0.05-0.35 for correctly
+// timestamped words). VAD/F0 has already admitted the acoustic window, and the
+// server has already produced a bounded word interval, so retain non-zero model
+// evidence while continuing to reject zero-confidence output.
+const MINIMUM_WORD_PROBABILITY = 0.05;
 const MAXIMUM_PLAUSIBLE_WPM = 360;
+const MAXIMUM_RECENT_TIMING_WINDOWS = 6;
+const MINIMUM_LIVE_WORDS = 5;
+const MAXIMUM_LIVE_WORDS = 10;
+const MAXIMUM_LIVE_LOOKBACK_MS = 12_000;
+const MINIMUM_LIVE_SPEECH_MS = 1_500;
+const TRANSCRIPT_REQUEST_TIMEOUT_MS = 8_000;
 const WORD_TIMING_RESPONSE_KEYS = Object.freeze([
   'available',
   'providerSessions',
@@ -147,6 +158,7 @@ export class LocalTranscriptTimingProducer {
     locationHref = globalThis.location?.href || 'http://127.0.0.1/',
     setTimeoutImpl = globalThis.setTimeout?.bind(globalThis),
     clearTimeoutImpl = globalThis.clearTimeout?.bind(globalThis),
+    requestTimeoutMs = TRANSCRIPT_REQUEST_TIMEOUT_MS,
   } = {}) {
     this.fetchImpl = fetchImpl;
     this.endpoint = String(endpoint || '');
@@ -169,6 +181,8 @@ export class LocalTranscriptTimingProducer {
     this.lastProgressMs = 0;
     this.pcmFramesReceived = 0;
     this.captureWatchdog = null;
+    this.requestTimeout = null;
+    this.requestTimeoutMs = Math.max(2_000, Math.min(20_000, Number(requestTimeoutMs) || TRANSCRIPT_REQUEST_TIMEOUT_MS));
     this.setTimeoutImpl = setTimeoutImpl;
     this.clearTimeoutImpl = clearTimeoutImpl;
     this.state = frozenState('idle', 'LOCAL_TRANSCRIPT_TIMING_IDLE');
@@ -393,6 +407,11 @@ export class LocalTranscriptTimingProducer {
     const controller = new AbortController();
     this.requestController = controller;
     const body = encodeFloat32Le(pcm);
+    let requestTimedOut = false;
+    this.requestTimeout = this.setTimeoutImpl?.(() => {
+      requestTimedOut = true;
+      controller.abort();
+    }, this.requestTimeoutMs) ?? null;
     try {
       const response = await this.fetchImpl(this.#admittedEndpoint, {
       method: 'POST',
@@ -473,22 +492,42 @@ export class LocalTranscriptTimingProducer {
       endedAtMs: windowEndedAtMs,
       speechDurationMs: admittedSpeechDurationMs,
       captureDurationMs,
+      coverage: admittedCoverage,
     }));
-    if (this.timingWindows.length > 4) this.timingWindows.shift();
-    const firstWindow = this.timingWindows[0];
-    const streamWords = this.wordStream.snapshot().events
-      .filter((word) => word.startMs >= firstWindow.startedAtMs && word.endMs <= windowEndedAtMs + 25);
-    const streamSpeechDurationMs = this.timingWindows.reduce((sum, item) => sum + item.speechDurationMs, 0);
-    const streamCaptureDurationMs = this.timingWindows.reduce((sum, item) => sum + item.captureDurationMs, 0);
+    if (this.timingWindows.length > MAXIMUM_RECENT_TIMING_WINDOWS) this.timingWindows.shift();
+
+    // Drive the live dial from the student's most recent five-to-ten observed
+    // words. Every point is still a recognizer timestamp; this is a short,
+    // truthful delivery-rate window rather than a transcript or syllable proxy.
+    const eligibleWords = this.wordStream.snapshot().events
+      .filter((word) => word.endMs <= windowEndedAtMs + 25
+        && word.startMs >= windowEndedAtMs - MAXIMUM_LIVE_LOOKBACK_MS);
+    const streamWords = eligibleWords.slice(-MAXIMUM_LIVE_WORDS);
+    const firstObservedWord = streamWords[0] || null;
+    const lastObservedWord = streamWords.at(-1) || null;
+    const selectedWindows = firstObservedWord && lastObservedWord
+      ? this.timingWindows.filter((item) => item.endedAtMs >= firstObservedWord.startMs
+        && item.startedAtMs <= lastObservedWord.endMs)
+      : [this.timingWindows.at(-1)].filter(Boolean);
+    const firstWindow = selectedWindows[0] || Object.freeze({ startedAtMs: windowStartedAtMs });
+    const lastWindow = selectedWindows.at(-1) || Object.freeze({ endedAtMs: windowEndedAtMs });
+    const streamWindowStartedAtMs = firstWindow.startedAtMs;
+    const streamWindowEndedAtMs = lastWindow.endedAtMs;
+    const streamSpeechDurationMs = selectedWindows.reduce((sum, item) => sum + item.speechDurationMs, 0) || admittedSpeechDurationMs;
+    const streamCaptureDurationMs = selectedWindows.reduce((sum, item) => sum + item.captureDurationMs, 0) || Math.max(1, streamWindowEndedAtMs - streamWindowStartedAtMs);
     const streamCoverage = streamCaptureDurationMs > 0
-      ? clamp(this.timingWindows.reduce((sum, item) => sum + item.speechDurationMs, 0) / streamCaptureDurationMs, 0, 1)
-      : 0;
+      ? clamp(selectedWindows.reduce((sum, item) => sum + item.coverage * item.captureDurationMs, 0) / streamCaptureDurationMs, 0, 1)
+      : admittedCoverage;
+    const recentEvidenceAvailable = streamWords.length >= MINIMUM_LIVE_WORDS
+      && streamSpeechDurationMs >= MINIMUM_LIVE_SPEECH_MS;
     this.onTiming(Object.freeze({
       atMs,
-      windowStartedAtMs: firstWindow.startedAtMs,
-      windowEndedAtMs,
+      cadence: 'REALTIME_ROLLING',
+      rateBasis: 'RECENT_WORD_START_INTERVALS',
+      windowStartedAtMs: streamWindowStartedAtMs,
+      windowEndedAtMs: streamWindowEndedAtMs,
       speechDurationMs: streamSpeechDurationMs,
-      coverage: Math.max(streamCoverage, admittedCoverage),
+      coverage: streamCoverage,
       words: Object.freeze(streamWords.map((word) => Object.freeze({
         startMs: word.startMs,
         endMs: word.endMs,
@@ -508,12 +547,21 @@ export class LocalTranscriptTimingProducer {
         rawAudioPersisted: false,
       }),
     }));
-    this.#setState('live', streamWords.length >= 8 ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
+    this.#setState('live', recentEvidenceAvailable ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
       wordCount: streamWords.length,
-      windowDurationMs: Math.round(windowEndedAtMs - firstWindow.startedAtMs),
+      windowDurationMs: Math.round(streamWindowEndedAtMs - streamWindowStartedAtMs),
     });
       return true;
+    } catch (error) {
+      if (requestTimedOut) {
+        this.#setState('partial', 'LOCAL_TRANSCRIPT_WINDOW_TIMED_OUT');
+        return false;
+      }
+      throw error;
     } finally {
+      if (this.requestTimeout !== null) this.clearTimeoutImpl?.(this.requestTimeout);
+      this.requestTimeout = null;
+      if (this.requestController === controller) this.requestController = null;
       new Uint8Array(body).fill(0);
     }
   }
@@ -524,6 +572,8 @@ export class LocalTranscriptTimingProducer {
     this.generation += 1;
     this.requestController?.abort?.();
     this.requestController = null;
+    if (this.requestTimeout !== null) this.clearTimeoutImpl?.(this.requestTimeout);
+    this.requestTimeout = null;
     if (this.captureWatchdog !== null) this.clearTimeoutImpl?.(this.captureWatchdog);
     this.captureWatchdog = null;
     this.pipeline?.setPcmConsumer?.(null);

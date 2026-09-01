@@ -42,3 +42,11 @@ Dangler Cartoon Solos 22/
 *.csv
 *.xlsx
 *.numbers
+
+# Y1-Y2-CAM-V6-3528C-FAC-02B: these four MissionMed-owned cockpit assets are
+# runtime dependencies, not generated media. Keep the broad binary exclusion and
+# allow only this audited IV Prep set into the Railway release archive.
+!ivprep-v6/public/ivoc-standalone/assets/arena-world-day.jpg
+!ivprep-v6/public/ivoc-standalone/assets/arena-world-sunset.jpg
+!ivprep-v6/public/ivoc-standalone/assets/founder-face-scanner.png
+!ivprep-v6/public/ivoc-standalone/assets/founder-body-scanner.png

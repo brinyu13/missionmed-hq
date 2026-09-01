@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { createIvocHandler } from '../../../missionmed-hq/ivoc/routes.mjs';
 import { InMemoryAdmissionRegistry } from '../../server/admission-registry.mjs';
@@ -94,25 +94,105 @@ function createMemoryRepository() {
 
 const mediaBytes = new Map();
 const mediaTypes = new Map();
+const multipartUploads = new Map();
+
+function recordingIdForObjectKey(objectKey) {
+  return String(objectKey || '').split('/').at(-1).split('.')[0];
+}
+
+function localPlaybackToken({ recordingId, objectKey, expiresAtMs, disposition }) {
+  const objectDigest = createHash('sha256').update(String(objectKey)).digest('hex').slice(0, 32);
+  return `${recordingId}.${expiresAtMs}.${disposition}.${objectDigest}.local`;
+}
+
 function createLocalStorage() {
   return Object.freeze({
-    createUpload: ({ ownerSubject, recordingId, extension = 'webm' }) => {
+    createUpload: ({ ownerSubject, recordingId, extension = 'webm', mime = 'video/webm' }) => {
       const expiresAtMs = now() + 60 * 60 * 1000;
       const objectKey = `local/${ownerSubject}/${recordingId}.${extension}`;
+      const uploadState = `local-multipart:${recordingId}`;
+      multipartUploads.set(objectKey, { uploadState, expectedParts: null, parts: new Map() });
+      mediaTypes.set(recordingId, mime);
       return {
         objectKey,
-        uploadUrl: `${sealedOrigin}/__ivoc-media/${recordingId}`,
+        uploadState,
         uploadToken: `${recordingId}.${expiresAtMs}.local`,
         expiresAt: new Date(expiresAtMs).toISOString(), tokenExpiresAtMs: expiresAtMs,
       };
     },
     validateUploadToken: ({ recordingId, expiresAtMs, uploadToken }) => Number(expiresAtMs) > now() && uploadToken === `${recordingId}.${expiresAtMs}.local`,
-    signedUrl: (objectKey, ttlMs) => {
-      const recordingId = objectKey.split('/').at(-1).split('.')[0];
-      const expiresAtMs = now() + ttlMs;
-      return { url: `${sealedOrigin}/__ivoc-media/${recordingId}`, expiresAt: new Date(expiresAtMs).toISOString(), expiresAtMs };
+    uploadPart: async ({ objectKey, uploadState, part, parts, body }) => {
+      const upload = multipartUploads.get(objectKey);
+      if (!upload || upload.uploadState !== uploadState
+        || !Number.isSafeInteger(part) || !Number.isSafeInteger(parts)
+        || part < 1 || parts < 1 || part > parts || parts > 1_000
+        || (upload.expectedParts !== null && upload.expectedParts !== parts)
+        || !Buffer.isBuffer(body)) {
+        throw Object.assign(new Error('recording_chunk_contract_invalid'), { status: 400 });
+      }
+      upload.expectedParts = parts;
+      upload.parts.set(part, Buffer.from(body));
+      return { uploadState, etag: `"local-part-${part}-${body.length}"` };
     },
-    verifyObject: async (objectKey) => mediaBytes.has(objectKey.split('/').at(-1).split('.')[0]),
+    completeUpload: async ({ objectKey, uploadState }) => {
+      const upload = multipartUploads.get(objectKey);
+      if (!upload || upload.uploadState !== uploadState || !Number.isSafeInteger(upload.expectedParts)) {
+        throw Object.assign(new Error('recording_upload_incomplete'), { status: 409 });
+      }
+      const chunks = [];
+      for (let part = 1; part <= upload.expectedParts; part += 1) {
+        const chunk = upload.parts.get(part);
+        if (!chunk) throw Object.assign(new Error('recording_upload_incomplete'), { status: 409 });
+        chunks.push(chunk);
+      }
+      const recordingId = recordingIdForObjectKey(objectKey);
+      const body = Buffer.concat(chunks);
+      mediaBytes.set(recordingId, body);
+      const etag = `"${createHash('sha256').update(body).digest('hex')}"`;
+      for (const chunk of chunks) chunk.fill(0);
+      multipartUploads.delete(objectKey);
+      return { etag };
+    },
+    verifyObject: async (objectKey) => mediaBytes.has(recordingIdForObjectKey(objectKey)),
+    createPlayback: ({ recordingId, objectKey, disposition = 'inline', ttlMs = 10 * 60 * 1_000 }) => {
+      const normalizedDisposition = disposition === 'attachment' ? 'attachment' : 'inline';
+      const expiresAtMs = now() + ttlMs;
+      return {
+        token: localPlaybackToken({ recordingId, objectKey, expiresAtMs, disposition: normalizedDisposition }),
+        expiresAt: new Date(expiresAtMs).toISOString(),
+        expiresAtMs,
+        disposition: normalizedDisposition,
+      };
+    },
+    validatePlaybackToken: ({ recordingId, objectKey, expiresAtMs, playbackToken, disposition = 'inline' }) => {
+      const normalizedDisposition = disposition === 'attachment' ? 'attachment' : 'inline';
+      return Number(expiresAtMs) > now()
+        && playbackToken === localPlaybackToken({ recordingId, objectKey, expiresAtMs, disposition: normalizedDisposition });
+    },
+    fetchObject: async (objectKey, { method = 'GET', range = '' } = {}) => {
+      const recordingId = recordingIdForObjectKey(objectKey);
+      const body = mediaBytes.get(recordingId);
+      if (!body) return new Response(null, { status: 404 });
+      let start = 0;
+      let end = body.length - 1;
+      let status = 200;
+      const match = String(range).match(/^bytes=(\d+)-(\d*)$/u);
+      if (match) {
+        start = Math.min(body.length, Number(match[1]));
+        end = match[2] ? Math.min(body.length - 1, Number(match[2])) : body.length - 1;
+        if (start > end || start >= body.length) return new Response(null, { status: 416 });
+        status = 206;
+      }
+      const selected = body.subarray(start, end + 1);
+      const headers = {
+        'Accept-Ranges': 'bytes',
+        'Content-Type': mediaTypes.get(recordingId) || 'video/webm',
+        'Content-Length': String(selected.length),
+        ETag: `"${createHash('sha256').update(body).digest('hex')}"`,
+        ...(status === 206 ? { 'Content-Range': `bytes ${start}-${end}/${body.length}` } : {}),
+      };
+      return new Response(method === 'HEAD' ? null : selected, { status, headers });
+    },
   });
 }
 

@@ -64,6 +64,75 @@ test('behavior runtime gates setup then state-tags answering, pause, orientation
   assert.equal(runtime.latest.orientation.state, 'PAUSE_LONG');
 });
 
+test('explicit analytics start establishes listening immediately and independent voiced F0 can begin answering', () => {
+  const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
+  runtime.beginInterview(0, { explicitMeasurementStart: true });
+  assert.equal(runtime.latest.conversation.state, 'LISTENING');
+  runtime.ingestDiagnostic(audio(100, false, {
+    speaking: false,
+    pitch: { voiced: true, f0Hz: 150, summary: { available: true, medianHz: 150 } },
+  }));
+  assert.equal(runtime.latest.audio.speaking, true);
+  assert.equal(runtime.latest.conversation.state, 'ANSWERING');
+  runtime.ingestDiagnostic(vision(200));
+  assert.equal(runtime.latest.conversation.state, 'ANSWERING');
+});
+
+test('cross-modality observations cannot regress the live conversation clock', () => {
+  const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
+  runtime.beginInterview(0, { explicitMeasurementStart: true });
+  runtime.ingestDiagnostic(audio(220, true));
+  assert.equal(runtime.latest.conversation.state, 'ANSWERING');
+  assert.doesNotThrow(() => runtime.ingestDiagnostic(vision(180)));
+  assert.equal(runtime.latest.conversation.state, 'ANSWERING');
+  runtime.ingestDiagnostic(audio(260, false));
+  assert.equal(runtime.latest.conversation.state, 'PAUSE_SHORT');
+  assert.doesNotThrow(() => runtime.ingestDiagnostic(vision(240)));
+  assert.equal(runtime.latest.conversation.state, 'PAUSE_SHORT');
+});
+
+test('standalone behavior runtime admits listening nod evidence at the production 8 FPS floor', () => {
+  const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
+  runtime.beginInterview(0, { explicitMeasurementStart: true });
+  for (let index = 0; index < 10; index += 1) {
+    runtime.ingestDiagnostic({ ...vision(index * 125), targetFps: 8 });
+  }
+  runtime.ingestDiagnostic({ ...vision(1_250), targetFps: 8, geometry: {
+    ...vision(1_250).geometry,
+    face: { ...vision(1_250).geometry.face, pitchDeg: 9 },
+  } });
+  runtime.ingestDiagnostic({ ...vision(1_375), targetFps: 8 });
+  assert.equal(runtime.latest.nod.available, true);
+  assert.equal(runtime.latest.nod.count, 1);
+});
+
+test('standalone gesture unit survives a bounded natural VAD gap inside an answer', () => {
+  const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
+  runtime.beginInterview(0, { explicitMeasurementStart: true });
+  const handFrame = (atMs, leftX) => ({
+    ...vision(atMs),
+    geometry: {
+      ...vision(atMs).geometry,
+      hands: {
+        left: { present: true, centerX: leftX, centerY: 0.6 },
+        right: { present: false },
+      },
+    },
+  });
+  for (let atMs = 0; atMs <= 1_000; atMs += 125) runtime.ingestDiagnostic(handFrame(atMs, 0.35));
+  runtime.ingestDiagnostic(audio(1_100, true));
+  runtime.ingestDiagnostic(handFrame(1_125, 0.35));
+  runtime.ingestDiagnostic(audio(1_200, false));
+  assert.equal(runtime.latest.conversation.state, 'PAUSE_SHORT');
+  runtime.ingestDiagnostic(handFrame(1_250, 0.55));
+  runtime.ingestDiagnostic(handFrame(1_375, 0.75));
+  runtime.ingestDiagnostic(audio(1_425, true));
+  runtime.ingestDiagnostic(handFrame(1_500, 0.75));
+  runtime.ingestDiagnostic(handFrame(2_050, 0.75));
+  assert.equal(runtime.latest.gesture.eventCount, 1);
+  assert.equal(runtime.latest.gesture.event.type, 'GESTURE_UNIT');
+});
+
 test('WPM stays unavailable without observed per-word timestamps even when aggregate counts exist', () => {
   const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
   runtime.ingestWordTiming({

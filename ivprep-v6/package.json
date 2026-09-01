@@ -25,8 +25,9 @@
     "probe:liveavatar-origin": "node scripts/probe-liveavatar-origin.mjs",
     "probe:liveavatar-targets": "node scripts/avatar/verify-liveavatar-targets.mjs",
     "probe:avatar-transport-endurance": "node scripts/avatar/run-liveavatar-transport-endurance.mjs",
-    "test": "node --test --test-concurrency=1 test/*.test.mjs test/avatar/*.test.mjs test/analytics/*.test.mjs test/3440/*.test.mjs test/3441r/*.test.mjs test/3521/*.test.mjs test/3522/*.test.mjs test/questions/*.test.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs test/avatar/*.test.mjs test/analytics/*.test.mjs test/3440/*.test.mjs test/3441r/*.test.mjs test/3521/*.test.mjs test/3522/*.test.mjs test/3526/*.test.mjs test/3528c/*.test.mjs test/questions/*.test.mjs",
     "test:3521": "node --test --test-concurrency=1 test/3521/*.test.mjs",
+    "test:3528c": "node --test --test-concurrency=1 test/3528c/*.test.mjs",
     "test:3441r-t1-r3": "node --test --test-concurrency=1 test/3441r/t1-durable-lease-keeper.test.mjs test/3441r/founder-proof-runtime.test.mjs test/3441r/founder-proof-ui.test.mjs"
   },
   "dependencies": {

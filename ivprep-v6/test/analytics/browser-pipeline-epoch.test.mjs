@@ -173,22 +173,55 @@ test('same-frame FaceDetector result is joined before Holistic inference',()=>{
   pipeline.destroy();
 });
 
-test('face timeout disables the safety worker and cannot queue another face frame',()=>{
+test('face timeout recycles the paired vision workers instead of leaving face analytics permanently absent',()=>{
   const pipeline=new BrowserAnalyticsPipeline({bridge:{media:{}},now:()=>0});
   pipeline.beginAnswer({answerId:'a'});
   let terminated=0;const posted=[];
   pipeline.faceWorker={terminate(){terminated+=1}};
   pipeline.faceWorkerReady=true;
-  pipeline.worker={postMessage(message){posted.push(message)},terminate(){}};
+  let holisticTerminated=0;
+  pipeline.worker={postMessage(message){posted.push(message)},terminate(){holisticTerminated+=1}};
   pipeline.pendingVisionFrame={bitmap:{close(){}},generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:pipeline.visionEpoch,frameId:3,timestampMs:50,expectedFrameMs:125,captureStartedAt:0};
   pipeline.frameInFlight=true;
   pipeline.failFaceWorker('face safety frame timed out');
   assert.equal(terminated,1);
   assert.equal(pipeline.faceWorker,null);
+  assert.equal(pipeline.worker,null);
   assert.equal(pipeline.faceWorkerReady,false);
-  assert.equal(posted.length,1);
-  assert.equal(posted[0].faceCount,null);
+  assert.equal(holisticTerminated,1);
+  assert.equal(posted.length,1, 'invalidate sends only the reset before terminating');
+  assert.equal(posted[0].type,'reset');
   pipeline.destroy();
+});
+
+test('an active camera automatically restarts local vision after a worker timeout',()=>{
+  const priorSetTimeout=globalThis.setTimeout;
+  const priorClearTimeout=globalThis.clearTimeout;
+  const timers=new Map();let nextTimer=0;
+  globalThis.setTimeout=(callback,delay)=>{const id=++nextTimer;timers.set(id,{callback,delay});return id};
+  globalThis.clearTimeout=(id)=>{timers.delete(id)};
+  const track={readyState:'live',enabled:true,muted:false};
+  const bridge={media:{cam:true,stream:{getVideoTracks:()=>[track]}}};
+  const pipeline=new BrowserAnalyticsPipeline({bridge,now:()=>0});
+  try{
+    pipeline.beginAnswer({answerId:'recovering'});
+    const video={};
+    pipeline.visionVideo=video;
+    let restarted=0;
+    pipeline.startVision=(candidate)=>{assert.equal(candidate,video);restarted+=1};
+    pipeline.worker={terminate(){}};
+    pipeline.faceWorker={terminate(){}};
+    pipeline.failVisionWorker('holistic frame timed out');
+    assert.equal(pipeline.visionRecoveryAttempts,1);
+    const recovery=timers.get(pipeline.visionRecoveryTimer);
+    assert.equal(recovery.delay,250);
+    recovery.callback();
+    assert.equal(restarted,1);
+  }finally{
+    pipeline.destroy();
+    globalThis.setTimeout=priorSetTimeout;
+    globalThis.clearTimeout=priorClearTimeout;
+  }
 });
 
 test('hidden or disconnected vision invalidates every older reply and closes its overlay',()=>{
@@ -517,13 +550,13 @@ test('Holistic-ready startup waits for FaceDetector protection before the first 
   const priorCreateImageBitmap=globalThis.createImageBitmap;
   const priorSetTimeout=globalThis.setTimeout;
   const priorClearTimeout=globalThis.clearTimeout;
-  const scheduled=[];const workers=[];let bitmapCalls=0;
+  const scheduled=[];const workers=[];let bitmapCalls=0;let faceWorkerTerminations=0;
   globalThis.setTimeout=(callback,delay)=>{scheduled.push({callback,delay});return scheduled.length};
   globalThis.clearTimeout=()=>{};
   globalThis.Worker=class FakeWorker{
     constructor(_url,options={}){this.name=options.name;this.messages=[];workers.push(this)}
     postMessage(message){this.messages.push(message)}
-    terminate(){}
+    terminate(){if(this.name?.includes('face-safety'))faceWorkerTerminations+=1}
   };
   globalThis.createImageBitmap=async()=>{bitmapCalls+=1;return {close(){}}};
   const videoTrack={readyState:'live',enabled:true,muted:false};
@@ -537,6 +570,13 @@ test('Holistic-ready startup waits for FaceDetector protection before the first 
     await firstVision.callback();
     assert.equal(bitmapCalls,0);
     assert.equal(workers.flatMap((worker)=>worker.messages).filter((message)=>message.type==='frame').length,0);
+
+    const faceWarningIndex=scheduled.findIndex((item)=>item.delay===10_000);
+    assert.ok(faceWarningIndex>=0,'face-safety delay warning must be scheduled');
+    scheduled.splice(faceWarningIndex,1)[0].callback();
+    assert.equal(faceWorkerTerminations,0,'a slow but live face worker must not be permanently abandoned');
+    assert.ok(pipeline.faceWorker,'the privacy worker must remain attached until ready or an actual error');
+    assert.deepEqual(pipeline.diagnostics().workerErrors,['multi-face protection initialization delayed']);
 
     pipeline.onFaceWorkerMessage({type:'ready',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch},pipeline.generation);
     const protectedVisionIndex=scheduled.findIndex((item)=>item.delay===125);

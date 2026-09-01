@@ -8,6 +8,11 @@ export const LOCAL_WORD_TIMING_PERSISTENCE = 'MEMORY_ONLY';
 export const LOCAL_WORD_TIMING_SAMPLE_RATE = 16_000;
 export const MAXIMUM_PCM_BYTES = 1_000_000;
 
+const WORD_TIMING_TARGET_RMS = 10 ** (-22 / 20);
+const WORD_TIMING_MAX_GAIN = 10 ** (30 / 20);
+const WORD_TIMING_PEAK_CEILING = 0.92;
+const WORD_TIMING_MINIMUM_GAINED_SPEECH_MS = 250;
+
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const VENDOR_ROOT = join(MODULE_DIR, '..', 'vendor', 'sherpa-onnx-node', '1.13.6');
 const MANIFEST_PATH = join(VENDOR_ROOT, 'manifest.json');
@@ -57,6 +62,38 @@ export function decodeFloat32Le(buffer) {
     samples[index] = Math.max(-1, Math.min(1, value));
   }
   return samples;
+}
+
+// Browser microphone gain varies widely. Preserve the original PCM for every
+// student-facing loudness metric, but present Sherpa with a bounded private
+// copy at a stable analysis level. This is conventional ASR front-end gain,
+// not fabricated speech: silence remains silence, VAD admission is still
+// required, and the recognizer's word/probability truth gates remain intact.
+export function normalizeWordTimingPcm(samples) {
+  if (!(samples instanceof Float32Array) || samples.length === 0) {
+    throw new TypeError('LOCAL_WORD_TIMING_PCM_INVALID');
+  }
+  let sumSquares = 0;
+  let peak = 0;
+  for (const sample of samples) {
+    const value = Number(sample);
+    if (!Number.isFinite(value) || Math.abs(value) > 1) {
+      throw new TypeError('LOCAL_WORD_TIMING_PCM_INVALID');
+    }
+    sumSquares += value * value;
+    peak = Math.max(peak, Math.abs(value));
+  }
+  const output = new Float32Array(samples);
+  const rms = Math.sqrt(sumSquares / samples.length);
+  if (!(rms > 0) || !(peak > 0)) return output;
+  const gain = Math.max(1, Math.min(
+    WORD_TIMING_MAX_GAIN,
+    WORD_TIMING_TARGET_RMS / rms,
+    WORD_TIMING_PEAK_CEILING / peak,
+  ));
+  if (!(gain > 1)) return output;
+  for (let index = 0; index < output.length; index += 1) output[index] *= gain;
+  return output;
 }
 
 export class LocalWordTimingRuntime {
@@ -165,7 +202,10 @@ export class LocalWordTimingRuntime {
     if (this.pending.size >= this.maximumPending) throw new Error('LOCAL_WORD_TIMING_BACKPRESSURE');
 
     const id = `word-window-${++this.sequence}`;
-    const pcm = samples.buffer.slice(samples.byteOffset, samples.byteOffset + samples.byteLength);
+    const prepared = speechMs >= WORD_TIMING_MINIMUM_GAINED_SPEECH_MS
+      ? normalizeWordTimingPcm(samples)
+      : new Float32Array(samples);
+    const pcm = prepared.buffer;
     const result = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(id);

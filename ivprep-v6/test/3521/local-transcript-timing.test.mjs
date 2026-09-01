@@ -14,6 +14,7 @@ import {
   timedWordOccupancyMs,
 } from '../../public/live-analytics/local-transcript-timing.mjs';
 import { transcriptPcmFrame } from '../../public/analytics/browser-pipeline.mjs';
+import { evaluateWordTiming } from '../../public/analytics/word-timing-ladder.mjs';
 
 const response = (payload, ok = true) => ({ ok, async json() { return payload; } });
 const liveStream = () => ({ getAudioTracks: () => [{ kind: 'audio', readyState: 'live', enabled: true }] });
@@ -29,10 +30,10 @@ class FakePipeline {
   push(frame) { return this.consumer?.(frame); }
 }
 
-function pushSpeechWindow(pipeline, { durationMs = 4_000, sampleRate = 16_000 } = {}) {
+function pushSpeechWindow(pipeline, { durationMs = 4_000, sampleRate = 16_000, startAtMs = 0 } = {}) {
   const frameMs = 100;
   const frame = new Float32Array(sampleRate * frameMs / 1_000).fill(0.1);
-  for (let atMs = 0; atMs < durationMs; atMs += frameMs) {
+  for (let atMs = startAtMs; atMs < startAtMs + durationMs; atMs += frameMs) {
     pipeline.push({ atMs, sampleRate, samples: frame, speaking: true, speechProbability: 0.95 });
   }
 }
@@ -104,6 +105,8 @@ test('local timing producer emits only authenticated, timing-only observed evide
   assert.equal(timings.length, 1);
   assert.deepEqual(timings[0], {
     atMs: 4_000,
+    cadence: 'REALTIME_ROLLING',
+    rateBasis: 'RECENT_WORD_START_INTERVALS',
     windowStartedAtMs: 0,
     windowEndedAtMs: 4_000,
     speechDurationMs: 4_000,
@@ -129,11 +132,11 @@ test('local timing producer emits only authenticated, timing-only observed evide
   now = 5_000;
 });
 
-test('default physical timing window begins decoding after four seconds instead of appearing idle for ten', async () => {
+test('default physical timing window begins decoding after two seconds for near-live feedback', async () => {
   const calls = [];
   const states = [];
   const pipeline = new FakePipeline();
-  const words = Array.from({ length: 8 }, (_, index) => ({
+  const words = Array.from({ length: 4 }, (_, index) => ({
     startMs: 100 + index * 430,
     endMs: 350 + index * 430,
     probability: 0.9,
@@ -148,7 +151,7 @@ test('default physical timing window begins decoding after four seconds instead 
         rawAudioPersisted: false,
         rawTextReturned: false,
         source: LOCAL_SHERPA_TIMING_SOURCE,
-        speechDurationMs: 4_000,
+        speechDurationMs: 2_000,
         wordCount: words.length,
         words,
       });
@@ -156,15 +159,198 @@ test('default physical timing window begins decoding after four seconds instead 
   });
   await producer.start({
     stream: liveStream(), pipeline, csrfToken: 'local_harness_csrf_3521',
-    clock: { sessionMs: () => 4_000 }, onTiming() {}, onState: (state) => states.push(state),
+    clock: { sessionMs: () => 2_000 }, onTiming() {}, onState: (state) => states.push(state),
   });
-  pushSpeechWindow(pipeline);
+  pushSpeechWindow(pipeline, { durationMs: 2_000 });
   await producer.queue;
 
   assert.equal(calls.length, 2);
-  assert.equal(calls[1].body.byteLength, 4_000 * 16 * 4);
+  assert.equal(calls[1].body.byteLength, 2_000 * 16 * 4);
   assert.ok(states.some((state) => state.reason === 'COLLECTING_TIMED_WORD_WINDOW'));
   assert.ok(states.some((state) => state.reason === 'DECODING_TIMED_WORD_WINDOW'));
+  producer.stop();
+});
+
+test('adaptive recent timing uses the latest five-to-ten genuine words without diluting a later fast window', async () => {
+  let now = 4_000;
+  let decode = 0;
+  const timings = [];
+  const pipeline = new FakePipeline();
+  const slowWords = Array.from({ length: 3 }, (_, index) => ({
+    startMs: 100 + index * 900,
+    endMs: 400 + index * 900,
+    probability: 0.9,
+  }));
+  const fastWords = Array.from({ length: 12 }, (_, index) => ({
+    startMs: 50 + index * 300,
+    endMs: 250 + index * 300,
+    probability: 0.9,
+  }));
+  const producer = new LocalTranscriptTimingProducer({
+    windowMs: 4_000,
+    async fetchImpl(_url, options) {
+      if (options.method === 'GET') return response(capability());
+      const words = decode < 2 ? slowWords : fastWords;
+      decode += 1;
+      return response({
+        available: true,
+        providerSessions: 0,
+        rawAudioPersisted: false,
+        rawTextReturned: false,
+        source: LOCAL_SHERPA_TIMING_SOURCE,
+        speechDurationMs: decode < 3 ? 3_500 : 3_000,
+        wordCount: words.length,
+        words,
+      });
+    },
+  });
+  await producer.start({
+    stream: liveStream(), pipeline, csrfToken: 'local_harness_csrf_3521',
+    clock: { sessionMs: () => now }, onTiming: (timing) => timings.push(timing),
+  });
+
+  pushSpeechWindow(pipeline, { startAtMs: 0 });
+  await producer.queue;
+  assert.equal(timings[0].wordCount, 3);
+  assert.equal(producer.state.reason, 'NEED_MORE_TIMED_WORDS');
+
+  now = 8_000;
+  pushSpeechWindow(pipeline, { startAtMs: 4_000 });
+  await producer.queue;
+  assert.equal(timings[1].windowStartedAtMs, 0);
+  assert.equal(timings[1].windowEndedAtMs, 8_000);
+  assert.equal(timings[1].wordCount, 6);
+  assert.equal(timings[1].speechDurationMs, 7_000);
+  assert.equal(producer.state.reason, 'LOCAL_TRANSCRIPT_TIMING_OBSERVED');
+
+  now = 12_000;
+  pushSpeechWindow(pipeline, { startAtMs: 8_000 });
+  await producer.queue;
+  assert.equal(timings[2].windowStartedAtMs, 8_000, 'fast speech uses only the newest sufficient window');
+  assert.equal(timings[2].windowEndedAtMs, 12_000);
+  assert.equal(timings[2].wordCount, 10);
+  assert.equal(timings[2].speechDurationMs, 3_000);
+  producer.stop();
+});
+
+test('realtime rolling evidence admits five genuine timed words while ordinary evidence retains the strict floor', () => {
+  const words = Array.from({ length: 5 }, (_, index) => ({
+    startMs: 100 + index * 400,
+    endMs: 300 + index * 400,
+    probability: 0.9,
+  }));
+  const evidence = {
+    windowStartedAtMs: 0,
+    windowEndedAtMs: 2_400,
+    speechDurationMs: 1_600,
+    coverage: 0.8,
+    words,
+    wordCount: words.length,
+    provenance: {
+      observed: true,
+      tier: 'A_PRIME',
+      wordTimestampsObserved: true,
+      source: LOCAL_TRANSCRIPT_TIMING_SOURCE,
+    },
+  };
+
+  assert.equal(evaluateWordTiming({ ...evidence, cadence: 'REALTIME_ROLLING' }).available, true);
+  assert.equal(evaluateWordTiming(evidence).reason, 'NEED_MORE_TIMED_WORDS');
+});
+
+test('physical Sherpa low-confidence timestamps accumulate into a truthful rolling rate', async () => {
+  let now = 2_000;
+  let decode = 0;
+  const timings = [];
+  const pipeline = new FakePipeline();
+  const windows = [
+    [
+      { startMs: 320, endMs: 620, probability: 0.09 },
+      { startMs: 760, endMs: 1_040, probability: 0.18 },
+      { startMs: 1_200, endMs: 1_500, probability: 0.12 },
+    ],
+    [
+      { startMs: 240, endMs: 520, probability: 0.08 },
+      { startMs: 700, endMs: 980, probability: 0.21 },
+      { startMs: 1_140, endMs: 1_440, probability: 0.11 },
+    ],
+  ];
+  const producer = new LocalTranscriptTimingProducer({
+    async fetchImpl(_url, options) {
+      if (options.method === 'GET') return response(capability());
+      const words = windows[Math.min(decode, windows.length - 1)];
+      decode += 1;
+      return response({
+        available: true,
+        providerSessions: 0,
+        rawAudioPersisted: false,
+        rawTextReturned: false,
+        source: LOCAL_SHERPA_TIMING_SOURCE,
+        speechDurationMs: 1_400,
+        wordCount: words.length,
+        words,
+      });
+    },
+  });
+  await producer.start({
+    stream: liveStream(), pipeline, csrfToken: 'local_harness_csrf_3521',
+    clock: { sessionMs: () => now }, onTiming: (timing) => timings.push(timing),
+  });
+
+  pushSpeechWindow(pipeline, { durationMs: 2_000, startAtMs: 0 });
+  await producer.queue;
+  now = 4_000;
+  pushSpeechWindow(pipeline, { durationMs: 2_000, startAtMs: 2_000 });
+  await producer.queue;
+
+  const evaluated = evaluateWordTiming(timings.at(-1));
+  assert.equal(timings.at(-1).wordCount, 6);
+  assert.equal(evaluated.available, true);
+  assert.equal(evaluated.rateBasis, 'RECENT_WORD_START_INTERVALS');
+  assert.ok(evaluated.wordsPerMinute > 100 && evaluated.wordsPerMinute < 220);
+  producer.stop();
+});
+
+test('realtime rolling pace uses genuine start-to-start intervals from the recent word window', () => {
+  const words = Array.from({ length: 6 }, (_, index) => ({
+    startMs: 500 + index * 500,
+    endMs: 750 + index * 500,
+    probability: 0.9,
+  }));
+  const result = evaluateWordTiming({
+    cadence: 'REALTIME_ROLLING',
+    rateBasis: 'RECENT_WORD_START_INTERVALS',
+    windowStartedAtMs: 0,
+    windowEndedAtMs: 4_000,
+    speechDurationMs: 3_000,
+    coverage: 0.75,
+    words,
+    wordCount: words.length,
+    provenance: { observed: true, tier: 'A_PRIME', wordTimestampsObserved: true },
+  });
+  assert.equal(result.available, true);
+  assert.equal(result.wordsPerMinute, 120);
+  assert.equal(result.articulationWordsPerMinute, 120);
+  assert.equal(result.rateBasis, 'RECENT_WORD_START_INTERVALS');
+});
+
+test('a stalled same-origin decode times out and leaves the queue available for the next window', async () => {
+  const pipeline = new FakePipeline();
+  const producer = new LocalTranscriptTimingProducer({
+    requestTimeoutMs: 2_000,
+    fetchImpl: async (_url, options) => {
+      if (options.method === 'GET') return response(capability());
+      return new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))));
+    },
+  });
+  await producer.start({
+    stream: liveStream(), pipeline, csrfToken: 'local_harness_csrf_3521',
+    clock: { sessionMs: () => 2_000 }, onTiming() {},
+  });
+  pushSpeechWindow(pipeline, { durationMs: 2_000 });
+  await producer.queue;
+  assert.equal(producer.state.reason, 'LOCAL_TRANSCRIPT_WINDOW_TIMED_OUT');
+  assert.equal(producer.pendingWindows, 0);
   producer.stop();
 });
 

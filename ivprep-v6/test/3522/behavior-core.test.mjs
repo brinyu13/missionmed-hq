@@ -138,14 +138,29 @@ test('nod detector is frame-rate and listening-state gated and makes no agreemen
   assert.equal(lowFps.available, false);
 });
 
-test('nod detector excludes speaking windows from listening rate denominator and count', () => {
+test('nod detector counts speaking head-pitch cycles without contaminating the listening-only rate', () => {
   const detector = new NodDetector({ excursionDegrees: 5 });
   for (let index = 0; index < 20; index += 1) detector.ingest({ atMs: index * 50, pitchDegrees: 0, state: 'LISTENING', targetFps: 15, confidence: 0.9 });
   const beforeSpeaking = detector.latest.eligibleListeningMs;
   detector.ingest({ atMs: 1_000, pitchDegrees: 9, state: 'ANSWERING', targetFps: 15, confidence: 0.9 });
   detector.ingest({ atMs: 1_200, pitchDegrees: 0, state: 'ANSWERING', targetFps: 15, confidence: 0.9 });
-  assert.equal(detector.latest.count, 0);
+  assert.equal(detector.latest.count, 1);
+  assert.equal(detector.latest.listeningCount, 0);
+  assert.equal(detector.latest.listeningNodsPerMinute, 0);
   assert.equal(detector.latest.eligibleListeningMs, beforeSpeaking + 50);
+});
+
+test('nod detector admits a deliberate slow listening nod at the production cadence', () => {
+  const detector = new NodDetector({ minimumFps: 8 });
+  for (let index = 0; index < 10; index += 1) {
+    detector.ingest({ atMs: index * 125, pitchDegrees: 0, state: 'LISTENING', targetFps: 8, confidence: 0.9 });
+  }
+  detector.ingest({ atMs: 1_250, pitchDegrees: 6, state: 'LISTENING', targetFps: 8, confidence: 0.9 });
+  const returned = detector.ingest({ atMs: 2_750, pitchDegrees: 0, state: 'LISTENING', targetFps: 8, confidence: 0.9 });
+  assert.equal(returned.available, true);
+  assert.equal(returned.count, 1);
+  assert.equal(returned.event.type, 'HEAD_PITCH_CYCLE');
+  assert.equal(returned.event.endMs - returned.event.startMs, 1_500);
 });
 
 test('baseline store keeps only derived, versioned, expiring values', () => {

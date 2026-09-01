@@ -212,7 +212,7 @@ export class SupabaseAdmissionRegistry extends InMemoryAdmissionRegistry {
       const founder = this.founderSubjects.has(subject);
       const existing = await this.rest.table(
         'ivprep_entitlements',
-        `?subject=eq.${encodeURIComponent(subject)}&select=subject,granted_video_seconds&limit=1`,
+        `?subject=eq.${encodeURIComponent(subject)}&select=subject&limit=1`,
       );
       const common = {
         revision: HOSTED_ENTITLEMENT_REVISION,
@@ -226,15 +226,7 @@ export class SupabaseAdmissionRegistry extends InMemoryAdmissionRegistry {
         await this.rest.table('ivprep_entitlements', `?subject=eq.${encodeURIComponent(subject)}`, {
           method: 'PATCH',
           prefer: 'return=minimal',
-          body: {
-            ...common,
-            ...(founder ? {
-              granted_video_seconds: Math.max(
-                Number(existing[0].granted_video_seconds) || 0,
-                FOUNDER_TEST_PLAN.reduce((total, entry) => total + entry.maxSeconds, 0),
-              ),
-            } : {}),
-          },
+          body: common,
         });
       } else {
         await this.rest.table('ivprep_entitlements', '', {

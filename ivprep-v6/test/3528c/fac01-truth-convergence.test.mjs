@@ -10,8 +10,8 @@ async function source(path) {
 
 test('FAC-01 explicitly starts the behavior state machine and preserves audio speech truth across camera frames', async () => {
   const runtime = await source('public/ivoc-standalone/app/real-runtime.mjs');
-  assert.match(runtime, /this\.behavior\.beginInterview\(0\)/u);
-  assert.match(runtime, /this\.latestAudioSpeaking\s*=\s*detail\.vad\?\.available/u);
+  assert.match(runtime, /this\.behavior\.beginInterview\(0, \{ explicitMeasurementStart: true \}\)/u);
+  assert.match(runtime, /this\.latestAudioSpeaking\s*=\s*detail\.vad\?\.speaking/u);
   assert.match(runtime, /const speaking = this\.latestAudioSpeaking \|\| stateName/u);
 });
 
@@ -24,10 +24,12 @@ test('FAC-01 projects vocal variety from validated speaker-relative pitch and lo
   assert.doesNotMatch(runtime, /const varietyScore = varietyObserved \? corridorScore\(range/u);
 });
 
-test('FAC-01 exposes zero, one-left, one-right, and both-hand truth without a binary contradiction', async () => {
+test('FAC-01 distinguishes unavailable hand evidence from measured zero, one-left, one-right, and both-hand truth', async () => {
   const runtime = await source('public/ivoc-standalone/app/real-runtime.mjs');
   const live = await source('public/ivoc-standalone/app/live.mjs');
-  assert.match(runtime, /visibility: hands\.bothPresent === true/u);
+  assert.match(runtime, /const handsAvailable = body\.available === true && hands\.available === true/u);
+  assert.match(runtime, /const handVisibility = hands\.bothPresent === true/u);
+  assert.match(runtime, /visibility: handsAvailable \? handVisibility : 'UNAVAILABLE'/u);
   assert.match(live, /ONE HAND VISIBLE · LEFT/u);
   assert.match(live, /ONE HAND VISIBLE · RIGHT/u);
   assert.match(live, /BOTH HANDS VISIBLE · L \+ R/u);
@@ -50,15 +52,21 @@ test('FAC-01 keeps the frozen cockpit macro layout and makes recording secondary
   assert.match(css, /\.room-center/u);
   assert.match(css, /\.room-right/u);
   assert.match(css, /aspect-ratio: 16 \/ 9/u);
-  assert.match(css, /\.rec-dock[\s\S]*flex: 0 0 340px/u);
-  assert.match(css, /\.vv-deck[\s\S]*flex: 1/u);
+  assert.match(css, /\.rec-dock[\s\S]*flex: 0 0 58px/u);
+  assert.match(css, /\.vv-deck[\s\S]*grid-column: 1 \/ 3/u);
+  assert.match(css, /\.variety-score[\s\S]*grid-column: 3/u);
 });
 
-test('FAC-01 trace deck eases only inside observed runs and breaks silence or unvoiced gaps', async () => {
+test('FAC-01 trace deck renders three continuous live lines without changing the truthful stored history', async () => {
   const runtime = await source('public/ivoc-standalone/app/real-runtime.mjs');
   const live = await source('public/ivoc-standalone/app/live.mjs');
   assert.match(runtime, /frame\.speaking && frame\.pitch\.available && frame\.pitch\.voiced/u);
   assert.match(runtime, /pace: frame\.speaking && frame\.speedWpm\.available/u);
-  assert.match(live, /maximumJoinGap/u);
-  assert.match(live, /eased = null; previousAt = null/u);
+  assert.match(live, /One continuous bright telemetry trace per lane/u);
+  assert.match(live, /underlying history retains null gaps/u);
+  assert.match(live, /c\.lineJoin = 'round'/u);
+  assert.match(live, /c\.lineTo\(x, y\)/u);
+  assert.match(live, /c\.lineTo\(X\(tEnd\), Y\(lastKnown\.value\)\)/u);
+  assert.doesNotMatch(runtime, /pitch:\s*Math\.random/u);
+  assert.doesNotMatch(runtime, /pace:\s*Math\.random/u);
 });

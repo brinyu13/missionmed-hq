@@ -1,4 +1,9 @@
-const ALLOWED_STATES = new Set(['LISTENING', 'TRANSITION_TO_ANSWER']);
+const LISTENING_STATES = new Set(['LISTENING', 'TRANSITION_TO_ANSWER']);
+// The live counter reports an observed head-pitch cycle, not an inference that
+// the student agreed or listened well. Count the same defensible geometry in
+// every active interview state; retain the narrower listening denominator for
+// the mentor-facing listening-nods-per-minute derivative.
+const MEASURED_STATES = new Set(['SETUP', 'LISTENING', 'TRANSITION_TO_ANSWER', 'THINKING', 'ANSWERING', 'PAUSE', 'TRANSITION']);
 
 function median(values) {
   if (!values.length) return null;
@@ -8,7 +13,7 @@ function median(values) {
 
 /** Geometry-only nod pattern; it does not infer agreement, engagement, or comprehension. */
 export class NodDetector {
-  constructor({ minimumFps = 15, excursionDegrees = 7, returnToleranceDegrees = 3.5, maximumCycleMs = 1_200, refractoryMs = 700 } = {}) {
+  constructor({ minimumFps = 15, excursionDegrees = 3, returnToleranceDegrees = 1.8, maximumCycleMs = 2_200, refractoryMs = 650 } = {}) {
     this.minimumFps = minimumFps;
     this.excursionDegrees = excursionDegrees;
     this.returnToleranceDegrees = returnToleranceDegrees;
@@ -22,6 +27,7 @@ export class NodDetector {
     this.excursionStartedAtMs = null;
     this.lastEventAtMs = -Infinity;
     this.count = 0;
+    this.listeningCount = 0;
     this.clusterCount = 0;
     this.eligibleListeningMs = 0;
     this.previousValidAtMs = null;
@@ -41,25 +47,27 @@ export class NodDetector {
         available: false,
         reason: Number(targetFps) < this.minimumFps ? 'INSUFFICIENT_VISION_FRAME_RATE' : 'INSUFFICIENT_HEAD_POSE',
         count: this.count,
+        listeningCount: this.listeningCount,
         clusterCount: this.clusterCount,
         eligibleListeningMs: this.eligibleListeningMs,
-        listeningNodsPerMinute: this.eligibleListeningMs > 0 ? Number((this.count * 60_000 / this.eligibleListeningMs).toFixed(1)) : null,
+        listeningNodsPerMinute: this.eligibleListeningMs > 0 ? Number((this.listeningCount * 60_000 / this.eligibleListeningMs).toFixed(1)) : null,
       });
       return this.latest;
     }
-    if (this.previousValidAtMs !== null && ALLOWED_STATES.has(this.previousValidState)) {
+    if (this.previousValidAtMs !== null && LISTENING_STATES.has(this.previousValidState)) {
       this.eligibleListeningMs += Math.max(0, Math.min(250, time - this.previousValidAtMs));
     }
     this.previousValidAtMs = time;
     this.previousValidState = state;
-    if (!ALLOWED_STATES.has(state)) {
+    if (!MEASURED_STATES.has(state)) {
       this.excursionStartedAtMs = null;
       this.latest = Object.freeze({
         available: true,
         count: this.count,
+        listeningCount: this.listeningCount,
         clusterCount: this.clusterCount,
         eligibleListeningMs: this.eligibleListeningMs,
-        listeningNodsPerMinute: this.eligibleListeningMs > 0 ? Number((this.count * 60_000 / this.eligibleListeningMs).toFixed(1)) : null,
+        listeningNodsPerMinute: this.eligibleListeningMs > 0 ? Number((this.listeningCount * 60_000 / this.eligibleListeningMs).toFixed(1)) : null,
         state,
         gated: true,
         event: null,
@@ -67,8 +75,6 @@ export class NodDetector {
       });
       return this.latest;
     }
-    this.rest.push(pitch);
-    if (this.rest.length > 45) this.rest.shift();
     const baseline = median(this.rest) ?? pitch;
     const displacement = pitch - baseline;
     let event = null;
@@ -80,6 +86,7 @@ export class NodDetector {
         if (durationMs <= this.maximumCycleMs) {
           const sameCluster = time - this.lastEventAtMs <= 2_500;
           this.count += 1;
+          if (LISTENING_STATES.has(state)) this.listeningCount += 1;
           if (!sameCluster) this.clusterCount += 1;
           this.lastEventAtMs = time;
           event = Object.freeze({ type: 'HEAD_PITCH_CYCLE', startMs: this.excursionStartedAtMs, endMs: time, state, cluster: this.clusterCount });
@@ -89,18 +96,26 @@ export class NodDetector {
         this.excursionStartedAtMs = null;
       } else if (time - this.excursionStartedAtMs > this.maximumCycleMs) this.excursionStartedAtMs = null;
     }
+    // Keep the neutral reference stable during an excursion. Feeding the nod
+    // itself into the resting median made a physical down/up cycle chase its
+    // own baseline and disappear before the return frame arrived.
+    if (this.excursionStartedAtMs === null && Math.abs(displacement) <= this.returnToleranceDegrees) {
+      this.rest.push(pitch);
+      if (this.rest.length > 45) this.rest.shift();
+    }
     this.latest = Object.freeze({
       available: true,
       count: this.count,
+      listeningCount: this.listeningCount,
       clusterCount: this.clusterCount,
       eligibleListeningMs: this.eligibleListeningMs,
-      listeningNodsPerMinute: this.eligibleListeningMs > 0 ? Number((this.count * 60_000 / this.eligibleListeningMs).toFixed(1)) : null,
+      listeningNodsPerMinute: this.eligibleListeningMs > 0 ? Number((this.listeningCount * 60_000 / this.eligibleListeningMs).toFixed(1)) : null,
       state,
       event,
       baselinePitchDegrees: baseline,
       claim: 'OBSERVED_HEAD_PITCH_CYCLE',
       confidence: Number(confidence) >= 0.75 ? 'HIGH' : 'MODERATE',
-      provenance: Object.freeze({ source: 'FACIAL_TRANSFORMATION_MATRIX', method: 'LISTENING_HEAD_PITCH_CYCLE' }),
+      provenance: Object.freeze({ source: 'FACIAL_TRANSFORMATION_MATRIX', method: 'STATE_AWARE_HEAD_PITCH_CYCLE' }),
     });
     return this.latest;
   }

@@ -3,7 +3,13 @@ import { AudioWorkletPcmCapture } from './audio-worklet-capture.mjs';
 import { measurePcmFrame } from './audio-signal.mjs';
 import { FaceFamily } from './face-family.mjs';
 import { KWeightedLoudness } from './k-weighted-loudness.mjs';
-import { PitchTrack, estimateF0 } from './pitch-f0.mjs';
+import {
+  DEFAULT_CLARITY_THRESHOLD,
+  F0_MAX_HZ,
+  F0_MIN_HZ,
+  PitchTrack,
+  estimateF0,
+} from './pitch-f0.mjs';
 import { EstimatedSyllableRate } from './syllable-rate.mjs';
 import { SileroVadLane, VadHysteresis } from './vad-silero.mjs';
 
@@ -14,7 +20,7 @@ const FACE_MODEL = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/models/face_detector/b
 const ANALYTICS_ROOT = `${IVPREP_ASSET_ROOT}/analytics`;
 const FACE_WORKER = `${ANALYTICS_ROOT}/face-detector-worker.mjs`;
 const WORKER_REVISION = '3522c-primary-face-association-1';
-const FACE_INITIALIZATION_TIMEOUT_MS = 10_000;
+const FACE_INITIALIZATION_WARNING_MS = 10_000;
 const HOLISTIC_FRAME_TIMEOUT_MIN_MS = 1_000;
 const HOLISTIC_FRAME_TIMEOUT_MAX_MS = 5_000;
 // Overlay cadence. The Founder-reported lag came from the FLOOR: under load targetFps
@@ -29,6 +35,8 @@ const HOLISTIC_FRAME_TIMEOUT_MAX_MS = 5_000;
 // for a follow-up rather than bent to fit here.
 const VISION_MIN_FPS = 8;
 const VISION_MAX_FPS = 8;
+const VISION_RECOVERY_BASE_MS = 250;
+const VISION_RECOVERY_MAX_MS = 4_000;
 
 export function visionFrameWatchdogMs(expectedFrameMs = 125) {
   const frameBudget = Number.isFinite(expectedFrameMs) && expectedFrameMs > 0 ? expectedFrameMs : 125;
@@ -66,6 +74,34 @@ export function transcriptPcmFrame({ atMs, sampleRate, samples, speaking, speech
   });
 }
 
+// Silero remains the primary speech gate. A validated periodic F0 is a bounded
+// acoustic rescue when the model starts late or momentarily drops voiced speech.
+// This does not create words, WPM, or pitch: it only admits the same real PCM frame
+// to the K-weighted speech-loudness accumulator when the independent F0 cartridge
+// has already proved that the frame contains an in-range periodic human-voice
+// candidate at its normal confidence threshold.
+export function advancedSpeechEvidence({ sileroState = null, f0 = null } = {}) {
+  const sileroSpeaking = sileroState?.speaking === true;
+  const validatedPeriodicF0 = f0?.voiced === true
+    && Number.isFinite(f0?.f0Hz)
+    && f0.f0Hz >= F0_MIN_HZ
+    && f0.f0Hz <= F0_MAX_HZ
+    && Number.isFinite(f0?.confidence)
+    && f0.confidence >= DEFAULT_CLARITY_THRESHOLD;
+  return Object.freeze({
+    speaking: sileroSpeaking || validatedPeriodicF0,
+    sileroSpeaking,
+    validatedPeriodicF0,
+    method: sileroSpeaking
+      ? 'SILERO_V5_LOCAL_ONNX'
+      : validatedPeriodicF0
+        ? 'VALIDATED_PERIODIC_F0_RESCUE'
+        : sileroState
+          ? 'SILERO_V5_LOCAL_ONNX'
+          : 'NO_VALIDATED_SPEECH_EVIDENCE',
+  });
+}
+
 export class BrowserAnalyticsPipeline extends EventTarget {
   constructor({ bridge, now = () => performance.now() } = {}) {
     super();
@@ -92,6 +128,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.inFlightVision = null;
     this.faceFrameTimer = null;
     this.visionFrameTimer = null;
+    this.visionRecoveryTimer = null;
+    this.visionRecoveryAttempts = 0;
     this.faceInitTimer = null;
     this.frameId = 0;
     this.targetFps = 8;
@@ -443,8 +481,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     if (!this.answer || !(frame?.samples instanceof Float32Array)) return;
     const atMs = this.session.clock.sessionMs();
     const measured = measurePcmFrame(frame.samples);
-    const speaking = this.sileroState?.speaking === true;
     const f0 = estimateF0(frame.samples, frame.sampleRate);
+    const speechEvidence = advancedSpeechEvidence({ sileroState: this.sileroState, f0 });
+    const speaking = speechEvidence.speaking;
     this.pitchTrack.push(f0, { speaking });
     const loudness = this.kWeightedLoudness.ingest(frame.samples, { speaking });
     const db = measured.rms > 0 ? 20 * Math.log10(measured.rms) : -96;
@@ -455,10 +494,15 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       f0,
       pitchSummary: this.pitchTrack.summary(),
       vad: Object.freeze({
-        available: Boolean(this.sileroState),
+        available: Boolean(this.sileroState) || speechEvidence.validatedPeriodicF0,
         speaking,
         probability: this.sileroState?.probability ?? null,
-        provenance: Object.freeze({ source: 'SILERO_V5', method: 'LOCAL_ONNX_AUDIOWORKLET' }),
+        evidence: speechEvidence.validatedPeriodicF0 && !speechEvidence.sileroSpeaking
+          ? 'VALIDATED_PERIODIC_F0'
+          : speechEvidence.sileroSpeaking
+            ? 'SILERO_V5'
+            : 'NONE',
+        provenance: Object.freeze({ source: 'MICROPHONE', method: speechEvidence.method }),
       }),
       loudness,
       estimatedSyllableRate,
@@ -494,6 +538,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
   }
 
   startVision(video) {
+    clearTimeout(this.visionTimer);
+    clearTimeout(this.visionRecoveryTimer);
+    this.visionTimer = null;
+    this.visionRecoveryTimer = null;
     this.visionVideo = video;
     this.frameInFlight = false;
     this.workerErrors = [];
@@ -626,8 +674,21 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     if (this.faceWorker && !this.faceWorkerReady && !this.faceInitTimer) {
       this.faceInitTimer = setTimeout(() => {
         this.faceInitTimer = null;
-        if (generation === this.generation && this.faceWorker && !this.faceWorkerReady) this.failFaceWorker('face safety initialization timed out');
-      }, FACE_INITIALIZATION_TIMEOUT_MS);
+        if (generation === this.generation && this.faceWorker && !this.faceWorkerReady) {
+          // Initializing MediaPipe can exceed ten seconds on a thermally or
+          // battery-throttled laptop. Permanently terminating the privacy worker at
+          // this warning boundary made the whole six-minute session report
+          // PRIMARY_LOCK_UNAVAILABLE even though the worker could still become ready.
+          // Keep the fail-closed gate in place, report the delay, and accept the
+          // eventual ready event. Actual worker errors still take failFaceWorker().
+          this.recordWorkerError('multi-face protection initialization delayed');
+          this.dispatch('state', {
+            state: 'partial', subsystem: 'vision-primary-lock',
+            atMs: this.answer ? this.session.clock.sessionMs() : null,
+            message: 'Face-safety initialization is taking longer than expected.',
+          });
+        }
+      }, FACE_INITIALIZATION_WARNING_MS);
     }
   }
 
@@ -848,6 +909,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
           inferenceMs: pipelineMs,
           expectedFrameMs: message.expectedFrameMs,
         });
+        this.visionRecoveryAttempts = 0;
         // Y1-Y2-CAM-V6-3508: the overlay felt detached because this floor was 2 FPS -
         // a 500ms update interval, which reads as lag even though frames are never
         // queued (capture is skipped while a frame is in flight, so landmarks are
@@ -954,6 +1016,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.inFlightVision = null;
     this.frameInFlight = false;
     this.resetEphemeralVisionState();
+    this.overlayConsumer?.({ bitmap: null, clear: true, reason, atMs });
     this.dispatch('state', { state: 'partial', subsystem, atMs, message: reason });
   }
 
@@ -985,23 +1048,42 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.clearVisionFrameWatchdog();
     this.inFlightVision = null;
     this.generation += 1;
+    this.scheduleVisionRecovery(message);
   }
 
   failFaceWorker(message) {
-    clearTimeout(this.faceInitTimer);
-    this.faceInitTimer = null;
-    this.recordWorkerError(`multi-face protection: ${message}`);
-    if (this.faceWorker) this.faceWorker.terminate();
-    this.faceWorker = null;
-    this.faceWorkerReady = false;
-    this.multiFaceProtection = false;
-    const pending = this.pendingVisionFrame;
-    if (pending) this.forwardPendingVision(null, pending.generation, pending.answerEpoch, pending.visionEpoch, pending.frameId, pending.timestampMs, null, { primaryLock: null });
+    // Primary-person association is required by every face metric. A timed-out
+    // safety worker cannot be left permanently absent while Holistic continues;
+    // recycle the paired local workers and resume the same answer epoch.
+    this.failVisionWorker(`multi-face protection: ${message}`);
+  }
+
+  scheduleVisionRecovery(reason = 'vision_worker_unavailable') {
+    clearTimeout(this.visionRecoveryTimer);
+    this.visionRecoveryTimer = null;
+    const video = this.visionVideo;
+    const answerEpoch = this.answerEpoch;
+    if (!this.answer || this.answerSealed || document.hidden || !video || !this.visionSourceIsLive(video)) return false;
+    const attempt = ++this.visionRecoveryAttempts;
+    const delay = Math.min(VISION_RECOVERY_MAX_MS, VISION_RECOVERY_BASE_MS * (2 ** Math.min(4, attempt - 1)));
     this.dispatch('state', {
-      state: 'partial', subsystem: 'multi-face-protection',
-      atMs: this.answer ? this.session.clock.sessionMs() : null,
-      message: 'Person-specific visual analytics are unavailable.',
+      state: 'recovering', subsystem: 'vision',
+      atMs: this.session.clock.sessionMs(),
+      message: String(reason || 'vision worker unavailable'),
+      attempt,
+      retryInMs: delay,
     });
+    this.visionRecoveryTimer = setTimeout(() => {
+      this.visionRecoveryTimer = null;
+      if (!this.answer || this.answerSealed || this.answerEpoch !== answerEpoch || document.hidden || !this.visionSourceIsLive(video)) return;
+      try {
+        this.startVision(video);
+      } catch (error) {
+        this.recordWorkerError(`vision recovery: ${error?.message || error}`);
+        this.scheduleVisionRecovery('vision recovery initialization failed');
+      }
+    }, delay);
+    return true;
   }
 
   onVisibilityChange() {
@@ -1014,6 +1096,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     else if (this.hiddenAt !== null) {
       this.session.observationGap({ startMs: this.hiddenAt, endMs: at, reason: 'document_hidden', modality: 'all' });
       this.hiddenAt = null;
+      if (!this.worker || !this.faceWorker) this.scheduleVisionRecovery('document_visible_worker_recovery');
     }
   }
 
@@ -1089,8 +1172,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     clearInterval(this.audioTimer);
     this.stopAdvancedAudio();
     clearTimeout(this.visionTimer);
+    clearTimeout(this.visionRecoveryTimer);
     this.audioTimer = null;
     this.visionTimer = null;
+    this.visionRecoveryTimer = null;
     this.clearPendingVision();
     this.clearVisionFrameWatchdog();
     this.inFlightVision = null;
@@ -1144,6 +1229,25 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     return Object.freeze({
       pitchMedianHz: this.pitchTrack.calibrationMedianHz,
       faceBaselineAvailable: this.faceFamily.hasPersonalBaseline(),
+    });
+  }
+
+  beginPersonalFaceBaseline() {
+    if (this.faceFamily.hasPersonalBaseline()) {
+      return Object.freeze({ capturing: false, available: true, reason: 'PERSONAL_BASELINE_RETAINED' });
+    }
+    this.faceFamily.beginBaseline();
+    this.faceBaselineCapturing = true;
+    return Object.freeze({ capturing: true, available: false, reason: 'CAPTURING_PERSONAL_FACE_BASELINE' });
+  }
+
+  endPersonalFaceBaseline() {
+    if (this.faceBaselineCapturing) this.faceFamily.endBaseline();
+    this.faceBaselineCapturing = false;
+    return Object.freeze({
+      capturing: false,
+      available: this.faceFamily.hasPersonalBaseline(),
+      reason: this.faceFamily.hasPersonalBaseline() ? null : 'INSUFFICIENT_FACE_BASELINE_FRAMES',
     });
   }
 

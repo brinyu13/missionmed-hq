@@ -216,7 +216,7 @@
 .setup-left { flex: 0 0 400px; }
 .setup-mid { flex: 1; min-width: 320px; }
 .setup-right { flex: 0 0 290px; }
-.wheel {
+.wheel, .device-select {
   display: flex; align-items: center; gap: 11px;
   height: 48px; padding: 0 15px;
   background: rgba(255, 255, 255, .04);
@@ -225,9 +225,22 @@
   cursor: pointer; margin-bottom: 12px;
   transition: border-color var(--e-fast);
 }
-.wheel:hover { border-color: var(--g-cyan); }
+.wheel:hover, .device-select:hover, .device-select:focus-within { border-color: var(--g-cyan); }
 .wheel span { flex: 1; }
-.wheel i { color: var(--g-dim); font-style: normal; }
+.wheel i, .device-select i { color: var(--g-dim); font-style: normal; pointer-events: none; }
+.device-select select {
+  flex: 1; min-width: 0; border: 0; outline: 0; appearance: none;
+  color: var(--g-text); background: transparent;
+  font: 600 13.5px/1 var(--g-font); cursor: pointer;
+}
+.device-select select option { color: #101522; background: #f7f9fd; }
+.device-readiness { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.device-readiness span, .device-state {
+  font: 700 9.5px/1 var(--g-mono); letter-spacing: .6px;
+  color: var(--g-dim); border: 1px solid var(--g-edge); border-radius: 999px; padding: 5px 8px;
+}
+.device-readiness .ok, .device-state.ok { color: var(--g-teal); border-color: rgba(47, 231, 176, .35); }
+.device-readiness .warn { color: var(--g-amber); border-color: rgba(255, 179, 0, .35); }
 .setup-feed {
   position: relative; aspect-ratio: 16/9; border-radius: 10px; overflow: hidden;
   border: 1px solid var(--g-edge-hi);

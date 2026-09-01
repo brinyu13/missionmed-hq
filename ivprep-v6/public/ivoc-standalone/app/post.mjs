@@ -7,10 +7,23 @@ import { sceneDataUri } from './art.mjs';
 import { QUESTIONS, CATEGORIES, CALIBRATION } from './data.mjs';
 import { account, accountName } from './account.mjs';
 import { ivocApi } from './api.mjs';
+import {
+  intervalRuns,
+  mediaToSessionSeconds,
+  normalizeDurations,
+  normalizeTimebase,
+  selectLibrarySessions,
+  selectMentorSessions,
+  sessionToMediaSeconds,
+  tracePath,
+} from './post-model.mjs';
 import { ui, saveUi, draft, saveDraft, go, toast, session, setReducedMotion } from './main.mjs';
 
 const qOf = id => QUESTIONS.find(q => q.id === id);
 const fmt = s => { s = Math.max(0, Math.floor(s)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
+const optionalMs = (value, scale = 1) => value != null && Number.isFinite(Number(value))
+  ? Number(value) * scale
+  : null;
 
 function plateTint(v) { return v != null && v >= 7 && v <= 8.5 ? 'teal' : 'gold'; }
 
@@ -18,11 +31,24 @@ function plateTint(v) { return v != null && v >= 7 && v <= 8.5 ? 'teal' : 'gold'
 async function resultsModel(param) {
   if ((!param || param === 'last') && session.last) {
     const s = session.last;
+    const payload = {
+      scores: s.scores, counters: s.counters, events: s.events, history: s.history,
+      sessionDurationMs: optionalMs(s.sessionDur, 1000),
+      recordingDurationMs: optionalMs(s.recordingDur, 1000),
+      playableDurationMs: optionalMs(s.playableDur ?? s.dur, 1000),
+      activeAnsweringDurationMs: optionalMs(s.answeringDur, 1000),
+      analyticsObservationDurationMs: optionalMs(s.analyticsObservationDur, 1000),
+      recordingStartSessionMs: s.recordingStartSessionMs,
+      pausedSpans: s.pausedSpans,
+    };
+    const durations = normalizeDurations(payload);
+    const timebase = normalizeTimebase(payload);
     return {
-      title: s.title, q: s.question, date: 'Just now', dur: fmt(s.dur), recorded: s.recorded,
+      title: s.title, q: s.question, date: 'Just now', dur: fmt(durations.playableMs / 1000), recorded: s.recorded,
       scores: { pace: s.scores.pace, volume: s.scores.volume, variety: s.scores.variety },
-      wpmAvg: s.wpmAvg, counters: s.counters, events: s.events, total: s.t, live: true,
-      recordingId: s.recordingId, payload: { scores: s.scores, counters: s.counters, events: s.events, history: s.history },
+      wpmAvg: s.wpmAvg, counters: s.counters, events: s.events, history: s.history || [],
+      total: Math.max(1, (durations.timelineMs ?? 1_000) / 1000), replayTotal: Math.max(1, (durations.replayMs ?? 1_000) / 1000), live: true,
+      recordingId: s.recordingId, payload, durations, timebase,
     };
   }
   let row = null;
@@ -31,19 +57,24 @@ async function resultsModel(param) {
   if (!row) return {
     title: 'No completed session', q: null, date: '—', dur: '00:00', recorded: false,
     scores: { pace: null, volume: null, variety: null }, wpmAvg: null, total: 1,
-    counters: { nods: 0, smiles: 0, gestures: 0, handsPct: null }, events: [], payload: null,
+    counters: { nods: null, smiles: null, gestures: null, handsPct: null }, events: [], history: [], payload: null,
+    durations: normalizeDurations({}), timebase: normalizeTimebase({}), replayTotal: 1,
   };
   const payload = row.results?.payload || {};
   const q = qOf(row.questionId) || (row.questionText ? { id: row.questionId, text: row.questionText } : null);
-  const durS = Math.max(0, Number(row.durationMs || row.recording?.durationMs || 0) / 1000);
+  const durations = normalizeDurations({ ...payload, recording: row.recording, durationMs: row.durationMs });
+  const timebase = normalizeTimebase({ ...payload, ...(row.recording || {}) });
+  const durS = Math.max(0, Number(durations.playableMs ?? 0) / 1000);
   return {
     id: row.id, title: row.title, q,
     date: row.endedAt ? new Date(row.endedAt).toLocaleString() : new Date(row.startedAt).toLocaleString(),
     dur: fmt(durS), recorded: row.recording?.status === 'saved', recordingId: row.recording?.id || null,
     scores: { pace: payload.scores?.pace ?? null, volume: payload.scores?.volume ?? null, variety: payload.scores?.variety ?? null },
-    wpmAvg: payload.wpmLastObserved ?? payload.metrics?.SPEED_WPM?.wordsPerMinute ?? payload.wpmAvg ?? null, total: Math.max(1, durS),
-    counters: { nods: payload.counters?.nods ?? 0, smiles: payload.counters?.smiles ?? 0, gestures: payload.counters?.gestures ?? 0, handsPct: payload.counters?.handsPct ?? null },
-    events: Array.isArray(payload.events) ? payload.events : [], payload,
+    wpmAvg: payload.wpmLastObserved ?? payload.metrics?.SPEED_WPM?.wordsPerMinute ?? payload.wpmAvg ?? null,
+    total: Math.max(1, Number(durations.timelineMs ?? 1_000) / 1000), replayTotal: Math.max(1, Number(durations.replayMs ?? 1_000) / 1000),
+    counters: { nods: payload.counters?.nods ?? null, smiles: payload.counters?.smiles ?? null, gestures: payload.counters?.gestures ?? null, handsPct: payload.counters?.handsPct ?? null },
+    events: Array.isArray(payload.events) ? payload.events : [],
+    history: Array.isArray(payload.history) ? payload.history : [], payload, durations, timebase,
   };
 }
 
@@ -53,7 +84,69 @@ const EV_META = {
   nod: { color: 'var(--g-violet)', icon: '◦', pos: true },
   answer: { color: 'var(--g-gold)', icon: '■', pos: true },
   cue: { color: 'var(--g-gold)', icon: '↕', pos: false },
+  question: { color: 'var(--g-cyan)', icon: '?', pos: false },
+  transition: { color: 'var(--g-violet)', icon: '⇄', pos: false },
+  'recording-start': { color: 'var(--g-red)', icon: '●', pos: false },
+  'recording-pause': { color: 'var(--g-amber)', icon: 'Ⅱ', pos: false },
+  'recording-resume': { color: 'var(--g-teal)', icon: '▶', pos: false },
+  'recording-stop': { color: 'var(--g-red)', icon: '■', pos: false },
 };
+
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
+function flightRecorderMarkup(model, windowSeconds = 0) {
+  const fullTotal = Math.max(1, model.total);
+  const total = windowSeconds > 0 ? Math.min(fullTotal, windowSeconds) : fullTotal;
+  const start = Math.max(0, fullTotal - total);
+  const history = (model.history || [])
+    .filter(point => Number(point?.t) >= start)
+    .map(point => ({ ...point, t: Number(point.t) - start }));
+  const visibleEvents = (model.events || []).filter(event => Number(event?.t) >= start && Number(event?.t) <= start + total);
+  const traces = [
+    ['VOLUME', 'vol', 'var(--g-teal)'],
+    ['PITCH', 'pitch', 'var(--g-violet)'],
+    ['PACE', 'pace', 'var(--g-cyan)'],
+    ['VOCAL VARIETY', 'variety', 'var(--g-gold)'],
+  ];
+  const stateColors = { LISTENING: '#3f6bd8', THINKING: '#8b7cf7', ANSWERING: '#2fbf63', PAUSE: '#ffc24b', TRANSITION: '#8fa0d9', SETUP: '#57628a' };
+  const stateRuns = intervalRuns(history, point => point.state || 'UNAVAILABLE', total);
+  const handRuns = intervalRuns(history, point => point.hands || 'NONE', total);
+  const presenceRuns = intervalRuns(history, point => point.presence || 'UNAVAILABLE', total);
+  const gapRuns = intervalRuns(history, point => point.signalGap === true
+    || point.speaking === true && point.vol == null && point.pitch == null && point.pace == null ? 'GAP' : 'OBSERVED', total)
+    .filter(run => run.value === 'GAP');
+  const eventRows = [
+    ['GESTURES', visibleEvents.filter(event => event.kind === 'gesture')],
+    ['SMILES', visibleEvents.filter(event => event.kind === 'smile')],
+    ['HEAD NODS', visibleEvents.filter(event => event.kind === 'nod')],
+    ['COACHING', visibleEvents.filter(event => event.kind === 'cue')],
+    ['QUESTION / TURN', visibleEvents.filter(event => event.kind === 'question' || event.kind === 'transition' || event.kind === 'answer')],
+    ['RECORDING', visibleEvents.filter(event => String(event.kind || '').startsWith('recording-'))],
+  ];
+  const lane = (label, body, group) => `<div class="fr-lane" data-fr-lane="${group}"><div class="fr-label">${label}</div><div class="fr-track">${body}</div></div>`;
+  const realTraceLanes = traces.map(([label, key, color]) => lane(label,
+    tracePath(history, key, total)
+      ? `<svg viewBox="0 0 100 30" preserveAspectRatio="none"><path d="${tracePath(history, key, total)}" stroke="${color}"/></svg>`
+      : '<span class="fr-unavail">UNAVAILABLE · NO OBSERVED RUN</span>', 'voice')).join('');
+  const stateLane = lane('CONVERSATION STATE', stateRuns.map(run => `<i class="fr-run" style="left:${run.left}%;width:${run.width}%;background:${stateColors[run.value] || '#57628a'}" title="${esc(run.value)} · ${fmt(start + run.start)}–${fmt(start + run.end)}"></i>`).join('') || '<span class="fr-unavail">NO STATE HISTORY</span>', 'behavior');
+  const handsLane = lane('HAND VISIBILITY', handRuns.map(run => `<i class="fr-run hands-${esc(run.value).toLowerCase()}" style="left:${run.left}%;width:${run.width}%" title="${esc(run.value)}"></i>`).join('') || '<span class="fr-unavail">NO HAND HISTORY</span>', 'behavior');
+  const presenceLane = lane('FRAMING / PRESENCE', presenceRuns.map(run => `<i class="fr-run presence-${esc(run.value).toLowerCase()}" style="left:${run.left}%;width:${run.width}%" title="${esc(run.value)}"></i>`).join('') || '<span class="fr-unavail">NO FRAMING HISTORY</span>', 'behavior');
+  const gapLane = lane('SIGNAL GAPS', gapRuns.map(run => `<i class="fr-run signal-gap" style="left:${run.left}%;width:${run.width}%" title="Signal unavailable · ${fmt(start + run.start)}"></i>`).join('') || '<span class="fr-ok">NO MULTI-SIGNAL GAPS OBSERVED</span>', 'evidence');
+  const chipLanes = eventRows.map(([label, events]) => lane(label,
+    events.length ? events.map(event => `<button class="fr-chip" data-seek="${Number(event.t) || 0}" style="left:${Math.max(0, Math.min(100, ((Number(event.t) || 0) - start) / total * 100))}%" title="${esc(event.label)} · ${fmt(Number(event.t) || 0)}">${esc(event.label)}</button>`).join('') : '<span class="fr-unavail">NO VALIDATED EVENTS</span>', 'events')).join('');
+  return `<section class="flight-recorder" data-fr-start="${start}" data-fr-total="${total}">
+    <div class="fr-head">
+      <span class="fr-badge">FR-C</span>
+      <div><b>SESSION FLIGHT RECORDER</b><small>EVIDENCE, NOT VERDICT · CHIPS SEEK WITH 2-SECOND PRE-ROLL · GAPS STAY VISIBLE</small></div>
+      <div class="fr-groups"><button class="on" data-fr-group="voice">VOICE</button><button class="on" data-fr-group="behavior">BEHAVIOR</button><button class="on" data-fr-group="events">EVENTS</button><button class="on" data-fr-group="evidence">GAPS</button></div>
+      <div class="fr-zoom" aria-label="Flight Recorder time scale"><button class="${windowSeconds === 30 ? 'on' : ''}" data-fr-zoom="30">30S</button><button class="${windowSeconds === 60 ? 'on' : ''}" data-fr-zoom="60">1M</button><button class="${windowSeconds === 180 ? 'on' : ''}" data-fr-zoom="180">3M</button><button class="${windowSeconds === 0 ? 'on' : ''}" data-fr-zoom="0">FULL</button></div>
+    </div>
+    <div class="fr-ruler"><span>${fmt(start)}</span><span>${fmt(start + total / 2)}</span><span>${fmt(start + total)}</span></div>
+    <div class="fr-lanes" data-fr-inspect>${realTraceLanes}${stateLane}${handsLane}${presenceLane}${chipLanes}${gapLane}<i class="fr-playhead" id="frPlayhead"></i><output class="fr-inspector" id="frInspector" hidden></output></div>
+  </section>`;
+}
 
 /* ================= RESULTS ================= */
 async function resultsScreen(el, { param }) {
@@ -70,6 +163,12 @@ async function resultsScreen(el, { param }) {
     ['GESTURES', m.counters.gestures], ['HANDS VISIBLE', m.counters.handsPct != null ? m.counters.handsPct + '%' : '—'],
   ];
   const nextQ = QUESTIONS.find(q => q.practiced === 0) || QUESTIONS[2];
+  const durationItems = [
+    ['PLAYABLE RECORDING', m.durations?.playableMs],
+    ['SESSION', m.durations?.sessionMs],
+    ['ACTIVE ANSWERING', m.durations?.activeAnsweringMs],
+    ['ANALYTICS OBSERVED', m.durations?.analyticsObservationMs],
+  ];
 
   el.innerHTML = `
   <div class="results-scroll">
@@ -82,6 +181,7 @@ async function resultsScreen(el, { param }) {
   <div class="res-head">
     <h1 class="t-display-md">SESSION COMPLETE.</h1>
     <div class="res-q">${m.q ? `“${m.q.text}”` : ''}</div>
+    <div class="duration-strip">${durationItems.map(([label, value]) => `<span><em>${label}</em><b>${value == null ? '—' : fmt(value / 1000)}</b></span>`).join('')}</div>
   </div>
 
   <div class="res-hero">
@@ -109,7 +209,7 @@ async function resultsScreen(el, { param }) {
         </div>`).join('')}
       </div>
       <div class="res-counters">
-        ${counters.map(([k, v]) => `<div class="rcount"><em>${k}</em><b>${v}</b></div>`).join('')}
+        ${counters.map(([k, v]) => `<div class="rcount"><em>${k}</em><b>${v ?? '—'}</b></div>`).join('')}
       </div>
       <div class="res-progression">
         <span class="chip teal"><span class="dot"></span>STRUCTURED RESULTS SAVED</span>
@@ -118,6 +218,8 @@ async function resultsScreen(el, { param }) {
       </div>
     </div>
   </div>
+
+  <div id="flightRecorderHost">${flightRecorderMarkup(m)}</div>
 
   <div class="res-moments">
     <div class="mom-col">
@@ -175,6 +277,26 @@ async function resultsScreen(el, { param }) {
   }
 
   let playback = null;
+  let flightWindowSeconds = 0;
+  function flightWindow() {
+    const section = el.querySelector('.flight-recorder');
+    return {
+      start: Number(section?.dataset.frStart || 0),
+      total: Math.max(1, Number(section?.dataset.frTotal || m.total)),
+    };
+  }
+  function updatePlayheads(sessionSeconds) {
+    const { start, total } = flightWindow();
+    const flightPercent = Math.max(0, Math.min(1, (sessionSeconds - start) / total));
+    const replaySeconds = sessionToMediaSeconds(sessionSeconds, { ...m.timebase, playableDurationMs: m.durations?.playableMs });
+    const replayPercent = Math.max(0, Math.min(1, replaySeconds / Math.max(1, m.replayTotal)));
+    const flightHead = el.querySelector('#frPlayhead');
+    const replayHead = el.querySelector('#rrHead');
+    if (flightHead) flightHead.style.left = `calc(176px + (100% - 176px) * ${flightPercent})`;
+    if (replayHead) replayHead.style.left = `${replayPercent * 100}%`;
+    const pos = el.querySelector('#rrPos');
+    if (pos) pos.textContent = fmt(replaySeconds);
+  }
   async function ensureReplay() {
     if (!m.recordingId) { toast('This session has no saved recording.', 'info'); return null; }
     if (!playback) playback = await ivocApi.playback(m.recordingId);
@@ -182,6 +304,13 @@ async function resultsScreen(el, { param }) {
     if (video.src !== playback.url) video.src = playback.url;
     video.hidden = false;
     el.querySelector('.rr-art').hidden = true;
+    if (!video.dataset.flightBound) {
+      video.dataset.flightBound = 'true';
+      video.addEventListener('timeupdate', () => {
+        const sessionSeconds = mediaToSessionSeconds(video.currentTime, m.timebase);
+        updatePlayheads(sessionSeconds);
+      });
+    }
     return video;
   }
   function downloadJson() {
@@ -193,11 +322,23 @@ async function resultsScreen(el, { param }) {
   el.addEventListener('click', e => {
     const seek = e.target.closest('[data-seek]');
     if (seek) {
-      const t = +seek.dataset.seek;
-      const head = el.querySelector('#rrHead');
-      const pos = el.querySelector('#rrPos');
-      if (head) { head.style.left = `${(t / m.total) * 100}%`; pos.textContent = fmt(t); }
-      void ensureReplay().then((video) => { if (video) { video.currentTime = t; void video.play(); toast(`Replay seek → ${fmt(t)}`, 'info'); } });
+      const eventT = +seek.dataset.seek;
+      const sessionT = seek.classList.contains('fr-chip') ? Math.max(0, eventT - 2) : eventT;
+      const mediaT = sessionToMediaSeconds(sessionT, { ...m.timebase, playableDurationMs: m.durations?.playableMs });
+      updatePlayheads(sessionT);
+      void ensureReplay().then((video) => { if (video) { video.currentTime = mediaT; void video.play(); toast(`Replay seek → ${fmt(mediaT)} media / ${fmt(sessionT)} session${seek.classList.contains('fr-chip') ? ' (−2s context)' : ''}`, 'info'); } });
+      return;
+    }
+    const group = e.target.closest('[data-fr-group]');
+    if (group) {
+      group.classList.toggle('on');
+      el.querySelectorAll(`[data-fr-lane="${group.dataset.frGroup}"]`).forEach(lane => { lane.hidden = !group.classList.contains('on'); });
+      return;
+    }
+    const zoom = e.target.closest('[data-fr-zoom]');
+    if (zoom) {
+      flightWindowSeconds = Number(zoom.dataset.frZoom) || 0;
+      el.querySelector('#flightRecorderHost').innerHTML = flightRecorderMarkup(m, flightWindowSeconds);
       return;
     }
     if (e.target.closest('[data-replay]')) { void ensureReplay().then((video) => video?.play()); return; }
@@ -212,6 +353,21 @@ async function resultsScreen(el, { param }) {
       draft.mode = 'question'; draft.qids = [nextQ.id]; saveDraft(); go('setup');
     }
   });
+  el.addEventListener('pointermove', event => {
+    const track = event.target.closest('.fr-track');
+    const inspector = el.querySelector('#frInspector');
+    if (!track || !inspector) { if (inspector) inspector.hidden = true; return; }
+    const rect = track.getBoundingClientRect();
+    if (!(rect.width > 0)) return;
+    const { start, total } = flightWindow();
+    const at = start + Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * total;
+    const nearest = (m.history || []).reduce((best, point) => Math.abs(Number(point?.t) - at) < Math.abs(Number(best?.t) - at) ? point : best, m.history?.[0] || null);
+    if (!nearest) { inspector.hidden = true; return; }
+    inspector.hidden = false;
+    inspector.style.left = `${Math.max(182, Math.min(el.querySelector('.fr-lanes').clientWidth - 250, event.clientX - el.querySelector('.fr-lanes').getBoundingClientRect().left))}px`;
+    inspector.style.top = `${Math.max(4, event.clientY - el.querySelector('.fr-lanes').getBoundingClientRect().top - 52)}px`;
+    inspector.textContent = `${fmt(at)} · ${nearest.state || 'STATE —'} · VOL ${nearest.vol == null ? '—' : Number(nearest.vol).toFixed(2)} · PITCH ${nearest.pitch == null ? '—' : Number(nearest.pitch).toFixed(2)} · PACE ${nearest.pace == null ? '—' : Number(nearest.pace).toFixed(2)} · HANDS ${nearest.hands || '—'}`;
+  });
 }
 
 /* ================= LIBRARY ================= */
@@ -220,12 +376,18 @@ function rowScores(row) {
   const scores = row.results?.payload?.scores || {};
   return { pace: scores.pace ?? null, volume: scores.volume ?? null, variety: scores.variety ?? null };
 }
-function rowDuration(row) { return fmt(Number(row.durationMs || row.recording?.durationMs || 0) / 1000); }
+function rowDuration(row) { return fmt(Number(row.recording?.durationMs ?? row.durationMs ?? 0) / 1000); }
 function scoreText(value) { return value != null && Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '—'; }
 async function libraryScreen(el) {
   let filter = 'all';
+  let query = '';
+  let sort = 'newest';
+  let view = ui.libraryView === 'grid' ? 'grid' : 'list';
+  let dateRangeDays = 0;
+  let category = 'all';
+  let performance = 'all';
   const payload = await ivocApi.library();
-  const sessions = payload.sessions || [];
+  const sessions = (payload.sessions || []).map(row => ({ ...row, questionCategory: qOf(row.questionId)?.cat || row.questionCategory || '' }));
   el.innerHTML = `
   <div class="topline">
     <span class="crumb">VIDEO LIBRARY / <b>YOUR FILM</b></span>
@@ -236,14 +398,41 @@ async function libraryScreen(el) {
     ${[['all', 'ALL'], ['quick', 'QUICK'], ['question', 'QUESTION'], ['mock', 'MOCK'], ['reviewed', 'REVIEWED'], ['pending', 'PENDING REVIEW']]
       .map(([v, l]) => `<button class="qcat ${v === 'all' ? 'on' : ''}" data-focusable data-f="${v}" style="--cc:var(--g-gold)"><span>${l}</span></button>`).join('')}
   </div>
-  <div class="lib-grid" id="libGrid"></div>`;
+  <div class="lib-tools">
+    <label class="lib-search"><span>SEARCH</span><input id="libSearch" type="search" placeholder="Session title or interview question" autocomplete="off"></label>
+    <label class="lib-filter-select"><span>DATE</span><select id="libDate"><option value="0">Any time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label>
+    <label class="lib-filter-select"><span>CATEGORY</span><select id="libCategory"><option value="all">All categories</option>${CATEGORIES.map(item => `<option value="${item.id}">${esc(item.label)}</option>`).join('')}</select></label>
+    <label class="lib-filter-select"><span>PERFORMANCE</span><select id="libPerformance"><option value="all">All observed</option><option value="on-target">In corridor</option><option value="needs-work">Needs review</option></select></label>
+    <label class="lib-sort"><span>SORT</span><select id="libSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="duration">Duration</option><option value="pace">Pace</option><option value="volume">Volume</option><option value="variety">Variety</option><option value="review">Review status</option><option value="question">Question</option><option value="score">Highest coaching score</option></select></label>
+    <div class="lib-view" aria-label="Library view"><button class="${view === 'list' ? 'on' : ''}" data-view="list">☰ LIST</button><button class="${view === 'grid' ? 'on' : ''}" data-view="grid">▦ GRID</button></div>
+  </div>
+  <div class="lib-grid list" id="libGrid"></div>`;
 
   const grid = el.querySelector('#libGrid');
   function paint() {
-    const rows = sessions.filter(s =>
-      filter === 'all' ? true :
-        filter === 'reviewed' ? s.reviewStatus === 'reviewed' :
-          filter === 'pending' ? s.reviewStatus !== 'reviewed' : s.sessionType === filter);
+    const rows = selectLibrarySessions(sessions, { filter, query, sort, scoreOf: rowScores, dateRangeDays, category, performance });
+    grid.className = `lib-grid ${view}`;
+    if (view === 'list') {
+      grid.innerHTML = rows.length ? `<div class="library-table">
+        <div class="library-head"><span>RECORDING</span><span>SESSION / QUESTION</span><span>DATE</span><span>DURATION</span><span>PACE</span><span>VOLUME</span><span>VARIETY</span><span>GESTURES</span><span>REVIEW</span><span>ACTIONS</span></div>
+        ${rows.map((s, i) => {
+          const scores = rowScores(s);
+          const q = qOf(s.questionId);
+          const gestures = s.results?.payload?.counters?.gestures;
+          const reviewed = s.reviewStatus === 'reviewed';
+          return `<article class="library-row" ${i === 0 ? 'data-autofocus' : ''}>
+            <button class="library-thumb" data-focusable data-watch="${esc(s.id)}" aria-label="Watch ${esc(s.title)}"><span style="background-image:${sceneDataUri(MODE_ART[s.sessionType] || 'mock')}"></span><i>▶</i></button>
+            <div class="library-session"><b>${esc(s.title)}</b><small>${esc(s.sessionType || 'practice').toUpperCase()} · ${esc(q?.text || s.questionText || 'Question not retained')}</small></div>
+            <time>${new Date(s.startedAt).toLocaleDateString()}<small>${new Date(s.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></time>
+            <b class="library-duration">${rowDuration(s)}</b>
+            <b>${scoreText(scores.pace)}</b><b>${scoreText(scores.volume)}</b><b>${scoreText(scores.variety)}</b>
+            <b>${gestures == null ? '—' : esc(gestures)}</b>
+            <span class="library-review ${reviewed ? 'ok' : ''}">${reviewed ? '✓ REVIEWED' : 'PENDING'}</span>
+            <div class="library-actions"><button data-focusable data-watch="${esc(s.id)}">WATCH</button><button data-focusable data-results="${esc(s.id)}">RESULTS</button>${s.recording?.status === 'saved' ? `<button data-focusable data-download="${esc(s.recording.id)}">DOWNLOAD</button>` : ''}</div>
+          </article>`;
+        }).join('')}</div>` : `<div class="lib-empty"><span class="le-art" style="background-image:${sceneDataUri('library')}"></span><b>No recordings here yet.</b><span>Start your first session — it lands in your library automatically.</span></div>`;
+      return;
+    }
     grid.innerHTML = rows.map((s, i) => {
       const scores = rowScores(s);
       const q = qOf(s.questionId);
@@ -255,7 +444,7 @@ async function libraryScreen(el) {
         <span class="po-play">▶</span>
         ${s.reviewStatus === 'reviewed' ? '<span class="po-rev ok">✓ MENTOR REVIEWED</span>' : '<span class="po-rev">PENDING REVIEW</span>'}
         <span class="po-text">
-          <b>${s.title}</b>
+          <b>${esc(s.title)}</b>
           <small>${new Date(s.startedAt).toLocaleString()} · ${q ? CATEGORIES.find(c => c.id === q.cat)?.label || '' : ''}</small>
           <em>PACE ${scoreText(scores.pace)} · VOL ${scoreText(scores.volume)} · VAR ${scoreText(scores.variety)}</em>
         </span>
@@ -263,6 +452,11 @@ async function libraryScreen(el) {
       `<div class="lib-empty"><span class="le-art" style="background-image:${sceneDataUri('library')}"></span><b>No recordings here yet.</b><span>Start your first session — it lands in your library automatically.</span></div>`;
   }
   paint();
+  el.querySelector('#libSearch').addEventListener('input', event => { query = event.target.value.trim().toLowerCase(); paint(); });
+  el.querySelector('#libSort').addEventListener('change', event => { sort = event.target.value; paint(); });
+  el.querySelector('#libDate').addEventListener('change', event => { dateRangeDays = Number(event.target.value) || 0; paint(); });
+  el.querySelector('#libCategory').addEventListener('change', event => { category = event.target.value; paint(); });
+  el.querySelector('#libPerformance').addEventListener('change', event => { performance = event.target.value; paint(); });
   el.addEventListener('click', e => {
     const f = e.target.closest('[data-f]');
     if (f) {
@@ -270,8 +464,23 @@ async function libraryScreen(el) {
       el.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('on', x === f));
       paint(); return;
     }
+    const viewButton = e.target.closest('[data-view]');
+    if (viewButton) {
+      view = viewButton.dataset.view;
+      ui.libraryView = view; saveUi();
+      el.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('on', button === viewButton));
+      paint(); return;
+    }
     const open = e.target.closest('[data-open]');
     if (open) go('results', open.dataset.open);
+    const watch = e.target.closest('[data-watch]');
+    if (watch) { go('results', watch.dataset.watch); return; }
+    const results = e.target.closest('[data-results]');
+    if (results) { go('results', results.dataset.results); return; }
+    const download = e.target.closest('[data-download]');
+    if (download) void ivocApi.playback(download.dataset.download, 'attachment').then(({ url }) => {
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = ''; anchor.click();
+    });
   });
 }
 
@@ -392,7 +601,14 @@ function settingsScreen(el) {
 /* ================= MENTOR ================= */
 async function mentorScreen(el) {
   if (!account.identity?.mentor && !account.identity?.admin) { go('home'); return; }
-  const queue = (await ivocApi.library(account.identity.admin ? 'all' : 'assigned')).sessions?.filter((s) => s.reviewStatus !== 'reviewed') || [];
+  const sessions = (await ivocApi.library(account.identity.admin ? 'all' : 'assigned')).sessions || [];
+  let mentorFilter = 'pending';
+  let mentorQuery = '';
+  let mentorStudent = 'all';
+  let mentorMode = 'all';
+  let mentorCategory = 'all';
+  let mentorDateRangeDays = 0;
+  const students = [...new Map(sessions.map(row => [String(row.ownerId || row.studentId || row.studentName || row.ownerDisplayName || 'unknown'), row.ownerDisplayName || row.studentName || 'Assigned student'])).entries()];
   el.innerHTML = `
   <div class="topline">
     <span class="crumb">MENTOR REVIEW / <b>YOUR STUDENTS</b></span>
@@ -401,16 +617,16 @@ async function mentorScreen(el) {
   </div>
   <div class="mentor-body">
     <section class="panel">
-      <div class="t-label pl-title">REVIEW QUEUE · ${queue.length} PENDING</div>
-      ${queue.map((s, i) => { const scores = rowScores(s); return `
-      <div class="ment-row">
-        <button class="hist-row" data-focusable ${i === 0 ? 'data-autofocus' : ''} data-open="${s.id}" style="flex:1">
-          <span class="hr-art" style="background-image:${sceneDataUri(MODE_ART[s.sessionType] || 'mock')}"></span>
-          <span class="hr-tx"><b>${s.title}</b><small>${new Date(s.startedAt).toLocaleString()} · ${rowDuration(s)}</small></span>
-          <span class="hr-scores">${scoreText(scores.pace)} · ${scoreText(scores.volume)} · ${scoreText(scores.variety)}</span>
-        </button>
-        <button class="btn btn-quiet" data-focusable data-rev="${s.id}">✓ MARK REVIEWED</button>
-      </div>`; }).join('') || '<div class="mom-empty">Queue clear — every assigned recording reviewed.</div>'}
+      <div class="mentor-toolbar">
+        <div><div class="t-label pl-title">REVIEW QUEUE</div><small>${sessions.filter(row => row.reviewStatus !== 'reviewed').length} PENDING · ${sessions.length} ASSIGNED</small></div>
+        <label class="lib-search"><span>FIND STUDENT / SESSION</span><input id="mentorSearch" type="search" placeholder="Search review queue"></label>
+        <label class="lib-filter-select"><span>STUDENT</span><select id="mentorStudent"><option value="all">All assigned</option>${students.map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join('')}</select></label>
+        <label class="lib-filter-select"><span>MODE</span><select id="mentorMode"><option value="all">All modes</option><option value="quick">Quick</option><option value="question">Question</option><option value="mock">Mock</option></select></label>
+        <label class="lib-filter-select"><span>CATEGORY</span><select id="mentorCategory"><option value="all">All categories</option>${CATEGORIES.map(item => `<option value="${item.id}">${esc(item.label)}</option>`).join('')}</select></label>
+        <label class="lib-filter-select"><span>DATE</span><select id="mentorDate"><option value="0">Any time</option><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option></select></label>
+        <div class="mentor-filters"><button class="on" data-mf="pending">PENDING</button><button data-mf="reviewed">REVIEWED</button><button data-mf="all">ALL</button></div>
+      </div>
+      <div id="mentorRows"></div>
     </section>
     <section class="panel">
       <div class="t-label pl-title">HOW MENTOR ACCESS WORKS</div>
@@ -419,7 +635,37 @@ async function mentorScreen(el) {
       </div>
     </section>
   </div>`;
+  const rowsHost = el.querySelector('#mentorRows');
+  function paintMentorRows() {
+    const enriched = sessions.map(row => ({ ...row, questionCategory: qOf(row.questionId)?.cat || row.questionCategory || '' }));
+    const rows = selectMentorSessions(enriched, {
+      filter: mentorFilter, query: mentorQuery, student: mentorStudent, mode: mentorMode,
+      category: mentorCategory, dateRangeDays: mentorDateRangeDays,
+    });
+    rowsHost.innerHTML = rows.map((s, i) => { const scores = rowScores(s); const reviewed = s.reviewStatus === 'reviewed'; return `
+    <div class="ment-row ${reviewed ? 'reviewed' : ''}">
+      <button class="hist-row" data-focusable ${i === 0 ? 'data-autofocus' : ''} data-open="${s.id}" style="flex:1">
+        <span class="hr-art" style="background-image:${sceneDataUri(MODE_ART[s.sessionType] || 'mock')}"></span>
+        <span class="hr-tx"><b>${esc(s.ownerDisplayName || s.studentName || 'Assigned student')}</b><small>${esc(s.title)} · ${esc(s.questionText || qOf(s.questionId)?.text || 'Question not retained')} · ${new Date(s.startedAt).toLocaleString()} · ${rowDuration(s)}</small></span>
+        <span class="hr-scores">PACE ${scoreText(scores.pace)} · VOL ${scoreText(scores.volume)} · VAR ${scoreText(scores.variety)}</span>
+        <span class="chip">${esc(s.assignmentStatus || 'ASSIGNED')}</span>
+      </button>
+      ${reviewed ? '<span class="chip teal">✓ REVIEWED</span>' : `<button class="btn btn-quiet" data-focusable data-rev="${s.id}">✓ MARK REVIEWED</button>`}
+    </div>`; }).join('') || '<div class="mom-empty">No sessions match this review view.</div>';
+  }
+  paintMentorRows();
+  el.querySelector('#mentorSearch').addEventListener('input', event => { mentorQuery = event.target.value.trim().toLowerCase(); paintMentorRows(); });
+  el.querySelector('#mentorStudent').addEventListener('change', event => { mentorStudent = event.target.value; paintMentorRows(); });
+  el.querySelector('#mentorMode').addEventListener('change', event => { mentorMode = event.target.value; paintMentorRows(); });
+  el.querySelector('#mentorCategory').addEventListener('change', event => { mentorCategory = event.target.value; paintMentorRows(); });
+  el.querySelector('#mentorDate').addEventListener('change', event => { mentorDateRangeDays = Number(event.target.value) || 0; paintMentorRows(); });
   el.addEventListener('click', e => {
+    const filterButton = e.target.closest('[data-mf]');
+    if (filterButton) {
+      mentorFilter = filterButton.dataset.mf;
+      el.querySelectorAll('[data-mf]').forEach(button => button.classList.toggle('on', button === filterButton));
+      paintMentorRows(); return;
+    }
     const rev = e.target.closest('[data-rev]');
     if (rev) {
       void ivocApi.markReviewed(rev.dataset.rev).then(() => { toast('Marked reviewed — the student sees this immediately.', 'save'); mentorScreen(el); });
