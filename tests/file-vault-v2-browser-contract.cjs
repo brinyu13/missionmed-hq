@@ -260,8 +260,18 @@ async function studentFlow(browser) {
 		assert(shortcutLabels.join("|") === "CV|Timeline|Personal Statement|Shared by MissionMed", `student: visual destinations are incorrect ${shortcutLabels.join("|")}`);
 		await page.locator(".fv2-home-upload-command").click();
 		assert(await page.getByRole("heading", { name: "Upload", exact: true }).isVisible(), "student: primary Home upload command did not open Upload");
-		const primaryActions = await page.locator(".fv2-upload-choice strong").allTextContents();
-		assert(primaryActions.join("|") === "CV|Personal Statement|LOR-Related|Timeline|Score Report|Certification|Miscellaneous", `student: upload categories are incorrect ${primaryActions.join("|")}`);
+			const primaryActions = await page.locator(".fv2-upload-choice strong").allTextContents();
+			assert(primaryActions.join("|") === "CV|Personal Statement|LOR-Related|Timeline|Score Report|Certification|Miscellaneous", `student: upload categories are incorrect ${primaryActions.join("|")}`);
+			const uploadDestinationVisuals = await page.locator(".fv2-upload-choice").evaluateAll(cards => cards.map(card => {
+				const art = card.querySelector(".fv2-upload-choice-art");
+				const copy = card.querySelector(".fv2-upload-choice-copy");
+				return {
+					hasArt: !!art && getComputedStyle(art).backgroundImage.includes("student-os-file-vault-v2-destinations"),
+					hasReadableCopy: !!copy && getComputedStyle(copy).textShadow !== "none",
+					height: Math.round(card.getBoundingClientRect().height)
+				};
+			}));
+			assert(uploadDestinationVisuals.length === 7 && uploadDestinationVisuals.every(card => card.hasArt && card.hasReadableCopy && card.height >= 160), `student: premium upload destinations are incomplete ${JSON.stringify(uploadDestinationVisuals)}`);
 		assert(await page.locator(".fv2-upload-choice").nth(3).getAttribute("data-fv2-document-type") === "timeline", "student: Timeline is not a distinct upload type");
 		assert(await page.locator(".fv2-upload-choice").nth(6).getAttribute("data-fv2-document-type") === "other", "student: Miscellaneous upload type changed unexpectedly");
 		assert(await page.locator(".fv2-upload-launcher").isVisible(), "student: dedicated Upload page document-type launcher missing");
@@ -855,7 +865,8 @@ async function matrixShellIntegrationFlow(browser) {
 async function adminFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "admin" }, { width: 1440, height: 1000 });
 	try {
-		assert(await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).isVisible(), "admin: Students entry heading missing");
+			assert(await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).isVisible(), "admin: Students entry heading missing");
+			assert(await page.locator(".fv2-staff-workspace").count() === 1, "admin: staff command workspace wrapper missing");
 		assert(await page.locator(".fv2-metric").count() === 0, "admin: dashboard KPI cards still define the Students experience");
 		assert(await page.locator("[data-fv2-command-search]").isVisible(), "admin: prominent student search missing");
 		assert(await page.getByRole("button", { name: /Review Queue/ }).isVisible(), "admin: Review Queue action missing");
