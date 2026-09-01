@@ -247,12 +247,11 @@ export class LiveMetricProjector {
         const priorAgeMs = Number.isFinite(this.#lastTranscriptWindowEndedAtMs)
           ? atMs - this.#lastTranscriptWindowEndedAtMs
           : Infinity;
-        if (!this.#metrics.SPEED_WPM?.available || priorAgeMs > this.#maximumTranscriptGapMs) {
-          this.#metrics.SPEED_WPM = unavailable(evaluated.reason, {
-            tier: evaluated.tier,
-            ...(evaluated.missingDependency ? { missingDependency: evaluated.missingDependency } : {}),
-          });
-        }
+        this.#metrics.SPEED_WPM = unavailable(evaluated.reason, {
+          tier: evaluated.tier,
+          ...(Number.isFinite(priorAgeMs) ? { priorAgeMs } : {}),
+          ...(evaluated.missingDependency ? { missingDependency: evaluated.missingDependency } : {}),
+        });
       } else {
         this.#provenance.transcript.method = evaluated.provenance.method;
         this.#metrics.SPEED_WPM = deepFreeze({
@@ -662,7 +661,6 @@ export class LiveMetricProjector {
     if (!this.#metrics.SPEED_WPM?.available
       || !Number.isFinite(this.#lastTranscriptWindowEndedAtMs)
       || !Number.isFinite(atMs)) return false;
-    if (['LISTENING', 'TRANSITION_TO_ANSWER', 'TRANSITION_TO_LISTENING', 'PAUSE_SHORT', 'PAUSE_LONG'].includes(this.#conversationState)) return false;
     const timingGapMs = atMs - this.#lastTranscriptWindowEndedAtMs;
     if (timingGapMs <= this.#maximumTranscriptGapMs) return false;
     this.#metrics.SPEED_WPM = unavailable('STALE_TRANSCRIPT_TIMING', {

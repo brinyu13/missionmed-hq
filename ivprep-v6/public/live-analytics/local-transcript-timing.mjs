@@ -27,6 +27,9 @@ const MINIMUM_ACOUSTIC_EVIDENCE_MS = 500;
 const MINIMUM_VOICED_SPEECH_PROBABILITY = 0.35;
 const MINIMUM_WORD_PROBABILITY = 0.35;
 const MAXIMUM_PLAUSIBLE_WPM = 360;
+const MAXIMUM_RECENT_TIMING_WINDOWS = 2;
+const MINIMUM_LIVE_WORDS = 8;
+const MINIMUM_LIVE_SPEECH_MS = 3_000;
 const WORD_TIMING_RESPONSE_KEYS = Object.freeze([
   'available',
   'providerSessions',
@@ -473,22 +476,42 @@ export class LocalTranscriptTimingProducer {
       endedAtMs: windowEndedAtMs,
       speechDurationMs: admittedSpeechDurationMs,
       captureDurationMs,
+      coverage: admittedCoverage,
     }));
-    if (this.timingWindows.length > 4) this.timingWindows.shift();
-    const firstWindow = this.timingWindows[0];
-    const streamWords = this.wordStream.snapshot().events
-      .filter((word) => word.startMs >= firstWindow.startedAtMs && word.endMs <= windowEndedAtMs + 25);
-    const streamSpeechDurationMs = this.timingWindows.reduce((sum, item) => sum + item.speechDurationMs, 0);
-    const streamCaptureDurationMs = this.timingWindows.reduce((sum, item) => sum + item.captureDurationMs, 0);
+    if (this.timingWindows.length > MAXIMUM_RECENT_TIMING_WINDOWS) this.timingWindows.shift();
+
+    // Select the smallest recent suffix that satisfies the evidence floor. A
+    // fast four-second window therefore updates immediately, while genuine slow
+    // speech may borrow only the immediately preceding window to reach eight
+    // observed words. This avoids both failure modes: a slow six-word window no
+    // longer leaves the prior WPM stuck forever, and old speech can never dilute
+    // the live reading beyond the bounded eight-second suffix.
+    const streamEvents = this.wordStream.snapshot().events;
+    let selectedWindows = [];
+    let streamWords = [];
+    let streamSpeechDurationMs = 0;
+    let streamCaptureDurationMs = 0;
+    for (let index = this.timingWindows.length - 1; index >= 0; index -= 1) {
+      selectedWindows = [this.timingWindows[index], ...selectedWindows];
+      const firstWindow = selectedWindows[0];
+      streamWords = streamEvents
+        .filter((word) => word.startMs >= firstWindow.startedAtMs && word.endMs <= windowEndedAtMs + 25);
+      streamSpeechDurationMs = selectedWindows.reduce((sum, item) => sum + item.speechDurationMs, 0);
+      streamCaptureDurationMs = selectedWindows.reduce((sum, item) => sum + item.captureDurationMs, 0);
+      if (streamWords.length >= MINIMUM_LIVE_WORDS && streamSpeechDurationMs >= MINIMUM_LIVE_SPEECH_MS) break;
+    }
+    const firstWindow = selectedWindows[0] || Object.freeze({ startedAtMs: windowStartedAtMs });
     const streamCoverage = streamCaptureDurationMs > 0
-      ? clamp(this.timingWindows.reduce((sum, item) => sum + item.speechDurationMs, 0) / streamCaptureDurationMs, 0, 1)
-      : 0;
+      ? clamp(selectedWindows.reduce((sum, item) => sum + item.coverage * item.captureDurationMs, 0) / streamCaptureDurationMs, 0, 1)
+      : admittedCoverage;
+    const recentEvidenceAvailable = streamWords.length >= MINIMUM_LIVE_WORDS
+      && streamSpeechDurationMs >= MINIMUM_LIVE_SPEECH_MS;
     this.onTiming(Object.freeze({
       atMs,
       windowStartedAtMs: firstWindow.startedAtMs,
       windowEndedAtMs,
       speechDurationMs: streamSpeechDurationMs,
-      coverage: Math.max(streamCoverage, admittedCoverage),
+      coverage: streamCoverage,
       words: Object.freeze(streamWords.map((word) => Object.freeze({
         startMs: word.startMs,
         endMs: word.endMs,
@@ -508,7 +531,7 @@ export class LocalTranscriptTimingProducer {
         rawAudioPersisted: false,
       }),
     }));
-    this.#setState('live', streamWords.length >= 8 ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
+    this.#setState('live', recentEvidenceAvailable ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
       wordCount: streamWords.length,
       windowDurationMs: Math.round(windowEndedAtMs - firstWindow.startedAtMs),
     });
