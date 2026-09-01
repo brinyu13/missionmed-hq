@@ -18,19 +18,19 @@ define( 'MMHBR_MAX_BODY_BYTES', 1048576 );
 define( 'MMHBR_MAX_RESPONSE_BYTES', 4194304 );
 define( 'MMHBR_TIMEOUT_SECONDS', 9 );
 // BEGIN GENERATED HOMEBASE RELEASE ID.
-define( 'MMHBR_RELEASE_ID', 'v-fef4cb19d5aeffa3' );
-define( 'MMHBR_RELEASE_PHP_SHA256', 'b171650c2f0136258bb6eb9923ec74eb0617467a388a8e7ec6251b66ccd7186d' );
-define( 'MMHBR_RELEASE_PHP_SIZE', 818653 );
+define( 'MMHBR_RELEASE_ID', 'v-56a06a5b26492af0' );
+define( 'MMHBR_RELEASE_PHP_SHA256', 'e4a014b28f0cdf30ad695036768bc0d4cfa2844db80388b359d17e924577b253' );
+define( 'MMHBR_RELEASE_PHP_SIZE', 819136 );
 // END GENERATED HOMEBASE RELEASE ID.
 
 /** @return array<string,array<string,mixed>> */
 function mmhbr_asset_manifest() {
 	return array(
 		// BEGIN GENERATED HOMEBASE ASSET MANIFEST.
-		'assets/app.f0e9ec537a3c.js' => array(
-			'alias' => 'f0e9ec537a3c',
-			'sha256' => 'f0e9ec537a3ca5d50c652bf2fa5057296fd93f66c6506ddea8bb9a086bab76c3',
-			'size' => 89465,
+		'assets/app.ae36b6aa1416.js' => array(
+			'alias' => 'ae36b6aa1416',
+			'sha256' => 'ae36b6aa1416edd2b59f26185d27857f127b04393c6e9f28750ee9e5d9001e41',
+			'size' => 89091,
 			'type' => 'text/javascript; charset=utf-8',
 			'cache' => 'immutable',
 		),
@@ -118,16 +118,16 @@ function mmhbr_asset_manifest() {
 			'type' => 'image/png',
 			'cache' => 'immutable',
 		),
-		'assets/styles.62c71d5e68ae.css' => array(
-			'alias' => '62c71d5e68ae',
-			'sha256' => '62c71d5e68ae0f11cbd5c4af84dc9405bc297a4a8e708e3c4f3812f3beb87914',
-			'size' => 208288,
+		'assets/styles.388ed88c0e72.css' => array(
+			'alias' => '388ed88c0e72',
+			'sha256' => '388ed88c0e724c1f51e7da4fe74269a8df7835d428dd4c7a47e8e10df3cfcebf',
+			'size' => 209006,
 			'type' => 'text/css; charset=utf-8',
 			'cache' => 'immutable',
 		),
 		'index.html' => array(
-			'alias' => 'e7bab2606231',
-			'sha256' => 'e7bab26062314847c80013322b9740a085ac3e89bf4e51307f5c4ad29d3963f8',
+			'alias' => '0fcf9afd8a22',
+			'sha256' => '0fcf9afd8a22e54b02ac4bdd1e3145d5a3534fc86cbeeb3feacdabcff2739cc9',
 			'size' => 2255,
 			'type' => 'text/html; charset=utf-8',
 			'cache' => 'html',

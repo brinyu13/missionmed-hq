@@ -487,7 +487,7 @@ function progressSummaryPanel(payload) {
         const { done, total } = categoryProgress(category);
         return `<button class="hbCatRow" type="button" data-nav="progress">
           <span class="hbCatTitle">${esc(category.title)}</span>
-          <span class="hbCatMeter"><span class="hbCatFill" style="width:${total ? Math.round((done / total) * 100) : 0}%"></span></span>
+          <progress class="hbCatMeter" value="${done}" max="${Math.max(total, 1)}" aria-label="${done} of ${total} complete"></progress>
           <span class="hbCatCount">${done}/${total}</span>
         </button>`;
       }).join('') || '<div class="storyEmpty">Your checklist is being prepared.</div>'}
@@ -678,28 +678,26 @@ function renderClassProgress() {
   const signedStudentName = !isAdmin() && !subjectContext()
     ? String(state.enrollment?.name || '').trim().toLowerCase()
     : '';
-  const matrixTemplate = `minmax(230px,1.4fr) 112px 150px repeat(${categories.length},minmax(150px,1fr))`;
-  const matrixWidth = Math.max(920, 492 + (categories.length * 150));
   main.innerHTML = `<section data-view="class-progress" class="live">
     <div class="hbPageHead">
       <h1 class="h1">Class <em>Progress</em></h1>
       <p class="hbPageSub">A read-only, class-wide matrix built from the same live checklist as My Progress. Only shared progress appears here.</p>
     </div>
     <div class="hbClassViewport" role="region" aria-label="Session A class progress matrix" tabindex="0">
-      <div class="hbClassMatrix" role="table" aria-readonly="true" style="min-width:${matrixWidth}px">
-        <div class="hbMatrixHeader" role="row" style="grid-template-columns:${matrixTemplate}">
+      <div class="hbClassMatrix" role="table" aria-readonly="true">
+        <div class="hbMatrixHeader" role="row">
           <span role="columnheader">Student</span><span role="columnheader">Overall</span><span role="columnheader">PS Stage</span>
           ${categories.map((category) => `<span role="columnheader">${esc(category.title)}</span>`).join('')}
         </div>
         ${students.map((student) => {
           const done = completed(student);
           const isYou = signedStudentName && String(student.displayName || '').trim().toLowerCase() === signedStudentName;
-          return `<div class="hbMatrixRow ${isYou ? 'isYou' : ''}" role="row" style="grid-template-columns:${matrixTemplate}">
+          return `<div class="hbMatrixRow ${isYou ? 'isYou' : ''}" role="row">
             <div class="hbMatrixIdentity" role="rowheader">
               ${studentAvatarMarkup({ name: student.displayName, photoUrl: student.avatarUrl })}
               <span><strong>${esc(student.displayName)}</strong>${isYou ? '<b class="hbYouBadge">YOU</b>' : ''}<small>Session A</small></span>
             </div>
-            <div class="hbMatrixOverall" role="cell"><span class="hbMatrixLabel">Overall</span><strong>${done}/${allItems.length}</strong><span class="hbMatrixBar"><i style="width:${allItems.length ? Math.round((done / allItems.length) * 100) : 0}%"></i></span></div>
+            <div class="hbMatrixOverall" role="cell"><span class="hbMatrixLabel">Overall</span><strong>${done}/${allItems.length}</strong><progress class="hbMatrixBar" value="${done}" max="${Math.max(allItems.length, 1)}" aria-label="${done} of ${allItems.length} complete"></progress></div>
             <div class="hbMatrixPs" role="cell"><span class="hbMatrixLabel">PS Stage</span><strong>${esc(student.psStageLabel)}</strong><small>Stage ${Number(student.psStage)} of 7</small></div>
             ${categories.map((category) => {
               const summary = categorySummary(student, category);
@@ -1263,9 +1261,7 @@ function renderStartupFailure() {
 
 function dismissOpening() {
   if (!openingNode) return;
-  openingNode.dataset.phase = 'complete';
-  openingNode.style.transition = 'opacity .45s ease';
-  openingNode.style.opacity = '0';
+  openingNode.dataset.phase = 'leaving';
   window.setTimeout(() => openingNode.remove(), 500);
 }
 
