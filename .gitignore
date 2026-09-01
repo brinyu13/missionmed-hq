@@ -75,3 +75,9 @@ _AI_HANDOFFS/**
 *token*
 _SYSTEM/r2.env
 **/.DS_Store
+
+# HomeBase V1 (HB-360A-001)
+homebase-v1/.local/
+homebase-v1/node_modules/
+!homebase-v1/public/missionmed-logo.png
+!homebase-v1/dist/assets/missionmed-logo.*.png
