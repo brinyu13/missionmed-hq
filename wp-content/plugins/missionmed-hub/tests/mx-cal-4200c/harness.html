@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>MX-CAL-4200C local QA</title>
+	<link rel="stylesheet" href="../../assets/calendar-v2/mmed-calendar-v2.css">
+	<style>html,body{margin:0;background:#0a0d14}#sos-content{min-height:100vh}</style>
+</head>
+<body>
+	<div id="sos-content"></div>
+	<script>
+	window.mmedStudentOsFeatureFlags={calendar_experience:{experience:'storyforge',forced:false,timezone_label:'Eastern Time (ET)'}};
+	(function(){
+		var nextId=900;
+		var events=[
+			{id:1,title:'Advising 1:1 — Dr. Brian',event_type:'appointment',source:'scheduler',source_id:'appt-1',start_at:'2026-09-02T15:00:00-04:00',end_at:'2026-09-02T15:30:00-04:00',meeting_url:'https://example.com/join/advising'},
+			{id:2,title:'Clinical Strategy Session — Cohort R3',event_type:'mr_session',start_at:'2026-09-02T21:00:00-04:00',end_at:'2026-09-02T22:00:00-04:00',meeting_url:'https://example.com/join/strategy'},
+			{id:3,title:'Personal Statement Draft 2 due',event_type:'assignment',start_at:'2026-09-02T23:59:00-04:00',end_at:'2026-09-03T00:00:00-04:00'},
+			{id:4,title:'USMLE Question Marathon — Block 4',event_type:'drill_step23',start_at:'2026-09-03T20:00:00-04:00',end_at:'2026-09-03T22:00:00-04:00',meeting_url:'https://example.com/join/drill'},
+			{id:5,title:'ECFMG Token Upload deadline',event_type:'deadline',start_at:'2026-09-05T23:59:00-04:00',end_at:'2026-09-06T00:00:00-04:00'},
+			{id:6,title:'IMG Roadmap Workshop',event_type:'mr_session',start_at:'2026-08-27T19:00:00-04:00',end_at:'2026-08-27T20:00:00-04:00',recording_url:'https://example.com/replay/roadmap'}
+		];
+		function response(item){return Promise.resolve(JSON.parse(JSON.stringify(item)));}
+		window.MMED_OS={profile:{is_admin:true},state:{route:'calendar',profile:{is_admin:true}},render:{},api:{
+			get:function(endpoint){if(endpoint==='/events')return response({events:events});if(endpoint==='/todos')return response({todos:[{id:1,title:'Upload Personal Statement Draft 2',due_date:'2026-09-02'},{id:2,title:'Confirm ECFMG token in MyERAS',due_date:'2026-09-05'}]});return response({});},
+			post:function(endpoint,payload){var saved=Object.assign({id:++nextId,source:'manual',user_id:0},payload);events.push(saved);return response(saved);},
+			put:function(endpoint,payload){if(endpoint==='/me/calendar-experience')return response({preference:payload.experience,resolved:payload.experience});var id=Number(endpoint.split('/').pop());var index=events.findIndex(function(event){return Number(event.id)===id});events[index]=Object.assign({},events[index],payload);return response(events[index]);},
+			delete:function(endpoint){var id=Number(endpoint.split('/').pop());events=events.filter(function(event){return Number(event.id)!==id});return response({deleted:true,id:id});}
+		}};
+	})();
+	</script>
+	<script src="../../assets/calendar-core/mmed-calendar-core.js?mx-cal-4200c=2"></script>
+	<script src="../../assets/calendar-v2/mmed-calendar-v2.js?mx-cal-4200c=2"></script>
+</body>
+</html>

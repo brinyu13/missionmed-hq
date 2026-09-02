@@ -130,6 +130,7 @@ if ( mmed_hub_is_student_os_enabled() ) {
     require_once MMED_HUB_PATH . 'includes/class-mmed-student-os.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-rest-api.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-calendar-engine.php';
+    require_once MMED_HUB_PATH . 'includes/class-mmed-calendar-experience.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-communications.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-file-vault.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-file-vault-v2-repository.php';
@@ -345,6 +346,9 @@ if ( class_exists( 'MMED_Live_Drills_SDK_V3' ) ) {
 }
 if ( class_exists( 'MMED_REST_API' ) ) {
     MMED_REST_API::init();
+}
+if ( class_exists( 'MMED_Calendar_Experience' ) ) {
+    MMED_Calendar_Experience::init();
 }
 
 /* Admin hooks */

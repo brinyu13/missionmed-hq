@@ -58,10 +58,13 @@ class MMED_Student_OS {
 		}
 
 		$css_path           = MMED_HUB_PATH . 'assets/student-os.css';
-		$js_asset           = 'student-os.c1d97237eab4936d.js';
+		$js_asset           = 'student-os.16ca42c53ca2e890.js';
 		$js_path            = MMED_HUB_PATH . 'assets/' . $js_asset;
 		$scheduler_mount_js = MMED_HUB_PATH . 'assets/scheduler-mount.js';
 		$runtime_v2_enabled = self::is_runtime_v2_enabled();
+		$calendar_experience = class_exists( 'MMED_Calendar_Experience' )
+			? MMED_Calendar_Experience::bootstrap()
+			: array( 'experience' => 'classic', 'forced' => false );
 
 		wp_enqueue_style(
 			'mmed-student-os-css',
@@ -83,6 +86,7 @@ class MMED_Student_OS {
 			'mmedStudentOsFeatureFlags',
 			array(
 				'feature_flags' => self::get_feature_flags(),
+				'calendar_experience' => $calendar_experience,
 				'runtime_v2'    => array(
 					'enabled' => $runtime_v2_enabled,
 					'flag'    => self::OPTION_RUNTIME_V2,
@@ -130,28 +134,50 @@ class MMED_Student_OS {
 			);
 		}
 
-		/* Calendar v4 override (loads after student-os.js) */
-		$cal4_css = MMED_HUB_PATH . 'assets/student-os-calendar-v4.css';
-		$cal4_js  = MMED_HUB_PATH . 'assets/student-os-calendar-v4.js';
+		/* Calendar shared core plus exactly one server-resolved renderer. */
+		$calendar_is_v2 = 'storyforge' === ( $calendar_experience['experience'] ?? 'classic' );
+		$core_js       = MMED_HUB_PATH . 'assets/calendar-core/mmed-calendar-core.js';
+		$renderer_css  = $calendar_is_v2
+			? MMED_HUB_PATH . 'assets/calendar-v2/mmed-calendar-v2.css'
+			: MMED_HUB_PATH . 'assets/student-os-calendar-v4.css';
+		$renderer_js   = $calendar_is_v2
+			? MMED_HUB_PATH . 'assets/calendar-v2/mmed-calendar-v2.js'
+			: MMED_HUB_PATH . 'assets/student-os-calendar-v4.js';
+		$renderer_css_url = $calendar_is_v2
+			? MMED_HUB_URL . 'assets/calendar-v2/mmed-calendar-v2.css'
+			: MMED_HUB_URL . 'assets/student-os-calendar-v4.css';
+		$renderer_js_url = $calendar_is_v2
+			? MMED_HUB_URL . 'assets/calendar-v2/mmed-calendar-v2.js'
+			: MMED_HUB_URL . 'assets/student-os-calendar-v4.js';
+		$renderer_style_handle = $calendar_is_v2 ? 'mmed-student-os-calendar-v2-css' : 'mmed-student-os-cal4-css';
+		$renderer_script_handle = $calendar_is_v2 ? 'mmed-student-os-calendar-v2-js' : 'mmed-student-os-cal4-js';
 
 		wp_enqueue_style(
-			'mmed-student-os-cal4-css',
-			MMED_HUB_URL . 'assets/student-os-calendar-v4.css',
+			$renderer_style_handle,
+			$renderer_css_url,
 			array( 'mmed-student-os-css' ),
-			file_exists( $cal4_css ) ? (string) filemtime( $cal4_css ) : MMED_HUB_VERSION
+			file_exists( $renderer_css ) ? (string) filemtime( $renderer_css ) : MMED_HUB_VERSION
 		);
 
 		wp_enqueue_script(
-			'mmed-student-os-cal4-js',
-			MMED_HUB_URL . 'assets/student-os-calendar-v4.js',
+			'mmed-calendar-core-js',
+			MMED_HUB_URL . 'assets/calendar-core/mmed-calendar-core.js',
 			array( 'mmed-student-os-js' ),
-			file_exists( $cal4_js ) ? (string) filemtime( $cal4_js ) : MMED_HUB_VERSION,
+			file_exists( $core_js ) ? (string) filemtime( $core_js ) : MMED_HUB_VERSION,
+			true
+		);
+
+		wp_enqueue_script(
+			$renderer_script_handle,
+			$renderer_js_url,
+			array( 'mmed-calendar-core-js' ),
+			file_exists( $renderer_js ) ? (string) filemtime( $renderer_js ) : MMED_HUB_VERSION,
 			true
 		);
 
 		$live_css  = MMED_HUB_PATH . 'assets/student-os-live-session.css';
 		$live_js   = MMED_HUB_PATH . 'assets/student-os-live-session.js';
-		$live_deps = array( 'mmed-student-os-cal4-js' );
+		$live_deps = array( $renderer_script_handle );
 		$widget_js = MMED_HUB_PATH . 'assets/webex-widget-bundle.min.js';
 
 		if (
@@ -175,7 +201,7 @@ class MMED_Student_OS {
 			wp_enqueue_script(
 				'mmed-student-os-office-hours-js',
 				MMED_HUB_URL . 'assets/student-os-office-hours.js',
-				array( 'mmed-student-os-cal4-js' ),
+				array( $renderer_script_handle ),
 				file_exists( $office_js ) ? (string) filemtime( $office_js ) : MMED_HUB_VERSION,
 				true
 			);
@@ -194,7 +220,7 @@ class MMED_Student_OS {
 		wp_enqueue_style(
 			'mmed-student-os-live-session-css',
 			MMED_HUB_URL . 'assets/student-os-live-session.css',
-			array( 'mmed-student-os-cal4-css' ),
+			array( $renderer_style_handle ),
 			file_exists( $live_css ) ? (string) filemtime( $live_css ) : MMED_HUB_VERSION
 		);
 
@@ -317,6 +343,7 @@ class MMED_Student_OS {
 		);
 		$access_payload = self::add_storyforge_access_payload( $access_payload, $user_id, $is_admin_full_access );
 		$access_payload = self::add_cam_access_payload( $access_payload, $user_id );
+		$access_payload = self::add_ivprep_access_payload( $access_payload, $user_id );
 
 		return array(
 			'profile'       => self::get_profile_data( $user_id ),
@@ -484,6 +511,22 @@ class MMED_Student_OS {
 				'icon'       => 'CA',
 				'section'    => 'Match Prep',
 				'launch_url' => $cam_access['launch_url'],
+			);
+		}
+
+		$ivprep_access = isset( $access['ivprep'] ) && is_array( $access['ivprep'] ) ? $access['ivprep'] : array();
+		if (
+			$user_id > 0
+			&& ! empty( $access['module_permissions']['ivprep'] )
+			&& ! empty( $ivprep_access['launch_url'] )
+		) {
+			$modules[] = array(
+				'id'         => 'ivprep',
+				'route'      => 'ivprep',
+				'label'      => 'IV Prep On-Call',
+				'icon'       => 'IV',
+				'section'    => 'Match Prep',
+				'launch_url' => $ivprep_access['launch_url'],
 			);
 		}
 
@@ -671,6 +714,53 @@ class MMED_Student_OS {
 	}
 
 	/**
+	 * Add fail-closed IV Prep On-Call launch data for administrators or current
+	 * LearnDash course 3893 students.
+	 *
+	 * The launch target is fixed in server-owned code. Anonymous and
+	 * non-entitled visitors receive neither permission nor the handoff URL.
+	 *
+	 * @param array $access Matrix access payload.
+	 * @param int   $user_id WordPress user ID.
+	 * @return array
+	 */
+	private static function add_ivprep_access_payload( $access, $user_id ) {
+		if ( ! is_array( $access ) ) {
+			$access = array();
+		}
+
+		$is_admin        = $user_id > 0 && user_can( $user_id, 'manage_options' );
+		$enrolled        = array();
+		$course_entitled = false;
+
+		if ( $user_id > 0 && function_exists( 'learndash_user_get_enrolled_courses' ) ) {
+			$resolved_courses = learndash_user_get_enrolled_courses( $user_id );
+			$enrolled = is_array( $resolved_courses ) ? array_map( 'intval', $resolved_courses ) : array();
+			$course_entitled = in_array( 3893, $enrolled, true );
+		}
+
+		$allowed    = $is_admin || $course_entitled;
+		$launch_url = $allowed ? self::get_ivprep_launch_url() : '';
+		$unlocked   = $allowed && '' !== $launch_url;
+
+		if ( ! isset( $access['module_permissions'] ) || ! is_array( $access['module_permissions'] ) ) {
+			$access['module_permissions'] = array();
+		}
+
+		$access['module_permissions']['ivprep'] = $unlocked;
+		$access['ivprep'] = array(
+			'enabled'            => '' !== $launch_url,
+			'unlocked'           => $unlocked,
+			'status'             => $unlocked ? ( $is_admin ? 'administrator' : 'course_entitled' ) : 'not_authorized',
+			'reason_code'        => $unlocked ? ( $is_admin ? 'ivprep_admin_access' : 'ivprep_course_3893_access' ) : 'ivprep_entitlement_required',
+			'required_course_id' => 3893,
+			'launch_url'         => $unlocked ? $launch_url : '',
+		);
+
+		return $access;
+	}
+
+	/**
 	 * Resolve the WordPress-owned CAM claim with one narrow capability-derived administrator override.
 	 *
 	 * @param int $user_id WordPress user ID.
@@ -777,6 +867,26 @@ class MMED_Student_OS {
 					'entry'     => 'matrix',
 					'return_to' => $return_to,
 					'final'     => $final,
+				)
+			)
+		);
+	}
+
+	/**
+	 * Build the fixed HQ-authenticated IV Prep On-Call launch URL.
+	 *
+	 * @return string
+	 */
+	private static function get_ivprep_launch_url() {
+		$origin   = 'https://missionmed-hq-production.up.railway.app';
+		$final    = $origin . '/iv-prep-analytics/';
+		$auth_url = $origin . '/api/auth/start';
+
+		return esc_url_raw(
+			self::build_cam_query_url(
+				$auth_url,
+				array(
+					'final' => $final,
 				)
 			)
 		);
@@ -898,10 +1008,15 @@ class MMED_Student_OS {
 	 * @return array
 	 */
 	private static function get_runtime_v2_assets() {
+		$experience = class_exists( 'MMED_Calendar_Experience' ) ? MMED_Calendar_Experience::resolve() : 'classic';
+		$calendar_css = 'storyforge' === $experience
+			? 'assets/calendar-v2/mmed-calendar-v2.css'
+			: 'assets/student-os-calendar-v4.css';
+
 		return array(
 			'scheduler_js'       => self::runtime_asset( 'assets/scheduler-mount.js' ),
-			'calendar_css'       => self::runtime_asset( 'assets/student-os-calendar-v4.css' ),
-			'calendar_js'        => self::runtime_asset( 'assets/student-os-calendar-v4.js' ),
+			'calendar_css'       => self::runtime_asset( $calendar_css ),
+			'calendar_js'        => self::runtime_asset( 'assets/calendar-core/mmed-calendar-runtime.js' ),
 			'file_vault_css'     => self::runtime_asset( 'assets/student-os-file-vault.css', 'mm064-006d-fidelity' ),
 			'file_vault_js'      => self::runtime_asset( 'assets/student-os-file-vault.js', 'mm064-006d-fidelity' ),
 			'storyforge_css'     => self::runtime_asset( 'assets/student-os-storyforge.css' ),

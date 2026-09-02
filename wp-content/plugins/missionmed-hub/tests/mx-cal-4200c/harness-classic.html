@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>MX-CAL-4200C Classic local QA</title>
+	<link rel="stylesheet" href="../../assets/student-os-calendar-v4.css?mx-cal-4200c=2">
+	<style>html,body{margin:0;background:#07111c}#sos-content{min-height:100vh}</style>
+</head>
+<body>
+	<div id="sos-content"></div>
+	<script>
+	window.mmedStudentOsFeatureFlags={calendar_experience:{experience:'classic',forced:false,timezone_label:'Eastern Time (ET)'}};
+	(function(){
+		var nextId=900;
+		var events=[
+			{id:1,title:'Advising 1:1 — Dr. Brian',event_type:'appointment',source:'scheduler',source_id:'appt-1',start_at:'2026-09-02T15:00:00-04:00',end_at:'2026-09-02T15:30:00-04:00',meeting_url:'https://example.com/join/advising'},
+			{id:2,title:'Clinical Strategy Session — Cohort R3',event_type:'mr_session',start_at:'2026-09-02T21:00:00-04:00',end_at:'2026-09-02T22:00:00-04:00'},
+			{id:3,title:'ECFMG Token Upload deadline',event_type:'deadline',start_at:'2026-09-05T23:59:00-04:00',end_at:'2026-09-06T00:00:00-04:00'},
+			{id:4,title:'IMG Roadmap Workshop',event_type:'mr_session',source:'scheduler',source_id:'appt-4',start_at:'2026-08-27T19:00:00-04:00',end_at:'2026-08-27T20:00:00-04:00',has_recording:true,recording_url:'https://example.com/replay/roadmap'}
+		];
+		function response(item){return Promise.resolve(JSON.parse(JSON.stringify(item)));}
+		window.MMED_OS={profile:{is_admin:true},state:{route:'calendar',profile:{is_admin:true}},render:{},api:{
+			get:function(endpoint){if(endpoint==='/events')return response({events:events});if(endpoint==='/todos')return response({todos:[]});return response({});},
+			post:function(endpoint,payload){var saved=Object.assign({id:++nextId,source:'manual',user_id:0},payload);events.push(saved);return response(saved);},
+			put:function(endpoint,payload){var id=Number(endpoint.split('/').pop());var index=events.findIndex(function(event){return Number(event.id)===id});events[index]=Object.assign({},events[index],payload);return response(events[index]);},
+			delete:function(endpoint){var id=Number(endpoint.split('/').pop());events=events.filter(function(event){return Number(event.id)!==id});return response({deleted:true,id:id});}
+		}};
+	})();
+	</script>
+	<script src="../../assets/calendar-core/mmed-calendar-core.js?mx-cal-4200c=2"></script>
+	<script src="../../assets/student-os-calendar-v4.js?mx-cal-4200c=3"></script>
+</body>
+</html>

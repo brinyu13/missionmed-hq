@@ -77,7 +77,7 @@ const SESSION_CONFIG = {
 const state = {
   view:'month', currentDate:new Date(), selectedDate:new Date(),
   events:[], filters:{}, categoryTreeCollapsed:{}, adminOpen:false, adminTab:'Step/Level 1',
-  panelCollapsed:false, dragEvent:null,
+  panelCollapsed:false, dragEvent:null, selectedDrillTopic:null,
   dataSources:{ events:'loading', todos:'loading' },
   sourceLog:{},
   todos:[],
@@ -117,6 +117,7 @@ function teardownBackground(){
 function initBackground(){
   teardownBackground();
   const canvas=document.getElementById('bgCanvas'),ctx=canvas.getContext('2d');
+  if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){canvas.hidden=true;return;}
   let w,h,particles=[];
   function resize(){w=canvas.width=window.innerWidth;h=canvas.height=window.innerHeight;}
   resize(); bgResizeHandler=resize; window.addEventListener('resize',bgResizeHandler);
@@ -467,18 +468,19 @@ function renderMonth(){
   for(let i=0;i<42;i++){
     const td=new Date(d), om=td.getMonth()!==mo, today=isToday(td), sel=sameDay(td,state.selectedDate);
     const evts=eventsOn(td);
-    h+=`<div class="cal-day ${om?'other-month':''} ${today?'today':''} ${sel?'selected':''}" data-date="${td.toISOString()}" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDrop(event,this)">
+    h+=`<div class="cal-day ${om?'other-month':''} ${today?'today':''} ${sel?'selected':''}" data-date="${td.toISOString()}" role="button" tabindex="0" aria-label="${attrText((state.selectedDrillTopic?'Schedule '+state.selectedDrillTopic.topic+' on ':'Open ')+fmt(td,'full'))}" onkeydown="activateCalendarDayFromKey(event,this)" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDrop(event,this)">
       <div class="cal-day-num">${td.getDate()}</div><div class="cal-day-events">`;
 	  evts.slice(0,3).forEach(ev=>{
 	    const dragAttrs = canUseCalendarWriteControls() ? `draggable="true" ondragstart="handleDragStart(event,'${escapeJS(ev.id)}')"` : `draggable="false"`;
-	    h+=`<div class="cal-event-chip ${eventChipClasses(ev)}" title="${attrText(ev.title+' '+(ev.allDay?'All Day':fmt(ev.start,'time')+' - '+fmt(ev.end,'time')))}" style="--cat:${catColor(ev.category)};border-left-color:${catColor(ev.category)}" ${dragAttrs} data-id="${ev.id}" onclick="event.stopPropagation();showEventDetail('${escapeJS(ev.id)}')"><span class="cal-event-title">${escapeHTML(ev.title)}</span>${ev.meetingUrl?'<span class="join-badge" onclick="event.stopPropagation();window.open(\''+escapeJS(ev.meetingUrl)+'\',\'_blank\')">Join</span>':''}</div>`;
+	    h+=`<div class="cal-event-chip ${eventChipClasses(ev)}" role="button" tabindex="0" title="${attrText(ev.title+' '+(ev.allDay?'All Day':fmt(ev.start,'time')+' - '+fmt(ev.end,'time')))}" style="--cat:${catColor(ev.category)};border-left-color:${catColor(ev.category)}" ${dragAttrs} data-id="${ev.id}" onclick="event.stopPropagation();showEventDetail('${escapeJS(ev.id)}')" onkeydown="activateEventFromKey(event,'${escapeJS(ev.id)}')"><span class="cal-event-title">${escapeHTML(ev.title)}</span>${ev.meetingUrl?'<a class="join-badge" href="'+escapeHTML(ev.meetingUrl)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Join</a>':''}</div>`;
 	  });
     if(evts.length>3) h+=`<div class="cal-event-more" onclick="event.stopPropagation();openDaySidebar('${td.toISOString()}')">+${evts.length-3} more</div>`;
     h+='</div></div>';d.setDate(d.getDate()+1);
   }
   h+='</div></div>';c.innerHTML=h;
-  c.querySelectorAll('.cal-day').forEach(cell=>{cell.addEventListener('click',()=>{SFX.play('click');state.selectedDate=new Date(cell.dataset.date);openDaySidebar(cell.dataset.date);renderMonth();});});
+  c.querySelectorAll('.cal-day').forEach(cell=>{cell.addEventListener('click',()=>{SFX.play('click');state.selectedDate=new Date(cell.dataset.date);if(state.selectedDrillTopic&&canUseCalendarAdmin()){scheduleDrillTopicOnDate(state.selectedDrillTopic,cell.dataset.date);return;}openDaySidebar(cell.dataset.date);renderMonth();});});
 }
+function activateCalendarDayFromKey(event,cell){if(event.key==='Enter'||event.key===' '){event.preventDefault();cell.click();}}
 
 // Week
 function renderWeek(){
@@ -502,7 +504,7 @@ function renderWeek(){
     eventsOn(d).filter(e=>!e.allDay).forEach(ev=>{
       const sh=ev.start.getHours()+ev.start.getMinutes()/60, eh=ev.end.getHours()+ev.end.getMinutes()/60;
       const top=Math.max(0,(sh-6))*60, height=Math.max(28,(eh-sh)*60), col=catColor(ev.category);
-	      h+=`<div class="cal-week-event ${ev.important?'important':''}" style="--cat:${col};top:${top}px;height:${height}px;background:linear-gradient(135deg,${col}22,${col}11);border-color:${col};" data-evid="${ev.id}" onclick="showEventDetail('${escapeJS(ev.id)}')">
+	      h+=`<div class="cal-week-event ${ev.important?'important':''}" role="button" tabindex="0" style="--cat:${col};top:${top}px;height:${height}px;background:linear-gradient(135deg,${col}22,${col}11);border-color:${col};" data-evid="${ev.id}" onclick="showEventDetail('${escapeJS(ev.id)}')" onkeydown="activateEventFromKey(event,'${escapeJS(ev.id)}')">
 	        <div class="ev-title">${escapeHTML(ev.title)}</div><div class="ev-time">${fmt(ev.start,'time')} - ${fmt(ev.end,'time')}</div>
 	        ${canUseCalendarWriteControls()?`<div class="resize-handle" data-evid="${ev.id}"></div>`:''}</div>`;
     });
@@ -530,7 +532,7 @@ function renderDay(){
     const sh=ev.start.getHours()+ev.start.getMinutes()/60, eh=ev.end.getHours()+ev.end.getMinutes()/60;
     const top=Math.max(0,(sh-6))*60, height=Math.max(38,(eh-sh)*60);
     const col=catColor(ev.category), cat=catObj(ev.category);
-    h+=`<div class="cal-day-view-event ${ev.important?'important':''}" style="--cat:${col};top:${top}px;height:${height}px;background:linear-gradient(135deg,${col}28,${col}12);" data-evid="${ev.id}" onclick="showEventDetail('${escapeJS(ev.id)}')">
+    h+=`<div class="cal-day-view-event ${ev.important?'important':''}" role="button" tabindex="0" style="--cat:${col};top:${top}px;height:${height}px;background:linear-gradient(135deg,${col}28,${col}12);" data-evid="${ev.id}" onclick="showEventDetail('${escapeJS(ev.id)}')" onkeydown="activateEventFromKey(event,'${escapeJS(ev.id)}')">
 	      <div class="ev-title">${cat.icon} ${escapeHTML(ev.title)}
 	        ${canUseCalendarWriteControls()?`<span class="importance-star ${ev.important?'lit':''}" onclick="event.stopPropagation();toggleImportant('${escapeJS(ev.id)}')">${ev.important?'&#9733;':'&#9734;'}</span>`:''}
 	        ${ev.meetingUrl?`<a class="join-badge" href="${escapeHTML(ev.meetingUrl)}" target="_blank" onclick="event.stopPropagation()">Join ${escapeHTML(ev.meetingPlatform||'')}</a>`:''}
@@ -563,7 +565,7 @@ function initResizeHandles(container, cls){
         document.body.style.cursor='';document.body.style.userSelect='';
         const nh=Math.max(28,startH+(me.clientY-startY)), dur=nh/60;
         const ne=new Date(ev.start);ne.setMinutes(ne.getMinutes()+Math.round(dur*60/15)*15);
-        if(ne>ev.start){ev.end=ne;SFX.play('resize');showToast(fmt(ev.start,'time')+' - '+fmt(ev.end,'time'),'&#8597;');renderCurrentView();persistUpdatedEvent(ev);}
+        if(ne>ev.start){const candidate=Object.assign({},ev,{end:ne});showToast('Saving duration…','&#8987;');persistUpdatedEvent(candidate).then(()=>{SFX.play('resize');showToast(fmt(candidate.start,'time')+' - '+fmt(candidate.end,'time'),'&#8597;');}).catch(()=>{});}
       }
       document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
     });
@@ -589,7 +591,7 @@ function renderAgenda(){
     evH+=`<div class="cal-agenda-day-group"><div class="cal-agenda-date">${isToday(d)?'<span class="today-indicator"></span> Today':fmt(d,'dayName')}, ${fmt(d,'agendaDate')} <span class="badge">${evts.length}</span></div>`;
 	    evts.forEach(ev=>{
 	      const col=catColor(ev.category), cat=catObj(ev.category);
-	      evH+=`<div class="cal-agenda-item" onclick="showEventDetail('${escapeJS(ev.id)}')">
+	      evH+=`<div class="cal-agenda-item" role="button" tabindex="0" onclick="showEventDetail('${escapeJS(ev.id)}')" onkeydown="activateEventFromKey(event,'${escapeJS(ev.id)}')">
         <div class="cal-agenda-color-bar" style="background:${col}"></div>
         <div class="cal-agenda-time">${ev.allDay?'All Day':fmt(ev.start,'time')}</div>
         <div class="cal-agenda-content"><div class="cal-agenda-title">${cat.icon} ${escapeHTML(ev.title)}${ev.important?'<span class="importance-star lit" style="width:18px;height:18px;font-size:10px;">&#9733;</span>':''}${ev.meetingUrl?'<a class="join-badge" href="'+escapeHTML(ev.meetingUrl)+'" target="_blank" onclick="event.stopPropagation()">Join</a>':''}</div>
@@ -617,7 +619,14 @@ function renderAgenda(){
   c.innerHTML=`<div class="cal-agenda-wrap">${evH}${sbH}</div>`;
 }
 
-function toggleImportant(id){if(!requireCalendarWriteControls())return;SFX.play('star');const ev=state.events.find(e=>String(e.id)===String(id));if(ev){ev.important=!ev.important;showToast(ev.important?'Marked important':'Unmarked',ev.important?'&#11088;':'');renderCurrentView();persistUpdatedEvent(ev);}}
+function toggleImportant(id){
+  if(!requireCalendarWriteControls())return;
+  const ev=state.events.find(e=>String(e.id)===String(id));
+  if(!ev)return;
+  const candidate=Object.assign({},ev,{important:!ev.important});
+  showToast('Saving…','&#8987;');
+  persistUpdatedEvent(candidate).then(()=>{SFX.play('star');showToast(candidate.important?'Marked important':'Unmarked',candidate.important?'&#11088;':'');}).catch(()=>{});
+}
 
 // Admin
 function placeAdminPanelInSidebar(){
@@ -636,16 +645,22 @@ function renderAdmin(){
   if (!panel) return;
   panel.hidden = false;
   let h=`<div class="cal-admin-title">&#9881; Quick Schedule: Dr. J's Drills</div>
-    <p style="font-size:12px;opacity:0.4;margin-bottom:8px;">Drag a topic onto any calendar day to schedule a drill.</p>
+    <p style="font-size:12px;opacity:0.4;margin-bottom:8px;">Drag a topic onto any calendar day, or select one and then select a date.</p>
     <div class="cal-topic-tabs">
       <div class="cal-topic-tab ${tab==='Step/Level 1'?'active':''}" data-tab="Step/Level 1">Step/Level 1</div>
       <div class="cal-topic-tab ${tab==='Step/Level 2/3'?'active':''}" data-tab="Step/Level 2/3">Step/Level 2/3</div>
     </div><div class="cal-topic-grid">`;
   topics.forEach(t=>{
     const lvl=tab==='Step/Level 1'?'1':'2/3', cls=tab==='Step/Level 1'?'level-1':'level-23';
-    h+=`<div class="cal-topic-chip ${cls}" draggable="true" ondragstart="handleTopicDrag(event,'${t.replace(/'/g,"\\'")}','${tab}')"><span class="level-badge">L${lvl}</span>${t}</div>`;
+    const selected=state.selectedDrillTopic&&state.selectedDrillTopic.topic===t&&state.selectedDrillTopic.level===tab;
+    h+=`<div class="cal-topic-chip ${cls} ${selected?'is-selected':''}" role="button" tabindex="0" aria-pressed="${selected?'true':'false'}" draggable="true" data-topic="${attrText(t)}" data-level="${attrText(tab)}"><span class="level-badge">L${lvl}</span>${t}</div>`;
   });h+='</div>';panel.innerHTML=h;
   panel.querySelectorAll('.cal-topic-tab').forEach(t=>t.addEventListener('click',()=>{SFX.play('click');state.adminTab=t.dataset.tab;renderAdmin();}));
+  panel.querySelectorAll('.cal-topic-chip').forEach(chip=>{
+    chip.addEventListener('click',()=>selectDrillTopic(chip.dataset.topic,chip.dataset.level));
+    chip.addEventListener('keydown',event=>activateDrillTopicFromKey(event,chip.dataset.topic,chip.dataset.level));
+    chip.addEventListener('dragstart',event=>handleTopicDrag(event,chip.dataset.topic,chip.dataset.level));
+  });
 }
 
 // Drag & Drop
@@ -658,6 +673,24 @@ function handleTopicDrag(e,topic,level){
   }
   state.dragEvent={type:'topic',topic,level};e.dataTransfer.effectAllowed='copy';
 }
+function selectDrillTopic(topic,level){
+  if(!canUseCalendarAdmin())return;
+  state.selectedDrillTopic={topic,level};
+  renderAdmin();renderMonth();
+  showToast('Select a calendar date for '+topic,'&#128197;');
+}
+function activateDrillTopicFromKey(event,topic,level){if(event.key==='Enter'||event.key===' '){event.preventDefault();selectDrillTopic(topic,level);}}
+function scheduleDrillTopicOnDate(selection,dateValue){
+  if(!selection||!canUseCalendarAdmin())return;
+  const target=new Date(dateValue),catId='drills';
+  const cat=catObj(catId),defs=Object.assign({},cat.defaults||{},selection.level==='Step/Level 2/3'?{startTime:'14:00',endTime:'16:00'}:{startTime:'10:00',endTime:'12:00'});
+  const [sh,sm]=(defs.startTime||'10:00').split(':').map(Number),[eh,em]=(defs.endTime||'12:00').split(':').map(Number);
+  const lvl=selection.level==='Step/Level 1'?'1':'2/3';
+  const ev={id:Date.now(),localOnly:true,category:catId,title:`${selection.topic} (Step/Level ${lvl})`,start:new Date(target.getFullYear(),target.getMonth(),target.getDate(),sh,sm),end:new Date(target.getFullYear(),target.getMonth(),target.getDate(),eh,em),description:defs.description||'',allDay:false,meta:{},important:false,meetingUrl:SESSION_CONFIG.drills.meetingUrl,meetingPlatform:'Zoom'};
+  state.selectedDrillTopic=null;
+  showToast('Scheduling drill…','&#8987;');
+  persistCreatedEvent(ev).then(()=>{SFX.play('add');showToast(`Scheduled: ${selection.topic}`,'&#128293;');renderAdmin();renderMonth();}).catch(()=>{renderAdmin();renderMonth();});
+}
 function handleCatDrag(e,catId){const cat=catObj(catId);if(!canUseCalendarWriteControls()||(cat&&cat.children&&cat.children.length)){state.dragEvent=null;if(e&&e.preventDefault)e.preventDefault();return false;}state.dragEvent={type:'category',catId:categoryId(catId)};e.dataTransfer.effectAllowed='copy';}
 function handleDrop(e,cell){
   e.preventDefault();cell.classList.remove('drag-over');
@@ -665,17 +698,9 @@ function handleDrop(e,cell){
   if(state.dragEvent?.type==='event'){
     if(!requireCalendarWriteControls()){state.dragEvent=null;return;}
     const ev=state.events.find(x=>String(x.id)===String(state.dragEvent.id));
-    if(ev){const diff=target.getTime()-new Date(ev.start.getFullYear(),ev.start.getMonth(),ev.start.getDate()).getTime();ev.start=new Date(ev.start.getTime()+diff);ev.end=new Date(ev.end.getTime()+diff);SFX.play('drop');showToast('Moved to '+fmt(target,'agendaDate'),'&#10004;');renderCurrentView();persistUpdatedEvent(ev);}
+    if(ev){const diff=target.getTime()-new Date(ev.start.getFullYear(),ev.start.getMonth(),ev.start.getDate()).getTime();const candidate=Object.assign({},ev,{start:new Date(ev.start.getTime()+diff),end:new Date(ev.end.getTime()+diff)});showToast('Saving move…','&#8987;');persistUpdatedEvent(candidate).then(()=>{SFX.play('drop');showToast('Moved to '+fmt(target,'agendaDate'),'&#10004;');}).catch(()=>{});}
   } else if(state.dragEvent?.type==='topic' && canUseCalendarAdmin()){
-    const catId='drills';
-    const cat=catObj(catId), defs=Object.assign({},cat.defaults||{},state.dragEvent.level==='Step/Level 2/3'?{startTime:'14:00',endTime:'16:00'}:{startTime:'10:00',endTime:'12:00'});
-    const [sh,sm]=(defs.startTime||'10:00').split(':').map(Number);
-    const [eh,em]=(defs.endTime||'12:00').split(':').map(Number);
-    const lvl=state.dragEvent.level==='Step/Level 1'?'1':'2/3';
-    const ev={id:Date.now(),localOnly:true,category:catId,title:`${state.dragEvent.topic} (Step/Level ${lvl})`,start:new Date(target.getFullYear(),target.getMonth(),target.getDate(),sh,sm),end:new Date(target.getFullYear(),target.getMonth(),target.getDate(),eh,em),description:defs.description||'',allDay:false,meta:{},important:false,meetingUrl:SESSION_CONFIG.drills.meetingUrl,meetingPlatform:'Zoom'};
-    state.events.push(ev);
-    refreshCalendarDataMarkers();
-    SFX.play('add');showToast(`Scheduled: ${state.dragEvent.topic}`,'&#128293;');renderCurrentView();persistCreatedEvent(ev);
+    scheduleDrillTopicOnDate({topic:state.dragEvent.topic,level:state.dragEvent.level},target);
   } else if(state.dragEvent?.type==='category'){
     if(!requireCalendarWriteControls()){state.dragEvent=null;return;}
     showNewEventModal(target, state.dragEvent.catId);
@@ -721,10 +746,18 @@ function showEventDetail(id){
   document.getElementById('eventModal').classList.add('open');
   wireRecordingControls(ev);
 }
-function deleteEvent(id){if(!requireCalendarWriteControls())return;const ev=state.events.find(e=>String(e.id)===String(id));if(ev && ev.writable===false){showToast('System events cannot be deleted','&#128274;');return;}state.events=state.events.filter(e=>String(e.id)!==String(id));refreshCalendarDataMarkers();closeModal('eventModal');SFX.play('click');if(ev&&!ev.localOnly)persistDeletedEvent(id);showToast('Event deleted','&#128465;');renderCurrentView();}
+function activateEventFromKey(event,id){if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();showEventDetail(id);}}
+function deleteEvent(id){
+  if(!requireCalendarWriteControls())return;
+  const ev=state.events.find(e=>String(e.id)===String(id));
+  if(!ev)return;
+  if(ev.writable===false){showToast('System events cannot be deleted','&#128274;');return;}
+  if(!window.confirm('Delete this event? This cannot be undone.'))return;
+  showToast('Deleting…','&#8987;');
+  persistDeletedEvent(id).then(()=>{state.events=state.events.filter(e=>String(e.id)!==String(id));refreshCalendarDataMarkers();closeModal('eventModal');SFX.play('click');showToast('Event deleted','&#128465;');renderCurrentView();}).catch(()=>{});
+}
 
 function renderRecordingBlock(ev) {
-  if (!isSchedulerWebexEvent(ev)) return '';
   if (ev.recordingUrl) {
     return `<div class="meeting-link-field" data-recording-block>
       <div class="mlf-icon">&#9658;</div>
@@ -732,6 +765,7 @@ function renderRecordingBlock(ev) {
       <button type="button" class="mlf-join" data-watch-recording="${escapeHTML(String(ev.id))}">Watch Recording</button>
     </div>`;
   }
+  if (!isSchedulerWebexEvent(ev)) return '';
   return `<div class="meeting-link-field" data-recording-block>
     <div class="mlf-icon">&#9203;</div>
     <div class="mlf-info"><div class="mlf-label">Recording</div><div class="mlf-url">Processing after the Webex session ends</div></div>
@@ -849,17 +883,18 @@ function submitEditEvent(id){
   const [sy,sm,sd]=document.getElementById('editDate').value.split('-').map(Number);
   const [sh,smin]=document.getElementById('editStart').value.split(':').map(Number);
   const [eh,emin]=document.getElementById('editEnd').value.split(':').map(Number);
-  ev.title=textOnly(document.getElementById('editTitle').value.trim()||ev.title);
-  ev.category=document.getElementById('editCat').value;
-  ev.start=new Date(sy,sm-1,sd,sh,smin);
-  ev.end=new Date(sy,sm-1,sd,eh,emin);
-  ev.description=textOnly(document.getElementById('editNotes').value);
-  ev.important=document.getElementById('editImportant').checked;
-  ev.meetingPlatform=textOnly(document.getElementById('editMeetPlatform').value);
-  ev.meetingUrl=textOnly(document.getElementById('editMeetUrl').value);
-  ev.meta=ev.meta||{};
-  if(ev.category==='clinicals') ev.meta.specialty=document.getElementById('editSpec').value;
-  closeModal('eventModal');SFX.play('add');showToast('Event updated','&#10004;');renderCurrentView();persistUpdatedEvent(ev);
+  const candidate=Object.assign({},ev,{
+    title:textOnly(document.getElementById('editTitle').value.trim()||ev.title),
+    category:document.getElementById('editCat').value,
+    start:new Date(sy,sm-1,sd,sh,smin),end:new Date(sy,sm-1,sd,eh,emin),
+    description:textOnly(document.getElementById('editNotes').value),
+    important:document.getElementById('editImportant').checked,
+    meetingPlatform:textOnly(document.getElementById('editMeetPlatform').value),
+    meetingUrl:textOnly(document.getElementById('editMeetUrl').value),
+    meta:Object.assign({},ev.meta||{})
+  });
+  if(candidate.category==='clinicals') candidate.meta.specialty=document.getElementById('editSpec').value;
+  showToast('Saving changes…','&#8987;');persistUpdatedEvent(candidate).then(()=>{closeModal('eventModal');SFX.play('add');showToast('Event updated','&#10004;');}).catch(()=>{});
 }
 
 // New Event
@@ -911,9 +946,7 @@ function submitNew(){
   const meetUrl=document.getElementById('newMeetUrl').value;
   const meetPlat=document.getElementById('newMeetPlatform').value;
   const ev={id:Date.now(),localOnly:true,category:cat,title:textOnly(title),start:new Date(sy,sm-1,sd,sh,smin),end:new Date(sy,sm-1,sd,eh,emin),description:textOnly(notes),allDay:false,meta,important:imp,meetingUrl:textOnly(meetUrl),meetingPlatform:textOnly(meetPlat)};
-  state.events.push(ev);
-  refreshCalendarDataMarkers();
-  closeModal('eventModal');SFX.play('add');showToast('Event created!','&#10024;');renderCurrentView();persistCreatedEvent(ev);
+  showToast('Creating event…','&#8987;');persistCreatedEvent(ev).then(()=>{closeModal('eventModal');SFX.play('add');showToast('Event created!','&#10024;');}).catch(()=>{});
 }
 
 // Sync
@@ -975,7 +1008,7 @@ function openDaySidebar(ds){
   if(!evts.length) h+='<p style="opacity:0.35;margin-top:14px;">No events scheduled.</p>';
   else evts.forEach(ev=>{
     const col=catColor(ev.category),cat=catObj(ev.category);
-    h+=`<div class="cal-agenda-item" style="margin-top:5px;" onclick="showEventDetail('${escapeJS(ev.id)}')">
+    h+=`<div class="cal-agenda-item" role="button" tabindex="0" style="margin-top:5px;" onclick="showEventDetail('${escapeJS(ev.id)}')" onkeydown="activateEventFromKey(event,'${escapeJS(ev.id)}')">
       <div class="cal-agenda-color-bar" style="background:${col}"></div>
 	      <div class="cal-agenda-content"><div class="cal-agenda-title">${cat.icon} ${escapeHTML(ev.title)}${ev.important?'<span class="importance-star lit" style="width:16px;height:16px;font-size:9px;">&#9733;</span>':''}</div>
 	      <div style="font-size:12px;opacity:0.5;">${ev.allDay?'All Day':fmt(ev.start,'time')+' - '+fmt(ev.end,'time')}</div>
@@ -1204,6 +1237,9 @@ function calendarStatusHtml() {
   return '';
 }
 function parseCalendarDate(value, fallback) {
+  if (window.MMEDCalendarCore && typeof window.MMEDCalendarCore.parseDate === 'function') {
+    return window.MMEDCalendarCore.parseDate(value, fallback);
+  }
   if (value instanceof Date) return isNaN(value.getTime()) ? fallback : value;
   const raw = String(value || '').trim();
   if (!raw) return fallback || new Date();
@@ -1239,9 +1275,12 @@ function schedulerPayloadEvents(payload) {
   return [];
 }
 function loadSchedulerCalendarFeed(params) {
-  return schedulerCalendarFeedRequest(params).then(payload => {
+  const request=schedulerCalendarFeedRequest(params).then(payload => {
     return schedulerPayloadEvents(payload).map(normalizeLiveEvent).filter(isSchedulerAppointmentEvent);
   }).catch(() => []);
+  return window.MMEDCalendarCore && typeof window.MMEDCalendarCore.timeout === 'function'
+    ? window.MMEDCalendarCore.timeout(request,2500,'Scheduler enrichment timed out').catch(()=>[])
+    : request;
 }
 function schedulerCalendarFeedRequest(params) {
   return ensureSchedulerCalendarAuth().then(() => {
@@ -1340,22 +1379,23 @@ function loadLiveCalendarData() {
     if (!data || !Array.isArray(data.events)) return null;
     return data.events.map(normalizeLiveEvent);
   }).catch(() => null);
-  const schedulerEventsRequest = loadSchedulerCalendarFeed(eventParams);
-  Promise.all([calendarEventsRequest, schedulerEventsRequest]).then(results => {
-    const calendarEvents = results[0];
-    const schedulerEvents = results[1] || [];
-    if (!calendarEvents && !schedulerEvents.length) {
+  calendarEventsRequest.then(calendarEvents => {
+    if (!calendarEvents) {
       state.events = [];
       setCalendarDataMarker('events', 'error', 0);
       renderCurrentView();
       showToast('Live calendar feed unavailable.', '&#9888;');
       return;
     }
-    const events = mergeLiveEvents(calendarEvents || [], schedulerEvents);
-    state.events = events;
+    state.events = calendarEvents;
     state.seeded = true;
-    setCalendarDataMarker('events', events.length ? 'live' : 'live-empty', events.length);
+    setCalendarDataMarker('events', calendarEvents.length ? 'live' : 'live-empty', calendarEvents.length);
     renderCurrentView();
+    loadSchedulerCalendarFeed(eventParams).then(schedulerEvents=>{
+      state.events=mergeLiveEvents(state.events,schedulerEvents||[]);
+      setCalendarDataMarker('events',state.events.length?'live':'live-empty',state.events.length);
+      renderCurrentView();
+    });
   });
   matrixApp.api.get('/todos').then(data => {
     if (!data || !Array.isArray(data.todos)) {
@@ -1404,31 +1444,33 @@ function canPersistEvent(ev) {
   return !!(ev && !ev.localOnly && ev.writable !== false && String(ev.id).indexOf('local-') !== 0);
 }
 function persistCreatedEvent(ev) {
-  if (!matrixApp || !matrixApp.api || !matrixApp.api.post) return;
-  matrixApp.api.post('/events', apiPayloadFromEvent(ev)).then(resp => {
+  if (!matrixApp || !matrixApp.api || !matrixApp.api.post) return Promise.reject(new Error('Calendar service unavailable'));
+  return matrixApp.api.post('/events', apiPayloadFromEvent(ev)).then(resp => {
     const saved = resp && (resp.event || resp);
-    if (saved && saved.id) {
-      const idx = state.events.findIndex(x => x === ev || String(x.id) === String(ev.id));
-      if (idx !== -1) state.events[idx] = normalizeLiveEvent(saved);
-      refreshCalendarDataMarkers();
-      renderCurrentView();
-    }
-  }).catch(() => showToast('Saved locally. Server save failed.', '&#9888;'));
+    if (!saved || !saved.id) throw new Error('Calendar save returned no event');
+    const normalized=normalizeLiveEvent(saved);
+    const idx = state.events.findIndex(x => x === ev || String(x.id) === String(ev.id));
+    if (idx !== -1) state.events[idx] = normalized; else state.events.push(normalized);
+    refreshCalendarDataMarkers();
+    renderCurrentView();
+    return normalized;
+  }).catch(error=>{showToast('Event was not saved. Nothing changed.', '&#9888;');throw error;});
 }
 function persistUpdatedEvent(ev) {
-  if (!matrixApp || !matrixApp.api || !matrixApp.api.put || !canPersistEvent(ev)) return;
-  matrixApp.api.put('/events/' + encodeURIComponent(ev.id), apiPayloadFromEvent(ev)).then(resp => {
+  if (!matrixApp || !matrixApp.api || !matrixApp.api.put || !canPersistEvent(ev)) return Promise.reject(new Error('Event is read-only'));
+  return matrixApp.api.put('/events/' + encodeURIComponent(ev.id), apiPayloadFromEvent(ev)).then(resp => {
     const saved = resp && (resp.event || resp);
-    if (saved && saved.id) {
-      const idx = state.events.findIndex(x => String(x.id) === String(ev.id));
-      if (idx !== -1) state.events[idx] = normalizeLiveEvent(saved);
-      renderCurrentView();
-    }
-  }).catch(() => showToast('Updated locally. Server update failed.', '&#9888;'));
+    if (!saved || !saved.id) throw new Error('Calendar update returned no event');
+    const normalized=normalizeLiveEvent(saved);
+    const idx = state.events.findIndex(x => String(x.id) === String(ev.id));
+    if (idx !== -1) state.events[idx] = normalized;
+    renderCurrentView();
+    return normalized;
+  }).catch(error=>{showToast('Event was not updated. Nothing changed.', '&#9888;');throw error;});
 }
 function persistDeletedEvent(id) {
-  if (String(id).indexOf('local-') === 0) return;
-  apiDelete('/events/' + encodeURIComponent(id)).catch(() => showToast('Removed locally. Server delete failed.', '&#9888;'));
+  if (String(id).indexOf('local-') === 0) return Promise.resolve();
+  return apiDelete('/events/' + encodeURIComponent(id)).catch(error=>{showToast('Event was not deleted. Nothing changed.', '&#9888;');throw error;});
 }
 function persistTodoCreate(todo) {
   if (!matrixApp || !matrixApp.api || !matrixApp.api.post) return;
@@ -1593,6 +1635,7 @@ window.handleTopicDrag = handleTopicDrag;
 window.handleCatDrag = handleCatDrag;
 window.handleDrop = handleDrop;
 window.showEventDetail = showEventDetail;
+window.activateEventFromKey = activateEventFromKey;
 window.deleteEvent = deleteEvent;
 window.showEditEventModal = showEditEventModal;
 window.submitEditEvent = submitEditEvent;

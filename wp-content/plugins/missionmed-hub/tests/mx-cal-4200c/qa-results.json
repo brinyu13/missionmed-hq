@@ -1,0 +1,73 @@
+{
+  "ticket": "MX-CAL-4200C",
+  "date": "2026-09-02",
+  "scope_note": "Implementation verification only. The MX-CAL-4200A forensic audit was not rerun.",
+  "environment": {
+    "local_harnesses": [
+      "tests/mx-cal-4200c/harness.html",
+      "tests/mx-cal-4200c/harness-classic.html"
+    ],
+    "browser": "Codex in-app browser",
+    "responsive_minimum_observed_css_px": 480,
+    "exact_390_css_px": "Static CSS contract verified; browser viewport adapter bottoms out at 480 CSS px."
+  },
+  "automated": {
+    "status": "PASS",
+    "command": "bash tests/mx-cal-4200c/run.sh",
+    "coverage": [
+      "join and replay remain separate safe actions",
+      "real Step/Level 1 and Step/Level 2/3 Drills inventories and event types",
+      "Scheduler merge without WordPress event duplication",
+      "server-success-first create behavior",
+      "America/New_York ET and DST display/write contract under New York, Los Angeles, and London host timezones",
+      "experience resolution precedence and Classic fallback",
+      "single renderer and renderer boundary contracts",
+      "mobile, reduced-motion, Classic replay/delete, and accessible Drills contracts"
+    ]
+  },
+  "browser_results": [
+    {
+      "experience": "storyforge",
+      "status": "PASS",
+      "checks": [
+        "Month is the calendar-first default",
+        "Today, Month, Week, Day, and Agenda render",
+        "Scheduler offline never gates WordPress events",
+        "join and Watch replay actions are distinct",
+        "StoryForge preference is visible in Settings",
+        "Step/Level 1 and Step/Level 2/3 Drills schedule through the existing events API",
+        "no horizontal overflow at the browser's 480 CSS-pixel minimum"
+      ]
+    },
+    {
+      "experience": "classic",
+      "status": "PASS",
+      "checks": [
+        "Month, Week, Day, and Agenda render",
+        "join and Watch Recording actions are distinct",
+        "valid recording URLs render even when the provider label is omitted",
+        "event chips and calendar dates are keyboard reachable",
+        "Step/Level 1 and Step/Level 2/3 Drills schedule through the existing events API",
+        "original drag/drop handlers remain present",
+        "no horizontal overflow at the browser's 480 CSS-pixel minimum"
+      ]
+    }
+  ],
+  "prior_p1_mapping": [
+    {"id": "REC-01", "status": "PASS", "evidence": "Separate replay and join fields/actions in both experiences."},
+    {"id": "TIME-01", "status": "PASS", "evidence": "Explicit America/New_York formatter with DST tests."},
+    {"id": "RESP-01", "status": "PASS_WITH_VIEWPORT_NOTE", "evidence": "Static <=560 CSS contract plus browser no-overflow proof at 480 CSS px."},
+    {"id": "ADM-11", "status": "PASS", "evidence": "Both real Drills tier inventories persist through /events in both experiences."},
+    {"id": "A11Y-01", "status": "PASS", "evidence": "Keyboard event/date/topic activation, focus-visible treatment, semantic controls, reduced-motion suppression."},
+    {"id": "SCHEMA-01", "status": "NOT_CHANGED_BY_AUTHORITY", "evidence": "DR-163 prohibits wp_mmed_events schema or migration changes."},
+    {"id": "MUT-01", "status": "PASS", "evidence": "Server-success-first event mutations and explicit Classic delete confirmation."}
+  ],
+  "production": {
+    "status": "PENDING",
+    "requires": [
+      "protected guarded deployment and public-byte proof",
+      "live authenticated canary and Force Classic rollback drill",
+      "independent non-builder verification before GA"
+    ]
+  }
+}
