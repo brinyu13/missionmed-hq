@@ -38,6 +38,9 @@ rg -Fq "add_options_page( 'Calendar Experience'" "$experience_php"
 rg -Fq "'manage_options'" "$experience_php"
 rg -Fq "get_option( self::OPTION_DEFAULT, 'classic' )" "$experience_php"
 rg -Fq "get_option( self::OPTION_ENABLED, false )" "$experience_php"
+rg -Fq "versioned_asset_url( 'calendar-core/mmed-calendar-core.js' )" "$experience_php"
+rg -Fq "versioned_asset_url( 'student-os-calendar-v4.js' )" "$experience_php"
+rg -Fq "versioned_asset_url( 'calendar-v2/mmed-calendar-v2.js' )" "$experience_php"
 
 selector_count="$(rg -o '^\.mmed-calendar-v2' "$v2_css" | wc -l | tr -d ' ')"
 if [[ "$selector_count" -lt 40 ]]; then

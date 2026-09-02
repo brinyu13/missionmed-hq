@@ -162,7 +162,6 @@ class MMED_Calendar_Experience {
 	public static function bootstrap() {
 		$experience = self::resolve();
 		$forced     = (bool) get_option( self::OPTION_FORCE, false );
-		$base       = trailingslashit( MMED_HUB_URL . 'assets' );
 
 		return array(
 			'experience'  => $experience,
@@ -172,11 +171,24 @@ class MMED_Calendar_Experience {
 			'timezone_label' => 'Eastern Time (ET)',
 			'preference_url' => rest_url( self::REST_NAMESPACE . '/me/calendar-experience' ),
 			'assets'      => array(
-				'core'       => $base . 'calendar-core/mmed-calendar-core.js',
-				'classic_js' => $base . 'student-os-calendar-v4.js',
-				'v2_js'      => $base . 'calendar-v2/mmed-calendar-v2.js',
+				'core'       => self::versioned_asset_url( 'calendar-core/mmed-calendar-core.js' ),
+				'classic_js' => self::versioned_asset_url( 'student-os-calendar-v4.js' ),
+				'v2_js'      => self::versioned_asset_url( 'calendar-v2/mmed-calendar-v2.js' ),
 			),
 		);
+	}
+
+	/**
+	 * Return a cache-safe Calendar asset URL using the deployed byte mtime.
+	 *
+	 * @param string $relative_path Path relative to the assets directory.
+	 * @return string
+	 */
+	private static function versioned_asset_url( $relative_path ) {
+		$relative_path = ltrim( (string) $relative_path, '/' );
+		$file          = trailingslashit( MMED_HUB_PATH . 'assets' ) . $relative_path;
+		$version       = is_readable( $file ) ? (string) filemtime( $file ) : MMED_HUB_VERSION;
+		return add_query_arg( 'ver', rawurlencode( $version ), trailingslashit( MMED_HUB_URL . 'assets' ) . $relative_path );
 	}
 
 	/**
