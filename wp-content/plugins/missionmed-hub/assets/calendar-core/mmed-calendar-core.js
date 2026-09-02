@@ -126,6 +126,7 @@
 			userId: raw.user_id || raw.userId || null,
 			meta: meta,
 			joinUrl: joinUrl,
+			meetingPlatform: text(raw.meeting_platform || raw.meetingPlatform || meta.meeting_platform || meta.meeting_provider || ''),
 			replayUrl: replayUrl,
 			recordingStatus: text(raw.recording_status || meta.recording_status || ''),
 			writable: !scheduler && (isAdmin ? source !== 'system' : !(globalEvent || source === 'system')),
@@ -140,7 +141,10 @@
 			title: text(raw.title || raw.text || 'Task'),
 			completed: !!(raw.completed || raw.done),
 			priority: text(raw.priority || 'medium'),
-			dueDate: text(raw.due_date || raw.date || '')
+			dueDate: text(raw.due_date || raw.date || ''),
+			notes: text(raw.notes || ''),
+			meetingUrl: safeUrl(raw.meeting_url || raw.meetingUrl || ''),
+			meetingPlatform: text(raw.meeting_platform || raw.meetingPlatform || '')
 		};
 	}
 
@@ -206,6 +210,18 @@
 			priority: event.important ? 1 : 0,
 			audience: event.audience || '',
 			meta: meta
+		};
+	}
+
+	function todoPayload(todo) {
+		return {
+			title: todo.title || todo.text || 'Task',
+			completed: !!(todo.completed || todo.done),
+			priority: todo.priority === 'med' ? 'medium' : (todo.priority || 'medium'),
+			due_date: todo.dueDate || todo.due_date || todo.date || '',
+			notes: todo.notes || '',
+			meeting_url: todo.meetingUrl || todo.meeting_url || '',
+			meeting_platform: todo.meetingPlatform || todo.meeting_platform || ''
 		};
 	}
 
@@ -320,6 +336,11 @@
 		var api = app && app.api;
 		var capabilities = { admin: isAdmin(app) };
 		var listeners = [];
+		var primaryCache = {};
+		var primaryRequests = {};
+		var CACHE_FRESH_MS = 30000;
+		var rangeGeneration = 0;
+		var rangeAbortController = null;
 		var today = new Date();
 		var state = {
 			view: 'month',
@@ -336,7 +357,10 @@
 			experience: config.experience || 'classic',
 			forcedClassic: !!config.forced,
 			busy: false,
-			error: ''
+			error: '',
+			requestRange: null,
+			cacheStatus: 'cold',
+			telemetry: { primaryLoadMs: 0, cacheHits: 0, cancelledRanges: 0 }
 		};
 
 		function emit() { listeners.slice().forEach(function (listener) { listener(state); }); }
@@ -344,23 +368,58 @@
 		function subscribe(listener) { listeners.push(listener); listener(state); return function () { listeners = listeners.filter(function (item) { return item !== listener; }); }; }
 
 		function range() {
-			var year = zonedParts(state.date).year;
-			return { start: (year - 1) + '-01-01T00:00:00', end: (year + 1) + '-12-31T23:59:59', no_sync: '1' };
+			var anchor = parseDate(state.selectedDate || state.date);
+			var start;
+			var end;
+			if (state.view === 'month') {
+				var parts = zonedParts(state.date);
+				var first = zonedDate(parts.year, parts.month, 1, 12, 0, 0);
+				start = addDays(first, -14);
+				end = addDays(addMonths(first, 1), 14);
+			} else if (state.view === 'week') {
+				var weekday = new Date(dateKey(state.date) + 'T12:00:00Z').getUTCDay();
+				start = addDays(state.date, -weekday - 7);
+				end = addDays(state.date, 20 - weekday);
+			} else if (state.view === 'day') {
+				start = addDays(anchor, -7);
+				end = addDays(anchor, 8);
+			} else {
+				start = addDays(anchor, -7);
+				end = addDays(anchor, 90);
+			}
+			return { start: dateKey(start) + 'T00:00:00', end: dateKey(end) + 'T23:59:59', no_sync: '1' };
 		}
 
-		function loadPrimary() {
+		function loadPrimary(generation, signal) {
 			if (!api || typeof api.get !== 'function') {
 				set({ wpStatus: 'error', todosStatus: 'error', error: 'Calendar service is unavailable.' });
 				return Promise.reject(new Error('Calendar service is unavailable'));
 			}
-			var events = api.get('/events', range()).then(function (payload) {
+			var params = range();
+			var key = params.start + '|' + params.end;
+			var cached = primaryCache[key];
+			set({ requestRange: { start: params.start, end: params.end }, cacheStatus: cached ? 'hit' : 'miss' });
+			if (cached) {
+				state.telemetry.cacheHits += 1;
+				set({ events: cached.events.slice(), wpStatus: cached.events.length ? 'ready' : 'empty', error: '' });
+				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary cache=hit range=' + key);
+				if (Date.now() - cached.savedAt < CACHE_FRESH_MS) return Promise.resolve(cached.events.slice());
+			}
+			if (primaryRequests[key]) return primaryRequests[key];
+			var startedAt = Date.now();
+			var events = api.get('/events', params, signal ? { signal: signal } : undefined).then(function (payload) {
 				var normalized = payload && Array.isArray(payload.events) ? payload.events.map(function (event) { return normalizeEvent(event, capabilities); }) : [];
-				set({ events: normalized, wpStatus: normalized.length ? 'ready' : 'empty', error: '' });
+				primaryCache[key] = { events: normalized.slice(), savedAt: Date.now() };
+				state.telemetry.primaryLoadMs = Date.now() - startedAt;
+				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary cache=' + (cached ? 'revalidated' : 'miss') + ' duration_ms=' + state.telemetry.primaryLoadMs + ' range=' + key);
+				if (generation === rangeGeneration) set({ events: normalized, wpStatus: normalized.length ? 'ready' : 'empty', cacheStatus: cached ? 'revalidated' : 'stored', error: '' });
 				return normalized;
 			}).catch(function (error) {
-				set({ wpStatus: 'error', error: 'Live Matrix events could not be loaded.' });
+				if (error && error.name === 'AbortError') return [];
+				if (generation === rangeGeneration) set({ wpStatus: 'error', error: 'Live Matrix events could not be loaded.' });
 				throw error;
-			});
+			}).finally(function () { delete primaryRequests[key]; });
+			primaryRequests[key] = events;
 			api.get('/todos').then(function (payload) {
 				var todos = payload && Array.isArray(payload.todos) ? payload.todos.map(normalizeTodo) : [];
 				set({ todos: todos, todosStatus: todos.length ? 'ready' : 'empty' });
@@ -388,7 +447,7 @@
 				return payload;
 			});
 		}
-		function loadScheduler() {
+		function loadScheduler(generation, signal) {
 			set({ schedulerStatus: 'loading' });
 			var request = schedulerSession().then(function (auth) {
 				var params = range();
@@ -397,23 +456,43 @@
 				Object.keys(params).forEach(function (key) { if (key !== 'no_sync') url.searchParams.set(key, params[key]); });
 				var headers = { Accept: 'application/json', Authorization: 'Bearer ' + auth.accessToken };
 				if (auth.csrfToken) headers['x-mmhq-csrf'] = auth.csrfToken;
-				return sessionJson(url.toString(), { credentials: 'same-origin', cache: 'no-store', headers: headers });
+				return sessionJson(url.toString(), { credentials: 'same-origin', cache: 'no-store', headers: headers, signal: signal });
 			}).then(function (payload) {
 				var data = payload && (payload.data || payload);
 				var events = data && Array.isArray(data.events) ? data.events.map(function (event) { return normalizeEvent(event, capabilities); }) : [];
-				set({ events: mergeEvents(state.events, events), schedulerStatus: events.length ? 'ready' : 'empty' });
+				if (generation === rangeGeneration) set({ events: mergeEvents(state.events, events), schedulerStatus: events.length ? 'ready' : 'empty' });
 				return events;
 			});
 			return timeout(request, 2500, 'Scheduler enrichment timed out').catch(function () {
-				set({ schedulerStatus: 'degraded' });
-				global.setTimeout(function () { loadScheduler().catch(function () {}); }, 10000);
+				if (generation === rangeGeneration) {
+					set({ schedulerStatus: 'degraded' });
+					global.setTimeout(function () { loadScheduler(generation, signal).catch(function () {}); }, 10000);
+				}
 				return [];
 			});
 		}
 
+		function beginGeneration() {
+			if (rangeAbortController) {
+				rangeAbortController.abort();
+				state.telemetry.cancelledRanges += 1;
+			}
+			rangeAbortController = global.AbortController ? new global.AbortController() : null;
+			rangeGeneration += 1;
+			return { generation: rangeGeneration, signal: rangeAbortController ? rangeAbortController.signal : undefined };
+		}
+
 		function start() {
-			var primary = loadPrimary();
-			loadScheduler();
+			var request = beginGeneration();
+			var primary = loadPrimary(request.generation, request.signal);
+			loadScheduler(request.generation, request.signal);
+			return primary;
+		}
+
+		function refreshRange() {
+			var request = beginGeneration();
+			var primary = loadPrimary(request.generation, request.signal);
+			loadScheduler(request.generation, request.signal);
 			return primary;
 		}
 
@@ -445,6 +524,34 @@
 			}).catch(function (error) { set({ busy: false, error: 'The event was not deleted. Nothing changed.' }); throw error; });
 		}
 
+		function createTodo(candidate) {
+			if (!capabilities.admin || !api || typeof api.post !== 'function') return Promise.reject(new Error('Task editing is unavailable.'));
+			set({ busy: true, error: '' });
+			return api.post('/todos', todoPayload(candidate)).then(function (saved) {
+				var todo = normalizeTodo(saved && (saved.todo || saved));
+				set({ todos: state.todos.concat([todo]), todosStatus: 'ready', busy: false });
+				return todo;
+			}).catch(function (error) { set({ busy: false, error: 'The task was not saved. Nothing changed.' }); throw error; });
+		}
+
+		function updateTodo(todo) {
+			if (!todo || !api || typeof api.put !== 'function') return Promise.reject(new Error('Task editing is unavailable.'));
+			set({ busy: true, error: '' });
+			return api.put('/todos/' + encodeURIComponent(todo.id), todoPayload(todo)).then(function (saved) {
+				var normalized = normalizeTodo(saved && (saved.todo || saved));
+				set({ todos: state.todos.map(function (item) { return String(item.id) === String(normalized.id) ? normalized : item; }), busy: false });
+				return normalized;
+			}).catch(function (error) { set({ busy: false, error: 'The task was not updated. Nothing changed.' }); throw error; });
+		}
+
+		function deleteTodo(todo) {
+			if (!todo) return Promise.reject(new Error('Task editing is unavailable.'));
+			set({ busy: true, error: '' });
+			return apiDelete(api, '/todos/' + encodeURIComponent(todo.id)).then(function () {
+				set({ todos: state.todos.filter(function (item) { return String(item.id) !== String(todo.id); }), busy: false });
+			}).catch(function (error) { set({ busy: false, error: 'The task was not deleted. Nothing changed.' }); throw error; });
+		}
+
 		function setPreference(experience) {
 			if (config.forced) return Promise.reject(new Error('Force Classic is active.'));
 			if (experience !== 'classic' && experience !== 'storyforge') return Promise.reject(new Error('Unknown calendar experience.'));
@@ -456,20 +563,24 @@
 			state: state,
 			start: start,
 			subscribe: subscribe,
-			setView: function (view) { if (['today','month','week','day','agenda'].indexOf(view) !== -1) set({ view: view }); },
-			setDate: function (date) { set({ date: parseDate(date), selectedDate: parseDate(date) }); },
-			navigate: function (amount) { var next = state.view === 'week' ? addDays(state.date, amount * 7) : state.view === 'day' ? addDays(state.date, amount) : addMonths(state.date, amount); set({ date: next, selectedDate: next }); },
-			today: function () { var now = new Date(); set({ date: now, selectedDate: now }); },
+				setView: function (view) { if (['today','month','week','day','agenda'].indexOf(view) !== -1 && view !== state.view) { set({ view: view }); return refreshRange(); } return Promise.resolve(state.events); },
+				setDate: function (date) { var next = parseDate(date); set({ date: next, selectedDate: next }); return refreshRange(); },
+				navigate: function (amount) { var next = state.view === 'week' ? addDays(state.date, amount * 7) : state.view === 'day' ? addDays(state.date, amount) : addMonths(state.date, amount); set({ date: next, selectedDate: next }); return refreshRange(); },
+				today: function () { var now = new Date(); set({ date: now, selectedDate: now }); return refreshRange(); },
 			createEvent: createEvent,
 			updateEvent: updateEvent,
 			deleteEvent: deleteEvent,
+			createTodo: createTodo,
+			updateTodo: updateTodo,
+			deleteTodo: deleteTodo,
 			setPreference: setPreference,
-			reloadScheduler: loadScheduler
+				reloadScheduler: function () { return loadScheduler(rangeGeneration, rangeAbortController ? rangeAbortController.signal : undefined); },
+				reloadRange: refreshRange
 		};
 	}
 
 	global.MMEDCalendarCore = {
-		version: '4200c.1',
+		version: '4200c.2',
 		zone: ZONE,
 		zoneLabel: ZONE_LABEL,
 		drillTopics: DRILL_TOPICS,
@@ -487,6 +598,7 @@
 		safeUrl: safeUrl,
 		timeout: timeout,
 		eventPayload: eventPayload,
+		todoPayload: todoPayload,
 		create: create
 	};
 })(window);

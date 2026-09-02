@@ -5,6 +5,8 @@
 	var instance = null;
 	var unsubscribe = null;
 	var selectedEventId = '';
+	var drawerReturnEventId = '';
+	var drawerNeedsFocus = false;
 	var drillTab = 'Step/Level 1';
 	var armedDrill = null;
 	var announcement = '';
@@ -132,6 +134,34 @@
 			(state.error ? '<div class="mcv2-notice is-error" role="alert">' + esc(state.error) + '</div>' : '') +
 			renderDrills(state) + '<div class="mcv2-content">' + content + '</div></main></div>' + renderDrawer(state) + renderSettings(state) + '<div class="mcv2-live" aria-live="polite">' + esc(announcement) + '</div>';
 		bind(root, state);
+		if (drawerNeedsFocus) {
+			drawerNeedsFocus = false;
+			global.setTimeout(function () { var close = root.querySelector('.mcv2-drawer [data-close-drawer]'); if (close) close.focus(); }, 0);
+		}
+	}
+
+	function closeDrawer(root) {
+		var returnId = drawerReturnEventId;
+		selectedEventId = '';
+		drawerReturnEventId = '';
+		render(instance.state);
+		global.setTimeout(function () {
+			var triggers = root.querySelectorAll('[data-event-id]');
+			for (var i = 0; i < triggers.length; i += 1) {
+				if (triggers[i].getAttribute('data-event-id') === returnId) { triggers[i].focus(); break; }
+			}
+		}, 0);
+	}
+
+	function trapDrawerFocus(event, drawer, root) {
+		if (event.key === 'Escape') { event.preventDefault(); closeDrawer(root); return; }
+		if (event.key !== 'Tab') return;
+		var controls = drawer.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
+		if (!controls.length) { event.preventDefault(); return; }
+		var first = controls[0];
+		var last = controls[controls.length - 1];
+		if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+		else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 	}
 
 	function schedule(day) {
@@ -154,8 +184,9 @@
 		root.querySelectorAll('[data-nav]').forEach(function (button) { button.addEventListener('click', function () { instance.navigate(Number(button.getAttribute('data-nav'))); }); });
 		var today = root.querySelector('[data-today]'); if (today) today.addEventListener('click', instance.today);
 		root.querySelectorAll('[data-day],[data-schedule-day]').forEach(function (button) { button.addEventListener('click', function () { var day = button.getAttribute('data-schedule-day') || button.getAttribute('data-day'); if (button.hasAttribute('data-schedule-day')) schedule(day); else { instance.setDate(day); instance.setView('day'); } }); });
-		root.querySelectorAll('[data-event-id]').forEach(function (button) { button.addEventListener('click', function (event) { event.stopPropagation(); selectedEventId = button.getAttribute('data-event-id'); render(instance.state); }); });
-		root.querySelectorAll('[data-close-drawer]').forEach(function (button) { button.addEventListener('click', function () { selectedEventId = ''; render(instance.state); }); });
+		root.querySelectorAll('[data-event-id]').forEach(function (button) { button.addEventListener('click', function (event) { event.stopPropagation(); selectedEventId = button.getAttribute('data-event-id'); drawerReturnEventId = selectedEventId; drawerNeedsFocus = true; render(instance.state); }); });
+		root.querySelectorAll('[data-close-drawer]').forEach(function (button) { button.addEventListener('click', function () { closeDrawer(root); }); });
+		var drawer = root.querySelector('.mcv2-drawer'); if (drawer) drawer.addEventListener('keydown', function (event) { trapDrawerFocus(event, drawer, root); });
 		root.querySelectorAll('[data-drill-tab]').forEach(function (button) { button.addEventListener('click', function () { drillTab = button.getAttribute('data-drill-tab'); armedDrill = null; render(instance.state); }); });
 		root.querySelectorAll('[data-drill-topic]').forEach(function (button) {
 			button.addEventListener('click', function () { armedDrill = { topic: button.getAttribute('data-drill-topic'), level: button.getAttribute('data-drill-level') }; announcement = armedDrill.topic + ' selected. Choose a calendar day.'; render(instance.state); });
@@ -193,6 +224,8 @@
 		unsubscribe = null;
 		instance = null;
 		selectedEventId = '';
+		drawerReturnEventId = '';
+		drawerNeedsFocus = false;
 		document.body.classList.remove('matrix-app-mode-calendar', 'matrix-calendar-storyforge');
 		document.body.removeAttribute('data-matrix-calendar-experience');
 	}

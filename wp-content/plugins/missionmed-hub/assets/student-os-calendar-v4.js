@@ -366,14 +366,14 @@ function addTodo(){
   if (!requireCalendarWriteControls()) return;
   const input=document.getElementById('todoInput'), text=input.value.trim();
   if(!text)return;
-  const todo={id:Date.now(),localOnly:true,text,done:false,priority:'med',date:'',notes:'',meetingUrl:'',meetingPlatform:''};
-  state.todos.push(todo);
-  input.value='';SFX.play('todo');renderTodos();showToast('Task added','&#10004;');persistTodoCreate(todo);
+  const todo={text,done:false,priority:'med',date:'',notes:'',meetingUrl:'',meetingPlatform:''};
+  showToast('Saving task…','&#8987;');
+  persistTodoCreate(todo).then(()=>{input.value='';SFX.play('todo');showToast('Task added','&#10004;');}).catch(()=>{showToast('Task was not saved. Nothing changed.','&#9888;');});
 }
 function toggleTodo(id){
   if (!requireCalendarWriteControls()) return;
   const t=state.todos.find(x=>String(x.id)===String(id));
-  if(t){t.done=!t.done;SFX.play(t.done?'todo':'click');renderTodos();persistTodoUpdate(t);if(state.view==='agenda')renderAgenda();}
+  if(t){const candidate=Object.assign({},t,{done:!t.done});showToast('Saving task…','&#8987;');persistTodoUpdate(candidate).then(()=>{SFX.play(candidate.done?'todo':'click');showToast('Task updated','&#10004;');}).catch(()=>{showToast('Task was not updated. Nothing changed.','&#9888;');});}
 }
 
 // To-Do Detail Modal (full featured)
@@ -426,21 +426,24 @@ function showTodoDetail(id){
 function saveTodoDetail(id){
   if (!requireCalendarWriteControls()) return;
   const t=state.todos.find(x=>String(x.id)===String(id));if(!t)return;
-  t.text=document.getElementById('tdTitle').value.trim()||t.text;
-  t.priority=document.getElementById('tdPriority').value;
-  t.date=document.getElementById('tdDate').value;
-  t.notes=document.getElementById('tdNotes').value;
-  t.meetingPlatform=document.getElementById('tdMeetPlatform').value;
-  t.meetingUrl=document.getElementById('tdMeetUrl').value;
-  t.done=document.getElementById('tdDone').checked;
-  closeModal('todoModal');SFX.play('todo');renderTodos();persistTodoUpdate(t);showToast('Task updated','&#10004;');
-  if(state.view==='agenda')renderAgenda();
+  const candidate=Object.assign({},t,{
+    text:document.getElementById('tdTitle').value.trim()||t.text,
+    priority:document.getElementById('tdPriority').value,
+    date:document.getElementById('tdDate').value,
+    notes:document.getElementById('tdNotes').value,
+    meetingPlatform:document.getElementById('tdMeetPlatform').value,
+    meetingUrl:document.getElementById('tdMeetUrl').value,
+    done:document.getElementById('tdDone').checked
+  });
+  showToast('Saving task…','&#8987;');
+  persistTodoUpdate(candidate).then(()=>{closeModal('todoModal');SFX.play('todo');showToast('Task updated','&#10004;');}).catch(()=>{showToast('Task was not updated. Nothing changed.','&#9888;');});
 }
 function deleteTodo(id){
   if (!requireCalendarWriteControls()) return;
   const todo=state.todos.find(x=>String(x.id)===String(id));
-  state.todos=state.todos.filter(x=>String(x.id)!==String(id));
-  closeModal('todoModal');SFX.play('click');renderTodos();if(todo&&!todo.localOnly)persistTodoDelete(id);showToast('Task deleted','&#128465;');
+  if(!todo)return;
+  showToast('Deleting task…','&#8987;');
+  persistTodoDelete(id).then(()=>{closeModal('todoModal');SFX.play('click');showToast('Task deleted','&#128465;');}).catch(()=>{showToast('Task was not deleted. Nothing changed.','&#9888;');});
 }
 
 // Panel
@@ -478,7 +481,7 @@ function renderMonth(){
     h+='</div></div>';d.setDate(d.getDate()+1);
   }
   h+='</div></div>';c.innerHTML=h;
-  c.querySelectorAll('.cal-day').forEach(cell=>{cell.addEventListener('click',()=>{SFX.play('click');state.selectedDate=new Date(cell.dataset.date);if(state.selectedDrillTopic&&canUseCalendarAdmin()){scheduleDrillTopicOnDate(state.selectedDrillTopic,cell.dataset.date);return;}openDaySidebar(cell.dataset.date);renderMonth();});});
+  c.querySelectorAll('.cal-day').forEach(cell=>{cell.addEventListener('click',()=>{SFX.play('click');state.selectedDate=new Date(cell.dataset.date);if(classicCalendarCore)classicCalendarCore.setDate(state.selectedDate);if(state.selectedDrillTopic&&canUseCalendarAdmin()){scheduleDrillTopicOnDate(state.selectedDrillTopic,cell.dataset.date);return;}openDaySidebar(cell.dataset.date);renderMonth();});});
 }
 function activateCalendarDayFromKey(event,cell){if(event.key==='Enter'||event.key===' '){event.preventDefault();cell.click();}}
 
@@ -686,7 +689,7 @@ function scheduleDrillTopicOnDate(selection,dateValue){
   const cat=catObj(catId),defs=Object.assign({},cat.defaults||{},selection.level==='Step/Level 2/3'?{startTime:'14:00',endTime:'16:00'}:{startTime:'10:00',endTime:'12:00'});
   const [sh,sm]=(defs.startTime||'10:00').split(':').map(Number),[eh,em]=(defs.endTime||'12:00').split(':').map(Number);
   const lvl=selection.level==='Step/Level 1'?'1':'2/3';
-  const ev={id:Date.now(),localOnly:true,category:catId,title:`${selection.topic} (Step/Level ${lvl})`,start:new Date(target.getFullYear(),target.getMonth(),target.getDate(),sh,sm),end:new Date(target.getFullYear(),target.getMonth(),target.getDate(),eh,em),description:defs.description||'',allDay:false,meta:{},important:false,meetingUrl:SESSION_CONFIG.drills.meetingUrl,meetingPlatform:'Zoom'};
+  const ev={id:Date.now(),localOnly:true,category:catId,title:`${selection.topic} (Step/Level ${lvl})`,start:new Date(target.getFullYear(),target.getMonth(),target.getDate(),sh,sm),end:new Date(target.getFullYear(),target.getMonth(),target.getDate(),eh,em),description:defs.description||'',allDay:false,meta:{drill_level:selection.level,drill_topic:selection.topic},important:false,meetingUrl:SESSION_CONFIG.drills.meetingUrl,meetingPlatform:'Zoom'};
   state.selectedDrillTopic=null;
   showToast('Scheduling drill…','&#8987;');
   persistCreatedEvent(ev).then(()=>{SFX.play('add');showToast(`Scheduled: ${selection.topic}`,'&#128293;');renderAdmin();renderMonth();}).catch(()=>{renderAdmin();renderMonth();});
@@ -1021,9 +1024,9 @@ function openDaySidebar(ds){
 }
 
 // View
-function setView(v){SFX.play('nav');state.view=v;document.querySelectorAll('.cal-nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));['month','week','day','agenda'].forEach(x=>document.getElementById('view'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===v?'':'none');renderCurrentView();}
+function setView(v){SFX.play('nav');state.view=v;document.querySelectorAll('.cal-nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));['month','week','day','agenda'].forEach(x=>document.getElementById('view'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===v?'':'none');renderCurrentView();if(classicCalendarCore)classicCalendarCore.setView(v);}
 function renderCurrentView(){if(state.view==='month')renderMonth();else if(state.view==='week')renderWeek();else if(state.view==='day')renderDay();else renderAgenda();}
-function navigate(dir){SFX.play('nav');const d=state.currentDate;if(state.view==='month')d.setMonth(d.getMonth()+dir);else if(state.view==='week')d.setDate(d.getDate()+dir*7);else if(state.view==='day'){state.selectedDate.setDate(state.selectedDate.getDate()+dir);state.currentDate=new Date(state.selectedDate);}else d.setMonth(d.getMonth()+dir);renderCurrentView();}
+function navigate(dir){SFX.play('nav');const d=state.currentDate;if(state.view==='month')d.setMonth(d.getMonth()+dir);else if(state.view==='week')d.setDate(d.getDate()+dir*7);else if(state.view==='day'){state.selectedDate.setDate(state.selectedDate.getDate()+dir);state.currentDate=new Date(state.selectedDate);}else d.setMonth(d.getMonth()+dir);renderCurrentView();if(classicCalendarCore)classicCalendarCore.navigate(dir);}
 
 // Init
 
@@ -1031,6 +1034,8 @@ function navigate(dir){SFX.play('nav');const d=state.currentDate;if(state.view==
 // Matrix live wiring adapter
 let matrixApp = null;
 let liveLoadStarted = false;
+let classicCalendarCore = null;
+let classicCalendarUnsubscribe = null;
 const MATRIX_CATEGORY_TO_PROTO = {
   drill_step1: 'drills',
   drill_step23: 'drills',
@@ -1259,237 +1264,95 @@ function parseCalendarDate(value, fallback) {
   const parsed = new Date(raw);
   return isNaN(parsed.getTime()) ? (fallback || new Date()) : parsed;
 }
-const schedulerAuthState = { payload: null, promise: null };
-function schedulerCalendarUrl(params) {
-  const endpoint = canUseCalendarAdmin() ? '/api/scheduler/admin/calendar-feed' : '/api/scheduler/calendar-feed';
-  const url = new URL(endpoint, window.location.origin);
-  Object.keys(params || {}).forEach(key => {
-    if (params[key] !== undefined && params[key] !== null && params[key] !== '') url.searchParams.set(key, params[key]);
+function coreEventToClassic(event) {
+  const classic = normalizeLiveEvent({
+    id: event.id,
+    title: event.title,
+    start: event.start,
+    end: event.end,
+    allDay: event.allDay,
+    description: event.description,
+    event_type: event.eventType,
+    category: event.category,
+    source: event.source,
+    sourceId: event.sourceId,
+    userId: event.userId,
+    meta: event.meta,
+    joinUrl: event.joinUrl,
+    meeting_platform: event.meetingPlatform,
+    recording_url: event.replayUrl,
+    recording_status: event.recordingStatus
   });
-  return url.toString();
+  classic.writable = event.writable;
+  classic.important = event.important;
+  return classic;
 }
-function schedulerPayloadEvents(payload) {
-  const data = payload && (payload.data || payload);
-  if (data && Array.isArray(data.events)) return data.events;
-  if (payload && Array.isArray(payload.events)) return payload.events;
-  return [];
+function coreTodoToClassic(todo) {
+  return normalizeLiveTodo({ id: todo.id, title: todo.title, completed: todo.completed, priority: todo.priority, due_date: todo.dueDate, notes: todo.notes, meeting_url: todo.meetingUrl, meeting_platform: todo.meetingPlatform });
 }
-function loadSchedulerCalendarFeed(params) {
-  const request=schedulerCalendarFeedRequest(params).then(payload => {
-    return schedulerPayloadEvents(payload).map(normalizeLiveEvent).filter(isSchedulerAppointmentEvent);
-  }).catch(() => []);
-  return window.MMEDCalendarCore && typeof window.MMEDCalendarCore.timeout === 'function'
-    ? window.MMEDCalendarCore.timeout(request,2500,'Scheduler enrichment timed out').catch(()=>[])
-    : request;
-}
-function schedulerCalendarFeedRequest(params) {
-  return ensureSchedulerCalendarAuth().then(() => {
-    return schedulerCalendarFetchOnce(params);
-  }).then(result => {
-    if ((result.status === 401 || result.status === 403) && schedulerAuthState.payload) {
-      schedulerAuthState.payload = null;
-      schedulerAuthState.promise = null;
-      return ensureSchedulerCalendarAuth().then(() => schedulerCalendarFetchOnce(params));
-    }
-    return result;
-  }).then(result => {
-    if (!result.ok) return { data: { events: [] } };
-    return result.payload || {};
-  });
-}
-function schedulerCalendarFetchOnce(params) {
-  const headers = { 'Accept': 'application/json' };
-  const auth = schedulerAuthState.payload || {};
-  if (auth.csrfToken) headers['x-mmhq-csrf'] = auth.csrfToken;
-  if (auth.accessToken) headers.Authorization = 'Bearer ' + auth.accessToken;
-  return fetch(schedulerCalendarUrl(params), {
-    method: 'GET',
-    credentials: 'same-origin',
-    cache: 'no-store',
-    headers
-  }).then(resp => resp.json().catch(() => ({})).then(payload => ({ ok: resp.ok, status: resp.status, payload })));
-}
-function ensureSchedulerCalendarAuth() {
-  if (schedulerAuthState.payload && schedulerAuthState.payload.authenticated && schedulerAuthState.payload.accessToken) {
-    return Promise.resolve(schedulerAuthState.payload);
+function syncClassicFromCore(coreState) {
+  state.events = (coreState.events || []).map(coreEventToClassic);
+  state.todos = (coreState.todos || []).map(coreTodoToClassic);
+  state.seeded = true;
+  setCalendarDataMarker('events', coreState.wpStatus === 'error' ? 'error' : (coreState.wpStatus === 'loading' ? 'loading' : (state.events.length ? 'live' : 'live-empty')), state.events.length);
+  setCalendarDataMarker('todos', coreState.todosStatus === 'error' ? 'error' : (coreState.todosStatus === 'loading' ? 'loading' : (state.todos.length ? 'live' : 'live-empty')), state.todos.length);
+  if (calendarRoot()) {
+    renderCurrentView();
+    renderTodos();
   }
-  if (schedulerAuthState.promise) return schedulerAuthState.promise;
-  schedulerAuthState.promise = fetch('/api/auth/session?mm_scheduler_exchange=1&audience=scheduler', {
-    method: 'GET',
-    credentials: 'same-origin',
-    cache: 'no-store',
-    headers: { 'Accept': 'application/json' }
-  }).then(resp => resp.json().catch(() => ({}))).then(payload => {
-    if (payload && payload.authenticated) return payload;
-    return fetch('/api/auth/exchange', {
-      method: 'POST',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ audience: 'scheduler' })
-    }).then(resp => resp.json().catch(() => payload || {}));
-  }).then(payload => {
-    if (!payload || !payload.authenticated || !payload.accessToken) throw new Error('Scheduler authentication unavailable');
-    schedulerAuthState.payload = payload;
-    schedulerAuthState.promise = null;
-    return payload;
-  }).catch(err => {
-    schedulerAuthState.payload = null;
-    schedulerAuthState.promise = null;
-    throw err;
-  });
-  return schedulerAuthState.promise;
 }
-function liveEventKey(ev) {
-  if (!ev) return '';
-  if (ev.source === 'scheduler' && ev.sourceId) return 'scheduler:' + ev.sourceId;
-  if (ev.source === 'scheduler' && ev.id) return 'scheduler-id:' + ev.id;
-  return [ev.title || '', ev.start ? ev.start.toISOString() : '', ev.end ? ev.end.toISOString() : '', ev.category || ''].join('|').toLowerCase();
-}
-function mergeLiveEvents(calendarEvents, schedulerEvents) {
-  const output = [];
-  const seen = {};
-  function add(ev, prefer) {
-    const key = liveEventKey(ev);
-    if (key && seen[key]) {
-      if (prefer) output[seen[key] - 1] = ev;
-      return;
-    }
-    output.push(ev);
-    if (key) seen[key] = output.length;
+function ensureSharedCalendarCore() {
+  if (!window.MMEDCalendarCore || typeof window.MMEDCalendarCore.create !== 'function') throw new Error('Shared Calendar core unavailable');
+  if (!classicCalendarCore) {
+    classicCalendarCore = window.MMEDCalendarCore.create(matrixApp);
+    classicCalendarUnsubscribe = classicCalendarCore.subscribe(syncClassicFromCore);
   }
-  (calendarEvents || []).forEach(ev => add(ev, false));
-  (schedulerEvents || []).forEach(ev => add(ev, true));
-  return output;
+  return classicCalendarCore;
 }
 function loadLiveCalendarData() {
   if (liveLoadStarted) return;
-  if (!matrixApp || !matrixApp.api) {
-    state.events = [];
-    setCalendarDataMarker('events', 'error', 0);
-    renderCurrentView();
-    return;
-  }
   liveLoadStarted = true;
-  state.events = [];
-  setCalendarDataMarker('events', 'loading', 0);
-  renderCurrentView();
-  const eventParams = { start: '2026-05-01T00:00:00', end: '2027-03-31T23:59:59' };
-  const calendarEventsRequest = matrixApp.api.get('/events', Object.assign({}, eventParams, { no_sync: '1' })).then(data => {
-    if (!data || !Array.isArray(data.events)) return null;
-    return data.events.map(normalizeLiveEvent);
-  }).catch(() => null);
-  calendarEventsRequest.then(calendarEvents => {
-    if (!calendarEvents) {
-      state.events = [];
-      setCalendarDataMarker('events', 'error', 0);
-      renderCurrentView();
-      showToast('Live calendar feed unavailable.', '&#9888;');
-      return;
-    }
-    state.events = calendarEvents;
-    state.seeded = true;
-    setCalendarDataMarker('events', calendarEvents.length ? 'live' : 'live-empty', calendarEvents.length);
+  try {
+    const core = ensureSharedCalendarCore();
+    core.setView(state.view);
+    core.start().catch(() => { showToast('Live calendar feed unavailable.', '&#9888;'); });
+  } catch (error) {
+    setCalendarDataMarker('events', 'error', 0);
+    setCalendarDataMarker('todos', 'error', 0);
     renderCurrentView();
-    loadSchedulerCalendarFeed(eventParams).then(schedulerEvents=>{
-      state.events=mergeLiveEvents(state.events,schedulerEvents||[]);
-      setCalendarDataMarker('events',state.events.length?'live':'live-empty',state.events.length);
-      renderCurrentView();
-    });
-  });
-  matrixApp.api.get('/todos').then(data => {
-    if (!data || !Array.isArray(data.todos)) {
-      setCalendarDataMarker('todos', 'error', state.todos.length);
-      return;
-    }
-    const todos = data.todos.map(normalizeLiveTodo);
-    state.todos = todos;
-    state.todoNextId = Math.max.apply(null, todos.map(t => parseInt(t.id, 10) || 0).concat([0])) + 1;
-    setCalendarDataMarker('todos', todos.length ? 'live' : 'live-empty', todos.length);
-    renderTodos();
-  }).catch(() => {
-    setCalendarDataMarker('todos', 'error', state.todos.length);
-  });
-}
-function apiPayloadFromEvent(ev) {
-  const adminGlobalEvent = canUseCalendarAdmin();
-  const meta = Object.assign({}, ev.meta || {}, {
-    meeting_url: ev.meetingUrl || '',
-    meeting_platform: ev.meetingPlatform || '',
-    important: !!ev.important
-  });
-  if (adminGlobalEvent) meta.audience = 'all_students';
-  return {
-    title: ev.title,
-    event_type: PROTO_CATEGORY_TO_MATRIX[ev.category] || 'custom',
-    start_at: localDateTime(ev.start),
-    end_at: localDateTime(ev.end),
-    all_day: !!ev.allDay,
-    description: ev.description || '',
-    meeting_url: ev.meetingUrl || '',
-    meeting_platform: ev.meetingPlatform || '',
-    category: ev.category || '',
-    priority: ev.important ? 1 : 0,
-    audience: adminGlobalEvent ? 'all_students' : '',
-    meta
-  };
-}
-function apiDelete(endpoint) {
-  if (!matrixApp || !matrixApp.api) return Promise.resolve();
-  if (typeof matrixApp.api.delete === 'function') return matrixApp.api.delete(endpoint);
-  if (typeof matrixApp.api.del === 'function') return matrixApp.api.del(endpoint);
-  return Promise.resolve();
+  }
 }
 function canPersistEvent(ev) {
   return !!(ev && !ev.localOnly && ev.writable !== false && String(ev.id).indexOf('local-') !== 0);
 }
 function persistCreatedEvent(ev) {
-  if (!matrixApp || !matrixApp.api || !matrixApp.api.post) return Promise.reject(new Error('Calendar service unavailable'));
-  return matrixApp.api.post('/events', apiPayloadFromEvent(ev)).then(resp => {
-    const saved = resp && (resp.event || resp);
-    if (!saved || !saved.id) throw new Error('Calendar save returned no event');
-    const normalized=normalizeLiveEvent(saved);
-    const idx = state.events.findIndex(x => x === ev || String(x.id) === String(ev.id));
-    if (idx !== -1) state.events[idx] = normalized; else state.events.push(normalized);
-    refreshCalendarDataMarkers();
-    renderCurrentView();
-    return normalized;
-  }).catch(error=>{showToast('Event was not saved. Nothing changed.', '&#9888;');throw error;});
+  const candidate = Object.assign({}, ev, { eventType: (ev.meta && ev.meta.drill_level === 'Step/Level 2/3') ? 'drill_step23' : (PROTO_CATEGORY_TO_MATRIX[ev.category] || 'custom'), joinUrl: ev.meetingUrl || '', audience: canUseCalendarAdmin() ? 'all_students' : '' });
+  return ensureSharedCalendarCore().createEvent(candidate).then(coreEventToClassic).catch(error=>{showToast('Event was not saved. Nothing changed.', '&#9888;');throw error;});
 }
 function persistUpdatedEvent(ev) {
-  if (!matrixApp || !matrixApp.api || !matrixApp.api.put || !canPersistEvent(ev)) return Promise.reject(new Error('Event is read-only'));
-  return matrixApp.api.put('/events/' + encodeURIComponent(ev.id), apiPayloadFromEvent(ev)).then(resp => {
-    const saved = resp && (resp.event || resp);
-    if (!saved || !saved.id) throw new Error('Calendar update returned no event');
-    const normalized=normalizeLiveEvent(saved);
-    const idx = state.events.findIndex(x => String(x.id) === String(ev.id));
-    if (idx !== -1) state.events[idx] = normalized;
-    renderCurrentView();
-    return normalized;
-  }).catch(error=>{showToast('Event was not updated. Nothing changed.', '&#9888;');throw error;});
+  if (!canPersistEvent(ev)) return Promise.reject(new Error('Event is read-only'));
+  const original = ensureSharedCalendarCore().state.events.find(item => String(item.id) === String(ev.id));
+  if (!original) return Promise.reject(new Error('Event is unavailable'));
+  const candidate = Object.assign({}, original, { title: ev.title, start: ev.start, end: ev.end, allDay: ev.allDay, description: ev.description, category: ev.category, joinUrl: ev.meetingUrl || '', important: !!ev.important, meta: ev.meta || {} });
+  return ensureSharedCalendarCore().updateEvent(candidate).then(coreEventToClassic).catch(error=>{showToast('Event was not updated. Nothing changed.', '&#9888;');throw error;});
 }
 function persistDeletedEvent(id) {
   if (String(id).indexOf('local-') === 0) return Promise.resolve();
-  return apiDelete('/events/' + encodeURIComponent(id)).catch(error=>{showToast('Event was not deleted. Nothing changed.', '&#9888;');throw error;});
+  const original = ensureSharedCalendarCore().state.events.find(item => String(item.id) === String(id));
+  if (!original) return Promise.reject(new Error('Event is unavailable'));
+  return ensureSharedCalendarCore().deleteEvent(original).catch(error=>{showToast('Event was not deleted. Nothing changed.', '&#9888;');throw error;});
 }
 function persistTodoCreate(todo) {
-  if (!matrixApp || !matrixApp.api || !matrixApp.api.post) return;
-  matrixApp.api.post('/todos', { title: todo.text, priority: todo.priority === 'med' ? 'medium' : todo.priority, due_date: todo.date || '', notes: todo.notes || '' }).then(resp => {
-    const saved = resp && (resp.todo || resp);
-    if (saved && saved.id) {
-      const idx = state.todos.findIndex(t => t === todo || t.id === todo.id);
-      if (idx !== -1) state.todos[idx] = normalizeLiveTodo(saved);
-      renderTodos();
-    }
-  }).catch(() => {});
+  return ensureSharedCalendarCore().createTodo(todo);
 }
 function persistTodoUpdate(todo) {
-  if (!matrixApp || !matrixApp.api || !matrixApp.api.put || todo.localOnly || String(todo.id).indexOf('local-') === 0) return;
-  matrixApp.api.put('/todos/' + encodeURIComponent(todo.id), { title: todo.text, completed: !!todo.done, priority: todo.priority === 'med' ? 'medium' : todo.priority, due_date: todo.date || '', notes: todo.notes || '', meeting_url: todo.meetingUrl || '', meeting_platform: todo.meetingPlatform || '' }).catch(() => {});
+  if (todo.localOnly || String(todo.id).indexOf('local-') === 0) return Promise.resolve();
+  return ensureSharedCalendarCore().updateTodo(todo);
 }
 function persistTodoDelete(id) {
   if (String(id).indexOf('local-') === 0) return;
-  apiDelete('/todos/' + encodeURIComponent(id)).catch(() => {});
+  const original = ensureSharedCalendarCore().state.todos.find(todo => String(todo.id) === String(id));
+  if (original) return ensureSharedCalendarCore().deleteTodo(original);
 }
 
 function activateCalendarAppMode() {
@@ -1554,7 +1417,7 @@ function initPrototypeCalendar() {
   document.querySelectorAll('.cal-nav-btn').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
   document.getElementById('prevBtn').addEventListener('click',()=>navigate(-1));
   document.getElementById('nextBtn').addEventListener('click',()=>navigate(1));
-  document.getElementById('todayBtn').addEventListener('click',()=>{SFX.play('click');state.currentDate=new Date();state.selectedDate=new Date();renderCurrentView();});
+  document.getElementById('todayBtn').addEventListener('click',()=>{SFX.play('click');state.currentDate=new Date();state.selectedDate=new Date();renderCurrentView();if(classicCalendarCore)classicCalendarCore.today();});
   const addBtn = document.getElementById('addBtn');
   if (addBtn && canUseCalendarWriteControls()) addBtn.addEventListener('click',()=>showNewEventModal());
   document.getElementById('syncBtn').addEventListener('click',showSync);
@@ -1599,6 +1462,10 @@ function renderCalendarPrototype(app) {
 }
 
 function unmountCalendarPrototype() {
+  if (classicCalendarUnsubscribe) classicCalendarUnsubscribe();
+  classicCalendarUnsubscribe = null;
+  classicCalendarCore = null;
+  liveLoadStarted = false;
   deactivateCalendarAppMode();
   teardownBackground();
   const content = document.getElementById('sos-content');

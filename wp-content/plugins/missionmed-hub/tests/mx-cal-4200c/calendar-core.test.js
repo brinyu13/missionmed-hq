@@ -91,6 +91,35 @@ test('event create is server-success-first', async () => {
 	assert.equal(calendar.state.events[0].id, 51);
 });
 
+test('view ranges are bounded and warm revisits use the shared cache', async () => {
+	const eventCalls = [];
+	const app = {
+		profile: { is_admin: false },
+		api: {
+			get: (endpoint, params) => {
+				if (endpoint === '/events') eventCalls.push({ start: params.start, end: params.end });
+				return Promise.resolve(endpoint === '/events' ? { events: [] } : { todos: [] });
+			}
+		}
+	};
+	const core = loadCore({
+		fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ authenticated: true, accessToken: 'test-only', data: { events: [] } }) })
+	});
+	const calendar = core.create(app);
+	await calendar.start();
+	assert.equal(eventCalls.length, 1);
+	const initial = eventCalls[0];
+	assert.ok((new Date(initial.end) - new Date(initial.start)) < 65 * 86400000, 'month fetch must stay within a bounded view window');
+	await calendar.navigate(1);
+	assert.equal(eventCalls.length, 2);
+	await calendar.navigate(-1);
+	assert.equal(eventCalls.length, 2, 'warm revisit must not fetch the primary feed again');
+	assert.ok(calendar.state.telemetry.cacheHits >= 1);
+	await calendar.setView('day');
+	const dayRange = eventCalls[eventCalls.length - 1];
+	assert.ok((new Date(dayRange.end) - new Date(dayRange.start)) < 17 * 86400000, 'day fetch must stay within a bounded prefetch window');
+});
+
 test('ET display contract is explicit and DST-aware', () => {
 	const core = loadCore();
 	assert.equal(core.zone, 'America/New_York');

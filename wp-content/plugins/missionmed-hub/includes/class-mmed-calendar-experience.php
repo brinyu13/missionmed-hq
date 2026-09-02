@@ -27,6 +27,52 @@ class MMED_Calendar_Experience {
 	 */
 	public static function init() {
 		add_action( 'rest_api_init', array( __CLASS__, 'register_routes' ) );
+		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
+		add_action( 'admin_menu', array( __CLASS__, 'register_settings_page' ) );
+	}
+
+	/**
+	 * Register the fail-closed Calendar controls with WordPress Settings API.
+	 *
+	 * @return void
+	 */
+	public static function register_settings() {
+		register_setting( 'mmed_calendar_experience', self::OPTION_DEFAULT, array( 'sanitize_callback' => array( __CLASS__, 'sanitize_default' ), 'default' => 'classic' ) );
+		register_setting( 'mmed_calendar_experience', self::OPTION_ENABLED, array( 'sanitize_callback' => array( __CLASS__, 'sanitize_boolean' ), 'default' => false ) );
+		register_setting( 'mmed_calendar_experience', self::OPTION_FORCE, array( 'sanitize_callback' => array( __CLASS__, 'sanitize_boolean' ), 'default' => false ) );
+	}
+
+	/** Register the administrator-only Calendar experience page. */
+	public static function register_settings_page() {
+		add_options_page( 'Calendar Experience', 'Calendar Experience', 'manage_options', 'mmed-calendar-experience', array( __CLASS__, 'render_settings_page' ) );
+	}
+
+	/** Render the administrator default and emergency fallback controls. */
+	public static function render_settings_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		$default = get_option( self::OPTION_DEFAULT, 'classic' );
+		$enabled = (bool) get_option( self::OPTION_ENABLED, false );
+		$forced  = (bool) get_option( self::OPTION_FORCE, false );
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Calendar Experience', 'missionmed-hub' ); ?></h1>
+			<p><?php esc_html_e( 'Choose the site default and keep an immediate Classic emergency fallback.', 'missionmed-hub' ); ?></p>
+			<form method="post" action="options.php">
+				<?php settings_fields( 'mmed_calendar_experience' ); ?>
+				<table class="form-table" role="presentation">
+					<tr><th scope="row"><?php esc_html_e( 'Default experience', 'missionmed-hub' ); ?></th><td>
+						<label><input type="radio" name="<?php echo esc_attr( self::OPTION_DEFAULT ); ?>" value="classic" <?php checked( $default, 'classic' ); ?>> <?php esc_html_e( 'Classic', 'missionmed-hub' ); ?></label><br>
+						<label><input type="radio" name="<?php echo esc_attr( self::OPTION_DEFAULT ); ?>" value="storyforge" <?php checked( $default, 'storyforge' ); ?>> <?php esc_html_e( 'StoryForge V2', 'missionmed-hub' ); ?></label>
+					</td></tr>
+					<tr><th scope="row"><?php esc_html_e( 'StoryForge V2 availability', 'missionmed-hub' ); ?></th><td><input type="hidden" name="<?php echo esc_attr( self::OPTION_ENABLED ); ?>" value="0"><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION_ENABLED ); ?>" value="1" <?php checked( $enabled ); ?>> <?php esc_html_e( 'Enable StoryForge V2', 'missionmed-hub' ); ?></label></td></tr>
+					<tr><th scope="row"><?php esc_html_e( 'Emergency fallback', 'missionmed-hub' ); ?></th><td><input type="hidden" name="<?php echo esc_attr( self::OPTION_FORCE ); ?>" value="0"><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION_FORCE ); ?>" value="1" <?php checked( $forced ); ?>> <?php esc_html_e( 'Force Classic for every user', 'missionmed-hub' ); ?></label></td></tr>
+				</table>
+				<?php submit_button(); ?>
+			</form>
+		</div>
+		<?php
 	}
 
 	/**
@@ -103,8 +149,8 @@ class MMED_Calendar_Experience {
 		return self::resolve_values(
 			(bool) get_option( self::OPTION_FORCE, false ),
 			$user_id ? get_user_meta( $user_id, self::USER_META, true ) : '',
-			get_option( self::OPTION_DEFAULT, 'storyforge' ),
-			(bool) get_option( self::OPTION_ENABLED, true )
+			get_option( self::OPTION_DEFAULT, 'classic' ),
+			(bool) get_option( self::OPTION_ENABLED, false )
 		);
 	}
 
@@ -121,7 +167,7 @@ class MMED_Calendar_Experience {
 		return array(
 			'experience'  => $experience,
 			'forced'      => $forced,
-			'v2_enabled'  => (bool) get_option( self::OPTION_ENABLED, true ),
+			'v2_enabled'  => (bool) get_option( self::OPTION_ENABLED, false ),
 			'timezone'    => 'America/New_York',
 			'timezone_label' => 'Eastern Time (ET)',
 			'preference_url' => rest_url( self::REST_NAMESPACE . '/me/calendar-experience' ),
@@ -175,6 +221,17 @@ class MMED_Calendar_Experience {
 	public static function sanitize_experience( $value ) {
 		$value = strtolower( sanitize_key( (string) $value ) );
 		return in_array( $value, array( 'classic', 'storyforge' ), true ) ? $value : '';
+	}
+
+	/** Sanitize the administrator default and fail closed to Classic. */
+	public static function sanitize_default( $value ) {
+		$value = self::sanitize_experience( $value );
+		return $value ? $value : 'classic';
+	}
+
+	/** Normalize Settings API checkbox values. */
+	public static function sanitize_boolean( $value ) {
+		return empty( $value ) ? 0 : 1;
 	}
 
 	/**
