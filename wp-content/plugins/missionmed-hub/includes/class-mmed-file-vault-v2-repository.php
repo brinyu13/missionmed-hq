@@ -752,6 +752,21 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		}
 
 		try {
+			if ( $file_id ) {
+				$row = self::get_owned_file( $file_id, $user_id );
+				if ( ! $row ) {
+					return new WP_Error( 'mmed_file_vault_v2_not_found', 'Document not found.', array( 'status' => 404 ) );
+				}
+				$row_meta = self::meta_for_row( $row );
+				if ( count( self::internal_versions( $row, $row_meta ) ) >= self::MAX_VERSIONS ) {
+					return new WP_Error( 'mmed_file_vault_v2_version_limit', 'This document has reached its retained version limit.', array( 'status' => 409 ) );
+				}
+				foreach ( self::pending_uploads( $user_id ) as $pending_upload ) {
+					if ( $file_id === absint( $pending_upload['file_id'] ?? 0 ) ) {
+						return new WP_Error( 'mmed_file_vault_v2_lineage_busy', 'Another version of this document is already being uploaded. Finish or wait for it before starting the next version.', array( 'status' => 409 ) );
+					}
+				}
+			}
 			$upload_id     = wp_generate_uuid4();
 			$confirm_token = self::random_token();
 			$share_as_mission_file = ! $row && rest_sanitize_boolean( $params['share_as_mission_file'] ?? false ) && user_can( $actor_id, 'mmed_manage_file_vault' );
@@ -819,7 +834,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( ! set_transient( self::intent_key( $upload_id ), $intent, self::INTENT_TTL ) ) {
 			return new WP_Error( 'mmed_file_vault_v2_intent_unavailable', 'The private upload session could not be stored.', array( 'status' => 503 ) );
 		}
-		if ( ! self::record_upload_issuance( $user_id, $actor_id, $upload_id, $validated['file_size'] ) ) {
+		if ( ! self::record_upload_issuance( $user_id, $actor_id, $upload_id, $validated['file_size'], $file_id, $version ) ) {
 			delete_transient( self::intent_key( $upload_id ) );
 			return new WP_Error( 'mmed_file_vault_v2_intent_unavailable', 'The private upload reservation could not be stored.', array( 'status' => 503 ) );
 		}
@@ -3006,14 +3021,22 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 * @param int    $actor_id Actor ID.
 	 * @param string $upload_id Upload UUID.
 	 * @param int    $size Declared size.
+	 * @param int    $file_id Existing document lineage, or zero for a new document.
+	 * @param int    $version Reserved immutable version number.
 	 * @return bool
 	 */
-	protected static function record_upload_issuance( $user_id, $actor_id, $upload_id, $size ) {
+	protected static function record_upload_issuance( $user_id, $actor_id, $upload_id, $size, $file_id, $version ) {
 		$now       = current_time( 'timestamp' );
 		$issuances = (array) get_transient( self::rate_key( $actor_id ) );
 		$issuances = array_values( array_filter( array_map( 'absint', $issuances ), static function ( $at ) use ( $now ) { return $at >= $now - DAY_IN_SECONDS; } ) );
 		$pending = self::pending_uploads( $user_id );
-		$pending[] = array( 'upload_id' => $upload_id, 'size' => absint( $size ), 'expires_at' => $now + self::INTENT_TTL );
+		$pending[] = array(
+			'upload_id' => $upload_id,
+			'size'      => absint( $size ),
+			'file_id'   => absint( $file_id ),
+			'version'   => max( 1, absint( $version ) ),
+			'expires_at' => $now + self::INTENT_TTL,
+		);
 		if ( ! set_transient( self::pending_key( $user_id ), $pending, self::INTENT_TTL ) ) {
 			return false;
 		}

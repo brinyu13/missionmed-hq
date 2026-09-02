@@ -437,12 +437,12 @@ async function studentFlow(browser) {
 
 		await page.getByRole("button", { name: "Your Files", exact: true }).click();
 		await page.locator('.fv2-dropzone [data-fv2-action="open-upload"]').click();
-		await page.locator(".fv2-upload-file-field > .fv2-button").focus();
-		const filePickerFocus = await page.locator(".fv2-upload-file-field > .fv2-button").evaluate(node => {
+		await page.locator("button.fv2-upload-file-field").focus();
+		const filePickerFocus = await page.locator("button.fv2-upload-file-field").evaluate(node => {
 			const style = getComputedStyle(node);
 			return { style: style.outlineStyle, width: parseFloat(style.outlineWidth), offset: parseFloat(style.outlineOffset) };
 		});
-		assert(filePickerFocus.style !== "none" && filePickerFocus.width >= 2 && filePickerFocus.offset >= 2, `student: Choose File lacks a visible keyboard focus indicator ${JSON.stringify(filePickerFocus)}`);
+		assert(filePickerFocus.style !== "none" && filePickerFocus.width >= 2 && filePickerFocus.offset >= 2, `student: file dropzone lacks a visible keyboard focus indicator ${JSON.stringify(filePickerFocus)}`);
 		assert((await page.locator("[data-fv2-upload-file]").getAttribute("accept")).includes(".jpg"), "student: unselected picker does not allow the natural file-first photo flow");
 		await page.setInputFiles("[data-fv2-upload-file]", {
 			name: "fixture_photo.jpg",
@@ -484,12 +484,12 @@ async function studentFlow(browser) {
 		await page.locator("[data-fv2-upload-type]").selectOption("other");
 		await page.locator("[data-fv2-upload-name]").fill("Other Document");
 		assert(await page.locator("[data-fv2-upload-replaces]").inputValue() === "1999", "student: matching custom-name lineage did not default to the immediately prior document");
-		assert(await page.locator("[data-fv2-upload-version]").inputValue() === "3", "student: matching custom-name lineage did not advance to the next immutable version");
+		assert((await page.locator("[data-fv2-upload-version]").textContent()).includes("Version 3"), "student: matching custom-name lineage did not advance to the next immutable version");
 		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_Version03_"), "student: matching custom-name lineage preview did not advance immediately while typing");
 		await page.locator("[data-fv2-upload-replaces]").selectOption("");
 		await page.locator("[data-fv2-upload-name]").fill("Other Document");
 		assert(await page.locator("[data-fv2-upload-replaces]").inputValue() === "", "student: explicit separate-document choice was overwritten by later name input");
-		assert(await page.locator("[data-fv2-upload-version]").inputValue() === "1", "student: explicit separate-document choice did not preserve Version 1");
+		assert((await page.locator("[data-fv2-upload-version]").textContent()).includes("Version 1"), "student: explicit separate-document choice did not preserve Version 1");
 		await page.locator("[data-fv2-upload-next]").click();
 		assert(await page.locator(".fv2-upload-review").getByRole("heading", { name: "Other Document", exact: true }).isVisible(), "student: custom Miscellaneous upload did not preserve its explicit document name");
 		await page.getByRole("button", { name: "Close upload" }).click();
@@ -521,10 +521,10 @@ async function studentFlow(browser) {
 			assert(await page.locator(".fv2-review-filename").getByText("Avery_Rivera_360MatchMentorship_A_CVResume_Version04_2026-07-15.pdf", { exact: true }).isVisible(), "student: review step does not show the canonical filename");
 		await saveEvidence(page, "04-upload-review.png");
 		await page.locator('[data-fv2-action="upload-start"]').click();
-		await page.getByRole("heading", { name: "Upload confirmed" }).waitFor({ timeout: 8000 });
+		await page.getByRole("heading", { name: "Your document is safely in the Vault." }).waitFor({ timeout: 8000 });
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.mutations.some(item => item.type === "confirm")), "student: upload confirmation mutation missing");
-		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/files/1102/versions" && call.body.program === "360 Match Mentorship" && call.body.session_letter === "A" && call.body.version_number === 4 && call.body.draft_label === "Version04" && call.body.is_final === false)), "student: canonical upload did not use the single immutable version route with controlled metadata");
-		assert(await page.locator('[role="progressbar"][aria-valuenow="100"]').count() === 1, "student: upload progress did not reach 100");
+		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/files/1102/versions" && call.body.program === "360 Match Mentorship" && call.body.session_letter === "A" && !("version_number" in call.body) && !("draft_label" in call.body) && call.body.is_final === false)), "student: browser did not defer immutable version assignment to the server");
+		assert(await page.locator(".fv2-celebration-facts").getByText("Verified", { exact: true }).isVisible(), "student: confirmed upload did not show its trust summary");
 		assert(diagnostics.length === 0, `student: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
 		await context.close();
@@ -552,8 +552,7 @@ async function controlledUploadMetadataFlow(browser) {
 		assert(await program.evaluate(node => document.activeElement === node), "controlled upload: program change lost keyboard focus");
 		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_PSOnly_C_"), "controlled upload: selected program did not update canonical metadata");
 		const version = page.locator("[data-fv2-upload-version]");
-		const versionOptions = await version.locator("option").evaluateAll(options => options.map(option => [option.value, option.textContent.trim(), option.disabled, option.selected]));
-		assert(versionOptions.length === 10 && JSON.stringify(versionOptions[3]) === JSON.stringify(["4", "Version 4", false, true]) && versionOptions.filter(option => option[2] === false).length === 1, `controlled upload: numbered immutable version choices are not controlled ${JSON.stringify(versionOptions)}`);
+		assert((await version.textContent()).includes("Version 4") && (await version.locator("select").count()) === 0, "controlled upload: version is not a display-only server assignment");
 		await page.locator("[data-fv2-upload-final]").check();
 		assert(await page.locator("[data-fv2-upload-final]").evaluate(node => document.activeElement === node), "controlled upload: Final change lost keyboard focus");
 		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_Version04_"), "controlled upload: Final status incorrectly replaced the numbered canonical version");
@@ -1081,19 +1080,18 @@ async function adminFlow(browser) {
 		await page.locator("[data-fv2-upload-type]").selectOption("other");
 		await page.locator("[data-fv2-upload-name]").fill("MissionMed Interview Guide");
 		await page.locator("[data-fv2-upload-mission-file]").check();
-		const versionOptions = await page.locator("[data-fv2-upload-version] option").evaluateAll(options => options.map(option => [option.value, option.textContent.trim(), option.disabled, option.selected]));
-		assert(versionOptions.length === 10 && JSON.stringify(versionOptions[0]) === JSON.stringify(["1", "Version 1", false, true]) && versionOptions.filter(option => option[2] === false).length === 1, `admin: numbered version choices are not controlled ${JSON.stringify(versionOptions)}`);
+		assert((await page.locator("[data-fv2-upload-version]").textContent()).includes("Version 1") && (await page.locator("[data-fv2-upload-version] select").count()) === 0, "admin: version is not a display-only server assignment");
 		await page.locator("[data-fv2-upload-final]").check();
 		assert((await page.locator("[data-fv2-canonical-preview]").textContent()).includes("_Version01_"), "admin: Final status incorrectly replaced the numbered canonical version");
 		await page.locator("[data-fv2-upload-next]").click();
 		assert(await page.locator(".fv2-upload-review").getByText("Share as a Mission File", { exact: true }).isVisible(), "admin: Mission File provenance choice is missing from upload review");
 		assert(await page.locator(".fv2-upload-review dd").getByText("Version 1 · Final", { exact: true }).isVisible(), "admin: upload review does not keep numbered version and Final status separate");
 		await page.locator('[data-fv2-action="upload-start"]').click();
-		await page.getByRole("heading", { name: "Upload confirmed" }).waitFor({ timeout: 8000 });
+		await page.getByRole("heading", { name: "Your document is safely in the Vault." }).waitFor({ timeout: 8000 });
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/uploads" && call.body.share_as_mission_file === true)), "admin: Mission File upload did not send the explicit provenance flag");
-		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/uploads" && call.body.draft_label === "Version01" && call.body.version_number === 1 && call.body.is_final === true)), "admin: upload did not send numbered version plus separate Final status");
+		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/uploads" && !("draft_label" in call.body) && !("version_number" in call.body) && call.body.is_final === true)), "admin: browser did not defer version assignment while preserving the separate Final status");
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.instance.state.data.documents.some(documentItem => documentItem.category === "admin" && documentItem.source === "MissionMed" && !!documentItem.shared_at)), "admin: confirmed Mission File lacks MissionMed source and sharing provenance");
-		await page.getByRole("button", { name: "Done", exact: true }).click();
+		await page.getByRole("button", { name: "Open Your Files", exact: true }).click();
 		await browserAccessibilityAudit(page, "admin Doc Docs");
 		await page.getByRole("button", { name: "Staff activity", exact: true }).click();
 		await page.waitForSelector(".fv2-audit-row");
@@ -1344,9 +1342,24 @@ async function responsiveFlow(browser) {
 			if (viewport.width <= 760) {
 				const mobileLayout = await page.evaluate(() => {
 					const rail = document.querySelector(".fv2-rail").getBoundingClientRect();
-					return { railBottom: Math.round(rail.bottom), viewportBottom: window.innerHeight };
+					const destinations = [...document.querySelectorAll(".fv2-rail .fv2-nav-item, .fv2-rail .fv2-nav-more")]
+						.filter(node => node.getClientRects().length > 0)
+						.map(node => {
+							const rect = node.getBoundingClientRect();
+							return { label: node.getAttribute("aria-label"), left: rect.left, right: rect.right };
+						});
+					return {
+						railBottom: Math.round(rail.bottom),
+						railLeft: Math.round(rail.left),
+						railRight: Math.round(rail.right),
+						viewportBottom: window.innerHeight,
+						viewportWidth: window.innerWidth,
+						destinations
+					};
 				});
 				assert(Math.abs(mobileLayout.railBottom - mobileLayout.viewportBottom) <= 2, `responsive ${viewport.width}: mobile rail is not bottom anchored`);
+				assert(mobileLayout.railLeft === 0 && Math.abs(mobileLayout.railRight - mobileLayout.viewportWidth) <= 1, `responsive ${viewport.width}: mobile rail does not span the viewport ${JSON.stringify(mobileLayout)}`);
+				assert(mobileLayout.destinations.every(destination => destination.left >= 0 && destination.right <= mobileLayout.viewportWidth + 1), `responsive ${viewport.width}: mobile destination escaped the viewport ${JSON.stringify(mobileLayout.destinations)}`);
 				if (viewport.width === 320) {
 					assert(await page.locator(".fv2-brand strong").isVisible() && (await page.locator(".fv2-brand strong").textContent()).trim() === "FileVault", "responsive 320: File Vault product identity disappeared from the mobile header");
 					const visibleNav = await page.locator(".fv2-nav-item:visible, .fv2-nav-more:visible").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));

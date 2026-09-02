@@ -1086,7 +1086,7 @@
 			: "";
 		var listBody = rows.length
 			? '<div class="fv2-document-list fv2-document-' + escAttr(this.state.fileLayout) + '">' + rows.join("") + "</div>"
-			: this.stateMessageMarkup("empty", query || this.state.fileType || this.state.fileStatus ? "No matching files" : "No documents yet", query || this.state.fileType || this.state.fileStatus ? "Adjust the Finder filters to see more of this Vault." : "Your Vault will list requirements and uploaded documents here.", emptyActions);
+			: this.stateMessageMarkup("empty", query || this.state.fileType || this.state.fileStatus ? "No files match these filters" : "Your Files is ready", query || this.state.fileType || this.state.fileStatus ? "Try a different search, folder, or status." : "Upload your first document to begin a private, organized history.", emptyActions);
 		var dropzone = this.capability("upload") && this.storageReady() ? [
 			'<div class="fv2-dropzone" data-fv2-dropzone>',
 			'<span class="fv2-dropzone-icon">' + icon("upload") + "</span>",
@@ -1107,7 +1107,7 @@
 		}, this).join("");
 		var finder = '<section class="fv2-finder" aria-label="Your Files controls"><label class="fv2-finder-search">' + icon("search") + '<span class="fv2-sr-only">Search your files</span><input type="search" data-fv2-file-search data-fv2-focus-key="file-search" value="' + escAttr(this.state.fileSearch) + '" placeholder="Search file names, types, and status"></label><label><span class="fv2-sr-only">Filter by document type</span><select data-fv2-file-type data-fv2-focus-key="file-type"><option value="">All types</option>' + groupOptions + typeOptions + '</select></label><label><span class="fv2-sr-only">Filter by status</span><select data-fv2-file-status data-fv2-focus-key="file-status"><option value="">All statuses</option>' + Object.keys(STATUS).map(function (status) { return '<option value="' + status + '"' + (this.state.fileStatus === status ? " selected" : "") + ">" + esc(STATUS[status].label) + "</option>"; }, this).join("") + '</select></label><label><span class="fv2-sr-only">Sort files</span><select data-fv2-file-sort data-fv2-focus-key="file-sort"><option value="updated_desc"' + (this.state.fileSort === "updated_desc" ? " selected" : "") + '>Newest updated</option><option value="updated_asc"' + (this.state.fileSort === "updated_asc" ? " selected" : "") + '>Oldest updated</option><option value="name"' + (this.state.fileSort === "name" ? " selected" : "") + '>Name A-Z</option></select></label><div class="fv2-finder-layout" role="group" aria-label="File layout"><button type="button" data-fv2-action="file-layout" data-fv2-layout="list" data-fv2-focus-key="file-layout-list" aria-label="List view" aria-pressed="' + (this.state.fileLayout === "list" ? "true" : "false") + '" class="' + (this.state.fileLayout === "list" ? "is-active" : "") + '">' + icon("list") + '</button><button type="button" data-fv2-action="file-layout" data-fv2-layout="grid" data-fv2-focus-key="file-layout-grid" aria-label="Grid view" aria-pressed="' + (this.state.fileLayout === "grid" ? "true" : "false") + '" class="' + (this.state.fileLayout === "grid" ? "is-active" : "") + '">' + icon("grid") + "</button></div></section>";
 		return heading + storageNotice + folderStrip + finder +
-			'<div class="fv2-vault-layout' + (desktopDetail ? " has-detail" : "") + '"><section class="fv2-list-panel" aria-labelledby="fv2-document-list-title"><div class="fv2-section-heading"><div><span>' + esc(studentName) + '</span><h2 id="fv2-document-list-title">Document record</h2></div><strong>' + esc(rows.length) + " shown</strong></div>" + listBody + "</section>" + desktopDetail + "</div>" +
+			'<div class="fv2-vault-layout' + (desktopDetail ? " has-detail" : "") + '"><section class="fv2-list-panel" aria-labelledby="fv2-document-list-title"><div class="fv2-section-heading"><div><span>' + esc(studentName) + '</span><h2 id="fv2-document-list-title">Your documents</h2></div><strong>' + esc(rows.length) + " shown</strong></div>" + listBody + "</section>" + desktopDetail + "</div>" +
 			'<section class="fv2-files-secondary">' + dropzone + '<button type="button" class="fv2-journey-shortcut" data-fv2-action="navigate" data-fv2-view="journey">' + icon("journey") + '<span><small>Application record</small><strong>Open application journey</strong></span>' + icon("arrowRight") + "</button></section>";
 	};
 
@@ -1137,8 +1137,9 @@
 		var dateValue = options.dateKind === "uploaded" ? documentUploadedAt(documentItem) : documentItem.updated_at;
 		var dateLabel = options.dateKind === "uploaded" ? "Uploaded " + formatDate(dateValue) : formatDate(dateValue);
 		var metadata = ["v" + Math.max(1, positiveInt(documentItem.version)), documentItem.is_final ? "Final" : "", formatSize(documentItem.file_size), dateLabel].filter(Boolean).join(" / ");
+		var visualType = String(documentItem.document_type || "other").replace(/[^a-z0-9_-]/ig, "-");
 		return [
-				'<button type="button" class="fv2-document-row' + (selected ? " is-selected" : "") + '" data-fv2-action="select-document" data-fv2-document-id="' + id + '" data-fv2-focus-key="document-' + id + '"' + (selected ? ' aria-current="true"' : "") + ">",
+				'<button type="button" class="fv2-document-row fv2-document-type-' + escAttr(visualType) + (selected ? " is-selected" : "") + '" data-fv2-action="select-document" data-fv2-document-id="' + id + '" data-fv2-focus-key="document-' + id + '"' + (selected ? ' aria-current="true"' : "") + ">",
 			'<span class="fv2-file-glyph fv2-file-kind-' + escAttr(kind.key) + '">' + icon("file") + "<small>" + esc(kind.label) + "</small></span>",
 			'<span class="fv2-row-copy"><strong>' + esc(documentItem.name || requirementLabel || "Document") + "</strong><span>" + esc(requirementLabel || documentItem.original_name || "Document") + ' <span aria-hidden="true">/</span> ' + esc(metadata) + "</span></span>",
 			statusBadge(documentItem.status, documentItem.status_label),
@@ -1513,6 +1514,14 @@
 				var uploadInput = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-file]");
 				if (uploadInput) uploadInput.click();
 				break;
+			case "remove-upload-file":
+				if (this.state.upload) {
+					this.state.upload.file = null;
+					this.state.upload.fileError = "";
+					this.state.upload.sha256 = "";
+					this.renderOverlay();
+				}
+				break;
 			case "retry-bootstrap":
 				this.reload({ preserveView: true });
 				break;
@@ -1661,6 +1670,20 @@
 				this.closeOverlay({ keepUpload: false });
 				if (this.state.selectedDocumentId) this.selectDocument(this.state.selectedDocumentId, null);
 				break;
+			case "upload-open-files":
+				this.closeOverlay({ keepUpload: false });
+				this.navigate("files");
+				break;
+			case "upload-view-document":
+				this.closeOverlay({ keepUpload: false });
+				this.state.view = "files";
+				this.selectDocument(documentId || this.state.selectedDocumentId, null);
+				break;
+			case "upload-another":
+				var previousUploadType = this.state.upload && this.state.upload.documentType || "";
+				this.closeOverlay({ keepUpload: false });
+				this.openUpload({ documentType: previousUploadType });
+				break;
 		}
 	};
 
@@ -1714,8 +1737,8 @@
 			if (!this.state.upload.replacementChoiceTouched) this.syncUploadLineage();
 			var replacementSelect = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-replaces]");
 			if (replacementSelect) replacementSelect.value = this.state.upload.replacesDocumentId ? String(this.state.upload.replacesDocumentId) : "";
-			var versionSelect = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-version]");
-			if (versionSelect) versionSelect.innerHTML = this.uploadVersionOptionsMarkup();
+			var versionDisplay = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-version] strong");
+			if (versionDisplay) versionDisplay.textContent = "Version " + String(Math.max(1, positiveInt(this.state.upload.version)));
 			var changedNamePreview = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-canonical-preview]");
 			if (changedNamePreview) changedNamePreview.textContent = this.canonicalFilenamePreview();
 			this.updateUploadNextButton();
@@ -1732,34 +1755,29 @@
 			this.state.upload.replacementChoiceTouched = false;
 			this.syncUploadLineage();
 			this.state.upload.fileError = this.validateFile(this.state.upload.file, this.state.upload.documentType);
-			this.renderOverlay();
+			this.renderOverlay({ focusKey: "upload-type" });
 			return;
 		}
 		if (target.matches("[data-fv2-upload-program]") && this.state.upload) {
 			this.state.upload.program = target.value;
-			this.renderOverlay();
+			this.updateUploadNextButton();
+			var programPreview = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-canonical-preview]");
+			if (programPreview) programPreview.textContent = this.canonicalFilenamePreview();
 			return;
 		}
 		if (target.matches("[data-fv2-upload-replaces]") && this.state.upload) {
 			var replacement = this.getDocument(positiveInt(target.value));
 			this.state.upload.replacementChoiceTouched = true;
 			this.applyUploadReplacement(replacement);
-			this.renderOverlay();
+			this.renderOverlay({ focusKey: "upload-replaces" });
 			return;
 		}
 		if (target.matches("[data-fv2-upload-ready]") && this.state.upload) {
 			this.state.upload.readyForReview = target.checked;
 			return;
 		}
-		if (target.matches("[data-fv2-upload-version]") && this.state.upload) {
-			this.state.upload.version = Math.max(1, positiveInt(target.value));
-			this.state.upload.draftLabel = "Version" + String(this.state.upload.version).padStart(2, "0");
-			this.renderOverlay();
-			return;
-		}
 		if (target.matches("[data-fv2-upload-final]") && this.state.upload) {
 			this.state.upload.isFinal = !!target.checked;
-			this.renderOverlay();
 			return;
 		}
 		if (target.matches("[data-fv2-upload-mission-file]") && this.state.upload) {
@@ -1768,7 +1786,9 @@
 		}
 		if (target.matches("[data-fv2-upload-session]") && this.state.upload) {
 			this.state.upload.sessionLetter = String(target.value || "").toUpperCase();
-			this.renderOverlay();
+			this.updateUploadNextButton();
+			var sessionPreview = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-canonical-preview]");
+			if (sessionPreview) sessionPreview.textContent = this.canonicalFilenamePreview();
 			return;
 		}
 		if (target.matches("[data-fv2-review-status]")) {
@@ -1836,8 +1856,8 @@
 			if (!this.state.upload.replacementChoiceTouched) this.syncUploadLineage();
 			var replacementSelect = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-replaces]");
 			if (replacementSelect) replacementSelect.value = this.state.upload.replacesDocumentId ? String(this.state.upload.replacesDocumentId) : "";
-			var versionSelect = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-version]");
-			if (versionSelect) versionSelect.innerHTML = this.uploadVersionOptionsMarkup();
+			var versionDisplay = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-upload-version] strong");
+			if (versionDisplay) versionDisplay.textContent = "Version " + String(Math.max(1, positiveInt(this.state.upload.version)));
 			this.updateUploadNextButton();
 			var namePreview = this.refs.overlay && this.refs.overlay.querySelector("[data-fv2-canonical-preview]");
 			if (namePreview) namePreview.textContent = this.canonicalFilenamePreview();
@@ -1905,7 +1925,16 @@
 		event.preventDefault();
 		dropzone.classList.remove("is-dragging");
 		var file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
-		if (file) this.openUpload({ file: file });
+		if (!file) return;
+		if (this.state.overlay === "upload" && this.state.upload && this.refs.overlay && this.refs.overlay.contains(dropzone)) {
+			this.state.upload.file = file;
+			this.state.upload.fileError = this.validateFile(file, this.state.upload.documentType);
+			this.state.upload.sha256 = "";
+			if (!this.state.upload.displayName && !this.state.upload.documentId && this.documentNameRequiresInput(this.state.upload.documentType)) this.state.upload.displayName = file.name.replace(/\.[^.]+$/, "");
+			this.renderOverlay();
+			return;
+		}
+		this.openUpload({ file: file });
 	};
 
 	FileVaultV2.prototype.handleKeydown = function (event) {
@@ -2720,13 +2749,13 @@
 		}
 	};
 
-	FileVaultV2.prototype.renderOverlay = function () {
+	FileVaultV2.prototype.renderOverlay = function (options) {
 		var self = this;
 		if (!this.refs.overlay || !document.contains(this.refs.overlay)) this.refs.overlay = this.root.querySelector("[data-fv2-overlay]");
 		if (!this.refs.overlay || !this.state.overlay) return;
 		var type = this.state.overlay;
-		var overlayFocus = "";
-		if (document.activeElement && this.refs.overlay.contains(document.activeElement)) {
+		var overlayFocus = options && options.focusKey ? options.focusKey : "";
+		if (!overlayFocus && document.activeElement && this.refs.overlay.contains(document.activeElement)) {
 			overlayFocus = document.activeElement.getAttribute("data-fv2-overlay-focus") || document.activeElement.getAttribute("data-fv2-settings-focus") || "";
 		}
 		var content = "";
@@ -2899,35 +2928,40 @@
 		var file = upload.file;
 		var contract = this.uploadContract(upload.documentType);
 		var fileTypeLabel = upload.documentType === "application_photo" ? "JPEG application photo" : (upload.documentType ? "PDF, DOCX, or PNG" : "PDF, DOCX, PNG, or JPEG");
-		var fileSummary = file ? '<div class="fv2-file-choice ' + (upload.fileError ? "has-error" : "is-valid") + '">' + icon(upload.fileError ? "alert" : "file") + '<div><strong>' + esc(file.name) + "</strong><span>" + esc(formatSize(file.size)) + (upload.fileError ? " / " + esc(upload.fileError) : " / Ready to review") + "</span></div></div>" : '<div class="fv2-file-choice"><span class="fv2-file-glyph">' + icon("upload") + "</span><div><strong>No file chosen</strong><span>" + esc(fileTypeLabel) + " up to " + esc(formatSize(contract.maxFileSize)) + ".</span></div></div>";
+		var fileSummary = file ? '<div class="fv2-file-choice ' + (upload.fileError ? "has-error" : "is-valid") + '">' + icon(upload.fileError ? "alert" : "file") + '<div><strong>' + esc(file.name) + "</strong><span>" + esc(formatSize(file.size)) + (upload.fileError ? " / " + esc(upload.fileError) : " / Ready to review") + '</span></div><button type="button" class="fv2-icon-button" data-fv2-action="remove-upload-file" aria-label="Remove selected file">' + icon("close") + "</button></div>" : '<div class="fv2-file-choice"><span class="fv2-file-glyph">' + icon("upload") + "</span><div><strong>Choose a file or drop it here</strong><span>" + esc(fileTypeLabel) + " up to " + esc(formatSize(contract.maxFileSize)) + ".</span></div></div>";
 		var typeField = upload.forcedVersion
 			? '<div class="fv2-field"><span>Document type</span><strong class="fv2-readonly-value">' + esc(this.documentTypeLabel(upload.documentType)) + "</strong></div>"
-			: '<label class="fv2-field"><span>Document type</span><select data-fv2-upload-type data-fv2-overlay-focus="upload-type" required><option value="">Choose a document type</option>' + this.uploadTypeOptionsMarkup(upload.documentType) + "</select></label>";
+			: '<label class="fv2-field fv2-select-field"><span>Document type</span><select data-fv2-upload-type data-fv2-overlay-focus="upload-type" required><option value="">Choose a document type</option>' + this.uploadTypeOptionsMarkup(upload.documentType) + "</select></label>";
 		var nameField = this.documentNameRequiresInput(upload.documentType)
 			? '<label class="fv2-field"><span>Document name</span><input type="text" maxlength="140" required value="' + escAttr(upload.displayName) + '" data-fv2-upload-name data-fv2-overlay-focus="upload-name" placeholder="Name this document"></label>'
 			: '<div class="fv2-field"><span>Document name</span><strong class="fv2-readonly-value">' + esc(upload.displayName || this.canonicalDocumentName(upload.documentType)) + '</strong><small>Standardized automatically</small></div>';
-		var programField = '<label class="fv2-field"><span>Course / program</span><select required data-fv2-upload-program data-fv2-overlay-focus="upload-program"><option value="">Choose course / program</option>' + PROGRAM_OPTIONS.map(function (program) { return '<option value="' + escAttr(program) + '"' + (program === upload.program ? " selected" : "") + '>' + esc(program) + '</option>'; }).join("") + '</select><small>Metadata only; access remains server authorized.</small></label>';
-		var sessionField = '<label class="fv2-field"><span>Session letter</span><select required data-fv2-upload-session data-fv2-overlay-focus="upload-session"><option value="">Choose session</option>' + SESSION_OPTIONS.map(function (session) { return '<option value="' + session + '"' + (upload.sessionLetter === session ? " selected" : "") + '>Session ' + session + '</option>'; }).join("") + '</select><small>Preselected from the student record when known.</small></label>';
+		var programField = '<label class="fv2-field fv2-select-field"><span>Course / program</span><select required data-fv2-upload-program data-fv2-overlay-focus="upload-program"><option value="">Choose course / program</option>' + PROGRAM_OPTIONS.map(function (program) { return '<option value="' + escAttr(program) + '"' + (program === upload.program ? " selected" : "") + '>' + esc(program) + '</option>'; }).join("") + '</select><small>Used to organize your private document.</small></label>';
+		var sessionField = '<label class="fv2-field fv2-select-field"><span>Session letter</span><select required data-fv2-upload-session data-fv2-overlay-focus="upload-session"><option value="">Choose session</option>' + SESSION_OPTIONS.map(function (session) { return '<option value="' + session + '"' + (upload.sessionLetter === session ? " selected" : "") + '>Session ' + session + '</option>'; }).join("") + '</select><small>Preselected from your student profile when known.</small></label>';
 		var candidates = upload.forcedVersion ? [] : this.uploadReplacementCandidates(upload.documentType);
 		var replacementField = candidates.length
-			? '<label class="fv2-field fv2-field-wide"><span>Replaces previous version?</span><select data-fv2-upload-replaces data-fv2-overlay-focus="upload-replaces">' + candidates.map(function (documentItem) { return '<option value="' + positiveInt(documentItem.id) + '"' + (positiveInt(documentItem.id) === upload.replacesDocumentId ? " selected" : "") + '>Yes — continue ' + esc(documentItem.name || "Document") + ' · Version ' + esc(Math.max(1, positiveInt(documentItem.version))) + '</option>'; }).join("") + '<option value=""' + (!upload.replacesDocumentId ? " selected" : "") + '>No — create a separate document</option></select><small>The immediate prior version is selected when a matching lineage exists. History is never overwritten.</small></label>'
+			? '<label class="fv2-field fv2-field-wide fv2-select-field"><span>Continue an existing document?</span><select data-fv2-upload-replaces data-fv2-overlay-focus="upload-replaces">' + candidates.map(function (documentItem) { return '<option value="' + positiveInt(documentItem.id) + '"' + (positiveInt(documentItem.id) === upload.replacesDocumentId ? " selected" : "") + '>Yes — continue ' + esc(documentItem.name || "Document") + ' · Version ' + esc(Math.max(1, positiveInt(documentItem.version))) + '</option>'; }).join("") + '<option value=""' + (!upload.replacesDocumentId ? " selected" : "") + '>No — create a separate document</option></select><small>Your earlier versions always remain available.</small></label>'
 			: "";
 		var ready = this.capability("submit") ? '<label class="fv2-check-row"><input type="checkbox" data-fv2-upload-ready' + (upload.readyForReview ? " checked" : "") + '><span>' + icon("check") + '</span><div><strong>Ready for review</strong><small>Submit this confirmed version to the staff review queue after upload.</small></div></label>' : "";
 		var missionShare = this.role() === "admin" && this.capability("share_mission_file") && !upload.documentId ? '<label class="fv2-check-row fv2-mission-share"><input type="checkbox" data-fv2-upload-mission-file' + (upload.shareAsMissionFile ? " checked" : "") + '><span>' + icon("library") + '</span><div><strong>Share as a Mission File</strong><small>MissionMed provenance is recorded and the student receives this in Shared by MissionMed, not as a student-owned upload.</small></div></label>' : "";
-		var versionField = '<label class="fv2-field"><span>Version</span><select data-fv2-upload-version data-fv2-overlay-focus="upload-version" aria-label="Document version">' + this.uploadVersionOptionsMarkup() + '</select><small>The server permits only the next immutable version.</small></label>';
+		var versionField = '<div class="fv2-field fv2-version-assignment" data-fv2-upload-version aria-label="Version assigned automatically"><span>Version</span><strong>Version ' + esc(Math.max(1, positiveInt(upload.version))) + '</strong><small>Assigned automatically from this document\'s history.</small></div>';
 		var finalField = '<label class="fv2-check-row fv2-final-version"><input type="checkbox" data-fv2-upload-final data-fv2-overlay-focus="upload-final"' + (upload.isFinal ? " checked" : "") + '><span>' + icon("check") + '</span><div><strong>Mark this version Final</strong><small>Final is a status marker. It does not replace the version number or delete prior versions.</small></div></label>';
-		return '<div class="fv2-upload-file-field"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="choose-upload-file" data-fv2-overlay-focus="choose-file">' + icon("folder") + 'Choose file</button><input id="fv2-upload-file" type="file" tabindex="-1" aria-label="Upload file" accept="' + escAttr(this.uploadAccept(contract)) + '" data-fv2-upload-file><span>The source name is preserved as metadata. MissionMed assigns the final name.</span></div>' + fileSummary + '<div class="fv2-form-grid">' + typeField + nameField + '<div class="fv2-field"><span>Division</span><strong class="fv2-readonly-value">' + esc(upload.division || "Not recorded") + '</strong><small>From your MissionMed account</small></div>' + programField + sessionField + versionField + replacementField + '</div>' + finalField + '<label class="fv2-field"><span>Note to advisor (optional)</span><textarea rows="3" maxlength="1000" data-fv2-upload-note placeholder="What changed, or what should your advisor know?">' + esc(upload.note) + '</textarea></label><section class="fv2-canonical-preview"><span>MissionMed will save this as</span><strong data-fv2-canonical-preview>' + esc(this.canonicalFilenamePreview()) + '</strong><small>The server verifies identity, course, session, date, and next immutable version before signing.</small></section>' + ready + missionShare + '<div class="fv2-modal-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="close-overlay">Cancel</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-next" data-fv2-upload-next' + (this.uploadStepOneError() ? " disabled" : "") + ">Review" + icon("arrowRight") + "</button></div>";
+		return '<div class="fv2-upload-dropzone' + (file ? " has-file" : "") + '" data-fv2-dropzone><button type="button" class="fv2-upload-file-field" data-fv2-action="choose-upload-file" data-fv2-overlay-focus="choose-file"><span class="fv2-dropzone-icon">' + icon("upload") + '</span><span><strong>' + (file ? 'Change selected file' : 'Choose a file') + '</strong><small>Click to browse or drag and drop</small></span></button><input id="fv2-upload-file" type="file" tabindex="-1" aria-label="Upload file" accept="' + escAttr(this.uploadAccept(contract)) + '" data-fv2-upload-file>' + fileSummary + '</div><div class="fv2-form-grid">' + typeField + nameField + '<div class="fv2-field"><span>Division</span><strong class="fv2-readonly-value">' + esc(upload.division || "Not recorded") + '</strong><small>From your MissionMed account</small></div>' + programField + sessionField + versionField + replacementField + '</div>' + finalField + '<label class="fv2-field"><span>Note to advisor (optional)</span><textarea rows="3" maxlength="1000" data-fv2-upload-note placeholder="What changed, or what should your advisor know?">' + esc(upload.note) + '</textarea></label><section class="fv2-canonical-preview"><span>Filename preview</span><strong data-fv2-canonical-preview>' + esc(this.canonicalFilenamePreview()) + '</strong><small>MissionMed confirms the final name and next version before the upload begins.</small></section>' + ready + missionShare + '<div class="fv2-modal-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="close-overlay">Cancel</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-next" data-fv2-upload-next' + (this.uploadStepOneError() ? " disabled" : "") + ">Review" + icon("arrowRight") + "</button></div>";
 	};
 
 	FileVaultV2.prototype.uploadReviewMarkup = function () {
 		var upload = this.state.upload;
 		var file = upload.file;
 		var versionLabel = "Version " + esc(upload.version) + (upload.isFinal ? " · Final" : "");
-		return '<section class="fv2-upload-review"><span>Confirm before transfer</span><h2>' + esc(upload.displayName || "Document") + '</h2><dl><div><dt>Original file</dt><dd>' + esc(file ? file.name : "No file") + "</dd></div><div><dt>Size</dt><dd>" + esc(file ? formatSize(file.size) : "0 B") + "</dd></div><div><dt>Type</dt><dd>" + esc(this.documentTypeLabel(upload.documentType)) + "</dd></div><div><dt>Course / session</dt><dd>" + esc(upload.program + " / " + upload.sessionLetter) + "</dd></div><div><dt>Version</dt><dd>" + versionLabel + "</dd></div><div><dt>Workflow</dt><dd>" + esc(upload.shareAsMissionFile ? "Share as a Mission File" : (upload.readyForReview ? "Submit after confirmation" : "Keep in the Vault")) + "</dd></div></dl><div class=\"fv2-review-note fv2-review-filename\"><span>MissionMed will save this as</span><p>" + esc(upload.canonicalName || this.canonicalFilenamePreview()) + "</p></div>" + (upload.note ? '<div class="fv2-review-note"><span>Note to advisor</span><p>' + esc(upload.note).replace(/\n/g, "<br>") + "</p></div>" : "") + '<p class="fv2-security-copy">' + icon("lock") + "The browser requests a short-lived signed URL, uploads the binary directly, then asks MissionMed to verify and confirm it.</p></section><div class=\"fv2-modal-actions\"><button type=\"button\" class=\"fv2-button fv2-button-secondary\" data-fv2-action=\"upload-back\">" + icon("arrowLeft") + 'Back</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-start">' + icon("upload") + "Start secure upload</button></div>";
+		return '<section class="fv2-upload-review"><span>Ready when you are</span><h2>' + esc(upload.displayName || "Document") + '</h2><dl><div><dt>Original file</dt><dd>' + esc(file ? file.name : "No file") + "</dd></div><div><dt>Size</dt><dd>" + esc(file ? formatSize(file.size) : "0 B") + "</dd></div><div><dt>Type</dt><dd>" + esc(this.documentTypeLabel(upload.documentType)) + "</dd></div><div><dt>Course / session</dt><dd>" + esc(upload.program + " / " + upload.sessionLetter) + "</dd></div><div><dt>Next version</dt><dd>" + versionLabel + "</dd></div><div><dt>After upload</dt><dd>" + esc(upload.shareAsMissionFile ? "Share as a Mission File" : (upload.readyForReview ? "Send to staff review" : "Keep in Your Files")) + "</dd></div></dl><div class=\"fv2-review-note fv2-review-filename\"><span>Filename preview</span><p>" + esc(upload.canonicalName || this.canonicalFilenamePreview()) + "</p></div>" + (upload.note ? '<div class="fv2-review-note"><span>Note to advisor</span><p>' + esc(upload.note).replace(/\n/g, "<br>") + "</p></div>" : "") + '<p class="fv2-security-copy">' + icon("lock") + "Your file stays private. MissionMed verifies it before adding it to Your Files.</p></section><div class=\"fv2-modal-actions\"><button type=\"button\" class=\"fv2-button fv2-button-secondary\" data-fv2-action=\"upload-back\">" + icon("arrowLeft") + 'Back</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-start">' + icon("upload") + "Upload securely</button></div>";
 	};
 
 	FileVaultV2.prototype.uploadProgressMarkup = function () {
 		var upload = this.state.upload;
+		if (upload.phase === "success" && upload.result) {
+			var result = upload.result;
+			var resultVersion = Math.max(1, positiveInt(result.version));
+			return '<section class="fv2-upload-celebration" role="status"><span class="fv2-celebration-mark">' + icon("check") + '</span><span class="fv2-celebration-kicker">Private upload confirmed</span><h2>Your document is safely in the Vault.</h2><p>' + esc(result.name || upload.displayName || "Document") + ' is now Version ' + esc(resultVersion) + (result.is_final ? " and marked Final" : "") + '.</p><div class="fv2-celebration-facts"><span>' + icon("lock") + '<strong>Private</strong><small>Only authorized people can open it</small></span><span>' + icon("check") + '<strong>Verified</strong><small>Stored and confirmed by MissionMed</small></span><span>' + icon("journey") + '<strong>Version ' + esc(resultVersion) + '</strong><small>Earlier versions remain available</small></span></div><div class="fv2-celebration-name"><span>Saved as</span><strong>' + esc(result.filename || upload.canonicalName || result.name || "Document") + '</strong></div></section><div class="fv2-modal-actions fv2-celebration-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="upload-another">' + icon("upload") + 'Upload another</button><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="upload-open-files">Open Your Files</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-view-document" data-fv2-document-id="' + positiveInt(result.id) + '">' + icon("file") + 'View document</button></div>';
+		}
 		var phaseCopy = {
 			idle: ["Ready to upload", "The secure transfer has not started."],
 			hashing: ["Checking file integrity", "Your browser is calculating a SHA-256 checksum before requesting upload access."],
@@ -2980,17 +3014,6 @@
 
 	FileVaultV2.prototype.canonicalDocumentName = function (type) {
 		return this.documentNameRequiresInput(type) ? "" : String(this.documentTypeLabel(type) || "Document");
-	};
-
-	FileVaultV2.prototype.uploadVersionOptionsMarkup = function () {
-		var upload = this.state.upload || {};
-		var version = Math.max(1, positiveInt(upload.version));
-		var maximum = Math.max(10, version);
-		var markup = "";
-		for (var number = 1; number <= maximum; number += 1) {
-			markup += '<option value="' + number + '"' + (number === version ? " selected" : " disabled") + '>Version ' + number + "</option>";
-		}
-		return markup;
 	};
 
 	FileVaultV2.prototype.uploadContext = function () {
@@ -3107,8 +3130,7 @@
 	FileVaultV2.prototype.uploadStepOneError = function () {
 		var upload = this.state.upload;
 		if (!upload) return "Upload is unavailable.";
-		var expectedVersion = "Version" + String(Math.max(1, positiveInt(upload.version))).padStart(2, "0");
-		return this.validateFile(upload.file, upload.documentType) || (!upload.documentType ? "Choose a document type." : "") || (!upload.displayName.trim() ? "Enter a document name." : "") || (PROGRAM_OPTIONS.indexOf(upload.program) === -1 ? "Choose a MissionMed course or program." : "") || (SESSION_OPTIONS.indexOf(upload.sessionLetter) === -1 ? "Choose session A through G." : "") || (upload.draftLabel !== expectedVersion ? "Choose the next server-assigned version." : "");
+		return this.validateFile(upload.file, upload.documentType) || (!upload.documentType ? "Choose a document type." : "") || (!upload.displayName.trim() ? "Enter a document name." : "") || (PROGRAM_OPTIONS.indexOf(upload.program) === -1 ? "Choose a MissionMed course or program." : "") || (SESSION_OPTIONS.indexOf(upload.sessionLetter) === -1 ? "Choose session A through G." : "");
 	};
 
 	FileVaultV2.prototype.updateUploadNextButton = function () {
@@ -3254,8 +3276,6 @@
 				display_name: upload.displayName.trim(),
 				program: upload.program.trim(),
 				session_letter: upload.sessionLetter,
-				draft_label: upload.draftLabel,
-				version_number: upload.version,
 				is_final: !!upload.isFinal,
 				note: upload.note.trim(),
 				ready_for_review: !!upload.readyForReview,
@@ -3269,6 +3289,8 @@
 					throw new Error("The upload intent did not include the required secure fields.");
 				}
 				upload.intent = intent;
+				upload.version = Math.max(1, positiveInt(intent.version));
+				upload.draftLabel = "Version" + String(upload.version).padStart(2, "0");
 				upload.canonicalName = String(intent.canonical_name || upload.canonicalName || self.canonicalFilenamePreview());
 				return put();
 			});

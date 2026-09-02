@@ -683,13 +683,16 @@
 					if (fail === "upload") return reject("Fixture upload signing failed.", 503);
 					if (!studentById(requestStudentId)) return reject("Student Vault not found.", 404);
 					var pendingDocumentId = Number((path.match(/^\/files\/(\d+)/) || [])[1] || 0);
+					var pendingDocument = pendingDocumentId ? findDocument(requestStudentId, pendingDocumentId) : null;
+					var pendingVersion = pendingDocument ? Number(pendingDocument.version || 0) + 1 : 1;
 					var canonicalName = canonicalFixtureName(requestStudentId, body, pendingDocumentId);
-					harness.pendingUpload = { body: clone(body), documentId: pendingDocumentId, studentId: requestStudentId, canonicalName: canonicalName };
+					harness.pendingUpload = { body: clone(body), documentId: pendingDocumentId, studentId: requestStudentId, canonicalName: canonicalName, version: pendingVersion };
 					return mutationResponse({
 						upload_id: "123e4567-e89b-42d3-a456-426614174000",
 						confirm_token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 						upload_url: "https://secure-files.fixture.invalid/upload/123e4567-e89b-42d3-a456-426614174000",
 						canonical_name: canonicalName,
+						version: pendingVersion,
 						required_headers: {
 							"Content-Type": body.mime_type,
 							"x-amz-checksum-sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="

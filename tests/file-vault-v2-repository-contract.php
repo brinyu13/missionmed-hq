@@ -394,16 +394,19 @@ $GLOBALS['fv2_options']['mmed_file_vault_v2_user_quota_bytes'] = 104857600;
 
 $parallel_a = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'a.pdf', 'mime_type' => 'application/pdf', 'file_size' => 300, 'sha256' => str_repeat( 'c', 64 ) ), 1 );
 $parallel_b = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'b.pdf', 'mime_type' => 'application/pdf', 'file_size' => 301, 'sha256' => str_repeat( 'd', 64 ) ), 1 );
+fv2_repo_assert( ! is_wp_error( $parallel_a ) && 3 === $parallel_a['version'], 'first version intent reserves the next server-owned version' );
+fv2_repo_assert( is_wp_error( $parallel_b ) && 'mmed_file_vault_v2_lineage_busy' === $parallel_b->get_error_code(), 'a second simultaneous intent cannot receive the same next version' );
 $parallel_lock_key = 'mmed_fv2_confirm_owner_10';
 $GLOBALS['fv2_options'][$parallel_lock_key] = array( 'token' => 'another-worker', 'expires' => time() + 1200 );
 $parallel_busy = MMED_File_Vault_V2_Repository::confirm_upload_intent( $parallel_a['upload_id'], $parallel_a['confirm_token'], 10 );
 fv2_repo_assert( is_wp_error( $parallel_busy ) && 'mmed_file_vault_v2_confirm_in_progress' === $parallel_busy->get_error_code(), 'simultaneous confirmation is rejected by a token-owned atomic lock' );
 unset( $GLOBALS['fv2_options'][$parallel_lock_key] );
 $parallel_first = MMED_File_Vault_V2_Repository::confirm_upload_intent( $parallel_a['upload_id'], $parallel_a['confirm_token'], 10 );
-$parallel_stale = MMED_File_Vault_V2_Repository::confirm_upload_intent( $parallel_b['upload_id'], $parallel_b['confirm_token'], 10 );
-fv2_repo_assert( ! is_wp_error( $parallel_first ) && 3 === $parallel_first['version'], 'first concurrent version finalizes' );
-fv2_repo_assert( is_wp_error( $parallel_stale ) && 'mmed_file_vault_v2_version_conflict' === $parallel_stale->get_error_code(), 'stale concurrent version fails with conflict' );
-fv2_repo_assert( ! isset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $parallel_b['upload_id']] ) && ! isset( $GLOBALS['fv2_options'][$parallel_lock_key] ), 'terminal conflict abandons staging intent and releases only the owned confirmation lock' );
+fv2_repo_assert( ! is_wp_error( $parallel_first ) && 3 === $parallel_first['version'], 'reserved version finalizes under the owner confirmation lock' );
+$parallel_followup = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'b.pdf', 'mime_type' => 'application/pdf', 'file_size' => 301, 'sha256' => str_repeat( 'd', 64 ) ), 1 );
+fv2_repo_assert( ! is_wp_error( $parallel_followup ) && 4 === $parallel_followup['version'], 'the next intent receives a new number after the prior reservation is confirmed' );
+$parallel_second = MMED_File_Vault_V2_Repository::confirm_upload_intent( $parallel_followup['upload_id'], $parallel_followup['confirm_token'], 10 );
+fv2_repo_assert( ! is_wp_error( $parallel_second ) && 4 === $parallel_second['version'] && ! isset( $GLOBALS['fv2_options'][$parallel_lock_key] ), 'sequential reservation confirms without leaving the owner lock behind' );
 
 $GLOBALS['fv2_fail_transient'] = 'mmed_fv2_activity_download_issued_1_10';
 $audit_unavailable = MMED_File_Vault_V2_Repository::download( 1, 1, 10 );
