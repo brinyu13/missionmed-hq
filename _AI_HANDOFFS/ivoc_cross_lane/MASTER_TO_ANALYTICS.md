@@ -64,4 +64,3 @@ Analytics owns observation. Master owns semantic/context interpretation,
 student-specific registry policy, reporting, and CoachCommand arbitration.
 Master never asks Analytics to infer gesture meaning, gaze meaning, emotion,
 intent, personality, honesty, or any hidden trait.
-
