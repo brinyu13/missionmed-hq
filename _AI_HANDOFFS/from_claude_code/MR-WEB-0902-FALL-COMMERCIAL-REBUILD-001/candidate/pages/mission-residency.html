@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mission Residency — MissionMed Institute (candidate)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mm-commercial.css">
+</head>
+<body class="mmc">
+
+<!-- Campaign bar renders here, or stays hidden if not verified live. -->
+<div id="campaign"></div>
+
+<!-- =========================================================== HERO
+     Answers, above the fold: what this is, who it is for, what to do next.
+     No auto-rotating carousel (ticket S22). -->
+<header class="mmc-section mmc-section--tight">
+  <div class="mmc-wrap">
+    <span class="mmc-eyebrow">Mission Residency</span>
+    <h1>Residency interviews are won<br>by how you tell your story.</h1>
+    <p class="mmc-lede">
+      Mission Residency is Dr. Brian's interview-preparation program for IMGs, DOs, and
+      reapplicants. You learn how strong answers are actually built, practice them under
+      real pressure, and get scored feedback — before programs see you.
+    </p>
+    <p style="margin-top:26px;display:flex;gap:12px;flex-wrap:wrap">
+      <a class="mmc-btn mmc-btn--primary" href="#programs">See the programs</a>
+      <a class="mmc-btn mmc-btn--ghost" href="#journey">How the season works</a>
+    </p>
+  </div>
+</header>
+
+<!-- =========================================================== NEED ROUTER
+     Ticket: route by customer NEED, not by MissionMed's internal naming.
+     A prospect should not have to learn our product names to choose. -->
+<section class="mmc-section mmc-section--alt mmc-section--tight">
+  <div class="mmc-wrap">
+    <span class="mmc-eyebrow">Start here</span>
+    <h2>What do you need help with right now?</h2>
+    <div id="router" style="margin-top:26px"></div>
+  </div>
+</section>
+
+<!-- =========================================================== JOURNEY
+     Sell the experience, not the feature list. -->
+<section class="mmc-section" id="journey">
+  <div class="mmc-wrap">
+    <span class="mmc-eyebrow">The season</span>
+    <h2>What preparing properly actually looks like.</h2>
+    <p class="mmc-lede">Most applicants prepare alone and hope. These are the five stages that
+      separate an applicant who improves through the season from one who repeats the same
+      interview twelve times.</p>
+    <div id="journey" style="margin-top:34px"></div>
+  </div>
+</section>
+
+<!-- =========================================================== PROGRAMS -->
+<section class="mmc-section mmc-section--alt" id="programs">
+  <div class="mmc-wrap">
+    <span class="mmc-eyebrow">Programs</span>
+    <h2>Pick the version that fits where you are.</h2>
+    <p class="mmc-lede" id="programs-lede"></p>
+    <div class="mmc-programs" id="programs-grid" style="margin-top:38px"></div>
+    <p style="margin-top:30px"><a class="mmc-btn mmc-btn--quiet" href="compare.html">Compare all three side by side →</a></p>
+  </div>
+</section>
+
+<!-- =========================================================== PAYMENT -->
+<section class="mmc-section" id="payment">
+  <div class="mmc-wrap">
+    <span class="mmc-eyebrow">Ways to pay</span>
+    <h2>One tuition. Three ways to pay it.</h2>
+    <p class="mmc-lede">Shown for <b id="pay-product">IV Prep Complete</b>.</p>
+    <div id="payments" style="margin-top:30px"></div>
+    <p class="mmc-fine" style="margin-top:22px;max-width:64ch" id="pay-fine"></p>
+  </div>
+</section>
+
+<!-- =========================================================== PS -->
+<section class="mmc-section mmc-section--alt" id="ps">
+  <div class="mmc-wrap">
+    <span class="mmc-eyebrow">Personal Statement Intensive</span>
+    <h2>Your statement, developed with Dr. Brian.</h2>
+    <p class="mmc-lede">Not proofreading. A minimum two-hour strategy session, narrative and
+      theme development, a personally developed statement, and at least two follow-up meetings.</p>
+    <div class="mmc-programs" id="ps-grid" style="margin-top:34px"></div>
+    <p class="mmc-fine" style="margin-top:20px">You do not need to be enrolled in Essentials or Complete to book a Personal Statement Intensive.</p>
+  </div>
+</section>
+
+<!-- =========================================================== 360 -->
+<section class="mmc-section" id="match_mentorship_360">
+  <div class="mmc-wrap">
+    <div id="m360"></div>
+  </div>
+</section>
+
+<footer class="mmc-section mmc-section--alt mmc-section--tight">
+  <div class="mmc-wrap">
+    <p class="mmc-fine">MissionMed Institute · Mission Global Group LLC · This is an internal
+      review candidate for ticket MR-WEB-0902. Not published.</p>
+  </div>
+</footer>
+
+<script src="../js/campaign-state.js"></script>
+<script src="../js/mm-render.js"></script>
+<script src="../js/mm-boot.js"></script>
+<script>
+MMBoot(function (cfg, state) {
+  var R = MMRender, C = MMCampaign;
+
+  document.getElementById('campaign').appendChild(R.campaignBar(cfg, state));
+  document.getElementById('router').appendChild(R.needRouter(cfg));
+  document.getElementById('journey').appendChild(R.journey(cfg, 'iv_prep_complete'));
+
+  document.getElementById('programs-lede').textContent = state.showEnrollCtas
+    ? 'Two programs are open now. 360 Match Mentorship is shown for reference — its 2026-27 capacity is reached.'
+    : 'Enrollment is currently closed. 360 Match Mentorship is shown for reference.';
+
+  var grid = document.getElementById('programs-grid');
+
+  grid.appendChild(R.programCard(cfg, 'iv_prep_essentials', state, {
+    placement: 'mr_programs',
+    href: 'checkout-boundary.html?product=iv_prep_essentials',
+    cta: 'Enroll in IV Prep Essentials',
+    features: [
+      '5-Day IV Foundation Workshop',
+      'Live core sessions with Dr. Brian',
+      'Communication framework and question strategy',
+      '1-on-1 strategy session',
+      { text: 'No full-season mock cadence', absent: true },
+      { text: 'No post-interview debriefs', absent: true }
+    ]
+  }));
+
+  // Flagship. The mock benefit is read from config so the promise can be
+  // changed centrally without touching this page (ticket S18).
+  var mock = cfg.mock_entitlement;
+  grid.appendChild(R.programCard(cfg, 'iv_prep_complete', state, {
+    flagship: true, flag: 'Most chosen', placement: 'mr_programs',
+    href: 'checkout-boundary.html?product=iv_prep_complete',
+    cta: 'Enroll in IV Prep Complete',
+    features: [
+      'Everything in IV Prep Essentials',
+      mock.public_label
+    ].concat(mock.publish_exact_entitlement ? mock.plain_english_structure : [])
+     .concat([
+      'Weekly pre-interview checkups through the season',
+      'Debrief after every real interview',
+      'Advanced communication and program-specific strategy'
+    ])
+  }));
+
+  // 360 stays a full premium anchor even while closed — an empty card would
+  // undersell it. Features describe what it IS; nothing here promises capacity,
+  // and the banned "unlimited mocks" / "Match Guarantee" claims are absent.
+  grid.appendChild(R.programCard(cfg, 'match_mentorship_360', state, {
+    placement: 'mr_programs',
+    features: [
+      'The full Match year, one-to-one with Dr. Brian',
+      'Personal statement developed with you, iteratively',
+      'ERAS review and program targeting strategy',
+      'Rank list strategy worked through together',
+      'The highest level of interview practice we offer'
+    ]
+  }));
+
+  // ---- payments
+  document.getElementById('payments').appendChild(R.paymentHierarchy(cfg, 'iv_prep_complete', state));
+  var plan = cfg.payments.missionmed_payment_plan;
+  document.getElementById('pay-fine').textContent =
+    'Payment plans are arranged with Admissions and confirmed in writing before anything is charged. ' +
+    (cfg.payments.affirm.available ? '' : '');
+
+  // ---- PS tiers
+  var psGrid = document.getElementById('ps-grid');
+  [['ps_intensive_priority', 'Reserve Priority'], ['ps_intensive_emergency', 'Check Emergency availability']]
+    .forEach(function (pair) {
+      var key = pair[0], p = cfg.products[key];
+      var card = R.programCard(cfg, key, state, {
+        href: 'checkout-boundary.html?product=' + key,
+        cta: pair[1],
+        flagship: key === 'ps_intensive_emergency',
+        features: [
+          p.turnaround,
+          'Minimum 2-hour strategy session with Dr. Brian',
+          'Narrative and theme development',
+          'Minimum two follow-up meetings',
+          'Reservation deposit ' + C.money(p.deposit)
+        ]
+      });
+      if (card) {
+        var note = document.createElement('p');
+        note.className = 'mmc-fine';
+        note.style.marginTop = '10px';
+        note.textContent = key === 'ps_intensive_emergency'
+          ? 'Availability is confirmed in writing before any deposit. Maximum one per week. Capacity-priced, not discounted.'
+          : 'Your turnaround clock starts once the strategy session is done, your materials are in, and the payment condition is met.';
+        card.querySelector('.mmc-card__cta').appendChild(note);
+        psGrid.appendChild(card);
+      }
+    });
+
+  // ---- 360 detail block
+  var p360 = cfg.products.match_mentorship_360;
+  var host = document.getElementById('m360');
+  host.innerHTML =
+    '<span class="mmc-eyebrow">360 Match Mentorship</span>' +
+    '<h2>' + p360.status_headline + '</h2>' +
+    '<p class="mmc-lede">' + p360.truthful_rationale + '</p>' +
+    '<div class="mmc-note mmc-note--closed" style="margin:26px 0;max-width:62ch">' +
+      '<b>' + p360.status_subhead + '</b> for 2026-27. Reference tuition ' +
+      C.money(p360.display_price) + '. ' + p360.future.factual_line +
+    '</div>';
+  var cta = R.el('a', { class: 'mmc-btn mmc-btn--ghost', href: '#priority-interest', text: p360.future.cta_label });
+  cta.addEventListener('click', function () { R.track('priority_interest_360_click', {}); });
+  host.appendChild(cta);
+  host.appendChild(R.el('p', {
+    class: 'mmc-fine', style: 'margin-top:14px;max-width:60ch',
+    text: 'Joining the list tells us you are applying next cycle. It does not reserve a seat.'
+  }));
+});
+</script>
+</body>
+</html>

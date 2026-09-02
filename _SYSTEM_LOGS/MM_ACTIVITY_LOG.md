@@ -3379,3 +3379,40 @@ Dr. Brian rejected v9 redesign ("a hot mess"). Immediate rollback to v8 requeste
 **Result:** Self-contained prompt ready to paste into ChatGPT. Contains every detail needed to direct the full TIE build without referencing external documents.
 
 **Status:** COMPLETE
+
+---
+
+### Prompt ID: MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001
+**Date:** 2026-09-02
+**Task:** Mission Residency Fall 2026 Conversion & Commercial Upgrade — implementation-grade audit, config-driven commercial architecture, production-faithful founder preview, Codex handoff
+
+**Worktree:** `/Users/brianb/MissionMed_worktrees/mr-web-0902-fall-commercial-rebuild`
+**Branch:** `claude/mr-web-0902-fall-conversion-upgrade`
+**Production deployed:** NO. No WordPress page, WooCommerce product, price, plugin, or setting was modified.
+
+**Audit performed against LIVE production (2026-09-02):**
+- Stack confirmed: Astra 4.12.6 + Elementor Pro (kit 3372), WooCommerce + Subscriptions + Memberships, LearnDash, Stripe Connect direct charges routed by `_mmi_instructor_id`, Google Site Kit analytics, Kinsta behind Cloudflare.
+- Homepage = page 3305; Mission Residency = page 5686 (`elementor_canvas`).
+- Full WooCommerce catalog captured via Store API (19 products, publicly readable without auth).
+
+**P0 findings (live, customer-facing):**
+1. 360 Match Mentorship (3575) + its payment plan (5511) are PURCHASABLE at $3,999 while canon requires 2026-27 enrollment closed at a $5,499 reference.
+2. "Unlimited mock interviews" and three mutually contradictory Match Guarantee statements are live on page 5686 and inside Woo 3575's description.
+3. Checkout to LearnDash entitlement is UNPROVEN end to end — the launch gate.
+4. MatchFirst™ deferred payment ("50% down, 50% after Match") is live on 20 pages and undefined in any authority document.
+
+**Naming collision resolved:** "IV Prep Complete" currently names Woo 5504 ($1,499). Evidence-backed mapping: 3576 Match Prep Pro ($2,799, full season) → IV Prep Complete; 5504 ($1,499, 5-day workshop) → IV Prep Essentials; 3577 ($499) → the legacy tier. Rename order matters (5504 first).
+
+**Built (candidate, not deployed):**
+- `campaign-state.json` — single source of truth for every price, name, date, availability state, claim status, and analytics event.
+- `campaign-state.js` — state resolver with a truth gate (`verified_live_at`) and a no-flip floor. Fall Access pricing is unreachable in code until a real test purchase is recorded.
+- `mm-render.js` / `mm-boot.js` / `mm-commercial.css` — components and styling built on design tokens lifted verbatim from live page 5686.
+- Five preview pages with campaign-state time-travel.
+
+**Verified by test:** all four campaign states exercised; the September 8 flip requires no human action; runtime banned-term audit clean across all pages and states; 55 text elements pass WCAG AA contrast (0 failures); heading order clean; no horizontal overflow at 375px; zero console errors on every page.
+
+**Deliverables:** `_AI_HANDOFFS/from_claude_code/MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001/` — docs 01–10 + `CODEX_PRODUCTION_HANDOFF.md`, `candidate/`, `evidence/`, 9 screenshots.
+
+**Founder decisions outstanding:** close 360; guarantee language; MatchFirst; payment-plan premium (Reg Z compliance blocker — the ~6-month plans already exist at 0%, so only the higher total is missing); fate of the $499 tier.
+
+**Status:** COMPLETE — awaiting founder review. Not deployed.

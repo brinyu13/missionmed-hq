@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Staging checkout boundary (candidate)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mm-commercial.css">
+</head>
+<body class="mmc">
+<div id="campaign"></div>
+
+<section class="mmc-section">
+  <div class="mmc-wrap" style="max-width:760px">
+    <span class="mmc-eyebrow">Order summary</span>
+    <h1 id="title">Your enrollment</h1>
+    <div id="summary"></div>
+
+    <div class="mmc-boundary" style="margin-top:34px">
+      <h2 style="margin-top:0">Staging checkout boundary</h2>
+      <p style="margin-bottom:0">
+        This is where the candidate hands off to the live WooCommerce checkout.
+        Nothing beyond this point executes in the preview: no cart is created,
+        no payment is taken, no order is placed.
+      </p>
+      <p class="mmc-fine" style="margin-top:16px">
+        In production this button goes to the real product's add-to-cart URL and
+        then to <code>/checkout/</code>, using the existing Stripe Connect routing
+        and the existing cart-collision guard. None of that wiring is changed by
+        this ticket.
+      </p>
+    </div>
+
+    <p style="margin-top:26px"><a class="mmc-btn mmc-btn--ghost" href="mission-residency.html">← Back to programs</a></p>
+  </div>
+</section>
+
+<script src="../js/campaign-state.js"></script>
+<script src="../js/mm-render.js"></script>
+<script src="../js/mm-boot.js"></script>
+<script>
+MMBoot(function (cfg, state) {
+  var R = MMRender, C = MMCampaign;
+  document.getElementById('campaign').appendChild(R.campaignBar(cfg, state));
+
+  var key = new URLSearchParams(location.search).get('product') || 'iv_prep_complete';
+  var p = cfg.products[key];
+  var host = document.getElementById('summary');
+  if (!p) { host.textContent = 'Unknown product.'; return; }
+
+  document.getElementById('title').textContent = p.public_name;
+  R.track('checkout_start', { product: key, price: C.priceFor(cfg, key, state, 'card'), method: 'undecided' });
+
+  if (typeof p.price === 'number') {
+    // PS tiers: deposit-led.
+    host.innerHTML =
+      '<div class="mmc-price"><span class="mmc-price__now">' + C.money(p.price) + '</span>' +
+      '<span class="mmc-price__unit">total tuition</span></div>' +
+      '<p>Reservation deposit today: <b>' + C.money(p.deposit) + '</b>. ' +
+      'Balance due before your strategy session under the final terms.</p>' +
+      '<p class="mmc-fine">' + p.turnaround + '. ' +
+      (p.capacity_cap_per_week ? 'Availability is confirmed in writing before any deposit is taken.' : '') + '</p>';
+  } else {
+    host.appendChild(R.priceBlock(cfg, key, state));
+    var h = document.createElement('h2');
+    h.textContent = 'Choose how to pay';
+    h.style.marginTop = '30px';
+    host.appendChild(h);
+    host.appendChild(R.paymentHierarchy(cfg, key, state));
+  }
+});
+</script>
+</body>
+</html>

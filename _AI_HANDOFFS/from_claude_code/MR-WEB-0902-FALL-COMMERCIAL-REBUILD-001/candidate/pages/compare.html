@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare programs — Mission Residency (candidate)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mm-commercial.css">
+</head>
+<body class="mmc">
+<div id="campaign"></div>
+
+<header class="mmc-section mmc-section--tight">
+  <div class="mmc-wrap">
+    <span class="mmc-eyebrow">Compare</span>
+    <h1>Which program fits your situation?</h1>
+    <p class="mmc-lede">The differences that actually matter, in the order they matter.
+      Everything below reflects current availability.</p>
+  </div>
+</header>
+
+<section class="mmc-section mmc-section--tight">
+  <div class="mmc-wrap">
+    <div class="mmc-cmp-scroll">
+      <table class="mmc-cmp" id="cmp">
+        <caption class="mmc-fine" style="text-align:left;padding-bottom:12px">
+          Program comparison. On a narrow screen each program becomes its own card.
+        </caption>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="mmc-section mmc-section--alt mmc-section--tight">
+  <div class="mmc-wrap">
+    <h2>Still not sure?</h2>
+    <p class="mmc-lede">The short version: choose <b>Essentials</b> if you want the framework
+      and a fast, focused block of preparation. Choose <b>Complete</b> if you want someone in
+      your corner for the whole season, with scored mocks and a debrief after every real interview.</p>
+    <p style="margin-top:22px"><a class="mmc-btn mmc-btn--primary" href="mission-residency.html">Back to programs</a></p>
+  </div>
+</section>
+
+<script src="../js/campaign-state.js"></script>
+<script src="../js/mm-render.js"></script>
+<script src="../js/mm-boot.js"></script>
+<script>
+MMBoot(function (cfg, state) {
+  var R = MMRender, C = MMCampaign;
+  document.getElementById('campaign').appendChild(R.campaignBar(cfg, state));
+
+  var keys = ['iv_prep_essentials', 'iv_prep_complete', 'match_mentorship_360'];
+  var names = keys.map(function (k) { return cfg.products[k].public_name; });
+
+  function priceCell(k) {
+    var p = cfg.products[k];
+    if (p.render === 'VISIBLE_BUT_CLOSED') return C.money(p.display_price) + ' <span class="is-closed">reference</span>';
+    var card = C.priceFor(cfg, k, state, 'card');
+    var bank = C.priceFor(cfg, k, state, 'bank_transfer');
+    return bank && bank !== card
+      ? C.money(bank) + ' bank · ' + C.money(card) + ' card'
+      : C.money(card);
+  }
+  function availCell(k) {
+    var v = C.visibility(cfg, k, state);
+    if (v.render === 'OPEN') return '<span class="mmc-status mmc-status--open">Open now</span>';
+    var p = cfg.products[k];
+    return '<span class="mmc-status mmc-status--closed">' + (p.status_subhead || 'Closed') + '</span>';
+  }
+
+  // Rows are ordered by what a prospect decides on, not by feature count.
+  var mock = cfg.mock_entitlement;
+  var rows = [
+    ['Who it is for', [
+      'You want the framework, and an interview may be close.',
+      'You want support across the whole interview season.',
+      'You want the maximum, one-to-one with Dr. Brian.'
+    ]],
+    ['Availability', keys.map(availCell)],
+    ['Tuition', keys.map(priceCell)],
+    ['Depth of support', ['Focused block', 'Full interview season', 'Full Match year']],
+    ['Time with Dr. Brian', ['Live core sessions + 1-on-1 strategy session', 'Live sessions across the season + debriefs', 'One-to-one throughout']],
+    ['Mock interviews', ['Included in the workshop block', mock.public_label, 'Highest level of practice']],
+    ['After a real interview', ['—', 'Debrief after every interview', 'Debrief after every interview']],
+    ['Personal statement', ['Sold separately', 'Sold separately', 'Developed with you']],
+    ['Payment plan', ['Pay in full', 'Available via Admissions', '—']]
+  ];
+
+  var t = document.getElementById('cmp');
+  var thead = document.createElement('thead');
+  thead.innerHTML = '<tr><th scope="col">&nbsp;</th>' +
+    names.map(function (n) { return '<th scope="col">' + n + '</th>'; }).join('') + '</tr>';
+  t.appendChild(thead);
+
+  var tb = document.createElement('tbody');
+  rows.forEach(function (r) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<th scope="row">' + r[0] + '</th>' +
+      r[1].map(function (v, i) {
+        return '<td data-label="' + names[i] + '">' + v + '</td>';
+      }).join('');
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+
+  // CTA row, respecting availability.
+  var tf = document.createElement('tbody');
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<th scope="row">Next step</th>' + keys.map(function (k, i) {
+    var v = C.visibility(cfg, k, state);
+    var inner = v.render === 'OPEN'
+      ? '<a class="mmc-btn ' + (k === 'iv_prep_complete' ? 'mmc-btn--primary' : 'mmc-btn--ghost') +
+        '" href="checkout-boundary.html?product=' + k + '">Enroll</a>'
+      : '<span class="is-closed">' + (cfg.products[k].future ? cfg.products[k].future.cta_label : 'Closed') + '</span>';
+    return '<td data-label="' + names[i] + '">' + inner + '</td>';
+  }).join('');
+  tf.appendChild(tr);
+  t.appendChild(tf);
+});
+</script>
+</body>
+</html>

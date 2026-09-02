@@ -1,0 +1,240 @@
+/*!
+ * MissionMed — Fall 2026 Commercial Upgrade
+ * Ticket: MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001
+ *
+ * DESIGN FIDELITY NOTE
+ * Every token below is lifted verbatim from the LIVE Mission Residency page
+ * (page ID 5686, captured 2026-09-02). This is not a new design system — it is
+ * the existing one, reused. Astra 4.12.6 + Elementor Pro remain untouched.
+ *
+ *   --mr-bg   #050913   --mr-gold #d8b45f   --mr-navy  #0f2a44
+ *   --mr-bg-2 #081322   --mr-gold-2 #f0d68c --mr-navy-2 #1b2f4a
+ *   Playfair Display (display) + Inter (text) — both already loaded sitewide.
+ *
+ * The --mr-navy / --mr-navy-2 values are identical to Elementor's global
+ * primary/secondary (#0f2a44 / #1b2f4a), so this stays inside the brand.
+ */
+
+:root {
+  /* ---- lifted verbatim from live page 5686 ---- */
+  --mr-bg: #050913;
+  --mr-bg-2: #081322;
+  --mr-navy: #0f2a44;
+  --mr-navy-2: #1b2f4a;
+  --mr-gold: #d8b45f;
+  --mr-gold-2: #f0d68c;
+  --mr-ink: #ffffff;
+  --mr-ink-soft: #f4f6f8;
+  --mr-mute: #9aa5b5;
+  --mr-muted: #c5d0df;
+  --mr-line: rgba(255, 255, 255, 0.14);
+  --mr-line-strong: rgba(212, 165, 116, 0.4);
+  --mr-sans: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mr-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --mr-shadow: 0 30px 80px rgba(0, 0, 0, 0.42);
+
+  /* ---- additions for this ticket, derived from the above ---- */
+  --mr-card: rgba(255, 255, 255, 0.035);
+  --mr-card-hover: rgba(255, 255, 255, 0.055);
+  --mr-gold-dim: rgba(216, 180, 95, 0.14);
+  --mr-radius: 14px;
+  --mr-radius-sm: 9px;
+  --mr-maxw: 1180px;
+  --mr-gutter: clamp(18px, 4vw, 40px);
+
+  /* Availability semantics. Deliberately restrained: the ticket bans
+     clearance-sale visuals and excessive red. Closed states read as calm
+     and premium, not as failure. */
+  --mr-open: #7fd1a8;
+  --mr-closed: var(--mr-mute);
+  --mr-urgent: var(--mr-gold-2);
+}
+
+/* ============================================================ BASE */
+.mmc { font-family: var(--mr-sans); color: var(--mr-ink-soft); background: var(--mr-bg); -webkit-font-smoothing: antialiased; }
+.mmc *, .mmc *::before, .mmc *::after { box-sizing: border-box; }
+.mmc-wrap { max-width: var(--mr-maxw); margin-inline: auto; padding-inline: var(--mr-gutter); }
+.mmc-section { padding-block: clamp(52px, 8vw, 104px); position: relative; }
+.mmc-section--tight { padding-block: clamp(36px, 5vw, 64px); }
+.mmc-section--alt { background: var(--mr-bg-2); }
+
+.mmc h1, .mmc h2, .mmc h3 { font-family: var(--mr-serif); font-weight: 600; line-height: 1.12; color: var(--mr-ink); margin: 0 0 .5em; letter-spacing: -0.01em; }
+.mmc h1 { font-size: clamp(2.1rem, 5.2vw, 3.6rem); }
+.mmc h2 { font-size: clamp(1.65rem, 3.6vw, 2.55rem); }
+.mmc h3 { font-size: clamp(1.15rem, 2.2vw, 1.5rem); }
+.mmc p { margin: 0 0 1em; line-height: 1.62; color: var(--mr-muted); }
+.mmc a { color: inherit; }
+
+.mmc-eyebrow {
+  font-family: var(--mr-sans); font-size: .72rem; font-weight: 600;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--mr-gold);
+  margin: 0 0 .85em; display: block;
+}
+.mmc-lede { font-size: clamp(1.02rem, 1.7vw, 1.18rem); color: var(--mr-muted); max-width: 62ch; }
+.mmc-fine { font-size: .8rem; color: var(--mr-mute); line-height: 1.55; }
+
+/* ============================================================ BUTTONS
+   CTA hierarchy is enforced here, not per-page. One dominant CTA per
+   section is a ticket requirement, so there is exactly one --primary style
+   and the alternatives are visually quieter by construction. */
+.mmc-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5em;
+  font-family: var(--mr-sans); font-weight: 600; font-size: .95rem;
+  padding: 15px 28px; border-radius: 999px; border: 1px solid transparent;
+  text-decoration: none; cursor: pointer; transition: transform .18s ease, background .18s ease, border-color .18s ease;
+  min-height: 48px; /* touch target */
+}
+/* Note the `.mmc a` qualifier on each variant. `.mmc a { color: inherit }` above
+   has specificity (0,1,1) and would otherwise beat a bare `.mmc-btn--primary`
+   (0,1,0), rendering the primary CTA as light-on-gold. Keep these qualified. */
+.mmc .mmc-btn--primary, .mmc a.mmc-btn--primary { background: linear-gradient(135deg, var(--mr-gold), var(--mr-gold-2)); color: #14110a; }
+.mmc-btn--primary:hover { transform: translateY(-2px); }
+.mmc .mmc-btn--ghost, .mmc a.mmc-btn--ghost { background: transparent; color: var(--mr-ink); border-color: var(--mr-line-strong); }
+.mmc-btn--ghost:hover { background: rgba(255,255,255,.05); }
+.mmc .mmc-btn--quiet, .mmc a.mmc-btn--quiet { background: none; padding: 8px 0; color: var(--mr-gold-2); text-decoration: underline; text-underline-offset: 4px; min-height: 0; }
+.mmc-btn[aria-disabled="true"], .mmc-btn:disabled { opacity: .45; pointer-events: none; }
+.mmc-btn--block { width: 100%; }
+
+.mmc :focus-visible { outline: 3px solid var(--mr-gold-2); outline-offset: 3px; border-radius: 4px; }
+
+/* ============================================================ CAMPAIGN BAR */
+.mmc-campaign {
+  background: linear-gradient(90deg, var(--mr-navy), var(--mr-navy-2));
+  border-bottom: 1px solid var(--mr-line-strong);
+  padding: 12px var(--mr-gutter); text-align: center;
+  font-size: .9rem; color: var(--mr-ink-soft);
+}
+.mmc-campaign strong { color: var(--mr-gold-2); font-weight: 600; }
+.mmc-campaign[hidden] { display: none !important; }
+/* No countdown element is styled here on purpose. A countdown may only exist
+   when it is bound to a verified coded flip (config: campaign.countdown.enabled). */
+
+/* ============================================================ PROGRAM CARDS */
+.mmc-programs { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); align-items: stretch; }
+
+.mmc-card {
+  background: var(--mr-card); border: 1px solid var(--mr-line);
+  border-radius: var(--mr-radius); padding: 28px 26px 26px;
+  display: flex; flex-direction: column; position: relative;
+  transition: border-color .2s ease, background .2s ease;
+}
+.mmc-card:hover { background: var(--mr-card-hover); }
+.mmc-card--flagship { border-color: var(--mr-line-strong); box-shadow: var(--mr-shadow); background: linear-gradient(180deg, rgba(216,180,95,.06), var(--mr-card)); }
+.mmc-card--closed { opacity: .92; }
+
+.mmc-card__flag {
+  position: absolute; top: -11px; left: 26px;
+  background: linear-gradient(135deg, var(--mr-gold), var(--mr-gold-2)); color: #14110a;
+  font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 999px;
+}
+.mmc-card__for { font-size: .93rem; color: var(--mr-muted); min-height: 3.1em; }
+.mmc-card__name { font-family: var(--mr-serif); font-size: 1.45rem; margin: 2px 0 6px; color: var(--mr-ink); }
+.mmc-card__sub { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--mr-mute); }
+
+/* Price block. No strikethrough class exists anywhere in this stylesheet —
+   fictitious former-price presentation is banned by the ticket, so the
+   markup for it is simply not available. */
+.mmc-price { margin: 20px 0 4px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.mmc-price__now { font-family: var(--mr-serif); font-size: 2.3rem; color: var(--mr-ink); line-height: 1; }
+.mmc-price__unit { font-size: .82rem; color: var(--mr-mute); }
+.mmc-price__then { font-size: .84rem; color: var(--mr-mute); margin: 0 0 14px; }
+.mmc-price__then b { color: var(--mr-muted); font-weight: 600; }
+
+.mmc-card__list { list-style: none; margin: 16px 0 22px; padding: 0; display: grid; gap: 9px; }
+.mmc-card__list li { position: relative; padding-left: 24px; font-size: .92rem; color: var(--mr-muted); line-height: 1.5; }
+.mmc-card__list li::before { content: ""; position: absolute; left: 4px; top: .52em; width: 7px; height: 7px; border-radius: 50%; background: var(--mr-gold); }
+.mmc-card__list li.is-absent { color: var(--mr-mute); }
+.mmc-card__list li.is-absent::before { background: transparent; box-shadow: inset 0 0 0 1px var(--mr-mute); }
+.mmc-card__cta { margin-top: auto; }
+
+.mmc-status { display: inline-flex; align-items: center; gap: 7px; font-size: .78rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.mmc-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.mmc-status--open { color: var(--mr-open); }
+.mmc-status--closed { color: var(--mr-closed); }
+
+/* ============================================================ PAYMENT HIERARCHY
+   The ticket forbids four equal boxes. Rank 1 is visually dominant, rank 2 is
+   a normal card, rank 3 is a quiet strip. The hierarchy is structural. */
+.mmc-pay { display: grid; gap: 14px; max-width: 720px; }
+.mmc-pay__opt { border: 1px solid var(--mr-line); border-radius: var(--mr-radius); padding: 20px 22px; background: var(--mr-card); }
+.mmc-pay__opt--best {
+  border-color: var(--mr-line-strong); background: linear-gradient(135deg, rgba(216,180,95,.10), var(--mr-card));
+  padding: 26px 26px; box-shadow: var(--mr-shadow);
+}
+.mmc-pay__opt--quiet { background: transparent; border-style: dashed; }
+.mmc-pay__eyebrow { font-size: .68rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--mr-gold); margin-bottom: 6px; }
+.mmc-pay__opt--quiet .mmc-pay__eyebrow { color: var(--mr-mute); }
+.mmc-pay__label { font-family: var(--mr-serif); font-size: 1.22rem; color: var(--mr-ink); margin: 0 0 4px; }
+.mmc-pay__opt--best .mmc-pay__label { font-size: 1.5rem; }
+.mmc-pay__amt { font-family: var(--mr-serif); font-size: 1.7rem; color: var(--mr-gold-2); }
+.mmc-pay__note { font-size: .85rem; color: var(--mr-mute); margin: 8px 0 0; }
+.mmc-pay__save { display: inline-block; margin-top: 8px; font-size: .82rem; color: var(--mr-gold-2); font-weight: 600; }
+
+/* ============================================================ JOURNEY */
+.mmc-journey { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); counter-reset: step; }
+.mmc-journey__step { border-top: 2px solid var(--mr-line); padding-top: 16px; counter-increment: step; }
+.mmc-journey__step--on { border-top-color: var(--mr-gold); }
+.mmc-journey__num { font-family: var(--mr-serif); font-size: .95rem; color: var(--mr-gold); }
+.mmc-journey__t { font-size: .8rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--mr-ink); margin: 6px 0 5px; }
+.mmc-journey__d { font-size: .87rem; color: var(--mr-mute); line-height: 1.5; margin: 0; }
+
+/* ============================================================ NEED ROUTER */
+.mmc-router { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); }
+.mmc-router__item {
+  display: block; text-decoration: none; padding: 22px 20px;
+  border: 1px solid var(--mr-line); border-radius: var(--mr-radius); background: var(--mr-card);
+  transition: border-color .2s ease, transform .2s ease;
+}
+.mmc-router__item:hover { border-color: var(--mr-line-strong); transform: translateY(-2px); }
+.mmc-router__need { font-size: 1.02rem; color: var(--mr-ink); font-weight: 600; margin-bottom: 8px; display: block; }
+.mmc-router__to { font-size: .85rem; color: var(--mr-gold-2); }
+
+/* ============================================================ COMPARISON
+   Desktop: real table. Mobile: the same data re-flowed to stacked cards via
+   data-label, because a 3-column feature grid is unreadable on a phone and
+   "cannot distinguish Complete from Essentials in five seconds" fails the build. */
+.mmc-cmp-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.mmc-cmp { width: 100%; border-collapse: collapse; min-width: 640px; }
+.mmc-cmp th, .mmc-cmp td { padding: 15px 16px; text-align: left; border-bottom: 1px solid var(--mr-line); font-size: .92rem; vertical-align: top; }
+.mmc-cmp thead th { font-family: var(--mr-serif); font-size: 1.05rem; color: var(--mr-ink); border-bottom-color: var(--mr-line-strong); }
+.mmc-cmp tbody th { font-weight: 600; color: var(--mr-mute); font-size: .82rem; letter-spacing: .05em; text-transform: uppercase; }
+.mmc-cmp td { color: var(--mr-muted); }
+.mmc-cmp .is-closed { color: var(--mr-mute); }
+
+@media (max-width: 720px) {
+  .mmc-cmp { min-width: 0; display: block; }
+  /* `display:block` on the table makes the caption an anonymous block that
+     shrink-wraps to a sliver. Pin it back to full width. */
+  .mmc-cmp caption { display: block; width: 100%; }
+  .mmc-cmp thead { display: none; }
+  .mmc-cmp tbody, .mmc-cmp tr, .mmc-cmp td, .mmc-cmp th { display: block; width: 100%; }
+  .mmc-cmp tr { border: 1px solid var(--mr-line); border-radius: var(--mr-radius); margin-bottom: 14px; padding: 6px 4px; }
+  .mmc-cmp tbody th { border: 0; padding-bottom: 4px; }
+  .mmc-cmp td { border: 0; padding: 4px 16px 12px; }
+  .mmc-cmp td::before { content: attr(data-label); display: block; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--mr-gold); margin-bottom: 3px; }
+}
+
+/* ============================================================ NOTICES */
+.mmc-note { border-left: 3px solid var(--mr-gold); background: var(--mr-gold-dim); padding: 16px 18px; border-radius: 0 var(--mr-radius-sm) var(--mr-radius-sm) 0; font-size: .9rem; color: var(--mr-muted); }
+.mmc-note--closed { border-left-color: var(--mr-mute); background: rgba(255,255,255,.03); }
+
+/* Preview-only chrome. Clearly marked so it can never be mistaken for
+   production UI, and stripped by the Codex handoff. */
+.mmc-previewbar {
+  position: sticky; top: 0; z-index: 999; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  background: repeating-linear-gradient(45deg, #2b1d05, #2b1d05 12px, #241804 12px, #241804 24px);
+  border-bottom: 2px solid var(--mr-gold); padding: 9px var(--mr-gutter); font-size: .8rem; color: var(--mr-gold-2);
+  font-family: var(--mr-sans);
+}
+.mmc-previewbar b { color: #fff; }
+.mmc-previewbar select, .mmc-previewbar a {
+  background: #0d1526; color: var(--mr-ink); border: 1px solid var(--mr-line-strong);
+  border-radius: 6px; padding: 5px 9px; font-size: .8rem; font-family: inherit; text-decoration: none;
+}
+.mmc-boundary { border: 2px dashed var(--mr-gold); background: rgba(216,180,95,.07); border-radius: var(--mr-radius); padding: 30px; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mmc *, .mmc *::before, .mmc *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  .mmc-btn:hover, .mmc-router__item:hover { transform: none; }
+}

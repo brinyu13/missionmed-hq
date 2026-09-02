@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Founder preview — MR-WEB-0902</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mm-commercial.css">
+</head>
+<body class="mmc">
+<div id="campaign"></div>
+
+<header class="mmc-section mmc-section--tight">
+  <div class="mmc-wrap">
+    <span class="mmc-eyebrow">MR-WEB-0902 · Founder review</span>
+    <h1>Mission Residency<br>Fall 2026 conversion upgrade.</h1>
+    <p class="mmc-lede">Click through the candidate. Use the state selector in the striped bar
+      at the top of any page to see Fall Access Week, the September 8 state, or the true
+      pre-launch state. Nothing here is published, and nothing takes a payment.</p>
+  </div>
+</header>
+
+<section class="mmc-section mmc-section--alt mmc-section--tight">
+  <div class="mmc-wrap">
+    <h2>Walkthroughs</h2>
+    <div class="mmc-router" style="margin-top:24px">
+      <a class="mmc-router__item" href="mission-residency.html">
+        <span class="mmc-router__need">1 · Mission Residency</span>
+        <span class="mmc-router__to">→ programs, payment, PS, 360</span></a>
+      <a class="mmc-router__item" href="compare.html">
+        <span class="mmc-router__need">2 · Compare programs</span>
+        <span class="mmc-router__to">→ Complete vs Essentials vs 360</span></a>
+      <a class="mmc-router__item" href="checkout-boundary.html?product=iv_prep_complete">
+        <span class="mmc-router__need">3 · Complete → payment → checkout</span>
+        <span class="mmc-router__to">→ ends at the staging boundary</span></a>
+      <a class="mmc-router__item" href="checkout-boundary.html?product=ps_intensive_emergency">
+        <span class="mmc-router__need">4 · Personal Statement → reservation</span>
+        <span class="mmc-router__to">→ deposit path, ends at boundary</span></a>
+      <a class="mmc-router__item" href="mission-residency.html#match_mentorship_360">
+        <span class="mmc-router__need">5 · 360 closed → 2027-28 interest</span>
+        <span class="mmc-router__to">→ capacity reached state</span></a>
+      <a class="mmc-router__item" href="home-commercial.html">
+        <span class="mmc-router__need">6 · Homepage commercial inserts</span>
+        <span class="mmc-router__to">→ what gets added to page 3305</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="mmc-section mmc-section--tight">
+  <div class="mmc-wrap">
+    <h2>See a different date</h2>
+    <p class="mmc-lede">Same candidate, different campaign state. This is how the September 8
+      flip is proven before it happens.</p>
+    <p style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+      <a class="mmc-btn mmc-btn--ghost" href="mission-residency.html?state=P">Pre-launch (true state now)</a>
+      <a class="mmc-btn mmc-btn--primary" href="mission-residency.html?state=A">Fall Access Week</a>
+      <a class="mmc-btn mmc-btn--ghost" href="mission-residency.html?state=B">September 8</a>
+      <a class="mmc-btn mmc-btn--ghost" href="mission-residency.html?state=C">Sales closed</a>
+    </p>
+  </div>
+</section>
+
+<section class="mmc-section mmc-section--alt mmc-section--tight">
+  <div class="mmc-wrap">
+    <h2>Read before approving</h2>
+    <div id="flags"></div>
+  </div>
+</section>
+
+<script src="../js/campaign-state.js"></script>
+<script src="../js/mm-render.js"></script>
+<script src="../js/mm-boot.js"></script>
+<script>
+MMBoot(function (cfg, state) {
+  var R = MMRender;
+  document.getElementById('campaign').appendChild(R.campaignBar(cfg, state));
+
+  var items = [
+    ['Nothing is deployed.', 'No WordPress page, no WooCommerce product, and no price on the live site has been changed by this ticket.'],
+    ['The campaign will not show as live until you say so.', 'The banner and Fall Access prices stay hidden until a real end-to-end test purchase clears and someone sets verified_live_at. Today the true state is pre-launch.'],
+    ['Two live conflicts need your decision first.', '360 Match Mentorship is currently purchasable at $3,999 while canon says 2026-27 is closed at a $5,499 reference, and the live product copy still promises "unlimited mock interviews" and a "Match Guarantee".'],
+    ['The payment plan shows no total on purpose.', 'Your requirement that the plan cost more than pay-in-full is intact in the architecture, but publishing a specific premium is a finance charge under Reg Z, so the offer routes to Admissions until Codex resolves it.'],
+    ['Every price and name lives in one file.', 'campaign-state.json. Change it there and every page follows. Nothing is hard-coded.']
+  ];
+  var host = document.getElementById('flags');
+  items.forEach(function (it) {
+    var d = document.createElement('div');
+    d.className = 'mmc-note';
+    d.style.cssText = 'margin-bottom:12px;max-width:78ch';
+    d.innerHTML = '<b>' + it[0] + '</b> ' + it[1];
+    host.appendChild(d);
+  });
+});
+</script>
+</body>
+</html>

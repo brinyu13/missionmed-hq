@@ -62,6 +62,15 @@ _AI_HANDOFFS/**
 !_SYSTEM/mm-sync-start.sh
 !_SYSTEM/mm-sync-end.sh
 
+# MR-WEB-0902: the Fall commercial candidate is source Codex must productionize
+# exactly as the founder approved it, so it has to be tracked. Scoped to that one
+# candidate directory and to source extensions only — no captures, no binaries.
+!_AI_HANDOFFS/from_claude_code/MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001/candidate/**/*.html
+!_AI_HANDOFFS/from_claude_code/MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001/candidate/**/*.css
+!_AI_HANDOFFS/from_claude_code/MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001/candidate/**/*.js
+!_AI_HANDOFFS/from_claude_code/MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001/candidate/**/*.json
+!_AI_HANDOFFS/from_claude_code/MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001/candidate/**/*.py
+
 # Reassert sensitive ignores after safe unignore rules. Last match wins.
 *.env
 .env
