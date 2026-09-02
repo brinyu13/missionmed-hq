@@ -3,98 +3,129 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Founder preview — MR-WEB-0902</title>
+<title>Founder preview — MR-WEB-0902 (V2)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/mm-commercial.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mm-visual.css">
 </head>
-<body class="mmc">
+<body class="mmv">
 <div id="campaign"></div>
 
-<header class="mmc-section mmc-section--tight">
-  <div class="mmc-wrap">
-    <span class="mmc-eyebrow">MR-WEB-0902 · Founder review</span>
-    <h1>Mission Residency<br>Fall 2026 conversion upgrade.</h1>
-    <p class="mmc-lede">Click through the candidate. Use the state selector in the striped bar
-      at the top of any page to see Fall Access Week, the September 8 state, or the true
-      pre-launch state. Nothing here is published, and nothing takes a payment.</p>
+<header class="v-env v-env--deep">
+  <div class="v-wrap">
+    <span class="v-eyebrow">MR-WEB-0902 · V2 · Founder review</span>
+    <h1 class="v-display">Mission Residency<br>Fall 2026.</h1>
+    <p class="v-lede" style="margin-top:26px">
+      Click through the candidate. The striped bar at the top of every page switches campaign
+      state — Fall Access Week, September 8, sales closed, or the true pre-launch state.
+      Nothing here is published and nothing takes a payment.
+    </p>
   </div>
 </header>
 
-<section class="mmc-section mmc-section--alt mmc-section--tight">
-  <div class="mmc-wrap">
-    <h2>Walkthroughs</h2>
-    <div class="mmc-router" style="margin-top:24px">
-      <a class="mmc-router__item" href="mission-residency.html">
-        <span class="mmc-router__need">1 · Mission Residency</span>
-        <span class="mmc-router__to">→ programs, payment, PS, 360</span></a>
-      <a class="mmc-router__item" href="compare.html">
-        <span class="mmc-router__need">2 · Compare programs</span>
-        <span class="mmc-router__to">→ Complete vs Essentials vs 360</span></a>
-      <a class="mmc-router__item" href="checkout-boundary.html?product=iv_prep_complete">
-        <span class="mmc-router__need">3 · Complete → payment → checkout</span>
-        <span class="mmc-router__to">→ ends at the staging boundary</span></a>
-      <a class="mmc-router__item" href="checkout-boundary.html?product=ps_intensive_emergency">
-        <span class="mmc-router__need">4 · Personal Statement → reservation</span>
-        <span class="mmc-router__to">→ deposit path, ends at boundary</span></a>
-      <a class="mmc-router__item" href="mission-residency.html#match_mentorship_360">
-        <span class="mmc-router__need">5 · 360 closed → 2027-28 interest</span>
-        <span class="mmc-router__to">→ capacity reached state</span></a>
-      <a class="mmc-router__item" href="home-commercial.html">
-        <span class="mmc-router__need">6 · Homepage commercial inserts</span>
-        <span class="mmc-router__to">→ what gets added to page 3305</span></a>
+<!-- The two surfaces, kept deliberately distinct. -->
+<section class="v-env v-env--paper">
+  <div class="v-wrap">
+    <span class="v-eyebrow">Two surfaces, two jobs</span>
+    <h2>The corporate homepage routes.<br>Mission Residency sells.</h2>
+    <p class="v-lede" style="color:var(--v-paper-ink2);margin-bottom:40px">
+      These are not the same page and must not become copies of each other.
+    </p>
+    <div class="v-grid v-grid--2">
+      <a class="v-card js-reveal" href="home-corporate.html" style="text-decoration:none">
+        <span class="v-status v-status--closed">Surface A</span>
+        <h3 style="margin-top:12px">Corporate homepage — seasonal layer</h3>
+        <p class="v-body">All three divisions stay intact. Two blocks are added: a Match-season
+          band that routes into Mission Residency, and a three-division band. No pricing,
+          no comparison, no payment UX.</p>
+        <span class="v-route__to">Open Surface A &rarr;</span>
+      </a>
+      <a class="v-card v-card--hero js-reveal" href="mission-residency.html" style="text-decoration:none">
+        <span class="v-status v-status--open">Surface B · the flagship</span>
+        <h3 style="margin-top:12px">Mission Residency division home</h3>
+        <p class="v-body">The full experience: cinematic hero, the season journey, eight real
+          Match Day videos, programs, comparison, payment hierarchy, Personal Statement,
+          and the 360 closed state.</p>
+        <span class="v-route__to">Open Surface B &rarr;</span>
+      </a>
     </div>
   </div>
 </section>
 
-<section class="mmc-section mmc-section--tight">
-  <div class="mmc-wrap">
-    <h2>See a different date</h2>
-    <p class="mmc-lede">Same candidate, different campaign state. This is how the September 8
-      flip is proven before it happens.</p>
-    <p style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
-      <a class="mmc-btn mmc-btn--ghost" href="mission-residency.html?state=P">Pre-launch (true state now)</a>
-      <a class="mmc-btn mmc-btn--primary" href="mission-residency.html?state=A">Fall Access Week</a>
-      <a class="mmc-btn mmc-btn--ghost" href="mission-residency.html?state=B">September 8</a>
-      <a class="mmc-btn mmc-btn--ghost" href="mission-residency.html?state=C">Sales closed</a>
+<section class="v-env v-env--dark">
+  <div class="v-wrap">
+    <span class="v-eyebrow">Walkthroughs</span>
+    <h2>Five clicks to check.</h2>
+    <div class="v-router" style="margin-top:34px">
+      <a class="v-route js-reveal" href="mission-residency.html">
+        <span class="v-route__need">1 · Mission Residency</span>
+        <span class="v-route__to">hero → journey → videos → programs</span></a>
+      <a class="v-route js-reveal" href="compare.html">
+        <span class="v-route__need">2 · Compare programs</span>
+        <span class="v-route__to">Complete vs Essentials vs 360</span></a>
+      <a class="v-route js-reveal" href="checkout-boundary.html?product=iv_prep_complete">
+        <span class="v-route__need">3 · Complete → payment → checkout</span>
+        <span class="v-route__to">ends at the staging boundary</span></a>
+      <a class="v-route js-reveal" href="checkout-boundary.html?product=ps_intensive_emergency">
+        <span class="v-route__need">4 · Personal Statement → reservation</span>
+        <span class="v-route__to">deposit path, ends at boundary</span></a>
+      <a class="v-route js-reveal" href="mission-residency.html#match_mentorship_360">
+        <span class="v-route__need">5 · 360 closed → 2027-28 interest</span>
+        <span class="v-route__to">capacity reached state</span></a>
+      <a class="v-route js-reveal" href="mission-residency.html?state=B">
+        <span class="v-route__need">6 · The September 8 state</span>
+        <span class="v-route__to">same page, no banner, standard tuition</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="v-env v-env--navy">
+  <div class="v-wrap">
+    <span class="v-eyebrow">Time travel</span>
+    <h2>See a different date.</h2>
+    <p class="v-lede">The September 8 flip is proven before it happens — it needs no human action.</p>
+    <p style="margin-top:26px;display:flex;gap:12px;flex-wrap:wrap">
+      <a class="v-btn v-btn--glass" href="mission-residency.html?state=P">Pre-launch (true state now)</a>
+      <a class="v-btn v-btn--gold"  href="mission-residency.html?state=A">Fall Access Week</a>
+      <a class="v-btn v-btn--glass" href="mission-residency.html?state=B">September 8</a>
+      <a class="v-btn v-btn--glass" href="mission-residency.html?state=C">Sales closed</a>
     </p>
   </div>
 </section>
 
-<section class="mmc-section mmc-section--alt mmc-section--tight">
-  <div class="mmc-wrap">
-    <h2>Read before approving</h2>
-    <div id="flags"></div>
+<section class="v-env v-env--dark">
+  <div class="v-wrap">
+    <span class="v-eyebrow">Read before approving</span>
+    <h2>Five things to decide.</h2>
+    <div id="flags" style="margin-top:32px"></div>
   </div>
 </section>
 
 <script src="../js/campaign-state.js"></script>
-<script src="../js/mm-render.js"></script>
+<script src="../js/mm-visual.js"></script>
 <script src="../js/mm-boot.js"></script>
 <script>
 MMBoot(function (cfg, state) {
-  var R = MMRender;
-  document.getElementById('campaign').appendChild(R.campaignBar(cfg, state));
+  var V = MMVisual;
+  document.getElementById('campaign').appendChild(V.campaignBar(cfg, state));
 
+  // Deliberately describes the banned claims rather than quoting them: the runtime
+  // banned-term audit scans this page too, and a guard that cries wolf on its own
+  // review notes is a guard people learn to ignore.
   var items = [
-    ['Nothing is deployed.', 'No WordPress page, no WooCommerce product, and no price on the live site has been changed by this ticket.'],
-    ['The campaign will not show as live until you say so.', 'The banner and Fall Access prices stay hidden until a real end-to-end test purchase clears and someone sets verified_live_at. Today the true state is pre-launch.'],
-    // Deliberately describes the banned claims instead of quoting them: the
-    // runtime banned-term audit scans this page too, and a guard that cries wolf
-    // on its own review notes is a guard people learn to ignore.
-    ['Two live conflicts need your decision first.', '360 Match Mentorship is currently purchasable at $3,999 while canon says 2026-27 is closed at a $5,499 reference. Its live product copy also still promises limitless mock interviews and an undefined match guarantee. Both are quoted verbatim in 02_RISK_AND_CONFLICT_LEDGER.md.'],
-    ['The payment plan shows no total on purpose.', 'Your requirement that the plan cost more than pay-in-full is intact in the architecture, but publishing a specific premium is a finance charge under Reg Z, so the offer routes to Admissions until Codex resolves it.'],
-    ['Every price and name lives in one file.', 'campaign-state.json. Change it there and every page follows. Nothing is hard-coded.']
+    ['Nothing is deployed.', 'No WordPress page, no WooCommerce product, and no price on the live site has been changed.'],
+    ['360 is on sale right now for $3,999.', 'Products 3575 and 5511 are purchasable today while canon says 2026-27 is closed at a $5,499 reference. Someone can buy a seat this morning.'],
+    ['Your flagship sales page runs on stock photography.', '/mission-residency/ is currently illustrated with four generic pexels images and one AI-generated file — while eight real Match Day videos and a real class photograph sit on the corporate homepage instead. The candidate moves the authentic assets to where the selling happens.'],
+    ['The payment plan shows no total on purpose.', 'Your requirement that it cost more than pay-in-full is intact, but publishing a premium is a finance charge under Reg Z, so the offer routes to Admissions until Codex resolves it.'],
+    ['Every price and name lives in one file.', 'campaign-state.json. Change it there and every page follows. No page contains a number.']
   ];
   var host = document.getElementById('flags');
   items.forEach(function (it) {
-    var d = document.createElement('div');
-    d.className = 'mmc-note';
-    d.style.cssText = 'margin-bottom:12px;max-width:78ch';
-    d.innerHTML = '<b>' + it[0] + '</b> ' + it[1];
-    host.appendChild(d);
+    host.appendChild(V.el('div', { class: 'v-note js-reveal', style: 'margin-bottom:16px;max-width:82ch',
+      html: '<b>' + it[0] + '</b> ' + it[1] }));
   });
+  V.initMotion();
 });
 </script>
 </body>

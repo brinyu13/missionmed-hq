@@ -3416,3 +3416,27 @@ Dr. Brian rejected v9 redesign ("a hot mess"). Immediate rollback to v8 requeste
 **Founder decisions outstanding:** close 360; guarantee language; MatchFirst; payment-plan premium (Reg Z compliance blocker — the ~6-month plans already exist at 0%, so only the higher total is missing); fate of the $499 tier.
 
 **Status:** COMPLETE — awaiting founder review. Not deployed.
+
+---
+
+### Prompt ID: MR-WEB-0902B / MR-WEB-0902C
+**Date:** 2026-09-02
+**Task:** Founder visual rejection correction + site-surface architecture correction
+
+**Production deployed:** NO.
+
+**Surface correction (0902C):** The corporate homepage `/` (page 3305) and the Mission Residency division page `/mission-residency/` (page 5686) were audited independently and live. Three divisions confirmed from the live homepage's own filter control and Woo category slugs: Dr J's Exam Prep (`test-prep`), Mission Residency (`mission-residency`), Mission: Clinicals (`mission-clinicals`); Arena is a product line, not a fourth division. V1's `home-commercial.html` treated the corporate homepage as a Mission Residency selling surface and was deleted. Replaced with `home-corporate.html` — a removable seasonal layer that adds two blocks (Match-season band + three-division band) and removes nothing.
+
+**Visual correction (0902B):** V1 was rejected as flat, monotone and text-heavy. Root causes were one continuous dark surface, gray body copy, and a uniform type scale. V2 introduces alternating light/dark environments, a display type scale, near-white body copy, inline SVG iconography, scroll reveals and parallax.
+
+**Key asset finding:** MissionMed owns eight real Match Day testimonial videos on `cdn.missionmedinstitute.com` plus a real group-session photograph and a founder portrait — and **none of them appear on the page that sells**. All eight sit on the corporate homepage. The candidate moves them to Mission Residency.
+
+**Correction to an earlier claim in this ticket:** the assertion that the Mission Residency page runs on stock photography was wrong. Three pexels files and the AI-generated image are scoped to `page-id-3503`, a different page; only one stock image renders on 5686. Its hero is a strong branded asset (the embroidered "MATCHED / ACCOMPLISHED" patch).
+
+**New live findings:** 89.1% appears in the sitewide top bar, as an animated counter on 5686, and in the 5686 footer — far wider than the homepage stat band. The top bar reads "TRAINED SINCE 2009" while the 5686 footer reads "IMGs since 2015" — a six-year contradiction live on the same page. `DrBrian_Profile_2.png` is 6.5 MB and the class photograph 2.4 MB, unoptimized despite EWWW being installed.
+
+**Defects found and fixed during the V2 build:** headings rendered invisible on light sections (CSS specificity); the 360 card's "2027-28 Priority Access" CTA rendered white-on-white at 1.04:1; mobile overflowed horizontally (scrollWidth 408 vs 375 viewport) from a bare `minmax(380px, 1fr)`; four further contrast failures on the light environment; hero softening from a 1277x473 source.
+
+**Verified:** 142 text elements pass WCAG AA with zero failures (lowest 5.01); zero horizontal overflow at 375px on all three pages; zero console errors; banned-term audit clean on all five pages across all four states; the September 8 flip still requires no human action.
+
+**Status:** COMPLETE — awaiting founder review. Not deployed. Codex handoff not released for execution.

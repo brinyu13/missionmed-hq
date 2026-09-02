@@ -1,0 +1,424 @@
+/*!
+ * MissionMed — Visual System V2
+ * Ticket: MR-WEB-0902 / correction MR-WEB-0902B
+ *
+ * WHY V2 EXISTS
+ *   V1 was rejected as flat, monotone, dark, sparse and text-heavy. The three
+ *   root causes, and what changed:
+ *
+ *   1. Everything sat on one dark surface. -> ENVIRONMENTS. Sections now
+ *      alternate: cinematic dark, image-led, light editorial, deep premium.
+ *      No more thousands of pixels of uninterrupted navy.
+ *   2. Body copy was muted gray on dark. -> CONTRAST. Body text on dark is
+ *      near-white (--v-ink). Gray is reserved for genuinely secondary metadata.
+ *   3. Type was small and uniform. -> SCALE. A real display scale, up to
+ *      clamp(3rem, 7vw, 5.75rem), with tight tracking on the large end.
+ *
+ * Tokens still derive from the LIVE Mission Residency page (5686) so this is
+ * the existing brand, amplified — not a new design language.
+ */
+
+:root {
+  /* ---- lifted from live page 5686 ---- */
+  --v-bg:        #050913;
+  --v-bg-2:      #081322;
+  --v-navy:      #0f2a44;
+  --v-navy-2:    #1b2f4a;
+  --v-gold:      #d8b45f;
+  --v-gold-2:    #f0d68c;
+  --v-serif:     'Playfair Display', Georgia, 'Times New Roman', serif;
+  --v-sans:      'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* ---- CONTRAST FIX: body copy on dark is near-white, not gray ---- */
+  --v-ink:       #f7f9fc;   /* primary text on dark */
+  --v-ink-2:     #dfe6f0;   /* secondary text on dark — still high contrast */
+  --v-meta:      #93a1b5;   /* metadata ONLY. never body copy. */
+
+  /* ---- light environment ---- */
+  --v-paper:     #f6f4ef;   /* warm paper, not clinical white */
+  --v-paper-2:   #ece8df;
+  --v-paper-ink: #10161f;
+  --v-paper-ink2:#3c4654;
+
+  --v-line:      rgba(255,255,255,.13);
+  --v-line-gold: rgba(216,180,95,.42);
+  --v-line-dark: rgba(16,22,31,.14);
+
+  --v-radius:    18px;
+  --v-radius-sm: 11px;
+  --v-maxw:      1240px;
+  --v-gutter:    clamp(20px, 4.5vw, 56px);
+
+  --v-shadow:    0 30px 80px rgba(0,0,0,.45);
+  --v-shadow-lg: 0 50px 110px rgba(0,0,0,.6);
+  --v-shadow-pp: 0 24px 60px rgba(16,22,31,.16);
+
+  --v-open:      #6fd3a4;
+}
+
+/* ============================================================ BASE */
+.mmv { font-family: var(--v-sans); background: var(--v-bg); color: var(--v-ink); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+.mmv *, .mmv *::before, .mmv *::after { box-sizing: border-box; }
+.mmv img, .mmv video { max-width: 100%; display: block; }
+.mmv a { color: inherit; }
+.mmv :focus-visible { outline: 3px solid var(--v-gold-2); outline-offset: 4px; border-radius: 6px; }
+
+.v-wrap { max-width: var(--v-maxw); margin-inline: auto; padding-inline: var(--v-gutter); }
+.v-wrap--narrow { max-width: 920px; }
+
+/* ---- ENVIRONMENTS: the fix for "uninterrupted navy" ---- */
+.v-env { position: relative; padding-block: clamp(64px, 9vw, 132px); }
+.v-env--dark   { background: var(--v-bg); }
+.v-env--deep   { background: linear-gradient(180deg, var(--v-bg) 0%, #0a1526 55%, var(--v-bg) 100%); }
+.v-env--navy   { background: linear-gradient(155deg, var(--v-navy) 0%, var(--v-navy-2) 60%, #12243c 100%); }
+.v-env--paper  { background: var(--v-paper); color: var(--v-paper-ink); }
+/* These MUST stay qualified with `.mmv`. The generic `.mmv h1,h2,h3` rule in the
+   TYPE SCALE block below has equal specificity (0,1,1) and is declared later, so
+   an unqualified `.v-env--paper h2` loses and headings render near-white on
+   paper — invisible. Qualifying to (0,2,1) settles it regardless of order. */
+.mmv .v-env--paper h1, .mmv .v-env--paper h2, .mmv .v-env--paper h3 { color: var(--v-paper-ink); }
+.mmv .v-env--paper p { color: var(--v-paper-ink2); }
+.v-env--paper .v-eyebrow { color: #8a6a1f; }
+
+/* A hairline gold rule between environments — cheap, premium, and it stops
+   two adjacent dark sections from reading as one endless surface. */
+.v-env + .v-env::before {
+  content: ""; position: absolute; inset-inline: 0; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--v-line-gold), transparent);
+}
+
+/* ============================================================ TYPE SCALE */
+.mmv h1, .mmv h2, .mmv h3 { font-family: var(--v-serif); font-weight: 600; color: var(--v-ink); margin: 0 0 .42em; line-height: 1.06; letter-spacing: -0.022em; }
+.v-display { font-size: clamp(3rem, 7vw, 5.75rem); line-height: .98; letter-spacing: -0.035em; }
+.mmv h1 { font-size: clamp(2.5rem, 5.6vw, 4.25rem); }
+.mmv h2 { font-size: clamp(2rem, 4.2vw, 3.15rem); }
+.mmv h3 { font-size: clamp(1.3rem, 2.3vw, 1.7rem); }
+
+.mmv p { margin: 0 0 1.1em; line-height: 1.6; }
+/* Body copy is NEAR-WHITE on dark. This is the contrast fix. */
+.v-lede { font-size: clamp(1.14rem, 1.85vw, 1.42rem); line-height: 1.55; color: var(--v-ink-2); max-width: 60ch; }
+.v-body { font-size: clamp(1.02rem, 1.25vw, 1.1rem); color: var(--v-ink-2); }
+.v-meta { font-size: .88rem; color: var(--v-meta); line-height: 1.5; }
+
+.v-eyebrow {
+  display: inline-flex; align-items: center; gap: .6em;
+  font-family: var(--v-sans); font-size: .78rem; font-weight: 700;
+  letter-spacing: .19em; text-transform: uppercase; color: var(--v-gold);
+  margin: 0 0 1.1em;
+}
+.v-eyebrow::before { content: ""; width: 26px; height: 2px; background: var(--v-gold); }
+
+/* ============================================================ BUTTONS
+   `.mmv a { color: inherit }` has specificity (0,1,1) and would beat a bare
+   variant class, so every variant is qualified. Do not un-qualify these. */
+.v-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .55em;
+  font-family: var(--v-sans); font-weight: 650; font-size: 1.02rem;
+  padding: 18px 34px; border-radius: 999px; border: 1.5px solid transparent;
+  text-decoration: none; cursor: pointer; min-height: 56px;
+  transition: transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .22s ease, background .22s ease;
+}
+.mmv .v-btn--gold, .mmv a.v-btn--gold {
+  background: linear-gradient(135deg, var(--v-gold) 0%, var(--v-gold-2) 100%);
+  color: #14110a; box-shadow: 0 14px 38px rgba(216,180,95,.3);
+}
+.v-btn--gold:hover { transform: translateY(-3px); box-shadow: 0 22px 52px rgba(216,180,95,.42); }
+.mmv .v-btn--glass, .mmv a.v-btn--glass {
+  background: rgba(255,255,255,.07); color: var(--v-ink);
+  border-color: var(--v-line-gold); backdrop-filter: blur(10px);
+}
+.v-btn--glass:hover { background: rgba(255,255,255,.13); transform: translateY(-3px); }
+.mmv .v-btn--ink, .mmv a.v-btn--ink { background: var(--v-paper-ink); color: var(--v-paper); }
+.v-btn--ink:hover { transform: translateY(-3px); }
+.mmv .v-btn--text, .mmv a.v-btn--text {
+  background: none; padding: 10px 0; min-height: 0; color: var(--v-gold-2);
+  border-bottom: 1.5px solid var(--v-line-gold); border-radius: 0;
+}
+.v-env--paper .v-btn--text { color: #7a5c14; border-bottom-color: rgba(122,92,20,.4); }
+.v-btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+.v-btn--block { width: 100%; }
+
+/* Button variants on the LIGHT environment.
+   These MUST carry `.mmv` and beat `.mmv a.v-btn--glass` (0,2,1) above, or a
+   glass button on a white card renders near-white on near-white — 1.04:1, an
+   invisible CTA. That is exactly what happened to the 360 card's
+   "2027-28 Priority Access" button before this block existed.
+   Any new button variant needs a paper counterpart here. */
+.mmv .v-env--paper .v-btn--glass, .mmv .v-env--paper a.v-btn--glass {
+  background: transparent; color: var(--v-paper-ink);
+  border-color: rgba(16,22,31,.32);
+}
+.mmv .v-env--paper .v-btn--glass:hover { background: rgba(16,22,31,.06); }
+.mmv .v-env--paper .v-btn--text, .mmv .v-env--paper a.v-btn--text {
+  color: #7a5c14; border-bottom-color: rgba(122,92,20,.45);
+}
+.mmv .v-env--paper .v-btn[aria-disabled="true"] { color: #556071; border-color: rgba(16,22,31,.22); }
+
+/* ============================================================ HERO — cinematic */
+/* Hero height is capped deliberately. The hero asset
+   (mission-residency-run-mr006-q100.webp — the "MATCHED / ACCOMPLISHED" patch)
+   is only 1277x473. At a 900px-tall hero it upscales ~1.9x and goes soft, which
+   is what made the first V2 hero look washed out. 720px keeps the upscale near
+   1.35x on a 1440 viewport. object-position holds the patch and the face in
+   frame rather than centring on empty coat.
+   If a larger original is ever produced, raise the cap here. */
+.v-hero { position: relative; min-height: clamp(520px, 76vh, 720px); display: flex; align-items: flex-end; overflow: hidden; }
+.v-hero__media { position: absolute; inset: 0; z-index: 0; }
+.v-hero__media img { width: 100%; height: 100%; object-fit: cover; object-position: 28% 42%; }
+/* Scrim is weighted HORIZONTALLY, not flat. A uniform dark wash kept the copy
+   legible but flattened the photograph into grey — the headline sits left, so
+   the darkness belongs left and the image is allowed to breathe on the right.
+   The bottom band still anchors the proof strip. */
+.v-hero__scrim {
+  position: absolute; inset: 0; z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(5,9,19,.94) 0%, rgba(5,9,19,.80) 34%, rgba(5,9,19,.42) 62%, rgba(5,9,19,.30) 100%),
+    radial-gradient(105% 80% at 82% 22%, rgba(216,180,95,.22) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(5,9,19,.30) 0%, rgba(5,9,19,.12) 38%, rgba(5,9,19,.88) 100%);
+}
+@media (max-width: 900px) {
+  /* On a phone the copy spans the full width, so the horizontal weighting has
+     to give way to a flat wash or the right-hand text loses contrast. */
+  .v-hero__scrim { background: linear-gradient(180deg, rgba(5,9,19,.72) 0%, rgba(5,9,19,.82) 45%, rgba(5,9,19,.96) 100%); }
+}
+.v-hero__inner { position: relative; z-index: 2; width: 100%; padding-block: clamp(56px, 8vw, 104px); }
+.v-hero__cta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 34px; }
+
+/* ============================================================ PROOF STRIP
+   Proof paired with the claim, high on the page — not pooled at the bottom. */
+.v-proof { display: flex; gap: 26px; flex-wrap: wrap; align-items: center; margin-top: 44px; padding-top: 30px; border-top: 1px solid var(--v-line); }
+.v-proof__faces { display: flex; }
+.v-proof__faces img {
+  width: 58px; height: 58px; border-radius: 50%; object-fit: cover;
+  border: 2.5px solid var(--v-bg); margin-left: -16px; box-shadow: 0 4px 14px rgba(0,0,0,.5);
+}
+.v-proof__faces img:first-child { margin-left: 0; }
+.v-proof__text { font-size: 1.02rem; color: var(--v-ink-2); max-width: 42ch; }
+.v-proof__text b { color: var(--v-ink); }
+
+/* ============================================================ CARDS */
+/* Every minmax() minimum is wrapped in min(100%, ...). A bare minmax(380px,1fr)
+   cannot fit a 335px content box on a 375px phone, so the track overflows the
+   viewport and the whole document scrolls sideways — which is exactly what
+   .v-grid--2 did before this guard. Never write a bare px minimum here. */
+.v-grid { display: grid; gap: 26px; }
+.v-grid--3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); }
+.v-grid--2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); }
+.v-grid--4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 238px), 1fr)); }
+
+.v-card {
+  position: relative; display: flex; flex-direction: column;
+  background: linear-gradient(170deg, rgba(255,255,255,.075), rgba(255,255,255,.028));
+  border: 1px solid var(--v-line); border-radius: var(--v-radius);
+  padding: 34px 30px 30px; box-shadow: var(--v-shadow);
+  transition: transform .28s cubic-bezier(.2,.7,.3,1), border-color .28s ease;
+}
+.v-card:hover { transform: translateY(-6px); border-color: var(--v-line-gold); }
+.v-card--hero {
+  background: linear-gradient(170deg, rgba(216,180,95,.16), rgba(255,255,255,.04));
+  border-color: var(--v-line-gold); box-shadow: var(--v-shadow-lg);
+}
+.v-card--closed { background: rgba(255,255,255,.028); }
+.v-env--paper .v-card {
+  background: #fff; border-color: var(--v-line-dark); box-shadow: var(--v-shadow-pp); color: var(--v-paper-ink);
+}
+.v-env--paper .v-card p, .v-env--paper .v-card li { color: var(--v-paper-ink2); }
+.v-env--paper .v-card--hero { background: linear-gradient(170deg,#fffdf7,#fff); border-color: rgba(216,180,95,.55); }
+
+.v-flag {
+  position: absolute; top: -14px; left: 30px;
+  background: linear-gradient(135deg, var(--v-gold), var(--v-gold-2)); color: #14110a;
+  font-size: .72rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase;
+  padding: 7px 15px; border-radius: 999px; box-shadow: 0 8px 22px rgba(216,180,95,.36);
+}
+
+.v-status { display: inline-flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.v-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 22%, transparent); }
+.v-status--open { color: var(--v-open); }
+.v-status--closed { color: var(--v-meta); }
+
+/* Light-environment variants. The dark-surface green (#6fd3a4) drops to 1.66:1 on
+   paper and the muted gray to 2.39:1 — both fail AA. These are darkened to ~5:1
+   and ~6:1 respectively. Any new status colour needs the same treatment. */
+.v-env--paper .v-status--open   { color: #1a7f4f; }
+.v-env--paper .v-status--closed { color: #556071; }
+.v-env--paper .v-list li.is-absent { color: #556071; }
+.v-env--paper .v-list li.is-absent svg { color: #556071; opacity: .7; }
+.v-env--paper .v-meta, .v-env--paper .v-price__unit { color: #556071; }
+
+/* Price: large and confident. No strikethrough class exists in this file —
+   fictitious former-price presentation is banned and must stay unbuildable. */
+.v-price { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 24px 0 6px; }
+.v-price__now { font-family: var(--v-serif); font-size: clamp(2.6rem, 4vw, 3.4rem); line-height: 1; color: var(--v-ink); }
+.v-env--paper .v-price__now { color: var(--v-paper-ink); }
+.v-price__unit { font-size: .9rem; color: var(--v-meta); }
+.v-price__then { font-size: .95rem; color: var(--v-ink-2); margin-bottom: 18px; }
+.v-env--paper .v-price__then { color: var(--v-paper-ink2); }
+.v-price__then b { color: var(--v-gold-2); font-weight: 700; }
+.v-env--paper .v-price__then b { color: #7a5c14; }
+
+.v-list { list-style: none; margin: 20px 0 26px; padding: 0; display: grid; gap: 13px; }
+.v-list li { position: relative; padding-left: 32px; font-size: 1rem; line-height: 1.5; color: var(--v-ink-2); }
+.v-list li svg { position: absolute; left: 0; top: .1em; width: 20px; height: 20px; color: var(--v-gold); }
+.v-list li.is-absent { color: var(--v-meta); }
+.v-list li.is-absent svg { color: var(--v-meta); opacity: .55; }
+.v-card__foot { margin-top: auto; }
+
+/* ============================================================ VIDEO WALL */
+.v-video { position: relative; border-radius: var(--v-radius); overflow: hidden; background: #000; box-shadow: var(--v-shadow); cursor: pointer; border: 1px solid var(--v-line); }
+.v-video__poster { width: 100%; aspect-ratio: 9/13; object-fit: cover; transition: transform .5s cubic-bezier(.2,.7,.3,1), filter .4s ease; }
+.v-video:hover .v-video__poster { transform: scale(1.055); filter: brightness(1.08); }
+.v-video video { width: 100%; aspect-ratio: 9/13; object-fit: cover; background: #000; }
+.v-video__grad { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.05) 30%, rgba(0,0,0,.88) 100%); pointer-events: none; }
+.v-video__play {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 66px; height: 66px; border-radius: 50%; border: 0;
+  background: rgba(255,255,255,.94); color: #0b1220; cursor: pointer;
+  display: grid; place-items: center; box-shadow: 0 10px 34px rgba(0,0,0,.5);
+  transition: transform .22s ease, background .22s ease;
+}
+.v-video:hover .v-video__play { transform: translate(-50%,-50%) scale(1.11); background: var(--v-gold-2); }
+.v-video__cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 20px 18px; pointer-events: none; }
+.v-video__tag { font-size: .68rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; color: var(--v-gold-2); }
+.v-video__name { font-family: var(--v-serif); font-size: 1.16rem; color: #fff; margin: 5px 0 0; }
+.v-video__quote { font-size: .88rem; color: rgba(255,255,255,.9); margin: 6px 0 0; line-height: 1.4; }
+.v-video.is-playing .v-video__play, .v-video.is-playing .v-video__grad, .v-video.is-playing .v-video__cap { display: none; }
+
+/* ============================================================ JOURNEY */
+.v-journey { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 212px), 1fr)); counter-reset: jstep; margin-top: 46px; }
+.v-step { position: relative; padding-top: 30px; border-top: 2px solid var(--v-line); counter-increment: jstep; }
+.v-step--on { border-top-color: var(--v-gold); }
+.v-step::before {
+  content: counter(jstep, decimal-leading-zero);
+  position: absolute; top: -1px; left: 0; transform: translateY(-135%);
+  font-family: var(--v-serif); font-size: 1.5rem; color: var(--v-gold);
+}
+.v-step__icon { width: 34px; height: 34px; color: var(--v-gold); margin-bottom: 14px; }
+.v-step h3 { font-family: var(--v-sans); font-size: .93rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 9px; }
+.v-step p { font-size: .98rem; color: var(--v-ink-2); margin: 0; }
+.v-env--paper .v-step { border-top-color: var(--v-line-dark); }
+.v-env--paper .v-step--on { border-top-color: var(--v-gold); }
+
+/* ============================================================ SPLIT (image + copy) */
+.v-split { display: grid; gap: clamp(34px, 5vw, 72px); align-items: center; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+.v-split__media { position: relative; border-radius: var(--v-radius); overflow: hidden; box-shadow: var(--v-shadow-lg); }
+.v-split__media img { width: 100%; height: 100%; object-fit: cover; aspect-ratio: 4/3; }
+.v-split__media--tall img { aspect-ratio: 3/4; }
+.v-split__badge {
+  position: absolute; left: 20px; bottom: 20px;
+  background: rgba(5,9,19,.82); backdrop-filter: blur(12px);
+  border: 1px solid var(--v-line-gold); border-radius: 12px; padding: 13px 17px;
+}
+.v-split__badge b { display: block; color: var(--v-gold-2); font-size: .74rem; letter-spacing: .13em; text-transform: uppercase; }
+.v-split__badge span { color: #fff; font-size: .95rem; }
+
+/* ============================================================ ROUTER */
+.v-router { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 252px), 1fr)); }
+.v-route {
+  display: block; text-decoration: none; padding: 32px 26px;
+  border: 1px solid var(--v-line-dark); border-radius: var(--v-radius); background: #fff;
+  transition: transform .26s cubic-bezier(.2,.7,.3,1), box-shadow .26s ease;
+  box-shadow: var(--v-shadow-pp);
+}
+.v-route:hover { transform: translateY(-6px); box-shadow: 0 34px 74px rgba(16,22,31,.2); }
+.v-route__icon { width: 38px; height: 38px; color: #a8811f; margin-bottom: 18px; }
+.v-route__need { display: block; font-family: var(--v-serif); font-size: 1.28rem; color: var(--v-paper-ink); margin-bottom: 10px; line-height: 1.2; }
+.v-route__to { font-size: .93rem; font-weight: 650; color: #7a5c14; }
+
+/* ============================================================ PAYMENT */
+.v-pay { display: grid; gap: 18px; max-width: 780px; }
+.v-pay__opt { border: 1px solid var(--v-line); border-radius: var(--v-radius); padding: 26px 28px; background: rgba(255,255,255,.045); }
+.v-pay__opt--best {
+  padding: 36px 34px; border-color: var(--v-line-gold); box-shadow: var(--v-shadow-lg);
+  background: linear-gradient(140deg, rgba(216,180,95,.17), rgba(255,255,255,.045));
+}
+.v-pay__opt--quiet { background: none; border-style: dashed; }
+.v-pay__eyebrow { font-size: .74rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; color: var(--v-gold); margin-bottom: 9px; }
+.v-pay__opt--quiet .v-pay__eyebrow { color: var(--v-meta); }
+.v-pay__label { font-family: var(--v-serif); font-size: 1.4rem; color: var(--v-ink); margin: 0 0 6px; }
+.v-pay__opt--best .v-pay__label { font-size: 1.85rem; }
+.v-pay__amt { font-family: var(--v-serif); font-size: clamp(2rem,3vw,2.6rem); color: var(--v-gold-2); line-height: 1; margin-top: 8px; }
+.v-pay__save { display: inline-block; margin-top: 12px; font-size: .96rem; font-weight: 650; color: var(--v-gold-2); }
+.v-pay__note { font-size: .93rem; color: var(--v-ink-2); margin: 12px 0 0; }
+
+/* ============================================================ COMPARISON */
+.v-cmp-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.v-cmp { width: 100%; border-collapse: collapse; min-width: 680px; }
+.v-cmp th, .v-cmp td { padding: 19px 20px; text-align: left; border-bottom: 1px solid var(--v-line-dark); font-size: 1rem; vertical-align: top; }
+.v-cmp thead th { font-family: var(--v-serif); font-size: 1.32rem; border-bottom: 2px solid rgba(216,180,95,.5); }
+/* #6a7789 measured 4.14:1 on paper — just under AA for 12.8px. #556071 is 6.16:1. */
+.v-cmp tbody th { font-size: .8rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: #556071; width: 20%; }
+.v-cmp td { color: var(--v-paper-ink2); }
+/* #8b95a3 measured 2.76:1 on paper — a clear AA failure. */
+.v-cmp .is-closed { color: #556071; }
+
+@media (max-width: 760px) {
+  .v-cmp { min-width: 0; display: block; }
+  .v-cmp caption { display: block; width: 100%; }
+  .v-cmp thead { display: none; }
+  .v-cmp tbody, .v-cmp tr, .v-cmp td, .v-cmp th { display: block; width: 100%; }
+  .v-cmp tr { border: 1px solid var(--v-line-dark); border-radius: var(--v-radius); margin-bottom: 18px; padding: 10px 6px; background: #fff; }
+  .v-cmp tbody th { border: 0; padding-bottom: 4px; width: auto; }
+  .v-cmp td { border: 0; padding: 5px 20px 14px; }
+  .v-cmp td::before { content: attr(data-label); display: block; font-size: .74rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; color: #a8811f; margin-bottom: 4px; }
+}
+
+/* ============================================================ NOTES / MISC */
+.v-note { border-left: 3px solid var(--v-gold); background: rgba(216,180,95,.11); padding: 22px 26px; border-radius: 0 var(--v-radius-sm) var(--v-radius-sm) 0; color: var(--v-ink-2); font-size: 1.02rem; }
+.v-note--quiet { border-left-color: var(--v-meta); background: rgba(255,255,255,.045); }
+.v-env--paper .v-note { background: rgba(216,180,95,.16); color: var(--v-paper-ink2); }
+
+.v-quote { font-family: var(--v-serif); font-size: clamp(1.5rem, 2.7vw, 2.1rem); line-height: 1.32; color: var(--v-ink); }
+.v-quote__by { display: block; margin-top: 18px; font-family: var(--v-sans); font-size: .93rem; color: var(--v-meta); letter-spacing: .05em; }
+
+.v-divband { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 268px), 1fr)); }
+.v-div {
+  display: block; text-decoration: none; border-radius: var(--v-radius); overflow: hidden;
+  border: 1px solid var(--v-line); background: rgba(255,255,255,.05); position: relative;
+  transition: transform .26s cubic-bezier(.2,.7,.3,1), border-color .26s ease;
+}
+.v-div:hover { transform: translateY(-6px); border-color: var(--v-line-gold); }
+.v-div--now { border-color: var(--v-line-gold); background: linear-gradient(160deg, rgba(216,180,95,.15), rgba(255,255,255,.05)); }
+.v-div__body { padding: 28px 26px; }
+.v-div__tag { font-size: .7rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--v-gold); }
+.v-div__name { font-family: var(--v-serif); font-size: 1.5rem; margin: 9px 0 8px; color: var(--v-ink); }
+.v-div__desc { font-size: .98rem; color: var(--v-ink-2); margin: 0 0 14px; }
+.v-div__go { font-size: .93rem; font-weight: 650; color: var(--v-gold-2); }
+
+/* ============================================================ CAMPAIGN BAR */
+.v-campaign {
+  background: linear-gradient(90deg, var(--v-navy), var(--v-navy-2));
+  border-bottom: 1px solid var(--v-line-gold);
+  padding: 15px var(--v-gutter); text-align: center; font-size: 1rem; color: var(--v-ink);
+}
+.v-campaign strong { color: var(--v-gold-2); font-weight: 700; }
+.v-campaign[hidden] { display: none !important; }
+
+/* ============================================================ MOTION
+   Scroll reveals. Elements are visible by default and only hidden once JS
+   confirms it will animate them, so a JS failure can never leave a blank page. */
+.js-reveal.is-armed { opacity: 0; transform: translateY(30px); }
+.js-reveal.is-in { opacity: 1; transform: none; transition: opacity .75s cubic-bezier(.2,.7,.3,1), transform .75s cubic-bezier(.2,.7,.3,1); }
+.js-parallax { will-change: transform; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mmv *, .mmv *::before, .mmv *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  .js-reveal.is-armed { opacity: 1 !important; transform: none !important; }
+  .v-card:hover, .v-route:hover, .v-btn:hover, .v-div:hover { transform: none; }
+  .v-video:hover .v-video__poster { transform: none; }
+  .js-parallax { transform: none !important; }
+}
+
+/* ============================================================ PREVIEW CHROME (dropped in production) */
+.v-previewbar {
+  position: sticky; top: 0; z-index: 999; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+  background: repeating-linear-gradient(45deg,#2b1d05,#2b1d05 12px,#241804 12px,#241804 24px);
+  border-bottom: 2px solid var(--v-gold); padding: 10px var(--v-gutter); font-size: .84rem; color: var(--v-gold-2);
+}
+.v-previewbar b { color: #fff; }
+.v-previewbar select, .v-previewbar a {
+  background: #0d1526; color: var(--v-ink); border: 1px solid var(--v-line-gold);
+  border-radius: 7px; padding: 7px 11px; font-size: .84rem; font-family: inherit;
+  text-decoration: none; min-height: 44px; height: 44px; box-sizing: border-box;
+}
+.v-boundary { border: 2px dashed var(--v-gold); background: rgba(216,180,95,.09); border-radius: var(--v-radius); padding: 40px; text-align: center; }

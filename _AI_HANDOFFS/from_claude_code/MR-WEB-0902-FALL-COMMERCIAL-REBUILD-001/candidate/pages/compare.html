@@ -6,26 +6,26 @@
 <title>Compare programs — Mission Residency (candidate)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/mm-commercial.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mm-visual.css">
 </head>
-<body class="mmc">
+<body class="mmv">
 <div id="campaign"></div>
 
-<header class="mmc-section mmc-section--tight">
-  <div class="mmc-wrap">
-    <span class="mmc-eyebrow">Compare</span>
-    <h1>Which program fits your situation?</h1>
-    <p class="mmc-lede">The differences that actually matter, in the order they matter.
+<header class="v-env v-env--dark">
+  <div class="v-wrap">
+    <span class="v-eyebrow">Compare</span>
+    <h1 class="v-display">Which program<br>fits your situation?</h1>
+    <p class="v-lede">The differences that actually matter, in the order they matter.
       Everything below reflects current availability.</p>
   </div>
 </header>
 
-<section class="mmc-section mmc-section--tight">
-  <div class="mmc-wrap">
-    <div class="mmc-cmp-scroll">
-      <table class="mmc-cmp" id="cmp">
-        <caption class="mmc-fine" style="text-align:left;padding-bottom:12px">
+<section class="v-env v-env--paper">
+  <div class="v-wrap">
+    <div class="v-cmp-scroll">
+      <table class="v-cmp" id="cmp">
+        <caption class="v-meta" style="text-align:left;padding-bottom:12px">
           Program comparison. On a narrow screen each program becomes its own card.
         </caption>
       </table>
@@ -33,22 +33,22 @@
   </div>
 </section>
 
-<section class="mmc-section mmc-section--alt mmc-section--tight">
-  <div class="mmc-wrap">
+<section class="v-env v-env--paper">
+  <div class="v-wrap">
     <h2>Still not sure?</h2>
-    <p class="mmc-lede">The short version: choose <b>Essentials</b> if you want the framework
+    <p class="v-lede">The short version: choose <b>Essentials</b> if you want the framework
       and a fast, focused block of preparation. Choose <b>Complete</b> if you want someone in
       your corner for the whole season, with scored mocks and a debrief after every real interview.</p>
-    <p style="margin-top:22px"><a class="mmc-btn mmc-btn--primary" href="mission-residency.html">Back to programs</a></p>
+    <p style="margin-top:22px"><a class="v-btn v-btn--ink" href="mission-residency.html">Back to programs</a></p>
   </div>
 </section>
 
 <script src="../js/campaign-state.js"></script>
-<script src="../js/mm-render.js"></script>
+<script src="../js/mm-visual.js"></script>
 <script src="../js/mm-boot.js"></script>
 <script>
 MMBoot(function (cfg, state) {
-  var R = MMRender, C = MMCampaign;
+  var R = MMVisual, C = MMCampaign;
   document.getElementById('campaign').appendChild(R.campaignBar(cfg, state));
 
   var keys = ['iv_prep_essentials', 'iv_prep_complete', 'match_mentorship_360'];
@@ -65,9 +65,9 @@ MMBoot(function (cfg, state) {
   }
   function availCell(k) {
     var v = C.visibility(cfg, k, state);
-    if (v.render === 'OPEN') return '<span class="mmc-status mmc-status--open">Open now</span>';
+    if (v.render === 'OPEN') return '<span class="v-status v-status--open">Open now</span>';
     var p = cfg.products[k];
-    return '<span class="mmc-status mmc-status--closed">' + (p.status_subhead || 'Closed') + '</span>';
+    return '<span class="v-status v-status--closed">' + (p.status_subhead || 'Closed') + '</span>';
   }
 
   // Rows are ordered by what a prospect decides on, not by feature count.
@@ -111,13 +111,14 @@ MMBoot(function (cfg, state) {
   tr.innerHTML = '<th scope="row">Next step</th>' + keys.map(function (k, i) {
     var v = C.visibility(cfg, k, state);
     var inner = v.render === 'OPEN'
-      ? '<a class="mmc-btn ' + (k === 'iv_prep_complete' ? 'mmc-btn--primary' : 'mmc-btn--ghost') +
+      ? '<a class="v-btn ' + (k === 'iv_prep_complete' ? 'v-btn--gold' : 'v-btn--glass') +
         '" href="checkout-boundary.html?product=' + k + '">Enroll</a>'
       : '<span class="is-closed">' + (cfg.products[k].future ? cfg.products[k].future.cta_label : 'Closed') + '</span>';
     return '<td data-label="' + names[i] + '">' + inner + '</td>';
   }).join('');
   tf.appendChild(tr);
   t.appendChild(tf);
+  R.initMotion();
 });
 </script>
 </body>

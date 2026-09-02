@@ -20,14 +20,24 @@ Every page has a **striped bar at the top** with a state selector. Switch betwee
 
 ---
 
+## Two surfaces — they are not the same page
+
+| | Job |
+|---|---|
+| **Corporate homepage** (`home-corporate.html`) | Catch Match-season attention, establish credibility, **route into Mission Residency**. All three divisions stay intact. No pricing, no comparison, no payment UX. |
+| **Mission Residency** (`mission-residency.html`) | **The flagship.** This is where the heavy selling happens. |
+
+Only two blocks are added to the corporate homepage. Nothing existing is removed — your videos, the unmatched-cost ledger, the program-director table and the mentors all stay.
+
 ## The five-minute walkthrough
 
 1. **Mission Residency** → does a stranger understand in five seconds what this is and which program is theirs?
-2. **Compare programs** → shrink the window to phone width. Is Complete vs Essentials obvious?
-3. **Ways to pay** → is Zelle clearly the preferred route, without looking punitive?
-4. **Personal Statement** → Priority and Emergency, deposits, the capacity rule.
-5. **360** → capacity reached, $5,499 reference, 2027-28 interest. Is the wording right?
-6. Switch the selector to **September 8**. The banner disappears and prices become $3,299 / $1,399 **with no one touching anything.**
+2. **Scroll to the Match Day videos.** Eight real students, on the page that sells. They are currently on the corporate homepage instead, and this page has none.
+3. **Compare programs** → shrink the window to phone width. Is Complete vs Essentials obvious?
+4. **Ways to pay** → is Zelle clearly the preferred route, without looking punitive?
+5. **Personal Statement** → Priority and Emergency, deposits, the capacity rule.
+6. **360** → capacity reached, $5,499 reference, 2027-28 interest. Is the wording right?
+7. Switch the selector to **September 8**. The banner disappears and prices become $3,299 / $1,399 **with no one touching anything.**
 
 ---
 
@@ -56,6 +66,17 @@ Worth knowing: the 6-month plans **already exist** in WooCommerce at 0% ($466.50
 
 ---
 
+## On the visuals
+
+The first candidate was rightly rejected as flat and text-heavy. What changed:
+
+- **Your real assets are now doing the work.** Eight Match Day videos, the real group-session photograph, and your portrait — all already on your site, none of them stock, and none currently used on the page that sells.
+- **Light and dark now alternate.** The page moves through nine environments instead of sitting on one dark surface.
+- **Body copy is near-white, not grey**, and the type is much larger. 142 text elements measured, zero contrast failures.
+- **One stock image gets replaced.** `pexels-photo-4225920.jpeg` sits behind your closing CTA today; the real class photograph takes its place.
+
+Two honest limits: your hero image is only 1277×473, so it softens in a tall hero — **a larger original would visibly improve the page**. And your portrait is a 6.5 MB PNG that should be converted to WebP.
+
 ## Smaller things worth 30 seconds
 
 - The **airline metaphor** (Business Class / First Class / Private Jet) is dropped in the candidate — it reads as price tiering rather than fit. Cards now lead with who it is for. Say if you want it back.
@@ -63,6 +84,9 @@ Worth knowing: the 6-month plans **already exist** in WooCommerce at 0% ($466.50
 - `/pricing/` still shows **$5 / $50 / $150** demo content.
 - Three **`$1 Test`** products are publicly buyable in the shop.
 - **"7 mock interviews"** is live on Match Prep Pro; canon says six.
+- **89.1% is in your sitewide top bar**, not just the homepage — it is on every page, including the money page, and it is animated there.
+- **Your top bar says "TRAINED SINCE 2009" while the Mission Residency footer says "since 2015."** Both are live on the same page. One of them is wrong.
+- The live Mission Residency page has a **FAQ** the candidate does not yet carry. It should be ported over — it answers objections.
 
 ---
 

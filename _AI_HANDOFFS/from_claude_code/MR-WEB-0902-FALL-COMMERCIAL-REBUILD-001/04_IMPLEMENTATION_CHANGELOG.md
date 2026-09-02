@@ -51,3 +51,37 @@ All under `_AI_HANDOFFS/from_claude_code/MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001
 - **Apparent horizontal clipping in mobile PNGs** — measured in-browser at 375px: `scrollWidth === clientWidth === 375`, zero overflowing elements. A headless-capture artifact, not a layout bug. No change made.
 - **Apparent contrast failures** — first pass reported ratios near 1.0. The measurement was wrong: it treated `rgba(255,255,255,0.035)` and gradient backgrounds as opaque white. Re-measured with proper alpha compositing: **55 elements, zero failures.** No change made.
 - **Homepage section CSS appearing scoped to `page-id-6249`** — verified the homepage's own section rules are unscoped and apply correctly. 6249 is a separate dark/gold premium page. No live bug.
+
+
+---
+
+# V2 — VISUAL CORRECTION (MR-WEB-0902B / 0902C)
+
+V1's audit, commerce, entitlement, campaign-state and claims work is **unchanged and preserved**. `campaign-state.json` and `campaign-state.js` were not touched — the data layer is identical. What changed is the visual system and the surface split.
+
+## Added
+| File | Purpose |
+|---|---|
+| `candidate/css/mm-visual.css` | V2 visual system — alternating environments, display type scale, media treatments, motion |
+| `candidate/js/mm-visual.js` | V2 renderer — inline SVG icons, Match Day video wall, scroll reveals, parallax |
+| `candidate/pages/home-corporate.html` | Corporate homepage **seasonal layer** (Surface A) |
+| `VISUAL_ASSET_INVENTORY.md` · `VISUAL_DIRECTION_V2.md` · `CRO_STUDENT_JOURNEY_V2.md` · `PRODUCTION_PREVIEW_PARITY_PROOF.md` · `CURRENT_VS_CANDIDATE_VISUAL_REVIEW.md` · `CORPORATE_VS_MISSION_RESIDENCY_SURFACE_MAP.md` | Correction deliverables |
+
+## Rebuilt
+`pages/mission-residency.html` (ten sections, real media), `pages/index.html`, `pages/compare.html`, `pages/checkout-boundary.html`.
+
+## Removed
+`pages/home-commercial.html` — it treated the corporate homepage as a Mission Residency selling surface, which the 0902C clarification explicitly forbids. Replaced by `home-corporate.html`.
+
+`css/mm-commercial.css` and `js/mm-render.js` remain in the tree as the V1 reference but are **no longer loaded by any page**.
+
+## Corrections made to my own earlier documentation
+| What I had written | What is actually true |
+|---|---|
+| "The Mission Residency page is illustrated almost entirely with generic stock and one AI-generated image" | **Wrong.** Three pexels files and the Gemini image are scoped to `body.page-id-3503`, a different page. Only `pexels-photo-4225920.jpeg` renders on 5686. Its hero is a strong branded asset — the embroidered *MATCHED / ACCOMPLISHED* patch |
+| "`elementor_canvas` — no theme header/footer" | The body class says canvas, but the **rendered** page shows the site header and nav. Verified from a live 1440×900 render |
+| 89.1% located in "the homepage stat band" | It is also in the **sitewide top bar**, as an animated counter on 5686, and in the 5686 footer |
+| — | **New:** the top bar says *"TRAINED SINCE 2009"* while the 5686 footer says *"IMGs since 2015"* — a six-year contradiction, both live on one page |
+
+## Defects found and fixed in the V2 pass
+See `09_DESKTOP_MOBILE_QA.md` items 6–12. The three that mattered: headings invisible on light sections, the 360 card's CTA rendering white-on-white at 1.04:1, and a mobile horizontal overflow (`scrollWidth` 408 vs 375) caused by a bare `minmax(380px, 1fr)`.

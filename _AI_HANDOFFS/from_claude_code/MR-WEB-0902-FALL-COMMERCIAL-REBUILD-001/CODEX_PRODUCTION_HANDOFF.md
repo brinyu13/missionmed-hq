@@ -13,6 +13,7 @@
 | Worktree | `/Users/brianb/MissionMed_worktrees/mr-web-0902-fall-commercial-rebuild` |
 | Branch | `claude/mr-web-0902-fall-conversion-upgrade` |
 | Base commit | `4d1a8f5` (`Y1-ARENA-3026: route logged-out Arena handoff to branded /my-account/ login`) |
+| Visual revision | **V2** — V1 was rejected by the founder as flat/text-heavy. V2 is the candidate to productionize. |
 | Candidate | `_AI_HANDOFFS/from_claude_code/MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001/candidate/` |
 | Production changes so far | **NONE** |
 
@@ -94,6 +95,23 @@ Full detail in `05_WOOCOMMERCE_PRODUCT_MAP.md`. **Order matters** — 5504 must 
 
 ---
 
+## 5b. THE TWO SURFACES — DO NOT COLLAPSE THEM
+
+| Surface | Page | Gets |
+|---|---|---|
+| **A — corporate homepage** | **3305** | **Two added blocks only**: a seasonal Match-season band routing into Mission Residency, and a three-division band. Delete nothing. **No** pricing, comparison, payment UX, PS tiers or journey. |
+| **B — Mission Residency** | **5686** | The full commercial experience — hero, journey, video wall, programs, comparison, payment hierarchy, PS, 360. |
+
+The seasonal layer on 3305 must be **removable without redesigning the homepage** — it is one component plus a config flag. It is a merchandising priority, not a permanent division takeover. ExamPrep and Mission: Clinicals must stay first-class; the three-division band exists specifically to make them *more* discoverable than they are today.
+
+## 5c. VISUAL ASSET WORK
+
+1. **Move the eight Match Day videos onto page 5686.** They are on 3305 today; the page that sells has no video. Posters + `cdn.missionmedinstitute.com` mp4s, listed in `VISUAL_ASSET_INVENTORY.md`. Click-to-play, `preload="none"`, no autoplay audio.
+2. **Replace `pexels-photo-4225920.jpeg`** (the one stock image that renders on 5686, behind `.mr-cta-bridge`) with `Mission_Class_Screenshot-1-scaled.png`.
+3. **Optimise two images.** `DrBrian_Profile_2.png` is **6.5 MB** and `Mission_Class_Screenshot-1-scaled.png` **2.4 MB**, unoptimized despite EWWW being installed. Convert to WebP/AVIF with responsive `srcset`.
+4. **Commission a larger hero original.** `mission-residency-run-mr006-q100.webp` is only 1277×473; the candidate caps hero height at 720px to avoid visible softening. Raise the cap once a larger file exists.
+5. **Page 3503** carries three pexels images and an AI-generated file. **Out of scope for this ticket** — flagged, not actioned.
+
 ## 6. PAGE MUTATIONS
 
 **Homepage 3305** (`elementor_header_footer`): insert 4 Elementor HTML widgets per `03_TARGET_COMMERCIAL_ARCHITECTURE.md` §2. Delete nothing. Fix the 3 stats in the `hpt-stats` band.
@@ -146,4 +164,7 @@ Bind the 14 events in `analytics.events` to the **existing Google Site Kit / GA4
 | 7 | Zelle `$300 off` vs `2.9% fee` vs `$100 bank price` — three models on record | Founder |
 | 8 | Exact mock entitlement — 20 dates vs real capacity before publishing detail | Founder / COO |
 | 9 | `3,000+ IMGs Trained` substantiation | Founder |
+| 11 | **"TRAINED SINCE 2009" (sitewide top bar) vs "IMGs since 2015" (MR footer)** — a six-year contradiction, both live on the same page | Founder |
+| 12 | 89.1% appears in the **sitewide top bar**, as an animated counter on 5686, and in the 5686 footer — wider blast radius than the homepage stat band | Founder |
+| 13 | Port the live FAQ from 5686 into the candidate | Codex |
 | 10 | Kinsta origin stalled ~10 min on 2026-09-02 (~08:05–08:15 ET) while Cloudflare served stale cache. Recovered. Raise with Kinsta before a launch-day traffic spike | Ops |

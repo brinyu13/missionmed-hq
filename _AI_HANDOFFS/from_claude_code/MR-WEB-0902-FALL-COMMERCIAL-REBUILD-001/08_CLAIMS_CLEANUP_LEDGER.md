@@ -26,6 +26,10 @@ Rule applied throughout: **remove or quarantine what is unsupported; never inven
 | 16 | **"MatchFirst™ deferred payment / 50% down, 50% after Match"** | 20 pages | Undefined credit-like product (P0-4) | **founder decision** |
 | 17 | **"7 mock interviews"** / **"3 mock interviews"** | MR page + Woo descriptions | Contradicts the approved 6-mock benefit | configured label only |
 | 18 | **`$5 / $50 / $150`** | `/pricing/` | Unreplaced demo content contradicting every real price | redirect or replace |
+| 20 | **`89.1% MATCH RATE · 3,000+ TRAINED SINCE 2009`** in the **sitewide top bar** | every page | The 89.1% blast radius is far wider than the homepage stat band — it is site furniture | qualified 86-93% with denominator, or remove |
+| 21 | **Animated `89.1%` counter labelled "Match Rate"** (`data-mr1503d-counter="89.1"`) | `/mission-residency/` | Same unsupported figure, animated for emphasis on the money page | as above |
+| 22 | **"89.1% Match Rate over 5 cycles"** | `/mission-residency/` footer | Third instance on one page | as above |
+| 23 | **"Trained 3,000+ IMGs since 2015"** (MR footer) vs **"3,000+ TRAINED SINCE 2009"** (top bar) | same page, both live | **Direct factual contradiction on a single page** — a six-year discrepancy in the founding claim | Pick the correct year and use it everywhere |
 | 19 | Conflicting tier prices between `/course-comparison/` ($5,199/$3,449/$1,199) and `/compare-programs/` ($5,499/$3,749/$1,499) | two pages | Same tiers, different numbers | consolidate to one config-driven surface |
 
 ---

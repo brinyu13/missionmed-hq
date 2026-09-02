@@ -108,3 +108,55 @@ Only intentional output: `[MM] banned-term audit clean · state=…`.
 ## 8. SCREENSHOTS
 
 `screenshots/` — `mr_desktop_stateA.png` · `mr_desktop_stateB_sept8.png` · `mr_desktop_stateP_prelaunch.png` · `mr_mobile_stateA.png` · `compare_desktop_stateA.png` · `compare_mobile_stateA.png` · `checkout_boundary_stateB.png` · `home_inserts_stateA.png` · `preview_hub.png`
+
+
+---
+
+# V2 QA — after the visual correction (MR-WEB-0902B)
+
+Re-run against the rebuilt visual system. Everything in the V1 sections above still holds; this records what changed and what the rebuild broke and fixed.
+
+## Contrast — measured with alpha compositing over the true painted background
+
+| Page | Elements checked | AA failures | Lowest ratio |
+|---|---|---|---|
+| `mission-residency.html` | **142** | **0** | **5.01** |
+| `compare.html` | 46 | 0 | 4.56 |
+
+Buttons verified against their own painted backgrounds: gold CTA **9.52:1** at the darkest end of its gradient, 13.19:1 at the lightest.
+
+## Responsive
+
+| Page @375px | `scrollWidth` | Overflowing elements | Targets <44px |
+|---|---|---|---|
+| `mission-residency.html` | **375** (= viewport) | **0** | 0 |
+| `compare.html` | 375 | 0 | 0 |
+| `home-corporate.html` | 375 | 0 | 0 |
+
+## Console
+
+Zero errors on every page in every state, verified in a **fresh tab**. (Console readings accumulate across navigations within a tab — two "banned term" errors seen mid-session were stale entries from an earlier `index.html` load, not live defects. Confirmed by reading `window.__MM_AUDIT__` on each page directly.)
+
+## Banned-term audit
+`clean: true` on all five pages across all four states.
+
+## Defects found and fixed during the V2 rebuild
+
+| # | Defect | Severity | Fix |
+|---|---|---|---|
+| 6 | Headings on light sections rendered **near-white on paper — invisible**. `.mmv h2` (0,1,1) is declared after `.v-env--paper h2` (0,1,1), so it won | **High** | Qualified the paper rules to (0,2,1) |
+| 7 | The 360 card's **"2027-28 Priority Access" CTA was white-on-white at 1.04:1** — an invisible call to action. Same trap: `.mmv a.v-btn--glass` (0,2,1) beat the paper override | **High** | Added a `.mmv .v-env--paper` button block. This also rescued the Essentials "Enroll" button on the comparison table, which was invisible for the same reason |
+| 8 | **Mobile overflowed**: `scrollWidth` 408 vs 375 viewport. `.v-grid--2` used a bare `minmax(380px, 1fr)`, which cannot fit a 335px content box | **High** | Every grid minimum wrapped in `min(100%, …)` |
+| 9 | Status green 1.66:1 and muted gray 2.39:1 on paper | Medium | Light-environment variants at ~5:1 and ~6:1 |
+| 10 | Comparison table row labels 4.14:1, closed text 2.76:1 on paper | Medium | Darkened to #556071 (6.16:1) |
+| 11 | Hero looked washed out — the asset is 1277×473 and a 900px hero upscaled it ~1.9× | Medium | Hero capped at 720px; `object-position` holds the patch in frame |
+| 12 | The hero scrim was a flat wash that flattened the photograph to grey | Medium | Scrim weighted horizontally (dark under the copy, image breathing on the right); flat wash restored under 900px where copy spans full width |
+
+## Non-defects investigated and dismissed
+
+- **Gold CTA reported at 1.02:1** — my measurement script reassigned the hero button's background to dark *after* setting it to gold. Verified directly: 9.52:1. No change made.
+- **Right-edge clipping in mobile PNGs** — headless capture artifact. DOM measurement at 375px shows zero overflow. No change made.
+- **The live Mission Residency hero appearing ~6,500px tall** in a full-page capture — an artifact of capturing a `100vh` layout in a very tall window, not a live defect. The fair comparison is the matched 1440×900 pair.
+
+## Still not tested
+Unchanged from V1: live checkout, entitlement grant, confirmation email, analytics delivery, screen-reader pass, real-device mobile. Plus: **video playback was verified as reachable (HTTP 206, range requests supported) but not played end-to-end in QA.**
