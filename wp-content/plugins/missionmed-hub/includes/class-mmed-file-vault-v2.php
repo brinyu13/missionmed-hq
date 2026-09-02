@@ -22,7 +22,7 @@ class MMED_File_Vault_V2 {
 	const CAP_MANAGE        = 'mmed_manage_file_vault';
 	const CAP_FINALIZE      = 'mmed_finalize_file_vault';
 	const CAP_AUDIT         = 'mmed_view_file_vault_audit';
-	const ASSET_CSS         = 'student-os-file-vault-v2.be01f102c0f1164d.css';
+	const ASSET_CSS         = 'student-os-file-vault-v2.aa612a4078954345.css';
 	const ASSET_JS          = 'student-os-file-vault-v2.4ed878be2842962f.js';
 
 	/**
