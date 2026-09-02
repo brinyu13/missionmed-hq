@@ -70,11 +70,35 @@
     {"id": "CTRL-01", "status": "PASS", "evidence": "Missing options fail closed to Classic; manage_options Settings API page exposes default, V2 availability, and Force Classic."}
   ],
   "production": {
-    "status": "PENDING",
-    "requires": [
-      "protected guarded deployment and public-byte proof",
-      "live authenticated canary and Force Classic rollback drill",
-      "independent non-builder verification before GA"
-    ]
+    "status": "BLOCKED_EXTERNAL_LIVE_ROUTE",
+    "product_correctness": "PASS",
+    "ga": "FAIL_FOR_NOW",
+    "options": {
+      "mmed_calendar_experience_default": "classic",
+      "mmed_calendar_v2_enabled": "1",
+      "mmed_calendar_force_classic": "0",
+      "admin_canary_preference": "storyforge"
+    },
+    "hashes": {
+      "calendar_core_js": "3ddee6cec6ed3568cec58bbcb1e87edcc524a257084311dff4cf2a17bd73f7bf",
+      "calendar_v2_js": "4b7e999741341be9e2b843d34f35cdcdfcd664320259695143271a7fc0486668",
+      "calendar_classic_js": "6a1ca3d7e4b955ea4cbea13f956b08f1533b638264d94c11ded5ead6703cb480",
+      "calendar_experience_php": "1413f1ec2f731a581e7756f05b6994ae196b9d12576b9ae527456b002d48693d"
+    },
+    "deployment": {
+      "guard_report": "/tmp/mx-cal-4200c-guard-reports/MATRIX_RUNTIME_GUARD_MX-CAL-4200C_20260902T113510Z.md",
+      "classic_backup": "/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/MX-CAL-4200C/20260902T113507Z",
+      "shared_core_backup": "/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/MX-CAL-4200C/20260902T113431Z-shared-core-remediation",
+      "todo_remount_backup": "/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/MX-CAL-4200C/20260902T115539Z-todo-remount",
+      "origin_and_versioned_public_hashes": "PASS"
+    },
+    "builder_live_canary": "PASS before the host timeout incident: Force Classic precedence with V2 enabled, single renderer per request, all Classic and StoryForge views, exact 390 px, both Drills tiers, Scheduler-offline primary Calendar continuity, drawer focus contract, and 113 ms warm remount.",
+    "independent_verification": {
+      "product": "PASS at 280d572bd759143ca3a3ce4f029b1d46fd8a3a5f",
+      "ga": "FAIL_FOR_NOW",
+      "verified": "Warm remount independently reloads and hydrates todos while reusing only the event cache; full suite passes in New York, Los Angeles, and London; deployed and public hashes match.",
+      "remaining_gate": "Restore or confirm stable authenticated dashboard response, then complete one fresh read-only non-builder authenticated Calendar route check."
+    },
+    "external_blocker": "Authenticated dashboard requests and multiple unrelated WordPress REST, Scheduler-entitlement, cron, and public routes are timing out at the shared PHP-FPM upstream. MX-CAL-4200C cannot alter Scheduler or restart broad provider infrastructure. Classic remains the production default and StoryForge is not GA."
   }
 }
