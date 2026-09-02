@@ -596,6 +596,22 @@ async function sharingExperienceFlow(browser) {
 		const adminNav = await admin.page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
 		assert(adminNav.join("|") === "Students|Mission Files|Student Shared Files|Activity|Settings", `sharing admin: StoryForge management rail is incomplete ${adminNav.join("|")}`);
 		assert(await admin.page.locator('.fv2-rail-upload[data-fv2-action="open-share-upload"][data-fv2-share-source="missionmed"]').isVisible(), "sharing admin: global Mission File upload command is missing from the staff rail");
+		await admin.page.locator('.fv2-rail-upload[data-fv2-action="open-share-upload"][data-fv2-share-source="missionmed"]').click();
+		await admin.page.setInputFiles("[data-fv2-upload-file]", {
+			name: "missionmed_canary.png",
+			mimeType: "image/png",
+			buffer: Buffer.from("deterministic Mission File sharing canary")
+		});
+		await admin.page.locator("[data-fv2-upload-type]").selectOption("other");
+		await admin.page.locator("[data-fv2-upload-name]").fill("MissionMed Canary");
+		await admin.page.locator("[data-fv2-share-audience]").selectOption("selected");
+		await admin.page.locator("[data-fv2-share-student]").first().check();
+		await admin.page.locator("[data-fv2-upload-next]").click();
+		await admin.page.locator('[data-fv2-action="upload-start"]').click();
+		await admin.page.getByRole("heading", { name: "Your file is verified and shared.", exact: true }).waitFor({ timeout: 8000 });
+		assert(await admin.page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/uploads" && call.method === "POST" && call.body.share_source === "missionmed" && !("student_id" in call.body))), "sharing admin: global Mission File upload leaked an invalid student_id into the staff-owned source request");
+		assert(await admin.page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/shares" && call.method === "POST" && call.body.audience_mode === "selected" && Array.isArray(call.body.user_ids) && call.body.user_ids.length === 1)), "sharing admin: selected recipient was not preserved in the server-owned share request");
+		await admin.page.getByRole("button", { name: "Open shared files", exact: true }).click();
 		await admin.page.locator('.fv2-nav-item[aria-label="Student Shared Files"]').click();
 		await admin.page.getByRole("heading", { name: "Student Shared Files", exact: true }).waitFor();
 		await admin.page.locator('[data-fv2-action="share-recipients"][data-fv2-share-id="2201"]').click();

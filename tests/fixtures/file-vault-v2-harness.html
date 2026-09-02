@@ -600,7 +600,7 @@
 				var body = request.body || {};
 				var requestStudentId = role === "student"
 					? 101
-					: Number(body.student_id || request.query && request.query.student_id || harness.instance && harness.instance.state.selectedStudentId || 0);
+					: Number(body.student_id || request.query && request.query.student_id || harness.instance && harness.instance.state.selectedStudentId || (body.share_source ? 101 : 0) || (harness.pendingUpload && /^\/uploads\//.test(path) ? harness.pendingUpload.studentId : 0));
 				harness.calls.push({ method: method, path: path, body: clone(body), query: clone(request.query || {}) });
 				if (request.signal && request.signal.aborted) {
 					var aborted = new Error("Fixture request aborted.");
@@ -713,9 +713,9 @@
 					return Promise.resolve({ items: clone(shareRows), pagination: { page: 1, per_page: 50, has_more: false, next_page: null } });
 				}
 				if (path === "/shares" && method === "POST") {
-					var sourceRows = body.audience_mode === "all_eligible" ? missionShares : studentShares;
+					var sourceRows = role === "admin" ? missionShares : studentShares;
 					var published = {
-						id: 2299, source_file_id: Number(body.file_id), source_class: body.audience_mode === "all_eligible" ? "missionmed" : "student_shared",
+						id: 2299, source_file_id: Number(body.file_id), source_class: role === "admin" ? "missionmed" : "student_shared",
 						title: body.title || "Shared file", description: body.description || "", category: body.category || "resource", audience_mode: body.audience_mode,
 						audience_group_ids: clone(body.group_ids || []), status: "active", moderation_status: "", can_manage: true, can_reactivate: true,
 						uploader_name: role === "admin" ? "MissionMed" : "Enrolled Student", shared_at: now, updated_at: now, source_revision: 1, current_revision: 1,
