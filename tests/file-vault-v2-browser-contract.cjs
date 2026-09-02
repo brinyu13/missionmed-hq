@@ -548,6 +548,8 @@ async function sharingExperienceFlow(browser) {
 		await student.page.getByRole("heading", { name: "MissionMed Interview Guide", exact: true }).waitFor();
 		await student.page.locator(".fv2-preview-frame").waitFor();
 		assert(await student.page.locator(".fv2-preview-frame").isVisible(), "sharing: Quick Look did not render the authorized inline preview");
+		assert(await student.page.locator(".fv2-preview-frame").getAttribute("sandbox") === null, "sharing: Quick Look sandbox blocks Chrome's native PDF viewer");
+		assert(await student.page.locator(".fv2-preview-frame").getAttribute("referrerpolicy") === "no-referrer", "sharing: Quick Look did not suppress signed-preview referrers");
 		assert(await student.page.getByText("Version", { exact: true }).isVisible(), "sharing: Quick Look omitted immutable revision metadata");
 		await saveEvidence(student.page, "11-student-mission-files-quick-look.png");
 		await student.page.getByRole("button", { name: "Close preview", exact: true }).click();
