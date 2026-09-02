@@ -2945,7 +2945,7 @@ function appointmentMeetingUrl(appointment = {}) {
 function appointmentMeetingProvider(appointment = {}, appointmentType = {}) {
   const metadata = normalizeCalendarMetadata(appointment.metadata);
   const meeting = normalizeCalendarMetadata(metadata.scheduler_integrations?.meeting);
-  const typeMetadata = normalizeCalendarMetadata(appointmentType.metadata);
+  const typeMetadata = normalizeCalendarMetadata(appointmentType?.metadata);
   const typeMeeting = normalizeCalendarMetadata(typeMetadata.web_meetings || typeMetadata.webMeetings);
   const provider = String(
     appointment.meeting_provider
@@ -2956,7 +2956,7 @@ function appointmentMeetingProvider(appointment = {}, appointmentType = {}) {
       || meeting.provider_platform
       || meeting.provider
       || typeMeeting.provider
-      || appointmentType.meeting_mode
+      || appointmentType?.meeting_mode
       || '',
   ).trim().toLowerCase();
   return ['zoom', 'webex', 'google_meet', 'manual', 'none'].includes(provider) ? provider : null;
