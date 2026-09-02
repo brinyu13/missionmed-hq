@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { admissionRegistry } from '../../ivprep-v6/server/admission-registry.mjs';
 import { strictProjectHqSession, validateIvPrepMutation } from '../../ivprep-v6/server/admission-contract.mjs';
+import { createContextIntelligenceProvider } from './context-provider.mjs';
 import { createIvocRepository } from './repository.mjs';
 import { createIvocStorage } from './storage.mjs';
 
@@ -16,6 +17,7 @@ const ANALYTICS_PREFIX = '/iv-prep-on-call/analytics';
 const API_PREFIX = '/api/ivoc/v1';
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_MEDIA_CHUNK_BYTES = 5 * 1024 * 1024;
+const MAX_CONTEXT_AUDIO_BYTES = 25 * 1024 * 1024;
 const MIME = Object.freeze({
   '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -135,6 +137,7 @@ export function createIvocHandler({
   now = () => Date.now(),
   env = process.env,
   fetchImpl = fetch,
+  contextProvider = null,
 } = {}) {
   const mediaBase = '';
   const db = repository || createIvocRepository({
@@ -152,7 +155,16 @@ export function createIvocHandler({
     fetchImpl,
   });
   const enabled = bool(env.IVPREP_ENABLED) && bool(env.IVPREP_ADMIN_CANARY_ENABLED);
+  const contextEnabled = bool(env.IVOC_CONTEXT_CANDIDATE_ENABLED);
+  const contextTranscriptEnabled = bool(env.IVOC_CONTEXT_TRANSCRIPT_ENABLED);
   const requireHead = bool(env.IVOC_REQUIRE_MEDIA_HEAD, false);
+  const context = contextProvider || createContextIntelligenceProvider({
+    apiKey: env.MMHQ_OPENAI_API_KEY || env.OPENAI_API_KEY || '',
+    transcriptionModel: env.IVOC_TRANSCRIPTION_MODEL || 'whisper-1',
+    contextModel: env.IVOC_CONTEXT_MODEL || 'gpt-5.6-terra',
+    fetchImpl,
+    now,
+  });
 
   async function audit({ actor, owner = null, sessionId = null, recordingId = null, action, decision, reason }) {
     await db.insert('ivoc_access_log', {
@@ -216,6 +228,69 @@ export function createIvocHandler({
           preferences: preferences ? { calibration: preferences.calibration, visibility: preferences.visibility, coachingEnabled: preferences.coaching_enabled, recordingDefault: preferences.recording_default } : null,
         }, mediaBase);
         return true;
+      }
+
+      if (request.method === 'POST' && pathname === `${API_PREFIX}/context`) {
+        if (!contextEnabled) { sendError(response, 503, 'ivprep_unavailable', mediaBase); return true; }
+        const input = await readJson(request);
+        const question = context.question(safeText(input.questionId, 120) || 'CORE-01');
+        if (input.action === 'prepare') {
+          sendJson(response, 200, {
+            schema: 'missionmed.ivoc.context.candidate.v1',
+            state: 'READY',
+            question,
+            transcriptProvider: contextTranscriptEnabled ? 'SERVER_CONFIGURED' : 'UNAVAILABLE',
+            persistence: { transcript: false, analysis: false, behaviorRegistry: false, coachCommand: false },
+          }, mediaBase);
+          return true;
+        }
+        if (input.action !== 'analyze') { sendError(response, 400, 'context_action_invalid', mediaBase); return true; }
+        const sessionId = safeText(input.sessionId, 120);
+        const recordingId = safeText(input.recordingId, 120);
+        const answerId = safeText(input.answerId, 120);
+        if (!/^[0-9a-f-]{36}$/u.test(sessionId) || !/^[0-9a-f-]{36}$/u.test(recordingId) || !answerId) {
+          sendError(response, 400, 'context_identity_invalid', mediaBase); return true;
+        }
+        const sessionRow = await db.single(`ivoc_sessions?id=eq.${sessionId}&select=*&limit=1`);
+        const recording = await db.single(`ivoc_recordings?id=eq.${recordingId}&select=*&limit=1`);
+        if (
+          !sessionRow
+          || !recording
+          || sessionRow.owner_subject !== actor
+          || recording.owner_subject !== actor
+          || recording.session_id !== sessionId
+          || recording.status !== 'saved'
+        ) {
+          sendError(response, 404, 'not_found', mediaBase); return true;
+        }
+        let audio = null;
+        try {
+          if (contextTranscriptEnabled) {
+            const upstream = await media.fetchObject(recording.storage_object_key, { method: 'GET' });
+            const declaredBytes = Number(upstream?.headers?.get?.('content-length'));
+            if (!upstream?.ok || (Number.isFinite(declaredBytes) && declaredBytes > MAX_CONTEXT_AUDIO_BYTES)) {
+              sendError(response, 409, 'context_recording_unavailable', mediaBase); return true;
+            }
+            audio = Buffer.from(await upstream.arrayBuffer());
+            if (!audio.length || audio.length > MAX_CONTEXT_AUDIO_BYTES) {
+              audio.fill(0);
+              sendError(response, 409, 'context_recording_unavailable', mediaBase); return true;
+            }
+          }
+          const result = await context.analyze({
+            sessionId,
+            answerId,
+            questionId: question.questionId,
+            analyticsEvents: Array.isArray(input.analyticsEvents) ? input.analyticsEvents : [],
+            audio,
+            mimeType: recording.mime_type || 'video/webm',
+            transcriptEnabled: contextTranscriptEnabled,
+          });
+          sendJson(response, 200, result, mediaBase);
+          return true;
+        } finally {
+          audio?.fill?.(0);
+        }
       }
 
       if (request.method === 'POST' && pathname === `${API_PREFIX}/sessions`) {

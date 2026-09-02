@@ -7,6 +7,7 @@
    ============================================================ */
 import { CALIBRATION, QUESTIONS } from './data.mjs';
 import { ivocApi } from './api.mjs';
+import { contextLabScreen } from './context-runtime.mjs';
 import { RealAnalyticsEngine } from './real-runtime.mjs';
 import { AccountRecordingController } from './recording.mjs';
 import { ui, saveUi, draft, saveDraft, go, toast, whisper, confirmModal, session } from './main.mjs';
@@ -1085,5 +1086,6 @@ function processingScreen(el) {
 
 export const LIVE_SCREENS = {
   live: { render: liveScreen, env: false, hilite: 'practice', autoFocus: false, railHidden: true },
+  'context-lab': { render: contextLabScreen, envTheme: 'results', hilite: 'practice', autoFocus: false },
   processing: { render: processingScreen, envTheme: 'results', hilite: 'results', railHidden: true },
 };
