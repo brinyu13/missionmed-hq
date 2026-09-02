@@ -26,6 +26,10 @@ The authority permits the Scheduler/Appointments implementation and guarded depl
 - Railway domain: missionmed-hq-production.up.railway.app
 - Scheduler Supabase project: fglyvdykwgbuivikqoah
 - Scheduler database schema was inspected read-only. No migration was made.
+- Immutable rollback URL: https://cdn.missionmedinstitute.com/html-system/LIVE/scheduler/versions/scheduler_v1.98f87f6998eb.html
+- Immutable rollback readback: HTTP 200, SHA-256 98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195
+
+The approved R2 environment in the primary checkout was sourced in process without copying or printing credentials. The guarded publisher fetched the current public LIVE alias, required its full hash to equal the adopted source lock, wrote only the missing content-addressed rollback object, and verified it over the public CDN. It did not change the LIVE alias.
 
 The live browser bootstrap reported authenticated readiness and real booking, cancellation, reschedule, provider, admin, and meeting-link capability flags. The backend route table was verified from recovered production source rather than guessed endpoint names.
 

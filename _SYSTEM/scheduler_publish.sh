@@ -16,6 +16,7 @@
 #
 #   ./scheduler_publish.sh                 # verify + plan, no writes
 #   ./scheduler_publish.sh --publish       # verify, publish, verify again
+#   ./scheduler_publish.sh --capture-live-rollback
 #   ./scheduler_publish.sh --rollback <sha12>
 #   ./scheduler_publish.sh --list
 
@@ -34,11 +35,13 @@ DO_PUBLISH=0
 ROLLBACK_TO=""
 DO_LIST=0
 SKIP_PATCH_AUDIT=0
+CAPTURE_LIVE_ROLLBACK=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --publish)          DO_PUBLISH=1; shift ;;
     --rollback)         ROLLBACK_TO="${2:-}"; DO_PUBLISH=1; shift 2 ;;
+    --capture-live-rollback) CAPTURE_LIVE_ROLLBACK=1; shift ;;
     --list)             DO_LIST=1; shift ;;
     --skip-patch-audit) SKIP_PATCH_AUDIT=1; shift ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
@@ -135,6 +138,40 @@ if [[ "$DO_LIST" -eq 1 ]]; then
   load_r2_env
   log "Published versions under ${VERSION_PREFIX}/:"
   r2_list_versions | sed 's/^/  /' || log "  (none, or listing not permitted)"
+  exit 0
+fi
+
+if [[ "$CAPTURE_LIVE_ROLLBACK" -eq 1 ]]; then
+  load_r2_env
+  expected_hash="$(json_get adoption.adopted_sha256)"
+  version_key="${VERSION_PREFIX}/scheduler_v1.${expected_hash:0:12}.html"
+  tmp="$(mktemp)"
+  trap 'rm -f "$tmp"' EXIT
+
+  log "CAPTURE LIVE ROLLBACK: fetching current public alias"
+  curl --silent --show-error --fail --max-time 60 --compressed \
+       --output "$tmp" "$(cdn_base)/${LIVE_KEY}?capture=$(date +%s)" \
+    || fail "Could not fetch current public LIVE alias"
+  actual_hash="$(sha256_file "$tmp")"
+  [[ "$actual_hash" == "$expected_hash" ]] \
+    || fail "Current LIVE alias does not match adopted rollback hash (expected $expected_hash, got $actual_hash)"
+
+  existing="$(mktemp)"
+  if curl --silent --show-error --fail --max-time 60 --compressed \
+      --output "$existing" "$(cdn_base)/${version_key}?verify=$(date +%s)" 2>/dev/null; then
+    existing_hash="$(sha256_file "$existing")"
+    rm -f "$existing"
+    [[ "$existing_hash" == "$expected_hash" ]] \
+      || fail "Existing immutable key has unexpected content (expected $expected_hash, got $existing_hash)"
+    log "Immutable rollback already exists and is hash-correct: $version_key"
+  else
+    rm -f "$existing"
+    r2_put_html "$tmp" "$version_key"
+    log "Wrote immutable rollback: $version_key"
+  fi
+
+  verify_published_hash "$version_key" "$expected_hash" "ROLLBACK artifact"
+  log "CAPTURE COMPLETE — LIVE alias was not changed"
   exit 0
 fi
 

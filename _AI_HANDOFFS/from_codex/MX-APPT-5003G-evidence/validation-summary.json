@@ -2,6 +2,7 @@
   "ticket": "MX-APPT-5003G",
   "captured_utc": "2026-09-02T09:54:32Z",
   "deployment": "NOT_DEPLOYED",
+  "rollback": "VERIFIED",
   "base_sha": "4c86e85c186c01561ded81e1927842cd2ce0e5fc",
   "authority_sha": "214f1a989ebb67e179614b4b41b54698340227ef",
   "live_scheduler_sha256": "98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195",
@@ -12,5 +13,6 @@
   "browser_diagnostics": {"runtime_exceptions": 0, "console_errors": 0, "console_warning_or_error_messages": 0, "network_failures": 0},
   "performance_ms_steady_range": [0.95, 2.85],
   "database_migrations": 0,
-  "hard_stops": ["IMMUTABLE_LIVE_ROLLBACK_OBJECT_404", "R2_PUBLISHER_CREDENTIALS_UNAVAILABLE", "DESIGNATED_STUDENT_CREDENTIAL_UNAVAILABLE", "AUTHENTICATED_STUDENT_ADMIN_DENIAL_UNWITNESSED", "NON_BUILDER_RELEASE_VERIFICATION_OUTSTANDING", "SHARED_PREFERENCE_AND_FORCE_CLASSIC_SEAM_LEASE_CONFLICT"]
+  "rollback_scheduler_sha256": "98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195",
+  "hard_stops": ["DESIGNATED_STUDENT_CREDENTIAL_UNAVAILABLE", "AUTHENTICATED_STUDENT_ADMIN_DENIAL_UNWITNESSED", "NON_BUILDER_RELEASE_VERIFICATION_OUTSTANDING", "SHARED_PREFERENCE_AND_FORCE_CLASSIC_SEAM_LEASE_CONFLICT"]
 }

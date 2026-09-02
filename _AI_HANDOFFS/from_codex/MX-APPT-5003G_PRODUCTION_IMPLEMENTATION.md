@@ -2,7 +2,7 @@
 
 RESULT: PARTIAL
 
-Production deployment was not attempted because mandatory rollback, credential, designated-student, authenticated student-role-denial, independent-verifier, and shared-seam gates remain unresolved. The isolated Scheduler candidate is implemented, locally validated, and suitable for continuation after those gates are satisfied.
+Production deployment was not attempted because mandatory designated-student, authenticated student-role-denial, independent-verifier, and shared-seam gates remain unresolved. The isolated Scheduler candidate is implemented, locally validated, and suitable for continuation after those gates are satisfied.
 
 ## Custody and authority
 
@@ -47,7 +47,17 @@ Database migrations: none.
 - StoryForge and Classic PASS at 390, 768, 1024, 1440 with zero overflow, clipped controls, or undersized practical targets.
 - Browser diagnostics: zero runtime exceptions, console errors, warning/error messages, or network failures.
 - Indexed grid benchmark: steady 0.95 to 2.85 ms with parity through 108 slots.
-- No live booking, reschedule, cancel, preference, flag, database, or deployment mutation.
+- No live booking, reschedule, cancel, preference, flag, database, alias, or deployment mutation. The only provider write created the exact content-addressed rollback object described below.
+
+## Rollback
+
+The guarded publisher now supports an explicit --capture-live-rollback action. Using approved credentials sourced in process from the primary checkout, it required the public LIVE bytes to match the adopted full SHA-256 before writing the missing immutable object.
+
+- Immutable URL: https://cdn.missionmedinstitute.com/html-system/LIVE/scheduler/versions/scheduler_v1.98f87f6998eb.html
+- Public result: HTTP 200
+- Public SHA-256: 98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195
+- LIVE alias after capture: unchanged, HTTP 200, same full SHA-256
+- Rollback command: _SYSTEM/scheduler_publish.sh --rollback 98f87f6998eb
 
 ## Preference and Force Classic
 
@@ -61,12 +71,10 @@ FORCE CLASSIC: FAIL — implementation blocked by active shared-domain custody.
 
 ## Hard stops
 
-1. Live hash 98f87f6998eb has no public immutable version; expected URL is HTTP 404.
-2. R2 credentials are absent; even canonical publisher listing cannot authenticate.
-3. No designated allowlisted-student credential is available.
-4. Authenticated student denial of Scheduler Ops is unwitnessed.
-5. Fresh non-builder verification is outstanding.
-6. Preference and Force Classic shared seam is lease-blocked.
+1. No designated allowlisted-student credential is available.
+2. Authenticated student denial of Scheduler Ops is unwitnessed.
+3. Fresh non-builder verification is outstanding.
+4. Preference and Force Classic shared seam is lease-blocked.
 
 LIVE remains unchanged at 98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195.
 
@@ -74,14 +82,12 @@ LIVE remains unchanged at 98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e6
 
 1. Safely complete/coordinate MX-CAL-4200C and re-read shared PHP hashes.
 2. Under fresh SHARED:MISSIONMED-HUB custody, implement/test the account preference and audited Force Classic override, or explicitly accept omission.
-3. Create and verify immutable scheduler_v1.98f87f6998eb.html without repointing LIVE.
-4. Provide approved R2 credential access.
-5. Run designated-student QA including admin-route denial.
-6. Obtain fresh non-builder verification.
-7. Re-run all gates and publisher dry run at final commit.
-8. Only then publish, public-hash verify, and run post-release authenticated QA.
+3. Run designated-student QA including admin-route denial.
+4. Obtain fresh non-builder verification.
+5. Re-run all gates and publisher dry run at final commit.
+6. Only then publish, public-hash verify, and run post-release authenticated QA.
 
-Rollback after the legacy object exists: _SYSTEM/scheduler_publish.sh --rollback 98f87f6998eb
+ROLLBACK: VERIFIED
 
 ## Evidence
 
