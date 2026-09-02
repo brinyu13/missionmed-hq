@@ -46,10 +46,6 @@ const TRACKER_PHASES = [
   { id:'match', label:'Match', start:'2027-03-01', end:'2027-03-31', icon:'&#127942;' },
 ];
 
-const DRILL_TOPICS = {
-  'Step/Level 1': ['Cardiology','Pulmonary','Renal / GU','GIT / HEP','Endocrine','Neurology','Derm / Ophtho','Micro / Infectious Disease','Viruses / Protozoa / Parasites','Immunology','Muscle / Rheumatology','Heme / Onc','Oncology by Systems','Repro / GYN / OB','Biochem / Genetics / Vitamins','Psych / Ethics','Biostats / Public Health','ER Medicine','Mixed Review'],
-  'Step/Level 2/3': ['Cardiology','Pulmonary','Renal / GU / Electrolytes','GIT / HEP','Endocrine','Neurology','Derm / Ophtho','Infectious Disease','Rheumatology','Preventative / Vaccines / Vitamins','Heme / Onc','OB','GYN','Pediatrics','Psych / Ethics','Biostats / Public Health','ER Medicine','Surgery','Mixed Review'],
-};
 const SPECIALTIES = ['Internal Medicine','Family Medicine','Pediatrics','OB/GYN','Surgery','Psychiatry','Neurology','Emergency Medicine','Radiology','Pathology','Anesthesiology','Dermatology','Ophthalmology','Orthopedics','Urology','PM&R','Cardiology','Pulmonology','Other'];
 
 const NOTIFICATIONS = [
@@ -61,27 +57,16 @@ const NOTIFICATIONS = [
   { id:6, type:'mentor', from:'Dr. J', title:'Great job on last drill!', body:'88% on Cardiology. Trending up.', time:'4d ago', read:true },
 ];
 
-// Demo session config (simulates what Supabase would store)
-const SESSION_CONFIG = {
-  enrolled: 'Session A',
-  sessions: {
-    'Session A': { day: 2, startHour: 18, endHour: 19, meetingPlatform: 'Webex', meetingUrl: 'https://missionmed.webex.com/meet/sessionA', label: '360 Session A' },
-    'Session B': { day: 4, startHour: 18, endHour: 19, meetingPlatform: 'Webex', meetingUrl: 'https://missionmed.webex.com/meet/sessionB', label: 'Match Pro Session B' },
-    'Session C': { day: 2, startHour: 19, endHour: 20, meetingPlatform: 'Webex', meetingUrl: 'https://missionmed.webex.com/meet/sessionC', label: 'Match Prep Pro Session C' },
-    'Session D': { day: 4, startHour: 19, endHour: 20, meetingPlatform: 'Webex', meetingUrl: 'https://missionmed.webex.com/meet/sessionD', label: 'Match Prep Pro Session D' },
-    'Session E': { day: 6, startHour: 19, endHour: 20, meetingPlatform: 'Webex', meetingUrl: 'https://missionmed.webex.com/meet/sessionE', label: 'IV Prep Complete Session E' },
-  },
-  drills: { day: 1, startHourL1: 10, endHourL1: 12, startHourL23: 14, endHourL23: 16, meetingPlatform: 'Zoom', meetingUrl: 'https://zoom.us/j/missionmed-drills', label: 'Dr. J Drill Session' },
-};
-
 const state = {
-  view:'month', currentDate:new Date(), selectedDate:new Date(),
+  view:'month', currentDate:null, selectedDate:null,
   events:[], filters:{}, categoryTreeCollapsed:{}, adminOpen:false, adminTab:'Step/Level 1',
   panelCollapsed:false, dragEvent:null, selectedDrillTopic:null,
   dataSources:{ events:'loading', todos:'loading' },
   sourceLog:{},
   todos:[],
   todoNextId: 1,
+  canWrite:false,
+  drillTopics:{},
 };
 CATEGORIES.forEach(c => {
   state.filters[c.id] = true;
@@ -133,65 +118,9 @@ function initBackground(){
   })();
 }
 
-// Seed
-function seedEvents(){
-  const now=new Date(), y=now.getFullYear(), m=now.getMonth(); let id=1;
-  function ev(cat,title,day,sh,eh,desc,meta,meetUrl){
-    state.events.push({id:id++,category:cat,title,start:new Date(y,m,day,sh,0),end:new Date(y,m,day,eh,0),description:desc||'',allDay:false,meta:meta||{},important:false,meetingUrl:meetUrl||'',meetingPlatform:meetUrl?'Webex':''});
-  }
-  // Auto-populated from session config (simulates Supabase->Calendar pipeline)
-  const sess=SESSION_CONFIG.sessions[SESSION_CONFIG.enrolled];
-  // Generate 4 weeks of MR sessions with meeting link
-  for(let w=0;w<4;w++){
-    const d=new Date(y,m,1); d.setDate(d.getDate()+(sess.day-d.getDay()+7)%7+w*7);
-    if(d.getMonth()===m) ev(missionResidencySessionCategory(sess.label,'session_group_a'),sess.label,d.getDate(),sess.startHour,sess.endHour,'Weekly strategy call',{},sess.meetingUrl);
-  }
-  // Drills with Zoom link
-  ev('drills','Cardiology (Step/Level 1)',5,10,12,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','Cardiology (Step/Level 2/3)',5,14,16,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','Pulmonary (Step/Level 1)',7,10,12,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','Pulmonary (Step/Level 2/3)',7,14,16,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','Neurology (Step/Level 1)',12,10,12,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','Neurology (Step/Level 2/3)',12,14,16,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','Renal / GU (Step/Level 1)',14,10,12,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','Renal / GU / Electrolytes (Step/Level 2/3)',14,14,16,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','GIT / HEP (Step/Level 1)',19,10,12,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','GIT / HEP (Step/Level 2/3)',19,14,16,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','Endocrine (Step/Level 1)',21,10,12,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('drills','Endocrine (Step/Level 2/3)',21,14,16,'Live drill with Dr. J',{},SESSION_CONFIG.drills.meetingUrl);
-  ev('mission-residency','Personal Statement Workshop',8,14,16,'Small group PS review',{},sess.meetingUrl);
-  ev('mock-interviews','Mock Interview: IM',6,15,16,'Practice with feedback',{},'https://missionmed.webex.com/meet/mockinterview');
-  ev('mock-interviews','Mock Interview: Peds',13,15,16,'Practice with feedback',{},'https://missionmed.webex.com/meet/mockinterview');
-  ev('mock-interviews','Mock Interview: Surgery',20,15,16,'Practice with feedback',{},'https://missionmed.webex.com/meet/mockinterview');
-  [['ERAS Opens','2026-09-01'],['MSPE Release','2026-10-01'],['Interviews Begin','2026-10-15'],['ROL Opens','2027-01-15'],['ROL Deadline','2027-02-28'],['Match Day','2027-03-15']].forEach(d=>{
-    const dt=new Date(d[1]);state.events.push({id:id++,category:'nrmp',title:d[0],start:dt,end:dt,description:'',allDay:true,meta:{},important:true,meetingUrl:'',meetingPlatform:''});
-  });
-  ev('clinicals','IM Rotation: Week 1',1,7,17,'City Hospital',{specialty:'Internal Medicine'});
-  ev('clinicals','IM Rotation: Week 2',8,7,17,'City Hospital',{specialty:'Internal Medicine'});
-  ev('clinicals','Surgery Rotation Starts',15,7,17,'General Surgery',{specialty:'Surgery'});
-  ev('arena','Arena: Weekly Challenge',4,20,21,'Timed case competition');
-  ev('arena','Arena: Weekly Challenge',11,20,21,'Timed case competition');
-  ev('arena','Arena: Monthly Tournament',25,19,22,'Grand tournament');
-  ev('study','UWorld: Cardio Block',2,8,10,'40 Q timed');
-  ev('study','Anki Review',9,7,8,'Morning flashcards');
-  ev('study','FA Review: Renal',16,9,11,'First Aid deep review');
-  state.events.find(e=>e.title.includes('Monthly Tournament')).important=true;
-  state.events.find(e=>e.title.includes('Personal Statement')).important=true;
-}
-
 // Helpers
 function fmt(d,t){
-  const D=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const M=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const SM=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  if(t==='monthYear')return M[d.getMonth()]+' '+d.getFullYear();
-  if(t==='shortDay')return D[d.getDay()].slice(0,3).toUpperCase();
-  if(t==='dayName')return D[d.getDay()];
-  if(t==='shortMonth')return SM[d.getMonth()];
-  if(t==='full')return D[d.getDay()]+', '+M[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
-  if(t==='time'){let h=d.getHours(),m=d.getMinutes(),a=h>=12?'PM':'AM';h=h%12||12;return h+':'+(m<10?'0':'')+m+' '+a;}
-  if(t==='agendaDate')return SM[d.getMonth()]+' '+d.getDate();
-  return d.toLocaleDateString();
+  return window.MMEDCalendarCore.classicFormat(d,t);
 }
 function escapeHTML(value){
   return String(value == null ? '' : value)
@@ -204,8 +133,8 @@ function escapeHTML(value){
 function escapeJS(value){
   return String(value == null ? '' : value).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'');
 }
-function sameDay(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
-function isToday(d){return sameDay(d,new Date());}
+function sameDay(a,b){return window.MMEDCalendarCore.sameDay(a,b);}
+function isToday(d){return window.MMEDCalendarCore.isToday(d);}
 function categoryId(id){return CATEGORY_ALIASES[id]||id;}
 function catColor(id){return(catObj(id)||{}).color||'#4a6a82';}
 function catObj(id){const normalized=categoryId(id);return CATEGORIES.find(c=>c.id===normalized)||CATEGORIES.find(c=>c.id==='study')||CATEGORIES[CATEGORIES.length-1];}
@@ -240,7 +169,7 @@ function categoryOptionLabel(cat){
   return cat.label;
 }
 function filtered(){return state.events.filter(e=>categoryEnabled(e.category));}
-function eventsOn(d){return filtered().filter(e=>sameDay(e.start,d)).sort((a,b)=>a.start-b.start);}
+function eventsOn(d){return window.MMEDCalendarCore.eventsOn(filtered(),d);}
 function showToast(m,i){const t=document.getElementById('toast');t.innerHTML=(i||'')+' '+m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function closeDaySidebar(){const sidebar=document.getElementById('sidebar');if(sidebar)sidebar.classList.remove('open');}
@@ -249,22 +178,19 @@ function closeDaySidebar(){const sidebar=document.getElementById('sidebar');if(s
 function renderTracker(){
   const barEl=document.getElementById('trackerBar'), labelsEl=document.getElementById('trackerLabels'), countdownEl=document.getElementById('trackerCountdown');
   if(!barEl||!labelsEl||!countdownEl)return;
-  const now=new Date(); let bar='',labels='',activePhase=null;
-  TRACKER_PHASES.forEach(p=>{
-    const s=new Date(p.start),e=new Date(p.end);
-    let cls=now>=s&&now<=e?'active':now>e?'completed':'future';
-    if(cls==='active')activePhase=p;
+  const tracker=window.MMEDCalendarCore.trackerModel(TRACKER_PHASES,'2027-03-15'); let bar='',labels='';
+  tracker.phases.forEach(p=>{
+    const cls=p.status;
     bar+=`<div class="cal-tracker-seg ${cls}" data-phase="${p.id}" title="${p.label}">${p.icon}</div>`;
     labels+=`<div class="cal-tracker-lbl ${cls==='active'?'active':''}">${p.label}</div>`;
   });
   barEl.innerHTML=bar;
   labelsEl.innerHTML=labels;
-  const diff=Math.ceil((new Date('2027-03-15')-now)/(1000*60*60*24));
-  countdownEl.innerHTML=diff>0?
-    `<span class="num">${diff}</span> days until Match Day${activePhase?' &mdash; Currently: <strong>'+activePhase.label+'</strong>':''}`:
+  countdownEl.innerHTML=tracker.daysUntil>0?
+    `<span class="num">${tracker.daysUntil}</span> days until Match Day${tracker.active?' &mdash; Currently: <strong>'+tracker.active.label+'</strong>':''}`:
     '<span class="num">Match Day!</span>';
   document.querySelectorAll('.cal-tracker-seg').forEach(seg=>{
-    seg.addEventListener('click',()=>{SFX.play('click');const ph=TRACKER_PHASES.find(p=>p.id===seg.dataset.phase);if(ph){state.currentDate=new Date(ph.start);state.selectedDate=new Date(ph.start);renderCurrentView();showToast('Jumped to '+ph.label,'&#128640;');}});
+    seg.addEventListener('click',()=>{SFX.play('click');const ph=TRACKER_PHASES.find(p=>p.id===seg.dataset.phase);if(ph){ensureSharedCalendarCore().setDate(ph.start);showToast('Jumped to '+ph.label,'&#128640;');}});
   });
 }
 
@@ -323,7 +249,7 @@ function submitAddCategory(){
   if (!requireCalendarWriteControls()) return;
   const name=document.getElementById('newCatName').value.trim();
   if(!name){showToast('Enter a name','&#9888;');return;}
-  const id='custom-'+Date.now();
+  const id='custom-'+window.MMEDCalendarCore.nextLocalId();
   const color=document.getElementById('newCatColor').value;
   const icon=document.getElementById('newCatIcon').value||'&#128204;';
   const st=document.getElementById('newCatStart').value;
@@ -455,10 +381,8 @@ function togglePanel(){
 
 // Month
 function renderMonth(){
-  const c=document.getElementById('viewMonth'), cur=state.currentDate, yr=cur.getFullYear(), mo=cur.getMonth();
-  const first=new Date(yr,mo,1), start=new Date(first);
-  start.setDate(start.getDate()-start.getDay());
-  document.getElementById('monthLabel').textContent=fmt(cur,'monthYear');
+  const c=document.getElementById('viewMonth'), model=window.MMEDCalendarCore.classicMonthGrid(state.currentDate,state.selectedDate,filtered());
+  document.getElementById('monthLabel').textContent=model.title;
   const statusHtml = calendarStatusHtml();
   if (statusHtml) {
     c.innerHTML = statusHtml;
@@ -467,46 +391,41 @@ function renderMonth(){
   let h='<div class="cal-grid-wrap"><div class="cal-weekdays">';
   ['SUN','MON','TUE','WED','THU','FRI','SAT'].forEach(d=>h+=`<div class="cal-weekday">${d}</div>`);
   h+='</div><div class="cal-days">';
-  const d=new Date(start);
-  for(let i=0;i<42;i++){
-    const td=new Date(d), om=td.getMonth()!==mo, today=isToday(td), sel=sameDay(td,state.selectedDate);
-    const evts=eventsOn(td);
-    h+=`<div class="cal-day ${om?'other-month':''} ${today?'today':''} ${sel?'selected':''}" data-date="${td.toISOString()}" role="button" tabindex="0" aria-label="${attrText((state.selectedDrillTopic?'Schedule '+state.selectedDrillTopic.topic+' on ':'Open ')+fmt(td,'full'))}" onkeydown="activateCalendarDayFromKey(event,this)" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDrop(event,this)">
-      <div class="cal-day-num">${td.getDate()}</div><div class="cal-day-events">`;
+  model.cells.forEach(td=>{
+    const evts=td.events;
+    h+=`<div class="cal-day ${td.outside?'other-month':''} ${td.today?'today':''} ${td.selected?'selected':''}" data-date="${td.value}" role="button" tabindex="0" aria-label="${attrText((state.selectedDrillTopic?'Schedule '+state.selectedDrillTopic.topic+' on ':'Open ')+td.fullLabel)}" onkeydown="activateCalendarDayFromKey(event,this)" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDrop(event,this)">
+      <div class="cal-day-num">${td.label}</div><div class="cal-day-events">`;
 	  evts.slice(0,3).forEach(ev=>{
 	    const dragAttrs = canUseCalendarWriteControls() ? `draggable="true" ondragstart="handleDragStart(event,'${escapeJS(ev.id)}')"` : `draggable="false"`;
 	    h+=`<div class="cal-event-chip ${eventChipClasses(ev)}" role="button" tabindex="0" title="${attrText(ev.title+' '+(ev.allDay?'All Day':fmt(ev.start,'time')+' - '+fmt(ev.end,'time')))}" style="--cat:${catColor(ev.category)};border-left-color:${catColor(ev.category)}" ${dragAttrs} data-id="${ev.id}" onclick="event.stopPropagation();showEventDetail('${escapeJS(ev.id)}')" onkeydown="activateEventFromKey(event,'${escapeJS(ev.id)}')"><span class="cal-event-title">${escapeHTML(ev.title)}</span>${ev.meetingUrl?'<a class="join-badge" href="'+escapeHTML(ev.meetingUrl)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Join</a>':''}</div>`;
 	  });
-    if(evts.length>3) h+=`<div class="cal-event-more" onclick="event.stopPropagation();openDaySidebar('${td.toISOString()}')">+${evts.length-3} more</div>`;
-    h+='</div></div>';d.setDate(d.getDate()+1);
-  }
+    if(evts.length>3) h+=`<div class="cal-event-more" onclick="event.stopPropagation();openDaySidebar('${td.value}')">+${evts.length-3} more</div>`;
+    h+='</div></div>';
+  });
   h+='</div></div>';c.innerHTML=h;
-  c.querySelectorAll('.cal-day').forEach(cell=>{cell.addEventListener('click',()=>{SFX.play('click');state.selectedDate=new Date(cell.dataset.date);if(classicCalendarCore)classicCalendarCore.setDate(state.selectedDate);if(state.selectedDrillTopic&&canUseCalendarAdmin()){scheduleDrillTopicOnDate(state.selectedDrillTopic,cell.dataset.date);return;}openDaySidebar(cell.dataset.date);renderMonth();});});
+  c.querySelectorAll('.cal-day').forEach(cell=>{cell.addEventListener('click',()=>{SFX.play('click');if(state.selectedDrillTopic&&canUseCalendarWriteControls()){scheduleDrillTopicOnDate(state.selectedDrillTopic,cell.dataset.date);return;}ensureSharedCalendarCore().setDate(cell.dataset.date);openDaySidebar(cell.dataset.date);});});
 }
 function activateCalendarDayFromKey(event,cell){if(event.key==='Enter'||event.key===' '){event.preventDefault();cell.click();}}
 
 // Week
 function renderWeek(){
-  const c=document.getElementById('viewWeek'), cur=state.currentDate, ws=new Date(cur);
-  ws.setDate(ws.getDate()-ws.getDay());
-  const days=[];for(let i=0;i<7;i++){const d=new Date(ws);d.setDate(d.getDate()+i);days.push(d);}
-  document.getElementById('monthLabel').textContent=fmt(days[0],'shortMonth')+' '+days[0].getDate()+' - '+fmt(days[6],'shortMonth')+' '+days[6].getDate()+', '+days[6].getFullYear();
+  const c=document.getElementById('viewWeek'), model=window.MMEDCalendarCore.classicWeekGrid(state.currentDate,filtered()), days=model.days;
+  document.getElementById('monthLabel').textContent=model.title;
   const statusHtml = calendarStatusHtml();
   if (statusHtml) {
     c.innerHTML = statusHtml;
     return;
   }
   let h='<div class="cal-week-wrap"><div class="cal-week-header"><div class="cal-week-header-cell"></div>';
-  days.forEach(d=>h+=`<div class="cal-week-header-cell ${isToday(d)?'today-col':''}">${fmt(d,'shortDay')}<span class="day-num">${d.getDate()}</span></div>`);
+  days.forEach(d=>h+=`<div class="cal-week-header-cell ${d.today?'today-col':''}">${d.weekday.toUpperCase()}<span class="day-num">${d.label}</span></div>`);
   h+='</div><div class="cal-week-body"><div class="cal-week-time-col" style="display:flex;flex-direction:column;">';
   for(let hr=6;hr<=22;hr++){const l=hr===12?'12 PM':hr>12?(hr-12)+' PM':hr+' AM';h+=`<div class="cal-week-time-label">${l}</div>`;}
   h+='</div>';
   days.forEach(d=>{
     h+=`<div class="cal-week-day-col">`;
     for(let hr=6;hr<=22;hr++) h+=`<div class="cal-week-hour-slot"></div>`;
-    eventsOn(d).filter(e=>!e.allDay).forEach(ev=>{
-      const sh=ev.start.getHours()+ev.start.getMinutes()/60, eh=ev.end.getHours()+ev.end.getMinutes()/60;
-      const top=Math.max(0,(sh-6))*60, height=Math.max(28,(eh-sh)*60), col=catColor(ev.category);
+    d.events.forEach(ev=>{
+      const top=ev.layout.top, height=ev.layout.height, col=catColor(ev.category);
 	      h+=`<div class="cal-week-event ${ev.important?'important':''}" role="button" tabindex="0" style="--cat:${col};top:${top}px;height:${height}px;background:linear-gradient(135deg,${col}22,${col}11);border-color:${col};" data-evid="${ev.id}" onclick="showEventDetail('${escapeJS(ev.id)}')" onkeydown="activateEventFromKey(event,'${escapeJS(ev.id)}')">
 	        <div class="ev-title">${escapeHTML(ev.title)}</div><div class="ev-time">${fmt(ev.start,'time')} - ${fmt(ev.end,'time')}</div>
 	        ${canUseCalendarWriteControls()?`<div class="resize-handle" data-evid="${ev.id}"></div>`:''}</div>`;
@@ -519,21 +438,20 @@ function renderWeek(){
 
 // Day
 function renderDay(){
-  const c=document.getElementById('viewDay'), d=state.selectedDate;
-  document.getElementById('monthLabel').textContent=fmt(d,'full');
+  const c=document.getElementById('viewDay'), model=window.MMEDCalendarCore.classicDayGrid(state.selectedDate,filtered());
+  document.getElementById('monthLabel').textContent=model.title;
   const statusHtml = calendarStatusHtml();
   if (statusHtml) {
     c.innerHTML = statusHtml;
     return;
   }
-  let h=`<div class="cal-day-view-wrap"><div class="cal-day-view-header"><div class="day-name">${fmt(d,'dayName')}</div><div class="day-full">${fmt(d,'shortMonth')} ${d.getDate()}, ${d.getFullYear()}</div></div>
+  let h=`<div class="cal-day-view-wrap"><div class="cal-day-view-header"><div class="day-name">${model.dayName}</div><div class="day-full">${model.dayFull}</div></div>
   <div class="cal-day-view-body"><div>`;
   for(let hr=6;hr<=22;hr++){const l=hr===12?'12 PM':hr>12?(hr-12)+' PM':hr+' AM';h+=`<div class="cal-day-view-time">${l}</div>`;}
   h+='</div><div class="cal-day-view-slots">';
   for(let hr=6;hr<=22;hr++) h+=`<div class="cal-day-view-slot"></div>`;
-  eventsOn(d).filter(e=>!e.allDay).forEach(ev=>{
-    const sh=ev.start.getHours()+ev.start.getMinutes()/60, eh=ev.end.getHours()+ev.end.getMinutes()/60;
-    const top=Math.max(0,(sh-6))*60, height=Math.max(38,(eh-sh)*60);
+  model.events.forEach(ev=>{
+    const top=ev.layout.top, height=ev.layout.height;
     const col=catColor(ev.category), cat=catObj(ev.category);
     h+=`<div class="cal-day-view-event ${ev.important?'important':''}" role="button" tabindex="0" style="--cat:${col};top:${top}px;height:${height}px;background:linear-gradient(135deg,${col}28,${col}12);" data-evid="${ev.id}" onclick="showEventDetail('${escapeJS(ev.id)}')" onkeydown="activateEventFromKey(event,'${escapeJS(ev.id)}')">
 	      <div class="ev-title">${cat.icon} ${escapeHTML(ev.title)}
@@ -560,14 +478,14 @@ function initResizeHandles(container, cls){
       function onMove(me){
         const nh=Math.max(28,startH+(me.clientY-startY));
         el.style.height=nh+'px';
-        const dur=nh/60, ne=new Date(ev.start);ne.setMinutes(ne.getMinutes()+Math.round(dur*60/15)*15);
+        const ne=window.MMEDCalendarCore.resizeEnd(ev.start,nh);
         const te=el.querySelector('.ev-time');if(te)te.textContent=fmt(ev.start,'time')+' - '+fmt(ne,'time');
       }
       function onUp(me){
         document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);
         document.body.style.cursor='';document.body.style.userSelect='';
-        const nh=Math.max(28,startH+(me.clientY-startY)), dur=nh/60;
-        const ne=new Date(ev.start);ne.setMinutes(ne.getMinutes()+Math.round(dur*60/15)*15);
+        const nh=Math.max(28,startH+(me.clientY-startY));
+        const ne=window.MMEDCalendarCore.resizeEnd(ev.start,nh);
         if(ne>ev.start){const candidate=Object.assign({},ev,{end:ne});showToast('Saving duration…','&#8987;');persistUpdatedEvent(candidate).then(()=>{SFX.play('resize');showToast(fmt(candidate.start,'time')+' - '+fmt(candidate.end,'time'),'&#8597;');}).catch(()=>{});}
       }
       document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
@@ -584,14 +502,12 @@ function renderAgenda(){
     c.innerHTML = statusHtml;
     return;
   }
-  const upcoming=filtered().filter(e=>e.start>=new Date(state.currentDate.getFullYear(),state.currentDate.getMonth(),1)).sort((a,b)=>a.start-b.start);
-  const groups={};upcoming.forEach(e=>{const k=e.start.toDateString();if(!groups[k])groups[k]=[];groups[k].push(e);});
+  const groups=window.MMEDCalendarCore.classicAgendaGroups(state.currentDate,filtered());
   let evH='<div class="cal-agenda-events"><div class="panel-section-title" style="margin-bottom:10px;">Upcoming Events</div>';
-  const keys=Object.keys(groups).slice(0,14);
-  if(!keys.length) evH+='<p style="text-align:center;opacity:0.35;padding:24px;">No upcoming events.</p>';
-  keys.forEach(k=>{
-    const evts=groups[k], d=evts[0].start;
-    evH+=`<div class="cal-agenda-day-group"><div class="cal-agenda-date">${isToday(d)?'<span class="today-indicator"></span> Today':fmt(d,'dayName')}, ${fmt(d,'agendaDate')} <span class="badge">${evts.length}</span></div>`;
+  if(!groups.length) evH+='<p style="text-align:center;opacity:0.35;padding:24px;">No upcoming events.</p>';
+  groups.forEach(group=>{
+    const evts=group.events, d=group.date;
+    evH+=`<div class="cal-agenda-day-group"><div class="cal-agenda-date">${group.today?'<span class="today-indicator"></span> Today':fmt(d,'dayName')}, ${fmt(d,'agendaDate')} <span class="badge">${evts.length}</span></div>`;
 	    evts.forEach(ev=>{
 	      const col=catColor(ev.category), cat=catObj(ev.category);
 	      evH+=`<div class="cal-agenda-item" role="button" tabindex="0" onclick="showEventDetail('${escapeJS(ev.id)}')" onkeydown="activateEventFromKey(event,'${escapeJS(ev.id)}')">
@@ -640,11 +556,11 @@ function placeAdminPanelInSidebar(){
 }
 function renderAdmin(){
   placeAdminPanelInSidebar();
-  if (!canUseCalendarAdmin()) {
+  if (!canUseCalendarWriteControls()) {
     lockCalendarAdminControls();
     return;
   }
-  const panel=document.getElementById('adminPanel'), tab=state.adminTab, topics=DRILL_TOPICS[tab]||[];
+  const panel=document.getElementById('adminPanel'), tab=state.adminTab, topics=state.drillTopics[tab]||[];
   if (!panel) return;
   panel.hidden = false;
   let h=`<div class="cal-admin-title">&#9881; Quick Schedule: Dr. J's Drills</div>
@@ -669,7 +585,7 @@ function renderAdmin(){
 // Drag & Drop
 function handleDragStart(e,id){if(!canUseCalendarWriteControls()){state.dragEvent=null;if(e&&e.preventDefault)e.preventDefault();return false;}state.dragEvent={type:'event',id};e.dataTransfer.effectAllowed='move';}
 function handleTopicDrag(e,topic,level){
-  if (!canUseCalendarAdmin()) {
+  if (!canUseCalendarWriteControls()) {
     state.dragEvent = null;
     if (e && e.preventDefault) e.preventDefault();
     return false;
@@ -677,19 +593,15 @@ function handleTopicDrag(e,topic,level){
   state.dragEvent={type:'topic',topic,level};e.dataTransfer.effectAllowed='copy';
 }
 function selectDrillTopic(topic,level){
-  if(!canUseCalendarAdmin())return;
+  if(!canUseCalendarWriteControls())return;
   state.selectedDrillTopic={topic,level};
   renderAdmin();renderMonth();
   showToast('Select a calendar date for '+topic,'&#128197;');
 }
 function activateDrillTopicFromKey(event,topic,level){if(event.key==='Enter'||event.key===' '){event.preventDefault();selectDrillTopic(topic,level);}}
 function scheduleDrillTopicOnDate(selection,dateValue){
-  if(!selection||!canUseCalendarAdmin())return;
-  const target=new Date(dateValue),catId='drills';
-  const cat=catObj(catId),defs=Object.assign({},cat.defaults||{},selection.level==='Step/Level 2/3'?{startTime:'14:00',endTime:'16:00'}:{startTime:'10:00',endTime:'12:00'});
-  const [sh,sm]=(defs.startTime||'10:00').split(':').map(Number),[eh,em]=(defs.endTime||'12:00').split(':').map(Number);
-  const lvl=selection.level==='Step/Level 1'?'1':'2/3';
-  const ev={id:Date.now(),localOnly:true,category:catId,title:`${selection.topic} (Step/Level ${lvl})`,start:new Date(target.getFullYear(),target.getMonth(),target.getDate(),sh,sm),end:new Date(target.getFullYear(),target.getMonth(),target.getDate(),eh,em),description:defs.description||'',allDay:false,meta:{drill_level:selection.level,drill_topic:selection.topic},important:false,meetingUrl:SESSION_CONFIG.drills.meetingUrl,meetingPlatform:'Zoom'};
+  if(!selection||!canUseCalendarWriteControls())return;
+  const ev=Object.assign(window.MMEDCalendarCore.buildDrillEvent(dateValue,selection.topic,selection.level),{id:window.MMEDCalendarCore.nextLocalId(),localOnly:true,meetingUrl:'',meetingPlatform:''});
   state.selectedDrillTopic=null;
   showToast('Scheduling drill…','&#8987;');
   persistCreatedEvent(ev).then(()=>{SFX.play('add');showToast(`Scheduled: ${selection.topic}`,'&#128293;');renderAdmin();renderMonth();}).catch(()=>{renderAdmin();renderMonth();});
@@ -697,12 +609,12 @@ function scheduleDrillTopicOnDate(selection,dateValue){
 function handleCatDrag(e,catId){const cat=catObj(catId);if(!canUseCalendarWriteControls()||(cat&&cat.children&&cat.children.length)){state.dragEvent=null;if(e&&e.preventDefault)e.preventDefault();return false;}state.dragEvent={type:'category',catId:categoryId(catId)};e.dataTransfer.effectAllowed='copy';}
 function handleDrop(e,cell){
   e.preventDefault();cell.classList.remove('drag-over');
-  const target=new Date(cell.dataset.date);
+  const target=cell.dataset.date;
   if(state.dragEvent?.type==='event'){
     if(!requireCalendarWriteControls()){state.dragEvent=null;return;}
     const ev=state.events.find(x=>String(x.id)===String(state.dragEvent.id));
-    if(ev){const diff=target.getTime()-new Date(ev.start.getFullYear(),ev.start.getMonth(),ev.start.getDate()).getTime();const candidate=Object.assign({},ev,{start:new Date(ev.start.getTime()+diff),end:new Date(ev.end.getTime()+diff)});showToast('Saving move…','&#8987;');persistUpdatedEvent(candidate).then(()=>{SFX.play('drop');showToast('Moved to '+fmt(target,'agendaDate'),'&#10004;');}).catch(()=>{});}
-  } else if(state.dragEvent?.type==='topic' && canUseCalendarAdmin()){
+    if(ev){const candidate=window.MMEDCalendarCore.moveEventToDate(ev,target);showToast('Saving move…','&#8987;');persistUpdatedEvent(candidate).then(()=>{SFX.play('drop');showToast('Moved to '+fmt(target,'agendaDate'),'&#10004;');}).catch(()=>{});}
+  } else if(state.dragEvent?.type==='topic' && canUseCalendarWriteControls()){
     scheduleDrillTopicOnDate({topic:state.dragEvent.topic,level:state.dragEvent.level},target);
   } else if(state.dragEvent?.type==='category'){
     if(!requireCalendarWriteControls()){state.dragEvent=null;return;}
@@ -805,17 +717,9 @@ function checkSchedulerRecording(ev, trigger) {
   if (!ev || !ev.sourceId) return;
   const original = trigger ? trigger.textContent : '';
   if (trigger) trigger.textContent = 'Checking...';
-  fetch('/api/scheduler/appointments/' + encodeURIComponent(ev.sourceId) + '/recording', {
-    method: 'GET',
-    credentials: 'same-origin',
-    headers: { 'Accept': 'application/json' }
-  }).then(resp => resp.json().then(payload => ({ ok: resp.ok, payload }))).then(result => {
-    const data = result.payload && (result.payload.data || result.payload);
-    const url = data && (data.recording_url || data.playback_url || (data.recording && data.recording.playback_url));
-    if (result.ok && url) {
-      ev.recordingUrl = textOnly(url);
-      ev.hasRecording = true;
-      ev.recordingStatus = 'ready';
+  const coreEvent=ensureSharedCalendarCore().state.events.find(item=>String(item.id)===String(ev.id));
+  ensureSharedCalendarCore().refreshRecording(coreEvent).then(result => {
+    if (result.ready) {
       showToast('Recording is ready', '&#9658;');
       showEventDetail(ev.id);
       return;
@@ -845,8 +749,8 @@ function cssEscape(value) {
 function showEditEventModal(id){
   if (!requireCalendarWriteControls()) return;
   const ev=state.events.find(x=>String(x.id)===String(id));if(!ev)return;
-  const dateVal=ev.start.getFullYear()+'-'+String(ev.start.getMonth()+1).padStart(2,'0')+'-'+String(ev.start.getDate()).padStart(2,'0');
-  const timeVal=d=>String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  const dateVal=window.MMEDCalendarCore.dateInput(ev.start);
+  const timeVal=d=>window.MMEDCalendarCore.timeInput(d);
   let cats=selectableCategories().map(c=>`<option value="${c.id}" ${c.id===categoryId(ev.category)?'selected':''}>${escapeHTML(categoryOptionLabel(c))}</option>`).join('');
   let specs=SPECIALTIES.map(s=>`<option value="${escapeHTML(s)}" ${ev.meta?.specialty===s?'selected':''}>${escapeHTML(s)}</option>`).join('');
   document.getElementById('modalTitle').textContent='Edit Event';
@@ -883,13 +787,11 @@ function showEditEventModal(id){
 function submitEditEvent(id){
   if (!requireCalendarWriteControls()) return;
   const ev=state.events.find(x=>String(x.id)===String(id));if(!ev)return;
-  const [sy,sm,sd]=document.getElementById('editDate').value.split('-').map(Number);
-  const [sh,smin]=document.getElementById('editStart').value.split(':').map(Number);
-  const [eh,emin]=document.getElementById('editEnd').value.split(':').map(Number);
+  const times=window.MMEDCalendarCore.combineDateTime(document.getElementById('editDate').value,document.getElementById('editStart').value,document.getElementById('editEnd').value);
   const candidate=Object.assign({},ev,{
     title:textOnly(document.getElementById('editTitle').value.trim()||ev.title),
     category:document.getElementById('editCat').value,
-    start:new Date(sy,sm-1,sd,sh,smin),end:new Date(sy,sm-1,sd,eh,emin),
+    start:times.start,end:times.end,
     description:textOnly(document.getElementById('editNotes').value),
     important:document.getElementById('editImportant').checked,
     meetingPlatform:textOnly(document.getElementById('editMeetPlatform').value),
@@ -914,7 +816,7 @@ function showNewEventModal(prefillDate, prefillCat){
   document.getElementById('modalBody').innerHTML=`
     <div class="cal-form-group"><label class="cal-form-label">Title</label><input class="cal-form-input" id="newTitle" placeholder="Event title..." value="${prefillCat&&cat?cat.label+' Session':''}"/></div>
     <div class="cal-form-group"><label class="cal-form-label">Category</label><select class="cal-form-select" id="newCat">${cats}</select></div>
-    <div class="cal-form-group"><label class="cal-form-label">Date</label><input class="cal-form-input" type="date" id="newDate" value="${sel.getFullYear()}-${String(sel.getMonth()+1).padStart(2,'0')}-${String(sel.getDate()).padStart(2,'0')}"/></div>
+    <div class="cal-form-group"><label class="cal-form-label">Date</label><input class="cal-form-input" type="date" id="newDate" value="${window.MMEDCalendarCore.dateInput(sel)}"/></div>
     <div class="cal-form-row">
       <div class="cal-form-group"><label class="cal-form-label">Start</label><input class="cal-form-input" type="time" id="newStart" value="${defs.startTime||'10:00'}"/></div>
       <div class="cal-form-group"><label class="cal-form-label">End</label><input class="cal-form-input" type="time" id="newEnd" value="${defs.endTime||'11:00'}"/></div>
@@ -940,15 +842,13 @@ function submitNew(){
   if (!requireCalendarWriteControls()) return;
   const title=document.getElementById('newTitle').value.trim();
   if(!title){showToast('Enter a title','&#9888;');return;}
-  const [sy,sm,sd]=document.getElementById('newDate').value.split('-').map(Number);
-  const [sh,smin]=document.getElementById('newStart').value.split(':').map(Number);
-  const [eh,emin]=document.getElementById('newEnd').value.split(':').map(Number);
+  const times=window.MMEDCalendarCore.combineDateTime(document.getElementById('newDate').value,document.getElementById('newStart').value,document.getElementById('newEnd').value);
   const cat=document.getElementById('newCat').value, notes=document.getElementById('newNotes').value;
   const imp=document.getElementById('newImportant').checked;
   const meta=cat==='clinicals'?{specialty:document.getElementById('newSpec').value}:{};
   const meetUrl=document.getElementById('newMeetUrl').value;
   const meetPlat=document.getElementById('newMeetPlatform').value;
-  const ev={id:Date.now(),localOnly:true,category:cat,title:textOnly(title),start:new Date(sy,sm-1,sd,sh,smin),end:new Date(sy,sm-1,sd,eh,emin),description:textOnly(notes),allDay:false,meta,important:imp,meetingUrl:textOnly(meetUrl),meetingPlatform:textOnly(meetPlat)};
+  const ev={id:window.MMEDCalendarCore.nextLocalId(),localOnly:true,category:cat,title:textOnly(title),start:times.start,end:times.end,description:textOnly(notes),allDay:false,meta,important:imp,meetingUrl:textOnly(meetUrl),meetingPlatform:textOnly(meetPlat)};
   showToast('Creating event…','&#8987;');persistCreatedEvent(ev).then(()=>{closeModal('eventModal');SFX.play('add');showToast('Event created!','&#10024;');}).catch(()=>{});
 }
 
@@ -969,10 +869,7 @@ function showSync(){
   document.getElementById('syncModal').classList.add('open');
 }
 
-function icsDate(d){
-  const p=n=>String(n).padStart(2,'0');
-  return d.getUTCFullYear()+p(d.getUTCMonth()+1)+p(d.getUTCDate())+'T'+p(d.getUTCHours())+p(d.getUTCMinutes())+p(d.getUTCSeconds())+'Z';
-}
+function icsDate(d){return window.MMEDCalendarCore.icsDate(d);}
 function icsText(v){
   return String(v||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');
 }
@@ -981,10 +878,9 @@ function downloadICS(){
   filtered().forEach(ev=>{
     lines.push('BEGIN:VEVENT');
     lines.push('UID:missionmed-matrix-'+String(ev.id)+'@missionmedinstitute.com');
-    lines.push('DTSTAMP:'+icsDate(new Date()));
+    lines.push('DTSTAMP:'+icsDate(window.MMEDCalendarCore.now()));
     if(ev.allDay){
-      const p=n=>String(n).padStart(2,'0');
-      lines.push('DTSTART;VALUE=DATE:'+ev.start.getFullYear()+p(ev.start.getMonth()+1)+p(ev.start.getDate()));
+      lines.push('DTSTART;VALUE=DATE:'+window.MMEDCalendarCore.icsDateOnly(ev.start));
     } else {
       lines.push('DTSTART:'+icsDate(ev.start));
       lines.push('DTEND:'+icsDate(ev.end));
@@ -1005,7 +901,7 @@ function downloadICS(){
 
 // Day Sidebar
 function openDaySidebar(ds){
-  const d=new Date(ds);state.selectedDate=d;const evts=eventsOn(d);
+  const d=window.MMEDCalendarCore.parseDate(ds);state.selectedDate=d;const evts=eventsOn(d);
   const sc=document.getElementById('sidebarContent');
   let h=`<h3>${fmt(d,'full')}</h3>`;
   if(!evts.length) h+='<p style="opacity:0.35;margin-top:14px;">No events scheduled.</p>';
@@ -1024,9 +920,9 @@ function openDaySidebar(ds){
 }
 
 // View
-function setView(v){SFX.play('nav');state.view=v;document.querySelectorAll('.cal-nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));['month','week','day','agenda'].forEach(x=>document.getElementById('view'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===v?'':'none');renderCurrentView();if(classicCalendarCore)classicCalendarCore.setView(v);}
+function setView(v){SFX.play('nav');state.view=v;document.querySelectorAll('.cal-nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));['month','week','day','agenda'].forEach(x=>document.getElementById('view'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===v?'':'none');ensureSharedCalendarCore().setView(v);}
 function renderCurrentView(){if(state.view==='month')renderMonth();else if(state.view==='week')renderWeek();else if(state.view==='day')renderDay();else renderAgenda();}
-function navigate(dir){SFX.play('nav');const d=state.currentDate;if(state.view==='month')d.setMonth(d.getMonth()+dir);else if(state.view==='week')d.setDate(d.getDate()+dir*7);else if(state.view==='day'){state.selectedDate.setDate(state.selectedDate.getDate()+dir);state.currentDate=new Date(state.selectedDate);}else d.setMonth(d.getMonth()+dir);renderCurrentView();if(classicCalendarCore)classicCalendarCore.navigate(dir);}
+function navigate(dir){SFX.play('nav');ensureSharedCalendarCore().navigate(dir);}
 
 // Init
 
@@ -1075,11 +971,6 @@ function textOnly(value) {
 function attrText(value) {
   return textOnly(value).replace(/"/g, '&quot;');
 }
-function canUseCalendarAdmin() {
-  const app = matrixApp || window.MMED_OS || {};
-  const profile = (app.state && app.state.profile) || app.profile || {};
-  return profile.is_admin === true || profile.is_admin === 1 || profile.is_admin === '1';
-}
 function lockCalendarAdminControls() {
   state.adminOpen = false;
   const toggle = document.getElementById('adminToggle');
@@ -1092,7 +983,7 @@ function lockCalendarAdminControls() {
   }
 }
 function canUseCalendarWriteControls() {
-  return canUseCalendarAdmin();
+  return state.canWrite;
 }
 function requireCalendarWriteControls() {
   if (canUseCalendarWriteControls()) return true;
@@ -1108,11 +999,6 @@ function lockStudentWriteControls() {
     el.removeAttribute('draggable');
     el.classList.add('is-readonly');
   });
-}
-function localDateTime(d) {
-  if (!(d instanceof Date) || isNaN(d.getTime())) d = new Date();
-  const p = n => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':00';
 }
 function matrixCategory(raw, title, sourceId) {
   raw = String(raw || 'general').toLowerCase();
@@ -1132,71 +1018,6 @@ function eventChipClasses(ev) {
   if (ev.meta && ev.meta.match_2027) cls += ' is-match-event';
   if (ev.meta && ev.meta.match_day) cls += ' is-match-day';
   return cls.trim();
-}
-function liveEventMeta(e) {
-  if (e && typeof e.meta === 'object' && e.meta) return e.meta;
-  if (e && typeof e.meta_json === 'object' && e.meta_json) return e.meta_json;
-  if (e && typeof e.meta_json === 'string' && e.meta_json) {
-    try { return JSON.parse(e.meta_json) || {}; } catch (err) { return {}; }
-  }
-  return {};
-}
-function normalizeLiveEvent(e) {
-  e = e || {};
-  const meta = liveEventMeta(e);
-  const start = parseCalendarDate(e.start_at || e.start, new Date());
-  let end = e.end_at || e.end ? parseCalendarDate(e.end_at || e.end, new Date(start.getTime() + 60 * 60000)) : new Date(start.getTime() + 60 * 60000);
-  if (isNaN(end.getTime()) || end <= start) end = new Date(start.getTime() + 60 * 60000);
-  const rawCat = e.event_type || e.category || 'general';
-  const rawCatKey = String(rawCat).toLowerCase();
-  const explicitCategory = explicitPrototypeCategory(e.category);
-  const sourceId = e.source_id || e.sourceId || e.appointment_id || e.appointmentId || '';
-  const source = String(e.source || '').toLowerCase();
-  const schedulerAppointment = source === 'scheduler' || rawCatKey === 'appointment';
-  const normalizedSource = schedulerAppointment ? 'scheduler' : textOnly(e.source || '');
-  const globalEvent = Number(e.user_id || 0) === 0;
-  const systemEvent = normalizedSource === 'system';
-  const meetingUrl = textOnly(e.meeting_url || e.join_url || e.joinUrl || (e.join_button && e.join_button.url) || meta.meeting_url || meta.join_url || meta.classroom_url || '');
-  const meetingPlatform = textOnly(e.meeting_platform || e.meeting_provider || meta.meeting_platform || meta.meeting_provider || (meetingUrl.toLowerCase().indexOf('webex') !== -1 ? 'Webex' : ''));
-  return {
-    id: e.id,
-    category: schedulerAppointment ? 'my-appointments' : (explicitCategory || matrixCategory(rawCat, e.title, sourceId)),
-    title: textOnly(e.title || 'Untitled event'),
-    start,
-    end,
-    description: textOnly(e.description || e.content || meta.description || ''),
-    allDay: !!(e.all_day || e.allDay),
-    meta,
-    source: normalizedSource,
-    eventType: textOnly(rawCat),
-    sourceId: textOnly(sourceId),
-    userId: e.user_id || e.userId || null,
-    writable: schedulerAppointment ? false : (canUseCalendarAdmin() ? !systemEvent : !(globalEvent || systemEvent)),
-    important: !!(schedulerAppointment || meta.important || meta.match_2027 || meta.match_day || rawCatKey === 'deadline' || /MATCH DAY|SOAP|deadline|certification/i.test(e.title || '')),
-    meetingUrl,
-    meetingPlatform,
-    hasRecording: !!(e.has_recording || meta.has_recording),
-    recordingStatus: textOnly(e.recording_status || meta.recording_status || ''),
-    recordingUrl: textOnly(e.recording_url || meta.recording_url || '')
-  };
-}
-function normalizeLiveTodo(t) {
-  return {
-    id: t.id,
-    text: textOnly(t.title || t.text || 'Task'),
-    done: !!(t.completed || t.done),
-    priority: (t.priority === 'high' || t.priority === 'low') ? t.priority : (t.priority === 'medium' ? 'med' : (t.priority || 'med')),
-    date: textOnly(t.due_date || t.date || ''),
-    notes: textOnly(t.notes || ''),
-    meetingUrl: textOnly(t.meeting_url || ''),
-    meetingPlatform: textOnly(t.meeting_platform || '')
-  };
-}
-function seedPrototypeIfNeeded() {
-  if (state.seeded) return;
-  state.events = [];
-  seedEvents();
-  state.seeded = true;
 }
 function calendarRoot() {
   return document.querySelector('.cal-matrix-prototype');
@@ -1241,56 +1062,23 @@ function calendarStatusHtml() {
   }
   return '';
 }
-function parseCalendarDate(value, fallback) {
-  if (window.MMEDCalendarCore && typeof window.MMEDCalendarCore.parseDate === 'function') {
-    return window.MMEDCalendarCore.parseDate(value, fallback);
-  }
-  if (value instanceof Date) return isNaN(value.getTime()) ? fallback : value;
-  const raw = String(value || '').trim();
-  if (!raw) return fallback || new Date();
-  const dateOnly = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dateOnly) return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
-  const localDateTimeOnly = raw.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
-  if (localDateTimeOnly) {
-    return new Date(
-      Number(localDateTimeOnly[1]),
-      Number(localDateTimeOnly[2]) - 1,
-      Number(localDateTimeOnly[3]),
-      Number(localDateTimeOnly[4]),
-      Number(localDateTimeOnly[5]),
-      Number(localDateTimeOnly[6] || 0)
-    );
-  }
-  const parsed = new Date(raw);
-  return isNaN(parsed.getTime()) ? (fallback || new Date()) : parsed;
-}
 function coreEventToClassic(event) {
-  const classic = normalizeLiveEvent({
-    id: event.id,
-    title: event.title,
-    start: event.start,
-    end: event.end,
-    allDay: event.allDay,
-    description: event.description,
-    event_type: event.eventType,
-    category: event.category,
-    source: event.source,
-    sourceId: event.sourceId,
-    userId: event.userId,
-    meta: event.meta,
-    joinUrl: event.joinUrl,
-    meeting_platform: event.meetingPlatform,
-    recording_url: event.replayUrl,
-    recording_status: event.recordingStatus
-  });
-  classic.writable = event.writable;
-  classic.important = event.important;
-  return classic;
+  return {
+    id:event.id, category:event.source==='scheduler'?'my-appointments':(explicitPrototypeCategory(event.category)||matrixCategory(event.eventType,event.title,event.sourceId)),
+    title:event.title, start:event.start, end:event.end, description:event.description, allDay:event.allDay, meta:event.meta||{},
+    source:event.source, eventType:event.eventType, sourceId:event.sourceId, userId:event.userId, writable:event.writable, important:event.important,
+    meetingUrl:event.joinUrl, meetingPlatform:event.meetingPlatform, hasRecording:!!event.replayUrl, recordingStatus:event.recordingStatus, recordingUrl:event.replayUrl
+  };
 }
 function coreTodoToClassic(todo) {
-  return normalizeLiveTodo({ id: todo.id, title: todo.title, completed: todo.completed, priority: todo.priority, due_date: todo.dueDate, notes: todo.notes, meeting_url: todo.meetingUrl, meeting_platform: todo.meetingPlatform });
+  return { id:todo.id, text:todo.title, done:todo.completed, priority:todo.priority==='medium'?'med':todo.priority, date:todo.dueDate, notes:todo.notes, meetingUrl:todo.meetingUrl, meetingPlatform:todo.meetingPlatform };
 }
 function syncClassicFromCore(coreState) {
+  state.currentDate=coreState.date;
+  state.selectedDate=coreState.selectedDate;
+  state.view=coreState.view==='today'?'day':coreState.view;
+  state.canWrite=!!(coreState.capabilities&&coreState.capabilities.admin);
+  state.drillTopics=window.MMEDCalendarCore.drillTopics;
   state.events = (coreState.events || []).map(coreEventToClassic);
   state.todos = (coreState.todos || []).map(coreTodoToClassic);
   state.seeded = true;
@@ -1326,7 +1114,7 @@ function canPersistEvent(ev) {
   return !!(ev && !ev.localOnly && ev.writable !== false && String(ev.id).indexOf('local-') !== 0);
 }
 function persistCreatedEvent(ev) {
-  const candidate = Object.assign({}, ev, { eventType: (ev.meta && ev.meta.drill_level === 'Step/Level 2/3') ? 'drill_step23' : (PROTO_CATEGORY_TO_MATRIX[ev.category] || 'custom'), joinUrl: ev.meetingUrl || '', audience: canUseCalendarAdmin() ? 'all_students' : '' });
+  const candidate = Object.assign({}, ev, { eventType: (ev.meta && ev.meta.drill_level === 'Step/Level 2/3') ? 'drill_step23' : (PROTO_CATEGORY_TO_MATRIX[ev.category] || 'custom'), joinUrl: ev.meetingUrl || '' });
   return ensureSharedCalendarCore().createEvent(candidate).then(coreEventToClassic).catch(error=>{showToast('Event was not saved. Nothing changed.', '&#9888;');throw error;});
 }
 function persistUpdatedEvent(ev) {
@@ -1411,18 +1199,18 @@ function initPrototypeCalendar() {
   state.todoNextId = 1;
   state.dataSources.events = 'loading';
   state.dataSources.todos = 'loading';
-	initBackground();refreshCalendarDataMarkers();placeAdminPanelInSidebar();renderFilters();renderTodos();renderAdmin();renderMonth();loadLiveCalendarData();
+	ensureSharedCalendarCore();initBackground();refreshCalendarDataMarkers();placeAdminPanelInSidebar();renderFilters();renderTodos();renderAdmin();renderMonth();loadLiveCalendarData();
   lockStudentWriteControls();
 
   document.querySelectorAll('.cal-nav-btn').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
   document.getElementById('prevBtn').addEventListener('click',()=>navigate(-1));
   document.getElementById('nextBtn').addEventListener('click',()=>navigate(1));
-  document.getElementById('todayBtn').addEventListener('click',()=>{SFX.play('click');state.currentDate=new Date();state.selectedDate=new Date();renderCurrentView();if(classicCalendarCore)classicCalendarCore.today();});
+  document.getElementById('todayBtn').addEventListener('click',()=>{SFX.play('click');ensureSharedCalendarCore().today();});
   const addBtn = document.getElementById('addBtn');
   if (addBtn && canUseCalendarWriteControls()) addBtn.addEventListener('click',()=>showNewEventModal());
   document.getElementById('syncBtn').addEventListener('click',showSync);
   const adminToggle = document.getElementById('adminToggle');
-  if (adminToggle && canUseCalendarAdmin()) {
+  if (adminToggle && canUseCalendarWriteControls()) {
     adminToggle.addEventListener('click',()=>{SFX.play('click');state.adminOpen=!state.adminOpen;document.getElementById('adminPanel').classList.toggle('show',state.adminOpen);});
   } else {
     lockCalendarAdminControls();
@@ -1464,6 +1252,7 @@ function renderCalendarPrototype(app) {
 function unmountCalendarPrototype() {
   if (classicCalendarUnsubscribe) classicCalendarUnsubscribe();
   classicCalendarUnsubscribe = null;
+  if (classicCalendarCore && typeof classicCalendarCore.destroy === 'function') classicCalendarCore.destroy();
   classicCalendarCore = null;
   liveLoadStarted = false;
   deactivateCalendarAppMode();
@@ -1481,7 +1270,7 @@ function bootMatrixCalendar() {
     clearInterval(timer);
     if (!app || !app.render) return;
     if (!app.state) app.state = {};
-    if (!app.state.calendar) app.state.calendar = { month: new Date(), selectedDate: new Date() };
+    if (!app.state.calendar) app.state.calendar = {};
     app.render.calendar = function () { renderCalendarPrototype(app); };
     if (app.state.route === 'calendar' && !document.querySelector('.cal-matrix-prototype')) {
       renderCalendarPrototype(app);

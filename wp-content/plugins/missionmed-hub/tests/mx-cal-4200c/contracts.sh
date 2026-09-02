@@ -8,19 +8,25 @@ classic_js="$plugin_root/assets/student-os-calendar-v4.js"
 student_php="$plugin_root/includes/class-mmed-student-os.php"
 experience_php="$plugin_root/includes/class-mmed-calendar-experience.php"
 
-if rg -n 'fetch\(|new Date\(|current_user_can|is_admin' "$v2_js"; then
+renderer_forbidden='fetch\(|new Date\(|Date\.now|Intl\.|\.get(UTC)?(FullYear|Month|Date|Day|Hours|Minutes|Seconds)\(|\.set(Month|Minutes)\(|current_user_can|\bis_admin\b'
+if rg -n "$renderer_forbidden" "$v2_js"; then
 	echo 'FAIL StoryForge renderer contains data, time, or permission behavior' >&2
+	exit 1
+fi
+if rg -n "$renderer_forbidden" "$classic_js"; then
+	echo 'FAIL Classic renderer contains data, time, or permission behavior' >&2
 	exit 1
 fi
 
 rg -q 'application/x-mmed-drill' "$v2_js"
 rg -q "'drill_step1'" "$plugin_root/assets/calendar-core/mmed-calendar-core.js"
 rg -q "'drill_step23'" "$plugin_root/assets/calendar-core/mmed-calendar-core.js"
-rg -q "Step/Level 1.*Micro / Infectious Disease" "$classic_js"
-rg -q "Step/Level 2/3.*Surgery" "$classic_js"
+rg -q "Step/Level 1.*Micro / Infectious Disease" "$plugin_root/assets/calendar-core/mmed-calendar-core.js"
+rg -q "Step/Level 2/3.*Surgery" "$plugin_root/assets/calendar-core/mmed-calendar-core.js"
 rg -q 'scheduleDrillTopicOnDate' "$classic_js"
 rg -Fq 'MMEDCalendarCore.create(matrixApp)' "$classic_js"
-if rg -Fq "matrixApp.api.get('/events'" "$classic_js" || rg -Fq '/api/scheduler/calendar-feed' "$classic_js"; then
+rg -Fq 'state.drillTopics=window.MMEDCalendarCore.drillTopics' "$classic_js"
+if rg -Fq "matrixApp.api.get('/events'" "$classic_js" || rg -Fq '/api/scheduler/' "$classic_js"; then
 	echo 'FAIL Classic bypasses the shared Calendar core' >&2
 	exit 1
 fi

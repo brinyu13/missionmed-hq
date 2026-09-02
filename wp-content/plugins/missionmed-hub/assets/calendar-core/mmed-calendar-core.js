@@ -9,6 +9,8 @@
 	var ZONE_LABEL = 'Eastern Time (ET)';
 	var MINUTE = 60000;
 	var config = (global.mmedStudentOsFeatureFlags && global.mmedStudentOsFeatureFlags.calendar_experience) || {};
+	var sharedPrimaryCache = {};
+	var localIdSequence = 0;
 
 	var DRILL_TOPICS = {
 		'Step/Level 1': ['Cardiology','Pulmonary','Renal / GU','GIT / HEP','Endocrine','Neurology','Derm / Ophtho','Micro / Infectious Disease','Viruses / Protozoa / Parasites','Immunology','Muscle / Rheumatology','Heme / Onc','Oncology by Systems','Repro / GYN / OB','Biochem / Genetics / Vitamins','Psych / Ethics','Biostats / Public Health','ER Medicine','Mixed Review'],
@@ -332,15 +334,127 @@
 		};
 	}
 
+	function classicFormat(value, type) {
+		var options = {};
+		if (type === 'monthYear') options = { month: 'long', year: 'numeric' };
+		else if (type === 'shortDay') return format(value, { weekday: 'short' }).toUpperCase();
+		else if (type === 'dayName') options = { weekday: 'long' };
+		else if (type === 'shortMonth') options = { month: 'short' };
+		else if (type === 'full') options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+		else if (type === 'time') options = { hour: 'numeric', minute: '2-digit' };
+		else if (type === 'agendaDate') options = { month: 'short', day: 'numeric' };
+		else options = { month: 'numeric', day: 'numeric', year: 'numeric' };
+		return format(value, options);
+	}
+
+	function sameDay(a, b) { return dateKey(a) === dateKey(b); }
+	function isToday(value) { return dateKey(value) === dateKey(new Date()); }
+	function eventsOn(events, day) {
+		return (events || []).filter(function (event) { return sameDay(event.start, day); }).sort(function (a, b) { return a.start - b.start; });
+	}
+	function eventLayout(event, minimumHeight) {
+		var start = zonedParts(event.start);
+		var end = zonedParts(event.end);
+		var startHour = start.hour + start.minute / 60;
+		var endHour = end.hour + end.minute / 60;
+		return { top: Math.max(0, startHour - 6) * 60, height: Math.max(minimumHeight || 28, (endHour - startHour) * 60) };
+	}
+	function classicMonthGrid(value, selected, events) {
+		var date = parseDate(value);
+		var parts = zonedParts(date);
+		return {
+			title: classicFormat(date, 'monthYear'),
+			cells: daysForMonth(date).map(function (day) {
+				var parsed = parseDate(day.key);
+				return Object.assign({}, day, {
+					value: day.key,
+					outside: zonedParts(parsed).month !== parts.month,
+					today: isToday(parsed),
+					selected: sameDay(parsed, selected),
+					events: eventsOn(events, parsed)
+				});
+			})
+		};
+	}
+	function classicWeekGrid(value, events) {
+		var days = daysForWeek(value).map(function (day) {
+			var parsed = parseDate(day.key);
+			return Object.assign({}, day, {
+				today: isToday(parsed),
+				events: eventsOn(events, parsed).filter(function (event) { return !event.allDay; }).map(function (event) { return Object.assign({}, event, { layout: eventLayout(event, 28) }); })
+			});
+		});
+		return { title: classicFormat(days[0].key, 'shortMonth') + ' ' + format(days[0].key, { day: 'numeric' }) + ' - ' + classicFormat(days[6].key, 'shortMonth') + ' ' + format(days[6].key, { day: 'numeric', year: 'numeric' }), days: days };
+	}
+	function classicDayGrid(value, events) {
+		var date = parseDate(value);
+		return {
+			title: classicFormat(date, 'full'),
+			dayName: classicFormat(date, 'dayName'),
+			dayFull: format(date, { month: 'short', day: 'numeric', year: 'numeric' }),
+			events: eventsOn(events, date).filter(function (event) { return !event.allDay; }).map(function (event) { return Object.assign({}, event, { layout: eventLayout(event, 38) }); })
+		};
+	}
+	function classicAgendaGroups(value, events) {
+		var anchor = zonedParts(parseDate(value));
+		var monthStart = zonedDate(anchor.year, anchor.month, 1, 0, 0, 0);
+		var groups = {};
+		(events || []).filter(function (event) { return event.start >= monthStart; }).sort(function (a, b) { return a.start - b.start; }).forEach(function (event) {
+			var key = dateKey(event.start);
+			if (!groups[key]) groups[key] = [];
+			groups[key].push(event);
+		});
+		return Object.keys(groups).sort().slice(0, 14).map(function (key) { return { key: key, date: parseDate(key), today: isToday(key), events: groups[key] }; });
+	}
+	function trackerModel(phases, matchDay) {
+		var now = new Date();
+		var active = null;
+		var modeled = (phases || []).map(function (phase) {
+			var start = parseDate(phase.start);
+			var end = parseDate(phase.end);
+			var status = now >= start && now <= end ? 'active' : now > end ? 'completed' : 'future';
+			if (status === 'active') active = phase;
+			return Object.assign({}, phase, { status: status });
+		});
+		return { phases: modeled, active: active, daysUntil: Math.ceil((parseDate(matchDay) - now) / (24 * 60 * MINUTE)) };
+	}
+	function dateInput(value) { return dateKey(value); }
+	function timeInput(value) {
+		var parts = zonedParts(parseDate(value));
+		return String(parts.hour).padStart(2, '0') + ':' + String(parts.minute).padStart(2, '0');
+	}
+	function combineDateTime(day, startTime, endTime) {
+		var date = String(day || '').split('-').map(Number);
+		var start = String(startTime || '00:00').split(':').map(Number);
+		var end = String(endTime || '00:00').split(':').map(Number);
+		return { start: zonedDate(date[0], date[1], date[2], start[0], start[1], 0), end: zonedDate(date[0], date[1], date[2], end[0], end[1], 0) };
+	}
+	function resizeEnd(start, height) { return new Date(parseDate(start).getTime() + Math.round((Math.max(28, height) / 60) * 60 / 15) * 15 * MINUTE); }
+	function moveEventToDate(event, day) {
+		var target = zonedParts(parseDate(day));
+		var source = zonedParts(parseDate(event.start));
+		var end = zonedParts(parseDate(event.end));
+		return Object.assign({}, event, {
+			start: zonedDate(target.year, target.month, target.day, source.hour, source.minute, source.second),
+			end: zonedDate(target.year, target.month, target.day, end.hour, end.minute, end.second)
+		});
+	}
+	function icsDate(value) {
+		var date = parseDate(value);
+		function pad(number) { return String(number).padStart(2, '0'); }
+		return date.getUTCFullYear() + pad(date.getUTCMonth() + 1) + pad(date.getUTCDate()) + 'T' + pad(date.getUTCHours()) + pad(date.getUTCMinutes()) + pad(date.getUTCSeconds()) + 'Z';
+	}
+	function icsDateOnly(value) { return dateKey(value).replace(/-/g, ''); }
+	function nextLocalId() { localIdSequence += 1; return 'local-' + String(localIdSequence); }
+
 	function create(app) {
 		var api = app && app.api;
 		var capabilities = { admin: isAdmin(app) };
 		var listeners = [];
-		var primaryCache = {};
-		var primaryRequests = {};
 		var CACHE_FRESH_MS = 30000;
 		var rangeGeneration = 0;
 		var rangeAbortController = null;
+		var destroyed = false;
 		var today = new Date();
 		var state = {
 			view: 'month',
@@ -363,7 +477,7 @@
 			telemetry: { primaryLoadMs: 0, cacheHits: 0, cancelledRanges: 0 }
 		};
 
-		function emit() { listeners.slice().forEach(function (listener) { listener(state); }); }
+		function emit() { if (!destroyed) listeners.slice().forEach(function (listener) { listener(state); }); }
 		function set(patch) { Object.keys(patch).forEach(function (key) { state[key] = patch[key]; }); emit(); }
 		function subscribe(listener) { listeners.push(listener); listener(state); return function () { listeners = listeners.filter(function (item) { return item !== listener; }); }; }
 
@@ -391,13 +505,13 @@
 		}
 
 		function loadPrimary(generation, signal) {
-			if (!api || typeof api.get !== 'function') {
+			if (!api || (typeof api.request !== 'function' && typeof api.get !== 'function')) {
 				set({ wpStatus: 'error', todosStatus: 'error', error: 'Calendar service is unavailable.' });
 				return Promise.reject(new Error('Calendar service is unavailable'));
 			}
 			var params = range();
-			var key = params.start + '|' + params.end;
-			var cached = primaryCache[key];
+			var key = String(api.base || '') + '|' + (capabilities.admin ? 'admin' : 'student') + '|' + params.start + '|' + params.end;
+			var cached = sharedPrimaryCache[key];
 			set({ requestRange: { start: params.start, end: params.end }, cacheStatus: cached ? 'hit' : 'miss' });
 			if (cached) {
 				state.telemetry.cacheHits += 1;
@@ -405,11 +519,11 @@
 				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary cache=hit range=' + key);
 				if (Date.now() - cached.savedAt < CACHE_FRESH_MS) return Promise.resolve(cached.events.slice());
 			}
-			if (primaryRequests[key]) return primaryRequests[key];
 			var startedAt = Date.now();
-			var events = api.get('/events', params, signal ? { signal: signal } : undefined).then(function (payload) {
+			var request = typeof api.request === 'function' ? api.request('/events', { method: 'GET', signal: signal }, params) : api.get('/events', params);
+			var events = request.then(function (payload) {
 				var normalized = payload && Array.isArray(payload.events) ? payload.events.map(function (event) { return normalizeEvent(event, capabilities); }) : [];
-				primaryCache[key] = { events: normalized.slice(), savedAt: Date.now() };
+				sharedPrimaryCache[key] = { events: normalized.slice(), savedAt: Date.now() };
 				state.telemetry.primaryLoadMs = Date.now() - startedAt;
 				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary cache=' + (cached ? 'revalidated' : 'miss') + ' duration_ms=' + state.telemetry.primaryLoadMs + ' range=' + key);
 				if (generation === rangeGeneration) set({ events: normalized, wpStatus: normalized.length ? 'ready' : 'empty', cacheStatus: cached ? 'revalidated' : 'stored', error: '' });
@@ -418,12 +532,12 @@
 				if (error && error.name === 'AbortError') return [];
 				if (generation === rangeGeneration) set({ wpStatus: 'error', error: 'Live Matrix events could not be loaded.' });
 				throw error;
-			}).finally(function () { delete primaryRequests[key]; });
-			primaryRequests[key] = events;
-			api.get('/todos').then(function (payload) {
+			});
+			var todoRequest = typeof api.request === 'function' ? api.request('/todos', { method: 'GET', signal: signal }, {}) : api.get('/todos');
+			todoRequest.then(function (payload) {
 				var todos = payload && Array.isArray(payload.todos) ? payload.todos.map(normalizeTodo) : [];
-				set({ todos: todos, todosStatus: todos.length ? 'ready' : 'empty' });
-			}).catch(function () { set({ todosStatus: 'error' }); });
+				if (generation === rangeGeneration) set({ todos: todos, todosStatus: todos.length ? 'ready' : 'empty' });
+			}).catch(function (error) { if (!(error && error.name === 'AbortError') && generation === rangeGeneration) set({ todosStatus: 'error' }); });
 			return events;
 		}
 
@@ -464,6 +578,7 @@
 				return events;
 			});
 			return timeout(request, 2500, 'Scheduler enrichment timed out').catch(function () {
+				if (destroyed || (signal && signal.aborted)) return [];
 				if (generation === rangeGeneration) {
 					set({ schedulerStatus: 'degraded' });
 					global.setTimeout(function () { loadScheduler(generation, signal).catch(function () {}); }, 10000);
@@ -499,7 +614,8 @@
 		function createEvent(candidate) {
 			if (!capabilities.admin || !api || typeof api.post !== 'function') return Promise.reject(new Error('Calendar editing is unavailable.'));
 			set({ busy: true, error: '' });
-			return api.post('/events', eventPayload(candidate)).then(function (saved) {
+			var authorizedCandidate = Object.assign({}, candidate, { audience: candidate.audience || 'all_students' });
+			return api.post('/events', eventPayload(authorizedCandidate)).then(function (saved) {
 				var event = normalizeEvent(saved && (saved.event || saved), capabilities);
 				set({ events: mergeEvents(state.events, [event]), busy: false });
 				return event;
@@ -552,6 +668,24 @@
 			}).catch(function (error) { set({ busy: false, error: 'The task was not deleted. Nothing changed.' }); throw error; });
 		}
 
+		function refreshRecording(event) {
+			if (!event || !event.sourceId) return Promise.reject(new Error('Recording is unavailable.'));
+			return sessionJson('/api/scheduler/appointments/' + encodeURIComponent(event.sourceId) + '/recording', { method: 'GET', credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (payload) {
+				var data = payload && (payload.data || payload);
+				var url = safeUrl(data && (data.recording_url || data.playback_url || (data.recording && data.recording.playback_url)));
+				if (!url) return { ready: false, event: event };
+				var updated = Object.assign({}, event, { replayUrl: url, recordingStatus: 'ready' });
+				set({ events: state.events.map(function (item) { return String(item.id) === String(event.id) ? updated : item; }) });
+				return { ready: true, event: updated };
+			});
+		}
+
+		function destroy() {
+			destroyed = true;
+			if (rangeAbortController) rangeAbortController.abort();
+			listeners = [];
+		}
+
 		function setPreference(experience) {
 			if (config.forced) return Promise.reject(new Error('Force Classic is active.'));
 			if (experience !== 'classic' && experience !== 'storyforge') return Promise.reject(new Error('Unknown calendar experience.'));
@@ -573,9 +707,11 @@
 			createTodo: createTodo,
 			updateTodo: updateTodo,
 			deleteTodo: deleteTodo,
+			refreshRecording: refreshRecording,
 			setPreference: setPreference,
 				reloadScheduler: function () { return loadScheduler(rangeGeneration, rangeAbortController ? rangeAbortController.signal : undefined); },
-				reloadRange: refreshRange
+				reloadRange: refreshRange,
+				destroy: destroy
 		};
 	}
 
@@ -595,6 +731,24 @@
 		mergeEvents: mergeEvents,
 		viewModel: viewModel,
 		buildDrillEvent: buildDrillEvent,
+		classicFormat: classicFormat,
+		sameDay: sameDay,
+		isToday: isToday,
+		eventsOn: eventsOn,
+		classicMonthGrid: classicMonthGrid,
+		classicWeekGrid: classicWeekGrid,
+		classicDayGrid: classicDayGrid,
+		classicAgendaGroups: classicAgendaGroups,
+		trackerModel: trackerModel,
+		dateInput: dateInput,
+		timeInput: timeInput,
+		combineDateTime: combineDateTime,
+		resizeEnd: resizeEnd,
+		moveEventToDate: moveEventToDate,
+		icsDate: icsDate,
+		icsDateOnly: icsDateOnly,
+		now: function () { return new Date(); },
+		nextLocalId: nextLocalId,
 		safeUrl: safeUrl,
 		timeout: timeout,
 		eventPayload: eventPayload,

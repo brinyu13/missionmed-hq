@@ -222,6 +222,7 @@
 	function unmount() {
 		if (unsubscribe) unsubscribe();
 		unsubscribe = null;
+		if (instance && typeof instance.destroy === 'function') instance.destroy();
 		instance = null;
 		selectedEventId = '';
 		drawerReturnEventId = '';

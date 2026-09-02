@@ -1,7 +1,7 @@
 {
   "ticket": "MX-CAL-4200C",
   "date": "2026-09-02",
-  "scope_note": "Implementation verification only. The MX-CAL-4200A forensic audit was not rerun.",
+  "scope_note": "MX-CAL-4200C implementation verification plus the bounded MX-CAL-4200A P1 regression matrix for both experiences. Per Founder direction, the completed MX-CAL-4200A forensic audit itself was not repeated.",
   "environment": {
     "local_harnesses": [
       "tests/mx-cal-4200c/harness.html",
@@ -21,6 +21,7 @@
       "server-success-first create behavior",
       "shared event, Scheduler, todo, time, and mutation ownership in MMEDCalendarCore",
       "view-bounded primary ranges, stale-response suppression, and warm-revisit cache hits",
+      "AbortSignal propagation through the real Matrix request primitive, same-range stale-revisit recovery, and module-lived route-remount SWR cache",
       "America/New_York ET and DST display/write contract under New York, Los Angeles, and London host timezones",
       "experience resolution precedence and Classic fallback",
       "single renderer and renderer boundary contracts",
@@ -65,7 +66,7 @@
     {"id": "A11Y-01", "status": "PASS", "evidence": "Keyboard event/date/topic activation, focus-visible treatment, semantic controls, reduced-motion suppression, plus drawer initial focus, Escape, focus trap, and focus return."},
     {"id": "SCHEMA-01", "status": "NOT_CHANGED_BY_AUTHORITY", "evidence": "DR-163 prohibits wp_mmed_events schema or migration changes."},
     {"id": "MUT-01", "status": "PASS", "evidence": "Server-success-first event and todo mutations in the shared core plus explicit Classic delete confirmation."},
-    {"id": "PERF-01", "status": "PASS", "evidence": "View-specific bounded ranges, 30-second warm cache, revisit cache test, load timing, and stale response generation guard."},
+    {"id": "PERF-01", "status": "PASS", "evidence": "View-specific bounded ranges; AbortSignal reaches Matrix api.request/fetch; stale same-range revisit starts a current-generation request; module-lived 30-second SWR cache survives unmount/remount; local exact-390 browser remount was 213.1 ms Classic and 85.8 ms StoryForge, both within 400 ms."},
     {"id": "CTRL-01", "status": "PASS", "evidence": "Missing options fail closed to Classic; manage_options Settings API page exposes default, V2 availability, and Force Classic."}
   ],
   "production": {

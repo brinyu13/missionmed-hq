@@ -23,6 +23,7 @@ function loadCore(overrides) {
 		Array,
 		RegExp,
 		Error,
+		AbortController,
 		setTimeout,
 		clearTimeout,
 		location: { origin: 'https://missionmedinstitute.com' },
@@ -118,6 +119,90 @@ test('view ranges are bounded and warm revisits use the shared cache', async () 
 	await calendar.setView('day');
 	const dayRange = eventCalls[eventCalls.length - 1];
 	assert.ok((new Date(dayRange.end) - new Date(dayRange.start)) < 17 * 86400000, 'day fetch must stay within a bounded prefetch window');
+});
+
+test('primary Matrix requests receive AbortSignal and navigation physically aborts stale work', async () => {
+	const calls = [];
+	const app = {
+		profile: { is_admin: false },
+		api: {
+			base: '/wp-json/mmed/v1',
+			request: (endpoint, options, params) => {
+				if (endpoint === '/todos') return Promise.resolve({ todos: [] });
+				return new Promise((resolve, reject) => {
+					const call = { options, params, resolve, reject };
+					calls.push(call);
+					options.signal.addEventListener('abort', () => {
+						const error = new Error('aborted');
+						error.name = 'AbortError';
+						reject(error);
+					}, { once: true });
+				});
+			}
+		}
+	};
+	const core = loadCore({ fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ authenticated: true, accessToken: 'test-only', data: { events: [] } }) }) });
+	const calendar = core.create(app);
+	const first = calendar.start();
+	assert.equal(calls.length, 1);
+	const second = calendar.navigate(1);
+	assert.equal(calls[0].options.signal.aborted, true);
+	assert.equal(calls.length, 2);
+	calls[1].resolve({ events: [] });
+	await Promise.all([first, second]);
+});
+
+test('same-range revisit starts a current-generation request after stale abort', async () => {
+	const calls = [];
+	const app = {
+		profile: { is_admin: false },
+		api: {
+			base: '/wp-json/mmed/v1',
+			request: (endpoint, options, params) => {
+				if (endpoint === '/todos') return Promise.resolve({ todos: [] });
+				return new Promise((resolve, reject) => {
+					calls.push({ options, params, resolve });
+					options.signal.addEventListener('abort', () => {
+						const error = new Error('aborted'); error.name = 'AbortError'; reject(error);
+					}, { once: true });
+				});
+			}
+		}
+	};
+	const core = loadCore({ fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ authenticated: true, accessToken: 'test-only', data: { events: [] } }) }) });
+	const calendar = core.create(app);
+	const first = calendar.start();
+	const second = calendar.navigate(1);
+	const third = calendar.navigate(-1);
+	assert.equal(calls.length, 3, 'revisited range must not reuse the aborted generation-one promise');
+	assert.equal(calls[0].params.start, calls[2].params.start);
+	calls[2].resolve({ events: [] });
+	await Promise.all([first, second, third]);
+});
+
+test('module-lived SWR cache survives route unmount/remount within 400 ms', async () => {
+	let eventRequests = 0;
+	const app = {
+		profile: { is_admin: false },
+		api: {
+			base: '/wp-json/mmed/v1',
+			request: (endpoint) => {
+				if (endpoint === '/events') eventRequests += 1;
+				return Promise.resolve(endpoint === '/events' ? { events: [] } : { todos: [] });
+			}
+		}
+	};
+	const core = loadCore({ fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ authenticated: true, accessToken: 'test-only', data: { events: [] } }) }) });
+	const first = core.create(app);
+	await first.start();
+	first.destroy();
+	const started = performance.now();
+	const remounted = core.create(app);
+	await remounted.start();
+	const elapsed = performance.now() - started;
+	assert.equal(eventRequests, 1, 'warm remount must use the shared SWR cache');
+	assert.ok(elapsed <= 400, `warm remount exceeded 400 ms: ${elapsed}`);
+	assert.equal(remounted.state.cacheStatus, 'hit');
 });
 
 test('ET display contract is explicit and DST-aware', () => {
