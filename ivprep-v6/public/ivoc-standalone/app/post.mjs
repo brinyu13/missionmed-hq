@@ -104,11 +104,10 @@ function flightRecorderMarkup(model, windowSeconds = 0) {
     .filter(point => Number(point?.t) >= start)
     .map(point => ({ ...point, t: Number(point.t) - start }));
   const visibleEvents = (model.events || []).filter(event => Number(event?.t) >= start && Number(event?.t) <= start + total);
-  const traces = [
+  const voiceTraces = [
     ['VOLUME', 'vol', 'var(--g-teal)'],
     ['PITCH', 'pitch', 'var(--g-violet)'],
     ['PACE', 'pace', 'var(--g-cyan)'],
-    ['VOCAL VARIETY', 'variety', 'var(--g-gold)'],
   ];
   const stateColors = { LISTENING: '#3f6bd8', THINKING: '#8b7cf7', ANSWERING: '#2fbf63', PAUSE: '#ffc24b', TRANSITION: '#8fa0d9', SETUP: '#57628a' };
   const stateRuns = intervalRuns(history, point => point.state || 'UNAVAILABLE', total);
@@ -126,10 +125,24 @@ function flightRecorderMarkup(model, windowSeconds = 0) {
     ['RECORDING', visibleEvents.filter(event => String(event.kind || '').startsWith('recording-'))],
   ];
   const lane = (label, body, group) => `<div class="fr-lane" data-fr-lane="${group}"><div class="fr-label">${label}</div><div class="fr-track">${body}</div></div>`;
-  const realTraceLanes = traces.map(([label, key, color]) => lane(label,
-    tracePath(history, key, total)
-      ? `<svg viewBox="0 0 100 30" preserveAspectRatio="none"><path d="${tracePath(history, key, total)}" stroke="${color}"/></svg>`
-      : '<span class="fr-unavail">UNAVAILABLE · NO OBSERVED RUN</span>', 'voice')).join('');
+  const voicePaths = voiceTraces.map(([label, key, color]) => {
+    const path = tracePath(history, key, total);
+    return path ? `<path class="fr-voice-path fr-voice-${key}" d="${path}" stroke="${color}" aria-label="${label} shared 0 to 10 trace"/>` : '';
+  }).join('');
+  const voicePlot = `<div class="fr-lane fr-voice-lane" data-fr-lane="voice">
+    <div class="fr-label fr-voice-label">
+      <b>VOICE · 0–10</b><small>ONE SHARED AXIS<br>0 = OBSERVED SILENCE</small>
+      ${voiceTraces.map(([label, key, color]) => `<i><span style="background:${color}"></span>${label}</i>`).join('')}
+    </div>
+    <div class="fr-track fr-voice-track">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Volume, Pitch, and Pace on one shared 0 to 10 timeline">
+        <g class="fr-voice-grid"><line x1="0" y1="6" x2="100" y2="6"/><line x1="0" y1="28" x2="100" y2="28"/><line x1="0" y1="50" x2="100" y2="50"/><line x1="0" y1="72" x2="100" y2="72"/><line class="zero" x1="0" y1="94" x2="100" y2="94"/></g>
+        ${voicePaths}
+      </svg>
+      <div class="fr-y-labels" aria-hidden="true"><span>10</span><span>7.5</span><span>5</span><span>2.5</span><span>0 · SILENCE</span></div>
+      ${voicePaths ? '' : '<span class="fr-unavail">UNAVAILABLE · NO OBSERVED VOICE RUN</span>'}
+    </div>
+  </div>`;
   const stateLane = lane('CONVERSATION STATE', stateRuns.map(run => `<i class="fr-run" style="left:${run.left}%;width:${run.width}%;background:${stateColors[run.value] || '#57628a'}" title="${esc(run.value)} · ${fmt(start + run.start)}–${fmt(start + run.end)}"></i>`).join('') || '<span class="fr-unavail">NO STATE HISTORY</span>', 'behavior');
   const handsLane = lane('HAND VISIBILITY', handRuns.map(run => `<i class="fr-run hands-${esc(run.value).toLowerCase()}" style="left:${run.left}%;width:${run.width}%" title="${esc(run.value)}"></i>`).join('') || '<span class="fr-unavail">NO HAND HISTORY</span>', 'behavior');
   const presenceLane = lane('FRAMING / PRESENCE', presenceRuns.map(run => `<i class="fr-run presence-${esc(run.value).toLowerCase()}" style="left:${run.left}%;width:${run.width}%" title="${esc(run.value)}"></i>`).join('') || '<span class="fr-unavail">NO FRAMING HISTORY</span>', 'behavior');
@@ -144,7 +157,7 @@ function flightRecorderMarkup(model, windowSeconds = 0) {
       <div class="fr-zoom" aria-label="Flight Recorder time scale"><button class="${windowSeconds === 30 ? 'on' : ''}" data-fr-zoom="30">30S</button><button class="${windowSeconds === 60 ? 'on' : ''}" data-fr-zoom="60">1M</button><button class="${windowSeconds === 180 ? 'on' : ''}" data-fr-zoom="180">3M</button><button class="${windowSeconds === 0 ? 'on' : ''}" data-fr-zoom="0">FULL</button></div>
     </div>
     <div class="fr-ruler"><span>${fmt(start)}</span><span>${fmt(start + total / 2)}</span><span>${fmt(start + total)}</span></div>
-    <div class="fr-lanes" data-fr-inspect>${realTraceLanes}${stateLane}${handsLane}${presenceLane}${chipLanes}${gapLane}<i class="fr-playhead" id="frPlayhead"></i><output class="fr-inspector" id="frInspector" hidden></output></div>
+    <div class="fr-lanes" data-fr-inspect>${voicePlot}${stateLane}${handsLane}${presenceLane}${chipLanes}${gapLane}<i class="fr-playhead" id="frPlayhead"></i><output class="fr-inspector" id="frInspector" hidden></output></div>
   </section>`;
 }
 
@@ -366,7 +379,8 @@ async function resultsScreen(el, { param }) {
     inspector.hidden = false;
     inspector.style.left = `${Math.max(182, Math.min(el.querySelector('.fr-lanes').clientWidth - 250, event.clientX - el.querySelector('.fr-lanes').getBoundingClientRect().left))}px`;
     inspector.style.top = `${Math.max(4, event.clientY - el.querySelector('.fr-lanes').getBoundingClientRect().top - 52)}px`;
-    inspector.textContent = `${fmt(at)} · ${nearest.state || 'STATE —'} · VOL ${nearest.vol == null ? '—' : Number(nearest.vol).toFixed(2)} · PITCH ${nearest.pitch == null ? '—' : Number(nearest.pitch).toFixed(2)} · PACE ${nearest.pace == null ? '—' : Number(nearest.pace).toFixed(2)} · HANDS ${nearest.hands || '—'}`;
+    const score = key => nearest.speaking === false ? '0.0' : nearest[key] == null ? '—' : (Math.max(0, Math.min(1, Number(nearest[key]))) * 10).toFixed(1);
+    inspector.textContent = `${fmt(at)} · ${nearest.state || 'STATE —'} · VOL ${score('vol')}/10 · PITCH ${score('pitch')}/10 · PACE ${score('pace')}/10 · HANDS ${nearest.hands || '—'}`;
   });
 }
 

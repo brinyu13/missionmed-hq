@@ -134,23 +134,26 @@ export function normalizeDurations(input = {}) {
 
 export function tracePath(history = [], key, totalSeconds) {
   const total = Math.max(1, finite(totalSeconds) ?? 1);
-  const commands = [];
-  let open = false;
-  let previousAt = null;
-  for (const point of history) {
-    const at = finite(point?.t);
-    const value = finite(point?.[key]);
-    if (at === null || value === null || previousAt !== null && at - previousAt > (key === 'pace' ? 6 : 1.2)) {
-      open = false;
-      previousAt = null;
-      if (at === null || value === null) continue;
-    }
+  const points = history
+    .map(point => ({ point, at: finite(point?.t) }))
+    .filter(({ at }) => at !== null && at >= 0 && at <= total)
+    .sort((a, b) => a.at - b.at);
+  if (!points.length) return '';
+  if (!points.some(({ point }) => point?.speaking === false || finite(point?.[key]) !== null)) return '';
+  const bottom = 94;
+  const top = 6;
+  const yOf = normalized => bottom - Math.max(0, Math.min(1, normalized)) * (bottom - top);
+  const commands = [`M0.00,${bottom.toFixed(2)}`];
+  let value = 0;
+  for (const entry of points) {
+    const { point, at } = entry;
+    const observed = finite(point?.[key]);
+    if (point?.speaking === false) value = 0;
+    else if (observed !== null) value = Math.max(0, Math.min(1, observed));
     const x = Math.max(0, Math.min(100, at / total * 100));
-    const y = 26 - Math.max(0, Math.min(1, value)) * 20;
-    commands.push(`${open ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`);
-    open = true;
-    previousAt = at;
+    commands.push(`L${x.toFixed(2)},${yOf(value).toFixed(2)}`);
   }
+  commands.push(`L100.00,${yOf(value).toFixed(2)}`);
   return commands.join(' ');
 }
 

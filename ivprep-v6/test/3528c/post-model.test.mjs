@@ -13,14 +13,22 @@ import {
   tracePath,
 } from '../../public/ivoc-standalone/app/post-model.mjs';
 
-test('flight recorder trace preserves unavailable and long-gap discontinuities', () => {
+test('flight recorder voice trace stays continuous and projects observed silence to shared zero', () => {
   const path = tracePath([
-    { t: 0, vol: .2 },
-    { t: .5, vol: .4 },
-    { t: 1, vol: null },
-    { t: 3, vol: .8 },
+    { t: 0, speaking: false, vol: null },
+    { t: .5, speaking: true, vol: .4 },
+    { t: 1, speaking: false, vol: null },
+    { t: 3, speaking: true, vol: .8 },
   ], 'vol', 4);
-  assert.match(path, /^M0\.00,22\.00 L12\.50,18\.00 M75\.00,10\.00$/);
+  assert.equal(path, 'M0.00,94.00 L0.00,94.00 L12.50,58.80 L25.00,94.00 L75.00,23.60 L100.00,23.60');
+  assert.doesNotMatch(path, / M/u, 'one projected metric must remain one continuous path');
+});
+
+test('flight recorder does not relabel an entirely unavailable speaking signal as silence', () => {
+  assert.equal(tracePath([
+    { t: 0, speaking: true, vol: null },
+    { t: 1, speaking: true, vol: null },
+  ], 'vol', 2), '');
 });
 
 test('flight recorder interval runs preserve state and hand transitions', () => {

@@ -104,6 +104,32 @@
 .fr-track { position: relative; min-width: 0; overflow: hidden; background-image: linear-gradient(to right,rgba(66,80,106,.18) 1px,transparent 1px); background-size: 10% 100%; }
 .fr-track svg { position: absolute; inset: 3px 0; width: 100%; height: calc(100% - 6px); overflow: visible; }
 .fr-track path { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 4px currentColor); }
+.fr-voice-lane { min-height: 148px; }
+.fr-voice-label { align-items: flex-start; justify-content: center; flex-direction: column; gap: 7px; }
+.fr-voice-label b { color: var(--g-ink); font: 800 11px/1 var(--g-mono); letter-spacing: 1.2px; }
+.fr-voice-label small { color: var(--g-faint); font: 650 8px/1.25 var(--g-mono); letter-spacing: .55px; }
+.fr-voice-label i { display: flex; align-items: center; gap: 6px; color: var(--g-mid); font: 700 8px/1 var(--g-mono); font-style: normal; letter-spacing: .7px; }
+.fr-voice-label i span { width: 12px; height: 3px; border-radius: 999px; box-shadow: 0 0 7px currentColor; }
+.fr-voice-track {
+  background-image:
+    linear-gradient(to right,rgba(66,80,106,.2) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(66,80,106,.2) 1px,transparent 1px);
+  background-size: 10% 100%, 100% 25%;
+}
+.fr-voice-track svg { inset: 0; width: 100%; height: 100%; }
+.fr-voice-grid line { stroke: rgba(82,98,128,.42); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.fr-voice-grid line.zero { stroke: rgba(220,228,244,.72); stroke-width: 1.35; }
+.fr-track .fr-voice-path { stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
+.fr-voice-vol { color: var(--g-teal); }
+.fr-voice-pitch { color: var(--g-violet); }
+.fr-voice-pace { color: var(--g-cyan); }
+.fr-y-labels { position: absolute; inset: 0 5px 0 auto; width: 70px; pointer-events: none; }
+.fr-y-labels span { position: absolute; right: 0; transform: translateY(-50%); padding: 2px 4px; color: rgba(220,228,244,.86); background: rgba(5,9,18,.72); border-radius: 3px; font: 700 8px/1 var(--g-mono); letter-spacing: .4px; }
+.fr-y-labels span:nth-child(1) { top: 6%; }
+.fr-y-labels span:nth-child(2) { top: 28%; }
+.fr-y-labels span:nth-child(3) { top: 50%; }
+.fr-y-labels span:nth-child(4) { top: 72%; }
+.fr-y-labels span:nth-child(5) { top: 94%; color: white; }
 .fr-run { position: absolute; top: 9px; bottom: 9px; min-width: 2px; border-radius: 3px; opacity: .9; }
 .fr-run.hands-both { background: var(--g-teal); }
 .fr-run.hands-left,

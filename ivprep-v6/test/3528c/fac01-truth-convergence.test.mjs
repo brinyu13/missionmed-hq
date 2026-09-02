@@ -62,11 +62,28 @@ test('FAC-01 trace deck renders three continuous live lines without changing the
   const live = await source('public/ivoc-standalone/app/live.mjs');
   assert.match(runtime, /frame\.speaking && frame\.pitch\.available && frame\.pitch\.voiced/u);
   assert.match(runtime, /pace: frame\.speaking && frame\.speedWpm\.available/u);
-  assert.match(live, /One continuous bright telemetry trace per lane/u);
-  assert.match(live, /underlying history retains null gaps/u);
+  assert.match(live, /One continuous shared-axis trace per real metric/u);
+  assert.match(live, /Explicit observed[\s\S]*silence is projected to zero/u);
+  assert.match(live, /Stored history and raw measurement values are never rewritten/u);
+  assert.match(live, /SHARED 0–10 · ZERO = SILENCE/u);
   assert.match(live, /c\.lineJoin = 'round'/u);
-  assert.match(live, /c\.lineTo\(x, y\)/u);
-  assert.match(live, /c\.lineTo\(X\(tEnd\), Y\(lastKnown\.value\)\)/u);
+  assert.match(live, /c\.lineTo\(X\(p\.t\), Y\(value\)\)/u);
+  assert.match(live, /c\.lineTo\(X\(tEnd\), Y\(value\)\)/u);
   assert.doesNotMatch(runtime, /pitch:\s*Math\.random/u);
   assert.doesNotMatch(runtime, /pace:\s*Math\.random/u);
+});
+
+test('FAC-02B Results overlays Volume, Pitch and Pace on the same labeled 0–10 axis', async () => {
+  const post = await source('public/ivoc-standalone/app/post.mjs');
+  const css = await source('public/ivoc-standalone/styles/post.css');
+  assert.match(post, /VOICE · 0–10/u);
+  assert.match(post, /ONE SHARED AXIS/u);
+  assert.match(post, /0 = OBSERVED SILENCE/u);
+  assert.match(post, /viewBox="0 0 100 100"/u);
+  assert.match(post, /fr-voice-\$\{key\}/u);
+  assert.match(post, /\['VOLUME', 'vol'/u);
+  assert.match(post, /\['PITCH', 'pitch'/u);
+  assert.match(post, /\['PACE', 'pace'/u);
+  assert.match(css, /\.fr-voice-lane \{ min-height: 148px; \}/u);
+  assert.match(css, /\.fr-voice-grid line\.zero/u);
 });

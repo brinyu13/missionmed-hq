@@ -197,7 +197,7 @@ async function liveScreen(el) {
     <div class="room-bottom">
       <div class="vv-deck" ${showAnalytics ? '' : 'hidden'}>
         <div class="vv-head">
-          <div class="vv-title"><b>VOCAL VARIATION</b><small>speech-gated history · silence visible</small></div>
+          <div class="vv-title"><b>VOCAL VARIATION</b><small>shared 0–10 scale · 0 = silence · live movement</small></div>
           <div class="vv-traces" id="vvTraces">
             <button class="vv-t on" data-trace="vol"><i style="background:var(--g-teal)"></i>VOLUME</button>
             <button class="vv-t on" data-trace="pitch"><i style="background:var(--g-violet)"></i>PITCH</button>
@@ -454,9 +454,14 @@ async function liveScreen(el) {
     const tEnd = engine.frame().t;
     const span = vvWindow === 0 ? Math.max(30, tEnd) : vvWindow;
     const t0 = tEnd - span; // "now" always anchors the right edge
-    const X = t => ((t - t0) / span) * w;
-    const lanePad = Math.max(4, h * .035);
-    const laneHeight = h / 3;
+    const plotLeft = Math.max(38, w * .032);
+    const plotRight = Math.max(8, w * .008);
+    const plotTop = Math.max(8, h * .055);
+    const plotBottom = h - Math.max(22, h * .15);
+    const plotWidth = Math.max(1, w - plotLeft - plotRight);
+    const plotHeight = Math.max(1, plotBottom - plotTop);
+    const X = t => plotLeft + ((t - t0) / span) * plotWidth;
+    const Y = value => plotBottom - Math.max(0, Math.min(1, Number(value) || 0)) * plotHeight;
     // silence shading
     c.fillStyle = 'rgba(120,132,160,.08)';
     let runStart = null;
@@ -465,59 +470,60 @@ async function liveScreen(el) {
       if (p.t < t0) continue;
       if (!p.speaking && runStart == null) runStart = p.t;
       if ((p.speaking || i === hist.length - 1) && runStart != null) {
-        c.fillRect(X(runStart), 0, Math.max(2, X(p.t) - X(runStart)), h);
+        c.fillRect(X(runStart), plotTop, Math.max(2, X(p.t) - X(runStart)), plotHeight);
         runStart = null;
       }
     }
-    // grid
-    c.strokeStyle = 'rgba(66,80,106,.35)'; c.lineWidth = 1;
-    for (let gy = 1; gy < 3; gy++) { c.beginPath(); c.moveTo(0, laneHeight * gy); c.lineTo(w, laneHeight * gy); c.stroke(); }
+    // Every trace uses the same physical screen axis: bottom 0, top 10.
+    c.textAlign = 'right'; c.textBaseline = 'middle';
+    c.font = `700 ${Math.max(9, h * .067)}px "Space Grotesk", monospace`;
+    for (const score of [0, 2.5, 5, 7.5, 10]) {
+      const y = Y(score / 10);
+      c.strokeStyle = score === 0 ? 'rgba(147,161,186,.62)' : 'rgba(66,80,106,.38)';
+      c.lineWidth = score === 0 ? 1.4 : 1;
+      c.beginPath(); c.moveTo(plotLeft, y); c.lineTo(w - plotRight, y); c.stroke();
+      c.fillStyle = score === 0 ? 'rgba(220,228,244,.95)' : 'rgba(147,161,186,.88)';
+      c.fillText(String(score), plotLeft - 7, y);
+    }
+    c.textAlign = 'left';
+    c.fillStyle = 'rgba(147,161,186,.86)';
+    c.textBaseline = 'top';
+    c.fillText('SHARED 0–10 · ZERO = SILENCE', plotLeft + 8, plotTop + 5);
+
     const lanes = [['vol', '#2fe7b0'], ['pitch', '#a696ff'], ['pace', '#39d6ff']];
-    for (const [laneIndex, [k, color]] of lanes.entries()) {
+    for (const [k, color] of lanes) {
       if (!traces[k]) continue;
-      const laneTop = laneHeight * laneIndex;
-      const Y = v => laneTop + lanePad + (1 - v) * Math.max(1, laneHeight - lanePad * 2);
       const inWindow = hist.filter((point) => point.t >= t0);
-      let lastKnown = null;
+      let value = 0;
       for (const point of hist) {
         if (point.t > t0) break;
-        if (point[k] != null) lastKnown = { t: t0, value: point[k] };
+        if (point.speaking === false) value = 0;
+        else if (Number.isFinite(Number(point[k]))) value = Math.max(0, Math.min(1, Number(point[k])));
       }
 
-      // One continuous bright telemetry trace per lane. Silence remains visible
-      // in the shaded background, while the line connects only genuine observed
-      // samples and carries the last measured point to the live edge. This is a
-      // visualization interpolation; the underlying history retains null gaps.
-      c.strokeStyle = color; c.lineWidth = Math.max(1.5, h * .018); c.lineJoin = 'round'; c.lineCap = 'round';
+      // One continuous shared-axis trace per real metric. Explicit observed
+      // silence is projected to zero; a speaking-frame signal gap carries the
+      // last measurement while the separate gap evidence remains authoritative.
+      // Stored history and raw measurement values are never rewritten here.
+      c.strokeStyle = color; c.lineWidth = Math.max(2, h * .018); c.lineJoin = 'round'; c.lineCap = 'round';
+      c.shadowColor = color; c.shadowBlur = Math.max(3, h * .025);
       c.beginPath();
-      let pen = false;
-      let eased = null;
-      if (lastKnown !== null) {
-        c.moveTo(X(t0), Y(lastKnown.value));
-        pen = true;
-        eased = lastKnown.value;
-      }
+      c.moveTo(X(t0), Y(value));
       for (const p of inWindow) {
-        const v = p[k];
-        if (v == null) continue;
-        eased = eased === null ? v : eased * .58 + v * .42;
-        const x = X(p.t), y = Y(eased);
-        if (!pen) { c.moveTo(x, y); pen = true; } else c.lineTo(x, y);
-        lastKnown = { t: p.t, value: eased };
+        if (p.speaking === false) value = 0;
+        else if (Number.isFinite(Number(p[k]))) value = Math.max(0, Math.min(1, Number(p[k])));
+        c.lineTo(X(p.t), Y(value));
       }
-      if (lastKnown !== null && pen) c.lineTo(X(tEnd), Y(lastKnown.value));
+      c.lineTo(X(tEnd), Y(value));
       c.stroke();
-      c.fillStyle = color;
-      c.font = `700 ${Math.max(8, h * .07)}px "Space Grotesk", monospace`;
-      c.textBaseline = 'top';
-      c.fillText(k === 'vol' ? 'VOLUME' : k.toUpperCase(), 7, laneTop + 4);
+      c.shadowBlur = 0;
     }
     // pre-speech hint (honest empty state)
     if (!hist.some(p => p.speaking)) {
       c.fillStyle = 'rgba(147,161,186,.75)';
       c.font = `600 ${Math.max(12, h * .12)}px "Space Grotesk", monospace`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText('WAITING FOR OBSERVED SPEECH — SILENCE STAYS VISIBLE', w / 2, h * .5);
+      c.fillText('WAITING FOR SPEECH · ALL TRACES HOLD AT ZERO', plotLeft + plotWidth / 2, plotTop + plotHeight * .5);
       c.textAlign = 'left';
     }
     // time labels along the bottom edge
@@ -528,7 +534,7 @@ async function liveScreen(el) {
     for (let i = 0; i <= steps; i++) {
       const tt = t0 + span * i / steps;
       const label = `-${fmt(tEnd - tt)}`;
-      const x = Math.min(w - 46, Math.max(4, X(tt) - 16));
+      const x = Math.min(w - 46, Math.max(plotLeft, X(tt) - 16));
       c.fillText(i === steps ? 'now' : label, x, h - 3);
     }
   }
