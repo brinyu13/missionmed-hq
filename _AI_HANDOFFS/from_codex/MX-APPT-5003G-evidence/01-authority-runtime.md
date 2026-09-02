@@ -10,7 +10,7 @@ Captured: 2026-09-02 UTC
 - Product passport: PRODUCT_PASSPORTS/scheduler.md
 - Founder authority: decisions/DR-164_mx_appt_5003g_appointments_storyforge_v2_production_authority.md
 - Bounded MR-079 authority: decisions/DR-165_mx_appt_5003g_bounded_mr_079_production_execution_amendment.md
-- MR-079 canonical hash: 9638e678f8f33a2877428bf1f254737118ec48592557034f1c902c614ea0357
+- MR-079 canonical hash: 9638e67841e98b278244c0d4f9ecd0ccbdc7a9e17c50a67dd45d1d31895a0357
 - MissionMed HQ origin/main: 4c86e85c186c01561ded81e1927842cd2ce0e5fc
 - Candidate branch: codex/mx-appt-5003g-production
 
@@ -43,4 +43,11 @@ The candidate never fabricates divisions, providers, availability, appointment r
 
 ## Shared-runtime custody
 
-The authenticated Matrix route exposes the WordPress REST nonce needed for a legitimate account-preference route, but no Appointments preference route currently exists. DR-164 permits a bounded shared seam when proven and leased. SHARED:MISSIONMED-HUB is actively held and renewed by MX-CAL-4200C; V2 shared-domain conflict rules correctly prevent concurrent mutation. No shared PHP change was made.
+- MX-CAL-4200C released `SHARED:MISSIONMED-HUB` and `SHARED:MATRIX-SHELL` with provider-clear readback before this continuation.
+- The live preimages were re-read before custody: `class-mmed-rest-api.php` SHA-256 `70e7bae598a804f547425085e90e2b4e52d659c2c41755d124184619b92c29da`; `class-mmed-feature-flags.php` SHA-256 `587c83235032490f03485932dc0e305bbad06627743b1bcc529cd037c16c40ab`.
+- Those hashes exactly matched the preserved local preimages.
+- `SHARED:MISSIONMED-HUB` was acquired for only those two PHP paths through the Keychain-backed Lease V2 loader. Nine exact PATH scopes cover the Scheduler source, source lock, deploy manifest, test, handoff, and evidence paths. Heartbeat interval: 8 seconds.
+- `class-mmed-student-os.php`, `student-os.js`, `student-os.css`, `scheduler-mount.js`, and the Matrix runtime lock were not changed. The existing `window.MMED_OS.api` object already supplies the authenticated WordPress REST base, same-origin credentials, and REST nonce.
+- Candidate PHP hashes: REST API `2e1c2edbd1f2cb5903708bd951205be510dcc7a33608fb23bc36ce2d997aa5b9`; feature flags `21fd47015a0b1e9a2721c419d3a33da7c81391c5ddebf9396f4612a9c5cb478a`.
+
+The shared change adds no schema migration. It uses one WordPress user-meta key for the account preference, one existing feature-flag option entry for Force Classic, and one bounded 50-entry admin audit option. The live WordPress files remain on their preimages until every deployment gate passes.
