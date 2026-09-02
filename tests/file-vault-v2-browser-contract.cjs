@@ -564,9 +564,25 @@ async function sharingExperienceFlow(browser) {
 		await student.page.getByRole("button", { name: "Share with students", exact: true }).first().click();
 		await student.page.locator(".fv2-share-audience").waitFor();
 		assert((await student.page.locator("[data-fv2-upload-file]").getAttribute("accept")).includes(".mp4") && (await student.page.locator("[data-fv2-upload-file]").getAttribute("accept")).includes(".webm"), "sharing: upload chooser omitted the approved MP4/WebM preview formats");
+		await student.page.setInputFiles("[data-fv2-upload-file]", {
+			name: "controlled_share.pdf",
+			mimeType: "application/pdf",
+			buffer: Buffer.from("deterministic controlled share fixture bytes")
+		});
+		if (await student.page.locator("[data-fv2-upload-type]").count()) await student.page.locator("[data-fv2-upload-type]").selectOption("other");
+		if (await student.page.locator("[data-fv2-upload-name]").count()) await student.page.locator("[data-fv2-upload-name]").fill("Controlled Share");
+		await student.page.locator("[data-fv2-upload-program]").selectOption("360 Match Mentorship");
+		await student.page.locator("[data-fv2-upload-session]").selectOption("A");
+		await student.page.locator("[data-fv2-share-group]").first().check();
+		assert(!(await student.page.locator("[data-fv2-upload-next]").isDisabled()), "sharing: group selection did not unlock Review");
+		await student.page.locator("[data-fv2-share-group]").first().uncheck();
+		assert(await student.page.locator("[data-fv2-upload-next]").isDisabled(), "sharing: clearing every group left Review enabled");
 		await student.page.locator("[data-fv2-share-audience]").selectOption("selected");
 		await student.page.locator("[data-fv2-audience-search]").waitFor();
 		assert(await student.page.locator("[data-fv2-share-student]").count() === 2 && await student.page.getByRole("button", { name: "Load more students", exact: true }).isVisible(), "sharing: controlled audience chooser is not server-paginated");
+		await student.page.locator("[data-fv2-share-student]").first().check();
+		assert((await student.page.locator(".fv2-audience-result-count").textContent()).includes("1 selected"), "sharing: recipient selection count did not refresh");
+		assert(!(await student.page.locator("[data-fv2-upload-next]").isDisabled()), "sharing: individual recipient selection did not unlock Review");
 		await saveEvidence(student.page, "13-student-controlled-sharing.png");
 		await student.page.getByRole("button", { name: "Close upload", exact: true }).click();
 		await browserAccessibilityAudit(student.page, "student sharing");
