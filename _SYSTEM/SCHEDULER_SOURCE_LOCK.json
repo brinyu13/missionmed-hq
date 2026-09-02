@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "status": "ACTIVE",
+  "lock_name": "MissionMed Scheduler Bundle Source Lock",
+  "authority": "MX-APPT-5002; MX-APPT-5003G",
+  "owner": "Brian",
+  "created_utc": "2026-09-01T16:05:00Z",
+  "purpose": "Establishes a canonical, reproducible Git source for the live Scheduler bundle, which until MX-APPT-5002 existed only as a mutable, unversioned CDN object with no source repository and no identified publisher (MX-APPT-5000 tier 3 / MX-APPT-5001 B-1).",
+
+  "canonical_source": {
+    "path": "LIVE/scheduler/scheduler_v1.html",
+    "worktree_lineage": "d9-matrix-plan-415-source-recovery",
+    "repo": "https://github.com/brinyu13/missionmed-hq.git"
+  },
+
+  "adoption": {
+    "method": "byte-exact adoption of the observed production artifact",
+    "adopted_from": "https://cdn.missionmedinstitute.com/html-system/LIVE/scheduler/scheduler_v1.html",
+    "adopted_utc": "2026-09-01T16:04:00Z",
+    "adopted_sha256": "98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195",
+    "adopted_bytes": 167135,
+    "adopted_lines": 4648,
+    "origin_last_modified": "Fri, 19 Jun 2026 18:02:28 GMT",
+    "corroboration": [
+      "MX-APPT-5000 2026-09-01 snapshot: identical sha256",
+      "MX-APPT-5001 SD-4 re-download: identical sha256",
+      "MX-APPT-5002 re-download: identical sha256"
+    ],
+    "note": "No upstream source repository or publisher was ever found. This adoption makes the observed production bytes the source of record. It does NOT claim to recover an original author's source."
+  },
+
+  "publication": {
+    "cdn_base": "https://cdn.missionmedinstitute.com",
+    "live_alias_key": "html-system/LIVE/scheduler/scheduler_v1.html",
+    "versioned_key_pattern": "html-system/LIVE/scheduler/versions/scheduler_v1.<sha256-12>.html",
+    "staging_key": "html-system/STAGING/scheduler/scheduler_v1.html",
+    "publisher": "_SYSTEM/scheduler_publish.sh",
+    "dry_run_default": true,
+    "requires_explicit_publish_flag": true,
+    "pre_publish_hash_verification": true,
+    "post_publish_hash_verification": true,
+    "rollback": "scheduler_publish.sh --rollback <sha256-12>"
+  },
+
+  "paired_adapter": {
+    "path": "wp-content/plugins/missionmed-hub/assets/scheduler-mount.js",
+    "sha256": "2bf45c6adf8da76a4c9b34e5885cffaa92adeb2fc5b6e1a09e35b77f876a2cb7",
+    "live_ver": "1781804754",
+    "runtime_lock": "_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json :: assets.scheduler_mount_js",
+    "note": "The adapter applies byte-exact patches to this bundle at runtime. Editing the canonical source WILL invalidate patches that target the edited text. Always re-run _SYSTEM/tools/scheduler_patch_audit.mjs after changing the source."
+  },
+
+  "invariants": [
+    "The adopted artifact is the baseline. Any change to LIVE/scheduler/scheduler_v1.html must be a reviewed commit on top of the adoption commit, never a re-adoption that silently overwrites lineage.",
+    "LIVE/scheduler/scheduler_v1.html is an ALIAS target. Every publish must also write an immutable content-hashed version under versions/.",
+    "Never publish without pre- and post-publish hash verification.",
+    "Never publish a source whose patch audit reports a FAIL on a required adapter patch.",
+    "This lock does not authorize deployment. Deployment requires separate, explicit approval."
+  ],
+
+  "history": [
+    {
+      "utc": "2026-09-01T16:04:00Z",
+      "ticket": "MX-APPT-5002A",
+      "action": "adopt",
+      "sha256": "98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195",
+      "source_rev": "legacy",
+      "note": "Byte-exact adoption of live production artifact. Functionally identical by construction; no edits."
+    },
+    {
+      "utc": "2026-09-01T17:10:00Z",
+      "ticket": "MX-APPT-5002C",
+      "action": "repair",
+      "sha256": "047bb199dc905a2309494237299817ba04edff9bbcb563c933452e76db59cede",
+      "source_rev": "MX-APPT-5002C",
+      "bytes": 184373,
+      "note": "Client defect repairs 1-9 (MX-APPT-5000 section 10.9; item 8 amended per MX-APPT-5001 SD-9 to wire Reschedule rather than delete it). Declares MMED_SCHEDULER_SOURCE_REV so the adapter can pick its patch profile. Adapter patches P01/P03/P10 are folded into this source and are expected 0 under the MX-APPT-5002C profile. NOT PUBLISHED — the live CDN artifact is still the legacy adoption hash."
+    },
+    {
+      "utc": "2026-09-02T09:54:32Z",
+      "ticket": "MX-APPT-5003G",
+      "action": "candidate",
+      "sha256": "b3122e4ab80fd61b003f6ae8d264063dc9de04b198d10314100f82bf8787b870",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 250908,
+      "note": "Founder-authorized StoryForge V2 Appointments presentation over the repaired MX-APPT-5002 shared Scheduler core. Local automated, runtime-contract, responsive, accessibility, performance, patch-audit, and adapter-parity checks passed. NOT PUBLISHED: immutable legacy rollback object is absent, publisher credentials are unavailable in this isolated worktree, designated allowlisted-student QA is unavailable, and fresh non-builder release verification is outstanding."
+    }
+  ]
+}

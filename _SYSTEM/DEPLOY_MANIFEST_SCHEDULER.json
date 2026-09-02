@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "description": "MissionMed Scheduler deploy map (LIVE source to STAGING keys). SEPARATE from _SYSTEM/DEPLOY_MANIFEST.json on purpose: deploy.sh publishes EVERY mapping in whichever manifest it is given, so keeping Scheduler out of the Arena/STAT/Drills/Daily manifest prevents an Arena deploy from also republishing the Scheduler.",
+  "scope_note": "Use with: _SYSTEM/deploy.sh --manifest _SYSTEM/DEPLOY_MANIFEST_SCHEDULER.json. NOTE deploy.sh alone does NOT provide hash verification, immutable versioning, or a LIVE alias. Prefer _SYSTEM/scheduler_publish.sh, which does. See MX-APPT-5002 report, 'Deployment pipeline'.",
+  "mappings": [
+    {
+      "source": "LIVE/scheduler/scheduler_v1.html",
+      "destination": "html-system/STAGING/scheduler/scheduler_v1.html"
+    }
+  ]
+}

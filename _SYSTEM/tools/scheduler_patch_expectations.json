@@ -1,0 +1,100 @@
+{
+  "_comment": "Adapter patch expectations, keyed by canonical source revision. The adapter must work against BOTH the legacy CDN artifact live today and the canonical source once published, so expected counts differ per profile. expected=0 means a deliberate no-op: a dual-variant fallback, a form the bundle already contains, or behaviour folded into the canonical source.",
+  "_profile_selection": "A bundle declaring `var MMED_SCHEDULER_SOURCE_REV = \"<rev>\"` uses the profile of that name. A bundle with no marker is the pre-MX-APPT-5002 artifact and uses `legacy`.",
+  "profiles": {
+   "legacy": {
+    "description": "The CDN artifact live since 2026-06-19, sha256 98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195. All 13 patches run; 11 apply, 2 are deliberate no-ops.",
+    "patches": {
+    "function matrixTimeRows() {/525": {
+      "id": "P01-matrix-time-rows-slot-derived",
+      "expected": 1,
+      "required": true
+    },
+    "function slotForMatrixCell(dateKey, timeKey) {/52": {
+      "id": "P02-slot-for-matrix-cell",
+      "expected": 1,
+      "required": true
+    },
+    "var isSelected = slot && scheduler.state.selectedSlotKey ===/678": {
+      "id": "P03-grid-cell-selected-state",
+      "expected": 1,
+      "required": true
+    },
+    "function selectDetailsStep() {/1223": {
+      "id": "P04-select-details-step",
+      "expected": 1,
+      "required": true
+    },
+    "function reviewConfirmStep() {/1349": {
+      "id": "P05-review-confirm-step-variant-A",
+      "expected": 0,
+      "required": true,
+      "note": "Deliberate no-op. Dual-variant fallback: exactly one of variant A / variant B matches by design. Variant B (P09) carries the change."
+    },
+    "function reviewConfirmStep() {/1566": {
+      "id": "P09-review-confirm-step-variant-B",
+      "expected": 1,
+      "required": true
+    },
+    "function visitTypeSelectMarkup() {/858": {
+      "id": "P06-visit-type-select-markup",
+      "expected": 1,
+      "required": true
+    },
+    "function mentorSelectMarkup() {/730": {
+      "id": "P07-mentor-select-markup",
+      "expected": 1,
+      "required": true
+    },
+    "refs.content.querySelectorAll(\"[data-slot-key]\").forEach(fun/350": {
+      "id": "P10-slot-button-delegation",
+      "expected": 1,
+      "required": true
+    },
+    "scheduler.state.division = divisionSelect.value;/329": {
+      "id": "P11-division-change-handler",
+      "expected": 1,
+      "required": true
+    },
+    "scheduler.state.appointmentTypeId = typeSelect.value;/274": {
+      "id": "P12-appointment-type-change-handler",
+      "expected": 1,
+      "required": true
+    },
+    "function loadProviders() {/882": {
+      "id": "P08-load-providers",
+      "expected": 1,
+      "required": true
+    },
+    "scheduler.api.post(\"/book\", {/301": {
+      "id": "P13-book-appointment-type-fallback",
+      "expected": 0,
+      "required": true,
+      "note": "Deliberate no-op. The upstream bundle already contains this patched form (appointment_type_id fallback), so the patch is redundant, not lost."
+    }
+    }
+   },
+   "MX-APPT-5003G": {
+    "description": "StoryForge V2 presentation over the unchanged MX-APPT-5002C Classic core and patch contracts.",
+    "extends": "MX-APPT-5002C"
+   },
+   "MX-APPT-5002C": {
+    "description": "Canonical source after the MX-APPT-5002 client repairs. P01, P03 and P10 are expected 0 because their behaviour now lives in the source. P02 does not execute at all: its runtime guard sees matrixSlotReserved already defined, so it produces no result row.",
+    "patches": {
+     "function matrixTimeRows() {/525": { "id": "P01-matrix-time-rows-slot-derived", "expected": 0, "required": true, "note": "Folded into the canonical source: matrixTimeRows() derives rows from the slot index. Patch retained for the legacy bundle." },
+     "function slotForMatrixCell(dateKey, timeKey) {/52": { "id": "P02-slot-for-matrix-cell", "expected": 0, "required": false, "note": "Guarded in the adapter by `if (text.indexOf(\"function matrixSlotReserved\") === -1)`, so it does not execute against the canonical source and produces no result row." },
+     "var isSelected = slot && scheduler.state.selectedSlotKey ===/678": { "id": "P03-grid-cell-selected-state", "expected": 0, "required": true, "note": "Folded into the canonical source: weekGridMarkup() renders the reserved state directly. Patch retained for the legacy bundle." },
+     "function selectDetailsStep() {/1223": { "id": "P04-select-details-step", "expected": 1, "required": true },
+     "function reviewConfirmStep() {/1349": { "id": "P05-review-confirm-step-variant-A", "expected": 0, "required": true, "note": "Deliberate no-op. Dual-variant fallback; variant B (P09) carries the change." },
+     "function reviewConfirmStep() {/1566": { "id": "P09-review-confirm-step-variant-B", "expected": 1, "required": true },
+     "function visitTypeSelectMarkup() {/858": { "id": "P06-visit-type-select-markup", "expected": 1, "required": true },
+     "function mentorSelectMarkup() {/730": { "id": "P07-mentor-select-markup", "expected": 1, "required": true },
+     "refs.content.querySelectorAll(\"[data-slot-key]\").forEach(fun/350": { "id": "P10-slot-button-delegation", "expected": 0, "required": true, "note": "Folded into the canonical source: the slot click handler adopts the slot's provider and appointment type, and additionally restores keyboard focus. Patch retained for the legacy bundle." },
+     "scheduler.state.division = divisionSelect.value;/329": { "id": "P11-division-change-handler", "expected": 1, "required": true },
+     "scheduler.state.appointmentTypeId = typeSelect.value;/274": { "id": "P12-appointment-type-change-handler", "expected": 1, "required": true },
+     "function loadProviders() {/882": { "id": "P08-load-providers", "expected": 1, "required": true },
+     "scheduler.api.post(\"/book\", {/301": { "id": "P13-book-appointment-type-fallback", "expected": 0, "required": true, "note": "Deliberate no-op. The source already contains the appointment_type_id fallback." }
+    }
+   }
+  }
+}
