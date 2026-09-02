@@ -166,6 +166,8 @@ function mmed_fv2_inspect_content( $tmp_path, $body, $declared ) {
 		),
 		'image/png'  => array( 'image/png' ),
 		'image/jpeg' => array( 'image/jpeg' ),
+		'video/mp4'  => array( 'video/mp4', 'application/mp4', 'application/octet-stream' ),
+		'video/webm' => array( 'video/webm', 'audio/webm', 'application/octet-stream' ),
 	);
 
 	if ( ! isset( $allowed_map[ $declared ] ) ) {
@@ -206,6 +208,20 @@ function mmed_fv2_inspect_content( $tmp_path, $body, $declared ) {
 		if ( "\xFF\xD8\xFF" !== substr( $header, 0, 3 ) ) {
 			return new WP_Error( 'mmed_fv2_scan_jpeg_header', 'File does not begin with a valid JPEG signature.', array( 'status' => 422 ) );
 		}
+	}
+
+	if ( 'video/mp4' === $declared ) {
+		if ( strlen( $body ) < 12 || 'ftyp' !== substr( $body, 4, 4 ) ) {
+			return new WP_Error( 'mmed_fv2_scan_mp4_header', 'MP4 file does not contain a valid ISO media header.', array( 'status' => 422 ) );
+		}
+		$box_size = unpack( 'Nsize', substr( $body, 0, 4 ) );
+		if ( ! $box_size || $box_size['size'] < 8 || $box_size['size'] > strlen( $body ) ) {
+			return new WP_Error( 'mmed_fv2_scan_mp4_structure', 'MP4 file contains an invalid first box.', array( 'status' => 422 ) );
+		}
+	}
+
+	if ( 'video/webm' === $declared && "\x1A\x45\xDF\xA3" !== substr( $header, 0, 4 ) ) {
+		return new WP_Error( 'mmed_fv2_scan_webm_header', 'WebM file does not begin with a valid EBML signature.', array( 'status' => 422 ) );
 	}
 
 	if ( in_array( $declared, array( 'image/png', 'image/jpeg' ), true ) ) {

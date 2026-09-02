@@ -147,6 +147,12 @@ async function saveEvidence(page, filename) {
 	await page.screenshot({ path: path.join(evidenceDir, filename), fullPage: false });
 }
 
+async function revealSettings(page) {
+	if (await page.locator('[data-fv2-action="open-settings"]:visible').count()) return;
+	await page.getByRole("button", { name: "More", exact: true }).click();
+	await page.locator('[data-fv2-action="open-settings"]:visible').waitFor();
+}
+
 async function nonceRecoveryFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "student" });
 	let recoveryRequests = 0;
@@ -252,7 +258,7 @@ async function studentFlow(browser) {
 		assert(await page.locator(".fv2-home-greeting h1").isVisible(), "student: StoryForge-family Home greeting missing");
 		assert(/^Good (morning|afternoon|evening), Avery\.$/.test((await page.locator(".fv2-home-greeting h1").textContent()).trim()), "student: personalized daypart greeting is incorrect");
 		const navLabels = await page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
-		assert(navLabels.join("|") === "Home|Your Files|Recently Uploaded|Mission Files|Notifications|Settings", `student: navigation is incorrect ${navLabels.join("|")}`);
+		assert(navLabels.join("|") === "Home|Your Files|Recently Uploaded|Mission Files|Student Shared Files|Notifications|Settings", `student: navigation is incorrect ${navLabels.join("|")}`);
 		assert(await page.locator('.fv2-rail [data-fv2-action="navigate"][data-fv2-view="upload"]').count() === 1, "student: StoryForge rail must expose exactly one premium Upload CTA");
 		const railVisual = await page.locator(".fv2-rail").evaluate(rail => {
 			const active = rail.querySelector(".fv2-nav-item.is-active");
@@ -531,6 +537,69 @@ async function studentFlow(browser) {
 	}
 }
 
+async function sharingExperienceFlow(browser) {
+	const student = await createPage(browser, { role: "student" }, { width: 1440, height: 900 });
+	try {
+		await student.page.locator('.fv2-nav-item[aria-label="Mission Files"]').click();
+		await student.page.locator('.fv2-share-row[data-fv2-focus-key="share-2101"], .fv2-share-row').first().waitFor();
+		assert(await student.page.getByText("MissionMed Interview Guide", { exact: true }).isVisible(), "sharing: MissionMed library did not render the normalized private share");
+		await saveEvidence(student.page, "10-student-mission-files.png");
+		await student.page.locator('[data-fv2-action="quicklook-share"][data-fv2-share-id="2101"]').click();
+		await student.page.getByRole("heading", { name: "MissionMed Interview Guide", exact: true }).waitFor();
+		await student.page.locator(".fv2-preview-frame").waitFor();
+		assert(await student.page.locator(".fv2-preview-frame").isVisible(), "sharing: Quick Look did not render the authorized inline preview");
+		assert(await student.page.getByText("Version", { exact: true }).isVisible(), "sharing: Quick Look omitted immutable revision metadata");
+		await saveEvidence(student.page, "11-student-mission-files-quick-look.png");
+		await student.page.getByRole("button", { name: "Close preview", exact: true }).click();
+
+		await student.page.locator('.fv2-nav-item[aria-label="Student Shared Files"]').click();
+		await student.page.getByRole("heading", { name: "Student Shared Files", exact: true }).waitFor();
+		assert(await student.page.locator(".fv2-share-row").count() === 2, "sharing: student-shared library did not render both authorized records");
+		await saveEvidence(student.page, "12-student-shared-library.png");
+		const moderatedRow = student.page.locator(".fv2-share-row").filter({ hasText: "Paused Peer Draft" });
+		assert(await moderatedRow.getByText("Disabled by MissionMed", { exact: true }).isVisible(), "sharing: staff moderation state is not visible to the student owner");
+		assert(await moderatedRow.getByRole("button", { name: "Reactivate", exact: true }).count() === 0, "sharing: moderated student share exposed a forbidden Reactivate control");
+		await student.page.getByRole("button", { name: "Share with students", exact: true }).first().click();
+		await student.page.locator(".fv2-share-audience").waitFor();
+		assert((await student.page.locator("[data-fv2-upload-file]").getAttribute("accept")).includes(".mp4") && (await student.page.locator("[data-fv2-upload-file]").getAttribute("accept")).includes(".webm"), "sharing: upload chooser omitted the approved MP4/WebM preview formats");
+		await student.page.locator("[data-fv2-share-audience]").selectOption("selected");
+		await student.page.locator("[data-fv2-audience-search]").waitFor();
+		assert(await student.page.locator("[data-fv2-share-student]").count() === 2 && await student.page.getByRole("button", { name: "Load more students", exact: true }).isVisible(), "sharing: controlled audience chooser is not server-paginated");
+		await saveEvidence(student.page, "13-student-controlled-sharing.png");
+		await student.page.getByRole("button", { name: "Close upload", exact: true }).click();
+		await browserAccessibilityAudit(student.page, "student sharing");
+		assert(student.diagnostics.length === 0, `student sharing: browser diagnostics ${student.diagnostics.join(" | ")}`);
+	} finally {
+		await student.context.close();
+	}
+
+	const admin = await createPage(browser, { role: "admin" }, { width: 1600, height: 1000 });
+	try {
+		const adminNav = await admin.page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
+		assert(adminNav.join("|") === "Students|Mission Files|Student Shared Files|Activity|Settings", `sharing admin: StoryForge management rail is incomplete ${adminNav.join("|")}`);
+		assert(await admin.page.locator('.fv2-rail-upload[data-fv2-action="open-share-upload"][data-fv2-share-source="missionmed"]').isVisible(), "sharing admin: global Mission File upload command is missing from the staff rail");
+		await admin.page.locator('.fv2-nav-item[aria-label="Student Shared Files"]').click();
+		await admin.page.getByRole("heading", { name: "Student Shared Files", exact: true }).waitFor();
+		await admin.page.locator('[data-fv2-action="share-recipients"][data-fv2-share-id="2201"]').click();
+		await admin.page.getByRole("heading", { name: "Recipient access status", exact: true }).waitFor();
+		assert(await admin.page.getByText("This records when MissionMed issued a signed download link. Direct R2 byte-transfer completion is not claimed.", { exact: true }).isVisible(), "sharing admin: recipient evidence overclaims byte-transfer completion");
+		const recipientSummary = await admin.page.locator(".fv2-recipient-summary").textContent();
+		assert(recipientSummary.includes("1 Link issued") && recipientSummary.includes("1 No link issued"), "sharing admin: recipient access evidence is incomplete");
+		await saveEvidence(admin.page, "14-admin-sharing-evidence.png");
+		await admin.page.getByRole("button", { name: "Close recipient access status", exact: true }).click();
+		const reviewedShare = admin.page.locator('.fv2-share-row').filter({ hasText: "Interview Timeline Checklist" });
+		await reviewedShare.getByRole("button", { name: "Disable", exact: true }).click();
+		await reviewedShare.getByText("Disabled by MissionMed", { exact: true }).waitFor();
+		await admin.page.locator('.fv2-nav-item[aria-label="Activity"]').click();
+		await admin.page.getByText("MissionMed Interview Guide", { exact: true }).waitFor();
+		assert(await admin.page.getByText("signed links", { exact: false }).count() > 0, "sharing admin: normalized download evidence section is missing from Activity");
+		await browserAccessibilityAudit(admin.page, "admin sharing");
+		assert(admin.diagnostics.length === 0, `admin sharing: browser diagnostics ${admin.diagnostics.join(" | ")}`);
+	} finally {
+		await admin.context.close();
+	}
+}
+
 async function controlledUploadMetadataFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "student", scenario: "unlocked-session" });
 	try {
@@ -617,7 +686,8 @@ async function failedStudentSwitchFlow(browser) {
 		assert(state.selectedStudentId === 0 && state.student === null, `admin failed switch: stale student identity remains ${JSON.stringify(state)}`);
 		assert(state.documentIds.length === 0, `admin failed switch: prior student files remain ${JSON.stringify(state.documentIds)}`);
 		assert(state.busy.length === 0, `admin failed switch: stale busy state remains ${JSON.stringify(state.busy)}`);
-		assert(await page.locator('[data-fv2-action="open-upload"]:not([disabled])').count() === 0, "admin failed switch: upload remained enabled without an authorized student");
+		assert(await page.locator('.fv2-stage [data-fv2-action="open-upload"]:not([disabled])').count() === 0, "admin failed switch: student-scoped upload remained enabled without an authorized student");
+		assert(await page.locator('.fv2-header-upload:not([disabled])').count() === 1, "admin failed switch: global Mission File command became unavailable after the student switch failed closed");
 		assert(diagnostics.length === 0, `admin failed switch: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
 		await context.close();
@@ -924,7 +994,8 @@ async function matrixShellIntegrationFlow(browser) {
 		try {
 			assert(await page.locator("#mmed-matrix-app-return").count() === 0, `${label}: duplicate Matrix shell return survived V2 mount`);
 			assert(await page.locator('.fv2-matrix-return[data-matrix-app-mode-return="1"][data-matrix-dashboard-return="true"]').count() === 1, `${label}: native Matrix return is not registered`);
-			const geometry = await page.locator('[data-fv2-action="open-settings"]').evaluate(button => {
+			await revealSettings(page);
+			const geometry = await page.locator('[data-fv2-action="open-settings"]:visible').evaluate(button => {
 				const root = document.getElementById("student-os-root").getBoundingClientRect();
 				const app = document.querySelector(".mmed-fv2").getBoundingClientRect();
 				const rect = button.getBoundingClientRect();
@@ -941,7 +1012,7 @@ async function matrixShellIntegrationFlow(browser) {
 			assert(geometry.rootTop === expectedTop, `${label}: admin offset is wrong ${JSON.stringify(geometry)}`);
 			assert(Math.abs(geometry.rootBottom - geometry.viewportBottom) <= 1 && Math.abs(geometry.appBottom - geometry.rootBottom) <= 1, `${label}: V2 canvas exceeds the Matrix shell ${JSON.stringify(geometry)}`);
 			assert(geometry.hitSettings, `${label}: WordPress admin UI intercepts the Settings hit target`);
-			await page.locator('[data-fv2-action="open-settings"]').click();
+			await page.locator('[data-fv2-action="open-settings"]:visible').click();
 			await page.waitForSelector('[role="dialog"][aria-label="File Vault settings"]');
 			const isolation = await page.evaluate(() => ({
 				bodyClass: document.body.classList.contains("mmed-fv2-overlay-open"),
@@ -1122,10 +1193,11 @@ async function staffPaginationFlow(browser) {
 			assert(await page.locator('p[aria-live="polite"]').getByText("1 student loaded.", { exact: true }).isVisible(), `${label}: roster pagination was not announced`);
 			assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/students" && Number(call.query.page) === 2)), `${label}: next server page was not requested`);
 			await page.getByRole("button", { name: "Staff Activity", exact: true }).click();
-			await page.locator(".fv2-audit-row").first().waitFor();
-			assert(await page.locator(".fv2-audit-row").count() === 1, `${label}: first audit page is not bounded`);
+			const activityEvents = page.locator('[data-fv2-focus-key^="audit-event-"]');
+			await activityEvents.first().waitFor();
+			assert(await activityEvents.count() === 1, `${label}: first audit page is not bounded`);
 			await page.getByRole("button", { name: "Load more activity" }).click();
-			await page.waitForFunction(() => document.querySelectorAll(".fv2-audit-row").length === 3);
+			await page.waitForFunction(() => document.querySelectorAll('[data-fv2-focus-key^="audit-event-"]').length === 3);
 			const firstNewEvent = page.locator('[data-fv2-focus-key="audit-event-fixture-event-0002"]');
 			assert(await firstNewEvent.evaluate(node => document.activeElement === node), `${label}: keyboard focus did not move to the first newly loaded activity event`);
 			assert(await page.locator('p[aria-live="polite"]').getByText("2 activity events loaded.", { exact: true }).isVisible(), `${label}: activity pagination was not announced`);
@@ -1145,11 +1217,11 @@ async function auditCursorBoundaryFlow(browser) {
 		const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "audit-boundary" }, viewport);
 		try {
 			await page.getByRole("button", { name: "Staff Activity", exact: true }).click();
-			await page.waitForFunction(() => document.querySelectorAll(".fv2-audit-row").length === 200);
+			await page.waitForFunction(() => document.querySelectorAll('[data-fv2-focus-key^="audit-event-"]').length === 200);
 			assert(await page.getByRole("button", { name: "Load more activity" }).isVisible(), `${label}: 200-event boundary did not expose the cursor continuation`);
 			await page.getByRole("button", { name: "Load more activity" }).click();
-			await page.waitForFunction(() => document.querySelectorAll(".fv2-audit-row").length === 201);
-			const eventKeys = await page.locator(".fv2-audit-row").evaluateAll(nodes => nodes.map(node => node.getAttribute("data-fv2-focus-key")));
+			await page.waitForFunction(() => document.querySelectorAll('[data-fv2-focus-key^="audit-event-"]').length === 201);
+			const eventKeys = await page.locator('[data-fv2-focus-key^="audit-event-"]').evaluateAll(nodes => nodes.map(node => node.getAttribute("data-fv2-focus-key")));
 			assert(new Set(eventKeys).size === 201, `${label}: cursor pagination duplicated or lost an event`);
 			const auditCalls = await page.evaluate(() => window.__FV2_HARNESS__.calls.filter(call => call.path === "/audit"));
 			assert(auditCalls.length === 2 && Number(auditCalls[1].query.page) === 1 && auditCalls[1].query.before_id === "audit-event-0200" && !!auditCalls[1].query.before_at, `${label}: second request did not use the stable within-page cursor`);
@@ -1157,7 +1229,7 @@ async function auditCursorBoundaryFlow(browser) {
 			assert(await lastEvent.evaluate(node => document.activeElement === node), `${label}: focus did not move to event 201`);
 			assert(await page.locator('p[aria-live="polite"]').getByText("1 activity event loaded.", { exact: true }).isVisible(), `${label}: event 201 was not announced`);
 			assert(await page.getByRole("button", { name: "Load more activity" }).count() === 0, `${label}: completed cursor still exposes a continuation control`);
-			const times = await page.locator(".fv2-audit-row time").evaluateAll(nodes => nodes.map(node => Date.parse(node.getAttribute("datetime"))));
+			const times = await page.locator('[data-fv2-focus-key^="audit-event-"] time').evaluateAll(nodes => nodes.map(node => Date.parse(node.getAttribute("datetime"))));
 			assert(times.every((value, index) => index === 0 || times[index - 1] >= value), `${label}: merged activity rows are not globally newest-first`);
 			await overflowAudit(page, label);
 			await browserAccessibilityAudit(page, label);
@@ -1188,7 +1260,7 @@ async function filteredPaginationFocusFlow(browser) {
 		await page.getByRole("button", { name: "Load more activity" }).click();
 		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/audit" && Number(call.query.page) === 2));
 		assert(await auditSearch.evaluate(node => document.activeElement === node), "filtered pagination 375x812: hidden incoming activity rows did not return focus to activity search");
-		assert(await page.locator(".fv2-audit-row").count() === 1, "filtered pagination 375x812: loaded-only activity filter was not preserved");
+		assert(await page.locator('[data-fv2-focus-key^="audit-event-"]').count() === 1, "filtered pagination 375x812: loaded-only activity filter was not preserved");
 		assert(await page.locator('p[aria-live="polite"]').getByText("2 activity events loaded.", { exact: true }).isVisible(), "filtered pagination 375x812: hidden incoming activity count was not announced");
 		await overflowAudit(page, "filtered pagination 375x812");
 		assert(diagnostics.length === 0, `filtered pagination 375x812: browser diagnostics ${diagnostics.join(" | ")}`);
@@ -1367,7 +1439,7 @@ async function responsiveFlow(browser) {
 					await page.getByRole("button", { name: "More", exact: true }).click();
 					assert(await page.getByRole("group", { name: "More File Vault destinations", exact: true }).isVisible(), "responsive 320: More destinations disclosure did not open");
 					const overflowLabels = await page.locator(".fv2-mobile-nav-option").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
-					assert(overflowLabels.join("|") === "Notifications|Settings", `responsive 320: mobile overflow destinations are incomplete ${overflowLabels.join("|")}`);
+					assert(overflowLabels.join("|") === "Student Shared Files|Notifications|Settings", `responsive 320: mobile overflow destinations are incomplete ${overflowLabels.join("|")}`);
 					await page.keyboard.press("Escape");
 					assert(await page.locator(".fv2-mobile-nav-menu").count() === 0, "responsive 320: Escape did not close More destinations");
 					assert(await page.getByRole("button", { name: "More", exact: true }).evaluate(button => document.activeElement === button), "responsive 320: More menu focus did not return to its trigger");
@@ -1413,7 +1485,7 @@ async function adminResponsiveLensFlow(browser) {
 			assert(await page.locator(".fv2-mobile-nav-menu").count() === 0, `${label}: menu remained open after lens switch`);
 			assert(await page.getByRole("button", { name: "More", exact: true }).evaluate(button => document.activeElement === button), `${label}: Student View switch did not return focus to More`);
 			const directoryLensLabels = await page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
-			assert(directoryLensLabels.join("|") === "Home|Your Files|Recently Uploaded|Mission Files|Notifications|Settings", `${label}: Student View did not expose the real student rail ${directoryLensLabels.join("|")}`);
+			assert(directoryLensLabels.join("|") === "Home|Your Files|Recently Uploaded|Mission Files|Student Shared Files|Notifications|Settings", `${label}: Student View did not expose the real student rail ${directoryLensLabels.join("|")}`);
 			assert(await page.locator('[data-fv2-action="open-upload"]:not([disabled])').count() > 0, `${label}: Student View did not expose ordinary student upload access`);
 			await page.getByRole("button", { name: "More", exact: true }).click();
 			await page.getByRole("button", { name: "Administrator view", exact: true }).click();
@@ -1444,6 +1516,7 @@ async function main() {
 		await nonceRecoveryFlow(browser);
 		await abortedMountRemountFlow(browser);
 		await studentFlow(browser);
+		await sharingExperienceFlow(browser);
 		await controlledUploadMetadataFlow(browser);
 		await emptyPremiumShortcutFlow(browser);
 		await rapidStudentSwitchFlow(browser);

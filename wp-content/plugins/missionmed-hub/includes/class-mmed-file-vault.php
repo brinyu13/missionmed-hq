@@ -17,7 +17,7 @@ class MMED_File_Vault {
 	/**
 	 * File vault schema version.
 	 */
-	const DB_VERSION = '20260514.1';
+	const DB_VERSION = '20260902.2';
 
 	/**
 	 * Initialize runtime checks.
@@ -69,6 +69,64 @@ class MMED_File_Vault {
 		) {$charset_collate};";
 
 		dbDelta( $sql );
+
+		$shares_table = self::shares_table_name();
+		$shares_sql   = "CREATE TABLE {$shares_table} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			source_file_id bigint(20) unsigned NOT NULL,
+			source_revision int unsigned NOT NULL DEFAULT 1,
+			source_class varchar(24) NOT NULL,
+			owner_user_id bigint(20) unsigned NOT NULL,
+			actor_user_id bigint(20) unsigned NOT NULL,
+			title varchar(180) NOT NULL,
+			description text NULL,
+			category varchar(80) NOT NULL DEFAULT 'resource',
+			audience_mode varchar(24) NOT NULL,
+			audience_group_ids text NULL,
+			status varchar(20) NOT NULL DEFAULT 'active',
+			moderation_status varchar(20) NOT NULL DEFAULT '',
+			moderated_by bigint(20) unsigned NULL,
+			moderated_at datetime NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY source_file (source_file_id),
+			KEY active_class (status, source_class, updated_at),
+			KEY owner_status (owner_user_id, status, updated_at),
+			KEY actor_status (actor_user_id, status, updated_at)
+		) {$charset_collate};";
+		dbDelta( $shares_sql );
+
+		$recipients_table = self::share_recipients_table_name();
+		$recipients_sql   = "CREATE TABLE {$recipients_table} (
+			share_id bigint(20) unsigned NOT NULL,
+			user_id bigint(20) unsigned NOT NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (share_id, user_id),
+			KEY recipient_share (user_id, share_id)
+		) {$charset_collate};";
+		dbDelta( $recipients_sql );
+
+		$downloads_table = self::downloads_table_name();
+		$downloads_sql   = "CREATE TABLE {$downloads_table} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			file_id bigint(20) unsigned NOT NULL,
+			version_number int unsigned NOT NULL DEFAULT 1,
+			version_uuid varchar(36) NULL,
+			share_id bigint(20) unsigned NULL,
+			user_id bigint(20) unsigned NOT NULL,
+			owner_user_id bigint(20) unsigned NOT NULL,
+			source_class varchar(24) NOT NULL,
+			requester_role varchar(20) NOT NULL,
+			subject_user_id bigint(20) unsigned NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY file_activity (file_id, version_number, created_at),
+			KEY share_activity (share_id, user_id, created_at),
+			KEY user_activity (user_id, created_at),
+			KEY recent_activity (created_at)
+		) {$charset_collate};";
+		dbDelta( $downloads_sql );
 		update_option( 'mmed_file_vault_db_version', self::DB_VERSION, false );
 	}
 
@@ -80,6 +138,24 @@ class MMED_File_Vault {
 	public static function table_name() {
 		global $wpdb;
 		return $wpdb->prefix . 'mmed_files';
+	}
+
+	/** Return the normalized share-definition table name. */
+	public static function shares_table_name() {
+		global $wpdb;
+		return $wpdb->prefix . 'mmed_file_vault_shares';
+	}
+
+	/** Return the explicit share-recipient table name. */
+	public static function share_recipients_table_name() {
+		global $wpdb;
+		return $wpdb->prefix . 'mmed_file_vault_share_recipients';
+	}
+
+	/** Return the normalized download-event table name. */
+	public static function downloads_table_name() {
+		global $wpdb;
+		return $wpdb->prefix . 'mmed_file_vault_downloads';
 	}
 
 	/**

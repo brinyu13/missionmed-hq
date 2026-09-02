@@ -148,6 +148,8 @@ fv2_assert( 250 === MMED_File_Vault_V2_Repository::OWNER_DOCUMENT_LIMIT, 'each o
 fv2_assert( 4194304 === MMED_File_Vault_V2_Repository::OWNER_META_BYTES_LIMIT, 'each owner scope has a hard aggregate metadata ceiling' );
 fv2_assert( 10 === MMED_File_Vault_V2_Repository::LEGACY_UPLOAD_RATE_LIMIT && 300 === MMED_File_Vault_V2_Repository::LEGACY_UPLOAD_RATE_WINDOW, 'legacy rollback uploads have an explicit issuance-rate ceiling' );
 fv2_assert( 100 === MMED_File_Vault_V2_Repository::MAX_VERSIONS && 100 === MMED_File_Vault_V2_Repository::MAX_COMMENTS && 100 === MMED_File_Vault_V2_Repository::MAX_INTERNAL_NOTES && 100 === MMED_File_Vault_V2_Repository::MAX_SCORES && 500 === MMED_File_Vault_V2_Repository::MAX_ACTIVITY_EVENTS, 'retained document collections have explicit hard bounds' );
+fv2_assert( 500 === MMED_File_Vault_V2_Repository::SHARE_RECIPIENT_LIMIT && 12 === MMED_File_Vault_V2_Repository::SHARE_GROUP_LIMIT && 10000 === MMED_File_Vault_V2_Repository::SHARE_SCAN_LIMIT, 'sharing directories, recipients, and authorized scans have explicit server bounds' );
+fv2_assert( 60 === MMED_File_Vault_V2_Repository::DOWNLOAD_URL_TTL && 600 === MMED_File_Vault_V2_Repository::PREVIEW_URL_TTL, 'downloads and inline previews have distinct least-privilege URL lifetimes' );
 
 $controller_source = file_get_contents( dirname( __DIR__ ) . '/wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php' );
 $repository_source = file_get_contents( dirname( __DIR__ ) . '/wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2-repository.php' );
@@ -167,21 +169,32 @@ fv2_assert( false !== strpos( $repository_source, 'owner_scope_preflight' ) && f
 fv2_assert( false !== strpos( $controller_source, "'/file-vault/files/(?P<id>\\d+)/internal-notes'" ) && false !== strpos( $controller_source, "'can_staff'" ) && false !== strpos( $controller_source, 'assert_file_access( $request[\'id\'], true )' ), 'internal notes require both a staff permission callback and a fresh document-scope check' );
 fv2_assert( false !== strpos( $repository_source, "'internal_notes'  => array()" ) && false !== strpos( $repository_source, 'public_internal_note' ) && false === strpos( $repository_source, "'internal_notes'       => array_values" ), 'internal notes have bounded private storage without entering public document projections' );
 fv2_assert( false !== strpos( $controller_source, 'mmed_file_vault_v2_mission_file_forbidden' ) && false !== strpos( $repository_source, "['source']    = 'MissionMed'" ), 'Mission File provenance is admin-authorized and server-owned' );
+fv2_assert( false !== strpos( $repository_source, "'moderation_status'" ) && false !== strpos( $repository_source, 'mmed_file_vault_v2_share_moderated' ), 'student-shared moderation persists server-side and cannot be bypassed by republishing' );
+fv2_assert( false !== strpos( $repository_source, 'source_revision' ) && false !== strpos( $repository_source, 'record_download_event' ), 'shared files pin immutable revisions and append normalized download evidence' );
 
 MMED_File_Vault_V2::register_routes();
-fv2_assert( 16 === count( $GLOBALS['fv2_routes'] ), 'expected additive V2 route count' );
+fv2_assert( 25 === count( $GLOBALS['fv2_routes'] ), 'expected additive V2 route count' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/bootstrap'] ), 'bootstrap route registered' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/uploads'] ), 'upload route registered' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/review-queue'] ), 'review queue route registered' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/uploads/(?P<upload_id>[a-f0-9-]{36})/confirm'] ), 'confirmation route carries an upload UUID, not its one-time token' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/score'] ), 'score route uses numeric legacy IDs' );
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/internal-notes'] ), 'staff-only internal note route is registered' );
+fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/audiences'] ), 'server-filtered audience directory route is registered' );
+fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/shares'] ), 'shared-library publication route is registered' );
+fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/shares/(?P<id>\d+)/preview'] ) && isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/shares/(?P<id>\d+)/download'] ), 'shared files expose separate authorized preview and download routes' );
+fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/shares/(?P<id>\d+)/recipients'] ) && isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/downloads'] ), 'staff recipient and normalized download evidence routes are registered' );
 $upload_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/uploads']['args'];
 fv2_assert( 'string' === $upload_route_args['filename']['type'] && 'integer' === $upload_route_args['file_size']['type'] && 'boolean' === $upload_route_args['ready_for_review']['type'], 'upload request bodies have explicit scalar schemas' );
 fv2_assert( 'string' === $upload_route_args['program']['type'] && MMED_File_Vault_V2_Repository::approved_programs() === $upload_route_args['program']['enum'] && '^[A-Ga-g]$' === $upload_route_args['session_letter']['pattern'], 'Founder-approved programs and sessions A through G have bounded route schemas' );
 fv2_assert( '^(?:(?:Draft|Version)[0-9]{2,3}|Final)$' === $upload_route_args['draft_label']['pattern'], 'legacy and numbered version labels have an explicit request schema' );
 fv2_assert( 'integer' === $upload_route_args['version_number']['type'] && 1 === $upload_route_args['version_number']['minimum'] && 'boolean' === $upload_route_args['is_final']['type'], 'numbered versions and Final status are separate bounded fields' );
 fv2_assert( 'boolean' === $upload_route_args['share_as_mission_file']['type'], 'Mission File intent is an explicit boolean request field' );
+$share_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/shares']['args'];
+fv2_assert( true === $share_route_args['file_id']['required'] && array( 'all_eligible', 'groups', 'selected' ) === $share_route_args['audience_mode']['enum'], 'share publication requires one file and a server-enumerated audience mode' );
+fv2_assert( 12 === $share_route_args['group_ids']['maxItems'] && 500 === $share_route_args['user_ids']['maxItems'], 'share publication schemas reject oversized group and recipient collections before callback execution' );
+$share_status_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/shares/(?P<id>\d+)/status']['args'];
+fv2_assert( array( 'active', 'disabled', 'archived' ) === $share_status_args['status']['enum'], 'share moderation status is a bounded route enum' );
 $internal_note_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/internal-notes']['args'];
 fv2_assert( 'string' === $internal_note_route_args['body']['type'], 'internal note writes use the bounded comment-body schema' );
 $score_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/files/(?P<id>\d+)/score']['args'];

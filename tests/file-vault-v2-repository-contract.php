@@ -19,15 +19,55 @@ class WP_Error {
 
 class FV2_Fake_DB {
 	public $rows = array();
+	public $share_rows = array();
+	public $recipient_rows = array();
+	public $download_rows = array();
 	public $options = 'wp_options';
 	public $insert_id = 0;
+	public $file_insert_id = 0;
 	public $get_results_calls = 0;
 	public $option_cas_race_value = null;
 	public function prepare( $query, ...$args ) { return array( 'query' => $query, 'args' => $args ); }
 	public function get_results( $prepared ) {
 		++$this->get_results_calls;
+		$query = (string) ( $prepared['query'] ?? '' );
 		$args = $prepared['args'] ?? array();
 		if ( 1 === count( $args ) && is_array( $args[0] ) ) { $args = $args[0]; }
+		if ( false !== strpos( $query, 'wp_mmed_file_vault_downloads' ) ) {
+			if ( false !== strpos( $query, 'MAX(created_at)' ) ) {
+				$share_id = absint( array_shift( $args ) );
+				$allowed = array_map( 'absint', $args );
+				$latest = array();
+				foreach ( $this->download_rows as $row ) {
+					$user_id = absint( $row->user_id ?? 0 );
+					if ( absint( $row->share_id ?? 0 ) !== $share_id || ! in_array( $user_id, $allowed, true ) ) { continue; }
+					if ( ! isset( $latest[ $user_id ] ) || strcmp( $latest[ $user_id ], (string) $row->created_at ) < 0 ) { $latest[ $user_id ] = (string) $row->created_at; }
+				}
+				return array_map( static function ( $user_id, $created_at ) { return (object) array( 'user_id' => $user_id, 'last_download_at' => $created_at ); }, array_keys( $latest ), array_values( $latest ) );
+			}
+			$rows = array_values( $this->download_rows );
+			usort( $rows, static function ( $left, $right ) { return strcmp( (string) $right->created_at, (string) $left->created_at ) ?: ( $right->id <=> $left->id ); } );
+			$limit = absint( $args[0] ?? count( $rows ) );
+			$offset = absint( $args[1] ?? 0 );
+			return array_slice( $rows, $offset, $limit );
+		}
+		if ( false !== strpos( $query, 'wp_mmed_file_vault_shares' ) ) {
+			$rows = array_values( $this->share_rows );
+			$arg_index = 0;
+			if ( false !== strpos( $query, 'source_class = %s' ) ) {
+				$source_class = (string) ( $args[ $arg_index++ ] ?? '' );
+				$rows = array_values( array_filter( $rows, static function ( $row ) use ( $source_class ) { return (string) $row->source_class === $source_class; } ) );
+			}
+			if ( false !== strpos( $query, 'title LIKE %s' ) ) {
+				$needle = trim( (string) ( $args[ $arg_index ] ?? '' ), '%' );
+				$arg_index += 2;
+				$rows = array_values( array_filter( $rows, static function ( $row ) use ( $needle ) { return false !== stripos( (string) $row->title . ' ' . (string) $row->description, $needle ); } ) );
+			}
+			usort( $rows, static function ( $left, $right ) { return strcmp( (string) $right->updated_at, (string) $left->updated_at ) ?: ( $right->id <=> $left->id ); } );
+			$limit = absint( $args[ $arg_index ] ?? count( $rows ) );
+			$offset = absint( $args[ $arg_index + 1 ] ?? 0 );
+			return array_slice( $rows, $offset, $limit );
+		}
 		$user_ids = false !== strpos( $prepared['query'] ?? '', ' IN (' ) ? array_map( 'absint', $args ) : array( absint( $args[0] ?? 0 ) );
 		$rows = array_values( array_filter( $this->rows, static function ( $row ) use ( $user_ids ) { return in_array( absint( $row->user_id ), $user_ids, true ); } ) );
 		usort( $rows, static function ( $left, $right ) { return $right->id <=> $left->id; } );
@@ -38,7 +78,38 @@ class FV2_Fake_DB {
 		}
 		return $rows;
 	}
+	public function get_row( $prepared ) {
+		$query = (string) ( $prepared['query'] ?? '' );
+		$id = absint( $prepared['args'][0] ?? 0 );
+		if ( false !== strpos( $query, 'wp_mmed_file_vault_shares' ) ) {
+			if ( false !== strpos( $query, 'source_file_id' ) ) {
+				foreach ( $this->share_rows as $row ) { if ( absint( $row->source_file_id ) === $id ) { return $row; } }
+				return null;
+			}
+			return $this->share_rows[ $id ] ?? null;
+		}
+		return $this->rows[ $id ] ?? null;
+	}
+	public function get_col( $prepared ) {
+		$query = (string) ( $prepared['query'] ?? '' );
+		if ( false !== strpos( $query, 'wp_mmed_file_vault_share_recipients' ) ) {
+			$share_id = absint( $prepared['args'][0] ?? 0 );
+			$limit = absint( $prepared['args'][1] ?? 501 );
+			$ids = array();
+			foreach ( $this->recipient_rows as $row ) { if ( absint( $row->share_id ) === $share_id ) { $ids[] = absint( $row->user_id ); } }
+			sort( $ids );
+			return array_slice( $ids, 0, $limit );
+		}
+		return array();
+	}
 	public function get_var( $prepared ) {
+		$query = (string) ( $prepared['query'] ?? '' );
+		if ( false !== strpos( $query, 'wp_mmed_file_vault_share_recipients' ) ) {
+			$share_id = absint( $prepared['args'][0] ?? 0 );
+			$user_id = absint( $prepared['args'][1] ?? 0 );
+			foreach ( $this->recipient_rows as $row ) { if ( absint( $row->share_id ) === $share_id && absint( $row->user_id ) === $user_id ) { return 1; } }
+			return null;
+		}
 		$user_id = absint( $prepared['args'][0] ?? 0 );
 		$total = 0;
 		foreach ( $this->rows as $row ) {
@@ -47,7 +118,29 @@ class FV2_Fake_DB {
 		return $total;
 	}
 	public function insert( $table, $data, $formats = array() ) {
-		$id = ++$this->insert_id;
+		if ( 'wp_mmed_file_vault_shares' === $table ) {
+			$id = empty( $this->share_rows ) ? 1 : max( array_keys( $this->share_rows ) ) + 1;
+			$this->insert_id = $id;
+			$data['id'] = $id;
+			$this->share_rows[ $id ] = (object) $data;
+			return 1;
+		}
+		if ( 'wp_mmed_file_vault_share_recipients' === $table ) {
+			$id = empty( $this->recipient_rows ) ? 1 : max( array_keys( $this->recipient_rows ) ) + 1;
+			$this->insert_id = $id;
+			$data['id'] = $id;
+			$this->recipient_rows[ $id ] = (object) $data;
+			return 1;
+		}
+		if ( 'wp_mmed_file_vault_downloads' === $table ) {
+			$id = empty( $this->download_rows ) ? 1 : max( array_keys( $this->download_rows ) ) + 1;
+			$this->insert_id = $id;
+			$data['id'] = $id;
+			$this->download_rows[ $id ] = (object) $data;
+			return 1;
+		}
+		$id = ++$this->file_insert_id;
+		$this->insert_id = $id;
 		$data['id'] = $id;
 		$data['tags'] = $data['tags'] ?? '';
 		$data['reviewed_by'] = $data['reviewed_by'] ?? 0;
@@ -70,6 +163,11 @@ class FV2_Fake_DB {
 			return 1;
 		}
 		$id = absint( $where['id'] ?? 0 );
+		if ( 'wp_mmed_file_vault_shares' === $table ) {
+			if ( ! isset( $this->share_rows[ $id ] ) ) { return false; }
+			foreach ( $data as $key => $value ) { $this->share_rows[ $id ]->{$key} = $value; }
+			return 1;
+		}
 		if ( ! isset( $this->rows[$id] ) ) { return false; }
 		if ( isset( $where['user_id'] ) && absint( $this->rows[$id]->user_id ) !== absint( $where['user_id'] ) ) { return 0; }
 		foreach ( array( 'version', 'status', 'meta_json' ) as $key ) {
@@ -78,6 +176,16 @@ class FV2_Fake_DB {
 		foreach ( $data as $key => $value ) { $this->rows[$id]->{$key} = $value; }
 		return 1;
 	}
+	public function delete( $table, $where, $formats = array() ) {
+		if ( 'wp_mmed_file_vault_share_recipients' === $table ) {
+			$share_id = absint( $where['share_id'] ?? 0 );
+			foreach ( $this->recipient_rows as $id => $row ) { if ( absint( $row->share_id ) === $share_id ) { unset( $this->recipient_rows[ $id ] ); } }
+			return 1;
+		}
+		return 0;
+	}
+	public function query( $query ) { return 1; }
+	public function esc_like( $value ) { return addcslashes( (string) $value, '_%\\' ); }
 }
 
 $GLOBALS['wpdb'] = new FV2_Fake_DB();
@@ -104,8 +212,14 @@ $GLOBALS['fv2_user_meta'] = array(
 		'_mmed_primary_division' => 'Mission Residency',
 		'_mmed_session_letter' => 'C',
 	),
+	14 => array(
+		'first_name' => 'Account',
+		'last_name' => 'Only',
+		'_mmed_primary_division' => 'Mission Residency',
+		'_mmed_session_letter' => 'D',
+	),
 );
-$GLOBALS['fv2_enrolled_courses'] = array( 13 => array( 901 ) );
+$GLOBALS['fv2_enrolled_courses'] = array( 10 => array( 901 ), 11 => array( 901 ), 12 => array( 901 ), 13 => array( 901 ) );
 $GLOBALS['fv2_course_titles'] = array( 901 => 'Mission Residency: 360 Match Mentorship Student Dashboard &#038; Guidance Hub' );
 $GLOBALS['fv2_admins'] = array( 20 => true );
 $GLOBALS['fv2_options'] = array(
@@ -135,6 +249,9 @@ $GLOBALS['fv2_uuid'] = 0;
 class MMED_File_Vault {
 	public static function maybe_install() {}
 	public static function table_name() { return 'wp_mmed_files'; }
+	public static function shares_table_name() { return 'wp_mmed_file_vault_shares'; }
+	public static function share_recipients_table_name() { return 'wp_mmed_file_vault_share_recipients'; }
+	public static function downloads_table_name() { return 'wp_mmed_file_vault_downloads'; }
 	protected static function storage_configured() { return true; }
 	protected static function sanitize_category( $value, $default ) {
 		$allowed = array( 'documents', 'medical_records', 'letters', 'certifications', 'other', 'academic', 'clinical', 'personal', 'admin', 'general' );
@@ -147,6 +264,17 @@ class MMED_File_Vault {
 	}
 	protected static function student_prefix( $user_id ) { return 'student-files/' . absint( $user_id ) . '/'; }
 	protected static function presign_url( $method, $key, $expires ) { return 'https://r2.example.test/' . rawurlencode( $key ) . '?method=' . $method . '&expires=' . absint( $expires ); }
+}
+
+class MMED_Access_Gate {
+	public static function get_access_payload( $user_id ) {
+		$course_ids = $GLOBALS['fv2_enrolled_courses'][ absint( $user_id ) ] ?? array();
+		return array(
+			'is_enrolled'      => ! empty( $course_ids ),
+			'enrolled_courses' => array_values( array_map( 'get_the_title', $course_ids ) ),
+		);
+	}
+	public static function get_enrolled_course_ids() { return array( 901 ); }
 }
 
 function absint( $value ) { return abs( (int) $value ); }
@@ -213,6 +341,7 @@ function set_transient( $key, $value, $ttl ) {
 function user_can( $user_id, $capability ) { return 'mmed_manage_file_vault' === $capability && ! empty( $GLOBALS['fv2_admins'][ absint( $user_id ) ] ); }
 function wp_generate_uuid4() { return sprintf( '00000000-0000-4000-8000-%012d', ++$GLOBALS['fv2_uuid'] ); }
 function wp_json_encode( $value ) { return json_encode( $value, JSON_UNESCAPED_SLASHES ); }
+function wp_list_pluck( $list, $field ) { return array_map( static function ( $item ) use ( $field ) { return is_array( $item ) ? ( $item[ $field ] ?? null ) : ( $item->{$field} ?? null ); }, (array) $list ); }
 
 require_once dirname( __DIR__ ) . '/wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2-repository.php';
 
@@ -459,7 +588,8 @@ $GLOBALS['fv2_users'] = array(
 );
 $query_count = $GLOBALS['wpdb']->get_results_calls;
 $staff_scope = MMED_File_Vault_V2_Repository::staff_scope( 'admin', 20 );
-fv2_repo_assert( 2 === count( $staff_scope['students'] ) && 2 === $GLOBALS['wpdb']->get_results_calls - $query_count, 'staff roster uses one metadata-size preflight and one bounded bulk document query without per-student reads' );
+$staff_query_delta = $GLOBALS['wpdb']->get_results_calls - $query_count;
+fv2_repo_assert( 2 === count( $staff_scope['students'] ) && 2 === $staff_query_delta, 'staff roster uses one metadata-size preflight and one bounded bulk document query without per-student reads (actual queries: ' . $staff_query_delta . ')' );
 $null_pagination = MMED_File_Vault_V2_Repository::staff_scope( 'admin', 20, '', null, null );
 fv2_repo_assert( 50 === $null_pagination['pagination']['per_page'], 'omitted REST pagination values retain the bounded server default' );
 $first_roster_page = MMED_File_Vault_V2_Repository::staff_scope( 'admin', 20, '', 1, 1 );
@@ -672,5 +802,74 @@ $student_share_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 );
 $student_share_document = MMED_File_Vault_V2_Repository::confirm_upload_intent( $student_share_intent['upload_id'], $student_share_intent['confirm_token'], 12 );
 fv2_repo_assert( ! is_wp_error( $student_share_document ) && 'admin' !== $student_share_document['category'] && '' === $student_share_document['source'] && '' === $student_share_document['shared_at'], 'repository defense-in-depth ignores student attempts to self-declare Mission File provenance' );
+
+$GLOBALS['fv2_users'] = array(
+	(object) array( 'ID' => 10, 'display_name' => 'Enrolled One' ),
+	(object) array( 'ID' => 11, 'display_name' => 'Enrolled Two' ),
+	(object) array( 'ID' => 12, 'display_name' => 'Student Owner' ),
+	(object) array( 'ID' => 13, 'display_name' => 'Eligible Recipient' ),
+	(object) array( 'ID' => 14, 'display_name' => 'Account Only' ),
+);
+$audience = MMED_File_Vault_V2_Repository::audience_directory( 20, 'admin', '', 1, 20 );
+$audience_ids = array_map( static function ( $student ) { return $student['id']; }, $audience['students'] );
+fv2_repo_assert( in_array( 12, $audience_ids, true ) && in_array( 13, $audience_ids, true ) && ! in_array( 14, $audience_ids, true ), 'audience directory includes current learners and excludes account-only users' );
+
+$bad_mission_share = MMED_File_Vault_V2_Repository::publish_share( $mission_document['id'], 20, 'admin', array( 'title' => 'Invalid Mission File', 'audience_mode' => 'all_eligible' ) );
+fv2_repo_assert( is_wp_error( $bad_mission_share ) && 'mmed_file_vault_v2_share_provenance' === $bad_mission_share->get_error_code(), 'MissionMed publication rejects a staff-uploaded file owned by a student' );
+
+$staff_owned_row = clone $GLOBALS['wpdb']->rows[ $mission_document['id'] ];
+$staff_owned_row->id = 2000;
+$staff_owned_row->user_id = 20;
+$GLOBALS['wpdb']->rows[2000] = $staff_owned_row;
+$mission_share = MMED_File_Vault_V2_Repository::publish_share( 2000, 20, 'admin', array( 'title' => 'MissionMed Resource', 'description' => 'Verified staff resource.', 'audience_mode' => 'all_eligible' ) );
+fv2_repo_assert( ! is_wp_error( $mission_share ) && 'missionmed' === $mission_share['source_class'] && 'all_eligible' === $mission_share['audience_mode'], 'verified MissionMed-owned upload publishes to the normalized Mission Files library' );
+
+$account_only_share = MMED_File_Vault_V2_Repository::publish_share( $student_share_document['id'], 12, 'student', array( 'title' => 'Student Resource', 'audience_mode' => 'selected', 'user_ids' => array( 14 ) ) );
+fv2_repo_assert( is_wp_error( $account_only_share ) && 'mmed_file_vault_v2_share_recipient' === $account_only_share->get_error_code(), 'student sharing rejects an account-only recipient' );
+$student_share = MMED_File_Vault_V2_Repository::publish_share( $student_share_document['id'], 12, 'student', array( 'title' => 'Student Resource', 'description' => 'Shared with one eligible peer.', 'audience_mode' => 'selected', 'user_ids' => array( 13 ) ) );
+fv2_repo_assert( ! is_wp_error( $student_share ) && 'student_shared' === $student_share['source_class'] && array( 901 ) === $student_share['audience_group_ids'], 'student-selected sharing stores the owner current enrollment scope for later revalidation' );
+
+$student_preview = MMED_File_Vault_V2_Repository::preview_share( $student_share['id'], 13, 'student' );
+$download_count_before_share = count( $GLOBALS['wpdb']->download_rows );
+$student_download = MMED_File_Vault_V2_Repository::download_share( $student_share['id'], 13, 'student' );
+fv2_repo_assert( ! is_wp_error( $student_preview ) && 600 === $student_preview['expires'] && 1 === $student_preview['version'], 'Quick Look issues a revision-pinned ten-minute preview URL' );
+fv2_repo_assert( ! is_wp_error( $student_download ) && 60 === $student_download['expires'] && 1 === $student_download['version'], 'shared download issues a revision-pinned one-minute URL' );
+$latest_download = end( $GLOBALS['wpdb']->download_rows );
+fv2_repo_assert( $download_count_before_share + 1 === count( $GLOBALS['wpdb']->download_rows ) && 'STUDENT_SHARED' === $latest_download->source_class, 'shared download appends one normalized durable audit row before returning its URL' );
+$recipient_status = MMED_File_Vault_V2_Repository::recipient_status( $student_share['id'], 1, 20 );
+fv2_repo_assert( 1 === $recipient_status['counts']['targeted'] && 1 === $recipient_status['counts']['access_issued'] && false === $recipient_status['evidence']['byte_transfer_confirmed'], 'recipient evidence truthfully reports signed-link issuance without claiming byte transfer' );
+
+$replacement_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
+	12,
+	12,
+	array(
+		'filename' => 'student-document-v2.pdf',
+		'mime_type' => 'application/pdf',
+		'file_size' => 96,
+		'document_type' => 'other',
+		'display_name' => 'Student Document',
+		'sha256' => str_repeat( 'c', 64 ),
+	),
+	$student_share_document['id']
+);
+$replacement_document = MMED_File_Vault_V2_Repository::confirm_upload_intent( $replacement_intent['upload_id'], $replacement_intent['confirm_token'], 12 );
+$pinned_share = MMED_File_Vault_V2_Repository::get_share( $student_share['id'], 13, 'student' );
+$pinned_download = MMED_File_Vault_V2_Repository::download_share( $student_share['id'], 13, 'student' );
+fv2_repo_assert( 2 === $replacement_document['version'] && 1 === $pinned_share['source_revision'] && 2 === $pinned_share['current_revision'] && true === $pinned_share['has_update'], 'new document versions do not silently mutate an already published share' );
+fv2_repo_assert( 1 === $pinned_download['version'], 'shared download remains pinned to the explicitly published immutable revision' );
+
+$moderated = MMED_File_Vault_V2_Repository::update_share_status( $student_share['id'], 20, 'admin', 'disabled' );
+$moderated_owner = MMED_File_Vault_V2_Repository::get_share( $student_share['id'], 12, 'student', true );
+$student_reactivate = MMED_File_Vault_V2_Repository::update_share_status( $student_share['id'], 12, 'student', 'active' );
+$student_republish = MMED_File_Vault_V2_Repository::publish_share( $student_share_document['id'], 12, 'student', array( 'title' => 'Student Resource', 'audience_mode' => 'selected', 'user_ids' => array( 13 ) ) );
+fv2_repo_assert( 'disabled' === $moderated['moderation_status'] && 'disabled' === $moderated_owner['moderation_status'] && false === $moderated_owner['can_reactivate'], 'staff moderation persists a durable disabled lock in the student-facing share projection' );
+fv2_repo_assert( is_wp_error( $student_reactivate ) && 'mmed_file_vault_v2_share_moderated' === $student_reactivate->get_error_code(), 'student cannot reactivate a staff-disabled share' );
+fv2_repo_assert( is_wp_error( $student_republish ) && 'mmed_file_vault_v2_share_moderated' === $student_republish->get_error_code(), 'student cannot bypass moderation by republishing the same file' );
+$admin_reactivated = MMED_File_Vault_V2_Repository::update_share_status( $student_share['id'], 20, 'admin', 'active' );
+fv2_repo_assert( 'active' === $admin_reactivated['status'] && '' === $admin_reactivated['moderation_status'], 'authorized staff can deliberately clear the moderation lock' );
+
+$video_intent = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'interview-clip.mp4', 'mime_type' => 'video/mp4', 'file_size' => 1024, 'document_type' => 'other', 'display_name' => 'Interview Clip', 'sha256' => str_repeat( 'b', 64 ) ) );
+$unsafe_video = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'interview-clip.mov', 'mime_type' => 'video/quicktime', 'file_size' => 1024, 'document_type' => 'other', 'display_name' => 'Unsafe Clip', 'sha256' => str_repeat( 'a', 64 ) ) );
+fv2_repo_assert( ! is_wp_error( $video_intent ) && is_wp_error( $unsafe_video ) && 'mmed_file_vault_v2_file_type' === $unsafe_video->get_error_code(), 'MP4/WebM preview formats are accepted without widening uploads to unsupported video types' );
 
 echo "PASS: {$checks} File Vault V2 repository workflow checks\n";

@@ -54,7 +54,17 @@ class MMED_File_Vault_V2 {
 		self::route( '/file-vault/review-queue', WP_REST_Server::READABLE, 'get_review_queue', 'can_staff' );
 		self::route( '/file-vault/audit', WP_REST_Server::READABLE, 'get_audit', 'can_audit' );
 		self::route( '/file-vault/files/(?P<id>\d+)', WP_REST_Server::READABLE, 'get_file', 'can_use_v2', self::id_args() );
+		self::route( '/file-vault/files/(?P<id>\d+)/preview', WP_REST_Server::READABLE, 'preview_file', 'can_use_v2', self::id_args() );
 		self::route( '/file-vault/files/(?P<id>\d+)/download', WP_REST_Server::READABLE, 'download_file', 'can_use_v2', self::id_args() );
+		self::route( '/file-vault/audiences', WP_REST_Server::READABLE, 'get_audiences' );
+		self::route( '/file-vault/shares', WP_REST_Server::READABLE, 'get_shares' );
+		self::route( '/file-vault/shares', WP_REST_Server::CREATABLE, 'create_share', 'can_use_v2', self::share_args() );
+		self::route( '/file-vault/shares/(?P<id>\d+)', WP_REST_Server::READABLE, 'get_share', 'can_use_v2', self::id_args() );
+		self::route( '/file-vault/shares/(?P<id>\d+)/status', WP_REST_Server::EDITABLE, 'update_share_status', 'can_use_v2', array_merge( self::id_args(), self::share_status_args() ) );
+		self::route( '/file-vault/shares/(?P<id>\d+)/preview', WP_REST_Server::READABLE, 'preview_share', 'can_use_v2', self::id_args() );
+		self::route( '/file-vault/shares/(?P<id>\d+)/download', WP_REST_Server::READABLE, 'download_share', 'can_use_v2', self::id_args() );
+		self::route( '/file-vault/shares/(?P<id>\d+)/recipients', WP_REST_Server::READABLE, 'get_share_recipients', 'can_staff', self::id_args() );
+		self::route( '/file-vault/downloads', WP_REST_Server::READABLE, 'get_downloads', 'can_audit' );
 		self::route( '/file-vault/uploads', WP_REST_Server::CREATABLE, 'create_upload', 'can_use_v2', self::upload_args( true ) );
 		self::route( '/file-vault/uploads/(?P<upload_id>[a-f0-9-]{36})/confirm', WP_REST_Server::CREATABLE, 'confirm_upload', 'can_use_v2', self::confirm_args() );
 		self::route( '/file-vault/files/(?P<id>\d+)/versions', WP_REST_Server::CREATABLE, 'create_version', 'can_use_v2', array_merge( self::id_args(), self::upload_args( false ) ) );
@@ -268,14 +278,16 @@ class MMED_File_Vault_V2 {
 		$data['mode']         = self::get_mode();
 		$data['capabilities'] = self::capabilities( $target_id );
 		if ( 'student' !== $role ) {
-			$staff_scope = MMED_File_Vault_V2_Repository::staff_scope( $role, $viewer_id );
-			if ( is_wp_error( $staff_scope ) ) {
-				return $staff_scope;
-			}
-			$data['students']     = $staff_scope['students'];
-			$data['review_queue'] = $staff_scope['review_queue'];
-			$data['command']      = self::command_summary( $data['students'], $data['review_queue'] );
-			$data['staff_pagination'] = $staff_scope['pagination'];
+			$data['students']         = array();
+			$data['review_queue']     = array();
+			$data['command']          = self::command_summary( array(), array() );
+			$data['staff_pagination'] = array(
+				'page'      => 0,
+				'per_page'  => 50,
+				'has_more'  => true,
+				'next_page' => 1,
+				'deferred'  => true,
+			);
 		}
 		return new WP_REST_Response( $data, 200 );
 	}
@@ -386,11 +398,22 @@ class MMED_File_Vault_V2 {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function create_upload( $request ) {
-		$params    = self::json_params( $request );
+		$params = self::json_params( $request );
+		$role   = self::role_for_user();
 		if ( ! empty( $params['share_as_mission_file'] ) && 'admin' !== self::role_for_user() ) {
 			return new WP_Error( 'mmed_file_vault_v2_mission_file_forbidden', 'Only File Vault administrators can share a Mission File.', array( 'status' => 403 ) );
 		}
-		$target_id = self::target_student_id( $params['student_id'] ?? 0 );
+		$share_source = sanitize_key( $params['share_source'] ?? '' );
+		if ( $share_source && ! in_array( $share_source, array( 'missionmed', 'student_shared' ), true ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_share_source', 'The sharing source is invalid.', array( 'status' => 422 ) );
+		}
+		if ( ( 'missionmed' === $share_source && 'admin' !== $role ) || ( 'student_shared' === $share_source && 'student' !== $role ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_share_forbidden', 'Your role cannot create this shared file.', array( 'status' => 403 ) );
+		}
+		if ( 'missionmed' === $share_source ) {
+			$params['share_as_mission_file'] = true;
+		}
+		$target_id = $share_source ? get_current_user_id() : self::target_student_id( $params['student_id'] ?? 0 );
 		if ( is_wp_error( $target_id ) ) {
 			return $target_id;
 		}
@@ -440,6 +463,66 @@ class MMED_File_Vault_V2 {
 			return $access;
 		}
 		return self::response( MMED_File_Vault_V2_Repository::download( $request['id'], $request->get_param( 'version' ), get_current_user_id() ) );
+	}
+
+	/** Issue a lazy authorized inline preview for a private document. */
+	public static function preview_file( $request ) {
+		$access = self::assert_file_access( $request['id'] );
+		if ( is_wp_error( $access ) ) {
+			return $access;
+		}
+		return self::response( MMED_File_Vault_V2_Repository::preview( $request['id'], $request->get_param( 'version' ) ) );
+	}
+
+	/** Return server-filtered current enrollment audiences. */
+	public static function get_audiences( $request ) {
+		return self::response( MMED_File_Vault_V2_Repository::audience_directory( get_current_user_id(), self::role_for_user(), $request->get_param( 'search' ), $request->get_param( 'page' ), $request->get_param( 'per_page' ) ) );
+	}
+
+	/** Return shares visible to the current viewer. */
+	public static function get_shares( $request ) {
+		return self::response( MMED_File_Vault_V2_Repository::list_shares( get_current_user_id(), self::role_for_user(), $request->get_param( 'source_class' ), $request->get_param( 'page' ), $request->get_param( 'per_page' ), $request->get_param( 'search' ) ) );
+	}
+
+	/** Publish a verified private source file to a server-authorized audience. */
+	public static function create_share( $request ) {
+		$params = self::json_params( $request );
+		return self::response( MMED_File_Vault_V2_Repository::publish_share( $params['file_id'] ?? 0, get_current_user_id(), self::role_for_user(), $params ), 201 );
+	}
+
+	/** Return one authorized shared resource. */
+	public static function get_share( $request ) {
+		return self::response( MMED_File_Vault_V2_Repository::get_share( $request['id'], get_current_user_id(), self::role_for_user(), true ) );
+	}
+
+	/** Change share moderation state without deleting evidence. */
+	public static function update_share_status( $request ) {
+		$params = self::json_params( $request );
+		return self::response( MMED_File_Vault_V2_Repository::update_share_status( $request['id'], get_current_user_id(), self::role_for_user(), $params['status'] ?? '' ) );
+	}
+
+	/** Issue a lazy authorized preview for a shared resource. */
+	public static function preview_share( $request ) {
+		return self::response( MMED_File_Vault_V2_Repository::preview_share( $request['id'], get_current_user_id(), self::role_for_user() ) );
+	}
+
+	/** Issue and audit one shared-resource download. */
+	public static function download_share( $request ) {
+		return self::response( MMED_File_Vault_V2_Repository::download_share( $request['id'], get_current_user_id(), self::role_for_user() ) );
+	}
+
+	/** Return recipient download status for staff. */
+	public static function get_share_recipients( $request ) {
+		$share = MMED_File_Vault_V2_Repository::get_share( $request['id'], get_current_user_id(), self::role_for_user(), true );
+		if ( is_wp_error( $share ) ) {
+			return $share;
+		}
+		return self::response( MMED_File_Vault_V2_Repository::recipient_status( $request['id'], $request->get_param( 'page' ), $request->get_param( 'per_page' ) ) );
+	}
+
+	/** Return normalized download evidence for authorized staff. */
+	public static function get_downloads( $request ) {
+		return self::response( MMED_File_Vault_V2_Repository::download_activity( $request->get_param( 'page' ), $request->get_param( 'per_page' ) ) );
 	}
 
 	/**
@@ -583,6 +666,9 @@ class MMED_File_Vault_V2 {
 	public static function can_view_student( $student_id ) {
 		$viewer_id = get_current_user_id();
 		$role      = self::role_for_user();
+		if ( ! MMED_File_Vault_V2_Repository::is_eligible_student( absint( $student_id ) ) ) {
+			return false;
+		}
 		if ( 'admin' === $role ) {
 			return true;
 		}
@@ -650,6 +736,7 @@ class MMED_File_Vault_V2 {
 			'sha256'           => array( 'required' => true, 'type' => 'string', 'pattern' => '^[a-fA-F0-9]{64}$' ),
 			'ready_for_review' => array( 'type' => 'boolean' ),
 			'share_as_mission_file' => array( 'type' => 'boolean' ),
+			'share_source'    => array( 'type' => 'string', 'enum' => array( 'missionmed', 'student_shared' ) ),
 		);
 		if ( $include_student ) {
 			$args['student_id'] = array( 'type' => 'integer', 'minimum' => 1 );
@@ -676,6 +763,26 @@ class MMED_File_Vault_V2 {
 		return array(
 			'status' => array( 'required' => true, 'type' => 'string' ),
 			'note'   => array( 'type' => 'string', 'maxLength' => MMED_File_Vault_V2_Repository::NOTE_LENGTH_LIMIT ),
+		);
+	}
+
+	/** @return array */
+	protected static function share_args() {
+		return array(
+			'file_id'       => array( 'required' => true, 'type' => 'integer', 'minimum' => 1 ),
+			'title'         => array( 'required' => true, 'type' => 'string', 'minLength' => 1, 'maxLength' => MMED_File_Vault_V2_Repository::SHARE_TITLE_LENGTH_LIMIT ),
+			'description'   => array( 'type' => 'string', 'maxLength' => MMED_File_Vault_V2_Repository::SHARE_DESCRIPTION_LENGTH_LIMIT ),
+			'category'      => array( 'type' => 'string', 'maxLength' => 80 ),
+			'audience_mode' => array( 'required' => true, 'type' => 'string', 'enum' => array( 'all_eligible', 'groups', 'selected' ) ),
+			'group_ids'     => array( 'type' => 'array', 'maxItems' => MMED_File_Vault_V2_Repository::SHARE_GROUP_LIMIT, 'items' => array( 'type' => 'integer', 'minimum' => 1 ) ),
+			'user_ids'      => array( 'type' => 'array', 'maxItems' => MMED_File_Vault_V2_Repository::SHARE_RECIPIENT_LIMIT, 'items' => array( 'type' => 'integer', 'minimum' => 1 ) ),
+		);
+	}
+
+	/** @return array */
+	protected static function share_status_args() {
+		return array(
+			'status' => array( 'required' => true, 'type' => 'string', 'enum' => array( 'active', 'disabled', 'archived' ) ),
 		);
 	}
 
@@ -773,7 +880,9 @@ class MMED_File_Vault_V2 {
 			'view_audit'       => current_user_can( self::CAP_AUDIT ) || current_user_can( self::CAP_MANAGE ),
 			'view_student_list'=> in_array( $role, array( 'admin', 'mentor' ), true ),
 			'internal_notes'   => in_array( $role, array( 'admin', 'mentor' ), true ) && $student_id > 0,
-			'share_mission_file'=> 'admin' === $role && $student_id > 0,
+			'share_mission_file'=> 'admin' === $role,
+			'share_student_file'=> 'student' === $role && $student_id === get_current_user_id(),
+			'preview'           => $student_id > 0 && self::can_view_student( $student_id ),
 		);
 	}
 

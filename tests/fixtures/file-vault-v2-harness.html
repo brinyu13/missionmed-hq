@@ -280,6 +280,30 @@
 				1101: [{ id: "internal-note-fixture-1", author_name: "Admin Fixture", created_at: now, body: "Confirm final review ownership before approval." }],
 				1102: [{ id: "internal-note-fixture-2", author_name: "Admin Fixture", created_at: now, body: "Confirm final review ownership before approval." }]
 			};
+			var missionShares = [{
+				id: 2101, source_file_id: 1103, source_class: "missionmed", title: "MissionMed Interview Guide",
+				description: "Private interview preparation resource.", category: "resource", audience_mode: "all_eligible",
+				audience_group_ids: [], status: "active", moderation_status: "", can_manage: role === "admin", can_reactivate: true,
+				uploader_name: "MissionMed", shared_at: now, updated_at: now, source_revision: 1, current_revision: 1,
+				has_update: false, mime_type: "application/pdf", file_size: 204800, filename: "MissionMed_Interview_Guide.pdf",
+				document_type: "other", previewable: true
+			}];
+			var studentShares = [{
+				id: 2201, source_file_id: 1102, source_class: "student_shared", title: "Interview Timeline Checklist",
+				description: "A peer checklist shared inside the current enrollment group.", category: "timeline", audience_mode: "selected",
+				audience_group_ids: [901], status: "active", moderation_status: "", can_manage: role !== "mentor", can_reactivate: true,
+				uploader_name: "Enrolled Student", shared_at: now, updated_at: now, source_revision: 1, current_revision: 2,
+				has_update: true, mime_type: "application/pdf", file_size: 98304, filename: "Interview_Timeline_Checklist.pdf",
+				document_type: "timeline", previewable: true
+			}, {
+				id: 2202, source_file_id: 1101, source_class: "student_shared", title: "Paused Peer Draft",
+				description: "This share was disabled by MissionMed.", category: "resource", audience_mode: "selected",
+				audience_group_ids: [901], status: "disabled", moderation_status: "disabled", can_manage: true, can_reactivate: false,
+				uploader_name: "Enrolled Student", shared_at: now, updated_at: now, source_revision: 1, current_revision: 1,
+				has_update: false, mime_type: "application/pdf", file_size: 65536, filename: "Paused_Peer_Draft.pdf",
+				document_type: "other", previewable: true
+			}];
+			var normalizedDownloads = [{ id: 3101, file_id: 1103, share_id: 2101, file_name: "MissionMed Interview Guide", version: 1, user_id: 101, user_name: "Enrolled Student", source_class: "MISSIONMED", requester_role: "student", created_at: now }];
 
 			function clone(value) {
 				return JSON.parse(JSON.stringify(value));
@@ -299,7 +323,10 @@
 					score: hasStudent && viewerRole !== "student",
 					finalize: hasStudent && viewerRole === "admin",
 					internal_notes: hasStudent && viewerRole !== "student",
-					share_mission_file: hasStudent && viewerRole === "admin",
+					share_mission_file: viewerRole === "admin",
+					share_student_file: hasStudent && viewerRole === "student",
+					preview: hasStudent,
+					view_downloads: viewerRole === "admin",
 					view_audit: viewerRole !== "student",
 					view_student_list: viewerRole !== "student"
 				};
@@ -433,7 +460,7 @@
 					user_quota_bytes: 524288000,
 					user_usage_bytes: 957559,
 					contracts: {
-						default: { extensions: ["pdf", "docx", "png"], max_file_size: 26214400 },
+						default: { extensions: ["pdf", "docx", "png", "mp4", "webm"], max_file_size: 26214400 },
 						application_photo: { extensions: ["jpg", "jpeg"], max_file_size: 153600 }
 					}
 				};
@@ -665,6 +692,69 @@
 					}
 					return Promise.resolve({ events: clone(auditEvents), pagination: { page: 1, per_page: 50, event_limit: 200, has_more: false, next_page: null, next_before_at: "", next_before_id: "", scope_complete: true } });
 				}
+				if (path === "/audiences" && method === "GET") {
+					var audienceSearch = String(request.query && request.query.search || "").trim().toLowerCase();
+					var audiencePage = Number(request.query && request.query.page || 1);
+					var audienceRows = students.filter(function (student) { return !audienceSearch || student.display_name.toLowerCase().indexOf(audienceSearch) !== -1; });
+					var audienceOffset = (audiencePage - 1) * 2;
+					var audienceItems = audienceRows.slice(audienceOffset, audienceOffset + 2).map(function (student) {
+						return { id: student.id, display_name: student.display_name, program_label: "360 Match Mentorship", group_ids: [901] };
+					});
+					return Promise.resolve({
+						groups: [{ id: 901, label: "360 Match Mentorship" }],
+						students: clone(audienceItems),
+						pagination: { page: audiencePage, per_page: 2, has_more: audienceOffset + 2 < audienceRows.length, next_page: audienceOffset + 2 < audienceRows.length ? audiencePage + 1 : null },
+						policy: { all_eligible: role === "admin", groups: true, individuals: true, student_scope: role === "student" ? "shared_enrollment_groups" : "all_current_enrollments" }
+					});
+				}
+				if (path === "/shares" && method === "GET") {
+					var sourceClass = request.query && request.query.source_class === "student_shared" ? "student_shared" : "missionmed";
+					var shareRows = sourceClass === "student_shared" ? studentShares : missionShares;
+					return Promise.resolve({ items: clone(shareRows), pagination: { page: 1, per_page: 50, has_more: false, next_page: null } });
+				}
+				if (path === "/shares" && method === "POST") {
+					var sourceRows = body.audience_mode === "all_eligible" ? missionShares : studentShares;
+					var published = {
+						id: 2299, source_file_id: Number(body.file_id), source_class: body.audience_mode === "all_eligible" ? "missionmed" : "student_shared",
+						title: body.title || "Shared file", description: body.description || "", category: body.category || "resource", audience_mode: body.audience_mode,
+						audience_group_ids: clone(body.group_ids || []), status: "active", moderation_status: "", can_manage: true, can_reactivate: true,
+						uploader_name: role === "admin" ? "MissionMed" : "Enrolled Student", shared_at: now, updated_at: now, source_revision: 1, current_revision: 1,
+						has_update: false, mime_type: "application/pdf", file_size: 256, filename: "Fixture_Shared_File.pdf", document_type: "other", previewable: true
+					};
+					sourceRows.unshift(published);
+					harness.mutations.push({ type: "share", shareId: published.id });
+					return mutationResponse(clone(published), request);
+				}
+				var sharePreviewMatch = path.match(/^\/shares\/(\d+)\/preview$/);
+				if (sharePreviewMatch && method === "GET") {
+					return Promise.resolve({ previewable: true, url: "https://secure-files.fixture.invalid/preview/share/" + sharePreviewMatch[1], expires: 600, mime_type: "application/pdf", filename: "Fixture_Private_Preview.pdf", version: 1 });
+				}
+				var shareDownloadMatch = path.match(/^\/shares\/(\d+)\/download$/);
+				if (shareDownloadMatch && method === "GET") {
+					return mutationResponse({ url: "https://secure-files.fixture.invalid/share/" + shareDownloadMatch[1], filename: "Fixture_Shared_File.pdf", expires: 60, version: 1 }, request);
+				}
+				var shareStatusMatch = path.match(/^\/shares\/(\d+)\/status$/);
+				if (shareStatusMatch && method === "PATCH") {
+					var statusShare = missionShares.concat(studentShares).find(function (item) { return item.id === Number(shareStatusMatch[1]); });
+					if (!statusShare) return reject("Shared file not found.", 404);
+					statusShare.status = body.status;
+					if (role === "admin" && statusShare.source_class === "student_shared") {
+						statusShare.moderation_status = body.status === "active" ? "" : body.status;
+						statusShare.can_reactivate = body.status === "active";
+					}
+					return mutationResponse(clone(statusShare), request);
+				}
+				var recipientMatch = path.match(/^\/shares\/(\d+)\/recipients$/);
+				if (recipientMatch && method === "GET") {
+					return Promise.resolve({
+						items: [{ user_id: 101, display_name: "Enrolled Student", access_issued: true, last_access_issued_at: now }, { user_id: 102, display_name: "Eligible Recipient", access_issued: false, last_access_issued_at: "" }],
+						counts: { targeted: 2, access_issued: 1, not_issued: 1 }, evidence: { kind: "signed_download_url_issued", byte_transfer_confirmed: false },
+						pagination: { page: 1, per_page: 100, has_more: false, next_page: null }
+					});
+				}
+				if (path === "/downloads" && method === "GET") {
+					return Promise.resolve({ items: clone(normalizedDownloads), pagination: { page: 1, per_page: 50, has_more: false, next_page: null } });
+				}
 				var documentMatch = path.match(/^\/files\/(\d+)$/);
 				if (documentMatch && method === "GET") {
 					if (fail === "document") return reject("Fixture document failed.", 503);
@@ -678,6 +768,10 @@
 				if (downloadMatch && method === "GET") {
 					var downloadDocument = findDocument(requestStudentId, downloadMatch[1]);
 					return downloadDocument ? mutationResponse({ url: "https://secure-files.fixture.invalid/download/" + downloadDocument.id, filename: downloadDocument.original_name, expires: 60 }, request) : reject("Document not found.", 404);
+				}
+				var documentPreviewMatch = path.match(/^\/files\/(\d+)\/preview$/);
+				if (documentPreviewMatch && method === "GET") {
+					return Promise.resolve({ previewable: true, url: "https://secure-files.fixture.invalid/preview/file/" + documentPreviewMatch[1], expires: 600, mime_type: "application/pdf", filename: "Fixture_Private_Preview.pdf", version: 1 });
 				}
 				if ((path === "/uploads" || /^\/files\/\d+\/versions$/.test(path)) && method === "POST") {
 					if (fail === "upload") return reject("Fixture upload signing failed.", 503);
