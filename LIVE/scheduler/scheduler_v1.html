@@ -2362,6 +2362,9 @@
       var scheduler = window.MMEDScheduler || {};
       var refs = {};
       var EASTERN_TIMEZONE = "America/New_York";
+      var INITIAL_FORCE_CLASSIC = !!(window.mmedStudentOsFeatureFlags &&
+        window.mmedStudentOsFeatureFlags.feature_flags &&
+        window.mmedStudentOsFeatureFlags.feature_flags.appointments_force_classic);
 
       // Canonical source revision. The adapter reads this to decide which patch set applies:
       // a bundle without the marker is the pre-MX-APPT-5002 CDN artifact and still needs the
@@ -2463,14 +2466,90 @@
         smsOptIn: false,
         smsPhone: "",
         slotView: "week",
-        experience: "storyforge",
-        experiencePersistence: "unavailable",
+        experience: INITIAL_FORCE_CLASSIC ? "classic" : "storyforge",
+        experiencePreference: "storyforge",
+        experienceForced: INITIAL_FORCE_CLASSIC,
+        experiencePersistence: "loading",
+        experienceError: "",
         discoveryOpen: false,
         discoveryQuery: "",
         discoveryActive: 0,
         selectedDay: "",
         offline: typeof navigator !== "undefined" && navigator.onLine === false
       };
+
+      function appointmentsExperienceApi() {
+        var matrix = window.MMED_OS;
+        return matrix && matrix.api && typeof matrix.api.get === "function" && typeof matrix.api.post === "function"
+          ? matrix.api
+          : null;
+      }
+
+      function applyAppointmentsExperience(payload) {
+        payload = payload && typeof payload === "object" ? payload : {};
+        var preference = payload.preference === "classic" ? "classic" : "storyforge";
+        var effective = payload.effective_experience === "classic" ? "classic" : preference;
+        scheduler.state.experiencePreference = preference;
+        scheduler.state.experienceForced = payload.forced === true;
+        scheduler.state.experience = scheduler.state.experienceForced ? "classic" : effective;
+      }
+
+      function loadAppointmentsExperience() {
+        var api = appointmentsExperienceApi();
+        if (!api) {
+          scheduler.state.experiencePersistence = "unavailable";
+          return Promise.resolve(false);
+        }
+        scheduler.state.experiencePersistence = "loading";
+        scheduler.state.experienceError = "";
+        return api.get("/me/appointments-experience").then(function (payload) {
+          applyAppointmentsExperience(payload);
+          scheduler.state.experiencePersistence = "saved";
+          scheduler.render.sidebar();
+          scheduler.render.page(scheduler.state.route);
+          return true;
+        }).catch(function (error) {
+          scheduler.state.experiencePersistence = "error";
+          scheduler.state.experienceError = error && error.message ? error.message : "Your appointment experience could not be loaded.";
+          scheduler.render.page(scheduler.state.route);
+          return false;
+        });
+      }
+
+      function saveAppointmentsExperience(experience) {
+        var api = appointmentsExperienceApi();
+        var previous = {
+          experience: scheduler.state.experience,
+          preference: scheduler.state.experiencePreference
+        };
+        var requested = experience === "classic" ? "classic" : "storyforge";
+        scheduler.state.experiencePreference = requested;
+        scheduler.state.experience = scheduler.state.experienceForced ? "classic" : requested;
+        scheduler.state.experienceError = "";
+        scheduler.state.experiencePersistence = api ? "saving" : "unavailable";
+        scheduler.render.sidebar();
+        scheduler.render.page(scheduler.state.route);
+
+        if (!api) {
+          return Promise.resolve(false);
+        }
+
+        return api.post("/me/appointments-experience", { experience: requested }).then(function (payload) {
+          applyAppointmentsExperience(payload);
+          scheduler.state.experiencePersistence = "saved";
+          scheduler.render.sidebar();
+          scheduler.render.page(scheduler.state.route);
+          return true;
+        }).catch(function (error) {
+          scheduler.state.experience = previous.experience;
+          scheduler.state.experiencePreference = previous.preference;
+          scheduler.state.experiencePersistence = "error";
+          scheduler.state.experienceError = error && error.message ? error.message : "Your appointment experience could not be saved.";
+          scheduler.render.sidebar();
+          scheduler.render.page(scheduler.state.route);
+          return false;
+        });
+      }
 
       function isLocalPreview() {
         return window.location && window.location.protocol === "file:";
@@ -2761,7 +2840,7 @@
         // they go out together instead of one after the other. /appointment-types does not
         // consume anything bootstrap returns, so this removes a full round trip from the time
         // to a usable booking surface without changing either request.
-        loadAuthSession().then(function () {
+        Promise.all([loadAuthSession(), loadAppointmentsExperience()]).then(function () {
           scheduler.state.catalogLoading = true;
           return Promise.all([
             scheduler.api.get("/bootstrap"),
@@ -5367,6 +5446,37 @@
           return minutes > 0 ? minutes + " min" : "";
         }
 
+        function experienceStatusCopy() {
+          if (scheduler.state.experienceForced) {
+            return {
+              title: "Force Classic is active",
+              copy: "An administrator has temporarily forced the Classic presentation. Your saved preference is preserved and will return when the override is removed.",
+              error: false
+            };
+          }
+          if (scheduler.state.experiencePersistence === "saving") {
+            return { title: "Saving preference", copy: "Your account preference is being updated.", error: false };
+          }
+          if (scheduler.state.experiencePersistence === "saved") {
+            return { title: "Saved to your account", copy: "Your Appointments experience follows you across browsers and devices.", error: false };
+          }
+          if (scheduler.state.experiencePersistence === "error") {
+            return { title: "Preference not saved", copy: friendlyMessage(scheduler.state.experienceError), error: true };
+          }
+          if (scheduler.state.experiencePersistence === "loading") {
+            return { title: "Loading preference", copy: "Checking your saved Appointments experience.", error: false };
+          }
+          return { title: "Preview only", copy: "Account persistence is unavailable outside the authenticated Matrix experience.", error: true };
+        }
+
+        function storyExperienceControls() {
+          return ["classic", "storyforge"].map(function (value) {
+            var label = value === "classic" ? "Classic" : "StoryForge";
+            var pressed = scheduler.state.experiencePreference === value ? "true" : "false";
+            return '<button type="button" data-sf-action="experience" data-value="' + value + '" aria-pressed="' + pressed + '">' + label + "</button>";
+          }).join("");
+        }
+
         function storyNav(route) {
           var items = [
             ["home", "Home"],
@@ -5394,8 +5504,7 @@
             '<a class="sf-matrix-link" href="#dashboard"><b aria-hidden="true">←</b><span>Matrix</span></a>',
             '<div class="sf-brand"><b>MissionMed // Appointments</b><span>Planning · Eastern time</span></div>',
             '<div class="sf-exp" role="group" aria-label="Appointment experience">',
-            '<button type="button" data-sf-action="experience" data-value="classic" aria-pressed="false">Classic</button>',
-            '<button type="button" aria-pressed="true">StoryForge</button>',
+            storyExperienceControls(),
             "</div>",
             "</header>",
             storyNav(route),
@@ -5799,41 +5908,39 @@
         }
 
         function renderStorySettings() {
+          var status = experienceStatusCopy();
           return [
             storyIntro("Settings", "Appointment <em>experience</em>.", "Classic and StoryForge use the same live Scheduler state."),
             '<section class="sf-panel sf-pad sf-settings-note">',
             "<h2>Experience preference</h2>",
-            '<div class="sf-error" role="status"><strong>Not saved yet</strong><p>The required server-backed preference and emergency Classic override share a MissionMed Hub path currently owned by another active release. No localStorage or browser-only preference has been substituted.</p></div>',
-            '<div class="sf-exp" role="group" aria-label="Temporary experience preview">',
-            '<button type="button" data-sf-action="experience" data-value="classic" aria-pressed="false">Preview Classic</button>',
-            '<button type="button" aria-pressed="true">StoryForge</button>',
+            '<div class="' + (status.error ? "sf-error" : "sf-notice") + '" role="status"><strong>' + escapeHTML(status.title) + '</strong><p>' + escapeHTML(status.copy) + '</p></div>',
+            '<div class="sf-exp" role="group" aria-label="Saved appointment experience">',
+            storyExperienceControls(),
             "</div>",
-            "<p>Switching for this open page preserves every current selection but is not claimed as persistence.</p>",
+            "<p>Switching presentations preserves every current booking selection and never changes appointment records.</p>",
             "</section>"
           ].join("");
         }
 
         function renderClassicSettings() {
           if (!refs.content) return;
+          var status = experienceStatusCopy();
           refs.content.innerHTML = [
             '<section class="sos-page">',
             scheduler.components.pageHeader("Settings", "Appointment Experience", "Classic and StoryForge use the same live Scheduler state."),
             '<div class="sos-card sos-card-pad">',
             '<div class="sos-panel-title">Experience preference</div>',
-            '<div class="sos-notice is-error" role="status"><strong>Not saved yet</strong><span>The required server-backed preference and emergency Classic override share a MissionMed Hub path currently owned by another active release. No localStorage or browser-only preference has been substituted.</span></div>',
-            '<div class="sos-form-actions"><button type="button" class="sos-btn sos-btn-primary" data-classic-action="storyforge">Preview StoryForge</button></div>',
-            '<p class="sos-panel-copy">Switching for this open page preserves every current selection but is not claimed as persistence.</p>',
+            '<div class="sos-notice' + (status.error ? " is-error" : "") + '" role="status"><strong>' + escapeHTML(status.title) + '</strong><span>' + escapeHTML(status.copy) + '</span></div>',
+            '<div class="sos-form-actions"><button type="button" class="sos-btn" data-classic-action="classic" aria-pressed="' + (scheduler.state.experiencePreference === "classic" ? "true" : "false") + '">Classic</button><button type="button" class="sos-btn sos-btn-primary" data-classic-action="storyforge" aria-pressed="' + (scheduler.state.experiencePreference === "storyforge" ? "true" : "false") + '">StoryForge</button></div>',
+            '<p class="sos-panel-copy">Switching presentations preserves every current booking selection and never changes appointment records.</p>',
             "</div>",
             "</section>"
           ].join("");
-          var switcher = refs.content.querySelector('[data-classic-action="storyforge"]');
-          if (switcher) {
+          refs.content.querySelectorAll("[data-classic-action]").forEach(function (switcher) {
             switcher.addEventListener("click", function () {
-              scheduler.state.experience = "storyforge";
-              scheduler.render.sidebar();
-              scheduler.render.page(scheduler.state.route);
+              saveAppointmentsExperience(switcher.getAttribute("data-classic-action"));
             });
-          }
+          });
         }
 
         function storyBody(route) {
@@ -5936,11 +6043,8 @@
               var value = control.getAttribute("data-value") || "";
               if (action === "route") {
                 scheduler.router.go(control.getAttribute("data-route") || "home");
-              } else if (action === "experience" && value === "classic") {
-                scheduler.state.experience = "classic";
-                if (scheduler.state.route === "home" || scheduler.state.route === "settings") scheduler.state.route = "book";
-                scheduler.render.sidebar();
-                scheduler.render.page(scheduler.state.route);
+              } else if (action === "experience") {
+                saveAppointmentsExperience(value);
               } else if (action === "discover-type") {
                 selectDiscoveredType(control.getAttribute("data-type-id") || "");
               } else if (action === "division") {
@@ -6169,9 +6273,7 @@
           if (footer) {
             footer.insertAdjacentHTML("afterbegin", '<button type="button" class="sos-btn" data-classic-action="storyforge">Use StoryForge</button>');
             footer.querySelector('[data-classic-action="storyforge"]').addEventListener("click", function () {
-              scheduler.state.experience = "storyforge";
-              scheduler.render.sidebar();
-              scheduler.render.page(scheduler.state.route);
+              saveAppointmentsExperience("storyforge");
             });
           }
         };

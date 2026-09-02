@@ -8,8 +8,12 @@ import { JSDOM, VirtualConsole } from "jsdom";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const bundlePath = path.join(root, "LIVE/scheduler/scheduler_v1.html");
 const adapterPath = path.join(root, "wp-content/plugins/missionmed-hub/assets/scheduler-mount.js");
+const flagsPath = path.join(root, "wp-content/plugins/missionmed-hub/includes/class-mmed-feature-flags.php");
+const restApiPath = path.join(root, "wp-content/plugins/missionmed-hub/includes/class-mmed-rest-api.php");
 const bundle = fs.readFileSync(bundlePath, "utf8");
 const adapter = fs.readFileSync(adapterPath, "utf8");
+const flags = fs.readFileSync(flagsPath, "utf8");
+const restApi = fs.readFileSync(restApiPath, "utf8");
 
 function response(payload, status = 200) {
   return {
@@ -42,6 +46,11 @@ function fixture() {
   const open = isoSlot(2);
   return {
     calls: [],
+    experience: {
+      preference: "storyforge",
+      effective_experience: "storyforge",
+      forced: false
+    },
     types: [
       {
         id: "eligible-type",
@@ -103,6 +112,25 @@ function bootDom(data) {
     beforeParse(window) {
       window.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {} });
       window.confirm = () => false;
+      window.mmedStudentOsFeatureFlags = {
+        feature_flags: { appointments_force_classic: data.experience.forced === true }
+      };
+      window.MMED_OS = {
+        api: {
+          get: async endpoint => {
+            data.calls.push({ path: endpoint, method: "MATRIX_GET", body: "" });
+            if (endpoint === "/me/appointments-experience") return { ...data.experience };
+            throw new Error("Test Matrix route missing");
+          },
+          post: async (endpoint, body) => {
+            data.calls.push({ path: endpoint, method: "MATRIX_POST", body });
+            if (endpoint !== "/me/appointments-experience") throw new Error("Test Matrix route missing");
+            data.experience.preference = body.experience;
+            data.experience.effective_experience = data.experience.forced ? "classic" : body.experience;
+            return { ...data.experience };
+          }
+        }
+      };
       window.fetch = async (input, init = {}) => {
         const url = String(input);
         const parsed = new URL(url, window.location.href);
@@ -214,9 +242,11 @@ test("MX-APPT-5003G source and production-safety contract", () => {
     ["null division fail closed", /if \(!type \|\| !type\.division\) return true/],
     ["meeting link conditional", /meetingUrl \?/],
     ["no meeting synthesis", /Details after confirmation/],
-    ["shared state switch", /scheduler\.state\.experience = "classic"/],
-    ["Classic return switch", /scheduler\.state\.experience = "storyforge"/],
-    ["honest preference gap", /No localStorage or browser-only preference has been substituted/],
+    ["shared state switch", /saveAppointmentsExperience\(value\)/],
+    ["Classic return switch", /saveAppointmentsExperience\("storyforge"\)/],
+    ["account preference read", /api\.get\("\/me\/appointments-experience"\)/],
+    ["account preference write", /api\.post\("\/me\/appointments-experience"/],
+    ["force classic bootstrap", /appointments_force_classic/],
     ["Home route", /\["home", "Home"\]/],
     ["Book route", /\["book", "Book"\]/],
     ["Upcoming route", /\["upcoming", "Upcoming"\]/],
@@ -251,6 +281,11 @@ test("MX-APPT-5003G source and production-safety contract", () => {
     assert.equal(prohibited ? !matched : matched, true, label);
     count += 1;
   }
+  assert.match(flags, /'appointments_force_classic'/, "known server Force Classic flag");
+  assert.match(restApi, /'\/me\/appointments-experience'/, "self-only preference route");
+  assert.match(restApi, /'\/admin\/appointments-experience'/, "admin-only Force Classic route");
+  assert.match(restApi, /'permission_callback' => array\( __CLASS__, 'can_manage' \)/, "server-backed admin authorization");
+  assert.match(restApi, /APPOINTMENTS_FORCE_CLASSIC_AUDIT_OPTION/, "bounded Force Classic audit ledger");
   assert.ok(count >= 71, "at least 71 explicit source checks");
 });
 
@@ -333,6 +368,8 @@ test("MX-APPT-5003G shared-state interaction contract", async () => {
   document.querySelector('[data-classic-action="storyforge"]').click();
   assert.equal(scheduler.state, stateIdentity);
   assert.equal(scheduler.state.experience, "storyforge");
+  await waitFor(() => scheduler.state.experiencePersistence === "saved", "account preference save");
+  assert.equal(data.calls.some(call => call.path === "/me/appointments-experience" && call.method === "MATRIX_POST"), true);
 
   scheduler.router.go("upcoming");
   await waitFor(() => scheduler.state.route === "upcoming" &&
@@ -354,6 +391,33 @@ test("MX-APPT-5003G shared-state interaction contract", async () => {
   assert.equal(document.querySelector('[data-sf-action="cancel"]'), null);
   assert.equal(document.querySelector('a[href="https://meet.example.invalid/authorized"]') !== null, true);
 
+  assert.equal(errors.length, 0, errors.join("\n"));
+  dom.window.close();
+});
+
+test("MX-APPT-5003G Force Classic overrides without destroying preference", async () => {
+  const data = fixture();
+  data.experience = {
+    preference: "storyforge",
+    effective_experience: "classic",
+    forced: true
+  };
+  const { dom, errors } = bootDom(data);
+  const { window } = dom;
+  await waitFor(() => window.MMEDScheduler && window.MMEDScheduler.state.loading === false &&
+    window.MMEDScheduler.state.experiencePersistence === "saved", "forced Classic bootstrap");
+
+  const scheduler = window.MMEDScheduler;
+  const document = window.document;
+  assert.equal(scheduler.state.experience, "classic");
+  assert.equal(scheduler.state.experiencePreference, "storyforge");
+  assert.equal(scheduler.state.experienceForced, true);
+  scheduler.router.go("settings");
+  assert.match(document.body.textContent, /Force Classic is active/);
+  document.querySelector('[data-classic-action="storyforge"]').click();
+  await waitFor(() => data.calls.some(call => call.path === "/me/appointments-experience" && call.method === "MATRIX_POST"), "forced preference save");
+  assert.equal(scheduler.state.experience, "classic");
+  assert.equal(scheduler.state.experiencePreference, "storyforge");
   assert.equal(errors.length, 0, errors.join("\n"));
   dom.window.close();
 });

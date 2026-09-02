@@ -77,13 +77,13 @@
       "note": "Client defect repairs 1-9 (MX-APPT-5000 section 10.9; item 8 amended per MX-APPT-5001 SD-9 to wire Reschedule rather than delete it). Declares MMED_SCHEDULER_SOURCE_REV so the adapter can pick its patch profile. Adapter patches P01/P03/P10 are folded into this source and are expected 0 under the MX-APPT-5002C profile. NOT PUBLISHED — the live CDN artifact is still the legacy adoption hash."
     },
     {
-      "utc": "2026-09-02T09:54:32Z",
+      "utc": "2026-09-02T12:41:07Z",
       "ticket": "MX-APPT-5003G",
       "action": "candidate",
-      "sha256": "b3122e4ab80fd61b003f6ae8d264063dc9de04b198d10314100f82bf8787b870",
+      "sha256": "28bce6b424e86fcda6a027931e7e3c92aa31121c19cd601a3bb19eaf79a903fd",
       "source_rev": "MX-APPT-5003G",
-      "bytes": 250908,
-      "note": "Founder-authorized StoryForge V2 Appointments presentation over the repaired MX-APPT-5002 shared Scheduler core. Local automated, runtime-contract, responsive, accessibility, performance, patch-audit, and adapter-parity checks passed. NOT PUBLISHED: immutable legacy rollback object is absent, publisher credentials are unavailable in this isolated worktree, designated allowlisted-student QA is unavailable, and fresh non-builder release verification is outstanding."
+      "bytes": 255865,
+      "note": "Founder-authorized StoryForge V2 Appointments presentation over the repaired MX-APPT-5002 shared Scheduler core, including account-backed Classic/StoryForge preference and a server-authorized audited Force Classic override through the exact MissionMed Hub seams permitted by DR-165. Local automated, runtime-contract, responsive, accessibility, performance, patch-audit, and adapter-parity checks passed. NOT PUBLISHED: designated allowlisted-student QA and fresh non-builder release verification remain outstanding."
     }
   ]
 }
