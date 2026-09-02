@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MissionMed Matrix Scheduler</title>
   <style>
-    @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400..900;1,700..900&family=Rajdhani:wght@500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap");
 
     :root {
       --navy: #061727;
@@ -2132,6 +2132,7 @@
       display: inline-flex;
       align-items: center;
       gap: 9px;
+      min-width: 44px;
       padding: 0 14px;
       border: 1px solid rgba(255, 204, 77, 0.34);
       border-radius: 999px;
@@ -2297,7 +2298,7 @@
     .sf-times { display: grid; grid-template-columns: repeat(auto-fill,minmax(118px,1fr)); gap: 8px; }
     .sf-summary { margin-top: 15px; padding: 14px; border-left: 3px solid var(--sf-cyan); background: rgba(57,214,255,.07); }
     .sf-actions { position: sticky; bottom: 12px; z-index: 12; display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: 18px; padding: 12px; border: 1px solid var(--sf-edge); border-radius: 15px; background: rgba(5,18,30,.95); }
-    .sf-button { padding: 0 17px; border: 1px solid var(--sf-edge); border-radius: 11px; background: rgba(255,255,255,.05); color: #fff; font-weight: 800; }
+    .sf-button { display: inline-flex; align-items: center; justify-content: center; padding: 0 17px; border: 1px solid var(--sf-edge); border-radius: 11px; background: rgba(255,255,255,.05); color: #fff; font-weight: 800; }
     .sf-button.primary { border: 0; background: linear-gradient(135deg,var(--sf-cyan),var(--sf-violet)); color: #04111d; }
     .sf-button.danger { border-color: rgba(255,101,125,.5); color: #ffadba; }
     .sf-button:disabled { cursor: not-allowed; opacity: .45; }
@@ -2350,6 +2351,161 @@
     @media (prefers-reduced-motion: reduce) {
       .sf-app *, .sos-page-transition, .sos-step-slide-in, .sos-step-slide-out { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
     }
+
+    /* MX-APPT-5003G-R1 emergency visual-fidelity correction.
+       Literal Fable R1 shell and component language, scoped to StoryForge only. */
+    #schedule-root[data-appt-experience="storyforge"] {
+      --sf-bg:#0a0d14;--sf-bg2:#0f1522;--sf-panel:#121927;--sf-panel2:#161f31;
+      --sf-edge:#243046;--sf-edge2:#31405c;--sf-ink:#e9eefb;--sf-muted:#7e8ba6;--sf-mid:#aab8d1;
+      --sf-ember:#ffb340;--sf-ember2:#ff7a3d;--sf-cyan:#39d6ff;--sf-violet:#8a7dff;
+      --sf-green:#4ade9d;--sf-red:#ff5470;--sf-rail:200px;--sf-hdr:64px;
+      background:
+        radial-gradient(circle at 12% 8%,rgba(255,122,61,.10),transparent 38%),
+        radial-gradient(circle at 88% 92%,rgba(90,77,208,.14),transparent 42%),
+        radial-gradient(circle at 80% 6%,rgba(57,214,255,.06),transparent 30%),var(--sf-bg);
+      color:var(--sf-ink);font-family:"Archivo",system-ui,sans-serif;
+    }
+    #schedule-root[data-appt-experience="storyforge"] .sf-app {
+      display:grid;grid-template-columns:var(--sf-rail) minmax(0,1fr);grid-template-rows:var(--sf-hdr) 1fr;
+      min-height:100vh;background:transparent;font-family:"Archivo",system-ui,sans-serif;
+    }
+    #schedule-root[data-appt-experience="storyforge"] .sf-hdr {
+      grid-column:1/-1;position:sticky;top:0;z-index:70;display:flex;align-items:center;gap:16px;height:var(--sf-hdr);
+      padding:0 20px;background:linear-gradient(180deg,rgba(10,13,20,.97),rgba(8,11,18,.9));
+      border-bottom:1px solid rgba(49,64,92,.78);backdrop-filter:blur(6px);
+    }
+    #schedule-root[data-appt-experience="storyforge"] .sf-back {
+      display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 11px;border:1px solid var(--sf-edge2);
+      border-radius:8px;color:var(--sf-mid);font:700 11px "Rajdhani",sans-serif;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;
+    }
+    #schedule-root[data-appt-experience="storyforge"] .sf-brand{display:flex;flex-direction:column;min-width:225px;line-height:1}
+    #schedule-root[data-appt-experience="storyforge"] .sf-brand-title{white-space:nowrap;font-size:19px;font-style:italic;font-weight:900;letter-spacing:-.025em}
+    #schedule-root[data-appt-experience="storyforge"] .sf-brand-title b{color:var(--sf-ember)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-brand-sub{margin-top:5px;color:var(--sf-muted);font:700 9px "Rajdhani",sans-serif;letter-spacing:.24em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-hdr-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-left:auto}
+    #schedule-root[data-appt-experience="storyforge"] .sf-viewchip{padding:6px 13px;border-radius:999px;background:linear-gradient(90deg,var(--sf-ember),var(--sf-ember2));color:#140b00;font:700 10.5px "Rajdhani",sans-serif;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap}
+    #schedule-root[data-appt-experience="storyforge"] .sf-cta{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 20px;border:0;background:linear-gradient(90deg,var(--sf-ember),var(--sf-ember2));color:#140b00;font:800 12.5px "Archivo",sans-serif;letter-spacing:.18em;text-transform:uppercase;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-rail{grid-row:2;position:sticky;top:var(--sf-hdr);align-self:start;height:calc(100vh - var(--sf-hdr));display:flex;flex-direction:column;padding:16px 12px 14px;background:linear-gradient(180deg,rgba(14,20,32,.97),rgba(10,13,20,.94));border-right:1px solid var(--sf-edge);overflow-y:auto}
+    #schedule-root[data-appt-experience="storyforge"] .sf-logo{margin:2px 6px 0;font-size:20px;font-style:italic;font-weight:900;transform:skewX(-4deg)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-logo b{color:var(--sf-ember)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-logosub{margin:0 6px 16px;color:var(--sf-muted);font:700 8.5px "Rajdhani",sans-serif;letter-spacing:.26em;text-transform:uppercase;transform:skewX(-4deg)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-railcta{display:flex;align-items:center;justify-content:center;gap:9px;min-height:44px;margin:0 2px 16px;padding:0 10px;border:0;background:linear-gradient(90deg,var(--sf-ember),var(--sf-ember2));color:#140b00;font:800 12px "Rajdhani",sans-serif;letter-spacing:.14em;text-transform:uppercase;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-rtab{position:relative;display:flex;align-items:center;gap:11px;width:100%;min-height:44px;margin:0 0 4px;padding:0 14px;border:0;background:none;color:var(--sf-muted);font:700 12px "Rajdhani",sans-serif;letter-spacing:.16em;text-transform:uppercase;text-align:left;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-rtab:hover{color:#fff;background:rgba(36,48,70,.6)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-rtab.on{color:#0d0800;background:linear-gradient(90deg,var(--sf-ember),var(--sf-ember2))}
+    #schedule-root[data-appt-experience="storyforge"] .sf-rico{width:16px;text-align:center;opacity:.8}
+    #schedule-root[data-appt-experience="storyforge"] .sf-count{margin-left:auto;display:grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:var(--sf-red);color:#0a0d14;font-size:10.5px;letter-spacing:0}
+    #schedule-root[data-appt-experience="storyforge"] .sf-railfoot{margin-top:auto}
+    #schedule-root[data-appt-experience="storyforge"] .sf-return{display:block;margin:0 14px 16px;color:var(--sf-muted);font:700 11px "Rajdhani",sans-serif;letter-spacing:.14em;text-transform:uppercase;text-decoration:none}
+    #schedule-root[data-appt-experience="storyforge"] .sf-identity{display:flex;align-items:center;gap:8px;margin:10px 4px 0;color:var(--sf-muted);font:600 10px "Rajdhani",sans-serif;letter-spacing:.06em}
+    #schedule-root[data-appt-experience="storyforge"] .sf-avatar{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(150deg,var(--sf-ember),var(--sf-ember2));color:#161005;font:700 11px "Rajdhani",sans-serif}
+    #schedule-root[data-appt-experience="storyforge"] .sf-main{grid-column:2;width:100%;max-width:1360px;min-width:0;margin:0 auto;padding:30px clamp(18px,4.5vw,64px) 120px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-intro{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 24px;align-items:end;margin:0 0 22px;padding:22px 24px;border:1px solid var(--sf-edge);border-left:3px solid var(--sf-cyan);border-radius:16px;background:linear-gradient(165deg,rgba(19,25,39,.9),rgba(15,20,33,.86))}
+    #schedule-root[data-appt-experience="storyforge"] .sf-intro>div{min-width:0}
+    #schedule-root[data-appt-experience="storyforge"] .sf-kicker{color:var(--sf-ember);font:700 11px "Rajdhani",sans-serif;letter-spacing:.34em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-intro h1{margin:6px 0 0;max-width:none;color:var(--sf-ink);font-size:clamp(26px,3.4vw,40px);font-style:italic;font-weight:900;line-height:1.06;letter-spacing:-.02em;transform:skewX(-3deg)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-intro h1 em{color:var(--sf-ember);font-style:italic}
+    #schedule-root[data-appt-experience="storyforge"] .sf-intro p{margin:8px 0 0;color:var(--sf-mid);font-size:15px;line-height:1.55}
+    #schedule-root[data-appt-experience="storyforge"] .sf-panel{position:relative;margin-bottom:18px;border:1px solid var(--sf-edge);border-radius:16px;background:linear-gradient(165deg,rgba(19,25,39,.9),rgba(15,20,33,.86));box-shadow:none}
+    #schedule-root[data-appt-experience="storyforge"] .sf-pad{padding:20px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-button{min-height:44px;padding:0 14px;border:1px solid var(--sf-edge2);border-radius:8px;background:transparent;color:var(--sf-mid);font:700 11.5px "Rajdhani",sans-serif;letter-spacing:.12em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-button.primary{border:0;background:linear-gradient(90deg,var(--sf-ember),var(--sf-ember2));color:#140b00;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);border-radius:0}
+    #schedule-root[data-appt-experience="storyforge"] .sf-button.danger{border-color:rgba(255,84,112,.5);color:#ff8ba0}
+    #schedule-root[data-appt-experience="storyforge"] .sf-home-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-hero{position:relative;z-index:30;max-width:860px;margin:0 auto 10px;padding:5vh 0 26px;text-align:center}
+    #schedule-root[data-appt-experience="storyforge"] .sf-hero-eyebrow{color:var(--sf-muted);font:700 11px "Rajdhani",sans-serif;letter-spacing:.34em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-greet{margin:12px 0 0;font-size:clamp(30px,4.2vw,50px);font-style:italic;font-weight:900;line-height:1.05;letter-spacing:-.02em;transform:skewX(-3deg)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-greet em{color:var(--sf-ember);font-style:italic}
+    #schedule-root[data-appt-experience="storyforge"] .sf-greetsub{max-width:640px;margin:12px auto 0;color:var(--sf-mid);font-size:clamp(15px,1.7vw,18px);line-height:1.45}
+    #schedule-root[data-appt-experience="storyforge"] .sf-disc{position:relative;max-width:720px;margin:24px auto 0;text-align:left}
+    #schedule-root[data-appt-experience="storyforge"] .sf-capture{display:flex;align-items:center;padding:8px 8px 8px 20px;border:1px solid var(--sf-edge2);border-radius:16px;background:linear-gradient(160deg,rgba(19,25,39,.94),rgba(15,21,34,.9))}
+    #schedule-root[data-appt-experience="storyforge"] .sf-disc.is-open .sf-capture{border-color:rgba(255,179,64,.55);border-radius:16px 16px 6px 6px;box-shadow:0 0 44px rgba(255,150,60,.18)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-capture-pfx{flex:none;margin-right:12px;color:var(--sf-ember);font-size:19px;font-style:italic;font-weight:900;transform:skewX(-3deg)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-capture-input{flex:1;min-width:0;min-height:46px!important;padding:6px 0!important;border:0!important;background:none!important;color:var(--sf-ink);font:600 18px "Archivo",sans-serif!important;outline:none!important}
+    #schedule-root[data-appt-experience="storyforge"] .sf-capture-input::placeholder{color:#5c6a86;font-weight:400}
+    #schedule-root[data-appt-experience="storyforge"] .sf-capture-clear{flex:none;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--sf-muted);font-size:22px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-capture-go{flex:none;min-height:46px;margin-left:6px;padding:0 22px;border:0;border-radius:11px;background:linear-gradient(90deg,var(--sf-ember),var(--sf-ember2));color:#140b00;font:800 12px "Archivo",sans-serif;letter-spacing:.2em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-suggest{position:absolute;z-index:125;top:calc(100% + 8px);left:0;right:0;max-height:min(58vh,520px);overflow-y:auto;padding:6px;border:1px solid var(--sf-edge2);border-radius:14px;background:#0d1320;box-shadow:0 16px 44px rgba(0,0,0,.58)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-suggest-group{padding:10px 12px 4px;color:var(--sf-ember);font:700 10px "Rajdhani",sans-serif;letter-spacing:.26em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-opt{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;padding:9px 12px;border:0;border-radius:9px;background:none;color:var(--sf-ink);text-align:left}
+    #schedule-root[data-appt-experience="storyforge"] .sf-opt:hover,#schedule-root[data-appt-experience="storyforge"] .sf-opt[aria-selected="true"]{background:rgba(57,214,255,.1);box-shadow:inset 0 0 0 1px rgba(57,214,255,.35)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-opt-main{min-width:0;display:flex;flex-direction:column;gap:2px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-opt-main b{font-size:15px;font-weight:800}
+    #schedule-root[data-appt-experience="storyforge"] .sf-opt-main small{color:var(--sf-muted);font-size:12.5px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-opt-meta{display:flex;align-items:center;gap:8px;flex:none}
+    #schedule-root[data-appt-experience="storyforge"] .sf-badge{display:inline-flex;align-items:center;min-height:auto;padding:4px 10px;border:1px solid rgba(74,222,157,.5);border-radius:5px;color:var(--sf-green);font:700 11px "Rajdhani",sans-serif;letter-spacing:.12em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-badge.bad{border-color:rgba(255,179,64,.5);color:var(--sf-ember)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-hero-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:14px auto 0}
+    #schedule-root[data-appt-experience="storyforge"] .sf-prog{min-height:44px;padding:0 16px;border:1px dashed rgba(138,125,255,.45);border-radius:999px;background:rgba(138,125,255,.06);color:var(--sf-mid);font:700 11.5px "Rajdhani",sans-serif;letter-spacing:.12em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-prog.on{border-style:solid;border-color:var(--sf-violet);background:rgba(138,125,255,.18);color:#fff}
+    #schedule-root[data-appt-experience="storyforge"] .sf-hero-how{max-width:640px;margin:16px auto 0;color:var(--sf-muted);font-size:12.5px;line-height:1.5}
+    #schedule-root[data-appt-experience="storyforge"] .sf-hero-how span{display:inline-block;margin-right:8px;padding:3px 9px;border:1px solid rgba(255,179,64,.4);border-radius:999px;color:var(--sf-ember);font:700 9.5px "Rajdhani",sans-serif;letter-spacing:.2em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:6px 0 12px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-section-head h2{margin:0;font-size:19px}#schedule-root[data-appt-experience="storyforge"] .sf-section-head h2 em{color:var(--sf-ember);font-style:normal}
+    #schedule-root[data-appt-experience="storyforge"] .sf-next{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:20px;align-items:center;padding:20px 22px;border:1px solid rgba(255,179,64,.4);background:linear-gradient(120deg,rgba(255,179,64,.08),rgba(19,25,39,.9) 45%)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-next h2{margin:5px 0;font-size:20px}#schedule-root[data-appt-experience="storyforge"] .sf-next p{margin:4px 0;color:var(--sf-muted)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-next-time{font:700 17px "Rajdhani",sans-serif}
+    #schedule-root[data-appt-experience="storyforge"] .sf-stepper{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 18px;padding:0;list-style:none}
+    #schedule-root[data-appt-experience="storyforge"] .sf-step{min-height:52px;padding:10px 14px;border:1px solid var(--sf-edge);border-radius:12px;background:rgba(15,21,34,.7);color:var(--sf-muted);font:700 12px "Rajdhani",sans-serif;letter-spacing:.12em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-step.is-current{border-color:var(--sf-cyan);background:rgba(57,214,255,.08);color:#fff}#schedule-root[data-appt-experience="storyforge"] .sf-step.is-done{color:var(--sf-green)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-fieldset{display:grid;gap:12px;padding:20px}#schedule-root[data-appt-experience="storyforge"] .sf-fieldset h2{margin:0;color:var(--sf-muted);font:700 11px "Rajdhani",sans-serif;letter-spacing:.24em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-choice{min-height:64px;padding:13px 15px;border:1px solid var(--sf-edge2);border-radius:13px;background:rgba(15,21,34,.66);color:var(--sf-ink);text-align:left}
+    #schedule-root[data-appt-experience="storyforge"] .sf-choice[aria-checked="true"]{border-color:var(--sf-cyan);background:rgba(57,214,255,.12)}#schedule-root[data-appt-experience="storyforge"] .sf-choice b,#schedule-root[data-appt-experience="storyforge"] .sf-choice small{display:block}#schedule-root[data-appt-experience="storyforge"] .sf-choice small{margin-top:3px;color:var(--sf-muted)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-days{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin:16px 0}
+    #schedule-root[data-appt-experience="storyforge"] .sf-day,#schedule-root[data-appt-experience="storyforge"] .sf-time{padding:9px;border:1px solid var(--sf-edge);border-radius:11px;background:rgba(15,21,34,.7);color:var(--sf-ink)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-day b,#schedule-root[data-appt-experience="storyforge"] .sf-day small,#schedule-root[data-appt-experience="storyforge"] .sf-time b,#schedule-root[data-appt-experience="storyforge"] .sf-time small{display:block}
+    #schedule-root[data-appt-experience="storyforge"] .sf-day small,#schedule-root[data-appt-experience="storyforge"] .sf-time small{margin-top:3px;color:var(--sf-muted)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-day[aria-pressed="true"],#schedule-root[data-appt-experience="storyforge"] .sf-time[aria-pressed="true"]{border-color:var(--sf-cyan);background:rgba(57,214,255,.14)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-time-group h3{color:var(--sf-muted);font:700 11px "Rajdhani",sans-serif;letter-spacing:.24em;text-transform:uppercase}#schedule-root[data-appt-experience="storyforge"] .sf-times{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
+    #schedule-root[data-appt-experience="storyforge"] .sf-actions{bottom:12px;border-color:var(--sf-edge2);border-radius:14px;background:rgba(10,15,25,.97)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-review div{padding:10px 12px;border:1px solid var(--sf-edge);border-radius:10px;background:rgba(10,13,20,.45);margin-bottom:10px}#schedule-root[data-appt-experience="storyforge"] .sf-review dt{font:700 10px "Rajdhani",sans-serif;letter-spacing:.22em}
+    #schedule-root[data-appt-experience="storyforge"] .sf-row{grid-template-columns:62px minmax(0,1fr) auto;gap:18px;padding:14px 18px;border-left:3px solid var(--sf-green);border-radius:14px;background:linear-gradient(165deg,rgba(19,25,39,.9),rgba(15,20,33,.86))}
+    #schedule-root[data-appt-experience="storyforge"] .sf-date-tile{display:grid;place-items:center;align-content:center;width:62px;min-height:66px;border:1px solid var(--sf-edge2);border-radius:12px;background:rgba(10,13,20,.55);font:700 10px "Rajdhani",sans-serif;letter-spacing:.16em;text-align:center;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-date-tile b{font:800 28px "Archivo",sans-serif;line-height:1;letter-spacing:-.04em}
+    #schedule-root[data-appt-experience="storyforge"] .sf-row-copy b{font-size:17px}.sf-row-copy em{color:var(--sf-muted);font-style:normal}
+    #schedule-root[data-appt-experience="storyforge"] .sf-row-copy small{font-size:13.5px;line-height:1.45}
+    #schedule-root[data-appt-experience="storyforge"] .sf-row-side{display:grid;justify-items:end;gap:10px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-status{padding:5px 10px;border:1px solid rgba(74,222,157,.58);border-radius:6px;color:var(--sf-green);font:700 10px "Rajdhani",sans-serif;letter-spacing:.18em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-list-note{margin:10px 0 0;color:var(--sf-muted);font-size:12.5px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-settings-note{gap:0;padding:20px}
+    #schedule-root[data-appt-experience="storyforge"] .sf-setting-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;padding:16px 4px;border-top:1px solid var(--sf-edge)}
+    #schedule-root[data-appt-experience="storyforge"] .sf-setting-row:first-child{border-top:0}
+    #schedule-root[data-appt-experience="storyforge"] .sf-setting-row h2{margin:0 0 4px;font-size:17px}.sf-setting-row p{margin:0;color:var(--sf-muted);font-size:13px;line-height:1.45}
+    #schedule-root[data-appt-experience="storyforge"] .sf-zone{padding:6px 11px;border:1px solid var(--sf-edge2);border-radius:6px;color:var(--sf-mid);font:700 11px "Rajdhani",sans-serif;letter-spacing:.14em;text-transform:uppercase}
+    #schedule-root[data-appt-experience="storyforge"] .sf-exp{border-radius:10px;padding:3px}.sf-exp button{border-radius:7px;font:700 11px "Rajdhani",sans-serif;letter-spacing:.12em;text-transform:uppercase}.sf-exp button[aria-pressed="true"]{background:linear-gradient(90deg,var(--sf-ember),var(--sf-ember2));color:#140b00}
+    #schedule-root[data-appt-experience="storyforge"] .sf-offline{margin:0 0 16px;padding:12px 16px;border:1px solid rgba(255,84,112,.5);border-radius:12px;background:rgba(255,84,112,.07);color:#ffb1bf}
+    @media(max-width:1180px){#schedule-root[data-appt-experience="storyforge"] .sf-home-grid{grid-template-columns:1fr}}
+    @media(max-width:860px){
+      #schedule-root[data-appt-experience="storyforge"] .sf-app{grid-template-columns:1fr;--sf-rail:0px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-main{grid-column:1;padding-bottom:140px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-rail{position:fixed;top:auto;left:0;right:0;bottom:0;z-index:80;flex-direction:row;align-items:stretch;gap:2px;width:auto;height:auto;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border:0;border-top:1px solid var(--sf-edge);overflow:visible}
+      #schedule-root[data-appt-experience="storyforge"] .sf-logo,#schedule-root[data-appt-experience="storyforge"] .sf-logosub,#schedule-root[data-appt-experience="storyforge"] .sf-railfoot,#schedule-root[data-appt-experience="storyforge"] .sf-railcta{display:none}
+      #schedule-root[data-appt-experience="storyforge"] .sf-rail>nav{display:flex;flex:1;min-width:0}
+      #schedule-root[data-appt-experience="storyforge"] .sf-rtab{flex:1;flex-direction:column;justify-content:center;gap:3px;min-height:52px;margin:0;padding:6px 2px;border-radius:8px;font-size:9.5px;letter-spacing:.06em;text-align:center;clip-path:none}
+      #schedule-root[data-appt-experience="storyforge"] .sf-count{position:absolute;top:4px;right:8px;margin:0}
+      #schedule-root[data-appt-experience="storyforge"] .sf-actions{bottom:calc(64px + env(safe-area-inset-bottom))}
+    }
+    @media(max-width:640px){
+      #schedule-root[data-appt-experience="storyforge"] .sf-app{--sf-hdr:108px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-hdr{flex-wrap:wrap;align-content:center;gap:8px 10px;padding:8px 12px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-back{width:44px;justify-content:center;padding:0}#schedule-root[data-appt-experience="storyforge"] .sf-back span{display:none}
+      #schedule-root[data-appt-experience="storyforge"] .sf-brand{order:0;flex:1 1 auto;flex-basis:auto;min-width:0}#schedule-root[data-appt-experience="storyforge"] .sf-brand-title{font-size:16px}#schedule-root[data-appt-experience="storyforge"] .sf-brand-sub{font-size:7px;letter-spacing:.13em;margin-top:3px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-hdr-actions{width:100%;height:44px;gap:7px}#schedule-root[data-appt-experience="storyforge"] .sf-cta{padding:0 12px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-main{padding:18px 14px 150px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-intro{grid-template-columns:1fr;padding:18px 16px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-hero{padding:14px 0 18px}#schedule-root[data-appt-experience="storyforge"] .sf-greet{font-size:clamp(28px,9vw,36px)}
+      #schedule-root[data-appt-experience="storyforge"] .sf-capture{padding:6px 6px 6px 14px}#schedule-root[data-appt-experience="storyforge"] .sf-capture-pfx{font-size:16px;margin-right:8px}#schedule-root[data-appt-experience="storyforge"] .sf-capture-input{font-size:16px!important}#schedule-root[data-appt-experience="storyforge"] .sf-capture-go{padding:0 12px;font-size:10.5px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-suggest{position:static;max-height:none;margin-top:8px}#schedule-root[data-appt-experience="storyforge"] .sf-opt{min-height:60px;padding:10px}#schedule-root[data-appt-experience="storyforge"] .sf-opt-main b,#schedule-root[data-appt-experience="storyforge"] .sf-opt-main small{white-space:normal}
+      #schedule-root[data-appt-experience="storyforge"] .sf-next{grid-template-columns:1fr}#schedule-root[data-appt-experience="storyforge"] .sf-step b{font-size:10px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-book,#schedule-root[data-appt-experience="storyforge"] .sf-book>.sf-panel{width:100%;max-width:100%;min-width:0}
+      #schedule-root[data-appt-experience="storyforge"] .sf-fieldset{min-width:0;padding:20px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-weekbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;text-align:center}#schedule-root[data-appt-experience="storyforge"] .sf-weekbar .sf-button{min-width:0;padding-inline:10px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-days{grid-template-columns:repeat(7,62px);gap:4px;width:100%;max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;padding-bottom:5px}#schedule-root[data-appt-experience="storyforge"] .sf-day{min-width:0;padding-inline:3px;font-size:12px}
+      #schedule-root[data-appt-experience="storyforge"] .sf-actions{display:grid;grid-template-columns:auto minmax(0,1fr)}#schedule-root[data-appt-experience="storyforge"] .sf-actions .sf-button.primary{min-width:0;padding-inline:9px;font-size:10px;text-align:center;white-space:normal}
+      #schedule-root[data-appt-experience="storyforge"] .sf-review{grid-template-columns:1fr}#schedule-root[data-appt-experience="storyforge"] .sf-row{grid-template-columns:54px minmax(0,1fr)}#schedule-root[data-appt-experience="storyforge"] .sf-date-tile{width:54px;min-height:60px}#schedule-root[data-appt-experience="storyforge"] .sf-row-side{grid-column:1/-1;justify-items:stretch}#schedule-root[data-appt-experience="storyforge"] .sf-row-actions{justify-content:flex-start}#schedule-root[data-appt-experience="storyforge"] .sf-setting-row{grid-template-columns:1fr;gap:10px}
+    }
+    @media(max-width:390px){#schedule-root[data-appt-experience="storyforge"] .sf-main{padding:14px 10px 150px}#schedule-root[data-appt-experience="storyforge"] .sf-brand-title{font-size:15px}#schedule-root[data-appt-experience="storyforge"] .sf-viewchip{font-size:8px;letter-spacing:.12em;padding:5px 9px}}
   </style>
 </head>
 <body>
@@ -4610,7 +4766,10 @@
         scheduler.state.bookingStep = 2;
         setNotice("Choose a new time for this appointment. Your original time stays booked until you confirm.", false);
         scheduler.router.go("book");
-        loadAvailability();
+        // Hydrate the provider catalogue for the appointment before rendering Review.
+        // A fresh Home boot intentionally has no provider objects yet, even though the
+        // appointment row carries provider_id and availability can load successfully.
+        loadProviders().then(function () { return loadAvailability(); });
       }
 
       function cancelReschedule() {
@@ -4913,6 +5072,60 @@
         });
       }
 
+      function rescheduleMatchesReadback(appointmentId, slot) {
+        var appointment = findAppointmentById(appointmentId);
+        if (!appointment || !slot) return null;
+        var actual = Date.parse(appointment.start_at || appointment.startAt || "");
+        var expected = Date.parse(slot.start_at || slot.startAt || "");
+        return !isNaN(actual) && !isNaN(expected) && actual === expected ? appointment : null;
+      }
+
+      function finishConfirmedReschedule(appointment) {
+        cancelReschedule();
+        scheduler.state.bookingSubmitting = false;
+        scheduler.state.bookingState = "Confirmed";
+        scheduler.state.bookingConfirmed = true;
+        scheduler.state.confirmedAppointment = appointment;
+        scheduler.state.confirmedMeeting = {};
+        scheduler.state.activeModal = "booking-success";
+        scheduler.state.bookingStep = 3;
+        scheduler.state.selectedSlotKey = "";
+        setNotice("", false);
+      }
+
+      function applyBookingFailure(result, slot) {
+        scheduler.state.bookingConfirmed = false;
+        scheduler.state.confirmedAppointment = null;
+        scheduler.state.confirmedMeeting = null;
+        scheduler.state.activeModal = "";
+        if (isProviderConflict(result)) {
+          removeSlotFromAvailability(slot);
+          scheduler.state.bookingStep = 2;
+        }
+        if (isFullDayConflict(result)) {
+          scheduler.state.activeModal = "full-day";
+          scheduler.state.bookingStep = 2;
+          setNotice("", false);
+          return refreshAvailabilityAfterBooking(slot);
+        }
+        setNotice(friendlyBookingMessage(result), true);
+        if (isProviderConflict(result)) {
+          return refreshAvailabilityAfterBooking(slot);
+        }
+        return Promise.resolve();
+      }
+
+      function reconcileRescheduleFailure(appointmentId, slot, failure) {
+        return loadUpcoming().then(function () {
+          var appointment = rescheduleMatchesReadback(appointmentId, slot);
+          if (appointment) {
+            finishConfirmedReschedule(appointment);
+            return;
+          }
+          return applyBookingFailure(failure, slot);
+        });
+      }
+
       function submitBooking(event) {
         event.preventDefault();
         return submitBookingCore();
@@ -4934,7 +5147,8 @@
         readFormState();
         var slot = selectedSlot();
         var type = selectedAppointmentType();
-        if (isTypeLocked(type)) {
+        var rescheduleId = scheduler.state.rescheduleAppointmentId || "";
+        if (!rescheduleId && isTypeLocked(type)) {
           setNotice("This visit type needs a matching MissionMed enrollment before booking.", true);
           scheduler.render.page(scheduler.state.route);
           return;
@@ -4944,13 +5158,13 @@
           scheduler.render.page(scheduler.state.route);
           return;
         }
-        var requiredMissing = missingRequiredIntake(type);
+        var requiredMissing = rescheduleId ? [] : missingRequiredIntake(type);
         if (requiredMissing.length) {
           setNotice("Please answer the required intake questions before confirming: " + requiredMissing.join(", ") + ".", true);
           scheduler.render.page(scheduler.state.route);
           return;
         }
-        if (paymentRequired(type)) {
+        if (!rescheduleId && paymentRequired(type)) {
           setNotice("This visit type requires server-verified payment. The Stripe test adapter is not configured in this preview, so booking is blocked safely.", true);
           scheduler.render.page(scheduler.state.route);
           return;
@@ -4962,7 +5176,6 @@
         // to /reschedule instead. The /book branch below is byte-for-byte what it always was;
         // the reschedule payload carries exactly the fields
         // mm_scheduler_reschedule_appointment requires.
-        var rescheduleId = scheduler.state.rescheduleAppointmentId || "";
         var bookingRequest = rescheduleId
           ? scheduler.api.post("/reschedule", {
               idempotency_key: "student-reschedule-" + Date.now() + "-" + Math.random().toString(16).slice(2),
@@ -4992,24 +5205,8 @@
           scheduler.state.bookingSubmitting = false;
           scheduler.state.bookingState = result.ok ? "Confirmed" : "Blocked";
           if (!result.ok) {
-            scheduler.state.bookingConfirmed = false;
-            scheduler.state.confirmedAppointment = null;
-            scheduler.state.confirmedMeeting = null;
-            scheduler.state.activeModal = "";
-            if (isProviderConflict(result)) {
-              removeSlotFromAvailability(slot);
-              scheduler.state.bookingStep = 2;
-            }
-            if (isFullDayConflict(result)) {
-              scheduler.state.activeModal = "full-day";
-              scheduler.state.bookingStep = 2;
-              setNotice("", false);
-              return refreshAvailabilityAfterBooking(slot);
-            }
-            setNotice(friendlyBookingMessage(result), true);
-            if (isProviderConflict(result)) {
-              return refreshAvailabilityAfterBooking(slot);
-            }
+            if (rescheduleId) return reconcileRescheduleFailure(rescheduleId, slot, result);
+            return applyBookingFailure(result, slot);
           } else {
             var data = result.data || {};
             var appointment = data.appointment || (data.result && data.result.appointment) || {};
@@ -5025,6 +5222,7 @@
           }
         }).catch(function (error) {
           scheduler.state.bookingSubmitting = false;
+          if (rescheduleId) return reconcileRescheduleFailure(rescheduleId, slot, error);
           if (scheduler.state.bookingConfirmed) {
             setNotice("Session booked. Your upcoming list could not refresh yet, but the confirmation is complete.", false);
           } else {
@@ -5479,34 +5677,32 @@
 
         function storyNav(route) {
           var items = [
-            ["home", "Home"],
-            ["book", "Book"],
-            ["upcoming", "Upcoming"],
-            ["history", "History"],
-            ["settings", "Settings"]
+            ["home", "⌂", "Home"],
+            ["book", "+", "Book"],
+            ["upcoming", "◷", "Upcoming"],
+            ["history", "≡", "History"],
+            ["settings", "⚙", "Settings"]
           ];
           return [
-            '<nav class="sf-nav" aria-label="Appointments navigation">',
+            '<aside class="sf-rail"><div class="sf-logo">MissionMed <b>Appointments</b></div><div class="sf-logosub">MissionMed</div>',
+            '<button type="button" class="sf-railcta" data-sf-action="route" data-route="book">＋ Book appointment</button>',
+            '<nav aria-label="Appointments navigation">',
             items.map(function (item) {
-              return '<button type="button" data-sf-action="route" data-route="' +
+              return '<button type="button" class="sf-rtab ' + (route === item[0] ? "on" : "") + '" data-sf-action="route" data-route="' +
                 escapeAttr(item[0]) + '" aria-current="' +
-                (route === item[0] ? "page" : "false") + '">' +
-                escapeHTML(item[1]) + "</button>";
+                (route === item[0] ? "page" : "false") + '"><span class="sf-rico" aria-hidden="true">' + item[1] + '</span><span>' +
+                escapeHTML(item[2]) + '</span>' + (item[0] === "upcoming" && scheduler.state.upcoming.length ? '<span class="sf-count">' + scheduler.state.upcoming.length + '</span>' : '') + "</button>";
             }).join(""),
-            "</nav>"
+            '</nav><div class="sf-railfoot"><a class="sf-return" href="#dashboard">↩ Back to Matrix</a><div class="sf-identity"><span class="sf-avatar">' + escapeHTML(storyFirstName().slice(0,2).toUpperCase()) + '</span><span>' + escapeHTML(storyFirstName()) + ' · Student</span></div></div></aside>'
           ].join("");
         }
 
         function storyChrome(route, body) {
           return [
-            '<section class="sf-app">',
-            '<header class="sf-topbar">',
-            '<a class="sf-matrix-link" href="#dashboard"><b aria-hidden="true">←</b><span>Matrix</span></a>',
-            '<div class="sf-brand"><b>MissionMed // Appointments</b><span>Planning · Eastern time</span></div>',
-            '<div class="sf-exp" role="group" aria-label="Appointment experience">',
-            storyExperienceControls(),
-            "</div>",
-            "</header>",
+            '<section class="sf-app sf">',
+            '<header class="sf-hdr"><a class="sf-back" href="#dashboard"><b aria-hidden="true">←</b><span>Matrix</span></a>',
+            '<div class="sf-brand"><div class="sf-brand-title">MissionMed // <b>Appointments</b></div><div class="sf-brand-sub">Planning · Eastern time</div></div>',
+            '<div class="sf-hdr-actions"><span class="sf-viewchip">Student view</span><button type="button" class="sf-cta" data-sf-action="route" data-route="book">＋ Book</button></div></header>',
             storyNav(route),
             '<main class="sf-main" id="sf-main" tabindex="-1">',
             scheduler.state.offline ? '<div class="sf-notice sf-offline" role="status"><strong>You are offline.</strong> Reconnect before loading or saving appointment data.</div>' : "",
@@ -5552,6 +5748,7 @@
           var query = String(scheduler.state.discoveryQuery || "").toLowerCase().trim();
           return scheduler.state.appointmentTypes.filter(function (type) {
             if (type.active === false || type.status === "inactive") return false;
+            if (scheduler.state.discoveryProgram && String(type.division || "") !== scheduler.state.discoveryProgram) return false;
             if (!query) return true;
             var haystack = [
               type.name,
@@ -5571,7 +5768,7 @@
           if (!scheduler.state.discoveryOpen) return "";
           var rows = storyDiscoveryRows();
           if (!rows.length) {
-            return '<div class="sf-listbox" id="sf-discovery-list" role="listbox"><div class="sf-empty">No appointment types match this search.</div></div>';
+            return '<div class="sf-suggest" id="sf-discovery-list" role="listbox"><div class="sf-suggest-empty">No appointment types match this search.</div></div>';
           }
           var order = [];
           var available = scheduler.state.entitlements && Array.isArray(scheduler.state.entitlements.available_divisions)
@@ -5582,27 +5779,27 @@
             })) order.push(division);
           });
           return [
-            '<div class="sf-listbox" id="sf-discovery-list" role="listbox" aria-label="Appointment types">',
+            '<div class="sf-suggest" id="sf-discovery-list" role="listbox" aria-label="Appointment types">',
             order.map(function (division) {
               var group = rows.filter(function (type) {
                 return String(type.division || "") === division;
               });
               return [
-                '<div class="sf-group" role="presentation">' +
+                '<div class="sf-suggest-group" role="presentation">' +
                   escapeHTML(division ? storyDivisionName(division) : "Not configured") + "</div>",
                 group.map(function (type) {
                   var index = rows.indexOf(type);
                   var unavailable = storyUnavailable(type);
                   return [
-                    '<button type="button" class="sf-option" role="option" id="sf-option-' +
+                    '<button type="button" class="sf-opt' + (unavailable ? " is-locked" : "") + '" role="option" id="sf-option-' +
                       escapeAttr(String(index)) + '" aria-selected="' +
                       (scheduler.state.discoveryActive === index ? "true" : "false") +
                       '" aria-disabled="' + (unavailable ? "true" : "false") +
                       '" data-sf-action="discover-type" data-type-id="' + escapeAttr(type.id) + '">',
-                    "<span><b>" + escapeHTML(type.name || type.slug) + "</b><small>" +
+                    '<span class="sf-opt-main"><b>' + escapeHTML(type.name || type.slug) + "</b><small>" +
                       escapeHTML([storyDuration(type), type.description || storyUnavailableMessage(type)].filter(Boolean).join(" · ")) + "</small></span>",
-                    '<span class="sf-badge' + (unavailable ? " bad" : "") + '">' +
-                      escapeHTML(storyTypeStatus(type)) + "</span>",
+                    '<span class="sf-opt-meta"><b>' + escapeHTML(storyDuration(type)) + '</b><span class="sf-badge' + (unavailable ? " bad" : "") + '">' +
+                      escapeHTML(storyTypeStatus(type)) + "</span></span>",
                     "</button>"
                   ].join("");
                 }).join("")
@@ -5648,24 +5845,38 @@
 
         function renderStoryHome() {
           var rows = storyDiscoveryRows();
+          var programs = visibleBookingDivisions();
+          var first = storyFirstName();
+          var greeting = storyGreeting();
+          var greetingLead = greeting.slice(0, Math.max(0, greeting.length - first.length));
           return [
-            storyIntro("MissionMed Appointments", escapeHTML(storyGreeting()) +
-              ".", "Choose what you need. Appointments will show only live Scheduler options and preserve the service's eligibility decision."),
             storyNotice(),
-            '<div class="sf-home-grid">',
-            '<section class="sf-panel sf-discovery">',
-            '<label class="sf-prompt" id="sf-discovery-label" for="sf-discovery-input">What would you like to book an appointment for?</label>',
-            '<input class="sf-combobox" id="sf-discovery-input" type="search" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="' +
+            '<section class="sf-hero"><div class="sf-hero-eyebrow">MissionMed Appointments · ' +
+              escapeHTML(programs.length ? programs[0].name : "Your program") + '</div>',
+            '<h1 class="sf-greet">' + escapeHTML(greetingLead) + '<em>' + escapeHTML(first) + '</em>.</h1>',
+            '<p class="sf-greetsub" id="sf-discovery-label">What would you like to book an appointment for?</p>',
+            '<div class="sf-disc ' + (scheduler.state.discoveryOpen ? "is-open" : "") + '"><div class="sf-capture">',
+            '<span class="sf-capture-pfx">Book</span><input class="sf-capture-input" id="sf-discovery-input" type="search" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="' +
               (scheduler.state.discoveryOpen ? "true" : "false") +
               '" aria-controls="sf-discovery-list" aria-labelledby="sf-discovery-label" aria-activedescendant="' +
               (scheduler.state.discoveryOpen && rows.length ? "sf-option-" + Math.min(scheduler.state.discoveryActive, rows.length - 1) : "") +
               '" value="' + escapeAttr(scheduler.state.discoveryQuery) +
-              '" placeholder="Search advising, mock interview, personal statement…">',
+              '" placeholder="advising, mock interview, personal statement, ERAS…">',
+            scheduler.state.discoveryQuery ? '<button type="button" class="sf-capture-clear" data-sf-action="clear-discovery" aria-label="Clear search">×</button>' : "",
+            '<button type="button" class="sf-capture-go" data-sf-action="toggle-discovery">' + (scheduler.state.discoveryOpen ? "Close" : "Browse") + '</button></div>',
             '<span class="sf-sr" aria-live="polite">' + escapeHTML(rows.length + " appointment types found") + "</span>",
             storyDiscoveryList(),
-            "</section>",
+            '</div><div class="sf-hero-chips"><button type="button" class="sf-prog ' +
+              (!scheduler.state.discoveryProgram ? "on" : "") + '" data-sf-action="program" data-value="">All programs</button>',
+            programs.map(function (program) {
+              return '<button type="button" class="sf-prog ' +
+                (scheduler.state.discoveryProgram === program.id ? "on" : "") +
+                '" data-sf-action="program" data-value="' + escapeAttr(program.id) + '">' +
+                escapeHTML(program.name) + '</button>';
+            }).join(""),
+            '</div><p class="sf-hero-how"><span>How this works</span>Pick an appointment type here, choose your mentor and a time, then confirm. Your bookings are always shown below and in Matrix Calendar.</p></section>',
+            '<div class="sf-section-head"><h2>Your <em>schedule</em></h2><span class="sf-dim">Live Scheduler</span></div>',
             storyNextAppointment(),
-            "</div>",
             '<div class="sf-home-grid">',
             storyHomeScheduleList((scheduler.state.upcoming || []).slice(1), "Also upcoming", "upcoming", "No additional upcoming appointments."),
             storyHomeScheduleList(scheduler.state.history || [], "Recent history", "history", "No appointment history yet."),
@@ -5674,7 +5885,7 @@
         }
 
         function storyStepper() {
-          var labels = ["Details", "Time", "Confirm"];
+          var labels = ["Details", "Time", "Review"];
           return '<ol class="sf-stepper" aria-label="Booking steps">' + labels.map(function (label, index) {
             var step = index + 1;
             var state = step < scheduler.state.bookingStep ? "is-done" : step === scheduler.state.bookingStep ? "is-current" : "";
@@ -5803,15 +6014,17 @@
           var type = selectedAppointmentType();
           var provider = selectedProvider();
           var slot = selectedSlot();
-          if (!type || !provider || !slot) return storyError("Booking details are incomplete", "Go back and choose a program, mentor, and time.", "");
-          var meetingConfig = type.student_config && type.student_config.web_meetings ? type.student_config.web_meetings : {};
+          var isReschedule = Boolean(scheduler.state.rescheduleAppointmentId);
+          if (!slot || (!isReschedule && (!type || !provider))) return storyError("Booking details are incomplete", "Go back and choose a program, mentor, and time.", "");
+          var original = isReschedule ? findAppointmentById(scheduler.state.rescheduleAppointmentId) : null;
+          var meetingConfig = type && type.student_config && type.student_config.web_meetings ? type.student_config.web_meetings : {};
           var rows = [
-            ["Program", storyDivisionName(type.division)],
-            ["Appointment", type.name || type.slug],
-            ["Mentor", provider.display_name || provider.name],
+            ["Program", type ? storyDivisionName(type.division) : "MissionMed"],
+            ["Appointment", (original && original.appointment_type_name) || (type && (type.name || type.slug)) || "Existing appointment"],
+            ["Mentor", (original && original.provider_name) || (provider && (provider.display_name || provider.name)) || selectedProviderName(slot)],
             ["Date and time", formatDateTime(slotStart(slot)) + " ET"],
-            ["Duration", String(type.duration_minutes || "") + " minutes"],
-            ["Meeting", meetingConfig.provider ? String(meetingConfig.provider).toUpperCase() + " details after confirmation" : "Details after confirmation"]
+            ["Duration", String((original && original.duration_minutes) || (type && type.duration_minutes) || "") + " minutes"],
+            ["Meeting", isReschedule ? "Existing appointment details are preserved" : (meetingConfig.provider ? String(meetingConfig.provider).toUpperCase() + " details after confirmation" : "Details after confirmation")]
           ];
           return [
             '<section class="sf-panel sf-pad">',
@@ -5860,11 +6073,20 @@
           var content = scheduler.state.bookingConfirmed ? storyConfirmation() :
             scheduler.state.bookingStep === 2 ? storyTimeStep() :
               scheduler.state.bookingStep === 3 ? storyReview() : storyDetails();
+          var title = scheduler.state.bookingStep === 2 ? "When works for <em>you</em>?" :
+            scheduler.state.bookingStep === 3 ? "Review and <em>confirm</em>." :
+              "Who would you like to <em>meet</em>?";
+          var copy = scheduler.state.bookingStep === 2 ?
+            "Open times are shown in Eastern time. Pick a day, then a time." :
+            scheduler.state.bookingStep === 3 ?
+              "Check the details. Nothing is booked until you confirm." :
+              (selectedAppointmentType() ?
+                (selectedAppointmentType().name || selectedAppointmentType().slug) + " is selected. Choose your mentor to see available times." :
+                "Choose your program, appointment type, and mentor.");
           return [
-            storyIntro("Book", scheduler.state.rescheduleAppointmentId ? "Choose a <em>new time</em>." :
-              "Book an <em>appointment</em>.", scheduler.state.rescheduleAppointmentId ?
-              "Your original appointment remains booked until the server confirms a replacement." :
-              "One booking flow, powered by the live Scheduler."),
+            storyIntro("Book an appointment", scheduler.state.rescheduleAppointmentId ? "Choose a <em>new time</em>." : title,
+              scheduler.state.rescheduleAppointmentId ?
+                "Your original appointment remains booked until the server confirms a replacement." : copy),
             storyStepper(),
             '<div class="sf-book">',
             content,
@@ -5881,28 +6103,37 @@
           return '<div class="sf-list">' + rows.map(function (appointment) {
             var id = appointment.id || appointment.appointment_id || "";
             var meetingUrl = appointment.meeting_url || appointment.join_url || "";
+            var startsAt = appointment.start_at || appointment.startAt;
+            var start = new Date(startsAt);
+            var weekday = isNaN(start.getTime()) ? "" : new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: EASTERN_TIMEZONE }).format(start);
+            var day = isNaN(start.getTime()) ? "--" : new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone: EASTERN_TIMEZONE }).format(start);
+            var month = isNaN(start.getTime()) ? "" : new Intl.DateTimeFormat("en-US", { month: "short", timeZone: EASTERN_TIMEZONE }).format(start);
             return [
               '<article class="sf-row">',
-              "<div><b>" + escapeHTML(appointment.appointment_type_name || "Appointment") + "</b><small>" +
-                escapeHTML(formatDateTime(appointment.start_at || appointment.startAt) + " ET · " +
-                  (appointment.provider_name || "MissionMed mentor")) + "</small></div>",
-              history ? "" : '<div class="sf-row-actions">' +
+              '<div class="sf-date-tile"><span>' + escapeHTML(weekday) + '</span><b>' + escapeHTML(day) + '</b><span>' + escapeHTML(month) + '</span></div>',
+              '<div class="sf-row-copy"><b>' + escapeHTML(appointment.appointment_type_name || "Appointment") + ' <em>with ' + escapeHTML(appointment.provider_name || "MissionMed mentor") + '</em></b><small>' +
+                escapeHTML(formatDateTime(startsAt) + " ET" + (appointment.duration_minutes ? " · " + appointment.duration_minutes + " min" : "")) + "</small></div>",
+              '<div class="sf-row-side"><span class="sf-status">' + (history ? "Completed" : "Booked") + '</span>' + (history ? "" : '<div class="sf-row-actions">' +
                 (meetingUrl ? '<a class="sf-button primary" href="' + escapeAttr(meetingUrl) + '" target="_blank" rel="noopener">Join</a>' : "") +
                 (canUseAppointmentAction("reschedule", appointment) ? '<button type="button" class="sf-button" data-sf-action="reschedule" data-appointment-id="' + escapeAttr(id) + '">Reschedule</button>' : "") +
-                (canUseAppointmentAction("cancel", appointment) ? '<button type="button" class="sf-button danger" data-sf-action="cancel" data-appointment-id="' + escapeAttr(id) + '">Cancel</button>' : "") + '</div>',
+                (canUseAppointmentAction("cancel", appointment) ? '<button type="button" class="sf-button danger" data-sf-action="cancel" data-appointment-id="' + escapeAttr(id) + '">Cancel</button>' : "") + '</div>') + '</div>',
               "</article>"
             ].join("");
           }).join("") + "</div>";
         }
 
         function renderStoryList(history) {
+          var count = history ? scheduler.state.history.length : scheduler.state.upcoming.length;
           return [
-            storyIntro("Appointments", history ? "Appointment <em>history</em>." : "Your <em>upcoming</em> appointments.",
+            storyIntro(history ? "History" : "Upcoming",
+              history ? "Appointment <em>history</em>." : '<em>' + count + '</em> upcoming appointment' + (count === 1 ? "." : "s."),
               history ? "Completed and canceled sessions remain separate from active bookings." :
-                "Join, reschedule, or cancel only through capabilities returned by the live service."),
+                "Join, reschedule or cancel from here. Everything is shown in Eastern time.",
+              history ? "" : '<button type="button" class="sf-cta" data-sf-action="route" data-route="book">Book an appointment</button>'),
             storyNotice(),
             '<section class="sf-panel sf-pad">',
             storyAppointmentList(history),
+            '<p class="sf-list-note">All times are Eastern (ET). Local equivalents appear when supplied by the live Scheduler.</p>',
             "</section>"
           ].join("");
         }
@@ -5910,14 +6141,12 @@
         function renderStorySettings() {
           var status = experienceStatusCopy();
           return [
-            storyIntro("Settings", "Appointment <em>experience</em>.", "Classic and StoryForge use the same live Scheduler state."),
+            storyIntro("Settings", "Your <em>experience</em>.", "Appointments are the same either way — this only changes how they look and feel."),
             '<section class="sf-panel sf-pad sf-settings-note">',
-            "<h2>Experience preference</h2>",
-            '<div class="' + (status.error ? "sf-error" : "sf-notice") + '" role="status"><strong>' + escapeHTML(status.title) + '</strong><p>' + escapeHTML(status.copy) + '</p></div>',
-            '<div class="sf-exp" role="group" aria-label="Saved appointment experience">',
-            storyExperienceControls(),
-            "</div>",
-            "<p>Switching presentations preserves every current booking selection and never changes appointment records.</p>",
+            '<div class="sf-setting-row"><div><h2>Appointments experience</h2><p>StoryForge is the new look for booking and managing appointments. ' + escapeHTML(status.title) + '.</p></div><div class="sf-exp" role="group" aria-label="Saved appointment experience">' + storyExperienceControls() + '</div></div>',
+            '<div class="sf-setting-row"><div><h2>Time zone</h2><p>All appointment times are scheduled in Eastern time (America/New_York).</p></div><span class="sf-zone">Eastern</span></div>',
+            '<div class="sf-setting-row"><div><h2>Signed identity</h2><p>' + escapeHTML(storyFirstName()) + ' · Student. Role and eligibility come from the signed MissionMed session.</p></div></div>',
+            '<div class="sf-setting-row"><div><h2>Return to the platform</h2><p>Leave Appointments without creating a second sign-out path.</p></div><a class="sf-button" href="#dashboard">← Back to Matrix</a></div>',
             "</section>"
           ].join("");
         }
@@ -5940,6 +6169,21 @@
             switcher.addEventListener("click", function () {
               saveAppointmentsExperience(switcher.getAttribute("data-classic-action"));
             });
+          });
+        }
+
+        function renderEmbeddedClassicExperienceSwitch() {
+          if (refs.sidebar || !refs.content) return;
+          var page = refs.content.querySelector(".sos-page");
+          if (!page || page.querySelector("[data-classic-experience-switch]")) return;
+          page.insertAdjacentHTML("afterbegin", [
+            '<div class="sos-form-actions" data-classic-experience-switch>',
+            '<span class="sos-panel-copy">Classic appointments</span>',
+            '<button type="button" class="sos-btn sos-btn-primary" data-classic-action="storyforge">Use StoryForge</button>',
+            "</div>"
+          ].join(""));
+          page.querySelector('[data-classic-action="storyforge"]').addEventListener("click", function () {
+            saveAppointmentsExperience("storyforge");
           });
         }
 
@@ -6043,6 +6287,20 @@
               var value = control.getAttribute("data-value") || "";
               if (action === "route") {
                 scheduler.router.go(control.getAttribute("data-route") || "home");
+              } else if (action === "toggle-discovery") {
+                scheduler.state.discoveryOpen = !scheduler.state.discoveryOpen;
+                renderStoryForge("home");
+              } else if (action === "clear-discovery") {
+                scheduler.state.discoveryQuery = "";
+                scheduler.state.discoveryActive = 0;
+                scheduler.state.discoveryOpen = true;
+                renderStoryForge("home");
+                var clearedDiscovery = refs.content.querySelector("#sf-discovery-input");
+                if (clearedDiscovery) clearedDiscovery.focus();
+              } else if (action === "program") {
+                scheduler.state.discoveryProgram = value;
+                scheduler.state.discoveryActive = 0;
+                renderStoryForge("home");
               } else if (action === "experience") {
                 saveAppointmentsExperience(value);
               } else if (action === "discover-type") {
@@ -6290,6 +6548,7 @@
             return;
           }
           classicPage(route === "home" ? "book" : route);
+          renderEmbeddedClassicExperienceSwitch();
         };
 
         window.addEventListener("online", function () {

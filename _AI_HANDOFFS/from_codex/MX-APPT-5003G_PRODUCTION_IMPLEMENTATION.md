@@ -1,102 +1,88 @@
-# MX-APPT-5003G Production Implementation Handoff
+# MX-APPT-5003G-R1 Production Implementation Handoff
 
-RESULT: PARTIAL
+RESULT: BLOCKED_BACKEND_CANCEL / SAFE_ROLLBACK_COMPLETE
 
-Production deployment was not attempted because mandatory designated-student and authenticated student-role-denial gates remain unresolved. Fresh non-builder verification of the final candidate passed. The shared-seam blocker is resolved, and the isolated Scheduler candidate now includes the complete account preference and Force Classic implementation.
+Founder visual approval was received. Three guarded V2 activations were published immutably, hash-verified, tested in the designated authenticated student session, and rolled back on material failures. The latest candidate repairs live provider hydration and safely reconciles a reschedule that commits before a downstream backend error. Live cancellation still fails in the read-only backend and does not commit, so production is healthy on the byte-exact V1 artifact and V2 is not active.
 
-## Custody and authority
+## Current truth
 
-- Worktree: /Users/brianb/MissionMed_worktrees/mx-appt-5003g-production
-- Branch: codex/mx-appt-5003g-production
-- Final candidate commit: 3a3f682567733075c97a00a07c42f55654182122
-- HQ base: 4c86e85c186c01561ded81e1927842cd2ce0e5fc
-- Preserved stale branch: codex/mx-appt-5003g-precanonical-7409a82
-- MissionMed OS authority: 214f1a989ebb67e179614b4b41b54698340227ef
-- Mission/passport/authorities: MX-APPT-5003G; PRODUCT_PASSPORTS/scheduler.md; DR-164; DR-165
-- Lease protocol: MR-079 Lease V2
-- No primary or unrelated working tree was modified, reset, cleaned, stashed, or used as a donor.
+- Ticket: `MX-APPT-5003G-R1`
+- Worktree: `/Users/brianb/MissionMed_worktrees/mx-appt-5003g-production`
+- Branch: `codex/mx-appt-5003g-production`
+- Authority: `PRODUCT_PASSPORTS/scheduler.md`, DR-164, DR-165; canonical authority commit `214f1a989ebb67e179614b4b41b54698340227ef`
+- Production alias: `https://cdn.missionmedinstitute.com/html-system/LIVE/scheduler/scheduler_v1.html`
+- Live SHA-256, freshly read back: `98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195`
+- Immutable rollback artifact: `https://cdn.missionmedinstitute.com/html-system/LIVE/scheduler/versions/scheduler_v1.98f87f6998eb.html` — HTTP 200
+- Rejected V2 deployed: NO — it was previously active, then rolled back; it is not the current live alias.
+- Candidate source: `LIVE/scheduler/scheduler_v1.html`
+- Candidate SHA-256: `e9e480a9c72b41e9f63d63cc2fcccb818c19647b4a6e2dbd45d0d0f81d1a15f2`
+- Candidate bytes: `292441`
+- Candidate immutable artifact: `https://cdn.missionmedinstitute.com/html-system/LIVE/scheduler/versions/scheduler_v1.e9e480a9c72b.html` — byte-verified.
+- Deterministic local review route: `http://127.0.0.1:8765/#home`
+- Production deployment: attempted under guarded QA, then rolled back. V2 is not the LIVE alias.
 
-## Reconciliation and implementation
+## Preserved engineering
 
-MX-APPT-5002 was reconciled by inspecting its five commits and porting narrow Scheduler assets rather than merging D9.
+The implementation retains the MX-APPT-5002 repairs, real authentication/API/persistence/entitlement/allowlist/provider contracts, booking/cancel/reschedule behavior, shared Classic/StoryForge state, account-backed experience preference, audited reversible Force Classic, deterministic publishing, rollback tooling, performance work, and capability-gated actions.
 
-LIVE/scheduler/scheduler_v1.html now contains the approved StoryForge Appointments Home, Eastern greeting, real catalogue discovery, truthful entitlement fail-close, Home prefill, schedule/upcoming/history surfaces, shared Details to Time to Review flow, real provider/day/time selection, legitimate-only Join, capability-gated reschedule/cancel, safe cancel dialog, Classic fallback over the same state/API, account-backed experience switching, server-authorized Force Classic handling, honest request states, stable retry idempotency, and responsive/accessibility repairs.
+No Scheduler backend, business rule, datastore, entitlement policy, allowlist, migration, fake meeting URL, or unrelated Matrix product was introduced or changed. Classic remains available over the same shared core.
 
-The existing Scheduler backend and auth remain authoritative. No second backend, datastore, business rule, migration, entitlement, allowlist, fake record, or meeting URL was created.
+## R1 presentation result
 
-## Candidate files
+- StoryForge shell: PASS
+- Left app rail: PASS
+- R1 Home: PASS
+- R1 Search: PASS
+- Book Details: PASS
+- Book Time: PASS
+- Book Review: PASS
+- Upcoming: PASS
+- History: PASS
+- Settings: PASS
+- 1440: PASS
+- 1024: PASS
+- 768: PASS
+- 390: PASS — exact-width capture, no page-level horizontal overflow; the day strip scrolls internally.
 
-- LIVE/scheduler/scheduler_v1.html
-- wp-content/plugins/missionmed-hub/assets/scheduler-mount.js
-- wp-content/plugins/missionmed-hub/includes/class-mmed-feature-flags.php
-- wp-content/plugins/missionmed-hub/includes/class-mmed-rest-api.php
-- _SYSTEM/SCHEDULER_SOURCE_LOCK.json
-- _SYSTEM/scheduler_publish.sh
-- _SYSTEM/DEPLOY_MANIFEST_SCHEDULER.json
-- _SYSTEM/tools/scheduler_patch_audit.mjs
-- _SYSTEM/tools/scheduler_grid_benchmark.mjs
-- _SYSTEM/tools/scheduler_adapter_parity.mjs
-- _SYSTEM/tools/scheduler_patch_expectations.json
-- tests/scheduler/mx-appt-5003g-storyforge.spec.mjs
-- tests/scheduler/mx-appt-5003g-preview-server.mjs
-- this handoff and evidence directory
-
-Database migrations: none.
+The candidate now uses the approved 64px header, 200px desktop rail, ember skewed CTAs and active navigation, Archivo/Rajdhani/Lora type roles, italic 900 editorial headings, cyan selected states, discovery-led Home, grouped search results, day-first time selection, date-tile appointment rows, settings ledger, and responsive bottom navigation.
 
 ## Validation
 
-- Node suite PASS: 3 tests, 0 failures; 74 static/product/safety assertions plus 5 PHP source-contract assertions.
-- Standalone PHP contract harness PASS: 10 checks for route registration, account persistence, non-admin denial, admin authorization, audit, override preservation, and reversibility. PHP syntax PASS.
-- Patch audit PASS: 12 of 12. Adapter parity and JavaScript syntax PASS.
-- StoryForge and Classic PASS at 390, 768, 1024, 1440 with zero overflow, clipped controls, or undersized practical targets.
-- Browser diagnostics: zero runtime exceptions, console errors, warning/error messages, or network failures.
-- Indexed grid benchmark: 0.93 to 2.46 ms through 200 slots.
-- Final browser pass at exact 390, 768, 1024, and 1440: both presentations have zero page overflow, zero clipped visible controls, zero sub-44px visible controls, and zero warning/error console messages.
-- Fresh non-builder read-only verification PASS for exact remote commit `3a3f682567733075c97a00a07c42f55654182122`; it independently covered custody, authorized diff, syntax/tests, performance, preference/Force Classic semantics, shared state, responsive behavior, rollback, and publisher dry-run zero-write behavior.
-- No live booking, reschedule, cancel, preference, flag, database, alias, or deployment mutation. The only earlier provider write created the exact content-addressed rollback object described below.
+- Node Scheduler suite: 6/6 PASS, including provider hydration, real reschedule endpoint selection, and post-error server-readback reconciliation.
+- Patch audit: 12/12 PASS.
+- Adapter source changed: NO. Current-adapter parity harness is byte-identical.
+- Grid benchmark: 24–200 slots remained under 2.4 ms; all `<=16ms` checks PASS and slot-button parity holds.
+- `git diff --check`: PASS.
+- Deterministic browser diagnostics: 0 runtime exceptions, 0 console warnings/errors, 0 log warnings/errors, 0 network failures.
+- Exact 390 instrumentation: `innerWidth=390`, root/body scroll width `390`, Book Time main scroll width `390`.
+- Provider Lease V2 readback for this remediation owner/session: no active leases remain.
 
-## Rollback
-
-The guarded publisher now supports an explicit --capture-live-rollback action. Using approved credentials sourced in process from the primary checkout, it required the public LIVE bytes to match the adopted full SHA-256 before writing the missing immutable object.
-
-- Immutable URL: https://cdn.missionmedinstitute.com/html-system/LIVE/scheduler/versions/scheduler_v1.98f87f6998eb.html
-- Public result: HTTP 200
-- Public SHA-256: 98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195
-- LIVE alias after capture: unchanged, HTTP 200, same full SHA-256
-- Rollback command: _SYSTEM/scheduler_publish.sh --rollback 98f87f6998eb
-
-## Preference and Force Classic
-
-MX-CAL-4200C released its shared leases with provider-clear readback. Fresh live hashes matched the preserved PHP preimages exactly before Appointments acquired `SHARED:MISSIONMED-HUB`.
-
-The candidate adds `GET/POST /wp-json/mmed/v1/me/appointments-experience` for the current logged-in account and `GET/POST /wp-json/mmed/v1/admin/appointments-experience` for `manage_options` administrators. The preference is restricted to `classic|storyforge`. Force Classic is an existing-registry feature flag named `appointments_force_classic`; it changes presentation only, preserves the user's preference underneath, is rapidly reversible, and records a bounded 50-entry admin audit ledger. No migration or appointment-record write is involved.
-
-The Scheduler consumes the existing Matrix `window.MMED_OS.api` nonce/auth client, so no Student OS, Matrix shell, mount adapter, CSS, or runtime-lock edit was required.
-
-FORCE CLASSIC: PASS — candidate implementation and local authorization contract. Live acceptance remains gated on deployment and designated-student verification.
-
-## Hard stops
-
-1. No designated allowlisted-student credential is available. Both the in-app browser and Chrome hold the same Founder/Admin identity.
-2. Authenticated live student denial of Scheduler Ops is unwitnessed. The local server contract denial passes but is not promoted to live acceptance.
-
-LIVE remains unchanged at 98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195.
-
-## Continuation
-
-1. Provide or open an already-authenticated designated allowlisted-student session; do not share a password in chat.
-2. Run student end-to-end acceptance, including direct admin-route denial.
-3. Only if both student gates pass, deploy the two exact PHP files, run syntax/route readback, publish the guarded Scheduler bundle, public-hash verify, and complete authenticated post-release and cross-product smoke QA.
-
-ROLLBACK: VERIFIED
+Authenticated student QA additionally proved StoryForge rendering, real catalogue, Upcoming and History reads, safe cancel confirmation, Matrix Calendar continuity, successful reschedule/readback reconciliation, immutable publication, and exact rollback. Booking/conflict and complete post-deploy responsive/admin-denial acceptance were not continued after cancellation triggered the mandatory rollback gate.
 
 ## Evidence
 
-- _AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/01-authority-runtime.md
-- _AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/02-validation.md
-- _AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/03-production-gates.md
-- _AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/validation-summary.json
+- Side-by-side board: `_AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/visual-fidelity-r1/comparison-board.png`
+- Interactive comparison: `_AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/visual-fidelity-r1/comparison-board.html`
+- Fidelity matrix: `_AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/visual-fidelity-r1/fidelity-matrix.md`
+- Screenshot manifest: `_AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/visual-fidelity-r1/screenshot-manifest.md`
+- QA summary: `_AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/visual-fidelity-r1/qa-summary.md`
+- Browser diagnostics: `_AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/visual-fidelity-r1/browser-diagnostics.json`
+- Viewport measurements: `_AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/visual-fidelity-r1/viewport-checks.json`
 
-PRODUCTION DEPLOYMENT: NOT DEPLOYED
+Required PNG set is present: seven 1440 captures, five 390 captures, plus 1024 Home and 768 Book Time.
 
-FINAL STATUS: BLOCKED — HUMAN ACTION REQUIRED @GitHub @Supabase @Browser @Computer
+## Live release gate
+
+HARD STOP: the authenticated cancel endpoint returns `Cannot read properties of null (reading 'metadata')`. Fresh Upcoming and Matrix Calendar readback both show the appointment still active, so cancellation did not commit. DR-165 keeps Scheduler backend modules read-only; backend correction needs exact additional authority and its own release verification.
+
+The authorized QA reschedule first moved the test appointment, exposed a post-commit downstream exception, and was then safely reconciled by fresh server readback. Final QA restored that appointment to its original time before cancellation was tested. The failed cancel did not alter it.
+
+Direct student navigation to the admin preference endpoint was blocked by the designated Chrome extension before an application response could be observed. No authenticated admin-denial claim is made.
+
+PRODUCTION: STABLE V1 / BYTE-EXACT ROLLBACK VERIFIED
+
+V2: IMMUTABLE CANDIDATE ONLY (`e9e480a9c72b...`)
+
+DEPLOYMENT: BLOCKED BY READ-ONLY BACKEND CANCELLATION FAILURE
+
+See `_AI_HANDOFFS/from_codex/MX-APPT-5003G-evidence/visual-fidelity-r1/live-deployment-qa.md` for the activation chronology and bounded evidence.

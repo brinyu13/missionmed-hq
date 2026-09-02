@@ -46,6 +46,7 @@ function fixture() {
   const open = isoSlot(2);
   return {
     calls: [],
+    rescheduleCommitsThenErrors: false,
     experience: {
       preference: "storyforge",
       effective_experience: "storyforge",
@@ -98,13 +99,13 @@ function fixture() {
   };
 }
 
-function bootDom(data) {
+function bootDom(data, { embedded = false } = {}) {
   const virtualConsole = new VirtualConsole();
   const errors = [];
   virtualConsole.on("jsdomError", error => errors.push(String(error && error.message || error)));
   virtualConsole.on("error", (...args) => errors.push(args.join(" ")));
 
-  const dom = new JSDOM(bundle, {
+  const dom = new JSDOM(embedded ? bundle.replace('data-mode="standalone"', 'data-mode="embedded"') : bundle, {
     url: "https://candidate.example.invalid/#home",
     runScripts: "dangerously",
     pretendToBeVisual: true,
@@ -173,6 +174,15 @@ function bootDom(data) {
           return response({ ok: true, data: { appointment: data.upcoming, integrations: { meeting: {} } } });
         }
         if (parsed.pathname.endsWith("/reschedule")) {
+          if (data.rescheduleCommitsThenErrors) {
+            const payload = JSON.parse(init.body);
+            data.upcoming = {
+              ...data.upcoming,
+              start_at: payload.start_at,
+              end_at: payload.end_at
+            };
+            return response({ ok: false, error: "integration_error", message: "Metadata integration failed after commit" }, 500);
+          }
           return response({ ok: true, data: { appointment: data.upcoming } });
         }
         if (parsed.pathname.endsWith("/cancel")) {
@@ -244,20 +254,29 @@ test("MX-APPT-5003G source and production-safety contract", () => {
     ["no meeting synthesis", /Details after confirmation/],
     ["shared state switch", /saveAppointmentsExperience\(value\)/],
     ["Classic return switch", /saveAppointmentsExperience\("storyforge"\)/],
+    ["embedded Classic return", /data-classic-experience-switch/],
     ["account preference read", /api\.get\("\/me\/appointments-experience"\)/],
     ["account preference write", /api\.post\("\/me\/appointments-experience"/],
     ["force classic bootstrap", /appointments_force_classic/],
-    ["Home route", /\["home", "Home"\]/],
-    ["Book route", /\["book", "Book"\]/],
-    ["Upcoming route", /\["upcoming", "Upcoming"\]/],
-    ["History route", /\["history", "History"\]/],
-    ["Settings route", /\["settings", "Settings"\]/],
+    ["Home route", /\["home", "⌂", "Home"\]/],
+    ["Book route", /\["book", "\+", "Book"\]/],
+    ["Upcoming route", /\["upcoming", "◷", "Upcoming"\]/],
+    ["History route", /\["history", "≡", "History"\]/],
+    ["Settings route", /\["settings", "⚙", "Settings"\]/],
+    ["R1 header", /class="sf-hdr"/],
+    ["R1 rail", /class="sf-rail"/],
+    ["R1 editorial hero", /class="sf-hero"/],
+    ["R1 discovery capture", /class="sf-capture"/],
+    ["R1 responsive bottom nav", /position:fixed;top:auto;left:0;right:0;bottom:0/],
+    ["R1 Archivo display face", /"Archivo",system-ui,sans-serif/],
+    ["R1 Rajdhani numeric face", /"Rajdhani",sans-serif/],
+    ["R1 ember token", /--sf-ember:#ffb340/],
     ["duration", /function storyDuration/],
     ["morning greeting", /Good " \+ period/],
     ["next appointment", /Next appointment/],
     ["also upcoming", /Also upcoming/],
     ["recent history", /Recent history/],
-    ["three steps", /var labels = \["Details", "Time", "Confirm"\]/],
+    ["three steps", /var labels = \["Details", "Time", "Review"\]/],
     ["day picker", /class="sf-days"/],
     ["time groups", /\["Morning"/],
     ["review", /Review and confirm/],
@@ -270,6 +289,8 @@ test("MX-APPT-5003G source and production-safety contract", () => {
     ["responsive mobile", /@media \(max-width: 640px\)/],
     ["reduced motion", /prefers-reduced-motion: reduce/],
     ["min target", /min-height: 44px/],
+    ["mobile Matrix target width", /\.sf-back \{[\s\S]*?min-height:44px/],
+    ["link button target layout", /\.sf-button \{ display: inline-flex; align-items: center; justify-content: center;/],
     ["no StoryForge parallax", /data-sf-action="parallax"/],
     ["known adapter profile", /SCHEDULER_PATCH_PROFILES\["MX-APPT-5003G"\]/]
   ];
@@ -359,6 +380,8 @@ test("MX-APPT-5003G shared-state interaction contract", async () => {
   const stateIdentity = scheduler.state;
   const selectedType = scheduler.state.appointmentTypeId;
   const selectedProvider = scheduler.state.providerId;
+  scheduler.router.go("settings");
+  await waitFor(() => document.querySelector('[data-sf-action="experience"][data-value="classic"]'), "StoryForge settings");
   document.querySelector('[data-sf-action="experience"][data-value="classic"]').click();
   assert.equal(scheduler.state, stateIdentity);
   assert.equal(scheduler.state.experience, "classic");
@@ -395,6 +418,79 @@ test("MX-APPT-5003G shared-state interaction contract", async () => {
   dom.window.close();
 });
 
+test("MX-APPT-5003G reschedule hydrates provider context and reaches the real endpoint", async () => {
+  const data = fixture();
+  const { dom, errors } = bootDom(data);
+  const { window } = dom;
+  const document = window.document;
+
+  await waitFor(() => window.MMEDScheduler && window.MMEDScheduler.state.loading === false &&
+    window.MMEDScheduler.state.catalogLoading === false, "Scheduler bootstrap");
+
+  const scheduler = window.MMEDScheduler;
+  scheduler.router.go("upcoming");
+  await waitFor(() => document.querySelector('[data-sf-action="reschedule"]'), "Upcoming reschedule action");
+  document.querySelector('[data-sf-action="reschedule"]').click();
+
+  await waitFor(() => scheduler.state.bookingStep === 2 &&
+    scheduler.state.providers.length === 1 &&
+    scheduler.state.availabilityLoading === false &&
+    document.querySelector('[data-sf-action="slot"]'), "Reschedule provider and availability hydration");
+  assert.equal(scheduler.state.providerId, data.provider.id);
+  assert.equal(data.calls.some(call => call.path.includes("/providers?appointment_type_id=eligible-type")), true);
+
+  document.querySelector('[data-sf-action="slot"]').click();
+  document.querySelector('[data-sf-action="next-step"]').click();
+  assert.equal(scheduler.state.bookingStep, 3);
+  assert.match(document.body.textContent, /Review and confirm/);
+  assert.match(document.body.textContent, /Confirm new time/);
+
+  document.querySelector('[data-sf-action="confirm-booking"]').click();
+  await waitFor(() => data.calls.some(call => call.path.endsWith("/reschedule") && call.method === "POST"),
+    "Real reschedule request");
+  await waitFor(() => scheduler.state.bookingConfirmed === true &&
+    /Your time is reserved/.test(document.body.textContent), "Reschedule completion render");
+  const request = data.calls.find(call => call.path.endsWith("/reschedule") && call.method === "POST");
+  const payload = JSON.parse(request.body);
+  assert.equal(payload.appointment_id, data.upcoming.id);
+  assert.equal(payload.provider_id, data.provider.id);
+  assert.equal(data.calls.some(call => call.path.endsWith("/book") && call.method === "POST"), false);
+  assert.equal(errors.length, 0, errors.join("\n"));
+  dom.window.close();
+});
+
+test("MX-APPT-5003G reconciles a committed reschedule after a downstream error", async () => {
+  const data = fixture();
+  data.rescheduleCommitsThenErrors = true;
+  const { dom, errors } = bootDom(data);
+  const { window } = dom;
+  const document = window.document;
+
+  await waitFor(() => window.MMEDScheduler && window.MMEDScheduler.state.loading === false &&
+    window.MMEDScheduler.state.catalogLoading === false, "Scheduler bootstrap");
+  const scheduler = window.MMEDScheduler;
+  scheduler.router.go("upcoming");
+  await waitFor(() => document.querySelector('[data-sf-action="reschedule"]'), "Upcoming reschedule action");
+  document.querySelector('[data-sf-action="reschedule"]').click();
+  await waitFor(() => scheduler.state.bookingStep === 2 &&
+    scheduler.state.availabilityLoading === false &&
+    document.querySelector('[data-sf-action="slot"]'), "Reschedule availability");
+
+  const expectedStart = data.slot.start_at;
+  document.querySelector('[data-sf-action="slot"]').click();
+  document.querySelector('[data-sf-action="next-step"]').click();
+  document.querySelector('[data-sf-action="confirm-booking"]').click();
+
+  await waitFor(() => scheduler.state.bookingConfirmed === true &&
+    /Your time is reserved/.test(document.body.textContent), "Committed reschedule reconciliation");
+  assert.equal(data.upcoming.start_at, expectedStart);
+  assert.equal(scheduler.state.confirmedAppointment.start_at, expectedStart);
+  assert.equal(scheduler.state.noticeError, false);
+  assert.equal(data.calls.filter(call => call.path.endsWith("/my-appointments")).length >= 2, true);
+  assert.equal(errors.length, 0, errors.join("\n"));
+  dom.window.close();
+});
+
 test("MX-APPT-5003G Force Classic overrides without destroying preference", async () => {
   const data = fixture();
   data.experience = {
@@ -418,6 +514,32 @@ test("MX-APPT-5003G Force Classic overrides without destroying preference", asyn
   await waitFor(() => data.calls.some(call => call.path === "/me/appointments-experience" && call.method === "MATRIX_POST"), "forced preference save");
   assert.equal(scheduler.state.experience, "classic");
   assert.equal(scheduler.state.experiencePreference, "storyforge");
+  assert.equal(errors.length, 0, errors.join("\n"));
+  dom.window.close();
+});
+
+test("MX-APPT-5003G embedded Classic retains a StoryForge return control", async () => {
+  const data = fixture();
+  data.experience = {
+    preference: "classic",
+    effective_experience: "classic",
+    forced: false
+  };
+  const { dom, errors } = bootDom(data, { embedded: true });
+  const { window } = dom;
+  await waitFor(() => window.MMEDScheduler &&
+    window.MMEDScheduler.state.loading === false &&
+    window.MMEDScheduler.state.experiencePersistence === "saved", "embedded Classic bootstrap");
+
+  const scheduler = window.MMEDScheduler;
+  const returnControl = window.document.querySelector(
+    '[data-classic-experience-switch] [data-classic-action="storyforge"]'
+  );
+  assert.equal(scheduler.state.experience, "classic");
+  assert.ok(returnControl, "embedded Classic exposes its StoryForge return control");
+  returnControl.click();
+  await waitFor(() => scheduler.state.experience === "storyforge" &&
+    scheduler.state.experiencePersistence === "saved", "embedded StoryForge return");
   assert.equal(errors.length, 0, errors.join("\n"));
   dom.window.close();
 });

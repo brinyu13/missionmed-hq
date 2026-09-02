@@ -84,6 +84,105 @@
       "source_rev": "MX-APPT-5003G",
       "bytes": 255865,
       "note": "Founder-authorized StoryForge V2 Appointments presentation over the repaired MX-APPT-5002 shared Scheduler core, including account-backed Classic/StoryForge preference and a server-authorized audited Force Classic override through the exact MissionMed Hub seams permitted by DR-165. Local automated, runtime-contract, responsive, accessibility, performance, patch-audit, and adapter-parity checks passed. NOT PUBLISHED: designated allowlisted-student QA and fresh non-builder release verification remain outstanding."
+    },
+    {
+      "utc": "2026-09-02T14:31:33Z",
+      "ticket": "MX-APPT-5003G",
+      "action": "production-repair",
+      "sha256": "1649cd6a4b339dbf8efab7b057f00769f89add2cc951bccfb54ba9dd9c42c1f4",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 256732,
+      "note": "Live embedded-Matrix acceptance found that a persisted Classic preference had no visible route back to StoryForge because embedded mode intentionally omits the standalone sidebar. Adds an embedded-only, account-backed Use StoryForge control without changing Scheduler state, APIs, bookings, entitlement, or the standalone presentation."
+    },
+    {
+      "utc": "2026-09-02T14:35:35Z",
+      "ticket": "MX-APPT-5003G",
+      "action": "production-repair",
+      "sha256": "fd9d29f9bcf8cf2a7b376c223bd187768ccca7427430b1f5c493090451c0ee38",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 256755,
+      "note": "Live breakpoint verification at the designated student's 90-percent Chrome zoom measured the collapsed mobile Matrix return control at 43.1 CSS pixels wide. Adds a 44-pixel minimum width to that exact control; no behavior, API, booking, or entitlement logic changed."
+    },
+    {
+      "utc": "2026-09-02T14:37:23Z",
+      "ticket": "MX-APPT-5003G",
+      "action": "production-repair",
+      "sha256": "0d5d175417c4f649e8b2b267bf4dc84690b86a5a1673a1d195c161a28cb5e5c5",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 256823,
+      "note": "Live layout measurement found that Join links using the shared sf-button class remained inline, so min-height did not establish the required target box. Makes that class inline-flex and centers its content; no URL, authorization, booking, entitlement, or API behavior changed."
+    },
+    {
+      "utc": "2026-09-02T15:05:00Z",
+      "ticket": "MX-APPT-5003G-R1",
+      "action": "production-rollback",
+      "sha256": "98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195",
+      "source_rev": "legacy",
+      "bytes": 167135,
+      "note": "Emergency rollback restored the live alias byte-for-byte to the pre-V2 production artifact after the V2 presentation failed founder visual-fidelity review. Production remains on this stable V1 hash."
+    },
+    {
+      "utc": "2026-09-02T15:59:00Z",
+      "ticket": "MX-APPT-5003G-R1",
+      "action": "candidate",
+      "sha256": "38201d0f3105ee5da34d27af343a90f872f930359574e37d6c8d0fa6144d61fe",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 289946,
+      "note": "Local StoryForge-only visual-fidelity remediation against the approved Fable R1: 64px header, 200px rail, ember editorial CTAs, discovery-led home, three-step booking, date-tile appointment rows, settings ledger, responsive bottom navigation, and an internally scrolling mobile day strip with zero page overflow at 390. Shared Scheduler state, authentication, entitlement, APIs, booking behavior, Classic presentation, and MX-APPT-5002 repairs remain intact. Automated contract tests and responsive visual review passed. NOT PUBLISHED: founder review is the active hard gate."
+    },
+    {
+      "utc": "2026-09-02T16:26:03Z",
+      "ticket": "MX-APPT-5003G-R1",
+      "action": "live-qa-repair-candidate",
+      "sha256": "2e88e0b1f80aba9dc3b83c68efcb61d808a6dd73e076909e1de3128fb4356206",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 290836,
+      "note": "First guarded live activation of the Founder-approved visual candidate was rolled back after authenticated student QA exposed a reschedule Review gate that had not hydrated the existing appointment provider catalogue. This repaired candidate hydrates provider context before availability, preserves new-booking entitlement/intake/payment gates, permits only an already-authorized server-side reschedule to bypass missing presentation metadata, retains the exact Classic adapter patch contract, and adds an end-to-end regression proving POST /reschedule rather than /book. NOT PUBLISHED at record time."
+    },
+    {
+      "utc": "2026-09-02T16:26:55Z",
+      "ticket": "MX-APPT-5003G-R1",
+      "action": "guarded-live-activation",
+      "sha256": "2e88e0b1f80aba9dc3b83c68efcb61d808a6dd73e076909e1de3128fb4356206",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 290836,
+      "note": "Founder-approved repaired V2 published to immutable scheduler_v1.2e88e0b1f80a.html and the Scheduler LIVE alias with byte-exact public CDN readback, solely for guarded authenticated student acceptance."
+    },
+    {
+      "utc": "2026-09-02T16:28:29Z",
+      "ticket": "MX-APPT-5003G-R1",
+      "action": "production-rollback",
+      "sha256": "98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195",
+      "source_rev": "legacy",
+      "bytes": 167135,
+      "note": "Guarded authenticated student QA reached the real reschedule endpoint but it returned a backend null-metadata exception, so the client reported failure and the live alias was immediately restored and publicly reverified at the exact legacy V1 hash. A later Matrix Calendar readback proved the appointment change had committed before that downstream exception; the following candidate records the bounded client reconciliation."
+    },
+    {
+      "utc": "2026-09-02T16:33:00Z",
+      "ticket": "MX-APPT-5003G-R1",
+      "action": "live-readback-reconciliation-candidate",
+      "sha256": "e9e480a9c72b41e9f63d63cc2fcccb818c19647b4a6e2dbd45d0d0f81d1a15f2",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 292441,
+      "note": "Matrix Calendar readback proved that the preceding reschedule committed before the backend raised its downstream null-metadata exception. This candidate adds fail-closed read-after-write reconciliation: an errored reschedule is treated as confirmed only when a fresh Upcoming response contains the same appointment at the exact selected start time. Otherwise the original failure remains visible. Six interaction tests and all twelve adapter patch expectations pass. NOT PUBLISHED at record time."
+    },
+    {
+      "utc": "2026-09-02T16:34:14Z",
+      "ticket": "MX-APPT-5003G-R1",
+      "action": "guarded-live-activation",
+      "sha256": "e9e480a9c72b41e9f63d63cc2fcccb818c19647b4a6e2dbd45d0d0f81d1a15f2",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 292441,
+      "note": "Readback-reconciliation candidate published to immutable scheduler_v1.e9e480a9c72b.html and the Scheduler LIVE alias with byte-exact public CDN verification for final guarded student acceptance."
+    },
+    {
+      "utc": "2026-09-02T16:36:10Z",
+      "ticket": "MX-APPT-5003G-R1",
+      "action": "production-rollback",
+      "sha256": "98f87f6998ebce9280dacf9363d86f11016fe1e31ce46f2e52e5e636ea75f195",
+      "source_rev": "legacy",
+      "bytes": 167135,
+      "note": "Live reschedule passed with server-readback reconciliation and the QA appointment was restored to its original time. Live cancel then returned the same downstream null-metadata exception and fresh Upcoming plus Matrix Calendar readback showed the appointment still active, proving cancellation did not commit. The alias was immediately restored and publicly reverified at the exact V1 hash. V2 remains blocked on the read-only backend cancellation contract."
     }
   ]
 }
