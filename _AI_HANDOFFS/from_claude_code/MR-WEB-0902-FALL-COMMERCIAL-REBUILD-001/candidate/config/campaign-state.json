@@ -11,14 +11,11 @@
     "rule": "NOTHING in the customer-facing UI may hard-code a price, a date, a program name, or an availability state. All of it reads from this file.",
     "PROPOSED_NOT_APPROVED": "Every price below is PROPOSED pending Dr. Brian's written approval. No production deployment is authorized by this ticket."
   },
-
   "timezone": "America/New_York",
-
   "campaign": {
     "id": "fall_access_week_2026",
     "public_name": "Fall Access Week",
     "active_state": "STATE_A_FALL_ACCESS",
-
     "go_live_gate": {
       "_comment": "FOUNDER RULE (ticket S7): the site must display the actual VERIFIED-LIVE campaign state, never a backdated claim. The campaign banner MUST NOT render until verified_live_at is a real timestamp set by a human after a real end-to-end test purchase has cleared.",
       "verified_live_at": null,
@@ -31,7 +28,6 @@
         "on_miss": "STATE_PRELAUNCH"
       }
     },
-
     "window": {
       "opens": "2026-09-02T12:00:00-04:00",
       "closes": "2026-09-07T23:59:59-04:00",
@@ -39,12 +35,10 @@
       "_comment": "Window is NOT backdated to Sept 1. If go-live slips, the end date moves day-for-day and is printed once at go-live, then never moved.",
       "extension_policy": "NO_EXTENSION"
     },
-
     "countdown": {
       "enabled": false,
       "_comment": "FOUNDER RULE (ticket S27): no fake scarcity. A countdown may only be enabled when it is bound to the coded flip above AND verified_live_at is set. Until then it must not render."
     },
-
     "discount_presentation": {
       "percent_off_allowed": false,
       "strikethrough_allowed": false,
@@ -53,16 +47,14 @@
       "approved_frame": "$2,799 through September 7. Standard tuition $3,299 from September 8.",
       "approved_factual_line": "$500 less than standard tuition"
     },
-
     "attribution_code": {
       "code": "FALLACCESS26",
       "price_effect": "NONE",
       "is_discount": false,
-      "public_copy": "Confirms your Fall Access rate — already applied to every order this week.",
+      "public_copy": "Confirms your Fall Access rate \u2014 already applied to every order this week.",
       "_comment": "Price-neutral confirmation code for email attribution only. It changes no price. No discount codes exist publicly."
     }
   },
-
   "states": {
     "STATE_PRELAUNCH": {
       "label": "Pre-launch / not yet verified live",
@@ -77,8 +69,18 @@
       "campaign_banner": true,
       "prices": "fall_access",
       "enroll_ctas": true,
-      "shows": ["complete", "essentials", "ps_priority", "ps_emergency", "360_closed"],
-      "hides": ["standalone_mocks", "late_cycle", "ps_standard"]
+      "shows": [
+        "complete",
+        "essentials",
+        "ps_priority",
+        "ps_emergency",
+        "360_closed"
+      ],
+      "hides": [
+        "standalone_mocks",
+        "late_cycle",
+        "ps_standard"
+      ]
     },
     "STATE_B_STANDARD": {
       "label": "Standard tuition (Sept 8 - sales close)",
@@ -116,7 +118,6 @@
       "360_applications_open": "2027-03-19"
     }
   },
-
   "products": {
     "iv_prep_complete": {
       "public_name": "IV Prep Complete",
@@ -129,17 +130,26 @@
       "one_liner": "Full interview-season preparation, start to finish.",
       "for_whom": "You want to be prepared for every interview this season, not just the first one.",
       "pricing": {
-        "fall_access": { "all_rails": 2799 },
-        "standard": { "card": 3299, "bank_transfer": 3199 },
+        "fall_access": {
+          "all_rails": 2799
+        },
+        "standard": {
+          "card": 3299,
+          "bank_transfer": 3199
+        },
         "_comment": "FOUNDER RULE (ticket S10/S12/S13): Zelle/bank PIF must be the economically advantaged rail. During Fall Access Week there is ONE price on all rails (the $2,799 IS the founder's Zelle PIF target and no separate week card number was authorized). From Sept 8 the bank-transfer price is $100 lower than card. Never expressed as a percentage and never called a 'fee'."
       },
-      "payment_plan": { "enabled": true, "ref": "missionmed_payment_plan" },
-      "mock_entitlement": { "ref": "mock_entitlement" },
+      "payment_plan": {
+        "enabled": true,
+        "ref": "missionmed_payment_plan"
+      },
+      "mock_entitlement": {
+        "ref": "mock_entitlement"
+      },
       "woo_product_id": null,
       "add_to_cart_url": null,
-      "_BLOCKED": "woo_product_id and add_to_cart_url CANNOT be filled from this worktree — see 02_RISK_AND_CONFLICT_LEDGER.md P0-1/P0-2. Codex must supply."
+      "_BLOCKED": "woo_product_id and add_to_cart_url CANNOT be filled from this worktree \u2014 see 02_RISK_AND_CONFLICT_LEDGER.md P0-1/P0-2. Codex must supply."
     },
-
     "iv_prep_essentials": {
       "public_name": "IV Prep Essentials",
       "former_public_name": "entry interview tier / Interview Prep",
@@ -150,19 +160,26 @@
       "one_liner": "Learn how strong interview answers are actually built.",
       "for_whom": "You want the core framework and live coaching without full-season support.",
       "pricing": {
-        "fall_access": { "all_rails": 1199 },
-        "standard": { "all_rails": 1399 },
+        "fall_access": {
+          "all_rails": 1199
+        },
+        "standard": {
+          "all_rails": 1399
+        },
         "_comment": "One price all rails in BOTH states. A $50 rail spread on a base this small reads as a surcharge, and the founder's Zelle-preference requirement is carried by placement and copy rather than dollars here."
       },
-      "payment_plan": { "enabled": false },
-      "upgrade_path": { "ref": "essentials_to_complete" },
+      "payment_plan": {
+        "enabled": false
+      },
+      "upgrade_path": {
+        "ref": "essentials_to_complete"
+      },
       "woo_product_id": null,
       "add_to_cart_url": null,
       "_BLOCKED": "Same as above."
     },
-
     "ps_intensive_priority": {
-      "public_name": "Personal Statement Intensive — Priority",
+      "public_name": "Personal Statement Intensive \u2014 Priority",
       "available": true,
       "turnaround": "First complete developed draft within 7 days",
       "price": 999,
@@ -185,9 +202,8 @@
       "woo_product_id": null,
       "_BLOCKED": "Woo mapping unavailable."
     },
-
     "ps_intensive_emergency": {
-      "public_name": "Personal Statement Intensive — Emergency",
+      "public_name": "Personal Statement Intensive \u2014 Emergency",
       "available": true,
       "availability_must_be_confirmed_in_writing": true,
       "turnaround": "First complete developed draft within 24-48 hours",
@@ -211,16 +227,14 @@
       "woo_product_id": null,
       "_BLOCKED": "Woo mapping unavailable."
     },
-
     "ps_intensive_standard": {
-      "public_name": "Personal Statement Intensive — Standard (14-day)",
+      "public_name": "Personal Statement Intensive \u2014 Standard (14-day)",
       "available": false,
       "not_sold_this_cycle": true,
       "reason": "Last on-time purchase date has passed against the Sept 23 program review date.",
       "relist_target": "2027-03",
       "render": "SUPPRESS"
     },
-
     "match_mentorship_360": {
       "public_name": "360 Match Mentorship",
       "available": false,
@@ -230,7 +244,11 @@
       "display_price_label": "$5,499",
       "status_headline": "2026-27 Mentorship Capacity Reached",
       "status_subhead": "Enrollment Closed",
-      "banned_wording": ["SOLD OUT", "sold out", "OPENING SOON"],
+      "banned_wording": [
+        "SOLD OUT",
+        "sold out",
+        "OPENING SOON"
+      ],
       "_comment": "FOUNDER RULE (ticket S8) + board: never 'SOLD OUT' (no roster count exists in any file to substantiate it). 'Capacity reached' is truthful and substantiable.",
       "truthful_rationale": "Mission Residency reached the number of students Dr. Brian can personally mentor at the level 360 requires.",
       "add_to_cart": false,
@@ -245,10 +263,15 @@
       "routing_line_to": "iv_prep_complete"
     }
   },
-
   "mock_entitlement": {
     "_comment": "FOUNDER RULE (ticket S18): the customer-facing term 'flex mock' is BANNED and must never appear. The exact entitlement must NOT publish until the capacity rule is validated against the real schedule.",
-    "banned_terms": ["flex mock", "flex mocks", "Flex Mock", "unlimited mocks", "unlimited mock interviews"],
+    "banned_terms": [
+      "flex mock",
+      "flex mocks",
+      "Flex Mock",
+      "unlimited mocks",
+      "unlimited mock interviews"
+    ],
     "publish_exact_entitlement": false,
     "public_label": "6 Mock Interviews Included",
     "public_label_approved": true,
@@ -262,7 +285,6 @@
     "validation_required_before_publishing_detail": "Confirm the 20 published mock dates against the real calendar and against max enrollment before any per-student guarantee is published.",
     "_change_instructions": "To change the promise, change `count`, `public_label` and `plain_english_structure` HERE ONLY. No page edit is required."
   },
-
   "payments": {
     "hierarchy": [
       {
@@ -291,9 +313,8 @@
         "ref": "missionmed_payment_plan"
       }
     ],
-    "bank_transfer_note": "Most banks cap Zelle at $2,000-$3,500 a day. If yours does, pay by ACH or wire at the same price — no split transfers.",
+    "bank_transfer_note": "Most banks cap Zelle at $2,000-$3,500 a day. If yours does, pay by ACH or wire at the same price \u2014 no split transfers.",
     "_bank_details_rule": "Never publish account numbers or bank details on a public page. Reuse the existing Admissions-delivered Zelle workflow exactly as it works today; do not invent bank instructions.",
-
     "missionmed_payment_plan": {
       "available": true,
       "route": "MANUAL_ADMISSIONS",
@@ -312,7 +333,6 @@
       "_CODEX_P0": "Resolve the compliant mechanism for a higher-total installment product, then set premium_amount and flip premium_published/public_total_published. Do not substitute a 0% same-total plan without written founder approval.",
       "blocks_enrollment": false
     },
-
     "affirm": {
       "available": false,
       "render": "SUPPRESS",
@@ -326,7 +346,6 @@
       "blocks_launch": false
     }
   },
-
   "upgrades": {
     "essentials_to_complete": {
       "available": true,
@@ -346,8 +365,14 @@
     },
     "ps_to_course": {
       "available": true,
-      "to_complete": { "credit_percent": 50, "cap": 750 },
-      "to_essentials": { "credit_percent": 25, "cap": 350 },
+      "to_complete": {
+        "credit_percent": 50,
+        "cap": 750
+      },
+      "to_essentials": {
+        "credit_percent": 25,
+        "cap": 350
+      },
       "window_days": 21,
       "window_starts": "final sign-off or course close",
       "price_basis": "current rate",
@@ -356,7 +381,6 @@
       "_comment": "FOUNDER RULE (ticket S17): a PARTIAL credit. Do not assume 100%."
     }
   },
-
   "hidden_inventory": {
     "_comment": "FOUNDER RULE (ticket S19/S20): architected now, hidden until explicitly authorized. Must NOT cannibalize Complete during Fall Access Week. None of these render while `visible` is false.",
     "earliest_publish": "2026-10-06",
@@ -364,9 +388,18 @@
     "standalone_mocks": {
       "visible": false,
       "items": [
-        { "name": "1 Scored Mock Interview", "price": 299 },
-        { "name": "3 Scored Mock Interviews", "price": 799 },
-        { "name": "Private 45-Minute 1:1 Mock", "price": 549 }
+        {
+          "name": "1 Scored Mock Interview",
+          "price": 299
+        },
+        {
+          "name": "3 Scored Mock Interviews",
+          "price": 799
+        },
+        {
+          "name": "Private 45-Minute 1:1 Mock",
+          "price": 549
+        }
       ],
       "no_five_pack": true,
       "expiry": "2027-02-28",
@@ -375,33 +408,90 @@
     "late_cycle": {
       "visible": false,
       "items": [
-        { "name": "Recorded Edition", "price": 749, "gated": true },
-        { "name": "Interview Rescue", "price": 1199, "cap": 6 },
-        { "name": "Catch-Up", "price": 1999, "cap": 4 },
-        { "name": "Strategy Session", "price": 749 },
-        { "name": "Case Review", "price": 249 },
-        { "name": "Half-Day Intensive", "price": 1799, "cap": 7, "gated": true }
+        {
+          "name": "Recorded Edition",
+          "price": 749,
+          "gated": true
+        },
+        {
+          "name": "Interview Rescue",
+          "price": 1199,
+          "cap": 6
+        },
+        {
+          "name": "Catch-Up",
+          "price": 1999,
+          "cap": 4
+        },
+        {
+          "name": "Strategy Session",
+          "price": 749
+        },
+        {
+          "name": "Case Review",
+          "price": 249
+        },
+        {
+          "name": "Half-Day Intensive",
+          "price": 1799,
+          "cap": 7,
+          "gated": true
+        }
       ],
-      "dead_public_names": ["Emergency Interview Intervention"]
+      "dead_public_names": [
+        "Emergency Interview Intervention"
+      ]
     }
   },
-
   "technology": {
     "_comment": "FOUNDER RULE (ticket S21): only VERIFIED software may be marketed as available. Do not fabricate readiness. Do not invent subscription pricing. Anything not VERIFIED renders as SUPPRESS.",
     "no_subscription_pricing": true,
     "systems": [
-      { "name": "Matrix",        "status": "UNVERIFIED", "render": "SUPPRESS", "note": "Entitlement smoke test is a BLOCKING launch gate and has not been performed from this worktree." },
-      { "name": "StoryForge",    "status": "UNVERIFIED", "render": "SUPPRESS" },
-      { "name": "IV Prep On-Call","status": "UNVERIFIED", "render": "SUPPRESS" },
-      { "name": "RISE",          "status": "UNVERIFIED", "render": "SUPPRESS" },
-      { "name": "RankListIQ",    "status": "UNVERIFIED", "render": "SUPPRESS", "note": "Persistence smoke test required." },
-      { "name": "File Vault",    "status": "UNVERIFIED", "render": "SUPPRESS" },
-      { "name": "PS Tools",      "status": "UNVERIFIED", "render": "SUPPRESS" },
-      { "name": "MATCHBRIDGE",   "status": "UNVERIFIED", "render": "SUPPRESS" }
+      {
+        "name": "Matrix",
+        "status": "UNVERIFIED",
+        "render": "SUPPRESS",
+        "note": "Entitlement smoke test is a BLOCKING launch gate and has not been performed from this worktree."
+      },
+      {
+        "name": "StoryForge",
+        "status": "UNVERIFIED",
+        "render": "SUPPRESS"
+      },
+      {
+        "name": "IV Prep On-Call",
+        "status": "UNVERIFIED",
+        "render": "SUPPRESS"
+      },
+      {
+        "name": "RISE",
+        "status": "UNVERIFIED",
+        "render": "SUPPRESS"
+      },
+      {
+        "name": "RankListIQ",
+        "status": "UNVERIFIED",
+        "render": "SUPPRESS",
+        "note": "Persistence smoke test required."
+      },
+      {
+        "name": "File Vault",
+        "status": "UNVERIFIED",
+        "render": "SUPPRESS"
+      },
+      {
+        "name": "PS Tools",
+        "status": "UNVERIFIED",
+        "render": "SUPPRESS"
+      },
+      {
+        "name": "MATCHBRIDGE",
+        "status": "UNVERIFIED",
+        "render": "SUPPRESS"
+      }
     ],
     "_BLOCKED": "Readiness could NOT be classified from this worktree: the platform repo contains no production readiness signal for these systems and the live origin is down. Every system therefore defaults to UNVERIFIED/SUPPRESS, which is the safe state. See 02_RISK_AND_CONFLICT_LEDGER.md."
   },
-
   "claims": {
     "_comment": "FOUNDER RULE (ticket S26): remove or quarantine unsupported claims. Do NOT invent replacement statistics.",
     "quarantined": [
@@ -413,68 +503,341 @@
         "replacement": "86-93% match rate (qualified, denominator stated)",
         "invented": false
       },
-      { "claim": "191 Lowest Step 1 Matched", "status": "QUARANTINED", "where_live": "Homepage stat band", "reason": "Not supported by approved ground truth. Must not be used.", "replacement": null },
-      { "claim": "24 yrs Longest Grad Gap Matched", "status": "QUARANTINED", "where_live": "Homepage stat band", "reason": "Not supported by approved ground truth. Must not be used.", "replacement": null },
-      { "claim": "142 (any use)", "status": "BANNED", "where_live": null, "reason": "Not supported by approved ground truth.", "replacement": null },
-      { "claim": "102 verified testimonials", "status": "QUARANTINED", "reason": "Unsupported count.", "replacement": null },
-      { "claim": "unlimited mocks", "status": "BANNED", "reason": "Unsupported and contradicted by real calendar capacity.", "replacement": "6 Mock Interviews Included" },
-      { "claim": "Match Guarantee / MatchFirst", "status": "QUARANTINED", "reason": "Conflicting and undefined across surfaces.", "replacement": null },
-      { "claim": "July 1 deadline / early enrollment / early bird", "status": "EXPIRED", "reason": "Stale campaign language.", "replacement": null },
-      { "claim": "cohort full / sold out / waitlist beside an active cart", "status": "CONTRADICTION", "reason": "Must never appear beside a live Add-to-Cart.", "replacement": null }
+      {
+        "claim": "191 Lowest Step 1 Matched",
+        "status": "QUARANTINED",
+        "where_live": "Homepage stat band",
+        "reason": "Not supported by approved ground truth. Must not be used.",
+        "replacement": null
+      },
+      {
+        "claim": "24 yrs Longest Grad Gap Matched",
+        "status": "QUARANTINED",
+        "where_live": "Homepage stat band",
+        "reason": "Not supported by approved ground truth. Must not be used.",
+        "replacement": null
+      },
+      {
+        "claim": "142 (any use)",
+        "status": "BANNED",
+        "where_live": null,
+        "reason": "Not supported by approved ground truth.",
+        "replacement": null
+      },
+      {
+        "claim": "102 verified testimonials",
+        "status": "QUARANTINED",
+        "reason": "Unsupported count.",
+        "replacement": null
+      },
+      {
+        "claim": "unlimited mocks",
+        "status": "BANNED",
+        "reason": "Unsupported and contradicted by real calendar capacity.",
+        "replacement": "6 Mock Interviews Included"
+      },
+      {
+        "claim": "Match Guarantee / MatchFirst",
+        "status": "QUARANTINED",
+        "reason": "Conflicting and undefined across surfaces.",
+        "replacement": null
+      },
+      {
+        "claim": "July 1 deadline / early enrollment / early bird",
+        "status": "EXPIRED",
+        "reason": "Stale campaign language.",
+        "replacement": null
+      },
+      {
+        "claim": "cohort full / sold out / waitlist beside an active cart",
+        "status": "CONTRADICTION",
+        "reason": "Must never appear beside a live Add-to-Cart.",
+        "replacement": null
+      }
     ],
     "verified_retained": [
-      { "claim": "3,000+ IMGs Trained", "status": "RETAINED_PENDING_CONFIRMATION", "note": "Appears on the live homepage; not on the quarantine list. Confirm substantiation before reuse." },
-      { "claim": "17+ years helping applicants with red flags", "status": "RETAINED", "where_live": "Homepage, Dr. Brian mentor card" },
-      { "claim": "Named alumni video testimonials with first-person quotes", "status": "RETAINED", "note": "Real, attributed, and the strongest proof asset on the site." }
+      {
+        "claim": "3,000+ IMGs Trained",
+        "status": "RETAINED_PENDING_CONFIRMATION",
+        "note": "Appears on the live homepage; not on the quarantine list. Confirm substantiation before reuse."
+      },
+      {
+        "claim": "17+ years helping applicants with red flags",
+        "status": "RETAINED",
+        "where_live": "Homepage, Dr. Brian mentor card"
+      },
+      {
+        "claim": "Named alumni video testimonials with first-person quotes",
+        "status": "RETAINED",
+        "note": "Real, attributed, and the strongest proof asset on the site."
+      }
     ]
   },
-
   "analytics": {
     "_comment": "FOUNDER RULE (ticket S29): reuse the CURRENT analytics framework. Do NOT introduce a second analytics system.",
     "framework": "UNCONFIRMED",
     "_BLOCKED": "The live origin is down, so the current analytics framework (GA4 / GTM / other) could not be confirmed. Events below are specified framework-agnostically as a dataLayer-style contract; Codex must bind them to the existing framework and must not add a second one.",
     "events": [
-      { "name": "fall_access_hero_impression", "trigger": "campaign hero enters viewport", "params": ["campaign_id", "state"] },
-      { "name": "complete_cta_click",          "trigger": "IV Prep Complete primary CTA",   "params": ["price", "state", "placement"] },
-      { "name": "essentials_cta_click",        "trigger": "IV Prep Essentials primary CTA", "params": ["price", "state", "placement"] },
-      { "name": "ps_priority_cta_click",       "trigger": "PS Priority CTA",                "params": ["price", "deposit"] },
-      { "name": "ps_emergency_cta_click",      "trigger": "PS Emergency CTA",               "params": ["price", "deposit"] },
-      { "name": "priority_interest_360_click", "trigger": "2027-28 Priority Access CTA",    "params": [] },
-      { "name": "payment_method_interaction",  "trigger": "any payment option expanded/selected", "params": ["method", "product"] },
-      { "name": "payment_zelle_selected",      "trigger": "bank transfer / Zelle selected", "params": ["product", "price"] },
-      { "name": "payment_card_selected",       "trigger": "card selected",                  "params": ["product", "price"] },
-      { "name": "payment_plan_inquiry",        "trigger": "Admissions payment-plan CTA",    "params": ["product"] },
-      { "name": "checkout_start",              "trigger": "checkout entered",               "params": ["product", "price", "method"] },
-      { "name": "checkout_complete",           "trigger": "order confirmed",                "params": ["product", "price", "method", "order_id"] },
-      { "name": "upgrade_click",               "trigger": "Essentials->Complete or PS->course upgrade CTA", "params": ["from", "to"] },
-      { "name": "technology_interest",         "trigger": "technology/Matrix section interaction", "params": ["system"] }
+      {
+        "name": "fall_access_hero_impression",
+        "trigger": "campaign hero enters viewport",
+        "params": [
+          "campaign_id",
+          "state"
+        ]
+      },
+      {
+        "name": "complete_cta_click",
+        "trigger": "IV Prep Complete primary CTA",
+        "params": [
+          "price",
+          "state",
+          "placement"
+        ]
+      },
+      {
+        "name": "essentials_cta_click",
+        "trigger": "IV Prep Essentials primary CTA",
+        "params": [
+          "price",
+          "state",
+          "placement"
+        ]
+      },
+      {
+        "name": "ps_priority_cta_click",
+        "trigger": "PS Priority CTA",
+        "params": [
+          "price",
+          "deposit"
+        ]
+      },
+      {
+        "name": "ps_emergency_cta_click",
+        "trigger": "PS Emergency CTA",
+        "params": [
+          "price",
+          "deposit"
+        ]
+      },
+      {
+        "name": "priority_interest_360_click",
+        "trigger": "2027-28 Priority Access CTA",
+        "params": []
+      },
+      {
+        "name": "payment_method_interaction",
+        "trigger": "any payment option expanded/selected",
+        "params": [
+          "method",
+          "product"
+        ]
+      },
+      {
+        "name": "payment_zelle_selected",
+        "trigger": "bank transfer / Zelle selected",
+        "params": [
+          "product",
+          "price"
+        ]
+      },
+      {
+        "name": "payment_card_selected",
+        "trigger": "card selected",
+        "params": [
+          "product",
+          "price"
+        ]
+      },
+      {
+        "name": "payment_plan_inquiry",
+        "trigger": "Admissions payment-plan CTA",
+        "params": [
+          "product"
+        ]
+      },
+      {
+        "name": "checkout_start",
+        "trigger": "checkout entered",
+        "params": [
+          "product",
+          "price",
+          "method"
+        ]
+      },
+      {
+        "name": "checkout_complete",
+        "trigger": "order confirmed",
+        "params": [
+          "product",
+          "price",
+          "method",
+          "order_id"
+        ]
+      },
+      {
+        "name": "upgrade_click",
+        "trigger": "Essentials->Complete or PS->course upgrade CTA",
+        "params": [
+          "from",
+          "to"
+        ]
+      },
+      {
+        "name": "technology_interest",
+        "trigger": "technology/Matrix section interaction",
+        "params": [
+          "system"
+        ]
+      }
     ]
   },
-
   "journey": {
     "_comment": "FOUNDER OVERRIDE: sell the experience, not just features. These stages drive the visual journey component and the program comparison.",
     "stages": [
-      { "key": "foundation", "title": "BUILD THE FOUNDATION", "desc": "Learn how strong residency interview answers are constructed." },
-      { "key": "practice",   "title": "PRACTICE",             "desc": "Apply the framework repeatedly under realistic pressure." },
-      { "key": "assessed",   "title": "GET ASSESSED",         "desc": "Receive scored feedback and identify weaknesses before programs see them." },
-      { "key": "real_prep",  "title": "PREP FOR REAL INTERVIEWS", "desc": "Sharpen difficult answers and program-specific strategy." },
-      { "key": "season",     "title": "KEEP TRAINING THROUGH THE SEASON", "desc": "Keep improving all season rather than trying to repair a bad interview after it happens." }
+      {
+        "key": "foundation",
+        "title": "BUILD THE FOUNDATION",
+        "desc": "Learn how strong residency interview answers are constructed."
+      },
+      {
+        "key": "practice",
+        "title": "PRACTICE",
+        "desc": "Apply the framework repeatedly under realistic pressure."
+      },
+      {
+        "key": "assessed",
+        "title": "GET ASSESSED",
+        "desc": "Receive scored feedback and identify weaknesses before programs see them."
+      },
+      {
+        "key": "real_prep",
+        "title": "PREP FOR REAL INTERVIEWS",
+        "desc": "Sharpen difficult answers and program-specific strategy."
+      },
+      {
+        "key": "season",
+        "title": "KEEP TRAINING THROUGH THE SEASON",
+        "desc": "Keep improving all season rather than trying to repair a bad interview after it happens."
+      }
     ],
     "coverage": {
-      "iv_prep_essentials": ["foundation", "practice"],
-      "iv_prep_complete": ["foundation", "practice", "assessed", "real_prep", "season"],
-      "match_mentorship_360": ["foundation", "practice", "assessed", "real_prep", "season"]
+      "iv_prep_essentials": [
+        "foundation",
+        "practice"
+      ],
+      "iv_prep_complete": [
+        "foundation",
+        "practice",
+        "assessed",
+        "real_prep",
+        "season"
+      ],
+      "match_mentorship_360": [
+        "foundation",
+        "practice",
+        "assessed",
+        "real_prep",
+        "season"
+      ]
     },
     "_coverage_note": "Coverage reflects the program definitions in this ticket. Confirm against the real Essentials syllabus before publishing; if Essentials includes any scored assessment, add it here rather than editing a page."
   },
-
   "routing": {
     "_comment": "FOUNDER OVERRIDE: route by customer NEED, not by MissionMed's internal naming. No gimmicky quiz.",
     "needs": [
-      { "need": "My personal statement / application narrative", "route_to": ["ps_intensive_priority", "ps_intensive_emergency"] },
-      { "need": "Interview fundamentals",                        "route_to": ["iv_prep_essentials"] },
-      { "need": "Full interview-season preparation",             "route_to": ["iv_prep_complete"] },
-      { "need": "Maximum mentorship",                            "route_to": ["match_mentorship_360"] }
+      {
+        "need": "My personal statement / application narrative",
+        "route_to": [
+          "ps_intensive_priority",
+          "ps_intensive_emergency"
+        ]
+      },
+      {
+        "need": "Interview fundamentals",
+        "route_to": [
+          "iv_prep_essentials"
+        ]
+      },
+      {
+        "need": "Full interview-season preparation",
+        "route_to": [
+          "iv_prep_complete"
+        ]
+      },
+      {
+        "need": "Maximum mentorship",
+        "route_to": [
+          "match_mentorship_360"
+        ]
+      }
+    ]
+  },
+  "faq": {
+    "_note": "Ported from the LIVE /mission-residency/ FAQ and corrected to current canon. Four of the seven live answers could not be published as written: stale pricing, unsupported red-flag statistics, MatchFirst deferred payment, and conflicting guarantee language. See 08_CLAIMS_CLEANUP_LEDGER.md.",
+    "items": [
+      {
+        "q": "What makes Mission Residency different?",
+        "a": "It is led personally by Dr. Brian rather than a junior coach or a rotating team, and it is built as a relationship that continues past Match Day. You are taught how strong interview answers are actually constructed, then you practise them under real pressure and get scored feedback before programs ever see you.",
+        "source": "live_faq_1",
+        "changed": "Removed the MatchFirst claim pending founder decision. Removed 'students from 2015 still text Dr. Brian in 2024' as unverifiable."
+      },
+      {
+        "q": "I have red flags \u2014 low scores, a year-of-graduation gap, multiple cycles, limited USCE. Can I still match?",
+        "a": "Many of our students are in exactly that position, and reapplicants are a large part of who we work with. What we can tell you honestly is that a cycle usually fails for reasons that are fixable, and that fixing them means rebuilding how you tell your story rather than repeating the same interview. We will tell you candidly what we think is achievable in your situation before you enrol.",
+        "source": "live_faq_2",
+        "changed": "REMOVED the specific statistics in the live answer \u2014 lowest Step 1 of 191, a 24-year YOG gap, '35 of our 102 documented testimonials', and '100% of completed cycles in that subset matched'. None are substantiated, and the last is an implied outcome guarantee."
+      },
+      {
+        "q": "What if I went unmatched, or got no interviews at all?",
+        "a": "Most of our students are reapplicants. We start by diagnosing what specifically went wrong, then build a different application, a different narrative and different program targeting. Repeating last cycle louder does not work.",
+        "source": "live_faq_3",
+        "changed": "Unchanged in substance \u2014 no unsupported claims."
+      },
+      {
+        "q": "What does it cost, and how can I pay?",
+        "a": "__PRICING__",
+        "source": "live_faq_4",
+        "changed": "REWRITTEN. The live answer carries fully stale pricing and a July 1 deadline that expired two months ago. This answer is generated from live config, so it can never go stale again."
+      },
+      {
+        "q": "Is it too late to start preparing this season?",
+        "a": "No. If you have an interview coming up soon, IV Prep Essentials gives you the framework quickly. If you want support that runs the whole season \u2014 scored mocks, a debrief after every real interview, and program-specific strategy \u2014 that is IV Prep Complete.",
+        "source": "live_faq_6",
+        "changed": "Removed the 360 recommendation (2026-27 capacity is reached) and the 'Pre-Start Orientation begins May or June' line, which no longer applies to a September start."
+      },
+      {
+        "q": "Do you guarantee a match?",
+        "a": "No. No coach can guarantee a match, and anyone who promises one is misleading you. What we commit to is the preparation: the framework, the practice, the scored feedback and the strategy.",
+        "source": "live_faq_7",
+        "changed": "Kept the honest first half. REMOVED the 360 'Forever guarantee' \u2014 it is one of three conflicting guarantee statements currently live and needs a single founder-approved definition."
+      },
+      {
+        "q": "Do I need to be enrolled in a program to work on my personal statement?",
+        "a": "No. The Personal Statement Intensive is sold on its own and standalone buyers are equally welcome. If you later enrol in Essentials or Complete, ask Admissions about applying credit.",
+        "source": "new",
+        "changed": "NEW \u2014 the live FAQ never answers this, and it is a real objection for standalone PS buyers."
+      },
+      {
+        "q": "What happens right after I enrol?",
+        "a": "You are onboarded into the program and given your schedule of live sessions. From there the season runs in stages: build the foundation, practise under pressure, get assessed, prepare for real interviews, and keep training through the season.",
+        "source": "new",
+        "changed": "NEW \u2014 'what happens after enrollment' is a required comprehension question and the live FAQ does not answer it."
+      }
+    ],
+    "withheld_pending_founder_decision": [
+      {
+        "topic": "MatchFirst\u2122 deferred payment",
+        "live_answer": "'Pay a deposit to start training, receive 100% of the program right away, pay the remaining balance only after you successfully match. If you don't match, the remaining balance is waived.'",
+        "why_withheld": "Directly conflicts with the founder canon that Zelle pay-in-full is the preferred rail and that internal plans must cost MORE than PIF. A balance contingent on outcome is also a materially different consumer-credit product from an installment plan. It is currently advertised live on two FAQ answers.",
+        "needs": "Founder ruling on whether MatchFirst is offered this cycle, and on what terms."
+      },
+      {
+        "topic": "The 360 'Forever guarantee'",
+        "live_answer": "'If you don't match for whatever reason, we keep training you until you do.'",
+        "why_withheld": "One of three conflicting guarantee statements live on the page. Needs one approved definition before republication.",
+        "needs": "Founder ruling on the single guarantee wording."
+      }
     ]
   }
 }

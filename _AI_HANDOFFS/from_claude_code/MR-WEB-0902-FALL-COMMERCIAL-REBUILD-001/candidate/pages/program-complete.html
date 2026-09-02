@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IV Prep Complete — MissionMed Institute</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.missionmedinstitute.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mm-visual.css">
+</head>
+<body class="mmv">
+<div id="campaign"></div>
+<main id="main"></main>
+
+<section class="v-env v-env--navy">
+  <div class="v-wrap v-wrap--narrow" style="text-align:center">
+    <h2 id="close-h">Still deciding?</h2>
+    <p class="v-lede" style="margin:0 auto 30px">See how this compares with the other Mission Residency programs.</p>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
+      <a class="v-btn v-btn--glass" href="compare.html">Compare the programs</a>
+      <a class="v-btn v-btn--glass" href="mission-residency.html#faq">Read the FAQ</a>
+    </div>
+  </div>
+</section>
+
+<script src="../js/campaign-state.js"></script>
+<script src="../js/mm-visual.js"></script>
+<script src="../js/mm-boot.js"></script>
+<script>
+MMBoot(function (cfg, state) {
+  var V = MMVisual, C = MMCampaign;
+  var KEY = 'iv_prep_complete';
+  V.mountChrome('mr');
+  document.getElementById('campaign').appendChild(V.campaignBar(cfg, state));
+
+  document.getElementById('main').appendChild(V.programPage(cfg, state, KEY));
+
+  var p = cfg.products[KEY], vis = C.visibility(cfg, KEY, state), closed = vis.render !== 'OPEN';
+
+  document.getElementById('pp-price').appendChild(V.priceBlock(cfg, KEY, state));
+
+  var cta = document.getElementById('pp-cta');
+  if (closed) {
+    if (p.future) {
+      var b = V.el('a', { class: 'v-btn v-btn--gold', href: '#payment', text: p.future.cta_label });
+      b.addEventListener('click', function () { V.track('priority_interest_360_click', {}); });
+      cta.appendChild(b);
+    } else {
+      cta.appendChild(V.el('span', { class: 'v-btn v-btn--glass', 'aria-disabled': 'true', text: 'Enrollment closed' }));
+    }
+  } else {
+    var e = V.el('a', { class: 'v-btn v-btn--gold', href: 'checkout-boundary.html?product=' + KEY,
+                        text: 'Enroll in IV Prep Complete' });
+    e.addEventListener('click', function () {
+      V.track(KEY === 'iv_prep_complete' ? 'complete_cta_click' : 'essentials_cta_click',
+              { price: C.priceFor(cfg, KEY, state, 'card'), state: state.key, placement: 'program_page' });
+    });
+    cta.appendChild(e);
+  }
+  cta.appendChild(V.el('a', { class: 'v-btn v-btn--glass', href: 'compare.html', text: 'Compare programs' }));
+
+  if (document.getElementById('pp-journey')) {
+    document.getElementById('pp-journey').appendChild(V.journey(cfg, KEY));
+  }
+  document.getElementById('pp-videos').appendChild(V.videoWall(V.PROGRAM_COPY[KEY].videos));
+
+  var payHost = document.getElementById('pp-pay');
+  if (closed) {
+    // Two different reasons a product can be closed, and they must not share copy.
+    // CANON: 360's 2026-27 capacity is reached — a permanent, product-level fact.
+    // STATE: everything else is closed because the campaign is not live yet, or
+    // sales have ended. Saying "for 2026-27" about a PS tier is nonsense.
+    var byCanon = p.render === 'VISIBLE_BUT_CLOSED';
+    payHost.innerHTML = byCanon
+      ? '<div class="v-note" style="max-width:none"><b>' + (p.status_subhead || 'Enrollment closed') +
+        '</b> for 2026-27. ' + (p.truthful_rationale || '') +
+        (p.display_price ? ' Reference tuition ' + C.money(p.display_price) + '.' : '') + '</div>'
+      : '<div class="v-note" style="max-width:none"><b>Enrollment is not open right now.</b> ' +
+        (state.key === 'STATE_PRELAUNCH'
+          ? 'This program has not opened for enrollment yet.'
+          : 'Enrollment for this program has closed for the season.') +
+        ' Tell us you are interested and we will let you know the moment it opens.</div>';
+    if (p.future) {
+      payHost.appendChild(V.el('p', { class: 'v-meta', style: 'margin-top:16px', text: p.future.factual_line +
+        ' Joining the list tells us you are applying next cycle. It does not reserve a seat.' }));
+    }
+  } else if (typeof p.price === 'number') {
+    payHost.innerHTML = '<div class="v-note" style="max-width:none">Tuition <b>' + C.money(p.price) +
+      '</b>. Reservation deposit <b>' + C.money(p.deposit) + '</b> today, balance due before your strategy session under the final terms.</div>' +
+      '<p class="v-meta" style="margin-top:16px">' + p.turnaround + '. ' +
+      (p.capacity_cap_per_week ? 'Availability is confirmed in writing before any deposit is taken. Maximum one per week.' : 'Your turnaround clock starts once the strategy session is done, your materials are in, and the payment condition is met.') + '</p>';
+  } else {
+    payHost.appendChild(V.paymentHierarchy(cfg, KEY, state));
+  }
+
+  V.initMotion();
+});
+</script>
+</body>
+</html>

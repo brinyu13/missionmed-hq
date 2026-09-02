@@ -85,3 +85,34 @@ V1's audit, commerce, entitlement, campaign-state and claims work is **unchanged
 
 ## Defects found and fixed in the V2 pass
 See `09_DESKTOP_MOBILE_QA.md` items 6–12. The three that mattered: headings invisible on light sections, the 360 card's CTA rendering white-on-white at 1.04:1, and a mobile horizontal overflow (`scrollWidth` 408 vs 375) caused by a bare `minmax(380px, 1fr)`.
+
+
+---
+
+# V3 — PREVIEW RECOVERY (MR-WEB-0902D)
+
+The founder's complaint was routing, not the candidate: the URL supplied opened the internal QA hub. Inspecting the actual customer page first (as instructed) showed it was **partially, not wholly, failed** — the hero, video wall and environments were strong; the missing chrome, thin-outline cards and absent FAQ were not. So the strong parts were kept and the weak parts rebuilt.
+
+## Routing
+- `.preview/serve.py` rewritten with a redirect table. **`/` now opens the Mission Residency customer page.**
+- QA hub moved `pages/index.html` → **`review/index.html`**, and is excluded from the deployment payload.
+- Short URLs for all ten surfaces (`/complete`, `/ps`, `/payment`, `/sept8`, `/truth`, …) — see `PREVIEW_MAP.md`.
+
+## Added
+| File | Purpose |
+|---|---|
+| `pages/program-complete.html` · `-essentials` · `-360` · `-ps` | The four program surfaces, from one config-driven renderer |
+| `pages/payment.html` | Standalone ways-to-pay surface |
+| `PREVIEW_MAP.md` | Direct URLs, customer-first |
+| `siteHeader()` / `siteFooter()` / `mountChrome()` | Real site chrome — the missing header was the main reason the candidate read as a demo |
+| `faq()` + `config.faq` | The live FAQ, ported and canon-corrected |
+| `programPage()` + `PROGRAM_COPY` | Program page renderer |
+
+## FAQ port
+Seven live questions audited. Three carried over close to intact; four could not be published as written — stale pricing with an expired July deadline, the unsupported 191 / 24-year / 102-testimonial red-flag stats, MatchFirst™ deferred payment, and the conflicting "Forever guarantee". Two new questions added ("do I need a program to work on my statement", "what happens after I enrol"). **MatchFirst and the guarantee are recorded in `config.faq.withheld_pending_founder_decision` — withheld, not deleted.**
+
+## Six defects fixed
+See `09_DESKTOP_MOBILE_QA.md` items 13–18. The two that mattered most: no site chrome anywhere, and the payment block rendering gold-on-cream at ~1.3:1 on the program pages.
+
+## Known gap, not fixed — needs a founder decision
+**During Fall Access Week, bank transfer and card are both $2,799** — there is no Zelle advantage, because the Fall Access price is single-rail in config. Founder canon says Zelle should be economically advantaged. In standard mode the spread does exist ($3,199 vs $3,299). I have not invented a Fall Access spread; the UI states an honest non-price benefit that week instead. **A founder ruling sets the Fall Access bank price.**

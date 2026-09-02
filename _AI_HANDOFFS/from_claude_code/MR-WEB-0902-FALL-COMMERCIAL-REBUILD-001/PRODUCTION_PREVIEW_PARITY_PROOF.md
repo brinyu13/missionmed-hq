@@ -71,3 +71,28 @@ Worth being explicit, because these are the parts that usually get faked in a mo
 ## PARITY VERDICT
 
 **PASS.** Codex productionizes `candidate/` exactly. The three shims above are the complete list of what is dropped, and none of them touches pricing, availability, copy, layout, or commercial logic.
+
+
+---
+
+# V3 ADDITIONS (MR-WEB-0902D)
+
+| Surface | Rendered by | Data from | Preview-only shim? |
+|---|---|---|---|
+| Site header + nav | `mm-visual.js` → `siteHeader()` | `NAV` constant; logo is the **live** WordPress logo asset | none — reproduces the live header |
+| Site footer | `siteFooter()` | static nav + live logo | none |
+| FAQ | `faq()` | **`config.faq.items`** — the pricing answer is generated from live prices | none |
+| Program pages (Complete / Essentials / 360 / PS) | `programPage()` + `PROGRAM_COPY` | `products.*`, `mock_entitlement`, `journey.coverage` | none |
+| Payment page | `pages/payment.html` + `paymentHierarchy()` | `payments.*` | none |
+
+**Shims are now four, not three.** Added to the list:
+
+### 4. Preview URL aliases default to `?state=A`
+`/`, `/complete`, `/essentials`, `/360`, `/ps`, `/compare`, `/payment` and `/home` append `?state=A` so the founder sees the Fall Access customer experience rather than the "enrollment closed" pre-launch state.
+
+**The production truth gate is unchanged.** With `verified_live_at` null, production still cannot show Fall Access pricing — that rule lives in `campaign-state.js` GATE 1 and ships as-is. `/truth` shows the real state, and the toolbar reads "Preview · simulated".
+
+**Codex removes:** the `ALIASES` map in `.preview/serve.py` (the whole file is preview-only).
+
+### The QA hub is NOT part of the deployment payload
+`candidate/review/index.html` is internal. It must not be deployed, linked from production, or productionized. The customer surfaces are `candidate/pages/*.html` only.

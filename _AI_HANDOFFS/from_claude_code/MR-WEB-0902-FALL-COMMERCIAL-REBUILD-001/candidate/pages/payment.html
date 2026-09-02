@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ways to pay — MissionMed Institute</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/mm-visual.css">
+</head>
+<body class="mmv">
+<div id="campaign"></div>
+
+<header class="v-env v-env--deep">
+  <div class="v-wrap">
+    <span class="v-eyebrow">Ways to pay</span>
+    <h1 class="v-display">One tuition.<br>Three ways to pay it.</h1>
+    <p class="v-lede" style="margin-top:24px">
+      Paying in full by bank transfer is the best value, and it is the way most students enrol.
+      Card is there if you would rather. If you need to spread it out, Admissions will talk you through it.
+    </p>
+    <p style="margin-top:22px">
+      <label for="prod" class="v-meta" style="display:block;margin-bottom:8px">Showing tuition for</label>
+      <select id="prod" style="background:#0d1526;color:#f7f9fc;border:1px solid rgba(216,180,95,.42);border-radius:999px;padding:14px 20px;font:inherit;font-size:1rem;min-height:52px"></select>
+    </p>
+  </div>
+</header>
+
+<section class="v-env v-env--dark">
+  <div class="v-wrap"><div id="pay"></div></div>
+</section>
+
+<section class="v-env v-env--paper">
+  <div class="v-wrap">
+    <span class="v-eyebrow">Good to know</span>
+    <h2>The honest details.</h2>
+    <div class="v-grid v-grid--2" style="margin-top:38px" id="notes"></div>
+  </div>
+</section>
+
+<section class="v-env v-env--navy">
+  <div class="v-wrap v-wrap--narrow" style="text-align:center">
+    <h2>Ready to enrol?</h2>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:26px">
+      <a class="v-btn v-btn--gold" href="program-complete.html">IV Prep Complete</a>
+      <a class="v-btn v-btn--glass" href="program-essentials.html">IV Prep Essentials</a>
+    </div>
+  </div>
+</section>
+
+<script src="../js/campaign-state.js"></script>
+<script src="../js/mm-visual.js"></script>
+<script src="../js/mm-boot.js"></script>
+<script>
+MMBoot(function (cfg, state) {
+  var V = MMVisual, C = MMCampaign;
+  V.mountChrome('mr');
+  document.getElementById('campaign').appendChild(V.campaignBar(cfg, state));
+
+  var KEYS = ['iv_prep_complete', 'iv_prep_essentials'];
+  var sel = document.getElementById('prod');
+  KEYS.forEach(function (k) {
+    var o = document.createElement('option');
+    o.value = k; o.textContent = cfg.products[k].public_name;
+    sel.appendChild(o);
+  });
+
+  function draw() {
+    var host = document.getElementById('pay');
+    host.innerHTML = '';
+    host.appendChild(V.paymentHierarchy(cfg, sel.value, state));
+  }
+  sel.addEventListener('change', draw);
+  draw();
+
+  var plan = cfg.payments.missionmed_payment_plan;
+  var notes = [
+    ['Why bank transfer is the best value', 'Card networks take a percentage of every payment. Paying by bank transfer avoids that, and we pass the difference back to you rather than keeping it.'],
+    ['What the payment plan costs', plan.public_copy + ' We will not publish a total here until the terms are finalised, because quoting one would be quoting a credit offer.'],
+    ['Deposits on Personal Statement work', 'Priority reserves with a ' + C.money(cfg.products.ps_intensive_priority.deposit) + ' deposit and Emergency with ' + C.money(cfg.products.ps_intensive_emergency.deposit) + '. For Emergency we confirm availability in writing before taking anything.'],
+    ['Financing', cfg.payments.affirm.available ? 'Affirm is available for eligible U.S. residents.' : 'Third-party financing is not available yet. When it is, it will appear here — we would rather say nothing than imply an option you cannot actually use today.']
+  ];
+  var host = document.getElementById('notes');
+  notes.forEach(function (n) {
+    host.appendChild(V.el('div', { class: 'v-inc js-reveal',
+      html: V.icon('shield', 'v-inc__icon') + '<div><h3>' + n[0] + '</h3><p>' + n[1] + '</p></div>' }));
+  });
+
+  V.initMotion();
+});
+</script>
+</body>
+</html>

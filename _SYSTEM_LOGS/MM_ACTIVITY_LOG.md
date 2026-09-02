@@ -3440,3 +3440,29 @@ Dr. Brian rejected v9 redesign ("a hot mess"). Immediate rollback to v8 requeste
 **Verified:** 142 text elements pass WCAG AA with zero failures (lowest 5.01); zero horizontal overflow at 375px on all three pages; zero console errors; banned-term audit clean on all five pages across all four states; the September 8 flip still requires no human action.
 
 **Status:** COMPLETE — awaiting founder review. Not deployed. Codex handoff not released for execution.
+
+---
+
+### Prompt ID: MR-WEB-0902D
+**Date:** 2026-09-02
+**Task:** Customer-facing preview recovery
+
+**Production deployed:** NO. Codex handoff NOT released.
+
+**Founder complaint:** the supplied preview URL opened an internal QA dashboard instead of the redesigned customer site.
+
+**First action per the ruling — inspect before redesigning.** The actual V2 customer page was rendered and assessed as partially, not wholly, failed: the cinematic hero on the real MATCHED-patch asset, the eight Match Day videos and the alternating light/dark environments were strong and were kept. Four specific weaknesses were rebuilt: no site header/nav/footer anywhere (the main reason it read as a demo), a heavy two-row striped preview bar, thin-outline card monotony, and no FAQ.
+
+**Routing fixed:** `/` now opens the customer Mission Residency page. QA hub moved to `/review/` and excluded from the deployment payload. Ten short URLs added, customer-first, hub last (`PREVIEW_MAP.md`).
+
+**Built:** four program surfaces (Complete, Essentials, 360, PS) from one config-driven renderer; a standalone payment page; real site header/nav/footer reproducing the live chrome; a thin dismissible bottom-right toolbar.
+
+**FAQ ported and canon-corrected:** seven live questions audited; four could not be published as written — stale pricing with an expired July deadline, the unsupported 191/24-year/102-testimonial statistics, MatchFirst deferred payment, and the conflicting "Forever guarantee". MatchFirst and the guarantee are withheld pending founder ruling, recorded in config rather than deleted. Two new questions added.
+
+**Six defects found and fixed:** QA hub as the primary URL; no site chrome; heavy preview bar; the payment block rendering gold-on-cream at ~1.3:1 on the program pages; closed-state copy hardcoding "for 2026-27" so PS Priority read "Enrollment closed for 2026-27"; toolbar covering the hero proof strip.
+
+**Verified:** zero horizontal overflow at 375px on all five surfaces with the burger nav working; zero console errors; banned-term audit clean on all ten surfaces; contrast AA with zero real failures.
+
+**Open founder decision:** during Fall Access Week bank transfer and card are both $2,799 — no Zelle advantage, because the Fall Access price is single-rail in config. Canon says Zelle should be advantaged. No spread was invented.
+
+**Status:** COMPLETE — awaiting founder review. Not deployed.

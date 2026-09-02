@@ -162,7 +162,20 @@
   </div>
 </section>
 
-<!-- ============================================== 10 · CLOSE -->
+
+<!-- ============================================== 10 · FAQ (LIGHT) -->
+<section class="v-env v-env--paper" id="faq">
+  <div class="v-wrap">
+    <span class="v-eyebrow">Questions</span>
+    <h2>Straight answers.</h2>
+    <p class="v-lede" style="color:var(--v-paper-ink2);margin-bottom:38px">
+      Carried over from the questions applicants actually ask us, corrected to what is true today.
+    </p>
+    <div id="faq-host"></div>
+  </div>
+</section>
+
+<!-- ============================================== 11 · CLOSE -->
 <section class="v-env v-env--navy">
   <div class="v-wrap v-wrap--narrow" style="text-align:center">
     <h2 id="close-h">Ready to choose?</h2>
@@ -171,12 +184,7 @@
   </div>
 </section>
 
-<footer class="v-env v-env--dark" style="padding-block:44px">
-  <div class="v-wrap">
-    <img id="logo-img" alt="MissionMed Institute" style="height:34px;width:auto;opacity:.8;margin-bottom:16px" loading="lazy">
-    <p class="v-meta" style="margin:0">MissionMed Institute · Mission Global Group LLC · Internal review candidate for MR-WEB-0902. Not published.</p>
-  </div>
-</footer>
+
 
 <script src="../js/campaign-state.js"></script>
 <script src="../js/mm-visual.js"></script>
@@ -185,10 +193,13 @@
 MMBoot(function (cfg, state) {
   var V = MMVisual, C = MMCampaign, A = V.ASSETS;
 
+  // Real site header + footer. Their absence was the main reason the earlier
+  // preview read as a demo rather than a page of the MissionMed site.
+  V.mountChrome('mr');
+
   document.getElementById('hero-img').src   = A.mrHero;
   document.getElementById('class-img').src  = A.classShot;
   document.getElementById('brian-img').src  = A.drBrian;
-  document.getElementById('logo-img').src   = A.logo;
 
   document.getElementById('campaign').appendChild(V.campaignBar(cfg, state));
 
@@ -320,6 +331,8 @@ MMBoot(function (cfg, state) {
     document.getElementById('close-p').textContent = 'Tell us you are applying next cycle and we will let you know when enrollment opens.';
     close.innerHTML = '<a class="v-btn v-btn--glass" href="#priority-interest">Join the priority list</a>';
   }
+
+  document.getElementById('faq-host').appendChild(V.faq(cfg, state));
 
   V.initMotion();
 });

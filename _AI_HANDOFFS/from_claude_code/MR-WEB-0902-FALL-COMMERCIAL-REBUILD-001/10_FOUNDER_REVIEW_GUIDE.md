@@ -20,6 +20,14 @@ Every page has a **striped bar at the top** with a state selector. Switch betwee
 
 ---
 
+## Where to start
+
+**http://127.0.0.1:8790/** — this now opens the Mission Residency page itself, as a prospect would see it during Fall Access Week. Every direct URL is in `PREVIEW_MAP.md`.
+
+The small bar at the bottom-right switches campaign state and can be dismissed with the ×. `http://127.0.0.1:8790/truth` shows the true pre-launch state, where every CTA is closed because the campaign has not been verified live.
+
+Implementation warnings and the P0 list now live at `/review/` — deliberately out of the customer experience.
+
 ## Two surfaces — they are not the same page
 
 | | Job |

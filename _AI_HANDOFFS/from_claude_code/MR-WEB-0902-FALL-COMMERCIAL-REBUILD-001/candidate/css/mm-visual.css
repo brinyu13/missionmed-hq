@@ -422,3 +422,176 @@
   text-decoration: none; min-height: 44px; height: 44px; box-sizing: border-box;
 }
 .v-boundary { border: 2px dashed var(--v-gold); background: rgba(216,180,95,.09); border-radius: var(--v-radius); padding: 40px; text-align: center; }
+
+/* ============================================================ SITE CHROME
+   Reproduces the LIVE MissionMed header/footer so the candidate reads as a page
+   of the real site rather than a standalone demo. Structure, order and styling
+   follow the live header verbatim, with ONE deliberate difference: the live
+   utility bar leads with "89.1% MATCH RATE · 3,000+ TRAINED SINCE 2009", an
+   unsupported figure that also contradicts the same page's footer ("since
+   2015"). It is not reproduced here. See 08_CLAIMS_CLEANUP_LEDGER.md. */
+
+.v-util {
+  background: var(--v-bg); color: var(--v-ink-2);
+  font-size: .74rem; letter-spacing: .1em; text-transform: uppercase;
+  padding: 9px var(--v-gutter);
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.v-util b { color: var(--v-gold-2); font-weight: 700; }
+
+.v-head {
+  position: sticky; top: 0; z-index: 90;
+  background: rgba(255,255,255,.97); backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(16,22,31,.10);
+  display: flex; align-items: center; gap: 22px;
+  padding: 12px var(--v-gutter);
+  box-shadow: 0 2px 20px rgba(16,22,31,.06);
+}
+.v-head__logo { display: flex; align-items: center; }
+.v-head__logo img { height: 46px; width: auto; }
+.v-head__nav { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.mmv .v-head__nav a {
+  font-size: .95rem; font-weight: 600; color: #26313f; text-decoration: none;
+  padding: 11px 14px; border-radius: 9px; min-height: 44px; display: inline-flex; align-items: center;
+}
+.mmv .v-head__nav a:hover { background: rgba(16,22,31,.06); }
+.mmv .v-head__nav a[aria-current="page"] { color: #8a6a1f; box-shadow: inset 0 -2px 0 var(--v-gold); border-radius: 0; }
+.v-head__act { display: flex; align-items: center; gap: 10px; }
+.mmv .v-head__act a {
+  font-size: .88rem; font-weight: 700; letter-spacing: .04em; text-decoration: none;
+  padding: 11px 20px; border-radius: 999px; min-height: 44px; display: inline-flex; align-items: center;
+}
+.mmv .v-head__act .is-ghost { color: #26313f; border: 1.5px solid rgba(16,22,31,.24); }
+.mmv .v-head__act .is-solid { color: #fff; background: var(--v-paper-ink); }
+.v-head__burger { display: none; margin-left: auto; background: none; border: 1.5px solid rgba(16,22,31,.24); border-radius: 10px; width: 46px; height: 46px; align-items: center; justify-content: center; cursor: pointer; color: #26313f; }
+
+@media (max-width: 1040px) {
+  .v-head__nav, .v-head__act { display: none; }
+  .v-head__burger { display: inline-flex; }
+  .v-head__nav.is-open, .v-head__act.is-open {
+    display: flex; flex-direction: column; align-items: stretch;
+    position: absolute; top: 100%; left: 0; right: 0; background: #fff;
+    padding: 10px var(--v-gutter) 16px; gap: 2px;
+    border-bottom: 1px solid rgba(16,22,31,.12); box-shadow: 0 20px 40px rgba(16,22,31,.14);
+  }
+  .v-head__act.is-open { top: calc(100% + 1px); padding-top: 0; box-shadow: none; border: 0; }
+  .v-head { position: relative; }
+}
+
+/* Footer */
+.v-foot { background: var(--v-bg); border-top: 1px solid var(--v-line); padding: clamp(48px,6vw,76px) 0 34px; }
+.v-foot__grid { display: grid; gap: 34px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); }
+.v-foot__logo { height: 40px; width: auto; opacity: .92; margin-bottom: 14px; }
+.v-foot h4 { font-family: var(--v-sans); font-size: .76rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; color: var(--v-gold); margin: 0 0 14px; }
+.v-foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.mmv .v-foot a { color: var(--v-ink-2); text-decoration: none; font-size: .96rem; }
+.mmv .v-foot a:hover { color: var(--v-gold-2); }
+.v-foot__legal { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--v-line); font-size: .86rem; color: var(--v-meta); }
+
+/* ---- THIN preview toolbar (replaces the heavy striped bar).
+   Founder ruling 0902D: unobtrusive, and outside the production page design.
+   Dropped entirely at productionization. */
+.v-pv {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 9999; display: flex; align-items: center; gap: 10px;
+  background: rgba(10,16,28,.93); backdrop-filter: blur(16px);
+  border: 1px solid var(--v-line-gold); border-radius: 999px;
+  padding: 7px 8px 7px 16px; box-shadow: 0 16px 44px rgba(0,0,0,.55);
+  font-size: .8rem; color: var(--v-ink-2); max-width: calc(100vw - 24px);
+}
+.v-pv__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--v-gold); flex: none; }
+.v-pv__lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v-pv select {
+  background: #0d1526; color: var(--v-ink); border: 1px solid var(--v-line-gold);
+  border-radius: 999px; padding: 8px 12px; font-size: .8rem; font-family: inherit; min-height: 40px;
+}
+.mmv .v-pv a { color: var(--v-gold-2); text-decoration: none; font-size: .8rem; white-space: nowrap; padding: 0 8px; }
+.v-pv__hide { background: none; border: 0; color: var(--v-meta); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 6px 10px; min-height: 40px; }
+@media (max-width: 700px) { .v-pv { font-size: .74rem; padding-left: 12px; } .v-pv__lbl { max-width: 34vw; } }
+
+/* ============================================================ FAQ */
+.v-faq { max-width: 880px; }
+.v-faq__item { border-bottom: 1px solid var(--v-line-dark); }
+.v-env--dark .v-faq__item, .v-env--deep .v-faq__item, .v-env--navy .v-faq__item { border-bottom-color: var(--v-line); }
+.v-faq__item summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 18px;
+  padding: 26px 0; font-family: var(--v-serif); font-size: clamp(1.15rem, 1.9vw, 1.42rem);
+  line-height: 1.3; min-height: 44px;
+}
+.v-faq__item summary::-webkit-details-marker { display: none; }
+.v-faq__chev { width: 22px; height: 22px; margin-left: auto; flex: none; color: var(--v-gold); transition: transform .28s cubic-bezier(.2,.7,.3,1); }
+.v-faq__item[open] .v-faq__chev { transform: rotate(90deg); }
+.v-faq__a { padding: 0 42px 26px 0; }
+.v-faq__a p { margin: 0; font-size: 1.06rem; line-height: 1.65; }
+.v-env--paper .v-faq__a p { color: var(--v-paper-ink2); }
+
+/* ---- Router cards: image-free but no longer thin outlines.
+   The founder called out "thin-outline-card monotony". These now carry a tinted
+   ground, a real icon plate and a gold spine. */
+.v-route {
+  position: relative; overflow: hidden;
+  background: linear-gradient(165deg, #ffffff 0%, #fbf9f4 100%);
+  border: 1px solid rgba(16,22,31,.10);
+  border-left: 3px solid var(--v-gold);
+}
+.v-route__icon {
+  width: 52px; height: 52px; padding: 12px; border-radius: 14px;
+  background: linear-gradient(140deg, rgba(216,180,95,.26), rgba(216,180,95,.10));
+  color: #8a6a1f; margin-bottom: 20px;
+}
+.v-route::after {
+  content: ""; position: absolute; right: -38px; top: -38px; width: 120px; height: 120px;
+  border-radius: 50%; background: radial-gradient(circle, rgba(216,180,95,.16), transparent 70%);
+}
+
+/* ---- Journey: give each stage a plate and a connecting rule so it reads as a
+   progression rather than a column of small paragraphs. */
+.v-step { padding-top: 34px; }
+.v-step__icon {
+  width: 46px; height: 46px; padding: 11px; border-radius: 13px;
+  background: rgba(216,180,95,.13); border: 1px solid var(--v-line-gold);
+}
+.v-step--on .v-step__icon { background: linear-gradient(140deg, rgba(216,180,95,.32), rgba(216,180,95,.12)); }
+.v-step h3 { font-size: 1rem; letter-spacing: .085em; }
+.v-step p { font-size: 1.02rem; }
+
+/* ---- sub-page hero: shorter than the division hero */
+.v-hero--sub { min-height: clamp(440px, 62vh, 600px); }
+.v-hero--sub h1 { font-size: clamp(2.4rem, 5vw, 3.9rem); }
+.v-hero--sub .v-quote { font-size: clamp(1.2rem, 2vw, 1.5rem); color: var(--v-gold-2); }
+
+/* ---- inclusion rows: icon plate + copy, replacing thin-outline feature cards */
+.v-inc { display: flex; gap: 20px; align-items: flex-start; padding: 24px 26px; border-radius: var(--v-radius);
+  background: linear-gradient(165deg,#fff,#fbf9f4); border: 1px solid rgba(16,22,31,.10); border-left: 3px solid var(--v-gold);
+  box-shadow: var(--v-shadow-pp); }
+.v-inc__icon { width: 46px; height: 46px; padding: 11px; border-radius: 13px; flex: none;
+  background: linear-gradient(140deg, rgba(216,180,95,.26), rgba(216,180,95,.10)); color: #8a6a1f; }
+.v-inc h3 { font-family: var(--v-sans); font-size: 1.06rem; font-weight: 700; margin: 0 0 6px; letter-spacing: 0; }
+.mmv .v-env--paper .v-inc h3 { color: var(--v-paper-ink); }
+.v-inc p { margin: 0; font-size: .98rem; }
+
+/* ---- Payment hierarchy on the LIGHT environment.
+   The component was authored for dark surfaces, where gold pops. Dropped onto
+   paper (the program pages) the gold amount (#f0d68c) sits at roughly 1.3:1 on
+   cream — the price becomes unreadable. These are the paper counterparts.
+   #6b5210 measures ~7.3:1 on white. */
+.v-env--paper .v-pay__opt {
+  background: #fff; border-color: rgba(16,22,31,.12); box-shadow: var(--v-shadow-pp);
+}
+.v-env--paper .v-pay__opt--best {
+  background: linear-gradient(140deg, #fffdf6, #fff);
+  border-color: rgba(216,180,95,.62); box-shadow: 0 26px 62px rgba(16,22,31,.14);
+}
+.v-env--paper .v-pay__opt--quiet { background: transparent; box-shadow: none; border-color: rgba(16,22,31,.22); }
+.v-env--paper .v-pay__eyebrow { color: #8a6a1f; }
+.v-env--paper .v-pay__opt--quiet .v-pay__eyebrow { color: #556071; }
+.mmv .v-env--paper .v-pay__label { color: var(--v-paper-ink); }
+.v-env--paper .v-pay__amt  { color: #6b5210; }
+.v-env--paper .v-pay__save { color: #6b5210; }
+.mmv .v-env--paper .v-pay__note { color: var(--v-paper-ink2); }
+
+/* Toolbar sits bottom-RIGHT, not centred: centred it covered the hero proof
+   strip. On narrow screens it returns to centre, where there is no side room. */
+.v-pv { left: auto; right: 16px; transform: none; }
+@media (max-width: 760px) { .v-pv { left: 12px; right: 12px; justify-content: center; } }

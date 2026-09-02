@@ -42,23 +42,28 @@
     return { cfg: clone, at: FORCE.at || STATE_DATES[FORCE.state] || null, forced: FORCE.state };
   }
 
+  /* Thin, unobtrusive preview toolbar — founder ruling MR-WEB-0902D.
+     It floats at the BOTTOM so it never sits between the founder and the hero,
+     and it is deliberately outside the production page design. Dismissible, and
+     the dismissal sticks for the session. Removed at productionization along
+     with applyPreviewOverrides() and the ?state=/?at= parameters. */
   function previewBar(state, forced) {
+    try { if (sessionStorage.getItem('mm_pv_hidden') === '1') return; } catch (e) {}
+
     var bar = document.createElement('div');
-    bar.className = 'mmc-previewbar';
-    var truth = forced === 'P' || !forced
-      ? 'TRUE state today (campaign not yet verified live)'
-      : 'SIMULATED for review';
-    bar.innerHTML =
-      '<b>FOUNDER PREVIEW</b> — not production. ' +
-      '<span>State: <b>' + state.key + '</b> (' + state.label + ') · ' + truth + '</span>';
+    bar.className = 'v-pv';
+    var simulated = !(forced === 'P' || !forced);
+
+    bar.innerHTML = '<span class="v-pv__dot"></span>' +
+      '<span class="v-pv__lbl">Preview &middot; ' + (simulated ? 'simulated' : 'true state') + '</span>';
 
     var sel = document.createElement('select');
     sel.setAttribute('aria-label', 'Preview campaign state');
-    [['', 'Real state (as configured)'],
-     ['P', 'Pre-launch — not verified live'],
-     ['A', 'Fall Access Week (Sept 2–7)'],
-     ['B', 'September 8 — standard tuition'],
-     ['C', 'Sales closed (Sept 22+)']].forEach(function (o) {
+    [['',  'Real state now'],
+     ['P', 'Pre-launch'],
+     ['A', 'Fall Access Week'],
+     ['B', 'September 8'],
+     ['C', 'Sales closed']].forEach(function (o) {
       var opt = document.createElement('option');
       opt.value = o[0]; opt.textContent = o[1];
       if (o[0] === (FORCE.state || '')) opt.selected = true;
@@ -72,12 +77,22 @@
     });
     bar.appendChild(sel);
 
-    var home = document.createElement('a');
-    home.href = 'index.html' + (FORCE.state ? '?state=' + FORCE.state : '');
-    home.textContent = '← All preview pages';
-    bar.appendChild(home);
+    var rev = document.createElement('a');
+    rev.href = '../review/index.html' + (FORCE.state ? '?state=' + FORCE.state : '');
+    rev.textContent = 'Review notes';
+    bar.appendChild(rev);
 
-    document.body.insertBefore(bar, document.body.firstChild);
+    var hide = document.createElement('button');
+    hide.className = 'v-pv__hide'; hide.type = 'button';
+    hide.setAttribute('aria-label', 'Hide preview toolbar');
+    hide.innerHTML = '&times;';
+    hide.addEventListener('click', function () {
+      try { sessionStorage.setItem('mm_pv_hidden', '1'); } catch (e) {}
+      bar.remove();
+    });
+    bar.appendChild(hide);
+
+    document.body.appendChild(bar);
   }
 
   window.MMBoot = function (render) {

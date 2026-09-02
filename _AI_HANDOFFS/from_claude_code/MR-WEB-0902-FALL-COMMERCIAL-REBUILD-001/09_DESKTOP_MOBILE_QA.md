@@ -160,3 +160,50 @@ Zero errors on every page in every state, verified in a **fresh tab**. (Console 
 
 ## Still not tested
 Unchanged from V1: live checkout, entitlement grant, confirmation email, analytics delivery, screen-reader pass, real-device mobile. Plus: **video playback was verified as reachable (HTTP 206, range requests supported) but not played end-to-end in QA.**
+
+
+---
+
+# V3 QA — preview recovery (MR-WEB-0902D)
+
+## What changed
+Routing (`/` now opens the customer page), real site header/footer, a thin toolbar, four program pages, a payment page, and the FAQ.
+
+## Contrast
+| Page | Elements | AA failures | Lowest |
+|---|---|---|---|
+| `/complete` | 76 | **0** | 4.6 (excluding the known gold-button measurement artifact) |
+| `/` (Mission Residency) | 142 | 0 | 5.01 |
+| `/compare` | 46 | 0 | 4.56 |
+
+## Responsive @375px
+| Page | scrollWidth | Overflow | Burger nav |
+|---|---|---|---|
+| `/` | 375 | 0 | shown |
+| `/complete` | 375 | 0 | shown |
+| `/payment` | 375 | 0 | shown |
+| `/ps` | 375 | 0 | shown |
+| `/home` | 375 | 0 | shown |
+
+## Console
+Zero errors on all pages, verified in a clean tab.
+
+## Banned-term audit
+`clean: true` on all ten surfaces.
+
+## Defects found and fixed in the V3 pass
+| # | Defect | Severity | Fix |
+|---|---|---|---|
+| 13 | **The primary preview URL opened an internal QA dashboard**, not the customer site | **High — the founder's actual complaint** | `/` redirects to the Mission Residency page; hub moved to `/review/` |
+| 14 | **No site header, nav or footer on any candidate page** — the main reason it read as a demo rather than a website | **High** | Real chrome reproducing the live header, mounted on every page |
+| 15 | The preview bar was heavy, striped, two rows, and the first thing on screen | High | Thin dismissible toolbar, bottom-right, outside the page design |
+| 16 | **Payment block unreadable on the program pages** — gold amounts on cream at ~1.3:1 | **High** | Paper variants for the whole payment component (#6b5210, ~7.3:1) |
+| 17 | Closed-state copy hardcoded "for 2026-27" on all four program pages, so PS Priority read "Enrollment closed for 2026-27" | Medium | Split canon-closed (360) from state-closed copy |
+| 18 | The toolbar covered the hero proof strip when centred | Low | Moved bottom-right; re-centres under 760px |
+
+## Non-defects investigated and dismissed
+- **`/complete` showing "enrollment closed" by default** — not a bug. The truth gate forces PRELAUNCH while `verified_live_at` is null. Preview aliases now pass `?state=A`; the gate is unchanged.
+- **Gold CTA measured at 1.02:1** — measurement artifact (the script reassigns the hero background after the gold assignment). Actual 9.52:1.
+
+## Still not tested
+Live checkout, entitlement grant, confirmation email, analytics delivery, screen-reader pass, real-device mobile, end-to-end video playback.
