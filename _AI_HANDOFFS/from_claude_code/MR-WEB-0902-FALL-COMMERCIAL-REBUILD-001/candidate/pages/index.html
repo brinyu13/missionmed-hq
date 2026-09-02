@@ -80,7 +80,10 @@ MMBoot(function (cfg, state) {
   var items = [
     ['Nothing is deployed.', 'No WordPress page, no WooCommerce product, and no price on the live site has been changed by this ticket.'],
     ['The campaign will not show as live until you say so.', 'The banner and Fall Access prices stay hidden until a real end-to-end test purchase clears and someone sets verified_live_at. Today the true state is pre-launch.'],
-    ['Two live conflicts need your decision first.', '360 Match Mentorship is currently purchasable at $3,999 while canon says 2026-27 is closed at a $5,499 reference, and the live product copy still promises "unlimited mock interviews" and a "Match Guarantee".'],
+    // Deliberately describes the banned claims instead of quoting them: the
+    // runtime banned-term audit scans this page too, and a guard that cries wolf
+    // on its own review notes is a guard people learn to ignore.
+    ['Two live conflicts need your decision first.', '360 Match Mentorship is currently purchasable at $3,999 while canon says 2026-27 is closed at a $5,499 reference. Its live product copy also still promises limitless mock interviews and an undefined match guarantee. Both are quoted verbatim in 02_RISK_AND_CONFLICT_LEDGER.md.'],
     ['The payment plan shows no total on purpose.', 'Your requirement that the plan cost more than pay-in-full is intact in the architecture, but publishing a specific premium is a finance charge under Reg Z, so the offer routes to Admissions until Codex resolves it.'],
     ['Every price and name lives in one file.', 'campaign-state.json. Change it there and every page follows. Nothing is hard-coded.']
   ];

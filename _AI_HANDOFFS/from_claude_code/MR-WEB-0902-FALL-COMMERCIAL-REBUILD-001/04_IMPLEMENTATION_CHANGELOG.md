@@ -44,6 +44,7 @@ All under `_AI_HANDOFFS/from_claude_code/MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001
 | 2 | 360 card showed no reference tuition — `priceFor()` returns null for a display-only product, so `priceBlock()` bailed before the reference branch | Moved the `VISIBLE_BUT_CLOSED` branch above the null bail-out |
 | 3 | 360 card had an empty gap where features belong, undercutting it as premium anchor | Added truthful feature list containing no banned claims |
 | 4 | Comparison `<caption>` collapsed to a ~50px sliver on mobile (`display:block` on the table makes it an anonymous shrink-wrapped block) | Pinned to `display:block; width:100%` in the mobile query |
+| 5 | The banned-term auditor reported `clean: false` on `index.html` — the founder-review notes quoted `"unlimited mock interviews"` verbatim while describing the live 360 defect | Rephrased the note to describe the claim instead of reproducing it. The guard was **not** exempted or weakened — a check that false-alarms on its own commentary is one people learn to ignore |
 
 ## Non-defects investigated and dismissed
 

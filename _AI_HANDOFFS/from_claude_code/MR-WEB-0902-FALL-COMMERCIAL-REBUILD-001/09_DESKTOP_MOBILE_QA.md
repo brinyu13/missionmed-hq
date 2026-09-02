@@ -69,7 +69,11 @@ Only intentional output: `[MM] banned-term audit clean · state=…`.
 
 `auditBannedTerms()` asserts the rendered DOM against `banned_terms` + `banned_wording`: **"flex mock", "flex mocks", "unlimited mocks", "unlimited mock interviews", "SOLD OUT", "OPENING SOON"**.
 
-**Result across all pages and all four states: `clean: true`, `violations: []`.** Exposed at `window.__MM_AUDIT__`.
+**Result across all five pages and all four states: `clean: true`, `violations: []`.** Exposed at `window.__MM_AUDIT__`.
+
+> **The guard caught a real leak during QA — on the preview hub itself.** `index.html`'s founder-review notes originally quoted `"unlimited mock interviews"` verbatim while describing the live 360 problem, and the auditor correctly reported `clean: false`. The note was rephrased to describe the claim rather than reproduce it. The guard was deliberately *not* weakened or exempted: a check that raises false alarms on its own commentary is one people learn to ignore. Re-verified clean afterwards.
+>
+> Note the auditor reads `innerText`, so inline `<script>` source and HTML comments are correctly not scanned — only text a visitor can actually read.
 
 ---
 
