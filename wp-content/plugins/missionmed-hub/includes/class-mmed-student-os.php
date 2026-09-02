@@ -97,6 +97,11 @@ class MMED_Student_OS {
 
 		self::optimize_runtime_v2_member_dashboard_assets( $runtime_v2_enabled );
 
+		/* MX-DASH-6000C: Dashboard 2.0 renderer for the #dashboard route (server-resolved; Classic untouched). */
+		if ( class_exists( 'MMED_Dashboard_Experience' ) ) {
+			MMED_Dashboard_Experience::enqueue_assets();
+		}
+
 		$file_vault_css        = MMED_HUB_PATH . 'assets/student-os-file-vault.css';
 		$file_vault_js         = MMED_HUB_PATH . 'assets/student-os-file-vault.js';
 		$file_vault_ui_version = 'mm064-006d-fidelity';
