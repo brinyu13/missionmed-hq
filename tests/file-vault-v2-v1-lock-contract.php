@@ -30,12 +30,12 @@ foreach ( $files as $path => $expected ) {
 
 $immutable_assets = array(
 	'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js' => array(
-		'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.800c6d27aa4d568c.js',
-		'800c6d27aa4d568cc222525f3200d6b34c1f312d8e8794b821e360eef679b3eb',
+		'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.2ec19bcdd6e13052.js',
+		'2ec19bcdd6e130525485c949561b779abd8670996b83c9a6fc910416edfc0a9c',
 	),
 	'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.css' => array(
-		'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.dd04d1bf96634a44.css',
-		'dd04d1bf96634a44f942d0a923cd9d3b5980f491cb1d1d2a11fc61e5b9a043f4',
+		'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.a6b07c660ab66b82.css',
+		'a6b07c660ab66b825b9229cd7d884ae7086416d7ba86d0caf48bd75ab2ea28cc',
 	),
 );
 foreach ( $immutable_assets as $canonical => $lock ) {
@@ -49,8 +49,8 @@ foreach ( $immutable_assets as $canonical => $lock ) {
 }
 
 $v2_controller = file_get_contents( $root . '/wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php' );
-fv2_v1_assert( false !== strpos( $v2_controller, "const ASSET_JS          = 'student-os-file-vault-v2.800c6d27aa4d568c.js';" ), 'V2 controller pins the immutable JavaScript asset' );
-fv2_v1_assert( false !== strpos( $v2_controller, "const ASSET_CSS         = 'student-os-file-vault-v2.dd04d1bf96634a44.css';" ), 'V2 controller pins the immutable CSS asset' );
+fv2_v1_assert( false !== strpos( $v2_controller, "const ASSET_JS          = 'student-os-file-vault-v2.2ec19bcdd6e13052.js';" ), 'V2 controller pins the immutable JavaScript asset' );
+fv2_v1_assert( false !== strpos( $v2_controller, "const ASSET_CSS         = 'student-os-file-vault-v2.a6b07c660ab66b82.css';" ), 'V2 controller pins the immutable CSS asset' );
 fv2_v1_assert( false === strpos( $v2_controller, 'filemtime( $js_path )' ) && false === strpos( $v2_controller, 'filemtime( $css_path )' ), 'immutable V2 assets do not depend on mutable filemtime cache keys' );
 
 $rest = file_get_contents( $root . '/wp-content/plugins/missionmed-hub/includes/class-mmed-rest-api.php' );
