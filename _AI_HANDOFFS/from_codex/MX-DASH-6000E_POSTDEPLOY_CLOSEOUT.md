@@ -75,8 +75,12 @@ readback after the live test showed:
 - Global live claims: `0`
 - Global pending waiters: `0`
 
-The final handoff filing used a separate bounded PATH lease. It was released
-after the non-force push and followed by a final provider-native readback.
+The initial handoff filing used bounded PATH lease epoch `960`. Its release
+call arrived after the 30-second expiry, so the provider did not record an
+explicit release timestamp; provider-native readback nevertheless showed zero
+live claims and zero waiters. This accuracy-only amendment used epoch
+`961`, was explicitly released after its non-force push,
+and was followed by a final clear provider-native readback.
 
 ## Closure
 
