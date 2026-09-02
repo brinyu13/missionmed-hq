@@ -512,6 +512,11 @@
 			var params = range();
 			var key = String(api.base || '') + '|' + (capabilities.admin ? 'admin' : 'student') + '|' + params.start + '|' + params.end;
 			var cached = sharedPrimaryCache[key];
+			var todoRequest = typeof api.request === 'function' ? api.request('/todos', { method: 'GET', signal: signal }, {}) : api.get('/todos');
+			todoRequest.then(function (payload) {
+				var todos = payload && Array.isArray(payload.todos) ? payload.todos.map(normalizeTodo) : [];
+				if (generation === rangeGeneration) set({ todos: todos, todosStatus: todos.length ? 'ready' : 'empty' });
+			}).catch(function (error) { if (!(error && error.name === 'AbortError') && generation === rangeGeneration) set({ todosStatus: 'error' }); });
 			set({ requestRange: { start: params.start, end: params.end }, cacheStatus: cached ? 'hit' : 'miss' });
 			if (cached) {
 				state.telemetry.cacheHits += 1;
@@ -533,11 +538,6 @@
 				if (generation === rangeGeneration) set({ wpStatus: 'error', error: 'Live Matrix events could not be loaded.' });
 				throw error;
 			});
-			var todoRequest = typeof api.request === 'function' ? api.request('/todos', { method: 'GET', signal: signal }, {}) : api.get('/todos');
-			todoRequest.then(function (payload) {
-				var todos = payload && Array.isArray(payload.todos) ? payload.todos.map(normalizeTodo) : [];
-				if (generation === rangeGeneration) set({ todos: todos, todosStatus: todos.length ? 'ready' : 'empty' });
-			}).catch(function (error) { if (!(error && error.name === 'AbortError') && generation === rangeGeneration) set({ todosStatus: 'error' }); });
 			return events;
 		}
 

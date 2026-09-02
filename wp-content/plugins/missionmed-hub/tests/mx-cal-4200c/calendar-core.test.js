@@ -182,13 +182,15 @@ test('same-range revisit starts a current-generation request after stale abort',
 
 test('module-lived SWR cache survives route unmount/remount within 400 ms', async () => {
 	let eventRequests = 0;
+	let todoRequests = 0;
 	const app = {
 		profile: { is_admin: false },
 		api: {
 			base: '/wp-json/mmed/v1',
 			request: (endpoint) => {
 				if (endpoint === '/events') eventRequests += 1;
-				return Promise.resolve(endpoint === '/events' ? { events: [] } : { todos: [] });
+				if (endpoint === '/todos') todoRequests += 1;
+				return Promise.resolve(endpoint === '/events' ? { events: [] } : { todos: [{ id: 71, title: 'Warm remount task' }] });
 			}
 		}
 	};
@@ -203,6 +205,10 @@ test('module-lived SWR cache survives route unmount/remount within 400 ms', asyn
 	assert.equal(eventRequests, 1, 'warm remount must use the shared SWR cache');
 	assert.ok(elapsed <= 400, `warm remount exceeded 400 ms: ${elapsed}`);
 	assert.equal(remounted.state.cacheStatus, 'hit');
+	assert.equal(todoRequests, 2, 'each core instance must load todos independently of the shared event cache');
+	assert.equal(remounted.state.todosStatus, 'ready', 'warm remount must not leave todos loading');
+	assert.equal(remounted.state.todos.length, 1, 'warm remount must hydrate current todo data');
+	assert.equal(remounted.state.todos[0].title, 'Warm remount task');
 });
 
 test('ET display contract is explicit and DST-aware', () => {

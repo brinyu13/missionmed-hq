@@ -66,7 +66,7 @@
     {"id": "A11Y-01", "status": "PASS", "evidence": "Keyboard event/date/topic activation, focus-visible treatment, semantic controls, reduced-motion suppression, plus drawer initial focus, Escape, focus trap, and focus return."},
     {"id": "SCHEMA-01", "status": "NOT_CHANGED_BY_AUTHORITY", "evidence": "DR-163 prohibits wp_mmed_events schema or migration changes."},
     {"id": "MUT-01", "status": "PASS", "evidence": "Server-success-first event and todo mutations in the shared core plus explicit Classic delete confirmation."},
-    {"id": "PERF-01", "status": "PASS", "evidence": "View-specific bounded ranges; AbortSignal reaches Matrix api.request/fetch; stale same-range revisit starts a current-generation request; module-lived 30-second SWR cache survives unmount/remount; local exact-390 browser remount was 213.1 ms Classic and 85.8 ms StoryForge, both within 400 ms."},
+    {"id": "PERF-01", "status": "PASS", "evidence": "View-specific bounded ranges; AbortSignal reaches Matrix api.request/fetch; stale same-range revisit starts a current-generation request; module-lived 30-second event SWR cache survives unmount/remount while each core instance independently reloads and hydrates todos; local exact-390 browser remount was 213.1 ms Classic and 85.8 ms StoryForge, both within 400 ms."},
     {"id": "CTRL-01", "status": "PASS", "evidence": "Missing options fail closed to Classic; manage_options Settings API page exposes default, V2 availability, and Force Classic."}
   ],
   "production": {
