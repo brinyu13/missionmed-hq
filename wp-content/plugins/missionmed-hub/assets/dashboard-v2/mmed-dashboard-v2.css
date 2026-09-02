@@ -118,6 +118,7 @@
 :is(#student-os-root,body) .mmdv2-meta{position:absolute;left:16px;right:52px;bottom:14px;z-index:2}
 :is(#student-os-root,body) .mmdv2-nm{display:block;font-weight:900;font-size:20px;letter-spacing:-.015em;line-height:1.1;text-shadow:0 2px 10px rgba(0,0,0,.5)}
 :is(#student-os-root,body) .mmdv2-sub{display:block;margin-top:5px;font-size:12.5px;line-height:1.35;color:#d6e0ec;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+:is(#student-os-root,body) .mmdv2[data-perspective="admin"] .mmdv2-sub{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 :is(#student-os-root,body) .mmdv2-go{position:absolute;right:14px;bottom:14px;z-index:2;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(150deg,var(--em),var(--em2));color:var(--on-em);font-weight:900;opacity:0;transform:translateX(6px);transition:.25s}
 :is(#student-os-root,body) .mmdv2-card:hover, :is(#student-os-root,body) .mmdv2-card:focus-visible{transform:translateY(-5px) translateZ(0);border-color:var(--hue,var(--em));box-shadow:0 22px 50px rgba(0,0,0,.5),0 0 0 1px var(--hue,var(--em)),0 0 34px color-mix(in srgb,var(--hue,var(--em)) 45%,transparent)}
 :is(#student-os-root,body) .mmdv2-card:hover .mmdv2-media, :is(#student-os-root,body) .mmdv2-card:focus-visible .mmdv2-media{transform:scale(1.05)}

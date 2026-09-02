@@ -567,7 +567,7 @@ class MMED_Dashboard_Experience {
 				'when' => 'After each interview, and before the list certifies.', 'cta' => 'Build My Rank List', 'cta2' => '',
 			),
 			'lor'        => array(
-				'name' => 'LOR Builder', 'cat' => 'Match Prep', 'hue' => '#ff7a9d', 'launch' => '#lor',
+				'name' => 'LOR Studio', 'cat' => 'Match Prep', 'hue' => '#ff7a9d', 'launch' => '#lor',
 				'sub' => 'Give recommenders exactly what they need to write a strong letter.',
 				'adminSub' => 'Track letter requests and help students prepare recommender packets.',
 				'one' => 'Organized evidence in, specific and strong letters out.',
