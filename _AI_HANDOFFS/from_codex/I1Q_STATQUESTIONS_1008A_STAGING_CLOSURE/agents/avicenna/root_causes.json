@@ -1,0 +1,310 @@
+{
+  "contract": "i1q.1008a.avicenna-root-causes.v2",
+  "ticket": "I1Q-1008A",
+  "observed_at": "2026-07-15T16:10:14-04:00",
+  "source_head": "81273add2c0fe350d330902d229683662896a1b1",
+  "staging_tests_run": false,
+  "external_migrations_run": false,
+  "external_deployments_run": false,
+  "local_validation": {
+    "node_tests_total": 275,
+    "node_tests_passed": 273,
+    "node_tests_failed": 0,
+    "node_tests_skipped": 2,
+    "runtime_postgres_tests_passed": 1,
+    "runtime_postgres_tests_failed": 0
+  },
+  "resolved_local_defects": [
+    {
+      "id": "FIX-IDENTITY-TRUST-BOUNDARY",
+      "summary": "The server requires exact i1q.identity.v1 identity and a matching canonical actor.",
+      "proof": "Missing identity, wrong contract version, and wrong canonical actor return 401 in passing security tests."
+    },
+    {
+      "id": "FIX-DRAFT-IF-MATCH",
+      "summary": "Draft saves require the exact client-observed hash and reject stale writes.",
+      "proof": "Missing If-Match returns 422, stale If-Match returns 409, and the first write remains intact in passing API tests."
+    },
+    {
+      "id": "FIX-ROLE-CONFLATION",
+      "summary": "Browser identity profile and future server application runtime are separate roles.",
+      "proof": "The clean disposable test proves authenticated receives only i1q_identity_profile_reader and never i1q_app_runtime across apply, compensation, and reapply."
+    },
+    {
+      "id": "FIX-HARNESS-NULLIF",
+      "summary": "The PostgreSQL auth.uid harness protects the empty missing-setting value with NULLIF.",
+      "proof": "The latest disposable runtime test passes."
+    },
+    {
+      "id": "FIX-CREDENTIAL-EXPIRY",
+      "summary": "Credential expiry flows from the identity RPC to adapter verification.",
+      "proof": "The expired credential test passes and the RPC returns credential_expires_at."
+    },
+    {
+      "id": "FIX-WORKFLOW-BACKUP-ROLE-GATES",
+      "summary": "Preview apply requires backup and restore identifiers, fail-closed schema fingerprinting, role separation checks, and evidence redaction.",
+      "proof": "Static workflow tests pass and the ignored pg_dump path is gone."
+    },
+    {
+      "id": "FIX-STATIC-LOGOUT-BOUNDARY",
+      "summary": "Non-demo static assets require an access adapter and logout requires canonical revocation.",
+      "proof": "Passing tests prove fail-closed static access and rejection of the old bearer after synthetic logout revocation."
+    }
+  ],
+  "root_causes": [
+    {
+      "id": "RC-IDENTITY-001",
+      "category": "identity_authority",
+      "classification": "true_external_blocker",
+      "severity": "P0",
+      "summary": "MM-AUTH-ARCH-001 is absent.",
+      "impact": "Global actor, session, revocation, and cross-service identity semantics cannot be claimed.",
+      "owner": "MissionMed authority maintainer",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-IDENTITY-002",
+      "category": "identity_runtime",
+      "classification": "open_implementation_gap",
+      "severity": "P0",
+      "summary": "No production composition root injects the identity adapter, trusted origins, role resolver, or audit sink.",
+      "impact": "Every protected non-demo request returns 401.",
+      "owner": "I1Q engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-IDENTITY-003",
+      "category": "identity_runtime",
+      "classification": "open_implementation_gap",
+      "severity": "P0",
+      "summary": "The browser has no canonical bearer bootstrap or login route.",
+      "impact": "The shipped UI cannot use the bearer identity adapter.",
+      "owner": "I1Q identity and frontend engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-IDENTITY-004",
+      "category": "identity_security",
+      "classification": "reproduced_defect",
+      "severity": "P0",
+      "summary": "Opaque privileged API-key patterns are accepted by the publishable-key guard.",
+      "evidence": "A constructor-only local reproduction accepted a synthetic sb_secret pattern.",
+      "impact": "The no-privileged-key contract is not established.",
+      "owner": "I1Q identity engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-IDENTITY-005",
+      "category": "identity_trace",
+      "classification": "open_implementation_gap",
+      "severity": "P2",
+      "summary": "WordPress trace identity comes from Supabase user metadata without authoritative mapping proof.",
+      "impact": "Trace attribution can be mistaken for canonical identity.",
+      "owner": "I1Q identity owner",
+      "staging_blocker": false
+    },
+    {
+      "id": "RC-IDENTITY-006",
+      "category": "protected_auth",
+      "classification": "protected_dependency_blocker",
+      "severity": "P0",
+      "summary": "Shared HQ auth has unresolved expiry, configured-secret, hostile-origin CORS, and replay findings.",
+      "impact": "I1Q cannot rely on the shared protected path for staging certification.",
+      "owner": "HQ and WordPress auth owners",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-ROLE-001",
+      "category": "role_model",
+      "classification": "resolved_local_conflation",
+      "severity": "P0",
+      "summary": "The former shared browser and app runtime role has been split.",
+      "impact": "Authenticated users no longer inherit a future application runtime role.",
+      "owner": "I1Q datastore engineering",
+      "staging_blocker": false
+    },
+    {
+      "id": "RC-ROLE-002",
+      "category": "role_model",
+      "classification": "reproduced_defect",
+      "severity": "P0",
+      "summary": "A pre-existing i1q_identity_profile_reader with unrelated direct privileges is accepted.",
+      "evidence": "A disposable dirty-target reproduction let authenticated read a synthetic protected table through the profile role.",
+      "impact": "Role-name collision can export unrelated shared-project privileges to all authenticated users.",
+      "owner": "I1Q datastore engineering and security",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-ROLE-003",
+      "category": "role_model",
+      "classification": "authority_plus_implementation_gap",
+      "severity": "P0",
+      "summary": "i1q_app_runtime is safely deny-all but has no exact grants, assumer, or actor binder.",
+      "impact": "The application cannot use PostgreSQL and future grants cannot be authorized yet.",
+      "owner": "Datastore authority, security, and I1Q engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-MIGRATION-001",
+      "category": "migration",
+      "classification": "reproduced_defect",
+      "severity": "P0",
+      "summary": "Pre-existing enabled safety flags survive initial apply.",
+      "evidence": "A seeded public_access_enabled=true row remained true after migration.",
+      "impact": "Unsafe drift can survive while initialization audit claims all flags are off.",
+      "owner": "I1Q datastore engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-MIGRATION-002",
+      "category": "migration",
+      "classification": "reproduced_defect",
+      "severity": "P2",
+      "summary": "The migration uses anon without declaring or guarding the role dependency.",
+      "evidence": "A local target without anon failed at the unconditional revoke.",
+      "impact": "The dependency contract is inaccurate.",
+      "owner": "I1Q datastore engineering",
+      "staging_blocker": false
+    },
+    {
+      "id": "RC-MIGRATION-003",
+      "category": "migration_history",
+      "classification": "open_implementation_gap",
+      "severity": "P1",
+      "summary": "Same-version schema history conflicts do not verify exact filename, authority, or checksum.",
+      "impact": "Different migration content can be silently treated as expected history.",
+      "owner": "I1Q datastore and release engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-ROLLBACK-001",
+      "category": "rollback",
+      "classification": "open_implementation_gap",
+      "severity": "P1",
+      "summary": "Compensation toggles profile membership but does not re-revoke drifted direct grants.",
+      "impact": "Unexpected profile grants can survive emergency disable.",
+      "owner": "I1Q datastore engineering and security",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-RLS-001",
+      "category": "rls",
+      "classification": "true_external_blocker",
+      "severity": "P0",
+      "summary": "No hosted Supabase JWT, PostgREST, custom-schema, or pool-isolation test has run.",
+      "impact": "Local auth.uid harness success cannot certify hosted actor propagation.",
+      "owner": "Datastore and deployment owners",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-DATASTORE-001",
+      "category": "datastore_runtime",
+      "classification": "open_implementation_gap",
+      "severity": "P0",
+      "summary": "The HTTP platform has no compatible operational PostgreSQL adapter.",
+      "impact": "The service remains synchronous, in-memory, and non-durable.",
+      "owner": "I1Q application and datastore engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-WORKFLOW-001",
+      "category": "workflow_target",
+      "classification": "true_external_blocker",
+      "severity": "P0",
+      "summary": "The preview target remains UNASSIGNED.",
+      "impact": "No preview operation can pass the workflow gate.",
+      "owner": "Datastore and release owners",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-WORKFLOW-002",
+      "category": "workflow_authorization",
+      "classification": "open_implementation_gap",
+      "severity": "P0",
+      "summary": "The approval hash is shape-checked but not recomputed from an approval record.",
+      "impact": "Approval evidence is not cryptographically bound to target authorization.",
+      "owner": "I1Q release engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-WORKFLOW-003",
+      "category": "workflow_testing",
+      "classification": "open_implementation_gap",
+      "severity": "P0",
+      "summary": "Normal preview CI skips both full PostgreSQL attack suites.",
+      "impact": "Post-operation structural SQL does not certify the persona, RLS, compensation, and reapply matrix.",
+      "owner": "I1Q CI and datastore engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-WORKFLOW-004",
+      "category": "workflow_lifecycle",
+      "classification": "open_implementation_gap",
+      "severity": "P1",
+      "summary": "A reapply dispatch can run apply, compensation, and reapply in one push on a fresh target.",
+      "impact": "An independently observed disabled state is not guaranteed.",
+      "owner": "I1Q release engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-WORKFLOW-005",
+      "category": "workflow_history",
+      "classification": "open_implementation_gap",
+      "severity": "P1",
+      "summary": "Remote history and migration hashes are recorded but not compared to one approved exact state.",
+      "impact": "Unexpected drift is not an explicit pre-apply stop.",
+      "owner": "I1Q release engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-BUILD-001",
+      "category": "readiness",
+      "classification": "reproduced_defect",
+      "severity": "P0",
+      "summary": "Health returns success for an auth-unconfigured service.",
+      "impact": "A provider can promote an unusable deployment as healthy.",
+      "owner": "I1Q runtime engineering",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-BUILD-002",
+      "category": "provenance",
+      "classification": "open_implementation_gap",
+      "severity": "P2",
+      "summary": "Package and platform runtime versions still identify 1006.",
+      "impact": "A 1008A staging artifact would be ambiguous from health output.",
+      "owner": "I1Q release engineering",
+      "staging_blocker": false
+    },
+    {
+      "id": "RC-DEPLOY-001",
+      "category": "deployment",
+      "classification": "true_external_blocker",
+      "severity": "P0",
+      "summary": "No dedicated I1Q staging provider, service, host, route, or GitHub environment exists.",
+      "impact": "There is no authorized authenticated staging destination.",
+      "owner": "Deployment and release owners",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-DEPLOY-002",
+      "category": "operations",
+      "classification": "true_external_blocker",
+      "severity": "P1",
+      "summary": "No I1Q monitoring, alerting, deployment marker, or application rollback route exists.",
+      "impact": "Operational staging certification cannot pass.",
+      "owner": "Deployment and reliability owners",
+      "staging_blocker": true
+    },
+    {
+      "id": "RC-PROTECTED-001",
+      "category": "protected_runtime",
+      "classification": "protected_dependency_blocker",
+      "severity": "P0",
+      "summary": "Arena, STAT, Drills, and Daily live source provenance remains unresolved.",
+      "impact": "Dependent before, after, and rollback baselines cannot be certified.",
+      "owner": "Protected consumer and deployment owners",
+      "staging_blocker": true
+    }
+  ]
+}

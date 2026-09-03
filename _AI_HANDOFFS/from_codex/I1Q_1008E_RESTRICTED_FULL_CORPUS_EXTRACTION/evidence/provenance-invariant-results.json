@@ -1,0 +1,13 @@
+{
+  "schema_version": "missionmed.i1q.1008e.provenance_invariant_results.v1",
+  "extraction_run_id": "opaque_run_i2IwFt-nc8yUknV2OcX47LKN7Ibxoqh2WLuNZIrma5M",
+  "occurrence_count": 117893,
+  "transcript_hash_bound_count": 117893,
+  "artifact_alias_bound_count": 117893,
+  "source_alias_bound_count": 117893,
+  "content_hash_valid_shape_count": 117893,
+  "pass6_nodes_binding_violation_count": 0,
+  "release_overclaim_count": 0,
+  "result": "PENDING_INDEPENDENT_RECOMPUTATION",
+  "content_hash": "cca0b50cd56107a4fcb2cd0e4ee9ba8e56ad9bca5bafef97efbe30605ea1005b"
+}
