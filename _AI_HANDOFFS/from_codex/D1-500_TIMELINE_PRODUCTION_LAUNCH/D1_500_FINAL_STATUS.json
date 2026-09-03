@@ -1,0 +1,22 @@
+{
+  "schema_version": "d1-500-final-status.1",
+  "result": "PARTIAL",
+  "timeline_live_status": "not live",
+  "live_url": "https://missionmedinstitute.com/timeline/",
+  "progress": { "completed": 35, "total": 45, "percent": 78 },
+  "deployment_confidence_percent": 79,
+  "source_commit": "b668cc4d3eaa8075a357d35a60456fcaaaffa18c",
+  "static_release": "timeline-0c5cc515a76346d6",
+  "wordpress_release": "timeline-wp-c228658bc70bc395",
+  "production_deployment_id": null,
+  "user_rollout": "withheld",
+  "production_preserved": true,
+  "unrelated_application_impact": "NONE",
+  "blockers": [
+    "Founder approval required to apply the proven Critical Systems metadata reconciliation and register Timeline",
+    "Founder-only production secret installation",
+    "Railway SSH database connection unauthorized",
+    "Founder, second eligible, non-360, and expired/revoked canary personas not supplied",
+    "Consent wording/version not yet approved"
+  ]
+}
