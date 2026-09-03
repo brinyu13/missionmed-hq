@@ -100,6 +100,37 @@ class MMED_Student_OS {
 		/* MX-DASH-6000C: Dashboard 2.0 renderer for the #dashboard route (server-resolved; Classic untouched). */
 		if ( class_exists( 'MMED_Dashboard_Experience' ) ) {
 			MMED_Dashboard_Experience::enqueue_assets();
+
+			/*
+			 * MX-DASH-6010B: the public CDN strips WordPress's `ver` query string,
+			 * so the administrator-only morph canary needs immutable filenames.
+			 * Students retain the established handles and bytes until Founder approval.
+			 */
+			if ( current_user_can( 'manage_options' ) && 'matrix2' === MMED_Dashboard_Experience::resolve() ) {
+				wp_dequeue_style( 'mmed-dashboard-v2-css' );
+				wp_deregister_style( 'mmed-dashboard-v2-css' );
+				wp_enqueue_style(
+					'mmed-dashboard-v2-css',
+					MMED_HUB_URL . 'assets/dashboard-v2/mmed-dashboard-v2.6010b.css',
+					array( 'mmed-student-os-css' ),
+					null
+				);
+
+				wp_dequeue_script( 'mmed-dashboard-v2-js' );
+				wp_deregister_script( 'mmed-dashboard-v2-js' );
+				wp_enqueue_script(
+					'mmed-dashboard-v2-js',
+					MMED_HUB_URL . 'assets/dashboard-v2/mmed-dashboard-v2.6010b.js',
+					array( 'mmed-student-os-js', 'mmed-dashboard-v2-art-js' ),
+					null,
+					true
+				);
+				wp_localize_script(
+					'mmed-dashboard-v2-js',
+					'mmedDashboardV2',
+					MMED_Dashboard_Experience::bootstrap( 'matrix2', false, true )
+				);
+			}
 		}
 
 		$file_vault_css        = MMED_HUB_PATH . 'assets/student-os-file-vault.css';
