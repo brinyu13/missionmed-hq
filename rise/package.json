@@ -1,0 +1,31 @@
+{
+  "name": "@missionmed/rise",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated MissionMed RISE registry service",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@11.9.0",
+  "scripts": {
+    "build": "node tools/build-app.mjs",
+    "start": "node server.mjs",
+    "start:production": "node tools/start-production.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "pretest:browser": "npm run build",
+    "test:browser": "playwright test --config playwright.config.mjs",
+    "test:stress": "node tests/stress-synthetic.mjs"
+  },
+  "dependencies": {
+    "lucide": "1.24.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "axe-core": "4.12.1",
+    "exceljs": "4.4.0"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
+  }
+}

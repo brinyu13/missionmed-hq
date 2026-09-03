@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-22T15:50:08Z",
+  "classification": "founder_review_candidate_not_production_connected",
+  "implementationCommit": "f99e126399508d2630e9b2a17b8671d87cff1ca2",
+  "branch": "codex/p1-rise-4006-production",
+  "webBuildId": "rise_web_8d2c636a88b7",
+  "verification": {
+    "coreTests": { "passed": 89, "failed": 0 },
+    "browserTests": { "passed": 34, "failed": 0 },
+    "postgresRehearsalChecks": { "passed": 7, "failed": 0 },
+    "npmAuditVulnerabilities": 0,
+    "rootProductionNpmAuditVulnerabilities": 0,
+    "defaultBranchDependabotAlerts": { "high": 2, "moderate": 1, "low": 1 },
+    "container": {
+      "imageBuild": "PASS",
+      "failClosedSmoke": "PASS",
+      "buildWarnings": 0,
+      "architecture": "linux/arm64",
+      "sbomPackages": 20,
+      "vulnerabilityScan": {
+        "status": "PASS",
+        "scanner": "Trivy 0.72.0",
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "unknown": 0
+      }
+    },
+    "syntheticStress": {
+      "programs": 6500,
+      "concurrentRequests": 200,
+      "successfulResponses": 200,
+      "p95Ms": 311.2
+    }
+  },
+  "production": {
+    "deployed": false,
+    "liveRouteStatus": 404,
+    "authorizedRegistryRelease": false,
+    "stagingAcceptance": false,
+    "founderDeploymentApproval": false
+  },
+  "verdict": "NO_GO"
+}

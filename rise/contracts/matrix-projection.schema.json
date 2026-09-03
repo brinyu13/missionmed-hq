@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmedinstitute.com/contracts/rise/matrix-projection.v1.schema.json",
+  "title": "Consent-bound Matrix projection for RISE",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "audience", "subject", "purpose", "projectionId",
+    "projectionVersion", "consentReceiptSha256", "dataClassification",
+    "fields", "issuedAt", "expiresAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "audience": { "const": "rise" },
+    "subject": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "purpose": { "const": "rise_program_compatibility" },
+    "projectionId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$" },
+    "projectionVersion": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "consentReceiptSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "dataClassification": { "const": "protected_applicant_profile" },
+    "fields": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fieldId", "knowledge", "sourceUpdatedAt"],
+        "properties": {
+          "fieldId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+          "knowledge": { "enum": ["known", "unknown"] },
+          "value": {},
+          "sourceUpdatedAt": { "type": "string", "format": "date-time" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "knowledge": { "const": "known" } } },
+            "then": { "required": ["value"] },
+            "else": { "not": { "required": ["value"] } }
+          }
+        ]
+      }
+    },
+    "issuedAt": { "type": "integer" },
+    "expiresAt": { "type": "integer" }
+  }
+}
