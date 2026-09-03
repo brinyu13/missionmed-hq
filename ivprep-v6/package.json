@@ -1,0 +1,43 @@
+{
+  "name": "@missionmed/ivprep-v6-alpha",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/serve.mjs",
+    "start:3440-harness": "node scripts/3440/start-hq-mount-harness.mjs",
+    "start:3521-live-analytics": "node scripts/3521/start-live-analytics-harness.mjs",
+    "start:3440-profile-b-worker": "node server/agents/start-profile-b-worker.mjs",
+    "start:3441r-founder-proof": "node scripts/3441r/start-founder-proof-harness.mjs",
+    "start:3441r-t1-r3": "node scripts/3441r/start-founder-proof-harness.mjs",
+    "start:founder-authenticated": "node scripts/avatar/start-founder-authenticated.mjs",
+    "check": "node --check avatar/liveavatar-modes.mjs && node --check server/serve.mjs && node --check server/admission-contract.mjs && node --check server/admission-registry.mjs && node --check server/founder-paid-test-gate.mjs && node --check server/founder-proof-runtime.mjs && node --check server/hq-auth-lifecycle.mjs && node --check server/hq-mount.mjs && node --check server/video-entitlement-store.mjs && node --check server/agents/profile-b-agent.mjs && node --check server/agents/profile-b-durable-gate.mjs && node --check server/agents/start-profile-b-worker.mjs && node --check server/providers/provider-session-state.mjs && node --check server/providers/provider-session-controller.mjs && node --check server/providers/rendering-profile.mjs && node --check server/providers/openai-realtime-adapter.mjs && node --check server/providers/lemonslice-avatar-adapter.mjs && node --check server/providers/elevenlabs-tts-adapter.mjs && node --check server/providers/livekit-session-coordinator.mjs && node --check server/providers/provider-cost-reconciler.mjs && node --check providers/avatar-provider.mjs && node --check providers/conversation-rail.mjs && node --check providers/openai-continuous-realtime.mjs && node --check providers/liveavatar-provider.mjs && node --check providers/errors.mjs && node --check providers/openai-model-discovery.mjs && node --check providers/openai-realtime.mjs && node --check providers/openai-responses.mjs && node --check providers/openai-speech.mjs && node --check config/models.mjs && node --check config/voices.mjs && node --check config/faculty-roster.mjs && node --check config/load-environment.mjs && node --check persistence/alpha-store.mjs && node --check public/avatar-provider.mjs && node --check public/avatar/media-readiness.mjs && node --check public/conversation-rail.mjs && node --check public/v6-integration.mjs && node --check public/aaa/fixtures.mjs && node --check public/aaa/api-client.mjs && node --check public/aaa/app.mjs && node --check avatar/asset-verification.mjs && node --check avatar/livekit-origin.mjs && node --check scripts/3440/start-hq-mount-harness.mjs && node --check scripts/3441r/start-founder-proof-harness.mjs && node --check scripts/3440/deny-analytics-assets.mjs && node --check scripts/probe-continuous-pauses.mjs && node --check scripts/probe-continuous-relay.mjs && node --check scripts/probe-liveavatar-origin.mjs && node --check scripts/avatar/verify-liveavatar-targets.mjs && node --check scripts/avatar/start-founder-authenticated.mjs && node --check scripts/avatar/run-liveavatar-transport-endurance.mjs && npm run check:analytics",
+    "check:analytics": "node scripts/analytics/check-syntax.mjs",
+    "analytics:assets": "node scripts/3440/deny-analytics-assets.mjs",
+    "analytics:validate": "node scripts/analytics/score-ground-truth.mjs",
+    "analytics:privacy": "node scripts/analytics/privacy-probe.mjs",
+    "analytics:performance": "node scripts/analytics/performance-probe.mjs --duration-seconds=900",
+    "probe:continuous-pauses": "node scripts/probe-continuous-pauses.mjs",
+    "probe:continuous-relay": "node scripts/probe-continuous-relay.mjs",
+    "probe:liveavatar-origin": "node scripts/probe-liveavatar-origin.mjs",
+    "probe:liveavatar-targets": "node scripts/avatar/verify-liveavatar-targets.mjs",
+    "probe:avatar-transport-endurance": "node scripts/avatar/run-liveavatar-transport-endurance.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs test/avatar/*.test.mjs test/analytics/*.test.mjs test/3440/*.test.mjs test/3441r/*.test.mjs test/3521/*.test.mjs test/3522/*.test.mjs test/questions/*.test.mjs",
+    "test:3521": "node --test --test-concurrency=1 test/3521/*.test.mjs",
+    "test:3441r-t1-r3": "node --test --test-concurrency=1 test/3441r/t1-durable-lease-keeper.test.mjs test/3441r/founder-proof-runtime.test.mjs test/3441r/founder-proof-ui.test.mjs"
+  },
+  "dependencies": {
+    "@livekit/agents": "1.6.2",
+    "@livekit/agents-plugin-lemonslice": "1.6.2",
+    "@livekit/agents-plugin-openai": "1.6.2",
+    "@livekit/rtc-node": "0.13.33",
+    "@mediapipe/tasks-vision": "1.0.1",
+    "livekit-client": "2.21.0",
+    "livekit-server-sdk": "2.17.0",
+    "ws": "8.21.3",
+    "zod": "3.25.76"
+  }
+}

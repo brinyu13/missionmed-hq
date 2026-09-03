@@ -1,0 +1,13 @@
+{
+  "schema": "missionmed.ivprep.analytics.timeline-fixture.v1",
+  "sessionId": "synthetic-session",
+  "answers": [
+    { "answerId": "a1", "startMs": 0, "endMs": 10000 },
+    { "answerId": "a2", "startMs": 12500, "endMs": 20000 }
+  ],
+  "events": [
+    { "answerId": "a1", "metric": "answer_duration_ms", "startMs": 0, "endMs": 10000, "mediaStartMs": 0 },
+    { "answerId": "a1", "metric": "pause_episode", "startMs": 3000, "endMs": 7000, "mediaStartMs": 3000 },
+    { "answerId": "a2", "metric": "answer_duration_ms", "startMs": 12500, "endMs": 20000, "mediaStartMs": 0 }
+  ]
+}
