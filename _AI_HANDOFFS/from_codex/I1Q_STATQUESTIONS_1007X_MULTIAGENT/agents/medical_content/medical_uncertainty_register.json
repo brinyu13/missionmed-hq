@@ -1,0 +1,167 @@
+{
+  "schema_version": "i1q.medical_uncertainty_register.v1",
+  "mission_id": "I1Q-1007X",
+  "generated_on": "2026-07-15",
+  "classification": "AGGREGATE_ONLY_NO_MEDICAL_CONTENT",
+  "medical_approval_issued": false,
+  "candidate_records": [],
+  "physician_queue_entries": [],
+  "current_state": {
+    "real_sources": 97,
+    "source_level_verified_drj": 97,
+    "privacy_blocked_sources": 97,
+    "compliant_working_transcripts": 0,
+    "real_sources_processed_for_medical_content": 0,
+    "real_candidates": 0,
+    "physician_reviewed_real_candidates": 0,
+    "physician_approved_real_revisions": 0,
+    "release_eligible_real_revisions": 0,
+    "published_real_revisions": 0,
+    "synthetic_non_medical_fixture_candidates_excluded": 1
+  },
+  "blocked_cohorts": [
+    {
+      "cohort_id": "REAL_SOURCE_PRIVACY_VETO",
+      "count": 97,
+      "unit": "sources",
+      "status": "BLOCKED",
+      "blockers": [
+        "PRIVACY_CLEARANCE_MISSING",
+        "COMPLIANT_WORKING_TRANSCRIPT_MISSING"
+      ]
+    },
+    {
+      "cohort_id": "COMPLIANT_WORKING_TRANSCRIPTS",
+      "count": 0,
+      "unit": "transcripts",
+      "status": "EMPTY_BLOCKED_UPSTREAM",
+      "blockers": [
+        "ALL_REAL_SOURCES_PRIVACY_BLOCKED"
+      ]
+    },
+    {
+      "cohort_id": "REAL_EXTRACTION_CANDIDATES",
+      "count": 0,
+      "unit": "candidates",
+      "status": "NOT_CREATED",
+      "blockers": [
+        "PRIVACY_VETO",
+        "NO_COMPLIANT_WORKING_TRANSCRIPT"
+      ]
+    },
+    {
+      "cohort_id": "REAL_PHYSICIAN_REVIEW",
+      "count": 0,
+      "unit": "review_entries",
+      "status": "EMPTY_BLOCKED",
+      "blockers": [
+        "NO_REAL_CANDIDATES",
+        "MEDICAL_GOVERNANCE_LEAD_UNASSIGNED",
+        "NO_CREDENTIALED_REAL_REVIEW"
+      ]
+    },
+    {
+      "cohort_id": "REAL_RELEASE_ELIGIBILITY",
+      "count": 0,
+      "unit": "revisions",
+      "status": "BLOCKED",
+      "blockers": [
+        "NO_PHYSICIAN_APPROVAL",
+        "NO_CURRENT_PINNED_REAL_EVIDENCE_CLAIMS",
+        "STUDENT_AND_CONSUMER_FLAGS_OFF"
+      ]
+    },
+    {
+      "cohort_id": "LEGACY_V4_STATIC",
+      "count": 845,
+      "unit": "rows",
+      "status": "BLOCKED_AGGREGATE_ONLY",
+      "blockers": [
+        "SOURCE_JSON_MISSING",
+        "CONTENT_REVIEW_COUNT_ZERO",
+        "EXPOSURE_METADATA_UNAVAILABLE",
+        "PHYSICIAN_RETRO_REVIEW_NOT_PERFORMED"
+      ]
+    },
+    {
+      "cohort_id": "CURRENT_CDN_MIRROR",
+      "count": 3961,
+      "unit": "items",
+      "status": "SEPARATE_DATASET_NOT_EVALUATED",
+      "blockers": [
+        "CONTENT_INSPECTION_PROHIBITED",
+        "NOT_RECONCILED_TO_STATIC_V4"
+      ]
+    }
+  ],
+  "legacy_v4_aggregate_risks": {
+    "all_answer_a_source_property": true,
+    "base_rows": 517,
+    "vignette_rows": 328,
+    "duplicate_prompt_groups": 11,
+    "source_json_available": false,
+    "content_reviewed_rows": 0,
+    "exposure_metadata_available": false,
+    "item_level_medical_claims_made": 0
+  },
+  "mandatory_status_model": {
+    "lineage": {
+      "required_value": "AI_DRAFT_NOT_MEDICALLY_VALIDATED",
+      "rule": "PERMANENT_ON_EVERY_FUTURE_REAL_CANDIDATE"
+    },
+    "answer_provenance_status": {
+      "cardinality": "EXACTLY_ONE",
+      "values": [
+        "TRANSCRIPT_EXPLICIT_ANSWER",
+        "TRANSCRIPT_INFERRED_ANSWER",
+        "AI_PROPOSED_ANSWER"
+      ]
+    },
+    "medical_evidence_status": {
+      "cardinality": "EXACTLY_ONE",
+      "values": [
+        "MEDICAL_REFERENCE_SUPPORTED",
+        "MEDICAL_REFERENCE_CONFLICT",
+        "BLOCKED_UNCERTAIN"
+      ]
+    },
+    "review_gate_status": {
+      "required_value": "PHYSICIAN_REVIEW_REQUIRED",
+      "cleared_only_by": "CREDENTIALED_REVIEW_EVENT_ON_EXACT_ITEM_REVISION_HASH"
+    }
+  },
+  "unscorable_metrics": {
+    "medical_answer_agreement": null,
+    "candidate_approval_yield": null,
+    "reason": "NO_CREDENTIALED_PHYSICIAN_REVIEW_DENOMINATOR"
+  },
+  "authority_reconciliation": {
+    "architecture": "Architecture 1002.1 remains the medical evidence and review model.",
+    "decision": "DR-006 authorizes internal work but not medical approval or student publication.",
+    "privacy": "Privacy veto blocks all 97 sources before extraction.",
+    "stat": "Exact frozen server projection and answer isolation remain binding.",
+    "drills": "Explicit availability, privacy, rights, hash, and timestamp gates remain binding.",
+    "release": "Credentialed physician review, current non-conflicted claims, validation, and publication ratification remain mandatory."
+  },
+  "evidence_paths": [
+    "/Users/brianb/MissionMed_OS/PRODUCT_PASSPORTS/question-platform.md",
+    "/Users/brianb/MissionMed_OS/decisions/DR-006_i1q_question_platform_internal_integration.md",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_fable/I1Q_STATQUESTIONS_1004C_ARCHITECTURE_AMENDMENT/I1Q_1004C_COMBINED_HANDOFF.md",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/candidate_counts.json",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/extraction_metrics.json",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/legacy_reconciliation.json"
+  ],
+  "confidence": {
+    "aggregate_state": "HIGH",
+    "contract_model": "HIGH",
+    "medical_accuracy": "NOT_ASSESSABLE"
+  },
+  "validation": {
+    "state": "PASS",
+    "exact_file_set": "PASS",
+    "json_parse": "PASS",
+    "ascii": "PASS",
+    "prohibited_content_scan": "PASS"
+  },
+  "root_handoff": "Preserve all blocked cohorts and null metrics. Do not materialize candidate or queue entries until privacy-cleared real candidates and credentialed review exist."
+}

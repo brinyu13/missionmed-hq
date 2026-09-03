@@ -1,0 +1,9 @@
+{
+  "generated_at": "2026-07-14T01:17:48.747Z",
+  "status": "BLOCKED_NOT_RUN",
+  "real_sources_processed": 0,
+  "provisional_benchmark_sources": 0,
+  "metrics": null,
+  "reason": "No authorized real inventory, privacy owner, rights clearance, or medical governance lead.",
+  "pipeline_unit_contracts": "pass"
+}

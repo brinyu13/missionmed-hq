@@ -1,0 +1,189 @@
+{
+  "schema_version": "missionmed.i1q.darwin.performance.v2",
+  "ticket": "I1Q-1007X-MA",
+  "generated_at": "2026-07-15T14:39:45Z",
+  "claim_convention": "Each object classification applies to all descendant claims unless a descendant overrides it.",
+  "candidate": {
+    "classification": "VERIFIED",
+    "branch": "i1q-question-platform-ultra-1007x-ma",
+    "head": "6ac62c5a0503981680f161fe5119d5e5e2fa031a",
+    "checkpoint_scope": "integrated application, evidence, validator, OpenAPI, and tests",
+    "darwin_application_edits": 0
+  },
+  "current_exact_head_proof": {
+    "classification": "VERIFIED",
+    "package_suite": {
+      "command": "env -u I1Q_POSTGRES_TEST_URL npm test",
+      "tests_discovered": 206,
+      "passed": 205,
+      "failed": 0,
+      "skipped": 1,
+      "skipped_scope": "gated disposable PostgreSQL apply, attack, compensation, and reapply proof"
+    },
+    "evidence_validator": {
+      "command": "npm run validate",
+      "expected_files": 20,
+      "present_files": 20,
+      "parsed_files": 20,
+      "errors": 0,
+      "claimed_state": "STATE_A"
+    },
+    "postgres": {
+      "classification": "VERIFIED",
+      "source": "Root supplied separate disposable PostgreSQL proof",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "darwin_reexecuted": false
+    }
+  },
+  "point_in_time_input_identity": {
+    "classification": "VERIFIED",
+    "measurement_label": "POINT_IN_TIME",
+    "measured_at": "2026-07-15T14:26:22.407Z",
+    "runtime": "Node v24.14.0 on darwin arm64",
+    "data_classification": "synthetic non-clinical metadata only",
+    "runtime_hashes_match_exact_head": true,
+    "runtime_hashes": {
+      "src/store.mjs": "0a593fa4e8a10f2061cc321e976197e2a0702b092fb2348207f81080dcde4bde",
+      "src/server.mjs": "a956dab618a354b2170e45ff63562a2a8bc8157672e07c4bd5c9ac03b82e9c90",
+      "src/platform.mjs": "b232f577c7c5acc793c723228b20ad6c519807ef24055e7a298c380e953936dd",
+      "src/postgres-repository.mjs": "7056d29a1d705020fda5c9a69ca242a317087e8707592777df391fa47bf5f472",
+      "public/app.js": "a7855373721dcc95d5c98bf6f0158a07e759503a643cfb530043b86cd3db1b66"
+    }
+  },
+  "point_in_time_queue_20000": {
+    "classification": "VERIFIED",
+    "measurement_label": "POINT_IN_TIME",
+    "workload": "20000 deterministic synthetic extraction candidates and 20000 audit events",
+    "insertion_ms": 286.135,
+    "heap_delta_after_gc_bytes": 16660208,
+    "scaling": [
+      {"rows": 1000, "insertion_ms": 19.236, "first_page_median_ms": 0.339, "first_page_p95_ms": 0.465},
+      {"rows": 5000, "insertion_ms": 78.939, "first_page_median_ms": 1.833, "first_page_p95_ms": 2.201},
+      {"rows": 10001, "insertion_ms": 136.207, "first_page_median_ms": 4.165, "first_page_p95_ms": 4.75},
+      {"rows": 20000, "insertion_ms": 286.135, "first_page_median_ms": 9.627, "first_page_p95_ms": 22.375}
+    ],
+    "repository_pages": {
+      "limit": 50,
+      "total_rows": 20000,
+      "valid_second_page_continuity": true,
+      "filtered_total_rows": 10000,
+      "unknown_cursor_restarts_first_page": true,
+      "first_page": {"median_ms": 9.627, "p95_ms": 22.375, "max_ms": 31.331},
+      "second_page": {"median_ms": 9.985, "p95_ms": 12.22, "max_ms": 12.306},
+      "middle_page": {"median_ms": 9.891, "p95_ms": 12.606, "max_ms": 13.339},
+      "final_page": {"median_ms": 9.397, "p95_ms": 12.347, "max_ms": 13.47},
+      "filtered_candidate": {"median_ms": 4.428, "p95_ms": 6.047, "max_ms": 6.154}
+    },
+    "http_pages": {
+      "limit": 200,
+      "total_rows": 20000,
+      "cold_first_page_ms": 26.737,
+      "warm_first_page_median_ms": 12.755,
+      "warm_first_page_p95_ms": 16.06,
+      "warm_dashboard_median_ms": 12.255,
+      "warm_dashboard_p95_ms": 30.245,
+      "valid_next_page_continuity": true,
+      "requested_state_and_sort_changed_results": false,
+      "filtered_request_returned_candidate_and_quarantined": true,
+      "requested_descending_sort_applied": false,
+      "unknown_cursor_restarts_first_page": true
+    },
+    "ui_algorithm_equivalent": {
+      "scope": "exact client filter, sort, and slice algorithm on synthetic sanitized metadata, not browser timing",
+      "fetch_limit": 200,
+      "fetch_fraction_of_20000": 0.01,
+      "target_at_row_20000_found_in_full_set": 1,
+      "target_at_row_20000_found_in_first_200": 0,
+      "full_set_median_ms": 0.773,
+      "full_set_p95_ms": 1.041,
+      "first_200_median_ms": 0.008,
+      "first_200_p95_ms": 0.01
+    }
+  },
+  "point_in_time_earlier_measurements": {
+    "classification": "VERIFIED",
+    "measurement_label": "POINT_IN_TIME",
+    "historical_queue_reference": {
+      "source": "i1q-question-platform/evidence/load_results.json at measurement time",
+      "workload": "10000 synthetic candidate inserts plus bounded 200-row page",
+      "iterations": 1,
+      "elapsed_ms": 134.524,
+      "runtime_recorded": false
+    },
+    "darwin_queue_sample": {
+      "workload": "10000 synthetic candidate inserts plus bounded 200-row page",
+      "warmup_iterations": 3,
+      "measured_iterations": 15,
+      "min_ms": 120.024,
+      "median_ms": 129.96,
+      "p95_ms": 134.658,
+      "max_ms": 134.658,
+      "mean_ms": 129.227,
+      "median_ops_per_second": 76946.7
+    },
+    "release_export": {
+      "workload": "one 1000-item synthetic non-clinical multi-channel release",
+      "warmup_iterations": 2,
+      "measured_iterations": 7,
+      "min_ms": 26.182,
+      "median_ms": 28.172,
+      "p95_ms": 30.292,
+      "max_ms": 30.292,
+      "median_items_per_second": 35496.6,
+      "artifact_count": 13,
+      "membership_count": 1000
+    },
+    "isolated_existing_performance_test": {
+      "workload": "5000 sequential synthetic IDs",
+      "passed": 1,
+      "test_body_ms": 78.871583,
+      "node_duration_ms": 128.285833,
+      "wall_time_seconds": 0.15,
+      "configured_ceiling_ms": 4000
+    },
+    "full_suite_at_measurement": {
+      "tests_discovered": 205,
+      "passed": 204,
+      "failed": 0,
+      "skipped": 1,
+      "node_duration_ms": 836.39125,
+      "wall_time_seconds": 0.99,
+      "additional_wall_runs_seconds": [0.86, 0.68],
+      "additional_wall_median_seconds": 0.86
+    }
+  },
+  "comparison": {
+    "classification": "INFERENCE",
+    "measurement_label": "POINT_IN_TIME",
+    "historical_single_sample_ms": 134.524,
+    "darwin_sample_median_ms": 129.96,
+    "delta_ms": -4.564,
+    "delta_percent": -3.393,
+    "comparability": "partial",
+    "causal_refactor_claim": false,
+    "interpretation": "No local regression signal is visible, but one historical sample with no runtime record cannot prove a refactor-caused improvement."
+  },
+  "after_refactor": {
+    "classification": "VERIFIED",
+    "behavior_preserving_code_refactor_performed": false,
+    "new_after_measurement_available": false,
+    "reason": "Darwin had report-only write authority."
+  },
+  "unmeasured": {
+    "classification": "UNKNOWN",
+    "items": [
+      "PostgreSQL query plans, locks, and RLS overhead",
+      "canonical authentication latency and outage behavior",
+      "network and artifact transport",
+      "real browser rendering, interaction, and memory",
+      "staging concurrency and soak behavior",
+      "production throughput, latency, memory, and availability"
+    ]
+  },
+  "verdict": {
+    "classification": "INFERENCE",
+    "value": "NO_LATENCY_ONLY_REFACTOR_NOW_QUERY_COMPLETENESS_REFACTOR_BEFORE_SCALE"
+  }
+}

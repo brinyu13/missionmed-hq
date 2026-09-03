@@ -1,0 +1,278 @@
+{
+  "ticket": "I1Q-1007X-MA",
+  "audited_checkpoint": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4",
+  "repair_checkpoint": "e9e807c4803bf4483c90125ace91793489596b81",
+  "remote_branch": "i1q-question-platform-ultra-1007x-ma",
+  "reaudit_range": "65bb52c4bd14d6d20145e666e3b95b6109dfef83..ba17e22b0fe8a48a7397557ef95d2ceb454970d4",
+  "audited_at": "2026-07-15",
+  "mode": "EXACT_GIT_OBJECT_AND_DIFF_ONLY_REAUDIT",
+  "working_tree_used_for_product_verification": false,
+  "findings": {
+    "IRT-002": {
+      "status": "CLOSED",
+      "severity": "HIGH",
+      "affected_states": ["STATE_D"],
+      "classification": "local_repair",
+      "disposition": "CLOSED_AT_BA17E22",
+      "evidence": [
+        "Class C remains closed-world and does not project misconception_id.",
+        "The exact focused adapters plus Class C suite passed 48 of 48 tests."
+      ]
+    },
+    "IRT-003": {
+      "status": "CLOSED",
+      "severity": "HIGH",
+      "affected_states": ["STATE_C", "STATE_D"],
+      "classification": "local_repair",
+      "disposition": "CLOSED_AT_BA17E22",
+      "evidence": [
+        "src/platform.mjs is unchanged in the final diff-only range.",
+        "The exact package suite retains protected-review positive and denied-path coverage."
+      ]
+    },
+    "IRT-004": {
+      "status": "QUALIFIED",
+      "severity": "HIGH",
+      "affected_states": ["STATE_A"],
+      "classification": "accepted_residual",
+      "disposition": "QUALIFIED_POINT_IN_TIME_AGGREGATE",
+      "evidence": [
+        "inventory_report.json declares POINT_IN_TIME_AGGREGATE.",
+        "row_manifest_retained and independently_recomputable_from_git are false.",
+        "The qualification is nonempty and aggregate evidence agrees on 97 authorized sources and 97 registry rows.",
+        "No row manifest is retained in Git."
+      ]
+    },
+    "IRT-009": {
+      "status": "CLOSED",
+      "severity": "HIGH",
+      "affected_states": ["STATE_C", "STATE_D"],
+      "classification": "local_repair_after_four_historical_counterexamples",
+      "disposition": "CLOSED_AT_BA17E22",
+      "evidence": [
+        "All four historical IRT-009 High counterexamples remain preserved.",
+        "e9e807c lowercases SQL security text after every percent-decoding round and after final NFKC.",
+        "The exact 65bb52c mixed-case percent vector was accepted and hashed in all four prose families; exact ba17e22 blocks the same four attacks before persistence.",
+        "The final mixed-case PostgreSQL matrix detects direct 28 of 28, base64 28 of 28, and base64url 28 of 28.",
+        "The final iterative identifier and marker matrix detects 128 of 128.",
+        "Depth and size limits fail closed, and denied metadata and payload persistence are both zero.",
+        "Class A and C scanning remains before calculated_hash and artifact insertion.",
+        "No grant, RLS, policy, feature flag, gate predicate, or release policy was weakened."
+      ]
+    },
+    "IRT-010": {
+      "status": "CLOSED",
+      "severity": "HIGH",
+      "affected_states": ["STATE_A"],
+      "classification": "exact_commit_evidence_repair",
+      "disposition": "CLOSED_AT_BA17E22",
+      "evidence": [
+        "All 44 declared artifact paths exist in the exact final Git object.",
+        "All 44 byte counts and SHA-256 values match, with 44 unique paths and zero stale or missing records.",
+        "The exact inventory evidence retains the required point-in-time aggregate qualification."
+      ]
+    }
+  },
+  "historical_counterexamples": [
+    {
+      "historical_id": "IRT-009-H1",
+      "parent_finding": "IRT-009",
+      "checkpoint": "8e3f96b826923d394f19735b87725aceacaeff7c",
+      "severity": "HIGH",
+      "status_at_checkpoint": "OPEN",
+      "final_status": "CLOSED_AT_BA17E22",
+      "counterexample": "Mixed-case source identifier base64 and base64url were accepted in all four Class C prose families.",
+      "result": {"cases": 24, "accepted": 8, "rejected": 16}
+    },
+    {
+      "historical_id": "IRT-009-H2",
+      "parent_finding": "IRT-009",
+      "checkpoint": "8e3f96b826923d394f19735b87725aceacaeff7c",
+      "severity": "HIGH",
+      "status_at_checkpoint": "OPEN",
+      "final_status": "CLOSED_AT_BA17E22",
+      "counterexample": "PostgreSQL accepted an embedded internal source ID and missed an embedded percent-encoded Class D marker.",
+      "result": {
+        "embedded_identifier_artifact_accepted": true,
+        "embedded_marker_detected": false,
+        "official_checkpoint_postgres_tests_passed": 13
+      }
+    },
+    {
+      "historical_id": "IRT-009-H3",
+      "parent_finding": "IRT-009",
+      "checkpoint": "2d28d0b271b637f68358fd4aae414aa2f708c63f",
+      "severity": "HIGH",
+      "status_at_checkpoint": "OPEN",
+      "final_status": "CLOSED_AT_BA17E22",
+      "counterexample": "Double URL-encoded Class D values and markers bypassed one-pass JavaScript decoding before hashing.",
+      "result": {
+        "encoded_identifier_accepted": 24,
+        "encoded_marker_accepted": 4,
+        "total_bypasses": 28,
+        "targeted_payload_hashed": true
+      }
+    },
+    {
+      "historical_id": "IRT-009-H4",
+      "parent_finding": "IRT-009",
+      "checkpoint": "65bb52c4bd14d6d20145e666e3b95b6109dfef83",
+      "severity": "HIGH",
+      "status_at_checkpoint": "OPEN",
+      "final_status": "CLOSED_AT_BA17E22",
+      "counterexample": "SQL lowercased before percent decoding, allowing encoded uppercase bytes to reappear and evade normalized substring matching.",
+      "vector": "%53ource_%4Dixed%43ase",
+      "result": {
+        "normalized_at_65bb52c": "Source_MixedCase",
+        "expected_comparator": "source_mixedcase",
+        "prose_families_tested": 4,
+        "artifacts_accepted": 4,
+        "metadata_rows_persisted": 4,
+        "payload_rows_persisted": 4,
+        "artifact_hashes_created": 4,
+        "official_checkpoint_postgres_tests_passed": 13
+      }
+    }
+  ],
+  "new_critical_or_high_finding_at_final_checkpoint": {
+    "found": false,
+    "severity": "NONE",
+    "affected_states": [],
+    "classification": "no_new_finding",
+    "disposition": "NO_NEW_CRITICAL_OR_HIGH_AT_BA17E22",
+    "note": "IRT-009-H4 is a preserved historical HIGH at 65bb52c and is closed only by the final exact bytes."
+  },
+  "verification_results": {
+    "remote_checkpoint": {
+      "command": "git ls-remote origin refs/heads/i1q-question-platform-ultra-1007x-ma",
+      "result": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4"
+    },
+    "exact_object_materialization": {
+      "command": "git archive <checkpoint>",
+      "checkpoints": [
+        "65bb52c4bd14d6d20145e666e3b95b6109dfef83",
+        "ba17e22b0fe8a48a7397557ef95d2ceb454970d4"
+      ],
+      "tested_outside_working_tree": true
+    },
+    "diff_scope": {
+      "command": "git diff --name-status 65bb52c ba17e22",
+      "modified_paths": 22,
+      "scope": "candidate SQL, two migration tests, and refreshed evidence",
+      "exports_mjs_changed": false,
+      "platform_mjs_changed": false
+    },
+    "package": {
+      "command": "env -u I1Q_POSTGRES_TEST_URL npm test",
+      "discovered": 228,
+      "passed": 227,
+      "failed": 0,
+      "skipped": 1,
+      "skip_classification": "INTENTIONAL_POSTGRESQL_ENVIRONMENT_GATE"
+    },
+    "focused_adapters_and_class_c": {
+      "command": "node --test tests/adapters-security.test.mjs tests/exports-class-c.test.mjs",
+      "discovered": 48,
+      "passed": 48,
+      "failed": 0,
+      "skipped": 0
+    },
+    "historical_65bb52c_reproduction": {
+      "postgres_version": "PostgreSQL 16.13",
+      "database_encoding": "UTF8",
+      "vector": "%53ource_%4Dixed%43ase",
+      "normalized_value": "Source_MixedCase",
+      "expected_comparator": "source_mixedcase",
+      "prose_family_attacks": 4,
+      "accepted": 4,
+      "metadata_rows": 4,
+      "payload_rows": 4,
+      "hashes_created": 4
+    },
+    "final_postgres": {
+      "version": "PostgreSQL 16.13",
+      "database_encoding": "UTF8",
+      "command": "I1Q_POSTGRES_TEST_URL=<fresh-disposable-database> node --test tests/postgres-migration.test.mjs",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "mixed_case_direct": {"expected": 28, "detected": 28},
+      "mixed_case_base64": {"expected": 28, "detected": 28},
+      "mixed_case_base64url": {"expected": 28, "detected": 28},
+      "iterative_identifiers": {"expected": 112, "detected": 112},
+      "iterative_markers": {"expected": 16, "detected": 16},
+      "iterative_combined": {"expected": 128, "detected": 128},
+      "depth_8": "NORMALIZED_TO_LOWERCASE_AND_DETECTED",
+      "depth_9": "BLOCKED_SQLSTATE_54000",
+      "size_65537": "BLOCKED_SQLSTATE_54000",
+      "denied_metadata_rows": 0,
+      "denied_payload_rows": 0
+    },
+    "exact_counterexample_closure": {
+      "normalized_at_ba17e22": "source_mixedcase",
+      "prose_family_attacks": 4,
+      "blocked": 4,
+      "sqlstate": "42501",
+      "message": "channel_artifact_class_d_value_leak",
+      "metadata_rows": 0,
+      "payload_rows": 0
+    },
+    "gate_preservation": {
+      "changed_sql_lines": 3,
+      "grant_or_revoke_changes": 0,
+      "rls_changes": 0,
+      "policy_changes": 0,
+      "feature_flag_changes": 0,
+      "gate_predicate_changes": 0,
+      "release_policy_changes": 0,
+      "forced_rls_and_deny_by_default_tests_passed": true
+    },
+    "evidence_validator": {
+      "command": "npm run validate",
+      "status": "PASS",
+      "files_present": 20,
+      "files_expected": 20,
+      "error_count": 0,
+      "claimed_state": "STATE_A"
+    },
+    "artifact_checksums": {
+      "commit": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4",
+      "declared": 44,
+      "checked": 44,
+      "unique_paths": 44,
+      "exact_matches": 44,
+      "stale_or_missing": 0
+    },
+    "point_in_time_aggregate": {
+      "evidence_scope": "POINT_IN_TIME_AGGREGATE",
+      "authorized_sources": 97,
+      "registry_rows": 97,
+      "row_manifest_retained": false,
+      "independently_recomputable_from_git": false,
+      "qualification_nonempty": true
+    },
+    "temp_resources_cleaned": true,
+    "report_json": {
+      "command": "jq empty red_team_findings.json",
+      "valid": true
+    }
+  },
+  "states": {
+    "STATE_A": {
+      "verdict": "CLEAR_QUALIFIED_ONLY",
+      "qualification": "2026-07-15 POINT_IN_TIME_AGGREGATE; NO RETAINED ROW MANIFEST; NOT INDEPENDENTLY RECOMPUTABLE FROM GIT"
+    },
+    "STATE_B": {"verdict": "VETO"},
+    "STATE_C": {"verdict": "VETO"},
+    "STATE_D": {"verdict": "VETO"}
+  },
+  "claim_boundary": [
+    "no_deployment_claim",
+    "no_auth_claim",
+    "no_browser_claim",
+    "no_accessibility_claim",
+    "no_monitoring_claim",
+    "no_protected_consumer_claim"
+  ],
+  "final_decision": "STATE_A_CLEAR_QUALIFIED_ONLY_STATE_B_VETO_STATE_C_VETO_STATE_D_VETO"
+}

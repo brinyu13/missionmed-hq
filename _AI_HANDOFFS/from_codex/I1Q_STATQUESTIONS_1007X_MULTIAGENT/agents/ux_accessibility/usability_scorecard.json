@@ -1,0 +1,121 @@
+{
+  "schema": "missionmed.i1q.usability_scorecard.v1",
+  "ticket": "I1Q-1007X-MA",
+  "audit_type": "read_only_baseline",
+  "candidate": {
+    "source_ticket": "I1Q-1006",
+    "commit": "0d6f78f2a2036731ec592398ce5fd845beb54333",
+    "combined_handoff_sha256": "ad311340c8ecbe7abf4f077fa92dc1ef32760d65bbac4ab9a70b76b4fe379572"
+  },
+  "snapshot_boundary": {
+    "authority_observations": "Historical snapshot only; made before the Root Supervisor's later MMOS recovery and I1Q registration.",
+    "current_blocker": false,
+    "release_veto_basis": "Verified 1006 workflow, accessibility, responsive, and evidence defects."
+  },
+  "board_requirement": {
+    "classification": "simulated_expert_review",
+    "aggregate_threshold": 9.0,
+    "minimum_category_threshold": 8.5,
+    "personas": [
+      "physician_reviewer",
+      "medical_educator",
+      "assessment_scientist",
+      "editorial_reviewer",
+      "privacy_officer",
+      "novice_operator",
+      "power_operator",
+      "assistive_technology_user",
+      "release_manager",
+      "incident_responder"
+    ],
+    "categories": [
+      "clarity",
+      "hierarchy",
+      "cognitive_load",
+      "discoverability",
+      "task_speed",
+      "error_prevention",
+      "recovery",
+      "trust",
+      "consistency",
+      "responsiveness",
+      "visual_quality",
+      "accessibility",
+      "keyboard_efficiency",
+      "evidence_visibility",
+      "source_traceability"
+    ]
+  },
+  "prior_1006_board": {
+    "status": "invalid_for_gate",
+    "claimed_minimum_score": 9.0,
+    "claimed_aggregate_score": null,
+    "persona_count": 12,
+    "category_count": 10,
+    "generation_method": "Arithmetic constants generated from persona and category array indexes.",
+    "raw_observation_links": false,
+    "rubric_present": false,
+    "issue_to_score_traceability": false,
+    "accepted_as_simulated_board": false,
+    "reasons": [
+      "Required personas were substituted or omitted.",
+      "Only 10 of 15 required categories were scored.",
+      "No aggregate was computed.",
+      "Scores were not derived from documented observations or task runs.",
+      "The accessibility score relied on non-conformance evidence."
+    ]
+  },
+  "baseline_findings": {
+    "required_workflows": 17,
+    "named_navigation_surfaces": 12,
+    "missing_independent_workflows": [
+      "source_detail",
+      "privacy_status",
+      "extraction_runs",
+      "distractor_review",
+      "audit_trail"
+    ],
+    "required_states": 16,
+    "domain_specific_states_missing": 11,
+    "reproducible_wcag_2_2_aa_evidence": false,
+    "reproducible_responsive_matrix": false,
+    "human_validation_completed": false
+  },
+  "current_board": {
+    "status": "not_scored_insufficient_valid_evidence",
+    "aggregate_score": null,
+    "minimum_category_score": null,
+    "gate_pass": false,
+    "categories": [
+      { "category": "clarity", "score": null, "status": "not_scored" },
+      { "category": "hierarchy", "score": null, "status": "not_scored" },
+      { "category": "cognitive_load", "score": null, "status": "not_scored" },
+      { "category": "discoverability", "score": null, "status": "not_scored" },
+      { "category": "task_speed", "score": null, "status": "not_scored" },
+      { "category": "error_prevention", "score": null, "status": "not_scored" },
+      { "category": "recovery", "score": null, "status": "not_scored" },
+      { "category": "trust", "score": null, "status": "not_scored" },
+      { "category": "consistency", "score": null, "status": "not_scored" },
+      { "category": "responsiveness", "score": null, "status": "not_scored" },
+      { "category": "visual_quality", "score": null, "status": "not_scored" },
+      { "category": "accessibility", "score": null, "status": "not_scored" },
+      { "category": "keyboard_efficiency", "score": null, "status": "not_scored" },
+      { "category": "evidence_visibility", "score": null, "status": "not_scored" },
+      { "category": "source_traceability", "score": null, "status": "not_scored" }
+    ],
+    "reason": "Issuing numeric values would fabricate precision because required workflows, states, executable evidence, and human validation are incomplete."
+  },
+  "release_recommendation": {
+    "candidate": "I1Q-1006",
+    "verdict": "BLOCK",
+    "veto": true,
+    "retest_required": true,
+    "conditions": [
+      "Complete and test all required workflows and states.",
+      "Produce reproducible WCAG 2.2 AA and responsive evidence.",
+      "Run the exact persona-by-category simulated board with observation traceability.",
+      "Meet aggregate 9.0 and category minimum 8.5 thresholds.",
+      "Complete representative human validation and close critical or high findings."
+    ]
+  }
+}

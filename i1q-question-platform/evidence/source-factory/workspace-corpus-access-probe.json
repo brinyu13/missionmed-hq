@@ -1,0 +1,71 @@
+{
+  "schema_version": "missionmed.i1q.workspace_corpus_access_probe.v1",
+  "as_of_date": "2026-07-16",
+  "status": "COMPLETED_HEURISTIC_NO_OBVIOUS_CORPUS_ARTIFACTS",
+  "scope": "CURRENT_WORKTREE_FILENAME_AND_EXTENSION_HEURISTIC",
+  "qualification": "This live worktree probe detects obvious transcript/caption and Nodes/media-registry filenames or extensions. It prevents silent reuse of a zero-access manifest when such files appear, but it cannot prove corpus completeness or discover opaque external sources.",
+  "corpus_completeness_proof": false,
+  "current_corpus_access_proof": false,
+  "contains_paths": false,
+  "scanned_file_count": 698,
+  "excluded_paths": [
+    "i1q-question-platform/content/i1q-1008c/generated/candidate-library.json",
+    "i1q-question-platform/content/i1q-1008c/generated/candidate-library.md",
+    "i1q-question-platform/evidence/source-factory/authoring-run.json",
+    "i1q-question-platform/evidence/source-factory/build-manifest.json",
+    "i1q-question-platform/evidence/source-factory/candidate-dedupe-audit.json",
+    "i1q-question-platform/evidence/source-factory/candidate-library-validation.json",
+    "i1q-question-platform/evidence/source-factory/legacy-v4-audit.json",
+    "i1q-question-platform/evidence/source-factory/restricted-corpus-snapshot.json",
+    "i1q-question-platform/evidence/source-factory/taxonomy.json",
+    "i1q-question-platform/evidence/source-factory/transcript-factory-gate.json",
+    "i1q-question-platform/evidence/source-factory/transcript-resume-manifest.json",
+    "i1q-question-platform/evidence/source-factory/workspace-corpus-access-probe.json"
+  ],
+  "excluded_prefixes": [
+    "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008C_SOURCE_FACTORY/",
+    "i1q-question-platform/fixtures/"
+  ],
+  "skipped_directory_names": [
+    ".git",
+    "node_modules"
+  ],
+  "detectors": {
+    "raw_transcript_extensions": [
+      ".ass",
+      ".dfxp",
+      ".sbv",
+      ".srt",
+      ".ssa",
+      ".ttml",
+      ".vtt",
+      ".webvtt"
+    ],
+    "named_data_extensions": [
+      ".csv",
+      ".docx",
+      ".json",
+      ".jsonl",
+      ".md",
+      ".ndjson",
+      ".pdf",
+      ".tsv",
+      ".txt",
+      ".xml"
+    ],
+    "transcript_name_pattern": "(?:^|[._-])(?:transcripts?|captions?|subtitles?|stream[._-]?vtt)(?:[._-]|$)",
+    "nodes_name_pattern": "(?:^|[._-])(?:nodes?|media[._-]?registry)(?:[._-]|$)"
+  },
+  "counts": {
+    "transcript_or_caption_candidates": 0,
+    "nodes_or_media_registry_candidates": 0,
+    "raw_transcript_extension_files": 0,
+    "named_transcript_data_files": 0,
+    "named_nodes_data_files": 0
+  },
+  "candidate_path_hashes": {
+    "transcript_or_caption": [],
+    "nodes_or_media_registry": []
+  },
+  "content_hash": "d2fe7dc0195ff13d5929c85f88caa772b0d6b8314256a61d6b62d725ccd6a054"
+}

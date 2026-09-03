@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-07-16T01:47:12.462Z",
+  "status": "pass",
+  "http_status": 200,
+  "payload": {
+    "ok": true,
+    "service": "i1q-question-platform",
+    "version": "i1q-1006.0",
+    "mode": "LOCAL_SYNTHETIC_DEMO"
+  },
+  "security_headers": {
+    "content_security_policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    "x_content_type_options": "nosniff",
+    "x_frame_options": "DENY"
+  }
+}

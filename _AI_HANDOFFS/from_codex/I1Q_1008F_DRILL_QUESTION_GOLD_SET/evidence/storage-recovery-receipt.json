@@ -1,0 +1,73 @@
+{
+  "schema_version": "missionmed.i1q.1008f.storage_recovery_receipt.v1",
+  "authority_ticket": "I1Q-1008F-R",
+  "restricted_execution_decision_sha256": "84f864b36991473b70f0c315fddf8421d1312ba33352248947dfce1f1c5943fe",
+  "minimum_available_kib": 15728640,
+  "pre_recovery_available_kib": 7950728,
+  "passing_available_kib_readings": [
+    17920376,
+    17922444
+  ],
+  "recovery_classes": {
+    "verified_disposable_regular_files": {
+      "files_removed": 22,
+      "logical_bytes_removed": 6795243239
+    },
+    "verified_cache_roots_cleared": {
+      "roots_cleared": 12,
+      "preclear_allocated_kib": 2356552,
+      "root_directories_preserved": true
+    },
+    "git_invalid_finder_metadata": {
+      "files_removed": 1,
+      "logical_bytes_removed": 6148,
+      "valid_refs_changed": false
+    }
+  },
+  "partial_cleanup_incidents": [
+    {
+      "class": "package_cache_permission_mismatch",
+      "action": "STOPPED_WITHOUT_PERMISSION_CHANGE",
+      "root_preserved": true,
+      "forced_deletion_performed": false
+    }
+  ],
+  "protected_invariants": {
+    "production_mutations": 0,
+    "repository_cleanup_operations": 0,
+    "restricted_files_uploaded": 0,
+    "google_drive_used": false,
+    "system_snapshots_modified": false,
+    "cache_root_permissions_modified": false,
+    "cache_root_ownership_modified": false,
+    "git_fsck_exit_code": 0,
+    "git_head_unchanged": true,
+    "git_valid_refs_unchanged": true,
+    "git_worktree_registry_unchanged": true,
+    "source_boundary_file_count": 4148,
+    "source_boundary_mode": "0700",
+    "target_boundary_initial_file_count": 0,
+    "target_boundary_mode": "0700"
+  },
+  "storage_gate_passed": true,
+  "post_run_recovery": {
+    "cause_class": "RECREATABLE_CLAUDE_VM_RUNTIME_BUNDLE",
+    "trigger_available_kib": 7271536,
+    "allocated_kib_removed": 16476776,
+    "final_available_kib_readings": [
+      23731856,
+      23729936
+    ],
+    "graceful_application_quit": true,
+    "claude_processes_after": 0,
+    "protected_local_agent_session_files_unchanged": 50163,
+    "protected_local_agent_session_kib_unchanged": 11402368,
+    "source_boundary_entry_count_unchanged": 4248,
+    "target_boundary_entry_count_unchanged": 805
+  },
+  "final_postflight_available_kib_readings": [
+    27676620,
+    27675520
+  ],
+  "content_hash": "f2beb69d5160455dc038a1fdfc5b8fcb67a7fda1a8ff481955b2b90f5fe84655"
+}

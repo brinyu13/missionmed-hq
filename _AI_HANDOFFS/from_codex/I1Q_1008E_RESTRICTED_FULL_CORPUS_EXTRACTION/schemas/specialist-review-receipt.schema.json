@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmed.internal/contracts/i1q-1008e/specialist-review-receipt/v1",
+  "title": "I1Q-1008E Restricted Specialist Review Receipt v1",
+  "description": "Protected, content-addressed receipt for the two specialist verification cells (PASS_7 and PASS_8) on one transcript artifact. This contract conveys no release, physician-approval, or final-governance authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "extraction_run_id",
+    "run_contract_hash",
+    "source_alias",
+    "artifact_alias",
+    "review_packet_root",
+    "artifact_input_root",
+    "finalizer_authority_binding",
+    "role_reviews",
+    "pass_7_verification_cell",
+    "pass_8_verification_cell",
+    "pass_9_finalization_binding",
+    "specialist_verification_cell_count",
+    "specialist_role_review_count",
+    "disposition",
+    "no_release_or_final_approval_authority",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "missionmed.i1q1008e.restricted_specialist_review_receipt.v1"
+    },
+    "extraction_run_id": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "run_contract_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_alias": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "artifact_alias": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "review_packet_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "artifact_input_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "finalizer_authority_binding": {
+      "$ref": "#/$defs/finalizerAuthorityBinding"
+    },
+    "role_reviews": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/roleReview"
+      }
+    },
+    "pass_7_verification_cell": {
+      "$ref": "#/$defs/verificationCell"
+    },
+    "pass_8_verification_cell": {
+      "$ref": "#/$defs/verificationCell"
+    },
+    "pass_9_finalization_binding": {
+      "$ref": "#/$defs/finalizationBinding"
+    },
+    "specialist_verification_cell_count": {
+      "const": 2
+    },
+    "specialist_role_review_count": {
+      "const": 4
+    },
+    "disposition": {
+      "$ref": "#/$defs/disposition"
+    },
+    "no_release_or_final_approval_authority": {
+      "const": true
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "$defs": {
+    "opaqueId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "disposition": {
+      "type": "string",
+      "enum": [
+        "VERIFIED_NO_BLOCKER",
+        "VERIFIED_WITH_FINDINGS",
+        "FAILED_WITH_PROVEN_BLOCKER",
+        "PENDING"
+      ]
+    },
+    "finalDisposition": {
+      "type": "string",
+      "enum": [
+        "VERIFIED_NO_BLOCKER",
+        "VERIFIED_WITH_FINDINGS"
+      ]
+    },
+    "roleRootMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["OSLER", "ASSESSMENT_SCIENCE", "TURING", "ENGINEERING"],
+      "properties": {
+        "OSLER": { "$ref": "#/$defs/sha256" },
+        "ASSESSMENT_SCIENCE": { "$ref": "#/$defs/sha256" },
+        "TURING": { "$ref": "#/$defs/sha256" },
+        "ENGINEERING": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "finalizerAuthorityBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "combined_submission_root",
+        "role_batch_roots",
+        "role_evidence_roots",
+        "packet_set_root",
+        "finalizer_contract_root"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "missionmed.i1q1008e.restricted_specialist_finalizer_authority_binding.v1"
+        },
+        "combined_submission_root": { "$ref": "#/$defs/sha256" },
+        "role_batch_roots": { "$ref": "#/$defs/roleRootMap" },
+        "role_evidence_roots": { "$ref": "#/$defs/roleRootMap" },
+        "packet_set_root": { "$ref": "#/$defs/sha256" },
+        "finalizer_contract_root": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_code",
+        "severity",
+        "evidence_root",
+        "disposition"
+      ],
+      "properties": {
+        "finding_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "BLOCKER"]
+        },
+        "evidence_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "disposition": {
+          "type": "string",
+          "enum": ["ACCEPTED", "QUARANTINE", "CORRECTED", "BLOCKER"]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "roleReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "extraction_run_id",
+        "run_contract_hash",
+        "source_alias",
+        "artifact_alias",
+        "review_packet_root",
+        "artifact_input_root",
+        "pass_id",
+        "specialist_role",
+        "reviewer_instance_id",
+        "authority_scope",
+        "review_input_root",
+        "findings",
+        "findings_root",
+        "disposition",
+        "no_release_or_final_approval_authority",
+        "content_hash"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "missionmed.i1q1008e.restricted_specialist_role_review.v1"
+        },
+        "extraction_run_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "run_contract_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_alias": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "artifact_alias": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "review_packet_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "artifact_input_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "pass_id": {
+          "type": "string",
+          "enum": ["PASS_7", "PASS_8"]
+        },
+        "specialist_role": {
+          "type": "string",
+          "enum": ["OSLER", "ASSESSMENT_SCIENCE", "TURING", "ENGINEERING"]
+        },
+        "reviewer_instance_id": {
+          "type": "string",
+          "pattern": "^reviewer_[A-Za-z0-9_-]{8,128}$"
+        },
+        "authority_scope": {
+          "type": "string",
+          "enum": [
+            "MEDICAL_CONTENT_RISK_REVIEW_NO_RELEASE_AUTHORITY",
+            "ASSESSMENT_SCIENCE_REVIEW_NO_FINAL_APPROVAL_AUTHORITY",
+            "DETERMINISTIC_PIPELINE_REVIEW_NO_RELEASE_AUTHORITY",
+            "ENGINEERING_INTEGRITY_REVIEW_NO_RELEASE_AUTHORITY"
+          ]
+        },
+        "review_input_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "findings_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "disposition": {
+          "$ref": "#/$defs/disposition"
+        },
+        "no_release_or_final_approval_authority": {
+          "const": true
+        },
+        "content_hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "findings": {
+                "contains": {
+                  "anyOf": [
+                    {
+                      "properties": {
+                        "severity": { "const": "BLOCKER" }
+                      },
+                      "required": ["severity"]
+                    },
+                    {
+                      "properties": {
+                        "disposition": { "const": "BLOCKER" }
+                      },
+                      "required": ["disposition"]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": ["findings"]
+          },
+          "then": {
+            "properties": {
+              "disposition": { "const": "FAILED_WITH_PROVEN_BLOCKER" }
+            },
+            "required": ["disposition"]
+          }
+        }
+      ]
+    },
+    "verificationCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "extraction_run_id",
+        "run_contract_hash",
+        "source_alias",
+        "artifact_alias",
+        "review_packet_root",
+        "pass_id",
+        "automated_proposal_root",
+        "specialist_input_root",
+        "required_roles",
+        "role_receipt_roots",
+        "findings_root",
+        "disposition",
+        "content_hash"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "missionmed.i1q1008e.restricted_specialist_verification_cell.v1"
+        },
+        "extraction_run_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "run_contract_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_alias": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "artifact_alias": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "review_packet_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "pass_id": {
+          "type": "string",
+          "enum": ["PASS_7", "PASS_8"]
+        },
+        "automated_proposal_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "specialist_input_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "required_roles": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["OSLER", "ASSESSMENT_SCIENCE", "TURING", "ENGINEERING"]
+          }
+        },
+        "role_receipt_roots": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/sha256"
+          }
+        },
+        "findings_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "disposition": {
+          "$ref": "#/$defs/disposition"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "finalizationBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "extraction_run_id",
+        "run_contract_hash",
+        "source_alias",
+        "artifact_alias",
+        "review_packet_root",
+        "pass_id",
+        "automated_proposal_root",
+        "pass_7_verification_cell_root",
+        "pass_8_verification_cell_root",
+        "specialist_findings_root",
+        "finalization_input_root",
+        "disposition",
+        "release_or_final_approval_performed",
+        "content_hash"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "missionmed.i1q1008e.restricted_pass9_finalization_binding.v1"
+        },
+        "extraction_run_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "run_contract_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_alias": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "artifact_alias": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "review_packet_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "pass_id": {
+          "const": "PASS_9"
+        },
+        "automated_proposal_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "pass_7_verification_cell_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "pass_8_verification_cell_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "specialist_findings_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "finalization_input_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "disposition": {
+          "$ref": "#/$defs/disposition"
+        },
+        "release_or_final_approval_performed": {
+          "const": false
+        },
+        "content_hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}
