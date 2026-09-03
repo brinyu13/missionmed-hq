@@ -112,6 +112,18 @@
 	border:1px solid var(--edge2);background:#061727;text-align:left;color:#fff;box-shadow:var(--shadow);padding:0;transition:transform .28s cubic-bezier(.2,.9,.3,1.2),box-shadow .28s,border-color .28s}
 :is(#student-os-root,body) .mmdv2-media{position:absolute;inset:0;display:block;overflow:hidden;transition:transform .7s cubic-bezier(.2,.8,.2,1)}
 :is(#student-os-root,body) .mmdv2-media svg, :is(#student-os-root,body) .mmdv2-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+:is(#student-os-root,body) .mmdv2-card-locked{aspect-ratio:7/8}
+:is(#student-os-root,body) .mmdv2-card-locked .mmdv2-media{transform:none}
+:is(#student-os-root,body) .mmdv2-card-locked :is(.mmdv2-scrim,.mmdv2-cat,.mmdv2-meta,.mmdv2-go){display:none}
+:is(#student-os-root,body) .mmdv2-morph{position:absolute;inset:0;display:block;overflow:hidden;background:#f5f0e5}
+:is(#student-os-root,body) .mmdv2-morph :is(.mmdv2-morph-pencil,.mmdv2-morph-cinematic,.mmdv2-morph-canvas){position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:fill}
+:is(#student-os-root,body) .mmdv2-morph-cinematic{opacity:0}
+:is(#student-os-root,body) .mmdv2-morph-canvas{z-index:2;opacity:0;pointer-events:none}
+:is(#student-os-root,body) .mmdv2-morph.is-running .mmdv2-morph-canvas{opacity:1}
+:is(#student-os-root,body) .mmdv2-morph.is-target .mmdv2-morph-cinematic{opacity:1}
+:is(#student-os-root,body) .mmdv2-morph.is-target .mmdv2-morph-pencil{opacity:0}
+:is(#student-os-root,body) .mmdv2-morph.mmdv2-morph-fallback .mmdv2-morph-canvas{display:none}
+:is(#student-os-root,body) .mmdv2-morph.mmdv2-morph-fallback .mmdv2-morph-cinematic{transition:opacity .2s ease}
 :is(#student-os-root,body) .mmdv2-img-fallback{position:absolute;inset:0}
 :is(#student-os-root,body) .mmdv2-scrim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(6,23,39,0) 40%,rgba(6,23,39,.62) 72%,rgba(6,23,39,.92))}
 :is(#student-os-root,body) .mmdv2-cat{position:absolute;top:12px;left:12px;z-index:2;padding:3px 9px;border-radius:999px;background:rgba(6,23,39,.62);font-family:var(--num);font-size:9.5px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#dbe6f2;border:1px solid rgba(255,255,255,.16)}
@@ -181,6 +193,7 @@ body.mmdv2-lock{overflow:hidden}
 
 :is(#student-os-root,body) .mmdv2-media-back svg, :is(#student-os-root,body) .mmdv2-media-back img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 :is(#student-os-root,body) .mmdv2-media-front svg, :is(#student-os-root,body) .mmdv2-media-front img{position:absolute;left:0;top:50%;width:100%;height:auto;max-height:100%;object-fit:contain;transform:translateY(-50%);display:block;-webkit-mask-image:linear-gradient(to bottom,transparent,#000 24%,#000 76%,transparent);mask-image:linear-gradient(to bottom,transparent,#000 24%,#000 76%,transparent)}
+:is(#student-os-root,body) .mmdv2-locked-detail img{inset:0;top:0;width:100%;height:100%;max-height:none;object-fit:fill;transform:none;-webkit-mask-image:none;mask-image:none}
 :is(#student-os-root,body) .mmdv2-dscrim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(6,23,39,0) 50%,rgba(6,23,39,.9))}
 :is(#student-os-root,body) .mmdv2-dnav{position:absolute;top:16px;left:16px;z-index:3;display:flex;gap:6px}
 :is(#student-os-root,body) .mmdv2-dnav button, :is(#student-os-root,body) .mmdv2-dclose{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:rgba(6,23,39,.7);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:20px;line-height:1;transition:.15s}
@@ -271,3 +284,7 @@ body.mmdv2-lock{overflow:hidden}
 	:is(#student-os-root,body) .mmdv2-edcols{grid-template-columns:1fr}:is(#student-os-root,body) .mmdv2-imgrow{grid-template-columns:1fr}:is(#student-os-root,body) .mmdv2-f2{grid-template-columns:1fr}
 }
 @media (max-width:480px){:is(#student-os-root,body) .mmdv2-card-wrap{flex-basis:86vw}}
+@media (prefers-reduced-motion:reduce){
+	:is(#student-os-root,body) .mmdv2-morph-cinematic{transition:opacity .2s ease!important}
+	:is(#student-os-root,body) .mmdv2-card-locked:hover, :is(#student-os-root,body) .mmdv2-card-locked:focus-visible{transform:none}
+}

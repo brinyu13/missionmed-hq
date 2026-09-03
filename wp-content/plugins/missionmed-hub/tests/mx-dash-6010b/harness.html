@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<link rel="icon" href="data:,">
+	<title>MX-DASH-6010B browser harness</title>
+	<link rel="stylesheet" href="../../assets/dashboard-v2/mmed-dashboard-v2.css">
+	<style>
+		html,body{margin:0;min-height:100%;background:#040d19}
+		#student-os-root{min-height:100vh;padding:34px 38px 62px;box-sizing:border-box}
+		#sos-content{min-width:0}
+		.classic-marker{padding:40px;color:white;font:20px system-ui}
+		@media(max-width:900px){#student-os-root{padding:22px 16px 50px}}
+	</style>
+</head>
+<body>
+	<div id="student-os-root"><main id="sos-content"></main></div>
+	<script>
+	(function () {
+		'use strict';
+		var query = new URLSearchParams(location.search);
+		var isAdmin = query.get('admin') !== '0';
+		var classic = query.get('classic') === '1';
+		var overrideId = query.get('override') || '';
+		var copyOverrideId = query.get('copyoverride') || '';
+		if (query.get('fallback') === '1') {
+			var originalGetContext = HTMLCanvasElement.prototype.getContext;
+			HTMLCanvasElement.prototype.getContext = function (kind) {
+				if (kind === 'webgl2') { return null; }
+				return originalGetContext.apply(this, arguments);
+			};
+		}
+		var definitions = [
+			['homebase','HomeBase','#dashboard'],['calendar','Calendar','#calendar'],
+			['scheduler','Scheduler','#scheduler'],['storyforge','StoryForge','#storyforge'],
+			['ivprep','IV Prep On-Call','#ivprep'],['rise','RISE','#rise'],
+			['ranklist','RankList IQ','#ranklist'],['lor','LOR Studio','#lor']
+		];
+		var apps = {};
+		definitions.forEach(function (item, index) {
+			apps[item[0]] = {
+				id:item[0], name:item[1], launch:item[2], cat:'MissionMed app',
+				sub:'Student subtitle for ' + item[1], adminSub:'Admin subtitle for ' + item[1],
+				one:'One-line explainer for ' + item[1], problem:'I need help with ' + item[1],
+				how:item[1] + ' helps with this workflow.', outcome:'A clear next step.',
+				when:'Whenever this workflow is needed.', cta:'Open ' + item[1], cta2:'',
+				hue:['#ffb340','#39d6ff','#4ade9d','#be7cff','#ff5470','#5ad5c6','#f2cc60','#ff8b61'][index],
+				benefits:[['Guidance','Know what to do next.'],['Progress','Keep work moving.']]
+			};
+		});
+		if (overrideId && apps[overrideId]) {
+			apps[overrideId].edited = true;
+			apps[overrideId].card_image = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22640%22 height=%22400%22%3E%3Crect width=%22640%22 height=%22400%22 fill=%22%230c5670%22/%3E%3C/svg%3E';
+			apps[overrideId].detail_image = apps[overrideId].card_image;
+		}
+		if (copyOverrideId && apps[copyOverrideId]) {
+			apps[copyOverrideId].edited = true;
+			apps[copyOverrideId].sub = 'Administrator-customized copy only';
+		}
+		window.__classicRenders = 0;
+		window.MMED_OS = {
+			state:{
+				profile:{display_name:'Brian Founder'}, statsLoaded:true, statsLoading:false,
+				stats:{unread_messages:2,tasks_total:4,tasks_approved:2},
+				dashboardOverview:{loaded:true,loading:false,events:[],schedulerEvents:[],todos:[],messages:[]}
+			},
+			render:{
+				dashboard:function () {
+					window.__classicRenders += 1;
+					document.getElementById('sos-content').innerHTML = '<div class="classic-marker">Classic Dashboard</div>';
+				},
+				loadDashboardStats:function () {},
+				loadDashboardOverview:function () {}
+			},
+			components:{
+				navItems:function () {
+					return definitions.slice(1).map(function (item) { return {route:item[2].slice(1),label:item[1],icon:item[1].slice(0,1),section:'Apps'}; })
+						.concat([{route:'messages',label:'Messages',icon:'M',section:'Account'}]);
+				}
+			},
+			api:{
+				put:function () { return Promise.resolve({apps:apps}); },
+				delete:function () { return Promise.resolve({apps:apps}); }
+			}
+		};
+		window.mmedDashboardV2 = {
+			experience:classic ? 'classic' : 'matrix2', invite:false, is_admin:isAdmin,
+			asset_base:'../../assets/dashboard-v2/', apps:apps, defaults:apps, settings_url:''
+		};
+	}());
+	</script>
+	<script src="../../assets/dashboard-v2/mmed-dashboard-v2-art.js"></script>
+	<script src="../../assets/dashboard-v2/mmed-dashboard-v2.js"></script>
+	<script>window.MMED_OS.render.dashboard();</script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+{
+  "startedAt": "2026-09-03T22:41:04.722Z",
+  "checks": {
+    "adminLockedEndpoints": "PASS",
+    "homeBaseForwardReverse": "PASS",
+    "shaderMidpoint": "PASS",
+    "keyboard": "PASS",
+    "allEight": "PASS",
+    "stressNoLeak": "PASS",
+    "routeCleanup": "PASS",
+    "cardDetailLaunch": "PASS",
+    "editorPreserved": "PASS",
+    "adminOverride": "PASS",
+    "copyOnlyOverride": "PASS",
+    "studentUnchanged": "PASS",
+    "classic": "PASS",
+    "reducedMotion": "PASS",
+    "webglFallback": "PASS",
+    "mobile390x844": "PASS"
+  },
+  "metrics": {
+    "homeBase": {
+      "diagnostics": {
+        "canary": true,
+        "mode": "webgl2",
+        "transitions": 1,
+        "frames": 26,
+        "averageFrameInterval": 35.327999999999996,
+        "maxFrameInterval": 116.60000000000036,
+        "activeContexts": 0,
+        "maxContexts": 1,
+        "contextsCreated": 1,
+        "contextsDisposed": 0,
+        "failures": 0,
+        "resourceSetsCreated": 1,
+        "resourceSetsDisposed": 1,
+        "shaderCompileMs": 2974.300000000745,
+        "lastApp": "homebase",
+        "endpoint": "cinematic"
+      },
+      "endpointStyles": {
+        "nodeClass": "mmdv2-morph is-target",
+        "pencilOpacity": "0",
+        "cinematicOpacity": "1",
+        "canvasCount": 0
+      }
+    },
+    "stress": {
+      "canary": true,
+      "mode": "webgl2",
+      "transitions": 82,
+      "frames": 660,
+      "averageFrameInterval": 46.42162629757781,
+      "maxFrameInterval": 933.4000000000005,
+      "activeContexts": 0,
+      "maxContexts": 1,
+      "contextsCreated": 1,
+      "contextsDisposed": 0,
+      "failures": 0,
+      "resourceSetsCreated": 52,
+      "resourceSetsDisposed": 52,
+      "shaderCompileMs": 2974.300000000745,
+      "lastApp": "homebase",
+      "endpoint": "pencil"
+    },
+    "routeCleanup": {
+      "canary": true,
+      "mode": "webgl2",
+      "transitions": 83,
+      "frames": 664,
+      "averageFrameInterval": 46.38278829604128,
+      "maxFrameInterval": 933.4000000000005,
+      "activeContexts": 0,
+      "maxContexts": 1,
+      "contextsCreated": 1,
+      "contextsDisposed": 1,
+      "failures": 0,
+      "resourceSetsCreated": 53,
+      "resourceSetsDisposed": 53,
+      "shaderCompileMs": 2974.300000000745,
+      "lastApp": "homebase",
+      "endpoint": "pencil"
+    },
+    "mobile": {
+      "viewport": [
+        390,
+        844
+      ],
+      "documentWidth": 390,
+      "card": {
+        "left": 16,
+        "right": 351.390625,
+        "width": 335.390625
+      },
+      "diag": {
+        "canary": true,
+        "mode": "webgl2",
+        "transitions": 1,
+        "frames": 51,
+        "averageFrameInterval": 16.666,
+        "maxFrameInterval": 16.799999999999955,
+        "activeContexts": 0,
+        "maxContexts": 1,
+        "contextsCreated": 1,
+        "contextsDisposed": 0,
+        "failures": 0,
+        "resourceSetsCreated": 1,
+        "resourceSetsDisposed": 1,
+        "shaderCompileMs": 74.59999999962747,
+        "lastApp": "homebase",
+        "endpoint": "cinematic"
+      }
+    }
+  },
+  "failures": [],
+  "finishedAt": "2026-09-03T22:42:06.680Z"
+}

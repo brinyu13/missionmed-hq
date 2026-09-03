@@ -1,0 +1,20 @@
+{
+  "schema_version": "missionmed.mx-dash-6010b.locked-art-crop-uv.v1",
+  "ticket": "MX-DASH-6010B",
+  "coordinate_system": "top-left origin; pixel rectangles use x,y,width,height; UVs are u0,v0,u1,v1 over 1448x1086",
+  "sources": {
+    "cinematic": {"file": "missionmed_app_card_background_system.png", "sha256": "7630178b303241bc23d61005581d1b7673e18809dd3715c8db55bf123d623382", "width": 1448, "height": 1086},
+    "pencil": {"file": "missionmed_matrix_dashboard_concept_board.png", "sha256": "d1a0e5bb4195a0fe0959b9537e4671b36e6ca684b34c843bb2d9bcfc8204a2a8", "width": 1448, "height": 1086},
+    "motion": {"file": "pencil_to_cinematic_hover_morph_system.png", "sha256": "dbcb2d193baa409b7b48000eb24e1bfc06d51af694330c1082abb35d1a7941f8", "width": 1448, "height": 1086, "role": "direction only; never a visible endpoint"}
+  },
+  "cards": [
+    {"id":"homebase","pencil":{"source":"pencil","rect":{"x":172,"y":158,"width":266,"height":329},"uv":[0.118784530,0.145488029,0.302486188,0.448434622],"output":"pencil/homebase.png"},"cinematic":{"source":"cinematic","rect":{"x":25,"y":122,"width":341,"height":385},"uv":[0.017265193,0.112338858,0.252762431,0.466850829],"output":"cinematic/homebase.png"}},
+    {"id":"calendar","pencil":{"source":"pencil","rect":{"x":453,"y":158,"width":258,"height":329},"uv":[0.312845304,0.145488029,0.491022099,0.448434622],"output":"pencil/calendar.png"},"cinematic":{"source":"cinematic","rect":{"x":374,"y":122,"width":346,"height":385},"uv":[0.258287293,0.112338858,0.497237569,0.466850829],"output":"cinematic/calendar.png"}},
+    {"id":"scheduler","pencil":{"source":"pencil","rect":{"x":727,"y":158,"width":255,"height":329},"uv":[0.502071823,0.145488029,0.678176796,0.448434622],"output":"pencil/scheduler.png"},"cinematic":{"source":"cinematic","rect":{"x":728,"y":122,"width":337,"height":385},"uv":[0.502762431,0.112338858,0.735497238,0.466850829],"output":"cinematic/scheduler.png"}},
+    {"id":"storyforge","pencil":{"source":"pencil","rect":{"x":996,"y":188,"width":246,"height":300},"uv":[0.687845304,0.173112339,0.857734807,0.449355433],"output":"pencil/storyforge.png"},"cinematic":{"source":"cinematic","rect":{"x":1073,"y":122,"width":349,"height":385},"uv":[0.741022099,0.112338858,0.982044199,0.466850829],"output":"cinematic/storyforge.png"}},
+    {"id":"ivprep","pencil":{"source":"pencil","rect":{"x":172,"y":500,"width":266,"height":290},"uv":[0.118784530,0.460405157,0.302486188,0.727440147],"output":"pencil/ivprep.png"},"cinematic":{"source":"cinematic","rect":{"x":25,"y":515,"width":341,"height":375},"uv":[0.017265193,0.474217311,0.252762431,0.819521179],"output":"cinematic/ivprep.png"}},
+    {"id":"rise","pencil":{"source":"pencil","rect":{"x":453,"y":500,"width":258,"height":290},"uv":[0.312845304,0.460405157,0.491022099,0.727440147],"output":"pencil/rise.png"},"cinematic":{"source":"cinematic","rect":{"x":374,"y":515,"width":346,"height":375},"uv":[0.258287293,0.474217311,0.497237569,0.819521179],"output":"cinematic/rise.png"}},
+    {"id":"ranklist","pencil":{"source":"pencil","rect":{"x":727,"y":500,"width":255,"height":290},"uv":[0.502071823,0.460405157,0.678176796,0.727440147],"output":"pencil/ranklist.png"},"cinematic":{"source":"cinematic","rect":{"x":728,"y":515,"width":337,"height":375},"uv":[0.502762431,0.474217311,0.735497238,0.819521179],"output":"cinematic/ranklist.png"}},
+    {"id":"lor","pencil":{"source":"pencil","rect":{"x":996,"y":502,"width":246,"height":288},"uv":[0.687845304,0.462246777,0.857734807,0.727440147],"output":"pencil/lor.png"},"cinematic":{"source":"cinematic","rect":{"x":1073,"y":515,"width":349,"height":375},"uv":[0.741022099,0.474217311,0.982044199,0.819521179],"output":"cinematic/lor.png"}}
+  ]
+}

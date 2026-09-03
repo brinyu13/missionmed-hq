@@ -25,6 +25,9 @@
 	const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 	const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	const isNarrow = () => window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+	const morphCanary = cfg.experience === 'matrix2' && !!cfg.is_admin;
+	const lockedArtRoot = String(cfg.asset_base || '').replace(/\/?$/, '/') + 'locked-art/';
+	const lockedArtURL = (a, phase) => morphCanary && a && !(a.card_image || a.detail_image) ? lockedArtRoot + phase + '/' + encodeURIComponent(a.id) + '.png' : '';
 
 	/* ------------------------------------------------------------------ */
 	/* Invite mode: Classic stays Classic, plus one dismissible banner.    */
@@ -101,6 +104,7 @@
 	function renderDashboard() {
 		const el = content();
 		if (!el) { return; }
+		morph.dispose();
 		const root = document.getElementById('student-os-root');
 		if (root) { root.classList.add('mmdv2-active'); }
 		const profile = app.state.profile || {};
@@ -146,6 +150,7 @@
 		</section>`;
 
 		bindDashboard(el);
+		morph.bind(el);
 		startBackground(el);
 		ensureOverlays();
 		kickOffData();
@@ -156,6 +161,14 @@
 	/* Featured cards                                                      */
 	/* ------------------------------------------------------------------ */
 	function mediaHTML(a, uid, kind) {
+		const locked = lockedArtURL(a, kind === 'detail' ? 'cinematic' : 'pencil');
+		if (locked) {
+			if (kind === 'detail') {
+				return '<span class="mmdv2-media-front mmdv2-locked-detail"><img class="mmdv2-img" src="' + esc(locked) + '" alt="" decoding="async"></span>';
+			}
+			const target = lockedArtURL(a, 'cinematic');
+			return '<span class="mmdv2-morph" data-morph-app="' + esc(a.id) + '"><img class="mmdv2-morph-pencil" src="' + esc(locked) + '" alt="" loading="lazy" decoding="async"><img class="mmdv2-morph-cinematic" data-src="' + esc(target) + '" alt="" decoding="async"></span>';
+		}
 		const url = kind === 'detail' ? (a.detail_image || a.card_image) : a.card_image;
 		const fn = ART[a.id];
 		if (kind === 'detail') {
@@ -171,8 +184,9 @@
 
 	function cardHTML(a, uid, admin) {
 		const sub = admin ? (a.adminSub || a.sub) : a.sub;
+		const locked = !!lockedArtURL(a, 'pencil');
 		return `<div class="mmdv2-card-wrap">
-			<button type="button" class="mmdv2-card" data-open="${a.id}" style="--hue:${esc(a.hue || '#ffb340')}" aria-label="${esc(a.name)} — ${esc(sub)}">
+			<button type="button" class="mmdv2-card${locked ? ' mmdv2-card-locked' : ''}" data-open="${a.id}" style="--hue:${esc(a.hue || '#ffb340')}" aria-label="${esc(a.name)} — ${esc(sub)}">
 				<span class="mmdv2-media">${mediaHTML(a, uid, 'card')}</span>
 				<span class="mmdv2-scrim"></span>
 				<span class="mmdv2-cat">${esc(a.cat)}</span>
@@ -461,6 +475,228 @@
 	}
 
 	/* ------------------------------------------------------------------ */
+	/* Locked-art WebGL morph — MX-DASH-6010B admin canary only.           */
+	/* ------------------------------------------------------------------ */
+	const morph = (() => {
+		const duration = 820;
+		const diag = window.MMED_DASH_MORPH_DIAGNOSTICS = {
+			canary: morphCanary, mode: 'idle', transitions: 0, frames: 0,
+			averageFrameInterval: 0, maxFrameInterval: 0, activeContexts: 0,
+			maxContexts: 0, contextsCreated: 0, contextsDisposed: 0, failures: 0,
+			resourceSetsCreated: 0, resourceSetsDisposed: 0,
+			shaderCompileMs: 0, lastApp: null, endpoint: 'pencil'
+		};
+		let active = null, preloadObserver = null, viewportObserver = null;
+		let listeners = [], nodes = [], intervalTotal = 0, intervalCount = 0;
+		let sharedCanvas = null, sharedGL = null, sharedProgram = null, sharedBuffer = null, sharedPosition = -1, sharedProgressLocation = null, warmCancel = null;
+
+		const vertexSource = `#version 300 es
+in vec2 a_position;
+out vec2 v_uv;
+void main(){v_uv=(a_position+1.0)*0.5;gl_Position=vec4(a_position,0.0,1.0);}`;
+		const fragmentSource = `#version 300 es
+precision highp float;
+uniform sampler2D u_pencil;
+uniform sampler2D u_cinematic;
+uniform float u_progress;
+uniform vec2 u_resolution;
+in vec2 v_uv;
+out vec4 outColor;
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
+void main(){
+  if(u_progress<=0.00001){outColor=texture(u_pencil,v_uv);return;}
+  if(u_progress>=0.99999){outColor=texture(u_cinematic,v_uv);return;}
+  float p=clamp(u_progress,0.0,1.0);
+  float grain=hash(floor(v_uv*u_resolution*0.18));
+  float sweep=v_uv.x*0.64+(1.0-v_uv.y)*0.36+(grain-0.5)*0.16;
+  float mask=smoothstep(sweep-0.105,sweep+0.105,p);
+  float pulse=sin(3.14159265*p);
+  vec2 wave=vec2(sin(v_uv.y*18.0+grain*4.0),cos(v_uv.x*15.0-grain*3.0))*0.018*pulse;
+  vec4 pencil=texture(u_pencil,clamp(v_uv-wave*mask,0.0,1.0));
+  vec4 cinema=texture(u_cinematic,clamp(v_uv+wave*(1.0-mask),0.0,1.0));
+  vec2 px=1.0/u_resolution;
+  float l0=dot(texture(u_pencil,v_uv).rgb,vec3(0.299,0.587,0.114));
+  float lx=dot(texture(u_pencil,clamp(v_uv+vec2(px.x*2.0,0.0),0.0,1.0)).rgb,vec3(0.299,0.587,0.114));
+  float ly=dot(texture(u_pencil,clamp(v_uv+vec2(0.0,px.y*2.0),0.0,1.0)).rgb,vec3(0.299,0.587,0.114));
+  float edge=clamp((abs(l0-lx)+abs(l0-ly))*4.2,0.0,1.0);
+  float seam=1.0-smoothstep(0.0,0.055,abs(sweep-p));
+  vec3 color=mix(pencil.rgb,cinema.rgb,mask);
+  color+=vec3(1.0,0.62,0.18)*edge*seam*0.55;
+  color=(color-0.5)*(1.0+0.16*pulse)+0.5;
+  outColor=vec4(color,mix(pencil.a,cinema.a,mask));
+}`;
+
+		function listen(node, type, fn) { node.addEventListener(type, fn); listeners.push(() => node.removeEventListener(type, fn)); }
+		function loadTarget(node) {
+			const img = $('.mmdv2-morph-cinematic', node);
+			if (!img) { return Promise.reject(new Error('Missing cinematic endpoint')); }
+			if (!img.getAttribute('src')) { img.src = img.getAttribute('data-src') || ''; }
+			if (img.complete && img.naturalWidth) { return Promise.resolve(img); }
+			return new Promise((resolve, reject) => {
+				img.addEventListener('load', () => resolve(img), { once: true });
+				img.addEventListener('error', () => reject(new Error('Cinematic endpoint failed to load')), { once: true });
+			});
+		}
+		function compile(gl, type, source) {
+			const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader);
+			if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { const message = gl.getShaderInfoLog(shader); gl.deleteShader(shader); throw new Error(message || 'Shader compile failed'); }
+			return shader;
+		}
+		function texture(gl, image, unit) {
+			const value = gl.createTexture(); gl.activeTexture(unit); gl.bindTexture(gl.TEXTURE_2D, value);
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image); return value;
+		}
+		function ensureRenderer() {
+			if (sharedGL && sharedProgram && sharedBuffer) {
+				return { canvas: sharedCanvas, gl: sharedGL, program: sharedProgram, buffer: sharedBuffer, position: sharedPosition, progressLocation: sharedProgressLocation };
+			}
+			if (!sharedCanvas) { sharedCanvas = document.createElement('canvas'); sharedCanvas.className = 'mmdv2-morph-canvas'; sharedCanvas.setAttribute('aria-hidden', 'true'); }
+			const started = performance.now();
+			const gl = sharedCanvas.getContext('webgl2', { alpha: false, antialias: true, powerPreference: 'high-performance' });
+			if (!gl) { sharedCanvas = null; return null; }
+			sharedGL = gl; diag.contextsCreated += 1;
+			try {
+				const vertex = compile(gl, gl.VERTEX_SHADER, vertexSource), fragment = compile(gl, gl.FRAGMENT_SHADER, fragmentSource);
+				const program = gl.createProgram(); gl.attachShader(program, vertex); gl.attachShader(program, fragment); gl.linkProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment);
+				if (!gl.getProgramParameter(program, gl.LINK_STATUS)) { throw new Error(gl.getProgramInfoLog(program) || 'Program link failed'); }
+				const buffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]), gl.STATIC_DRAW);
+				sharedProgram = program; sharedBuffer = buffer; sharedPosition = gl.getAttribLocation(program, 'a_position'); sharedProgressLocation = gl.getUniformLocation(program, 'u_progress');
+				diag.shaderCompileMs = performance.now() - started;
+				return { canvas: sharedCanvas, gl, program, buffer, position: sharedPosition, progressLocation: sharedProgressLocation };
+			} catch (error) {
+				diag.failures += 1; destroySharedContext(); return null;
+			}
+		}
+		function fallback(node, on, reason) {
+			loadTarget(node).catch(() => { diag.failures += 1; });
+			node.classList.add('mmdv2-morph-fallback');
+			node.classList.toggle('is-target', on);
+			diag.mode = reduceMotion() ? 'reduced-motion' : 'css-fallback';
+			diag.lastApp = node.getAttribute('data-morph-app'); diag.endpoint = on ? 'cinematic' : 'pencil';
+			if (reason) { node.setAttribute('data-morph-fallback', reason); }
+		}
+		function releaseContext(item, endpoint) {
+			if (!item) { return; }
+			if (item.raf) { cancelAnimationFrame(item.raf); }
+			const gl = item.gl;
+			if (gl) {
+				item.textures.forEach((value) => gl.deleteTexture(value));
+				diag.resourceSetsDisposed += 1; diag.activeContexts = Math.max(0, diag.activeContexts - 1);
+			}
+			if (item.canvas && item.canvas.isConnected) { item.canvas.remove(); }
+			item.node.classList.remove('is-running');
+			if (endpoint === 'cinematic') { item.node.classList.add('is-target'); }
+			if (endpoint === 'pencil') { item.node.classList.remove('is-target'); }
+			if (active === item) { active = null; }
+			diag.endpoint = endpoint || diag.endpoint;
+		}
+		function destroySharedContext() {
+			if (sharedGL) {
+				if (sharedBuffer) { sharedGL.deleteBuffer(sharedBuffer); }
+				if (sharedProgram) { sharedGL.deleteProgram(sharedProgram); }
+				const lose = sharedGL.getExtension('WEBGL_lose_context'); if (lose) { lose.loseContext(); }
+				diag.contextsDisposed += 1; sharedGL = null;
+			}
+			if (sharedCanvas && sharedCanvas.isConnected) { sharedCanvas.remove(); }
+			sharedCanvas = null; sharedProgram = null; sharedBuffer = null; sharedPosition = -1; sharedProgressLocation = null;
+		}
+		function render(item) {
+			item.gl.useProgram(item.program);
+			item.gl.uniform1f(item.progressLocation, item.progress);
+			item.gl.drawArrays(item.gl.TRIANGLES, 0, 6);
+		}
+		function tick(time) {
+			const item = active; if (!item) { return; }
+			if (document.hidden) { item.raf = 0; item.lastTime = 0; return; }
+			if (item.lastTime) {
+				const rawInterval = time - item.lastTime, step = Math.min(80, rawInterval);
+				item.progress = Math.max(0, Math.min(1, item.progress + item.direction * step / duration));
+				intervalTotal += rawInterval; intervalCount += 1; diag.averageFrameInterval = intervalTotal / intervalCount; diag.maxFrameInterval = Math.max(diag.maxFrameInterval, rawInterval);
+			}
+			item.lastTime = time; diag.frames += 1; render(item);
+			if ((item.direction > 0 && item.progress >= 1) || (item.direction < 0 && item.progress <= 0)) {
+				releaseContext(item, item.progress >= 1 ? 'cinematic' : 'pencil'); return;
+			}
+			item.raf = requestAnimationFrame(tick);
+		}
+		async function start(node, on) {
+			node._mmdv2MorphWanted = on;
+			if (reduceMotion()) { fallback(node, on, 'reduced-motion'); return; }
+			try { await loadTarget(node); } catch (error) { diag.failures += 1; fallback(node, on, 'image-load'); return; }
+			if (node._mmdv2MorphWanted !== on || !node.isConnected) { return; }
+			if (active && active.node === node) {
+				active.direction = on ? 1 : -1; active.lastTime = 0; diag.transitions += 1;
+				if (!active.raf) { active.raf = requestAnimationFrame(tick); } return;
+			}
+			if (active) { releaseContext(active, active.progress >= .5 ? 'cinematic' : 'pencil'); }
+			if (warmCancel) { warmCancel(); warmCancel = null; }
+			const renderer = ensureRenderer();
+			if (!renderer) { fallback(node, on, 'webgl2-unavailable'); return; }
+			const canvas = renderer.canvas, gl = renderer.gl, program = renderer.program, buffer = renderer.buffer;
+			node.appendChild(canvas);
+			const pencil = $('.mmdv2-morph-pencil', node), cinematic = $('.mmdv2-morph-cinematic', node);
+			try {
+				const rect = node.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+				canvas.width = Math.max(1, Math.round(rect.width * dpr)); canvas.height = Math.max(1, Math.round(rect.height * dpr)); gl.viewport(0, 0, canvas.width, canvas.height);
+				gl.useProgram(program);
+				gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.enableVertexAttribArray(renderer.position); gl.vertexAttribPointer(renderer.position, 2, gl.FLOAT, false, 0, 0);
+				const textures = [texture(gl, pencil, gl.TEXTURE0), texture(gl, cinematic, gl.TEXTURE1)];
+				gl.uniform1i(gl.getUniformLocation(program, 'u_pencil'), 0); gl.uniform1i(gl.getUniformLocation(program, 'u_cinematic'), 1);
+				gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), canvas.width, canvas.height);
+				active = { node, canvas, gl, program, textures, progressLocation: renderer.progressLocation, progress: node.classList.contains('is-target') ? 1 : 0, direction: on ? 1 : -1, lastTime: 0, raf: 0 };
+				diag.mode = 'webgl2'; diag.transitions += 1; diag.resourceSetsCreated += 1; diag.activeContexts += 1; diag.maxContexts = Math.max(diag.maxContexts, diag.activeContexts); diag.lastApp = node.getAttribute('data-morph-app');
+				node.classList.remove('mmdv2-morph-fallback'); node.classList.add('is-running'); active.raf = requestAnimationFrame(tick);
+			} catch (error) {
+				diag.failures += 1; destroySharedContext();
+				fallback(node, on, 'webgl-init');
+			}
+		}
+		function set(node, on) { if (node) { start(node, on); } }
+		function bind(root) {
+			dispose(); nodes = $$('.mmdv2-morph', root);
+			if (!nodes.length) { diag.mode = morphCanary ? 'idle' : 'disabled'; return; }
+			if (window.IntersectionObserver) {
+				preloadObserver = new IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) { loadTarget(entry.target).catch(() => { diag.failures += 1; }); preloadObserver.unobserve(entry.target); } }), { rootMargin: '280px' });
+				nodes.forEach((node) => preloadObserver.observe(node));
+			}
+			const coarse = window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches;
+			nodes.forEach((node) => {
+				if (!coarse) {
+					const card = node.closest('.mmdv2-card') || node;
+					listen(card, 'mouseenter', () => set(node, true)); listen(card, 'mouseleave', () => set(node, false));
+					listen(card, 'focusin', () => set(node, true)); listen(card, 'focusout', () => set(node, false));
+				}
+			});
+			if (coarse && window.IntersectionObserver) {
+				viewportObserver = new IntersectionObserver((entries) => entries.forEach((entry) => {
+					if (entry.intersectionRatio >= .72) { set(entry.target, true); } else if (active && active.node === entry.target && entry.intersectionRatio < .35) { set(entry.target, false); }
+				}), { threshold: [.35, .72] }); nodes.forEach((node) => viewportObserver.observe(node));
+			}
+			if (!reduceMotion()) {
+				const warm = () => { warmCancel = null; ensureRenderer(); };
+				if (window.requestIdleCallback) {
+					const id = requestIdleCallback(warm, { timeout: 600 }); warmCancel = () => cancelIdleCallback(id);
+				} else {
+					const id = setTimeout(warm, 60); warmCancel = () => clearTimeout(id);
+				}
+			}
+		}
+		function dispose() {
+			if (preloadObserver) { preloadObserver.disconnect(); preloadObserver = null; }
+			if (viewportObserver) { viewportObserver.disconnect(); viewportObserver = null; }
+			if (warmCancel) { warmCancel(); warmCancel = null; }
+			listeners.forEach((off) => off()); listeners = []; nodes.forEach((node) => { node._mmdv2MorphWanted = false; }); nodes = [];
+			if (active) { releaseContext(active, active.progress >= .5 ? 'cinematic' : 'pencil'); }
+			destroySharedContext();
+		}
+		document.addEventListener('visibilitychange', () => { if (!active || document.hidden || active.raf) { return; } active.lastTime = 0; active.raf = requestAnimationFrame(tick); });
+		return { bind, dispose };
+	})();
+
+	/* ------------------------------------------------------------------ */
 	/* Ambient background — constellation canvas + CSS aurora              */
 	/* ------------------------------------------------------------------ */
 	let bgFrame = 0, bgCanvas = null;
@@ -494,7 +730,7 @@
 		const r = canvas.parentElement.getBoundingClientRect(); canvas.width = r.width; canvas.height = r.height;
 		for (let i = 0; i < 60; i++) { ctx.fillStyle = `rgba(200,236,255,${(0.2 + Math.random() * 0.4).toFixed(2)})`; ctx.beginPath(); ctx.arc(Math.random() * r.width, Math.random() * r.height, .6 + Math.random() * 1.2, 0, Math.PI * 2); ctx.fill(); }
 	}
-	window.addEventListener('hashchange', () => { if ((window.location.hash.replace(/^#\/?/, '') || 'dashboard') !== 'dashboard') { if (bgFrame) { cancelAnimationFrame(bgFrame); bgFrame = 0; } const root = document.getElementById('student-os-root'); if (root) { root.classList.remove('mmdv2-active'); } closeDetail(); closeEditor(); } });
+	window.addEventListener('hashchange', () => { if ((window.location.hash.replace(/^#\/?/, '') || 'dashboard') !== 'dashboard') { morph.dispose(); if (bgFrame) { cancelAnimationFrame(bgFrame); bgFrame = 0; } const root = document.getElementById('student-os-root'); if (root) { root.classList.remove('mmdv2-active'); } closeDetail(); closeEditor(); } });
 
 	/* ------------------------------------------------------------------ */
 	let toastTimer = 0;
