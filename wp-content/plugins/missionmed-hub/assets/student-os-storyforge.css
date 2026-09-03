@@ -1,0 +1,597 @@
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-app,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-app * {
+	box-sizing: border-box;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-app {
+	--sf-navy: #061727;
+	--sf-navy2: #09243d;
+	--sf-card: #0d3a56;
+	--sf-card2: #082a3f;
+	--sf-blue: #17a3cf;
+	--sf-gold: #f3d576;
+	--sf-gold2: #d9b85b;
+	--sf-green: #36c071;
+	--sf-orange: #f06b2f;
+	--sf-red: #d95c5c;
+	position: relative;
+	min-height: 100%;
+	height: 100%;
+	overflow: hidden;
+	padding: 22px;
+	background:
+		radial-gradient(circle at 16% 12%, rgba(23, 163, 207, 0.28), transparent 28%),
+		radial-gradient(circle at 85% 18%, rgba(243, 213, 118, 0.16), transparent 26%),
+		linear-gradient(135deg, #061727 0%, #09243d 48%, #061727 100%);
+	color: #f7f2e5;
+	font-family: "Poppins", system-ui, sans-serif;
+}
+
+body.admin-bar.matrix-app-mode-storyforge #student-os-root .sos-storyforge-app {
+	height: calc(100vh - 32px);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-topbar {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	gap: 18px;
+	align-items: center;
+	margin-bottom: 16px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-dashboard-return {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	min-height: 42px;
+	padding: 9px 14px 9px 9px;
+	border: 1px solid rgba(243, 213, 118, 0.46);
+	border-radius: 12px;
+	background: linear-gradient(180deg, rgba(255, 224, 138, 0.2), rgba(217, 184, 91, 0.1));
+	color: var(--sf-gold);
+	font-family: "Space Grotesk", system-ui, sans-serif;
+	font-size: 12px;
+	font-weight: 800;
+	text-decoration: none;
+	box-shadow: 0 14px 38px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-dashboard-return span {
+	display: grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 8px;
+	background: linear-gradient(135deg, rgba(23, 163, 207, 0.35), rgba(14, 117, 168, 0.18));
+	color: #fff;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-titleblock span,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-card h3,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-editor label span {
+	display: block;
+	color: var(--sf-blue);
+	font-size: 10px;
+	font-weight: 800;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-titleblock h1 {
+	margin: 0;
+	color: #fff;
+	font-family: "Space Grotesk", system-ui, sans-serif;
+	font-size: clamp(24px, 3vw, 38px);
+	line-height: 1;
+	letter-spacing: 0;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-titleblock p {
+	max-width: 720px;
+	margin: 6px 0 0;
+	color: rgba(247, 242, 229, 0.68);
+	font-size: 13px;
+	line-height: 1.55;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-state {
+	display: grid;
+	gap: 3px;
+	min-width: 190px;
+	padding: 10px 12px;
+	border: 1px solid rgba(54, 192, 113, 0.28);
+	border-radius: 12px;
+	background: rgba(54, 192, 113, 0.08);
+	color: rgba(247, 242, 229, 0.72);
+	font-size: 11px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-state b {
+	color: var(--sf-green);
+	font-size: 12px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-modebar,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-tabs,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	align-items: center;
+	margin-bottom: 14px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-mode,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-new,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-tab,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-sort button,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-actions button,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-question button,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-step,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-score-dots button {
+	min-height: 38px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.06);
+	color: rgba(247, 242, 229, 0.78);
+	font-family: "Space Grotesk", system-ui, sans-serif;
+	font-size: 12px;
+	font-weight: 800;
+	letter-spacing: 0;
+	cursor: pointer;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-tab {
+	min-height: 44px;
+	padding: 0 16px;
+	border-radius: 999px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-tab.is-active,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-mode.is-active,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-sort button.is-active,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-new {
+	border-color: rgba(243, 213, 118, 0.52);
+	background: linear-gradient(135deg, var(--sf-gold), var(--sf-gold2));
+	color: #061727;
+	box-shadow: 0 14px 34px rgba(217, 184, 91, 0.22);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-mode.is-locked {
+	opacity: 0.72;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-mode small {
+	margin-left: 8px;
+	color: rgba(6, 23, 39, 0.7);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-panel {
+	height: calc(100% - 178px);
+	min-height: 0;
+	overflow: hidden;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-card {
+	border: 1px solid rgba(23, 163, 207, 0.14);
+	border-radius: 14px;
+	background: linear-gradient(180deg, rgba(13, 58, 86, 0.95), rgba(8, 42, 63, 0.96));
+	box-shadow: inset 0 1px 0 rgba(23, 163, 207, 0.08), inset 0 -1px 0 rgba(6, 23, 39, 0.5), 0 18px 48px rgba(0, 0, 0, 0.24);
+	padding: 18px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-search {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: min(460px, 100%);
+	padding: 10px 12px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.06);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-search input {
+	width: 100%;
+	border: 0;
+	background: transparent;
+	color: #fff;
+	outline: none;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-sort {
+	display: flex;
+	gap: 6px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-library,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-workshop,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-match,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-review {
+	display: grid;
+	grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.5fr) minmax(260px, 0.8fr);
+	gap: 14px;
+	height: 100%;
+	min-height: 0;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-match,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-review {
+	grid-template-columns: 300px minmax(0, 1fr);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-stack,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-detail,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-intel,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-question-list,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-readiness {
+	min-height: 0;
+	overflow: auto;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-stack {
+	display: grid;
+	align-content: start;
+	gap: 8px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-story {
+	display: grid;
+	grid-template-columns: 42px minmax(0, 1fr) auto;
+	gap: 10px;
+	align-items: center;
+	width: 100%;
+	min-height: 74px;
+	padding: 10px;
+	text-align: left;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-story.is-selected {
+	border-color: rgba(243, 213, 118, 0.5);
+	background: rgba(243, 213, 118, 0.12);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-score,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-orb {
+	display: grid;
+	place-items: center;
+	width: 42px;
+	height: 42px;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.08);
+	color: #fff;
+	font-family: "Space Grotesk", system-ui, sans-serif;
+	font-weight: 900;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-score.is-gold,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-orb.is-gold,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-story.is-gold .sos-storyforge-score {
+	background: linear-gradient(135deg, var(--sf-gold), var(--sf-gold2));
+	color: #061727;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-storybody {
+	display: grid;
+	gap: 4px;
+	min-width: 0;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-storybody strong,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-selected h2,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-editor h2,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-readiness-hero h2 {
+	margin: 0;
+	color: #fff;
+	font-family: "Space Grotesk", system-ui, sans-serif;
+	letter-spacing: 0;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-storybody small,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-selected p,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-card p,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-muted {
+	color: rgba(247, 242, 229, 0.62);
+	font-size: 12px;
+	line-height: 1.55;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-chip,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-tags span,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-question span,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-gate span {
+	display: inline-flex;
+	align-items: center;
+	width: max-content;
+	min-height: 24px;
+	padding: 4px 8px;
+	border-radius: 999px;
+	background: rgba(23, 163, 207, 0.12);
+	color: var(--sf-blue);
+	font-size: 10px;
+	font-weight: 800;
+	text-transform: uppercase;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-selected {
+	display: grid;
+	gap: 14px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-selected-head {
+	display: flex;
+	gap: 14px;
+	align-items: center;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-tags,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-arc,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-note,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-intel-row {
+	display: grid;
+	gap: 4px;
+	padding: 10px 0;
+	border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-arc span,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-note b {
+	color: var(--sf-gold);
+	font-size: 10px;
+	font-weight: 900;
+	text-transform: uppercase;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-intel {
+	display: grid;
+	align-content: start;
+	gap: 14px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-intel-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-intel-row b {
+	color: var(--sf-gold);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-meter {
+	height: 10px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: rgba(6, 23, 39, 0.75);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-meter span {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: linear-gradient(90deg, var(--sf-green), var(--sf-gold));
+	box-shadow: 0 0 16px rgba(54, 192, 113, 0.35);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-editor,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-card {
+	min-width: 0;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-editor label {
+	display: grid;
+	gap: 7px;
+	margin-top: 12px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-editor textarea,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-review textarea {
+	width: 100%;
+	min-height: 78px;
+	resize: vertical;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 10px;
+	background: rgba(6, 23, 39, 0.45);
+	color: rgba(247, 242, 229, 0.78);
+	padding: 10px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-step {
+	display: flex;
+	gap: 9px;
+	align-items: center;
+	width: 100%;
+	margin-top: 8px;
+	text-align: left;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-step span {
+	display: grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	background: var(--sf-green);
+	color: #061727;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-question-list {
+	display: grid;
+	align-content: start;
+	gap: 12px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-question {
+	display: grid;
+	gap: 10px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-question > div,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-gate > div {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	align-items: start;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-question .is-covered,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-gate .is-covered {
+	background: rgba(54, 192, 113, 0.14);
+	color: var(--sf-green);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-question .is-gap,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-gate .is-gap {
+	background: rgba(240, 107, 47, 0.14);
+	color: var(--sf-orange);
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-oncall,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-card.is-warning {
+	border: 1px solid rgba(240, 107, 47, 0.22);
+	border-radius: 12px;
+	background: rgba(240, 107, 47, 0.08);
+	padding: 12px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-locked-review {
+	max-width: 920px;
+	margin: 0 auto;
+	text-align: center;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-lockmark {
+	display: grid;
+	place-items: center;
+	width: 58px;
+	height: 58px;
+	margin: 0 auto 14px;
+	border-radius: 18px;
+	background: linear-gradient(135deg, var(--sf-gold), var(--sf-gold2));
+	color: #061727;
+	font-family: "Space Grotesk", system-ui, sans-serif;
+	font-weight: 900;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-preview-grid,
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-readiness-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+	margin-top: 18px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-preview-grid div {
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.05);
+	padding: 14px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-preview-grid span {
+	display: block;
+	margin-top: 5px;
+	color: rgba(247, 242, 229, 0.55);
+	font-size: 11px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-score-dots {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 7px;
+	margin: 14px 0;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-score-dots button {
+	width: 34px;
+	min-height: 34px;
+	border-radius: 50%;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-readiness {
+	display: grid;
+	gap: 14px;
+	height: 100%;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-readiness-hero {
+	text-align: center;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-readiness-hero > span {
+	color: var(--sf-orange);
+	font-family: "Space Grotesk", system-ui, sans-serif;
+	font-size: 26px;
+	font-weight: 900;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-gate {
+	display: grid;
+	gap: 10px;
+}
+
+body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-toast {
+	position: fixed;
+	right: 22px;
+	bottom: 22px;
+	z-index: 2147480300;
+	max-width: 360px;
+	padding: 13px 15px;
+	border: 1px solid rgba(243, 213, 118, 0.42);
+	border-radius: 12px;
+	background: rgba(6, 23, 39, 0.92);
+	color: var(--sf-gold);
+	box-shadow: 0 18px 52px rgba(0, 0, 0, 0.38);
+}
+
+@media (max-width: 1180px) {
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-library,
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-workshop,
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-match,
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-review {
+		grid-template-columns: 1fr;
+		overflow: auto;
+	}
+
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-stack,
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-detail,
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-intel,
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-question-list {
+		overflow: visible;
+	}
+}
+
+@media (max-width: 760px) {
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-app {
+		padding: 12px;
+		overflow: auto;
+	}
+
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-topbar {
+		grid-template-columns: 1fr;
+	}
+
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-panel {
+		height: auto;
+		overflow: visible;
+	}
+
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-preview-grid,
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-readiness-grid {
+		grid-template-columns: 1fr;
+	}
+
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-story {
+		grid-template-columns: 38px minmax(0, 1fr);
+	}
+
+	body.matrix-app-mode-storyforge #student-os-root .sos-storyforge-chip {
+		grid-column: 2;
+	}
+}

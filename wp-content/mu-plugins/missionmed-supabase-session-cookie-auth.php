@@ -66,44 +66,6 @@ if ( ! function_exists( 'mm_bridge_resolve_cookie_user' ) ) {
 	}
 }
 
-if ( ! function_exists( 'mm_bridge_block_legacy_arena_auth_ajax' ) ) {
-	/**
-	 * Hard-disable legacy AJAX auth fallback used by older Arena clients.
-	 *
-	 * A legacy bypass can be re-enabled only with an explicit environment flag:
-	 * MM_ENABLE_LEGACY_ARENA_AUTH_AJAX=true (default: disabled).
-	 *
-	 * @return void
-	 */
-	function mm_bridge_block_legacy_arena_auth_ajax() {
-		$allow_legacy_ajax = defined( 'MM_ENABLE_LEGACY_ARENA_AUTH_AJAX' ) && true === MM_ENABLE_LEGACY_ARENA_AUTH_AJAX;
-		if ( $allow_legacy_ajax ) {
-			return;
-		}
-
-		if ( ! is_user_logged_in() ) {
-			wp_send_json_error(
-				array(
-					'code'    => 'mm_arena_auth_not_authenticated',
-					'message' => 'User not authenticated',
-				),
-				401
-			);
-		}
-
-		wp_send_json_error(
-			array(
-				'code'    => 'mm_arena_auth_deprecated',
-				'message' => 'Legacy AJAX auth endpoint disabled. Use /wp-json/wp/v2/users/me.',
-			),
-			401
-		);
-	}
-}
-
-add_action( 'wp_ajax_nopriv_mm_arena_check_auth', 'mm_bridge_block_legacy_arena_auth_ajax', 0 );
-add_action( 'wp_ajax_mm_arena_check_auth', 'mm_bridge_block_legacy_arena_auth_ajax', 0 );
-
 add_filter(
 	'rest_cookie_check_errors',
 	static function( $result ) {

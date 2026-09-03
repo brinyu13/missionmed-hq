@@ -1,0 +1,20 @@
+D9-415A BASELINE INDEX VERIFICATION
+===================================
+
+Verdict: PASS
+
+- JSON evidence validation: PASS
+- Staged path allowlist: PASS
+- Product source modes: PASS (135/135 blobs are 100644)
+- missionmed-hub blobs vs production manifest: PASS (125/125 SHA-256 and byte sizes)
+- selected Matrix MU-plugin blobs vs production manifest: PASS (10/10 SHA-256 and byte sizes)
+- Raw forensic snapshot excluded from Git index: PASS
+- Unstaged tracked differences at verification: NONE
+
+`git diff --cached --check` is intentionally non-zero for this immutable observed-production
+baseline. The findings are pre-existing line-ending/trailing-whitespace bytes in the exact
+production source plus Markdown hard-break whitespace in preserved evidence. Changing those
+bytes would invalidate the production hash match; no normalization was applied in D9-415A.
+
+This verification authorizes only provenance preservation. It does not approve entitlement
+behavior and it does not make this baseline deployable.
