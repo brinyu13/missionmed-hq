@@ -1,0 +1,34 @@
+{
+  "schema": "missionmed.mx_dash_6010b.founder_approved_art.v1",
+  "ticket": "MX-DASH-6010B",
+  "source_package": {
+    "filename": "MX-DASH-6010B_APPROVED_SOURCE_ART.zip",
+    "bytes": 32907378,
+    "sha256": "ffe7491b6bb0300843f00e6f0ea0bafe85078d072944a084ee2eeede09fa88a8",
+    "source_manifest_sha256": "882b9824bc6ddf1c99dbbf45ddcf1f81f3ed0d93a8d0c49ac2b1e993d02f8b75",
+    "source_readme_sha256": "1ac4ecf6dafc4eb6feb4f03f1f5e5361e5fd582eae4163b2ee31bc9a3a708c9e",
+    "install_prompt_sha256": "f916b3e336b580771b6a806a0670b9ea5f5b750781e190152bce771ec924c8a0"
+  },
+  "historical_rejected": {
+    "independently_composed_pencil": "locked-art/pencil/",
+    "registered_graphite_v5": "locked-art/pencil-registered/",
+    "status": "preserved_for_history_only_not_a_visual_endpoint"
+  },
+  "founder_approved": {
+    "pencil_root": "founder-approved/pencil/",
+    "cinematic_root": "founder-approved/cinematic/",
+    "idle_endpoint": "exact_approved_pencil",
+    "active_endpoint": "exact_approved_cinematic",
+    "ai_regenerated_during_install": false
+  },
+  "assets": [
+    {"package_app_id":"homebase","runtime_app_id":"homebase","pencil":{"file":"pencil/homebase-pencil-approved.png","sha256":"96b40f615513db9c6f6224b1f12639482347f16697f0b6577a2aa79b1e4b4d32","bytes":3240939,"width":1190,"height":1322},"cinematic":{"file":"cinematic/homebase-cinematic-approved.png","sha256":"f2a58f93735c60c42fb40745a50c01c776c8cbf08ba6ea0cdba4d3a4d7008144","bytes":189438,"width":340,"height":378}},
+    {"package_app_id":"calendar","runtime_app_id":"calendar","pencil":{"file":"pencil/calendar-pencil-approved.png","sha256":"68bcf94581fef8cef13e25dc6ddcac14fb2f6cd28edfb18ec958d4dac021b10d","bytes":2551172,"width":1190,"height":1322},"cinematic":{"file":"cinematic/calendar-cinematic-approved.png","sha256":"b041bf4fcb86f15605de63151c380d86a04cb9ad1a9f126fa0a9b3a67e233b1a","bytes":152389,"width":346,"height":378}},
+    {"package_app_id":"scheduler","runtime_app_id":"scheduler","pencil":{"file":"pencil/scheduler-pencil-approved.png","sha256":"994366d74cce98084314febc8bf4a28e7e19d832c2f63edda3a1f0137aee3e35","bytes":2961307,"width":1190,"height":1322},"cinematic":{"file":"cinematic/scheduler-cinematic-approved.png","sha256":"bb35e07228024cd88a5b6c047e510a84e7347b505e6e9c9732ae541308617c44","bytes":168300,"width":348,"height":378}},
+    {"package_app_id":"storyforge","runtime_app_id":"storyforge","pencil":{"file":"pencil/storyforge-pencil-approved.png","sha256":"7a9b75a2dc5699adf4de055dfe7b170021ce7679108c2883f4bfc249936c9869","bytes":3245286,"width":1190,"height":1322},"cinematic":{"file":"cinematic/storyforge-cinematic-approved.png","sha256":"08a8ac3a6e647c69752142c9e3628853acbd605760844711acdf59b2333d0149","bytes":175903,"width":337,"height":378}},
+    {"package_app_id":"iv-prep-on-call","runtime_app_id":"ivprep","pencil":{"file":"pencil/iv-prep-on-call-pencil-approved.png","sha256":"61d6eb3c84654f1f0a7ba3452053d5f72871aa1879f0573a6b08dd6388ad7b7c","bytes":3309752,"width":1190,"height":1322},"cinematic":{"file":"cinematic/iv-prep-on-call-cinematic-approved.png","sha256":"9013ad791ce8c004cfe630c26833c4482438891bc2218865ee97ff5604a4d8ab","bytes":173859,"width":340,"height":374}},
+    {"package_app_id":"rise","runtime_app_id":"rise","pencil":{"file":"pencil/rise-pencil-approved.png","sha256":"3cb0ec15440f2461086d15b3e57c737e59595b589a553cbc59dbd821fb458e5e","bytes":2944414,"width":1190,"height":1322},"cinematic":{"file":"cinematic/rise-cinematic-approved.png","sha256":"0991518645c5b124f78f13194ae33ee0e8e1db5e89dd2574602d15437dbc972b","bytes":159088,"width":346,"height":374}},
+    {"package_app_id":"ranklist-iq","runtime_app_id":"ranklist","pencil":{"file":"pencil/ranklist-iq-pencil-approved.png","sha256":"67a6d4e745845987537cda055cc1be8e4cb520e38169ee74b15fc8c397447dcc","bytes":3140447,"width":1190,"height":1322},"cinematic":{"file":"cinematic/ranklist-iq-cinematic-approved.png","sha256":"cedf356daad32580fbdb71c27b6e8d305e7c8f6b34dcc36e71646479330072f6","bytes":165915,"width":348,"height":374}},
+    {"package_app_id":"lor-studio","runtime_app_id":"lor","pencil":{"file":"pencil/lor-studio-pencil-approved.png","sha256":"16c5105ddec4e0a6d6e3f37796ac0f732bff7c8d1c0cdf825951866aa5a02f10","bytes":3157801,"width":1190,"height":1322},"cinematic":{"file":"cinematic/lor-studio-cinematic-approved.png","sha256":"4dec9cb8cd3531385b918992e047d2a07b0df6f858257ba126a6d3a2dc69a073","bytes":187422,"width":337,"height":374}}
+  ]
+}

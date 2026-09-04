@@ -1,0 +1,148 @@
+{
+  "ticket": "MX-DASH-6010B",
+  "purpose": "Founder-approved exact source art for true pencil-to-cinematic morph recovery",
+  "rules": [
+    "The eight pencil images are exact approved source assets, not suggestions.",
+    "The eight cinematic images are exact approved source assets, not suggestions.",
+    "Do not regenerate, redraw, reinterpret, restyle, recolor, or substitute either endpoint.",
+    "Technical registration operations are allowed: crop, scale, translate, homography/mesh warp, alpha mask, UV mapping, correspondence map, compression only if visually lossless.",
+    "The visible idle endpoint must be the approved pencil asset.",
+    "The visible final hover endpoint must be the approved cinematic asset.",
+    "Intermediate morph frames may be procedurally generated from the two approved endpoints."
+  ],
+  "files": [
+    {
+      "app": "homebase",
+      "role": "pencil_approved",
+      "path": "pencil/homebase-pencil-approved.png",
+      "sha256": "96b40f615513db9c6f6224b1f12639482347f16697f0b6577a2aa79b1e4b4d32",
+      "bytes": 3240939
+    },
+    {
+      "app": "calendar",
+      "role": "pencil_approved",
+      "path": "pencil/calendar-pencil-approved.png",
+      "sha256": "68bcf94581fef8cef13e25dc6ddcac14fb2f6cd28edfb18ec958d4dac021b10d",
+      "bytes": 2551172
+    },
+    {
+      "app": "scheduler",
+      "role": "pencil_approved",
+      "path": "pencil/scheduler-pencil-approved.png",
+      "sha256": "994366d74cce98084314febc8bf4a28e7e19d832c2f63edda3a1f0137aee3e35",
+      "bytes": 2961307
+    },
+    {
+      "app": "storyforge",
+      "role": "pencil_approved",
+      "path": "pencil/storyforge-pencil-approved.png",
+      "sha256": "7a9b75a2dc5699adf4de055dfe7b170021ce7679108c2883f4bfc249936c9869",
+      "bytes": 3245286
+    },
+    {
+      "app": "iv-prep-on-call",
+      "role": "pencil_approved",
+      "path": "pencil/iv-prep-on-call-pencil-approved.png",
+      "sha256": "61d6eb3c84654f1f0a7ba3452053d5f72871aa1879f0573a6b08dd6388ad7b7c",
+      "bytes": 3309752
+    },
+    {
+      "app": "rise",
+      "role": "pencil_approved",
+      "path": "pencil/rise-pencil-approved.png",
+      "sha256": "3cb0ec15440f2461086d15b3e57c737e59595b589a553cbc59dbd821fb458e5e",
+      "bytes": 2944414
+    },
+    {
+      "app": "ranklist-iq",
+      "role": "pencil_approved",
+      "path": "pencil/ranklist-iq-pencil-approved.png",
+      "sha256": "67a6d4e745845987537cda055cc1be8e4cb520e38169ee74b15fc8c397447dcc",
+      "bytes": 3140447
+    },
+    {
+      "app": "lor-studio",
+      "role": "pencil_approved",
+      "path": "pencil/lor-studio-pencil-approved.png",
+      "sha256": "16c5105ddec4e0a6d6e3f37796ac0f732bff7c8d1c0cdf825951866aa5a02f10",
+      "bytes": 3157801
+    },
+    {
+      "app": "homebase",
+      "role": "cinematic_approved",
+      "path": "cinematic/homebase-cinematic-approved.png",
+      "sha256": "f2a58f93735c60c42fb40745a50c01c776c8cbf08ba6ea0cdba4d3a4d7008144",
+      "bytes": 189438
+    },
+    {
+      "app": "calendar",
+      "role": "cinematic_approved",
+      "path": "cinematic/calendar-cinematic-approved.png",
+      "sha256": "b041bf4fcb86f15605de63151c380d86a04cb9ad1a9f126fa0a9b3a67e233b1a",
+      "bytes": 152389
+    },
+    {
+      "app": "scheduler",
+      "role": "cinematic_approved",
+      "path": "cinematic/scheduler-cinematic-approved.png",
+      "sha256": "bb35e07228024cd88a5b6c047e510a84e7347b505e6e9c9732ae541308617c44",
+      "bytes": 168300
+    },
+    {
+      "app": "storyforge",
+      "role": "cinematic_approved",
+      "path": "cinematic/storyforge-cinematic-approved.png",
+      "sha256": "08a8ac3a6e647c69752142c9e3628853acbd605760844711acdf59b2333d0149",
+      "bytes": 175903
+    },
+    {
+      "app": "iv-prep-on-call",
+      "role": "cinematic_approved",
+      "path": "cinematic/iv-prep-on-call-cinematic-approved.png",
+      "sha256": "9013ad791ce8c004cfe630c26833c4482438891bc2218865ee97ff5604a4d8ab",
+      "bytes": 173859
+    },
+    {
+      "app": "rise",
+      "role": "cinematic_approved",
+      "path": "cinematic/rise-cinematic-approved.png",
+      "sha256": "0991518645c5b124f78f13194ae33ee0e8e1db5e89dd2574602d15437dbc972b",
+      "bytes": 159088
+    },
+    {
+      "app": "ranklist-iq",
+      "role": "cinematic_approved",
+      "path": "cinematic/ranklist-iq-cinematic-approved.png",
+      "sha256": "cedf356daad32580fbdb71c27b6e8d305e7c8f6b34dcc36e71646479330072f6",
+      "bytes": 165915
+    },
+    {
+      "app": "lor-studio",
+      "role": "cinematic_approved",
+      "path": "cinematic/lor-studio-cinematic-approved.png",
+      "sha256": "4dec9cb8cd3531385b918992e047d2a07b0df6f858257ba126a6d3a2dc69a073",
+      "bytes": 187422
+    },
+    {
+      "app": null,
+      "role": "reference",
+      "path": "reference/cinematic-board-approved.png",
+      "sha256": "7630178b303241bc23d61005581d1b7673e18809dd3715c8db55bf123d623382",
+      "bytes": 2033119
+    },
+    {
+      "app": null,
+      "role": "reference",
+      "path": "reference/pencil-style-board-approved.png",
+      "sha256": "d1a0e5bb4195a0fe0959b9537e4671b36e6ca684b34c843bb2d9bcfc8204a2a8",
+      "bytes": 2791047
+    },
+    {
+      "app": null,
+      "role": "reference",
+      "path": "reference/morph-direction-board.png",
+      "sha256": "dbcb2d193baa409b7b48000eb24e1bfc06d51af694330c1082abb35d1a7941f8",
+      "bytes": 2149177
+    }
+  ]
+}
