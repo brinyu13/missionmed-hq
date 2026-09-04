@@ -428,3 +428,185 @@ The existing v5 material ramp also concentrates approximately `73` percentage po
 Further deterministic image-filter parameter tuning is not expected to meet the approved-board standard. Recovery now requires a materially different deterministic semantic/manual mask workflow or separately authorized professional redraw/source art before true-morph work can resume.
 
 RESULT: PARTIAL — VISUAL ACCEPTANCE NOT MET
+
+## Founder-Approved Source Art Installation + True Morph
+
+### Scope, authority, and source custody
+
+This recovery remained on the same `MX-DASH-6010B` task, thread, worktree,
+branch, and administrator-only Matrix 2 canary. No new ticket or branch was
+created. Student-wide activation remains **OFF**.
+
+The controlling source package was readable and passed archive-integrity,
+safe-path, byte-count, dimension, and SHA-256 validation before use:
+
+- package: `MX-DASH-6010B_APPROVED_SOURCE_ART.zip`;
+- package SHA-256: `ffe7491b6bb0300843f00e6f0ea0bafe85078d072944a084ee2eeede09fa88a8`;
+- package bytes: `32907378`;
+- package `MANIFEST.json` SHA-256: `882b9824bc6ddf1c99dbbf45ddcf1f81f3ed0d93a8d0c49ac2b1e993d02f8b75`;
+- package `README.md` SHA-256: `1ac4ecf6dafc4eb6feb4f03f1f5e5361e5fd582eae4163b2ee31bc9a3a708c9e`;
+- controlling install-prompt SHA-256: `f916b3e336b580771b6a806a0670b9ea5f5b750781e190152bce771ec924c8a0`;
+- AI-regenerated assets during this Codex run: **NO**.
+
+All sixteen production endpoints are exact source-package bytes:
+
+| App | Approved pencil SHA-256 | Approved cinematic SHA-256 |
+|---|---|---|
+| HomeBase | `96b40f615513db9c6f6224b1f12639482347f16697f0b6577a2aa79b1e4b4d32` | `f2a58f93735c60c42fb40745a50c01c776c8cbf08ba6ea0cdba4d3a4d7008144` |
+| Calendar | `68bcf94581fef8cef13e25dc6ddcac14fb2f6cd28edfb18ec958d4dac021b10d` | `b041bf4fcb86f15605de63151c380d86a04cb9ad1a9f126fa0a9b3a67e233b1a` |
+| Scheduler | `994366d74cce98084314febc8bf4a28e7e19d832c2f63edda3a1f0137aee3e35` | `bb35e07228024cd88a5b6c047e510a84e7347b505e6e9c9732ae541308617c44` |
+| StoryForge | `7a9b75a2dc5699adf4de055dfe7b170021ce7679108c2883f4bfc249936c9869` | `08a8ac3a6e647c69752142c9e3628853acbd605760844711acdf59b2333d0149` |
+| IV Prep On-Call | `61d6eb3c84654f1f0a7ba3452053d5f72871aa1879f0573a6b08dd6388ad7b7c` | `9013ad791ce8c004cfe630c26833c4482438891bc2218865ee97ff5604a4d8ab` |
+| RISE | `3cb0ec15440f2461086d15b3e57c737e59595b589a553cbc59dbd821fb458e5e` | `0991518645c5b124f78f13194ae33ee0e8e1db5e89dd2574602d15437dbc972b` |
+| RankList IQ | `67a6d4e745845987537cda055cc1be8e4cb520e38169ee74b15fc8c397447dcc` | `cedf356daad32580fbdb71c27b6e8d305e7c8f6b34dcc36e71646479330072f6` |
+| LOR Studio | `16c5105ddec4e0a6d6e3f37796ac0f732bff7c8d1c0cdf825951866aa5a02f10` | `4dec9cb8cd3531385b918992e047d2a07b0df6f858257ba126a6d3a2dc69a073` |
+
+Historical/rejected endpoints remain intact. The new immutable custody root is
+`wp-content/plugins/missionmed-hub/assets/dashboard-v2/locked-art/founder-approved/`.
+It contains the exact package README, source manifest, eight `pencil/` files,
+eight `cinematic/` files, `manifest-v1.json`, and
+`registration-manifest-v1.json`. Installed manifest SHA-256 is
+`7f8f292b42f50688109b39554e90bd16300108c4fe72d59b4edd6e2ba43375dd`;
+registration-manifest SHA-256 is
+`75edf536bacbba8380f657bdc6872dc773bd2a419f263598e750f593ad0b0831`.
+
+### Registration and correspondence
+
+All pairs render on a common `1190x1322` (`595/661`) canvas. Registration uses
+a bounded similarity/homography initialization over the cinematic cover crop,
+then a wide multi-region material reveal. Dense optical flow and destructive
+mesh fitting were rejected because the generated cross-modal scenes contain
+real local topology differences. Those differences are revealed as material;
+they are not force-warped. The registration manifest explicitly converts its
+top-left diagnostic Y shifts to bottom-left WebGL UV coordinates.
+
+HomeBase is the best-aligned pair: NCC `0.6008`, shift `(+2, 0)` px at the
+`540x600` diagnostic canvas. Its frame, monitor bank, chair, and skyline stay
+visually anchored through the transition. Per-card NCC and diagnostic shifts:
+
+| App | Edge NCC | Shift px |
+|---|---:|---:|
+| HomeBase | `0.6008` | `(+2, 0)` |
+| Calendar | `0.2543` | `(+4, -6)` |
+| Scheduler | `0.3491` | `(+6, -5)` |
+| StoryForge | `0.4515` | `(+4, -3)` |
+| IV Prep On-Call | `0.4220` | `(+2, -18)` |
+| RISE | `0.3993` | `(+10, -16)` |
+| RankList IQ | `0.4456` | `(+15, -13)` |
+| LOR Studio | `0.4032` | `(+4, -18)` |
+
+### True-morph runtime
+
+The new immutable runtime assets are:
+
+- `mmed-dashboard-v2.6010b-true-morph.js`, SHA-256
+  `7e9c2e57ae8a4d3a3fe54df306fb8eba1223496b12540153c3b7c4b39f8284d2`;
+- `mmed-dashboard-v2.6010b-true-morph.css`, SHA-256
+  `e72f26011f5b3bb87aa1250d553e68dd3311f882d946c6097f3c2efcf6edf9cf`;
+- administrator enqueue seam `class-mmed-student-os.php`, SHA-256
+  `248c12d1618fd08db1686297b355252a4f5dae36858b9f39945ea149b3620d76`.
+
+The shader has exact endpoint bypasses, bounded correspondence UVs,
+gamma-correct interpolation, four wide independently phased reveal regions,
+graphite edge retention, progressive saturation/material resolution, and a
+short contrast settle. Its `960 ms` timeline reverses from current progress.
+Perceptual pacing reduces concentrated frame change without introducing a
+wipe. Initial rendering is synchronous, there is no black/stale first frame,
+only one WebGL2 context exists, and transition textures are released.
+
+QA found and corrected two cancellation races: endpoint leave now clears a
+canceled animation-frame handle so `is-running` cannot strand, and release is
+idempotent while canceling any pending frame so rapid traversal cannot dispose
+textures twice. Keyboard focus listeners are pointer-capability independent,
+and route disposal releases the shared context.
+
+Default cards show only the source artwork's integrated typography; there is
+no duplicate visible DOM title/subtitle over the pencil endpoint. Exact source
+art remains unoverlaid. A copy-only admin override uses a small feathered
+bottom gradient with semantic DOM copy, not a hard rectangle. Custom-image
+overrides use the safe static renderer. Cinematic typography remains legible
+and visually integrated, and accessible labels remain on every card.
+
+### Real-time visual evidence and acceptance
+
+Final evidence root:
+`_AI_HANDOFFS/from_codex/MX-DASH-6010B/evidence/founder-approved-true-morph/`.
+Every required `0/10/20/30/40/50/60/70/80/90/100%` contact sheet has eleven
+distinct, visually inspected frames with no diagonal wipe, cut, black frame,
+or abrupt global reveal:
+
+- HomeBase: `progress-final-verified/homebase-contact-sheet.png`, SHA-256
+  `aa8570d298c4b24574b471dca4246c94012e1fa70f6ca2e3b499794053b08c48`;
+- StoryForge: `progress-final-verified/storyforge-contact-sheet.png`, SHA-256
+  `0055bae78d65e26491e1b294b7dd20c542866bc857ac6fe79066a29fdf6038bb`;
+- RISE: `progress-final-verified/rise-contact-sheet.png`, SHA-256
+  `49aa13beacdb89247d4774691b5597992c7abb7b4366c57ac4e6c052a37c76da`;
+- Scheduler: `progress-final-verified/scheduler-contact-sheet.png`, SHA-256
+  `b0f0e854159f6c1fc5e94582f90b9b0fce65d80980f3c139073d0992c5e11ed9`.
+
+Final forward/reverse and rapid-traversal videos:
+
+- HomeBase: `video/final-v3/homebase-hover-in-out.webm`, SHA-256
+  `0c36fc62d1a0d1f5df412cb2ef6f2ad8b935f6ed43b8985794557b5f39a707c4`;
+- StoryForge: `video/final-v3/storyforge-hover-in-out.webm`, SHA-256
+  `63ceb69f2343360fb2a3aad00d20e40ac19950d1788666b7113a6c35624fed74`;
+- RISE: `video/final-v3/rise-hover-in-out.webm`, SHA-256
+  `b092ce4745861f3024c0712d9f23e05acb488e4a6345db2cce1385a85c002f03`;
+- all-eight rapid traversal: `video/final-v3/rapid-all-eight.webm`, SHA-256
+  `30a7fabe70f2529779194f9ce3a3dc130847a79086d250843a3dfc166e680422`.
+
+The final HomeBase frame-delta report is
+`frame-delta-metrics-final-v3.json`, SHA-256
+`06bfb2bb0d5b08d381c9a6768b6d62bf7e9df45670054380326f62a8e629ee18`.
+Across 55 input/51 nontrivial frames, median mean-absolute RGB delta is
+`6.928185`, maximum is `19.200523`, and max/median is `2.771363946x`:
+**PASS** against the `<3x` hard gate. The peak frame changes `88.6798%` of
+pixels but remains a broad material transition, not a discrete cut.
+
+The CDP screencast recorder itself delivered approximately `14-17 fps`; that
+is capture throughput, not page rendering performance. Local rapid stress
+measured `16.67618 ms` average frame interval (about `59.97 fps`), maximum one
+context, `32/32` resource sets disposed, and zero failures. Authenticated live
+Chrome measured the reverse animation across 124 rAF intervals at `8.46803 ms`
+average (about `118.09 fps`), `8.3 ms` median, and `16.7 ms` maximum. It ended
+at progress `0.0000`, then released its canvas with zero morph failures.
+
+The local browser matrix also passed keyboard forward/reverse, reduced-motion
+short dissolve, WebGL2-unavailable CSS fallback, route cleanup, image override,
+copy-only override, detail/launch, student-admin-zero, Classic, and exact
+`390x844`. Mobile measured document width `390`, card left `16`, right
+`351.390625`, width `335.390625`, with no horizontal overflow.
+
+### Production canary and rollback
+
+Implementation/source commit `491130420f928e11c58576a79a35fe0795049159`
+is pushed and verified at the branch remote. The guarded production update
+backed up the shared PHP preimage, deployed the exact tested enqueue seam, and
+verified origin readback. All eighteen public artifacts (runtime JS/CSS plus
+sixteen endpoints) returned HTTP 200 and matched local SHA-256. An anonymous
+full-motion request received neither the true-morph asset nor Founder-approved
+canary markup: `ANONYMOUS_CANARY_OFF_PASS`.
+
+Authenticated Chrome on the production administrator account loaded the
+`.6010b-true-morph.js` asset and all sixteen Founder-approved image URLs. The
+live HomeBase card visibly moved through an intermediate state to progress
+`1.0000`, displayed the exact cinematic endpoint, reversed to `0.0000`, and
+released its canvas. No morph failure was recorded. The full-motion review URL
+is:
+`https://missionmedinstitute.com/member-dashboard/?mx_dash_6010b_motion=full#dashboard`.
+The equivalent `/hub/` route remains valid. The preview is **LIVE** for the
+administrator canary only; student-wide activation remains **OFF**.
+
+Fresh rejected-v5 rollback package:
+`/www/theresidencyacademy_209/private/matrix-dashboard-backups/MX-DASH-6010B/20260904T125709Z-founder-approved-true-morph`.
+Protected runtime-guard backup:
+`/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/MX-DASH-6010B/20260904T130750Z`.
+The predeploy checksum file and additive-target absence ledger pass. An
+isolated rehearsal copied the rejected-v5 JS (`4fdcf138...`), CSS
+(`d5bac8d5...`), and prior enqueue seam (`17c2a89f...`) into
+`rollback-rehearsal/` and verified their full expected SHA-256 values. It did
+not restore or delete any live file. Exact rollback is therefore verified;
+production and student state were unaffected.
+
+Final disposition: **COMPLETE** for Founder visual review. This does not grant
+student activation. Brian must still explicitly issue `APPROVE FOR STUDENTS`.
