@@ -1,7 +1,7 @@
 # MX-DASH-6010B — Locked-Art WebGL Morph Handoff
 
 Date: 2026-09-03  
-Terminal state: `READY FOR FOUNDER VISUAL APPROVAL`  
+Terminal state: `READY FOR FOUNDER VISUAL APPROVAL — SAME-COMPOSITION MORPH POLISH COMPLETE`
 Production exposure: administrator-only morph canary; student-wide morph activation is OFF.
 
 ## Authority and custody
@@ -15,6 +15,7 @@ Production exposure: administrator-only morph canary; student-wide morph activat
 - Branch: `codex/mx-dash-6010b-locked-art-webgl-morph`.
 - Starting product commit: `eba31899799c11d598f1cbd2c1824146aaa403d9`.
 - Implementation commits: `5fa460e9c84639005a6d24c26a8f2f9f0799c685`, `8f562a2`, `f5ecade`.
+- Same-composition polish implementation commit: `9bd0cbc304013bcf8f9d855991f5604aee731d97`.
 - Current source/remote commit before this handoff commit: `f5ecade`.
 - Force push: not used.
 
@@ -182,4 +183,201 @@ File-level restore rehearsal copied the three preimages out of private storage a
 
 On `APPROVE FOR STUDENTS`, continue in this same task with student activation, live true-student QA, the runtime-lock update, final Lease V2 closeout, and the final handoff. Do not activate students before that explicit approval.
 
-READY FOR FOUNDER VISUAL APPROVAL
+## Founder Steer — Same-Composition AAA Morph Polish
+
+### Controlling steer and custody
+
+Brian's active-task `NEEDS TUNING` steer applies to this same
+`MX-DASH-6010B` task, thread, worktree, branch, and administrator canary.
+It explicitly supersedes the earlier progress-0 requirement for exact pixels
+from the historical pencil crop when those pixels prevent geometric
+registration. The production idle endpoint may now be a deterministic,
+non-generative pencil rendering of the exact cinematic crop. The cinematic
+endpoint remains the exact approved cinematic crop.
+
+No new ticket or branch was created. Student-wide activation remains OFF.
+The three original approved source boards, the sixteen historical exact crops,
+and `crop-manifest.json` remain present and unchanged. Their controlling
+source hashes remain:
+
+- cinematic board: `7630178b303241bc23d61005581d1b7673e18809dd3715c8db55bf123d623382`;
+- pencil style board: `d1a0e5bb4195a0fe0959b9537e4671b36e6ca684b34c843bb2d9bcfc8204a2a8`;
+- motion-direction board: `dbcb2d193baa409b7b48000eb24e1bfc06d51af694330c1082abb35d1a7941f8`; and
+- historical crop/UV manifest: `f8e99e39ab29a7b6bfff629bfd3edc8525aea034be60dc4abd3dc564b85d88bf`.
+
+No AI-generated or AI-regenerated image asset was used.
+
+### Deterministic registered-pencil derivation
+
+The standard-library-only build helper
+`tests/mx-dash-6010b/locked_art_tool.py` now supplies `derive` and
+`verify-derived`. Derivation version
+`mx-dash-6010b-registered-graphite-v5` uses BT.709 luminance,
+deterministic q02/q98 shadow lift, multi-scale dark-line extraction, six-band
+tonal graphite, restrained directional hatching, and pencil-board-calibrated
+ivory paper/grain. The measured paper tone is `[233,229,223]`; deterministic
+grain amplitude is `2`. The approved pencil board is used only as the
+paper/hatch style source and keeps its exact SHA-256 above.
+
+There is no resampling or coordinate transform between a derived pencil image
+and its cinematic image. Each pair has the same decoded width and height,
+subject bounds, scale, position, perspective, and framing by construction.
+`REGISTERED_PENCIL_VERIFY_PASS cards=8 identity-registered=8`.
+
+Machine-readable derivation manifest:
+`assets/dashboard-v2/locked-art/derived-pencil-manifest.json`,
+SHA-256 `d2c3a0003acb12c857aee0de82c8bf47a28cd68246d82410a796b789d5df91de`.
+
+| Card | Dimensions | Derived pencil PNG SHA-256 | Preserved cinematic PNG SHA-256 |
+|---|---:|---|---|
+| HomeBase | `341x385` | `fc15a7b292d6095ffeb35c2d8a8e774c0905ca10622fd86a236963ed3bb7c05b` | `0961c33d17e95ffc53ab26fbd0228ac261774f17ca4c6b7a431487d1cea72e16` |
+| Calendar | `346x385` | `104535407a6022f53271526646afe995ffe22f2a5a0a8b6966d28eb3b8022292` | `d0e4dd8febe578e51bf86f748a6359fa681f769a96c5f017006a6c4f7df6aca3` |
+| Scheduler | `337x385` | `4428f376c9ec6e4af3902871ba9b846d127a3e6d43a246d465a43f80caf858b5` | `1d74993b50b8efb5b8cc04bf5ae0abcad8c2c5bbc26beaa9e84efa60986be1fc` |
+| StoryForge | `349x385` | `6120bdd9818ff8fab2d4bb2d47f67d4603392067d858935a2c632f9b7d821c40` | `df53e21cf51f450d81d8a726408b5a7be53557a4905937105c482b21fcce532d` |
+| IV Prep On-Call | `341x375` | `ac7cccb4e5ee3b6bf5e9ae8cf06c585afe22957b862a885a108f4071be62077e` | `6204776031ccc7b542c1245f528c1a9646f5df342acf929af3aafb60c563c33a` |
+| RISE | `346x375` | `2f17cbf7dfaa298b140b665712b74d8fddaf88da4a12477fab6ea4e959897ca3` | `ab5c393eb9b5938fb5ff6b42a0f21d0cfa84549fb95942aab2b2fdb92e898a6c` |
+| RankList IQ | `337x375` | `34fc404b35de4b62d56c48df34eacbcd617820cf1fcf25c453ec6af8216287dc` | `544f5a98c32f2d4c4f8ada517b6102434189a9246b1d0d73e63bb35fb6943d0d` |
+| LOR Studio | `349x375` | `a6f9c7b5704f9d1681a5b22f3a0ed52e95b3b825cec9fa4625457242600597ac` | `aa7ebd37541900b2fec139c73d028e0986684d8c90a08e991db4b58ee1b24ff9` |
+
+### Root cause and motion polish
+
+The previous smash-cut impression had three causes, so the prior
+reduced-motion diagnosis was PARTIAL:
+
+1. Brian's real Chrome/macOS profile reports
+   `prefers-reduced-motion: reduce`, intentionally selecting the 200 ms
+   fallback rather than WebGL.
+2. The two historical boards used independently composed scenes, so the
+   subject jumped even when the shader interpolated correctly.
+3. The prior diagonal threshold and displacement read as a wipe and made the
+   remaining alignment error more visible.
+
+The tuned 960 ms shader removes UV displacement and the dominant diagonal
+wipe. It uses normalized-UV four-octave value-noise regions, cubic progress,
+gamma-correct material mixing, persistent graphite contours, a restrained
+warm line-activation interval, progressive shadow/color materialization, and
+a short contrast settle. Exact endpoint early returns guarantee the registered
+pencil at 0 and exact cinematic pixels at 1. Initial canvas render is
+synchronous, eliminating black/stale-frame flash. Reverse uses the same
+timeline from current progress.
+
+An administrator-only review parameter,
+`mx_dash_6010b_motion=full`, bypasses reduced motion only when the
+server-resolved client is already an administrator on the active Matrix 2.0
+canary. Normal production behavior still honors
+`prefers-reduced-motion: reduce`; non-admin and anonymous requests do not
+receive the immutable polish asset, and the client also fails closed unless
+`experience === "matrix2"` and `is_admin === true`.
+
+Founder full-motion URL:
+`https://missionmedinstitute.com/hub/?mx_dash_6010b_motion=full#dashboard`
+
+Ordinary accessibility-respecting URL:
+`https://missionmedinstitute.com/hub/#dashboard`
+
+### Typography polish
+
+The exact cinematic image file is unchanged. Localized top and bottom scrims
+cover the baked-copy zones without covering central photographic subjects.
+Canonical, semantic DOM copy supplies the app name, perspective-aware
+subtitle, and support line. Scrim widths are tuned per card.
+
+At the live desktop grid, every title measured `26.356px`, weight `900`,
+and `rgb(255,255,255)`; subtitles measured white and support copy
+`rgb(248,251,255)`. Tested grid/mobile titles remain at least 23 px.
+The all-eight fit check requires no wrap, no overflow, and no clipping.
+Card semantics and the pre-existing accessible button label remain intact.
+
+### Intermediate evidence and QA
+
+The deterministic harness captures all eight cards at
+`0.00/0.20/0.40/0.60/0.80/1.00`. Each card produced six distinct pixel
+hashes. The 48 source frames are in
+`evidence/progress-frames/`.
+
+- all-eight contact sheet SHA-256:
+  `95b10a111ff66f52a5a697851500c23a654242d06b029babba3243c91f9e225c`;
+- HomeBase forward/reverse WebM: 2.133 seconds, 64 captured frames,
+  289,230 bytes, SHA-256
+  `a181570cb1bc54380fdf96e3240c55c178420af8e9a97e9cadba2f35c6b03851`;
+- tuned idle screenshot SHA-256:
+  `0b885c5fde8ae46f51dae4271b4099e650f49e4d9341a6df63c134b4d4b25d69`;
+- tuned midpoint screenshot SHA-256:
+  `c561724eb15f62bb3ca0cd0112dbec79968bc1cc4db0d282e32250a780cd62c7`;
+- tuned cinematic screenshot SHA-256:
+  `6f8f4e202931977061c4d36e0e27e926053c5bc05087f92952d4a67cb1b6df33`;
+- browser matrix JSON SHA-256:
+  `eb869c47626c08eac0cf9ff25d143e4b05c2abaa11a32e6c19ecdc5dabb78bf3`.
+
+The instrumented local browser matrix finished with `failures: []` and PASS
+for all endpoints, genuine intermediate states, identity registration,
+typography/contrast, all eight, forward/reverse, keyboard, reduced motion,
+Founder preview, WebGL fallback, stress/route cleanup, launch/detail/editor,
+image and copy-only overrides, true-student unchanged, Classic, exact
+`390x844`, and real-time video.
+
+The cold SwiftShader reference averaged `46.11 ms` with a
+`3,206 ms` cold compile; it is explicitly software/nonrepresentative.
+Stress exercised 130 transitions and 542 frames, maximum one context,
+60/60 resource sets released, and zero failures. Route cleanup recorded
+61/61 resource sets and one created/one disposed context. Exact `390x844`
+measured document width 390, card left 16/right 351.391/width 335.391,
+`16.958 ms` average (about 59 fps), `33.3 ms` max, maximum one context,
+1/1 resource sets released, zero failures, and `83.3 ms` compile.
+
+Live authenticated Chrome on Brian's actual reduced-motion profile proved:
+
+- the full-motion URL advanced Scheduler
+  `0.026 -> 0.173 -> 0.521 -> 1.000` over the 960 ms path with exactly
+  one live canvas and no fallback;
+- live reverse advanced
+  `0.748 -> 0.557 -> 0.201 -> 0.000` and released the canvas;
+- a live HomeBase DOM-progress sample changed every `8.57 ms` on average
+  with a `16 ms` maximum during the sampled motion segment (about 117 Hz);
+- all eight live cards referenced `pencil-registered/`, reported identical
+  pencil/cinematic natural dimensions, started WebGL without a fallback, and
+  never exceeded one canvas;
+- the ordinary URL on the same profile produced
+  `data-morph-fallback="reduced-motion"`, progress 1, and zero canvases;
+- the immutable `.6010b-polish.js` asset was present for the administrator;
+  anonymous full-motion requests received neither that asset nor registered
+  pencil canary markup; and
+- the only observed console errors remain the pre-existing unrelated
+  WordPress `@wordpress/api-fetch` unstable-API error recorded before this
+  mission; no Dashboard/morph error occurred.
+
+The prior authenticated live exact-`390x844` proof remains preserved in this
+handoff; the tuned code passed the same exact local viewport gate, and every
+deployed tuned source/media hash matched that tested commit.
+
+### Production and rollback
+
+Same administrator canary: LIVE. Student-wide activation: OFF.
+
+- source/remote tuning commit:
+  `9bd0cbc304013bcf8f9d855991f5604aee731d97`;
+- production/public polish JS:
+  `4fdcf13828e3eca0b5e6f7d3fae169e8aee0ab42589dfb01238675681ff6cbec`;
+- production/public polish CSS:
+  `d5bac8d5fbdbe67369d2ff54b50def51dca4a7240513ecdd6af0cf94310e46c7`;
+- production shared enqueue seam:
+  `17c2a89f64093468d4ee2424d1b6720c1af39adaba7cc9b4f2d76cfb212ac130`;
+- public manifest and all eight derived PNGs matched local source byte for
+  byte.
+
+The fresh private preimage/absence package is:
+`/www/theresidencyacademy_209/private/matrix-dashboard-backups/MX-DASH-6010B/20260904T025104Z-same-composition-polish`.
+Its five predecessor files pass `sha256sum -c`; its four-line absence ledger
+names the new polish JS/CSS, derived manifest, and registered-pencil directory.
+The runtime guard separately backed up and deployed the three protected files:
+`/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/MX-DASH-6010B/20260904T025134Z`.
+The guarded deploy verified origin and public hashes. Rollback is the exact
+three-file restore plus deletion of only the four additive mission-owned
+targets named in the absence ledger. No rollback was executed because every
+canary gate passed. Result: `ROLLBACK_PREIMAGE_AND_ABSENCE_LEDGER_PASS`.
+
+The Matrix runtime-lock manifest remains unchanged at this Founder-review
+stage. The established task defers any student activation and final runtime
+lock update until a fresh explicit `APPROVE FOR STUDENTS`.
+
+READY FOR FOUNDER VISUAL APPROVAL — SAME-COMPOSITION MORPH POLISH COMPLETE
