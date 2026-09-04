@@ -108,6 +108,14 @@
     var p = (cfg.products || {})[productKey];
     if (!p) return null;
 
+    // Production renders the current Woo variation price as the active amount.
+    // Planned future prices remain in the canonical table for explanatory copy,
+    // but displayed/charged truth can never drift.
+    if (cfg.production && cfg.production.woo_price_authoritative &&
+        typeof p.runtime_woo_price === 'number') {
+      return p.runtime_woo_price;
+    }
+
     // Flat-priced products (PS tiers) carry `price`, not a pricing table.
     if (typeof p.price === 'number') return p.price;
     if (!p.pricing) return null;

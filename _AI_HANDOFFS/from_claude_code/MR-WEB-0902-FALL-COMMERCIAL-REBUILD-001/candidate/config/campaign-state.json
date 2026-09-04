@@ -145,9 +145,10 @@
       "job_statement": "Stay with me through interview season.",
       "public_capacity": 5,
       "upgrade_reserved_capacity": 2,
-      "woo_product_id": null,
-      "add_to_cart_url": null,
-      "_BLOCKED": "woo_product_id and add_to_cart_url CANNOT be filled from this worktree \u2014 see 02_RISK_AND_CONFLICT_LEDGER.md P0-1/P0-2. Codex must supply."
+      "woo_product_id": 3576,
+      "woo_variation_id": 5865,
+      "learndash_course_id": 5227,
+      "add_to_cart_url": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date"
     },
     "iv_prep_essentials": {
       "public_name": "IV Prep Essentials",
@@ -174,9 +175,10 @@
       "upgrade_path": {
         "ref": "essentials_to_complete"
       },
-      "woo_product_id": null,
-      "add_to_cart_url": null,
-      "_BLOCKED": "Same as above."
+      "woo_product_id": 5504,
+      "woo_variation_id": 5867,
+      "learndash_course_id": 3646,
+      "add_to_cart_url": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date"
     },
     "ps_intensive_priority": {
       "public_name": "Personal Statement Intensive \u2014 Priority",
@@ -237,6 +239,8 @@
     },
     "match_mentorship_360": {
       "public_name": "360 Match Mentorship",
+      "woo_product_id": 3575,
+      "learndash_course_id": 3893,
       "available": false,
       "tier": "premium_anchor",
       "render": "VISIBLE_BUT_CLOSED",

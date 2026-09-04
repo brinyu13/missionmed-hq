@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mission Residency — MissionMed Institute (candidate V2)</title>
+<title>Mission Residency — MissionMed Institute</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://cdn.missionmedinstitute.com">
@@ -111,7 +111,7 @@
     <h2>Pick the version that<br>fits where you are.</h2>
     <p class="v-lede" style="color:var(--v-paper-ink2)" id="programs-lede"></p>
     <div class="v-grid v-grid--3" id="programs-grid" style="margin-top:48px"></div>
-    <p style="margin-top:34px"><a class="v-btn v-btn--text" href="compare.html">Compare all three side by side &rarr;</a></p>
+    <p style="margin-top:34px"><a class="v-btn v-btn--text" href="#programs">Compare all three side by side &rarr;</a></p>
   </div>
 </section>
 
@@ -235,7 +235,7 @@ MMBoot(function (cfg, state) {
 
   grid.appendChild(V.programCard(cfg, 'iv_prep_essentials', state, {
     paper: true, placement: 'mr_programs',
-    href: 'checkout-boundary.html?product=iv_prep_essentials',
+    href: 'https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date',
     cta: 'Enroll in IV Prep Essentials',
     pitch: '“Teach me how to interview.” A focused block that gives you the framework.',
     features: ['Full live Foundation/core training', '1 Signature Mock Interview',
@@ -245,7 +245,7 @@ MMBoot(function (cfg, state) {
 
   grid.appendChild(V.programCard(cfg, 'iv_prep_complete', state, {
     hero: true, flag: 'Most chosen', placement: 'mr_programs',
-    href: 'checkout-boundary.html?product=iv_prep_complete',
+    href: 'https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date',
     cta: 'Enroll in IV Prep Complete',
     pitch: '“Stay with me through interview season.” The full-season preparation system.',
     features: ['Everything in IV Prep Essentials', mock.public_label]
@@ -333,8 +333,8 @@ MMBoot(function (cfg, state) {
     document.getElementById('close-p').textContent =
       'Most applicants pick Complete. If an interview is already close and you need the framework fast, start with Essentials.';
     close.innerHTML =
-      '<a class="v-btn v-btn--gold" href="checkout-boundary.html?product=iv_prep_complete">Enroll in IV Prep Complete</a>' +
-      '<a class="v-btn v-btn--glass" href="compare.html">Compare the programs</a>';
+      '<a class="v-btn v-btn--gold" href="https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date">Enroll in IV Prep Complete</a>' +
+      '<a class="v-btn v-btn--glass" href="#programs">Compare the programs</a>';
   } else {
     document.getElementById('close-h').textContent = 'Enrollment is closed for now.';
     document.getElementById('close-p').textContent = 'Tell us you are applying next cycle and we will let you know when enrollment opens.';

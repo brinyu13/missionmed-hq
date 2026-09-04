@@ -40,7 +40,7 @@
       one Signature Mock Interview, and two observer-only Complete practice nights. Choose
       <b>Complete</b> if you want advanced live curriculum, four Signature Mock Interviews,
       monthly live hot-seats, and support through interview season.</p>
-    <p style="margin-top:22px"><a class="v-btn v-btn--ink" href="mission-residency.html">Back to programs</a></p>
+    <p style="margin-top:22px"><a class="v-btn v-btn--ink" href="/mission-residency/">Back to programs</a></p>
   </div>
 </section>
 
@@ -113,7 +113,7 @@ MMBoot(function (cfg, state) {
     var v = C.visibility(cfg, k, state);
     var inner = v.render === 'OPEN'
       ? '<a class="v-btn ' + (k === 'iv_prep_complete' ? 'v-btn--gold' : 'v-btn--glass') +
-        '" href="checkout-boundary.html?product=' + k + '">Enroll</a>'
+        '" href="' + cfg.products[k].add_to_cart_url + '">Enroll</a>'
       : '<span class="is-closed">' + (cfg.products[k].future ? cfg.products[k].future.cta_label : 'Closed') + '</span>';
     return '<td data-label="' + names[i] + '">' + inner + '</td>';
   }).join('');

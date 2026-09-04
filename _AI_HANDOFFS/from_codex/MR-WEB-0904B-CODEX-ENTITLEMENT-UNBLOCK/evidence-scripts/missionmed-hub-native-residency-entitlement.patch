@@ -1,0 +1,54 @@
+--- missionmed-hub.php.before
++++ missionmed-hub.php.after
+@@ -726,12 +726,46 @@
+             }
+         }
+ 
+-        if ( function_exists( 'ld_update_course_access' ) && ! empty( $mapping['course_id'] ) ) {
+-            ld_update_course_access( $user_id, (int) $mapping['course_id'] );
+-        }
++        /*
++         * Residency commerce uses the official LearnDash WooCommerce integration
++         * as its sole course-access authority. That integration owns account
++         * enforcement, order-id counters, duplicate-event idempotency, and
++         * refund/cancel revocation. MissionMed Hub retains its independent
++         * enrollment-task behavior, and its historical direct access fallback
++         * only for non-Residency divisions.
++         */
++        $is_residency_mapping = 'residency' === ( $mapping['division'] ?? '' );
+ 
+-        if ( function_exists( 'ld_update_group_access' ) && ! empty( $mapping['group_id'] ) ) {
+-            ld_update_group_access( $user_id, (int) $mapping['group_id'] );
++        if ( $is_residency_mapping ) {
++            $expected_course_id = absint( $mapping['course_id'] ?? 0 );
++            $native_course_ids  = array();
++
++            foreach ( array_reverse( $item_product_ids ) as $product_id ) {
++                $native_course_ids = array_merge(
++                    $native_course_ids,
++                    array_map( 'absint', (array) get_post_meta( $product_id, '_related_course', true ) )
++                );
++            }
++
++            $native_course_ids = array_values( array_unique( array_filter( $native_course_ids ) ) );
++
++            if ( ! $expected_course_id || ! in_array( $expected_course_id, $native_course_ids, true ) ) {
++                error_log( sprintf(
++                    'MissionMed Hub blocked Residency fallback grant: order=%d products=%s expected_course=%d native_courses=%s',
++                    absint( $order_id ),
++                    implode( ',', $item_product_ids ),
++                    $expected_course_id,
++                    implode( ',', $native_course_ids )
++                ) );
++            }
++        } else {
++            if ( function_exists( 'ld_update_course_access' ) && ! empty( $mapping['course_id'] ) ) {
++                ld_update_course_access( $user_id, (int) $mapping['course_id'] );
++            }
++
++            if ( function_exists( 'ld_update_group_access' ) && ! empty( $mapping['group_id'] ) ) {
++                ld_update_group_access( $user_id, (int) $mapping['group_id'] );
++            }
+         }
+ 
+         if ( $should_fire_template ) {

@@ -323,9 +323,9 @@
      "89.1% MATCH RATE · 3,000+ TRAINED SINCE 2009". That figure is unsupported
      and contradicts the same page's own footer ("since 2015"). */
   var NAV = [
-    { label: 'Home',              href: 'home-corporate.html',    key: 'home' },
+    { label: 'Home',              href: 'https://missionmedinstitute.com/',    key: 'home' },
     { label: 'ExamPrep',          href: 'https://missionmedinstitute.com/examprep/', key: 'examprep' },
-    { label: 'Mission Residency', href: 'mission-residency.html', key: 'mr' },
+    { label: 'Mission Residency', href: 'https://missionmedinstitute.com/mission-residency/', key: 'mr' },
     { label: 'USCE',              href: 'https://missionmedinstitute.com/usce/', key: 'usce' },
     { label: 'Arena',             href: 'https://missionmedinstitute.com/homepage-arena/', key: 'arena' }
   ];
@@ -340,7 +340,7 @@
 
     var head = el('header', { class: 'v-head' });
     head.innerHTML =
-      '<a class="v-head__logo" href="home-corporate.html" aria-label="MissionMed Institute — home">' +
+      '<a class="v-head__logo" href="https://missionmedinstitute.com/" aria-label="MissionMed Institute — home">' +
         '<img src="' + ASSETS.logo + '" alt="MissionMed Institute"></a>' +
       '<button class="v-head__burger" type="button" aria-expanded="false" aria-label="Open menu">' +
         icon('menu') + '</button>' +
@@ -374,20 +374,20 @@
             '<p class="v-meta" style="max-width:30ch">Residency interview preparation, exam preparation and US clinical experience for international and osteopathic applicants.</p>' +
           '</div>' +
           '<div><h4>Divisions</h4><ul>' +
-            '<li><a href="mission-residency.html">Mission Residency</a></li>' +
+            '<li><a href="https://missionmedinstitute.com/mission-residency/">Mission Residency</a></li>' +
             '<li><a href="https://missionmedinstitute.com/examprep/">Dr J&rsquo;s Exam Prep</a></li>' +
             '<li><a href="https://missionmedinstitute.com/usce/">Mission: Clinicals</a></li>' +
           '</ul></div>' +
           '<div><h4>Programs</h4><ul>' +
-            '<li><a href="program-complete.html">IV Prep Complete</a></li>' +
-            '<li><a href="program-essentials.html">IV Prep Essentials</a></li>' +
-            '<li><a href="program-360.html">360 Match Mentorship</a></li>' +
-            '<li><a href="program-ps.html">Personal Statement Intensive</a></li>' +
+            '<li><a href="https://missionmedinstitute.com/mission-residency/#programs">IV Prep Complete</a></li>' +
+            '<li><a href="https://missionmedinstitute.com/mission-residency/#programs">IV Prep Essentials</a></li>' +
+            '<li><a href="https://missionmedinstitute.com/mission-residency/#match_mentorship_360">360 Match Mentorship</a></li>' +
+            '<li><a href="https://missionmedinstitute.com/mission-residency/#ps">Personal Statement Intensive</a></li>' +
           '</ul></div>' +
           '<div><h4>Deciding</h4><ul>' +
-            '<li><a href="compare.html">Compare programs</a></li>' +
-            '<li><a href="payment.html">Ways to pay</a></li>' +
-            '<li><a href="mission-residency.html#faq">FAQ</a></li>' +
+            '<li><a href="https://missionmedinstitute.com/mission-residency/#programs">Compare programs</a></li>' +
+            '<li><a href="https://missionmedinstitute.com/mission-residency/#payment">Ways to pay</a></li>' +
+            '<li><a href="https://missionmedinstitute.com/mission-residency/#faq">FAQ</a></li>' +
           '</ul></div>' +
         '</div>' +
         '<p class="v-foot__legal">MissionMed Institute &middot; Mission Global Group LLC &middot; Concierge hours Mon&ndash;Sat 9a&ndash;7p ET' +

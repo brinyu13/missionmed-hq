@@ -19,8 +19,8 @@
     <h2 id="close-h">Still deciding?</h2>
     <p class="v-lede" style="margin:0 auto 30px">See how this compares with the other Mission Residency programs.</p>
     <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
-      <a class="v-btn v-btn--glass" href="compare.html">Compare the programs</a>
-      <a class="v-btn v-btn--glass" href="mission-residency.html#faq">Read the FAQ</a>
+      <a class="v-btn v-btn--glass" href="/mission-residency/#programs">Compare the programs</a>
+      <a class="v-btn v-btn--glass" href="/mission-residency/#faq">Read the FAQ</a>
     </div>
   </div>
 </section>
@@ -51,7 +51,7 @@ MMBoot(function (cfg, state) {
       cta.appendChild(V.el('span', { class: 'v-btn v-btn--glass', 'aria-disabled': 'true', text: 'Enrollment closed' }));
     }
   } else {
-    var e = V.el('a', { class: 'v-btn v-btn--gold', href: 'checkout-boundary.html?product=' + KEY,
+    var e = V.el('a', { class: 'v-btn v-btn--gold', href: p.add_to_cart_url || '#',
                         text: 'Enroll' });
     e.addEventListener('click', function () {
       V.track(KEY === 'iv_prep_complete' ? 'complete_cta_click' : 'essentials_cta_click',

@@ -12,7 +12,8 @@
 (function () {
   'use strict';
 
-  var qs = new URLSearchParams(location.search);
+  var production = window.MM_PRODUCTION === true;
+  var qs = production ? new URLSearchParams() : new URLSearchParams(location.search);
 
   // Preview-only overrides.
   var FORCE = {
@@ -30,6 +31,7 @@
   };
 
   function applyPreviewOverrides(cfg) {
+    if (production) return { cfg: cfg, at: null, forced: null };
     if (!FORCE.state) return { cfg: cfg, at: FORCE.at || null, forced: null };
     var clone = JSON.parse(JSON.stringify(cfg));
     if (FORCE.state === 'P') {
@@ -48,6 +50,7 @@
      the dismissal sticks for the session. Removed at productionization along
      with applyPreviewOverrides() and the ?state=/?at= parameters. */
   function previewBar(state, forced) {
+    if (production) return;
     try { if (sessionStorage.getItem('mm_pv_hidden') === '1') return; } catch (e) {}
 
     var bar = document.createElement('div');
@@ -96,7 +99,7 @@
   }
 
   window.MMBoot = function (render) {
-    fetch('../config/campaign-state.json')
+    fetch(window.MM_CONFIG_URL || '../config/campaign-state.json')
       .then(function (r) {
         if (!r.ok) throw new Error('config HTTP ' + r.status);
         return r.json();
