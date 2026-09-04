@@ -79,6 +79,18 @@
 		return out;
 	}
 	const appOf = (id) => state.apps[id];
+	const ACCESS_ALIASES = Object.freeze({ 'lor-studio': 'lor', lor: 'lor', ranklistiq: 'ranklist' });
+	function accessFor(id) {
+		const access = app.access && app.access.apps && typeof app.access.apps === 'object' ? app.access.apps : {};
+		const key = ACCESS_ALIASES[id] || id;
+		return access[key] && typeof access[key] === 'object' ? access[key] : null;
+	}
+	function isAllowed(id) { const value = accessFor(id); return !value || value.allowed === true; }
+	function accessLaunch(id) { const value = accessFor(id); return value && value.allowed === true ? String(value.launch_url || '') : ''; }
+	function lockCopy(id) {
+		const value = accessFor(id);
+		return value && value.released === false ? 'Coming soon' : 'Available with a qualifying MissionMed program';
+	}
 
 	/* Search routing — deterministic keyword tables (no AI implied). */
 	const ROUTES = [
@@ -193,9 +205,11 @@
 	function cardHTML(a, uid, admin) {
 		const sub = admin ? (a.adminSub || a.sub) : a.sub;
 		const locked = !!lockedArtURL(a, 'pencil');
+		const entitlementLocked = !isAllowed(a.id);
 		return `<div class="mmdv2-card-wrap">
-			<button type="button" class="mmdv2-card${locked ? ' mmdv2-card-locked' : ''}" data-open="${a.id}"${locked ? ` data-morph-card="${esc(a.id)}"` : ''} style="--hue:${esc(a.hue || '#ffb340')};--mmdv2-morph-progress:0" aria-label="${esc(a.name)} — ${esc(sub)}">
+			<button type="button" class="mmdv2-card${locked ? ' mmdv2-card-locked' : ''}${entitlementLocked ? ' mmdv2-entitlement-locked' : ''}" data-open="${a.id}"${locked ? ` data-morph-card="${esc(a.id)}"` : ''} style="--hue:${esc(a.hue || '#ffb340')};--mmdv2-morph-progress:0" aria-label="${esc(a.name)} — ${entitlementLocked ? 'Locked — ' : ''}${esc(sub)}"${entitlementLocked ? ' aria-haspopup="dialog"' : ''}>
 				<span class="mmdv2-media">${mediaHTML(a, uid, 'card')}</span>
+				${entitlementLocked ? '<span class="mmdv2-access-badge" aria-hidden="true">🔒 Locked</span>' : ''}
 				${locked && a.edited ? `<span class="mmdv2-custom-copy"><span class="mmdv2-custom-title">${esc(a.name)}</span><span class="mmdv2-custom-sub">${esc(sub)}</span></span>` : ''}
 				<span class="mmdv2-scrim"></span>
 				<span class="mmdv2-cat">${esc(a.cat)}</span>
@@ -260,7 +274,7 @@
 		const featuredRoutes = new Set(FEATURED.map((id) => (appOf(id).launch || '').replace(/^#/, '')));
 		items = items.filter((it) => !featuredRoutes.has(it.route));
 		return `<div class="mmdv2-sechead"><h2 class="mmdv2-h2">Everything else in Matrix</h2><span class="mmdv2-tag">${items.length} more</span></div>
-		<div class="mmdv2-catalog">${items.map((it) => `<a class="mmdv2-acard" href="${it.launchUrl ? esc(it.launchUrl) : '#' + esc(it.route)}"><span class="mmdv2-ic">${esc(it.icon || it.label.charAt(0))}</span><span><span class="mmdv2-anm">${esc(it.label)}</span><span class="mmdv2-asub">${esc(MODULE_SUBS[it.route] || (it.section ? it.section + ' · Matrix app' : 'Matrix app'))}</span></span></a>`).join('')}</div>`;
+		<div class="mmdv2-catalog">${items.map((it) => { const locked = !isAllowed(it.route); return `<a class="mmdv2-acard${locked ? ' is-locked' : ''}" href="${locked ? '#dashboard' : (it.launchUrl ? esc(it.launchUrl) : '#' + esc(it.route))}"${locked ? ` data-catalog-locked="${esc(it.route)}" aria-disabled="true"` : ''}><span class="mmdv2-ic">${esc(it.icon || it.label.charAt(0))}</span><span><span class="mmdv2-anm">${esc(it.label)}${locked ? ' · Locked' : ''}</span><span class="mmdv2-asub">${esc(MODULE_SUBS[it.route] || (it.section ? it.section + ' · Matrix app' : 'Matrix app'))}</span></span></a>`; }).join('')}</div>`;
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -283,6 +297,7 @@
 		if (et) { et.addEventListener('click', () => { state.editMode = !state.editMode; renderDashboard(); toast(state.editMode ? 'Edit mode on — click ✎ Edit on any card.' : 'Edit mode off.'); }); }
 		$$('[data-exp]', el).forEach((b) => b.addEventListener('click', () => setExperience(b.getAttribute('data-exp'))));
 		el.addEventListener('click', (e) => {
+			const locked = e.target.closest('[data-catalog-locked]'); if (locked) { e.preventDefault(); toast(`<b>${esc(locked.querySelector('.mmdv2-anm').textContent.replace(/ · Locked$/, ''))}</b> is locked for this account. Open its featured card to learn more.`); return; }
 			const open = e.target.closest('[data-open]'); if (open) { openDetail(open.getAttribute('data-open')); return; }
 			const ed = e.target.closest('[data-editapp]'); if (ed) { openEditor(ed.getAttribute('data-editapp')); }
 		});
@@ -321,10 +336,11 @@
 			box.innerHTML = `<div class="mmdv2-rlbl">Today, in order</div>${lines.length ? lines.join('') : '<div class="mmdv2-rempty">Nothing scheduled or due — a good day for interview practice.</div>'}<div class="mmdv2-rrel"><button type="button" data-open="ivprep"><span class="mmdv2-sw" style="background:${esc(appOf('ivprep').hue)}"></span>IV Prep On-Call</button><button type="button" data-open="storyforge"><span class="mmdv2-sw" style="background:${esc(appOf('storyforge').hue)}"></span>StoryForge</button></div>`;
 			box.classList.add('open'); return;
 		}
-		box.innerHTML = `<div class="mmdv2-rlbl">Best match</div>
+		const locked = !isAllowed(a.id);
+		box.innerHTML = `<div class="mmdv2-rlbl">Best match${locked ? ' · Locked' : ''}</div>
 			<div class="mmdv2-rbest"><span class="mmdv2-rthumb">${mediaHTML(a, 'rb' + a.id, 'card')}</span>
 				<span><span class="mmdv2-rnm">${esc(a.name)}</span><span class="mmdv2-rsub">${esc(a.sub)}</span><span class="mmdv2-rwhy">${esc(res.why)}</span></span>
-				<span class="mmdv2-racts"><button type="button" class="mmdv2-btn mmdv2-btn-p mmdv2-btn-s" data-launch="${a.id}">${esc(a.cta)}</button><button type="button" class="mmdv2-btn mmdv2-btn-ghost mmdv2-btn-s" data-open="${a.id}">What is it?</button></span></div>
+				<span class="mmdv2-racts"><button type="button" class="mmdv2-btn mmdv2-btn-p mmdv2-btn-s${locked ? ' is-locked' : ''}" data-launch="${a.id}"${locked ? ' aria-disabled="true"' : ''}>${locked ? 'Locked' : esc(a.cta)}</button><button type="button" class="mmdv2-btn mmdv2-btn-ghost mmdv2-btn-s" data-open="${a.id}">What is it?</button></span></div>
 			${res.related.length ? `<div class="mmdv2-rrel"><span class="mmdv2-rlbl">Also related</span>${res.related.map((id) => `<button type="button" data-open="${id}"><span class="mmdv2-sw" style="background:${esc(appOf(id).hue)}"></span>${esc(appOf(id).name)}</button>`).join('')}</div>` : ''}`;
 		box.classList.add('open');
 		$$('[data-launch]', box).forEach((b) => b.addEventListener('click', () => launch(b.getAttribute('data-launch'))));
@@ -335,8 +351,9 @@
 	/* ------------------------------------------------------------------ */
 	function launch(id) {
 		const a = appOf(id); if (!a) { return; }
+		if (!isAllowed(id)) { toast(`<b>${esc(a.name)}</b> is locked for this account. ${esc(lockCopy(id))}.`); return; }
 		closeDetail();
-		const target = (a.launch || '').trim();
+		const target = (accessLaunch(id) || a.launch || '').trim();
 		if (!target || target === '#dashboard') { const t = $('.mmdv2-today'); if (t) { t.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' }); } return; }
 		if (/^https?:\/\//i.test(target)) { window.location.href = target; return; }
 		const routeName = target.replace(/^#\/?/, '');
@@ -374,6 +391,7 @@
 		const a = appOf(id); if (!a) { return; }
 		state.detail = id;
 		const admin = state.isAdmin && state.perspective === 'admin';
+		const locked = !isAllowed(id);
 		const i = FEATURED.indexOf(id);
 		$('#mmdv2-ov .mmdv2-dlg').innerHTML = `
 			<div class="mmdv2-dart" style="--hue:${esc(a.hue || '#ffb340')}"><span class="mmdv2-media">${mediaHTML(a, 'd' + a.id, 'detail')}</span><span class="mmdv2-dscrim"></span>
@@ -386,7 +404,8 @@
 				<div class="mmdv2-dsec"><div class="mmdv2-dlb">How ${esc(a.name)} helps</div><p>${esc(a.how)}</p></div>
 				<div class="mmdv2-dsec"><div class="mmdv2-dlb">What you get</div><div class="mmdv2-bens">${(a.benefits || []).map((p) => `<div class="mmdv2-ben"><div class="mmdv2-benf">${esc(p[0])}</div><div class="mmdv2-benb">${esc(p[1])}</div></div>`).join('')}</div></div>
 				<div class="mmdv2-outcome"><div class="mmdv2-dlb">After you use it</div><div class="mmdv2-outt">${esc(a.outcome)}</div>${a.when ? `<div class="mmdv2-outw">When to use it: ${esc(a.when)}</div>` : ''}</div>
-				<div class="mmdv2-dacts"><button type="button" class="mmdv2-btn mmdv2-btn-p mmdv2-btn-catch" data-launch="${a.id}">${esc(a.cta || 'Open')}</button>${a.cta2 ? `<button type="button" class="mmdv2-btn mmdv2-btn-ghost" data-launch="${a.id}">${esc(a.cta2)}</button>` : ''}<span class="mmdv2-dhint">← → browse · esc close</span></div>
+				${locked ? `<div class="mmdv2-access-note" role="status"><b>🔒 Locked for this account</b><span>${esc(lockCopy(id))}.</span></div>` : ''}
+				<div class="mmdv2-dacts"><button type="button" class="mmdv2-btn mmdv2-btn-p mmdv2-btn-catch${locked ? ' is-locked' : ''}" data-launch="${a.id}"${locked ? ' aria-disabled="true"' : ''}>${locked ? 'Locked' : esc(a.cta || 'Open')}</button>${a.cta2 && !locked ? `<button type="button" class="mmdv2-btn mmdv2-btn-ghost" data-launch="${a.id}">${esc(a.cta2)}</button>` : ''}<span class="mmdv2-dhint">← → browse · esc close</span></div>
 			</div>`;
 		const ov = $('#mmdv2-ov'); ov.classList.add('open'); document.body.classList.add('mmdv2-lock');
 		const c = $('.mmdv2-dclose', ov); if (c) { c.focus(); }

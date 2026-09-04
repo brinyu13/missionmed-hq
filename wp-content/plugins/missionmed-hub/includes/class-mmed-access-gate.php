@@ -6,9 +6,9 @@
  * gates Matrix modules accordingly, and provides an admin UI for
  * managing course-to-tier mappings.
  *
- * Access Tiers:
- *   - enrolled: Full Matrix access (enrolled in any MissionMed LearnDash course)
- *   - free:     Dashboard + Arena only (registered but not enrolled)
+ * Access is resolved per app. Registered users receive the Founder-approved
+ * baseline, verified 360 and IV Prep Complete users receive every released
+ * app, and existing stronger per-user or enrolled grants are preserved.
  *
  * @package MissionMed_Hub
  */
@@ -18,6 +18,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class MMED_Access_Gate {
+
+	/** Founder-approved registered-user access floor. */
+	const REGISTERED_BASELINE_MODULES = array( 'dashboard', 'profile', 'calendar', 'appointments', 'storyforge', 'rise', 'lor', 'lor-studio' );
+
+	/** Account/support surfaces that were already available to registered users. */
+	const REGISTERED_ACCOUNT_MODULES = array( 'orders', 'notifications', 'help' );
+
+	/** Routes the pre-6020 enrolled tier already opened in the active Matrix runtime. */
+	const LEGACY_ENROLLED_MODULES = array( 'scheduler', 'filevault', 'timeline', 'arena' );
 
 	/**
 	 * Option keys for admin settings.
@@ -199,8 +208,226 @@ class MMED_Access_Gate {
 	 * @return string[]
 	 */
 	public static function get_free_modules() {
-		$raw = get_option( self::OPTION_FREE_MODULES, 'dashboard,arena' );
-		return array_filter( array_map( 'trim', explode( ',', $raw ) ) );
+		$raw = get_option( self::OPTION_FREE_MODULES, '' );
+		return self::sanitize_module_list(
+			array_merge(
+				self::REGISTERED_BASELINE_MODULES,
+				self::REGISTERED_ACCOUNT_MODULES,
+				array_filter( array_map( 'trim', explode( ',', (string) $raw ) ) )
+			)
+		);
+	}
+
+	/**
+	 * Resolve the two verified programs that grant full released-app access.
+	 *
+	 * IDs come from the existing MissionMed product settings. No commerce or
+	 * enrollment identifier is introduced by this ticket.
+	 *
+	 * @return int[]
+	 */
+	public static function get_full_access_course_ids() {
+		$keys = array( 'mmed_course_360elite', 'mmed_course_complete' );
+		$ids  = array();
+		foreach ( $keys as $key ) {
+			$fallback = function_exists( 'mmed_hub_default_option_value' ) ? mmed_hub_default_option_value( $key ) : 0;
+			$ids[]    = absint( get_option( $key, $fallback ) );
+		}
+
+		return array_values( array_unique( array_filter( $ids ) ) );
+	}
+
+	/**
+	 * Return all current LearnDash course grants for a user.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return int[]
+	 */
+	public static function get_user_course_ids( $user_id ) {
+		$user_id = absint( $user_id );
+		if ( ! $user_id ) {
+			return array();
+		}
+
+		$ids = array();
+		if ( function_exists( 'learndash_user_get_enrolled_courses' ) ) {
+			$enrolled = learndash_user_get_enrolled_courses( $user_id );
+			$ids      = is_array( $enrolled ) ? array_map( 'absint', $enrolled ) : array();
+		}
+
+		// Group-derived current access may not appear in the direct enrollment list.
+		if ( function_exists( 'sfwd_lms_has_access' ) ) {
+			foreach ( self::get_enrolled_course_ids() as $course_id ) {
+				if ( sfwd_lms_has_access( $course_id, $user_id ) ) {
+					$ids[] = $course_id;
+				}
+			}
+		}
+
+		return array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+	}
+
+	/**
+	 * Whether the user is in a Founder-approved full-access program.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return bool
+	 */
+	public static function user_has_full_access( $user_id ) {
+		$user_id = absint( $user_id );
+		if ( self::is_admin_full_access( $user_id ) ) {
+			return true;
+		}
+
+		return ! empty( array_intersect( self::get_user_course_ids( $user_id ), self::get_full_access_course_ids() ) );
+	}
+
+	/**
+	 * Normalize aliases used by older Matrix clients and live product routes.
+	 *
+	 * @param string $route Candidate route.
+	 * @return string
+	 */
+	public static function normalize_app_route( $route ) {
+		$route = sanitize_key( str_replace( '-', '_', preg_replace( '/^#\/?/', '', (string) $route ) ) );
+		$aliases = array(
+			'lor_writer' => 'lor',
+			'lor_studio' => 'lor',
+			'file_vault' => 'filevault',
+			'ranklistiq' => 'ranklist',
+			'my_appointments' => 'appointments',
+		);
+
+		return isset( $aliases[ $route ] ) ? $aliases[ $route ] : $route;
+	}
+
+	/**
+	 * Current discovery catalog. A disabled item remains visible but can never
+	 * be opened by a full-access tier.
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	public static function get_app_catalog() {
+		$rise_url = add_query_arg(
+			array( 'action' => 'mmed_rise_auth_redirect', 'final' => '/rise/' ),
+			admin_url( 'admin-post.php' )
+		);
+		$ivprep_origin = 'https://missionmed-hq-production.up.railway.app';
+		$ivprep_url    = add_query_arg( 'final', $ivprep_origin . '/iv-prep-analytics/', $ivprep_origin . '/api/auth/start' );
+
+		return array(
+			'dashboard'     => array( 'name' => 'Dashboard Home', 'released' => true, 'launch_url' => '#dashboard' ),
+			'profile'       => array( 'name' => 'My Profile', 'released' => true, 'launch_url' => '#profile' ),
+			'homebase'      => array( 'name' => 'HomeBase', 'released' => true, 'launch_url' => '#dashboard' ),
+			'calendar'      => array( 'name' => 'Calendar', 'released' => true, 'launch_url' => '#calendar' ),
+			'appointments'  => array( 'name' => 'My Appointments', 'released' => true, 'launch_url' => '#appointments' ),
+			'storyforge'    => array( 'name' => 'StoryForge', 'released' => true, 'launch_url' => '#storyforge' ),
+			'rise'          => array( 'name' => 'RISE', 'released' => true, 'launch_url' => esc_url_raw( $rise_url ) ),
+			'lor'           => array( 'name' => 'LOR Studio', 'released' => true, 'launch_url' => 'https://missionmed-hq-production.up.railway.app/api/lor-studio/auth/start' ),
+			'scheduler'     => array( 'name' => 'Scheduler', 'released' => true, 'launch_url' => '#scheduler' ),
+			'filevault'     => array( 'name' => 'File Vault', 'released' => true, 'launch_url' => '#filevault' ),
+			'timeline'      => array( 'name' => 'Timeline Builder', 'released' => true, 'launch_url' => '#timeline' ),
+			'arena'         => array( 'name' => 'Arena', 'released' => true, 'launch_url' => '#arena' ),
+			'ranklist'      => array( 'name' => 'RankList IQ', 'released' => true, 'launch_url' => '#ranklist' ),
+			'ivprep'        => array( 'name' => 'IV Prep On-Call', 'released' => true, 'launch_url' => esc_url_raw( $ivprep_url ) ),
+			'cam'           => array( 'name' => 'CAM Interview', 'released' => false, 'launch_url' => '' ),
+			'courses'       => array( 'name' => 'My Match Training', 'released' => true, 'launch_url' => '#courses' ),
+			'orders'        => array( 'name' => 'Orders', 'released' => true, 'launch_url' => '#orders' ),
+			'notifications' => array( 'name' => 'Notifications', 'released' => true, 'launch_url' => '#notifications' ),
+			'help'          => array( 'name' => 'Help', 'released' => true, 'launch_url' => '#help' ),
+			'study'         => array( 'name' => 'Study Schedule', 'released' => true, 'launch_url' => '#study' ),
+			'messages'      => array( 'name' => 'Med Messenger', 'released' => false, 'launch_url' => '#messages' ),
+			'drjlivedrills' => array( 'name' => 'Dr J Live Drills', 'released' => false, 'launch_url' => '' ),
+			'settings'      => array( 'name' => 'Settings', 'released' => false, 'launch_url' => '#settings' ),
+		);
+	}
+
+	/**
+	 * Preserve the dedicated Dr J restriction as a deny overlay.
+	 *
+	 * @param int    $user_id WordPress user ID.
+	 * @param string $route Normalized route.
+	 * @return bool
+	 */
+	private static function is_restricted_matrix_route( $user_id, $route ) {
+		if ( ! function_exists( 'mm_drj_drills_access_user_is_restricted' ) || ! mm_drj_drills_access_user_is_restricted( $user_id ) ) {
+			return false;
+		}
+		$config = function_exists( 'mm_drj_drills_access_config' ) ? mm_drj_drills_access_config() : array();
+		$locked = isset( $config['locked_matrix_routes'] ) ? (array) $config['locked_matrix_routes'] : array();
+
+		return in_array( $route, array_map( array( __CLASS__, 'normalize_app_route' ), $locked ), true );
+	}
+
+	/**
+	 * Authoritative app decision for route and API gates.
+	 *
+	 * @param int    $user_id WordPress user ID.
+	 * @param string $route App route.
+	 * @return array<string,mixed>
+	 */
+	public static function get_app_access( $user_id, $route ) {
+		$user_id = absint( $user_id );
+		$route   = self::normalize_app_route( $route );
+		$catalog = self::get_app_catalog();
+		$app     = isset( $catalog[ $route ] ) ? $catalog[ $route ] : array( 'name' => ucwords( str_replace( '_', ' ', $route ) ), 'released' => false, 'launch_url' => '' );
+		$allowed = false;
+		$reason  = 'authentication_required';
+
+		if ( $user_id > 0 ) {
+			if ( empty( $app['released'] ) ) {
+				$reason = 'not_released';
+			} elseif ( self::is_restricted_matrix_route( $user_id, $route ) ) {
+				$reason = 'restricted_role';
+			} elseif ( self::user_has_full_access( $user_id ) ) {
+				$allowed = true;
+				$reason  = self::is_admin_full_access( $user_id ) ? 'administrator' : 'full_access_program';
+			} else {
+				$grants = array_merge( self::REGISTERED_BASELINE_MODULES, self::REGISTERED_ACCOUNT_MODULES, self::get_user_allowed_modules( $user_id ) );
+				if ( 'enrolled' === self::get_tier( $user_id ) ) {
+					$grants = array_merge( $grants, self::LEGACY_ENROLLED_MODULES );
+				}
+				$grants = array_map( array( __CLASS__, 'normalize_app_route' ), $grants );
+				$allowed = in_array( $route, $grants, true );
+				$reason  = $allowed ? ( 'enrolled' === self::get_tier( $user_id ) ? 'existing_entitlement' : 'registered_baseline' ) : 'entitlement_required';
+			}
+		}
+
+		return array(
+			'visible'    => true,
+			'allowed'    => $allowed,
+			'released'   => ! empty( $app['released'] ),
+			'reason'     => $reason,
+			'name'       => (string) $app['name'],
+			'launch_url' => $allowed ? (string) $app['launch_url'] : '',
+		);
+	}
+
+	/**
+	 * Boolean gate used by direct-route and REST enforcement.
+	 *
+	 * @param int    $user_id WordPress user ID.
+	 * @param string $route App route.
+	 * @return bool
+	 */
+	public static function user_can_access_app( $user_id, $route ) {
+		$decision = self::get_app_access( $user_id, $route );
+		return true === $decision['allowed'];
+	}
+
+	/**
+	 * Complete browser-safe per-app discovery and authorization projection.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return array<string,array<string,mixed>>
+	 */
+	public static function get_matrix_apps( $user_id ) {
+		$apps = array();
+		foreach ( array_keys( self::get_app_catalog() ) as $route ) {
+			$apps[ $route ] = self::get_app_access( $user_id, $route );
+		}
+
+		return $apps;
 	}
 
 	/**
@@ -290,6 +517,10 @@ class MMED_Access_Gate {
 
 		return array(
 			'tier'              => $tier,
+			'access_level'      => $is_admin_full_access ? 'administrator' : ( self::user_has_full_access( $user_id ) ? 'full' : ( 'enrolled' === $tier ? 'existing_paid' : 'registered' ) ),
+			'dashboard'         => $user_id > 0,
+			'full_access'       => self::user_has_full_access( $user_id ),
+			'apps'              => self::get_matrix_apps( $user_id ),
 			'free_modules'      => $free_modules,
 			'is_enrolled'       => 'enrolled' === $tier,
 			'is_admin'          => $is_admin_full_access,
