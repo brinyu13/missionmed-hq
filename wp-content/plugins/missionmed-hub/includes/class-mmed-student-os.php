@@ -102,11 +102,12 @@ class MMED_Student_OS {
 			MMED_Dashboard_Experience::enqueue_assets();
 
 			/*
-			 * MX-DASH-6010B: the public CDN strips WordPress's `ver` query string,
-			 * so the administrator-only morph canary needs immutable filenames.
-			 * Students retain the established handles and bytes until Founder approval.
+			 * MX-DASH-6010B: Brian approved the locked-art morph for students.
+			 * Matrix 2 users receive immutable release filenames; Classic remains
+			 * untouched and administrator capabilities remain server-resolved.
 			 */
-			if ( current_user_can( 'manage_options' ) && 'matrix2' === MMED_Dashboard_Experience::resolve() ) {
+			if ( 'matrix2' === MMED_Dashboard_Experience::resolve() ) {
+				$is_dashboard_admin = current_user_can( 'manage_options' );
 				wp_dequeue_style( 'mmed-dashboard-v2-css' );
 				wp_deregister_style( 'mmed-dashboard-v2-css' );
 				wp_enqueue_style(
@@ -120,7 +121,7 @@ class MMED_Student_OS {
 				wp_deregister_script( 'mmed-dashboard-v2-js' );
 				wp_enqueue_script(
 					'mmed-dashboard-v2-js',
-					MMED_HUB_URL . 'assets/dashboard-v2/mmed-dashboard-v2.6010b-true-morph.js',
+					MMED_HUB_URL . 'assets/dashboard-v2/mmed-dashboard-v2.6010b-students.js',
 					array( 'mmed-student-os-js', 'mmed-dashboard-v2-art-js' ),
 					null,
 					true
@@ -128,7 +129,7 @@ class MMED_Student_OS {
 				wp_localize_script(
 					'mmed-dashboard-v2-js',
 					'mmedDashboardV2',
-					MMED_Dashboard_Experience::bootstrap( 'matrix2', false, true )
+					MMED_Dashboard_Experience::bootstrap( 'matrix2', false, $is_dashboard_admin )
 				);
 			}
 		}
