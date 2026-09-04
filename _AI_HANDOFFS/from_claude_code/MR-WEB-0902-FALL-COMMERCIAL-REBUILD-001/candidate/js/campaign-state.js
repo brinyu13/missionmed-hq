@@ -1,6 +1,6 @@
 /*!
  * MissionMed — Campaign State Engine
- * Ticket: MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001
+ * Ticket: MR-WEB-0904A-CODEX-P0-LAUNCH
  *
  * PURPOSE
  *   Resolve the active campaign state and expose every price / name / availability
@@ -9,7 +9,7 @@
  *
  * THE ANTI-STALE GUARANTEE
  *   State is derived from the clock on every render. When the Fall Access window
- *   closes at 2026-09-07T23:59:59-04:00, the site falls to STATE_B_STANDARD by
+ *   closes at 2026-09-12T23:59:59-04:00, the site falls to STATE_B_STANDARD by
  *   itself. Nobody has to remember to change anything. That is the whole point of
  *   this file: the July-deadline problem must not happen again.
  *
@@ -32,7 +32,7 @@
 
   /**
    * The current instant. Overridable so the founder preview can time-travel to the
-   * Sept 8 state without editing config, and so QA can assert state transitions.
+   * September 13 state without editing config, and so QA can assert state transitions.
    */
   function resolveNow(override) {
     if (override) {
@@ -63,24 +63,14 @@
       });
     }
 
-    // GATE 2 — no-flip floor. Missed the verification deadline => nothing publishes.
-    var floor = gate.no_flip_floor || {};
-    var floorDeadline = parse(floor.deadline);
-    if (floorDeadline && verified && verified > floorDeadline) {
-      return decorate(cfg, floor.on_miss || 'STATE_PRELAUNCH', now, {
-        reason: 'NO_FLIP_FLOOR_MISSED',
-        detail: 'Checkout was not verified by ' + floor.deadline + ', so no new prices publish.'
-      });
-    }
-
-    // GATE 3 — hard sales close.
+    // GATE 2 — hard sales close.
     var closeState = (cfg.states || {}).STATE_C_ENROLLMENT_CLOSED || {};
     var closeAt = parse(closeState.activates);
     if (closeAt && now >= closeAt) {
       return decorate(cfg, 'STATE_C_ENROLLMENT_CLOSED', now, { reason: 'SALES_CLOSED' });
     }
 
-    // GATE 4 — the Fall Access window itself.
+    // GATE 3 — the Fall Access window itself.
     var opens = parse(win.opens);
     var closes = parse(win.closes);
     if (opens && closes && now >= opens && now <= closes) {

@@ -13,29 +13,10 @@
 
 <div id="campaign"></div>
 
-<!-- ============================================================ SCOPE NOTE -->
-<section class="v-env v-env--dark" style="padding-block:34px">
-  <div class="v-wrap">
-    <div class="v-note" style="max-width:none">
-      <b>What this page is — and is not.</b>
-      This is the <b>seasonal layer only</b> for the corporate homepage (page&nbsp;3305), shown in
-      isolation. Two blocks are <b>added</b>; nothing existing is removed. The current hero,
-      the "This Is For You If" block, the video testimonials, the unmatched-cost ledger, the
-      program-director factor table, the mentors and the footer all stay exactly as they are.
-      <br><br>
-      The corporate homepage's job this season is <b>capture Match-season attention → establish
-      credibility → route the applicant into Mission Residency.</b> It deliberately carries
-      <b>no</b> pricing, comparison, payment UX, PS tiers or journey — those live on
-      <a class="v-btn v-btn--text" href="mission-residency.html" style="display:inline">/mission-residency/</a>.
-      All three divisions remain first-class.
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================ INSERT 1 — seasonal band -->
+<!-- ============================================================ seasonal Mission Residency route -->
 <section class="v-env v-env--deep" data-insert="1">
   <div class="v-wrap">
-    <span class="v-eyebrow">Insert 1 · directly above the existing hero</span>
+    <span class="v-eyebrow">Mission Residency · Fall 2026</span>
     <div class="v-split">
       <div>
         <h2 id="season-h">It is interview season.</h2>
@@ -54,32 +35,16 @@
   </div>
 </section>
 
-<!-- ============================================================ INSERT 2 — three divisions -->
+<!-- ============================================================ three divisions -->
 <section class="v-env v-env--dark" data-insert="2">
   <div class="v-wrap">
-    <span class="v-eyebrow">Insert 2 · after the existing proof block</span>
+    <span class="v-eyebrow">MissionMed Institute</span>
     <h2>Three divisions.<br>One institute.</h2>
     <p class="v-lede" style="margin-bottom:40px">
-      Mission Residency carries the visual priority this season because it is what is on the
-      clock. ExamPrep and Mission&nbsp;Clinicals stay first-class — today they are merchandised
-      nowhere in the homepage body, so this band is strictly more discoverable than the
-      current page, not less.
+      Mission Residency carries the visual priority during interview season. ExamPrep and
+      Mission&nbsp;Clinicals remain first-class divisions.
     </p>
     <div class="v-divband" id="divisions"></div>
-  </div>
-</section>
-
-<!-- ============================================================ STATS CORRECTION -->
-<section class="v-env v-env--paper">
-  <div class="v-wrap">
-    <span class="v-eyebrow">Correction · existing stat band</span>
-    <h2>Three numbers have to come off.</h2>
-    <p class="v-lede" style="color:var(--v-paper-ink2)">
-      The homepage's "Verified Alumni Stories" band currently publishes three figures that are
-      not supported. The band itself stays — the alumni stories under it are real and are the
-      best proof on the page.
-    </p>
-    <div class="v-grid v-grid--3" style="margin-top:36px" id="stats"></div>
   </div>
 </section>
 
@@ -89,6 +54,7 @@
 <script>
 MMBoot(function (cfg, state) {
   var V = MMVisual, C = MMCampaign;
+  V.mountChrome('home');
   document.getElementById('campaign').appendChild(V.campaignBar(cfg, state));
   document.getElementById('season-img').src = V.ASSETS.classShot;
 
@@ -102,14 +68,14 @@ MMBoot(function (cfg, state) {
   if (state.showCampaignBanner) {
     h.textContent = 'Fall Access Week is open.';
     p.innerHTML = 'Interview season is here. Mission Residency prepares IMGs, DOs and reapplicants ' +
-      'for residency interviews — and Fall Access tuition runs through September 7. ' +
+      'for residency interviews — and launch tuition runs through September 12. ' +
       'IV Prep Complete is <b style="color:var(--v-ink)">' +
       C.money(C.priceFor(cfg, 'iv_prep_complete', state, 'card')) + '</b> this week.';
-    meta.textContent = 'Standard tuition applies from September 8.';
+    meta.textContent = 'Standard tuition applies from September 13.';
   } else if (state.showEnrollCtas) {
     h.textContent = 'It is interview season.';
     p.textContent = 'Mission Residency prepares IMGs, DOs and reapplicants for residency interviews — ' +
-      'the framework, scored practice, and support that runs through the whole season.';
+      'the framework, Signature Mock Interviews, and support that runs through the whole season.';
     meta.textContent = '';
   } else {
     h.textContent = 'It is interview season.';
@@ -128,7 +94,7 @@ MMBoot(function (cfg, state) {
   // ---- three divisions. Mission Residency is prioritised, not exclusive.
   var DIV = [
     { key: 'mission_residency', name: 'Mission Residency', tag: 'In season now', now: true,
-      desc: 'Residency interview preparation — framework, scored practice, and full-season support.',
+      desc: 'Boutique, high-touch residency interview preparation with Signature Mock Interviews and full-season support.',
       href: 'mission-residency.html', go: 'Explore Mission Residency' },
     { key: 'examprep', name: "Dr J's Exam Prep", tag: 'Division', now: false,
       desc: 'USMLE and COMLEX preparation with live drills and Dr. Jastrzembski.',
@@ -148,20 +114,6 @@ MMBoot(function (cfg, state) {
             '</div>' });
     a.addEventListener('click', function () { V.track('division_click', { division: d.key }); });
     band.appendChild(a);
-  });
-
-  // ---- the three unsupported stats, and what replaces them
-  var host = document.getElementById('stats');
-  (cfg.claims.quarantined || []).filter(function (c) {
-    return /89\.1|191|24 yrs/.test(c.claim);
-  }).forEach(function (c) {
-    host.appendChild(V.el('article', { class: 'v-card js-reveal',
-      html: '<span class="v-status v-status--closed">Quarantined</span>' +
-            '<h3 style="margin-top:12px;font-size:1.3rem">' + c.claim + '</h3>' +
-            '<p class="v-body">' + c.reason + '</p>' +
-            '<p class="v-price__then" style="margin:0"><b>' +
-              (c.replacement ? 'Replace with: ' + c.replacement : 'No replacement — remove it.') +
-            '</b></p>' }));
   });
 
   V.initMotion();

@@ -1,10 +1,10 @@
 /*!
  * MissionMed — Visual System V2 renderer
- * Ticket: MR-WEB-0902 / correction MR-WEB-0902B
+ * Ticket: MR-WEB-0904A-CODEX-P0-LAUNCH
  *
  * Adds to the V1 data layer (campaign-state.js is unchanged and still the only
  * source of prices/names/availability): iconography, the Match Day video wall,
- * scroll reveals, and parallax.
+ * and restrained scroll reveals.
  *
  * ASSET POLICY
  *   Every media URL below is already published on missionmedinstitute.com and was
@@ -92,8 +92,8 @@
     }
     var closes = new Date(cfg.campaign.window.closes);
     var dt = closes.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/New_York' });
-    bar.innerHTML = '<strong>' + cfg.campaign.public_name + '</strong> &nbsp;·&nbsp; Fall Access tuition through ' +
-      dt + ', 11:59 PM ET. Standard tuition applies from September 8.';
+    bar.innerHTML = '<strong>Fall 2026 enrollment is open</strong> &nbsp;·&nbsp; Launch tuition through ' +
+      dt + ', 11:59 PM ET. Standard tuition applies from September 13.';
     track('fall_access_hero_impression', { campaign_id: cfg.campaign.id, state: state.key });
     return bar;
   }
@@ -118,7 +118,7 @@
       var stdCard = typeof std.all_rails === 'number' ? std.all_rails : std.card;
       if (typeof stdCard === 'number') {
         wrap.appendChild(el('p', { class: 'v-price__then',
-          html: 'Fall Access tuition through September 7. Standard tuition <b>' + C.money(stdCard) + '</b> from September 8.' }));
+          html: 'Launch tuition through September 12. Standard tuition <b>' + C.money(stdCard) + '</b> from September 13.' }));
       }
     } else if (C.bankAdvantage(cfg, key, state) > 0) {
       wrap.appendChild(el('p', { class: 'v-price__then',
@@ -161,7 +161,7 @@
     if (closed) {
       if (p.future) {
         foot.appendChild(el('p', { class: 'v-meta', style: 'margin-bottom:14px', text: p.future.factual_line }));
-        var b = el('a', { class: 'v-btn v-btn--glass v-btn--block', href: '#priority-interest', text: p.future.cta_label });
+        var b = el('a', { class: 'v-btn v-btn--glass v-btn--block', href: 'mailto:support@missionmedinstitute.com?subject=360%202027-28%20Priority%20Interest', text: p.future.cta_label });
         b.addEventListener('click', function () { track('priority_interest_360_click', {}); });
         foot.appendChild(b);
       } else {
@@ -247,7 +247,8 @@
 
     cfg.payments.hierarchy.forEach(function (opt) {
       if (opt.available === false) return;
-      var isBest = opt.rank === 1, isPlan = opt.rank === 3;
+      var isBest = opt.rank === 1, isPlan = opt.ref === 'missionmed_payment_plan';
+      var isBank = opt.price_ref === 'bank_transfer';
       var box = el('div', { class: 'v-pay__opt js-reveal' + (isBest ? ' v-pay__opt--best' : '') + (isPlan ? ' v-pay__opt--quiet' : '') });
       box.appendChild(el('div', { class: 'v-pay__eyebrow', text: opt.eyebrow }));
       box.appendChild(el('p', { class: 'v-pay__label', text: opt.label }));
@@ -257,21 +258,17 @@
         var a = el('a', { class: 'v-btn v-btn--text', href: '#admissions', text: plan.cta_label });
         a.addEventListener('click', function () { track('payment_plan_inquiry', { product: productKey }); });
         box.appendChild(a);
-        if (cfg.payments.affirm.available) {
-          box.appendChild(el('p', { class: 'v-pay__note', text: 'Affirm available for eligible U.S. residents.' }));
-        }
       } else {
-        var rail = opt.price_ref === 'bank_transfer' ? 'bank_transfer' : 'card';
+        var rail = isBank ? 'bank_transfer' : 'card';
         var amt = C.priceFor(cfg, productKey, state, rail);
         box.appendChild(el('div', { class: 'v-pay__amt', text: C.money(amt) }));
-        if (isBest) {
-          // Honest in both states: a dollar claim only when a spread exists.
+        if (isBank) {
           box.appendChild(el('span', { class: 'v-pay__save',
             text: adv > 0 ? C.money(adv) + ' less than paying by card.' : 'Fastest way to secure your seat this week.' }));
           box.appendChild(el('p', { class: 'v-pay__note', text: cfg.payments.bank_transfer_note }));
         }
         box.addEventListener('click', function () {
-          track(isBest ? 'payment_zelle_selected' : 'payment_card_selected', { product: productKey, price: amt });
+          track(isBank ? 'payment_zelle_selected' : 'payment_card_selected', { product: productKey, price: amt });
         });
       }
       wrap.appendChild(box);
@@ -394,7 +391,7 @@
           '</ul></div>' +
         '</div>' +
         '<p class="v-foot__legal">MissionMed Institute &middot; Mission Global Group LLC &middot; Concierge hours Mon&ndash;Sat 9a&ndash;7p ET' +
-        '<br>Internal review candidate for MR-WEB-0902. Not published.</p>' +
+        '<br><a href="https://missionmedinstitute.com/terms-conditions/">Terms</a> &middot; <a href="mailto:support@missionmedinstitute.com">Support</a></p>' +
       '</div>';
     return f;
   }
@@ -416,16 +413,12 @@
       if (a === '__PRICING__') {
         var e = C.priceFor(cfg, 'iv_prep_essentials', state, 'card');
         var c = C.priceFor(cfg, 'iv_prep_complete', state, 'card');
-        var adv = C.bankAdvantage(cfg, 'iv_prep_complete', state);
         a = 'IV Prep Essentials is ' + C.money(e) + ' and IV Prep Complete is ' + C.money(c) + '. ' +
             (state.priceMode === 'fall_access'
-              ? 'Those are Fall Access rates through September 7; standard tuition applies from September 8. '
+              ? 'Those are launch rates through September 12; standard tuition applies from September 13. '
               : '') +
             '360 Match Mentorship is shown at its ' + C.money(cfg.products.match_mentorship_360.display_price) +
-            ' reference tuition — its 2026-27 capacity is reached. ' +
-            'Paying in full by bank transfer is the best value' +
-            (adv > 0 ? ', ' + C.money(adv) + ' less than paying by card' : '') +
-            '. Card is available, and if you need to spread it out, Admissions will talk you through the MissionMed payment plan.';
+            ' reference tuition — its 2026-27 capacity is reached. Card is the only public P0 rail until bank/Zelle and the four-payment process are operationally verified.';
       }
       var d = el('details', { class: 'v-faq__item' + (i === 0 ? ' is-first' : '') });
       if (i === 0) d.open = true;
@@ -448,24 +441,24 @@
       lede: 'A focused block that gives you the framework — how strong residency interview answers are actually built, and how to deliver them under pressure.',
       forWho: 'You want the fundamentals, and you may have an interview coming up soon.',
       includes: [
-        ['layers', '5-Day IV Foundation Workshop', 'The core framework, taught live.'],
-        ['mic',    'Live core sessions with Dr. Brian', 'Not recordings. You are in the room.'],
-        ['target', 'Communication and question strategy', 'How to structure an answer that lands.'],
-        ['users',  '1-on-1 strategy session', 'Your situation, worked through individually.']
+        ['layers', 'Full live Foundation/core training', 'The interview framework, taught live.'],
+        ['mic',    '1 Signature Mock Interview', 'A full live personalized mock with analysis, assessment, debrief, and an individualized action plan.'],
+        ['users',  '2 observer-only Complete practice nights', 'Observe the advanced live room where the current schedule supports it.'],
+        ['target', 'Communication and question strategy', 'How to structure an answer that lands.']
       ],
-      absent: ['No full-season mock cadence', 'No debrief after each real interview', 'No program-specific strategy through the season'],
+      absent: ['No full-season Signature Mock cadence', 'No program-specific strategy through the season'],
       videos: 2
     },
     iv_prep_complete: {
       key: 'iv_prep_complete',
       say: '"Stay with me through interview season."',
-      lede: 'Everything in Essentials, and then the part that actually decides your season — scored practice, a debrief after every real interview, and strategy that keeps adapting until the season ends.',
+      lede: 'Everything in Essentials, then advanced live curriculum, four Signature Mock Interviews, monthly live hot-seats, ongoing practice and strategy that keeps adapting through interview season.',
       forWho: 'You want someone in your corner from now through the end of interview season.',
       includes: [
         ['layers',   'Everything in IV Prep Essentials', 'The full foundation block is included.'],
-        ['mic',      '__MOCKS__', 'Scored practice under realistic pressure.'],
-        ['gauge',    'Weekly pre-interview checkups', 'Sharpen the answers that matter this week.'],
-        ['calendar', 'Debrief after every real interview', 'Fix what went wrong before the next one.'],
+        ['mic',      '__MOCKS__', 'Each is live, personalized, analyzed, assessed, debriefed, and followed by an individualized action plan.'],
+        ['gauge',    'Guaranteed monthly live hot-seat', 'During eligible cohort months.'],
+        ['calendar', 'Ongoing live practice and checkups', 'Sunday debrief support where the current schedule supports it.'],
         ['target',   'Program-specific strategy', 'Advanced communication and targeting.']
       ],
       absent: [],
@@ -557,7 +550,7 @@
     /* ---- proof */
     var pr = el('section', { class: 'v-env v-env--dark' });
     pr.innerHTML = '<div class="v-wrap"><span class="v-eyebrow">Match Day</span>' +
-      '<h2>Students who did this.</h2><div id="pp-videos" style="margin-top:34px"></div></div>';
+      '<h2>Students who trained with MissionMed.</h2><div id="pp-videos" style="margin-top:34px"></div></div>';
     frag.appendChild(pr);
 
     /* ---- payment or closed state */
@@ -565,7 +558,8 @@
     pay.innerHTML = '<div class="v-wrap"><span class="v-eyebrow">' +
       (closed ? 'Availability' : 'Ways to pay') + '</span><h2>' +
       (closed ? (p.status_headline || 'Enrollment closed') : 'How you can pay.') +
-      '</h2><div id="pp-pay" style="margin-top:34px"></div></div>';
+      '</h2><div id="pp-pay" style="margin-top:34px"></div>' +
+      '<p class="v-meta" style="margin-top:22px">After purchase, your receipt and onboarding must confirm the correct program and access. Review the <a href="https://missionmedinstitute.com/terms-conditions/">terms and refund policy</a> or contact <a href="mailto:support@missionmedinstitute.com">support@missionmedinstitute.com</a>.</p></div>';
     frag.appendChild(pay);
 
     return frag;

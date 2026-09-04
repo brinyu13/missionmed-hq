@@ -16,7 +16,7 @@
 
 <!-- ============================================== 1 · CINEMATIC HERO (image-led, dark) -->
 <header class="v-hero">
-  <div class="v-hero__media js-parallax" data-speed="0.09">
+  <div class="v-hero__media">
     <img id="hero-img" alt="" fetchpriority="high" decoding="async">
   </div>
   <div class="v-hero__scrim"></div>
@@ -25,9 +25,9 @@
       <span class="v-eyebrow">Mission Residency</span>
       <h1 class="v-display">Interviews are won<br>by how you tell<br>your story.</h1>
       <p class="v-lede" style="margin-top:26px">
-        Dr. Brian's interview preparation for IMGs, DOs, and reapplicants. You learn how
-        strong answers are actually built, practise them under real pressure, and get scored
-        feedback — before programs ever see you.
+        One expert. Your whole interview season. Mission Residency is boutique, high-touch,
+        personalized, and longitudinal. Dr. Brian remains meaningfully involved; technology
+        extends the mentor rather than replacing the mentor.
       </p>
       <div class="v-hero__cta">
         <a class="v-btn v-btn--gold" href="#programs">See the programs</a>
@@ -43,6 +43,17 @@
     </div>
   </div>
 </header>
+
+<section class="v-env v-env--navy">
+  <div class="v-wrap v-wrap--narrow" style="text-align:center">
+    <span class="v-eyebrow" style="justify-content:center">The MissionMed difference</span>
+    <h2>One expert. Your whole interview season.</h2>
+    <p class="v-lede" style="margin:0 auto">
+      Dr. Brian leads the teaching and ongoing coaching, and each Signature Mock includes
+      analysis, assessment, debrief, and an individualized action plan.
+    </p>
+  </div>
+</section>
 
 <!-- ============================================== 2 · ROUTER (LIGHT editorial) -->
 <section class="v-env v-env--paper">
@@ -111,8 +122,8 @@
     <h2>Essentials teaches you to interview.<br>Complete stays with you all season.</h2>
     <p class="v-lede" style="margin:0 auto 38px">
       That is the whole difference. Essentials is a focused block that gives you the framework.
-      Complete keeps going — scored mocks, a debrief after every real interview, and
-      program-specific strategy from October through the end of the season.
+      Complete keeps going — four Signature Mock Interviews, monthly live hot-seats,
+      ongoing practice and checkups, and program-specific strategy through interview season.
     </p>
     <div id="delta"></div>
   </div>
@@ -122,8 +133,8 @@
 <section class="v-env v-env--dark" id="payment">
   <div class="v-wrap">
     <span class="v-eyebrow">Ways to pay</span>
-    <h2>One tuition.<br>Three ways to pay it.</h2>
-    <p class="v-lede" style="margin-bottom:38px">Shown for <b id="pay-product" style="color:var(--v-ink)">IV Prep Complete</b>.</p>
+    <h2>Use only a working payment rail.</h2>
+    <p class="v-lede" style="margin-bottom:38px">Shown for <b id="pay-product" style="color:var(--v-ink)">IV Prep Complete</b>. Card is the only public P0 rail until every other workflow is verified end to end.</p>
     <div id="payments"></div>
   </div>
 </section>
@@ -227,10 +238,9 @@ MMBoot(function (cfg, state) {
     href: 'checkout-boundary.html?product=iv_prep_essentials',
     cta: 'Enroll in IV Prep Essentials',
     pitch: '“Teach me how to interview.” A focused block that gives you the framework.',
-    features: ['5-Day IV Foundation Workshop', 'Live core sessions with Dr. Brian',
-               'Communication framework and question strategy', '1-on-1 strategy session',
-               { text: 'No full-season mock cadence', absent: true },
-               { text: 'No post-interview debriefs', absent: true }]
+    features: ['Full live Foundation/core training', '1 Signature Mock Interview',
+               '2 observer-only Complete practice nights', 'Communication framework and question strategy',
+               { text: 'No full-season Signature Mock cadence', absent: true }]
   }));
 
   grid.appendChild(V.programCard(cfg, 'iv_prep_complete', state, {
@@ -240,8 +250,10 @@ MMBoot(function (cfg, state) {
     pitch: '“Stay with me through interview season.” The full-season preparation system.',
     features: ['Everything in IV Prep Essentials', mock.public_label]
       .concat(mock.publish_exact_entitlement ? mock.plain_english_structure : [])
-      .concat(['Weekly pre-interview checkups', 'Debrief after every real interview',
-               'Advanced communication and program-specific strategy'])
+      .concat(['Guaranteed monthly live hot-seat during eligible cohort months',
+               'Ongoing live practice and Sunday checkups/debrief support where the current schedule supports it',
+               'Advanced live curriculum and program-specific interview strategy',
+               '5 public seats + 2 upgrade-reserved seats'])
   }));
 
   grid.appendChild(V.programCard(cfg, 'match_mentorship_360', state, {
@@ -254,28 +266,25 @@ MMBoot(function (cfg, state) {
                'The highest level of interview practice we offer']
   }));
 
-  // Essentials -> Complete delta, stated in money rather than adjectives.
+  // Essentials -> Complete delta, stated from the same configured price source.
   var eP = C.priceFor(cfg, 'iv_prep_essentials', state, 'card');
   var cP = C.priceFor(cfg, 'iv_prep_complete', state, 'card');
-  var up = cfg.upgrades.essentials_to_complete;
   document.getElementById('delta').innerHTML =
     '<div class="v-note" style="text-align:left;max-width:none">' +
       '<b>' + C.money(cP - eP) + ' separates them today</b> — ' + C.money(eP) + ' for Essentials, ' +
-      C.money(cP) + ' for Complete. ' + (up.available
-        ? 'And if you start with Essentials and upgrade within ' + up.window_days +
-          ' days, everything you paid applies to your Complete tuition, so choosing Essentials first costs you nothing.'
-        : '') +
+      C.money(cP) + ' for Complete. Complete adds the advanced live curriculum, four Signature Mock Interviews, ' +
+      'monthly live hot-seats, ongoing practice and checkups, and program-specific strategy.' +
     '</div>';
 
   document.getElementById('payments').appendChild(V.paymentHierarchy(cfg, 'iv_prep_complete', state));
 
   // ---- PS tiers
   var psGrid = document.getElementById('ps-grid');
-  [['ps_intensive_priority', 'Reserve Priority'], ['ps_intensive_emergency', 'Check availability']].forEach(function (pair) {
+  [['ps_intensive_priority', 'Request staffed reservation'], ['ps_intensive_emergency', 'Confirm availability first']].forEach(function (pair) {
     var key = pair[0], p = cfg.products[key];
     var card = V.programCard(cfg, key, state, {
       paper: true, hero: key === 'ps_intensive_emergency',
-      href: 'checkout-boundary.html?product=' + key, cta: pair[1],
+      href: 'mailto:support@missionmedinstitute.com?subject=' + encodeURIComponent(p.public_name + ' staffed reservation'), cta: pair[1],
       pitch: p.turnaround,
       features: ['Minimum 2-hour strategy session with Dr. Brian', 'Narrative and theme development',
                  'Personally developed statement', 'Minimum two follow-up meetings',
@@ -310,7 +319,7 @@ MMBoot(function (cfg, state) {
         '<span class="v-quote__by">Marian · matched</span></p>' +
       '</blockquote>' +
     '</div>';
-  var cta360 = V.el('a', { class: 'v-btn v-btn--glass', href: '#priority-interest', text: p360.future.cta_label });
+  var cta360 = V.el('a', { class: 'v-btn v-btn--glass', href: 'mailto:support@missionmedinstitute.com?subject=360%202027-28%20Priority%20Interest', text: p360.future.cta_label });
   cta360.addEventListener('click', function () { V.track('priority_interest_360_click', {}); });
   host.querySelector('.v-split > div').appendChild(cta360);
   host.querySelector('.v-split > div').appendChild(V.el('p', {
@@ -329,7 +338,7 @@ MMBoot(function (cfg, state) {
   } else {
     document.getElementById('close-h').textContent = 'Enrollment is closed for now.';
     document.getElementById('close-p').textContent = 'Tell us you are applying next cycle and we will let you know when enrollment opens.';
-    close.innerHTML = '<a class="v-btn v-btn--glass" href="#priority-interest">Join the priority list</a>';
+    close.innerHTML = '<a class="v-btn v-btn--glass" href="mailto:support@missionmedinstitute.com?subject=Mission%20Residency%20Priority%20Interest">Join the priority list</a>';
   }
 
   document.getElementById('faq-host').appendChild(V.faq(cfg, state));

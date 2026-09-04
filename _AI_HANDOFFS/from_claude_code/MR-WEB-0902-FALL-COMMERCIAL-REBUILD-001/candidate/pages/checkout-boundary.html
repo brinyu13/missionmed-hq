@@ -19,17 +19,16 @@
     <div id="summary"></div>
 
     <div class="v-boundary" style="margin-top:34px">
-      <h2 style="margin-top:0">Staging checkout boundary</h2>
+      <h2 style="margin-top:0">Checkout is intentionally disconnected</h2>
       <p style="margin-bottom:0">
-        This is where the candidate hands off to the live WooCommerce checkout.
-        Nothing beyond this point executes in the preview: no cart is created,
-        no payment is taken, no order is placed.
+        Nothing beyond this point executes in the preview: no cart is created, no payment is
+        taken, and no order is placed. Production wiring remains blocked until the existing
+        Woo product can be mapped to the correct LearnDash entitlement and verified with a fresh buyer.
       </p>
       <p class="v-meta" style="margin-top:16px">
-        In production this button goes to the real product's add-to-cart URL and
-        then to <code>/checkout/</code>, using the existing Stripe Connect routing
-        and the existing cart-collision guard. None of that wiring is changed by
-        this ticket.
+        A real production CTA may be enabled only after displayed price equals charged price,
+        the correct product ID is preserved, card payment works, receipt/onboarding is correct,
+        and refund/cancel behavior is known.
       </p>
     </div>
 

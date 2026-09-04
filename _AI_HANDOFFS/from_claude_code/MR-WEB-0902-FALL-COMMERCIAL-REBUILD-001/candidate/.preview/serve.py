@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MissionMed preview server — MR-WEB-0902.
+MissionMed preview server — MR-WEB-0904A.
 
 ROUTING RULE (founder ruling MR-WEB-0902D):
   "/" MUST open the customer-facing Mission Residency candidate, never
@@ -12,10 +12,9 @@ import http.server, socketserver, os
 os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 # Default the founder's entry point to State A so the first thing seen is the
-# customer experience during Fall Access Week — what a prospect would actually
-# see. The toolbar labels it "simulated", and /pages/...?state=P shows the true
-# pre-launch state. The production truth gate in campaign-state.js is untouched:
-# with verified_live_at null, real production still cannot show Fall Access.
+# Founder-approved launch experience. The toolbar labels it "simulated", and
+# /pages/...?state=P shows the true pre-launch state. The production truth gate
+# remains closed until checkout and entitlement are proven.
 CUSTOMER_HOME = '/pages/mission-residency.html?state=A'
 
 # Short, memorable URLs for the founder. Every one lands on a customer surface
@@ -30,9 +29,9 @@ ALIASES = {
     '/ps':          '/pages/program-ps.html?state=A',
     '/compare':     '/pages/compare.html?state=A',
     '/payment':     '/pages/payment.html?state=A',
-    '/truth':       '/pages/mission-residency.html?state=P',
+    '/blocked':     '/pages/mission-residency.html?state=P',
     '/faq':         '/pages/mission-residency.html#faq',
-    '/sept8':       '/pages/mission-residency.html?state=B',
+    '/standard':    '/pages/mission-residency.html?state=B',
     '/review':      '/review/index.html',
 }
 

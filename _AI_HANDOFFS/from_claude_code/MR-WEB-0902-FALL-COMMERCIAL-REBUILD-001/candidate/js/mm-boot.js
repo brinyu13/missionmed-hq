@@ -1,13 +1,13 @@
 /*!
  * MissionMed — preview boot + state time-travel
- * Ticket: MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001
+ * Ticket: MR-WEB-0904A-CODEX-P0-LAUNCH
  *
  * PRODUCTION NOTE FOR CODEX
  *   Everything in this file that renders the striped preview bar is PREVIEW-ONLY
  *   and must be dropped at productionization. The parts that matter in production
  *   are: (a) loading campaign-state.json, (b) resolving state, (c) calling the
  *   page's render(). The `?state=` / `?at=` time-travel exists so Dr. Brian can
- *   see the September 8 state today without anyone editing config.
+ *   see the September 13 state today without anyone editing config.
  */
 (function () {
   'use strict';
@@ -17,15 +17,15 @@
   // Preview-only overrides.
   var FORCE = {
     // ?state=A  -> Fall Access Week (simulates verified-live + inside window)
-    // ?state=B  -> September 8 standard tuition
+    // ?state=B  -> September 13 standard tuition
     // ?state=P  -> pre-launch / not verified live (the TRUE state today)
     state: qs.get('state'),
     at: qs.get('at')
   };
 
   var STATE_DATES = {
-    A: '2026-09-03T10:00:00-04:00',
-    B: '2026-09-09T10:00:00-04:00',
+    A: '2026-09-04T10:00:00-04:00',
+    B: '2026-09-13T10:00:00-04:00',
     C: '2026-09-25T10:00:00-04:00'
   };
 
@@ -38,7 +38,7 @@
     }
     // Simulate the founder having verified a real test purchase, so the preview
     // can show what the site looks like AFTER the truth gate opens.
-    clone.campaign.go_live_gate.verified_live_at = '2026-09-02T12:00:00-04:00';
+    clone.campaign.go_live_gate.verified_live_at = '2026-09-04T10:00:00-04:00';
     return { cfg: clone, at: FORCE.at || STATE_DATES[FORCE.state] || null, forced: FORCE.state };
   }
 
@@ -62,7 +62,7 @@
     [['',  'Real state now'],
      ['P', 'Pre-launch'],
      ['A', 'Fall Access Week'],
-     ['B', 'September 8'],
+     ['B', 'September 13'],
      ['C', 'Sales closed']].forEach(function (o) {
       var opt = document.createElement('option');
       opt.value = o[0]; opt.textContent = o[1];

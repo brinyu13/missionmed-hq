@@ -1,15 +1,16 @@
 {
   "_meta": {
-    "ticket": "MR-WEB-0902-FALL-COMMERCIAL-REBUILD-001",
-    "authored": "2026-09-02",
+    "ticket": "MR-WEB-0904A-CODEX-P0-LAUNCH",
+    "authored": "2026-09-04",
     "authority_order": [
-      "1. MR-WEB-0902 founder prompt (this ticket)",
-      "2. MR-REV-0901-FALL-ACCESS-BOARD-REVIEW-001.md (strategy input, not implementation authority)",
-      "3. Actual current production implementation (for implementation facts)"
+      "1. MR-WEB-0904A Founder directive",
+      "2. MissionMed OS DR-180 and MR-WEB-0904A authority records",
+      "3. MR-WEB-0903F and MR-WEB-0902E Cowork handoffs (design and architecture input)",
+      "4. Actual current production implementation (for implementation facts)"
     ],
     "purpose": "Single source of truth for every price, program name, availability state, and campaign date on the public commercial surface. Changing a state here must never require a page rewrite.",
     "rule": "NOTHING in the customer-facing UI may hard-code a price, a date, a program name, or an availability state. All of it reads from this file.",
-    "PROPOSED_NOT_APPROVED": "Every price below is PROPOSED pending Dr. Brian's written approval. No production deployment is authorized by this ticket."
+    "authority": "Founder-approved P0 commercial canon. Production rendering remains blocked until the backup, checkout, and entitlement gates pass."
   },
   "timezone": "America/New_York",
   "campaign": {
@@ -22,17 +23,12 @@
       "verified_by": null,
       "verification_evidence": null,
       "blocks_campaign_render": true,
-      "no_flip_floor": {
-        "_comment": "If Complete checkout is not verified end-to-end by this moment, NO new prices publish at all and the site stays in STATE_PRELAUNCH.",
-        "deadline": "2026-09-05T17:00:00-04:00",
-        "on_miss": "STATE_PRELAUNCH"
-      }
+      "_gate_rule": "Keep verified_live_at null until a fresh controlled card purchase, correct product, correct access, receipt/onboarding, and refund/cancel behavior are verified."
     },
     "window": {
-      "opens": "2026-09-02T12:00:00-04:00",
-      "closes": "2026-09-07T23:59:59-04:00",
-      "hard_backstop": "2026-09-11T23:59:59-04:00",
-      "_comment": "Window is NOT backdated to Sept 1. If go-live slips, the end date moves day-for-day and is printed once at go-live, then never moved.",
+      "opens": "2026-09-04T00:00:00-04:00",
+      "closes": "2026-09-12T23:59:59-04:00",
+      "_comment": "Founder-approved launch tuition ends September 12, 2026 at 11:59 PM ET. Do not move or reset this timestamp.",
       "extension_policy": "NO_EXTENSION"
     },
     "countdown": {
@@ -44,7 +40,7 @@
       "strikethrough_allowed": false,
       "save_language_allowed": false,
       "_comment": "FOUNDER RULE (ticket S10): do NOT advertise '20% off' against a reference price never charged. Board supplies the legal basis (16 CFR 233.1 fictitious former price). Publish both numbers as fact instead.",
-      "approved_frame": "$2,799 through September 7. Standard tuition $3,299 from September 8.",
+      "approved_frame": "$2,799 through September 12. Standard tuition $3,299 by card or $3,199 by verified bank/Zelle from September 13.",
       "approved_factual_line": "$500 less than standard tuition"
     },
     "attribution_code": {
@@ -62,10 +58,10 @@
       "prices": "standard",
       "enroll_ctas": false,
       "fallback_cta": "notify_me",
-      "_comment": "Also the automatic state if the no-flip floor is missed, or if checkout/entitlement is unproven."
+      "_comment": "The required state while checkout or entitlement remains unproven."
     },
     "STATE_A_FALL_ACCESS": {
-      "label": "Fall Access Week (Sept 2-7)",
+      "label": "Fall 2026 launch tuition (Sept 4-12)",
       "campaign_banner": true,
       "prices": "fall_access",
       "enroll_ctas": true,
@@ -83,8 +79,8 @@
       ]
     },
     "STATE_B_STANDARD": {
-      "label": "Standard tuition (Sept 8 - sales close)",
-      "activates": "2026-09-08T00:00:00-04:00",
+      "label": "Standard tuition (from Sept 13)",
+      "activates": "2026-09-13T00:00:00-04:00",
       "campaign_banner": false,
       "countdown": false,
       "prices": "standard",
@@ -137,7 +133,7 @@
           "card": 3299,
           "bank_transfer": 3199
         },
-        "_comment": "FOUNDER RULE (ticket S10/S12/S13): Zelle/bank PIF must be the economically advantaged rail. During Fall Access Week there is ONE price on all rails (the $2,799 IS the founder's Zelle PIF target and no separate week card number was authorized). From Sept 8 the bank-transfer price is $100 lower than card. Never expressed as a percentage and never called a 'fee'."
+        "_comment": "Founder-approved P0 pricing. Launch tuition is $2,799 through September 12. From September 13 the standard price is $3,299 by card and $3,199 only on a bank/Zelle rail that has passed operational verification. Never call the difference a fee."
       },
       "payment_plan": {
         "enabled": true,
@@ -146,6 +142,9 @@
       "mock_entitlement": {
         "ref": "mock_entitlement"
       },
+      "job_statement": "Stay with me through interview season.",
+      "public_capacity": 5,
+      "upgrade_reserved_capacity": 2,
       "woo_product_id": null,
       "add_to_cart_url": null,
       "_BLOCKED": "woo_product_id and add_to_cart_url CANNOT be filled from this worktree \u2014 see 02_RISK_AND_CONFLICT_LEDGER.md P0-1/P0-2. Codex must supply."
@@ -171,6 +170,7 @@
       "payment_plan": {
         "enabled": false
       },
+      "job_statement": "Teach me how to interview.",
       "upgrade_path": {
         "ref": "essentials_to_complete"
       },
@@ -264,73 +264,76 @@
     }
   },
   "mock_entitlement": {
-    "_comment": "FOUNDER RULE (ticket S18): the customer-facing term 'flex mock' is BANNED and must never appear. The exact entitlement must NOT publish until the capacity rule is validated against the real schedule.",
+    "_comment": "Founder-approved MR-WEB-0904A entitlement for IV Prep Complete. Signature Mock is the only customer-facing term.",
     "banned_terms": [
       "flex mock",
       "flex mocks",
       "Flex Mock",
+      "scored mock",
+      "scored mocks",
       "unlimited mocks",
       "unlimited mock interviews"
     ],
-    "publish_exact_entitlement": false,
-    "public_label": "6 Mock Interviews Included",
+    "publish_exact_entitlement": true,
+    "public_label": "FOUR Signature Mock Interviews",
     "public_label_approved": true,
     "plain_english_structure": [
-      "One scheduled mock each month, October through January",
-      "Two additional mock interviews during the eligible interview season",
-      "Subject to published scheduling windows"
+      "Four full live personalized mock interviews",
+      "Each includes analysis, assessment, debrief, and an individualized action plan",
+      "Scheduled during the eligible interview season"
     ],
-    "count": 6,
-    "internal_name": "THE SIX",
-    "validation_required_before_publishing_detail": "Confirm the 20 published mock dates against the real calendar and against max enrollment before any per-student guarantee is published.",
+    "count": 4,
+    "internal_name": "THE FOUR",
+    "definition": "full live personalized mock interview + analysis + assessment + debrief + individualized action plan",
+    "validation_required_before_publishing_detail": "Production schedule and capacity must still be checked without moving existing 360 obligations.",
     "_change_instructions": "To change the promise, change `count`, `public_label` and `plain_english_structure` HERE ONLY. No page edit is required."
   },
   "payments": {
     "hierarchy": [
       {
         "rank": 1,
-        "eyebrow": "BEST VALUE",
-        "label": "Pay in Full by Bank Transfer (Zelle)",
+        "eyebrow": "PAY IN FULL",
+        "label": "Credit or Debit Card",
         "emphasis": "primary",
         "available": true,
-        "price_ref": "bank_transfer",
-        "_comment": "FOUNDER RULE (ticket S11/S12): Zelle PIF is the preferred, most economically attractive rail and must be visually dominant. Do NOT present four equal boxes."
+        "price_ref": "card",
+        "_comment": "Card is the only public P0 rail until a fresh controlled purchase and entitlement smoke pass."
       },
       {
         "rank": 2,
-        "eyebrow": "PAY IN FULL",
-        "label": "Credit or Debit Card",
+        "eyebrow": "BANK / ZELLE",
+        "label": "Pay in Full by Bank Transfer",
         "emphasis": "secondary",
-        "available": true,
-        "price_ref": "card"
+        "available": false,
+        "price_ref": "bank_transfer",
+        "_comment": "Suppressed until receiving details, instructions, order status, entitlement workflow, and operational owner are verified."
       },
       {
         "rank": 3,
         "eyebrow": "NEED FLEXIBILITY?",
         "label": "MissionMed Payment Plan",
         "emphasis": "tertiary",
-        "available": true,
+        "available": false,
         "ref": "missionmed_payment_plan"
       }
     ],
-    "bank_transfer_note": "Most banks cap Zelle at $2,000-$3,500 a day. If yours does, pay by ACH or wire at the same price \u2014 no split transfers.",
+    "bank_transfer_note": "Bank/Zelle is not enabled until its receiving details, order-status workflow, entitlement workflow, and owner are verified.",
     "_bank_details_rule": "Never publish account numbers or bank details on a public page. Reuse the existing Admissions-delivered Zelle workflow exactly as it works today; do not invent bank instructions.",
     "missionmed_payment_plan": {
-      "available": true,
-      "route": "MANUAL_ADMISSIONS",
+      "available": false,
+      "route": "PENDING_OPERATIONAL_VERIFICATION",
       "down_payment": 750,
-      "term_months_target": 6,
-      "total_is_higher_than_pif": true,
-      "premium_amount": null,
-      "premium_published": false,
-      "apr_published": false,
-      "public_total_published": false,
-      "public_copy": "Payment plans are arranged directly with Admissions. Start with a $750 deposit; we will confirm your schedule and total in writing before anything is charged.",
-      "cta_label": "Talk to Admissions about a payment plan",
+      "installments_after_initial": 3,
+      "installment_amount": 683,
+      "total": 2799,
+      "autopay_verified": false,
+      "public_total_published": true,
+      "public_copy": "$750 initial payment plus 3 payments of $683, for $2,799 total. The schedule and collection method must be confirmed in writing before this option is enabled; no autopay is promised.",
+      "cta_label": "Ask Admissions about the 4-payment plan",
       "cta_action": "admissions_inquiry",
-      "_FOUNDER_REQUIREMENT": "Ticket S14 is authoritative: students using the internal payment plan MUST pay a higher total than PIF, to incentivize Zelle PIF and to compensate for delayed cash and collections/default risk. This requirement is NOT withdrawn and must NOT be silently replaced with a same-total 0% plan.",
-      "_WHY_NOT_PUBLISHED_YET": "Ticket S14 also forbids inventing or publishing an APR or a potentially noncompliant finance charge. A published premium over the PIF price is a finance charge under Reg Z 12 CFR 1026.4 regardless of what it is called, and a >4-payment schedule can confer creditor status in states with no volume threshold. Until Codex resolves the compliance path, the UI carries the higher-total ARCHITECTURE (premium_amount is configurable and rendered the moment it is set) while the offer itself is routed through the existing safe manual Admissions process. No premium number, no APR, and no 0%/same-total claim is published in the meantime.",
-      "_CODEX_P0": "Resolve the compliant mechanism for a higher-total installment product, then set premium_amount and flip premium_published/public_total_published. Do not substitute a 0% same-total plan without written founder approval.",
+      "_FOUNDER_REQUIREMENT": "For P0 only: $750 initial plus 3 x $683 equals $2,799 total. No 6-month or 12-month plan and no hidden fee.",
+      "_WHY_NOT_ENABLED": "The current production collection mechanics and operational owner have not been verified.",
+      "_CODEX_P0": "Enable only after the real process is verified. If charges are manual, say so; do not claim autopay.",
       "blocks_enrollment": false
     },
     "affirm": {
@@ -339,10 +342,10 @@
       "show_as_active": false,
       "public_words_allowed": false,
       "_comment": "FOUNDER RULE (ticket S15): do not fake availability. Zero public words until written category approval is received. Placement exists in the UX and activates by flipping `available`.",
-      "future_placement": "inside payments.hierarchy rank 3 group, below the MissionMed Payment Plan",
-      "integration_target": "Stripe gateway (supports Affirm/Klarna/Afterpay)",
-      "codex_task": "Apply for Affirm via Stripe. Category approval required (post-secondary education / consulting are restricted). Do not publish until written approval is in hand.",
-      "desired_model": "Student applies to Affirm; Affirm determines eligibility and terms; MissionMed receives merchant settlement upfront; Affirm handles repayment.",
+      "future_placement": null,
+      "integration_target": null,
+      "codex_task": "Keep all lender rails off and unmentioned unless actual MissionMed account and category approval are verified.",
+      "desired_model": null,
       "blocks_launch": false
     }
   },
@@ -389,16 +392,8 @@
       "visible": false,
       "items": [
         {
-          "name": "1 Scored Mock Interview",
+          "name": "1 Signature Mock Interview",
           "price": 299
-        },
-        {
-          "name": "3 Scored Mock Interviews",
-          "price": 799
-        },
-        {
-          "name": "Private 45-Minute 1:1 Mock",
-          "price": 549
         }
       ],
       "no_five_pack": true,
@@ -534,7 +529,7 @@
         "claim": "unlimited mocks",
         "status": "BANNED",
         "reason": "Unsupported and contradicted by real calendar capacity.",
-        "replacement": "6 Mock Interviews Included"
+        "replacement": "FOUR Signature Mock Interviews"
       },
       {
         "claim": "Match Guarantee / MatchFirst",
@@ -708,7 +703,7 @@
       {
         "key": "assessed",
         "title": "GET ASSESSED",
-        "desc": "Receive scored feedback and identify weaknesses before programs see them."
+        "desc": "Receive expert analysis and identify weaknesses before programs see them."
       },
       {
         "key": "real_prep",
@@ -778,7 +773,7 @@
     "items": [
       {
         "q": "What makes Mission Residency different?",
-        "a": "It is led personally by Dr. Brian rather than a junior coach or a rotating team, and it is built as a relationship that continues past Match Day. You are taught how strong interview answers are actually constructed, then you practise them under real pressure and get scored feedback before programs ever see you.",
+        "a": "Mission Residency is boutique, high-touch, personalized, and longitudinal. Dr. Brian remains meaningfully involved: technology extends the mentor rather than replacing the mentor. You learn how strong answers are constructed, practise under realistic pressure, and receive expert analysis before programs see you.",
         "source": "live_faq_1",
         "changed": "Removed the MatchFirst claim pending founder decision. Removed 'students from 2015 still text Dr. Brian in 2024' as unverifiable."
       },
@@ -802,13 +797,13 @@
       },
       {
         "q": "Is it too late to start preparing this season?",
-        "a": "No. If you have an interview coming up soon, IV Prep Essentials gives you the framework quickly. If you want support that runs the whole season \u2014 scored mocks, a debrief after every real interview, and program-specific strategy \u2014 that is IV Prep Complete.",
+        "a": "No. If you have an interview coming up soon, IV Prep Essentials gives you the framework quickly. If you want support that runs the whole season \u2014 four Signature Mock Interviews, monthly live hot-seats, ongoing practice and checkups, and program-specific strategy \u2014 that is IV Prep Complete.",
         "source": "live_faq_6",
         "changed": "Removed the 360 recommendation (2026-27 capacity is reached) and the 'Pre-Start Orientation begins May or June' line, which no longer applies to a September start."
       },
       {
         "q": "Do you guarantee a match?",
-        "a": "No. No coach can guarantee a match, and anyone who promises one is misleading you. What we commit to is the preparation: the framework, the practice, the scored feedback and the strategy.",
+        "a": "No. No coach can guarantee a match. What we commit to is the preparation: the framework, live practice, expert analysis, and strategy.",
         "source": "live_faq_7",
         "changed": "Kept the honest first half. REMOVED the 360 'Forever guarantee' \u2014 it is one of three conflicting guarantee statements currently live and needs a single founder-approved definition."
       },

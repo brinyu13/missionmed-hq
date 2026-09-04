@@ -15,10 +15,10 @@
 <header class="v-env v-env--deep">
   <div class="v-wrap">
     <span class="v-eyebrow">Ways to pay</span>
-    <h1 class="v-display">One tuition.<br>Three ways to pay it.</h1>
+    <h1 class="v-display">Use only a<br>working payment rail.</h1>
     <p class="v-lede" style="margin-top:24px">
-      Paying in full by bank transfer is the best value, and it is the way most students enrol.
-      Card is there if you would rather. If you need to spread it out, Admissions will talk you through it.
+      Card is the only public P0 rail until a fresh controlled purchase proves the charged amount,
+      order, receipt, onboarding, LearnDash access, and refund/cancel behavior.
     </p>
     <p style="margin-top:22px">
       <label for="prod" class="v-meta" style="display:block;margin-bottom:8px">Showing tuition for</label>
@@ -75,11 +75,13 @@ MMBoot(function (cfg, state) {
   draw();
 
   var plan = cfg.payments.missionmed_payment_plan;
+  var planSummary = C.money(plan.down_payment) + ' initial plus ' + plan.installments_after_initial +
+    ' payments of ' + C.money(plan.installment_amount) + ', totaling ' + C.money(plan.total);
   var notes = [
-    ['Why bank transfer is the best value', 'Card networks take a percentage of every payment. Paying by bank transfer avoids that, and we pass the difference back to you rather than keeping it.'],
-    ['What the payment plan costs', plan.public_copy + ' We will not publish a total here until the terms are finalised, because quoting one would be quoting a credit offer.'],
-    ['Deposits on Personal Statement work', 'Priority reserves with a ' + C.money(cfg.products.ps_intensive_priority.deposit) + ' deposit and Emergency with ' + C.money(cfg.products.ps_intensive_emergency.deposit) + '. For Emergency we confirm availability in writing before taking anything.'],
-    ['Financing', cfg.payments.affirm.available ? 'Affirm is available for eligible U.S. residents.' : 'Third-party financing is not available yet. When it is, it will appear here — we would rather say nothing than imply an option you cannot actually use today.']
+    ['Displayed price must equal charged price', 'The active WooCommerce product must drive both the page and checkout. No hand-typed active price is allowed.'],
+    ['Bank / Zelle', 'Not enabled until receiving instructions, order status, entitlement workflow, and the operational owner are verified.'],
+    ['Complete 4-payment plan', 'Not enabled until collection mechanics are verified. The Founder-approved structure is ' + planSummary + '; no autopay is promised.'],
+    ['Personal Statement reservations', 'Priority is a staffed ' + C.money(cfg.products.ps_intensive_priority.deposit) + ' reservation. Emergency is a staffed ' + C.money(cfg.products.ps_intensive_emergency.deposit) + ' reservation, and availability is confirmed first.']
   ];
   var host = document.getElementById('notes');
   notes.forEach(function (n) {

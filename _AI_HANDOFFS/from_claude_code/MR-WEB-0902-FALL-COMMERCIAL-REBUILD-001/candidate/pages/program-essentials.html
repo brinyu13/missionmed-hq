@@ -40,6 +40,7 @@ MMBoot(function (cfg, state) {
   var p = cfg.products[KEY], vis = C.visibility(cfg, KEY, state), closed = vis.render !== 'OPEN';
 
   document.getElementById('pp-price').appendChild(V.priceBlock(cfg, KEY, state));
+  document.getElementById('pp-price').appendChild(V.el('p', { class: 'v-meta', text: 'Pay in full only for P0.' }));
 
   var cta = document.getElementById('pp-cta');
   if (closed) {

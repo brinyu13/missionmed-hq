@@ -44,7 +44,7 @@ MMBoot(function (cfg, state) {
   var cta = document.getElementById('pp-cta');
   if (closed) {
     if (p.future) {
-      var b = V.el('a', { class: 'v-btn v-btn--gold', href: '#payment', text: p.future.cta_label });
+      var b = V.el('a', { class: 'v-btn v-btn--gold', href: 'mailto:support@missionmedinstitute.com?subject=360%202027-28%20Priority%20Interest', text: p.future.cta_label });
       b.addEventListener('click', function () { V.track('priority_interest_360_click', {}); });
       cta.appendChild(b);
     } else {

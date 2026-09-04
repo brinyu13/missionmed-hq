@@ -51,8 +51,8 @@ MMBoot(function (cfg, state) {
       cta.appendChild(V.el('span', { class: 'v-btn v-btn--glass', 'aria-disabled': 'true', text: 'Enrollment closed' }));
     }
   } else {
-    var e = V.el('a', { class: 'v-btn v-btn--gold', href: 'checkout-boundary.html?product=' + KEY,
-                        text: 'Reserve Priority' });
+    var e = V.el('a', { class: 'v-btn v-btn--gold', href: 'mailto:support@missionmedinstitute.com?subject=Personal%20Statement%20Priority%20Reservation',
+                        text: 'Request staffed reservation' });
     e.addEventListener('click', function () {
       V.track(KEY === 'iv_prep_complete' ? 'complete_cta_click' : 'essentials_cta_click',
               { price: C.priceFor(cfg, KEY, state, 'card'), state: state.key, placement: 'program_page' });
