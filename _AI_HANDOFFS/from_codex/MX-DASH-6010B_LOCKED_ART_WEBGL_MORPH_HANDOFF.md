@@ -610,3 +610,39 @@ production and student state were unaffected.
 
 Final disposition: **COMPLETE** for Founder visual review. This does not grant
 student activation. Brian must still explicitly issue `APPROVE FOR STUDENTS`.
+
+## Founder approval and student activation — 2026-09-04
+
+Brian issued the exact required authorization, `APPROVE FOR STUDENTS`. The
+student activation was completed in this same ticket and product branch.
+
+- Source commit `28a556730eebabee8c60d1575c05fdbbf6e3ec90` is pushed and
+  verified on `origin/codex/mx-dash-6010b-locked-art-webgl-morph`.
+- Matrix 2 users now receive immutable
+  `mmed-dashboard-v2.6010b-students.js`, SHA-256
+  `010bc9b86308f66161090e789dac918c2be05608dcc848a8efa513d0ccd27cf5`.
+- The shared enqueue seam is live at SHA-256
+  `b3f797c7ef5ff1ebadd6b482aa95f283273201d536ad5749c83926e96c4ac02d`.
+- The unchanged Founder-approved CSS remains live at SHA-256
+  `e72f26011f5b3bb87aa1250d553e68dd3311f882d946c6097f3c2efcf6edf9cf`.
+- Production origin, cache-busted public JS, and the runtime-lock preflight all
+  matched the approved local bytes.
+- A production WP-CLI probe selected an existing non-administrator Matrix 2
+  context without disclosing identity. It loaded the student asset and proved
+  `is_admin = false` and `can_edit = false`.
+- Classic and Force Classic resolution remain unchanged. Reduced-motion is
+  still honored, and the full-motion query override remains administrator-only.
+- Fresh preactivation rollback custody is
+  `/www/theresidencyacademy_209/private/matrix-dashboard-backups/MX-DASH-6010B/20260904T141858Z-student-activation`.
+  The protected shared-PHP backup is
+  `/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/MX-DASH-6010B/20260904T141859Z`.
+- The canonical-main runtime-lock update is isolated on required shared-state
+  branch `codex/mx-dash-6010b-runtime-lock`, commit
+  `99becc36026e0d64590a60795a2b929fb0b6a4cd`, and is pushed remotely.
+
+Per Brian's direction, no additional student-side visual gate delayed the live
+activation. Founder visual acceptance of the signed-in student presentation is
+therefore reserved for Brian's direct review; deployment, routing, capability,
+hash, rollback, and runtime-lock evidence are complete.
+
+Final disposition: **LIVE FOR STUDENTS; FOUNDER VISUAL REVIEW PENDING**.
