@@ -189,5 +189,6 @@ Origin and public cache-busted Student OS hashes both equal the approved
 - WordPress emitted known early text-domain debug notices during WP-CLI QA;
   they did not affect request status, syntax, entitlement, or application
   results.
-- All task leases were released or naturally expired; final provider-native
-  active-lease and waiter readback is recorded at closeout.
+- All task leases were released or naturally expired. Final provider-native
+  readback: zero active leases, zero task-active leases, and zero pending
+  registry waiters.
