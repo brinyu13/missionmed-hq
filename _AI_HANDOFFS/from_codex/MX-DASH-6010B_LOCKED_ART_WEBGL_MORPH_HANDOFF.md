@@ -381,3 +381,50 @@ stage. The established task defers any student activation and final runtime
 lock update until a fresh explicit `APPROVE FOR STUDENTS`.
 
 READY FOR FOUNDER VISUAL APPROVAL — SAME-COMPOSITION MORPH POLISH COMPLETE
+
+## Founder Visual Fail — True-Morph Recovery
+
+Founder verdict on `mx-dash-6010b-registered-graphite-v5`: **NEEDS TUNING — VISUAL FAIL**. The prior polish remains technical evidence only. It is not an approved pencil endpoint, and its hover is not an accepted true morph.
+
+### Required pencil-endpoint bakeoff
+
+The locked cinematic crops remained the exact geometry source and the approved pencil board remained the visual-style authority. A deterministic, source-derived bakeoff was produced for HomeBase and StoryForge only:
+
+- A: clean architectural graphite;
+- B: softer hand-rendered pencil;
+- C: hybrid blueprint/concept sketch;
+- comparison columns: approved pencil / A / B / C / exact cinematic.
+
+Evidence:
+
+- contact sheet: `_AI_HANDOFFS/from_codex/MX-DASH-6010B/evidence/true-morph-recovery/bakeoff/variant-contact-sheet.png`, SHA-256 `40d895e9551ecf8d9880f5362338a447c44e9f29c7a6bf53f1a0916247f9f02e`;
+- metrics: `_AI_HANDOFFS/from_codex/MX-DASH-6010B/evidence/true-morph-recovery/bakeoff/variant-metrics.json`, SHA-256 `d79db8ba717726a5a4a444511755cf9170e1fbea0a3784dae24b2a5046935d9d`;
+- HomeBase A/B/C SHA-256: `dac62eda803a0aea284972eec1875c196d1a487b271636ac43675eb66d154f2e`, `9f151efaa9068ff43bfba1f6faf1e1ebc19c6b9debb01e5f2c4988a33e7dd247`, `d974b4e22d9d21eea4000e7024d0dc6cdc16836b4bdbb493b432713be890f554`;
+- StoryForge A/B/C SHA-256: `5fd1cd73cf6fab617a6bc2d0bd7d3103d07ee3f24a1c1c991f1c46fd602b6284`, `e6dcf755e23ef22713af4586a894ba86229185bb9d1baff9ac5ce8c8f225de44`, `7aa67ad4af258747578bbef5b2e96f424dcacf0a7abee41f496bc7bce2cada36`.
+
+All three variants were independently visually rejected. A and B remain washed-out, filter-like edge treatments. C improves registration and line separation but is still a mechanical wireframe/technical trace: monoline contours, arbitrary diagonal construction marks, inadequate graphite mass, and lost semantic form (especially the HomeBase chair). StoryForge remains recognizable but cluttered. No variant matches the approved hand-rendered pencil board, so no renderer was selected and none was promoted to the eight-card implementation.
+
+Representative quantitative differences support but do not replace that visual verdict. Approved StoryForge has edge density `0.4710` and `13.703%` graphite pixels at luma <=110; candidate C has `0.3105` and `2.868%`. Approved HomeBase has edge density `0.4409` and median luma `214`; candidate C has `0.3077` and median `223`.
+
+### True-morph, typography, and performance gates
+
+The true-morph implementation did not proceed past the failed endpoint gate. Therefore continuous style interpolation, endpoint-neutral coincident typography, cinematic title readability, the 0–100% morph contact sheet, new forward/reverse videos, exact `390x844` recovery validation, and the required real-time 60 fps recovery measurement are not complete.
+
+Screening of the existing technical video is explicitly a failing baseline, not recovery evidence. `_AI_HANDOFFS/from_codex/MX-DASH-6010B/evidence/homebase-full-motion-forward-reverse.webm` is 1200x900 at 30 fps with 64 decoded frames. Its card-region normalized RGB mean-absolute-difference has median `0.02730675`, maximum `0.16089385`, and maximum/median `5.89209x`; this fails the `<3x` perceptual smash-cut guardrail and is not the requested 60 fps capture.
+
+The existing v5 material ramp also concentrates approximately `73` percentage points of the material change between progress `0.4` and `0.6`. Its pencil typography is baked/outlined while the cinematic DOM copy uses hard near-black bars, so typography does not read as a continuous part of the same image.
+
+### Custody, production, and disposition
+
+- cinematic source board SHA-256 remains `7630178b303241bc23d61005581d1b7673e18809dd3715c8db55bf123d623382`;
+- approved pencil board SHA-256 remains `d1a0e5bb4195a0fe0959b9537e4671b36e6ca684b34c843bb2d9bcfc8204a2a8`;
+- approved motion reference SHA-256 remains `dbcb2d193baa409b7b48000eb24e1bfc06d51af694330c1082abb35d1a7941f8`;
+- AI-regenerated assets: **NO**;
+- student-wide activation: **OFF**;
+- no production asset, shared enqueue seam, runtime lock, or student path was changed during this recovery attempt;
+- the administrator canary remains live on the previously deployed, Founder-rejected v5 assets; no failed A/B/C candidate was surfaced;
+- the existing verified rollback preimage and absence ledger remain intact and unexercised.
+
+Further deterministic image-filter parameter tuning is not expected to meet the approved-board standard. Recovery now requires a materially different deterministic semantic/manual mask workflow or separately authorized professional redraw/source art before true-morph work can resume.
+
+RESULT: PARTIAL — VISUAL ACCEPTANCE NOT MET

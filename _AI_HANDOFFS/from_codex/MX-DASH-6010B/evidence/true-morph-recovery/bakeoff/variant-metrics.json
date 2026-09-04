@@ -1,0 +1,96 @@
+{
+  "cards": {
+    "homebase": {
+      "a": {
+        "edge_density": 0.2468,
+        "graphite_pct_lte_110": 4.884,
+        "median": 229,
+        "midtone_pct_175_220": 14.621,
+        "paper_pct_gte_225": 67.899,
+        "q01": 53,
+        "q05": 111,
+        "q95": 232
+      },
+      "approved": {
+        "edge_density": 0.4409,
+        "graphite_pct_lte_110": 3.98,
+        "median": 214,
+        "midtone_pct_175_220": 38.417,
+        "paper_pct_gte_225": 29.842,
+        "q01": 81,
+        "q05": 117,
+        "q95": 234
+      },
+      "b": {
+        "edge_density": 0.2985,
+        "graphite_pct_lte_110": 5.649,
+        "median": 228,
+        "midtone_pct_175_220": 19.036,
+        "paper_pct_gte_225": 58.837,
+        "q01": 72,
+        "q05": 104,
+        "q95": 232
+      },
+      "c": {
+        "edge_density": 0.3077,
+        "graphite_pct_lte_110": 3.057,
+        "median": 223,
+        "midtone_pct_175_220": 22.632,
+        "paper_pct_gte_225": 34.262,
+        "q01": 57,
+        "q05": 159,
+        "q95": 230
+      },
+      "cinematic_sha256": "0961c33d17e95ffc53ab26fbd0228ac261774f17ca4c6b7a431487d1cea72e16"
+    },
+    "storyforge": {
+      "a": {
+        "edge_density": 0.2377,
+        "graphite_pct_lte_110": 4.886,
+        "median": 229,
+        "midtone_pct_175_220": 12.301,
+        "paper_pct_gte_225": 70.98,
+        "q01": 53,
+        "q05": 111,
+        "q95": 232
+      },
+      "approved": {
+        "edge_density": 0.471,
+        "graphite_pct_lte_110": 13.703,
+        "median": 207,
+        "midtone_pct_175_220": 23.007,
+        "paper_pct_gte_225": 32.671,
+        "q01": 62,
+        "q05": 81,
+        "q95": 234
+      },
+      "b": {
+        "edge_density": 0.28,
+        "graphite_pct_lte_110": 5.516,
+        "median": 227,
+        "midtone_pct_175_220": 16.922,
+        "paper_pct_gte_225": 60.994,
+        "q01": 71,
+        "q05": 105,
+        "q95": 232
+      },
+      "c": {
+        "edge_density": 0.3105,
+        "graphite_pct_lte_110": 2.868,
+        "median": 222,
+        "midtone_pct_175_220": 28.491,
+        "paper_pct_gte_225": 12.901,
+        "q01": 56,
+        "q05": 162,
+        "q95": 229
+      },
+      "cinematic_sha256": "df53e21cf51f450d81d8a726408b5a7be53557a4905937105c482b21fcce532d"
+    }
+  },
+  "paper_rgb": [
+    238,
+    234,
+    227
+  ],
+  "version": "mx-dash-6010b-registered-graphite-v6-bakeoff"
+}
