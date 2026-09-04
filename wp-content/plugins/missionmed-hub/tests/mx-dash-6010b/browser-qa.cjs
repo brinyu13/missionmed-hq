@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const childProcess = require('node:child_process');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
@@ -39,6 +40,7 @@ function collectFailures(page, bucket) {
 		assert.equal(await page.locator('.mmdv2-morph').count(), 8);
 		assert.equal(await page.locator('.mmdv2-card-locked .mmdv2-meta:visible').count(), 0);
 		assert.equal(await page.locator('.mmdv2-card-locked .mmdv2-cat:visible').count(), 0);
+		assert.equal(await page.locator('.mmdv2-cinematic-copy').count(), 8);
 		const sources = await page.locator('.mmdv2-morph').evaluateAll(function (nodes) {
 			return nodes.map(function (node) {
 				var pencil = node.querySelector('.mmdv2-morph-pencil');
@@ -47,10 +49,11 @@ function collectFailures(page, bucket) {
 		});
 		assert.equal(sources.length, 8);
 		sources.forEach(function (source) {
-			assert.match(source.pencil, new RegExp('/locked-art/pencil/' + source.id + '\\.png$'));
+			assert.match(source.pencil, new RegExp('/locked-art/pencil-registered/' + source.id + '\\.png$'));
 			assert.match(source.target, new RegExp('/locked-art/cinematic/' + source.id + '\\.png$'));
 			assert.ok(source.width > 0 && source.height > 0);
 		});
+		assert.equal(await page.locator('.mmdv2-cine-head').first().evaluate(function (node) { return Number(getComputedStyle(node).opacity); }), 0);
 		results.checks.adminLockedEndpoints = 'PASS';
 		await page.screenshot({ path:path.join(evidence, 'admin-pencil-desktop.png'), animations:'disabled', timeout:90000 });
 
@@ -76,6 +79,7 @@ function collectFailures(page, bucket) {
 			})
 		};
 		await first.screenshot({ path:path.join(evidence, 'homebase-cinematic.png') });
+		assert.ok(await page.locator('.mmdv2-cine-head').first().evaluate(function (node) { return Number(getComputedStyle(node).opacity); }) > .98);
 		await page.mouse.move(2, 2);
 		await page.waitForFunction(function () { var node = document.querySelector('.mmdv2-morph'); return !node.classList.contains('is-target') && window.MMED_DASH_MORPH_DIAGNOSTICS.activeContexts === 0; }, null, { timeout:5000 });
 		diag = await page.evaluate(function () { return window.MMED_DASH_MORPH_DIAGNOSTICS; });
@@ -99,6 +103,46 @@ function collectFailures(page, bucket) {
 		await page.waitForFunction(function () { var node = document.querySelector('.mmdv2-morph'); return !node.classList.contains('is-target') && window.MMED_DASH_MORPH_DIAGNOSTICS.activeContexts === 0; }, null, { timeout:5000 });
 		results.checks.keyboard = 'PASS';
 
+		const frameDir = path.join(evidence, 'progress-frames');
+		fs.mkdirSync(frameDir, { recursive:true });
+		const frameHashes = {};
+		const progressPoints = [0,.2,.4,.6,.8,1];
+		for (const source of sources) {
+			frameHashes[source.id] = [];
+			for (const progress of progressPoints) {
+				const debug = await page.evaluate(async function (input) { return window.MMED_DASH_MORPH_TEST.seek(input.id, input.progress); }, { id:source.id, progress:progress });
+				assert.equal(debug.progress, progress);
+				assert.equal(debug.contexts, 1);
+				const suffix = String(Math.round(progress * 100)).padStart(3, '0');
+				const image = await page.locator('.mmdv2-card[data-open="' + source.id + '"]').screenshot({ path:path.join(frameDir, source.id + '-p' + suffix + '.png'), animations:'disabled' });
+				frameHashes[source.id].push(crypto.createHash('sha256').update(image).digest('hex'));
+			}
+			assert.equal(new Set(frameHashes[source.id]).size, progressPoints.length);
+		}
+		const typography = await page.locator('.mmdv2-cinematic-copy').evaluateAll(function (nodes) {
+			return nodes.map(function (node) {
+				var title = node.querySelector('.mmdv2-cine-title');
+				var subtitle = node.querySelector('.mmdv2-cine-sub');
+				var support = node.querySelector('.mmdv2-cine-support');
+				var titleStyle = getComputedStyle(title);
+				return {
+					titleSize:parseFloat(titleStyle.fontSize), titleWeight:Number(titleStyle.fontWeight),
+					titleColor:titleStyle.color, subtitleColor:getComputedStyle(subtitle).color,
+					supportColor:getComputedStyle(support).color,
+					titleSingleLine:titleStyle.whiteSpace === 'nowrap' && title.scrollWidth <= title.clientWidth + 1
+				};
+			});
+		});
+		typography.forEach(function (item) {
+			assert.ok(item.titleSize >= 23); assert.ok(item.titleWeight >= 800); assert.equal(item.titleColor, 'rgb(255, 255, 255)');
+			assert.equal(item.subtitleColor, 'rgb(255, 255, 255)'); assert.equal(item.supportColor, 'rgb(248, 251, 255)'); assert.equal(item.titleSingleLine, true);
+		});
+		results.checks.intermediateFrames = 'PASS';
+		results.checks.compositionRegistration = 'PASS';
+		results.checks.cinematicTypography = 'PASS';
+		results.checks.brightWhiteOnDark = 'PASS';
+		results.metrics.progressFrameHashes = frameHashes;
+
 		for (let i = 0; i < 8; i += 1) {
 			await page.locator('.mmdv2-card').nth(i).hover();
 			await page.waitForFunction(function (index) { return document.querySelectorAll('.mmdv2-morph')[index].classList.contains('is-target'); }, i, { timeout:5000 });
@@ -112,7 +156,7 @@ function collectFailures(page, bucket) {
 			await first.hover(); await page.waitForTimeout(45);
 			await page.mouse.move(2, 2); await page.waitForTimeout(45);
 		}
-		await page.waitForTimeout(950);
+		await page.waitForTimeout(1150);
 		diag = await page.evaluate(function () { return window.MMED_DASH_MORPH_DIAGNOSTICS; });
 		assert.equal(diag.activeContexts, 0);
 		assert.equal(diag.maxContexts, 1);
@@ -159,6 +203,8 @@ function collectFailures(page, bucket) {
 		await ready(page, '?admin=1&copyoverride=homebase');
 		assert.equal(await page.locator('.mmdv2-morph').count(), 8);
 		assert.equal(await page.locator('.mmdv2-card[data-open="homebase"].mmdv2-card-locked').count(), 1);
+		await page.locator('[data-persp="student"]').click();
+		assert.equal(await page.locator('.mmdv2-card[data-open="homebase"] .mmdv2-cine-sub').textContent(), 'Administrator-customized copy only');
 		results.checks.copyOnlyOverride = 'PASS';
 
 		await ready(page, '?admin=0');
@@ -183,6 +229,19 @@ function collectFailures(page, bucket) {
 		assert.ok(await reducedPage.locator('.mmdv2-morph').first().evaluate(function (node) { return node.classList.contains('is-target'); }));
 		results.checks.reducedMotion = 'PASS';
 		await reducedContext.close();
+
+		const previewContext = await browser.newContext({ viewport:{width:1200,height:900}, reducedMotion:'reduce' });
+		const previewPage = await previewContext.newPage();
+		collectFailures(previewPage, results.failures);
+		await ready(previewPage, '?admin=1&mx_dash_6010b_motion=full');
+		await previewPage.locator('.mmdv2-card').first().hover();
+		await previewPage.waitForTimeout(180);
+		diag = await previewPage.evaluate(function () { return window.MMED_DASH_MORPH_DIAGNOSTICS; });
+		assert.equal(diag.mode, 'webgl2');
+		assert.equal(diag.fullMotionPreview, true);
+		assert.equal(diag.systemReducedMotion, true);
+		results.checks.fullMotionFounderPreview = 'PASS';
+		await previewContext.close();
 
 		const fallbackContext = await browser.newContext({ viewport:{width:1200,height:900} });
 		const fallbackPage = await fallbackContext.newPage();
@@ -221,6 +280,31 @@ function collectFailures(page, bucket) {
 		results.checks.mobile390x844 = 'PASS';
 		results.metrics.mobile = mobile;
 		await mobileContext.close();
+
+		const videoContext = await browser.newContext({ viewport:{width:1200,height:900} });
+		const videoPage = await videoContext.newPage();
+		collectFailures(videoPage, results.failures);
+		await ready(videoPage, '?admin=1&mx_dash_6010b_motion=full');
+		const captureDir = fs.mkdtempSync('/tmp/mx-dash-6010b-screencast-');
+		const cdp = await videoContext.newCDPSession(videoPage);
+		let captureIndex = 0;
+		cdp.on('Page.screencastFrame', async function (frame) {
+			fs.writeFileSync(path.join(captureDir, 'frame-' + String(captureIndex++).padStart(5, '0') + '.jpg'), Buffer.from(frame.data, 'base64'));
+			await cdp.send('Page.screencastFrameAck', { sessionId:frame.sessionId });
+		});
+		await cdp.send('Page.startScreencast', { format:'jpeg', quality:92, maxWidth:1200, maxHeight:900, everyNthFrame:1 });
+		await videoPage.locator('.mmdv2-card').first().scrollIntoViewIfNeeded();
+		await videoPage.locator('.mmdv2-card').first().hover();
+		await videoPage.waitForTimeout(1250);
+		await videoPage.mouse.move(2, 2);
+		await videoPage.waitForTimeout(1250);
+		await cdp.send('Page.stopScreencast');
+		await videoContext.close();
+		assert.ok(captureIndex >= 12);
+		const encoded = childProcess.spawnSync('ffmpeg', ['-y','-loglevel','error','-framerate','30','-i',path.join(captureDir,'frame-%05d.jpg'),'-c:v','libvpx-vp9','-pix_fmt','yuv420p',path.join(evidence,'homebase-full-motion-forward-reverse.webm')]);
+		assert.equal(encoded.status, 0, encoded.stderr && encoded.stderr.toString());
+		results.metrics.videoFrames = captureIndex;
+		results.checks.realTimeVideo = 'PASS';
 
 		assert.deepEqual(results.failures, []);
 		results.finishedAt = new Date().toISOString();

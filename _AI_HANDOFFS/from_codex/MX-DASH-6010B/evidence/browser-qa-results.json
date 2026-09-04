@@ -1,10 +1,14 @@
 {
-  "startedAt": "2026-09-03T22:41:04.722Z",
+  "startedAt": "2026-09-04T02:38:00.192Z",
   "checks": {
     "adminLockedEndpoints": "PASS",
     "homeBaseForwardReverse": "PASS",
     "shaderMidpoint": "PASS",
     "keyboard": "PASS",
+    "intermediateFrames": "PASS",
+    "compositionRegistration": "PASS",
+    "cinematicTypography": "PASS",
+    "brightWhiteOnDark": "PASS",
     "allEight": "PASS",
     "stressNoLeak": "PASS",
     "routeCleanup": "PASS",
@@ -15,8 +19,10 @@
     "studentUnchanged": "PASS",
     "classic": "PASS",
     "reducedMotion": "PASS",
+    "fullMotionFounderPreview": "PASS",
     "webglFallback": "PASS",
-    "mobile390x844": "PASS"
+    "mobile390x844": "PASS",
+    "realTimeVideo": "PASS"
   },
   "metrics": {
     "homeBase": {
@@ -24,9 +30,9 @@
         "canary": true,
         "mode": "webgl2",
         "transitions": 1,
-        "frames": 26,
-        "averageFrameInterval": 35.327999999999996,
-        "maxFrameInterval": 116.60000000000036,
+        "frames": 31,
+        "averageFrameInterval": 46.11000000000001,
+        "maxFrameInterval": 183.39999999999964,
         "activeContexts": 0,
         "maxContexts": 1,
         "contextsCreated": 1,
@@ -34,9 +40,14 @@
         "failures": 0,
         "resourceSetsCreated": 1,
         "resourceSetsDisposed": 1,
-        "shaderCompileMs": 2974.300000000745,
+        "shaderCompileMs": 3206,
         "lastApp": "homebase",
-        "endpoint": "cinematic"
+        "endpoint": "cinematic",
+        "progress": 1,
+        "phase": "cinematic",
+        "fullMotionPreview": false,
+        "systemReducedMotion": false,
+        "forced": false
       },
       "endpointStyles": {
         "nodeClass": "mmdv2-morph is-target",
@@ -45,41 +56,117 @@
         "canvasCount": 0
       }
     },
+    "progressFrameHashes": {
+      "homebase": [
+        "3ff055c231db5bac042c714a547cb6f27b090faefd657474fd70e99f6a7b424f",
+        "2b9486c3753348e4d7bad9b0c76c6e212070d6aa014e9730a221ee98ebfe5513",
+        "c94799ea895f127e3754e480aea706339fab0996c4f1e3c1594920fcc3d29d61",
+        "dd096ae792db3bbb4f7f38f5fd887c5a5e5c297cf1d0a6896dab0589fd4f472b",
+        "a797ecad25307d509e9f18888781ad378185add4b5920c5035c15547ceb61414",
+        "d5d04fbcd9f978cccf0c15dd8b4dd3e447d48add4c31a8e0286fe6edf53ce320"
+      ],
+      "calendar": [
+        "f0b3637c7903fb32e49cac61dc5096935f650e81caaf58e2951eb00089d98289",
+        "ab6b0d854b22a6483fcc1781aea844d71202f6bc0c84ade7f4ff8057cc6e2c11",
+        "feeebffc0e6221429a620ab24d2e2839c57e128be49584db1a1cabb854ac83b6",
+        "c67814f0e35274ea278e1130913029a19a6c74d83072e4a286ec6b616c810b55",
+        "eadf6e2ea1e213b8acc99b0d297be506c9d39cd4401292abb85bfc8b19566e24",
+        "70833826e6e18ed184708fb9efe6b45e456bc5bd54a389e80c1b71e9197e61d7"
+      ],
+      "scheduler": [
+        "2376230638d037e7c95a68759f5864f1a0ef1914cf72645b97a6e5a2fb0f25af",
+        "80a5bf70580c76b148bfb78ea7f9081f01490edd9de744b64f781e434dd4b540",
+        "160798eee1baab6dbf0404895afb1570f565e528a435d728ab2e55ad478901d0",
+        "db4c021207d425e0a32d1c7ddc11c9d4cc51e13da16efb3e280b28d7131022dd",
+        "a623fd114df3a8af0eb188b2bbb44f1063ec8e38178ded51892a3b83dfd92916",
+        "05b097f7d41ee2a9ce3cde93fc2fbc47901d1a6b2ec559b0f443c5aaaf787159"
+      ],
+      "storyforge": [
+        "a67790f5bc6372baf18d75ee062c79dfc741128497312014d79ac1b7b1be4862",
+        "980fece881f93b46a9f5f0128be65225c1d85de01a9774dfae0b435e43618e6e",
+        "b86185be3f16213b07520d9eb1d45b944548e3f296deb1fed6c83cd3016a70df",
+        "99290ab4f13e4af2d5b3329a09e587000b04b0472b74ee574a3798e3ae63c2b3",
+        "0a5356f7085aaa07552126eab6242f31fd056cdacc8cabf33848a476e3839543",
+        "67bcdd00baec2fa4b12af71f49d3d180ea94a0d8b142b5cd19e3edcddb39c0e0"
+      ],
+      "ivprep": [
+        "d227b207b0e9c48611c43ff6d465c4ae179a6b4913e2b2a250b45eef75c1c0c9",
+        "3b19ee2e842cad7ad9568ec8cf0ee1a28a4c1ea503fab72ee8a00b389759ddbb",
+        "6f99ab21616658fcfa9f9e5e9d013dfa4f7bf421e3c6e3470fe23034d5576796",
+        "389c6274e4e1de27820d726b1f0e86fd810970d589addee51e409e5e17aea3b4",
+        "0b8d030d80991f13a7f92fa880a248ea383dcd57f93d08a88ba905cadd6fdb2b",
+        "05b0835673510e80f1ccb40798cf8a58ef771f3c8f28efd115dbe1ffb8902432"
+      ],
+      "rise": [
+        "3c3fdd8b57dacb07609194a21c0a32d4206ed31ed869797f609fb780e823eb79",
+        "41b042f7574659ffee093c400094a34d20ef59e57ea20c992768df2e68407607",
+        "a5fed2a1a5a0cb1ec6fa5ce512177947e9306b664337d9d67206e164274adbcc",
+        "a883d9b1024f40d59d8db52788fcc80182a87edd0785973717983cd066c397cd",
+        "ed47fe819e68d323ab6fd3e32f692c969d0a0e4f8ddf6d4a094cff58bd5e4de3",
+        "e12bdab1822195f0f157e3e8e3de7a8487df062715d45aa7b28e7224e62495a0"
+      ],
+      "ranklist": [
+        "254c2a3c2825a75adf8aff9a9808931cc46d59ca6c76c2c2811533f10ddbc4d5",
+        "77f9270e72eac41f22959e5b5eedd5d0c32c03a257236a7675167600274d1397",
+        "14c05fee9725f0b797f52fc086e8377db336065f97d724074123990028d03961",
+        "e90c35774e4d1b3e276352d2bf9ea3cb322f2b9b2777fd571770fba050460396",
+        "c7b6c1233d375b05a9104a31324381edebeef90bc097a9ae26b85ded3d0474ac",
+        "166b306efaf5ff7723f0eb42b1851aaa5c8c8449c276981ac34130269950ae07"
+      ],
+      "lor": [
+        "0cb2fd8aa7df01f91e05e5fa1cebf2cd9b9e03821a94ea68094bec55789276a6",
+        "473e72eebe338eced8ca35111ca4f0f316cfefab048688206aae6a8ee4d0b97f",
+        "4c08dc8c34da5fa9b286be0989283219a47e52aacac3449bb92632905ba19f16",
+        "cc004dc690f5ff11a2e576dffb6518a2f0d18a1656406ee69d73abb48fc5c3ec",
+        "0a5ee14d2305801abef86147644936c974d17244c52f9d33382864c020cc0a1a",
+        "8ce4937951312726365176e06f53d3aa1cdf6393d1cfd5e84eae2eeda2b0777c"
+      ]
+    },
     "stress": {
       "canary": true,
       "mode": "webgl2",
-      "transitions": 82,
-      "frames": 660,
-      "averageFrameInterval": 46.42162629757781,
-      "maxFrameInterval": 933.4000000000005,
+      "transitions": 130,
+      "frames": 542,
+      "averageFrameInterval": 46.448478260869514,
+      "maxFrameInterval": 1266.6999999999998,
       "activeContexts": 0,
       "maxContexts": 1,
       "contextsCreated": 1,
       "contextsDisposed": 0,
       "failures": 0,
-      "resourceSetsCreated": 52,
-      "resourceSetsDisposed": 52,
-      "shaderCompileMs": 2974.300000000745,
+      "resourceSetsCreated": 60,
+      "resourceSetsDisposed": 60,
+      "shaderCompileMs": 3206,
       "lastApp": "homebase",
-      "endpoint": "pencil"
+      "endpoint": "pencil",
+      "progress": 0,
+      "phase": "pencil",
+      "fullMotionPreview": false,
+      "systemReducedMotion": false,
+      "forced": false
     },
     "routeCleanup": {
       "canary": true,
       "mode": "webgl2",
-      "transitions": 83,
-      "frames": 664,
-      "averageFrameInterval": 46.38278829604128,
-      "maxFrameInterval": 933.4000000000005,
+      "transitions": 131,
+      "frames": 547,
+      "averageFrameInterval": 46.299353448275795,
+      "maxFrameInterval": 1266.6999999999998,
       "activeContexts": 0,
       "maxContexts": 1,
       "contextsCreated": 1,
       "contextsDisposed": 1,
       "failures": 0,
-      "resourceSetsCreated": 53,
-      "resourceSetsDisposed": 53,
-      "shaderCompileMs": 2974.300000000745,
+      "resourceSetsCreated": 61,
+      "resourceSetsDisposed": 61,
+      "shaderCompileMs": 3206,
       "lastApp": "homebase",
-      "endpoint": "pencil"
+      "endpoint": "pencil",
+      "progress": 0,
+      "phase": "pencil",
+      "fullMotionPreview": false,
+      "systemReducedMotion": false,
+      "forced": false
     },
     "mobile": {
       "viewport": [
@@ -96,9 +183,9 @@
         "canary": true,
         "mode": "webgl2",
         "transitions": 1,
-        "frames": 51,
-        "averageFrameInterval": 16.666,
-        "maxFrameInterval": 16.799999999999955,
+        "frames": 58,
+        "averageFrameInterval": 16.957894736842107,
+        "maxFrameInterval": 33.299999999999955,
         "activeContexts": 0,
         "maxContexts": 1,
         "contextsCreated": 1,
@@ -106,12 +193,18 @@
         "failures": 0,
         "resourceSetsCreated": 1,
         "resourceSetsDisposed": 1,
-        "shaderCompileMs": 74.59999999962747,
+        "shaderCompileMs": 83.29999999701977,
         "lastApp": "homebase",
-        "endpoint": "cinematic"
+        "endpoint": "cinematic",
+        "progress": 1,
+        "phase": "cinematic",
+        "fullMotionPreview": false,
+        "systemReducedMotion": false,
+        "forced": false
       }
-    }
+    },
+    "videoFrames": 64
   },
   "failures": [],
-  "finishedAt": "2026-09-03T22:42:06.680Z"
+  "finishedAt": "2026-09-04T02:40:21.031Z"
 }

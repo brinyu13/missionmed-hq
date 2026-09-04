@@ -111,7 +111,7 @@ class MMED_Student_OS {
 				wp_deregister_style( 'mmed-dashboard-v2-css' );
 				wp_enqueue_style(
 					'mmed-dashboard-v2-css',
-					MMED_HUB_URL . 'assets/dashboard-v2/mmed-dashboard-v2.6010b.css',
+					MMED_HUB_URL . 'assets/dashboard-v2/mmed-dashboard-v2.6010b-polish.css',
 					array( 'mmed-student-os-css' ),
 					null
 				);
@@ -120,7 +120,7 @@ class MMED_Student_OS {
 				wp_deregister_script( 'mmed-dashboard-v2-js' );
 				wp_enqueue_script(
 					'mmed-dashboard-v2-js',
-					MMED_HUB_URL . 'assets/dashboard-v2/mmed-dashboard-v2.6010b.js',
+					MMED_HUB_URL . 'assets/dashboard-v2/mmed-dashboard-v2.6010b-polish.js',
 					array( 'mmed-student-os-js', 'mmed-dashboard-v2-art-js' ),
 					null,
 					true

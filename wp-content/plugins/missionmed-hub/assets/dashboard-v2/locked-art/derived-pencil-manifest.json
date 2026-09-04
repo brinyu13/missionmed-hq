@@ -1,0 +1,254 @@
+{
+  "cards": [
+    {
+      "cinematic": {
+        "output": "cinematic/homebase.png",
+        "pixel_sha256": "30f98572f82d6cfe2afe2cf86d450f22abacf14057ad23b7c88a3f35ebf7e699",
+        "png_sha256": "0961c33d17e95ffc53ab26fbd0228ac261774f17ca4c6b7a431487d1cea72e16",
+        "source_crop": {
+          "height": 385,
+          "width": 341,
+          "x": 25,
+          "y": 122
+        }
+      },
+      "derived_pencil": {
+        "derived_from": "cinematic/homebase.png",
+        "height": 385,
+        "output": "pencil-registered/homebase.png",
+        "pixel_sha256": "84beac6938c7d2a5db8d18f5026ee19ab6e4cd4afb3c3bfc785930d9414a161a",
+        "png_sha256": "fc15a7b292d6095ffeb35c2d8a8e774c0905ca10622fd86a236963ed3bb7c05b",
+        "width": 341
+      },
+      "id": "homebase",
+      "registration": {
+        "coordinate_transform": "identity",
+        "framing": "identical-by-construction",
+        "pixel_dimensions_identical": true,
+        "subject_bounds": "identical-by-construction"
+      }
+    },
+    {
+      "cinematic": {
+        "output": "cinematic/calendar.png",
+        "pixel_sha256": "31a0c267db3ec8a1dff3f7cf5702bfbde15cd5ce443620feea827681642b2f0f",
+        "png_sha256": "d0e4dd8febe578e51bf86f748a6359fa681f769a96c5f017006a6c4f7df6aca3",
+        "source_crop": {
+          "height": 385,
+          "width": 346,
+          "x": 374,
+          "y": 122
+        }
+      },
+      "derived_pencil": {
+        "derived_from": "cinematic/calendar.png",
+        "height": 385,
+        "output": "pencil-registered/calendar.png",
+        "pixel_sha256": "97006d692a76fd137b9bd4fcc52781094f823cd977fa1cd7009014a776a8a925",
+        "png_sha256": "104535407a6022f53271526646afe995ffe22f2a5a0a8b6966d28eb3b8022292",
+        "width": 346
+      },
+      "id": "calendar",
+      "registration": {
+        "coordinate_transform": "identity",
+        "framing": "identical-by-construction",
+        "pixel_dimensions_identical": true,
+        "subject_bounds": "identical-by-construction"
+      }
+    },
+    {
+      "cinematic": {
+        "output": "cinematic/scheduler.png",
+        "pixel_sha256": "19c18c1cff74c45a37cc7acafecf807337e474c4c36de3089bfd0574c01a7bd4",
+        "png_sha256": "1d74993b50b8efb5b8cc04bf5ae0abcad8c2c5bbc26beaa9e84efa60986be1fc",
+        "source_crop": {
+          "height": 385,
+          "width": 337,
+          "x": 728,
+          "y": 122
+        }
+      },
+      "derived_pencil": {
+        "derived_from": "cinematic/scheduler.png",
+        "height": 385,
+        "output": "pencil-registered/scheduler.png",
+        "pixel_sha256": "4241ab0778acfa809a8af213ddc7644e9d196f1011417dd3d816c3a546c0e75e",
+        "png_sha256": "4428f376c9ec6e4af3902871ba9b846d127a3e6d43a246d465a43f80caf858b5",
+        "width": 337
+      },
+      "id": "scheduler",
+      "registration": {
+        "coordinate_transform": "identity",
+        "framing": "identical-by-construction",
+        "pixel_dimensions_identical": true,
+        "subject_bounds": "identical-by-construction"
+      }
+    },
+    {
+      "cinematic": {
+        "output": "cinematic/storyforge.png",
+        "pixel_sha256": "4ed7e62e490c9d991dbfc9bb500b062e7b2f0b413cc0f246fe9593104f659e38",
+        "png_sha256": "df53e21cf51f450d81d8a726408b5a7be53557a4905937105c482b21fcce532d",
+        "source_crop": {
+          "height": 385,
+          "width": 349,
+          "x": 1073,
+          "y": 122
+        }
+      },
+      "derived_pencil": {
+        "derived_from": "cinematic/storyforge.png",
+        "height": 385,
+        "output": "pencil-registered/storyforge.png",
+        "pixel_sha256": "62164d30c12bc83f3a93b55935f41862f00db467f3063a481dbff922bc26f78a",
+        "png_sha256": "6120bdd9818ff8fab2d4bb2d47f67d4603392067d858935a2c632f9b7d821c40",
+        "width": 349
+      },
+      "id": "storyforge",
+      "registration": {
+        "coordinate_transform": "identity",
+        "framing": "identical-by-construction",
+        "pixel_dimensions_identical": true,
+        "subject_bounds": "identical-by-construction"
+      }
+    },
+    {
+      "cinematic": {
+        "output": "cinematic/ivprep.png",
+        "pixel_sha256": "4d8c24b38c056eb7574539c8507587e1096e02d68be37f9a557202b3326c9f02",
+        "png_sha256": "6204776031ccc7b542c1245f528c1a9646f5df342acf929af3aafb60c563c33a",
+        "source_crop": {
+          "height": 375,
+          "width": 341,
+          "x": 25,
+          "y": 515
+        }
+      },
+      "derived_pencil": {
+        "derived_from": "cinematic/ivprep.png",
+        "height": 375,
+        "output": "pencil-registered/ivprep.png",
+        "pixel_sha256": "cb5395393c50d402c20c68c0d2213a9898e7a961562b1b3ca017dbf95130171c",
+        "png_sha256": "ac7cccb4e5ee3b6bf5e9ae8cf06c585afe22957b862a885a108f4071be62077e",
+        "width": 341
+      },
+      "id": "ivprep",
+      "registration": {
+        "coordinate_transform": "identity",
+        "framing": "identical-by-construction",
+        "pixel_dimensions_identical": true,
+        "subject_bounds": "identical-by-construction"
+      }
+    },
+    {
+      "cinematic": {
+        "output": "cinematic/rise.png",
+        "pixel_sha256": "5eeaed306e726e93b084283990f0b97d362b714ff61589e41290a39dee540957",
+        "png_sha256": "ab5c393eb9b5938fb5ff6b42a0f21d0cfa84549fb95942aab2b2fdb92e898a6c",
+        "source_crop": {
+          "height": 375,
+          "width": 346,
+          "x": 374,
+          "y": 515
+        }
+      },
+      "derived_pencil": {
+        "derived_from": "cinematic/rise.png",
+        "height": 375,
+        "output": "pencil-registered/rise.png",
+        "pixel_sha256": "a620ab9549c5068b5c3e957cc132e41482cf9e3e653e6c70635becf8b1b31996",
+        "png_sha256": "2f17cbf7dfaa298b140b665712b74d8fddaf88da4a12477fab6ea4e959897ca3",
+        "width": 346
+      },
+      "id": "rise",
+      "registration": {
+        "coordinate_transform": "identity",
+        "framing": "identical-by-construction",
+        "pixel_dimensions_identical": true,
+        "subject_bounds": "identical-by-construction"
+      }
+    },
+    {
+      "cinematic": {
+        "output": "cinematic/ranklist.png",
+        "pixel_sha256": "db77b13e17434a12f9cdf08d3db0bb9426918cb0236760cca73b6956cce215eb",
+        "png_sha256": "544f5a98c32f2d4c4f8ada517b6102434189a9246b1d0d73e63bb35fb6943d0d",
+        "source_crop": {
+          "height": 375,
+          "width": 337,
+          "x": 728,
+          "y": 515
+        }
+      },
+      "derived_pencil": {
+        "derived_from": "cinematic/ranklist.png",
+        "height": 375,
+        "output": "pencil-registered/ranklist.png",
+        "pixel_sha256": "7d5686d1cdb2f3c7d2ac002446a69147b9f5dd35671b2428c9108d2e4c078ef0",
+        "png_sha256": "34fc404b35de4b62d56c48df34eacbcd617820cf1fcf25c453ec6af8216287dc",
+        "width": 337
+      },
+      "id": "ranklist",
+      "registration": {
+        "coordinate_transform": "identity",
+        "framing": "identical-by-construction",
+        "pixel_dimensions_identical": true,
+        "subject_bounds": "identical-by-construction"
+      }
+    },
+    {
+      "cinematic": {
+        "output": "cinematic/lor.png",
+        "pixel_sha256": "26d8153518593d0ead7a7313126a1bdec7b8febedacaadce84977d8d5281f389",
+        "png_sha256": "aa7ebd37541900b2fec139c73d028e0986684d8c90a08e991db4b58ee1b24ff9",
+        "source_crop": {
+          "height": 375,
+          "width": 349,
+          "x": 1073,
+          "y": 515
+        }
+      },
+      "derived_pencil": {
+        "derived_from": "cinematic/lor.png",
+        "height": 375,
+        "output": "pencil-registered/lor.png",
+        "pixel_sha256": "0e67fbf92e69c16193d31ac0f92ef6c8bff259d86dc292ec99ea90006bafea15",
+        "png_sha256": "a6f9c7b5704f9d1681a5b22f3a0ed52e95b3b825cec9fa4625457242600597ac",
+        "width": 349
+      },
+      "id": "lor",
+      "registration": {
+        "coordinate_transform": "identity",
+        "framing": "identical-by-construction",
+        "pixel_dimensions_identical": true,
+        "subject_bounds": "identical-by-construction"
+      }
+    }
+  ],
+  "cinematic_source": {
+    "file": "missionmed_app_card_background_system.png",
+    "height": 1086,
+    "sha256": "7630178b303241bc23d61005581d1b7673e18809dd3715c8db55bf123d623382",
+    "width": 1448
+  },
+  "derivation": {
+    "ai_generation": false,
+    "geometry_policy": "identity transform over exact decoded cinematic crop pixels",
+    "implementation": "tests/mx-dash-6010b/locked_art_tool.py",
+    "method": "BT.709 luminance; deterministic q02/q98 shadow lift; multi-scale dark-line extraction; six-band tonal graphite; restrained directional hatching; pencil-board-calibrated ivory paper and grain",
+    "paper_hatch_style_source": {
+      "file": "missionmed_matrix_dashboard_concept_board.png",
+      "grain_amplitude": 2,
+      "measured_ivory_rgb": [
+        233,
+        229,
+        223
+      ],
+      "role": "approved style reference; bright-paper tone and grain statistics only",
+      "sha256": "d1a0e5bb4195a0fe0959b9537e4671b36e6ca684b34c843bb2d9bcfc8204a2a8"
+    },
+    "version": "mx-dash-6010b-registered-graphite-v5"
+  },
+  "schema_version": "missionmed.mx-dash-6010b.registered-pencil.v2",
+  "ticket": "MX-DASH-6010B"
+}
