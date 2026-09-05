@@ -1,0 +1,36 @@
+{
+  "schema": "missionmed.hb_360a_005r.mmvs_registry_reconciliation.v1",
+  "generated_at": "2026-09-05T16:10:16Z",
+  "privacy_contract": "ids_and_aggregate_provenance_only_no_titles_transcripts_private_paths_or_student_data",
+  "live_source": {
+    "provenance": "mmvs_production_videos_endpoint",
+    "unique_id_count": 313,
+    "sorted_unique_ids_sha256": "e483019bc379f1f20a4ed23fbd0a4d1dda4a22b6b2362a8cd4547979abf2b64c"
+  },
+  "local_source": {
+    "provenance": "ignored_local_video_registry_snapshot",
+    "unique_id_count": 303,
+    "sorted_unique_ids_sha256": "d48247bbac9be9b4e0da26254f6f5cd115d6e6f444eff5ef0d05808e74344721",
+    "snapshot_sha256": "74dc65385674688952ee2417a25020f2b58a485af4eb6e3be6a05544aec312bb"
+  },
+  "summary": {
+    "live_only_count": 10,
+    "local_only_count": 0,
+    "deleted_count": 0
+  },
+  "live_only": [
+    {"id": "usmle_17baf7a0e5ae", "provenance": "live_mmvs_registry_absent_from_local_snapshot"},
+    {"id": "usmle_540316ee009a", "provenance": "live_mmvs_registry_absent_from_local_snapshot"},
+    {"id": "usmle_5459b6a5698d", "provenance": "live_mmvs_registry_absent_from_local_snapshot"},
+    {"id": "usmle_61e7549c988b", "provenance": "live_mmvs_registry_absent_from_local_snapshot"},
+    {"id": "usmle_b0115b7007de", "provenance": "live_mmvs_registry_absent_from_local_snapshot"},
+    {"id": "usmle_b7114c51a667", "provenance": "live_mmvs_registry_absent_from_local_snapshot"},
+    {"id": "usmle_c238d7132f8e", "provenance": "live_mmvs_registry_absent_from_local_snapshot"},
+    {"id": "usmle_cafd545abce7", "provenance": "live_mmvs_registry_absent_from_local_snapshot"},
+    {"id": "usmle_cd72312e7447", "provenance": "live_mmvs_registry_absent_from_local_snapshot"},
+    {"id": "usmle_fd13f5d8cc57", "provenance": "live_mmvs_registry_absent_from_local_snapshot"}
+  ],
+  "local_only": [],
+  "proposed_005d_import_target": "media_sources.legacy_registry_ref",
+  "mutation": "NONE"
+}
