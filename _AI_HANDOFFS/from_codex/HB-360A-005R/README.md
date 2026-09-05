@@ -8,7 +8,7 @@ RECOMMENDATION: NO-GO for starting HB-360A-005D.
 
 Observed through: `2026-09-05T16:10:16Z`
 
-Output custody: PATH epoch `1270` expired during package authoring; fresh filing fence `1274` covers the exact twelve-file terminal package.
+Output custody: PATH epoch `1270` expired during package authoring; epoch `1274` covered the exact twelve-file commit/push/readback but expired before release; epoch `1275` covers this truthful custody correction. TTL recovery is recorded, never misreported as release.
 
 ## Reading order
 

@@ -15,7 +15,7 @@ RECOMMENDATION: NO-GO for HB-360A-005D.
 - Full phase registration: OS commit `6fd4563aac2154f2e7826c0f8069e24f0ce3d51c`; 005B design authority and blocked non-executing 005C/005D/005E routes.
 - BOOT/lint/enforcement: universal lint PASS, report-only enforcement PASS, and BOOT profiles 005R/005C/005D/005E PASS.
 - Lease truth: expired epochs were preserved in receipts; filing epoch 1269 released successfully; provider readback returned zero active leases and zero waiters.
-- Output custody: PATH epoch 1270 expired during authoring; fresh exact twelve-file filing fence 1274 was acquired for validation, commit, push, readback, and release.
+- Output custody: PATH epoch 1270 expired during authoring; exact twelve-file epoch 1274 covered validation, commit, push, and readback but expired before release (`released=false`). Epoch 1275 covers the narrow truthful-custody correction. TTL recovery is disclosed rather than promoted to successful release.
 - MR-079 SHA-256: `9638e67841e98b278244c0d4f9ecd0ccbdc7a9e17c50a67dd45d1d31895a0357`.
 
 ## WP-1 — Matrix runtime-lock reconciliation
