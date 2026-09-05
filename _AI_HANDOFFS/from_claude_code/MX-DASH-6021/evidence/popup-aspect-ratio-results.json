@@ -1,0 +1,305 @@
+{
+  "startedAt": "2026-09-05T20:11:02.877Z",
+  "checks": {
+    "desktopAllEight": "PASS",
+    "keyboardAndControls": "PASS",
+    "mobile390x844": "PASS",
+    "studentLockedState": "PASS",
+    "classic": "PASS",
+    "reducedMotion": "PASS"
+  },
+  "desktop": {
+    "homebase": {
+      "name": "HomeBase",
+      "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/homebase-cinematic-approved.png",
+      "natural": [
+        340,
+        378
+      ],
+      "naturalRatio": 0.8994708994708994,
+      "objectFit": "contain",
+      "objectPosition": "50% 50%",
+      "imageBox": [
+        458,
+        488
+      ],
+      "visualBox": [
+        458,
+        488
+      ],
+      "containedPaint": [
+        439,
+        488
+      ],
+      "adminEditVisible": true,
+      "closeVisible": true,
+      "previousVisible": true,
+      "nextVisible": true,
+      "ctaVisible": true
+    },
+    "calendar": {
+      "name": "Calendar",
+      "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/calendar-cinematic-approved.png",
+      "natural": [
+        346,
+        378
+      ],
+      "naturalRatio": 0.9153439153439153,
+      "objectFit": "contain",
+      "objectPosition": "50% 50%",
+      "imageBox": [
+        458,
+        488
+      ],
+      "visualBox": [
+        458,
+        488
+      ],
+      "containedPaint": [
+        447,
+        488
+      ],
+      "adminEditVisible": true,
+      "closeVisible": true,
+      "previousVisible": true,
+      "nextVisible": true,
+      "ctaVisible": true
+    },
+    "scheduler": {
+      "name": "Scheduler",
+      "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/scheduler-cinematic-approved.png",
+      "natural": [
+        348,
+        378
+      ],
+      "naturalRatio": 0.9206349206349206,
+      "objectFit": "contain",
+      "objectPosition": "50% 50%",
+      "imageBox": [
+        458,
+        488
+      ],
+      "visualBox": [
+        458,
+        488
+      ],
+      "containedPaint": [
+        449,
+        488
+      ],
+      "adminEditVisible": true,
+      "closeVisible": true,
+      "previousVisible": true,
+      "nextVisible": true,
+      "ctaVisible": true
+    },
+    "storyforge": {
+      "name": "StoryForge",
+      "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/storyforge-cinematic-approved.png",
+      "natural": [
+        337,
+        378
+      ],
+      "naturalRatio": 0.8915343915343915,
+      "objectFit": "contain",
+      "objectPosition": "50% 50%",
+      "imageBox": [
+        458,
+        488
+      ],
+      "visualBox": [
+        458,
+        488
+      ],
+      "containedPaint": [
+        435,
+        488
+      ],
+      "adminEditVisible": true,
+      "closeVisible": true,
+      "previousVisible": true,
+      "nextVisible": true,
+      "ctaVisible": true
+    },
+    "ivprep": {
+      "name": "IV Prep On-Call",
+      "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/iv-prep-on-call-cinematic-approved.png",
+      "natural": [
+        340,
+        374
+      ],
+      "naturalRatio": 0.9090909090909091,
+      "objectFit": "contain",
+      "objectPosition": "50% 50%",
+      "imageBox": [
+        458,
+        488
+      ],
+      "visualBox": [
+        458,
+        488
+      ],
+      "containedPaint": [
+        444,
+        488
+      ],
+      "adminEditVisible": true,
+      "closeVisible": true,
+      "previousVisible": true,
+      "nextVisible": true,
+      "ctaVisible": true
+    },
+    "rise": {
+      "name": "RISE",
+      "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/rise-cinematic-approved.png",
+      "natural": [
+        346,
+        374
+      ],
+      "naturalRatio": 0.9251336898395722,
+      "objectFit": "contain",
+      "objectPosition": "50% 50%",
+      "imageBox": [
+        458,
+        488
+      ],
+      "visualBox": [
+        458,
+        488
+      ],
+      "containedPaint": [
+        452,
+        488
+      ],
+      "adminEditVisible": true,
+      "closeVisible": true,
+      "previousVisible": true,
+      "nextVisible": true,
+      "ctaVisible": true
+    },
+    "ranklist": {
+      "name": "RankList IQ",
+      "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/ranklist-iq-cinematic-approved.png",
+      "natural": [
+        348,
+        374
+      ],
+      "naturalRatio": 0.93048128342246,
+      "objectFit": "contain",
+      "objectPosition": "50% 50%",
+      "imageBox": [
+        458,
+        488
+      ],
+      "visualBox": [
+        458,
+        488
+      ],
+      "containedPaint": [
+        454,
+        488
+      ],
+      "adminEditVisible": true,
+      "closeVisible": true,
+      "previousVisible": true,
+      "nextVisible": true,
+      "ctaVisible": true
+    },
+    "lor": {
+      "name": "LOR Studio",
+      "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/lor-studio-cinematic-approved.png",
+      "natural": [
+        337,
+        374
+      ],
+      "naturalRatio": 0.9010695187165776,
+      "objectFit": "contain",
+      "objectPosition": "50% 50%",
+      "imageBox": [
+        458,
+        488
+      ],
+      "visualBox": [
+        458,
+        488
+      ],
+      "containedPaint": [
+        440,
+        488
+      ],
+      "adminEditVisible": true,
+      "closeVisible": true,
+      "previousVisible": true,
+      "nextVisible": true,
+      "ctaVisible": true
+    }
+  },
+  "mobile": {
+    "homebase": {
+      "name": "HomeBase",
+      "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/homebase-cinematic-approved.png",
+      "natural": [
+        340,
+        378
+      ],
+      "naturalRatio": 0.8994708994708994,
+      "objectFit": "contain",
+      "objectPosition": "50% 50%",
+      "imageBox": [
+        382,
+        263
+      ],
+      "visualBox": [
+        382,
+        263
+      ],
+      "containedPaint": [
+        236,
+        263
+      ],
+      "adminEditVisible": true,
+      "closeVisible": true,
+      "previousVisible": true,
+      "nextVisible": true,
+      "ctaVisible": true
+    },
+    "scheduler": {
+      "name": "Scheduler",
+      "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/scheduler-cinematic-approved.png",
+      "natural": [
+        348,
+        378
+      ],
+      "naturalRatio": 0.9206349206349206,
+      "objectFit": "contain",
+      "objectPosition": "50% 50%",
+      "imageBox": [
+        382,
+        263
+      ],
+      "visualBox": [
+        382,
+        263
+      ],
+      "containedPaint": [
+        242,
+        263
+      ],
+      "adminEditVisible": true,
+      "closeVisible": true,
+      "previousVisible": true,
+      "nextVisible": true,
+      "ctaVisible": true
+    },
+    "layout": {
+      "viewport": [
+        390,
+        844
+      ],
+      "documentWidth": 390,
+      "bodyWidth": 390
+    }
+  },
+  "failures": [],
+  "finishedAt": "2026-09-05T20:11:14.070Z"
+}
