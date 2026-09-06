@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "d009476c8793e60d4f5f0e9aeefc3a549a839a5d",
+  "implementation_commit": "26db3c0c0ba515e09f3678d5ef898813eced5c92",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -10,7 +10,9 @@
     "b402c5326abe0a4668166d4637ea91b97a11d691",
     "8412990629be7900412fe251e575cfabf655f87d",
     "3608a7397e7aad16b2074fa027aa80b6b956bafb",
-    "d009476c8793e60d4f5f0e9aeefc3a549a839a5d"
+    "d009476c8793e60d4f5f0e9aeefc3a549a839a5d",
+    "df7f65a63c92851edf64bc0cc899f267ba8e91ff",
+    "26db3c0c0ba515e09f3678d5ef898813eced5c92"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -22,9 +24,11 @@
   "exam_transition_rpc_implemented": true,
   "billing_decision_rpc_implemented": true,
   "attendance_correction_rpc_implemented": true,
+  "payment_setup_implemented": true,
+  "billing_consent_rpc_implemented": true,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 55, "failed": 0, "mandatory_vectors": 17 },
+  "tests": { "passed": 61, "failed": 0, "mandatory_vectors": 17 },
   "source_controls": {
     "attendance_events": 3941,
     "human_cycle_rows": 498,
