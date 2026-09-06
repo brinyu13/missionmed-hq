@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "f3d7342b927e28497b95ce0862adb3d9c1524081",
+  "implementation_commit": "bcd2b7bd15760db7bcd8f0833d4331fb4e067839",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -33,7 +33,8 @@
     "ecc0e4f3fdc8274e43f233c7a0845cecb0335bf7",
     "d9c902e8c3e645a5cddb8e520316f63a6e315f57",
     "3bcc2638b3ab68b0402e934efc6e09cd703c6b10",
-    "f3d7342b927e28497b95ce0862adb3d9c1524081"
+    "f3d7342b927e28497b95ce0862adb3d9c1524081",
+    "bcd2b7bd15760db7bcd8f0833d4331fb4e067839"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -56,8 +57,14 @@
   "attendance_recompute_rpc_implemented": true,
   "append_only_correction_reversal_implemented": true,
   "payment_setup_implemented": true,
+  "stripe_payment_element_browser_flow_implemented": true,
+  "stripe_browser_setup_test_mode_only": true,
+  "stripe_raw_card_fields_rendered": false,
+  "stripe_on_file_state_webhook_authoritative": true,
   "payment_method_removal_implemented": true,
+  "payment_method_removal_browser_flow_implemented": true,
   "billing_consent_rpc_implemented": true,
+  "billing_consent_browser_flow_implemented": true,
   "day_charge_rpc_implemented": true,
   "automatic_charge_dispatch_worker_implemented": true,
   "automatic_charge_window_hours": [24, 48],
@@ -68,6 +75,7 @@
   "zoom_sync_failure_exception_implemented": true,
   "zoom_admin_health_surface_implemented": true,
   "production_auth_gate_verified": true,
+  "student_deep_link_hydration_verified": true,
   "production_simulated_controls_blocked": true,
   "stripe_payment_intent_webhook_implemented": true,
   "student_passed_implemented": true,
@@ -94,7 +102,7 @@
   "notification_transport_configured": false,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 119, "failed": 0, "mandatory_vectors": 19 },
+  "tests": { "passed": 125, "failed": 0, "mandatory_vectors": 19 },
   "browser_qa": {
     "desktop": true,
     "mobile_390": true,
@@ -103,7 +111,12 @@
     "explicit_opening_replay": true,
     "authenticated_gate_release": true,
     "failed_auth_opaque_gate": true,
-    "zoom_health_dynamic": true
+    "zoom_health_dynamic": true,
+    "stripe_payment_element_test_mode": true,
+    "billing_authorization_mobile": true,
+    "payment_method_removal": true,
+    "raw_card_fields": 0,
+    "student_billing_deep_link": true
   },
   "source_controls": {
     "students": 271,

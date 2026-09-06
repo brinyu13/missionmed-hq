@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Latest implementation commit:** `f3d7342b927e28497b95ce0862adb3d9c1524081`
+**Latest implementation commit:** `bcd2b7bd15760db7bcd8f0833d4331fb4e067839`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -18,7 +18,7 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - a default-off, exact-user-allowlisted WordPress SSO candidate plus a separately default-off, targetless, bounded same-origin gateway candidate; neither is installed in production;
 - a tracked scrubbed production shell that preserves the Founder-approved visual canon without embedding the 271-student/3,941-event historical payload or using browser local storage for business state;
 - a corrected production authentication gate that is actually injected at the canonical attributed `<body>` seam, hides only after an authenticated role-scoped bootstrap, and remains opaque with the real access failure when authentication cannot complete;
-- production-only truthfulness hardening that replaces inherited prototype labels, hides browser-reset/export affordances, and blocks simulated card, authorization, report, and reset dialogs before they open while preserving the approved visual hierarchy and admin/student lens;
+- production-only truthfulness hardening that replaces inherited prototype labels, hides browser-reset/export affordances, blocks simulated report/reset behavior, and replaces the simulated card/authorization path with authenticated server-backed payment controls while preserving the approved visual hierarchy and admin/student lens;
 - mounted `/missionaccounts/api/*` support, a safe public runtime configuration endpoint, and authenticated role-scoped UI bootstraps that expose only the student’s own account to student sessions while reserving roster, cycles, identity clusters, and operational health for Dr J/admin/founder sessions;
 - a canonical authenticated read adapter that paginates PostgREST reads, projects immutable attendance evidence, keeps both same-day class events while deriving one $25 day, omits Zoom meeting references from student scope, and hydrates the approved UI only from server-authoritative UUID-mapped records;
 - a production action bus for the currently backed billing-decision, cycle-policy, comp-day, exam-plan/result, and append-only attendance-correction controls; each accepted action refetches the complete authorized bootstrap before rerendering, and unsupported production controls fail visibly without optimistic browser state;
@@ -40,6 +40,9 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - strictly append-only correction reversals: a new correction references the prior record, the prior evidence row remains immutable, and both the JavaScript engine and PostgreSQL authority derive the effective chain without destructive edits;
 - versioned automatic-billing terms and student-only consent/revocation transactions that require an approved terms version plus an on-file payment method, preserve superseded consent history, audit accepted/rejected attempts, and remain feature-off;
 - secure Stripe payment setup with one stable private customer binding, Test-Mode-only SetupIntent creation, exact signed-event binding, sanitized card metadata, idempotent webhook completion, and no MissionMed raw-card fields;
+- a Stripe-hosted Payment Element browser flow using current `confirmSetup` semantics, explicit future-use consent, a Test-Mode-only public-key gate, narrowly allowlisted Stripe CSP origins, no raw card inputs, and signed-webhook-authoritative on-file status; administrators cannot enter a student's payment method;
+- a separate student-only automatic-billing authorization dialog that renders the approved server terms version, records the explicit one-$25-day consent through the idempotent server transaction, and supports independent revocation without deleting history;
+- direct authenticated student deep links are captured before the scrubbed shell's empty render and restored only after role-scoped hydration; students with no attendance receive a safe Billing empty state instead of a renderer failure;
 - student-owned, two-phase payment-method removal that revokes automatic-billing consent before Stripe detachment, blocks new charges while removal is pending, restores the method with consent still revoked after provider failure, deduplicates retries, and never exposes the private Stripe method reference to the browser;
 - server-authoritative $25 attendance-day charge preparation that requires a current approved basis, verified identity, billable day, on-file method, active consent, remaining approved amount, explicit failed-charge retries, and a unique charge per day; only a matching signed Stripe PaymentIntent webhook can mark it succeeded or failed;
 - a bounded 24–48-hour automatic-charge worker that asserts Stripe Test Mode before any database claim, atomically reserves eligible days with `SKIP LOCKED`, safely reclaims stale pre-provider work with the same Stripe idempotency key, records missed windows and provider failures in a private integration-exception queue, notifies student and admin on submission failure, and never automatically retries a failed charge;
@@ -98,6 +101,7 @@ All implementation files are under `missionaccounts/`:
 - `scripts/test-postgres-migration.sh`
 - `scripts/test-historical-import.sh`
 - `public/missionaccounts-runtime.js`
+- `public/missionaccounts-stripe.js`
 - `public/missionaccounts-canonical-adapter.js`
 - `public/missionaccounts-auth.js`
 - `public/index.production.html`
@@ -141,7 +145,7 @@ All implementation files are under `missionaccounts/`:
 
 ## Verification
 
-- `npm test`: PASS — 119/119, including all prior vectors plus default-off Zoom behavior, normalized source evidence, bounded windows, duplicate-source rejection, worker authentication, persistence idempotency, and failed-sync exception custody.
+- `npm test`: PASS — 125/125, including all prior vectors plus Test-Mode-only Stripe browser configuration, Payment Element confirmation semantics, explicit future-use consent, raw-card-field exclusion, exact Stripe CSP allowlists, and authenticated student deep-link hydration.
 - `npm run test:postgres`: PASS — all three migrations applied in order to disposable PostgreSQL 16, including idempotent source-only Zoom ingestion and failed-sync exception custody with zero downstream identity, attendance, billing, or charge mutations.
 - `npm run test:historical-import`: PASS — all custody hashes, privacy permissions, source/control totals, per-cycle totals, review holds, and zero-financial-mutation boundaries passed in disposable PostgreSQL 16.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
@@ -165,6 +169,10 @@ All implementation files are under `missionaccounts/`:
   - authenticated production gate release / failed-auth opaque gate: PASS.
   - Zoom health disconnected and seeded-success states: PASS; no hard-coded connectivity claim.
   - 390 px viewport: PASS; document and main `scrollWidth` equal the 390 px viewport.
+  - Secure payment setup: PASS with deterministic Stripe.js/API test doubles; Payment Element mounted, `confirmSetup` completed, zero MissionMed card fields rendered, and the UI remained pending until signed webhook truth.
+  - Student automatic-billing authorization: PASS; approved terms version posted only after explicit checkbox consent.
+  - Payment-method removal: PASS; authenticated DELETE issued only after the destructive-action confirmation.
+  - Direct `#/me/billing` production deep link: PASS before and after authoritative refetch; empty student records no longer fail hydration.
 
 Local browser evidence (gitignored because repository policy excludes PNGs):
 
@@ -172,6 +180,8 @@ Local browser evidence (gitignored because repository policy excludes PNGs):
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_zoom-health-mobile-playwright.png` — SHA-256 `60656ce16960cafcea4ccc2a46376b32fc2be06faa59894f7c219f77fc8521ae`.
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_zoom-health-success-dark.png` — SHA-256 `82593645cd6beea3fdf3a1cc6e35c05a5722e1c6e7fa62c268eebe21f865a530`.
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_auth-failure-gate.png` — SHA-256 `123b0917f04a6be9602e7ae3f4cdbde06dc2ab53078e134a2097be437d588130`.
+- `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_stripe-payment-element-test-mode.png` — SHA-256 `bfdf257c06e968eabc0bb5e6c4a9b7a0da83282620cb5cbf500a6d1e7148f640`.
+- `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_billing-authorization-mobile.png` — SHA-256 `90139e71a6e7017eae42c899cc252522986c2694affdf0bf071f085e7bd6e0fd`.
 
 ## Production services touched
 
@@ -179,7 +189,7 @@ None. No Railway project/service, PostgreSQL database, Supabase project, Kinsta/
 
 ## Environment/config changes
 
-None outside the isolated worktree. Local preview used `PORT=4179` and `MISSIONACCOUNTS_AUTH_MODE=local`; local auth fails closed under `NODE_ENV=production`. Stripe requests now use the account-default API version unless a provider-verified value is explicitly supplied through `MISSIONACCOUNTS_STRIPE_API_VERSION`; no fabricated future version is sent.
+None outside the isolated worktree. Local preview used `PORT=4179` and `MISSIONACCOUNTS_AUTH_MODE=local`; local auth fails closed under `NODE_ENV=production`. The candidate now recognizes `MISSIONACCOUNTS_STRIPE_PUBLISHABLE_KEY` only when automatic billing is enabled, `MISSIONACCOUNTS_STRIPE_MODE=test`, and the value is a `pk_test_` key; otherwise public setup configuration remains disabled and no key is returned. Stripe requests use the account-default API version unless a provider-verified value is explicitly supplied through `MISSIONACCOUNTS_STRIPE_API_VERSION`; no fabricated future version is sent.
 
 ## Matrix route registration and production URL
 
