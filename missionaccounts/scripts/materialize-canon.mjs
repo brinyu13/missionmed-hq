@@ -154,7 +154,7 @@ function missionAccountsDisable(control,reason){
 }
 function missionAccountsHydrateProviderInvoice(root){
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return;
-  const route=(location.hash||'').match(/^#\/invoice\/(\d+)\/(june|july|august)/);
+  const route=(location.hash||'').match(new RegExp('^#/invoice/([0-9]+)/(june|july|august)'));
   if(!route) return;
   const si=Number(route[1]); const k=route[2]; const provider=WS.providerInvoices?.[si]?.[k]||null;
   const ready=WS.ready?.[si]?.[k]===true; const panel=root.querySelector('.invSide .panel');
@@ -175,7 +175,7 @@ function missionAccountsHydrateProviderInvoice(root){
     :'Stripe is hosting this invoice'+(provider.dueAt?' · due '+String(provider.dueAt).slice(0,10):'.');
   row.querySelectorAll('[data-ready]').forEach(control=>control.remove());
   const controls=[];
-  if(provider.hostedUrl&&/^https:\/\/invoice[.]stripe[.]com\//.test(provider.hostedUrl)){
+  if(provider.hostedUrl&&String(provider.hostedUrl).startsWith('https://invoice.stripe.com/')){
     const open=document.createElement('a'); open.className='btn confirm'; open.href=provider.hostedUrl;
     open.target='_blank'; open.rel='noopener noreferrer'; open.textContent='Open Stripe invoice'; controls.push(open);
   }

@@ -4,6 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { createMissionAccountsServer } from '../src/server.mjs';
 import { PreviewStore, SupabaseRestStore } from '../src/storage/supabase-rest.mjs';
@@ -94,6 +95,21 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /hydrateAuthoritative, toast/);
   assert.match(html, /onclick=async\(\)=>\{ const si=\+b\.dataset\.saveContact/);
   assert.match(html, /onclick=async\(\)=>\{ const \[si,k,v\]=b\.dataset\.ready\.split/);
+});
+
+test('every executable inline production script parses in the browser language grammar', async () => {
+  const html = await readFile(productionShellPath, 'utf8');
+  const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
+  let executableCount = 0;
+  for (const [, attributes, source] of scripts) {
+    if (/\bsrc\s*=/.test(attributes) || /\btype=["']application\/json["']/.test(attributes)) continue;
+    executableCount += 1;
+    assert.doesNotThrow(
+      () => new vm.Script(source),
+      `Production inline script ${executableCount} must parse before deployment`,
+    );
+  }
+  assert.ok(executableCount > 0);
 });
 
 test('production server serves only the scoped shell while keeping mounted public config available', async () => {
