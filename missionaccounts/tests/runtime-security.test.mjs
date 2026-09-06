@@ -53,6 +53,7 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /data-missionaccounts-runtime="authenticated-readonly"/);
   assert.match(html, /\[data-reset\][^\n]*display:none!important/);
   assert.match(html, /id="missionaccountsRuntimeGate"/);
+  assert.match(html, /id="hSearchInput" aria-label="Find a student"/);
   assert.match(html, /id="missionaccounts-bootstrap-route-guard"/);
   assert.match(html, /__MISSIONACCOUNTS_REQUESTED_HASH/);
   assert.match(html, /!latest&&!\['billing','exam'\]\.includes\(sub\)\) sub='billing'/);

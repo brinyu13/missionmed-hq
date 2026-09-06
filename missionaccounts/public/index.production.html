@@ -1357,7 +1357,7 @@ function shell(){ const m=model(); const openQ = totalQuestions();
       <button type="button" class="${WS.ctx==='xp'?'on':''}" data-ctx="xp">MissionAccounts</button>
     </div>
     <div class="hActions">
-      <label class="hSearch" aria-label="Find a student"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="hSearchInput" placeholder="Find a student…" autocomplete="off"></label>
+      <label class="hSearch" aria-label="Find a student"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="hSearchInput" aria-label="Find a student" placeholder="Find a student…" autocomplete="off"></label>
       <div class="theme" role="group" aria-label="Theme">${[['daylight','☼','Daylight'],['dark','☾','Dark'],['system','A','System']].map(([v,i,l])=>`<button type="button" class="${themePref()===v?'on':''}" data-theme-set="${v}" title="${l}" aria-label="${l} theme"><span aria-hidden="true">${i}</span></button>`).join('')}</div>
       <div class="demo" role="group" aria-label="Administrative view controls"><span class="demoLbl">View as</span>
         <div class="lens">

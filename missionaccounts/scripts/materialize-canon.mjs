@@ -60,6 +60,7 @@ const canonicalBodyOpen = '<body data-lens="admin" data-context="xp" class="is-b
 if (!html.includes(canonicalBodyOpen)) throw new Error('Founder canon body seam is missing');
 let productionHtml = html
   .replace('<html lang="en">', '<html lang="en" data-missionaccounts-build="production">')
+  .replace('<input id="hSearchInput" placeholder="Find a student…" autocomplete="off">', '<input id="hSearchInput" aria-label="Find a student" placeholder="Find a student…" autocomplete="off">')
   .replace(/<script id="xpData" type="application\/json">[\s\S]*?<\/script>/, `<script id="xpData" type="application/json">${JSON.stringify(scopedData)}</script>`)
   .replace(canonicalBodyOpen, `${canonicalBodyOpen}${gate}${bootstrapRouteGuard}`)
   .replace(
