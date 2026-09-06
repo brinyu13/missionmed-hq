@@ -158,6 +158,7 @@ for (const root of [...unresolvedKeys].sort()) {
   });
 }
 const graphNodes = new Map(graph.nodes.map(node => [node.identity_key, node]));
+const deviceKeys = new Set(graph.nodes.filter(node => node.device_unresolved === true).map(node => node.identity_key));
 const studentSourceKeys = new Map();
 const students = new Map();
 for (const row of ledger.reconciled_attendance_ledger) {
@@ -171,7 +172,16 @@ for (const student of students.values()) {
   const emails = new Set([...sourceKeys].map(key => graphNodes.get(key)?.normalized_email).filter(Boolean));
   student.id = uuidFor(`student:${student.human_key}`);
   student.email = emails.size === 1 ? [...emails][0] : null;
-  student.identity_state = [...sourceKeys].some(key => unresolvedKeys.has(key)) || emails.size > 1 ? 'needs_review' : 'verified';
+  student.identity_state = [...sourceKeys].some(key => unresolvedKeys.has(key) || deviceKeys.has(key)) || emails.size > 1 ? 'needs_review' : 'verified';
+}
+const deviceSourceStudents = [...studentSourceKeys.entries()].filter(([, sourceKeys]) =>
+  [...sourceKeys].some(key => deviceKeys.has(key))
+);
+const deviceSourceIsolationViolations = deviceSourceStudents.filter(([, sourceKeys]) =>
+  sourceKeys.size !== 1 || !deviceKeys.has([...sourceKeys][0])
+);
+if (deviceSourceIsolationViolations.length > 0) {
+  throw new Error(`Device-source students must own exactly one active device alias: ${JSON.stringify(deviceSourceIsolationViolations.map(([humanKey, sourceKeys]) => ({ human_key: humanKey, source_keys: [...sourceKeys].sort() })))}`);
 }
 
 const ledgerSessions = new Map();
@@ -259,7 +269,10 @@ for (const row of ledger.reconciled_attendance_ledger) {
     cycle_key: cycleByLabel[row.cycle].key,
     local_day: row.meeting_date,
     step: sessions.get(lookup).step,
-    interpretation_state: students.get(row.human_key).identity_state === 'verified' ? 'effective' : 'needs_review',
+    // The reconciled ledger already establishes that this attendance happened.
+    // Identity ambiguity is held on student.identity_state so resolving an
+    // identity can release the derived day without rewriting source evidence.
+    interpretation_state: 'effective',
     provenance: {
       source: 'MX-EXAMPREP-5000B_Reconciled_Ledger.json',
       meeting_key: row.meeting_key,
@@ -318,6 +331,23 @@ const summaries = ledger.human_cycle_summaries.map(row => ({
   cycle_key: cycleByLabel[row.cycle].key,
 }));
 const capCandidates = summaries.filter(row => row.billing_tier === '16+ / $300' && row.session_dates.length * 25 > 300);
+const sourceLinkHoldKeys = new Set(eventRows
+  .filter(event => event.interpretation_state === 'needs_review')
+  .map(event => `${event.student_id}|${event.cycle_key}`));
+const capHoldKeys = new Set(capCandidates.map(row => `${row.student_id}|${row.cycle_key}`));
+const historicalAccountRows = summaries.map(row => {
+  const accountKey = `${row.student_id}|${row.cycle_key}`;
+  const student = [...students.values()].find(item => item.id === row.student_id);
+  const classification = sourceLinkHoldKeys.has(accountKey) ? 'SOURCE_LINK_HOLD'
+    : student?.identity_state !== 'verified' ? 'IDENTITY_HOLD'
+      : capHoldKeys.has(accountKey) ? 'CAP_HOLD'
+        : 'READY';
+  return { ...row, classification };
+});
+const historicalClassCounts = Object.fromEntries(
+  ['READY', 'IDENTITY_HOLD', 'CAP_HOLD', 'SOURCE_LINK_HOLD', 'OTHER_REVIEW']
+    .map(classification => [classification, historicalAccountRows.filter(row => row.classification === classification).length]),
+);
 const controls = {
   students: students.size,
   sessions: sessions.size,
@@ -333,11 +363,18 @@ const controls = {
   cap_candidates: capCandidates.length,
   identity_clusters: identityClusters.length,
   identity_cluster_members: identityClusters.reduce((total, cluster) => total + cluster.members.length, 0),
+  device_aliases: deviceKeys.size,
+  device_source_students: deviceSourceStudents.length,
+  device_source_isolation_violations: deviceSourceIsolationViolations.length,
+  historical_account_classes: historicalClassCounts,
 };
 if (controls.students !== 271 || controls.sessions !== 419 || controls.confirmed_sessions !== 100
   || controls.raw_source_rows !== 5498 || controls.attendance_events !== 3941 || controls.attendance_days !== 3264
   || controls.cap_candidates !== 74 || controls.events_without_exact_source_link !== 4
-  || controls.identity_clusters !== 27 || controls.identity_cluster_members !== 60) throw new Error(`Historical import controls failed: ${JSON.stringify(controls)}`);
+  || controls.identity_clusters !== 27 || controls.identity_cluster_members !== 60
+  || controls.needs_review_students !== 67 || controls.device_aliases !== 17
+  || controls.device_source_students !== 17 || controls.device_source_isolation_violations !== 0
+  || Object.values(historicalClassCounts).reduce((total, count) => total + count, 0) !== summaries.length) throw new Error(`Historical import controls failed: ${JSON.stringify(controls)}`);
 
 const statements = ['begin;', "set local timezone = 'America/New_York';"];
 statements.push(valuesStatement('source_artifact', ['id','source_kind','source_path','sha256','byte_count','observed_at'], artifactRows.map(item => [item.id,item.kind,item.path,item.digest,item.bytes,ledger.generated_at])));
@@ -357,7 +394,7 @@ statements.push(valuesStatement('identity_alias', ['id','student_id','source_art
   const student = studentBySourceKey.get(node.identity_key) || null;
   const rejected = excludedKeys.has(node.identity_key) || node.staff_or_system === true;
   const candidate = !student || unresolvedKeys.has(node.identity_key);
-  const state = rejected ? (node.device_unresolved ? 'device' : 'excluded') : candidate ? 'candidate' : 'verified';
+  const state = node.device_unresolved ? 'device' : rejected ? 'excluded' : candidate ? 'candidate' : 'verified';
   const display = node.raw_names?.[0] || node.normalized_name || node.normalized_email || node.identity_key;
   return [uuidFor(`alias:${node.identity_key}`),student?.id || null,graphArtifactId,node.identity_key,display,state,numeric(node.confidence),state === 'verified' ? 'MX-EXAMPREP-5000B' : null,state === 'verified' ? ledger.generated_at : null];
 })));
@@ -370,7 +407,7 @@ statements.push(valuesStatement('attendance_event_source_row', ['attendance_even
 statements.push(valuesStatement('engine_run', ['id','engine_version','source_digest','state','controls','finished_at'], [[engineRunId,'historical-v1',ledgerArtifact.sha256,'succeeded',JSON.stringify(controls),ledger.generated_at]]));
 statements.push(valuesStatement('attendance_day', ['id','engine_run_id','student_id','cycle_key','day','kind','same_day_multiple_events','engine_version','source_digest'], dayRows.map(day => [day.id,engineRunId,day.student_id,day.cycle_key,day.day,day.kind,day.same_day_multiple_events,'historical-v1',ledgerArtifact.sha256])));
 statements.push(valuesStatement('attendance_day_event', ['attendance_day_id','attendance_event_id'], dayRows.flatMap(day => day.events.map(event => [day.id,event.id]))));
-statements.push(valuesStatement('historical_account_source', ['id','student_id','cycle_key','artifact_id','source_events','source_amount_cents','source_tier','source_state'], summaries.map(row => [uuidFor(`historical-account:${row.human_key}|${row.cycle}`),row.student_id,row.cycle_key,ledgerArtifactId,row.attendance,row.provisional_charge * 100,row.billing_tier,'preserved'])));
+statements.push(valuesStatement('historical_account_source', ['id','student_id','cycle_key','artifact_id','source_events','source_amount_cents','source_tier','source_state'], historicalAccountRows.map(row => [uuidFor(`historical-account:${row.human_key}|${row.cycle}`),row.student_id,row.cycle_key,ledgerArtifactId,row.attendance,row.provisional_charge * 100,row.billing_tier,row.classification])));
 statements.push(valuesStatement('full_cycle_ceiling', ['id','student_id','cycle_key','status','ceiling_cents','basis'], capCandidates.map(row => [uuidFor(`cap-candidate:${row.human_key}|${row.cycle}`),row.student_id,row.cycle_key,'candidate',30000,JSON.stringify({ source_artifact_sha256: ledgerArtifact.sha256, source_tier: row.billing_tier, source_events: row.attendance, unique_days: row.session_dates.length, status: 'REVIEW_REQUIRED' })])));
 statements.push(`update missionaccounts.import_run set state='applied', result_controls=${sql(JSON.stringify(controls))}, finished_at=${sql(ledger.generated_at)} where id=${sql(importRunId)};`);
 statements.push(`do $verify$ begin
@@ -382,7 +419,35 @@ statements.push(`do $verify$ begin
   if (select count(*) from missionaccounts.attendance_day) <> 3264 then raise exception 'day_control_failed'; end if;
   if (select count(*) from missionaccounts.identity_cluster where state='open') <> 27 then raise exception 'identity_cluster_control_failed'; end if;
   if (select count(*) from missionaccounts.identity_cluster_member) <> 60 then raise exception 'identity_cluster_member_control_failed'; end if;
+  if exists (
+    select alias.student_id
+    from missionaccounts.identity_alias alias
+    where alias.student_id in (
+      select student_id from missionaccounts.identity_alias where relationship_state='device' and superseded_by_id is null
+    ) and alias.superseded_by_id is null
+    group by alias.student_id
+    having count(*) <> 1 or count(*) filter (where alias.relationship_state='device') <> 1
+  ) then raise exception 'device_source_isolation_control_failed'; end if;
   if (select count(*) from missionaccounts.full_cycle_ceiling where status='candidate') <> 74 then raise exception 'cap_candidate_control_failed'; end if;
+  if exists (
+    select 1
+    from missionaccounts.historical_account_source source
+    join missionaccounts.student student on student.id=source.student_id
+    where source.source_state='READY'
+      and (
+        student.identity_state <> 'verified'
+        or exists (
+          select 1 from missionaccounts.full_cycle_ceiling ceiling
+          where ceiling.student_id=source.student_id and ceiling.cycle_key=source.cycle_key
+            and ceiling.status='candidate' and ceiling.superseded_by_id is null
+        )
+        or exists (
+          select 1 from missionaccounts.attendance_event event
+          where event.student_id=source.student_id and event.cycle_key=source.cycle_key
+            and event.interpretation_state='needs_review' and event.superseded_by_id is null
+        )
+      )
+  ) then raise exception 'historical_ready_classification_failed'; end if;
 end $verify$;`);
 statements.push('commit;');
 

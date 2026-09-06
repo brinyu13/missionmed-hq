@@ -50,6 +50,10 @@ const gate = `<style id="missionaccounts-runtime-gate-style">
 html[data-missionaccounts-build="production"] #missionaccountsRuntimeGate{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:#0a0d14;color:#f4ead7;font:600 15px/1.5 system-ui,sans-serif;text-align:center}
 html[data-missionaccounts-build="production"][data-missionaccounts-runtime="authenticated-readonly"] #missionaccountsRuntimeGate{display:none}
 html[data-missionaccounts-build="production"] [data-reset],html[data-missionaccounts-build="production"] [data-export]{display:none!important}
+html[data-missionaccounts-build="production"] [data-capability-disabled="true"]{cursor:not-allowed!important;opacity:.56!important;filter:saturate(.5)}
+html[data-missionaccounts-build="production"] .capabilityNotice{margin:0 0 18px;padding:13px 15px;border:1px solid color-mix(in srgb,var(--amber) 45%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--amber) 9%,var(--sheet));color:var(--ink);font-size:13.5px;line-height:1.5}
+html[data-missionaccounts-build="production"] .capabilityNotice b{display:block;margin-bottom:3px}
+@media (prefers-reduced-motion:reduce){html[data-missionaccounts-build="production"] #main{scroll-behavior:auto!important}}
 </style><div id="missionaccountsRuntimeGate" role="status" aria-live="polite">Opening your authorized MissionAccounts workspace…</div>`;
 const bootstrapRouteGuard = `<script id="missionaccounts-bootstrap-route-guard">(()=>{const requested=location.hash;if(requested&&requested!=='#/'&&requested!=='#'){window.__MISSIONACCOUNTS_REQUESTED_HASH=requested;history.replaceState(null,'',location.pathname+location.search+'#/');}})();</script>`;
 const canonicalBodyOpen = '<body data-lens="admin" data-context="xp" class="is-booting">';
@@ -127,6 +131,55 @@ const zoomHealthHelper = `function missionAccountsZoomHealth(){
   };
 }
 `;
+const capabilityHelper = `let missionAccountsRenderedRoute=null;
+function missionAccountsCapability(name){
+  if(document.documentElement.dataset.missionaccountsBuild!=='production') return true;
+  return window.MissionAccountsRuntime?.state?.capabilities?.[name]===true;
+}
+function missionAccountsStatusBanner(){
+  if(document.documentElement.dataset.missionaccountsBuild!=='production') return '';
+  const messages=[];
+  if(!missionAccountsCapability('auto_billing')) messages.push('Payment activation pending — no automatic charges can occur.');
+  if(!missionAccountsCapability('zoom_sync')) messages.push('Zoom sync not connected — no new attendance is being imported.');
+  if(!missionAccountsCapability('notifications')) messages.push('Notification delivery pending — queued reminders remain durable and are not marked sent.');
+  if(!messages.length) return '';
+  return '<aside class="capabilityNotice" role="status" aria-label="MissionAccounts capability status"><b>Safe production mode</b>'+messages.map(message=>'<span>'+esc(message)+'</span>').join(' ')+'</aside>';
+}
+function missionAccountsDisable(control,reason){
+  control.disabled=true;
+  control.setAttribute('aria-disabled','true');
+  control.dataset.capabilityDisabled='true';
+  control.title=reason;
+}
+function missionAccountsApplyCapabilityState(root){
+  if(document.documentElement.dataset.missionaccountsBuild!=='production') return;
+  const rules=[
+    ['student_contacts','[data-save-contact],#eSaveId,[data-etab="identity"]','Student contact editing is not enabled for this environment.'],
+    ['billing_decisions','[data-decide],[data-decide-amt],[data-undecide],[data-other],[data-confirm-group],[data-confirm-all],[data-policy],[data-ready]','Billing approval and invoice readiness are not enabled for this environment.'],
+    ['attendance_corrections','[data-undo-corr],[data-report],[data-attendance-issue-review],[data-att],#eSaveNote,#eSaveId,[data-etab="attendance"]','Attendance corrections and issue review are not enabled for this environment.'],
+    ['exam_plans','[data-exam-set],[data-exam],[data-passed],[data-exam-withdraw]','Exam-plan actions are not enabled for this environment.'],
+    ['comp_days','[data-comp]','Comp-day editing is not enabled for this environment.'],
+    ['auto_billing','[data-pay],[data-auth],[data-auth-off]','Payment activation is pending; no payment action will occur.'],
+  ];
+  for(const [capability,selector,reason] of rules){
+    if(missionAccountsCapability(capability)) continue;
+    root.querySelectorAll(selector).forEach(control=>missionAccountsDisable(control,reason));
+  }
+  root.querySelectorAll('[data-edit]').forEach(control=>{
+    if(!missionAccountsCapability('student_contacts')&&!missionAccountsCapability('attendance_corrections')&&!missionAccountsCapability('billing_decisions')) missionAccountsDisable(control,'Record editing is not enabled for this environment.');
+  });
+  root.querySelectorAll('[data-rule-decision]').forEach(control=>missionAccountsDisable(control,'The Founder rule decision is locked and read-only.'));
+  root.querySelectorAll('[data-confirm-group],[data-confirm-all],[data-undecide],[data-policy$="|"]').forEach(control=>missionAccountsDisable(control,'This batch or clear action remains unavailable until its authoritative server transaction is implemented.'));
+  if(!missionAccountsCapability('billing_decisions')) root.querySelectorAll('[data-bt],#bSave,[data-etab="billing"],[data-t],#oSave').forEach(control=>missionAccountsDisable(control,'Billing decisions are not enabled for this environment.'));
+  if(!missionAccountsCapability('identity_review')) root.querySelectorAll('[data-identity-canonical]').forEach(control=>missionAccountsDisable(control,'Identity review is not enabled for this environment.'));
+  if(!['student'].includes(window.MissionAccountsRuntime?.state?.user?.role)){
+    root.querySelectorAll('[data-pay],[data-auth],[data-auth-off]').forEach(control=>missionAccountsDisable(control,'Only the signed-in student may change payment setup or authorization.'));
+  }
+  root.querySelectorAll('[role="tab"]').forEach(tab=>{ const selected=tab.classList.contains('on'); tab.setAttribute('aria-selected',String(selected)); tab.tabIndex=selected?0:-1; });
+  root.querySelectorAll('[data-theme-set]').forEach(button=>button.setAttribute('aria-pressed',String(button.classList.contains('on'))));
+  root.querySelectorAll('[data-lens]').forEach(button=>button.setAttribute('aria-pressed',String(button.classList.contains('on'))));
+}
+`;
 const attendanceIssueReviewHelper = `function attendanceIssueReviewSheet(id,nextState){
   const issue=(D.meta.attendance_issues||[]).find(item=>item.id===id);
   if(!issue||issue.state!=='open'){ toast('This attendance report is no longer open.'); return; }
@@ -144,7 +197,7 @@ function viewAttendanceIssues(){
   return '<section class="view"><div class="eyebrow em">Attendance reports</div><h1 class="h1" style="margin-top:8px">Student questions for Dr J.</h1><p class="lead" style="margin-top:10px">These reports are private and never change Zoom evidence, attendance, or billing by themselves.</p><div class="chapter"><div class="chHead"><span class="t">Open reports</span><span class="c">'+open.length+'</span></div>'+(open.length?open.map(card).join(''):empty)+'</div>'+(history.length?'<div class="chapter"><div class="chHead"><span class="t">Review history</span><span class="c">'+history.length+'</span></div>'+history.map(card).join('')+'</div>':'')+'</section>';
 }
 `;
-productionHtml = productionHtml.replace('/* ---------------- ADVANCED ---------------- */', `${attendanceIssueReviewHelper}${zoomHealthHelper}/* ---------------- ADVANCED ---------------- */`);
+productionHtml = productionHtml.replace('/* ---------------- ADVANCED ---------------- */', `${attendanceIssueReviewHelper}${zoomHealthHelper}${capabilityHelper}/* ---------------- ADVANCED ---------------- */`);
 const staticZoomState = `<div class="zoomPort"><div class="zState"><span class="chip none">Not connected</span><span class="chip future">Ready for integration</span></div>`;
 const dynamicZoomState = `<div class="zoomPort"><div class="zState"><span class="chip \${missionAccountsZoomHealth().stateChip}">\${esc(missionAccountsZoomHealth().stateLabel)}</span><span class="chip \${missionAccountsZoomHealth().readinessChip}">\${esc(missionAccountsZoomHealth().readiness)}</span></div>`;
 if (!productionHtml.includes(staticZoomState)) throw new Error('Canonical Zoom integration state surface is missing');
@@ -170,13 +223,22 @@ const productionActionGuards = [
   ["function withdrawExam(si){", "function withdrawExam(si){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('student-exam-withdraw',{si});"],
   ["function setComp(si, allowance, joined, reason, retro){", "function setComp(si, allowance, joined, reason, retro){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('comp',{si,allowance,joined,reason,retro});"],
   ["function recordRuleDecision(mode, note){", "function recordRuleDecision(mode, note){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'The Founder rule decision is locked and read-only.'});"],
-  ["function decideDevice(dv, d, si){", "function decideDevice(dv, d, si){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Device identity adjudication is not enabled yet.'});"],
+  ["function decideDevice(dv, d, si){", "function decideDevice(dv, d, si){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('device-identity-adjudication',{aliasId:dv.id,decision:d==='match'?'match':d==='not'?'not_student':'unsure',targetSi:d==='match'?si:null,note:d==='match'?'Dr J matched this unidentified Zoom attendee to an existing student record':d==='not'?'Dr J confirmed this unidentified Zoom attendee is not a student':'Dr J kept this unidentified attendee open for more evidence'});"],
   ["function markReady(si,k,v){", "function markReady(si,k,v){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('invoice-readiness',{si,k,v});"],
 ];
 for (const [needle, replacement] of productionActionGuards) {
   if (!productionHtml.includes(needle)) throw new Error(`Production action seam missing: ${needle}`);
   productionHtml = productionHtml.replace(needle, replacement);
 }
+const setupCardHead = "function setupCardHTML(e){ const pm=pmOf(e.i), au=authOf(e.i);";
+const productionSetupCardHead = `${setupCardHead}
+  if(document.documentElement.dataset.missionaccountsBuild==='production'&&!missionAccountsCapability('auto_billing')) return \`<div class="panel setup" id="setup"><span class="k">Payment activation pending</span><div class="t">Billing setup is not active yet.</div><div class="d">Your account and attendance remain available. No card action or automatic charge can occur until approved terms and the Stripe capability are explicitly activated.</div><button type="button" class="btn primary" disabled aria-disabled="true" data-capability-disabled="true" title="Payment activation is pending">Payment setup unavailable</button></div>\`;`;
+if (!productionHtml.includes(setupCardHead)) throw new Error('Canonical payment setup card seam is missing');
+productionHtml = productionHtml.replace(setupCardHead, productionSetupCardHead);
+const canonicalSheetFunctions = "function openSheet(html, onMount){ hideToast(); const w=$('#sheetWrap'); sheetReturn=document.activeElement; w.innerHTML=`<div class=\"sheet\" role=\"dialog\" aria-modal=\"true\" tabindex=\"-1\">${html}</div>`; w.classList.add('open'); const first=w.querySelector('input:not([type=checkbox]):not([type=hidden]),textarea') || w.querySelector('.sheet'); if(first) first.focus({preventScroll:true}); if(onMount) onMount(w); w.onclick=e=>{ if(e.target===w) closeSheet(); }; }\nfunction closeSheet(){ const w=$('#sheetWrap'); w.classList.remove('open'); w.innerHTML=''; if(sheetReturn && sheetReturn.focus) sheetReturn.focus(); }";
+const productionSheetFunctions = "function openSheet(html, onMount){ hideToast(); const w=$('#sheetWrap'); sheetReturn=document.activeElement; w.innerHTML=`<div class=\"sheet\" role=\"dialog\" aria-modal=\"true\" tabindex=\"-1\">${html}</div>`; w.classList.add('open'); if(onMount) onMount(w); missionAccountsApplyCapabilityState(w); const sheet=w.querySelector('.sheet'); const focusables=()=>[...w.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex=\"-1\"])')].filter(node=>!node.hidden&&node.getClientRects().length>0); if(!w.contains(document.activeElement)){ const first=focusables()[0]||sheet; first.focus({preventScroll:true}); } w.onkeydown=e=>{ if(e.key!=='Tab')return; const items=focusables(); if(!items.length){ e.preventDefault(); sheet.focus(); return; } const first=items[0],last=items[items.length-1]; if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); } else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); } }; w.onclick=e=>{ if(e.target===w) closeSheet(); }; }\nfunction closeSheet(){ const w=$('#sheetWrap'); w.classList.remove('open'); w.onkeydown=null; w.innerHTML=''; if(sheetReturn && sheetReturn.focus) sheetReturn.focus(); }";
+if (!productionHtml.includes(canonicalSheetFunctions)) throw new Error('Canonical modal focus seam is missing');
+productionHtml = productionHtml.replace(canonicalSheetFunctions, productionSheetFunctions);
 const identityDecisionHead = "function decideIdent(cl, d, canon){";
 const productionIdentityDecision = `function identityCanonicalSheet(cl){ const members=[...cl.members].sort((a,b)=>{ const an=D.students[a.si]?.n||a.alias||''; const bn=D.students[b.si]?.n||b.alias||''; return an.localeCompare(bn)||String(a.si).localeCompare(String(b.si)); }); openSheet(\`<div class="t">Which student record should MissionAccounts keep?</div><div class="d">The other source identities will remain preserved and auditable. Choose the record with the correct account and contact details.</div><div class="picker" id="identityCanonicalList" style="margin-top:14px">\${members.map(mm=>\`<button type="button" data-identity-canonical="\${esc(mm.si)}"><span>\${esc(D.students[mm.si]?.n||mm.alias)}</span><small>Zoom name: \${esc(mm.alias)} · \${mm.att} \${mm.att===1?'class':'classes'}</small></button>\`).join('')}</div><div class="acts"><button type="button" class="btn ghost" id="identityCanonicalCancel">Cancel</button></div>\`, w=>{ w.querySelectorAll('[data-identity-canonical]').forEach(button=>button.onclick=()=>{ decideIdent(cl,'same',Number(button.dataset.identityCanonical)); closeSheet(); render(); }); w.querySelector('#identityCanonicalCancel').onclick=closeSheet; }); }
 function decideIdent(cl, d, canon){ if(document.documentElement.dataset.missionaccountsBuild==='production' && d==='same' && canon==null) return identityCanonicalSheet(cl); if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('identity-adjudication',{clusterRef:cl.id,decision:d,canonicalSi:d==='same'?canon:null,note:d==='same'?'Dr J confirmed these source identities belong to the same student and explicitly selected the retained record':d==='different'?'Dr J confirmed these source identities are different people':'Dr J kept this identity question open for more evidence'});`;
@@ -190,14 +252,51 @@ const identityUndoHandler = "root.querySelectorAll('[data-ident-undo]').forEach(
 const productionIdentityUndoHandler = "root.querySelectorAll('[data-ident-undo]').forEach(b=>{ if(document.documentElement.dataset.missionaccountsBuild==='production' && window.MissionAccountsRuntime.state.capabilities.identity_review!==true){ b.disabled=true; b.setAttribute('aria-disabled','true'); b.title='Identity review is not enabled for this environment.'; return; } b.onclick=()=>{ const cl=D.clusters.find(c=>c.id===b.dataset.identUndo); if(document.documentElement.dataset.missionaccountsBuild==='production'){ window.MissionAccountsRuntime.dispatch('identity-adjudication',{clusterRef:cl.id,decision:'unsure',canonicalSi:null,note:'Dr J reopened this identity question for more evidence'}); return; } preserveGraceOnSplit(cl.members.map(mm=>mm.si)); delete WS.ident[cl.id]; logIt('undo',`Reopened: ${cl.members.map(m=>m.alias).join(' / ')}`); touch(); render(); }; });";
 if (!productionHtml.includes(identityUndoHandler)) throw new Error('Canonical identity-undo seam is missing');
 productionHtml = productionHtml.replace(identityUndoHandler, productionIdentityUndoHandler);
+const deviceActionHandler = "root.querySelectorAll('[data-dev]').forEach(b=>b.onclick=()=>{ const [key,d]=b.dataset.dev.split('|'); const dv=D.devices.find(x=>x.key===key); if(d==='match') matchSheet(dv); else { decideDevice(dv,d); render(); } });";
+const productionDeviceActionHandler = "root.querySelectorAll('[data-dev]').forEach(b=>{ if(document.documentElement.dataset.missionaccountsBuild==='production' && window.MissionAccountsRuntime.state.capabilities.identity_review!==true){ b.disabled=true; b.setAttribute('aria-disabled','true'); b.title='Identity review is not enabled for this environment.'; return; } b.onclick=()=>{ const [key,d]=b.dataset.dev.split('|'); const dv=D.devices.find(x=>x.key===key); if(d==='match') matchSheet(dv); else { decideDevice(dv,d); render(); } }; });";
+if (!productionHtml.includes(deviceActionHandler)) throw new Error('Canonical device-identity action handler is missing');
+productionHtml = productionHtml.replace(deviceActionHandler, productionDeviceActionHandler);
+const deviceUndoHandler = "root.querySelectorAll('[data-dev-undo]').forEach(b=>b.onclick=()=>{ const dv=D.devices.find(x=>x.key===b.dataset.devUndo); const prevD=WS.dev[dv.key]; if(prevD&&prevD.si!=null) preserveGraceOnSplit([dv.si, prevD.si]); delete WS.dev[dv.key]; logIt('undo',`Reopened: “${dv.name}”`); touch(); render(); });";
+const productionDeviceUndoHandler = "root.querySelectorAll('[data-dev-undo]').forEach(b=>{ if(document.documentElement.dataset.missionaccountsBuild==='production' && window.MissionAccountsRuntime.state.capabilities.identity_review!==true){ b.disabled=true; b.setAttribute('aria-disabled','true'); b.title='Identity review is not enabled for this environment.'; return; } b.onclick=()=>{ const dv=D.devices.find(x=>x.key===b.dataset.devUndo); if(document.documentElement.dataset.missionaccountsBuild==='production'){ window.MissionAccountsRuntime.dispatch('device-identity-adjudication',{aliasId:dv.id,decision:'unsure',targetSi:null,note:'Dr J reopened this unidentified attendee for more evidence'}); return; } const prevD=WS.dev[dv.key]; if(prevD&&prevD.si!=null) preserveGraceOnSplit([dv.si, prevD.si]); delete WS.dev[dv.key]; logIt('undo',`Reopened: “${dv.name}”`); touch(); render(); }; });";
+if (!productionHtml.includes(deviceUndoHandler)) throw new Error('Canonical device-identity undo handler is missing');
+productionHtml = productionHtml.replace(deviceUndoHandler, productionDeviceUndoHandler);
 const studentViewHead = "function viewMe(sub){ const e=meStudent(); const cyclesWith=CYK.filter(k=>e.c[k]); const latest=cyclesWith[cyclesWith.length-1];";
 const productionStudentViewHead = `${studentViewHead} if(document.documentElement.dataset.missionaccountsBuild==='production'&&!latest&&!['billing','exam'].includes(sub)) sub='billing';`;
 if (!productionHtml.includes(studentViewHead)) throw new Error('Canonical student empty-state seam is missing');
 productionHtml = productionHtml.replace(studentViewHead, productionStudentViewHead);
+const adminStudentViewHead = "function viewStudent(si, q){ const m=model(); const e=m.eff[m.canonOf(si)]; if(!e) return viewStudents('');";
+const productionAdminStudentViewHead = `${adminStudentViewHead}
+  if(document.documentElement.dataset.missionaccountsBuild==='production'&&!CYK.some(key=>e.c[key])) return \`<section class="view"><a class="back" href="#/students">← Students</a><div class="eyebrow em" style="margin-top:18px">Student</div><h1 class="h1" style="margin-top:8px">\${esc(e.n)}</h1><div class="panel" style="padding:22px;margin-top:20px"><div class="t">No attendance yet.</div><p class="muted" style="margin-top:8px">This authorized student account has no imported Drills attendance. Nothing is estimated, approved, invoiced, or charged. When a verified class is imported, its source evidence will appear here.</p></div></section>\`;`;
+if (!productionHtml.includes(adminStudentViewHead)) throw new Error('Canonical admin student empty-state seam is missing');
+productionHtml = productionHtml.replace(adminStudentViewHead, productionAdminStudentViewHead);
 const reportRouteAutoOpen = "main.innerHTML=html; main.scrollTop=0; bind(main); if(top==='me' && r.q.report==='1'){ setTimeout(reportSheet,50); }";
-const productionReportRouteAutoOpen = "main.innerHTML=html; main.scrollTop=0; bind(main); if(top==='me' && r.q.report==='1'){ history.replaceState(null,'',location.pathname+location.search+'#/me'); setTimeout(reportSheet,50); }";
+const productionReportRouteAutoOpen = "main.innerHTML=html; main.scrollTop=0; bind(main); const capabilityStatus=missionAccountsStatusBanner(); if(capabilityStatus) main.insertAdjacentHTML('afterbegin',capabilityStatus); missionAccountsApplyCapabilityState(document); missionAccountsRenderedRoute=location.hash||'#/'+top; const routeHeading=main.querySelector('h1'); if(routeHeading){ routeHeading.tabIndex=-1; requestAnimationFrame(()=>{ if(document.body.contains(routeHeading)) routeHeading.focus({preventScroll:true}); }); } if(top==='me' && r.q.report==='1'){ history.replaceState(null,'',location.pathname+location.search+'#/me'); setTimeout(reportSheet,50); }";
 if (!productionHtml.includes(reportRouteAutoOpen)) throw new Error('Canonical report auto-open seam is missing');
 productionHtml = productionHtml.replace(reportRouteAutoOpen, productionReportRouteAutoOpen);
+productionHtml = productionHtml.replace(
+  "function undecide(si,k){",
+  "function undecide(si,k){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Clearing a billing decision remains unavailable until its authoritative server transaction is implemented.'});",
+);
+productionHtml = productionHtml.replace(
+  "function confirmGroupSheet(k, which){",
+  "function confirmGroupSheet(k, which){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Batch billing approval remains unavailable until its authoritative transaction is implemented.'});",
+);
+productionHtml = productionHtml.replace(
+  "root.querySelectorAll('[data-policy]').forEach(b=>b.onclick=()=>{ const [k,v]=b.dataset.policy.split('|'); if(!v){ delete WS.policy[k]; logIt('policy',`${cyc(k).label}: 13–15 class rule reopened`); touch(); } else setPolicy(k,v); render(); });",
+  "root.querySelectorAll('[data-policy]').forEach(b=>b.onclick=()=>{ const [k,v]=b.dataset.policy.split('|'); if(document.documentElement.dataset.missionaccountsBuild==='production'&&!v){ window.MissionAccountsRuntime.dispatch('unsupported',{message:'Clearing a cycle policy remains unavailable until its authoritative server transaction is implemented.'}); return; } if(!v){ delete WS.policy[k]; logIt('policy',`${cyc(k).label}: 13–15 class rule reopened`); touch(); } else setPolicy(k,v); render(); });",
+);
+productionHtml = productionHtml.replace(
+  "document.getElementById(id).innerHTML=src.map(it=>rowHTML(it,k)).join(''); bind(document.getElementById(id)); b.parentElement.remove();",
+  "document.getElementById(id).innerHTML=src.map(it=>rowHTML(it,k)).join(''); bind(document.getElementById(id)); missionAccountsApplyCapabilityState(document.getElementById(id)); b.parentElement.remove();",
+);
+productionHtml = productionHtml.replace(
+  "if(anchor){ const el=document.getElementById(anchor); if(el) setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),60); }",
+  "if(anchor){ const el=document.getElementById(anchor); if(el) setTimeout(()=>el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'}),60); }",
+);
+productionHtml = productionHtml.replace(
+  'CACHE=null; CACHE_REV=-1; REV++; render();',
+  'CACHE=null; CACHE_REV=-1; REV++; missionAccountsRenderedRoute=null; render();',
+);
 productionHtml = productionHtml.replace(
   'Tell Dr J what looks wrong. In the real app this goes to her review list.',
   'Tell Dr J what looks wrong. This goes to her private review list.',

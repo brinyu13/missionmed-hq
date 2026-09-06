@@ -24,6 +24,7 @@ function environmentConfig() {
     audience: process.env.MISSIONACCOUNTS_JWT_AUDIENCE || 'missionaccounts',
     jwksUrl: process.env.MISSIONACCOUNTS_JWKS_URL || 'https://missionmedinstitute.com/wp-json/missionmed/v1/jwks',
     jwtSecret: process.env.MISSIONACCOUNTS_JWT_SECRET || '',
+    routeEnabled: process.env.MISSIONACCOUNTS_ROUTE_ENABLED === '1',
     basePath: '/missionaccounts/',
     wpBootstrapPath: process.env.MISSIONACCOUNTS_WP_BOOTSTRAP_PATH || '/wp-admin/admin-ajax.php?action=missionmed_missionaccounts_bootstrap',
     tokenRefreshSkewSeconds: 15,
@@ -226,7 +227,7 @@ export function createMissionAccountsServer({
         status: 'ok',
         app: 'missionaccounts',
         mode: store instanceof PreviewStore ? 'preview' : 'configured',
-        route_enabled: false,
+        route_enabled: config.routeEnabled === true,
         billing_decisions_enabled: Boolean(config.features?.billingDecisions),
         attendance_corrections_enabled: Boolean(config.features?.attendanceCorrections),
         identity_review_enabled: Boolean(config.features?.identityReview),
@@ -536,6 +537,33 @@ export function createMissionAccountsServer({
         issueId: attendanceIssueReviewRoute[1],
         state,
         resolutionNote,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
+    const deviceIdentityDecisionRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/device-identity\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i)
+      : null;
+    if (deviceIdentityDecisionRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'identityReview');
+      const body = await readJsonBody(request, { limitBytes: 8_192 });
+      const decision = String(body.decision || '');
+      const targetStudentId = body.target_student_id == null ? null : String(body.target_student_id);
+      const note = String(body.note || '').trim();
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!['match', 'not_student', 'unsure'].includes(decision)) throw requestError('Device identity decision must be match, not_student, or unsure');
+      if (decision === 'match' && !uuid.test(targetStudentId || '')) throw requestError('A target student is required for a device match');
+      if (decision !== 'match' && targetStudentId !== null) throw requestError('A target student is valid only for a device match');
+      if (note.length < 3 || note.length > 2_000) throw requestError('Device identity decision requires a 3 to 2000 character reason');
+      const result = await store.decideDeviceIdentity({
+        identityAliasId: deviceIdentityDecisionRoute[1],
+        decision,
+        targetStudentId,
+        today: localDayFromIso(now().toISOString()),
+        note,
         actorId: identity.userId,
         actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
         requestId: requestIdFor(request),

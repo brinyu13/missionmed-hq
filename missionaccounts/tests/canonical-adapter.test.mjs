@@ -74,6 +74,19 @@ test('canonical adapter preserves two same-day source events while deriving one 
   assert.equal(model.ids.students[0], studentId);
 });
 
+test('canonical adapter preserves every physical attendance-event id for one logical student/session', () => {
+  const source = bootstrap('student');
+  source.canon.attendance_events.push({
+    ...source.canon.attendance_events[0],
+    id: 'event-1-fragment',
+    duration_minutes: 12,
+    source_display_name: 'Preview Student phone',
+  });
+  const model = buildCanonicalModel(source);
+  assert.equal(model.ids.attendanceEvents['0:0'], 'event-1');
+  assert.deepEqual(model.ids.attendanceEventGroups['0:0'], ['event-1', 'event-1-fragment']);
+});
+
 test('canonical adapter exposes meeting references only inside an admin-scoped payload', () => {
   const student = buildCanonicalModel(bootstrap('student'));
   const admin = buildCanonicalModel(bootstrap('admin'));
@@ -144,6 +157,79 @@ test('canonical adapter keeps an unsure identity decision open for new evidence 
   const model = buildCanonicalModel(source);
   assert.equal(model.data.clusters.length, 1);
   assert.equal(model.working.ident['cluster:still-open'], undefined);
+});
+
+test('canonical adapter preserves device-source evidence and hydrates match, exclusion, and unsure decisions', () => {
+  const source = bootstrap('admin');
+  const deviceStudentId = '00000000-0000-4000-8000-000000000002';
+  const deviceAliasId = '20000000-0000-4000-8000-000000000001';
+  source.students.push({ id: deviceStudentId, payment_method: null, billing_consent: null });
+  source.canon.students[0].device_source = false;
+  source.canon.students.push({
+    id: deviceStudentId,
+    display_name: 'Zoom iPad 7',
+    email: null,
+    phone: null,
+    joined_at: null,
+    comp_days_allowance: 0,
+    identity_state: 'needs_review',
+    absorbed: true,
+    device_source: true,
+    excluded: false,
+    device_decision_id: '30000000-0000-4000-8000-000000000001',
+  });
+  source.canon.aliases.push({
+    id: deviceAliasId,
+    student_id: studentId,
+    source_student_id: deviceStudentId,
+    source_key: 'device:zoom-ipad-7',
+    display_value: 'Zoom iPad 7',
+    relationship_state: 'device',
+    confidence: 0.4,
+  });
+  source.canon.attendance_events.push({
+    id: 'event-device-1',
+    student_id: studentId,
+    source_student_id: deviceStudentId,
+    session_id: sessionOne,
+    cycle_key: '2026-cycle-1',
+    local_day: '2026-06-08',
+    step: 's1',
+    interpretation_state: 'needs_review',
+    duration_minutes: 20,
+    source_row_count: 1,
+    source_display_name: 'Zoom iPad 7',
+  });
+  source.canon.device_identity_decisions = [{
+    id: '30000000-0000-4000-8000-000000000001',
+    identity_alias_id: deviceAliasId,
+    source_student_id: deviceStudentId,
+    decision: 'match',
+    target_student_id: studentId,
+    decided_at: '2026-09-06T12:00:00Z',
+  }];
+
+  let model = buildCanonicalModel(source);
+  assert.equal(model.data.devices.length, 1);
+  assert.equal(model.data.devices[0].att, 1);
+  assert.equal(model.data.events.filter(row => row[1] === 0).length, 3);
+  assert.deepEqual(model.working.dev['device:zoom-ipad-7'], {
+    d: 'match', si: 0, at: Date.parse('2026-09-06T12:00:00Z'),
+  });
+
+  source.canon.device_identity_decisions[0] = {
+    ...source.canon.device_identity_decisions[0], decision: 'not_student', target_student_id: null,
+  };
+  model = buildCanonicalModel(source);
+  assert.equal(model.working.dev['device:zoom-ipad-7'].d, 'not');
+  assert.equal(model.data.devices[0].att, 1);
+
+  source.canon.device_identity_decisions[0] = {
+    ...source.canon.device_identity_decisions[0], decision: 'unsure',
+  };
+  model = buildCanonicalModel(source);
+  assert.equal(model.working.dev['device:zoom-ipad-7'], undefined);
+  assert.equal(model.data.devices.length, 1);
 });
 
 test('canonical adapter rejects a payload whose authenticated scope and data scope disagree', () => {

@@ -400,6 +400,25 @@ test('identity adjudication is additive, canonicalizes derived attendance, and p
   assert.doesNotMatch(sql, /grant execute[^]*api_decide_identity_cluster[^]*to authenticated/);
 });
 
+test('device identity adjudication preserves source evidence and keeps financial and grace custody explicit', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906122416_device_identity_adjudication.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table missionaccounts\.device_identity_decision/);
+  assert.match(sql, /create function missionaccounts\.api_decide_device_identity/);
+  assert.match(sql, /pg_advisory_xact_lock\(hashtextextended\('missionaccounts:device-identity:request:' \|\| p_request_id/);
+  assert.match(sql, /device_identity_transition_requires_financial_finality_review/);
+  assert.match(sql, /device_identity_transition_requires_comp_day_review/);
+  assert.match(sql, /device_identity_source_requires_account_review/);
+  assert.match(sql, /device_identity_match_review_hold/);
+  assert.match(sql, /device_identity_decision_id/);
+  assert.match(sql, /identity_grace_preservation_one_decision_owner/);
+  assert.match(sql, /'device_identity\.decided'/);
+  assert.doesNotMatch(sql, /update missionaccounts\.attendance_event/);
+  assert.doesNotMatch(sql, /update missionaccounts\.attendance_source_row/);
+  assert.match(sql, /revoke execute[^]*api_decide_device_identity[^]*from public, anon, authenticated/);
+  assert.match(sql, /grant execute[^]*api_decide_device_identity[^]*to service_role/);
+  assert.doesNotMatch(sql, /grant execute[^]*api_decide_device_identity[^]*to authenticated/);
+});
+
 test('Zoom ingestion port preserves provider evidence without creating identity, attendance, or billing decisions', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906100746_zoom_ingestion_port.sql', import.meta.url), 'utf8');
   assert.match(sql, /create function missionaccounts\.api_ingest_zoom_batch/);

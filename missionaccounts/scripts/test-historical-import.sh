@@ -48,6 +48,7 @@ select 'artifacts|' || count(*) from missionaccounts.source_artifact;
 select 'imports|' || count(*) || '|' || min(state) from missionaccounts.import_run;
 select 'students|' || count(*) || '|' || count(*) filter (where identity_state = 'needs_review') || '|' || count(*) filter (where email is not null) || '|' || count(*) filter (where matrix_user_ref is not null) from missionaccounts.student;
 select 'aliases|' || count(*) from missionaccounts.identity_alias;
+select 'device_aliases|' || count(*) from missionaccounts.identity_alias where relationship_state = 'device';
 select 'identity_clusters|' || count(*) || '|' || count(*) filter (where state = 'open') || '|' || (select count(*) from missionaccounts.identity_cluster_member) from missionaccounts.identity_cluster;
 select 'sessions|' || count(*) || '|' || count(*) filter (where state = 'confirmed') from missionaccounts.session;
 select 'source_rows|' || count(*) from missionaccounts.attendance_source_row;
@@ -56,6 +57,7 @@ select 'linked_events|' || count(distinct attendance_event_id) || '|' || count(*
 select 'unlinked_events|' || count(*) from missionaccounts.attendance_event ae where not exists (select 1 from missionaccounts.attendance_event_source_row aesr where aesr.attendance_event_id = ae.id);
 select 'days|' || count(*) || '|' || count(*) filter (where same_day_multiple_events) from missionaccounts.attendance_day;
 select 'historical_accounts|' || count(*) from missionaccounts.historical_account_source;
+select 'historical_classes|' || source_state || '|' || count(*) from missionaccounts.historical_account_source group by source_state order by source_state;
 select 'cap_candidates|' || count(*) filter (where status = 'candidate') || '|' || count(*) filter (where status = 'verified') from missionaccounts.full_cycle_ceiling;
 select 'flags|' || count(*) || '|' || count(*) filter (where enabled) from missionaccounts.feature_flag;
 select 'financial_mutations|' || (select count(*) from missionaccounts.billing_decision) || '|' || (select count(*) from missionaccounts.invoice) || '|' || (select count(*) from missionaccounts.charge);
@@ -64,7 +66,7 @@ select cycle_key || '|' || count(*) from missionaccounts.attendance_day group by
 SQL
 )
 
-expected=$'artifacts|6\nimports|1|applied\nstudents|271|60|0|0\naliases|370\nidentity_clusters|27|27|60\nsessions|419|100\nsource_rows|5498\nevents|3941|544\nlinked_events|3937|4378\nunlinked_events|4\ndays|3264|677\nhistorical_accounts|498\ncap_candidates|74|0\nflags|10|0\nfinancial_mutations|0|0|0\n2026-cycle-1|1295\n2026-cycle-2|1390\n2026-cycle-3|1256\n2026-cycle-1|1072\n2026-cycle-2|1141\n2026-cycle-3|1051'
+expected=$'artifacts|6\nimports|1|applied\nstudents|271|67|0|0\naliases|370\ndevice_aliases|17\nidentity_clusters|27|27|60\nsessions|419|100\nsource_rows|5498\nevents|3941|4\nlinked_events|3937|4378\nunlinked_events|4\ndays|3264|677\nhistorical_accounts|498\nhistorical_classes|CAP_HOLD|69\nhistorical_classes|IDENTITY_HOLD|107\nhistorical_classes|READY|320\nhistorical_classes|SOURCE_LINK_HOLD|2\ncap_candidates|74|0\nflags|10|0\nfinancial_mutations|0|0|0\n2026-cycle-1|1295\n2026-cycle-2|1390\n2026-cycle-3|1256\n2026-cycle-1|1072\n2026-cycle-2|1141\n2026-cycle-3|1051'
 if [[ "$results" != "$expected" ]]; then
   echo "MissionAccounts historical-import verification returned unexpected controls:" >&2
   echo "$results" >&2

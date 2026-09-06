@@ -91,35 +91,58 @@ export function buildCanonicalModel(bootstrap) {
   const sessionIndex = new Map(sessions.map((session, index) => [session.id, index]));
   const studentIndex = new Map(students.map((student, index) => [student.id, index]));
   const aliasesByStudent = new Map();
+  const deviceAliasesBySourceStudent = new Map();
   for (const alias of source.aliases || []) {
-    if (!alias.student_id || !studentIndex.has(alias.student_id)) continue;
-    const list = aliasesByStudent.get(alias.student_id) || [];
-    list.push(alias);
-    aliasesByStudent.set(alias.student_id, list);
+    if (alias.relationship_state === 'device' && alias.source_student_id && studentIndex.has(alias.source_student_id)) {
+      const sourceAliases = deviceAliasesBySourceStudent.get(alias.source_student_id) || [];
+      sourceAliases.push(alias);
+      deviceAliasesBySourceStudent.set(alias.source_student_id, sourceAliases);
+      continue;
+    }
+    if (alias.student_id && studentIndex.has(alias.student_id)) {
+      const list = aliasesByStudent.get(alias.student_id) || [];
+      list.push(alias);
+      aliasesByStudent.set(alias.student_id, list);
+    }
   }
 
   const events = (source.attendance_events || []).filter(event => (
-    studentIndex.has(event.student_id) && sessionIndex.has(event.session_id)
+    sessionIndex.has(event.session_id)
+      && (studentIndex.has(event.student_id) || studentIndex.has(event.source_student_id))
   ));
   const eventsByStudent = new Map();
   const eventRows = [];
   const attendanceEventIds = {};
-  for (const event of events) {
-    const si = studentIndex.get(event.student_id);
+  const attendanceEventGroups = {};
+  const addEventRow = (event, studentId, aliases) => {
+    const si = studentIndex.get(studentId);
     const ss = sessionIndex.get(event.session_id);
-    const aliases = aliasesByStudent.get(event.student_id) || [];
     const aliasValue = event.source_display_name || students[si].display_name;
     let aliasIndex = aliases.findIndex(alias => alias.display_value === aliasValue);
     if (aliasIndex < 0) aliasIndex = 0;
     eventRows.push([si, ss, event.duration_minutes ?? null, aliasIndex, event.source_row_count || 0]);
-    attendanceEventIds[`${si}:${ss}`] = event.id;
-    const list = eventsByStudent.get(event.student_id) || [];
+    const eventKey = `${si}:${ss}`;
+    if (!attendanceEventIds[eventKey]) attendanceEventIds[eventKey] = event.id;
+    const eventGroup = attendanceEventGroups[eventKey] || [];
+    eventGroup.push(event.id);
+    attendanceEventGroups[eventKey] = eventGroup;
+    const list = eventsByStudent.get(studentId) || [];
     list.push(event);
-    eventsByStudent.set(event.student_id, list);
+    eventsByStudent.set(studentId, list);
+  };
+  for (const event of events) {
+    if (studentIndex.has(event.student_id)) addEventRow(event, event.student_id, aliasesByStudent.get(event.student_id) || []);
+    if (studentIndex.has(event.source_student_id)
+        && deviceAliasesBySourceStudent.has(event.source_student_id)
+        && event.source_student_id !== event.student_id) {
+      addEventRow(event, event.source_student_id, deviceAliasesBySourceStudent.get(event.source_student_id));
+    }
   }
 
   const studentRows = students.map((student, index) => {
-    const aliases = aliasesByStudent.get(student.id) || [];
+    const aliases = student.device_source === true
+      ? [...(aliasesByStudent.get(student.id) || []), ...(deviceAliasesBySourceStudent.get(student.id) || [])]
+      : (aliasesByStudent.get(student.id) || []);
     const aliasValues = [...new Set([student.display_name, ...aliases.map(alias => alias.display_value)].filter(Boolean))];
     const cycles = {};
     const studentEvents = eventsByStudent.get(student.id) || [];
@@ -142,10 +165,25 @@ export function buildCanonicalModel(bootstrap) {
       a: aliasValues,
       ids: aliases.map(alias => alias.id),
       m: aliasValues.length > 1,
-      k: aliases.some(alias => alias.relationship_state === 'device') ? 'device' : 'person',
+      k: student.device_source === true ? 'device' : 'person',
       c: cycles,
     };
   });
+
+  const devices = source.scope === 'admin' ? (source.aliases || [])
+    .filter(alias => alias.relationship_state === 'device' && studentIndex.has(alias.source_student_id))
+    .map(alias => {
+      const si = studentIndex.get(alias.source_student_id);
+      const cycles = Object.keys(studentRows[si].c);
+      return {
+        id: alias.id,
+        key: alias.source_key,
+        name: alias.display_value,
+        si,
+        att: cycles.reduce((total, key) => total + studentRows[si].c[key].att, 0),
+        cycles,
+      };
+    }) : [];
 
   const attendanceCountBySession = new Map();
   for (const event of events) attendanceCountBySession.set(event.session_id, (attendanceCountBySession.get(event.session_id) || 0) + 1);
@@ -310,8 +348,11 @@ export function buildCanonicalModel(bootstrap) {
     working.ready[si][mappedCycleKey(invoice.cycle_key)] = true;
   }
   const correctionType = { add: 'att_add', remove: 'att_remove', step_relabel: 'step', name: 'name', note: 'note' };
+  const revertedCorrectionIds = new Set((source.attendance_corrections || [])
+    .map(correction => correction.reverts_id)
+    .filter(Boolean));
   for (const correction of source.attendance_corrections || []) {
-    if (correction.reverted_by_id) continue;
+    if (correction.reverted_by_id || revertedCorrectionIds.has(correction.id)) continue;
     const si = studentIndex.get(correction.student_id);
     const ss = correction.session_id ? sessionIndex.get(correction.session_id) : null;
     if (si == null || (correction.session_id && ss == null)) continue;
@@ -392,6 +433,19 @@ export function buildCanonicalModel(bootstrap) {
         at: safeDateMs(decision.decided_at),
       };
     }
+    const deviceByAliasId = new Map(devices.map(device => [device.id, device]));
+    for (const decision of source.device_identity_decisions || []) {
+      if (decision.decision === 'unsure') continue;
+      const device = deviceByAliasId.get(decision.identity_alias_id);
+      if (!device) continue;
+      const targetIndex = decision.decision === 'match' ? studentIndex.get(decision.target_student_id) : null;
+      if (decision.decision === 'match' && targetIndex == null) continue;
+      working.dev[device.key] = {
+        d: decision.decision === 'match' ? 'match' : 'not',
+        si: targetIndex,
+        at: safeDateMs(decision.decided_at),
+      };
+    }
   }
 
   return {
@@ -419,7 +473,7 @@ export function buildCanonicalModel(bootstrap) {
       events: eventRows,
       groups: [],
       clusters,
-      devices: [],
+      devices,
       distinct: [],
       excluded: [],
       review_meeting: null,
@@ -429,6 +483,7 @@ export function buildCanonicalModel(bootstrap) {
       students: Object.fromEntries([...studentIndex].map(([id, index]) => [index, id])),
       sessions: Object.fromEntries([...sessionIndex].map(([id, index]) => [index, id])),
       attendanceEvents: attendanceEventIds,
+      attendanceEventGroups,
     },
   };
 }

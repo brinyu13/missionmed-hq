@@ -8,6 +8,7 @@ import { PreviewStore } from '../src/storage/supabase-rest.mjs';
 
 const localConfig = {
   production: false,
+  routeEnabled: false,
   localAuth: true,
   issuer: 'https://issuer.invalid',
   audience: 'missionaccounts',
@@ -101,6 +102,49 @@ test('identity-cluster adjudication is admin-only, feature-gated, and idempotent
   });
   await withServer({ config: localConfig, store, stripeGateway: new StripeGateway() }, async base => {
     const disabled = await fetch(`${base}/api/admin/identity/${encodeURIComponent('cluster:test-pair')}`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'identity-cluster-0003' }, body });
+    assert.equal(disabled.status, 503);
+  });
+});
+
+test('device identity adjudication is admin-only, feature-gated, and idempotent', async () => {
+  const store = new PreviewStore();
+  const aliasId = '20000000-0000-4000-8000-000000000001';
+  store.seedDeviceIdentityAlias({
+    id: aliasId,
+    student_id: '00000000-0000-4000-8000-000000000002',
+    source_student_id: '00000000-0000-4000-8000-000000000002',
+    source_key: 'device:zoom-ipad-7',
+    display_value: 'Zoom iPad 7',
+  });
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, identityReview: true } };
+  const body = JSON.stringify({
+    decision: 'not_student',
+    target_student_id: null,
+    note: 'Dr J confirmed this Zoom endpoint was not a student attendee',
+  });
+  const headers = {
+    'content-type': 'application/json',
+    'x-missionaccounts-local-role': 'missionaccounts_admin',
+    'idempotency-key': 'device-identity-0001',
+  };
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const first = await fetch(`${base}/api/admin/device-identity/${aliasId}`, { method: 'POST', headers, body });
+    assert.equal(first.status, 201);
+    assert.equal((await first.json()).decision.decision, 'not_student');
+    const retry = await fetch(`${base}/api/admin/device-identity/${aliasId}`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+    const studentDenied = await fetch(`${base}/api/admin/device-identity/${aliasId}`, {
+      method: 'POST',
+      headers: { ...headers, 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'device-identity-0002' },
+      body,
+    });
+    assert.equal(studentDenied.status, 403);
+  });
+  await withServer({ config: localConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const disabled = await fetch(`${base}/api/admin/device-identity/${aliasId}`, {
+      method: 'POST', headers: { ...headers, 'idempotency-key': 'device-identity-0003' }, body,
+    });
     assert.equal(disabled.status, 503);
   });
 });

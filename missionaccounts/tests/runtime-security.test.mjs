@@ -33,6 +33,7 @@ async function withServer(options, run) {
 
 test('production shell preserves the canon but contains no historical roster payload or browser business state', async () => {
   const html = await readFile(productionShellPath, 'utf8');
+  const runtimeSource = await readFile(path.join(packageDir, 'public/missionaccounts-runtime.js'), 'utf8');
   assert.match(html, /data-missionaccounts-build="production"/);
   assert.match(html, /<title>MissionAccounts · MissionMed Institute<\/title>/);
   assert.match(html, /MissionAccounts · server-authoritative record/);
@@ -62,15 +63,25 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /missionaccountsBuild==='production'\) return fresh\(\)/);
   assert.match(html, /missionaccountsBuild==='production'\) return;/);
   assert.match(html, /function hydrateAuthoritative\(nextD,nextWS,idMaps\)/);
+  assert.match(runtimeSource, /attendanceEventGroups/);
+  assert.match(runtimeSource, /Multiple preserved source attendances contribute to this logical attendance/);
+  assert.match(html, /data-report\],\[data-attendance-issue-review\]/);
+  assert.match(html, /missionAccountsApplyCapabilityState\(w\)/);
+  assert.match(html, /missionAccountsApplyCapabilityState\(document\.getElementById\(id\)\)/);
+  assert.match(html, /Batch billing approval remains unavailable until its authoritative transaction is implemented/);
+  assert.match(html, /Clearing a billing decision remains unavailable until its authoritative server transaction is implemented/);
+  assert.match(html, /No attendance yet\./);
   assert.match(html, /function missionAccountsZoomHealth\(\)/);
   assert.match(html, /scheduler not registered/);
   assert.match(html, /integration exception/);
   assert.match(html, /Authoritative hydration is production-only/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('billing-decision'/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('identity-adjudication'/);
+  assert.match(html, /MissionAccountsRuntime\.dispatch\('device-identity-adjudication'/);
   assert.match(html, /capabilities\.identity_review!==true/);
   assert.match(html, /Which student record should MissionAccounts keep\?/);
   assert.doesNotMatch(html, /Identity adjudication is not enabled yet/);
+  assert.doesNotMatch(html, /Device identity adjudication is not enabled yet/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('student-contact'/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('invoice-readiness'/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('exam-transition',\{si,action:'passed'/);

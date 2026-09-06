@@ -34,14 +34,19 @@ done
 identity_security=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 select
   ((select reloptions from pg_class where oid='missionaccounts.identity_student_resolution'::regclass) @> array['security_invoker=true']) || '|' ||
+  ((select reloptions from pg_class where oid='missionaccounts.student_identity_projection'::regclass) @> array['security_invoker=true']) || '|' ||
   ((select reloptions from pg_class where oid='missionaccounts.grace_window_projection'::regclass) @> array['security_invoker=true']) || '|' ||
   (not has_table_privilege('authenticated','missionaccounts.identity_grace_preservation','select')) || '|' ||
   has_table_privilege('service_role','missionaccounts.identity_grace_preservation','select') || '|' ||
+  (not has_table_privilege('authenticated','missionaccounts.device_identity_decision','select')) || '|' ||
+  has_table_privilege('service_role','missionaccounts.device_identity_decision','select') || '|' ||
   (not has_function_privilege('authenticated','missionaccounts.api_decide_identity_cluster(text,text,uuid,date,text,text,text,text)','execute')) || '|' ||
-  has_function_privilege('service_role','missionaccounts.api_decide_identity_cluster(text,text,uuid,date,text,text,text,text)','execute');
+  has_function_privilege('service_role','missionaccounts.api_decide_identity_cluster(text,text,uuid,date,text,text,text,text)','execute') || '|' ||
+  (not has_function_privilege('authenticated','missionaccounts.api_decide_device_identity(uuid,text,uuid,date,text,text,text,text)','execute')) || '|' ||
+  has_function_privilege('service_role','missionaccounts.api_decide_device_identity(uuid,text,uuid,date,text,text,text,text)','execute');
 SQL
 )
-if [[ "$identity_security" != 'true|true|true|true|true|true' ]]; then
+if [[ "$identity_security" != 'true|true|true|true|true|true|true|true|true|true|true' ]]; then
   echo "MissionAccounts identity privilege verification failed: $identity_security" >&2
   exit 1
 fi
@@ -336,6 +341,139 @@ billing_expected=$'false\nfalse\ntrue\nfalse\ntrue\n30000\ntrue\n1|1|2|1|verifie
 if [[ "$billing_results" != "$billing_expected" ]]; then
   echo "MissionAccounts billing authority verification returned unexpected controls:" >&2
   echo "$billing_results" >&2
+  exit 1
+fi
+
+# Candidate cap rows are financial quarantines at the table boundary, even if
+# a caller bypasses the public RPCs. Estimates/drafts remain preservable, while
+# approval, ready invoices, and charge creation fail closed.
+cap_guard_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:cap-guard','Candidate Cap Guard') returning id")
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.attendance_day(
+  engine_run_id,student_id,cycle_key,day,kind,engine_version,source_digest
+) values (
+  (select id from missionaccounts.engine_run order by started_at desc limit 1),
+  '$cap_guard_student_id','2026-cycle-2','2026-07-15','billable','integration-v1',repeat('a',64)
+);
+insert into missionaccounts.full_cycle_ceiling(student_id,cycle_key,status,basis)
+values ('$cap_guard_student_id','2026-cycle-2','candidate',jsonb_build_object('source','guard-test'));
+insert into missionaccounts.billing_decision(
+  student_id,cycle_key,treatment,amount_cents,basis,basis_sha256,state,request_id
+) values (
+  '$cap_guard_student_id','2026-cycle-2','confirm',2500,'{}',repeat('d',64),'estimate','pg-cap-guard-estimate'
+);
+insert into missionaccounts.invoice(student_id,cycle_key,decision_id,state,amount_cents,lines)
+values (
+  '$cap_guard_student_id','2026-cycle-2',
+  (select id from missionaccounts.billing_decision where request_id='pg-cap-guard-estimate'),
+  'draft',2500,'[]'
+);
+SQL
+set +e
+cap_billing_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "update missionaccounts.billing_decision set state='approved' where request_id='pg-cap-guard-estimate';" 2>&1)
+cap_billing_exit=$?
+cap_invoice_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "update missionaccounts.invoice set state='ready' where student_id='$cap_guard_student_id' and cycle_key='2026-cycle-2';" 2>&1)
+cap_invoice_exit=$?
+cap_charge_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "insert into missionaccounts.charge(student_id,attendance_day_id,amount_cents,state,idempotency_key) values ('$cap_guard_student_id',(select id from missionaccounts.attendance_day where student_id='$cap_guard_student_id' and cycle_key='2026-cycle-2'),2500,'eligible','pg-cap-guard-charge');" 2>&1)
+cap_charge_exit=$?
+set -e
+for cap_guard in billing invoice charge; do
+  exit_var="cap_${cap_guard}_exit"
+  output_var="cap_${cap_guard}_guard"
+  if [[ "${!exit_var}" -eq 0 ]] || [[ "${!output_var}" != *"cap_candidate_requires_review"* ]]; then
+    echo "MissionAccounts candidate-cap ${cap_guard} guard failed closed incorrectly:" >&2
+    echo "${!output_var}" >&2
+    exit 1
+  fi
+done
+
+# A privileged/direct writer must not pair one student's charge with another
+# student's attendance day. Otherwise a cap on the charge owner could be
+# bypassed by deriving the protected identity from the foreign day row.
+charge_owner_mismatch_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:charge-owner-mismatch','Charge Owner Mismatch') returning id")
+set +e
+charge_owner_mismatch_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "insert into missionaccounts.charge(student_id,attendance_day_id,amount_cents,state,idempotency_key) values ('$charge_owner_mismatch_student_id',(select id from missionaccounts.attendance_day where student_id='$cap_guard_student_id' and cycle_key='2026-cycle-2'),2500,'eligible','pg-charge-owner-mismatch');" 2>&1)
+charge_owner_mismatch_exit=$?
+set -e
+if [[ "$charge_owner_mismatch_exit" -eq 0 ]] || [[ "$charge_owner_mismatch_guard" != *"charge_attendance_owner_mismatch"* ]]; then
+  echo "MissionAccounts allowed a charge to reference another student's attendance day:" >&2
+  echo "$charge_owner_mismatch_guard" >&2
+  exit 1
+fi
+
+cap_reverse_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:cap-reverse','Final State Before Cap') returning id")
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.billing_decision(
+  student_id,cycle_key,treatment,amount_cents,basis,basis_sha256,state,decided_by,decided_at,request_id
+) values (
+  '$cap_reverse_student_id','2026-cycle-3','confirm',2500,'{}',repeat('e',64),'approved','wp:admin',now(),'pg-cap-reverse-approved'
+);
+SQL
+set +e
+cap_reverse_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "insert into missionaccounts.full_cycle_ceiling(student_id,cycle_key,status,basis) values ('$cap_reverse_student_id','2026-cycle-3','candidate','{}');" 2>&1)
+cap_reverse_exit=$?
+set -e
+if [[ "$cap_reverse_exit" -eq 0 ]] || [[ "$cap_reverse_guard" != *"candidate_cap_conflicts_with_final_financial_state"* ]]; then
+  echo "MissionAccounts allowed candidate cap insertion after final financial state:" >&2
+  echo "$cap_reverse_guard" >&2
+  exit 1
+fi
+
+# Prove the reciprocal cap/finality lock closes the concurrent reverse-order
+# race: approval commits first, then the waiting candidate re-checks and fails.
+cap_concurrent_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:cap-concurrent','Concurrent Cap Finality') returning id")
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.billing_decision(
+  student_id,cycle_key,treatment,amount_cents,basis,basis_sha256,state,request_id
+) values (
+  '$cap_concurrent_student_id','2026-cycle-3','confirm',2500,'{}',repeat('f',64),'estimate','pg-cap-concurrent-estimate'
+);
+SQL
+cap_concurrent_output="$pg_tmp/cap-concurrent.out"
+(
+  psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 >"$cap_concurrent_output" 2>&1 <<SQL
+begin;
+update missionaccounts.billing_decision
+set state='approved',decided_by='wp:admin',decided_at=now()
+where request_id='pg-cap-concurrent-estimate';
+select pg_advisory_xact_lock(hashtextextended('missionaccounts:test:cap-finality-ready',0));
+select pg_sleep(2);
+commit;
+SQL
+) &
+cap_concurrent_pid=$!
+cap_finality_ready=false
+for _attempt in {1..100}; do
+  if [[ "$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "select not pg_try_advisory_lock(hashtextextended('missionaccounts:test:cap-finality-ready',0));")" == "t" ]]; then
+    cap_finality_ready=true
+    break
+  fi
+  sleep 0.05
+done
+if [[ "$cap_finality_ready" != true ]]; then
+  kill "$cap_concurrent_pid" >/dev/null 2>&1 || true
+  wait "$cap_concurrent_pid" >/dev/null 2>&1 || true
+  echo "MissionAccounts cap-finality concurrency fixture did not acquire its lock in time" >&2
+  exit 1
+fi
+set +e
+cap_concurrent_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "insert into missionaccounts.full_cycle_ceiling(student_id,cycle_key,status,basis) values ('$cap_concurrent_student_id','2026-cycle-3','candidate','{}');" 2>&1)
+cap_concurrent_exit=$?
+wait "$cap_concurrent_pid"
+cap_concurrent_writer_exit=$?
+set -e
+if [[ "$cap_concurrent_writer_exit" -ne 0 ]]; then
+  echo "MissionAccounts concurrent financial writer failed:" >&2
+  sed -n '1,80p' "$cap_concurrent_output" >&2
+  exit 1
+fi
+if [[ "$cap_concurrent_exit" -eq 0 ]] || [[ "$cap_concurrent_guard" != *"candidate_cap_conflicts_with_final_financial_state"* ]]; then
+  echo "MissionAccounts concurrent finality/candidate-cap race bypassed serialization:" >&2
+  echo "$cap_concurrent_guard" >&2
   exit 1
 fi
 
@@ -1140,7 +1278,14 @@ if [[ "$identity_alias_exit" -eq 0 ]] || [[ "$identity_alias_guard" != *"adjudic
   exit 1
 fi
 
-psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 >/dev/null <<SQL
+set role service_role;
+select missionaccounts.api_decide_full_cycle_ceiling(
+  '21000000-0000-4000-8000-000000000001','2026-cycle-1','verified',
+  'Resolve the identity fixture cap before creating final financial custody',
+  'wp:admin','missionaccounts_admin','pg-identity-financial-cap'
+)->>'accepted';
+reset role;
 insert into missionaccounts.billing_decision(
   id,student_id,cycle_key,treatment,amount_cents,basis,basis_sha256,state,decided_by,decided_at,request_id
 ) values (
@@ -1237,6 +1382,347 @@ if [[ "$identity_open_question_result" != $'resolved\nneeds_review|needs_review\
   exit 1
 fi
 
+device_identity_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.student(id,display_name,identity_state) values
+  ('21000000-0000-4000-8000-000000000031','Zoom iPad 7','needs_review'),
+  ('21000000-0000-4000-8000-000000000032','Device Match Target','verified');
+insert into missionaccounts.identity_alias(id,student_id,source_artifact_id,source_key,display_value,relationship_state) values
+  ('24000000-0000-4000-8000-000000000031','21000000-0000-4000-8000-000000000031','22000000-0000-4000-8000-000000000001','device:zoom-ipad-7','Zoom iPad 7','device');
+insert into missionaccounts.session(
+  id,cycle_key,source_artifact_id,provider,provider_meeting_id,provider_instance_id,
+  starts_at,held_on,time_zone,step,state,source_payload
+) values (
+  '23000000-0000-4000-8000-000000000031','2026-cycle-1','22000000-0000-4000-8000-000000000001',
+  'zoom','device-meeting-1','device-instance-1','2026-06-11T16:00:00Z','2026-06-11','America/New_York','s1','confirmed','{}'
+);
+insert into missionaccounts.attendance_event(
+  student_id,session_id,cycle_key,local_day,step,interpretation_state,provenance
+) values (
+  '21000000-0000-4000-8000-000000000031','23000000-0000-4000-8000-000000000031',
+  '2026-cycle-1','2026-06-11','s1','effective','{}'
+);
+insert into missionaccounts.exam_plan(
+  id,student_id,step,exam_on,state,submitted_by,decided_by,decided_at
+) values (
+  '25000000-0000-4000-8000-000000000031','21000000-0000-4000-8000-000000000032',
+  's1','2026-06-09','approved','wp:device-target','wp:admin','2026-06-01T12:00:00Z'
+);
+insert into missionaccounts.grace_window(student_id,exam_plan_id,from_on)
+values ('21000000-0000-4000-8000-000000000032','25000000-0000-4000-8000-000000000031','2026-06-09');
+insert into missionaccounts.full_cycle_ceiling(student_id,cycle_key,status,basis) values
+  ('21000000-0000-4000-8000-000000000031','2026-cycle-1','candidate',jsonb_build_object('source','device-candidate')),
+  ('21000000-0000-4000-8000-000000000031','2026-cycle-2','candidate',jsonb_build_object('source','device-candidate')),
+  ('21000000-0000-4000-8000-000000000032','2026-cycle-1','verified',jsonb_build_object('source','target-prior-verified'));
+set role service_role;
+select missionaccounts.recompute_student_attendance(
+  '21000000-0000-4000-8000-000000000031','pg-device-initial'
+)->>'days';
+select (result->>'duplicate') || '|' || (result->>'propagated_cap_holds')
+from (
+  select missionaccounts.api_decide_device_identity(
+    '24000000-0000-4000-8000-000000000031','match','21000000-0000-4000-8000-000000000032','2026-09-06',
+    'Dr J matched the unidentified attendee','wp:admin','missionaccounts_admin','pg-device-match-0001'
+  ) as result
+) decision;
+select missionaccounts.api_decide_device_identity(
+  '24000000-0000-4000-8000-000000000031','match','21000000-0000-4000-8000-000000000032','2026-09-06',
+  'Dr J matched the unidentified attendee','wp:admin','missionaccounts_admin','pg-device-match-0001'
+)->>'duplicate';
+reset role;
+select
+  (select count(*) from missionaccounts.attendance_event where student_id='21000000-0000-4000-8000-000000000031') || '|' ||
+  (select student_id from missionaccounts.attendance_event_projection where source_student_id='21000000-0000-4000-8000-000000000031') || '|' ||
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000031' and superseded_at is null) || '|' ||
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000032' and superseded_at is null) || '|' ||
+  (select kind from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000032' and superseded_at is null) || '|' ||
+  (select count(*) from missionaccounts.full_cycle_ceiling where student_id='21000000-0000-4000-8000-000000000032' and status='candidate' and superseded_by_id is null) || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='device_identity.decided' and request_id='pg-device-match-0001');
+set role service_role;
+select (result->'correction'->>'source_student_id') || '|' || (result->>'duplicate')
+from (
+  select missionaccounts.api_append_attendance_correction(
+    '21000000-0000-4000-8000-000000000032',
+    '23000000-0000-4000-8000-000000000031',
+    (select id from missionaccounts.attendance_event where student_id='21000000-0000-4000-8000-000000000031'),
+    'remove',null,null,'Dr J removed the projected device event',null,
+    'wp:admin','missionaccounts_admin','pg-device-correction-remove'
+  ) as result
+) correction;
+reset role;
+select
+  (select student_id from missionaccounts.attendance_correction where request_id='pg-device-correction-remove') || '|' ||
+  (select student_id from missionaccounts.attendance_correction_projection where request_id='pg-device-correction-remove') || '|' ||
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000032' and superseded_at is null);
+set role service_role;
+select (result->'correction'->>'source_student_id') || '|' || (result->>'duplicate')
+from (
+  select missionaccounts.api_append_attendance_correction(
+    '21000000-0000-4000-8000-000000000032',
+    '23000000-0000-4000-8000-000000000031',
+    (select id from missionaccounts.attendance_event where student_id='21000000-0000-4000-8000-000000000031'),
+    'add',null,null,'Dr J reversed the projected device correction',
+    (select id from missionaccounts.attendance_correction where request_id='pg-device-correction-remove'),
+    'wp:admin','missionaccounts_admin','pg-device-correction-reverse'
+  ) as result
+) correction;
+reset role;
+select
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000032' and superseded_at is null) || '|' ||
+  (select kind from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000032' and superseded_at is null);
+set role service_role;
+select (result->>'copied_grace_windows') || '|' || (result->>'restored_cap_holds')
+from (
+select missionaccounts.api_decide_device_identity(
+  '24000000-0000-4000-8000-000000000031','unsure',null,'2026-09-06',
+  'Dr J reopened the attendee for more evidence','wp:admin','missionaccounts_admin','pg-device-unsure-0001'
+) as result
+) decision;
+reset role;
+update missionaccounts.identity_alias set display_value='Zoom iPad 7 revised'
+where id='24000000-0000-4000-8000-000000000031';
+select
+  (select identity_state from missionaccounts.student where id='21000000-0000-4000-8000-000000000031') || '|' ||
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000031' and superseded_at is null) || '|' ||
+  (select kind from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000031' and superseded_at is null) || '|' ||
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000032' and superseded_at is null) || '|' ||
+  (select count(*) from missionaccounts.grace_window_projection where student_id in ('21000000-0000-4000-8000-000000000031','21000000-0000-4000-8000-000000000032')) || '|' ||
+  (select count(*) from missionaccounts.identity_grace_preservation where student_id='21000000-0000-4000-8000-000000000031' and device_identity_decision_id is not null) || '|' ||
+  (select count(*) from missionaccounts.grace_window where student_id='21000000-0000-4000-8000-000000000032' and to_on is null) || '|' ||
+  (select status from missionaccounts.full_cycle_ceiling where student_id='21000000-0000-4000-8000-000000000032' and cycle_key='2026-cycle-1' and superseded_by_id is null) || '|' ||
+  (select status from missionaccounts.full_cycle_ceiling where student_id='21000000-0000-4000-8000-000000000032' and cycle_key='2026-cycle-2' and superseded_by_id is null);
+set role service_role;
+select missionaccounts.api_decide_device_identity(
+  '24000000-0000-4000-8000-000000000031','not_student',null,'2026-09-06',
+  'Dr J confirmed this endpoint was not a student','wp:admin','missionaccounts_admin','pg-device-not-student-0001'
+)->>'duplicate';
+reset role;
+select
+  (select identity_state from missionaccounts.student where id='21000000-0000-4000-8000-000000000031') || '|' ||
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000031' and superseded_at is null) || '|' ||
+  (select count(*) from missionaccounts.attendance_event where student_id='21000000-0000-4000-8000-000000000031') || '|' ||
+  (select count(*) from missionaccounts.attendance_event_projection where source_student_id='21000000-0000-4000-8000-000000000031' and student_id is null) || '|' ||
+  (select count(*) from missionaccounts.device_identity_decision where source_student_id='21000000-0000-4000-8000-000000000031') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='device_identity.decided' and subject_student_id='21000000-0000-4000-8000-000000000031');
+SQL
+)
+
+device_identity_expected=$'1\nfalse|2\ntrue\n1|21000000-0000-4000-8000-000000000032|0|1|grace|2|1\n21000000-0000-4000-8000-000000000031|false\n21000000-0000-4000-8000-000000000031|21000000-0000-4000-8000-000000000032|0\n21000000-0000-4000-8000-000000000031|false\n1|grace\n1|2\nneeds_review|1|needs_review|0|2|1|1|verified|rejected\nfalse\nexcluded|0|1|1|3|3'
+if [[ "$device_identity_results" != "$device_identity_expected" ]]; then
+  echo "MissionAccounts device-identity adjudication verification returned unexpected controls:" >&2
+  echo "$device_identity_results" >&2
+  exit 1
+fi
+
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.student(id,display_name,identity_state) values
+  ('21000000-0000-4000-8000-000000000051','Shared Alias Device','needs_review'),
+  ('21000000-0000-4000-8000-000000000052','Shared Alias Target','verified');
+insert into missionaccounts.identity_alias(id,student_id,source_artifact_id,source_key,display_value,relationship_state) values
+  ('24000000-0000-4000-8000-000000000051','21000000-0000-4000-8000-000000000051','22000000-0000-4000-8000-000000000001','device:shared-alias','Shared iPad','device'),
+  ('24000000-0000-4000-8000-000000000052','21000000-0000-4000-8000-000000000051','22000000-0000-4000-8000-000000000001','person:shared-alias','Shared Person','candidate');
+SQL
+set +e
+device_source_isolation_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; select missionaccounts.api_decide_device_identity('24000000-0000-4000-8000-000000000051','match','21000000-0000-4000-8000-000000000052','2026-09-06','Unsafe non-isolated source match','wp:admin','missionaccounts_admin','pg-device-source-isolation-guard');" 2>&1)
+device_source_isolation_exit=$?
+set -e
+if [[ "$device_source_isolation_exit" -eq 0 ]] || [[ "$device_source_isolation_guard" != *"device_identity_source_must_be_isolated"* ]]; then
+  echo "MissionAccounts allowed a device decision to remap unrelated source aliases:" >&2
+  echo "$device_source_isolation_guard" >&2
+  exit 1
+fi
+
+set +e
+device_alias_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; update missionaccounts.identity_alias set display_value='Mutated device evidence' where id='24000000-0000-4000-8000-000000000031';" 2>&1)
+device_alias_exit=$?
+set -e
+if [[ "$device_alias_exit" -eq 0 ]] || [[ "$device_alias_guard" != *"adjudicated_identity_alias_is_immutable"* ]]; then
+  echo "MissionAccounts allowed resolved device evidence to mutate:" >&2
+  echo "$device_alias_guard" >&2
+  exit 1
+fi
+
+set +e
+device_alias_insert_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; insert into missionaccounts.identity_alias(student_id,source_artifact_id,source_key,display_value,relationship_state) values ('21000000-0000-4000-8000-000000000031','22000000-0000-4000-8000-000000000001','device:late-alias','Late Alias','device');" 2>&1)
+device_alias_insert_exit=$?
+set -e
+if [[ "$device_alias_insert_exit" -eq 0 ]] || [[ "$device_alias_insert_guard" != *"adjudicated_device_identity_alias_topology_is_immutable"* ]]; then
+  echo "MissionAccounts allowed a new alias to attach to a resolved device topology:" >&2
+  echo "$device_alias_insert_guard" >&2
+  exit 1
+fi
+
+# Two cap-bearing device sources may not share a single-owner target hold. The
+# second match is rejected atomically until the first hold is resolved.
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.student(id,display_name,identity_state) values
+  ('21000000-0000-4000-8000-000000000071','Cap Device One','needs_review'),
+  ('21000000-0000-4000-8000-000000000072','Cap Device Two','needs_review'),
+  ('21000000-0000-4000-8000-000000000073','Cap Shared Target','verified');
+insert into missionaccounts.identity_alias(id,student_id,source_artifact_id,source_key,display_value,relationship_state) values
+  ('24000000-0000-4000-8000-000000000071','21000000-0000-4000-8000-000000000071','22000000-0000-4000-8000-000000000001','device:cap-one','Cap Device One','device'),
+  ('24000000-0000-4000-8000-000000000072','21000000-0000-4000-8000-000000000072','22000000-0000-4000-8000-000000000001','device:cap-two','Cap Device Two','device');
+insert into missionaccounts.full_cycle_ceiling(student_id,cycle_key,status,basis) values
+  ('21000000-0000-4000-8000-000000000071','2026-cycle-3','candidate','{}'),
+  ('21000000-0000-4000-8000-000000000072','2026-cycle-3','candidate','{}');
+set role service_role;
+select missionaccounts.api_decide_device_identity(
+  '24000000-0000-4000-8000-000000000071','match','21000000-0000-4000-8000-000000000073','2026-09-06',
+  'First cap-bearing device','wp:admin','missionaccounts_admin','pg-device-cap-owner-one'
+)->>'accepted';
+SQL
+set +e
+device_cap_owner_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; select missionaccounts.api_decide_device_identity('24000000-0000-4000-8000-000000000072','match','21000000-0000-4000-8000-000000000073','2026-09-06','Second cap-bearing device','wp:admin','missionaccounts_admin','pg-device-cap-owner-two');" 2>&1)
+device_cap_owner_exit=$?
+set -e
+if [[ "$device_cap_owner_exit" -eq 0 ]] || [[ "$device_cap_owner_guard" != *"device_identity_target_cap_hold_conflict"* ]]; then
+  echo "MissionAccounts allowed ambiguous multi-device cap-hold ownership:" >&2
+  echo "$device_cap_owner_guard" >&2
+  exit 1
+fi
+if [[ "$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "select count(*) from missionaccounts.device_identity_decision where request_id='pg-device-cap-owner-two';")" != "0" ]]; then
+  echo "MissionAccounts persisted the rejected second cap-owner decision" >&2
+  exit 1
+fi
+
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.student(id,display_name,identity_state) values
+  ('21000000-0000-4000-8000-000000000074','Cap Device With Unrelated Target Candidate','needs_review'),
+  ('21000000-0000-4000-8000-000000000075','Unrelated Candidate Target','verified');
+insert into missionaccounts.identity_alias(id,student_id,source_artifact_id,source_key,display_value,relationship_state) values
+  ('24000000-0000-4000-8000-000000000074','21000000-0000-4000-8000-000000000074','22000000-0000-4000-8000-000000000001','device:cap-unrelated','Cap Device Unrelated','device');
+insert into missionaccounts.full_cycle_ceiling(student_id,cycle_key,status,basis) values
+  ('21000000-0000-4000-8000-000000000074','2026-cycle-2','candidate',jsonb_build_object('source','device-evidence')),
+  ('21000000-0000-4000-8000-000000000075','2026-cycle-2','candidate',jsonb_build_object('source','unrelated-target-review'));
+SQL
+set +e
+device_unrelated_cap_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; select missionaccounts.api_decide_device_identity('24000000-0000-4000-8000-000000000074','match','21000000-0000-4000-8000-000000000075','2026-09-06','Must not absorb unrelated target cap custody','wp:admin','missionaccounts_admin','pg-device-cap-unrelated');" 2>&1)
+device_unrelated_cap_exit=$?
+set -e
+if [[ "$device_unrelated_cap_exit" -eq 0 ]] || [[ "$device_unrelated_cap_guard" != *"device_identity_target_cap_hold_conflict"* ]]; then
+  echo "MissionAccounts absorbed device cap evidence into an unrelated target candidate:" >&2
+  echo "$device_unrelated_cap_guard" >&2
+  exit 1
+fi
+
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.student(id,display_name,identity_state) values
+  ('21000000-0000-4000-8000-000000000041','Clustered Device Source','needs_review'),
+  ('21000000-0000-4000-8000-000000000042','Clustered Device Target','verified'),
+  ('21000000-0000-4000-8000-000000000043','Clustered Other Person','needs_review');
+insert into missionaccounts.identity_alias(id,student_id,source_artifact_id,source_key,display_value,relationship_state) values
+  ('24000000-0000-4000-8000-000000000041','21000000-0000-4000-8000-000000000041','22000000-0000-4000-8000-000000000001','device:clustered-source','Clustered Device Source','device'),
+  ('24000000-0000-4000-8000-000000000043','21000000-0000-4000-8000-000000000043','22000000-0000-4000-8000-000000000001','clustered-other-person','Clustered Other Person','candidate');
+insert into missionaccounts.identity_cluster(ref,source_artifact_id,state,evidence)
+values ('cluster:pg-device-order','22000000-0000-4000-8000-000000000001','open','{}');
+insert into missionaccounts.identity_cluster_member(cluster_ref,identity_alias_id) values
+  ('cluster:pg-device-order','24000000-0000-4000-8000-000000000041'),
+  ('cluster:pg-device-order','24000000-0000-4000-8000-000000000043');
+SQL
+set +e
+device_open_cluster_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; select missionaccounts.api_decide_device_identity('24000000-0000-4000-8000-000000000041','match','21000000-0000-4000-8000-000000000042','2026-09-06','Unsafe decision before cluster review','wp:admin','missionaccounts_admin','pg-device-open-cluster-guard');" 2>&1)
+device_open_cluster_exit=$?
+set -e
+if [[ "$device_open_cluster_exit" -eq 0 ]] || [[ "$device_open_cluster_guard" != *"device_identity_requires_cluster_review_first"* ]]; then
+  echo "MissionAccounts allowed device resolution before overlapping cluster review:" >&2
+  echo "$device_open_cluster_guard" >&2
+  exit 1
+fi
+
+device_order_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_decide_identity_cluster(
+  'cluster:pg-device-order','different',null,'2026-09-06',
+  'Dr J confirmed the clustered records are different people','wp:admin','missionaccounts_admin','pg-device-order-cluster-different'
+)->>'cluster_state';
+select missionaccounts.api_decide_device_identity(
+  '24000000-0000-4000-8000-000000000041','match','21000000-0000-4000-8000-000000000042','2026-09-06',
+  'Dr J matched the device after resolving the name cluster','wp:admin','missionaccounts_admin','pg-device-order-match'
+)->>'accepted';
+reset role;
+select
+  (select decision from missionaccounts.identity_decision where cluster_ref='cluster:pg-device-order' and superseded_by_id is null) || '|' ||
+  (select decision from missionaccounts.device_identity_decision where source_student_id='21000000-0000-4000-8000-000000000041' and superseded_by_id is null);
+SQL
+)
+if [[ "$device_order_results" != $'resolved\ntrue\ndifferent|match' ]]; then
+  echo "MissionAccounts device/cluster decision ordering returned unexpected controls:" >&2
+  echo "$device_order_results" >&2
+  exit 1
+fi
+
+set +e
+device_same_cluster_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; select missionaccounts.api_decide_identity_cluster('cluster:pg-device-order','same','21000000-0000-4000-8000-000000000041','2026-09-06','Unsafe same-person merge after device resolution','wp:admin','missionaccounts_admin','pg-device-same-cluster-guard');" 2>&1)
+device_same_cluster_exit=$?
+set -e
+if [[ "$device_same_cluster_exit" -eq 0 ]] || [[ "$device_same_cluster_guard" != *"identity_cluster_conflicts_with_device_resolution"* ]]; then
+  echo "MissionAccounts allowed a same-person cluster merge across a resolved device mapping:" >&2
+  echo "$device_same_cluster_guard" >&2
+  exit 1
+fi
+
+# Prove the cluster and device guards serialize on the same student keys. The
+# device transaction keeps its per-student trigger locks open; the overlapping
+# cluster decision must wait, then reject after seeing the committed match.
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.student(id,display_name,identity_state) values
+  ('21000000-0000-4000-8000-000000000061','Concurrent Device Source','needs_review'),
+  ('21000000-0000-4000-8000-000000000062','Concurrent Device Target','verified'),
+  ('21000000-0000-4000-8000-000000000063','Concurrent Cluster Peer','needs_review');
+insert into missionaccounts.identity_alias(id,student_id,source_artifact_id,source_key,display_value,relationship_state) values
+  ('24000000-0000-4000-8000-000000000061','21000000-0000-4000-8000-000000000061','22000000-0000-4000-8000-000000000001','device:concurrent-source','Concurrent iPad','device'),
+  ('24000000-0000-4000-8000-000000000063','21000000-0000-4000-8000-000000000063','22000000-0000-4000-8000-000000000001','person:concurrent-peer','Concurrent Peer','candidate');
+insert into missionaccounts.identity_cluster(ref,source_artifact_id,state,evidence)
+values ('cluster:pg-device-concurrency','22000000-0000-4000-8000-000000000001','resolved','{}');
+insert into missionaccounts.identity_cluster_member(cluster_ref,identity_alias_id) values
+  ('cluster:pg-device-concurrency','24000000-0000-4000-8000-000000000061'),
+  ('cluster:pg-device-concurrency','24000000-0000-4000-8000-000000000063');
+SQL
+concurrent_device_output="$pg_tmp/concurrent-device.out"
+(
+  psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 >"$concurrent_device_output" 2>&1 <<SQL
+begin;
+set role service_role;
+select missionaccounts.api_decide_device_identity(
+  '24000000-0000-4000-8000-000000000061','match','21000000-0000-4000-8000-000000000062','2026-09-06',
+  'Concurrent device match','wp:admin','missionaccounts_admin','pg-device-concurrent-match'
+)->>'accepted';
+select pg_advisory_xact_lock(hashtextextended('missionaccounts:test:device-lock-ready',0));
+select pg_sleep(2);
+commit;
+SQL
+) &
+concurrent_device_pid=$!
+concurrent_lock_ready=false
+for _attempt in {1..100}; do
+  if [[ "$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "select not pg_try_advisory_lock(hashtextextended('missionaccounts:test:device-lock-ready',0));")" == "t" ]]; then
+    concurrent_lock_ready=true
+    break
+  fi
+  sleep 0.05
+done
+if [[ "$concurrent_lock_ready" != true ]]; then
+  kill "$concurrent_device_pid" >/dev/null 2>&1 || true
+  wait "$concurrent_device_pid" >/dev/null 2>&1 || true
+  echo "MissionAccounts concurrency fixture did not acquire its lock in time" >&2
+  exit 1
+fi
+set +e
+concurrent_cluster_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; select missionaccounts.api_decide_identity_cluster('cluster:pg-device-concurrency','same','21000000-0000-4000-8000-000000000061','2026-09-06','Concurrent conflicting cluster merge','wp:admin','missionaccounts_admin','pg-device-concurrent-cluster');" 2>&1)
+concurrent_cluster_exit=$?
+wait "$concurrent_device_pid"
+concurrent_device_exit=$?
+set -e
+if [[ "$concurrent_device_exit" -ne 0 ]] || ! rg -q '^true$' "$concurrent_device_output"; then
+  echo "MissionAccounts concurrent device fixture failed:" >&2
+  sed -n '1,80p' "$concurrent_device_output" >&2
+  exit 1
+fi
+if [[ "$concurrent_cluster_exit" -eq 0 ]] || [[ "$concurrent_cluster_guard" != *"identity_cluster_conflicts_with_device_resolution"* ]]; then
+  echo "MissionAccounts concurrent cluster/device decisions bypassed topology serialization:" >&2
+  echo "$concurrent_cluster_guard" >&2
+  exit 1
+fi
+
 unhandled_provider_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 insert into missionaccounts.provider_event_inbox(
   provider, provider_event_id, provider_object_id, event_type, payload, signature_verified, state
@@ -1265,4 +1751,4 @@ if [[ "$unhandled_provider_results" != $'false\ntrue\nignored|1|1' ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, account linkage/default comp, identity adjudication and split-grace custody, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody and admin review, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, unhandled-provider exception custody, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+echo "MissionAccounts PostgreSQL migration, account linkage/default comp, identity and device adjudication with split-grace custody, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody and admin review, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, unhandled-provider exception custody, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"

@@ -26,6 +26,28 @@ const auth = createMissionAccountsAuthClient({
 let canonicalModel = null;
 
 const databaseCycleKey = Object.freeze({ june: '2026-cycle-1', july: '2026-cycle-2', august: '2026-cycle-3' });
+const actionCapabilities = Object.freeze({
+  'payment-setup': 'auto_billing',
+  'payment-remove': 'auto_billing',
+  'billing-authorization': 'auto_billing',
+  'billing-authorization-revoke': 'auto_billing',
+  'attendance-issue-report': 'attendance_corrections',
+  'attendance-issue-review': 'attendance_corrections',
+  'attendance-correction': 'attendance_corrections',
+  'attendance-correction-reversal': 'attendance_corrections',
+  'identity-adjudication': 'identity_review',
+  'device-identity-adjudication': 'identity_review',
+  'student-contact': 'student_contacts',
+  'cycle-policy': 'billing_decisions',
+  'billing-decision': 'billing_decisions',
+  'invoice-readiness': 'billing_decisions',
+  comp: 'comp_days',
+  'student-exam-submit': 'exam_plans',
+  'admin-exam-submit': 'exam_plans',
+  'student-passed': 'exam_plans',
+  'student-exam-withdraw': 'exam_plans',
+  'exam-transition': 'exam_plans',
+});
 
 function notify(message) {
   if (typeof window.__XP?.toast === 'function') window.__XP.toast(message);
@@ -75,6 +97,10 @@ async function dispatch(action, payload = {}) {
   state.mutating = true;
   try {
     if (action === 'unsupported') throw new Error(payload.message || 'This control is not enabled in the production build yet.');
+    const requiredCapability = actionCapabilities[action];
+    if (requiredCapability && state.capabilities[requiredCapability] !== true) {
+      throw new Error('This MissionAccounts action is not enabled for this environment.');
+    }
     if (action === 'payment-setup') {
       if (state.user?.role !== 'student') throw new Error('Only the signed-in student can enter or update a payment method.');
       if (!state.payments.setupEnabled || !state.payments.publishableKey) throw new Error('Secure Stripe payment setup is not enabled.');
@@ -172,6 +198,20 @@ async function dispatch(action, payload = {}) {
           note,
         },
       });
+    } else if (action === 'device-identity-adjudication') {
+      if (!['missionaccounts_admin', 'founder'].includes(state.user?.role)) throw new Error('Only Dr J can adjudicate unidentified attendees.');
+      if (state.capabilities.identity_review !== true) throw new Error('Identity review is not enabled for this environment.');
+      const aliasId = String(payload.aliasId || '');
+      const decision = String(payload.decision || '');
+      const note = String(payload.note || '').trim();
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuid.test(aliasId)) throw new Error('The unidentified-attendee alias is invalid.');
+      if (!['match', 'not_student', 'unsure'].includes(decision)) throw new Error('Choose a student match, not a student, or decide later.');
+      if (note.length < 3 || note.length > 2_000) throw new Error('Identity decisions require a short audit reason.');
+      const targetStudentId = decision === 'match' ? studentUuid(payload.targetSi) : null;
+      await window.MissionAccountsRuntime.mutation(`/admin/device-identity/${aliasId}`, {
+        body: { decision, target_student_id: targetStudentId, note },
+      });
     } else if (action === 'student-contact') {
       await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/contact`, {
         body: {
@@ -237,7 +277,15 @@ async function dispatch(action, payload = {}) {
     } else if (action === 'attendance-correction') {
       const ss = payload.fields?.sess;
       const sessionId = ss == null ? null : sessionUuid(ss);
-      const attendanceEventId = ss == null ? null : canonicalModel.ids.attendanceEvents[`${payload.si}:${ss}`] || null;
+      const eventKey = `${payload.si}:${ss}`;
+      const attendanceEventGroup = ss == null
+        ? []
+        : (canonicalModel.ids.attendanceEventGroups?.[eventKey]
+          || [canonicalModel.ids.attendanceEvents[eventKey]].filter(Boolean));
+      if (['att_remove', 'step'].includes(payload.type) && attendanceEventGroup.length > 1) {
+        throw new Error('Multiple preserved source attendances contribute to this logical attendance. Resolve the identity/source evidence before correcting it.');
+      }
+      const attendanceEventId = attendanceEventGroup[0] || null;
       const type = { att_add: 'add', att_remove: 'remove', step: 'step_relabel', name: 'name', note: 'note' }[payload.type];
       await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/corrections`, {
         body: {

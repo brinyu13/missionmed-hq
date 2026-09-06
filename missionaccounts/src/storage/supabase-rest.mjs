@@ -83,6 +83,19 @@ export class SupabaseRestStore {
     });
   }
 
+  async decideDeviceIdentity({ identityAliasId, decision, targetStudentId, today, note, actorId, actorRole, requestId }) {
+    return this.rpc('api_decide_device_identity', {
+      p_identity_alias_id: identityAliasId,
+      p_decision: decision,
+      p_target_student_id: targetStudentId || null,
+      p_today: today,
+      p_note: note,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async setStudentContact({ studentId, email, phone, reason, actorId, actorRole, requestId }) {
     return this.rpc('api_set_student_contact', {
       p_student_id: studentId,
@@ -139,8 +152,8 @@ export class SupabaseRestStore {
     if (!admin && !studentId) throw new Error('Student canonical projection requires a student id');
     const studentFilter = admin ? '' : `&student_id=eq.${encodeURIComponent(studentId)}`;
     const studentPath = admin
-      ? 'student_identity_projection?absorbed=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,canonical_student_id,absorbed&order=display_name.asc&limit=1000'
-      : `student_identity_projection?id=eq.${encodeURIComponent(studentId)}&absorbed=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,canonical_student_id,absorbed&limit=1`;
+      ? 'student_identity_projection?select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,canonical_student_id,absorbed,device_source,excluded,device_decision_id,cluster_decision_id&order=display_name.asc&limit=1000'
+      : `student_identity_projection?id=eq.${encodeURIComponent(studentId)}&absorbed=eq.false&excluded=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,canonical_student_id,absorbed,device_source,excluded,device_decision_id,cluster_decision_id&limit=1`;
     const aliasPath = admin
       ? 'identity_alias_projection?superseded_by_id=is.null&select=id,student_id,source_student_id,source_key,display_value,relationship_state,confidence&order=created_at.asc'
       : `identity_alias_projection?student_id=eq.${encodeURIComponent(studentId)}&superseded_by_id=is.null&select=id,student_id,source_student_id,source_key,display_value,relationship_state,confidence&order=created_at.asc`;
@@ -150,13 +163,13 @@ export class SupabaseRestStore {
     const [
       cycles, sessions, students, aliases, attendanceEvents, attendanceDays,
       billingDecisions, invoices, examPlans, examTransitions, graceWindows, reminders,
-      corrections, ceilings, cyclePolicies, ruleDecisions,
+      corrections, ceilings, cyclePolicies, ruleDecisions, deviceIdentityDecisions,
     ] = await Promise.all([
       this.billingCycles(),
       this.requestAll(`session?state=eq.confirmed&superseded_by_id=is.null&select=${sessionSelect}&order=starts_at.asc`),
       this.requestAll(studentPath),
       this.requestAll(aliasPath),
-      this.requestAll(`attendance_event_projection?superseded_by_id=is.null${studentFilter}&select=id,student_id,session_id,cycle_key,local_day,step,interpretation_state,duration_minutes,source_row_count,source_display_name&order=local_day.asc`),
+      this.requestAll(`attendance_event_projection?superseded_by_id=is.null${studentFilter}&select=id,student_id,source_student_id,session_id,cycle_key,local_day,step,interpretation_state,duration_minutes,source_row_count,source_display_name&order=local_day.asc`),
       this.requestAll(`attendance_day?superseded_at=is.null${studentFilter}&select=id,student_id,cycle_key,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`),
       this.requestAll(`billing_decision?superseded_by_id=is.null${studentFilter}&select=id,student_id,cycle_key,treatment,amount_cents,basis,state,decided_at&order=created_at.asc`),
       this.requestAll(`invoice?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,cycle_key,decision_id,state,amount_cents,sent_at,paid_at&order=created_at.asc`),
@@ -164,17 +177,23 @@ export class SupabaseRestStore {
       this.requestAll(`exam_transition?accepted=eq.true${studentFilter}&select=id,exam_plan_id,student_id,from_state,to_state,result,reason,actor_role,created_at&order=created_at.asc`),
       this.requestAll(`grace_window_projection?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,from_on,to_on,closed_reason,created_at&order=created_at.asc`),
       this.requestAll(`reminder?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,due_on,state,cancelled_reason,created_at&order=created_at.asc`),
-      this.requestAll(`attendance_correction?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,attendance_event_id,session_id,type,from_val,to_val,reason,reverts_id,reverted_by_id,created_at&order=created_at.asc`),
+      this.requestAll(`attendance_correction_projection?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,source_student_id,attendance_event_id,session_id,type,from_val,to_val,reason,reverts_id,reverted_by_id,created_at&order=created_at.asc`),
       this.requestAll(`full_cycle_ceiling_projection?superseded_by_id=is.null${studentFilter}${admin ? '' : '&status=eq.verified'}&select=id,student_id,source_student_id,cycle_key,status,ceiling_cents,basis,decided_at&order=created_at.asc`),
       this.requestAll('cycle_policy?superseded_by_id=is.null&select=id,cycle_key,key,value,reason,set_at&order=set_at.asc'),
       this.requestAll('rule_decision?superseded_by_id=is.null&select=id,rule,mode,effective_from,basis,decided_at&order=decided_at.asc'),
+      admin
+        ? this.requestAll('device_identity_decision?superseded_by_id=is.null&select=id,identity_alias_id,source_student_id,decision,target_student_id,note,decided_by,decided_at&order=decided_at.asc')
+        : Promise.resolve([]),
     ]);
+    const visibleStudents = admin
+      ? students.filter(student => student.absorbed === false || (student.device_source === true && student.device_decision_id))
+      : students;
     const projection = {
       schema_version: 'missionaccounts-canonical-data-v1',
       scope,
       cycles,
       sessions,
-      students,
+      students: visibleStudents,
       aliases,
       attendance_events: attendanceEvents,
       attendance_days: attendanceDays,
@@ -189,7 +208,10 @@ export class SupabaseRestStore {
       cycle_policies: cyclePolicies,
       rule_decisions: ruleDecisions,
     };
-    if (admin) projection.identity_clusters = await this.adminIdentityClusters({ state: 'all' });
+    if (admin) {
+      projection.identity_clusters = await this.adminIdentityClusters({ state: 'all' });
+      projection.device_identity_decisions = deviceIdentityDecisions;
+    }
     return projection;
   }
 
@@ -512,7 +534,7 @@ export class SupabaseRestStore {
 
   async adminHealth() {
     const [students, inbox, outbox, exceptions, syncs] = await Promise.all([
-      this.request('student_identity_projection?absorbed=eq.false&select=id&identity_state=eq.needs_review'),
+      this.request('student_identity_projection?absorbed=eq.false&excluded=eq.false&select=id&identity_state=eq.needs_review'),
       this.request('provider_event_inbox?select=id&state=eq.failed'),
       this.request('notification_outbox?select=id&state=eq.failed'),
       this.request('integration_exception?select=id&state=eq.open'),
@@ -529,7 +551,7 @@ export class SupabaseRestStore {
 
   async adminStudents({ q = '', missing = null } = {}) {
     const [students, paymentMethods, consents] = await Promise.all([
-      this.request('student_identity_projection?absorbed=eq.false&select=id,display_name,email,joined_at,comp_days_allowance,identity_state&order=display_name.asc&limit=1000'),
+      this.request('student_identity_projection?absorbed=eq.false&excluded=eq.false&select=id,display_name,email,joined_at,comp_days_allowance,identity_state&order=display_name.asc&limit=1000'),
       this.request('payment_method?select=id,student_id,brand,last4,exp_month,exp_year,status,verified_at'),
       this.request('billing_consent?superseded_by_id=is.null&select=id,student_id,terms_version,state,accepted_at,revoked_at'),
     ]);
@@ -618,7 +640,7 @@ export class SupabaseRestStore {
   }
 
   async adminStudent(studentId) {
-    const rows = await this.request(`student_identity_projection?id=eq.${encodeURIComponent(studentId)}&absorbed=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state&limit=1`);
+    const rows = await this.request(`student_identity_projection?id=eq.${encodeURIComponent(studentId)}&absorbed=eq.false&excluded=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state&limit=1`);
     const student = rows[0];
     if (!student) return null;
     const [attendance, billing, payment_method, billing_consent, exam_plan] = await Promise.all([
@@ -675,6 +697,9 @@ export class PreviewStore {
     this.reminders = new Map();
     this.identityClusters = new Map();
     this.identityMutations = new Map();
+    this.identityAliases = new Map();
+    this.deviceIdentityDecisions = new Map();
+    this.deviceIdentityMutations = new Map();
     this.accountLinkMutations = new Map();
     this.previewStudentRecord = {
       id: '00000000-0000-4000-8000-000000000001',
@@ -710,7 +735,7 @@ export class PreviewStore {
       cycles: await this.billingCycles(),
       sessions: [],
       students: [student],
-      aliases: [],
+      aliases: admin ? [...this.identityAliases.values()].map(alias => ({ ...alias })) : [],
       attendance_events: valuesFor(this.attendanceEvents),
       attendance_days: [...this.attendanceDays.entries()]
         .filter(([key]) => relevantStudentIds.has(key.split(':')[0]))
@@ -728,7 +753,10 @@ export class PreviewStore {
       full_cycle_ceilings: valuesFor(this.billingCaps),
       cycle_policies: [...this.cyclePolicies.values()].map(row => ({ ...row })),
       rule_decisions: [{ rule: 'one_charge_per_calendar_day', mode: 'retroactive', effective_from: '2026-06-08' }],
-      ...(admin ? { identity_clusters: await this.adminIdentityClusters({ state: 'all' }) } : {}),
+      ...(admin ? {
+        identity_clusters: await this.adminIdentityClusters({ state: 'all' }),
+        device_identity_decisions: [...this.deviceIdentityDecisions.values()].map(decision => ({ ...decision })),
+      } : {}),
     };
   }
   async linkStudentAccount({ studentId, matrixUserId, joinedOn, today, reason, actorId, actorRole, requestId }) {
@@ -1788,6 +1816,50 @@ export class PreviewStore {
       members: (cluster.members || []).map(member => ({ ...member })),
       decision: cluster.decision || null,
     });
+  }
+  seedDeviceIdentityAlias(alias) {
+    this.identityAliases.set(alias.id, {
+      relationship_state: 'device',
+      confidence: null,
+      ...alias,
+    });
+  }
+  async decideDeviceIdentity({ identityAliasId, decision, targetStudentId, today, note, actorId, actorRole, requestId }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole)) throw Object.assign(new Error('Device identity decision requires administrator authority'), { status: 403 });
+    const fingerprint = JSON.stringify({ identityAliasId, decision, targetStudentId: targetStudentId || null, today, note, actorId, actorRole });
+    const existing = this.deviceIdentityMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    const alias = this.identityAliases.get(identityAliasId);
+    if (!alias || alias.relationship_state !== 'device' || !alias.source_student_id) throw Object.assign(new Error('Device identity alias not found'), { status: 404 });
+    if (!['match', 'not_student', 'unsure'].includes(decision)) throw Object.assign(new Error('Device identity decision is invalid'), { status: 400 });
+    if (decision === 'match' && (!targetStudentId || targetStudentId === alias.source_student_id)) throw Object.assign(new Error('A different target student is required for a device match'), { status: 409 });
+    if (decision !== 'match' && targetStudentId) throw Object.assign(new Error('A target student is valid only for a device match'), { status: 400 });
+    const ordinal = this.deviceIdentityMutations.size + 1;
+    const decided = {
+      id: `preview-device-identity-decision-${ordinal}`,
+      identity_alias_id: identityAliasId,
+      source_student_id: alias.source_student_id,
+      decision,
+      target_student_id: decision === 'match' ? targetStudentId : null,
+      note,
+      decided_by: actorId,
+      decided_at: new Date().toISOString(),
+    };
+    this.deviceIdentityDecisions.set(identityAliasId, decided);
+    const result = {
+      accepted: true,
+      decision: { ...decided },
+      copied_grace_windows: 0,
+      propagated_cap_holds: 0,
+      stale_decisions: 0,
+      attendance_recomputes: [],
+      audit_event_id: `preview-device-identity-audit-${ordinal}`,
+    };
+    this.deviceIdentityMutations.set(requestId, { fingerprint, result });
+    return { ...result, duplicate: false };
   }
   async decideIdentityCluster({ clusterRef, decision, canonicalStudentId, today, note, actorId, actorRole, requestId }) {
     if (!['missionaccounts_admin', 'founder'].includes(actorRole)) throw Object.assign(new Error('Identity decision requires administrator authority'), { status: 403 });

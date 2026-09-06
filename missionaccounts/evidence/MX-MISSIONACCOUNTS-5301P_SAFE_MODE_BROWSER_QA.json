@@ -1,0 +1,61 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5301P",
+  "captured_at": "2026-09-06T09:27:04-04:00",
+  "result": "PASS",
+  "passed": 47,
+  "failed": 0,
+  "source": {
+    "kind": "local_fixture_only",
+    "url": "http://127.0.0.1:4179/missionaccounts/index.production.html?qa=202609061315#/me/billing",
+    "real_users": false,
+    "external_providers_called": false
+  },
+  "viewports": [
+    { "width": 1440, "height": 1000, "themes": ["light", "dark"] },
+    { "width": 1024, "height": 900, "themes": ["dark"] },
+    { "width": 390, "height": 844, "themes": ["light", "dark"], "reduced_motion": true }
+  ],
+  "coverage": [
+    "opening sequence and command home",
+    "admin and student lenses",
+    "light and dark themes",
+    "keyboard focus visibility and modal focus trap",
+    "reduced-motion behavior",
+    "landmark and tab semantics",
+    "desktop, tablet, and mobile overflow",
+    "truthful disabled Stripe, Zoom, notification, and report controls",
+    "safe-mode payment activation copy",
+    "authorized administrator with no linked student account",
+    "empty attendance state"
+  ],
+  "screenshots": [
+    {
+      "path": "screenshots/MX-MISSIONACCOUNTS-5301P_safe-mode-desktop-daylight.png",
+      "sha256": "fecb67b3e31c22f7b8ac19f416bac55b51508a4c550ec2f2e454962d9c6fafe9"
+    },
+    {
+      "path": "screenshots/MX-MISSIONACCOUNTS-5301P_safe-mode-desktop-dark.png",
+      "sha256": "71b69a90b576719566dff9bb3a402bb11c6d682d86a63c65d7a02ed39a609fd2"
+    },
+    {
+      "path": "screenshots/MX-MISSIONACCOUNTS-5301P_safe-mode-tablet-dark.png",
+      "sha256": "98c986578ab7cd59d4683f4fbbdbf3ae94daf2a534fa1d7efd2f0e180236b0f5"
+    },
+    {
+      "path": "screenshots/MX-MISSIONACCOUNTS-5301P_safe-mode-mobile-daylight.png",
+      "sha256": "e1b50e06188142ded560404fae6b64411504322bac27890a37c86ca1e2d0ed5d"
+    },
+    {
+      "path": "screenshots/MX-MISSIONACCOUNTS-5301P_safe-mode-mobile-dark-reduced.png",
+      "sha256": "78b696f595cb2040dd1f13f3dd1e04af1da42bde089a5191c169c2ebfa7235b7"
+    },
+    {
+      "path": "screenshots/MX-MISSIONACCOUNTS-5301P_safe-mode-modal-focus-trap.png",
+      "sha256": "69e62db29ea7fc25da6ddad97045d6c75161f59d0b6ee826c4cf6326e3045bf6"
+    },
+    {
+      "path": "screenshots/MX-MISSIONACCOUNTS-5301P_safe-mode-admin-empty-account.png",
+      "sha256": "709e5520da4679b6069cc4af119c1b095f35ccca542d1d42a31333b9ae673577"
+    }
+  ]
+}
