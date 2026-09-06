@@ -152,21 +152,28 @@ select missionaccounts.api_set_cycle_policy(
 select missionaccounts.api_approve_billing_decision('$student_id','2026-cycle-1','confirm',null,null,'wp:admin','missionaccounts_admin','pg-billing-0001')->>'accepted';
 select missionaccounts.api_approve_billing_decision('$student_id','2026-cycle-1','confirm',null,null,'wp:admin','missionaccounts_admin','pg-billing-0001')->>'duplicate';
 reset role;
-update missionaccounts.full_cycle_ceiling
-set status = 'verified', decided_by = 'wp:admin', decided_at = now()
-where student_id = '$student_id' and cycle_key = '2026-cycle-1';
 set role service_role;
+select missionaccounts.api_decide_full_cycle_ceiling(
+  '$student_id','2026-cycle-1','verified','Verified historical full-cycle enrollment',
+  'wp:admin','missionaccounts_admin','pg-ceiling-decision-0001'
+)->>'duplicate';
+select missionaccounts.api_decide_full_cycle_ceiling(
+  '$student_id','2026-cycle-1','verified','Verified historical full-cycle enrollment',
+  'wp:admin','missionaccounts_admin','pg-ceiling-decision-0001'
+)->>'duplicate';
 select missionaccounts.api_approve_billing_decision('$student_id','2026-cycle-1','confirm',null,null,'wp:admin','missionaccounts_admin','pg-billing-0002')->'decision'->>'amount_cents';
 select missionaccounts.api_approve_billing_decision('$student_id','2026-cycle-1','confirm',null,null,'wp:admin','missionaccounts_admin','pg-billing-0002')->>'duplicate';
 reset role;
 select count(*) || '|' ||
   (select count(*) from missionaccounts.invoice) || '|' ||
-  (select count(*) from missionaccounts.audit_event where kind like 'billing_decision.%')
+  (select count(*) from missionaccounts.audit_event where kind like 'billing_decision.%') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind = 'full_cycle_ceiling.decided') || '|' ||
+  (select status from missionaccounts.full_cycle_ceiling where student_id='$student_id' and cycle_key='2026-cycle-1' and superseded_by_id is null)
 from missionaccounts.billing_decision;
 SQL
 )
 
-billing_expected=$'false\nfalse\ntrue\n30000\ntrue\n1|1|2'
+billing_expected=$'false\nfalse\ntrue\nfalse\ntrue\n30000\ntrue\n1|1|2|1|verified'
 if [[ "$billing_results" != "$billing_expected" ]]; then
   echo "MissionAccounts billing authority verification returned unexpected controls:" >&2
   echo "$billing_results" >&2
@@ -548,4 +555,41 @@ if [[ "$cycle_policy_results" != "$cycle_policy_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, billing and cycle-policy authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+new_account_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(display_name) values ('New Account Link Test') returning id")
+historical_account_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(display_name,joined_at) values ('Historical Account Link Test','2026-06-08') returning id")
+
+account_link_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_link_student_account(
+  '$new_account_student_id','10000000-0000-4000-8000-000000000099',null,'2026-09-06',
+  'Verified new pilot identity','wp:admin','missionaccounts_admin','pg-account-link-0001'
+)->>'duplicate';
+select missionaccounts.api_link_student_account(
+  '$new_account_student_id','10000000-0000-4000-8000-000000000099',null,'2026-09-06',
+  'Verified new pilot identity','wp:admin','missionaccounts_admin','pg-account-link-0001'
+)->>'duplicate';
+select missionaccounts.api_link_student_account(
+  '$historical_account_student_id','10000000-0000-4000-8000-000000000098',null,'2026-09-06',
+  'Verified historical identity','wp:admin','missionaccounts_admin','pg-account-link-0002'
+)->>'duplicate';
+reset role;
+select
+  (select comp_days_allowance from missionaccounts.student where id='$new_account_student_id') || '|' ||
+  (select joined_at from missionaccounts.student where id='$new_account_student_id') || '|' ||
+  (select comp_days_allowance from missionaccounts.student where id='$historical_account_student_id') || '|' ||
+  (select joined_at from missionaccounts.student where id='$historical_account_student_id') || '|' ||
+  (select count(*) from missionaccounts.account_link_change) || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='account_link.changed');
+SQL
+)
+
+account_link_expected=$'false\ntrue\nfalse\n5|2026-09-06|0|2026-06-08|2|2'
+if [[ "$account_link_results" != "$account_link_expected" ]]; then
+  echo "MissionAccounts account-link verification returned unexpected controls:" >&2
+  echo "$account_link_results" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, account linkage/default comp, billing and cycle-policy authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, one-charge-per-day dispatch, and notification outbox delivery: PASS"

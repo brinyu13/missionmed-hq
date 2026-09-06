@@ -38,6 +38,16 @@ export class SupabaseRestStore {
     return this.request(`rpc/${name}`, { method: 'POST', body });
   }
 
+  async requestAll(path, { pageSize = 1_000 } = {}) {
+    const rows = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await this.request(path, { headers: { range: `${offset}-${offset + pageSize - 1}` } });
+      if (!Array.isArray(page)) throw new Error('MissionAccounts paginated database response is invalid');
+      rows.push(...page);
+      if (page.length < pageSize) return rows;
+    }
+  }
+
   async studentByMatrixUser(userId) {
     const rows = await this.request(`student?matrix_user_ref=eq.${encodeURIComponent(userId)}&select=id,matrix_user_ref,display_name,email,joined_at,comp_days_allowance,identity_state&limit=1`);
     return rows[0] || null;
@@ -45,6 +55,88 @@ export class SupabaseRestStore {
 
   async billingCycles() {
     return this.request('cycle?select=key,label,starts_on,ends_on,state&order=starts_on.asc');
+  }
+
+  async linkStudentAccount({ studentId, matrixUserId, joinedOn, today, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_link_student_account', {
+      p_student_id: studentId,
+      p_matrix_user_ref: matrixUserId,
+      p_joined_on: joinedOn || null,
+      p_today: today,
+      p_reason: reason,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
+  async decideFullCycleCeiling({ studentId, cycleKey, status, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_decide_full_cycle_ceiling', {
+      p_student_id: studentId,
+      p_cycle_key: cycleKey,
+      p_status: status,
+      p_reason: reason,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
+  async canonicalUiData({ scope, studentId = null }) {
+    const admin = scope === 'admin';
+    if (!admin && !studentId) throw new Error('Student canonical projection requires a student id');
+    const studentFilter = admin ? '' : `&student_id=eq.${encodeURIComponent(studentId)}`;
+    const studentPath = admin
+      ? 'student?select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state&order=display_name.asc&limit=1000'
+      : `student?id=eq.${encodeURIComponent(studentId)}&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state&limit=1`;
+    const aliasPath = admin
+      ? 'identity_alias?superseded_by_id=is.null&select=id,student_id,source_key,display_value,relationship_state,confidence&order=created_at.asc'
+      : `identity_alias?student_id=eq.${encodeURIComponent(studentId)}&superseded_by_id=is.null&select=id,student_id,source_key,display_value,relationship_state,confidence&order=created_at.asc`;
+    const sessionSelect = admin
+      ? 'id,cycle_key,provider_meeting_id,starts_at,held_on,time_zone,step,state'
+      : 'id,cycle_key,starts_at,held_on,time_zone,step,state';
+    const [
+      cycles, sessions, students, aliases, attendanceEvents, attendanceDays,
+      billingDecisions, invoices, examPlans, graceWindows, reminders,
+      corrections, ceilings, cyclePolicies, ruleDecisions,
+    ] = await Promise.all([
+      this.billingCycles(),
+      this.requestAll(`session?state=eq.confirmed&superseded_by_id=is.null&select=${sessionSelect}&order=starts_at.asc`),
+      this.requestAll(studentPath),
+      this.requestAll(aliasPath),
+      this.requestAll(`attendance_event_projection?superseded_by_id=is.null${studentFilter}&select=id,student_id,session_id,cycle_key,local_day,step,interpretation_state,duration_minutes,source_row_count,source_display_name&order=local_day.asc`),
+      this.requestAll(`attendance_day?superseded_at=is.null${studentFilter}&select=id,student_id,cycle_key,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`),
+      this.requestAll(`billing_decision?superseded_by_id=is.null${studentFilter}&select=id,student_id,cycle_key,treatment,amount_cents,basis,state,decided_at&order=created_at.asc`),
+      this.requestAll(`invoice?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,cycle_key,decision_id,state,amount_cents,sent_at,paid_at&order=created_at.asc`),
+      this.requestAll(`exam_plan?superseded_by_id=is.null${studentFilter}&select=id,student_id,step,exam_on,state,result,note,suggested_on,passed_on,submitted_at,decided_at&order=submitted_at.asc`),
+      this.requestAll(`grace_window?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,from_on,to_on,state,closed_reason,created_at&order=created_at.asc`),
+      this.requestAll(`reminder?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,due_on,state,cancelled_reason,created_at&order=created_at.asc`),
+      this.requestAll(`attendance_correction?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,attendance_event_id,session_id,type,from_val,to_val,reason,reverts_id,reverted_by_id,created_at&order=created_at.asc`),
+      this.requestAll(`full_cycle_ceiling?superseded_by_id=is.null${studentFilter}${admin ? '' : '&status=eq.verified'}&select=id,student_id,cycle_key,status,ceiling_cents,basis,decided_at&order=created_at.asc`),
+      this.requestAll('cycle_policy?superseded_by_id=is.null&select=id,cycle_key,key,value,reason,set_at&order=set_at.asc'),
+      this.requestAll('rule_decision?superseded_by_id=is.null&select=id,rule,mode,effective_from,basis,decided_at&order=decided_at.asc'),
+    ]);
+    const projection = {
+      schema_version: 'missionaccounts-canonical-data-v1',
+      scope,
+      cycles,
+      sessions,
+      students,
+      aliases,
+      attendance_events: attendanceEvents,
+      attendance_days: attendanceDays,
+      billing_decisions: billingDecisions,
+      invoices,
+      exam_plans: examPlans,
+      grace_windows: graceWindows,
+      reminders,
+      attendance_corrections: corrections,
+      full_cycle_ceilings: ceilings,
+      cycle_policies: cyclePolicies,
+      rule_decisions: ruleDecisions,
+    };
+    if (admin) projection.identity_clusters = await this.adminIdentityClusters({ state: 'all' });
+    return projection;
   }
 
   async attendanceForStudent(studentId, cycleKey) {
@@ -395,6 +487,7 @@ export class PreviewStore {
     this.policyMutations = new Map();
     this.attendanceDays = new Map();
     this.billingCaps = new Map();
+    this.billingCapMutations = new Map();
     this.billingDecisions = new Map();
     this.billingMutations = new Map();
     this.attendanceEvents = new Map();
@@ -410,10 +503,21 @@ export class PreviewStore {
     this.chargeMutations = new Map();
     this.notifications = new Map();
     this.identityClusters = new Map();
+    this.accountLinkMutations = new Map();
+    this.previewStudentRecord = {
+      id: '00000000-0000-4000-8000-000000000001',
+      matrix_user_ref: '00000000-0000-4000-8000-000000000001',
+      display_name: 'Preview Student',
+      email: 'student.preview@invalid.local',
+      phone: null,
+      joined_at: null,
+      comp_days_allowance: 0,
+      identity_state: 'verified',
+    };
   }
 
   async studentByMatrixUser(userId) {
-    return { id: userId, matrix_user_ref: userId, display_name: 'Preview Student', email: 'student.preview@invalid.local', joined_at: null, comp_days_allowance: 0, identity_state: 'verified' };
+    return this.previewStudentRecord.matrix_user_ref === userId ? { ...this.previewStudentRecord } : null;
   }
   async billingCycles() {
     return [
@@ -421,6 +525,60 @@ export class PreviewStore {
       { key: '2026-cycle-2', label: 'July Cycle', starts_on: '2026-07-14', ends_on: '2026-08-11', state: 'estimate' },
       { key: '2026-cycle-3', label: 'August Cycle', starts_on: '2026-08-12', ends_on: '2026-09-04', state: 'estimate' },
     ];
+  }
+  async canonicalUiData({ scope, studentId = null }) {
+    const admin = scope === 'admin';
+    const student = this.previewStudent();
+    if (!admin && studentId !== student.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    const relevantStudentIds = new Set(admin ? [student.id] : [studentId]);
+    const valuesFor = map => [...map.values()].filter(row => !row.student_id || relevantStudentIds.has(row.student_id));
+    return {
+      schema_version: 'missionaccounts-canonical-data-v1',
+      scope,
+      cycles: await this.billingCycles(),
+      sessions: [],
+      students: [student],
+      aliases: [],
+      attendance_events: valuesFor(this.attendanceEvents),
+      attendance_days: [...this.attendanceDays.entries()]
+        .filter(([key]) => relevantStudentIds.has(key.split(':')[0]))
+        .flatMap(([, rows]) => rows.map(row => ({ ...row }))),
+      billing_decisions: valuesFor(this.billingDecisions),
+      invoices: [],
+      exam_plans: valuesFor(this.examPlans),
+      grace_windows: [],
+      reminders: [],
+      attendance_corrections: this.attendanceCorrections.filter(row => relevantStudentIds.has(row.student_id)),
+      full_cycle_ceilings: valuesFor(this.billingCaps),
+      cycle_policies: [...this.cyclePolicies.values()].map(row => ({ ...row })),
+      rule_decisions: [{ rule: 'one_charge_per_calendar_day', mode: 'retroactive', effective_from: '2026-06-08' }],
+      ...(admin ? { identity_clusters: await this.adminIdentityClusters({ state: 'all' }) } : {}),
+    };
+  }
+  async linkStudentAccount({ studentId, matrixUserId, joinedOn, today, reason, actorId, actorRole, requestId }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole)) throw Object.assign(new Error('Account link requires administrator authority'), { status: 403 });
+    const fingerprint = JSON.stringify({ studentId, matrixUserId, joinedOn, reason, actorId, actorRole });
+    const existing = this.accountLinkMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    if (this.previewStudentRecord.matrix_user_ref) throw Object.assign(new Error('Student account is already linked'), { status: 409 });
+    const effectiveJoinedOn = joinedOn || today;
+    const priorAllowance = this.previewStudentRecord.comp_days_allowance;
+    this.previewStudentRecord.matrix_user_ref = matrixUserId;
+    this.previewStudentRecord.joined_at = effectiveJoinedOn;
+    if (priorAllowance === 0 && effectiveJoinedOn > '2026-09-05') this.previewStudentRecord.comp_days_allowance = 5;
+    const ordinal = this.accountLinkMutations.size + 1;
+    const result = {
+      student: { ...this.previewStudentRecord },
+      change_id: `preview-account-link-${ordinal}`,
+      audit_event_id: `preview-account-link-audit-${ordinal}`,
+      attendance_recompute: { trigger: `${requestId}:account-link` },
+    };
+    this.accountLinkMutations.set(requestId, { fingerprint, result });
+    return { ...result, duplicate: false };
   }
   async attendanceForStudent() { return []; }
   async billingForStudent() { return []; }
@@ -509,6 +667,10 @@ export class PreviewStore {
       released_days: applyRetroactively && allowance < prior.allowance ? prior.allowance - allowance : 0,
     };
     this.compSettings.set(studentId, { allowance, joined_on: student.joined_at });
+    if (studentId === this.previewStudentRecord.id) {
+      this.previewStudentRecord.comp_days_allowance = allowance;
+      this.previewStudentRecord.joined_at = student.joined_at;
+    }
     this.compMutations.set(requestId, { fingerprint, result });
     return result;
   }
@@ -585,7 +747,45 @@ export class PreviewStore {
     this.attendanceDays.set(`${studentId}:${cycleKey}`, days.map(day => ({ ...day })));
   }
   seedBillingCap(studentId, cycleKey, cap) {
-    this.billingCaps.set(`${studentId}:${cycleKey}`, { ...cap });
+    this.billingCaps.set(`${studentId}:${cycleKey}`, { student_id: studentId, cycle_key: cycleKey, ...cap });
+  }
+  async decideFullCycleCeiling({ studentId, cycleKey, status, reason, actorId, actorRole, requestId }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole)) throw Object.assign(new Error('Full-cycle ceiling requires administrator authority'), { status: 403 });
+    const fingerprint = JSON.stringify({ studentId, cycleKey, status, reason, actorId, actorRole });
+    const existing = this.billingCapMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    const key = `${studentId}:${cycleKey}`;
+    const current = this.billingCaps.get(key);
+    if (!current) throw Object.assign(new Error('Full-cycle ceiling candidate not found'), { status: 404 });
+    if (current.status === status) throw Object.assign(new Error('Full-cycle ceiling state is unchanged'), { status: 409 });
+    const ordinal = this.billingCapMutations.size + 1;
+    const ceiling = {
+      ...current,
+      id: `preview-cap-decision-${ordinal}`,
+      status,
+      verified: status === 'verified',
+      ceiling_cents: 30_000,
+      decided_by: actorId,
+      reason,
+    };
+    this.billingCaps.set(key, ceiling);
+    let staleDecisions = 0;
+    const decision = this.billingDecisions.get(key);
+    if (decision?.state === 'approved') {
+      decision.state = 'stale';
+      staleDecisions = 1;
+    }
+    const result = {
+      ceiling,
+      audit_event_id: `preview-cap-audit-${ordinal}`,
+      stale_decisions: staleDecisions,
+      void_invoices: staleDecisions,
+    };
+    this.billingCapMutations.set(requestId, { fingerprint, result });
+    return { ...result, duplicate: false };
   }
   async approveBillingDecision({ studentId, cycleKey, treatment, requestedAmountCents, note, actorId, requestId }) {
     const fingerprint = JSON.stringify({ studentId, cycleKey, treatment, requestedAmountCents, note, actorId });
@@ -940,7 +1140,7 @@ export class PreviewStore {
     return { status: 'received', duplicate: false };
   }
   previewStudent() {
-    const student = { id: '00000000-0000-4000-8000-000000000001', display_name: 'Preview Student', email: 'student.preview@invalid.local', phone: null, joined_at: null, comp_days_allowance: 0, identity_state: 'verified' };
+    const { matrix_user_ref: _matrixUserRef, ...student } = this.previewStudentRecord;
     return {
       ...student,
       payment_method: sanitizedPaymentMethod(this.paymentMethods.get(student.id)),

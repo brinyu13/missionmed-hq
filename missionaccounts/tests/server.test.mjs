@@ -239,6 +239,9 @@ test('UI bootstrap is role-scoped and works from the mounted MissionAccounts rou
     assert.equal(student.scope, 'student');
     assert.equal(student.user.role, 'student');
     assert.equal(student.account.student.id, studentId);
+    assert.equal(student.canon.scope, 'student');
+    assert.equal(student.canon.students.length, 1);
+    assert.equal(Object.hasOwn(student.canon, 'identity_clusters'), false);
     for (const adminOnlyKey of ['home', 'students', 'cycles', 'identity_clusters', 'health']) {
       assert.equal(Object.hasOwn(student, adminOnlyKey), false, `student bootstrap leaked ${adminOnlyKey}`);
     }
@@ -254,8 +257,57 @@ test('UI bootstrap is role-scoped and works from the mounted MissionAccounts rou
     assert.equal(admin.students.length, 1);
     assert.equal(admin.cycles.length, 3);
     assert.equal(admin.identity_clusters.length, 1);
+    assert.equal(admin.canon.scope, 'admin');
+    assert.equal(admin.canon.students.length, 1);
+    assert.equal(admin.canon.identity_clusters.length, 1);
     assert.equal(admin.health.mode, 'preview');
     assert.equal(Object.hasOwn(admin, 'account'), false);
+  });
+});
+
+test('administrator account linking is idempotent, private, and applies the post-September-5 comp default', async () => {
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const matrixUserId = '10000000-0000-4000-8000-000000000099';
+  const store = new PreviewStore();
+  store.previewStudentRecord.matrix_user_ref = null;
+  await withServer({
+    config: localConfig,
+    store,
+    stripeGateway: new StripeGateway(),
+    now: () => new Date('2026-09-06T16:00:00Z'),
+  }, async base => {
+    const path = `${base}/api/admin/students/${studentId}/account-link`;
+    const body = JSON.stringify({ matrix_user_id: matrixUserId, reason: 'Verified pilot account identity' });
+    const headers = {
+      'content-type': 'application/json',
+      'x-missionaccounts-local-role': 'missionaccounts_admin',
+      'idempotency-key': 'account-link-request-0001',
+    };
+
+    const denied = await fetch(path, {
+      method: 'POST',
+      headers: { ...headers, 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'account-link-request-0000' },
+      body,
+    });
+    assert.equal(denied.status, 403);
+
+    const linked = await fetch(path, { method: 'POST', headers, body });
+    assert.equal(linked.status, 201);
+    const payload = await linked.json();
+    assert.equal(payload.duplicate, false);
+    assert.equal(payload.student.joined_at, '2026-09-06');
+    assert.equal(payload.student.comp_days_allowance, 5);
+    assert.equal(Object.hasOwn(payload.student, 'matrix_user_ref'), false);
+
+    const retry = await fetch(path, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+
+    const studentBootstrap = await fetch(`${base}/api/ui/bootstrap`, {
+      headers: { 'x-missionaccounts-local-role': 'student', 'x-missionaccounts-local-user': matrixUserId },
+    });
+    assert.equal(studentBootstrap.status, 200);
+    assert.equal((await studentBootstrap.json()).account.student.comp_days_allowance, 5);
   });
 });
 
@@ -866,6 +918,7 @@ test('unverified historical cap candidate blocks approval until verified', async
   });
   store.seedBillingCap(studentId, cycleKey, { id: 'cap-1', status: 'candidate', verified: false, ceiling_cents: 30_000 });
   const path = `/api/admin/students/${studentId}/decisions`;
+  const ceilingPath = `/api/admin/students/${studentId}/full-cycle-ceilings/${cycleKey}`;
   const headers = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin' };
   const body = JSON.stringify({ cycle_key: cycleKey, treatment: 'confirm' });
   await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
@@ -873,7 +926,28 @@ test('unverified historical cap candidate blocks approval until verified', async
     assert.equal(blocked.status, 409);
     assert.equal((await blocked.json()).reason, 'cap_candidate_requires_review');
 
-    store.seedBillingCap(studentId, cycleKey, { id: 'cap-1', status: 'verified', verified: true, ceiling_cents: 30_000 });
+    const ceilingBody = JSON.stringify({ status: 'verified', reason: 'Verified historical full-cycle enrollment evidence' });
+    const denied = await fetch(`${base}${ceilingPath}`, {
+      method: 'POST',
+      headers: { ...headers, 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'billing-cap-decision-0000' },
+      body: ceilingBody,
+    });
+    assert.equal(denied.status, 403);
+
+    const verified = await fetch(`${base}${ceilingPath}`, {
+      method: 'POST', headers: { ...headers, 'idempotency-key': 'billing-cap-decision-0001' }, body: ceilingBody,
+    });
+    assert.equal(verified.status, 201);
+    const verifiedPayload = await verified.json();
+    assert.equal(verifiedPayload.ceiling.status, 'verified');
+    assert.equal(verifiedPayload.ceiling.ceiling_cents, 30_000);
+
+    const verifiedRetry = await fetch(`${base}${ceilingPath}`, {
+      method: 'POST', headers: { ...headers, 'idempotency-key': 'billing-cap-decision-0001' }, body: ceilingBody,
+    });
+    assert.equal(verifiedRetry.status, 200);
+    assert.equal((await verifiedRetry.json()).duplicate, true);
+
     const approved = await fetch(`${base}${path}`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'billing-cap-0002' }, body });
     assert.equal(approved.status, 201);
     assert.equal((await approved.json()).decision.amount_cents, 30_000);

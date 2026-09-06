@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createMissionAccountsServer } from '../src/server.mjs';
-import { PreviewStore } from '../src/storage/supabase-rest.mjs';
+import { PreviewStore, SupabaseRestStore } from '../src/storage/supabase-rest.mjs';
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const productionShellPath = path.join(packageDir, 'public/index.production.html');
@@ -39,6 +39,11 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.doesNotMatch(html, /Ahunna Nzerem|Adriana Rodríguez/);
   assert.match(html, /missionaccountsBuild==='production'\) return fresh\(\)/);
   assert.match(html, /missionaccountsBuild==='production'\) return;/);
+  assert.match(html, /function hydrateAuthoritative\(nextD,nextWS,idMaps\)/);
+  assert.match(html, /Authoritative hydration is production-only/);
+  assert.match(html, /MissionAccountsRuntime\.dispatch\('billing-decision'/);
+  assert.match(html, /MissionAccountsRuntime\.dispatch\('exam-transition',\{si,action:'passed'/);
+  assert.match(html, /hydrateAuthoritative, toast/);
 });
 
 test('production server serves only the scoped shell while keeping mounted public config available', async () => {
@@ -97,11 +102,13 @@ test('isolated production packaging cannot include the private Founder preview',
   ]);
   assert.match(dockerfile, /FROM node:22-alpine/);
   assert.match(dockerfile, /public\/index\.production\.html/);
+  assert.match(dockerfile, /public\/missionaccounts-canonical-adapter\.js/);
   assert.doesNotMatch(dockerfile, /COPY\s+(?:--[^\s]+\s+)*\.\s/);
   assert.doesNotMatch(dockerfile, /COPY[^\n]*public(?:\s|\/\s)/);
   assert.doesNotMatch(dockerfile, /public\/index\.html|canon-manifest|historical-import/);
   assert.match(dockerignore, /^\*$/m);
   assert.match(dockerignore, /!public\/index\.production\.html/);
+  assert.match(dockerignore, /!public\/missionaccounts-canonical-adapter\.js/);
   assert.doesNotMatch(dockerignore, /!public\/index\.html|!public\/canon-manifest\.json/);
   const railway = JSON.parse(railwaySource);
   assert.equal(railway.build.builder, 'DOCKERFILE');
@@ -133,6 +140,29 @@ test('browser auth client uses the current StoryForge-family exchange shape with
   assert.match(source, /response\.status === 401[^]*!retried/);
   assert.doesNotMatch(source, /localStorage|sessionStorage|document\.cookie/);
   assert.doesNotMatch(source, /\/api\/auth\/exchange|\/api\/auth\/bootstrap/);
+});
+
+test('canonical database reads paginate instead of silently truncating historical attendance', async () => {
+  const store = Object.create(SupabaseRestStore.prototype);
+  const calls = [];
+  store.request = async (_path, options) => {
+    calls.push(options.headers.range);
+    return calls.length === 1
+      ? Array.from({ length: 1_000 }, (_, index) => ({ id: index }))
+      : Array.from({ length: 437 }, (_, index) => ({ id: 1_000 + index }));
+  };
+  const rows = await store.requestAll('attendance_event?select=id');
+  assert.equal(rows.length, 1_437);
+  assert.deepEqual(calls, ['0-999', '1000-1999']);
+});
+
+test('browser runtime requests the authenticated role-scoped bootstrap before any production unlock', async () => {
+  const source = await readFile(path.join(packageDir, 'public/missionaccounts-runtime.js'), 'utf8');
+  assert.match(source, /await auth\.request\('\/ui\/bootstrap'\)/);
+  assert.match(source, /\['passed', 'not_passed', 'no_result'\]\.includes\(payload\.action\)/);
+  assert.match(source, /await refreshCanonical\(\)/);
+  assert.match(source, /missionaccountsRuntime = state\.bootstrap \? 'authenticated-readonly'/);
+  assert.doesNotMatch(source, /missionaccountsRuntime\s*=\s*['"]ready['"]/);
 });
 
 test('same-origin WordPress gateway is default-off, targetless, bounded, and strips cookies from upstream requests', async () => {

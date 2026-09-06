@@ -276,28 +276,31 @@ export function createMissionAccountsServer({
       };
       if (role === 'student') {
         const student = await studentContext(identity);
-        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan] = await Promise.all([
+        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan, canon] = await Promise.all([
           store.attendanceForStudent(student.id),
           store.billingForStudent(student.id),
           store.paymentMethodForStudent(student.id),
           store.billingConsentForStudent(student.id),
           store.currentBillingTerms(),
           store.currentExamPlanForStudent(student.id),
+          store.canonicalUiData({ scope: 'student', studentId: student.id }),
         ]);
         return json(response, 200, {
           schema_version: 'missionaccounts-ui-bootstrap-v1',
           scope: 'student',
           user,
           account: { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan },
+          canon,
         });
       }
       const cycles = await store.billingCycles();
-      const [home, students, cycleProjections, identityClusters, health] = await Promise.all([
+      const [home, students, cycleProjections, identityClusters, health, canon] = await Promise.all([
         store.adminHome({ today: localDayFromIso(now().toISOString()) }),
         store.adminStudents(),
         Promise.all(cycles.map(cycle => store.adminCycle(cycle.key))),
         store.adminIdentityClusters({ state: 'all' }),
         store.adminHealth(),
+        store.canonicalUiData({ scope: 'admin' }),
       ]);
       return json(response, 200, {
         schema_version: 'missionaccounts-ui-bootstrap-v1',
@@ -308,6 +311,7 @@ export function createMissionAccountsServer({
         cycles: cycleProjections.filter(Boolean),
         identity_clusters: identityClusters,
         health,
+        canon,
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/me') {
@@ -488,6 +492,32 @@ export function createMissionAccountsServer({
         audit_event_id: result.audit_event_id || null,
       });
     }
+    const accountLinkRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/account-link$/i)
+      : null;
+    if (accountLinkRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const matrixUserId = String(body.matrix_user_id || '').toLowerCase();
+      const joinedOn = body.joined_on == null || body.joined_on === '' ? null : String(body.joined_on);
+      const reason = String(body.reason || '').trim();
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuid.test(matrixUserId) || (joinedOn && !/^\d{4}-\d{2}-\d{2}$/.test(joinedOn)) || reason.length < 3 || reason.length > 1_000) {
+        throw requestError('Account link requires matrix_user_id, an optional joined_on date, and a reason');
+      }
+      const result = await store.linkStudentAccount({
+        studentId: accountLinkRoute[1],
+        matrixUserId,
+        joinedOn,
+        today: localDayFromIso(now().toISOString()),
+        reason,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      const { matrix_user_ref: _privateMatrixUserRef, ...safeStudent } = result.student;
+      return json(response, result.duplicate ? 200 : 201, { ...result, student: safeStudent });
+    }
     const compRoute = request.method === 'POST'
       ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/comp$/i)
       : null;
@@ -543,6 +573,29 @@ export function createMissionAccountsServer({
         toVal: body.to_val ?? null,
         reason,
         revertsId,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
+    const fullCycleCeilingRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/full-cycle-ceilings\/([a-z0-9][a-z0-9-]{1,63})$/i)
+      : null;
+    if (fullCycleCeilingRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'billingDecisions');
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const status = String(body.status || '');
+      const reason = String(body.reason || '').trim();
+      if (!['candidate', 'verified', 'rejected'].includes(status) || reason.length < 3 || reason.length > 2_000) {
+        throw requestError('Full-cycle ceiling decision requires candidate, verified, or rejected status and a reason');
+      }
+      const result = await store.decideFullCycleCeiling({
+        studentId: fullCycleCeilingRoute[1],
+        cycleKey: fullCycleCeilingRoute[2],
+        status,
+        reason,
         actorId: identity.userId,
         actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
         requestId: requestIdFor(request),

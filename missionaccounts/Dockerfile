@@ -10,6 +10,7 @@ COPY --chown=node:node package.json ./package.json
 COPY --chown=node:node src ./src
 COPY --chown=node:node public/index.production.html ./public/index.production.html
 COPY --chown=node:node public/missionaccounts-auth.js ./public/missionaccounts-auth.js
+COPY --chown=node:node public/missionaccounts-canonical-adapter.js ./public/missionaccounts-canonical-adapter.js
 COPY --chown=node:node public/missionaccounts-runtime.js ./public/missionaccounts-runtime.js
 
 USER node

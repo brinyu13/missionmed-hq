@@ -5,5 +5,6 @@
 !public/
 !public/index.production.html
 !public/missionaccounts-auth.js
+!public/missionaccounts-canonical-adapter.js
 !public/missionaccounts-runtime.js
 !Dockerfile

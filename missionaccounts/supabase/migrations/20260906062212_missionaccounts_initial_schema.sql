@@ -47,6 +47,24 @@ create table missionaccounts.student (
   updated_at timestamptz not null default now()
 );
 
+create table missionaccounts.account_link_change (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references missionaccounts.student(id),
+  from_matrix_user_ref text,
+  to_matrix_user_ref text not null check (
+    to_matrix_user_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+  ),
+  from_joined_at date,
+  to_joined_at date not null,
+  from_comp_days_allowance integer not null,
+  to_comp_days_allowance integer not null,
+  reason text not null check (length(btrim(reason)) > 0),
+  actor_id text not null,
+  actor_role text not null check (actor_role in ('missionaccounts_admin','founder')),
+  request_id text not null unique,
+  created_at timestamptz not null default now()
+);
+
 create table missionaccounts.identity_alias (
   id uuid primary key default gen_random_uuid(),
   student_id uuid references missionaccounts.student(id),
@@ -158,6 +176,31 @@ create table missionaccounts.attendance_event_source_row (
   primary key (attendance_event_id, source_row_id)
 );
 
+create view missionaccounts.attendance_event_projection
+with (security_invoker = true)
+as
+select
+  ae.id,
+  ae.student_id,
+  ae.session_id,
+  ae.cycle_key,
+  ae.local_day,
+  ae.step,
+  ae.interpretation_state,
+  ae.superseded_by_id,
+  case
+    when count(aesr.source_row_id) = 0 then null
+    else round(sum(coalesce(asr.duration_seconds, 0))::numeric / 60)::integer
+  end as duration_minutes,
+  count(aesr.source_row_id)::integer as source_row_count,
+  min(asr.display_name) as source_display_name
+from missionaccounts.attendance_event ae
+left join missionaccounts.attendance_event_source_row aesr
+  on aesr.attendance_event_id = ae.id
+left join missionaccounts.attendance_source_row asr
+  on asr.id = aesr.source_row_id
+group by ae.id;
+
 create table missionaccounts.attendance_correction (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null references missionaccounts.student(id),
@@ -231,6 +274,7 @@ create table missionaccounts.full_cycle_ceiling (
   status text not null check (status in ('candidate','verified','rejected')),
   ceiling_cents integer not null default 30000 check (ceiling_cents > 0),
   basis jsonb not null,
+  request_id text unique,
   decided_by text,
   decided_at timestamptz,
   superseded_by_id uuid references missionaccounts.full_cycle_ceiling(id),
@@ -702,6 +746,326 @@ $$;
 
 revoke execute on function missionaccounts.recompute_student_attendance(uuid, text) from public, anon, authenticated;
 grant execute on function missionaccounts.recompute_student_attendance(uuid, text) to service_role;
+
+create function missionaccounts.api_link_student_account(
+  p_student_id uuid,
+  p_matrix_user_ref text,
+  p_joined_on date,
+  p_today date,
+  p_reason text,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  existing_change missionaccounts.account_link_change%rowtype;
+  current_student missionaccounts.student%rowtype;
+  updated_student missionaccounts.student%rowtype;
+  change_id uuid;
+  audit_id uuid;
+  effective_joined_on date;
+  effective_allowance integer;
+  recomputed jsonb;
+begin
+  if p_actor_role not in ('missionaccounts_admin','founder') then
+    raise exception using errcode = '42501', message = 'account_link_admin_required';
+  end if;
+  if p_matrix_user_ref is null
+     or p_matrix_user_ref !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+     or p_today is null
+     or nullif(btrim(p_reason), '') is null
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'account_link_fields_invalid';
+  end if;
+
+  select * into existing_change
+  from missionaccounts.account_link_change
+  where request_id = p_request_id;
+
+  if found then
+    if existing_change.student_id <> p_student_id
+       or existing_change.to_matrix_user_ref <> lower(p_matrix_user_ref)
+       or existing_change.reason <> p_reason
+       or existing_change.actor_id <> p_actor_id
+       or existing_change.actor_role <> p_actor_role
+       or (p_joined_on is not null and existing_change.to_joined_at <> p_joined_on) then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select * into updated_student from missionaccounts.student where id = p_student_id;
+    select id into audit_id
+    from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'account_link.changed';
+    return jsonb_build_object(
+      'student', to_jsonb(updated_student),
+      'change_id', existing_change.id,
+      'audit_event_id', audit_id,
+      'attendance_recompute', null,
+      'duplicate', true
+    );
+  end if;
+
+  select * into current_student
+  from missionaccounts.student
+  where id = p_student_id
+  for update;
+  if not found then
+    raise exception using errcode = '23503', message = 'student_not_found';
+  end if;
+  if current_student.matrix_user_ref is not null then
+    raise exception using errcode = '23505', message = 'student_account_already_linked';
+  end if;
+  if exists (
+    select 1 from missionaccounts.student
+    where matrix_user_ref = lower(p_matrix_user_ref) and id <> p_student_id
+  ) then
+    raise exception using errcode = '23505', message = 'matrix_account_already_linked';
+  end if;
+
+  select coalesce(
+    p_joined_on,
+    current_student.joined_at,
+    min(ae.local_day),
+    p_today
+  ) into effective_joined_on
+  from missionaccounts.attendance_event ae
+  where ae.student_id = p_student_id;
+
+  effective_allowance := case
+    when current_student.comp_days_allowance > 0 then current_student.comp_days_allowance
+    when effective_joined_on > date '2026-09-05' then 5
+    else 0
+  end;
+
+  insert into missionaccounts.account_link_change(
+    student_id, from_matrix_user_ref, to_matrix_user_ref,
+    from_joined_at, to_joined_at,
+    from_comp_days_allowance, to_comp_days_allowance,
+    reason, actor_id, actor_role, request_id
+  ) values (
+    p_student_id, current_student.matrix_user_ref, lower(p_matrix_user_ref),
+    current_student.joined_at, effective_joined_on,
+    current_student.comp_days_allowance, effective_allowance,
+    p_reason, p_actor_id, p_actor_role, p_request_id
+  ) returning id into change_id;
+
+  update missionaccounts.student
+  set matrix_user_ref = lower(p_matrix_user_ref),
+      joined_at = effective_joined_on,
+      comp_days_allowance = effective_allowance,
+      updated_at = now()
+  where id = p_student_id
+  returning * into updated_student;
+
+  recomputed := missionaccounts.recompute_student_attendance(
+    p_student_id,
+    p_request_id || ':account-link'
+  );
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id,
+    p_actor_role,
+    p_student_id,
+    'account_link.changed',
+    'MissionAccounts Matrix identity linked',
+    jsonb_build_object(
+      'matrix_user_ref', current_student.matrix_user_ref,
+      'joined_on', current_student.joined_at,
+      'comp_days_allowance', current_student.comp_days_allowance
+    ),
+    jsonb_build_object(
+      'matrix_user_ref', updated_student.matrix_user_ref,
+      'joined_on', updated_student.joined_at,
+      'comp_days_allowance', updated_student.comp_days_allowance,
+      'default_comp_applied', current_student.comp_days_allowance = 0 and effective_allowance = 5
+    ),
+    p_reason,
+    p_request_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'student', to_jsonb(updated_student),
+    'change_id', change_id,
+    'audit_event_id', audit_id,
+    'attendance_recompute', recomputed,
+    'duplicate', false
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_link_student_account(uuid, text, date, date, text, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_link_student_account(uuid, text, date, date, text, text, text, text) to service_role;
+
+create function missionaccounts.api_decide_full_cycle_ceiling(
+  p_student_id uuid,
+  p_cycle_key text,
+  p_status text,
+  p_reason text,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  existing_by_request missionaccounts.full_cycle_ceiling%rowtype;
+  current_ceiling missionaccounts.full_cycle_ceiling%rowtype;
+  new_ceiling missionaccounts.full_cycle_ceiling%rowtype;
+  audit_id uuid;
+  stale_decisions integer := 0;
+  void_invoices integer := 0;
+begin
+  if p_actor_role not in ('missionaccounts_admin','founder') then
+    raise exception using errcode = '42501', message = 'full_cycle_ceiling_admin_required';
+  end if;
+  if p_status not in ('candidate','verified','rejected')
+     or nullif(btrim(p_reason), '') is null
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'full_cycle_ceiling_fields_invalid';
+  end if;
+
+  select * into existing_by_request
+  from missionaccounts.full_cycle_ceiling
+  where request_id = p_request_id;
+  if found then
+    if existing_by_request.student_id <> p_student_id
+       or existing_by_request.cycle_key <> p_cycle_key
+       or existing_by_request.status <> p_status
+       or existing_by_request.decided_by <> p_actor_id then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select id into audit_id
+    from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'full_cycle_ceiling.decided';
+    return jsonb_build_object(
+      'ceiling', to_jsonb(existing_by_request),
+      'audit_event_id', audit_id,
+      'stale_decisions', 0,
+      'void_invoices', 0,
+      'duplicate', true
+    );
+  end if;
+
+  perform 1 from missionaccounts.student where id = p_student_id;
+  if not found then
+    raise exception using errcode = '23503', message = 'student_not_found';
+  end if;
+  perform 1 from missionaccounts.cycle where key = p_cycle_key;
+  if not found then
+    raise exception using errcode = '23503', message = 'cycle_not_found';
+  end if;
+  if exists (
+    select 1 from missionaccounts.invoice
+    where student_id = p_student_id and cycle_key = p_cycle_key and state in ('sent','paid')
+  ) then
+    raise exception using errcode = '23514', message = 'full_cycle_ceiling_locked_after_invoice';
+  end if;
+
+  select * into current_ceiling
+  from missionaccounts.full_cycle_ceiling
+  where student_id = p_student_id
+    and cycle_key = p_cycle_key
+    and superseded_by_id is null
+  for update;
+  if not found then
+    raise exception using errcode = '23503', message = 'full_cycle_ceiling_candidate_not_found';
+  end if;
+  if current_ceiling.status = p_status then
+    raise exception using errcode = '23514', message = 'full_cycle_ceiling_state_unchanged';
+  end if;
+
+  insert into missionaccounts.full_cycle_ceiling(
+    student_id, cycle_key, status, ceiling_cents, basis,
+    request_id, decided_by, decided_at, superseded_by_id
+  ) values (
+    p_student_id,
+    p_cycle_key,
+    p_status,
+    30000,
+    current_ceiling.basis || jsonb_build_object(
+      'decision_reason', p_reason,
+      'prior_ceiling_id', current_ceiling.id,
+      'decision_request_id', p_request_id
+    ),
+    p_request_id,
+    p_actor_id,
+    now(),
+    current_ceiling.id
+  ) returning * into new_ceiling;
+
+  update missionaccounts.full_cycle_ceiling
+  set superseded_by_id = new_ceiling.id
+  where id = current_ceiling.id;
+
+  update missionaccounts.full_cycle_ceiling
+  set superseded_by_id = null
+  where id = new_ceiling.id
+  returning * into new_ceiling;
+
+  update missionaccounts.billing_decision
+  set state = 'stale'
+  where student_id = p_student_id
+    and cycle_key = p_cycle_key
+    and superseded_by_id is null
+    and state = 'approved';
+  get diagnostics stale_decisions = row_count;
+
+  update missionaccounts.invoice
+  set state = 'void'
+  where student_id = p_student_id
+    and cycle_key = p_cycle_key
+    and state in ('draft','ready');
+  get diagnostics void_invoices = row_count;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id,
+    p_actor_role,
+    p_student_id,
+    'full_cycle_ceiling.decided',
+    'Historical full-cycle ceiling adjudicated',
+    jsonb_build_object(
+      'id', current_ceiling.id,
+      'cycle_key', current_ceiling.cycle_key,
+      'status', current_ceiling.status,
+      'ceiling_cents', current_ceiling.ceiling_cents
+    ),
+    jsonb_build_object(
+      'id', new_ceiling.id,
+      'cycle_key', new_ceiling.cycle_key,
+      'status', new_ceiling.status,
+      'ceiling_cents', new_ceiling.ceiling_cents,
+      'stale_decisions', stale_decisions,
+      'void_invoices', void_invoices
+    ),
+    p_reason,
+    p_request_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'ceiling', to_jsonb(new_ceiling),
+    'audit_event_id', audit_id,
+    'stale_decisions', stale_decisions,
+    'void_invoices', void_invoices,
+    'duplicate', false
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_decide_full_cycle_ceiling(uuid, text, text, text, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_decide_full_cycle_ceiling(uuid, text, text, text, text, text, text) to service_role;
 
 create function missionaccounts.api_submit_exam_plan(
   p_student_id uuid,
@@ -2759,13 +3123,17 @@ create trigger attendance_correction_immutable
 before update or delete on missionaccounts.attendance_correction
 for each row execute function missionaccounts.reject_immutable_change();
 
+create trigger account_link_change_immutable
+before update or delete on missionaccounts.account_link_change
+for each row execute function missionaccounts.reject_immutable_change();
+
 -- Every personal or financial table is RLS-protected even though browser writes
 -- are intentionally unavailable. Server-side service role access remains private.
 do $$
 declare table_name text;
 begin
   foreach table_name in array array[
-    'student','identity_alias','identity_cluster','identity_cluster_member','identity_decision',
+    'student','account_link_change','identity_alias','identity_cluster','identity_cluster_member','identity_decision',
     'cycle_policy','rule_decision',
     'session','attendance_source_row','attendance_event',
     'attendance_event_source_row','attendance_correction','attendance_day',
@@ -2798,10 +3166,13 @@ on missionaccounts.billing_terms to authenticated;
 grant select (id, student_id, brand, last4, exp_month, exp_year, status, verified_at, updated_at)
 on missionaccounts.payment_method_private to authenticated;
 
+revoke all on missionaccounts.attendance_event_projection from anon, authenticated;
+
 create policy student_select_self_or_admin on missionaccounts.student
 for select to authenticated
 using (
   matrix_user_ref = (select auth.uid())::text
+  or coalesce((select auth.jwt()) ->> 'app_role', '') in ('missionaccounts_admin','founder')
   or coalesce((select auth.jwt()) -> 'app_metadata' -> 'roles', '[]'::jsonb) ?| array['missionaccounts_admin','founder']
 );
 
@@ -2813,6 +3184,7 @@ create policy attendance_event_select_self_or_admin on missionaccounts.attendanc
 for select to authenticated
 using (
   exists (select 1 from missionaccounts.student s where s.id = student_id and s.matrix_user_ref = (select auth.uid())::text)
+  or coalesce((select auth.jwt()) ->> 'app_role', '') in ('missionaccounts_admin','founder')
   or coalesce((select auth.jwt()) -> 'app_metadata' -> 'roles', '[]'::jsonb) ?| array['missionaccounts_admin','founder']
 );
 
@@ -2820,6 +3192,7 @@ create policy attendance_day_select_self_or_admin on missionaccounts.attendance_
 for select to authenticated
 using (
   exists (select 1 from missionaccounts.student s where s.id = student_id and s.matrix_user_ref = (select auth.uid())::text)
+  or coalesce((select auth.jwt()) ->> 'app_role', '') in ('missionaccounts_admin','founder')
   or coalesce((select auth.jwt()) -> 'app_metadata' -> 'roles', '[]'::jsonb) ?| array['missionaccounts_admin','founder']
 );
 
@@ -2838,6 +3211,8 @@ begin
           select 1 from missionaccounts.student s
           where s.id = student_id and s.matrix_user_ref = (select auth.uid())::text
         )
+        or coalesce((select auth.jwt()) ->> 'app_role', '')
+          in ('missionaccounts_admin','founder')
         or coalesce((select auth.jwt()) -> 'app_metadata' -> 'roles', '[]'::jsonb)
           ?| array['missionaccounts_admin','founder']
       )

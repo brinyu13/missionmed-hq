@@ -124,6 +124,7 @@ test('V16 RLS migration forces row isolation and exposes no provider references'
   const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
   assert.match(sql, /force row level security/);
   assert.match(sql, /matrix_user_ref = \(select auth\.uid\(\)\)::text/);
+  assert.match(sql, /auth\.jwt\(\)[^\n]+app_role[^\n]+missionaccounts_admin/);
   assert.match(sql, /matrix_user_ref text unique/);
   assert.match(sql, /actor_id text/);
   assert.match(sql, /grant select \(id, student_id, brand, last4, exp_month, exp_year, status, verified_at, updated_at\)/);
@@ -158,6 +159,20 @@ test('comp allowance RPC is admin-only, idempotent, audited, and preserves prosp
   assert.match(sql, /'comp_allowance\.changed'/);
   assert.match(sql, /grant execute on function missionaccounts\.api_set_comp_allowance[^;]+to service_role/s);
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_set_comp_allowance[^;]+to authenticated/s);
+});
+
+test('account linkage and historical ceiling adjudication are auditable service-role transactions', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table missionaccounts\.account_link_change/);
+  assert.match(sql, /create function missionaccounts\.api_link_student_account/);
+  assert.match(sql, /effective_joined_on > date '2026-09-05' then 5/);
+  assert.match(sql, /'account_link\.changed'/);
+  assert.match(sql, /create function missionaccounts\.api_decide_full_cycle_ceiling/);
+  assert.match(sql, /'full_cycle_ceiling\.decided'/);
+  assert.match(sql, /full_cycle_ceiling_locked_after_invoice/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_link_student_account[^;]+to service_role/s);
+  assert.match(sql, /grant execute on function missionaccounts\.api_decide_full_cycle_ceiling[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_(?:link_student_account|decide_full_cycle_ceiling)[^;]+to authenticated/s);
 });
 
 test('exam transition RPC records rejected attempts and owns grace/reminder side effects', async () => {
