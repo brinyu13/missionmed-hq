@@ -70,6 +70,82 @@ test('Stripe webhook fails closed before parsing or storing an invalid signature
   });
 });
 
+test('Stripe SetupIntent webhook binds verified sanitized card metadata to the authenticated student record once', async () => {
+  const secret = 'whsec_setup_test';
+  const timestamp = Math.floor(Date.now() / 1000);
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const store = new PreviewStore();
+  await store.saveStripeCustomer({ studentId, customerId: 'cus_test_student_1' });
+  const gateway = new StripeGateway({ webhookSecret: secret });
+  gateway.retrievePaymentMethod = async paymentMethodId => ({
+    id: paymentMethodId,
+    customer: 'cus_test_student_1',
+    type: 'card',
+    card: { brand: 'visa', last4: '4242', exp_month: 12, exp_year: 2030 },
+  });
+  const event = {
+    id: 'evt_setup_1',
+    type: 'setup_intent.succeeded',
+    data: { object: {
+      id: 'seti_test_1',
+      customer: 'cus_test_student_1',
+      payment_method: 'pm_test_student_1',
+      metadata: { student_id: studentId },
+    } },
+  };
+  const body = JSON.stringify(event);
+  const headers = { 'content-type': 'application/json', 'stripe-signature': stripeSignature(body, secret, timestamp) };
+  await withServer({ config: localConfig, store, stripeGateway: gateway }, async base => {
+    const first = await fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers, body });
+    assert.equal(first.status, 200);
+    assert.equal((await first.json()).duplicate, false);
+    const paymentMethod = await store.paymentMethodForStudent(studentId);
+    assert.deepEqual(
+      { brand: paymentMethod.brand, last4: paymentMethod.last4, status: paymentMethod.status },
+      { brand: 'visa', last4: '4242', status: 'on_file' },
+    );
+
+    const retry = await fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+  });
+});
+
+test('student payment setup creates a stable Stripe customer and returns only SetupIntent browser material', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, autoBilling: true } };
+  const store = new PreviewStore();
+  const calls = { customers: 0, setupIntents: 0 };
+  const gateway = {
+    createCustomer: async ({ studentId }) => {
+      calls.customers += 1;
+      assert.equal(studentId, '00000000-0000-4000-8000-000000000001');
+      return { id: 'cus_test_student_1' };
+    },
+    createSetupIntent: async (customerId, studentId, requestId) => {
+      calls.setupIntents += 1;
+      assert.equal(customerId, 'cus_test_student_1');
+      return { id: `seti_test_setup_${calls.setupIntents}`, client_secret: `seti_test_${studentId}_secret_preview` };
+    },
+  };
+  await withServer({ config: enabledConfig, store, stripeGateway: gateway }, async base => {
+    const headers = { 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'payment-setup-0001' };
+    const first = await fetch(`${base}/api/me/payment-setup/session`, { method: 'POST', headers });
+    assert.equal(first.status, 201);
+    const firstPayload = await first.json();
+    assert.equal(firstPayload.customer_created, true);
+    assert.equal(firstPayload.setup_intent_id, 'seti_test_setup_1');
+    assert.match(firstPayload.client_secret, /_secret_/);
+    assert.equal(Object.hasOwn(firstPayload, 'customer_id'), false);
+
+    const second = await fetch(`${base}/api/me/payment-setup/session`, {
+      method: 'POST', headers: { ...headers, 'idempotency-key': 'payment-setup-0002' },
+    });
+    assert.equal(second.status, 201);
+    assert.equal((await second.json()).customer_created, false);
+    assert.deepEqual(calls, { customers: 1, setupIntents: 2 });
+  });
+});
+
 test('student role cannot read the administrative health endpoint', async () => {
   await withServer({
     config: localConfig,

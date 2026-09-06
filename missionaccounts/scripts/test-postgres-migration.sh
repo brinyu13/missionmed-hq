@@ -156,7 +156,53 @@ if [[ "$correction_results" != "$correction_expected" ]]; then
   exit 1
 fi
 
+payment_setup_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.stripe_customer_private(student_id, provider, provider_customer_ref)
+values ('$student_id', 'stripe', 'cus_test_integration');
+insert into missionaccounts.provider_event_inbox(
+  provider, provider_event_id, provider_object_id, event_type, payload, signature_verified, state
+) values (
+  'stripe', 'evt_setup_integration', 'seti_test_integration', 'setup_intent.succeeded',
+  jsonb_build_object(
+    'id', 'evt_setup_integration',
+    'type', 'setup_intent.succeeded',
+    'data', jsonb_build_object('object', jsonb_build_object(
+      'id', 'seti_test_integration',
+      'customer', 'cus_test_integration',
+      'payment_method', 'pm_test_integration',
+      'metadata', jsonb_build_object('student_id', '$student_id')
+    ))
+  ),
+  true, 'received'
+);
+set role service_role;
+select missionaccounts.api_process_stripe_setup_intent(
+  'evt_setup_integration','$student_id','cus_test_integration','pm_test_integration',
+  'visa','4242',12,2030
+)->>'duplicate';
+select missionaccounts.api_process_stripe_setup_intent(
+  'evt_setup_integration','$student_id','cus_test_integration','pm_test_integration',
+  'visa','4242',12,2030
+)->>'duplicate';
+reset role;
+select
+  (select state from missionaccounts.provider_event_inbox where provider_event_id = 'evt_setup_integration') || '|' ||
+  (select status from missionaccounts.payment_method_private where student_id = '$student_id') || '|' ||
+  (select last4 from missionaccounts.payment_method_private where student_id = '$student_id') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind = 'payment_method.verified') || '|' ||
+  (select count(*) from missionaccounts.notification_outbox where event_kind = 'payment_method.added');
+SQL
+)
+
+payment_setup_expected=$'false\ntrue\nprocessed|on_file|4242|1|1'
+if [[ "$payment_setup_results" != "$payment_setup_expected" ]]; then
+  echo "MissionAccounts Stripe payment-setup verification returned unexpected controls:" >&2
+  echo "$payment_setup_results" >&2
+  exit 1
+fi
+
 consent_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+delete from missionaccounts.payment_method_private where student_id = '$student_id';
 set role service_role;
 select missionaccounts.api_set_billing_consent(
   '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms',
@@ -218,4 +264,4 @@ if [[ "$consent_results" != "$consent_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, comp transactions, and billing consent: PASS"
+echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, comp transactions, Stripe payment setup, and billing consent: PASS"

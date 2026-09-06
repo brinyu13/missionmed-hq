@@ -61,6 +61,24 @@ export class SupabaseRestStore {
     return rows[0] || null;
   }
 
+  async stripeCustomerForStudent(studentId) {
+    const rows = await this.request(`stripe_customer_private?student_id=eq.${encodeURIComponent(studentId)}&select=student_id,provider_customer_ref&limit=1`);
+    return rows[0] || null;
+  }
+
+  async saveStripeCustomer({ studentId, customerId }) {
+    const rows = await this.request('stripe_customer_private?on_conflict=student_id', {
+      method: 'POST',
+      body: { student_id: studentId, provider: 'stripe', provider_customer_ref: customerId },
+      headers: { prefer: 'resolution=ignore-duplicates,return=representation' },
+    });
+    const binding = rows?.[0] || await this.stripeCustomerForStudent(studentId);
+    if (!binding || binding.provider_customer_ref !== customerId) {
+      throw Object.assign(new Error('Stripe customer binding conflict'), { status: 409 });
+    }
+    return binding;
+  }
+
   async submitExamPlan({ studentId, step, examOn, actorId, actorRole, requestId }) {
     return this.rpc('api_submit_exam_plan', {
       p_student_id: studentId,
@@ -140,6 +158,19 @@ export class SupabaseRestStore {
     });
   }
 
+  async processStripeSetupIntent({ eventId, studentId, customerId, paymentMethodId, brand, last4, expMonth, expYear }) {
+    return this.rpc('api_process_stripe_setup_intent', {
+      p_provider_event_id: eventId,
+      p_student_id: studentId,
+      p_customer_ref: customerId,
+      p_payment_method_ref: paymentMethodId,
+      p_brand: brand || null,
+      p_last4: last4,
+      p_exp_month: expMonth,
+      p_exp_year: expYear,
+    });
+  }
+
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
     const rows = await this.request('provider_event_inbox?on_conflict=provider%2Cprovider_event_id', {
       method: 'POST',
@@ -154,7 +185,9 @@ export class SupabaseRestStore {
       },
       headers: { prefer: 'resolution=ignore-duplicates,return=representation' },
     });
-    return { status: rows?.length ? 'received' : 'duplicate' };
+    if (rows?.length) return { status: 'received', duplicate: false };
+    const existing = await this.request(`provider_event_inbox?provider=eq.${encodeURIComponent(provider)}&provider_event_id=eq.${encodeURIComponent(eventId)}&select=state&limit=1`);
+    return { status: existing[0]?.state || 'duplicate', duplicate: true };
   }
 
   async adminHealth() {
@@ -170,7 +203,7 @@ export class SupabaseRestStore {
 
 export class PreviewStore {
   constructor() {
-    this.providerEvents = new Set();
+    this.providerEvents = new Map();
     this.examPlans = new Map();
     this.examMutations = new Map();
     this.compSettings = new Map();
@@ -187,6 +220,7 @@ export class PreviewStore {
     this.billingTerms = new Map();
     this.billingConsents = new Map();
     this.consentMutations = new Map();
+    this.stripeCustomers = new Map();
   }
 
   async studentByMatrixUser(userId) {
@@ -218,6 +252,14 @@ export class PreviewStore {
       body_sha256: terms.body_sha256 || 'c'.repeat(64),
       status: terms.status || 'approved',
     });
+  }
+  async stripeCustomerForStudent(studentId) { return this.stripeCustomers.get(studentId) || null; }
+  async saveStripeCustomer({ studentId, customerId }) {
+    const existing = this.stripeCustomers.get(studentId);
+    if (existing && existing.provider_customer_ref !== customerId) throw Object.assign(new Error('Stripe customer binding conflict'), { status: 409 });
+    const binding = existing || { student_id: studentId, provider_customer_ref: customerId };
+    this.stripeCustomers.set(studentId, binding);
+    return binding;
   }
   async submitExamPlan({ studentId, step, examOn, actorId, requestId }) {
     const fingerprint = JSON.stringify({ studentId, step, examOn, actorId });
@@ -445,11 +487,35 @@ export class PreviewStore {
     this.consentMutations.set(requestId, { fingerprint, result });
     return result;
   }
-  async recordProviderEvent({ provider, eventId }) {
+  async processStripeSetupIntent({ eventId, studentId, customerId, paymentMethodId, brand, last4, expMonth, expYear }) {
+    const event = this.providerEvents.get(`stripe:${eventId}`);
+    if (!event) throw Object.assign(new Error('Stripe event not found'), { status: 409 });
+    if (event.state === 'processed') return { accepted: true, duplicate: true, payment_method: this.paymentMethods.get(studentId) || null };
+    const object = event.payload?.data?.object;
+    if (!event.signatureVerified || event.eventType !== 'setup_intent.succeeded'
+      || object?.metadata?.student_id !== studentId || object?.customer !== customerId || object?.payment_method !== paymentMethodId) {
+      throw Object.assign(new Error('Stripe event binding mismatch'), { status: 409 });
+    }
+    if (this.stripeCustomers.get(studentId)?.provider_customer_ref !== customerId) {
+      throw Object.assign(new Error('Stripe customer binding mismatch'), { status: 409 });
+    }
+    this.seedPaymentMethod(studentId, {
+      brand,
+      last4,
+      exp_month: expMonth,
+      exp_year: expYear,
+      status: 'on_file',
+      verified_at: new Date().toISOString(),
+    });
+    event.state = 'processed';
+    return { accepted: true, duplicate: false, audit_event_id: `preview-stripe-audit-${eventId}`, payment_method: this.paymentMethods.get(studentId) };
+  }
+  async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
     const key = `${provider}:${eventId}`;
-    if (this.providerEvents.has(key)) return { status: 'duplicate' };
-    this.providerEvents.add(key);
-    return { status: 'received' };
+    const existing = this.providerEvents.get(key);
+    if (existing) return { status: existing.state, duplicate: true };
+    this.providerEvents.set(key, { providerObjectId, eventType, payload, signatureVerified, state: 'received' });
+    return { status: 'received', duplicate: false };
   }
   async adminHealth() { return { mode: 'preview', review_students: null, failed_provider_events: null, failed_notifications: null, latest_zoom_sync: null }; }
 }

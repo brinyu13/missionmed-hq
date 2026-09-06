@@ -207,6 +207,21 @@ test('billing consent is versioned, server-authoritative, separately revocable, 
   assert.doesNotMatch(sql, /insert into missionaccounts\.billing_terms/i);
 });
 
+test('Stripe SetupIntent completion is transactionally bound to the signed inbox event and private customer record', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table missionaccounts\.stripe_customer_private/);
+  assert.match(sql, /create function missionaccounts\.api_process_stripe_setup_intent/);
+  assert.match(sql, /event_row\.signature_verified is not true/);
+  assert.match(sql, /event_row\.event_type <> 'setup_intent\.succeeded'/);
+  assert.match(sql, /stripe_event_binding_mismatch/);
+  assert.match(sql, /stripe_customer_binding_mismatch/);
+  assert.match(sql, /'payment_method\.verified'/);
+  assert.match(sql, /set state = 'processed', processed_at = now\(\)/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_process_stripe_setup_intent[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_process_stripe_setup_intent[^;]+to authenticated/s);
+  assert.doesNotMatch(sql, /grant select[^;]+stripe_customer_private[^;]+authenticated/is);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);

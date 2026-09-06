@@ -41,6 +41,10 @@ export class StripeGateway {
     if (this.mode !== 'test' || !this.secretKey?.startsWith('sk_test_')) throw new Error('Stripe mutation is disabled outside configured Test Mode');
   }
 
+  assertConfigured() {
+    if (!this.secretKey?.startsWith('sk_')) throw Object.assign(new Error('Stripe is not configured'), { status: 503 });
+  }
+
   async request(path, params, idempotencyKey) {
     this.assertTestMode();
     const response = await fetch(`https://api.stripe.com/v1/${path}`, {
@@ -58,6 +62,28 @@ export class StripeGateway {
     return body;
   }
 
+  async retrieve(path) {
+    this.assertConfigured();
+    const response = await fetch(`https://api.stripe.com/v1/${path}`, {
+      method: 'GET',
+      headers: {
+        authorization: `Bearer ${this.secretKey}`,
+        ...(this.apiVersion ? { 'stripe-version': this.apiVersion } : {}),
+      },
+    });
+    const body = await response.json();
+    if (!response.ok) throw Object.assign(new Error(body.error?.message || 'Stripe request failed'), { status: response.status, stripe: body });
+    return body;
+  }
+
+  createCustomer({ studentId, email, name }) {
+    return this.request('customers', {
+      ...(email ? { email } : {}),
+      ...(name ? { name } : {}),
+      'metadata[student_id]': studentId,
+    }, `missionaccounts:customer:${studentId}`);
+  }
+
   createSetupIntent(customerId, studentId, requestId) {
     return this.request('setup_intents', {
       customer: customerId,
@@ -66,6 +92,13 @@ export class StripeGateway {
       'metadata[student_id]': studentId,
       'metadata[request_id]': requestId,
     }, `missionaccounts:setup:${studentId}:${requestId}`);
+  }
+
+  retrievePaymentMethod(paymentMethodId) {
+    if (!/^pm_[A-Za-z0-9_]+$/.test(String(paymentMethodId || ''))) {
+      throw Object.assign(new Error('Stripe payment method reference is invalid'), { status: 400 });
+    }
+    return this.retrieve(`payment_methods/${encodeURIComponent(paymentMethodId)}`);
   }
 
   createDayCharge({ customerId, paymentMethodId, studentId, attendanceDayId }) {

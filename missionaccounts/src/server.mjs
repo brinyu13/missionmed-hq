@@ -97,7 +97,31 @@ export function createMissionAccountsServer({
       payload: event,
       signatureVerified: true,
     });
-    return json(response, 200, { received: true, duplicate: result.status === 'duplicate' });
+    let effect = null;
+    if (event.type === 'setup_intent.succeeded' && result.status !== 'processed') {
+      const object = event.data.object;
+      const studentId = String(object.metadata?.student_id || '');
+      const customerId = String(object.customer || '');
+      const paymentMethodId = String(object.payment_method || '');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(studentId)) {
+        throw requestError('Stripe SetupIntent student binding is invalid');
+      }
+      const paymentMethod = await stripeGateway.retrievePaymentMethod(paymentMethodId);
+      if (paymentMethod.customer !== customerId || paymentMethod.type !== 'card' || !paymentMethod.card) {
+        throw requestError('Stripe payment method binding is invalid');
+      }
+      effect = await store.processStripeSetupIntent({
+        eventId: event.id,
+        studentId,
+        customerId,
+        paymentMethodId,
+        brand: paymentMethod.card.brand || null,
+        last4: paymentMethod.card.last4,
+        expMonth: paymentMethod.card.exp_month,
+        expYear: paymentMethod.card.exp_year,
+      });
+    }
+    return json(response, 200, { received: true, duplicate: result.duplicate === true || effect?.duplicate === true });
   }
 
   async function handleApi(request, response, url) {
@@ -160,6 +184,35 @@ export function createMissionAccountsServer({
         requestId: requestIdFor(request),
       });
       return json(response, result.duplicate ? 200 : 201, result);
+    }
+    if (request.method === 'POST' && url.pathname === '/api/me/payment-setup/session') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'autoBilling');
+      const student = await studentContext(identity);
+      const requestId = requestIdFor(request);
+      let customer = await store.stripeCustomerForStudent(student.id);
+      let customerCreated = false;
+      if (!customer) {
+        const stripeCustomer = await stripeGateway.createCustomer({
+          studentId: student.id,
+          email: student.email || '',
+          name: student.display_name || '',
+        });
+        if (!/^cus_[A-Za-z0-9_]+$/.test(String(stripeCustomer.id || ''))) {
+          throw requestError('Stripe customer creation returned an invalid reference', 502);
+        }
+        customer = await store.saveStripeCustomer({ studentId: student.id, customerId: stripeCustomer.id });
+        customerCreated = true;
+      }
+      const setupIntent = await stripeGateway.createSetupIntent(customer.provider_customer_ref, student.id, requestId);
+      if (!/^seti_[A-Za-z0-9_]+$/.test(String(setupIntent.id || '')) || !setupIntent.client_secret) {
+        throw requestError('Stripe SetupIntent response is incomplete', 502);
+      }
+      return json(response, 201, {
+        setup_intent_id: setupIntent.id,
+        client_secret: setupIntent.client_secret,
+        customer_created: customerCreated,
+      });
     }
     if (['POST', 'DELETE'].includes(request.method) && url.pathname === '/api/me/consent') {
       requireRole(identity, ['student']);

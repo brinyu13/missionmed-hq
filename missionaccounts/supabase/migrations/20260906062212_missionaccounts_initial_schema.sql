@@ -355,11 +355,19 @@ create table missionaccounts.invoice (
   created_at timestamptz not null default now()
 );
 
+create table missionaccounts.stripe_customer_private (
+  student_id uuid primary key references missionaccounts.student(id),
+  provider text not null check (provider = 'stripe'),
+  provider_customer_ref text not null unique,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table missionaccounts.payment_method_private (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null unique references missionaccounts.student(id),
   provider text not null check (provider = 'stripe'),
-  provider_customer_ref text not null,
+  provider_customer_ref text not null references missionaccounts.stripe_customer_private(provider_customer_ref),
   provider_pm_ref text not null,
   brand text,
   last4 text check (last4 is null or last4 ~ '^\d{4}$'),
@@ -1464,6 +1472,142 @@ $$;
 revoke execute on function missionaccounts.api_set_billing_consent(uuid, text, text, inet, text, text, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_set_billing_consent(uuid, text, text, inet, text, text, text, text) to service_role;
 
+create function missionaccounts.api_process_stripe_setup_intent(
+  p_provider_event_id text,
+  p_student_id uuid,
+  p_customer_ref text,
+  p_payment_method_ref text,
+  p_brand text,
+  p_last4 text,
+  p_exp_month integer,
+  p_exp_year integer
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  event_row missionaccounts.provider_event_inbox%rowtype;
+  customer_row missionaccounts.stripe_customer_private%rowtype;
+  payment_row missionaccounts.payment_method_private%rowtype;
+  audit_id uuid;
+  event_student_id text;
+  event_customer_ref text;
+  event_payment_method_ref text;
+begin
+  if nullif(btrim(p_provider_event_id), '') is null
+     or p_student_id is null
+     or p_customer_ref !~ '^cus_[A-Za-z0-9_]+$'
+     or p_payment_method_ref !~ '^pm_[A-Za-z0-9_]+$'
+     or p_last4 !~ '^\d{4}$'
+     or p_exp_month not between 1 and 12
+     or p_exp_year < 2026 then
+    raise exception using errcode = '22023', message = 'invalid_setup_intent_result';
+  end if;
+
+  select * into event_row
+  from missionaccounts.provider_event_inbox
+  where provider = 'stripe' and provider_event_id = p_provider_event_id
+  for update;
+  if not found then raise exception using errcode = '23503', message = 'stripe_event_not_found'; end if;
+
+  if event_row.state = 'processed' then
+    select * into payment_row from missionaccounts.payment_method_private where student_id = p_student_id;
+    return jsonb_build_object(
+      'accepted', true,
+      'duplicate', true,
+      'payment_method', jsonb_build_object(
+        'id', payment_row.id, 'student_id', payment_row.student_id, 'brand', payment_row.brand,
+        'last4', payment_row.last4, 'exp_month', payment_row.exp_month,
+        'exp_year', payment_row.exp_year, 'status', payment_row.status,
+        'verified_at', payment_row.verified_at
+      )
+    );
+  end if;
+
+  event_student_id := event_row.payload #>> '{data,object,metadata,student_id}';
+  event_customer_ref := event_row.payload #>> '{data,object,customer}';
+  event_payment_method_ref := event_row.payload #>> '{data,object,payment_method}';
+  if event_row.signature_verified is not true
+     or event_row.event_type <> 'setup_intent.succeeded'
+     or event_student_id is distinct from p_student_id::text
+     or event_customer_ref is distinct from p_customer_ref
+     or event_payment_method_ref is distinct from p_payment_method_ref then
+    raise exception using errcode = '22023', message = 'stripe_event_binding_mismatch';
+  end if;
+
+  select * into customer_row
+  from missionaccounts.stripe_customer_private
+  where student_id = p_student_id
+  for update;
+  if customer_row.provider_customer_ref is distinct from p_customer_ref then
+    raise exception using errcode = '22023', message = 'stripe_customer_binding_mismatch';
+  end if;
+
+  insert into missionaccounts.payment_method_private(
+    student_id, provider, provider_customer_ref, provider_pm_ref, brand, last4,
+    exp_month, exp_year, status, verified_at, updated_at
+  ) values (
+    p_student_id, 'stripe', p_customer_ref, p_payment_method_ref,
+    nullif(btrim(p_brand), ''), p_last4, p_exp_month, p_exp_year,
+    'on_file', now(), now()
+  )
+  on conflict (student_id) do update set
+    provider = excluded.provider,
+    provider_customer_ref = excluded.provider_customer_ref,
+    provider_pm_ref = excluded.provider_pm_ref,
+    brand = excluded.brand,
+    last4 = excluded.last4,
+    exp_month = excluded.exp_month,
+    exp_year = excluded.exp_year,
+    status = 'on_file',
+    verified_at = excluded.verified_at,
+    updated_at = excluded.updated_at
+  returning * into payment_row;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, to_val, reason, request_id
+  ) values (
+    'stripe:' || p_provider_event_id, 'provider', p_student_id, 'payment_method.verified',
+    'Stripe confirmed a saved payment method',
+    jsonb_build_object(
+      'id', payment_row.id, 'brand', payment_row.brand, 'last4', payment_row.last4,
+      'exp_month', payment_row.exp_month, 'exp_year', payment_row.exp_year,
+      'status', payment_row.status, 'verified_at', payment_row.verified_at
+    ),
+    'setup_intent.succeeded', 'stripe:' || p_provider_event_id || ':payment-method'
+  ) returning id into audit_id;
+
+  insert into missionaccounts.notification_outbox(
+    student_id, channel, event_kind, payload, state, idempotency_key
+  ) values (
+    p_student_id, 'matrix', 'payment_method.added',
+    jsonb_build_object('brand', payment_row.brand, 'last4', payment_row.last4),
+    'pending', 'stripe:' || p_provider_event_id || ':payment-method-notification'
+  ) on conflict (idempotency_key) do nothing;
+
+  update missionaccounts.provider_event_inbox
+  set state = 'processed', processed_at = now()
+  where id = event_row.id;
+
+  return jsonb_build_object(
+    'accepted', true,
+    'duplicate', false,
+    'audit_event_id', audit_id,
+    'payment_method', jsonb_build_object(
+      'id', payment_row.id, 'student_id', payment_row.student_id, 'brand', payment_row.brand,
+      'last4', payment_row.last4, 'exp_month', payment_row.exp_month,
+      'exp_year', payment_row.exp_year, 'status', payment_row.status,
+      'verified_at', payment_row.verified_at
+    )
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_process_stripe_setup_intent(text, uuid, text, text, text, text, integer, integer) from public, anon, authenticated;
+grant execute on function missionaccounts.api_process_stripe_setup_intent(text, uuid, text, text, text, text, integer, integer) to service_role;
+
 create table missionaccounts.sync_run (
   id uuid primary key default gen_random_uuid(),
   provider text not null check (provider = 'zoom'),
@@ -1567,7 +1711,7 @@ begin
     'attendance_day_event','historical_account_source','full_cycle_ceiling',
     'comp_allowance_change','comp_day_consumption','exam_plan','exam_transition',
     'grace_window','reminder','billing_decision','invoice','payment_method_private',
-    'billing_terms','billing_consent','charge','charge_attempt','notification_outbox','audit_event'
+    'stripe_customer_private','billing_terms','billing_consent','charge','charge_attempt','notification_outbox','audit_event'
   ] loop
     execute format('alter table missionaccounts.%I enable row level security', table_name);
     execute format('alter table missionaccounts.%I force row level security', table_name);
