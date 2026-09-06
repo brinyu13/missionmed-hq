@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "d9c902e8c3e645a5cddb8e520316f63a6e315f57",
+  "implementation_commit": "3bcc2638b3ab68b0402e934efc6e09cd703c6b10",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -31,7 +31,8 @@
     "59033d0420888732acd11c194f48735c7542c99a",
     "a971068fa05d0f5cd2f12fe222eb78397868bd8b",
     "ecc0e4f3fdc8274e43f233c7a0845cecb0335bf7",
-    "d9c902e8c3e645a5cddb8e520316f63a6e315f57"
+    "d9c902e8c3e645a5cddb8e520316f63a6e315f57",
+    "3bcc2638b3ab68b0402e934efc6e09cd703c6b10"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -61,6 +62,9 @@
   "automatic_charge_window_hours": [24, 48],
   "automatic_charge_failed_retry_requires_human_action": true,
   "integration_exception_queue_implemented": true,
+  "zoom_provider_port_implemented": true,
+  "zoom_source_ingestion_rpc_implemented": true,
+  "zoom_sync_failure_exception_implemented": true,
   "stripe_payment_intent_webhook_implemented": true,
   "student_passed_implemented": true,
   "admin_projections_implemented": true,
@@ -86,7 +90,7 @@
   "notification_transport_configured": false,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 112, "failed": 0, "mandatory_vectors": 18 },
+  "tests": { "passed": 119, "failed": 0, "mandatory_vectors": 19 },
   "source_controls": {
     "students": 271,
     "source_artifacts": 6,
