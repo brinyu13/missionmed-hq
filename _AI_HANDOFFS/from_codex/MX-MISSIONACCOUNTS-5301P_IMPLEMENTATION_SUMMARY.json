@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "2d80ce1aa69afff12d0e3281b3e15d32ce14e209",
+  "implementation_commit": "95d4e583624ad94be5c3fe090b21fbf46f737bc5",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -17,7 +17,9 @@
     "5aa0c137a6c9b694aa699e789ee61a46168da4a8",
     "a5e16c868cbaed68fd82699b14ee68e65b009c48",
     "d7c906ca63fd6aef03b7527fbc7cb81b1c0bd0e4",
-    "2d80ce1aa69afff12d0e3281b3e15d32ce14e209"
+    "2d80ce1aa69afff12d0e3281b3e15d32ce14e209",
+    "eaafb06c1bea1999730d4e3a1046955934ca6eed",
+    "95d4e583624ad94be5c3fe090b21fbf46f737bc5"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -30,6 +32,7 @@
   "billing_decision_rpc_implemented": true,
   "attendance_correction_rpc_implemented": true,
   "payment_setup_implemented": true,
+  "payment_method_removal_implemented": true,
   "billing_consent_rpc_implemented": true,
   "day_charge_rpc_implemented": true,
   "stripe_payment_intent_webhook_implemented": true,
@@ -42,9 +45,11 @@
   "notification_transport_configured": false,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 69, "failed": 0, "mandatory_vectors": 17 },
+  "tests": { "passed": 71, "failed": 0, "mandatory_vectors": 17 },
   "source_controls": {
     "students": 271,
+    "source_artifacts": 6,
+    "zoom_manifest_sha256": "5209775bceca32b4db848154d54b116a5ff9820d409cda648c9c9698ab6a1b60",
     "identity_review_students": 60,
     "sessions": 419,
     "confirmed_sessions": 100,

@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Latest implementation commit:** `2d80ce1aa69afff12d0e3281b3e15d32ce14e209`
+**Latest implementation commit:** `95d4e583624ad94be5c3fe090b21fbf46f737bc5`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -23,6 +23,7 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - feature-gated append-only attendance corrections that preserve source rows, support reversible add/remove and step interpretation, stale affected approvals, and void only unsent stale invoices;
 - versioned automatic-billing terms and student-only consent/revocation transactions that require an approved terms version plus an on-file payment method, preserve superseded consent history, audit accepted/rejected attempts, and remain feature-off;
 - secure Stripe payment setup with one stable private customer binding, Test-Mode-only SetupIntent creation, exact signed-event binding, sanitized card metadata, idempotent webhook completion, and no MissionMed raw-card fields;
+- student-owned, two-phase payment-method removal that revokes automatic-billing consent before Stripe detachment, blocks new charges while removal is pending, restores the method with consent still revoked after provider failure, deduplicates retries, and never exposes the private Stripe method reference to the browser;
 - server-authoritative $25 attendance-day charge preparation that requires a current approved basis, verified identity, billable day, on-file method, active consent, remaining approved amount, explicit failed-charge retries, and a unique charge per day; only a matching signed Stripe PaymentIntent webhook can mark it succeeded or failed;
 - student-owned Passed submission that resolves the current plan from the authenticated identity and is independently ownership-checked inside PostgreSQL;
 - role-protected, server-derived admin home, cycle, student-directory, and student-detail projections;
@@ -38,6 +39,7 @@ No production system or provider was changed.
 - 5300A canonical prototype SHA-256: `3cd77871f4cb1bc70d71a87d2fa9fe0f85604969e4cbe94d44aa9816386a82d8` — PASS.
 - 5000B reconciled ledger SHA-256: `6a38967fcb369ba6b9bb71daee8f66697efee0042ab6ebd421a0edf1aaeba108` — PASS.
 - 5000B identity graph SHA-256: `c8e89ab0217c5a6df21e4506f133f06d9470c8cd5b51c81eec356de251bce5ee` — PASS.
+- Zoom source manifest SHA-256: `5209775bceca32b4db848154d54b116a5ff9820d409cda648c9c9698ab6a1b60` — PASS; recorded as its own immutable source artifact before the three manifest-pinned CSVs.
 - The generated 831,032-byte UI artifact is gitignored because the canon embeds historical student information.
 - The committed source-validation receipt contains only hashes and aggregate controls, never names, aliases, meeting IDs, or emails.
 
@@ -92,7 +94,7 @@ All implementation files are under `missionaccounts/`:
 
 ## Migration status
 
-- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (2,210 lines).
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (2,419 lines).
 - Applied locally: PASS in a disposable PostgreSQL 16 cluster; schema parse/application plus billing authority, immutable correction flow, exam/grace/reminder effects, comp-override controls, Stripe SetupIntent completion, and billing-consent authorization/revocation passed. No persistent local database was created.
 - Historical import rehearsal: PASS in a separate disposable PostgreSQL 16 cluster. It imported 419 sessions, 5,498 raw source rows, 3,941 reconciled events, and 3,264 attendance days; retained 74 ceiling candidates and 60 identity-review holds; and created zero billing decisions, invoices, charges, verified ceilings, Matrix identities, or enabled flags. The private SQL bundle was deleted with the disposable cluster.
 - Applied to staging/production: NO — target database and migration authority are not registered.
@@ -100,8 +102,8 @@ All implementation files are under `missionaccounts/`:
 
 ## Verification
 
-- `npm test`: PASS — 69/69, including V01–V17 plus raw-body webhook, rotated-signature, duplicate-delivery, API-version, authorization, feature gates, billing approval/cap custody, append-only corrections, exam/grace/reminder effects, student Passed ownership, comp overrides, admin projections, payment setup, consent/revocation, signed one-charge-per-day dispatch, and notification-worker retry controls.
-- `npm run test:postgres`: PASS — complete migration applied to disposable PostgreSQL 16; unresolved cap approval was rejected, verified cap produced $300, correction staled approval and voided its draft, re-approval was required, student Passed ownership was enforced, Stripe payment metadata was bound only through a signed SetupIntent event, consent required both approved terms and an on-file method, parallel day-charge dispatch was rejected, only the bound signed PaymentIntent webhook marked the unique $25 charge succeeded, and claimed notifications were success/failure acknowledged with backoff.
+- `npm test`: PASS — 71/71, including V01–V17 plus raw-body webhook, rotated-signature, duplicate-delivery, API-version, authorization, feature gates, billing approval/cap custody, append-only corrections, exam/grace/reminder effects, student Passed ownership, comp overrides, admin projections, payment setup/removal, consent/revocation, signed one-charge-per-day dispatch, and notification-worker retry controls.
+- `npm run test:postgres`: PASS — complete migration applied to disposable PostgreSQL 16; unresolved cap approval was rejected, verified cap produced $300, correction staled approval and voided its draft, re-approval was required, student Passed ownership was enforced, Stripe payment metadata was bound only through a signed SetupIntent event, consent required both approved terms and an on-file method, payment removal revoked consent before two-phase provider completion, parallel day-charge dispatch was rejected, only the bound signed PaymentIntent webhook marked the unique $25 charge succeeded, and claimed notifications were success/failure acknowledged with backoff.
 - `npm run test:historical-import`: PASS — all custody hashes, privacy permissions, source/control totals, per-cycle totals, review holds, and zero-financial-mutation boundaries passed in disposable PostgreSQL 16.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
 - `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
