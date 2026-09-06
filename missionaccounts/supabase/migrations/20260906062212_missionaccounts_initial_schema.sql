@@ -24,6 +24,7 @@ create table missionaccounts.source_artifact (
 create table missionaccounts.import_run (
   id uuid primary key default gen_random_uuid(),
   artifact_id uuid not null references missionaccounts.source_artifact(id),
+  request_id text not null unique,
   state text not null check (state in ('pending','validated','applied','failed')),
   source_controls jsonb not null default '{}'::jsonb,
   result_controls jsonb not null default '{}'::jsonb,

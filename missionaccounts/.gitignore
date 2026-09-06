@@ -9,3 +9,5 @@ public/canon-manifest.json
 node_modules/
 coverage/
 supabase/.temp/
+var/
+*.private.sql
