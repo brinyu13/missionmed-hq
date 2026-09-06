@@ -22,6 +22,7 @@ function environmentConfig() {
     jwksUrl: process.env.MISSIONACCOUNTS_JWKS_URL || 'https://missionmedinstitute.com/wp-json/missionmed/v1/jwks',
     features: {
       billingDecisions: process.env.MISSIONACCOUNTS_BILLING_DECISIONS === '1',
+      attendanceCorrections: process.env.MISSIONACCOUNTS_ATTENDANCE_CORRECTIONS === '1',
       examPlans: process.env.MISSIONACCOUNTS_EXAM_PLANS === '1',
       compDays: process.env.MISSIONACCOUNTS_COMP_DAYS === '1',
       autoBilling: process.env.MISSIONACCOUNTS_AUTO_BILLING === '1',
@@ -107,6 +108,7 @@ export function createMissionAccountsServer({
         mode: store instanceof PreviewStore ? 'preview' : 'configured',
         route_enabled: false,
         billing_decisions_enabled: Boolean(config.features?.billingDecisions),
+        attendance_corrections_enabled: Boolean(config.features?.attendanceCorrections),
         auto_billing_enabled: Boolean(config.features?.autoBilling),
         zoom_sync_enabled: Boolean(config.features?.zoomSync),
       });
@@ -122,6 +124,7 @@ export function createMissionAccountsServer({
         mode: identity.roles.includes('student') ? 'student' : 'admin',
         capabilities: {
           billing_decisions: Boolean(config.features?.billingDecisions),
+          attendance_corrections: Boolean(config.features?.attendanceCorrections),
           exam_plans: Boolean(config.features?.examPlans),
           comp_days: Boolean(config.features?.compDays),
           auto_billing: Boolean(config.features?.autoBilling),
@@ -175,6 +178,42 @@ export function createMissionAccountsServer({
         joinedOn,
         reason,
         applyRetroactively: body.apply_retroactively === true,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
+    const correctionRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/corrections$/i)
+      : null;
+    if (correctionRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'attendanceCorrections');
+      const body = await readJsonBody(request, { limitBytes: 32_768 });
+      const type = String(body.type || '');
+      const reason = String(body.reason || '').trim();
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const sessionId = body.session_id == null ? null : String(body.session_id);
+      const attendanceEventId = body.attendance_event_id == null ? null : String(body.attendance_event_id);
+      const revertsId = body.reverts_id == null ? null : String(body.reverts_id);
+      if (!['add', 'remove', 'step_relabel', 'name', 'note'].includes(type)) throw requestError('Attendance correction type is invalid');
+      if (!reason || reason.length > 2_000) throw requestError('An attendance correction reason is required');
+      if (sessionId && !uuid.test(sessionId)) throw requestError('session_id must be a UUID');
+      if (attendanceEventId && !uuid.test(attendanceEventId)) throw requestError('attendance_event_id must be a UUID');
+      if (revertsId && !uuid.test(revertsId)) throw requestError('reverts_id must be a UUID');
+      if (type === 'add' && !sessionId) throw requestError('session_id is required when adding attendance');
+      if (['remove', 'step_relabel'].includes(type) && !attendanceEventId) throw requestError('attendance_event_id is required for this correction');
+      if (type === 'step_relabel' && !['s1', 's23', 'unknown'].includes(body.to_val?.step)) throw requestError('Step relabel must specify s1, s23, or unknown');
+      const result = await store.appendAttendanceCorrection({
+        studentId: correctionRoute[1],
+        sessionId,
+        attendanceEventId,
+        type,
+        fromVal: body.from_val ?? null,
+        toVal: body.to_val ?? null,
+        reason,
+        revertsId,
         actorId: identity.userId,
         actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
         requestId: requestIdFor(request),

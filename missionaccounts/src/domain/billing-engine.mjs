@@ -32,13 +32,24 @@ function appliesToDay(window, day) {
   return day > from && (!to || day <= to);
 }
 
-function activeEvents(events, corrections) {
-  const removed = new Set(
-    corrections
-      .filter(item => item.type === 'remove' && !item.reverted_by_id)
-      .map(item => item.attendance_event_id)
-  );
-  return events.filter(event => !event.superseded_by_id && !removed.has(event.id));
+function interpretedEvents(events, corrections) {
+  const eventState = new Map();
+  const stepOverride = new Map();
+  const ordered = [...corrections]
+    .filter(item => !item.reverted_by_id)
+    .sort((a, b) => String(a.created_at || a.at || '').localeCompare(String(b.created_at || b.at || '')) || String(a.id || '').localeCompare(String(b.id || '')));
+  for (const correction of ordered) {
+    if (!correction.attendance_event_id) continue;
+    if (correction.type === 'remove') eventState.set(correction.attendance_event_id, false);
+    if (correction.type === 'add') eventState.set(correction.attendance_event_id, true);
+    if (correction.type === 'step_relabel') {
+      const step = correction.to_val?.step || correction.to_val;
+      if (['s1', 's23', 'unknown'].includes(step)) stepOverride.set(correction.attendance_event_id, step);
+    }
+  }
+  return events
+    .filter(event => !event.superseded_by_id && eventState.get(event.id) !== false)
+    .map(event => stepOverride.has(event.id) ? { ...event, step: stepOverride.get(event.id) } : event);
 }
 
 function stableUnique(values) {
@@ -56,7 +67,7 @@ export function deriveBillableDays({
 }) {
   invariant(student?.id, 'student is required');
   const confirmedSessions = new Map(sessions.map(session => [session.id, session]));
-  const normalized = activeEvents(events, corrections)
+  const normalized = interpretedEvents(events, corrections)
     .filter(event => event.student_id === student.id)
     .filter(event => {
       const session = confirmedSessions.get(event.session_id);

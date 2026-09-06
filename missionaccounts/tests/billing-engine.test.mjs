@@ -32,6 +32,31 @@ test('removing one of two same-day events preserves the day', () => {
   assert.deepEqual(days[0].event_ids, ['e2']);
 });
 
+test('an append-only add correction can restore a removed attendance event', () => {
+  const days = deriveBillableDays({
+    student,
+    sessions,
+    events,
+    corrections: [
+      { id: 'c1', created_at: '2026-09-01T10:00:00Z', type: 'remove', attendance_event_id: 'e1' },
+      { id: 'c2', created_at: '2026-09-01T11:00:00Z', type: 'add', attendance_event_id: 'e1', reverts_id: 'c1' },
+    ],
+  });
+  assert.deepEqual(days[0].event_ids, ['e1', 'e2']);
+});
+
+test('step relabel changes interpretation without changing source event identity', () => {
+  const days = deriveBillableDays({
+    student,
+    sessions,
+    events: [events[0]],
+    corrections: [{ id: 'c1', type: 'step_relabel', attendance_event_id: 'e1', to_val: { step: 's23' } }],
+  });
+  assert.deepEqual(days[0].event_ids, ['e1']);
+  assert.deepEqual(days[0].steps, ['s23']);
+  assert.equal(events[0].step, 's1');
+});
+
 test('comp days apply to otherwise-billable days and grace is not consumed', () => {
   const days = deriveBillableDays({
     student: { ...student, comp_days_allowance: 1 },

@@ -106,4 +106,54 @@ if [[ "$billing_results" != "$billing_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, billing authority, exam decisions, and comp transactions: PASS"
+correction_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.source_artifact(source_kind, source_path, sha256, byte_count, observed_at)
+values ('integration', '/private/integration-source', repeat('b', 64), 1, now());
+insert into missionaccounts.session(
+  cycle_key, source_artifact_id, provider, provider_meeting_id, provider_instance_id,
+  starts_at, held_on, step, state
+)
+values (
+  '2026-cycle-1',
+  (select id from missionaccounts.source_artifact where sha256 = repeat('b', 64)),
+  'manual', 'integration-meeting', 'integration-instance',
+  '2026-06-23T16:00:00Z', '2026-06-23', 's1', 'confirmed'
+);
+set role service_role;
+select missionaccounts.api_append_attendance_correction(
+  '$student_id',
+  (select id from missionaccounts.session where provider_instance_id = 'integration-instance'),
+  null, 'add', null, jsonb_build_object('present', true), 'Verified source', null,
+  'wp:admin', 'missionaccounts_admin', 'pg-correction-0001'
+)->>'stale_decisions';
+select missionaccounts.api_append_attendance_correction(
+  '$student_id',
+  (select id from missionaccounts.session where provider_instance_id = 'integration-instance'),
+  null, 'add', null, jsonb_build_object('present', true), 'Verified source', null,
+  'wp:admin', 'missionaccounts_admin', 'pg-correction-0001'
+)->>'duplicate';
+select missionaccounts.api_append_attendance_correction(
+  '$student_id',
+  (select id from missionaccounts.session where provider_instance_id = 'integration-instance'),
+  (select id from missionaccounts.attendance_event where student_id = '$student_id' and session_id = (select id from missionaccounts.session where provider_instance_id = 'integration-instance')),
+  'remove', jsonb_build_object('present', true), jsonb_build_object('present', false), 'Correction reversed', null,
+  'wp:admin', 'missionaccounts_admin', 'pg-correction-0002'
+)->>'accepted';
+reset role;
+select count(*) || '|' ||
+  (select count(*) from missionaccounts.attendance_event) || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind = 'attendance_correction.appended') || '|' ||
+  (select state from missionaccounts.billing_decision where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_by_id is null) || '|' ||
+  (select state from missionaccounts.invoice where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by created_at desc limit 1)
+from missionaccounts.attendance_correction;
+SQL
+)
+
+correction_expected=$'1\ntrue\ntrue\n2|1|2|stale|void'
+if [[ "$correction_results" != "$correction_expected" ]]; then
+  echo "MissionAccounts attendance-correction verification returned unexpected controls:" >&2
+  echo "$correction_results" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, and comp transactions: PASS"

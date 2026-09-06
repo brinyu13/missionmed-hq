@@ -101,6 +101,22 @@ export class SupabaseRestStore {
     });
   }
 
+  async appendAttendanceCorrection({ studentId, sessionId, attendanceEventId, type, fromVal, toVal, reason, revertsId, actorId, actorRole, requestId }) {
+    return this.rpc('api_append_attendance_correction', {
+      p_student_id: studentId,
+      p_session_id: sessionId || null,
+      p_attendance_event_id: attendanceEventId || null,
+      p_type: type,
+      p_from_val: fromVal ?? null,
+      p_to_val: toVal ?? null,
+      p_reason: reason,
+      p_reverts_id: revertsId || null,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
     const rows = await this.request('provider_event_inbox?on_conflict=provider%2Cprovider_event_id', {
       method: 'POST',
@@ -141,6 +157,9 @@ export class PreviewStore {
     this.billingCaps = new Map();
     this.billingDecisions = new Map();
     this.billingMutations = new Map();
+    this.attendanceEvents = new Map();
+    this.attendanceCorrections = [];
+    this.correctionMutations = new Map();
   }
 
   async studentByMatrixUser(userId) {
@@ -279,6 +298,59 @@ export class PreviewStore {
     const result = { accepted: true, decision, invoice, audit_event_id: `preview-billing-audit-${ordinal}` };
     this.billingDecisions.set(`${studentId}:${cycleKey}`, decision);
     this.billingMutations.set(requestId, { fingerprint, result });
+    return result;
+  }
+  seedAttendanceEvent(event) {
+    this.attendanceEvents.set(event.id, { ...event });
+  }
+  async appendAttendanceCorrection({ studentId, sessionId, attendanceEventId, type, fromVal, toVal, reason, revertsId, actorId, requestId }) {
+    const fingerprint = JSON.stringify({ studentId, sessionId, attendanceEventId, type, fromVal, toVal, reason, revertsId, actorId });
+    const existing = this.correctionMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    let event = attendanceEventId ? this.attendanceEvents.get(attendanceEventId) : [...this.attendanceEvents.values()].find(item => item.student_id === studentId && item.session_id === sessionId);
+    if (event && event.student_id !== studentId) throw Object.assign(new Error('Attendance event not found'), { status: 404 });
+    if (type === 'add' && !event) {
+      const ordinal = this.attendanceEvents.size + 1;
+      event = {
+        id: `10000000-0000-4000-9000-${String(ordinal).padStart(12, '0')}`,
+        student_id: studentId,
+        session_id: sessionId,
+      };
+      this.attendanceEvents.set(event.id, event);
+    }
+    if (['remove', 'step_relabel'].includes(type) && !event) throw Object.assign(new Error('Attendance event not found'), { status: 404 });
+    const ordinal = this.attendanceCorrections.length + 1;
+    const correction = {
+      id: `preview-correction-${ordinal}`,
+      student_id: studentId,
+      session_id: sessionId || event?.session_id || null,
+      attendance_event_id: event?.id || null,
+      type,
+      from_val: fromVal ?? null,
+      to_val: toVal ?? null,
+      reason,
+      reverts_id: revertsId || null,
+      actor_id: actorId,
+    };
+    this.attendanceCorrections.push(correction);
+    let staleDecisions = 0;
+    for (const [key, decision] of this.billingDecisions) {
+      if (key.startsWith(`${studentId}:`) && ['add', 'remove', 'step_relabel'].includes(type) && decision.state === 'approved') {
+        this.billingDecisions.set(key, { ...decision, state: 'stale' });
+        staleDecisions += 1;
+      }
+    }
+    const result = {
+      accepted: true,
+      correction,
+      attendance_event_id: event?.id || null,
+      stale_decisions: staleDecisions,
+      audit_event_id: `preview-correction-audit-${ordinal}`,
+    };
+    this.correctionMutations.set(requestId, { fingerprint, result });
     return result;
   }
   async recordProviderEvent({ provider, eventId }) {

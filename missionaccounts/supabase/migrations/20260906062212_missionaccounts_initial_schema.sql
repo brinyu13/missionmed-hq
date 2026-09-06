@@ -135,6 +135,7 @@ create table missionaccounts.attendance_correction (
   reason text not null check (length(btrim(reason)) > 0),
   actor_id text not null,
   request_id text not null,
+  reverts_id uuid references missionaccounts.attendance_correction(id),
   reverted_by_id uuid references missionaccounts.attendance_correction(id),
   created_at timestamptz not null default now(),
   unique (request_id)
@@ -1110,6 +1111,189 @@ $$;
 revoke execute on function missionaccounts.api_approve_billing_decision(uuid, text, text, integer, text, text, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_approve_billing_decision(uuid, text, text, integer, text, text, text, text) to service_role;
 
+create function missionaccounts.api_append_attendance_correction(
+  p_student_id uuid,
+  p_session_id uuid,
+  p_attendance_event_id uuid,
+  p_type text,
+  p_from_val jsonb,
+  p_to_val jsonb,
+  p_reason text,
+  p_reverts_id uuid,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  existing_correction missionaccounts.attendance_correction%rowtype;
+  session_row missionaccounts.session%rowtype;
+  event_row missionaccounts.attendance_event%rowtype;
+  correction_row missionaccounts.attendance_correction%rowtype;
+  latest_effect text;
+  audit_id uuid;
+  stale_decisions integer := 0;
+begin
+  if p_type is null or p_type not in ('add','remove','step_relabel','name','note')
+     or nullif(btrim(p_reason), '') is null
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_actor_role), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'invalid_attendance_correction_request';
+  end if;
+
+  select * into existing_correction
+  from missionaccounts.attendance_correction
+  where request_id = p_request_id;
+  if found then
+    if existing_correction.student_id <> p_student_id
+       or existing_correction.session_id is distinct from p_session_id
+       or (p_attendance_event_id is not null and existing_correction.attendance_event_id is distinct from p_attendance_event_id)
+       or existing_correction.type <> p_type
+       or existing_correction.from_val is distinct from p_from_val
+       or existing_correction.to_val is distinct from p_to_val
+       or existing_correction.reason <> p_reason
+       or existing_correction.reverts_id is distinct from p_reverts_id
+       or existing_correction.actor_id <> p_actor_id then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select id into audit_id from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'attendance_correction.appended';
+    return jsonb_build_object(
+      'accepted', true,
+      'correction', to_jsonb(existing_correction),
+      'attendance_event_id', existing_correction.attendance_event_id,
+      'audit_event_id', audit_id,
+      'duplicate', true
+    );
+  end if;
+
+  perform 1 from missionaccounts.student where id = p_student_id for update;
+  if not found then raise exception using errcode = '23503', message = 'student_not_found'; end if;
+
+  if p_session_id is not null then
+    select * into session_row from missionaccounts.session where id = p_session_id;
+    if not found then raise exception using errcode = '23503', message = 'session_not_found'; end if;
+  end if;
+  if p_attendance_event_id is not null then
+    select * into event_row
+    from missionaccounts.attendance_event
+    where id = p_attendance_event_id and student_id = p_student_id and superseded_by_id is null
+    for update;
+    if not found then raise exception using errcode = '23503', message = 'attendance_event_not_found'; end if;
+    if p_session_id is not null and event_row.session_id <> p_session_id then
+      raise exception using errcode = '22023', message = 'attendance_event_session_mismatch';
+    end if;
+    if p_session_id is null then
+      p_session_id := event_row.session_id;
+      select * into session_row from missionaccounts.session where id = p_session_id;
+    end if;
+  elsif p_session_id is not null then
+    select * into event_row
+    from missionaccounts.attendance_event
+    where student_id = p_student_id and session_id = p_session_id and superseded_by_id is null
+    for update;
+  end if;
+
+  if p_type = 'add' then
+    if p_session_id is null then raise exception using errcode = '22023', message = 'session_required_for_add'; end if;
+    if event_row.id is null then
+      insert into missionaccounts.attendance_event(
+        student_id, session_id, cycle_key, local_day, step, interpretation_state, provenance
+      ) values (
+        p_student_id, session_row.id, session_row.cycle_key, session_row.held_on,
+        session_row.step, 'effective',
+        jsonb_build_object('source', 'manual_correction', 'request_id', p_request_id)
+      ) returning * into event_row;
+    else
+      select type into latest_effect
+      from missionaccounts.attendance_correction
+      where attendance_event_id = event_row.id and type in ('add','remove')
+      order by created_at desc, id desc limit 1;
+      if latest_effect is distinct from 'remove' then
+        raise exception using errcode = '23505', message = 'attendance_already_effective';
+      end if;
+    end if;
+  elsif p_type in ('remove','step_relabel') and event_row.id is null then
+    raise exception using errcode = '23503', message = 'attendance_event_required';
+  end if;
+
+  if p_type = 'remove' then
+    select type into latest_effect
+    from missionaccounts.attendance_correction
+    where attendance_event_id = event_row.id and type in ('add','remove')
+    order by created_at desc, id desc limit 1;
+    if latest_effect = 'remove' then
+      raise exception using errcode = '23505', message = 'attendance_already_removed';
+    end if;
+  end if;
+  if p_type = 'step_relabel'
+     and coalesce(p_to_val->>'step', '') not in ('s1','s23','unknown') then
+    raise exception using errcode = '22023', message = 'invalid_step_relabel';
+  end if;
+  if p_reverts_id is not null and not exists (
+    select 1 from missionaccounts.attendance_correction
+    where id = p_reverts_id and student_id = p_student_id
+  ) then
+    raise exception using errcode = '23503', message = 'reverted_correction_not_found';
+  end if;
+
+  insert into missionaccounts.attendance_correction(
+    student_id, attendance_event_id, session_id, type, from_val, to_val,
+    reason, actor_id, request_id, reverts_id
+  ) values (
+    p_student_id, event_row.id, p_session_id, p_type, p_from_val, p_to_val,
+    p_reason, p_actor_id, p_request_id, p_reverts_id
+  ) returning * into correction_row;
+
+  if p_type in ('add','remove','step_relabel') then
+    update missionaccounts.billing_decision
+    set state = 'stale'
+    where student_id = p_student_id
+      and cycle_key = session_row.cycle_key
+      and superseded_by_id is null
+      and state = 'approved';
+    get diagnostics stale_decisions = row_count;
+    update missionaccounts.invoice inv
+    set state = 'void'
+    where inv.student_id = p_student_id
+      and inv.cycle_key = session_row.cycle_key
+      and inv.state in ('draft','ready')
+      and exists (
+        select 1 from missionaccounts.billing_decision bd
+        where bd.id = inv.decision_id and bd.state = 'stale'
+      );
+  end if;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id, p_actor_role, p_student_id, 'attendance_correction.appended',
+    'Attendance correction appended without changing source evidence',
+    p_from_val,
+    jsonb_build_object('correction', to_jsonb(correction_row), 'stale_decisions', stale_decisions),
+    p_reason,
+    p_request_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'accepted', true,
+    'correction', to_jsonb(correction_row),
+    'attendance_event_id', event_row.id,
+    'stale_decisions', stale_decisions,
+    'audit_event_id', audit_id,
+    'duplicate', false
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_append_attendance_correction(uuid, uuid, uuid, text, jsonb, jsonb, text, uuid, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_append_attendance_correction(uuid, uuid, uuid, text, jsonb, jsonb, text, uuid, text, text, text) to service_role;
+
 create table missionaccounts.sync_run (
   id uuid primary key default gen_random_uuid(),
   provider text not null check (provider = 'zoom'),
@@ -1149,6 +1333,7 @@ create table missionaccounts.feature_flag (
 insert into missionaccounts.feature_flag(key, enabled) values
   ('missionaccounts_route', false),
   ('billing_decisions', false),
+  ('attendance_corrections', false),
   ('exam_plans', false),
   ('comp_days', false),
   ('auto_billing', false),

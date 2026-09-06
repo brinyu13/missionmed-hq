@@ -12,7 +12,7 @@ const localConfig = {
   issuer: 'https://issuer.invalid',
   audience: 'missionaccounts',
   jwksUrl: 'https://issuer.invalid/jwks',
-  features: { billingDecisions: false, examPlans: false, compDays: false, autoBilling: false, zoomSync: false },
+  features: { billingDecisions: false, attendanceCorrections: false, examPlans: false, compDays: false, autoBilling: false, zoomSync: false },
 };
 
 async function withServer(options, run) {
@@ -261,5 +261,36 @@ test('unverified historical cap candidate blocks approval until verified', async
     const approved = await fetch(`${base}${path}`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'billing-cap-0002' }, body });
     assert.equal(approved.status, 201);
     assert.equal((await approved.json()).decision.amount_cents, 30_000);
+  });
+});
+
+test('admin attendance correction is append-only, idempotent, and stales an approval', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, attendanceCorrections: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const sessionId = '20000000-0000-4000-9000-000000000001';
+  const eventId = '30000000-0000-4000-9000-000000000001';
+  store.seedAttendanceEvent({ id: eventId, student_id: studentId, session_id: sessionId });
+  store.billingDecisions.set(`${studentId}:2026-cycle-1`, { id: 'decision-1', state: 'approved' });
+  const path = `/api/admin/students/${studentId}/corrections`;
+  const headers = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin', 'idempotency-key': 'correction-request-0001' };
+  const body = JSON.stringify({ type: 'remove', session_id: sessionId, attendance_event_id: eventId, reason: 'Verified Zoom evidence shows absence' });
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const created = await fetch(`${base}${path}`, { method: 'POST', headers, body });
+    assert.equal(created.status, 201);
+    const payload = await created.json();
+    assert.equal(payload.stale_decisions, 1);
+    assert.equal(payload.correction.attendance_event_id, eventId);
+
+    const retry = await fetch(`${base}${path}`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+
+    const unauthorized = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { ...headers, 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'correction-request-0002' },
+      body,
+    });
+    assert.equal(unauthorized.status, 403);
   });
 });

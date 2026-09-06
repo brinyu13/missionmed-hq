@@ -180,6 +180,16 @@ test('billing approval RPC derives totals and fails closed on unresolved histori
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_approve_billing_decision[^;]+to authenticated/s);
 });
 
+test('attendance correction RPC preserves source rows and stales approved billing', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.api_append_attendance_correction/);
+  assert.match(sql, /'Attendance correction appended without changing source evidence'/);
+  assert.match(sql, /update missionaccounts\.billing_decision[\s\S]+set state = 'stale'/);
+  assert.match(sql, /update missionaccounts\.invoice inv[\s\S]+set state = 'void'/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_append_attendance_correction[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /delete from missionaccounts\.attendance_source_row/i);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);
