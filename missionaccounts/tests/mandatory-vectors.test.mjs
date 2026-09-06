@@ -142,6 +142,9 @@ test('exam-plan RPC is transactional, idempotent, audited, and queues a notifica
   const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
   assert.match(sql, /create function missionaccounts\.api_submit_exam_plan/);
   assert.match(sql, /where et\.request_id = p_request_id/);
+  assert.match(sql, /exam_plan_submission_forbidden/);
+  assert.match(sql, /actor_role text not null check \(actor_role in/);
+  assert.match(sql, /suggested_on date/);
   assert.match(sql, /'exam_plan\.submitted'/);
   assert.match(sql, /closed_reason = 'plan_replaced'/);
   assert.match(sql, /cancelled_reason = 'plan_replaced'/);
@@ -195,6 +198,8 @@ test('exam transition RPC records rejected attempts and owns grace/reminder side
   assert.match(sql, /insert into missionaccounts\.grace_window/);
   assert.match(sql, /first_wednesday_offset/);
   assert.match(sql, /update missionaccounts\.reminder[\s\S]+state = 'cancelled'/);
+  assert.match(sql, /suggested_date_requires_denial/);
+  assert.match(sql, /exam_transition_forbidden/);
   assert.match(sql, /grant execute on function missionaccounts\.api_transition_exam_plan[^;]+to service_role/s);
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_transition_exam_plan[^;]+to authenticated/s);
   assert.match(sql, /p_actor_role = 'student'[\s\S]+p_to_state <> 'passed'[\s\S]+s\.matrix_user_ref = p_actor_id/);

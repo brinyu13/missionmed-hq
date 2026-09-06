@@ -903,6 +903,52 @@ test('admin exam decisions drive grace/reminder effects and reject invalid trans
   });
 });
 
+test('Dr J can enter or replace an exam plan and preserve a suggested replacement date', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, examPlans: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const path = `/api/admin/students/${studentId}/exam-plan`;
+  const body = JSON.stringify({ step: 's3', exam_on: '2026-11-18' });
+  const adminHeaders = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin' };
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const forbidden = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'admin-exam-submit-0001' },
+      body,
+    });
+    assert.equal(forbidden.status, 403);
+
+    const created = await fetch(`${base}${path}`, {
+      method: 'POST', headers: { ...adminHeaders, 'idempotency-key': 'admin-exam-submit-0001' }, body,
+    });
+    assert.equal(created.status, 201);
+    const createdPayload = await created.json();
+    assert.equal(createdPayload.plan.step, 's3');
+    assert.equal(createdPayload.plan.submitted_by, studentId);
+
+    const retry = await fetch(`${base}${path}`, {
+      method: 'POST', headers: { ...adminHeaders, 'idempotency-key': 'admin-exam-submit-0001' }, body,
+    });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+
+    const denied = await fetch(`${base}/api/admin/exam-plans/${createdPayload.plan.id}/deny`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'admin-exam-deny-0001' },
+      body: JSON.stringify({ note: 'Please choose the later sitting', suggested_on: '2026-12-02' }),
+    });
+    assert.equal(denied.status, 200);
+    assert.equal((await denied.json()).plan.suggested_on, '2026-12-02');
+
+    const invalidSuggestion = await fetch(`${base}/api/admin/exam-plans/${createdPayload.plan.id}/approve`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'admin-exam-approve-0001' },
+      body: JSON.stringify({ suggested_on: '2026-12-09' }),
+    });
+    assert.equal(invalidSuggestion.status, 400);
+  });
+});
+
 test('billing approval derives totals on the server and deduplicates retries', async () => {
   const enabledConfig = { ...localConfig, features: { ...localConfig.features, billingDecisions: true } };
   const store = new PreviewStore();

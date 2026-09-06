@@ -355,6 +355,8 @@ create table missionaccounts.exam_transition (
   accepted boolean not null,
   reason text,
   actor_id text not null,
+  actor_role text not null check (actor_role in ('student','missionaccounts_admin','founder')),
+  suggested_on date,
   request_id text not null unique,
   created_at timestamptz not null default now()
 );
@@ -1244,6 +1246,13 @@ begin
      or nullif(btrim(p_request_id), '') is null then
     raise exception using errcode = '22023', message = 'exam_plan_actor_and_request_required';
   end if;
+  if p_actor_role not in ('student','missionaccounts_admin','founder')
+     or (p_actor_role = 'student' and not exists (
+       select 1 from missionaccounts.student s
+       where s.id = p_student_id and s.matrix_user_ref = p_actor_id
+     )) then
+    raise exception using errcode = '42501', message = 'exam_plan_submission_forbidden';
+  end if;
 
   select ep.* into existing_plan
   from missionaccounts.exam_transition et
@@ -1317,9 +1326,9 @@ begin
   end if;
 
   insert into missionaccounts.exam_transition(
-    exam_plan_id, student_id, from_state, to_state, accepted, reason, actor_id, request_id
+    exam_plan_id, student_id, from_state, to_state, accepted, reason, actor_id, actor_role, request_id
   ) values (
-    new_plan.id, p_student_id, null, 'pending', true, 'submitted', p_actor_id, p_request_id
+    new_plan.id, p_student_id, null, 'pending', true, 'submitted', p_actor_id, p_actor_role, p_request_id
   );
 
   insert into missionaccounts.audit_event(
@@ -1345,7 +1354,7 @@ begin
   ) values (
     p_student_id,
     'matrix',
-    'missionaccounts_admin',
+    case when p_actor_role = 'student' then 'missionaccounts_admin' else 'student' end,
     'exam_plan.submitted',
     jsonb_build_object('student_id', p_student_id, 'exam_plan_id', new_plan.id, 'audience', 'missionaccounts_admin'),
     'pending',
@@ -1504,7 +1513,8 @@ create function missionaccounts.api_transition_exam_plan(
   p_today date,
   p_actor_id text,
   p_actor_role text,
-  p_request_id text
+  p_request_id text,
+  p_suggested_on date default null
 )
 returns jsonb
 language plpgsql
@@ -1532,6 +1542,12 @@ begin
   if p_result is not null and p_result not in ('passed','not_passed','no_result') then
     raise exception using errcode = '22023', message = 'invalid_exam_result';
   end if;
+  if p_actor_role not in ('student','missionaccounts_admin','founder') then
+    raise exception using errcode = '42501', message = 'exam_transition_forbidden';
+  end if;
+  if p_suggested_on is not null and p_to_state <> 'denied' then
+    raise exception using errcode = '22023', message = 'suggested_date_requires_denial';
+  end if;
 
   select * into prior_transition
   from missionaccounts.exam_transition
@@ -1540,7 +1556,9 @@ begin
     if prior_transition.exam_plan_id <> p_plan_id
        or prior_transition.to_state <> p_to_state
        or prior_transition.result is distinct from p_result
+       or prior_transition.suggested_on is distinct from p_suggested_on
        or prior_transition.actor_id <> p_actor_id
+       or prior_transition.actor_role <> p_actor_role
        or prior_transition.reason is distinct from p_note then
       raise exception using errcode = '23505', message = 'idempotency_key_reuse';
     end if;
@@ -1587,10 +1605,10 @@ begin
   end if;
 
   insert into missionaccounts.exam_transition(
-    exam_plan_id, student_id, from_state, to_state, result, accepted, reason, actor_id, request_id
+    exam_plan_id, student_id, from_state, to_state, result, accepted, reason, actor_id, actor_role, suggested_on, request_id
   ) values (
     current_plan.id, current_plan.student_id, current_plan.state, p_to_state,
-    p_result, transition_allowed, p_note, p_actor_id, p_request_id
+    p_result, transition_allowed, p_note, p_actor_id, p_actor_role, p_suggested_on, p_request_id
   ) returning id into transition_id;
 
   if not transition_allowed then
@@ -1657,6 +1675,11 @@ begin
   set state = p_to_state,
       result = case when p_to_state = 'passed' then 'passed' when p_to_state = 'followup' then p_result else null end,
       note = p_note,
+      suggested_on = case
+        when p_to_state = 'denied' then p_suggested_on
+        when p_to_state in ('approved','pending') then null
+        else suggested_on
+      end,
       decided_by = p_actor_id,
       decided_at = now(),
       passed_on = case
@@ -1681,6 +1704,7 @@ begin
     jsonb_build_object(
       'state', p_to_state,
       'result', p_result,
+      'suggested_on', p_suggested_on,
       'today', p_today,
       'attendance_recompute', recomputed
     ),
@@ -1694,7 +1718,7 @@ begin
     'matrix',
     case when p_actor_role = 'student' then 'missionaccounts_admin' else 'student' end,
     'exam_plan.' || p_to_state,
-    jsonb_build_object('student_id', current_plan.student_id, 'exam_plan_id', current_plan.id, 'state', p_to_state, 'result', p_result),
+    jsonb_build_object('student_id', current_plan.student_id, 'exam_plan_id', current_plan.id, 'state', p_to_state, 'result', p_result, 'suggested_on', p_suggested_on),
     'pending',
     p_request_id || ':exam-plan-transition'
   ) on conflict (idempotency_key) do nothing;
@@ -1711,8 +1735,8 @@ begin
 end;
 $$;
 
-revoke execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text) from public, anon, authenticated;
-grant execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text) to service_role;
+revoke execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text, date) from public, anon, authenticated;
+grant execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text, date) to service_role;
 
 create function missionaccounts.api_set_cycle_policy(
   p_cycle_key text,

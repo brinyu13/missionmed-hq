@@ -223,7 +223,7 @@ export class SupabaseRestStore {
     });
   }
 
-  async transitionExamPlan({ planId, toState, result, note, today, actorId, actorRole, requestId }) {
+  async transitionExamPlan({ planId, toState, result, note, suggestedOn, today, actorId, actorRole, requestId }) {
     return this.rpc('api_transition_exam_plan', {
       p_plan_id: planId,
       p_to_state: toState,
@@ -233,6 +233,7 @@ export class SupabaseRestStore {
       p_actor_id: actorId,
       p_actor_role: actorRole,
       p_request_id: requestId,
+      p_suggested_on: suggestedOn || null,
     });
   }
 
@@ -692,8 +693,13 @@ export class PreviewStore {
     this.stripeCustomers.set(studentId, binding);
     return binding;
   }
-  async submitExamPlan({ studentId, step, examOn, today, actorId, requestId }) {
-    const fingerprint = JSON.stringify({ studentId, step, examOn, actorId });
+  async submitExamPlan({ studentId, step, examOn, today, actorId, actorRole, requestId }) {
+    const effectiveRole = actorRole || (actorId === studentId ? 'student' : 'missionaccounts_admin');
+    if (!['student', 'missionaccounts_admin', 'founder'].includes(effectiveRole)
+      || (effectiveRole === 'student' && actorId !== studentId)) {
+      throw Object.assign(new Error('Exam plan submission forbidden'), { status: 403 });
+    }
+    const fingerprint = JSON.stringify({ studentId, step, examOn, actorId, actorRole: effectiveRole });
     const existing = this.examMutations.get(requestId);
     if (existing) {
       if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
@@ -764,8 +770,8 @@ export class PreviewStore {
     this.compMutations.set(requestId, { fingerprint, result });
     return result;
   }
-  async transitionExamPlan({ planId, toState, result, note, today, actorId, requestId }) {
-    const fingerprint = JSON.stringify({ planId, toState, result, note, today, actorId });
+  async transitionExamPlan({ planId, toState, result, note, suggestedOn, today, actorId, requestId }) {
+    const fingerprint = JSON.stringify({ planId, toState, result, note, suggestedOn, today, actorId });
     const existing = this.examTransitions.get(requestId);
     if (existing) {
       if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
@@ -776,7 +782,7 @@ export class PreviewStore {
     const [studentId, plan] = entry;
     let resultPayload;
     try {
-      const transition = applyExamTransition({ plan, to: toState, actor: actorId, today, result, note });
+      const transition = applyExamTransition({ plan, to: toState, actor: actorId, today, result, note, suggestedOn });
       this.examPlans.set(studentId, transition.plan);
       if (transition.effects.reminder?.state === 'scheduled') {
         const existingReminder = [...this.reminders.values()].find(row => row.exam_plan_id === plan.id);

@@ -203,6 +203,35 @@ if [[ "$cancelled_reminder_results" != "$cancelled_reminder_expected" ]]; then
   exit 1
 fi
 
+admin_exam_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:admin-exam','Admin Exam Entry Test') returning id")
+
+admin_exam_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_submit_exam_plan(
+  '$admin_exam_student_id','s3','2026-11-18','2026-09-06',
+  'wp:admin','missionaccounts_admin','pg-admin-exam-submit-0001'
+)->>'duplicate';
+select missionaccounts.api_transition_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$admin_exam_student_id' and superseded_by_id is null),
+  'denied',null,'Please choose the later sitting','2026-09-06',
+  'wp:admin','missionaccounts_admin','pg-admin-exam-deny-0001','2026-12-02'
+)->>'accepted';
+reset role;
+select
+  (select suggested_on from missionaccounts.exam_plan where student_id='$admin_exam_student_id') || '|' ||
+  (select actor_role from missionaccounts.exam_transition where request_id='pg-admin-exam-deny-0001') || '|' ||
+  (select audience from missionaccounts.notification_outbox where idempotency_key='pg-admin-exam-submit-0001:exam-plan-submitted');
+SQL
+)
+
+admin_exam_expected=$'false\ntrue\n2026-12-02|missionaccounts_admin|student'
+if [[ "$admin_exam_results" != "$admin_exam_expected" ]]; then
+  echo "MissionAccounts administrative exam-entry verification returned unexpected controls:" >&2
+  echo "$admin_exam_results" >&2
+  exit 1
+fi
+
 billing_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 insert into missionaccounts.engine_run(engine_version, source_digest, state)
 values ('integration-v1', repeat('a', 64), 'succeeded');

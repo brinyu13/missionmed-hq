@@ -357,6 +357,27 @@ export function createMissionAccountsServer({
       });
       return json(response, result.duplicate ? 200 : 201, result);
     }
+    const adminExamSubmitRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/exam-plan$/i)
+      : null;
+    if (adminExamSubmitRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'examPlans');
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      if (!['s1', 's2', 's3'].includes(body.step) || !/^\d{4}-\d{2}-\d{2}$/.test(String(body.exam_on || ''))) {
+        throw requestError('Exam plan requires step s1, s2, or s3 and exam_on as YYYY-MM-DD');
+      }
+      const result = await store.submitExamPlan({
+        studentId: adminExamSubmitRoute[1],
+        step: body.step,
+        examOn: body.exam_on,
+        today: localDayFromIso(now().toISOString()),
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
     if (request.method === 'POST' && url.pathname === '/api/me/exam-plan/passed') {
       requireRole(identity, ['student']);
       requireFeature(config, 'examPlans');
@@ -698,6 +719,7 @@ export function createMissionAccountsServer({
       const action = examTransitionRoute[2].toLowerCase();
       const note = String(body.note || '').trim();
       const resultValue = body.result == null ? null : String(body.result);
+      const suggestedOn = body.suggested_on == null || body.suggested_on === '' ? null : String(body.suggested_on);
       const toState = action === 'approve' ? 'approved'
         : action === 'deny' ? 'denied'
           : action === 'reopen' ? 'pending'
@@ -707,6 +729,9 @@ export function createMissionAccountsServer({
       if (action === 'result' && !['passed', 'not_passed', 'no_result'].includes(resultValue)) {
         throw requestError('Result must be passed, not_passed, or no_result');
       }
+      if (suggestedOn && (action !== 'deny' || !/^\d{4}-\d{2}-\d{2}$/.test(suggestedOn))) {
+        throw requestError('A suggested exam date is valid only when asking for another date');
+      }
       if (['deny', 'speak', 'reopen', 'followup'].includes(action) && !note) {
         throw requestError('A reason is required for this exam-plan action');
       }
@@ -715,6 +740,7 @@ export function createMissionAccountsServer({
         toState,
         result: action === 'result' ? resultValue : null,
         note: note || null,
+        suggestedOn,
         today: localDayFromIso(now().toISOString()),
         actorId: identity.userId,
         actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',

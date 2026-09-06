@@ -97,6 +97,10 @@ async function dispatch(action, payload = {}) {
       });
     } else if (action === 'student-exam-submit') {
       await window.MissionAccountsRuntime.mutation('/me/exam-plan', { body: { step: payload.step, exam_on: payload.date } });
+    } else if (action === 'admin-exam-submit') {
+      await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/exam-plan`, {
+        body: { step: payload.step, exam_on: payload.date },
+      });
     } else if (action === 'student-passed') {
       await window.MissionAccountsRuntime.mutation('/me/exam-plan/passed', { body: {} });
     } else if (action === 'exam-transition') {

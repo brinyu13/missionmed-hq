@@ -21,7 +21,7 @@ export function thirdWednesdayAfter(examOn) {
   throw new Error('third Wednesday could not be calculated');
 }
 
-export function transitionExamPlan({ plan, to, actor, today, result = null, note = null }) {
+export function transitionExamPlan({ plan, to, actor, today, result = null, note = null, suggestedOn = null }) {
   if (!plan?.id || !TRANSITIONS[plan.state]?.has(to)) {
     throw new Error(`invalid exam transition ${plan?.state || 'none'} -> ${to}`);
   }
@@ -37,6 +37,8 @@ export function transitionExamPlan({ plan, to, actor, today, result = null, note
     at,
   };
   const next = { ...plan, state: to, result, note, decided_by: actor, decided_at: at };
+  if (to === 'denied') next.suggested_on = suggestedOn;
+  else if (['approved', 'pending'].includes(to)) next.suggested_on = null;
   const effects = { audit, open_grace: null, close_grace: null, reminder: null };
 
   if (to === 'approved') {
