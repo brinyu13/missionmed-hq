@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "d7c906ca63fd6aef03b7527fbc7cb81b1c0bd0e4",
+  "implementation_commit": "2d80ce1aa69afff12d0e3281b3e15d32ce14e209",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -16,7 +16,8 @@
     "76990dbdadd38941dfd05218866f3e776115f06a",
     "5aa0c137a6c9b694aa699e789ee61a46168da4a8",
     "a5e16c868cbaed68fd82699b14ee68e65b009c48",
-    "d7c906ca63fd6aef03b7527fbc7cb81b1c0bd0e4"
+    "d7c906ca63fd6aef03b7527fbc7cb81b1c0bd0e4",
+    "2d80ce1aa69afff12d0e3281b3e15d32ce14e209"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -35,16 +36,28 @@
   "student_passed_implemented": true,
   "admin_projections_implemented": true,
   "notification_outbox_worker_implemented": true,
+  "historical_importer_implemented": true,
+  "historical_import_tested": true,
+  "historical_import_applied_to_production": false,
   "notification_transport_configured": false,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
   "tests": { "passed": 69, "failed": 0, "mandatory_vectors": 17 },
   "source_controls": {
+    "students": 271,
+    "identity_review_students": 60,
+    "sessions": 419,
+    "confirmed_sessions": 100,
+    "raw_source_rows": 5498,
     "attendance_events": 3941,
+    "exact_linked_events": 3937,
+    "unlinked_events": 4,
     "human_cycle_rows": 498,
     "cycle_unique_days": [1072, 1141, 1051],
     "cycle_amounts_usd": [25425, 26575, 25075],
-    "total_usd": 77075
+    "total_usd": 77075,
+    "historical_cap_candidates": 74,
+    "historical_caps_verified": 0
   },
   "feature_flags": {
     "missionaccounts_route": false,
@@ -53,6 +66,7 @@
     "exam_plans": false,
     "comp_days": false,
     "auto_billing": false,
+    "notifications": false,
     "zoom_sync": false
   },
   "blockers": [

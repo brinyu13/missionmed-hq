@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Implementation commits:** `9d580e3f0d22068355ed86f2bd66a4610e8cea46`, `44de639b12f9d00707c8e43a8a62015941a0140e`, `ef72709aabcf1768c2b8116cb796907899ffc263`, `b402c5326abe0a4668166d4637ea91b97a11d691`, `8412990629be7900412fe251e575cfabf655f87d`, `3608a7397e7aad16b2074fa027aa80b6b956bafb`, `d009476c8793e60d4f5f0e9aeefc3a549a839a5d`, `df7f65a63c92851edf64bc0cc899f267ba8e91ff`, `26db3c0c0ba515e09f3678d5ef898813eced5c92`, `76990dbdadd38941dfd05218866f3e776115f06a`, `5aa0c137a6c9b694aa699e789ee61a46168da4a8`, `a5e16c868cbaed68fd82699b14ee68e65b009c48`, `d7c906ca63fd6aef03b7527fbc7cb81b1c0bd0e4`
+**Latest implementation commit:** `2d80ce1aa69afff12d0e3281b3e15d32ce14e209`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -27,6 +27,7 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - student-owned Passed submission that resolves the current plan from the authenticated identity and is independently ownership-checked inside PostgreSQL;
 - role-protected, server-derived admin home, cycle, student-directory, and student-detail projections;
 - retry-safe notification outbox claiming/acknowledgement with `SKIP LOCKED`, bounded batches, a five-attempt ceiling, exponential delay, provider idempotency, separate worker authentication, and a disabled-by-default HTTPS provider adapter;
+- custody-verified historical importer that checks the authoritative ledger, identity graph, source manifest, and raw Zoom file hashes before creating a private mode-0600 SQL bundle; imports are idempotently keyed, transactional, fully control-counted, and keep all financial and product feature flags off;
 - local HTTP application route and health/session/admin boundaries;
 - all 17 ticket-mandated vectors represented in the automated suite.
 
@@ -45,13 +46,18 @@ No production system or provider was changed.
 | Control | Result |
 |---|---:|
 | Preserved attendance events | 3,941 |
+| Preserved Zoom meeting instances / confirmed Drills sessions | 419 / 100 |
+| Preserved raw Zoom attendance rows | 5,498 |
+| Reconciled identities / identity-review holds | 271 / 60 |
+| Exact-linked events / unlinked events | 3,937 / 4 |
 | Human-cycle rows | 498 |
 | Cycle 1 events / unique days / reduction / amount | 1,295 / 1,072 / 223 / $25,425 |
 | Cycle 2 events / unique days / reduction / amount | 1,390 / 1,141 / 249 / $26,575 |
 | Cycle 3 events / unique days / reduction / amount | 1,256 / 1,051 / 205 / $25,075 |
 | Unique-day total before adjudicated historical caps | $77,075 |
+| Historical `16+ / $300` source-tier candidates / verified | 74 / 0 |
 
-The $77,075 control is an estimate oracle, not a collectible total. Twenty-three source rows could rise above a historical source amount if no verified ceiling is attached. They remain `candidate` / `needs_review`; the implementation never invents cap eligibility.
+The $77,075 control is an estimate oracle, not a collectible total. All 74 human-cycle rows carrying the historical `16+ / $300` tier are preserved as review-only candidates; none is automatically verified. The earlier count of 23 described only the narrower subset whose recalculated unique-day amount could rise above its source amount, not the complete candidate population. The implementation never invents cap eligibility.
 
 ## Exact files changed
 
@@ -60,7 +66,9 @@ All implementation files are under `missionaccounts/`:
 - `.gitignore`, `README.md`, `package.json`
 - `scripts/materialize-canon.mjs`
 - `scripts/validate-source.mjs`
+- `scripts/build-historical-import.mjs`
 - `scripts/test-postgres-migration.sh`
+- `scripts/test-historical-import.sh`
 - `public/missionaccounts-runtime.js`
 - `src/server.mjs`
 - `src/http/body.mjs`
@@ -84,8 +92,9 @@ All implementation files are under `missionaccounts/`:
 
 ## Migration status
 
-- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (2,209 lines).
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (2,210 lines).
 - Applied locally: PASS in a disposable PostgreSQL 16 cluster; schema parse/application plus billing authority, immutable correction flow, exam/grace/reminder effects, comp-override controls, Stripe SetupIntent completion, and billing-consent authorization/revocation passed. No persistent local database was created.
+- Historical import rehearsal: PASS in a separate disposable PostgreSQL 16 cluster. It imported 419 sessions, 5,498 raw source rows, 3,941 reconciled events, and 3,264 attendance days; retained 74 ceiling candidates and 60 identity-review holds; and created zero billing decisions, invoices, charges, verified ceilings, Matrix identities, or enabled flags. The private SQL bundle was deleted with the disposable cluster.
 - Applied to staging/production: NO — target database and migration authority are not registered.
 - Schema is additive and all capability flags seed disabled.
 
@@ -93,6 +102,7 @@ All implementation files are under `missionaccounts/`:
 
 - `npm test`: PASS — 69/69, including V01–V17 plus raw-body webhook, rotated-signature, duplicate-delivery, API-version, authorization, feature gates, billing approval/cap custody, append-only corrections, exam/grace/reminder effects, student Passed ownership, comp overrides, admin projections, payment setup, consent/revocation, signed one-charge-per-day dispatch, and notification-worker retry controls.
 - `npm run test:postgres`: PASS — complete migration applied to disposable PostgreSQL 16; unresolved cap approval was rejected, verified cap produced $300, correction staled approval and voided its draft, re-approval was required, student Passed ownership was enforced, Stripe payment metadata was bound only through a signed SetupIntent event, consent required both approved terms and an on-file method, parallel day-charge dispatch was rejected, only the bound signed PaymentIntent webhook marked the unique $25 charge succeeded, and claimed notifications were success/failure acknowledged with backoff.
+- `npm run test:historical-import`: PASS — all custody hashes, privacy permissions, source/control totals, per-cycle totals, review holds, and zero-financial-mutation boundaries passed in disposable PostgreSQL 16.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
 - `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
 - Node syntax checks across source/scripts/public/tests: PASS.
@@ -136,7 +146,7 @@ The provider boundary exists and fails closed as `not_connected`. No Zoom creden
 6. No verified Matrix notification transport endpoint/credential is registered; the outbox provider remains disabled.
 7. Final automatic-billing terms and live-charge activation remain unapproved.
 
-Because of those facts, protected Matrix edits, database application, live Stripe work, historical import, production deployment, and production smoke tests were not performed.
+Because of those facts, protected Matrix edits, production database application, live Stripe work, production historical import, production deployment, and production smoke tests were not performed. The historical import was rehearsed only in an automatically deleted local PostgreSQL cluster.
 
 ## Required next authority
 
