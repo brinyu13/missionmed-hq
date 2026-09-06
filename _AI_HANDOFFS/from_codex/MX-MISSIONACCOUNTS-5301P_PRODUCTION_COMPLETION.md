@@ -1,0 +1,137 @@
+# MX-MISSIONACCOUNTS-5301P Production Completion
+
+**Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates  
+**Date:** 2026-09-06  
+**Branch:** `codex/mx-missionaccounts-5301p-production`  
+**Implementation commit:** `9d580e3f0d22068355ed86f2bd66a4610e8cea46`  
+**Remote:** `origin/codex/mx-missionaccounts-5301p-production`
+
+## Outcome
+
+MissionAccounts now has a real isolated application foundation rather than another design artifact:
+
+- exact 5300A canon build with hash verification;
+- private-browser-artifact handling so historical student data is not committed;
+- server-authoritative billing-day, source-normalization, exam/grace/reminder, stale-approval, and charge-eligibility engines;
+- additive PostgreSQL schema candidate with immutable source custody, versioned interpretations, append-only corrections/audit, RLS, sanitized payment metadata, Stripe event inbox, notification outbox, feature flags, and Zoom sync boundary;
+- Matrix RS256/JWKS authentication boundary with audience, issuer, expiry, and trusted `app_metadata.roles` enforcement;
+- Stripe Test-Mode-only SetupIntent and one-day PaymentIntent adapters, webhook signature verification, and stable idempotency keys;
+- local HTTP application route and health/session/admin boundaries;
+- all 17 ticket-mandated vectors represented in the automated suite.
+
+No production system or provider was changed.
+
+## Canon and source custody
+
+- 5300A canonical prototype SHA-256: `3cd77871f4cb1bc70d71a87d2fa9fe0f85604969e4cbe94d44aa9816386a82d8` — PASS.
+- 5000B reconciled ledger SHA-256: `6a38967fcb369ba6b9bb71daee8f66697efee0042ab6ebd421a0edf1aaeba108` — PASS.
+- 5000B identity graph SHA-256: `c8e89ab0217c5a6df21e4506f133f06d9470c8cd5b51c81eec356de251bce5ee` — PASS.
+- The generated 831,032-byte UI artifact is gitignored because the canon embeds historical student information.
+- The committed source-validation receipt contains only hashes and aggregate controls, never names, aliases, meeting IDs, or emails.
+
+## Historical controls
+
+| Control | Result |
+|---|---:|
+| Preserved attendance events | 3,941 |
+| Human-cycle rows | 498 |
+| Cycle 1 events / unique days / reduction / amount | 1,295 / 1,072 / 223 / $25,425 |
+| Cycle 2 events / unique days / reduction / amount | 1,390 / 1,141 / 249 / $26,575 |
+| Cycle 3 events / unique days / reduction / amount | 1,256 / 1,051 / 205 / $25,075 |
+| Unique-day total before adjudicated historical caps | $77,075 |
+
+The $77,075 control is an estimate oracle, not a collectible total. Twenty-three source rows could rise above a historical source amount if no verified ceiling is attached. They remain `candidate` / `needs_review`; the implementation never invents cap eligibility.
+
+## Exact files changed
+
+All implementation files are under `missionaccounts/`:
+
+- `.gitignore`, `README.md`, `package.json`
+- `scripts/materialize-canon.mjs`
+- `scripts/validate-source.mjs`
+- `public/missionaccounts-runtime.js`
+- `src/server.mjs`
+- `src/security/auth.mjs`
+- `src/storage/supabase-rest.mjs`
+- `src/payments/stripe.mjs`
+- `src/domain/billing-engine.mjs`
+- `src/domain/charge-engine.mjs`
+- `src/domain/exam-engine.mjs`
+- `src/domain/source-normalizer.mjs`
+- `src/domain/zoom-provider.mjs`
+- `supabase/migrations/20260906062212_missionaccounts_initial_schema.sql`
+- `tests/billing-engine.test.mjs`
+- `tests/exam-engine.test.mjs`
+- `tests/mandatory-vectors.test.mjs`
+- `tests/stripe.test.mjs`
+- `evidence/source-validation.json`
+
+## Migration status
+
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (611 lines).
+- Applied locally: NO — no Docker/PostgreSQL runtime was available.
+- Applied to staging/production: NO — target database and migration authority are not registered.
+- Schema is additive and all capability flags seed disabled.
+
+## Verification
+
+- `npm test`: PASS — 34/34, including V01–V17.
+- `npm run validate:source`: PASS — all aggregate historical controls above.
+- `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
+- Node syntax checks across source/scripts/public/tests: PASS.
+- `git diff --check`: PASS.
+- Local API:
+  - `/api/health`: 200; route, auto-billing, and Zoom flags false.
+  - student `/api/session`: 200.
+  - student access to `/api/admin/health`: 403.
+  - local admin fixture to `/api/admin/health`: 200.
+- Browser:
+  - StoryForge-family opening: PASS.
+  - Admin command home: PASS.
+  - dark theme: PASS.
+  - student lens and same-day one-$25-day labels: PASS.
+
+## Production services touched
+
+None. No Railway project/service, PostgreSQL database, Supabase project, Kinsta/WordPress file, Cloudflare object, Matrix runtime asset, Stripe object, webhook, customer, PaymentMethod, PaymentIntent, invoice, email, notification, Zoom setting, Zoom report, or production student row was created or changed.
+
+## Environment/config changes
+
+None outside the isolated worktree. Local preview used `PORT=4179` and `MISSIONACCOUNTS_AUTH_MODE=local`; local auth fails closed under `NODE_ENV=production`.
+
+## Matrix route registration and production URL
+
+- Matrix route registered: NO.
+- Production URL: expected `/missionaccounts/`, currently not activated.
+- Local preview: `http://127.0.0.1:4179/missionaccounts/?replay=1` while the local process is running.
+
+## Zoom integration status
+
+The provider boundary exists and fails closed as `not_connected`. No Zoom credential, API call, scheduled sync, or production exception queue was activated. Full ingestion remains behind `zoom_sync=false`.
+
+## Blocking evidence
+
+1. `MX-MISSIONACCOUNTS-5301P` is absent from current `missions.json`, `products_index.json`, `authority_index.json`, `CURRENT.md`, and the boot mission profiles.
+2. Mission-specific boot validation fails as unknown mission.
+3. The protected Matrix runtime preflight produced the mandated stale-source warning and found production-origin hash drift for the shell, CSS, PHP loader, Calendar, and StoryForge assets.
+4. No MissionAccounts Railway/PostgreSQL/Stripe/notification production target identity is registered.
+5. Historical full-cycle eligibility evidence is incomplete; source tier labels are candidates, not authorization to collect.
+6. Final automatic-billing terms and live-charge activation remain unapproved.
+
+Because of those facts, protected Matrix edits, database application, live Stripe work, historical import, production deployment, and production smoke tests were not performed.
+
+## Required next authority
+
+- Register the MissionAccounts product, passport, mission, Founder decision, MR-079 amendment, authority routes, mission boot profile, and receipt from a fresh OS worktree.
+- Scope exact isolated Railway/database identities, historical-data custody, Matrix SSO/route files, eligible Dr J/admin/student pilot identities, Stripe Test Mode, notifications, and rollback.
+- Reconcile and re-lock the drifted Matrix production origin before any shared Matrix edit.
+- Approve which 5000B `$300` source candidates are legitimate historical ceilings.
+- Approve final automatic-billing terms before any live automatic charge.
+
+## Rollback
+
+Local candidate rollback is deletion/reversion of the isolated branch only; it has no production effect. A production rollback cannot be authored truthfully until exact provider targets exist. The intended release must be feature-off first, use additive migrations, create fresh database and Kinsta preimages, use immutable release directories/current pointers, and rehearse route/database/provider rollback before activation.
+
+## Founder action still required
+
+Production cannot safely continue without the authority/target and Matrix-lock resolutions listed above. The isolated build can continue to receive local hardening, but no production mutation should be attempted from this state.

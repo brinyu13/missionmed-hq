@@ -1,0 +1,34 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5301P",
+  "result": "PARTIAL",
+  "branch": "codex/mx-missionaccounts-5301p-production",
+  "implementation_commit": "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
+  "production_mutated": false,
+  "matrix_route_registered": false,
+  "migration_created": true,
+  "migration_applied": false,
+  "stripe_objects_created": 0,
+  "zoom_calls_made": 0,
+  "tests": { "passed": 34, "failed": 0, "mandatory_vectors": 17 },
+  "source_controls": {
+    "attendance_events": 3941,
+    "human_cycle_rows": 498,
+    "cycle_unique_days": [1072, 1141, 1051],
+    "cycle_amounts_usd": [25425, 26575, 25075],
+    "total_usd": 77075
+  },
+  "feature_flags": {
+    "missionaccounts_route": false,
+    "exam_plans": false,
+    "comp_days": false,
+    "auto_billing": false,
+    "zoom_sync": false
+  },
+  "blockers": [
+    "mission_not_registered",
+    "matrix_runtime_lock_drift",
+    "production_targets_not_registered",
+    "historical_cap_candidates_not_adjudicated",
+    "automatic_billing_terms_not_approved"
+  ]
+}
