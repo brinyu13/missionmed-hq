@@ -120,6 +120,23 @@ export function createMissionAccountsServer({
         expMonth: paymentMethod.card.exp_month,
         expYear: paymentMethod.card.exp_year,
       });
+    } else if (['payment_intent.succeeded', 'payment_intent.payment_failed'].includes(event.type) && result.status !== 'processed') {
+      const object = event.data.object;
+      const studentId = String(object.metadata?.student_id || '');
+      const attendanceDayId = String(object.metadata?.attendance_day_id || '');
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuid.test(studentId) || !uuid.test(attendanceDayId) || !/^pi_[A-Za-z0-9_]+$/.test(String(object.id || ''))) {
+        throw requestError('Stripe PaymentIntent metadata binding is invalid');
+      }
+      effect = await store.processStripePaymentIntent({
+        eventId: event.id,
+        eventType: event.type,
+        paymentIntentId: object.id,
+        studentId,
+        attendanceDayId,
+        failureCode: object.last_payment_error?.code || null,
+        failureMessage: object.last_payment_error?.message || null,
+      });
     }
     return json(response, 200, { received: true, duplicate: result.duplicate === true || effect?.duplicate === true });
   }
@@ -241,6 +258,43 @@ export function createMissionAccountsServer({
       });
       const status = result.accepted === false ? 409 : result.duplicate ? 200 : action === 'authorize' ? 201 : 200;
       return json(response, status, result);
+    }
+    const dayChargeRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/attendance-days\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/charge$/i)
+      : null;
+    if (dayChargeRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'autoBilling');
+      stripeGateway.assertTestMode();
+      const rawBody = await readRawBody(request, { limitBytes: 16_384 });
+      const body = rawBody.length ? parseJsonBody(rawBody) : {};
+      const requestId = requestIdFor(request);
+      const result = await store.prepareDayCharge({
+        attendanceDayId: dayChargeRoute[1],
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId,
+        explicitRetry: body.explicit_retry === true,
+      });
+      if (result.accepted === false) return json(response, 409, result);
+      if (result.charge.state === 'succeeded') return json(response, 200, { ...result, already_succeeded: true });
+      const paymentIntent = await stripeGateway.createDayCharge({
+        customerId: result.customer_ref,
+        paymentMethodId: result.payment_method_ref,
+        studentId: result.charge.student_id,
+        attendanceDayId: result.charge.attendance_day_id,
+      });
+      if (!/^pi_[A-Za-z0-9_]+$/.test(String(paymentIntent.id || ''))) {
+        throw requestError('Stripe PaymentIntent response is incomplete', 502);
+      }
+      return json(response, result.duplicate ? 200 : 202, {
+        accepted: true,
+        duplicate: result.duplicate === true,
+        charge: result.charge,
+        payment_intent_id: paymentIntent.id,
+        state: 'pending_webhook',
+        audit_event_id: result.audit_event_id || null,
+      });
     }
     const compRoute = request.method === 'POST'
       ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/comp$/i)

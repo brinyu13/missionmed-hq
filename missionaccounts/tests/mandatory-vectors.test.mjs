@@ -222,6 +222,23 @@ test('Stripe SetupIntent completion is transactionally bound to the signed inbox
   assert.doesNotMatch(sql, /grant select[^;]+stripe_customer_private[^;]+authenticated/is);
 });
 
+test('automatic day-charge preparation is database-authoritative and provider completion is signed and retry-safe', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.api_prepare_day_charge/);
+  assert.match(sql, /day_row\.kind <> 'billable'/);
+  assert.match(sql, /decision_row\.treatment <> 'confirm'/);
+  assert.match(sql, /attendance_day_not_in_approved_basis/);
+  assert.match(sql, /method_row\.status <> 'on_file'/);
+  assert.match(sql, /consent_row\.state <> 'authorized'/);
+  assert.match(sql, /reserved_amount_cents \+ 2500 > decision_row\.amount_cents/);
+  assert.match(sql, /create unique index charge_attempt_request_unique/);
+  assert.match(sql, /create function missionaccounts\.api_process_stripe_payment_intent/);
+  assert.match(sql, /stripe_charge_event_binding_mismatch/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_prepare_day_charge[^;]+to service_role/s);
+  assert.match(sql, /grant execute on function missionaccounts\.api_process_stripe_payment_intent[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_prepare_day_charge[^;]+to authenticated/s);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);

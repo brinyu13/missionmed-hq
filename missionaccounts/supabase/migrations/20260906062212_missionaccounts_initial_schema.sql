@@ -435,6 +435,10 @@ create table missionaccounts.charge_attempt (
   attempted_at timestamptz not null default now()
 );
 
+create unique index charge_attempt_request_unique
+  on missionaccounts.charge_attempt(charge_id, provider_request_id)
+  where provider_request_id is not null;
+
 create table missionaccounts.provider_event_inbox (
   id uuid primary key default gen_random_uuid(),
   provider text not null,
@@ -1607,6 +1611,314 @@ $$;
 
 revoke execute on function missionaccounts.api_process_stripe_setup_intent(text, uuid, text, text, text, text, integer, integer) from public, anon, authenticated;
 grant execute on function missionaccounts.api_process_stripe_setup_intent(text, uuid, text, text, text, text, integer, integer) to service_role;
+
+create function missionaccounts.api_prepare_day_charge(
+  p_attendance_day_id uuid,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text,
+  p_explicit_retry boolean default false
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  day_row missionaccounts.attendance_day%rowtype;
+  student_row missionaccounts.student%rowtype;
+  decision_row missionaccounts.billing_decision%rowtype;
+  method_row missionaccounts.payment_method_private%rowtype;
+  consent_row missionaccounts.billing_consent%rowtype;
+  charge_row missionaccounts.charge%rowtype;
+  attempt_row missionaccounts.charge_attempt%rowtype;
+  reserved_amount_cents integer := 0;
+  audit_id uuid;
+  rejection_reason text;
+  request_fingerprint jsonb;
+  existing_rejection jsonb;
+begin
+  if p_attendance_day_id is null
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_actor_role), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'invalid_day_charge_request';
+  end if;
+
+  request_fingerprint := jsonb_build_object(
+    'attendance_day_id', p_attendance_day_id,
+    'actor_id', p_actor_id,
+    'explicit_retry', p_explicit_retry
+  );
+
+  select ca.* into attempt_row
+  from missionaccounts.charge_attempt ca
+  join missionaccounts.charge c on c.id = ca.charge_id
+  where ca.provider_request_id = p_request_id;
+  if found then
+    select * into charge_row from missionaccounts.charge where id = attempt_row.charge_id;
+    if charge_row.attendance_day_id <> p_attendance_day_id then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select * into method_row from missionaccounts.payment_method_private where student_id = charge_row.student_id;
+    return jsonb_build_object(
+      'accepted', true, 'duplicate', true,
+      'charge', jsonb_build_object(
+        'id', charge_row.id, 'student_id', charge_row.student_id,
+        'attendance_day_id', charge_row.attendance_day_id, 'amount_cents', charge_row.amount_cents,
+        'state', charge_row.state, 'idempotency_key', charge_row.idempotency_key
+      ),
+      'customer_ref', method_row.provider_customer_ref,
+      'payment_method_ref', method_row.provider_pm_ref
+    );
+  end if;
+
+  select to_val into existing_rejection
+  from missionaccounts.audit_event
+  where request_id = p_request_id and kind = 'charge.rejected';
+  if found then
+    if existing_rejection->'request' <> request_fingerprint then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    return jsonb_build_object(
+      'accepted', false, 'duplicate', true,
+      'reason', existing_rejection->>'reason',
+      'audit_event_id', (select id from missionaccounts.audit_event where request_id = p_request_id and kind = 'charge.rejected')
+    );
+  end if;
+
+  select * into day_row
+  from missionaccounts.attendance_day
+  where id = p_attendance_day_id and superseded_at is null
+  for update;
+  if not found then rejection_reason := 'current_attendance_day_not_found'; end if;
+
+  if rejection_reason is null then
+    select * into student_row from missionaccounts.student where id = day_row.student_id for update;
+    if student_row.identity_state <> 'verified' then rejection_reason := 'student_identity_requires_review'; end if;
+  end if;
+  if rejection_reason is null and day_row.kind <> 'billable' then rejection_reason := 'attendance_day_not_billable'; end if;
+
+  if rejection_reason is null then
+    select * into decision_row
+    from missionaccounts.billing_decision
+    where student_id = day_row.student_id and cycle_key = day_row.cycle_key
+      and superseded_by_id is null and state = 'approved'
+    for update;
+    if not found then rejection_reason := 'approved_billing_decision_required';
+    elsif decision_row.treatment <> 'confirm' then rejection_reason := 'per_day_billing_decision_required';
+    elsif not exists (
+      select 1
+      from jsonb_array_elements(coalesce(decision_row.basis->'days', '[]'::jsonb)) as approved_day
+      where approved_day->>'id' = day_row.id::text and approved_day->>'kind' = 'billable'
+    ) then rejection_reason := 'attendance_day_not_in_approved_basis';
+    end if;
+  end if;
+
+  if rejection_reason is null then
+    select * into method_row
+    from missionaccounts.payment_method_private
+    where student_id = day_row.student_id
+    for update;
+    if method_row.id is null or method_row.status <> 'on_file' then rejection_reason := 'payment_method_required'; end if;
+  end if;
+
+  if rejection_reason is null then
+    select * into consent_row
+    from missionaccounts.billing_consent
+    where student_id = day_row.student_id and superseded_by_id is null
+    for update;
+    if consent_row.id is null or consent_row.state <> 'authorized' then rejection_reason := 'billing_authorization_required'; end if;
+  end if;
+
+  if rejection_reason is null then
+    select * into charge_row
+    from missionaccounts.charge
+    where attendance_day_id = day_row.id
+    for update;
+    if charge_row.id is not null then
+      if charge_row.state = 'failed' and p_explicit_retry is not true then rejection_reason := 'explicit_retry_required';
+      elsif charge_row.state = 'failed' then null;
+      elsif charge_row.state = 'succeeded' then rejection_reason := 'charge_already_succeeded';
+      elsif charge_row.state = 'refunded' then rejection_reason := 'refunded_day_requires_review';
+      else rejection_reason := 'charge_already_pending';
+      end if;
+    end if;
+  end if;
+
+  if rejection_reason is null then
+    select coalesce(sum(c.amount_cents), 0)::integer into reserved_amount_cents
+    from missionaccounts.charge c
+    join missionaccounts.attendance_day ad on ad.id = c.attendance_day_id
+    where ad.student_id = day_row.student_id and ad.cycle_key = day_row.cycle_key
+      and c.state in ('pending','succeeded')
+      and (charge_row.id is null or c.id <> charge_row.id);
+    if reserved_amount_cents + 2500 > decision_row.amount_cents then
+      rejection_reason := 'approved_amount_exhausted';
+    end if;
+  end if;
+
+  if rejection_reason is not null then
+    insert into missionaccounts.audit_event(
+      actor_id, actor_role, subject_student_id, kind, text, to_val, reason, request_id
+    ) values (
+      p_actor_id, p_actor_role, day_row.student_id, 'charge.rejected',
+      'Automatic day charge rejected by server authority',
+      jsonb_build_object('request', request_fingerprint, 'reason', rejection_reason),
+      rejection_reason, p_request_id
+    ) returning id into audit_id;
+    return jsonb_build_object('accepted', false, 'duplicate', false, 'reason', rejection_reason, 'audit_event_id', audit_id);
+  end if;
+
+  if charge_row.id is null then
+    insert into missionaccounts.charge(
+      student_id, attendance_day_id, amount_cents, state, idempotency_key
+    ) values (
+      day_row.student_id, day_row.id, 2500, 'pending',
+      'missionaccounts:billable-day:' || day_row.id::text || ':v1'
+    ) returning * into charge_row;
+  else
+    update missionaccounts.charge set state = 'pending', updated_at = now()
+    where id = charge_row.id returning * into charge_row;
+  end if;
+
+  insert into missionaccounts.charge_attempt(
+    charge_id, provider_request_id, state, explicit_retry
+  ) values (charge_row.id, p_request_id, 'started', p_explicit_retry)
+  returning * into attempt_row;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, to_val, reason, request_id
+  ) values (
+    p_actor_id, p_actor_role, day_row.student_id, 'charge.started',
+    'Authorized a single $25 attendance-day charge for Stripe dispatch',
+    jsonb_build_object(
+      'charge_id', charge_row.id, 'attendance_day_id', charge_row.attendance_day_id,
+      'amount_cents', charge_row.amount_cents, 'state', charge_row.state,
+      'explicit_retry', p_explicit_retry
+    ),
+    'server_authorized_day_charge', p_request_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'accepted', true, 'duplicate', false, 'audit_event_id', audit_id,
+    'charge', jsonb_build_object(
+      'id', charge_row.id, 'student_id', charge_row.student_id,
+      'attendance_day_id', charge_row.attendance_day_id, 'amount_cents', charge_row.amount_cents,
+      'state', charge_row.state, 'idempotency_key', charge_row.idempotency_key
+    ),
+    'customer_ref', method_row.provider_customer_ref,
+    'payment_method_ref', method_row.provider_pm_ref
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_prepare_day_charge(uuid, text, text, text, boolean) from public, anon, authenticated;
+grant execute on function missionaccounts.api_prepare_day_charge(uuid, text, text, text, boolean) to service_role;
+
+create function missionaccounts.api_process_stripe_payment_intent(
+  p_provider_event_id text,
+  p_event_type text,
+  p_payment_intent_ref text,
+  p_student_id uuid,
+  p_attendance_day_id uuid,
+  p_failure_code text default null,
+  p_failure_message text default null
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  event_row missionaccounts.provider_event_inbox%rowtype;
+  charge_row missionaccounts.charge%rowtype;
+  audit_id uuid;
+  next_state text;
+begin
+  if p_event_type not in ('payment_intent.succeeded','payment_intent.payment_failed')
+     or p_payment_intent_ref !~ '^pi_[A-Za-z0-9_]+$'
+     or p_student_id is null or p_attendance_day_id is null then
+    raise exception using errcode = '22023', message = 'invalid_payment_intent_event';
+  end if;
+
+  select * into event_row
+  from missionaccounts.provider_event_inbox
+  where provider = 'stripe' and provider_event_id = p_provider_event_id
+  for update;
+  if not found then raise exception using errcode = '23503', message = 'stripe_event_not_found'; end if;
+
+  select * into charge_row
+  from missionaccounts.charge
+  where attendance_day_id = p_attendance_day_id
+  for update;
+  if not found then raise exception using errcode = '23503', message = 'charge_not_found'; end if;
+
+  if event_row.state = 'processed' then
+    return jsonb_build_object('accepted', true, 'duplicate', true, 'charge', to_jsonb(charge_row));
+  end if;
+
+  if event_row.signature_verified is not true
+     or event_row.event_type <> p_event_type
+     or event_row.provider_object_id is distinct from p_payment_intent_ref
+     or event_row.payload #>> '{data,object,id}' is distinct from p_payment_intent_ref
+     or event_row.payload #>> '{data,object,metadata,student_id}' is distinct from p_student_id::text
+     or event_row.payload #>> '{data,object,metadata,attendance_day_id}' is distinct from p_attendance_day_id::text
+     or charge_row.student_id <> p_student_id
+     or (charge_row.provider_ref is not null and charge_row.provider_ref <> p_payment_intent_ref) then
+    raise exception using errcode = '22023', message = 'stripe_charge_event_binding_mismatch';
+  end if;
+
+  next_state := case when p_event_type = 'payment_intent.succeeded' then 'succeeded' else 'failed' end;
+  update missionaccounts.charge
+  set provider_ref = p_payment_intent_ref, state = next_state, updated_at = now()
+  where id = charge_row.id
+  returning * into charge_row;
+
+  update missionaccounts.charge_attempt
+  set state = next_state, error_code = p_failure_code, error_message = left(p_failure_message, 2000)
+  where id = (
+    select id from missionaccounts.charge_attempt
+    where charge_id = charge_row.id and state = 'started'
+    order by attempted_at desc limit 1
+  );
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, to_val, reason, request_id
+  ) values (
+    'stripe:' || p_provider_event_id, 'provider', p_student_id,
+    case when next_state = 'succeeded' then 'charge.succeeded' else 'charge.failed' end,
+    case when next_state = 'succeeded' then 'Stripe confirmed a $25 attendance-day charge' else 'Stripe reported an attendance-day charge failure' end,
+    jsonb_build_object(
+      'charge_id', charge_row.id, 'attendance_day_id', charge_row.attendance_day_id,
+      'amount_cents', charge_row.amount_cents, 'state', charge_row.state
+    ),
+    case when next_state = 'succeeded' then 'payment_intent.succeeded' else coalesce(p_failure_code, 'payment_intent.payment_failed') end,
+    'stripe:' || p_provider_event_id || ':charge'
+  ) returning id into audit_id;
+
+  insert into missionaccounts.notification_outbox(
+    student_id, channel, event_kind, payload, state, idempotency_key
+  ) values (
+    p_student_id, 'matrix',
+    case when next_state = 'succeeded' then 'charge.succeeded' else 'charge.failed' end,
+    jsonb_build_object(
+      'attendance_day_id', p_attendance_day_id, 'amount_cents', charge_row.amount_cents,
+      'state', charge_row.state
+    ),
+    'pending', 'stripe:' || p_provider_event_id || ':charge-notification'
+  ) on conflict (idempotency_key) do nothing;
+
+  update missionaccounts.provider_event_inbox
+  set state = 'processed', processed_at = now()
+  where id = event_row.id;
+
+  return jsonb_build_object('accepted', true, 'duplicate', false, 'audit_event_id', audit_id, 'charge', to_jsonb(charge_row));
+end;
+$$;
+
+revoke execute on function missionaccounts.api_process_stripe_payment_intent(text, text, text, uuid, uuid, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_process_stripe_payment_intent(text, text, text, uuid, uuid, text, text) to service_role;
 
 create table missionaccounts.sync_run (
   id uuid primary key default gen_random_uuid(),

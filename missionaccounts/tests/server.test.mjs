@@ -37,7 +37,7 @@ function stripeSignature(body, secret, timestamp) {
 test('Stripe webhook verifies the untouched body and stores a retry only once', async () => {
   const secret = 'whsec_server_test';
   const timestamp = Math.floor(Date.now() / 1000);
-  const body = '{\n  "id": "evt_1", "type": "payment_intent.succeeded", "data": {"object": {"id": "pi_1"}}\n}';
+  const body = '{\n  "id": "evt_1", "type": "customer.updated", "data": {"object": {"id": "cus_1"}}\n}';
   const headers = { 'content-type': 'application/json', 'stripe-signature': stripeSignature(body, secret, timestamp) };
   await withServer({
     config: localConfig,
@@ -276,6 +276,91 @@ test('billing consent stays feature-off and administrator impersonation cannot a
       body,
     });
     assert.equal(admin.status, 403);
+  });
+});
+
+test('a $25 day charge is server-authorized once and reaches succeeded only through its signed Stripe webhook', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, autoBilling: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const attendanceDayId = '10000000-0000-4000-8000-000000000001';
+  const cycleKey = '2026-cycle-1';
+  store.seedAttendanceDays(studentId, cycleKey, [
+    { id: attendanceDayId, day: '2026-09-08', kind: 'billable', event_ids: ['event-1'] },
+  ]);
+  await store.approveBillingDecision({
+    studentId, cycleKey, treatment: 'confirm', requestedAmountCents: null,
+    note: null, actorId: 'admin-1', requestId: 'charge-decision-0001',
+  });
+  await store.saveStripeCustomer({ studentId, customerId: 'cus_test_charge_student' });
+  store.seedPaymentMethod(studentId, { brand: 'visa', last4: '4242', status: 'on_file' });
+  store.seedBillingTerms('test-terms-v1');
+
+  const secret = 'whsec_charge_test';
+  const gateway = new StripeGateway({ webhookSecret: secret });
+  const paymentIntentCalls = [];
+  gateway.assertTestMode = () => {};
+  gateway.createDayCharge = async args => {
+    paymentIntentCalls.push(args);
+    return { id: 'pi_test_day_charge_1' };
+  };
+  const path = `/api/admin/attendance-days/${attendanceDayId}/charge`;
+  const adminHeaders = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin' };
+  await withServer({ config: enabledConfig, store, stripeGateway: gateway }, async base => {
+    const noConsent = await fetch(`${base}${path}`, {
+      method: 'POST', headers: { ...adminHeaders, 'idempotency-key': 'day-charge-request-0000' }, body: '{}',
+    });
+    assert.equal(noConsent.status, 409);
+    assert.equal((await noConsent.json()).reason, 'billing_authorization_required');
+
+    await store.setBillingConsent({
+      studentId, action: 'authorize', termsVersion: 'test-terms-v1', acceptedIp: '127.0.0.1',
+      reason: 'Student accepted test terms', actorId: studentId, requestId: 'charge-consent-0001',
+    });
+    const chargeHeaders = { ...adminHeaders, 'idempotency-key': 'day-charge-request-0001' };
+    const prepared = await fetch(`${base}${path}`, { method: 'POST', headers: chargeHeaders, body: '{}' });
+    assert.equal(prepared.status, 202);
+    const preparedPayload = await prepared.json();
+    assert.equal(preparedPayload.charge.amount_cents, 2_500);
+    assert.equal(preparedPayload.state, 'pending_webhook');
+
+    const retry = await fetch(`${base}${path}`, { method: 'POST', headers: chargeHeaders, body: '{}' });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+    assert.equal(paymentIntentCalls.length, 2);
+    assert.equal(paymentIntentCalls[0].attendanceDayId, attendanceDayId);
+
+    const parallel = await fetch(`${base}${path}`, {
+      method: 'POST', headers: { ...adminHeaders, 'idempotency-key': 'day-charge-request-0002' }, body: '{}',
+    });
+    assert.equal(parallel.status, 409);
+    assert.equal((await parallel.json()).reason, 'charge_already_pending');
+
+    const event = {
+      id: 'evt_charge_success_1',
+      type: 'payment_intent.succeeded',
+      data: { object: {
+        id: 'pi_test_day_charge_1',
+        metadata: { student_id: studentId, attendance_day_id: attendanceDayId },
+      } },
+    };
+    const eventBody = JSON.stringify(event);
+    const timestamp = Math.floor(Date.now() / 1000);
+    const webhookHeaders = { 'content-type': 'application/json', 'stripe-signature': stripeSignature(eventBody, secret, timestamp) };
+    const webhook = await fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers: webhookHeaders, body: eventBody });
+    assert.equal(webhook.status, 200);
+    assert.equal((await webhook.json()).duplicate, false);
+    assert.equal(store.chargesByDay.get(attendanceDayId).state, 'succeeded');
+
+    const webhookRetry = await fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers: webhookHeaders, body: eventBody });
+    assert.equal(webhookRetry.status, 200);
+    assert.equal((await webhookRetry.json()).duplicate, true);
+
+    const afterSuccess = await fetch(`${base}${path}`, {
+      method: 'POST', headers: { ...adminHeaders, 'idempotency-key': 'day-charge-request-0003' }, body: '{}',
+    });
+    assert.equal(afterSuccess.status, 409);
+    assert.equal((await afterSuccess.json()).reason, 'charge_already_succeeded');
   });
 });
 

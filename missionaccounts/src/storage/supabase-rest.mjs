@@ -171,6 +171,28 @@ export class SupabaseRestStore {
     });
   }
 
+  async prepareDayCharge({ attendanceDayId, actorId, actorRole, requestId, explicitRetry }) {
+    return this.rpc('api_prepare_day_charge', {
+      p_attendance_day_id: attendanceDayId,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+      p_explicit_retry: explicitRetry === true,
+    });
+  }
+
+  async processStripePaymentIntent({ eventId, eventType, paymentIntentId, studentId, attendanceDayId, failureCode, failureMessage }) {
+    return this.rpc('api_process_stripe_payment_intent', {
+      p_provider_event_id: eventId,
+      p_event_type: eventType,
+      p_payment_intent_ref: paymentIntentId,
+      p_student_id: studentId,
+      p_attendance_day_id: attendanceDayId,
+      p_failure_code: failureCode || null,
+      p_failure_message: failureMessage || null,
+    });
+  }
+
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
     const rows = await this.request('provider_event_inbox?on_conflict=provider%2Cprovider_event_id', {
       method: 'POST',
@@ -221,6 +243,8 @@ export class PreviewStore {
     this.billingConsents = new Map();
     this.consentMutations = new Map();
     this.stripeCustomers = new Map();
+    this.chargesByDay = new Map();
+    this.chargeMutations = new Map();
   }
 
   async studentByMatrixUser(userId) {
@@ -509,6 +533,88 @@ export class PreviewStore {
     });
     event.state = 'processed';
     return { accepted: true, duplicate: false, audit_event_id: `preview-stripe-audit-${eventId}`, payment_method: this.paymentMethods.get(studentId) };
+  }
+  async prepareDayCharge({ attendanceDayId, actorId, requestId, explicitRetry }) {
+    const fingerprint = JSON.stringify({ attendanceDayId, actorId, explicitRetry: explicitRetry === true });
+    const priorMutation = this.chargeMutations.get(requestId);
+    if (priorMutation) {
+      if (priorMutation.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...priorMutation.result, duplicate: true };
+    }
+    let studentId = null;
+    let cycleKey = null;
+    let day = null;
+    for (const [key, days] of this.attendanceDays) {
+      const match = days.find(item => item.id === attendanceDayId);
+      if (match) {
+        [studentId, cycleKey] = key.split(':');
+        day = match;
+        break;
+      }
+    }
+    const decision = studentId ? this.billingDecisions.get(`${studentId}:${cycleKey}`) : null;
+    const method = studentId ? this.paymentMethods.get(studentId) : null;
+    const consent = studentId ? this.billingConsents.get(studentId) : null;
+    const existingCharge = this.chargesByDay.get(attendanceDayId) || null;
+    let rejection = null;
+    if (!day) rejection = 'current_attendance_day_not_found';
+    else if (day.kind !== 'billable') rejection = 'attendance_day_not_billable';
+    else if (!decision || decision.state !== 'approved') rejection = 'approved_billing_decision_required';
+    else if (decision.treatment !== 'confirm') rejection = 'per_day_billing_decision_required';
+    else if (method?.status !== 'on_file') rejection = 'payment_method_required';
+    else if (consent?.state !== 'authorized') rejection = 'billing_authorization_required';
+    else if (existingCharge?.state === 'failed' && explicitRetry !== true) rejection = 'explicit_retry_required';
+    else if (existingCharge?.state === 'succeeded') rejection = 'charge_already_succeeded';
+    else if (existingCharge?.state === 'refunded') rejection = 'refunded_day_requires_review';
+    else if (existingCharge && existingCharge.state !== 'failed') rejection = 'charge_already_pending';
+    const reservedAmount = [...this.chargesByDay.values()]
+      .filter(charge => charge.student_id === studentId && charge.cycle_key === cycleKey && charge.attendance_day_id !== attendanceDayId && ['pending', 'succeeded'].includes(charge.state))
+      .reduce((sum, charge) => sum + charge.amount_cents, 0);
+    if (!rejection && reservedAmount + 2_500 > decision.amount_cents) rejection = 'approved_amount_exhausted';
+    const ordinal = this.chargeMutations.size + 1;
+    if (rejection) {
+      const result = { accepted: false, reason: rejection, audit_event_id: `preview-charge-audit-${ordinal}` };
+      this.chargeMutations.set(requestId, { fingerprint, result });
+      return result;
+    }
+    const charge = existingCharge || {
+      id: `preview-charge-${this.chargesByDay.size + 1}`,
+      student_id: studentId,
+      cycle_key: cycleKey,
+      attendance_day_id: attendanceDayId,
+      amount_cents: 2_500,
+      idempotency_key: `missionaccounts:billable-day:${attendanceDayId}:v1`,
+    };
+    charge.state = 'pending';
+    this.chargesByDay.set(attendanceDayId, charge);
+    const customer = this.stripeCustomers.get(studentId);
+    const result = {
+      accepted: true,
+      charge: { ...charge },
+      customer_ref: customer?.provider_customer_ref || null,
+      payment_method_ref: `pm_preview_${studentId}`,
+      audit_event_id: `preview-charge-audit-${ordinal}`,
+    };
+    this.chargeMutations.set(requestId, { fingerprint, result });
+    return result;
+  }
+  async processStripePaymentIntent({ eventId, eventType, paymentIntentId, studentId, attendanceDayId, failureCode, failureMessage }) {
+    const event = this.providerEvents.get(`stripe:${eventId}`);
+    const charge = this.chargesByDay.get(attendanceDayId);
+    if (!event || !charge) throw Object.assign(new Error('Stripe charge event cannot be matched'), { status: 409 });
+    if (event.state === 'processed') return { accepted: true, duplicate: true, charge: { ...charge } };
+    const object = event.payload?.data?.object;
+    if (!event.signatureVerified || event.eventType !== eventType || object?.id !== paymentIntentId
+      || object?.metadata?.student_id !== studentId || object?.metadata?.attendance_day_id !== attendanceDayId
+      || charge.student_id !== studentId || (charge.provider_ref && charge.provider_ref !== paymentIntentId)) {
+      throw Object.assign(new Error('Stripe charge event binding mismatch'), { status: 409 });
+    }
+    charge.provider_ref = paymentIntentId;
+    charge.state = eventType === 'payment_intent.succeeded' ? 'succeeded' : 'failed';
+    charge.failure_code = failureCode || null;
+    charge.failure_message = failureMessage || null;
+    event.state = 'processed';
+    return { accepted: true, duplicate: false, audit_event_id: `preview-charge-webhook-audit-${eventId}`, charge: { ...charge } };
   }
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
     const key = `${provider}:${eventId}`;

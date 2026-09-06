@@ -264,4 +264,77 @@ if [[ "$consent_results" != "$consent_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, comp transactions, Stripe payment setup, and billing consent: PASS"
+charge_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_approve_billing_decision(
+  '$student_id','2026-cycle-1','confirm',null,'Re-approved after verified correction',
+  'wp:admin','missionaccounts_admin','pg-billing-0003'
+)->>'accepted';
+select missionaccounts.api_set_billing_consent(
+  '$student_id','authorize','integration-v1','127.0.0.1','Student reauthorized test billing',
+  'wp:4242','student','pg-consent-0007'
+)->>'accepted';
+select missionaccounts.api_prepare_day_charge(
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  'wp:admin','missionaccounts_admin','pg-charge-0001',false
+)->>'accepted';
+select missionaccounts.api_prepare_day_charge(
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  'wp:admin','missionaccounts_admin','pg-charge-0001',false
+)->>'duplicate';
+select missionaccounts.api_prepare_day_charge(
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  'wp:admin','missionaccounts_admin','pg-charge-0002',false
+)->>'reason';
+reset role;
+insert into missionaccounts.provider_event_inbox(
+  provider, provider_event_id, provider_object_id, event_type, payload, signature_verified, state
+) values (
+  'stripe', 'evt_charge_integration', 'pi_test_integration', 'payment_intent.succeeded',
+  jsonb_build_object(
+    'id', 'evt_charge_integration',
+    'type', 'payment_intent.succeeded',
+    'data', jsonb_build_object('object', jsonb_build_object(
+      'id', 'pi_test_integration',
+      'metadata', jsonb_build_object(
+        'student_id', '$student_id',
+        'attendance_day_id', (select id::text from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1)
+      )
+    ))
+  ),
+  true, 'received'
+);
+set role service_role;
+select missionaccounts.api_process_stripe_payment_intent(
+  'evt_charge_integration','payment_intent.succeeded','pi_test_integration','$student_id',
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  null,null
+)->>'duplicate';
+select missionaccounts.api_process_stripe_payment_intent(
+  'evt_charge_integration','payment_intent.succeeded','pi_test_integration','$student_id',
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  null,null
+)->>'duplicate';
+select missionaccounts.api_prepare_day_charge(
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  'wp:admin','missionaccounts_admin','pg-charge-0003',false
+)->>'reason';
+reset role;
+select count(*) || '|' ||
+  (select count(*) from missionaccounts.charge_attempt) || '|' ||
+  (select state from missionaccounts.charge limit 1) || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind = 'charge.started') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind = 'charge.succeeded') || '|' ||
+  (select count(*) from missionaccounts.notification_outbox where event_kind = 'charge.succeeded')
+from missionaccounts.charge;
+SQL
+)
+
+charge_expected=$'true\ntrue\ntrue\ntrue\ncharge_already_pending\nfalse\ntrue\ncharge_already_succeeded\n1|1|succeeded|1|1|1'
+if [[ "$charge_results" != "$charge_expected" ]]; then
+  echo "MissionAccounts automatic day-charge verification returned unexpected controls:" >&2
+  echo "$charge_results" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, comp transactions, Stripe payment setup, billing consent, and one-charge-per-day dispatch: PASS"
