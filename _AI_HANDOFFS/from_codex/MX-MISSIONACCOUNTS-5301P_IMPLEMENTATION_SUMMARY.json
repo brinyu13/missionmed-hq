@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "3f2bb24e6a23009fec76b69fcd927181ba96c107",
+  "implementation_commit": "c1771c73cf0b4a457697354c95152c1e777a85b8",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -22,7 +22,9 @@
     "95d4e583624ad94be5c3fe090b21fbf46f737bc5",
     "a424f88dfb9e130bedaf9f275622ec408e2b941a",
     "e0ddd0e85069772ee2c6957f13bf6462c42dacd0",
-    "3f2bb24e6a23009fec76b69fcd927181ba96c107"
+    "3f2bb24e6a23009fec76b69fcd927181ba96c107",
+    "5751b511244113f55abad0492fe274961577430e",
+    "c1771c73cf0b4a457697354c95152c1e777a85b8"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -32,6 +34,8 @@
   "exam_plan_rpc_implemented": true,
   "comp_allowance_rpc_implemented": true,
   "exam_transition_rpc_implemented": true,
+  "exam_plan_replacement_closes_grace": true,
+  "cycle_policy_rpc_implemented": true,
   "billing_decision_rpc_implemented": true,
   "attendance_correction_rpc_implemented": true,
   "attendance_recompute_rpc_implemented": true,
@@ -52,7 +56,7 @@
   "notification_transport_configured": false,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 72, "failed": 0, "mandatory_vectors": 17 },
+  "tests": { "passed": 75, "failed": 0, "mandatory_vectors": 17 },
   "source_controls": {
     "students": 271,
     "source_artifacts": 6,

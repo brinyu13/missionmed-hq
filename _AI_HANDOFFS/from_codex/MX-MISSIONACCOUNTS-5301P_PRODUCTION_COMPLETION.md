@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Latest implementation commit:** `3f2bb24e6a23009fec76b69fcd927181ba96c107`
+**Latest implementation commit:** `c1771c73cf0b4a457697354c95152c1e777a85b8`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -19,6 +19,8 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - feature-gated student exam-plan submission with authenticated self-resolution, a transactional/idempotent PostgreSQL RPC, immutable transition and audit rows, prior-plan supersession, and notification outbox insertion;
 - feature-gated Dr J/admin comp-day override with mandatory reason, idempotent PostgreSQL transaction, joined-date custody, prospective lock preservation by default, explicit retroactive-release handling, and append-only change/audit evidence;
 - feature-gated Dr J/admin exam decisions with the canonical transition matrix, exact local-date grace opening/closure, third-Wednesday reminder scheduling/cancellation, student notification outbox entries, idempotent retries, and preserved audit rows for rejected transitions;
+- exam-plan replacement now closes any prior open grace window on the server-supplied Eastern local date, cancels the prior reminder, recomputes attendance when grace changed, and remains idempotent even when replacement happens before the old exam date;
+- a versioned 13–15-day cycle-policy gate (`cap`, `per`, or reopened `pending`) that is admin-only, reason-required, idempotent, audited, RLS-protected, reflected in approval basis, and stales/voids only affected-cycle unsent decisions/invoices;
 - feature-gated billing approval that derives totals only from current server-side attendance days, rejects unresolved identities and historical cap candidates, enforces verified ceilings, supersedes old decisions, and creates only unsent draft invoices;
 - feature-gated append-only attendance corrections that preserve source rows, support reversible add/remove and step interpretation, stale affected approvals, and void only unsent stale invoices;
 - a transactional attendance recomputation authority that versions persisted day rows after attendance corrections, comp changes, and accepted exam/grace transitions; stales prior approvals and voids only draft/ready invoices before any re-approval can occur;
@@ -98,7 +100,7 @@ All implementation files are under `missionaccounts/`:
 
 ## Migration status
 
-- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (2,682 lines).
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (2,854 lines).
 - Applied locally: PASS in a disposable PostgreSQL 16 cluster; schema parse/application plus billing authority, append-only correction/reversal flow, mutation-triggered attendance recomputation, exam/grace/reminder effects, comp-override controls, Stripe SetupIntent completion, and billing-consent authorization/revocation passed. No persistent local database was created.
 - Historical import rehearsal: PASS in a separate disposable PostgreSQL 16 cluster. It imported 419 sessions, 5,498 raw source rows, 3,941 reconciled events, and 3,264 attendance days; retained 74 ceiling candidates and 60 identity-review holds; and created zero billing decisions, invoices, charges, verified ceilings, Matrix identities, or enabled flags. The private SQL bundle was deleted with the disposable cluster.
 - Applied to staging/production: NO — target database and migration authority are not registered.
@@ -106,7 +108,7 @@ All implementation files are under `missionaccounts/`:
 
 ## Verification
 
-- `npm test`: PASS — 72/72, including V01–V17 plus raw-body webhook, rotated-signature, duplicate-delivery, API-version, authorization, feature gates, billing approval/cap custody, append-only correction reversals, persisted attendance recomputation, exam/grace/reminder effects, student Passed ownership, comp overrides, admin/identity projections, payment setup/removal, consent/revocation, signed one-charge-per-day dispatch, and notification-worker retry controls.
+- `npm test`: PASS — 75/75, including V01–V17 plus raw-body webhook, rotated-signature, duplicate-delivery, API-version, authorization, feature gates, billing approval/cap custody, audited 13–15-day cycle policy, append-only correction reversals, persisted attendance recomputation, exam-plan replacement/grace closure, exam/grace/reminder effects, student Passed ownership, comp overrides, admin/identity projections, payment setup/removal, consent/revocation, signed one-charge-per-day dispatch, and notification-worker retry controls.
 - `npm run test:postgres`: PASS — complete migration applied to disposable PostgreSQL 16; unresolved cap approval was rejected, verified cap produced $300, correction staled approval and voided its draft, an immutable appended reversal restored attendance, comp/correction/grace mutations regenerated current day rows before re-approval, student Passed ownership was enforced, Stripe payment metadata was bound only through a signed SetupIntent event, consent required both approved terms and an on-file method, payment removal revoked consent before two-phase provider completion, parallel day-charge dispatch was rejected, only the bound signed PaymentIntent webhook marked the unique $25 charge succeeded, and claimed notifications were success/failure acknowledged with backoff.
 - `npm run test:historical-import`: PASS — all custody hashes, privacy permissions, source/control totals, per-cycle totals, review holds, and zero-financial-mutation boundaries passed in disposable PostgreSQL 16.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
