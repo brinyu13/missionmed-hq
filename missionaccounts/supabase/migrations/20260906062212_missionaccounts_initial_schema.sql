@@ -62,6 +62,39 @@ create table missionaccounts.identity_alias (
   unique (source_artifact_id, source_key)
 );
 
+create table missionaccounts.identity_cluster (
+  ref text primary key,
+  source_artifact_id uuid not null references missionaccounts.source_artifact(id),
+  state text not null default 'open' check (state in ('open','resolved')),
+  evidence jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table missionaccounts.identity_cluster_member (
+  cluster_ref text not null references missionaccounts.identity_cluster(ref),
+  identity_alias_id uuid not null references missionaccounts.identity_alias(id),
+  created_at timestamptz not null default now(),
+  primary key (cluster_ref, identity_alias_id)
+);
+
+create table missionaccounts.identity_decision (
+  id uuid primary key default gen_random_uuid(),
+  cluster_ref text not null references missionaccounts.identity_cluster(ref),
+  decision text not null check (decision in ('same','different','unsure')),
+  canonical_student_id uuid references missionaccounts.student(id),
+  note text,
+  decided_by text not null,
+  request_id text not null unique,
+  superseded_by_id uuid references missionaccounts.identity_decision(id),
+  decided_at timestamptz not null default now(),
+  check (decision <> 'same' or canonical_student_id is not null)
+);
+
+create unique index identity_decision_one_current
+  on missionaccounts.identity_decision(cluster_ref)
+  where superseded_by_id is null;
+
 create table missionaccounts.cycle (
   key text primary key,
   label text not null,
@@ -2332,7 +2365,8 @@ do $$
 declare table_name text;
 begin
   foreach table_name in array array[
-    'student','identity_alias','session','attendance_source_row','attendance_event',
+    'student','identity_alias','identity_cluster','identity_cluster_member','identity_decision',
+    'session','attendance_source_row','attendance_event',
     'attendance_event_source_row','attendance_correction','attendance_day',
     'attendance_day_event','historical_account_source','full_cycle_ceiling',
     'comp_allowance_change','comp_day_consumption','exam_plan','exam_transition',

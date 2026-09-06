@@ -122,6 +122,41 @@ const importRunId = uuidFor(`import:${ledgerArtifact.sha256}`);
 const engineRunId = uuidFor(`engine:historical-v1:${ledgerArtifact.sha256}`);
 
 const unresolvedKeys = new Set(ledger.unresolved_relationships.flatMap(item => [item.alias_a_key, item.alias_b_key]).filter(Boolean));
+const unresolvedAdjacency = new Map([...unresolvedKeys].map(key => [key, new Set()]));
+for (const relationship of ledger.unresolved_relationships) {
+  unresolvedAdjacency.get(relationship.alias_a_key).add(relationship.alias_b_key);
+  unresolvedAdjacency.get(relationship.alias_b_key).add(relationship.alias_a_key);
+}
+const clusteredKeys = new Set();
+const identityClusters = [];
+for (const root of [...unresolvedKeys].sort()) {
+  if (clusteredKeys.has(root)) continue;
+  const pending = [root];
+  const members = [];
+  clusteredKeys.add(root);
+  while (pending.length) {
+    const key = pending.pop();
+    members.push(key);
+    for (const adjacent of unresolvedAdjacency.get(key) || []) {
+      if (clusteredKeys.has(adjacent)) continue;
+      clusteredKeys.add(adjacent);
+      pending.push(adjacent);
+    }
+  }
+  members.sort();
+  const memberSet = new Set(members);
+  const relationships = ledger.unresolved_relationships.filter(item => memberSet.has(item.alias_a_key) && memberSet.has(item.alias_b_key));
+  identityClusters.push({
+    ref: `cluster:${sha256(members.join('|')).slice(0, 20)}`,
+    members,
+    evidence: {
+      source: 'MX-EXAMPREP-5000B_Reconciled_Ledger.json',
+      source_group_ids: relationships.map(item => item.group_id),
+      relationships,
+      status: 'REVIEW_REQUIRED',
+    },
+  });
+}
 const graphNodes = new Map(graph.nodes.map(node => [node.identity_key, node]));
 const studentSourceKeys = new Map();
 const students = new Map();
@@ -296,10 +331,13 @@ const controls = {
   students_with_email: [...students.values()].filter(student => student.email).length,
   events_without_exact_source_link: eventRows.length - linkedEventIds.size,
   cap_candidates: capCandidates.length,
+  identity_clusters: identityClusters.length,
+  identity_cluster_members: identityClusters.reduce((total, cluster) => total + cluster.members.length, 0),
 };
 if (controls.students !== 271 || controls.sessions !== 419 || controls.confirmed_sessions !== 100
   || controls.raw_source_rows !== 5498 || controls.attendance_events !== 3941 || controls.attendance_days !== 3264
-  || controls.cap_candidates !== 74 || controls.events_without_exact_source_link !== 4) throw new Error(`Historical import controls failed: ${JSON.stringify(controls)}`);
+  || controls.cap_candidates !== 74 || controls.events_without_exact_source_link !== 4
+  || controls.identity_clusters !== 27 || controls.identity_cluster_members !== 60) throw new Error(`Historical import controls failed: ${JSON.stringify(controls)}`);
 
 const statements = ['begin;', "set local timezone = 'America/New_York';"];
 statements.push(valuesStatement('source_artifact', ['id','source_kind','source_path','sha256','byte_count','observed_at'], artifactRows.map(item => [item.id,item.kind,item.path,item.digest,item.bytes,ledger.generated_at])));
@@ -323,6 +361,8 @@ statements.push(valuesStatement('identity_alias', ['id','student_id','source_art
   const display = node.raw_names?.[0] || node.normalized_name || node.normalized_email || node.identity_key;
   return [uuidFor(`alias:${node.identity_key}`),student?.id || null,graphArtifactId,node.identity_key,display,state,numeric(node.confidence),state === 'verified' ? 'MX-EXAMPREP-5000B' : null,state === 'verified' ? ledger.generated_at : null];
 })));
+statements.push(valuesStatement('identity_cluster', ['ref','source_artifact_id','state','evidence'], identityClusters.map(cluster => [cluster.ref,ledgerArtifactId,'open',JSON.stringify(cluster.evidence)])));
+statements.push(valuesStatement('identity_cluster_member', ['cluster_ref','identity_alias_id'], identityClusters.flatMap(cluster => cluster.members.map(sourceKey => [cluster.ref,uuidFor(`alias:${sourceKey}`)]))));
 statements.push(valuesStatement('session', ['id','cycle_key','source_artifact_id','provider','provider_meeting_id','provider_instance_id','starts_at','held_on','time_zone','step','state','source_payload'], [...sessions.values()].map(session => [session.id,session.cycle.key,session.artifact_id,'zoom',session.meeting_id,session.instance_id,session.starts_at,session.held_on,'America/New_York',session.step,session.state,JSON.stringify({ historical_import: true, confirmed_by_5000b: session.confirmed })])));
 statements.push(valuesStatement('attendance_source_row', ['id','import_run_id','session_id','provider_source_id','participant_source_id','display_name','joined_at','left_at','duration_seconds','payload','payload_sha256'], rawSourceRows.map(row => [row.id,importRunId,row.session_id,row.provider_source_id,row.participant_source_id,row.display_name,row.joined_at,row.left_at,row.duration_seconds,JSON.stringify(row.payload),row.payload_sha256])));
 statements.push(valuesStatement('attendance_event', ['id','student_id','session_id','cycle_key','local_day','step','interpretation_state','provenance'], eventRows.map(event => [event.id,event.student_id,event.session_id,event.cycle_key,event.local_day,event.step,event.interpretation_state,JSON.stringify(event.provenance)])));
@@ -340,6 +380,8 @@ statements.push(`do $verify$ begin
   if (select count(*) from missionaccounts.attendance_source_row) <> 5498 then raise exception 'source_row_control_failed'; end if;
   if (select count(*) from missionaccounts.attendance_event) <> 3941 then raise exception 'event_control_failed'; end if;
   if (select count(*) from missionaccounts.attendance_day) <> 3264 then raise exception 'day_control_failed'; end if;
+  if (select count(*) from missionaccounts.identity_cluster where state='open') <> 27 then raise exception 'identity_cluster_control_failed'; end if;
+  if (select count(*) from missionaccounts.identity_cluster_member) <> 60 then raise exception 'identity_cluster_member_control_failed'; end if;
   if (select count(*) from missionaccounts.full_cycle_ceiling where status='candidate') <> 74 then raise exception 'cap_candidate_control_failed'; end if;
 end $verify$;`);
 statements.push('commit;');
