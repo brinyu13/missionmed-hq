@@ -1,0 +1,50 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import test from "node:test";
+
+const read=(relativePath)=>readFileSync(new URL(`../${relativePath}`,import.meta.url),"utf8");
+const index=read("web/index.html");
+const upgradeCss=read("web/styles/407f-upgrade.css");
+
+function extract(tagExpression){
+  const match=index.match(tagExpression);
+  assert.ok(match,`missing candidate region: ${tagExpression}`);
+  return match[0];
+}
+
+test("Founder-refined D1-405 rail contains Home, Builder, Edit Timeline, Media, and Export in order",()=>{
+  const rail=extract(/<nav id="rail"[\s\S]*?<\/nav>/);
+  const items=[...rail.matchAll(/<button class="rtab(?: on)?" data-v="([^"]+)">([^<]+)<\/button>/g)]
+    .map((match)=>({route:match[1],label:match[2]}));
+  assert.deepEqual(items,[
+    {route:"command",label:"Home"},
+    {route:"builder",label:"Builder"},
+    {route:"canvas",label:"Edit Timeline"},
+    {route:"media",label:"Media"},
+    {route:"export",label:"Export"}
+  ]);
+  assert.equal((rail.match(/class="rtab/g)||[]).length,5);
+  assert.doesNotMatch(rail,/Command|Intake|Review|Advisor|Questions|Versions|Reference|railFoot/);
+});
+
+test("D1-405 header preserves 407F identity with MissionMed branding and removes the legacy HUD",()=>{
+  const header=extract(/<header class="d1404Header">[\s\S]*?<\/header>/);
+  assert.match(header,/id="matrixBack"[^>]+>← MATRIX<\/a>/);
+  assert.match(header,/MissionMed<b>\/\/<\/b>TimelineBuilder/);
+  assert.match(header,/Mission:Residency Division/);
+  assert.match(header,/id="hudSave" role="status" aria-live="polite"/);
+  assert.match(header,/id="hudExport" data-nav="export" disabled aria-disabled="true"/);
+  assert.doesNotMatch(header,/hudMid|hudRight|hudName|hudDraft|hudCount|hudAxis|hudGate|hudSafe|mpWrap|lvlHex|xpWrap|avHex/);
+  assert.doesNotMatch(index,/DRAFT STATUS/);
+});
+
+test("M1 uses one 407F runtime seam and no white-shell activation",()=>{
+  assert.match(index,/<link rel="stylesheet" href="\.\/styles\/407f-upgrade\.css">/);
+  assert.match(index,/<script type="module" src="\.\/js\/407f-engineering-adapter\.js"><\/script>/);
+  assert.doesNotMatch(index,/src=["']\.\/js\/app\.js["']/);
+  assert.doesNotMatch(index,/href=["']\.\/styles\.css["']/);
+  assert.match(index,/renderAll:renderAll/);
+  assert.match(index,/document\.dispatchEvent\(new CustomEvent\('d1:407f-rendered'\)\)/);
+  assert.match(upgradeCss,/outline:2px solid var\(--cy\)/);
+  assert.match(upgradeCss,/@media \(prefers-reduced-motion:reduce\)/);
+});
