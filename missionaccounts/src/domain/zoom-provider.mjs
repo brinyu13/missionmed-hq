@@ -35,11 +35,15 @@ export class ZoomAttendanceProvider {
     this.now = now;
   }
 
+  isConfigured() {
+    return this.mode === 'configured'
+      && typeof this.client?.listCompletedMeetings === 'function'
+      && typeof this.client?.listParticipants === 'function'
+      && typeof this.classifyMeeting === 'function';
+  }
+
   assertConfigured() {
-    if (this.mode !== 'configured'
-      || typeof this.client?.listCompletedMeetings !== 'function'
-      || typeof this.client?.listParticipants !== 'function'
-      || typeof this.classifyMeeting !== 'function') {
+    if (!this.isConfigured()) {
       throw providerError('ZoomAttendanceProvider is not configured', 503);
     }
   }

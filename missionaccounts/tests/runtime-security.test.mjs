@@ -33,6 +33,17 @@ async function withServer(options, run) {
 test('production shell preserves the canon but contains no historical roster payload or browser business state', async () => {
   const html = await readFile(productionShellPath, 'utf8');
   assert.match(html, /data-missionaccounts-build="production"/);
+  assert.match(html, /<title>MissionAccounts · MissionMed Institute<\/title>/);
+  assert.match(html, /MissionAccounts · server-authoritative record/);
+  assert.match(html, /Server-authoritative state/);
+  assert.match(html, /Automatic billing remains disabled|automatic billing remains disabled/);
+  assert.match(html, /function paymentSheet\(si, mode\)\{ if\(document\.documentElement\.dataset\.missionaccountsBuild==='production'\)/);
+  assert.match(html, /function reportSheet\(\)\{ if\(document\.documentElement\.dataset\.missionaccountsBuild==='production'\)/);
+  assert.match(html, /id="missionaccounts-runtime-gate-style"/);
+  assert.match(html, /data-missionaccounts-runtime="authenticated-readonly"/);
+  assert.match(html, /\[data-reset\][^\n]*display:none!important/);
+  assert.match(html, /id="missionaccountsRuntimeGate"/);
+  assert.doesNotMatch(html, /<title>[^<]*prototype<\/title>|Prototype · view as|Prototype — your decisions are saved in this browser only/);
   assert.match(html, /authenticated-role-scoped-runtime/);
   assert.match(html, /src="\.\/missionaccounts-runtime\.js"/);
   assert.doesNotMatch(html, /MX-EXAMPREP-5000B_Reconciled_Ledger/);
@@ -40,6 +51,9 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /missionaccountsBuild==='production'\) return fresh\(\)/);
   assert.match(html, /missionaccountsBuild==='production'\) return;/);
   assert.match(html, /function hydrateAuthoritative\(nextD,nextWS,idMaps\)/);
+  assert.match(html, /function missionAccountsZoomHealth\(\)/);
+  assert.match(html, /scheduler not registered/);
+  assert.match(html, /integration exception/);
   assert.match(html, /Authoritative hydration is production-only/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('billing-decision'/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('student-contact'/);
@@ -166,6 +180,8 @@ test('browser runtime requests the authenticated role-scoped bootstrap before an
   assert.match(source, /\['passed', 'not_passed', 'no_result'\]\.includes\(payload\.action\)/);
   assert.match(source, /await refreshCanonical\(\)/);
   assert.match(source, /missionaccountsRuntime = state\.bootstrap \? 'authenticated-readonly'/);
+  assert.match(source, /function updateRuntimeGate\(message\)/);
+  assert.match(source, /updateRuntimeGate\(state\.error\)/);
   assert.doesNotMatch(source, /missionaccountsRuntime\s*=\s*['"]ready['"]/);
 });
 

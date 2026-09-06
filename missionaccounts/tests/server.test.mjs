@@ -555,6 +555,8 @@ test('UI bootstrap is role-scoped and works from the mounted MissionAccounts rou
     assert.equal(admin.canon.students.length, 1);
     assert.equal(admin.canon.identity_clusters.length, 1);
     assert.equal(admin.health.mode, 'preview');
+    assert.equal(admin.health.zoom_sync_enabled, false);
+    assert.equal(admin.health.zoom_provider_configured, false);
     assert.equal(Object.hasOwn(admin, 'account'), false);
   });
 });

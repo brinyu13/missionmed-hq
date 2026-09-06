@@ -9,6 +9,19 @@ const sessionTwo = '10000000-0000-4000-8000-000000000002';
 function bootstrap(scope = 'student') {
   return {
     scope,
+    ...(scope === 'admin' ? {
+      health: {
+        zoom_sync_enabled: true,
+        zoom_provider_configured: true,
+        open_integration_exceptions: 2,
+        failed_provider_events: 1,
+        failed_notifications: 0,
+        latest_zoom_sync: {
+          state: 'ok', started_at: '2026-09-06T12:00:00Z', finished_at: '2026-09-06T12:02:00Z', error: null,
+          stats: { sessions: 3, source_rows: 57, private_detail: 'must not pass through' },
+        },
+      },
+    } : {}),
     account: scope === 'student' ? {
       payment_method: { status: 'on_file', brand: 'visa', last4: '4242', exp_month: 8, exp_year: 2029 },
       billing_consent: { state: 'authorized' },
@@ -67,6 +80,18 @@ test('canonical adapter exposes meeting references only inside an admin-scoped p
   assert.equal(student.data.sessions[0].m, '');
   assert.equal(admin.data.sessions[0].m, 'meeting-1');
   assert.equal(admin.working.lens, 'admin');
+  assert.equal(Object.hasOwn(student.data.meta, 'integration_health'), false);
+  assert.deepEqual(admin.data.meta.integration_health, {
+    zoom_sync_enabled: true,
+    zoom_provider_configured: true,
+    latest_zoom_sync: {
+      state: 'ok', started_at: '2026-09-06T12:00:00Z', finished_at: '2026-09-06T12:02:00Z', error: '',
+      stats: { sessions: 3, source_rows: 57 },
+    },
+    open_integration_exceptions: 2,
+    failed_provider_events: 1,
+    failed_notifications: 0,
+  });
 });
 
 test('canonical adapter rejects a payload whose authenticated scope and data scope disagree', () => {

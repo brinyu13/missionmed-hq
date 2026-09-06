@@ -24,6 +24,35 @@ function safeDateMs(value) {
   return Number.isFinite(milliseconds) ? milliseconds : Date.now();
 }
 
+function safeCount(value) {
+  const count = Number(value);
+  return Number.isInteger(count) && count >= 0 ? count : 0;
+}
+
+function integrationHealth(bootstrap) {
+  if (bootstrap?.scope !== 'admin') return null;
+  const health = bootstrap.health || {};
+  const sourceSync = health.latest_zoom_sync;
+  const latestZoomSync = sourceSync && typeof sourceSync === 'object' ? {
+    state: ['ok', 'failed', 'running'].includes(sourceSync.state) ? sourceSync.state : 'unknown',
+    started_at: sourceSync.started_at || null,
+    finished_at: sourceSync.finished_at || null,
+    error: String(sourceSync.error || '').slice(0, 300),
+    stats: {
+      sessions: safeCount(sourceSync.stats?.sessions),
+      source_rows: safeCount(sourceSync.stats?.source_rows),
+    },
+  } : null;
+  return {
+    zoom_sync_enabled: health.zoom_sync_enabled === true,
+    zoom_provider_configured: health.zoom_provider_configured === true,
+    latest_zoom_sync: latestZoomSync,
+    open_integration_exceptions: safeCount(health.open_integration_exceptions),
+    failed_provider_events: safeCount(health.failed_provider_events),
+    failed_notifications: safeCount(health.failed_notifications),
+  };
+}
+
 function emptyWorking(scope) {
   return {
     v: 3,
@@ -337,6 +366,7 @@ export function buildCanonicalModel(bootstrap) {
       meta: {
         ticket: 'MX-MISSIONACCOUNTS-5301P',
         source: 'authenticated-role-scoped-runtime',
+        ...(source.scope === 'admin' ? { integration_health: integrationHealth(bootstrap) } : {}),
         controls: {
           sessions: sessionRows.length,
           humans: studentRows.length,

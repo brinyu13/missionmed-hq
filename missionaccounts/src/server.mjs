@@ -113,6 +113,22 @@ export function createMissionAccountsServer({
   publicDir = defaultPublicDir,
   now = () => new Date(),
 } = {}) {
+  function zoomProviderConfigured() {
+    try {
+      return typeof zoomProvider?.isConfigured === 'function' && zoomProvider.isConfigured() === true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function administrativeHealth() {
+    return {
+      ...await store.adminHealth(),
+      zoom_sync_enabled: Boolean(config.features?.zoomSync),
+      zoom_provider_configured: zoomProviderConfigured(),
+    };
+  }
+
   async function studentContext(identity) {
     const student = await store.studentByMatrixUser(identity.userId);
     if (!student) throw requestError('MissionAccounts record not found', 404);
@@ -409,7 +425,7 @@ export function createMissionAccountsServer({
         store.adminStudents(),
         Promise.all(cycles.map(cycle => store.adminCycle(cycle.key))),
         store.adminIdentityClusters({ state: 'all' }),
-        store.adminHealth(),
+        administrativeHealth(),
         store.canonicalUiData({ scope: 'admin' }),
       ]);
       return json(response, 200, {
@@ -934,7 +950,7 @@ export function createMissionAccountsServer({
     }
     if (request.method === 'GET' && url.pathname === '/api/admin/health') {
       requireRole(identity, ['missionaccounts_admin', 'founder']);
-      return json(response, 200, await store.adminHealth());
+      return json(response, 200, await administrativeHealth());
     }
     return json(response, 404, { code: 'NOT_FOUND', message: 'MissionAccounts endpoint not found' });
   }

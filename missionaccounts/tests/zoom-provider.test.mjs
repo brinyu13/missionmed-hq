@@ -4,6 +4,7 @@ import { ZoomAttendanceProvider } from '../src/domain/zoom-provider.mjs';
 
 test('ZoomAttendanceProvider fails closed without an explicitly configured client', async () => {
   const provider = new ZoomAttendanceProvider();
+  assert.equal(provider.isConfigured(), false);
   assert.throws(() => provider.assertConfigured(), /not configured/i);
   await assert.rejects(
     provider.ingestWindow({ from: '2026-09-01T00:00:00Z', to: '2026-09-02T00:00:00Z' }),
@@ -46,6 +47,7 @@ test('ZoomAttendanceProvider emits normalized source evidence without identity o
       },
     },
   });
+  assert.equal(provider.isConfigured(), true);
   const result = await provider.ingestWindow({
     from: '2026-09-01T00:00:00Z',
     to: '2026-09-02T00:00:00Z',

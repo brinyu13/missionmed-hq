@@ -18,6 +18,7 @@ const auth = createMissionAccountsAuthClient({
     state.user = null;
     state.error = message || 'MissionAccounts access is unavailable.';
     document.documentElement.dataset.missionaccountsRuntime = 'unavailable';
+    updateRuntimeGate(state.error);
   },
 });
 let canonicalModel = null;
@@ -26,6 +27,11 @@ const databaseCycleKey = Object.freeze({ june: '2026-cycle-1', july: '2026-cycle
 
 function notify(message) {
   if (typeof window.__XP?.toast === 'function') window.__XP.toast(message);
+}
+
+function updateRuntimeGate(message) {
+  const gate = document.getElementById('missionaccountsRuntimeGate');
+  if (gate) gate.textContent = message || 'MissionAccounts access is unavailable.';
 }
 
 async function refreshCanonical() {
@@ -206,5 +212,6 @@ try {
     state.mode = 'unavailable';
     state.error = error instanceof Error ? error.message : String(error);
     document.documentElement.dataset.missionaccountsRuntime = 'unavailable';
+    updateRuntimeGate(state.error);
   }
 }

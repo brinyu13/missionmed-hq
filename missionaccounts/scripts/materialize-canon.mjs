@@ -48,12 +48,15 @@ const scopedData = {
 };
 const gate = `<style id="missionaccounts-runtime-gate-style">
 html[data-missionaccounts-build="production"] #missionaccountsRuntimeGate{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:#0a0d14;color:#f4ead7;font:600 15px/1.5 system-ui,sans-serif;text-align:center}
-html[data-missionaccounts-build="production"][data-missionaccounts-runtime="ready"] #missionaccountsRuntimeGate{display:none}
+html[data-missionaccounts-build="production"][data-missionaccounts-runtime="authenticated-readonly"] #missionaccountsRuntimeGate{display:none}
+html[data-missionaccounts-build="production"] [data-reset],html[data-missionaccounts-build="production"] [data-export]{display:none!important}
 </style><div id="missionaccountsRuntimeGate" role="status" aria-live="polite">Opening your authorized MissionAccounts workspace…</div>`;
+const canonicalBodyOpen = '<body data-lens="admin" data-context="xp" class="is-booting">';
+if (!html.includes(canonicalBodyOpen)) throw new Error('Founder canon body seam is missing');
 let productionHtml = html
   .replace('<html lang="en">', '<html lang="en" data-missionaccounts-build="production">')
   .replace(/<script id="xpData" type="application\/json">[\s\S]*?<\/script>/, `<script id="xpData" type="application/json">${JSON.stringify(scopedData)}</script>`)
-  .replace('<body>', `<body>${gate}`)
+  .replace(canonicalBodyOpen, `${canonicalBodyOpen}${gate}`)
   .replace(
     "function load(){ try{ const raw=localStorage.getItem(WS_KEY); if(!raw) return fresh(); const o=JSON.parse(raw); const w=Object.assign(fresh(), o); migrate(w); return w; }catch(e){ return fresh(); } }",
     "function load(){ if(document.documentElement.dataset.missionaccountsBuild==='production') return fresh(); try{ const raw=localStorage.getItem(WS_KEY); if(!raw) return fresh(); const o=JSON.parse(raw); const w=Object.assign(fresh(), o); migrate(w); return w; }catch(e){ return fresh(); } }",
@@ -66,6 +69,25 @@ let productionHtml = html
     "function meStudent(){ if(WS.meStudent==null){ const s=D.students.find(x=>x.n==='Ahunna Nzerem'); WS.meStudent=s?s.i:0; } return model().eff[model().canonOf(WS.meStudent)]; }",
     "function meStudent(){ if(WS.meStudent==null){ WS.meStudent=D.students[0]?.i??0; } return model().eff[model().canonOf(WS.meStudent)]; }",
   );
+const productionCopyReplacements = [
+  ['<title>MissionAccounts · MX-MISSIONACCOUNTS-5300A canon prototype</title>', '<title>MissionAccounts · MissionMed Institute</title>'],
+  ['<meta name="description" content="MX-MISSIONACCOUNTS-5300A — MissionAccounts, the Exam Prep attendance · billing · exam-progress Matrix app. StoryForge-family 1:1 port (opening sequence, command home) on the Founder-approved 5200P-CANON baseline, hydrated with the real MX-EXAMPREP-5000B reconciled Dr J Live Drills data. Prototype only: no backend, no Stripe, no Zoom, no production. Corrected billing rule: one $25 charge per calendar day.">', '<meta name="description" content="MissionAccounts — the authenticated MissionMed Exam Prep attendance, billing, and exam-progress Matrix application. One $25 charge maximum per calendar day.">'],
+  ['<meta name="mx-ticket" content="MX-MISSIONACCOUNTS-5300A">', '<meta name="mx-ticket" content="MX-MISSIONACCOUNTS-5301P">'],
+  ['aria-label="Prototype review controls"', 'aria-label="Administrative view controls"'],
+  ['Prototype · view as', 'View as'],
+  ['title="Preview as a different student (prototype only)"', 'title="Preview as a different authorized student"'],
+  ['Prototype — your decisions are saved in this browser only', 'MissionAccounts · server-authoritative record'],
+  ['Working prototype state', 'Server-authoritative state'],
+  ['Prototype: nothing is sent from here.', 'Nothing is sent automatically from here.'],
+  ["Prototype control — record the Founder's decision:", 'Founder-approved rule — read-only in production:'],
+  ['Prototype review control only. A real student signs in and only ever sees their own record.', 'Administrative preview only. A student signs in and only ever sees their own authorized record.'],
+  ['entries · stored only in this browser', 'entries in this session · durable audit remains on the server'],
+  ['Prototype — Final terms to be approved before production.', 'Final terms are not approved; automatic billing remains disabled.'],
+];
+for (const [needle, replacement] of productionCopyReplacements) {
+  if (!productionHtml.includes(needle)) throw new Error(`Production truthfulness seam missing: ${needle}`);
+  productionHtml = productionHtml.replaceAll(needle, replacement);
+}
 const originalRuntimeExport = `render(); showOpeningExperience();
 window.__XP = {D, WS:()=>WS, model, cycleStats, render, decide, addCorr, undoCorr, setPM, setAuth, setContact, editSheet, otherSheet, paymentSheet, authSheet, resetSheet, applyTheme, setTheme, submitExam, decideExam, markPassed, withdrawExam, setComp, setRule, recordRuleDecision, graceWindows, basisOf, ORIG_TOTAL, migrate, touch, decideIdent, examView, examSheet, examDecideSheet, passedSheet, compSheet, showOpeningExperience, skipOpening, cmdRoute, meStudent, accountState, suggestionFor, unitsOf};`;
 const authoritativeRuntimeExport = `function hydrateAuthoritative(nextD,nextWS,idMaps){
@@ -85,6 +107,34 @@ render(); showOpeningExperience();
 window.__XP = {D, WS:()=>WS, model, cycleStats, render, decide, addCorr, undoCorr, setPM, setAuth, setContact, editSheet, otherSheet, paymentSheet, authSheet, resetSheet, applyTheme, setTheme, submitExam, decideExam, markPassed, withdrawExam, setComp, setRule, recordRuleDecision, graceWindows, basisOf, ORIG_TOTAL, migrate, touch, decideIdent, examView, examSheet, examDecideSheet, passedSheet, compSheet, showOpeningExperience, skipOpening, cmdRoute, meStudent, accountState, suggestionFor, unitsOf, hydrateAuthoritative};`;
 productionHtml = productionHtml.replace(originalRuntimeExport, authoritativeRuntimeExport);
 if (!productionHtml.includes('function hydrateAuthoritative(nextD,nextWS,idMaps)')) throw new Error('Authoritative canon hydration seam was not injected');
+const zoomHealthHelper = `function missionAccountsZoomHealth(){
+  const h=D.meta.integration_health||{};
+  const z=h.latest_zoom_sync||null;
+  const state=z&&z.state?z.state:'not_connected';
+  const stamp=z&&(z.finished_at||z.started_at)?Date.parse(z.finished_at||z.started_at):NaN;
+  const sessions=Number(z&&z.stats&&z.stats.sessions||0);
+  const rows=Number(z&&z.stats&&z.stats.source_rows||0);
+  return {
+    stateLabel:state==='ok'?'Healthy':state==='failed'?'Failed':state==='running'?'Running':'Not connected',
+    stateChip:state==='ok'?'approved':state==='failed'?'review':state==='running'?'future':'none',
+    readiness:h.zoom_sync_enabled===true&&h.zoom_provider_configured===true?'Provider configured':h.zoom_provider_configured===true?'Configured · sync disabled':'Ready for integration',
+    readinessChip:h.zoom_sync_enabled===true&&h.zoom_provider_configured===true?'approved':'future',
+    last:Number.isFinite(stamp)?fmtStamp(stamp):'—',
+    next:'— · scheduler not registered',
+    health:state==='ok'?('Last run persisted '+sessions+' classes · '+rows+' source rows'):state==='failed'?('Failed · '+(z.error||'review required')):state==='running'?'Run in progress':'— · no runs yet',
+    exceptions:Number(h.open_integration_exceptions||0),
+  };
+}
+`;
+productionHtml = productionHtml.replace('/* ---------------- ADVANCED ---------------- */', `${zoomHealthHelper}/* ---------------- ADVANCED ---------------- */`);
+const staticZoomState = `<div class="zoomPort"><div class="zState"><span class="chip none">Not connected</span><span class="chip future">Ready for integration</span></div>`;
+const dynamicZoomState = `<div class="zoomPort"><div class="zState"><span class="chip \${missionAccountsZoomHealth().stateChip}">\${esc(missionAccountsZoomHealth().stateLabel)}</span><span class="chip \${missionAccountsZoomHealth().readinessChip}">\${esc(missionAccountsZoomHealth().readiness)}</span></div>`;
+if (!productionHtml.includes(staticZoomState)) throw new Error('Canonical Zoom integration state surface is missing');
+productionHtml = productionHtml.replace(staticZoomState, dynamicZoomState);
+const staticZoomFacts = `<div class="kv" style="margin-top:12px"><span class="k">Last sync</span><span class="v">—</span><span class="k">Next sync</span><span class="v">— · daily, once authorized</span><span class="k">Health</span><span class="v">— · no runs yet</span><span class="k">Review exceptions</span><span class="v"><a class="linkish" href="#/review">\${model().openClusters.length+openDevices().length} open name / attendee questions</a></span><span class="k">Source of the data shown today</span><span class="v">MX-EXAMPREP-5000B reconciled ledger (one-time reconstruction)</span></div>`;
+const dynamicZoomFacts = `<div class="kv" style="margin-top:12px"><span class="k">Last sync</span><span class="v">\${esc(missionAccountsZoomHealth().last)}</span><span class="k">Next sync</span><span class="v">\${esc(missionAccountsZoomHealth().next)}</span><span class="k">Health</span><span class="v">\${esc(missionAccountsZoomHealth().health)}</span><span class="k">Review exceptions</span><span class="v">\${missionAccountsZoomHealth().exceptions} integration exception\${missionAccountsZoomHealth().exceptions===1?'':'s'} · <a class="linkish" href="#/review">\${model().openClusters.length+openDevices().length} open identity question\${model().openClusters.length+openDevices().length===1?'':'s'}</a></span><span class="k">Source of the data shown today</span><span class="v">MX-EXAMPREP-5000B reconciled ledger (one-time reconstruction)</span></div>`;
+if (!productionHtml.includes(staticZoomFacts)) throw new Error('Canonical Zoom integration facts surface is missing');
+productionHtml = productionHtml.replace(staticZoomFacts, dynamicZoomFacts);
 const productionActionGuards = [
   ["function decide(si, k, t, amt, note){", "function decide(si, k, t, amt, note){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('billing-decision',{si,k,t,amt,note});"],
   ["function addCorr(si, type, fields){", "function addCorr(si, type, fields){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('attendance-correction',{si,type,fields});"],
@@ -92,6 +142,10 @@ const productionActionGuards = [
   ["function setContact(si, email, phone){", "function setContact(si, email, phone){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('student-contact',{si,email,phone});"],
   ["function setPM(si, state){", "function setPM(si, state){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Use the secure Stripe payment setup when it is enabled.'});"],
   ["function setAuth(si, state){", "function setAuth(si, state){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Automatic billing authorization is not enabled yet.'});"],
+  ["function paymentSheet(si, mode){", "function paymentSheet(si, mode){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Secure Stripe payment setup is not enabled yet.'});"],
+  ["function authSheet(si){", "function authSheet(si){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Automatic billing authorization is not enabled yet.'});"],
+  ["function resetSheet(){", "function resetSheet(){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Server-authoritative MissionAccounts records cannot be reset in the browser.'});"],
+  ["function reportSheet(){", "function reportSheet(){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Attendance issue reporting is not enabled yet.'});"],
   ["function setPolicy(k, v){", "function setPolicy(k, v){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('cycle-policy',{k,value:v});"],
   ["function submitExam(si, step, date, by){", "function submitExam(si, step, date, by){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch(by==='admin'?'admin-exam-submit':'student-exam-submit',{si,step,date});"],
   ["function decideExam(si, action, note, newDate){", "function decideExam(si, action, note, newDate){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('exam-transition',{si,action,note,newDate});"],
