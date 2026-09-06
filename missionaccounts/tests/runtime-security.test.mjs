@@ -67,6 +67,10 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /integration exception/);
   assert.match(html, /Authoritative hydration is production-only/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('billing-decision'/);
+  assert.match(html, /MissionAccountsRuntime\.dispatch\('identity-adjudication'/);
+  assert.match(html, /capabilities\.identity_review!==true/);
+  assert.match(html, /Which student record should MissionAccounts keep\?/);
+  assert.doesNotMatch(html, /Identity adjudication is not enabled yet/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('student-contact'/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('invoice-readiness'/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('exam-transition',\{si,action:'passed'/);

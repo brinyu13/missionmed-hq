@@ -156,6 +156,22 @@ async function dispatch(action, payload = {}) {
       await window.MissionAccountsRuntime.mutation(`/admin/attendance-issues/${issueId}/review`, {
         body: { state: resolutionState, resolution_note: resolutionNote },
       });
+    } else if (action === 'identity-adjudication') {
+      if (!['missionaccounts_admin', 'founder'].includes(state.user?.role)) throw new Error('Only Dr J can adjudicate identity questions.');
+      if (state.capabilities.identity_review !== true) throw new Error('Identity review is not enabled for this environment.');
+      const clusterRef = String(payload.clusterRef || '');
+      const decision = String(payload.decision || '');
+      const note = String(payload.note || '').trim();
+      if (!/^[A-Za-z0-9._:-]{1,200}$/.test(clusterRef)) throw new Error('The identity cluster reference is invalid.');
+      if (!['same', 'different', 'unsure'].includes(decision)) throw new Error('Choose same student, different people, or not sure.');
+      if (note.length < 3 || note.length > 2_000) throw new Error('Identity decisions require a short audit reason.');
+      await window.MissionAccountsRuntime.mutation(`/admin/identity/${encodeURIComponent(clusterRef)}`, {
+        body: {
+          decision,
+          canonical_student_id: decision === 'same' ? studentUuid(payload.canonicalSi) : null,
+          note,
+        },
+      });
     } else if (action === 'student-contact') {
       await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/contact`, {
         body: {

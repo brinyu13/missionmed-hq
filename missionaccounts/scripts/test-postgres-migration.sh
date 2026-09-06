@@ -31,6 +31,21 @@ for migration in "$app_dir"/supabase/migrations/*.sql; do
   psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
 done
 
+identity_security=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+select
+  ((select reloptions from pg_class where oid='missionaccounts.identity_student_resolution'::regclass) @> array['security_invoker=true']) || '|' ||
+  ((select reloptions from pg_class where oid='missionaccounts.grace_window_projection'::regclass) @> array['security_invoker=true']) || '|' ||
+  (not has_table_privilege('authenticated','missionaccounts.identity_grace_preservation','select')) || '|' ||
+  has_table_privilege('service_role','missionaccounts.identity_grace_preservation','select') || '|' ||
+  (not has_function_privilege('authenticated','missionaccounts.api_decide_identity_cluster(text,text,uuid,date,text,text,text,text)','execute')) || '|' ||
+  has_function_privilege('service_role','missionaccounts.api_decide_identity_cluster(text,text,uuid,date,text,text,text,text)','execute');
+SQL
+)
+if [[ "$identity_security" != 'true|true|true|true|true|true' ]]; then
+  echo "MissionAccounts identity privilege verification failed: $identity_security" >&2
+  exit 1
+fi
+
 student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
   -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:4242','Integration Test') returning id")
 
@@ -1017,6 +1032,211 @@ if [[ "$attendance_issue_review_forbidden_status" -eq 0 ]] || [[ "$attendance_is
   exit 1
 fi
 
+identity_adjudication_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.source_artifact(id,source_kind,source_path,sha256,byte_count,observed_at)
+values ('22000000-0000-4000-8000-000000000001','identity-test','identity-test://cluster',repeat('1',64),1,'2026-09-06T12:00:00Z');
+insert into missionaccounts.student(id,display_name,identity_state) values
+  ('21000000-0000-4000-8000-000000000001','Identity Canonical','verified'),
+  ('21000000-0000-4000-8000-000000000002','Identity Candidate','verified');
+insert into missionaccounts.identity_alias(id,student_id,source_artifact_id,source_key,display_value,relationship_state) values
+  ('24000000-0000-4000-8000-000000000001','21000000-0000-4000-8000-000000000001','22000000-0000-4000-8000-000000000001','identity-source-1','Identity Canonical','candidate'),
+  ('24000000-0000-4000-8000-000000000002','21000000-0000-4000-8000-000000000002','22000000-0000-4000-8000-000000000001','identity-source-2','Identity Candidate','candidate');
+insert into missionaccounts.identity_cluster(ref,source_artifact_id,state,evidence)
+values ('cluster:pg-identity','22000000-0000-4000-8000-000000000001','open','{}');
+insert into missionaccounts.identity_cluster_member(cluster_ref,identity_alias_id) values
+  ('cluster:pg-identity','24000000-0000-4000-8000-000000000001'),
+  ('cluster:pg-identity','24000000-0000-4000-8000-000000000002');
+insert into missionaccounts.session(
+  id,cycle_key,source_artifact_id,provider,provider_meeting_id,provider_instance_id,
+  starts_at,held_on,time_zone,step,state,source_payload
+) values
+  ('23000000-0000-4000-8000-000000000001','2026-cycle-1','22000000-0000-4000-8000-000000000001','zoom','identity-meeting-1','identity-instance-1','2026-06-10T16:00:00Z','2026-06-10','America/New_York','s1','confirmed','{}'),
+  ('23000000-0000-4000-8000-000000000002','2026-cycle-1','22000000-0000-4000-8000-000000000001','zoom','identity-meeting-2','identity-instance-2','2026-06-10T19:00:00Z','2026-06-10','America/New_York','s23','confirmed','{}');
+insert into missionaccounts.attendance_event(
+  student_id,session_id,cycle_key,local_day,step,interpretation_state,provenance
+) values
+  ('21000000-0000-4000-8000-000000000001','23000000-0000-4000-8000-000000000001','2026-cycle-1','2026-06-10','s1','effective','{}'),
+  ('21000000-0000-4000-8000-000000000002','23000000-0000-4000-8000-000000000002','2026-cycle-1','2026-06-10','s23','effective','{}');
+insert into missionaccounts.exam_plan(
+  id,student_id,step,exam_on,state,submitted_by,decided_by,decided_at
+) values (
+  '25000000-0000-4000-8000-000000000001','21000000-0000-4000-8000-000000000001','s1','2026-06-09','approved','wp:identity','wp:admin','2026-06-01T12:00:00Z'
+);
+insert into missionaccounts.grace_window(student_id,exam_plan_id,from_on)
+values ('21000000-0000-4000-8000-000000000001','25000000-0000-4000-8000-000000000001','2026-06-09');
+insert into missionaccounts.full_cycle_ceiling(student_id,cycle_key,status,basis) values
+  ('21000000-0000-4000-8000-000000000001','2026-cycle-1','verified',jsonb_build_object('source','identity-canonical-verified')),
+  ('21000000-0000-4000-8000-000000000002','2026-cycle-1','candidate',jsonb_build_object('source','identity-candidate'));
+set role service_role;
+select missionaccounts.recompute_student_attendance('21000000-0000-4000-8000-000000000001','pg-identity-initial-a')->>'days';
+select missionaccounts.recompute_student_attendance('21000000-0000-4000-8000-000000000002','pg-identity-initial-b')->>'days';
+select (result->>'duplicate') || '|' || (result->>'propagated_cap_holds')
+from (
+  select missionaccounts.api_decide_identity_cluster(
+    'cluster:pg-identity','same','21000000-0000-4000-8000-000000000001','2026-09-06',
+    'Dr J confirmed one student','wp:admin','missionaccounts_admin','pg-identity-same-0001'
+  ) as result
+) decision;
+select missionaccounts.api_decide_identity_cluster(
+  'cluster:pg-identity','same','21000000-0000-4000-8000-000000000001','2026-09-06',
+  'Dr J confirmed one student','wp:admin','missionaccounts_admin','pg-identity-same-0001'
+)->>'duplicate';
+reset role;
+select
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000001' and superseded_at is null) || '|' ||
+  (select kind from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000001' and superseded_at is null) || '|' ||
+  (select same_day_multiple_events from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000001' and superseded_at is null) || '|' ||
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000002' and superseded_at is null) || '|' ||
+  (select count(*) from missionaccounts.attendance_event where student_id in ('21000000-0000-4000-8000-000000000001','21000000-0000-4000-8000-000000000002')) || '|' ||
+  (select count(distinct student_id) from missionaccounts.attendance_event_projection where source_student_id in ('21000000-0000-4000-8000-000000000001','21000000-0000-4000-8000-000000000002')) || '|' ||
+  (select count(*) from missionaccounts.full_cycle_ceiling where student_id='21000000-0000-4000-8000-000000000001' and status='candidate' and superseded_by_id is null) || '|' ||
+  (select count(*) from missionaccounts.full_cycle_ceiling where student_id='21000000-0000-4000-8000-000000000001' and status='verified' and superseded_by_id is not null) || '|' ||
+  (select cardinality(member_student_ids) from missionaccounts.identity_decision where cluster_ref='cluster:pg-identity' and superseded_by_id is null) || '|' ||
+  (select count(*) from missionaccounts.identity_decision where cluster_ref='cluster:pg-identity') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='identity_cluster.decided' and request_id='pg-identity-same-0001');
+set role service_role;
+select missionaccounts.api_decide_identity_cluster(
+  'cluster:pg-identity','different',null,'2026-09-06',
+  'Dr J confirmed separate students','wp:admin','missionaccounts_admin','pg-identity-different-0001'
+)->>'copied_grace_windows';
+reset role;
+select
+  (select state from missionaccounts.identity_cluster where ref='cluster:pg-identity') || '|' ||
+  (select decision from missionaccounts.identity_decision where cluster_ref='cluster:pg-identity' and superseded_by_id is null) || '|' ||
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000001' and superseded_at is null) || '|' ||
+  (select kind from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000001' and superseded_at is null) || '|' ||
+  (select count(*) from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000002' and superseded_at is null) || '|' ||
+  (select kind from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000002' and superseded_at is null) || '|' ||
+  (select count(distinct canonical_student_id) from missionaccounts.identity_student_resolution where source_student_id in ('21000000-0000-4000-8000-000000000001','21000000-0000-4000-8000-000000000002')) || '|' ||
+  (select count(*) from missionaccounts.grace_window_projection where student_id in ('21000000-0000-4000-8000-000000000001','21000000-0000-4000-8000-000000000002')) || '|' ||
+  (select count(*) from missionaccounts.grace_window where student_id in ('21000000-0000-4000-8000-000000000001','21000000-0000-4000-8000-000000000002') and to_on is null) || '|' ||
+  (select count(*) from missionaccounts.identity_grace_preservation where student_id='21000000-0000-4000-8000-000000000002') || '|' ||
+  (select count(*) from missionaccounts.identity_decision where cluster_ref='cluster:pg-identity') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='identity_cluster.decided' and request_id in ('pg-identity-same-0001','pg-identity-different-0001'));
+SQL
+)
+
+identity_adjudication_expected=$'1\n1\nfalse|1\ntrue\n1|grace|true|0|2|1|1|1|2|1|1\n1\nresolved|different|1|grace|1|grace|2|2|0|1|2|2'
+if [[ "$identity_adjudication_results" != "$identity_adjudication_expected" ]]; then
+  echo "MissionAccounts identity-adjudication verification returned unexpected controls:" >&2
+  echo "$identity_adjudication_results" >&2
+  exit 1
+fi
+
+set +e
+identity_membership_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; insert into missionaccounts.identity_cluster_member(cluster_ref,identity_alias_id) values ('cluster:pg-identity','24000000-0000-4000-8000-000000000001');" 2>&1)
+identity_membership_exit=$?
+identity_alias_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; update missionaccounts.identity_alias set display_value='Mutated identity evidence' where id='24000000-0000-4000-8000-000000000001';" 2>&1)
+identity_alias_exit=$?
+set -e
+if [[ "$identity_membership_exit" -eq 0 ]] || [[ "$identity_membership_guard" != *"adjudicated_identity_membership_is_immutable"* ]]; then
+  echo "MissionAccounts allowed adjudicated cluster membership to mutate:" >&2
+  echo "$identity_membership_guard" >&2
+  exit 1
+fi
+if [[ "$identity_alias_exit" -eq 0 ]] || [[ "$identity_alias_guard" != *"adjudicated_identity_alias_is_immutable"* ]]; then
+  echo "MissionAccounts allowed adjudicated identity evidence to mutate:" >&2
+  echo "$identity_alias_guard" >&2
+  exit 1
+fi
+
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.billing_decision(
+  id,student_id,cycle_key,treatment,amount_cents,basis,basis_sha256,state,decided_by,decided_at,request_id
+) values (
+  '26000000-0000-4000-8000-000000000001','21000000-0000-4000-8000-000000000001','2026-cycle-1',
+  'confirm',2500,'{}',repeat('a',64),'approved','wp:admin',now(),'pg-identity-financial-decision'
+);
+insert into missionaccounts.invoice(
+  id,student_id,cycle_key,decision_id,state,amount_cents,lines,sent_at
+) values (
+  '27000000-0000-4000-8000-000000000001','21000000-0000-4000-8000-000000000001','2026-cycle-1',
+  '26000000-0000-4000-8000-000000000001','sent',2500,'[]',now()
+);
+SQL
+set +e
+identity_financial_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; select missionaccounts.api_decide_identity_cluster('cluster:pg-identity','same','21000000-0000-4000-8000-000000000001','2026-09-06','Unsafe post-invoice merge','wp:admin','missionaccounts_admin','pg-identity-financial-guard');" 2>&1)
+identity_financial_exit=$?
+set -e
+if [[ "$identity_financial_exit" -eq 0 ]] || [[ "$identity_financial_guard" != *"identity_transition_requires_financial_finality_review"* ]]; then
+  echo "MissionAccounts allowed an identity transition across financial finality:" >&2
+  echo "$identity_financial_guard" >&2
+  exit 1
+fi
+
+psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.student(id,display_name,identity_state) values
+  ('21000000-0000-4000-8000-000000000011','Comp Identity A','needs_review'),
+  ('21000000-0000-4000-8000-000000000012','Comp Identity B','needs_review');
+insert into missionaccounts.identity_alias(id,student_id,source_artifact_id,source_key,display_value,relationship_state) values
+  ('24000000-0000-4000-8000-000000000011','21000000-0000-4000-8000-000000000011','22000000-0000-4000-8000-000000000001','identity-comp-1','Comp Identity A','candidate'),
+  ('24000000-0000-4000-8000-000000000012','21000000-0000-4000-8000-000000000012','22000000-0000-4000-8000-000000000001','identity-comp-2','Comp Identity B','candidate');
+insert into missionaccounts.identity_cluster(ref,source_artifact_id,state,evidence)
+values ('cluster:pg-identity-comp','22000000-0000-4000-8000-000000000001','open','{}');
+insert into missionaccounts.identity_cluster_member(cluster_ref,identity_alias_id) values
+  ('cluster:pg-identity-comp','24000000-0000-4000-8000-000000000011'),
+  ('cluster:pg-identity-comp','24000000-0000-4000-8000-000000000012');
+insert into missionaccounts.comp_day_consumption(student_id,day,comp_index)
+values ('21000000-0000-4000-8000-000000000011','2026-06-10',1);
+SQL
+set +e
+identity_comp_guard=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 -c "set role service_role; select missionaccounts.api_decide_identity_cluster('cluster:pg-identity-comp','same','21000000-0000-4000-8000-000000000011','2026-09-06','Unsafe merge with allocated comp day','wp:admin','missionaccounts_admin','pg-identity-comp-guard');" 2>&1)
+identity_comp_exit=$?
+set -e
+if [[ "$identity_comp_exit" -eq 0 ]] || [[ "$identity_comp_guard" != *"identity_transition_requires_comp_day_review"* ]]; then
+  echo "MissionAccounts allowed an identity transition across comp-day custody:" >&2
+  echo "$identity_comp_guard" >&2
+  exit 1
+fi
+
+identity_open_question_result=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.student(id,display_name,identity_state) values
+  ('21000000-0000-4000-8000-000000000021','Multi Cluster A','needs_review'),
+  ('21000000-0000-4000-8000-000000000022','Multi Cluster B','needs_review'),
+  ('21000000-0000-4000-8000-000000000023','Multi Cluster C','needs_review');
+insert into missionaccounts.identity_alias(id,student_id,source_artifact_id,source_key,display_value,relationship_state) values
+  ('24000000-0000-4000-8000-000000000021','21000000-0000-4000-8000-000000000021','22000000-0000-4000-8000-000000000001','identity-multi-1','Multi Cluster A','candidate'),
+  ('24000000-0000-4000-8000-000000000022','21000000-0000-4000-8000-000000000022','22000000-0000-4000-8000-000000000001','identity-multi-2','Multi Cluster B','candidate'),
+  ('24000000-0000-4000-8000-000000000023','21000000-0000-4000-8000-000000000023','22000000-0000-4000-8000-000000000001','identity-multi-3','Multi Cluster C','candidate'),
+  ('24000000-0000-4000-8000-000000000024','21000000-0000-4000-8000-000000000022','22000000-0000-4000-8000-000000000001','identity-device-linked','iPhone','device');
+insert into missionaccounts.identity_cluster(ref,source_artifact_id,state,evidence) values
+  ('cluster:pg-identity-multi-a','22000000-0000-4000-8000-000000000001','open','{}'),
+  ('cluster:pg-identity-multi-b','22000000-0000-4000-8000-000000000001','open','{}');
+insert into missionaccounts.identity_cluster_member(cluster_ref,identity_alias_id) values
+  ('cluster:pg-identity-multi-a','24000000-0000-4000-8000-000000000021'),
+  ('cluster:pg-identity-multi-a','24000000-0000-4000-8000-000000000022'),
+  ('cluster:pg-identity-multi-b','24000000-0000-4000-8000-000000000021'),
+  ('cluster:pg-identity-multi-b','24000000-0000-4000-8000-000000000023');
+set role service_role;
+select missionaccounts.api_decide_identity_cluster(
+  'cluster:pg-identity-multi-a','different',null,'2026-09-06',
+  'Confirmed different while another question remains','wp:admin','missionaccounts_admin','pg-identity-multi-a'
+)->>'cluster_state';
+reset role;
+select
+  (select identity_state from missionaccounts.student where id='21000000-0000-4000-8000-000000000021') || '|' ||
+  (select identity_state from missionaccounts.student where id='21000000-0000-4000-8000-000000000022');
+set role service_role;
+select missionaccounts.api_decide_identity_cluster(
+  'cluster:pg-identity-multi-b','unsure',null,'2026-09-06',
+  'More source evidence is needed','wp:admin','missionaccounts_admin','pg-identity-multi-b-unsure'
+)->>'cluster_state';
+reset role;
+insert into missionaccounts.student(id,display_name,identity_state)
+values ('21000000-0000-4000-8000-000000000024','Later Evidence Member','needs_review');
+insert into missionaccounts.identity_alias(id,student_id,source_artifact_id,source_key,display_value,relationship_state)
+values ('24000000-0000-4000-8000-000000000025','21000000-0000-4000-8000-000000000024','22000000-0000-4000-8000-000000000001','identity-multi-later','Later Evidence Member','candidate');
+insert into missionaccounts.identity_cluster_member(cluster_ref,identity_alias_id)
+values ('cluster:pg-identity-multi-b','24000000-0000-4000-8000-000000000025');
+select count(*) from missionaccounts.identity_cluster_member where cluster_ref='cluster:pg-identity-multi-b';
+SQL
+)
+if [[ "$identity_open_question_result" != $'resolved\nneeds_review|needs_review\nopen\n3' ]]; then
+  echo "MissionAccounts incorrectly verified a student with another open identity question:" >&2
+  echo "$identity_open_question_result" >&2
+  exit 1
+fi
+
 unhandled_provider_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 insert into missionaccounts.provider_event_inbox(
   provider, provider_event_id, provider_object_id, event_type, payload, signature_verified, state
@@ -1045,4 +1265,4 @@ if [[ "$unhandled_provider_results" != $'false\ntrue\nignored|1|1' ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody and admin review, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, unhandled-provider exception custody, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+echo "MissionAccounts PostgreSQL migration, account linkage/default comp, identity adjudication and split-grace custody, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody and admin review, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, unhandled-provider exception custody, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"

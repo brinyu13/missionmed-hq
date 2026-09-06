@@ -31,6 +31,7 @@ function environmentConfig() {
       studentContacts: process.env.MISSIONACCOUNTS_STUDENT_CONTACTS === '1',
       billingDecisions: process.env.MISSIONACCOUNTS_BILLING_DECISIONS === '1',
       attendanceCorrections: process.env.MISSIONACCOUNTS_ATTENDANCE_CORRECTIONS === '1',
+      identityReview: process.env.MISSIONACCOUNTS_IDENTITY_REVIEW === '1',
       examPlans: process.env.MISSIONACCOUNTS_EXAM_PLANS === '1',
       compDays: process.env.MISSIONACCOUNTS_COMP_DAYS === '1',
       autoBilling: process.env.MISSIONACCOUNTS_AUTO_BILLING === '1',
@@ -228,6 +229,7 @@ export function createMissionAccountsServer({
         route_enabled: false,
         billing_decisions_enabled: Boolean(config.features?.billingDecisions),
         attendance_corrections_enabled: Boolean(config.features?.attendanceCorrections),
+        identity_review_enabled: Boolean(config.features?.identityReview),
         auto_billing_enabled: Boolean(config.features?.autoBilling),
         notifications_enabled: Boolean(config.features?.notifications),
         zoom_sync_enabled: Boolean(config.features?.zoomSync),
@@ -399,6 +401,7 @@ export function createMissionAccountsServer({
           student_contacts: Boolean(config.features?.studentContacts),
           billing_decisions: Boolean(config.features?.billingDecisions),
           attendance_corrections: Boolean(config.features?.attendanceCorrections),
+          identity_review: Boolean(config.features?.identityReview),
           exam_plans: Boolean(config.features?.examPlans),
           comp_days: Boolean(config.features?.compDays),
           auto_billing: Boolean(config.features?.autoBilling),
@@ -533,6 +536,36 @@ export function createMissionAccountsServer({
         issueId: attendanceIssueReviewRoute[1],
         state,
         resolutionNote,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
+    const identityDecisionRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/identity\/([^/]+)$/)
+      : null;
+    if (identityDecisionRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'identityReview');
+      const clusterRef = decodeURIComponent(identityDecisionRoute[1]);
+      const body = await readJsonBody(request, { limitBytes: 8_192 });
+      const decision = String(body.decision || '');
+      const canonicalStudentId = body.canonical_student_id == null ? null : String(body.canonical_student_id);
+      const note = String(body.note || '').trim();
+      if (!/^[A-Za-z0-9._:-]{1,200}$/.test(clusterRef)) throw requestError('Identity cluster reference is invalid');
+      if (!['same', 'different', 'unsure'].includes(decision)) throw requestError('Identity decision must be same, different, or unsure');
+      if (decision === 'same' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(canonicalStudentId || '')) {
+        throw requestError('A canonical cluster-member student is required for a same-student decision');
+      }
+      if (decision !== 'same' && canonicalStudentId !== null) throw requestError('A canonical student is valid only for a same-student decision');
+      if (note.length < 3 || note.length > 2_000) throw requestError('Identity decision requires a 3 to 2000 character reason');
+      const result = await store.decideIdentityCluster({
+        clusterRef,
+        decision,
+        canonicalStudentId,
+        today: localDayFromIso(now().toISOString()),
+        note,
         actorId: identity.userId,
         actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
         requestId: requestIdFor(request),

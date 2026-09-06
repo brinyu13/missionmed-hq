@@ -70,6 +70,19 @@ export class SupabaseRestStore {
     });
   }
 
+  async decideIdentityCluster({ clusterRef, decision, canonicalStudentId, today, note, actorId, actorRole, requestId }) {
+    return this.rpc('api_decide_identity_cluster', {
+      p_cluster_ref: clusterRef,
+      p_decision: decision,
+      p_canonical_student_id: canonicalStudentId || null,
+      p_today: today,
+      p_note: note,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async setStudentContact({ studentId, email, phone, reason, actorId, actorRole, requestId }) {
     return this.rpc('api_set_student_contact', {
       p_student_id: studentId,
@@ -126,11 +139,11 @@ export class SupabaseRestStore {
     if (!admin && !studentId) throw new Error('Student canonical projection requires a student id');
     const studentFilter = admin ? '' : `&student_id=eq.${encodeURIComponent(studentId)}`;
     const studentPath = admin
-      ? 'student?select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state&order=display_name.asc&limit=1000'
-      : `student?id=eq.${encodeURIComponent(studentId)}&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state&limit=1`;
+      ? 'student_identity_projection?absorbed=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,canonical_student_id,absorbed&order=display_name.asc&limit=1000'
+      : `student_identity_projection?id=eq.${encodeURIComponent(studentId)}&absorbed=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,canonical_student_id,absorbed&limit=1`;
     const aliasPath = admin
-      ? 'identity_alias?superseded_by_id=is.null&select=id,student_id,source_key,display_value,relationship_state,confidence&order=created_at.asc'
-      : `identity_alias?student_id=eq.${encodeURIComponent(studentId)}&superseded_by_id=is.null&select=id,student_id,source_key,display_value,relationship_state,confidence&order=created_at.asc`;
+      ? 'identity_alias_projection?superseded_by_id=is.null&select=id,student_id,source_student_id,source_key,display_value,relationship_state,confidence&order=created_at.asc'
+      : `identity_alias_projection?student_id=eq.${encodeURIComponent(studentId)}&superseded_by_id=is.null&select=id,student_id,source_student_id,source_key,display_value,relationship_state,confidence&order=created_at.asc`;
     const sessionSelect = admin
       ? 'id,cycle_key,provider_meeting_id,starts_at,held_on,time_zone,step,state'
       : 'id,cycle_key,starts_at,held_on,time_zone,step,state';
@@ -149,10 +162,10 @@ export class SupabaseRestStore {
       this.requestAll(`invoice?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,cycle_key,decision_id,state,amount_cents,sent_at,paid_at&order=created_at.asc`),
       this.requestAll(`exam_plan?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,step,exam_on,state,result,note,suggested_on,passed_on,submitted_at,decided_at,withdrawn_at,superseded_by_id&order=submitted_at.asc`),
       this.requestAll(`exam_transition?accepted=eq.true${studentFilter}&select=id,exam_plan_id,student_id,from_state,to_state,result,reason,actor_role,created_at&order=created_at.asc`),
-      this.requestAll(`grace_window?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,from_on,to_on,state,closed_reason,created_at&order=created_at.asc`),
+      this.requestAll(`grace_window_projection?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,from_on,to_on,closed_reason,created_at&order=created_at.asc`),
       this.requestAll(`reminder?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,due_on,state,cancelled_reason,created_at&order=created_at.asc`),
       this.requestAll(`attendance_correction?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,attendance_event_id,session_id,type,from_val,to_val,reason,reverts_id,reverted_by_id,created_at&order=created_at.asc`),
-      this.requestAll(`full_cycle_ceiling?superseded_by_id=is.null${studentFilter}${admin ? '' : '&status=eq.verified'}&select=id,student_id,cycle_key,status,ceiling_cents,basis,decided_at&order=created_at.asc`),
+      this.requestAll(`full_cycle_ceiling_projection?superseded_by_id=is.null${studentFilter}${admin ? '' : '&status=eq.verified'}&select=id,student_id,source_student_id,cycle_key,status,ceiling_cents,basis,decided_at&order=created_at.asc`),
       this.requestAll('cycle_policy?superseded_by_id=is.null&select=id,cycle_key,key,value,reason,set_at&order=set_at.asc'),
       this.requestAll('rule_decision?superseded_by_id=is.null&select=id,rule,mode,effective_from,basis,decided_at&order=decided_at.asc'),
     ]);
@@ -499,7 +512,7 @@ export class SupabaseRestStore {
 
   async adminHealth() {
     const [students, inbox, outbox, exceptions, syncs] = await Promise.all([
-      this.request('student?select=id&identity_state=eq.needs_review'),
+      this.request('student_identity_projection?absorbed=eq.false&select=id&identity_state=eq.needs_review'),
       this.request('provider_event_inbox?select=id&state=eq.failed'),
       this.request('notification_outbox?select=id&state=eq.failed'),
       this.request('integration_exception?select=id&state=eq.open'),
@@ -516,7 +529,7 @@ export class SupabaseRestStore {
 
   async adminStudents({ q = '', missing = null } = {}) {
     const [students, paymentMethods, consents] = await Promise.all([
-      this.request('student?select=id,display_name,email,joined_at,comp_days_allowance,identity_state&order=display_name.asc&limit=1000'),
+      this.request('student_identity_projection?absorbed=eq.false&select=id,display_name,email,joined_at,comp_days_allowance,identity_state&order=display_name.asc&limit=1000'),
       this.request('payment_method?select=id,student_id,brand,last4,exp_month,exp_year,status,verified_at'),
       this.request('billing_consent?superseded_by_id=is.null&select=id,student_id,terms_version,state,accepted_at,revoked_at'),
     ]);
@@ -578,9 +591,9 @@ export class SupabaseRestStore {
     const stateFilter = state === 'all' ? '' : `&state=eq.${encodeURIComponent(state)}`;
     const [clusters, members, aliases, decisions] = await Promise.all([
       this.request(`identity_cluster?select=ref,state,evidence,created_at,updated_at${stateFilter}&order=ref.asc`),
-      this.request('identity_cluster_member?select=cluster_ref,identity_alias_id'),
-      this.request('identity_alias?select=id,student_id,source_key,display_value,relationship_state,confidence'),
-      this.request('identity_decision?superseded_by_id=is.null&select=id,cluster_ref,decision,canonical_student_id,note,decided_by,decided_at'),
+      this.request('identity_cluster_member?select=cluster_ref,identity_alias_id&order=cluster_ref.asc,identity_alias_id.asc'),
+      this.request('identity_alias_projection?select=id,student_id,source_student_id,source_key,display_value,relationship_state,confidence'),
+      this.request('identity_decision?superseded_by_id=is.null&select=id,cluster_ref,decision,canonical_student_id,member_student_ids,note,decided_by,decided_at'),
     ]);
     const aliasesById = new Map(aliases.map(alias => [alias.id, alias]));
     const membersByCluster = new Map();
@@ -592,15 +605,20 @@ export class SupabaseRestStore {
       membersByCluster.set(member.cluster_ref, list);
     }
     const decisionByCluster = new Map(decisions.map(decision => [decision.cluster_ref, decision]));
-    return clusters.map(cluster => ({
-      ...cluster,
-      members: membersByCluster.get(cluster.ref) || [],
-      decision: decisionByCluster.get(cluster.ref) || null,
-    }));
+    return clusters.map(cluster => {
+      const decision = decisionByCluster.get(cluster.ref) || null;
+      const approvedMembers = new Set(decision && decision.decision !== 'unsure' ? decision.member_student_ids || [] : []);
+      const clusterMembers = (membersByCluster.get(cluster.ref) || [])
+        .filter(alias => approvedMembers.size === 0 || approvedMembers.has(alias.source_student_id))
+        .sort((left, right) => left.display_value.localeCompare(right.display_value)
+          || String(left.source_student_id || '').localeCompare(String(right.source_student_id || ''))
+          || left.id.localeCompare(right.id));
+      return { ...cluster, members: clusterMembers, decision };
+    });
   }
 
   async adminStudent(studentId) {
-    const rows = await this.request(`student?id=eq.${encodeURIComponent(studentId)}&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state&limit=1`);
+    const rows = await this.request(`student_identity_projection?id=eq.${encodeURIComponent(studentId)}&absorbed=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state&limit=1`);
     const student = rows[0];
     if (!student) return null;
     const [attendance, billing, payment_method, billing_consent, exam_plan] = await Promise.all([
@@ -656,6 +674,7 @@ export class PreviewStore {
     this.notifications = new Map();
     this.reminders = new Map();
     this.identityClusters = new Map();
+    this.identityMutations = new Map();
     this.accountLinkMutations = new Map();
     this.previewStudentRecord = {
       id: '00000000-0000-4000-8000-000000000001',
@@ -1769,6 +1788,44 @@ export class PreviewStore {
       members: (cluster.members || []).map(member => ({ ...member })),
       decision: cluster.decision || null,
     });
+  }
+  async decideIdentityCluster({ clusterRef, decision, canonicalStudentId, today, note, actorId, actorRole, requestId }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole)) throw Object.assign(new Error('Identity decision requires administrator authority'), { status: 403 });
+    const fingerprint = JSON.stringify({ clusterRef, decision, canonicalStudentId: canonicalStudentId || null, today, note, actorId, actorRole });
+    const existing = this.identityMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    const cluster = this.identityClusters.get(clusterRef);
+    if (!cluster) throw Object.assign(new Error('Identity cluster not found'), { status: 404 });
+    const studentIds = [...new Set(cluster.members.map(member => member.student_id).filter(Boolean))];
+    if (studentIds.length < 2) throw Object.assign(new Error('Identity cluster requires two linked students'), { status: 409 });
+    if (!['same', 'different', 'unsure'].includes(decision)) throw Object.assign(new Error('Identity decision is invalid'), { status: 400 });
+    if (decision === 'same' && !studentIds.includes(canonicalStudentId)) throw Object.assign(new Error('Canonical student must be a cluster member'), { status: 409 });
+    if (decision !== 'same' && canonicalStudentId) throw Object.assign(new Error('Canonical student is only valid for a same-student decision'), { status: 400 });
+    const ordinal = this.identityMutations.size + 1;
+    const decided = {
+      id: `preview-identity-decision-${ordinal}`,
+      cluster_ref: clusterRef,
+      decision,
+      canonical_student_id: decision === 'same' ? canonicalStudentId : null,
+      note,
+      decided_by: actorId,
+      decided_at: new Date().toISOString(),
+    };
+    cluster.state = decision === 'unsure' ? 'open' : 'resolved';
+    cluster.decision = decided;
+    const result = {
+      accepted: true,
+      decision: { ...decided },
+      cluster_state: cluster.state,
+      copied_grace_windows: 0,
+      attendance_recomputes: [],
+      audit_event_id: `preview-identity-audit-${ordinal}`,
+    };
+    this.identityMutations.set(requestId, { fingerprint, result });
+    return { ...result, duplicate: false };
   }
   async claimNotifications({ workerId, limit, now }) {
     const nowMs = Date.parse(now);

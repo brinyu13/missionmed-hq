@@ -377,6 +377,23 @@ export function buildCanonicalModel(bootstrap) {
     i: index,
   })).filter(cluster => cluster.members.length > 1) : [];
 
+  if (source.scope === 'admin') {
+    for (const cluster of source.identity_clusters || []) {
+      const decision = cluster.decision;
+      if (!decision || !['same', 'different', 'unsure'].includes(decision.decision)) continue;
+      if (decision.decision === 'unsure') continue;
+      const canonicalIndex = decision.canonical_student_id == null
+        ? clusters.find(item => item.id === cluster.ref)?.members?.[0]?.si
+        : studentIndex.get(decision.canonical_student_id);
+      if (canonicalIndex == null) continue;
+      working.ident[cluster.ref] = {
+        d: decision.decision,
+        canon: canonicalIndex,
+        at: safeDateMs(decision.decided_at),
+      };
+    }
+  }
+
   return {
     data: {
       meta: {

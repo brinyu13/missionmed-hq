@@ -12,7 +12,7 @@ const localConfig = {
   issuer: 'https://issuer.invalid',
   audience: 'missionaccounts',
   jwksUrl: 'https://issuer.invalid/jwks',
-  features: { studentContacts: false, billingDecisions: false, attendanceCorrections: false, examPlans: false, compDays: false, autoBilling: false, notifications: false, zoomSync: false },
+  features: { studentContacts: false, billingDecisions: false, attendanceCorrections: false, identityReview: false, examPlans: false, compDays: false, autoBilling: false, notifications: false, zoomSync: false },
   workerToken: '',
 };
 const webhookConfig = {
@@ -60,6 +60,48 @@ test('Stripe webhook verifies the untouched body and stores a retry only once', 
     assert.equal(retry.status, 200);
     assert.deepEqual(await retry.json(), { received: true, duplicate: true });
     assert.equal(store.integrationExceptions.size, 1);
+  });
+});
+
+test('identity-cluster adjudication is admin-only, feature-gated, and idempotent', async () => {
+  const store = new PreviewStore();
+  const canonicalStudentId = '00000000-0000-4000-8000-000000000001';
+  const secondStudentId = '00000000-0000-4000-8000-000000000002';
+  store.seedIdentityCluster({
+    ref: 'cluster:test-pair',
+    members: [
+      { id: 'alias-1', student_id: canonicalStudentId, source_key: 'source-1', display_value: 'Student One', relationship_state: 'candidate' },
+      { id: 'alias-2', student_id: secondStudentId, source_key: 'source-2', display_value: 'Student 1', relationship_state: 'candidate' },
+    ],
+  });
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, identityReview: true } };
+  const body = JSON.stringify({
+    decision: 'same',
+    canonical_student_id: canonicalStudentId,
+    note: 'Dr J confirmed the preserved Zoom identities belong to one student',
+  });
+  const headers = {
+    'content-type': 'application/json',
+    'x-missionaccounts-local-role': 'missionaccounts_admin',
+    'idempotency-key': 'identity-cluster-0001',
+  };
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const first = await fetch(`${base}/api/admin/identity/${encodeURIComponent('cluster:test-pair')}`, { method: 'POST', headers, body });
+    assert.equal(first.status, 201);
+    assert.equal((await first.json()).decision.canonical_student_id, canonicalStudentId);
+    const retry = await fetch(`${base}/api/admin/identity/${encodeURIComponent('cluster:test-pair')}`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+    const studentDenied = await fetch(`${base}/api/admin/identity/${encodeURIComponent('cluster:test-pair')}`, {
+      method: 'POST',
+      headers: { ...headers, 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'identity-cluster-0002' },
+      body: JSON.stringify({ decision: 'different', canonical_student_id: null, note: 'Student attempted an administrative decision' }),
+    });
+    assert.equal(studentDenied.status, 403);
+  });
+  await withServer({ config: localConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const disabled = await fetch(`${base}/api/admin/identity/${encodeURIComponent('cluster:test-pair')}`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'identity-cluster-0003' }, body });
+    assert.equal(disabled.status, 503);
   });
 });
 

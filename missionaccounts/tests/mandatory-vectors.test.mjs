@@ -373,6 +373,33 @@ test('unhandled signed provider events become private idempotent exceptions', as
   assert.doesNotMatch(sql, /grant execute[^]*to authenticated/);
 });
 
+test('identity adjudication is additive, canonicalizes derived attendance, and preserves grace on split', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906114450_identity_cluster_adjudication.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create view missionaccounts\.identity_student_resolution/);
+  assert.match(sql, /add column member_student_ids uuid\[\]/);
+  assert.match(sql, /create or replace view missionaccounts\.attendance_event_projection/);
+  assert.match(sql, /create table missionaccounts\.identity_grace_preservation/);
+  assert.match(sql, /create view missionaccounts\.grace_window_projection/);
+  assert.match(sql, /create or replace function missionaccounts\.recompute_student_attendance/);
+  assert.match(sql, /identity_component_size/);
+  assert.match(sql, /create function missionaccounts\.api_decide_identity_cluster/);
+  assert.match(sql, /pg_advisory_xact_lock\(hashtextextended\('missionaccounts:identity:request:' \|\| p_request_id/);
+  assert.match(sql, /identity_merge_requires_financial_or_account_review/);
+  assert.match(sql, /identity_transition_requires_financial_finality_review/);
+  assert.match(sql, /identity_transition_requires_comp_day_review/);
+  assert.match(sql, /identity_merge_requires_comp_allowance_alignment/);
+  assert.match(sql, /identity_split_copy/);
+  assert.match(sql, /source_grace_window_id/);
+  assert.match(sql, /identity_merge_review_hold/);
+  assert.match(sql, /propagated_cap_holds/);
+  assert.match(sql, /'identity_cluster\.decided'/);
+  assert.doesNotMatch(sql, /update missionaccounts\.attendance_event/);
+  assert.doesNotMatch(sql, /update missionaccounts\.attendance_source_row/);
+  assert.match(sql, /revoke execute[^]*api_decide_identity_cluster[^]*from public, anon, authenticated/);
+  assert.match(sql, /grant execute[^]*api_decide_identity_cluster[^]*to service_role/);
+  assert.doesNotMatch(sql, /grant execute[^]*api_decide_identity_cluster[^]*to authenticated/);
+});
+
 test('Zoom ingestion port preserves provider evidence without creating identity, attendance, or billing decisions', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906100746_zoom_ingestion_port.sql', import.meta.url), 'utf8');
   assert.match(sql, /create function missionaccounts\.api_ingest_zoom_batch/);

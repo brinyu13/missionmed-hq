@@ -94,6 +94,58 @@ test('canonical adapter exposes meeting references only inside an admin-scoped p
   });
 });
 
+test('canonical adapter hydrates persisted identity decisions into the Founder review model', () => {
+  const source = bootstrap('admin');
+  const secondStudentId = '00000000-0000-4000-8000-000000000002';
+  source.students.push({ id: secondStudentId, payment_method: null, billing_consent: null });
+  source.canon.students.push({ id: secondStudentId, display_name: 'Preview Student Alias', email: null, phone: null, joined_at: null, comp_days_allowance: 0, identity_state: 'needs_review' });
+  source.canon.aliases.push({ id: 'alias-2', student_id: secondStudentId, source_key: 'source-2', display_value: 'Preview Student Alias', relationship_state: 'candidate', confidence: 0.8 });
+  source.canon.identity_clusters = [{
+    ref: 'cluster:test-pair',
+    state: 'resolved',
+    evidence: { supporting: 'Matching attendance fingerprint' },
+    members: [source.canon.aliases[0], source.canon.aliases[1]],
+    decision: {
+      id: 'decision-1',
+      cluster_ref: 'cluster:test-pair',
+      decision: 'same',
+      canonical_student_id: studentId,
+      decided_at: '2026-09-06T12:00:00Z',
+    },
+  }];
+  const model = buildCanonicalModel(source);
+  assert.equal(model.data.clusters.length, 1);
+  assert.deepEqual(model.working.ident['cluster:test-pair'], {
+    d: 'same',
+    canon: 0,
+    at: Date.parse('2026-09-06T12:00:00Z'),
+  });
+});
+
+test('canonical adapter keeps an unsure identity decision open for new evidence and adjudication', () => {
+  const source = bootstrap('admin');
+  const secondStudentId = '00000000-0000-4000-8000-000000000002';
+  source.students.push({ id: secondStudentId, payment_method: null, billing_consent: null });
+  source.canon.students.push({ id: secondStudentId, display_name: 'Unresolved Alias', email: null, phone: null, joined_at: null, comp_days_allowance: 0, identity_state: 'needs_review' });
+  source.canon.aliases.push({ id: 'alias-2', student_id: secondStudentId, source_key: 'source-2', display_value: 'Unresolved Alias', relationship_state: 'candidate', confidence: 0.6 });
+  source.canon.identity_clusters = [{
+    ref: 'cluster:still-open',
+    state: 'open',
+    evidence: { supporting: 'More evidence requested' },
+    members: [source.canon.aliases[0], source.canon.aliases[1]],
+    decision: {
+      id: 'decision-unsure',
+      cluster_ref: 'cluster:still-open',
+      decision: 'unsure',
+      canonical_student_id: null,
+      decided_at: '2026-09-06T12:00:00Z',
+    },
+  }];
+  const model = buildCanonicalModel(source);
+  assert.equal(model.data.clusters.length, 1);
+  assert.equal(model.working.ident['cluster:still-open'], undefined);
+});
+
 test('canonical adapter rejects a payload whose authenticated scope and data scope disagree', () => {
   const mismatched = bootstrap('student');
   mismatched.scope = 'admin';
