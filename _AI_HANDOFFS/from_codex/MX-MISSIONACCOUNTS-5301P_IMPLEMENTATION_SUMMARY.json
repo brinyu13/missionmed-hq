@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "59033d0420888732acd11c194f48735c7542c99a",
+  "implementation_commit": "ecc0e4f3fdc8274e43f233c7a0845cecb0335bf7",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -28,7 +28,9 @@
     "4676efa2a7b57676034fccd5e3963a595a4e71b3",
     "34288a4ebe448f065ac693e8c3b63b39afa6eed3",
     "f2a557158a3f75426f872ea984dc9e00d0a76d5f",
-    "59033d0420888732acd11c194f48735c7542c99a"
+    "59033d0420888732acd11c194f48735c7542c99a",
+    "a971068fa05d0f5cd2f12fe222eb78397868bd8b",
+    "ecc0e4f3fdc8274e43f233c7a0845cecb0335bf7"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -41,6 +43,10 @@
   "historical_ceiling_adjudication_rpc_implemented": true,
   "exam_transition_rpc_implemented": true,
   "exam_plan_replacement_closes_grace": true,
+  "admin_exam_entry_and_edit_implemented": true,
+  "exam_suggested_date_custody_implemented": true,
+  "student_exam_withdrawal_implemented": true,
+  "accepted_exam_history_hydrated": true,
   "cycle_policy_rpc_implemented": true,
   "billing_decision_rpc_implemented": true,
   "attendance_correction_rpc_implemented": true,
@@ -75,7 +81,7 @@
   "notification_transport_configured": false,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 103, "failed": 0, "mandatory_vectors": 17 },
+  "tests": { "passed": 106, "failed": 0, "mandatory_vectors": 17 },
   "source_controls": {
     "students": 271,
     "source_artifacts": 6,
