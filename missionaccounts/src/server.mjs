@@ -537,6 +537,31 @@ export function createMissionAccountsServer({
       });
       return json(response, result.accepted === false ? 409 : 200, result);
     }
+    const cyclePolicyRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/policy\/([A-Za-z0-9._-]{1,100})$/)
+      : null;
+    if (cyclePolicyRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'billingDecisions');
+      const requestId = requestIdFor(request);
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const decision = String(body.decision || '').trim();
+      const reason = String(body.reason || '').trim();
+      if (!['cap', 'per', 'pending'].includes(decision)) {
+        throw requestError('Cycle policy decision must be cap, per, or pending');
+      }
+      if (!reason || reason.length > 2_000) throw requestError('A cycle policy reason is required');
+      const result = await store.setCyclePolicy({
+        cycleKey: cyclePolicyRoute[1],
+        decision,
+        reason,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId,
+      });
+      const projection = await store.adminCycle(cyclePolicyRoute[1]);
+      return json(response, result.duplicate ? 200 : 201, { ...result, projection });
+    }
     if (request.method === 'GET' && url.pathname === '/api/admin/home') {
       requireRole(identity, ['missionaccounts_admin', 'founder']);
       return json(response, 200, await store.adminHome({ today: localDayFromIso(now().toISOString()) }));

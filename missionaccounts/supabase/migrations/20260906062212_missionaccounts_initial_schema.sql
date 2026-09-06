@@ -352,13 +352,20 @@ create unique index billing_decision_one_current
   where superseded_by_id is null;
 
 create table missionaccounts.cycle_policy (
+  id uuid primary key default gen_random_uuid(),
   cycle_key text not null references missionaccounts.cycle(key),
   key text not null,
   value jsonb not null,
   set_by text not null,
+  reason text not null check (length(btrim(reason)) > 0),
+  request_id text not null unique,
   set_at timestamptz not null default now(),
-  primary key (cycle_key, key)
+  superseded_by_id uuid references missionaccounts.cycle_policy(id)
 );
+
+create unique index cycle_policy_one_current
+  on missionaccounts.cycle_policy(cycle_key, key)
+  where superseded_by_id is null;
 
 create table missionaccounts.rule_decision (
   id uuid primary key default gen_random_uuid(),
@@ -1179,6 +1186,124 @@ $$;
 revoke execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text) to service_role;
 
+create function missionaccounts.api_set_cycle_policy(
+  p_cycle_key text,
+  p_decision text,
+  p_reason text,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  existing_policy missionaccounts.cycle_policy%rowtype;
+  current_policy missionaccounts.cycle_policy%rowtype;
+  new_policy missionaccounts.cycle_policy%rowtype;
+  new_policy_id uuid := gen_random_uuid();
+  audit_id uuid;
+  stale_decisions integer := 0;
+begin
+  if p_decision not in ('cap','per','pending')
+     or nullif(btrim(p_cycle_key), '') is null
+     or nullif(btrim(p_reason), '') is null
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_actor_role), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'invalid_cycle_policy_request';
+  end if;
+
+  select * into existing_policy
+  from missionaccounts.cycle_policy
+  where request_id = p_request_id;
+  if found then
+    if existing_policy.cycle_key <> p_cycle_key
+       or existing_policy.key <> 'cap_13_15'
+       or existing_policy.value->>'decision' <> p_decision
+       or existing_policy.reason <> p_reason
+       or existing_policy.set_by <> p_actor_id then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select id into audit_id from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'cycle_policy.changed';
+    return jsonb_build_object(
+      'accepted', true,
+      'policy', to_jsonb(existing_policy),
+      'audit_event_id', audit_id,
+      'duplicate', true
+    );
+  end if;
+
+  perform 1 from missionaccounts.cycle where key = p_cycle_key for update;
+  if not found then raise exception using errcode = '23503', message = 'cycle_not_found'; end if;
+
+  select * into current_policy
+  from missionaccounts.cycle_policy
+  where cycle_key = p_cycle_key and key = 'cap_13_15' and superseded_by_id is null
+  for update;
+
+  if current_policy.id is null then
+    insert into missionaccounts.cycle_policy(
+      id, cycle_key, key, value, set_by, reason, request_id
+    ) values (
+      new_policy_id, p_cycle_key, 'cap_13_15', jsonb_build_object('decision', p_decision),
+      p_actor_id, p_reason, p_request_id
+    ) returning * into new_policy;
+  else
+    insert into missionaccounts.cycle_policy(
+      id, cycle_key, key, value, set_by, reason, request_id, superseded_by_id
+    ) values (
+      new_policy_id, p_cycle_key, 'cap_13_15', jsonb_build_object('decision', p_decision),
+      p_actor_id, p_reason, p_request_id, current_policy.id
+    );
+    update missionaccounts.cycle_policy
+    set superseded_by_id = new_policy_id
+    where id = current_policy.id;
+    update missionaccounts.cycle_policy
+    set superseded_by_id = null
+    where id = new_policy_id
+    returning * into new_policy;
+  end if;
+
+  update missionaccounts.billing_decision
+  set state = 'stale'
+  where cycle_key = p_cycle_key and superseded_by_id is null and state = 'approved';
+  get diagnostics stale_decisions = row_count;
+  update missionaccounts.invoice inv
+  set state = 'void'
+  where inv.cycle_key = p_cycle_key
+    and inv.state in ('draft','ready')
+    and exists (
+      select 1 from missionaccounts.billing_decision bd
+      where bd.id = inv.decision_id and bd.state = 'stale'
+    );
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id, p_actor_role, 'cycle_policy.changed',
+    'Cycle 13–15-day billing policy changed',
+    case when current_policy.id is null then null else to_jsonb(current_policy) end,
+    jsonb_build_object('policy', to_jsonb(new_policy), 'stale_decisions', stale_decisions),
+    p_reason, p_request_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'accepted', true,
+    'policy', to_jsonb(new_policy),
+    'stale_decisions', stale_decisions,
+    'audit_event_id', audit_id,
+    'duplicate', false
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_set_cycle_policy(text, text, text, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_set_cycle_policy(text, text, text, text, text, text) to service_role;
+
 create function missionaccounts.api_approve_billing_decision(
   p_student_id uuid,
   p_cycle_key text,
@@ -1211,6 +1336,7 @@ declare
   day_count integer := 0;
   event_count integer := 0;
   candidate_cap_count integer := 0;
+  cycle_cap_decision text;
   amount_cents integer := 0;
   raw_amount_cents integer := 0;
   basis jsonb;
@@ -1305,6 +1431,9 @@ begin
     and ad.superseded_at is null;
 
   raw_amount_cents := billable_count * 2500;
+  select value->>'decision' into cycle_cap_decision
+  from missionaccounts.cycle_policy
+  where cycle_key = p_cycle_key and key = 'cap_13_15' and superseded_by_id is null;
   select count(*)::integer into candidate_cap_count
   from missionaccounts.full_cycle_ceiling
   where student_id = p_student_id and cycle_key = p_cycle_key
@@ -1323,7 +1452,15 @@ begin
       and effective_from <= cycle_row.starts_on and superseded_by_id is null
   ) then rejection_reason := 'authoritative_rule_decision_missing';
   elsif p_treatment = 'fullcycle' and cap_row.id is null then rejection_reason := 'verified_full_cycle_ceiling_required';
-  elsif candidate_cap_count > 0 and cap_row.id is null and raw_amount_cents > 30000 then rejection_reason := 'cap_candidate_requires_review';
+  elsif p_treatment = 'confirm'
+        and billable_count between 13 and 15
+        and coalesce(cycle_cap_decision, 'pending') = 'pending'
+    then rejection_reason := 'cycle_cap_policy_requires_review';
+  elsif candidate_cap_count > 0
+        and cap_row.id is null
+        and raw_amount_cents > 30000
+        and not (billable_count between 13 and 15 and cycle_cap_decision = 'cap')
+    then rejection_reason := 'cap_candidate_requires_review';
   end if;
 
   if rejection_reason is not null then
@@ -1341,6 +1478,7 @@ begin
   amount_cents := case
     when p_treatment in ('ucc','mul','waived','prepaid','already_paid','already_invoiced') then 0
     when p_treatment in ('other','special') then p_requested_amount_cents
+    when p_treatment = 'confirm' and billable_count between 13 and 15 and cycle_cap_decision = 'cap' then 30000
     else raw_amount_cents
   end;
   if cap_row.id is not null then amount_cents := least(amount_cents, cap_row.ceiling_cents); end if;
@@ -1357,6 +1495,7 @@ begin
     'requested_amount_cents', p_requested_amount_cents,
     'amount_cents', amount_cents,
     'rate_cents', 2500,
+    'cycle_cap_13_15', cycle_cap_decision,
     'cap', case when cap_row.id is null then null else jsonb_build_object('id', cap_row.id, 'status', cap_row.status, 'ceiling_cents', cap_row.ceiling_cents) end,
     'days', coalesce((
       select jsonb_agg(jsonb_build_object('id', id, 'day', day, 'kind', kind) order by day, id)
@@ -2627,6 +2766,7 @@ declare table_name text;
 begin
   foreach table_name in array array[
     'student','identity_alias','identity_cluster','identity_cluster_member','identity_decision',
+    'cycle_policy','rule_decision',
     'session','attendance_source_row','attendance_event',
     'attendance_event_source_row','attendance_correction','attendance_day',
     'attendance_day_event','historical_account_source','full_cycle_ceiling',

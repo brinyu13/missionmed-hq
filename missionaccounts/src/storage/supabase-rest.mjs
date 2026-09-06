@@ -128,6 +128,17 @@ export class SupabaseRestStore {
     });
   }
 
+  async setCyclePolicy({ cycleKey, decision, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_set_cycle_policy', {
+      p_cycle_key: cycleKey,
+      p_decision: decision,
+      p_reason: reason,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async approveBillingDecision({ studentId, cycleKey, treatment, requestedAmountCents, note, actorId, actorRole, requestId }) {
     return this.rpc('api_approve_billing_decision', {
       p_student_id: studentId,
@@ -317,14 +328,15 @@ export class SupabaseRestStore {
   }
 
   async adminCycle(cycleKey) {
-    const [cycles, attendanceDays, decisions, invoices] = await Promise.all([
+    const [cycles, attendanceDays, decisions, invoices, policies] = await Promise.all([
       this.request(`cycle?key=eq.${encodeURIComponent(cycleKey)}&select=key,label,starts_on,ends_on,state&limit=1`),
       this.request(`attendance_day?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_at=is.null&select=id,student_id,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`),
       this.request(`billing_decision?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_by_id=is.null&select=id,student_id,treatment,amount_cents,basis,state,decided_at`),
       this.request(`invoice?cycle_key=eq.${encodeURIComponent(cycleKey)}&select=id,student_id,decision_id,state,amount_cents,sent_at,paid_at`),
+      this.request(`cycle_policy?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_by_id=is.null&select=id,cycle_key,key,value,set_by,reason,set_at`),
     ]);
     if (!cycles[0]) return null;
-    return { cycle: cycles[0], attendance_days: attendanceDays, billing_decisions: decisions, invoices };
+    return { cycle: cycles[0], attendance_days: attendanceDays, billing_decisions: decisions, invoices, policies };
   }
 
   async adminIdentityClusters({ state = 'open' } = {}) {
@@ -375,6 +387,8 @@ export class PreviewStore {
     this.compSettings = new Map();
     this.compMutations = new Map();
     this.examTransitions = new Map();
+    this.cyclePolicies = new Map();
+    this.policyMutations = new Map();
     this.attendanceDays = new Map();
     this.billingCaps = new Map();
     this.billingDecisions = new Map();
@@ -519,6 +533,43 @@ export class PreviewStore {
     this.examTransitions.set(requestId, { fingerprint, result: resultPayload });
     return resultPayload;
   }
+  async setCyclePolicy({ cycleKey, decision, reason, actorId, requestId }) {
+    const fingerprint = JSON.stringify({ cycleKey, decision, reason, actorId });
+    const existing = this.policyMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    const prior = this.cyclePolicies.get(cycleKey) || null;
+    const ordinal = this.policyMutations.size + 1;
+    const policy = {
+      id: `preview-cycle-policy-${ordinal}`,
+      cycle_key: cycleKey,
+      key: 'cap_13_15',
+      value: { decision },
+      set_by: actorId,
+      reason,
+      request_id: requestId,
+      superseded_by_id: null,
+    };
+    if (prior) prior.superseded_by_id = policy.id;
+    this.cyclePolicies.set(cycleKey, policy);
+    let staleDecisions = 0;
+    for (const [key, billingDecision] of this.billingDecisions) {
+      if (key.endsWith(`:${cycleKey}`) && billingDecision.state === 'approved') {
+        this.billingDecisions.set(key, { ...billingDecision, state: 'stale' });
+        staleDecisions += 1;
+      }
+    }
+    const result = {
+      accepted: true,
+      policy,
+      stale_decisions: staleDecisions,
+      audit_event_id: `preview-cycle-policy-audit-${ordinal}`,
+    };
+    this.policyMutations.set(requestId, { fingerprint, result });
+    return result;
+  }
   seedAttendanceDays(studentId, cycleKey, days) {
     this.attendanceDays.set(`${studentId}:${cycleKey}`, days.map(day => ({ ...day })));
   }
@@ -534,11 +585,14 @@ export class PreviewStore {
     }
     const days = this.attendanceDays.get(`${studentId}:${cycleKey}`) || [];
     const cap = this.billingCaps.get(`${studentId}:${cycleKey}`) || null;
-    const rawAmount = days.filter(day => day.kind === 'billable').length * 2_500;
+    const billableCount = days.filter(day => day.kind === 'billable').length;
+    const rawAmount = billableCount * 2_500;
+    const cycleCapDecision = this.cyclePolicies.get(cycleKey)?.value?.decision || null;
     let rejection = null;
     if (days.some(day => day.kind === 'needs_review')) rejection = 'attendance_requires_review';
     else if (treatment === 'fullcycle' && cap?.verified !== true) rejection = 'verified_full_cycle_ceiling_required';
-    else if (cap?.status === 'candidate' && rawAmount > 30_000) rejection = 'cap_candidate_requires_review';
+    else if (treatment === 'confirm' && billableCount >= 13 && billableCount <= 15 && !['cap', 'per'].includes(cycleCapDecision)) rejection = 'cycle_cap_policy_requires_review';
+    else if (cap?.status === 'candidate' && rawAmount > 30_000 && !(billableCount >= 13 && billableCount <= 15 && cycleCapDecision === 'cap')) rejection = 'cap_candidate_requires_review';
     if (rejection) {
       const result = { accepted: false, reason: rejection, audit_event_id: `preview-billing-audit-${this.billingMutations.size + 1}` };
       this.billingMutations.set(requestId, { fingerprint, result });
@@ -551,8 +605,9 @@ export class PreviewStore {
       historicalArrangement: cap?.verified === true ? { verified: true, type: 'full_cycle_300' } : null,
     });
     let amountCents = ['other', 'special'].includes(treatment) ? requestedAmountCents : calculated.amount_cents;
+    if (treatment === 'confirm' && billableCount >= 13 && billableCount <= 15 && cycleCapDecision === 'cap') amountCents = 30_000;
     if (cap?.verified === true) amountCents = Math.min(amountCents, Number(cap.ceiling_cents || 30_000));
-    const basis = buildDecisionBasis(days, { treatment, amount_cents: amountCents, cap });
+    const basis = buildDecisionBasis(days, { treatment, amount_cents: amountCents, cap, cycle_cap_13_15: cycleCapDecision });
     const ordinal = this.billingMutations.size + 1;
     const decision = {
       id: `preview-billing-decision-${ordinal}`,
@@ -907,7 +962,14 @@ export class PreviewStore {
   async adminCycle(cycleKey) {
     const attendance = [...this.attendanceDays.entries()].filter(([key]) => key.endsWith(`:${cycleKey}`)).flatMap(([, days]) => days);
     const decisions = [...this.billingDecisions.entries()].filter(([key]) => key.endsWith(`:${cycleKey}`)).map(([, decision]) => decision);
-    return { cycle: { key: cycleKey, label: cycleKey, starts_on: null, ends_on: null, state: 'preview' }, attendance_days: attendance, billing_decisions: decisions, invoices: [] };
+    const policy = this.cyclePolicies.get(cycleKey);
+    return {
+      cycle: { key: cycleKey, label: cycleKey, starts_on: null, ends_on: null, state: 'preview' },
+      attendance_days: attendance,
+      billing_decisions: decisions,
+      invoices: [],
+      policies: policy ? [{ ...policy }] : [],
+    };
   }
   async adminIdentityClusters({ state = 'open' } = {}) {
     return [...this.identityClusters.values()]

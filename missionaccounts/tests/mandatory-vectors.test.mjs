@@ -207,6 +207,19 @@ test('persisted attendance is recomputed before billing can be reapproved', asyn
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.recompute_student_attendance[^;]+to authenticated/s);
 });
 
+test('cycle 13–15-day policy is versioned, audited, and server-authoritative', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create unique index cycle_policy_one_current/);
+  assert.match(sql, /create function missionaccounts\.api_set_cycle_policy/);
+  assert.match(sql, /p_decision not in \('cap','per','pending'\)/);
+  assert.match(sql, /'cycle_policy\.changed'/);
+  assert.match(sql, /cycle_cap_policy_requires_review/);
+  assert.match(sql, /billable_count between 13 and 15 and cycle_cap_decision = 'cap'/);
+  assert.match(sql, /'cycle_policy','rule_decision'/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_set_cycle_policy[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_set_cycle_policy[^;]+to authenticated/s);
+});
+
 test('billing consent is versioned, server-authoritative, separately revocable, and exposes no Stripe references', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
   assert.match(sql, /create table missionaccounts\.billing_terms/);

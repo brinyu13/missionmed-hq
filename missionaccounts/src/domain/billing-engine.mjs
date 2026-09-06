@@ -174,6 +174,7 @@ export function buildDecisionBasis(days, financial = {}) {
     treatment: financial.treatment || null,
     amount_cents: Number(financial.amount_cents || 0),
     account_state: financial.account_state || 'estimate',
+    cycle_cap_13_15: financial.cycle_cap_13_15 || null,
     cap: financial.cap ? {
       id: financial.cap.id || null,
       status: financial.cap.status || 'candidate',

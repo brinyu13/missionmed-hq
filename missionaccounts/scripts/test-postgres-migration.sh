@@ -145,6 +145,10 @@ from generate_series(0, 14) as day_offset;
 insert into missionaccounts.full_cycle_ceiling(student_id, cycle_key, status, basis)
 values ('$student_id', '2026-cycle-1', 'candidate', jsonb_build_object('source', 'integration'));
 set role service_role;
+select missionaccounts.api_set_cycle_policy(
+  '2026-cycle-1','per','Exercise the individual historical cap gate',
+  'wp:admin','missionaccounts_admin','pg-cycle-policy-billing-0001'
+)->>'duplicate';
 select missionaccounts.api_approve_billing_decision('$student_id','2026-cycle-1','confirm',null,null,'wp:admin','missionaccounts_admin','pg-billing-0001')->>'accepted';
 select missionaccounts.api_approve_billing_decision('$student_id','2026-cycle-1','confirm',null,null,'wp:admin','missionaccounts_admin','pg-billing-0001')->>'duplicate';
 reset role;
@@ -162,7 +166,7 @@ from missionaccounts.billing_decision;
 SQL
 )
 
-billing_expected=$'false\ntrue\n30000\ntrue\n1|1|2'
+billing_expected=$'false\nfalse\ntrue\n30000\ntrue\n1|1|2'
 if [[ "$billing_results" != "$billing_expected" ]]; then
   echo "MissionAccounts billing authority verification returned unexpected controls:" >&2
   echo "$billing_results" >&2
@@ -492,4 +496,56 @@ if [[ "$notification_results" != "$notification_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+policy_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:policy','Cycle Policy Test') returning id")
+
+cycle_policy_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.engine_run(engine_version, source_digest, state)
+values ('policy-integration-v1', repeat('d', 64), 'succeeded');
+insert into missionaccounts.attendance_day(
+  engine_run_id, student_id, cycle_key, day, kind, engine_version, source_digest
+)
+select
+  (select id from missionaccounts.engine_run where engine_version = 'policy-integration-v1'),
+  '$policy_student_id', '2026-cycle-2', date '2026-07-14' + day_offset,
+  'billable', 'policy-integration-v1', repeat('d', 64)
+from generate_series(0, 12) as day_offset;
+set role service_role;
+select missionaccounts.api_set_cycle_policy(
+  '2026-cycle-2','cap','Use the full-cycle price for 13–15 days',
+  'wp:admin','missionaccounts_admin','pg-cycle-policy-0001'
+)->>'duplicate';
+select missionaccounts.api_approve_billing_decision(
+  '$policy_student_id','2026-cycle-2','confirm',null,null,
+  'wp:admin','missionaccounts_admin','pg-cycle-policy-billing-0002'
+)->'decision'->>'amount_cents';
+select missionaccounts.api_set_cycle_policy(
+  '2026-cycle-2','per','Use the written per-day amount for 13–15 days',
+  'wp:admin','missionaccounts_admin','pg-cycle-policy-0002'
+)->>'stale_decisions';
+select missionaccounts.api_set_cycle_policy(
+  '2026-cycle-2','per','Use the written per-day amount for 13–15 days',
+  'wp:admin','missionaccounts_admin','pg-cycle-policy-0002'
+)->>'duplicate';
+select missionaccounts.api_approve_billing_decision(
+  '$policy_student_id','2026-cycle-2','confirm',null,null,
+  'wp:admin','missionaccounts_admin','pg-cycle-policy-billing-0003'
+)->'decision'->>'amount_cents';
+reset role;
+select
+  (select count(*) from missionaccounts.cycle_policy where cycle_key='2026-cycle-2') || '|' ||
+  (select value->>'decision' from missionaccounts.cycle_policy where cycle_key='2026-cycle-2' and superseded_by_id is null) || '|' ||
+  (select count(*) from missionaccounts.cycle_policy where cycle_key='2026-cycle-2' and superseded_by_id is not null) || '|' ||
+  (select count(*) from missionaccounts.invoice where student_id='$policy_student_id' and state='void') || '|' ||
+  (select count(*) from missionaccounts.invoice where student_id='$policy_student_id' and state='draft');
+SQL
+)
+
+cycle_policy_expected=$'false\n30000\n1\ntrue\n32500\n2|per|1|1|1'
+if [[ "$cycle_policy_results" != "$cycle_policy_expected" ]]; then
+  echo "MissionAccounts cycle-policy verification returned unexpected controls:" >&2
+  echo "$cycle_policy_results" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, billing and cycle-policy authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, one-charge-per-day dispatch, and notification outbox delivery: PASS"

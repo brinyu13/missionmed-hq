@@ -709,6 +709,82 @@ test('billing approval derives totals on the server and deduplicates retries', a
   });
 });
 
+test('cycle 13–15-day policy is audited, idempotent, and changes derived approvals', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, billingDecisions: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const cycleKey = '2026-cycle-1';
+  store.seedAttendanceDays(studentId, cycleKey, Array.from({ length: 13 }, (_, index) => ({
+    id: `policy-day-${index + 1}`,
+    day: `2026-06-${String(index + 8).padStart(2, '0')}`,
+    kind: 'billable',
+    event_ids: [`policy-event-${index + 1}`],
+  })));
+  const decisionPath = `/api/admin/students/${studentId}/decisions`;
+  const policyPath = `/api/admin/policy/${cycleKey}`;
+  const adminHeaders = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin' };
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const unresolved = await fetch(`${base}${decisionPath}`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'cycle-policy-billing-0001' },
+      body: JSON.stringify({ cycle_key: cycleKey, treatment: 'confirm' }),
+    });
+    assert.equal(unresolved.status, 409);
+    assert.equal((await unresolved.json()).reason, 'cycle_cap_policy_requires_review');
+
+    const forbidden = await fetch(`${base}${policyPath}`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'cycle-policy-0001' },
+      body: JSON.stringify({ decision: 'cap', reason: 'Founder-approved cycle treatment' }),
+    });
+    assert.equal(forbidden.status, 403);
+
+    const cap = await fetch(`${base}${policyPath}`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'cycle-policy-0001' },
+      body: JSON.stringify({ decision: 'cap', reason: 'Founder-approved cycle treatment' }),
+    });
+    assert.equal(cap.status, 201);
+    const capPayload = await cap.json();
+    assert.equal(capPayload.policy.value.decision, 'cap');
+    assert.equal(capPayload.projection.policies[0].value.decision, 'cap');
+
+    const capRetry = await fetch(`${base}${policyPath}`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'cycle-policy-0001' },
+      body: JSON.stringify({ decision: 'cap', reason: 'Founder-approved cycle treatment' }),
+    });
+    assert.equal(capRetry.status, 200);
+    assert.equal((await capRetry.json()).duplicate, true);
+
+    const cappedApproval = await fetch(`${base}${decisionPath}`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'cycle-policy-billing-0002' },
+      body: JSON.stringify({ cycle_key: cycleKey, treatment: 'confirm' }),
+    });
+    assert.equal(cappedApproval.status, 201);
+    assert.equal((await cappedApproval.json()).decision.amount_cents, 30_000);
+
+    const perDay = await fetch(`${base}${policyPath}`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'cycle-policy-0002' },
+      body: JSON.stringify({ decision: 'per', reason: 'Keep the written per-day amount' }),
+    });
+    assert.equal(perDay.status, 201);
+    const perDayPayload = await perDay.json();
+    assert.equal(perDayPayload.stale_decisions, 1);
+    assert.equal(perDayPayload.projection.billing_decisions[0].state, 'stale');
+
+    const perDayApproval = await fetch(`${base}${decisionPath}`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'cycle-policy-billing-0003' },
+      body: JSON.stringify({ cycle_key: cycleKey, treatment: 'confirm' }),
+    });
+    assert.equal(perDayApproval.status, 201);
+    assert.equal((await perDayApproval.json()).decision.amount_cents, 32_500);
+  });
+});
+
 test('unverified historical cap candidate blocks approval until verified', async () => {
   const enabledConfig = { ...localConfig, features: { ...localConfig.features, billingDecisions: true } };
   const store = new PreviewStore();
@@ -720,6 +796,13 @@ test('unverified historical cap candidate blocks approval until verified', async
     kind: 'billable',
     event_ids: [`event-${index + 1}`],
   })));
+  await store.setCyclePolicy({
+    cycleKey,
+    decision: 'per',
+    reason: 'Exercise the individual historical cap gate',
+    actorId: 'admin-1',
+    requestId: 'billing-cap-policy-seed-0001',
+  });
   store.seedBillingCap(studentId, cycleKey, { id: 'cap-1', status: 'candidate', verified: false, ceiling_cents: 30_000 });
   const path = `/api/admin/students/${studentId}/decisions`;
   const headers = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin' };
