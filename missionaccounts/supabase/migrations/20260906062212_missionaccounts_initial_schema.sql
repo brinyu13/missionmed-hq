@@ -3150,6 +3150,7 @@ begin
       raise exception using errcode = '23505', message = 'idempotency_key_reuse';
     end if;
     select * into method_row from missionaccounts.payment_method_private where student_id = charge_row.student_id;
+    select * into student_row from missionaccounts.student where id = charge_row.student_id;
     return jsonb_build_object(
       'accepted', true, 'duplicate', true,
       'charge', jsonb_build_object(
@@ -3158,7 +3159,8 @@ begin
         'state', charge_row.state, 'idempotency_key', charge_row.idempotency_key
       ),
       'customer_ref', method_row.provider_customer_ref,
-      'payment_method_ref', method_row.provider_pm_ref
+      'payment_method_ref', method_row.provider_pm_ref,
+      'receipt_email', student_row.email
     );
   end if;
 
@@ -3219,6 +3221,11 @@ begin
     for update;
     if consent_row.id is null or consent_row.state <> 'authorized' then rejection_reason := 'billing_authorization_required'; end if;
   end if;
+
+  if rejection_reason is null and (
+    nullif(btrim(student_row.email), '') is null
+    or lower(btrim(student_row.email)) !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
+  ) then rejection_reason := 'student_receipt_email_required'; end if;
 
   if rejection_reason is null then
     select * into charge_row
@@ -3297,7 +3304,8 @@ begin
       'state', charge_row.state, 'idempotency_key', charge_row.idempotency_key
     ),
     'customer_ref', method_row.provider_customer_ref,
-    'payment_method_ref', method_row.provider_pm_ref
+    'payment_method_ref', method_row.provider_pm_ref,
+    'receipt_email', lower(btrim(student_row.email))
   );
 end;
 $$;

@@ -1446,6 +1446,7 @@ export class PreviewStore {
     const decision = studentId ? this.billingDecisions.get(`${studentId}:${cycleKey}`) : null;
     const method = studentId ? this.paymentMethods.get(studentId) : null;
     const consent = studentId ? this.billingConsents.get(studentId) : null;
+    const receiptEmail = studentId === this.previewStudentRecord.id ? String(this.previewStudentRecord.email || '').trim().toLowerCase() : '';
     const existingCharge = this.chargesByDay.get(attendanceDayId) || null;
     let rejection = null;
     if (!day) rejection = 'current_attendance_day_not_found';
@@ -1455,6 +1456,7 @@ export class PreviewStore {
     else if (!(decision.basis?.day_states || decision.basis?.days || []).some(item => item.id === attendanceDayId && item.kind === 'billable')) rejection = 'attendance_day_not_in_approved_basis';
     else if (method?.status !== 'on_file') rejection = 'payment_method_required';
     else if (consent?.state !== 'authorized') rejection = 'billing_authorization_required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(receiptEmail)) rejection = 'student_receipt_email_required';
     else if (existingCharge?.state === 'failed' && explicitRetry !== true) rejection = 'explicit_retry_required';
     else if (existingCharge?.state === 'succeeded') rejection = 'charge_already_succeeded';
     else if (existingCharge?.state === 'refunded') rejection = 'refunded_day_requires_review';
@@ -1485,6 +1487,7 @@ export class PreviewStore {
       charge: { ...charge },
       customer_ref: customer?.provider_customer_ref || null,
       payment_method_ref: `pm_preview_${studentId}`,
+      receipt_email: receiptEmail,
       audit_event_id: `preview-charge-audit-${ordinal}`,
     };
     this.chargeMutations.set(requestId, { fingerprint, result });
@@ -1568,6 +1571,7 @@ export class PreviewStore {
         attendance_day_id: day.id,
         customer_ref: prepared.customer_ref,
         payment_method_ref: prepared.payment_method_ref,
+        receipt_email: prepared.receipt_email,
         charge: prepared.charge,
       });
     }

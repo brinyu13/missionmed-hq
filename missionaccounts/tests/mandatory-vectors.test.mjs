@@ -336,6 +336,8 @@ test('automatic charge scheduling is bounded to 24-48 hours, retry-safe, and ser
   assert.match(sql, /computed_at >= p_now - interval '48 hours'/);
   assert.match(sql, /automatic_charge_window_missed/);
   assert.match(sql, /for update of d skip locked/);
+  assert.match(sql, /'receipt_email', prepared->>'receipt_email'/);
+  assert.match(sql, /automatic_charge_receipt_email_missing/);
   assert.match(sql, /api_prepare_day_charge/);
   assert.match(sql, /api_finish_auto_charge_dispatch/);
   assert.match(sql, /automatic_charge_submission_failed/);
@@ -344,6 +346,19 @@ test('automatic charge scheduling is bounded to 24-48 hours, retry-safe, and ser
   assert.match(sql, /grant execute on function missionaccounts\.api_finish_auto_charge_dispatch[^;]+to service_role/s);
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_claim_due_day_charges[^;]+to authenticated/s);
   assert.match(sql, /force row level security/);
+});
+
+test('every pending charge requires a validated student receipt email', async () => {
+  const [initialSql, receiptSql] = await Promise.all([
+    readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../supabase/migrations/20260906112331_require_receipt_email_for_day_charges.sql', import.meta.url), 'utf8'),
+  ]);
+  assert.match(initialSql, /student_receipt_email_required/);
+  assert.match(initialSql, /'receipt_email', lower\(btrim\(student_row\.email\)\)/);
+  assert.match(receiptSql, /create trigger charge_receipt_email_required/);
+  assert.match(receiptSql, /before insert or update of student_id, state on missionaccounts\.charge/);
+  assert.match(receiptSql, /security invoker/);
+  assert.match(receiptSql, /revoke execute[^]*from public, anon, authenticated/);
 });
 
 test('Zoom ingestion port preserves provider evidence without creating identity, attendance, or billing decisions', async () => {

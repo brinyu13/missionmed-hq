@@ -112,12 +112,17 @@ export class StripeGateway {
     );
   }
 
-  createDayCharge({ customerId, paymentMethodId, studentId, attendanceDayId }) {
+  createDayCharge({ customerId, paymentMethodId, studentId, attendanceDayId, receiptEmail }) {
+    const normalizedReceiptEmail = String(receiptEmail || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedReceiptEmail)) {
+      throw Object.assign(new Error('A valid student receipt email is required before charging'), { status: 409 });
+    }
     return this.request('payment_intents', {
       amount: '2500',
       currency: 'usd',
       customer: customerId,
       payment_method: paymentMethodId,
+      receipt_email: normalizedReceiptEmail,
       confirm: 'true',
       off_session: 'true',
       'metadata[student_id]': studentId,

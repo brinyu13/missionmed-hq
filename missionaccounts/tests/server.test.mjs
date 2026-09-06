@@ -406,6 +406,7 @@ test('automatic charge worker submits one eligible day only inside the 24-48 hou
     assert.deepEqual(await first.json(), { claimed: 1, submitted: 1, failed: 0, expired: 0 });
     assert.equal(calls.length, 1);
     assert.equal(calls[0].attendanceDayId, attendanceDayId);
+    assert.equal(calls[0].receiptEmail, 'student.preview@invalid.local');
     assert.equal(store.chargesByDay.get(attendanceDayId).provider_ref, 'pi_test_automatic_charge_1');
     assert.equal(store.autoChargeDispatches.get(attendanceDayId).state, 'submitted');
 
@@ -1233,6 +1234,14 @@ test('a $25 day charge is server-authorized once and reaches succeeded only thro
       studentId, action: 'authorize', termsVersion: 'test-terms-v1', acceptedIp: '127.0.0.1',
       reason: 'Student accepted test terms', actorId: studentId, requestId: 'charge-consent-0001',
     });
+    store.previewStudentRecord.email = null;
+    const missingReceiptEmail = await fetch(`${base}${path}`, {
+      method: 'POST', headers: { ...adminHeaders, 'idempotency-key': 'day-charge-request-no-email' }, body: '{}',
+    });
+    assert.equal(missingReceiptEmail.status, 409);
+    assert.equal((await missingReceiptEmail.json()).reason, 'student_receipt_email_required');
+    assert.equal(paymentIntentCalls.length, 0);
+    store.previewStudentRecord.email = 'Verified.Student@Example.org';
     const chargeHeaders = { ...adminHeaders, 'idempotency-key': 'day-charge-request-0001' };
     const prepared = await fetch(`${base}${path}`, { method: 'POST', headers: chargeHeaders, body: '{}' });
     assert.equal(prepared.status, 202);
@@ -1245,6 +1254,7 @@ test('a $25 day charge is server-authorized once and reaches succeeded only thro
     assert.equal((await retry.json()).duplicate, true);
     assert.equal(paymentIntentCalls.length, 2);
     assert.equal(paymentIntentCalls[0].attendanceDayId, attendanceDayId);
+    assert.equal(paymentIntentCalls[0].receiptEmail, 'verified.student@example.org');
 
     const parallel = await fetch(`${base}${path}`, {
       method: 'POST', headers: { ...adminHeaders, 'idempotency-key': 'day-charge-request-0002' }, body: '{}',

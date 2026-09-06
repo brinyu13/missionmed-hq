@@ -93,6 +93,30 @@ test('Stripe mutations fail closed unless configured with a Test Mode key', asyn
   await assert.rejects(() => gateway.createSetupIntent('cus_1', 'student_1', 'request_1'), /disabled outside configured Test Mode/);
 });
 
+test('Stripe day charges require and normalize a receipt email', async () => {
+  const originalFetch = globalThis.fetch;
+  let observed;
+  globalThis.fetch = async (url, options) => {
+    observed = { url, options };
+    return { ok: true, json: async () => ({ id: 'pi_test_receipt_1' }) };
+  };
+  try {
+    const gateway = new StripeGateway({ secretKey: 'sk_test_example', mode: 'test' });
+    assert.throws(() => gateway.createDayCharge({
+      customerId: 'cus_1', paymentMethodId: 'pm_1', studentId: 'student_1', attendanceDayId: 'day_1',
+    }), /receipt email is required/i);
+    await gateway.createDayCharge({
+      customerId: 'cus_1', paymentMethodId: 'pm_1', studentId: 'student_1', attendanceDayId: 'day_1',
+      receiptEmail: ' Verified.Student@Example.org ',
+    });
+    assert.equal(observed.url, 'https://api.stripe.com/v1/payment_intents');
+    assert.equal(observed.options.body.get('receipt_email'), 'verified.student@example.org');
+    assert.equal(observed.options.headers['idempotency-key'], 'missionaccounts:billable-day:day_1:v1');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('Stripe payment-method detach is Test-Mode-only and idempotently keyed', async () => {
   const originalFetch = globalThis.fetch;
   let observed;

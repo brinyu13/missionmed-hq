@@ -556,8 +556,20 @@ select missionaccounts.api_set_billing_consent(
 )->>'accepted';
 select missionaccounts.api_prepare_day_charge(
   (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
+  'wp:admin','missionaccounts_admin','pg-charge-no-email-0001',false
+)->>'reason';
+select missionaccounts.api_set_student_contact(
+  '$student_id','Verified.Student@Example.org','555-0102','Receipt delivery verified',
+  'wp:admin','missionaccounts_admin','pg-contact-receipt-0001'
+)->>'duplicate';
+select missionaccounts.api_prepare_day_charge(
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
   'wp:admin','missionaccounts_admin','pg-charge-0001',false
 )->>'accepted';
+select missionaccounts.api_prepare_day_charge(
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
+  'wp:admin','missionaccounts_admin','pg-charge-0001',false
+)->>'receipt_email';
 select missionaccounts.api_prepare_day_charge(
   (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
   'wp:admin','missionaccounts_admin','pg-charge-0001',false
@@ -610,7 +622,7 @@ from missionaccounts.charge;
 SQL
 )
 
-charge_expected=$'false\nbillable\ntrue\ntrue\ntrue\ntrue\ncharge_already_pending\nfalse\ntrue\ncharge_already_succeeded\n1|1|succeeded|1|1|1'
+charge_expected=$'false\nbillable\ntrue\ntrue\nstudent_receipt_email_required\nfalse\ntrue\nverified.student@example.org\ntrue\ncharge_already_pending\nfalse\ntrue\ncharge_already_succeeded\n1|1|succeeded|1|1|1'
 if [[ "$charge_results" != "$charge_expected" ]]; then
   echo "MissionAccounts automatic day-charge verification returned unexpected controls:" >&2
   echo "$charge_results" >&2
@@ -781,7 +793,7 @@ if [[ "$account_link_results" != "$account_link_expected" ]]; then
 fi
 
 auto_charge_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
-  -c "insert into missionaccounts.student(matrix_user_ref,display_name,identity_state) values ('wp:auto-charge','Automatic Charge Test','verified') returning id")
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name,email,identity_state) values ('wp:auto-charge','Automatic Charge Test','auto.charge@example.org','verified') returning id")
 
 auto_charge_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 insert into missionaccounts.engine_run(engine_version, source_digest, state)
@@ -809,9 +821,12 @@ select missionaccounts.api_set_billing_consent(
   '$auto_charge_student_id','authorize','integration-v1','127.0.0.1',
   'Student accepted automatic billing terms','wp:auto-charge','student','pg-auto-charge-consent-0001'
 )->>'accepted';
-select jsonb_array_length(missionaccounts.api_claim_due_day_charges(
-  '2026-09-10T12:00:00Z','pg-auto-charge-worker',10
-)->'claimed');
+select jsonb_array_length(result->'claimed') || '|' || (result->'claimed'->0->>'receipt_email')
+from (
+  select missionaccounts.api_claim_due_day_charges(
+    '2026-09-10T12:00:00Z','pg-auto-charge-worker',10
+  ) as result
+) claimed;
 select state from missionaccounts.auto_charge_dispatch where attendance_day_id = (
   select id from missionaccounts.attendance_day where student_id='$auto_charge_student_id'
 );
@@ -832,7 +847,7 @@ select
 SQL
 )
 
-auto_charge_expected=$'true\ntrue\n1\nclaimed\nsubmitted\n0\npending|pi_test_auto_charge_pg|1'
+auto_charge_expected=$'true\ntrue\n1|auto.charge@example.org\nclaimed\nsubmitted\n0\npending|pi_test_auto_charge_pg|1'
 if [[ "$auto_charge_results" != "$auto_charge_expected" ]]; then
   echo "MissionAccounts 24-48 hour automatic-charge verification returned unexpected controls:" >&2
   echo "$auto_charge_results" >&2

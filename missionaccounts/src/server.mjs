@@ -255,6 +255,7 @@ export function createMissionAccountsServer({
             paymentMethodId: item.payment_method_ref,
             studentId: item.charge.student_id,
             attendanceDayId: item.attendance_day_id,
+            receiptEmail: item.receipt_email,
           });
           if (!/^pi_[A-Za-z0-9_]+$/.test(String(paymentIntent.id || ''))) {
             throw requestError('Stripe PaymentIntent response is incomplete', 502);
@@ -712,6 +713,7 @@ export function createMissionAccountsServer({
         paymentMethodId: result.payment_method_ref,
         studentId: result.charge.student_id,
         attendanceDayId: result.charge.attendance_day_id,
+        receiptEmail: result.receipt_email,
       });
       if (!/^pi_[A-Za-z0-9_]+$/.test(String(paymentIntent.id || ''))) {
         throw requestError('Stripe PaymentIntent response is incomplete', 502);

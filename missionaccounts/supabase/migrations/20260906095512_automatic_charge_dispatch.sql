@@ -184,6 +184,7 @@ begin
         'attendance_day_id', candidate.attendance_day_id,
         'customer_ref', prepared->>'customer_ref',
         'payment_method_ref', prepared->>'payment_method_ref',
+        'receipt_email', prepared->>'receipt_email',
         'charge', prepared->'charge'
       ));
     else
@@ -191,6 +192,18 @@ begin
       set state = 'failed', worker_id = null, locked_at = null,
           last_error = coalesce(prepared->>'reason', 'charge_preparation_rejected'), updated_at = p_now
       where id = candidate.id;
+      if prepared->>'reason' = 'student_receipt_email_required' then
+        insert into missionaccounts.integration_exception(
+          provider, kind, student_id, attendance_day_id, details, idempotency_key
+        )
+        select
+          'stripe', 'automatic_charge_receipt_email_missing', ad.student_id, ad.id,
+          jsonb_build_object('cycle_key', ad.cycle_key, 'day', ad.day),
+          candidate.idempotency_key || ':receipt-email-missing'
+        from missionaccounts.attendance_day ad
+        where ad.id = candidate.attendance_day_id
+        on conflict (idempotency_key) do nothing;
+      end if;
     end if;
   end loop;
 
