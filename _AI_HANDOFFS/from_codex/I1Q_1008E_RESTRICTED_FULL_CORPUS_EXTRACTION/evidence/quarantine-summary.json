@@ -1,0 +1,21 @@
+{
+  "schema_version": "missionmed.i1q.1008e.quarantine_summary.v1",
+  "extraction_run_id": "opaque_run_i2IwFt-nc8yUknV2OcX47LKN7Ibxoqh2WLuNZIrma5M",
+  "quarantined_occurrence_count": 48936,
+  "lifecycle_histogram": {
+    "MEDICAL_QUARANTINED": 32109,
+    "PRIVACY_QUARANTINED": 2,
+    "SPEAKER_QUARANTINED": 16825
+  },
+  "privacy_class_histogram": {
+    "POTENTIAL_DIRECT_IDENTIFIER": 2,
+    "RESTRICTED_UNREVIEWED": 117891
+  },
+  "rights_status_histogram": {
+    "REVIEW_REQUIRED": 117893
+  },
+  "release_status_histogram": {
+    "RELEASE_PROHIBITED": 117893
+  },
+  "content_hash": "65abd894477e837ae19d8f1d37c2f11c4f74cbc221f758dce7ba4dfcfee8f4ab"
+}

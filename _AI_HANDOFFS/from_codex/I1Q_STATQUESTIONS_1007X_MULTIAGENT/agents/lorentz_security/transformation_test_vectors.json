@@ -1,0 +1,187 @@
+{
+  "schema": "missionmed.i1q.transformation_test_vectors.v1",
+  "status": "BASELINE_NOT_YET_EXECUTED_AS_INTEGRATION_SUITE",
+  "generated_at": "2026-07-15",
+  "candidate_commit": "0d6f78f2a2036731ec592398ce5fd845beb54333",
+  "authority_context": {
+    "decision": "DR-006",
+    "missionmed_os_pr": 12,
+    "note": "MissionMed OS blockers were snapshot-time findings during root recovery. DR-006 and PR #12 address authority and routing; application P0/P1 findings remain open until repaired."
+  },
+  "frozen_stat_dataset_fields": [
+    "dataset_version",
+    "question_id",
+    "prompt",
+    "choice_a",
+    "choice_b",
+    "choice_c",
+    "choice_d",
+    "answer",
+    "explanation"
+  ],
+  "frozen_stat_pack_fields": [
+    "duel_id",
+    "dataset_version",
+    "question_ids",
+    "choices_order",
+    "content_hash",
+    "sealed_at",
+    "finalized_at"
+  ],
+  "vectors": [
+    {
+      "id": "TV-STAT-001",
+      "title": "Exact nine-field server projection",
+      "operation": "project_stat_dataset_question",
+      "input": {
+        "dataset_version": "fixture_v1",
+        "question_id": "I1Q-FIXTURE-000001",
+        "prompt": "Synthetic classification prompt?",
+        "choices": ["Alpha", "Beta", "Gamma", "Delta"],
+        "answer": "B",
+        "explanation": "Synthetic fixture explanation."
+      },
+      "expected": {
+        "result": "PASS",
+        "keys_in_order": ["dataset_version", "question_id", "prompt", "choice_a", "choice_b", "choice_c", "choice_d", "answer", "explanation"],
+        "extra_keys": []
+      }
+    },
+    {
+      "id": "TV-STAT-002",
+      "title": "Extra server projection field fails closed",
+      "operation": "validate_stat_dataset_question",
+      "input": {
+        "base_vector": "TV-STAT-001",
+        "added_field": {"quality_tier": "fixture"}
+      },
+      "expected": {"result": "FAIL", "code": "stat_projection_field_drift"}
+    },
+    {
+      "id": "TV-CANON-001",
+      "title": "Frozen STAT pack hash vector",
+      "operation": "stat_pack_hash",
+      "input": {
+        "dataset_version": "v4",
+        "question_ids": ["Q1", "Q2", "Q3"],
+        "choices_order": [["A", "B", "C", "D"], ["A", "B", "C", "D"], ["A", "B", "C", "D"]]
+      },
+      "expected": {
+        "preimage": "dataset_version=v4|question_ids=Q1,Q2,Q3|choices_order=A,B,C,D;A,B,C,D;A,B,C,D",
+        "sha256": "9253830103fdf96a341797f34f42fa98427be4089e4fa1483402141b6386575f",
+        "result": "PASS"
+      }
+    },
+    {
+      "id": "TV-ID-001",
+      "title": "Composite metadata identity distinguishes dataset versions",
+      "operation": "map_projected_identity",
+      "input": [
+        {"dataset_version": "v4", "question_id": "Q1", "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+        {"dataset_version": "fixture_v1", "question_id": "Q1", "content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+      ],
+      "expected": {"result": "PASS", "distinct_records": 2, "key": ["dataset_version", "question_id"]}
+    },
+    {
+      "id": "TV-ID-002",
+      "title": "Duplicate projected ID within one dataset fails",
+      "operation": "map_projected_identity",
+      "input": [
+        {"dataset_version": "fixture_v1", "question_id": "I1Q-FIXTURE-1", "itemrev_id": "itemrev_a"},
+        {"dataset_version": "fixture_v1", "question_id": "I1Q-FIXTURE-1", "itemrev_id": "itemrev_b"}
+      ],
+      "expected": {"result": "FAIL", "code": "duplicate_projected_identity"}
+    },
+    {
+      "id": "TV-ID-003",
+      "title": "Ordinal fallback identity is prohibited",
+      "operation": "mint_projected_identity",
+      "input": {"strategy": "sorted_array_index", "candidate": "I1Q-000001"},
+      "expected": {"result": "FAIL", "code": "persistent_opaque_mapping_required"}
+    },
+    {
+      "id": "TV-LEAK-001",
+      "title": "Nested answer_map fails pre-answer validation",
+      "operation": "validate_pre_answer_artifact",
+      "input": {"payload": {"metadata": {"answer_map": {"Q1": "B"}}}},
+      "expected": {"result": "FAIL", "code": "class_b_field_leak", "path": "$.metadata.answer_map"}
+    },
+    {
+      "id": "TV-LEAK-002",
+      "title": "Nested is_correct fails pre-answer validation",
+      "operation": "validate_pre_answer_artifact",
+      "input": {"payload": {"choices": [{"label": "Alpha", "is_correct": false}]}},
+      "expected": {"result": "FAIL", "code": "class_b_field_leak", "path": "$.choices[0].is_correct"}
+    },
+    {
+      "id": "TV-LEAK-003",
+      "title": "Caller phase string cannot authorize debrief",
+      "operation": "get_post_answer_artifact",
+      "input": {"query_phase": "post_answer_finalized", "server_state": "active", "caller_is_participant": true},
+      "expected": {"result": "FAIL", "code": "duel_not_finalized"}
+    },
+    {
+      "id": "TV-LEAK-004",
+      "title": "Nonparticipant cannot receive finalized debrief",
+      "operation": "get_post_answer_artifact",
+      "input": {"server_state": "finalized", "caller_is_participant": false},
+      "expected": {"result": "FAIL", "code": "duel_not_found"}
+    },
+    {
+      "id": "TV-DRILLS-001",
+      "title": "Drills permits explicit transcript absence",
+      "operation": "validate_drills_adapter",
+      "input": {
+        "consumer": "drills",
+        "video_id": "video_fixture",
+        "playback": {"availability": "available", "url": "https://example.invalid/playback"},
+        "nodes": {"availability": "available", "url": "https://example.invalid/nodes.json"},
+        "transcript": {"availability": "missing", "url": null},
+        "vtt": {"availability": "unknown", "url": null}
+      },
+      "expected": {"result": "PASS_WITH_EXPLICIT_UNAVAILABLE_TRANSCRIPT"}
+    },
+    {
+      "id": "TV-DRILLS-002",
+      "title": "Drills rejects missing nodes",
+      "operation": "validate_drills_adapter",
+      "input": {
+        "consumer": "drills",
+        "video_id": "video_fixture",
+        "playback": {"availability": "available", "url": "https://example.invalid/playback"},
+        "nodes": {"availability": "missing", "url": null},
+        "transcript": {"availability": "available", "url": "https://example.invalid/transcript.json"}
+      },
+      "expected": {"result": "FAIL", "code": "nodes_unavailable"}
+    },
+    {
+      "id": "TV-DRILLS-003",
+      "title": "Current Daily contract rejects absent transcript URL",
+      "operation": "validate_daily_registry_adapter",
+      "input": {
+        "video_id": "video_fixture",
+        "title": "Synthetic fixture",
+        "playback_url": "https://example.invalid/playback",
+        "nodes_url": "https://example.invalid/nodes.json",
+        "transcript_url": ""
+      },
+      "expected": {"result": "FAIL", "code": "ROW_BAD_REQUIRED", "field": "transcript_url"}
+    },
+    {
+      "id": "TV-LEGACY-001",
+      "title": "Legacy historical join retains source identity",
+      "operation": "map_legacy_v4_row",
+      "input": {
+        "dataset_version": "v4",
+        "question_id": "Q1",
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expected": {
+        "result": "PASS",
+        "preserved_join": ["dataset_version", "question_id", "content_hash"],
+        "legacy_row_mutated": false,
+        "student_eligible": false
+      }
+    }
+  ]
+}

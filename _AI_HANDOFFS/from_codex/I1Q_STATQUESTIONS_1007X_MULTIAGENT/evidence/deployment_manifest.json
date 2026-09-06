@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-07-15T16:39:34.024Z",
+  "status": "BLOCKED_NOT_DEPLOYED",
+  "success_level": "STATE_A",
+  "deployment_urls": [],
+  "canonical_route": null,
+  "feature_flags": {
+    "internal_platform_enabled": false,
+    "internal_review_enabled": false,
+    "student_content_enabled": false,
+    "student_release_enabled": false,
+    "stat_adapter_enabled": false,
+    "drills_adapter_enabled": false
+  },
+  "blockers": [
+    "canonical_auth_adapter_unresolved",
+    "canonical_unprivileged_runtime_role_and_repository_wiring_unresolved",
+    "canonical_preview_staging_and_github_deployment_route_unresolved",
+    "all_real_sources_privacy_blocked",
+    "medical_governance_lead_unassigned",
+    "browser_accessibility_and_human_validation_not_run",
+    "staging_and_production_rollback_not_executed"
+  ]
+}

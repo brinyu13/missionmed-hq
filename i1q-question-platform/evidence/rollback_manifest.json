@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-07-16T01:47:12.462Z",
+  "status": "DESIGNED_NOT_EXECUTED",
+  "compensating_migration": "i1q-question-platform/db/rollback/20260715193845_i1q_1008a_compensating_disable.sql",
+  "sha256": "6368c122615d9ca394e2ff2f150cf23a1e1ab28fedf9e10f5a297ddfd4d85b9f",
+  "disables": [
+    "internal_platform_enabled",
+    "internal_review_enabled",
+    "student_content_enabled",
+    "student_release_enabled",
+    "stat_adapter_enabled",
+    "drills_adapter_enabled"
+  ],
+  "drops_data": false
+}

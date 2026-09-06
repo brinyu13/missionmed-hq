@@ -1,0 +1,121 @@
+{
+  "schema_version": "missionmed.i1q1008e.retry_and_failure_ledger.v1",
+  "acquisition_retry_count": 0,
+  "extraction_retry_count": 0,
+  "failed_artifact_count": 0,
+  "events": [
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_8OBgsC1JW0I9YCkzOj3jrP1lv6kIgZ-69rGIt1Et2Jc",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_vKvzsaoICxmgwHVzviiI3YzLVszKhtAEUTUgzZwAgqY",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_KUXSbiEmQ5vij8TIpYlhWfLIfqZHpBmwO0ADlT9YwD4",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_zIzeiDjALJM1TmapggQS_J3SBxbAYMGYP4X07XNlm3Y",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_9pti0uX736-1Av1zCVoHxOknUWJbVZKjsev3IFd79wA",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_YSe66FCZ3WeLgyOrFyATgYsJ0iR92mq4rXsJzV4Lr68",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_xTmkEam1Lhna5ys9Iq5Fj4HR9ukzlQUCvvuiMTjeIw4",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_wmCkcosQhEGYlneL17A8gkgmBV3Xu0-MNF6XrlI797I",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_6L_382Ja_uGss12Yn_EXN0gWv6MeP_f6l9wfQfPMWTQ",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_lZiru_xjQ0OouE91uOmqQtZ3TljYXrDaxYlt30fjgO4",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_0WfuWp5Vo68KW3mNR4os6mYLDL4hbHqLkolBzeQun0s",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_rBBWMBE9CKCyyIc9RlAqajB1ToXAJgH6I7GJ2g7dbew",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_RrrCa-Mx9_Nf-JEbh6Nkol3Ld6S3KSIFJAJdq0fomqs",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_bfVpuR3HbsEI3fCD-51Pv6P9fFMwcLtBsWGq2IOv0nM",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    }
+  ],
+  "content_hash": "d20edcd79469fa921858973dce409da41c10d918fee5fecfeafd14b7fc64e803"
+}

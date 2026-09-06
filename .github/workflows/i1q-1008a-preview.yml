@@ -1,0 +1,621 @@
+name: I1Q 1008A preview migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Preview-only migration operation
+        required: true
+        default: validate
+        type: choice
+        options:
+          - validate
+          - apply
+          - compensate
+          - reapply
+      authorization:
+        description: Enter I1Q-1008A-PREVIEW after the target manifest is approved
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: i1q-1008a-preview-migration
+  cancel-in-progress: false
+
+jobs:
+  validate-source:
+    name: Secret-free source validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install and test exact source without preview secrets
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm test --prefix i1q-question-platform
+          npm run validate --prefix i1q-question-platform
+
+  preview:
+    name: MR-078A preview gate
+    needs: validate-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: i1q-preview
+    env:
+      TARGET_MANIFEST: i1q-question-platform/deployment/preview-target.json
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
+        with:
+          version: 2.109.1
+
+      - name: Validate written authorization and target pin
+        env:
+          OPERATION: ${{ inputs.operation }}
+          AUTHORIZATION: ${{ inputs.authorization }}
+          CANDIDATE_COMMIT: ${{ github.sha }}
+          I1Q_PREVIEW_PROJECT_REF: ${{ secrets.I1Q_PREVIEW_PROJECT_REF }}
+          I1Q_PREVIEW_DATABASE_URL: ${{ secrets.I1Q_PREVIEW_DATABASE_URL }}
+          I1Q_PREVIEW_DB_PASSWORD: ${{ secrets.I1Q_PREVIEW_DB_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.I1Q_PREVIEW_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+
+          if (process.env.AUTHORIZATION !== 'I1Q-1008A-PREVIEW') {
+            throw new Error('preview_authorization_phrase_invalid');
+          }
+          if (!['validate', 'apply', 'compensate', 'reapply'].includes(process.env.OPERATION)) {
+            throw new Error('preview_operation_invalid');
+          }
+
+          const target = JSON.parse(fs.readFileSync(process.env.TARGET_MANIFEST, 'utf8'));
+          if (target.contract !== 'i1q.preview-target.v1' || target.status !== 'AUTHORIZED_PREVIEW') {
+            throw new Error('preview_target_not_authorized');
+          }
+          if (!/^[a-z0-9]{20}$/.test(target.project_ref || '')) {
+            throw new Error('preview_project_ref_invalid');
+          }
+          if ((target.production_project_refs_forbidden || []).includes(target.project_ref)) {
+            throw new Error('production_project_ref_forbidden');
+          }
+          if (!target.database_host || !target.database_name || !target.approved_by || !target.approved_at) {
+            throw new Error('preview_target_approval_incomplete');
+          }
+          if (target.authorized_operation !== process.env.OPERATION) {
+            throw new Error('preview_operation_not_authorized_for_candidate');
+          }
+          if (target.synthetic_data_only !== true) {
+            throw new Error('preview_target_must_be_synthetic_only');
+          }
+          if (process.env.OPERATION !== 'validate' && (
+            !target.baseline_backup_id
+            || !target.baseline_backup_created_at
+            || !target.restore_runbook_id
+            || !target.restore_test_id
+          )) {
+            throw new Error('preview_backup_and_restore_evidence_required');
+          }
+          if (!/^[0-9a-f]{64}$/.test(target.approval_record_sha256 || '')) {
+            throw new Error('preview_authority_hash_invalid');
+          }
+          if (!/^[0-9a-f]{40}$/.test(target.candidate_commit || '')
+              || target.candidate_commit !== process.env.CANDIDATE_COMMIT) {
+            throw new Error('preview_candidate_commit_mismatch');
+          }
+          if (!/^[0-9a-f]{64}$/.test(target.expected_remote_history_sha256 || '')) {
+            throw new Error('preview_expected_remote_history_hash_invalid');
+          }
+          const artifactPaths = {
+            base_migration: 'i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql',
+            runtime_migration: 'i1q-question-platform/db/migrations/20260715193625_i1q_1008a_identity_runtime_contract.sql',
+            compensation: 'i1q-question-platform/db/rollback/20260715193845_i1q_1008a_compensating_disable.sql',
+            reapply: 'i1q-question-platform/db/reapply/20260715193955_i1q_1008a_runtime_reapply.sql',
+            workflow: '.github/workflows/i1q-1008a-preview.yml',
+          };
+          if (Object.keys(target.candidate_artifact_sha256 || {}).sort().join('|')
+              !== Object.keys(artifactPaths).sort().join('|')) {
+            throw new Error('preview_candidate_artifact_inventory_invalid');
+          }
+          for (const [name, artifactPath] of Object.entries(artifactPaths)) {
+            const expected = target.candidate_artifact_sha256[name];
+            const actual = crypto.createHash('sha256').update(fs.readFileSync(artifactPath)).digest('hex');
+            if (!/^[0-9a-f]{64}$/.test(expected || '') || actual !== expected) {
+              throw new Error(`preview_candidate_artifact_hash_mismatch:${name}`);
+            }
+          }
+          if (!/^i1q-question-platform\/deployment\/approvals\/[a-z0-9._-]+\.json$/.test(
+            target.approval_record_path || '',
+          )) {
+            throw new Error('preview_approval_record_path_invalid');
+          }
+          const approvalBytes = fs.readFileSync(target.approval_record_path);
+          const approvalDigest = crypto.createHash('sha256').update(approvalBytes).digest('hex');
+          if (approvalDigest !== target.approval_record_sha256) {
+            throw new Error('preview_authority_hash_mismatch');
+          }
+          const approval = JSON.parse(approvalBytes.toString('utf8'));
+          const expectedApproval = {
+            contract: 'i1q.preview-approval.v1',
+            target: {
+              project_ref: target.project_ref,
+              database_host: target.database_host,
+              database_name: target.database_name,
+              synthetic_data_only: true,
+            },
+            operation: target.authorized_operation,
+            candidate: {
+              commit: target.candidate_commit,
+              artifact_sha256: target.candidate_artifact_sha256,
+            },
+            expected_remote_history_sha256: target.expected_remote_history_sha256,
+            restore_evidence: {
+              baseline_backup_id: target.baseline_backup_id,
+              baseline_backup_created_at: target.baseline_backup_created_at,
+              restore_runbook_id: target.restore_runbook_id,
+              restore_test_id: target.restore_test_id,
+            },
+            approved_by: target.approved_by,
+            approved_at: target.approved_at,
+          };
+          try {
+            assert.deepStrictEqual(approval, expectedApproval);
+          } catch {
+            throw new Error('preview_approval_record_mismatch');
+          }
+          if (process.env.I1Q_PREVIEW_PROJECT_REF !== target.project_ref) {
+            throw new Error('preview_project_secret_mismatch');
+          }
+          if (!process.env.I1Q_PREVIEW_DATABASE_URL || !process.env.I1Q_PREVIEW_DB_PASSWORD || !process.env.SUPABASE_ACCESS_TOKEN) {
+            throw new Error('preview_secret_inventory_incomplete');
+          }
+          const databaseUrl = new URL(process.env.I1Q_PREVIEW_DATABASE_URL);
+          if (
+            databaseUrl.hostname !== target.database_host
+            || databaseUrl.protocol !== 'postgresql:'
+            || databaseUrl.pathname !== `/${target.database_name}`
+          ) {
+            throw new Error('preview_database_host_mismatch');
+          }
+          const productionHosts = (target.production_project_refs_forbidden || [])
+            .map((ref) => `db.${ref}.supabase.co`);
+          if (productionHosts.includes(databaseUrl.hostname)) {
+            throw new Error('production_database_host_forbidden');
+          }
+          fs.writeFileSync(
+            process.env.RUNNER_TEMP + '/target-attestation.sha256',
+            approvalDigest + '\n',
+          );
+          NODE
+
+      - name: Build isolated migration workspace
+        env:
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          workdir="$RUNNER_TEMP/i1q-preview"
+          mkdir -p "$workdir"
+          supabase init --workdir "$workdir"
+          cp i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql "$workdir/supabase/migrations/"
+          cp i1q-question-platform/db/migrations/20260715193625_i1q_1008a_identity_runtime_contract.sql "$workdir/supabase/migrations/"
+          if [ "$OPERATION" = "compensate" ] || [ "$OPERATION" = "reapply" ]; then
+            cp i1q-question-platform/db/rollback/20260715193845_i1q_1008a_compensating_disable.sql "$workdir/supabase/migrations/"
+          fi
+          if [ "$OPERATION" = "reapply" ]; then
+            cp i1q-question-platform/db/reapply/20260715193955_i1q_1008a_runtime_reapply.sql "$workdir/supabase/migrations/"
+          fi
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = path.join(process.env.RUNNER_TEMP, 'i1q-preview', 'supabase', 'migrations');
+          const files = fs.readdirSync(dir).sort();
+          const timestampToUtcMs = (timestamp, file) => {
+            const parts = timestamp.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+            if (!parts) throw new Error(`migration_timestamp_invalid:${file}`);
+            const [, year, month, day, hour, minute, second] = parts.map(Number);
+            const value = Date.UTC(year, month - 1, day, hour, minute, second);
+            const roundTrip = new Date(value).toISOString().replace(/[-:T]/g, '').slice(0, 14);
+            if (roundTrip !== timestamp) throw new Error(`migration_timestamp_invalid:${file}`);
+            if (value > Date.now()) throw new Error(`migration_timestamp_in_future:${file}`);
+            return value;
+          };
+          const migrations = files.map((file) => {
+            const match = file.match(/^(\d{14})_[a-z0-9_]+\.sql$/);
+            if (!match) throw new Error(`migration_filename_invalid:${file}`);
+            const sql = fs.readFileSync(path.join(dir, file), 'utf8');
+            const requiredHeaders = [
+              `-- Migration: ${file}`,
+              '-- Authority:',
+              '-- Date:',
+              '-- Depends on:',
+              '-- Description:',
+              '-- Idempotent:',
+            ];
+            if (
+              !requiredHeaders.every((header) => sql.split('\n', 12).some((line) => line.startsWith(header)))
+              || !/\nBEGIN;[\s\S]*\nCOMMIT;\s*$/.test(sql)
+              || /(?:INSERT|UPDATE|DELETE|TRUNCATE)\s+(?:TABLE\s+)?supabase_migrations\.schema_migrations/iu.test(sql)
+              || /\bDROP\b[\s\S]*?\bCASCADE\b/iu.test(sql)
+            ) {
+              throw new Error(`migration_wrapper_invalid:${file}`);
+            }
+            return { file, timestamp: match[1], utcMs: timestampToUtcMs(match[1], file) };
+          });
+          const timestamps = migrations.map(({ timestamp }) => timestamp);
+          if (new Set(timestamps).size !== timestamps.length) throw new Error('migration_timestamp_duplicate');
+          if ([...timestamps].sort().join() !== timestamps.join()) throw new Error('migration_order_invalid');
+          for (let index = 1; index < migrations.length; index += 1) {
+            if (migrations[index].utcMs - migrations[index - 1].utcMs < 60_000) {
+              throw new Error(`migration_timestamp_gap_too_small:${migrations[index].file}`);
+            }
+          }
+          fs.writeFileSync(process.env.RUNNER_TEMP + '/migration-files.txt', files.join('\n') + '\n');
+          NODE
+
+      - name: Link exact preview project
+        env:
+          I1Q_PREVIEW_PROJECT_REF: ${{ secrets.I1Q_PREVIEW_PROJECT_REF }}
+          I1Q_PREVIEW_DB_PASSWORD: ${{ secrets.I1Q_PREVIEW_DB_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.I1Q_PREVIEW_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          supabase link \
+            --workdir "$RUNNER_TEMP/i1q-preview" \
+            --project-ref "$I1Q_PREVIEW_PROJECT_REF" \
+            --password "$I1Q_PREVIEW_DB_PASSWORD"
+
+      - name: Capture before state and schema fingerprint
+        env:
+          I1Q_PREVIEW_DATABASE_URL: ${{ secrets.I1Q_PREVIEW_DATABASE_URL }}
+          I1Q_PREVIEW_DB_PASSWORD: ${{ secrets.I1Q_PREVIEW_DB_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.I1Q_PREVIEW_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/evidence"
+          supabase migration list \
+            --workdir "$RUNNER_TEMP/i1q-preview" \
+            --linked \
+            --password "$I1Q_PREVIEW_DB_PASSWORD" \
+            > "$RUNNER_TEMP/evidence/migration-list-before.txt"
+          psql "$I1Q_PREVIEW_DATABASE_URL" -XAt \
+            -c "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version" \
+            > "$RUNNER_TEMP/evidence/migration-history-before.tsv"
+          if [ "$(psql "$I1Q_PREVIEW_DATABASE_URL" -XAt -c "SELECT pg_catalog.to_regnamespace('i1q') IS NOT NULL")" = "t" ]; then
+            pg_dump "$I1Q_PREVIEW_DATABASE_URL" \
+              --schema-only \
+              --no-owner \
+              --no-privileges \
+              --schema=i1q \
+              > "$RUNNER_TEMP/evidence/i1q-schema-before.sql"
+          else
+            printf 'SCHEMA_ABSENT_BEFORE\n' > "$RUNNER_TEMP/evidence/i1q-schema-before.txt"
+          fi
+          shasum -a 256 "$RUNNER_TEMP/evidence/"* > "$RUNNER_TEMP/evidence/checksums-before.txt"
+
+      - name: Validate selected operation against remote migration history
+        env:
+          OPERATION: ${{ inputs.operation }}
+          I1Q_PREVIEW_DATABASE_URL: ${{ secrets.I1Q_PREVIEW_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          psql "$I1Q_PREVIEW_DATABASE_URL" -XAt \
+            -c "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version" \
+            > "$RUNNER_TEMP/remote-versions-before.txt"
+          node <<'NODE'
+          const crypto = require('node:crypto');
+          const fs = require('node:fs');
+          const target = JSON.parse(fs.readFileSync(process.env.TARGET_MANIFEST, 'utf8'));
+          const historyBytes = fs.readFileSync(
+            process.env.RUNNER_TEMP + '/evidence/migration-history-before.tsv',
+          );
+          const actualHistoryHash = crypto.createHash('sha256').update(historyBytes).digest('hex');
+          if (actualHistoryHash !== target.expected_remote_history_sha256) {
+            throw new Error('preview_remote_history_hash_mismatch');
+          }
+          fs.writeFileSync(
+            process.env.RUNNER_TEMP + '/evidence/remote-history-before.sha256',
+            actualHistoryHash + '\n',
+          );
+          const versions = new Set(fs.readFileSync(
+            process.env.RUNNER_TEMP + '/remote-versions-before.txt',
+            'utf8',
+          ).trim().split(/\s+/u).filter(Boolean));
+          const operation = process.env.OPERATION;
+          const base = '20260715122434';
+          const runtime = '20260715193625';
+          const compensation = '20260715193845';
+          const reapply = '20260715193955';
+          if (operation === 'apply' && (
+            versions.has(runtime) || versions.has(compensation) || versions.has(reapply)
+          )) throw new Error('preview_apply_history_invalid');
+          if (operation === 'compensate' && (
+            !versions.has(base) || !versions.has(runtime)
+            || versions.has(compensation) || versions.has(reapply)
+          )) throw new Error('preview_compensation_history_invalid');
+          if (operation === 'reapply' && (
+            !versions.has(base) || !versions.has(runtime) || !versions.has(compensation)
+            || versions.has(reapply)
+          )) throw new Error('preview_reapply_history_invalid');
+          fs.writeFileSync(
+            process.env.RUNNER_TEMP + '/evidence/operation-history-gate.txt',
+            `PASS operation=${operation} before_count=${versions.size}\n`,
+          );
+          NODE
+
+      - name: MR-078A dry run
+        env:
+          I1Q_PREVIEW_DB_PASSWORD: ${{ secrets.I1Q_PREVIEW_DB_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.I1Q_PREVIEW_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          supabase db push \
+            --workdir "$RUNNER_TEMP/i1q-preview" \
+            --linked \
+            --password "$I1Q_PREVIEW_DB_PASSWORD" \
+            --dry-run \
+            > "$RUNNER_TEMP/evidence/db-push-dry-run.txt"
+
+      - name: MR-078A pre-action schema diff
+        env:
+          I1Q_PREVIEW_DB_PASSWORD: ${{ secrets.I1Q_PREVIEW_DB_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.I1Q_PREVIEW_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          supabase db diff \
+            --workdir "$RUNNER_TEMP/i1q-preview" \
+            --linked \
+            --schema i1q \
+            > "$RUNNER_TEMP/evidence/db-diff-before.sql"
+          if grep -Eiq '\b(?:public|auth|storage)\.' "$RUNNER_TEMP/evidence/db-diff-before.sql"; then
+            printf 'Unexpected schema reference in pre-action diff.\n' >&2
+            exit 1
+          fi
+
+      - name: Apply selected forward operation to preview only
+        if: inputs.operation != 'validate'
+        env:
+          I1Q_PREVIEW_DB_PASSWORD: ${{ secrets.I1Q_PREVIEW_DB_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.I1Q_PREVIEW_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          supabase db push \
+            --workdir "$RUNNER_TEMP/i1q-preview" \
+            --linked \
+            --password "$I1Q_PREVIEW_DB_PASSWORD" \
+            --yes \
+            > "$RUNNER_TEMP/evidence/db-push-result.txt"
+
+      - name: Verify after state
+        if: inputs.operation != 'validate'
+        env:
+          I1Q_PREVIEW_DATABASE_URL: ${{ secrets.I1Q_PREVIEW_DATABASE_URL }}
+          I1Q_PREVIEW_DB_PASSWORD: ${{ secrets.I1Q_PREVIEW_DB_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.I1Q_PREVIEW_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          supabase migration list \
+            --workdir "$RUNNER_TEMP/i1q-preview" \
+            --linked \
+            --password "$I1Q_PREVIEW_DB_PASSWORD" \
+            > "$RUNNER_TEMP/evidence/migration-list-after.txt"
+          psql "$I1Q_PREVIEW_DATABASE_URL" -XAt \
+            -c "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version" \
+            > "$RUNNER_TEMP/evidence/migration-history-after.tsv"
+          pg_dump "$I1Q_PREVIEW_DATABASE_URL" \
+            --schema-only \
+            --no-owner \
+            --no-privileges \
+            --schema=i1q \
+            > "$RUNNER_TEMP/evidence/i1q-schema-after.sql"
+          shasum -a 256 "$RUNNER_TEMP/evidence/"* > "$RUNNER_TEMP/evidence/checksums-after.txt"
+
+      - name: MR-078A post-action zero-drift check
+        if: inputs.operation != 'validate'
+        env:
+          I1Q_PREVIEW_DB_PASSWORD: ${{ secrets.I1Q_PREVIEW_DB_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.I1Q_PREVIEW_SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          supabase db diff \
+            --workdir "$RUNNER_TEMP/i1q-preview" \
+            --linked \
+            --schema i1q \
+            > "$RUNNER_TEMP/evidence/db-diff-after.sql"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = process.env.RUNNER_TEMP + '/evidence/db-diff-after.sql';
+          const substantive = fs.readFileSync(path, 'utf8')
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line && !line.startsWith('--'));
+          if (substantive.length > 0) {
+            throw new Error('preview_post_action_schema_drift_detected');
+          }
+          fs.writeFileSync(
+            process.env.RUNNER_TEMP + '/evidence/post-action-drift-proof.txt',
+            'PASS zero unexpected i1q schema drift\n',
+          );
+          NODE
+
+      - name: Verify selected operation did not collapse later stages
+        if: inputs.operation != 'validate'
+        env:
+          OPERATION: ${{ inputs.operation }}
+          I1Q_PREVIEW_DATABASE_URL: ${{ secrets.I1Q_PREVIEW_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          psql "$I1Q_PREVIEW_DATABASE_URL" -XAt \
+            -c "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version" \
+            > "$RUNNER_TEMP/remote-versions-after.txt"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const versions = new Set(fs.readFileSync(
+            process.env.RUNNER_TEMP + '/remote-versions-after.txt',
+            'utf8',
+          ).trim().split(/\s+/u).filter(Boolean));
+          const operation = process.env.OPERATION;
+          const runtime = '20260715193625';
+          const compensation = '20260715193845';
+          const reapply = '20260715193955';
+          if (!versions.has(runtime)) throw new Error('preview_runtime_migration_missing_after_operation');
+          if (operation === 'apply' && (versions.has(compensation) || versions.has(reapply))) {
+            throw new Error('preview_apply_collapsed_later_stage');
+          }
+          if (operation === 'compensate' && (!versions.has(compensation) || versions.has(reapply))) {
+            throw new Error('preview_compensation_stage_invalid');
+          }
+          if (operation === 'reapply' && (!versions.has(compensation) || !versions.has(reapply))) {
+            throw new Error('preview_reapply_stage_invalid');
+          }
+          fs.writeFileSync(
+            process.env.RUNNER_TEMP + '/evidence/operation-stage-proof.txt',
+            `PASS operation=${operation} after_count=${versions.size}\n`,
+          );
+          NODE
+
+      - name: Verify post-operation role, RLS, and flag state
+        if: inputs.operation != 'validate'
+        env:
+          OPERATION: ${{ inputs.operation }}
+          I1Q_PREVIEW_DATABASE_URL: ${{ secrets.I1Q_PREVIEW_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          expected_profile_membership=true
+          if [ "$OPERATION" = "compensate" ]; then
+            expected_profile_membership=false
+          fi
+          psql "$I1Q_PREVIEW_DATABASE_URL" -X \
+            --set ON_ERROR_STOP=1 \
+            --set expected_profile_membership="$expected_profile_membership" <<'SQL'
+          SELECT pg_catalog.set_config(
+            'i1q_cert.expected_profile_membership',
+            :'expected_profile_membership',
+            false
+          );
+          DO $certification$
+          DECLARE
+            expected_membership boolean := pg_catalog.current_setting(
+              'i1q_cert.expected_profile_membership'
+            )::boolean;
+            actual_membership boolean;
+          BEGIN
+            IF EXISTS (
+              SELECT 1
+                FROM pg_catalog.pg_class relation
+                JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
+               WHERE namespace.nspname = 'i1q'
+                 AND relation.relkind IN ('r', 'p')
+                 AND (NOT relation.relrowsecurity OR NOT relation.relforcerowsecurity)
+            ) THEN
+              RAISE EXCEPTION 'i1q_rls_or_force_rls_missing';
+            END IF;
+            IF EXISTS (SELECT 1 FROM i1q.feature_flags WHERE enabled) THEN
+              RAISE EXCEPTION 'i1q_feature_flag_enabled';
+            END IF;
+            IF EXISTS (
+              SELECT 1
+                FROM information_schema.role_table_grants
+               WHERE table_schema = 'i1q'
+                 AND grantee IN ('PUBLIC', 'anon', 'authenticated', 'i1q_identity_profile_reader', 'i1q_app_runtime')
+            ) THEN
+              RAISE EXCEPTION 'i1q_direct_table_grant_detected';
+            END IF;
+            IF pg_catalog.pg_has_role('authenticated', 'i1q_app_runtime', 'MEMBER') THEN
+              RAISE EXCEPTION 'i1q_app_runtime_browser_reachable';
+            END IF;
+            IF pg_catalog.has_schema_privilege('i1q_app_runtime', 'i1q', 'USAGE')
+               OR pg_catalog.has_function_privilege(
+                 'i1q_app_runtime',
+                 'i1q.resolve_current_identity()',
+                 'EXECUTE'
+               ) THEN
+              RAISE EXCEPTION 'i1q_app_runtime_not_deny_all';
+            END IF;
+            actual_membership := pg_catalog.pg_has_role(
+              'authenticated',
+              'i1q_identity_profile_reader',
+              'MEMBER'
+            );
+            IF actual_membership IS DISTINCT FROM expected_membership THEN
+              RAISE EXCEPTION 'i1q_identity_profile_membership_state_mismatch';
+            END IF;
+          END
+          $certification$;
+          SQL
+          printf 'PASS operation=%s role_rls_flags=verified\n' "$OPERATION" \
+            > "$RUNNER_TEMP/evidence/post-operation-certification.txt"
+
+      - name: Redact and inventory evidence artifacts
+        id: redact
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/evidence"
+          node <<'NODE'
+          const crypto = require('node:crypto');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const root = path.join(process.env.RUNNER_TEMP, 'evidence');
+          const forbidden = [
+            /postgres(?:ql)?:\/\//iu,
+            /(?:authorization|apikey|service[_-]?role|password)\s*[:=]/iu,
+            /eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/u,
+            /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/u,
+          ];
+          const files = fs.readdirSync(root).sort();
+          const inventory = [];
+          for (const name of files) {
+            const file = path.join(root, name);
+            if (!fs.statSync(file).isFile()) continue;
+            const bytes = fs.readFileSync(file);
+            const text = bytes.toString('utf8');
+            if (forbidden.some((pattern) => pattern.test(text))) {
+              throw new Error(`evidence_redaction_gate_failed:${name}`);
+            }
+            inventory.push({
+              file: name,
+              bytes: bytes.length,
+              sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+            });
+          }
+          fs.writeFileSync(
+            path.join(root, 'artifact-inventory.json'),
+            JSON.stringify({ schema_version: 'i1q.preview-evidence.v1', files: inventory }, null, 2) + '\n',
+          );
+          NODE
+
+      - name: Upload non-secret migration evidence
+        if: ${{ always() && steps.redact.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: i1q-1008a-${{ inputs.operation }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/evidence
+            ${{ runner.temp }}/migration-files.txt
+            ${{ runner.temp }}/target-attestation.sha256
+          if-no-files-found: error
+          retention-days: 30

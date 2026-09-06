@@ -1,0 +1,28 @@
+{
+  "schema": "missionmed.i1q.decision_request.v1",
+  "status": "OPEN_NOT_FILED",
+  "title": "Authorize additive I1Q Question Platform integration",
+  "requested_rulings": [
+    "Confirm the canonical internal application host and auth/session adapter.",
+    "Confirm the canonical Supabase project or separate datastore for the i1q namespace.",
+    "Authorize a forward-only preview migration from i1q-question-platform/db/migrations/0001_i1q_question_platform.sql.",
+    "Authorize read-only media-registry export after privacy ownership is assigned.",
+    "Confirm the STAT adapter path while preserving sealed-pack and answer_map invariants.",
+    "Confirm the Drills adapter producer contract for video_id, title, playback_url, nodes_url, and transcript_url.",
+    "Assign release and incident ownership.",
+    "Define the canonical staging and rollback route."
+  ],
+  "protected_paths_that_remain_untouched": [
+    "LIVE/",
+    "missionmed-hq/",
+    "app/api/",
+    "supabase/migrations/",
+    "/Users/brianb/MissionMed/03_PROGRAMS/USMLE/DrJ-QuestionBank/"
+  ],
+  "feature_flags_default_off": [
+    "internal_platform_enabled",
+    "stat_adapter_enabled",
+    "drills_adapter_enabled",
+    "student_release_enabled"
+  ]
+}

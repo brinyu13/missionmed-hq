@@ -1,0 +1,189 @@
+{
+  "schema_version": "missionmed.i1q.authoring_run.v2",
+  "authoring_run_id": "authoring.i1q1008c.authority.curation.20260716",
+  "run_type": "AUTHORITY_DERIVED_AI_ASSISTED_CURATION",
+  "as_of_date": "2026-07-16",
+  "status": "COMPLETED_QUARANTINED_DRAFTS",
+  "classification_level": "CLASS_D_INTERNAL_ANSWER_BEARING",
+  "am4_provenance_status": "PARTIAL_RUNTIME_MODEL_PROMPT_PARAMETERS_NOT_CAPTURED",
+  "model_prompt_provenance": {
+    "mpv_id": null,
+    "record_status": "NOT_MINTED_EXACT_RUNTIME_METADATA_UNAVAILABLE",
+    "model_label": null,
+    "prompt_template_sha256": null,
+    "parameters": null,
+    "missing_fields": [
+      "model_label",
+      "prompt_template_sha256",
+      "parameters"
+    ]
+  },
+  "authoring_contract": {
+    "version": "i1q-1008c-authority-curation-v1",
+    "item_type": "single_best_answer",
+    "choices": 4,
+    "required_explanation_levels": 3,
+    "required_status": "AI_DRAFT_NOT_MEDICALLY_VALIDATED",
+    "release_eligibility": "BLOCKED",
+    "evidence_mode": "OFFICIAL_OR_PRIMARY_LINKS_PROPOSED_UNVERIFIED"
+  },
+  "authoring_contract_sha256": "2361de57f3b8dd3e7cc1df934d3ba6254391d294037f5857bb8e1290d9cdf03d",
+  "input_bindings": [
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/pilot-authoring-b.mjs",
+      "bytes": 33201,
+      "sha256": "c763aabdb234b4f07ec5d42fe94b311ca7a0b22871694713acdf6a31fc12116a"
+    },
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/pilot-authoring.mjs",
+      "bytes": 35124,
+      "sha256": "70675d59148467183c72683990743a3bf2b114ca6af41e67b5a1fb6d3c310116"
+    },
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/pilot-library.mjs",
+      "bytes": 365,
+      "sha256": "e14dc1ac2fe3ad5e3ead020c204f10cbb2429a4307de101a88ac8b3aedfe0c85"
+    },
+    {
+      "path": "i1q-question-platform/src/hash.mjs",
+      "bytes": 1277,
+      "sha256": "d1231cfe861ae4588980d3b64161adb2f6c82fa4a2601b9d9e150f944dcde1b9"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/authoring.mjs",
+      "bytes": 14701,
+      "sha256": "6682acecc2957bb80e35e7d35ca88a6d03204264b255bbf79a75644eca0759c2"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/contracts.mjs",
+      "bytes": 5160,
+      "sha256": "7740966d513fb74bb336fbb270b78e8fb116f8c896b146f289de2dc3f7ca780b"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/quality.mjs",
+      "bytes": 32736,
+      "sha256": "3ed2ea7fbdf8f362eb34766f878fb1184ef5331546ed32efce67444fcae16461"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/taxonomy.mjs",
+      "bytes": 10684,
+      "sha256": "6389ff2fb1e51ff395576939dff3627e7c3f2402a6ec7c064e73beed15031373"
+    }
+  ],
+  "candidate_count": 24,
+  "candidate_bindings": [
+    {
+      "candidate_id": "candidate.anaphylaxis.first.line.epinephrine",
+      "content_hash": "121d240768dbd4d4ed70cae178fd6aa5650672a5b46ff45eb077323fc08f19a6"
+    },
+    {
+      "candidate_id": "candidate.atrial.fibrillation.unstable.cardioversion",
+      "content_hash": "e84894b2da349fa1a6502f266f6298493df0e96e3a7af45b6a782a265c09ac62"
+    },
+    {
+      "candidate_id": "candidate.carbon.monoxide.cooximetry",
+      "content_hash": "d5656393b0c0bf54c518f2d0dce9306792b6b1aead183e12a4363149ac8c001f"
+    },
+    {
+      "candidate_id": "candidate.convulsive.status.initial.benzodiazepine",
+      "content_hash": "27cb539d0d894d21df156071c7013ec987d3201088964c15eccf3dda92cd8129"
+    },
+    {
+      "candidate_id": "candidate.pregnancy.syphilis.penicillin.desensitization",
+      "content_hash": "820c7de0fcf47bc8bf5f89c6ee76adbd22c0c0f99a906ea3ec89345596466c80"
+    },
+    {
+      "candidate_id": "candidate.meningitis.deferred.lp.no.antibiotic.delay",
+      "content_hash": "fff84307aa0e2cf6942f20a4d0422199744095f1f73ca026d2b4405c5f385429"
+    },
+    {
+      "candidate_id": "candidate.new.ascites.diagnostic.paracentesis",
+      "content_hash": "db826c9af3550b94d3a82f3b56e19cb62ba6b3bf712737acb85062d7055fcda4"
+    },
+    {
+      "candidate_id": "candidate.immune.ttp.immediate.plasma.exchange",
+      "content_hash": "665b66e5b4d2425f1b32c063566b7836cb6c2034fb78157081bfe15b5c087613"
+    },
+    {
+      "candidate_id": "candidate.dirty.wound.unknown.tetanus.history",
+      "content_hash": "d302389425f8e4fa4c4e7210a339339a39f4be6aca337bfd92a33883fb657b39"
+    },
+    {
+      "candidate_id": "candidate.dka.low.potassium.before.insulin",
+      "content_hash": "ffe91dafb4860af51799ca581a80a98c9c956e0880b1a812a95e5185cfb70420"
+    },
+    {
+      "candidate_id": "candidate.metastatic.cord.compression.whole.spine.mri",
+      "content_hash": "1ef6ecb258581ae476deee2994f96dbec159e61b3cc6f5e2e6497e1130d7efba"
+    },
+    {
+      "candidate_id": "candidate.hyperkalemia.ecg.toxicity.iv.calcium",
+      "content_hash": "b0905120a48732235fba29de75314217538f88466fea281cc758c88e70703280"
+    },
+    {
+      "candidate_id": "candidate.preeclampsia.hypertension.proteinuria.after.twenty.weeks",
+      "content_hash": "ab429afb0059d863942835a88de60db04b7359819f2a1996c2650cf5e12c88da"
+    },
+    {
+      "candidate_id": "candidate.measles.three.cs.koplik.cephalocaudal.rash",
+      "content_hash": "4c619923a706de10f47711a7e5bc589a4fd16eb1d3b4c332c4814cff44cf6120"
+    },
+    {
+      "candidate_id": "candidate.ectopic.pregnancy.adnexal.yolk.sac",
+      "content_hash": "7bfd8c89edaf2f53cfede33d9e4f8b72c3f3727b0190625082421e97f94e0d13"
+    },
+    {
+      "candidate_id": "candidate.pertussis.paroxysm.whoop.posttussive.emesis",
+      "content_hash": "e530ffd0e60654593f95a2e388c7002b2194f0882c9c0ff102f20103af0829d6"
+    },
+    {
+      "candidate_id": "candidate.acute.stroke.face.arm.speech.sudden",
+      "content_hash": "449e55e0c2e5e2a7fb5721bc78f29fa62f7627b09f6ab513a5a5743a12aa377a"
+    },
+    {
+      "candidate_id": "candidate.mania.decreased.sleep.need.marked.impairment",
+      "content_hash": "8552b997c028a8de70d052ad0873a0836071fbab035a162ae53b160e76c98e1b"
+    },
+    {
+      "candidate_id": "candidate.carbon.monoxide.household.generator.cluster",
+      "content_hash": "ad94e7bcf6b152b4be20850b012a056396570c3017814e9f61bef3101630240d"
+    },
+    {
+      "candidate_id": "candidate.appendicitis.migratory.right.lower.quadrant.pain",
+      "content_hash": "79430950b1b950d06b484a912a636025a9f689401741013e9602849a246baab7"
+    },
+    {
+      "candidate_id": "candidate.melanoma.abcde.evolving.pigmented.lesion",
+      "content_hash": "1f6899d9ee3e95caa0b17a318c402775db73d67dfc6388e5afb94d335959c8a7"
+    },
+    {
+      "candidate_id": "candidate.positive.office.bp.confirm.out.of.office",
+      "content_hash": "5128efb63df7b16ba46e5f78ae34b3948d2868aa7324b6a6af242b87243f3e0f"
+    },
+    {
+      "candidate_id": "candidate.nephrotic.syndrome.proteinuria.hypoalbuminemia.edema",
+      "content_hash": "cfd6c64eb0198eb80f6217618a111e1910c185136a2a5645d3ad110e022f38c9"
+    },
+    {
+      "candidate_id": "candidate.giant.cell.arteritis.jaw.claudication.visual.symptoms",
+      "content_hash": "34a1bc8c04be94cca82a8b01094d0f0a3dfa50dff1cfe893852f5af0dec925f5"
+    }
+  ],
+  "output_library_binding": {
+    "path": "i1q-question-platform/content/i1q-1008c/generated/candidate-library.json",
+    "bytes": 274578,
+    "sha256": "bad272124c0e35690a9918c3837620bbc4c7836dc2c36ac631e7d3b6f898abe5",
+    "content_hash": "14599c3fbce3b50ac6056c131480900e25991cc60fa148d9c983bef2784c1886"
+  },
+  "medical_validation_status": "NOT_PERFORMED",
+  "physician_review_status": "NOT_PERFORMED",
+  "release_eligibility": "BLOCKED",
+  "warnings": [
+    "AM4_RUNTIME_PROVENANCE_INCOMPLETE",
+    "NOT_A_TRANSCRIPT_EXTRACTION_RUN",
+    "MODEL_PROMPT_VERSION_NOT_MINTED",
+    "PHYSICIAN_REVIEW_REQUIRED",
+    "NOT_RELEASE_ELIGIBLE"
+  ],
+  "content_hash": "92bf9d728b38ef5f1e9a0ce707fa2712af64ac169f23ed00c2ce7c50c638db64"
+}

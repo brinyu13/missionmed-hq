@@ -1,0 +1,45 @@
+{
+  "fixture_classification": "SYNTHETIC_NON_CLINICAL",
+  "dataset_version": "i1q_fixture_v1",
+  "revision": {
+    "id": "itemrev_fixture_001",
+    "item_id": "item_fixture_001",
+    "concept_id": "concept_fixture_001",
+    "source_ids": [
+      "src_fixture_001"
+    ],
+    "prompt": "Which label matches the blue sample in this synthetic fixture?",
+    "choices": [
+      {
+        "key": "A",
+        "text": "Label alpha",
+        "why_tempting": "First-position bias",
+        "why_wrong": "The fixture key maps blue to a different label.",
+        "misconception_id": "miscon_position_bias"
+      },
+      {
+        "key": "B",
+        "text": "Label beta"
+      },
+      {
+        "key": "C",
+        "text": "Label gamma",
+        "why_tempting": "Adjacent-row confusion",
+        "why_wrong": "Gamma belongs to another synthetic row.",
+        "misconception_id": "miscon_adjacent_row"
+      },
+      {
+        "key": "D",
+        "text": "Label delta",
+        "why_tempting": "Similar-code confusion",
+        "why_wrong": "Delta uses a different synthetic key.",
+        "misconception_id": "miscon_similar_code"
+      }
+    ],
+    "answer": "B",
+    "explanation": "The synthetic fixture key maps blue to label beta.",
+    "correct_answer_rationale": "The fixture key explicitly identifies beta.",
+    "topic": "Synthetic fixtures",
+    "subtopic": "Classification"
+  }
+}

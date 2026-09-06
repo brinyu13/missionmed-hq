@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-07-16T01:47:12.462Z",
+  "status": "pass",
+  "source": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD/audit/results/audit_summary.json",
+  "exact_tests": {
+    "official_validators": 20,
+    "official_leak_tests": 6,
+    "official_negative_cases": 30,
+    "new_adversarial_cases": 50,
+    "privacy_contract_tests": 5,
+    "total_assertions": 111
+  },
+  "patient_identifier_metric": {
+    "recall_type": "number",
+    "missing_required_class_status": "fail",
+    "denominator_zero_policy": "fail_required_class_without_gold_label",
+    "source_1005_fixture_defect": "FAKE-PAT-0001 mislabeled as student_name"
+  }
+}

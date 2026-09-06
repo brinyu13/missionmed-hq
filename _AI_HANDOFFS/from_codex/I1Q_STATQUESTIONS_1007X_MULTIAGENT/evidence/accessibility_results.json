@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-07-15T16:39:34.024Z",
+  "status": "BLOCKED_NOT_RUN",
+  "standard_target": "WCAG 2.2 AA",
+  "results": {
+    "one_h1": true,
+    "duplicate_ids": 0,
+    "unnamed_controls": 0,
+    "reduced_motion_rule": true,
+    "visible_focus_rule": true,
+    "status_not_color_only": true,
+    "responsive_overflow_failures": 0,
+    "enabled_primary_action_contrast_ratio": 7.26,
+    "warning_banner_contrast_ratio": 8.98,
+    "active_navigation_contrast_ratio": 10.05
+  },
+  "external_human_gap": "Real browser, screen-reader, assistive-technology, zoom, reflow, and human validation were not available."
+}

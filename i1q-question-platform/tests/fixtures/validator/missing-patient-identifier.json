@@ -1,0 +1,7 @@
+{
+  "case": "historical_missing_patient_identifier_class",
+  "target": "foundation_privacy_aggregate",
+  "operation": "remove_required_class",
+  "class": "patient_identifier",
+  "expected_code": "E_PRIVACY_CLASS_MISSING"
+}

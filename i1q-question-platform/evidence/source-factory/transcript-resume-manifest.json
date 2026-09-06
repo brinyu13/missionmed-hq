@@ -1,0 +1,224 @@
+{
+  "schema_version": "missionmed.i1q.transcript_resume_manifest.v1",
+  "as_of_date": "2026-07-16",
+  "status": "INCOMPLETE_CORPUS_WORK_EXTERNAL_TRUST_BOUNDARY_REQUIRED",
+  "classification_level": "CLASS_C_INTERNAL_AGGREGATE_ONLY_NO_TRANSCRIPT_CONTENT",
+  "authority_order": [
+    {
+      "rank": 1,
+      "source": "COMPLETE_DRJ_TRANSCRIPT_CORPUS",
+      "role": "CANONICAL_EXTRACTION_AND_OCCURRENCE_SOURCE"
+    },
+    {
+      "rank": 2,
+      "source": "TRANSCRIPT_DERIVED_MEDICAL_TEACHING_QUESTIONS",
+      "role": "CANONICAL_DERIVED_QUESTION_LAYER"
+    },
+    {
+      "rank": 3,
+      "source": "LEGACY_STAT_V4",
+      "role": "SECONDARY_COMPARISON_ONLY"
+    },
+    {
+      "rank": 4,
+      "source": "FUTURE_SOURCES",
+      "role": "EXCLUDED_UNLESS_EXPLICITLY_AUTHORIZED"
+    }
+  ],
+  "medical_correctness_authority": "CURRENT_EXTERNAL_MEDICAL_EVIDENCE_PLUS_CREDENTIALED_PHYSICIAN_REVIEW",
+  "access_assessment": {
+    "current_workspace_probe_completed": true,
+    "current_workspace_probe_status": "COMPLETED_HEURISTIC_NO_OBVIOUS_CORPUS_ARTIFACTS",
+    "current_workspace_probe_scope": "CURRENT_WORKTREE_FILENAME_AND_EXTENSION_HEURISTIC",
+    "current_workspace_probe_scanned_files": 698,
+    "current_workspace_probe_is_completeness_proof": false,
+    "current_access_verified": false,
+    "complete_corpus_accessible": false,
+    "corpus_completeness_proven": false,
+    "source_universe_completeness_status": "NOT_ESTABLISHED",
+    "transcript_bytes_accessible_in_current_workspace": false,
+    "actual_transcript_caption_or_vtt_artifacts_discovered": 0,
+    "actual_nodes_or_media_registry_artifacts_discovered": 0,
+    "actual_transcript_artifacts_processed": 0,
+    "prior_point_in_time_aggregate_authorized_sources": 97,
+    "prior_aggregate_source_observed_at": "2026-07-16T01:47:12.462Z",
+    "prior_aggregate_qualification": "The 2026-07-15 source response and aggregate probes were witnessed, but no privacy-safe row manifest was retained.",
+    "prior_aggregate_is_current_access_proof": false,
+    "prior_aggregate_is_corpus_completeness_proof": false,
+    "prior_row_manifest_retained": false,
+    "prior_aggregate_independently_recomputable": false,
+    "historical_git_blobs_reported_by_prior_probe": 3,
+    "historical_git_blobs_treated_as_current_corpus": false,
+    "extraction_ready_artifacts": 0
+  },
+  "mandatory_metrics": {
+    "total_transcript_artifacts_discovered": 0,
+    "corpus_proven_complete": false,
+    "total_artifacts_processed": 0,
+    "total_explicit_questions_extracted": 0,
+    "total_implicit_or_reconstructed_questions_extracted": 0,
+    "total_medically_relevant_teaching_statements_converted": 0,
+    "total_unique_transcript_concepts_after_deduplication": 0,
+    "total_overlaps_with_legacy": {
+      "value": null,
+      "status": "NOT_MEASURABLE_NO_TRANSCRIPT_EXTRACTION"
+    },
+    "total_transcript_derived_absent_from_legacy": {
+      "value_observed": 0,
+      "status": "NOT_MEASURABLE_NO_TRANSCRIPT_EXTRACTION"
+    },
+    "total_legacy_rows_without_established_transcript_provenance": {
+      "value": 845,
+      "status": "NO_CURRENT_TRANSCRIPT_LINKAGE_ESTABLISHED",
+      "qualification": "This is absence of established provenance, not evidence that the complete corpus lacks support."
+    },
+    "total_questions_with_four_choice_mcqs": {
+      "transcript_derived": 0,
+      "authority_derived_quarantined_benchmark": 24,
+      "legacy_secondary_historical_rows": 845
+    },
+    "total_medically_reviewed": 0,
+    "total_approved": 0,
+    "total_quarantined_candidates": {
+      "transcript_derived": 0,
+      "authority_derived": 24,
+      "total": 24
+    },
+    "total_legacy_secondary_rows_preserved_nonrelease": 845,
+    "total_quarantined_or_nonrelease_answer_bearing_units": {
+      "candidate_objects": 24,
+      "legacy_secondary_rows": 845,
+      "total": 869
+    },
+    "supplemental_authority_benchmark_unique_concepts": 24
+  },
+  "gx_gate_ledger": [
+    {
+      "gate_id": "GX-0",
+      "requirement": "FRESH_AUTHORITATIVE_SOURCE_UNIVERSE",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-1",
+      "requirement": "CORPUS_COMPLETENESS_ATTESTATION",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-2",
+      "requirement": "AUTHORIZED_SOURCE_BYTES_OR_OPAQUE_HANDLES",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-3",
+      "requirement": "PRIVACY_SAFE_WORKING_ARTIFACTS_AND_REDACTION_PROOF",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-4",
+      "requirement": "RIGHTS_AND_ATTRIBUTION_MANIFESTS",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-5",
+      "requirement": "SEGMENT_LEVEL_SPEAKER_AUTHORITY",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-6",
+      "requirement": "QUESTION_RECALL_GOLD_AND_OCCURRENCE_DENOMINATOR",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-7",
+      "requirement": "TRUSTED_DERIVATION_AUTHORIZATION",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-8",
+      "requirement": "EXTRACTION_RUN_MODEL_PROMPT_AND_PARAMETER_LINEAGE",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-9",
+      "requirement": "QUESTION_ANSWER_AND_TEACHING_SPAN_PROVENANCE",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-10",
+      "requirement": "SEMANTIC_DEDUPLICATION_AND_HUMAN_ADJUDICATION",
+      "status": "BLOCKED"
+    },
+    {
+      "gate_id": "GX-11",
+      "requirement": "MEDICAL_PSYCHOMETRIC_AND_RELEASE_GOVERNANCE",
+      "status": "BLOCKED"
+    }
+  ],
+  "exact_blockers": [
+    "fresh_authoritative_source_universe_and_completeness_receipt_missing",
+    "actual_authorized_transcript_bytes_or_opaque_source_handles_missing",
+    "privacy_safe_row_and_working_artifact_manifests_missing",
+    "segment_level_drj_speaker_authority_manifest_missing",
+    "rights_and_attribution_manifests_missing",
+    "question_recall_gold_and_occurrence_denominator_missing",
+    "trusted_derivation_authorization_and_verifier_missing",
+    "extraction_run_model_prompt_and_parameter_lineage_missing",
+    "question_answer_and_teaching_span_provenance_missing",
+    "am11_single_speaker_stratum_absent_from_prior_all_multi_speaker_aggregate",
+    "credentialed_physician_review_missing",
+    "psychometric_response_data_missing"
+  ],
+  "required_resume_inputs": [
+    {
+      "id": "complete_source_universe_manifest",
+      "requirement": "Signed or equivalently trusted content-addressed enumeration of every authorized Dr. J source, with completeness authority, acquisition time, source count, opaque source IDs, per-source hashes or immutable handles, and explicit additions/removals since the prior observation."
+    },
+    {
+      "id": "segment_authority_manifest",
+      "requirement": "Per-source and per-segment Dr. J speaker authority with opaque locators, adjudication status, and content hash; a source-level Dr. J label is insufficient."
+    },
+    {
+      "id": "privacy_rights_working_artifact_bundle",
+      "requirement": "Authorized privacy-safe working transcript artifacts plus redaction, rights, attribution, and deterministic rerun manifests bound to the complete source universe."
+    },
+    {
+      "id": "recall_and_occurrence_gold",
+      "requirement": "Question-recall denominator and occurrence gold covering explicit, incomplete, implicit, rapid-fire, pivot, differential, next-step, mechanism, management, interpretation, and convertible teaching-statement channels."
+    },
+    {
+      "id": "trusted_verifier_adapter",
+      "requirement": "New ratified trusted-boundary verifier and candidate binding contract for corpus snapshot, authorization, source occurrence, question/answer spans, extraction run, model, prompt, parameters, and human adjudication."
+    },
+    {
+      "id": "am11_resolution",
+      "requirement": "Inventory expansion yielding a valid single-speaker stratum or a ratified protocol exception; the prior aggregate reports 97 of 97 sources as multi-speaker."
+    }
+  ],
+  "resume_entry_point": {
+    "resume_requires_code_change": true,
+    "boundary": "NEWLY_RATIFIED_TRUSTED_RESTRICTED_CORPUS_EXECUTION_BOUNDARY",
+    "first_gate": "GX-0_FRESH_AUTHORITATIVE_SOURCE_UNIVERSE",
+    "implementation_entry_point": "i1q-question-platform/src/source-factory/restricted-corpus.mjs#evaluateTranscriptFactoryGate",
+    "verification_entry_point": "i1q-question-platform/scripts/validate-source-factory.mjs",
+    "rebuild_command_after_trusted_inputs_exist": "npm --prefix i1q-question-platform run source-factory:build",
+    "exact_next_action": "Reacquire the complete authoritative Dr. J source universe inside a newly ratified trusted restricted boundary without assuming 97; emit signed content-addressed completeness and segment-authority manifests; create authorized privacy-safe working artifacts; then implement the trusted verifier adapter and resume at GX-0."
+  },
+  "evidence_bindings": {
+    "inventory_evidence_semantic_hash": "f6fea025b42c4625bb6c3ca4bcc2f180928fa5ccf549b00250ee94e6b7842b62",
+    "workspace_corpus_access_probe_content_hash": "d2fe7dc0195ff13d5929c85f88caa772b0d6b8314256a61d6b62d725ccd6a054",
+    "restricted_corpus_snapshot_content_hash": "fca6cdc0bdb903fd8a2f8e09d0b7795cf5e257e0f952de09a2286245b6f03a3f",
+    "transcript_factory_gate_content_hash": "839c5e27e5a3293269ef6e0689a74b8fa19da670a678d5ef6449d68997a19669",
+    "legacy_audit_content_hash": "18ff7a4d8104168b96aafd4e23f25ea5787beedafc644cbefa0b89ce00fd5363",
+    "authority_candidate_binding_hash": "44695cb85547f3b2a47a34ee558afa2f0d643b217aa29e23f05f6ab4398a47f1"
+  },
+  "safety_invariants": {
+    "contains_transcript_content": false,
+    "contains_identity_bearing_source_metadata": false,
+    "treats_prior_97_as_complete_corpus": false,
+    "treats_legacy_as_canonical_extraction_source": false,
+    "production_mutations": 0,
+    "consumer_connections_changed": false,
+    "feature_flags_changed": false
+  },
+  "content_hash": "f4f0adc8b29b8505e45d61b47c6ae8d43b17262695c21331eea4721ffa651b60"
+}
