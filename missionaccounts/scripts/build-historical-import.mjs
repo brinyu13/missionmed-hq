@@ -5,9 +5,11 @@ import { readFile, stat, writeFile } from 'node:fs/promises';
 const ledgerPath = process.env.MISSIONACCOUNTS_5000B_LEDGER || '/Users/brianb/MissionMed/_REPORTS/EXAMPREP/DrJ_Billing_Rescue_2026/MX-EXAMPREP-5000B_Reconciled_Ledger.json';
 const graphPath = process.env.MISSIONACCOUNTS_5000B_IDENTITY || '/Users/brianb/MissionMed/_REPORTS/EXAMPREP/DrJ_Billing_Rescue_2026/MX-EXAMPREP-5000B_Identity_Graph.json';
 const rawDir = process.env.MISSIONACCOUNTS_ZOOM_EXPORT_DIR || '/Users/brianb/MissionMed/_REPORTS/EXAMPREP/DrJ_Billing_Rescue_2026/raw_zoom_exports';
+const manifestPath = `${rawDir}/SOURCE_MANIFEST.csv`;
 const expected = {
   ledger: '6a38967fcb369ba6b9bb71daee8f66697efee0042ab6ebd421a0edf1aaeba108',
   graph: 'c8e89ab0217c5a6df21e4506f133f06d9470c8cd5b51c81eec356de251bce5ee',
+  manifest: '5209775bceca32b4db848154d54b116a5ff9820d409cda648c9c9698ab6a1b60',
 };
 const cycleByLabel = {
   'Cycle 1': { key: '2026-cycle-1', label: 'June Cycle', starts_on: '2026-06-08', ends_on: '2026-07-13' },
@@ -89,7 +91,10 @@ const [ledgerArtifact, graphArtifact] = await Promise.all([
 ]);
 const ledger = ledgerArtifact.data;
 const graph = graphArtifact.data;
-const manifestRows = parseCsv(await readFile(`${rawDir}/SOURCE_MANIFEST.csv`, 'utf8'));
+const manifestBytes = await readFile(manifestPath);
+const manifestSha256 = sha256(manifestBytes);
+if (manifestSha256 !== expected.manifest) throw new Error(`Source hash mismatch for ${basename(manifestPath)}: ${manifestSha256}`);
+const manifestRows = parseCsv(manifestBytes.toString('utf8'));
 const manifestHeader = manifestRows.shift();
 const manifestObjects = manifestRows.filter(row => row.length).map(row => Object.fromEntries(manifestHeader.map((key, index) => [key, row[index]])));
 const manifest = new Map(manifestObjects.map(row => [row.verified_raw_copy, row]));
@@ -107,6 +112,7 @@ for (const name of rawFiles) {
 const artifactRows = [
   { kind: 'reconciled_ledger', path: ledgerPath, digest: ledgerArtifact.sha256, bytes: ledgerArtifact.byte_count },
   { kind: 'identity_graph', path: graphPath, digest: graphArtifact.sha256, bytes: graphArtifact.byte_count },
+  { kind: 'zoom_manifest', path: manifestPath, digest: manifestSha256, bytes: manifestBytes.length },
   ...rawArtifacts.map(item => ({ kind: 'zoom_csv', path: item.file, digest: item.sha256, bytes: item.byte_count })),
 ].map(item => ({ ...item, id: uuidFor(`artifact:${item.digest}`) }));
 const artifactByBasename = new Map(artifactRows.map(item => [basename(item.path), item]));
@@ -297,7 +303,7 @@ if (controls.students !== 271 || controls.sessions !== 419 || controls.confirmed
 
 const statements = ['begin;', "set local timezone = 'America/New_York';"];
 statements.push(valuesStatement('source_artifact', ['id','source_kind','source_path','sha256','byte_count','observed_at'], artifactRows.map(item => [item.id,item.kind,item.path,item.digest,item.bytes,ledger.generated_at])));
-statements.push(valuesStatement('import_run', ['id','artifact_id','request_id','state','source_controls'], [[importRunId,ledgerArtifactId,`mx-examprep-5000b:${ledgerArtifact.sha256}`,'validated',JSON.stringify({ ledger_sha256: ledgerArtifact.sha256, graph_sha256: graphArtifact.sha256, raw_exports: rawArtifacts.map(item => item.sha256) })]]));
+statements.push(valuesStatement('import_run', ['id','artifact_id','request_id','state','source_controls'], [[importRunId,ledgerArtifactId,`mx-examprep-5000b:${ledgerArtifact.sha256}`,'validated',JSON.stringify({ ledger_sha256: ledgerArtifact.sha256, graph_sha256: graphArtifact.sha256, manifest_sha256: manifestSha256, raw_exports: rawArtifacts.map(item => item.sha256) })]]));
 statements.push(`${valuesStatement('cycle', ['key','label','starts_on','ends_on','state'], Object.values(cycleByLabel).map(cycle => [cycle.key,cycle.label,cycle.starts_on,cycle.ends_on,'review'])).replace(/;$/, '')}
 on conflict (key) do update set
   label = excluded.label,

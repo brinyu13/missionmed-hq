@@ -63,7 +63,7 @@ select cycle_key || '|' || count(*) from missionaccounts.attendance_day group by
 SQL
 )
 
-expected=$'artifacts|5\nimports|1|applied\nstudents|271|60|0|0\naliases|370\nsessions|419|100\nsource_rows|5498\nevents|3941|544\nlinked_events|3937|4378\nunlinked_events|4\ndays|3264|677\nhistorical_accounts|498\ncap_candidates|74|0\nflags|8|0\nfinancial_mutations|0|0|0\n2026-cycle-1|1295\n2026-cycle-2|1390\n2026-cycle-3|1256\n2026-cycle-1|1072\n2026-cycle-2|1141\n2026-cycle-3|1051'
+expected=$'artifacts|6\nimports|1|applied\nstudents|271|60|0|0\naliases|370\nsessions|419|100\nsource_rows|5498\nevents|3941|544\nlinked_events|3937|4378\nunlinked_events|4\ndays|3264|677\nhistorical_accounts|498\ncap_candidates|74|0\nflags|8|0\nfinancial_mutations|0|0|0\n2026-cycle-1|1295\n2026-cycle-2|1390\n2026-cycle-3|1256\n2026-cycle-1|1072\n2026-cycle-2|1141\n2026-cycle-3|1051'
 if [[ "$results" != "$expected" ]]; then
   echo "MissionAccounts historical-import verification returned unexpected controls:" >&2
   echo "$results" >&2
