@@ -58,6 +58,7 @@ Secrets go only to Railway Variables / the approved operator secret channel.
 5. Activate it, then place Account ID, Client ID, and Client Secret directly in:
    Railway → missionaccounts-production service → Variables
    as MISSIONACCOUNTS_ZOOM_ACCOUNT_ID, MISSIONACCOUNTS_ZOOM_CLIENT_ID, and MISSIONACCOUNTS_ZOOM_CLIENT_SECRET.
+6. In the same secret store, bind Dr J's Zoom host user ID as MISSIONACCOUNTS_ZOOM_HOST_USER_ID and the privately validated recurring-meeting allowlist as MISSIONACCOUNTS_ZOOM_MEETING_RULES_JSON.
 
 No callback, webhook, meeting write scope, Scheduler change, or credential pasted into chat/files.
 
