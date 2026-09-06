@@ -44,6 +44,23 @@ export class SupabaseRestStore {
     return rows[0] || null;
   }
 
+  async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
+    const rows = await this.request('provider_event_inbox?on_conflict=provider%2Cprovider_event_id', {
+      method: 'POST',
+      body: {
+        provider,
+        provider_event_id: eventId,
+        provider_object_id: providerObjectId || null,
+        event_type: eventType,
+        payload,
+        signature_verified: signatureVerified,
+        state: 'received',
+      },
+      headers: { prefer: 'resolution=ignore-duplicates,return=representation' },
+    });
+    return { status: rows?.length ? 'received' : 'duplicate' };
+  }
+
   async adminHealth() {
     const [students, inbox, outbox, syncs] = await Promise.all([
       this.request('student?select=id&identity_state=eq.needs_review'),
@@ -56,11 +73,21 @@ export class SupabaseRestStore {
 }
 
 export class PreviewStore {
+  constructor() {
+    this.providerEvents = new Set();
+  }
+
   async studentByMatrixUser(userId) {
     return { id: userId, matrix_user_ref: userId, display_name: 'Preview Student', email: 'student.preview@invalid.local', joined_at: null, comp_days_allowance: 0, identity_state: 'verified' };
   }
   async attendanceForStudent() { return []; }
   async billingForStudent() { return []; }
   async paymentMethodForStudent() { return null; }
+  async recordProviderEvent({ provider, eventId }) {
+    const key = `${provider}:${eventId}`;
+    if (this.providerEvents.has(key)) return { status: 'duplicate' };
+    this.providerEvents.add(key);
+    return { status: 'received' };
+  }
   async adminHealth() { return { mode: 'preview', review_students: null, failed_provider_events: null, failed_notifications: null, latest_zoom_sync: null }; }
 }

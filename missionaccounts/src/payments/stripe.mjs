@@ -7,19 +7,34 @@ function constantTimeEqual(a, b) {
 }
 
 export function verifyStripeSignature(rawBody, signatureHeader, secret, toleranceSeconds = 300, now = Math.floor(Date.now() / 1000)) {
-  const pieces = Object.fromEntries(String(signatureHeader || '').split(',').map(part => part.split('=', 2)));
-  const timestamp = Number(pieces.t);
-  if (!Number.isFinite(timestamp) || Math.abs(now - timestamp) > toleranceSeconds || !pieces.v1) return false;
+  if (!secret) return false;
+  const pieces = String(signatureHeader || '').split(',').reduce((result, part) => {
+    const separator = part.indexOf('=');
+    if (separator < 1) return result;
+    const key = part.slice(0, separator).trim();
+    const value = part.slice(separator + 1).trim();
+    if (key && value) (result[key] ||= []).push(value);
+    return result;
+  }, {});
+  const timestamp = Number(pieces.t?.[0]);
+  if (!Number.isFinite(timestamp) || Math.abs(now - timestamp) > toleranceSeconds || !pieces.v1?.length) return false;
   const expected = createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
-  return constantTimeEqual(expected, pieces.v1);
+  return pieces.v1.some(signature => constantTimeEqual(expected, signature));
 }
 
 export class StripeGateway {
-  constructor({ secretKey, webhookSecret, apiVersion = '2026-08-27.basil', mode = 'disabled' }) {
+  constructor({ secretKey, webhookSecret, apiVersion = '', mode = 'disabled' } = {}) {
     this.secretKey = secretKey;
     this.webhookSecret = webhookSecret;
     this.apiVersion = apiVersion;
     this.mode = mode;
+  }
+
+  verifyWebhook(rawBody, signatureHeader) {
+    if (!this.webhookSecret) throw Object.assign(new Error('Stripe webhook handling is not configured'), { status: 503 });
+    if (!verifyStripeSignature(rawBody, signatureHeader, this.webhookSecret)) {
+      throw Object.assign(new Error('Stripe webhook signature invalid'), { status: 400 });
+    }
   }
 
   assertTestMode() {
@@ -33,7 +48,7 @@ export class StripeGateway {
       headers: {
         authorization: `Bearer ${this.secretKey}`,
         'content-type': 'application/x-www-form-urlencoded',
-        'stripe-version': this.apiVersion,
+        ...(this.apiVersion ? { 'stripe-version': this.apiVersion } : {}),
         ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
       },
       body: new URLSearchParams(params),
