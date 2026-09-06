@@ -157,6 +157,52 @@ test('student role cannot read the administrative health endpoint', async () => 
   });
 });
 
+test('administrative home, cycle, directory, and student projections are role-protected and server-derived', async () => {
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const cycleKey = '2026-cycle-1';
+  store.seedAttendanceDays(studentId, cycleKey, [
+    { id: '10000000-0000-4000-8000-000000000001', day: '2026-09-08', kind: 'billable', event_ids: ['event-1'] },
+  ]);
+  await store.submitExamPlan({ studentId, step: 's1', examOn: '2026-10-14', actorId: studentId, requestId: 'admin-projection-exam-0001' });
+  await withServer({
+    config: localConfig,
+    store,
+    stripeGateway: new StripeGateway(),
+    now: () => new Date('2026-09-15T16:00:00Z'),
+  }, async base => {
+    const denied = await fetch(`${base}/api/admin/home`, { headers: { 'x-missionaccounts-local-role': 'student' } });
+    assert.equal(denied.status, 403);
+
+    const headers = { 'x-missionaccounts-local-role': 'missionaccounts_admin' };
+    const home = await fetch(`${base}/api/admin/home`, { headers });
+    assert.equal(home.status, 200);
+    const homePayload = await home.json();
+    assert.equal(homePayload.pending_exam_plans, 1);
+    assert.equal(homePayload.missing_payment_setup, 1);
+
+    const directory = await fetch(`${base}/api/admin/students?missing=setup&q=Preview`, { headers });
+    assert.equal(directory.status, 200);
+    assert.equal((await directory.json()).students.length, 1);
+    const noMatch = await fetch(`${base}/api/admin/students?q=Nobody`, { headers });
+    assert.equal((await noMatch.json()).students.length, 0);
+
+    const cycle = await fetch(`${base}/api/admin/cycles/${cycleKey}`, { headers });
+    assert.equal(cycle.status, 200);
+    assert.equal((await cycle.json()).attendance_days.length, 1);
+
+    const detail = await fetch(`${base}/api/admin/students/${studentId}`, { headers });
+    assert.equal(detail.status, 200);
+    const detailPayload = await detail.json();
+    assert.equal(detailPayload.student.id, studentId);
+    assert.equal(detailPayload.exam_plan.state, 'pending');
+    assert.equal(Object.hasOwn(detailPayload.student, 'matrix_user_ref'), false);
+
+    const missing = await fetch(`${base}/api/admin/students/00000000-0000-4000-8000-000000000002`, { headers });
+    assert.equal(missing.status, 404);
+  });
+});
+
 test('student exam-plan submission is feature-gated and idempotent', async () => {
   const enabledConfig = { ...localConfig, features: { ...localConfig.features, examPlans: true } };
   const store = new PreviewStore();

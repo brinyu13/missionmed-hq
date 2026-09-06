@@ -226,6 +226,73 @@ export class SupabaseRestStore {
     ]);
     return { review_students: students.length, failed_provider_events: inbox.length, failed_notifications: outbox.length, latest_zoom_sync: syncs[0] || null };
   }
+
+  async adminStudents({ q = '', missing = null } = {}) {
+    const [students, paymentMethods, consents] = await Promise.all([
+      this.request('student?select=id,display_name,email,joined_at,comp_days_allowance,identity_state&order=display_name.asc&limit=1000'),
+      this.request('payment_method?select=id,student_id,brand,last4,exp_month,exp_year,status,verified_at'),
+      this.request('billing_consent?superseded_by_id=is.null&select=id,student_id,terms_version,state,accepted_at,revoked_at'),
+    ]);
+    const methodsByStudent = new Map(paymentMethods.map(row => [row.student_id, row]));
+    const consentByStudent = new Map(consents.map(row => [row.student_id, row]));
+    const needle = q.trim().toLocaleLowerCase();
+    return students.map(student => ({
+      ...student,
+      payment_method: methodsByStudent.get(student.id) || null,
+      billing_consent: consentByStudent.get(student.id) || null,
+    })).filter(student => {
+      if (needle && !`${student.display_name} ${student.email || ''}`.toLocaleLowerCase().includes(needle)) return false;
+      if (missing === 'email' && student.email) return false;
+      if (missing === 'setup' && student.payment_method?.status === 'on_file' && student.billing_consent?.state === 'authorized') return false;
+      return true;
+    });
+  }
+
+  async adminHome({ today }) {
+    const [students, attendanceDays, decisions, examPlans, reminders, invoices] = await Promise.all([
+      this.adminStudents(),
+      this.request('attendance_day?superseded_at=is.null&select=id,student_id,cycle_key,kind'),
+      this.request('billing_decision?superseded_by_id=is.null&select=id,student_id,cycle_key,state,amount_cents'),
+      this.request('exam_plan?superseded_by_id=is.null&select=id,student_id,step,exam_on,state'),
+      this.request('reminder?state=in.(scheduled,due)&select=id,student_id,exam_plan_id,due_on,state'),
+      this.request('invoice?state=in.(draft,ready,sent)&select=id,student_id,cycle_key,state,amount_cents'),
+    ]);
+    return {
+      questions: students.filter(student => student.identity_state === 'needs_review').length
+        + attendanceDays.filter(day => day.kind === 'needs_review').length,
+      missing_payment_setup: students.filter(student => student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized').length,
+      stale_decisions: decisions.filter(decision => decision.state === 'stale').length,
+      ready_invoices: invoices.filter(invoice => invoice.state === 'ready').length,
+      pending_exam_plans: examPlans.filter(plan => ['pending', 'speak'].includes(plan.state)).length,
+      upcoming_exam_plans: examPlans.filter(plan => ['approved'].includes(plan.state) && plan.exam_on >= today),
+      due_reminders: reminders.filter(reminder => reminder.due_on <= today),
+    };
+  }
+
+  async adminCycle(cycleKey) {
+    const [cycles, attendanceDays, decisions, invoices] = await Promise.all([
+      this.request(`cycle?key=eq.${encodeURIComponent(cycleKey)}&select=key,label,starts_on,ends_on,state&limit=1`),
+      this.request(`attendance_day?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_at=is.null&select=id,student_id,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`),
+      this.request(`billing_decision?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_by_id=is.null&select=id,student_id,treatment,amount_cents,basis,state,decided_at`),
+      this.request(`invoice?cycle_key=eq.${encodeURIComponent(cycleKey)}&select=id,student_id,decision_id,state,amount_cents,sent_at,paid_at`),
+    ]);
+    if (!cycles[0]) return null;
+    return { cycle: cycles[0], attendance_days: attendanceDays, billing_decisions: decisions, invoices };
+  }
+
+  async adminStudent(studentId) {
+    const rows = await this.request(`student?id=eq.${encodeURIComponent(studentId)}&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state&limit=1`);
+    const student = rows[0];
+    if (!student) return null;
+    const [attendance, billing, payment_method, billing_consent, exam_plan] = await Promise.all([
+      this.attendanceForStudent(studentId),
+      this.billingForStudent(studentId),
+      this.paymentMethodForStudent(studentId),
+      this.billingConsentForStudent(studentId),
+      this.currentExamPlanForStudent(studentId),
+    ]);
+    return { student, attendance, billing, payment_method, billing_consent, exam_plan };
+  }
 }
 
 export class PreviewStore {
@@ -628,6 +695,52 @@ export class PreviewStore {
     if (existing) return { status: existing.state, duplicate: true };
     this.providerEvents.set(key, { providerObjectId, eventType, payload, signatureVerified, state: 'received' });
     return { status: 'received', duplicate: false };
+  }
+  previewStudent() {
+    const student = { id: '00000000-0000-4000-8000-000000000001', display_name: 'Preview Student', email: 'student.preview@invalid.local', phone: null, joined_at: null, comp_days_allowance: 0, identity_state: 'verified' };
+    return {
+      ...student,
+      payment_method: this.paymentMethods.get(student.id) || null,
+      billing_consent: this.billingConsents.get(student.id) || null,
+    };
+  }
+  async adminStudents({ q = '', missing = null } = {}) {
+    const student = this.previewStudent();
+    const matches = !q || `${student.display_name} ${student.email}`.toLocaleLowerCase().includes(q.toLocaleLowerCase());
+    const missingMatch = missing === 'email' ? !student.email
+      : missing === 'setup' ? student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized'
+        : true;
+    return matches && missingMatch ? [student] : [];
+  }
+  async adminHome({ today }) {
+    const students = await this.adminStudents();
+    const examPlans = [...this.examPlans.values()];
+    return {
+      questions: students.filter(student => student.identity_state === 'needs_review').length,
+      missing_payment_setup: students.filter(student => student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized').length,
+      stale_decisions: [...this.billingDecisions.values()].filter(decision => decision.state === 'stale').length,
+      ready_invoices: 0,
+      pending_exam_plans: examPlans.filter(plan => ['pending', 'speak'].includes(plan.state)).length,
+      upcoming_exam_plans: examPlans.filter(plan => plan.state === 'approved' && plan.exam_on >= today),
+      due_reminders: [],
+    };
+  }
+  async adminCycle(cycleKey) {
+    const attendance = [...this.attendanceDays.entries()].filter(([key]) => key.endsWith(`:${cycleKey}`)).flatMap(([, days]) => days);
+    const decisions = [...this.billingDecisions.entries()].filter(([key]) => key.endsWith(`:${cycleKey}`)).map(([, decision]) => decision);
+    return { cycle: { key: cycleKey, label: cycleKey, starts_on: null, ends_on: null, state: 'preview' }, attendance_days: attendance, billing_decisions: decisions, invoices: [] };
+  }
+  async adminStudent(studentId) {
+    if (studentId !== this.previewStudent().id) return null;
+    const student = this.previewStudent();
+    return {
+      student,
+      attendance: [...this.attendanceDays.entries()].filter(([key]) => key.startsWith(`${studentId}:`)).flatMap(([, days]) => days),
+      billing: [...this.billingDecisions.entries()].filter(([key]) => key.startsWith(`${studentId}:`)).map(([, decision]) => decision),
+      payment_method: student.payment_method,
+      billing_consent: student.billing_consent,
+      exam_plan: this.examPlans.get(studentId) || null,
+    };
   }
   async adminHealth() { return { mode: 'preview', review_students: null, failed_provider_events: null, failed_notifications: null, latest_zoom_sync: null }; }
 }

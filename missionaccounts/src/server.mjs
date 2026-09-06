@@ -444,6 +444,36 @@ export function createMissionAccountsServer({
       });
       return json(response, result.accepted === false ? 409 : 200, result);
     }
+    if (request.method === 'GET' && url.pathname === '/api/admin/home') {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      return json(response, 200, await store.adminHome({ today: localDayFromIso(now().toISOString()) }));
+    }
+    const adminCycleRoute = request.method === 'GET'
+      ? url.pathname.match(/^\/api\/admin\/cycles\/([a-z0-9][a-z0-9-]{1,63})$/i)
+      : null;
+    if (adminCycleRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      const projection = await store.adminCycle(adminCycleRoute[1]);
+      if (!projection) throw requestError('Billing cycle not found', 404);
+      return json(response, 200, projection);
+    }
+    if (request.method === 'GET' && url.pathname === '/api/admin/students') {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      const q = String(url.searchParams.get('q') || '').trim();
+      const missing = url.searchParams.get('missing');
+      if (q.length > 200) throw requestError('Student search is too long');
+      if (missing && !['email', 'setup'].includes(missing)) throw requestError('Student missing filter is invalid');
+      return json(response, 200, { students: await store.adminStudents({ q, missing }) });
+    }
+    const adminStudentRoute = request.method === 'GET'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i)
+      : null;
+    if (adminStudentRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      const projection = await store.adminStudent(adminStudentRoute[1]);
+      if (!projection) throw requestError('Student record not found', 404);
+      return json(response, 200, projection);
+    }
     if (request.method === 'GET' && url.pathname === '/api/admin/health') {
       requireRole(identity, ['missionaccounts_admin', 'founder']);
       return json(response, 200, await store.adminHealth());
