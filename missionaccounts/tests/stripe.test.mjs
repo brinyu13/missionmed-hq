@@ -2,6 +2,53 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { StripeGateway, verifyStripeSignature } from '../src/payments/stripe.mjs';
+import { confirmStripeSetup, isSafeTestPublishableKey } from '../public/missionaccounts-stripe.js';
+
+test('browser Stripe setup rejects non-test publishable keys', () => {
+  assert.equal(isSafeTestPublishableKey('pk_test_browser_123'), true);
+  assert.equal(isSafeTestPublishableKey('pk_live_forbidden'), false);
+  assert.equal(isSafeTestPublishableKey('sk_test_secret'), false);
+  assert.equal(isSafeTestPublishableKey(''), false);
+});
+
+test('browser Stripe setup validates Elements before confirmSetup and preserves explicit future-use consent', async () => {
+  const calls = [];
+  const elements = {
+    async submit() { calls.push(['submit']); return {}; },
+  };
+  const stripe = {
+    async confirmSetup(options) {
+      calls.push(['confirmSetup', options]);
+      return { setupIntent: { status: 'succeeded' } };
+    },
+  };
+  const result = await confirmStripeSetup({
+    stripe,
+    elements,
+    returnUrl: 'https://missionmedinstitute.com/missionaccounts/#/me/billing?stripe_setup=return',
+  });
+  assert.equal(result.setupIntent.status, 'succeeded');
+  assert.equal(calls[0][0], 'submit');
+  assert.equal(calls[1][0], 'confirmSetup');
+  assert.equal(calls[1][1].elements, elements);
+  assert.equal(calls[1][1].redirect, 'if_required');
+  assert.deepEqual(calls[1][1].confirmParams, {
+    return_url: 'https://missionmedinstitute.com/missionaccounts/#/me/billing?stripe_setup=return',
+    payment_method_data: { allow_redisplay: 'always' },
+  });
+});
+
+test('browser Stripe setup stops on Payment Element validation errors', async () => {
+  let confirmed = false;
+  const error = { message: 'Card details are incomplete.' };
+  const result = await confirmStripeSetup({
+    elements: { async submit() { return { error }; } },
+    stripe: { async confirmSetup() { confirmed = true; } },
+    returnUrl: 'https://missionmedinstitute.com/missionaccounts/',
+  });
+  assert.equal(result.error, error);
+  assert.equal(confirmed, false);
+});
 
 test('Stripe webhook signature verification accepts valid signed payload once within tolerance', () => {
   const secret = 'whsec_test';

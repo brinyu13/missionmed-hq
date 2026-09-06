@@ -12,6 +12,7 @@ COPY --chown=node:node public/index.production.html ./public/index.production.ht
 COPY --chown=node:node public/missionaccounts-auth.js ./public/missionaccounts-auth.js
 COPY --chown=node:node public/missionaccounts-canonical-adapter.js ./public/missionaccounts-canonical-adapter.js
 COPY --chown=node:node public/missionaccounts-runtime.js ./public/missionaccounts-runtime.js
+COPY --chown=node:node public/missionaccounts-stripe.js ./public/missionaccounts-stripe.js
 
 USER node
 EXPOSE 4179

@@ -51,12 +51,13 @@ html[data-missionaccounts-build="production"] #missionaccountsRuntimeGate{positi
 html[data-missionaccounts-build="production"][data-missionaccounts-runtime="authenticated-readonly"] #missionaccountsRuntimeGate{display:none}
 html[data-missionaccounts-build="production"] [data-reset],html[data-missionaccounts-build="production"] [data-export]{display:none!important}
 </style><div id="missionaccountsRuntimeGate" role="status" aria-live="polite">Opening your authorized MissionAccounts workspace…</div>`;
+const bootstrapRouteGuard = `<script id="missionaccounts-bootstrap-route-guard">(()=>{const requested=location.hash;if(requested&&requested!=='#/'&&requested!=='#'){window.__MISSIONACCOUNTS_REQUESTED_HASH=requested;history.replaceState(null,'',location.pathname+location.search+'#/');}})();</script>`;
 const canonicalBodyOpen = '<body data-lens="admin" data-context="xp" class="is-booting">';
 if (!html.includes(canonicalBodyOpen)) throw new Error('Founder canon body seam is missing');
 let productionHtml = html
   .replace('<html lang="en">', '<html lang="en" data-missionaccounts-build="production">')
   .replace(/<script id="xpData" type="application\/json">[\s\S]*?<\/script>/, `<script id="xpData" type="application/json">${JSON.stringify(scopedData)}</script>`)
-  .replace(canonicalBodyOpen, `${canonicalBodyOpen}${gate}`)
+  .replace(canonicalBodyOpen, `${canonicalBodyOpen}${gate}${bootstrapRouteGuard}`)
   .replace(
     "function load(){ try{ const raw=localStorage.getItem(WS_KEY); if(!raw) return fresh(); const o=JSON.parse(raw); const w=Object.assign(fresh(), o); migrate(w); return w; }catch(e){ return fresh(); } }",
     "function load(){ if(document.documentElement.dataset.missionaccountsBuild==='production') return fresh(); try{ const raw=localStorage.getItem(WS_KEY); if(!raw) return fresh(); const o=JSON.parse(raw); const w=Object.assign(fresh(), o); migrate(w); return w; }catch(e){ return fresh(); } }",
@@ -140,10 +141,10 @@ const productionActionGuards = [
   ["function addCorr(si, type, fields){", "function addCorr(si, type, fields){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('attendance-correction',{si,type,fields});"],
   ["function undoCorr(id){", "function undoCorr(id){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('attendance-correction-reversal',{id});"],
   ["function setContact(si, email, phone){", "function setContact(si, email, phone){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('student-contact',{si,email,phone});"],
-  ["function setPM(si, state){", "function setPM(si, state){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Use the secure Stripe payment setup when it is enabled.'});"],
-  ["function setAuth(si, state){", "function setAuth(si, state){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Automatic billing authorization is not enabled yet.'});"],
-  ["function paymentSheet(si, mode){", "function paymentSheet(si, mode){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Secure Stripe payment setup is not enabled yet.'});"],
-  ["function authSheet(si){", "function authSheet(si){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Automatic billing authorization is not enabled yet.'});"],
+  ["function setPM(si, state){", "function setPM(si, state){ if(document.documentElement.dataset.missionaccountsBuild==='production') return state==='none'?window.MissionAccountsRuntime.dispatch('payment-remove',{si}):window.MissionAccountsRuntime.dispatch('payment-setup',{si,mode:'add'});"],
+  ["function setAuth(si, state){", "function setAuth(si, state){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch(state==='authorized'?'billing-authorization':'billing-authorization-revoke',{si});"],
+  ["function paymentSheet(si, mode){", "function paymentSheet(si, mode){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('payment-setup',{si,mode});"],
+  ["function authSheet(si){", "function authSheet(si){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('billing-authorization',{si});"],
   ["function resetSheet(){", "function resetSheet(){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Server-authoritative MissionAccounts records cannot be reset in the browser.'});"],
   ["function reportSheet(){", "function reportSheet(){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Attendance issue reporting is not enabled yet.'});"],
   ["function setPolicy(k, v){", "function setPolicy(k, v){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('cycle-policy',{k,value:v});"],
@@ -161,6 +162,10 @@ for (const [needle, replacement] of productionActionGuards) {
   if (!productionHtml.includes(needle)) throw new Error(`Production action seam missing: ${needle}`);
   productionHtml = productionHtml.replace(needle, replacement);
 }
+const studentViewHead = "function viewMe(sub){ const e=meStudent(); const cyclesWith=CYK.filter(k=>e.c[k]); const latest=cyclesWith[cyclesWith.length-1];";
+const productionStudentViewHead = `${studentViewHead} if(document.documentElement.dataset.missionaccountsBuild==='production'&&!latest&&!['billing','exam'].includes(sub)) sub='billing';`;
+if (!productionHtml.includes(studentViewHead)) throw new Error('Canonical student empty-state seam is missing');
+productionHtml = productionHtml.replace(studentViewHead, productionStudentViewHead);
 const productionAsyncHandlers = [
   [
     "root.querySelectorAll('[data-save-contact]').forEach(b=>b.onclick=()=>{ const si=+b.dataset.saveContact; const em=$('#emailIn').value; if(em && !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(em)){ toast('That email does not look right yet.'); $('#emailIn').focus(); return; } setContact(si, em, $('#phoneIn')?$('#phoneIn').value:''); render(); toast(em?'Email saved. The invoice can now be marked ready.':'Email cleared.'); });",
@@ -169,6 +174,14 @@ const productionAsyncHandlers = [
   [
     "root.querySelectorAll('[data-ready]').forEach(b=>b.onclick=()=>{ const [si,k,v]=b.dataset.ready.split('|'); markReady(+si,k,v==='1'); render(); toast(v==='1'?'Marked Ready to send (prototype state).':'Removed from Ready.'); });",
     "root.querySelectorAll('[data-ready]').forEach(b=>b.onclick=async()=>{ const [si,k,v]=b.dataset.ready.split('|'); const saved=await markReady(+si,k,v==='1'); if(saved===false)return; render(); toast(v==='1'?'Marked Ready to send.':'Removed from Ready.'); });",
+  ],
+  [
+    "root.querySelectorAll('[data-pay]').forEach(b=>b.onclick=()=>{ const [si,mode]=b.dataset.pay.split('|'); if(mode==='remove'){ setPM(+si,'none'); render(); toast('Payment method removed (prototype).'); } else paymentSheet(+si,mode); });",
+    "root.querySelectorAll('[data-pay]').forEach(b=>b.onclick=async()=>{ const [si,mode]=b.dataset.pay.split('|'); if(mode==='remove'){ await window.MissionAccountsRuntime.dispatch('payment-remove',{si:+si}); } else await paymentSheet(+si,mode); });",
+  ],
+  [
+    "root.querySelectorAll('[data-auth-off]').forEach(b=>b.onclick=()=>{ setAuth(+b.dataset.authOff,'none'); render(); toast('Automatic billing turned off.'); });",
+    "root.querySelectorAll('[data-auth-off]').forEach(b=>b.onclick=async()=>{ await window.MissionAccountsRuntime.dispatch('billing-authorization-revoke',{si:+b.dataset.authOff}); });",
   ],
 ];
 for (const [needle, replacement] of productionAsyncHandlers) {

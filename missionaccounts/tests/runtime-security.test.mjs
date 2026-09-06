@@ -15,6 +15,7 @@ const routePath = path.join(packageDir, 'infra/wordpress/missionmed-missionaccou
 const dockerfilePath = path.join(packageDir, 'Dockerfile');
 const dockerignorePath = path.join(packageDir, '.dockerignore');
 const railwayPath = path.join(packageDir, 'railway.json');
+const stripeBrowserPath = path.join(packageDir, 'public/missionaccounts-stripe.js');
 
 async function withServer(options, run) {
   const server = createMissionAccountsServer(options);
@@ -37,12 +38,15 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /MissionAccounts · server-authoritative record/);
   assert.match(html, /Server-authoritative state/);
   assert.match(html, /Automatic billing remains disabled|automatic billing remains disabled/);
-  assert.match(html, /function paymentSheet\(si, mode\)\{ if\(document\.documentElement\.dataset\.missionaccountsBuild==='production'\)/);
+  assert.match(html, /function paymentSheet\(si, mode\)\{ if\(document\.documentElement\.dataset\.missionaccountsBuild==='production'\) return window\.MissionAccountsRuntime\.dispatch\('payment-setup'/);
   assert.match(html, /function reportSheet\(\)\{ if\(document\.documentElement\.dataset\.missionaccountsBuild==='production'\)/);
   assert.match(html, /id="missionaccounts-runtime-gate-style"/);
   assert.match(html, /data-missionaccounts-runtime="authenticated-readonly"/);
   assert.match(html, /\[data-reset\][^\n]*display:none!important/);
   assert.match(html, /id="missionaccountsRuntimeGate"/);
+  assert.match(html, /id="missionaccounts-bootstrap-route-guard"/);
+  assert.match(html, /__MISSIONACCOUNTS_REQUESTED_HASH/);
+  assert.match(html, /!latest&&!\['billing','exam'\]\.includes\(sub\)\) sub='billing'/);
   assert.doesNotMatch(html, /<title>[^<]*prototype<\/title>|Prototype · view as|Prototype — your decisions are saved in this browser only/);
   assert.match(html, /authenticated-role-scoped-runtime/);
   assert.match(html, /src="\.\/missionaccounts-runtime\.js"/);
@@ -93,6 +97,12 @@ test('production server serves only the scoped shell while keeping mounted publi
       tokenRefreshSkewSeconds: 15,
       localAuth: false,
       identityMode: 'missionmed-signed-jwt',
+      payments: {
+        provider: 'stripe',
+        setupEnabled: false,
+        mode: 'disabled',
+        publishableKey: null,
+      },
     });
     const privateSession = await fetch(`${base}/missionaccounts/api/session`);
     assert.equal(privateSession.status, 401);
@@ -121,12 +131,14 @@ test('isolated production packaging cannot include the private Founder preview',
   assert.match(dockerfile, /FROM node:22-alpine/);
   assert.match(dockerfile, /public\/index\.production\.html/);
   assert.match(dockerfile, /public\/missionaccounts-canonical-adapter\.js/);
+  assert.match(dockerfile, /public\/missionaccounts-stripe\.js/);
   assert.doesNotMatch(dockerfile, /COPY\s+(?:--[^\s]+\s+)*\.\s/);
   assert.doesNotMatch(dockerfile, /COPY[^\n]*public(?:\s|\/\s)/);
   assert.doesNotMatch(dockerfile, /public\/index\.html|canon-manifest|historical-import/);
   assert.match(dockerignore, /^\*$/m);
   assert.match(dockerignore, /!public\/index\.production\.html/);
   assert.match(dockerignore, /!public\/missionaccounts-canonical-adapter\.js/);
+  assert.match(dockerignore, /!public\/missionaccounts-stripe\.js/);
   assert.doesNotMatch(dockerignore, /!public\/index\.html|!public\/canon-manifest\.json/);
   const railway = JSON.parse(railwaySource);
   assert.equal(railway.build.builder, 'DOCKERFILE');
@@ -179,10 +191,81 @@ test('browser runtime requests the authenticated role-scoped bootstrap before an
   assert.match(source, /await auth\.request\('\/ui\/bootstrap'\)/);
   assert.match(source, /\['passed', 'not_passed', 'no_result'\]\.includes\(payload\.action\)/);
   assert.match(source, /await refreshCanonical\(\)/);
+  assert.match(source, /state\.bootstrap\.scope === 'student'/);
+  assert.match(source, /startsWith\('#\/me'\)/);
+  assert.match(source, /const initialHydration = state\.bootstrap === null/);
+  assert.match(source, /!hasAttendance[^]*'#\/me\/billing'/);
+  assert.match(source, /openSecureStripeSetup/);
+  assert.match(source, /state\.user\?\.role !== 'student'/);
+  assert.match(source, /publishableKey: state\.payments\.publishableKey/);
+  assert.match(source, /publishableKey: state\.payments\.publishableKey \? '\[configured\]' : null/);
   assert.match(source, /missionaccountsRuntime = state\.bootstrap \? 'authenticated-readonly'/);
   assert.match(source, /function updateRuntimeGate\(message\)/);
   assert.match(source, /updateRuntimeGate\(state\.error\)/);
   assert.doesNotMatch(source, /missionaccountsRuntime\s*=\s*['"]ready['"]/);
+});
+
+test('browser Stripe setup uses only Stripe-hosted Elements and contains no MissionMed card fields', async () => {
+  const source = await readFile(stripeBrowserPath, 'utf8');
+  assert.match(source, /https:\/\/js\.stripe\.com\/v3\//);
+  assert.match(source, /elements\.create\('payment'/);
+  assert.match(source, /stripe\.confirmSetup/);
+  assert.match(source, /payment_method_data: \{ allow_redisplay: 'always' \}/);
+  assert.match(source, /This does not turn on automatic billing/);
+  assert.doesNotMatch(source, /type=["'](?:text|tel|number)["'][^>]*(?:card|cvc|exp)|name=["'](?:card|cvc|exp)/i);
+});
+
+test('public config exposes only a feature-gated Stripe Test-Mode publishable key', async () => {
+  const baseConfig = {
+    production: true,
+    localAuth: false,
+    basePath: '/missionaccounts/',
+    wpBootstrapPath: '/wp-admin/admin-ajax.php?action=missionmed_missionaccounts_bootstrap',
+    tokenRefreshSkewSeconds: 15,
+    issuer: 'https://missionmedinstitute.com/wp-json/missionmed/v1/missionaccounts',
+    audience: 'missionaccounts',
+    jwtSecret: 'test-production-secret-that-is-at-least-32-bytes',
+    jwksUrl: '',
+    features: { autoBilling: true },
+    stripeMode: 'test',
+  };
+  await withServer({
+    config: { ...baseConfig, stripePublishableKey: 'pk_test_browser_safe_123' },
+    store: new PreviewStore(),
+  }, async base => {
+    const response = await fetch(`${base}/missionaccounts/api/config`);
+    const payload = await response.json();
+    assert.deepEqual(payload.payments, {
+      provider: 'stripe',
+      setupEnabled: true,
+      mode: 'test',
+      publishableKey: 'pk_test_browser_safe_123',
+    });
+    assert.doesNotMatch(JSON.stringify(payload), /sk_(?:test|live)_/);
+  });
+  await withServer({
+    config: { ...baseConfig, stripePublishableKey: 'pk_live_must_not_be_exposed' },
+    store: new PreviewStore(),
+  }, async base => {
+    const payload = await (await fetch(`${base}/missionaccounts/api/config`)).json();
+    assert.equal(payload.payments.setupEnabled, false);
+    assert.equal(payload.payments.publishableKey, null);
+  });
+});
+
+test('static CSP allowlists only the Stripe.js origins required by the secure payment element', async () => {
+  await withServer({
+    config: { production: false, localAuth: true, basePath: '/missionaccounts/', features: {} },
+    store: new PreviewStore(),
+  }, async base => {
+    const response = await fetch(`${base}/missionaccounts/missionaccounts-stripe.js`);
+    assert.equal(response.status, 200);
+    const csp = response.headers.get('content-security-policy');
+    assert.match(csp, /script-src[^;]*https:\/\/js\.stripe\.com[^;]*https:\/\/\*\.js\.stripe\.com/);
+    assert.match(csp, /connect-src[^;]*https:\/\/api\.stripe\.com/);
+    assert.match(csp, /frame-src[^;]*https:\/\/hooks\.stripe\.com/);
+    assert.doesNotMatch(csp, /https:\/\/\*\s/);
+  });
 });
 
 test('same-origin WordPress gateway is default-off, targetless, bounded, and strips cookies from upstream requests', async () => {

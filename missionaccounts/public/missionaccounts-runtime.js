@@ -1,5 +1,6 @@
 import { createMissionAccountsAuthClient } from './missionaccounts-auth.js';
 import { buildCanonicalModel } from './missionaccounts-canonical-adapter.js';
+import { openPaymentActionDialog, openSecureStripeSetup } from './missionaccounts-stripe.js';
 
 const state = {
   mode: 'initializing',
@@ -9,6 +10,7 @@ const state = {
   bootstrap: null,
   error: null,
   mutating: false,
+  payments: { provider: 'stripe', setupEnabled: false, mode: 'disabled', publishableKey: null },
 };
 
 const auth = createMissionAccountsAuthClient({
@@ -35,9 +37,22 @@ function updateRuntimeGate(message) {
 }
 
 async function refreshCanonical() {
+  const initialHydration = state.bootstrap === null;
   state.bootstrap = await auth.request('/ui/bootstrap');
   canonicalModel = buildCanonicalModel(state.bootstrap);
   if (typeof window.__XP?.hydrateAuthoritative !== 'function') throw new Error('MissionAccounts canonical renderer is unavailable.');
+  if (initialHydration) {
+    const requestedHash = window.__MISSIONACCOUNTS_REQUESTED_HASH;
+    if (requestedHash) delete window.__MISSIONACCOUNTS_REQUESTED_HASH;
+    let hydrationHash = requestedHash || location.hash || '#/';
+    if (state.bootstrap.scope === 'student') {
+      const studentHash = String(hydrationHash).startsWith('#/me') ? hydrationHash : '#/me';
+      const hasAttendance = Object.keys(canonicalModel.data.students[0]?.c || {}).length > 0;
+      const routeWithoutQuery = String(studentHash).split('?')[0];
+      hydrationHash = !hasAttendance && !['#/me/billing', '#/me/exam'].includes(routeWithoutQuery) ? '#/me/billing' : studentHash;
+    }
+    if (location.hash !== hydrationHash) history.replaceState(null, '', `${location.pathname}${location.search}${hydrationHash}`);
+  }
   window.__XP.hydrateAuthoritative(canonicalModel.data, canonicalModel.working, canonicalModel.ids);
   return canonicalModel;
 }
@@ -59,7 +74,71 @@ async function dispatch(action, payload = {}) {
   state.mutating = true;
   try {
     if (action === 'unsupported') throw new Error(payload.message || 'This control is not enabled in the production build yet.');
-    if (action === 'student-contact') {
+    if (action === 'payment-setup') {
+      if (state.user?.role !== 'student') throw new Error('Only the signed-in student can enter or update a payment method.');
+      if (!state.payments.setupEnabled || !state.payments.publishableKey) throw new Error('Secure Stripe payment setup is not enabled.');
+      openSecureStripeSetup({
+        publishableKey: state.payments.publishableKey,
+        createSession: () => window.MissionAccountsRuntime.mutation('/me/payment-setup/session'),
+        refresh: refreshCanonical,
+        notify,
+        returnUrl: new URL('./#/me/billing?stripe_setup=return', document.baseURI).href,
+      });
+      return true;
+    }
+    if (action === 'payment-remove') {
+      if (state.user?.role !== 'student') throw new Error('Only the signed-in student can remove a payment method.');
+      const decision = openPaymentActionDialog({
+        title: 'Remove payment method?',
+        intro: 'This removes the saved payment method from MissionAccounts and securely detaches it from your Stripe customer.',
+        facts: [
+          'Automatic Drills billing authorization is revoked before the payment method is detached.',
+          'No attendance, invoice, or payment history is deleted.',
+          'You can add another payment method later.',
+        ],
+        confirmLabel: 'Remove payment method',
+        danger: true,
+        onConfirm: () => window.MissionAccountsRuntime.mutation('/me/payment-method', { method: 'DELETE' }),
+      });
+      if (!await decision.result) return true;
+    } else if (action === 'billing-authorization' || action === 'billing-authorization-revoke') {
+      if (state.user?.role !== 'student') throw new Error('Only the signed-in student can change automatic billing authorization.');
+      const current = state.bootstrap?.account?.billing_consent;
+      const revoke = action === 'billing-authorization-revoke' || current?.state === 'authorized';
+      if (revoke) {
+        const decision = openPaymentActionDialog({
+          title: 'Turn off automatic billing?',
+          intro: 'Future Drills attendance will not be charged automatically after this authorization is revoked.',
+          facts: [
+            'Past attendance, invoices, payments, and authorization history stay intact.',
+            'Your saved payment method remains on file unless you remove it separately.',
+          ],
+          confirmLabel: 'Turn off automatic billing',
+          danger: true,
+          onConfirm: () => window.MissionAccountsRuntime.mutation('/me/consent', { method: 'DELETE', body: {} }),
+        });
+        if (!await decision.result) return true;
+      } else {
+        const terms = state.bootstrap?.account?.billing_terms;
+        if (!terms?.version || terms.status !== 'approved') throw new Error('The automatic-billing terms are not approved yet.');
+        const decision = openPaymentActionDialog({
+          title: 'Automatic Drills billing',
+          intro: terms.summary || 'Review and accept the approved terms for automatic Drills billing.',
+          facts: [
+            '$25 maximum per student per calendar day of billable Live Drills attendance.',
+            'Step 1 and Step 2/3 on the same calendar day still produce at most one $25 charge.',
+            'An eligible day is charged 24–48 hours after Dr J confirms attendance.',
+            'You can turn off automatic billing and remove the saved payment method from MissionAccounts.',
+          ],
+          consentLabel: 'I authorize MissionMed Institute to charge my saved Stripe payment method under these approved Drills terms.',
+          confirmLabel: 'Enable automatic billing',
+          onConfirm: () => window.MissionAccountsRuntime.mutation('/me/consent', {
+            body: { terms_version: terms.version, reason: 'Student accepted approved Drills automatic-billing terms' },
+          }),
+        });
+        if (!await decision.result) return true;
+      }
+    } else if (action === 'student-contact') {
       await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/contact`, {
         body: {
           email: payload.email || '',
@@ -176,6 +255,7 @@ window.MissionAccountsRuntime = Object.freeze({
       capabilities: { ...state.capabilities },
       user: state.user ? { ...state.user } : null,
       bootstrap: state.bootstrap,
+      payments: { ...state.payments, publishableKey: state.payments.publishableKey ? '[configured]' : null },
     };
   },
   request(path, options = {}) { return auth.request(path, options); },
@@ -199,6 +279,7 @@ try {
   const config = await configResponse.json();
   if (!configResponse.ok) throw new Error(config.message || 'MissionAccounts configuration is unavailable.');
   auth.configure(config);
+  state.payments = config.payments || state.payments;
   if (!config.localAuth) await auth.exchange();
   const session = await auth.request('/session');
   state.mode = session.mode;

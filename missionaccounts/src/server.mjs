@@ -37,6 +37,8 @@ function environmentConfig() {
       notifications: process.env.MISSIONACCOUNTS_NOTIFICATIONS === '1',
       zoomSync: process.env.MISSIONACCOUNTS_ZOOM_SYNC === '1',
     },
+    stripeMode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
+    stripePublishableKey: process.env.MISSIONACCOUNTS_STRIPE_PUBLISHABLE_KEY || '',
     workerToken: process.env.MISSIONACCOUNTS_WORKER_TOKEN || '',
   };
 }
@@ -194,12 +196,22 @@ export function createMissionAccountsServer({
 
   async function handleApi(request, response, url) {
     if (request.method === 'GET' && url.pathname === '/api/config') {
+      const stripePublishableKey = String(config.stripePublishableKey || '');
+      const stripeSetupEnabled = config.features?.autoBilling === true
+        && config.stripeMode === 'test'
+        && /^pk_test_[A-Za-z0-9_]+$/.test(stripePublishableKey);
       return json(response, 200, {
         basePath: config.basePath || '/missionaccounts/',
         wpBootstrapPath: config.wpBootstrapPath || '/wp-admin/admin-ajax.php?action=missionmed_missionaccounts_bootstrap',
         tokenRefreshSkewSeconds: Number(config.tokenRefreshSkewSeconds || 15),
         localAuth: config.production !== true && config.localAuth === true,
         identityMode: config.localAuth ? 'local-preview' : 'missionmed-signed-jwt',
+        payments: {
+          provider: 'stripe',
+          setupEnabled: stripeSetupEnabled,
+          mode: stripeSetupEnabled ? 'test' : 'disabled',
+          publishableKey: stripeSetupEnabled ? stripePublishableKey : null,
+        },
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/health') {
@@ -963,7 +975,7 @@ export function createMissionAccountsServer({
     const requested = pathname === '/' || pathname === normalizedBase.slice(0, -1) || pathname === normalizedBase || mountedPath === '' ? requestedIndex : mountedPath;
     const file = path.resolve(publicDir, requested);
     if (!file.startsWith(`${publicDir}${path.sep}`) || !existsSync(file)) return json(response, 404, { code: 'NOT_FOUND' });
-    response.writeHead(200, { 'content-type': mime(file), 'cache-control': requested.endsWith('.html') ? 'no-store, private' : 'no-cache', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'" });
+    response.writeHead(200, { 'content-type': mime(file), 'cache-control': requested.endsWith('.html') ? 'no-store, private' : 'no-cache', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.js.stripe.com; img-src 'self' data: blob: https://*.stripe.com; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com" });
     createReadStream(file).pipe(response);
   }
 
