@@ -140,6 +140,7 @@ function missionAccountsStatusBanner(){
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return '';
   const messages=[];
   if(!missionAccountsCapability('auto_billing')) messages.push('Payment activation pending — no automatic charges can occur.');
+  if(!missionAccountsCapability('hosted_invoices')) messages.push('Stripe-hosted invoicing is disabled — ready invoices cannot be sent.');
   if(!missionAccountsCapability('zoom_sync')) messages.push('Zoom sync not connected — no new attendance is being imported.');
   if(!missionAccountsCapability('notifications')) messages.push('Notification delivery pending — queued reminders remain durable and are not marked sent.');
   if(!messages.length) return '';
@@ -151,6 +152,41 @@ function missionAccountsDisable(control,reason){
   control.dataset.capabilityDisabled='true';
   control.title=reason;
 }
+function missionAccountsHydrateProviderInvoice(root){
+  if(document.documentElement.dataset.missionaccountsBuild!=='production') return;
+  const route=(location.hash||'').match(/^#\/invoice\/(\d+)\/(june|july|august)/);
+  if(!route) return;
+  const si=Number(route[1]); const k=route[2]; const provider=WS.providerInvoices?.[si]?.[k]||null;
+  const ready=WS.ready?.[si]?.[k]===true; const panel=root.querySelector('.invSide .panel');
+  const row=panel?.querySelector('.btnRow'); const chip=panel?.querySelector('.chip'); const message=panel?.querySelector('.muted');
+  if(!row||!chip||!message) return;
+  const activate=button=>{ button.onclick=async()=>{ const [studentIndex,cycleKey,action]=button.dataset.providerInvoice.split('|'); const saved=await window.MissionAccountsRuntime.dispatch('hosted-invoice',{si:Number(studentIndex),k:cycleKey,action}); if(saved===false)return; render(); }; };
+  if(!provider&&ready){
+    const send=document.createElement('button'); send.type='button'; send.className='btn confirm';
+    send.dataset.providerInvoice=si+'|'+k+'|send'; send.textContent='Send Stripe invoice'; activate(send); row.prepend(send); return;
+  }
+  if(!provider) return;
+  const labels={sent:'Sent',paid:'Paid',overdue:'Overdue',void:'Voided',failed:'Provider attention needed'};
+  chip.textContent=labels[provider.state]||'Provider invoice';
+  chip.className='chip '+(provider.state==='paid'?'approved':provider.state==='sent'?'ready':provider.state==='void'?'none':'review');
+  message.textContent=provider.state==='paid'?'Stripe confirmed payment.'
+    :provider.state==='void'?'This Stripe invoice is void and cannot be paid.'
+    :provider.state==='failed'?'The provider action failed safely. Review and retry the same invoice.'
+    :'Stripe is hosting this invoice'+(provider.dueAt?' · due '+String(provider.dueAt).slice(0,10):'.');
+  row.querySelectorAll('[data-ready]').forEach(control=>control.remove());
+  const controls=[];
+  if(provider.hostedUrl&&/^https:\/\/invoice[.]stripe[.]com\//.test(provider.hostedUrl)){
+    const open=document.createElement('a'); open.className='btn confirm'; open.href=provider.hostedUrl;
+    open.target='_blank'; open.rel='noopener noreferrer'; open.textContent='Open Stripe invoice'; controls.push(open);
+  }
+  if(['sent','overdue','failed'].includes(provider.state)){
+    const resend=document.createElement('button'); resend.type='button'; resend.className='btn soft';
+    resend.dataset.providerInvoice=si+'|'+k+'|resend'; resend.textContent='Resend invoice'; activate(resend); controls.push(resend);
+    const voidButton=document.createElement('button'); voidButton.type='button'; voidButton.className='btn ghost';
+    voidButton.dataset.providerInvoice=si+'|'+k+'|void'; voidButton.textContent='Void invoice'; activate(voidButton); controls.push(voidButton);
+  }
+  controls.reverse().forEach(control=>row.prepend(control));
+}
 function missionAccountsApplyCapabilityState(root){
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return;
   const rules=[
@@ -160,6 +196,7 @@ function missionAccountsApplyCapabilityState(root){
     ['exam_plans','[data-exam-set],[data-exam],[data-passed],[data-exam-withdraw]','Exam-plan actions are not enabled for this environment.'],
     ['comp_days','[data-comp]','Comp-day editing is not enabled for this environment.'],
     ['auto_billing','[data-pay],[data-auth],[data-auth-off]','Payment activation is pending; no payment action will occur.'],
+    ['hosted_invoices','[data-provider-invoice]','Stripe-hosted invoicing is not enabled for this environment.'],
   ];
   for(const [capability,selector,reason] of rules){
     if(missionAccountsCapability(capability)) continue;
@@ -270,7 +307,7 @@ const productionAdminStudentViewHead = `${adminStudentViewHead}
 if (!productionHtml.includes(adminStudentViewHead)) throw new Error('Canonical admin student empty-state seam is missing');
 productionHtml = productionHtml.replace(adminStudentViewHead, productionAdminStudentViewHead);
 const reportRouteAutoOpen = "main.innerHTML=html; main.scrollTop=0; bind(main); if(top==='me' && r.q.report==='1'){ setTimeout(reportSheet,50); }";
-const productionReportRouteAutoOpen = "main.innerHTML=html; main.scrollTop=0; bind(main); const capabilityStatus=missionAccountsStatusBanner(); if(capabilityStatus) main.insertAdjacentHTML('afterbegin',capabilityStatus); missionAccountsApplyCapabilityState(document); missionAccountsRenderedRoute=location.hash||'#/'+top; const routeHeading=main.querySelector('h1'); if(routeHeading){ routeHeading.tabIndex=-1; requestAnimationFrame(()=>{ if(document.body.contains(routeHeading)) routeHeading.focus({preventScroll:true}); }); } if(top==='me' && r.q.report==='1'){ history.replaceState(null,'',location.pathname+location.search+'#/me'); setTimeout(reportSheet,50); }";
+const productionReportRouteAutoOpen = "main.innerHTML=html; main.scrollTop=0; bind(main); missionAccountsHydrateProviderInvoice(main); const capabilityStatus=missionAccountsStatusBanner(); if(capabilityStatus) main.insertAdjacentHTML('afterbegin',capabilityStatus); missionAccountsApplyCapabilityState(document); missionAccountsRenderedRoute=location.hash||'#/'+top; const routeHeading=main.querySelector('h1'); if(routeHeading){ routeHeading.tabIndex=-1; requestAnimationFrame(()=>{ if(document.body.contains(routeHeading)) routeHeading.focus({preventScroll:true}); }); } if(top==='me' && r.q.report==='1'){ history.replaceState(null,'',location.pathname+location.search+'#/me'); setTimeout(reportSheet,50); }";
 if (!productionHtml.includes(reportRouteAutoOpen)) throw new Error('Canonical report auto-open seam is missing');
 productionHtml = productionHtml.replace(reportRouteAutoOpen, productionReportRouteAutoOpen);
 productionHtml = productionHtml.replace(
@@ -324,7 +361,7 @@ const productionAsyncHandlers = [
   ],
   [
     "root.querySelectorAll('[data-ready]').forEach(b=>b.onclick=()=>{ const [si,k,v]=b.dataset.ready.split('|'); markReady(+si,k,v==='1'); render(); toast(v==='1'?'Marked Ready to send (prototype state).':'Removed from Ready.'); });",
-    "root.querySelectorAll('[data-ready]').forEach(b=>b.onclick=async()=>{ const [si,k,v]=b.dataset.ready.split('|'); const saved=await markReady(+si,k,v==='1'); if(saved===false)return; render(); toast(v==='1'?'Marked Ready to send.':'Removed from Ready.'); });",
+    "root.querySelectorAll('[data-ready]').forEach(b=>b.onclick=async()=>{ const [si,k,v]=b.dataset.ready.split('|'); const saved=await markReady(+si,k,v==='1'); if(saved===false)return; render(); toast(v==='1'?'Marked Ready to send.':'Removed from Ready.'); }); root.querySelectorAll('[data-provider-invoice]').forEach(b=>b.onclick=async()=>{ const [si,k,action]=b.dataset.providerInvoice.split('|'); const saved=await window.MissionAccountsRuntime.dispatch('hosted-invoice',{si:+si,k,action}); if(saved===false)return; render(); });",
   ],
   [
     "root.querySelectorAll('[data-pay]').forEach(b=>b.onclick=()=>{ const [si,mode]=b.dataset.pay.split('|'); if(mode==='remove'){ setPM(+si,'none'); render(); toast('Payment method removed (prototype).'); } else paymentSheet(+si,mode); });",

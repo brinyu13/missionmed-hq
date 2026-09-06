@@ -7,7 +7,8 @@ import { readRawBody, readJsonBody, parseJsonBody } from './http/body.mjs';
 import { StripeGateway } from './payments/stripe.mjs';
 import { NotificationGateway } from './notifications/notification-gateway.mjs';
 import { localDayFromIso } from './domain/billing-engine.mjs';
-import { ZoomAttendanceProvider } from './domain/zoom-provider.mjs';
+import { ZoomAttendanceProvider, createCycleBoundZoomClassifier } from './domain/zoom-provider.mjs';
+import { ZoomS2SClient, parseZoomMeetingRules } from './providers/zoom-s2s-client.mjs';
 import { authenticate, requireRole } from './security/auth.mjs';
 import { PreviewStore, SupabaseRestStore } from './storage/supabase-rest.mjs';
 
@@ -36,11 +37,13 @@ function environmentConfig() {
       examPlans: process.env.MISSIONACCOUNTS_EXAM_PLANS === '1',
       compDays: process.env.MISSIONACCOUNTS_COMP_DAYS === '1',
       autoBilling: process.env.MISSIONACCOUNTS_AUTO_BILLING === '1',
+      hostedInvoices: process.env.MISSIONACCOUNTS_HOSTED_INVOICES === '1',
       notifications: process.env.MISSIONACCOUNTS_NOTIFICATIONS === '1',
       zoomSync: process.env.MISSIONACCOUNTS_ZOOM_SYNC === '1',
     },
     stripeMode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
     stripePublishableKey: process.env.MISSIONACCOUNTS_STRIPE_PUBLISHABLE_KEY || '',
+    invoiceDueDays: Number(process.env.MISSIONACCOUNTS_INVOICE_DUE_DAYS || 30),
     workerToken: process.env.MISSIONACCOUNTS_WORKER_TOKEN || '',
   };
 }
@@ -60,6 +63,7 @@ function environmentStripeGateway() {
     webhookSecret: process.env.MISSIONACCOUNTS_STRIPE_WEBHOOK_SECRET,
     apiVersion: process.env.MISSIONACCOUNTS_STRIPE_API_VERSION || '',
     mode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
+    liveMutationsEnabled: process.env.MISSIONACCOUNTS_STRIPE_LIVE_MUTATIONS === '1',
   });
 }
 
@@ -71,10 +75,20 @@ function environmentNotificationGateway() {
   });
 }
 
-function environmentZoomProvider() {
-  // Credentials and a concrete Zoom client are intentionally not inferred from
-  // process state. Production must inject an authorized provider explicitly.
-  return new ZoomAttendanceProvider();
+function environmentZoomProvider({ cycleProvider } = {}) {
+  if (process.env.MISSIONACCOUNTS_ZOOM_MODE !== 'configured') return new ZoomAttendanceProvider();
+  const client = new ZoomS2SClient({
+    accountId: process.env.MISSIONACCOUNTS_ZOOM_ACCOUNT_ID,
+    clientId: process.env.MISSIONACCOUNTS_ZOOM_CLIENT_ID,
+    clientSecret: process.env.MISSIONACCOUNTS_ZOOM_CLIENT_SECRET,
+    hostUserId: process.env.MISSIONACCOUNTS_ZOOM_HOST_USER_ID,
+    meetingRules: parseZoomMeetingRules(process.env.MISSIONACCOUNTS_ZOOM_MEETING_RULES_JSON),
+  });
+  return new ZoomAttendanceProvider({
+    mode: 'configured',
+    client,
+    classifyMeeting: createCycleBoundZoomClassifier({ cycleProvider }),
+  });
 }
 
 function json(response, status, body) {
@@ -113,10 +127,17 @@ export function createMissionAccountsServer({
   store = environmentStore(),
   stripeGateway = environmentStripeGateway(),
   notificationGateway = environmentNotificationGateway(),
-  zoomProvider = environmentZoomProvider(),
+  zoomProvider = null,
   publicDir = defaultPublicDir,
   now = () => new Date(),
 } = {}) {
+  zoomProvider ||= environmentZoomProvider({ cycleProvider: () => store.billingCycles() });
+  const zoomConfiguredAtStartup = typeof zoomProvider?.isConfigured === 'function'
+    ? zoomProvider.isConfigured() === true
+    : typeof zoomProvider?.ingestWindow === 'function';
+  if (config.features?.zoomSync && !zoomConfiguredAtStartup) {
+    throw new Error('MissionAccounts Zoom sync is enabled without a configured provider');
+  }
   function zoomProviderConfigured() {
     try {
       return typeof zoomProvider?.isConfigured === 'function' && zoomProvider.isConfigured() === true;
@@ -126,10 +147,16 @@ export function createMissionAccountsServer({
   }
 
   async function administrativeHealth() {
+    const stripeState = typeof stripeGateway?.configurationState === 'function'
+      ? stripeGateway.configurationState()
+      : { mode: config.stripeMode || 'disabled', credentials_configured: false, webhook_configured: false, mutations_enabled: false, live_mutations_enabled: false };
     return {
       ...await store.adminHealth(),
       zoom_sync_enabled: Boolean(config.features?.zoomSync),
       zoom_provider_configured: zoomProviderConfigured(),
+      hosted_invoices_enabled: Boolean(config.features?.hostedInvoices),
+      auto_billing_enabled: Boolean(config.features?.autoBilling),
+      stripe: stripeState,
     };
   }
 
@@ -192,6 +219,28 @@ export function createMissionAccountsServer({
         failureCode: object.last_payment_error?.code || null,
         failureMessage: object.last_payment_error?.message || null,
       });
+    } else if ([
+      'invoice.finalized', 'invoice.sent', 'invoice.paid', 'invoice.payment_failed',
+      'invoice.overdue', 'invoice.voided', 'invoice.finalization_failed',
+    ].includes(event.type) && result.status !== 'processed') {
+      const object = event.data.object;
+      const internalInvoiceId = String(object.metadata?.missionaccounts_invoice_id || '');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(internalInvoiceId)
+        || !/^in_[A-Za-z0-9_]+$/.test(String(object.id || ''))) {
+        throw requestError('Stripe Invoice metadata binding is invalid');
+      }
+      effect = await store.processStripeInvoiceEvent({
+        eventId: event.id,
+        eventType: event.type,
+        providerInvoiceId: object.id,
+        internalInvoiceId,
+        providerStatus: String(object.status || ''),
+        hostedInvoiceUrl: object.hosted_invoice_url || null,
+        invoicePdf: object.invoice_pdf || null,
+        dueAt: Number.isInteger(object.due_date) ? new Date(object.due_date * 1_000).toISOString() : null,
+        amountDue: Number(object.amount_due),
+        amountPaid: Number(object.amount_paid),
+      });
     } else if (result.status === 'received') {
       effect = await store.markProviderEventUnhandled({
         provider: 'stripe',
@@ -232,12 +281,15 @@ export function createMissionAccountsServer({
         attendance_corrections_enabled: Boolean(config.features?.attendanceCorrections),
         identity_review_enabled: Boolean(config.features?.identityReview),
         auto_billing_enabled: Boolean(config.features?.autoBilling),
+        hosted_invoices_enabled: Boolean(config.features?.hostedInvoices),
         notifications_enabled: Boolean(config.features?.notifications),
         zoom_sync_enabled: Boolean(config.features?.zoomSync),
       });
     }
     if (request.method === 'POST' && url.pathname === '/api/webhooks/stripe') {
-      requireFeature(config, 'autoBilling');
+      if (!config.features?.autoBilling && !config.features?.hostedInvoices) {
+        throw requestError('This MissionAccounts capability is not enabled', 503);
+      }
       return receiveStripeWebhook(request, response);
     }
     if (request.method === 'POST' && url.pathname === '/api/internal/charges/drain') {
@@ -312,13 +364,25 @@ export function createMissionAccountsServer({
         return json(response, result.duplicate ? 200 : 201, {
           accepted: true,
           duplicate: result.duplicate === true,
-          state: 'persisted_source_evidence',
+          state: 'reconciled_attendance',
           sync_run_id: result.sync_run_id,
           sessions: result.sessions,
           source_rows: result.source_rows,
           attendance_events_created: result.attendance_events_created,
+          attendance_source_links_created: result.attendance_source_links_created,
+          review_identities_created: result.review_identities_created,
+          exact_identities_reused: result.exact_identities_reused,
+          matched_source_rows: result.matched_source_rows,
+          review_source_rows: result.review_source_rows,
+          excluded_source_rows: result.excluded_source_rows,
+          nonconfirmed_source_rows: result.nonconfirmed_source_rows,
+          students_recomputed: result.students_recomputed,
+          billing_decisions_staled: result.billing_decisions_staled,
           identity_decisions_created: result.identity_decisions_created,
+          billing_decisions_approved: result.billing_decisions_approved,
+          invoices_created: result.invoices_created,
           charges_created: result.charges_created,
+          charges_submitted: result.charges_submitted,
         });
       } catch (error) {
         await store.recordZoomSyncFailure({
@@ -406,6 +470,7 @@ export function createMissionAccountsServer({
           exam_plans: Boolean(config.features?.examPlans),
           comp_days: Boolean(config.features?.compDays),
           auto_billing: Boolean(config.features?.autoBilling),
+          hosted_invoices: Boolean(config.features?.hostedInvoices),
           notifications: Boolean(config.features?.notifications),
           zoom_sync: Boolean(config.features?.zoomSync),
         },
@@ -977,6 +1042,71 @@ export function createMissionAccountsServer({
         requestId: requestIdFor(request),
       });
       return json(response, result.accepted === false ? 409 : result.duplicate ? 200 : 201, result);
+    }
+    const hostedInvoiceRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/invoices\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/provider$/i)
+      : null;
+    if (hostedInvoiceRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'hostedInvoices');
+      stripeGateway.assertMutationAllowed();
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const action = String(body.action || 'send');
+      if (!['send', 'resend', 'void'].includes(action)) throw requestError('Hosted invoice action is invalid');
+      const dueDays = Number(config.invoiceDueDays);
+      if (action === 'send' && (!Number.isInteger(dueDays) || dueDays < 1 || dueDays > 90)) {
+        throw requestError('Hosted invoice due-days configuration is invalid', 503);
+      }
+      const requestId = requestIdFor(request);
+      const actorRole = identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin';
+      const prepared = await store.prepareHostedInvoiceDispatch({
+        invoiceId: hostedInvoiceRoute[1], action, dueDays: action === 'send' ? dueDays : null,
+        actorId: identity.userId, actorRole, requestId,
+      });
+      if (prepared.accepted === false) return json(response, 409, prepared);
+      if (prepared.duplicate === true && prepared.dispatch?.state === 'submitted') {
+        return json(response, 200, prepared.safe_result || { accepted: true, duplicate: true, invoice: prepared.invoice });
+      }
+      try {
+        const providerInvoice = action === 'send'
+          ? await stripeGateway.createHostedInvoice({
+            customerId: prepared.customer_ref,
+            internalInvoiceId: prepared.invoice.id,
+            studentId: prepared.invoice.student_id,
+            cycleKey: prepared.invoice.cycle_key,
+            amountCents: prepared.invoice.amount_cents,
+            description: prepared.description,
+            dueDays,
+          })
+          : action === 'resend'
+            ? await stripeGateway.resendHostedInvoice(prepared.provider_invoice_ref, prepared.invoice.id, requestId)
+            : await stripeGateway.voidHostedInvoice(prepared.provider_invoice_ref, prepared.invoice.id, requestId);
+        const finished = await store.finishHostedInvoiceDispatch({
+          dispatchId: prepared.dispatch.id,
+          action,
+          succeeded: true,
+          providerInvoiceId: providerInvoice.id,
+          providerStatus: providerInvoice.status,
+          hostedInvoiceUrl: providerInvoice.hosted_invoice_url || null,
+          invoicePdf: providerInvoice.invoice_pdf || null,
+          dueAt: Number.isInteger(providerInvoice.due_date) ? new Date(providerInvoice.due_date * 1_000).toISOString() : null,
+          error: null,
+        });
+        return json(response, prepared.duplicate ? 200 : 201, finished);
+      } catch (error) {
+        await store.finishHostedInvoiceDispatch({
+          dispatchId: prepared.dispatch.id,
+          action,
+          succeeded: false,
+          providerInvoiceId: prepared.provider_invoice_ref || null,
+          providerStatus: null,
+          hostedInvoiceUrl: null,
+          invoicePdf: null,
+          dueAt: null,
+          error: error instanceof Error ? error.message : 'Stripe hosted invoice request failed',
+        });
+        throw error;
+      }
     }
     const examTransitionRoute = request.method === 'POST'
       ? url.pathname.match(/^\/api\/admin\/exam-plans\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/(approve|deny|speak|followup|reopen|result)$/i)

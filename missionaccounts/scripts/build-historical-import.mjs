@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { basename, resolve } from 'node:path';
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { chmod, readFile, stat, writeFile } from 'node:fs/promises';
 
 const ledgerPath = process.env.MISSIONACCOUNTS_5000B_LEDGER || '/Users/brianb/MissionMed/_REPORTS/EXAMPREP/DrJ_Billing_Rescue_2026/MX-EXAMPREP-5000B_Reconciled_Ledger.json';
 const graphPath = process.env.MISSIONACCOUNTS_5000B_IDENTITY || '/Users/brianb/MissionMed/_REPORTS/EXAMPREP/DrJ_Billing_Rescue_2026/MX-EXAMPREP-5000B_Identity_Graph.json';
@@ -77,6 +77,10 @@ function numeric(value) {
 const outputFlag = process.argv.indexOf('--output');
 if (outputFlag < 0 || !process.argv[outputFlag + 1]) throw new Error('Usage: node build-historical-import.mjs --output /absolute/private-import.sql');
 const outputPath = resolve(process.argv[outputFlag + 1]);
+const manifestFlag = process.argv.indexOf('--manifest');
+const outputManifestPath = resolve(manifestFlag >= 0 && process.argv[manifestFlag + 1]
+  ? process.argv[manifestFlag + 1]
+  : `${outputPath}.manifest.json`);
 
 async function verifiedJson(file, digest) {
   const bytes = await readFile(file);
@@ -376,9 +380,16 @@ if (controls.students !== 271 || controls.sessions !== 419 || controls.confirmed
   || controls.device_source_students !== 17 || controls.device_source_isolation_violations !== 0
   || Object.values(historicalClassCounts).reduce((total, count) => total + count, 0) !== summaries.length) throw new Error(`Historical import controls failed: ${JSON.stringify(controls)}`);
 
-const statements = ['begin;', "set local timezone = 'America/New_York';"];
+const requestId = `mx-examprep-5000b:${ledgerArtifact.sha256}`;
+const statements = [
+  '\\set ON_ERROR_STOP on',
+  `select not exists (select 1 from missionaccounts.import_run where request_id=${sql(requestId)} and state='applied') as missionaccounts_import_needed \\gset`,
+  '\\if :missionaccounts_import_needed',
+  'begin;',
+  "set local timezone = 'America/New_York';",
+];
 statements.push(valuesStatement('source_artifact', ['id','source_kind','source_path','sha256','byte_count','observed_at'], artifactRows.map(item => [item.id,item.kind,item.path,item.digest,item.bytes,ledger.generated_at])));
-statements.push(valuesStatement('import_run', ['id','artifact_id','request_id','state','source_controls'], [[importRunId,ledgerArtifactId,`mx-examprep-5000b:${ledgerArtifact.sha256}`,'validated',JSON.stringify({ ledger_sha256: ledgerArtifact.sha256, graph_sha256: graphArtifact.sha256, manifest_sha256: manifestSha256, raw_exports: rawArtifacts.map(item => item.sha256) })]]));
+statements.push(valuesStatement('import_run', ['id','artifact_id','request_id','state','source_controls'], [[importRunId,ledgerArtifactId,requestId,'validated',JSON.stringify({ ledger_sha256: ledgerArtifact.sha256, graph_sha256: graphArtifact.sha256, manifest_sha256: manifestSha256, raw_exports: rawArtifacts.map(item => item.sha256) })]]));
 statements.push(`${valuesStatement('cycle', ['key','label','starts_on','ends_on','state'], Object.values(cycleByLabel).map(cycle => [cycle.key,cycle.label,cycle.starts_on,cycle.ends_on,'review'])).replace(/;$/, '')}
 on conflict (key) do update set
   label = excluded.label,
@@ -450,6 +461,43 @@ statements.push(`do $verify$ begin
   ) then raise exception 'historical_ready_classification_failed'; end if;
 end $verify$;`);
 statements.push('commit;');
+statements.push('\\else');
+statements.push(`\\echo 'MissionAccounts historical import already applied: ${requestId}'`);
+statements.push('\\endif');
 
-await writeFile(outputPath, `${statements.join('\n\n')}\n`, { mode: 0o600 });
-console.log(JSON.stringify({ status: 'PRIVATE_IMPORT_SQL_BUILT', output: outputPath, controls }, null, 2));
+const outputBytes = Buffer.from(`${statements.join('\n\n')}\n`);
+await writeFile(outputPath, outputBytes, { mode: 0o600 });
+await chmod(outputPath, 0o600);
+const outputManifest = {
+  schema_version: 'missionaccounts-historical-import-manifest-v1',
+  ticket: 'MX-MISSIONACCOUNTS-5301P',
+  request_id: requestId,
+  import_run_id: importRunId,
+  engine_run_id: engineRunId,
+  output_sql: { basename: basename(outputPath), sha256: sha256(outputBytes), byte_count: outputBytes.length },
+  sources: {
+    reconciled_ledger: { basename: basename(ledgerPath), sha256: ledgerArtifact.sha256, byte_count: ledgerArtifact.byte_count },
+    identity_graph: { basename: basename(graphPath), sha256: graphArtifact.sha256, byte_count: graphArtifact.byte_count },
+    zoom_manifest: { basename: basename(manifestPath), sha256: manifestSha256, byte_count: manifestBytes.length },
+    raw_zoom_exports: rawArtifacts.map(item => ({ basename: item.name, sha256: item.sha256, byte_count: item.byte_count })),
+  },
+  controls,
+  safety: {
+    contains_real_historical_data: true,
+    includes_review_and_hold_records: true,
+    creates_billing_decisions: false,
+    creates_invoices: false,
+    creates_charges: false,
+    replay_behavior: 'verified_no_op_after_applied_import_run',
+  },
+};
+const manifestOutputBytes = Buffer.from(`${JSON.stringify(outputManifest, null, 2)}\n`);
+await writeFile(outputManifestPath, manifestOutputBytes, { mode: 0o600 });
+await chmod(outputManifestPath, 0o600);
+console.log(JSON.stringify({
+  status: 'PRIVATE_IMPORT_SQL_BUILT',
+  output: outputPath,
+  output_sha256: outputManifest.output_sql.sha256,
+  manifest: outputManifestPath,
+  controls,
+}, null, 2));

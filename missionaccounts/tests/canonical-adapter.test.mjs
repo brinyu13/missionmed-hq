@@ -13,6 +13,13 @@ function bootstrap(scope = 'student') {
       health: {
         zoom_sync_enabled: true,
         zoom_provider_configured: true,
+        hosted_invoices_enabled: true,
+        auto_billing_enabled: false,
+        stripe: {
+          mode: 'test', credentials_configured: true, webhook_configured: true,
+          mutations_enabled: true, live_mutations_enabled: false,
+          secret_value: 'must not pass through',
+        },
         open_integration_exceptions: 2,
         failed_provider_events: 1,
         failed_notifications: 0,
@@ -97,6 +104,12 @@ test('canonical adapter exposes meeting references only inside an admin-scoped p
   assert.deepEqual(admin.data.meta.integration_health, {
     zoom_sync_enabled: true,
     zoom_provider_configured: true,
+    hosted_invoices_enabled: true,
+    auto_billing_enabled: false,
+    stripe: {
+      mode: 'test', credentials_configured: true, webhook_configured: true,
+      mutations_enabled: true, live_mutations_enabled: false,
+    },
     latest_zoom_sync: {
       state: 'ok', started_at: '2026-09-06T12:00:00Z', finished_at: '2026-09-06T12:02:00Z', error: '',
       stats: { sessions: 3, source_rows: 57 },
@@ -105,6 +118,25 @@ test('canonical adapter exposes meeting references only inside an admin-scoped p
     failed_provider_events: 1,
     failed_notifications: 0,
   });
+});
+
+test('canonical adapter exposes only safe hosted-invoice fields and keeps sent invoices out of Ready', () => {
+  const source = bootstrap('admin');
+  source.canon.invoices.push({
+    id: 'invoice-1', student_id: studentId, cycle_key: '2026-cycle-1', state: 'sent',
+    provider_status: 'open', hosted_invoice_url: 'https://invoice.stripe.com/i/safe',
+    invoice_pdf: 'https://pay.stripe.com/invoice/safe/pdf', due_at: '2026-10-06T12:00:00Z',
+    sent_at: '2026-09-06T12:00:00Z', provider_ref: 'must-not-pass-through',
+  });
+  const model = buildCanonicalModel(source);
+  assert.deepEqual(model.working.providerInvoices[0].june, {
+    id: 'invoice-1', state: 'sent', providerStatus: 'open',
+    hostedUrl: 'https://invoice.stripe.com/i/safe',
+    pdfUrl: 'https://pay.stripe.com/invoice/safe/pdf',
+    dueAt: '2026-10-06T12:00:00Z', sentAt: '2026-09-06T12:00:00Z', paidAt: null,
+  });
+  assert.equal(model.working.ready[0], undefined);
+  assert.equal(JSON.stringify(model).includes('must-not-pass-through'), false);
 });
 
 test('canonical adapter hydrates persisted identity decisions into the Founder review model', () => {

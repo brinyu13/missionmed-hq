@@ -656,7 +656,7 @@ test('Zoom sync remains feature-off and provider-disconnected without creating r
   });
 });
 
-test('Zoom sync persists normalized source evidence idempotently without attendance or billing mutation', async () => {
+test('Zoom sync reconciles only confirmed attendance and reports every prohibited automatic mutation', async () => {
   const store = new PreviewStore();
   const calls = [];
   const zoomProvider = {
@@ -677,9 +677,14 @@ test('Zoom sync persists normalized source evidence idempotently without attenda
     const first = await fetch(`${base}/api/internal/zoom/sync`, { method: 'POST', headers, body });
     assert.equal(first.status, 201);
     assert.deepEqual(await first.json(), {
-      accepted: true, duplicate: false, state: 'persisted_source_evidence',
+      accepted: true, duplicate: false, state: 'reconciled_attendance',
       sync_run_id: 'preview-zoom-sync-1', sessions: 1, source_rows: 1,
-      attendance_events_created: 0, identity_decisions_created: 0, charges_created: 0,
+      attendance_events_created: 0, attendance_source_links_created: 0,
+      review_identities_created: 0, exact_identities_reused: 0,
+      matched_source_rows: 0, review_source_rows: 1, excluded_source_rows: 0,
+      nonconfirmed_source_rows: 1, students_recomputed: 0, billing_decisions_staled: 0,
+      identity_decisions_created: 0, billing_decisions_approved: 0,
+      invoices_created: 0, charges_created: 0, charges_submitted: 0,
     });
     assert.equal(store.chargesByDay.size, 0);
     assert.equal(store.attendanceDays.size, 0);
@@ -1783,5 +1788,85 @@ test('contact custody and invoice readiness are feature-gated, audited, idempote
       body: JSON.stringify({ email: 'student@example.org' }),
     });
     assert.equal(disabled.status, 503);
+  });
+});
+
+test('hosted invoice send is provider-backed, idempotent, and paid only by a signed Stripe event', async () => {
+  const config = {
+    ...localConfig,
+    invoiceDueDays: 30,
+    features: { ...localConfig.features, billingDecisions: true, hostedInvoices: true },
+  };
+  const store = new PreviewStore();
+  const studentId = store.previewStudentRecord.id;
+  const cycleKey = '2026-cycle-1';
+  store.seedAttendanceDays(studentId, cycleKey, [
+    { id: 'hosted-day-1', day: '2026-06-08', kind: 'billable', event_ids: ['hosted-event-1'] },
+  ]);
+  const approved = await store.approveBillingDecision({
+    studentId, cycleKey, treatment: 'confirm', requestedAmountCents: null, note: null,
+    actorId: 'admin-1', actorRole: 'missionaccounts_admin', requestId: 'hosted-billing-0001',
+  });
+  await store.setInvoiceReadiness({
+    invoiceId: approved.invoice.id, ready: true, reason: 'Amount and email confirmed',
+    actorId: 'admin-1', actorRole: 'missionaccounts_admin', requestId: 'hosted-ready-0001',
+  });
+  await store.saveStripeCustomer({ studentId, customerId: 'cus_test_hosted_1' });
+  const secret = 'whsec_hosted_invoice_test';
+  const gateway = new StripeGateway({ webhookSecret: secret });
+  let providerCalls = 0;
+  gateway.assertMutationAllowed = () => {};
+  gateway.createHostedInvoice = async args => {
+    providerCalls += 1;
+    assert.equal(args.amountCents, 2500);
+    assert.equal(args.dueDays, 30);
+    assert.equal(args.customerId, 'cus_test_hosted_1');
+    return {
+      id: 'in_test_hosted_1', status: 'open',
+      hosted_invoice_url: 'https://invoice.stripe.com/i/test-hosted-1',
+      invoice_pdf: 'https://pay.stripe.com/invoice/test/pdf',
+      due_date: 1_800_000_000,
+    };
+  };
+  const headers = {
+    'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin',
+    'idempotency-key': 'hosted-send-0001',
+  };
+  await withServer({ config, store, stripeGateway: gateway }, async base => {
+    const first = await fetch(`${base}/api/admin/invoices/${approved.invoice.id}/provider`, {
+      method: 'POST', headers, body: JSON.stringify({ action: 'send' }),
+    });
+    assert.equal(first.status, 201);
+    const sent = await first.json();
+    assert.equal(sent.invoice.state, 'sent');
+    assert.equal(sent.invoice.provider_ref, 'in_test_hosted_1');
+    assert.equal(sent.invoice.hosted_invoice_url, 'https://invoice.stripe.com/i/test-hosted-1');
+    assert.equal(providerCalls, 1);
+
+    const retry = await fetch(`${base}/api/admin/invoices/${approved.invoice.id}/provider`, {
+      method: 'POST', headers, body: JSON.stringify({ action: 'send' }),
+    });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+    assert.equal(providerCalls, 1);
+
+    const event = {
+      id: 'evt_hosted_invoice_paid_1', type: 'invoice.paid',
+      data: { object: {
+        id: 'in_test_hosted_1', status: 'paid', amount_due: 2500, amount_paid: 2500,
+        hosted_invoice_url: 'https://invoice.stripe.com/i/test-hosted-1',
+        invoice_pdf: 'https://pay.stripe.com/invoice/test/pdf', due_date: 1_800_000_000,
+        metadata: { missionaccounts_invoice_id: approved.invoice.id },
+      } },
+    };
+    const raw = JSON.stringify(event);
+    const timestamp = Math.floor(Date.now() / 1000);
+    const paid = await fetch(`${base}/api/webhooks/stripe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'stripe-signature': stripeSignature(raw, secret, timestamp) },
+      body: raw,
+    });
+    assert.equal(paid.status, 200);
+    assert.equal(store.invoices.get(approved.invoice.id).state, 'paid');
   });
 });

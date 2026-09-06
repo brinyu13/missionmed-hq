@@ -9,7 +9,10 @@
   "scripts": {
     "build:canon": "node scripts/materialize-canon.mjs",
     "build:historical-import": "node scripts/build-historical-import.mjs",
+    "migrate:production": "bash scripts/run-production-migrations.sh",
+    "import:historical:production": "bash scripts/run-production-historical-import.sh",
     "validate:source": "node scripts/validate-source.mjs",
+    "worker:zoom-sync": "node src/workers/zoom-sync.mjs",
     "dev": "node src/server.mjs",
     "start": "NODE_ENV=production node src/server.mjs",
     "test": "node --test tests/*.test.mjs",

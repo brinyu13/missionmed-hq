@@ -12,6 +12,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 app_dir=$(cd "$script_dir/.." && pwd)
 pg_tmp=$(mktemp -d /tmp/mx5301p-history-pg.XXXXXX)
 import_sql="$pg_tmp/historical-import.private.sql"
+import_manifest="$import_sql.manifest.json"
 
 cleanup_pg() {
   pg_ctl -D "$pg_tmp/data" -m immediate stop >/dev/null 2>&1 || true
@@ -34,14 +35,33 @@ done
 
 node "$script_dir/build-historical-import.mjs" --output "$import_sql" >/dev/null
 
-if [[ "$(stat -f '%Lp' "$import_sql")" != "600" ]]; then
+if [[ "$(stat -f '%Lp' "$import_sql")" != "600" || "$(stat -f '%Lp' "$import_manifest")" != "600" ]]; then
   echo "Historical import bundle permissions are not private" >&2
+  exit 1
+fi
+
+expected_import_sha=$(node -e "const m=JSON.parse(require('fs').readFileSync(process.argv[1])); process.stdout.write(m.output_sql.sha256)" "$import_manifest")
+actual_import_sha=$(shasum -a 256 "$import_sql" | awk '{print $1}')
+if [[ "$actual_import_sha" != "$expected_import_sha" ]]; then
+  echo "Historical import manifest does not bind the generated SQL" >&2
   exit 1
 fi
 
 psql -h "$pg_tmp" -p 55440 -d postgres -v ON_ERROR_STOP=1 \
   -f "$import_sql" \
   >/dev/null
+
+# Replaying the exact package must be a verified no-op, not a duplicate import.
+psql -h "$pg_tmp" -p 55440 -d postgres -v ON_ERROR_STOP=1 \
+  -f "$import_sql" \
+  >/dev/null
+
+postcheck=$(psql -h "$pg_tmp" -p 55440 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -f "$script_dir/verify-historical-import.sql")
+if [[ "$postcheck" != PASS\|students=271\|sessions=419\|events=3941\|days=3264\|ready=320\|identity_hold=107\|cap_hold=69\|source_link_hold=2\|financial_mutations=0 ]]; then
+  echo "Historical import post-check failed: $postcheck" >&2
+  exit 1
+fi
 
 results=$(psql -h "$pg_tmp" -p 55440 -d postgres -Atq -v ON_ERROR_STOP=1 <<'SQL'
 select 'artifacts|' || count(*) from missionaccounts.source_artifact;
@@ -66,7 +86,7 @@ select cycle_key || '|' || count(*) from missionaccounts.attendance_day group by
 SQL
 )
 
-expected=$'artifacts|6\nimports|1|applied\nstudents|271|67|0|0\naliases|370\ndevice_aliases|17\nidentity_clusters|27|27|60\nsessions|419|100\nsource_rows|5498\nevents|3941|4\nlinked_events|3937|4378\nunlinked_events|4\ndays|3264|677\nhistorical_accounts|498\nhistorical_classes|CAP_HOLD|69\nhistorical_classes|IDENTITY_HOLD|107\nhistorical_classes|READY|320\nhistorical_classes|SOURCE_LINK_HOLD|2\ncap_candidates|74|0\nflags|10|0\nfinancial_mutations|0|0|0\n2026-cycle-1|1295\n2026-cycle-2|1390\n2026-cycle-3|1256\n2026-cycle-1|1072\n2026-cycle-2|1141\n2026-cycle-3|1051'
+expected=$'artifacts|6\nimports|1|applied\nstudents|271|67|0|0\naliases|370\ndevice_aliases|17\nidentity_clusters|27|27|60\nsessions|419|100\nsource_rows|5498\nevents|3941|4\nlinked_events|3937|4378\nunlinked_events|4\ndays|3264|677\nhistorical_accounts|498\nhistorical_classes|CAP_HOLD|69\nhistorical_classes|IDENTITY_HOLD|107\nhistorical_classes|READY|320\nhistorical_classes|SOURCE_LINK_HOLD|2\ncap_candidates|74|0\nflags|11|0\nfinancial_mutations|0|0|0\n2026-cycle-1|1295\n2026-cycle-2|1390\n2026-cycle-3|1256\n2026-cycle-1|1072\n2026-cycle-2|1141\n2026-cycle-3|1051'
 if [[ "$results" != "$expected" ]]; then
   echo "MissionAccounts historical-import verification returned unexpected controls:" >&2
   echo "$results" >&2

@@ -521,6 +521,87 @@ if [[ "$invoice_readiness_results" != "$invoice_readiness_expected" ]]; then
   exit 1
 fi
 
+hosted_invoice_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.student(id,display_name,email,identity_state)
+values ('21000000-0000-4000-8000-000000000081','Hosted Invoice Student','hosted@example.org','verified');
+insert into missionaccounts.billing_decision(
+  id,student_id,cycle_key,treatment,amount_cents,basis,basis_sha256,state,decided_by,decided_at,request_id
+) values (
+  '26000000-0000-4000-8000-000000000081','21000000-0000-4000-8000-000000000081',
+  '2026-cycle-3','confirm',2500,'{}',repeat('8',64),'approved','wp:admin',now(),'pg-hosted-decision'
+);
+insert into missionaccounts.invoice(
+  id,student_id,cycle_key,decision_id,state,amount_cents,lines
+) values (
+  '27000000-0000-4000-8000-000000000081','21000000-0000-4000-8000-000000000081',
+  '2026-cycle-3','26000000-0000-4000-8000-000000000081','ready',2500,
+  jsonb_build_object('total_cents',2500)
+);
+insert into missionaccounts.stripe_customer_private(student_id,provider,provider_customer_ref)
+values ('21000000-0000-4000-8000-000000000081','stripe','cus_test_hosted_pg');
+set role service_role;
+select (result->>'accepted') || '|' || (result->>'customer_ref')
+from (
+  select missionaccounts.api_prepare_hosted_invoice_dispatch(
+    '27000000-0000-4000-8000-000000000081','send',30,
+    'wp:admin','missionaccounts_admin','pg-hosted-send-0001'
+  ) result
+) prepared;
+select (result->>'accepted') || '|' || (result->'invoice'->>'state')
+from (
+  select missionaccounts.api_finish_hosted_invoice_dispatch(
+    (select id from missionaccounts.stripe_invoice_dispatch where request_id='pg-hosted-send-0001'),
+    'send',true,'in_test_hosted_pg','open',
+    'https://invoice.stripe.com/i/pg-hosted','https://pay.stripe.com/invoice/pg/pdf',
+    '2026-10-03T00:00:00Z',null
+  ) result
+) finished;
+select (result->>'duplicate') || '|' || (result->'dispatch'->>'state')
+from (
+  select missionaccounts.api_prepare_hosted_invoice_dispatch(
+    '27000000-0000-4000-8000-000000000081','send',30,
+    'wp:admin','missionaccounts_admin','pg-hosted-send-0001'
+  ) result
+) duplicate_prepare;
+reset role;
+insert into missionaccounts.provider_event_inbox(
+  provider,provider_event_id,provider_object_id,event_type,payload,signature_verified,state
+) values (
+  'stripe','evt_pg_hosted_paid','in_test_hosted_pg','invoice.paid',
+  jsonb_build_object('data',jsonb_build_object('object',jsonb_build_object(
+    'id','in_test_hosted_pg','metadata',jsonb_build_object('missionaccounts_invoice_id','27000000-0000-4000-8000-000000000081')
+  ))),true,'received'
+);
+set role service_role;
+select missionaccounts.api_process_stripe_invoice_event(
+  'evt_pg_hosted_paid','invoice.paid','in_test_hosted_pg',
+  '27000000-0000-4000-8000-000000000081','paid',
+  'https://invoice.stripe.com/i/pg-hosted','https://pay.stripe.com/invoice/pg/pdf',
+  '2026-10-03T00:00:00Z',2500,2500
+)->>'duplicate';
+select missionaccounts.api_process_stripe_invoice_event(
+  'evt_pg_hosted_paid','invoice.paid','in_test_hosted_pg',
+  '27000000-0000-4000-8000-000000000081','paid',
+  'https://invoice.stripe.com/i/pg-hosted','https://pay.stripe.com/invoice/pg/pdf',
+  '2026-10-03T00:00:00Z',2500,2500
+)->>'duplicate';
+reset role;
+select
+  (select state from missionaccounts.invoice where id='27000000-0000-4000-8000-000000000081') || '|' ||
+  (select provider_ref from missionaccounts.invoice where id='27000000-0000-4000-8000-000000000081') || '|' ||
+  (select state from missionaccounts.provider_event_inbox where provider_event_id='evt_pg_hosted_paid') || '|' ||
+  (select count(*) from missionaccounts.stripe_invoice_dispatch where invoice_id='27000000-0000-4000-8000-000000000081') || '|' ||
+  (select count(*) from missionaccounts.audit_event where subject_student_id='21000000-0000-4000-8000-000000000081' and kind in ('stripe_invoice.dispatched','stripe_invoice.webhook'));
+SQL
+)
+
+hosted_invoice_expected=$'true|cus_test_hosted_pg\ntrue|sent\ntrue|submitted\nfalse\ntrue\npaid|in_test_hosted_pg|processed|1|2'
+if [[ "$hosted_invoice_results" != "$hosted_invoice_expected" ]]; then
+  echo "MissionAccounts Stripe-hosted invoice verification returned unexpected controls:" >&2
+  echo "$hosted_invoice_results" >&2
+  exit 1
+fi
+
 correction_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 insert into missionaccounts.source_artifact(source_kind, source_path, sha256, byte_count, observed_at)
 values ('integration', '/private/integration-source', repeat('b', 64), 1, now());
@@ -1067,6 +1148,136 @@ zoom_ingestion_expected=$'true\ntrue\nfailed\n1|1|0|ok|1'
 if [[ "$zoom_ingestion_results" != "$zoom_ingestion_expected" ]]; then
   echo "MissionAccounts Zoom ingestion-port verification returned unexpected controls:" >&2
   echo "$zoom_ingestion_results" >&2
+  exit 1
+fi
+
+zoom_reconciliation_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.source_artifact(
+  id,source_kind,source_path,sha256,byte_count,observed_at
+) values (
+  '22000000-0000-4000-8000-000000000091','zoom_api_window','zoom-api://identity-seed',
+  repeat('9',64),1,'2026-09-02T00:00:00Z'
+);
+insert into missionaccounts.student(id,display_name,identity_state) values
+  ('21000000-0000-4000-8000-000000000091','Existing Zoom source','needs_review'),
+  ('21000000-0000-4000-8000-000000000092','Verified Zoom target','verified');
+insert into missionaccounts.identity_alias(
+  id,student_id,source_artifact_id,source_key,display_value,relationship_state
+) values (
+  '24000000-0000-4000-8000-000000000091',
+  '21000000-0000-4000-8000-000000000091',
+  '22000000-0000-4000-8000-000000000091',
+  'zoom:user:' || encode(extensions.digest('stable-match','sha256'),'hex'),
+  'Same Display Name','device'
+);
+set role service_role;
+select missionaccounts.api_decide_device_identity(
+  '24000000-0000-4000-8000-000000000091','match',
+  '21000000-0000-4000-8000-000000000092','2026-09-02',
+  'Verified Zoom account binding','wp:admin','missionaccounts_admin',
+  'pg-zoom-existing-identity-match'
+)->>'duplicate';
+select
+  (result->>'attendance_events_created') || '|' ||
+  (result->>'review_identities_created') || '|' ||
+  (result->>'matched_source_rows') || '|' ||
+  (result->>'review_source_rows') || '|' ||
+  (result->>'nonconfirmed_source_rows') || '|' ||
+  (result->>'charges_created')
+from (
+  select missionaccounts.api_ingest_and_reconcile_zoom_batch(
+    'pg-zoom-reconcile-0001','2026-09-02T00:00:00Z','2026-09-03T00:00:00Z',
+    jsonb_build_object(
+      'source_path','zoom-api://completed-meetings/pg-reconcile',
+      'sha256',repeat('a',64),'byte_count',1024,'observed_at','2026-09-03T12:00:00Z'
+    ),
+    jsonb_build_array(
+      jsonb_build_object(
+        'cycle_key','2026-cycle-3','provider_meeting_id','12345678901',
+        'provider_instance_id','pg-zoom-confirmed','starts_at','2026-09-02T16:00:00Z',
+        'held_on','2026-09-02','time_zone','America/New_York','step','s1',
+        'state','confirmed','source_payload',jsonb_build_object('participant_count',24)
+      ),
+      jsonb_build_object(
+        'cycle_key','2026-cycle-3','provider_meeting_id','12345678901',
+        'provider_instance_id','pg-zoom-near-miss','starts_at','2026-09-02T21:00:00Z',
+        'held_on','2026-09-02','time_zone','America/New_York','step','s1',
+        'state','needs_review','source_payload',jsonb_build_object('participant_count',24)
+      )
+    ),
+    jsonb_build_array(
+      jsonb_build_object(
+        'provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-1',
+        'participant_source_id','stable-match','display_name','Same Display Name',
+        'duration_seconds',3600,'payload',jsonb_build_object('source','test'),
+        'payload_sha256',repeat('1',64)
+      ),
+      jsonb_build_object(
+        'provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-2',
+        'participant_source_id','new-user-one','display_name','Same Display Name',
+        'duration_seconds',3600,'payload',jsonb_build_object('source','test'),
+        'payload_sha256',repeat('2',64)
+      ),
+      jsonb_build_object(
+        'provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-3',
+        'participant_source_id','new-user-two','display_name','Same Display Name',
+        'duration_seconds',3600,'payload',jsonb_build_object('source','test'),
+        'payload_sha256',repeat('3',64)
+      ),
+      jsonb_build_object(
+        'provider_instance_id','pg-zoom-near-miss','provider_source_id','pg-reconcile-row-4',
+        'participant_source_id','near-miss-user','display_name','Near Miss Student',
+        'duration_seconds',3600,'payload',jsonb_build_object('source','test'),
+        'payload_sha256',repeat('4',64)
+      )
+    )
+  ) as result
+) applied;
+select missionaccounts.api_ingest_and_reconcile_zoom_batch(
+  'pg-zoom-reconcile-0001','2026-09-02T00:00:00Z','2026-09-03T00:00:00Z',
+  jsonb_build_object(
+    'source_path','zoom-api://completed-meetings/pg-reconcile',
+    'sha256',repeat('a',64),'byte_count',1024,'observed_at','2026-09-03T12:00:00Z'
+  ),
+  jsonb_build_array(
+    jsonb_build_object(
+      'cycle_key','2026-cycle-3','provider_meeting_id','12345678901',
+      'provider_instance_id','pg-zoom-confirmed','starts_at','2026-09-02T16:00:00Z',
+      'held_on','2026-09-02','time_zone','America/New_York','step','s1',
+      'state','confirmed','source_payload',jsonb_build_object('participant_count',24)
+    ),
+    jsonb_build_object(
+      'cycle_key','2026-cycle-3','provider_meeting_id','12345678901',
+      'provider_instance_id','pg-zoom-near-miss','starts_at','2026-09-02T21:00:00Z',
+      'held_on','2026-09-02','time_zone','America/New_York','step','s1',
+      'state','needs_review','source_payload',jsonb_build_object('participant_count',24)
+    )
+  ),
+  jsonb_build_array(
+    jsonb_build_object('provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-1','participant_source_id','stable-match','display_name','Same Display Name','duration_seconds',3600,'payload','{}'::jsonb,'payload_sha256',repeat('1',64)),
+    jsonb_build_object('provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-2','participant_source_id','new-user-one','display_name','Same Display Name','duration_seconds',3600,'payload','{}'::jsonb,'payload_sha256',repeat('2',64)),
+    jsonb_build_object('provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-3','participant_source_id','new-user-two','display_name','Same Display Name','duration_seconds',3600,'payload','{}'::jsonb,'payload_sha256',repeat('3',64)),
+    jsonb_build_object('provider_instance_id','pg-zoom-near-miss','provider_source_id','pg-reconcile-row-4','participant_source_id','near-miss-user','display_name','Near Miss Student','duration_seconds',3600,'payload','{}'::jsonb,'payload_sha256',repeat('4',64))
+  )
+)->>'duplicate';
+reset role;
+select
+  (select count(*) from missionaccounts.attendance_event event join missionaccounts.session session on session.id=event.session_id where session.provider_instance_id='pg-zoom-confirmed') || '|' ||
+  (select count(*) from missionaccounts.attendance_event event join missionaccounts.session session on session.id=event.session_id where session.provider_instance_id='pg-zoom-near-miss') || '|' ||
+  (select count(*) from missionaccounts.student where display_name='Same Display Name' and identity_state='needs_review') || '|' ||
+  (select kind from missionaccounts.attendance_day where student_id='21000000-0000-4000-8000-000000000092' and day='2026-09-02' and superseded_at is null) || '|' ||
+  (select count(*) from missionaccounts.attendance_day where day='2026-09-02' and kind='needs_review' and superseded_at is null and student_id in (
+    select student_id from missionaccounts.identity_alias where source_key like 'zoom:user:%'
+  )) || '|' ||
+  (select count(*) from missionaccounts.charge charge join missionaccounts.attendance_day day on day.id=charge.attendance_day_id where day.day='2026-09-02') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='zoom_sync.reconciled' and request_id='pg-zoom-reconcile-0001:reconciliation');
+SQL
+)
+
+zoom_reconciliation_expected=$'false\n3|2|1|3|1|0\ntrue\n3|0|2|billable|2|0|1'
+if [[ "$zoom_reconciliation_results" != "$zoom_reconciliation_expected" ]]; then
+  echo "MissionAccounts Zoom attendance-reconciliation verification returned unexpected controls:" >&2
+  echo "$zoom_reconciliation_results" >&2
   exit 1
 fi
 

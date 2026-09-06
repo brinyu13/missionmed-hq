@@ -27,6 +27,66 @@ function defaultClassification(meeting) {
   };
 }
 
+function localDateInZone(value, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(value));
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function localDrillsClock(value, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(value));
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return {
+    weekday: values.weekday,
+    minutes: Number(values.hour) * 60 + Number(values.minute),
+  };
+}
+
+export function createCycleBoundZoomClassifier({ cycleProvider, timeZone = 'America/New_York' } = {}) {
+  if (typeof cycleProvider !== 'function') throw providerError('Zoom cycle provider is required', 503);
+  return async meeting => {
+    const startsAt = assertIso(meeting?.starts_at, 'Zoom meeting start');
+    const heldOn = localDateInZone(startsAt, timeZone);
+    const cycles = await cycleProvider();
+    if (!Array.isArray(cycles)) throw providerError('MissionAccounts cycle response is invalid');
+    const cycle = cycles.find(row => heldOn >= String(row.starts_on) && heldOn <= String(row.ends_on));
+    if (!cycle) return null;
+    const { weekday, minutes } = localDrillsClock(startsAt, timeZone);
+    const participantCount = Number(meeting?.participant_count);
+    const failedParameters = [];
+    if (!['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(weekday)) failedParameters.push('weekend');
+    if (minutes < 11 * 60 + 45) failedParameters.push('before_11_45_et');
+    if (minutes > 16 * 60) failedParameters.push('after_16_00_et');
+    if (!Number.isInteger(participantCount) || participantCount <= 15) failedParameters.push('participant_count_not_over_15');
+    return {
+      cycleKey: cycle.key,
+      providerMeetingId: meeting.provider_meeting_id,
+      providerInstanceId: meeting.provider_instance_id,
+      startsAt,
+      heldOn,
+      timeZone,
+      step: meeting.step,
+      state: failedParameters.length === 0 ? 'confirmed' : 'needs_review',
+      classification: {
+        rule: 'weekday_11_45_to_16_00_et_and_participants_over_15_ignore_duration',
+        participant_count: Number.isFinite(participantCount) ? participantCount : null,
+        failed_parameters: failedParameters,
+      },
+    };
+  };
+}
+
 export class ZoomAttendanceProvider {
   constructor({ client = null, classifyMeeting = defaultClassification, mode = 'disabled', now = () => new Date() } = {}) {
     this.client = client;
@@ -74,11 +134,17 @@ export class ZoomAttendanceProvider {
     const sourceRows = [];
     const completed = await this.listCompletedMeetings({ from: windowFrom, to: windowTo });
     for (const rawMeeting of completed) {
-      const classification = await this.classifyMeeting(rawMeeting);
+      const participants = await this.listParticipants(rawMeeting);
+      const classification = await this.classifyMeeting({
+        ...rawMeeting,
+        participant_count: Number.isInteger(rawMeeting.participant_count)
+          ? rawMeeting.participant_count
+          : participants.length,
+      });
       if (!classification) continue;
       const {
         cycleKey, providerMeetingId, providerInstanceId, startsAt, heldOn,
-        timeZone = 'America/New_York', step = 'unknown', state = 'candidate',
+        timeZone = 'America/New_York', step = 'unknown', state = 'candidate', classification: classificationEvidence = null,
       } = classification;
       if (!cycleKey || !providerMeetingId || !providerInstanceId
         || !/^\d{4}-\d{2}-\d{2}$/.test(String(heldOn || ''))
@@ -96,10 +162,12 @@ export class ZoomAttendanceProvider {
         time_zone: timeZone,
         step,
         state,
-        source_payload: rawMeeting,
+        source_payload: {
+          ...rawMeeting,
+          classification: classificationEvidence,
+        },
       });
 
-      const participants = await this.listParticipants(rawMeeting);
       participants.forEach((participant, index) => {
         const displayName = String(participant.display_name || participant.name || '').trim();
         const joinedAt = participant.joined_at ? assertIso(participant.joined_at, 'Zoom participant join') : null;

@@ -172,7 +172,7 @@ export class SupabaseRestStore {
       this.requestAll(`attendance_event_projection?superseded_by_id=is.null${studentFilter}&select=id,student_id,source_student_id,session_id,cycle_key,local_day,step,interpretation_state,duration_minutes,source_row_count,source_display_name&order=local_day.asc`),
       this.requestAll(`attendance_day?superseded_at=is.null${studentFilter}&select=id,student_id,cycle_key,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`),
       this.requestAll(`billing_decision?superseded_by_id=is.null${studentFilter}&select=id,student_id,cycle_key,treatment,amount_cents,basis,state,decided_at&order=created_at.asc`),
-      this.requestAll(`invoice?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,cycle_key,decision_id,state,amount_cents,sent_at,paid_at&order=created_at.asc`),
+      this.requestAll(`invoice?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,cycle_key,decision_id,state,amount_cents,provider_status,hosted_invoice_url,invoice_pdf,due_at,sent_at,paid_at,last_provider_event_at&order=created_at.asc`),
       this.requestAll(`exam_plan?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,step,exam_on,state,result,note,suggested_on,passed_on,submitted_at,decided_at,withdrawn_at,superseded_by_id&order=submitted_at.asc`),
       this.requestAll(`exam_transition?accepted=eq.true${studentFilter}&select=id,exam_plan_id,student_id,from_state,to_state,result,reason,actor_role,created_at&order=created_at.asc`),
       this.requestAll(`grace_window_projection?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,from_on,to_on,closed_reason,created_at&order=created_at.asc`),
@@ -347,6 +347,31 @@ export class SupabaseRestStore {
     });
   }
 
+  async prepareHostedInvoiceDispatch({ invoiceId, action, dueDays, actorId, actorRole, requestId }) {
+    return this.rpc('api_prepare_hosted_invoice_dispatch', {
+      p_invoice_id: invoiceId,
+      p_action: action,
+      p_due_days: dueDays,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
+  async finishHostedInvoiceDispatch({ dispatchId, action, succeeded, providerInvoiceId, providerStatus, hostedInvoiceUrl, invoicePdf, dueAt, error }) {
+    return this.rpc('api_finish_hosted_invoice_dispatch', {
+      p_dispatch_id: dispatchId,
+      p_action: action,
+      p_succeeded: succeeded === true,
+      p_provider_invoice_ref: providerInvoiceId || null,
+      p_provider_status: providerStatus || null,
+      p_hosted_invoice_url: hostedInvoiceUrl || null,
+      p_invoice_pdf: invoicePdf || null,
+      p_due_at: dueAt || null,
+      p_error: error || null,
+    });
+  }
+
   async appendAttendanceCorrection({ studentId, sessionId, attendanceEventId, type, fromVal, toVal, reason, revertsId, actorId, actorRole, requestId }) {
     return this.rpc('api_append_attendance_correction', {
       p_student_id: studentId,
@@ -437,7 +462,7 @@ export class SupabaseRestStore {
   }
 
   async ingestZoomBatch({ requestId, batch }) {
-    return this.rpc('api_ingest_zoom_batch', {
+    return this.rpc('api_ingest_and_reconcile_zoom_batch', {
       p_request_id: requestId,
       p_window_from: batch.window_from,
       p_window_to: batch.window_to,
@@ -466,6 +491,21 @@ export class SupabaseRestStore {
       p_attendance_day_id: attendanceDayId,
       p_failure_code: failureCode || null,
       p_failure_message: failureMessage || null,
+    });
+  }
+
+  async processStripeInvoiceEvent({ eventId, eventType, providerInvoiceId, internalInvoiceId, providerStatus, hostedInvoiceUrl, invoicePdf, dueAt, amountDue, amountPaid }) {
+    return this.rpc('api_process_stripe_invoice_event', {
+      p_provider_event_id: eventId,
+      p_event_type: eventType,
+      p_provider_invoice_ref: providerInvoiceId,
+      p_invoice_id: internalInvoiceId,
+      p_provider_status: providerStatus,
+      p_hosted_invoice_url: hostedInvoiceUrl || null,
+      p_invoice_pdf: invoicePdf || null,
+      p_due_at: dueAt || null,
+      p_amount_due: amountDue,
+      p_amount_paid: amountPaid,
     });
   }
 
@@ -577,7 +617,7 @@ export class SupabaseRestStore {
       this.request('billing_decision?superseded_by_id=is.null&select=id,student_id,cycle_key,state,amount_cents'),
       this.request('exam_plan?superseded_by_id=is.null&withdrawn_at=is.null&select=id,student_id,step,exam_on,state'),
       this.request('reminder?state=in.(scheduled,due)&select=id,student_id,exam_plan_id,due_on,state'),
-      this.request('invoice?state=in.(draft,ready,sent)&select=id,student_id,cycle_key,state,amount_cents'),
+      this.request('invoice?state=in.(draft,ready,sent,overdue,failed)&select=id,student_id,cycle_key,state,amount_cents,provider_status,due_at'),
       this.request('identity_cluster?state=eq.open&select=ref'),
       this.request('attendance_issue?state=eq.open&select=id'),
     ]);
@@ -591,6 +631,9 @@ export class SupabaseRestStore {
       missing_payment_setup: students.filter(student => student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized').length,
       stale_decisions: decisions.filter(decision => decision.state === 'stale').length,
       ready_invoices: invoices.filter(invoice => invoice.state === 'ready').length,
+      sent_invoices: invoices.filter(invoice => invoice.state === 'sent').length,
+      overdue_invoices: invoices.filter(invoice => invoice.state === 'overdue').length,
+      failed_invoices: invoices.filter(invoice => invoice.state === 'failed').length,
       pending_exam_plans: examPlans.filter(plan => ['pending', 'speak'].includes(plan.state)).length,
       upcoming_exam_plans: examPlans.filter(plan => ['approved'].includes(plan.state) && plan.exam_on >= today),
       due_reminders: reminders.filter(reminder => reminder.due_on <= today),
@@ -602,7 +645,7 @@ export class SupabaseRestStore {
       this.request(`cycle?key=eq.${encodeURIComponent(cycleKey)}&select=key,label,starts_on,ends_on,state&limit=1`),
       this.request(`attendance_day?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_at=is.null&select=id,student_id,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`),
       this.request(`billing_decision?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_by_id=is.null&select=id,student_id,treatment,amount_cents,basis,state,decided_at`),
-      this.request(`invoice?cycle_key=eq.${encodeURIComponent(cycleKey)}&select=id,student_id,decision_id,state,amount_cents,sent_at,paid_at`),
+      this.request(`invoice?cycle_key=eq.${encodeURIComponent(cycleKey)}&select=id,student_id,decision_id,state,amount_cents,provider_status,hosted_invoice_url,invoice_pdf,due_at,sent_at,paid_at,last_provider_event_at`),
       this.request(`cycle_policy?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_by_id=is.null&select=id,cycle_key,key,value,set_by,reason,set_at`),
     ]);
     if (!cycles[0]) return null;
@@ -674,6 +717,7 @@ export class PreviewStore {
     this.billingMutations = new Map();
     this.invoices = new Map();
     this.invoiceReadinessMutations = new Map();
+    this.hostedInvoiceDispatches = new Map();
     this.contactMutations = new Map();
     this.attendanceIssues = new Map();
     this.attendanceIssueMutations = new Map();
@@ -1325,6 +1369,68 @@ export class PreviewStore {
     this.invoiceReadinessMutations.set(requestId, { fingerprint, result });
     return { ...result, duplicate: false };
   }
+  async prepareHostedInvoiceDispatch({ invoiceId, action, dueDays, actorId, actorRole, requestId }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole)) throw Object.assign(new Error('Hosted invoices require administrator authority'), { status: 403 });
+    const fingerprint = JSON.stringify({ invoiceId, action, dueDays, actorId, actorRole });
+    const existing = this.hostedInvoiceDispatches.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      const invoice = this.invoices.get(invoiceId);
+      return {
+        accepted: true, duplicate: true, dispatch: { ...existing.dispatch }, invoice: { ...invoice },
+        provider_invoice_ref: invoice.provider_ref || null,
+        safe_result: existing.dispatch.state === 'submitted' ? { accepted: true, duplicate: true, invoice: { ...invoice } } : null,
+      };
+    }
+    const invoice = this.invoices.get(invoiceId);
+    if (!invoice) throw Object.assign(new Error('Invoice not found'), { status: 404 });
+    const decision = this.billingDecisions.get(`${invoice.student_id}:${invoice.cycle_key}`);
+    let rejection = null;
+    if (action === 'send' && invoice.state !== 'ready') rejection = 'invoice_not_ready';
+    else if (action === 'send' && (!decision || decision.id !== invoice.decision_id || decision.state !== 'approved')) rejection = 'current_approved_decision_required';
+    else if (action === 'send' && (!Number.isInteger(dueDays) || dueDays < 1 || dueDays > 90)) rejection = 'invoice_due_days_invalid';
+    else if (action !== 'send' && !['sent', 'overdue', 'failed'].includes(invoice.state)) rejection = 'provider_invoice_not_actionable';
+    else if (action !== 'send' && !invoice.provider_ref) rejection = 'provider_invoice_reference_required';
+    const customer = this.stripeCustomers.get(invoice.student_id);
+    if (!rejection && action === 'send' && !customer) rejection = 'stripe_customer_required';
+    if (!rejection && action === 'send' && !this.previewStudentRecord.email) rejection = 'student_email_required';
+    if (rejection) return { accepted: false, duplicate: false, reason: rejection, invoice: { ...invoice } };
+    const ordinal = this.hostedInvoiceDispatches.size + 1;
+    const dispatch = {
+      id: `preview-hosted-invoice-dispatch-${ordinal}`, invoice_id: invoiceId, action,
+      request_id: requestId, state: 'prepared', provider_invoice_ref: invoice.provider_ref || null,
+    };
+    this.hostedInvoiceDispatches.set(requestId, { fingerprint, dispatch });
+    return {
+      accepted: true, duplicate: false, dispatch: { ...dispatch }, invoice: { ...invoice },
+      customer_ref: customer?.provider_customer_ref || null,
+      provider_invoice_ref: invoice.provider_ref || null,
+      description: `Dr J Drills — ${invoice.cycle_key}`,
+    };
+  }
+  async finishHostedInvoiceDispatch({ dispatchId, action, succeeded, providerInvoiceId, providerStatus, hostedInvoiceUrl, invoicePdf, dueAt, error }) {
+    const mutation = [...this.hostedInvoiceDispatches.values()].find(row => row.dispatch.id === dispatchId);
+    if (!mutation || mutation.dispatch.action !== action) throw Object.assign(new Error('Hosted invoice dispatch was not prepared'), { status: 409 });
+    const invoice = this.invoices.get(mutation.dispatch.invoice_id);
+    if (!invoice) throw Object.assign(new Error('Invoice not found'), { status: 404 });
+    if (mutation.dispatch.state === 'submitted') return { accepted: true, duplicate: true, invoice: { ...invoice } };
+    mutation.dispatch.state = succeeded ? 'submitted' : 'failed';
+    mutation.dispatch.provider_invoice_ref = providerInvoiceId || invoice.provider_ref || null;
+    mutation.dispatch.last_error = succeeded ? null : error;
+    if (succeeded) {
+      invoice.provider_ref = providerInvoiceId;
+      invoice.provider_status = providerStatus;
+      invoice.hosted_invoice_url = hostedInvoiceUrl;
+      invoice.invoice_pdf = invoicePdf;
+      invoice.due_at = dueAt;
+      invoice.state = action === 'void' ? 'void' : providerStatus === 'paid' ? 'paid' : 'sent';
+      if (action !== 'void') invoice.sent_at ||= new Date().toISOString();
+      if (invoice.state === 'paid') invoice.paid_at ||= new Date().toISOString();
+    } else if (action === 'send') {
+      invoice.state = 'failed';
+    }
+    return { accepted: succeeded, duplicate: false, invoice: { ...invoice }, dispatch: { ...mutation.dispatch } };
+  }
   seedAttendanceEvent(event) {
     this.attendanceEvents.set(event.id, { ...event });
   }
@@ -1442,6 +1548,33 @@ export class PreviewStore {
     });
     event.state = 'processed';
     return { accepted: true, duplicate: false, audit_event_id: `preview-stripe-audit-${eventId}`, payment_method: this.paymentMethods.get(studentId) };
+  }
+  async processStripeInvoiceEvent({ eventId, eventType, providerInvoiceId, internalInvoiceId, providerStatus, hostedInvoiceUrl, invoicePdf, dueAt, amountDue, amountPaid }) {
+    const event = this.providerEvents.get(`stripe:${eventId}`);
+    const invoice = this.invoices.get(internalInvoiceId);
+    if (!event || !invoice || !event.signatureVerified) throw Object.assign(new Error('Stripe invoice event cannot be matched'), { status: 409 });
+    if (event.state === 'processed') return { accepted: true, duplicate: true, invoice: { ...invoice } };
+    const object = event.payload?.data?.object;
+    if (object?.id !== providerInvoiceId || object?.metadata?.missionaccounts_invoice_id !== internalInvoiceId
+      || (invoice.provider_ref && invoice.provider_ref !== providerInvoiceId)
+      || (Number.isFinite(amountDue) && amountDue !== invoice.amount_cents && eventType !== 'invoice.voided')) {
+      throw Object.assign(new Error('Stripe invoice event binding mismatch'), { status: 409 });
+    }
+    invoice.provider_ref ||= providerInvoiceId;
+    invoice.provider_status = providerStatus;
+    invoice.hosted_invoice_url = hostedInvoiceUrl || invoice.hosted_invoice_url || null;
+    invoice.invoice_pdf = invoicePdf || invoice.invoice_pdf || null;
+    invoice.due_at = dueAt || invoice.due_at || null;
+    if (!['paid', 'void'].includes(invoice.state)) {
+      invoice.state = eventType === 'invoice.paid' ? 'paid'
+        : eventType === 'invoice.voided' ? 'void'
+          : eventType === 'invoice.overdue' ? 'overdue'
+            : ['invoice.payment_failed', 'invoice.finalization_failed'].includes(eventType) ? 'failed'
+              : 'sent';
+    }
+    if (invoice.state === 'paid') invoice.paid_at ||= new Date().toISOString();
+    event.state = 'processed';
+    return { accepted: true, duplicate: false, invoice: { ...invoice }, amount_paid: amountPaid };
   }
   async preparePaymentMethodRemoval({ studentId, actorId, actorRole, requestId }) {
     if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Payment method removal forbidden'), { status: 403 });
@@ -1681,6 +1814,10 @@ export class PreviewStore {
       return { ...existing.result, duplicate: true };
     }
     const ordinal = this.zoomImports.size + 1;
+    const confirmedInstances = new Set(
+      batch.sessions.filter(session => session.state === 'confirmed').map(session => session.provider_instance_id),
+    );
+    const confirmedSourceRows = batch.source_rows.filter(row => confirmedInstances.has(row.provider_instance_id));
     const result = {
       accepted: true,
       duplicate: false,
@@ -1689,9 +1826,21 @@ export class PreviewStore {
       sync_run_id: `preview-zoom-sync-${ordinal}`,
       sessions: batch.sessions.length,
       source_rows: batch.source_rows.length,
-      attendance_events_created: 0,
+      attendance_events_created: new Set(confirmedSourceRows.map(row => `${row.provider_instance_id}:${row.participant_source_id || row.provider_source_id}`)).size,
+      attendance_source_links_created: confirmedSourceRows.length,
+      review_identities_created: new Set(confirmedSourceRows.map(row => row.participant_source_id || row.provider_source_id)).size,
+      exact_identities_reused: 0,
+      matched_source_rows: 0,
+      review_source_rows: batch.source_rows.length,
+      excluded_source_rows: 0,
+      nonconfirmed_source_rows: batch.source_rows.length - confirmedSourceRows.length,
+      students_recomputed: new Set(confirmedSourceRows.map(row => row.participant_source_id || row.provider_source_id)).size,
+      billing_decisions_staled: 0,
       identity_decisions_created: 0,
+      billing_decisions_approved: 0,
+      invoices_created: 0,
       charges_created: 0,
+      charges_submitted: 0,
     };
     this.zoomImports.set(requestId, { fingerprint, batch: structuredClone(batch), result });
     this.syncRuns.set(requestId, {

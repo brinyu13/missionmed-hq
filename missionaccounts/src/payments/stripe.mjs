@@ -23,11 +23,12 @@ export function verifyStripeSignature(rawBody, signatureHeader, secret, toleranc
 }
 
 export class StripeGateway {
-  constructor({ secretKey, webhookSecret, apiVersion = '', mode = 'disabled' } = {}) {
+  constructor({ secretKey, webhookSecret, apiVersion = '', mode = 'disabled', liveMutationsEnabled = false } = {}) {
     this.secretKey = secretKey;
     this.webhookSecret = webhookSecret;
     this.apiVersion = apiVersion;
     this.mode = mode;
+    this.liveMutationsEnabled = liveMutationsEnabled === true;
   }
 
   verifyWebhook(rawBody, signatureHeader) {
@@ -38,15 +39,46 @@ export class StripeGateway {
   }
 
   assertTestMode() {
-    if (this.mode !== 'test' || !this.secretKey?.startsWith('sk_test_')) throw new Error('Stripe mutation is disabled outside configured Test Mode');
+    if (this.mode !== 'test' || !/^(?:sk|rk)_test_/.test(String(this.secretKey || ''))) {
+      throw new Error('Stripe mutation is disabled outside configured Test Mode');
+    }
+  }
+
+  assertMutationAllowed() {
+    const key = String(this.secretKey || '');
+    const testAllowed = this.mode === 'test' && /^(?:sk|rk)_test_/.test(key);
+    const liveAllowed = this.mode === 'live'
+      && this.liveMutationsEnabled
+      && /^(?:sk|rk)_live_/.test(key);
+    if (!testAllowed && !liveAllowed) {
+      throw new Error('Stripe mutation is disabled for this environment');
+    }
   }
 
   assertConfigured() {
-    if (!this.secretKey?.startsWith('sk_')) throw Object.assign(new Error('Stripe is not configured'), { status: 503 });
+    if (!/^(?:sk|rk)_(?:test|live)_/.test(String(this.secretKey || ''))) {
+      throw Object.assign(new Error('Stripe is not configured'), { status: 503 });
+    }
+  }
+
+  configurationState() {
+    const key = String(this.secretKey || '');
+    const keyMode = /^(?:sk|rk)_test_/.test(key) ? 'test'
+      : /^(?:sk|rk)_live_/.test(key) ? 'live'
+        : 'unconfigured';
+    return {
+      mode: this.mode,
+      key_mode: keyMode,
+      credentials_configured: keyMode !== 'unconfigured',
+      webhook_configured: /^whsec_[A-Za-z0-9_]+$/.test(String(this.webhookSecret || '')),
+      mutations_enabled: (this.mode === 'test' && keyMode === 'test')
+        || (this.mode === 'live' && keyMode === 'live' && this.liveMutationsEnabled),
+      live_mutations_enabled: this.mode === 'live' && keyMode === 'live' && this.liveMutationsEnabled,
+    };
   }
 
   async request(path, params, idempotencyKey) {
-    this.assertTestMode();
+    this.assertMutationAllowed();
     const response = await fetch(`https://api.stripe.com/v1/${path}`, {
       method: 'POST',
       headers: {
@@ -128,5 +160,76 @@ export class StripeGateway {
       'metadata[student_id]': studentId,
       'metadata[attendance_day_id]': attendanceDayId,
     }, `missionaccounts:billable-day:${attendanceDayId}:v1`);
+  }
+
+  async createHostedInvoice({ customerId, internalInvoiceId, studentId, cycleKey, amountCents, description, dueDays }) {
+    if (!/^cus_[A-Za-z0-9_]+$/.test(String(customerId || ''))
+      || !/^[0-9a-f-]{36}$/i.test(String(internalInvoiceId || ''))
+      || !/^[0-9a-f-]{36}$/i.test(String(studentId || ''))
+      || !Number.isInteger(amountCents) || amountCents <= 0
+      || !Number.isInteger(dueDays) || dueDays < 1 || dueDays > 90
+      || !String(cycleKey || '').trim() || !String(description || '').trim()) {
+      throw Object.assign(new Error('Stripe hosted invoice request is invalid'), { status: 400 });
+    }
+    const invoice = await this.request('invoices', {
+      customer: customerId,
+      collection_method: 'send_invoice',
+      days_until_due: String(dueDays),
+      auto_advance: 'false',
+      description: String(description).slice(0, 500),
+      'metadata[missionaccounts_invoice_id]': internalInvoiceId,
+      'metadata[student_id]': studentId,
+      'metadata[cycle_key]': cycleKey,
+    }, `missionaccounts:hosted-invoice:${internalInvoiceId}:v1`);
+    if (!/^in_[A-Za-z0-9_]+$/.test(String(invoice.id || ''))
+      || invoice.customer !== customerId
+      || invoice.metadata?.missionaccounts_invoice_id !== internalInvoiceId) {
+      throw Object.assign(new Error('Stripe hosted invoice binding is invalid'), { status: 502 });
+    }
+
+    let current = invoice;
+    if (current.status === 'draft') {
+      await this.request('invoiceitems', {
+        customer: customerId,
+        invoice: current.id,
+        amount: String(amountCents),
+        currency: 'usd',
+        description: String(description).slice(0, 500),
+        'metadata[missionaccounts_invoice_id]': internalInvoiceId,
+      }, `missionaccounts:hosted-invoice-item:${internalInvoiceId}:v1`);
+      current = await this.request(`invoices/${encodeURIComponent(current.id)}/finalize`, {
+        auto_advance: 'false',
+      }, `missionaccounts:hosted-invoice-finalize:${internalInvoiceId}:v1`);
+    }
+    if (!['open', 'paid'].includes(current.status)
+      || Number(current.amount_due) !== amountCents
+      || current.customer !== customerId) {
+      throw Object.assign(new Error('Stripe finalized invoice controls do not match MissionAccounts'), { status: 502 });
+    }
+    if (current.status === 'open') {
+      current = await this.request(`invoices/${encodeURIComponent(current.id)}/send`, {},
+        `missionaccounts:hosted-invoice-send:${internalInvoiceId}:v1`);
+    }
+    return current;
+  }
+
+  resendHostedInvoice(providerInvoiceId, internalInvoiceId, requestId) {
+    if (!/^in_[A-Za-z0-9_]+$/.test(String(providerInvoiceId || ''))) {
+      throw Object.assign(new Error('Stripe invoice reference is invalid'), { status: 400 });
+    }
+    return this.request(`invoices/${encodeURIComponent(providerInvoiceId)}/send`, {},
+      `missionaccounts:hosted-invoice-resend:${internalInvoiceId}:${requestId}`);
+  }
+
+  voidHostedInvoice(providerInvoiceId, internalInvoiceId, requestId) {
+    if (!/^in_[A-Za-z0-9_]+$/.test(String(providerInvoiceId || ''))) {
+      throw Object.assign(new Error('Stripe invoice reference is invalid'), { status: 400 });
+    }
+    return this.request(`invoices/${encodeURIComponent(providerInvoiceId)}/void`, {},
+      `missionaccounts:hosted-invoice-void:${internalInvoiceId}:${requestId}`);
+  }
+
+  retrieveAccount() {
+    return this.retrieve('account');
   }
 }

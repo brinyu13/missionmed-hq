@@ -436,6 +436,45 @@ test('Zoom ingestion port preserves provider evidence without creating identity,
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_ingest_zoom_batch[^;]+to authenticated/s);
 });
 
+test('Zoom reconciliation uses exact identities, isolates unknown attendees, and cannot approve or charge', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906134000_zoom_attendance_reconciliation.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table missionaccounts\.zoom_reconciliation_run/);
+  assert.match(sql, /create unique index identity_alias_one_current_zoom_source/);
+  assert.match(sql, /create function missionaccounts\.api_reconcile_zoom_import/);
+  assert.match(sql, /session_state <> 'confirmed'/);
+  assert.match(sql, /digest\(btrim\(source_record\.participant_source_id\), 'sha256'\)/);
+  assert.match(sql, /'needs_review'/);
+  assert.match(sql, /insert into missionaccounts\.attendance_event/);
+  assert.match(sql, /missionaccounts\.recompute_student_attendance/);
+  assert.match(sql, /'identity_decisions_created', 0/);
+  assert.match(sql, /'billing_decisions_approved', 0/);
+  assert.match(sql, /'invoices_created', 0/);
+  assert.match(sql, /'charges_created', 0/);
+  assert.doesNotMatch(sql, /insert into missionaccounts\.(billing_decision|invoice|charge)\b/);
+  assert.doesNotMatch(sql, /where\s+(?:alias\.)?(?:display_value|email|display_name)\s*=/i);
+  assert.match(sql, /create function missionaccounts\.api_ingest_and_reconcile_zoom_batch/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_reconcile_zoom_import[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_reconcile_zoom_import[^;]+to authenticated/s);
+});
+
+test('Stripe-hosted invoices are provider-backed, two-phase, signed-event reconciled, and service-role only', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906135000_stripe_hosted_invoice_workflow.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table missionaccounts\.stripe_invoice_dispatch/);
+  assert.match(sql, /create function missionaccounts\.api_prepare_hosted_invoice_dispatch/);
+  assert.match(sql, /current_approved_decision_required/);
+  assert.match(sql, /verified_student_identity_required/);
+  assert.match(sql, /stripe_customer_required/);
+  assert.match(sql, /create function missionaccounts\.api_finish_hosted_invoice_dispatch/);
+  assert.match(sql, /create function missionaccounts\.api_process_stripe_invoice_event/);
+  assert.match(sql, /signature_verified/);
+  assert.match(sql, /stripe_invoice_amount_mismatch/);
+  assert.match(sql, /invoice\.paid/);
+  assert.match(sql, /invoice\.overdue/);
+  assert.match(sql, /invoice\.voided/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_prepare_hosted_invoice_dispatch[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_prepare_hosted_invoice_dispatch[^;]+to authenticated/s);
+});
+
 test('student attendance issue reports are self-bound, private, idempotent, audited, and notify Dr J', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906105212_student_attendance_issue_report.sql', import.meta.url), 'utf8');
   assert.match(sql, /create table missionaccounts\.attendance_issue/);

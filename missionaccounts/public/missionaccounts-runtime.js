@@ -41,6 +41,7 @@ const actionCapabilities = Object.freeze({
   'cycle-policy': 'billing_decisions',
   'billing-decision': 'billing_decisions',
   'invoice-readiness': 'billing_decisions',
+  'hosted-invoice': 'hosted_invoices',
   comp: 'comp_days',
   'student-exam-submit': 'exam_plans',
   'admin-exam-submit': 'exam_plans',
@@ -245,6 +246,36 @@ async function dispatch(action, payload = {}) {
           reason: payload.v === true ? 'Dr J marked invoice ready to send' : 'Dr J removed invoice from ready',
         },
       });
+    } else if (action === 'hosted-invoice') {
+      if (!['missionaccounts_admin', 'founder'].includes(state.user?.role)) throw new Error('Only Dr J can manage hosted invoices.');
+      const studentId = studentUuid(payload.si);
+      const cycleKey = databaseCycleKey[payload.k];
+      const providerAction = String(payload.action || 'send');
+      if (!cycleKey || !['send', 'resend', 'void'].includes(providerAction)) throw new Error('The hosted invoice action is invalid.');
+      const invoice = state.bootstrap.canon.invoices
+        .filter(item => item.student_id === studentId && item.cycle_key === cycleKey)
+        .at(-1);
+      if (!invoice) throw new Error('The current invoice is unavailable.');
+      const labels = {
+        send: ['Send Stripe invoice?', 'Stripe will create, finalize, and email this approved invoice. The student receives a Stripe-hosted payment page.', 'Send invoice'],
+        resend: ['Resend Stripe invoice?', 'Stripe will email the existing hosted invoice again. The amount and provider invoice identity do not change.', 'Resend invoice'],
+        void: ['Void Stripe invoice?', 'Stripe will void the existing provider invoice. This does not delete attendance or the MissionAccounts audit trail.', 'Void invoice'],
+      };
+      const [title, intro, confirmLabel] = labels[providerAction];
+      const decision = openPaymentActionDialog({
+        title,
+        intro,
+        facts: [
+          'The server rechecks the approved amount, verified student identity, email, and Stripe customer mapping.',
+          'Provider responses and signed webhooks are stored idempotently.',
+        ],
+        confirmLabel,
+        danger: providerAction === 'void',
+        onConfirm: () => window.MissionAccountsRuntime.mutation(`/admin/invoices/${invoice.id}/provider`, {
+          body: { action: providerAction },
+        }),
+      });
+      if (!await decision.result) return true;
     } else if (action === 'comp') {
       await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/comp`, {
         body: {

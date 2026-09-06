@@ -84,6 +84,12 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.doesNotMatch(html, /Device identity adjudication is not enabled yet/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('student-contact'/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('invoice-readiness'/);
+  assert.match(html, /MissionAccountsRuntime\.dispatch\('hosted-invoice'/);
+  assert.match(html, /Send Stripe invoice/);
+  assert.match(html, /Open Stripe invoice/);
+  assert.match(html, /Stripe-hosted invoicing is disabled/);
+  assert.match(runtimeSource, /'hosted-invoice': 'hosted_invoices'/);
+  assert.match(runtimeSource, /Only Dr J can manage hosted invoices/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('exam-transition',\{si,action:'passed'/);
   assert.match(html, /hydrateAuthoritative, toast/);
   assert.match(html, /onclick=async\(\)=>\{ const si=\+b\.dataset\.saveContact/);
@@ -142,6 +148,31 @@ test('production process fails before listening when the database target is abse
   });
   assert.notEqual(result.status, 0);
   assert.match(`${result.stdout}\n${result.stderr}`, /production requires an explicit database target/i);
+});
+
+test('production process fails before listening when Zoom is enabled without its complete S2S binding', () => {
+  const env = {
+    ...process.env,
+    NODE_ENV: 'production',
+    PORT: '0',
+    MISSIONACCOUNTS_SUPABASE_URL: 'https://database.invalid',
+    MISSIONACCOUNTS_SUPABASE_SERVICE_KEY: 'local-test-placeholder',
+    MISSIONACCOUNTS_ZOOM_SYNC: '1',
+    MISSIONACCOUNTS_ZOOM_MODE: 'configured',
+    MISSIONACCOUNTS_ZOOM_ACCOUNT_ID: 'account-id',
+  };
+  delete env.MISSIONACCOUNTS_ZOOM_CLIENT_ID;
+  delete env.MISSIONACCOUNTS_ZOOM_CLIENT_SECRET;
+  delete env.MISSIONACCOUNTS_ZOOM_HOST_USER_ID;
+  delete env.MISSIONACCOUNTS_ZOOM_MEETING_RULES_JSON;
+  const result = spawnSync(process.execPath, ['src/server.mjs'], {
+    cwd: packageDir,
+    env,
+    encoding: 'utf8',
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stdout}\n${result.stderr}`, /Zoom client ID is required/i);
+  assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /local-test-placeholder/);
 });
 
 test('isolated production packaging cannot include the private Founder preview', async () => {

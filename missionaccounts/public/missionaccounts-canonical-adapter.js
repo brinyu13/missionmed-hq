@@ -32,6 +32,7 @@ function safeCount(value) {
 function integrationHealth(bootstrap) {
   if (bootstrap?.scope !== 'admin') return null;
   const health = bootstrap.health || {};
+  const stripe = health.stripe && typeof health.stripe === 'object' ? health.stripe : {};
   const sourceSync = health.latest_zoom_sync;
   const latestZoomSync = sourceSync && typeof sourceSync === 'object' ? {
     state: ['ok', 'failed', 'running'].includes(sourceSync.state) ? sourceSync.state : 'unknown',
@@ -46,6 +47,15 @@ function integrationHealth(bootstrap) {
   return {
     zoom_sync_enabled: health.zoom_sync_enabled === true,
     zoom_provider_configured: health.zoom_provider_configured === true,
+    hosted_invoices_enabled: health.hosted_invoices_enabled === true,
+    auto_billing_enabled: health.auto_billing_enabled === true,
+    stripe: {
+      mode: ['disabled', 'test', 'live'].includes(stripe.mode) ? stripe.mode : 'disabled',
+      credentials_configured: stripe.credentials_configured === true,
+      webhook_configured: stripe.webhook_configured === true,
+      mutations_enabled: stripe.mutations_enabled === true,
+      live_mutations_enabled: stripe.live_mutations_enabled === true,
+    },
     latest_zoom_sync: latestZoomSync,
     open_integration_exceptions: safeCount(health.open_integration_exceptions),
     failed_provider_events: safeCount(health.failed_provider_events),
@@ -72,7 +82,7 @@ function attendanceIssueQueue(bootstrap) {
 function emptyWorking(scope) {
   return {
     v: 3,
-    dec: {}, ident: {}, dev: {}, contact: {}, policy: {}, ready: {}, corrs: [],
+    dec: {}, ident: {}, dev: {}, contact: {}, policy: {}, ready: {}, providerInvoices: {}, corrs: [],
     pm: {}, auth: {}, exam: {}, examHistory: {}, grace: {}, comp: {},
     rule: 'day', ruleDecision: null, log: [],
     lens: scope === 'student' ? 'student' : 'admin', ctx: 'xp', meStudent: scope === 'student' ? 0 : null,
@@ -341,11 +351,24 @@ export function buildCanonicalModel(bootstrap) {
     working.grace[si].push({ id: window.id, from: window.from_on, to: window.to_on, why: window.closed_reason || '', at: safeDateMs(window.created_at) });
   }
   for (const invoice of source.invoices || []) {
-    if (invoice.state !== 'ready') continue;
     const si = studentIndex.get(invoice.student_id);
     if (si == null) continue;
-    working.ready[si] ||= {};
-    working.ready[si][mappedCycleKey(invoice.cycle_key)] = true;
+    const cycleKey = mappedCycleKey(invoice.cycle_key);
+    working.providerInvoices[si] ||= {};
+    working.providerInvoices[si][cycleKey] = {
+      id: String(invoice.id || ''),
+      state: String(invoice.state || 'draft'),
+      providerStatus: String(invoice.provider_status || ''),
+      hostedUrl: /^https:\/\/invoice[.]stripe[.]com\//.test(String(invoice.hosted_invoice_url || '')) ? invoice.hosted_invoice_url : null,
+      pdfUrl: /^https:\/\/(?:invoice|pay)[.]stripe[.]com\//.test(String(invoice.invoice_pdf || '')) ? invoice.invoice_pdf : null,
+      dueAt: invoice.due_at || null,
+      sentAt: invoice.sent_at || null,
+      paidAt: invoice.paid_at || null,
+    };
+    if (invoice.state === 'ready') {
+      working.ready[si] ||= {};
+      working.ready[si][cycleKey] = true;
+    }
   }
   const correctionType = { add: 'att_add', remove: 'att_remove', step_relabel: 'step', name: 'name', note: 'note' };
   const revertedCorrectionIds = new Set((source.attendance_corrections || [])
