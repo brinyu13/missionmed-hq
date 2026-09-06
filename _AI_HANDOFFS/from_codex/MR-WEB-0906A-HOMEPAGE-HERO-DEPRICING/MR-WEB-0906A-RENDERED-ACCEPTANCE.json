@@ -1,0 +1,215 @@
+{
+  "schema": "missionmed.mr_web_0906a.rendered_acceptance.v1",
+  "verified_at_utc": "2026-09-06T23:23:19.601Z",
+  "logged_out_isolated_profile": true,
+  "results": [
+    {
+      "url": "https://missionmedinstitute.com/?mr0906a=1788736988053-0",
+      "title": "Home - MissionMed Institute",
+      "heading": "You Don't Have to Figure This Out Alone",
+      "expected": [
+        {
+          "item": "It is interview season.",
+          "present": true
+        },
+        {
+          "item": "One expert. Your whole interview season.",
+          "present": true
+        },
+        {
+          "item": "Fall 2026 Mission Residency",
+          "present": true
+        },
+        {
+          "item": "Enrollment is now open.",
+          "present": true
+        },
+        {
+          "item": "IV Prep Essentials and IV Prep Complete are accepting students.",
+          "present": true
+        },
+        {
+          "item": "360 Match Mentorship capacity is reached for the current cycle.",
+          "present": true
+        },
+        {
+          "item": "Explore Mission Residency",
+          "present": true
+        },
+        {
+          "item": "View Programs",
+          "present": true
+        }
+      ],
+      "absent": [
+        {
+          "item": "$2,799",
+          "present": false
+        },
+        {
+          "item": "$1,199",
+          "present": false
+        },
+        {
+          "item": "$5,499",
+          "present": false
+        },
+        {
+          "item": "$3,999",
+          "present": false
+        },
+        {
+          "item": "$1,849",
+          "present": false
+        },
+        {
+          "item": "$1,499",
+          "present": false
+        },
+        {
+          "item": "$3,299",
+          "present": false
+        },
+        {
+          "item": "$3,199",
+          "present": false
+        },
+        {
+          "item": "launch tuition",
+          "present": false
+        }
+      ],
+      "paymentLabels": [],
+      "innerWidth": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "name": "corporate_home",
+      "path": "/",
+      "pass": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/mission-residency/?mr0906a=1788736990664-1",
+      "title": "Mission Residency — MissionMed Institute",
+      "heading": "Interviews are wonby how you tellyour story.",
+      "expected": [
+        {
+          "item": "IV Prep Complete",
+          "present": true
+        },
+        {
+          "item": "$2,799",
+          "present": true
+        },
+        {
+          "item": "IV Prep Essentials",
+          "present": true
+        },
+        {
+          "item": "$1,199",
+          "present": true
+        },
+        {
+          "item": "360 Match Mentorship",
+          "present": true
+        },
+        {
+          "item": "$5,499",
+          "present": true
+        }
+      ],
+      "absent": [],
+      "paymentLabels": [],
+      "innerWidth": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "name": "mission_residency",
+      "path": "/mission-residency/",
+      "pass": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/product/match-prep-pro/?mr0906a=1788736992627-2",
+      "title": "IV Prep Complete — MissionMed Institute",
+      "heading": "IV Prep Complete",
+      "expected": [
+        {
+          "item": "IV Prep Complete",
+          "present": true
+        },
+        {
+          "item": "$2,799",
+          "present": true
+        },
+        {
+          "item": "Enroll in IV Prep Complete",
+          "present": true
+        }
+      ],
+      "absent": [],
+      "paymentLabels": [],
+      "innerWidth": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "name": "complete_product",
+      "path": "/product/match-prep-pro/",
+      "pass": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/cart/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date&mr0906a=1788736994533-3",
+      "title": "Cart - MissionMed Institute",
+      "heading": null,
+      "expected": [
+        {
+          "item": "IV Prep Complete",
+          "present": true
+        },
+        {
+          "item": "$2,799",
+          "present": true
+        }
+      ],
+      "absent": [],
+      "paymentLabels": [],
+      "innerWidth": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "name": "complete_cart",
+      "path": "/cart/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date",
+      "pass": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/checkout/?mr0906a=1788736996948-4",
+      "title": "Checkout - MissionMed Institute",
+      "heading": "Checkout",
+      "expected": [
+        {
+          "item": "Checkout",
+          "present": true
+        },
+        {
+          "item": "IV Prep Complete",
+          "present": true
+        },
+        {
+          "item": "$2,799",
+          "present": true
+        },
+        {
+          "item": "Credit / Debit Card",
+          "present": true
+        }
+      ],
+      "absent": [],
+      "paymentLabels": [
+        "Credit / Debit Card"
+      ],
+      "innerWidth": 1440,
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "name": "complete_checkout",
+      "path": "/checkout/",
+      "pass": true
+    }
+  ],
+  "pass_count": 5,
+  "check_count": 5
+}
