@@ -219,6 +219,196 @@ test('student role cannot read the administrative health endpoint', async () => 
   });
 });
 
+async function seedAutomaticChargeFixture(store, { computedAt, attendanceDayId }) {
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const cycleKey = '2026-cycle-1';
+  store.seedAttendanceDays(studentId, cycleKey, [{
+    id: attendanceDayId,
+    day: '2026-09-08',
+    kind: 'billable',
+    event_ids: ['event-auto-charge'],
+    computed_at: computedAt,
+  }]);
+  await store.approveBillingDecision({
+    studentId, cycleKey, treatment: 'confirm', requestedAmountCents: null,
+    note: null, actorId: 'admin-1', requestId: `auto-charge-decision-${attendanceDayId}`,
+  });
+  await store.saveStripeCustomer({ studentId, customerId: 'cus_test_auto_charge' });
+  store.seedPaymentMethod(studentId, {
+    brand: 'visa', last4: '4242', status: 'on_file', provider_pm_ref: 'pm_test_auto_charge',
+  });
+  store.seedBillingTerms('test-terms-v1');
+  await store.setBillingConsent({
+    studentId, action: 'authorize', termsVersion: 'test-terms-v1', acceptedIp: '127.0.0.1',
+    reason: 'Student accepted automatic billing terms', actorId: studentId,
+    requestId: `auto-charge-consent-${attendanceDayId}`,
+  });
+  return { studentId, cycleKey };
+}
+
+test('automatic charge worker stops before claiming database work unless Stripe Test Mode is configured', async () => {
+  const store = new PreviewStore();
+  let claims = 0;
+  store.claimDueDayCharges = async () => { claims += 1; return { claimed: [], expired: 0 }; };
+  const config = {
+    ...localConfig,
+    workerToken: 'automatic-charge-worker-disabled',
+    features: { ...localConfig.features, autoBilling: true },
+  };
+  const gateway = { assertTestMode() { throw new Error('Stripe mutation is disabled outside configured Test Mode'); } };
+  await withServer({ config, store, stripeGateway: gateway }, async base => {
+    const response = await fetch(`${base}/api/internal/charges/drain`, {
+      method: 'POST', headers: { authorization: 'Bearer automatic-charge-worker-disabled' },
+    });
+    assert.equal(response.status, 500);
+    assert.equal(claims, 0);
+  });
+});
+
+test('automatic charge worker submits one eligible day only inside the 24-48 hour window', async () => {
+  const store = new PreviewStore();
+  const attendanceDayId = '10000000-0000-4000-8000-000000000021';
+  await seedAutomaticChargeFixture(store, {
+    attendanceDayId,
+    computedAt: '2026-09-09T11:00:00.000Z',
+  });
+  const calls = [];
+  const gateway = {
+    assertTestMode() {},
+    async createDayCharge(args) { calls.push(args); return { id: 'pi_test_automatic_charge_1' }; },
+  };
+  const config = {
+    ...localConfig,
+    workerToken: 'automatic-charge-worker-test',
+    features: { ...localConfig.features, autoBilling: true },
+  };
+  await withServer({
+    config, store, stripeGateway: gateway, now: () => new Date('2026-09-10T12:00:00.000Z'),
+  }, async base => {
+    const headers = { authorization: 'Bearer automatic-charge-worker-test', 'content-type': 'application/json' };
+    const first = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers, body: '{}' });
+    assert.equal(first.status, 200);
+    assert.deepEqual(await first.json(), { claimed: 1, submitted: 1, failed: 0, expired: 0 });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].attendanceDayId, attendanceDayId);
+    assert.equal(store.chargesByDay.get(attendanceDayId).provider_ref, 'pi_test_automatic_charge_1');
+    assert.equal(store.autoChargeDispatches.get(attendanceDayId).state, 'submitted');
+
+    const second = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers, body: '{}' });
+    assert.equal(second.status, 200);
+    assert.deepEqual(await second.json(), { claimed: 0, submitted: 0, failed: 0, expired: 0 });
+    assert.equal(calls.length, 1);
+  });
+});
+
+test('automatic charge worker safely resumes a stale pre-provider claim with the same day idempotency key', async () => {
+  const store = new PreviewStore();
+  const attendanceDayId = '10000000-0000-4000-8000-000000000025';
+  await seedAutomaticChargeFixture(store, {
+    attendanceDayId,
+    computedAt: '2026-09-09T11:00:00.000Z',
+  });
+  const abandoned = await store.claimDueDayCharges({
+    now: '2026-09-10T12:00:00.000Z', workerId: 'crashed-worker', limit: 1,
+  });
+  assert.equal(abandoned.claimed.length, 1);
+  assert.equal(store.autoChargeDispatches.get(attendanceDayId).state, 'claimed');
+
+  let calls = 0;
+  const gateway = {
+    assertTestMode() {},
+    async createDayCharge() { calls += 1; return { id: 'pi_test_reclaimed_charge_1' }; },
+  };
+  const config = {
+    ...localConfig,
+    workerToken: 'automatic-charge-reclaim-worker',
+    features: { ...localConfig.features, autoBilling: true },
+  };
+  await withServer({
+    config, store, stripeGateway: gateway, now: () => new Date('2026-09-10T12:11:00.000Z'),
+  }, async base => {
+    const response = await fetch(`${base}/api/internal/charges/drain`, {
+      method: 'POST', headers: { authorization: 'Bearer automatic-charge-reclaim-worker' },
+    });
+    assert.deepEqual(await response.json(), { claimed: 1, submitted: 1, failed: 0, expired: 0 });
+    assert.equal(calls, 1);
+    assert.equal(store.autoChargeDispatches.get(attendanceDayId).state, 'submitted');
+  });
+});
+
+test('automatic charge worker leaves early days untouched and records missed-window days for review', async () => {
+  const config = {
+    ...localConfig,
+    workerToken: 'automatic-charge-window-worker',
+    features: { ...localConfig.features, autoBilling: true },
+  };
+  const gateway = { assertTestMode() {}, async createDayCharge() { assert.fail('no charge should be submitted'); } };
+
+  const earlyStore = new PreviewStore();
+  await seedAutomaticChargeFixture(earlyStore, {
+    attendanceDayId: '10000000-0000-4000-8000-000000000022',
+    computedAt: '2026-09-09T13:00:00.000Z',
+  });
+  await withServer({
+    config, store: earlyStore, stripeGateway: gateway, now: () => new Date('2026-09-10T12:00:00.000Z'),
+  }, async base => {
+    const response = await fetch(`${base}/api/internal/charges/drain`, {
+      method: 'POST', headers: { authorization: 'Bearer automatic-charge-window-worker' },
+    });
+    assert.deepEqual(await response.json(), { claimed: 0, submitted: 0, failed: 0, expired: 0 });
+    assert.equal(earlyStore.chargesByDay.size, 0);
+  });
+
+  const expiredStore = new PreviewStore();
+  await seedAutomaticChargeFixture(expiredStore, {
+    attendanceDayId: '10000000-0000-4000-8000-000000000023',
+    computedAt: '2026-09-08T10:00:00.000Z',
+  });
+  await withServer({
+    config, store: expiredStore, stripeGateway: gateway, now: () => new Date('2026-09-10T12:00:00.000Z'),
+  }, async base => {
+    const response = await fetch(`${base}/api/internal/charges/drain`, {
+      method: 'POST', headers: { authorization: 'Bearer automatic-charge-window-worker' },
+    });
+    assert.deepEqual(await response.json(), { claimed: 0, submitted: 0, failed: 0, expired: 1 });
+    assert.equal(expiredStore.chargesByDay.size, 0);
+    assert.equal(expiredStore.integrationExceptions.size, 1);
+  });
+});
+
+test('automatic charge submission failure is notified and never retried automatically', async () => {
+  const store = new PreviewStore();
+  const attendanceDayId = '10000000-0000-4000-8000-000000000024';
+  await seedAutomaticChargeFixture(store, {
+    attendanceDayId,
+    computedAt: '2026-09-09T11:00:00.000Z',
+  });
+  let calls = 0;
+  const gateway = {
+    assertTestMode() {},
+    async createDayCharge() { calls += 1; throw new Error('test provider rejection'); },
+  };
+  const config = {
+    ...localConfig,
+    workerToken: 'automatic-charge-failure-worker',
+    features: { ...localConfig.features, autoBilling: true },
+  };
+  await withServer({
+    config, store, stripeGateway: gateway, now: () => new Date('2026-09-10T12:00:00.000Z'),
+  }, async base => {
+    const headers = { authorization: 'Bearer automatic-charge-failure-worker' };
+    const first = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers });
+    assert.deepEqual(await first.json(), { claimed: 1, submitted: 0, failed: 1, expired: 0 });
+    assert.equal(store.chargesByDay.get(attendanceDayId).state, 'failed');
+    assert.equal(store.notifications.size, 2);
+    assert.equal(store.integrationExceptions.size, 1);
+
+    const second = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers });
+    assert.deepEqual(await second.json(), { claimed: 0, submitted: 0, failed: 0, expired: 0 });
+    assert.equal(calls, 1);
+  });
+});
+
 test('UI bootstrap is role-scoped and works from the mounted MissionAccounts route', async () => {
   const studentId = '00000000-0000-4000-8000-000000000001';
   const store = new PreviewStore();

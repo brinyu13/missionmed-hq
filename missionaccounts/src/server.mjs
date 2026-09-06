@@ -195,6 +195,56 @@ export function createMissionAccountsServer({
       requireFeature(config, 'autoBilling');
       return receiveStripeWebhook(request, response);
     }
+    if (request.method === 'POST' && url.pathname === '/api/internal/charges/drain') {
+      requireFeature(config, 'autoBilling');
+      const bearer = String(request.headers.authorization || '').match(/^Bearer\s+(.+)$/i)?.[1] || '';
+      if (!secureTokenEqual(bearer, config.workerToken)) throw requestError('Charge worker authentication failed', 401);
+      // This check deliberately precedes every database claim so a disabled or
+      // live-mode Stripe configuration cannot reserve financial work.
+      stripeGateway.assertTestMode();
+      const rawBody = await readRawBody(request, { limitBytes: 16_384 });
+      const body = rawBody.length ? parseJsonBody(rawBody) : {};
+      const limit = body.limit == null ? 10 : Number(body.limit);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 25) throw requestError('Charge batch limit must be from 1 through 25');
+      const workerId = `missionaccounts:charges:${process.pid}`;
+      const claimedAt = now().toISOString();
+      const batch = await store.claimDueDayCharges({ now: claimedAt, workerId, limit });
+      let submitted = 0;
+      let failed = 0;
+      for (const item of batch.claimed || []) {
+        let paymentIntent;
+        try {
+          paymentIntent = await stripeGateway.createDayCharge({
+            customerId: item.customer_ref,
+            paymentMethodId: item.payment_method_ref,
+            studentId: item.charge.student_id,
+            attendanceDayId: item.attendance_day_id,
+          });
+          if (!/^pi_[A-Za-z0-9_]+$/.test(String(paymentIntent.id || ''))) {
+            throw requestError('Stripe PaymentIntent response is incomplete', 502);
+          }
+        } catch (error) {
+          await store.finishAutoChargeDispatch({
+            dispatchId: item.dispatch_id, workerId, succeeded: false, providerRef: null,
+            error: error instanceof Error ? error.message : 'Stripe charge submission failed',
+            now: now().toISOString(),
+          });
+          failed += 1;
+          continue;
+        }
+        await store.finishAutoChargeDispatch({
+          dispatchId: item.dispatch_id, workerId, succeeded: true,
+          providerRef: paymentIntent.id, error: null, now: now().toISOString(),
+        });
+        submitted += 1;
+      }
+      return json(response, 200, {
+        claimed: (batch.claimed || []).length,
+        submitted,
+        failed,
+        expired: Number(batch.expired || 0),
+      });
+    }
     if (request.method === 'POST' && url.pathname === '/api/internal/notifications/drain') {
       requireFeature(config, 'notifications');
       const bearer = String(request.headers.authorization || '').match(/^Bearer\s+(.+)$/i)?.[1] || '';

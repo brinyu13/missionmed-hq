@@ -27,9 +27,9 @@ psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 \
   -c "create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create function auth.uid() returns uuid language sql stable as 'select null::uuid'; create function auth.jwt() returns jsonb language sql stable as 'select jsonb_build_object()';" \
   >/dev/null
 
-psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 \
-  -f "$app_dir/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql" \
-  >/dev/null
+for migration in "$app_dir"/supabase/migrations/*.sql; do
+  psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
+done
 
 student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
   -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:4242','Integration Test') returning id")
@@ -780,4 +780,63 @@ if [[ "$account_link_results" != "$account_link_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+auto_charge_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name,identity_state) values ('wp:auto-charge','Automatic Charge Test','verified') returning id")
+
+auto_charge_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.engine_run(engine_version, source_digest, state)
+values ('auto-charge-integration-v1', repeat('e', 64), 'succeeded');
+insert into missionaccounts.attendance_day(
+  engine_run_id, student_id, cycle_key, day, kind, engine_version, source_digest, computed_at
+) values (
+  (select id from missionaccounts.engine_run where engine_version='auto-charge-integration-v1'),
+  '$auto_charge_student_id','2026-cycle-1','2026-07-01','billable',
+  'auto-charge-integration-v1',repeat('e',64),'2026-09-09T11:00:00Z'
+);
+insert into missionaccounts.stripe_customer_private(student_id,provider,provider_customer_ref)
+values ('$auto_charge_student_id','stripe','cus_test_auto_charge_pg');
+insert into missionaccounts.payment_method_private(
+  student_id,provider,provider_customer_ref,provider_pm_ref,brand,last4,status,verified_at
+) values (
+  '$auto_charge_student_id','stripe','cus_test_auto_charge_pg','pm_test_auto_charge_pg','visa','4242','on_file','2026-09-09T10:00:00Z'
+);
+set role service_role;
+select missionaccounts.api_approve_billing_decision(
+  '$auto_charge_student_id','2026-cycle-1','confirm',null,null,
+  'wp:admin','missionaccounts_admin','pg-auto-charge-decision-0001'
+)->>'accepted';
+select missionaccounts.api_set_billing_consent(
+  '$auto_charge_student_id','authorize','integration-v1','127.0.0.1',
+  'Student accepted automatic billing terms','wp:auto-charge','student','pg-auto-charge-consent-0001'
+)->>'accepted';
+select jsonb_array_length(missionaccounts.api_claim_due_day_charges(
+  '2026-09-10T12:00:00Z','pg-auto-charge-worker',10
+)->'claimed');
+select state from missionaccounts.auto_charge_dispatch where attendance_day_id = (
+  select id from missionaccounts.attendance_day where student_id='$auto_charge_student_id'
+);
+select missionaccounts.api_finish_auto_charge_dispatch(
+  (select id from missionaccounts.auto_charge_dispatch where attendance_day_id = (
+    select id from missionaccounts.attendance_day where student_id='$auto_charge_student_id'
+  )),
+  'pg-auto-charge-worker',true,'pi_test_auto_charge_pg',null,'2026-09-10T12:00:01Z'
+)->'dispatch'->>'state';
+select jsonb_array_length(missionaccounts.api_claim_due_day_charges(
+  '2026-09-10T12:00:02Z','pg-auto-charge-worker',10
+)->'claimed');
+reset role;
+select
+  (select state from missionaccounts.charge where student_id='$auto_charge_student_id') || '|' ||
+  (select provider_ref from missionaccounts.charge where student_id='$auto_charge_student_id') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='auto_charge.submitted');
+SQL
+)
+
+auto_charge_expected=$'true\ntrue\n1\nclaimed\nsubmitted\n0\npending|pi_test_auto_charge_pg|1'
+if [[ "$auto_charge_results" != "$auto_charge_expected" ]]; then
+  echo "MissionAccounts 24-48 hour automatic-charge verification returned unexpected controls:" >&2
+  echo "$auto_charge_results" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, one-charge-per-day dispatch, and notification outbox delivery: PASS"

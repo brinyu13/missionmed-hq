@@ -28,9 +28,9 @@ psql -h "$pg_tmp" -p 55440 -d postgres -v ON_ERROR_STOP=1 \
   -c "create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create function auth.uid() returns uuid language sql stable as 'select null::uuid'; create function auth.jwt() returns jsonb language sql stable as 'select jsonb_build_object()';" \
   >/dev/null
 
-psql -h "$pg_tmp" -p 55440 -d postgres -v ON_ERROR_STOP=1 \
-  -f "$app_dir/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql" \
-  >/dev/null
+for migration in "$app_dir"/supabase/migrations/*.sql; do
+  psql -h "$pg_tmp" -p 55440 -d postgres -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
+done
 
 node "$script_dir/build-historical-import.mjs" --output "$import_sql" >/dev/null
 

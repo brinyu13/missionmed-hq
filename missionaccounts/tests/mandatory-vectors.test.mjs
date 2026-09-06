@@ -327,6 +327,25 @@ test('notification outbox claiming is bounded, skip-locked, retryable, and servi
   assert.match(sql, /\('notifications', false\)/);
 });
 
+test('automatic charge scheduling is bounded to 24-48 hours, retry-safe, and service-role only', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906095512_automatic_charge_dispatch.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table missionaccounts\.auto_charge_dispatch/);
+  assert.match(sql, /create table missionaccounts\.integration_exception/);
+  assert.match(sql, /api_claim_due_day_charges/);
+  assert.match(sql, /computed_at <= p_now - interval '24 hours'/);
+  assert.match(sql, /computed_at >= p_now - interval '48 hours'/);
+  assert.match(sql, /automatic_charge_window_missed/);
+  assert.match(sql, /for update of d skip locked/);
+  assert.match(sql, /api_prepare_day_charge/);
+  assert.match(sql, /api_finish_auto_charge_dispatch/);
+  assert.match(sql, /automatic_charge_submission_failed/);
+  assert.match(sql, /audience, event_kind[\s\S]+'missionaccounts_admin', 'charge\.failed'/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_claim_due_day_charges[^;]+to service_role/s);
+  assert.match(sql, /grant execute on function missionaccounts\.api_finish_auto_charge_dispatch[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_claim_due_day_charges[^;]+to authenticated/s);
+  assert.match(sql, /force row level security/);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);
