@@ -186,39 +186,49 @@ export function createMissionAccountsServer({
       const customerId = String(object.customer || '');
       const paymentMethodId = String(object.payment_method || '');
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(studentId)) {
-        throw requestError('Stripe SetupIntent student binding is invalid');
+        effect = await store.markProviderEventUnhandled({
+          provider: 'stripe',
+          eventId: event.id,
+          reason: 'SetupIntent is not owned by MissionAccounts',
+        });
+      } else {
+        const paymentMethod = await stripeGateway.retrievePaymentMethod(paymentMethodId);
+        if (paymentMethod.customer !== customerId || paymentMethod.type !== 'card' || !paymentMethod.card) {
+          throw requestError('Stripe payment method binding is invalid');
+        }
+        effect = await store.processStripeSetupIntent({
+          eventId: event.id,
+          studentId,
+          customerId,
+          paymentMethodId,
+          brand: paymentMethod.card.brand || null,
+          last4: paymentMethod.card.last4,
+          expMonth: paymentMethod.card.exp_month,
+          expYear: paymentMethod.card.exp_year,
+        });
       }
-      const paymentMethod = await stripeGateway.retrievePaymentMethod(paymentMethodId);
-      if (paymentMethod.customer !== customerId || paymentMethod.type !== 'card' || !paymentMethod.card) {
-        throw requestError('Stripe payment method binding is invalid');
-      }
-      effect = await store.processStripeSetupIntent({
-        eventId: event.id,
-        studentId,
-        customerId,
-        paymentMethodId,
-        brand: paymentMethod.card.brand || null,
-        last4: paymentMethod.card.last4,
-        expMonth: paymentMethod.card.exp_month,
-        expYear: paymentMethod.card.exp_year,
-      });
     } else if (['payment_intent.succeeded', 'payment_intent.payment_failed'].includes(event.type) && result.status !== 'processed') {
       const object = event.data.object;
       const studentId = String(object.metadata?.student_id || '');
       const attendanceDayId = String(object.metadata?.attendance_day_id || '');
       const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       if (!uuid.test(studentId) || !uuid.test(attendanceDayId) || !/^pi_[A-Za-z0-9_]+$/.test(String(object.id || ''))) {
-        throw requestError('Stripe PaymentIntent metadata binding is invalid');
+        effect = await store.markProviderEventUnhandled({
+          provider: 'stripe',
+          eventId: event.id,
+          reason: 'PaymentIntent is not owned by MissionAccounts',
+        });
+      } else {
+        effect = await store.processStripePaymentIntent({
+          eventId: event.id,
+          eventType: event.type,
+          paymentIntentId: object.id,
+          studentId,
+          attendanceDayId,
+          failureCode: object.last_payment_error?.code || null,
+          failureMessage: object.last_payment_error?.message || null,
+        });
       }
-      effect = await store.processStripePaymentIntent({
-        eventId: event.id,
-        eventType: event.type,
-        paymentIntentId: object.id,
-        studentId,
-        attendanceDayId,
-        failureCode: object.last_payment_error?.code || null,
-        failureMessage: object.last_payment_error?.message || null,
-      });
     } else if ([
       'invoice.finalized', 'invoice.sent', 'invoice.paid', 'invoice.payment_failed',
       'invoice.overdue', 'invoice.voided', 'invoice.finalization_failed',
@@ -227,20 +237,25 @@ export function createMissionAccountsServer({
       const internalInvoiceId = String(object.metadata?.missionaccounts_invoice_id || '');
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(internalInvoiceId)
         || !/^in_[A-Za-z0-9_]+$/.test(String(object.id || ''))) {
-        throw requestError('Stripe Invoice metadata binding is invalid');
+        effect = await store.markProviderEventUnhandled({
+          provider: 'stripe',
+          eventId: event.id,
+          reason: 'Invoice is not owned by MissionAccounts',
+        });
+      } else {
+        effect = await store.processStripeInvoiceEvent({
+          eventId: event.id,
+          eventType: event.type,
+          providerInvoiceId: object.id,
+          internalInvoiceId,
+          providerStatus: String(object.status || ''),
+          hostedInvoiceUrl: object.hosted_invoice_url || null,
+          invoicePdf: object.invoice_pdf || null,
+          dueAt: Number.isInteger(object.due_date) ? new Date(object.due_date * 1_000).toISOString() : null,
+          amountDue: Number(object.amount_due),
+          amountPaid: Number(object.amount_paid),
+        });
       }
-      effect = await store.processStripeInvoiceEvent({
-        eventId: event.id,
-        eventType: event.type,
-        providerInvoiceId: object.id,
-        internalInvoiceId,
-        providerStatus: String(object.status || ''),
-        hostedInvoiceUrl: object.hosted_invoice_url || null,
-        invoicePdf: object.invoice_pdf || null,
-        dueAt: Number.isInteger(object.due_date) ? new Date(object.due_date * 1_000).toISOString() : null,
-        amountDue: Number(object.amount_due),
-        amountPaid: Number(object.amount_paid),
-      });
     } else if (result.status === 'received') {
       effect = await store.markProviderEventUnhandled({
         provider: 'stripe',

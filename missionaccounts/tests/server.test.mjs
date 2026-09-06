@@ -64,6 +64,35 @@ test('Stripe webhook verifies the untouched body and stores a retry only once', 
   });
 });
 
+test('signed Stripe events from other account integrations are ignored without reaching MissionAccounts billing state', async () => {
+  const secret = 'whsec_shared_account_test';
+  const timestamp = Math.floor(Date.now() / 1000);
+  const store = new PreviewStore();
+  const gateway = new StripeGateway({ webhookSecret: secret });
+  gateway.retrievePaymentMethod = async () => assert.fail('an unowned SetupIntent must not retrieve payment details');
+  const events = [
+    { id: 'evt_unowned_setup', type: 'setup_intent.succeeded', data: { object: { id: 'seti_other', metadata: {} } } },
+    { id: 'evt_unowned_payment', type: 'payment_intent.succeeded', data: { object: { id: 'pi_other', metadata: {} } } },
+    { id: 'evt_unowned_invoice', type: 'invoice.finalized', data: { object: { id: 'in_other', metadata: {} } } },
+  ];
+
+  await withServer({ config: webhookConfig, store, stripeGateway: gateway }, async base => {
+    for (const event of events) {
+      const body = JSON.stringify(event);
+      const headers = { 'content-type': 'application/json', 'stripe-signature': stripeSignature(body, secret, timestamp) };
+      const first = await fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers, body });
+      assert.equal(first.status, 200);
+      assert.deepEqual(await first.json(), { received: true, duplicate: false });
+      assert.equal(store.providerEvents.get(`stripe:${event.id}`).state, 'ignored');
+
+      const retry = await fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers, body });
+      assert.equal(retry.status, 200);
+      assert.deepEqual(await retry.json(), { received: true, duplicate: true });
+    }
+    assert.equal(store.integrationExceptions.size, 3);
+  });
+});
+
 test('identity-cluster adjudication is admin-only, feature-gated, and idempotent', async () => {
   const store = new PreviewStore();
   const canonicalStudentId = '00000000-0000-4000-8000-000000000001';
