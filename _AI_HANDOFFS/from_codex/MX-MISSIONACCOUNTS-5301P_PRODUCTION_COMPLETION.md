@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Implementation commit:** `9d580e3f0d22068355ed86f2bd66a4610e8cea46`
+**Implementation commits:** `9d580e3f0d22068355ed86f2bd66a4610e8cea46`, `44de639b12f9d00707c8e43a8a62015941a0140e`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -15,7 +15,7 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - server-authoritative billing-day, source-normalization, exam/grace/reminder, stale-approval, and charge-eligibility engines;
 - additive PostgreSQL schema candidate with immutable source custody, versioned interpretations, append-only corrections/audit, RLS, sanitized payment metadata, Stripe event inbox, notification outbox, feature flags, and Zoom sync boundary;
 - Matrix RS256/JWKS authentication boundary with audience, issuer, expiry, and trusted `app_metadata.roles` enforcement;
-- Stripe Test-Mode-only SetupIntent and one-day PaymentIntent adapters, webhook signature verification, and stable idempotency keys;
+- Stripe Test-Mode-only SetupIntent and one-day PaymentIntent adapters, exact raw-body webhook verification, retry-safe provider-inbox deduplication, secret-rotation signature support, and stable idempotency keys;
 - local HTTP application route and health/session/admin boundaries;
 - all 17 ticket-mandated vectors represented in the automated suite.
 
@@ -51,6 +51,7 @@ All implementation files are under `missionaccounts/`:
 - `scripts/validate-source.mjs`
 - `public/missionaccounts-runtime.js`
 - `src/server.mjs`
+- `src/http/body.mjs`
 - `src/security/auth.mjs`
 - `src/storage/supabase-rest.mjs`
 - `src/payments/stripe.mjs`
@@ -64,6 +65,7 @@ All implementation files are under `missionaccounts/`:
 - `tests/exam-engine.test.mjs`
 - `tests/mandatory-vectors.test.mjs`
 - `tests/stripe.test.mjs`
+- `tests/server.test.mjs`
 - `evidence/source-validation.json`
 
 ## Migration status
@@ -75,7 +77,7 @@ All implementation files are under `missionaccounts/`:
 
 ## Verification
 
-- `npm test`: PASS — 34/34, including V01–V17.
+- `npm test`: PASS — 39/39, including V01–V17 plus raw-body webhook, rotated-signature, duplicate-delivery, API-version, and HTTP authorization coverage.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
 - `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
 - Node syntax checks across source/scripts/public/tests: PASS.
@@ -97,7 +99,7 @@ None. No Railway project/service, PostgreSQL database, Supabase project, Kinsta/
 
 ## Environment/config changes
 
-None outside the isolated worktree. Local preview used `PORT=4179` and `MISSIONACCOUNTS_AUTH_MODE=local`; local auth fails closed under `NODE_ENV=production`.
+None outside the isolated worktree. Local preview used `PORT=4179` and `MISSIONACCOUNTS_AUTH_MODE=local`; local auth fails closed under `NODE_ENV=production`. Stripe requests now use the account-default API version unless a provider-verified value is explicitly supplied through `MISSIONACCOUNTS_STRIPE_API_VERSION`; no fabricated future version is sent.
 
 ## Matrix route registration and production URL
 
