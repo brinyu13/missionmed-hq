@@ -35,8 +35,9 @@ function appliesToDay(window, day) {
 function interpretedEvents(events, corrections) {
   const eventState = new Map();
   const stepOverride = new Map();
+  const revertedIds = new Set(corrections.map(item => item.reverts_id).filter(Boolean));
   const ordered = [...corrections]
-    .filter(item => !item.reverted_by_id)
+    .filter(item => !item.reverted_by_id && !revertedIds.has(item.id))
     .sort((a, b) => String(a.created_at || a.at || '').localeCompare(String(b.created_at || b.at || '')) || String(a.id || '').localeCompare(String(b.id || '')));
   for (const correction of ordered) {
     if (!correction.attendance_event_id) continue;

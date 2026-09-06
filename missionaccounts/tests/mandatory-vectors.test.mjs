@@ -187,8 +187,21 @@ test('attendance correction RPC preserves source rows and stales approved billin
   assert.match(sql, /'Attendance correction appended without changing source evidence'/);
   assert.match(sql, /update missionaccounts\.billing_decision[\s\S]+set state = 'stale'/);
   assert.match(sql, /update missionaccounts\.invoice inv[\s\S]+set state = 'void'/);
+  assert.match(sql, /recomputed := missionaccounts\.recompute_student_attendance\([\s\S]+:attendance-correction/);
+  assert.match(sql, /where reversing\.reverts_id = attendance_correction\.id/);
   assert.match(sql, /grant execute on function missionaccounts\.api_append_attendance_correction[^;]+to service_role/s);
   assert.doesNotMatch(sql, /delete from missionaccounts\.attendance_source_row/i);
+});
+
+test('persisted attendance is recomputed before billing can be reapproved', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.recompute_student_attendance/);
+  assert.match(sql, /update missionaccounts\.attendance_day[\s\S]+set superseded_at = now\(\)/);
+  assert.match(sql, /insert into missionaccounts\.attendance_day\(/);
+  assert.match(sql, /recomputed := missionaccounts\.recompute_student_attendance\([\s\S]+:comp-allowance/);
+  assert.match(sql, /recomputed := missionaccounts\.recompute_student_attendance\([\s\S]+:exam-transition/);
+  assert.match(sql, /grant execute on function missionaccounts\.recompute_student_attendance[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.recompute_student_attendance[^;]+to authenticated/s);
 });
 
 test('billing consent is versioned, server-authoritative, separately revocable, and exposes no Stripe references', async () => {

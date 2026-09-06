@@ -508,6 +508,194 @@ create table missionaccounts.notification_outbox (
   created_at timestamptz not null default now()
 );
 
+create function missionaccounts.recompute_student_attendance(
+  p_student_id uuid,
+  p_trigger text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, extensions, missionaccounts
+as $$
+declare
+  student_row missionaccounts.student%rowtype;
+  run_id uuid := gen_random_uuid();
+  new_day_id uuid;
+  day_record record;
+  source_digest text;
+  day_kind text;
+  day_comp_index integer;
+  active_comp_count integer := 0;
+  created_days integer := 0;
+  review_days integer := 0;
+  billable_days integer := 0;
+  comped_days integer := 0;
+  grace_days integer := 0;
+  stale_decisions integer := 0;
+begin
+  if p_student_id is null or nullif(btrim(p_trigger), '') is null then
+    raise exception using errcode = '22023', message = 'attendance_recompute_student_and_trigger_required';
+  end if;
+  perform pg_advisory_xact_lock(hashtextextended('missionaccounts:attendance:' || p_student_id::text, 0));
+  select * into student_row from missionaccounts.student where id = p_student_id for update;
+  if not found then raise exception using errcode = '23503', message = 'student_not_found'; end if;
+
+  select encode(digest(
+    p_student_id::text || '|' || p_trigger || '|' || student_row.identity_state || '|' || student_row.comp_days_allowance::text || '|' ||
+    coalesce((select string_agg(ae.id::text || ':' || ae.interpretation_state, ',' order by ae.id) from missionaccounts.attendance_event ae where ae.student_id = p_student_id and ae.superseded_by_id is null), '') || '|' ||
+    coalesce((select string_agg(ac.id::text || ':' || ac.type || ':' || coalesce(ac.reverts_id::text, '') || ':' || coalesce(ac.reverted_by_id::text, ''), ',' order by ac.created_at, ac.id) from missionaccounts.attendance_correction ac where ac.student_id = p_student_id), '') || '|' ||
+    coalesce((select string_agg(gw.id::text || ':' || gw.from_on::text || ':' || coalesce(gw.to_on::text, ''), ',' order by gw.from_on, gw.id) from missionaccounts.grace_window gw where gw.student_id = p_student_id), ''),
+    'sha256'
+  ), 'hex') into source_digest;
+
+  insert into missionaccounts.engine_run(id, engine_version, source_digest, state, controls)
+  values (run_id, 'missionaccounts-billing-v1', source_digest, 'running', jsonb_build_object('trigger', p_trigger, 'student_id', p_student_id));
+
+  update missionaccounts.attendance_day
+  set superseded_at = now()
+  where student_id = p_student_id and superseded_at is null;
+
+  select count(*)::integer into active_comp_count
+  from missionaccounts.comp_day_consumption
+  where student_id = p_student_id and released_by_change_id is null;
+
+  for day_record in
+    with latest_effect as (
+      select distinct on (attendance_event_id)
+        attendance_event_id,
+        type
+      from missionaccounts.attendance_correction
+      where student_id = p_student_id
+        and attendance_event_id is not null
+        and type in ('add','remove')
+        and reverted_by_id is null
+        and not exists (
+          select 1 from missionaccounts.attendance_correction reversing
+          where reversing.reverts_id = attendance_correction.id
+        )
+      order by attendance_event_id, created_at desc, id desc
+    ), interpreted as (
+      select
+        ae.id,
+        ae.cycle_key,
+        ae.local_day,
+        ae.interpretation_state
+      from missionaccounts.attendance_event ae
+      join missionaccounts.session s on s.id = ae.session_id
+      left join latest_effect le on le.attendance_event_id = ae.id
+      where ae.student_id = p_student_id
+        and ae.superseded_by_id is null
+        and s.superseded_by_id is null
+        and s.state = 'confirmed'
+        and le.type is distinct from 'remove'
+        and ae.interpretation_state in ('effective','needs_review')
+    )
+    select
+      local_day as day,
+      min(cycle_key) as cycle_key,
+      count(distinct cycle_key) as cycle_count,
+      bool_or(interpretation_state = 'needs_review') as event_needs_review,
+      array_agg(id order by id) as event_ids
+    from interpreted
+    group by local_day
+    order by local_day
+  loop
+    if day_record.cycle_count <> 1 then
+      raise exception using errcode = '22023', message = 'attendance_day_crosses_cycle_boundary';
+    end if;
+    day_kind := 'billable';
+    day_comp_index := null;
+    if student_row.identity_state <> 'verified' or day_record.event_needs_review then
+      day_kind := 'needs_review';
+    else
+      select comp_index into day_comp_index
+      from missionaccounts.comp_day_consumption
+      where student_id = p_student_id and day = day_record.day and released_by_change_id is null;
+      if found then
+        day_kind := 'comped';
+      elsif exists (
+        select 1 from missionaccounts.grace_window
+        where student_id = p_student_id
+          and day_record.day > from_on
+          and (to_on is null or day_record.day <= to_on)
+      ) then
+        day_kind := 'grace';
+      elsif active_comp_count < student_row.comp_days_allowance then
+        active_comp_count := active_comp_count + 1;
+        day_comp_index := active_comp_count;
+        day_kind := 'comped';
+        insert into missionaccounts.comp_day_consumption(student_id, day, comp_index, source_change_id)
+        values (
+          p_student_id,
+          day_record.day,
+          day_comp_index,
+          (select id from missionaccounts.comp_allowance_change where student_id = p_student_id order by created_at desc, id desc limit 1)
+        ) on conflict (student_id, day) do update
+          set comp_index = excluded.comp_index,
+              source_change_id = excluded.source_change_id,
+              released_by_change_id = null;
+      end if;
+    end if;
+
+    insert into missionaccounts.attendance_day(
+      engine_run_id, student_id, cycle_key, day, kind, comp_index,
+      same_day_multiple_events, engine_version, source_digest
+    ) values (
+      run_id, p_student_id, day_record.cycle_key, day_record.day, day_kind, day_comp_index,
+      cardinality(day_record.event_ids) > 1, 'missionaccounts-billing-v1', source_digest
+    ) returning id into new_day_id;
+    insert into missionaccounts.attendance_day_event(attendance_day_id, attendance_event_id)
+    select new_day_id, event_id
+    from unnest(day_record.event_ids) as event_id;
+
+    created_days := created_days + 1;
+    if day_kind = 'needs_review' then review_days := review_days + 1;
+    elsif day_kind = 'billable' then billable_days := billable_days + 1;
+    elsif day_kind = 'comped' then comped_days := comped_days + 1;
+    elsif day_kind = 'grace' then grace_days := grace_days + 1;
+    end if;
+  end loop;
+
+  update missionaccounts.billing_decision
+  set state = 'stale'
+  where student_id = p_student_id and superseded_by_id is null and state = 'approved';
+  get diagnostics stale_decisions = row_count;
+  update missionaccounts.invoice inv
+  set state = 'void'
+  where inv.student_id = p_student_id
+    and inv.state in ('draft','ready')
+    and exists (select 1 from missionaccounts.billing_decision bd where bd.id = inv.decision_id and bd.state = 'stale');
+
+  update missionaccounts.engine_run
+  set state = 'succeeded',
+      controls = jsonb_build_object(
+        'trigger', p_trigger,
+        'student_id', p_student_id,
+        'days', created_days,
+        'billable', billable_days,
+        'comped', comped_days,
+        'grace', grace_days,
+        'needs_review', review_days,
+        'stale_decisions', stale_decisions
+      ),
+      finished_at = now()
+  where id = run_id;
+
+  return jsonb_build_object(
+    'engine_run_id', run_id,
+    'days', created_days,
+    'billable', billable_days,
+    'comped', comped_days,
+    'grace', grace_days,
+    'needs_review', review_days,
+    'stale_decisions', stale_decisions
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.recompute_student_attendance(uuid, text) from public, anon, authenticated;
+grant execute on function missionaccounts.recompute_student_attendance(uuid, text) to service_role;
+
 create function missionaccounts.api_submit_exam_plan(
   p_student_id uuid,
   p_step text,
@@ -641,6 +829,7 @@ declare
   change_id uuid;
   audit_id uuid;
   released_days integer := 0;
+  recomputed jsonb;
 begin
   if p_allowance is null or p_allowance < 0 or p_allowance > 365 then
     raise exception using errcode = '22023', message = 'invalid_comp_allowance';
@@ -710,6 +899,11 @@ begin
   where id = p_student_id
   returning * into updated_student;
 
+  recomputed := missionaccounts.recompute_student_attendance(
+    p_student_id,
+    p_request_id || ':comp-allowance'
+  );
+
   insert into missionaccounts.audit_event(
     actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
   ) values (
@@ -719,7 +913,13 @@ begin
     'comp_allowance.changed',
     'Comp-day allowance changed',
     jsonb_build_object('allowance', current_student.comp_days_allowance, 'joined_on', current_student.joined_at),
-    jsonb_build_object('allowance', p_allowance, 'joined_on', updated_student.joined_at, 'apply_retroactively', p_apply_retroactively, 'released_days', released_days),
+    jsonb_build_object(
+      'allowance', p_allowance,
+      'joined_on', updated_student.joined_at,
+      'apply_retroactively', p_apply_retroactively,
+      'released_days', released_days,
+      'attendance_recompute', recomputed
+    ),
     p_reason,
     p_request_id
   ) returning id into audit_id;
@@ -729,6 +929,7 @@ begin
     'change_id', change_id,
     'audit_event_id', audit_id,
     'released_days', released_days,
+    'attendance_recompute', recomputed,
     'duplicate', false
   );
 end;
@@ -760,6 +961,7 @@ declare
   transition_allowed boolean := false;
   first_wednesday_offset integer;
   reminder_due date;
+  recomputed jsonb;
 begin
   if p_to_state is null
      or p_to_state not in ('pending','approved','speak','denied','followup','passed')
@@ -899,13 +1101,23 @@ begin
   where id = current_plan.id
   returning * into current_plan;
 
+  recomputed := missionaccounts.recompute_student_attendance(
+    current_plan.student_id,
+    p_request_id || ':exam-transition'
+  );
+
   insert into missionaccounts.audit_event(
     actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
   ) values (
     p_actor_id, p_actor_role, current_plan.student_id, 'exam_plan.transition',
     'Exam plan state changed',
     jsonb_build_object('state', (select from_state from missionaccounts.exam_transition where id = transition_id)),
-    jsonb_build_object('state', p_to_state, 'result', p_result, 'today', p_today),
+    jsonb_build_object(
+      'state', p_to_state,
+      'result', p_result,
+      'today', p_today,
+      'attendance_recompute', recomputed
+    ),
     p_note, p_request_id
   ) returning id into audit_id;
 
@@ -926,6 +1138,7 @@ begin
     'transition_id', transition_id,
     'audit_event_id', audit_id,
     'reminder_due', reminder_due,
+    'attendance_recompute', recomputed,
     'duplicate', false
   );
 end;
@@ -1210,6 +1423,7 @@ declare
   latest_effect text;
   audit_id uuid;
   stale_decisions integer := 0;
+  recomputed jsonb;
 begin
   if p_type is null or p_type not in ('add','remove','step_relabel','name','note')
      or nullif(btrim(p_reason), '') is null
@@ -1285,7 +1499,13 @@ begin
     else
       select type into latest_effect
       from missionaccounts.attendance_correction
-      where attendance_event_id = event_row.id and type in ('add','remove')
+      where attendance_event_id = event_row.id
+        and type in ('add','remove')
+        and reverted_by_id is null
+        and not exists (
+          select 1 from missionaccounts.attendance_correction reversing
+          where reversing.reverts_id = attendance_correction.id
+        )
       order by created_at desc, id desc limit 1;
       if latest_effect is distinct from 'remove' then
         raise exception using errcode = '23505', message = 'attendance_already_effective';
@@ -1298,7 +1518,13 @@ begin
   if p_type = 'remove' then
     select type into latest_effect
     from missionaccounts.attendance_correction
-    where attendance_event_id = event_row.id and type in ('add','remove')
+    where attendance_event_id = event_row.id
+      and type in ('add','remove')
+      and reverted_by_id is null
+      and not exists (
+        select 1 from missionaccounts.attendance_correction reversing
+        where reversing.reverts_id = attendance_correction.id
+      )
     order by created_at desc, id desc limit 1;
     if latest_effect = 'remove' then
       raise exception using errcode = '23505', message = 'attendance_already_removed';
@@ -1308,11 +1534,20 @@ begin
      and coalesce(p_to_val->>'step', '') not in ('s1','s23','unknown') then
     raise exception using errcode = '22023', message = 'invalid_step_relabel';
   end if;
-  if p_reverts_id is not null and not exists (
-    select 1 from missionaccounts.attendance_correction
+  if p_reverts_id is not null then
+    perform 1
+    from missionaccounts.attendance_correction
     where id = p_reverts_id and student_id = p_student_id
-  ) then
-    raise exception using errcode = '23503', message = 'reverted_correction_not_found';
+    for update;
+    if not found then
+      raise exception using errcode = '23503', message = 'reverted_correction_not_found';
+    end if;
+    if exists (
+      select 1 from missionaccounts.attendance_correction
+      where reverts_id = p_reverts_id
+    ) then
+      raise exception using errcode = '23505', message = 'correction_already_reverted';
+    end if;
   end if;
 
   insert into missionaccounts.attendance_correction(
@@ -1324,22 +1559,11 @@ begin
   ) returning * into correction_row;
 
   if p_type in ('add','remove','step_relabel') then
-    update missionaccounts.billing_decision
-    set state = 'stale'
-    where student_id = p_student_id
-      and cycle_key = session_row.cycle_key
-      and superseded_by_id is null
-      and state = 'approved';
-    get diagnostics stale_decisions = row_count;
-    update missionaccounts.invoice inv
-    set state = 'void'
-    where inv.student_id = p_student_id
-      and inv.cycle_key = session_row.cycle_key
-      and inv.state in ('draft','ready')
-      and exists (
-        select 1 from missionaccounts.billing_decision bd
-        where bd.id = inv.decision_id and bd.state = 'stale'
-      );
+    recomputed := missionaccounts.recompute_student_attendance(
+      p_student_id,
+      p_request_id || ':attendance-correction'
+    );
+    stale_decisions := coalesce((recomputed->>'stale_decisions')::integer, 0);
   end if;
 
   insert into missionaccounts.audit_event(
@@ -1348,7 +1572,11 @@ begin
     p_actor_id, p_actor_role, p_student_id, 'attendance_correction.appended',
     'Attendance correction appended without changing source evidence',
     p_from_val,
-    jsonb_build_object('correction', to_jsonb(correction_row), 'stale_decisions', stale_decisions),
+    jsonb_build_object(
+      'correction', to_jsonb(correction_row),
+      'stale_decisions', stale_decisions,
+      'attendance_recompute', recomputed
+    ),
     p_reason,
     p_request_id
   ) returning id into audit_id;
@@ -1358,6 +1586,7 @@ begin
     'correction', to_jsonb(correction_row),
     'attendance_event_id', event_row.id,
     'stale_decisions', stale_decisions,
+    'attendance_recompute', recomputed,
     'audit_event_id', audit_id,
     'duplicate', false
   );

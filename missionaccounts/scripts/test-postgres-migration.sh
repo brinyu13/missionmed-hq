@@ -165,17 +165,29 @@ select missionaccounts.api_append_attendance_correction(
   'remove', jsonb_build_object('present', true), jsonb_build_object('present', false), 'Correction reversed', null,
   'wp:admin', 'missionaccounts_admin', 'pg-correction-0002'
 )->>'accepted';
+select count(*) from missionaccounts.attendance_day
+where student_id = '$student_id' and superseded_at is null;
+select missionaccounts.api_append_attendance_correction(
+  '$student_id',
+  (select id from missionaccounts.session where provider_instance_id = 'integration-instance'),
+  (select id from missionaccounts.attendance_event where student_id = '$student_id' and session_id = (select id from missionaccounts.session where provider_instance_id = 'integration-instance')),
+  'add', jsonb_build_object('present', false), jsonb_build_object('present', true), 'Correction restored',
+  (select id from missionaccounts.attendance_correction where request_id = 'pg-correction-0002'),
+  'wp:admin', 'missionaccounts_admin', 'pg-correction-0003'
+)->>'accepted';
 reset role;
 select count(*) || '|' ||
   (select count(*) from missionaccounts.attendance_event) || '|' ||
   (select count(*) from missionaccounts.audit_event where kind = 'attendance_correction.appended') || '|' ||
+  (select count(*) from missionaccounts.attendance_day where student_id = '$student_id' and superseded_at is null) || '|' ||
+  (select exists(select 1 from missionaccounts.attendance_correction where reverts_id = (select id from missionaccounts.attendance_correction where request_id = 'pg-correction-0002'))::text) || '|' ||
   (select state from missionaccounts.billing_decision where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_by_id is null) || '|' ||
   (select state from missionaccounts.invoice where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by created_at desc limit 1)
 from missionaccounts.attendance_correction;
 SQL
 )
 
-correction_expected=$'1\ntrue\ntrue\n2|1|2|stale|void'
+correction_expected=$'1\ntrue\ntrue\n0\ntrue\n3|1|3|1|true|stale|void'
 if [[ "$correction_results" != "$correction_expected" ]]; then
   echo "MissionAccounts attendance-correction verification returned unexpected controls:" >&2
   echo "$correction_results" >&2
@@ -292,6 +304,12 @@ fi
 
 charge_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 set role service_role;
+select missionaccounts.api_set_comp_allowance(
+  '$student_id',0,'2026-09-08','Retroactive integration correction',true,
+  'wp:admin','missionaccounts_admin','pg-comp-zero-0001'
+)->>'duplicate';
+select kind from missionaccounts.attendance_day
+where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null;
 select missionaccounts.api_approve_billing_decision(
   '$student_id','2026-cycle-1','confirm',null,'Re-approved after verified correction',
   'wp:admin','missionaccounts_admin','pg-billing-0003'
@@ -301,15 +319,15 @@ select missionaccounts.api_set_billing_consent(
   'wp:4242','student','pg-consent-0007'
 )->>'accepted';
 select missionaccounts.api_prepare_day_charge(
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
   'wp:admin','missionaccounts_admin','pg-charge-0001',false
 )->>'accepted';
 select missionaccounts.api_prepare_day_charge(
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
   'wp:admin','missionaccounts_admin','pg-charge-0001',false
 )->>'duplicate';
 select missionaccounts.api_prepare_day_charge(
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
   'wp:admin','missionaccounts_admin','pg-charge-0002',false
 )->>'reason';
 reset role;
@@ -324,7 +342,7 @@ insert into missionaccounts.provider_event_inbox(
       'id', 'pi_test_integration',
       'metadata', jsonb_build_object(
         'student_id', '$student_id',
-        'attendance_day_id', (select id::text from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1)
+        'attendance_day_id', (select id::text from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1)
       )
     ))
   ),
@@ -333,16 +351,16 @@ insert into missionaccounts.provider_event_inbox(
 set role service_role;
 select missionaccounts.api_process_stripe_payment_intent(
   'evt_charge_integration','payment_intent.succeeded','pi_test_integration','$student_id',
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
   null,null
 )->>'duplicate';
 select missionaccounts.api_process_stripe_payment_intent(
   'evt_charge_integration','payment_intent.succeeded','pi_test_integration','$student_id',
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
   null,null
 )->>'duplicate';
 select missionaccounts.api_prepare_day_charge(
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' order by day limit 1),
+  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
   'wp:admin','missionaccounts_admin','pg-charge-0003',false
 )->>'reason';
 reset role;
@@ -356,7 +374,7 @@ from missionaccounts.charge;
 SQL
 )
 
-charge_expected=$'true\ntrue\ntrue\ntrue\ncharge_already_pending\nfalse\ntrue\ncharge_already_succeeded\n1|1|succeeded|1|1|1'
+charge_expected=$'false\nbillable\ntrue\ntrue\ntrue\ntrue\ncharge_already_pending\nfalse\ntrue\ncharge_already_succeeded\n1|1|succeeded|1|1|1'
 if [[ "$charge_results" != "$charge_expected" ]]; then
   echo "MissionAccounts automatic day-charge verification returned unexpected controls:" >&2
   echo "$charge_results" >&2
