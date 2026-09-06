@@ -1,6 +1,66 @@
 # J1-FILEVAULT-1019 Complete Combined Handoff
 
-## Terminal Status
+## Current Checkpoint: 2026-09-06
+
+**RESULT: DEPLOYED; FINAL MULTI-STUDENT ACCEPTANCE PENDING.** This checkpoint supersedes the September 2 status and performance assertions below. The older evidence is retained as dated history, not fresh verification.
+
+**Production deployment: YES. Full AAA certification: NO.** No Founder upload or publish action is required for the code release. Existing staff publication and one-student acceptance evidence are recorded below. A fresh two-student recipient/nonrecipient production witness remains required; this run exposed only an authenticated administrator browser, so it did not substitute an admin Student View for genuine student authentication.
+
+**Progress:** All currently implemented 1019 source changes are deployed. The earlier 97% estimate was a planning estimate, not a measured completion score. A new live performance defect was found and repaired in this checkpoint, demonstrating why final acceptance must not be inferred from a percentage. Allow approximately 30-60 minutes for the remaining bounded witness once two genuine enrolled non-admin sessions are available, plus repair time if it finds a defect. This is not an unconditional launch ETA.
+
+### Current Source and Deployment
+
+- Canonical worktree and branch remain the paths listed below.
+- Product source commit: `3daf8743a4feca0c38c0aed8e0d7b2e4338ef39f`, pushed and remote-exact.
+- Previous handoff commit: `98b956741d90609e876abe22d7d3fcced1fac760`.
+- Changed source: `wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2-repository.php`.
+- Changed tests: `tests/file-vault-v2-repository-contract.php`.
+- Production repository PHP SHA-256: `c5c59a8575ac46b0fb72da238bf30e3ec1a0093f03cce31a26c47fdbef5891e6`.
+- Readable rollback file: `/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/J1-FILEVAULT-1019/20260906T153700Z-audience-3daf874/repository.preimage.php`.
+- Rollback SHA-256: `e7962416e998820f75be272264edf0715de079237ded7b9de0a34deb99d787dd`.
+- Exact guarded apply, rollback, and reapply completed; remote PHP lint passed. Original ownership and permissions were preserved by atomic replacement.
+- Independent read-only reviewer confirmed both live/source equality and the exact readable rollback hash.
+- Controller, JavaScript, CSS, and scanner remained unchanged and hash-guarded. No schema, enrollment, role, storage exposure, rollout-option, or cache-rule mutation occurred.
+
+### Performance Repair and Fresh Live Evidence
+
+The live audience request took 63.904 seconds before repair. The repository now avoids constructing the full Matrix access payload for ordinary eligibility checks, bulk-primes candidate users, and uses one bounded forward scan for peer/group discovery. It preserves server-authoritative enrollment checks, mentor restrictions, represented-group semantics, fallback denial, and existing roster scan limits.
+
+| September 6 measured gate | Result |
+|---|---:|
+| Audience request before repair | 63.904 s |
+| First audience request after apply | 6.715 s |
+| Repeat audience request after final reapply | 6.340 s |
+| Admin SPA re-entry: visible shell | 1.334 s |
+| Admin SPA re-entry: first student row | 2.551 s |
+| Re-entry bootstrap request | 1.292 s |
+| Re-entry first directory request | 1.184 s |
+| Directory rows / File Vault roots | 50 / 1 |
+
+These are main-agent live production measurements, not independent browser acceptance. SPA re-entry is not a cold browser navigation. The audience selector populated the represented programs, but approximately six seconds is still a noticeable wait; do not describe it as instantaneous or use this timing alone to certify AAA. Existing 2,500-candidate scan bounds remain a capacity limitation, not proof of arbitrary full-roster coverage.
+
+Production mode readback was `on`. Anonymous bootstrap remained HTTP 401 and the public `/student-files/` CDN prefix remained HTTP 403. No fresh student-session, cross-owner, or sibling interactive acceptance is claimed by this checkpoint.
+
+### Verification and Writer Custody
+
+- Repository workflow checks: 153 PASS.
+- PHP/API checks: 102 PASS.
+- V1 compatibility lock: 41 PASS.
+- Browser/responsive/accessibility checks: 594 PASS.
+- Total: 890 PASS. Browser suite ran before the final two backend-only edge-case corrections; the final 153 repository checks were independently rerun.
+- Independent scoped hostile source review: APPROVE, no P0/P1/P2 findings. This does not constitute independent AAA live-browser approval.
+- Source PATH epoch 1340: keeper exit 0, released normally after 204 heartbeats; provider `released=true`, `expired=true`, `active=false`.
+- Deployment PATH epoch 1341: keeper exit 0, released normally after 42 heartbeats; provider `released=true`, `expired=true`, `active=false`.
+- No GLOBAL lease was requested. Other tasks may proceed through normal conflict-aware Lease V2 acquisition; no exclusivity is reserved for File Vault.
+
+### Exact Remaining Work
+
+1. Make two genuine enrolled non-admin browser sessions available; do not create, impersonate, enroll, or elevate accounts to manufacture acceptance.
+2. Execute the bounded harmless student-share recipient/nonrecipient witness described below, including authorized preview/download, unauthorized denial, and staff disable. Recheck the current student's entry performance with the new repository.
+3. Investigate and repair any concrete failure under the narrowest approved authority, then rerun affected regression and guarded deployment if needed.
+4. Close independent acceptance evidence and confirm no active File Vault lease. Only then consider the final AAA certification label.
+
+## Historical September 2 Terminal Status
 
 **RESULT:** J1-FILEVAULT-1019 BLOCKED BY ONE IRREDUCIBLE HUMAN ACTION
 
@@ -227,4 +287,3 @@ If any check fails, diagnose the narrow defect, repair under the smallest inters
 - No broad all-student canary was published.
 - No production database schema mutation was required for the final 1019 repair.
 - No current product source or deployment lease should remain after handoff closure.
-
