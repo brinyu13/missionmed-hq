@@ -21,3 +21,7 @@ export function parseJsonBody(rawBody) {
     throw Object.assign(new Error('Request body must be valid JSON'), { status: 400 });
   }
 }
+
+export async function readJsonBody(request, options) {
+  return parseJsonBody(await readRawBody(request, options));
+}

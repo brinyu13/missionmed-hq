@@ -11,6 +11,7 @@
     "validate:source": "node scripts/validate-source.mjs",
     "dev": "node src/server.mjs",
     "start": "NODE_ENV=production node src/server.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:postgres": "bash scripts/test-postgres-migration.sh"
   }
 }

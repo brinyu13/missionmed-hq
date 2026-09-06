@@ -123,7 +123,9 @@ test('V15 duplicate workers and webhook retries produce one charge and receipt',
 test('V16 RLS migration forces row isolation and exposes no provider references', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
   assert.match(sql, /force row level security/);
-  assert.match(sql, /matrix_user_ref = \(select auth\.uid\(\)\)/);
+  assert.match(sql, /matrix_user_ref = \(select auth\.uid\(\)\)::text/);
+  assert.match(sql, /matrix_user_ref text unique/);
+  assert.match(sql, /actor_id text/);
   assert.match(sql, /grant select \(id, student_id, brand, last4, exp_month, exp_year, status, verified_at, updated_at\)/);
   assert.doesNotMatch(sql, /grant select \([^;]*provider_pm_ref/i);
 });
@@ -133,6 +135,16 @@ test('V17 correction path is append-only and source rows are immutable', async (
   assert.match(sql, /attendance_source_row_immutable/);
   assert.match(sql, /attendance_correction_immutable/);
   assert.match(sql, /immutable MissionAccounts evidence cannot be updated or deleted/);
+});
+
+test('exam-plan RPC is transactional, idempotent, audited, and queues a notification', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.api_submit_exam_plan/);
+  assert.match(sql, /where et\.request_id = p_request_id/);
+  assert.match(sql, /'exam_plan\.submitted'/);
+  assert.match(sql, /insert into missionaccounts\.notification_outbox/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_submit_exam_plan[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_submit_exam_plan[^;]+to authenticated/s);
 });
 
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {

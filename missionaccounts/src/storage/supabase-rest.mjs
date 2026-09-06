@@ -25,6 +25,10 @@ export class SupabaseRestStore {
     return result;
   }
 
+  async rpc(name, body) {
+    return this.request(`rpc/${name}`, { method: 'POST', body });
+  }
+
   async studentByMatrixUser(userId) {
     const rows = await this.request(`student?matrix_user_ref=eq.${encodeURIComponent(userId)}&select=id,matrix_user_ref,display_name,email,joined_at,comp_days_allowance,identity_state&limit=1`);
     return rows[0] || null;
@@ -42,6 +46,17 @@ export class SupabaseRestStore {
   async paymentMethodForStudent(studentId) {
     const rows = await this.request(`payment_method?student_id=eq.${encodeURIComponent(studentId)}&select=id,brand,last4,exp_month,exp_year,status,verified_at&limit=1`);
     return rows[0] || null;
+  }
+
+  async submitExamPlan({ studentId, step, examOn, actorId, actorRole, requestId }) {
+    return this.rpc('api_submit_exam_plan', {
+      p_student_id: studentId,
+      p_step: step,
+      p_exam_on: examOn,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
   }
 
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
@@ -75,6 +90,8 @@ export class SupabaseRestStore {
 export class PreviewStore {
   constructor() {
     this.providerEvents = new Set();
+    this.examPlans = new Map();
+    this.examMutations = new Map();
   }
 
   async studentByMatrixUser(userId) {
@@ -83,6 +100,28 @@ export class PreviewStore {
   async attendanceForStudent() { return []; }
   async billingForStudent() { return []; }
   async paymentMethodForStudent() { return null; }
+  async submitExamPlan({ studentId, step, examOn, actorId, requestId }) {
+    const fingerprint = JSON.stringify({ studentId, step, examOn, actorId });
+    const existing = this.examMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    const prior = this.examPlans.get(studentId) || null;
+    const plan = {
+      id: `preview-plan-${this.examMutations.size + 1}`,
+      student_id: studentId,
+      step,
+      exam_on: examOn,
+      state: 'pending',
+      submitted_by: actorId,
+      supersedes_id: prior?.id || null,
+    };
+    const result = { plan, audit_event_id: `preview-audit-${this.examMutations.size + 1}` };
+    this.examPlans.set(studentId, plan);
+    this.examMutations.set(requestId, { fingerprint, result });
+    return result;
+  }
   async recordProviderEvent({ provider, eventId }) {
     const key = `${provider}:${eventId}`;
     if (this.providerEvents.has(key)) return { status: 'duplicate' };

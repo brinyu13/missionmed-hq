@@ -30,10 +30,12 @@ create table missionaccounts.import_run (
 
 create table missionaccounts.student (
   id uuid primary key default gen_random_uuid(),
-  matrix_user_ref uuid unique,
+  matrix_user_ref text unique,
   display_name text not null,
+  source_name text,
   email text,
-  joined_at timestamptz,
+  phone text,
+  joined_at date,
   comp_days_allowance integer not null default 0 check (comp_days_allowance >= 0),
   identity_state text not null default 'verified' check (identity_state in ('verified','needs_review','excluded')),
   created_at timestamptz not null default now(),
@@ -48,7 +50,7 @@ create table missionaccounts.identity_alias (
   display_value text not null,
   relationship_state text not null check (relationship_state in ('verified','candidate','rejected','device','excluded')),
   confidence numeric(5,4),
-  approved_by uuid,
+  approved_by text,
   approved_at timestamptz,
   superseded_by_id uuid references missionaccounts.identity_alias(id),
   created_at timestamptz not null default now(),
@@ -127,7 +129,7 @@ create table missionaccounts.attendance_correction (
   from_val jsonb,
   to_val jsonb,
   reason text not null check (length(btrim(reason)) > 0),
-  actor_id uuid not null,
+  actor_id text not null,
   request_id text not null,
   reverted_by_id uuid references missionaccounts.attendance_correction(id),
   created_at timestamptz not null default now(),
@@ -190,7 +192,7 @@ create table missionaccounts.full_cycle_ceiling (
   status text not null check (status in ('candidate','verified','rejected')),
   ceiling_cents integer not null default 30000 check (ceiling_cents > 0),
   basis jsonb not null,
-  decided_by uuid,
+  decided_by text,
   decided_at timestamptz,
   superseded_by_id uuid references missionaccounts.full_cycle_ceiling(id),
   created_at timestamptz not null default now()
@@ -207,7 +209,7 @@ create table missionaccounts.comp_allowance_change (
   to_allowance integer not null check (to_allowance >= 0),
   apply_retroactively boolean not null default false,
   reason text not null check (length(btrim(reason)) > 0),
-  actor_id uuid not null,
+  actor_id text not null,
   request_id text not null unique,
   created_at timestamptz not null default now()
 );
@@ -230,9 +232,9 @@ create table missionaccounts.exam_plan (
   exam_on date not null,
   state text not null check (state in ('pending','approved','speak','denied','followup','passed')),
   result text check (result in ('passed','not_passed','no_result')),
-  submitted_by uuid not null,
+  submitted_by text not null,
   submitted_at timestamptz not null default now(),
-  decided_by uuid,
+  decided_by text,
   decided_at timestamptz,
   passed_on date,
   note text,
@@ -252,7 +254,7 @@ create table missionaccounts.exam_transition (
   to_state text not null,
   accepted boolean not null,
   reason text,
-  actor_id uuid not null,
+  actor_id text not null,
   request_id text not null unique,
   created_at timestamptz not null default now()
 );
@@ -296,7 +298,7 @@ create table missionaccounts.billing_decision (
   basis jsonb not null,
   basis_sha256 text not null check (basis_sha256 ~ '^[0-9a-f]{64}$'),
   state text not null check (state in ('estimate','needs_review','approved','stale','superseded')),
-  decided_by uuid,
+  decided_by text,
   decided_at timestamptz,
   superseded_by_id uuid references missionaccounts.billing_decision(id),
   created_at timestamptz not null default now()
@@ -310,7 +312,7 @@ create table missionaccounts.cycle_policy (
   cycle_key text not null references missionaccounts.cycle(key),
   key text not null,
   value jsonb not null,
-  set_by uuid not null,
+  set_by text not null,
   set_at timestamptz not null default now(),
   primary key (cycle_key, key)
 );
@@ -321,7 +323,7 @@ create table missionaccounts.rule_decision (
   mode text not null check (mode in ('retroactive','prospective')),
   effective_from date not null,
   basis jsonb not null,
-  decided_by uuid,
+  decided_by text,
   decided_at timestamptz not null default now(),
   superseded_by_id uuid references missionaccounts.rule_decision(id)
 );
@@ -435,6 +437,117 @@ create table missionaccounts.notification_outbox (
   created_at timestamptz not null default now()
 );
 
+create function missionaccounts.api_submit_exam_plan(
+  p_student_id uuid,
+  p_step text,
+  p_exam_on date,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  existing_plan missionaccounts.exam_plan%rowtype;
+  prior_plan missionaccounts.exam_plan%rowtype;
+  new_plan missionaccounts.exam_plan%rowtype;
+  new_plan_id uuid := gen_random_uuid();
+  audit_id uuid;
+begin
+  if p_step not in ('s1','s2','s3') or p_exam_on is null then
+    raise exception using errcode = '22023', message = 'invalid_exam_plan';
+  end if;
+  if nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_actor_role), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'exam_plan_actor_and_request_required';
+  end if;
+
+  select ep.* into existing_plan
+  from missionaccounts.exam_transition et
+  join missionaccounts.exam_plan ep on ep.id = et.exam_plan_id
+  where et.request_id = p_request_id;
+
+  if found then
+    if existing_plan.student_id <> p_student_id
+       or existing_plan.step <> p_step
+       or existing_plan.exam_on <> p_exam_on
+       or existing_plan.submitted_by <> p_actor_id then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select id into audit_id
+    from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'exam_plan.submitted';
+    return jsonb_build_object('plan', to_jsonb(existing_plan), 'audit_event_id', audit_id, 'duplicate', true);
+  end if;
+
+  perform 1 from missionaccounts.student where id = p_student_id for update;
+  if not found then
+    raise exception using errcode = '23503', message = 'student_not_found';
+  end if;
+
+  select * into prior_plan
+  from missionaccounts.exam_plan
+  where student_id = p_student_id and superseded_by_id is null
+  for update;
+
+  if found then
+    insert into missionaccounts.exam_plan(
+      id, student_id, step, exam_on, state, submitted_by, superseded_by_id
+    ) values (
+      new_plan_id, p_student_id, p_step, p_exam_on, 'pending', p_actor_id, prior_plan.id
+    );
+    update missionaccounts.exam_plan set superseded_by_id = new_plan_id where id = prior_plan.id;
+    update missionaccounts.exam_plan set superseded_by_id = null where id = new_plan_id returning * into new_plan;
+  else
+    insert into missionaccounts.exam_plan(
+      id, student_id, step, exam_on, state, submitted_by
+    ) values (
+      new_plan_id, p_student_id, p_step, p_exam_on, 'pending', p_actor_id
+    ) returning * into new_plan;
+  end if;
+
+  insert into missionaccounts.exam_transition(
+    exam_plan_id, student_id, from_state, to_state, accepted, reason, actor_id, request_id
+  ) values (
+    new_plan.id, p_student_id, null, 'pending', true, 'submitted', p_actor_id, p_request_id
+  );
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id,
+    p_actor_role,
+    p_student_id,
+    'exam_plan.submitted',
+    'Exam plan submitted',
+    case when prior_plan.id is null then null else to_jsonb(prior_plan) end,
+    to_jsonb(new_plan),
+    'submitted',
+    p_request_id
+  ) returning id into audit_id;
+
+  insert into missionaccounts.notification_outbox(
+    student_id, channel, event_kind, payload, state, idempotency_key
+  ) values (
+    p_student_id,
+    'matrix',
+    'exam_plan.submitted',
+    jsonb_build_object('student_id', p_student_id, 'exam_plan_id', new_plan.id, 'audience', 'missionaccounts_admin'),
+    'pending',
+    p_request_id || ':exam-plan-submitted'
+  ) on conflict (idempotency_key) do nothing;
+
+  return jsonb_build_object('plan', to_jsonb(new_plan), 'audit_event_id', audit_id, 'duplicate', false);
+end;
+$$;
+
+revoke execute on function missionaccounts.api_submit_exam_plan(uuid, text, date, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_submit_exam_plan(uuid, text, date, text, text, text) to service_role;
+
 create table missionaccounts.sync_run (
   id uuid primary key default gen_random_uuid(),
   provider text not null check (provider = 'zoom'),
@@ -450,7 +563,7 @@ create table missionaccounts.sync_run (
 
 create table missionaccounts.audit_event (
   id uuid primary key default gen_random_uuid(),
-  actor_id uuid,
+  actor_id text,
   actor_role text not null,
   subject_student_id uuid references missionaccounts.student(id),
   kind text not null,
@@ -467,7 +580,7 @@ create table missionaccounts.feature_flag (
   key text primary key,
   enabled boolean not null default false,
   scope jsonb not null default '{}'::jsonb,
-  updated_by uuid,
+  updated_by text,
   updated_at timestamptz not null default now()
 );
 
@@ -562,21 +675,21 @@ on missionaccounts.payment_method_private to authenticated;
 create policy student_select_self_or_admin on missionaccounts.student
 for select to authenticated
 using (
-  matrix_user_ref = (select auth.uid())
+  matrix_user_ref = (select auth.uid())::text
   or coalesce((select auth.jwt()) -> 'app_metadata' -> 'roles', '[]'::jsonb) ?| array['missionaccounts_admin','founder']
 );
 
 create policy attendance_event_select_self_or_admin on missionaccounts.attendance_event
 for select to authenticated
 using (
-  exists (select 1 from missionaccounts.student s where s.id = student_id and s.matrix_user_ref = (select auth.uid()))
+  exists (select 1 from missionaccounts.student s where s.id = student_id and s.matrix_user_ref = (select auth.uid())::text)
   or coalesce((select auth.jwt()) -> 'app_metadata' -> 'roles', '[]'::jsonb) ?| array['missionaccounts_admin','founder']
 );
 
 create policy attendance_day_select_self_or_admin on missionaccounts.attendance_day
 for select to authenticated
 using (
-  exists (select 1 from missionaccounts.student s where s.id = student_id and s.matrix_user_ref = (select auth.uid()))
+  exists (select 1 from missionaccounts.student s where s.id = student_id and s.matrix_user_ref = (select auth.uid())::text)
   or coalesce((select auth.jwt()) -> 'app_metadata' -> 'roles', '[]'::jsonb) ?| array['missionaccounts_admin','founder']
 );
 
@@ -593,7 +706,7 @@ begin
       using (
         exists (
           select 1 from missionaccounts.student s
-          where s.id = student_id and s.matrix_user_ref = (select auth.uid())
+          where s.id = student_id and s.matrix_user_ref = (select auth.uid())::text
         )
         or coalesce((select auth.jwt()) -> 'app_metadata' -> 'roles', '[]'::jsonb)
           ?| array['missionaccounts_admin','founder']

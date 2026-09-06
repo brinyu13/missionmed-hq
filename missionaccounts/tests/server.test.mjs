@@ -12,6 +12,7 @@ const localConfig = {
   issuer: 'https://issuer.invalid',
   audience: 'missionaccounts',
   jwksUrl: 'https://issuer.invalid/jwks',
+  features: { examPlans: false, compDays: false, autoBilling: false, zoomSync: false },
 };
 
 async function withServer(options, run) {
@@ -77,5 +78,47 @@ test('student role cannot read the administrative health endpoint', async () => 
   }, async base => {
     const response = await fetch(`${base}/api/admin/health`, { headers: { 'x-missionaccounts-local-role': 'student' } });
     assert.equal(response.status, 403);
+  });
+});
+
+test('student exam-plan submission is feature-gated and idempotent', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, examPlans: true } };
+  const store = new PreviewStore();
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const headers = {
+      'content-type': 'application/json',
+      'x-missionaccounts-local-role': 'student',
+      'idempotency-key': 'exam-request-0001',
+    };
+    const body = JSON.stringify({ step: 's2', exam_on: '2026-10-14' });
+    const created = await fetch(`${base}/api/me/exam-plan`, { method: 'POST', headers, body });
+    assert.equal(created.status, 201);
+    assert.equal((await created.json()).plan.state, 'pending');
+
+    const retry = await fetch(`${base}/api/me/exam-plan`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+
+    const conflicting = await fetch(`${base}/api/me/exam-plan`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ step: 's3', exam_on: '2026-10-15' }),
+    });
+    assert.equal(conflicting.status, 409);
+  });
+});
+
+test('student exam-plan submission stays unavailable while its feature flag is off', async () => {
+  await withServer({ config: localConfig, store: new PreviewStore(), stripeGateway: new StripeGateway() }, async base => {
+    const response = await fetch(`${base}/api/me/exam-plan`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-missionaccounts-local-role': 'student',
+        'idempotency-key': 'exam-request-0002',
+      },
+      body: JSON.stringify({ step: 's1', exam_on: '2026-10-14' }),
+    });
+    assert.equal(response.status, 503);
   });
 });

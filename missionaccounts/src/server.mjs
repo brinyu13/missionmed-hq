@@ -2,7 +2,7 @@ import http from 'node:http';
 import { createReadStream, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readRawBody, parseJsonBody } from './http/body.mjs';
+import { readRawBody, readJsonBody, parseJsonBody } from './http/body.mjs';
 import { StripeGateway } from './payments/stripe.mjs';
 import { authenticate, requireRole } from './security/auth.mjs';
 import { PreviewStore, SupabaseRestStore } from './storage/supabase-rest.mjs';
@@ -19,6 +19,12 @@ function environmentConfig() {
     issuer: process.env.MISSIONACCOUNTS_JWT_ISSUER || 'https://missionmedinstitute.com',
     audience: process.env.MISSIONACCOUNTS_JWT_AUDIENCE || 'missionaccounts',
     jwksUrl: process.env.MISSIONACCOUNTS_JWKS_URL || 'https://missionmedinstitute.com/wp-json/missionmed/v1/jwks',
+    features: {
+      examPlans: process.env.MISSIONACCOUNTS_EXAM_PLANS === '1',
+      compDays: process.env.MISSIONACCOUNTS_COMP_DAYS === '1',
+      autoBilling: process.env.MISSIONACCOUNTS_AUTO_BILLING === '1',
+      zoomSync: process.env.MISSIONACCOUNTS_ZOOM_SYNC === '1',
+    },
   };
 }
 
@@ -48,6 +54,18 @@ function mime(file) {
 
 function requestError(message, status = 400) {
   return Object.assign(new Error(message), { status });
+}
+
+function requestIdFor(request) {
+  const requestId = String(request.headers['idempotency-key'] || request.headers['x-request-id'] || '').trim();
+  if (!/^[A-Za-z0-9._:-]{8,200}$/.test(requestId)) {
+    throw requestError('A valid Idempotency-Key header is required');
+  }
+  return requestId;
+}
+
+function requireFeature(config, feature) {
+  if (!config.features?.[feature]) throw requestError('This MissionAccounts capability is not enabled', 503);
 }
 
 export function createMissionAccountsServer({
@@ -85,8 +103,8 @@ export function createMissionAccountsServer({
         app: 'missionaccounts',
         mode: store instanceof PreviewStore ? 'preview' : 'configured',
         route_enabled: false,
-        auto_billing_enabled: false,
-        zoom_sync_enabled: false,
+        auto_billing_enabled: Boolean(config.features?.autoBilling),
+        zoom_sync_enabled: Boolean(config.features?.zoomSync),
       });
     }
     if (request.method === 'POST' && url.pathname === '/api/webhooks/stripe') {
@@ -95,7 +113,16 @@ export function createMissionAccountsServer({
 
     const identity = await authenticate(request, config);
     if (request.method === 'GET' && url.pathname === '/api/session') {
-      return json(response, 200, { authenticated: true, mode: identity.roles.includes('student') ? 'student' : 'admin', capabilities: { exam_plans: false, comp_days: false, auto_billing: false, zoom_sync: false } });
+      return json(response, 200, {
+        authenticated: true,
+        mode: identity.roles.includes('student') ? 'student' : 'admin',
+        capabilities: {
+          exam_plans: Boolean(config.features?.examPlans),
+          comp_days: Boolean(config.features?.compDays),
+          auto_billing: Boolean(config.features?.autoBilling),
+          zoom_sync: Boolean(config.features?.zoomSync),
+        },
+      });
     }
     if (request.method === 'GET' && url.pathname === '/api/me') {
       const student = await studentContext(identity);
@@ -105,6 +132,24 @@ export function createMissionAccountsServer({
         store.paymentMethodForStudent(student.id),
       ]);
       return json(response, 200, { student, attendance, billing, payment_method });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/me/exam-plan') {
+      requireFeature(config, 'examPlans');
+      requireRole(identity, ['student']);
+      const student = await studentContext(identity);
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      if (!['s1', 's2', 's3'].includes(body.step) || !/^\d{4}-\d{2}-\d{2}$/.test(String(body.exam_on || ''))) {
+        throw requestError('Exam plan requires step s1, s2, or s3 and exam_on as YYYY-MM-DD');
+      }
+      const result = await store.submitExamPlan({
+        studentId: student.id,
+        step: body.step,
+        examOn: body.exam_on,
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
     }
     if (request.method === 'GET' && url.pathname === '/api/admin/health') {
       requireRole(identity, ['missionaccounts_admin', 'founder']);
