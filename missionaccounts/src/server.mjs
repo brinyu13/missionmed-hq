@@ -557,6 +557,12 @@ export function createMissionAccountsServer({
       if (missing && !['email', 'setup'].includes(missing)) throw requestError('Student missing filter is invalid');
       return json(response, 200, { students: await store.adminStudents({ q, missing }) });
     }
+    if (request.method === 'GET' && url.pathname === '/api/admin/identity') {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      const requestedState = url.searchParams.get('state') || 'open';
+      if (!['open', 'resolved', 'all'].includes(requestedState)) throw requestError('Identity state filter is invalid');
+      return json(response, 200, { clusters: await store.adminIdentityClusters({ state: requestedState }) });
+    }
     const adminStudentRoute = request.method === 'GET'
       ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i)
       : null;

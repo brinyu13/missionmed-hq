@@ -205,6 +205,13 @@ test('administrative home, cycle, directory, and student projections are role-pr
   store.seedAttendanceDays(studentId, cycleKey, [
     { id: '10000000-0000-4000-8000-000000000001', day: '2026-09-08', kind: 'billable', event_ids: ['event-1'] },
   ]);
+  store.seedIdentityCluster({
+    ref: 'cluster:test-review',
+    members: [
+      { id: 'alias-1', student_id: studentId, display_value: 'Preview A', relationship_state: 'candidate' },
+      { id: 'alias-2', student_id: null, display_value: 'Preview B', relationship_state: 'candidate' },
+    ],
+  });
   await store.submitExamPlan({ studentId, step: 's1', examOn: '2026-10-14', actorId: studentId, requestId: 'admin-projection-exam-0001' });
   await withServer({
     config: localConfig,
@@ -221,6 +228,16 @@ test('administrative home, cycle, directory, and student projections are role-pr
     const homePayload = await home.json();
     assert.equal(homePayload.pending_exam_plans, 1);
     assert.equal(homePayload.missing_payment_setup, 1);
+    assert.equal(homePayload.identity_questions, 1);
+
+    const identity = await fetch(`${base}/api/admin/identity?state=open`, { headers });
+    assert.equal(identity.status, 200);
+    const identityPayload = await identity.json();
+    assert.equal(identityPayload.clusters.length, 1);
+    assert.equal(identityPayload.clusters[0].members.length, 2);
+
+    const identityDenied = await fetch(`${base}/api/admin/identity`, { headers: { 'x-missionaccounts-local-role': 'student' } });
+    assert.equal(identityDenied.status, 403);
 
     const directory = await fetch(`${base}/api/admin/students?missing=setup&q=Preview`, { headers });
     assert.equal(directory.status, 200);

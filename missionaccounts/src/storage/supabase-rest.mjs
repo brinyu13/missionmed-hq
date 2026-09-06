@@ -292,17 +292,20 @@ export class SupabaseRestStore {
   }
 
   async adminHome({ today }) {
-    const [students, attendanceDays, decisions, examPlans, reminders, invoices] = await Promise.all([
+    const [students, attendanceDays, decisions, examPlans, reminders, invoices, identityClusters] = await Promise.all([
       this.adminStudents(),
       this.request('attendance_day?superseded_at=is.null&select=id,student_id,cycle_key,kind'),
       this.request('billing_decision?superseded_by_id=is.null&select=id,student_id,cycle_key,state,amount_cents'),
       this.request('exam_plan?superseded_by_id=is.null&select=id,student_id,step,exam_on,state'),
       this.request('reminder?state=in.(scheduled,due)&select=id,student_id,exam_plan_id,due_on,state'),
       this.request('invoice?state=in.(draft,ready,sent)&select=id,student_id,cycle_key,state,amount_cents'),
+      this.request('identity_cluster?state=eq.open&select=ref'),
     ]);
     return {
       questions: students.filter(student => student.identity_state === 'needs_review').length
-        + attendanceDays.filter(day => day.kind === 'needs_review').length,
+        + attendanceDays.filter(day => day.kind === 'needs_review').length
+        + identityClusters.length,
+      identity_questions: identityClusters.length,
       missing_payment_setup: students.filter(student => student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized').length,
       stale_decisions: decisions.filter(decision => decision.state === 'stale').length,
       ready_invoices: invoices.filter(invoice => invoice.state === 'ready').length,
@@ -321,6 +324,31 @@ export class SupabaseRestStore {
     ]);
     if (!cycles[0]) return null;
     return { cycle: cycles[0], attendance_days: attendanceDays, billing_decisions: decisions, invoices };
+  }
+
+  async adminIdentityClusters({ state = 'open' } = {}) {
+    const stateFilter = state === 'all' ? '' : `&state=eq.${encodeURIComponent(state)}`;
+    const [clusters, members, aliases, decisions] = await Promise.all([
+      this.request(`identity_cluster?select=ref,state,evidence,created_at,updated_at${stateFilter}&order=ref.asc`),
+      this.request('identity_cluster_member?select=cluster_ref,identity_alias_id'),
+      this.request('identity_alias?select=id,student_id,source_key,display_value,relationship_state,confidence'),
+      this.request('identity_decision?superseded_by_id=is.null&select=id,cluster_ref,decision,canonical_student_id,note,decided_by,decided_at'),
+    ]);
+    const aliasesById = new Map(aliases.map(alias => [alias.id, alias]));
+    const membersByCluster = new Map();
+    for (const member of members) {
+      const alias = aliasesById.get(member.identity_alias_id);
+      if (!alias) continue;
+      const list = membersByCluster.get(member.cluster_ref) || [];
+      list.push(alias);
+      membersByCluster.set(member.cluster_ref, list);
+    }
+    const decisionByCluster = new Map(decisions.map(decision => [decision.cluster_ref, decision]));
+    return clusters.map(cluster => ({
+      ...cluster,
+      members: membersByCluster.get(cluster.ref) || [],
+      decision: decisionByCluster.get(cluster.ref) || null,
+    }));
   }
 
   async adminStudent(studentId) {
@@ -362,6 +390,7 @@ export class PreviewStore {
     this.chargesByDay = new Map();
     this.chargeMutations = new Map();
     this.notifications = new Map();
+    this.identityClusters = new Map();
   }
 
   async studentByMatrixUser(userId) {
@@ -794,6 +823,15 @@ export class PreviewStore {
     this.notifications.set(id, row);
     return row;
   }
+  seedIdentityCluster(cluster) {
+    this.identityClusters.set(cluster.ref, {
+      ref: cluster.ref,
+      state: cluster.state || 'open',
+      evidence: cluster.evidence || {},
+      members: (cluster.members || []).map(member => ({ ...member })),
+      decision: cluster.decision || null,
+    });
+  }
   async claimNotifications({ workerId, limit, now }) {
     const nowMs = Date.parse(now);
     const rows = [...this.notifications.values()]
@@ -848,7 +886,9 @@ export class PreviewStore {
     const students = await this.adminStudents();
     const examPlans = [...this.examPlans.values()];
     return {
-      questions: students.filter(student => student.identity_state === 'needs_review').length,
+      questions: students.filter(student => student.identity_state === 'needs_review').length
+        + [...this.identityClusters.values()].filter(cluster => cluster.state === 'open').length,
+      identity_questions: [...this.identityClusters.values()].filter(cluster => cluster.state === 'open').length,
       missing_payment_setup: students.filter(student => student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized').length,
       stale_decisions: [...this.billingDecisions.values()].filter(decision => decision.state === 'stale').length,
       ready_invoices: 0,
@@ -861,6 +901,11 @@ export class PreviewStore {
     const attendance = [...this.attendanceDays.entries()].filter(([key]) => key.endsWith(`:${cycleKey}`)).flatMap(([, days]) => days);
     const decisions = [...this.billingDecisions.entries()].filter(([key]) => key.endsWith(`:${cycleKey}`)).map(([, decision]) => decision);
     return { cycle: { key: cycleKey, label: cycleKey, starts_on: null, ends_on: null, state: 'preview' }, attendance_days: attendance, billing_decisions: decisions, invoices: [] };
+  }
+  async adminIdentityClusters({ state = 'open' } = {}) {
+    return [...this.identityClusters.values()]
+      .filter(cluster => state === 'all' || cluster.state === state)
+      .map(cluster => ({ ...cluster, members: cluster.members.map(member => ({ ...member })) }));
   }
   async adminStudent(studentId) {
     if (studentId !== this.previewStudent().id) return null;
