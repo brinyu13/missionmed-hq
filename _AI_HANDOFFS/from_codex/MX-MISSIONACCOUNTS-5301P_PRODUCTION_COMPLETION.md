@@ -1,9 +1,9 @@
 # MX-MISSIONACCOUNTS-5301P Production Completion
 
-**Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
+**Result:** PARTIAL — local release candidate complete; dormant production deployment awaits authority registration and isolated target identities
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Latest implementation commit:** `4af11d3d02d710a48399e184f6f9c5c8e0a61b8c`
+**Latest implementation commit:** `d5cd9953d80be22e1f8ef445a568388139025474`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -66,6 +66,12 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - split-safe exam grace that closes original open windows at the decision boundary and copies protected intervals into a plan-independent provenance table for every separated identity, without attaching one student's exam plan to another student;
 - identity-aware historical-ceiling protection that converts inherited candidate or verified cap evidence into an unresolved canonical review hold rather than silently verifying or discarding it; and
 - a production Similar Names flow that disables controls while the capability is off, requires Dr J to choose the retained record for a merge, persists decisions through the server, and leaves “not sure” genuinely open for later evidence;
+- source-preserving device/Zoom-alias adjudication with explicit `match`, `not_student`, and `unsure` outcomes; resolved aliases cannot be silently reattached, cap-bearing aliases retain one unambiguous financial custodian, and aliases remain evidence rather than identity authority;
+- a five-class historical import split that accounts for all 498 human-cycle rows as 320 `READY`, 107 `IDENTITY_HOLD`, 69 `CAP_HOLD`, 2 `SOURCE_LINK_HOLD`, and 0 `OTHER_REVIEW`; only `READY` can later become authoritative and every held class remains non-collectible;
+- database-level candidate-cap/finality serialization in both insertion orders, including concurrent writers; a charge cannot reference another student's attendance day, and approved billing, ready/sent/paid invoices, or eligible/pending/succeeded charges cannot coexist with a current candidate ceiling;
+- a truthful safe-mode UI that reports payment activation pending, Zoom disconnected, and notification delivery pending; disables feature-off controls after every dynamic render; keeps unsupported batch, clear, and policy-undo paths unavailable; and gives an authorized administrator with no linked student account a valid empty-account state;
+- keyboard and motion hardening for route-heading focus, modal focus containment/restoration, tab selection semantics, pressed-state semantics, and reduced-motion scrolling;
+- a privacy-safe durable browser evidence set covering 47/47 checks at 1440, 1024, and 390 pixels in light/dark/reduced-motion modes; and
 - local HTTP application route and health/session/admin boundaries;
 - all 17 ticket-mandated vectors represented in the automated suite.
 
@@ -96,6 +102,10 @@ No production system or provider was changed.
 | Cycle 3 events / unique days / reduction / amount | 1,256 / 1,051 / 205 / $25,075 |
 | Unique-day total before adjudicated historical caps | $77,075 |
 | Historical `16+ / $300` source-tier candidates / verified | 74 / 0 |
+| Historical import `READY` | 320 human-cycle rows |
+| Historical import `IDENTITY_HOLD` | 107 human-cycle rows |
+| Historical import `CAP_HOLD` | 69 human-cycle rows |
+| Historical import `SOURCE_LINK_HOLD` / `OTHER_REVIEW` | 2 / 0 human-cycle rows |
 
 The $77,075 control is an estimate oracle, not a collectible total. All 74 human-cycle rows carrying the historical `16+ / $300` tier are preserved as review-only candidates; none is automatically verified. The earlier count of 23 described only the narrower subset whose recalculated unique-day amount could rise above its source amount, not the complete candidate population. The implementation never invents cap eligibility.
 
@@ -137,6 +147,7 @@ All implementation files are under `missionaccounts/`:
 - `supabase/migrations/20260906112331_require_receipt_email_for_day_charges.sql`
 - `supabase/migrations/20260906113240_record_unhandled_provider_events.sql`
 - `supabase/migrations/20260906114450_identity_cluster_adjudication.sql`
+- `supabase/migrations/20260906122416_device_identity_adjudication.sql`
 - `tests/billing-engine.test.mjs`
 - `tests/exam-engine.test.mjs`
 - `tests/mandatory-vectors.test.mjs`
@@ -148,27 +159,29 @@ All implementation files are under `missionaccounts/`:
 - `tests/runtime-security.test.mjs`
 - `tests/canonical-adapter.test.mjs`
 - `evidence/source-validation.json`
+- `evidence/MX-MISSIONACCOUNTS-5301P_SAFE_MODE_BROWSER_QA.json`
+- seven `evidence/screenshots/MX-MISSIONACCOUNTS-5301P_safe-mode-*.png` fixtures, each hash-pinned in the browser QA receipt
 
 ## Migration status
 
-- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,813 lines) plus additive `20260906095512_automatic_charge_dispatch.sql`, `20260906100746_zoom_ingestion_port.sql`, `20260906105212_student_attendance_issue_report.sql`, `20260906110611_attendance_issue_review_resolution.sql`, `20260906112331_require_receipt_email_for_day_charges.sql`, `20260906113240_record_unhandled_provider_events.sql`, and `20260906114450_identity_cluster_adjudication.sql`.
-- Applied locally: PASS in a disposable PostgreSQL 16 cluster; all eight migrations applied in order. The identity scenario preserved two source events while merging them into one same-day grace day, propagated a historical cap into review, serialized idempotent retries, rejected adjudicated evidence mutation, blocked post-invoice and allocated-comp transitions, retained review state across another open cluster and a linked device alias, allowed new evidence after an `unsure` decision, and copied protected grace to both separated identities without cross-student exam-plan ownership. The charge RPC rejected a missing receipt address before financial mutation, returned the normalized verified address after contact restoration, and the pending-charge trigger enforced the same invariant below the application layer. The automatic worker carried the address through its claim without exposing it to the browser. A validly signed unsupported provider event transitioned idempotently to `ignored`, created exactly one private integration exception and one audit row across retries, and remained available in the provider inbox. The Zoom RPC persisted one normalized session and participant source row idempotently, recorded a failed-sync exception, and created zero attendance events, identity decisions, or charges. The attendance-report RPC persisted one student-owned issue, one audit event, and one admin notification while suppressing a retry and rejecting a mismatched student identity. The review RPC resolved it once, suppressed the retry, inserted one review audit and one student notification, rejected student review authority, preserved immutable submission fields, and left attendance/billing counts unchanged. No persistent local database was created.
-- Historical import rehearsal: PASS in a separate disposable PostgreSQL 16 cluster. It imported 419 sessions, 5,498 raw source rows, 3,941 reconciled events, and 3,264 attendance days; retained 74 ceiling candidates and 60 identity-review holds; and created zero billing decisions, invoices, charges, verified ceilings, Matrix identities, or enabled flags. The private SQL bundle was deleted with the disposable cluster.
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,813 lines) plus eight additive migrations ending with `20260906122416_device_identity_adjudication.sql`.
+- Applied locally: PASS in a disposable PostgreSQL 16 cluster; all nine migrations applied in order. The suite covers immutable identity and alias evidence, match/exclusion/unsure outcomes, split-grace custody, target and source candidate-cap retention, reciprocal financial-finality guards, same-key concurrent serialization, cross-student charge/attendance ownership rejection, correction authority, RLS/privilege boundaries, payment and receipt invariants, provider exception custody, Zoom source-only persistence, attendance-report review, and notification delivery. No persistent local database was created.
+- Historical import rehearsal: PASS in a separate disposable PostgreSQL 16 cluster. It imported 419 sessions, 5,498 raw source rows, 3,941 reconciled events, and 3,264 attendance days; classified all 498 human-cycle rows into 320 `READY`, 107 `IDENTITY_HOLD`, 69 `CAP_HOLD`, 2 `SOURCE_LINK_HOLD`, and 0 `OTHER_REVIEW`; retained 74 ceiling candidates; and created zero billing decisions, invoices, charges, verified ceilings, Matrix identities, or enabled flags. The private SQL bundle was deleted with the disposable cluster.
 - Applied to staging/production: NO — target database and migration authority are not registered.
 - Schema is additive and all capability flags seed disabled.
 
 ## Verification
 
-- `npm test`: PASS — 136/136, including all prior vectors plus role/feature-gated identity decisions, persisted-decision hydration, open `unsure` behavior, explicit canonical selection, Stripe receipt-email validation/normalization, worker/manual charge propagation, the database receipt invariant, idempotent custody for signed but unsupported provider events, Test-Mode-only Stripe browser configuration, Payment Element confirmation semantics, explicit future-use consent, raw-card-field exclusion, exact Stripe CSP allowlists, authenticated student deep-link hydration, self-bound attendance-report submission, and admin-only attendance-report review.
-- `npm run test:postgres`: PASS — all eight migrations applied in order to disposable PostgreSQL 16, including immutable identity snapshots, safe merge/split, plan-independent grace custody, cap review holds, financial/comp guards, global review-state retention, request concurrency locking, privilege isolation, the receipt-email rejection/normalization/trigger controls, exactly-once private exception/audit custody for a signed unsupported provider event, idempotent source-only Zoom ingestion and failed-sync exception custody with zero downstream identity, attendance, billing, or charge mutations, private attendance-issue custody, duplicate suppression, audit/outbox insertion, cross-student rejection, immutable submission fields, and admin-only idempotent review.
+- `npm test`: PASS — 140/140, including device identity projection/adjudication, logical-to-physical attendance-event grouping, safe-mode capability backstops, and authorized-admin empty-account coverage in addition to all prior vectors.
+- `npm run test:postgres`: PASS — all nine migrations applied in order to disposable PostgreSQL 16, including the red-team charge-owner invariant, reciprocal candidate-cap/finality serialization, reverse-order and concurrent witnesses, and the complete identity/device/source/financial custody suite.
 - `npm run test:historical-import`: PASS — all custody hashes, privacy permissions, source/control totals, per-cycle totals, review holds, and zero-financial-mutation boundaries passed in disposable PostgreSQL 16.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
 - `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
 - Node syntax checks across source/scripts/public/tests: PASS.
 - `git diff --check`: PASS.
-- Local Docker image build: PASS — OrbStack Docker 29.4.0 built `missionaccounts:mx-5301p-identity` from the isolated `missionaccounts/` context using the pinned `node:22-alpine` manifest digest. Image ID: `sha256:8c7e11203eda57938589c81a412f89a830ba997a9b77200deb1e9762bf7ac97f`.
+- Local Docker image build: PASS — OrbStack Docker 29.4.0 built `missionaccounts:mx5301p-safe` from the isolated `missionaccounts/` context using `node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32`. Image ID/digest: `sha256:09e892612e3e3e587079a5c94bc07f1dfc3b88b32de9009700b7e6a26b83c6f9`; size 58,516,907 bytes.
 - Container custody inspection: PASS — runtime user is non-root `node`; `/app` contains only `package.json`, the server/domain modules, and the five allowlisted scrubbed public files. No prototype, source manifest, historical import, evidence, migration, test, or environment file was present.
-- Container startup safety: PASS — the default production image exited nonzero with the explicit database-target guard when no target was supplied. An isolated smoke run with a deliberately unreachable local-only placeholder target bound `0.0.0.0:4179`, returned HTTP 200 at `/api/health` through host port 4187, and reported every capability flag—including identity review—false. This proves container reachability only; it is not database or production-target validation.
+- Container startup safety: PASS — the default production image exited nonzero with the explicit database-target guard when no target was supplied. An isolated smoke run with a deliberately unreachable local-only placeholder target returned HTTP 200 at `/api/health` through host port 4180 and reported route, billing decisions, attendance corrections, identity review, automatic billing, notifications, and Zoom sync all false. This proves container reachability only; it is not database or production-target validation.
 - Local API:
   - `/api/health`: 200; route, auto-billing, and Zoom flags false.
   - student `/api/session`: 200.
@@ -191,8 +204,11 @@ All implementation files are under `missionaccounts/`:
   - Direct `#/me/billing` production deep link: PASS before and after authoritative refetch; empty student records no longer fail hydration.
   - Attendance issue reporting: PASS at desktop and 390 px; authenticated POST succeeded, the dialog closed, the `?report=1` intent normalized to `#/me` before refetch, the confirmation toast remained visible, and `scrollWidth` equaled `clientWidth` at 390 px. The QA server used only its in-memory notification outbox; no external provider was called.
   - Attendance report admin queue: PASS at 1440 px; one local student report appeared under Open reports, Dr J resolved it with a mandatory response, the same page refetched to zero open items, and the record appeared under a separate Review history. Student queue/review access returned 403, and no external provider was called.
+  - Safe-mode acceptance: PASS 47/47 at 1440 light/dark, 1024 dark, and 390 light/dark/reduced-motion. Keyboard focus, modal trap/return, tab and pressed-state semantics, no horizontal overflow, disabled payment/report/billing controls, truthful provider status, and an authorized administrator without a linked student account all passed.
 
-Local browser evidence (gitignored because repository policy excludes PNGs):
+Earlier local browser evidence remains gitignored under the repository's general PNG policy:
+
+The final seven safe-mode screenshots are intentionally force-added, privacy-safe fixture evidence and are hash-pinned in `missionaccounts/evidence/MX-MISSIONACCOUNTS-5301P_SAFE_MODE_BROWSER_QA.json`.
 
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_zoom-health-admin.png` — SHA-256 `90d7e20d167a8e5bc4b168b78c55c8712a86ea3a5476f90519888eed978eaa8f`.
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_zoom-health-mobile-playwright.png` — SHA-256 `60656ce16960cafcea4ccc2a46376b32fc2be06faa59894f7c219f77fc8521ae`.
@@ -223,30 +239,51 @@ None outside the isolated worktree. Local preview used `PORT=4179`, `MISSIONACCO
 
 The provider port, source-only persistence boundary, and admin-only dynamic health surface are implemented and fail closed while disconnected. The UI says the scheduler is not registered and never infers connectivity from a feature flag alone. No Zoom credential, concrete client, API call, schedule, setting change, or production exception queue was activated. Full ingestion remains behind `zoom_sync=false`; any future activation still requires an authorized provider client and registered production target.
 
-## Blocking evidence
+## Gate classification
 
-1. `MX-MISSIONACCOUNTS-5301P` is absent from current `missions.json`, `products_index.json`, `authority_index.json`, `CURRENT.md`, and the boot mission profiles.
-2. Mission-specific boot validation fails as unknown mission.
-3. The protected Matrix runtime preflight produced the mandated stale-source warning and found production-origin hash drift for the shell, CSS, PHP loader, Calendar, and StoryForge assets.
-4. No MissionAccounts Railway/PostgreSQL/Stripe/notification production target identity is registered.
-5. Historical full-cycle eligibility evidence is incomplete; source tier labels are candidates, not authorization to collect.
-6. No verified Matrix notification transport endpoint/credential is registered; the outbox provider remains disabled.
-7. Final automatic-billing terms and live-charge activation remain unapproved.
+Hard pre-deployment blockers:
 
-Because of those facts, protected Matrix edits, production database application, live Stripe work, production historical import, production deployment, and production smoke tests were not performed. The historical import was rehearsed only in an automatically deleted local PostgreSQL cluster.
+1. `MX-MISSIONACCOUNTS-5301P` is absent from the canonical MissionMed OS indexes/profile; mission-specific BOOT fails as unknown.
+2. No isolated MissionAccounts Railway project/service identity is registered. The local CLI is linked to the unrelated shared `missionmed-hq-fix005` / `ivprep-profile-b-worker` production target and must never be used for this deploy.
+3. No isolated Supabase/PostgreSQL project identity compatible with the current PostgREST adapter is registered.
+4. The exact committed revision and image digest require a bounded dormant-release approval after the first three gates pass.
+
+Activation-only blockers:
+
+- Matrix route/SSO requires runtime-lock reconciliation and exact shared-path authority.
+- Historical import requires a separate data-cutover authorization.
+- Stripe requires immutable Test-account binding and approved billing terms; automatic billing remains false.
+- Zoom requires S2S identity/scopes and an approved schedule; sync remains false.
+- Notification transport and recurring worker identities/schedules remain unregistered and false.
+
+Data-adjudication holds:
+
+- 107 `IDENTITY_HOLD`, 69 `CAP_HOLD`, and 2 `SOURCE_LINK_HOLD` human-cycle rows remain non-collectible. Their evidence can be reviewed after launch; they do not block the app or correctly resolved accounts.
+
+Post-deployment AAA:
+
+- provider-native target/image/flag readback, three-role SSO/RLS/BOLA witnesses, route/deep-link/error checks, responsive/accessibility smoke, and rollback rehearsal against the isolated deployment.
+
+Because the hard gates are absent, no production mutation or smoke test was attempted. This does not require Stripe, Zoom, notifications, or historical adjudication to block an initial dormant deployment.
 
 ## Required next authority
 
-- Register the MissionAccounts product, passport, mission, Founder decision, MR-079 amendment, authority routes, mission boot profile, and receipt from a fresh OS worktree.
-- Scope exact isolated Railway/database identities, historical-data custody, Matrix SSO/route files, eligible Dr J/admin/student pilot identities, Stripe Test Mode, notifications, and rollback.
-- Reconcile and re-lock the drifted Matrix production origin before any shared Matrix edit.
-- Approve which 5000B `$300` source candidates are legitimate historical ceilings.
-- Approve final automatic-billing terms before any live automatic charge.
+The approval-ready registration patch, exact target fields, copy-ready Founder authorization, safe data split, and staged activation sequence are in `_AI_HANDOFFS/from_codex/MX-MISSIONACCOUNTS-5301P_FOUNDER_GATES.md`.
 
 ## Rollback
 
 Local candidate rollback is deletion/reversion of the isolated branch only; it has no production effect. A production rollback cannot be authored truthfully until exact provider targets exist. The intended release must be feature-off first, use additive migrations, create fresh database and Kinsta preimages, use immutable release directories/current pointers, and rehearse route/database/provider rollback before activation.
 
+## Progress checkpoint
+
+- Overall to AAA live: **90%**.
+- Local engineering: **100% for the current bounded candidate**.
+- Production readiness: **96%**.
+- Deployment: **0%** — intentionally untouched pending H1–H4.
+- Local AAA acceptance: **97%**; production-native AAA remains post-deploy.
+- Unresolvable technical blocker: **none known**.
+- Human/authority blockers: canonical mission registration, isolated app target, isolated database target, then exact dormant-release authorization.
+
 ## Founder action still required
 
-Production cannot safely continue without the authority/target and Matrix-lock resolutions listed above. The isolated build can continue to receive local hardening, but no production mutation should be attempted from this state.
+Approve H1 and return the H2/H3 target identities using `_AI_HANDOFFS/from_codex/MX-MISSIONACCOUNTS-5301P_FOUNDER_GATES.md`. Matrix, Stripe, Zoom, notifications, historical import, and record adjudication can remain disabled or held; none must block the smallest safe dormant deployment.

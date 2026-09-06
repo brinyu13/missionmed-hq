@@ -1,8 +1,8 @@
 {
   "ticket": "MX-MISSIONACCOUNTS-5301P",
-  "result": "PARTIAL",
+  "result": "PARTIAL_READY_FOR_FOUNDER_GATES",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "4af11d3d02d710a48399e184f6f9c5c8e0a61b8c",
+  "implementation_commit": "d5cd9953d80be22e1f8ef445a568388139025474",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -39,12 +39,13 @@
     "8d545c37b3ee724ecc28e056f5835098f1b8442d",
     "f65e8bbcfedbf00715fe992fbd2a6f7faec0032d",
     "5bd3e18a3ffff1f99ff78bb2f7cecbfc6f2062ea",
-    "4af11d3d02d710a48399e184f6f9c5c8e0a61b8c"
+    "4af11d3d02d710a48399e184f6f9c5c8e0a61b8c",
+    "d5cd9953d80be22e1f8ef445a568388139025474"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
   "migration_created": true,
-  "migrations_created": 8,
+  "migrations_created": 9,
   "migration_applied": false,
   "postgres_migration_tested": true,
   "exam_plan_rpc_implemented": true,
@@ -107,6 +108,15 @@
   "identity_comp_custody_guard_implemented": true,
   "identity_open_question_hold_implemented": true,
   "identity_review_feature_default_off": true,
+  "device_identity_adjudication_rpc_implemented": true,
+  "device_alias_source_evidence_preserved": true,
+  "device_alias_automatic_merge_disabled": true,
+  "candidate_cap_financial_finality_guard_implemented": true,
+  "candidate_cap_reciprocal_concurrency_verified": true,
+  "charge_attendance_owner_invariant_implemented": true,
+  "safe_mode_truthful_provider_status": true,
+  "safe_mode_dynamic_capability_disabling": true,
+  "authorized_admin_empty_account_supported": true,
   "notification_outbox_worker_implemented": true,
   "due_exam_reminder_dispatcher_implemented": true,
   "explicit_notification_audience_implemented": true,
@@ -121,7 +131,8 @@
   "production_shell_scrubbed": true,
   "isolated_container_packaging_implemented": true,
   "docker_image_verified": true,
-  "docker_image_id": "sha256:8c7e11203eda57938589c81a412f89a830ba997a9b77200deb1e9762bf7ac97f",
+  "docker_image_id": "sha256:09e892612e3e3e587079a5c94bc07f1dfc3b88b32de9009700b7e6a26b83c6f9",
+  "docker_image_size_bytes": 58516907,
   "docker_nonroot_user_verified": true,
   "docker_private_artifact_exclusion_verified": true,
   "docker_production_fail_closed_verified": true,
@@ -133,7 +144,7 @@
   "notification_transport_configured": false,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 136, "failed": 0, "mandatory_vectors": 21, "receipt_email_vectors": 2, "unhandled_provider_event_vectors": 2 },
+  "tests": { "passed": 140, "failed": 0, "mandatory_vectors": 21, "receipt_email_vectors": 2, "unhandled_provider_event_vectors": 2 },
   "browser_qa": {
     "desktop": true,
     "mobile_390": true,
@@ -153,6 +164,14 @@
     "student_attendance_issue_mobile_no_overflow": true,
     "admin_attendance_issue_queue": true,
     "admin_attendance_issue_review_history": true
+    ,"safe_mode_checks_passed": 47
+    ,"safe_mode_checks_failed": 0
+    ,"desktop_1440_light_dark": true
+    ,"tablet_1024_dark": true
+    ,"mobile_390_light_dark": true
+    ,"reduced_motion": true
+    ,"keyboard_focus_and_modal_trap": true
+    ,"authorized_admin_empty_account": true
   },
   "source_controls": {
     "students": 271,
@@ -172,7 +191,14 @@
     "cycle_amounts_usd": [25425, 26575, 25075],
     "total_usd": 77075,
     "historical_cap_candidates": 74,
-    "historical_caps_verified": 0
+    "historical_caps_verified": 0,
+    "historical_import_classes": {
+      "READY": 320,
+      "IDENTITY_HOLD": 107,
+      "CAP_HOLD": 69,
+      "SOURCE_LINK_HOLD": 2,
+      "OTHER_REVIEW": 0
+    }
   },
   "feature_flags": {
     "missionaccounts_route": false,
@@ -186,12 +212,30 @@
     "notifications": false,
     "zoom_sync": false
   },
-  "blockers": [
+  "progress": {
+    "overall_to_aaa_live_percent": 90,
+    "local_engineering_percent": 100,
+    "production_readiness_percent": 96,
+    "deployment_percent": 0,
+    "local_aaa_acceptance_percent": 97
+  },
+  "hard_predeployment_blockers": [
     "mission_not_registered",
+    "isolated_railway_target_not_registered",
+    "isolated_supabase_target_not_registered",
+    "exact_dormant_release_not_authorized"
+  ],
+  "activation_blockers": [
     "matrix_runtime_lock_drift",
-    "production_targets_not_registered",
-    "historical_cap_candidates_not_adjudicated",
+    "historical_import_not_authorized",
+    "stripe_test_account_not_bound",
     "notification_transport_not_registered",
+    "zoom_s2s_not_registered",
+    "recurring_workers_not_registered",
     "automatic_billing_terms_not_approved"
-  ]
+  ],
+  "data_holds_block_app_deployment": false,
+  "providers_block_dormant_app_deployment": false,
+  "unresolvable_technical_blocker_known": false,
+  "founder_gates_path": "_AI_HANDOFFS/from_codex/MX-MISSIONACCOUNTS-5301P_FOUNDER_GATES.md"
 }
