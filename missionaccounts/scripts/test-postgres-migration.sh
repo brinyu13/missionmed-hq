@@ -38,20 +38,24 @@ results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 set role service_role;
 select missionaccounts.api_submit_exam_plan('$student_id','s2','2026-10-14','wp:4242','student','pg-integration-0001')->>'duplicate';
 select missionaccounts.api_submit_exam_plan('$student_id','s2','2026-10-14','wp:4242','student','pg-integration-0001')->>'duplicate';
+select missionaccounts.api_set_comp_allowance('$student_id',3,'2026-09-08','Verified exception',false,'wp:admin','missionaccounts_admin','pg-integration-0002')->>'duplicate';
+select missionaccounts.api_set_comp_allowance('$student_id',3,'2026-09-08','Verified exception',false,'wp:admin','missionaccounts_admin','pg-integration-0002')->>'duplicate';
 reset role;
 select count(*) || '|' ||
   (select count(*) from missionaccounts.exam_transition) || '|' ||
   (select count(*) from missionaccounts.audit_event) || '|' ||
-  (select count(*) from missionaccounts.notification_outbox)
+  (select count(*) from missionaccounts.notification_outbox) || '|' ||
+  (select count(*) from missionaccounts.comp_allowance_change) || '|' ||
+  (select comp_days_allowance from missionaccounts.student where id = '$student_id')
 from missionaccounts.exam_plan;
 SQL
 )
 
-expected=$'false\ntrue\n1|1|1|1'
+expected=$'false\ntrue\nfalse\ntrue\n1|1|2|1|1|3'
 if [[ "$results" != "$expected" ]]; then
   echo "MissionAccounts PostgreSQL verification returned unexpected controls:" >&2
   echo "$results" >&2
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration and exam-plan transaction: PASS"
+echo "MissionAccounts PostgreSQL migration, exam-plan, and comp transactions: PASS"

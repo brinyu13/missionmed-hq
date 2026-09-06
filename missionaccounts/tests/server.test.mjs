@@ -122,3 +122,34 @@ test('student exam-plan submission stays unavailable while its feature flag is o
     assert.equal(response.status, 503);
   });
 });
+
+test('admin comp override requires authority, reason, feature flag, and an idempotency key', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, compDays: true } };
+  const store = new PreviewStore();
+  const path = '/api/admin/students/00000000-0000-4000-8000-000000000001/comp';
+  const body = JSON.stringify({ allowance: 3, joined_on: '2026-09-08', reason: 'Founder-approved student exception', apply_retroactively: false });
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const student = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'comp-request-0001' },
+      body,
+    });
+    assert.equal(student.status, 403);
+
+    const headers = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin', 'idempotency-key': 'comp-request-0001' };
+    const created = await fetch(`${base}${path}`, { method: 'POST', headers, body });
+    assert.equal(created.status, 201);
+    assert.equal((await created.json()).student.comp_days_allowance, 3);
+
+    const retry = await fetch(`${base}${path}`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+
+    const missingReason = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { ...headers, 'idempotency-key': 'comp-request-0002' },
+      body: JSON.stringify({ allowance: 4 }),
+    });
+    assert.equal(missingReason.status, 400);
+  });
+});

@@ -207,6 +207,8 @@ create table missionaccounts.comp_allowance_change (
   student_id uuid not null references missionaccounts.student(id),
   from_allowance integer not null,
   to_allowance integer not null check (to_allowance >= 0),
+  from_joined_at date,
+  to_joined_at date,
   apply_retroactively boolean not null default false,
   reason text not null check (length(btrim(reason)) > 0),
   actor_id text not null,
@@ -547,6 +549,124 @@ $$;
 
 revoke execute on function missionaccounts.api_submit_exam_plan(uuid, text, date, text, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_submit_exam_plan(uuid, text, date, text, text, text) to service_role;
+
+create function missionaccounts.api_set_comp_allowance(
+  p_student_id uuid,
+  p_allowance integer,
+  p_joined_on date,
+  p_reason text,
+  p_apply_retroactively boolean,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  existing_change missionaccounts.comp_allowance_change%rowtype;
+  current_student missionaccounts.student%rowtype;
+  updated_student missionaccounts.student%rowtype;
+  change_id uuid;
+  audit_id uuid;
+  released_days integer := 0;
+begin
+  if p_allowance is null or p_allowance < 0 or p_allowance > 365 then
+    raise exception using errcode = '22023', message = 'invalid_comp_allowance';
+  end if;
+  if nullif(btrim(p_reason), '') is null
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_actor_role), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'comp_reason_actor_and_request_required';
+  end if;
+
+  select * into existing_change
+  from missionaccounts.comp_allowance_change
+  where request_id = p_request_id;
+
+  if found then
+    if existing_change.student_id <> p_student_id
+       or existing_change.to_allowance <> p_allowance
+       or existing_change.to_joined_at is distinct from p_joined_on
+       or existing_change.reason <> p_reason
+       or existing_change.apply_retroactively <> p_apply_retroactively
+       or existing_change.actor_id <> p_actor_id then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select id into audit_id
+    from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'comp_allowance.changed';
+    select * into updated_student from missionaccounts.student where id = p_student_id;
+    return jsonb_build_object(
+      'student', to_jsonb(updated_student),
+      'change_id', existing_change.id,
+      'audit_event_id', audit_id,
+      'released_days', 0,
+      'duplicate', true
+    );
+  end if;
+
+  select * into current_student
+  from missionaccounts.student
+  where id = p_student_id
+  for update;
+  if not found then
+    raise exception using errcode = '23503', message = 'student_not_found';
+  end if;
+
+  insert into missionaccounts.comp_allowance_change(
+    student_id, from_allowance, to_allowance, from_joined_at, to_joined_at,
+    apply_retroactively, reason, actor_id, request_id
+  ) values (
+    p_student_id, current_student.comp_days_allowance, p_allowance, current_student.joined_at,
+    coalesce(p_joined_on, current_student.joined_at), p_apply_retroactively, p_reason, p_actor_id, p_request_id
+  ) returning id into change_id;
+
+  if p_apply_retroactively and p_allowance < current_student.comp_days_allowance then
+    update missionaccounts.comp_day_consumption
+    set released_by_change_id = change_id
+    where student_id = p_student_id
+      and released_by_change_id is null
+      and comp_index > p_allowance;
+    get diagnostics released_days = row_count;
+  end if;
+
+  update missionaccounts.student
+  set comp_days_allowance = p_allowance,
+      joined_at = coalesce(p_joined_on, joined_at),
+      updated_at = now()
+  where id = p_student_id
+  returning * into updated_student;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id,
+    p_actor_role,
+    p_student_id,
+    'comp_allowance.changed',
+    'Comp-day allowance changed',
+    jsonb_build_object('allowance', current_student.comp_days_allowance, 'joined_on', current_student.joined_at),
+    jsonb_build_object('allowance', p_allowance, 'joined_on', updated_student.joined_at, 'apply_retroactively', p_apply_retroactively, 'released_days', released_days),
+    p_reason,
+    p_request_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'student', to_jsonb(updated_student),
+    'change_id', change_id,
+    'audit_event_id', audit_id,
+    'released_days', released_days,
+    'duplicate', false
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_set_comp_allowance(uuid, integer, date, text, boolean, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_set_comp_allowance(uuid, integer, date, text, boolean, text, text, text) to service_role;
 
 create table missionaccounts.sync_run (
   id uuid primary key default gen_random_uuid(),

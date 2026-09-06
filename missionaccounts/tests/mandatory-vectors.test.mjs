@@ -147,6 +147,16 @@ test('exam-plan RPC is transactional, idempotent, audited, and queues a notifica
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_submit_exam_plan[^;]+to authenticated/s);
 });
 
+test('comp allowance RPC is admin-only, idempotent, audited, and preserves prospective locks', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.api_set_comp_allowance/);
+  assert.match(sql, /if p_apply_retroactively and p_allowance < current_student\.comp_days_allowance/);
+  assert.match(sql, /and comp_index > p_allowance/);
+  assert.match(sql, /'comp_allowance\.changed'/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_set_comp_allowance[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_set_comp_allowance[^;]+to authenticated/s);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);

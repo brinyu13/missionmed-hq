@@ -59,6 +59,19 @@ export class SupabaseRestStore {
     });
   }
 
+  async setCompAllowance({ studentId, allowance, joinedOn, reason, applyRetroactively, actorId, actorRole, requestId }) {
+    return this.rpc('api_set_comp_allowance', {
+      p_student_id: studentId,
+      p_allowance: allowance,
+      p_joined_on: joinedOn || null,
+      p_reason: reason,
+      p_apply_retroactively: applyRetroactively,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
     const rows = await this.request('provider_event_inbox?on_conflict=provider%2Cprovider_event_id', {
       method: 'POST',
@@ -92,6 +105,8 @@ export class PreviewStore {
     this.providerEvents = new Set();
     this.examPlans = new Map();
     this.examMutations = new Map();
+    this.compSettings = new Map();
+    this.compMutations = new Map();
   }
 
   async studentByMatrixUser(userId) {
@@ -120,6 +135,30 @@ export class PreviewStore {
     const result = { plan, audit_event_id: `preview-audit-${this.examMutations.size + 1}` };
     this.examPlans.set(studentId, plan);
     this.examMutations.set(requestId, { fingerprint, result });
+    return result;
+  }
+  async setCompAllowance({ studentId, allowance, joinedOn, reason, applyRetroactively, actorId, requestId }) {
+    const fingerprint = JSON.stringify({ studentId, allowance, joinedOn, reason, applyRetroactively, actorId });
+    const existing = this.compMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    const prior = this.compSettings.get(studentId) || { allowance: 0, joined_on: null };
+    const student = {
+      id: studentId,
+      comp_days_allowance: allowance,
+      joined_at: joinedOn || prior.joined_on,
+    };
+    const ordinal = this.compMutations.size + 1;
+    const result = {
+      student,
+      change_id: `preview-comp-change-${ordinal}`,
+      audit_event_id: `preview-comp-audit-${ordinal}`,
+      released_days: applyRetroactively && allowance < prior.allowance ? prior.allowance - allowance : 0,
+    };
+    this.compSettings.set(studentId, { allowance, joined_on: student.joined_at });
+    this.compMutations.set(requestId, { fingerprint, result });
     return result;
   }
   async recordProviderEvent({ provider, eventId }) {

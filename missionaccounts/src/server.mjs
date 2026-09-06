@@ -134,8 +134,8 @@ export function createMissionAccountsServer({
       return json(response, 200, { student, attendance, billing, payment_method });
     }
     if (request.method === 'POST' && url.pathname === '/api/me/exam-plan') {
-      requireFeature(config, 'examPlans');
       requireRole(identity, ['student']);
+      requireFeature(config, 'examPlans');
       const student = await studentContext(identity);
       const body = await readJsonBody(request, { limitBytes: 16_384 });
       if (!['s1', 's2', 's3'].includes(body.step) || !/^\d{4}-\d{2}-\d{2}$/.test(String(body.exam_on || ''))) {
@@ -147,6 +147,31 @@ export function createMissionAccountsServer({
         examOn: body.exam_on,
         actorId: identity.userId,
         actorRole: 'student',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
+    const compRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/comp$/i)
+      : null;
+    if (compRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'compDays');
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const allowance = Number(body.allowance);
+      const joinedOn = body.joined_on == null || body.joined_on === '' ? null : String(body.joined_on);
+      const reason = String(body.reason || '').trim();
+      if (!Number.isInteger(allowance) || allowance < 0 || allowance > 365) throw requestError('Comp allowance must be an integer from 0 through 365');
+      if (joinedOn && !/^\d{4}-\d{2}-\d{2}$/.test(joinedOn)) throw requestError('joined_on must be YYYY-MM-DD');
+      if (!reason || reason.length > 2_000) throw requestError('A comp-day reason is required');
+      const result = await store.setCompAllowance({
+        studentId: compRoute[1],
+        allowance,
+        joinedOn,
+        reason,
+        applyRetroactively: body.apply_retroactively === true,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
         requestId: requestIdFor(request),
       });
       return json(response, result.duplicate ? 200 : 201, result);
