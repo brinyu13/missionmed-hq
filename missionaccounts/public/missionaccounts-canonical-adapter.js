@@ -201,7 +201,40 @@ export function buildCanonicalModel(bootstrap) {
   for (const policy of source.cycle_policies || []) working.policy[mappedCycleKey(policy.cycle_key)] = policy.value?.decision || null;
   const ruleDecision = (source.rule_decisions || []).find(row => row.rule === 'one_charge_per_calendar_day');
   if (ruleDecision) working.ruleDecision = { mode: ruleDecision.mode, at: safeDateMs(ruleDecision.decided_at), by: 'Founder', note: '' };
+  const planById = new Map((source.exam_plans || []).map(plan => [plan.id, plan]));
+  const examHistoryByStudent = new Map();
+  for (const transition of source.exam_transitions || []) {
+    const si = studentIndex.get(transition.student_id);
+    if (si == null || transition.accepted === false) continue;
+    const plan = planById.get(transition.exam_plan_id);
+    const action = transition.to_state === 'followup' && transition.result
+      ? transition.result
+      : transition.from_state == null && transition.to_state === 'pending'
+        ? 'submitted'
+        : transition.to_state === 'approved'
+          ? 'approve'
+          : transition.to_state === 'denied'
+            ? 'deny'
+            : transition.to_state === 'pending'
+              ? 'reopen'
+              : transition.to_state;
+    const history = examHistoryByStudent.get(transition.student_id) || [];
+    history.push({
+      t: safeDateMs(transition.created_at),
+      by: transition.actor_role === 'student' ? 'student' : 'admin',
+      action,
+      from: transition.from_state,
+      to: action === 'submitted' && plan ? `${String(plan.step).toUpperCase()} · ${plan.exam_on}` : transition.to_state,
+      note: transition.reason === 'submitted' ? '' : (transition.reason || ''),
+    });
+    examHistoryByStudent.set(transition.student_id, history);
+  }
+  for (const [studentId, history] of examHistoryByStudent) {
+    const si = studentIndex.get(studentId);
+    if (si != null) working.examHistory[si] = history;
+  }
   for (const plan of source.exam_plans || []) {
+    if (plan.superseded_by_id || plan.withdrawn_at) continue;
     const si = studentIndex.get(plan.student_id);
     if (si == null) continue;
     working.exam[si] = {
@@ -215,6 +248,7 @@ export function buildCanonicalModel(bootstrap) {
       passedDate: plan.passed_on,
       submittedAt: safeDateMs(plan.submitted_at),
       decidedAt: safeDateMs(plan.decided_at),
+      history: examHistoryByStudent.get(plan.student_id) || [],
     };
   }
   for (const window of source.grace_windows || []) {

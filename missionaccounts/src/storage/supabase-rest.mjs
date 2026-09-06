@@ -109,7 +109,7 @@ export class SupabaseRestStore {
       : 'id,cycle_key,starts_at,held_on,time_zone,step,state';
     const [
       cycles, sessions, students, aliases, attendanceEvents, attendanceDays,
-      billingDecisions, invoices, examPlans, graceWindows, reminders,
+      billingDecisions, invoices, examPlans, examTransitions, graceWindows, reminders,
       corrections, ceilings, cyclePolicies, ruleDecisions,
     ] = await Promise.all([
       this.billingCycles(),
@@ -120,7 +120,8 @@ export class SupabaseRestStore {
       this.requestAll(`attendance_day?superseded_at=is.null${studentFilter}&select=id,student_id,cycle_key,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`),
       this.requestAll(`billing_decision?superseded_by_id=is.null${studentFilter}&select=id,student_id,cycle_key,treatment,amount_cents,basis,state,decided_at&order=created_at.asc`),
       this.requestAll(`invoice?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,cycle_key,decision_id,state,amount_cents,sent_at,paid_at&order=created_at.asc`),
-      this.requestAll(`exam_plan?superseded_by_id=is.null${studentFilter}&select=id,student_id,step,exam_on,state,result,note,suggested_on,passed_on,submitted_at,decided_at&order=submitted_at.asc`),
+      this.requestAll(`exam_plan?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,step,exam_on,state,result,note,suggested_on,passed_on,submitted_at,decided_at,withdrawn_at,superseded_by_id&order=submitted_at.asc`),
+      this.requestAll(`exam_transition?accepted=eq.true${studentFilter}&select=id,exam_plan_id,student_id,from_state,to_state,result,reason,actor_role,created_at&order=created_at.asc`),
       this.requestAll(`grace_window?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,from_on,to_on,state,closed_reason,created_at&order=created_at.asc`),
       this.requestAll(`reminder?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,due_on,state,cancelled_reason,created_at&order=created_at.asc`),
       this.requestAll(`attendance_correction?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,attendance_event_id,session_id,type,from_val,to_val,reason,reverts_id,reverted_by_id,created_at&order=created_at.asc`),
@@ -140,6 +141,7 @@ export class SupabaseRestStore {
       billing_decisions: billingDecisions,
       invoices,
       exam_plans: examPlans,
+      exam_transitions: examTransitions,
       grace_windows: graceWindows,
       reminders,
       attendance_corrections: corrections,
@@ -176,7 +178,7 @@ export class SupabaseRestStore {
   }
 
   async currentExamPlanForStudent(studentId) {
-    const rows = await this.request(`exam_plan?student_id=eq.${encodeURIComponent(studentId)}&superseded_by_id=is.null&select=id,student_id,step,exam_on,state,result,note,passed_on&limit=1`);
+    const rows = await this.request(`exam_plan?student_id=eq.${encodeURIComponent(studentId)}&superseded_by_id=is.null&withdrawn_at=is.null&select=id,student_id,step,exam_on,state,result,note,suggested_on,passed_on&limit=1`);
     return rows[0] || null;
   }
 
@@ -234,6 +236,17 @@ export class SupabaseRestStore {
       p_actor_role: actorRole,
       p_request_id: requestId,
       p_suggested_on: suggestedOn || null,
+    });
+  }
+
+  async withdrawExamPlan({ planId, today, actorId, actorRole, reason, requestId }) {
+    return this.rpc('api_withdraw_exam_plan', {
+      p_plan_id: planId,
+      p_today: today,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_reason: reason,
+      p_request_id: requestId,
     });
   }
 
@@ -445,7 +458,7 @@ export class SupabaseRestStore {
       this.adminStudents(),
       this.request('attendance_day?superseded_at=is.null&select=id,student_id,cycle_key,kind'),
       this.request('billing_decision?superseded_by_id=is.null&select=id,student_id,cycle_key,state,amount_cents'),
-      this.request('exam_plan?superseded_by_id=is.null&select=id,student_id,step,exam_on,state'),
+      this.request('exam_plan?superseded_by_id=is.null&withdrawn_at=is.null&select=id,student_id,step,exam_on,state'),
       this.request('reminder?state=in.(scheduled,due)&select=id,student_id,exam_plan_id,due_on,state'),
       this.request('invoice?state=in.(draft,ready,sent)&select=id,student_id,cycle_key,state,amount_cents'),
       this.request('identity_cluster?state=eq.open&select=ref'),
@@ -524,6 +537,9 @@ export class PreviewStore {
     this.compSettings = new Map();
     this.compMutations = new Map();
     this.examTransitions = new Map();
+    this.examWithdrawals = new Map();
+    this.priorExamPlans = [];
+    this.examHistoryRows = [];
     this.cyclePolicies = new Map();
     this.policyMutations = new Map();
     this.attendanceDays = new Map();
@@ -590,7 +606,11 @@ export class PreviewStore {
         .flatMap(([, rows]) => rows.map(row => ({ ...row }))),
       billing_decisions: valuesFor(this.billingDecisions),
       invoices: valuesFor(this.invoices),
-      exam_plans: valuesFor(this.examPlans),
+      exam_plans: [
+        ...this.priorExamPlans.filter(plan => relevantStudentIds.has(plan.student_id)),
+        ...valuesFor(this.examPlans),
+      ].map(plan => ({ ...plan })),
+      exam_transitions: this.examHistoryRows.filter(row => relevantStudentIds.has(row.student_id)).map(row => ({ ...row })),
       grace_windows: [],
       reminders: valuesFor(this.reminders),
       attendance_corrections: this.attendanceCorrections.filter(row => relevantStudentIds.has(row.student_id)),
@@ -664,7 +684,10 @@ export class PreviewStore {
     const approved = [...this.billingTerms.values()].filter(terms => terms.status === 'approved');
     return approved.at(-1) || null;
   }
-  async currentExamPlanForStudent(studentId) { return this.examPlans.get(studentId) || null; }
+  async currentExamPlanForStudent(studentId) {
+    const plan = this.examPlans.get(studentId) || null;
+    return plan?.withdrawn_at ? null : plan;
+  }
   seedPaymentMethod(studentId, paymentMethod) {
     this.paymentMethods.set(studentId, {
       id: paymentMethod.id || `preview-payment-method-${this.paymentMethods.size + 1}`,
@@ -715,9 +738,11 @@ export class PreviewStore {
       state: 'pending',
       submitted_by: actorId,
       supersedes_id: prior?.id || null,
+      superseded_by_id: null,
     };
     const closedGraceWindows = prior && ['approved', 'followup'].includes(prior.state) ? 1 : 0;
     if (prior) {
+      this.priorExamPlans.push({ ...prior, superseded_by_id: plan.id });
       for (const reminder of this.reminders.values()) {
         if (reminder.exam_plan_id !== prior.id || !['scheduled', 'due'].includes(reminder.state)) continue;
         reminder.state = 'cancelled';
@@ -739,6 +764,18 @@ export class PreviewStore {
       audit_event_id: `preview-audit-${ordinal}`,
     };
     this.examPlans.set(studentId, plan);
+    this.examHistoryRows.push({
+      id: `preview-exam-history-${this.examHistoryRows.length + 1}`,
+      exam_plan_id: plan.id,
+      student_id: studentId,
+      from_state: null,
+      to_state: 'pending',
+      result: null,
+      accepted: true,
+      reason: 'submitted',
+      actor_role: effectiveRole,
+      created_at: new Date().toISOString(),
+    });
     this.examMutations.set(requestId, { fingerprint, result });
     return result;
   }
@@ -770,8 +807,9 @@ export class PreviewStore {
     this.compMutations.set(requestId, { fingerprint, result });
     return result;
   }
-  async transitionExamPlan({ planId, toState, result, note, suggestedOn, today, actorId, requestId }) {
-    const fingerprint = JSON.stringify({ planId, toState, result, note, suggestedOn, today, actorId });
+  async transitionExamPlan({ planId, toState, result, note, suggestedOn, today, actorId, actorRole, requestId }) {
+    const effectiveRole = actorRole || (actorId === this.previewStudentRecord.id ? 'student' : 'missionaccounts_admin');
+    const fingerprint = JSON.stringify({ planId, toState, result, note, suggestedOn, today, actorId, actorRole: effectiveRole });
     const existing = this.examTransitions.get(requestId);
     if (existing) {
       if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
@@ -780,10 +818,23 @@ export class PreviewStore {
     const entry = [...this.examPlans.entries()].find(([, plan]) => plan.id === planId);
     if (!entry) throw Object.assign(new Error('Exam plan not found'), { status: 404 });
     const [studentId, plan] = entry;
+    if (plan.withdrawn_at) throw Object.assign(new Error('Current exam plan not found'), { status: 404 });
     let resultPayload;
     try {
       const transition = applyExamTransition({ plan, to: toState, actor: actorId, today, result, note, suggestedOn });
       this.examPlans.set(studentId, transition.plan);
+      this.examHistoryRows.push({
+        id: `preview-exam-history-${this.examHistoryRows.length + 1}`,
+        exam_plan_id: plan.id,
+        student_id: studentId,
+        from_state: plan.state,
+        to_state: toState,
+        result: result || null,
+        accepted: true,
+        reason: note || null,
+        actor_role: effectiveRole,
+        created_at: new Date().toISOString(),
+      });
       if (transition.effects.reminder?.state === 'scheduled') {
         const existingReminder = [...this.reminders.values()].find(row => row.exam_plan_id === plan.id);
         const reminder = existingReminder || {
@@ -826,6 +877,64 @@ export class PreviewStore {
     }
     this.examTransitions.set(requestId, { fingerprint, result: resultPayload });
     return resultPayload;
+  }
+  async withdrawExamPlan({ planId, today, actorId, actorRole, reason, requestId }) {
+    const fingerprint = JSON.stringify({ planId, today, actorId, actorRole, reason });
+    const existing = this.examWithdrawals.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    const entry = [...this.examPlans.entries()].find(([, plan]) => plan.id === planId && !plan.withdrawn_at);
+    if (!entry) throw Object.assign(new Error('Current exam plan not found'), { status: 404 });
+    const [studentId, plan] = entry;
+    const allowed = plan.state !== 'passed' && (
+      ['missionaccounts_admin', 'founder'].includes(actorRole)
+      || (actorRole === 'student' && actorId === studentId)
+    );
+    if (!allowed) {
+      const result = { accepted: false, plan: { ...plan }, audit_event_id: `preview-exam-withdraw-audit-${this.examWithdrawals.size + 1}` };
+      this.examWithdrawals.set(requestId, { fingerprint, result });
+      return result;
+    }
+    let closedGraceWindows = 0;
+    if (['approved', 'followup'].includes(plan.state)) closedGraceWindows = 1;
+    plan.withdrawn_at = new Date().toISOString();
+    plan.withdrawn_by = actorId;
+    this.examHistoryRows.push({
+      id: `preview-exam-history-${this.examHistoryRows.length + 1}`,
+      exam_plan_id: plan.id,
+      student_id: studentId,
+      from_state: plan.state,
+      to_state: 'withdrawn',
+      result: null,
+      accepted: true,
+      reason,
+      actor_role: actorRole,
+      created_at: plan.withdrawn_at,
+    });
+    for (const reminder of this.reminders.values()) {
+      if (reminder.exam_plan_id !== plan.id || !['scheduled', 'due'].includes(reminder.state)) continue;
+      reminder.state = 'cancelled';
+      reminder.cancelled_reason = 'plan_withdrawn';
+      for (const notification of this.notifications.values()) {
+        if (notification.reminder_id === reminder.id && ['pending', 'failed', 'sending'].includes(notification.state)) {
+          notification.state = 'cancelled';
+          notification.locked_by = null;
+          notification.locked_at = null;
+          notification.last_error = 'plan_withdrawn';
+        }
+      }
+    }
+    const result = {
+      accepted: true,
+      plan: { ...plan },
+      closed_grace_windows: closedGraceWindows,
+      attendance_recompute: closedGraceWindows ? { trigger: `${requestId}:exam-plan-withdrawn`, today } : null,
+      audit_event_id: `preview-exam-withdraw-audit-${this.examWithdrawals.size + 1}`,
+    };
+    this.examWithdrawals.set(requestId, { fingerprint, result });
+    return result;
   }
   async setCyclePolicy({ cycleKey, decision, reason, actorId, requestId }) {
     const fingerprint = JSON.stringify({ cycleKey, decision, reason, actorId });
@@ -1373,7 +1482,7 @@ export class PreviewStore {
   }
   async adminHome({ today }) {
     const students = await this.adminStudents();
-    const examPlans = [...this.examPlans.values()];
+    const examPlans = [...this.examPlans.values()].filter(plan => !plan.withdrawn_at);
     return {
       questions: students.filter(student => student.identity_state === 'needs_review').length
         + [...this.identityClusters.values()].filter(cluster => cluster.state === 'open').length,
@@ -1412,7 +1521,7 @@ export class PreviewStore {
       billing: [...this.billingDecisions.entries()].filter(([key]) => key.startsWith(`${studentId}:`)).map(([, decision]) => decision),
       payment_method: student.payment_method,
       billing_consent: student.billing_consent,
-      exam_plan: this.examPlans.get(studentId) || null,
+      exam_plan: await this.currentExamPlanForStudent(studentId),
     };
   }
   async adminHealth() { return { mode: 'preview', review_students: null, failed_provider_events: null, failed_notifications: null, latest_zoom_sync: null }; }

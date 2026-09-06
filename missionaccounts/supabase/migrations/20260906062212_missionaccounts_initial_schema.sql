@@ -338,12 +338,14 @@ create table missionaccounts.exam_plan (
   passed_on date,
   note text,
   suggested_on date,
+  withdrawn_at timestamptz,
+  withdrawn_by text,
   superseded_by_id uuid references missionaccounts.exam_plan(id)
 );
 
 create unique index exam_plan_one_current
   on missionaccounts.exam_plan(student_id)
-  where superseded_by_id is null;
+  where superseded_by_id is null and withdrawn_at is null;
 
 create table missionaccounts.exam_transition (
   id uuid primary key default gen_random_uuid(),
@@ -1652,7 +1654,7 @@ begin
      or (current_plan.state in ('approved','followup') and p_to_state in ('denied','pending'))
      or (p_to_state = 'followup' and p_result is not null) then
     update missionaccounts.grace_window
-    set to_on = p_today,
+    set to_on = greatest(from_on, p_today),
         closed_reason = case when p_to_state = 'passed' then 'passed' else coalesce(p_result, p_to_state) end,
         closed_at = now()
     where exam_plan_id = current_plan.id and to_on is null;
@@ -1737,6 +1739,164 @@ $$;
 
 revoke execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text, date) from public, anon, authenticated;
 grant execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text, date) to service_role;
+
+create function missionaccounts.api_withdraw_exam_plan(
+  p_plan_id uuid,
+  p_today date,
+  p_actor_id text,
+  p_actor_role text,
+  p_reason text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  current_plan missionaccounts.exam_plan%rowtype;
+  prior_transition missionaccounts.exam_transition%rowtype;
+  transition_id uuid;
+  audit_id uuid;
+  transition_allowed boolean := false;
+  closed_grace_windows integer := 0;
+  recomputed jsonb;
+begin
+  if p_today is null
+     or nullif(btrim(p_actor_id), '') is null
+     or p_actor_role not in ('student','missionaccounts_admin','founder')
+     or nullif(btrim(p_reason), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'invalid_exam_withdrawal_request';
+  end if;
+
+  select * into prior_transition
+  from missionaccounts.exam_transition
+  where request_id = p_request_id;
+  if found then
+    if prior_transition.exam_plan_id <> p_plan_id
+       or prior_transition.to_state <> 'withdrawn'
+       or prior_transition.actor_id <> p_actor_id
+       or prior_transition.actor_role <> p_actor_role
+       or prior_transition.reason is distinct from p_reason then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select * into current_plan from missionaccounts.exam_plan where id = p_plan_id;
+    select id into audit_id
+    from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'exam_plan.withdrawn';
+    return jsonb_build_object(
+      'accepted', prior_transition.accepted,
+      'plan', to_jsonb(current_plan),
+      'transition_id', prior_transition.id,
+      'audit_event_id', audit_id,
+      'duplicate', true
+    );
+  end if;
+
+  select * into current_plan
+  from missionaccounts.exam_plan
+  where id = p_plan_id and superseded_by_id is null and withdrawn_at is null
+  for update;
+  if not found then
+    raise exception using errcode = '23503', message = 'current_exam_plan_not_found';
+  end if;
+
+  transition_allowed := current_plan.state <> 'passed' and (
+    p_actor_role in ('missionaccounts_admin','founder')
+    or exists (
+      select 1 from missionaccounts.student s
+      where s.id = current_plan.student_id and s.matrix_user_ref = p_actor_id
+    )
+  );
+
+  insert into missionaccounts.exam_transition(
+    exam_plan_id, student_id, from_state, to_state, accepted, reason,
+    actor_id, actor_role, request_id
+  ) values (
+    current_plan.id, current_plan.student_id, current_plan.state, 'withdrawn',
+    transition_allowed, p_reason, p_actor_id, p_actor_role, p_request_id
+  ) returning id into transition_id;
+
+  if not transition_allowed then
+    insert into missionaccounts.audit_event(
+      actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+    ) values (
+      p_actor_id, p_actor_role, current_plan.student_id, 'exam_plan.withdrawn',
+      'Rejected exam-plan withdrawal', to_jsonb(current_plan.state), to_jsonb('withdrawn'::text),
+      p_reason, p_request_id
+    ) returning id into audit_id;
+    return jsonb_build_object(
+      'accepted', false,
+      'plan', to_jsonb(current_plan),
+      'transition_id', transition_id,
+      'audit_event_id', audit_id,
+      'duplicate', false
+    );
+  end if;
+
+  update missionaccounts.grace_window
+  set to_on = greatest(from_on, p_today),
+      closed_reason = 'withdrawn',
+      closed_at = now()
+  where exam_plan_id = current_plan.id and to_on is null;
+  get diagnostics closed_grace_windows = row_count;
+
+  update missionaccounts.reminder
+  set state = 'cancelled', cancelled_reason = 'plan_withdrawn', updated_at = now()
+  where exam_plan_id = current_plan.id and state in ('scheduled','due');
+  update missionaccounts.notification_outbox
+  set state = 'cancelled', locked_by = null, locked_at = null, last_error = 'plan_withdrawn'
+  where reminder_id in (
+    select id from missionaccounts.reminder where exam_plan_id = current_plan.id
+  ) and state in ('pending','failed','sending');
+
+  update missionaccounts.exam_plan
+  set withdrawn_at = now(), withdrawn_by = p_actor_id
+  where id = current_plan.id
+  returning * into current_plan;
+
+  if closed_grace_windows > 0 then
+    recomputed := missionaccounts.recompute_student_attendance(
+      current_plan.student_id,
+      p_request_id || ':exam-plan-withdrawn'
+    );
+  end if;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id, p_actor_role, current_plan.student_id, 'exam_plan.withdrawn',
+    'Exam plan withdrawn',
+    jsonb_build_object('state', current_plan.state, 'exam_on', current_plan.exam_on),
+    jsonb_build_object('withdrawn_at', current_plan.withdrawn_at, 'closed_grace_windows', closed_grace_windows, 'attendance_recompute', recomputed),
+    p_reason, p_request_id
+  ) returning id into audit_id;
+
+  insert into missionaccounts.notification_outbox(
+    student_id, channel, audience, event_kind, payload, state, idempotency_key
+  ) values (
+    current_plan.student_id, 'matrix',
+    case when p_actor_role = 'student' then 'missionaccounts_admin' else 'student' end,
+    'exam_plan.withdrawn',
+    jsonb_build_object('student_id', current_plan.student_id, 'exam_plan_id', current_plan.id),
+    'pending', p_request_id || ':exam-plan-withdrawn'
+  ) on conflict (idempotency_key) do nothing;
+
+  return jsonb_build_object(
+    'accepted', true,
+    'plan', to_jsonb(current_plan),
+    'transition_id', transition_id,
+    'audit_event_id', audit_id,
+    'closed_grace_windows', closed_grace_windows,
+    'attendance_recompute', recomputed,
+    'duplicate', false
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_withdraw_exam_plan(uuid, date, text, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_withdraw_exam_plan(uuid, date, text, text, text, text) to service_role;
 
 create function missionaccounts.api_set_cycle_policy(
   p_cycle_key text,

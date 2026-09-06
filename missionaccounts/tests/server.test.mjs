@@ -657,6 +657,53 @@ test('student Passed action resolves only the authenticated student current plan
   });
 });
 
+test('student exam-plan withdrawal closes grace, cancels reminders, preserves the plan, and is idempotent', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, examPlans: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const submitted = await store.submitExamPlan({
+    studentId, step: 's1', examOn: '2026-09-09', today: '2026-09-01',
+    actorId: studentId, actorRole: 'student', requestId: 'withdraw-submit-0001',
+  });
+  await store.transitionExamPlan({
+    planId: submitted.plan.id, toState: 'approved', result: null, note: null,
+    today: '2026-09-01', actorId: 'admin-1', actorRole: 'missionaccounts_admin', requestId: 'withdraw-approve-0001',
+  });
+  await store.enqueueDueExamReminders({ today: '2026-09-30', now: '2026-09-30T15:59:00Z', limit: 10 });
+  await withServer({
+    config: enabledConfig,
+    store,
+    stripeGateway: new StripeGateway(),
+    now: () => new Date('2026-09-30T16:00:00Z'),
+  }, async base => {
+    const headers = {
+      'content-type': 'application/json',
+      'x-missionaccounts-local-role': 'student',
+      'idempotency-key': 'withdraw-request-0001',
+    };
+    const body = JSON.stringify({ plan_id: submitted.plan.id });
+    const withdrawn = await fetch(`${base}/api/me/exam-plan/withdraw`, { method: 'POST', headers, body });
+    assert.equal(withdrawn.status, 201);
+    const result = await withdrawn.json();
+    assert.equal(result.accepted, true);
+    assert.equal(result.closed_grace_windows, 1);
+    assert.equal(result.plan.id, submitted.plan.id);
+    assert.ok(result.plan.withdrawn_at);
+    assert.equal(await store.currentExamPlanForStudent(studentId), null);
+    assert.equal([...store.reminders.values()][0].state, 'cancelled');
+    assert.equal([...store.notifications.values()][0].state, 'cancelled');
+
+    const retry = await fetch(`${base}/api/me/exam-plan/withdraw`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+
+    const projection = await store.canonicalUiData({ scope: 'student', studentId });
+    assert.equal(projection.exam_plans.length, 1);
+    assert.ok(projection.exam_plans[0].withdrawn_at);
+    assert.equal(projection.exam_transitions.at(-1).to_state, 'withdrawn');
+  });
+});
+
 test('student billing consent requires approved terms plus an on-file method and is idempotent', async () => {
   const enabledConfig = { ...localConfig, features: { ...localConfig.features, autoBilling: true } };
   const store = new PreviewStore();

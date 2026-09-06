@@ -141,6 +141,9 @@ test('V17 correction path is append-only and source rows are immutable', async (
 test('exam-plan RPC is transactional, idempotent, audited, and queues a notification', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
   assert.match(sql, /create function missionaccounts\.api_submit_exam_plan/);
+  assert.match(sql, /create function missionaccounts\.api_withdraw_exam_plan/);
+  assert.match(sql, /closed_reason = 'withdrawn'/);
+  assert.match(sql, /p_request_id \|\| ':exam-plan-withdrawn'/);
   assert.match(sql, /where et\.request_id = p_request_id/);
   assert.match(sql, /exam_plan_submission_forbidden/);
   assert.match(sql, /actor_role text not null check \(actor_role in/);
@@ -151,6 +154,7 @@ test('exam-plan RPC is transactional, idempotent, audited, and queues a notifica
   assert.match(sql, /p_request_id \|\| ':exam-plan-replaced'/);
   assert.match(sql, /insert into missionaccounts\.notification_outbox/);
   assert.match(sql, /grant execute on function missionaccounts\.api_submit_exam_plan[^;]+to service_role/s);
+  assert.match(sql, /grant execute on function missionaccounts\.api_withdraw_exam_plan[^;]+to service_role/s);
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_submit_exam_plan[^;]+to authenticated/s);
 });
 

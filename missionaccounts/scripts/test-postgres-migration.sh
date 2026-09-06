@@ -232,6 +232,45 @@ if [[ "$admin_exam_results" != "$admin_exam_expected" ]]; then
   exit 1
 fi
 
+withdraw_exam_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:withdraw-exam','Withdraw Exam Test') returning id")
+
+withdraw_exam_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_submit_exam_plan(
+  '$withdraw_exam_student_id','s1','2026-09-09','2026-09-01',
+  'wp:withdraw-exam','student','pg-withdraw-exam-submit-0001'
+)->>'duplicate';
+select missionaccounts.api_transition_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$withdraw_exam_student_id' and superseded_by_id is null),
+  'approved',null,null,'2026-09-01',
+  'wp:admin','missionaccounts_admin','pg-withdraw-exam-approve-0001',null
+)->>'accepted';
+select missionaccounts.api_withdraw_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$withdraw_exam_student_id' and superseded_by_id is null),
+  '2026-09-30','wp:withdraw-exam','student','Student withdrew exam plan','pg-withdraw-exam-0001'
+)->>'accepted';
+select missionaccounts.api_withdraw_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$withdraw_exam_student_id' and withdrawn_at is not null),
+  '2026-09-30','wp:withdraw-exam','student','Student withdrew exam plan','pg-withdraw-exam-0001'
+)->>'duplicate';
+reset role;
+select
+  (select count(*) from missionaccounts.exam_plan where student_id='$withdraw_exam_student_id') || '|' ||
+  (select count(*) from missionaccounts.exam_plan where student_id='$withdraw_exam_student_id' and withdrawn_at is null) || '|' ||
+  (select to_on from missionaccounts.grace_window where student_id='$withdraw_exam_student_id') || '|' ||
+  (select state from missionaccounts.reminder where student_id='$withdraw_exam_student_id') || '|' ||
+  (select audience from missionaccounts.notification_outbox where idempotency_key='pg-withdraw-exam-0001:exam-plan-withdrawn');
+SQL
+)
+
+withdraw_exam_expected=$'false\ntrue\ntrue\ntrue\n1|0|2026-09-30|cancelled|missionaccounts_admin'
+if [[ "$withdraw_exam_results" != "$withdraw_exam_expected" ]]; then
+  echo "MissionAccounts exam-withdrawal verification returned unexpected controls:" >&2
+  echo "$withdraw_exam_results" >&2
+  exit 1
+fi
+
 billing_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 insert into missionaccounts.engine_run(engine_version, source_digest, state)
 values ('integration-v1', repeat('a', 64), 'succeeded');

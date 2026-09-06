@@ -37,7 +37,7 @@ function bootstrap(scope = 'student') {
         { id: 'event-2', student_id: studentId, session_id: sessionTwo, cycle_key: '2026-cycle-1', local_day: '2026-06-08', step: 's23', interpretation_state: 'effective', duration_minutes: 45, source_row_count: 1, source_display_name: 'Preview Student' },
       ],
       attendance_days: [{ id: 'day-1', student_id: studentId, cycle_key: '2026-cycle-1', day: '2026-06-08', kind: 'billable', comp_index: null, same_day_multiple_events: true }],
-      billing_decisions: [], invoices: [], exam_plans: [], grace_windows: [], reminders: [], attendance_corrections: [], full_cycle_ceilings: [], cycle_policies: [],
+      billing_decisions: [], invoices: [], exam_plans: [], exam_transitions: [], grace_windows: [], reminders: [], attendance_corrections: [], full_cycle_ceilings: [], cycle_policies: [],
       rule_decisions: [{ rule: 'one_charge_per_calendar_day', mode: 'retroactive', effective_from: '2026-06-08', decided_at: '2026-09-06T12:00:00Z' }],
       ...(scope === 'admin' ? { identity_clusters: [] } : {}),
     },
@@ -108,4 +108,30 @@ test('canonical adapter translates persisted server decision basis into the Foun
     rule: 'day', u: 1, att: 2, billable: 1, comped: 0, grace: 0, dayCount: 1, kind: 'per',
   });
   assert.equal(model.working.ready[0].june, true);
+});
+
+test('canonical adapter hydrates the complete accepted exam history while showing only the active plan', () => {
+  const source = bootstrap('student');
+  source.canon.exam_plans = [
+    {
+      id: 'plan-old', student_id: studentId, step: 's1', exam_on: '2026-09-09', state: 'approved',
+      submitted_at: '2026-08-01T12:00:00Z', withdrawn_at: null, superseded_by_id: 'plan-current',
+    },
+    {
+      id: 'plan-current', student_id: studentId, step: 's2', exam_on: '2026-11-18', state: 'denied',
+      suggested_on: '2026-12-02', submitted_at: '2026-10-01T12:00:00Z', withdrawn_at: null, superseded_by_id: null,
+    },
+  ];
+  source.canon.exam_transitions = [
+    { id: 'transition-1', exam_plan_id: 'plan-old', student_id: studentId, from_state: null, to_state: 'pending', result: null, accepted: true, reason: 'submitted', actor_role: 'student', created_at: '2026-08-01T12:00:00Z' },
+    { id: 'transition-2', exam_plan_id: 'plan-old', student_id: studentId, from_state: 'pending', to_state: 'approved', result: null, accepted: true, reason: null, actor_role: 'missionaccounts_admin', created_at: '2026-08-02T12:00:00Z' },
+    { id: 'transition-3', exam_plan_id: 'plan-current', student_id: studentId, from_state: null, to_state: 'pending', result: null, accepted: true, reason: 'submitted', actor_role: 'missionaccounts_admin', created_at: '2026-10-01T12:00:00Z' },
+    { id: 'transition-4', exam_plan_id: 'plan-current', student_id: studentId, from_state: 'pending', to_state: 'denied', result: null, accepted: true, reason: 'Choose the later sitting', actor_role: 'missionaccounts_admin', created_at: '2026-10-02T12:00:00Z' },
+  ];
+  const model = buildCanonicalModel(source);
+  assert.equal(model.working.exam[0].id, 'plan-current');
+  assert.equal(model.working.exam[0].suggested, '2026-12-02');
+  assert.deepEqual(model.working.exam[0].history.map(item => item.action), ['submitted', 'approve', 'submitted', 'deny']);
+  assert.equal(model.working.exam[0].history[0].by, 'student');
+  assert.equal(model.working.exam[0].history[3].note, 'Choose the later sitting');
 });

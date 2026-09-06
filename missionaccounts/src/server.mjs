@@ -400,6 +400,31 @@ export function createMissionAccountsServer({
       });
       return json(response, result.accepted === false ? 409 : result.duplicate ? 200 : 201, result);
     }
+    if (request.method === 'POST' && url.pathname === '/api/me/exam-plan/withdraw') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'examPlans');
+      const student = await studentContext(identity);
+      const rawBody = await readRawBody(request, { limitBytes: 16_384 });
+      const body = rawBody.length ? parseJsonBody(rawBody) : {};
+      const requestedPlanId = String(body.plan_id || '').trim();
+      if (requestedPlanId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedPlanId)) {
+        throw requestError('Exam withdrawal plan id is invalid');
+      }
+      const currentPlan = requestedPlanId ? null : await store.currentExamPlanForStudent(student.id);
+      const planId = requestedPlanId || currentPlan?.id;
+      if (!planId) throw requestError('Current exam plan not found', 404);
+      const reason = String(body.reason || 'Student withdrew exam plan').trim();
+      if (!reason || reason.length > 2_000) throw requestError('Exam withdrawal reason is invalid');
+      const result = await store.withdrawExamPlan({
+        planId,
+        today: localDayFromIso(now().toISOString()),
+        actorId: identity.userId,
+        actorRole: 'student',
+        reason,
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.accepted === false ? 409 : result.duplicate ? 200 : 201, result);
+    }
     if (request.method === 'POST' && url.pathname === '/api/me/payment-setup/session') {
       requireRole(identity, ['student']);
       requireFeature(config, 'autoBilling');

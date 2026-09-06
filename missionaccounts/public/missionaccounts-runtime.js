@@ -103,6 +103,10 @@ async function dispatch(action, payload = {}) {
       });
     } else if (action === 'student-passed') {
       await window.MissionAccountsRuntime.mutation('/me/exam-plan/passed', { body: {} });
+    } else if (action === 'student-exam-withdraw') {
+      const plan = state.bootstrap.canon.exam_plans.find(item => item.student_id === studentUuid(payload.si));
+      if (!plan) throw new Error('The current exam plan is unavailable.');
+      await window.MissionAccountsRuntime.mutation('/me/exam-plan/withdraw', { body: { plan_id: plan.id } });
     } else if (action === 'exam-transition') {
       const plan = state.bootstrap.canon.exam_plans.find(item => item.student_id === studentUuid(payload.si));
       if (!plan) throw new Error('The current exam plan is unavailable.');
