@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Latest implementation commit:** `5bd3e18a3ffff1f99ff78bb2f7cecbfc6f2062ea`
+**Latest implementation commit:** `4af11d3d02d710a48399e184f6f9c5c8e0a61b8c`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -61,6 +61,11 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - a complete third-Wednesday reminder dispatch loop: due reminders are selected in bounded `SKIP LOCKED` batches, linked one-to-one to retry-safe outbox entries, routed with an explicit student/admin audience, suppressed when cancelled, marked sent only after provider acknowledgement, and left untouched when transport configuration is absent;
 - custody-verified historical importer that checks the authoritative ledger, identity graph, source manifest, and raw Zoom file hashes before creating a private mode-0600 SQL bundle; imports are idempotently keyed, transactional, fully control-counted, and keep all financial and product feature flags off;
 - persisted identity-review topology reconstructed from the authoritative graph as 27 open clusters covering 60 review-held student identities, with a role-protected server projection for the administrative review queue and no automatic merge decisions;
+- feature-gated Dr J/founder identity adjudication that records an immutable member snapshot, requires explicit canonical-record selection, preserves every source alias and attendance row, derives one effective student projection, recomputes same-day attendance, and returns the audit event plus affected projections;
+- fail-closed identity-transition custody: adjudicated member evidence is immutable, concurrent retries serialize on the request key, sent/paid/charged history and allocated comp days block unsafe transitions, unequal comp allowances block merges, and another open cluster or linked device alias keeps billing eligibility in review;
+- split-safe exam grace that closes original open windows at the decision boundary and copies protected intervals into a plan-independent provenance table for every separated identity, without attaching one student's exam plan to another student;
+- identity-aware historical-ceiling protection that converts inherited candidate or verified cap evidence into an unresolved canonical review hold rather than silently verifying or discarding it; and
+- a production Similar Names flow that disables controls while the capability is off, requires Dr J to choose the retained record for a merge, persists decisions through the server, and leaves “not sure” genuinely open for later evidence;
 - local HTTP application route and health/session/admin boundaries;
 - all 17 ticket-mandated vectors represented in the automated suite.
 
@@ -131,6 +136,7 @@ All implementation files are under `missionaccounts/`:
 - `supabase/migrations/20260906110611_attendance_issue_review_resolution.sql`
 - `supabase/migrations/20260906112331_require_receipt_email_for_day_charges.sql`
 - `supabase/migrations/20260906113240_record_unhandled_provider_events.sql`
+- `supabase/migrations/20260906114450_identity_cluster_adjudication.sql`
 - `tests/billing-engine.test.mjs`
 - `tests/exam-engine.test.mjs`
 - `tests/mandatory-vectors.test.mjs`
@@ -145,24 +151,24 @@ All implementation files are under `missionaccounts/`:
 
 ## Migration status
 
-- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,813 lines) plus additive `20260906095512_automatic_charge_dispatch.sql`, `20260906100746_zoom_ingestion_port.sql`, `20260906105212_student_attendance_issue_report.sql`, `20260906110611_attendance_issue_review_resolution.sql`, `20260906112331_require_receipt_email_for_day_charges.sql`, and `20260906113240_record_unhandled_provider_events.sql`.
-- Applied locally: PASS in a disposable PostgreSQL 16 cluster; all seven migrations applied in order. The charge RPC rejected a missing receipt address before financial mutation, returned the normalized verified address after contact restoration, and the pending-charge trigger enforced the same invariant below the application layer. The automatic worker carried the address through its claim without exposing it to the browser. A validly signed unsupported provider event transitioned idempotently to `ignored`, created exactly one private integration exception and one audit row across retries, and remained available in the provider inbox. The Zoom RPC persisted one normalized session and participant source row idempotently, recorded a failed-sync exception, and created zero attendance events, identity decisions, or charges. The attendance-report RPC persisted one student-owned issue, one audit event, and one admin notification while suppressing a retry and rejecting a mismatched student identity. The review RPC resolved it once, suppressed the retry, inserted one review audit and one student notification, rejected student review authority, preserved immutable submission fields, and left attendance/billing counts unchanged. No persistent local database was created.
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,813 lines) plus additive `20260906095512_automatic_charge_dispatch.sql`, `20260906100746_zoom_ingestion_port.sql`, `20260906105212_student_attendance_issue_report.sql`, `20260906110611_attendance_issue_review_resolution.sql`, `20260906112331_require_receipt_email_for_day_charges.sql`, `20260906113240_record_unhandled_provider_events.sql`, and `20260906114450_identity_cluster_adjudication.sql`.
+- Applied locally: PASS in a disposable PostgreSQL 16 cluster; all eight migrations applied in order. The identity scenario preserved two source events while merging them into one same-day grace day, propagated a historical cap into review, serialized idempotent retries, rejected adjudicated evidence mutation, blocked post-invoice and allocated-comp transitions, retained review state across another open cluster and a linked device alias, allowed new evidence after an `unsure` decision, and copied protected grace to both separated identities without cross-student exam-plan ownership. The charge RPC rejected a missing receipt address before financial mutation, returned the normalized verified address after contact restoration, and the pending-charge trigger enforced the same invariant below the application layer. The automatic worker carried the address through its claim without exposing it to the browser. A validly signed unsupported provider event transitioned idempotently to `ignored`, created exactly one private integration exception and one audit row across retries, and remained available in the provider inbox. The Zoom RPC persisted one normalized session and participant source row idempotently, recorded a failed-sync exception, and created zero attendance events, identity decisions, or charges. The attendance-report RPC persisted one student-owned issue, one audit event, and one admin notification while suppressing a retry and rejecting a mismatched student identity. The review RPC resolved it once, suppressed the retry, inserted one review audit and one student notification, rejected student review authority, preserved immutable submission fields, and left attendance/billing counts unchanged. No persistent local database was created.
 - Historical import rehearsal: PASS in a separate disposable PostgreSQL 16 cluster. It imported 419 sessions, 5,498 raw source rows, 3,941 reconciled events, and 3,264 attendance days; retained 74 ceiling candidates and 60 identity-review holds; and created zero billing decisions, invoices, charges, verified ceilings, Matrix identities, or enabled flags. The private SQL bundle was deleted with the disposable cluster.
 - Applied to staging/production: NO — target database and migration authority are not registered.
 - Schema is additive and all capability flags seed disabled.
 
 ## Verification
 
-- `npm test`: PASS — 132/132, including all prior vectors plus Stripe receipt-email validation/normalization, worker/manual charge propagation, the database receipt invariant, idempotent custody for signed but unsupported provider events, Test-Mode-only Stripe browser configuration, Payment Element confirmation semantics, explicit future-use consent, raw-card-field exclusion, exact Stripe CSP allowlists, authenticated student deep-link hydration, self-bound attendance-report submission, and admin-only attendance-report review.
-- `npm run test:postgres`: PASS — all seven migrations applied in order to disposable PostgreSQL 16, including the receipt-email rejection/normalization/trigger controls, exactly-once private exception/audit custody for a signed unsupported provider event, idempotent source-only Zoom ingestion and failed-sync exception custody with zero downstream identity, attendance, billing, or charge mutations, private attendance-issue custody, duplicate suppression, audit/outbox insertion, cross-student rejection, immutable submission fields, and admin-only idempotent review.
+- `npm test`: PASS — 136/136, including all prior vectors plus role/feature-gated identity decisions, persisted-decision hydration, open `unsure` behavior, explicit canonical selection, Stripe receipt-email validation/normalization, worker/manual charge propagation, the database receipt invariant, idempotent custody for signed but unsupported provider events, Test-Mode-only Stripe browser configuration, Payment Element confirmation semantics, explicit future-use consent, raw-card-field exclusion, exact Stripe CSP allowlists, authenticated student deep-link hydration, self-bound attendance-report submission, and admin-only attendance-report review.
+- `npm run test:postgres`: PASS — all eight migrations applied in order to disposable PostgreSQL 16, including immutable identity snapshots, safe merge/split, plan-independent grace custody, cap review holds, financial/comp guards, global review-state retention, request concurrency locking, privilege isolation, the receipt-email rejection/normalization/trigger controls, exactly-once private exception/audit custody for a signed unsupported provider event, idempotent source-only Zoom ingestion and failed-sync exception custody with zero downstream identity, attendance, billing, or charge mutations, private attendance-issue custody, duplicate suppression, audit/outbox insertion, cross-student rejection, immutable submission fields, and admin-only idempotent review.
 - `npm run test:historical-import`: PASS — all custody hashes, privacy permissions, source/control totals, per-cycle totals, review holds, and zero-financial-mutation boundaries passed in disposable PostgreSQL 16.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
 - `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
 - Node syntax checks across source/scripts/public/tests: PASS.
 - `git diff --check`: PASS.
-- Local Docker image build: PASS — OrbStack Docker 29.4.0 built `missionaccounts:mx-5301p` from the isolated `missionaccounts/` context using the pinned `node:22-alpine` manifest digest. Image ID: `sha256:e35e1ad7f6fd8536a7e32efd4c3ebb704c159f31951c91f502e19b782c563e1e`.
+- Local Docker image build: PASS — OrbStack Docker 29.4.0 built `missionaccounts:mx-5301p-identity` from the isolated `missionaccounts/` context using the pinned `node:22-alpine` manifest digest. Image ID: `sha256:8c7e11203eda57938589c81a412f89a830ba997a9b77200deb1e9762bf7ac97f`.
 - Container custody inspection: PASS — runtime user is non-root `node`; `/app` contains only `package.json`, the server/domain modules, and the five allowlisted scrubbed public files. No prototype, source manifest, historical import, evidence, migration, test, or environment file was present.
-- Container startup safety: PASS — the default production image exited nonzero with the explicit database-target guard when no target was supplied. An isolated smoke run with a deliberately unreachable local-only placeholder target bound `0.0.0.0:4179`, returned HTTP 200 at `/api/health` through host port 4181, and reported every capability flag false. This proves container reachability only; it is not database or production-target validation.
+- Container startup safety: PASS — the default production image exited nonzero with the explicit database-target guard when no target was supplied. An isolated smoke run with a deliberately unreachable local-only placeholder target bound `0.0.0.0:4179`, returned HTTP 200 at `/api/health` through host port 4187, and reported every capability flag—including identity review—false. This proves container reachability only; it is not database or production-target validation.
 - Local API:
   - `/api/health`: 200; route, auto-billing, and Zoom flags false.
   - student `/api/session`: 200.
@@ -211,7 +217,7 @@ None outside the isolated worktree. Local preview used `PORT=4179`, `MISSIONACCO
 
 - Matrix route registered: NO.
 - Production URL: expected `/missionaccounts/`, currently not activated.
-- Local preview: `http://127.0.0.1:4179/missionaccounts/#/home?replay=1` — restored and rendering on 2026-09-06; the obsolete port 4178 is not the current preview.
+- Local preview: `http://127.0.0.1:4179/missionaccounts/index.production.html#/me/billing` — restored, HTTP 200, and opened in Chrome on 2026-09-06; the obsolete port 4178 is not the current preview.
 
 ## Zoom integration status
 
