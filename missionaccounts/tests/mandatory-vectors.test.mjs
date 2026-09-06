@@ -166,6 +166,7 @@ test('exam transition RPC records rejected attempts and owns grace/reminder side
   assert.match(sql, /update missionaccounts\.reminder[\s\S]+state = 'cancelled'/);
   assert.match(sql, /grant execute on function missionaccounts\.api_transition_exam_plan[^;]+to service_role/s);
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_transition_exam_plan[^;]+to authenticated/s);
+  assert.match(sql, /p_actor_role = 'student'[\s\S]+p_to_state <> 'passed'[\s\S]+s\.matrix_user_ref = p_actor_id/);
 });
 
 test('billing approval RPC derives totals and fails closed on unresolved historical caps', async () => {

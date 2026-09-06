@@ -61,6 +61,11 @@ export class SupabaseRestStore {
     return rows[0] || null;
   }
 
+  async currentExamPlanForStudent(studentId) {
+    const rows = await this.request(`exam_plan?student_id=eq.${encodeURIComponent(studentId)}&superseded_by_id=is.null&select=id,student_id,step,exam_on,state,result,note,passed_on&limit=1`);
+    return rows[0] || null;
+  }
+
   async stripeCustomerForStudent(studentId) {
     const rows = await this.request(`stripe_customer_private?student_id=eq.${encodeURIComponent(studentId)}&select=student_id,provider_customer_ref&limit=1`);
     return rows[0] || null;
@@ -258,6 +263,7 @@ export class PreviewStore {
     const approved = [...this.billingTerms.values()].filter(terms => terms.status === 'approved');
     return approved.at(-1) || null;
   }
+  async currentExamPlanForStudent(studentId) { return this.examPlans.get(studentId) || null; }
   seedPaymentMethod(studentId, paymentMethod) {
     this.paymentMethods.set(studentId, {
       id: paymentMethod.id || `preview-payment-method-${this.paymentMethods.size + 1}`,

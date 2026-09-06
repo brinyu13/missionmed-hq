@@ -64,6 +64,32 @@ if [[ "$results" != "$expected" ]]; then
   exit 1
 fi
 
+student_passed_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_transition_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),
+  'passed','passed','Student reported passing','2026-10-21','wp:4242','student','pg-student-passed-0001'
+)->>'accepted';
+select missionaccounts.api_transition_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),
+  'passed','passed','Student reported passing','2026-10-21','wp:4242','student','pg-student-passed-0001'
+)->>'duplicate';
+select missionaccounts.api_transition_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),
+  'passed','passed','Attempt by another student','2026-10-21','wp:other','student','pg-student-passed-0002'
+)->>'accepted';
+reset role;
+select state || '|' || passed_on from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null;
+SQL
+)
+
+student_passed_expected=$'true\ntrue\nfalse\npassed|2026-10-21'
+if [[ "$student_passed_results" != "$student_passed_expected" ]]; then
+  echo "MissionAccounts student Passed verification returned unexpected controls:" >&2
+  echo "$student_passed_results" >&2
+  exit 1
+fi
+
 billing_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 insert into missionaccounts.engine_run(engine_version, source_digest, state)
 values ('integration-v1', repeat('a', 64), 'succeeded');

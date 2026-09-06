@@ -199,6 +199,44 @@ test('student exam-plan submission stays unavailable while its feature flag is o
   });
 });
 
+test('student Passed action resolves only the authenticated student current plan and closes grace idempotently', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, examPlans: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const submitted = await store.submitExamPlan({
+    studentId, step: 's1', examOn: '2026-09-09', actorId: studentId, requestId: 'student-passed-seed-0001',
+  });
+  await store.transitionExamPlan({
+    planId: submitted.plan.id, toState: 'approved', result: null, note: null,
+    today: '2026-09-01', actorId: 'admin-1', requestId: 'student-passed-approve-0001',
+  });
+  await withServer({
+    config: enabledConfig,
+    store,
+    stripeGateway: new StripeGateway(),
+    now: () => new Date('2026-09-15T16:00:00Z'),
+  }, async base => {
+    const headers = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'student-passed-request-0001' };
+    const passed = await fetch(`${base}/api/me/exam-plan/passed`, { method: 'POST', headers, body: '{}' });
+    assert.equal(passed.status, 201);
+    const result = await passed.json();
+    assert.equal(result.plan.state, 'passed');
+    assert.equal(result.plan.passed_on, '2026-09-15');
+    assert.equal(result.effects.close_grace.closed_reason, 'passed');
+
+    const retry = await fetch(`${base}/api/me/exam-plan/passed`, { method: 'POST', headers, body: '{}' });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+
+    const otherStudent = await fetch(`${base}/api/me/exam-plan/passed`, {
+      method: 'POST',
+      headers: { ...headers, 'x-missionaccounts-local-user': '00000000-0000-4000-8000-000000000002', 'idempotency-key': 'student-passed-request-0002' },
+      body: '{}',
+    });
+    assert.equal(otherStudent.status, 404);
+  });
+});
+
 test('student billing consent requires approved terms plus an on-file method and is idempotent', async () => {
   const enabledConfig = { ...localConfig, features: { ...localConfig.features, autoBilling: true } };
   const store = new PreviewStore();

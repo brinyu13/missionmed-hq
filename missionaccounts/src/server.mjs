@@ -175,14 +175,15 @@ export function createMissionAccountsServer({
     }
     if (request.method === 'GET' && url.pathname === '/api/me') {
       const student = await studentContext(identity);
-      const [attendance, billing, payment_method, billing_consent, billing_terms] = await Promise.all([
+      const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan] = await Promise.all([
         store.attendanceForStudent(student.id, url.searchParams.get('cycle')),
         store.billingForStudent(student.id),
         store.paymentMethodForStudent(student.id),
         store.billingConsentForStudent(student.id),
         store.currentBillingTerms(),
+        store.currentExamPlanForStudent(student.id),
       ]);
-      return json(response, 200, { student, attendance, billing, payment_method, billing_consent, billing_terms });
+      return json(response, 200, { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan });
     }
     if (request.method === 'POST' && url.pathname === '/api/me/exam-plan') {
       requireRole(identity, ['student']);
@@ -201,6 +202,28 @@ export function createMissionAccountsServer({
         requestId: requestIdFor(request),
       });
       return json(response, result.duplicate ? 200 : 201, result);
+    }
+    if (request.method === 'POST' && url.pathname === '/api/me/exam-plan/passed') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'examPlans');
+      const student = await studentContext(identity);
+      const plan = await store.currentExamPlanForStudent(student.id);
+      if (!plan) throw requestError('Current exam plan not found', 404);
+      const rawBody = await readRawBody(request, { limitBytes: 16_384 });
+      const body = rawBody.length ? parseJsonBody(rawBody) : {};
+      const note = String(body.note || 'Student reported passing').trim();
+      if (!note || note.length > 2_000) throw requestError('Exam result note is invalid');
+      const result = await store.transitionExamPlan({
+        planId: plan.id,
+        toState: 'passed',
+        result: 'passed',
+        note,
+        today: localDayFromIso(now().toISOString()),
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.accepted === false ? 409 : result.duplicate ? 200 : 201, result);
     }
     if (request.method === 'POST' && url.pathname === '/api/me/payment-setup/session') {
       requireRole(identity, ['student']);

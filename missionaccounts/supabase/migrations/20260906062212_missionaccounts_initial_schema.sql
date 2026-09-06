@@ -778,6 +778,17 @@ begin
     else false
   end;
 
+  if p_actor_role = 'student' and (
+    p_to_state <> 'passed'
+    or p_result is distinct from 'passed'
+    or not exists (
+      select 1 from missionaccounts.student s
+      where s.id = current_plan.student_id and s.matrix_user_ref = p_actor_id
+    )
+  ) then
+    transition_allowed := false;
+  end if;
+
   insert into missionaccounts.exam_transition(
     exam_plan_id, student_id, from_state, to_state, result, accepted, reason, actor_id, request_id
   ) values (
