@@ -85,6 +85,8 @@ const productionCopyReplacements = [
   ['Prototype — your decisions are saved in this browser only', 'MissionAccounts · server-authoritative record'],
   ['Working prototype state', 'Server-authoritative state'],
   ['Prototype: nothing is sent from here.', 'Nothing is sent automatically from here.'],
+  ['<span class="d">Not connected yet · June–August attendance was loaded from the class records</span>', '<span class="d">${missionAccountsCapability(\'zoom_sync\')?\'Provider configured · latest sync \'+missionAccountsZoomHealth().stateLabel:\'Not connected yet · June–August attendance was loaded from the class records\'}</span>'],
+  ['Attendance will arrive from the daily Zoom sync once it is connected.', '${missionAccountsCapability(\'zoom_sync\')?\'Attendance updates automatically after the daily Zoom sync runs.\':\'Attendance will arrive from the daily Zoom sync once it is connected.\'}'],
   ["Prototype control — record the Founder's decision:", 'Founder-approved rule — read-only in production:'],
   ['Prototype review control only. A real student signs in and only ever sees their own record.', 'Administrative preview only. A student signs in and only ever sees their own authorized record.'],
   ['entries · stored only in this browser', 'entries in this session · durable audit remains on the server'],

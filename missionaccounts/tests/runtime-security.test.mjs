@@ -60,6 +60,8 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.doesNotMatch(html, /<title>[^<]*prototype<\/title>|Prototype · view as|Prototype — your decisions are saved in this browser only/);
   assert.match(html, /authenticated-role-scoped-runtime/);
   assert.match(html, /src="\.\/assets\/runtime"/);
+  assert.match(html, /Provider configured · latest sync/);
+  assert.match(html, /Attendance updates automatically after the daily Zoom sync runs/);
   assert.doesNotMatch(html, /MX-EXAMPREP-5000B_Reconciled_Ledger/);
   assert.doesNotMatch(html, /Ahunna Nzerem|Adriana Rodríguez/);
   assert.match(html, /missionaccountsBuild==='production'\) return fresh\(\)/);
