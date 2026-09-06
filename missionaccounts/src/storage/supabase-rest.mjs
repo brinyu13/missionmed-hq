@@ -353,6 +353,23 @@ export class SupabaseRestStore {
     });
   }
 
+  async enqueueDueExamReminders({ today, now, limit }) {
+    return this.rpc('api_enqueue_due_exam_reminders', {
+      p_today: today,
+      p_now: now,
+      p_limit: limit,
+    });
+  }
+
+  async notificationDeliverable({ notificationId }) {
+    const notifications = await this.request(`notification_outbox?id=eq.${encodeURIComponent(notificationId)}&select=state,reminder_id&limit=1`);
+    const notification = notifications[0];
+    if (!notification || notification.state !== 'sending') return false;
+    if (!notification.reminder_id) return true;
+    const reminders = await this.request(`reminder?id=eq.${encodeURIComponent(notification.reminder_id)}&select=state&limit=1`);
+    return ['scheduled', 'due'].includes(reminders[0]?.state);
+  }
+
   async claimNotifications({ workerId, limit, now }) {
     return this.rpc('api_claim_notifications', {
       p_worker_id: workerId,
@@ -528,6 +545,7 @@ export class PreviewStore {
     this.chargesByDay = new Map();
     this.chargeMutations = new Map();
     this.notifications = new Map();
+    this.reminders = new Map();
     this.identityClusters = new Map();
     this.accountLinkMutations = new Map();
     this.previewStudentRecord = {
@@ -573,7 +591,7 @@ export class PreviewStore {
       invoices: valuesFor(this.invoices),
       exam_plans: valuesFor(this.examPlans),
       grace_windows: [],
-      reminders: [],
+      reminders: valuesFor(this.reminders),
       attendance_corrections: this.attendanceCorrections.filter(row => relevantStudentIds.has(row.student_id)),
       full_cycle_ceilings: valuesFor(this.billingCaps),
       cycle_policies: [...this.cyclePolicies.values()].map(row => ({ ...row })),
@@ -693,6 +711,21 @@ export class PreviewStore {
       supersedes_id: prior?.id || null,
     };
     const closedGraceWindows = prior && ['approved', 'followup'].includes(prior.state) ? 1 : 0;
+    if (prior) {
+      for (const reminder of this.reminders.values()) {
+        if (reminder.exam_plan_id !== prior.id || !['scheduled', 'due'].includes(reminder.state)) continue;
+        reminder.state = 'cancelled';
+        reminder.cancelled_reason = 'plan_replaced';
+        for (const notification of this.notifications.values()) {
+          if (notification.reminder_id === reminder.id && ['pending', 'failed', 'sending'].includes(notification.state)) {
+            notification.state = 'cancelled';
+            notification.locked_by = null;
+            notification.locked_at = null;
+            notification.last_error = 'plan_replaced';
+          }
+        }
+      }
+    }
     const result = {
       plan,
       closed_grace_windows: closedGraceWindows,
@@ -745,6 +778,31 @@ export class PreviewStore {
     try {
       const transition = applyExamTransition({ plan, to: toState, actor: actorId, today, result, note });
       this.examPlans.set(studentId, transition.plan);
+      if (transition.effects.reminder?.state === 'scheduled') {
+        const existingReminder = [...this.reminders.values()].find(row => row.exam_plan_id === plan.id);
+        const reminder = existingReminder || {
+          id: `00000000-0000-4000-a000-${String(this.reminders.size + 1).padStart(12, '0')}`,
+          student_id: studentId,
+          exam_plan_id: plan.id,
+          created_at: new Date().toISOString(),
+        };
+        Object.assign(reminder, transition.effects.reminder, { cancelled_reason: null });
+        this.reminders.set(reminder.id, reminder);
+      } else if (transition.effects.reminder?.state === 'cancelled') {
+        for (const reminder of this.reminders.values()) {
+          if (reminder.exam_plan_id !== plan.id || !['scheduled', 'due'].includes(reminder.state)) continue;
+          reminder.state = 'cancelled';
+          reminder.cancelled_reason = transition.effects.reminder.cancelled_reason;
+          for (const notification of this.notifications.values()) {
+            if (notification.reminder_id === reminder.id && ['pending', 'failed', 'sending'].includes(notification.state)) {
+              notification.state = 'cancelled';
+              notification.locked_by = null;
+              notification.locked_at = null;
+              notification.last_error = transition.effects.reminder.cancelled_reason;
+            }
+          }
+        }
+      }
       resultPayload = {
         accepted: true,
         plan: transition.plan,
@@ -1178,7 +1236,9 @@ export class PreviewStore {
     const row = {
       id,
       student_id: notification.student_id || null,
+      reminder_id: notification.reminder_id || null,
       channel: notification.channel || 'matrix',
+      audience: notification.audience || 'student',
       event_kind: notification.event_kind,
       payload: notification.payload || {},
       state: notification.state || 'pending',
@@ -1193,6 +1253,54 @@ export class PreviewStore {
     };
     this.notifications.set(id, row);
     return row;
+  }
+
+  async enqueueDueExamReminders({ today, now, limit }) {
+    const due = [...this.reminders.values()]
+      .filter(reminder => ['scheduled', 'due'].includes(reminder.state) && reminder.due_on <= today)
+      .filter(reminder => ![...this.notifications.values()].some(notification => notification.reminder_id === reminder.id && notification.state !== 'cancelled'))
+      .sort((left, right) => left.due_on.localeCompare(right.due_on) || left.id.localeCompare(right.id))
+      .slice(0, limit);
+    for (const reminder of due) {
+      reminder.state = 'due';
+      const cancelled = [...this.notifications.values()].find(notification => notification.reminder_id === reminder.id && notification.state === 'cancelled');
+      const notification = cancelled || this.seedNotification({
+        id: `preview-reminder-notification-${this.notifications.size + 1}`,
+        student_id: reminder.student_id,
+        reminder_id: reminder.id,
+        audience: 'student',
+        event_kind: 'exam_result_checkin',
+        idempotency_key: `${reminder.id}:exam-result-checkin`,
+      });
+      Object.assign(notification, {
+        student_id: reminder.student_id,
+        reminder_id: reminder.id,
+        channel: 'matrix',
+        audience: 'student',
+        event_kind: 'exam_result_checkin',
+        payload: {
+          student_id: reminder.student_id,
+          exam_plan_id: reminder.exam_plan_id,
+          reminder_id: reminder.id,
+          due_on: reminder.due_on,
+        },
+        state: 'pending',
+        available_at: now,
+        sent_at: null,
+        locked_by: null,
+        locked_at: null,
+        provider_ref: null,
+        last_error: null,
+      });
+    }
+    return { selected: due.length, queued: due.length, today, now };
+  }
+
+  async notificationDeliverable({ notificationId }) {
+    const notification = this.notifications.get(notificationId);
+    if (!notification || notification.state !== 'sending') return false;
+    if (!notification.reminder_id) return true;
+    return ['scheduled', 'due'].includes(this.reminders.get(notification.reminder_id)?.state);
   }
   seedIdentityCluster(cluster) {
     this.identityClusters.set(cluster.ref, {
@@ -1228,6 +1336,10 @@ export class PreviewStore {
     row.available_at = succeeded ? row.available_at : new Date(Date.parse(now) + Math.min(60, 2 ** row.attempt_count) * 60_000).toISOString();
     row.locked_by = null;
     row.locked_at = null;
+    if (succeeded && row.reminder_id) {
+      const reminder = this.reminders.get(row.reminder_id);
+      if (reminder && ['scheduled', 'due'].includes(reminder.state)) reminder.state = 'sent';
+    }
     return { ...row };
   }
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {

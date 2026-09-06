@@ -299,6 +299,11 @@ test('automatic day-charge preparation is database-authoritative and provider co
 
 test('notification outbox claiming is bounded, skip-locked, retryable, and service-role only', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /reminder_id uuid unique references missionaccounts\.reminder/);
+  assert.match(sql, /audience text not null default 'student'/);
+  assert.match(sql, /create function missionaccounts\.api_enqueue_due_exam_reminders/);
+  assert.match(sql, /event_kind[\s\S]+exam_result_checkin/);
+  assert.match(sql, /update missionaccounts\.reminder[\s\S]+set state = 'sent'/);
   assert.match(sql, /create function missionaccounts\.api_claim_notifications/);
   assert.match(sql, /for update skip locked/);
   assert.match(sql, /p_limit < 1 or p_limit > 25/);
@@ -308,6 +313,7 @@ test('notification outbox claiming is bounded, skip-locked, retryable, and servi
   assert.match(sql, /power\(2, row_out\.attempt_count\)/);
   assert.match(sql, /grant execute on function missionaccounts\.api_claim_notifications[^;]+to service_role/s);
   assert.match(sql, /grant execute on function missionaccounts\.api_finish_notification[^;]+to service_role/s);
+  assert.match(sql, /grant execute on function missionaccounts\.api_enqueue_due_exam_reminders[^;]+to service_role/s);
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_claim_notifications[^;]+to authenticated/s);
   assert.match(sql, /\('notifications', false\)/);
 });

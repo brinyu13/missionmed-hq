@@ -558,7 +558,9 @@ create index provider_event_object_idx
 create table missionaccounts.notification_outbox (
   id uuid primary key default gen_random_uuid(),
   student_id uuid references missionaccounts.student(id),
+  reminder_id uuid unique references missionaccounts.reminder(id),
   channel text not null,
+  audience text not null default 'student' check (audience in ('student','missionaccounts_admin','founder')),
   event_kind text not null,
   payload jsonb not null,
   state text not null check (state in ('pending','sending','sent','failed','cancelled')),
@@ -1283,6 +1285,14 @@ begin
         cancelled_reason = 'plan_replaced',
         updated_at = now()
     where exam_plan_id = prior_plan.id and state in ('scheduled','due');
+    update missionaccounts.notification_outbox
+    set state = 'cancelled',
+        locked_by = null,
+        locked_at = null,
+        last_error = 'plan_replaced'
+    where reminder_id in (
+      select id from missionaccounts.reminder where exam_plan_id = prior_plan.id
+    ) and state in ('pending','failed','sending');
 
     insert into missionaccounts.exam_plan(
       id, student_id, step, exam_on, state, submitted_by, superseded_by_id
@@ -1331,10 +1341,11 @@ begin
   ) returning id into audit_id;
 
   insert into missionaccounts.notification_outbox(
-    student_id, channel, event_kind, payload, state, idempotency_key
+    student_id, channel, audience, event_kind, payload, state, idempotency_key
   ) values (
     p_student_id,
     'matrix',
+    'missionaccounts_admin',
     'exam_plan.submitted',
     jsonb_build_object('student_id', p_student_id, 'exam_plan_id', new_plan.id, 'audience', 'missionaccounts_admin'),
     'pending',
@@ -1632,6 +1643,14 @@ begin
         cancelled_reason = case when p_to_state = 'passed' then 'result_recorded' else 'plan_changed' end,
         updated_at = now()
     where exam_plan_id = current_plan.id and state in ('scheduled','due');
+    update missionaccounts.notification_outbox
+    set state = 'cancelled',
+        locked_by = null,
+        locked_at = null,
+        last_error = case when p_to_state = 'passed' then 'result_recorded' else 'plan_changed' end
+    where reminder_id in (
+      select id from missionaccounts.reminder where exam_plan_id = current_plan.id
+    ) and state in ('pending','failed','sending');
   end if;
 
   update missionaccounts.exam_plan
@@ -1669,10 +1688,11 @@ begin
   ) returning id into audit_id;
 
   insert into missionaccounts.notification_outbox(
-    student_id, channel, event_kind, payload, state, idempotency_key
+    student_id, channel, audience, event_kind, payload, state, idempotency_key
   ) values (
     current_plan.student_id,
     'matrix',
+    case when p_actor_role = 'student' then 'missionaccounts_admin' else 'student' end,
     'exam_plan.' || p_to_state,
     jsonb_build_object('student_id', current_plan.student_id, 'exam_plan_id', current_plan.id, 'state', p_to_state, 'result', p_result),
     'pending',
@@ -2538,9 +2558,9 @@ begin
   ) returning id into audit_id;
 
   insert into missionaccounts.notification_outbox(
-    student_id, channel, event_kind, payload, state, idempotency_key
+    student_id, channel, audience, event_kind, payload, state, idempotency_key
   ) values (
-    p_student_id, 'matrix', 'billing_consent.' || p_action,
+    p_student_id, 'matrix', 'missionaccounts_admin', 'billing_consent.' || p_action,
     jsonb_build_object('student_id', p_student_id, 'state', new_consent.state, 'terms_version', new_consent.terms_version),
     'pending', p_request_id || ':billing-consent'
   ) on conflict (idempotency_key) do nothing;
@@ -2660,9 +2680,9 @@ begin
   ) returning id into audit_id;
 
   insert into missionaccounts.notification_outbox(
-    student_id, channel, event_kind, payload, state, idempotency_key
+    student_id, channel, audience, event_kind, payload, state, idempotency_key
   ) values (
-    p_student_id, 'matrix', 'payment_method.added',
+    p_student_id, 'matrix', 'missionaccounts_admin', 'payment_method.added',
     jsonb_build_object('brand', payment_row.brand, 'last4', payment_row.last4),
     'pending', 'stripe:' || p_provider_event_id || ':payment-method-notification'
   ) on conflict (idempotency_key) do nothing;
@@ -2875,9 +2895,9 @@ begin
 
   if p_succeeded then
     insert into missionaccounts.notification_outbox(
-      student_id, channel, event_kind, payload, state, idempotency_key
+      student_id, channel, audience, event_kind, payload, state, idempotency_key
     ) values (
-      p_student_id, 'matrix', 'payment_method.removed',
+      p_student_id, 'matrix', 'missionaccounts_admin', 'payment_method.removed',
       jsonb_build_object('brand', method_row.brand, 'last4', method_row.last4),
       'pending', p_request_id || ':payment-method-removed'
     ) on conflict (idempotency_key) do nothing;
@@ -3183,9 +3203,9 @@ begin
   ) returning id into audit_id;
 
   insert into missionaccounts.notification_outbox(
-    student_id, channel, event_kind, payload, state, idempotency_key
+    student_id, channel, audience, event_kind, payload, state, idempotency_key
   ) values (
-    p_student_id, 'matrix',
+    p_student_id, 'matrix', 'student',
     case when next_state = 'succeeded' then 'charge.succeeded' else 'charge.failed' end,
     jsonb_build_object(
       'attendance_day_id', p_attendance_day_id, 'amount_cents', charge_row.amount_cents,
@@ -3193,6 +3213,19 @@ begin
     ),
     'pending', 'stripe:' || p_provider_event_id || ':charge-notification'
   ) on conflict (idempotency_key) do nothing;
+
+  if next_state = 'failed' then
+    insert into missionaccounts.notification_outbox(
+      student_id, channel, audience, event_kind, payload, state, idempotency_key
+    ) values (
+      p_student_id, 'matrix', 'missionaccounts_admin', 'charge.failed',
+      jsonb_build_object(
+        'attendance_day_id', p_attendance_day_id, 'amount_cents', charge_row.amount_cents,
+        'state', charge_row.state
+      ),
+      'pending', 'stripe:' || p_provider_event_id || ':charge-failure-admin'
+    ) on conflict (idempotency_key) do nothing;
+  end if;
 
   update missionaccounts.provider_event_inbox
   set state = 'processed', processed_at = now()
@@ -3204,6 +3237,91 @@ $$;
 
 revoke execute on function missionaccounts.api_process_stripe_payment_intent(text, text, text, uuid, uuid, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_process_stripe_payment_intent(text, text, text, uuid, uuid, text, text) to service_role;
+
+create function missionaccounts.api_enqueue_due_exam_reminders(
+  p_today date,
+  p_now timestamptz,
+  p_limit integer default 25
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  due_ids uuid[] := '{}'::uuid[];
+  queued_count integer := 0;
+begin
+  if p_today is null or p_now is null or p_limit < 1 or p_limit > 100 then
+    raise exception using errcode = '22023', message = 'invalid_due_reminder_enqueue';
+  end if;
+
+  select coalesce(array_agg(candidate.id), '{}'::uuid[]) into due_ids
+  from (
+    select r.id
+    from missionaccounts.reminder r
+    where r.state in ('scheduled','due')
+      and r.due_on <= p_today
+      and not exists (
+        select 1 from missionaccounts.notification_outbox n
+        where n.reminder_id = r.id and n.state <> 'cancelled'
+      )
+    order by r.due_on, r.created_at, r.id
+    for update skip locked
+    limit p_limit
+  ) candidate;
+
+  update missionaccounts.reminder
+  set state = 'due', updated_at = p_now
+  where id = any(due_ids) and state = 'scheduled';
+
+  insert into missionaccounts.notification_outbox(
+    student_id, reminder_id, channel, audience, event_kind, payload,
+    state, idempotency_key, available_at
+  )
+  select
+    r.student_id,
+    r.id,
+    'matrix',
+    'student',
+    'exam_result_checkin',
+    jsonb_build_object(
+      'student_id', r.student_id,
+      'exam_plan_id', r.exam_plan_id,
+      'reminder_id', r.id,
+      'due_on', r.due_on
+    ),
+    'pending',
+    r.id::text || ':exam-result-checkin',
+    p_now
+  from missionaccounts.reminder r
+  where r.id = any(due_ids)
+  on conflict (reminder_id) do update
+    set channel = excluded.channel,
+        audience = excluded.audience,
+        event_kind = excluded.event_kind,
+        payload = excluded.payload,
+        state = 'pending',
+        available_at = excluded.available_at,
+        sent_at = null,
+        locked_by = null,
+        locked_at = null,
+        provider_ref = null,
+        last_error = null
+    where missionaccounts.notification_outbox.state = 'cancelled';
+  get diagnostics queued_count = row_count;
+
+  return jsonb_build_object(
+    'selected', coalesce(array_length(due_ids, 1), 0),
+    'queued', queued_count,
+    'today', p_today,
+    'now', p_now
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_enqueue_due_exam_reminders(date, timestamptz, integer) from public, anon, authenticated;
+grant execute on function missionaccounts.api_enqueue_due_exam_reminders(date, timestamptz, integer) to service_role;
 
 create function missionaccounts.api_claim_notifications(
   p_worker_id text,
@@ -3287,6 +3405,11 @@ begin
       locked_at = null
   where id = p_notification_id
   returning * into row_out;
+  if p_succeeded and row_out.reminder_id is not null then
+    update missionaccounts.reminder
+    set state = 'sent', updated_at = p_now
+    where id = row_out.reminder_id and state in ('scheduled','due');
+  end if;
   return row_out;
 end;
 $$;

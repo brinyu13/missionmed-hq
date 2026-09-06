@@ -127,6 +127,82 @@ if [[ "$exam_replacement_results" != "$exam_replacement_expected" ]]; then
   exit 1
 fi
 
+reminder_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:reminder','Reminder Test') returning id")
+
+reminder_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_submit_exam_plan(
+  '$reminder_student_id','s1','2026-09-09','2026-09-01',
+  'wp:reminder','student','pg-reminder-submit-0001'
+)->>'duplicate';
+select missionaccounts.api_transition_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$reminder_student_id' and superseded_by_id is null),
+  'approved',null,null,'2026-09-01','wp:admin','missionaccounts_admin','pg-reminder-approve-0001'
+)->>'accepted';
+reset role;
+update missionaccounts.notification_outbox set state='sent', sent_at='2026-09-29T15:00:00Z' where reminder_id is null;
+set role service_role;
+select missionaccounts.api_enqueue_due_exam_reminders('2026-09-29','2026-09-29T16:00:00Z',10)->>'queued';
+select missionaccounts.api_enqueue_due_exam_reminders('2026-09-30','2026-09-30T16:00:00Z',10)->>'queued';
+select missionaccounts.api_enqueue_due_exam_reminders('2026-09-30','2026-09-30T16:00:01Z',10)->>'queued';
+select count(*) from missionaccounts.api_claim_notifications('pg-reminder-worker',10,'2026-09-30T16:00:02Z');
+select state from missionaccounts.api_finish_notification(
+  (select id from missionaccounts.notification_outbox where reminder_id is not null and state='sending'),
+  'pg-reminder-worker',true,'matrix-reminder-1',null,'2026-09-30T16:00:03Z'
+);
+reset role;
+select
+  (select state from missionaccounts.reminder where student_id='$reminder_student_id') || '|' ||
+  (select due_on from missionaccounts.reminder where student_id='$reminder_student_id') || '|' ||
+  (select audience from missionaccounts.notification_outbox where reminder_id is not null and student_id='$reminder_student_id') || '|' ||
+  (select event_kind from missionaccounts.notification_outbox where reminder_id is not null and student_id='$reminder_student_id') || '|' ||
+  (select count(*) from missionaccounts.notification_outbox where reminder_id is not null and student_id='$reminder_student_id');
+SQL
+)
+
+reminder_expected=$'false\ntrue\n0\n1\n0\n1\nsent\nsent|2026-09-30|student|exam_result_checkin|1'
+if [[ "$reminder_results" != "$reminder_expected" ]]; then
+  echo "MissionAccounts due-reminder verification returned unexpected controls:" >&2
+  echo "$reminder_results" >&2
+  exit 1
+fi
+
+cancelled_reminder_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:cancelled-reminder','Cancelled Reminder Test') returning id")
+
+cancelled_reminder_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_submit_exam_plan(
+  '$cancelled_reminder_student_id','s1','2026-09-09','2026-09-01',
+  'wp:cancelled-reminder','student','pg-cancelled-reminder-submit-0001'
+)->>'duplicate';
+select missionaccounts.api_transition_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$cancelled_reminder_student_id' and superseded_by_id is null),
+  'approved',null,null,'2026-09-01','wp:admin','missionaccounts_admin','pg-cancelled-reminder-approve-0001'
+)->>'accepted';
+select missionaccounts.api_enqueue_due_exam_reminders('2026-09-30','2026-09-30T17:00:00Z',10)->>'queued';
+select missionaccounts.api_transition_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$cancelled_reminder_student_id' and superseded_by_id is null),
+  'passed','passed','Student reported passing','2026-09-30',
+  'wp:cancelled-reminder','student','pg-cancelled-reminder-result-0001'
+)->>'accepted';
+reset role;
+select
+  (select state from missionaccounts.reminder where student_id='$cancelled_reminder_student_id') || '|' ||
+  (select state from missionaccounts.notification_outbox where reminder_id = (
+    select id from missionaccounts.reminder where student_id='$cancelled_reminder_student_id'
+  ));
+SQL
+)
+
+cancelled_reminder_expected=$'false\ntrue\n1\ntrue\ncancelled|cancelled'
+if [[ "$cancelled_reminder_results" != "$cancelled_reminder_expected" ]]; then
+  echo "MissionAccounts cancelled-reminder verification returned unexpected controls:" >&2
+  echo "$cancelled_reminder_results" >&2
+  exit 1
+fi
+
 billing_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 insert into missionaccounts.engine_run(engine_version, source_digest, state)
 values ('integration-v1', repeat('a', 64), 'succeeded');

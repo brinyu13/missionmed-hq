@@ -206,10 +206,20 @@ export function createMissionAccountsServer({
       if (!Number.isInteger(limit) || limit < 1 || limit > 25) throw requestError('Notification batch limit must be from 1 through 25');
       const workerId = `missionaccounts:${process.pid}`;
       const claimedAt = now().toISOString();
+      const enqueued = await store.enqueueDueExamReminders({
+        today: localDayFromIso(claimedAt),
+        now: claimedAt,
+        limit,
+      });
       const claimed = await store.claimNotifications({ workerId, limit, now: claimedAt });
       let sent = 0;
       let failed = 0;
+      let suppressed = 0;
       for (const notification of claimed) {
+        if (!await store.notificationDeliverable({ notificationId: notification.id })) {
+          suppressed += 1;
+          continue;
+        }
         try {
           const delivery = await notificationGateway.send(notification);
           await store.finishNotification({
@@ -233,7 +243,7 @@ export function createMissionAccountsServer({
           failed += 1;
         }
       }
-      return json(response, 200, { claimed: claimed.length, sent, failed });
+      return json(response, 200, { enqueued_due: enqueued.queued, claimed: claimed.length, sent, failed, suppressed });
     }
 
     const identity = await authenticate(request, config);

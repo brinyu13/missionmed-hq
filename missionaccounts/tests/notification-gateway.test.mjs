@@ -25,6 +25,7 @@ test('notification transport forwards an idempotency key and returns only its pr
     const result = await gateway.send({
       student_id: 'student-1',
       channel: 'matrix',
+      audience: 'student',
       event_kind: 'exam_plan.approved',
       payload: { exam_plan_id: 'plan-1' },
       idempotency_key: 'notification-1',
@@ -33,7 +34,16 @@ test('notification transport forwards an idempotency key and returns only its pr
     assert.equal(captured.url, 'https://notifications.missionmed.example/v1/messages');
     assert.equal(captured.options.headers['idempotency-key'], 'notification-1');
     assert.equal(captured.options.headers.authorization, 'Bearer provider-secret');
-    assert.equal(JSON.parse(captured.options.body).event_kind, 'exam_plan.approved');
+    assert.deepEqual(
+      JSON.parse(captured.options.body),
+      {
+        student_id: 'student-1',
+        channel: 'matrix',
+        audience: 'student',
+        event_kind: 'exam_plan.approved',
+        payload: { exam_plan_id: 'plan-1' },
+      },
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

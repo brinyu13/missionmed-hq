@@ -406,14 +406,128 @@ test('notification worker claims each row once, requires its own token, and reco
     const headers = { authorization: 'Bearer worker-secret-test', 'content-type': 'application/json' };
     const drained = await fetch(`${base}/api/internal/notifications/drain`, { method: 'POST', headers, body: JSON.stringify({ limit: 2 }) });
     assert.equal(drained.status, 200);
-    assert.deepEqual(await drained.json(), { claimed: 2, sent: 1, failed: 1 });
+    assert.deepEqual(await drained.json(), { enqueued_due: 0, claimed: 2, sent: 1, failed: 1, suppressed: 0 });
     assert.equal(store.notifications.get('notification-ok').state, 'sent');
     assert.equal(store.notifications.get('notification-fail').state, 'failed');
     assert.equal(store.notifications.get('notification-ok').provider_ref, 'matrix-message-1');
 
     const immediateRetry = await fetch(`${base}/api/internal/notifications/drain`, { method: 'POST', headers, body: '{}' });
     assert.equal(immediateRetry.status, 200);
-    assert.deepEqual(await immediateRetry.json(), { claimed: 0, sent: 0, failed: 0 });
+    assert.deepEqual(await immediateRetry.json(), { enqueued_due: 0, claimed: 0, sent: 0, failed: 0, suppressed: 0 });
+  });
+});
+
+test('third-Wednesday reminders enqueue only when due, deliver once to the student, and then become sent', async () => {
+  const config = {
+    ...localConfig,
+    workerToken: 'worker-reminder-test',
+    features: { ...localConfig.features, notifications: true },
+  };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const submitted = await store.submitExamPlan({
+    studentId, step: 's1', examOn: '2026-09-09', today: '2026-09-01', actorId: studentId, requestId: 'reminder-submit-0001',
+  });
+  await store.transitionExamPlan({
+    planId: submitted.plan.id, toState: 'approved', result: null, note: null,
+    today: '2026-09-01', actorId: 'admin-1', requestId: 'reminder-approve-0001',
+  });
+  const deliveries = [];
+  const gateway = {
+    assertConfigured() {},
+    async send(notification) {
+      deliveries.push(notification);
+      return { providerRef: `matrix-reminder-${deliveries.length}` };
+    },
+  };
+  let clock = new Date('2026-09-29T16:00:00Z');
+  await withServer({ config, store, stripeGateway: new StripeGateway(), notificationGateway: gateway, now: () => clock }, async base => {
+    const headers = { authorization: 'Bearer worker-reminder-test', 'content-type': 'application/json' };
+    const beforeDue = await fetch(`${base}/api/internal/notifications/drain`, { method: 'POST', headers, body: '{}' });
+    assert.deepEqual(await beforeDue.json(), { enqueued_due: 0, claimed: 0, sent: 0, failed: 0, suppressed: 0 });
+
+    clock = new Date('2026-09-30T16:00:00Z');
+    const due = await fetch(`${base}/api/internal/notifications/drain`, { method: 'POST', headers, body: '{}' });
+    assert.deepEqual(await due.json(), { enqueued_due: 1, claimed: 1, sent: 1, failed: 0, suppressed: 0 });
+    assert.equal(deliveries.length, 1);
+    assert.equal(deliveries[0].audience, 'student');
+    assert.equal(deliveries[0].event_kind, 'exam_result_checkin');
+    assert.equal([...store.reminders.values()][0].state, 'sent');
+
+    const retry = await fetch(`${base}/api/internal/notifications/drain`, { method: 'POST', headers, body: '{}' });
+    assert.deepEqual(await retry.json(), { enqueued_due: 0, claimed: 0, sent: 0, failed: 0, suppressed: 0 });
+    assert.equal(deliveries.length, 1);
+  });
+});
+
+test('a result recorded after reminder queueing cancels delivery before the provider is called', async () => {
+  const config = {
+    ...localConfig,
+    workerToken: 'worker-cancelled-reminder-test',
+    features: { ...localConfig.features, notifications: true },
+  };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const submitted = await store.submitExamPlan({
+    studentId, step: 's1', examOn: '2026-09-09', today: '2026-09-01', actorId: studentId, requestId: 'cancel-reminder-submit-0001',
+  });
+  await store.transitionExamPlan({
+    planId: submitted.plan.id, toState: 'approved', result: null, note: null,
+    today: '2026-09-01', actorId: 'admin-1', requestId: 'cancel-reminder-approve-0001',
+  });
+  await store.enqueueDueExamReminders({ today: '2026-09-30', now: '2026-09-30T15:59:00Z', limit: 10 });
+  await store.transitionExamPlan({
+    planId: submitted.plan.id, toState: 'passed', result: 'passed', note: 'Student reported passing',
+    today: '2026-09-30', actorId: studentId, requestId: 'cancel-reminder-result-0001',
+  });
+  const gateway = {
+    assertConfigured() {},
+    async send() { assert.fail('cancelled reminder must not reach the notification provider'); },
+  };
+  await withServer({
+    config, store, stripeGateway: new StripeGateway(), notificationGateway: gateway,
+    now: () => new Date('2026-09-30T16:00:00Z'),
+  }, async base => {
+    const response = await fetch(`${base}/api/internal/notifications/drain`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer worker-cancelled-reminder-test', 'content-type': 'application/json' },
+      body: '{}',
+    });
+    assert.deepEqual(await response.json(), { enqueued_due: 0, claimed: 0, sent: 0, failed: 0, suppressed: 0 });
+    assert.equal([...store.reminders.values()][0].state, 'cancelled');
+    assert.equal([...store.notifications.values()][0].state, 'cancelled');
+  });
+});
+
+test('a disabled notification transport cannot advance or enqueue a due reminder', async () => {
+  const config = {
+    ...localConfig,
+    workerToken: 'worker-disabled-transport-test',
+    features: { ...localConfig.features, notifications: true },
+  };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const submitted = await store.submitExamPlan({
+    studentId, step: 's1', examOn: '2026-09-09', today: '2026-09-01', actorId: studentId, requestId: 'disabled-reminder-submit-0001',
+  });
+  await store.transitionExamPlan({
+    planId: submitted.plan.id, toState: 'approved', result: null, note: null,
+    today: '2026-09-01', actorId: 'admin-1', requestId: 'disabled-reminder-approve-0001',
+  });
+  await withServer({
+    config,
+    store,
+    stripeGateway: new StripeGateway(),
+    now: () => new Date('2026-09-30T16:00:00Z'),
+  }, async base => {
+    const response = await fetch(`${base}/api/internal/notifications/drain`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer worker-disabled-transport-test', 'content-type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(response.status, 503);
+    assert.equal([...store.reminders.values()][0].state, 'scheduled');
+    assert.equal(store.notifications.size, 0);
   });
 });
 

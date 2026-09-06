@@ -25,6 +25,7 @@ export class NotificationGateway {
       body: JSON.stringify({
         student_id: notification.student_id,
         channel: notification.channel,
+        audience: notification.audience,
         event_kind: notification.event_kind,
         payload: notification.payload,
       }),
