@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Implementation commits:** `9d580e3f0d22068355ed86f2bd66a4610e8cea46`, `44de639b12f9d00707c8e43a8a62015941a0140e`, `ef72709aabcf1768c2b8116cb796907899ffc263`, `b402c5326abe0a4668166d4637ea91b97a11d691`
+**Implementation commits:** `9d580e3f0d22068355ed86f2bd66a4610e8cea46`, `44de639b12f9d00707c8e43a8a62015941a0140e`, `ef72709aabcf1768c2b8116cb796907899ffc263`, `b402c5326abe0a4668166d4637ea91b97a11d691`, `8412990629be7900412fe251e575cfabf655f87d`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -18,6 +18,7 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - Stripe Test-Mode-only SetupIntent and one-day PaymentIntent adapters, exact raw-body webhook verification, retry-safe provider-inbox deduplication, secret-rotation signature support, and stable idempotency keys;
 - feature-gated student exam-plan submission with authenticated self-resolution, a transactional/idempotent PostgreSQL RPC, immutable transition and audit rows, prior-plan supersession, and notification outbox insertion;
 - feature-gated Dr J/admin comp-day override with mandatory reason, idempotent PostgreSQL transaction, joined-date custody, prospective lock preservation by default, explicit retroactive-release handling, and append-only change/audit evidence;
+- feature-gated Dr J/admin exam decisions with the canonical transition matrix, exact local-date grace opening/closure, third-Wednesday reminder scheduling/cancellation, student notification outbox entries, idempotent retries, and preserved audit rows for rejected transitions;
 - local HTTP application route and health/session/admin boundaries;
 - all 17 ticket-mandated vectors represented in the automated suite.
 
@@ -73,15 +74,15 @@ All implementation files are under `missionaccounts/`:
 
 ## Migration status
 
-- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (844 lines).
-- Applied locally: PASS in a disposable PostgreSQL 16 cluster; schema parse/application plus exam-plan and comp-override create/retry controls passed. No persistent local database was created.
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (1,031 lines).
+- Applied locally: PASS in a disposable PostgreSQL 16 cluster; schema parse/application plus exam-plan submission, accepted/rejected decisions, grace/reminder effects, and comp-override retry controls passed. No persistent local database was created.
 - Applied to staging/production: NO — target database and migration authority are not registered.
 - Schema is additive and all capability flags seed disabled.
 
 ## Verification
 
-- `npm test`: PASS — 44/44, including V01–V17 plus raw-body webhook, rotated-signature, duplicate-delivery, API-version, HTTP authorization, feature-gate, exam-plan, and admin comp-override coverage.
-- `npm run test:postgres`: PASS — complete migration applied to disposable PostgreSQL 16; duplicate exam and comp requests produced one plan, one transition, one comp change, two audit rows, and one notification outbox row.
+- `npm test`: PASS — 48/48, including V01–V17 plus raw-body webhook, rotated-signature, duplicate-delivery, API-version, HTTP authorization, feature gates, exam-plan decisions, grace/reminder effects, and admin comp-override coverage.
+- `npm run test:postgres`: PASS — complete migration applied to disposable PostgreSQL 16; retries deduplicated, accepted decisions changed state, rejected transitions were audited without mutation, grace closed on result, and the reminder was cancelled.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
 - `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
 - Node syntax checks across source/scripts/public/tests: PASS.
