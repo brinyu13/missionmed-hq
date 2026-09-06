@@ -12,7 +12,7 @@ const localConfig = {
   issuer: 'https://issuer.invalid',
   audience: 'missionaccounts',
   jwksUrl: 'https://issuer.invalid/jwks',
-  features: { billingDecisions: false, attendanceCorrections: false, examPlans: false, compDays: false, autoBilling: false, notifications: false, zoomSync: false },
+  features: { studentContacts: false, billingDecisions: false, attendanceCorrections: false, examPlans: false, compDays: false, autoBilling: false, notifications: false, zoomSync: false },
   workerToken: '',
 };
 const webhookConfig = {
@@ -982,5 +982,88 @@ test('admin attendance correction is append-only, idempotent, and stales an appr
       body,
     });
     assert.equal(unauthorized.status, 403);
+  });
+});
+
+test('contact custody and invoice readiness are feature-gated, audited, idempotent, and email-safe', async () => {
+  const enabledConfig = {
+    ...localConfig,
+    features: { ...localConfig.features, studentContacts: true, billingDecisions: true },
+  };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const cycleKey = '2026-cycle-1';
+  store.seedAttendanceDays(studentId, cycleKey, [
+    { id: 'ready-day-1', day: '2026-06-08', kind: 'billable', event_ids: ['ready-event-1'] },
+  ]);
+  const adminHeaders = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin' };
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const approvedResponse = await fetch(`${base}/api/admin/students/${studentId}/decisions`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'ready-billing-0001' },
+      body: JSON.stringify({ cycle_key: cycleKey, treatment: 'confirm' }),
+    });
+    assert.equal(approvedResponse.status, 201);
+    const approved = await approvedResponse.json();
+    const invoiceId = approved.invoice.id;
+
+    const clearContact = await fetch(`${base}/api/admin/students/${studentId}/contact`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'contact-change-0001' },
+      body: JSON.stringify({ email: '', phone: '', reason: 'Email requires verification' }),
+    });
+    assert.equal(clearContact.status, 201);
+    assert.equal((await clearContact.json()).student.email, null);
+
+    const blockedReady = await fetch(`${base}/api/admin/invoices/${invoiceId}/readiness`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'invoice-ready-0001' },
+      body: JSON.stringify({ ready: true }),
+    });
+    assert.equal(blockedReady.status, 409);
+    assert.equal((await blockedReady.json()).reason, 'student_email_required');
+
+    const contactHeaders = { ...adminHeaders, 'idempotency-key': 'contact-change-0002' };
+    const contactBody = JSON.stringify({ email: 'Verified.Student@Example.org', phone: '555-0102', reason: 'Confirmed with student' });
+    const savedContact = await fetch(`${base}/api/admin/students/${studentId}/contact`, { method: 'POST', headers: contactHeaders, body: contactBody });
+    assert.equal(savedContact.status, 201);
+    assert.equal((await savedContact.json()).student.email, 'verified.student@example.org');
+    const contactRetry = await fetch(`${base}/api/admin/students/${studentId}/contact`, { method: 'POST', headers: contactHeaders, body: contactBody });
+    assert.equal(contactRetry.status, 200);
+    assert.equal((await contactRetry.json()).duplicate, true);
+
+    const readyHeaders = { ...adminHeaders, 'idempotency-key': 'invoice-ready-0002' };
+    const readyBody = JSON.stringify({ ready: true, reason: 'Amount and email confirmed' });
+    const ready = await fetch(`${base}/api/admin/invoices/${invoiceId}/readiness`, { method: 'POST', headers: readyHeaders, body: readyBody });
+    assert.equal(ready.status, 201);
+    assert.equal((await ready.json()).invoice.state, 'ready');
+    const readyRetry = await fetch(`${base}/api/admin/invoices/${invoiceId}/readiness`, { method: 'POST', headers: readyHeaders, body: readyBody });
+    assert.equal(readyRetry.status, 200);
+    assert.equal((await readyRetry.json()).duplicate, true);
+
+    const demoted = await fetch(`${base}/api/admin/students/${studentId}/contact`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'contact-change-0003' },
+      body: JSON.stringify({ email: '', phone: '555-0102', reason: 'Student withdrew this email address' }),
+    });
+    assert.equal(demoted.status, 201);
+    assert.equal((await demoted.json()).demoted_ready_invoices, 1);
+    assert.equal(store.invoices.get(invoiceId).state, 'draft');
+
+    const studentDenied = await fetch(`${base}/api/admin/students/${studentId}/contact`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'contact-change-0004' },
+      body: contactBody,
+    });
+    assert.equal(studentDenied.status, 403);
+  });
+
+  await withServer({ config: localConfig, store: new PreviewStore(), stripeGateway: new StripeGateway() }, async base => {
+    const disabled = await fetch(`${base}/api/admin/students/${studentId}/contact`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin', 'idempotency-key': 'contact-disabled-0001' },
+      body: JSON.stringify({ email: 'student@example.org' }),
+    });
+    assert.equal(disabled.status, 503);
   });
 });

@@ -53,7 +53,15 @@ async function dispatch(action, payload = {}) {
   state.mutating = true;
   try {
     if (action === 'unsupported') throw new Error(payload.message || 'This control is not enabled in the production build yet.');
-    if (action === 'cycle-policy') {
+    if (action === 'student-contact') {
+      await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/contact`, {
+        body: {
+          email: payload.email || '',
+          phone: payload.phone || '',
+          reason: 'Dr J updated student contact information',
+        },
+      });
+    } else if (action === 'cycle-policy') {
       const cycle = databaseCycleKey[payload.k];
       await window.MissionAccountsRuntime.mutation(`/admin/policy/${cycle}`, {
         body: { decision: payload.value, reason: 'Dr J selected the canonical 13–15-day cycle policy' },
@@ -63,6 +71,21 @@ async function dispatch(action, payload = {}) {
       if (['other', 'special'].includes(payload.t)) body.requested_amount_cents = Math.round(Number(payload.amt || 0) * 100);
       if (payload.note) body.note = payload.note;
       await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/decisions`, { body });
+    } else if (action === 'invoice-readiness') {
+      const studentId = studentUuid(payload.si);
+      const cycleKey = databaseCycleKey[payload.k];
+      if (!cycleKey) throw new Error('The MissionAccounts billing cycle is unavailable.');
+      const invoices = state.bootstrap.canon.invoices.filter(item => (
+        item.student_id === studentId && item.cycle_key === cycleKey && ['draft', 'ready'].includes(item.state)
+      ));
+      const invoice = invoices.at(-1);
+      if (!invoice) throw new Error('A current draft invoice is required.');
+      await window.MissionAccountsRuntime.mutation(`/admin/invoices/${invoice.id}/readiness`, {
+        body: {
+          ready: payload.v === true,
+          reason: payload.v === true ? 'Dr J marked invoice ready to send' : 'Dr J removed invoice from ready',
+        },
+      });
     } else if (action === 'comp') {
       await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/comp`, {
         body: {

@@ -175,6 +175,19 @@ test('account linkage and historical ceiling adjudication are auditable service-
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_(?:link_student_account|decide_full_cycle_ceiling)[^;]+to authenticated/s);
 });
 
+test('student contact custody and invoice readiness are audited and server-authoritative', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table missionaccounts\.student_contact_change/);
+  assert.match(sql, /create function missionaccounts\.api_set_student_contact/);
+  assert.match(sql, /create function missionaccounts\.api_set_invoice_readiness/);
+  assert.match(sql, /student_email_required/);
+  assert.match(sql, /current_approved_decision_required/);
+  assert.match(sql, /update missionaccounts\.invoice\s+set state = 'draft'\s+where student_id = p_student_id and state = 'ready'/s);
+  assert.match(sql, /create trigger student_contact_change_immutable/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_set_student_contact[^;]+to service_role/s);
+  assert.match(sql, /grant execute on function missionaccounts\.api_set_invoice_readiness[^;]+to service_role/s);
+});
+
 test('exam transition RPC records rejected attempts and owns grace/reminder side effects', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
   assert.match(sql, /create function missionaccounts\.api_transition_exam_plan/);

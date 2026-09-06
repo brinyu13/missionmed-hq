@@ -42,8 +42,12 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /function hydrateAuthoritative\(nextD,nextWS,idMaps\)/);
   assert.match(html, /Authoritative hydration is production-only/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('billing-decision'/);
+  assert.match(html, /MissionAccountsRuntime\.dispatch\('student-contact'/);
+  assert.match(html, /MissionAccountsRuntime\.dispatch\('invoice-readiness'/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('exam-transition',\{si,action:'passed'/);
   assert.match(html, /hydrateAuthoritative, toast/);
+  assert.match(html, /onclick=async\(\)=>\{ const si=\+b\.dataset\.saveContact/);
+  assert.match(html, /onclick=async\(\)=>\{ const \[si,k,v\]=b\.dataset\.ready\.split/);
 });
 
 test('production server serves only the scoped shell while keeping mounted public config available', async () => {

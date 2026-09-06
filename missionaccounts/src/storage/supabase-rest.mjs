@@ -70,6 +70,18 @@ export class SupabaseRestStore {
     });
   }
 
+  async setStudentContact({ studentId, email, phone, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_set_student_contact', {
+      p_student_id: studentId,
+      p_email: email || null,
+      p_phone: phone || null,
+      p_reason: reason,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async decideFullCycleCeiling({ studentId, cycleKey, status, reason, actorId, actorRole, requestId }) {
     return this.rpc('api_decide_full_cycle_ceiling', {
       p_student_id: studentId,
@@ -242,6 +254,17 @@ export class SupabaseRestStore {
       p_treatment: treatment,
       p_requested_amount_cents: requestedAmountCents ?? null,
       p_note: note || null,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
+  async setInvoiceReadiness({ invoiceId, ready, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_set_invoice_readiness', {
+      p_invoice_id: invoiceId,
+      p_ready: ready,
+      p_reason: reason,
       p_actor_id: actorId,
       p_actor_role: actorRole,
       p_request_id: requestId,
@@ -490,6 +513,9 @@ export class PreviewStore {
     this.billingCapMutations = new Map();
     this.billingDecisions = new Map();
     this.billingMutations = new Map();
+    this.invoices = new Map();
+    this.invoiceReadinessMutations = new Map();
+    this.contactMutations = new Map();
     this.attendanceEvents = new Map();
     this.attendanceCorrections = [];
     this.correctionMutations = new Map();
@@ -544,7 +570,7 @@ export class PreviewStore {
         .filter(([key]) => relevantStudentIds.has(key.split(':')[0]))
         .flatMap(([, rows]) => rows.map(row => ({ ...row }))),
       billing_decisions: valuesFor(this.billingDecisions),
-      invoices: [],
+      invoices: valuesFor(this.invoices),
       exam_plans: valuesFor(this.examPlans),
       grace_windows: [],
       reminders: [],
@@ -578,6 +604,37 @@ export class PreviewStore {
       attendance_recompute: { trigger: `${requestId}:account-link` },
     };
     this.accountLinkMutations.set(requestId, { fingerprint, result });
+    return { ...result, duplicate: false };
+  }
+  async setStudentContact({ studentId, email, phone, reason, actorId, actorRole, requestId }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole)) throw Object.assign(new Error('Student contact change requires administrator authority'), { status: 403 });
+    const fingerprint = JSON.stringify({ studentId, email, phone, reason, actorId, actorRole });
+    const existing = this.contactMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    this.previewStudentRecord.email = email || null;
+    this.previewStudentRecord.phone = phone || null;
+    this.previewStudentRecord.updated_at = new Date().toISOString();
+    let demotedReadyInvoices = 0;
+    if (!email) {
+      for (const [id, invoice] of this.invoices) {
+        if (invoice.student_id === studentId && invoice.state === 'ready') {
+          this.invoices.set(id, { ...invoice, state: 'draft' });
+          demotedReadyInvoices += 1;
+        }
+      }
+    }
+    const ordinal = this.contactMutations.size + 1;
+    const result = {
+      student: this.previewStudent(),
+      change_id: `preview-contact-change-${ordinal}`,
+      demoted_ready_invoices: demotedReadyInvoices,
+      audit_event_id: `preview-contact-audit-${ordinal}`,
+    };
+    this.contactMutations.set(requestId, { fingerprint, result });
     return { ...result, duplicate: false };
   }
   async attendanceForStudent() { return []; }
@@ -832,11 +889,52 @@ export class PreviewStore {
       state: 'approved',
       decided_by: actorId,
     };
-    const invoice = amountCents > 0 ? { id: `preview-invoice-${ordinal}`, decision_id: decision.id, state: 'draft', amount_cents: amountCents } : null;
+    const invoice = amountCents > 0 ? {
+      id: `20000000-0000-4000-9000-${String(ordinal).padStart(12, '0')}`,
+      student_id: studentId,
+      cycle_key: cycleKey,
+      decision_id: decision.id,
+      state: 'draft',
+      amount_cents: amountCents,
+      lines: { total_cents: amountCents },
+    } : null;
     const result = { accepted: true, decision, invoice, audit_event_id: `preview-billing-audit-${ordinal}` };
     this.billingDecisions.set(`${studentId}:${cycleKey}`, decision);
+    for (const [id, existingInvoice] of this.invoices) {
+      if (existingInvoice.student_id === studentId && existingInvoice.cycle_key === cycleKey && ['draft', 'ready'].includes(existingInvoice.state)) {
+        this.invoices.set(id, { ...existingInvoice, state: 'void' });
+      }
+    }
+    if (invoice) this.invoices.set(invoice.id, invoice);
     this.billingMutations.set(requestId, { fingerprint, result });
     return result;
+  }
+  async setInvoiceReadiness({ invoiceId, ready, reason, actorId, actorRole, requestId }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole)) throw Object.assign(new Error('Invoice readiness requires administrator authority'), { status: 403 });
+    const fingerprint = JSON.stringify({ invoiceId, ready, reason, actorId, actorRole });
+    const existingMutation = this.invoiceReadinessMutations.get(requestId);
+    if (existingMutation) {
+      if (existingMutation.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existingMutation.result, duplicate: true };
+    }
+    const invoice = this.invoices.get(invoiceId);
+    if (!invoice) throw Object.assign(new Error('Invoice not found'), { status: 404 });
+    let rejection = null;
+    const decision = this.billingDecisions.get(`${invoice.student_id}:${invoice.cycle_key}`);
+    if (!['draft', 'ready'].includes(invoice.state)) rejection = 'invoice_state_is_final';
+    else if (ready && !this.previewStudentRecord.email) rejection = 'student_email_required';
+    else if (ready && (!decision || decision.id !== invoice.decision_id || decision.state !== 'approved' || decision.amount_cents !== invoice.amount_cents)) rejection = 'current_approved_decision_required';
+    const nextInvoice = rejection ? invoice : { ...invoice, state: ready ? 'ready' : 'draft' };
+    if (!rejection) this.invoices.set(invoiceId, nextInvoice);
+    const ordinal = this.invoiceReadinessMutations.size + 1;
+    const result = {
+      accepted: !rejection,
+      reason: rejection,
+      invoice: nextInvoice,
+      audit_event_id: `preview-invoice-readiness-audit-${ordinal}`,
+    };
+    this.invoiceReadinessMutations.set(requestId, { fingerprint, result });
+    return { ...result, duplicate: false };
   }
   seedAttendanceEvent(event) {
     this.attendanceEvents.set(event.id, { ...event });
@@ -1164,7 +1262,7 @@ export class PreviewStore {
       identity_questions: [...this.identityClusters.values()].filter(cluster => cluster.state === 'open').length,
       missing_payment_setup: students.filter(student => student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized').length,
       stale_decisions: [...this.billingDecisions.values()].filter(decision => decision.state === 'stale').length,
-      ready_invoices: 0,
+      ready_invoices: [...this.invoices.values()].filter(invoice => invoice.state === 'ready').length,
       pending_exam_plans: examPlans.filter(plan => ['pending', 'speak'].includes(plan.state)).length,
       upcoming_exam_plans: examPlans.filter(plan => plan.state === 'approved' && plan.exam_on >= today),
       due_reminders: [],
@@ -1178,7 +1276,7 @@ export class PreviewStore {
       cycle: { key: cycleKey, label: cycleKey, starts_on: null, ends_on: null, state: 'preview' },
       attendance_days: attendance,
       billing_decisions: decisions,
-      invoices: [],
+      invoices: [...this.invoices.values()].filter(invoice => invoice.cycle_key === cycleKey),
       policies: policy ? [{ ...policy }] : [],
     };
   }

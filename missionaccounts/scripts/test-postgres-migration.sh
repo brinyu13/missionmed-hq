@@ -180,6 +180,50 @@ if [[ "$billing_results" != "$billing_expected" ]]; then
   exit 1
 fi
 
+invoice_readiness_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_set_student_contact(
+  '$student_id','Verified.Student@Example.org','555-0102','Confirmed with student',
+  'wp:admin','missionaccounts_admin','pg-contact-0001'
+)->>'duplicate';
+select missionaccounts.api_set_student_contact(
+  '$student_id','Verified.Student@Example.org','555-0102','Confirmed with student',
+  'wp:admin','missionaccounts_admin','pg-contact-0001'
+)->>'duplicate';
+select missionaccounts.api_set_invoice_readiness(
+  (select id from missionaccounts.invoice where student_id='$student_id' and state='draft'),
+  true,'Amount and email confirmed','wp:admin','missionaccounts_admin','pg-invoice-ready-0001'
+)->>'accepted';
+select missionaccounts.api_set_invoice_readiness(
+  (select id from missionaccounts.invoice where student_id='$student_id' and state='ready'),
+  true,'Amount and email confirmed','wp:admin','missionaccounts_admin','pg-invoice-ready-0001'
+)->>'duplicate';
+select from_val->>'state' from missionaccounts.audit_event
+where request_id='pg-invoice-ready-0001' and kind='invoice.readiness';
+select missionaccounts.api_set_student_contact(
+  '$student_id',null,'555-0102','Student withdrew this email address',
+  'wp:admin','missionaccounts_admin','pg-contact-0002'
+)->>'demoted_ready_invoices';
+select missionaccounts.api_set_invoice_readiness(
+  (select id from missionaccounts.invoice where student_id='$student_id' and state='draft'),
+  true,'Try without email','wp:admin','missionaccounts_admin','pg-invoice-ready-0002'
+)->>'reason';
+reset role;
+select
+  (select state from missionaccounts.invoice where student_id='$student_id' order by created_at desc limit 1) || '|' ||
+  (select count(*) from missionaccounts.student_contact_change where student_id='$student_id') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='student.contact_changed' and subject_student_id='$student_id') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='invoice.readiness' and subject_student_id='$student_id');
+SQL
+)
+
+invoice_readiness_expected=$'false\ntrue\ntrue\ntrue\ndraft\n1\nstudent_email_required\ndraft|2|2|2'
+if [[ "$invoice_readiness_results" != "$invoice_readiness_expected" ]]; then
+  echo "MissionAccounts contact/invoice-readiness verification returned unexpected controls:" >&2
+  echo "$invoice_readiness_results" >&2
+  exit 1
+fi
+
 correction_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 insert into missionaccounts.source_artifact(source_kind, source_path, sha256, byte_count, observed_at)
 values ('integration', '/private/integration-source', repeat('b', 64), 1, now());
@@ -592,4 +636,4 @@ if [[ "$account_link_results" != "$account_link_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, account linkage/default comp, billing and cycle-policy authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, one-charge-per-day dispatch, and notification outbox delivery: PASS"

@@ -173,6 +173,11 @@ export function buildCanonicalModel(bootstrap) {
     const si = studentIndex.get(decision.student_id);
     if (si == null) continue;
     const key = mappedCycleKey(decision.cycle_key);
+    const sourceBasis = decision.basis || {};
+    const cycleState = studentRows[si].c[key] || {};
+    const units = Number(sourceBasis.billable ?? cycleState.billable ?? 0);
+    const capPolicy = (source.cycle_policies || []).find(policy => policy.cycle_key === decision.cycle_key)?.value?.decision;
+    const kind = decision.treatment === 'fullcycle' || units >= 16 || (units >= 13 && units <= 15 && capPolicy === 'cap') ? 'full' : 'per';
     working.dec[si] ||= {};
     working.dec[si][key] = {
       id: decision.id,
@@ -180,7 +185,16 @@ export function buildCanonicalModel(bootstrap) {
       amt: decision.amount_cents / 100,
       note: decision.note || '',
       at: safeDateMs(decision.decided_at),
-      basis: decision.basis,
+      basis: {
+        rule: 'day',
+        u: units,
+        att: Number(sourceBasis.att ?? cycleState.att ?? 0),
+        billable: units,
+        comped: Number(sourceBasis.comped ?? cycleState.comped ?? 0),
+        grace: Number(sourceBasis.grace ?? cycleState.grace ?? 0),
+        dayCount: Number(sourceBasis.dayCount ?? cycleState.dayCount ?? units),
+        kind,
+      },
       state: decision.state,
     };
   }

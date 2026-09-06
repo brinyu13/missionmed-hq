@@ -74,3 +74,38 @@ test('canonical adapter rejects a payload whose authenticated scope and data sco
   mismatched.scope = 'admin';
   assert.throws(() => buildCanonicalModel(mismatched), /scope mismatch/);
 });
+
+test('canonical adapter translates persisted server decision basis into the Founder canon without false staleness', () => {
+  const source = bootstrap('admin');
+  source.canon.billing_decisions = [{
+    id: 'decision-1',
+    student_id: studentId,
+    cycle_key: '2026-cycle-1',
+    treatment: 'confirm',
+    amount_cents: 2_500,
+    state: 'approved',
+    decided_at: '2026-09-06T12:00:00Z',
+    basis: {
+      rule: 'one_charge_per_calendar_day',
+      units: 'calendar_days',
+      att: 2,
+      billable: 1,
+      comped: 0,
+      grace: 0,
+      dayCount: 1,
+    },
+  }];
+  source.canon.invoices = [{
+    id: 'invoice-1',
+    student_id: studentId,
+    cycle_key: '2026-cycle-1',
+    decision_id: 'decision-1',
+    state: 'ready',
+    amount_cents: 2_500,
+  }];
+  const model = buildCanonicalModel(source);
+  assert.deepEqual(model.working.dec[0].june.basis, {
+    rule: 'day', u: 1, att: 2, billable: 1, comped: 0, grace: 0, dayCount: 1, kind: 'per',
+  });
+  assert.equal(model.working.ready[0].june, true);
+});

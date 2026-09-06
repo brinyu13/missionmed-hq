@@ -27,6 +27,7 @@ function environmentConfig() {
     wpBootstrapPath: process.env.MISSIONACCOUNTS_WP_BOOTSTRAP_PATH || '/wp-admin/admin-ajax.php?action=missionmed_missionaccounts_bootstrap',
     tokenRefreshSkewSeconds: 15,
     features: {
+      studentContacts: process.env.MISSIONACCOUNTS_STUDENT_CONTACTS === '1',
       billingDecisions: process.env.MISSIONACCOUNTS_BILLING_DECISIONS === '1',
       attendanceCorrections: process.env.MISSIONACCOUNTS_ATTENDANCE_CORRECTIONS === '1',
       examPlans: process.env.MISSIONACCOUNTS_EXAM_PLANS === '1',
@@ -252,6 +253,7 @@ export function createMissionAccountsServer({
           avatar_thumbnail_url: identity.avatarThumbnailUrl || '',
         },
         capabilities: {
+          student_contacts: Boolean(config.features?.studentContacts),
           billing_decisions: Boolean(config.features?.billingDecisions),
           attendance_corrections: Boolean(config.features?.attendanceCorrections),
           exam_plans: Boolean(config.features?.examPlans),
@@ -518,6 +520,30 @@ export function createMissionAccountsServer({
       const { matrix_user_ref: _privateMatrixUserRef, ...safeStudent } = result.student;
       return json(response, result.duplicate ? 200 : 201, { ...result, student: safeStudent });
     }
+    const studentContactRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/contact$/i)
+      : null;
+    if (studentContactRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'studentContacts');
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const email = body.email == null ? '' : String(body.email).trim().toLowerCase();
+      const phone = body.phone == null ? '' : String(body.phone).trim();
+      const reason = String(body.reason || 'Dr J updated student contact information').trim();
+      if (email && (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw requestError('Student email is invalid');
+      if (phone.length > 100) throw requestError('Student phone is too long');
+      if (!reason || reason.length > 2_000) throw requestError('A contact-change reason is required');
+      const result = await store.setStudentContact({
+        studentId: studentContactRoute[1],
+        email: email || null,
+        phone: phone || null,
+        reason,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
     const compRoute = request.method === 'POST'
       ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/comp$/i)
       : null;
@@ -626,6 +652,26 @@ export function createMissionAccountsServer({
         treatment,
         requestedAmountCents,
         note: note || null,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.accepted === false ? 409 : result.duplicate ? 200 : 201, result);
+    }
+    const invoiceReadinessRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/invoices\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/readiness$/i)
+      : null;
+    if (invoiceReadinessRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'billingDecisions');
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      if (typeof body.ready !== 'boolean') throw requestError('Invoice readiness requires a boolean ready value');
+      const reason = String(body.reason || (body.ready ? 'Dr J marked invoice ready to send' : 'Dr J removed invoice from ready')).trim();
+      if (!reason || reason.length > 2_000) throw requestError('An invoice-readiness reason is required');
+      const result = await store.setInvoiceReadiness({
+        invoiceId: invoiceReadinessRoute[1],
+        ready: body.ready,
+        reason,
         actorId: identity.userId,
         actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
         requestId: requestIdFor(request),

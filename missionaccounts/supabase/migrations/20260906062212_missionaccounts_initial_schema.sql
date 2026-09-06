@@ -65,6 +65,20 @@ create table missionaccounts.account_link_change (
   created_at timestamptz not null default now()
 );
 
+create table missionaccounts.student_contact_change (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references missionaccounts.student(id),
+  from_email text,
+  to_email text,
+  from_phone text,
+  to_phone text,
+  reason text not null check (length(btrim(reason)) > 0),
+  actor_id text not null,
+  actor_role text not null check (actor_role in ('missionaccounts_admin','founder')),
+  request_id text not null unique,
+  created_at timestamptz not null default now()
+);
+
 create table missionaccounts.identity_alias (
   id uuid primary key default gen_random_uuid(),
   student_id uuid references missionaccounts.student(id),
@@ -902,6 +916,136 @@ $$;
 
 revoke execute on function missionaccounts.api_link_student_account(uuid, text, date, date, text, text, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_link_student_account(uuid, text, date, date, text, text, text, text) to service_role;
+
+create function missionaccounts.api_set_student_contact(
+  p_student_id uuid,
+  p_email text,
+  p_phone text,
+  p_reason text,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  student_row missionaccounts.student%rowtype;
+  prior_change missionaccounts.student_contact_change%rowtype;
+  change_id uuid;
+  audit_id uuid;
+  prior_audit_to_val jsonb;
+  normalized_email text := nullif(lower(btrim(coalesce(p_email, ''))), '');
+  normalized_phone text := nullif(btrim(coalesce(p_phone, '')), '');
+  demoted_ready_invoices integer := 0;
+begin
+  if p_actor_role not in ('missionaccounts_admin','founder') then
+    raise exception using errcode = '42501', message = 'student_contact_admin_required';
+  end if;
+  if p_student_id is null
+     or nullif(btrim(p_reason), '') is null
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_request_id), '') is null
+     or length(coalesce(normalized_email, '')) > 320
+     or length(coalesce(normalized_phone, '')) > 100
+     or (normalized_email is not null and normalized_email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$') then
+    raise exception using errcode = '22023', message = 'invalid_student_contact_request';
+  end if;
+
+  select * into prior_change
+  from missionaccounts.student_contact_change
+  where request_id = p_request_id;
+  if found then
+    if prior_change.student_id <> p_student_id
+       or prior_change.to_email is distinct from normalized_email
+       or prior_change.to_phone is distinct from normalized_phone
+       or prior_change.reason <> p_reason
+       or prior_change.actor_id <> p_actor_id
+       or prior_change.actor_role <> p_actor_role then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select * into student_row from missionaccounts.student where id = p_student_id;
+    select id, to_val into audit_id, prior_audit_to_val from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'student.contact_changed';
+    return jsonb_build_object(
+      'student', jsonb_build_object(
+        'id', student_row.id,
+        'display_name', student_row.display_name,
+        'email', prior_change.to_email,
+        'phone', prior_change.to_phone,
+        'joined_at', student_row.joined_at,
+        'comp_days_allowance', student_row.comp_days_allowance,
+        'identity_state', student_row.identity_state
+      ),
+      'change_id', prior_change.id,
+      'demoted_ready_invoices', coalesce((prior_audit_to_val->>'demoted_ready_invoices')::integer, 0),
+      'audit_event_id', audit_id,
+      'duplicate', true
+    );
+  end if;
+
+  select * into student_row
+  from missionaccounts.student
+  where id = p_student_id
+  for update;
+  if not found then
+    raise exception using errcode = '23503', message = 'student_not_found';
+  end if;
+
+  insert into missionaccounts.student_contact_change(
+    student_id, from_email, to_email, from_phone, to_phone,
+    reason, actor_id, actor_role, request_id
+  ) values (
+    p_student_id, student_row.email, normalized_email, student_row.phone, normalized_phone,
+    p_reason, p_actor_id, p_actor_role, p_request_id
+  ) returning id into change_id;
+
+  update missionaccounts.student
+  set email = normalized_email,
+      phone = normalized_phone,
+      updated_at = now()
+  where id = p_student_id
+  returning * into student_row;
+
+  if normalized_email is null then
+    update missionaccounts.invoice
+    set state = 'draft'
+    where student_id = p_student_id and state = 'ready';
+    get diagnostics demoted_ready_invoices = row_count;
+  end if;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id, p_actor_role, p_student_id, 'student.contact_changed',
+    'Student contact information changed',
+    jsonb_build_object('email', (select from_email from missionaccounts.student_contact_change where id = change_id), 'phone', (select from_phone from missionaccounts.student_contact_change where id = change_id)),
+    jsonb_build_object('email', normalized_email, 'phone', normalized_phone, 'demoted_ready_invoices', demoted_ready_invoices),
+    p_reason, p_request_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'student', jsonb_build_object(
+      'id', student_row.id,
+      'display_name', student_row.display_name,
+      'email', student_row.email,
+      'phone', student_row.phone,
+      'joined_at', student_row.joined_at,
+      'comp_days_allowance', student_row.comp_days_allowance,
+      'identity_state', student_row.identity_state
+    ),
+    'change_id', change_id,
+    'demoted_ready_invoices', demoted_ready_invoices,
+    'audit_event_id', audit_id,
+    'duplicate', false
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_set_student_contact(uuid, text, text, text, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_set_student_contact(uuid, text, text, text, text, text, text) to service_role;
 
 create function missionaccounts.api_decide_full_cycle_ceiling(
   p_student_id uuid,
@@ -1931,6 +2075,126 @@ $$;
 
 revoke execute on function missionaccounts.api_approve_billing_decision(uuid, text, text, integer, text, text, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_approve_billing_decision(uuid, text, text, integer, text, text, text, text) to service_role;
+
+create function missionaccounts.api_set_invoice_readiness(
+  p_invoice_id uuid,
+  p_ready boolean,
+  p_reason text,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  invoice_row missionaccounts.invoice%rowtype;
+  student_row missionaccounts.student%rowtype;
+  decision_row missionaccounts.billing_decision%rowtype;
+  prior_audit_id uuid;
+  prior_audit_to_val jsonb;
+  audit_id uuid;
+  target_state text := case when p_ready then 'ready' else 'draft' end;
+  prior_state text;
+  rejection_reason text;
+  request_fingerprint jsonb;
+begin
+  if p_actor_role not in ('missionaccounts_admin','founder') then
+    raise exception using errcode = '42501', message = 'invoice_readiness_admin_required';
+  end if;
+  if p_invoice_id is null
+     or p_ready is null
+     or nullif(btrim(p_reason), '') is null
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'invalid_invoice_readiness_request';
+  end if;
+
+  request_fingerprint := jsonb_build_object(
+    'invoice_id', p_invoice_id,
+    'ready', p_ready,
+    'reason', p_reason,
+    'actor_id', p_actor_id,
+    'actor_role', p_actor_role
+  );
+  select id, to_val into prior_audit_id, prior_audit_to_val from missionaccounts.audit_event
+  where request_id = p_request_id and kind = 'invoice.readiness';
+  if found then
+    if prior_audit_to_val->'request' <> request_fingerprint then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select * into invoice_row from missionaccounts.invoice where id = p_invoice_id;
+    return jsonb_build_object(
+      'accepted', coalesce((prior_audit_to_val->>'accepted')::boolean, false),
+      'reason', prior_audit_to_val->>'reason',
+      'invoice', case when invoice_row.id is null then null else to_jsonb(invoice_row) end,
+      'audit_event_id', prior_audit_id,
+      'duplicate', true
+    );
+  end if;
+
+  select * into invoice_row
+  from missionaccounts.invoice
+  where id = p_invoice_id
+  for update;
+  if not found then
+    raise exception using errcode = '23503', message = 'invoice_not_found';
+  end if;
+  prior_state := invoice_row.state;
+  select * into student_row from missionaccounts.student where id = invoice_row.student_id;
+  select * into decision_row from missionaccounts.billing_decision where id = invoice_row.decision_id;
+
+  if invoice_row.state not in ('draft','ready') then
+    rejection_reason := 'invoice_state_is_final';
+  elsif p_ready and nullif(btrim(coalesce(student_row.email, '')), '') is null then
+    rejection_reason := 'student_email_required';
+  elsif p_ready and (
+    decision_row.id is null
+    or decision_row.state <> 'approved'
+    or decision_row.superseded_by_id is not null
+    or decision_row.student_id <> invoice_row.student_id
+    or decision_row.cycle_key <> invoice_row.cycle_key
+    or decision_row.amount_cents <> invoice_row.amount_cents
+  ) then
+    rejection_reason := 'current_approved_decision_required';
+  end if;
+
+  if rejection_reason is null then
+    update missionaccounts.invoice set state = target_state
+    where id = p_invoice_id
+    returning * into invoice_row;
+  end if;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id, p_actor_role, invoice_row.student_id, 'invoice.readiness',
+    case when rejection_reason is null then 'Invoice readiness changed' else 'Invoice readiness rejected by server authority' end,
+    jsonb_build_object('state', prior_state),
+    jsonb_build_object(
+      'request', request_fingerprint,
+      'accepted', rejection_reason is null,
+      'reason', rejection_reason,
+      'state', case when rejection_reason is null then target_state else invoice_row.state end
+    ),
+    case when rejection_reason is null then p_reason else rejection_reason end,
+    p_request_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'accepted', rejection_reason is null,
+    'reason', rejection_reason,
+    'invoice', to_jsonb(invoice_row),
+    'audit_event_id', audit_id,
+    'duplicate', false
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_set_invoice_readiness(uuid, boolean, text, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_set_invoice_readiness(uuid, boolean, text, text, text, text) to service_role;
 
 create function missionaccounts.api_append_attendance_correction(
   p_student_id uuid,
@@ -3068,6 +3332,7 @@ create table missionaccounts.feature_flag (
 
 insert into missionaccounts.feature_flag(key, enabled) values
   ('missionaccounts_route', false),
+  ('student_contacts', false),
   ('billing_decisions', false),
   ('attendance_corrections', false),
   ('exam_plans', false),
@@ -3127,13 +3392,17 @@ create trigger account_link_change_immutable
 before update or delete on missionaccounts.account_link_change
 for each row execute function missionaccounts.reject_immutable_change();
 
+create trigger student_contact_change_immutable
+before update or delete on missionaccounts.student_contact_change
+for each row execute function missionaccounts.reject_immutable_change();
+
 -- Every personal or financial table is RLS-protected even though browser writes
 -- are intentionally unavailable. Server-side service role access remains private.
 do $$
 declare table_name text;
 begin
   foreach table_name in array array[
-    'student','account_link_change','identity_alias','identity_cluster','identity_cluster_member','identity_decision',
+    'student','account_link_change','student_contact_change','identity_alias','identity_cluster','identity_cluster_member','identity_decision',
     'cycle_policy','rule_decision',
     'session','attendance_source_row','attendance_event',
     'attendance_event_source_row','attendance_correction','attendance_day',

@@ -89,7 +89,7 @@ const productionActionGuards = [
   ["function decide(si, k, t, amt, note){", "function decide(si, k, t, amt, note){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('billing-decision',{si,k,t,amt,note});"],
   ["function addCorr(si, type, fields){", "function addCorr(si, type, fields){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('attendance-correction',{si,type,fields});"],
   ["function undoCorr(id){", "function undoCorr(id){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('attendance-correction-reversal',{id});"],
-  ["function setContact(si, email, phone){", "function setContact(si, email, phone){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Student contact editing is not enabled yet.'});"],
+  ["function setContact(si, email, phone){", "function setContact(si, email, phone){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('student-contact',{si,email,phone});"],
   ["function setPM(si, state){", "function setPM(si, state){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Use the secure Stripe payment setup when it is enabled.'});"],
   ["function setAuth(si, state){", "function setAuth(si, state){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Automatic billing authorization is not enabled yet.'});"],
   ["function setPolicy(k, v){", "function setPolicy(k, v){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('cycle-policy',{k,value:v});"],
@@ -101,10 +101,24 @@ const productionActionGuards = [
   ["function recordRuleDecision(mode, note){", "function recordRuleDecision(mode, note){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'The Founder rule decision is locked and read-only.'});"],
   ["function decideIdent(cl, d, canon){", "function decideIdent(cl, d, canon){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Identity adjudication is not enabled yet.'});"],
   ["function decideDevice(dv, d, si){", "function decideDevice(dv, d, si){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Device identity adjudication is not enabled yet.'});"],
-  ["function markReady(si,k,v){", "function markReady(si,k,v){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Invoice readiness is not enabled yet.'});"],
+  ["function markReady(si,k,v){", "function markReady(si,k,v){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('invoice-readiness',{si,k,v});"],
 ];
 for (const [needle, replacement] of productionActionGuards) {
   if (!productionHtml.includes(needle)) throw new Error(`Production action seam missing: ${needle}`);
+  productionHtml = productionHtml.replace(needle, replacement);
+}
+const productionAsyncHandlers = [
+  [
+    "root.querySelectorAll('[data-save-contact]').forEach(b=>b.onclick=()=>{ const si=+b.dataset.saveContact; const em=$('#emailIn').value; if(em && !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(em)){ toast('That email does not look right yet.'); $('#emailIn').focus(); return; } setContact(si, em, $('#phoneIn')?$('#phoneIn').value:''); render(); toast(em?'Email saved. The invoice can now be marked ready.':'Email cleared.'); });",
+    "root.querySelectorAll('[data-save-contact]').forEach(b=>b.onclick=async()=>{ const si=+b.dataset.saveContact; const em=$('#emailIn').value; if(em && !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(em)){ toast('That email does not look right yet.'); $('#emailIn').focus(); return; } const saved=await setContact(si, em, $('#phoneIn')?$('#phoneIn').value:''); if(saved===false)return; render(); toast(em?'Email saved. The invoice can now be marked ready.':'Email cleared.'); });",
+  ],
+  [
+    "root.querySelectorAll('[data-ready]').forEach(b=>b.onclick=()=>{ const [si,k,v]=b.dataset.ready.split('|'); markReady(+si,k,v==='1'); render(); toast(v==='1'?'Marked Ready to send (prototype state).':'Removed from Ready.'); });",
+    "root.querySelectorAll('[data-ready]').forEach(b=>b.onclick=async()=>{ const [si,k,v]=b.dataset.ready.split('|'); const saved=await markReady(+si,k,v==='1'); if(saved===false)return; render(); toast(v==='1'?'Marked Ready to send.':'Removed from Ready.'); });",
+  ],
+];
+for (const [needle, replacement] of productionAsyncHandlers) {
+  if (!productionHtml.includes(needle)) throw new Error('Production asynchronous action handler is missing');
   productionHtml = productionHtml.replace(needle, replacement);
 }
 productionHtml = productionHtml.replace('unitsOf, hydrateAuthoritative};', 'unitsOf, hydrateAuthoritative, toast};');
