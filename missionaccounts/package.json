@@ -1,0 +1,16 @@
+{
+  "name": "@missionmed/missionaccounts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:canon": "node scripts/materialize-canon.mjs",
+    "validate:source": "node scripts/validate-source.mjs",
+    "dev": "node src/server.mjs",
+    "start": "NODE_ENV=production node src/server.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

@@ -1,0 +1,146 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { calculateCycleAmount, deriveBillableDays, localDayFromIso } from '../src/domain/billing-engine.mjs';
+import { thirdWednesdayAfter, transitionExamPlan } from '../src/domain/exam-engine.mjs';
+import { consolidateAttendanceFragments } from '../src/domain/source-normalizer.mjs';
+import { chargeEligibility, InMemoryChargeLedger } from '../src/domain/charge-engine.mjs';
+
+const student = { id: 'u1', comp_days_allowance: 0 };
+function fixture(days) {
+  const sessions = [];
+  const events = [];
+  days.forEach((day, index) => {
+    const id = `s${index}`;
+    sessions.push({ id, state: 'confirmed', starts_at: `${day}T16:00:00Z` });
+    events.push({ id: `e${index}`, student_id: 'u1', session_id: id, cycle_key: 'current', local_day: day, step: index % 2 ? 's23' : 's1' });
+  });
+  return { sessions, events };
+}
+
+test('V01 Step 1 only produces one $25 billable day', () => {
+  const { sessions, events } = fixture(['2026-09-07']);
+  const days = deriveBillableDays({ student, sessions, events });
+  assert.deepEqual([days.length, days[0].kind, calculateCycleAmount({ days }).amount_cents], [1, 'billable', 2500]);
+});
+
+test('V02 Step 2/3 only produces one $25 billable day', () => {
+  const { sessions, events } = fixture(['2026-09-07']);
+  events[0].step = 's23';
+  const days = deriveBillableDays({ student, sessions, events });
+  assert.deepEqual([days.length, days[0].steps[0], calculateCycleAmount({ days }).amount_cents], [1, 's23', 2500]);
+});
+
+test('V03 same-date classes retain two events and price one day', () => {
+  const { sessions, events } = fixture(['2026-09-07', '2026-09-07']);
+  const days = deriveBillableDays({ student, sessions, events });
+  assert.equal(days.length, 1);
+  assert.equal(days[0].event_ids.length, 2);
+  assert.equal(calculateCycleAmount({ days }).amount_cents, 2500);
+});
+
+test('V04 reconnect fragments dedupe by source id and collapse by student-session', () => {
+  const rows = [1, 2, 3].map(index => ({ provider_source_id: `src${index}`, student_id: 'u1', session_id: 's1', joined_at: `2026-09-07T16:0${index}:00Z`, left_at: `2026-09-07T16:1${index}:00Z` }));
+  const events = consolidateAttendanceFragments([...rows, rows[0]]);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].source_row_ids.length, 3);
+});
+
+test('V05 newly joined student receives five otherwise-billable comp days', () => {
+  const { sessions, events } = fixture(['2026-09-07','2026-09-08','2026-09-09','2026-09-10','2026-09-11','2026-09-14']);
+  const days = deriveBillableDays({ student: { ...student, comp_days_allowance: 5 }, sessions, events });
+  assert.deepEqual(days.map(day => day.kind), ['comped','comped','comped','comped','comped','billable']);
+  assert.equal(calculateCycleAmount({ days }).amount_cents, 2500);
+});
+
+test('V06 prospective comp reduction preserves already locked days', () => {
+  const { sessions, events } = fixture(['2026-09-07','2026-09-08','2026-09-09','2026-09-10','2026-09-11']);
+  const locked = events.map(event => event.local_day);
+  const days = deriveBillableDays({ student: { ...student, comp_days_allowance: 2 }, sessions, events, persistedCompDays: locked });
+  assert.equal(days.filter(day => day.kind === 'comped').length, 5);
+});
+
+test('V07 pending exam plan opens no grace and schedules no reminder', () => {
+  const plan = { id: 'p1', student_id: 'u1', state: 'pending', exam_on: '2026-08-21' };
+  assert.equal(plan.state, 'pending');
+  assert.equal(plan.grace_window, undefined);
+});
+
+test('V08 denial before approval creates no grace effect', () => {
+  const result = transitionExamPlan({ plan: { id: 'p1', student_id: 'u1', state: 'pending', exam_on: '2026-08-21' }, to: 'denied', actor: 'admin', today: '2026-08-10' });
+  assert.equal(result.effects.open_grace, null);
+  assert.equal(result.effects.close_grace, null);
+});
+
+test('V09 exam date stays billable while dates after approval are grace', () => {
+  const { sessions, events } = fixture(['2026-08-21','2026-08-22']);
+  const days = deriveBillableDays({ student, sessions, events, graceWindows: [{ from_on: '2026-08-21', to_on: null }] });
+  assert.deepEqual(days.map(day => day.kind), ['billable','grace']);
+  assert.equal(thirdWednesdayAfter('2026-08-21'), '2026-09-09');
+});
+
+test('V10 Passed closes grace inclusively and next class resumes billing', () => {
+  const { sessions, events } = fixture(['2026-09-01','2026-09-02']);
+  const days = deriveBillableDays({ student, sessions, events, graceWindows: [{ from_on: '2026-08-21', to_on: '2026-09-01' }] });
+  assert.deepEqual(days.map(day => day.kind), ['grace','billable']);
+});
+
+test('V11 third-Wednesday and 23:30 local-date boundaries are deterministic', () => {
+  assert.deepEqual([thirdWednesdayAfter('2026-08-21'), thirdWednesdayAfter('2026-09-09'), thirdWednesdayAfter('2026-12-01')], ['2026-09-09','2026-09-30','2026-12-16']);
+  assert.equal(localDayFromIso('2026-09-08T03:30:00Z', 'America/New_York'), '2026-09-07');
+});
+
+test('V12 a closed grace window remains a protected free fact', () => {
+  const { sessions, events } = fixture(['2026-08-22']);
+  for (const laterState of ['passed','pending','denied']) {
+    const days = deriveBillableDays({ student, sessions, events, graceWindows: [{ from_on: '2026-08-21', to_on: '2026-09-01', later_state: laterState }] });
+    assert.equal(days[0].kind, 'grace');
+  }
+});
+
+test('V13 real historical controls are sealed by the privacy-safe source validation report', async () => {
+  const report = JSON.parse(await readFile(new URL('../evidence/source-validation.json', import.meta.url)));
+  assert.equal(report.controls.attendance_events, 3941);
+  assert.equal(report.controls.total_amount, 77075);
+  assert.deepEqual(Object.values(report.controls.cycles).map(row => row.amount), [25425,26575,25075]);
+});
+
+test('V14 only a verified historical ceiling can prevent a $350/$375 increase', () => {
+  const days = Array.from({ length: 15 }, () => ({ kind: 'billable' }));
+  assert.equal(calculateCycleAmount({ days, historicalArrangement: { verified: true, type: 'full_cycle_300' } }).amount_cents, 30000);
+  assert.equal(calculateCycleAmount({ days, historicalArrangement: { verified: false, type: 'full_cycle_300' } }).amount_cents, 37500);
+});
+
+test('V15 duplicate workers and webhook retries produce one charge and receipt', () => {
+  const ledger = new InMemoryChargeLedger();
+  assert.equal(ledger.enqueue('day1'), ledger.enqueue('day1'));
+  assert.equal(ledger.processSucceededWebhook({ eventId: 'evt1', paymentIntentId: 'pi1', dayId: 'day1' }).status, 'succeeded');
+  assert.equal(ledger.processSucceededWebhook({ eventId: 'evt1', paymentIntentId: 'pi1', dayId: 'day1' }).status, 'duplicate_event');
+  assert.equal(ledger.processSucceededWebhook({ eventId: 'evt2', paymentIntentId: 'pi1', dayId: 'day1' }).status, 'already_succeeded');
+  assert.equal(ledger.receipts.size, 1);
+});
+
+test('V16 RLS migration forces row isolation and exposes no provider references', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /force row level security/);
+  assert.match(sql, /matrix_user_ref = \(select auth\.uid\(\)\)/);
+  assert.match(sql, /grant select \(id, student_id, brand, last4, exp_month, exp_year, status, verified_at, updated_at\)/);
+  assert.doesNotMatch(sql, /grant select \([^;]*provider_pm_ref/i);
+});
+
+test('V17 correction path is append-only and source rows are immutable', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /attendance_source_row_immutable/);
+  assert.match(sql, /attendance_correction_immutable/);
+  assert.match(sql, /immutable MissionAccounts evidence cannot be updated or deleted/);
+});
+
+test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
+  const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
+  assert.equal(chargeEligibility(base).eligible, true);
+  assert.equal(chargeEligibility({ ...base, day: { kind: 'grace' } }).eligible, false);
+  assert.equal(chargeEligibility({ ...base, decision: { ...base.decision, stale: true } }).eligible, false);
+  assert.equal(chargeEligibility({ ...base, decision: { ...base.decision, amount_cents: 0 } }).eligible, false);
+  assert.equal(chargeEligibility({ ...base, paymentMethod: null }).eligible, false);
+  assert.equal(chargeEligibility({ ...base, consent: null }).eligible, false);
+});

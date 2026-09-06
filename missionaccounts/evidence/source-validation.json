@@ -1,0 +1,47 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5301P",
+  "status": "SOURCE_VALIDATED_NOT_IMPORTED",
+  "generated_at": "2026-09-04T17:03:21.975781-04:00",
+  "artifacts": {
+    "reconciled_ledger": {
+      "sha256": "6a38967fcb369ba6b9bb71daee8f66697efee0042ab6ebd421a0edf1aaeba108",
+      "byte_count": 3846105
+    },
+    "identity_graph": {
+      "sha256": "c8e89ab0217c5a6df21e4506f133f06d9470c8cd5b51c81eec356de251bce5ee",
+      "byte_count": 456454
+    }
+  },
+  "controls": {
+    "attendance_events": 3941,
+    "human_cycle_rows": 498,
+    "identity_nodes": 370,
+    "applied_merge_groups": 63,
+    "unresolved_relationships": 34,
+    "cycles": {
+      "Cycle 1": {
+        "people": 163,
+        "events": 1295,
+        "days": 1072,
+        "same_day_reductions": 223,
+        "amount": 25425
+      },
+      "Cycle 2": {
+        "people": 170,
+        "events": 1390,
+        "days": 1141,
+        "same_day_reductions": 249,
+        "amount": 26575
+      },
+      "Cycle 3": {
+        "people": 165,
+        "events": 1256,
+        "days": 1051,
+        "same_day_reductions": 205,
+        "amount": 25075
+      }
+    },
+    "total_amount": 77075
+  },
+  "privacy": "No names, emails, aliases, meeting IDs, or participant records are written to this report."
+}

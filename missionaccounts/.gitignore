@@ -1,0 +1,11 @@
+# Generated from the private Founder canon. The source contains historical PII and
+# must be materialized only in an authorized build/deploy environment.
+public/index.html
+public/canon-manifest.json
+
+# Local development and provider files.
+.env
+.env.*
+node_modules/
+coverage/
+supabase/.temp/
