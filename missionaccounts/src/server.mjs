@@ -258,6 +258,7 @@ export function createMissionAccountsServer({
         studentId: student.id,
         step: body.step,
         examOn: body.exam_on,
+        today: localDayFromIso(now().toISOString()),
         actorId: identity.userId,
         actorRole: 'student',
         requestId: requestIdFor(request),

@@ -700,6 +700,7 @@ create function missionaccounts.api_submit_exam_plan(
   p_student_id uuid,
   p_step text,
   p_exam_on date,
+  p_today date,
   p_actor_id text,
   p_actor_role text,
   p_request_id text
@@ -715,8 +716,10 @@ declare
   new_plan missionaccounts.exam_plan%rowtype;
   new_plan_id uuid := gen_random_uuid();
   audit_id uuid;
+  closed_grace_windows integer := 0;
+  recomputed jsonb;
 begin
-  if p_step not in ('s1','s2','s3') or p_exam_on is null then
+  if p_step not in ('s1','s2','s3') or p_exam_on is null or p_today is null then
     raise exception using errcode = '22023', message = 'invalid_exam_plan';
   end if;
   if nullif(btrim(p_actor_id), '') is null
@@ -754,6 +757,18 @@ begin
   for update;
 
   if found then
+    update missionaccounts.grace_window
+    set to_on = greatest(from_on, p_today),
+        closed_reason = 'plan_replaced',
+        closed_at = now()
+    where exam_plan_id = prior_plan.id and to_on is null;
+    get diagnostics closed_grace_windows = row_count;
+    update missionaccounts.reminder
+    set state = 'cancelled',
+        cancelled_reason = 'plan_replaced',
+        updated_at = now()
+    where exam_plan_id = prior_plan.id and state in ('scheduled','due');
+
     insert into missionaccounts.exam_plan(
       id, student_id, step, exam_on, state, submitted_by, superseded_by_id
     ) values (
@@ -767,6 +782,13 @@ begin
     ) values (
       new_plan_id, p_student_id, p_step, p_exam_on, 'pending', p_actor_id
     ) returning * into new_plan;
+  end if;
+
+  if closed_grace_windows > 0 then
+    recomputed := missionaccounts.recompute_student_attendance(
+      p_student_id,
+      p_request_id || ':exam-plan-replaced'
+    );
   end if;
 
   insert into missionaccounts.exam_transition(
@@ -784,7 +806,11 @@ begin
     'exam_plan.submitted',
     'Exam plan submitted',
     case when prior_plan.id is null then null else to_jsonb(prior_plan) end,
-    to_jsonb(new_plan),
+    jsonb_build_object(
+      'plan', to_jsonb(new_plan),
+      'closed_grace_windows', closed_grace_windows,
+      'attendance_recompute', recomputed
+    ),
     'submitted',
     p_request_id
   ) returning id into audit_id;
@@ -800,12 +826,18 @@ begin
     p_request_id || ':exam-plan-submitted'
   ) on conflict (idempotency_key) do nothing;
 
-  return jsonb_build_object('plan', to_jsonb(new_plan), 'audit_event_id', audit_id, 'duplicate', false);
+  return jsonb_build_object(
+    'plan', to_jsonb(new_plan),
+    'closed_grace_windows', closed_grace_windows,
+    'attendance_recompute', recomputed,
+    'audit_event_id', audit_id,
+    'duplicate', false
+  );
 end;
 $$;
 
-revoke execute on function missionaccounts.api_submit_exam_plan(uuid, text, date, text, text, text) from public, anon, authenticated;
-grant execute on function missionaccounts.api_submit_exam_plan(uuid, text, date, text, text, text) to service_role;
+revoke execute on function missionaccounts.api_submit_exam_plan(uuid, text, date, date, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_submit_exam_plan(uuid, text, date, date, text, text, text) to service_role;
 
 create function missionaccounts.api_set_comp_allowance(
   p_student_id uuid,

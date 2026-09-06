@@ -36,8 +36,8 @@ student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
 
 results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 set role service_role;
-select missionaccounts.api_submit_exam_plan('$student_id','s2','2026-10-14','wp:4242','student','pg-integration-0001')->>'duplicate';
-select missionaccounts.api_submit_exam_plan('$student_id','s2','2026-10-14','wp:4242','student','pg-integration-0001')->>'duplicate';
+select missionaccounts.api_submit_exam_plan('$student_id','s2','2026-10-14','2026-09-01','wp:4242','student','pg-integration-0001')->>'duplicate';
+select missionaccounts.api_submit_exam_plan('$student_id','s2','2026-10-14','2026-09-01','wp:4242','student','pg-integration-0001')->>'duplicate';
 select missionaccounts.api_transition_exam_plan((select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),'approved',null,null,'2026-09-01','wp:admin','missionaccounts_admin','pg-integration-0003')->>'accepted';
 select missionaccounts.api_transition_exam_plan((select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),'approved',null,null,'2026-09-01','wp:admin','missionaccounts_admin','pg-integration-0003')->>'duplicate';
 select missionaccounts.api_transition_exam_plan((select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),'followup','not_passed','Verified result','2026-10-20','wp:admin','missionaccounts_admin','pg-integration-0004')->>'accepted';
@@ -87,6 +87,43 @@ student_passed_expected=$'true\ntrue\nfalse\npassed|2026-10-21'
 if [[ "$student_passed_results" != "$student_passed_expected" ]]; then
   echo "MissionAccounts student Passed verification returned unexpected controls:" >&2
   echo "$student_passed_results" >&2
+  exit 1
+fi
+
+replacement_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:replacement','Replacement Test') returning id")
+
+exam_replacement_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_submit_exam_plan(
+  '$replacement_student_id','s1','2026-10-14','2026-09-01',
+  'wp:replacement','student','pg-replacement-submit-0001'
+)->>'duplicate';
+select missionaccounts.api_transition_exam_plan(
+  (select id from missionaccounts.exam_plan where student_id='$replacement_student_id' and superseded_by_id is null),
+  'approved',null,null,'2026-09-01','wp:admin','missionaccounts_admin','pg-replacement-approve-0001'
+)->>'accepted';
+select missionaccounts.api_submit_exam_plan(
+  '$replacement_student_id','s1','2026-11-11','2026-09-20',
+  'wp:replacement','student','pg-replacement-submit-0002'
+)->>'closed_grace_windows';
+select missionaccounts.api_submit_exam_plan(
+  '$replacement_student_id','s1','2026-11-11','2026-09-20',
+  'wp:replacement','student','pg-replacement-submit-0002'
+)->>'duplicate';
+reset role;
+select
+  (select count(*) from missionaccounts.exam_plan where student_id='$replacement_student_id' and superseded_by_id is null) || '|' ||
+  (select closed_reason from missionaccounts.grace_window where student_id='$replacement_student_id') || '|' ||
+  (select to_on from missionaccounts.grace_window where student_id='$replacement_student_id') || '|' ||
+  (select state from missionaccounts.reminder where student_id='$replacement_student_id');
+SQL
+)
+
+exam_replacement_expected=$'false\ntrue\n1\ntrue\n1|plan_replaced|2026-10-14|cancelled'
+if [[ "$exam_replacement_results" != "$exam_replacement_expected" ]]; then
+  echo "MissionAccounts exam-plan replacement verification returned unexpected controls:" >&2
+  echo "$exam_replacement_results" >&2
   exit 1
 fi
 

@@ -331,6 +331,52 @@ test('student exam-plan submission is feature-gated and idempotent', async () =>
   });
 });
 
+test('a replacement exam plan closes prior approved grace on the server local day', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, examPlans: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const prior = await store.submitExamPlan({
+    studentId,
+    step: 's1',
+    examOn: '2026-10-14',
+    today: '2026-09-01',
+    actorId: studentId,
+    requestId: 'exam-replacement-seed-0001',
+  });
+  await store.transitionExamPlan({
+    planId: prior.plan.id,
+    toState: 'approved',
+    result: null,
+    note: null,
+    today: '2026-09-01',
+    actorId: 'admin-1',
+    requestId: 'exam-replacement-approve-0001',
+  });
+  await withServer({
+    config: enabledConfig,
+    store,
+    stripeGateway: new StripeGateway(),
+    now: () => new Date('2026-09-20T16:00:00Z'),
+  }, async base => {
+    const headers = {
+      'content-type': 'application/json',
+      'x-missionaccounts-local-role': 'student',
+      'idempotency-key': 'exam-replacement-request-0001',
+    };
+    const body = JSON.stringify({ step: 's1', exam_on: '2026-11-11' });
+    const replacement = await fetch(`${base}/api/me/exam-plan`, { method: 'POST', headers, body });
+    assert.equal(replacement.status, 201);
+    const result = await replacement.json();
+    assert.equal(result.closed_grace_windows, 1);
+    assert.equal(result.attendance_recompute.today, '2026-09-20');
+    assert.equal(result.plan.state, 'pending');
+
+    const retry = await fetch(`${base}/api/me/exam-plan`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+  });
+});
+
 test('student exam-plan submission stays unavailable while its feature flag is off', async () => {
   await withServer({ config: localConfig, store: new PreviewStore(), stripeGateway: new StripeGateway() }, async base => {
     const response = await fetch(`${base}/api/me/exam-plan`, {

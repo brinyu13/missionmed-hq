@@ -90,11 +90,12 @@ export class SupabaseRestStore {
     return binding;
   }
 
-  async submitExamPlan({ studentId, step, examOn, actorId, actorRole, requestId }) {
+  async submitExamPlan({ studentId, step, examOn, today, actorId, actorRole, requestId }) {
     return this.rpc('api_submit_exam_plan', {
       p_student_id: studentId,
       p_step: step,
       p_exam_on: examOn,
+      p_today: today,
       p_actor_id: actorId,
       p_actor_role: actorRole,
       p_request_id: requestId,
@@ -433,7 +434,7 @@ export class PreviewStore {
     this.stripeCustomers.set(studentId, binding);
     return binding;
   }
-  async submitExamPlan({ studentId, step, examOn, actorId, requestId }) {
+  async submitExamPlan({ studentId, step, examOn, today, actorId, requestId }) {
     const fingerprint = JSON.stringify({ studentId, step, examOn, actorId });
     const existing = this.examMutations.get(requestId);
     if (existing) {
@@ -451,7 +452,13 @@ export class PreviewStore {
       submitted_by: actorId,
       supersedes_id: prior?.id || null,
     };
-    const result = { plan, audit_event_id: `preview-audit-${ordinal}` };
+    const closedGraceWindows = prior && ['approved', 'followup'].includes(prior.state) ? 1 : 0;
+    const result = {
+      plan,
+      closed_grace_windows: closedGraceWindows,
+      attendance_recompute: closedGraceWindows ? { trigger: `${requestId}:exam-plan-replaced`, today } : null,
+      audit_event_id: `preview-audit-${ordinal}`,
+    };
     this.examPlans.set(studentId, plan);
     this.examMutations.set(requestId, { fingerprint, result });
     return result;

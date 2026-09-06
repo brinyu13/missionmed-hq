@@ -142,6 +142,9 @@ test('exam-plan RPC is transactional, idempotent, audited, and queues a notifica
   assert.match(sql, /create function missionaccounts\.api_submit_exam_plan/);
   assert.match(sql, /where et\.request_id = p_request_id/);
   assert.match(sql, /'exam_plan\.submitted'/);
+  assert.match(sql, /closed_reason = 'plan_replaced'/);
+  assert.match(sql, /cancelled_reason = 'plan_replaced'/);
+  assert.match(sql, /p_request_id \|\| ':exam-plan-replaced'/);
   assert.match(sql, /insert into missionaccounts\.notification_outbox/);
   assert.match(sql, /grant execute on function missionaccounts\.api_submit_exam_plan[^;]+to service_role/s);
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_submit_exam_plan[^;]+to authenticated/s);
