@@ -22,10 +22,12 @@ const MMMA_MAX_REQUEST_BYTES = 2097152;
 const MMMA_MAX_RESPONSE_BYTES = 4194304;
 
 function mmma_route_enabled() {
-    if (!defined('MISSIONACCOUNTS_ROUTE_ENABLED')) {
-        return false;
-    }
-    return MISSIONACCOUNTS_ROUTE_ENABLED === true || MISSIONACCOUNTS_ROUTE_ENABLED === 1;
+    $value = defined('MISSIONACCOUNTS_ROUTE_ENABLED')
+        ? MISSIONACCOUNTS_ROUTE_ENABLED
+        : getenv('MISSIONACCOUNTS_ROUTE_ENABLED');
+    return $value === true
+        || $value === 1
+        || in_array(strtolower(trim((string) $value)), array('1', 'true', 'yes', 'on'), true);
 }
 
 function mmma_upstream_origin() {

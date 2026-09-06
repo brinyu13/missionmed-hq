@@ -347,6 +347,7 @@ test('same-origin WordPress gateway is default-off, targetless, bounded, and str
   execFileSync('php', ['-l', routePath], { stdio: 'pipe' });
   const source = await readFile(routePath, 'utf8');
   assert.match(source, /MISSIONACCOUNTS_ROUTE_ENABLED/);
+  assert.match(source, /getenv\('MISSIONACCOUNTS_ROUTE_ENABLED'\)/);
   assert.match(source, /return false;/);
   assert.match(source, /MISSIONACCOUNTS_RAILWAY_ORIGIN/);
   assert.match(source, /strtolower\(\(string\) \(\$parts\['scheme'\]/);
