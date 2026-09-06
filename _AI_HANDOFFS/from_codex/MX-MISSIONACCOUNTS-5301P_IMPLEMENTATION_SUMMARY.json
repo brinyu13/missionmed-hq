@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "f65e8bbcfedbf00715fe992fbd2a6f7faec0032d",
+  "implementation_commit": "5bd3e18a3ffff1f99ff78bb2f7cecbfc6f2062ea",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -37,7 +37,8 @@
     "bcd2b7bd15760db7bcd8f0833d4331fb4e067839",
     "e85348ad1982b6c1fb1823da32f6099b7ecba0b2",
     "8d545c37b3ee724ecc28e056f5835098f1b8442d",
-    "f65e8bbcfedbf00715fe992fbd2a6f7faec0032d"
+    "f65e8bbcfedbf00715fe992fbd2a6f7faec0032d",
+    "5bd3e18a3ffff1f99ff78bb2f7cecbfc6f2062ea"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -75,6 +76,7 @@
   "stripe_receipt_email_implemented": true,
   "charge_requires_receipt_email": true,
   "integration_exception_queue_implemented": true,
+  "unhandled_provider_events_exception_implemented": true,
   "zoom_provider_port_implemented": true,
   "zoom_source_ingestion_rpc_implemented": true,
   "zoom_sync_failure_exception_implemented": true,
@@ -113,7 +115,7 @@
   "notification_transport_configured": false,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 131, "failed": 0, "mandatory_vectors": 21, "receipt_email_vectors": 2 },
+  "tests": { "passed": 132, "failed": 0, "mandatory_vectors": 21, "receipt_email_vectors": 2, "unhandled_provider_event_vectors": 2 },
   "browser_qa": {
     "desktop": true,
     "mobile_390": true,
