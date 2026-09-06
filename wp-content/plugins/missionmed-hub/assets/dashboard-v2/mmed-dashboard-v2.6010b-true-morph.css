@@ -303,3 +303,91 @@ body.mmdv2-lock{overflow:hidden}
 	:is(#student-os-root,body) .mmdv2-card-locked:hover, :is(#student-os-root,body) .mmdv2-card-locked:focus-visible{transform:none}
 	html.mmdv2-full-motion-preview :is(#student-os-root,body) .mmdv2-morph-cinematic{transition:none!important}
 }
+
+/* MX-DASH-6030B — Option C Hybrid Matrix Showcase. */
+:is(#student-os-root,body) .mmdv2-ov{padding:24px;background:rgba(1,7,14,.88);backdrop-filter:blur(10px)}
+:is(#student-os-root,body) .mmdv2-ov.open{display:flex;animation:mmdv2-c-veil .24s ease both}
+:is(#student-os-root,body) .mmdv2-dlg{position:relative;display:block;width:min(1100px,calc(100vw - 48px));height:min(640px,calc(100vh - 48px));max-height:none;background:#071522;border:1px solid rgba(164,211,242,.28);border-radius:22px;clip-path:inset(0 round 22px);overflow:hidden;box-shadow:0 38px 120px rgba(0,0,0,.74),0 0 0 1px rgba(255,255,255,.025) inset;animation:mmdv2-c-open .42s cubic-bezier(.2,.82,.25,1) both;isolation:isolate}
+:is(#student-os-root,body) .mmdv2-dart{position:absolute;inset:0;min-height:0;background:#061727;overflow:hidden;z-index:0}
+:is(#student-os-root,body) .mmdv2-dart .mmdv2-media{position:absolute;inset:0;overflow:hidden}
+:is(#student-os-root,body) .mmdv2-dart .mmdv2-media-back{display:none}
+:is(#student-os-root,body) .mmdv2-dart :is(.mmdv2-media-front,.mmdv2-locked-detail){position:absolute;inset:0;display:block}
+:is(#student-os-root,body) .mmdv2-dart :is(.mmdv2-media-front,.mmdv2-locked-detail) :is(img,svg){position:absolute;inset:0;width:100%;height:100%;max-height:none;display:block;object-fit:cover;object-position:62% 50%;transform:scale(1.018);-webkit-mask-image:none;mask-image:none;animation:mmdv2-c-art .9s cubic-bezier(.2,.75,.25,1) both}
+:is(#student-os-root,body) .mmdv2-dart[data-app="calendar"] :is(img,svg){object-position:66% 50%}
+:is(#student-os-root,body) .mmdv2-dart[data-app="storyforge"] :is(img,svg){object-position:58% 50%}
+:is(#student-os-root,body) .mmdv2-dscrim{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(2,9,17,.96) 0%,rgba(3,11,20,.84) 24%,rgba(3,11,20,.38) 51%,rgba(2,8,15,.06) 72%),linear-gradient(0deg,rgba(2,8,15,.72) 0%,transparent 38%,rgba(2,8,15,.22) 100%)}
+:is(#student-os-root,body) .mmdv2-dtop{position:absolute;z-index:5;top:18px;right:18px;display:flex;align-items:center;gap:8px}
+:is(#student-os-root,body) .mmdv2-status{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border:1px solid rgba(112,233,180,.45);border-radius:999px;background:rgba(8,38,35,.62);color:#9df1c7;font:700 10px/1 'Rajdhani','Archivo',sans-serif;letter-spacing:.18em;text-transform:uppercase;backdrop-filter:blur(12px)}
+:is(#student-os-root,body) .mmdv2-status.is-locked{border-color:rgba(255,202,101,.5);background:rgba(49,31,10,.62);color:#ffdd91}
+:is(#student-os-root,body) .mmdv2-dedit,:is(#student-os-root,body) .mmdv2-dclose{position:static;width:36px;height:36px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.22);border-radius:50%;background:rgba(3,12,21,.58);color:#fff;font-size:18px;line-height:1;backdrop-filter:blur(12px);transition:background .18s,border-color .18s,transform .18s}
+:is(#student-os-root,body) :is(.mmdv2-dedit,.mmdv2-dclose):hover{background:rgba(5,18,31,.92);border-color:rgba(255,179,64,.72);transform:translateY(-1px)}
+:is(#student-os-root,body) .mmdv2-dcontent{position:absolute;z-index:3;left:56px;top:70px;bottom:52px;width:min(470px,calc(100% - 112px));display:flex;flex-direction:column;align-items:flex-start;justify-content:center;color:#fff;text-shadow:0 2px 20px rgba(0,0,0,.46)}
+:is(#student-os-root,body) .mmdv2-dtag{font:700 11px/1.2 'Rajdhani','Archivo',sans-serif;letter-spacing:.28em;text-transform:uppercase;color:#ffcb72;animation:mmdv2-c-up .42s .08s both}
+:is(#student-os-root,body) .mmdv2-dnm{margin:12px 0 0;font:italic 900 clamp(48px,5.2vw,72px)/.86 'Archivo',system-ui,sans-serif;letter-spacing:-.055em;transform:none;max-width:8.5ch;text-wrap:balance;text-shadow:0 6px 30px rgba(0,0,0,.68);animation:mmdv2-c-up .48s .12s both}
+:is(#student-os-root,body) .mmdv2-done{max-width:34ch;margin-top:18px;font:italic 500 18px/1.42 'Lora',Georgia,serif;color:#f2f6fb;animation:mmdv2-c-up .48s .17s both}
+:is(#student-os-root,body) .mmdv2-dchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;animation:mmdv2-c-up .48s .22s both}
+:is(#student-os-root,body) .mmdv2-dchips span{display:inline-flex;align-items:center;min-height:30px;padding:6px 10px;border:1px solid rgba(205,230,247,.25);border-radius:999px;background:rgba(5,19,31,.58);backdrop-filter:blur(9px);font:700 10px/1.25 'Rajdhani','Archivo',sans-serif;letter-spacing:.06em;color:#eaf2fa}
+:is(#student-os-root,body) .mmdv2-dpay{display:flex;flex-direction:column;gap:4px;margin-top:19px;max-width:44ch;padding-left:13px;border-left:2px solid #ffb340;font-size:13px;line-height:1.38;color:#f4f7fb;animation:mmdv2-c-up .48s .27s both}
+:is(#student-os-root,body) .mmdv2-dpay.is-locked{border-left-color:#ffcf75}
+:is(#student-os-root,body) .mmdv2-dpay-label{font:700 9px/1.2 'Rajdhani','Archivo',sans-serif;letter-spacing:.22em;text-transform:uppercase;color:#ffcb72}
+:is(#student-os-root,body) .mmdv2-dcontent .mmdv2-dacts{margin-top:22px;display:flex;gap:14px;align-items:center;animation:mmdv2-c-up .48s .32s both}
+:is(#student-os-root,body) .mmdv2-dcontent .mmdv2-btn-catch{min-height:45px;padding:12px 24px;box-shadow:0 9px 28px rgba(255,131,46,.2)}
+:is(#student-os-root,body) .mmdv2-dcontent .mmdv2-btn.is-access{background:linear-gradient(90deg,#ffcf72,#ff9a4e);color:#1a0e00}
+:is(#student-os-root,body) .mmdv2-how{display:inline-flex;align-items:center;gap:8px;padding:10px 2px!important;border:0!important;background:none!important;color:#e7eef7!important;font:700 11px/1 'Rajdhani','Archivo',sans-serif!important;letter-spacing:.15em!important;text-transform:uppercase}
+:is(#student-os-root,body) .mmdv2-how span{color:#ffb340;font-size:15px;transition:transform .25s}
+:is(#student-os-root,body) .drawer-open .mmdv2-how span{transform:rotate(180deg)}
+:is(#student-os-root,body) .mmdv2-dnav{position:absolute;z-index:5;inset:50% 14px auto;display:flex;justify-content:space-between;transform:translateY(-50%);pointer-events:none}
+:is(#student-os-root,body) .mmdv2-dnav button{pointer-events:auto;width:38px;height:52px;border:1px solid rgba(255,255,255,.17);border-radius:12px;background:rgba(3,12,21,.42);color:#fff;font-size:25px;backdrop-filter:blur(8px);opacity:.62;transition:.18s}
+:is(#student-os-root,body) .mmdv2-dnav button:hover{opacity:1;background:rgba(3,12,21,.84);border-color:rgba(255,179,64,.55)}
+:is(#student-os-root,body) .mmdv2-drail{position:absolute;z-index:5;right:22px;top:50%;display:flex;flex-direction:column;gap:8px;transform:translateY(-50%)}
+:is(#student-os-root,body) .mmdv2-drail button{width:3px;height:18px;padding:0;border:0;border-radius:2px;background:rgba(255,255,255,.28);transition:.2s}
+:is(#student-os-root,body) .mmdv2-drail button.on{height:34px;background:#ffb340;box-shadow:0 0 15px rgba(255,179,64,.45)}
+:is(#student-os-root,body) .mmdv2-ddrawer{position:absolute;z-index:9;left:0;right:0;bottom:0;height:min(88%,560px);padding:15px 48px 0;background:linear-gradient(180deg,rgba(10,31,49,.99),rgba(5,16,27,.995));border-top:1px solid rgba(165,212,242,.3);border-radius:22px 22px 0 0;box-shadow:0 -30px 80px rgba(0,0,0,.55);transform:translateY(104%);visibility:hidden;transition:transform .42s cubic-bezier(.2,.82,.25,1),visibility 0s .42s}
+:is(#student-os-root,body) .drawer-open .mmdv2-ddrawer{transform:none;visibility:visible;transition-delay:0s}
+:is(#student-os-root,body) .mmdv2-ddrag{width:52px;height:4px;margin:0 auto 8px;border-radius:3px;background:rgba(255,255,255,.25)}
+:is(#student-os-root,body) .mmdv2-ddrawer-close{position:absolute;top:16px;right:20px;width:36px;height:36px;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:rgba(0,0,0,.18);color:#fff;font-size:20px}
+:is(#student-os-root,body) .mmdv2-ddrawer-scroll{height:calc(100% - 18px);max-width:840px;margin:auto;padding:12px 12px 36px;overflow:auto}
+:is(#student-os-root,body) .mmdv2-ddrawer .mmdv2-dsec{margin-top:22px}
+:is(#student-os-root,body) .mmdv2-ddrawer .mmdv2-dsec:first-child{margin-top:0}
+:is(#student-os-root,body) .mmdv2-ddrawer .mmdv2-bens{grid-template-columns:repeat(2,minmax(0,1fr))}
+:is(#student-os-root,body) .mmdv2-ddrawer .mmdv2-ben{grid-template-columns:130px 1fr}
+:is(#student-os-root,body) .mmdv2-ddrawer .mmdv2-outcome{margin-top:22px}
+@keyframes mmdv2-c-veil{from{opacity:0}to{opacity:1}}
+@keyframes mmdv2-c-open{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes mmdv2-c-art{from{opacity:.72;transform:scale(1.075)}to{opacity:1;transform:scale(1.018)}}
+@keyframes mmdv2-c-up{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@media (max-width:900px){
+	:is(#student-os-root,body) .mmdv2-ov{padding:0;align-items:flex-end}
+	:is(#student-os-root,body) .mmdv2-dlg{width:100vw;height:100dvh;max-height:100dvh;border:0;border-radius:0;clip-path:none}
+	:is(#student-os-root,body) .mmdv2-dart{inset:0 0 auto;height:60%}
+	:is(#student-os-root,body) .mmdv2-dart :is(.mmdv2-media-front,.mmdv2-locked-detail) :is(img,svg){object-position:60% 44%;transform:scale(1.015)}
+	:is(#student-os-root,body) .mmdv2-dart[data-app="calendar"] :is(img,svg){object-position:66% 44%}
+	:is(#student-os-root,body) .mmdv2-dart[data-app="storyforge"] :is(img,svg){object-position:58% 44%}
+	:is(#student-os-root,body) .mmdv2-dscrim{background:linear-gradient(0deg,#071522 0%,rgba(7,21,34,.98) 18%,rgba(7,21,34,.68) 48%,rgba(2,8,15,.03) 83%)}
+	:is(#student-os-root,body) .mmdv2-dtop{top:max(14px,env(safe-area-inset-top));right:14px}
+	:is(#student-os-root,body) .mmdv2-status{min-height:28px;padding:0 10px}
+	:is(#student-os-root,body) .mmdv2-dcontent{left:22px;right:22px;top:51.5%;bottom:max(22px,env(safe-area-inset-bottom));width:auto;justify-content:flex-start}
+	:is(#student-os-root,body) .mmdv2-dtag{font-size:9px}
+	:is(#student-os-root,body) .mmdv2-dnm{margin-top:8px;font-size:clamp(34px,11vw,46px);line-height:.9;max-width:10ch}
+	:is(#student-os-root,body) .mmdv2-done{margin-top:10px;font-size:14px;line-height:1.35;max-width:36ch}
+	:is(#student-os-root,body) .mmdv2-dchips{margin-top:12px;gap:6px}
+	:is(#student-os-root,body) .mmdv2-dchips span{min-height:26px;padding:5px 8px;font-size:9px}
+	:is(#student-os-root,body) .mmdv2-dpay{margin-top:12px;font-size:11.5px;line-height:1.3}
+	:is(#student-os-root,body) .mmdv2-dcontent .mmdv2-dacts{margin-top:auto;width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px}
+	:is(#student-os-root,body) .mmdv2-dcontent .mmdv2-btn-catch{width:100%;min-height:46px;padding:11px 16px}
+	:is(#student-os-root,body) .mmdv2-dcontent .mmdv2-btn-catch{white-space:normal;font-size:9.5px;line-height:1.15;letter-spacing:.11em}
+	:is(#student-os-root,body) .mmdv2-how{white-space:nowrap}
+	:is(#student-os-root,body) .mmdv2-dnav{display:none}
+	:is(#student-os-root,body) .mmdv2-drail{right:auto;left:50%;top:auto;bottom:max(10px,env(safe-area-inset-bottom));flex-direction:row;gap:6px;transform:translateX(-50%)}
+	:is(#student-os-root,body) .mmdv2-drail button,:is(#student-os-root,body) .mmdv2-drail button.on{width:18px;height:3px}
+	:is(#student-os-root,body) .mmdv2-drail button.on{width:34px}
+	:is(#student-os-root,body) .mmdv2-ddrawer{height:88%;padding:13px 12px 0;border-radius:20px 20px 0 0}
+	:is(#student-os-root,body) .mmdv2-ddrawer-scroll{padding:10px 10px calc(30px + env(safe-area-inset-bottom))}
+	:is(#student-os-root,body) .mmdv2-ddrawer .mmdv2-bens{grid-template-columns:1fr}
+	:is(#student-os-root,body) .mmdv2-ddrawer .mmdv2-ben{grid-template-columns:1fr;gap:2px}
+}
+@media (max-width:420px) and (max-height:760px){:is(#student-os-root,body) .mmdv2-dchips span:nth-child(3){display:none}:is(#student-os-root,body) .mmdv2-dpay{display:none}}
+@media (prefers-reduced-motion:reduce){
+	:is(#student-os-root,body) :is(.mmdv2-ov.open,.mmdv2-dlg,.mmdv2-dart img,.mmdv2-dart svg,.mmdv2-dtag,.mmdv2-dnm,.mmdv2-done,.mmdv2-dchips,.mmdv2-dpay,.mmdv2-dcontent .mmdv2-dacts){animation:none!important}
+	:is(#student-os-root,body) .mmdv2-ddrawer{transition:none!important}
+}

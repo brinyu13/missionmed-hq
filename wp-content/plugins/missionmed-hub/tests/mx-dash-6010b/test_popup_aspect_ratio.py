@@ -31,13 +31,17 @@ def png_dimensions(path: Path) -> tuple[int, int]:
 
 
 class PopupAspectRatioTests(unittest.TestCase):
-    def test_shared_locked_detail_rule_contains_and_centers_foreground(self):
+    def test_option_c_uses_ratio_preserving_full_bleed_art(self):
         css = CSS.read_text(encoding="utf-8")
-        match = re.search(r"\.mmdv2-locked-detail img\{([^}]*)\}", css)
+        match = re.search(
+            r"\.mmdv2-dart :is\(\.mmdv2-media-front,\.mmdv2-locked-detail\) "
+            r":is\(img,svg\)\{([^}]*)\}",
+            css,
+        )
         self.assertIsNotNone(match)
         declarations = match.group(1)
-        self.assertIn("object-fit:contain", declarations)
-        self.assertIn("object-position:center center", declarations)
+        self.assertIn("object-fit:cover", declarations)
+        self.assertIn("object-position:62% 50%", declarations)
         self.assertNotIn("object-fit:fill", declarations)
         self.assertIn("-webkit-mask-image:none", declarations)
         self.assertIn("mask-image:none", declarations)

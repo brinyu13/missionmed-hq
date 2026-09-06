@@ -32,8 +32,7 @@ async function inspectPopup(page, app) {
 		const style = getComputedStyle(img);
 		const imageBox = img.getBoundingClientRect();
 		const visualBox = visual.getBoundingClientRect();
-		const scale = Math.min(imageBox.width / img.naturalWidth, imageBox.height / img.naturalHeight);
-		return {
+			return {
 			name: overlay.querySelector('.mmdv2-dnm').textContent.trim(),
 			src: img.getAttribute('src'),
 			natural: [img.naturalWidth, img.naturalHeight],
@@ -42,7 +41,7 @@ async function inspectPopup(page, app) {
 			objectPosition: style.objectPosition,
 			imageBox: [Math.round(imageBox.width), Math.round(imageBox.height)],
 			visualBox: [Math.round(visualBox.width), Math.round(visualBox.height)],
-			containedPaint: [Math.round(img.naturalWidth * scale), Math.round(img.naturalHeight * scale)],
+				ratioPreservedBy: style.objectFit,
 			adminEditVisible: !!overlay.querySelector('[data-editapp]'),
 			closeVisible: !!overlay.querySelector('[data-dclose]'),
 			previousVisible: !!overlay.querySelector('[data-dnav="-1"]'),
@@ -50,10 +49,9 @@ async function inspectPopup(page, app) {
 			ctaVisible: !!overlay.querySelector('[data-launch]')
 		};
 	});
-	assert.equal(result.objectFit, 'contain');
-	assert.equal(result.objectPosition, '50% 50%');
+	assert.equal(result.objectFit, 'cover');
+	assert.notEqual(result.objectFit, 'fill');
 	assert.ok(result.natural[0] > 0 && result.natural[1] > 0);
-	assert.ok(result.containedPaint[0] <= result.imageBox[0] && result.containedPaint[1] <= result.imageBox[1]);
 	assert.ok(result.adminEditVisible && result.closeVisible && result.previousVisible && result.nextVisible && result.ctaVisible);
 	await page.locator('[data-dclose]').click();
 	return result;

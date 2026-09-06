@@ -69,6 +69,8 @@
 		perspective: cfg.is_admin ? 'admin' : 'student',
 		editMode: false,
 		detail: null,
+		detailReturn: null,
+		drawerOpen: false,
 		query: '',
 		saving: false,
 	};
@@ -90,6 +92,29 @@
 	function lockCopy(id) {
 		const value = accessFor(id);
 		return value && value.released === false ? 'Coming soon' : 'Available with a qualifying MissionMed program';
+	}
+
+	/* MX-DASH-6030B Option C. Defaults are presentation-only; saved admin
+	   overrides continue to win and entitlement truth still comes from MMED_OS. */
+	const MERCH = Object.freeze({
+		homebase: { promise: 'Know exactly what matters next.', chips: ['Your next session, task, and message — first', 'Pick up where you left off', 'Ask for what you need; get routed there'], payoff: 'After HomeBase → you start every session knowing what to do first.', cta: 'Open HomeBase', included: 'Included for every registered student' },
+		calendar: { promise: "Know what's next — and never hunt for the link.", chips: ['Classes, sessions, and appointments in one timeline', 'Join from the event itself', 'Eastern and your local time'], payoff: 'After Calendar → you never miss a session and never lose ten minutes finding one.', cta: 'View my calendar', included: 'Included for every registered student' },
+		scheduler: { promise: 'The right person, the right time — no back-and-forth.', chips: ['Real availability, not guesses', 'Advising, mock interviews, prep sessions', 'Reschedule in one tap'], payoff: 'After Scheduler → “I need help” becomes a booked slot in under a minute.', cta: 'Find a time', locked: 'MissionMed 360 · Advising', lockedCta: 'See what’s included' },
+		storyforge: { promise: 'Turn real experiences into stories programs remember.', chips: ['Capture a moment in 10 seconds', 'Shape it into beats that land', 'Match stories to real questions'], payoff: 'After StoryForge → a library of stories you can tell under pressure.', cta: 'Open StoryForge', locked: 'MissionMed 360 · Interview season', lockedCta: 'Explore 360 access' },
+		ivprep: { promise: 'Practice until the hard questions feel familiar.', chips: ['Timed reps, any hour', 'Recordings you can review', 'Mentor-ready feedback'], payoff: 'After IV Prep → you answer calmly, because you already have.', cta: 'Start practicing', locked: 'IV Prep Complete', lockedCta: 'Unlock with IV Prep Complete' },
+		rise: { promise: 'Find the programs that actually fit you.', chips: ['Every program in one place', 'Compare side by side', 'A target list that grows with you'], payoff: 'After RISE → a target list you actually understand.', cta: 'Research programs', locked: 'MissionMed 360 · Application season', lockedCta: 'See what’s included' },
+		ranklist: { promise: 'Build a rank list you can defend.', chips: ['Decide what matters first', 'Score every program the same way', 'See why #3 is #3'], payoff: 'After RankList IQ → a rank order you trust — and can explain.', cta: 'Build my rank list', locked: 'MissionMed 360 · Rank season', lockedCta: 'See what’s included' },
+		lor: { promise: 'Make it easy for recommenders to write a letter that sounds like you.', chips: ['Evidence packet', 'Guided prompts', 'Request tracking'], payoff: 'After LOR Studio → specific letters, faster — and no reminder emails.', cta: 'Prepare my letter', locked: 'MissionMed 360 · Application season', lockedCta: 'Explore 360 access' }
+	});
+	function merchFor(a) {
+		const base = MERCH[a.id] || {};
+		if (!a.edited) { return base; }
+		return Object.assign({}, base, {
+			promise: a.one || base.promise,
+			chips: (a.benefits || []).slice(0, 3).map((p) => p[1] || p[0]).filter(Boolean),
+			payoff: a.outcome || base.payoff,
+			cta: a.cta || base.cta
+		});
 	}
 
 	/* Search routing — deterministic keyword tables (no AI implied). */
@@ -298,7 +323,7 @@
 		$$('[data-exp]', el).forEach((b) => b.addEventListener('click', () => setExperience(b.getAttribute('data-exp'))));
 		el.addEventListener('click', (e) => {
 			const locked = e.target.closest('[data-catalog-locked]'); if (locked) { e.preventDefault(); toast(`<b>${esc(locked.querySelector('.mmdv2-anm').textContent.replace(/ · Locked$/, ''))}</b> is locked for this account. Open its featured card to learn more.`); return; }
-			const open = e.target.closest('[data-open]'); if (open) { openDetail(open.getAttribute('data-open')); return; }
+			const open = e.target.closest('[data-open]'); if (open) { openDetail(open.getAttribute('data-open'), open); return; }
 			const ed = e.target.closest('[data-editapp]'); if (ed) { openEditor(ed.getAttribute('data-editapp')); }
 		});
 		document.addEventListener('click', onDocClick);
@@ -377,40 +402,78 @@
 		if (!document.getElementById('mmdv2-ov')) {
 			const ov = document.createElement('div'); ov.id = 'mmdv2-ov'; ov.className = 'mmdv2-ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.innerHTML = '<div class="mmdv2-dlg"></div>';
 			document.body.appendChild(ov);
-			ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('[data-dclose]')) { closeDetail(); } const d = e.target.closest('[data-dnav]'); if (d) { stepDetail(+d.getAttribute('data-dnav')); } const l = e.target.closest('[data-launch]'); if (l) { launch(l.getAttribute('data-launch')); } const ed = e.target.closest('[data-editapp]'); if (ed) { openEditor(ed.getAttribute('data-editapp')); } });
+			ov.addEventListener('click', (e) => {
+				if (e.target === ov || e.target.closest('[data-dclose]')) { closeDetail(); return; }
+				const d = e.target.closest('[data-dnav]'); if (d) { stepDetail(+d.getAttribute('data-dnav')); return; }
+				if (e.target.closest('[data-drawer-open]')) { toggleDrawer(true); return; }
+				if (e.target.closest('[data-drawer-close]')) { toggleDrawer(false); return; }
+				const l = e.target.closest('[data-launch]'); if (l) { launch(l.getAttribute('data-launch')); return; }
+				const ed = e.target.closest('[data-editapp]'); if (ed) { openEditor(ed.getAttribute('data-editapp')); }
+			});
 			document.addEventListener('keydown', (e) => {
 				if ($('#mmdv2-ed.open')) { if (e.key === 'Escape') { closeEditor(); } return; }
 				if (!state.detail) { return; }
-				if (e.key === 'Escape') { closeDetail(); } if (e.key === 'ArrowRight') { stepDetail(1); } if (e.key === 'ArrowLeft') { stepDetail(-1); }
+				if (e.key === 'Escape') { if (state.drawerOpen) { toggleDrawer(false); } else { closeDetail(); } return; }
+				if (!state.drawerOpen && e.key === 'ArrowRight') { stepDetail(1); }
+				if (!state.drawerOpen && e.key === 'ArrowLeft') { stepDetail(-1); }
+				if (e.key === 'Tab') { trapDetailFocus(e, ov); }
 			});
+			let touchX = null;
+			ov.addEventListener('touchstart', (e) => { touchX = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
+			ov.addEventListener('touchend', (e) => {
+				if (touchX == null || state.drawerOpen || !e.changedTouches.length) { touchX = null; return; }
+				const delta = e.changedTouches[0].clientX - touchX; touchX = null;
+				if (Math.abs(delta) > 54) { stepDetail(delta < 0 ? 1 : -1); }
+			}, { passive: true });
 		}
 		if (!document.getElementById('mmdv2-toast')) { const t = document.createElement('div'); t.id = 'mmdv2-toast'; t.className = 'mmdv2-toast'; document.body.appendChild(t); }
 	}
 
-	function openDetail(id) {
+	function trapDetailFocus(e, ov) {
+		const nodes = $$('button:not([disabled]),a[href],input,textarea,select,[tabindex]:not([tabindex="-1"])', ov).filter((node) => node.offsetParent !== null);
+		if (!nodes.length) { e.preventDefault(); return; }
+		const first = nodes[0], last = nodes[nodes.length - 1];
+		if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+		else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+	}
+	function toggleDrawer(open) {
+		const ov = $('#mmdv2-ov'); if (!ov) { return; }
+		state.drawerOpen = !!open; ov.classList.toggle('drawer-open', state.drawerOpen);
+		const drawer = $('.mmdv2-ddrawer', ov); if (drawer) { drawer.setAttribute('aria-hidden', state.drawerOpen ? 'false' : 'true'); }
+		const trigger = $('[data-drawer-open]', ov); if (trigger) { trigger.setAttribute('aria-expanded', state.drawerOpen ? 'true' : 'false'); }
+		const target = state.drawerOpen ? $('[data-drawer-close]', ov) : trigger; if (target) { target.focus(); }
+	}
+
+	function openDetail(id, trigger) {
 		const a = appOf(id); if (!a) { return; }
+		if (trigger) { state.detailReturn = trigger; }
 		state.detail = id;
+		state.drawerOpen = false;
 		const admin = state.isAdmin && state.perspective === 'admin';
 		const locked = !isAllowed(id);
 		const i = FEATURED.indexOf(id);
+		const merch = merchFor(a);
+		const chips = (merch.chips || []).slice(0, 3);
+		const entitlement = locked ? (merch.locked || lockCopy(id)) : (merch.included || 'Included with your MissionMed access');
+		const primary = locked ? (merch.lockedCta || 'See what’s included') : (merch.cta || a.cta || 'Open');
 		$('#mmdv2-ov .mmdv2-dlg').innerHTML = `
-			<div class="mmdv2-dart" style="--hue:${esc(a.hue || '#ffb340')}"><span class="mmdv2-media">${mediaHTML(a, 'd' + a.id, 'detail')}</span><span class="mmdv2-dscrim"></span>
-				<div class="mmdv2-dnav"><button type="button" data-dnav="-1" aria-label="Previous app">‹</button><button type="button" data-dnav="1" aria-label="Next app">›</button></div>
-				<div class="mmdv2-dcap"><div class="mmdv2-dtag">${esc(a.cat)} · ${i + 1} of ${FEATURED.length}</div><div class="mmdv2-dnm" id="mmdv2-dname">${esc(a.name)}</div><div class="mmdv2-done">${esc(a.one)}</div></div></div>
-			<button type="button" class="mmdv2-dclose" data-dclose aria-label="Close">×</button>
-			<div class="mmdv2-dbody">
-				${admin ? `<div class="mmdv2-dadmin"><span>Administrator</span><button type="button" class="mmdv2-btn mmdv2-btn-ghost mmdv2-btn-s" data-editapp="${a.id}">✎ Edit this app</button></div>` : ''}
+			<div class="mmdv2-dart" data-app="${esc(a.id)}" style="--hue:${esc(a.hue || '#ffb340')}"><span class="mmdv2-media">${mediaHTML(a, 'd' + a.id, 'detail')}</span><span class="mmdv2-dscrim"></span></div>
+			<div class="mmdv2-dtop"><span class="mmdv2-status${locked ? ' is-locked' : ''}">${locked ? '🔒 Locked' : 'Included'}</span>${admin ? `<button type="button" class="mmdv2-dedit" data-editapp="${a.id}" aria-label="Edit ${esc(a.name)}">✎</button>` : ''}<button type="button" class="mmdv2-dclose" data-dclose aria-label="Close">×</button></div>
+			<div class="mmdv2-dnav"><button type="button" data-dnav="-1" aria-label="Previous app">‹</button><button type="button" data-dnav="1" aria-label="Next app">›</button></div>
+			<div class="mmdv2-dcontent"><div class="mmdv2-dtag">${esc(a.cat)} · Matrix app</div><div class="mmdv2-dnm" id="mmdv2-dname">${esc(a.name)}</div><div class="mmdv2-done">${esc(merch.promise || a.one)}</div><div class="mmdv2-dchips">${chips.map((chip) => `<span>${esc(chip)}</span>`).join('')}</div><div class="mmdv2-dpay${locked ? ' is-locked' : ''}"><span class="mmdv2-dpay-label">${locked ? 'Available with' : 'The payoff'}</span><span>${esc(locked ? entitlement : merch.payoff)}</span></div><div class="mmdv2-dacts"><button type="button" class="mmdv2-btn mmdv2-btn-p mmdv2-btn-catch${locked ? ' is-access' : ''}" ${locked ? 'data-drawer-open' : `data-launch="${a.id}"`}>${esc(primary)}</button><button type="button" class="mmdv2-how" data-drawer-open aria-expanded="false">How it works <span>↓</span></button></div></div>
+			<div class="mmdv2-drail" aria-label="App ${i + 1} of ${FEATURED.length}">${FEATURED.map((key, k) => `<button type="button" data-dnav="${k - i}" class="${k === i ? 'on' : ''}" aria-label="${esc(appOf(key).name)}"></button>`).join('')}</div>
+			<div class="mmdv2-ddrawer" aria-hidden="true"><div class="mmdv2-ddrag" aria-hidden="true"></div><button type="button" class="mmdv2-ddrawer-close" data-drawer-close aria-label="Close how it works">×</button><div class="mmdv2-ddrawer-scroll">
 				<div class="mmdv2-dsec"><div class="mmdv2-dlb">What this helps you solve</div><div class="mmdv2-dq">“${esc(a.problem)}”</div></div>
 				<div class="mmdv2-dsec"><div class="mmdv2-dlb">How ${esc(a.name)} helps</div><p>${esc(a.how)}</p></div>
 				<div class="mmdv2-dsec"><div class="mmdv2-dlb">What you get</div><div class="mmdv2-bens">${(a.benefits || []).map((p) => `<div class="mmdv2-ben"><div class="mmdv2-benf">${esc(p[0])}</div><div class="mmdv2-benb">${esc(p[1])}</div></div>`).join('')}</div></div>
 				<div class="mmdv2-outcome"><div class="mmdv2-dlb">After you use it</div><div class="mmdv2-outt">${esc(a.outcome)}</div>${a.when ? `<div class="mmdv2-outw">When to use it: ${esc(a.when)}</div>` : ''}</div>
-				${locked ? `<div class="mmdv2-access-note" role="status"><b>🔒 Locked for this account</b><span>${esc(lockCopy(id))}.</span></div>` : ''}
-				<div class="mmdv2-dacts"><button type="button" class="mmdv2-btn mmdv2-btn-p mmdv2-btn-catch${locked ? ' is-locked' : ''}" data-launch="${a.id}"${locked ? ' aria-disabled="true"' : ''}>${locked ? 'Locked' : esc(a.cta || 'Open')}</button>${a.cta2 && !locked ? `<button type="button" class="mmdv2-btn mmdv2-btn-ghost" data-launch="${a.id}">${esc(a.cta2)}</button>` : ''}<span class="mmdv2-dhint">← → browse · esc close</span></div>
-			</div>`;
+				${locked ? `<div class="mmdv2-access-note" role="status"><b>🔒 ${esc(entitlement)}</b><span>Access is determined securely by your MissionMed account.</span></div>` : ''}
+				<div class="mmdv2-dacts"><button type="button" class="mmdv2-btn mmdv2-btn-p mmdv2-btn-catch${locked ? ' is-access' : ''}" ${locked ? 'data-drawer-close' : `data-launch="${a.id}"`}>${esc(primary)}</button></div>
+			</div></div>`;
 		const ov = $('#mmdv2-ov'); ov.classList.add('open'); document.body.classList.add('mmdv2-lock');
-		const c = $('.mmdv2-dclose', ov); if (c) { c.focus(); }
+		const c = $('.mmdv2-dclose', ov); if (c) { c.focus({ preventScroll: true }); }
 	}
-	function closeDetail() { if (!state.detail) { return; } state.detail = null; const ov = $('#mmdv2-ov'); if (ov) { ov.classList.remove('open'); } document.body.classList.remove('mmdv2-lock'); }
+	function closeDetail() { if (!state.detail) { return; } const back = state.detailReturn; state.detail = null; state.drawerOpen = false; const ov = $('#mmdv2-ov'); if (ov) { ov.classList.remove('open', 'drawer-open'); } document.body.classList.remove('mmdv2-lock'); if (back && document.contains(back)) { back.focus({ preventScroll: true }); } }
 	function stepDetail(d) { const i = FEATURED.indexOf(state.detail); openDetail(FEATURED[(i + d + FEATURED.length) % FEATURED.length]); }
 
 	/* ------------------------------------------------------------------ */

@@ -1,0 +1,572 @@
+{
+  "ticket": "MX-DASH-6030B",
+  "startedAt": "2026-09-06T03:00:52.127Z",
+  "checks": {
+    "adminEditor": "PASS",
+    "progressiveDrawer": "PASS",
+    "keyboardBrowseEscapeFocus": "PASS",
+    "reducedMotion": "PASS",
+    "savedCopyOverride": "PASS",
+    "classicUntouched": "PASS",
+    "allEightUnlockedAndLocked": "PASS",
+    "desktopAnd390x844": "PASS",
+    "cinematicArtUndistorted": "PASS",
+    "serverAccessContractPreserved": "PASS"
+  },
+  "personas": {
+    "desktop-unlocked": {
+      "homebase": {
+        "name": "HomeBase",
+        "promise": "Know exactly what matters next.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Open HomeBase",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/homebase-cinematic-approved.png",
+        "natural": [
+          340,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "calendar": {
+        "name": "Calendar",
+        "promise": "Know what's next — and never hunt for the link.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "View my calendar",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/calendar-cinematic-approved.png",
+        "natural": [
+          346,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "66% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "scheduler": {
+        "name": "Scheduler",
+        "promise": "The right person, the right time — no back-and-forth.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Find a time",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/scheduler-cinematic-approved.png",
+        "natural": [
+          348,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "storyforge": {
+        "name": "StoryForge",
+        "promise": "Turn real experiences into stories programs remember.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Open StoryForge",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/storyforge-cinematic-approved.png",
+        "natural": [
+          337,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "58% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "ivprep": {
+        "name": "IV Prep On-Call",
+        "promise": "Practice until the hard questions feel familiar.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Start practicing",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/iv-prep-on-call-cinematic-approved.png",
+        "natural": [
+          340,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "rise": {
+        "name": "RISE",
+        "promise": "Find the programs that actually fit you.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Research programs",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/rise-cinematic-approved.png",
+        "natural": [
+          346,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "ranklist": {
+        "name": "RankList IQ",
+        "promise": "Build a rank list you can defend.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Build my rank list",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/ranklist-iq-cinematic-approved.png",
+        "natural": [
+          348,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "lor": {
+        "name": "LOR Studio",
+        "promise": "Make it easy for recommenders to write a letter that sounds like you.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Prepare my letter",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/lor-studio-cinematic-approved.png",
+        "natural": [
+          337,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      }
+    },
+    "mobile-unlocked": {
+      "homebase": {
+        "name": "HomeBase",
+        "promise": "Know exactly what matters next.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Open HomeBase",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/homebase-cinematic-approved.png",
+        "natural": [
+          340,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "calendar": {
+        "name": "Calendar",
+        "promise": "Know what's next — and never hunt for the link.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "View my calendar",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/calendar-cinematic-approved.png",
+        "natural": [
+          346,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "66% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "scheduler": {
+        "name": "Scheduler",
+        "promise": "The right person, the right time — no back-and-forth.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Find a time",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/scheduler-cinematic-approved.png",
+        "natural": [
+          348,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "storyforge": {
+        "name": "StoryForge",
+        "promise": "Turn real experiences into stories programs remember.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Open StoryForge",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/storyforge-cinematic-approved.png",
+        "natural": [
+          337,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "58% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "ivprep": {
+        "name": "IV Prep On-Call",
+        "promise": "Practice until the hard questions feel familiar.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Start practicing",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/iv-prep-on-call-cinematic-approved.png",
+        "natural": [
+          340,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "rise": {
+        "name": "RISE",
+        "promise": "Find the programs that actually fit you.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Research programs",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/rise-cinematic-approved.png",
+        "natural": [
+          346,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "ranklist": {
+        "name": "RankList IQ",
+        "promise": "Build a rank list you can defend.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Build my rank list",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/ranklist-iq-cinematic-approved.png",
+        "natural": [
+          348,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "lor": {
+        "name": "LOR Studio",
+        "promise": "Make it easy for recommenders to write a letter that sounds like you.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Prepare my letter",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/lor-studio-cinematic-approved.png",
+        "natural": [
+          337,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      }
+    },
+    "desktop-locked": {
+      "homebase": {
+        "name": "HomeBase",
+        "promise": "Know exactly what matters next.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Open HomeBase",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/homebase-cinematic-approved.png",
+        "natural": [
+          340,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "calendar": {
+        "name": "Calendar",
+        "promise": "Know what's next — and never hunt for the link.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "View my calendar",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/calendar-cinematic-approved.png",
+        "natural": [
+          346,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "66% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "scheduler": {
+        "name": "Scheduler",
+        "promise": "The right person, the right time — no back-and-forth.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "See what’s included",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/scheduler-cinematic-approved.png",
+        "natural": [
+          348,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      },
+      "storyforge": {
+        "name": "StoryForge",
+        "promise": "Turn real experiences into stories programs remember.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "Explore 360 access",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/storyforge-cinematic-approved.png",
+        "natural": [
+          337,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "58% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      },
+      "ivprep": {
+        "name": "IV Prep On-Call",
+        "promise": "Practice until the hard questions feel familiar.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "Unlock with IV Prep Complete",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/iv-prep-on-call-cinematic-approved.png",
+        "natural": [
+          340,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      },
+      "rise": {
+        "name": "RISE",
+        "promise": "Find the programs that actually fit you.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "See what’s included",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/rise-cinematic-approved.png",
+        "natural": [
+          346,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      },
+      "ranklist": {
+        "name": "RankList IQ",
+        "promise": "Build a rank list you can defend.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "See what’s included",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/ranklist-iq-cinematic-approved.png",
+        "natural": [
+          348,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      },
+      "lor": {
+        "name": "LOR Studio",
+        "promise": "Make it easy for recommenders to write a letter that sounds like you.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "Explore 360 access",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/lor-studio-cinematic-approved.png",
+        "natural": [
+          337,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "62% 50%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      }
+    },
+    "mobile-locked": {
+      "homebase": {
+        "name": "HomeBase",
+        "promise": "Know exactly what matters next.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "Open HomeBase",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/homebase-cinematic-approved.png",
+        "natural": [
+          340,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "calendar": {
+        "name": "Calendar",
+        "promise": "Know what's next — and never hunt for the link.",
+        "chips": 3,
+        "status": "Included",
+        "cta": "View my calendar",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/calendar-cinematic-approved.png",
+        "natural": [
+          346,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "66% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": true
+      },
+      "scheduler": {
+        "name": "Scheduler",
+        "promise": "The right person, the right time — no back-and-forth.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "See what’s included",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/scheduler-cinematic-approved.png",
+        "natural": [
+          348,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      },
+      "storyforge": {
+        "name": "StoryForge",
+        "promise": "Turn real experiences into stories programs remember.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "Explore 360 access",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/storyforge-cinematic-approved.png",
+        "natural": [
+          337,
+          378
+        ],
+        "objectFit": "cover",
+        "objectPosition": "58% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      },
+      "ivprep": {
+        "name": "IV Prep On-Call",
+        "promise": "Practice until the hard questions feel familiar.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "Unlock with IV Prep Complete",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/iv-prep-on-call-cinematic-approved.png",
+        "natural": [
+          340,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      },
+      "rise": {
+        "name": "RISE",
+        "promise": "Find the programs that actually fit you.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "See what’s included",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/rise-cinematic-approved.png",
+        "natural": [
+          346,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      },
+      "ranklist": {
+        "name": "RankList IQ",
+        "promise": "Build a rank list you can defend.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "See what’s included",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/ranklist-iq-cinematic-approved.png",
+        "natural": [
+          348,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      },
+      "lor": {
+        "name": "LOR Studio",
+        "promise": "Make it easy for recommenders to write a letter that sounds like you.",
+        "chips": 3,
+        "status": "🔒 Locked",
+        "cta": "Explore 360 access",
+        "src": "../../assets/dashboard-v2/locked-art/founder-approved/cinematic/lor-studio-cinematic-approved.png",
+        "natural": [
+          337,
+          374
+        ],
+        "objectFit": "cover",
+        "objectPosition": "60% 44%",
+        "drawerHidden": "true",
+        "hasEdit": false,
+        "hasLaunch": false
+      }
+    }
+  },
+  "failures": [],
+  "finishedAt": "2026-09-06T03:01:12.573Z"
+}
