@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Latest implementation commit:** `bcd2b7bd15760db7bcd8f0833d4331fb4e067839`
+**Latest implementation commit:** `e85348ad1982b6c1fb1823da32f6099b7ecba0b2`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -18,7 +18,7 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - a default-off, exact-user-allowlisted WordPress SSO candidate plus a separately default-off, targetless, bounded same-origin gateway candidate; neither is installed in production;
 - a tracked scrubbed production shell that preserves the Founder-approved visual canon without embedding the 271-student/3,941-event historical payload or using browser local storage for business state;
 - a corrected production authentication gate that is actually injected at the canonical attributed `<body>` seam, hides only after an authenticated role-scoped bootstrap, and remains opaque with the real access failure when authentication cannot complete;
-- production-only truthfulness hardening that replaces inherited prototype labels, hides browser-reset/export affordances, blocks simulated report/reset behavior, and replaces the simulated card/authorization path with authenticated server-backed payment controls while preserving the approved visual hierarchy and admin/student lens;
+- production-only truthfulness hardening that replaces inherited prototype labels, hides browser-reset/export affordances, blocks simulated reset behavior, replaces simulated attendance reporting with an authenticated server-backed review path, and replaces the simulated card/authorization path with authenticated server-backed payment controls while preserving the approved visual hierarchy and admin/student lens;
 - mounted `/missionaccounts/api/*` support, a safe public runtime configuration endpoint, and authenticated role-scoped UI bootstraps that expose only the student’s own account to student sessions while reserving roster, cycles, identity clusters, and operational health for Dr J/admin/founder sessions;
 - a canonical authenticated read adapter that paginates PostgREST reads, projects immutable attendance evidence, keeps both same-day class events while deriving one $25 day, omits Zoom meeting references from student scope, and hydrates the approved UI only from server-authoritative UUID-mapped records;
 - a production action bus for the currently backed billing-decision, cycle-policy, comp-day, exam-plan/result, and append-only attendance-correction controls; each accepted action refetches the complete authorized bootstrap before rerendering, and unsupported production controls fail visibly without optimistic browser state;
@@ -43,6 +43,7 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - a Stripe-hosted Payment Element browser flow using current `confirmSetup` semantics, explicit future-use consent, a Test-Mode-only public-key gate, narrowly allowlisted Stripe CSP origins, no raw card inputs, and signed-webhook-authoritative on-file status; administrators cannot enter a student's payment method;
 - a separate student-only automatic-billing authorization dialog that renders the approved server terms version, records the explicit one-$25-day consent through the idempotent server transaction, and supports independent revocation without deleting history;
 - direct authenticated student deep links are captured before the scrubbed shell's empty render and restored only after role-scoped hydration; students with no attendance receive a safe Billing empty state instead of a renderer failure;
+- student-owned attendance issue reporting that self-binds the authenticated student, validates bounded report and route context, deduplicates retries, writes a private open-review record plus immutable audit event, queues one Matrix-admin notification, and never edits attendance or billing; the production dialog now closes after success and cannot reopen during the authoritative refetch;
 - student-owned, two-phase payment-method removal that revokes automatic-billing consent before Stripe detachment, blocks new charges while removal is pending, restores the method with consent still revoked after provider failure, deduplicates retries, and never exposes the private Stripe method reference to the browser;
 - server-authoritative $25 attendance-day charge preparation that requires a current approved basis, verified identity, billable day, on-file method, active consent, remaining approved amount, explicit failed-charge retries, and a unique charge per day; only a matching signed Stripe PaymentIntent webhook can mark it succeeded or failed;
 - a bounded 24–48-hour automatic-charge worker that asserts Stripe Test Mode before any database claim, atomically reserves eligible days with `SKIP LOCKED`, safely reclaims stale pre-provider work with the same Stripe idempotency key, records missed windows and provider failures in a private integration-exception queue, notifies student and admin on submission failure, and never automatically retries a failed charge;
@@ -123,6 +124,7 @@ All implementation files are under `missionaccounts/`:
 - `supabase/migrations/20260906062212_missionaccounts_initial_schema.sql`
 - `supabase/migrations/20260906095512_automatic_charge_dispatch.sql`
 - `supabase/migrations/20260906100746_zoom_ingestion_port.sql`
+- `supabase/migrations/20260906105212_student_attendance_issue_report.sql`
 - `tests/billing-engine.test.mjs`
 - `tests/exam-engine.test.mjs`
 - `tests/mandatory-vectors.test.mjs`
@@ -137,16 +139,16 @@ All implementation files are under `missionaccounts/`:
 
 ## Migration status
 
-- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,805 lines) plus additive `20260906095512_automatic_charge_dispatch.sql` and `20260906100746_zoom_ingestion_port.sql`.
-- Applied locally: PASS in a disposable PostgreSQL 16 cluster; all three migrations applied in order. The Zoom RPC persisted one normalized session and participant source row idempotently, recorded a failed-sync exception, and created zero attendance events, identity decisions, or charges. No persistent local database was created.
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,805 lines) plus additive `20260906095512_automatic_charge_dispatch.sql`, `20260906100746_zoom_ingestion_port.sql`, and `20260906105212_student_attendance_issue_report.sql`.
+- Applied locally: PASS in a disposable PostgreSQL 16 cluster; all four migrations applied in order. The Zoom RPC persisted one normalized session and participant source row idempotently, recorded a failed-sync exception, and created zero attendance events, identity decisions, or charges. The attendance-report RPC persisted one student-owned issue, one audit event, and one admin notification while suppressing a retry and rejecting a mismatched student identity. No persistent local database was created.
 - Historical import rehearsal: PASS in a separate disposable PostgreSQL 16 cluster. It imported 419 sessions, 5,498 raw source rows, 3,941 reconciled events, and 3,264 attendance days; retained 74 ceiling candidates and 60 identity-review holds; and created zero billing decisions, invoices, charges, verified ceilings, Matrix identities, or enabled flags. The private SQL bundle was deleted with the disposable cluster.
 - Applied to staging/production: NO — target database and migration authority are not registered.
 - Schema is additive and all capability flags seed disabled.
 
 ## Verification
 
-- `npm test`: PASS — 125/125, including all prior vectors plus Test-Mode-only Stripe browser configuration, Payment Element confirmation semantics, explicit future-use consent, raw-card-field exclusion, exact Stripe CSP allowlists, and authenticated student deep-link hydration.
-- `npm run test:postgres`: PASS — all three migrations applied in order to disposable PostgreSQL 16, including idempotent source-only Zoom ingestion and failed-sync exception custody with zero downstream identity, attendance, billing, or charge mutations.
+- `npm test`: PASS — 128/128, including all prior vectors plus Test-Mode-only Stripe browser configuration, Payment Element confirmation semantics, explicit future-use consent, raw-card-field exclusion, exact Stripe CSP allowlists, authenticated student deep-link hydration, and self-bound attendance-report submission.
+- `npm run test:postgres`: PASS — all four migrations applied in order to disposable PostgreSQL 16, including idempotent source-only Zoom ingestion and failed-sync exception custody with zero downstream identity, attendance, billing, or charge mutations, plus private attendance-issue custody, duplicate suppression, audit/outbox insertion, and cross-student rejection.
 - `npm run test:historical-import`: PASS — all custody hashes, privacy permissions, source/control totals, per-cycle totals, review holds, and zero-financial-mutation boundaries passed in disposable PostgreSQL 16.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
 - `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
@@ -173,6 +175,7 @@ All implementation files are under `missionaccounts/`:
   - Student automatic-billing authorization: PASS; approved terms version posted only after explicit checkbox consent.
   - Payment-method removal: PASS; authenticated DELETE issued only after the destructive-action confirmation.
   - Direct `#/me/billing` production deep link: PASS before and after authoritative refetch; empty student records no longer fail hydration.
+  - Attendance issue reporting: PASS at desktop and 390 px; authenticated POST succeeded, the dialog closed, the `?report=1` intent normalized to `#/me` before refetch, the confirmation toast remained visible, and `scrollWidth` equaled `clientWidth` at 390 px. The QA server used only its in-memory notification outbox; no external provider was called.
 
 Local browser evidence (gitignored because repository policy excludes PNGs):
 
@@ -182,6 +185,8 @@ Local browser evidence (gitignored because repository policy excludes PNGs):
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_auth-failure-gate.png` — SHA-256 `123b0917f04a6be9602e7ae3f4cdbde06dc2ab53078e134a2097be437d588130`.
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_stripe-payment-element-test-mode.png` — SHA-256 `bfdf257c06e968eabc0bb5e6c4a9b7a0da83282620cb5cbf500a6d1e7148f640`.
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_billing-authorization-mobile.png` — SHA-256 `90139e71a6e7017eae42c899cc252522986c2694affdf0bf071f085e7bd6e0fd`.
+- `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_attendance-issue-report-mobile.png` — SHA-256 `3edebb178a115e5479717d10a6b12b72a6611a4b82beacd4d54a9aebb7c26da4`.
+- `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_attendance-issue-report-success-mobile.png` — SHA-256 `e338ef83a19fdf0bf4a90f9905eddb5d7cf054ddce09be9898c0d6ef2a7b26fd`.
 
 ## Production services touched
 
@@ -189,7 +194,7 @@ None. No Railway project/service, PostgreSQL database, Supabase project, Kinsta/
 
 ## Environment/config changes
 
-None outside the isolated worktree. Local preview used `PORT=4179` and `MISSIONACCOUNTS_AUTH_MODE=local`; local auth fails closed under `NODE_ENV=production`. The candidate now recognizes `MISSIONACCOUNTS_STRIPE_PUBLISHABLE_KEY` only when automatic billing is enabled, `MISSIONACCOUNTS_STRIPE_MODE=test`, and the value is a `pk_test_` key; otherwise public setup configuration remains disabled and no key is returned. Stripe requests use the account-default API version unless a provider-verified value is explicitly supplied through `MISSIONACCOUNTS_STRIPE_API_VERSION`; no fabricated future version is sent.
+None outside the isolated worktree. Local preview used `PORT=4179`, `MISSIONACCOUNTS_AUTH_MODE=local`, and—only for attendance-report QA—`MISSIONACCOUNTS_ATTENDANCE_CORRECTIONS=1`; local auth fails closed under `NODE_ENV=production`, and the production feature flag remains off. The candidate recognizes `MISSIONACCOUNTS_STRIPE_PUBLISHABLE_KEY` only when automatic billing is enabled, `MISSIONACCOUNTS_STRIPE_MODE=test`, and the value is a `pk_test_` key; otherwise public setup configuration remains disabled and no key is returned. Stripe requests use the account-default API version unless a provider-verified value is explicitly supplied through `MISSIONACCOUNTS_STRIPE_API_VERSION`; no fabricated future version is sent.
 
 ## Matrix route registration and production URL
 
