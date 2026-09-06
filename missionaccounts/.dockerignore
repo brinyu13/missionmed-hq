@@ -1,0 +1,9 @@
+*
+!package.json
+!src/
+!src/**
+!public/
+!public/index.production.html
+!public/missionaccounts-auth.js
+!public/missionaccounts-runtime.js
+!Dockerfile

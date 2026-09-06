@@ -19,9 +19,13 @@ function environmentConfig() {
   return {
     production,
     localAuth: process.env.MISSIONACCOUNTS_AUTH_MODE === 'local',
-    issuer: process.env.MISSIONACCOUNTS_JWT_ISSUER || 'https://missionmedinstitute.com',
+    issuer: process.env.MISSIONACCOUNTS_JWT_ISSUER || 'https://missionmedinstitute.com/wp-json/missionmed/v1/missionaccounts',
     audience: process.env.MISSIONACCOUNTS_JWT_AUDIENCE || 'missionaccounts',
     jwksUrl: process.env.MISSIONACCOUNTS_JWKS_URL || 'https://missionmedinstitute.com/wp-json/missionmed/v1/jwks',
+    jwtSecret: process.env.MISSIONACCOUNTS_JWT_SECRET || '',
+    basePath: '/missionaccounts/',
+    wpBootstrapPath: process.env.MISSIONACCOUNTS_WP_BOOTSTRAP_PATH || '/wp-admin/admin-ajax.php?action=missionmed_missionaccounts_bootstrap',
+    tokenRefreshSkewSeconds: 15,
     features: {
       billingDecisions: process.env.MISSIONACCOUNTS_BILLING_DECISIONS === '1',
       attendanceCorrections: process.env.MISSIONACCOUNTS_ATTENDANCE_CORRECTIONS === '1',
@@ -36,9 +40,12 @@ function environmentConfig() {
 }
 
 function environmentStore() {
-  return process.env.MISSIONACCOUNTS_SUPABASE_URL && process.env.MISSIONACCOUNTS_SUPABASE_SERVICE_KEY
-    ? new SupabaseRestStore({ url: process.env.MISSIONACCOUNTS_SUPABASE_URL, serviceKey: process.env.MISSIONACCOUNTS_SUPABASE_SERVICE_KEY })
-    : new PreviewStore();
+  const url = process.env.MISSIONACCOUNTS_SUPABASE_URL || '';
+  const serviceKey = process.env.MISSIONACCOUNTS_SUPABASE_SERVICE_KEY || '';
+  if (url && serviceKey) return new SupabaseRestStore({ url, serviceKey });
+  if (url || serviceKey) throw new Error('MissionAccounts database configuration is incomplete');
+  if (process.env.NODE_ENV === 'production') throw new Error('MissionAccounts production requires an explicit database target');
+  return new PreviewStore();
 }
 
 function environmentStripeGateway() {
@@ -161,6 +168,15 @@ export function createMissionAccountsServer({
   }
 
   async function handleApi(request, response, url) {
+    if (request.method === 'GET' && url.pathname === '/api/config') {
+      return json(response, 200, {
+        basePath: config.basePath || '/missionaccounts/',
+        wpBootstrapPath: config.wpBootstrapPath || '/wp-admin/admin-ajax.php?action=missionmed_missionaccounts_bootstrap',
+        tokenRefreshSkewSeconds: Number(config.tokenRefreshSkewSeconds || 15),
+        localAuth: config.production !== true && config.localAuth === true,
+        identityMode: config.localAuth ? 'local-preview' : 'missionmed-signed-jwt',
+      });
+    }
     if (request.method === 'GET' && url.pathname === '/api/health') {
       return json(response, 200, {
         status: 'ok',
@@ -175,6 +191,7 @@ export function createMissionAccountsServer({
       });
     }
     if (request.method === 'POST' && url.pathname === '/api/webhooks/stripe') {
+      requireFeature(config, 'autoBilling');
       return receiveStripeWebhook(request, response);
     }
     if (request.method === 'POST' && url.pathname === '/api/internal/notifications/drain') {
@@ -220,9 +237,20 @@ export function createMissionAccountsServer({
 
     const identity = await authenticate(request, config);
     if (request.method === 'GET' && url.pathname === '/api/session') {
+      const role = identity.roles.includes('founder') ? 'founder'
+        : identity.roles.includes('missionaccounts_admin') ? 'missionaccounts_admin'
+          : 'student';
       return json(response, 200, {
         authenticated: true,
-        mode: identity.roles.includes('student') ? 'student' : 'admin',
+        mode: role === 'student' ? 'student' : 'admin',
+        user: {
+          id: identity.userId,
+          display_name: identity.displayName || '',
+          first_name: identity.firstName || '',
+          email: identity.email || '',
+          role,
+          avatar_thumbnail_url: identity.avatarThumbnailUrl || '',
+        },
         capabilities: {
           billing_decisions: Boolean(config.features?.billingDecisions),
           attendance_corrections: Boolean(config.features?.attendanceCorrections),
@@ -232,6 +260,54 @@ export function createMissionAccountsServer({
           notifications: Boolean(config.features?.notifications),
           zoom_sync: Boolean(config.features?.zoomSync),
         },
+      });
+    }
+    if (request.method === 'GET' && url.pathname === '/api/ui/bootstrap') {
+      const role = identity.roles.includes('founder') ? 'founder'
+        : identity.roles.includes('missionaccounts_admin') ? 'missionaccounts_admin'
+          : 'student';
+      const user = {
+        id: identity.userId,
+        display_name: identity.displayName || '',
+        first_name: identity.firstName || '',
+        email: identity.email || '',
+        role,
+        avatar_thumbnail_url: identity.avatarThumbnailUrl || '',
+      };
+      if (role === 'student') {
+        const student = await studentContext(identity);
+        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan] = await Promise.all([
+          store.attendanceForStudent(student.id),
+          store.billingForStudent(student.id),
+          store.paymentMethodForStudent(student.id),
+          store.billingConsentForStudent(student.id),
+          store.currentBillingTerms(),
+          store.currentExamPlanForStudent(student.id),
+        ]);
+        return json(response, 200, {
+          schema_version: 'missionaccounts-ui-bootstrap-v1',
+          scope: 'student',
+          user,
+          account: { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan },
+        });
+      }
+      const cycles = await store.billingCycles();
+      const [home, students, cycleProjections, identityClusters, health] = await Promise.all([
+        store.adminHome({ today: localDayFromIso(now().toISOString()) }),
+        store.adminStudents(),
+        Promise.all(cycles.map(cycle => store.adminCycle(cycle.key))),
+        store.adminIdentityClusters({ state: 'all' }),
+        store.adminHealth(),
+      ]);
+      return json(response, 200, {
+        schema_version: 'missionaccounts-ui-bootstrap-v1',
+        scope: 'admin',
+        user,
+        home,
+        students,
+        cycles: cycleProjections.filter(Boolean),
+        identity_clusters: identityClusters,
+        health,
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/me') {
@@ -606,17 +682,26 @@ export function createMissionAccountsServer({
   }
 
   async function serveStatic(response, pathname) {
-    const requested = pathname === '/' || pathname === '/missionaccounts' || pathname === '/missionaccounts/' ? 'index.html' : pathname.replace(/^\/+/, '');
+    const basePath = config.basePath || '/missionaccounts/';
+    const normalizedBase = `/${String(basePath).replace(/^\/+|\/+$/g, '')}/`;
+    const mountedPath = pathname.startsWith(normalizedBase) ? pathname.slice(normalizedBase.length) : pathname.replace(/^\/+/, '');
+    const requestedIndex = config.production ? 'index.production.html' : 'index.html';
+    const requested = pathname === '/' || pathname === normalizedBase.slice(0, -1) || pathname === normalizedBase || mountedPath === '' ? requestedIndex : mountedPath;
     const file = path.resolve(publicDir, requested);
     if (!file.startsWith(`${publicDir}${path.sep}`) || !existsSync(file)) return json(response, 404, { code: 'NOT_FOUND' });
-    response.writeHead(200, { 'content-type': mime(file), 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'" });
+    response.writeHead(200, { 'content-type': mime(file), 'cache-control': requested.endsWith('.html') ? 'no-store, private' : 'no-cache', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'" });
     createReadStream(file).pipe(response);
   }
 
   return http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url || '/', `http://${request.headers.host || '127.0.0.1'}`);
-      if (url.pathname.startsWith('/api/')) await handleApi(request, response, url);
+      const basePath = config.basePath || '/missionaccounts/';
+      const mountedApiPrefix = `/${String(basePath).replace(/^\/+|\/+$/g, '')}/api/`;
+      if (url.pathname.startsWith(mountedApiPrefix)) {
+        url.pathname = `/api/${url.pathname.slice(mountedApiPrefix.length)}`;
+        await handleApi(request, response, url);
+      } else if (url.pathname.startsWith('/api/')) await handleApi(request, response, url);
       else await serveStatic(response, url.pathname);
     } catch (error) {
       const status = Number(error.status) || 500;

@@ -43,6 +43,10 @@ export class SupabaseRestStore {
     return rows[0] || null;
   }
 
+  async billingCycles() {
+    return this.request('cycle?select=key,label,starts_on,ends_on,state&order=starts_on.asc');
+  }
+
   async attendanceForStudent(studentId, cycleKey) {
     const cycle = cycleKey ? `&cycle_key=eq.${encodeURIComponent(cycleKey)}` : '';
     return this.request(`attendance_day?student_id=eq.${encodeURIComponent(studentId)}${cycle}&superseded_at=is.null&select=id,cycle_key,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`);
@@ -410,6 +414,13 @@ export class PreviewStore {
 
   async studentByMatrixUser(userId) {
     return { id: userId, matrix_user_ref: userId, display_name: 'Preview Student', email: 'student.preview@invalid.local', joined_at: null, comp_days_allowance: 0, identity_state: 'verified' };
+  }
+  async billingCycles() {
+    return [
+      { key: '2026-cycle-1', label: 'June Cycle', starts_on: '2026-06-08', ends_on: '2026-07-13', state: 'estimate' },
+      { key: '2026-cycle-2', label: 'July Cycle', starts_on: '2026-07-14', ends_on: '2026-08-11', state: 'estimate' },
+      { key: '2026-cycle-3', label: 'August Cycle', starts_on: '2026-08-12', ends_on: '2026-09-04', state: 'estimate' },
+    ];
   }
   async attendanceForStudent() { return []; }
   async billingForStudent() { return []; }

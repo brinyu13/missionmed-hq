@@ -15,6 +15,10 @@ const localConfig = {
   features: { billingDecisions: false, attendanceCorrections: false, examPlans: false, compDays: false, autoBilling: false, notifications: false, zoomSync: false },
   workerToken: '',
 };
+const webhookConfig = {
+  ...localConfig,
+  features: { ...localConfig.features, autoBilling: true },
+};
 
 async function withServer(options, run) {
   const server = createMissionAccountsServer(options);
@@ -41,7 +45,7 @@ test('Stripe webhook verifies the untouched body and stores a retry only once', 
   const body = '{\n  "id": "evt_1", "type": "customer.updated", "data": {"object": {"id": "cus_1"}}\n}';
   const headers = { 'content-type': 'application/json', 'stripe-signature': stripeSignature(body, secret, timestamp) };
   await withServer({
-    config: localConfig,
+    config: webhookConfig,
     store: new PreviewStore(),
     stripeGateway: new StripeGateway({ webhookSecret: secret }),
   }, async base => {
@@ -57,7 +61,7 @@ test('Stripe webhook verifies the untouched body and stores a retry only once', 
 
 test('Stripe webhook fails closed before parsing or storing an invalid signature', async () => {
   await withServer({
-    config: localConfig,
+    config: webhookConfig,
     store: new PreviewStore(),
     stripeGateway: new StripeGateway({ webhookSecret: 'whsec_server_test' }),
   }, async base => {
@@ -68,6 +72,23 @@ test('Stripe webhook fails closed before parsing or storing an invalid signature
     });
     assert.equal(response.status, 400);
     assert.match((await response.json()).message, /signature invalid/);
+  });
+});
+
+test('Stripe webhook cannot mutate payment state while automatic billing is feature-off', async () => {
+  const gateway = {
+    verifyWebhook() {
+      assert.fail('feature-off webhook must stop before signature processing');
+    },
+  };
+  await withServer({ config: localConfig, store: new PreviewStore(), stripeGateway: gateway }, async base => {
+    const response = await fetch(`${base}/api/webhooks/stripe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'stripe-signature': 'unused' },
+      body: '{}',
+    });
+    assert.equal(response.status, 503);
+    assert.match((await response.json()).message, /not enabled/i);
   });
 });
 
@@ -96,7 +117,7 @@ test('Stripe SetupIntent webhook binds verified sanitized card metadata to the a
   };
   const body = JSON.stringify(event);
   const headers = { 'content-type': 'application/json', 'stripe-signature': stripeSignature(body, secret, timestamp) };
-  await withServer({ config: localConfig, store, stripeGateway: gateway }, async base => {
+  await withServer({ config: webhookConfig, store, stripeGateway: gateway }, async base => {
     const first = await fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers, body });
     assert.equal(first.status, 200);
     assert.equal((await first.json()).duplicate, false);
@@ -195,6 +216,46 @@ test('student role cannot read the administrative health endpoint', async () => 
   }, async base => {
     const response = await fetch(`${base}/api/admin/health`, { headers: { 'x-missionaccounts-local-role': 'student' } });
     assert.equal(response.status, 403);
+  });
+});
+
+test('UI bootstrap is role-scoped and works from the mounted MissionAccounts route', async () => {
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const store = new PreviewStore();
+  store.seedIdentityCluster({
+    ref: 'cluster:bootstrap-review',
+    members: [
+      { id: 'alias-bootstrap-1', student_id: studentId, display_value: 'Preview Student', relationship_state: 'candidate' },
+      { id: 'alias-bootstrap-2', student_id: null, display_value: 'Preview Learner', relationship_state: 'candidate' },
+    ],
+  });
+  await withServer({ config: localConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const studentResponse = await fetch(`${base}/missionaccounts/api/ui/bootstrap`, {
+      headers: { 'x-missionaccounts-local-role': 'student' },
+    });
+    assert.equal(studentResponse.status, 200);
+    const student = await studentResponse.json();
+    assert.equal(student.schema_version, 'missionaccounts-ui-bootstrap-v1');
+    assert.equal(student.scope, 'student');
+    assert.equal(student.user.role, 'student');
+    assert.equal(student.account.student.id, studentId);
+    for (const adminOnlyKey of ['home', 'students', 'cycles', 'identity_clusters', 'health']) {
+      assert.equal(Object.hasOwn(student, adminOnlyKey), false, `student bootstrap leaked ${adminOnlyKey}`);
+    }
+
+    const adminResponse = await fetch(`${base}/missionaccounts/api/ui/bootstrap`, {
+      headers: { 'x-missionaccounts-local-role': 'missionaccounts_admin' },
+    });
+    assert.equal(adminResponse.status, 200);
+    const admin = await adminResponse.json();
+    assert.equal(admin.schema_version, 'missionaccounts-ui-bootstrap-v1');
+    assert.equal(admin.scope, 'admin');
+    assert.equal(admin.user.role, 'missionaccounts_admin');
+    assert.equal(admin.students.length, 1);
+    assert.equal(admin.cycles.length, 3);
+    assert.equal(admin.identity_clusters.length, 1);
+    assert.equal(admin.health.mode, 'preview');
+    assert.equal(Object.hasOwn(admin, 'account'), false);
   });
 });
 

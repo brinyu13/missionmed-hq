@@ -1,4 +1,7 @@
-import { createPublicKey, verify } from 'node:crypto';
+import { createHmac, createPublicKey, timingSafeEqual, verify } from 'node:crypto';
+
+const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+const signedRoles = new Set(['student', 'missionaccounts_admin', 'founder']);
 
 function decodePart(value) {
   return JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
@@ -21,24 +24,70 @@ async function getJwks(url) {
   return jwksCache.keys;
 }
 
+function verifySharedSecretSignature(signed, signature, secret) {
+  if (typeof secret !== 'string' || secret.length < 32) deny('MissionAccounts signing secret is unavailable', 503);
+  const expected = createHmac('sha256', secret).update(signed).digest();
+  const actual = Buffer.from(signature, 'base64url');
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) deny('Identity token signature invalid');
+}
+
+function verifyClaims(payload, config) {
+  const now = Math.floor(Date.now() / 1000);
+  if (!uuidPattern.test(String(payload.sub || ''))) deny('Identity token subject is invalid');
+  if (!uuidPattern.test(String(payload.jti || ''))) deny('Identity token identifier is invalid');
+  if (!Number.isFinite(payload.iat) || payload.iat > now + 30) deny('Identity token issued-at claim is invalid');
+  if (!Number.isFinite(payload.exp) || payload.exp <= now) deny('Identity token is expired or incomplete');
+  if (payload.nbf != null && (!Number.isFinite(payload.nbf) || payload.nbf > now + 30)) deny('Identity token is not active');
+  if (payload.iss !== config.issuer) deny('Identity token issuer mismatch');
+  const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+  if (!audiences.includes(config.audience)) deny('Identity token audience mismatch', 403);
+}
+
+function identityFromClaims(payload) {
+  const signedRole = String(payload.app_role || '');
+  const legacyRoles = Array.isArray(payload.app_metadata?.roles) ? payload.app_metadata.roles : [];
+  const roles = signedRole ? [signedRole] : legacyRoles.filter(role => signedRoles.has(role));
+  if (roles.length !== 1 || !signedRoles.has(roles[0])) deny('Identity token role is invalid', 403);
+  if (payload.missionaccounts_eligible !== true) deny('MissionAccounts access is not active', 403);
+  const wpUserId = Number(payload.wp_user_id);
+  if (!Number.isSafeInteger(wpUserId) || wpUserId <= 0) deny('Identity token WordPress user is invalid');
+  return {
+    userId: String(payload.sub),
+    email: typeof payload.email === 'string' ? payload.email : '',
+    roles,
+    claims: payload,
+    wpUserId,
+    displayName: typeof payload.name === 'string' ? payload.name : '',
+    firstName: typeof payload.first_name === 'string' ? payload.first_name : '',
+    avatarThumbnailUrl: typeof payload.avatar_thumbnail_url === 'string' ? payload.avatar_thumbnail_url : '',
+  };
+}
+
 export async function verifyMatrixJwt(token, config) {
   const parts = String(token || '').split('.');
   if (parts.length !== 3) deny('Authentication required');
   const [encodedHeader, encodedPayload, signature] = parts;
-  const header = decodePart(encodedHeader);
-  const payload = decodePart(encodedPayload);
-  if (header.alg !== 'RS256' || !header.kid) deny('Unsupported identity token');
-  const now = Math.floor(Date.now() / 1000);
-  if (!payload.sub || payload.exp <= now || payload.nbf > now + 30) deny('Identity token is expired or incomplete');
-  if (payload.iss !== config.issuer) deny('Identity token issuer mismatch');
-  const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-  if (!audiences.includes(config.audience)) deny('Identity token audience mismatch', 403);
-  const key = (await getJwks(config.jwksUrl)).find(item => item.kid === header.kid && item.kty === 'RSA');
-  if (!key) deny('Identity signing key not found');
-  const ok = verify('RSA-SHA256', Buffer.from(`${encodedHeader}.${encodedPayload}`), createPublicKey({ key, format: 'jwk' }), Buffer.from(signature, 'base64url'));
-  if (!ok) deny('Identity token signature invalid');
-  const roles = Array.isArray(payload.app_metadata?.roles) ? payload.app_metadata.roles : [];
-  return { userId: payload.sub, email: payload.email || '', roles, claims: payload };
+  let header;
+  let payload;
+  try {
+    header = decodePart(encodedHeader);
+    payload = decodePart(encodedPayload);
+  } catch {
+    deny('Identity token encoding is invalid');
+  }
+  const signed = `${encodedHeader}.${encodedPayload}`;
+  if (config.jwtSecret) {
+    if (header.alg !== 'HS256' || header.kid) deny('Unsupported identity token');
+    verifySharedSecretSignature(signed, signature, config.jwtSecret);
+  } else {
+    if (header.alg !== 'RS256' || !header.kid || !config.jwksUrl) deny('Unsupported identity token');
+    const key = (await getJwks(config.jwksUrl)).find(item => item.kid === header.kid && item.kty === 'RSA');
+    if (!key) deny('Identity signing key not found');
+    const ok = verify('RSA-SHA256', Buffer.from(signed), createPublicKey({ key, format: 'jwk' }), Buffer.from(signature, 'base64url'));
+    if (!ok) deny('Identity token signature invalid');
+  }
+  verifyClaims(payload, config);
+  return identityFromClaims(payload);
 }
 
 export async function authenticate(request, config) {
