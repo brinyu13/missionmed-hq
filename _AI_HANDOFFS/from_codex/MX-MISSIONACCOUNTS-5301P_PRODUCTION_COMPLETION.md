@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Latest implementation commit:** `8d545c37b3ee724ecc28e056f5835098f1b8442d`
+**Latest implementation commit:** `f65e8bbcfedbf00715fe992fbd2a6f7faec0032d`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -48,6 +48,7 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - student-owned, two-phase payment-method removal that revokes automatic-billing consent before Stripe detachment, blocks new charges while removal is pending, restores the method with consent still revoked after provider failure, deduplicates retries, and never exposes the private Stripe method reference to the browser;
 - server-authoritative $25 attendance-day charge preparation that requires a current approved basis, verified identity, billable day, on-file method, active consent, remaining approved amount, explicit failed-charge retries, and a unique charge per day; only a matching signed Stripe PaymentIntent webhook can mark it succeeded or failed;
 - a bounded 24–48-hour automatic-charge worker that asserts Stripe Test Mode before any database claim, atomically reserves eligible days with `SKIP LOCKED`, safely reclaims stale pre-provider work with the same Stripe idempotency key, records missed windows and provider failures in a private integration-exception queue, notifies student and admin on submission failure, and never automatically retries a failed charge;
+- a fail-closed charge-receipt invariant: every manual or automatic day charge requires a normalized verified student email, passes it to Stripe as `receipt_email`, records an actionable private exception when an automatic dispatch lacks it, and is backed by a database trigger so a direct pending-charge insert cannot bypass the requirement;
 - a default-off Zoom source-ingestion port with an injected provider boundary, worker-authenticated bounded-window endpoint, normalized meeting/participant evidence, digest-bound idempotent persistence, successful/failed sync custody, and private integration exceptions; it creates no identity decisions, attendance interpretations, billing decisions, or charges;
 - an admin-only Zoom health surface backed by sanitized server bootstrap state: feature/provider readiness, latest successful/failed run, persisted session/source-row controls, scheduler truth, and integration-exception count; student payloads receive none of this telemetry;
 - student-owned Passed submission that resolves the current plan from the authenticated identity and is independently ownership-checked inside PostgreSQL;
@@ -127,6 +128,7 @@ All implementation files are under `missionaccounts/`:
 - `supabase/migrations/20260906100746_zoom_ingestion_port.sql`
 - `supabase/migrations/20260906105212_student_attendance_issue_report.sql`
 - `supabase/migrations/20260906110611_attendance_issue_review_resolution.sql`
+- `supabase/migrations/20260906112331_require_receipt_email_for_day_charges.sql`
 - `tests/billing-engine.test.mjs`
 - `tests/exam-engine.test.mjs`
 - `tests/mandatory-vectors.test.mjs`
@@ -141,16 +143,16 @@ All implementation files are under `missionaccounts/`:
 
 ## Migration status
 
-- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,805 lines) plus additive `20260906095512_automatic_charge_dispatch.sql`, `20260906100746_zoom_ingestion_port.sql`, `20260906105212_student_attendance_issue_report.sql`, and `20260906110611_attendance_issue_review_resolution.sql`.
-- Applied locally: PASS in a disposable PostgreSQL 16 cluster; all five migrations applied in order. The Zoom RPC persisted one normalized session and participant source row idempotently, recorded a failed-sync exception, and created zero attendance events, identity decisions, or charges. The attendance-report RPC persisted one student-owned issue, one audit event, and one admin notification while suppressing a retry and rejecting a mismatched student identity. The review RPC resolved it once, suppressed the retry, inserted one review audit and one student notification, rejected student review authority, preserved immutable submission fields, and left attendance/billing counts unchanged. No persistent local database was created.
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,813 lines) plus additive `20260906095512_automatic_charge_dispatch.sql`, `20260906100746_zoom_ingestion_port.sql`, `20260906105212_student_attendance_issue_report.sql`, `20260906110611_attendance_issue_review_resolution.sql`, and `20260906112331_require_receipt_email_for_day_charges.sql`.
+- Applied locally: PASS in a disposable PostgreSQL 16 cluster; all six migrations applied in order. The charge RPC rejected a missing receipt address before financial mutation, returned the normalized verified address after contact restoration, and the pending-charge trigger enforced the same invariant below the application layer. The automatic worker carried the address through its claim without exposing it to the browser. The Zoom RPC persisted one normalized session and participant source row idempotently, recorded a failed-sync exception, and created zero attendance events, identity decisions, or charges. The attendance-report RPC persisted one student-owned issue, one audit event, and one admin notification while suppressing a retry and rejecting a mismatched student identity. The review RPC resolved it once, suppressed the retry, inserted one review audit and one student notification, rejected student review authority, preserved immutable submission fields, and left attendance/billing counts unchanged. No persistent local database was created.
 - Historical import rehearsal: PASS in a separate disposable PostgreSQL 16 cluster. It imported 419 sessions, 5,498 raw source rows, 3,941 reconciled events, and 3,264 attendance days; retained 74 ceiling candidates and 60 identity-review holds; and created zero billing decisions, invoices, charges, verified ceilings, Matrix identities, or enabled flags. The private SQL bundle was deleted with the disposable cluster.
 - Applied to staging/production: NO — target database and migration authority are not registered.
 - Schema is additive and all capability flags seed disabled.
 
 ## Verification
 
-- `npm test`: PASS — 129/129, including all prior vectors plus Test-Mode-only Stripe browser configuration, Payment Element confirmation semantics, explicit future-use consent, raw-card-field exclusion, exact Stripe CSP allowlists, authenticated student deep-link hydration, self-bound attendance-report submission, and admin-only attendance-report review.
-- `npm run test:postgres`: PASS — all five migrations applied in order to disposable PostgreSQL 16, including idempotent source-only Zoom ingestion and failed-sync exception custody with zero downstream identity, attendance, billing, or charge mutations, private attendance-issue custody, duplicate suppression, audit/outbox insertion, cross-student rejection, immutable submission fields, and admin-only idempotent review.
+- `npm test`: PASS — 131/131, including all prior vectors plus Stripe receipt-email validation/normalization, worker/manual charge propagation, the database receipt invariant, Test-Mode-only Stripe browser configuration, Payment Element confirmation semantics, explicit future-use consent, raw-card-field exclusion, exact Stripe CSP allowlists, authenticated student deep-link hydration, self-bound attendance-report submission, and admin-only attendance-report review.
+- `npm run test:postgres`: PASS — all six migrations applied in order to disposable PostgreSQL 16, including the receipt-email rejection/normalization/trigger controls, idempotent source-only Zoom ingestion and failed-sync exception custody with zero downstream identity, attendance, billing, or charge mutations, private attendance-issue custody, duplicate suppression, audit/outbox insertion, cross-student rejection, immutable submission fields, and admin-only idempotent review.
 - `npm run test:historical-import`: PASS — all custody hashes, privacy permissions, source/control totals, per-cycle totals, review holds, and zero-financial-mutation boundaries passed in disposable PostgreSQL 16.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
 - `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
