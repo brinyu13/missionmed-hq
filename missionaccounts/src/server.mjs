@@ -21,6 +21,7 @@ function environmentConfig() {
     audience: process.env.MISSIONACCOUNTS_JWT_AUDIENCE || 'missionaccounts',
     jwksUrl: process.env.MISSIONACCOUNTS_JWKS_URL || 'https://missionmedinstitute.com/wp-json/missionmed/v1/jwks',
     features: {
+      billingDecisions: process.env.MISSIONACCOUNTS_BILLING_DECISIONS === '1',
       examPlans: process.env.MISSIONACCOUNTS_EXAM_PLANS === '1',
       compDays: process.env.MISSIONACCOUNTS_COMP_DAYS === '1',
       autoBilling: process.env.MISSIONACCOUNTS_AUTO_BILLING === '1',
@@ -105,6 +106,7 @@ export function createMissionAccountsServer({
         app: 'missionaccounts',
         mode: store instanceof PreviewStore ? 'preview' : 'configured',
         route_enabled: false,
+        billing_decisions_enabled: Boolean(config.features?.billingDecisions),
         auto_billing_enabled: Boolean(config.features?.autoBilling),
         zoom_sync_enabled: Boolean(config.features?.zoomSync),
       });
@@ -119,6 +121,7 @@ export function createMissionAccountsServer({
         authenticated: true,
         mode: identity.roles.includes('student') ? 'student' : 'admin',
         capabilities: {
+          billing_decisions: Boolean(config.features?.billingDecisions),
           exam_plans: Boolean(config.features?.examPlans),
           comp_days: Boolean(config.features?.compDays),
           auto_billing: Boolean(config.features?.autoBilling),
@@ -177,6 +180,36 @@ export function createMissionAccountsServer({
         requestId: requestIdFor(request),
       });
       return json(response, result.duplicate ? 200 : 201, result);
+    }
+    const billingDecisionRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/decisions$/i)
+      : null;
+    if (billingDecisionRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'billingDecisions');
+      const body = await readJsonBody(request, { limitBytes: 32_768 });
+      const treatment = String(body.treatment || '');
+      const cycleKey = String(body.cycle_key || '');
+      const note = String(body.note || '').trim();
+      const requestedAmountCents = body.requested_amount_cents == null ? null : Number(body.requested_amount_cents);
+      if (!/^[a-z0-9][a-z0-9-]{1,63}$/.test(cycleKey)) throw requestError('A valid cycle_key is required');
+      if (!['confirm', 'fullcycle', 'other', 'special', 'ucc', 'mul', 'waived', 'prepaid', 'already_paid', 'already_invoiced'].includes(treatment)) {
+        throw requestError('Billing treatment is invalid');
+      }
+      if (['other', 'special'].includes(treatment) && (!Number.isInteger(requestedAmountCents) || requestedAmountCents < 0 || !note)) {
+        throw requestError('Custom billing treatment requires a non-negative amount and note');
+      }
+      const result = await store.approveBillingDecision({
+        studentId: billingDecisionRoute[1],
+        cycleKey,
+        treatment,
+        requestedAmountCents,
+        note: note || null,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.accepted === false ? 409 : result.duplicate ? 200 : 201, result);
     }
     const examTransitionRoute = request.method === 'POST'
       ? url.pathname.match(/^\/api\/admin\/exam-plans\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/(approve|deny|speak|followup|reopen|result)$/i)

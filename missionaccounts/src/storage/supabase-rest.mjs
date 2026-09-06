@@ -1,4 +1,5 @@
 import { transitionExamPlan as applyExamTransition } from '../domain/exam-engine.mjs';
+import { buildDecisionBasis, calculateCycleAmount } from '../domain/billing-engine.mjs';
 
 export class SupabaseRestStore {
   constructor({ url, serviceKey, schema = 'missionaccounts' }) {
@@ -87,6 +88,19 @@ export class SupabaseRestStore {
     });
   }
 
+  async approveBillingDecision({ studentId, cycleKey, treatment, requestedAmountCents, note, actorId, actorRole, requestId }) {
+    return this.rpc('api_approve_billing_decision', {
+      p_student_id: studentId,
+      p_cycle_key: cycleKey,
+      p_treatment: treatment,
+      p_requested_amount_cents: requestedAmountCents ?? null,
+      p_note: note || null,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
     const rows = await this.request('provider_event_inbox?on_conflict=provider%2Cprovider_event_id', {
       method: 'POST',
@@ -123,6 +137,10 @@ export class PreviewStore {
     this.compSettings = new Map();
     this.compMutations = new Map();
     this.examTransitions = new Map();
+    this.attendanceDays = new Map();
+    this.billingCaps = new Map();
+    this.billingDecisions = new Map();
+    this.billingMutations = new Map();
   }
 
   async studentByMatrixUser(userId) {
@@ -209,6 +227,59 @@ export class PreviewStore {
     }
     this.examTransitions.set(requestId, { fingerprint, result: resultPayload });
     return resultPayload;
+  }
+  seedAttendanceDays(studentId, cycleKey, days) {
+    this.attendanceDays.set(`${studentId}:${cycleKey}`, days.map(day => ({ ...day })));
+  }
+  seedBillingCap(studentId, cycleKey, cap) {
+    this.billingCaps.set(`${studentId}:${cycleKey}`, { ...cap });
+  }
+  async approveBillingDecision({ studentId, cycleKey, treatment, requestedAmountCents, note, actorId, requestId }) {
+    const fingerprint = JSON.stringify({ studentId, cycleKey, treatment, requestedAmountCents, note, actorId });
+    const existing = this.billingMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    const days = this.attendanceDays.get(`${studentId}:${cycleKey}`) || [];
+    const cap = this.billingCaps.get(`${studentId}:${cycleKey}`) || null;
+    const rawAmount = days.filter(day => day.kind === 'billable').length * 2_500;
+    let rejection = null;
+    if (days.some(day => day.kind === 'needs_review')) rejection = 'attendance_requires_review';
+    else if (treatment === 'fullcycle' && cap?.verified !== true) rejection = 'verified_full_cycle_ceiling_required';
+    else if (cap?.status === 'candidate' && rawAmount > 30_000) rejection = 'cap_candidate_requires_review';
+    if (rejection) {
+      const result = { accepted: false, reason: rejection, audit_event_id: `preview-billing-audit-${this.billingMutations.size + 1}` };
+      this.billingMutations.set(requestId, { fingerprint, result });
+      return result;
+    }
+    const zeroTreatments = new Set(['ucc', 'mul', 'waived', 'prepaid', 'already_paid', 'already_invoiced']);
+    const calculated = calculateCycleAmount({
+      days,
+      treatment: zeroTreatments.has(treatment) ? treatment : null,
+      historicalArrangement: cap?.verified === true ? { verified: true, type: 'full_cycle_300' } : null,
+    });
+    let amountCents = ['other', 'special'].includes(treatment) ? requestedAmountCents : calculated.amount_cents;
+    if (cap?.verified === true) amountCents = Math.min(amountCents, Number(cap.ceiling_cents || 30_000));
+    const basis = buildDecisionBasis(days, { treatment, amount_cents: amountCents, cap });
+    const ordinal = this.billingMutations.size + 1;
+    const decision = {
+      id: `preview-billing-decision-${ordinal}`,
+      student_id: studentId,
+      cycle_key: cycleKey,
+      treatment,
+      amount_cents: amountCents,
+      note: note || null,
+      basis,
+      basis_sha256: basis.basis_sha256,
+      state: 'approved',
+      decided_by: actorId,
+    };
+    const invoice = amountCents > 0 ? { id: `preview-invoice-${ordinal}`, decision_id: decision.id, state: 'draft', amount_cents: amountCents } : null;
+    const result = { accepted: true, decision, invoice, audit_event_id: `preview-billing-audit-${ordinal}` };
+    this.billingDecisions.set(`${studentId}:${cycleKey}`, decision);
+    this.billingMutations.set(requestId, { fingerprint, result });
+    return result;
   }
   async recordProviderEvent({ provider, eventId }) {
     const key = `${provider}:${eventId}`;

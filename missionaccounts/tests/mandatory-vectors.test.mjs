@@ -168,6 +168,18 @@ test('exam transition RPC records rejected attempts and owns grace/reminder side
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_transition_exam_plan[^;]+to authenticated/s);
 });
 
+test('billing approval RPC derives totals and fails closed on unresolved historical caps', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.api_approve_billing_decision/);
+  assert.match(sql, /raw_amount_cents := billable_count \* 2500/);
+  assert.match(sql, /cap_candidate_requires_review/);
+  assert.match(sql, /p_treatment = 'fullcycle' and cap_row\.id is null/);
+  assert.match(sql, /amount_cents := least\(amount_cents, cap_row\.ceiling_cents\)/);
+  assert.match(sql, /insert into missionaccounts\.invoice/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_approve_billing_decision[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_approve_billing_decision[^;]+to authenticated/s);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);

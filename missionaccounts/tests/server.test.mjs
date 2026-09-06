@@ -12,7 +12,7 @@ const localConfig = {
   issuer: 'https://issuer.invalid',
   audience: 'missionaccounts',
   jwksUrl: 'https://issuer.invalid/jwks',
-  features: { examPlans: false, compDays: false, autoBilling: false, zoomSync: false },
+  features: { billingDecisions: false, examPlans: false, compDays: false, autoBilling: false, zoomSync: false },
 };
 
 async function withServer(options, run) {
@@ -201,5 +201,65 @@ test('admin exam decisions drive grace/reminder effects and reject invalid trans
     });
     assert.equal(invalid.status, 409);
     assert.equal((await invalid.json()).accepted, false);
+  });
+});
+
+test('billing approval derives totals on the server and deduplicates retries', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, billingDecisions: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const cycleKey = '2026-cycle-1';
+  store.seedAttendanceDays(studentId, cycleKey, [
+    { id: 'day-1', day: '2026-06-08', kind: 'billable', event_ids: ['event-1', 'event-2'] },
+    { id: 'day-2', day: '2026-06-09', kind: 'billable', event_ids: ['event-3'] },
+  ]);
+  const path = `/api/admin/students/${studentId}/decisions`;
+  const headers = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin', 'idempotency-key': 'billing-request-0001' };
+  const body = JSON.stringify({ cycle_key: cycleKey, treatment: 'confirm', requested_amount_cents: 999_999 });
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const created = await fetch(`${base}${path}`, { method: 'POST', headers, body });
+    assert.equal(created.status, 201);
+    const payload = await created.json();
+    assert.equal(payload.decision.amount_cents, 5_000);
+    assert.equal(payload.invoice.amount_cents, 5_000);
+    assert.equal(payload.decision.basis.att, 3);
+
+    const retry = await fetch(`${base}${path}`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+
+    const unauthorized = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { ...headers, 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'billing-request-0002' },
+      body,
+    });
+    assert.equal(unauthorized.status, 403);
+  });
+});
+
+test('unverified historical cap candidate blocks approval until verified', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, billingDecisions: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const cycleKey = '2026-cycle-1';
+  store.seedAttendanceDays(studentId, cycleKey, Array.from({ length: 15 }, (_, index) => ({
+    id: `day-${index + 1}`,
+    day: `2026-06-${String(index + 8).padStart(2, '0')}`,
+    kind: 'billable',
+    event_ids: [`event-${index + 1}`],
+  })));
+  store.seedBillingCap(studentId, cycleKey, { id: 'cap-1', status: 'candidate', verified: false, ceiling_cents: 30_000 });
+  const path = `/api/admin/students/${studentId}/decisions`;
+  const headers = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin' };
+  const body = JSON.stringify({ cycle_key: cycleKey, treatment: 'confirm' });
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const blocked = await fetch(`${base}${path}`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'billing-cap-0001' }, body });
+    assert.equal(blocked.status, 409);
+    assert.equal((await blocked.json()).reason, 'cap_candidate_requires_review');
+
+    store.seedBillingCap(studentId, cycleKey, { id: 'cap-1', status: 'verified', verified: true, ceiling_cents: 30_000 });
+    const approved = await fetch(`${base}${path}`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'billing-cap-0002' }, body });
+    assert.equal(approved.status, 201);
+    assert.equal((await approved.json()).decision.amount_cents, 30_000);
   });
 });

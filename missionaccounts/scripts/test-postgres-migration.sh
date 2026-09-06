@@ -64,4 +64,46 @@ if [[ "$results" != "$expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, exam-plan decisions, and comp transactions: PASS"
+billing_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.engine_run(engine_version, source_digest, state)
+values ('integration-v1', repeat('a', 64), 'succeeded');
+insert into missionaccounts.attendance_day(
+  engine_run_id, student_id, cycle_key, day, kind, engine_version, source_digest
+)
+select
+  (select id from missionaccounts.engine_run order by started_at desc limit 1),
+  '$student_id',
+  '2026-cycle-1',
+  date '2026-06-08' + day_offset,
+  'billable',
+  'integration-v1',
+  repeat('a', 64)
+from generate_series(0, 14) as day_offset;
+insert into missionaccounts.full_cycle_ceiling(student_id, cycle_key, status, basis)
+values ('$student_id', '2026-cycle-1', 'candidate', jsonb_build_object('source', 'integration'));
+set role service_role;
+select missionaccounts.api_approve_billing_decision('$student_id','2026-cycle-1','confirm',null,null,'wp:admin','missionaccounts_admin','pg-billing-0001')->>'accepted';
+select missionaccounts.api_approve_billing_decision('$student_id','2026-cycle-1','confirm',null,null,'wp:admin','missionaccounts_admin','pg-billing-0001')->>'duplicate';
+reset role;
+update missionaccounts.full_cycle_ceiling
+set status = 'verified', decided_by = 'wp:admin', decided_at = now()
+where student_id = '$student_id' and cycle_key = '2026-cycle-1';
+set role service_role;
+select missionaccounts.api_approve_billing_decision('$student_id','2026-cycle-1','confirm',null,null,'wp:admin','missionaccounts_admin','pg-billing-0002')->'decision'->>'amount_cents';
+select missionaccounts.api_approve_billing_decision('$student_id','2026-cycle-1','confirm',null,null,'wp:admin','missionaccounts_admin','pg-billing-0002')->>'duplicate';
+reset role;
+select count(*) || '|' ||
+  (select count(*) from missionaccounts.invoice) || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind like 'billing_decision.%')
+from missionaccounts.billing_decision;
+SQL
+)
+
+billing_expected=$'false\ntrue\n30000\ntrue\n1|1|2'
+if [[ "$billing_results" != "$billing_expected" ]]; then
+  echo "MissionAccounts billing authority verification returned unexpected controls:" >&2
+  echo "$billing_results" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, billing authority, exam decisions, and comp transactions: PASS"

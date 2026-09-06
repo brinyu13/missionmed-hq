@@ -2,6 +2,10 @@
 -- Additive, feature-off schema candidate. Do not apply to production until the
 -- mission registration, Matrix runtime lock, restore point, and release gates pass.
 
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+grant usage on schema extensions to service_role;
+
 create schema if not exists missionaccounts;
 revoke all on schema missionaccounts from public, anon;
 grant usage on schema missionaccounts to authenticated, service_role;
@@ -303,6 +307,7 @@ create table missionaccounts.billing_decision (
   state text not null check (state in ('estimate','needs_review','approved','stale','superseded')),
   decided_by text,
   decided_at timestamptz,
+  request_id text not null unique,
   superseded_by_id uuid references missionaccounts.billing_decision(id),
   created_at timestamptz not null default now()
 );
@@ -451,7 +456,7 @@ create function missionaccounts.api_submit_exam_plan(
 returns jsonb
 language plpgsql
 security invoker
-set search_path = pg_catalog, missionaccounts
+set search_path = pg_catalog, extensions, missionaccounts
 as $$
 declare
   existing_plan missionaccounts.exam_plan%rowtype;
@@ -855,6 +860,256 @@ $$;
 revoke execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text) to service_role;
 
+create function missionaccounts.api_approve_billing_decision(
+  p_student_id uuid,
+  p_cycle_key text,
+  p_treatment text,
+  p_requested_amount_cents integer,
+  p_note text,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, extensions, missionaccounts
+as $$
+declare
+  student_row missionaccounts.student%rowtype;
+  cycle_row missionaccounts.cycle%rowtype;
+  cap_row missionaccounts.full_cycle_ceiling%rowtype;
+  prior_decision missionaccounts.billing_decision%rowtype;
+  existing_decision missionaccounts.billing_decision%rowtype;
+  new_decision missionaccounts.billing_decision%rowtype;
+  invoice_row missionaccounts.invoice%rowtype;
+  decision_id uuid := gen_random_uuid();
+  audit_id uuid;
+  billable_count integer := 0;
+  comped_count integer := 0;
+  grace_count integer := 0;
+  review_count integer := 0;
+  day_count integer := 0;
+  event_count integer := 0;
+  candidate_cap_count integer := 0;
+  amount_cents integer := 0;
+  raw_amount_cents integer := 0;
+  basis jsonb;
+  basis_sha256 text;
+  rejection_reason text;
+  request_fingerprint jsonb;
+  existing_rejection jsonb;
+begin
+  if p_treatment is null
+     or p_treatment not in ('confirm','fullcycle','other','special','ucc','mul','waived','prepaid','already_paid','already_invoiced')
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_actor_role), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'invalid_billing_decision_request';
+  end if;
+  if p_treatment in ('other','special')
+     and (p_requested_amount_cents is null or p_requested_amount_cents < 0 or nullif(btrim(p_note), '') is null) then
+    raise exception using errcode = '22023', message = 'custom_billing_amount_and_note_required';
+  end if;
+
+  request_fingerprint := jsonb_build_object(
+    'student_id', p_student_id,
+    'cycle_key', p_cycle_key,
+    'treatment', p_treatment,
+    'requested_amount_cents', p_requested_amount_cents,
+    'note', p_note,
+    'actor_id', p_actor_id
+  );
+
+  select * into existing_decision
+  from missionaccounts.billing_decision
+  where request_id = p_request_id;
+  if found then
+    if existing_decision.student_id <> p_student_id
+       or existing_decision.cycle_key <> p_cycle_key
+       or existing_decision.treatment <> p_treatment
+       or (existing_decision.basis->>'requested_amount_cents')::integer is distinct from p_requested_amount_cents
+       or existing_decision.note is distinct from p_note
+       or existing_decision.decided_by <> p_actor_id then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select * into invoice_row
+    from missionaccounts.invoice inv where inv.decision_id = existing_decision.id
+    order by inv.created_at desc limit 1;
+    select id into audit_id from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'billing_decision.approved';
+    return jsonb_build_object(
+      'accepted', true,
+      'decision', to_jsonb(existing_decision),
+      'invoice', case when invoice_row.id is null then null else to_jsonb(invoice_row) end,
+      'audit_event_id', audit_id,
+      'duplicate', true
+    );
+  end if;
+
+  select to_val into existing_rejection
+  from missionaccounts.audit_event
+  where request_id = p_request_id and kind = 'billing_decision.rejected';
+  if found then
+    if existing_rejection->'request' <> request_fingerprint then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    return jsonb_build_object(
+      'accepted', false,
+      'reason', existing_rejection->>'reason',
+      'audit_event_id', (select id from missionaccounts.audit_event where request_id = p_request_id and kind = 'billing_decision.rejected'),
+      'duplicate', true
+    );
+  end if;
+
+  select * into student_row from missionaccounts.student where id = p_student_id for update;
+  if not found then raise exception using errcode = '23503', message = 'student_not_found'; end if;
+  select * into cycle_row from missionaccounts.cycle where key = p_cycle_key;
+  if not found then raise exception using errcode = '23503', message = 'cycle_not_found'; end if;
+
+  select
+    count(*)::integer,
+    count(*) filter (where ad.kind = 'billable')::integer,
+    count(*) filter (where ad.kind = 'comped')::integer,
+    count(*) filter (where ad.kind = 'grace')::integer,
+    count(*) filter (where ad.kind = 'needs_review')::integer,
+    coalesce(sum(ev.events), 0)::integer
+  into day_count, billable_count, comped_count, grace_count, review_count, event_count
+  from missionaccounts.attendance_day ad
+  left join lateral (
+    select count(*)::integer as events
+    from missionaccounts.attendance_day_event ade
+    where ade.attendance_day_id = ad.id
+  ) ev on true
+  where ad.student_id = p_student_id
+    and ad.cycle_key = p_cycle_key
+    and ad.superseded_at is null;
+
+  raw_amount_cents := billable_count * 2500;
+  select count(*)::integer into candidate_cap_count
+  from missionaccounts.full_cycle_ceiling
+  where student_id = p_student_id and cycle_key = p_cycle_key
+    and status = 'candidate' and superseded_by_id is null;
+  select * into cap_row
+  from missionaccounts.full_cycle_ceiling
+  where student_id = p_student_id and cycle_key = p_cycle_key
+    and status = 'verified' and superseded_by_id is null
+  order by decided_at desc nulls last limit 1;
+
+  if student_row.identity_state <> 'verified' then rejection_reason := 'student_identity_requires_review';
+  elsif review_count > 0 then rejection_reason := 'attendance_requires_review';
+  elsif not exists (
+    select 1 from missionaccounts.rule_decision
+    where rule = 'one_charge_per_calendar_day' and mode = 'retroactive'
+      and effective_from <= cycle_row.starts_on and superseded_by_id is null
+  ) then rejection_reason := 'authoritative_rule_decision_missing';
+  elsif p_treatment = 'fullcycle' and cap_row.id is null then rejection_reason := 'verified_full_cycle_ceiling_required';
+  elsif candidate_cap_count > 0 and cap_row.id is null and raw_amount_cents > 30000 then rejection_reason := 'cap_candidate_requires_review';
+  end if;
+
+  if rejection_reason is not null then
+    insert into missionaccounts.audit_event(
+      actor_id, actor_role, subject_student_id, kind, text, to_val, reason, request_id
+    ) values (
+      p_actor_id, p_actor_role, p_student_id, 'billing_decision.rejected',
+      'Billing approval rejected by server authority',
+      jsonb_build_object('request', request_fingerprint, 'reason', rejection_reason),
+      rejection_reason, p_request_id
+    ) returning id into audit_id;
+    return jsonb_build_object('accepted', false, 'reason', rejection_reason, 'audit_event_id', audit_id, 'duplicate', false);
+  end if;
+
+  amount_cents := case
+    when p_treatment in ('ucc','mul','waived','prepaid','already_paid','already_invoiced') then 0
+    when p_treatment in ('other','special') then p_requested_amount_cents
+    else raw_amount_cents
+  end;
+  if cap_row.id is not null then amount_cents := least(amount_cents, cap_row.ceiling_cents); end if;
+
+  basis := jsonb_build_object(
+    'rule', 'one_charge_per_calendar_day',
+    'units', 'calendar_days',
+    'dayCount', day_count,
+    'att', event_count,
+    'billable', billable_count,
+    'comped', comped_count,
+    'grace', grace_count,
+    'treatment', p_treatment,
+    'requested_amount_cents', p_requested_amount_cents,
+    'amount_cents', amount_cents,
+    'rate_cents', 2500,
+    'cap', case when cap_row.id is null then null else jsonb_build_object('id', cap_row.id, 'status', cap_row.status, 'ceiling_cents', cap_row.ceiling_cents) end,
+    'days', coalesce((
+      select jsonb_agg(jsonb_build_object('id', id, 'day', day, 'kind', kind) order by day, id)
+      from missionaccounts.attendance_day
+      where student_id = p_student_id and cycle_key = p_cycle_key and superseded_at is null
+    ), '[]'::jsonb)
+  );
+  basis_sha256 := encode(digest(basis::text, 'sha256'), 'hex');
+
+  select * into prior_decision
+  from missionaccounts.billing_decision
+  where student_id = p_student_id and cycle_key = p_cycle_key and superseded_by_id is null
+  for update;
+  if found then
+    insert into missionaccounts.billing_decision(
+      id, student_id, cycle_key, treatment, amount_cents, note, basis, basis_sha256,
+      state, decided_by, decided_at, request_id, superseded_by_id
+    ) values (
+      decision_id, p_student_id, p_cycle_key, p_treatment, amount_cents, p_note, basis, basis_sha256,
+      'approved', p_actor_id, now(), p_request_id, prior_decision.id
+    );
+    update missionaccounts.billing_decision set superseded_by_id = decision_id, state = 'superseded' where id = prior_decision.id;
+    update missionaccounts.billing_decision set superseded_by_id = null where id = decision_id returning * into new_decision;
+  else
+    insert into missionaccounts.billing_decision(
+      id, student_id, cycle_key, treatment, amount_cents, note, basis, basis_sha256,
+      state, decided_by, decided_at, request_id
+    ) values (
+      decision_id, p_student_id, p_cycle_key, p_treatment, amount_cents, p_note, basis, basis_sha256,
+      'approved', p_actor_id, now(), p_request_id
+    ) returning * into new_decision;
+  end if;
+
+  update missionaccounts.invoice set state = 'void'
+  where student_id = p_student_id and cycle_key = p_cycle_key and state in ('draft','ready');
+  if amount_cents > 0 then
+    insert into missionaccounts.invoice(student_id, cycle_key, decision_id, state, amount_cents, lines)
+    values (
+      p_student_id, p_cycle_key, new_decision.id, 'draft', amount_cents,
+      jsonb_build_object(
+        'description', 'Dr J Live Drills attendance',
+        'billable_days', billable_count,
+        'rate_cents', 2500,
+        'subtotal_cents', raw_amount_cents,
+        'verified_cap_cents', case when cap_row.id is null then null else cap_row.ceiling_cents end,
+        'total_cents', amount_cents
+      )
+    ) returning * into invoice_row;
+  end if;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id, p_actor_role, p_student_id, 'billing_decision.approved',
+    'Billing decision approved from server-derived attendance days',
+    case when prior_decision.id is null then null else to_jsonb(prior_decision) end,
+    to_jsonb(new_decision), p_note, p_request_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'accepted', true,
+    'decision', to_jsonb(new_decision),
+    'invoice', case when invoice_row.id is null then null else to_jsonb(invoice_row) end,
+    'audit_event_id', audit_id,
+    'duplicate', false
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_approve_billing_decision(uuid, text, text, integer, text, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_approve_billing_decision(uuid, text, text, integer, text, text, text, text) to service_role;
+
 create table missionaccounts.sync_run (
   id uuid primary key default gen_random_uuid(),
   provider text not null check (provider = 'zoom'),
@@ -893,6 +1148,7 @@ create table missionaccounts.feature_flag (
 
 insert into missionaccounts.feature_flag(key, enabled) values
   ('missionaccounts_route', false),
+  ('billing_decisions', false),
   ('exam_plans', false),
   ('comp_days', false),
   ('auto_billing', false),
