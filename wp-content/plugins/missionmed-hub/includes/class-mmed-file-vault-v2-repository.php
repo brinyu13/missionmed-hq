@@ -1567,14 +1567,20 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 */
 	protected static function configured_program_courses() {
 		$definitions = array(
-			array( 'option' => 'mmed_course_360elite', 'label' => '360 Match Mentorship', 'tiers' => array( '360elite', '360elite_onboarding', '360_elite' ) ),
+			array(
+				'option'         => 'mmed_course_360elite',
+				'label'          => '360 Match Mentorship',
+				'tiers'          => array( '360elite', '360elite_onboarding', '360_elite' ),
+				'enrollment_meta' => array( '_mmed_welcome_email_sent_at_360elite' ),
+			),
 			array( 'option' => 'mmed_course_complete', 'label' => 'IV Prep Complete', 'tiers' => array( 'complete' ) ),
 			array( 'option' => 'mmed_course_foundation', 'label' => 'IV Prep Essentials', 'tiers' => array( 'foundation' ) ),
 			array( 'option' => 'mmed_course_usmle', 'label' => 'USMLE Exam Prep', 'tiers' => array( 'usmle' ) ),
 			array( 'option' => 'mmed_course_usce', 'label' => 'USCE / Clinicals', 'tiers' => array( 'usce', 'usce_onboarding' ) ),
 		);
-		$courses = array();
-		$tiers   = array();
+		$courses         = array();
+		$tiers           = array();
+		$enrollment_meta = array();
 		foreach ( $definitions as $definition ) {
 			$default   = function_exists( 'mmed_hub_default_option_value' ) ? mmed_hub_default_option_value( $definition['option'] ) : 0;
 			$course_id = absint( get_option( $definition['option'], $default ) );
@@ -1591,10 +1597,17 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			foreach ( $definition['tiers'] as $tier ) {
 				$tiers[ $tier ] = $course_id;
 			}
+			foreach ( (array) ( $definition['enrollment_meta'] ?? array() ) as $meta_key ) {
+				$meta_key = sanitize_key( $meta_key );
+				if ( $meta_key ) {
+					$enrollment_meta[ $course_id ][] = $meta_key;
+				}
+			}
 		}
 		return array(
-			'courses' => array_values( $courses ),
-			'tiers'   => $tiers,
+			'courses'         => array_values( $courses ),
+			'tiers'           => $tiers,
+			'enrollment_meta' => $enrollment_meta,
 		);
 	}
 
@@ -1652,8 +1665,8 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			}
 
 			// Legacy LearnDash associations can outlive the MissionMed program that
-			// granted them. A configured MissionMed course is current only when the
-			// student's canonical program tier points back to that same course.
+			// granted them. Require a current program-tier match or an existing
+			// Founder-issued enrollment marker before trusting a configured course.
 			$program_config       = self::configured_program_courses();
 			$canonical_course_ids = array_values( array_filter( array_map( 'absint', wp_list_pluck( $program_config['courses'], 'id' ) ) ) );
 			$canonical_enrollment = array_values( array_intersect( $course_ids, $canonical_course_ids ) );
@@ -1663,6 +1676,14 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				$extension_courses = array_values( array_diff( $course_ids, $canonical_course_ids ) );
 				if ( $aligned_course && in_array( $aligned_course, $canonical_enrollment, true ) ) {
 					$extension_courses[] = $aligned_course;
+				}
+				foreach ( $canonical_enrollment as $canonical_course_id ) {
+					foreach ( (array) ( $program_config['enrollment_meta'][ $canonical_course_id ] ?? array() ) as $meta_key ) {
+						if ( '' !== trim( (string) get_user_meta( $user_id, $meta_key, true ) ) ) {
+							$extension_courses[] = $canonical_course_id;
+							break;
+						}
+					}
 				}
 				$course_ids = array_values( array_unique( $extension_courses ) );
 				if ( empty( $course_ids ) ) {

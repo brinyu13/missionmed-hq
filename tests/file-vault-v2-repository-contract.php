@@ -946,19 +946,24 @@ $GLOBALS['fv2_users'] = array(
 	(object) array( 'ID' => 11502, 'display_name' => 'Current 360 Fixture' ),
 	(object) array( 'ID' => 11503, 'display_name' => 'Current Essentials Fixture' ),
 	(object) array( 'ID' => 11504, 'display_name' => 'Mismatched Program Fixture' ),
+	(object) array( 'ID' => 11505, 'display_name' => 'Founder Enrolled 360 Fixture' ),
 );
 $GLOBALS['fv2_enrolled_courses'][11501] = array( 9101 );
 $GLOBALS['fv2_enrolled_courses'][11502] = array( 9101 );
 $GLOBALS['fv2_enrolled_courses'][11503] = array( 9102 );
 $GLOBALS['fv2_enrolled_courses'][11504] = array( 9101 );
+$GLOBALS['fv2_enrolled_courses'][11505] = array( 9101 );
 $GLOBALS['fv2_user_meta'][11502]['_mmed_program_tier'] = '360elite';
 $GLOBALS['fv2_user_meta'][11503]['_mmed_program_tier'] = 'foundation';
 $GLOBALS['fv2_user_meta'][11504]['_mmed_program_tier'] = 'foundation';
+$GLOBALS['fv2_user_meta'][11505]['_mmed_welcome_email_sent_at_360elite'] = '2026-06-02T12:00:00Z';
 $GLOBALS['fv2_gate_courses'] = array( 9101, 9102 );
 fv2_repo_assert( false === MMED_File_Vault_V2_Repository::enrollment_context( 11501 ), 'configured course association without a canonical program tier is excluded' );
 fv2_repo_assert( false === MMED_File_Vault_V2_Repository::enrollment_context( 11504 ), 'program tier mapped to a different course is excluded' );
 $current_360 = MMED_File_Vault_V2_Repository::enrollment_context( 11502 );
 fv2_repo_assert( is_array( $current_360 ) && array( 9101 ) === $current_360['group_ids'], 'aligned 360 tier and course remain eligible' );
+$founder_enrolled_360 = MMED_File_Vault_V2_Repository::enrollment_context( 11505 );
+fv2_repo_assert( is_array( $founder_enrolled_360 ) && array( 9101 ) === $founder_enrolled_360['group_ids'], 'current 360 course plus the existing Founder enrollment marker remains eligible without exposing unmarked legacy accounts' );
 $filtered_scope = MMED_File_Vault_V2_Repository::staff_scope( 'admin', 20, '', 1, 50, false, 9102 );
 fv2_repo_assert( ! is_wp_error( $filtered_scope ) && array( 11503 ) === array_column( $filtered_scope['students'], 'id' ), 'staff course filter returns only current students in the selected course' );
 fv2_repo_assert( 9102 === $filtered_scope['selected_course_id'] && array( 9101, 9102 ) === array_column( $filtered_scope['courses'], 'id' ), 'staff scope returns canonical course choices and selected state' );
