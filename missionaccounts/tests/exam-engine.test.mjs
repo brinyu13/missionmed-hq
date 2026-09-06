@@ -37,3 +37,26 @@ test('invalid transition fails closed', () => {
     today: '2026-09-03',
   }), /invalid exam transition/);
 });
+
+test('contract transition matrix rejects speak reopen and followup denial', () => {
+  for (const [state, to] of [['speak', 'pending'], ['followup', 'denied']]) {
+    assert.throws(() => transitionExamPlan({
+      plan: { id: 'p1', student_id: 'u1', state, exam_on: '2026-08-21' },
+      to,
+      actor: 'dr-j',
+      today: '2026-09-03',
+    }), /invalid exam transition/);
+  }
+});
+
+test('followup may record passed and closes grace without rebilling protected days', () => {
+  const result = transitionExamPlan({
+    plan: { id: 'p1', student_id: 'u1', state: 'followup', exam_on: '2026-08-21' },
+    to: 'passed',
+    actor: 'dr-j',
+    today: '2026-09-03',
+    result: 'passed',
+  });
+  assert.equal(result.plan.state, 'passed');
+  assert.equal(result.effects.close_grace.to_on, '2026-09-03');
+});

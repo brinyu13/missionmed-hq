@@ -157,6 +157,17 @@ test('comp allowance RPC is admin-only, idempotent, audited, and preserves prosp
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_set_comp_allowance[^;]+to authenticated/s);
 });
 
+test('exam transition RPC records rejected attempts and owns grace/reminder side effects', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.api_transition_exam_plan/);
+  assert.match(sql, /'Rejected invalid exam-plan transition'/);
+  assert.match(sql, /insert into missionaccounts\.grace_window/);
+  assert.match(sql, /first_wednesday_offset/);
+  assert.match(sql, /update missionaccounts\.reminder[\s\S]+state = 'cancelled'/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_transition_exam_plan[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_transition_exam_plan[^;]+to authenticated/s);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);

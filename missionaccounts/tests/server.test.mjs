@@ -153,3 +153,53 @@ test('admin comp override requires authority, reason, feature flag, and an idemp
     assert.equal(missingReason.status, 400);
   });
 });
+
+test('admin exam decisions drive grace/reminder effects and reject invalid transitions', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, examPlans: true } };
+  const store = new PreviewStore();
+  const submitted = await store.submitExamPlan({
+    studentId: '00000000-0000-4000-8000-000000000001',
+    step: 's2',
+    examOn: '2026-09-09',
+    actorId: 'student-1',
+    requestId: 'exam-seed-0001',
+  });
+  const baseOptions = {
+    config: enabledConfig,
+    store,
+    stripeGateway: new StripeGateway(),
+    now: () => new Date('2026-09-10T16:00:00Z'),
+  };
+  const adminHeaders = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin' };
+  await withServer(baseOptions, async base => {
+    const approveUrl = `${base}/api/admin/exam-plans/${submitted.plan.id}/approve`;
+    const approved = await fetch(approveUrl, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'exam-transition-0001' },
+      body: '{}',
+    });
+    assert.equal(approved.status, 200);
+    const approval = await approved.json();
+    assert.equal(approval.plan.state, 'approved');
+    assert.equal(approval.effects.reminder.due_on, '2026-09-30');
+
+    const resultUrl = `${base}/api/admin/exam-plans/${submitted.plan.id}/result`;
+    const recorded = await fetch(resultUrl, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'exam-transition-0002' },
+      body: JSON.stringify({ result: 'not_passed', note: 'Student reported result' }),
+    });
+    assert.equal(recorded.status, 200);
+    const result = await recorded.json();
+    assert.equal(result.plan.state, 'followup');
+    assert.equal(result.effects.close_grace.to_on, '2026-09-10');
+
+    const invalid = await fetch(`${base}/api/admin/exam-plans/${submitted.plan.id}/deny`, {
+      method: 'POST',
+      headers: { ...adminHeaders, 'idempotency-key': 'exam-transition-0003' },
+      body: JSON.stringify({ note: 'Invalid from follow-up' }),
+    });
+    assert.equal(invalid.status, 409);
+    assert.equal((await invalid.json()).accepted, false);
+  });
+});

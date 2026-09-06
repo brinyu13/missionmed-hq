@@ -254,6 +254,7 @@ create table missionaccounts.exam_transition (
   student_id uuid not null references missionaccounts.student(id),
   from_state text,
   to_state text not null,
+  result text check (result in ('passed','not_passed','no_result')),
   accepted boolean not null,
   reason text,
   actor_id text not null,
@@ -667,6 +668,192 @@ $$;
 
 revoke execute on function missionaccounts.api_set_comp_allowance(uuid, integer, date, text, boolean, text, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_set_comp_allowance(uuid, integer, date, text, boolean, text, text, text) to service_role;
+
+create function missionaccounts.api_transition_exam_plan(
+  p_plan_id uuid,
+  p_to_state text,
+  p_result text,
+  p_note text,
+  p_today date,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  current_plan missionaccounts.exam_plan%rowtype;
+  prior_transition missionaccounts.exam_transition%rowtype;
+  transition_id uuid;
+  audit_id uuid;
+  transition_allowed boolean := false;
+  first_wednesday_offset integer;
+  reminder_due date;
+begin
+  if p_to_state is null
+     or p_to_state not in ('pending','approved','speak','denied','followup','passed')
+     or p_today is null
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_actor_role), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'invalid_exam_transition_request';
+  end if;
+  if p_result is not null and p_result not in ('passed','not_passed','no_result') then
+    raise exception using errcode = '22023', message = 'invalid_exam_result';
+  end if;
+
+  select * into prior_transition
+  from missionaccounts.exam_transition
+  where request_id = p_request_id;
+  if found then
+    if prior_transition.exam_plan_id <> p_plan_id
+       or prior_transition.to_state <> p_to_state
+       or prior_transition.result is distinct from p_result
+       or prior_transition.actor_id <> p_actor_id
+       or prior_transition.reason is distinct from p_note then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select * into current_plan from missionaccounts.exam_plan where id = p_plan_id;
+    select id into audit_id
+    from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'exam_plan.transition';
+    return jsonb_build_object(
+      'accepted', prior_transition.accepted,
+      'plan', to_jsonb(current_plan),
+      'transition_id', prior_transition.id,
+      'audit_event_id', audit_id,
+      'duplicate', true
+    );
+  end if;
+
+  select * into current_plan
+  from missionaccounts.exam_plan
+  where id = p_plan_id and superseded_by_id is null
+  for update;
+  if not found then
+    raise exception using errcode = '23503', message = 'current_exam_plan_not_found';
+  end if;
+
+  transition_allowed := case current_plan.state
+    when 'pending' then p_to_state in ('approved','speak','denied')
+    when 'speak' then p_to_state in ('approved','denied')
+    when 'denied' then p_to_state in ('pending','approved')
+    when 'approved' then p_to_state in ('passed','followup','denied','pending')
+    when 'followup' then p_to_state in ('approved','passed','followup','pending')
+    when 'passed' then p_to_state = 'pending'
+    else false
+  end;
+
+  insert into missionaccounts.exam_transition(
+    exam_plan_id, student_id, from_state, to_state, result, accepted, reason, actor_id, request_id
+  ) values (
+    current_plan.id, current_plan.student_id, current_plan.state, p_to_state,
+    p_result, transition_allowed, p_note, p_actor_id, p_request_id
+  ) returning id into transition_id;
+
+  if not transition_allowed then
+    insert into missionaccounts.audit_event(
+      actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+    ) values (
+      p_actor_id, p_actor_role, current_plan.student_id, 'exam_plan.transition',
+      'Rejected invalid exam-plan transition', to_jsonb(current_plan.state), to_jsonb(p_to_state),
+      coalesce(p_note, 'transition_not_allowed'), p_request_id
+    ) returning id into audit_id;
+    return jsonb_build_object(
+      'accepted', false,
+      'plan', to_jsonb(current_plan),
+      'transition_id', transition_id,
+      'audit_event_id', audit_id,
+      'duplicate', false
+    );
+  end if;
+
+  if p_to_state = 'approved' then
+    insert into missionaccounts.grace_window(student_id, exam_plan_id, from_on)
+    values (current_plan.student_id, current_plan.id, current_plan.exam_on)
+    on conflict do nothing;
+
+    first_wednesday_offset := (3 - extract(dow from current_plan.exam_on)::integer + 7) % 7;
+    if first_wednesday_offset = 0 then first_wednesday_offset := 7; end if;
+    reminder_due := current_plan.exam_on + first_wednesday_offset + 14;
+    insert into missionaccounts.reminder(
+      student_id, exam_plan_id, kind, due_on, state, idempotency_key
+    ) values (
+      current_plan.student_id, current_plan.id, 'exam_result_checkin', reminder_due,
+      'scheduled', current_plan.id::text || ':exam-result-checkin'
+    ) on conflict (idempotency_key) do update
+      set due_on = excluded.due_on,
+          state = 'scheduled',
+          cancelled_reason = null,
+          updated_at = now();
+  end if;
+
+  if p_to_state = 'passed'
+     or (current_plan.state in ('approved','followup') and p_to_state in ('denied','pending'))
+     or (p_to_state = 'followup' and p_result is not null) then
+    update missionaccounts.grace_window
+    set to_on = p_today,
+        closed_reason = case when p_to_state = 'passed' then 'passed' else coalesce(p_result, p_to_state) end,
+        closed_at = now()
+    where exam_plan_id = current_plan.id and to_on is null;
+    update missionaccounts.reminder
+    set state = 'cancelled',
+        cancelled_reason = case when p_to_state = 'passed' then 'result_recorded' else 'plan_changed' end,
+        updated_at = now()
+    where exam_plan_id = current_plan.id and state in ('scheduled','due');
+  end if;
+
+  update missionaccounts.exam_plan
+  set state = p_to_state,
+      result = case when p_to_state = 'passed' then 'passed' when p_to_state = 'followup' then p_result else null end,
+      note = p_note,
+      decided_by = p_actor_id,
+      decided_at = now(),
+      passed_on = case
+        when p_to_state = 'passed' then p_today
+        when current_plan.state = 'passed' and p_to_state = 'pending' then null
+        else passed_on
+      end
+  where id = current_plan.id
+  returning * into current_plan;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id, p_actor_role, current_plan.student_id, 'exam_plan.transition',
+    'Exam plan state changed',
+    jsonb_build_object('state', (select from_state from missionaccounts.exam_transition where id = transition_id)),
+    jsonb_build_object('state', p_to_state, 'result', p_result, 'today', p_today),
+    p_note, p_request_id
+  ) returning id into audit_id;
+
+  insert into missionaccounts.notification_outbox(
+    student_id, channel, event_kind, payload, state, idempotency_key
+  ) values (
+    current_plan.student_id,
+    'matrix',
+    'exam_plan.' || p_to_state,
+    jsonb_build_object('student_id', current_plan.student_id, 'exam_plan_id', current_plan.id, 'state', p_to_state, 'result', p_result),
+    'pending',
+    p_request_id || ':exam-plan-transition'
+  ) on conflict (idempotency_key) do nothing;
+
+  return jsonb_build_object(
+    'accepted', true,
+    'plan', to_jsonb(current_plan),
+    'transition_id', transition_id,
+    'audit_event_id', audit_id,
+    'reminder_due', reminder_due,
+    'duplicate', false
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_transition_exam_plan(uuid, text, text, text, date, text, text, text) to service_role;
 
 create table missionaccounts.sync_run (
   id uuid primary key default gen_random_uuid(),

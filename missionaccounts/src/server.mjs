@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readRawBody, readJsonBody, parseJsonBody } from './http/body.mjs';
 import { StripeGateway } from './payments/stripe.mjs';
+import { localDayFromIso } from './domain/billing-engine.mjs';
 import { authenticate, requireRole } from './security/auth.mjs';
 import { PreviewStore, SupabaseRestStore } from './storage/supabase-rest.mjs';
 
@@ -73,6 +74,7 @@ export function createMissionAccountsServer({
   store = environmentStore(),
   stripeGateway = environmentStripeGateway(),
   publicDir = defaultPublicDir,
+  now = () => new Date(),
 } = {}) {
   async function studentContext(identity) {
     const student = await store.studentByMatrixUser(identity.userId);
@@ -175,6 +177,40 @@ export function createMissionAccountsServer({
         requestId: requestIdFor(request),
       });
       return json(response, result.duplicate ? 200 : 201, result);
+    }
+    const examTransitionRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/exam-plans\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/(approve|deny|speak|followup|reopen|result)$/i)
+      : null;
+    if (examTransitionRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'examPlans');
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const action = examTransitionRoute[2].toLowerCase();
+      const note = String(body.note || '').trim();
+      const resultValue = body.result == null ? null : String(body.result);
+      const toState = action === 'approve' ? 'approved'
+        : action === 'deny' ? 'denied'
+          : action === 'reopen' ? 'pending'
+            : action === 'result' && resultValue === 'passed' ? 'passed'
+              : action === 'result' ? 'followup'
+                : action;
+      if (action === 'result' && !['passed', 'not_passed', 'no_result'].includes(resultValue)) {
+        throw requestError('Result must be passed, not_passed, or no_result');
+      }
+      if (['deny', 'speak', 'reopen', 'followup'].includes(action) && !note) {
+        throw requestError('A reason is required for this exam-plan action');
+      }
+      const result = await store.transitionExamPlan({
+        planId: examTransitionRoute[1],
+        toState,
+        result: action === 'result' ? resultValue : null,
+        note: note || null,
+        today: localDayFromIso(now().toISOString()),
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.accepted === false ? 409 : 200, result);
     }
     if (request.method === 'GET' && url.pathname === '/api/admin/health') {
       requireRole(identity, ['missionaccounts_admin', 'founder']);

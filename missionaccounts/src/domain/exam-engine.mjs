@@ -2,10 +2,10 @@ import { assertIsoDay } from './billing-engine.mjs';
 
 const TRANSITIONS = {
   pending: new Set(['approved', 'speak', 'denied']),
-  speak: new Set(['approved', 'denied', 'pending']),
+  speak: new Set(['approved', 'denied']),
   denied: new Set(['pending', 'approved']),
   approved: new Set(['passed', 'followup', 'denied', 'pending']),
-  followup: new Set(['approved', 'passed', 'followup', 'denied', 'pending']),
+  followup: new Set(['approved', 'passed', 'followup', 'pending']),
   passed: new Set(['pending']),
 };
 

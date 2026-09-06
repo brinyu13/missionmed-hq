@@ -1,3 +1,5 @@
+import { transitionExamPlan as applyExamTransition } from '../domain/exam-engine.mjs';
+
 export class SupabaseRestStore {
   constructor({ url, serviceKey, schema = 'missionaccounts' }) {
     if (!url || !serviceKey) throw new Error('MissionAccounts database is not configured');
@@ -72,6 +74,19 @@ export class SupabaseRestStore {
     });
   }
 
+  async transitionExamPlan({ planId, toState, result, note, today, actorId, actorRole, requestId }) {
+    return this.rpc('api_transition_exam_plan', {
+      p_plan_id: planId,
+      p_to_state: toState,
+      p_result: result || null,
+      p_note: note || null,
+      p_today: today,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
     const rows = await this.request('provider_event_inbox?on_conflict=provider%2Cprovider_event_id', {
       method: 'POST',
@@ -107,6 +122,7 @@ export class PreviewStore {
     this.examMutations = new Map();
     this.compSettings = new Map();
     this.compMutations = new Map();
+    this.examTransitions = new Map();
   }
 
   async studentByMatrixUser(userId) {
@@ -123,8 +139,9 @@ export class PreviewStore {
       return { ...existing.result, duplicate: true };
     }
     const prior = this.examPlans.get(studentId) || null;
+    const ordinal = this.examMutations.size + 1;
     const plan = {
-      id: `preview-plan-${this.examMutations.size + 1}`,
+      id: `00000000-0000-4000-9000-${String(ordinal).padStart(12, '0')}`,
       student_id: studentId,
       step,
       exam_on: examOn,
@@ -132,7 +149,7 @@ export class PreviewStore {
       submitted_by: actorId,
       supersedes_id: prior?.id || null,
     };
-    const result = { plan, audit_event_id: `preview-audit-${this.examMutations.size + 1}` };
+    const result = { plan, audit_event_id: `preview-audit-${ordinal}` };
     this.examPlans.set(studentId, plan);
     this.examMutations.set(requestId, { fingerprint, result });
     return result;
@@ -160,6 +177,38 @@ export class PreviewStore {
     this.compSettings.set(studentId, { allowance, joined_on: student.joined_at });
     this.compMutations.set(requestId, { fingerprint, result });
     return result;
+  }
+  async transitionExamPlan({ planId, toState, result, note, today, actorId, requestId }) {
+    const fingerprint = JSON.stringify({ planId, toState, result, note, today, actorId });
+    const existing = this.examTransitions.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    const entry = [...this.examPlans.entries()].find(([, plan]) => plan.id === planId);
+    if (!entry) throw Object.assign(new Error('Exam plan not found'), { status: 404 });
+    const [studentId, plan] = entry;
+    let resultPayload;
+    try {
+      const transition = applyExamTransition({ plan, to: toState, actor: actorId, today, result, note });
+      this.examPlans.set(studentId, transition.plan);
+      resultPayload = {
+        accepted: true,
+        plan: transition.plan,
+        effects: transition.effects,
+        audit_event_id: `preview-exam-audit-${this.examTransitions.size + 1}`,
+      };
+    } catch (error) {
+      resultPayload = {
+        accepted: false,
+        plan,
+        effects: null,
+        reason: error.message,
+        audit_event_id: `preview-exam-audit-${this.examTransitions.size + 1}`,
+      };
+    }
+    this.examTransitions.set(requestId, { fingerprint, result: resultPayload });
+    return resultPayload;
   }
   async recordProviderEvent({ provider, eventId }) {
     const key = `${provider}:${eventId}`;
