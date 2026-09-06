@@ -1236,7 +1236,7 @@ async function staffPaginationFlow(browser) {
 		const label = `staff pagination ${viewport.width}x${viewport.height}`;
 		const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "paged" }, viewport);
 		try {
-			assert(await page.getByText("Find a student and open their File Vault.", { exact: true }).isVisible(), `${label}: staff entry copy missing`);
+			assert(await page.getByText("Find a current student and open their File Vault.", { exact: true }).isVisible(), `${label}: staff entry copy missing`);
 			assert(await page.locator(".fv2-command-row").count() === 2, `${label}: first roster page is not bounded`);
 			assert(await page.locator(".fv2-metric").count() === 0, `${label}: dashboard KPI cards returned`);
 			await page.getByRole("button", { name: "Load more students" }).click();
@@ -1318,6 +1318,36 @@ async function filteredPaginationFocusFlow(browser) {
 		assert(await page.locator('p[aria-live="polite"]').getByText("2 activity events loaded.", { exact: true }).isVisible(), "filtered pagination 375x812: hidden incoming activity count was not announced");
 		await overflowAudit(page, "filtered pagination 375x812");
 		assert(diagnostics.length === 0, `filtered pagination 375x812: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
+async function staffCourseFilterFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "paged" }, { width: 1280, height: 800 });
+	try {
+		await page.evaluate(() => {
+			const instance = window.__FV2_HARNESS__.instance;
+			const data = instance.state.staffData || instance.state.data;
+			data.staff_courses = [
+				{ id: 901, label: "360 Match Mentorship" },
+				{ id: 902, label: "IV Prep Essentials" }
+			];
+			data.students[0].program_label = "360 Match Mentorship";
+			data.students[1].program_label = "IV Prep Essentials";
+			instance.render();
+		});
+		const courseFilter = page.locator("[data-fv2-staff-course]");
+		assert(await courseFilter.isVisible(), "staff course filter: current-course selector is absent");
+		assert((await courseFilter.locator("option").allTextContents()).join("|") === "All current students|360 Match Mentorship|IV Prep Essentials", "staff course filter: canonical course choices are incomplete");
+		assert((await page.locator(".fv2-command-row").first().textContent()).includes("360 Match Mentorship"), "staff course filter: roster rows do not identify each current program");
+		await courseFilter.selectOption("901");
+		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/students" && Number(call.query.course_id) === 901));
+		assert(await courseFilter.evaluate(node => document.activeElement === node), "staff course filter: filtered response did not preserve selector focus");
+		assert((await courseFilter.inputValue()) === "901", "staff course filter: selected course was not preserved after render");
+		await overflowAudit(page, "staff course filter 1280x800");
+		await browserAccessibilityAudit(page, "staff course filter 1280x800");
+		assert(diagnostics.length === 0, `staff course filter: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
 		await context.close();
 	}
@@ -1587,6 +1617,7 @@ async function main() {
 		await staffPaginationFlow(browser);
 		await auditCursorBoundaryFlow(browser);
 		await filteredPaginationFocusFlow(browser);
+		await staffCourseFilterFlow(browser);
 		await staffSearchRaceFlow(browser);
 		await staffPaginationStudentRaceFlow(browser);
 		await mentorFlow(browser);

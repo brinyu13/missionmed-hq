@@ -295,6 +295,7 @@
 			auditPagination: null,
 			auditSearch: "",
 			commandSearch: "",
+			staffCourseId: 0,
 			staffSearchData: null,
 			staffSearchLoading: false,
 			staffSearchError: "",
@@ -1308,22 +1309,30 @@
 		if (!this.roleIsStaff()) return this.vaultMarkup();
 		var data = this.state.staffData || this.state.data || {};
 		var query = this.state.commandSearch.trim().toLowerCase();
-		var listing = query && this.state.staffSearchData ? this.state.staffSearchData : data;
+		var courseId = positiveInt(this.state.staffCourseId);
+		var hasStaffFilter = !!query || !!courseId;
+		var listing = hasStaffFilter && this.state.staffSearchData ? this.state.staffSearchData : data;
 		var pagination = listing.staff_pagination && typeof listing.staff_pagination === "object" ? listing.staff_pagination : { has_more: false, scope_complete: true };
 		var students = Array.isArray(listing.students) ? listing.students : [];
+		var courses = Array.isArray(data.staff_courses) ? data.staff_courses : [];
+		var courseOptions = courses.map(function (course) {
+			var id = positiveInt(course && course.id);
+			return id ? '<option value="' + id + '"' + (id === courseId ? " selected" : "") + '>' + esc(course.label || "MissionMed course") + "</option>" : "";
+		}).join("");
 		var studentRows = students.length ? '<div class="fv2-command-list">' + students.map(function (student) {
 			var id = positiveInt(student.id);
 			var documentCount = Math.max(0, Number(student.document_count) || 0);
 			var attentionCount = Math.max(0, Number(student.needs_attention) || 0);
 			var detail = documentCount + (documentCount === 1 ? " document" : " documents");
 			if (attentionCount) detail += " / " + attentionCount + " need" + (attentionCount === 1 ? "s" : "") + " attention";
+			if (student.program_label) detail = student.program_label + " / " + detail;
 			return '<button type="button" class="fv2-command-row" data-fv2-action="load-student" data-fv2-student-id="' + id + '" data-fv2-focus-key="student-' + id + '"><span class="fv2-student-monogram" aria-hidden="true">' + esc(String(student.display_name || "S").charAt(0).toUpperCase()) + '</span><span class="fv2-command-student"><strong>' + esc(student.display_name || "Student") + '</strong><small>' + esc(detail) + '</small></span><span class="fv2-command-open">Open File Vault</span>' + icon("arrowRight") + "</button>";
-		}).join("") + "</div>" : this.stateMessageMarkup("empty", query ? "No matching students" : "No students in scope", query ? "Try a different name." : "No students are available in this staff view.", "");
-		if (query && this.state.staffSearchLoading) studentRows = this.stateMessageMarkup("loading", "Searching students", "Checking your MissionMed roster.", "");
-		else if (query && this.state.staffSearchError) studentRows = this.stateMessageMarkup("error", "Student search unavailable", this.state.staffSearchError, "");
+		}).join("") + "</div>" : this.stateMessageMarkup("empty", hasStaffFilter ? "No matching enrolled students" : "No students in scope", hasStaffFilter ? "Try another name or course." : "No current MissionMed students are available in this staff view.", "");
+		if (hasStaffFilter && this.state.staffSearchLoading) studentRows = this.stateMessageMarkup("loading", "Filtering students", "Checking the current MissionMed roster.", "");
+		else if (hasStaffFilter && this.state.staffSearchError) studentRows = this.stateMessageMarkup("error", "Student directory unavailable", this.state.staffSearchError, "");
 		var loadMore = pagination.has_more || this.state.staffLoadError ? '<div class="fv2-modal-actions">' + (this.state.staffLoadError ? '<span role="alert">' + esc(this.state.staffLoadError) + "</span>" : "") + '<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="load-more-staff" data-fv2-focus-key="staff-load-more"' + (this.state.staffLoadingMore ? " disabled" : "") + ">" + icon("refresh") + (this.state.staffLoadingMore ? "Loading roster" : "Load more students") + "</button></div>" : "";
 		var queue = Array.isArray(data.review_queue) ? data.review_queue : [];
-			return '<div class="fv2-staff-workspace"><section class="fv2-staff-entry"><span class="fv2-home-eyebrow">MissionMed staff workspace</span><h1 tabindex="-1" data-fv2-page-heading>Whose File Vault would you like to <em>open?</em></h1><p>Find a student and open their File Vault.</p><label class="fv2-staff-search">' + icon("search") + '<span class="fv2-sr-only">Search students</span><input type="search" data-fv2-command-search data-fv2-focus-key="command-search" value="' + escAttr(this.state.commandSearch) + '" placeholder="Search students by name"></label><div class="fv2-staff-entry-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="review">' + icon("clock") + 'Review Queue <span>' + esc(queue.length) + '</span></button><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="audit">' + icon("activity") + 'Staff Activity</button></div></section><section class="fv2-section fv2-students-section"><div class="fv2-section-heading"><div><span>Your students</span><h2>Open a student File Vault</h2></div></div>' + studentRows + loadMore + '</section></div><p class="fv2-sr-only" aria-live="polite">' + esc(this.state.paginationAnnouncement) + "</p>";
+		return '<div class="fv2-staff-workspace"><section class="fv2-staff-entry"><span class="fv2-home-eyebrow">MissionMed staff workspace</span><h1 tabindex="-1" data-fv2-page-heading>Whose File Vault would you like to <em>open?</em></h1><p>Find a current student and open their File Vault.</p><div class="fv2-staff-filters"><label class="fv2-staff-search">' + icon("search") + '<span class="fv2-sr-only">Search students</span><input type="search" data-fv2-command-search data-fv2-focus-key="command-search" value="' + escAttr(this.state.commandSearch) + '" placeholder="Search current students by name"></label><label class="fv2-staff-course-filter"><span>Course</span><select data-fv2-staff-course data-fv2-focus-key="staff-course"><option value="">All current students</option>' + courseOptions + '</select></label></div><div class="fv2-staff-entry-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="review">' + icon("clock") + 'Review Queue <span>' + esc(queue.length) + '</span></button><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="audit">' + icon("activity") + 'Staff Activity</button></div></section><section class="fv2-section fv2-students-section"><div class="fv2-section-heading"><div><span>Your current students</span><h2>Open a student File Vault</h2></div></div>' + studentRows + loadMore + '</section></div><p class="fv2-sr-only" aria-live="polite">' + esc(this.state.paginationAnnouncement) + "</p>";
 	};
 
 	FileVaultV2.prototype.auditMarkup = function () {
@@ -1808,6 +1817,16 @@
 		if (target.matches("[data-fv2-student-picker]")) {
 			var studentId = positiveInt(target.value);
 			if (studentId) this.loadStudent(studentId, { view: "vault" });
+			return;
+		}
+		if (target.matches("[data-fv2-staff-course]")) {
+			this.state.staffCourseId = positiveInt(target.value);
+			if (this.staffSearchTimer) {
+				window.clearTimeout(this.staffSearchTimer);
+				this.timers.delete(this.staffSearchTimer);
+				this.staffSearchTimer = 0;
+			}
+			this.loadStaffSearch(this.state.commandSearch, "staff-course");
 			return;
 		}
 		if (target.matches("[data-fv2-file-type]")) {
@@ -2405,20 +2424,23 @@
 		});
 	};
 
-	FileVaultV2.prototype.loadStaffSearch = function (query) {
+	FileVaultV2.prototype.loadStaffSearch = function (query, focusKey) {
 		var self = this;
 		query = String(query || "").trim();
+		var courseId = positiveInt(this.state.staffCourseId);
+		var hasStaffFilter = !!query || !!courseId;
+		focusKey = focusKey || "command-search";
 		if (!this.roleIsStaff()) return Promise.resolve();
 		if (this.staffSearchController && typeof this.staffSearchController.abort === "function") this.staffSearchController.abort();
 		this.staffSearchController = null;
 		var requestToken = ++this.staffSearchToken;
-		if (!query) {
+		if (!hasStaffFilter) {
 			this.state.staffSearchData = null;
 			this.state.staffSearchLoading = false;
 			this.state.staffSearchError = "";
 			this.state.staffLoadingMore = false;
 			this.state.staffLoadError = "";
-			this.render({ focusKey: "command-search" });
+			this.render({ focusKey: focusKey });
 			return Promise.resolve();
 		}
 		var controller = typeof window.AbortController === "function" ? new window.AbortController() : null;
@@ -2427,42 +2449,46 @@
 		this.state.staffSearchError = "";
 		this.state.staffLoadError = "";
 		this.state.staffLoadingMore = false;
-		this.render({ focusKey: "command-search" });
-		return this.request("GET", "/students", null, { search: query, page: 1, per_page: 50 }, controller && controller.signal).then(function (payload) {
-			if (self.destroyed || requestToken !== self.staffSearchToken || self.state.commandSearch.trim() !== query) return;
+		this.render({ focusKey: focusKey });
+		return this.request("GET", "/students", null, { search: query, course_id: courseId, page: 1, per_page: 50 }, controller && controller.signal).then(function (payload) {
+			if (self.destroyed || requestToken !== self.staffSearchToken || self.state.commandSearch.trim() !== query || positiveInt(self.state.staffCourseId) !== courseId) return;
 			if (!payload || typeof payload !== "object" || !Array.isArray(payload.students) || !payload.pagination || typeof payload.pagination !== "object") {
 				throw new Error("File Vault returned malformed student search data.");
 			}
 			self.staffSearchController = null;
 			self.state.staffSearchData = {
 				students: payload.students,
+				staff_courses: Array.isArray(payload.courses) ? payload.courses : ((self.state.staffData && self.state.staffData.staff_courses) || []),
+				selected_course_id: courseId,
 				staff_pagination: payload.pagination
 			};
 			self.state.staffSearchLoading = false;
 			self.state.paginationAnnouncement = payload.students.length + (payload.students.length === 1 ? " matching student found." : " matching students found.");
-			self.render({ focusKey: "command-search" });
+			self.render({ focusKey: focusKey });
 		}).catch(function (error) {
-			if (self.destroyed || requestToken !== self.staffSearchToken || (error && error.name === "AbortError")) return;
+			if (self.destroyed || requestToken !== self.staffSearchToken || positiveInt(self.state.staffCourseId) !== courseId || (error && error.name === "AbortError")) return;
 			self.staffSearchController = null;
 			self.state.staffSearchData = null;
 			self.state.staffSearchLoading = false;
 			self.state.staffSearchError = errorMessage(error, "Student search could not be completed.");
 			self.state.paginationAnnouncement = "Student search unavailable.";
-			self.render({ focusKey: "command-search" });
+			self.render({ focusKey: focusKey });
 		});
 	};
 
 	FileVaultV2.prototype.loadMoreStaff = function () {
 		var self = this;
 		var searchQuery = this.state.commandSearch.trim();
-		var data = searchQuery && this.state.staffSearchData ? this.state.staffSearchData : (this.state.staffData || this.state.data || {});
+		var courseId = positiveInt(this.state.staffCourseId);
+		var hasStaffFilter = !!searchQuery || !!courseId;
+		var data = hasStaffFilter && this.state.staffSearchData ? this.state.staffSearchData : (this.state.staffData || this.state.data || {});
 		var pagination = data.staff_pagination || {};
 		var page = positiveInt(pagination.next_page);
 		if (!this.roleIsStaff() || !page || this.state.staffLoadingMore) return Promise.resolve();
 		var searchToken = this.staffSearchToken;
 		var selectedStudentId = positiveInt(this.state.selectedStudentId);
 		var requestController = null;
-		if (searchQuery && typeof window.AbortController === "function") {
+		if (hasStaffFilter && typeof window.AbortController === "function") {
 			if (this.staffSearchController && typeof this.staffSearchController.abort === "function") this.staffSearchController.abort();
 			requestController = new window.AbortController();
 			this.staffSearchController = requestController;
@@ -2471,15 +2497,17 @@
 		this.state.staffLoadError = "";
 		this.state.paginationAnnouncement = "";
 		this.render({ focusKey: "staff-load-more" });
-		return this.request("GET", "/students", null, { search: searchQuery, page: page, per_page: positiveInt(pagination.per_page) || 50 }, requestController && requestController.signal).then(function (payload) {
-			if (self.destroyed || positiveInt(self.state.selectedStudentId) !== selectedStudentId || (searchQuery && (searchToken !== self.staffSearchToken || self.state.commandSearch.trim() !== searchQuery))) return;
+		return this.request("GET", "/students", null, { search: searchQuery, course_id: courseId, page: page, per_page: positiveInt(pagination.per_page) || 50 }, requestController && requestController.signal).then(function (payload) {
+			if (self.destroyed || positiveInt(self.state.selectedStudentId) !== selectedStudentId || (hasStaffFilter && (searchToken !== self.staffSearchToken || self.state.commandSearch.trim() !== searchQuery || positiveInt(self.state.staffCourseId) !== courseId))) return;
 			if (!payload || typeof payload !== "object" || !Array.isArray(payload.students) || !Array.isArray(payload.review_queue) || !payload.pagination || typeof payload.pagination !== "object") {
 				throw new Error("File Vault returned malformed staff pagination data.");
 			}
-			if (searchQuery && self.staffSearchController === requestController) self.staffSearchController = null;
+			if (hasStaffFilter && self.staffSearchController === requestController) self.staffSearchController = null;
 			data.students = self.mergeStaffRows(data.students, payload.students);
 			data.staff_pagination = payload.pagination;
-			if (searchQuery) self.state.staffSearchData = data;
+			data.staff_courses = Array.isArray(payload.courses) ? payload.courses : (data.staff_courses || []);
+			data.selected_course_id = courseId;
+			if (hasStaffFilter) self.state.staffSearchData = data;
 			else {
 				data.review_queue = self.mergeStaffRows(data.review_queue, payload.review_queue).sort(function (left, right) {
 					return String(left.updated_at || "").localeCompare(String(right.updated_at || ""));
@@ -2493,10 +2521,10 @@
 			var studentQuery = self.state.commandSearch.trim().toLowerCase();
 			var firstVisibleStudent = payload.students[0];
 			var firstStudentId = positiveInt(firstVisibleStudent && firstVisibleStudent.id);
-			self.render({ focusKey: firstStudentId ? "student-" + firstStudentId : (studentQuery ? "command-search" : (payload.pagination.has_more ? "staff-load-more" : "nav-command")) });
+			self.render({ focusKey: firstStudentId ? "student-" + firstStudentId : (studentQuery ? "command-search" : (courseId ? "staff-course" : (payload.pagination.has_more ? "staff-load-more" : "nav-command"))) });
 		}).catch(function (error) {
-			if (self.destroyed || positiveInt(self.state.selectedStudentId) !== selectedStudentId || (searchQuery && (searchToken !== self.staffSearchToken || self.state.commandSearch.trim() !== searchQuery)) || (error && error.name === "AbortError")) return;
-			if (searchQuery && self.staffSearchController === requestController) self.staffSearchController = null;
+			if (self.destroyed || positiveInt(self.state.selectedStudentId) !== selectedStudentId || (hasStaffFilter && (searchToken !== self.staffSearchToken || self.state.commandSearch.trim() !== searchQuery || positiveInt(self.state.staffCourseId) !== courseId)) || (error && error.name === "AbortError")) return;
+			if (hasStaffFilter && self.staffSearchController === requestController) self.staffSearchController = null;
 			self.state.staffLoadingMore = false;
 			self.state.staffLoadError = errorMessage(error, "The next roster page could not be loaded.");
 			self.state.paginationAnnouncement = "Roster page not loaded.";

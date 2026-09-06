@@ -1561,6 +1561,54 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	}
 
 	/**
+	 * Resolve configured MissionMed programs to their canonical LearnDash courses.
+	 *
+	 * @return array
+	 */
+	protected static function configured_program_courses() {
+		$definitions = array(
+			array( 'option' => 'mmed_course_360elite', 'label' => '360 Match Mentorship', 'tiers' => array( '360elite', '360elite_onboarding', '360_elite' ) ),
+			array( 'option' => 'mmed_course_complete', 'label' => 'IV Prep Complete', 'tiers' => array( 'complete' ) ),
+			array( 'option' => 'mmed_course_foundation', 'label' => 'IV Prep Essentials', 'tiers' => array( 'foundation' ) ),
+			array( 'option' => 'mmed_course_usmle', 'label' => 'USMLE Exam Prep', 'tiers' => array( 'usmle' ) ),
+			array( 'option' => 'mmed_course_usce', 'label' => 'USCE / Clinicals', 'tiers' => array( 'usce', 'usce_onboarding' ) ),
+		);
+		$courses = array();
+		$tiers   = array();
+		foreach ( $definitions as $definition ) {
+			$default   = function_exists( 'mmed_hub_default_option_value' ) ? mmed_hub_default_option_value( $definition['option'] ) : 0;
+			$course_id = absint( get_option( $definition['option'], $default ) );
+			if ( ! $course_id ) {
+				continue;
+			}
+			$label = trim( sanitize_text_field( html_entity_decode( (string) get_the_title( $course_id ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+			if ( ! isset( $courses[ $course_id ] ) ) {
+				$courses[ $course_id ] = array(
+					'id'    => $course_id,
+					'label' => $label ? $label : $definition['label'],
+				);
+			}
+			foreach ( $definition['tiers'] as $tier ) {
+				$tiers[ $tier ] = $course_id;
+			}
+		}
+		return array(
+			'courses' => array_values( $courses ),
+			'tiers'   => $tiers,
+		);
+	}
+
+	/**
+	 * Return canonical course choices for the staff roster filter.
+	 *
+	 * @return array
+	 */
+	public static function staff_course_filters() {
+		$config = self::configured_program_courses();
+		return $config['courses'];
+	}
+
+	/**
 	 * Return current canonical educational enrollment context for one user.
 	 *
 	 * @param int $user_id WordPress user ID.
@@ -1601,6 +1649,26 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			if ( empty( $course_ids ) ) {
 				$request_cache[ $user_id ] = false;
 				return false;
+			}
+
+			// Legacy LearnDash associations can outlive the MissionMed program that
+			// granted them. A configured MissionMed course is current only when the
+			// student's canonical program tier points back to that same course.
+			$program_config       = self::configured_program_courses();
+			$canonical_course_ids = array_values( array_filter( array_map( 'absint', wp_list_pluck( $program_config['courses'], 'id' ) ) ) );
+			$canonical_enrollment = array_values( array_intersect( $course_ids, $canonical_course_ids ) );
+			if ( ! empty( $canonical_enrollment ) ) {
+				$program_tier     = sanitize_key( get_user_meta( $user_id, '_mmed_program_tier', true ) );
+				$aligned_course   = absint( $program_config['tiers'][ $program_tier ] ?? 0 );
+				$extension_courses = array_values( array_diff( $course_ids, $canonical_course_ids ) );
+				if ( $aligned_course && in_array( $aligned_course, $canonical_enrollment, true ) ) {
+					$extension_courses[] = $aligned_course;
+				}
+				$course_ids = array_values( array_unique( $extension_courses ) );
+				if ( empty( $course_ids ) ) {
+					$request_cache[ $user_id ] = false;
+					return false;
+				}
 			}
 		}
 
@@ -1713,19 +1781,24 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 * @param int    $page One-based roster page.
 	 * @param int    $per_page Bounded roster page size.
 	 * @param bool   $include_audit Build bounded operational event data.
+	 * @param int    $course_id Optional canonical course filter.
 	 * @return array|WP_Error
 	 */
-	public static function staff_scope( $viewer_role, $viewer_id, $search = '', $page = 1, $per_page = self::STAFF_PAGE_SIZE, $include_audit = false ) {
+	public static function staff_scope( $viewer_role, $viewer_id, $search = '', $page = 1, $per_page = self::STAFF_PAGE_SIZE, $include_audit = false, $course_id = 0 ) {
 		global $wpdb;
 
-		$page     = max( 1, absint( $page ) );
-		$per_page = absint( $per_page );
-		$per_page = $per_page ? min( self::STAFF_PAGE_SIZE, $per_page ) : self::STAFF_PAGE_SIZE;
+		$page           = max( 1, absint( $page ) );
+		$per_page       = absint( $per_page );
+		$per_page       = $per_page ? min( self::STAFF_PAGE_SIZE, $per_page ) : self::STAFF_PAGE_SIZE;
+		$course_id      = absint( $course_id );
+		$course_filters = self::staff_course_filters();
 		$empty = array(
-			'students'     => array(),
-			'review_queue' => array(),
-			'audit_events' => array(),
-			'pagination'   => array(
+			'students'           => array(),
+			'review_queue'       => array(),
+			'audit_events'       => array(),
+			'courses'            => $course_filters,
+			'selected_course_id' => $course_id,
+			'pagination'         => array(
 				'page'           => $page,
 				'per_page'       => $per_page,
 				'has_more'       => false,
@@ -1737,8 +1810,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( ! in_array( $viewer_role, array( 'admin', 'mentor' ), true ) ) {
 			return $empty;
 		}
+		if ( $course_id && ! in_array( $course_id, array_map( 'absint', wp_list_pluck( $course_filters, 'id' ) ), true ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_course_filter_invalid', 'The requested MissionMed course is not available in this staff roster.', array( 'status' => 422 ) );
+		}
 
-		$users       = self::eligible_student_page( $viewer_role, $viewer_id, $search, $page, $per_page );
+		$users       = self::eligible_student_page( $viewer_role, $viewer_id, $search, $page, $per_page, $course_id ? array( $course_id ) : null );
 		if ( is_wp_error( $users ) ) {
 			return $users;
 		}
@@ -1868,10 +1944,12 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			}
 		);
 		return array(
-			'students'     => $students,
-			'review_queue' => $queue,
-			'audit_events' => $events,
-			'pagination'   => array(
+			'students'           => $students,
+			'review_queue'       => $queue,
+			'audit_events'       => $events,
+			'courses'            => $course_filters,
+			'selected_course_id' => $course_id,
+			'pagination'         => array(
 				'page'           => $page,
 				'per_page'       => $per_page,
 				'has_more'       => $has_more,

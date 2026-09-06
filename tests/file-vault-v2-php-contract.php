@@ -171,6 +171,7 @@ fv2_assert( false !== strpos( $repository_source, "'internal_notes'  => array()"
 fv2_assert( false !== strpos( $controller_source, 'mmed_file_vault_v2_mission_file_forbidden' ) && false !== strpos( $repository_source, "['source']    = 'MissionMed'" ), 'Mission File provenance is admin-authorized and server-owned' );
 fv2_assert( false !== strpos( $repository_source, "'moderation_status'" ) && false !== strpos( $repository_source, 'mmed_file_vault_v2_share_moderated' ), 'student-shared moderation persists server-side and cannot be bypassed by republishing' );
 fv2_assert( false !== strpos( $repository_source, 'source_revision' ) && false !== strpos( $repository_source, 'record_download_event' ), 'shared files pin immutable revisions and append normalized download evidence' );
+fv2_assert( false !== strpos( $repository_source, "'_mmed_program_tier'" ) && false !== strpos( $repository_source, 'mmed_file_vault_v2_course_filter_invalid' ), 'staff roster requires aligned current MissionMed enrollment and rejects unknown course filters' );
 
 MMED_File_Vault_V2::register_routes();
 fv2_assert( 25 === count( $GLOBALS['fv2_routes'] ), 'expected additive V2 route count' );

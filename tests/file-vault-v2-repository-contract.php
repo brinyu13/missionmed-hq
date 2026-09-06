@@ -936,6 +936,36 @@ fv2_repo_assert( false === MMED_File_Vault_V2_Repository::enrollment_context( 11
 $GLOBALS['fv2_tiers'][11002] = 'enrolled';
 fv2_repo_assert( false === MMED_File_Vault_V2_Repository::enrollment_context( 11002 ), 'cached enrolled tier cannot replace current LearnDash enrollment' );
 
+// Configured MissionMed courses require an aligned canonical program tier.
+$GLOBALS['fv2_options']['mmed_course_360elite']   = 9101;
+$GLOBALS['fv2_options']['mmed_course_foundation'] = 9102;
+$GLOBALS['fv2_course_titles'][9101] = '360 Match Mentorship';
+$GLOBALS['fv2_course_titles'][9102] = 'IV Prep Essentials';
+$GLOBALS['fv2_users'] = array(
+	(object) array( 'ID' => 11501, 'display_name' => 'Legacy Account Fixture' ),
+	(object) array( 'ID' => 11502, 'display_name' => 'Current 360 Fixture' ),
+	(object) array( 'ID' => 11503, 'display_name' => 'Current Essentials Fixture' ),
+	(object) array( 'ID' => 11504, 'display_name' => 'Mismatched Program Fixture' ),
+);
+$GLOBALS['fv2_enrolled_courses'][11501] = array( 9101 );
+$GLOBALS['fv2_enrolled_courses'][11502] = array( 9101 );
+$GLOBALS['fv2_enrolled_courses'][11503] = array( 9102 );
+$GLOBALS['fv2_enrolled_courses'][11504] = array( 9101 );
+$GLOBALS['fv2_user_meta'][11502]['_mmed_program_tier'] = '360elite';
+$GLOBALS['fv2_user_meta'][11503]['_mmed_program_tier'] = 'foundation';
+$GLOBALS['fv2_user_meta'][11504]['_mmed_program_tier'] = 'foundation';
+$GLOBALS['fv2_gate_courses'] = array( 9101, 9102 );
+fv2_repo_assert( false === MMED_File_Vault_V2_Repository::enrollment_context( 11501 ), 'configured course association without a canonical program tier is excluded' );
+fv2_repo_assert( false === MMED_File_Vault_V2_Repository::enrollment_context( 11504 ), 'program tier mapped to a different course is excluded' );
+$current_360 = MMED_File_Vault_V2_Repository::enrollment_context( 11502 );
+fv2_repo_assert( is_array( $current_360 ) && array( 9101 ) === $current_360['group_ids'], 'aligned 360 tier and course remain eligible' );
+$filtered_scope = MMED_File_Vault_V2_Repository::staff_scope( 'admin', 20, '', 1, 50, false, 9102 );
+fv2_repo_assert( ! is_wp_error( $filtered_scope ) && array( 11503 ) === array_column( $filtered_scope['students'], 'id' ), 'staff course filter returns only current students in the selected course' );
+fv2_repo_assert( 9102 === $filtered_scope['selected_course_id'] && array( 9101, 9102 ) === array_column( $filtered_scope['courses'], 'id' ), 'staff scope returns canonical course choices and selected state' );
+$invalid_filter = MMED_File_Vault_V2_Repository::staff_scope( 'admin', 20, '', 1, 50, false, 9999 );
+fv2_repo_assert( is_wp_error( $invalid_filter ) && 'mmed_file_vault_v2_course_filter_invalid' === $invalid_filter->get_error_code(), 'unknown staff course filters fail closed' );
+unset( $GLOBALS['fv2_options']['mmed_course_360elite'], $GLOBALS['fv2_options']['mmed_course_foundation'] );
+
 $GLOBALS['fv2_users'] = array();
 $GLOBALS['fv2_gate_courses'] = array();
 for ( $i = 0; $i < 150; $i++ ) {
