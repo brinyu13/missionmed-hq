@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Latest implementation commit:** `4676efa2a7b57676034fccd5e3963a595a4e71b3`
+**Latest implementation commit:** `34288a4ebe448f065ac693e8c3b63b39afa6eed3`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -18,10 +18,14 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - a default-off, exact-user-allowlisted WordPress SSO candidate plus a separately default-off, targetless, bounded same-origin gateway candidate; neither is installed in production;
 - a tracked scrubbed production shell that preserves the Founder-approved visual canon without embedding the 271-student/3,941-event historical payload or using browser local storage for business state;
 - mounted `/missionaccounts/api/*` support, a safe public runtime configuration endpoint, and authenticated role-scoped UI bootstraps that expose only the student’s own account to student sessions while reserving roster, cycles, identity clusters, and operational health for Dr J/admin/founder sessions;
+- a canonical authenticated read adapter that paginates PostgREST reads, projects immutable attendance evidence, keeps both same-day class events while deriving one $25 day, omits Zoom meeting references from student scope, and hydrates the approved UI only from server-authoritative UUID-mapped records;
+- a production action bus for the currently backed billing-decision, cycle-policy, comp-day, exam-plan/result, and append-only attendance-correction controls; each accepted action refetches the complete authorized bootstrap before rerendering, and unsupported production controls fail visibly without optimistic browser state;
 - an isolated Docker/Railway package whose copy allowlist excludes the private Founder preview, source manifest, historical import, and environment files; production startup fails closed without both explicit database target variables;
 - Stripe Test-Mode-only SetupIntent and one-day PaymentIntent adapters, exact raw-body webhook verification, retry-safe provider-inbox deduplication, secret-rotation signature support, and stable idempotency keys;
 - feature-gated student exam-plan submission with authenticated self-resolution, a transactional/idempotent PostgreSQL RPC, immutable transition and audit rows, prior-plan supersession, and notification outbox insertion;
 - feature-gated Dr J/admin comp-day override with mandatory reason, idempotent PostgreSQL transaction, joined-date custody, prospective lock preservation by default, explicit retroactive-release handling, and append-only change/audit evidence;
+- auditable Matrix-account linkage with a unique no-relink contract, private Matrix reference handling, idempotent change custody, and exact post-2026-09-05 five-comp-day defaulting while established historical students remain at zero;
+- explicit Dr J historical-ceiling adjudication that can verify or reject only preserved candidates, writes a superseding exact-$300 row, stales unsent approvals, voids only draft/ready invoices, and leaves all 74 source candidates unresolved until a human decision;
 - feature-gated Dr J/admin exam decisions with the canonical transition matrix, exact local-date grace opening/closure, third-Wednesday reminder scheduling/cancellation, student notification outbox entries, idempotent retries, and preserved audit rows for rejected transitions;
 - exam-plan replacement now closes any prior open grace window on the server-supplied Eastern local date, cancels the prior reminder, recomputes attendance when grace changed, and remains idempotent even when replacement happens before the old exam date;
 - a versioned 13–15-day cycle-policy gate (`cap`, `per`, or reopened `pending`) that is admin-only, reason-required, idempotent, audited, RLS-protected, reflected in approval basis, and stales/voids only affected-cycle unsent decisions/invoices;
@@ -82,6 +86,7 @@ All implementation files are under `missionaccounts/`:
 - `scripts/test-postgres-migration.sh`
 - `scripts/test-historical-import.sh`
 - `public/missionaccounts-runtime.js`
+- `public/missionaccounts-canonical-adapter.js`
 - `public/missionaccounts-auth.js`
 - `public/index.production.html`
 - `Dockerfile`, `.dockerignore`, `railway.json`
@@ -108,11 +113,12 @@ All implementation files are under `missionaccounts/`:
 - `tests/notification-gateway.test.mjs`
 - `tests/auth.test.mjs`
 - `tests/runtime-security.test.mjs`
+- `tests/canonical-adapter.test.mjs`
 - `evidence/source-validation.json`
 
 ## Migration status
 
-- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (2,854 lines).
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,229 lines).
 - Applied locally: PASS in a disposable PostgreSQL 16 cluster; schema parse/application plus billing authority, append-only correction/reversal flow, mutation-triggered attendance recomputation, exam/grace/reminder effects, comp-override controls, Stripe SetupIntent completion, and billing-consent authorization/revocation passed. No persistent local database was created.
 - Historical import rehearsal: PASS in a separate disposable PostgreSQL 16 cluster. It imported 419 sessions, 5,498 raw source rows, 3,941 reconciled events, and 3,264 attendance days; retained 74 ceiling candidates and 60 identity-review holds; and created zero billing decisions, invoices, charges, verified ceilings, Matrix identities, or enabled flags. The private SQL bundle was deleted with the disposable cluster.
 - Applied to staging/production: NO — target database and migration authority are not registered.
@@ -120,7 +126,7 @@ All implementation files are under `missionaccounts/`:
 
 ## Verification
 
-- `npm test`: PASS — 90/90, including V01–V17 plus product-scoped SSO signature/claim/role enforcement, student/admin UI-bootstrap isolation, private-preview exclusion from production packaging, default-off WordPress bridge/gateway contracts, raw-body webhook, rotated-signature, duplicate-delivery, API-version, authorization, feature gates, billing approval/cap custody, audited 13–15-day cycle policy, append-only correction reversals, persisted attendance recomputation, exam-plan replacement/grace closure, exam/grace/reminder effects, student Passed ownership, comp overrides, admin/identity projections, payment setup/removal, consent/revocation, signed one-charge-per-day dispatch, and notification-worker retry controls.
+- `npm test`: PASS — 97/97, including V01–V17 plus product-scoped SSO signature/claim/role enforcement, paginated role-scoped canonical reads, same-day evidence preservation with one-day pricing, private Zoom-reference boundaries, authenticated production hydration, refresh-after-save action routing, student/admin UI-bootstrap isolation, private-preview exclusion from production packaging, default-off WordPress bridge/gateway contracts, raw-body webhook, rotated-signature, duplicate-delivery, API-version, authorization, feature gates, account linkage/default comp, historical-ceiling adjudication, billing approval/cap custody, audited 13–15-day cycle policy, append-only correction reversals, persisted attendance recomputation, exam-plan replacement/grace closure, exam/grace/reminder effects, student and admin Passed ownership, comp overrides, admin/identity projections, payment setup/removal, consent/revocation, signed one-charge-per-day dispatch, and notification-worker retry controls.
 - `npm run test:postgres`: PASS — complete migration applied to disposable PostgreSQL 16; unresolved cap approval was rejected, verified cap produced $300, correction staled approval and voided its draft, an immutable appended reversal restored attendance, comp/correction/grace mutations regenerated current day rows before re-approval, student Passed ownership was enforced, Stripe payment metadata was bound only through a signed SetupIntent event, consent required both approved terms and an on-file method, payment removal revoked consent before two-phase provider completion, parallel day-charge dispatch was rejected, only the bound signed PaymentIntent webhook marked the unique $25 charge succeeded, and claimed notifications were success/failure acknowledged with backoff.
 - `npm run test:historical-import`: PASS — all custody hashes, privacy permissions, source/control totals, per-cycle totals, review holds, and zero-financial-mutation boundaries passed in disposable PostgreSQL 16.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
