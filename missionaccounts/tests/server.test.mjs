@@ -147,6 +147,46 @@ test('student payment setup creates a stable Stripe customer and returns only Se
   });
 });
 
+test('student payment-method removal revokes billing consent before a retry-safe Stripe detach', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, autoBilling: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  store.seedPaymentMethod(studentId, { brand: 'visa', last4: '4242', status: 'on_file', provider_pm_ref: 'pm_test_remove_1' });
+  store.seedBillingTerms('test-terms-v1');
+  await store.setBillingConsent({
+    studentId,
+    action: 'authorize',
+    termsVersion: 'test-terms-v1',
+    acceptedIp: '127.0.0.1',
+    reason: 'Student accepted test terms',
+    actorId: studentId,
+    requestId: 'payment-remove-consent-seed',
+  });
+  const detachCalls = [];
+  const gateway = {
+    assertTestMode() {},
+    async detachPaymentMethod(paymentMethodId, requestId) {
+      detachCalls.push({ paymentMethodId, requestId });
+      return { id: paymentMethodId };
+    },
+  };
+  await withServer({ config: enabledConfig, store, stripeGateway: gateway }, async base => {
+    const headers = { 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'payment-remove-request-0001' };
+    const removed = await fetch(`${base}/api/me/payment-method`, { method: 'DELETE', headers });
+    assert.equal(removed.status, 200);
+    const payload = await removed.json();
+    assert.equal(payload.payment_method.status, 'removed');
+    assert.equal(Object.hasOwn(payload, 'provider_payment_method_ref'), false);
+    assert.equal(store.billingConsents.get(studentId).state, 'revoked');
+    assert.deepEqual(detachCalls, [{ paymentMethodId: 'pm_test_remove_1', requestId: 'payment-remove-request-0001' }]);
+
+    const retry = await fetch(`${base}/api/me/payment-method`, { method: 'DELETE', headers });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+    assert.equal(detachCalls.length, 1);
+  });
+});
+
 test('student role cannot read the administrative health endpoint', async () => {
   await withServer({
     config: localConfig,

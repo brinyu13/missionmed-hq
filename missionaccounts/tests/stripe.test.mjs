@@ -45,3 +45,21 @@ test('Stripe mutations fail closed unless configured with a Test Mode key', asyn
   const gateway = new StripeGateway({ secretKey: 'sk_live_forbidden', mode: 'test' });
   await assert.rejects(() => gateway.createSetupIntent('cus_1', 'student_1', 'request_1'), /disabled outside configured Test Mode/);
 });
+
+test('Stripe payment-method detach is Test-Mode-only and idempotently keyed', async () => {
+  const originalFetch = globalThis.fetch;
+  let observed;
+  globalThis.fetch = async (url, options) => {
+    observed = { url, options };
+    return { ok: true, json: async () => ({ id: 'pm_test_remove_1' }) };
+  };
+  try {
+    const gateway = new StripeGateway({ secretKey: 'sk_test_example', mode: 'test' });
+    await gateway.detachPaymentMethod('pm_test_remove_1', 'remove-request-0001');
+    assert.equal(observed.url, 'https://api.stripe.com/v1/payment_methods/pm_test_remove_1/detach');
+    assert.equal(observed.options.method, 'POST');
+    assert.equal(observed.options.headers['idempotency-key'], 'missionaccounts:payment-method-remove:remove-request-0001');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

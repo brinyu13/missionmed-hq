@@ -1,6 +1,12 @@
 import { transitionExamPlan as applyExamTransition } from '../domain/exam-engine.mjs';
 import { buildDecisionBasis, calculateCycleAmount } from '../domain/billing-engine.mjs';
 
+function sanitizedPaymentMethod(row) {
+  if (!row) return null;
+  const { provider_pm_ref: _providerPaymentMethodRef, last_error: _lastError, ...safe } = row;
+  return safe;
+}
+
 export class SupabaseRestStore {
   constructor({ url, serviceKey, schema = 'missionaccounts' }) {
     if (!url || !serviceKey) throw new Error('MissionAccounts database is not configured');
@@ -176,6 +182,24 @@ export class SupabaseRestStore {
     });
   }
 
+  async preparePaymentMethodRemoval({ studentId, actorId, actorRole, requestId }) {
+    return this.rpc('api_prepare_payment_method_removal', {
+      p_student_id: studentId,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
+  async finishPaymentMethodRemoval({ studentId, requestId, succeeded, error }) {
+    return this.rpc('api_finish_payment_method_removal', {
+      p_student_id: studentId,
+      p_request_id: requestId,
+      p_succeeded: succeeded === true,
+      p_error: error || null,
+    });
+  }
+
   async prepareDayCharge({ attendanceDayId, actorId, actorRole, requestId, explicitRetry }) {
     return this.rpc('api_prepare_day_charge', {
       p_attendance_day_id: attendanceDayId,
@@ -333,6 +357,7 @@ export class PreviewStore {
     this.billingTerms = new Map();
     this.billingConsents = new Map();
     this.consentMutations = new Map();
+    this.paymentRemovalMutations = new Map();
     this.stripeCustomers = new Map();
     this.chargesByDay = new Map();
     this.chargeMutations = new Map();
@@ -344,7 +369,7 @@ export class PreviewStore {
   }
   async attendanceForStudent() { return []; }
   async billingForStudent() { return []; }
-  async paymentMethodForStudent(studentId) { return this.paymentMethods.get(studentId) || null; }
+  async paymentMethodForStudent(studentId) { return sanitizedPaymentMethod(this.paymentMethods.get(studentId)); }
   async billingConsentForStudent(studentId) { return this.billingConsents.get(studentId) || null; }
   async currentBillingTerms() {
     const approved = [...this.billingTerms.values()].filter(terms => terms.status === 'approved');
@@ -360,6 +385,7 @@ export class PreviewStore {
       exp_year: paymentMethod.exp_year || null,
       status: paymentMethod.status || 'on_file',
       verified_at: paymentMethod.verified_at || null,
+      provider_pm_ref: paymentMethod.provider_pm_ref || `pm_preview_${studentId}`,
     });
   }
   seedBillingTerms(version, terms = {}) {
@@ -623,9 +649,47 @@ export class PreviewStore {
       exp_year: expYear,
       status: 'on_file',
       verified_at: new Date().toISOString(),
+      provider_pm_ref: paymentMethodId,
     });
     event.state = 'processed';
     return { accepted: true, duplicate: false, audit_event_id: `preview-stripe-audit-${eventId}`, payment_method: this.paymentMethods.get(studentId) };
+  }
+  async preparePaymentMethodRemoval({ studentId, actorId, actorRole, requestId }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Payment method removal forbidden'), { status: 403 });
+    const fingerprint = JSON.stringify({ studentId, actorId });
+    const existing = this.paymentRemovalMutations.get(requestId);
+    const method = this.paymentMethods.get(studentId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      if (method?.status === 'on_file') method.status = 'removal_pending';
+      return { accepted: true, duplicate: true, provider_payment_method_ref: method?.provider_pm_ref, payment_method: sanitizedPaymentMethod(method) };
+    }
+    if (!method || method.status !== 'on_file') return { accepted: false, reason: 'payment_method_not_on_file', duplicate: false };
+    const consent = this.billingConsents.get(studentId);
+    if (consent?.state === 'authorized') {
+      await this.setBillingConsent({
+        studentId,
+        action: 'revoke',
+        termsVersion: null,
+        acceptedIp: null,
+        reason: 'Automatic billing authorization revoked because the payment method was removed',
+        actorId,
+        requestId: `${requestId}:consent`,
+      });
+    }
+    method.status = 'removal_pending';
+    const result = { accepted: true, provider_payment_method_ref: method.provider_pm_ref, payment_method: sanitizedPaymentMethod(method) };
+    this.paymentRemovalMutations.set(requestId, { fingerprint, result });
+    return result;
+  }
+  async finishPaymentMethodRemoval({ studentId, requestId, succeeded, error }) {
+    const mutation = this.paymentRemovalMutations.get(requestId);
+    if (!mutation) throw Object.assign(new Error('Payment method removal was not prepared'), { status: 409 });
+    const method = this.paymentMethods.get(studentId);
+    if (!method || method.status !== 'removal_pending') throw Object.assign(new Error('Payment method removal state mismatch'), { status: 409 });
+    method.status = succeeded ? 'removed' : 'on_file';
+    method.last_error = succeeded ? null : error || 'Provider removal failed';
+    return { accepted: true, duplicate: false, payment_method: sanitizedPaymentMethod(method) };
   }
   async prepareDayCharge({ attendanceDayId, actorId, requestId, explicitRetry }) {
     const fingerprint = JSON.stringify({ attendanceDayId, actorId, explicitRetry: explicitRetry === true });
@@ -768,7 +832,7 @@ export class PreviewStore {
     const student = { id: '00000000-0000-4000-8000-000000000001', display_name: 'Preview Student', email: 'student.preview@invalid.local', phone: null, joined_at: null, comp_days_allowance: 0, identity_state: 'verified' };
     return {
       ...student,
-      payment_method: this.paymentMethods.get(student.id) || null,
+      payment_method: sanitizedPaymentMethod(this.paymentMethods.get(student.id)),
       billing_consent: this.billingConsents.get(student.id) || null,
     };
   }

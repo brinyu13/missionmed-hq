@@ -363,6 +363,43 @@ if [[ "$charge_results" != "$charge_expected" ]]; then
   exit 1
 fi
 
+payment_removal_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_prepare_payment_method_removal(
+  '$student_id','wp:4242','student','pg-payment-remove-0001'
+)->>'accepted';
+select status from missionaccounts.payment_method_private where student_id = '$student_id';
+select state from missionaccounts.billing_consent where student_id = '$student_id' and superseded_by_id is null;
+select missionaccounts.api_finish_payment_method_removal(
+  '$student_id','pg-payment-remove-0001',false,'Disposable provider failure'
+)->'payment_method'->>'status';
+select missionaccounts.api_prepare_payment_method_removal(
+  '$student_id','wp:4242','student','pg-payment-remove-0001'
+)->>'duplicate';
+select missionaccounts.api_finish_payment_method_removal(
+  '$student_id','pg-payment-remove-0001',true,null
+)->'payment_method'->>'status';
+select missionaccounts.api_prepare_payment_method_removal(
+  '$student_id','wp:4242','student','pg-payment-remove-0001'
+)->>'duplicate';
+reset role;
+select
+  (select status from missionaccounts.payment_method_private where student_id = '$student_id') || '|' ||
+  (select state from missionaccounts.billing_consent where student_id = '$student_id' and superseded_by_id is null) || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind = 'payment_method.removal_prepared') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind = 'payment_method.removal_failed') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind = 'payment_method.removed') || '|' ||
+  (select count(*) from missionaccounts.notification_outbox where event_kind = 'payment_method.removed');
+SQL
+)
+
+payment_removal_expected=$'true\nremoval_pending\nrevoked\non_file\ntrue\nremoved\ntrue\nremoved|revoked|1|1|1|1'
+if [[ "$payment_removal_results" != "$payment_removal_expected" ]]; then
+  echo "MissionAccounts payment-method removal verification returned unexpected controls:" >&2
+  echo "$payment_removal_results" >&2
+  exit 1
+fi
+
 notification_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 update missionaccounts.notification_outbox set state = 'sent', sent_at = now();
 insert into missionaccounts.notification_outbox(
@@ -400,4 +437,4 @@ if [[ "$notification_results" != "$notification_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, comp transactions, Stripe payment setup, billing consent, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, one-charge-per-day dispatch, and notification outbox delivery: PASS"

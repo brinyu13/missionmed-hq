@@ -101,6 +101,17 @@ export class StripeGateway {
     return this.retrieve(`payment_methods/${encodeURIComponent(paymentMethodId)}`);
   }
 
+  detachPaymentMethod(paymentMethodId, requestId) {
+    if (!/^pm_[A-Za-z0-9_]+$/.test(String(paymentMethodId || ''))) {
+      throw Object.assign(new Error('Stripe payment method reference is invalid'), { status: 400 });
+    }
+    return this.request(
+      `payment_methods/${encodeURIComponent(paymentMethodId)}/detach`,
+      {},
+      `missionaccounts:payment-method-remove:${requestId}`,
+    );
+  }
+
   createDayCharge({ customerId, paymentMethodId, studentId, attendanceDayId }) {
     return this.request('payment_intents', {
       amount: '2500',

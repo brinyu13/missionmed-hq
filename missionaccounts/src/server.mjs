@@ -343,6 +343,37 @@ export function createMissionAccountsServer({
       const status = result.accepted === false ? 409 : result.duplicate ? 200 : action === 'authorize' ? 201 : 200;
       return json(response, status, result);
     }
+    if (request.method === 'DELETE' && url.pathname === '/api/me/payment-method') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'autoBilling');
+      stripeGateway.assertTestMode();
+      const student = await studentContext(identity);
+      const requestId = requestIdFor(request);
+      const prepared = await store.preparePaymentMethodRemoval({
+        studentId: student.id,
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId,
+      });
+      if (prepared.accepted === false) return json(response, 409, prepared);
+      if (prepared.duplicate === true && prepared.payment_method?.status === 'removed') {
+        const { provider_payment_method_ref: _privateRef, ...safe } = prepared;
+        return json(response, 200, safe);
+      }
+      try {
+        await stripeGateway.detachPaymentMethod(prepared.provider_payment_method_ref, requestId);
+        const finished = await store.finishPaymentMethodRemoval({ studentId: student.id, requestId, succeeded: true, error: null });
+        return json(response, 200, finished);
+      } catch (error) {
+        await store.finishPaymentMethodRemoval({
+          studentId: student.id,
+          requestId,
+          succeeded: false,
+          error: error instanceof Error ? error.message : 'Stripe payment method removal failed',
+        });
+        throw error;
+      }
+    }
     const dayChargeRoute = request.method === 'POST'
       ? url.pathname.match(/^\/api\/admin\/attendance-days\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/charge$/i)
       : null;

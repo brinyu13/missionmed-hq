@@ -374,7 +374,7 @@ create table missionaccounts.payment_method_private (
   last4 text check (last4 is null or last4 ~ '^\d{4}$'),
   exp_month integer check (exp_month between 1 and 12),
   exp_year integer,
-  status text not null check (status in ('none','on_file','expired','failed')),
+  status text not null check (status in ('none','on_file','removal_pending','removed','expired','failed')),
   verified_at timestamptz,
   updated_at timestamptz not null default now()
 );
@@ -1626,6 +1626,215 @@ $$;
 
 revoke execute on function missionaccounts.api_process_stripe_setup_intent(text, uuid, text, text, text, text, integer, integer) from public, anon, authenticated;
 grant execute on function missionaccounts.api_process_stripe_setup_intent(text, uuid, text, text, text, text, integer, integer) to service_role;
+
+create function missionaccounts.api_prepare_payment_method_removal(
+  p_student_id uuid,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  student_row missionaccounts.student%rowtype;
+  method_row missionaccounts.payment_method_private%rowtype;
+  consent_result jsonb;
+  audit_id uuid;
+  existing_audit_id uuid;
+  existing_subject_student_id uuid;
+  existing_actor_id text;
+begin
+  if p_student_id is null
+     or nullif(btrim(p_actor_id), '') is null
+     or p_actor_role <> 'student'
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'invalid_payment_method_removal_request';
+  end if;
+
+  select * into student_row from missionaccounts.student where id = p_student_id for update;
+  if not found then raise exception using errcode = '23503', message = 'student_not_found'; end if;
+  if student_row.matrix_user_ref is distinct from p_actor_id then
+    raise exception using errcode = '42501', message = 'payment_method_removal_forbidden';
+  end if;
+
+  select id, subject_student_id, actor_id
+  into existing_audit_id, existing_subject_student_id, existing_actor_id
+  from missionaccounts.audit_event
+  where request_id = p_request_id and kind = 'payment_method.removal_prepared';
+  if found then
+    if existing_subject_student_id is distinct from p_student_id
+       or existing_actor_id is distinct from p_actor_id then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select * into method_row
+    from missionaccounts.payment_method_private
+    where student_id = p_student_id
+    for update;
+    if method_row.status = 'on_file' then
+      update missionaccounts.payment_method_private
+      set status = 'removal_pending', updated_at = now()
+      where id = method_row.id returning * into method_row;
+    end if;
+    return jsonb_build_object(
+      'accepted', true,
+      'duplicate', true,
+      'provider_payment_method_ref', method_row.provider_pm_ref,
+      'payment_method', jsonb_build_object(
+        'id', method_row.id, 'brand', method_row.brand, 'last4', method_row.last4,
+        'exp_month', method_row.exp_month, 'exp_year', method_row.exp_year,
+        'status', method_row.status, 'verified_at', method_row.verified_at
+      )
+    );
+  end if;
+
+  select * into method_row
+  from missionaccounts.payment_method_private
+  where student_id = p_student_id
+  for update;
+  if not found or method_row.status <> 'on_file' then
+    return jsonb_build_object('accepted', false, 'reason', 'payment_method_not_on_file', 'duplicate', false);
+  end if;
+
+  if exists (
+    select 1 from missionaccounts.billing_consent
+    where student_id = p_student_id and superseded_by_id is null and state = 'authorized'
+  ) then
+    consent_result := missionaccounts.api_set_billing_consent(
+      p_student_id, 'revoke', null, null,
+      'Automatic billing authorization revoked because the payment method was removed',
+      p_actor_id, p_actor_role, p_request_id || ':consent'
+    );
+    if consent_result->>'accepted' is distinct from 'true' then
+      raise exception using errcode = '22023', message = 'payment_method_consent_revocation_failed';
+    end if;
+  end if;
+
+  update missionaccounts.payment_method_private
+  set status = 'removal_pending', updated_at = now()
+  where id = method_row.id returning * into method_row;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id, p_actor_role, p_student_id, 'payment_method.removal_prepared',
+    'Payment method removal prepared; automatic charges are disabled',
+    jsonb_build_object('status', 'on_file'),
+    jsonb_build_object('id', method_row.id, 'brand', method_row.brand, 'last4', method_row.last4, 'status', method_row.status),
+    'Student requested payment method removal', p_request_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'accepted', true,
+    'duplicate', false,
+    'audit_event_id', audit_id,
+    'provider_payment_method_ref', method_row.provider_pm_ref,
+    'payment_method', jsonb_build_object(
+      'id', method_row.id, 'brand', method_row.brand, 'last4', method_row.last4,
+      'exp_month', method_row.exp_month, 'exp_year', method_row.exp_year,
+      'status', method_row.status, 'verified_at', method_row.verified_at
+    )
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_prepare_payment_method_removal(uuid, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_prepare_payment_method_removal(uuid, text, text, text) to service_role;
+
+create function missionaccounts.api_finish_payment_method_removal(
+  p_student_id uuid,
+  p_request_id text,
+  p_succeeded boolean,
+  p_error text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  method_row missionaccounts.payment_method_private%rowtype;
+  prepared_audit_id uuid;
+  prepared_student_id uuid;
+  result_audit_id uuid;
+  result_kind text := case when p_succeeded then 'payment_method.removed' else 'payment_method.removal_failed' end;
+begin
+  if p_student_id is null or nullif(btrim(p_request_id), '') is null or p_succeeded is null then
+    raise exception using errcode = '22023', message = 'invalid_payment_method_removal_result';
+  end if;
+  select id, subject_student_id into prepared_audit_id, prepared_student_id
+  from missionaccounts.audit_event
+  where request_id = p_request_id and kind = 'payment_method.removal_prepared';
+  if not found or prepared_student_id is distinct from p_student_id then
+    raise exception using errcode = '23503', message = 'payment_method_removal_not_prepared';
+  end if;
+  select id into result_audit_id
+  from missionaccounts.audit_event
+  where request_id = p_request_id and kind = result_kind;
+  if found then
+    select * into method_row from missionaccounts.payment_method_private where student_id = p_student_id;
+    return jsonb_build_object(
+      'accepted', true, 'duplicate', true, 'audit_event_id', result_audit_id,
+      'payment_method', jsonb_build_object(
+        'id', method_row.id, 'brand', method_row.brand, 'last4', method_row.last4,
+        'exp_month', method_row.exp_month, 'exp_year', method_row.exp_year,
+        'status', method_row.status, 'verified_at', method_row.verified_at
+      )
+    );
+  end if;
+
+  select * into method_row
+  from missionaccounts.payment_method_private
+  where student_id = p_student_id
+  for update;
+  if not found then raise exception using errcode = '23503', message = 'payment_method_not_found'; end if;
+  if method_row.status <> 'removal_pending' then
+    raise exception using errcode = '22023', message = 'payment_method_removal_state_mismatch';
+  end if;
+
+  update missionaccounts.payment_method_private
+  set status = case when p_succeeded then 'removed' else 'on_file' end,
+      updated_at = now()
+  where id = method_row.id returning * into method_row;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    case when p_succeeded then 'stripe' else 'missionaccounts' end,
+    case when p_succeeded then 'provider' else 'system' end,
+    p_student_id, result_kind,
+    case when p_succeeded then 'Stripe payment method removed' else 'Stripe payment method removal failed; method remains on file with authorization revoked' end,
+    jsonb_build_object('status', 'removal_pending'),
+    jsonb_build_object('id', method_row.id, 'brand', method_row.brand, 'last4', method_row.last4, 'status', method_row.status),
+    case when p_succeeded then 'Provider removal confirmed' else left(coalesce(p_error, 'Provider removal failed'), 2000) end,
+    p_request_id
+  ) returning id into result_audit_id;
+
+  if p_succeeded then
+    insert into missionaccounts.notification_outbox(
+      student_id, channel, event_kind, payload, state, idempotency_key
+    ) values (
+      p_student_id, 'matrix', 'payment_method.removed',
+      jsonb_build_object('brand', method_row.brand, 'last4', method_row.last4),
+      'pending', p_request_id || ':payment-method-removed'
+    ) on conflict (idempotency_key) do nothing;
+  end if;
+
+  return jsonb_build_object(
+    'accepted', true, 'duplicate', false, 'audit_event_id', result_audit_id,
+    'payment_method', jsonb_build_object(
+      'id', method_row.id, 'brand', method_row.brand, 'last4', method_row.last4,
+      'exp_month', method_row.exp_month, 'exp_year', method_row.exp_year,
+      'status', method_row.status, 'verified_at', method_row.verified_at
+    )
+  );
+end;
+$$;
+
+revoke execute on function missionaccounts.api_finish_payment_method_removal(uuid, text, boolean, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_finish_payment_method_removal(uuid, text, boolean, text) to service_role;
 
 create function missionaccounts.api_prepare_day_charge(
   p_attendance_day_id uuid,
