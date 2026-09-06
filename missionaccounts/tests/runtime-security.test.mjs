@@ -43,6 +43,10 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /MissionAccountsRuntime\.dispatch\('attendance-issue-report'/);
   assert.match(html, /history\.replaceState\(null,'',location\.pathname\+location\.search\+'#\/me'\)/);
   assert.match(html, /This goes to her private review list\./);
+  assert.match(html, /function viewAttendanceIssues\(\)/);
+  assert.match(html, /data-attendance-issue-review/);
+  assert.match(html, /These reports are private and never change Zoom evidence, attendance, or billing by themselves\./);
+  assert.match(html, /Review history/);
   assert.match(html, /id="missionaccounts-runtime-gate-style"/);
   assert.match(html, /data-missionaccounts-runtime="authenticated-readonly"/);
   assert.match(html, /\[data-reset\][^\n]*display:none!important/);
@@ -205,6 +209,8 @@ test('browser runtime requests the authenticated role-scoped bootstrap before an
   assert.match(source, /mutation\('\/me\/attendance-issues'/);
   assert.match(source, /Only the signed-in student can report an attendance issue/);
   assert.match(source, /const isReportRoute = String\(studentHash\)\.includes\('report=1'\)/);
+  assert.match(source, /mutation\(`\/admin\/attendance-issues\/\$\{issueId\}\/review`/);
+  assert.match(source, /Only Dr J can review attendance issues/);
   assert.match(source, /missionaccountsRuntime = state\.bootstrap \? 'authenticated-readonly'/);
   assert.match(source, /function updateRuntimeGate\(message\)/);
   assert.match(source, /updateRuntimeGate\(state\.error\)/);

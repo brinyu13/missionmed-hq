@@ -432,11 +432,12 @@ export function createMissionAccountsServer({
         });
       }
       const cycles = await store.billingCycles();
-      const [home, students, cycleProjections, identityClusters, health, canon] = await Promise.all([
+      const [home, students, cycleProjections, identityClusters, attendanceIssues, health, canon] = await Promise.all([
         store.adminHome({ today: localDayFromIso(now().toISOString()) }),
         store.adminStudents(),
         Promise.all(cycles.map(cycle => store.adminCycle(cycle.key))),
         store.adminIdentityClusters({ state: 'all' }),
+        store.adminAttendanceIssues({ state: 'all' }),
         administrativeHealth(),
         store.canonicalUiData({ scope: 'admin' }),
       ]);
@@ -448,6 +449,7 @@ export function createMissionAccountsServer({
         students,
         cycles: cycleProjections.filter(Boolean),
         identity_clusters: identityClusters,
+        attendance_issues: attendanceIssues,
         health,
         canon,
       });
@@ -498,6 +500,34 @@ export function createMissionAccountsServer({
         context: route ? { route } : {},
         actorId: identity.userId,
         actorRole: 'student',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
+    if (request.method === 'GET' && url.pathname === '/api/admin/attendance-issues') {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      const state = String(url.searchParams.get('state') || 'open');
+      if (!['all', 'open', 'resolved', 'dismissed'].includes(state)) throw requestError('Attendance issue state filter is invalid');
+      return json(response, 200, { issues: await store.adminAttendanceIssues({ state }) });
+    }
+    const attendanceIssueReviewRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/attendance-issues\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/review$/i)
+      : null;
+    if (attendanceIssueReviewRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'attendanceCorrections');
+      const body = await readJsonBody(request, { limitBytes: 8_192 });
+      const state = String(body.state || '');
+      const resolutionNote = String(body.resolution_note || '').trim();
+      if (!['resolved', 'dismissed'].includes(state) || resolutionNote.length < 3 || resolutionNote.length > 2_000) {
+        throw requestError('Attendance issue review requires resolved or dismissed plus a 3 to 2000 character note');
+      }
+      const result = await store.resolveAttendanceIssue({
+        issueId: attendanceIssueReviewRoute[1],
+        state,
+        resolutionNote,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
         requestId: requestIdFor(request),
       });
       return json(response, result.duplicate ? 200 : 201, result);

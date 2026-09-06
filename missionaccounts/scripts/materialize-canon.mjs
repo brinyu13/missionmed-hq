@@ -127,7 +127,24 @@ const zoomHealthHelper = `function missionAccountsZoomHealth(){
   };
 }
 `;
-productionHtml = productionHtml.replace('/* ---------------- ADVANCED ---------------- */', `${zoomHealthHelper}/* ---------------- ADVANCED ---------------- */`);
+const attendanceIssueReviewHelper = `function attendanceIssueReviewSheet(id,nextState){
+  const issue=(D.meta.attendance_issues||[]).find(item=>item.id===id);
+  if(!issue||issue.state!=='open'){ toast('This attendance report is no longer open.'); return; }
+  const action=nextState==='dismissed'?'Dismiss':'Resolve';
+  openSheet('<div class="t">'+action+' attendance report</div><div class="d"><b>'+esc(issue.student_name)+'</b> reported: “'+esc(issue.issue_text)+'”</div><div class="otherForm" style="margin-top:14px"><div class="field"><label>Response for the student</label><textarea id="airNote" rows="4" placeholder="Explain what you checked and what happens next."></textarea></div></div><div class="acts"><button type="button" class="btn confirm" id="airGo">'+action+' report</button><button type="button" class="btn ghost" id="airNo">Cancel</button></div>',()=>{
+    $('#airGo').onclick=async()=>{ const note=$('#airNote').value.trim(); if(note.length<3){ $('#airNote').focus(); return; } const saved=await window.MissionAccountsRuntime.dispatch('attendance-issue-review',{issueId:id,state:nextState,resolutionNote:note}); if(saved===false)return; closeSheet(); render(); toast('Attendance report '+(nextState==='dismissed'?'dismissed.':'resolved.')); };
+    $('#airNo').onclick=closeSheet;
+  });
+}
+function viewAttendanceIssues(){
+  const issues=(D.meta.attendance_issues||[]).slice().sort((a,b)=>{ if(a.state==='open'&&b.state!=='open')return -1; if(a.state!=='open'&&b.state==='open')return 1; return String(b.submitted_at||'').localeCompare(String(a.submitted_at||'')); });
+  const card=issue=>'<div class="panel" style="padding:18px;margin-top:12px"><div class="chHead"><span class="t">'+esc(issue.student_name)+'</span><span class="chip '+(issue.state==='open'?'review':'none')+'">'+esc(issue.state)+'</span></div><p style="margin-top:8px;white-space:pre-wrap">'+esc(issue.issue_text)+'</p><p class="muted" style="margin-top:8px;font-size:13px">Reported '+esc(fmtStamp(issue.submitted_at))+(issue.route?' · context '+esc(issue.route):'')+'</p>'+(issue.state==='open'?'<div class="btnRow" style="margin-top:12px"><button type="button" class="btn primary sm" data-attendance-issue-review="'+esc(issue.id)+'|resolved">Resolve</button><button type="button" class="btn ghost sm" data-attendance-issue-review="'+esc(issue.id)+'|dismissed">Dismiss</button></div>':'<div class="why" style="margin-top:12px"><b>Response:</b> '+esc(issue.resolution_note||'Reviewed')+(issue.resolved_at?' · '+esc(fmtStamp(issue.resolved_at)):'')+'</div>')+'</div>';
+  const open=issues.filter(issue=>issue.state==='open'); const history=issues.filter(issue=>issue.state!=='open');
+  const empty='<div class="panel empty"><div class="t">No open attendance reports.</div><div class="d">A new student-submitted concern will appear here for review.</div></div>';
+  return '<section class="view"><div class="eyebrow em">Attendance reports</div><h1 class="h1" style="margin-top:8px">Student questions for Dr J.</h1><p class="lead" style="margin-top:10px">These reports are private and never change Zoom evidence, attendance, or billing by themselves.</p><div class="chapter"><div class="chHead"><span class="t">Open reports</span><span class="c">'+open.length+'</span></div>'+(open.length?open.map(card).join(''):empty)+'</div>'+(history.length?'<div class="chapter"><div class="chHead"><span class="t">Review history</span><span class="c">'+history.length+'</span></div>'+history.map(card).join('')+'</div>':'')+'</section>';
+}
+`;
+productionHtml = productionHtml.replace('/* ---------------- ADVANCED ---------------- */', `${attendanceIssueReviewHelper}${zoomHealthHelper}/* ---------------- ADVANCED ---------------- */`);
 const staticZoomState = `<div class="zoomPort"><div class="zState"><span class="chip none">Not connected</span><span class="chip future">Ready for integration</span></div>`;
 const dynamicZoomState = `<div class="zoomPort"><div class="zState"><span class="chip \${missionAccountsZoomHealth().stateChip}">\${esc(missionAccountsZoomHealth().stateLabel)}</span><span class="chip \${missionAccountsZoomHealth().readinessChip}">\${esc(missionAccountsZoomHealth().readiness)}</span></div>`;
 if (!productionHtml.includes(staticZoomState)) throw new Error('Canonical Zoom integration state surface is missing');
@@ -172,6 +189,22 @@ productionHtml = productionHtml.replace(reportRouteAutoOpen, productionReportRou
 productionHtml = productionHtml.replace(
   'Tell Dr J what looks wrong. In the real app this goes to her review list.',
   'Tell Dr J what looks wrong. This goes to her private review list.',
+);
+const adminRailItems = ": [['home','Home'],['students','Students'],['exams','Exam dates'],['billing','Billing']];";
+const productionAdminRailItems = ": [['home','Home'],['students','Students'],['exams','Exam dates'],['billing','Billing'],['attendance-issues','Reports']];";
+if (!productionHtml.includes(adminRailItems)) throw new Error('Canonical admin rail seam is missing');
+productionHtml = productionHtml.replace(adminRailItems, productionAdminRailItems);
+productionHtml = productionHtml.replace(
+  "if(['home','cycle','students','student','review','invoice','billing','advanced','exams'].includes(top)",
+  "if(['home','cycle','students','student','review','invoice','billing','advanced','exams','attendance-issues'].includes(top)",
+);
+productionHtml = productionHtml.replace(
+  "case 'exams': html=viewExams(r.q); break; case 'advanced':",
+  "case 'exams': html=viewExams(r.q); break; case 'attendance-issues': html=viewAttendanceIssues(); break; case 'advanced':",
+);
+productionHtml = productionHtml.replace(
+  "root.querySelectorAll('[data-report]').forEach(b=>b.onclick=reportSheet);",
+  "root.querySelectorAll('[data-report]').forEach(b=>b.onclick=reportSheet); root.querySelectorAll('[data-attendance-issue-review]').forEach(b=>b.onclick=()=>{ const [id,state]=b.dataset.attendanceIssueReview.split('|'); attendanceIssueReviewSheet(id,state); });",
 );
 const productionAsyncHandlers = [
   [

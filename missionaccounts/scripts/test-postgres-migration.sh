@@ -950,4 +950,56 @@ if [[ "$attendance_issue_controls" != "1|1|1" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+attendance_event_count_before_review=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "select count(*) from missionaccounts.attendance_event where student_id='$student_id'")
+billing_decision_count_before_review=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "select count(*) from missionaccounts.billing_decision where student_id='$student_id'")
+
+attendance_issue_review_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_resolve_attendance_issue(
+  (select id from missionaccounts.attendance_issue where request_id='pg-attendance-issue-0001'),
+  'resolved','Checked the Zoom record and restored the class separately.',
+  'wp:admin','missionaccounts_admin','pg-attendance-issue-review-0001'
+)->>'duplicate';
+select missionaccounts.api_resolve_attendance_issue(
+  (select id from missionaccounts.attendance_issue where request_id='pg-attendance-issue-0001'),
+  'resolved','Checked the Zoom record and restored the class separately.',
+  'wp:admin','missionaccounts_admin','pg-attendance-issue-review-0001'
+)->>'duplicate';
+reset role;
+select
+  (select state from missionaccounts.attendance_issue where request_id='pg-attendance-issue-0001') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='attendance_issue.reviewed' and subject_student_id='$student_id') || '|' ||
+  (select count(*) from missionaccounts.notification_outbox where event_kind='attendance.issue_reviewed' and student_id='$student_id') || '|' ||
+  (select count(*) from missionaccounts.attendance_event where student_id='$student_id') || '|' ||
+  (select count(*) from missionaccounts.billing_decision where student_id='$student_id');
+SQL
+)
+
+attendance_issue_review_expected=$(printf 'false\ntrue\nresolved|1|1|%s|%s' "$attendance_event_count_before_review" "$billing_decision_count_before_review")
+if [[ "$attendance_issue_review_results" != "$attendance_issue_review_expected" ]]; then
+  echo "MissionAccounts attendance-issue review verification returned unexpected controls:" >&2
+  echo "$attendance_issue_review_results" >&2
+  exit 1
+fi
+
+set +e
+attendance_issue_review_forbidden=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 2>&1 <<SQL
+set role service_role;
+select missionaccounts.api_resolve_attendance_issue(
+  (select id from missionaccounts.attendance_issue where request_id='pg-attendance-issue-0001'),
+  'dismissed','Attempted student review.',
+  'wp:4242','student','pg-attendance-issue-review-0002'
+)->>'accepted';
+SQL
+)
+attendance_issue_review_forbidden_status=$?
+set -e
+if [[ "$attendance_issue_review_forbidden_status" -eq 0 ]] || [[ "$attendance_issue_review_forbidden" != *"invalid_attendance_issue_resolution"* ]]; then
+  echo "MissionAccounts attendance-issue review authority did not fail closed:" >&2
+  echo "$attendance_issue_review_forbidden" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody and admin review, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"

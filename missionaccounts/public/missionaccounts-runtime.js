@@ -146,6 +146,16 @@ async function dispatch(action, payload = {}) {
       await window.MissionAccountsRuntime.mutation('/me/attendance-issues', {
         body: { issue_text: issueText, route: location.hash || '#/me/attendance' },
       });
+    } else if (action === 'attendance-issue-review') {
+      if (!['missionaccounts_admin', 'founder'].includes(state.user?.role)) throw new Error('Only Dr J can review attendance issues.');
+      const issueId = String(payload.issueId || '');
+      const resolutionState = String(payload.state || '');
+      const resolutionNote = String(payload.resolutionNote || '').trim();
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(issueId)) throw new Error('The attendance report identity is invalid.');
+      if (!['resolved', 'dismissed'].includes(resolutionState) || resolutionNote.length < 3 || resolutionNote.length > 2_000) throw new Error('Add a 3 to 2000 character response for the student.');
+      await window.MissionAccountsRuntime.mutation(`/admin/attendance-issues/${issueId}/review`, {
+        body: { state: resolutionState, resolution_note: resolutionNote },
+      });
     } else if (action === 'student-contact') {
       await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/contact`, {
         body: {

@@ -245,6 +245,55 @@ test('student attendance issue report is self-bound, idempotent, audited, and qu
       body,
     });
     assert.equal(admin.status, 403);
+
+    const studentQueue = await fetch(`${base}/api/admin/attendance-issues`, {
+      headers: { 'x-missionaccounts-local-role': 'student' },
+    });
+    assert.equal(studentQueue.status, 403);
+
+    const adminHeaders = {
+      'x-missionaccounts-local-role': 'missionaccounts_admin',
+      'x-missionaccounts-local-user': '00000000-0000-4000-8000-000000000002',
+      'content-type': 'application/json',
+    };
+    const queue = await fetch(`${base}/api/admin/attendance-issues?state=open`, { headers: adminHeaders });
+    assert.equal(queue.status, 200);
+    assert.equal((await queue.json()).issues.length, 1);
+    const adminBootstrap = await fetch(`${base}/api/ui/bootstrap`, { headers: adminHeaders });
+    assert.equal(adminBootstrap.status, 200);
+    const adminBootstrapPayload = await adminBootstrap.json();
+    assert.equal(adminBootstrapPayload.attendance_issues.length, 1);
+    assert.equal(adminBootstrapPayload.home.attendance_issues, 1);
+
+    const studentReview = await fetch(`${base}/api/admin/attendance-issues/${payload.issue.id}/review`, {
+      method: 'POST',
+      headers: { ...headers, 'idempotency-key': 'attendance-issue-student-review-forbidden' },
+      body: JSON.stringify({ state: 'resolved', resolution_note: 'Checked the Zoom report.' }),
+    });
+    assert.equal(studentReview.status, 403);
+
+    const reviewHeaders = { ...adminHeaders, 'idempotency-key': 'attendance-issue-review-0001' };
+    const reviewBody = JSON.stringify({ state: 'resolved', resolution_note: 'Checked the Zoom record and restored the class separately.' });
+    const reviewed = await fetch(`${base}/api/admin/attendance-issues/${payload.issue.id}/review`, {
+      method: 'POST', headers: reviewHeaders, body: reviewBody,
+    });
+    assert.equal(reviewed.status, 201);
+    const reviewedPayload = await reviewed.json();
+    assert.equal(reviewedPayload.duplicate, false);
+    assert.equal(reviewedPayload.issue.state, 'resolved');
+    assert.equal(reviewedPayload.issue.resolution_note, 'Checked the Zoom record and restored the class separately.');
+    const studentNotice = [...store.notifications.values()].find(row => row.event_kind === 'attendance.issue_reviewed');
+    assert.equal(studentNotice.audience, 'student');
+    assert.equal(studentNotice.student_id, payload.issue.student_id);
+
+    const reviewRetry = await fetch(`${base}/api/admin/attendance-issues/${payload.issue.id}/review`, {
+      method: 'POST', headers: reviewHeaders, body: reviewBody,
+    });
+    assert.equal(reviewRetry.status, 200);
+    assert.equal((await reviewRetry.json()).duplicate, true);
+    assert.equal([...store.notifications.values()].filter(row => row.event_kind === 'attendance.issue_reviewed').length, 1);
+    assert.equal((await (await fetch(`${base}/api/admin/attendance-issues?state=open`, { headers: adminHeaders })).json()).issues.length, 0);
+    assert.equal((await (await fetch(`${base}/api/admin/attendance-issues?state=resolved`, { headers: adminHeaders })).json()).issues.length, 1);
   });
 });
 

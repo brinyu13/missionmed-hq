@@ -378,6 +378,22 @@ test('student attendance issue reports are self-bound, private, idempotent, audi
   assert.match(sql, /revoke all on missionaccounts\.attendance_issue from public, anon, authenticated/);
 });
 
+test('attendance issue review is admin-only, idempotent, audited, and notifies the student without editing attendance', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906110611_attendance_issue_review_resolution.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.api_resolve_attendance_issue/);
+  assert.match(sql, /p_actor_role not in \('missionaccounts_admin', 'founder'\)/);
+  assert.match(sql, /resolved_request_id = p_request_id/);
+  assert.match(sql, /'attendance_issue\.reviewed'/);
+  assert.match(sql, /'student', 'attendance\.issue_reviewed'/);
+  assert.match(sql, /without changing attendance evidence/);
+  assert.match(sql, /create trigger attendance_issue_submission_immutable/);
+  assert.doesNotMatch(sql, /update missionaccounts\.attendance_event/);
+  assert.doesNotMatch(sql, /update missionaccounts\.attendance_day/);
+  assert.doesNotMatch(sql, /update missionaccounts\.billing_decision/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_resolve_attendance_issue[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_resolve_attendance_issue[^;]+to authenticated/s);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);

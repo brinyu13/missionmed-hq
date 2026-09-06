@@ -93,6 +93,22 @@ export class SupabaseRestStore {
     });
   }
 
+  async adminAttendanceIssues({ state = 'open' } = {}) {
+    const stateFilter = state === 'all' ? '' : `&state=eq.${encodeURIComponent(state)}`;
+    return this.request(`attendance_issue?select=id,student_id,issue_text,context,state,submitted_by,submitted_at,resolved_at,resolved_by,resolution_note${stateFilter}&order=submitted_at.asc`);
+  }
+
+  async resolveAttendanceIssue({ issueId, state, resolutionNote, actorId, actorRole, requestId }) {
+    return this.rpc('api_resolve_attendance_issue', {
+      p_issue_id: issueId,
+      p_state: state,
+      p_resolution_note: resolutionNote,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async decideFullCycleCeiling({ studentId, cycleKey, status, reason, actorId, actorRole, requestId }) {
     return this.rpc('api_decide_full_cycle_ceiling', {
       p_student_id: studentId,
@@ -512,7 +528,7 @@ export class SupabaseRestStore {
   }
 
   async adminHome({ today }) {
-    const [students, attendanceDays, decisions, examPlans, reminders, invoices, identityClusters] = await Promise.all([
+    const [students, attendanceDays, decisions, examPlans, reminders, invoices, identityClusters, attendanceIssues] = await Promise.all([
       this.adminStudents(),
       this.request('attendance_day?superseded_at=is.null&select=id,student_id,cycle_key,kind'),
       this.request('billing_decision?superseded_by_id=is.null&select=id,student_id,cycle_key,state,amount_cents'),
@@ -520,12 +536,15 @@ export class SupabaseRestStore {
       this.request('reminder?state=in.(scheduled,due)&select=id,student_id,exam_plan_id,due_on,state'),
       this.request('invoice?state=in.(draft,ready,sent)&select=id,student_id,cycle_key,state,amount_cents'),
       this.request('identity_cluster?state=eq.open&select=ref'),
+      this.request('attendance_issue?state=eq.open&select=id'),
     ]);
     return {
       questions: students.filter(student => student.identity_state === 'needs_review').length
         + attendanceDays.filter(day => day.kind === 'needs_review').length
-        + identityClusters.length,
+        + identityClusters.length
+        + attendanceIssues.length,
       identity_questions: identityClusters.length,
+      attendance_issues: attendanceIssues.length,
       missing_payment_setup: students.filter(student => student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized').length,
       stale_decisions: decisions.filter(decision => decision.state === 'stale').length,
       ready_invoices: invoices.filter(invoice => invoice.state === 'ready').length,
@@ -610,6 +629,7 @@ export class PreviewStore {
     this.contactMutations = new Map();
     this.attendanceIssues = new Map();
     this.attendanceIssueMutations = new Map();
+    this.attendanceIssueReviewMutations = new Map();
     this.attendanceEvents = new Map();
     this.attendanceCorrections = [];
     this.correctionMutations = new Map();
@@ -774,6 +794,47 @@ export class PreviewStore {
     });
     const result = { accepted: true, duplicate: false, issue: { ...issue }, audit_event_id: `preview-attendance-issue-audit-${ordinal}` };
     this.attendanceIssueMutations.set(requestId, { fingerprint, result });
+    return result;
+  }
+  async adminAttendanceIssues({ state = 'open' } = {}) {
+    return [...this.attendanceIssues.values()]
+      .filter(issue => state === 'all' || issue.state === state)
+      .sort((a, b) => a.submitted_at.localeCompare(b.submitted_at))
+      .map(issue => ({ ...issue }));
+  }
+  async resolveAttendanceIssue({ issueId, state, resolutionNote, actorId, actorRole, requestId }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole)) {
+      throw Object.assign(new Error('Attendance issue review requires administrator authority'), { status: 403 });
+    }
+    const cleanNote = String(resolutionNote || '').trim();
+    const fingerprint = JSON.stringify({ issueId, state, cleanNote, actorId, actorRole });
+    const existing = this.attendanceIssueReviewMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    if (!['resolved', 'dismissed'].includes(state) || cleanNote.length < 3 || cleanNote.length > 2_000) {
+      throw Object.assign(new Error('Attendance issue resolution is invalid'), { status: 400 });
+    }
+    const issue = this.attendanceIssues.get(issueId);
+    if (!issue) throw Object.assign(new Error('Attendance issue not found'), { status: 404 });
+    if (issue.state !== 'open') throw Object.assign(new Error('Attendance issue was already reviewed'), { status: 409 });
+    Object.assign(issue, {
+      state,
+      resolved_at: new Date().toISOString(),
+      resolved_by: actorId,
+      resolution_note: cleanNote,
+      resolved_request_id: requestId,
+    });
+    this.seedNotification({
+      student_id: issue.student_id,
+      audience: 'student',
+      event_kind: 'attendance.issue_reviewed',
+      idempotency_key: `${requestId}:attendance-issue-student`,
+      payload: { issue_id: issue.id, state, resolution_note: cleanNote },
+    });
+    const result = { accepted: true, duplicate: false, issue: { ...issue }, audit_event_id: `preview-attendance-issue-review-audit-${this.attendanceIssueReviewMutations.size + 1}` };
+    this.attendanceIssueReviewMutations.set(requestId, { fingerprint, result });
     return result;
   }
   async attendanceForStudent() { return []; }
@@ -1756,8 +1817,10 @@ export class PreviewStore {
     const examPlans = [...this.examPlans.values()].filter(plan => !plan.withdrawn_at);
     return {
       questions: students.filter(student => student.identity_state === 'needs_review').length
-        + [...this.identityClusters.values()].filter(cluster => cluster.state === 'open').length,
+        + [...this.identityClusters.values()].filter(cluster => cluster.state === 'open').length
+        + [...this.attendanceIssues.values()].filter(issue => issue.state === 'open').length,
       identity_questions: [...this.identityClusters.values()].filter(cluster => cluster.state === 'open').length,
+      attendance_issues: [...this.attendanceIssues.values()].filter(issue => issue.state === 'open').length,
       missing_payment_setup: students.filter(student => student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized').length,
       stale_decisions: [...this.billingDecisions.values()].filter(decision => decision.state === 'stale').length,
       ready_invoices: [...this.invoices.values()].filter(invoice => invoice.state === 'ready').length,

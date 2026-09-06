@@ -1364,7 +1364,7 @@ function shell(){ const m=model(); const openQ = totalQuestions();
     </div>`;
   const railItems = lens==='student'
     ? [['me','Home'],['me/attendance','Attendance'],['me/exam','Exam plan'],['me/billing','Billing']]
-    : [['home','Home'],['students','Students'],['exams','Exam dates'],['billing','Billing']];
+    : [['home','Home'],['students','Students'],['exams','Exam dates'],['billing','Billing'],['attendance-issues','Reports']];
   const pendingEx = pendingExams().length;
   $('#rail').innerHTML = railItems.map(([k,l])=>`<button type="button" class="rtab ${top===k.split('/')[0] && (k.includes('/')? r.parts[1]===k.split('/')[1] : (r.parts.length<2 || top!=='me')) ? 'on':''}" data-go="#/${k}">${l}${k==='home'&&openQ?`<span class="badge">${openQ}</span>`:''}${k==='exams'&&pendingEx?`<span class="badge">${pendingEx}</span>`:''}</button>`).join('')
     + `<div class="railFoot"><div class="railWho"><span class="avc ${lens==='admin'?'adm':'stu'}">${lens==='admin'?'J':esc(meStudent().n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase())}</span><div><div class="nm">${lens==='admin'?'Dr J':esc(meStudent().n)}</div><div class="rl">${lens==='admin'?'Exam Prep admin':'Student'}</div></div></div>${lens==='admin'?`<button type="button" class="advLink ${top==='advanced'?'on':''}" data-go="#/advanced">Advanced tools ›</button>`:''}<div class="railNote">MissionAccounts · server-authoritative record</div>${lens==='admin'?`<button type="button" class="advLink" data-reset="1" style="margin-top:6px">Reset prototype changes</button>`:''}</div>`;
@@ -1822,6 +1822,22 @@ function viewMe(sub){ const e=meStudent(); const cyclesWith=CYK.filter(k=>e.c[k]
       <div class="panel" style="margin-top:14px;padding:18px"><div class="h3">Something look wrong?</div><p class="muted" style="margin-top:6px;font-size:14.5px">If a class is missing from your attendance, tell Dr J and she will check the Zoom record.</p><button type="button" class="btn ghost sm" style="margin-top:10px" data-report="1">Report a problem</button></div>
     </div></div>${picker}</section>`; }
 
+function attendanceIssueReviewSheet(id,nextState){
+  const issue=(D.meta.attendance_issues||[]).find(item=>item.id===id);
+  if(!issue||issue.state!=='open'){ toast('This attendance report is no longer open.'); return; }
+  const action=nextState==='dismissed'?'Dismiss':'Resolve';
+  openSheet('<div class="t">'+action+' attendance report</div><div class="d"><b>'+esc(issue.student_name)+'</b> reported: “'+esc(issue.issue_text)+'”</div><div class="otherForm" style="margin-top:14px"><div class="field"><label>Response for the student</label><textarea id="airNote" rows="4" placeholder="Explain what you checked and what happens next."></textarea></div></div><div class="acts"><button type="button" class="btn confirm" id="airGo">'+action+' report</button><button type="button" class="btn ghost" id="airNo">Cancel</button></div>',()=>{
+    $('#airGo').onclick=async()=>{ const note=$('#airNote').value.trim(); if(note.length<3){ $('#airNote').focus(); return; } const saved=await window.MissionAccountsRuntime.dispatch('attendance-issue-review',{issueId:id,state:nextState,resolutionNote:note}); if(saved===false)return; closeSheet(); render(); toast('Attendance report '+(nextState==='dismissed'?'dismissed.':'resolved.')); };
+    $('#airNo').onclick=closeSheet;
+  });
+}
+function viewAttendanceIssues(){
+  const issues=(D.meta.attendance_issues||[]).slice().sort((a,b)=>{ if(a.state==='open'&&b.state!=='open')return -1; if(a.state!=='open'&&b.state==='open')return 1; return String(b.submitted_at||'').localeCompare(String(a.submitted_at||'')); });
+  const card=issue=>'<div class="panel" style="padding:18px;margin-top:12px"><div class="chHead"><span class="t">'+esc(issue.student_name)+'</span><span class="chip '+(issue.state==='open'?'review':'none')+'">'+esc(issue.state)+'</span></div><p style="margin-top:8px;white-space:pre-wrap">'+esc(issue.issue_text)+'</p><p class="muted" style="margin-top:8px;font-size:13px">Reported '+esc(fmtStamp(issue.submitted_at))+(issue.route?' · context '+esc(issue.route):'')+'</p>'+(issue.state==='open'?'<div class="btnRow" style="margin-top:12px"><button type="button" class="btn primary sm" data-attendance-issue-review="'+esc(issue.id)+'|resolved">Resolve</button><button type="button" class="btn ghost sm" data-attendance-issue-review="'+esc(issue.id)+'|dismissed">Dismiss</button></div>':'<div class="why" style="margin-top:12px"><b>Response:</b> '+esc(issue.resolution_note||'Reviewed')+(issue.resolved_at?' · '+esc(fmtStamp(issue.resolved_at)):'')+'</div>')+'</div>';
+  const open=issues.filter(issue=>issue.state==='open'); const history=issues.filter(issue=>issue.state!=='open');
+  const empty='<div class="panel empty"><div class="t">No open attendance reports.</div><div class="d">A new student-submitted concern will appear here for review.</div></div>';
+  return '<section class="view"><div class="eyebrow em">Attendance reports</div><h1 class="h1" style="margin-top:8px">Student questions for Dr J.</h1><p class="lead" style="margin-top:10px">These reports are private and never change Zoom evidence, attendance, or billing by themselves.</p><div class="chapter"><div class="chHead"><span class="t">Open reports</span><span class="c">'+open.length+'</span></div>'+(open.length?open.map(card).join(''):empty)+'</div>'+(history.length?'<div class="chapter"><div class="chHead"><span class="t">Review history</span><span class="c">'+history.length+'</span></div>'+history.map(card).join('')+'</div>':'')+'</section>';
+}
 function missionAccountsZoomHealth(){
   const h=D.meta.integration_health||{};
   const z=h.latest_zoom_sync||null;
@@ -1954,9 +1970,9 @@ function reportSheet(){ const e=meStudent(); openSheet(`<div class="t">Report a 
 /* ---------------- render ---------------- */
 function render(){ const r=route(); let top=r.parts[0]||''; if(!top){ top = WS.ctx==='mr'?'mr':(WS.lens==='student'?'me':'home'); }
   if(top==='mr') WS.ctx='mr'; else if(top!=='') WS.ctx='xp';
-  if(top==='me' && WS.lens!=='student'){ WS.lens='student'; } if(['home','cycle','students','student','review','invoice','billing','advanced','exams'].includes(top) && WS.lens!=='admin'){ WS.lens='admin'; }
+  if(top==='me' && WS.lens!=='student'){ WS.lens='student'; } if(['home','cycle','students','student','review','invoice','billing','advanced','exams','attendance-issues'].includes(top) && WS.lens!=='admin'){ WS.lens='admin'; }
   save(); applyTheme(); shell(); const main=$('#main'); let html='';
-  switch(top){ case 'mr': html=viewMR(); break; case 'home': html=viewHome(); break; case 'cycle': html=viewCycle(r.parts[1]||'june'); break; case 'students': html=viewStudents(r.q.q||'', r.q.missing==='1', r.q.setup==='missing'); break; case 'student': html=viewStudent(+r.parts[1]||0, r.q); break; case 'review': html=viewReview(); break; case 'invoice': html=viewInvoice(+r.parts[1]||0, r.parts[2]||'june'); break; case 'billing': html=viewBilling(r.q.cycle); break; case 'exams': html=viewExams(r.q); break; case 'advanced': html=viewAdvanced(r.parts[1], r.q); break; case 'me': html=viewMe(r.parts[1]); break; default: html=viewHome(); }
+  switch(top){ case 'mr': html=viewMR(); break; case 'home': html=viewHome(); break; case 'cycle': html=viewCycle(r.parts[1]||'june'); break; case 'students': html=viewStudents(r.q.q||'', r.q.missing==='1', r.q.setup==='missing'); break; case 'student': html=viewStudent(+r.parts[1]||0, r.q); break; case 'review': html=viewReview(); break; case 'invoice': html=viewInvoice(+r.parts[1]||0, r.parts[2]||'june'); break; case 'billing': html=viewBilling(r.q.cycle); break; case 'exams': html=viewExams(r.q); break; case 'attendance-issues': html=viewAttendanceIssues(); break; case 'advanced': html=viewAdvanced(r.parts[1], r.q); break; case 'me': html=viewMe(r.parts[1]); break; default: html=viewHome(); }
   main.innerHTML=html; main.scrollTop=0; bind(main); if(top==='me' && r.q.report==='1'){ history.replaceState(null,'',location.pathname+location.search+'#/me'); setTimeout(reportSheet,50); }
   if(top==='students'){ const inp=$('#dirSearch'); renderStudents(inp.value, false); inp.oninput=()=>renderStudents(inp.value,true); const mo=$('#missingOnly'); if(mo) mo.onchange=()=>renderStudents(inp.value,true); const no=$('#needOnly'); if(no) no.onchange=()=>renderStudents(inp.value,true); const so=$('#setupOnly'); if(so) so.onchange=()=>renderStudents(inp.value,true); if(!r.q.q) inp.focus(); }
   const anchor=r.raw.split('#')[1]; if(anchor){ const el=document.getElementById(anchor); if(el) setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),60); }
@@ -1981,7 +1997,7 @@ function bind(root){
   root.querySelectorAll('[data-save-contact]').forEach(b=>b.onclick=async()=>{ const si=+b.dataset.saveContact; const em=$('#emailIn').value; if(em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ toast('That email does not look right yet.'); $('#emailIn').focus(); return; } const saved=await setContact(si, em, $('#phoneIn')?$('#phoneIn').value:''); if(saved===false)return; render(); toast(em?'Email saved. The invoice can now be marked ready.':'Email cleared.'); });
   root.querySelectorAll('[data-ready]').forEach(b=>b.onclick=async()=>{ const [si,k,v]=b.dataset.ready.split('|'); const saved=await markReady(+si,k,v==='1'); if(saved===false)return; render(); toast(v==='1'?'Marked Ready to send.':'Removed from Ready.'); });
   root.querySelectorAll('[data-ctx-xp]').forEach(b=>b.onclick=()=>{ WS.ctx='xp'; save(); go('#/home'); });
-  root.querySelectorAll('[data-report]').forEach(b=>b.onclick=reportSheet);
+  root.querySelectorAll('[data-report]').forEach(b=>b.onclick=reportSheet); root.querySelectorAll('[data-attendance-issue-review]').forEach(b=>b.onclick=()=>{ const [id,state]=b.dataset.attendanceIssueReview.split('|'); attendanceIssueReviewSheet(id,state); });
   root.querySelectorAll('[data-export]').forEach(b=>b.onclick=()=>{ const blob=new Blob([JSON.stringify({ticket:'MX-EXAMPREP-5200P',exported:new Date().toISOString(),sources:D.meta.sources,working:WS},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='MX-EXAMPREP-5200P_working_state.json'; a.click(); });
   root.querySelectorAll('[data-reset]').forEach(b=>b.onclick=resetSheet);
   root.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{ const [si,k]=b.dataset.edit.split('|'); editSheet(+si,k,'identity'); });

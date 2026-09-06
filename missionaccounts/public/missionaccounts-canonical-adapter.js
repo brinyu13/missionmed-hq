@@ -53,6 +53,22 @@ function integrationHealth(bootstrap) {
   };
 }
 
+function attendanceIssueQueue(bootstrap) {
+  if (bootstrap?.scope !== 'admin') return [];
+  const students = new Map((bootstrap.students || []).map(student => [student.id, student]));
+  return (bootstrap.attendance_issues || []).map(issue => ({
+    id: String(issue.id || ''),
+    student_id: String(issue.student_id || ''),
+    student_name: String(students.get(issue.student_id)?.display_name || 'Student'),
+    issue_text: String(issue.issue_text || '').slice(0, 2_000),
+    route: String(issue.context?.route || '').startsWith('#/') ? String(issue.context.route).slice(0, 240) : '',
+    state: ['open', 'resolved', 'dismissed'].includes(issue.state) ? issue.state : 'open',
+    submitted_at: issue.submitted_at || null,
+    resolved_at: issue.resolved_at || null,
+    resolution_note: String(issue.resolution_note || '').slice(0, 2_000),
+  })).filter(issue => issue.id && issue.student_id);
+}
+
 function emptyWorking(scope) {
   return {
     v: 3,
@@ -366,7 +382,10 @@ export function buildCanonicalModel(bootstrap) {
       meta: {
         ticket: 'MX-MISSIONACCOUNTS-5301P',
         source: 'authenticated-role-scoped-runtime',
-        ...(source.scope === 'admin' ? { integration_health: integrationHealth(bootstrap) } : {}),
+        ...(source.scope === 'admin' ? {
+          integration_health: integrationHealth(bootstrap),
+          attendance_issues: attendanceIssueQueue(bootstrap),
+        } : {}),
         controls: {
           sessions: sessionRows.length,
           humans: studentRows.length,
