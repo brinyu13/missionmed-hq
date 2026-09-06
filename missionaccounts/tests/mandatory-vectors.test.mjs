@@ -346,6 +346,23 @@ test('automatic charge scheduling is bounded to 24-48 hours, retry-safe, and ser
   assert.match(sql, /force row level security/);
 });
 
+test('Zoom ingestion port preserves provider evidence without creating identity, attendance, or billing decisions', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906100746_zoom_ingestion_port.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.api_ingest_zoom_batch/);
+  assert.match(sql, /insert into missionaccounts\.source_artifact/);
+  assert.match(sql, /insert into missionaccounts\.import_run/);
+  assert.match(sql, /insert into missionaccounts\.session/);
+  assert.match(sql, /insert into missionaccounts\.attendance_source_row/);
+  assert.match(sql, /attendance_events_created', 0/);
+  assert.match(sql, /identity_decisions_created', 0/);
+  assert.match(sql, /charges_created', 0/);
+  assert.match(sql, /create function missionaccounts\.api_record_zoom_sync_failure/);
+  assert.match(sql, /'zoom_sync_failed'/);
+  assert.match(sql, /force row level security/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_ingest_zoom_batch[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_ingest_zoom_batch[^;]+to authenticated/s);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);

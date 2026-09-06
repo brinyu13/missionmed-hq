@@ -7,6 +7,7 @@ import { readRawBody, readJsonBody, parseJsonBody } from './http/body.mjs';
 import { StripeGateway } from './payments/stripe.mjs';
 import { NotificationGateway } from './notifications/notification-gateway.mjs';
 import { localDayFromIso } from './domain/billing-engine.mjs';
+import { ZoomAttendanceProvider } from './domain/zoom-provider.mjs';
 import { authenticate, requireRole } from './security/auth.mjs';
 import { PreviewStore, SupabaseRestStore } from './storage/supabase-rest.mjs';
 
@@ -66,6 +67,12 @@ function environmentNotificationGateway() {
   });
 }
 
+function environmentZoomProvider() {
+  // Credentials and a concrete Zoom client are intentionally not inferred from
+  // process state. Production must inject an authorized provider explicitly.
+  return new ZoomAttendanceProvider();
+}
+
 function json(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
   response.end(JSON.stringify(body));
@@ -102,6 +109,7 @@ export function createMissionAccountsServer({
   store = environmentStore(),
   stripeGateway = environmentStripeGateway(),
   notificationGateway = environmentNotificationGateway(),
+  zoomProvider = environmentZoomProvider(),
   publicDir = defaultPublicDir,
   now = () => new Date(),
 } = {}) {
@@ -244,6 +252,46 @@ export function createMissionAccountsServer({
         failed,
         expired: Number(batch.expired || 0),
       });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/internal/zoom/sync') {
+      requireFeature(config, 'zoomSync');
+      const bearer = String(request.headers.authorization || '').match(/^Bearer\s+(.+)$/i)?.[1] || '';
+      if (!secureTokenEqual(bearer, config.workerToken)) throw requestError('Zoom worker authentication failed', 401);
+      zoomProvider.assertConfigured();
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const windowFrom = String(body.window_from || '');
+      const windowTo = String(body.window_to || '');
+      const fromMs = Date.parse(windowFrom);
+      const toMs = Date.parse(windowTo);
+      if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs < fromMs || toMs - fromMs > 31 * 86_400_000) {
+        throw requestError('Zoom sync requires an ordered ISO window no longer than 31 days');
+      }
+      const requestId = requestIdFor(request);
+      let batch;
+      try {
+        batch = await zoomProvider.ingestWindow({ from: windowFrom, to: windowTo });
+        const result = await store.ingestZoomBatch({ requestId, batch });
+        return json(response, result.duplicate ? 200 : 201, {
+          accepted: true,
+          duplicate: result.duplicate === true,
+          state: 'persisted_source_evidence',
+          sync_run_id: result.sync_run_id,
+          sessions: result.sessions,
+          source_rows: result.source_rows,
+          attendance_events_created: result.attendance_events_created,
+          identity_decisions_created: result.identity_decisions_created,
+          charges_created: result.charges_created,
+        });
+      } catch (error) {
+        await store.recordZoomSyncFailure({
+          requestId,
+          windowFrom: new Date(fromMs).toISOString(),
+          windowTo: new Date(toMs).toISOString(),
+          error: error instanceof Error ? error.message : 'Zoom sync failed',
+          now: now().toISOString(),
+        });
+        throw error;
+      }
     }
     if (request.method === 'POST' && url.pathname === '/api/internal/notifications/drain') {
       requireFeature(config, 'notifications');

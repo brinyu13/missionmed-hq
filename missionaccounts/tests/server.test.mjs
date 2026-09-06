@@ -409,6 +409,110 @@ test('automatic charge submission failure is notified and never retried automati
   });
 });
 
+function zoomBatchFixture() {
+  return {
+    state: 'ready_to_persist',
+    window_from: '2026-09-01T00:00:00.000Z',
+    window_to: '2026-09-02T00:00:00.000Z',
+    artifact: {
+      source_path: 'zoom-api://completed-meetings/test-window',
+      sha256: 'a'.repeat(64),
+      byte_count: 512,
+      observed_at: '2026-09-02T12:00:00.000Z',
+    },
+    sessions: [{
+      cycle_key: '2026-cycle-3', provider_meeting_id: 'meeting-1',
+      provider_instance_id: 'instance-1', starts_at: '2026-09-01T16:00:00.000Z',
+      held_on: '2026-09-01', time_zone: 'America/New_York', step: 's1',
+      state: 'candidate', source_payload: {},
+    }],
+    source_rows: [{
+      provider_instance_id: 'instance-1', provider_source_id: 'source-row-1',
+      participant_source_id: 'participant-1', display_name: 'Unresolved attendee',
+      joined_at: '2026-09-01T16:01:00.000Z', left_at: '2026-09-01T17:00:00.000Z',
+      duration_seconds: 3540, payload: {}, payload_sha256: 'b'.repeat(64),
+    }],
+  };
+}
+
+test('Zoom sync remains feature-off and provider-disconnected without creating run evidence', async () => {
+  const store = new PreviewStore();
+  let providerChecks = 0;
+  const zoomProvider = { assertConfigured() { providerChecks += 1; } };
+  await withServer({ config: localConfig, store, stripeGateway: new StripeGateway(), zoomProvider }, async base => {
+    const response = await fetch(`${base}/api/internal/zoom/sync`, {
+      method: 'POST', headers: { authorization: 'Bearer unused', 'content-type': 'application/json', 'idempotency-key': 'zoom-sync-off-0001' },
+      body: JSON.stringify({ window_from: '2026-09-01T00:00:00Z', window_to: '2026-09-02T00:00:00Z' }),
+    });
+    assert.equal(response.status, 503);
+    assert.equal(providerChecks, 0);
+    assert.equal(store.syncRuns.size, 0);
+  });
+});
+
+test('Zoom sync persists normalized source evidence idempotently without attendance or billing mutation', async () => {
+  const store = new PreviewStore();
+  const calls = [];
+  const zoomProvider = {
+    assertConfigured() {},
+    async ingestWindow(window) { calls.push(window); return zoomBatchFixture(); },
+  };
+  const config = {
+    ...localConfig,
+    workerToken: 'zoom-worker-test',
+    features: { ...localConfig.features, zoomSync: true },
+  };
+  await withServer({ config, store, stripeGateway: new StripeGateway(), zoomProvider }, async base => {
+    const headers = {
+      authorization: 'Bearer zoom-worker-test', 'content-type': 'application/json',
+      'idempotency-key': 'zoom-sync-request-0001',
+    };
+    const body = JSON.stringify({ window_from: '2026-09-01T00:00:00Z', window_to: '2026-09-02T00:00:00Z' });
+    const first = await fetch(`${base}/api/internal/zoom/sync`, { method: 'POST', headers, body });
+    assert.equal(first.status, 201);
+    assert.deepEqual(await first.json(), {
+      accepted: true, duplicate: false, state: 'persisted_source_evidence',
+      sync_run_id: 'preview-zoom-sync-1', sessions: 1, source_rows: 1,
+      attendance_events_created: 0, identity_decisions_created: 0, charges_created: 0,
+    });
+    assert.equal(store.chargesByDay.size, 0);
+    assert.equal(store.attendanceDays.size, 0);
+
+    const retry = await fetch(`${base}/api/internal/zoom/sync`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+    assert.equal(store.zoomImports.size, 1);
+    assert.equal(calls.length, 2);
+  });
+});
+
+test('Zoom provider failure creates one persistent run exception and exposes no false success', async () => {
+  const store = new PreviewStore();
+  const zoomProvider = {
+    assertConfigured() {},
+    async ingestWindow() { throw Object.assign(new Error('disposable Zoom provider failure'), { status: 502 }); },
+  };
+  const config = {
+    ...localConfig,
+    workerToken: 'zoom-worker-failure-test',
+    features: { ...localConfig.features, zoomSync: true },
+  };
+  await withServer({ config, store, stripeGateway: new StripeGateway(), zoomProvider }, async base => {
+    const headers = {
+      authorization: 'Bearer zoom-worker-failure-test', 'content-type': 'application/json',
+      'idempotency-key': 'zoom-sync-failure-0001',
+    };
+    const body = JSON.stringify({ window_from: '2026-09-01T00:00:00Z', window_to: '2026-09-02T00:00:00Z' });
+    const response = await fetch(`${base}/api/internal/zoom/sync`, { method: 'POST', headers, body });
+    assert.equal(response.status, 502);
+    assert.equal(store.syncRuns.get('zoom-sync-failure-0001').state, 'failed');
+    assert.equal(store.integrationExceptions.size, 1);
+    const health = await store.adminHealth();
+    assert.equal(health.latest_zoom_sync.state, 'failed');
+    assert.equal(health.open_integration_exceptions, 1);
+  });
+});
+
 test('UI bootstrap is role-scoped and works from the mounted MissionAccounts route', async () => {
   const studentId = '00000000-0000-4000-8000-000000000001';
   const store = new PreviewStore();

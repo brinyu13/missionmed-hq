@@ -839,4 +839,67 @@ if [[ "$auto_charge_results" != "$auto_charge_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+zoom_ingestion_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_ingest_zoom_batch(
+  'pg-zoom-ingest-0001','2026-09-01T00:00:00Z','2026-09-02T00:00:00Z',
+  jsonb_build_object(
+    'source_path','zoom-api://completed-meetings/pg-test',
+    'sha256',repeat('c',64),'byte_count',512,'observed_at','2026-09-02T12:00:00Z'
+  ),
+  jsonb_build_array(jsonb_build_object(
+    'cycle_key','2026-cycle-3','provider_meeting_id','pg-zoom-meeting-1',
+    'provider_instance_id','pg-zoom-instance-1','starts_at','2026-09-01T16:00:00Z',
+    'held_on','2026-09-01','time_zone','America/New_York','step','s1',
+    'state','candidate','source_payload',jsonb_build_object('topic','Disposable test')
+  )),
+  jsonb_build_array(jsonb_build_object(
+    'provider_instance_id','pg-zoom-instance-1','provider_source_id','pg-zoom-row-1',
+    'participant_source_id','pg-zoom-participant-1','display_name','Unresolved attendee',
+    'joined_at','2026-09-01T16:01:00Z','left_at','2026-09-01T17:00:00Z',
+    'duration_seconds',3540,'payload',jsonb_build_object('source','disposable'),
+    'payload_sha256',repeat('d',64)
+  ))
+)->>'accepted';
+select missionaccounts.api_ingest_zoom_batch(
+  'pg-zoom-ingest-0001','2026-09-01T00:00:00Z','2026-09-02T00:00:00Z',
+  jsonb_build_object(
+    'source_path','zoom-api://completed-meetings/pg-test',
+    'sha256',repeat('c',64),'byte_count',512,'observed_at','2026-09-02T12:00:00Z'
+  ),
+  jsonb_build_array(jsonb_build_object(
+    'cycle_key','2026-cycle-3','provider_meeting_id','pg-zoom-meeting-1',
+    'provider_instance_id','pg-zoom-instance-1','starts_at','2026-09-01T16:00:00Z',
+    'held_on','2026-09-01','time_zone','America/New_York','step','s1',
+    'state','candidate','source_payload',jsonb_build_object('topic','Disposable test')
+  )),
+  jsonb_build_array(jsonb_build_object(
+    'provider_instance_id','pg-zoom-instance-1','provider_source_id','pg-zoom-row-1',
+    'participant_source_id','pg-zoom-participant-1','display_name','Unresolved attendee',
+    'joined_at','2026-09-01T16:01:00Z','left_at','2026-09-01T17:00:00Z',
+    'duration_seconds',3540,'payload',jsonb_build_object('source','disposable'),
+    'payload_sha256',repeat('d',64)
+  ))
+)->>'duplicate';
+select missionaccounts.api_record_zoom_sync_failure(
+  'pg-zoom-failure-0001','2026-09-03T00:00:00Z','2026-09-04T00:00:00Z',
+  'Disposable provider failure','2026-09-04T00:01:00Z'
+)->>'state';
+reset role;
+select
+  (select count(*) from missionaccounts.session where provider_instance_id='pg-zoom-instance-1') || '|' ||
+  (select count(*) from missionaccounts.attendance_source_row where provider_source_id='pg-zoom-row-1') || '|' ||
+  (select count(*) from missionaccounts.attendance_event ae join missionaccounts.session s on s.id=ae.session_id where s.provider_instance_id='pg-zoom-instance-1') || '|' ||
+  (select state from missionaccounts.sync_run where request_id='pg-zoom-ingest-0001') || '|' ||
+  (select count(*) from missionaccounts.integration_exception where idempotency_key='missionaccounts:zoom-sync-failure:pg-zoom-failure-0001');
+SQL
+)
+
+zoom_ingestion_expected=$'true\ntrue\nfailed\n1|1|0|ok|1'
+if [[ "$zoom_ingestion_results" != "$zoom_ingestion_expected" ]]; then
+  echo "MissionAccounts Zoom ingestion-port verification returned unexpected controls:" >&2
+  echo "$zoom_ingestion_results" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"

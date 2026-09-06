@@ -374,6 +374,27 @@ export class SupabaseRestStore {
     });
   }
 
+  async ingestZoomBatch({ requestId, batch }) {
+    return this.rpc('api_ingest_zoom_batch', {
+      p_request_id: requestId,
+      p_window_from: batch.window_from,
+      p_window_to: batch.window_to,
+      p_artifact: batch.artifact,
+      p_sessions: batch.sessions,
+      p_source_rows: batch.source_rows,
+    });
+  }
+
+  async recordZoomSyncFailure({ requestId, windowFrom, windowTo, error, now }) {
+    return this.rpc('api_record_zoom_sync_failure', {
+      p_request_id: requestId,
+      p_window_from: windowFrom,
+      p_window_to: windowTo,
+      p_error: error,
+      p_now: now,
+    });
+  }
+
   async processStripePaymentIntent({ eventId, eventType, paymentIntentId, studentId, attendanceDayId, failureCode, failureMessage }) {
     return this.rpc('api_process_stripe_payment_intent', {
       p_provider_event_id: eventId,
@@ -589,6 +610,8 @@ export class PreviewStore {
     this.chargeMutations = new Map();
     this.autoChargeDispatches = new Map();
     this.integrationExceptions = new Map();
+    this.zoomImports = new Map();
+    this.syncRuns = new Map();
     this.notifications = new Map();
     this.reminders = new Map();
     this.identityClusters = new Map();
@@ -1475,6 +1498,58 @@ export class PreviewStore {
     }
     return { accepted: true, duplicate: false, dispatch: { ...dispatch }, charge: { ...charge } };
   }
+  async ingestZoomBatch({ requestId, batch }) {
+    const fingerprint = JSON.stringify({
+      window_from: batch.window_from,
+      window_to: batch.window_to,
+      artifact_sha256: batch.artifact?.sha256,
+      sessions: batch.sessions?.length,
+      source_rows: batch.source_rows?.length,
+    });
+    const existing = this.zoomImports.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    const ordinal = this.zoomImports.size + 1;
+    const result = {
+      accepted: true,
+      duplicate: false,
+      artifact_id: `preview-zoom-artifact-${ordinal}`,
+      import_run_id: `preview-zoom-import-${ordinal}`,
+      sync_run_id: `preview-zoom-sync-${ordinal}`,
+      sessions: batch.sessions.length,
+      source_rows: batch.source_rows.length,
+      attendance_events_created: 0,
+      identity_decisions_created: 0,
+      charges_created: 0,
+    };
+    this.zoomImports.set(requestId, { fingerprint, batch: structuredClone(batch), result });
+    this.syncRuns.set(requestId, {
+      id: result.sync_run_id, provider: 'zoom', state: 'ok',
+      window_from: batch.window_from, window_to: batch.window_to,
+      stats: result, error: null,
+    });
+    return result;
+  }
+  async recordZoomSyncFailure({ requestId, windowFrom, windowTo, error, now }) {
+    const existing = this.syncRuns.get(requestId);
+    if (existing) return { accepted: true, duplicate: true, sync_run_id: existing.id, state: existing.state };
+    const row = {
+      id: `preview-zoom-sync-${this.syncRuns.size + 1}`,
+      provider: 'zoom', state: 'failed', window_from: windowFrom, window_to: windowTo,
+      stats: {}, error, started_at: now, finished_at: now,
+    };
+    this.syncRuns.set(requestId, row);
+    const exceptionKey = `missionaccounts:zoom-sync-failure:${requestId}`;
+    this.integrationExceptions.set(exceptionKey, {
+      id: `preview-integration-exception-${this.integrationExceptions.size + 1}`,
+      provider: 'zoom', kind: 'zoom_sync_failed', state: 'open',
+      details: { sync_run_id: row.id, window_from: windowFrom, window_to: windowTo, error },
+      idempotency_key: exceptionKey,
+    });
+    return { accepted: true, duplicate: false, sync_run_id: row.id, exception_id: this.integrationExceptions.get(exceptionKey).id, state: 'failed' };
+  }
   async processStripePaymentIntent({ eventId, eventType, paymentIntentId, studentId, attendanceDayId, failureCode, failureMessage }) {
     const event = this.providerEvents.get(`stripe:${eventId}`);
     const charge = this.chargesByDay.get(attendanceDayId);
@@ -1672,10 +1747,11 @@ export class PreviewStore {
     };
   }
   async adminHealth() {
+    const latestZoomSync = [...this.syncRuns.values()].at(-1) || null;
     return {
       mode: 'preview', review_students: null, failed_provider_events: null,
       failed_notifications: null, open_integration_exceptions: this.integrationExceptions.size,
-      latest_zoom_sync: null,
+      latest_zoom_sync: latestZoomSync,
     };
   }
 }
