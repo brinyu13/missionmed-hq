@@ -1,7 +1,9 @@
 # MX-MISSIONACCOUNTS-5301P Founder Gates
 
-**Prepared:** 2026-09-06  
-**Purpose:** smallest approval-ready path from the locally verified candidate to an isolated, zero-data, feature-off production deployment.  
+**Prepared:** 2026-09-06
+
+**Purpose:** smallest approval-ready path from the locally verified candidate to an isolated, zero-data, feature-off production deployment.
+
 **Current production effect:** none.
 
 ## Decision summary
@@ -102,7 +104,8 @@ Canonical process:
 
 Rollback: before push, abandon only the isolated registration checkout. After push, use a new bounded governance decision/transaction; never rewrite canonical history.
 
-Consequence of approval: governance registration may proceed; it does **not** itself deploy or activate anything.  
+Consequence of approval: governance registration may proceed; it does **not** itself deploy or activate anything.
+
 Consequence of non-approval: local candidate and evidence remain preserved, but no production deployment is authorized.
 
 ### Copy-ready H1 approval
@@ -184,4 +187,3 @@ These queues are not app-deployment blockers. The first dormant deployment impor
 - Do not install or expose the Matrix route before runtime-lock reconciliation and shared-path authority.
 - Do not create Stripe objects, charge, refund, send invoices, contact students, or enable automatic billing.
 - Do not activate Zoom, notifications, or recurring workers.
-
