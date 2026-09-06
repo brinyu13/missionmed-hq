@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Latest implementation commit:** `3bcc2638b3ab68b0402e934efc6e09cd703c6b10`
+**Latest implementation commit:** `f3d7342b927e28497b95ce0862adb3d9c1524081`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -17,6 +17,8 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - current StoryForge-family WordPress SSO boundary with an in-memory browser token, product-isolated HS256 issuer/audience/secret, strict signed eligibility and one-role enforcement, expiry/activation checks, algorithm-confusion defense, and retained RS256/JWKS verification only when an HS256 product secret is not configured;
 - a default-off, exact-user-allowlisted WordPress SSO candidate plus a separately default-off, targetless, bounded same-origin gateway candidate; neither is installed in production;
 - a tracked scrubbed production shell that preserves the Founder-approved visual canon without embedding the 271-student/3,941-event historical payload or using browser local storage for business state;
+- a corrected production authentication gate that is actually injected at the canonical attributed `<body>` seam, hides only after an authenticated role-scoped bootstrap, and remains opaque with the real access failure when authentication cannot complete;
+- production-only truthfulness hardening that replaces inherited prototype labels, hides browser-reset/export affordances, and blocks simulated card, authorization, report, and reset dialogs before they open while preserving the approved visual hierarchy and admin/student lens;
 - mounted `/missionaccounts/api/*` support, a safe public runtime configuration endpoint, and authenticated role-scoped UI bootstraps that expose only the student’s own account to student sessions while reserving roster, cycles, identity clusters, and operational health for Dr J/admin/founder sessions;
 - a canonical authenticated read adapter that paginates PostgREST reads, projects immutable attendance evidence, keeps both same-day class events while deriving one $25 day, omits Zoom meeting references from student scope, and hydrates the approved UI only from server-authoritative UUID-mapped records;
 - a production action bus for the currently backed billing-decision, cycle-policy, comp-day, exam-plan/result, and append-only attendance-correction controls; each accepted action refetches the complete authorized bootstrap before rerendering, and unsupported production controls fail visibly without optimistic browser state;
@@ -42,6 +44,7 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - server-authoritative $25 attendance-day charge preparation that requires a current approved basis, verified identity, billable day, on-file method, active consent, remaining approved amount, explicit failed-charge retries, and a unique charge per day; only a matching signed Stripe PaymentIntent webhook can mark it succeeded or failed;
 - a bounded 24–48-hour automatic-charge worker that asserts Stripe Test Mode before any database claim, atomically reserves eligible days with `SKIP LOCKED`, safely reclaims stale pre-provider work with the same Stripe idempotency key, records missed windows and provider failures in a private integration-exception queue, notifies student and admin on submission failure, and never automatically retries a failed charge;
 - a default-off Zoom source-ingestion port with an injected provider boundary, worker-authenticated bounded-window endpoint, normalized meeting/participant evidence, digest-bound idempotent persistence, successful/failed sync custody, and private integration exceptions; it creates no identity decisions, attendance interpretations, billing decisions, or charges;
+- an admin-only Zoom health surface backed by sanitized server bootstrap state: feature/provider readiness, latest successful/failed run, persisted session/source-row controls, scheduler truth, and integration-exception count; student payloads receive none of this telemetry;
 - student-owned Passed submission that resolves the current plan from the authenticated identity and is independently ownership-checked inside PostgreSQL;
 - role-protected, server-derived admin home, cycle, student-directory, and student-detail projections;
 - retry-safe notification outbox claiming/acknowledgement with `SKIP LOCKED`, bounded batches, a five-attempt ceiling, exponential delay, provider idempotency, separate worker authentication, and a disabled-by-default HTTPS provider adapter;
@@ -155,9 +158,20 @@ All implementation files are under `missionaccounts/`:
   - local admin fixture to `/api/admin/health`: 200.
 - Browser:
   - StoryForge-family opening: PASS.
+  - once-per-tab opening skip and explicit `#/...?...replay=1` replay: PASS.
   - Admin command home: PASS.
   - dark theme: PASS.
   - student lens and same-day one-$25-day labels: PASS.
+  - authenticated production gate release / failed-auth opaque gate: PASS.
+  - Zoom health disconnected and seeded-success states: PASS; no hard-coded connectivity claim.
+  - 390 px viewport: PASS; document and main `scrollWidth` equal the 390 px viewport.
+
+Local browser evidence (gitignored because repository policy excludes PNGs):
+
+- `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_zoom-health-admin.png` — SHA-256 `90d7e20d167a8e5bc4b168b78c55c8712a86ea3a5476f90519888eed978eaa8f`.
+- `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_zoom-health-mobile-playwright.png` — SHA-256 `60656ce16960cafcea4ccc2a46376b32fc2be06faa59894f7c219f77fc8521ae`.
+- `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_zoom-health-success-dark.png` — SHA-256 `82593645cd6beea3fdf3a1cc6e35c05a5722e1c6e7fa62c268eebe21f865a530`.
+- `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_auth-failure-gate.png` — SHA-256 `123b0917f04a6be9602e7ae3f4cdbde06dc2ab53078e134a2097be437d588130`.
 
 ## Production services touched
 
@@ -171,11 +185,11 @@ None outside the isolated worktree. Local preview used `PORT=4179` and `MISSIONA
 
 - Matrix route registered: NO.
 - Production URL: expected `/missionaccounts/`, currently not activated.
-- Local preview: `http://127.0.0.1:4179/missionaccounts/?replay=1` — restored and visibly rendering in Chrome on 2026-09-06; the obsolete port 4178 is not the current preview.
+- Local preview: `http://127.0.0.1:4179/missionaccounts/#/home?replay=1` — restored and rendering on 2026-09-06; the obsolete port 4178 is not the current preview.
 
 ## Zoom integration status
 
-The provider port and source-only persistence boundary are implemented and fail closed while disconnected. No Zoom credential, concrete client, API call, schedule, setting change, or production exception queue was activated. Full ingestion remains behind `zoom_sync=false`; any future activation still requires an authorized provider client and registered production target.
+The provider port, source-only persistence boundary, and admin-only dynamic health surface are implemented and fail closed while disconnected. The UI says the scheduler is not registered and never infers connectivity from a feature flag alone. No Zoom credential, concrete client, API call, schedule, setting change, or production exception queue was activated. Full ingestion remains behind `zoom_sync=false`; any future activation still requires an authorized provider client and registered production target.
 
 ## Blocking evidence
 

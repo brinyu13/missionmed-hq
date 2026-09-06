@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "3bcc2638b3ab68b0402e934efc6e09cd703c6b10",
+  "implementation_commit": "f3d7342b927e28497b95ce0862adb3d9c1524081",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -32,7 +32,8 @@
     "a971068fa05d0f5cd2f12fe222eb78397868bd8b",
     "ecc0e4f3fdc8274e43f233c7a0845cecb0335bf7",
     "d9c902e8c3e645a5cddb8e520316f63a6e315f57",
-    "3bcc2638b3ab68b0402e934efc6e09cd703c6b10"
+    "3bcc2638b3ab68b0402e934efc6e09cd703c6b10",
+    "f3d7342b927e28497b95ce0862adb3d9c1524081"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -65,6 +66,9 @@
   "zoom_provider_port_implemented": true,
   "zoom_source_ingestion_rpc_implemented": true,
   "zoom_sync_failure_exception_implemented": true,
+  "zoom_admin_health_surface_implemented": true,
+  "production_auth_gate_verified": true,
+  "production_simulated_controls_blocked": true,
   "stripe_payment_intent_webhook_implemented": true,
   "student_passed_implemented": true,
   "admin_projections_implemented": true,
@@ -91,6 +95,16 @@
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
   "tests": { "passed": 119, "failed": 0, "mandatory_vectors": 19 },
+  "browser_qa": {
+    "desktop": true,
+    "mobile_390": true,
+    "dark_theme": true,
+    "once_per_tab_opening": true,
+    "explicit_opening_replay": true,
+    "authenticated_gate_release": true,
+    "failed_auth_opaque_gate": true,
+    "zoom_health_dynamic": true
+  },
   "source_controls": {
     "students": 271,
     "source_artifacts": 6,
