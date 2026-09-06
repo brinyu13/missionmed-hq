@@ -2,11 +2,12 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "ef72709aabcf1768c2b8116cb796907899ffc263",
+  "implementation_commit": "b402c5326abe0a4668166d4637ea91b97a11d691",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
-    "ef72709aabcf1768c2b8116cb796907899ffc263"
+    "ef72709aabcf1768c2b8116cb796907899ffc263",
+    "b402c5326abe0a4668166d4637ea91b97a11d691"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -14,9 +15,10 @@
   "migration_applied": false,
   "postgres_migration_tested": true,
   "exam_plan_rpc_implemented": true,
+  "comp_allowance_rpc_implemented": true,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 42, "failed": 0, "mandatory_vectors": 17 },
+  "tests": { "passed": 44, "failed": 0, "mandatory_vectors": 17 },
   "source_controls": {
     "attendance_events": 3941,
     "human_cycle_rows": 498,
