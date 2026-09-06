@@ -22,8 +22,8 @@ class MMED_File_Vault_V2 {
 	const CAP_MANAGE        = 'mmed_manage_file_vault';
 	const CAP_FINALIZE      = 'mmed_finalize_file_vault';
 	const CAP_AUDIT         = 'mmed_view_file_vault_audit';
-	const ASSET_CSS         = 'student-os-file-vault-v2.a6b07c660ab66b82.css';
-	const ASSET_JS          = 'student-os-file-vault-v2.8cb1f78e84884352.js';
+	const ASSET_CSS         = 'student-os-file-vault-v2.87c932a3b20b5e6b.css';
+	const ASSET_JS          = 'student-os-file-vault-v2.0a3caa654d9b6724.js';
 
 	/**
 	 * Register runtime hooks.
@@ -324,17 +324,21 @@ class MMED_File_Vault_V2 {
 			get_current_user_id(),
 			$request->get_param( 'search' ),
 			$request->get_param( 'page' ),
-			$request->get_param( 'per_page' )
+			$request->get_param( 'per_page' ),
+			false,
+			$request->get_param( 'course_id' )
 		);
 		if ( is_wp_error( $scope ) ) {
 			return $scope;
 		}
 		return new WP_REST_Response(
 			array(
-				'students'     => $scope['students'],
-				'review_queue' => $scope['review_queue'],
-				'pagination'   => $scope['pagination'],
-				'command'      => self::command_summary( $scope['students'], $scope['review_queue'] ),
+				'students'           => $scope['students'],
+				'review_queue'       => $scope['review_queue'],
+				'courses'            => $scope['courses'],
+				'selected_course_id' => $scope['selected_course_id'],
+				'pagination'         => $scope['pagination'],
+				'command'            => self::command_summary( $scope['students'], $scope['review_queue'] ),
 			),
 			200
 		);

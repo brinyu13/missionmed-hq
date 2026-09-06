@@ -172,6 +172,7 @@ fv2_assert( false !== strpos( $controller_source, 'mmed_file_vault_v2_mission_fi
 fv2_assert( false !== strpos( $repository_source, "'moderation_status'" ) && false !== strpos( $repository_source, 'mmed_file_vault_v2_share_moderated' ), 'student-shared moderation persists server-side and cannot be bypassed by republishing' );
 fv2_assert( false !== strpos( $repository_source, 'source_revision' ) && false !== strpos( $repository_source, 'record_download_event' ), 'shared files pin immutable revisions and append normalized download evidence' );
 fv2_assert( false !== strpos( $repository_source, "'_mmed_program_tier'" ) && false !== strpos( $repository_source, 'mmed_file_vault_v2_course_filter_invalid' ), 'staff roster requires aligned current MissionMed enrollment and rejects unknown course filters' );
+fv2_assert( false !== strpos( $controller_source, "get_param( 'course_id' )" ) && false !== strpos( $controller_source, "'selected_course_id'" ), 'staff REST route carries the validated course filter and returns selected state' );
 
 MMED_File_Vault_V2::register_routes();
 fv2_assert( 25 === count( $GLOBALS['fv2_routes'] ), 'expected additive V2 route count' );
