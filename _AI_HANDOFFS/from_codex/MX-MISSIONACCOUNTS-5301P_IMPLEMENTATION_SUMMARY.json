@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "34288a4ebe448f065ac693e8c3b63b39afa6eed3",
+  "implementation_commit": "59033d0420888732acd11c194f48735c7542c99a",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -26,7 +26,9 @@
     "5751b511244113f55abad0492fe274961577430e",
     "c1771c73cf0b4a457697354c95152c1e777a85b8",
     "4676efa2a7b57676034fccd5e3963a595a4e71b3",
-    "34288a4ebe448f065ac693e8c3b63b39afa6eed3"
+    "34288a4ebe448f065ac693e8c3b63b39afa6eed3",
+    "f2a557158a3f75426f872ea984dc9e00d0a76d5f",
+    "59033d0420888732acd11c194f48735c7542c99a"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -54,6 +56,11 @@
   "identity_review_clusters_persisted": true,
   "admin_identity_projection_implemented": true,
   "notification_outbox_worker_implemented": true,
+  "due_exam_reminder_dispatcher_implemented": true,
+  "explicit_notification_audience_implemented": true,
+  "student_contact_custody_implemented": true,
+  "invoice_readiness_rpc_implemented": true,
+  "canonical_billing_basis_normalized": true,
   "product_scoped_wordpress_sso_candidate_implemented": true,
   "same_origin_gateway_candidate_implemented": true,
   "role_scoped_ui_bootstrap_implemented": true,
@@ -68,7 +75,7 @@
   "notification_transport_configured": false,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 97, "failed": 0, "mandatory_vectors": 17 },
+  "tests": { "passed": 103, "failed": 0, "mandatory_vectors": 17 },
   "source_controls": {
     "students": 271,
     "source_artifacts": 6,
@@ -91,6 +98,7 @@
   },
   "feature_flags": {
     "missionaccounts_route": false,
+    "student_contacts": false,
     "billing_decisions": false,
     "attendance_corrections": false,
     "exam_plans": false,
