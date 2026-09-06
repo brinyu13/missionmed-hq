@@ -1,0 +1,8 @@
+{
+  "generated_at": "2026-07-16T01:47:12.462Z",
+  "status": "STATIC_PASS_PREVIEW_NOT_RUN",
+  "migration": "i1q-question-platform/db/migrations/20260715193625_i1q_1008a_identity_runtime_contract.sql",
+  "sha256": "e78e0e08cc84da54ef87af5c5ef8e958a2f93b813a06472a797f3842583f36a0",
+  "production_or_staging_apply_count": 0,
+  "reason": "Static validation and disposable local PostgreSQL apply, RLS, hostile-role, compensation, and reapply proofs passed. No authorized canonical preview or staging target was available."
+}

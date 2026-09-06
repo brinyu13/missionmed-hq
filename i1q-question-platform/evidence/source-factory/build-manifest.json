@@ -1,0 +1,166 @@
+{
+  "schema_version": "missionmed.i1q.source_factory.build_manifest.v1",
+  "as_of_date": "2026-07-16",
+  "build_status": "pass_incomplete_corpus_handoff_and_quarantined_drafts_only",
+  "self_embedding": false,
+  "input_count": 16,
+  "inputs": [
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/pilot-authoring-b.mjs",
+      "bytes": 33201,
+      "sha256": "c763aabdb234b4f07ec5d42fe94b311ca7a0b22871694713acdf6a31fc12116a"
+    },
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/pilot-authoring.mjs",
+      "bytes": 35124,
+      "sha256": "70675d59148467183c72683990743a3bf2b114ca6af41e67b5a1fb6d3c310116"
+    },
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/pilot-library.mjs",
+      "bytes": 365,
+      "sha256": "e14dc1ac2fe3ad5e3ead020c204f10cbb2429a4307de101a88ac8b3aedfe0c85"
+    },
+    {
+      "path": "i1q-question-platform/evidence/inventory_report.json",
+      "bytes": 1680,
+      "sha256": "5ee992b89853148fcfba8103310ab73f3ab1a9c12c4e66913eeb6c3f4e217eba"
+    },
+    {
+      "path": "i1q-question-platform/scripts/build-source-factory.mjs",
+      "bytes": 9249,
+      "sha256": "8ea5d6557f3ffb7920f274ed36820355540a2e41c1f5d4b452dd09c4f0d0bdb5"
+    },
+    {
+      "path": "i1q-question-platform/src/hash.mjs",
+      "bytes": 1277,
+      "sha256": "d1231cfe861ae4588980d3b64161adb2f6c82fa4a2601b9d9e150f944dcde1b9"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/authoring.mjs",
+      "bytes": 14701,
+      "sha256": "6682acecc2957bb80e35e7d35ca88a6d03204264b255bbf79a75644eca0759c2"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/contracts.mjs",
+      "bytes": 5160,
+      "sha256": "7740966d513fb74bb336fbb270b78e8fb116f8c896b146f289de2dc3f7ca780b"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/dedupe.mjs",
+      "bytes": 3203,
+      "sha256": "752b629f1864d9f3e81a1f87b03a7731afe167fbf2b31b61fc2cc9bddb188f0f"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/legacy-v4.mjs",
+      "bytes": 11491,
+      "sha256": "49b9b95947b5f3f24be73d4006d75be5ea465a96d6bdf776ab5a9702f605eb8b"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/quality.mjs",
+      "bytes": 32736,
+      "sha256": "3ed2ea7fbdf8f362eb34766f878fb1184ef5331546ed32efce67444fcae16461"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/restricted-corpus.mjs",
+      "bytes": 17546,
+      "sha256": "111d4ae12db752263de988ded44eb3fba98f32b30b07087200b18557eb6a2d80"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/taxonomy.mjs",
+      "bytes": 10684,
+      "sha256": "6389ff2fb1e51ff395576939dff3627e7c3f2402a6ec7c064e73beed15031373"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/transcript-resume.mjs",
+      "bytes": 12357,
+      "sha256": "2da0239886522a89b6a5ec3f36de2cffa037e2431c6fe282504daf30d06e6270"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/workspace-corpus-probe.mjs",
+      "bytes": 7673,
+      "sha256": "59529682a3be3453c0d19fad06cd04c7aca142a6c2c32610d60be9764ef1661f"
+    },
+    {
+      "path": "supabase/migrations/20260420111000_stat_dataset_ingest.sql",
+      "bytes": 758838,
+      "sha256": "9bbd46e329933f1ebe5642e48238f9e0ac9f29bd772ad40675123e1d2c313f0e"
+    }
+  ],
+  "artifact_count": 11,
+  "artifacts": [
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/generated/candidate-library.json",
+      "bytes": 274578,
+      "sha256": "bad272124c0e35690a9918c3837620bbc4c7836dc2c36ac631e7d3b6f898abe5"
+    },
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/generated/candidate-library.md",
+      "bytes": 57609,
+      "sha256": "5fbb43e88e8bb45ffc2b486439e3ec9a1cc3d2f458dcaed58c5897daa5d419ec"
+    },
+    {
+      "path": "i1q-question-platform/evidence/source-factory/authoring-run.json",
+      "bytes": 7764,
+      "sha256": "e4b4345d1021896f57dd093991916637b4e6773f9cb9ea133d0a7d83c616008e"
+    },
+    {
+      "path": "i1q-question-platform/evidence/source-factory/candidate-dedupe-audit.json",
+      "bytes": 507,
+      "sha256": "80c36cc84664533d8a66a17eb2c401aef547c46a2606b67d7ad44f7c006500aa"
+    },
+    {
+      "path": "i1q-question-platform/evidence/source-factory/candidate-library-validation.json",
+      "bytes": 621,
+      "sha256": "084b29ac2432c1f2555709421c0b25d256632bb999782f9987a0add3b6557195"
+    },
+    {
+      "path": "i1q-question-platform/evidence/source-factory/legacy-v4-audit.json",
+      "bytes": 921561,
+      "sha256": "f41c51a6d89bda7930d4b86e2241de688d62058136debf448f089eb00d947ddc"
+    },
+    {
+      "path": "i1q-question-platform/evidence/source-factory/restricted-corpus-snapshot.json",
+      "bytes": 1700,
+      "sha256": "b1360b2559d6df554e6fe33535c3b674e92b2427dfe68ba263cf0774cc797bc5"
+    },
+    {
+      "path": "i1q-question-platform/evidence/source-factory/taxonomy.json",
+      "bytes": 12836,
+      "sha256": "e7d66aff5dfc10f1fee8f22bd02910a8acb7f63d70ec7eeb38eb72b86df4fb1d"
+    },
+    {
+      "path": "i1q-question-platform/evidence/source-factory/transcript-factory-gate.json",
+      "bytes": 2132,
+      "sha256": "b231cfb101c3d63dc0b446b926e71f401461961977ca72de55f447d06cdbb241"
+    },
+    {
+      "path": "i1q-question-platform/evidence/source-factory/transcript-resume-manifest.json",
+      "bytes": 9958,
+      "sha256": "bf3fde05aef50e2c6a2999b257daed182868da9b71d98be1a552c4b7fe8a37bf"
+    },
+    {
+      "path": "i1q-question-platform/evidence/source-factory/workspace-corpus-access-probe.json",
+      "bytes": 2792,
+      "sha256": "715076a4467b75e5eae3a743f25d62928cee559eb64fa94df2d5deda2ef9ee0d"
+    }
+  ],
+  "invariants": {
+    "source_mutations": 0,
+    "production_mutations": 0,
+    "prior_point_in_time_authorized_source_aggregate": 97,
+    "current_transcript_artifacts_discovered": 0,
+    "corpus_proven_complete": false,
+    "transcript_artifacts_processed": 0,
+    "explicit_questions_extracted": 0,
+    "implicit_or_reconstructed_questions_extracted": 0,
+    "teaching_statements_converted": 0,
+    "unique_transcript_concepts_after_deduplication": 0,
+    "legacy_rows_audited_secondary_only": 845,
+    "legacy_rows_without_established_transcript_provenance": 845,
+    "transcript_derived_candidates": 0,
+    "authority_derived_quarantined_candidates": 24,
+    "physician_approved_candidates": 0,
+    "release_eligible_candidates": 0
+  },
+  "manifest_payload_hash": "77c08f3aa1a8181634225cfc1e3413f6308f13080a81a22d32171eeed3636135"
+}

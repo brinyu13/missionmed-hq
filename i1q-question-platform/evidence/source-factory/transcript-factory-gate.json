@@ -1,0 +1,43 @@
+{
+  "schema_version": "missionmed.i1q.transcript_factory_gate.v1",
+  "status": "BLOCKED",
+  "transcript_candidate_generation_allowed": false,
+  "medical_approval_allowed": false,
+  "release_allowed": false,
+  "drafting_blockers": [
+    "current_corpus_access_not_verified",
+    "source_universe_completeness_not_established",
+    "segment_authority_manifest_missing",
+    "transcript_bytes_not_accessible_in_workspace",
+    "am11_single_and_multi_speaker_inventory_strata_unavailable",
+    "privacy_safe_row_manifest_missing",
+    "restricted_source_derivation_not_authorized",
+    "working_redacted_source_denominator_incomplete",
+    "extraction_ready_source_denominator_incomplete",
+    "source_complete_privacy_gold_evaluation_not_passed",
+    "question_recall_denominator_not_established",
+    "trusted_privacy_authority_verification_unavailable"
+  ],
+  "approval_blockers": [
+    "credentialed_medical_governance_unassigned",
+    "candidate_level_physician_review_not_performed"
+  ],
+  "blockers": [
+    "current_corpus_access_not_verified",
+    "source_universe_completeness_not_established",
+    "segment_authority_manifest_missing",
+    "transcript_bytes_not_accessible_in_workspace",
+    "am11_single_and_multi_speaker_inventory_strata_unavailable",
+    "privacy_safe_row_manifest_missing",
+    "restricted_source_derivation_not_authorized",
+    "working_redacted_source_denominator_incomplete",
+    "extraction_ready_source_denominator_incomplete",
+    "source_complete_privacy_gold_evaluation_not_passed",
+    "question_recall_denominator_not_established",
+    "trusted_privacy_authority_verification_unavailable",
+    "credentialed_medical_governance_unassigned",
+    "candidate_level_physician_review_not_performed"
+  ],
+  "qualification": "This local gate cannot establish trusted privacy authority or authorize restricted-source derivation. A future externally trusted execution boundary may authorize quarantined drafting only; editorial, medical, privacy, rights, release-validator, and Brian ratification gates still apply.",
+  "content_hash": "839c5e27e5a3293269ef6e0689a74b8fa19da670a678d5ef6449d68997a19669"
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": "missionmed.i1q.candidate_dedupe_audit.v1",
+  "candidate_count": 24,
+  "exact_duplicate_groups": [],
+  "normalized_duplicate_groups": [],
+  "near_duplicate_pairs": [],
+  "concept_variant_groups": [],
+  "semantic_method": "ONTOLOGY_GROUPING_PLUS_TOKEN_JACCARD_NOT_EMBEDDING_EQUIVALENCE",
+  "semantic_adjudication_complete": false,
+  "qualification": "Automated results are candidate signals only; a qualified human must adjudicate semantic equivalence and canonical merge decisions."
+}

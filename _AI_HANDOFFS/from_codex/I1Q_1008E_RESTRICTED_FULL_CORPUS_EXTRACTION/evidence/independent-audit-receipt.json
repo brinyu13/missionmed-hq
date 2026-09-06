@@ -1,0 +1,90 @@
+{
+  "schema_version": "missionmed.i1q1008e.independent_truth_audit_receipt.v1",
+  "verdict": "GO_C1_OBSERVED_SCOPE_COMPLETE",
+  "audit_mode": "READ_ONLY_NO_MUTATION",
+  "truth_score": 9.8,
+  "priority_finding_counts": {
+    "p0": 0,
+    "p1": 0
+  },
+  "counts": {
+    "transcript_artifacts": 97,
+    "nodes_artifacts": 99,
+    "automated_pass_cells": 873,
+    "specialist_verification_cells": 194,
+    "specialist_role_reviews": 388,
+    "specialist_packets": 97,
+    "specialist_role_batches": 4,
+    "specialist_submissions": 97,
+    "specialist_final_receipts": 97,
+    "occurrences": 117893,
+    "provisional_concepts": 57688,
+    "concept_memberships": 58317,
+    "provisional_relationships": 178341
+  },
+  "root_bindings": {
+    "state": "98b6f8e6a8cd4ad445aad905604623bf6db7d273313704b2a02241483cdc667b",
+    "extraction_receipt": "ba11fad939422be7246813dbb017068f93e566eca10e1df83133dde795e72dc4",
+    "journal": "a90ffc860dc3c008a20f78af82a0e8e6b1df432edbcc00dd1eeb2227079bd37c",
+    "safe_ledger": "6b1d50a01856ef69a1634ee5b6abd44b4c77e5080e6001a46bdbe327337c232f",
+    "coverage": "dc878857d099276b4ceb653c44426addc38a061a541eade8868b08495dca28ec",
+    "occurrence_inventory": "9e79d348645ffb22d97de140b2bc04c0737dc11b835fbf1f2950c4213fdd0c6e",
+    "concept_inventory": "ddaa6261a1f8ada680c0f4977c181a873e4b9d4112be6bdc3dbce12c8e04b32b",
+    "relationship_inventory": "b7d1dc5655c18d3a882629cf4f51ffb6573e592ecd31733dc72d557135770ec4",
+    "relationship_set": "7d748ed11449286449bffec85d302282ee08e6e36cccfcfea0e0d35b67d64876",
+    "finalization_aggregate": "1cb87696f2e6cac01226e22187f440be5387d6d51539f8a275c19e42a1ffc811",
+    "specialist_receipt_set": "45865b4943b70638409bbfb517598134811ecb51d11f7476c4c0705a2fd9a9c1",
+    "finalizer_contract": "6d7e7e55ee720b49479a19fbb207056d9c4d9789b39db40fa33b2854b88ae6fb"
+  },
+  "invariant_results": {
+    "occurrence_envelopes_valid": 117893,
+    "occurrence_envelope_failures": 0,
+    "concept_envelopes_valid": 57688,
+    "concept_envelope_failures": 0,
+    "provenance_bindings_valid": 117893,
+    "pass6_binding_violations": 0,
+    "release_overclaims": 0,
+    "approved_occurrences": 0,
+    "released_occurrences": 0,
+    "final_canonical_concepts": 0,
+    "final_four_choice_mcqs": 0,
+    "production_or_source_mutations": 0
+  },
+  "integration_evidence": {
+    "durable_finalization_aggregate_count": 1,
+    "session_observed_identical_success_count": 2,
+    "durable_second_invocation_log_present": false
+  },
+  "recovery_generations": [
+    {
+      "generation_identifier_prefix": "8b5d419e",
+      "completion_root_prefix": "8e2d7ab2",
+      "preserved": true
+    },
+    {
+      "generation_identifier_prefix": "abd0f6c3",
+      "completion_root_prefix": "422a0a61",
+      "preserved": true
+    },
+    {
+      "generation_identifier_prefix": "9509acc7",
+      "completion_root_prefix": "9dec3ee5",
+      "preserved": true
+    }
+  ],
+  "safety": {
+    "pre_report_safe_files_scanned": 74,
+    "protected_raw_files_scanned": 200,
+    "leakage_finding_count": 0,
+    "pre_report_leakage_root": "25b7f0ffa19611e71f167db6db166d1aea7b6fc9bcefe14492623648e459b6b3"
+  },
+  "limitations": [
+    "C1_OBSERVED_IS_NOT_HISTORICAL_UNIVERSE_COMPLETE",
+    "TWO_NODES_ONLY_AND_SIX_NEITHER_AVAILABLE_CONSTRAIN_COMPLETENESS",
+    "HISTORICAL_REGISTRY_DELIVERY_OBJECT_STORE_EXCLUSION_AND_TOMBSTONE_RECONCILIATION_OUT_OF_SCOPE",
+    "ONLY_ONE_FINALIZATION_AGGREGATE_DURABLY_PRESENT",
+    "NO_DOWNSTREAM_APPROVAL_OR_RELEASE_GATE_CLEARED"
+  ],
+  "next_action": "RESTRICTED_NON_DESTRUCTIVE_I1Q_1008F_ADJUDICATION",
+  "content_hash": "b95c06ccde4dbbecc27a8d9de3b8344aae54ed1a11bdd4d64d38e5437f07723f"
+}

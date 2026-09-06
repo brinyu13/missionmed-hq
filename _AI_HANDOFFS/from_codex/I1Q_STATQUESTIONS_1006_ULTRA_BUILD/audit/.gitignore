@@ -1,0 +1,6 @@
+!/.gitignore
+!/*.mjs
+!/lib/
+!/lib/*.mjs
+!/results/
+!/results/*.json

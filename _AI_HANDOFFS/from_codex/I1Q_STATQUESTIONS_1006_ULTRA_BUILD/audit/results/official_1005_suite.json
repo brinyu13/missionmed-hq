@@ -1,0 +1,404 @@
+{
+  "report_id": "i1q_1006_official_1005_isolated_execution",
+  "mission_id": "I1Q-1006",
+  "generated_at": "2026-07-14T00:59:55.418Z",
+  "status": "pass",
+  "isolation": {
+    "strategy": "recursive temporary copy; execute copied validator bytes; delete temporary tree",
+    "source_worktree_executed": false,
+    "temporary_tree_retained": false,
+    "network": false,
+    "production_reads": false,
+    "production_writes": false
+  },
+  "validator_integrity": {
+    "relative_path": "validators/run_all_validations.mjs",
+    "source_sha256_before": "edca04a0e1f8c5160c21cc4814d819f0f03f0eb32c65dead771e6128e2db9bcb",
+    "copied_sha256": "edca04a0e1f8c5160c21cc4814d819f0f03f0eb32c65dead771e6128e2db9bcb",
+    "source_sha256_after": "edca04a0e1f8c5160c21cc4814d819f0f03f0eb32c65dead771e6128e2db9bcb",
+    "exact_byte_match": true
+  },
+  "source_estate_integrity": {
+    "before": {
+      "file_count": 86,
+      "sha256": "2767262ab169c88d6c9fcfe4a2a76199782ca29a443cdb86e7ef329c30f34d90"
+    },
+    "after": {
+      "file_count": 86,
+      "sha256": "2767262ab169c88d6c9fcfe4a2a76199782ca29a443cdb86e7ef329c30f34d90"
+    },
+    "unchanged": true
+  },
+  "execution": {
+    "executable": "node",
+    "script": "validators/run_all_validations.mjs",
+    "exit_code": 0,
+    "signal": null,
+    "stdout_json": {
+      "overall_status": "pass",
+      "validators_passed": 20,
+      "leak_tests_passed": 6,
+      "negative_passed": 30,
+      "combined_source_count": 16,
+      "combined_line_count": 541,
+      "estate_hash": "bac65e62c9bbd135b7257bc3ce152f35c420e398bb736f6cb7551c15f28262f3"
+    },
+    "stderr": ""
+  },
+  "exact_counts": {
+    "validators": 20,
+    "leak_tests": 6,
+    "negative_cases": 30
+  },
+  "official_report": {
+    "overall_status": "pass",
+    "positive_status": "pass",
+    "leak_status": "pass",
+    "negative_status": "pass",
+    "privacy_status": "pass",
+    "determinism_status": "pass",
+    "validators": [
+      {
+        "id": "V1",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V2",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V3",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V4",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V5",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V6",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V7",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V8",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V9",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V10",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V11",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V12",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V13",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V14",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V15",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V16",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V17",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V18",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V19",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "V20",
+        "status": "pass",
+        "error_count": 0
+      }
+    ],
+    "leak_tests": [
+      {
+        "id": "LT-1",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "LT-2",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "LT-3",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "LT-4",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "LT-5",
+        "status": "pass",
+        "error_count": 0
+      },
+      {
+        "id": "LT-6",
+        "status": "pass",
+        "error_count": 0
+      }
+    ],
+    "negative_cases": [
+      {
+        "id": "N-001",
+        "status": "pass",
+        "expected_validator": "V7",
+        "expected_error_code": "V7_CHOICE_COUNT"
+      },
+      {
+        "id": "N-002",
+        "status": "pass",
+        "expected_validator": "V7",
+        "expected_error_code": "V7_CORRECT_COUNT"
+      },
+      {
+        "id": "N-003",
+        "status": "pass",
+        "expected_validator": "V6",
+        "expected_error_code": "V6_MISSING_SOURCE"
+      },
+      {
+        "id": "N-004",
+        "status": "pass",
+        "expected_validator": "V6",
+        "expected_error_code": "V6_DRJ_TIMESTAMP_REQUIRED"
+      },
+      {
+        "id": "N-005",
+        "status": "pass",
+        "expected_validator": "V16",
+        "expected_error_code": "V16_DRJ_REDACTION_NOT_PASSING"
+      },
+      {
+        "id": "N-006",
+        "status": "pass",
+        "expected_validator": "V18",
+        "expected_error_code": "V18_RIGHTS_NOT_CLEARED"
+      },
+      {
+        "id": "N-007",
+        "status": "pass",
+        "expected_validator": "V5",
+        "expected_error_code": "V5_MISSING_PHYSICIAN_REVIEW"
+      },
+      {
+        "id": "N-008",
+        "status": "pass",
+        "expected_validator": "V14",
+        "expected_error_code": "V14_EXPIRED_PRIMARY_CLAIM"
+      },
+      {
+        "id": "N-009",
+        "status": "pass",
+        "expected_validator": "V14",
+        "expected_error_code": "V14_CONFLICTED_CLAIM"
+      },
+      {
+        "id": "N-010",
+        "status": "pass",
+        "expected_validator": "V17",
+        "expected_error_code": "V17_AI_DRAFT_MISSING_EXTRACTION_RUN"
+      },
+      {
+        "id": "N-011",
+        "status": "pass",
+        "expected_validator": "V17",
+        "expected_error_code": "V17_AI_DISTRACTOR_MISSING_EXTRACTION_RUN"
+      },
+      {
+        "id": "N-012",
+        "status": "pass",
+        "expected_validator": "V13",
+        "expected_error_code": "V13_FROZEN_REVISION_MUTATED"
+      },
+      {
+        "id": "N-013",
+        "status": "pass",
+        "expected_validator": "V13",
+        "expected_error_code": "V13_DUPLICATE_ITEMREV_HASH"
+      },
+      {
+        "id": "N-014",
+        "status": "pass",
+        "expected_validator": "V13",
+        "expected_error_code": "V13_MULTIPLE_APPROVED_REVISIONS"
+      },
+      {
+        "id": "N-015",
+        "status": "pass",
+        "expected_validator": "V19",
+        "expected_error_code": "V19_PSYCHOMETRIC_FIELD_ON_REVISION"
+      },
+      {
+        "id": "N-016",
+        "status": "pass",
+        "expected_validator": "LT-2",
+        "expected_error_code": "LT2_CLASS_B_IN_CLASS_A_ARTIFACT"
+      },
+      {
+        "id": "N-017",
+        "status": "pass",
+        "expected_validator": "LT-5",
+        "expected_error_code": "LT5_CLASS_D_IN_STUDENT_ARTIFACT"
+      },
+      {
+        "id": "N-018",
+        "status": "pass",
+        "expected_validator": "V15",
+        "expected_error_code": "V15_UNKNOWN_FIELD"
+      },
+      {
+        "id": "N-019",
+        "status": "pass",
+        "expected_validator": "LT-4",
+        "expected_error_code": "LT4_POST_ANSWER_IN_PRE_ANSWER"
+      },
+      {
+        "id": "N-020",
+        "status": "pass",
+        "expected_validator": "V20",
+        "expected_error_code": "V20_ILLEGAL_PROMOTION_CHAIN"
+      },
+      {
+        "id": "N-021",
+        "status": "pass",
+        "expected_validator": "V20",
+        "expected_error_code": "V20_RATIFIED_RELEASE_WITH_FAILED_VALIDATION"
+      },
+      {
+        "id": "N-022",
+        "status": "pass",
+        "expected_validator": "V4",
+        "expected_error_code": "V4_RELEASE_NON_APPROVED_REVISION"
+      },
+      {
+        "id": "N-023",
+        "status": "pass",
+        "expected_validator": "V14",
+        "expected_error_code": "V14_RELEASE_MISSING_CURRENCY_CHECK"
+      },
+      {
+        "id": "N-024",
+        "status": "pass",
+        "expected_validator": "V9",
+        "expected_error_code": "V9_NON_MONOTONIC_REVISION"
+      },
+      {
+        "id": "N-025",
+        "status": "pass",
+        "expected_validator": "V11",
+        "expected_error_code": "V11_BROKEN_RELEASE_HASH_CHAIN"
+      },
+      {
+        "id": "N-026",
+        "status": "pass",
+        "expected_validator": "V4",
+        "expected_error_code": "V4_STAT_EXTRA_COLUMN"
+      },
+      {
+        "id": "N-027",
+        "status": "pass",
+        "expected_validator": "V4",
+        "expected_error_code": "V4_STAT_MISSING_COLUMN"
+      },
+      {
+        "id": "N-028",
+        "status": "pass",
+        "expected_validator": "LT-2",
+        "expected_error_code": "LT2_ANSWER_MAP_IN_PRE_FINALIZATION"
+      },
+      {
+        "id": "N-029",
+        "status": "pass",
+        "expected_validator": "V18",
+        "expected_error_code": "V18_UNCLEARED_DRJ_EXCERPT_DISPLAY"
+      },
+      {
+        "id": "N-030",
+        "status": "pass",
+        "expected_validator": "V9",
+        "expected_error_code": "V9_RETIRED_REVISION_IN_NEW_RELEASE"
+      }
+    ],
+    "combined_handoff": {
+      "source_count": 16,
+      "line_count": 541,
+      "files": [
+        "I1Q_1005_BASELINE.md",
+        "I1Q_1005_OPEN_QUESTIONS.md",
+        "I1Q_1005_PATH_INDEX.md",
+        "I1Q_1005_REPORT.md",
+        "I1Q_1005_TASK_A_SCHEMA_ESTATE.md",
+        "I1Q_1005_TASK_B_FIXTURE_ESTATE.md",
+        "I1Q_1005_TASK_C_VALIDATOR_ENGINE.md",
+        "I1Q_1005_TASK_D_CHANNEL_SECURITY.md",
+        "I1Q_1005_TASK_E_HASH_AND_VERSION.md",
+        "I1Q_1005_TASK_F_PRIVACY_REDACTION.md",
+        "I1Q_1005_TASK_G_EXTRACTION_PROVENANCE.md",
+        "I1Q_1005_TASK_H_VERTICAL_SLICE.md",
+        "I1Q_1005_TRACEABILITY_UPDATE.md",
+        "I1Q_1005_VALIDATION_REPORT.md",
+        "SHARED_REGISTRY.md",
+        "validation_results/validation_report.md"
+      ],
+      "duplicates": [],
+      "missing": [],
+      "self_embedded": false
+    },
+    "forbidden_unicode_hits": []
+  },
+  "failure": null
+}

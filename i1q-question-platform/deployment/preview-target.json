@@ -1,0 +1,40 @@
+{
+  "contract": "i1q.preview-target.v1",
+  "status": "UNASSIGNED",
+  "provider": "supabase",
+  "environment": "i1q-preview",
+  "project_ref": null,
+  "database_host": null,
+  "database_name": null,
+  "expected_schema": "i1q",
+  "synthetic_data_only": true,
+  "baseline_backup_id": null,
+  "baseline_backup_created_at": null,
+  "restore_runbook_id": null,
+  "restore_test_id": null,
+  "authorized_operation": null,
+  "candidate_commit": null,
+  "candidate_artifact_sha256": {
+    "base_migration": null,
+    "runtime_migration": null,
+    "compensation": null,
+    "reapply": null,
+    "workflow": null
+  },
+  "expected_remote_history_sha256": null,
+  "approval_record_path": null,
+  "production_project_refs_forbidden": [
+    "fglyvdykwgbuivikqoah",
+    "plgndqcplokwiuimwhzh"
+  ],
+  "authority": [
+    "MissionMed OS DR-006",
+    "MR-078A",
+    "MR-078B",
+    "I1Q-1008A"
+  ],
+  "approved_by": null,
+  "approved_at": null,
+  "approval_record_sha256": null,
+  "note": "Fail-closed placeholder. A named nonproduction target, provider backup identity, tested restore reference, exact operation, immutable candidate hashes, expected remote history hash, and written approval record must be committed before any operation can run."
+}
