@@ -59,7 +59,7 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /!latest&&!\['billing','exam'\]\.includes\(sub\)\) sub='billing'/);
   assert.doesNotMatch(html, /<title>[^<]*prototype<\/title>|Prototype · view as|Prototype — your decisions are saved in this browser only/);
   assert.match(html, /authenticated-role-scoped-runtime/);
-  assert.match(html, /src="\.\/missionaccounts-runtime\.js"/);
+  assert.match(html, /src="\.\/assets\/runtime"/);
   assert.doesNotMatch(html, /MX-EXAMPREP-5000B_Reconciled_Ledger/);
   assert.doesNotMatch(html, /Ahunna Nzerem|Adriana Rodríguez/);
   assert.match(html, /missionaccountsBuild==='production'\) return fresh\(\)/);
@@ -151,6 +151,16 @@ test('production server serves only the scoped shell while keeping mounted publi
     });
     const privateSession = await fetch(`${base}/missionaccounts/api/session`);
     assert.equal(privateSession.status, 401);
+
+    const assetPaths = ['runtime', 'auth', 'canonical-adapter', 'stripe'];
+    for (const asset of assetPaths) {
+      const response = await fetch(`${base}/missionaccounts/assets/${asset}`);
+      assert.equal(response.status, 200, `${asset} must be available at an extensionless Matrix gateway path`);
+      assert.match(response.headers.get('content-type'), /application\/javascript/);
+    }
+    const runtime = await (await fetch(`${base}/missionaccounts/assets/runtime`)).text();
+    assert.match(runtime, /from '\.\/auth'/);
+    assert.doesNotMatch(runtime, /from '\.\/missionaccounts-auth\.js'/);
   });
 });
 

@@ -12,7 +12,7 @@ const bytes = await readFile(source);
 const actual = createHash('sha256').update(bytes).digest('hex');
 if (actual !== expected) throw new Error(`5300A canon hash mismatch: expected ${expected}, got ${actual}`);
 
-const runtimeTag = '\n<script type="module" src="./missionaccounts-runtime.js"></script>\n';
+const runtimeTag = '\n<script type="module" src="./assets/runtime"></script>\n';
 const html = bytes.toString('utf8').replace('</body>', `${runtimeTag}</body>`);
 const privateDataMatch = html.match(/<script id="xpData" type="application\/json">([\s\S]*?)<\/script>/);
 if (!privateDataMatch) throw new Error('Founder canon private data payload was not found');

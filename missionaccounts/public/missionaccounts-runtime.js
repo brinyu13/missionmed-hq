@@ -1,6 +1,6 @@
-import { createMissionAccountsAuthClient } from './missionaccounts-auth.js';
-import { buildCanonicalModel } from './missionaccounts-canonical-adapter.js';
-import { openPaymentActionDialog, openSecureStripeSetup } from './missionaccounts-stripe.js';
+import { createMissionAccountsAuthClient } from './auth';
+import { buildCanonicalModel } from './canonical-adapter';
+import { openPaymentActionDialog, openSecureStripeSetup } from './stripe';
 
 const state = {
   mode: 'initializing',

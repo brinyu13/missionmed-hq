@@ -1235,7 +1235,14 @@ export function createMissionAccountsServer({
     const normalizedBase = `/${String(basePath).replace(/^\/+|\/+$/g, '')}/`;
     const mountedPath = pathname.startsWith(normalizedBase) ? pathname.slice(normalizedBase.length) : pathname.replace(/^\/+/, '');
     const requestedIndex = config.production ? 'index.production.html' : 'index.html';
-    const requested = pathname === '/' || pathname === normalizedBase.slice(0, -1) || pathname === normalizedBase || mountedPath === '' ? requestedIndex : mountedPath;
+    const assetAliases = {
+      'assets/runtime': 'missionaccounts-runtime.js',
+      'assets/auth': 'missionaccounts-auth.js',
+      'assets/canonical-adapter': 'missionaccounts-canonical-adapter.js',
+      'assets/stripe': 'missionaccounts-stripe.js',
+    };
+    const requestedPath = pathname === '/' || pathname === normalizedBase.slice(0, -1) || pathname === normalizedBase || mountedPath === '' ? requestedIndex : mountedPath;
+    const requested = assetAliases[requestedPath] || requestedPath;
     const file = path.resolve(publicDir, requested);
     if (!file.startsWith(`${publicDir}${path.sep}`) || !existsSync(file)) return json(response, 404, { code: 'NOT_FOUND' });
     response.writeHead(200, { 'content-type': mime(file), 'cache-control': requested.endsWith('.html') ? 'no-store, private' : 'no-cache', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.js.stripe.com; img-src 'self' data: blob: https://*.stripe.com; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com" });
