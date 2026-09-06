@@ -49,7 +49,8 @@ async function refreshCanonical() {
       const studentHash = String(hydrationHash).startsWith('#/me') ? hydrationHash : '#/me';
       const hasAttendance = Object.keys(canonicalModel.data.students[0]?.c || {}).length > 0;
       const routeWithoutQuery = String(studentHash).split('?')[0];
-      hydrationHash = !hasAttendance && !['#/me/billing', '#/me/exam'].includes(routeWithoutQuery) ? '#/me/billing' : studentHash;
+      const isReportRoute = String(studentHash).includes('report=1');
+      hydrationHash = !hasAttendance && !isReportRoute && !['#/me/billing', '#/me/exam'].includes(routeWithoutQuery) ? '#/me/billing' : studentHash;
     }
     if (location.hash !== hydrationHash) history.replaceState(null, '', `${location.pathname}${location.search}${hydrationHash}`);
   }
@@ -138,6 +139,13 @@ async function dispatch(action, payload = {}) {
         });
         if (!await decision.result) return true;
       }
+    } else if (action === 'attendance-issue-report') {
+      if (state.user?.role !== 'student') throw new Error('Only the signed-in student can report an attendance issue.');
+      const issueText = String(payload.issueText || '').trim();
+      if (issueText.length < 3 || issueText.length > 2_000) throw new Error('Tell Dr J what looks wrong in 3 to 2000 characters.');
+      await window.MissionAccountsRuntime.mutation('/me/attendance-issues', {
+        body: { issue_text: issueText, route: location.hash || '#/me/attendance' },
+      });
     } else if (action === 'student-contact') {
       await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/contact`, {
         body: {

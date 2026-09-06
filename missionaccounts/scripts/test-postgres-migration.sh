@@ -902,4 +902,52 @@ if [[ "$zoom_ingestion_results" != "$zoom_ingestion_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+attendance_issue_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_submit_attendance_issue(
+  '$student_id','I attended the August 21 Step 2/3 class but it is missing.',
+  jsonb_build_object('route','#/me/attendance?cycle=august'),
+  'wp:4242','student','pg-attendance-issue-0001'
+)->>'duplicate';
+select missionaccounts.api_submit_attendance_issue(
+  '$student_id','I attended the August 21 Step 2/3 class but it is missing.',
+  jsonb_build_object('route','#/me/attendance?cycle=august'),
+  'wp:4242','student','pg-attendance-issue-0001'
+)->>'duplicate';
+SQL
+)
+
+if [[ "$attendance_issue_results" != $'false\ntrue' ]]; then
+  echo "MissionAccounts attendance-issue idempotency verification returned unexpected controls:" >&2
+  echo "$attendance_issue_results" >&2
+  exit 1
+fi
+
+# The ownership mismatch is verified in a separate transaction so ON_ERROR_STOP
+# can fail closed without aborting the successful custody checks above.
+set +e
+attendance_issue_forbidden=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 2>&1 <<SQL
+set role service_role;
+select missionaccounts.api_submit_attendance_issue(
+  '$student_id','Attempted report from another student.','{}'::jsonb,
+  'wp:other','student','pg-attendance-issue-0002'
+)->>'accepted';
+SQL
+)
+attendance_issue_forbidden_status=$?
+set -e
+if [[ "$attendance_issue_forbidden_status" -eq 0 ]] || [[ "$attendance_issue_forbidden" != *"attendance_issue_student_binding_mismatch"* ]]; then
+  echo "MissionAccounts attendance-issue ownership verification did not fail closed:" >&2
+  echo "$attendance_issue_forbidden" >&2
+  exit 1
+fi
+
+attendance_issue_controls=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "select (select count(*) from missionaccounts.attendance_issue where student_id='$student_id') || '|' || (select count(*) from missionaccounts.audit_event where kind='attendance_issue.submitted' and subject_student_id='$student_id') || '|' || (select count(*) from missionaccounts.notification_outbox where event_kind='attendance.issue_reported' and student_id='$student_id')")
+if [[ "$attendance_issue_controls" != "1|1|1" ]]; then
+  echo "MissionAccounts attendance-issue custody verification returned unexpected controls:" >&2
+  echo "$attendance_issue_controls" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"

@@ -146,7 +146,6 @@ const productionActionGuards = [
   ["function paymentSheet(si, mode){", "function paymentSheet(si, mode){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('payment-setup',{si,mode});"],
   ["function authSheet(si){", "function authSheet(si){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('billing-authorization',{si});"],
   ["function resetSheet(){", "function resetSheet(){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Server-authoritative MissionAccounts records cannot be reset in the browser.'});"],
-  ["function reportSheet(){", "function reportSheet(){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('unsupported',{message:'Attendance issue reporting is not enabled yet.'});"],
   ["function setPolicy(k, v){", "function setPolicy(k, v){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('cycle-policy',{k,value:v});"],
   ["function submitExam(si, step, date, by){", "function submitExam(si, step, date, by){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch(by==='admin'?'admin-exam-submit':'student-exam-submit',{si,step,date});"],
   ["function decideExam(si, action, note, newDate){", "function decideExam(si, action, note, newDate){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('exam-transition',{si,action,note,newDate});"],
@@ -166,6 +165,14 @@ const studentViewHead = "function viewMe(sub){ const e=meStudent(); const cycles
 const productionStudentViewHead = `${studentViewHead} if(document.documentElement.dataset.missionaccountsBuild==='production'&&!latest&&!['billing','exam'].includes(sub)) sub='billing';`;
 if (!productionHtml.includes(studentViewHead)) throw new Error('Canonical student empty-state seam is missing');
 productionHtml = productionHtml.replace(studentViewHead, productionStudentViewHead);
+const reportRouteAutoOpen = "main.innerHTML=html; main.scrollTop=0; bind(main); if(top==='me' && r.q.report==='1'){ setTimeout(reportSheet,50); }";
+const productionReportRouteAutoOpen = "main.innerHTML=html; main.scrollTop=0; bind(main); if(top==='me' && r.q.report==='1'){ history.replaceState(null,'',location.pathname+location.search+'#/me'); setTimeout(reportSheet,50); }";
+if (!productionHtml.includes(reportRouteAutoOpen)) throw new Error('Canonical report auto-open seam is missing');
+productionHtml = productionHtml.replace(reportRouteAutoOpen, productionReportRouteAutoOpen);
+productionHtml = productionHtml.replace(
+  'Tell Dr J what looks wrong. In the real app this goes to her review list.',
+  'Tell Dr J what looks wrong. This goes to her private review list.',
+);
 const productionAsyncHandlers = [
   [
     "root.querySelectorAll('[data-save-contact]').forEach(b=>b.onclick=()=>{ const si=+b.dataset.saveContact; const em=$('#emailIn').value; if(em && !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(em)){ toast('That email does not look right yet.'); $('#emailIn').focus(); return; } setContact(si, em, $('#phoneIn')?$('#phoneIn').value:''); render(); toast(em?'Email saved. The invoice can now be marked ready.':'Email cleared.'); });",
@@ -182,6 +189,10 @@ const productionAsyncHandlers = [
   [
     "root.querySelectorAll('[data-auth-off]').forEach(b=>b.onclick=()=>{ setAuth(+b.dataset.authOff,'none'); render(); toast('Automatic billing turned off.'); });",
     "root.querySelectorAll('[data-auth-off]').forEach(b=>b.onclick=async()=>{ await window.MissionAccountsRuntime.dispatch('billing-authorization-revoke',{si:+b.dataset.authOff}); });",
+  ],
+  [
+    "$('#rGo').onclick=()=>{ const t=$('#rTxt').value.trim(); if(!t){ $('#rTxt').focus(); return; } logIt('report',`${e.n} reported: ${t}`); touch(); closeSheet(); toast('Sent to Dr J. (Prototype: recorded in working history.)'); };",
+    "$('#rGo').onclick=async()=>{ const t=$('#rTxt').value.trim(); if(!t){ $('#rTxt').focus(); return; } if(document.documentElement.dataset.missionaccountsBuild==='production'){ const saved=await window.MissionAccountsRuntime.dispatch('attendance-issue-report',{issueText:t}); if(saved===false)return; closeSheet(); render(); toast('Sent to Dr J for review.'); return; } logIt('report',`${e.n} reported: ${t}`); touch(); closeSheet(); toast('Sent to Dr J. (Prototype: recorded in working history.)'); };",
   ],
 ];
 for (const [needle, replacement] of productionAsyncHandlers) {

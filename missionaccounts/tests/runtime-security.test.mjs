@@ -39,7 +39,10 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /Server-authoritative state/);
   assert.match(html, /Automatic billing remains disabled|automatic billing remains disabled/);
   assert.match(html, /function paymentSheet\(si, mode\)\{ if\(document\.documentElement\.dataset\.missionaccountsBuild==='production'\) return window\.MissionAccountsRuntime\.dispatch\('payment-setup'/);
-  assert.match(html, /function reportSheet\(\)\{ if\(document\.documentElement\.dataset\.missionaccountsBuild==='production'\)/);
+  assert.match(html, /function reportSheet\(\)\{/);
+  assert.match(html, /MissionAccountsRuntime\.dispatch\('attendance-issue-report'/);
+  assert.match(html, /history\.replaceState\(null,'',location\.pathname\+location\.search\+'#\/me'\)/);
+  assert.match(html, /This goes to her private review list\./);
   assert.match(html, /id="missionaccounts-runtime-gate-style"/);
   assert.match(html, /data-missionaccounts-runtime="authenticated-readonly"/);
   assert.match(html, /\[data-reset\][^\n]*display:none!important/);
@@ -199,6 +202,9 @@ test('browser runtime requests the authenticated role-scoped bootstrap before an
   assert.match(source, /state\.user\?\.role !== 'student'/);
   assert.match(source, /publishableKey: state\.payments\.publishableKey/);
   assert.match(source, /publishableKey: state\.payments\.publishableKey \? '\[configured\]' : null/);
+  assert.match(source, /mutation\('\/me\/attendance-issues'/);
+  assert.match(source, /Only the signed-in student can report an attendance issue/);
+  assert.match(source, /const isReportRoute = String\(studentHash\)\.includes\('report=1'\)/);
   assert.match(source, /missionaccountsRuntime = state\.bootstrap \? 'authenticated-readonly'/);
   assert.match(source, /function updateRuntimeGate\(message\)/);
   assert.match(source, /updateRuntimeGate\(state\.error\)/);

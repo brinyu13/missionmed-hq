@@ -483,6 +483,25 @@ export function createMissionAccountsServer({
       });
       return json(response, result.duplicate ? 200 : 201, result);
     }
+    if (request.method === 'POST' && url.pathname === '/api/me/attendance-issues') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'attendanceCorrections');
+      const student = await studentContext(identity);
+      const body = await readJsonBody(request, { limitBytes: 8_192 });
+      const issueText = String(body.issue_text || '').trim();
+      const route = String(body.route || '').trim();
+      if (issueText.length < 3 || issueText.length > 2_000) throw requestError('Attendance issue must be between 3 and 2000 characters');
+      if (route && (route.length > 240 || !route.startsWith('#/'))) throw requestError('Attendance issue route context is invalid');
+      const result = await store.submitAttendanceIssue({
+        studentId: student.id,
+        issueText,
+        context: route ? { route } : {},
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
     const adminExamSubmitRoute = request.method === 'POST'
       ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/exam-plan$/i)
       : null;

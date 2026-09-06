@@ -208,6 +208,72 @@ test('student payment-method removal revokes billing consent before a retry-safe
   });
 });
 
+test('student attendance issue report is self-bound, idempotent, audited, and queued for Dr J', async () => {
+  const config = { ...localConfig, features: { ...localConfig.features, attendanceCorrections: true } };
+  const store = new PreviewStore();
+  await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+    const headers = {
+      'x-missionaccounts-local-role': 'student',
+      'idempotency-key': 'attendance-issue-request-0001',
+      'content-type': 'application/json',
+    };
+    const body = JSON.stringify({
+      issue_text: 'I attended the Step 2/3 class on August 21, but it is missing.',
+      route: '#/me/attendance?cycle=august',
+    });
+    const created = await fetch(`${base}/api/me/attendance-issues`, { method: 'POST', headers, body });
+    assert.equal(created.status, 201);
+    const payload = await created.json();
+    assert.equal(payload.accepted, true);
+    assert.equal(payload.duplicate, false);
+    assert.equal(payload.issue.student_id, '00000000-0000-4000-8000-000000000001');
+    assert.equal(payload.issue.state, 'open');
+    assert.equal(store.attendanceIssues.size, 1);
+    const notice = [...store.notifications.values()].find(row => row.event_kind === 'attendance.issue_reported');
+    assert.equal(notice.audience, 'missionaccounts_admin');
+    assert.equal(notice.student_id, payload.issue.student_id);
+
+    const retry = await fetch(`${base}/api/me/attendance-issues`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+    assert.equal(store.attendanceIssues.size, 1);
+    assert.equal([...store.notifications.values()].filter(row => row.event_kind === 'attendance.issue_reported').length, 1);
+
+    const admin = await fetch(`${base}/api/me/attendance-issues`, {
+      method: 'POST',
+      headers: { ...headers, 'x-missionaccounts-local-role': 'missionaccounts_admin', 'idempotency-key': 'attendance-issue-admin-forbidden' },
+      body,
+    });
+    assert.equal(admin.status, 403);
+  });
+});
+
+test('student attendance issue reporting is feature-off and validates bounded route context', async () => {
+  const store = new PreviewStore();
+  const headers = {
+    'x-missionaccounts-local-role': 'student',
+    'idempotency-key': 'attendance-issue-feature-off',
+    'content-type': 'application/json',
+  };
+  await withServer({ config: localConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const response = await fetch(`${base}/api/me/attendance-issues`, {
+      method: 'POST', headers, body: JSON.stringify({ issue_text: 'A valid issue', route: '#/me/attendance' }),
+    });
+    assert.equal(response.status, 503);
+    assert.equal(store.attendanceIssues.size, 0);
+  });
+  const config = { ...localConfig, features: { ...localConfig.features, attendanceCorrections: true } };
+  await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+    const response = await fetch(`${base}/api/me/attendance-issues`, {
+      method: 'POST',
+      headers: { ...headers, 'idempotency-key': 'attendance-issue-invalid-route' },
+      body: JSON.stringify({ issue_text: 'A valid issue', route: 'https://attacker.invalid/' }),
+    });
+    assert.equal(response.status, 400);
+    assert.equal(store.attendanceIssues.size, 0);
+  });
+});
+
 test('student role cannot read the administrative health endpoint', async () => {
   await withServer({
     config: localConfig,

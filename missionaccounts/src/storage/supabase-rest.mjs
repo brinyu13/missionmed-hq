@@ -82,6 +82,17 @@ export class SupabaseRestStore {
     });
   }
 
+  async submitAttendanceIssue({ studentId, issueText, context, actorId, actorRole, requestId }) {
+    return this.rpc('api_submit_attendance_issue', {
+      p_student_id: studentId,
+      p_issue_text: issueText,
+      p_context: context || {},
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async decideFullCycleCeiling({ studentId, cycleKey, status, reason, actorId, actorRole, requestId }) {
     return this.rpc('api_decide_full_cycle_ceiling', {
       p_student_id: studentId,
@@ -597,6 +608,8 @@ export class PreviewStore {
     this.invoices = new Map();
     this.invoiceReadinessMutations = new Map();
     this.contactMutations = new Map();
+    this.attendanceIssues = new Map();
+    this.attendanceIssueMutations = new Map();
     this.attendanceEvents = new Map();
     this.attendanceCorrections = [];
     this.correctionMutations = new Map();
@@ -726,6 +739,42 @@ export class PreviewStore {
     };
     this.contactMutations.set(requestId, { fingerprint, result });
     return { ...result, duplicate: false };
+  }
+  async submitAttendanceIssue({ studentId, issueText, context, actorId, actorRole, requestId }) {
+    if (actorRole !== 'student' || actorId !== this.previewStudentRecord.matrix_user_ref || studentId !== this.previewStudentRecord.id) {
+      throw Object.assign(new Error('Attendance issue student binding mismatch'), { status: 403 });
+    }
+    const cleanText = String(issueText || '').trim();
+    const cleanContext = context && typeof context === 'object' && !Array.isArray(context) ? structuredClone(context) : {};
+    const fingerprint = JSON.stringify({ studentId, cleanText, cleanContext, actorId, actorRole });
+    const existing = this.attendanceIssueMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    if (cleanText.length < 3 || cleanText.length > 2_000) throw Object.assign(new Error('Attendance issue text is invalid'), { status: 400 });
+    const ordinal = this.attendanceIssues.size + 1;
+    const issue = {
+      id: `30000000-0000-4000-9000-${String(ordinal).padStart(12, '0')}`,
+      student_id: studentId,
+      issue_text: cleanText,
+      context: cleanContext,
+      state: 'open',
+      submitted_by: actorId,
+      request_id: requestId,
+      submitted_at: new Date().toISOString(),
+    };
+    this.attendanceIssues.set(issue.id, issue);
+    this.seedNotification({
+      student_id: studentId,
+      audience: 'missionaccounts_admin',
+      event_kind: 'attendance.issue_reported',
+      idempotency_key: `${requestId}:attendance-issue-admin`,
+      payload: { issue_id: issue.id, student_id: studentId, issue_preview: cleanText.slice(0, 300), context: cleanContext },
+    });
+    const result = { accepted: true, duplicate: false, issue: { ...issue }, audit_event_id: `preview-attendance-issue-audit-${ordinal}` };
+    this.attendanceIssueMutations.set(requestId, { fingerprint, result });
+    return result;
   }
   async attendanceForStudent() { return []; }
   async billingForStudent() { return []; }

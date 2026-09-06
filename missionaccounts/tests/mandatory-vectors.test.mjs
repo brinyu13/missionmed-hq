@@ -363,6 +363,21 @@ test('Zoom ingestion port preserves provider evidence without creating identity,
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_ingest_zoom_batch[^;]+to authenticated/s);
 });
 
+test('student attendance issue reports are self-bound, private, idempotent, audited, and notify Dr J', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906105212_student_attendance_issue_report.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table missionaccounts\.attendance_issue/);
+  assert.match(sql, /create function missionaccounts\.api_submit_attendance_issue/);
+  assert.match(sql, /matrix_user_ref = p_actor_id/);
+  assert.match(sql, /p_actor_role is distinct from 'student'/);
+  assert.match(sql, /on conflict \(request_id\) do nothing/);
+  assert.match(sql, /'attendance_issue\.submitted'/);
+  assert.match(sql, /'missionaccounts_admin', 'attendance\.issue_reported'/);
+  assert.match(sql, /force row level security/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_submit_attendance_issue[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_submit_attendance_issue[^;]+to authenticated/s);
+  assert.match(sql, /revoke all on missionaccounts\.attendance_issue from public, anon, authenticated/);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);
