@@ -363,4 +363,41 @@ if [[ "$charge_results" != "$charge_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, comp transactions, Stripe payment setup, billing consent, and one-charge-per-day dispatch: PASS"
+notification_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+update missionaccounts.notification_outbox set state = 'sent', sent_at = now();
+insert into missionaccounts.notification_outbox(
+  student_id, channel, event_kind, payload, state, idempotency_key, available_at
+) values
+  ('$student_id','matrix','integration.first','{}','pending','pg-notification-0001','2026-09-15T16:00:00Z'),
+  ('$student_id','matrix','integration.second','{}','pending','pg-notification-0002','2026-09-15T16:00:01Z');
+set role service_role;
+select count(*) from missionaccounts.api_claim_notifications('pg-worker',1,'2026-09-15T16:01:00Z');
+select state from missionaccounts.api_finish_notification(
+  (select id from missionaccounts.notification_outbox where state = 'sending'),
+  'pg-worker',true,'matrix-provider-1',null,'2026-09-15T16:01:01Z'
+);
+select count(*) from missionaccounts.api_claim_notifications('pg-worker',1,'2026-09-15T16:01:02Z');
+select state from missionaccounts.api_finish_notification(
+  (select id from missionaccounts.notification_outbox where state = 'sending'),
+  'pg-worker',false,null,'temporary provider failure','2026-09-15T16:01:03Z'
+);
+select count(*) from missionaccounts.api_claim_notifications('pg-worker',1,'2026-09-15T16:01:04Z');
+select count(*) from missionaccounts.api_claim_notifications('pg-worker',1,'2026-09-15T16:04:00Z');
+select state from missionaccounts.api_finish_notification(
+  (select id from missionaccounts.notification_outbox where state = 'sending'),
+  'pg-worker',true,'matrix-provider-2',null,'2026-09-15T16:04:01Z'
+);
+reset role;
+select count(*) || '|' || sum(attempt_count) || '|' || count(provider_ref)
+from missionaccounts.notification_outbox where event_kind like 'integration.%';
+SQL
+)
+
+notification_expected=$'1\nsent\n1\nfailed\n0\n1\nsent\n2|3|2'
+if [[ "$notification_results" != "$notification_expected" ]]; then
+  echo "MissionAccounts notification outbox verification returned unexpected controls:" >&2
+  echo "$notification_results" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, comp transactions, Stripe payment setup, billing consent, one-charge-per-day dispatch, and notification outbox delivery: PASS"

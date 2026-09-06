@@ -1,9 +1,11 @@
 import http from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readRawBody, readJsonBody, parseJsonBody } from './http/body.mjs';
 import { StripeGateway } from './payments/stripe.mjs';
+import { NotificationGateway } from './notifications/notification-gateway.mjs';
 import { localDayFromIso } from './domain/billing-engine.mjs';
 import { authenticate, requireRole } from './security/auth.mjs';
 import { PreviewStore, SupabaseRestStore } from './storage/supabase-rest.mjs';
@@ -26,8 +28,10 @@ function environmentConfig() {
       examPlans: process.env.MISSIONACCOUNTS_EXAM_PLANS === '1',
       compDays: process.env.MISSIONACCOUNTS_COMP_DAYS === '1',
       autoBilling: process.env.MISSIONACCOUNTS_AUTO_BILLING === '1',
+      notifications: process.env.MISSIONACCOUNTS_NOTIFICATIONS === '1',
       zoomSync: process.env.MISSIONACCOUNTS_ZOOM_SYNC === '1',
     },
+    workerToken: process.env.MISSIONACCOUNTS_WORKER_TOKEN || '',
   };
 }
 
@@ -43,6 +47,14 @@ function environmentStripeGateway() {
     webhookSecret: process.env.MISSIONACCOUNTS_STRIPE_WEBHOOK_SECRET,
     apiVersion: process.env.MISSIONACCOUNTS_STRIPE_API_VERSION || '',
     mode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
+  });
+}
+
+function environmentNotificationGateway() {
+  return new NotificationGateway({
+    endpoint: process.env.MISSIONACCOUNTS_NOTIFICATION_ENDPOINT || '',
+    token: process.env.MISSIONACCOUNTS_NOTIFICATION_TOKEN || '',
+    mode: process.env.MISSIONACCOUNTS_NOTIFICATION_MODE || 'disabled',
   });
 }
 
@@ -71,10 +83,17 @@ function requireFeature(config, feature) {
   if (!config.features?.[feature]) throw requestError('This MissionAccounts capability is not enabled', 503);
 }
 
+function secureTokenEqual(actual, expected) {
+  const left = Buffer.from(String(actual || ''));
+  const right = Buffer.from(String(expected || ''));
+  return left.length > 0 && left.length === right.length && timingSafeEqual(left, right);
+}
+
 export function createMissionAccountsServer({
   config = environmentConfig(),
   store = environmentStore(),
   stripeGateway = environmentStripeGateway(),
+  notificationGateway = environmentNotificationGateway(),
   publicDir = defaultPublicDir,
   now = () => new Date(),
 } = {}) {
@@ -151,11 +170,52 @@ export function createMissionAccountsServer({
         billing_decisions_enabled: Boolean(config.features?.billingDecisions),
         attendance_corrections_enabled: Boolean(config.features?.attendanceCorrections),
         auto_billing_enabled: Boolean(config.features?.autoBilling),
+        notifications_enabled: Boolean(config.features?.notifications),
         zoom_sync_enabled: Boolean(config.features?.zoomSync),
       });
     }
     if (request.method === 'POST' && url.pathname === '/api/webhooks/stripe') {
       return receiveStripeWebhook(request, response);
+    }
+    if (request.method === 'POST' && url.pathname === '/api/internal/notifications/drain') {
+      requireFeature(config, 'notifications');
+      const bearer = String(request.headers.authorization || '').match(/^Bearer\s+(.+)$/i)?.[1] || '';
+      if (!secureTokenEqual(bearer, config.workerToken)) throw requestError('Notification worker authentication failed', 401);
+      notificationGateway.assertConfigured();
+      const rawBody = await readRawBody(request, { limitBytes: 16_384 });
+      const body = rawBody.length ? parseJsonBody(rawBody) : {};
+      const limit = body.limit == null ? 10 : Number(body.limit);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 25) throw requestError('Notification batch limit must be from 1 through 25');
+      const workerId = `missionaccounts:${process.pid}`;
+      const claimedAt = now().toISOString();
+      const claimed = await store.claimNotifications({ workerId, limit, now: claimedAt });
+      let sent = 0;
+      let failed = 0;
+      for (const notification of claimed) {
+        try {
+          const delivery = await notificationGateway.send(notification);
+          await store.finishNotification({
+            notificationId: notification.id,
+            workerId,
+            succeeded: true,
+            providerRef: delivery.providerRef,
+            error: null,
+            now: now().toISOString(),
+          });
+          sent += 1;
+        } catch (error) {
+          await store.finishNotification({
+            notificationId: notification.id,
+            workerId,
+            succeeded: false,
+            providerRef: null,
+            error: error instanceof Error ? error.message : 'Notification delivery failed',
+            now: now().toISOString(),
+          });
+          failed += 1;
+        }
+      }
+      return json(response, 200, { claimed: claimed.length, sent, failed });
     }
 
     const identity = await authenticate(request, config);
@@ -169,6 +229,7 @@ export function createMissionAccountsServer({
           exam_plans: Boolean(config.features?.examPlans),
           comp_days: Boolean(config.features?.compDays),
           auto_billing: Boolean(config.features?.autoBilling),
+          notifications: Boolean(config.features?.notifications),
           zoom_sync: Boolean(config.features?.zoomSync),
         },
       });

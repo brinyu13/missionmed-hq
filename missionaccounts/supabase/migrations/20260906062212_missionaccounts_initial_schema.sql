@@ -467,6 +467,9 @@ create table missionaccounts.notification_outbox (
   available_at timestamptz not null default now(),
   sent_at timestamptz,
   attempt_count integer not null default 0,
+  locked_by text,
+  locked_at timestamptz,
+  provider_ref text,
   last_error text,
   created_at timestamptz not null default now()
 );
@@ -1931,6 +1934,95 @@ $$;
 revoke execute on function missionaccounts.api_process_stripe_payment_intent(text, text, text, uuid, uuid, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_process_stripe_payment_intent(text, text, text, uuid, uuid, text, text) to service_role;
 
+create function missionaccounts.api_claim_notifications(
+  p_worker_id text,
+  p_limit integer default 10,
+  p_now timestamptz default now()
+)
+returns setof missionaccounts.notification_outbox
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+begin
+  if nullif(btrim(p_worker_id), '') is null or p_limit < 1 or p_limit > 25 or p_now is null then
+    raise exception using errcode = '22023', message = 'invalid_notification_claim';
+  end if;
+  return query
+  with claimable as (
+    select id
+    from missionaccounts.notification_outbox
+    where state in ('pending','failed')
+      and available_at <= p_now
+      and attempt_count < 5
+      and (locked_at is null or locked_at < p_now - interval '10 minutes')
+    order by available_at, created_at, id
+    for update skip locked
+    limit p_limit
+  )
+  update missionaccounts.notification_outbox n
+  set state = 'sending',
+      attempt_count = n.attempt_count + 1,
+      locked_by = p_worker_id,
+      locked_at = p_now,
+      last_error = null
+  from claimable c
+  where n.id = c.id
+  returning n.*;
+end;
+$$;
+
+revoke execute on function missionaccounts.api_claim_notifications(text, integer, timestamptz) from public, anon, authenticated;
+grant execute on function missionaccounts.api_claim_notifications(text, integer, timestamptz) to service_role;
+
+create function missionaccounts.api_finish_notification(
+  p_notification_id uuid,
+  p_worker_id text,
+  p_succeeded boolean,
+  p_provider_ref text default null,
+  p_error text default null,
+  p_now timestamptz default now()
+)
+returns missionaccounts.notification_outbox
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  row_out missionaccounts.notification_outbox%rowtype;
+begin
+  select * into row_out
+  from missionaccounts.notification_outbox
+  where id = p_notification_id
+  for update;
+  if not found then raise exception using errcode = '23503', message = 'notification_not_found'; end if;
+  if row_out.state <> 'sending' or row_out.locked_by is distinct from p_worker_id then
+    raise exception using errcode = '22023', message = 'notification_claim_mismatch';
+  end if;
+  if p_succeeded and nullif(btrim(p_provider_ref), '') is null then
+    raise exception using errcode = '22023', message = 'notification_provider_ref_required';
+  end if;
+  if not p_succeeded and nullif(btrim(p_error), '') is null then
+    raise exception using errcode = '22023', message = 'notification_error_required';
+  end if;
+
+  update missionaccounts.notification_outbox
+  set state = case when p_succeeded then 'sent' else 'failed' end,
+      sent_at = case when p_succeeded then p_now else null end,
+      provider_ref = case when p_succeeded then p_provider_ref else provider_ref end,
+      last_error = case when p_succeeded then null else left(p_error, 2000) end,
+      available_at = case when p_succeeded then available_at else p_now + (interval '1 minute' * least(60, power(2, row_out.attempt_count)::integer)) end,
+      locked_by = null,
+      locked_at = null
+  where id = p_notification_id
+  returning * into row_out;
+  return row_out;
+end;
+$$;
+
+revoke execute on function missionaccounts.api_finish_notification(uuid, text, boolean, text, text, timestamptz) from public, anon, authenticated;
+grant execute on function missionaccounts.api_finish_notification(uuid, text, boolean, text, text, timestamptz) to service_role;
+
 create table missionaccounts.sync_run (
   id uuid primary key default gen_random_uuid(),
   provider text not null check (provider = 'zoom'),
@@ -1974,6 +2066,7 @@ insert into missionaccounts.feature_flag(key, enabled) values
   ('exam_plans', false),
   ('comp_days', false),
   ('auto_billing', false),
+  ('notifications', false),
   ('zoom_sync', false)
 on conflict (key) do nothing;
 

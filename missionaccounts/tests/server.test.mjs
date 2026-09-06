@@ -12,7 +12,8 @@ const localConfig = {
   issuer: 'https://issuer.invalid',
   audience: 'missionaccounts',
   jwksUrl: 'https://issuer.invalid/jwks',
-  features: { billingDecisions: false, attendanceCorrections: false, examPlans: false, compDays: false, autoBilling: false, zoomSync: false },
+  features: { billingDecisions: false, attendanceCorrections: false, examPlans: false, compDays: false, autoBilling: false, notifications: false, zoomSync: false },
+  workerToken: '',
 };
 
 async function withServer(options, run) {
@@ -200,6 +201,49 @@ test('administrative home, cycle, directory, and student projections are role-pr
 
     const missing = await fetch(`${base}/api/admin/students/00000000-0000-4000-8000-000000000002`, { headers });
     assert.equal(missing.status, 404);
+  });
+});
+
+test('notification worker claims each row once, requires its own token, and records transport success or retry', async () => {
+  const config = {
+    ...localConfig,
+    workerToken: 'worker-secret-test',
+    features: { ...localConfig.features, notifications: true },
+  };
+  const store = new PreviewStore();
+  store.seedNotification({ id: 'notification-ok', event_kind: 'exam_plan.approved', idempotency_key: 'notification-key-ok' });
+  store.seedNotification({ id: 'notification-fail', event_kind: 'charge.failed', idempotency_key: 'notification-key-fail' });
+  const gateway = {
+    assertConfigured() {},
+    async send(notification) {
+      if (notification.id === 'notification-fail') throw new Error('Provider temporarily unavailable');
+      return { providerRef: 'matrix-message-1' };
+    },
+  };
+  await withServer({
+    config,
+    store,
+    stripeGateway: new StripeGateway(),
+    notificationGateway: gateway,
+    now: () => new Date('2026-09-15T16:00:00Z'),
+  }, async base => {
+    const denied = await fetch(`${base}/api/internal/notifications/drain`, {
+      method: 'POST', headers: { authorization: 'Bearer wrong-secret', 'content-type': 'application/json' }, body: '{}',
+    });
+    assert.equal(denied.status, 401);
+    assert.equal([...store.notifications.values()].every(row => row.state === 'pending'), true);
+
+    const headers = { authorization: 'Bearer worker-secret-test', 'content-type': 'application/json' };
+    const drained = await fetch(`${base}/api/internal/notifications/drain`, { method: 'POST', headers, body: JSON.stringify({ limit: 2 }) });
+    assert.equal(drained.status, 200);
+    assert.deepEqual(await drained.json(), { claimed: 2, sent: 1, failed: 1 });
+    assert.equal(store.notifications.get('notification-ok').state, 'sent');
+    assert.equal(store.notifications.get('notification-fail').state, 'failed');
+    assert.equal(store.notifications.get('notification-ok').provider_ref, 'matrix-message-1');
+
+    const immediateRetry = await fetch(`${base}/api/internal/notifications/drain`, { method: 'POST', headers, body: '{}' });
+    assert.equal(immediateRetry.status, 200);
+    assert.deepEqual(await immediateRetry.json(), { claimed: 0, sent: 0, failed: 0 });
   });
 });
 

@@ -198,6 +198,25 @@ export class SupabaseRestStore {
     });
   }
 
+  async claimNotifications({ workerId, limit, now }) {
+    return this.rpc('api_claim_notifications', {
+      p_worker_id: workerId,
+      p_limit: limit,
+      p_now: now,
+    });
+  }
+
+  async finishNotification({ notificationId, workerId, succeeded, providerRef, error, now }) {
+    return this.rpc('api_finish_notification', {
+      p_notification_id: notificationId,
+      p_worker_id: workerId,
+      p_succeeded: succeeded,
+      p_provider_ref: providerRef || null,
+      p_error: error || null,
+      p_now: now,
+    });
+  }
+
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
     const rows = await this.request('provider_event_inbox?on_conflict=provider%2Cprovider_event_id', {
       method: 'POST',
@@ -317,6 +336,7 @@ export class PreviewStore {
     this.stripeCustomers = new Map();
     this.chargesByDay = new Map();
     this.chargeMutations = new Map();
+    this.notifications = new Map();
   }
 
   async studentByMatrixUser(userId) {
@@ -688,6 +708,54 @@ export class PreviewStore {
     charge.failure_message = failureMessage || null;
     event.state = 'processed';
     return { accepted: true, duplicate: false, audit_event_id: `preview-charge-webhook-audit-${eventId}`, charge: { ...charge } };
+  }
+  seedNotification(notification) {
+    const id = notification.id || `preview-notification-${this.notifications.size + 1}`;
+    const row = {
+      id,
+      student_id: notification.student_id || null,
+      channel: notification.channel || 'matrix',
+      event_kind: notification.event_kind,
+      payload: notification.payload || {},
+      state: notification.state || 'pending',
+      idempotency_key: notification.idempotency_key,
+      available_at: notification.available_at || new Date(0).toISOString(),
+      sent_at: null,
+      attempt_count: notification.attempt_count || 0,
+      locked_by: null,
+      locked_at: null,
+      provider_ref: null,
+      last_error: null,
+    };
+    this.notifications.set(id, row);
+    return row;
+  }
+  async claimNotifications({ workerId, limit, now }) {
+    const nowMs = Date.parse(now);
+    const rows = [...this.notifications.values()]
+      .filter(row => ['pending', 'failed'].includes(row.state) && Date.parse(row.available_at) <= nowMs && row.attempt_count < 5 && !row.locked_at)
+      .sort((a, b) => a.available_at.localeCompare(b.available_at))
+      .slice(0, limit);
+    for (const row of rows) {
+      row.state = 'sending';
+      row.attempt_count += 1;
+      row.locked_by = workerId;
+      row.locked_at = now;
+      row.last_error = null;
+    }
+    return rows.map(row => ({ ...row }));
+  }
+  async finishNotification({ notificationId, workerId, succeeded, providerRef, error, now }) {
+    const row = this.notifications.get(notificationId);
+    if (!row || row.state !== 'sending' || row.locked_by !== workerId) throw Object.assign(new Error('Notification claim mismatch'), { status: 409 });
+    row.state = succeeded ? 'sent' : 'failed';
+    row.sent_at = succeeded ? now : null;
+    row.provider_ref = succeeded ? providerRef : row.provider_ref;
+    row.last_error = succeeded ? null : error;
+    row.available_at = succeeded ? row.available_at : new Date(Date.parse(now) + Math.min(60, 2 ** row.attempt_count) * 60_000).toISOString();
+    row.locked_by = null;
+    row.locked_at = null;
+    return { ...row };
   }
   async recordProviderEvent({ provider, eventId, providerObjectId, eventType, payload, signatureVerified }) {
     const key = `${provider}:${eventId}`;

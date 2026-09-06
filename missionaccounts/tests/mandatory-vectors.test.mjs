@@ -240,6 +240,21 @@ test('automatic day-charge preparation is database-authoritative and provider co
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_prepare_day_charge[^;]+to authenticated/s);
 });
 
+test('notification outbox claiming is bounded, skip-locked, retryable, and service-role only', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.api_claim_notifications/);
+  assert.match(sql, /for update skip locked/);
+  assert.match(sql, /p_limit < 1 or p_limit > 25/);
+  assert.match(sql, /attempt_count < 5/);
+  assert.match(sql, /create function missionaccounts\.api_finish_notification/);
+  assert.match(sql, /notification_claim_mismatch/);
+  assert.match(sql, /power\(2, row_out\.attempt_count\)/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_claim_notifications[^;]+to service_role/s);
+  assert.match(sql, /grant execute on function missionaccounts\.api_finish_notification[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_claim_notifications[^;]+to authenticated/s);
+  assert.match(sql, /\('notifications', false\)/);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);
