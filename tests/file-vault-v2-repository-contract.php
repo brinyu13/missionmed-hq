@@ -267,14 +267,23 @@ class MMED_File_Vault {
 }
 
 class MMED_Access_Gate {
+	public static function get_tier( $user_id ) {
+		$GLOBALS['fv2_tier_calls'][] = absint( $user_id );
+		return self::fixture_tier( $user_id );
+	}
+	private static function fixture_tier( $user_id ) {
+		return $GLOBALS['fv2_tiers'][ absint( $user_id ) ] ?? ( empty( $GLOBALS['fv2_enrolled_courses'][ absint( $user_id ) ] ) ? 'free' : 'enrolled' );
+	}
 	public static function get_access_payload( $user_id ) {
+		$GLOBALS['fv2_payload_calls'][] = absint( $user_id );
+		if ( array_key_exists( absint( $user_id ), $GLOBALS['fv2_payload_overrides'] ?? array() ) ) { return $GLOBALS['fv2_payload_overrides'][ absint( $user_id ) ]; }
 		$course_ids = $GLOBALS['fv2_enrolled_courses'][ absint( $user_id ) ] ?? array();
 		return array(
-			'is_enrolled'      => ! empty( $course_ids ),
+			'is_enrolled'      => 'enrolled' === self::fixture_tier( $user_id ),
 			'enrolled_courses' => array_values( array_map( 'get_the_title', $course_ids ) ),
 		);
 	}
-	public static function get_enrolled_course_ids() { return array( 901 ); }
+	public static function get_enrolled_course_ids() { return $GLOBALS['fv2_gate_courses'] ?? array( 901 ); }
 }
 
 function absint( $value ) { return abs( (int) $value ); }
@@ -311,7 +320,11 @@ function get_option( $key, $default = false ) { return $GLOBALS['fv2_options'][$
 function get_transient( $key ) { return $GLOBALS['fv2_transients'][$key] ?? false; }
 function get_user_by( $field, $id ) { return (object) array( 'ID' => absint( $id ), 'display_name' => 20 === absint( $id ) ? 'MissionMed Reviewer' : 'Student Fixture' ); }
 function get_users( $args = array() ) {
+	$GLOBALS['fv2_roster_queries'][] = $args;
 	$users = $GLOBALS['fv2_users'];
+	if ( in_array( 'administrator', $args['role__not_in'] ?? array(), true ) ) {
+		$users = array_values( array_filter( $users, static function ( $user ) { return empty( $GLOBALS['fv2_admins'][ $user->ID ] ); } ) );
+	}
 	if ( ! empty( $args['meta_key'] ) ) {
 		$users = array_values( array_filter( $users, static function ( $user ) use ( $args ) {
 			return (string) ( $GLOBALS['fv2_user_meta'][ $user->ID ][ $args['meta_key'] ] ?? '' ) === (string) ( $args['meta_value'] ?? '' );
@@ -321,6 +334,7 @@ function get_users( $args = array() ) {
 	$number = isset( $args['number'] ) ? (int) $args['number'] : count( $users );
 	return $number < 0 ? array_slice( $users, $offset ) : array_slice( $users, $offset, $number );
 }
+function cache_users( $ids ) { $GLOBALS['fv2_cache_batches'][] = $ids; }
 function get_user_meta( $user_id, $key, $single = false ) { return $GLOBALS['fv2_user_meta'][ absint( $user_id ) ][ $key ] ?? ''; }
 function get_the_title( $course_id ) { return $GLOBALS['fv2_course_titles'][ absint( $course_id ) ] ?? ''; }
 function is_wp_error( $value ) { return $value instanceof WP_Error; }
@@ -871,5 +885,103 @@ fv2_repo_assert( 'active' === $admin_reactivated['status'] && '' === $admin_reac
 $video_intent = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'interview-clip.mp4', 'mime_type' => 'video/mp4', 'file_size' => 1024, 'document_type' => 'other', 'display_name' => 'Interview Clip', 'sha256' => str_repeat( 'b', 64 ) ) );
 $unsafe_video = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'interview-clip.mov', 'mime_type' => 'video/quicktime', 'file_size' => 1024, 'document_type' => 'other', 'display_name' => 'Unsafe Clip', 'sha256' => str_repeat( 'a', 64 ) ) );
 fv2_repo_assert( ! is_wp_error( $video_intent ) && is_wp_error( $unsafe_video ) && 'mmed_file_vault_v2_file_type' === $unsafe_video->get_error_code(), 'MP4/WebM preview formats are accepted without widening uploads to unsupported video types' );
+
+// Cold audience discovery must scan each candidate batch only once.
+$GLOBALS['fv2_users'] = array();
+$GLOBALS['fv2_gate_courses'] = array( 901, 902, 903, 904 );
+$GLOBALS['fv2_course_titles'] += array( 902 => 'Other Enrolled Program', 903 => 'Unrepresented Program', 904 => 'Administrator Only Program' );
+for ( $i = 0; $i < 300; $i++ ) {
+	$id = 10000 + $i;
+	$GLOBALS['fv2_users'][] = (object) array( 'ID' => $id, 'display_name' => 'Synthetic Learner ' . $i );
+	$GLOBALS['fv2_enrolled_courses'][ $id ] = 0 === $i % 11 ? array() : array( 0 === $i % 7 ? 901 : 902 );
+}
+$GLOBALS['fv2_users'][] = (object) array( 'ID' => 10400, 'display_name' => 'Excluded Administrator' );
+$GLOBALS['fv2_enrolled_courses'][10400] = array( 904 );
+$GLOBALS['fv2_admins'][10400] = true;
+$GLOBALS['fv2_roster_queries'] = $GLOBALS['fv2_cache_batches'] = $GLOBALS['fv2_payload_calls'] = $GLOBALS['fv2_tier_calls'] = array();
+delete_transient( 'mmed_fv2_share_group_ids' );
+$canonical_groups = new ReflectionMethod( MMED_File_Vault_V2_Repository::class, 'canonical_group_ids' );
+if ( PHP_VERSION_ID < 80100 ) { $canonical_groups->setAccessible( true ); }
+$cold_groups = $canonical_groups->invoke( null );
+fv2_repo_assert( array( 901, 902 ) === $cold_groups, 'canonical groups remain represented qualifying roster groups, not all configured courses or administrator enrollments' );
+fv2_repo_assert( array( 0, 100, 200, 300 ) === array_column( $GLOBALS['fv2_roster_queries'], 'offset' ), 'cold group discovery advances each bounded candidate offset exactly once' );
+fv2_repo_assert( 300 === count( $GLOBALS['fv2_tier_calls'] ) && 300 === count( array_unique( $GLOBALS['fv2_tier_calls'] ) ), 'every candidate uses the current tier predicate once per request' );
+fv2_repo_assert( array() === $GLOBALS['fv2_payload_calls'], 'ordinary roster eligibility does not build full Matrix access payloads' );
+fv2_repo_assert( array( 100, 100, 100 ) === array_map( 'count', $GLOBALS['fv2_cache_batches'] ), 'user and metadata caches are primed in bounded batches' );
+$queries_before_warm = count( $GLOBALS['fv2_roster_queries'] );
+fv2_repo_assert( $cold_groups === $canonical_groups->invoke( null ) && $queries_before_warm === count( $GLOBALS['fv2_roster_queries'] ), 'warm canonical group discovery retains the existing bounded cache' );
+
+$expected_peers = array();
+foreach ( $GLOBALS['fv2_users'] as $user ) {
+	if ( empty( $GLOBALS['fv2_admins'][ $user->ID ] ) && in_array( 901, $GLOBALS['fv2_enrolled_courses'][ $user->ID ], true ) ) { $expected_peers[] = $user->ID; }
+}
+$GLOBALS['fv2_roster_queries'] = array();
+$peer_page = MMED_File_Vault_V2_Repository::audience_directory( 12, 'student', '', 2, 10 );
+fv2_repo_assert( array_slice( $expected_peers, 10, 10 ) === array_column( $peer_page['students'], 'id' ), 'student pagination counts only enrolled peers sharing an allowed group' );
+fv2_repo_assert( true === $peer_page['pagination']['has_more'] && 3 === $peer_page['pagination']['next_page'], 'student audience pagination preserves one-row lookahead' );
+$peer_offsets = array_column( $GLOBALS['fv2_roster_queries'], 'offset' );
+fv2_repo_assert( $peer_offsets === array_values( array_unique( $peer_offsets ) ) && 0 === $peer_offsets[0], 'sparse student group lookup never restarts the roster scan inside one request' );
+$eligible_page = new ReflectionMethod( MMED_File_Vault_V2_Repository::class, 'eligible_student_page' );
+if ( PHP_VERSION_ID < 80100 ) { $eligible_page->setAccessible( true ); }
+$queries_before_empty = count( $GLOBALS['fv2_roster_queries'] );
+fv2_repo_assert( array() === $eligible_page->invoke( null, 'admin', 0, '', 1, 10, array() ) && $queries_before_empty === count( $GLOBALS['fv2_roster_queries'] ), 'empty permitted group set fails closed without querying arbitrary peers' );
+$GLOBALS['fv2_user_meta'][10007]['_mmed_file_vault_mentor_id'] = 88;
+$mentor_page = $eligible_page->invoke( null, 'mentor', 88, '', 1, 10 );
+fv2_repo_assert( array( 10007 ) === array_column( $mentor_page, 'ID' ), 'batch optimization preserves mentor assignment restriction' );
+$GLOBALS['fv2_enrolled_courses'][11001] = array( 901 );
+$GLOBALS['fv2_tiers'][11001] = 'free';
+fv2_repo_assert( false === MMED_File_Vault_V2_Repository::enrollment_context( 11001 ), 'current AccessGate denial wins over a stored course association' );
+$GLOBALS['fv2_tiers'][11002] = 'enrolled';
+fv2_repo_assert( false === MMED_File_Vault_V2_Repository::enrollment_context( 11002 ), 'cached enrolled tier cannot replace current LearnDash enrollment' );
+
+$GLOBALS['fv2_users'] = array();
+$GLOBALS['fv2_gate_courses'] = array();
+for ( $i = 0; $i < 150; $i++ ) {
+	$id = 12000 + $i;
+	$course_id = 2000 + $i;
+	$GLOBALS['fv2_users'][] = (object) array( 'ID' => $id, 'display_name' => 'Limit Fixture ' . $i );
+	$GLOBALS['fv2_enrolled_courses'][ $id ] = array( $course_id );
+	$GLOBALS['fv2_course_titles'][ $course_id ] = 'Limit Program ' . $i;
+	$GLOBALS['fv2_gate_courses'][] = $course_id;
+}
+delete_transient( 'mmed_fv2_share_group_ids' );
+fv2_repo_assert( range( 2000, 2099 ) === $canonical_groups->invoke( null ), 'canonical directory preserves numeric ordering and its 100-group cap' );
+
+$GLOBALS['fv2_gate_courses'] = array( 901, 902, 905 );
+foreach ( array( 15001 => true, 15002 => false, 15003 => null ) as $id => $eligible ) {
+	$GLOBALS['fv2_enrolled_courses'][ $id ] = array( 905 );
+	$GLOBALS['fv2_payload_overrides'][ $id ] = null === $eligible ? null : array( 'is_enrolled' => $eligible, 'enrolled_courses' => array( 'Fallback Program' ) );
+	$context = MMED_File_Vault_V2_Repository::enrollment_context( $id );
+	fv2_repo_assert( true === $eligible ? 'Fallback Program' === $context['program_label'] : false === $context, 'missing-title label fallback respects fresh eligibility and malformed payload denial for ' . $id );
+}
+foreach ( array( 2499, 2500, 2501 ) as $candidate_count ) {
+	$GLOBALS['fv2_users'] = array();
+	for ( $i = 0; $i < $candidate_count; $i++ ) {
+		$id = 20000 + $i;
+		$GLOBALS['fv2_users'][] = (object) array( 'ID' => $id, 'display_name' => 'Boundary Fixture ' . $i );
+		$GLOBALS['fv2_enrolled_courses'][ $id ] = array( 902 );
+	}
+	$GLOBALS['fv2_roster_queries'] = array();
+	$empty_peers = MMED_File_Vault_V2_Repository::audience_directory( 12, 'student', '', 2, 10 );
+	fv2_repo_assert( ! is_wp_error( $empty_peers ) && array() === $empty_peers['students'] && false === $empty_peers['pagination']['has_more'], 'sparse student paging preserves empty response at candidate boundary ' . $candidate_count );
+	fv2_repo_assert( range( 0, 2400, 100 ) === array_column( $GLOBALS['fv2_roster_queries'], 'offset' ), 'candidate budget remains 25 monotonic bounded batches at ' . $candidate_count );
+}
+$staff_over_budget = $eligible_page->invoke( null, 'admin', 0, '', 52, 50 );
+fv2_repo_assert( is_wp_error( $staff_over_budget ) && 'mmed_file_vault_v2_roster_scan_limit' === $staff_over_budget->get_error_code(), 'unfiltered staff requests beyond the candidate budget still fail closed' );
+
+// Exercise optional-provider compatibility in fresh processes, without files.
+$fixture_source = file_get_contents( __FILE__ );
+$fixture_prefix = substr( $fixture_source, 0, strpos( $fixture_source, '$checks = 0;' ) );
+$fixture_prefix = str_replace( 'dirname( __DIR__ )', var_export( dirname( __DIR__ ), true ), $fixture_prefix );
+foreach ( array( 'missing_tier', 'missing_learndash' ) as $compatibility ) {
+	$isolated = str_replace( 'missing_tier' === $compatibility ? 'public static function get_tier(' : 'function learndash_user_get_enrolled_courses(', 'missing_tier' === $compatibility ? 'public static function unused_tier(' : 'function unused_learndash_courses(', $fixture_prefix );
+	$isolated .= "\n" . '$context = MMED_File_Vault_V2_Repository::enrollment_context(12); if (!is_array($context) || empty($context["program_label"]) || empty($GLOBALS["fv2_payload_calls"])) { exit(1); } if (false !== MMED_File_Vault_V2_Repository::enrollment_context(14)) { exit(2); } echo "COMPAT_PASS";';
+	$process = proc_open( array( PHP_BINARY ), array( 0 => array( 'pipe', 'r' ), 1 => array( 'pipe', 'w' ), 2 => array( 'pipe', 'w' ) ), $pipes );
+	fwrite( $pipes[0], $isolated ); fclose( $pipes[0] );
+	$output = stream_get_contents( $pipes[1] ); fclose( $pipes[1] );
+	$errors = stream_get_contents( $pipes[2] ); fclose( $pipes[2] );
+	$exit_code = proc_close( $process );
+	fv2_repo_assert( 0 === $exit_code && 'COMPAT_PASS' === $output && '' === $errors, 'provider compatibility uses fail-closed access payload fallback: ' . $compatibility );
+}
 
 echo "PASS: {$checks} File Vault V2 repository workflow checks\n";

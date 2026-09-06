@@ -1579,7 +1579,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$request_cache[ $user_id ] = false;
 			return false;
 		}
-		$access = MMED_Access_Gate::get_access_payload( $user_id );
+		// The access payload's is_enrolled flag is derived from this same tier.
+		// Avoid building every Matrix module and promotion for each roster candidate.
+		$access = function_exists( 'learndash_user_get_enrolled_courses' ) && method_exists( 'MMED_Access_Gate', 'get_tier' )
+			? array( 'is_enrolled' => 'enrolled' === MMED_Access_Gate::get_tier( $user_id ) )
+			: MMED_Access_Gate::get_access_payload( $user_id );
 		if ( ! is_array( $access ) || true !== ( $access['is_enrolled'] ?? false ) ) {
 			$request_cache[ $user_id ] = false;
 			return false;
@@ -1609,6 +1613,13 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			}
 		}
 		if ( empty( $programs ) ) {
+			if ( ! array_key_exists( 'enrolled_courses', $access ) ) {
+				$access = MMED_Access_Gate::get_access_payload( $user_id );
+				if ( ! is_array( $access ) || true !== ( $access['is_enrolled'] ?? false ) ) {
+					$request_cache[ $user_id ] = false;
+					return false;
+				}
+			}
 			foreach ( array_slice( array_filter( array_map( 'sanitize_text_field', (array) ( $access['enrolled_courses'] ?? array() ) ) ), 0, self::SHARE_GROUP_LIMIT ) as $index => $label ) {
 				$programs[] = array( 'id' => 0, 'label' => $label, 'key' => 'access-' . hash( 'sha256', strtolower( $label ) ) );
 			}
@@ -1634,7 +1645,10 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 *
 	 * @return array|WP_Error
 	 */
-	protected static function eligible_student_page( $viewer_role, $viewer_id, $search, $page, $per_page ) {
+	protected static function eligible_student_page( $viewer_role, $viewer_id, $search, $page, $per_page, $allowed_group_ids = null ) {
+		if ( array() === $allowed_group_ids ) {
+			return array();
+		}
 		$needed   = ( $page * $per_page ) + 1;
 		$matched  = array();
 		$offset   = 0;
@@ -1659,9 +1673,15 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				$args['meta_value'] = absint( $viewer_id );
 			}
 			$candidates = array_values( (array) get_users( $args ) );
+			if ( $candidates && function_exists( 'cache_users' ) ) {
+				cache_users( array_map( 'absint', wp_list_pluck( $candidates, 'ID' ) ) );
+			}
 			foreach ( $candidates as $candidate ) {
 				$context = self::enrollment_context( $candidate->ID ?? 0 );
 				if ( false === $context ) {
+					continue;
+				}
+				if ( null !== $allowed_group_ids && empty( array_intersect( $allowed_group_ids, $context['group_ids'] ) ) ) {
 					continue;
 				}
 				$candidate->mmed_fv2_programs       = $context['programs'];
@@ -1678,7 +1698,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				break;
 			}
 		}
-		if ( $offset >= $max_scan && count( $matched ) < ( $page - 1 ) * $per_page ) {
+		if ( null === $allowed_group_ids && $offset >= $max_scan && count( $matched ) < ( $page - 1 ) * $per_page ) {
 			return new WP_Error( 'mmed_file_vault_v2_roster_scan_limit', 'The enrolled-student directory exceeded its bounded scan window.', array( 'status' => 503 ) );
 		}
 		return array_slice( $matched, ( $page - 1 ) * $per_page, $per_page + 1 );
@@ -3347,71 +3367,24 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				$groups[] = array( 'id' => $group_id, 'label' => $label );
 			}
 		}
-		if ( 'admin' === $role ) {
-			$candidates = self::eligible_student_page( 'admin', 0, $search, $page, $per_page );
-			if ( is_wp_error( $candidates ) ) {
-				return $candidates;
-			}
-			$has_more = count( $candidates ) > $per_page;
-			$students = array();
-			foreach ( array_slice( $candidates, 0, $per_page ) as $candidate ) {
-				$context = self::enrollment_context( $candidate->ID ?? 0 );
-				if ( false === $context ) {
-					continue;
-				}
-				$students[] = array(
-					'id'            => absint( $candidate->ID ),
-					'display_name'  => sanitize_text_field( $candidate->display_name ?: 'Student' ),
-					'program_label' => sanitize_text_field( $context['program_label'] ),
-					'group_ids'     => array_values( array_map( 'absint', (array) $context['group_ids'] ) ),
-				);
-			}
-			return array(
-				'groups'     => $groups,
-				'students'   => $students,
-				'pagination' => array( 'page' => $page, 'per_page' => $per_page, 'has_more' => $has_more, 'next_page' => $has_more ? $page + 1 : null ),
-				'policy'     => array( 'all_eligible' => true, 'groups' => ! empty( $groups ), 'individuals' => true, 'student_scope' => 'all_current_enrollments' ),
+		// Filter authorized peers before pagination, in one forward candidate pass.
+		$candidates = self::eligible_student_page( 'admin', 0, $search, $page, $per_page, 'student' === $role ? $allowed_group_ids : null );
+		if ( is_wp_error( $candidates ) ) {
+			return $candidates;
+		}
+		$has_more = count( $candidates ) > $per_page;
+		$students = array();
+		foreach ( array_slice( $candidates, 0, $per_page ) as $candidate ) {
+			$students[] = array(
+				'id'            => absint( $candidate->ID ),
+				'display_name'  => sanitize_text_field( $candidate->display_name ?: 'Student' ),
+				'program_label' => sanitize_text_field( $candidate->mmed_fv2_program_label ),
+				'group_ids'     => array_values( array_map( 'absint', (array) $candidate->mmed_fv2_group_ids ) ),
 			);
 		}
-
-		$students = array();
-		$scan_page = 1;
-		$needed = ( $page * $per_page ) + 1;
-		while ( count( $students ) < $needed && $scan_page <= 50 ) {
-			$candidates = self::eligible_student_page( 'admin', 0, $search, $scan_page, self::STAFF_PAGE_SIZE );
-			if ( is_wp_error( $candidates ) ) {
-				return $candidates;
-			}
-			$has_more_candidates = count( $candidates ) > self::STAFF_PAGE_SIZE;
-			foreach ( array_slice( $candidates, 0, self::STAFF_PAGE_SIZE ) as $candidate ) {
-				$context = self::enrollment_context( $candidate->ID ?? 0 );
-				if ( false === $context ) {
-					continue;
-				}
-				if ( 'student' === $role && empty( array_intersect( $allowed_group_ids, (array) $context['group_ids'] ) ) ) {
-					continue;
-				}
-				$students[] = array(
-					'id'            => absint( $candidate->ID ),
-					'display_name'  => sanitize_text_field( $candidate->display_name ?: 'Student' ),
-					'program_label' => sanitize_text_field( $context['program_label'] ),
-					'group_ids'     => array_values( array_map( 'absint', (array) $context['group_ids'] ) ),
-				);
-				if ( count( $students ) >= $needed ) {
-					break;
-				}
-			}
-			if ( ! $has_more_candidates ) {
-				break;
-			}
-			$scan_page++;
-		}
-		$offset   = ( $page - 1 ) * $per_page;
-		$page_rows = array_slice( $students, $offset, $per_page + 1 );
-		$has_more = count( $page_rows ) > $per_page;
 		return array(
 			'groups'     => $groups,
-			'students'   => array_slice( $page_rows, 0, $per_page ),
+			'students'   => $students,
 			'pagination' => array( 'page' => $page, 'per_page' => $per_page, 'has_more' => $has_more, 'next_page' => $has_more ? $page + 1 : null ),
 			'policy'     => array(
 				'all_eligible' => 'admin' === $role,
@@ -3430,19 +3403,16 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			return array_values( array_filter( array_map( 'absint', $cached ) ) );
 		}
 
+		// One bounded roster pass, not a restart from offset zero for every page.
+		$users = self::eligible_student_page( 'admin', 0, '', 1, 2500 );
+		if ( is_wp_error( $users ) ) {
+			return array();
+		}
 		$group_ids = array();
-		for ( $page = 1; $page <= 50 && count( $group_ids ) < self::SHARE_GROUP_DIRECTORY_LIMIT; $page++ ) {
-			$users = self::eligible_student_page( 'admin', 0, '', $page, self::STAFF_PAGE_SIZE );
-			if ( is_wp_error( $users ) || empty( $users ) ) {
-				break;
-			}
-			$has_more = count( $users ) > self::STAFF_PAGE_SIZE;
-			foreach ( array_slice( $users, 0, self::STAFF_PAGE_SIZE ) as $user ) {
-				$context   = self::enrollment_context( $user->ID ?? 0 );
-				$group_ids = array_merge( $group_ids, false === $context ? array() : (array) $context['group_ids'] );
-			}
+		foreach ( $users as $index => $user ) {
+			$group_ids = array_merge( $group_ids, (array) $user->mmed_fv2_group_ids );
 			$group_ids = array_values( array_unique( array_filter( array_map( 'absint', $group_ids ) ) ) );
-			if ( ! $has_more ) {
+			if ( 0 === ( $index + 1 ) % self::STAFF_PAGE_SIZE && count( $group_ids ) >= self::SHARE_GROUP_DIRECTORY_LIMIT ) {
 				break;
 			}
 		}
