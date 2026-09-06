@@ -160,7 +160,9 @@ All implementation files are under `missionaccounts/`:
 - `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
 - Node syntax checks across source/scripts/public/tests: PASS.
 - `git diff --check`: PASS.
-- Local Docker image build: NOT RUN — the Docker CLI is present but its OrbStack daemon is stopped. Static packaging tests prove the private preview is outside the image copy allowlist; the image itself still requires a daemon-backed build before release.
+- Local Docker image build: PASS — OrbStack Docker 29.4.0 built `missionaccounts:mx-5301p` from the isolated `missionaccounts/` context using the pinned `node:22-alpine` manifest digest. Image ID: `sha256:e35e1ad7f6fd8536a7e32efd4c3ebb704c159f31951c91f502e19b782c563e1e`.
+- Container custody inspection: PASS — runtime user is non-root `node`; `/app` contains only `package.json`, the server/domain modules, and the five allowlisted scrubbed public files. No prototype, source manifest, historical import, evidence, migration, test, or environment file was present.
+- Container startup safety: PASS — the default production image exited nonzero with the explicit database-target guard when no target was supplied. An isolated smoke run with a deliberately unreachable local-only placeholder target bound `0.0.0.0:4179`, returned HTTP 200 at `/api/health` through host port 4181, and reported every capability flag false. This proves container reachability only; it is not database or production-target validation.
 - Local API:
   - `/api/health`: 200; route, auto-billing, and Zoom flags false.
   - student `/api/session`: 200.
