@@ -4,7 +4,17 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "typecheck": "tsc --project lor-studio/tsconfig.json",
+    "lint": "eslint --config lor-studio/eslint.config.mjs --no-cache --max-warnings 0 \"lor-studio/{adapters,audit,documents,domain,http,observability,repositories,security,services}/**/*.{js,mjs}\" public/lor-studio/production-adapter.js lib/auth/session-token.mjs \"scripts/lor-studio/**/*.mjs\" \"tests/lor-studio/**/*.test.mjs\" tests/auth/session-token.test.mjs",
+    "test": "npm run lor:test",
+    "build": "npm run lor:materialize && npm run lor:check && node --test tests/lor-studio/http-runtime.test.mjs tests/lor-studio/frontend-adapter.test.mjs",
+    "lor:materialize": "node scripts/lor-studio/materialize-frozen-prototype.mjs",
+    "lor:test": "php -l ../wp-content/mu-plugins/missionmed-lor-studio-contract.php && node --test tests/auth/session-token.test.mjs tests/lor-studio/*.test.mjs && (cd .. && node --test missionmed-hq/tests/mmc-private-mount-validation.mjs)",
+    "lor:check": "node --check server.mjs && node --check lib/auth/session-token.mjs && node --check public/lor-studio/production-adapter.js && node -e \"const fs=require('node:fs');const cp=require('node:child_process');const roots=['lor-studio','scripts/lor-studio'];const files=[];function walk(root){for(const entry of fs.readdirSync(root,{withFileTypes:true})){const file=root+'/'+entry.name;if(entry.isDirectory())walk(file);else if(/\\.(?:js|mjs)$/.test(entry.name))files.push(file)}}for(const root of roots)walk(root);if(files.length===0)throw new Error('No LOR source or script files found');for(const file of files.sort()){const result=cp.spawnSync(process.execPath,['--check',file],{stdio:'inherit'});if(result.status!==0)process.exit(result.status??1)}\"",
+    "lor:artifacts": "node --test tests/lor-studio/artifact-security.test.mjs && sh -c 'artifact_root=$(mktemp -d \"${TMPDIR:-/tmp}/f2-lor-1010-artifacts.XXXXXX\") || exit 1; cleanup_artifacts() { artifact_name=\"${artifact_root##*/}\"; case \"$artifact_name\" in f2-lor-1010-artifacts.??????) if [ -e \"$artifact_root\" ]; then rm -rf -- \"$artifact_root\"; fi ;; *) echo \"Refusing unsafe artifact cleanup path\" >&2; return 1 ;; esac; }; trap cleanup_artifacts EXIT; trap \"exit 129\" HUP; trap \"exit 130\" INT; trap \"exit 143\" TERM; artifact_status=0; TMPDIR=\"$artifact_root\" node scripts/lor-studio/verify-artifacts.mjs || artifact_status=$?; cleanup_artifacts; cleanup_status=$?; trap - EXIT HUP INT TERM; [ \"$artifact_status\" -eq 0 ] && [ \"$cleanup_status\" -eq 0 ]'",
+    "test:lor": "npm run lor:test",
+    "check:lor": "npm run lor:check"
   },
   "engines": {
     "node": ">=20"

@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IV PREP ON-CALL — FINAL NORTH STAR · Y1-Y2-CAM-V6-3492 · RUN 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,500;0,600;0,700;0,900;1,600;1,700;1,800;1,900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070B15; --bg2:#0A0F1E;
+  --p0:#0D1324; --p1:#111A31; --p2:#152040; --p3:#1B2A52;
+  --line:#222E52; --edge:#31406F; --edge2:#3D4F8C;
+  --ink:#FFFFFF; --ink2:#CBD5EE; --dim:#7E8AAC;
+  --org:#FF8A1E; --gold:#FFC24B; --cream:#F7EFD8;
+  --ok:#2FBF63; --warn:#FFA928; --bad:#E5484D; --info:#4D7CFE; --vio:#8B7CF7;
+  --grad:linear-gradient(92deg,#FF8A1E 0%,#FFC24B 100%);
+  --f:'Archivo',-apple-system,'Segoe UI',sans-serif;
+  --fm:'Space Grotesk',ui-monospace,monospace;
+  --housing:linear-gradient(180deg,#141D38 0%,#0F1730 45%,#0C1224 100%);
+  --bevel:inset 0 1px 0 #FFFFFF1C, inset 0 -2px 0 #00000066, 0 24px 60px #000000AA;
+  --recess:inset 0 6px 24px #000000CC, inset 0 0 0 1px #00000066;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{background:
+  radial-gradient(120% 80% at 85% -10%, #14204040 0%, transparent 55%),
+  repeating-linear-gradient(115deg, transparent 0 160px, #FFFFFF03 160px 161px),
+  var(--bg);
+  color:var(--ink); font-family:var(--f); font-size:15px; overflow:hidden;}
+::selection{background:#FF8A1E55;}
+.it{font-style:italic; font-weight:900; text-transform:uppercase;}
+.kick{font-weight:800; font-style:italic; text-transform:uppercase; letter-spacing:.22em; font-size:10.5px; color:var(--org);}
+.cap{font-weight:700; text-transform:uppercase; letter-spacing:.16em; font-size:9.5px; color:var(--dim);}
+.gradtxt{background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
+.mono{font-family:var(--fm);}
+button{font-family:var(--f);}
+.btnA{display:inline-flex; align-items:center; justify-content:center; cursor:pointer; border:0;
+  background:var(--grad); color:#131313; font-weight:900; font-style:italic; text-transform:uppercase;
+  letter-spacing:.08em; font-size:13px; padding:13px 28px; transform:skewX(-8deg);
+  box-shadow:0 5px 0 #7A4207, 0 14px 34px #FF8A1E2E; transition:filter .15s, transform .1s, box-shadow .1s;}
+.btnA>span{transform:skewX(8deg); display:block;}
+.btnA:hover{filter:brightness(1.08);}
+.btnA:active{transform:skewX(-8deg) translateY(4px); box-shadow:0 1px 0 #7A4207;}
+.btnB{display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+  background:#101831; color:var(--ink2); border:1px solid var(--edge); font-weight:800; font-style:italic;
+  text-transform:uppercase; letter-spacing:.08em; font-size:12px; padding:11px 20px; transform:skewX(-8deg); transition:all .12s;}
+.btnB>span{transform:skewX(8deg); display:block;}
+.btnB:hover{border-color:var(--gold); color:var(--gold);}
+.btnB.on{background:var(--grad); color:#131313; border-color:transparent; box-shadow:0 4px 0 #7A4207;}
+.cham{clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);}
+.plate{background:var(--housing); border:1px solid var(--edge); box-shadow:var(--bevel);}
+.recessed{background:#0A0E1E; border:1px solid #1D2748; box-shadow:var(--recess);}
+/* ---------- APP CHROME ---------- */
+#app{display:flex; height:100vh;}
+#rail{width:238px; min-width:238px; display:flex; flex-direction:column; z-index:20;
+  background:linear-gradient(180deg,#0C1226,#080C18); border-right:1px solid var(--line);}
+#rail .brand{padding:20px 20px 14px;}
+#rail .brand .lg{font-weight:900; font-style:italic; font-size:19px; letter-spacing:.01em;}
+#rail .brand .dv{font-size:8px; letter-spacing:.3em; color:var(--dim); font-weight:700; margin-top:3px;}
+#rail .newbtn{margin:4px 18px 16px;}
+#rail nav{flex:1; overflow-y:auto;}
+#rail nav h5{font-size:8.5px; letter-spacing:.26em; color:var(--dim); font-weight:800; font-style:italic; padding:14px 20px 6px;}
+.navitem{display:flex; align-items:center; gap:10px; position:relative; cursor:pointer;
+  color:var(--ink2); font-weight:700; font-style:italic; font-size:12.5px; letter-spacing:.05em;
+  text-transform:uppercase; padding:10px 18px 10px 22px; margin:2px 12px 2px 0; transition:color .12s;}
+.navitem:hover{color:var(--gold);}
+.navitem.cur{color:#131313; background:var(--grad); font-weight:900;
+  clip-path:polygon(0 0,100% 0,calc(100% - 13px) 100%,0 100%); box-shadow:0 6px 20px #FF8A1E33;}
+.navitem .ic{width:16px; text-align:center; font-style:normal;}
+#rail .foot{border-top:1px solid var(--line); padding:14px 20px;}
+#rail .foot .role{display:flex; gap:6px; margin-top:6px;}
+#rail .foot .role button{flex:1; background:#0D1428; border:1px solid var(--edge); color:var(--dim);
+  font-size:9px; font-weight:800; font-style:italic; letter-spacing:.06em; padding:6px 4px; cursor:pointer; text-transform:uppercase;}
+#rail .foot .role button.on{color:#131313; background:var(--grad); border-color:transparent;}
+#stagearea{flex:1; display:flex; flex-direction:column; min-width:0;}
+#topbar{display:flex; align-items:center; gap:14px; padding:12px 24px; border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#0C1226F5,#0A0F1EE8);}
+#topbar .bc{font-weight:900; font-style:italic; font-size:14px; letter-spacing:.04em; text-transform:uppercase;}
+#topbar .bc b{color:var(--gold);}
+.lawchip{font-size:8.5px; letter-spacing:.12em; font-weight:800; font-style:italic; color:var(--dim);
+  border:1px solid var(--line); padding:3px 8px; white-space:nowrap;}
+.lawchip.hot{color:var(--warn); border-color:#6B4A12;}
+#screens{flex:1; position:relative; overflow:hidden;}
+.screenpg{position:absolute; inset:0; overflow-y:auto; padding:26px 30px 120px; opacity:0; pointer-events:none;
+  transform:translateY(14px); transition:opacity .28s ease, transform .28s ease;}
+.screenpg.on{opacity:1; pointer-events:auto; transform:none;}
+/* scenario dock */
+#scendock{position:fixed; bottom:0; left:238px; right:0; z-index:60; display:flex; gap:6px; align-items:center;
+  padding:9px 18px; background:#0A0F1EF2; border-top:1px solid var(--line); backdrop-filter:blur(8px); flex-wrap:wrap;}
+.scen{background:#121B34; border:1px solid var(--edge); color:var(--ink2); cursor:pointer;
+  font-weight:800; font-style:italic; font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+  padding:6px 11px; transform:skewX(-8deg);}
+.scen>span{display:block; transform:skewX(8deg);}
+.scen.on{background:var(--grad); color:#131313; border-color:transparent;}
+/* ---------- INSTRUMENT SHARED ---------- */
+.inhead{display:flex; align-items:center; gap:12px; padding:12px 16px 8px;}
+.inhead .idp{background:var(--grad); color:#131313; font-weight:900; font-style:italic; font-size:13px;
+  padding:5px 13px; transform:skewX(-10deg); box-shadow:0 4px 0 #00000066;}
+.inhead .idp>span{display:block; transform:skewX(10deg);}
+.inhead .nm{font-weight:900; font-style:italic; text-transform:uppercase; font-size:14px; letter-spacing:.04em;}
+.inhead .st{margin-left:auto; font-weight:800; font-style:italic; font-size:9.5px; letter-spacing:.1em; color:var(--dim); text-transform:uppercase;}
+.verdict2{font-weight:900; font-style:italic; text-transform:uppercase; line-height:.94; letter-spacing:.01em;
+  text-shadow:4px 4px 0 #00000090; transition:color .2s;}
+.corrplate{position:absolute; left:50%; transform:translateX(-50%) skewX(-8deg); bottom:14px; z-index:8;
+  background:#0B0F1DF0; border:2px solid var(--warn); padding:10px 28px;
+  font-weight:900; font-style:italic; font-size:24px; letter-spacing:.05em; color:var(--warn);
+  text-transform:uppercase; box-shadow:0 16px 44px #000C; transition:border-color .2s, color .2s;}
+.corrplate>span{display:block; transform:skewX(8deg);}
+.corrplate.ok{border-color:var(--ok); color:var(--ok);}
+.corrplate.gold{border-color:var(--gold); color:var(--gold);}
+@keyframes lockSnap{0%{transform:translateX(-50%) skewX(-8deg) scale(1.22); filter:brightness(1.7);}55%{transform:translateX(-50%) skewX(-8deg) scale(.97);}100%{transform:translateX(-50%) skewX(-8deg) scale(1);}}
+.corrplate.snap{animation:lockSnap .45s ease-out;}
+@keyframes toastIn{0%{opacity:0; transform:translate(-50%,14px) skewX(-8deg);}12%{opacity:1; transform:translate(-50%,0) skewX(-8deg);}80%{opacity:1;}100%{opacity:0; transform:translate(-50%,-8px) skewX(-8deg);}}
+.toast{position:absolute; top:14px; left:50%; transform:translate(-50%,0) skewX(-8deg); z-index:9;
+  background:var(--grad); color:#131313; font-weight:900; font-style:italic; text-transform:uppercase;
+  font-size:12.5px; letter-spacing:.07em; padding:8px 20px; animation:toastIn 2.6s ease forwards; box-shadow:0 12px 34px #000B;}
+.toast>span{display:block; transform:skewX(8deg);}
+.unavail{background:repeating-linear-gradient(45deg,#241C08 0 10px,#191307 10px 20px);
+  border:1px solid #6B4A12; color:var(--warn); font-weight:900; font-style:italic;
+  letter-spacing:.1em; font-size:12px; text-transform:uppercase; padding:10px 14px; text-align:center;}
+@keyframes blink{50%{opacity:.25;}}
+@keyframes riseIn{0%{opacity:0; transform:translateY(16px);}100%{opacity:1; transform:none;}}
+.rise{animation:riseIn .4s ease both;}
+/* HUD adaptive rail */
+#hudrail,.hudrail{display:flex; gap:8px; align-items:stretch;}
+.hplate{position:relative; overflow:hidden; background:var(--housing); border:1px solid var(--edge);
+  box-shadow:inset 0 1px 0 #FFFFFF14, 0 10px 26px #00000066;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  padding:10px 14px; display:flex; flex-direction:column; justify-content:center; gap:2px;
+  transition:flex .35s cubic-bezier(.2,.8,.2,1), border-color .2s, background .3s; min-width:0;}
+.hplate .hn{font-weight:800; font-style:italic; font-size:9.5px; letter-spacing:.12em; color:var(--dim); text-transform:uppercase; white-space:nowrap;}
+.hplate .hv{font-weight:900; font-style:italic; font-size:13px; letter-spacing:.03em; white-space:nowrap;}
+.hplate.okst .hv{color:var(--ok);}
+.hplate.active{border-color:var(--warn); background:linear-gradient(180deg,#241C08,#170F05);}
+.hplate.active .hn{color:var(--warn);}
+.hplate.active .hv{font-size:26px; color:var(--warn);}
+.hplate .mini{height:7px; background:#0A0E1E; border:1px solid #202A4E; position:relative; margin-top:5px;}
+/* mixer */
+.chan{display:flex; flex-direction:column; align-items:center; gap:8px; padding:14px 10px 12px; position:relative;
+  background:var(--housing); border:1px solid var(--edge); box-shadow:inset 0 1px 0 #FFFFFF12, 0 12px 30px #00000077;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); transition:border-color .2s;}
+.chan.limiting{border-color:var(--warn); box-shadow:0 0 0 1px var(--warn), inset 0 1px 0 #FFFFFF12, 0 12px 40px #FFA92826;}
+.chan .cname{font-weight:800; font-style:italic; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink2); text-align:center; min-height:26px; cursor:pointer; border-bottom:1px dashed #31406F66; padding-bottom:2px;}
+.chan .cname:hover{color:var(--gold);}
+.chan .fader{flex:1; width:22px; min-height:120px; background:#0A0E1E; border:1px solid #202A4E; position:relative; box-shadow:var(--recess);}
+.chan .tzone{position:absolute; left:0; right:0; background:#FFC24B14; border-top:2px solid #FFC24B88; border-bottom:2px solid #FFC24B88;}
+.chan .ffill{position:absolute; left:2px; right:2px; bottom:2px; background:var(--grad); transition:height .22s;}
+.chan .knob{position:absolute; left:-9px; right:-9px; height:14px; background:linear-gradient(180deg,#F5F8FF,#B9C4E0);
+  box-shadow:0 4px 0 #00000088, inset 0 -3px 0 #8893B3; transition:bottom .22s;}
+.chan .cval{font-family:var(--fm); font-weight:700; font-size:17px;}
+@keyframes chanSwap{0%{transform:rotateX(88deg); opacity:0;}100%{transform:none; opacity:1;}}
+.chan.swap{animation:chanSwap .35s ease-out;}
+/* loadout */
+#loadout{position:fixed; z-index:400; display:none;}
+#loadout .ring{position:relative; width:330px; height:330px;}
+#loadout .core{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); text-align:center;
+  font-weight:900; font-style:italic; font-size:11px; color:var(--gold); text-transform:uppercase; letter-spacing:.1em;}
+#loadout .opt{position:absolute; width:132px; padding:9px 10px; background:#101831F6; border:1px solid var(--gold);
+  color:var(--ink); font-weight:800; font-style:italic; font-size:10px; letter-spacing:.04em; text-transform:uppercase;
+  cursor:pointer; text-align:center; transform:translate(-50%,-50%); clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+#loadout .opt:hover{background:var(--grad); color:#131313;}
+/* flight recorder */
+.trk{display:flex; align-items:stretch; border-bottom:1px solid #131A30; min-height:32px;}
+.trkhead{width:196px; min-width:196px; display:flex; align-items:center; gap:7px; padding:0 10px;
+  background:linear-gradient(90deg,#121A30,#0E1526); border-right:1px solid var(--line);}
+.trkhead .nm{font-weight:800; font-style:italic; font-size:9.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink2); flex:1; white-space:nowrap; overflow:hidden;}
+.eye,.solo{width:21px; height:17px; border:1px solid var(--edge); background:#0D1428; color:var(--dim);
+  font-size:8.5px; font-weight:900; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+.eye.on{color:var(--gold); border-color:#6B4A12;}
+.solo.on{background:var(--grad); color:#131313; border-color:transparent;}
+.trkbody{flex:1; position:relative; overflow:hidden;}
+.trk.grp{background:#0E1526; cursor:pointer;}
+.trk.grp .trkhead{background:linear-gradient(90deg,#1A2342,#141C36);}
+.trk.hiddenT{display:none;}
+.trk.dimT .trkbody{opacity:.12;}
+.fchip{position:absolute; top:18%; transform:translateX(-6px); background:#101831; border:1.5px solid var(--gold);
+  color:var(--gold); font-weight:800; font-style:italic; font-size:8px; letter-spacing:.03em; padding:2px 6px;
+  cursor:pointer; white-space:nowrap; text-transform:uppercase; z-index:4;}
+.fchip:hover{background:var(--grad); color:#131313;}
+.fchip.opp{border-color:var(--warn); color:var(--warn);}
+.fchip.mark{border-color:var(--ok); color:var(--ok);}
+/* silhouette check */
+.silzone{position:absolute; border:2.5px dashed #FFC24B99; transition:all .3s;}
+.silzone.okz{border-style:solid; border-color:var(--ok);}
+/* misc */
+.card{background:var(--housing); border:1px solid var(--edge); box-shadow:var(--bevel); position:relative;}
+.card .accent{position:absolute; top:0; left:0; right:0; height:6px; background:var(--grad);
+  clip-path:polygon(0 0,100% 0,calc(100% - 30px) 100%,0 100%);}
+.vidstage{position:relative; overflow:hidden; background:radial-gradient(120% 90% at 50% 0%,#1D2544 0%,#101728 62%);}
+.vidperson{position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:52%; height:72%;
+  border-radius:44% 44% 0 0; background:linear-gradient(180deg,#232D50,#161F3C); box-shadow:inset 0 3px 0 #FFFFFF0E;}
+.vidtag{position:absolute; top:10px; left:10px; z-index:5; background:#0B0F1DD9; border:1px solid var(--edge);
+  padding:4px 12px; transform:skewX(-8deg);}
+.vidtag>span{display:block; transform:skewX(8deg); font-weight:800; font-style:italic; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink2);}
+.recdot{position:absolute; top:12px; right:12px; z-index:5; display:flex; gap:5px; align-items:center;}
+.recdot i{width:8px; height:8px; border-radius:50%; background:var(--bad); animation:blink 1.6s infinite;}
+.recdot b{font-size:9px; letter-spacing:.14em; font-style:italic; color:var(--ink2);}
+.kelly-fig{position:absolute; inset:0; background:
+  radial-gradient(70% 55% at 50% 34%, #2B3355 0%, #1A2138 62%, #121729 100%);}
+.kelly-fig .kf-hair{position:absolute; top:13%; left:50%; transform:translateX(-50%); width:31%; aspect-ratio:.92; border-radius:48% 48% 42% 42%; background:linear-gradient(180deg,#3A3130,#241E1E);}
+.kelly-fig .kf-face{position:absolute; top:16%; left:50%; transform:translateX(-50%); width:24%; aspect-ratio:.82; border-radius:46%;
+  background:linear-gradient(178deg,#D9B9A2 6%,#C9A78F 60%,#B29076 100%); box-shadow:inset -6px -8px 18px #00000022;}
+.kelly-fig .kf-coat{position:absolute; top:47%; left:50%; transform:translateX(-50%); width:66%; height:55%;
+  border-radius:44% 44% 0 0; background:linear-gradient(180deg,#F2F5FA,#C9D2E2 70%); box-shadow:inset 0 6px 14px #FFFFFF66, inset 0 -20px 40px #8893B355;}
+.kelly-fig .kf-shirt{position:absolute; top:49%; left:50%; transform:translateX(-50%); width:18%; height:26%;
+.kelly-fig .kf-shirt{background:linear-gradient(180deg,#31406F,#1B2748 90%);}
+.kstate{position:absolute; bottom:12px; left:12px; z-index:6; display:flex; align-items:center; gap:8px;
+  background:#0B0F1DE6; border:1px solid var(--edge); padding:6px 14px; transform:skewX(-8deg);}
+.kstate>*{transform:skewX(8deg);}
+.kstate i{width:9px; height:9px; border-radius:50%; display:block;}
+.kstate b{font-weight:900; font-style:italic; font-size:10.5px; letter-spacing:.1em;}
+.kmount{position:absolute; top:10px; right:10px; z-index:6; font-size:8px; letter-spacing:.12em; font-weight:800; font-style:italic; color:#FFFFFF3E; text-transform:uppercase; text-align:right;}
+::-webkit-scrollbar{width:10px; height:10px;}
+::-webkit-scrollbar-thumb{background:#1B2748; border:2px solid #0A0F1E;}
+::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="rail">
+    <div class="brand">
+      <div class="lg">IV<span class="gradtxt">PREP</span> <span style="font-size:11px; color:var(--dim);">ON-CALL</span></div>
+      <div class="dv">MISSIONMED PERFORMANCE STUDIO · SHELL-A LOCKED</div>
+    </div>
+    <button class="btnA newbtn" onclick="go('newsession')"><span>+ NEW SESSION</span></button>
+    <nav id="navlist"></nav>
+    <div class="foot">
+      <div class="cap">VIEWING AS</div>
+      <div class="role" id="roleseg">
+        <button class="on" data-role="STUDENT">STUDENT</button>
+        <button data-role="MENTOR">MENTOR</button>
+        <button data-role="ADMIN">ADMIN</button>
+      </div>
+      <div class="cap" style="margin-top:12px; cursor:pointer;">↩ BACK TO MATRIX</div>
+      <div class="cap" style="margin-top:6px; color:#5A6584;">DR BRIAN · MISSION:RESIDENCY</div>
+    </div>
+  </aside>
+  <div id="stagearea">
+    <div id="topbar">
+      <div class="bc" id="crumb">PERFORMANCE <b>STUDIO</b></div>
+      <span class="lawchip">OBSERVABLE DELIVERY ONLY</span>
+      <span class="lawchip">SIMULATED TELEMETRY</span>
+      <span class="lawchip hot" style="margin-left:auto;">FOUNDER STOP · NO PROVIDER SESSIONS</span>
+    </div>
+    <div id="screens"></div>
+  </div>
+</div>
+<div id="scendock">
+  <span class="cap" style="margin-right:8px;">SCENARIO DECK</span>
+</div>
+<div id="loadout"></div>
+<script>
+'use strict';
+/* ============================================================
+   Y1-Y2-CAM-V6-3492 — IV PREP ON-CALL FINAL NORTH STAR
+   Run 3 convergence. SHELL-A + SPD-C locked; refits per Founder packet.
+   ============================================================ */
+const lerp=(a,b,k)=>a+(b-a)*k, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const noise=(t,s)=>Math.sin(t*1.7+s)*.5+Math.sin(t*.63+s*2.7)*.35+Math.sin(t*3.1+s*.4)*.15;
+/* ---------- SIM + SCENARIOS (preserved) ---------- */
+const SIM={scenario:'IDLE', phase:'OPEN',
+ level:.58, p10:.48, p90:.68, pitchAvail:true, pitchLo:-3.2, pitchHi:3.4, pitchCur:0,
+ pace:.48, paceT:[.34,.62], cad:'NATURAL', rHand:true,
+ hands:{L:{x:-.32,y:.30},R:{x:.30,y:.27}}, frame:{cx:0,cy:0,size:1},
+ warm:72, comp:74, congrBeat:false,
+ vv:{'PITCH VARIATION':96,'VOLUME VARIATION':61,'PACE VARIATION':91,'CADENCE VARIATION':89}};
+let scenStart=performance.now()/1000; const restart=()=>{scenStart=performance.now()/1000;};
+const SCEN={
+ IDLE(t){SIM.phase=['OPEN','ENUMERATE','PROVE-STORY','CLOSE'][Math.floor(t/9)%4];
+  SIM.level=.58+noise(t,1)*.07; SIM.p10=SIM.level-.11+noise(t,9)*.02; SIM.p90=SIM.level+.11+noise(t,4)*.02;
+  SIM.pitchAvail=true; SIM.pitchLo=-3.4+noise(t,2); SIM.pitchHi=3.5+noise(t,5); SIM.pitchCur=noise(t*1.9,3)*3.4;
+  SIM.pace=.5+noise(t,7)*.09;
+  SIM.paceT=SIM.phase==='PROVE-STORY'?[.20,.50]:SIM.phase==='CLOSE'?[.55,.80]:[.34,.62];
+  SIM.cad='NATURAL'; SIM.rHand=true;
+  SIM.hands.L={x:-.30+noise(t,11)*.16,y:.26+noise(t,13)*.13};
+  SIM.hands.R={x:.30+noise(t,17)*.18,y:.24+noise(t,19)*.15};
+  SIM.frame={cx:noise(t,23)*.03,cy:noise(t,29)*.02,size:1+noise(t,31)*.03};
+  SIM.warm=72+noise(t,37)*5; SIM.comp=74+noise(t,41)*5;
+  SIM.vv['VOLUME VARIATION']=61; SIM.congrBeat=false;},
+ QUIET(t){SCEN.IDLE(t); if(t<4)SIM.level=.33+noise(t,1)*.015; else if(t<9)SIM.level=lerp(.33,.58,(t-4)/5); else SIM.level=.58+noise(t,1)*.02; SIM.p10=SIM.level-.08; SIM.p90=SIM.level+.08; if(t>16)restart();},
+ MONO(t){SCEN.IDLE(t); SIM.phase='PROVE-STORY'; SIM.level=.60+noise(t,1)*.012; SIM.p10=SIM.level-.02; SIM.p90=SIM.level+.02;
+  SIM.pitchLo=-.8; SIM.pitchHi=.9; SIM.pitchCur=noise(t*2,3)*.7; SIM.pace=.5+noise(t,7)*.02;
+  SIM.vv['VOLUME VARIATION']=34+noise(t,5)*3; SIM.vv['PITCH VARIATION']=38+noise(t,6)*3; if(t>18)restart();},
+ FAST(t){SCEN.IDLE(t); SIM.phase=t<8?'OPEN':t<20?'ENUMERATE':'PROVE-STORY';
+  SIM.paceT=SIM.phase==='PROVE-STORY'?[.20,.50]:SIM.phase==='ENUMERATE'?[.40,.72]:[.34,.62];
+  if(t<20)SIM.pace=.5+noise(t,7)*.05; else if(t<24)SIM.pace=lerp(.5,.87,(t-20)/4); else if(t<32)SIM.pace=.87+noise(t,7)*.03; else SIM.pace=lerp(.87,.42,Math.min(1,(t-32)/5)); if(t>40)restart();},
+ METRO(t){SCEN.IDLE(t); SIM.cad=t<14?'EVEN':t<26?'NATURAL':'CHAOTIC'; if(t>36)restart();},
+ HANDLOST(t){SCEN.IDLE(t); SIM.rHand=!(t>8&&t<20); if(t>28)restart();},
+ SUPPRESS(t){SCEN.IDLE(t); SIM.hands.L={x:-.13+noise(t,11)*.05,y:.34+noise(t,13)*.05}; SIM.hands.R={x:.12+noise(t,17)*.05,y:.33+noise(t,19)*.05}; SIM.pitchLo=-1.4; SIM.pitchHi=1.5;},
+ WARMHI(t){SCEN.IDLE(t); SIM.warm=86+noise(t,3)*3; SIM.comp=48+noise(t,5)*4;},
+ COMPHI(t){SCEN.IDLE(t); SIM.warm=42+noise(t,3)*4; SIM.comp=88+noise(t,5)*3;},
+ CONGR(t){SCEN.IDLE(t); const b=(t%6)<0.9; SIM.congrBeat=b; if(b){SIM.level=.72; SIM.pitchCur=4.5; SIM.hands.R.y=.55;}},
+ VVREC(t){SCEN.IDLE(t); SIM.phase='PROVE-STORY'; let vv; if(t<5)vv=61; else if(t<15)vv=lerp(61,84,(t-5)/10); else vv=84+noise(t,5)*2;
+  SIM.vv['VOLUME VARIATION']=vv; const sp=lerp(.04,.24,(vv-34)/56); SIM.p10=SIM.level-sp/2; SIM.p90=SIM.level+sp/2; if(t>22)restart();},
+};
+const SCENL=[['IDLE','FREE RUN'],['QUIET','QUIET→RECOVERY'],['MONO','LOUD MONOTONE'],['FAST','PACE TOO FAST'],['METRO','METRONOMIC'],['HANDLOST','HAND LOST'],['SUPPRESS','NATURAL VS INTERVIEW'],['WARMHI','WARM-CUE HI'],['COMPHI','COMP-CUE HI'],['CONGR','CONGRUENCE'],['VVREC','VOL-VAR RECOVERY']];
+function setScen(id){SIM.scenario=id; restart();
+ document.querySelectorAll('.scen').forEach(b=>b.classList.toggle('on',b.dataset.s===id));}
+function capMaster(obj,avail){
+ const es=Object.entries(obj).filter(([k])=>!avail||avail[k]!==false);
+ const vals=es.map(([,v])=>v); if(!vals.length)return{master:0,cov:0,tot:Object.keys(obj).length,limiting:null,raw:0,mean:0,weak:0};
+ const mean=vals.reduce((a,b)=>a+b,0)/vals.length, weak=Math.min(...vals);
+ const raw=Math.min(mean,weak+15), master=Math.round(raw/5)*5;
+ let limiting=null; es.forEach(([k,v])=>{if(v===weak)limiting=k;});
+ return{master,raw,mean,weak,limiting,cov:vals.length,tot:Object.keys(obj).length};
+}
+const METRIC_POOL=['VOICE VARIATION','VOLUME VARIATION','PITCH VARIATION','PACE','PACE STABILITY','CADENCE VARIATION','PAUSE PLACEMENT','VOCAL LANDING','GESTURE SYNCHRONY','GESTURE RANGE','HANDS VISIBLE','CAMERA PRESENCE','HEAD MOVEMENT','FACIAL ACTIVITY','EMPHASIS EVENTS'];
+function metricValue(name,now){
+ const base={'VOICE VARIATION':()=>(SIM.p90-SIM.p10)>=.10?78+noise(now,2)*6:40,
+  'VOLUME VARIATION':()=>SIM.vv['VOLUME VARIATION'],
+  'PITCH VARIATION':()=>SIM.pitchAvail?clamp((SIM.pitchHi-SIM.pitchLo)/9*88,20,96):null,
+  'PACE':()=>(SIM.pace>=SIM.paceT[0]&&SIM.pace<=SIM.paceT[1])?84+noise(now,4)*5:52,
+  'PACE STABILITY':()=>(SIM.pace>=SIM.paceT[0]&&SIM.pace<=SIM.paceT[1])?86+noise(now,14)*4:55,
+  'GESTURE SYNCHRONY':()=>SIM.congrBeat?92:74,
+  'CAMERA PRESENCE':()=>Math.hypot(SIM.frame.cx,SIM.frame.cy)<.06?88:60,
+  'GESTURE RANGE':()=>SIM.rHand?76+noise(now,8)*6:null,
+  'HANDS VISIBLE':()=>SIM.rHand?92:66};
+ const f=base[name]; const v=f?f():70+noise(now,name.length)*9;
+ return v===null?null:clamp(v,0,100);
+}
+const LIVE={}; /* screenId -> [instances] */
+function reg(pg,inst){ (LIVE[pg]=LIVE[pg]||[]).push(inst); }
+/* ============================================================
+   INSTRUMENTS — REFINED PER FOUNDER PACKET
+   ============================================================ */
+function housing(el, id, name, h){
+ el.innerHTML=`<div class="card" style="height:${h||360}px; display:flex; flex-direction:column;">
+   <div class="accent"></div>
+   <div class="inhead"><div class="idp"><span>${id}</span></div><div class="nm">${name}</div><div class="st" data-st></div></div>
+   <div class="recessed" style="flex:1; margin:4px 14px 14px; position:relative; overflow:hidden;" data-scr>
+     <div style="position:absolute; inset:0; background:linear-gradient(#FFFFFF05 1px,transparent 1px) 0 0/100% 40px, linear-gradient(90deg,#FFFFFF05 1px,transparent 1px) 0 0/40px 100%; pointer-events:none;"></div>
+   </div>
+ </div>`;
+ return {scr:el.querySelector('[data-scr]'), st:el.querySelector('[data-st]')};
+}
+/* ---- SPD-C · LOCKED — refined performance arc ---- */
+const ZONES=[['PAUSE',0,.12,'#57628A'],['SLOW',.12,.34,'#8FA0D9'],['CRUISE',.34,.62,'#2FBF63'],['ENERGIZE',.62,.80,'#FFA928'],['TOO FAST',.80,1,'#E5484D']];
+function paceArc(el,h){
+ const H=housing(el,'SPD-C','SPEAKING PACE',h);
+ H.scr.insertAdjacentHTML('beforeend',`
+  <svg data-svg viewBox="0 0 320 200" style="position:absolute; left:50%; top:52%; transform:translate(-50%,-52%); width:82%; max-height:98%;"></svg>
+  <div data-phase class="cap" style="position:absolute; top:10px; left:12px; color:var(--info);"></div>
+  <div class="corrplate" data-corr style="font-size:20px; padding:8px 22px;"><span>HOLD PACE</span></div>`);
+ const svg=H.scr.querySelector('[data-svg]');
+ const cx=160,cy=176,r1=100,r2=134,a0=-198,a1=18;
+ const P=(a,r)=>[cx+r*Math.cos(a*Math.PI/180),cy+r*Math.sin(a*Math.PI/180)];
+ const seg=(f0,f1,rI,rO)=>{const s0=a0+(a1-a0)*f0,s1=a0+(a1-a0)*f1;
+  const[x0,y0]=P(s0,rO),[x1,y1]=P(s1,rO),[x2,y2]=P(s1,rI),[x3,y3]=P(s0,rI); const lg=(s1-s0)>180?1:0;
+  return `M${x0},${y0} A${rO},${rO} 0 ${lg} 1 ${x1},${y1} L${x2},${y2} A${rI},${rI} 0 ${lg} 0 ${x3},${y3} Z`;};
+ let html=`<defs><radialGradient id="hub" cx="42%" cy="36%"><stop offset="0%" stop-color="#FFD98A"/><stop offset="60%" stop-color="#FF9D2E"/><stop offset="100%" stop-color="#8A4E0C"/></radialGradient></defs>`;
+ ZONES.forEach(z=>{html+=`<path d="${seg(z[1],z[2],r1,r2)}" fill="${z[3]}22" stroke="${z[3]}" stroke-width="1.6"/>`;
+  const mid=a0+(a1-a0)*(z[1]+z[2])/2,[tx,ty]=P(mid,r2+17);
+  html+=`<text x="${tx}" y="${ty}" fill="#CBD5EE" font-size="10" font-weight="800" font-style="italic" text-anchor="middle">${z[0]}</text>`;});
+ for(let i=0;i<=20;i++){const a=a0+(a1-a0)*i/20; const[x0,y0]=P(a,r1-3),[x1,y1]=P(a,r1-(i%5?8:14));
+  html+=`<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="#4A5880" stroke-width="${i%5?1:2}"/>`;}
+ html+=`<path data-t fill="none" stroke="#FFC24B" stroke-width="8" stroke-linecap="square" style="filter:drop-shadow(0 0 10px #FFC24B55); transition:stroke .3s;"/>
+ <line data-n x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-r1+10}" stroke="#F5F8FF" stroke-width="9" stroke-linecap="round" style="filter:drop-shadow(0 3px 6px #000A)"/>
+ <circle cx="${cx}" cy="${cy}" r="15" fill="url(#hub)" stroke="#131313" stroke-width="2"/>`;
+ svg.innerHTML=html;
+ const tEl=svg.querySelector('[data-t]'), nEl=svg.querySelector('[data-n]'),
+       corr=H.scr.querySelector('[data-corr]'), phEl=H.scr.querySelector('[data-phase]');
+ const arcLine=(f0,f1,r)=>{const s0=a0+(a1-a0)*f0,s1=a0+(a1-a0)*f1; const[x0,y0]=P(s0,r),[x1,y1]=P(s1,r);
+  return `M${x0},${y0} A${r},${r} 0 0 1 ${x1},${y1}`;};
+ let sp=SIM.pace, inAt=null, locked=false, lastPhase='';
+ return {update(now){
+  sp=lerp(sp,SIM.pace,.11);
+  const[nx,ny]=P(a0+(a1-a0)*clamp(sp,0,1),r1-8);
+  nEl.setAttribute('x2',nx); nEl.setAttribute('y2',ny);
+  tEl.setAttribute('d',arcLine(SIM.paceT[0],SIM.paceT[1],(r1+r2)/2));
+  if(SIM.phase!==lastPhase){lastPhase=SIM.phase; phEl.textContent='PHASE · '+SIM.phase+' — TARGET MOVED'; phEl.style.color='var(--gold)';
+   setTimeout(()=>phEl.style.color='var(--info)',900);}
+  else phEl.textContent='PHASE · '+SIM.phase;
+  const inT=sp>=SIM.paceT[0]&&sp<=SIM.paceT[1];
+  if(inT&&inAt===null)inAt=now; if(!inT){inAt=null; locked=false;}
+  const lockNow=inT&&now-inAt>3;
+  tEl.setAttribute('stroke', lockNow?'#FFC24B': inT?'#2FBF63':'#FFC24B');
+  let t,c;
+  if(sp<.12){t='PAUSE — OWN IT'; c='';}
+  else if(lockNow){t='PACE LOCKED'; c='gold'; if(!locked){locked=true; corr.classList.add('snap'); setTimeout(()=>corr.classList.remove('snap'),500);}}
+  else if(inT){t='ON PACE — HOLD'; c='ok';}
+  else if(sp>SIM.paceT[1]){t='SLOW DOWN'; c=sp>.8?'':'';}
+  else {t='PICK IT UP'; c='';}
+  corr.className='corrplate '+c; corr.innerHTML='<span>'+t+'</span>';
+  H.st.textContent=lockNow?'LOCKED':inT?'IN TARGET':'CORRECTING';
+  H.st.style.color=lockNow?'var(--gold)':inT?'var(--ok)':'var(--warn)';
+ }};
+}
+/* ---- VOL-E REFINED — pressure column + trace memory + hold charge ---- */
+function volFinal(el,h){
+ const H=housing(el,'VOL-E','VOICE VOLUME',h);
+ H.scr.insertAdjacentHTML('beforeend',`
+  <div style="position:absolute; left:12%; top:6%; bottom:10%; width:120px;">
+    <div style="position:absolute; inset:0; background:#0A0E1E; border:1px solid #202A4E; clip-path:polygon(16% 0,84% 0,100% 100%,0 100%); box-shadow:var(--recess);"></div>
+    <div data-col style="position:absolute; left:9%; right:9%; bottom:2%; height:40%; background:linear-gradient(180deg,#FFC24B,#FF8A1E 70%,#C86A12); clip-path:polygon(5% 0,95% 0,100% 100%,0 100%); transition:height .1s; box-shadow:0 0 36px #FF9D2E3E;"></div>
+    <div style="position:absolute; left:-26px; right:-26px; top:30%; height:24%; border-top:3px solid var(--gold); border-bottom:3px solid var(--gold);"></div>
+    <div data-peak style="position:absolute; left:0; right:0; height:8px; background:#F5F8FF; bottom:42%; box-shadow:0 0 14px #FFF6; transition:bottom .5s;"></div>
+  </div>
+  <span class="cap" style="position:absolute; left:12px; top:32%;">TARGET<br>WINDOW</span>
+  <div style="position:absolute; right:6%; top:10%; width:44%; height:34%;">
+    <div class="cap" style="margin-bottom:4px;">LAST 12 SECONDS</div>
+    <canvas data-cv style="width:100%; height:calc(100% - 16px); background:#0A0E1E; border:1px solid #202A4E;"></canvas>
+  </div>
+  <div style="position:absolute; right:6%; bottom:26%; width:44%;">
+    <div class="cap" style="margin-bottom:4px;">HOLD CHARGE <span style="color:var(--dim)">· CLEAN LEVEL SUSTAINED</span></div>
+    <div style="height:14px; background:#0A0E1E; border:1px solid #202A4E; clip-path:polygon(3% 0,97% 0,100% 100%,0 100%); position:relative;">
+      <div data-charge style="position:absolute; left:0; top:0; bottom:0; width:20%; background:var(--grad); transition:width .3s;"></div>
+    </div>
+  </div>
+  <div class="corrplate" data-corr style="font-size:20px; padding:8px 22px;"><span>IN THE WINDOW</span></div>`);
+ const col=H.scr.querySelector('[data-col]'), peak=H.scr.querySelector('[data-peak]'),
+       cv=H.scr.querySelector('[data-cv]'), chg=H.scr.querySelector('[data-charge]'), corr=H.scr.querySelector('[data-corr]');
+ const hist=[]; let pk=.5, charge=.2, locked=false;
+ return {update(now,dt){
+  const v=clamp(SIM.level,0,1);
+  col.style.height=(v*94)+'%';
+  pk=Math.max(pk*(1-dt*.06),v); peak.style.bottom=(2+pk*92)+'%';
+  hist.push(v); if(hist.length>140)hist.shift();
+  const w=cv.clientWidth,ht=cv.clientHeight; if(cv.width!==w)cv.width=w; if(cv.height!==ht)cv.height=ht;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,ht);
+  const y=x=>ht*(1-(x*.8+.06));
+  ctx.fillStyle='#FFC24B12'; ctx.fillRect(0,y(.70),w,y(.46)-y(.70));
+  ctx.lineWidth=2.4; ctx.strokeStyle='#E9EEFC'; ctx.beginPath();
+  hist.forEach((p,i)=>{const x=i*(w/140); i?ctx.lineTo(x,y(p)):ctx.moveTo(x,y(p));}); ctx.stroke();
+  const inB=v>=.46&&v<=.70;
+  charge=clamp(charge+(inB?dt*.09:-dt*.10),0,1);
+  chg.style.width=(charge*100)+'%';
+  let t,c='';
+  if(!inB){t=v<.46?'LOUDER':'SOFTER'; locked=false;}
+  else if(charge>=1){t='LOCKED — HOLD'; c='gold'; if(!locked){locked=true; corr.classList.add('snap'); setTimeout(()=>corr.classList.remove('snap'),500);}}
+  else {t='IN THE WINDOW'; c='ok';}
+  corr.className='corrplate '+c; corr.innerHTML='<span>'+t+'</span>';
+  H.st.textContent=inB?(charge>=1?'LOCKED':'CHARGING '+Math.round(charge*100)+'%'):'CORRECTING';
+  H.st.style.color=inB?(charge>=1?'var(--gold)':'var(--ok)'):'var(--warn)';
+ }};
+}
+/* ---- PIT-A REFINED — register instrument ---- */
+function pitchFinal(el,h){
+ const H=housing(el,'PIT-A','PITCH · REGISTERS',h);
+ const labels=['LOW','MID-LOW','MID','MID-HIGH','HIGH'];
+ H.scr.insertAdjacentHTML('beforeend',`
+  <div data-row style="position:absolute; left:6%; right:6%; bottom:20%; top:12%; display:flex; align-items:flex-end; gap:12px;"></div>
+  <div style="position:absolute; left:4%; right:4%; bottom:52%; border-top:2.5px dashed #F3F6FF; opacity:.8;"></div>
+  <span class="cap" style="position:absolute; right:12px; bottom:calc(52% + 6px); color:var(--ink2);">YOUR MEDIAN</span>
+  <div data-range class="cap" style="position:absolute; left:12px; top:8px; color:var(--gold);"></div>
+  <div data-unav class="unavail" style="position:absolute; left:22%; right:22%; top:40%; display:none;">PITCH — UNAVAILABLE · CONTRIBUTES NOTHING</div>
+  <div class="corrplate" data-corr style="font-size:18px; padding:8px 20px;"><span>USE THE RANGE</span></div>`);
+ const row=H.scr.querySelector('[data-row]');
+ row.innerHTML=labels.map((l,i)=>`
+  <div style="flex:1; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:7px;">
+   <div data-b style="width:100%; height:${30+i*13}%; position:relative; background:linear-gradient(180deg,#141C36,#0F1526);
+     border:1px solid #232E55; clip-path:polygon(0 10px,calc(100% - 10px) 0,100% 100%,0 100%);
+     box-shadow:inset 0 1px 0 #FFFFFF10; transition:box-shadow .2s, border-color .2s;">
+     <div data-f style="position:absolute; inset:auto 0 0 0; height:0%; background:linear-gradient(180deg,#FFC24B,#FF8A1E); transition:height .3s; opacity:.9;"></div>
+     <div data-glow style="position:absolute; inset:0; background:#FFC24B18; opacity:0; transition:opacity .18s;"></div>
+   </div>
+   <span class="cap" style="color:var(--ink2);">${l}</span>
+  </div>`).join('');
+ const blocks=[...row.querySelectorAll('[data-b]')], fills=[...row.querySelectorAll('[data-f]')],
+   glows=[...row.querySelectorAll('[data-glow]')], unav=H.scr.querySelector('[data-unav]'),
+   corr=H.scr.querySelector('[data-corr]'), rng=H.scr.querySelector('[data-range]');
+ const used=[0,0,0,0,0];
+ return {update(now,dt){
+  if(!SIM.pitchAvail){unav.style.display='block'; row.style.opacity=.22;
+   corr.className='corrplate'; corr.innerHTML='<span>PITCH — UNAVAILABLE</span>';
+   H.st.textContent='COVERAGE OPEN'; H.st.style.color='var(--warn)'; return;}
+  unav.style.display='none'; row.style.opacity=1;
+  const idx=clamp(Math.floor((clamp(SIM.pitchCur,-8,8)+8)/16*5),0,4);
+  used[idx]=Math.min(1,used[idx]+dt*.5);
+  for(let i=0;i<5;i++){used[i]=Math.max(0,used[i]-dt*.04);
+   const act=i===idx;
+   glows[i].style.opacity=act?1:0;
+   blocks[i].style.borderColor=act?'#FFC24B':'#232E55';
+   blocks[i].style.boxShadow=act?'0 0 26px #FF9D2E33, inset 0 1px 0 #FFFFFF18':'inset 0 1px 0 #FFFFFF10';
+   fills[i].style.height=(used[i]*100)+'%';}
+  const range=SIM.pitchHi-SIM.pitchLo, rungs=used.filter(u=>u>.15).length;
+  rng.textContent='RANGE '+range.toFixed(1)+' st · REGISTERS USED '+rungs+'/5';
+  let t,c;
+  if(range<2.5){t='USE THE RANGE'; c='';}
+  else if(rungs>=3){t='RANGE ALIVE — HOLD'; c='ok';}
+  else {t='CLIMB A REGISTER'; c='';}
+  corr.className='corrplate '+c; corr.innerHTML='<span>'+t+'</span>';
+  H.st.textContent=rungs>=3?'EXPRESSIVE':'NARROW'; H.st.style.color=rungs>=3?'var(--ok)':'var(--warn)';
+ }};
+}
+/* ---- HUD-C REFINED — adaptive performance rail ---- */
+function hudRailFinal(el){
+ el.innerHTML=`<div class="hudrail" data-rail style="height:78px;"></div>`;
+ const rail=el.querySelector('[data-rail]');
+ let lastKey='', lastSw=0;
+ return {update(now){
+  const items=[
+   {k:'VOL', n:'VOICE', ok:SIM.level>=.46&&SIM.level<=.70, fix:SIM.level<.46?'LOUDER ↑':'SOFTER ↓', v:SIM.level, band:[.46,.70]},
+   {k:'RNG', n:'RANGE', ok:SIM.p90-SIM.p10>=.10, fix:'MORE VARIATION', v:(SIM.p90-SIM.p10)/.4, band:[.25,.9]},
+   {k:'PIT', n:'PITCH', ok:!SIM.pitchAvail||SIM.pitchHi-SIM.pitchLo>=2.5, fix:'ADD PITCH RANGE', v:clamp((SIM.pitchHi-SIM.pitchLo)/12,0,1), band:[.28,.8], unav:!SIM.pitchAvail},
+   {k:'PACE', n:'PACE', ok:SIM.pace>=SIM.paceT[0]&&SIM.pace<=SIM.paceT[1], fix:SIM.pace>SIM.paceT[1]?'SLOW DOWN':'PICK IT UP', v:SIM.pace, band:SIM.paceT},
+   {k:'HND', n:'HANDS', ok:SIM.rHand, fix:'RIGHT HAND IN FRAME', v:SIM.rHand?.8:.2, band:[.5,1], setup:!SIM.rHand},
+   {k:'FRM', n:'FRAME', ok:Math.hypot(SIM.frame.cx,SIM.frame.cy)<.07, fix:'RE-CENTER', v:1-Math.hypot(SIM.frame.cx,SIM.frame.cy)*6, band:[.6,1], setup:Math.hypot(SIM.frame.cx,SIM.frame.cy)>=.07},
+   {k:'CAD', n:'RHYTHM', ok:SIM.cad!=='EVEN', fix:'BREAK THE RHYTHM', v:SIM.cad==='EVEN'?.2:.75, band:[.4,1]},
+  ];
+  /* arbitration: setup pre-empts, then first failing by order; 4s dwell */
+  let key=null;
+  const setup=items.find(i=>i.setup); const fail=items.find(i=>!i.ok&&!i.unav);
+  const target=setup||fail||null;
+  if(target){ if(target.k!==lastKey&&now-lastSw>4){lastKey=target.k; lastSw=now;} key=lastKey||target.k; }
+  else {lastKey=''; key=null;}
+  rail.innerHTML=items.map(i=>{
+   const active=i.k===key;
+   const pct=clamp(i.v,0,1)*100, b0=i.band[0]*100, b1=i.band[1]*100;
+   return `<div class="hplate ${active?'active':(i.ok?'okst':'')}" style="flex:${active?3.4:1};">
+    <div class="hn">${i.n}${i.unav?' · UNAV':''}</div>
+    <div class="hv">${active? i.fix : i.unav?'—': i.ok?'✓':'…'}</div>
+    <div class="mini"><div style="position:absolute; left:${b0}%; width:${b1-b0}%; top:0; bottom:0; background:#FFC24B1E; border-left:1.5px solid #FFC24B88; border-right:1.5px solid #FFC24B88;"></div>
+    <div style="position:absolute; left:${clamp(pct,0,98)}%; top:-2px; bottom:-2px; width:4px; background:${i.ok?'var(--ok)':'var(--warn)'};"></div></div>
+   </div>`;}).join('');
+ }};
+}
+/* ---- CAM-C REFINED — silhouette fit with zones + modes ---- */
+function camFinal(el, h, modeInit){
+ const H=housing(el,'CAM-C','CAMERA · SILHOUETTE FIT',h);
+ H.scr.insertAdjacentHTML('beforeend',`
+  <div style="position:absolute; top:10px; left:12px; display:flex; gap:6px;" data-modes>
+   ${['INTERVIEW','TRAINING','BASELINE'].map((m,i)=>`<button class="scen ${m===(modeInit||'INTERVIEW')?'on':''}" data-m="${m}"><span>${m}</span></button>`).join('')}
+  </div>
+  <div data-fitwrap style="position:absolute; inset:16% 20% 6%;">
+    <div class="silzone" data-z="head" style="left:36%; right:36%; top:0; height:30%; border-radius:46% 46% 40% 40%;"></div>
+    <div class="silzone" data-z="shoulders" style="left:14%; right:14%; top:30%; height:22%; border-radius:40% 40% 0 0;"></div>
+    <div class="silzone" data-z="torso" style="left:20%; right:20%; top:52%; bottom:0;"></div>
+    <div class="silzone" data-z="hands" style="left:2%; right:2%; top:64%; bottom:8%; border-style:dotted; border-color:#4D7CFE88;"></div>
+    <div data-live style="position:absolute; left:30%; right:30%; top:4%; height:56%; border-radius:44% 44% 30% 30%; background:linear-gradient(180deg,#26305699,#18214099); transition:all .25s; box-shadow:inset 0 2px 0 #FFFFFF14;"></div>
+  </div>
+  <span class="cap" style="position:absolute; right:12px; top:12px; color:#8FA0D9;">HANDS ZONE — DOTTED BLUE</span>
+  <div class="corrplate" data-corr style="font-size:19px; padding:8px 22px;"><span>SETTLE IN</span></div>`);
+ let mode=modeInit||'INTERVIEW'; let readyAt=null, locked=false;
+ const live=H.scr.querySelector('[data-live]'), corr=H.scr.querySelector('[data-corr]'),
+   zones=Object.fromEntries([...H.scr.querySelectorAll('.silzone')].map(z=>[z.dataset.z,z]));
+ H.scr.querySelectorAll('[data-m]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.m;
+  H.scr.querySelectorAll('[data-m]').forEach(x=>x.classList.toggle('on',x===b));
+  zones.hands.style.display= mode==='INTERVIEW'?'none':'block';
+  zones.torso.style.bottom= mode==='BASELINE'?'-4%':'0';}));
+ return {update(now){
+  live.style.left=(30+SIM.frame.cx*46)+'%'; live.style.right=(30-SIM.frame.cx*46)+'%';
+  live.style.top=(4+SIM.frame.cy*40)+'%';
+  live.style.height=(56*SIM.frame.size)+'%';
+  const err=Math.hypot(SIM.frame.cx,SIM.frame.cy), szErr=SIM.frame.size-1;
+  const handsOK= mode==='INTERVIEW' ? true : SIM.rHand;
+  const headOK=err<.05&&Math.abs(szErr)<.07;
+  zones.head.classList.toggle('okz',headOK);
+  zones.shoulders.classList.toggle('okz',headOK);
+  zones.torso.classList.toggle('okz',headOK&&Math.abs(szErr)<.07);
+  zones.hands.classList.toggle('okz',handsOK);
+  let t=null;
+  if(szErr>.08)t='MOVE BACK'; else if(szErr<-.08)t='MOVE CLOSER';
+  else if(SIM.frame.cy>.05)t='RAISE CAMERA'; else if(SIM.frame.cy<-.05)t='LOWER CAMERA';
+  else if(SIM.frame.cx>.05)t='SHIFT LEFT'; else if(SIM.frame.cx<-.05)t='SHIFT RIGHT';
+  else if(!handsOK)t='GET BOTH HANDS IN FRAME';
+  if(!t){ if(readyAt===null)readyAt=now;
+   if(now-readyAt>2){ if(!locked){locked=true; corr.classList.add('snap'); setTimeout(()=>corr.classList.remove('snap'),500);}
+    corr.className='corrplate gold'; corr.innerHTML='<span>CAMERA READY</span>'; }
+   else {corr.className='corrplate ok'; corr.innerHTML='<span>HOLD…</span>';}}
+  else {readyAt=null; locked=false; corr.className='corrplate'; corr.innerHTML='<span>'+t+'</span>';}
+  H.st.textContent=mode+' TARGET'; H.st.style.color='var(--dim)';
+ }};
+}
+/* ---- CON-B REFINED — five-channel performance mixer + CORE/TRAINING ---- */
+function mixerFinal(el, cfg){
+ /* cfg: {id,name, core:[5 names], headline?, identity? } */
+ const H=housing(el,cfg.id,cfg.name,cfg.h||400);
+ const CORE=[...cfg.core];
+ const state={slots:[...cfg.core], mixMode:'CORE'};
+ H.scr.insertAdjacentHTML('beforeend',`
+  <div style="position:absolute; top:10px; left:12px; display:flex; gap:6px;">
+    <button class="scen on" data-mix="CORE"><span>CORE PROFILE</span></button>
+    <button class="scen" data-mix="TRAIN"><span>TODAY'S TRAINING MIX</span></button>
+  </div>
+  <div data-note class="cap" style="position:absolute; top:14px; right:12px; color:var(--dim);">GOVERNED ONTOLOGY · SLOTS LOCKED</div>
+  <div style="position:absolute; inset:18% 3% 5%; display:flex; gap:12px; align-items:stretch;">
+    <div data-ch style="flex:2.7; display:flex; gap:12px;"></div>
+    <div style="width:3px; background:linear-gradient(180deg,transparent,#FF8A1E77,transparent);"></div>
+    <div class="chan" style="flex:.85;">
+      <div class="cname" style="cursor:default; border:0;">MASTER</div>
+      <div class="fader"><div class="tzone" style="bottom:70%; height:30%;"></div>
+        <div class="ffill" data-mf></div><div class="knob" data-mk style="bottom:40%;"></div></div>
+      <div class="cval" data-mv style="font-size:30px; color:var(--gold);">—</div>
+      <div class="cap" data-cov></div>
+      <div class="cap" data-lim style="color:var(--warn); min-height:12px; text-align:center;"></div>
+    </div>
+  </div>`);
+ const ch=H.scr.querySelector('[data-ch]'), mv=H.scr.querySelector('[data-mv]'), mf=H.scr.querySelector('[data-mf]'),
+   mk=H.scr.querySelector('[data-mk]'), cov=H.scr.querySelector('[data-cov]'), lim=H.scr.querySelector('[data-lim]'),
+   note=H.scr.querySelector('[data-note]');
+ H.scr.querySelectorAll('[data-mix]').forEach(b=>b.addEventListener('click',()=>{
+  state.mixMode=b.dataset.mix;
+  H.scr.querySelectorAll('[data-mix]').forEach(x=>x.classList.toggle('on',x===b));
+  if(state.mixMode==='CORE'){state.slots=[...CORE]; note.textContent='GOVERNED ONTOLOGY · SLOTS LOCKED';}
+  else note.textContent='MENTOR TRAINING VIEW · SWAP CHANNELS FREELY · DOES NOT REDEFINE THE CORE';
+  render();}));
+ function render(){
+  ch.innerHTML=state.slots.map((n,i)=>`
+   <div class="chan" data-i="${i}" style="flex:1;">
+     <div class="cname" data-cn>${n}${state.mixMode==='CORE'?' <span style="color:var(--dim)">🔒</span>':' ⇄'}</div>
+     <div class="fader"><div class="tzone" style="bottom:60%; height:32%;"></div>
+       <div class="ffill" data-f></div><div class="knob" data-k style="bottom:30%;"></div></div>
+     <div class="cval" data-v>—</div>
+     <div class="cap" data-a style="min-height:11px;"></div>
+   </div>`).join('');
+  ch.querySelectorAll('.chan').forEach(c=>{
+   const i=+c.dataset.i;
+   c.querySelector('[data-cn]').addEventListener('click',e=>{
+    if(state.mixMode!=='TRAIN')return;
+    openLoadout(e, name=>{state.slots[i]=name; render(); c.classList.add('swap');}, state.slots);});
+  });
+ }
+ render();
+ return {update(now){
+  const vals={},avail={};
+  state.slots.forEach(n=>{const v=metricValue(n,now); if(v===null){avail[n]=false; vals[n]=0;} else vals[n]=v;});
+  const res=capMaster(vals,avail);
+  mv.textContent=res.cov?res.master:'—';
+  mv.style.color=res.master>=80?'var(--gold)':res.master>=60?'var(--warn)':'#FF6B70';
+  mf.style.height=res.master+'%'; mk.style.bottom=res.master+'%';
+  cov.textContent=res.cov+' OF '+res.tot+' CHANNELS';
+  lim.textContent=(res.raw<res.mean-.01&&res.limiting)?'LIMITING → '+res.limiting:'';
+  ch.querySelectorAll('.chan').forEach(c=>{
+   const n=state.slots[+c.dataset.i], v=vals[n], un=avail[n]===false;
+   c.classList.toggle('limiting',!un&&n===res.limiting&&res.raw<res.mean-.01);
+   c.querySelector('[data-f]').style.height=un?'0%':(v+'%');
+   c.querySelector('[data-k]').style.bottom=un?'2%':(v+'%');
+   const vEl=c.querySelector('[data-v]'); vEl.textContent=un?'UNAV':Math.round(v);
+   vEl.style.color=un?'var(--dim)':v>=80?'var(--ok)':v>=60?'var(--warn)':'#FF6B70';
+   c.querySelector('[data-a]').textContent=un?'COVERAGE OPEN':'';});
+  H.st.textContent= state.mixMode==='CORE'?'CANONICAL':'TRAINING VIEW';
+  H.st.style.color= state.mixMode==='CORE'?'var(--gold)':'var(--info)';
+ }};
+}
+function openLoadout(evt,onPick,exclude){
+ const lo=document.getElementById('loadout');
+ const opts=METRIC_POOL.filter(m=>!exclude.includes(m)).slice(0,8);
+ lo.style.display='block';
+ lo.style.left=clamp(evt.clientX-165,10,innerWidth-345)+'px';
+ lo.style.top=clamp(evt.clientY-165,60,innerHeight-345)+'px';
+ lo.innerHTML=`<div class="ring"><div class="core">CHOOSE<br>CHANNEL</div>
+  ${opts.map((m,i)=>{const a=i/opts.length*Math.PI*2-Math.PI/2;
+   return `<div class="opt" style="left:${165+Math.cos(a)*122}px; top:${165+Math.sin(a)*122}px;" data-m="${m}">${m}</div>`;}).join('')}</div>`;
+ const close=()=>{lo.style.display='none'; document.removeEventListener('click',closer,true);};
+ const closer=e=>{if(!lo.contains(e.target))close();};
+ setTimeout(()=>document.addEventListener('click',closer,true),10);
+ lo.querySelectorAll('.opt').forEach(o=>o.addEventListener('click',()=>{onPick(o.dataset.m); close();}));
+}
+/* ---- WARMTH × COMPETENCE FIELD (restored) ---- */
+function wxFinal(el,h){
+ const H=housing(el,'WX','WARMTH-CUE × COMPETENCE-CUE FIELD',h||380);
+ H.scr.insertAdjacentHTML('beforeend',`
+  <canvas data-cv style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
+  <div style="position:absolute; right:5%; top:8%; width:38%; height:42%; border:2.5px dashed #2FBF6388;"></div>
+  <span class="cap" style="position:absolute; right:6%; top:9.5%; color:var(--ok);">TARGET ZONE</span>
+  <span class="cap" style="position:absolute; left:10px; top:8px;">WARMTH CUES ↑</span>
+  <span class="cap" style="position:absolute; right:10px; bottom:8px;">COMPETENCE CUES →</span>
+  <div data-read style="position:absolute; left:12px; bottom:10px; font-weight:800; font-style:italic; font-size:12.5px; color:var(--ink2); max-width:56%;"></div>`);
+ const cv=H.scr.querySelector('[data-cv]'), read=H.scr.querySelector('[data-read]');
+ const hist=[];
+ return {update(now){
+  const w=cv.clientWidth,ht=cv.clientHeight; if(cv.width!==w)cv.width=w; if(cv.height!==ht)cv.height=ht;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,ht);
+  hist.push([SIM.comp,SIM.warm]); if(hist.length>80)hist.shift();
+  ctx.strokeStyle='#FFC24B55'; ctx.lineWidth=2.4; ctx.beginPath();
+  hist.forEach((p,i)=>{const x=p[0]/100*w, y=(1-p[1]/100)*ht; i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.stroke();
+  const x=SIM.comp/100*w, y=(1-SIM.warm/100)*ht;
+  const g=ctx.createRadialGradient(x,y,2,x,y,22); g.addColorStop(0,'#FFC24B66'); g.addColorStop(1,'#FFC24B00');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,22,0,7); ctx.fill();
+  ctx.fillStyle='#FFC24B'; ctx.beginPath(); ctx.arc(x,y,9,0,7); ctx.fill();
+  ctx.strokeStyle='#131313'; ctx.lineWidth=3; ctx.stroke();
+  let msg;
+  if(SIM.warm>=65&&SIM.comp>=65){msg='BOTH CUE FAMILIES PRESENT — TARGET ZONE'; H.st.textContent='ON TARGET'; H.st.style.color='var(--ok)';}
+  else if(SIM.warm>=65){msg='SENDING FEWER COMPETENCE CUES THAN TARGET — SEE COMPETENCE-CUE CHANNELS'; H.st.textContent='IMBALANCE'; H.st.style.color='var(--warn)';}
+  else if(SIM.comp>=65){msg='SENDING FEWER WARMTH CUES THAN TARGET — SEE WARMTH-CUE CHANNELS'; H.st.textContent='IMBALANCE'; H.st.style.color='var(--warn)';}
+  else {msg='FEW CUES OF EITHER FAMILY — REBUILD FROM CONTRIBUTORS'; H.st.textContent='LOW'; H.st.style.color='#FF6B70';}
+  read.textContent=msg;
+ }};
+}
+
+/* ---- REG-A REFINED — event registry (evidence, not achievements) ---- */
+const GEV=[['ENUMERATION',3],['OPEN PALM',7],['HAND-TO-CHEST',1],['STEEPLE-LIKE',2],['COMPARISON',4],['ILLUSTRATOR',9],['EMPHASIS BEAT',6],['INCLUSIVE SWEEP',2],['SELF-REFERENCE',3]];
+function registryFinal(el,h,full){
+ const H=housing(el,'REG-A','GESTURE EVENT REGISTRY',h||380);
+ const counts=Object.fromEntries(GEV.map(g=>[g[0],g[1]]));
+ H.scr.insertAdjacentHTML('beforeend',`
+  <div class="cap" style="position:absolute; top:10px; left:12px;">GESTURE CANDIDATES DETECTED — EVIDENCE, NOT SCORE</div>
+  <div data-list style="position:absolute; inset:14% 3% 4%; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; align-content:start;"></div>`);
+ const list=H.scr.querySelector('[data-list]');
+ function render(flash){
+  list.innerHTML=GEV.map(g=>`
+   <div class="cham" style="display:flex; align-items:center; gap:10px; background:${flash===g[0]?'linear-gradient(90deg,#241C08,#191307)':'var(--housing)'};
+     border:1px solid ${flash===g[0]?'var(--gold)':'var(--edge)'}; padding:9px 12px; cursor:pointer; transition:all .3s;" title="Jump to examples in the Film Room">
+    <span class="mono" style="font-weight:700; font-size:20px; color:var(--gold); min-width:38px;">×${counts[g[0]]}</span>
+    <div style="flex:1;"><div style="font-weight:800; font-style:italic; font-size:11px; letter-spacing:.04em;">${g[0]}</div>
+      ${full?`<div class="cap" style="color:var(--dim);">CONF 0.8${Math.floor(Math.abs(noise(g[0].length,2))*9)} · ${g[1]} MOMENTS</div>`:''}</div>
+    <span class="cap" style="color:var(--dim);">▶</span>
+   </div>`).join('');
+ }
+ render();
+ let nextEv=4;
+ return {update(now){
+  if(now-scenStart>nextEv){nextEv+=6+Math.abs(noise(now,3))*4;
+   const g=GEV[Math.floor(Math.abs(noise(now,9))*GEV.length)%GEV.length];
+   counts[g[0]]++; render(g[0]);
+   H.scr.insertAdjacentHTML('beforeend',`<div class="toast"><span>GESTURE CAPTURED · ${g[0]}</span></div>`);
+   setTimeout(()=>{const t=H.scr.querySelector('.toast'); if(t)t.remove();},2600);}
+  H.st.textContent='RUNNING'; H.st.style.color='var(--ok)';
+ }};
+}
+/* ---- HT-B REFINED — territory topology with comparison toggles ---- */
+function topoFinal(el,h){
+ const H=housing(el,'HT-B','GESTURE TERRITORY · TOPOLOGY',h||420);
+ H.scr.insertAdjacentHTML('beforeend',`
+  <div style="position:absolute; top:10px; left:12px; display:flex; gap:5px;" data-t1>
+    ${['BOTH','LEFT','RIGHT'].map((m,i)=>`<button class="scen ${!i?'on':''}" data-hm="${m}"><span>${m}</span></button>`).join('')}
+  </div>
+  <div style="position:absolute; top:10px; right:12px; display:flex; gap:5px;" data-t2>
+    ${['INTERVIEW','NATURAL','DELTA'].map((m,i)=>`<button class="scen ${!i?'on':''}" data-vm="${m}"><span>${m}</span></button>`).join('')}
+  </div>
+  <canvas data-cv style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
+  <div data-facts style="position:absolute; right:12px; bottom:12px; width:230px; display:flex; flex-direction:column; gap:5px;"></div>`);
+ const cv=H.scr.querySelector('[data-cv]'), facts=H.scr.querySelector('[data-facts]');
+ let hm='BOTH', vm='INTERVIEW';
+ H.scr.querySelectorAll('[data-hm]').forEach(b=>b.addEventListener('click',()=>{hm=b.dataset.hm;
+  H.scr.querySelectorAll('[data-hm]').forEach(x=>x.classList.toggle('on',x===b));}));
+ H.scr.querySelectorAll('[data-vm]').forEach(b=>b.addEventListener('click',()=>{vm=b.dataset.vm;
+  H.scr.querySelectorAll('[data-vm]').forEach(x=>x.classList.toggle('on',x===b));}));
+ facts.innerHTML=[['MOST-USED REGION','CENTER-RIGHT · LAP LEVEL'],['UNUSED REGION','UPPER THIRD — OPEN'],['RANGE SUPPRESSION','−34% VS NATURAL'],['FACE INTRUSION','2 EVENTS'],['BELOW-FRAME LOSS','21s TOTAL']]
+  .map(r=>`<div style="display:flex; justify-content:space-between; gap:8px; background:#0B0F1DD9; border:1px solid var(--line); padding:5px 9px;">
+   <span class="cap">${r[0]}</span><span style="font-weight:800; font-style:italic; font-size:10px; color:var(--ink2);">${r[1]}</span></div>`).join('');
+ const ring=(ctx,cx,cy,rx,ry,n,col,fill)=>{ for(let r=n;r>0;r--){ ctx.beginPath();
+   for(let a=0;a<=6.4;a+=.22){const rr=(r/n)*(1+noise(a*2.4+r,cx)*.13);
+    const x=cx+Math.cos(a)*rx*rr, y=cy+Math.sin(a)*ry*rr; a?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.closePath();
+   ctx.strokeStyle=col+Math.round(30+(n-r)*36).toString(16).padStart(2,'0'); ctx.lineWidth=r===1?3:1.4; ctx.stroke();
+   if(r===1&&fill){ctx.fillStyle=fill; ctx.fill();}}};
+ return {update(now){
+  const w=cv.clientWidth,ht=cv.clientHeight; if(cv.width!==w)cv.width=w; if(cv.height!==ht)cv.height=ht;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,ht);
+  /* silhouette anchor */
+  ctx.fillStyle='#18213E'; ctx.beginPath(); ctx.ellipse(w*.5,ht*.24,w*.05,ht*.09,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w*.5,ht*.86,w*.13,ht*.26,0,Math.PI,0); ctx.fill(); ctx.fillRect(w*.37,ht*.86,w*.26,ht*.14);
+  const L=hm!=='RIGHT', R=hm!=='LEFT';
+  if(vm!=='NATURAL'){ /* interview topo */
+   if(L)ring(ctx,w*.42,ht*.62,w*.10,ht*.12,5,'#FFC24B','#FFC24B14');
+   if(R)ring(ctx,w*.58,ht*.60,w*.11,ht*.13,5,'#FF9D2E','#FF8A1E14');}
+  if(vm!=='INTERVIEW'){ /* natural topo (ghost) */
+   ctx.setLineDash([7,6]);
+   if(L)ring(ctx,w*.34,ht*.44,w*.16,ht*.20,4,'#4D7CFE',vm==='NATURAL'?'#4D7CFE12':null);
+   if(R)ring(ctx,w*.66,ht*.42,w*.17,ht*.21,4,'#8B7CF7',vm==='NATURAL'?'#8B7CF712':null);
+   ctx.setLineDash([]);}
+  if(vm==='DELTA'){ ctx.fillStyle='#FFA928'; ctx.font='900 italic 26px Archivo';
+   ctx.fillText('−34% TERRITORY UNDER PRESSURE', w*.06, ht*.14);
+   ctx.fillStyle='#CBD5EE'; ctx.font='800 italic 11px Archivo';
+   ctx.fillText('BLUE DASH = YOUR NATURAL RANGE · GOLD = INTERVIEW', w*.06, ht*.14+20);}
+  H.st.textContent=vm+' · '+hm; H.st.style.color='var(--dim)';
+ }};
+}
+/* ---- GESTURE FIELD — THREE NEW CONCEPTS (GF-A rejected) ---- */
+function gfTerritory(el,h){ /* GF-B PERFORMANCE TERRITORY */
+ const H=housing(el,'GF-B','GESTURE FIELD · PERFORMANCE TERRITORY',h||400);
+ H.scr.insertAdjacentHTML('beforeend',`
+  <canvas data-cv style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
+  <div style="position:absolute; left:0; right:0; bottom:9%; border-top:2px dashed #E5484D77;"></div>
+  <span class="cap" style="position:absolute; right:10px; bottom:calc(9% + 5px); color:#FF6B70;">BELOW-FRAME LOSS</span>
+  <div style="position:absolute; left:0; right:0; top:16%; border-bottom:2px dashed #E5484D55;"></div>
+  <span class="cap" style="position:absolute; right:10px; top:calc(16% - 14px); color:#FF6B70;">FACE ZONE</span>
+  <div class="corrplate" data-corr style="font-size:17px; padding:7px 18px;"><span>TERRITORY OPEN</span></div>`);
+ const cv=H.scr.querySelector('[data-cv]'), corr=H.scr.querySelector('[data-corr]');
+ const terrL=[], terrR=[];
+ return {update(now,dt){
+  const w=cv.clientWidth,ht=cv.clientHeight; if(cv.width!==w)cv.width=w; if(cv.height!==ht)cv.height=ht;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,ht);
+  ctx.fillStyle='#18213E'; ctx.beginPath(); ctx.ellipse(w*.5,ht*.20,w*.045,ht*.08,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w*.5,ht*.92,w*.12,ht*.24,0,Math.PI,0); ctx.fill();
+  const px=p=>[w/2+p.x*w*.85, ht*.56-p.y*ht*.6];
+  const pools=[[terrL,SIM.hands.L,'#FFC24B',true],[terrR,SIM.rHand?SIM.hands.R:null,'#4D7CFE',SIM.rHand]];
+  pools.forEach(([terr,p,col,ok])=>{
+   if(p){terr.push({...p,t:now}); while(terr.length&&now-terr[0].t>7)terr.shift();}
+   if(terr.length>2){
+    ctx.beginPath();
+    const pts=terr.map(px);
+    /* soft territory hull: draw thick blurred path */
+    ctx.strokeStyle=col+'2E'; ctx.lineWidth=44; ctx.lineJoin='round'; ctx.lineCap='round';
+    pts.forEach(([x,y],i)=>{i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.stroke();
+    ctx.strokeStyle=col+'66'; ctx.lineWidth=16; ctx.stroke();
+   }
+   if(p){const[x,y]=px(p); ctx.fillStyle=ok?col:'transparent';
+    ctx.beginPath(); ctx.arc(x,y,10,0,7); ctx.fill();
+    ctx.strokeStyle='#0B1020'; ctx.lineWidth=3; ctx.stroke();
+    if(!ok){ctx.setLineDash([4,4]); ctx.strokeStyle=col; ctx.beginPath(); ctx.arc(x,y,10,0,7); ctx.stroke(); ctx.setLineDash([]);}}
+  });
+  let t,c;
+  if(!SIM.rHand){t='RIGHT HAND — NOT DETECTED'; c='';}
+  else{const spanL=terrL.length? Math.max(...terrL.map(p=>p.x))-Math.min(...terrL.map(p=>p.x)) :0;
+   const spanR=terrR.length? Math.max(...terrR.map(p=>p.x))-Math.min(...terrR.map(p=>p.x)) :0;
+   if(spanL+spanR<.24){t='OPEN MORE TERRITORY'; c='';}
+   else {t='TERRITORY ALIVE'; c='ok';}}
+  corr.className='corrplate '+c; corr.innerHTML='<span>'+t+'</span>';
+  H.st.textContent=SIM.rHand?'L + R ACTIVE':'R MISSING'; H.st.style.color=SIM.rHand?'var(--ok)':'var(--warn)';
+ }};
+}
+function gfRibbons(el,h){ /* GF-C MOTION RIBBONS */
+ const H=housing(el,'GF-C','GESTURE FIELD · MOTION RIBBONS',h||400);
+ H.scr.insertAdjacentHTML('beforeend',`<canvas data-cv style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
+  <div class="corrplate" data-corr style="font-size:17px; padding:7px 18px;"><span>RIBBONS FLOWING</span></div>`);
+ const cv=H.scr.querySelector('[data-cv]'), corr=H.scr.querySelector('[data-corr]');
+ const rl=[], rr=[];
+ return {update(now){
+  const w=cv.clientWidth,ht=cv.clientHeight; if(cv.width!==w)cv.width=w; if(cv.height!==ht)cv.height=ht;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,ht);
+  ctx.fillStyle='#18213E'; ctx.beginPath(); ctx.ellipse(w*.5,ht*.92,w*.12,ht*.24,0,Math.PI,0); ctx.fill();
+  const px=p=>[w/2+p.x*w*.85, ht*.56-p.y*ht*.6];
+  rl.push({...SIM.hands.L}); if(rl.length>34)rl.shift();
+  if(SIM.rHand){rr.push({...SIM.hands.R}); if(rr.length>34)rr.shift();}
+  [[rl,'#FFC24B'],[rr,'#4D7CFE']].forEach(([r,col])=>{
+   for(let i=1;i<r.length;i++){
+    const[x0,y0]=px(r[i-1]),[x1,y1]=px(r[i]);
+    const k=i/r.length;
+    ctx.strokeStyle=col+Math.round(k*200+30).toString(16).padStart(2,'0');
+    ctx.lineWidth=2+k*13; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();}
+  });
+  const still=rl.length>10&&Math.hypot(rl[rl.length-1].x-rl[0].x, rl[rl.length-1].y-rl[0].y)<.05;
+  let t=!SIM.rHand?'RIGHT HAND — NOT DETECTED': still?'STUCK — MOVE THE STORY':'RIBBONS FLOWING';
+  corr.className='corrplate '+(t==='RIBBONS FLOWING'?'ok':''); corr.innerHTML='<span>'+t+'</span>';
+  H.st.textContent='LIVE'; H.st.style.color='var(--ok)';
+ }};
+}
+function gfEnvelope(el,h){ /* GF-D GESTURE ENVELOPE — Fable recommended */
+ const H=housing(el,'GF-D','GESTURE FIELD · LIVE ENVELOPE  ★ FABLE PICK',h||400);
+ H.scr.insertAdjacentHTML('beforeend',`<canvas data-cv style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
+  <span class="cap" style="position:absolute; top:10px; left:12px;">SOLID = LIVE ENVELOPE · DASH = YOUR NATURAL BASELINE HULL</span>
+  <div class="corrplate" data-corr style="font-size:17px; padding:7px 18px;"><span>ENVELOPE OPEN</span></div>`);
+ const cv=H.scr.querySelector('[data-cv]'), corr=H.scr.querySelector('[data-corr]');
+ const pts=[];
+ return {update(now){
+  const w=cv.clientWidth,ht=cv.clientHeight; if(cv.width!==w)cv.width=w; if(cv.height!==ht)cv.height=ht;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,ht);
+  ctx.fillStyle='#18213E'; ctx.beginPath(); ctx.ellipse(w*.5,ht*.92,w*.12,ht*.24,0,Math.PI,0); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w*.5,ht*.18,w*.045,ht*.075,0,0,7); ctx.fill();
+  const px=p=>[w/2+p.x*w*.85, ht*.56-p.y*ht*.6];
+  pts.push({...SIM.hands.L,t:now}); if(SIM.rHand)pts.push({...SIM.hands.R,t:now});
+  while(pts.length&&now-pts[0].t>6)pts.shift();
+  /* baseline hull (ghost) */
+  ctx.setLineDash([8,7]); ctx.strokeStyle='#4D7CFE99'; ctx.lineWidth=2.2;
+  ctx.beginPath(); ctx.ellipse(w*.5,ht*.46,w*.33,ht*.30,0,0,7); ctx.stroke(); ctx.setLineDash([]);
+  /* live envelope = bounding ellipse of recent points */
+  if(pts.length>3){
+   const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+   const cx2=(Math.min(...xs)+Math.max(...xs))/2, cy2=(Math.min(...ys)+Math.max(...ys))/2;
+   const rx=Math.max(.06,(Math.max(...xs)-Math.min(...xs))/2+.05), ry=Math.max(.06,(Math.max(...ys)-Math.min(...ys))/2+.05);
+   const[ex,ey]=px({x:cx2,y:cy2});
+   ctx.beginPath(); ctx.ellipse(ex,ey,rx*w*.85,ry*ht*.6,0,0,7);
+   ctx.fillStyle='#FF9D2E1C'; ctx.fill();
+   ctx.strokeStyle='#FFC24B'; ctx.lineWidth=3.5; ctx.stroke();
+   const cover=(rx*ry)/(.33*.30);
+   let t,c;
+   if(!SIM.rHand){t='RIGHT HAND — NOT DETECTED'; c='';}
+   else if(cover<.24){t='YOU HAVE MORE RANGE — OPEN UP'; c='';}
+   else if(cover>.85){t='FULL NATURAL RANGE'; c='gold';}
+   else {t='ENVELOPE OPEN — HOLD'; c='ok';}
+   corr.className='corrplate '+c; corr.innerHTML='<span>'+t+'</span>';
+   H.st.textContent=Math.round(clamp(cover,0,1.2)*100)+'% OF BASELINE HULL'; H.st.style.color=cover<.24?'var(--warn)':'var(--ok)';
+  }
+  pts.forEach(p=>{const[x,y]=px(p); ctx.fillStyle='#F5F8FF'; ctx.beginPath(); ctx.arc(x,y,3,0,7); ctx.fill();});
+ }};
+}
+/* ---- DR KELLY STAGE PANEL ---- */
+function kellyStage(el, opts={}){
+ el.innerHTML=`
+  <div class="vidstage" style="position:absolute; inset:0;">
+   <div class="kelly-fig"><div class="kf-hair"></div><div class="kf-face"></div><div class="kf-coat"></div><div class="kf-shirt"></div></div>
+   <div class="kmount">LEMONSLICE SELF-MANAGED STREAM<br>MOUNTS HERE · agent_9bdfc50ec0086043</div>
+   <div class="kstate"><i data-ki></i><b data-kt>READY</b></div>
+   <div data-fallback style="position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:10px; background:#0A0F1EF0; text-align:center; padding:20px;"></div>
+  </div>`;
+ const ki=el.querySelector('[data-ki]'), kt=el.querySelector('[data-kt]'), fb=el.querySelector('[data-fallback]');
+ const states=[['READY','#8FA0D9'],['CONNECTING','#4D7CFE'],['ASKING','#2FBF63'],['LISTENING','#4D7CFE'],['REACTING','#FFC24B'],['FOLLOW-UP','#2FBF63'],['ENDING','#8B7CF7']];
+ let mode='LIVE';
+ el.setFallback=(m)=>{ mode=m;
+  if(m==='LIVE'){fb.style.display='none'; return;}
+  fb.style.display='flex';
+  fb.innerHTML= m==='VOICE'
+   ? `<div style="display:flex; gap:4px; align-items:flex-end; height:44px;" data-wave>${Array.from({length:14},()=>'<span style="width:6px; background:var(--info);"></span>').join('')}</div>
+      <b class="it" style="font-size:14px; letter-spacing:.08em;">DR KELLY · VOICE ONLY</b>
+      <span class="cap">AVATAR UNAVAILABLE — SESSION CONTINUES · NOTHING IS BROKEN</span>`
+   : `<b class="it" style="font-size:15px; letter-spacing:.06em; color:var(--warn);">AVATAR UNAVAILABLE</b>
+      <span class="cap">CONTINUE VOICE-ONLY · PRE-GENERATED · TEXT — DELIVERY INTELLIGENCE KEEPS RUNNING</span>
+      <button class="btnB" onclick="this.closest('[data-fallback]').style.display='none'"><span>CONTINUE VOICE-ONLY</span></button>`;
+ };
+ return {update(now){
+  const s= opts.fixed? states.find(x=>x[0]===opts.fixed) : states[2+Math.floor(now/5)%5];
+  ki.style.background=s[1]; kt.textContent=s[0];
+  if(mode==='VOICE'){fb.querySelectorAll('[data-wave] span').forEach((sp,i)=>{sp.style.height=(8+Math.abs(noise(now*3,i))*34)+'px';});}
+ }};
+}
+
+/* ---- FR-C REFINED — split flight recorder (flagship) ---- */
+function recorderFinal(el){
+ const DUR=60;
+ const GROUPS=[
+  {g:'VOICE', open:true, tracks:[
+    {n:'VOICE VOLUME',kind:'trace',c:'#FFC24B',on:true},
+    {n:'PITCH',kind:'pitch',c:'#4D7CFE',on:true},
+    {n:'PACE',kind:'trace',c:'#2FBF63',on:true},
+    {n:'CADENCE',kind:'cad',c:'#8B7CF7',on:false},
+    {n:'PAUSES / LANDING',kind:'cad',c:'#8FA0D9',on:false}]},
+  {g:'FACE / BODY', open:false, tracks:[
+    {n:'HEAD',kind:'trace',c:'#8FA0D9',on:false},
+    {n:'TORSO',kind:'trace',c:'#57628A',on:false},
+    {n:'CAMERA',kind:'trace',c:'#8FA0D9',on:false}]},
+  {g:'HANDS', open:true, tracks:[
+    {n:'LEFT HAND',kind:'hand',c:'#FFC24B',on:true},
+    {n:'RIGHT HAND',kind:'hand',c:'#4D7CFE',gap:[31,42],on:true}]},
+  {g:'GESTURES', open:true, tracks:[
+    {n:'GESTURE EVENTS',kind:'chips',on:true,chips:[[7,'ENUM ✓'],[15,'HOLD'],[22,'SELF-ADAPTOR'],[33,'ILLUSTRATOR'],[47,'CHEST · CAND']]},
+    {n:'OPPORTUNITIES',kind:'chips',hot:true,on:true,chips:[[11,'OPP · ENUM'],[27,'OPP · CONTRAST'],[50,'OPP · EMPHASIS']]}]},
+  {g:'COMPOSITES', open:false, tracks:[
+    {n:'CONGRUENCE',kind:'beat',c:'#2FBF63',on:false},
+    {n:'WARMTH CUES',kind:'trace',c:'#FF9D2E',on:false},
+    {n:'COMPETENCE CUES',kind:'trace',c:'#4D7CFE',on:false}]},
+  {g:'COACHING', open:false, tracks:[
+    {n:'CORRECTIONS FIRED',kind:'chips',on:false,chips:[[9,'LOUDER'],[24,'SLOW DOWN'],[44,'MORE VARIATION']]}]},
+  {g:'MENTOR', open:true, tracks:[
+    {n:'MENTOR MARKS',kind:'chips',gold:true,on:true,chips:[[18,'PERFECT ★'],[44,'REMEMBER THIS']]},
+    {n:'COVERAGE',kind:'cover',on:true}]},
+ ];
+ let seek=6, playing=true, solo=null, zoom=1, zoomC=30;
+ const fmt=x=>'0'+Math.floor(x/60)+':'+String(Math.floor(x%60)).padStart(2,'0');
+ el.innerHTML=`
+  <div style="position:absolute; inset:0; display:flex; flex-direction:column;">
+   <div style="display:flex; align-items:center; gap:12px; padding:10px 14px; background:linear-gradient(90deg,#141C36,#0F1628); border-bottom:1px solid var(--line);">
+     <div class="idp" style="background:var(--grad); color:#131313; font-weight:900; font-style:italic; font-size:12px; padding:4px 12px; transform:skewX(-10deg);"><span style="display:block; transform:skewX(10deg);">FR-C</span></div>
+     <div>
+       <div class="it" style="font-size:13px;">SESSION FLIGHT RECORDER — Q3 · "DISAGREED WITH A SUPERVISOR"</div>
+       <div class="cap">EVIDENCE, NOT VERDICT · CHIPS SEEK −2s · COVERAGE GAPS STAY HATCHED</div>
+     </div>
+     <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+       <button class="btnB" data-z="-"><span>ZOOM −</span></button>
+       <button class="btnB" data-z="+"><span>ZOOM +</span></button>
+       <button class="btnB" data-play><span>⏸</span></button>
+       <div class="mono" data-tc style="font-weight:700; font-size:20px; color:var(--gold); min-width:66px;">00:06</div>
+     </div>
+   </div>
+   <div style="display:flex; flex:1; min-height:0;">
+     <div style="width:31%; min-width:230px; display:flex; flex-direction:column; border-right:1px solid var(--line);">
+       <div class="vidstage" style="flex:1;">
+         <div class="vidperson"></div>
+         <div class="vidtag"><span>ANSWER REPLAY</span></div>
+         <div data-evd style="position:absolute; left:8px; right:8px; bottom:8px; background:#0B0F1DE8; border:1px solid var(--line); padding:8px 10px; font-size:10.5px; color:var(--dim); font-weight:600;">
+           Click any chip — the replay seeks with a 2s pre-roll and the related lanes highlight.</div>
+       </div>
+     </div>
+     <div data-tl style="flex:1; overflow-y:auto; position:relative; background:#0A0F1E; cursor:crosshair;"></div>
+   </div>
+  </div>`;
+ const tl=el.querySelector('[data-tl]'), tc=el.querySelector('[data-tc]'),
+   pb=el.querySelector('[data-play]'), evd=el.querySelector('[data-evd]');
+ pb.addEventListener('click',()=>{playing=!playing; pb.innerHTML='<span>'+(playing?'⏸':'▶')+'</span>';});
+ el.querySelectorAll('[data-z]').forEach(b=>b.addEventListener('click',()=>{
+  zoom=clamp(zoom*(b.dataset.z==='+'?1.6:1/1.6),1,4); render();}));
+ function win(){ const span=DUR/zoom; let s0=clamp(zoomC-span/2,0,DUR-span); return [s0,s0+span]; }
+ function laneInner(t){
+  const [w0,w1]=win(); const span=w1-w0;
+  const X=x=>((x-w0)/span*100);
+  let inner='';
+  if(t.kind==='trace'||t.kind==='pitch'){
+   let pts=''; for(let x=w0;x<=w1;x+=span/140){const v=.5+noise(x*.8,t.n.length)*.4;
+    pts+=(pts?' L':'M')+X(x).toFixed(2)+','+((1-v)*22+4).toFixed(1);}
+   inner+=`<svg preserveAspectRatio="none" viewBox="0 0 100 30" style="position:absolute; inset:0; width:100%; height:100%;">
+     <rect x="0" y="8" width="100" height="12" fill="#FFC24B0C"/>
+     <path d="${pts}" fill="none" stroke="${t.c}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+   if(t.kind==='pitch'&&22<w1&&31>w0) inner+=`<div class="unavail" style="position:absolute; left:${X(Math.max(22,w0))}%; width:${X(Math.min(31,w1))-X(Math.max(22,w0))}%; top:10%; bottom:10%; padding:2px;"><span style="font-size:7.5px;">PITCH — UNAVAILABLE</span></div>`;}
+  if(t.kind==='cad'){let x=0,i=0; while(x<DUR){const wd=1.2+((i*37)%30)/14, gp=.4+((i*23)%22)/16;
+    if(x+wd>w0&&x<w1) inner+=`<div style="position:absolute; left:${X(Math.max(x,w0))}%; width:${(Math.min(x+wd,w1)-Math.max(x,w0))/span*100}%; top:30%; bottom:30%; background:${t.c}; opacity:.85;"></div>`; x+=wd+gp; i++;}}
+  if(t.kind==='hand'){const g=t.gap||[999,999];
+   const bar=(a,b)=>{ if(b<w0||a>w1)return''; return `<div style="position:absolute; left:${X(Math.max(a,w0))}%; width:${(Math.min(b,w1)-Math.max(a,w0))/span*100}%; top:40%; height:20%; background:${t.c}; opacity:.9;"></div>`;};
+   inner+=bar(0,Math.min(g[0],DUR)); if(g[0]<DUR)inner+=bar(g[1],DUR);
+   if(g[0]<w1&&g[1]>w0) inner+=`<div class="unavail" style="position:absolute; left:${X(Math.max(g[0],w0))}%; width:${(Math.min(g[1],w1)-Math.max(g[0],w0))/span*100}%; top:18%; bottom:18%; padding:1px;"><span style="font-size:7.5px;">NOT DETECTED</span></div>`;}
+  if(t.kind==='chips')t.chips.forEach(c=>{ if(c[0]<w0||c[0]>w1)return;
+   inner+=`<button class="fchip ${t.hot?'opp':''} ${t.gold?'mark':''}" data-t="${c[0]}" data-l="${c[1]}" style="left:${X(c[0])}%;">${c[1]}</button>`;});
+  if(t.kind==='beat')[8,19,37,52].forEach(x=>{if(x>=w0&&x<=w1)inner+=`<div style="position:absolute; left:${X(x)}%; width:6px; top:16%; bottom:16%; background:${t.c};"></div>`;});
+  if(t.kind==='cover'){ inner+=`<div style="position:absolute; inset:38% 0; background:#12331d55;"></div>`;
+   [[22,31],[31,42]].forEach(([a,b])=>{ if(b<w0||a>w1)return;
+    inner+=`<div style="position:absolute; left:${X(Math.max(a,w0))}%; width:${(Math.min(b,w1)-Math.max(a,w0))/span*100}%; top:26%; bottom:26%; background:repeating-linear-gradient(45deg,#241C08 0 8px,#191307 8px 16px);"></div>`;});}
+  return inner;
+ }
+ function render(){
+  let html='';
+  GROUPS.forEach(gr=>{
+   html+=`<div class="trk grp" data-g="${gr.g}"><div class="trkhead"><span class="nm" style="color:var(--gold);">${gr.open?'▾':'▸'} ${gr.g}</span></div><div class="trkbody"></div></div>`;
+   if(gr.open) gr.tracks.forEach(t=>{
+    const vis= solo? (solo===t.n): t.on;
+    html+=`<div class="trk ${vis?'':'dimT'}" style="height:32px;">
+     <div class="trkhead" style="padding-left:18px;">
+       <div class="eye ${t.on?'on':''}" data-eye="${t.n}">👁</div>
+       <div class="solo ${solo===t.n?'on':''}" data-solo="${t.n}">S</div>
+       <span class="nm">${t.n}</span></div>
+     <div class="trkbody">${vis?laneInner(t):''}</div></div>`;});
+  });
+  tl.innerHTML=html+`<div data-ph style="position:absolute; top:0; bottom:0; width:2px; background:#FFF; box-shadow:0 0 12px #FFF8; z-index:6; pointer-events:none;"></div>`;
+  tl.querySelectorAll('.grp').forEach(g=>g.addEventListener('click',()=>{
+   const gr=GROUPS.find(x=>x.g===g.dataset.g); gr.open=!gr.open; render();}));
+  tl.querySelectorAll('[data-eye]').forEach(e=>e.addEventListener('click',ev=>{ev.stopPropagation();
+   GROUPS.forEach(g=>g.tracks.forEach(t=>{if(t.n===e.dataset.eye)t.on=!t.on;})); render();}));
+  tl.querySelectorAll('[data-solo]').forEach(s=>s.addEventListener('click',ev=>{ev.stopPropagation();
+   solo=solo===s.dataset.solo?null:s.dataset.solo; render();}));
+  tl.querySelectorAll('.fchip').forEach(ch=>ch.addEventListener('click',ev=>{ev.stopPropagation();
+   seek=Math.max(0,+ch.dataset.t-2); zoomC=+ch.dataset.t; playing=false; pb.innerHTML='<span>▶</span>';
+   evd.innerHTML=`<b style="color:var(--gold); font-style:italic;">SEEK → ${fmt(+ch.dataset.t)} (−2s)</b> · <b style="color:var(--ink2)">${ch.dataset.l}</b><br>detector label · value · confidence · phase — related lanes highlighted. Interpretation stays with the Mentor.`;
+   render();}));
+  tl.addEventListener('click',ev=>{ if(ev.target!==tl&&!ev.target.classList.contains('trkbody'))return;
+   const r=tl.getBoundingClientRect(); const fx=(ev.clientX-r.left-196)/(r.width-196);
+   if(fx>0){const[w0,w1]=win(); seek=w0+fx*(w1-w0);} });
+ }
+ render();
+ return {update(now,dt){
+  if(playing){seek+=dt; if(seek>DUR)seek=0; zoomC=seek;}
+  tc.textContent=fmt(seek);
+  const p=tl.querySelector('[data-ph]'); const[w0,w1]=win();
+  if(p)p.style.left=`calc(196px + (100% - 196px)*${clamp((seek-w0)/(w1-w0),0,1)})`;
+ }};
+}
+/* ---- FILM-B REFINED — compare room ---- */
+function compareFinal(el){
+ const pairs=[['BASELINE','TODAY'],['ATTEMPT 1','ATTEMPT 4'],['NATURAL STORY','INTERVIEW'],['BEFORE COACHING','AFTER COACHING'],['BASELINE','PERSONAL BEST']];
+ let pi=1, playing=true, seek=0;
+ el.innerHTML=`
+  <div style="position:absolute; inset:0; display:flex; flex-direction:column; gap:10px; padding:2px;">
+   <div style="display:flex; gap:6px; align-items:center;">
+     <span class="cap">COMPARISON</span>
+     ${pairs.map((p,i)=>`<button class="scen ${i===1?'on':''}" data-p="${i}"><span>${p[0]} vs ${p[1]}</span></button>`).join('')}
+     <button class="btnB" data-play style="margin-left:auto;"><span>⏸ SYNC PAUSE</span></button>
+   </div>
+   <div style="display:flex; gap:10px; flex:1; min-height:0;">
+     ${[0,1].map(i=>`
+      <div style="flex:1; display:flex; flex-direction:column; gap:8px; min-width:0;">
+        <div class="vidstage" style="flex:1; border:1px solid ${i?'var(--gold)':'var(--edge)'};">
+          <div class="vidperson"></div>
+          <div class="vidtag"><span data-lbl="${i}"></span></div>
+          ${i?'<div style="position:absolute; bottom:10px; right:10px; transform:skewX(-8deg); background:var(--grad); padding:6px 16px;"><span style="display:block; transform:skewX(8deg); font-weight:900; font-style:italic; font-size:11px; color:#131313;">VOLUME VARIATION +23 · TERRITORY +18%</span></div>':''}
+          <button class="btnB" style="position:absolute; top:10px; right:10px; font-size:9px; padding:6px 10px;"><span>OPEN FULL FLIGHT RECORDER</span></button>
+        </div>
+      </div>`).join('')}
+   </div>
+   <div class="recessed" style="height:130px; position:relative; overflow:hidden;">
+     <div style="position:absolute; left:0; right:0; top:0; height:16px; display:flex;">
+       ${[['OPEN',15,'#4D7CFE'],['ENUMERATE',20,'#FFC24B'],['PROVE-STORY',45,'#2FBF63'],['CLOSE',20,'#8B7CF7']].map(p=>`<div style="flex:${p[1]}; background:${p[2]}18; border-right:1px solid #131A30; font-size:7.5px; font-weight:800; font-style:italic; color:${p[2]}; padding:2px 6px; letter-spacing:.06em;">${p[0]}</div>`).join('')}
+     </div>
+     <canvas data-cv style="position:absolute; inset:16px 0 0; width:100%; height:calc(100% - 16px);"></canvas>
+     <div data-ph2 style="position:absolute; top:0; bottom:0; width:2px; background:#FFF; box-shadow:0 0 10px #FFF8;"></div>
+     <span class="cap" style="position:absolute; left:8px; bottom:6px;">PHASE-ALIGNED · BLUE = ${'A'} · GOLD = ${'B'} · SHARED CLOCK</span>
+   </div>
+   <div class="cap" style="color:var(--ink2);">DELTA READ: <b style="color:var(--gold); font-style:italic;">Attempt 4 holds volume variation through PROVE-STORY where Attempt 1 collapsed; territory +18%; CLOSE landed with a deliberate pause.</b></div>
+  </div>`;
+ const cv=el.querySelector('[data-cv]'), ph2=el.querySelector('[data-ph2]');
+ const lbls=[...el.querySelectorAll('[data-lbl]')];
+ function setPair(){ lbls[0].textContent=pairs[pi][0]; lbls[1].textContent=pairs[pi][1]+' ★'; }
+ setPair();
+ el.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{pi=+b.dataset.p; setPair();
+  el.querySelectorAll('[data-p]').forEach(x=>x.classList.toggle('on',x===b));}));
+ el.querySelector('[data-play]').addEventListener('click',e=>{playing=!playing;
+  e.currentTarget.innerHTML='<span>'+(playing?'⏸ SYNC PAUSE':'▶ SYNC PLAY')+'</span>';});
+ return {update(now,dt){
+  if(playing){seek=(seek+dt*1.6)%100;}
+  ph2.style.left=seek+'%';
+  const w=cv.clientWidth,ht=cv.clientHeight; if(cv.width!==w)cv.width=w; if(cv.height!==ht)cv.height=ht;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,ht);
+  [[.16,'#8FA0D9'],[.42,'#FFC24B']].forEach(([amp,col],r)=>{
+   ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath();
+   for(let x=0;x<=w;x+=3){const v=.5+noise(x*.05,r*7)*amp;
+    const y=ht*(1-v*.85); x?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.stroke();});
+ }};
+}
+/* ---- MENTOR CONCEPTS ×3 (MENT-A donor) ---- */
+function mentorConcept(el,kind){
+ const names={A2:['MENT-A2','SIDELINE STUDIO — EVOLVED'],C:['MENT-C','PERFORMANCE COACH BOOTH'],D:['MENT-D','FILM DIRECTOR LIVE DESK']};
+ const[id,nm]=names[kind];
+ const H=housing(el,id,nm,440);
+ const marks=[];
+ if(kind==='A2') H.scr.insertAdjacentHTML('beforeend',`
+  <div style="position:absolute; inset:3%; display:flex; gap:10px;">
+   <div class="vidstage" style="flex:1.7;"><div class="vidperson"></div><div class="vidtag"><span>A. OKAFOR · LIVE</span></div>
+     <div data-strip style="position:absolute; left:10px; right:10px; bottom:10px; height:26px; background:#0B0F1DE0; border:1px solid var(--edge);"></div></div>
+   <div style="flex:1; display:flex; flex-direction:column; gap:7px; min-width:220px;">
+     <div class="kick" style="color:var(--warn); font-size:9px;">PRIVATE RAIL — NEVER MIRRORED</div>
+     <div data-rail style="flex:1; display:flex; flex-direction:column; gap:6px;"></div>
+     <div style="display:flex; gap:6px;">
+       <button class="btnB" data-mk="P" style="flex:1; border-color:#2FBF6366; color:var(--ok); font-size:10px; padding:8px 6px;"><span>PERFECT ★</span></button>
+       <button class="btnB" data-mk="R" style="flex:1; border-color:#4D7CFE66; color:#8FA0D9; font-size:10px; padding:8px 6px;"><span>REMEMBER</span></button>
+       <button class="btnB" data-mk="F" style="flex:1; font-size:10px; padding:8px 6px;"><span>FLAG</span></button>
+     </div>
+     <button class="btnA" style="font-size:11px; padding:10px 14px;"><span>TEACH THIS MOMENT →</span></button>
+   </div>
+  </div>`);
+ if(kind==='C') H.scr.insertAdjacentHTML('beforeend',`
+  <div style="position:absolute; inset:3%; display:flex; flex-direction:column; gap:8px;">
+   <div style="display:flex; gap:10px; flex:1;">
+     <div class="vidstage" style="flex:1;"><div class="vidperson"></div><div class="vidtag"><span>STUDENT</span></div></div>
+     <div style="width:34%; display:flex; flex-direction:column; gap:6px;">
+       <div class="cap">CUE PROFILES · LIVE</div>
+       <div data-prof style="flex:1; display:flex; flex-direction:column; gap:6px;"></div>
+     </div>
+   </div>
+   <div style="display:flex; gap:6px; align-items:center;">
+     <span class="cap">HOTKEYS</span>
+     ${['P — PERFECT','R — REMEMBER','F — FLAG','T — TEACH','M — MISSION'].map(k=>`<span class="lawchip">${k}</span>`).join('')}
+   </div>
+  </div>`);
+ if(kind==='D') H.scr.insertAdjacentHTML('beforeend',`
+  <div style="position:absolute; inset:3%; display:flex; flex-direction:column; gap:8px;">
+   <div style="display:flex; gap:8px; flex:1;">
+     <div class="vidstage" style="flex:1.9;"><div class="vidperson"></div><div class="vidtag"><span>PROGRAM · LIVE</span></div></div>
+     <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+       ${['CAM A · STUDENT','CAM B · WIDE','DR KELLY FEED'].map(c=>`<div class="vidstage" style="flex:1; border:1px solid var(--line);"><div class="vidtag" style="transform:none;"><span style="transform:none; font-size:8px;">${c}</span></div></div>`).join('')}
+     </div>
+   </div>
+   <div data-strip style="height:28px; background:#0B0F1DE0; border:1px solid var(--edge); position:relative;"></div>
+  </div>`);
+ el.querySelectorAll('[data-mk]').forEach(b=>b.addEventListener('click',()=>{
+  const strip=el.querySelector('[data-strip]'); if(!strip)return;
+  marks.push({x:4+Math.random()*90, c:b.dataset.mk==='P'?'#2FBF63':b.dataset.mk==='R'?'#4D7CFE':'#FFA928'});
+  strip.innerHTML=marks.map(m=>`<div style="position:absolute; left:${m.x}%; top:3px; bottom:3px; width:6px; background:${m.c}; clip-path:polygon(0 0,100% 12%,100% 100%,0 88%);"></div>`).join('');}));
+ return {update(now){
+  const rail=el.querySelector('[data-rail]');
+  if(rail){const rows=[['VOICE VOLUME',SIM.level*100,46,70],['VOL VARIATION',(SIM.p90-SIM.p10)*300,30,100],['PACE',SIM.pace*100,SIM.paceT[0]*100,SIM.paceT[1]*100],['WARMTH-CUE',SIM.warm,65,100],['COMPETENCE-CUE',SIM.comp,65,100]];
+   rail.innerHTML=rows.map(r=>{const ok=r[1]>=r[2]&&r[1]<=r[3];
+    return `<div style="background:#101831; border:1px solid ${ok?'#2FBF6340':'#6B4A12'}; padding:6px 10px; clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);">
+     <div style="display:flex; justify-content:space-between;"><span class="cap" style="color:var(--ink2);">${r[0]}</span>
+     <span class="mono" style="font-weight:700; font-size:13px; color:${ok?'var(--ok)':'var(--warn)'};">${Math.round(r[1])}</span></div></div>`;}).join('');}
+  const prof=el.querySelector('[data-prof]');
+  if(prof){const res=capMaster(SIM.vv);
+   prof.innerHTML=[['CHARISMA CUE BALANCE',capMaster({W:SIM.warm,C:SIM.comp,G:76,X:78}).master],['WARMTH-CUE',Math.round(SIM.warm)],['COMPETENCE-CUE',Math.round(SIM.comp)],['VOCAL VARIETY',res.master],['CONGRUENCE',SIM.congrBeat?90:74]]
+   .map(p=>`<div style="display:flex; justify-content:space-between; align-items:center; background:#101831; border:1px solid var(--edge); padding:8px 10px;">
+    <span class="cap" style="color:var(--ink2);">${p[0]}</span><span class="mono" style="font-weight:700; font-size:16px; color:${p[1]>=80?'var(--gold)':p[1]>=60?'var(--warn)':'#FF6B70'};">${p[1]}</span></div>`).join('');}
+  H.st.textContent='PRIVATE'; H.st.style.color='var(--warn)';
+ }};
+}
+
+/* ============================================================
+   SCREENS + ROUTER
+   ============================================================ */
+const NAVDEF=[
+ ['STUDIO',[['home','◈','HOME']]],
+ ['SESSION',[['newsession','▸','NEW SESSION'],['devicecheck','▣','DEVICE CHECK'],['training','◉','DELIVERY TRAINING'],['interview','◎','SIMULATION'],['post','✓','POST-ANSWER']]],
+ ['REVIEW',[['filmroom','▤','FILM ROOM'],['compare','⇄','COMPARE'],['lab','∑','ANALYTICS LAB']]],
+ ['PROGRESSION',[['progress','▲','PROGRESS'],['baseline','☉','FINGERPRINT'],['vault','▦','RESULTS / VAULT']]],
+ ['STAFF',[['mentor','★','MENTOR'],['admin','⚙','ADMIN']]],
+ ['CONNECT',[['storyforge','⚡','STORYFORGE']]],
+ ['RUN 3',[['review','◆','DESIGN REVIEW']]],
+];
+const CRUMB={home:'PERFORMANCE <b>STUDIO</b>', newsession:'NEW <b>SESSION</b>', devicecheck:'DEVICE <b>CHECK</b>',
+ training:'DELIVERY <b>TRAINING</b>', interview:'<b>SIMULATION</b>', post:'POST-<b>ANSWER</b>',
+ filmroom:'FILM <b>ROOM</b>', compare:'<b>COMPARE</b>', lab:'ANALYTICS <b>LAB</b>', progress:'<b>PROGRESS</b>',
+ baseline:'NATURAL GESTURE <b>FINGERPRINT</b>', vault:'RESULTS / <b>VAULT</b>', mentor:'<b>MENTOR</b> STUDIO',
+ admin:'<b>ADMIN</b>', storyforge:'<b>STORYFORGE</b> CONNECTION', review:'DESIGN <b>REVIEW</b>'};
+const BUILT={}; let CUR='home';
+function go(id){
+ CUR=id;
+ document.querySelectorAll('.navitem').forEach(n=>n.classList.toggle('cur',n.dataset.pg===id));
+ document.getElementById('crumb').innerHTML=CRUMB[id]||id;
+ let pg=document.getElementById('pg-'+id);
+ if(!pg){ pg=document.createElement('div'); pg.className='screenpg'; pg.id='pg-'+id;
+  document.getElementById('screens').appendChild(pg); }
+ if(!BUILT[id]){ BUILT[id]=true; SCREENS[id](pg); }
+ document.querySelectorAll('.screenpg').forEach(p=>p.classList.toggle('on',p.id==='pg-'+id));
+}
+function plate(txt,sub,col){return `<div class="card" style="flex:1; padding:16px 18px;"><div class="accent"></div>
+ <div class="mono" style="font-weight:700; font-size:30px; color:${col||'var(--gold)'};">${txt}</div><div class="cap" style="margin-top:2px;">${sub}</div></div>`;}
+const SCREENS={
+ home(pg){ pg.innerHTML=`
+  <div class="rise" style="max-width:1080px;">
+   <div class="kick">YOUR NEXT REP · GENERATED FROM YOUR LIMITING CONTRIBUTOR</div>
+   <div class="it" style="font-size:56px; line-height:.95; margin:10px 0 6px;">OWN THE <span class="gradtxt">CLOSE.</span></div>
+   <div style="color:var(--ink2); font-weight:600; max-width:560px;">Yesterday your <b style="color:var(--gold)">VOLUME VARIATION</b> collapsed in the CLOSE phase. 90 seconds, one behavior, one lock.</div>
+   <div style="display:flex; gap:14px; margin-top:20px;">
+     <button class="btnA" onclick="go('devicecheck')"><span>START 90-SECOND REP</span></button>
+     <button class="btnB" onclick="go('newsession')"><span>PICK A MODE</span></button>
+     <button class="btnB" onclick="go('filmroom')"><span>YESTERDAY'S FILM</span></button>
+   </div>
+   <div style="display:flex; gap:12px; margin-top:26px;">${plate('6','REP STREAK')+plate('42','TOTAL REPS')+plate('85','VOCAL VARIETY · CAPPED BY VOL-VAR','var(--warn)')+plate('12d','BASELINE AGE — FRESH','var(--ok)')}</div>
+   <div class="kick" style="margin-top:28px;">PERSONAL BEST SHELF</div>
+   <div style="display:flex; gap:12px; margin-top:10px;">
+    ${['BEST CLOSE ▶','BEST RECOVERY ▶','BEST CONGRUENCE ▶'].map(x=>`<div class="card" style="flex:1; padding:14px; cursor:pointer;"><div class="accent"></div><div class="vidstage" style="height:90px; margin-bottom:8px;"><div class="vidperson"></div></div><div class="it" style="font-size:12px;">${x}</div></div>`).join('')}
+   </div>
+  </div>`;},
+ newsession(pg){ pg.innerHTML=`
+  <div class="rise">
+   <div class="kick">STEP 1 OF 3 — WHAT ARE WE TRAINING TODAY?</div>
+   <div style="display:flex; gap:14px; margin-top:14px;">
+    ${[['QUICK REP','ONE QUESTION · INSTANT READ · 5 MIN','HUD MINIMAL'],['GUIDED PRACTICE','SAF(e) SCAFFOLDING · PEDAGOGY FIRST','HUD STANDARD'],['DELIVERY TRAINING','INSTRUMENTS FORWARD · TUNER COACHING','HUD COACHING'],['SIMULATION','FULL CONTEXTUAL INTERVIEW · DR KELLY','ZERO HUD'],['BASELINE','CASUAL STORYTELLING · UNSCORED','NO INSTRUMENTS']]
+     .map((m,i)=>`<div class="card" data-mode="${m[0]}" style="flex:1; padding:18px 16px 16px; cursor:pointer; ${i===2?'outline:2px solid var(--gold);':''}" onclick="go('devicecheck')">
+      <div class="accent"></div>
+      <div class="it" style="font-size:17px;">${m[0]}</div>
+      <div class="cap" style="margin:8px 0 12px; color:var(--dim);">${m[1]}</div>
+      <div class="lawchip" style="display:inline-block;">${m[2]}</div>
+      <div class="cap" style="margin-top:14px; color:var(--gold);">WALK THROUGH THE GATE →</div>
+     </div>`).join('')}
+   </div>
+   <div class="kick" style="margin:26px 0 10px;">STEP 2 — WHO INTERVIEWS YOU?</div>
+   <div style="display:flex; gap:12px;">
+    ${[['TEXT INTERVIEWER','INCLUDED','VERIFIED'],['PRE-GENERATED','INCLUDED','SUPPORTABLE'],['VOICE ONLY','INCLUDED','TARGET'],['DR KELLY LIVE ✦','PREMIUM','HUMAN QA REQUIRED']].map((t,i)=>`
+     <div class="card" style="flex:1; padding:14px; cursor:pointer; ${i===3?'outline:2px solid var(--gold);':''}">
+      <div class="it" style="font-size:13px;">${t[0]}</div>
+      <div class="cap" style="margin-top:6px;">${t[1]} · <span style="color:${i===3?'var(--warn)':'var(--ok)'}">${t[2]}</span></div></div>`).join('')}
+   </div>
+   <div class="kick" style="margin:26px 0 10px;">STEP 3 — QUESTION SET</div>
+   <div style="display:flex; gap:12px; max-width:760px;">
+    ${['CONFLICT & TEAMS','WHY THIS PROGRAM','FAILURE & GROWTH'].map((q,i)=>`<div class="card" style="flex:1; padding:14px; cursor:pointer; ${!i?'outline:2px solid var(--gold);':''}"><div class="it" style="font-size:13px;">${q}</div><div class="cap" style="margin-top:4px;">6 QUESTIONS · STORYFORGE CHIPS ATTACHED</div></div>`).join('')}
+   </div>
+   <div style="margin-top:24px;"><button class="btnA" onclick="go('devicecheck')"><span>CONTINUE → DEVICE CHECK</span></button></div>
+  </div>`;},
+ devicecheck(pg){ pg.innerHTML=`
+  <div class="rise" style="display:flex; gap:18px; align-items:flex-start;">
+   <div style="flex:1.5;" data-cam></div>
+   <div style="flex:1; display:flex; flex-direction:column; gap:14px;">
+     <div class="card" style="padding:16px;"><div class="accent"></div>
+       <div class="it" style="font-size:14px; margin-bottom:8px;">MICROPHONE</div>
+       <div class="recessed" style="height:26px; position:relative;">
+         <div style="position:absolute; left:46%; width:24%; top:0; bottom:0; background:#FFC24B18; border-left:2px solid var(--gold); border-right:2px solid var(--gold);"></div>
+         <div data-mic style="position:absolute; top:3px; bottom:3px; width:10px; background:#F5F8FF; left:50%;"></div>
+       </div>
+       <div class="cap" style="margin-top:8px;">SPEAK NORMALLY — MARKER SHOULD SIT IN THE GOLD WINDOW</div>
+     </div>
+     <div class="card" style="padding:16px;">
+       <div class="it" style="font-size:14px; margin-bottom:6px;">CONSENT & RETENTION</div>
+       <div class="cap" style="line-height:1.7;">DERIVED LANES + CONSENTED RECORDINGS ONLY.<br>RAW FRAMES / AUDIO / LANDMARKS — NEVER PERSISTED.</div>
+     </div>
+     <button class="btnA" onclick="go('training')"><span>BEGIN DELIVERY TRAINING →</span></button>
+     <button class="btnB" onclick="go('interview')"><span>OR ENTER SIMULATION</span></button>
+   </div>
+  </div>`;
+  const cam=camFinal(pg.querySelector('[data-cam]'),470,'TRAINING'); reg('devicecheck',cam);
+  const mic=pg.querySelector('[data-mic]');
+  reg('devicecheck',{update(){mic.style.left=(clamp(SIM.level,0,1)*96)+'%';
+   mic.style.background=SIM.level>=.46&&SIM.level<=.70?'var(--ok)':'#F5F8FF';}});},
+ training(pg){ pg.innerHTML=`
+  <div class="rise" style="display:flex; flex-direction:column; gap:12px; height:calc(100vh - 210px); min-height:620px;">
+   <div style="display:flex; align-items:center; gap:14px;">
+     <div class="card" style="flex:1; padding:10px 18px;"><span class="cap">Q3 · PROVE-STORY</span>
+       <div class="it" style="font-size:16px;">"TELL ME ABOUT A TIME YOU DISAGREED WITH A SUPERVISOR."</div></div>
+     <div class="card" style="padding:10px 16px;"><span class="cap">SESSION</span><div class="it" style="font-size:14px;">REP <span class="gradtxt">3 / 6</span></div></div>
+     <button class="btnB" onclick="go('post')"><span>END ANSWER →</span></button>
+   </div>
+   <div style="display:flex; gap:12px; flex:1; min-height:0;">
+     <div class="vidstage card" style="flex:2.2; border:1px solid var(--edge);">
+       <div class="vidperson" style="width:44%; height:78%;"></div>
+       <div class="vidtag"><span>YOU · LIVE</span></div>
+       <div class="recdot"><i></i><b>REC</b></div>
+       <div style="position:absolute; right:12px; top:12px; width:120px; height:76px; border:1px solid var(--edge); overflow:hidden;" data-kmini></div>
+     </div>
+     <div style="flex:1; display:flex; flex-direction:column; gap:10px; min-width:300px;">
+       <div data-i-pace style="flex:1;"></div>
+       <div data-i-vol style="flex:1;"></div>
+     </div>
+   </div>
+   <div data-hudrail></div>
+  </div>`;
+  reg('training',kellyStage(pg.querySelector('[data-kmini]'),{}));
+  reg('training',paceArc(pg.querySelector('[data-i-pace]'),0)); /* fills flex height */
+  pg.querySelector('[data-i-pace] .card').style.height='100%';
+  reg('training',volFinal(pg.querySelector('[data-i-vol]'),0));
+  pg.querySelector('[data-i-vol] .card').style.height='100%';
+  reg('training',hudRailFinal(pg.querySelector('[data-hudrail]')));},
+ interview(pg){ pg.innerHTML=`
+  <div class="rise" style="display:flex; flex-direction:column; gap:12px; height:calc(100vh - 210px); min-height:600px;">
+   <div style="display:flex; align-items:center; gap:14px;">
+     <div class="card" style="flex:1; padding:10px 18px;"><span class="cap">SIMULATION · ZERO HUD · EVERYTHING CAPTURED FOR THE FILM ROOM</span>
+       <div class="it" style="font-size:16px;">"WHY THIS PROGRAM?"</div></div>
+     <button class="btnB" data-fb="VOICE"><span>DEMO: VOICE-ONLY FALLBACK</span></button>
+     <button class="btnB" data-fb="UNAV"><span>DEMO: AVATAR UNAVAILABLE</span></button>
+     <button class="btnB" onclick="go('post')"><span>END ANSWER →</span></button>
+   </div>
+   <div style="display:flex; gap:12px; flex:1; min-height:0;">
+     <div style="flex:1; position:relative;" data-kelly></div>
+     <div class="vidstage card" style="flex:1.15;">
+       <div class="vidperson" style="width:48%; height:76%;"></div>
+       <div class="vidtag"><span>YOU</span></div><div class="recdot"><i></i><b>REC</b></div>
+       <div class="cap" style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); color:#FFFFFF3A;">INSTRUMENTS OFF — THIS IS AN INTERVIEW</div>
+     </div>
+   </div>
+  </div>`;
+  const kEl=pg.querySelector('[data-kelly]');
+  reg('interview',kellyStage(kEl,{}));
+  pg.querySelectorAll('[data-fb]').forEach(b=>b.addEventListener('click',()=>{
+   kEl.firstElementChild&&kEl.setFallback&&kEl.setFallback(b.dataset.fb==='VOICE'?'VOICE':'UNAV');}));},
+ post(pg){ pg.innerHTML=`
+  <div class="rise" style="max-width:980px;">
+   <div class="kick">POST-ANSWER · 10 SECONDS · THEN NEXT QUESTION</div>
+   <div style="display:flex; gap:14px; margin-top:14px;">
+     <div class="card" style="flex:1; padding:18px; border-left:4px solid var(--ok);">
+       <div class="it" style="color:var(--ok); font-size:15px;">✓ WHAT WORKED</div>
+       <div style="margin-top:8px; color:var(--ink2); font-weight:600;">Pace held through the story — you stayed in the PROVE-STORY window for 34 of 38 seconds.</div>
+       <button class="btnB" style="margin-top:12px; font-size:10px;" onclick="go('filmroom')"><span>▶ REPLAY 00:34</span></button>
+     </div>
+     <div class="card" style="flex:1; padding:18px; border-left:4px solid var(--warn);">
+       <div class="it" style="color:var(--warn); font-size:15px;">△ ONE THING TO FIX</div>
+       <div style="margin-top:8px; color:var(--ink2); font-weight:600;">Volume variation collapsed in the CLOSE — the bracket pinched flat as you landed the answer.</div>
+       <button class="btnB" style="margin-top:12px; font-size:10px;" onclick="go('filmroom')"><span>▶ REPLAY 01:41</span></button>
+     </div>
+   </div>
+   <div class="card" style="margin-top:14px; padding:16px 18px;">
+     <div class="cap" style="color:var(--info);">STRUCTURE NOTE · SAF(e) — SEPARATE FROM DELIVERY, NEVER A NUMBER</div>
+     <div style="display:flex; gap:10px; margin-top:10px;">
+      ${[['START SIMPLE','✓ one clean opening line'],['ADD REASONS','✓ two reasons, ordered'],['ONE EXAMPLE','△ two examples competed — keep the ICU story'],['END STRONG','△ trailed off; land it with a pause']].map(s=>`
+       <div style="flex:1; background:#101831; border:1px solid var(--edge); padding:10px 12px;">
+        <div class="it" style="font-size:11px; color:${s[1].startsWith('✓')?'var(--ok)':'var(--warn)'};">${s[0]}</div>
+        <div class="cap" style="margin-top:4px; color:var(--ink2); text-transform:none; letter-spacing:.02em;">${s[1]}</div></div>`).join('')}
+     </div>
+   </div>
+   <div style="display:flex; gap:12px; margin-top:18px;">
+     <button class="btnA" onclick="go('training')"><span>NEXT QUESTION →</span></button>
+     <button class="btnB" onclick="go('filmroom')"><span>OPEN FILM ROOM</span></button>
+     <button class="btnB" onclick="go('compare')"><span>COMPARE VS ATTEMPT 1</span></button>
+   </div>
+  </div>`;},
+ filmroom(pg){ pg.innerHTML=`<div class="rise card" style="height:calc(100vh - 200px); min-height:640px; position:relative;" data-fr></div>`;
+  reg('filmroom',recorderFinal(pg.querySelector('[data-fr]')));},
+ compare(pg){ pg.innerHTML=`<div class="rise" style="height:calc(100vh - 200px); min-height:640px; position:relative;" data-cmp></div>`;
+  reg('compare',compareFinal(pg.querySelector('[data-cmp]')));},
+ lab(pg){ pg.innerHTML=`
+  <div class="rise">
+   <div class="kick">ANALYTICS LAB — FULL DELIVERY INTELLIGENCE · EVERY ONTOLOGY METRIC LIVES HERE EVEN WITHOUT A 3491 SELECTION</div>
+   <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px;">
+     <div data-l-con></div><div data-l-char></div>
+     <div data-l-comp></div><div data-l-warm></div>
+     <div data-l-cred></div><div data-l-wx></div>
+     <div data-l-pit></div><div data-l-reg></div>
+     <div data-l-topo style="grid-column:1 / -1;"></div>
+   </div>
+   <div class="cap" style="margin-top:14px; color:var(--dim);">ALSO GOVERNED, RENDERED IN RECORDER LANES: CADENCE · PAUSES · VOCAL LANDING · HEAD · FACE · TORSO · GESTURE SYNCHRONY · STORYTELLING DELIVERY (SETUP–TURN–PAYOFF). NOTHING OMITTED.</div>
+  </div>`;
+  reg('lab',mixerFinal(pg.querySelector('[data-l-con]'),{id:'CON-B',name:'DELIVERY CONGRUENCE',core:['VOICE VARIATION','PACE','GESTURE SYNCHRONY','CAMERA PRESENCE','PAUSE PLACEMENT'],h:400}));
+  reg('lab',mixerFinal(pg.querySelector('[data-l-char]'),{id:'CHAR-A',name:'CHARISMA CUE BALANCE',core:['VOICE VARIATION','PACE STABILITY','GESTURE SYNCHRONY','CAMERA PRESENCE','VOLUME VARIATION'],h:400}));
+  reg('lab',mixerFinal(pg.querySelector('[data-l-comp]'),{id:'COMP-A',name:'COMPETENCE-CUE PROFILE',core:['PACE STABILITY','VOCAL LANDING','CAMERA PRESENCE','PAUSE PLACEMENT','GESTURE RANGE'],h:380}));
+  reg('lab',mixerFinal(pg.querySelector('[data-l-warm]'),{id:'WARM-A',name:'WARMTH-CUE PROFILE',core:['VOICE VARIATION','HEAD MOVEMENT','HANDS VISIBLE','FACIAL ACTIVITY','GESTURE SYNCHRONY'],h:380}));
+  reg('lab',mixerFinal(pg.querySelector('[data-l-cred]'),{id:'CRED-A',name:'AUTHORITY-CUE LENS · MENTOR/LAB',core:['VOCAL LANDING','PACE STABILITY','PAUSE PLACEMENT','CAMERA PRESENCE','EMPHASIS EVENTS'],h:380}));
+  reg('lab',wxFinal(pg.querySelector('[data-l-wx]'),380));
+  reg('lab',pitchFinal(pg.querySelector('[data-l-pit]'),380));
+  reg('lab',registryFinal(pg.querySelector('[data-l-reg]'),380,true));
+  reg('lab',topoFinal(pg.querySelector('[data-l-topo]'),430));},
+ progress(pg){ pg.innerHTML=`
+  <div class="rise">
+   <div class="kick">MASTERY BY BEHAVIOR — LOCK A SKILL BY HOLDING ITS CORRIDOR ACROSS SESSIONS</div>
+   <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:14px;">
+    ${[['VOICE LEVEL','LOCKED','var(--gold)'],['PACE','STABLE','var(--info)'],['VOLUME VARIATION','LEARNING','var(--warn)'],['PITCH RANGE','AWAITING F0','var(--dim)'],['HANDS VISIBLE','LOCKED','var(--gold)'],['FRAMING','LOCKED','var(--gold)'],['CADENCE','LEARNING','var(--warn)'],['CONGRUENCE','STABLE','var(--info)']].map(m=>`
+     <div class="card" style="padding:16px;"><div class="accent"></div>
+      <div class="it" style="font-size:13px;">${m[0]}</div>
+      <div class="it" style="font-size:19px; color:${m[2]}; margin-top:6px;">${m[1]}</div>
+      <div class="recessed" style="height:8px; margin-top:10px; position:relative;">
+        <div style="position:absolute; left:0; top:0; bottom:0; width:${m[1]==='LOCKED'?100:m[1]==='STABLE'?66:m[1]==='LEARNING'?34:8}%; background:var(--grad);"></div></div>
+     </div>`).join('')}
+   </div>
+   <div style="display:flex; gap:12px; margin-top:18px;">${plate('6','REP STREAK')+plate('+23','VOL-VAR SINCE BASELINE','var(--ok)')+plate('85%','OF NATURAL RANGE RECOVERED','var(--ok)')+plate('4','MENTOR MARKS THIS WEEK')}</div>
+  </div>`;},
+ baseline(pg){ pg.innerHTML=`
+  <div class="rise">
+   <div style="display:flex; gap:16px; align-items:center; margin-bottom:14px;">
+     <div class="kick">NATURAL GESTURE FINGERPRINT — TALK LIKE YOURSELF AT YOUR BEST</div>
+     <button class="btnB" style="margin-left:auto;"><span>RE-CAPTURE BASELINE (12d OLD)</span></button>
+   </div>
+   <div style="display:flex; gap:14px; margin-bottom:16px;">
+    ${[['1 · CAPTURE','60–90s casual storytelling. No instruments. Not scored.'],['2 · EXTRACT','Territory, L/R, amplitude, rate, vocal variation, cadence.'],['3 · COMPARE','Your natural range vs your interview range — one overlay.'],['4 · RECOVER','One drill: RECOVER YOUR NATURAL RANGE — TARGET 85%.']].map(s=>`
+     <div class="card" style="flex:1; padding:14px 16px;"><div class="it" style="font-size:13px; color:var(--gold);">${s[0]}</div>
+      <div class="cap" style="margin-top:6px; color:var(--ink2); text-transform:none; letter-spacing:.03em; line-height:1.6;">${s[1]}</div></div>`).join('')}
+   </div>
+   <div data-topo></div>
+   <div class="card" style="margin-top:14px; padding:14px 18px; display:flex; align-items:center; gap:16px;">
+     <div class="it" style="font-size:15px; color:var(--warn);">YOUR INTERVIEW DELIVERY IS SIGNIFICANTLY MORE RESTRAINED THAN YOUR NATURAL STORYTELLING BASELINE.</div>
+     <button class="btnA" style="margin-left:auto;" onclick="go('training')"><span>RUN THE RECOVERY DRILL →</span></button>
+   </div>
+  </div>`;
+  reg('baseline',topoFinal(pg.querySelector('[data-topo]'),440));},
+ vault(pg){ pg.innerHTML=`
+  <div class="rise" style="display:flex; gap:16px;">
+   <div class="card" style="width:280px; padding:14px;">
+     <div class="kick" style="margin-bottom:10px;">SESSIONS</div>
+     ${['TODAY · CONFLICT SET ★','AUG 14 · WHY PROGRAM','AUG 12 · BASELINE CAPTURE','AUG 10 · SIMULATION'].map((s,i)=>`
+      <div style="padding:10px 12px; margin-bottom:6px; background:${!i?'linear-gradient(90deg,#241C08,#191307)':'#101831'}; border:1px solid ${!i?'var(--gold)':'var(--edge)'}; cursor:pointer;">
+       <div class="it" style="font-size:11px;">${s}</div></div>`).join('')}
+   </div>
+   <div style="flex:1;">
+     <div class="kick">CASE RECORD — TODAY · CONFLICT SET</div>
+     <div style="display:flex; gap:12px; margin-top:12px;">
+       ${['Q3 ANSWER VIDEO','LANES + EVENTS','2 MENTOR MARKS','3 OPPORTUNITIES'].map(x=>`<div class="card" style="flex:1; padding:14px;"><div class="vidstage" style="height:80px; margin-bottom:8px;"><div class="vidperson"></div></div><div class="it" style="font-size:11px;">${x}</div></div>`).join('')}
+     </div>
+     <div style="display:flex; gap:10px; margin-top:14px;">
+       <button class="btnB"><span>EXPORT TIMELINE PNG</span></button>
+       <button class="btnB"><span>EXPORT EVENTS CSV</span></button>
+       <button class="btnB"><span>SHARE WITH MENTOR</span></button>
+     </div>
+     <div class="cap" style="margin-top:12px;">RAW AUDIO / FRAMES / LANDMARKS — NEVER PERSISTED. DERIVED LANES + CONSENTED RECORDINGS ONLY.</div>
+   </div>
+  </div>`;},
+ mentor(pg){ pg.innerHTML=`
+  <div class="rise">
+   <div class="kick" style="margin-bottom:10px;">MENTOR STUDIO — WORKING SURFACE (FINAL CONCEPT PENDING · SEE DESIGN REVIEW)</div>
+   <div data-m1></div>
+  </div>`;
+  reg('mentor',mentorConcept(pg.querySelector('[data-m1]'),'A2'));},
+ admin(pg){ pg.innerHTML=`
+  <div class="rise">
+   <div class="kick">ADMIN — WHY THE SYSTEM SAID THAT · THRESHOLDS EXPOSED [CALIBRATE]</div>
+   <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:14px; margin-top:12px;">
+     <div class="card" style="padding:16px;" data-math></div>
+     <div class="card" style="padding:16px;">
+       <div class="it" style="font-size:13px; margin-bottom:10px;">GOVERNED THRESHOLDS</div>
+       ${[['PATTERN WINDOW','6s'],['COMPOSITE HEADROOM','+15'],['PITCH TARGET','3.5–9.0 st'],['VOL WINDOW','0.46–0.70'],['HOLD THRESHOLD','300 ms'],['OPPORTUNITY CAP','4 / ANSWER']].map(t=>`
+        <div style="display:flex; justify-content:space-between; padding:8px 4px; border-bottom:1px solid #141C36;">
+         <span class="cap" style="color:var(--ink2);">${t[0]}</span><span class="mono" style="color:var(--gold); font-weight:700;">${t[1]} <span style="color:var(--dim); font-size:10px;">[CALIBRATE]</span></span></div>`).join('')}
+     </div>
+   </div>
+  </div>`;
+  const math=pg.querySelector('[data-math]');
+  reg('admin',{update(now){ const res=capMaster(SIM.vv);
+   math.innerHTML=`<div class="it" style="font-size:13px; margin-bottom:10px;">VOCAL VARIETY — CAP ARITHMETIC LIVE</div>`+
+    Object.entries(SIM.vv).map(([k,v])=>`<div style="display:flex; justify-content:space-between; padding:5px 4px; font-family:var(--fm); font-size:13px;"><span style="color:var(--ink2)">${k}</span><b style="color:${v>=80?'var(--ok)':v>=60?'var(--warn)':'#FF6B70'}">${Math.round(v)}</b></div>`).join('')+
+    `<div style="border-top:1px solid var(--line); margin-top:10px; padding-top:10px; font-family:var(--fm); font-size:13px; line-height:2; color:var(--ink2);">
+     mean ${res.mean.toFixed(1)} · weakest ${Math.round(res.weak)} <span style="color:var(--warn)">← ${res.limiting}</span><br>
+     cap = min(mean, weakest+15) = ${res.raw.toFixed(1)} → bucket(5) = <b style="color:var(--gold); font-size:20px;">${res.master}</b></div>`;}});},
+ storyforge(pg){ pg.innerHTML=`
+  <div class="rise" style="max-width:900px;">
+   <div class="it" style="font-size:34px;">STORY<span class="gradtxt">FORGE</span> ⇄ IV<span class="gradtxt">PREP</span></div>
+   <div class="cap" style="margin-top:4px;">SAME UNIVERSE · DIFFERENT ROOM — STORIES BECOME ANSWERS, ANSWERS SEND DELIVERY NOTES BACK</div>
+   <div style="display:flex; gap:14px; margin-top:18px;">
+     <div class="card" style="flex:1; padding:16px;"><div class="accent"></div>
+       <div class="it" style="font-size:13px;">IN PREP — YOUR STORY CHIPS</div>
+       <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+        ${['ICU HANDOVER','FIRST CODE','THE WRONG DISCHARGE'].map(s=>`<span class="lawchip" style="color:var(--gold); border-color:#6B4A12; font-size:10px; padding:7px 12px; cursor:pointer;">⚡ ${s}</span>`).join('')}
+       </div>
+       <div class="cap" style="margin-top:10px;">TAP A STORY TO ANCHOR YOUR NEXT ANSWER.</div></div>
+     <div class="card" style="flex:1; padding:16px;"><div class="accent"></div>
+       <div class="it" style="font-size:13px;">BACK IN STORYFORGE</div>
+       <div class="cap" style="margin-top:10px; text-transform:none; letter-spacing:.03em; line-height:1.8; color:var(--ink2);">"ICU HANDOVER" used in Q3 today — delivery note attached: strong PROVE-STORY pace, CLOSE needs a landing pause. The story's performance history accumulates.</div></div>
+   </div>
+  </div>`;},
+ review(pg){ pg.innerHTML=`
+  <div class="rise">
+   <div class="it" style="font-size:30px;">DESIGN <span class="gradtxt">REVIEW</span> — TWO DECISIONS REMAIN</div>
+   <div class="cap" style="margin:6px 0 18px;">EVERYTHING ELSE IS LOCKED OR REFINED-LOCKED. PICK ONE PER FAMILY; COPY THE SHEET FROM THE DOCK.</div>
+   <div class="kick">DECISION 1 — GESTURE FIELD (GF-A REJECTED · THREE NEW CONCEPTS)</div>
+   <div style="display:grid; grid-template-columns:1fr; gap:16px; margin:12px 0 26px;">
+     <div><div data-gf1></div><button class="btnB" style="margin-top:8px;" data-pick="GF" data-v="GF-B"><span>SELECT GF-B · PERFORMANCE TERRITORY</span></button></div>
+     <div><div data-gf2></div><button class="btnB" style="margin-top:8px;" data-pick="GF" data-v="GF-C"><span>SELECT GF-C · MOTION RIBBONS</span></button></div>
+     <div><div data-gf3></div><button class="btnB" style="margin-top:8px;" data-pick="GF" data-v="GF-D"><span>SELECT GF-D · LIVE ENVELOPE ★ FABLE PICK</span></button></div>
+   </div>
+   <div class="kick">DECISION 2 — MENTOR / ADMIN (MENT-A WAS DONOR ONLY)</div>
+   <div style="display:grid; grid-template-columns:1fr; gap:16px; margin-top:12px;">
+     <div><div data-m1></div><button class="btnB" style="margin-top:8px;" data-pick="MENT" data-v="MENT-A2"><span>SELECT MENT-A2 · SIDELINE STUDIO EVOLVED ★ FABLE PICK</span></button></div>
+     <div><div data-m2></div><button class="btnB" style="margin-top:8px;" data-pick="MENT" data-v="MENT-C"><span>SELECT MENT-C · COACH BOOTH</span></button></div>
+     <div><div data-m3></div><button class="btnB" style="margin-top:8px;" data-pick="MENT" data-v="MENT-D"><span>SELECT MENT-D · DIRECTOR DESK</span></button></div>
+   </div>
+   <div class="card" style="margin-top:22px; padding:16px 18px;">
+     <div class="it" style="font-size:14px;">RETURN SHEET</div>
+     <div class="mono" data-sheet style="margin-top:8px; color:var(--ink2); font-size:13px;">GF: — · MENT: —</div>
+     <button class="btnA" style="margin-top:12px;" data-copy><span>COPY DECISIONS</span></button>
+   </div>
+  </div>`;
+  reg('review',gfTerritory(pg.querySelector('[data-gf1]')));
+  reg('review',gfRibbons(pg.querySelector('[data-gf2]')));
+  reg('review',gfEnvelope(pg.querySelector('[data-gf3]')));
+  reg('review',mentorConcept(pg.querySelector('[data-m1]'),'A2'));
+  reg('review',mentorConcept(pg.querySelector('[data-m2]'),'C'));
+  reg('review',mentorConcept(pg.querySelector('[data-m3]'),'D'));
+  const picks={GF:null,MENT:null}; const sheet=pg.querySelector('[data-sheet]');
+  pg.querySelectorAll('[data-pick]').forEach(b=>b.addEventListener('click',()=>{
+   picks[b.dataset.pick]=b.dataset.v;
+   pg.querySelectorAll(`[data-pick="${b.dataset.pick}"]`).forEach(x=>x.classList.toggle('on',x===b));
+   sheet.textContent=`GF: ${picks.GF||'—'} · MENT: ${picks.MENT||'—'}`;}));
+  pg.querySelector('[data-copy]').addEventListener('click',()=>{
+   const txt=`Y1-Y2-CAM-V6-3492 — REMAINING DECISIONS\nGF: ${picks.GF||'—'}\nMENT: ${picks.MENT||'—'}`;
+   (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).catch(()=>prompt('Copy:',txt));});},
+};
+/* ---------- BOOT ---------- */
+const navEl=document.getElementById('navlist');
+NAVDEF.forEach(([g,items])=>{
+ navEl.insertAdjacentHTML('beforeend',`<h5>${g}</h5>`+items.map(i=>
+  `<div class="navitem" data-pg="${i[0]}"><span class="ic">${i[1]}</span>${i[2]}</div>`).join(''));});
+navEl.querySelectorAll('.navitem').forEach(n=>n.addEventListener('click',()=>go(n.dataset.pg)));
+document.getElementById('scendock').insertAdjacentHTML('beforeend',
+ SCENL.map(([k,l])=>`<button class="scen ${k==='IDLE'?'on':''}" data-s="${k}"><span>${l}</span></button>`).join(''));
+document.querySelectorAll('#scendock .scen').forEach(b=>b.addEventListener('click',()=>setScen(b.dataset.s)));
+document.querySelectorAll('#roleseg button').forEach(b=>b.addEventListener('click',()=>{
+ document.querySelectorAll('#roleseg button').forEach(x=>x.classList.toggle('on',x===b));
+ if(b.dataset.role==='MENTOR')go('mentor'); if(b.dataset.role==='ADMIN')go('admin');}));
+go('home');
+let last=performance.now()/1000;
+(function loop(){
+ const now=performance.now()/1000, dt=Math.min(.05,now-last); last=now;
+ (SCEN[SIM.scenario]||SCEN.IDLE)(now-scenStart);
+ (LIVE[CUR]||[]).forEach(i=>{try{i.update(now,dt);}catch(e){}});
+ requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

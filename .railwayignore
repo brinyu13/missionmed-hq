@@ -1,0 +1,44 @@
+.DS_Store
+node_modules/
+.venv*/
+venv/
+
+# Local media and generated artifacts are not part of the missionmed-hq runtime.
+MatchDayVideoSystem/
+VIDEO_SYSTEM/
+VIDEO_SYSTEM_BACKUP*/
+VIDEOS FOR INGESTION*/
+Question TRANSCRIPT JSONS/
+STAT_FULL_PIPELINE_EXTRACTION/
+STAT_PPCLUES_REFINEMENT/
+_STAT_OUTPUTS/
+_CACHE/
+_BUILD_TEMP/
+_BACKUPS/
+BACKUPS/
+07_BACKUPS/
+_SYSTEM_LOGS/backups/
+DANGLER_STYLE_MASTER/
+Dangler Class solos/
+Dangler Cartoon Solos 22/
+
+# Never upload secrets or large binary artifacts with the Railway app bundle.
+*.env
+.env
+.env.*
+*.key
+*.pem
+*.log
+*.zip
+*.tar
+*.gz
+*.mp4
+*.mov
+*.m4v
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.csv
+*.xlsx
+*.numbers

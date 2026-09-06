@@ -19,6 +19,7 @@ const mountSources = requiredMountFiles
   .join('\n');
 const indexSource = readFileSync(path.join(mountDir, 'index.html'), 'utf8');
 const appSource = readFileSync(path.join(mountDir, 'src/app.js'), 'utf8');
+const ownershipSource = readFileSync(path.join(mountDir, 'src/mmc-ownership-layer.js'), 'utf8');
 
 for (const relativePath of requiredMountFiles) {
   assert.equal(statSync(path.join(mountDir, relativePath)).isFile(), true, `Missing MMC private mount file: ${relativePath}`);
@@ -58,7 +59,6 @@ assert.match(authStartSource, /resolveAuthSessionFinalRedirect\(searchParams\.ge
 assert.match(authStartSource, /hqEntry\.searchParams\.set\('final', finalRedirect\)/u, 'Auth start must preserve sanitized final redirects.');
 
 for (const forbiddenMountPattern of [
-  /fetch\s*\(/iu,
   /XMLHttpRequest\s*\(/iu,
   /navigator\.sendBeacon/iu,
   /WebSocket\s*\(/iu,
@@ -76,11 +76,42 @@ for (const forbiddenMountPattern of [
   assert.equal(forbiddenMountPattern.test(mountSources), false, `Private mount contains forbidden integration pattern: ${forbiddenMountPattern}`);
 }
 
+assert.match(
+  ownershipSource,
+  /const DEFAULT_PERSISTENCE_ENDPOINT = "\/api\/mmc\/persistence";/u,
+  'MMC persistence must use the relative same-origin route.',
+);
+assert.match(
+  appSource,
+  /window\.MMCOwnershipLayer\.createRuntime\(\{ demoStudents: students, activeMentorId: 'mentor-brian' \}\)/u,
+  'MMC mount must use the default relative persistence endpoint.',
+);
+assert.match(
+  ownershipSource,
+  /fetch\(persistenceEndpoint, persistenceFetchOptions\("GET"\)\)/u,
+  'MMC persistence must hydrate through GET.',
+);
+assert.match(
+  ownershipSource,
+  /fetch\(persistenceEndpoint, persistenceFetchOptions\("POST", \{/u,
+  'MMC persistence must write through POST.',
+);
+assert.match(
+  ownershipSource,
+  /credentials: "same-origin"/u,
+  'MMC persistence must send only same-origin credentials.',
+);
+assert.match(
+  ownershipSource,
+  /headers\["X-MMHQ-CSRF"\] = persistenceMeta\.csrfToken/u,
+  'MMC persistence mutations must bind the existing CSRF token.',
+);
+
 for (const assetPattern of [
-  /<link rel="stylesheet" href="\.\/src\/styles\.css\?v=011">/u,
+  /<link rel="stylesheet" href="\.\/src\/styles\.css\?v=100">/u,
   /<script src="\.\/src\/mmc-data-adapters\.js\?v=010"><\/script>/u,
-  /<script src="\.\/src\/mmc-ownership-layer\.js\?v=012"><\/script>/u,
-  /<script src="\.\/src\/app\.js\?v=012"><\/script>/u,
+  /<script src="\.\/src\/mmc-ownership-layer\.js\?v=100"><\/script>/u,
+  /<script src="\.\/src\/app\.js\?v=100"><\/script>/u,
 ]) {
   assert.match(indexSource, assetPattern, `Private mount asset reference must remain local: ${assetPattern}`);
 }
@@ -99,7 +130,11 @@ for (const approvedSurface of [
 }
 
 assert.match(appSource, /productionDependencies:\s*false/u, 'MMC private mount must keep production dependencies disabled.');
-assert.match(appSource, /apiCalls:\s*false/u, 'MMC private mount must keep API calls disabled.');
+assert.match(
+  appSource,
+  /apiCalls:\s*ownershipRuntime \? 'same-origin \/api\/mmc\/persistence only' : false/u,
+  'MMC private mount must report only the conditional same-origin persistence contract and its disabled fallback.',
+);
 assert.match(mountSources, /externalRequestsEnabled: false/u, 'MMC private mount must keep external requests disabled.');
 assert.match(mountSources, /externalWritesEnabled: false/u, 'MMC private mount must keep external writes disabled.');
 assert.match(appSource, /window\.MMCApp/u, 'MMC private mount must expose the validation harness.');

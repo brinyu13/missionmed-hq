@@ -1,0 +1,45 @@
+{
+  "schema": "missionmed.ivprep.t1_r4.zero_provider_evidence.v1",
+  "status": "ZERO_PROVIDER_CORRECTION_COMPLETE_TEST_2_NOT_AUTHORIZED",
+  "authority_commit": "d2b2b4d6a8875a02c05badf9748eb61730beaa35",
+  "product_parent": "da3e5fec176b6d07ea0d7f01445a2297f5a156a6",
+  "lease": {
+    "scope": "PRODUCT:IV-PREP-ON-CALL",
+    "lease_id": "54a6968b-ee1b-40bc-bc1c-08c68c2eb7f1",
+    "fencing_epoch": 37,
+    "binding_sha256": "1c644cc85bfe2b395fb20513bac5d79637caa1f5f7f4951a8253fccef8bc8598",
+    "nonce_sha256": "b58f39b41ff92b232f2b27c58da9b51a0b2a3f94077478d14268fbc887931514",
+    "raw_nonce_persisted": false
+  },
+  "source_sha256": {
+    "start_profile_b_worker": "a437415672ee1aad61db0d99874d78eaa20a0f20b534a3bb105f6371c545ec0f",
+    "provider_session_controller": "4362ae8507bd70dc0fee7a98d0d02a5bc6b72587c95c2f5b673f7821e3bf2060",
+    "founder_proof_harness": "3b329ffc7df4975face47c96cd9545fdf1937d48a37c9ecf08ef4587e4cf1600",
+    "browser_app": "d2dcce9fdf28b043079def04a74f0ae68a59b8046fe982a0536c2ffcc2260d40"
+  },
+  "test_sha256": {
+    "provider_lifecycle": "d584a422af2847810065b43410c339da21809ca99d250688b5a7e06c4e4db4b9",
+    "provider_sdk_contracts": "1c71284cf18f39a117e93cdd5b051cccc9199f5dec23231d858d417596d5cff1",
+    "founder_proof_runtime": "c2d06038f394af231c7d1048861f0f8de2f28366d7499c7f0a46a2991ae5c05d",
+    "founder_proof_ui": "884f274d19572d34ff80773630d3396be223d2ebffc222d3d33b9e9d2c2f7081"
+  },
+  "tests": {
+    "focused": { "total": 42, "passed": 42, "failed": 0 },
+    "provider_and_founder": { "total": 70, "passed": 70, "failed": 0 },
+    "root_avatar_analytics": { "total": 234, "passed": 234, "failed": 0 },
+    "bounded_without_unchanged_keeper_test": { "total": 304, "passed": 304, "failed": 0 },
+    "repository_wide_complete": false,
+    "repository_wide_limitation": "UNCHANGED_KEEPER_TEST_EXIT_EVENT_RACE"
+  },
+  "invariants": {
+    "logger_before_agent_server": true,
+    "sdk_worker_registered_is_only_ready_signal": true,
+    "start_disabled_before_worker_ready": true,
+    "server_rejects_start_before_worker_ready": true,
+    "clock_armed_before_worker_ready": false,
+    "test_1_retried": false,
+    "test_2_authorized": false,
+    "provider_sessions_created": 0,
+    "lemonslice_credits_consumed": 0
+  }
+}

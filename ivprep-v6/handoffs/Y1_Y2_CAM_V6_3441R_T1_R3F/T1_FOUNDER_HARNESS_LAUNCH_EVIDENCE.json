@@ -1,0 +1,103 @@
+{
+  "schema": "missionmed.ivprep.t1_r3f_launch_evidence.v1",
+  "mission_id": "Y1-Y2-CAM-V6-3441R-T1",
+  "ticket": "Y1-Y2-CAM-V6-3441R-T1-R3F",
+  "recorded_at": "2026-08-14T22:15:38Z",
+  "status": "ZERO_PROVIDER_LAUNCH_ACCEPTANCE_PASS_PUBLICATION_PENDING",
+  "authority": {
+    "missionmed_os_commit": "ab96bd6afac17bef71153576fdcb247b0d092dd7",
+    "decisions": ["DR-100", "DR-101"]
+  },
+  "product": {
+    "base_commit": "c95abb61623b303276369854465c35a7870d9220",
+    "branch": "codex/y1-y2-cam-v6-3440-aaa-unified-production-admin-canary"
+  },
+  "root_cause": [
+    "repository node_modules was absent, so the pinned livekit-server-sdk 2.17.0 runtime could not resolve",
+    "the accepted launcher swallowed the startup exception and exited 1 without a Founder-facing diagnostic",
+    "the first repair attempt pinned both npm userconfig and globalconfig to /dev/null, which npm rejects; the final repair retains only isolated userconfig"
+  ],
+  "changed_paths": [
+    "ivprep-v6/ALLOWED_PATHS_3440.txt",
+    "ivprep-v6/ALLOWED_PATHS_3441R.txt",
+    "ivprep-v6/scripts/3441r/start-founder-proof-harness.mjs",
+    "ivprep-v6/test/3441r/founder-proof-runtime.test.mjs",
+    "ivprep-v6/handoffs/Y1_Y2_CAM_V6_3441R_T1_R3F/T1_FOUNDER_HARNESS_LAUNCH_HANDOFF.md",
+    "ivprep-v6/handoffs/Y1_Y2_CAM_V6_3441R_T1_R3F/T1_FOUNDER_HARNESS_LAUNCH_EVIDENCE.json"
+  ],
+  "source_hashes": {
+    "start_founder_proof_harness_sha256": "61bf41b9c4ff07414de7fe13dcfc6f005cf5dcd2445ea7c502ccfdebe58a6063",
+    "founder_proof_runtime_test_sha256": "2959200d51e5076234cbe75f545354e47b3cb786eed0088ca95d76fadb635ec7",
+    "package_json_sha256_unchanged": "8e000258eda97da4392d6c89922a50ec20c25596efa856497da3b9672249a89c",
+    "package_lock_sha256_unchanged": "de3f8324b9830a438bf2e476975abff9a37b5b0c2857181a458d386f224ebb92"
+  },
+  "tests": {
+    "command": "node --test --test-concurrency=1 test/3441r/founder-proof-runtime.test.mjs test/3441r/founder-proof-ui.test.mjs test/3441r/t1-durable-lease-keeper.test.mjs",
+    "total": 22,
+    "passed": 22,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "duration_ms": 42068.111583
+  },
+  "acceptance": {
+    "founder_command": "IVPREP_FOUNDER_TEST1_LIVE_ENABLED=true npm run start:3441r-t1-r3 -- --live-test-1",
+    "locked_dependency_bootstrap": "PASS_FROM_NODE_MODULES_ABSENT",
+    "emitted_url": "http://127.0.0.1:50031/iv-prep-on-call/#room",
+    "http_status": 200,
+    "chrome_loaded": true,
+    "dr_kelly_target_visible": true,
+    "start_lease_keeper_visible": true,
+    "lease_state": "READY",
+    "heartbeat_count_at_receipt": 11,
+    "stable_seconds_at_receipt": 60,
+    "authorization_state": "NOT_AUTHORIZED_UNCONSUMED",
+    "authorize_clicked": false,
+    "start_clicked": false
+  },
+  "credential_boundary": {
+    "accepted_prior_founder_shell_presence_checkpoint": true,
+    "current_zero_provider_acceptance_used_inert_non_secret_presence_bindings": true,
+    "credential_values_read_or_persisted": false
+  },
+  "provider_counts": {
+    "provider_sessions_created": 0,
+    "lemonslice_sessions_created": 0,
+    "openai_realtime_sessions_created": 0,
+    "livekit_test_rooms_created": 0,
+    "lemonslice_credits_consumed": 0
+  },
+  "lease_history": [
+    {
+      "purpose": "R3F edit and launch preflight",
+      "lease_id": "3a6b8274-404d-4396-a5fe-518a8b330a20",
+      "fencing_epoch": 30,
+      "binding_sha256": "3a91d7bfc34ecfe47b2912bf2d158392825cebf72546abae2be01a17b2ba1f4c",
+      "nonce_sha256": "ffc4e566a10b0301e94d1b1759df3567dfbfa5572573c81612d48a103014091f",
+      "disposition": "RELEASED_BEFORE_RUNTIME_ACCEPTANCE"
+    },
+    {
+      "purpose": "Founder browser runtime stability acceptance",
+      "lease_id": "a26dc3f8-7f0a-4147-8a20-9da756ece539",
+      "fencing_epoch": 31,
+      "disposition": "RELEASED_ON_CLEAN_HARNESS_EXIT"
+    },
+    {
+      "purpose": "R3F evidence construction",
+      "lease_id": "d1021117-846d-4f59-a494-72c0d28274f7",
+      "fencing_epoch": 32,
+      "binding_sha256": "1d405a1f26d6ed5fefcf828175b9d47d39a8a974e8566f990312c1e86a9671b5",
+      "nonce_sha256": "75735e1562670ec6ecb938b4d3acec1412fc34a440d1f39e7e6a480220fdb0cd",
+      "state_at_evidence_snapshot": "ACTIVE_KEEPER",
+      "required_disposition": "RELEASE_BEFORE_FINAL_CANDIDATE_FREEZE"
+    }
+  ],
+  "closed_gates": [
+    "PAID_TEST_1_NOT_EXECUTED",
+    "PROVIDER_CALLS_ZERO",
+    "DATABASE_UNCHANGED",
+    "DEPLOYMENT_UNCHANGED",
+    "PRODUCTION_UNCHANGED",
+    "STUDENT_ACCESS_UNCHANGED"
+  ]
+}

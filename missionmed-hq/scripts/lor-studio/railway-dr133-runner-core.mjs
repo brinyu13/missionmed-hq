@@ -1,0 +1,1209 @@
+import { createHash, X509Certificate } from 'node:crypto';
+
+export const DR133_RUNNER_CONTRACT = 'missionmed.lor.railway-dr133-runner.v5';
+export const DR133_RUNTIME_LOGIN = 'lor_studio_runtime_login';
+export const DR133_DATABASE_CA_ENV_KEY = 'LOR_DR133_RUNTIME_DATABASE_CA';
+export const DR133_APPLICATION_ROLE = 'lor_studio_app';
+export const DR133_COMMAND_OWNER_ROLE = 'lor_studio_command_owner';
+
+export const DR133_TARGET = Object.freeze({
+  provider: 'railway-postgres',
+  projectId: '29afe885-b9b1-425d-8fd8-8611cd275409',
+  environmentId: 'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+  environmentName: 'lor-staging',
+  executionServiceId: 'bf0e291c-c90b-4bd9-8319-b249a7d02ad0',
+  databaseServiceId: 'b49a52e7-df15-4417-b67a-a64403aa5db7',
+  databaseHost: 'postgres.railway.internal',
+  databaseName: 'railway',
+  databaseAdmin: 'postgres',
+  region: 'us-west2',
+  decisionRecord: 'DR-133',
+  dataCopied: 'false',
+  sourceBaselineCommit: '1ad44368d56b694042a1a7dc5a5d7f82dd3321e2',
+  sourceBaselineTree: 'ea87b55f67fe256f5f20a0831a3b2783c1ae84dd',
+});
+
+export const DR133_ARTIFACTS = Object.freeze([
+  Object.freeze({
+    id: 'foundation',
+    purpose: 'forward',
+    relativePath: 'migrations/20260825010000_f2_lor_1012_production_schema_foundation.sql',
+    sha256: '2e94b728b01c91e6f252b7fe4f583d4cba9951ba5b2ddba2d84ca950fe64cce4',
+  }),
+  Object.freeze({
+    id: 'rls',
+    purpose: 'forward',
+    relativePath: 'migrations/20260825010100_f2_lor_1012_production_rls_projection_grants.sql',
+    sha256: '4f9eba1912f7b4d54eb7a7f12d2e5877500ba8eee5405ac400ef4178a999f33f',
+  }),
+  Object.freeze({
+    id: 'foundation-rollback',
+    purpose: 'recovery-custody',
+    relativePath:
+      'rollbacks/20260825010000_f2_lor_1012_production_schema_foundation.rollback.sql',
+    sha256: '207442ca66ee1840ebf6ff50bb5d8fe9bbcf6bdae0f83074025ce4427a4a0515',
+  }),
+  Object.freeze({
+    id: 'rls-rollback',
+    purpose: 'recovery-custody-and-guard-verification',
+    relativePath:
+      'rollbacks/20260825010100_f2_lor_1012_production_rls_projection_grants.rollback.sql',
+    sha256: '695b20972beabed9d8db1350b5f01ef0107d5ecfda9ea8f9cddbc7072e90db84',
+  }),
+  Object.freeze({
+    id: 'identity-scope',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260825010300_f2_lor_1012_production_identity_scope_commands.sql',
+    sha256: '016f4ee81e4618ae509bc6b5015d9fb99ffd7f937501a67cfb6ed5bd60e69fdc',
+  }),
+  Object.freeze({
+    id: 'identity-scope-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260825010300_f2_lor_1012_production_identity_scope_commands.rollback.sql',
+    sha256: '119bebff1c39722fc4b53ee9917f454f93dbc0d2a7c8303cdb014224bd9c847d',
+  }),
+  Object.freeze({
+    id: 'faculty-invitation',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260825010500_f2_lor_1012_production_faculty_invitation_commands.sql',
+    sha256: '15299bc4fb5107b6f9ed9b89768b73130abdf0044eabe50b64feb9d00df01769',
+  }),
+  Object.freeze({
+    id: 'faculty-invitation-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260825010500_f2_lor_1012_production_faculty_invitation_commands.rollback.sql',
+    sha256: '80aab43bc68630f4100af54eeca0e0786b74a6a97fb79d287196083bc14aed57',
+  }),
+  Object.freeze({
+    id: 'faculty-private-export',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260825010700_f2_lor_1012_production_faculty_private_export_commands.sql',
+    sha256: '7c24017b6f71a89221c8b1e71542f7a1bffbc05bc81143f1c47d9f713d952d04',
+  }),
+  Object.freeze({
+    id: 'faculty-private-export-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260825010700_f2_lor_1012_production_faculty_private_export_commands.rollback.sql',
+    sha256: '4e0292c04539c906946dee81b6b59ea704ab50f1ed72d41948e6aa0a28928831',
+  }),
+  Object.freeze({
+    id: 'ai-proposal',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260825010900_f2_lor_1012_production_ai_proposal_commands.sql',
+    sha256: 'a7ab5b9c42f96f0502a457ad065e61c0f33509868c27e19eed50d922d17dd843',
+  }),
+  Object.freeze({
+    id: 'ai-proposal-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260825010900_f2_lor_1012_production_ai_proposal_commands.rollback.sql',
+    sha256: '86597c302a8eb4c0b10b8dfc91429630f8a88f2d815e61aece8798628f76c24d',
+  }),
+  Object.freeze({
+    id: 'student-evidence',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260825011100_f2_lor_1012_production_student_evidence_commands.sql',
+    sha256: '40e8fc4e671dc926ef0bbff3021653300e77ae8c4b65a4a1ea6468256e3944e2',
+  }),
+  Object.freeze({
+    id: 'student-evidence-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260825011100_f2_lor_1012_production_student_evidence_commands.rollback.sql',
+    sha256: 'e66b09a8b1f3fff16a5332af262e5faed7481a334bff882f18e7d42491a151b3',
+  }),
+]);
+
+export const DR133_RELATIONS = Object.freeze([
+  'administrative_case_grant_revocations',
+  'administrative_case_grants',
+  'ai_generation_runs',
+  'ai_letter_proposals',
+  'ai_proposal_command_receipts',
+  'ai_proposal_decisions',
+  'ai_proposal_generation_reservation_receipts',
+  'artifact_export_audit_events',
+  'consent_receipts',
+  'deletion_hold_releases',
+  'deletion_intents',
+  'deletion_receipts',
+  'faculty_invitations',
+  'faculty_invitation_command_receipts',
+  'faculty_otp_challenge_revocations',
+  'faculty_otp_challenges',
+  'faculty_otp_proof_revocations',
+  'faculty_otp_verification_receipts',
+  'faculty_private_content',
+  'mentor_case_assignment_revocations',
+  'mentor_case_assignments',
+  'recommendation_case_audit_events',
+  'recommendation_case_creation_reservations',
+  'recommendation_case_private_write_receipts',
+  'recommendation_case_protected_revision_states',
+  'recommendation_case_write_receipts',
+  'recommendation_cases',
+  'released_student_documents',
+  'student_auth_binding_revocations',
+  'student_auth_bindings',
+  'student_evidence_records',
+  'waiver_receipts',
+  'writer_depot_artifacts',
+]);
+
+export const DR133_APPROVED_DEFINER_IDENTITIES = Object.freeze([
+  'commit_faculty_final_document_release(bigint,text,text,text,jsonb,text)',
+  'commit_student_builder_autosave(jsonb,bigint,text,text,jsonb,text,jsonb)',
+  'commit_student_builder_complete(jsonb,bigint,text,text,jsonb,text,jsonb)',
+  'commit_student_case_create(jsonb,text,text,jsonb,text,jsonb)',
+  'commit_student_consent_receipt(jsonb,bigint,text,text,jsonb,text,jsonb,jsonb)',
+  'commit_student_waiver_receipt(jsonb,bigint,text,text,jsonb,text,jsonb,jsonb)',
+  'read_faculty_case_projection()',
+  'read_mentor_case_projection()',
+]);
+
+export const DR133_IDENTITY_SCOPE_DEFINER_IDENTITIES = Object.freeze([
+  'ensure_student_auth_binding(text,text,text)',
+  'resolve_faculty_case_scope(text,text,text)',
+  'resolve_mentor_case_scope(text,text,text)',
+  'revoke_student_auth_binding(text,text)',
+]);
+
+export const DR133_FACULTY_INVITATION_DEFINER_IDENTITIES = Object.freeze([
+  'commit_faculty_invitation_delivery(text,text,text,text,text)',
+  'issue_faculty_invitation(text,bigint,text,text,text,text,text,timestamp with time zone,timestamp with time zone,integer,bigint,bigint,text,text)',
+  'resend_faculty_invitation_otp(text,text,text,text,timestamp with time zone,text,text)',
+  'resolve_lor_actor_case_access(text,text)',
+  'revoke_faculty_invitation(text,text,text)',
+  'verify_faculty_invitation(text,text,text,text,text,text)',
+]);
+
+export const DR133_FACULTY_PRIVATE_EXPORT_DEFINER_IDENTITIES = Object.freeze([
+  'append_artifact_export_audit(jsonb,text,text,text)',
+  'commit_faculty_private_content(bigint,jsonb,text,text,jsonb,text)',
+  'read_final_document_export()',
+]);
+
+export const DR133_AI_PROPOSAL_DEFINER_IDENTITIES = Object.freeze([
+  'attach_ai_proposal_decision_if_undecided_atomic(text,text,text,text,text,text,text,text,text,text,text,jsonb)',
+  'persist_ai_provider_run_and_proposal_atomic(text,text,text,text,text,text,text,text,text,jsonb)',
+  'read_actor_safe_ai_proposal(text,text,text,text)',
+  'read_faculty_drafting_context()',
+  'transition_ai_proposal_generation_reservation(text,text,text,text,text,text)',
+]);
+
+export const DR133_STUDENT_EVIDENCE_DEFINER_IDENTITIES = Object.freeze([
+  'commit_student_evidence_publication(bigint,text,text,jsonb,text)',
+  'read_faculty_drafting_context_pre_evidence()',
+]);
+
+export const DR133_PRE_EVIDENCE_DEFINER_IDENTITY =
+  'read_faculty_drafting_context_pre_evidence()';
+
+export const DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES = Object.freeze([
+  ...DR133_APPROVED_DEFINER_IDENTITIES,
+  ...DR133_IDENTITY_SCOPE_DEFINER_IDENTITIES,
+  ...DR133_FACULTY_INVITATION_DEFINER_IDENTITIES,
+  ...DR133_FACULTY_PRIVATE_EXPORT_DEFINER_IDENTITIES,
+  ...DR133_AI_PROPOSAL_DEFINER_IDENTITIES,
+  ...DR133_STUDENT_EVIDENCE_DEFINER_IDENTITIES,
+].sort());
+
+export const DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES = Object.freeze(
+  DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.filter(
+    (identity) => identity !== DR133_PRE_EVIDENCE_DEFINER_IDENTITY,
+  ),
+);
+
+export const DR133_SUCCESSOR_STAGES = Object.freeze([
+  Object.freeze({
+    id: 'identity-scope',
+    rollbackId: 'identity-scope-rollback',
+    sentinelSuffix: 'identityScope=20260825010300',
+  }),
+  Object.freeze({
+    id: 'faculty-invitation',
+    rollbackId: 'faculty-invitation-rollback',
+    sentinelSuffix: 'facultyInvitationCommands=20260825010500',
+  }),
+  Object.freeze({
+    id: 'faculty-private-export',
+    rollbackId: 'faculty-private-export-rollback',
+    sentinelSuffix: 'facultyPrivateExportCommands=20260825010700',
+  }),
+  Object.freeze({
+    id: 'ai-proposal',
+    rollbackId: 'ai-proposal-rollback',
+    sentinelSuffix: 'aiProposalCommands=20260825010900',
+  }),
+  Object.freeze({
+    id: 'student-evidence',
+    rollbackId: 'student-evidence-rollback',
+    sentinelSuffix: 'studentEvidenceCommands=20260825011100',
+  }),
+]);
+
+const DENIED_IDENTIFIERS = Object.freeze([
+  'fglyvdykwgbuivikqoah',
+  'mftguikkftmrxjxrkdln',
+]);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const POSTGRES_CODE_PATTERN = /^[0-9A-Z]{5}$/u;
+const POSTGRES_CODE_CLASSES = new Set([
+  '00', '01', '02', '03', '08', '09', '0A', '0B', '0F', '0L', '0P', '0Z',
+  '20', '21', '22', '23', '24', '25', '26', '27', '28', '2B', '2D', '2F',
+  '34', '38', '39', '3B', '3D', '3F', '40', '42', '44', '53', '54', '55',
+  '57', '58', '72', 'F0', 'HV', 'P0', 'P1', 'XX',
+]);
+const SAFE_ERROR_CODE_PATTERN = /^[A-Z0-9_]{3,80}$/u;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
+const RUNTIME_PASSWORD_PATTERN = /^[A-Za-z0-9_-]{43,128}$/u;
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/u;
+const ROLLBACK_LITERAL_MARKER =
+  '-- Literal reverse operations follow. This marker is consumed by static custody tests.';
+const IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT = [
+  'REVOKE EXECUTE ON FUNCTION lor_studio.ensure_student_auth_binding(text, text, text)',
+  'FROM lor_studio_app;',
+].join('\n');
+const SUCCESSOR_ROLLBACK_GUARD_BOUNDARIES = Object.freeze({
+  'identity-scope-rollback': Object.freeze({
+    firstDestructiveStatement: IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT,
+    guardTerminator: 'END\n$catalog_guard$;',
+  }),
+  'faculty-invitation-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.issue_faculty_invitation(',
+    guardTerminator: 'END\n$catalog_guard$;',
+    literalMarker: ROLLBACK_LITERAL_MARKER,
+  }),
+  'faculty-private-export-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.append_artifact_export_audit(',
+    guardTerminator: 'END\n$exact_catalog_guard$;',
+  }),
+  'ai-proposal-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.read_faculty_drafting_context()',
+    guardTerminator: 'END\n$catalog_guard$;',
+    literalMarker:
+      '-- Literal reverse operations follow; every dependency is removed explicitly.',
+  }),
+  'student-evidence-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.commit_student_evidence_publication(',
+    guardTerminator: 'END\n$catalog_guard$;',
+  }),
+});
+const DR133_RECEIPT_KEYS = Object.freeze([
+  'aiProposalRollbackSha256',
+  'aiProposalSha256',
+  'contract',
+  'definerCount',
+  'facultyInvitationRollbackSha256',
+  'facultyInvitationSha256',
+  'facultyPrivateExportRollbackSha256',
+  'facultyPrivateExportSha256',
+  'foundationSha256',
+  'identityScopeRollbackSha256',
+  'identityScopeSha256',
+  'mode',
+  'postgresCode',
+  'postgresMajor',
+  'relationCount',
+  'result',
+  'rlsSha256',
+  'runnerCode',
+  'studentEvidenceRollbackSha256',
+  'studentEvidenceSha256',
+]);
+const DR133_RECEIPT_MODES = Object.freeze([
+  'migration',
+  'successor-migration',
+  'schema-verifier',
+  'runtime-login',
+  'runtime-login-deprovision',
+]);
+const DR133_RECEIPT_RESULTS_BY_MODE = Object.freeze({
+  migration: Object.freeze([
+    'NO_MUTATION',
+    'FOUNDATION_ROLLED_BACK',
+    'FOUNDATION_OUTCOME_UNKNOWN',
+    'FOUNDATION_ONLY_COMMITTED',
+    'RLS_OUTCOME_UNKNOWN',
+    'BASE_SCHEMA_ONLY_COMMITTED',
+    'SUCCESSOR_PROGRESS_PRESERVED',
+    'SUCCESSOR_PROGRESS_OUTCOME_UNKNOWN',
+    'CUMULATIVE_SCHEMA_COMMITTED_POSTFLIGHT_REJECTED',
+    'CUMULATIVE_SCHEMA_COMMITTED_VERIFICATION_UNKNOWN',
+    'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED',
+  ]),
+  'successor-migration': Object.freeze([
+    'NO_MUTATION',
+    'SUCCESSOR_NEXT_STEP_ROLLED_BACK',
+    'SUCCESSOR_NEXT_STEP_OUTCOME_UNKNOWN',
+    'SUCCESSOR_COMMITTED_POSTFLIGHT_REJECTED',
+    'SUCCESSOR_COMMITTED_VERIFICATION_UNKNOWN',
+    'SUCCESSOR_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'SUCCESSOR_COMMITTED_VERIFIED',
+    'SUCCESSOR_ALREADY_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'SUCCESSOR_ALREADY_COMMITTED_VERIFIED',
+  ]),
+  'schema-verifier': Object.freeze([
+    'NO_MUTATION',
+    'SCHEMA_VERIFIED_NO_MUTATION',
+    'SCHEMA_VERIFIED_NO_MUTATION_CLEANUP_FAILED',
+  ]),
+  'runtime-login': Object.freeze([
+    'NO_MUTATION',
+    'RUNTIME_LOGIN_ROLLED_BACK',
+    'RUNTIME_LOGIN_OUTCOME_UNKNOWN',
+    'RUNTIME_LOGIN_COMMITTED_POSTFLIGHT_REJECTED',
+    'RUNTIME_LOGIN_COMMITTED_VERIFICATION_UNKNOWN',
+    'RUNTIME_LOGIN_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'RUNTIME_LOGIN_COMMITTED_VERIFIED',
+  ]),
+  'runtime-login-deprovision': Object.freeze([
+    'NO_MUTATION',
+    'RUNTIME_LOGIN_DEPROVISION_ROLLED_BACK',
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_OUTCOME_UNKNOWN',
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_COMMITTED_POSTFLIGHT_REJECTED',
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_COMMITTED_VERIFICATION_UNKNOWN',
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINED_SESSIONS_ACTIVE',
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINED_ONLY',
+    'RUNTIME_LOGIN_DEPROVISION_OUTCOME_UNKNOWN',
+    'RUNTIME_LOGIN_DEPROVISION_COMMITTED_POSTFLIGHT_REJECTED',
+    'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFICATION_UNKNOWN',
+    'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED',
+  ]),
+});
+
+export const DR133_RUNNER_ENV_KEYS = Object.freeze([
+  'LOR_DR133_ADMIN_DATABASE_URL',
+  DR133_DATABASE_CA_ENV_KEY,
+  'LOR_DR133_MODE',
+  'RAILWAY_DEPLOYMENT_ID',
+  'RAILWAY_ENVIRONMENT_ID',
+  'RAILWAY_ENVIRONMENT_NAME',
+  'RAILWAY_PROJECT_ID',
+  'RAILWAY_REPLICA_REGION',
+  'RAILWAY_SERVICE_ID',
+]);
+
+export const DR133_RUNTIME_ENV_KEYS = Object.freeze([
+  ...DR133_RUNNER_ENV_KEYS,
+  'LOR_DR133_RUNTIME_DATABASE_URL',
+]);
+
+export class Dr133RunnerError extends Error {
+  constructor(code) {
+    super(`DR-133 Railway runner failed: ${code}`);
+    this.name = 'Dr133RunnerError';
+    this.code = code;
+  }
+}
+
+export function failDr133(code) {
+  throw new Dr133RunnerError(code);
+}
+
+function requiredString(value, code) {
+  if (
+    typeof value !== 'string'
+    || value.length === 0
+    || value.length > 4_096
+    || CONTROL_CHARACTER_PATTERN.test(value)
+  ) failDr133(code);
+  return value;
+}
+
+function assertExact(value, expected, code) {
+  if (requiredString(value, code) !== expected) failDr133(code);
+  return value;
+}
+
+function assertNoDeniedIdentifier(value) {
+  const normalized = String(value).toLowerCase();
+  if (DENIED_IDENTIFIERS.some((denied) => normalized.includes(denied))) {
+    failDr133('DENIED_TARGET_IDENTIFIER');
+  }
+}
+
+export function parsePrivateDatabaseUrl(rawValue, expectedUser) {
+  if (![DR133_TARGET.databaseAdmin, DR133_RUNTIME_LOGIN].includes(expectedUser)) {
+    failDr133('DATABASE_USER_EXPECTATION_INVALID');
+  }
+  const raw = requiredString(rawValue, 'DATABASE_URL_REQUIRED');
+  assertNoDeniedIdentifier(raw);
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    failDr133('DATABASE_URL_INVALID');
+  }
+
+  let databasePath;
+  let username;
+  let password;
+  try {
+    databasePath = decodeURIComponent(parsed.pathname);
+    username = decodeURIComponent(parsed.username);
+    password = decodeURIComponent(parsed.password);
+  } catch {
+    failDr133('DATABASE_URL_INVALID');
+  }
+  if (
+    CONTROL_CHARACTER_PATTERN.test(databasePath)
+    || CONTROL_CHARACTER_PATTERN.test(username)
+    || CONTROL_CHARACTER_PATTERN.test(password)
+  ) failDr133('DATABASE_URL_INVALID');
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) failDr133('DATABASE_URL_INVALID');
+  if (parsed.hostname !== DR133_TARGET.databaseHost) failDr133('DATABASE_HOST_INVALID');
+  if (parsed.port !== '5432') failDr133('DATABASE_PORT_INVALID');
+  if (databasePath !== `/${DR133_TARGET.databaseName}`) failDr133('DATABASE_NAME_INVALID');
+  if (username !== expectedUser) failDr133('DATABASE_USER_INVALID');
+  if (password.length < 32 || password.length > 512) failDr133('DATABASE_PASSWORD_INVALID');
+  if (parsed.hash !== '') failDr133('DATABASE_URL_INVALID');
+  const queryKeys = [...parsed.searchParams.keys()];
+  if (
+    queryKeys.length !== 1
+    || queryKeys[0] !== 'sslmode'
+    || parsed.searchParams.getAll('sslmode').length !== 1
+    || parsed.searchParams.get('sslmode') !== 'require'
+  ) failDr133('DATABASE_SSLMODE_INVALID');
+  parsed.search = '';
+  return Object.freeze({
+    pgConnectionString: parsed.toString(),
+    password,
+  });
+}
+
+export function resolveDr133RunnerEnvironment(rawEnvironment, { mode }) {
+  if (!rawEnvironment || typeof rawEnvironment !== 'object') failDr133('ENVIRONMENT_REQUIRED');
+  if (![
+    'migration',
+    'successor-migration',
+    'schema-verifier',
+    'runtime-login',
+    'runtime-login-deprovision',
+  ].includes(mode)) {
+    failDr133('MODE_INVALID');
+  }
+  const expectedKeys = mode === 'runtime-login' ? DR133_RUNTIME_ENV_KEYS : DR133_RUNNER_ENV_KEYS;
+  for (const key of expectedKeys) {
+    if (key !== DR133_DATABASE_CA_ENV_KEY) {
+      requiredString(rawEnvironment[key], `${key}_REQUIRED`);
+    }
+  }
+
+  const expectedLorKeys = expectedKeys.filter((key) => key.startsWith('LOR_DR133_')).sort();
+  const observedLorKeys = Object.keys(rawEnvironment)
+    .filter((key) => key.startsWith('LOR_DR133_'))
+    .sort();
+  if (JSON.stringify(observedLorKeys) !== JSON.stringify(expectedLorKeys)) {
+    failDr133('UNEXPECTED_LOR_ENVIRONMENT_KEY');
+  }
+
+  assertExact(rawEnvironment.LOR_DR133_MODE, mode, 'MODE_MISMATCH');
+  assertExact(rawEnvironment.RAILWAY_PROJECT_ID, DR133_TARGET.projectId, 'PROJECT_ID_MISMATCH');
+  assertExact(
+    rawEnvironment.RAILWAY_ENVIRONMENT_ID,
+    DR133_TARGET.environmentId,
+    'ENVIRONMENT_ID_MISMATCH',
+  );
+  assertExact(
+    rawEnvironment.RAILWAY_ENVIRONMENT_NAME,
+    DR133_TARGET.environmentName,
+    'ENVIRONMENT_NAME_MISMATCH',
+  );
+  assertExact(
+    rawEnvironment.RAILWAY_SERVICE_ID,
+    DR133_TARGET.executionServiceId,
+    'EXECUTION_SERVICE_ID_MISMATCH',
+  );
+  assertExact(rawEnvironment.RAILWAY_REPLICA_REGION, DR133_TARGET.region, 'REGION_MISMATCH');
+  if (!UUID_PATTERN.test(rawEnvironment.RAILWAY_DEPLOYMENT_ID)) failDr133('DEPLOYMENT_ID_INVALID');
+
+  const admin = parsePrivateDatabaseUrl(
+    rawEnvironment.LOR_DR133_ADMIN_DATABASE_URL,
+    DR133_TARGET.databaseAdmin,
+  );
+  const runtime = mode === 'runtime-login'
+    ? parsePrivateDatabaseUrl(rawEnvironment.LOR_DR133_RUNTIME_DATABASE_URL, DR133_RUNTIME_LOGIN)
+    : null;
+  if (runtime && runtime.password === admin.password) failDr133('RUNTIME_PASSWORD_NOT_SEPARATE');
+  if (runtime && !RUNTIME_PASSWORD_PATTERN.test(runtime.password)) {
+    failDr133('RUNTIME_PASSWORD_FORMAT_INVALID');
+  }
+  const databaseCa = verifiedDr133DatabaseCa(rawEnvironment[DR133_DATABASE_CA_ENV_KEY]);
+
+  return Object.freeze({
+    mode,
+    deploymentId: rawEnvironment.RAILWAY_DEPLOYMENT_ID,
+    adminPgConnectionString: admin.pgConnectionString,
+    runtimePgConnectionString: runtime?.pgConnectionString ?? null,
+    runtimePassword: runtime?.password ?? null,
+    databaseCa,
+  });
+}
+
+export function verifiedDr133DatabaseCa(rawValue) {
+  if (typeof rawValue !== 'string' || rawValue.length < 256 || rawValue.length > 16_384
+    || rawValue.includes('PRIVATE KEY')
+    || rawValue.match(/-----BEGIN CERTIFICATE-----/gu)?.length !== 1
+    || rawValue.match(/-----END CERTIFICATE-----/gu)?.length !== 1
+    || !rawValue.startsWith('-----BEGIN CERTIFICATE-----')) {
+    failDr133('DATABASE_CA_REJECTED');
+  }
+  try {
+    const certificate = new X509Certificate(rawValue);
+    const now = Date.now();
+    if (certificate.ca !== true || !certificate.checkIssued(certificate)
+      || !certificate.verify(certificate.publicKey)
+      || !(Date.parse(certificate.validFrom) <= now && now < Date.parse(certificate.validTo))) {
+      failDr133('DATABASE_CA_REJECTED');
+    }
+    const canonical = certificate.toString();
+    const railwayNormalized = canonical.endsWith('\n') ? canonical.slice(0, -1) : canonical;
+    if (rawValue !== canonical && rawValue !== railwayNormalized) {
+      failDr133('DATABASE_CA_REJECTED');
+    }
+    return canonical;
+  } catch (error) {
+    if (error instanceof Dr133RunnerError) throw error;
+    failDr133('DATABASE_CA_REJECTED');
+  }
+}
+
+export function sha256Bytes(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+export function expectedDr133Sentinel() {
+  return [
+    'missionmed.lor.railway-postgres-target.v1',
+    `provider=${DR133_TARGET.provider}`,
+    `project=${DR133_TARGET.projectId}`,
+    `environment=${DR133_TARGET.environmentId}`,
+    `service=${DR133_TARGET.databaseServiceId}`,
+    `database=${DR133_TARGET.databaseName}`,
+    `admin=${DR133_TARGET.databaseAdmin}`,
+    `region=${DR133_TARGET.region}`,
+    `decision=${DR133_TARGET.decisionRecord}`,
+    `dataCopied=${DR133_TARGET.dataCopied}`,
+    'foundation=20260825010000',
+  ].join('|');
+}
+
+export function expectedDr133SuccessorSentinel() {
+  return DR133_SUCCESSOR_STAGES.reduce(
+    (sentinel, stage) => `${sentinel}|${stage.sentinelSuffix}`,
+    expectedDr133Sentinel(),
+  );
+}
+
+export function expectedDr133SuccessorSentinelAt(stageCount) {
+  if (!Number.isInteger(stageCount) || stageCount < 0 || stageCount > DR133_SUCCESSOR_STAGES.length) {
+    failDr133('SUCCESSOR_STAGE_INVALID');
+  }
+  return DR133_SUCCESSOR_STAGES.slice(0, stageCount).reduce(
+    (sentinel, stage) => `${sentinel}|${stage.sentinelSuffix}`,
+    expectedDr133Sentinel(),
+  );
+}
+
+export function targetGucEntries() {
+  return Object.freeze([
+    Object.freeze(['missionmed.lor.target_provider', DR133_TARGET.provider]),
+    Object.freeze(['missionmed.lor.target_project_id', DR133_TARGET.projectId]),
+    Object.freeze(['missionmed.lor.target_environment_id', DR133_TARGET.environmentId]),
+    Object.freeze(['missionmed.lor.target_service_id', DR133_TARGET.databaseServiceId]),
+    Object.freeze(['missionmed.lor.target_database_name', DR133_TARGET.databaseName]),
+    Object.freeze(['missionmed.lor.target_region', DR133_TARGET.region]),
+    Object.freeze(['missionmed.lor.target_decision_record', DR133_TARGET.decisionRecord]),
+    Object.freeze(['missionmed.lor.target_data_copied', DR133_TARGET.dataCopied]),
+  ]);
+}
+
+export function classifySafeFailure(error) {
+  const runnerCode = error instanceof Dr133RunnerError && SAFE_ERROR_CODE_PATTERN.test(error.code)
+    ? error.code
+    : 'UNEXPECTED_FAILURE';
+  const postgresCode = typeof error?.code === 'string'
+    && POSTGRES_CODE_PATTERN.test(error.code)
+    && POSTGRES_CODE_CLASSES.has(error.code.slice(0, 2))
+    ? error.code
+    : null;
+  return Object.freeze({ runnerCode, postgresCode });
+}
+
+export function postgresOutcomeIsUnknown(error) {
+  const { postgresCode: code } = classifySafeFailure(error);
+  return code === null
+    || code.startsWith('08')
+    || ['57P01', '57P02', '57P03', '57P04'].includes(code);
+}
+
+function isCanonicalInteger(value, { minimum = 0, maximum = 100_000 } = {}) {
+  return Number.isSafeInteger(value) && value >= minimum && value <= maximum;
+}
+
+export function writeDr133Receipt(stream, payload) {
+  if (!stream || typeof stream.write !== 'function') failDr133('OUTPUT_STREAM_INVALID');
+  if (
+    !payload
+    || typeof payload !== 'object'
+    || Array.isArray(payload)
+    || ![Object.prototype, null].includes(Object.getPrototypeOf(payload))
+  ) failDr133('OUTPUT_RECEIPT_INVALID');
+  const descriptors = Object.getOwnPropertyDescriptors(payload);
+  if (Object.values(descriptors).some((descriptor) => !('value' in descriptor))) {
+    failDr133('OUTPUT_RECEIPT_INVALID');
+  }
+  const keys = Object.keys(payload).sort();
+  if (keys.some((key) => !DR133_RECEIPT_KEYS.includes(key))) {
+    failDr133('OUTPUT_RECEIPT_INVALID');
+  }
+  if (
+    payload.contract !== DR133_RUNNER_CONTRACT
+    || !DR133_RECEIPT_MODES.includes(payload.mode)
+    || !DR133_RECEIPT_RESULTS_BY_MODE[payload.mode]?.includes(payload.result)
+  ) failDr133('OUTPUT_RECEIPT_INVALID');
+  if (
+    payload.runnerCode !== undefined
+    && (typeof payload.runnerCode !== 'string'
+      || !SAFE_ERROR_CODE_PATTERN.test(payload.runnerCode))
+  ) failDr133('OUTPUT_RECEIPT_INVALID');
+  if (
+    payload.postgresCode !== undefined
+    && payload.postgresCode !== null
+    && (typeof payload.postgresCode !== 'string'
+      || !POSTGRES_CODE_PATTERN.test(payload.postgresCode)
+      || !POSTGRES_CODE_CLASSES.has(payload.postgresCode.slice(0, 2)))
+  ) failDr133('OUTPUT_RECEIPT_INVALID');
+  for (const hashKey of [
+    'aiProposalRollbackSha256',
+    'aiProposalSha256',
+    'facultyInvitationRollbackSha256',
+    'facultyInvitationSha256',
+    'facultyPrivateExportRollbackSha256',
+    'facultyPrivateExportSha256',
+    'foundationSha256',
+    'identityScopeRollbackSha256',
+    'identityScopeSha256',
+    'rlsSha256',
+    'studentEvidenceRollbackSha256',
+    'studentEvidenceSha256',
+  ]) {
+    if (payload[hashKey] !== undefined && !SHA256_PATTERN.test(payload[hashKey])) {
+      failDr133('OUTPUT_RECEIPT_INVALID');
+    }
+  }
+  for (const integerKey of ['definerCount', 'postgresMajor', 'relationCount']) {
+    if (payload[integerKey] !== undefined && !isCanonicalInteger(payload[integerKey])) {
+      failDr133('OUTPUT_RECEIPT_INVALID');
+    }
+  }
+  const has = (key) => Object.hasOwn(payload, key);
+  const requireKeys = (requiredKeys) => {
+    if (requiredKeys.some((key) => !has(key))) failDr133('OUTPUT_RECEIPT_INVALID');
+  };
+  const successResults = new Set([
+    'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED',
+    'SUCCESSOR_COMMITTED_VERIFIED',
+    'SUCCESSOR_ALREADY_COMMITTED_VERIFIED',
+    'RUNTIME_LOGIN_COMMITTED_VERIFIED',
+    'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED',
+    'SCHEMA_VERIFIED_NO_MUTATION',
+  ]);
+  if (payload.mode === 'migration') {
+    requireKeys([
+      'aiProposalRollbackSha256',
+      'aiProposalSha256',
+      'facultyInvitationRollbackSha256',
+      'facultyInvitationSha256',
+      'facultyPrivateExportRollbackSha256',
+      'facultyPrivateExportSha256',
+      'foundationSha256',
+      'identityScopeRollbackSha256',
+      'identityScopeSha256',
+      'rlsSha256',
+      'studentEvidenceRollbackSha256',
+      'studentEvidenceSha256',
+    ]);
+    if (payload.result === 'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED') {
+      requireKeys(['definerCount', 'postgresMajor', 'relationCount']);
+    }
+  }
+  if (payload.mode === 'successor-migration') {
+    requireKeys([
+      'aiProposalRollbackSha256',
+      'aiProposalSha256',
+      'facultyInvitationRollbackSha256',
+      'facultyInvitationSha256',
+      'facultyPrivateExportRollbackSha256',
+      'facultyPrivateExportSha256',
+      'foundationSha256',
+      'identityScopeRollbackSha256',
+      'identityScopeSha256',
+      'rlsSha256',
+      'studentEvidenceRollbackSha256',
+      'studentEvidenceSha256',
+    ]);
+    if ([
+      'SUCCESSOR_COMMITTED_VERIFIED',
+      'SUCCESSOR_ALREADY_COMMITTED_VERIFIED',
+    ].includes(payload.result)) {
+      requireKeys(['definerCount', 'postgresMajor', 'relationCount']);
+    }
+  }
+  if (payload.mode === 'schema-verifier') {
+    requireKeys([
+      'aiProposalRollbackSha256',
+      'aiProposalSha256',
+      'facultyInvitationRollbackSha256',
+      'facultyInvitationSha256',
+      'facultyPrivateExportRollbackSha256',
+      'facultyPrivateExportSha256',
+      'foundationSha256',
+      'identityScopeRollbackSha256',
+      'identityScopeSha256',
+      'rlsSha256',
+      'studentEvidenceRollbackSha256',
+      'studentEvidenceSha256',
+    ]);
+    if (payload.result === 'SCHEMA_VERIFIED_NO_MUTATION') {
+      requireKeys(['definerCount', 'postgresMajor', 'relationCount']);
+    }
+  }
+  if (
+    payload.mode === 'runtime-login'
+    && payload.result !== 'NO_MUTATION'
+  ) requireKeys(['studentEvidenceRollbackSha256']);
+  if (
+    payload.mode === 'runtime-login-deprovision'
+    && payload.result !== 'NO_MUTATION'
+  ) requireKeys(['studentEvidenceRollbackSha256']);
+  if (payload.result === 'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED') {
+    requireKeys(['postgresMajor']);
+  }
+  if (successResults.has(payload.result)) {
+    if (has('runnerCode') || has('postgresCode')) failDr133('OUTPUT_RECEIPT_INVALID');
+  } else {
+    requireKeys(['runnerCode', 'postgresCode']);
+  }
+  stream.write(`${JSON.stringify(payload)}\n`);
+}
+
+export function assertPreflightRow(row) {
+  if (!row || typeof row !== 'object') failDr133('PREFLIGHT_RESULT_INVALID');
+  if (
+    row.database_name !== DR133_TARGET.databaseName
+    || row.current_user !== DR133_TARGET.databaseAdmin
+    || row.session_user !== DR133_TARGET.databaseAdmin
+    || row.database_owner !== DR133_TARGET.databaseAdmin
+    || ![16, 18].includes(row.postgres_major)
+    || row.private_server_address !== true
+    || row.ssl_active !== true
+    || typeof row.ssl_version !== 'string'
+    || row.ssl_version.length === 0
+    || typeof row.ssl_cipher !== 'string'
+    || row.ssl_cipher.length === 0
+    || row.schema_count !== '0'
+    || row.app_role_count !== '0'
+    || row.command_owner_count !== '0'
+    || row.runtime_login_count !== '0'
+  ) failDr133('PREFLIGHT_TARGET_INVALID');
+}
+
+export function assertFoundationSentinelRow(row) {
+  if (!row || row.schema_sentinel !== expectedDr133Sentinel()) {
+    failDr133('FOUNDATION_SENTINEL_INVALID');
+  }
+}
+
+export function assertSuccessorSchemaPreflightRow(row) {
+  if (!row || typeof row !== 'object') failDr133('SUCCESSOR_PREFLIGHT_RESULT_INVALID');
+  if (
+    row.database_name !== DR133_TARGET.databaseName
+    || row.current_user !== DR133_TARGET.databaseAdmin
+    || row.session_user !== DR133_TARGET.databaseAdmin
+    || row.database_owner !== DR133_TARGET.databaseAdmin
+    || ![16, 18].includes(row.postgres_major)
+    || row.private_server_address !== true
+    || row.ssl_active !== true
+    || typeof row.ssl_version !== 'string'
+    || row.ssl_version.length === 0
+    || typeof row.ssl_cipher !== 'string'
+    || row.ssl_cipher.length === 0
+    || row.schema_sentinel !== expectedDr133SuccessorSentinel()
+    || row.schema_owner !== DR133_TARGET.databaseAdmin
+    || row.schema_count !== '1'
+    || row.app_role_count !== '1'
+    || row.command_owner_count !== '1'
+    || row.runtime_login_count !== '0'
+  ) failDr133('SUCCESSOR_PREFLIGHT_TARGET_INVALID');
+}
+
+export function assertBaseSchemaPreflightRow(row) {
+  if (!row || typeof row !== 'object') failDr133('BASE_SCHEMA_PREFLIGHT_RESULT_INVALID');
+  if (
+    row.database_name !== DR133_TARGET.databaseName
+    || row.current_user !== DR133_TARGET.databaseAdmin
+    || row.session_user !== DR133_TARGET.databaseAdmin
+    || row.database_owner !== DR133_TARGET.databaseAdmin
+    || ![16, 18].includes(row.postgres_major)
+    || row.private_server_address !== true
+    || row.ssl_active !== true
+    || typeof row.ssl_version !== 'string'
+    || row.ssl_version.length === 0
+    || typeof row.ssl_cipher !== 'string'
+    || row.ssl_cipher.length === 0
+    || row.schema_sentinel !== expectedDr133Sentinel()
+    || row.schema_owner !== DR133_TARGET.databaseAdmin
+    || row.schema_count !== '1'
+    || row.app_role_count !== '1'
+    || row.command_owner_count !== '1'
+    || row.runtime_login_count !== '0'
+  ) failDr133('BASE_SCHEMA_PREFLIGHT_TARGET_INVALID');
+}
+
+export function assertPostflightRow(row) {
+  if (!row || typeof row !== 'object') failDr133('POSTFLIGHT_RESULT_INVALID');
+  const observedDefiners = Array.isArray(row.definer_identities) ? row.definer_identities : [];
+  const observedAppDefiners = Array.isArray(row.app_execute_identities)
+    ? row.app_execute_identities
+    : [];
+  const observedRelations = Array.isArray(row.relation_names) ? row.relation_names : [];
+  if (
+    row.schema_sentinel !== expectedDr133SuccessorSentinel()
+    || row.schema_owner !== DR133_TARGET.databaseAdmin
+    || row.relation_count !== String(DR133_RELATIONS.length)
+    || row.forced_rls_count !== String(DR133_RELATIONS.length)
+    || row.definer_count !== String(DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.length)
+    || row.app_execute_count !== String(
+      DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES.length
+    )
+    || row.pre_evidence_app_execute_denied !== true
+    || row.pre_evidence_public_execute_denied !== true
+    || row.public_function_execute_count !== '0'
+    || row.public_table_privilege_count !== '0'
+    || row.nonempty_relation_count !== '0'
+    || row.view_count !== '1'
+    || row.view_identity !== 'student_recommendation_case_projection@postgres'
+    || row.app_role_safe !== true
+    || row.command_owner_safe !== true
+    || row.definer_custody_safe !== true
+    || row.nologin_role_membership_count !== '0'
+    || JSON.stringify(observedRelations) !== JSON.stringify([...DR133_RELATIONS].sort())
+    || JSON.stringify(observedDefiners)
+      !== JSON.stringify([...DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES].sort())
+    || JSON.stringify(observedAppDefiners)
+      !== JSON.stringify([...DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES].sort())
+  ) failDr133('POSTFLIGHT_CATALOG_INVALID');
+}
+
+export function assertRuntimeAdminRow(row) {
+  if (
+    !row
+    || row.runtime_role_safe !== true
+    || row.membership_safe !== true
+    || row.membership_count !== '1'
+    || row.runtime_owned_object_count !== '0'
+    || row.runtime_default_acl_count !== '0'
+  ) failDr133('RUNTIME_LOGIN_CATALOG_INVALID');
+}
+
+function parseCanonicalCountText(value, code) {
+  if (!/^(?:0|[1-9][0-9]{0,9})$/u.test(value)) failDr133(code);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed > 100_000) failDr133(code);
+  return parsed;
+}
+
+function assertCanonicalOidText(value, code) {
+  if (!/^[1-9][0-9]{0,9}$/u.test(value)) failDr133(code);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed > 4_294_967_295) failDr133(code);
+  return value;
+}
+
+function runtimeDeprovisionRoleState(row, code) {
+  const activeRoleSafe = row?.runtime_role_active_safe;
+  const quarantinedRoleSafe = row?.runtime_role_quarantined_safe;
+  if (
+    !row
+    || typeof row !== 'object'
+    || row.database_name !== DR133_TARGET.databaseName
+    || row.current_user !== DR133_TARGET.databaseAdmin
+    || row.session_user !== DR133_TARGET.databaseAdmin
+    || row.database_owner !== DR133_TARGET.databaseAdmin
+    || ![16, 18].includes(row.postgres_major)
+    || row.private_server_address !== true
+    || row.ssl_active !== true
+    || typeof row.ssl_version !== 'string'
+    || row.ssl_version.length === 0
+    || typeof row.ssl_cipher !== 'string'
+    || row.ssl_cipher.length === 0
+    || row.schema_sentinel !== expectedDr133SuccessorSentinel()
+    || row.app_role_count !== '1'
+    || row.command_owner_count !== '1'
+    || row.runtime_login_count !== '1'
+    || typeof activeRoleSafe !== 'boolean'
+    || typeof quarantinedRoleSafe !== 'boolean'
+    || activeRoleSafe === quarantinedRoleSafe
+    || row.membership_safe !== true
+    || row.membership_count !== '1'
+    || row.runtime_owned_object_count !== '0'
+    || row.runtime_default_acl_count !== '0'
+    || row.runtime_unsafe_dependency_count !== '0'
+  ) failDr133(code);
+  const runtimeRoleOid = assertCanonicalOidText(row.runtime_role_oid, code);
+  const activeSessionCount = parseCanonicalCountText(row.runtime_active_session_count, code);
+  const startingClientBackendCount = parseCanonicalCountText(
+    row.starting_unauthenticated_client_backend_count,
+    code,
+  );
+  const authenticationTimeoutSeconds = parseCanonicalCountText(
+    row.authentication_timeout_seconds,
+    code,
+  );
+  if (
+    authenticationTimeoutSeconds < 1
+    || authenticationTimeoutSeconds > 120
+    || row.pre_auth_delay_seconds !== '0'
+    || row.post_auth_delay_seconds !== '0'
+  ) failDr133(code);
+  return Object.freeze({
+    runtimeRoleOid,
+    activeSessionCount,
+    startingClientBackendCount,
+    authenticationTimeoutSeconds,
+    roleState: activeRoleSafe ? 'active' : 'quarantined',
+  });
+}
+
+export function assertRuntimeDeprovisionPreflightRow(row) {
+  return runtimeDeprovisionRoleState(row, 'RUNTIME_LOGIN_DEPROVISION_PREFLIGHT_INVALID');
+}
+
+export function assertRuntimeDeprovisionQuarantinedRow(
+  row,
+  expectedRuntimeRoleOid,
+  { requireNoSessions = false } = {},
+) {
+  const expectedOid = assertCanonicalOidText(
+    expectedRuntimeRoleOid,
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_INVALID',
+  );
+  const state = runtimeDeprovisionRoleState(
+    row,
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_INVALID',
+  );
+  if (
+    state.runtimeRoleOid !== expectedOid
+    || state.roleState !== 'quarantined'
+    || (requireNoSessions && (
+      state.activeSessionCount !== 0
+      || state.startingClientBackendCount !== 0
+    ))
+  ) failDr133('RUNTIME_LOGIN_DEPROVISION_QUARANTINE_INVALID');
+  return state;
+}
+
+export function assertRuntimeDeprovisionAbsentRow(row, expectedRuntimeRoleOid) {
+  const expectedOid = assertCanonicalOidText(
+    expectedRuntimeRoleOid,
+    'RUNTIME_LOGIN_DEPROVISION_ABSENCE_INVALID',
+  );
+  if (
+    !row
+    || typeof row !== 'object'
+    || row.checked_runtime_oid !== expectedOid
+    || row.runtime_name_count !== '0'
+    || row.runtime_oid_count !== '0'
+    || row.membership_count !== '0'
+    || row.runtime_active_session_count !== '0'
+    || row.starting_unauthenticated_client_backend_count !== '0'
+    || row.runtime_owned_object_count !== '0'
+    || row.runtime_default_acl_count !== '0'
+    || row.runtime_unsafe_dependency_count !== '0'
+  ) failDr133('RUNTIME_LOGIN_DEPROVISION_ABSENCE_INVALID');
+}
+
+export function assertRuntimeDeprovisionRevokedRow(row, expectedRuntimeRoleOid) {
+  const expectedOid = assertCanonicalOidText(
+    expectedRuntimeRoleOid,
+    'RUNTIME_LOGIN_DEPROVISION_REVOKE_INVALID',
+  );
+  if (
+    !row
+    || typeof row !== 'object'
+    || row.checked_runtime_oid !== expectedOid
+    || row.runtime_name_count !== '1'
+    || row.runtime_oid_count !== '1'
+    || row.membership_count !== '0'
+    || row.runtime_active_session_count !== '0'
+    || row.starting_unauthenticated_client_backend_count !== '0'
+    || row.runtime_owned_object_count !== '0'
+    || row.runtime_default_acl_count !== '0'
+    || row.runtime_unsafe_dependency_count !== '0'
+  ) failDr133('RUNTIME_LOGIN_DEPROVISION_REVOKE_INVALID');
+}
+
+export function assertRuntimeIdentityRow(row) {
+  if (
+    !row
+    || row.database_name !== DR133_TARGET.databaseName
+    || row.current_user !== DR133_RUNTIME_LOGIN
+    || row.session_user !== DR133_RUNTIME_LOGIN
+    || row.private_server_address !== true
+    || row.ssl_active !== true
+    || typeof row.ssl_version !== 'string'
+    || row.ssl_version.length === 0
+    || typeof row.ssl_cipher !== 'string'
+    || row.ssl_cipher.length === 0
+  ) failDr133('RUNTIME_LOGIN_IDENTITY_INVALID');
+}
+
+export function assertRuntimeSetRoleRow(row) {
+  if (
+    !row
+    || row.current_user !== DR133_APPLICATION_ROLE
+    || row.session_user !== DR133_RUNTIME_LOGIN
+    || row.visible_case_count !== '0'
+  ) failDr133('RUNTIME_SET_ROLE_INVALID');
+}
+
+export function assertRuntimeCleanupRow(row) {
+  if (
+    !row
+    || row.current_user !== DR133_RUNTIME_LOGIN
+    || row.session_user !== DR133_RUNTIME_LOGIN
+  ) failDr133('RUNTIME_ROLE_CLEANUP_INVALID');
+}
+
+export function quoteFixedIdentifier(identifier) {
+  if (!DR133_RELATIONS.includes(identifier)) failDr133('RELATION_IDENTIFIER_INVALID');
+  return `"${identifier}"`;
+}
+
+export function buildNonemptyRelationsSql() {
+  const branches = DR133_RELATIONS.map(
+    (relation) => `SELECT 1 AS present WHERE EXISTS (SELECT 1 FROM lor_studio.${quoteFixedIdentifier(relation)})`,
+  );
+  return [
+    'SELECT pg_catalog.count(*)::text AS nonempty_relation_count',
+    'FROM (',
+    branches.join('\nUNION ALL\n'),
+    ') AS nonempty_relations',
+  ].join('\n');
+}
+
+function splitVerifiedRollbackGuard(source) {
+  if (typeof source !== 'string') failDr133('ROLLBACK_GUARD_SOURCE_INVALID');
+  const rollbackArtifact = DR133_ARTIFACTS.find((artifact) => artifact.id === 'rls-rollback');
+  if (sha256Bytes(source) !== rollbackArtifact.sha256) failDr133('ROLLBACK_ARTIFACT_HASH_MISMATCH');
+  const markerIndex = source.indexOf(ROLLBACK_LITERAL_MARKER);
+  if (
+    markerIndex < 0
+    || markerIndex !== source.lastIndexOf(ROLLBACK_LITERAL_MARKER)
+  ) failDr133('ROLLBACK_GUARD_MARKER_INVALID');
+  const prefix = source.slice(0, markerIndex).trimEnd();
+  const destructiveTail = source.slice(markerIndex + ROLLBACK_LITERAL_MARKER.length).trimStart();
+  if (
+    !prefix.endsWith('END\n$catalog_guard$;')
+    || !destructiveTail.startsWith(
+      'REVOKE EXECUTE ON FUNCTION lor_studio.commit_student_case_create',
+    )
+  ) failDr133('ROLLBACK_GUARD_BOUNDARY_INVALID');
+  return Object.freeze({ prefix, destructiveTail });
+}
+
+function splitVerifiedSuccessorRollbackGuard(source, rollbackArtifactId) {
+  if (typeof source !== 'string') failDr133('SUCCESSOR_ROLLBACK_GUARD_SOURCE_INVALID');
+  const boundary = SUCCESSOR_ROLLBACK_GUARD_BOUNDARIES[rollbackArtifactId];
+  const rollbackArtifact = DR133_ARTIFACTS.find(
+    (artifact) => artifact.id === rollbackArtifactId,
+  );
+  if (!boundary || !rollbackArtifact) failDr133('SUCCESSOR_ROLLBACK_ARTIFACT_INVALID');
+  if (sha256Bytes(source) !== rollbackArtifact.sha256) {
+    failDr133('SUCCESSOR_ROLLBACK_ARTIFACT_HASH_MISMATCH');
+  }
+  const boundaryIndex = source.indexOf(boundary.firstDestructiveStatement);
+  if (
+    boundaryIndex < 0
+    || boundaryIndex !== source.lastIndexOf(boundary.firstDestructiveStatement)
+  ) failDr133('SUCCESSOR_ROLLBACK_GUARD_BOUNDARY_INVALID');
+  let prefix = source.slice(0, boundaryIndex).trimEnd();
+  const destructiveTail = source.slice(boundaryIndex).trimStart();
+  if (boundary.literalMarker) {
+    if (!prefix.endsWith(boundary.literalMarker)) {
+      failDr133('SUCCESSOR_ROLLBACK_GUARD_BOUNDARY_INVALID');
+    }
+    prefix = prefix.slice(0, -boundary.literalMarker.length).trimEnd();
+  }
+  if (
+    !prefix.endsWith(boundary.guardTerminator)
+    || !destructiveTail.startsWith(boundary.firstDestructiveStatement)
+  ) failDr133('SUCCESSOR_ROLLBACK_GUARD_BOUNDARY_INVALID');
+  return Object.freeze({ prefix, destructiveTail, boundary });
+}
+
+export function extractRollbackGuardVerificationSql(source) {
+  const { prefix } = splitVerifiedRollbackGuard(source);
+  return `${prefix}\n\nROLLBACK;\n`;
+}
+
+export function extractRollbackGuardTransactionBodySql(source) {
+  const { prefix } = splitVerifiedRollbackGuard(source);
+  const outerBegin = '\nBEGIN;\n\n';
+  const beginIndex = prefix.indexOf(outerBegin);
+  if (beginIndex < 0 || beginIndex !== prefix.lastIndexOf(outerBegin)) {
+    failDr133('ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
+  }
+  const body = prefix.slice(beginIndex + outerBegin.length);
+  if (
+    !body.startsWith('DO $identity_guard$\n')
+    || !body.endsWith('END\n$catalog_guard$;')
+    || body.includes(ROLLBACK_LITERAL_MARKER)
+  ) failDr133('ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
+  return `${body}\n`;
+}
+
+export function extractIdentityScopeRollbackGuardVerificationSql(source) {
+  return extractSuccessorRollbackGuardVerificationSql(source, 'identity-scope-rollback');
+}
+
+export function extractSuccessorRollbackGuardVerificationSql(source, rollbackArtifactId) {
+  const { prefix } = splitVerifiedSuccessorRollbackGuard(source, rollbackArtifactId);
+  return `${prefix}\n\nROLLBACK;\n`;
+}
+
+export function extractIdentityScopeRollbackGuardTransactionBodySql(source) {
+  return extractSuccessorRollbackGuardTransactionBodySql(source, 'identity-scope-rollback');
+}
+
+export function extractSuccessorRollbackGuardTransactionBodySql(source, rollbackArtifactId) {
+  const { prefix, boundary } = splitVerifiedSuccessorRollbackGuard(source, rollbackArtifactId);
+  const outerBegin = '\nBEGIN;\n\n';
+  const beginIndex = prefix.indexOf(outerBegin);
+  if (beginIndex < 0 || beginIndex !== prefix.lastIndexOf(outerBegin)) {
+    failDr133('SUCCESSOR_ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
+  }
+  const body = prefix.slice(beginIndex + outerBegin.length);
+  if (
+    !body.startsWith('DO $identity_guard$\n')
+    || !body.endsWith(boundary.guardTerminator)
+    || body.includes(boundary.firstDestructiveStatement)
+  ) failDr133('SUCCESSOR_ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
+  return `${body}\n`;
+}

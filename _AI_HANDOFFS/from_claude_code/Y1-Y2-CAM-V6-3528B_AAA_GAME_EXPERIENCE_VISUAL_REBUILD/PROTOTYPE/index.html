@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IV Prep On-Call — 3528B AAA Visual Rebuild (Prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,500;0,600;0,700;1,700;1,800;1,900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/shell.css">
+<link rel="stylesheet" href="styles/menus.css">
+<link rel="stylesheet" href="styles/cockpit.css">
+<link rel="stylesheet" href="styles/post.css">
+</head>
+<body>
+<canvas id="env" aria-hidden="true"></canvas>
+<div id="world" aria-hidden="true"></div>
+
+<div class="app" id="app">
+  <nav id="rail" aria-label="Main navigation"></nav>
+  <main id="stage" aria-live="polite"></main>
+</div>
+
+<div id="whisper" aria-live="assertive"></div>
+<div id="toasts" aria-live="polite"></div>
+<div id="protoBadge" title="Prototype build — every signal on screen is deterministic simulation, not measurement.">
+  3528B VISUAL PROTOTYPE · SIMULATED DATA · NOT PRODUCTION
+</div>
+
+<script type="module" src="app/main.mjs"></script>
+</body>
+</html>

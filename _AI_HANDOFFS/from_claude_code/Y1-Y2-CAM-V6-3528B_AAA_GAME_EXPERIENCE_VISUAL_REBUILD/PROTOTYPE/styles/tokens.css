@@ -1,0 +1,89 @@
+/* ============================================================
+   Y1-Y2-CAM-V6-3528B — MissionMed IV Prep On-Call
+   AAA game-shell design tokens (extends 3528A doc-06 family)
+   ============================================================ */
+:root {
+  /* Surfaces */
+  --g-bg: #07090f;
+  --g-bg2: #0d1220;
+  --g-surface: #141a2a;
+  --g-surface2: #1b2436;
+  --g-surface3: #232e44;
+  --g-edge: #2b3548;
+  --g-edge-hi: #42506a;
+
+  /* Ink */
+  --g-ink: #f2f6ff;
+  --g-mid: #c2cde0;
+  --g-dim: #93a1ba;
+  --g-faint: #6b7891;
+
+  /* Accents */
+  --g-gold: #ffc24b;
+  --g-gold-hot: #ffd63d;
+  --g-cyan: #39d6ff;
+  --g-teal: #2fe7b0;
+  --g-red: #ff4d5e;
+  --g-amber: #ffb300;
+  --g-violet: #a696ff;
+
+  /* Type */
+  --g-font: "Archivo", "Archivo Black", system-ui, sans-serif;
+  --g-mono: "Space Grotesk", ui-monospace, "SF Mono", monospace;
+
+  /* Motion */
+  --e-fast: 180ms cubic-bezier(.2, .8, .2, 1);
+  --e-page: 280ms cubic-bezier(.25, .9, .25, 1);
+  --e-snap: 90ms cubic-bezier(.3, .9, .4, 1);
+
+  /* Geometry */
+  --nav-w: 248px;
+  --nav-w-min: 72px;
+  --r-card: 14px;
+  --r-chip: 8px;
+
+  /* Focus */
+  --g-focus-ring: 0 0 0 2.5px #ffffff, 0 0 26px rgba(57, 214, 255, .45);
+}
+
+/* Type ramp — enforced tiers (doc-04). Nothing below 11px anywhere. */
+.t-display  { font: 800 italic 42px/1.02 var(--g-font); letter-spacing: .5px; text-transform: uppercase; }
+.t-display-md { font: 800 italic 30px/1.05 var(--g-font); text-transform: uppercase; }
+.t-display-sm { font: 800 italic 22px/1.08 var(--g-font); text-transform: uppercase; }
+.t-xl-metric  { font: 700 64px/1 var(--g-mono); font-variant-numeric: tabular-nums; }
+.t-lg-metric  { font: 700 44px/1 var(--g-mono); font-variant-numeric: tabular-nums; }
+.t-section  { font: 700 14px/1.2 var(--g-mono); letter-spacing: 1.6px; text-transform: uppercase; }
+.t-label    { font: 600 12px/1.3 var(--g-mono); letter-spacing: 1.2px; text-transform: uppercase; }
+.t-support  { font: 500 13.5px/1.45 var(--g-font); font-style: normal; }
+.t-body     { font: 500 15px/1.5 var(--g-font); font-style: normal; }
+.t-tech     { font: 500 12px/1.35 var(--g-mono); letter-spacing: .4px; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+html, body {
+  height: 100%;
+  background: var(--g-bg);
+  color: var(--g-ink);
+  font-family: var(--g-font);
+  font-style: normal;
+  overflow: hidden;
+}
+button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+img { display: block; max-width: 100%; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--g-surface3); border-radius: 6px; border: 2px solid var(--g-bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Universal focus visibility (keyboard = controller) */
+[data-focusable] { outline: none; }
+[data-focusable].is-focused, [data-focusable]:focus-visible {
+  box-shadow: var(--g-focus-ring);
+  z-index: 4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+html[data-reduced-motion="1"] *, html[data-reduced-motion="1"] *::before, html[data-reduced-motion="1"] *::after {
+  animation-duration: .01ms !important; transition-duration: .01ms !important;
+}

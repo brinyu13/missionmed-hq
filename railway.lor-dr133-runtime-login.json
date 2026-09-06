@@ -1,0 +1,19 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK",
+    "buildCommand": "node --check missionmed-hq/scripts/lor-studio/provision-dr133-railway-staging-runtime-login.mjs"
+  },
+  "deploy": {
+    "preDeployCommand": [
+      "node missionmed-hq/scripts/lor-studio/provision-dr133-railway-staging-runtime-login.mjs"
+    ],
+    "startCommand": "node -e \"process.stdout.write('missionmed.lor.dr133.runtime-login.one-shot-complete\\n')\"",
+    "restartPolicyType": "NEVER",
+    "multiRegionConfig": {
+      "us-west2": {
+        "numReplicas": 1
+      }
+    }
+  }
+}

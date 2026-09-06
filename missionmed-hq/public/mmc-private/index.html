@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="data:,">
 <title>Matrix Mentor Console Core</title>
-<link rel="stylesheet" href="./src/styles.css?v=011">
+<link rel="stylesheet" href="./src/styles.css?v=100">
 </head>
 <body>
 <div class="app">
@@ -71,7 +71,9 @@
     <span class="topbar-sub" id="topbar-sub">Monday, June 22, 2026</span>
   </div>
   <div class="topbar-right">
-    <span class="sync-indicator"><span class="sync-dot"></span> Live Sync</span>
+    <span class="sync-indicator initializing" id="persistence-indicator"><span class="sync-dot initializing" id="persistence-status-dot"></span> <span id="persistence-status-label">Persistence Checking</span></span>
+    <button class="topbar-btn" onclick="recoverSession()" data-testid="resume-session">Resume Session</button>
+    <button class="topbar-btn" onclick="exportPilotSnapshot()" data-testid="export-alpha-snapshot">Export Snapshot</button>
     <button class="topbar-btn gold" onclick="openCallPrep('amara')">Prep Next Call</button>
     <button class="topbar-btn" onclick="openQuickCapture()" data-testid="quick-capture-open">Quick Capture</button>
   </div>
@@ -106,6 +108,43 @@
       <div class="stat-label">Mentor Memory Alerts</div>
       <div class="stat-value" style="color:var(--red)" id="mentor-promises-count">3</div>
       <div class="stat-change" style="color:var(--yellow)">Review before calls</div>
+    </div>
+  </div>
+
+  <div class="card mb-md alpha-readiness-card" id="pilot-readiness-panel" data-testid="pilot-readiness-panel">
+    <div class="card-header">
+      <div>
+        <div class="card-title" style="color:var(--gold)">Private Alpha Control</div>
+        <div class="card-subtitle">MMC-owned pilot readiness, persistence visibility, recovery, and export</div>
+      </div>
+      <span class="badge badge-orange" id="pilot-readiness-state">Checking</span>
+    </div>
+    <div class="grid-4">
+      <div>
+        <div class="stat-label">Persistence</div>
+        <div class="alpha-state-line" id="pilot-persistence-state" data-testid="pilot-persistence-state">initializing</div>
+      </div>
+      <div>
+        <div class="stat-label">Assignments</div>
+        <div class="alpha-state-line" id="pilot-assignment-state" data-testid="pilot-assignment-state">loading</div>
+      </div>
+      <div>
+        <div class="stat-label">Session Recovery</div>
+        <div class="alpha-state-line" id="pilot-session-recovery-state" data-testid="pilot-session-recovery-state">checking</div>
+      </div>
+      <div>
+        <div class="stat-label">Export</div>
+        <div class="alpha-state-line" id="pilot-export-state" data-testid="pilot-export-state">ready</div>
+      </div>
+    </div>
+    <div class="flex-between mt-md" style="align-items:flex-start;gap:12px">
+      <div id="pilot-blockers" style="display:flex;flex-wrap:wrap;gap:6px">
+        <span class="badge badge-orange">Checking private alpha blockers</span>
+      </div>
+      <div class="flex-row">
+        <button class="topbar-btn" onclick="recoverSession()">Resume Session</button>
+        <button class="topbar-btn gold" onclick="exportPilotSnapshot()">Export Snapshot</button>
+      </div>
     </div>
   </div>
 
@@ -252,22 +291,22 @@
         <div style="display:flex;flex-direction:column;gap:6px">
           <div class="flex-between" style="padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(0,212,255,0.06)'" onmouseout="this.style.background='transparent'" onclick="switchScreen('meeting')">
             <div>
-              <div style="font-size:13px;font-weight:500">Amara Okafor — USCE Strategy</div>
-              <div style="font-size:11px;color:var(--text-dim)">Jun 22, 10:00 AM · 42 min · Webex</div>
+              <div style="font-size:13px;font-weight:500">Amara Okafor â USCE Strategy</div>
+              <div style="font-size:11px;color:var(--text-dim)">Jun 22, 10:00 AM Â· 42 min Â· Webex</div>
             </div>
             <span class="badge badge-green">AI Processed</span>
           </div>
           <div class="flex-between" style="padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(0,212,255,0.06)'" onmouseout="this.style.background='transparent'">
             <div>
-              <div style="font-size:13px;font-weight:500">Raj Patel — PS Review</div>
-              <div style="font-size:11px;color:var(--text-dim)">Jun 20, 3:00 PM · 35 min · Webex</div>
+              <div style="font-size:13px;font-weight:500">Raj Patel â PS Review</div>
+              <div style="font-size:11px;color:var(--text-dim)">Jun 20, 3:00 PM Â· 35 min Â· Webex</div>
             </div>
             <span class="badge badge-green">AI Processed</span>
           </div>
           <div class="flex-between" style="padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(0,212,255,0.06)'" onmouseout="this.style.background='transparent'">
             <div>
-              <div style="font-size:13px;font-weight:500">Diego Ramirez — Match Strategy</div>
-              <div style="font-size:11px;color:var(--text-dim)">Jun 19, 11:00 AM · 28 min · Webex</div>
+              <div style="font-size:13px;font-weight:500">Diego Ramirez â Match Strategy</div>
+              <div style="font-size:11px;color:var(--text-dim)">Jun 19, 11:00 AM Â· 28 min Â· Webex</div>
             </div>
             <span class="badge badge-cyan">Processing</span>
           </div>
@@ -282,15 +321,15 @@
         </div>
         <div style="display:flex;flex-direction:column;gap:8px">
           <div style="padding:10px;border-radius:6px;background:var(--red-dim);border-left:3px solid var(--red)">
-            <div style="font-size:12px;font-weight:600;color:var(--red)">Amara Okafor — Emotional State</div>
+            <div style="font-size:12px;font-weight:600;color:var(--red)">Amara Okafor â Emotional State</div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Mentioned father's health concerns last session. Approach today's call with sensitivity. Do not bring up unless she does.</div>
           </div>
           <div style="padding:10px;border-radius:6px;background:var(--orange-dim);border-left:3px solid var(--orange)">
-            <div style="font-size:12px;font-weight:600;color:var(--orange)">Raj Patel — Promise Tracker</div>
+            <div style="font-size:12px;font-weight:600;color:var(--orange)">Raj Patel â Promise Tracker</div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">You promised to send program director contact for Internal Medicine at Mount Sinai. Still pending.</div>
           </div>
           <div style="padding:10px;border-radius:6px;background:var(--yellow-dim);border-left:3px solid var(--yellow)">
-            <div style="font-size:12px;font-weight:600;color:var(--yellow)">Mei-Ling Chen — Deadline Risk</div>
+            <div style="font-size:12px;font-weight:600;color:var(--yellow)">Mei-Ling Chen â Deadline Risk</div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">ERAS opens in 14 days. Her personal statement is only 60% done. Needs acceleration.</div>
           </div>
         </div>
@@ -442,32 +481,130 @@
   </div>
 </div>
 
-<!-- ============================================ -->
-<!-- SCREEN 3: STUDENT INTELLIGENCE PROFILE -->
-<!-- ============================================ -->
-<div class="screen" id="screen-profile" data-testid="screen-profile">
-
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-    <button class="topbar-btn" onclick="switchScreen('directory')" style="padding:5px 12px;font-size:11px">&#8592; Back to Directory</button>
-    <span class="private-marker">ADMIN VIEW — NOT VISIBLE TO STUDENT</span>
+<!-- ===========================   <div class="stat-change up">Ready to clear</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Due Today</div>
+      <div class="stat-value" style="color:var(--gold)" id="due-today-count">4</div>
+      <div class="stat-change up">Start here</div>
+    </div>
   </div>
 
-  <!-- Profile Header -->
-  <div class="card mb-md" style="border-color:rgba(0,212,255,0.2)">
-    <div style="display:flex;gap:20px;align-items:center">
-      <div class="avatar" style="width:56px;height:56px;font-size:20px" id="profile-avatar">AO</div>
-      <div style="flex:1">
-        <div style="font-size:18px;font-weight:700" id="profile-name">Amara Okafor</div>
-        <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="profile-school">University of Lagos Medical School · Nigeria</div>
-        <div class="flex-row gap-md mt-sm" id="profile-badges">
-          <span class="badge badge-gold">USCE Navigator</span>
-          <span class="badge badge-cyan">Spring 2026</span>
-          <span class="badge badge-green">Internal Medicine</span>
-        </div>
+  <div class="card mb-md">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Action Queue</div>
+        <div class="card-subtitle">Promises, reviews, follow-ups, admin work, and decisions</div>
       </div>
-      <div style="text-align:right">
-        <span class="badge badge-orange" id="profile-risk" style="font-size:12px;padding:6px 14px">Medium Risk</span>
-        <div style="font-size:11px;color:var(--text-dim);margin-top:6px" id="profile-mentor">Mentor: Brian Biruk</div>
+      <button class="topbar-btn gold" onclick="openQuickCapture()">Quick Capture</button>
+    </div>
+    <div class="filter-bar">
+      <div class="filter-chip active">All</div>
+      <div class="filter-chip">Promises</div>
+      <div class="filter-chip">Reviews</div>
+      <div class="filter-chip">Due Today</div>
+      <div class="filter-chip">Overdue</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px" id="actions-list">
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:var(--red-dim);border-left:3px solid var(--red)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Promise:</strong> Send Mount Sinai IM coordinator introduction for Amara</div>
+        </div>
+        <span class="badge badge-red">Overdue</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:var(--red-dim);border-left:3px solid var(--red)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)" data-testid="action-checkbox">
+          <div class="action-text" style="font-size:13px"><strong>Review:</strong> Personal statement opening paragraph for Raj</div>
+        </div>
+        <span class="badge badge-red">Due Today</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:var(--orange-dim);border-left:3px solid var(--orange)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Follow-up:</strong> Check Mei-Ling ERAS acceleration plan</div>
+        </div>
+        <span class="badge badge-orange">Tomorrow</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:rgba(0,212,255,0.06);border-left:3px solid var(--cyan)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Decision:</strong> Approve Diego mock interview cadence</div>
+        </div>
+        <span class="badge badge-cyan">This Week</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:rgba(232,164,28,0.06);border-left:3px solid var(--gold)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Admin:</strong> Update Yuki session notes before next prep</div>
+        </div>
+        <span class="badge badge-gold">Queued</span>
+      </div>
+    </div>
+    <div id="action-save-state" class="mt-md" style="font-size:12px;color:var(--text-dim)">No actions completed in this demo run.</div>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- SCREEN 2: STUDENT DIRECTORY -->
+<!-- ============================================ -->
+<div class="screen" id="screen-directory" data-testid="screen-directory">
+
+  <div class="card mb-md" style="border-color:rgba(0,212,255,0.18)">
+    <div class="flex-between">
+      <div>
+        <div class="card-title">Attention-Ranked Directory</div>
+        <div class="card-subtitle">Default sort: risk, stale contact, overdue work, and readiness pressure</div>
+      </div>
+      <span class="badge badge-cyan">OS Priority View</span>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <input type="text" placeholder="Search students..." style="width:220px" id="student-search" oninput="filterStudents()">
+    <div class="filter-chip active" data-filter="all" onclick="setFilter(this,'all')">All Students</div>
+    <div class="filter-chip" data-filter="usce" onclick="setFilter(this,'usce')">USCE Navigator</div>
+    <div class="filter-chip" data-filter="match" onclick="setFilter(this,'match')">Match Ready</div>
+    <div class="filter-chip" data-filter="interview" onclick="setFilter(this,'interview')">Interview Forge</div>
+    <select style="padding:6px 12px;font-size:12px" id="risk-filter" onchange="filterStudents()">
+      <option value="">All Risk Levels</option>
+      <option value="high">High Risk</option>
+      <option value="medium">Medium Risk</option>
+      <option value="low">Low Risk</option>
+    </select>
+    <select style="padding:6px 12px;font-size:12px" id="session-filter" onchange="filterStudents()">
+      <option value="">All Sessions</option>
+      <option value="spring2026">Spring 2026</option>
+      <option value="summer2026">Summer 2026</option>
+      <option value="fall2026">Fall 2026</option>
+    </select>
+  </div>
+
+  <div class="panel">
+    <table class="data-table" id="student-table">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Country</th>
+          <th>Program</th>
+          <th>Session</th>
+          <th>Specialty</th>
+          <th>Risk</th>
+          <th>Status</th>
+          <th>Last Meeting</th>
+          <th>Attention</th>
+        </tr>
+      </thead>
+      <tbody id="student-tbody">
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===========================v class="briefing-panel span-2" id="briefing-timeline-summary" data-testid="briefing-timeline-summary">
+        <div class="briefing-label">TIMELINE SUMMARY</div>
       </div>
     </div>
   </div>
@@ -484,6 +621,7 @@
       <input class="micro-input" id="profile-workflow-input" placeholder="Capture a note or next step for this student">
       <div class="flex-row" style="justify-content:flex-end">
         <button class="topbar-btn" onclick="saveProfileCapture()">Save Note</button>
+        <button class="topbar-btn" onclick="saveProfileGoal()" data-testid="profile-save-goal">Save Goal</button>
         <button class="topbar-btn" onclick="switchScreen('actions')">Open Actions</button>
       </div>
     </div>
@@ -503,12 +641,12 @@
           <div>
             <div class="stat-label">USMLE Step 1</div>
             <div class="stat-value" style="font-size:22px;color:var(--green)">Pass</div>
-            <div style="font-size:11px;color:var(--text-dim);margin-top:4px">1st attempt · Mar 2025</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:4px">1st attempt Â· Mar 2025</div>
           </div>
           <div>
             <div class="stat-label">Step 2 CK</div>
             <div class="stat-value" style="font-size:22px;color:var(--cyan)">241</div>
-            <div style="font-size:11px;color:var(--text-dim);margin-top:4px">1st attempt · Oct 2025</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:4px">1st attempt Â· Oct 2025</div>
           </div>
           <div>
             <div class="stat-label">OET</div>
@@ -525,7 +663,7 @@
           <span class="private-marker">MENTOR ONLY</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px">
-          <div style="font-size:12px;padding:6px 10px;background:var(--red-dim);border-radius:6px">Personal statement is generic — needs complete rewrite</div>
+          <div style="font-size:12px;padding:6px 10px;background:var(--red-dim);border-radius:6px">Personal statement is generic â needs complete rewrite</div>
           <div style="font-size:12px;padding:6px 10px;background:var(--orange-dim);border-radius:6px">Only 2 USCE rotations completed; target is 4+</div>
           <div style="font-size:12px;padding:6px 10px;background:var(--yellow-dim);border-radius:6px">Has not begun LOR collection process</div>
         </div>
@@ -539,7 +677,7 @@
         <div style="display:flex;flex-direction:column;gap:10px" id="profile-current-strategy">
           <div>
             <div style="font-size:11px;color:var(--text-dim)">Primary Goal</div>
-            <div style="font-size:13px;font-weight:500;margin-top:2px">Match into Internal Medicine residency — academic program preferred</div>
+            <div style="font-size:13px;font-weight:500;margin-top:2px">Match into Internal Medicine residency â academic program preferred</div>
           </div>
           <div>
             <div style="font-size:11px;color:var(--text-dim)">Target Programs</div>
@@ -551,7 +689,7 @@
           </div>
           <div>
             <div style="font-size:11px;color:var(--text-dim)">Key Deadlines</div>
-            <div style="font-size:13px;margin-top:2px;color:var(--orange)">ERAS Opens: Jul 6, 2026 · PS Final Draft: Jun 30 · LOR Requests: Jun 28</div>
+            <div style="font-size:13px;margin-top:2px;color:var(--orange)">ERAS Opens: Jul 6, 2026 Â· PS Final Draft: Jun 30 Â· LOR Requests: Jun 28</div>
           </div>
         </div>
       </div>
@@ -584,7 +722,7 @@
             <div class="timeline-dot cyan"></div>
             <div class="timeline-content">
               <div class="timeline-title">USCE Strategy Review</div>
-              <div class="timeline-meta">2026-06-22 · Session</div>
+              <div class="timeline-meta">2026-06-22 Â· Session</div>
               <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Session captured in MMC memory.</div>
             </div>
           </div>
@@ -613,7 +751,7 @@
             <div class="flex-between"><span style="font-size:12px">Professionalism</span><span style="font-size:12px;color:var(--green)">90%</span></div>
             <div class="progress-bar mt-sm"><div class="progress-fill green" style="width:90%"></div></div>
           </div>
-          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">2 mock interviews completed · StoryForge Readiness: 60%</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">2 mock interviews completed Â· StoryForge Readiness: 60%</div>
         </div>
       </div>
     </div>
@@ -632,7 +770,7 @@
             <div class="timeline-dot green"></div>
             <div class="timeline-content">
               <div class="timeline-title">USCE Strategy Review</div>
-              <div class="timeline-meta">Jun 22, 2026 · 42 min · Webex</div>
+              <div class="timeline-meta">Jun 22, 2026 Â· 42 min Â· Webex</div>
               <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Discussed rotation applications to Mount Sinai and Montefiore. Identified networking contacts.</div>
             </div>
           </div>
@@ -640,7 +778,7 @@
             <div class="timeline-dot cyan"></div>
             <div class="timeline-content">
               <div class="timeline-title">Personal Statement Workshop</div>
-              <div class="timeline-meta">Jun 15, 2026 · 55 min · Webex</div>
+              <div class="timeline-meta">Jun 15, 2026 Â· 55 min Â· Webex</div>
               <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Reviewed first draft. Story lacks personal motivation hook. Assigned rewrite with specific framework.</div>
             </div>
           </div>
@@ -648,7 +786,7 @@
             <div class="timeline-dot gold"></div>
             <div class="timeline-content">
               <div class="timeline-title">Initial Assessment</div>
-              <div class="timeline-meta">Jun 1, 2026 · 60 min · Webex</div>
+              <div class="timeline-meta">Jun 1, 2026 Â· 60 min Â· Webex</div>
               <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Onboarding call. Assessed current status, set goals, created timeline.</div>
             </div>
           </div>
@@ -683,7 +821,7 @@
               <span style="color:var(--cyan)">&#128196;</span>
               <div>
                 <div style="font-size:12px;font-weight:500">Personal_Statement_v2.docx</div>
-                <div style="font-size:10px;color:var(--text-dim)">Jun 21, 2026 · 2.1 MB</div>
+                <div style="font-size:10px;color:var(--text-dim)">Jun 21, 2026 Â· 2.1 MB</div>
               </div>
             </div>
             <span class="badge badge-orange">Under Review</span>
@@ -693,7 +831,7 @@
               <span style="color:var(--cyan)">&#128196;</span>
               <div>
                 <div style="font-size:12px;font-weight:500">CV_Amara_Okafor_2026.pdf</div>
-                <div style="font-size:10px;color:var(--text-dim)">Jun 10, 2026 · 420 KB</div>
+                <div style="font-size:10px;color:var(--text-dim)">Jun 10, 2026 Â· 420 KB</div>
               </div>
             </div>
             <span class="badge badge-green">Reviewed</span>
@@ -703,7 +841,7 @@
               <span style="color:var(--cyan)">&#128196;</span>
               <div>
                 <div style="font-size:12px;font-weight:500">USCE_Rotation_Log.xlsx</div>
-                <div style="font-size:10px;color:var(--text-dim)">Jun 5, 2026 · 85 KB</div>
+                <div style="font-size:10px;color:var(--text-dim)">Jun 5, 2026 Â· 85 KB</div>
               </div>
             </div>
             <span class="badge badge-green">Reviewed</span>
@@ -733,7 +871,7 @@
             <div class="flex-between"><span style="font-size:12px">Challenge Overcome</span><span style="font-size:12px;color:var(--red)">20%</span></div>
             <div class="progress-bar mt-sm"><div class="progress-fill red" style="width:20%"></div></div>
           </div>
-          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">Overall StoryForge readiness: 60% — Needs 2 more sessions</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">Overall StoryForge readiness: 60% â Needs 2 more sessions</div>
         </div>
       </div>
 
@@ -756,14 +894,14 @@
         <div class="card-header">
           <div>
             <div class="card-title">Webex Recording</div>
-            <div class="card-subtitle">Amara Okafor — USCE Strategy Review</div>
+            <div class="card-subtitle">Amara Okafor â USCE Strategy Review</div>
           </div>
           <span class="badge badge-green">Processed</span>
         </div>
         <div style="background:var(--navy-deep);border-radius:var(--radius);padding:20px;text-align:center;border:1px solid var(--border)">
           <div style="font-size:48px;color:var(--cyan);margin-bottom:12px">&#9654;</div>
           <div style="font-size:14px;font-weight:600">USCE Strategy Review</div>
-          <div style="font-size:12px;color:var(--text-dim);margin-top:4px">June 22, 2026 · 10:00 AM · 42 minutes</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-top:4px">June 22, 2026 Â· 10:00 AM Â· 42 minutes</div>
           <div class="flex-row" style="justify-content:center;margin-top:12px;gap:12px">
             <span class="badge badge-cyan">Webex Cloud</span>
             <span class="badge badge-gold">Auto-Transcribed</span>
@@ -794,7 +932,7 @@
           </div>
           <div style="margin-bottom:12px">
             <span style="font-weight:600;color:var(--gold)">Brian [00:42]:</span>
-            <span style="color:var(--text-muted)"> That response rate is actually typical. Let me share something — the students who match well don't just email blindly. They network through specific channels. Let's look at your target list...</span>
+            <span style="color:var(--text-muted)"> That response rate is actually typical. Let me share something â the students who match well don't just email blindly. They network through specific channels. Let's look at your target list...</span>
           </div>
           <div style="margin-bottom:12px">
             <span style="font-weight:600;color:var(--cyan)">Amara [02:10]:</span>
@@ -806,17 +944,17 @@
           </div>
           <div style="margin-bottom:12px">
             <span style="font-weight:600;color:var(--cyan)">Amara [05:20]:</span>
-            <span style="color:var(--text-muted)"> That would be amazing. Also, I wanted to mention — my father hasn't been well lately, so I might need some flexibility with deadlines if things get complicated.</span>
+            <span style="color:var(--text-muted)"> That would be amazing. Also, I wanted to mention â my father hasn't been well lately, so I might need some flexibility with deadlines if things get complicated.</span>
           </div>
           <div style="margin-bottom:12px;padding:8px;border-radius:6px;background:var(--red-dim);border-left:3px solid var(--red)">
-            <span class="private-marker" style="margin-bottom:4px">AI FLAG — SENSITIVE</span>
+            <span class="private-marker" style="margin-bottom:4px">AI FLAG â SENSITIVE</span>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Student disclosed family health concern. Flagged for mentor memory. Handle with care in future sessions.</div>
           </div>
           <div style="margin-bottom:12px">
             <span style="font-weight:600;color:var(--gold)">Brian [05:50]:</span>
             <span style="color:var(--text-muted)"> Of course, Amara. Family comes first. We'll build flexibility into your timeline. Let's make sure the most critical items have buffer...</span>
           </div>
-          <div style="color:var(--text-dim);font-style:italic;font-size:12px;text-align:center;padding:12px 0;border-top:1px solid var(--border);margin-top:8px">[Transcript continues — 36 minutes remaining]</div>
+          <div style="color:var(--text-dim);font-style:italic;font-size:12px;text-align:center;padding:12px 0;border-top:1px solid var(--border);margin-top:8px">[Transcript continues â 36 minutes remaining]</div>
         </div>
       </div>
     </div>
@@ -833,7 +971,7 @@
         <div style="font-size:13px;color:var(--text-muted);line-height:1.6">
           <p>42-minute advising session focused on USCE rotation strategy. Student expressed frustration with low email response rates. Mentor provided networking strategies and offered to make introductions at Mount Sinai IM program.</p>
           <p style="margin-top:8px">Key pivot: Student disclosed father's health concerns, which may impact timeline adherence. Mentor appropriately offered flexibility and adjusted deadlines.</p>
-          <p style="margin-top:8px">Session productive overall — clear action items established with realistic timelines.</p>
+          <p style="margin-top:8px">Session productive overall â clear action items established with realistic timelines.</p>
         </div>
       </div>
 
@@ -893,7 +1031,7 @@
         </div>
         <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
           <p>Amara is more anxious than she lets on. The father's health situation is clearly weighing on her. Need to monitor for signs of burnout or withdrawal.</p>
-          <p style="margin-top:8px">Her personal statement draft was weak — she knows it but is emotionally attached to the current version. Use the framework approach to guide revision without being dismissive.</p>
+          <p style="margin-top:8px">Her personal statement draft was weak â she knows it but is emotionally attached to the current version. Use the framework approach to guide revision without being dismissive.</p>
           <p style="margin-top:8px">She's a strong candidate on paper. The main risk is timeline execution, not capability. Keep her momentum with small wins.</p>
         </div>
       </div>
@@ -955,10 +1093,10 @@
       <div style="font-size:13px;color:var(--text-muted);line-height:1.7;padding:4px 0">
         <strong style="color:var(--white)">What I need to remember before this call:</strong>
         <ul style="margin:8px 0 0 18px;display:flex;flex-direction:column;gap:6px">
-          <li>Her father is dealing with health issues — she mentioned this last session. <strong style="color:var(--orange)">Do not bring it up directly.</strong> Let her lead if she wants to discuss.</li>
-          <li>I promised to send the Mount Sinai IM coordinator introduction. <strong style="color:var(--red)">This is still pending — do it before the call.</strong></li>
+          <li>Her father is dealing with health issues â she mentioned this last session. <strong style="color:var(--orange)">Do not bring it up directly.</strong> Let her lead if she wants to discuss.</li>
+          <li>I promised to send the Mount Sinai IM coordinator introduction. <strong style="color:var(--red)">This is still pending â do it before the call.</strong></li>
           <li>Her personal statement needs a complete rewrite. She's sensitive about it. Use the framework approach, not direct criticism.</li>
-          <li>She prefers morning calls but agreed to afternoon today. Keep it efficient — she has clinical duties after.</li>
+          <li>She prefers morning calls but agreed to afternoon today. Keep it efficient â she has clinical duties after.</li>
         </ul>
       </div>
     </div>
@@ -974,7 +1112,7 @@
           <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--text-muted)">
             <div><strong style="color:var(--white)">Hometown:</strong> Lagos, Nigeria</div>
             <div><strong style="color:var(--white)">Current Location:</strong> Brooklyn, NY (staying with cousin)</div>
-            <div><strong style="color:var(--white)">Timezone:</strong> EST — prefers morning calls</div>
+            <div><strong style="color:var(--white)">Timezone:</strong> EST â prefers morning calls</div>
             <div><strong style="color:var(--white)">Communication Style:</strong> Polite, reserved initially. Opens up after rapport building. Responds well to structured guidance over open-ended advice.</div>
             <div><strong style="color:var(--white)">Motivator:</strong> Making her family proud. First doctor in her family.</div>
           </div>
@@ -1000,15 +1138,15 @@
           </div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--red-dim)">
-              <div style="font-size:12px"><strong>Send Mount Sinai IM coordinator intro</strong> — promised Jun 22</div>
+              <div style="font-size:12px"><strong>Send Mount Sinai IM coordinator intro</strong> â promised Jun 22</div>
               <span class="badge badge-red">PENDING</span>
             </div>
             <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--green-dim)">
-              <div style="font-size:12px"><strong>Share PS framework examples</strong> — promised Jun 15</div>
+              <div style="font-size:12px"><strong>Share PS framework examples</strong> â promised Jun 15</div>
               <span class="badge badge-green">DONE</span>
             </div>
             <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--green-dim)">
-              <div style="font-size:12px"><strong>Review her CV</strong> — promised Jun 8</div>
+              <div style="font-size:12px"><strong>Review her CV</strong> â promised Jun 8</div>
               <span class="badge badge-green">DONE</span>
             </div>
           </div>
@@ -1025,7 +1163,7 @@
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--text-muted)">
             <div style="padding:8px 10px;background:var(--cyan-dim);border-radius:6px;border-left:3px solid var(--cyan)">Focus networking efforts on warm introductions rather than cold emails. Use LinkedIn alumni connections.</div>
-            <div style="padding:8px 10px;background:var(--gold-dim);border-radius:6px;border-left:3px solid var(--gold)">Rewrite personal statement using the "Why → What → So What" framework. Start with the rural clinic experience.</div>
+            <div style="padding:8px 10px;background:var(--gold-dim);border-radius:6px;border-left:3px solid var(--gold)">Rewrite personal statement using the "Why â What â So What" framework. Start with the rural clinic experience.</div>
             <div style="padding:8px 10px;background:var(--green-dim);border-radius:6px;border-left:3px solid var(--green)">Begin LOR requests early. Draft request emails for 3 attendings and have me review before sending.</div>
           </div>
         </div>
@@ -1038,7 +1176,7 @@
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--text-muted)">
             <div style="padding:8px 10px;background:var(--red-dim);border-radius:6px">
-              <strong style="color:var(--red)">Father's Health:</strong> She mentioned this briefly at the end of the last call. Clearly emotional about it. Let her bring it up — don't probe.
+              <strong style="color:var(--red)">Father's Health:</strong> She mentioned this briefly at the end of the last call. Clearly emotional about it. Let her bring it up â don't probe.
             </div>
             <div style="padding:8px 10px;background:var(--orange-dim);border-radius:6px">
               <strong style="color:var(--orange)">Financial Pressure:</strong> She's sensitive about costs. When recommending resources, prioritize free options. Don't suggest paid services without checking first.
@@ -1062,7 +1200,7 @@
               <li>Confirm you sent the Mount Sinai introduction. <span style="color:var(--red)">(Send it before the call!)</span></li>
               <li>Review personal statement progress. Use the framework to guide revision, not criticism.</li>
               <li>Set micro-deadlines: PS opening by Jun 25, full draft by Jun 30.</li>
-              <li>Discuss LOR strategy — help her identify which attendings to approach.</li>
+              <li>Discuss LOR strategy â help her identify which attendings to approach.</li>
               <li>End with positive reinforcement: her Step 2 CK score is strong, and her clinical experience is building.</li>
             </ol>
           </div>
@@ -1094,24 +1232,24 @@
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="card" style="border-color:rgba(0,212,255,0.25)">
         <div class="card-header">
-          <div class="card-title">Student Quick Reference</div>
-          <span class="badge badge-orange">Medium Risk</span>
+          <div class="card-title">Student Quick Reference: <span id="session-student-name">Amara Okafor</span></div>
+          <span class="badge badge-orange" id="session-risk">Medium Risk</span>
         </div>
         <div class="grid-3 gap-md">
           <div>
             <div class="stat-label">Step 2 CK</div>
-            <div class="stat-value" style="font-size:22px;color:var(--cyan)">241</div>
+            <div class="stat-value" id="session-step2" style="font-size:22px;color:var(--cyan)">241</div>
           </div>
           <div>
-            <div class="stat-label">USCE</div>
-            <div class="stat-value" style="font-size:22px;color:var(--gold)">2/4</div>
+            <div class="stat-label">Program</div>
+            <div class="stat-value" id="session-program" style="font-size:18px;color:var(--gold)">USCE Navigator</div>
           </div>
           <div>
-            <div class="stat-label">Story</div>
-            <div class="stat-value" style="font-size:22px;color:var(--orange)">60%</div>
+            <div class="stat-label">Readiness</div>
+            <div class="stat-value" id="session-readiness" style="font-size:22px;color:var(--orange)">60%</div>
           </div>
         </div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:12px">Current focus: secure 2 more USCE rotations, rewrite personal statement, begin LOR requests.</div>
+        <div id="session-current-focus" style="font-size:12px;color:var(--text-muted);margin-top:12px">Current focus: secure 2 more USCE rotations, rewrite personal statement, begin LOR requests.</div>
       </div>
 
       <div class="card" style="border-color:rgba(231,76,60,0.2)">
@@ -1119,7 +1257,7 @@
           <div class="card-title" style="color:var(--orange)">Sensitive Context</div>
           <span class="private-marker">HANDLE WITH CARE</span>
         </div>
-        <div style="font-size:13px;color:var(--text-muted);line-height:1.7">Father's health concerns may be affecting focus. Let Amara lead if she wants to discuss it. Keep feedback structured and constructive.</div>
+        <div id="session-sensitive-context" style="font-size:13px;color:var(--text-muted);line-height:1.7">Father's health concerns may be affecting focus. Let Amara lead if she wants to discuss it. Keep feedback structured and constructive.</div>
       </div>
 
       <div class="card">
@@ -1127,7 +1265,7 @@
           <div class="card-title">Follow-through Check</div>
           <span class="badge badge-red">1 Pending Promise</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px">
+        <div id="session-follow-through" style="display:flex;flex-direction:column;gap:8px">
           <div style="padding:8px 10px;border-radius:6px;background:var(--red-dim);border-left:3px solid var(--red);font-size:12px"><strong>Brian:</strong> Mount Sinai coordinator introduction still pending</div>
           <div style="padding:8px 10px;border-radius:6px;background:var(--cyan-dim);border-left:3px solid var(--cyan);font-size:12px"><strong>Amara:</strong> Personal statement rewrite progress needs review</div>
         </div>
@@ -1248,7 +1386,7 @@
 <div class="screen" id="screen-studentview" data-testid="screen-studentview">
 
   <div class="student-view-banner">
-    <span>STUDENT VIEW PREVIEW — This is what the student sees. Private mentor notes, internal AI analysis, and memory data are hidden.</span>
+    <span>STUDENT VIEW PREVIEW â This is what the student sees. Private mentor notes, internal AI analysis, and memory data are hidden.</span>
     <button class="topbar-btn" style="padding:5px 12px;font-size:11px;border-color:rgba(165,94,234,0.3);color:var(--violet);background:rgba(165,94,234,0.1)" onclick="switchScreen('profile')">Switch to Admin View</button>
   </div>
 
@@ -1258,7 +1396,7 @@
       <div class="avatar" style="width:48px;height:48px;font-size:18px;background:linear-gradient(135deg,var(--violet),var(--cyan))">AO</div>
       <div>
         <div style="font-size:16px;font-weight:700">Welcome back, Amara</div>
-        <div style="font-size:12px;color:var(--text-dim)">USCE Navigator · Spring 2026 Cohort</div>
+        <div style="font-size:12px;color:var(--text-dim)">USCE Navigator Â· Spring 2026 Cohort</div>
       </div>
     </div>
   </div>
@@ -1305,29 +1443,29 @@
           <div class="timeline-item">
             <div class="timeline-dot red"></div>
             <div class="timeline-content">
-              <div class="timeline-title">LinkedIn Research — Montefiore</div>
-              <div class="timeline-meta">Jun 25, 2026 — 3 days away</div>
+              <div class="timeline-title">LinkedIn Research â Montefiore</div>
+              <div class="timeline-meta">Jun 25, 2026 â 3 days away</div>
             </div>
           </div>
           <div class="timeline-item">
             <div class="timeline-dot gold"></div>
             <div class="timeline-content">
               <div class="timeline-title">LOR Request Emails Draft</div>
-              <div class="timeline-meta">Jun 28, 2026 — 6 days away</div>
+              <div class="timeline-meta">Jun 28, 2026 â 6 days away</div>
             </div>
           </div>
           <div class="timeline-item">
             <div class="timeline-dot cyan"></div>
             <div class="timeline-content">
               <div class="timeline-title">Personal Statement Final Draft</div>
-              <div class="timeline-meta">Jun 30, 2026 — 8 days away</div>
+              <div class="timeline-meta">Jun 30, 2026 â 8 days away</div>
             </div>
           </div>
           <div class="timeline-item">
             <div class="timeline-dot green"></div>
             <div class="timeline-content">
               <div class="timeline-title">ERAS Application Opens</div>
-              <div class="timeline-meta">Jul 6, 2026 — 14 days away</div>
+              <div class="timeline-meta">Jul 6, 2026 â 14 days away</div>
             </div>
           </div>
         </div>
@@ -1382,7 +1520,7 @@
               <span style="font-size:13px;font-weight:500">Personal Statement Workshop</span>
               <span style="font-size:11px;color:var(--text-dim)">Jun 15</span>
             </div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Reviewed first draft of personal statement. Discussed narrative structure using "Why → What → So What" framework. Action: rewrite opening with focus on defining clinical experience.</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Reviewed first draft of personal statement. Discussed narrative structure using "Why â What â So What" framework. Action: rewrite opening with focus on defining clinical experience.</div>
           </div>
         </div>
       </div>
@@ -1469,7 +1607,7 @@
 <div class="saved-toast" id="saved-toast" data-testid="saved-toast">Saved.</div>
 
   <script src="./src/mmc-data-adapters.js?v=010"></script>
-  <script src="./src/mmc-ownership-layer.js?v=012"></script>
-  <script src="./src/app.js?v=012"></script>
+<script src="./src/mmc-ownership-layer.js?v=100"></script>
+<script src="./src/app.js?v=100"></script>
 </body>
 </html>
