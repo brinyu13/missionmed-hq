@@ -190,6 +190,12 @@ export function createMissionAccountsServer({
         failureCode: object.last_payment_error?.code || null,
         failureMessage: object.last_payment_error?.message || null,
       });
+    } else if (result.status === 'received') {
+      effect = await store.markProviderEventUnhandled({
+        provider: 'stripe',
+        eventId: event.id,
+        reason: `No MissionAccounts transition is registered for ${event.type}`,
+      });
     }
     return json(response, 200, { received: true, duplicate: result.duplicate === true || effect?.duplicate === true });
   }

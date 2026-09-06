@@ -44,18 +44,22 @@ test('Stripe webhook verifies the untouched body and stores a retry only once', 
   const timestamp = Math.floor(Date.now() / 1000);
   const body = '{\n  "id": "evt_1", "type": "customer.updated", "data": {"object": {"id": "cus_1"}}\n}';
   const headers = { 'content-type': 'application/json', 'stripe-signature': stripeSignature(body, secret, timestamp) };
+  const store = new PreviewStore();
   await withServer({
     config: webhookConfig,
-    store: new PreviewStore(),
+    store,
     stripeGateway: new StripeGateway({ webhookSecret: secret }),
   }, async base => {
     const first = await fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers, body });
     assert.equal(first.status, 200);
     assert.deepEqual(await first.json(), { received: true, duplicate: false });
+    assert.equal(store.providerEvents.get('stripe:evt_1').state, 'ignored');
+    assert.equal(store.integrationExceptions.get('stripe:evt_1:unhandled').kind, 'unhandled_webhook_event');
 
     const retry = await fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers, body });
     assert.equal(retry.status, 200);
     assert.deepEqual(await retry.json(), { received: true, duplicate: true });
+    assert.equal(store.integrationExceptions.size, 1);
   });
 });
 

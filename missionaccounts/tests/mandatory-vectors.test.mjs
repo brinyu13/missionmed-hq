@@ -361,6 +361,18 @@ test('every pending charge requires a validated student receipt email', async ()
   assert.match(receiptSql, /revoke execute[^]*from public, anon, authenticated/);
 });
 
+test('unhandled signed provider events become private idempotent exceptions', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906113240_record_unhandled_provider_events.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create function missionaccounts\.api_mark_provider_event_unhandled/);
+  assert.match(sql, /state = 'ignored'/);
+  assert.match(sql, /'unhandled_webhook_event'/);
+  assert.match(sql, /'provider_event\.unhandled'/);
+  assert.match(sql, /on conflict \(idempotency_key\) do nothing/);
+  assert.match(sql, /security invoker/);
+  assert.match(sql, /grant execute[^]*to service_role/);
+  assert.doesNotMatch(sql, /grant execute[^]*to authenticated/);
+});
+
 test('Zoom ingestion port preserves provider evidence without creating identity, attendance, or billing decisions', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906100746_zoom_ingestion_port.sql', import.meta.url), 'utf8');
   assert.match(sql, /create function missionaccounts\.api_ingest_zoom_batch/);

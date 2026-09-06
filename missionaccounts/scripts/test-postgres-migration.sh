@@ -1017,4 +1017,32 @@ if [[ "$attendance_issue_review_forbidden_status" -eq 0 ]] || [[ "$attendance_is
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody and admin review, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+unhandled_provider_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.provider_event_inbox(
+  provider, provider_event_id, provider_object_id, event_type, payload, signature_verified, state
+) values (
+  'stripe','evt_unhandled_integration','cus_unhandled_integration','customer.updated',
+  jsonb_build_object('id','evt_unhandled_integration','type','customer.updated'),true,'received'
+);
+set role service_role;
+select missionaccounts.api_mark_provider_event_unhandled(
+  'stripe','evt_unhandled_integration','No MissionAccounts transition is registered for customer.updated'
+)->>'duplicate';
+select missionaccounts.api_mark_provider_event_unhandled(
+  'stripe','evt_unhandled_integration','No MissionAccounts transition is registered for customer.updated'
+)->>'duplicate';
+reset role;
+select
+  (select state from missionaccounts.provider_event_inbox where provider_event_id='evt_unhandled_integration') || '|' ||
+  (select count(*) from missionaccounts.integration_exception where kind='unhandled_webhook_event' and idempotency_key='stripe:evt_unhandled_integration:unhandled') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='provider_event.unhandled' and request_id='stripe:evt_unhandled_integration:unhandled');
+SQL
+)
+
+if [[ "$unhandled_provider_results" != $'false\ntrue\nignored|1|1' ]]; then
+  echo "MissionAccounts unhandled-provider-event verification returned unexpected controls:" >&2
+  echo "$unhandled_provider_results" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, account linkage/default comp, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody and admin review, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, unhandled-provider exception custody, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"

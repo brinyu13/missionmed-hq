@@ -489,6 +489,14 @@ export class SupabaseRestStore {
     return { status: existing[0]?.state || 'duplicate', duplicate: true };
   }
 
+  async markProviderEventUnhandled({ provider, eventId, reason }) {
+    return this.rpc('api_mark_provider_event_unhandled', {
+      p_provider: provider,
+      p_provider_event_id: eventId,
+      p_reason: reason,
+    });
+  }
+
   async adminHealth() {
     const [students, inbox, outbox, exceptions, syncs] = await Promise.all([
       this.request('student?select=id&identity_state=eq.needs_review'),
@@ -1799,6 +1807,25 @@ export class PreviewStore {
     if (existing) return { status: existing.state, duplicate: true };
     this.providerEvents.set(key, { providerObjectId, eventType, payload, signatureVerified, state: 'received' });
     return { status: 'received', duplicate: false };
+  }
+  async markProviderEventUnhandled({ provider, eventId, reason }) {
+    const key = `${provider}:${eventId}`;
+    const event = this.providerEvents.get(key);
+    if (!event) throw Object.assign(new Error('Provider event not found'), { status: 404 });
+    const exceptionKey = `${provider}:${eventId}:unhandled`;
+    if (event.state === 'ignored') return { accepted: true, duplicate: true, state: 'ignored' };
+    if (event.state !== 'received') return { accepted: false, duplicate: true, state: event.state };
+    event.state = 'ignored';
+    event.processed_at = new Date().toISOString();
+    this.integrationExceptions.set(exceptionKey, {
+      id: `preview-integration-exception-${this.integrationExceptions.size + 1}`,
+      provider,
+      kind: 'unhandled_webhook_event',
+      state: 'open',
+      details: { provider_event_id: eventId, event_type: event.eventType, provider_object_id: event.providerObjectId, reason },
+      idempotency_key: exceptionKey,
+    });
+    return { accepted: true, duplicate: false, state: 'ignored', exception_key: exceptionKey };
   }
   previewStudent() {
     const { matrix_user_ref: _matrixUserRef, ...student } = this.previewStudentRecord;
