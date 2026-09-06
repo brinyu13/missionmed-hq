@@ -156,4 +156,66 @@ if [[ "$correction_results" != "$correction_expected" ]]; then
   exit 1
 fi
 
-echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, and comp transactions: PASS"
+consent_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select missionaccounts.api_set_billing_consent(
+  '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms',
+  'wp:4242','student','pg-consent-0001'
+)->>'reason';
+reset role;
+insert into missionaccounts.billing_terms(version, summary, body_sha256, status, approved_by, approved_at)
+values ('integration-v1', 'Disposable integration-test terms', repeat('c', 64), 'approved', 'wp:founder', now());
+set role service_role;
+select missionaccounts.api_set_billing_consent(
+  '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms',
+  'wp:4242','student','pg-consent-0002'
+)->>'reason';
+reset role;
+insert into missionaccounts.payment_method_private(
+  student_id, provider, provider_customer_ref, provider_pm_ref, brand, last4, exp_month, exp_year, status, verified_at
+) values (
+  '$student_id','stripe','cus_test_integration','pm_test_integration','visa','4242',12,2030,'on_file',now()
+);
+set role service_role;
+select missionaccounts.api_set_billing_consent(
+  '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms',
+  'wp:4242','student','pg-consent-0003'
+)->>'accepted';
+select missionaccounts.api_set_billing_consent(
+  '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms',
+  'wp:4242','student','pg-consent-0003'
+)->>'duplicate';
+select missionaccounts.api_set_billing_consent(
+  '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms again',
+  'wp:4242','student','pg-consent-0004'
+)->>'reason';
+select missionaccounts.api_set_billing_consent(
+  '$student_id','revoke',null,null,'Student revoked automatic billing',
+  'wp:4242','student','pg-consent-0005'
+)->>'accepted';
+select missionaccounts.api_set_billing_consent(
+  '$student_id','revoke',null,null,'Student revoked automatic billing',
+  'wp:4242','student','pg-consent-0005'
+)->>'duplicate';
+select missionaccounts.api_set_billing_consent(
+  '$student_id','revoke',null,null,'Student revoked automatic billing again',
+  'wp:4242','student','pg-consent-0006'
+)->>'reason';
+reset role;
+select count(*) || '|' ||
+  (select state from missionaccounts.billing_consent where student_id = '$student_id' and superseded_by_id is null) || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind = 'billing_consent.changed') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind = 'billing_consent.rejected') || '|' ||
+  (select count(*) from missionaccounts.notification_outbox where event_kind like 'billing_consent.%')
+from missionaccounts.billing_consent where student_id = '$student_id';
+SQL
+)
+
+consent_expected=$'approved_billing_terms_required\npayment_method_required\ntrue\ntrue\nauthorization_already_active\ntrue\ntrue\nactive_authorization_not_found\n2|revoked|2|4|2'
+if [[ "$consent_results" != "$consent_expected" ]]; then
+  echo "MissionAccounts billing-consent verification returned unexpected controls:" >&2
+  echo "$consent_results" >&2
+  exit 1
+fi
+
+echo "MissionAccounts PostgreSQL migration, billing authority, corrections, exam decisions, comp transactions, and billing consent: PASS"

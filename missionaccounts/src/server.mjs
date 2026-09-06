@@ -134,12 +134,14 @@ export function createMissionAccountsServer({
     }
     if (request.method === 'GET' && url.pathname === '/api/me') {
       const student = await studentContext(identity);
-      const [attendance, billing, payment_method] = await Promise.all([
+      const [attendance, billing, payment_method, billing_consent, billing_terms] = await Promise.all([
         store.attendanceForStudent(student.id, url.searchParams.get('cycle')),
         store.billingForStudent(student.id),
         store.paymentMethodForStudent(student.id),
+        store.billingConsentForStudent(student.id),
+        store.currentBillingTerms(),
       ]);
-      return json(response, 200, { student, attendance, billing, payment_method });
+      return json(response, 200, { student, attendance, billing, payment_method, billing_consent, billing_terms });
     }
     if (request.method === 'POST' && url.pathname === '/api/me/exam-plan') {
       requireRole(identity, ['student']);
@@ -158,6 +160,34 @@ export function createMissionAccountsServer({
         requestId: requestIdFor(request),
       });
       return json(response, result.duplicate ? 200 : 201, result);
+    }
+    if (['POST', 'DELETE'].includes(request.method) && url.pathname === '/api/me/consent') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'autoBilling');
+      const student = await studentContext(identity);
+      const rawBody = await readRawBody(request, { limitBytes: 16_384 });
+      const body = rawBody.length ? parseJsonBody(rawBody) : {};
+      const action = request.method === 'POST' ? 'authorize' : 'revoke';
+      const termsVersion = action === 'authorize' ? String(body.terms_version || '').trim() : null;
+      const reason = String(body.reason || (action === 'authorize'
+        ? 'Student accepted automatic Drills billing terms'
+        : 'Student revoked automatic Drills billing authorization')).trim();
+      if (action === 'authorize' && !/^[A-Za-z0-9._:-]{1,100}$/.test(termsVersion)) {
+        throw requestError('An approved billing terms_version is required');
+      }
+      if (!reason || reason.length > 2_000) throw requestError('Billing consent reason is invalid');
+      const result = await store.setBillingConsent({
+        studentId: student.id,
+        action,
+        termsVersion,
+        acceptedIp: request.socket.remoteAddress || null,
+        reason,
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId: requestIdFor(request),
+      });
+      const status = result.accepted === false ? 409 : result.duplicate ? 200 : action === 'authorize' ? 201 : 200;
+      return json(response, status, result);
     }
     const compRoute = request.method === 'POST'
       ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/comp$/i)

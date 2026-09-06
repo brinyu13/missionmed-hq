@@ -375,14 +375,27 @@ with (security_invoker = true)
 as select id, student_id, provider, brand, last4, exp_month, exp_year, status, verified_at, updated_at
 from missionaccounts.payment_method_private;
 
+create table missionaccounts.billing_terms (
+  version text primary key,
+  summary text not null,
+  body_sha256 text not null check (body_sha256 ~ '^[0-9a-f]{64}$'),
+  status text not null check (status in ('draft','approved','retired')),
+  approved_by text,
+  approved_at timestamptz,
+  created_at timestamptz not null default now(),
+  check (status <> 'approved' or (approved_by is not null and approved_at is not null))
+);
+
 create table missionaccounts.billing_consent (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null references missionaccounts.student(id),
-  terms_version text not null,
+  terms_version text not null references missionaccounts.billing_terms(version),
   accepted_at timestamptz,
   accepted_ip inet,
   revoked_at timestamptz,
   state text not null check (state in ('none','authorized','revoked')),
+  actor_id text not null,
+  request_id text not null unique,
   superseded_by_id uuid references missionaccounts.billing_consent(id),
   created_at timestamptz not null default now()
 );
@@ -1294,6 +1307,163 @@ $$;
 revoke execute on function missionaccounts.api_append_attendance_correction(uuid, uuid, uuid, text, jsonb, jsonb, text, uuid, text, text, text) from public, anon, authenticated;
 grant execute on function missionaccounts.api_append_attendance_correction(uuid, uuid, uuid, text, jsonb, jsonb, text, uuid, text, text, text) to service_role;
 
+create function missionaccounts.api_set_billing_consent(
+  p_student_id uuid,
+  p_action text,
+  p_terms_version text,
+  p_accepted_ip inet,
+  p_reason text,
+  p_actor_id text,
+  p_actor_role text,
+  p_request_id text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  current_consent missionaccounts.billing_consent%rowtype;
+  existing_consent missionaccounts.billing_consent%rowtype;
+  new_consent missionaccounts.billing_consent%rowtype;
+  consent_id uuid := gen_random_uuid();
+  audit_id uuid;
+  rejection_reason text;
+  effective_terms_version text;
+  request_fingerprint jsonb;
+  existing_rejection jsonb;
+begin
+  if p_action is null or p_action not in ('authorize','revoke')
+     or nullif(btrim(p_actor_id), '') is null
+     or nullif(btrim(p_actor_role), '') is null
+     or nullif(btrim(p_request_id), '') is null then
+    raise exception using errcode = '22023', message = 'invalid_billing_consent_request';
+  end if;
+
+  request_fingerprint := jsonb_build_object(
+    'student_id', p_student_id,
+    'action', p_action,
+    'terms_version', p_terms_version,
+    'reason', p_reason,
+    'actor_id', p_actor_id
+  );
+
+  select * into existing_consent
+  from missionaccounts.billing_consent
+  where request_id = p_request_id;
+  if found then
+    if existing_consent.student_id <> p_student_id
+       or existing_consent.actor_id <> p_actor_id
+       or (p_action = 'authorize' and (existing_consent.state <> 'authorized' or existing_consent.terms_version is distinct from p_terms_version))
+       or (p_action = 'revoke' and existing_consent.state <> 'revoked') then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    select id into audit_id from missionaccounts.audit_event
+    where request_id = p_request_id and kind = 'billing_consent.changed';
+    return jsonb_build_object('accepted', true, 'consent', to_jsonb(existing_consent), 'audit_event_id', audit_id, 'duplicate', true);
+  end if;
+
+  select to_val into existing_rejection
+  from missionaccounts.audit_event
+  where request_id = p_request_id and kind = 'billing_consent.rejected';
+  if found then
+    if existing_rejection->'request' <> request_fingerprint then
+      raise exception using errcode = '23505', message = 'idempotency_key_reuse';
+    end if;
+    return jsonb_build_object(
+      'accepted', false,
+      'reason', existing_rejection->>'reason',
+      'audit_event_id', (select id from missionaccounts.audit_event where request_id = p_request_id and kind = 'billing_consent.rejected'),
+      'duplicate', true
+    );
+  end if;
+
+  perform 1 from missionaccounts.student where id = p_student_id for update;
+  if not found then raise exception using errcode = '23503', message = 'student_not_found'; end if;
+  select * into current_consent
+  from missionaccounts.billing_consent
+  where student_id = p_student_id and superseded_by_id is null
+  for update;
+
+  if p_action = 'authorize' then
+    effective_terms_version := nullif(btrim(p_terms_version), '');
+    if effective_terms_version is null or not exists (
+      select 1 from missionaccounts.billing_terms where version = effective_terms_version and status = 'approved'
+    ) then rejection_reason := 'approved_billing_terms_required';
+    elsif not exists (
+      select 1 from missionaccounts.payment_method_private
+      where student_id = p_student_id and status = 'on_file'
+    ) then rejection_reason := 'payment_method_required';
+    elsif current_consent.id is not null
+       and current_consent.state = 'authorized'
+       and current_consent.terms_version = effective_terms_version then
+      rejection_reason := 'authorization_already_active';
+    end if;
+  else
+    effective_terms_version := current_consent.terms_version;
+    if current_consent.id is null or current_consent.state <> 'authorized' then
+      rejection_reason := 'active_authorization_not_found';
+    end if;
+  end if;
+
+  if rejection_reason is not null then
+    insert into missionaccounts.audit_event(
+      actor_id, actor_role, subject_student_id, kind, text, to_val, reason, request_id
+    ) values (
+      p_actor_id, p_actor_role, p_student_id, 'billing_consent.rejected',
+      'Automatic billing consent change rejected by server authority',
+      jsonb_build_object('request', request_fingerprint, 'reason', rejection_reason),
+      rejection_reason, p_request_id
+    ) returning id into audit_id;
+    return jsonb_build_object('accepted', false, 'reason', rejection_reason, 'audit_event_id', audit_id, 'duplicate', false);
+  end if;
+
+  if current_consent.id is not null then
+    insert into missionaccounts.billing_consent(
+      id, student_id, terms_version, accepted_at, accepted_ip, revoked_at, state,
+      actor_id, request_id, superseded_by_id
+    ) values (
+      consent_id, p_student_id, effective_terms_version,
+      case when p_action = 'authorize' then now() else current_consent.accepted_at end,
+      case when p_action = 'authorize' then p_accepted_ip else current_consent.accepted_ip end,
+      case when p_action = 'revoke' then now() else null end,
+      case when p_action = 'authorize' then 'authorized' else 'revoked' end,
+      p_actor_id, p_request_id, current_consent.id
+    );
+    update missionaccounts.billing_consent set superseded_by_id = consent_id where id = current_consent.id;
+    update missionaccounts.billing_consent set superseded_by_id = null where id = consent_id returning * into new_consent;
+  else
+    insert into missionaccounts.billing_consent(
+      id, student_id, terms_version, accepted_at, accepted_ip, revoked_at, state, actor_id, request_id
+    ) values (
+      consent_id, p_student_id, effective_terms_version, now(), p_accepted_ip, null, 'authorized', p_actor_id, p_request_id
+    ) returning * into new_consent;
+  end if;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, from_val, to_val, reason, request_id
+  ) values (
+    p_actor_id, p_actor_role, p_student_id, 'billing_consent.changed',
+    case when p_action = 'authorize' then 'Automatic Drills billing authorized' else 'Automatic Drills billing revoked' end,
+    case when current_consent.id is null then null else to_jsonb(current_consent) end,
+    to_jsonb(new_consent), p_reason, p_request_id
+  ) returning id into audit_id;
+
+  insert into missionaccounts.notification_outbox(
+    student_id, channel, event_kind, payload, state, idempotency_key
+  ) values (
+    p_student_id, 'matrix', 'billing_consent.' || p_action,
+    jsonb_build_object('student_id', p_student_id, 'state', new_consent.state, 'terms_version', new_consent.terms_version),
+    'pending', p_request_id || ':billing-consent'
+  ) on conflict (idempotency_key) do nothing;
+
+  return jsonb_build_object('accepted', true, 'consent', to_jsonb(new_consent), 'audit_event_id', audit_id, 'duplicate', false);
+end;
+$$;
+
+revoke execute on function missionaccounts.api_set_billing_consent(uuid, text, text, inet, text, text, text, text) from public, anon, authenticated;
+grant execute on function missionaccounts.api_set_billing_consent(uuid, text, text, inet, text, text, text, text) to service_role;
+
 create table missionaccounts.sync_run (
   id uuid primary key default gen_random_uuid(),
   provider text not null check (provider = 'zoom'),
@@ -1397,7 +1567,7 @@ begin
     'attendance_day_event','historical_account_source','full_cycle_ceiling',
     'comp_allowance_change','comp_day_consumption','exam_plan','exam_transition',
     'grace_window','reminder','billing_decision','invoice','payment_method_private',
-    'billing_consent','charge','charge_attempt','notification_outbox','audit_event'
+    'billing_terms','billing_consent','charge','charge_attempt','notification_outbox','audit_event'
   ] loop
     execute format('alter table missionaccounts.%I enable row level security', table_name);
     execute format('alter table missionaccounts.%I force row level security', table_name);
@@ -1417,6 +1587,9 @@ grant select on missionaccounts.student,
   missionaccounts.charge
 to authenticated;
 
+grant select (version, summary, body_sha256, status)
+on missionaccounts.billing_terms to authenticated;
+
 grant select (id, student_id, brand, last4, exp_month, exp_year, status, verified_at, updated_at)
 on missionaccounts.payment_method_private to authenticated;
 
@@ -1426,6 +1599,10 @@ using (
   matrix_user_ref = (select auth.uid())::text
   or coalesce((select auth.jwt()) -> 'app_metadata' -> 'roles', '[]'::jsonb) ?| array['missionaccounts_admin','founder']
 );
+
+create policy billing_terms_select_approved on missionaccounts.billing_terms
+for select to authenticated
+using (status = 'approved');
 
 create policy attendance_event_select_self_or_admin on missionaccounts.attendance_event
 for select to authenticated
@@ -1463,7 +1640,7 @@ begin
   end loop;
 end $$;
 
-revoke all on missionaccounts.payment_method_private from anon, authenticated;
+revoke all on missionaccounts.payment_method_private from anon;
 revoke all on all tables in schema missionaccounts from anon;
 grant all on all tables in schema missionaccounts to service_role;
 grant usage, select on all sequences in schema missionaccounts to service_role;

@@ -190,6 +190,23 @@ test('attendance correction RPC preserves source rows and stales approved billin
   assert.doesNotMatch(sql, /delete from missionaccounts\.attendance_source_row/i);
 });
 
+test('billing consent is versioned, server-authoritative, separately revocable, and exposes no Stripe references', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table missionaccounts\.billing_terms/);
+  assert.match(sql, /create function missionaccounts\.api_set_billing_consent/);
+  assert.match(sql, /status = 'approved'/);
+  assert.match(sql, /payment_method_private[\s\S]+status = 'on_file'/);
+  assert.match(sql, /authorization_already_active/);
+  assert.match(sql, /active_authorization_not_found/);
+  assert.match(sql, /'billing_consent\.changed'/);
+  assert.match(sql, /'billing_consent\.rejected'/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_set_billing_consent[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_set_billing_consent[^;]+to authenticated/s);
+  assert.match(sql, /grant select \(version, summary, body_sha256, status\)[\s\S]+billing_terms to authenticated/);
+  assert.doesNotMatch(sql, /revoke all on missionaccounts\.payment_method_private from anon, authenticated/);
+  assert.doesNotMatch(sql, /insert into missionaccounts\.billing_terms/i);
+});
+
 test('charge eligibility rejects stale, free, zero-treatment, missing-method and missing-consent states', () => {
   const base = { day: { kind: 'billable' }, decision: { state: 'approved', stale: false, amount_cents: 2500 }, paymentMethod: { status: 'on_file' }, consent: { state: 'authorized' } };
   assert.equal(chargeEligibility(base).eligible, true);

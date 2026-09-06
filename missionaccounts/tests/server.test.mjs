@@ -123,6 +123,86 @@ test('student exam-plan submission stays unavailable while its feature flag is o
   });
 });
 
+test('student billing consent requires approved terms plus an on-file method and is idempotent', async () => {
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, autoBilling: true } };
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const headers = {
+    'content-type': 'application/json',
+    'x-missionaccounts-local-role': 'student',
+  };
+  const body = JSON.stringify({ terms_version: 'test-terms-v1' });
+  await withServer({ config: enabledConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const noTerms = await fetch(`${base}/api/me/consent`, {
+      method: 'POST', headers: { ...headers, 'idempotency-key': 'consent-request-0001' }, body,
+    });
+    assert.equal(noTerms.status, 409);
+    assert.equal((await noTerms.json()).reason, 'approved_billing_terms_required');
+
+    store.seedBillingTerms('test-terms-v1');
+    const noMethod = await fetch(`${base}/api/me/consent`, {
+      method: 'POST', headers: { ...headers, 'idempotency-key': 'consent-request-0002' }, body,
+    });
+    assert.equal(noMethod.status, 409);
+    assert.equal((await noMethod.json()).reason, 'payment_method_required');
+
+    store.seedPaymentMethod(studentId, { brand: 'visa', last4: '4242', status: 'on_file' });
+    const authorizeHeaders = { ...headers, 'idempotency-key': 'consent-request-0003' };
+    const authorized = await fetch(`${base}/api/me/consent`, { method: 'POST', headers: authorizeHeaders, body });
+    assert.equal(authorized.status, 201);
+    assert.equal((await authorized.json()).consent.state, 'authorized');
+
+    const retry = await fetch(`${base}/api/me/consent`, { method: 'POST', headers: authorizeHeaders, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).duplicate, true);
+
+    const duplicateAuthorization = await fetch(`${base}/api/me/consent`, {
+      method: 'POST', headers: { ...headers, 'idempotency-key': 'consent-request-0004' }, body,
+    });
+    assert.equal(duplicateAuthorization.status, 409);
+    assert.equal((await duplicateAuthorization.json()).reason, 'authorization_already_active');
+
+    const account = await fetch(`${base}/api/me`, { headers: { 'x-missionaccounts-local-role': 'student' } });
+    assert.equal(account.status, 200);
+    const accountPayload = await account.json();
+    assert.equal(accountPayload.payment_method.last4, '4242');
+    assert.equal(accountPayload.billing_terms.version, 'test-terms-v1');
+    assert.equal(accountPayload.billing_consent.state, 'authorized');
+    assert.equal(Object.hasOwn(accountPayload.payment_method, 'provider_pm_ref'), false);
+
+    const revokeHeaders = { ...headers, 'idempotency-key': 'consent-request-0005' };
+    const revoked = await fetch(`${base}/api/me/consent`, { method: 'DELETE', headers: revokeHeaders });
+    assert.equal(revoked.status, 200);
+    assert.equal((await revoked.json()).consent.state, 'revoked');
+
+    const revokeRetry = await fetch(`${base}/api/me/consent`, { method: 'DELETE', headers: revokeHeaders });
+    assert.equal(revokeRetry.status, 200);
+    assert.equal((await revokeRetry.json()).duplicate, true);
+  });
+});
+
+test('billing consent stays feature-off and administrator impersonation cannot accept it', async () => {
+  const body = JSON.stringify({ terms_version: 'test-terms-v1' });
+  await withServer({ config: localConfig, store: new PreviewStore(), stripeGateway: new StripeGateway() }, async base => {
+    const featureOff = await fetch(`${base}/api/me/consent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'student', 'idempotency-key': 'consent-request-0010' },
+      body,
+    });
+    assert.equal(featureOff.status, 503);
+  });
+
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, autoBilling: true } };
+  await withServer({ config: enabledConfig, store: new PreviewStore(), stripeGateway: new StripeGateway() }, async base => {
+    const admin = await fetch(`${base}/api/me/consent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin', 'idempotency-key': 'consent-request-0011' },
+      body,
+    });
+    assert.equal(admin.status, 403);
+  });
+});
+
 test('admin comp override requires authority, reason, feature flag, and an idempotency key', async () => {
   const enabledConfig = { ...localConfig, features: { ...localConfig.features, compDays: true } };
   const store = new PreviewStore();
