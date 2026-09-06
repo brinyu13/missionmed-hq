@@ -1,0 +1,15 @@
+**
+!Dockerfile
+!package.json
+!package-lock.json
+!server.mjs
+!src/
+!src/**
+!adapters/
+!adapters/**
+!tools/
+!tools/build-app.mjs
+!tools/prepare-runtime.mjs
+!tools/start-production.mjs
+!web/
+!web/**

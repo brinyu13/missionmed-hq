@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmedinstitute.com/contracts/rise/actn-context.v1.schema.json",
+  "title": "Role-filtered ACTN context for RISE",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "audience", "subject", "programSpecialtyId", "entries", "issuedAt", "expiresAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "audience": { "const": "rise" },
+    "subject": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "programSpecialtyId": { "type": "string", "pattern": "^rise_ps_[A-Za-z0-9._:-]+$" },
+    "entries": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["relationshipReferenceId", "visibility", "state", "evidenceIds"],
+        "properties": {
+          "relationshipReferenceId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$" },
+          "visibility": { "enum": ["student_visible", "mentor_only"] },
+          "state": { "enum": ["connection_available", "none_visible", "unknown"] },
+          "evidenceIds": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$" }
+          }
+        }
+      }
+    },
+    "issuedAt": { "type": "integer" },
+    "expiresAt": { "type": "integer" }
+  }
+}

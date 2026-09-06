@@ -1,0 +1,18 @@
+{
+  "auditReportVersion": 2,
+  "generatedAt": "2026-07-22T15:09:00Z",
+  "vulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "dependencies": {
+    "prod": 2,
+    "dev": 102,
+    "optional": 1,
+    "total": 103
+  }
+}

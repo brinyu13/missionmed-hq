@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "service": "missionmed-rise",
+  "serviceRoot": "/rise",
+  "configFilePath": "/rise/railway.json",
+  "dockerfilePath": "Dockerfile",
+  "expectedEntrypoint": [
+    "node",
+    "tools/start-production.mjs"
+  ],
+  "forbiddenEntrypoints": [
+    "node missionmed-hq/server.mjs"
+  ],
+  "healthcheckPath": "/api/rise/v1/health",
+  "requiredEnvironment": [
+    "NODE_ENV",
+    "RISE_ENVIRONMENT",
+    "RISE_AUTH_MODE",
+    "RISE_AUTH_ADAPTER_MODULE",
+    "RISE_AUTH_ISSUER",
+    "RISE_LOGIN_URL",
+    "RISE_HQ_AUTH_SESSION_URL",
+    "RISE_HQ_SESSION_COOKIE_NAME",
+    "RISE_SESSION_BINDING_HMAC_KEY",
+    "RISE_AUDIT_HMAC_KEY",
+    "RISE_ABUSE_ADAPTER_MODULE",
+    "RISE_ABUSE_CONTROL_URL",
+    "RISE_ABUSE_CONTROL_TOKEN",
+    "RISE_ARTIFACT_ORIGIN",
+    "RISE_ARTIFACT_BEARER_TOKEN",
+    "RISE_INDEX_URL",
+    "RISE_INDEX_PATH",
+    "RISE_INDEX_SHA256",
+    "RISE_INDEX_MANIFEST_URL",
+    "RISE_INDEX_MANIFEST_PATH",
+    "RISE_INDEX_MANIFEST_SHA256",
+    "RISE_ACTIVATION_RECEIPT_URL",
+    "RISE_ACTIVATION_RECEIPT_PATH",
+    "RISE_ACTIVATION_RECEIPT_SHA256",
+    "RISE_SOURCE_AUTHORIZATION_SHA256S",
+    "RISE_ASSET_MANIFEST_SHA256",
+    "RISE_BUILD_ID",
+    "RISE_PUBLIC_ORIGIN"
+  ],
+  "requiredValues": {
+    "NODE_ENV": "production",
+    "RISE_ENVIRONMENT": "production",
+    "RISE_AUTH_MODE": "injected",
+    "RISE_AUTH_ADAPTER_MODULE": "/app/adapters/hq-auth.mjs",
+    "RISE_ABUSE_ADAPTER_MODULE": "/app/adapters/http-abuse.mjs"
+  },
+  "runtimeArtifactPolicy": {
+    "registryIndexEmbeddedInImage": false,
+    "registryArtifactsFetchedFromOnePinnedOrigin": true,
+    "registryArtifactsRequireServerSideBearerAuthentication": true,
+    "syntheticRegistryProhibitedInProduction": true,
+    "registryIndexMustPassImmutableManifestVerification": true,
+    "activationReceiptMustBindIndexAndManifest": true,
+    "sourceAuthorizationHashesMustMatchRuntimePins": true,
+    "webAssetsMustPassManifestVerification": true
+  }
+}

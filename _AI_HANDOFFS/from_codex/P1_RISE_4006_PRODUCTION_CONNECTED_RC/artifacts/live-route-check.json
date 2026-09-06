@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-07-22T15:13:00Z",
+  "checks": [
+    {
+      "url": "https://missionmedinstitute.com/rise/?recheck=20260722T1513",
+      "httpStatus": 404,
+      "redirect": null
+    },
+    {
+      "url": "https://missionmed-hq-production.up.railway.app/rise",
+      "httpStatus": 404,
+      "redirect": null
+    },
+    {
+      "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/rise.html",
+      "httpStatus": 404,
+      "redirect": null
+    }
+  ],
+  "productionDeploymentObserved": false
+}
