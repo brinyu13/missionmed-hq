@@ -841,9 +841,11 @@ fv2_repo_assert( ! is_wp_error( $mission_share ) && 'missionmed' === $mission_sh
 $account_only_share = MMED_File_Vault_V2_Repository::publish_share( $student_share_document['id'], 12, 'student', array( 'title' => 'Student Resource', 'audience_mode' => 'selected', 'user_ids' => array( 14 ) ) );
 fv2_repo_assert( is_wp_error( $account_only_share ) && 'mmed_file_vault_v2_share_recipient' === $account_only_share->get_error_code(), 'student sharing rejects an account-only recipient' );
 $student_share = MMED_File_Vault_V2_Repository::publish_share( $student_share_document['id'], 12, 'student', array( 'title' => 'Student Resource', 'description' => 'Shared with one eligible peer.', 'audience_mode' => 'selected', 'user_ids' => array( 13 ) ) );
-fv2_repo_assert( ! is_wp_error( $student_share ) && 'student_shared' === $student_share['source_class'] && array( 901 ) === $student_share['audience_group_ids'], 'student-selected sharing stores the owner current enrollment scope for later revalidation' );
+fv2_repo_assert( ! is_wp_error( $student_share ) && 'student_shared' === $student_share['source_class'] && array( 901 ) === $student_share['audience_group_ids'] && true === $student_share['is_owner'], 'student-selected sharing stores the owner current enrollment scope and identifies the outbound owner projection' );
 
 $student_preview = MMED_File_Vault_V2_Repository::preview_share( $student_share['id'], 13, 'student' );
+$recipient_share = MMED_File_Vault_V2_Repository::get_share( $student_share['id'], 13, 'student' );
+fv2_repo_assert( ! is_wp_error( $recipient_share ) && false === $recipient_share['is_owner'] && false === $recipient_share['can_manage'], 'recipient projection distinguishes inbound sharing without exposing owner management controls' );
 $download_count_before_share = count( $GLOBALS['wpdb']->download_rows );
 $student_download = MMED_File_Vault_V2_Repository::download_share( $student_share['id'], 13, 'student' );
 fv2_repo_assert( ! is_wp_error( $student_preview ) && 600 === $student_preview['expires'] && 1 === $student_preview['version'], 'Quick Look issues a revision-pinned ten-minute preview URL' );

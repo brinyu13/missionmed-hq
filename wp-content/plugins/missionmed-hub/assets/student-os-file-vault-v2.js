@@ -1260,9 +1260,15 @@
 		var actions = canShare ? '<button type="button" class="fv2-button fv2-button-primary" data-fv2-action="open-share-upload" data-fv2-share-source="student_shared">' + icon("upload") + 'Share with students</button>' : "";
 		var loading = this.state.sharesLoading.student_shared && !rows.length ? this.stateMessageMarkup("loading", "Loading shared files", "Checking current enrollment access.", "") : "";
 		var error = this.state.sharesError.student_shared ? this.stateMessageMarkup("error", "Student shared files unavailable", this.state.sharesError.student_shared, '<button type="button" class="fv2-button fv2-button-primary" data-fv2-action="retry-shares" data-fv2-share-source="student_shared">' + icon("refresh") + "Retry</button>") : "";
-		var body = loading || error || (rows.length ? '<div class="fv2-library-list">' + rows.map(function (share) { return this.shareRowMarkup(share); }, this).join("") + "</div>" : this.stateMessageMarkup("empty", "No student files shared here yet", "Controlled sharing is limited to current enrolled peers and remains visible to MissionMed staff.", actions));
+		var outbound = rows.filter(function (share) { return share && share.is_owner === true; });
+		var inbound = rows.filter(function (share) { return !share || share.is_owner !== true; });
+		var section = function (label, title, items, emptyTitle, emptyCopy) {
+			var list = items.length ? '<div class="fv2-library-list">' + items.map(function (share) { return this.shareRowMarkup(share); }, this).join("") + "</div>" : this.stateMessageMarkup("empty", emptyTitle, emptyCopy, "");
+			return '<section class="fv2-section"><div class="fv2-section-heading"><div><span>' + label + '</span><h2>' + title + '</h2></div><strong>' + esc(items.length) + ' files</strong></div>' + list + '</section>';
+		}.bind(this);
+		var body = loading || error || (rows.length ? section("Sent from your Vault", "Shared by you", outbound, "Nothing shared by you yet", "Choose Share with someone else during upload when you want an enrolled peer to receive a file.") + section("Sent to your Vault", "Shared with you", inbound, "Nothing shared with you yet", "Files from eligible enrolled peers will appear here.") : this.stateMessageMarkup("empty", "No student files shared here yet", "Controlled sharing is limited to current enrolled peers and remains visible to MissionMed staff.", actions));
 		var loadMore = pagination.has_more ? '<div class="fv2-modal-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="load-more-shares" data-fv2-share-source="student_shared"' + (this.state.sharesLoading.student_shared ? " disabled" : "") + ">" + icon("refresh") + (this.state.sharesLoading.student_shared ? "Loading files" : "Load more files") + "</button></div>" : "";
-		return this.pageHeadingMarkup("Controlled student sharing", "Student Shared Files", "Files are visible only to the server-approved audience and can be disabled by MissionMed.", actions) + '<section class="fv2-section"><div class="fv2-section-heading"><div><span>Shared by enrolled students</span><h2>Current resources</h2></div><strong>' + esc(rows.length) + " files</strong></div>" + body + loadMore + "</section>";
+		return this.pageHeadingMarkup("Controlled student sharing", "Student Shared Files", "See what you sent and what eligible enrolled peers shared with you.", actions) + body + loadMore;
 	};
 
 	FileVaultV2.prototype.shareRowMarkup = function (share) {
@@ -1768,7 +1774,7 @@
 				this.navigate("files");
 				break;
 			case "upload-open-shares":
-				var completedShareSource = this.state.upload && this.state.upload.shareSource || "missionmed";
+				var completedShareSource = this.state.upload && (this.state.upload.shareSource || (this.state.upload.shareDestination === "peers" ? "student_shared" : "")) || "missionmed";
 				this.closeOverlay({ keepUpload: false });
 				this.navigate(completedShareSource === "student_shared" ? "shared" : "library");
 				break;
@@ -1780,8 +1786,9 @@
 			case "upload-another":
 				var previousUploadType = this.state.upload && this.state.upload.documentType || "";
 				var previousShareSource = this.state.upload && this.state.upload.shareSource || "";
+				var previousShareDestination = this.state.upload && this.state.upload.shareDestination || "";
 				this.closeOverlay({ keepUpload: false });
-				this.openUpload({ documentType: previousUploadType, shareSource: previousShareSource });
+				this.openUpload({ documentType: previousUploadType, shareSource: previousShareSource, shareDestination: previousShareDestination });
 				break;
 		}
 	};
@@ -1873,6 +1880,13 @@
 		}
 		if (target.matches("[data-fv2-upload-ready]") && this.state.upload) {
 			this.state.upload.readyForReview = target.checked;
+			return;
+		}
+		if (target.matches("[data-fv2-share-destination]") && this.state.upload) {
+			this.state.upload.shareDestination = target.value;
+			this.state.upload.readyForReview = target.value === "staff";
+			if (target.value === "peers" && !this.state.audiences && !this.state.audiencesLoading) this.loadAudiences();
+			this.renderOverlay({ focusKey: "share-destination-" + target.value });
 			return;
 		}
 		if (target.matches("[data-fv2-upload-final]") && this.state.upload) {
@@ -3251,8 +3265,9 @@
 			forcedVersion: !!documentItem,
 			replacementChoiceTouched: !!documentItem,
 			canonicalName: "",
-			note: "",
-			readyForReview: false,
+				note: "",
+				readyForReview: !this.roleIsStaff() && !shareSource,
+				shareDestination: !this.roleIsStaff() && !shareSource ? String(options.shareDestination || "staff") : "",
 			shareAsMissionFile: shareSource === "missionmed",
 			file: options.file || null,
 			fileError: "",
@@ -3281,7 +3296,7 @@
 		}
 		this.state.upload.fileError = this.validateFile(this.state.upload.file, this.state.upload.documentType);
 		this.openOverlay("upload");
-		if (shareSource) this.loadAudiences();
+		if (shareSource && !this.state.audiences) this.loadAudiences();
 	};
 
 	FileVaultV2.prototype.uploadMarkup = function () {
@@ -3314,12 +3329,13 @@
 		var replacementField = candidates.length
 			? '<label class="fv2-field fv2-field-wide fv2-select-field"><span>Continue an existing document?</span><select data-fv2-upload-replaces data-fv2-overlay-focus="upload-replaces">' + candidates.map(function (documentItem) { return '<option value="' + positiveInt(documentItem.id) + '"' + (positiveInt(documentItem.id) === upload.replacesDocumentId ? " selected" : "") + '>Yes — continue ' + esc(documentItem.name || "Document") + ' · Version ' + esc(Math.max(1, positiveInt(documentItem.version))) + '</option>'; }).join("") + '<option value=""' + (!upload.replacesDocumentId ? " selected" : "") + '>No — create a separate document</option></select><small>Your earlier versions always remain available.</small></label>'
 			: "";
-		var ready = this.capability("submit") ? '<label class="fv2-check-row"><input type="checkbox" data-fv2-upload-ready' + (upload.readyForReview ? " checked" : "") + '><span>' + icon("check") + '</span><div><strong>Ready for review</strong><small>Submit this confirmed version to the staff review queue after upload.</small></div></label>' : "";
+		var studentDestination = !this.roleIsStaff() && !upload.shareSource ? '<section class="fv2-share-audience fv2-share-destination"><span>Who should receive this document?</span><div class="fv2-audience-checks"><label><input type="radio" name="fv2-share-destination" value="staff" data-fv2-share-destination data-fv2-overlay-focus="share-destination-staff"' + (upload.shareDestination === "staff" ? " checked" : "") + '><span><strong>Share with Dr Brian / MissionMed staff</strong><small>Recommended. Adds this version to the staff review workflow.</small></span></label>' + (this.capability("share_student_file") ? '<label><input type="radio" name="fv2-share-destination" value="peers" data-fv2-share-destination data-fv2-overlay-focus="share-destination-peers"' + (upload.shareDestination === "peers" ? " checked" : "") + '><span><strong>Share with someone else</strong><small>Choose eligible enrolled students or programs.</small></span></label>' : "") + '<label><input type="radio" name="fv2-share-destination" value="private" data-fv2-share-destination data-fv2-overlay-focus="share-destination-private"' + (upload.shareDestination === "private" ? " checked" : "") + '><span><strong>Keep private</strong><small>Only you and authorized MissionMed staff can access the Vault record.</small></span></label></div></section>' : "";
+		var ready = this.capability("submit") && (this.roleIsStaff() || upload.shareSource) ? '<label class="fv2-check-row"><input type="checkbox" data-fv2-upload-ready' + (upload.readyForReview ? " checked" : "") + '><span>' + icon("check") + '</span><div><strong>Ready for review</strong><small>Submit this confirmed version to the staff review queue after upload.</small></div></label>' : "";
 		var missionShare = this.role() === "admin" && this.capability("share_mission_file") && !upload.documentId && !upload.shareSource ? '<label class="fv2-check-row fv2-mission-share"><input type="checkbox" data-fv2-upload-mission-file' + (upload.shareAsMissionFile ? " checked" : "") + '><span>' + icon("library") + '</span><div><strong>Share as a Mission File</strong><small>MissionMed provenance is recorded and the student receives this in Shared by MissionMed, not as a student-owned upload.</small></div></label>' : "";
 		var versionField = '<div class="fv2-field fv2-version-assignment" data-fv2-upload-version aria-label="Version assigned automatically"><span>Version</span><strong>Version ' + esc(Math.max(1, positiveInt(upload.version))) + '</strong><small>Assigned automatically from this document\'s history.</small></div>';
 		var finalField = '<label class="fv2-check-row fv2-final-version"><input type="checkbox" data-fv2-upload-final data-fv2-overlay-focus="upload-final"' + (upload.isFinal ? " checked" : "") + '><span>' + icon("check") + '</span><div><strong>Mark this version Final</strong><small>Final is a status marker. It does not replace the version number or delete prior versions.</small></div></label>';
-		var audience = upload.shareSource ? this.shareAudienceMarkup(upload) : "";
-		return '<div class="fv2-upload-dropzone' + (file ? " has-file" : "") + '" data-fv2-dropzone><button type="button" class="fv2-upload-file-field" data-fv2-action="choose-upload-file" data-fv2-overlay-focus="choose-file"><span class="fv2-dropzone-icon">' + icon("upload") + '</span><span><strong>' + (file ? 'Change selected file' : 'Choose a file') + '</strong><small>Click to browse or drag and drop</small></span></button><input id="fv2-upload-file" type="file" tabindex="-1" aria-label="Upload file" accept="' + escAttr(this.uploadAccept(contract)) + '" data-fv2-upload-file>' + fileSummary + '</div><div class="fv2-form-grid">' + typeField + nameField + '<div class="fv2-field"><span>Division</span><strong class="fv2-readonly-value">' + esc(upload.division || "Not recorded") + '</strong><small>From your MissionMed account</small></div>' + programField + sessionField + versionField + replacementField + '</div>' + finalField + '<label class="fv2-field"><span>' + (upload.shareSource ? "Description (optional)" : "Note to advisor (optional)") + '</span><textarea rows="3" maxlength="1000" data-fv2-upload-note placeholder="' + (upload.shareSource ? "What should recipients know about this file?" : "What changed, or what should your advisor know?") + '">' + esc(upload.note) + '</textarea></label><section class="fv2-canonical-preview"><span>Filename preview</span><strong data-fv2-canonical-preview>' + esc(this.canonicalFilenamePreview()) + '</strong><small>MissionMed confirms the final name and next version before the upload begins.</small></section>' + ready + missionShare + audience + '<div class="fv2-modal-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="close-overlay">Cancel</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-next" data-fv2-upload-next' + (this.uploadStepOneError() ? " disabled" : "") + ">Review" + icon("arrowRight") + "</button></div>";
+		var audience = upload.shareSource || upload.shareDestination === "peers" ? this.shareAudienceMarkup(upload) : "";
+		return '<div class="fv2-upload-dropzone' + (file ? " has-file" : "") + '" data-fv2-dropzone><button type="button" class="fv2-upload-file-field" data-fv2-action="choose-upload-file" data-fv2-overlay-focus="choose-file"><span class="fv2-dropzone-icon">' + icon("upload") + '</span><span><strong>' + (file ? 'Change selected file' : 'Choose a file') + '</strong><small>Click to browse or drag and drop</small></span></button><input id="fv2-upload-file" type="file" tabindex="-1" aria-label="Upload file" accept="' + escAttr(this.uploadAccept(contract)) + '" data-fv2-upload-file>' + fileSummary + '</div><div class="fv2-form-grid">' + typeField + nameField + '<div class="fv2-field"><span>Division</span><strong class="fv2-readonly-value">' + esc(upload.division || "Not recorded") + '</strong><small>From your MissionMed account</small></div>' + programField + sessionField + versionField + replacementField + '</div>' + finalField + '<label class="fv2-field"><span>' + (upload.shareSource ? "Description (optional)" : "Note to advisor (optional)") + '</span><textarea rows="3" maxlength="1000" data-fv2-upload-note placeholder="' + (upload.shareSource ? "What should recipients know about this file?" : "What changed, or what should your advisor know?") + '">' + esc(upload.note) + '</textarea></label><section class="fv2-canonical-preview"><span>Filename preview</span><strong data-fv2-canonical-preview>' + esc(this.canonicalFilenamePreview()) + '</strong><small>MissionMed confirms the final name and next version before the upload begins.</small></section>' + studentDestination + ready + missionShare + audience + '<div class="fv2-modal-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="close-overlay">Cancel</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-next" data-fv2-upload-next' + (this.uploadStepOneError() ? " disabled" : "") + ">Review" + icon("arrowRight") + "</button></div>";
 	};
 
 	FileVaultV2.prototype.shareAudienceMarkup = function (upload) {
@@ -3338,10 +3354,15 @@
 	FileVaultV2.prototype.uploadReviewMarkup = function () {
 		var upload = this.state.upload;
 		var file = upload.file;
+		var publishesShare = this.uploadPublishesShare(upload);
 		var versionLabel = "Version " + esc(upload.version) + (upload.isFinal ? " · Final" : "");
 		var audienceLabel = upload.audienceMode === "all_eligible" ? "All eligible students" : (upload.audienceMode === "groups" ? upload.groupIds.length + " selected group" + (upload.groupIds.length === 1 ? "" : "s") : upload.userIds.length + " selected student" + (upload.userIds.length === 1 ? "" : "s"));
-		var afterUpload = upload.shareSource ? "Publish to " + audienceLabel : (upload.shareAsMissionFile ? "Share as a Mission File" : (upload.readyForReview ? "Send to staff review" : "Keep in Your Files"));
-		return '<section class="fv2-upload-review"><span>Ready when you are</span><h2>' + esc(upload.displayName || "Document") + '</h2><dl><div><dt>Original file</dt><dd>' + esc(file ? file.name : "No file") + "</dd></div><div><dt>Size</dt><dd>" + esc(file ? formatSize(file.size) : "0 B") + "</dd></div><div><dt>Type</dt><dd>" + esc(this.documentTypeLabel(upload.documentType)) + "</dd></div><div><dt>Course / session</dt><dd>" + esc(upload.program + " / " + upload.sessionLetter) + "</dd></div><div><dt>Next version</dt><dd>" + versionLabel + "</dd></div><div><dt>After upload</dt><dd>" + esc(afterUpload) + "</dd></div></dl><div class=\"fv2-review-note fv2-review-filename\"><span>Filename preview</span><p>" + esc(upload.canonicalName || this.canonicalFilenamePreview()) + "</p></div>" + (upload.note ? '<div class="fv2-review-note"><span>' + (upload.shareSource ? "Recipient description" : "Note to advisor") + '</span><p>' + esc(upload.note).replace(/\n/g, "<br>") + "</p></div>" : "") + '<p class="fv2-security-copy">' + icon("lock") + (upload.shareSource ? " The source remains private in R2. Access is granted by current server-owned audience rules." : " Your file stays private. MissionMed verifies it before adding it to Your Files.") + '</p></section><div class="fv2-modal-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="upload-back">' + icon("arrowLeft") + 'Back</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-start">' + icon("upload") + (upload.shareSource ? "Upload and publish" : "Upload securely") + "</button></div>";
+		var afterUpload = publishesShare ? "Publish to " + audienceLabel : (upload.shareAsMissionFile ? "Share as a Mission File" : (upload.readyForReview ? "Share with Dr Brian / MissionMed staff" : "Keep private in Your Files"));
+		return '<section class="fv2-upload-review"><span>Ready when you are</span><h2>' + esc(upload.displayName || "Document") + '</h2><dl><div><dt>Original file</dt><dd>' + esc(file ? file.name : "No file") + "</dd></div><div><dt>Size</dt><dd>" + esc(file ? formatSize(file.size) : "0 B") + "</dd></div><div><dt>Type</dt><dd>" + esc(this.documentTypeLabel(upload.documentType)) + "</dd></div><div><dt>Course / session</dt><dd>" + esc(upload.program + " / " + upload.sessionLetter) + "</dd></div><div><dt>Next version</dt><dd>" + versionLabel + "</dd></div><div><dt>After upload</dt><dd>" + esc(afterUpload) + "</dd></div></dl><div class=\"fv2-review-note fv2-review-filename\"><span>Filename preview</span><p>" + esc(upload.canonicalName || this.canonicalFilenamePreview()) + "</p></div>" + (upload.note ? '<div class="fv2-review-note"><span>' + (publishesShare ? "Recipient description" : "Note to advisor") + '</span><p>' + esc(upload.note).replace(/\n/g, "<br>") + "</p></div>" : "") + '<p class="fv2-security-copy">' + icon("lock") + (publishesShare ? " The source remains private in R2. Access is granted by current server-owned audience rules." : " Your file stays private. MissionMed verifies it before adding it to Your Files.") + '</p></section><div class="fv2-modal-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="upload-back">' + icon("arrowLeft") + 'Back</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-start">' + icon("upload") + (publishesShare ? "Upload and share" : "Upload securely") + "</button></div>";
+	};
+
+	FileVaultV2.prototype.uploadPublishesShare = function (upload) {
+		return !!(upload && (upload.shareSource || (!this.roleIsStaff() && upload.shareDestination === "peers")));
 	};
 
 	FileVaultV2.prototype.uploadProgressMarkup = function () {
@@ -3349,10 +3370,11 @@
 		if (upload.phase === "success" && upload.result) {
 			var result = upload.result;
 			var resultVersion = Math.max(1, positiveInt(result.version));
-			var successActions = upload.shareSource
+			var publishesShare = this.uploadPublishesShare(upload);
+			var successActions = publishesShare
 				? '<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="upload-another">' + icon("upload") + 'Share another</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-open-shares">Open shared files</button>'
 				: '<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="upload-another">' + icon("upload") + 'Upload another</button><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="upload-open-files">Open Your Files</button><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="upload-view-document" data-fv2-document-id="' + positiveInt(result.id) + '">' + icon("file") + 'View document</button>';
-			return '<section class="fv2-upload-celebration" role="status"><span class="fv2-celebration-mark">' + icon("check") + '</span><span class="fv2-celebration-kicker">' + (upload.shareSource ? "Private share confirmed" : "Private upload confirmed") + '</span><h2>' + (upload.shareSource ? "Your file is verified and shared." : "Your document is safely in the Vault.") + '</h2><p>' + esc(result.name || upload.displayName || "Document") + ' is now Version ' + esc(resultVersion) + (result.is_final ? " and marked Final" : "") + '.</p><div class="fv2-celebration-facts"><span>' + icon("lock") + '<strong>Private</strong><small>Only the approved audience can open it</small></span><span>' + icon("check") + '<strong>Verified</strong><small>Stored and confirmed by MissionMed</small></span><span>' + icon("journey") + '<strong>Version ' + esc(resultVersion) + '</strong><small>Earlier versions remain available</small></span></div><div class="fv2-celebration-name"><span>Saved as</span><strong>' + esc(result.filename || upload.canonicalName || result.name || "Document") + '</strong></div></section><div class="fv2-modal-actions fv2-celebration-actions">' + successActions + '</div>';
+			return '<section class="fv2-upload-celebration" role="status"><span class="fv2-celebration-mark">' + icon("check") + '</span><span class="fv2-celebration-kicker">' + (publishesShare ? "Private share confirmed" : "Private upload confirmed") + '</span><h2>' + (publishesShare ? "Your file is verified and shared." : "Your document is safely in the Vault.") + '</h2><p>' + esc(result.name || upload.displayName || "Document") + ' is now Version ' + esc(resultVersion) + (result.is_final ? " and marked Final" : "") + '.</p><div class="fv2-celebration-facts"><span>' + icon("lock") + '<strong>Private</strong><small>Only the approved audience can open it</small></span><span>' + icon("check") + '<strong>Verified</strong><small>Stored and confirmed by MissionMed</small></span><span>' + icon("journey") + '<strong>Version ' + esc(resultVersion) + '</strong><small>Earlier versions remain available</small></span></div><div class="fv2-celebration-name"><span>Saved as</span><strong>' + esc(result.filename || upload.canonicalName || result.name || "Document") + '</strong></div></section><div class="fv2-modal-actions fv2-celebration-actions">' + successActions + '</div>';
 		}
 		var phaseCopy = {
 			idle: ["Ready to upload", "Your private upload begins after review."],
@@ -3522,10 +3544,11 @@
 	FileVaultV2.prototype.uploadStepOneError = function () {
 		var upload = this.state.upload;
 		if (!upload) return "Upload is unavailable.";
-		var audienceError = upload.shareSource && this.state.audiencesError ? this.state.audiencesError : "";
-		if (upload.shareSource && this.state.audiencesLoading) audienceError = "Wait for eligible sharing audiences to load.";
-		if (upload.shareSource && upload.audienceMode === "groups" && !upload.groupIds.length) audienceError = "Choose at least one eligible program or group.";
-		if (upload.shareSource && upload.audienceMode === "selected" && !upload.userIds.length) audienceError = "Choose at least one eligible student.";
+		var publishesShare = this.uploadPublishesShare(upload);
+		var audienceError = publishesShare && this.state.audiencesError ? this.state.audiencesError : "";
+		if (publishesShare && this.state.audiencesLoading) audienceError = "Wait for eligible sharing audiences to load.";
+		if (publishesShare && upload.audienceMode === "groups" && !upload.groupIds.length) audienceError = "Choose at least one eligible program or group.";
+		if (publishesShare && upload.audienceMode === "selected" && !upload.userIds.length) audienceError = "Choose at least one eligible student.";
 		return this.validateFile(upload.file, upload.documentType) || (!upload.documentType ? "Choose a document type." : "") || (!upload.displayName.trim() ? "Enter a document name." : "") || (PROGRAM_OPTIONS.indexOf(upload.program) === -1 ? "Choose a MissionMed course or program." : "") || (SESSION_OPTIONS.indexOf(upload.sessionLetter) === -1 ? "Choose session A through G." : "") || audienceError;
 	};
 
@@ -3745,7 +3768,7 @@
 			return self.request("POST", "/uploads/" + encodeURIComponent(upload.intent.upload_id) + "/confirm", { confirm_token: upload.intent.confirm_token }, null, upload.controller && upload.controller.signal).then(function (documentItem) {
 				assertStudentContext();
 				upload.result = documentItem;
-				return upload.shareSource ? publish(documentItem) : finish(documentItem);
+				return self.uploadPublishesShare(upload) ? publish(documentItem) : finish(documentItem);
 			});
 		}
 
@@ -3780,9 +3803,10 @@
 				self.upsertDocument(documentItem);
 				self.render();
 				self.renderOverlay();
-				self.toast(upload.shareSource ? "File published" : "Upload confirmed", upload.shareSource ? "The approved audience can now access this verified file." : String(documentItem.name || "Document") + " v" + String(documentItem.version || 1) + " is recorded.", "success");
+				var publishedShare = self.uploadPublishesShare(upload);
+				self.toast(publishedShare ? "File shared" : "Upload confirmed", publishedShare ? "The approved audience can now access this verified file." : String(documentItem.name || "Document") + " v" + String(documentItem.version || 1) + " is recorded.", "success");
 				self.playSuccessSound();
-				return upload.shareSource ? self.loadShares(upload.shareSource, true) : self.refreshAfterMutation(studentContext);
+				return publishedShare ? self.loadShares(upload.shareSource || "student_shared", true) : self.refreshAfterMutation(studentContext);
 		}
 
 		var run = startAt === "publish" ? publish(upload.result) : (startAt === "confirm" ? confirm() : (startAt === "put" ? put() : (upload.sha256 && startAt !== "hash" ? sign() : hash())));

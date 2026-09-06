@@ -3837,6 +3837,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			'audience_group_ids'=> array_values( array_map( 'absint', is_array( $group_ids ) ? $group_ids : array() ) ),
 			'status'            => sanitize_key( $share->status ),
 			'moderation_status' => $moderation_status,
+			'is_owner'          => absint( $share->owner_user_id ) === absint( $actor_id ),
 			'can_manage'        => 'admin' === sanitize_key( $role ) || absint( $share->owner_user_id ) === absint( $actor_id ),
 			'can_reactivate'    => 'admin' === sanitize_key( $role ) || '' === $moderation_status,
 			'uploader_name'     => 'missionmed' === sanitize_key( $share->source_class ) ? 'MissionMed' : self::actor_name( $share->actor_user_id ),

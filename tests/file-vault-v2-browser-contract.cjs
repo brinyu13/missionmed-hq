@@ -557,6 +557,14 @@ async function sharingExperienceFlow(browser) {
 		await student.page.locator('.fv2-nav-item[aria-label="Student Shared Files"]').click();
 		await student.page.getByRole("heading", { name: "Student Shared Files", exact: true }).waitFor();
 		assert(await student.page.locator(".fv2-share-row").count() === 2, "sharing: student-shared library did not render both authorized records");
+		await student.page.evaluate(() => {
+			const app = window.__FV2_HARNESS__.instance;
+			app.state.shares.student_shared[0].is_owner = true;
+			app.state.shares.student_shared[1].is_owner = false;
+			app.render();
+		});
+		assert(await student.page.getByRole("heading", { name: "Shared by you", exact: true }).isVisible(), "sharing: outbound section is missing");
+		assert(await student.page.getByRole("heading", { name: "Shared with you", exact: true }).isVisible(), "sharing: inbound section is missing");
 		await saveEvidence(student.page, "12-student-shared-library.png");
 		const moderatedRow = student.page.locator(".fv2-share-row").filter({ hasText: "Paused Peer Draft" });
 		assert(await moderatedRow.getByText("Disabled by MissionMed", { exact: true }).isVisible(), "sharing: staff moderation state is not visible to the student owner");
@@ -584,6 +592,18 @@ async function sharingExperienceFlow(browser) {
 		assert((await student.page.locator(".fv2-audience-result-count").textContent()).includes("1 selected"), "sharing: recipient selection count did not refresh");
 		assert(!(await student.page.locator("[data-fv2-upload-next]").isDisabled()), "sharing: individual recipient selection did not unlock Review");
 		await saveEvidence(student.page, "13-student-controlled-sharing.png");
+		await student.page.getByRole("button", { name: "Close upload", exact: true }).click();
+
+		await student.page.locator('[data-fv2-action="open-upload"]').first().click();
+		assert(await student.page.getByText("Share with Dr Brian / MissionMed staff", { exact: true }).isVisible(), "sharing: primary student upload does not expose the staff-sharing default");
+		assert(await student.page.locator('[data-fv2-share-destination][value="staff"]').isChecked(), "sharing: staff review is not the default student destination");
+		assert(await student.page.locator('[data-fv2-share-destination][value="private"]').count() === 1 && await student.page.locator('[data-fv2-share-destination][value="peers"]').count() === 1, "sharing: primary student upload is missing private or peer alternatives");
+		assert(await student.page.locator(".fv2-share-audience").count() === 1, "sharing: default student upload eagerly rendered peer audience discovery");
+		await student.page.getByText("Share with Dr Brian / MissionMed staff", { exact: true }).scrollIntoViewIfNeeded();
+		await saveEvidence(student.page, "15-student-primary-share-default.png");
+		await student.page.locator('[data-fv2-share-destination][value="peers"]').check();
+		await student.page.locator(".fv2-share-audience").last().waitFor();
+		assert(await student.page.locator('[data-fv2-share-audience]').isVisible(), "sharing: peer destination did not reveal the eligible audience chooser");
 		await student.page.getByRole("button", { name: "Close upload", exact: true }).click();
 		await browserAccessibilityAudit(student.page, "student sharing");
 		assert(student.diagnostics.length === 0, `student sharing: browser diagnostics ${student.diagnostics.join(" | ")}`);
