@@ -2,7 +2,7 @@
   "ticket": "MX-MISSIONACCOUNTS-5301P",
   "result": "PARTIAL",
   "branch": "codex/mx-missionaccounts-5301p-production",
-  "implementation_commit": "e85348ad1982b6c1fb1823da32f6099b7ecba0b2",
+  "implementation_commit": "8d545c37b3ee724ecc28e056f5835098f1b8442d",
   "implementation_commits": [
     "9d580e3f0d22068355ed86f2bd66a4610e8cea46",
     "44de639b12f9d00707c8e43a8a62015941a0140e",
@@ -35,7 +35,8 @@
     "3bcc2638b3ab68b0402e934efc6e09cd703c6b10",
     "f3d7342b927e28497b95ce0862adb3d9c1524081",
     "bcd2b7bd15760db7bcd8f0833d4331fb4e067839",
-    "e85348ad1982b6c1fb1823da32f6099b7ecba0b2"
+    "e85348ad1982b6c1fb1823da32f6099b7ecba0b2",
+    "8d545c37b3ee724ecc28e056f5835098f1b8442d"
   ],
   "production_mutated": false,
   "matrix_route_registered": false,
@@ -79,6 +80,10 @@
   "student_deep_link_hydration_verified": true,
   "student_attendance_issue_reporting_implemented": true,
   "student_attendance_issue_reporting_browser_verified": true,
+  "admin_attendance_issue_queue_implemented": true,
+  "attendance_issue_review_rpc_implemented": true,
+  "attendance_issue_submission_fields_immutable": true,
+  "attendance_issue_review_browser_verified": true,
   "production_simulated_controls_blocked": true,
   "stripe_payment_intent_webhook_implemented": true,
   "student_passed_implemented": true,
@@ -105,7 +110,7 @@
   "notification_transport_configured": false,
   "stripe_objects_created": 0,
   "zoom_calls_made": 0,
-  "tests": { "passed": 128, "failed": 0, "mandatory_vectors": 20 },
+  "tests": { "passed": 129, "failed": 0, "mandatory_vectors": 21 },
   "browser_qa": {
     "desktop": true,
     "mobile_390": true,
@@ -122,7 +127,9 @@
     "student_billing_deep_link": true,
     "student_attendance_issue_report": true,
     "student_attendance_issue_dialog_closes": true,
-    "student_attendance_issue_mobile_no_overflow": true
+    "student_attendance_issue_mobile_no_overflow": true,
+    "admin_attendance_issue_queue": true,
+    "admin_attendance_issue_review_history": true
   },
   "source_controls": {
     "students": 271,

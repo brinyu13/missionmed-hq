@@ -3,7 +3,7 @@
 **Result:** PARTIAL — isolated production foundation complete; protected Matrix and provider activation blocked by authority/runtime gates
 **Date:** 2026-09-06
 **Branch:** `codex/mx-missionaccounts-5301p-production`
-**Latest implementation commit:** `e85348ad1982b6c1fb1823da32f6099b7ecba0b2`
+**Latest implementation commit:** `8d545c37b3ee724ecc28e056f5835098f1b8442d`
 **Remote:** `origin/codex/mx-missionaccounts-5301p-production`
 
 ## Outcome
@@ -44,6 +44,7 @@ MissionAccounts now has a real isolated application foundation rather than anoth
 - a separate student-only automatic-billing authorization dialog that renders the approved server terms version, records the explicit one-$25-day consent through the idempotent server transaction, and supports independent revocation without deleting history;
 - direct authenticated student deep links are captured before the scrubbed shell's empty render and restored only after role-scoped hydration; students with no attendance receive a safe Billing empty state instead of a renderer failure;
 - student-owned attendance issue reporting that self-binds the authenticated student, validates bounded report and route context, deduplicates retries, writes a private open-review record plus immutable audit event, queues one Matrix-admin notification, and never edits attendance or billing; the production dialog now closes after success and cannot reopen during the authoritative refetch;
+- an admin/founder-only attendance-report queue with separate open work and review history, immutable student submission fields, idempotent resolve/dismiss decisions, mandatory response notes, one student notification, and explicit proof that review does not mutate source attendance, interpreted attendance, billing decisions, invoices, or charges;
 - student-owned, two-phase payment-method removal that revokes automatic-billing consent before Stripe detachment, blocks new charges while removal is pending, restores the method with consent still revoked after provider failure, deduplicates retries, and never exposes the private Stripe method reference to the browser;
 - server-authoritative $25 attendance-day charge preparation that requires a current approved basis, verified identity, billable day, on-file method, active consent, remaining approved amount, explicit failed-charge retries, and a unique charge per day; only a matching signed Stripe PaymentIntent webhook can mark it succeeded or failed;
 - a bounded 24–48-hour automatic-charge worker that asserts Stripe Test Mode before any database claim, atomically reserves eligible days with `SKIP LOCKED`, safely reclaims stale pre-provider work with the same Stripe idempotency key, records missed windows and provider failures in a private integration-exception queue, notifies student and admin on submission failure, and never automatically retries a failed charge;
@@ -125,6 +126,7 @@ All implementation files are under `missionaccounts/`:
 - `supabase/migrations/20260906095512_automatic_charge_dispatch.sql`
 - `supabase/migrations/20260906100746_zoom_ingestion_port.sql`
 - `supabase/migrations/20260906105212_student_attendance_issue_report.sql`
+- `supabase/migrations/20260906110611_attendance_issue_review_resolution.sql`
 - `tests/billing-engine.test.mjs`
 - `tests/exam-engine.test.mjs`
 - `tests/mandatory-vectors.test.mjs`
@@ -139,16 +141,16 @@ All implementation files are under `missionaccounts/`:
 
 ## Migration status
 
-- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,805 lines) plus additive `20260906095512_automatic_charge_dispatch.sql`, `20260906100746_zoom_ingestion_port.sql`, and `20260906105212_student_attendance_issue_report.sql`.
-- Applied locally: PASS in a disposable PostgreSQL 16 cluster; all four migrations applied in order. The Zoom RPC persisted one normalized session and participant source row idempotently, recorded a failed-sync exception, and created zero attendance events, identity decisions, or charges. The attendance-report RPC persisted one student-owned issue, one audit event, and one admin notification while suppressing a retry and rejecting a mismatched student identity. No persistent local database was created.
+- Created: `missionaccounts/supabase/migrations/20260906062212_missionaccounts_initial_schema.sql` (3,805 lines) plus additive `20260906095512_automatic_charge_dispatch.sql`, `20260906100746_zoom_ingestion_port.sql`, `20260906105212_student_attendance_issue_report.sql`, and `20260906110611_attendance_issue_review_resolution.sql`.
+- Applied locally: PASS in a disposable PostgreSQL 16 cluster; all five migrations applied in order. The Zoom RPC persisted one normalized session and participant source row idempotently, recorded a failed-sync exception, and created zero attendance events, identity decisions, or charges. The attendance-report RPC persisted one student-owned issue, one audit event, and one admin notification while suppressing a retry and rejecting a mismatched student identity. The review RPC resolved it once, suppressed the retry, inserted one review audit and one student notification, rejected student review authority, preserved immutable submission fields, and left attendance/billing counts unchanged. No persistent local database was created.
 - Historical import rehearsal: PASS in a separate disposable PostgreSQL 16 cluster. It imported 419 sessions, 5,498 raw source rows, 3,941 reconciled events, and 3,264 attendance days; retained 74 ceiling candidates and 60 identity-review holds; and created zero billing decisions, invoices, charges, verified ceilings, Matrix identities, or enabled flags. The private SQL bundle was deleted with the disposable cluster.
 - Applied to staging/production: NO — target database and migration authority are not registered.
 - Schema is additive and all capability flags seed disabled.
 
 ## Verification
 
-- `npm test`: PASS — 128/128, including all prior vectors plus Test-Mode-only Stripe browser configuration, Payment Element confirmation semantics, explicit future-use consent, raw-card-field exclusion, exact Stripe CSP allowlists, authenticated student deep-link hydration, and self-bound attendance-report submission.
-- `npm run test:postgres`: PASS — all four migrations applied in order to disposable PostgreSQL 16, including idempotent source-only Zoom ingestion and failed-sync exception custody with zero downstream identity, attendance, billing, or charge mutations, plus private attendance-issue custody, duplicate suppression, audit/outbox insertion, and cross-student rejection.
+- `npm test`: PASS — 129/129, including all prior vectors plus Test-Mode-only Stripe browser configuration, Payment Element confirmation semantics, explicit future-use consent, raw-card-field exclusion, exact Stripe CSP allowlists, authenticated student deep-link hydration, self-bound attendance-report submission, and admin-only attendance-report review.
+- `npm run test:postgres`: PASS — all five migrations applied in order to disposable PostgreSQL 16, including idempotent source-only Zoom ingestion and failed-sync exception custody with zero downstream identity, attendance, billing, or charge mutations, private attendance-issue custody, duplicate suppression, audit/outbox insertion, cross-student rejection, immutable submission fields, and admin-only idempotent review.
 - `npm run test:historical-import`: PASS — all custody hashes, privacy permissions, source/control totals, per-cycle totals, review holds, and zero-financial-mutation boundaries passed in disposable PostgreSQL 16.
 - `npm run validate:source`: PASS — all aggregate historical controls above.
 - `npm run build:canon`: PASS — exact approved SHA verified and UI materialized.
@@ -176,6 +178,7 @@ All implementation files are under `missionaccounts/`:
   - Payment-method removal: PASS; authenticated DELETE issued only after the destructive-action confirmation.
   - Direct `#/me/billing` production deep link: PASS before and after authoritative refetch; empty student records no longer fail hydration.
   - Attendance issue reporting: PASS at desktop and 390 px; authenticated POST succeeded, the dialog closed, the `?report=1` intent normalized to `#/me` before refetch, the confirmation toast remained visible, and `scrollWidth` equaled `clientWidth` at 390 px. The QA server used only its in-memory notification outbox; no external provider was called.
+  - Attendance report admin queue: PASS at 1440 px; one local student report appeared under Open reports, Dr J resolved it with a mandatory response, the same page refetched to zero open items, and the record appeared under a separate Review history. Student queue/review access returned 403, and no external provider was called.
 
 Local browser evidence (gitignored because repository policy excludes PNGs):
 
@@ -187,6 +190,8 @@ Local browser evidence (gitignored because repository policy excludes PNGs):
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_billing-authorization-mobile.png` — SHA-256 `90139e71a6e7017eae42c899cc252522986c2694affdf0bf071f085e7bd6e0fd`.
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_attendance-issue-report-mobile.png` — SHA-256 `3edebb178a115e5479717d10a6b12b72a6611a4b82beacd4d54a9aebb7c26da4`.
 - `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_attendance-issue-report-success-mobile.png` — SHA-256 `e338ef83a19fdf0bf4a90f9905eddb5d7cf054ddce09be9898c0d6ef2a7b26fd`.
+- `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_attendance-issue-admin-queue.png` — SHA-256 `e4205683d3526b2897e2f4cda38600abb65c3ddfcdd199c434c87ab049107975`.
+- `missionaccounts/evidence/screenshots/MX-MISSIONACCOUNTS-5301P_attendance-issue-admin-resolved.png` — SHA-256 `265022bd822a33737eb738762ff10b6e1194ee5f714ccd3db52bb31a8c4baf7d`.
 
 ## Production services touched
 
