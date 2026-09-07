@@ -24,6 +24,7 @@ import {
   typeaheadRows
 } from "./uxr-002/builder.js";
 import {createRuntimeDatasets,browserCountryRows} from "./uxr-002/datasets.js";
+import {bindImportedBuilderEvent022,builderDomain022,isImportedBuilderEvent022,importedBuilderSummary022,importedDraftFromForm022,renderImportedBuilderForm022,validateImportedBuilderDraft022,importedCanvasDateField022,updateImportedCanvasDetails022} from "./uxr-002/imported-builder-entry-022.js";
 import {
   buildCompletenessSummary,
   computeStoryChecks
@@ -1162,7 +1163,12 @@ const CANVAS_EXPORT_AUDIENCE_OPTIONS=Object.freeze([
   Object.freeze({id:"MISSION_RESIDENCY_ALUMNI",label:"Mission Residency alumni connections"})
 ]);
 
-function renderCanvasDetails(route,event,document){
+export function renderCanvasDetails(route,event,document){
+  const imported=isImportedBuilderEvent022(event);
+  if(imported){
+    event=bindImportedBuilderEvent022(event);
+    event.fields={...event.fields,[event.categoryId==="research"?"ongoing":"current"]:event.openEnded===true};
+  }
   const domain=event.fields?.builderDomain||event.categoryId||"personal";
   if(domain==="explanation"){
     const fields=event.fields||{};
@@ -1191,7 +1197,9 @@ function renderCanvasDetails(route,event,document){
       ?event.fields.exportAudiences.map((value)=>String(value).toUpperCase())
       :[]
   );
-  const startDateControl=clinical
+  const startDateControl=imported
+    ?importedCanvasDateField022(event,"start")
+    :clinical
     ?exactDateFieldMarkup({
       id:`canvas-${event.id}-rotation-start`,
       label:"Start date",
@@ -1210,7 +1218,9 @@ function renderCanvasDetails(route,event,document){
     });
   const endDateControl=isMilestone
     ?""
-    :clinical
+    :imported
+      ?importedCanvasDateField022(event,"end")
+      :clinical
       ?exactDateFieldMarkup({
         id:`canvas-${event.id}-rotation-end`,
         label:"End date",
@@ -1236,6 +1246,7 @@ function renderCanvasDetails(route,event,document){
       <label class="canvas407FDetailField"><span>Category</span><select data-canvas-detail-key="categoryId">${Object.keys(CATEGORY_TO_407F).map((category)=>`<option value="${category}" ${event.categoryId===category?"selected":""}>${escapeMarkup(category[0].toUpperCase()+category.slice(1))}</option>`).join("")}</select></label>
       ${startDateControl}
       ${endDateControl}
+      ${imported?'<p class="field-error canvas407FDetailWide" data-canvas-imported-error role="status" aria-live="polite"></p>':""}
       <label class="canvas407FDetailField"><span>Visibility</span><select data-canvas-detail-key="visibilityState">
         <option value="INTERVIEWER_SAFE" ${event.visibilityState==="INTERVIEWER_SAFE"?"selected":""}>Show everyone</option>
         <option value="ADVISOR_ONLY" ${event.visibilityState==="ADVISOR_ONLY"?"selected":""}>Advisor only</option>
@@ -3585,8 +3596,12 @@ export async function boot407FEngineeringAdapter({
           findings:report.findings.filter(({id})=>id===selected.id)
         });
         if(!result.changed){
-          button.textContent="No safe improvement found";
-          button.disabled=true;
+          button.textContent="Open Advanced Studio";
+          button.insertAdjacentHTML("afterend",'<p class="field-help" role="status">No safe improvement found. Use Advanced Studio to adjust the spacing or size of these elements.</p>');
+          button.addEventListener("click",()=>{
+            closeStandardModal({restoreFocus:false});
+            api.openAdvancedStudio();
+          },{once:true});
           return;
         }
         const beforeDocument=JSON.stringify(store.document);
@@ -5749,6 +5764,14 @@ export async function boot407FEngineeringAdapter({
     return result;
   };
   api.domain=Object.freeze({
+    entryDomain(eventId){return builderDomain022(store.document.events.find(event=>String(event.id)===String(eventId)));},
+    importedSummary(eventId){
+      const event=store.document.events.find(item=>String(item.id)===String(eventId));
+      return isImportedBuilderEvent022(event)?importedBuilderSummary022(event):null;
+    },
+    importedMarkup(domain,draft){return renderImportedBuilderForm022(draft,domain);},
+    readImportedForm(form,draft){return importedDraftFromForm022(form,draft);},
+    validateImportedDraft(draft){return validateImportedBuilderDraft022(draft);},
     updateDraft(domain,changes){
       return commitDomainMutation(`Update ${domain} entry`,(document)=>{
         const builder=ensureBuilderState(document);
@@ -5770,7 +5793,7 @@ export async function boot407FEngineeringAdapter({
           previousEvent?.fields?.lorStatusesByTarget||{}
         );
         const result=commitBuilderEntry(document,domain,normalized);
-        if(domain!=="clinical"||result?.ok===false||!result?.event){
+        if(normalized.importedEventId||domain!=="clinical"||result?.ok===false||!result?.event){
           return result;
         }
         const event=document.events.find(
@@ -6204,6 +6227,33 @@ export async function boot407FEngineeringAdapter({
         const selectedBefore=store.document.events.find(
           (item)=>String(item.id)===String(eventId)
         );
+        if(isImportedBuilderEvent022(selectedBefore)){
+          const values={keys:{},fields:{},dates:{}};
+          for(const input of form.querySelectorAll("[data-canvas-detail-key]"))values.keys[input.dataset.canvasDetailKey]=input.value;
+          for(const input of form.querySelectorAll("[data-canvas-detail-field]"))values.fields[input.dataset.canvasDetailField]=input.type==="checkbox"?input.checked:input.value;
+          for(const input of form.querySelectorAll("[data-canvas-imported-date]"))values.dates[input.dataset.canvasImportedDate]=input.value;
+          values.exportAudiences=Array.from(form.querySelectorAll("[data-canvas-export-audience]:checked"),input=>input.dataset.canvasExportAudience);
+          const result=updateImportedCanvasDetails022(selectedBefore,values);
+          if(!result.ok){
+            const message=form.querySelector("[data-canvas-imported-error]");
+            if(message)message.textContent=Object.values(result.errors).join(" ");
+            const key=Object.keys(result.errors)[0];
+            form.querySelector(`[data-canvas-imported-date="${key}"],[data-canvas-detail-key="${key}"]`)?.focus();
+            return;
+          }
+          store.mutate("Edit imported Timeline details",document=>{
+            const index=document.events.findIndex(item=>String(item.id)===String(eventId));
+            if(index<0)return;
+            document.events[index]=result.event;
+            const active=activeSpecialtyVariant(document);
+            const visible=form.querySelector("[data-canvas-variant-visible]")?.checked!==false;
+            setVariantEventHidden(document,active.id,eventId,!visible);
+          });
+          syncBridgeStateFromStore();
+          canvasController.render({animateLayout:true});
+          bridge.toast("Event details saved");
+          return;
+        }
         if(isExplanationEvent(selectedBefore)){
           const changes={};
           for(const input of form.querySelectorAll("[data-canvas-detail-field]")){

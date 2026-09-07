@@ -25,7 +25,7 @@ function wp_insert_user($fields){global $scenario,$users,$calls,$filters;
 }
 function get_userdata($id){return (object)['roles'=>['subscriber']];}
 function get_user_meta($id,$key,$single){global $users;return $users[$id]['meta_input'][$key]??'';}
-function learndash_update_course_access($id,$course,$remove){global $calls,$changed,$scenario;$calls[]=['kind'=>'enroll','id'=>$id,'course'=>$course,'remove'=>$remove];if($scenario==='old_state_changed')$changed=true;}
+function ld_update_course_access($id,$course,$remove){global $calls,$changed,$scenario;$calls[]=['kind'=>'enroll','id'=>$id,'course'=>$course,'remove'=>$remove];if($scenario==='old_state_changed')$changed=true;}
 function sfwd_lms_has_access($course,$id){return true;}
 function mmtl_derived_principal_for_user($id){return '10000000-0000-5000-8000-'.str_pad((string)$id,12,'0',STR_PAD_LEFT);}
 `;

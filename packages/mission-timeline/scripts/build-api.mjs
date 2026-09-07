@@ -13,7 +13,7 @@ await build({
   outfile: resolve(output, "server.mjs"),
   bundle: true,
   platform: "node",
-  target: "node20",
+  target: "node22",
   format: "esm",
   sourcemap: false,
   minify: false,

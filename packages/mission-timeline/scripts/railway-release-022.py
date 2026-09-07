@@ -101,7 +101,7 @@ def seal(receipt):
     config=json.loads((PACKAGE/'railway.json').read_text())
     # Upload the exact locally verified API bundle; never upload the repository,
     # private artifacts, web assets, tests, migrations, or unrelated applications.
-    config['build']['buildCommand']='npm ci --omit=dev --ignore-scripts'
+    config['build']['buildCommand']='node --check dist-api/server.mjs'
     config['deploy']['startCommand']='node dist-api/server.mjs'
     files={'package.json':(PACKAGE/'package.json').read_bytes(),'package-lock.json':(PACKAGE/'package-lock.json').read_bytes(),'dist-api/server.mjs':(PACKAGE/'dist-api/server.mjs').read_bytes(),'railway.json':json_bytes(config)}
     entries={name:{'sha256':digest(raw),'bytes':len(raw)} for name,raw in sorted(files.items())}
@@ -201,7 +201,7 @@ def operate(plan,receipt,explicit):
     save_new(evidence_path(receipt).with_name('API_CONFIG_'+operation_id+'_PATCHED.json'),{'status':'PATCHED_DEPLOYMENT_SUPPRESSED','observed_at':stamp(),'operation_id':operation_id,'variable_names':PATCH_NAMES,'preserved_model':plan['preserved_ai_model'],'processing_mode':'synthetic_only','synthetic_principal_count':0,'secret_values_persisted':False})
     guard();verify_seal(plan['sealed_api']);message='D1-022 '+sealed['candidate_id']+' '+sealed['source_commit']
     # All CLI output remains in memory; build logs can contain private provider data.
-    execute(['railway','up',sealed['candidate_directory'],'--path-as-root','--project',TARGET['projectId'],'--environment',TARGET['environmentId'],'--service',TARGET['serviceId'],'--detach','--json','--message',message],timeout=180)
+    execute(['railway','up',sealed['candidate_directory'],'--path-as-root','--no-gitignore','--project',TARGET['projectId'],'--environment',TARGET['environmentId'],'--service',TARGET['serviceId'],'--detach','--json','--message',message],timeout=180)
     save_new(evidence_path(receipt).with_name('API_UPLOAD_'+operation_id+'_ACCEPTED.json'),{'status':'UPLOAD_ACCEPTED_NOT_HEALTHY','operation_id':operation_id,'observed_at':stamp(),'candidate_id':sealed['candidate_id'],'source_commit':sealed['source_commit']})
     print(json.dumps({'state':'DEPLOYING','operation_id':operation_id}),flush=True)
     deadline=time.monotonic()+900;current=None

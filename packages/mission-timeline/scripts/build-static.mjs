@@ -7,12 +7,14 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import {FOUNDER_KEYNOTE_CONTRACT} from "../web/js/presentation/founder-keynote-contract.js";
 import {readVerifiedPresentationVendor,PRESENTATION_VENDOR_MANIFEST} from "./presentation-vendor-integrity.mjs";
+import {readVerifiedPdfVendor,PDF_VENDOR_MANIFEST} from './pdf-vendor-integrity.mjs';
 import {packagedBrowserEntry} from "./browser-entry-021.mjs";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const web=join(root,"web");
 const dist=join(root,"dist");
 const presentationVendor=await readVerifiedPresentationVendor(root);
+const pdfVendor=await readVerifiedPdfVendor(root);
 const sourceIndex=await readFile(join(web,"index.html"),"utf8");
 const browserEntry=packagedBrowserEntry(sourceIndex);
 const mode=process.argv.includes("--mode=release")?"release":"local";
@@ -142,7 +144,6 @@ async function acceptedAsset(path){
 }
 
 const acceptedRuntimeAssets=[
-  "vendor/pdfjs/pdf.worker.min.mjs",
   "data/medical-schools/us-dapip-2026-07-30.json",
   "data/medical-schools/global-wikidata-2026-08-24.json",
   "data/medical-schools/global-img-supplement-2026-09-05.json",
@@ -154,6 +155,13 @@ const acceptedRuntimeAssets=[
   "presentation/d1-409h-a1/assets/photos/us_flag.png"
 ];
 for(const asset of acceptedRuntimeAssets)await acceptedAsset(asset);
+// PDF.js is independently source-pinned for security updates. Historical visual
+// authority stays immutable; the main parser and worker must advance together.
+await mkdir(join(dist,'vendor/pdfjs'),{recursive:true});
+await writeFile(join(dist,PDF_VENDOR_MANIFEST),pdfVendor.bytes);
+for(const item of pdfVendor.manifest.files){
+  if(item.releasePath)await cp(join(root,item.path),join(dist,item.releasePath));
+}
 
 async function sourceBoundRuntimeAsset(asset){
   const bytes=await readFile(join(web,asset.publicPath));
@@ -189,6 +197,7 @@ for(const file of await filesBelow(dist)){
 }
 const descriptor=JSON.stringify(files);const releaseId=`timeline-${createHash("sha256").update(descriptor).digest("hex").slice(0,16)}`;
 const manifest={schema_version:"d1-500-release-manifest.1",release_id:releaseId,source_commit:head,accepted_base_commit:acceptedBase,asset_authority_manifest_sha256:externalManifestBytes?sha256(externalManifestBytes):null,reanchor_source_asset_authority_manifest_sha256:sha256(reanchorAssetManifestBytes),mode,canonical_path:"/timeline/",protected_kernel:"D1-409H-A1",files};
+manifest.pdf_runtime={manifest:PDF_VENDOR_MANIFEST,sha256:pdfVendor.sha256,version:pdfVendor.manifest.version,bundled_application:bundleName,main_source_sha256:pdfVendor.manifest.files.find(item=>item.role==="main").sha256};
 manifest.presentation_runtime={manifest:PRESENTATION_VENDOR_MANIFEST,sha256:presentationVendor.sha256,bundled_application:bundleName,runtime_source_sha256:presentationVendor.manifest.runtime.sha256};
 await writeFile(join(dist,"release-manifest.json"),`${JSON.stringify(manifest,null,2)}\n`);
 console.log(JSON.stringify({ok:true,release_id:releaseId,source_commit:head,files:Object.keys(files).length,mode}));

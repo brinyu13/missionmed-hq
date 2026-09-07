@@ -116,7 +116,8 @@ async function extractPdfBlocks(bytes: Uint8Array): Promise<ExactCvSourceExtract
     // PDF.js may transfer its input to a worker. Keep the authenticated source
     // bytes intact for the service's already-verified SHA/length evidence.
     data: Uint8Array.from(bytes),
-    isEvalSupported: false,
+    // Extraction uses the PDF data API only; no viewer, forms, or scripting manager.
+    enableXfa: false,
     stopAtErrors: true,
     useSystemFonts: true,
     useWorkerFetch: false,
@@ -142,8 +143,7 @@ async function extractPdfBlocks(bytes: Uint8Array): Promise<ExactCvSourceExtract
     if (error instanceof TimelineError) throw error;
     throw new TimelineError("CV_SOURCE_DOCUMENT_INVALID", "The exact stored PDF is invalid or unsupported.", 409);
   } finally {
-    if (pdf) await pdf.destroy();
-    else await loadingTask.destroy().catch(() => undefined);
+    await loadingTask.destroy().catch(() => undefined);
   }
 }
 

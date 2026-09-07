@@ -5,6 +5,7 @@ import {
 } from "../ingestion/document-types.js";
 import {
   MAX_FILE_BYTES,
+  MAX_DIRECT_SOURCE_BYTES,
   IngestionFileError
 } from "../ingestion/file-inspector.js";
 import {
@@ -770,11 +771,45 @@ export function createProductionCvIntakeAdapter({
   const deleteObject=async(objectId)=>{
     if(objectId&&typeof apiClient.deleteObject==="function")await apiClient.deleteObject(objectId).catch(()=>{});
   };
+  // Direct private-storage transport may be blocked by the browser. The fallback
+  // repeats owner, class, size and byte-checksum checks through the same-origin API.
+  const uploadPrivateSource=async(file,{mimeType,byteSize,sha256})=>{
+    if(!Number.isSafeInteger(byteSize)||byteSize<1||byteSize>MAX_DIRECT_SOURCE_BYTES){
+      throw new IngestionFileError("FILE_TOO_LARGE","Timeline uploads must be 15 MB or smaller.",{size:byteSize,max:MAX_DIRECT_SOURCE_BYTES});
+    }
+    let objectId="";
+    try{
+      const grant=await apiClient.signObjectUpload(String(documentId),{mimeType,byteSize,sha256,objectClass:"SOURCE"});
+      objectId=String(grant?.objectId||"");
+      if(!objectId)throw new Error("Timeline source authorization did not return an object ID.");
+      let confirmed;
+      try{
+        await apiClient.uploadSignedObject(grant,file);
+        confirmed=await apiClient.confirmObjectUpload(objectId,grant.uploadToken);
+      }catch(error){
+        if(String(error?.code||"")!=="OBJECT_UPLOAD_NETWORK_FAILED"||typeof apiClient.uploadOwnedObject!=="function")throw error;
+        // Do not bypass an expired session, an explicit storage denial, or an
+        // invalid signed URL. Retire the first reservation before creating another.
+        if(typeof apiClient.deleteObject!=="function")throw error;
+        await apiClient.deleteObject(objectId);
+        objectId="";
+        const bytes=file.type===mimeType?file:new Blob([file],{type:mimeType});
+        confirmed=await apiClient.uploadOwnedObject(String(documentId),bytes,{sha256,objectClass:"SOURCE"});
+        objectId=String(confirmed?.id||"");
+      }
+      if(!objectId||String(confirmed?.status||"")!=="CONFIRMED")throw new Error("Timeline source upload could not be confirmed.");
+      return objectId;
+    }catch(error){
+      await deleteObject(objectId);
+      throw error;
+    }
+  };
   return Object.freeze({
     capability:Object.freeze({
       ...localAdapter.capability,
       mode:"server-ai-with-local-limited-fallback",
       source:"timeline-owned-server-ai",
+      maxBytes:MAX_DIRECT_SOURCE_BYTES,
       networkCalls:true
     }),
     async extract(input={}){
@@ -791,14 +826,7 @@ export function createProductionCvIntakeAdapter({
         let objectId="";
         try{
           await ensureRemoteDocument();
-          const grant=await apiClient.signObjectUpload(String(documentId),{
-            mimeType,byteSize:Number(file.size),sha256,objectClass:"SOURCE"
-          });
-          objectId=String(grant?.objectId||"");
-          if(!objectId)throw new Error("Timeline Rescue authorization did not return an object ID.");
-          await apiClient.uploadSignedObject(grant,file);
-          const confirmed=await apiClient.confirmObjectUpload(objectId,grant.uploadToken);
-          if(String(confirmed?.status||"")!=="CONFIRMED")throw new Error("Timeline Rescue source upload could not be confirmed.");
+          objectId=await uploadPrivateSource(file,{mimeType,byteSize:Number(file.size),sha256});
           const response=await apiClient.rescueTimeline(String(documentId),{
             source:{objectId,filename:String(file.name||"existing-timeline"),mimeType,sha256}
           });
@@ -964,18 +992,8 @@ export function createProductionCvIntakeAdapter({
       try{
         await ensureRemoteDocument();
         if(!objectId){
-          const grant=await apiClient.signObjectUpload(String(documentId),{
-            mimeType:String(source.mimeType),
-            byteSize:Number(source.fileSize),
-            sha256,
-            objectClass:"SOURCE"
-          });
-          objectId=String(grant?.objectId||"");
-          if(!objectId)throw new Error("Timeline source authorization did not return an object ID.");
           created=true;
-          await apiClient.uploadSignedObject(grant,file);
-          const confirmed=await apiClient.confirmObjectUpload(objectId,grant.uploadToken);
-          if(String(confirmed?.status||"")!=="CONFIRMED")throw new Error("Timeline source upload could not be confirmed.");
+          objectId=await uploadPrivateSource(file,{mimeType:String(source.mimeType),byteSize:Number(source.fileSize),sha256});
           sourceConfirmed=true;
           confirmedSources.set(sha256,objectId);
         }

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {assertPdfVendorManifest,PDF_VENDOR_MANIFEST} from './pdf-vendor-integrity.mjs';
 import {assertPresentationVendorManifest,PRESENTATION_VENDOR_MANIFEST} from "./presentation-vendor-integrity.mjs";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");const dist=join(root,"dist");
@@ -29,6 +30,16 @@ const REQUIRED_RUNTIME_ASSETS=[
 ];
 const missingRuntimeAssets=REQUIRED_RUNTIME_ASSETS.filter((path)=>!manifest.files[path]||!(manifest.files[path].bytes>0));
 if(missingRuntimeAssets.length)throw new Error(`RELEASE_RUNTIME_ASSET_MISSING:${missingRuntimeAssets.join(",")}`);
+const pdfRuntime=manifest.pdf_runtime;
+if(pdfRuntime?.manifest!==PDF_VENDOR_MANIFEST||manifest.files[PDF_VENDOR_MANIFEST]?.sha256!==pdfRuntime.sha256||!manifest.files[pdfRuntime.bundled_application])throw new Error('RELEASE_PDF_RUNTIME_MISSING');
+const pdfVendor=JSON.parse(await readFile(join(dist,PDF_VENDOR_MANIFEST),'utf8'));
+assertPdfVendorManifest(pdfVendor);
+if(pdfRuntime.version!==pdfVendor.version||pdfRuntime.main_source_sha256!==pdfVendor.files.find(item=>item.role==='main').sha256)throw new Error('RELEASE_PDF_RUNTIME_IDENTITY_MISMATCH');
+for(const item of pdfVendor.files){
+  if(!item.releasePath)continue;
+  const actualFile=manifest.files[item.releasePath];
+  if(actualFile?.sha256!==item.sha256||actualFile.bytes!==item.bytes)throw new Error(`RELEASE_PDF_FILE_MISMATCH:${item.role}`);
+}
 const presentationRuntime=manifest.presentation_runtime;
 if(presentationRuntime?.manifest!==PRESENTATION_VENDOR_MANIFEST||manifest.files[PRESENTATION_VENDOR_MANIFEST]?.sha256!==presentationRuntime.sha256||!manifest.files[presentationRuntime.bundled_application])throw new Error('RELEASE_PRESENTATION_RUNTIME_MISSING');
 const presentationVendor=JSON.parse(await readFile(join(dist,PRESENTATION_VENDOR_MANIFEST),'utf8'));

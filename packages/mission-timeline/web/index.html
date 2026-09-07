@@ -603,7 +603,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
         <div class="homeSourceDivider" aria-hidden="true"><span>OR</span></div>
         <button class="homeLocalUpload" id="homeIntake" data-nav="intake">
           <span class="homeUploadIcon" aria-hidden="true">⇧</span>
-          <span><strong>Upload from this computer</strong><small>PDF or DOCX · up to 20 MB</small></span>
+          <span><strong>Upload from this computer</strong><small>PDF or DOCX · up to 15 MB</small></span>
         </button>
         <label class="homeLocalUpload homeRescueTile" id="homeRescue" for="homeRescueFile" data-timeline-rescue-home>
           <span class="homeUploadIcon" aria-hidden="true">⟲</span>
@@ -2058,7 +2058,8 @@ function domainDraft404(domain){
   return Object.assign(domainDefaults404(domain),(state.builder.domainDrafts&&state.builder.domainDrafts[domain])||{});
 }
 function domainEvents404(domain){
-  return state.user.events.filter(event=>event.fields&&event.fields.builderDomain===domain&&!event.fields.publicationMilestone);
+  const api=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.domain;
+  return state.user.events.filter(event=>(api&&typeof api.entryDomain==='function'?api.entryDomain(event.id):event.fields&&event.fields.builderDomain)===domain&&!(event.fields&&event.fields.publicationMilestone));
 }
 function domainField404(label,name,value,options){
   options=options||{};const required=options.required?' <b aria-hidden="true">*</b>':'';
@@ -2096,6 +2097,9 @@ function domainSegments404(label,field,values,selected){
     +'</div><small data-domain-error="'+field+'"></small></fieldset>';
 }
 function domainSavedSummary404(event,domain){
+  const api=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.domain;
+  const imported=api&&typeof api.importedSummary==='function'?api.importedSummary(event.id):null;
+  if(imported)return imported;
   const f=event.fields||{};const dates=event.mile?fmtL(event.s):(fmtL(event.s)+'–'+(event.e?fmtL(event.e):'now'));
   if(domain==='clinical'){
     const lor=lorStatusForEvent404(event);
@@ -2223,6 +2227,9 @@ function personalMarkup404(draft){
 }
 function domainStepMarkup404(step){
   const domain={3:'clinical',4:'work',5:'research',6:'personal'}[step];const draft=domainDraft404(domain);
+  const api=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.domain;
+  if(draft.importedEventId&&api&&typeof api.importedMarkup==='function')return '<section class="builderDomainStep" data-domain="'+domain+'">'+api.importedMarkup(domain,draft)
+    +'<section class="builderSaved" aria-label="Saved '+domain+' entries"><h2>Saved '+(domain==='clinical'?'rotations':domain+' entries')+'</h2>'+domainSavedList404(domain)+'</section></section>';
   const editing=!!(state.builder.domainEditing&&state.builder.domainEditing[domain]);
   const title=domain==='clinical'?(editing?'Edit rotation':'Add a rotation'):(editing?'Edit '+domain:(domain==='work'?'Add work experience':domain==='research'?'Add research':'Add personal event'));
   const fields=domain==='clinical'?clinicalMarkup404(draft):domain==='work'?workMarkup404(draft):domain==='research'?researchMarkup404(draft):personalMarkup404(draft);
@@ -2583,6 +2590,8 @@ function commitTypeahead404(field,index){
 }
 function domainFormData404(form,domain){
   const draft=domainDraft404(domain);const next=Object.assign({},draft);
+  const api=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.domain;
+  if(draft.importedEventId&&api&&typeof api.readImportedForm==='function')return api.readImportedForm(form,draft);
   form.querySelectorAll('input[name],select[name]').forEach(control=>{
     if(control.type==='checkbox')next[control.name]=control.checked;
     else if(control.matches('[data-domain-date]')){
@@ -2611,6 +2620,8 @@ function domainFormData404(form,domain){
   return next;
 }
 function domainErrors404(domain,entry){
+  const api=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.domain;
+  if(entry.importedEventId&&api&&typeof api.validateImportedDraft==='function')return api.validateImportedDraft(entry);
   const errors={};const required=[];
   if(domain==='clinical'){
     if(!String(entry.specialty||'').trim())errors.specialty='Required.';
@@ -2806,7 +2817,7 @@ document.addEventListener('click',e=>{
     const result=runDomainAction404('save',domain,entry);
     if(result&&result.ok===false){showDomainErrors404(form,result.errors||{});return}
     state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
-    toast(domain==='clinical'?'Rotation added':domain.charAt(0).toUpperCase()+domain.slice(1)+' event added');
+    toast(entry.importedEventId?'Changes saved':domain==='clinical'?'Rotation added':domain.charAt(0).toUpperCase()+domain.slice(1)+' event added');
     return;
   }
   const editDomain=e.target.closest('[data-domain-edit]');

@@ -1,3 +1,6 @@
+// Direct Timeline uploads match the configured private-storage ceiling. File Vault
+// already owns its bytes and retains its separate 20 MB ingestion/parser contract.
+export const MAX_DIRECT_SOURCE_BYTES=15*1024*1024;
 export const MAX_FILE_BYTES=20*1024*1024;
 export const MAX_PAGES=80;
 

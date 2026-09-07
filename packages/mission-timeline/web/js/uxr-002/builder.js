@@ -1,5 +1,10 @@
 import {BUILDER_STEPS,VISIBILITY} from "./constants.js";
 import {
+  builderDomain022,builderEntryId022,isImportedBuilderEvent022,
+  importedBuilderDraft022,importedBuilderSummary022,importedDraftFromForm022,
+  renderImportedBuilderForm022,updateImportedBuilderEvent022,validateImportedBuilderDraft022
+} from "./imported-builder-entry-022.js";
+import {
   addBuilderExam,
   completedBuilderExamAttempts,
   deleteBuilderExamAttempt,
@@ -289,7 +294,7 @@ function hasValue(value){
 }
 
 function entryEvents(document,domain){
-  return(document?.events||[]).filter((event)=>event?.fields?.builderDomain===domain&&event?.fields?.builderEntryId&&!event?.fields?.publicationMilestone);
+  return(document?.events||[]).filter((event)=>builderDomain022(event)===domain&&builderEntryId022(event)&&!event?.fields?.publicationMilestone);
 }
 
 export function validateCoreInfo(profile={}){
@@ -338,6 +343,7 @@ function dateOrderError(start,end){
 }
 
 export function validateBuilderEntry(domain,entry={}){
+  if(entry.importedEventId)return validateImportedBuilderDraft022(entry);
   const errors={};
   const exactRotation=domain==="clinical"&&(
     entry.rotationDatePrecision==="day"||
@@ -628,7 +634,16 @@ export function commitBuilderEntry(document,domain,entry,{entryId=null,idFactory
   if(Object.keys(errors).length)return{ok:false,errors};
   const builder=ensureBuilderState(document);
   const resolvedEntryId=entryId||builder.editing[domain]||idFactory(`${domain}-entry`);
-  const existing=(document.events||[]).find((event)=>event?.fields?.builderEntryId===resolvedEntryId&&!event?.fields?.publicationMilestone);
+  const existing=(document.events||[]).find((event)=>builderEntryId022(event)===resolvedEntryId&&!event?.fields?.publicationMilestone);
+  if(entry.importedEventId){
+    const result=updateImportedBuilderEvent022(existing,entry);
+    if(!result.ok)return result;
+    document.events[document.events.findIndex(item=>item.id===existing.id)]=result.event;
+    builder.drafts[domain]=blankDraft(domain);
+    delete builder.editing[domain];
+    markStepTouched(document,{clinical:3,work:4,research:5,personal:6}[domain]);
+    return{...result,entryId:resolvedEntryId};
+  }
   const event=eventFromBuilderEntry(domain,entry,{
     entryId:resolvedEntryId,
     eventId:existing?.id,
@@ -654,7 +669,8 @@ export function commitBuilderEntry(document,domain,entry,{entryId=null,idFactory
 }
 
 export function entryFromBuilderEvent(event){
-  const domain=event?.fields?.builderDomain;
+  if(isImportedBuilderEvent022(event))return importedBuilderDraft022(event);
+  const domain=builderDomain022(event);
   const fields=event?.fields||{};
   if(domain==="clinical")return{
     ...blankDraft(domain),
@@ -726,13 +742,13 @@ export function entryFromBuilderEvent(event){
 }
 
 export function builderStepForEvent(event){
-  const domain=event?.fields?.builderDomain;
+  const domain=builderDomain022(event);
   return{core:1,exams:2,clinical:3,work:4,research:5,personal:6}[domain]||null;
 }
 
 export function beginBuilderEntryEdit(document,eventId){
   const event=(document.events||[]).find((item)=>item.id===eventId);
-  const domain=event?.fields?.builderDomain;
+  const domain=builderDomain022(event);
   if(!domain||event?.fields?.publicationMilestone)return false;
   const builder=ensureBuilderState(document);
   const step=builderStepForEvent(event);
@@ -740,16 +756,16 @@ export function beginBuilderEntryEdit(document,eventId){
   builder.step=step;
   if(domain==="core"||domain==="exams")return true;
   builder.drafts[domain]=entryFromBuilderEvent(event);
-  builder.editing[domain]=event.fields.builderEntryId;
+  builder.editing[domain]=builderEntryId022(event);
   return true;
 }
 
 export function deleteBuilderEntry(document,eventId){
   const event=(document.events||[]).find((item)=>item.id===eventId);
-  const entryId=event?.fields?.builderEntryId;
+  const entryId=builderEntryId022(event);
   if(!entryId)return false;
   const before=document.events.length;
-  document.events=document.events.filter((item)=>item?.fields?.builderEntryId!==entryId);
+  document.events=document.events.filter((item)=>builderEntryId022(item)!==entryId);
   const builder=ensureBuilderState(document);
   for(const [domain,value] of Object.entries(builder.editing)){
     if(value===entryId){
@@ -1146,6 +1162,7 @@ function personalForm(draft,editing){
 }
 
 function eventSummary(event,domain){
+  if(isImportedBuilderEvent022(event))return importedBuilderSummary022(event);
   const fields=event.fields||{};
   const dates=event.openEnded?`${formatMonth(event.startDate)}–now`:event.eventType==="milestone"?formatMonth(event.startDate):`${formatMonth(event.startDate)}–${formatMonth(event.endDate)}`;
   if(domain==="clinical")return`${fields.specialty||""} · ${fields.institution||event.siteName||""} · ${dates}`;
@@ -1171,7 +1188,8 @@ function skipLink(){
 
 function renderEntryStep(document,domain){
   const builder=builderView(document),draft=builder.drafts[domain],editing=!!builder.editing[domain];
-  const form=domain==="clinical"?clinicalForm(draft,editing):
+  const form=draft.importedEventId?renderImportedBuilderForm022(draft,domain):
+    domain==="clinical"?clinicalForm(draft,editing):
     domain==="work"?workForm(draft,editing,document.studentProfile?.medicalSchoolCountry):
     domain==="research"?researchForm(draft,editing):
     personalForm(draft,editing);
@@ -1183,7 +1201,8 @@ function renderEntryStep(document,domain){
 }
 
 export function renderBuilderEntryDetails(document,event){
-  const domain=event?.fields?.builderDomain;
+  const domain=builderDomain022(event);
+  if(isImportedBuilderEvent022(event))return renderImportedBuilderForm022(importedBuilderDraft022(event),domain);
   if(domain==="core")return renderCore(document);
   if(domain==="exams"){
     const entryId=String(event?.fields?.builderEntryId||"");
@@ -1236,7 +1255,7 @@ export function renderBuilder(store,{previewHtml=""}={}){
 
 function setInlineErrors(form,errors){
   form?.querySelectorAll?.("[data-error-for]").forEach((node)=>{node.textContent="";});
-  const domain=form?.dataset?.entryForm;
+  const domain=form?.hasAttribute?.("data-imported-entry-form")?null:form?.dataset?.entryForm;
   const domainAliases={
     work:{
       role:"workRole",
@@ -1351,6 +1370,7 @@ function queueUnverifiedSchool(profile,{idFactory=uid}={}){
 }
 
 function draftFromForm(form,domain,current={}){
+  if(current.importedEventId&&form.hasAttribute("data-imported-entry-form"))return importedDraftFromForm022(form,current);
   const next={...current};
   const fields={
     clinical:["clinicalInstitution","clinicalSpecialty","clinicalRotationType","clinicalCity","clinicalState","clinicalNotes"],

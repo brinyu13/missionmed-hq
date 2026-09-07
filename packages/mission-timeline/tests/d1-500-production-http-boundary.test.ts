@@ -142,6 +142,26 @@ test("production HTTP boundary denies direct access and strips WordPress cookies
   assert.equal(oversizedMediaFallback.status, 413);
   assert.equal((await oversizedMediaFallback.json()).error.code, "REQUEST_TOO_LARGE");
 
+  const sourceBytes = new Uint8Array(15 * 1024 * 1024 + 1);
+  const sourceHeaders = {
+    authorization: "Bearer valid-token",
+    "x-missionmed-timeline-gateway-secret": gatewaySecret,
+    "content-type": "application/pdf",
+    "x-timeline-document-id": "timeline_source_test",
+    "x-timeline-object-class": "SOURCE",
+    "x-content-sha256": "a".repeat(64),
+  };
+  const acceptedSourceFallback = await fetch(`${origin}/v1/objects/upload`, {
+    method: "POST", headers: sourceHeaders, body: sourceBytes,
+  });
+  assert.equal(acceptedSourceFallback.status, 200);
+  assert.equal(await calls.at(-1)?.arrayBuffer().then((value) => value.byteLength), sourceBytes.byteLength);
+  const oversizedSourceFallback = await fetch(`${origin}/v1/objects/upload`, {
+    method: "POST", headers: sourceHeaders, body: new Uint8Array(25 * 1024 * 1024 + 1),
+  });
+  assert.equal(oversizedSourceFallback.status, 413);
+  assert.equal((await oversizedSourceFallback.json()).error.code, "REQUEST_TOO_LARGE");
+
   const serializedLogs = JSON.stringify(logs);
   assert.equal(serializedLogs.includes(gatewaySecret), false);
   assert.equal(serializedLogs.includes("valid-token"), false);

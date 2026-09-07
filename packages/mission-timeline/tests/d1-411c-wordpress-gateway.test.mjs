@@ -78,14 +78,14 @@ test("gateway derives synthetic AI authority server-side and gives AI routes a b
   assert.doesNotMatch(plugin, /HTTP_X_TIMELINE_SYNTHETIC_FIXTURE/);
 });
 
-test("gateway provides a bounded private-media fallback without weakening ordinary request limits", () => {
+test("gateway preserves bounded media and ordinary limits while allowing the owner-scoped SOURCE fallback", () => {
   assert.match(plugin, /\$is_media_upload = \$method === 'POST' && \$path === 'v1\/objects\/upload'/);
-  assert.match(plugin, /\$max_request_bytes = \$is_media_upload \? 15 \* 1024 \* 1024 : 2 \* 1024 \* 1024/);
+  assert.match(plugin, /\$max_request_bytes = \$is_media_upload \? \(\$upload_class === 'SOURCE' \? 25 : 15\) \* 1024 \* 1024 : 2 \* 1024 \* 1024/);
   assert.match(plugin, /array\('image\/png', 'image\/jpeg', 'image\/webp', 'image\/gif'\)/);
   assert.match(plugin, /X-Timeline-Document-Id/);
   assert.match(plugin, /X-Timeline-Object-Class/);
   assert.match(plugin, /X-Content-Sha256/);
-  assert.match(plugin, /\$object_class !== 'MEDIA'/);
+  assert.match(plugin, /!in_array\(\$object_class, array\('MEDIA', 'SOURCE'\), true\)/);
 });
 
 test("anonymous entry returns through Matrix rather than the default WordPress login", () => {

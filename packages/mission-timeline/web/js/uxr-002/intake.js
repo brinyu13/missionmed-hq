@@ -1,4 +1,6 @@
+import {MAX_DIRECT_SOURCE_BYTES,MAX_FILE_BYTES} from "../ingestion/file-inspector.js";
 import {CATEGORIES,VISIBILITY} from "./constants.js";
+import {bindImportedBuilderEvent022} from "./imported-builder-entry-022.js";
 import {installMonthFields,monthFieldMarkup} from "./month-field.js";
 import {dateLabel,escapeHtml,monthIndex,monthString} from "./utils.js";
 
@@ -24,7 +26,7 @@ export const EXTRACTION_STATUSES=Object.freeze([
 export const EXTRACTION_MIN_STAGE_MS=550;
 export const DOCUMENT_TYPES=Object.freeze(["CV","MyERAS export","Résumé"]);
 export const INTAKE_FILTERS=Object.freeze(["all","accepted","rejected","undecided"]);
-export const MAX_DOCUMENT_BYTES=20*1024*1024;
+export const MAX_DOCUMENT_BYTES=MAX_DIRECT_SOURCE_BYTES;
 
 export const INTAKE_COPY=Object.freeze({
   uploadTitle:"Add your document",
@@ -36,8 +38,8 @@ export const INTAKE_COPY=Object.freeze({
   unreadable:"We couldn't read text in this document. If it's a scan, export a text PDF from MyERAS or your CV app and try again.",
   empty:"We read it, but didn't find dated events we're confident about. The guided builder takes about 10 minutes.",
   doneBody:"Your document has been processed. You can delete it now or keep it for another pass.",
-  fileError:"PDF or DOCX, up to 20MB.",
-  rescueFileError:"PPTX, PDF, PNG, or JPEG, up to 20MB.",
+  fileError:"PDF or DOCX, up to 15MB.",
+  rescueFileError:"PPTX, PDF, PNG, or JPEG, up to 15MB.",
   suggestionsSubline:"We checked your document before you start. Nothing here changes your history unless you apply it, and every applied change can be undone.",
   suggestionsClear:"We checked your document and found nothing to flag.",
   questionsClear:"Your document already answers everything we need for this one."
@@ -462,8 +464,13 @@ export function validateIntakeFile(file){
           ?"docx"
           :null;
   const validType=kind!==null;
-  const validSize=Number.isFinite(size)&&size>=0&&size<=MAX_DOCUMENT_BYTES;
-  if(!validType||!validSize)return{valid:false,error:INTAKE_COPY.fileError};
+  // This local parser allowance grants no access: the server revalidates the
+  // File Vault object owner, exact version and checksum before it can be reused.
+  const vaultSource=file?.timelineSourceObject;
+  const handedOffVaultSource=vaultSource?.provider==="missionmed-filevault-v2"&&Boolean(vaultSource?.objectId);
+  const maxBytes=handedOffVaultSource?MAX_FILE_BYTES:MAX_DOCUMENT_BYTES;
+  const validSize=Number.isFinite(size)&&size>=0&&size<=maxBytes;
+  if(!validType||!validSize)return{valid:false,error:handedOffVaultSource?`PDF or DOCX, up to ${Math.round(maxBytes/1024/1024)}MB.`:INTAKE_COPY.fileError};
   return{
     valid:true,
     error:null,
@@ -879,7 +886,7 @@ function approvalProvenance(candidate,fileName=""){
 }
 
 function candidateEvent(candidate,id,fileName=""){
-  return{
+  return bindImportedBuilderEvent022({
     id,
     title:candidate.title,
     categoryId:candidate.categoryId,
@@ -901,7 +908,7 @@ function candidateEvent(candidate,id,fileName=""){
     sourceType:"document-intake",
     provenance:approvalProvenance(candidate,fileName),
     fields:clone(candidate.fields)
-  };
+  });
 }
 
 function explicitMedicalSchoolFromDegreeTitle(candidate){
@@ -1436,7 +1443,7 @@ function uploadMarkup(state){
     <label class="intake-dropzone" data-intake-dropzone>
       <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-intake-file>
       <strong>Drop a PDF here, or browse</strong>
-      <span>PDF or DOCX · up to 20MB</span>
+      <span>PDF or DOCX · up to 15MB</span>
     </label>
     ${state.file?`<div class="intake-file-row"><span>${escapeHtml(state.file.name)}</span><span class="status-chip">Looks like: ${escapeHtml(state.detectedType)}</span><button type="button" class="button tertiary" data-intake-action="change-type">Change</button></div>`:""}
     ${state.fileError?`<p class="field-error" role="alert">${escapeHtml(state.fileError)}</p>`:""}

@@ -26,7 +26,8 @@ export async function extractPdf(file,{onStatus=()=>{},password=null}={}){
     task=getDocument({
       data:new Uint8Array(inspected.buffer.slice(0)),
       password:password||undefined,
-      isEvalSupported:false,
+      // Extract text only; never initialize the viewer or its scripting manager.
+      enableXfa:false,
       useWorkerFetch:false,
       stopAtErrors:false
     });

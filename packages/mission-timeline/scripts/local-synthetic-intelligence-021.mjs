@@ -135,16 +135,16 @@ async function analyze(kind,input) {
       // Local registered fixtures only: the production PDF/OCR boundary stays separate.
       const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs');
       const {createCanvas}=await import('@napi-rs/canvas');
-      const task=getDocument({data:Uint8Array.from(source.bytes),isEvalSupported:false,useSystemFonts:true,useWorkerFetch:false});
+      const task=getDocument({data:Uint8Array.from(source.bytes),enableXfa:false,useSystemFonts:true,useWorkerFetch:false});
       const pdf=await task.promise;
       try {
         if(pdf.numPages!==1)throw Object.assign(new Error('Use a single-page synthetic Timeline PDF for this local review.'),{status:422,code:'SYNTHETIC_SINGLE_PAGE_REQUIRED'});
         const page=await pdf.getPage(1), original=page.getViewport({scale:1});
         const viewport=page.getViewport({scale:Math.min(1920/original.width,1920/original.height)});
         const canvas=createCanvas(Math.ceil(viewport.width),Math.ceil(viewport.height));
-        await page.render({canvasContext:canvas.getContext('2d'),viewport,background:'rgb(255,255,255)'}).promise;
+        await page.render({canvas,canvasContext:canvas.getContext('2d'),viewport,background:'rgb(255,255,255)'}).promise;
         image={bytes:canvas.toBuffer('image/png'),mimeType:'image/png'};
-      } finally {await pdf.destroy();}
+      } finally {await task.destroy();}
     }
     const ai=await workflows.observeRescue(context,doc,{artifactSha256:source.sha256,format:base.format,pageOrSlideCount:base.slideOrPageCount,objects:base.objects,...(image?{image}:{})},true);
     const rescue=analyzeTimelineRescue({...source,visualObservations:ai.observations},[]);

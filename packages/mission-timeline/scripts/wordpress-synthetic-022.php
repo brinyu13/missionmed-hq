@@ -36,7 +36,7 @@ function tl022_canary_run($plan, $passwords, $execute = false) {
     tl022_canary_require(array_keys($passwords) === ['a','b'], 'EXACT_TWO_PASSWORD_INPUTS_REQUIRED');
     foreach ($passwords as $value) { tl022_canary_require(is_string($value) && preg_match('/^[A-Za-z0-9_-]{64}$/D', $value), 'PRIVATE_PASSWORD_INPUT_DENIED'); }
     tl022_canary_require($passwords['a'] !== $passwords['b'], 'DISTINCT_PASSWORDS_REQUIRED');
-    foreach (['wp_insert_user','learndash_update_course_access','sfwd_lms_has_access','mmtl_derived_principal_for_user'] as $function) {
+    foreach (['wp_insert_user','ld_update_course_access','sfwd_lms_has_access','mmtl_derived_principal_for_user'] as $function) {
         tl022_canary_require(function_exists($function), 'NATIVE_FUNCTION_REQUIRED');
     }
     $context = tl022_canary_context();
@@ -78,7 +78,7 @@ function tl022_canary_run($plan, $passwords, $execute = false) {
             tl022_canary_require($user && $user->roles === ['subscriber']
                 && get_user_meta($id, '_missionmed_timeline_synthetic_test', true) === '1'
                 && get_user_meta($id, '_missionmed_timeline_022_canary_run', true) === $plan['run_id'], 'NEW_USER_READBACK_FAILED');
-            learndash_update_course_access($id, 3893, false);
+            ld_update_course_access($id, 3893, false);
             tl022_canary_require(sfwd_lms_has_access(3893, $id), 'NATIVE_ENROLLMENT_READBACK_FAILED');
             tl022_canary_require(get_user_meta($id, '_missionmed_timeline_remote_sync_consent', true) === '', 'CONSENT_MUST_REMAIN_UNSET');
             $principal = mmtl_derived_principal_for_user($id);

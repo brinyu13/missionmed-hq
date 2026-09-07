@@ -27,7 +27,7 @@ test("D1-405 Home preserves the five-second contract while making File Vault pri
     "Already have your CV or MyERAS file? Let Timeline Builder do the first pass.",
     "CHOOSE FROM FILE VAULT ▸",
     "Upload from this computer",
-    "PDF or DOCX · up to 20 MB",
+    "PDF or DOCX · up to 15 MB",
     "Nothing is added until you review and approve it.",
     "Latest timeline preview",
     /* AAA-019: the canonical board is always on Home; the empty state is a coach chip. */

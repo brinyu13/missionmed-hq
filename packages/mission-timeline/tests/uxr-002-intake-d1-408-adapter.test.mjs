@@ -261,7 +261,7 @@ test("HIGH maps to bulk-acceptable high only when the complete D1-408 safety gat
   assert.equal(ambiguous.fields.mappingReviewRequired,true);
 });
 
-test("native DOCX text is parsed locally and the visible 20MB policy is enforced consistently",async()=>{
+test("native DOCX text is parsed within the separate 20MB local parser ceiling",async()=>{
   let extractionCalls=0;
   const adapter=createD1408PdfIntakeAdapter({
     pdfExtractor:async()=>{

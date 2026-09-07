@@ -88,10 +88,10 @@ async function extractedMachine({
   return machine;
 }
 
-test("file validation accepts PDF/DOCX through 20 MiB and preserves the frozen error",()=>{
+test("direct upload validation accepts PDF/DOCX through 15 MiB and reports its current limit",()=>{
   assert.deepEqual(validateIntakeFile(pdf("Timeline.PDF",MAX_DOCUMENT_BYTES)).valid,true);
   assert.deepEqual(validateIntakeFile(docx()).valid,true);
-  assert.equal(validateIntakeFile(pdf("too-large.pdf",MAX_DOCUMENT_BYTES+1)).error,"PDF or DOCX, up to 20MB.");
+  assert.equal(validateIntakeFile(pdf("too-large.pdf",MAX_DOCUMENT_BYTES+1)).error,"PDF or DOCX, up to 15MB.");
   assert.equal(validateIntakeFile({name:"notes.txt",type:"text/plain",size:10}).error,INTAKE_COPY.fileError);
   assert.equal(validateIntakeFile({name:"spoofed.pdf",type:"text/plain",size:10}).valid,false);
   assert.equal(validateIntakeFile({name:"mismatch.pdf",type:docx().type,size:10}).valid,false);

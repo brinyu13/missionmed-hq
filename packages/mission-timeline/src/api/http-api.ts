@@ -32,6 +32,12 @@ export interface TimelineHttpOptions {
 // SOURCE ceiling here only produced a band of files that ingest and then fail on review.
 export const FILE_VAULT_SMART_FILL_MAX_BYTES = 20 * 1024 * 1024;
 export const PRIVATE_MEDIA_UPLOAD_MAX_BYTES = 15 * 1024 * 1024;
+export const PRIVATE_SOURCE_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
+const PRIVATE_MEDIA_UPLOAD_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const PRIVATE_SOURCE_UPLOAD_TYPES = new Set([
+  "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation", "image/png", "image/jpeg",
+]);
 
 function json(value: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(value), {
@@ -440,9 +446,12 @@ export class TimelineHttpApi {
       const mimeType = String(request.headers.get("content-type") ?? "").split(";", 1)[0]!.trim().toLowerCase();
       const expectedSha256 = String(request.headers.get("x-content-sha256") ?? "").trim().toLowerCase();
       const declaredBytes = Number(request.headers.get("content-length") ?? 0);
-      if (objectClass !== "MEDIA") throw new TimelineError("OBJECT_UPLOAD_CLASS_DENIED", "Only Timeline media may use this upload path.", 415);
-      if (!Number.isSafeInteger(declaredBytes) || declaredBytes < 1 || declaredBytes > PRIVATE_MEDIA_UPLOAD_MAX_BYTES) {
-        throw new TimelineError("OBJECT_UPLOAD_SIZE_DENIED", "Timeline media must be 15 MB or smaller.", 413);
+      if (objectClass !== "MEDIA" && objectClass !== "SOURCE") throw new TimelineError("OBJECT_UPLOAD_CLASS_DENIED", "Only Timeline media and source files may use this upload path.", 415);
+      const allowedTypes = objectClass === "SOURCE" ? PRIVATE_SOURCE_UPLOAD_TYPES : PRIVATE_MEDIA_UPLOAD_TYPES;
+      const maxBytes = objectClass === "SOURCE" ? PRIVATE_SOURCE_UPLOAD_MAX_BYTES : PRIVATE_MEDIA_UPLOAD_MAX_BYTES;
+      if (!allowedTypes.has(mimeType)) throw new TimelineError("OBJECT_UPLOAD_TYPE_DENIED", "This file type is not supported for this upload.", 415);
+      if (!Number.isSafeInteger(declaredBytes) || declaredBytes < 1 || declaredBytes > maxBytes) {
+        throw new TimelineError("OBJECT_UPLOAD_SIZE_DENIED", `Timeline ${objectClass === "SOURCE" ? "source files must be 25" : "media must be 15"} MB or smaller.`, 413);
       }
       const record = await service.getDocument(context, documentId);
       if (record.document.studentOwnerId !== context.principalId || context.role !== "STUDENT") {
@@ -452,7 +461,7 @@ export class TimelineHttpApi {
       if (bytes.byteLength !== declaredBytes) throw new TimelineError("OBJECT_UPLOAD_SIZE_MISMATCH", "Timeline media size did not match the request.", 409);
       const confirmed = await this.objectStore.putOwnedObject(context, {
         documentId: record.document.id,
-        objectClass: "MEDIA",
+        objectClass,
         mimeType,
         byteSize: bytes.byteLength,
         sha256: expectedSha256,

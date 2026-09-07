@@ -173,18 +173,18 @@ test("private media can fail over to an owner-authenticated same-origin upload",
   const stored = await objectStore.getAuthorizedObjectBytes(student, payload.id);
   assert.deepEqual(stored.bytes, bytes);
 
-  const sourceDenied = await api.handle(new Request("https://timeline.local/v1/objects/upload", {
+  const exportDenied = await api.handle(new Request("https://timeline.local/v1/objects/upload", {
     method: "POST",
     headers: {
       authorization: `Bearer ${token}`,
       "content-type": "application/pdf",
       "content-length": String(bytes.byteLength),
       "x-timeline-document-id": "timeline_media_fallback",
-      "x-timeline-object-class": "SOURCE",
+      "x-timeline-object-class": "EXPORT",
       "x-content-sha256": digest,
     },
     body: bytes,
   }));
-  assert.equal(sourceDenied.status, 415);
-  assert.equal((await sourceDenied.json()).error.code, "OBJECT_UPLOAD_CLASS_DENIED");
+  assert.equal(exportDenied.status, 415);
+  assert.equal((await exportDenied.json()).error.code, "OBJECT_UPLOAD_CLASS_DENIED");
 });

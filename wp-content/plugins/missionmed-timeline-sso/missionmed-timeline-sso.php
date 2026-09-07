@@ -1064,7 +1064,7 @@ function mmtl_proxy_api_request() {
     if ($token === '' || is_wp_error(mmtl_verify_jwt($token, $principal, (int) $user->ID, $access))) {
         mmtl_gateway_error('timeline_token_invalid', 'Timeline token is invalid.', 401);
     }
-    if (!preg_match('#^v1(?:/[A-Za-z0-9._~-]+)*$#', $path)) {
+    if (!preg_match('#^v1(?:/[A-Za-z0-9._~-]+)*$#', $path) || preg_match('#(?:^|/)\.{1,2}(?:/|$)#', $path)) {
         mmtl_gateway_error('route_invalid', 'Timeline API route is invalid.', 404);
     }
     // Only the dedicated capability-checked WP directory bridge may supply enrollment IDs.
@@ -1095,7 +1095,8 @@ function mmtl_proxy_api_request() {
     }
     $content_length = absint($_SERVER['CONTENT_LENGTH'] ?? 0);
     $is_media_upload = $method === 'POST' && $path === 'v1/objects/upload';
-    $max_request_bytes = $is_media_upload ? 15 * 1024 * 1024 : 2 * 1024 * 1024;
+    $upload_class = $is_media_upload ? strtoupper(sanitize_key((string) wp_unslash($_SERVER['HTTP_X_TIMELINE_OBJECT_CLASS'] ?? ''))) : '';
+    $max_request_bytes = $is_media_upload ? ($upload_class === 'SOURCE' ? 25 : 15) * 1024 * 1024 : 2 * 1024 * 1024;
     if ($content_length > $max_request_bytes) {
         mmtl_gateway_error('request_too_large', 'Timeline request is too large.', 413);
     }
@@ -1117,8 +1118,11 @@ function mmtl_proxy_api_request() {
     $content_type = 'application/json';
     if ($is_media_upload) {
         $content_type = strtolower(trim((string) wp_unslash($_SERVER['CONTENT_TYPE'] ?? '')));
-        if (!in_array($content_type, array('image/png', 'image/jpeg', 'image/webp', 'image/gif'), true)) {
-            mmtl_gateway_error('object_upload_type_denied', 'Choose a PNG, JPG, WEBP, or GIF image.', 415);
+        $upload_types = $upload_class === 'SOURCE'
+            ? array('application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'image/png', 'image/jpeg')
+            : array('image/png', 'image/jpeg', 'image/webp', 'image/gif');
+        if (!in_array($content_type, $upload_types, true)) {
+            mmtl_gateway_error('object_upload_type_denied', 'Choose a supported Timeline file.', 415);
         }
     }
     $outbound_headers = array(
@@ -1135,7 +1139,7 @@ function mmtl_proxy_api_request() {
         $document_id = sanitize_text_field((string) wp_unslash($_SERVER['HTTP_X_TIMELINE_DOCUMENT_ID'] ?? ''));
         $object_class = strtoupper(sanitize_key((string) wp_unslash($_SERVER['HTTP_X_TIMELINE_OBJECT_CLASS'] ?? '')));
         $content_sha256 = strtolower(sanitize_text_field((string) wp_unslash($_SERVER['HTTP_X_CONTENT_SHA256'] ?? '')));
-        if (!preg_match('/^timeline_[A-Za-z0-9._~-]{1,160}$/', $document_id) || $object_class !== 'MEDIA' || !preg_match('/^[a-f0-9]{64}$/', $content_sha256)) {
+        if (!preg_match('/^timeline_[A-Za-z0-9._~-]{1,160}$/', $document_id) || !in_array($object_class, array('MEDIA', 'SOURCE'), true) || !preg_match('/^[a-f0-9]{64}$/', $content_sha256)) {
             mmtl_gateway_error('object_upload_metadata_invalid', 'Timeline media metadata is invalid.', 400);
         }
         $outbound_headers['X-Timeline-Document-Id'] = $document_id;
