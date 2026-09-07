@@ -1,3 +1,4 @@
+import { timelineAiProviderTimeoutMs022 } from "./provider-deadline-022.js";
 import { attachProviderReceipt } from "./provider-receipt.js";
 import {
   CV_INTELLIGENCE_PROMPT_VERSION,
@@ -44,7 +45,7 @@ export class OpenAiCvIntelligenceProvider implements CvIntelligenceProvider {
     if (!/^[-a-zA-Z0-9_.:]{2,160}$/.test(options.model.trim())) throw new Error("TIMELINE_AI_MODEL_INVALID");
     this.descriptor = Object.freeze({ provider: "openai", model: options.model.trim() });
     this.fetchImpl = options.fetchImpl ?? fetch;
-    this.timeoutMs = Math.max(5_000, Math.min(120_000, options.timeoutMs ?? 45_000));
+    this.timeoutMs = timelineAiProviderTimeoutMs022(options.timeoutMs);
   }
 
   async analyze(request: CvIntelligenceRequest, signal?: AbortSignal): Promise<CvProviderResult> {

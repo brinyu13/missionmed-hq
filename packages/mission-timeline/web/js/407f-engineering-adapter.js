@@ -9486,7 +9486,17 @@ export async function boot407FEngineeringAdapter({
     ?installProductionMatrixReturn({store,productionRuntime})
     :installLocalMatrixAppMode({store});
   window.D1_407F_ENGINEERING=api;
-  api.familyRuntime=installFamilyRuntime022({runtime:productionRuntime,store,bridge});
+  api.familyRuntime=installFamilyRuntime022({runtime:productionRuntime,store,bridge,recoverSave:async()=>{
+    try{
+      if(store.adapter?.getSyncStatus?.().state!=="CONFLICT"){
+        await store.saveNow("RETRY_SAVE");
+        await store.adapter?.flush?.();
+      }
+      if(store.adapter?.getSyncStatus?.().state==="CONFLICT")await openSyncConflictRecovery();
+    }catch(error){
+      toastStudentError(error,"save");
+    }
+  }});
   bridge.renderAll();
   document.documentElement.classList.remove("d1-hydrating");
   document.dispatchEvent(new CustomEvent("d1:407f-engineering-ready",{

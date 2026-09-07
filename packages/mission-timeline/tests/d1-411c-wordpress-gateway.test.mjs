@@ -74,7 +74,7 @@ test("gateway derives synthetic AI authority server-side and gives AI routes a b
   assert.match(plugin, /\$is_ai_route = preg_match/);
   assert.match(plugin, /get_user_meta\(\(int\) \$user->ID, MMTL_SYNTHETIC_TEST_META, true\) === '1'/);
   assert.match(plugin, /\$outbound_headers\['X-Timeline-Synthetic-Fixture'\] = '1'/);
-  assert.match(plugin, /'timeout' => \(\$is_ai_route \|\| \$is_media_upload\) \? 60 : 20/);
+  assert.match(plugin, /'timeout' => \$is_ai_route \? 100 : \(\$is_media_upload \? 60 : 20\)/);
   assert.doesNotMatch(plugin, /HTTP_X_TIMELINE_SYNTHETIC_FIXTURE/);
 });
 

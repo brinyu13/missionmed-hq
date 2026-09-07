@@ -84,7 +84,10 @@ export function installFamily022(api = window.D1_407F_ENGINEERING) {
   header.querySelector('.headerSpacer')?.after(identity);
   const adminButton=create('button',{type:'button',class:'family022AdminButton',hidden:''},'Admin workspace');
   identity.append(adminButton);
-  const sync=create('span',{class:'family022Sync',role:'status','aria-live':'polite'});
+  const sync=create('div',{class:'family022Sync',role:'status','aria-live':'polite'});
+  const syncLabel=create('span');
+  const syncRecovery=create('button',{type:'button',class:'family022SyncRecovery',hidden:''});
+  sync.append(syncLabel,syncRecovery);
   identity.after(sync);
   const subjectBanner=create('div',{class:'family022Subject',role:'status',hidden:''});
   subjectBanner.innerHTML='<span class="family022SubjectInitials" aria-hidden="true"></span><div><span class="family022Eyebrow">VIEWING TIMELINE FOR</span><strong data-family-subject></strong><small data-family-subject-access></small></div><button type="button" class="btnD alt">Return to students</button>';
@@ -150,6 +153,7 @@ export function installFamily022(api = window.D1_407F_ENGINEERING) {
     document.dispatchEvent(new CustomEvent('d1:family-022-action',{detail:{action:value}}));
   }
   adminButton.addEventListener('click',()=>action('admin-home'));
+  syncRecovery.addEventListener('click',()=>action('recover-save'));
   adminHomeNav.addEventListener('click',()=>{api.bridge.go('admin');action('admin-home');});
   adminRosterNav.addEventListener('click',()=>{api.bridge.go('admin');action('admin-roster');});
   subjectBanner.querySelector('button').addEventListener('click',()=>action('exit-subject'));
@@ -164,7 +168,11 @@ export function installFamily022(api = window.D1_407F_ENGINEERING) {
     setText('[data-family-role]',context.roleLabel);
     setText('[data-family-actor]',context.actorName);
     adminButton.hidden=!context.admin;
-    sync.textContent=context.syncLabel;sync.dataset.state=context.synced?'synced':snapshot?.sync?.state||'local';
+    syncLabel.textContent=context.syncLabel;sync.dataset.state=context.synced?'synced':snapshot?.sync?.state||'local';
+    const saveAttention=['error','conflict'].includes(sync.dataset.state);
+    syncRecovery.hidden=!saveAttention;
+    syncRecovery.disabled=snapshot?.sync?.recovering===true;
+    syncRecovery.textContent=syncRecovery.disabled?'Checking saved copies…':sync.dataset.state==='conflict'?'Review save conflict':'Retry save';
     subjectBanner.hidden=!context.subject;
     document.body.classList.toggle('family022SubjectActive',Boolean(context.subject));
     if(context.subject){
@@ -188,6 +196,7 @@ export function installFamily022(api = window.D1_407F_ENGINEERING) {
     }
     const adminLanding=context.admin&&!context.subject;
     sync.hidden=adminLanding;
+    document.body.classList.toggle('family022SaveAttention',saveAttention&&!adminLanding);
     document.body.classList.toggle('family022AdminLanding',adminLanding);
     adminHomeNav.hidden=!context.admin;adminRosterNav.hidden=!context.admin;
     for(const button of rail.querySelectorAll(':scope > [data-v]'))button.hidden=adminLanding;

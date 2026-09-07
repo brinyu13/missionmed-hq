@@ -136,7 +136,21 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
   }
 
   async getConflict(documentId) {
-    const conflict = await super.get("settings", `remote-conflict:${documentId}`);
+    let conflict = await super.get("settings", `remote-conflict:${documentId}`);
+    // A 409 during an open session has no hydration snapshot yet. Fetch through
+    // the authenticated owner-scoped client, without replacing either copy.
+    if (!conflict?.serverSnapshot && this.remoteSyncConsent && this.apiClient?.configured &&
+        (await this.pending()).some(record => record.documentId === documentId && record.status === "CONFLICT")) {
+      const saved = await this.apiClient.getDocument(documentId);
+      const server = saved?.document;
+      if (server?.id !== documentId || !Number.isSafeInteger(server?.revision) || server.revision < 0 ||
+          !REMOTE_SOURCE_SCHEMAS.has(server?.schemaVersion)) {
+        throw Object.assign(new Error("The latest saved Timeline could not be verified. Please try again."), {code:"CONFLICT_SNAPSHOT_INVALID"});
+      }
+      if (!(await this.pending()).some(record => record.documentId === documentId && record.status === "CONFLICT")) return null;
+      conflict = {id:`remote-conflict:${documentId}`,documentId,revision:server.revision,serverSnapshot:structuredClone(server),updatedAt:isoNow()};
+      await super.put("settings", conflict);
+    }
     if (!conflict?.serverSnapshot) return null;
     const local = await super.get("documents", documentId);
     if (!local?.document) return null;

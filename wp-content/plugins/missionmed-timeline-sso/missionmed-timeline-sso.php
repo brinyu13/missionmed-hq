@@ -1148,7 +1148,7 @@ function mmtl_proxy_api_request() {
     }
     $args = array(
         'method' => $method,
-        'timeout' => ($is_ai_route || $is_media_upload) ? 60 : 20,
+        'timeout' => $is_ai_route ? 100 : ($is_media_upload ? 60 : 20),
         'redirection' => 0,
         'reject_unsafe_urls' => true,
         'headers' => $outbound_headers,

@@ -7,19 +7,21 @@ export function familyRuntimeSnapshot022({runtime,saveStatus,remoteStatus,acknow
   const identity=runtime.authClient.bootstrapState;
   const admin=identity?.adminWorkspace===true&&identity.role==='PROGRAM_ADMIN';
   const remote=String(remoteStatus?.syncState||remoteStatus?.state||'');
-  let state=!runtime.remotePersistenceAllowed?'local':!online?'offline':({CONFLICT:'conflict',ERROR:'error',SYNC_PENDING:'saving',OFFLINE:'offline',LOCAL_ONLY:'local'})[remote]||'loading';
+  let state=!runtime.remotePersistenceAllowed?'local':!online?'offline':({CONFLICT:'conflict',ERROR:'error',SYNC_PENDING:'saving',SYNCING:'saving',OFFLINE:'offline',LOCAL_ONLY:'local'})[remote]||'loading';
   if(runtime.remotePersistenceAllowed&&online&&remote==='SYNCED'&&acknowledgement?.updatedAt)state='synced';
   if(saveStatus==='saving')state='saving';
   if(saveStatus==='error')state='error';
+  // A local write/error never masks a known conflict that requires a choice.
+  if(runtime.remotePersistenceAllowed&&remote==='CONFLICT')state='conflict';
   return{mode:'production',session:{status:runtime.authClient.locked?'denied':'authenticated',actor:{id:identity.principalId,displayName:identity.displayName,initials:initials(identity.displayName)},capabilities:{adminWorkspace:admin},subject:admin&&runtime.subject?{id:runtime.subject.principalId,displayName:runtime.subject.displayName,initials:initials(runtime.subject.displayName),canEdit:runtime.subject.canEdit===true}:null},sync:{state,acknowledgedAt:state==='synced'?acknowledgement.updatedAt:undefined}};
 }
 
 /** Exposes presentation state from the authenticated runtime. Server permissions
  * remain authoritative for every roster, subject, standards, and consent action. */
-export function installFamilyRuntime022({runtime,store,bridge,windowObject=window,documentObject=document}={}){
-  const listeners=new Set();let acknowledgement=null,generation=0,adminController=null,dialogController=null,dialog=null,destroyed=false;
+export function installFamilyRuntime022({runtime,store,bridge,recoverSave,windowObject=window,documentObject=document}={}){
+  const listeners=new Set();let acknowledgement=null,generation=0,adminController=null,dialogController=null,dialog=null,destroyed=false,recovering=false;
   const client=runtime?.authClient;
-  const current=()=>familyRuntimeSnapshot022({runtime,saveStatus:store.saveStatus,remoteStatus:runtime?.adapter?.getSyncStatus?.(),acknowledgement,online:windowObject.navigator?.onLine!==false});
+  const current=()=>{const snapshot=familyRuntimeSnapshot022({runtime,saveStatus:store.saveStatus,remoteStatus:runtime?.adapter?.getSyncStatus?.(),acknowledgement,online:windowObject.navigator?.onLine!==false});snapshot.sync.recovering=recovering;return snapshot;};
   const emit=()=>{if(destroyed)return;const snapshot=current();for(const listener of listeners){try{listener(snapshot);}catch{}}};
   const refresh=async()=>{
     emit();const request=++generation;
@@ -63,6 +65,11 @@ export function installFamilyRuntime022({runtime,store,bridge,windowObject=windo
     }
   }
   function handleAction(action){
+    if(action==='recover-save'){
+      if(recovering||client?.locked||typeof recoverSave!=='function'||!['error','conflict'].includes(current().sync.state))return;
+      recovering=true;emit();
+      return Promise.resolve().then(recoverSave).finally(()=>{recovering=false;refresh();});
+    }
     if(action==='ai-settings')return settings('ai');
     if(action==='founder-standards')return settings('standards');
     if(!client?.bootstrapState?.adminWorkspace)return;

@@ -334,19 +334,19 @@ export class TimelineProductionAuthClient{
   createVersion(documentId,baseRevision,snapshot,label){return this.request(`/documents/${encodeURIComponent(documentId)}/versions`,{method:"POST",body:{baseRevision,snapshot,label}});}
   analyzeCv(documentId,input){
     return this.request(`/documents/${encodeURIComponent(documentId)}/intake/analyze`,{
-      method:"POST",body:input,timeoutMs:65_000,
+      method:"POST",body:input,timeoutMs:110_000,
       headers:this.bootstrapState?.syntheticFixture?{"x-timeline-synthetic-fixture":"1"}:{}
     });
   }
   analyzeQuality(documentId,input){
     return this.request(`/documents/${encodeURIComponent(documentId)}/quality/analyze`,{
-      method:"POST",body:input,timeoutMs:65_000,
+      method:"POST",body:input,timeoutMs:110_000,
       headers:this.bootstrapState?.syntheticFixture?{"x-timeline-synthetic-fixture":"1"}:{}
     });
   }
   rescueTimeline(documentId,input){
     return this.request(`/documents/${encodeURIComponent(documentId)}/intake/rescue`,{
-      method:"POST",body:input,timeoutMs:65_000,
+      method:"POST",body:input,timeoutMs:110_000,
       headers:this.bootstrapState?.syntheticFixture?{"x-timeline-synthetic-fixture":"1"}:{}
     });
   }

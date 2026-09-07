@@ -333,6 +333,41 @@ test("authoritative reload preserves pending local edits and records a divergent
   adapter.close();
 });
 
+test("a live 409 retrieves the authorized server copy without reloading or losing the pending local copy", async () => {
+  const local=localRecord("timeline_live_conflict_022"),server={...structuredClone(local.document),title:"Newer saved copy",revision:4};
+  let conflict=true,reads=0,saved=null;
+  const adapter=new HybridIndexedDbAdapter({name:`live-conflict-${crypto.randomUUID()}`,remoteSyncConsent:true,apiClient:{configured:true,
+    async createVersion(id,revision,snapshot){if(conflict)throw Object.assign(new Error("Conflict"),{status:409,code:"REVISION_CONFLICT"});assert.equal(id,local.id);assert.equal(revision,4);saved=structuredClone(snapshot);return{revision:5};},
+    async getDocument(id){assert.equal(id,local.id);reads++;return{document:server};}
+  }});
+  try{
+    await adapter.open();await adapter.put("settings",{id:`remote-revision:${local.id}`,revision:3,documentId:local.id});
+    await adapter.atomicPut([{store:"documents",key:local.id,value:local}]);await adapter.flush();
+    assert.equal(await adapter.get("settings",`remote-conflict:${local.id}`),undefined);
+    const review=await adapter.getConflict(local.id);assert.equal(reads,1);assert.equal(review.serverDocument.title,server.title);assert.equal(review.localDocument.title,local.document.title);
+    assert.equal((await adapter.get("documents",local.id)).document.title,local.document.title);assert.equal((await adapter.pending()).length,1);
+    conflict=false;const recovered=await adapter.resolveConflict(local.id,"KEEP_LOCAL");assert.equal(recovered.pending,0);assert.equal(saved.title,local.document.title);
+    assert.equal((await adapter.get("versions",recovered.recoveryVersionId)).documentSnapshot.title,server.title);
+  }finally{adapter.close();}
+});
+
+test("conflict snapshot denial or mismatched document never clears pending edits",async()=>{
+  for(const failure of ['denied','wrong-id','invalid-revision']){
+    const local=localRecord(`timeline_conflict_${failure}`);
+    const adapter=new HybridIndexedDbAdapter({name:`conflict-negative-${crypto.randomUUID()}`,remoteSyncConsent:true,apiClient:{configured:true,
+      async createVersion(){throw Object.assign(new Error("Conflict"),{status:409});},
+      async getDocument(){if(failure==='denied')throw Object.assign(new Error("Access denied"),{status:403});return{document:{...local.document,id:failure==='wrong-id'?'another-document':local.id,revision:failure==='invalid-revision'?-1:2}};}
+    }});
+    try{
+      await adapter.open();await adapter.put("settings",{id:`remote-revision:${local.id}`,revision:1,documentId:local.id});
+      await adapter.atomicPut([{store:"documents",key:local.id,value:local}]);await adapter.flush();
+      await assert.rejects(adapter.getConflict(local.id));
+      assert.equal((await adapter.pending()).length,1);assert.equal((await adapter.get("documents",local.id)).document.title,local.document.title);
+      assert.equal(await adapter.get("settings",`remote-conflict:${local.id}`),undefined);
+    }finally{adapter.close();}
+  }
+});
+
 test("conflict recovery can preserve the local copy and save it on top of the server revision", async () => {
   let savedSnapshot = null;
   const adapter = new HybridIndexedDbAdapter({
