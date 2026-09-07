@@ -165,6 +165,14 @@ function mmma_emit_response($response, $method, $upstream_path) {
 }
 
 function mmma_proxy_request() {
+    // MX-MISSIONACCOUNTS-5400A-CONT: deny this gateway until the provider
+    // cache exclusion and full cross-user acceptance matrix are verified.
+    // This must precede the feature flag; disabling it must not fall through
+    // to another WordPress handler. Direct Railway remains isolated/available.
+    if (mmma_is_route_request()) {
+        mmma_json_error(503, 'missionaccounts_temporarily_unavailable',
+            'MissionAccounts is temporarily unavailable while access protection is verified.');
+    }
     if (!mmma_route_enabled()) {
         return;
     }
