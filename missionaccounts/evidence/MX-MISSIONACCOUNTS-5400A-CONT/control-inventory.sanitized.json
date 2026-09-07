@@ -1,0 +1,2668 @@
+{
+  "observed_scope": "27 prior private DOM captures, normalized; one recovered Home CTA",
+  "metrics": {
+    "captured_pages": 27,
+    "captured_control_occurrences": 2265,
+    "captured_variants": 98,
+    "additional_recovered_home_cta": 1,
+    "interaction_cases": 99,
+    "interaction_cases_exercised": 35,
+    "interaction_coverage_percent": 35,
+    "persistent_core_workflows_verified": 0,
+    "persistent_core_workflows_required": 6,
+    "broken_control_families": 4,
+    "incorrectly_disabled_observed_families": 9,
+    "incorrectly_disabled_observed_occurrences": 41
+  },
+  "controls": [
+    {
+      "id": "C001",
+      "label": "Skip to content",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#main",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C002",
+      "label": "Mission Residency",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-ctx": "mr"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C003",
+      "label": "MissionAccounts",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-ctx": "xp"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C004",
+      "label": "Find a student",
+      "tag": "INPUT",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "hSearchInput",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C005",
+      "label": "Daylight theme",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-theme-set": "daylight"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "Daylight",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C006",
+      "label": "Dark theme",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-theme-set": "dark"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "Dark",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C007",
+      "label": "System theme",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-theme-set": "system"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "System",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C008",
+      "label": "J Dr J",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-lens": "admin"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C009",
+      "label": "S Student",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-lens": "student"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Admin presentation lens; cannot establish a real authenticated student journey",
+      "exercised": false
+    },
+    {
+      "id": "C010",
+      "label": "Home",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/home"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C011",
+      "label": "STUDENTS",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/students"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C012",
+      "label": "EXAM DATES",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/exams"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C013",
+      "label": "BILLING",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/billing"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C014",
+      "label": "REPORTS",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/attendance-issues"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C015",
+      "label": "ADVANCED TOOLS ›",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 27,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name",
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "12-exams",
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current",
+        "21-reports",
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C016",
+      "label": "Find a student (directory)",
+      "tag": "INPUT",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "dirSearch",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C017",
+      "label": "Only people without an email",
+      "tag": "INPUT",
+      "input_type": "checkbox",
+      "data": {},
+      "href": "",
+      "element_id": "missingOnly",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C018",
+      "label": "Only people needing a decision",
+      "tag": "INPUT",
+      "input_type": "checkbox",
+      "data": {},
+      "href": "",
+      "element_id": "needOnly",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C019",
+      "label": "Only people missing payment setup",
+      "tag": "INPUT",
+      "input_type": "checkbox",
+      "data": {},
+      "href": "",
+      "element_id": "setupOnly",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C020",
+      "label": "Student record",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/student/<student>",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1012,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "05-filter-email",
+        "06-filter-decision",
+        "07-search-name"
+      ],
+      "semantic": "Student record",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C021",
+      "label": "Similar names",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/review",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 284,
+      "pages": [
+        "03-students",
+        "04-filter-payment",
+        "06-filter-decision",
+        "23-admin-health",
+        "24-data-controls"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C022",
+      "label": "← STUDENTS",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/students",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "08-student-detail"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C023",
+      "label": "June",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/student/<n>?cycle=june"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "No classes in this cycle",
+      "occurrences": 4,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details"
+      ],
+      "semantic": "",
+      "status": "INTENTIONALLY DISABLED",
+      "effect": "No classes in this cycle",
+      "exercised": false
+    },
+    {
+      "id": "C024",
+      "label": "July",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/student/<n>?cycle=july"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C025",
+      "label": "August",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/student/<n>?cycle=august"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C026",
+      "label": "Current",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/student/<n>?cycle=current"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "No classes yet",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INTENTIONALLY DISABLED",
+      "effect": "No classes yet",
+      "exercised": false
+    },
+    {
+      "id": "C027",
+      "label": "✎ Edit / correct record",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-edit": "<n>|july"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Record editing is not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "08-student-detail"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C028",
+      "label": "Confirm [amount] PER DAY",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-decide": "<n>|july|confirm"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "08-student-detail"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C029",
+      "label": "UCC · no charge",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-decide": "<n>|july|ucc"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "08-student-detail"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C030",
+      "label": "MUL · no charge",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-decide": "<n>|july|mul"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "08-student-detail"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C031",
+      "label": "More options…",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-other": "<n>|july"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "08-student-detail"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C032",
+      "label": "Enter exam plan",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-exam-set": "<n>"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Exam-plan actions are not enabled for this environment.",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C033",
+      "label": "Show missed classes in the list",
+      "tag": "INPUT",
+      "input_type": "checkbox",
+      "data": {},
+      "href": "",
+      "element_id": "showMissed",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C034",
+      "label": "Source",
+      "tag": "SUMMARY",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 50,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "Source",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C035",
+      "label": "Change",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-comp": "<n>"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Comp-day editing is not enabled for this environment.",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C036",
+      "label": "Email",
+      "tag": "INPUT",
+      "input_type": "email",
+      "data": {},
+      "href": "",
+      "element_id": "emailIn",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Input enabled while Save contact is disabled; misleading editable affordance; submit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C037",
+      "label": "Phone",
+      "tag": "INPUT",
+      "input_type": "tel",
+      "data": {},
+      "href": "",
+      "element_id": "phoneIn",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Input enabled while Save contact is disabled; misleading editable affordance; submit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C038",
+      "label": "Save contact",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-save-contact": "<n>"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Student contact editing is not enabled for this environment.",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C039",
+      "label": "Add payment method",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-pay": "<n>|add"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Only the signed-in student may change payment setup or authorization.",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INTENTIONALLY DISABLED",
+      "effect": "Only the signed-in student may change payment setup or authorization.",
+      "exercised": false
+    },
+    {
+      "id": "C040",
+      "label": "Review billing authorization",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-auth": "<n>",
+        "data-capability-disabled": "true"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Only the signed-in student may change payment setup or authorization.",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INTENTIONALLY DISABLED",
+      "effect": "Only the signed-in student may change payment setup or authorization.",
+      "exercised": false
+    },
+    {
+      "id": "C041",
+      "label": "Recorded names & source details",
+      "tag": "SUMMARY",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "08-student-detail",
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details",
+        "29-june-high-attendance"
+      ],
+      "semantic": "Recorded names & source details",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C042",
+      "label": "← AUGUST CYCLE",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/cycle/august",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 3,
+      "pages": [
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C043",
+      "label": "✎ Edit / correct record",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-edit": "<n>|august"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Record editing is not enabled for this environment.",
+      "occurrences": 3,
+      "pages": [
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C044",
+      "label": "Confirm [amount] PER DAY",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-decide": "<n>|august|confirm"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 3,
+      "pages": [
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C045",
+      "label": "UCC · no charge",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-decide": "<n>|august|ucc"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 3,
+      "pages": [
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C046",
+      "label": "MUL · no charge",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-decide": "<n>|august|mul"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 3,
+      "pages": [
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C047",
+      "label": "More options…",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-other": "<n>|august"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 3,
+      "pages": [
+        "09-student-august",
+        "10-missed-classes",
+        "11-source-details"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C048",
+      "label": "← HOME",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/home",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "12-exams"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C049",
+      "label": "Previous cycle",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#",
+      "element_id": "",
+      "disabled": true,
+      "reason": "",
+      "occurrences": 2,
+      "pages": [
+        "13-billing",
+        "14-billing-details"
+      ],
+      "semantic": "Previous cycle",
+      "status": "INTENTIONALLY DISABLED",
+      "effect": "Previous/next cycle boundary has no destination.",
+      "exercised": false
+    },
+    {
+      "id": "C050",
+      "label": "June 2026 ▾",
+      "tag": "SUMMARY",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 2,
+      "pages": [
+        "13-billing",
+        "14-billing-details"
+      ],
+      "semantic": "June 2026 ▾",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C051",
+      "label": "Cycle selector: june",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=june",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 10,
+      "pages": [
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C052",
+      "label": "Cycle selector: july",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=july",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 11,
+      "pages": [
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C053",
+      "label": "Cycle selector: august",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=august",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 11,
+      "pages": [
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C054",
+      "label": "Cycle selector: current",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=current",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 11,
+      "pages": [
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C055",
+      "label": "Cycle selector: all",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=all",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 8,
+      "pages": [
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view",
+        "18-billing-july",
+        "19-billing-august",
+        "20-billing-current"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C056",
+      "label": "Next cycle",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=july",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 2,
+      "pages": [
+        "13-billing",
+        "14-billing-details"
+      ],
+      "semantic": "Next cycle",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C057",
+      "label": "Details",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=all#rule",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 4,
+      "pages": [
+        "13-billing",
+        "14-billing-details",
+        "18-billing-july",
+        "19-billing-august"
+      ],
+      "semantic": "",
+      "status": "BROKEN",
+      "effect": "Navigation throws; prior view remains; no backend mutation",
+      "exercised": true
+    },
+    {
+      "id": "C058",
+      "label": "START WITH JUNE",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/cycle/june"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 5,
+      "pages": [
+        "13-billing",
+        "14-billing-details",
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C059",
+      "label": "Previous cycle",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=current",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 3,
+      "pages": [
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view"
+      ],
+      "semantic": "Previous cycle",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C060",
+      "label": "All cycles ▾",
+      "tag": "SUMMARY",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 3,
+      "pages": [
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view"
+      ],
+      "semantic": "All cycles ▾",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C061",
+      "label": "Next cycle",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#",
+      "element_id": "",
+      "disabled": true,
+      "reason": "",
+      "occurrences": 3,
+      "pages": [
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view"
+      ],
+      "semantic": "Next cycle",
+      "status": "INTENTIONALLY DISABLED",
+      "effect": "Previous/next cycle boundary has no destination.",
+      "exercised": false
+    },
+    {
+      "id": "C062",
+      "label": "Show the comparison — original per-class rule vs corrected per-day rule",
+      "tag": "SUMMARY",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 3,
+      "pages": [
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view"
+      ],
+      "semantic": "Show the comparison — original per-class rule vs corrected per-day rule",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C063",
+      "label": "Applies to past cycles",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-rule-decision": "retroactive"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "The Founder rule decision is locked and read-only.",
+      "occurrences": 3,
+      "pages": [
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view"
+      ],
+      "semantic": "",
+      "status": "INTENTIONALLY DISABLED",
+      "effect": "The Founder rule decision is locked and read-only.",
+      "exercised": false
+    },
+    {
+      "id": "C064",
+      "label": "From the Current Cycle only",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-rule-decision": "prospective"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "The Founder rule decision is locked and read-only.",
+      "occurrences": 3,
+      "pages": [
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view"
+      ],
+      "semantic": "",
+      "status": "INTENTIONALLY DISABLED",
+      "effect": "The Founder rule decision is locked and read-only.",
+      "exercised": false
+    },
+    {
+      "id": "C065",
+      "label": "Clear",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-rule-decision": ""
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "The Founder rule decision is locked and read-only.",
+      "occurrences": 3,
+      "pages": [
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view"
+      ],
+      "semantic": "",
+      "status": "INTENTIONALLY DISABLED",
+      "effect": "The Founder rule decision is locked and read-only.",
+      "exercised": false
+    },
+    {
+      "id": "C066",
+      "label": "Corrected · per day",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-rule": "day"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 3,
+      "pages": [
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C067",
+      "label": "Original · per class (comparison)",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-rule": "event"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 3,
+      "pages": [
+        "15-billing-all",
+        "16-rule-comparison",
+        "17-original-view"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C068",
+      "label": "Previous cycle",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=june",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "18-billing-july"
+      ],
+      "semantic": "Previous cycle",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C069",
+      "label": "July 2026 ▾",
+      "tag": "SUMMARY",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "18-billing-july"
+      ],
+      "semantic": "July 2026 ▾",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C070",
+      "label": "Next cycle",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=august",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "18-billing-july"
+      ],
+      "semantic": "Next cycle",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C071",
+      "label": "START WITH JULY",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/cycle/july"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "18-billing-july"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C072",
+      "label": "Previous cycle",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=july",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "19-billing-august"
+      ],
+      "semantic": "Previous cycle",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C073",
+      "label": "August 2026 ▾",
+      "tag": "SUMMARY",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "19-billing-august"
+      ],
+      "semantic": "August 2026 ▾",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C074",
+      "label": "Next cycle",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=current",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "19-billing-august"
+      ],
+      "semantic": "Next cycle",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C075",
+      "label": "START WITH AUGUST",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/cycle/august"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "19-billing-august"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C076",
+      "label": "Previous cycle",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=august",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "20-billing-current"
+      ],
+      "semantic": "Previous cycle",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C077",
+      "label": "Current Cycle ▾",
+      "tag": "SUMMARY",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "20-billing-current"
+      ],
+      "semantic": "Current Cycle ▾",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C078",
+      "label": "Next cycle",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/billing?cycle=all",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "20-billing-current"
+      ],
+      "semantic": "Next cycle",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C079",
+      "label": "All records",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced/records"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 7,
+      "pages": [
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C080",
+      "label": "Combined names",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced/groups"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 7,
+      "pages": [
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C081",
+      "label": "Kept separate",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced/distinct"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 7,
+      "pages": [
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C082",
+      "label": "Classes",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced/sessions"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 7,
+      "pages": [
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes"
+      ],
+      "semantic": "",
+      "status": "BROKEN",
+      "effect": "Navigation throws; prior view remains; no backend mutation",
+      "exercised": true
+    },
+    {
+      "id": "C083",
+      "label": "Data controls",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced/controls"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 7,
+      "pages": [
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes"
+      ],
+      "semantic": "",
+      "status": "BROKEN",
+      "effect": "Navigation throws; prior view remains; no backend mutation",
+      "exercised": true
+    },
+    {
+      "id": "C084",
+      "label": "Admin health",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced/health"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 7,
+      "pages": [
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C085",
+      "label": "Working history",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced/working"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 7,
+      "pages": [
+        "22-advanced-records",
+        "23-admin-health",
+        "24-data-controls",
+        "25-working-history",
+        "26-combined-names",
+        "27-kept-separate",
+        "28-classes"
+      ],
+      "semantic": "",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C086",
+      "label": "June",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced/records?cycle=june&sort=att"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "22-advanced-records"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C087",
+      "label": "July",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced/records?cycle=july&sort=att"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "22-advanced-records"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C088",
+      "label": "August",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/advanced/records?cycle=august&sort=att"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "22-advanced-records"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C089",
+      "label": "Student record",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/student/<student>?cycle=june",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 239,
+      "pages": [
+        "22-advanced-records"
+      ],
+      "semantic": "Student record",
+      "status": "OBSERVED interaction",
+      "effect": "Action/result evidence only; no persisted mutation PASS",
+      "exercised": true
+    },
+    {
+      "id": "C090",
+      "label": "Adapter contract (for engineering) · ZoomAttendanceProvider",
+      "tag": "SUMMARY",
+      "input_type": null,
+      "data": {},
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 2,
+      "pages": [
+        "23-admin-health",
+        "24-data-controls"
+      ],
+      "semantic": "Adapter contract (for engineering) · ZoomAttendanceProvider",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C091",
+      "label": "← JUNE CYCLE",
+      "tag": "A",
+      "input_type": null,
+      "data": {},
+      "href": "#/cycle/june",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C092",
+      "label": "June",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-go": "#/student/<n>?cycle=june"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": false,
+      "reason": "",
+      "occurrences": 1,
+      "pages": [
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INVENTORIED / NOT VERIFIED",
+      "effect": "Visible; individual activation, persistence or cross-role behavior not proved",
+      "exercised": false
+    },
+    {
+      "id": "C093",
+      "label": "✎ Edit / correct record",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-edit": "<n>|june"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Record editing is not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C094",
+      "label": "Confirm [amount] FULL-CYCLE",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-decide-amt": "<n>|june|<n>|Full-cycle price (capped)"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C095",
+      "label": "Confirm [amount] 14 × [amount]",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-decide": "<n>|june|confirm"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C096",
+      "label": "UCC · no charge",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-decide": "<n>|june|ucc"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C097",
+      "label": "MUL · no charge",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-decide": "<n>|june|mul"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    },
+    {
+      "id": "C098",
+      "label": "More options…",
+      "tag": "BUTTON",
+      "input_type": "button",
+      "data": {
+        "data-capability-disabled": "true",
+        "data-other": "<n>|june"
+      },
+      "href": "",
+      "element_id": "",
+      "disabled": true,
+      "reason": "Billing approval and invoice readiness are not enabled for this environment.",
+      "occurrences": 1,
+      "pages": [
+        "29-june-high-attendance"
+      ],
+      "semantic": "",
+      "status": "INCORRECTLY DISABLED / acceptance blocker",
+      "effect": "No submit possible; persistence and audit NOT VERIFIED",
+      "exercised": false
+    }
+  ],
+  "uncaptured_source_families": [
+    [
+      "Home command input, GO, result rows and suggestion chips",
+      "Home screenshot + canonical command-home source",
+      "Only Matrix launcher no-match and in-app top student search were exercised; every in-app intent remains NOT VERIFIED"
+    ],
+    [
+      "Home Open June Cycle, workflow cards, cycle cards and review shortcuts",
+      "index.production.html viewHome",
+      "Visible/source-backed; activation coverage incomplete; Home CTA failure is separately counted"
+    ],
+    [
+      "Student-context switch / Mission Residency deep link / theme / opening skip, replay and keyboard affordances",
+      "5300A contract §1; materialized shell",
+      "Inventoried in source or screenshots; current lifecycle and destination continuity NOT VERIFIED"
+    ],
+    [
+      "Cycle attention rows, ready records, single/group/all confirmations, undo and clear",
+      "materialize-canon.mjs:196–217; runtime dispatch",
+      "Billing disabled; group/all/undo/clear also permanently disabled pending authoritative transactions; do not just flip flags"
+    ],
+    [
+      "Identity same/different/unsure, canonical target, match device, no-class/device decisions, undo",
+      "materialize-canon.mjs:288–300",
+      "identity_review=false; source-backed workflow unavailable; individual live controls not captured"
+    ],
+    [
+      "Record dialog tabs, attendance add/remove/relabel, note/contact/billing save, report resolution and undo",
+      "materialize-canon.mjs capability rules; runtime dispatch",
+      "Blocked before dialog by core flags; NOT VERIFIED through API/DB/reload/audit"
+    ],
+    [
+      "Exam submit/edit/withdraw; approve/another date/speak; passed/not passed/no result; follow-up/reopen",
+      "5300A contract §§1,4; runtime exam dispatch",
+      "exam_plans=false; queue empty; full student/admin state machine NOT VERIFIED"
+    ],
+    [
+      "Comp presets/custom, joined date, reason, prospective and optional prior-days choice; submit/cancel",
+      "5300A contract §1.6; runtime comp dispatch",
+      "comp_days=false; Change visible but disabled; no mutation performed"
+    ],
+    [
+      "Student attendance cycle/date/source expansion and Report a concern sheet/submit/cancel",
+      "5300A contract; runtime report dispatch",
+      "Real student browser unavailable and attendance_corrections=false; self-only API is separate evidence"
+    ],
+    [
+      "Student setup/add/update/remove card, accept/revoke consent, terms and hosted invoice link",
+      "materialize-canon.mjs:275; Stripe/runtime adapter",
+      "Live gate intentionally off; hosted Test invoices capability true; student payment UI appears tied to auto_billing. Do not enable auto_billing merely to expose Test setup"
+    ],
+    [
+      "Dialogs: close/cancel/Escape/back, validation, duplicate submit, refresh mid-edit",
+      "Original audit §§16–18",
+      "Blocked/unexercised in real roles; all remain NOT VERIFIED"
+    ],
+    [
+      "Source contract expand, notification status, empty queue and error/retry controls",
+      "Admin health screenshot; runtime sources",
+      "Some disclosed controls inventoried; accurate provider schedule/errors and recovery remain incomplete"
+    ]
+  ]
+}

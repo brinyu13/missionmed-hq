@@ -1,0 +1,217 @@
+[
+  {
+    "file": "01-home-dark.png",
+    "bytes": 115304,
+    "sha256": "3e7964e3554cb63cbcb9c1304476b1ea147e1b6a0e17b3835011ee5d74bceced"
+  },
+  {
+    "file": "02-primary-action-dead.png",
+    "bytes": 134948,
+    "sha256": "1eb7b3f9684174f3f2c3a060ee84b6d04a3fb59a0fad925f5ef82ff2d91f16e3"
+  },
+  {
+    "file": "03-students.png",
+    "bytes": 90448,
+    "sha256": "5356beb55cc8da7e3be24d5724184011663a2829f4e932edc4557f02fdf074b3"
+  },
+  {
+    "file": "03-students.txt",
+    "bytes": 95645,
+    "sha256": "e0a4485efcefa24047e39103140137b7dda55cf80b86815d278cd37c29acf423"
+  },
+  {
+    "file": "04-filter-payment.txt",
+    "bytes": 104991,
+    "sha256": "285596289128f705231dd7522782587c65e3d62355ce6a5ee548a4accc316857"
+  },
+  {
+    "file": "05-filter-email.txt",
+    "bytes": 71373,
+    "sha256": "d52ec8c9adadbc0f66765b9f40b747c5fc1f76337ab1a8bbb3b870ca577daa07"
+  },
+  {
+    "file": "06-filter-decision.txt",
+    "bytes": 95655,
+    "sha256": "25c242eece9caad2bd53f9558cc66f4fbaf09511da7e19856aad8782e26f7828"
+  },
+  {
+    "file": "07-search-name.txt",
+    "bytes": 2410,
+    "sha256": "2e80632b47bdc995e9c106f4ebbc4f8e999de1b4c4031f716caac2a8ff5f24e3"
+  },
+  {
+    "file": "08-student-detail.png",
+    "bytes": 92745,
+    "sha256": "9302276183f0ccbe7911059ecbf516865bd23d0e2e151bd70a251f6f51d5f0c2"
+  },
+  {
+    "file": "08-student-detail.txt",
+    "bytes": 11815,
+    "sha256": "c60df8ed4e263942347962e00a21cd20c0eb34101f8852007def7efe1dd5d87b"
+  },
+  {
+    "file": "09-student-august.txt",
+    "bytes": 11130,
+    "sha256": "0230baf566fb66d67ca58bff7d904f16e963c4f480ec5bcf635c95aafcde0391"
+  },
+  {
+    "file": "10-missed-classes.txt",
+    "bytes": 14025,
+    "sha256": "7f945a83e98f2eb0ea11cb2eba6150cc45724fbbffbfbc6f97584de532a317b7"
+  },
+  {
+    "file": "11-source-details.txt",
+    "bytes": 14185,
+    "sha256": "34cf41bef7efd007e34a2ba38e803f07a5c48de3c0fd4b6cb3e6f07057df3a5b"
+  },
+  {
+    "file": "12-exams.png",
+    "bytes": 100712,
+    "sha256": "1b3ad50516ffbad8459f13e9079846edc54d4a8b595c07f09e9b8f77924e9e65"
+  },
+  {
+    "file": "12-exams.txt",
+    "bytes": 2391,
+    "sha256": "157ca3123599eb0021a53a3879feba0eb05618d4a1b24c110c72ef8b208080a7"
+  },
+  {
+    "file": "13-billing.png",
+    "bytes": 105810,
+    "sha256": "d3723ab87f9ac88a15350918fcfff873374933a78ba7cd71fc395bad772a129a"
+  },
+  {
+    "file": "13-billing.txt",
+    "bytes": 2826,
+    "sha256": "45b24fef06727917594d2d248dcf8ff6c63b50195dc3b27cd2f2c6824365312e"
+  },
+  {
+    "file": "14-billing-details.txt",
+    "bytes": 2806,
+    "sha256": "ea982fec4cb3ca1673c2ee9ea0ca74a57afcf9ec777c882bdb1b6baa5d684cf5"
+  },
+  {
+    "file": "15-billing-all.png",
+    "bytes": 115753,
+    "sha256": "70dff4a4cb181090c342471342c891af2102e322ed42295bf5aa1f381904f931"
+  },
+  {
+    "file": "15-billing-all.txt",
+    "bytes": 5583,
+    "sha256": "d3b49a2770a172ebb82f5c28c0f5f47e14e9f173b89341c4576a59d183486892"
+  },
+  {
+    "file": "16-rule-comparison.txt",
+    "bytes": 7777,
+    "sha256": "b9cdbeae203f7fb554379855acff21d51fa1e726231cacf1dddef803416ff51d"
+  },
+  {
+    "file": "17-original-view.txt",
+    "bytes": 5583,
+    "sha256": "d3b49a2770a172ebb82f5c28c0f5f47e14e9f173b89341c4576a59d183486892"
+  },
+  {
+    "file": "18-billing-july.txt",
+    "bytes": 2836,
+    "sha256": "404221127394a01c52a1ec86780b6f56bbbcc8b12baf6ed72f5afdf5a7588aa0"
+  },
+  {
+    "file": "19-billing-august.txt",
+    "bytes": 2846,
+    "sha256": "4f861b32e2148ee979caf541414b719af83133f3241fd4fb6838e5bcef22ebd8"
+  },
+  {
+    "file": "20-billing-current.txt",
+    "bytes": 1990,
+    "sha256": "432ef7712d703fbab6411a9fbc8fc057d23d580bc3599f1e6e6c220c35255452"
+  },
+  {
+    "file": "21-reports.png",
+    "bytes": 75685,
+    "sha256": "ab1ec6c732f0603d732d06bd76507c0e783223611ec0cf32a399e1b0b0385f11"
+  },
+  {
+    "file": "21-reports.txt",
+    "bytes": 1825,
+    "sha256": "c86e8b0f0137374de8d55b0421a773dcb1925bbab5af6473ff3f826954e2f721"
+  },
+  {
+    "file": "22-advanced-records.txt",
+    "bytes": 109127,
+    "sha256": "f9e0e378c26d011c666c733b849238f814b911b076ef5c1017ec7b24edf96e38"
+  },
+  {
+    "file": "23-admin-health.png",
+    "bytes": 111872,
+    "sha256": "bb6209d9a3653fe80bfbc1b7bc5835c14340fc9945ebb26972b2114429e63124"
+  },
+  {
+    "file": "23-admin-health.txt",
+    "bytes": 3322,
+    "sha256": "0a9f5a0aaf5e3e466a2664c811b795570d844ce7c30509df03a41899585c33e7"
+  },
+  {
+    "file": "24-data-controls.png",
+    "bytes": 112403,
+    "sha256": "ff30e3a772427b100d16123311749f2e2a65b7889538ea370f3927dd97a86fec"
+  },
+  {
+    "file": "24-data-controls.txt",
+    "bytes": 3302,
+    "sha256": "1f2ddcaec914e0b4ae002d0bce7ba457f839bb7492d3ffee460df9049601f986"
+  },
+  {
+    "file": "25-working-history.png",
+    "bytes": 91713,
+    "sha256": "73bd2fc0d497ae99dc287dd46e5e5e08d719d4ae5fff4a69703d915f680a89ac"
+  },
+  {
+    "file": "25-working-history.txt",
+    "bytes": 2316,
+    "sha256": "a32a5c1f52232e56d784a8cdab885870e2374d9fb460af20a172b014a1dae313"
+  },
+  {
+    "file": "26-combined-names.txt",
+    "bytes": 2363,
+    "sha256": "668bd603b9e1c41cf0107d1895549060ac8828c2d5206aff601b1a46b9067711"
+  },
+  {
+    "file": "27-kept-separate.txt",
+    "bytes": 2446,
+    "sha256": "8a91ad062409a0e0511a940b77f02893673a3a0d9ac61297655ee805e941f947"
+  },
+  {
+    "file": "28-classes.txt",
+    "bytes": 2426,
+    "sha256": "7833056eabb48b40c75ec9b2bf58d0d010707fd4ed53b97848dd0c7822a533cb"
+  },
+  {
+    "file": "29-june-high-attendance.png",
+    "bytes": 92350,
+    "sha256": "f7f56e33177ea479fad4402b4c0d2ef447b040d4ac599de74d37bd6d55860956"
+  },
+  {
+    "file": "29-june-high-attendance.txt",
+    "bytes": 18202,
+    "sha256": "9977b29ead94061fcb99a69423242f2d6ff7dc6562e7f0d6701c6da12c88e24f"
+  },
+  {
+    "file": "README.md",
+    "bytes": 453,
+    "sha256": "ae8e02d03295c6f53522afaf7bc380e4dfa822bcf45ca7d03ae5f35905806f97"
+  },
+  {
+    "file": "api-evidence.json",
+    "bytes": 24798,
+    "sha256": "f4569fe9886962fc62bcee536f53117a60e7d138a32081f04581f75191e6f937"
+  },
+  {
+    "file": "control-observations.private.json",
+    "bytes": 645838,
+    "sha256": "ed460738c7629775149e0b611d9b3923eea2bc2e7775f5b551b2cf4d03bb947f"
+  },
+  {
+    "file": "read-only-api-audit.mjs",
+    "bytes": 4398,
+    "sha256": "9ab15c2693156c52eefccc009dff50a619b285e88f97b29cee679f4b72b5160b"
+  }
+]

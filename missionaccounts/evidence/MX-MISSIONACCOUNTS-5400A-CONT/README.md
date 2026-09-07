@@ -1,0 +1,3 @@
+# 5400A continuation evidence
+
+Only sanitized derived reports, counts, hashes and source-query logic belong here. Original screenshots, DOM text and raw control observations remain local in the canonical 5400A evidence directory and are not committed. The prior manifest proves43 originals preserved; the source P0 alert is independently hashed in the summary. Principal HTTP proof is not real student browser acceptance. Early urllib403 observations are not proof of the identified503 containment and remain only in the local evidence folder. No credentials, cookies, private payloads, names or contact values are included.

@@ -1,0 +1,201 @@
+{
+  "generated_at": "2026-09-07T00:57:43.313120+00:00",
+  "privacy": "CONTAINED",
+  "founder_acceptance": "FAIL",
+  "zoom_duplication": "DEFECT",
+  "metrics": {
+    "captured_pages": 27,
+    "captured_control_occurrences": 2265,
+    "captured_variants": 98,
+    "additional_recovered_home_cta": 1,
+    "interaction_cases": 99,
+    "interaction_cases_exercised": 35,
+    "interaction_coverage_percent": 35,
+    "persistent_core_workflows_verified": 0,
+    "persistent_core_workflows_required": 6,
+    "broken_control_families": 4,
+    "incorrectly_disabled_observed_families": 9,
+    "incorrectly_disabled_observed_occurrences": 41
+  },
+  "original_evidence_files_verified": 43,
+  "original_alert_sha256": "224e2756b1aed985de5269ccc30d823e7e6c056530bdc8a6ec54c3ad15cb920a",
+  "observations": {
+    "principal_harness_observed_at": "2026-09-07T00:30:51.027Z",
+    "principal_harness_method": "Legitimate existing WP pilot principals issued and used only in process memory; HTTP API proof, not authenticated browser journeys.",
+    "matrix_principals": {
+      "anonymous": 503,
+      "founder": 503,
+      "student620": 503,
+      "student624": 503,
+      "cross_student_both_directions": 503,
+      "alternating_bootstraps": "503 identical generic denial; no private body"
+    },
+    "direct_railway": {
+      "founder": {
+        "status": 200,
+        "role": "founder",
+        "student_records": 347,
+        "events": 4018
+      },
+      "student620": {
+        "status": 200,
+        "student_records": 1,
+        "events": 18,
+        "own_subject": true
+      },
+      "student624": {
+        "status": 200,
+        "student_records": 1,
+        "events": 17,
+        "own_subject": true
+      },
+      "foreign_student_resource_each": 403,
+      "student_admin_list_each": 403,
+      "foreign_selector_on_me": "200 self-only; selector ignored",
+      "anonymous_bootstrap": 401,
+      "invalid_token_session": 401
+    },
+    "runtime_capabilities": {
+      "student_contacts": false,
+      "billing_decisions": false,
+      "attendance_corrections": false,
+      "identity_review": false,
+      "exam_plans": false,
+      "comp_days": false,
+      "auto_billing": false,
+      "hosted_invoices": true,
+      "notifications": false,
+      "zoom_sync": true
+    },
+    "provider_health": {
+      "review_students": 143,
+      "open_integration_exceptions": 11,
+      "failed_provider_events": 0,
+      "failed_notifications": 0,
+      "zoom_configured": true,
+      "stripe_mode": "test",
+      "stripe_mutations_enabled": true,
+      "stripe_live_mutations_enabled": false
+    },
+    "final_public_checks": {
+      "observed_at_start": "2026-09-07T00:41:43.689Z",
+      "observed_at_end": "2026-09-07T00:41:45.051Z",
+      "requests": [
+        "/missionaccounts/",
+        "/missionaccounts/api/ui/bootstrap",
+        "/missionaccounts/api/ui/bootstrap"
+      ],
+      "all_status": 503,
+      "all_bytes": 142,
+      "body_sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "cache-control": "no-store, private",
+        "x-kinsta-cache": "MISS",
+        "cf-cache-status": "DYNAMIC",
+        "content-type": "application/json; charset=utf-8",
+        "age": null,
+        "vary": null
+      }
+    },
+    "browser_limit": "In-app and Chrome route attempts returned net::ERR_BLOCKED_BY_CLIENT. Actual logout, incognito, real-student product browser and physical reload NOT VERIFIED.",
+    "production_readback": {
+      "source_commit": "ece63b6",
+      "live_gateway_sha256": "ac5053d7ce7e86b5417a8fa67a380f1c365da97832d0908bb33b319688ba1eee",
+      "preimage_sha256": "328b685cf5d627a52f1335a2e021c1249b801b0415c8f3becb90ec13f7bd6251"
+    },
+    "asset_match": {
+      "runtime": "0a8b700d73926d9949e2bf43e16200d0e6d748f52625d64cf69028550ec525bf",
+      "auth": "16b8f69a3011aa849304f5f2af42519a86dac4a90d86f6df2f396950ad19b0e0",
+      "adapter": "47f35195f6e3a3cf7ac8a266a6122a2560a8a616e4f62f42a0d5d13e05f6ddc9",
+      "stripe": "cb29dfe1cecefd080190d7dbf7fa180d8ac2fbef43903048092bc6151d9d58d9"
+    },
+    "database_final": {
+      "events": 4018,
+      "charges": 0,
+      "consents": 0,
+      "invoices": 0,
+      "raw_rows": 5575,
+      "sessions": 421,
+      "students": 347,
+      "active_days": 3340,
+      "observed_at": "2026-09-07T00:43:46.492035+00:00",
+      "identity_subsets": [
+        {
+          "count": 254,
+          "absorbed": false,
+          "excluded": false,
+          "device_source": false
+        },
+        {
+          "count": 93,
+          "absorbed": false,
+          "excluded": false,
+          "device_source": true
+        }
+      ],
+      "billing_decisions": 0,
+      "session_providers": [
+        {
+          "count": 421,
+          "provider": "zoom"
+        }
+      ],
+      "confirmed_sessions": 102,
+      "duplicate_confirmed_start_step": [
+        {
+          "step": "s1",
+          "starts_at": "2026-06-08T16:16:34+00:00",
+          "canonical_sessions": 2,
+          "distinct_meeting_keys": 2,
+          "distinct_instance_keys": 2
+        },
+        {
+          "step": "s23",
+          "starts_at": "2026-06-08T18:03:16+00:00",
+          "canonical_sessions": 2,
+          "distinct_meeting_keys": 2,
+          "distinct_instance_keys": 2
+        }
+      ]
+    },
+    "zoom_final": {
+      "observed_at": "2026-09-07T00:44:23.785218+00:00",
+      "added_events": 77,
+      "event_states": [
+        {
+          "count": 77,
+          "interpretation_state": "effective"
+        }
+      ],
+      "added_sessions": 2,
+      "identity_states": [
+        {
+          "count": 76,
+          "identity_state": "needs_review"
+        }
+      ],
+      "active_day_kinds": [
+        {
+          "kind": "needs_review",
+          "count": 76
+        }
+      ],
+      "added_source_rows": 77,
+      "affected_students": 76,
+      "raw_rows_with_exact_historical_evidence": 72
+    },
+    "zoom_query": "with added_sessions as (\n select * from missionaccounts.session where held_on='2026-06-08' and state='confirmed' and not (source_payload ? 'historical_import')\n), added_raw as (select r.*,s.starts_at,s.step from missionaccounts.attendance_source_row r join added_sessions s on s.id=r.session_id),\nadded_events as (select e.* from missionaccounts.attendance_event e join added_sessions s on s.id=e.session_id),\nadded_students as (select distinct student_id from added_events)\nselect jsonb_build_object(\n'observed_at',now(),'added_sessions',(select count(*) from added_sessions),\n'added_source_rows',(select count(*) from added_raw),\n'raw_rows_with_exact_historical_evidence',(select count(*) from added_raw a where exists(select 1 from missionaccounts.attendance_source_row h join missionaccounts.session s on s.id=h.session_id where s.source_payload ? 'historical_import' and s.starts_at=a.starts_at and s.step=a.step and lower(trim(regexp_replace(h.display_name,'\\s+',' ','g')))=lower(trim(regexp_replace(a.display_name,'\\s+',' ','g'))) and h.joined_at=a.joined_at and h.left_at=a.left_at)),\n'added_events',(select count(*) from added_events),\n'event_states',(select jsonb_agg(x) from (select interpretation_state,count(*) from added_events group by 1)x),\n'affected_students',(select count(*) from added_students),\n'identity_states',(select jsonb_agg(x) from (select identity_state,count(*) from missionaccounts.student_identity_projection s join added_students a on a.student_id=s.id group by 1)x),\n'active_day_kinds',(select jsonb_agg(x) from (select d.kind,count(*) from missionaccounts.attendance_day d join added_students a on a.student_id=d.student_id where d.superseded_at is null group by 1)x)\n) as audit;",
+    "html_parity": {
+      "at": "2026-09-07T00:58:27.716Z",
+      "status": 200,
+      "bytes": 655690,
+      "remote_sha256": "030f50b2f53627cf5f19e5ee7ebaa14b71b47a3a76a1a009ac2776f29f3b78a5",
+      "local_match": true
+    }
+  },
+  "report_write_lease_release": {
+    "lease_id": "dede80e8-9602-4831-b78a-e14df59ae7fb",
+    "epoch": 1382,
+    "provider_released_at": "2026-09-07 00:57:45.006575+00"
+  }
+}
