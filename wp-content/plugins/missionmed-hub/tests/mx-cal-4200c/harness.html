@@ -12,6 +12,8 @@
 	<script>
 	window.mmedStudentOsFeatureFlags={calendar_experience:{experience:'storyforge',forced:false,timezone_label:'Eastern Time (ET)'}};
 	(function(){
+		var qaParams=new URLSearchParams(window.location.search);
+		var qaIsAdmin=qaParams.get('role')!=='student';
 		var nextId=900;
 		var events=[
 			{id:1,title:'Advising 1:1 — Dr. Brian',event_type:'appointment',source:'scheduler',source_id:'appt-1',start_at:'2026-09-02T15:00:00-04:00',end_at:'2026-09-02T15:30:00-04:00',meeting_url:'https://example.com/join/advising'},
@@ -19,18 +21,62 @@
 			{id:3,title:'Personal Statement Draft 2 due',event_type:'assignment',start_at:'2026-09-02T23:59:00-04:00',end_at:'2026-09-03T00:00:00-04:00'},
 			{id:4,title:'USMLE Question Marathon — Block 4',event_type:'drill_step23',start_at:'2026-09-03T20:00:00-04:00',end_at:'2026-09-03T22:00:00-04:00',meeting_url:'https://example.com/join/drill'},
 			{id:5,title:'ECFMG Token Upload deadline',event_type:'deadline',start_at:'2026-09-05T23:59:00-04:00',end_at:'2026-09-06T00:00:00-04:00'},
-			{id:6,title:'IMG Roadmap Workshop',event_type:'mr_session',start_at:'2026-08-27T19:00:00-04:00',end_at:'2026-08-27T20:00:00-04:00',recording_url:'https://example.com/replay/roadmap'}
+			{id:6,title:'IMG Roadmap Workshop',event_type:'mr_session',start_at:'2026-08-27T19:00:00-04:00',end_at:'2026-08-27T20:00:00-04:00',recording_url:'https://example.com/replay/roadmap'},
+			{id:7,title:'Session A Official Practice',event_type:'mr_session',category:'mr_session_a',start_at:'2026-09-07T21:00:00-04:00',end_at:'2026-09-07T22:00:00-04:00',meeting_url:'https://example.com/join/session-a'},
+			{id:8,title:'Session B Official Practice',event_type:'mr_session',category:'mr_session_b',start_at:'2026-09-09T21:00:00-04:00',end_at:'2026-09-09T22:00:00-04:00'},
+			{id:9,title:'Session F Orientation',event_type:'mr_session',category:'mr_session_f',start_at:'2026-09-12T20:00:00-04:00',end_at:'2026-09-12T21:00:00-04:00'},
+			{id:10,title:'NRMP Registration Opens',event_type:'nrmp_date',source:'system',category:'nrmp',start_at:'2025-09-15T12:00:00-04:00',end_at:'2025-09-15T13:00:00-04:00'},
+			{id:11,title:'NRMP Ranking Opens',event_type:'nrmp_date',source:'system',category:'nrmp',start_at:'2026-02-02T12:00:00-05:00',end_at:'2026-02-02T13:00:00-05:00'},
+			{id:12,title:'NRMP Match Day',event_type:'nrmp_date',source:'system',category:'nrmp',start_at:'2026-03-20T12:00:00-04:00',end_at:'2026-03-20T13:00:00-04:00'},
+			{id:13,title:'Pediatrics Rotation Block 3',event_type:'rotation',category:'clinicals',start_at:'2026-09-14T08:00:00-04:00',end_at:'2026-09-14T17:00:00-04:00'},
+			{id:14,title:'Arena Mock Interview',event_type:'arena_event',category:'arena',source:'scheduler',source_id:'arena-1',start_at:'2026-09-16T14:00:00-04:00',end_at:'2026-09-16T15:00:00-04:00'},
+			{id:15,title:'Session J Official Practice',event_type:'mr_session',category:'mr_session_a',start_at:'2026-09-11T20:00:00-04:00',end_at:'2026-09-11T21:00:00-04:00'}
+		];
+		var visibility={};
+		var favorites=[];
+		var categories=[
+			{id:'exam_prep',name:'ExamPrep',color:'#24b7ed',sort_order:10,parent_id:'',system:true,owner_scope:'system',admin_only:false},
+			{id:'drill_step1',name:"Dr. J's Drills — Step/Level 1",color:'#35c8f5',sort_order:11,parent_id:'exam_prep',system:true,owner_scope:'system',admin_only:true},
+			{id:'drill_step23',name:"Dr. J's Drills — Step/Level 2 & 3",color:'#7b8cff',sort_order:12,parent_id:'exam_prep',system:true,owner_scope:'system',admin_only:true},
+			{id:'mission_residency',name:'Mission Residency',color:'#efc84f',sort_order:20,parent_id:'',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_a',name:'Session A',color:'#f4d56e',sort_order:21,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_b',name:'Session B',color:'#f4d56e',sort_order:22,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_c',name:'Session C',color:'#f4d56e',sort_order:23,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_d',name:'Session D',color:'#f4d56e',sort_order:24,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_e',name:'Session E',color:'#f4d56e',sort_order:25,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_f',name:'Session F',color:'#f4d56e',sort_order:26,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
+			{id:'clinicals',name:'Clinicals',color:'#3ed597',sort_order:30,parent_id:'',system:true,owner_scope:'system',admin_only:false},
+			{id:'nrmp',name:'NRMP',color:'#ff5c7a',sort_order:40,parent_id:'',system:true,owner_scope:'system',admin_only:false},
+			{id:'arena',name:'Arena',color:'#8b5cf6',sort_order:50,parent_id:'',system:true,owner_scope:'system',admin_only:false},
+			{id:'appointments',name:'My Appointments',color:'#56d8f5',sort_order:60,parent_id:'',system:true,owner_scope:'system',admin_only:false}
 		];
 		function response(item){return Promise.resolve(JSON.parse(JSON.stringify(item)));}
-		window.MMED_OS={profile:{is_admin:true},state:{route:'calendar',profile:{is_admin:true}},render:{},api:{
-			get:function(endpoint){if(endpoint==='/events')return response({events:events});if(endpoint==='/todos')return response({todos:[{id:1,title:'Upload Personal Statement Draft 2',due_date:'2026-09-02'},{id:2,title:'Confirm ECFMG token in MyERAS',due_date:'2026-09-05'}]});return response({});},
-			post:function(endpoint,payload){var saved=Object.assign({id:++nextId,source:'manual',user_id:0},payload);events.push(saved);return response(saved);},
-			put:function(endpoint,payload){if(endpoint==='/me/calendar-experience')return response({preference:payload.experience,resolved:payload.experience});var id=Number(endpoint.split('/').pop());var index=events.findIndex(function(event){return Number(event.id)===id});events[index]=Object.assign({},events[index],payload);return response(events[index]);},
+		window.MMED_OS={profile:{is_admin:qaIsAdmin},state:{route:'calendar',profile:{is_admin:qaIsAdmin}},render:{},api:{
+			get:function(endpoint,params){if(endpoint==='/events')return response({events:events});if(endpoint==='/todos')return response({todos:[{id:1,title:'Upload Personal Statement Draft 2',due_date:'2026-09-02',category:'personal'},{id:2,title:'Confirm ECFMG token in MyERAS',due_date:'2026-09-05',category:'personal'},{id:3,title:'Review NRMP ranking list',due_date:'2026-02-01',category:'personal'}]});if(endpoint==='/calendar/categories')return response({categories:categories,visibility:visibility,favorites:favorites});if(endpoint==='/calendar/favorites')return response({favorites:favorites});if(/\/meetings\//.test(endpoint))return response({available:true,join_url:'https://example.com/join/meeting'});return response({});},
+			request:function(endpoint,opts,params){return this.get(endpoint,params);},
+			post:function(endpoint,payload){if(endpoint==='/todos'){var todo=Object.assign({id:++nextId},payload);return response({todo:todo});}var saved=Object.assign({id:++nextId,source:'manual',user_id:0},payload);events.push(saved);return response(saved);},
+			put:function(endpoint,payload){if(endpoint==='/me/calendar-experience')return response({preference:payload.experience,resolved:payload.experience});if(endpoint==='/calendar/category-visibility'){visibility=payload.visibility||{};return response({visibility:visibility});}if(endpoint==='/calendar/favorites'){favorites=payload.favorites||[];return response({favorites:favorites});}var id=Number(endpoint.split('/').pop());var index=events.findIndex(function(event){return Number(event.id)===id});if(index>=0)events[index]=Object.assign({},events[index],payload);return response(events[index]||{});},
 			delete:function(endpoint){var id=Number(endpoint.split('/').pop());events=events.filter(function(event){return Number(event.id)!==id});return response({deleted:true,id:id});}
 		}};
 	})();
 	</script>
 	<script src="../../assets/calendar-core/mmed-calendar-core.js?mx-cal-4200c=2"></script>
 	<script src="../../assets/calendar-v2/mmed-calendar-v2.js?mx-cal-4200c=2"></script>
+	<script>
+	(function(){
+		var params=new URLSearchParams(window.location.search);
+		function click(selector){var target=document.querySelector(selector);if(target)target.click();}
+		window.setTimeout(function(){
+			if(params.get('perspective'))click('[data-perspective="'+params.get('perspective')+'"]');
+			if(params.get('view'))click('[data-view="'+params.get('view')+'"]');
+			if(params.get('drills')==='1')click('[data-toggle-drills]');
+			if(params.get('tier')==='23')click('[data-drill-tab="Step/Level 2/3"]');
+			if(params.get('armed')==='1')click('[data-drill-topic]');
+			if(params.get('drawer')==='1')click('[data-event-id]');
+			if(params.get('settings')==='1')click('[data-open-settings]');
+			document.body.setAttribute('data-qa-ready','true');
+		},350);
+	})();
+	</script>
 </body>
 </html>

@@ -18,6 +18,13 @@ class MMED_Calendar_Engine {
 	 * Calendar table schema version.
 	 */
 	const DB_VERSION = '20260517.1';
+	const CATEGORY_OPTION = 'mmed_calendar_system_categories_v1';
+	const CATEGORY_USER_META = 'mmed_calendar_personal_categories_v1';
+	const VISIBILITY_USER_META = 'mmed_calendar_category_visibility_v1';
+	const FAVORITES_USER_META = 'mmed_calendar_favorites_v1';
+	const NRMP_DATASET_VERSION = '2026.1';
+	const NRMP_DATASET_OPTION = 'mmed_calendar_nrmp_dataset_version';
+	const ADMIN_AUDIT_OPTION = 'mmed_calendar_admin_audit_v1';
 
 	/**
 	 * Initialize runtime checks.
@@ -26,6 +33,7 @@ class MMED_Calendar_Engine {
 	 */
 	public static function init() {
 		self::maybe_install();
+		self::maybe_seed_nrmp_dataset();
 	}
 
 	/**
@@ -216,6 +224,14 @@ class MMED_Calendar_Engine {
 		self::maybe_install();
 
 		$raw     = self::request_payload( $request );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$requested_type = sanitize_key( $raw['event_type'] ?? '' );
+			$requested_source = sanitize_key( $raw['source'] ?? 'manual' );
+			$requested_audience = sanitize_key( $raw['audience'] ?? '' );
+			if ( in_array( $requested_type, array( 'drill_step1', 'drill_step23', 'nrmp_date' ), true ) || in_array( $requested_source, array( 'system', 'admin' ), true ) || 'all_students' === $requested_audience ) {
+				return new WP_Error( 'mmed_event_forbidden', 'This event type requires administrator access.', array( 'status' => 403 ) );
+			}
+		}
 		$payload = self::sanitize_event_payload( $raw, false );
 		if ( is_wp_error( $payload ) ) {
 			return $payload;
@@ -961,7 +977,7 @@ class MMED_Calendar_Engine {
 	 * @return array
 	 */
 	protected static function sources() {
-		return array( 'manual', 'ssa', 'scheduler', 'learndash', 'system', 'advisor', 'enrollment', 'admin' );
+		return array( 'manual', 'ssa', 'scheduler', 'webex', 'learndash', 'system', 'advisor', 'enrollment', 'admin' );
 	}
 
 	/**
@@ -979,22 +995,324 @@ class MMED_Calendar_Engine {
 	 * @return array
 	 */
 	public static function category_config() {
+		return self::system_categories();
+	}
+
+	/**
+	 * Return the durable category tree and the current user's presentation state.
+	 *
+	 * System definitions are site-owned. Personal definitions, visibility, and
+	 * favorites remain isolated in user meta and never confer capabilities.
+	 *
+	 * @return array
+	 */
+	public static function category_state() {
+		$user_id  = get_current_user_id();
+		$personal = get_user_meta( $user_id, self::CATEGORY_USER_META, true );
+		$visible  = get_user_meta( $user_id, self::VISIBILITY_USER_META, true );
+		$favorites = get_user_meta( $user_id, self::FAVORITES_USER_META, true );
+
 		return array(
-			'drill_step1'    => array( 'label' => "Dr. J Drills (Step/Level 1)", 'color' => '#3bb7ff', 'icon' => 'microscope' ),
-			'drill_step23'   => array( 'label' => "Dr. J Drills (Step/Level 2/3)", 'color' => '#78d4ff', 'icon' => 'stethoscope' ),
-			'mr_session'     => array( 'label' => 'Mission Residency Sessions', 'color' => '#ffcc4d', 'icon' => 'target' ),
-			'mock_interview' => array( 'label' => 'Mock Interviews', 'color' => '#ff8a3d', 'icon' => 'microphone' ),
-			'nrmp_date'      => array( 'label' => 'NRMP / Application Dates', 'color' => '#ff5c7a', 'icon' => 'clipboard' ),
-			'rotation'       => array( 'label' => 'Rotations / Clinicals', 'color' => '#3dff9a', 'icon' => 'hospital' ),
-			'arena_event'    => array( 'label' => 'Arena Events', 'color' => '#9cffc7', 'icon' => 'lightning' ),
-			'appointment'    => array( 'label' => 'Appointments', 'color' => '#f7f2e5', 'icon' => 'calendar' ),
-			'study_block'    => array( 'label' => 'Study Blocks', 'color' => '#a78bfa', 'icon' => 'book' ),
-			'exam'           => array( 'label' => 'Exams', 'color' => '#f472b6', 'icon' => 'exam' ),
-			'deadline'       => array( 'label' => 'Deadlines', 'color' => '#ef4444', 'icon' => 'deadline' ),
-			'milestone'      => array( 'label' => 'Milestones', 'color' => '#22c55e', 'icon' => 'milestone' ),
-			'general'        => array( 'label' => 'General', 'color' => '#94a3b8', 'icon' => 'dot' ),
-			'custom'         => array( 'label' => 'Custom', 'color' => '#e2e8f0', 'icon' => 'custom' ),
+			'categories' => array_values( array_merge( self::system_categories(), is_array( $personal ) ? $personal : array() ) ),
+			'visibility' => is_array( $visible ) ? $visible : array(),
+			'favorites'  => is_array( $favorites ) ? array_values( $favorites ) : array(),
+			'can_manage_system' => current_user_can( 'manage_options' ),
+			'dataset_version' => self::NRMP_DATASET_VERSION,
 		);
+	}
+
+	/**
+	 * Create a durable personal category, or an admin-owned system category.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function create_category( $request ) {
+		$raw    = self::request_payload( $request );
+		$name   = sanitize_text_field( $raw['name'] ?? $raw['label'] ?? '' );
+		$system = ! empty( $raw['system'] );
+		if ( '' === $name ) {
+			return new WP_Error( 'mmed_category_name_required', 'Category name is required.', array( 'status' => 400 ) );
+		}
+		if ( $system && ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error( 'mmed_category_forbidden', 'Only administrators can create system categories.', array( 'status' => 403 ) );
+		}
+
+		$user_id = get_current_user_id();
+		$id      = ( $system ? 'system-' : 'personal-' . $user_id . '-' ) . sanitize_title( $name );
+		$record  = self::sanitize_category_record( $raw, $id, $name, $system ? 'system' : 'personal', $user_id );
+		if ( is_wp_error( $record ) ) {
+			return $record;
+		}
+
+		if ( $system ) {
+			$stored = get_option( self::CATEGORY_OPTION, array() );
+			$stored = is_array( $stored ) ? $stored : array();
+			if ( isset( self::system_categories()[ $id ] ) || isset( $stored[ $id ] ) ) {
+				return new WP_Error( 'mmed_category_exists', 'A category with that name already exists.', array( 'status' => 409 ) );
+			}
+			$stored[ $id ] = $record;
+			update_option( self::CATEGORY_OPTION, $stored, false );
+			self::audit_admin_change( 'category_create', $id, array(), $record );
+		} else {
+			$stored = get_user_meta( $user_id, self::CATEGORY_USER_META, true );
+			$stored = is_array( $stored ) ? $stored : array();
+			if ( isset( $stored[ $id ] ) ) {
+				$id = $id . '-' . wp_generate_password( 5, false, false );
+				$record['id'] = $id;
+			}
+			$stored[ $id ] = $record;
+			update_user_meta( $user_id, self::CATEGORY_USER_META, $stored );
+		}
+
+		return new WP_REST_Response( array( 'category' => $record, 'state' => self::category_state() ), 201 );
+	}
+
+	/**
+	 * Update a category without allowing ownership escalation.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function update_category( $request ) {
+		$id      = sanitize_key( $request['id'] );
+		$raw     = self::request_payload( $request );
+		$systems = self::system_categories();
+		$user_id = get_current_user_id();
+
+		if ( isset( $systems[ $id ] ) ) {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				return new WP_Error( 'mmed_category_forbidden', 'System categories are read-only for students.', array( 'status' => 403 ) );
+			}
+			$before = $systems[ $id ];
+			$record = self::sanitize_category_record( array_merge( $before, $raw ), $id, $raw['name'] ?? $raw['label'] ?? $before['name'], 'system', 0 );
+			$stored = get_option( self::CATEGORY_OPTION, array() );
+			$stored = is_array( $stored ) ? $stored : array();
+			$stored[ $id ] = $record;
+			update_option( self::CATEGORY_OPTION, $stored, false );
+			self::audit_admin_change( 'category_update', $id, $before, $record );
+		} else {
+			$stored = get_user_meta( $user_id, self::CATEGORY_USER_META, true );
+			$stored = is_array( $stored ) ? $stored : array();
+			if ( ! isset( $stored[ $id ] ) || (int) ( $stored[ $id ]['owner_id'] ?? 0 ) !== $user_id ) {
+				return new WP_Error( 'mmed_category_not_found', 'Personal category not found.', array( 'status' => 404 ) );
+			}
+			$record = self::sanitize_category_record( array_merge( $stored[ $id ], $raw ), $id, $raw['name'] ?? $raw['label'] ?? $stored[ $id ]['name'], 'personal', $user_id );
+			$stored[ $id ] = $record;
+			update_user_meta( $user_id, self::CATEGORY_USER_META, $stored );
+		}
+
+		return new WP_REST_Response( array( 'category' => $record, 'state' => self::category_state() ), 200 );
+	}
+
+	/**
+	 * Delete a personal or non-required custom system category.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function delete_category( $request ) {
+		$id       = sanitize_key( $request['id'] );
+		$user_id  = get_current_user_id();
+		$required = array_keys( self::default_system_categories() );
+		$systems  = self::system_categories();
+
+		if ( isset( $systems[ $id ] ) ) {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				return new WP_Error( 'mmed_category_forbidden', 'System categories are read-only for students.', array( 'status' => 403 ) );
+			}
+			if ( in_array( $id, $required, true ) ) {
+				return new WP_Error( 'mmed_category_required', 'Required system categories cannot be deleted.', array( 'status' => 409 ) );
+			}
+			$stored = get_option( self::CATEGORY_OPTION, array() );
+			$before = $systems[ $id ];
+			unset( $stored[ $id ] );
+			update_option( self::CATEGORY_OPTION, $stored, false );
+			self::audit_admin_change( 'category_delete', $id, $before, array() );
+		} else {
+			$stored = get_user_meta( $user_id, self::CATEGORY_USER_META, true );
+			$stored = is_array( $stored ) ? $stored : array();
+			if ( ! isset( $stored[ $id ] ) || (int) ( $stored[ $id ]['owner_id'] ?? 0 ) !== $user_id ) {
+				return new WP_Error( 'mmed_category_not_found', 'Personal category not found.', array( 'status' => 404 ) );
+			}
+			unset( $stored[ $id ] );
+			update_user_meta( $user_id, self::CATEGORY_USER_META, $stored );
+		}
+
+		return new WP_REST_Response( array( 'deleted' => true, 'id' => $id, 'state' => self::category_state() ), 200 );
+	}
+
+	/**
+	 * Persist presentation-only category visibility for the current user.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public static function update_category_visibility( $request ) {
+		$raw        = self::request_payload( $request );
+		$visibility = isset( $raw['visibility'] ) && is_array( $raw['visibility'] ) ? $raw['visibility'] : array();
+		$clean      = array();
+		foreach ( $visibility as $id => $value ) {
+			$clean[ sanitize_key( $id ) ] = ! empty( $value );
+		}
+		update_user_meta( get_current_user_id(), self::VISIBILITY_USER_META, $clean );
+		return new WP_REST_Response( array( 'visibility' => $clean ), 200 );
+	}
+
+	/**
+	 * Persist per-user event favorites; this never mutates shared event rows.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public static function update_favorites( $request ) {
+		$raw       = self::request_payload( $request );
+		$favorites = isset( $raw['favorites'] ) && is_array( $raw['favorites'] ) ? $raw['favorites'] : array();
+		$clean     = array_values( array_unique( array_filter( array_map( 'sanitize_text_field', $favorites ) ) ) );
+		$clean     = array_slice( $clean, 0, 500 );
+		update_user_meta( get_current_user_id(), self::FAVORITES_USER_META, $clean );
+		return new WP_REST_Response( array( 'favorites' => $clean ), 200 );
+	}
+
+	/**
+	 * Default source/category hierarchy recovered from the production Classic model.
+	 *
+	 * @return array
+	 */
+	private static function default_system_categories() {
+		$items = array(
+			'exam_prep' => array( 'name' => 'ExamPrep', 'color' => '#24b7ed', 'icon' => 'exam', 'sort_order' => 10, 'source' => 'exam_prep' ),
+			'drill_step1' => array( 'name' => "Dr. J's Drills — Step/Level 1", 'color' => '#35c8f5', 'icon' => 'microscope', 'sort_order' => 11, 'parent_id' => 'exam_prep', 'event_type' => 'drill_step1', 'admin_only' => true ),
+			'drill_step23' => array( 'name' => "Dr. J's Drills — Step/Level 2 & 3", 'color' => '#7b8cff', 'icon' => 'stethoscope', 'sort_order' => 12, 'parent_id' => 'exam_prep', 'event_type' => 'drill_step23', 'admin_only' => true ),
+			'mission_residency' => array( 'name' => 'Mission Residency', 'color' => '#efc84f', 'icon' => 'target', 'sort_order' => 20, 'source' => 'mission_residency' ),
+			'mr_session_a' => array( 'name' => 'Session A', 'color' => '#f4d56e', 'sort_order' => 21, 'parent_id' => 'mission_residency', 'event_type' => 'mr_session', 'session' => 'A' ),
+			'mr_session_b' => array( 'name' => 'Session B', 'color' => '#f4d56e', 'sort_order' => 22, 'parent_id' => 'mission_residency', 'event_type' => 'mr_session', 'session' => 'B' ),
+			'mr_session_c' => array( 'name' => 'Session C', 'color' => '#f4d56e', 'sort_order' => 23, 'parent_id' => 'mission_residency', 'event_type' => 'mr_session', 'session' => 'C' ),
+			'mr_session_d' => array( 'name' => 'Session D', 'color' => '#f4d56e', 'sort_order' => 24, 'parent_id' => 'mission_residency', 'event_type' => 'mr_session', 'session' => 'D' ),
+			'mr_session_e' => array( 'name' => 'Session E', 'color' => '#f4d56e', 'sort_order' => 25, 'parent_id' => 'mission_residency', 'event_type' => 'mr_session', 'session' => 'E' ),
+			'mr_session_f' => array( 'name' => 'Session F', 'color' => '#f4d56e', 'sort_order' => 26, 'parent_id' => 'mission_residency', 'event_type' => 'mr_session', 'session' => 'F' ),
+			'clinicals' => array( 'name' => 'Clinicals', 'color' => '#3ed597', 'icon' => 'hospital', 'sort_order' => 30, 'event_type' => 'rotation' ),
+			'nrmp' => array( 'name' => 'NRMP', 'color' => '#ff5c7a', 'icon' => 'clipboard', 'sort_order' => 40, 'event_type' => 'nrmp_date' ),
+			'arena' => array( 'name' => 'Arena', 'color' => '#8b5cf6', 'icon' => 'lightning', 'sort_order' => 50, 'event_type' => 'arena_event' ),
+			'appointments' => array( 'name' => 'My Appointments', 'color' => '#56d8f5', 'icon' => 'calendar', 'sort_order' => 60, 'source' => 'scheduler' ),
+		);
+
+		foreach ( $items as $id => &$item ) {
+			$item = array_merge(
+				array( 'id' => $id, 'parent_id' => '', 'owner_scope' => 'system', 'owner_id' => 0, 'system' => true, 'visible' => true, 'sort_order' => 100, 'source' => '', 'event_type' => '', 'session' => '', 'admin_only' => false ),
+				$item
+			);
+			$item['label'] = $item['name'];
+		}
+		unset( $item );
+
+		return $items;
+	}
+
+	/**
+	 * Merge durable admin overrides and additions over required definitions.
+	 *
+	 * @return array
+	 */
+	private static function system_categories() {
+		$defaults = self::default_system_categories();
+		$stored   = get_option( self::CATEGORY_OPTION, array() );
+		$stored   = is_array( $stored ) ? $stored : array();
+		return array_replace( $defaults, $stored );
+	}
+
+	/**
+	 * Sanitize one category record while pinning ownership fields.
+	 *
+	 * @param array  $raw Raw category.
+	 * @param string $id Stable ID.
+	 * @param string $name Display name.
+	 * @param string $scope Ownership scope.
+	 * @param int    $owner_id Owner user ID.
+	 * @return array|WP_Error
+	 */
+	private static function sanitize_category_record( $raw, $id, $name, $scope, $owner_id ) {
+		$parent_id = sanitize_key( $raw['parent_id'] ?? '' );
+		if ( 'personal' === $scope && $parent_id ) {
+			$personal = get_user_meta( $owner_id, self::CATEGORY_USER_META, true );
+			if ( ! isset( $personal[ $parent_id ] ) || (int) ( $personal[ $parent_id ]['owner_id'] ?? 0 ) !== (int) $owner_id ) {
+				return new WP_Error( 'mmed_category_parent_forbidden', 'A personal subcategory must belong to one of your personal categories.', array( 'status' => 403 ) );
+			}
+		}
+		$color = sanitize_hex_color( $raw['color'] ?? '#94a3b8' );
+		return array(
+			'id' => sanitize_key( $id ),
+			'parent_id' => $parent_id,
+			'name' => sanitize_text_field( $name ),
+			'label' => sanitize_text_field( $name ),
+			'color' => $color ? $color : '#94a3b8',
+			'icon' => sanitize_key( $raw['icon'] ?? 'dot' ),
+			'owner_scope' => $scope,
+			'owner_id' => absint( $owner_id ),
+			'system' => 'system' === $scope,
+			'visible' => true,
+			'sort_order' => absint( $raw['sort_order'] ?? 100 ),
+			'source' => sanitize_key( $raw['source'] ?? '' ),
+			'event_type' => sanitize_key( $raw['event_type'] ?? '' ),
+			'session' => strtoupper( substr( sanitize_text_field( $raw['session'] ?? '' ), 0, 1 ) ),
+			'admin_only' => ! empty( $raw['admin_only'] ),
+		);
+	}
+
+	/**
+	 * Idempotently reconcile the approved NRMP 2026 applicant dataset once.
+	 *
+	 * @return void
+	 */
+	private static function maybe_seed_nrmp_dataset() {
+		if ( self::NRMP_DATASET_VERSION === get_option( self::NRMP_DATASET_OPTION ) ) {
+			return;
+		}
+
+		global $wpdb;
+		$source_url = 'https://www.nrmp.org/wp-content/uploads/2025/03/2026-Main-Residency-Match-Detailed-Calendar.pdf';
+		$events = array(
+			array( 'registration-opens', 'NRMP Registration Opens', 'Applicant and Medical School Registration opens.', '2025-09-15 12:00:00', '2025-09-15 13:00:00' ),
+			array( 'standard-registration-deadline', 'NRMP Standard Registration Deadline', 'Applicant Standard Registration Deadline.', '2026-01-30 23:59:00', '2026-01-30 23:59:59' ),
+			array( 'ranking-opens', 'NRMP Ranking Opens', 'Ranking opens for applicants and programs.', '2026-02-02 12:00:00', '2026-02-02 13:00:00' ),
+			array( 'rol-certification-deadline', 'NRMP Rank Order List Certification Deadline', 'Applicant late registration, Match withdrawal, and IMG ECFMG verification deadlines.', '2026-03-04 21:00:00', '2026-03-04 21:00:59' ),
+			array( 'match-status-soap-begins', 'NRMP Applicant Match Status Available / SOAP Begins', 'Applicant match status and program fill status become available; SOAP begins.', '2026-03-16 10:00:00', '2026-03-16 11:00:00' ),
+			array( 'soap-prepare-applications', 'SOAP Applicants Can Begin Preparing Applications', 'Applicants can begin preparing applications in the program-required application service.', '2026-03-16 11:00:00', '2026-03-16 12:00:00' ),
+			array( 'soap-program-review', 'SOAP Programs Begin Reviewing Applications', 'Programs may begin reviewing SOAP applications.', '2026-03-17 08:00:00', '2026-03-17 09:00:00' ),
+			array( 'soap-offer-rounds', 'SOAP Offer Rounds', 'Four SOAP rounds occur during this window; SOAP ends at 9:00 PM ET.', '2026-03-19 09:00:00', '2026-03-19 21:00:00' ),
+			array( 'match-day', 'NRMP Match Day', 'Applicant Match results available.', '2026-03-20 12:00:00', '2026-03-20 13:00:00' ),
+		);
+
+		foreach ( $events as $event ) {
+			$source_id = 'nrmp-2026-' . $event[0];
+			$meta = wp_json_encode( array( 'dataset' => 'nrmp-main-residency-applicant', 'cycle' => '2026', 'dataset_version' => self::NRMP_DATASET_VERSION, 'official_source' => $source_url, 'authoritative' => true ) );
+			$existing = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . self::table_name() . ' WHERE source = %s AND source_id = %s LIMIT 1', 'system', $source_id ) );
+			$data = array( 'user_id' => 0, 'event_type' => 'nrmp_date', 'title' => $event[1], 'description' => $event[2], 'start_at' => $event[3], 'end_at' => $event[4], 'all_day' => 0, 'source' => 'system', 'source_id' => $source_id, 'category' => 'nrmp', 'priority' => 1, 'status' => 'active', 'meta_json' => $meta, 'updated_at' => current_time( 'mysql' ) );
+			if ( $existing ) {
+				$wpdb->update( self::table_name(), $data, array( 'id' => absint( $existing ) ), self::format_map( $data ), array( '%d' ) );
+			} else {
+				$data['created_at'] = current_time( 'mysql' );
+				$wpdb->insert( self::table_name(), $data, self::format_map( $data ) );
+			}
+		}
+
+		update_option( self::NRMP_DATASET_OPTION, self::NRMP_DATASET_VERSION, false );
+	}
+
+	/**
+	 * Keep a bounded admin preimage/postimage ledger for Calendar-owned metadata.
+	 *
+	 * @param string $action Action label.
+	 * @param string $resource Resource ID.
+	 * @param array  $before Preimage.
+	 * @param array  $after Postimage.
+	 * @return void
+	 */
+	private static function audit_admin_change( $action, $resource, $before, $after ) {
+		$rows = get_option( self::ADMIN_AUDIT_OPTION, array() );
+		$rows = is_array( $rows ) ? $rows : array();
+		$rows[] = array( 'at' => current_time( 'mysql', true ), 'actor_id' => get_current_user_id(), 'action' => sanitize_key( $action ), 'resource' => sanitize_key( $resource ), 'before' => $before, 'after' => $after );
+		update_option( self::ADMIN_AUDIT_OPTION, array_slice( $rows, -100 ), false );
 	}
 
 	/**

@@ -40,6 +40,16 @@ rg -Fq '@media (prefers-reduced-motion: reduce)' "$v2_css"
 rg -Fq "event.key === 'Escape'" "$v2_js"
 rg -Fq 'drawerNeedsFocus' "$v2_js"
 rg -Fq 'triggers[i].focus()' "$v2_js"
+rg -Fq "if (!state || !state.capabilities || !state.capabilities.admin) return 'student';" "$v2_js"
+rg -Fq "effectivePerspective(state, button.getAttribute('data-perspective'))" "$v2_js"
+rg -Fq "Administrative capability has not changed." "$v2_js"
+rg -Fq "effectivePerspective(state) === 'administrator'" "$v2_js"
+rg -Fq "effectivePerspective(state) !== 'administrator' || !drillsOpen" "$v2_js"
+rg -Fq 'data-toggle-drills' "$v2_js"
+if rg -n "state\.capabilities\s*=|capabilities\.admin\s*=" "$v2_js"; then
+	echo 'FAIL StoryForge perspective control mutates server-derived capability' >&2
+	exit 1
+fi
 rg -Fq "add_options_page( 'Calendar Experience'" "$experience_php"
 rg -Fq "'manage_options'" "$experience_php"
 rg -Fq "get_option( self::OPTION_DEFAULT, 'classic' )" "$experience_php"

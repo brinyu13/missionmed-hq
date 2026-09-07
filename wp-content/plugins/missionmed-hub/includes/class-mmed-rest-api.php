@@ -678,9 +678,60 @@ class MMED_REST_API {
 			self::NAMESPACE,
 			'/calendar/categories',
 			array(
-				'methods'             => WP_REST_Server::READABLE,
-				'callback'            => array( __CLASS__, 'get_calendar_categories' ),
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( __CLASS__, 'get_calendar_categories' ),
+					'permission_callback' => array( __CLASS__, 'can_access' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( __CLASS__, 'create_calendar_category' ),
+					'permission_callback' => array( __CLASS__, 'can_access' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/calendar/categories/(?P<id>[a-z0-9_-]+)',
+			array(
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( __CLASS__, 'update_calendar_category' ),
+					'permission_callback' => array( __CLASS__, 'can_access' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'callback'            => array( __CLASS__, 'delete_calendar_category' ),
+					'permission_callback' => array( __CLASS__, 'can_access' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/calendar/category-visibility',
+			array(
+				'methods'             => WP_REST_Server::EDITABLE,
+				'callback'            => array( __CLASS__, 'update_calendar_category_visibility' ),
 				'permission_callback' => array( __CLASS__, 'can_access' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/calendar/favorites',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( __CLASS__, 'get_calendar_favorites' ),
+					'permission_callback' => array( __CLASS__, 'can_access' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( __CLASS__, 'update_calendar_favorites' ),
+					'permission_callback' => array( __CLASS__, 'can_access' ),
+				),
 			)
 		);
 
@@ -2005,12 +2056,44 @@ class MMED_REST_API {
 	}
 
 	public static function get_calendar_categories() {
-		$config = class_exists( 'MMED_Calendar_Engine' ) ? MMED_Calendar_Engine::category_config() : array();
+		return class_exists( 'MMED_Calendar_Engine' )
+			? new WP_REST_Response( MMED_Calendar_Engine::category_state(), 200 )
+			: new WP_REST_Response( array( 'categories' => array(), 'visibility' => array(), 'favorites' => array() ), 200 );
+	}
 
-		return new WP_REST_Response(
-			array( 'categories' => $config ),
-			200
-		);
+	public static function create_calendar_category( $request ) {
+		return class_exists( 'MMED_Calendar_Engine' )
+			? MMED_Calendar_Engine::create_category( $request )
+			: new WP_Error( 'mmed_calendar_missing', 'Calendar engine is unavailable.', array( 'status' => 500 ) );
+	}
+
+	public static function update_calendar_category( $request ) {
+		return class_exists( 'MMED_Calendar_Engine' )
+			? MMED_Calendar_Engine::update_category( $request )
+			: new WP_Error( 'mmed_calendar_missing', 'Calendar engine is unavailable.', array( 'status' => 500 ) );
+	}
+
+	public static function delete_calendar_category( $request ) {
+		return class_exists( 'MMED_Calendar_Engine' )
+			? MMED_Calendar_Engine::delete_category( $request )
+			: new WP_Error( 'mmed_calendar_missing', 'Calendar engine is unavailable.', array( 'status' => 500 ) );
+	}
+
+	public static function update_calendar_category_visibility( $request ) {
+		return class_exists( 'MMED_Calendar_Engine' )
+			? MMED_Calendar_Engine::update_category_visibility( $request )
+			: new WP_Error( 'mmed_calendar_missing', 'Calendar engine is unavailable.', array( 'status' => 500 ) );
+	}
+
+	public static function get_calendar_favorites() {
+		$state = class_exists( 'MMED_Calendar_Engine' ) ? MMED_Calendar_Engine::category_state() : array( 'favorites' => array() );
+		return new WP_REST_Response( array( 'favorites' => $state['favorites'] ?? array() ), 200 );
+	}
+
+	public static function update_calendar_favorites( $request ) {
+		return class_exists( 'MMED_Calendar_Engine' )
+			? MMED_Calendar_Engine::update_favorites( $request )
+			: new WP_Error( 'mmed_calendar_missing', 'Calendar engine is unavailable.', array( 'status' => 500 ) );
 	}
 
 	/**

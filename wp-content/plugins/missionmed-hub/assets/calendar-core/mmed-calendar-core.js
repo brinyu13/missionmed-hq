@@ -92,13 +92,27 @@
 
 	function categoryOf(raw, source, title) {
 		var key = String(raw || 'general').toLowerCase();
+		var session = String(title || '').match(/(?:session|group)\s*([a-f])\b/i);
+		if (/^personal-/.test(key) || /^system-/.test(key)) return key;
 		if (source === 'scheduler' || key === 'appointment') return 'appointment';
-		if (key.indexOf('drill') === 0) return 'drills';
-		if (key === 'deadline' || key === 'nrmp_date') return 'deadline';
+		if (key === 'drill_step1') return 'drill_step1';
+		if (key === 'drill_step23') return 'drill_step23';
+		if (key === 'nrmp' || key === 'nrmp_date') return 'nrmp';
+		if (key === 'deadline') return 'deadline';
 		if (key === 'assignment') return 'assignment';
-		if (key === 'mr_session' || key === 'mr_class_schedule') return 'strategy';
+		if (/^mr_session_[a-f]$/.test(key)) return key;
+		if (key === 'mr_session' || key === 'mr_class_schedule') return session ? 'mr_session_' + session[1].toLowerCase() : 'mission_residency';
+		if (key === 'mission_residency') return 'mission_residency';
+		if (key === 'rotation') return 'clinicals';
+		if (key === 'arena_event') return 'arena';
 		if (key === 'mock_interview' || /session|workshop|interview/i.test(title || '')) return 'live';
 		return key;
+	}
+
+	function favoriteKey(event) {
+		if (!event) return '';
+		if (event.source && event.sourceId) return event.source + ':' + event.sourceId;
+		return 'event:' + String(event.id == null ? '' : event.id);
 	}
 
 	function normalizeEvent(raw, capabilities) {
@@ -114,7 +128,7 @@
 		var replayUrl = safeUrl(raw.recording_url || raw.replay_url || meta.recording_url || meta.replay_url);
 		var isAdmin = !!(capabilities && capabilities.admin);
 		var globalEvent = Number(raw.user_id || 0) === 0;
-		return {
+		var event = {
 			id: raw.id,
 			title: text(raw.title || 'Untitled event'),
 			start: start,
@@ -131,8 +145,30 @@
 			meetingPlatform: text(raw.meeting_platform || raw.meetingPlatform || meta.meeting_platform || meta.meeting_provider || ''),
 			replayUrl: replayUrl,
 			recordingStatus: text(raw.recording_status || meta.recording_status || ''),
-			writable: !scheduler && (isAdmin ? source !== 'system' : !(globalEvent || source === 'system')),
-			important: !!(scheduler || meta.important || meta.match_2027 || meta.match_day || eventType === 'deadline' || /MATCH DAY|SOAP|deadline|certification/i.test(raw.title || ''))
+			writable: !scheduler && (isAdmin ? true : !(globalEvent || source === 'system')),
+			favoriteKey: '',
+			favorite: false,
+			important: !!(meta.match_day || eventType === 'deadline' || /MATCH DAY|SOAP|deadline|certification/i.test(raw.title || ''))
+		};
+		event.favoriteKey = favoriteKey(event);
+		return event;
+	}
+
+	function normalizeCategory(raw) {
+		raw = raw || {};
+		return {
+			id: text(raw.id || raw.key || ''),
+			parentId: text(raw.parent_id || raw.parentId || ''),
+			name: text(raw.name || raw.label || 'Category'),
+			color: /^#[0-9a-f]{6}$/i.test(String(raw.color || '')) ? String(raw.color) : '#94a3b8',
+			ownerScope: text(raw.owner_scope || raw.ownerScope || (raw.system ? 'system' : 'personal')),
+			ownerId: Number(raw.owner_id || raw.ownerId || 0),
+			system: raw.system === true || raw.system === 1 || raw.system === '1',
+			sortOrder: Number(raw.sort_order || raw.sortOrder || 100),
+			source: text(raw.source || ''),
+			eventType: text(raw.event_type || raw.eventType || ''),
+			session: text(raw.session || ''),
+			adminOnly: raw.admin_only === true || raw.admin_only === 1 || raw.admin_only === '1'
 		};
 	}
 
@@ -144,6 +180,9 @@
 			completed: !!(raw.completed || raw.done),
 			priority: text(raw.priority || 'medium'),
 			dueDate: text(raw.due_date || raw.date || ''),
+			category: text(raw.category || ''),
+			subtasks: Array.isArray(raw.subtasks) ? raw.subtasks.map(function (item) { return { title: text(item.title || ''), completed: !!item.completed }; }) : [],
+			sortOrder: Number(raw.sort_order || 0),
 			notes: text(raw.notes || ''),
 			meetingUrl: safeUrl(raw.meeting_url || raw.meetingUrl || ''),
 			meetingPlatform: text(raw.meeting_platform || raw.meetingPlatform || '')
@@ -198,7 +237,7 @@
 	}
 
 	function eventPayload(event) {
-		var meta = Object.assign({}, event.meta || {}, { important: !!event.important });
+		var meta = Object.assign({}, event.meta || {});
 		return {
 			title: event.title,
 			event_type: event.eventType || (event.category === 'drills' ? 'drill_step1' : 'custom'),
@@ -209,7 +248,7 @@
 			meeting_url: event.joinUrl || '',
 			meeting_platform: event.meetingPlatform || '',
 			category: event.category || '',
-			priority: event.important ? 1 : 0,
+			priority: event.priority || 0,
 			audience: event.audience || '',
 			meta: meta
 		};
@@ -221,6 +260,9 @@
 			completed: !!(todo.completed || todo.done),
 			priority: todo.priority === 'med' ? 'medium' : (todo.priority || 'medium'),
 			due_date: todo.dueDate || todo.due_date || todo.date || '',
+			category: todo.category || '',
+			subtasks: Array.isArray(todo.subtasks) ? todo.subtasks : [],
+			sort_order: Number(todo.sortOrder || todo.sort_order || 0),
 			notes: todo.notes || '',
 			meeting_url: todo.meetingUrl || todo.meeting_url || '',
 			meeting_platform: todo.meetingPlatform || todo.meeting_platform || ''
@@ -284,7 +326,8 @@
 	}
 
 	function viewModel(state) {
-		var events = (state.events || []).map(eventView);
+		var visibility = state.visibility || {};
+		var events = (state.events || []).filter(function (event) { return visibility[event.category] !== false; }).map(eventView);
 		var byDay = {};
 		events.forEach(function (event) { if (!byDay[event.dateKey]) byDay[event.dateKey] = []; byDay[event.dateKey].push(event); });
 		var today = new Date();
@@ -462,9 +505,13 @@
 			selectedDate: today,
 			events: [],
 			todos: [],
+			categories: [],
+			visibility: {},
+			favorites: [],
 			wpStatus: 'loading',
 			schedulerStatus: 'loading',
 			todosStatus: 'loading',
+			categoriesStatus: 'loading',
 			timezone: ZONE,
 			timezoneLabel: config.timezone_label || ZONE_LABEL,
 			capabilities: capabilities,
@@ -480,6 +527,11 @@
 		function emit() { if (!destroyed) listeners.slice().forEach(function (listener) { listener(state); }); }
 		function set(patch) { Object.keys(patch).forEach(function (key) { state[key] = patch[key]; }); emit(); }
 		function subscribe(listener) { listeners.push(listener); listener(state); return function () { listeners = listeners.filter(function (item) { return item !== listener; }); }; }
+		function applyFavorites(events, favorites) {
+			var lookup = {};
+			(favorites || state.favorites || []).forEach(function (key) { lookup[String(key)] = true; });
+			return (events || []).map(function (event) { return Object.assign({}, event, { favorite: !!lookup[event.favoriteKey] }); });
+		}
 
 		function range() {
 			var anchor = parseDate(state.selectedDate || state.date);
@@ -517,17 +569,24 @@
 				var todos = payload && Array.isArray(payload.todos) ? payload.todos.map(normalizeTodo) : [];
 				if (generation === rangeGeneration) set({ todos: todos, todosStatus: todos.length ? 'ready' : 'empty' });
 			}).catch(function (error) { if (!(error && error.name === 'AbortError') && generation === rangeGeneration) set({ todosStatus: 'error' }); });
+			var categoryRequest = typeof api.request === 'function' ? api.request('/calendar/categories', { method: 'GET', signal: signal }, {}) : api.get('/calendar/categories');
+			categoryRequest.then(function (payload) {
+				var source = payload && payload.categories ? payload.categories : [];
+				var list = Array.isArray(source) ? source : Object.keys(source || {}).map(function (id) { return Object.assign({ id: id }, source[id]); });
+				var favorites = payload && Array.isArray(payload.favorites) ? payload.favorites.map(String) : [];
+				if (generation === rangeGeneration) set({ categories: list.map(normalizeCategory), visibility: payload && payload.visibility && typeof payload.visibility === 'object' ? payload.visibility : {}, favorites: favorites, events: applyFavorites(state.events, favorites), categoriesStatus: list.length ? 'ready' : 'empty' });
+			}).catch(function (error) { if (!(error && error.name === 'AbortError') && generation === rangeGeneration) set({ categoriesStatus: 'error' }); });
 			set({ requestRange: { start: params.start, end: params.end }, cacheStatus: cached ? 'hit' : 'miss' });
 			if (cached) {
 				state.telemetry.cacheHits += 1;
-				set({ events: cached.events.slice(), wpStatus: cached.events.length ? 'ready' : 'empty', error: '' });
+				set({ events: applyFavorites(cached.events.slice()), wpStatus: cached.events.length ? 'ready' : 'empty', error: '' });
 				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary cache=hit range=' + key);
 				if (Date.now() - cached.savedAt < CACHE_FRESH_MS) return Promise.resolve(cached.events.slice());
 			}
 			var startedAt = Date.now();
 			var request = typeof api.request === 'function' ? api.request('/events', { method: 'GET', signal: signal }, params) : api.get('/events', params);
 			var events = request.then(function (payload) {
-				var normalized = payload && Array.isArray(payload.events) ? payload.events.map(function (event) { return normalizeEvent(event, capabilities); }) : [];
+				var normalized = payload && Array.isArray(payload.events) ? applyFavorites(payload.events.map(function (event) { return normalizeEvent(event, capabilities); })) : [];
 				sharedPrimaryCache[key] = { events: normalized.slice(), savedAt: Date.now() };
 				state.telemetry.primaryLoadMs = Date.now() - startedAt;
 				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary cache=' + (cached ? 'revalidated' : 'miss') + ' duration_ms=' + state.telemetry.primaryLoadMs + ' range=' + key);
@@ -545,7 +604,11 @@
 		function sessionJson(url, options) {
 			return global.fetch(url, options).then(function (response) {
 				return response.json().catch(function () { return {}; }).then(function (payload) {
-					if (!response.ok) throw new Error('Scheduler returned ' + response.status);
+					if (!response.ok) {
+						var error = new Error('Scheduler returned ' + response.status);
+						error.status = response.status;
+						throw error;
+					}
 					return payload;
 				});
 			});
@@ -561,19 +624,28 @@
 				return payload;
 			});
 		}
-		function loadScheduler(generation, signal) {
-			set({ schedulerStatus: 'loading' });
-			var request = schedulerSession().then(function (auth) {
-				var params = range();
-				var endpoint = capabilities.admin ? '/api/scheduler/admin/calendar-feed' : '/api/scheduler/calendar-feed';
-				var url = new URL(endpoint, global.location.origin);
-				Object.keys(params).forEach(function (key) { if (key !== 'no_sync') url.searchParams.set(key, params[key]); });
+		function schedulerJson(url, signal, retry) {
+			return schedulerSession().then(function (auth) {
 				var headers = { Accept: 'application/json', Authorization: 'Bearer ' + auth.accessToken };
 				if (auth.csrfToken) headers['x-mmhq-csrf'] = auth.csrfToken;
-				return sessionJson(url.toString(), { credentials: 'same-origin', cache: 'no-store', headers: headers, signal: signal });
-			}).then(function (payload) {
+				return sessionJson(url, { credentials: 'same-origin', cache: 'no-store', headers: headers, signal: signal });
+			}).catch(function (error) {
+				if (retry !== false && error && (error.status === 401 || error.status === 403)) {
+					schedulerAuth = null;
+					return schedulerJson(url, signal, false);
+				}
+				throw error;
+			});
+		}
+		function loadScheduler(generation, signal) {
+			set({ schedulerStatus: 'loading' });
+			var params = range();
+			var endpoint = capabilities.admin ? '/api/scheduler/admin/calendar-feed' : '/api/scheduler/calendar-feed';
+			var url = new URL(endpoint, global.location.origin);
+			Object.keys(params).forEach(function (key) { if (key !== 'no_sync') url.searchParams.set(key, params[key]); });
+			var request = schedulerJson(url.toString(), signal, true).then(function (payload) {
 				var data = payload && (payload.data || payload);
-				var events = data && Array.isArray(data.events) ? data.events.map(function (event) { return normalizeEvent(event, capabilities); }) : [];
+				var events = data && Array.isArray(data.events) ? applyFavorites(data.events.map(function (event) { return normalizeEvent(event, capabilities); })) : [];
 				if (generation === rangeGeneration) set({ events: mergeEvents(state.events, events), schedulerStatus: events.length ? 'ready' : 'empty' });
 				return events;
 			});
@@ -612,11 +684,12 @@
 		}
 
 		function createEvent(candidate) {
-			if (!capabilities.admin || !api || typeof api.post !== 'function') return Promise.reject(new Error('Calendar editing is unavailable.'));
+			if (!api || typeof api.post !== 'function') return Promise.reject(new Error('Calendar editing is unavailable.'));
+			if (!capabilities.admin && /^drill_/.test(String(candidate && candidate.eventType || ''))) return Promise.reject(new Error('Drills scheduling requires administrator access.'));
 			set({ busy: true, error: '' });
-			var authorizedCandidate = Object.assign({}, candidate, { audience: candidate.audience || 'all_students' });
+			var authorizedCandidate = Object.assign({}, candidate, { audience: capabilities.admin ? (candidate.audience || 'all_students') : '' });
 			return api.post('/events', eventPayload(authorizedCandidate)).then(function (saved) {
-				var event = normalizeEvent(saved && (saved.event || saved), capabilities);
+				var event = applyFavorites([normalizeEvent(saved && (saved.event || saved), capabilities)])[0];
 				set({ events: mergeEvents(state.events, [event]), busy: false });
 				return event;
 			}).catch(function (error) { set({ busy: false, error: 'The event was not saved. Nothing changed.' }); throw error; });
@@ -641,7 +714,7 @@
 		}
 
 		function createTodo(candidate) {
-			if (!capabilities.admin || !api || typeof api.post !== 'function') return Promise.reject(new Error('Task editing is unavailable.'));
+			if (!api || typeof api.post !== 'function') return Promise.reject(new Error('Task editing is unavailable.'));
 			set({ busy: true, error: '' });
 			return api.post('/todos', todoPayload(candidate)).then(function (saved) {
 				var todo = normalizeTodo(saved && (saved.todo || saved));
@@ -670,7 +743,7 @@
 
 		function refreshRecording(event) {
 			if (!event || !event.sourceId) return Promise.reject(new Error('Recording is unavailable.'));
-			return sessionJson('/api/scheduler/appointments/' + encodeURIComponent(event.sourceId) + '/recording', { method: 'GET', credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (payload) {
+			return schedulerJson('/api/scheduler/appointments/' + encodeURIComponent(event.sourceId) + '/recording', undefined, true).then(function (payload) {
 				var data = payload && (payload.data || payload);
 				var url = safeUrl(data && (data.recording_url || data.playback_url || (data.recording && data.recording.playback_url)));
 				if (!url) return { ready: false, event: event };
@@ -678,6 +751,66 @@
 				set({ events: state.events.map(function (item) { return String(item.id) === String(event.id) ? updated : item; }) });
 				return { ready: true, event: updated };
 			});
+		}
+
+		function getJoinInfo(event) {
+			if (!event || !event.id || !api) return Promise.reject(new Error('Join information is unavailable.'));
+			var request = typeof api.get === 'function' ? api.get('/meetings/' + encodeURIComponent(event.id) + '/join') : api.request('/meetings/' + encodeURIComponent(event.id) + '/join', { method: 'GET' }, {});
+			return request.then(function (payload) {
+				return {
+					available: !!(payload && (payload.available || payload.can_join || payload.join_url)),
+					joinUrl: safeUrl(payload && (payload.join_url || payload.url || (payload.join && payload.join.url))),
+					reason: text(payload && (payload.reason || payload.message || ''))
+				};
+			});
+		}
+
+		function setCategoryVisibility(id, visible) {
+			if (!api || typeof api.put !== 'function') return Promise.reject(new Error('Category preferences are unavailable.'));
+			var next = Object.assign({}, state.visibility || {});
+			next[String(id)] = !!visible;
+			return api.put('/calendar/category-visibility', { visibility: next }).then(function () { set({ visibility: next }); return next; });
+		}
+
+		function saveFavorites(next) {
+			if (!api || typeof api.put !== 'function') return Promise.reject(new Error('Favorites are unavailable.'));
+			return api.put('/calendar/favorites', { favorites: next }).then(function (payload) {
+				var saved = payload && Array.isArray(payload.favorites) ? payload.favorites.map(String) : next;
+				set({ favorites: saved, events: applyFavorites(state.events, saved) });
+				return saved;
+			});
+		}
+
+		function toggleFavorite(event) {
+			var key = event && (event.favoriteKey || favoriteKey(event));
+			if (!key) return Promise.reject(new Error('This item cannot be favorited.'));
+			var next = (state.favorites || []).slice();
+			var index = next.indexOf(key);
+			if (index === -1) next.push(key); else next.splice(index, 1);
+			return saveFavorites(next);
+		}
+
+		function createCategory(category) {
+			if (!api || typeof api.post !== 'function') return Promise.reject(new Error('Category editing is unavailable.'));
+			return api.post('/calendar/categories', category).then(function (payload) {
+				var next = payload && payload.state && Array.isArray(payload.state.categories) ? payload.state.categories.map(normalizeCategory) : state.categories.concat([normalizeCategory(payload.category || payload)]);
+				set({ categories: next, categoriesStatus: 'ready' });
+				return payload.category || payload;
+			});
+		}
+
+		function updateCategory(category) {
+			if (!category || !category.id || !api || typeof api.put !== 'function') return Promise.reject(new Error('Category editing is unavailable.'));
+			return api.put('/calendar/categories/' + encodeURIComponent(category.id), category).then(function (payload) {
+				var next = payload && payload.state && Array.isArray(payload.state.categories) ? payload.state.categories.map(normalizeCategory) : state.categories.map(function (item) { return item.id === category.id ? normalizeCategory(payload.category || category) : item; });
+				set({ categories: next });
+				return payload.category || payload;
+			});
+		}
+
+		function deleteCategory(category) {
+			if (!category || !category.id) return Promise.reject(new Error('Category editing is unavailable.'));
+			return apiDelete(api, '/calendar/categories/' + encodeURIComponent(category.id)).then(function () { set({ categories: state.categories.filter(function (item) { return item.id !== category.id; }) }); });
 		}
 
 		function destroy() {
@@ -708,6 +841,12 @@
 			updateTodo: updateTodo,
 			deleteTodo: deleteTodo,
 			refreshRecording: refreshRecording,
+			getJoinInfo: getJoinInfo,
+			setCategoryVisibility: setCategoryVisibility,
+			toggleFavorite: toggleFavorite,
+			createCategory: createCategory,
+			updateCategory: updateCategory,
+			deleteCategory: deleteCategory,
 			setPreference: setPreference,
 				reloadScheduler: function () { return loadScheduler(rangeGeneration, rangeAbortController ? rangeAbortController.signal : undefined); },
 				reloadRange: refreshRange,
@@ -728,6 +867,8 @@
 		localDateTime: localDateTime,
 		normalizeEvent: normalizeEvent,
 		normalizeTodo: normalizeTodo,
+		normalizeCategory: normalizeCategory,
+		favoriteKey: favoriteKey,
 		mergeEvents: mergeEvents,
 		viewModel: viewModel,
 		buildDrillEvent: buildDrillEvent,
