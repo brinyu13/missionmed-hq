@@ -9168,17 +9168,20 @@ export async function boot407FEngineeringAdapter({
   const closeOwnedModal=()=>{
     if(builderPreviewTrap){
       closeBuilderPreview();
-      return;
+      return true;
     }
     if(standardModalTrap){
       closeStandardModal();
-      return;
+      return true;
     }
+    const handled=Boolean(shortcutTrap||fileVaultTrap||document.getElementById("modalBk")?.classList.contains("on"));
+    if(!handled)return false;
     shortcutTrap?.destroy();
     shortcutTrap=null;
     fileVaultTrap?.destroy();
     fileVaultTrap=null;
     bridge.closeModal?.();
+    return true;
   };
   // The earlier inline Escape listener must use the owner's focus/inert cleanup.
   api.closeModal=closeOwnedModal;

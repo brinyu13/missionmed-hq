@@ -1490,7 +1490,7 @@ document.addEventListener('keydown',e=>{
     if(e.defaultPrevented)return;
     if($('#printOv').classList.contains('on')){$('#printOv').classList.remove('on');return}
     const closeOwned=window.D1_407F_ENGINEERING?.closeModal;
-    if(closeOwned){e.preventDefault();closeOwned()}else closeModal();
+    if(closeOwned){if(closeOwned())e.preventDefault()}else closeModal();
   }
   if($('#canvasGrid')&&(e.key==='z'||e.key==='Z')&&(e.ctrlKey||e.metaKey||state.view==='canvas')&&!/input|textarea|select/i.test((e.target&&e.target.tagName)||'')){e.preventDefault();doUndo()}
 });

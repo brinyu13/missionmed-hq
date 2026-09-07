@@ -82,3 +82,14 @@ test('021 inline Escape retains print priority and the pre-engine legacy fallbac
   h.escape();
   assert.equal(h.backdrop.classList.contains('on'),false);
 });
+
+test('022 Escape without an owned modal reaches the Advanced Studio selection handler',()=>{
+  const h=actualModalHarness();
+  let selection={type:'multi',members:[{id:'one'},{id:'two'}]};
+  h.document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!event.defaultPrevented)selection=null;});
+  assert.equal(h.context.window.D1_407F_ENGINEERING.closeModal(),false);
+  const event=h.escape();
+  assert.equal(event.defaultPrevented,false);
+  assert.equal(selection,null);
+  assert.deepEqual(h.inert(),[]);
+});
