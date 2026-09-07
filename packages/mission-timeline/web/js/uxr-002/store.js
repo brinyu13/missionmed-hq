@@ -609,6 +609,12 @@ export class TimelineStore{
   }
 
   flushPendingSave(reason="PAGE_HIDE"){
+    // A clean read/exit has nothing new to checkpoint. Keep an already-started
+    // save in custody without manufacturing a duplicate version on navigation.
+    if(!this.scheduledAuthorization&&!this.timer){
+      if(this.pendingSave)return this.pendingSave;
+      if(this.saveStatus==="saved")return Promise.resolve(null);
+    }
     clearTimeout(this.timer);
     this.timer=null;
     const authorization=this.scheduledAuthorization||

@@ -3,7 +3,7 @@ import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 const plugin=readFileSync(new URL('../../../wp-content/plugins/missionmed-timeline-sso/missionmed-timeline-sso.php',import.meta.url),'utf8');
-const start=plugin.indexOf('function mmtl_proxy_api_request() {');
+const start=plugin.indexOf('function mmtl_release_ai_proxy_session_lock($is_ai_route) {');
 const end=plugin.indexOf("\nadd_action('template_redirect', 'mmtl_proxy_api_request', 0);",start);
 assert.ok(start>0&&end>start,'Exercise the actual complete PHP gateway function');
 const actual=plugin.slice(start,end);

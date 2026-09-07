@@ -43,6 +43,12 @@ function blockIdsOf(candidate){
   return [...new Set((candidate?.provenance||[]).map((item)=>String(item?.sourceBlockId||"")).filter(Boolean))];
 }
 
+function sourceExcerptKey(pageNumber,text){
+  if(!Number.isInteger(pageNumber)||pageNumber<1||typeof text!=="string")return null;
+  const excerpt=text.replace(/\s+/g," ").trim();
+  return excerpt?JSON.stringify([pageNumber,excerpt]):null;
+}
+
 const TRAILING_FILLER=/\s+(?:in|on|of|the|a|an|and|or|for|to|at|with|among|by|from|into|during|under|over)$/i;
 export function shortenTitle(value){
   const cleaned=String(value||"").replace(/\s+/g," ").trim();
@@ -76,7 +82,7 @@ function duplicatePairs(candidates){
   return found;
 }
 
-export function buildQualitySuggestions(candidates,{sourceBlocks=[],now=new Date()}={}){
+export function buildQualitySuggestions(candidates,{sourceBlocks=[],sourceSha256="",now=new Date()}={}){
   const list=(candidates||[]).filter((candidate)=>candidate&&typeof candidate==="object");
   const output=[];
   const nowIndex=now.getUTCFullYear()*12+now.getUTCMonth();
@@ -165,8 +171,18 @@ export function buildQualitySuggestions(candidates,{sourceBlocks=[],now=new Date
   }
 
   const used=new Set(list.flatMap(blockIdsOf));
+  // Server extraction can assign different block IDs. Only the current source's exact
+  // full excerpt on the same page establishes coverage across those ID namespaces.
+  const currentSha256=String(sourceSha256).toLowerCase();
+  const usedExcerpts=new Set(/^[a-f0-9]{64}$/.test(currentSha256)?list.flatMap((candidate)=>
+    (candidate.provenance||[])
+      .filter((item)=>String(item?.sourceSha256||"").toLowerCase()===currentSha256)
+      .map((item)=>sourceExcerptKey(item.pageNumber,item.sourceExcerpt))
+      .filter(Boolean)
+  ):[]);
   const dropped=(sourceBlocks||[]).filter((block)=>
     block&&!used.has(String(block.id))&&
+    !usedExcerpts.has(sourceExcerptKey(block.pageNumber,block.text))&&
     /\b(?:19|20)\d{2}\b/.test(String(block.text||""))&&
     String(block.text||"").trim().length>=12
   ).slice(0,10);

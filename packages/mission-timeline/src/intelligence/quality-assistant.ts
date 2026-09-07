@@ -36,7 +36,10 @@ export function buildCvQualitySuggestions(
   blocks: CvSourceBlock[],
   localIdMap: Map<string, string>,
 ): CvQualitySuggestion[] {
-  const findings = reviewMedicalEducationTimeline(document).findings.map((finding): CvQualitySuggestion => ({
+  // CV candidates have not been applied yet; Guardian owns empty-Timeline readiness.
+  const findings = reviewMedicalEducationTimeline(document).findings
+    .filter((finding) => finding.code !== "EMPTY_TIMELINE")
+    .map((finding): CvQualitySuggestion => ({
     id: suggestionId({ source: "deterministic", code: finding.code, eventIds: finding.eventIds }),
     type: deterministicType(finding.code),
     severity: finding.severity === "INFO" ? "INFO" : "REVIEW",

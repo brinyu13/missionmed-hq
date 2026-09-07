@@ -1049,6 +1049,7 @@ export function createProductionCvIntakeAdapter({
           parser:{
             ...local.parser,
             intelligenceMode:"SERVER_AI",
+            networkCalls:true,
             analysisId:analysis.analysisId,
             provider:analysis.provider,
             model:analysis.model,
@@ -1062,7 +1063,7 @@ export function createProductionCvIntakeAdapter({
             prefillSummary:analysis.prefillSummary?structuredClone(analysis.prefillSummary):null,
             qualitySuggestions:dedupeQualitySuggestions([
               ...serverSuggestions,
-              ...buildQualitySuggestions(aiCandidates,{sourceBlocks:local.sourceBlocks})
+              ...buildQualitySuggestions(aiCandidates,{sourceBlocks:local.sourceBlocks,sourceSha256:sha256})
             ]),
             unresolvedQuestions:Array.isArray(analysis.unresolvedQuestions)?analysis.unresolvedQuestions:[]
           }

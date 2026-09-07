@@ -35,6 +35,19 @@ export function familyPresentationSnapshot(snapshot = {}, {localFixture = false}
   });
 }
 
+export function familyHomeContinuation(timeline = {}) {
+  const eventCount = Array.isArray(timeline?.events) ? timeline.events.length : 0;
+  const intake = timeline?.intake;
+  const candidateCount = intake?.stage === 'review' && intake.approval?.applied !== true && Array.isArray(intake.candidates) ? intake.candidates.length : 0;
+  return {
+    candidateCount,
+    enabled:eventCount > 0 || candidateCount > 0,
+    route:candidateCount ? 'intake' : 'builder',
+    label:candidateCount ? 'Continue review' : 'Continue my Timeline',
+    title:candidateCount ? 'Review your saved suggestions' : eventCount ? 'Continue your current Timeline' : 'Build from a CV or choose an existing source to start'
+  };
+}
+
 export function showTimelineOpening({storage = globalThis.sessionStorage, reducedMotion = false} = {}) {
   if(typeof document === 'undefined' || !document.body || node('#timelineOpening022'))return;
   try {if(storage?.getItem('timeline-022-opening-seen') === '1')return;} catch {}
@@ -165,6 +178,7 @@ export function installFamily022(api = window.D1_407F_ENGINEERING) {
     const context=familyPresentationSnapshot(snapshot || (localFixture?{mode:'local-fixture',sync:{state:'local'}}:{}),{localFixture});
     const timeline=api.store.document;
     const count=Array.isArray(timeline?.events)?timeline.events.length:0;
+    const continuation=familyHomeContinuation(timeline);
     setText('[data-family-role]',context.roleLabel);
     setText('[data-family-actor]',context.actorName);
     adminButton.hidden=!context.admin;
@@ -182,13 +196,14 @@ export function installFamily022(api = window.D1_407F_ENGINEERING) {
     }
     diagnostics.hidden=!context.local;
     setText('[data-family-diagnostics]',window.D1_LOCAL_SYNTHETIC_AI?'Registered synthetic fixtures only. Real provider analysis runs after consent. This draft stays on this device.':'This is a local test draft saved on this device. Connected account permissions are unchanged.');
-    resume.hidden=false;resume.disabled=count===0;
-    resume.title=count?'Continue your current Timeline':'Build from a CV or choose an existing source to start';
-    resume.className=count?'btnD go family022Continue':'btnD alt family022Continue';
-    cv.className=count?'btnD alt family022CV':'btnD go family022CV';
-    resume.textContent='Continue my Timeline';
-    continuity.hidden=count===0;
-    contextStatus.textContent=`${count} ${count===1?'event':'events'} · ${context.syncLabel.toLowerCase()}`;
+    resume.hidden=false;resume.disabled=!continuation.enabled;
+    resume.title=continuation.title;
+    resume.dataset.nav=continuation.route;
+    resume.className=continuation.enabled?'btnD go family022Continue':'btnD alt family022Continue';
+    cv.className=continuation.enabled?'btnD alt family022CV':'btnD go family022CV';
+    resume.textContent=continuation.label;
+    continuity.hidden=!continuation.enabled;
+    contextStatus.textContent=`${count} ${count===1?'event':'events'}${continuation.candidateCount?` · ${continuation.candidateCount} suggestions to review`:''} · ${context.syncLabel.toLowerCase()}`;
     const view=api.bridge.state?.view||'command';
     if(view!==lastFamilyView){
       if(['command','export','admin'].includes(view))node('main').scrollTop=0;

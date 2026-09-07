@@ -17,7 +17,7 @@ test("ordinary browser requests and media uploads keep their original deadlines"
  assert.deepEqual(deadlines,[20000,60000]);client.close();
 });
 const php=readFileSync(new URL("../../../wp-content/plugins/missionmed-timeline-sso/missionmed-timeline-sso.php",import.meta.url),"utf8");
-const start=php.indexOf("function mmtl_proxy_api_request() {");const end=php.indexOf("\nadd_action('template_redirect', 'mmtl_proxy_api_request', 0);",start);assert.ok(start>0&&end>start);const actual=php.slice(start,end);
+const start=php.indexOf("function mmtl_release_ai_proxy_session_lock($is_ai_route) {");const end=php.indexOf("\nadd_action('template_redirect', 'mmtl_proxy_api_request', 0);",start);assert.ok(start>0&&end>start);const actual=php.slice(start,end);
 // Reuse only the existing independent WP stubs; execute the complete current
 // production gateway so route-specific deadline selection is tested in PHP.
 const fixture=readFileSync(new URL("./d1-022-source-upload-wordpress-independent.test.mjs",import.meta.url),"utf8");

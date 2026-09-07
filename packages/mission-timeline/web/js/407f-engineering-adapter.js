@@ -1336,6 +1336,26 @@ export function installProductionMatrixReturn({store,productionRuntime,locationO
   return Object.freeze({mode:"MATRIX_PRODUCTION",returnUrl:target.href});
 }
 
+export function initializeCompatibilityProjection022(store,{production=false,restored=false,canCreate=false}={}){
+  if(store.entitlement.canMutate!==true||(!restored&&!canCreate))return;
+  if(production&&restored){
+    // Compatibility defaults belong to the initial display projection. A passive
+    // reader must not version another device's document; its next real edit will
+    // include these defaults in the normal durable save.
+    normalizeExamDocument(store.document);
+    ensureSpecialtyVariants(store.document);
+    return;
+  }
+  store.mutate("Tidy up your exam entries",document=>normalizeExamDocument(document),{history:false,material:false});
+  store.mutate("Normalize specialty timeline variants",document=>ensureSpecialtyVariants(document),{history:false,material:false});
+}
+
+export function persistExportStateChange022(store,state,reason){
+  // Loading/ready/error describe this preview, not a student document edit.
+  if(String(reason||"").startsWith("preview-")||store.entitlement.canMutate!==true)return false;
+  return store.mutate("Persist export settings",document=>{document.exportState=clone(state);},{history:false,material:false});
+}
+
 export async function boot407FEngineeringAdapter({
   bridge=window.D1_407F_TEST,
   store=null
@@ -1742,18 +1762,9 @@ export async function boot407FEngineeringAdapter({
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
 
-  if(entitlement.canMutate&&(init.restored||entitlement.canCreate)){
-    store.mutate(
-      "Tidy up your exam entries",
-      (document)=>normalizeExamDocument(document),
-      {history:false,material:false}
-    );
-    store.mutate(
-      "Normalize specialty timeline variants",
-      (document)=>ensureSpecialtyVariants(document),
-      {history:false,material:false}
-    );
-  }
+  initializeCompatibilityProjection022(store,{
+    production:!!productionRuntime,restored:init.restored,canCreate:entitlement.canCreate
+  });
   applying=true;
   applyDocumentTo407FState(store.document,bridge.state);
   bridge.renderAll();
@@ -5446,13 +5457,7 @@ export async function boot407FEngineeringAdapter({
       onExportComplete:result=>recordCompletedExport022(store,result),
       onStateChange:(state,reason)=>{
         exportState=state;
-        if(store.entitlement.canMutate===true){
-          store.mutate(
-            "Persist export settings",
-            (document)=>{document.exportState=clone(state);},
-            {history:false,material:false}
-          );
-        }
+        persistExportStateChange022(store,state,reason);
         if([
           "format",
           "print-margins",
@@ -6023,7 +6028,7 @@ export async function boot407FEngineeringAdapter({
     dialog.innerHTML=`<div style="padding:24px">
       <p style="margin:0 0 8px;color:#6ee7f9;font:700 11px/1.3 var(--num);letter-spacing:.16em">SAVE CONFLICT RECOVERY</p>
       <h2 id="timelineSyncConflictTitle" style="margin:0 0 12px;font-size:24px">Choose which Timeline to continue with.</h2>
-      <p style="margin:0 0 12px;line-height:1.55;color:#cbd5e1">Another tab or device saved a newer version while this copy still had unsynced changes. Both copies will be preserved in History.</p>
+      <p style="margin:0 0 12px;line-height:1.55;color:#cbd5e1">A newer version is saved on the server, and this copy has unsynced changes. Both copies will be preserved in History.</p>
       <p data-conflict-status role="status" aria-live="polite" style="min-height:22px;margin:0 0 18px;color:#fbbf24"></p>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button type="button" class="btnD go" data-conflict-strategy="KEEP_LOCAL">KEEP THIS COPY &amp; SYNC</button>

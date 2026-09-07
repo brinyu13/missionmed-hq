@@ -1040,6 +1040,15 @@ function mmtl_gateway_error($code, $message, $status) {
     exit;
 }
 
+function mmtl_release_ai_proxy_session_lock($is_ai_route) {
+    // A sibling tracker may open a PHP session during init. Our authorization
+    // uses WordPress cookies/JWTs, not that session. Persist its unchanged data
+    // and release its lock before AI waits, so this student's autosave can run.
+    if ($is_ai_route && session_status() === PHP_SESSION_ACTIVE && !session_write_close()) {
+        mmtl_gateway_error('timeline_session_release_failed', 'Timeline could not prepare the AI request. Please try again.', 503);
+    }
+}
+
 function mmtl_proxy_api_request() {
     $path = (string) get_query_var('missionmed_timeline_api', '');
     if ($path === '') {
@@ -1156,6 +1165,8 @@ function mmtl_proxy_api_request() {
     if (!in_array($method, array('GET', 'DELETE'), true)) {
         $args['body'] = file_get_contents('php://input');
     }
+    // All capability checks, consent checks and request inputs are complete.
+    mmtl_release_ai_proxy_session_lock($is_ai_route);
     $response = wp_remote_request($target, $args);
     if (is_wp_error($response)) {
         mmtl_gateway_error('timeline_api_unavailable', 'Timeline API is temporarily unavailable.', 503);
