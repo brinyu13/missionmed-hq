@@ -140,7 +140,6 @@ const KEYNOTE_ASSETS=freeze({
   }),
   arrows:freeze({
     work:"work",
-    education:"work",
     exams:"usmle",
     clinical:"teaching_hospital",
     personal:"personal",
@@ -1230,7 +1229,10 @@ function arrowSpriteSlug(arrow){
     arrow.categoryId==="clinical"&&
     /clinic|ambulatory|outpatient/i.test(arrow.siteName)
   )return"clinics";
-  return KEYNOTE_ASSETS.arrows[arrow.categoryId]||"work";
+  if(arrow.categoryId==="education")return null;
+  const slug=KEYNOTE_ASSETS.arrows[arrow.categoryId];
+  if(!slug)throw new TypeError(`Unsupported event category: ${String(arrow.categoryId)}`);
+  return slug;
 }
 
 function arrowSprite(slug,part){
@@ -1254,7 +1256,7 @@ function serializeArrow(arrow,_index,theme){
   const slug=arrowSpriteSlug(arrow);
   const top=arrow.centerY-arrow.shaftHeight/2;
   const bodyWidth=Math.max(1,arrow.width-45);
-  const exactSprite=theme?.id==="keynote-classic";
+  const exactSprite=theme?.id==="keynote-classic"&&slug!==null;
   const arrowShape=exactSprite
     ?`<image href="${xmlEscape(arrowSprite(slug,"left_cap"))}" x="${number(arrow.x)}" y="${number(top)}" width="16" height="36"/><image href="${xmlEscape(arrowSprite(slug,"body_segment"))}" x="${number(arrow.x+14)}" y="${number(top)}" width="${number(bodyWidth)}" height="36" preserveAspectRatio="none"/><image href="${xmlEscape(arrowSprite(slug,"right_head"))}" x="${number(arrow.x2-34)}" y="${number(top)}" width="34" height="36"/>`
     :`<path d="${arrow.path}" fill="${arrow.fill}" filter="url(#${SVG_ARROW_SHADOW_ID})"/><path d="M ${number(arrow.x+3)} ${number(top+3)} H ${number(arrow.x2-35)}" stroke="#FFFFFF" stroke-opacity=".42" stroke-width="2"/><path d="M ${number(arrow.x+3)} ${number(top+33)} H ${number(arrow.x2-35)}" stroke="#000000" stroke-opacity=".28" stroke-width="2"/>`;

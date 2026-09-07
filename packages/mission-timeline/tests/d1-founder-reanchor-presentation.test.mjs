@@ -92,7 +92,7 @@ test("one deterministic portable serializer supplies preview/export composition 
   assert.match(first.svg,/data-axis-ribbon="continuous"/);
   assert.match(first.svg,/data-axis-band="true" d="M0 125H1920V161H0Z"/);
   assert.match(first.svg,/font-family="Baskerville,'Iowan Old Style','Times New Roman',serif" font-size="18"/);
-  assert.equal((first.svg.match(/data-color-key-row=/g)||[]).length,FOUNDER_COLOR_KEY_ROWS.length);
+  assert.equal((first.svg.match(/data-color-key-row=/g)||[]).length,FOUNDER_COLOR_KEY_ROWS.length+1); // visible education duration adds its truthful key
   const keyOrder=[...first.svg.matchAll(/data-category-id="([^"]+)"/g)].map((match)=>match[1]);
   assert.deepEqual(keyOrder.slice(0,6),[
     "work","personal","exams","clinical-hospital","clinical-clinic","research"

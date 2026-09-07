@@ -151,7 +151,9 @@ function presentation(arrow,scene){
   }
   if(arrow.categoryId==="personal")return{slug:"personal",color:rows.get("personal")?.color||"#8A5BBF"};
   if(arrow.categoryId==="research")return{slug:"res",color:rows.get("research")?.color||"#D4B636"};
-  return{slug:"work",color:rows.get("work")?.color||"#3F9B52"};
+  if(arrow.categoryId==="work")return{slug:"work",color:rows.get("work")?.color||"#3F9B52"};
+  if(arrow.categoryId==="education")return{slug:"education",color:rows.get("education")?.color||"#2C6E8F"};
+  throw new TypeError(`Unsupported event category: ${String(arrow.categoryId)}`);
 }
 
 function founderBoardAssetUrl(){
@@ -399,11 +401,12 @@ function colorKey(scene){
   if(scene?.lorLegend?.visible)rows.push({id:"lor-submitted",label:scene.lorLegend.label||"LOR submitted",color:"#F3E7B3"});
   /* Golden card metrics (base 284×346, card paper starts 35px down under the pin):
      header "COLOR KEY" 18px red with an underline, rows on a 40px pitch, 36×30 swatches with
-     a dark hairline, 18px labels. Seven rows (with the LOR legend) still fit the card. */
-  const rowPitch=rows.length>6?36:40;
+     a dark hairline, 18px labels. Supplemental Education and LOR rows stay inside
+     the same paper bounds; the six-row default keeps its original metrics. */
+  const rowPitch=rows.length>7?32:rows.length>6?36:40;
   const base=FOUNDER_PORTABLE_GEOMETRY.colorKey;
   const sx=width/base.width,sy=height/base.height;
-  const cardTop=35,left=20,swatchWidth=36,swatchHeight=30,firstRow=cardTop+41;
+  const cardTop=35,left=20,swatchWidth=36,swatchHeight=rows.length>7?26:30,firstRow=cardTop+41;
   return`<g data-artifact-chrome="color-key" data-canonical-row-count="6" data-founder-geometry="${x},${y},${width},${height}" transform="translate(${x} ${y}) scale(${sx} ${sy})"><image href="${xml(LOCKED_407F_ASSETS.key)}" x="0" y="0" width="${base.width}" height="${base.height}" preserveAspectRatio="none"/><image href="${xml(LOCKED_407F_ASSETS.pin)}" x="${base.width/2-14}" y="-12" width="28" height="28"/><text x="${left}" y="${cardTop+26}" fill="#A8402F" font-family="${TYPE.key}" font-size="18" font-weight="700">COLOR KEY</text><path d="M${left} ${cardTop+31}H${left+100}" stroke="#A8402F" stroke-width="1.2"/>${rows.map(({id,label,color},index)=>{const fit=String(label).length>19?' textLength="190" lengthAdjust="spacingAndGlyphs"':"";const top=firstRow+index*rowPitch;return`<g data-color-key-row="${index}" data-category-id="${xml(id)}"><rect x="${left}" y="${top}" width="${swatchWidth}" height="${swatchHeight}" rx="2" fill="${color}" stroke="#2B2B2B" stroke-width="1"/><text x="${left+swatchWidth+12}" y="${top+21}" fill="#171D26" font-family="${TYPE.key}" font-size="18" font-weight="500"${fit}>${xml(label)}</text></g>`;}).join("")}</g>`;
 }
 

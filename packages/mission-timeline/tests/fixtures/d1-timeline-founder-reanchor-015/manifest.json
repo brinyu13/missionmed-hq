@@ -30,7 +30,7 @@
   },
   "serializer": {
     "id": "d1-founder-keynote-portable-svg/1",
-    "syntheticSvgSha256": "86d97133dab72c0991a151a370623671c0aa8522adc7a2a2b2833ef28fa59ab0",
+    "syntheticSvgSha256": "8bfec7b482dda9ff7f82a490e2eb533d55e4096199d9632e3ece43d823c1c0a4",
     "syntheticSvgSha256History": [
       {
         "sha256": "00a089a2be666e4caa02870be80772a88d712972b502b98fd4f1da8e259c8477",
@@ -59,6 +59,10 @@
       {
         "sha256": "86d97133dab72c0991a151a370623671c0aa8522adc7a2a2b2833ef28fa59ab0",
         "note": "D1-021 physical readable-output repair: duration labels keep natural glyph widths and move beside short chronology bars; profile values wrap into native17px rows. Dates, event facts, duration paths and Founder furniture geometry remain unchanged; exact populated-CV and native reopen tests plus opened actual1920/2560/Letter/A4 output evidence validate the new paint."
+      },
+      {
+        "sha256": "8bfec7b482dda9ff7f82a490e2eb533d55e4096199d9632e3ece43d823c1c0a4",
+        "note": "D1-022 inherited category-paint repair: visible education duration uses canonical #2C6E8F and adds Education after the six unchanged Founder default rows. Six-row default and all Founder furniture geometry, event facts and dates remain unchanged. Supplemental Education plus LOR stays within the same card."
       }
     ],
     "requiredComposition": {

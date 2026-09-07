@@ -19,6 +19,33 @@ const positiveId = (value: unknown): number => {
   return id;
 };
 
+const text = (value: unknown): string => typeof value === 'string' ? value.trim() : '';
+const records = (value: unknown): Row[] => Array.isArray(value) ? value.map(object) : [];
+const cvType = (value: unknown): boolean => ['cv', 'resume', 'eras'].includes(text(value).toLowerCase());
+const sourceType = (source: Row): unknown => source.documentType || source.effectiveType || source.userDeclaredType || source.detectedType || source.detectedDocumentType;
+const hasCvProvenance = (value: unknown): boolean => records(value).some(source => {
+  // Older imports predate source checksums, but still retain the exact document,
+  // block, page and excerpt. A supplied invalid checksum is never legacy evidence.
+  const checksum = text(source.sourceSha256);
+  return cvType(sourceType(source)) && Boolean(text(source.sourceDocumentId) || text(source.sourceObjectId))
+    && Boolean(text(source.sourceBlockId)) && Number.isInteger(source.pageNumber) && Number(source.pageNumber) > 0
+    && Boolean(text(source.sourceExcerpt) || text(source.sourceSnippet))
+    && (source.sourceSha256 == null || source.sourceSha256 === '' || /^[a-f0-9]{64}$/i.test(checksum));
+});
+
+/** Server-derived import history from persisted source lineage, never an imported
+ * flag, file title or AI label. Applying/resetting intake may clear its review
+ * queue while canonical events, exams and profile fields retain that lineage. */
+export function hasImportedCv022(value: unknown): boolean {
+  const document = object(value), intake = object(document.intake), extraction = object(intake.extraction);
+  const source = object(extraction.sourceDocument), profile = object(document.studentProfile);
+  if (extraction.completed === true && cvType(sourceType(source))
+    && Boolean(text(source.id) || text(source.objectId)) && /^[a-f0-9]{64}$/i.test(text(source.sha256))) return true;
+  const derived = [...records(document.events), ...records(document.exams), ...records(intake.candidates),
+    ...records(object(intake.lastImport).acceptedCandidates), ...Object.values(object(profile.fieldProvenance)).map(object)];
+  return hasCvProvenance(profile.fullNameProvenance) || derived.some(record => hasCvProvenance(record.provenance));
+}
+
 export function adminRosterStatus(wpUserId: number, row: Row | undefined, now = new Date(), authority?: ProviderAuthenticityService022) {
   const documentId = row?.document_id ? String(row.document_id) : null;
   const restricted = Boolean(row && row.principal_status !== 'ACTIVE');
@@ -37,7 +64,7 @@ export function adminRosterStatus(wpUserId: number, row: Row | undefined, now = 
   const lastExport = date(row?.last_export);
   const recently = (at: string | null) => Boolean(at && now.getTime() - Date.parse(at) >= 0 && now.getTime() - Date.parse(at) < 7 * 86400_000);
   const status = restricted ? 'ACCESS_RESTRICTED' : !documentId ? 'NEVER_STARTED' : String(row?.document_status || 'DRAFT');
-  const cvImported = row?.cv_imported === true;
+  const cvImported = Boolean(documentId && hasImportedCv022(row?.quality_source));
   return {
     wpUserId, documentId, status, cvStatus: cvImported ? 'IMPORTED' : 'NOT_IMPORTED',
     eventCount: Math.max(0, Number(row?.event_count) || 0), lastActivity,
@@ -99,8 +126,6 @@ export class PostgresTimelineAdminService {
         select distinct on (p.wp_user_id) p.wp_user_id, p.status as principal_status,
           d.id as document_id, d.status as document_status, d.current_revision, d.updated_at,
           case when jsonb_typeof(d.document_json->'events')='array' then jsonb_array_length(d.document_json->'events') else 0 end as event_count,
-          (jsonb_typeof(d.document_json#>'{intake,lastImport,acceptedCandidates}')='array'
-             and d.document_json#>'{intake,lastImport,acceptedCandidates}' <> '[]'::jsonb) as cv_imported,
           d.owner_principal_id,
           d.document_json#>'{metadata,qualityReport022,ai,providerAuthenticity}' as quality_authenticity,
           d.document_json as quality_source,

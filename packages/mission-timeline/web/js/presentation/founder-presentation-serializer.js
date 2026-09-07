@@ -1,4 +1,5 @@
 import {buildKeynoteClassicScene} from "../uxr-002/board-renderer.js";
+import {CATEGORY_DEFINITIONS} from "../uxr-002/adaptive-layout.js";
 import {serializeLocked407FPortableSvg} from "../uxr-002/locked-407f-export.js";
 import {DEFAULT_THEME_ID,applyThemeToScene} from "../uxr-002/themes.js";
 import {reconcileAdvancedScene,validateSceneGraph} from "../editor/scene-graph.js";
@@ -202,10 +203,19 @@ function founderAxisProjection(document){
   };
 }
 
-function founderCategoryKeyProjection(document){
+function founderCategoryKeyProjection(document,scene){
   const explicit=new Map((Array.isArray(document?.presentationOverrides?.categoryKey)
     ?document.presentationOverrides.categoryKey:[]).map((item)=>[String(item?.id||""),item]));
-  return FOUNDER_COLOR_KEY_ROWS.map((fallback,index)=>{
+  // The six Founder rows remain the default. A visible education duration has
+  // its own canonical color; it must not inherit the Work Experience identity.
+  const defaults=[...FOUNDER_COLOR_KEY_ROWS];
+  if(scene?.arrows?.some((arrow)=>arrow.categoryId==="education")){
+    const category=CATEGORY_DEFINITIONS.find((item)=>item.id==="education");
+    const stored=(document.categories||[]).find((item)=>item.id==="education");
+    defaults.push({...category,...(stored?.label?{label:stored.label}:{}),
+      ...(/^#[0-9a-f]{6}$/i.test(String(stored?.color||""))?{color:stored.color}:{})});
+  }
+  return defaults.map((fallback,index)=>{
     const value=explicit.get(fallback.id)||fallback;
     const color=/^#[0-9a-f]{6}$/i.test(String(value.color||""))
       ?String(value.color).toUpperCase():fallback.color;
@@ -244,10 +254,10 @@ function advancedSceneProjection(document,resolvedById=new Map()){
   };
 }
 
-function founderPresentationProjection(document,resolvedById){
+function founderPresentationProjection(document,resolvedById,scene){
   return Object.freeze({
     axis:founderAxisProjection(document),
-    categoryKey:Object.freeze(founderCategoryKeyProjection(document).map(Object.freeze)),
+    categoryKey:Object.freeze(founderCategoryKeyProjection(document,scene).map(Object.freeze)),
     colorKeyGeometry:Object.freeze(boundedGeometry(
       document?.presentationOverrides?.colorKeyGeometry,
       {x:20,y:300,width:284,height:346}
@@ -300,7 +310,7 @@ export function buildFounderPresentationScene(document,{
   scene.mediaProjection=mediaProjection(projected,mediaById);
   const advanced=advancedProjection(projected,mediaById);
   if(advanced)scene.advancedProjection={...(scene.advancedProjection||{}),...advanced};
-  scene.founderPresentation=founderPresentationProjection(projected,mediaById);
+  scene.founderPresentation=founderPresentationProjection(projected,mediaById,scene);
   return scene;
 }
 

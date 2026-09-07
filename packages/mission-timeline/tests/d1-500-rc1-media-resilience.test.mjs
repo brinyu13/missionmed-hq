@@ -30,10 +30,15 @@ function model(){
   };
 }
 
-test("RC1 WordPress CSP permits only same-origin, local blob, and the exact private R2 host",()=>{
-  assert.match(routeSource,/connect-src \\'self\\' blob: https:\/\/eeaaf73d1670b47a162d251ca67e7cfa\.r2\.cloudflarestorage\.com/);
-  assert.doesNotMatch(routeSource,/connect-src[^;]*\*/);
-  assert.doesNotMatch(routeSource,/connect-src[^;]*https:\/\/(?!eeaaf73d1670b47a162d251ca67e7cfa\.r2\.cloudflarestorage\.com)/);
+test("RC1 WordPress CSP permits only same-origin, local blob, and exact private R2 account/bucket origins",()=>{
+  const directive=routeSource.match(/connect-src ([^;]+);/)?.[1].replaceAll("\\'","'");
+  assert.ok(directive,"Production route must declare connect-src");
+  assert.deepEqual(directive.trim().split(/\s+/),[
+    "'self'",
+    "blob:",
+    "https://eeaaf73d1670b47a162d251ca67e7cfa.r2.cloudflarestorage.com",
+    "https://missionmed-timeline-media-prod.eeaaf73d1670b47a162d251ca67e7cfa.r2.cloudflarestorage.com"
+  ]);
 });
 
 test("RC1 omits one failed photo without mutating the original render model",()=>{

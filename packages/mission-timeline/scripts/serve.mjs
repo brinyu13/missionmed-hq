@@ -38,7 +38,7 @@ const mime = {
 };
 
 const securityHeaders = Object.freeze({
-  "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' blob: https://eeaaf73d1670b47a162d251ca67e7cfa.r2.cloudflarestorage.com; frame-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+  "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' blob: https://eeaaf73d1670b47a162d251ca67e7cfa.r2.cloudflarestorage.com https://missionmed-timeline-media-prod.eeaaf73d1670b47a162d251ca67e7cfa.r2.cloudflarestorage.com; frame-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
   "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   "referrer-policy": "no-referrer",
   "x-content-type-options": "nosniff",

@@ -855,9 +855,14 @@ function installProductionPrivacyControl(identity){
   });
 }
 
-function persistedIntakeState(state){
+export function persistedIntakeState(state,priorIntake=null){
   const value=clone(state);
   if(value.stage==="done"){
+    // applyApprovalBatchToDocument owns this actual apply receipt; the machine's
+    // subsequent DONE notification has not received it yet.
+    if(value.lastImport==null&&priorIntake?.lastImport){
+      value.lastImport=clone(priorIntake.lastImport);
+    }
     value.candidates=(value.candidates||[])
       .filter((candidate)=>candidate.decision==="undecided");
   }
@@ -1356,6 +1361,21 @@ export function persistExportStateChange022(store,state,reason){
   return store.mutate("Persist export settings",document=>{document.exportState=clone(state);},{history:false,material:false});
 }
 
+export async function restoreAuthenticatedGuardianOnBoot022(document,serverDocument){
+  const documentId=document.id,ownerId=document.studentOwnerId;
+  reconcileRestoredProviderTruth022(document,serverDocument);
+  const restored=await restoreServerGuardian022(document,serverDocument,{
+    analyze:analyzeTimelineQuality,merge:mergeAiQualityAnalysis
+  });
+  if(!restored||document.id!==documentId||document.studentOwnerId!==ownerId||
+    restored.sourceText!==qualitySourceText022(document))return null;
+  document.metadata={...document.metadata,
+    qualityReport022:structuredClone(restored.report),
+    qualitySummary022:structuredClone(serverDocument.metadata.qualitySummary022)
+  };
+  return restored;
+}
+
 export async function boot407FEngineeringAdapter({
   bridge=window.D1_407F_TEST,
   store=null
@@ -1384,8 +1404,10 @@ export async function boot407FEngineeringAdapter({
   store=store||new TimelineStore({adapter:productionRuntime?.adapter||null});
   const init=await store.initialize();
   const authoritativeDocument022=structuredClone(productionRuntime?.documents?.find(record=>record.document?.id===store.document.id)?.document||null);
+  let initialGuardianRestore022=null;
   if(runtimeMode==="production"){
-    reconcileRestoredProviderTruth022(store.document,authoritativeDocument022);
+    // Finish authenticated receipt reconciliation before any startup callback can save.
+    initialGuardianRestore022=await restoreAuthenticatedGuardianOnBoot022(store.document,authoritativeDocument022);
     store.document.metadata={
       ...(store.document.metadata||{}),
       localOnly:!productionRuntime?.remotePersistenceAllowed,
@@ -1760,6 +1782,7 @@ export async function boot407FEngineeringAdapter({
   let routeFocusFrame=0;
   let exitPersistenceStarted=false;
   let lastState=stableState(bridge.state);
+  let booting=true;
   const watchedEvents=["input","change","click","pointerup","blur"];
 
   initializeCompatibilityProjection022(store,{
@@ -1948,7 +1971,7 @@ export async function boot407FEngineeringAdapter({
 
   const reconcile=(event)=>{
     if(event?.target?.closest?.("#canvas407F"))return;
-    if(applying||pending)return;
+    if(booting||applying||pending)return;
     pending=true;
     queueMicrotask(()=>{
       pending=false;
@@ -1992,7 +2015,7 @@ export async function boot407FEngineeringAdapter({
       document.removeEventListener(eventName,reconcile,true);
     }
     const nextState=stableState(bridge.state);
-    if(nextState!==lastState&&store.entitlement.canMutate===true){
+    if(!booting&&nextState!==lastState&&store.entitlement.canMutate===true){
       lastState=nextState;
       store.mutate(
         "Timeline edit",
@@ -3495,11 +3518,10 @@ export async function boot407FEngineeringAdapter({
   });
   let lastGuardianReport022=null;
   let lastGuardianSource022='';
-  if(authoritativeDocument022)restoreServerGuardian022(store.document,authoritativeDocument022,{analyze:analyzeTimelineQuality,merge:mergeAiQualityAnalysis})
-    .then(restored=>{if(restored&&restored.sourceText===qualitySourceText022(store.document)){
-      lastGuardianReport022=restored.report;lastGuardianSource022=restored.sourceText;
-      store.document.metadata={...store.document.metadata,qualityReport022:structuredClone(restored.report),qualitySummary022:structuredClone(authoritativeDocument022.metadata.qualitySummary022)};
-    }}).catch(()=>{});
+  if(initialGuardianRestore022?.sourceText===qualitySourceText022(store.document)){
+    lastGuardianReport022=initialGuardianRestore022.report;
+    lastGuardianSource022=initialGuardianRestore022.sourceText;
+  }
   const openQualityGuardian407F=async(stage="DURING_BUILDING")=>{
     let report=analyzeTimelineQuality(store.document,{stage});
     const localSyntheticAi=runtimeMode!=="production"?window.D1_LOCAL_SYNTHETIC_AI:null;
@@ -9102,13 +9124,16 @@ export async function boot407FEngineeringAdapter({
       bridge.go("intake");
       setTimeout(()=>handleTimelineRescueFile(file),60);
     });
+    let initialIntakeNotification022=true;
     intakeCleanup=installIntake(intakeHost,intakeMachine,{
       onChange:(state)=>{
+        const initial=initialIntakeNotification022;
+        initialIntakeNotification022=false;
         renderIntakeHost(state);
         if(state.stage==="upload")intakeMachine.existingEvents=clone(store.document.events||[]);
-        if(store.entitlement.canMutate===true){
+        if(!initial&&store.entitlement.canMutate===true){
           store.mutate("Update Intake flow",(document)=>{
-            document.intake=persistedIntakeState(state);
+            document.intake=persistedIntakeState(state,document.intake);
           },{history:false,material:false});
         }
         bridge.state.intake=persistedIntakeState(state);
@@ -9503,6 +9528,9 @@ export async function boot407FEngineeringAdapter({
     }
   }});
   bridge.renderAll();
+  // Rehydration/render projections are the baseline, not a student edit.
+  lastState=stableState(bridge.state);
+  booting=false;
   document.documentElement.classList.remove("d1-hydrating");
   document.dispatchEvent(new CustomEvent("d1:407f-engineering-ready",{
     detail:{

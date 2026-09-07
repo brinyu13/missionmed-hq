@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import test from "node:test";
+import vm from "node:vm";
 
 const webRoot=new URL("../web/",import.meta.url);
 const index=await readFile(new URL("index.html",webRoot),"utf8");
@@ -55,13 +56,55 @@ test("M12 conceals prototype state until canonical hydration completes",()=>{
     index,
     /<div id="d1HydrationGate" role="status" aria-live="polite">Getting your timeline ready…<\/div>/
   );
-  assert.match(
-    adapter,
-    /window\.D1_407F_ENGINEERING=api;\s*api\.familyRuntime=installFamilyRuntime022\(\{runtime:productionRuntime,store,bridge,recoverSave:async\(\)=>\{[\s\S]*?\}\}\);\s*bridge\.renderAll\(\);\s*document\.documentElement\.classList\.remove\("d1-hydrating"\)/
-  );
+  const awaitedRestore=adapter.indexOf("initialGuardianRestore022=await restoreAuthenticatedGuardianOnBoot022");
+  const reconcileSubscription=adapter.indexOf('document.addEventListener("d1:407f-rendered",reconcile)');
+  const publicApi=adapter.indexOf("window.D1_407F_ENGINEERING=api;");
+  const reveal=adapter.indexOf('document.documentElement.classList.remove("d1-hydrating")');
+  assert.ok(awaitedRestore>0&&awaitedRestore<reconcileSubscription,
+    "Authenticated Guardian restoration completes before render callbacks can save");
+  assert.ok(reconcileSubscription<publicApi&&publicApi<reveal,
+    "Canonical callbacks and the public API initialize while prototype content is hidden");
   assert.match(adapter,/Your Timeline needs a fresh connection\./);
   assert.match(adapter,/retry\.textContent="Retry"/);
   assert.match(adapter,/back\.textContent="Return to Matrix"/);
+});
+
+// Execute the production boot tail so readiness depends on successful rendering and
+// the final baseline, without coupling the contract to adjacent source lines.
+function runHydrationCompletion({renderFails=false}={}){
+  const start=adapter.indexOf("  window.D1_407F_ENGINEERING=api;");
+  const end=adapter.indexOf("\n  return api;\n}",start);
+  assert.ok(start>0&&end>start,"The actual boot completion block must be found");
+  const events=[];
+  const context={
+    window:{},api:{},productionRuntime:{},store:{document:{id:"controlled-document"},adapter:{kind:"controlled-adapter"}},
+    init:{restored:true},matrixAppMode:{mode:"CONTROLLED"},booting:true,lastState:"stale-prototype",
+    installFamilyRuntime022(){events.push("family-installed");return {};},
+    bridge:{state:{title:"canonical"},renderAll(){events.push("render");if(renderFails)throw new Error("controlled render failure");this.state.rendered=true;}},
+    stableState(state){assert.equal(state.rendered,true);events.push("baseline");return JSON.stringify(state);},
+    document:{documentElement:{classList:{remove(name){
+      assert.equal(name,"d1-hydrating");assert.equal(context.booting,false);
+      assert.equal(context.lastState,JSON.stringify(context.bridge.state));events.push("revealed");
+    }}},dispatchEvent(event){assert.equal(event.type,"d1:407f-engineering-ready");events.push("ready");}},
+    CustomEvent:class {constructor(type,options){this.type=type;this.detail=options.detail;}}
+  };
+  const run=()=>vm.runInNewContext(`(function(){${adapter.slice(start,end)}\nreturn api;})()`,context);
+  return {run,context,events};
+}
+
+test("M12 hydration reveal follows successful final render and canonical baseline capture",()=>{
+  const {run,context,events}=runHydrationCompletion();
+  assert.equal(run(),context.api);
+  assert.deepEqual(events,["family-installed","render","baseline","revealed","ready"]);
+  assert.equal(context.window.D1_407F_ENGINEERING,context.api);
+});
+
+test("M12 a failed final render keeps prototype content hidden and emits no ready event",()=>{
+  const {run,context,events}=runHydrationCompletion({renderFails:true});
+  assert.throws(run,/controlled render failure/);
+  assert.deepEqual(events,["family-installed","render"]);
+  assert.equal(context.booting,true);
+  assert.equal(context.lastState,"stale-prototype");
 });
 
 test("M12 re-arms exit persistence after a BFCache restore",()=>{
