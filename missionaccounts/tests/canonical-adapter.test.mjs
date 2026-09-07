@@ -104,6 +104,7 @@ test('canonical adapter exposes meeting references only inside an admin-scoped p
   assert.deepEqual(admin.data.meta.integration_health, {
     zoom_sync_enabled: true,
     zoom_provider_configured: true,
+    zoom_review_classes: 0, zoom_review_occurrences: 0, zoom_schedule_utc: null,
     hosted_invoices_enabled: true,
     auto_billing_enabled: false,
     stripe: {

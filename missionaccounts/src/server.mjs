@@ -29,6 +29,7 @@ function environmentConfig() {
     basePath: '/missionaccounts/',
     wpBootstrapPath: process.env.MISSIONACCOUNTS_WP_BOOTSTRAP_PATH || '/wp-admin/admin-ajax.php?action=missionmed_missionaccounts_bootstrap',
     tokenRefreshSkewSeconds: 15,
+    zoomScheduleUtc: process.env.MISSIONACCOUNTS_ZOOM_SCHEDULE_UTC === '30 6 * * *' ? '30 6 * * *' : null,
     features: {
       studentContacts: process.env.MISSIONACCOUNTS_STUDENT_CONTACTS === '1',
       billingDecisions: process.env.MISSIONACCOUNTS_BILLING_DECISIONS === '1',
@@ -92,7 +93,7 @@ function environmentZoomProvider({ cycleProvider } = {}) {
 }
 
 function json(response, status, body) {
-  response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+  response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store, private', 'vary': 'Authorization, Cookie', 'pragma': 'no-cache', 'x-accel-expires': '0' });
   response.end(JSON.stringify(body));
 }
 
@@ -154,6 +155,7 @@ export function createMissionAccountsServer({
       ...await store.adminHealth(),
       zoom_sync_enabled: Boolean(config.features?.zoomSync),
       zoom_provider_configured: zoomProviderConfigured(),
+      zoom_schedule_utc: config.zoomScheduleUtc || null,
       hosted_invoices_enabled: Boolean(config.features?.hostedInvoices),
       auto_billing_enabled: Boolean(config.features?.autoBilling),
       stripe: stripeState,
@@ -1008,6 +1010,38 @@ export function createMissionAccountsServer({
       });
       return json(response, result.duplicate ? 200 : 201, result);
     }
+    if (request.method === 'POST' && ['/api/admin/billing-batches/controls', '/api/admin/billing-batches'].includes(url.pathname)) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'billingDecisions');
+      const body = await readJsonBody(request, { limitBytes: 262_144 });
+      const cycleKey = String(body.cycle_key || '');
+      const actorRole = identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin';
+      if (!/^[a-z0-9][a-z0-9-]{1,63}$/.test(cycleKey)) throw requestError('A valid cycle_key is required');
+      if (url.pathname.endsWith('/controls')) {
+        if (!Array.isArray(body.student_ids) || body.student_ids.length < 1 || body.student_ids.length > 100
+          || body.student_ids.some(id => !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(id)))) throw requestError('Select 1 to 100 valid student records');
+        return json(response, 200, await store.billingBatchControls({ cycleKey, studentIds: body.student_ids, actorRole }));
+      }
+      if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > 100) throw requestError('A billing batch requires 1 to 100 explicit records');
+      const result = await store.approveBillingBatch({ cycleKey, items: body.items, reason: String(body.reason || '').trim(),
+        actorId: identity.userId, actorRole, requestId: requestIdFor(request) });
+      // A processed batch can contain both accepted and held records. Preserve its complete receipt.
+      return json(response, 200, result);
+    }
+    const billingReverseRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/(billing-decisions|billing-batches)\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/reverse$/i) : null;
+    if (billingReverseRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'billingDecisions');
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const reason = String(body.reason || '').trim();
+      if (!reason || reason.length > 2000) throw requestError('A reversal reason is required');
+      const args = { reason, actorId: identity.userId, actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin', requestId: requestIdFor(request) };
+      const batch = billingReverseRoute[1] === 'billing-batches';
+      const result = batch ? await store.reverseBillingBatch({ ...args, batchId: billingReverseRoute[2] })
+        : await store.reverseBillingDecision({ ...args, decisionId: billingReverseRoute[2] });
+      return json(response, !batch && result.accepted === false ? 409 : 200, result);
+    }
     const billingDecisionRoute = request.method === 'POST'
       ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/decisions$/i)
       : null;
@@ -1245,7 +1279,7 @@ export function createMissionAccountsServer({
     const requested = assetAliases[requestedPath] || requestedPath;
     const file = path.resolve(publicDir, requested);
     if (!file.startsWith(`${publicDir}${path.sep}`) || !existsSync(file)) return json(response, 404, { code: 'NOT_FOUND' });
-    response.writeHead(200, { 'content-type': mime(file), 'cache-control': requested.endsWith('.html') ? 'no-store, private' : 'no-cache', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.js.stripe.com; img-src 'self' data: blob: https://*.stripe.com; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com" });
+    response.writeHead(200, { 'content-type': mime(file), 'cache-control': requested.endsWith('.html') ? 'no-store, private' : 'no-cache', 'vary': 'Authorization, Cookie', 'x-accel-expires': '0', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.js.stripe.com; img-src 'self' data: blob: https://*.stripe.com; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com" });
     createReadStream(file).pipe(response);
   }
 

@@ -72,11 +72,13 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /data-report\],\[data-attendance-issue-review\]/);
   assert.match(html, /missionAccountsApplyCapabilityState\(w\)/);
   assert.match(html, /missionAccountsApplyCapabilityState\(document\.getElementById\(id\)\)/);
-  assert.match(html, /Batch billing approval remains unavailable until its authoritative transaction is implemented/);
-  assert.match(html, /Clearing a billing decision remains unavailable until its authoritative server transaction is implemented/);
+  assert.match(html, /function missionAccountsConfirmGroupSheet/);
+  assert.match(html, /missionAccountsBatchOutcome/);
+  assert.match(html, /dispatch\('billing-decision-reversal'/);
   assert.match(html, /No attendance yet\./);
   assert.match(html, /function missionAccountsZoomHealth\(\)/);
-  assert.match(html, /scheduler not registered/);
+  assert.match(html, /Schedule not reported by this deployment/);
+  assert.match(html, /Source review needed/);
   assert.match(html, /integration exception/);
   assert.match(html, /Authoritative hydration is production-only/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('billing-decision'/);

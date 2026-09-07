@@ -1,0 +1,94 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "scope": "Local engineering tests, not production or real-role browser acceptance",
+  "base_commit": "f2a2013c0f5f6ef89abde67cb3ed0a1a410b3d83",
+  "migration_sha256": {
+    "supabase/migrations/20260907025337_workflow_request_integrity_5401.sql": "9dc8546101d5203884cd654b04557e62674c6dac2e5e98dccd6c378da98038e9",
+    "supabase/migrations/20260907025905_bounded_billing_reversal_batch_5401.sql": "43c9fc377c867ef3c459bd4e93639dec7a5dbcb31c59fa9da892fca7ec2a3e07",
+    "supabase/migrations/20260907025943_zoom_canonical_occurrence_5401.sql": "84b83bc940154faa6014d3b724bf8fbb303eace83185f258e7449ae937ed3a89",
+    "supabase/migrations/20260907034102_bounded_zoom_repair_5401.sql": "1a0876fae43e46c6fc7fc01e3693be62a3174a9cbe4a66863ab963c021ec8fcf"
+  },
+  "results": [
+    {
+      "command": "npm run validate:source",
+      "started_at": "2026-09-07T04:00:20.871182+00:00",
+      "finished_at": "2026-09-07T04:00:21.127308+00:00",
+      "exit_code": 0,
+      "stdout_sha256": "b323374c0e1d13494dff5c559fdecbc7f2fa942f457a8c40d20e3b5c92bb5aa8",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": [
+        "      \"days\": 1141,",
+        "      \"same_day_reductions\": 249,",
+        "      \"amount\": 26575",
+        "    },",
+        "    \"Cycle 3\": {",
+        "      \"people\": 165,",
+        "      \"events\": 1256,",
+        "      \"days\": 1051,",
+        "      \"same_day_reductions\": 205,",
+        "      \"amount\": 25075",
+        "    }",
+        "  },",
+        "  \"total_amount\": 77075",
+        "}"
+      ]
+    },
+    {
+      "command": "npm run test",
+      "started_at": "2026-09-07T04:00:21.161280+00:00",
+      "finished_at": "2026-09-07T04:00:21.765142+00:00",
+      "exit_code": 0,
+      "stdout_sha256": "ade1eb976a580df88910a343e585a7f3f0be9a113d70552654d6551193c69c31",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": [
+        "\u2714 cycle-bound Zoom classification applies the approved Drills rule in Eastern time (14.25625ms)",
+        "\u2714 Zoom S2S client allowlists meeting IDs, paginates reports, and caches the scoped token (17.112709ms)",
+        "\u2714 Zoom S2S client fails closed on missing report scopes, untrusted API origins, and unsafe rules (2.021959ms)",
+        "\u2714 Zoom daily worker derives an exact Eastern day across daylight-saving time (24.3455ms)",
+        "\u2714 Zoom daily worker sends one stable authenticated idempotent window and returns only controls (17.161917ms)",
+        "\u2714 Zoom daily worker rejects insecure remote origins and incomplete authentication (0.325708ms)",
+        "\u2139 tests 176",
+        "\u2139 suites 0",
+        "\u2139 pass 176",
+        "\u2139 fail 0",
+        "\u2139 cancelled 0",
+        "\u2139 skipped 0",
+        "\u2139 todo 0",
+        "\u2139 duration_ms 455.1905"
+      ]
+    },
+    {
+      "command": "npm run test:postgres",
+      "started_at": "2026-09-07T04:00:21.784890+00:00",
+      "finished_at": "2026-09-07T04:00:30.109776+00:00",
+      "exit_code": 0,
+      "stdout_sha256": "f19efb9281b4df6bbc57c12ca00fbe6bc6ff981071205985dc50a6430984cf92",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": [
+        "",
+        "> @missionmed/missionaccounts@0.1.0 test:postgres",
+        "> bash scripts/test-postgres-migration.sh",
+        "",
+        "true",
+        "PASS: two concurrent reimports preserve one event, three raw observations, two corroborations without deadlock",
+        "PASS: concurrent domain insert waits, then rejects retired student",
+        "MissionAccounts PostgreSQL migration, account linkage/default comp, identity and device adjudication with split-grace custody, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody and admin review, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, unhandled-provider exception custody, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+      ]
+    },
+    {
+      "command": "npm run test:historical-import",
+      "started_at": "2026-09-07T04:00:30.140850+00:00",
+      "finished_at": "2026-09-07T04:00:32.650086+00:00",
+      "exit_code": 0,
+      "stdout_sha256": "ace6956232ee062d683881037b108312fae882f6d80ffb57fd9fc33f82656cc5",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": [
+        "",
+        "> @missionmed/missionaccounts@0.1.0 test:historical-import",
+        "> bash scripts/test-historical-import.sh",
+        "",
+        "MissionAccounts historical import verification PASS"
+      ]
+    }
+  ]
+}

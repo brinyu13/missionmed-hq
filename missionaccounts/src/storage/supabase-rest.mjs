@@ -163,27 +163,28 @@ export class SupabaseRestStore {
     const [
       cycles, sessions, students, aliases, attendanceEvents, attendanceDays,
       billingDecisions, invoices, examPlans, examTransitions, graceWindows, reminders,
-      corrections, ceilings, cyclePolicies, ruleDecisions, deviceIdentityDecisions,
+      corrections, ceilings, cyclePolicies, ruleDecisions, deviceIdentityDecisions, auditHistory,
     ] = await Promise.all([
       this.billingCycles(),
-      this.requestAll(`session?state=eq.confirmed&superseded_by_id=is.null&select=${sessionSelect}&order=starts_at.asc`),
+      this.requestAll(`session?state=eq.confirmed&canonical_status=eq.active&superseded_by_id=is.null&select=${sessionSelect}&order=starts_at.asc`),
       this.requestAll(studentPath),
       this.requestAll(aliasPath),
       this.requestAll(`attendance_event_projection?superseded_by_id=is.null${studentFilter}&select=id,student_id,source_student_id,session_id,cycle_key,local_day,step,interpretation_state,duration_minutes,source_row_count,source_display_name&order=local_day.asc`),
       this.requestAll(`attendance_day?superseded_at=is.null${studentFilter}&select=id,student_id,cycle_key,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`),
-      this.requestAll(`billing_decision?superseded_by_id=is.null${studentFilter}&select=id,student_id,cycle_key,treatment,amount_cents,basis,state,decided_at&order=created_at.asc`),
+      this.requestAll(`billing_decision?state=neq.cleared&superseded_by_id=is.null${studentFilter}&select=id,student_id,cycle_key,treatment,amount_cents,basis,state,note,decided_at&order=created_at.asc`),
       this.requestAll(`invoice?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,cycle_key,decision_id,state,amount_cents,provider_status,hosted_invoice_url,invoice_pdf,due_at,sent_at,paid_at,last_provider_event_at&order=created_at.asc`),
       this.requestAll(`exam_plan?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,step,exam_on,state,result,note,suggested_on,passed_on,submitted_at,decided_at,withdrawn_at,superseded_by_id&order=submitted_at.asc`),
       this.requestAll(`exam_transition?accepted=eq.true${studentFilter}&select=id,exam_plan_id,student_id,from_state,to_state,result,reason,actor_role,created_at&order=created_at.asc`),
       this.requestAll(`grace_window_projection?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,from_on,to_on,closed_reason,created_at&order=created_at.asc`),
       this.requestAll(`reminder?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,due_on,state,cancelled_reason,created_at&order=created_at.asc`),
-      this.requestAll(`attendance_correction_projection?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,source_student_id,attendance_event_id,session_id,type,from_val,to_val,reason,reverts_id,reverted_by_id,created_at&order=created_at.asc`),
+      this.requestAll(`attendance_correction_projection?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,source_student_id,attendance_event_id,session_id,type,from_val,to_val,reason,actor_id,reverts_id,reverted_by_id,created_at&order=created_at.asc`),
       this.requestAll(`full_cycle_ceiling_projection?superseded_by_id=is.null${studentFilter}${admin ? '' : '&status=eq.verified'}&select=id,student_id,source_student_id,cycle_key,status,ceiling_cents,basis,decided_at&order=created_at.asc`),
       this.requestAll('cycle_policy?superseded_by_id=is.null&select=id,cycle_key,key,value,reason,set_at&order=set_at.asc'),
       this.requestAll('rule_decision?superseded_by_id=is.null&select=id,rule,mode,effective_from,basis,decided_at&order=decided_at.asc'),
       admin
         ? this.requestAll('device_identity_decision?superseded_by_id=is.null&select=id,identity_alias_id,source_student_id,decision,target_student_id,note,decided_by,decided_at&order=decided_at.asc')
         : Promise.resolve([]),
+      this.requestAll(`audit_event?${admin ? '' : `subject_student_id=eq.${encodeURIComponent(studentId)}&`}select=id,subject_student_id,kind,actor_role,created_at${admin ? ',actor_id,text,reason' : ''}&order=created_at.desc`),
     ]);
     const visibleStudents = admin
       ? students.filter(student => student.absorbed === false || (student.device_source === true && student.device_decision_id))
@@ -204,6 +205,7 @@ export class SupabaseRestStore {
       grace_windows: graceWindows,
       reminders,
       attendance_corrections: corrections,
+      audit_history: auditHistory,
       full_cycle_ceilings: ceilings,
       cycle_policies: cyclePolicies,
       rule_decisions: ruleDecisions,
@@ -211,6 +213,10 @@ export class SupabaseRestStore {
     if (admin) {
       projection.identity_clusters = await this.adminIdentityClusters({ state: 'all' });
       projection.device_identity_decisions = deviceIdentityDecisions;
+      [projection.zoom_class_sources, projection.zoom_occurrence_reviews] = await Promise.all([
+        this.requestAll('zoom_class_source_projection?select=*&order=starts_at.asc'),
+        this.requestAll('zoom_occurrence_review_projection?select=*&order=starts_at.asc'),
+      ]);
     }
     return projection;
   }
@@ -221,7 +227,7 @@ export class SupabaseRestStore {
   }
 
   async billingForStudent(studentId) {
-    return this.request(`billing_decision?student_id=eq.${encodeURIComponent(studentId)}&superseded_by_id=is.null&select=id,cycle_key,treatment,amount_cents,basis,state,decided_at&order=created_at.desc`);
+    return this.request(`billing_decision?student_id=eq.${encodeURIComponent(studentId)}&state=neq.cleared&superseded_by_id=is.null&select=id,cycle_key,treatment,amount_cents,basis,state,note,decided_at&order=created_at.desc`);
   }
 
   async paymentMethodForStudent(studentId) {
@@ -321,6 +327,25 @@ export class SupabaseRestStore {
       p_actor_role: actorRole,
       p_request_id: requestId,
     });
+  }
+
+  async billingBatchControls({ cycleKey, studentIds, actorRole }) {
+    return this.rpc('api_billing_batch_controls', { p_cycle_key: cycleKey, p_student_ids: studentIds, p_actor_role: actorRole });
+  }
+
+  async approveBillingBatch({ cycleKey, items, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_approve_billing_batch', { p_cycle_key: cycleKey, p_items: items, p_reason: reason,
+      p_actor_id: actorId, p_actor_role: actorRole, p_request_id: requestId });
+  }
+
+  async reverseBillingBatch({ batchId, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_reverse_billing_batch', { p_batch_id: batchId, p_reason: reason,
+      p_actor_id: actorId, p_actor_role: actorRole, p_request_id: requestId });
+  }
+
+  async reverseBillingDecision({ decisionId, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_reverse_billing_decision', { p_decision_id: decisionId, p_reason: reason,
+      p_actor_id: actorId, p_actor_role: actorRole, p_request_id: requestId });
   }
 
   async approveBillingDecision({ studentId, cycleKey, treatment, requestedAmountCents, note, actorId, actorRole, requestId }) {
@@ -573,12 +598,14 @@ export class SupabaseRestStore {
   }
 
   async adminHealth() {
-    const [students, inbox, outbox, exceptions, syncs] = await Promise.all([
+    const [students, inbox, outbox, exceptions, syncs, reviewClasses, reviewOccurrences] = await Promise.all([
       this.request('student_identity_projection?absorbed=eq.false&excluded=eq.false&select=id&identity_state=eq.needs_review'),
       this.request('provider_event_inbox?select=id&state=eq.failed'),
       this.request('notification_outbox?select=id&state=eq.failed'),
       this.request('integration_exception?select=id&state=eq.open'),
       this.request('sync_run?select=state,started_at,finished_at,stats,error&order=started_at.desc&limit=1'),
+      this.requestAll('zoom_class_source_projection?disposition=eq.review&select=id'),
+      this.requestAll('zoom_occurrence_review_projection?select=id'),
     ]);
     return {
       review_students: students.length,
@@ -586,6 +613,8 @@ export class SupabaseRestStore {
       failed_notifications: outbox.length,
       open_integration_exceptions: exceptions.length,
       latest_zoom_sync: syncs[0] || null,
+      zoom_review_classes: reviewClasses.length,
+      zoom_review_occurrences: reviewOccurrences.length,
     };
   }
 
@@ -614,7 +643,7 @@ export class SupabaseRestStore {
     const [students, attendanceDays, decisions, examPlans, reminders, invoices, identityClusters, attendanceIssues] = await Promise.all([
       this.adminStudents(),
       this.request('attendance_day?superseded_at=is.null&select=id,student_id,cycle_key,kind'),
-      this.request('billing_decision?superseded_by_id=is.null&select=id,student_id,cycle_key,state,amount_cents'),
+      this.request('billing_decision?state=neq.cleared&superseded_by_id=is.null&select=id,student_id,cycle_key,state,amount_cents'),
       this.request('exam_plan?superseded_by_id=is.null&withdrawn_at=is.null&select=id,student_id,step,exam_on,state'),
       this.request('reminder?state=in.(scheduled,due)&select=id,student_id,exam_plan_id,due_on,state'),
       this.request('invoice?state=in.(draft,ready,sent,overdue,failed)&select=id,student_id,cycle_key,state,amount_cents,provider_status,due_at'),
@@ -644,7 +673,7 @@ export class SupabaseRestStore {
     const [cycles, attendanceDays, decisions, invoices, policies] = await Promise.all([
       this.request(`cycle?key=eq.${encodeURIComponent(cycleKey)}&select=key,label,starts_on,ends_on,state&limit=1`),
       this.request(`attendance_day?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_at=is.null&select=id,student_id,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`),
-      this.request(`billing_decision?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_by_id=is.null&select=id,student_id,treatment,amount_cents,basis,state,decided_at`),
+      this.request(`billing_decision?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_by_id=is.null&select=id,student_id,treatment,amount_cents,basis,state,note,decided_at`),
       this.request(`invoice?cycle_key=eq.${encodeURIComponent(cycleKey)}&select=id,student_id,decision_id,state,amount_cents,provider_status,hosted_invoice_url,invoice_pdf,due_at,sent_at,paid_at,last_provider_event_at`),
       this.request(`cycle_policy?cycle_key=eq.${encodeURIComponent(cycleKey)}&superseded_by_id=is.null&select=id,cycle_key,key,value,set_by,reason,set_at`),
     ]);

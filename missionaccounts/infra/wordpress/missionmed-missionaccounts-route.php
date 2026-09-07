@@ -82,13 +82,24 @@ function mmma_same_wordpress_origin($origin) {
     return hash_equals($expected, $origin);
 }
 
+// Defense in depth only: provider full-page/edge exclusions are mandatory.
+function mmma_private_headers() {
+    nocache_headers();
+    header('Cache-Control: no-store, private', true);
+    header('Vary: Authorization, Cookie', true);
+    header('Pragma: no-cache', true);
+    header('X-Accel-Expires: 0', true);
+    header('X-Robots-Tag: noindex, nofollow', true);
+}
+
 function mmma_json_error($status, $code, $message) {
     status_header($status);
-    nocache_headers();
+    mmma_private_headers();
     header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: no-store, private', true);
     header('X-Content-Type-Options: nosniff');
-    echo wp_json_encode(array('code' => $code, 'message' => $message));
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'HEAD') {
+        echo wp_json_encode(array('code' => $code, 'message' => $message));
+    }
     exit;
 }
 
@@ -152,9 +163,7 @@ function mmma_emit_response($response, $method, $upstream_path) {
     header('X-Content-Type-Options: nosniff');
     header('X-MissionAccounts-Route: wordpress-gateway');
     if (str_starts_with($upstream_path, '/api/') || str_starts_with(strtolower($content_type), 'text/html')) {
-        header('Cache-Control: no-store, private', true);
-        header('Pragma: no-cache', true);
-        header('X-Robots-Tag: noindex, nofollow', true);
+        mmma_private_headers();
     } else {
         header('Cache-Control: no-cache', true);
     }
@@ -173,12 +182,12 @@ function mmma_proxy_request() {
         mmma_json_error(503, 'missionaccounts_temporarily_unavailable',
             'MissionAccounts is temporarily unavailable while access protection is verified.');
     }
-    if (!mmma_route_enabled()) {
-        return;
-    }
     $path = mmma_request_path();
     if (!mmma_is_route_request($path)) {
         return;
+    }
+    if (!mmma_route_enabled()) {
+        mmma_json_error(503, 'route_disabled', 'MissionAccounts is temporarily unavailable.');
     }
     $raw_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
     if (mmma_reject_ambiguous_path($raw_uri, $path)) {
@@ -187,7 +196,7 @@ function mmma_proxy_request() {
     if ($path === MMMA_ROUTE_PREFIX) {
         status_header(308);
         header('Location: ' . esc_url_raw(home_url(MMMA_ROUTE_PREFIX . '/')));
-        header('Cache-Control: no-store, private');
+        mmma_private_headers();
         exit;
     }
     $origin = isset($_SERVER['HTTP_ORIGIN']) ? wp_unslash($_SERVER['HTTP_ORIGIN']) : '';

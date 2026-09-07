@@ -47,6 +47,9 @@ function integrationHealth(bootstrap) {
   return {
     zoom_sync_enabled: health.zoom_sync_enabled === true,
     zoom_provider_configured: health.zoom_provider_configured === true,
+    zoom_schedule_utc: health.zoom_schedule_utc === '30 6 * * *' ? health.zoom_schedule_utc : null,
+    zoom_review_classes: safeCount(health.zoom_review_classes),
+    zoom_review_occurrences: safeCount(health.zoom_review_occurrences),
     hosted_invoices_enabled: health.hosted_invoices_enabled === true,
     auto_billing_enabled: health.auto_billing_enabled === true,
     stripe: {
@@ -263,6 +266,7 @@ export function buildCanonicalModel(bootstrap) {
     };
   }
   for (const decision of source.billing_decisions || []) {
+    if (decision.state === 'cleared') continue;
     const si = studentIndex.get(decision.student_id);
     if (si == null) continue;
     const key = mappedCycleKey(decision.cycle_key);
@@ -291,7 +295,9 @@ export function buildCanonicalModel(bootstrap) {
       state: decision.state,
     };
   }
-  for (const policy of source.cycle_policies || []) working.policy[mappedCycleKey(policy.cycle_key)] = policy.value?.decision || null;
+  for (const policy of source.cycle_policies || []) {
+    if (['cap', 'per'].includes(policy.value?.decision)) working.policy[mappedCycleKey(policy.cycle_key)] = policy.value.decision;
+  }
   const ruleDecision = (source.rule_decisions || []).find(row => row.rule === 'one_charge_per_calendar_day');
   if (ruleDecision) working.ruleDecision = { mode: ruleDecision.mode, at: safeDateMs(ruleDecision.decided_at), by: 'Founder', note: '' };
   const planById = new Map((source.exam_plans || []).map(plan => [plan.id, plan]));
@@ -370,6 +376,26 @@ export function buildCanonicalModel(bootstrap) {
       working.ready[si][cycleKey] = true;
     }
   }
+  for (const entry of source.audit_history || []) {
+    if (entry.kind === 'attendance_correction.appended') continue; // Correction receipts carry the Undo target below.
+    const si = studentIndex.get(entry.subject_student_id);
+    if (source.scope !== 'admin' && si == null) continue;
+    const kind = entry.kind.startsWith('comp_') ? 'comp' : entry.kind.startsWith('exam') ? 'exam'
+      : entry.kind.startsWith('billing_decision') ? (entry.kind.endsWith('cleared') ? 'undo' : 'treat') : 'record';
+    working.log.push({ id: entry.id, si, kind, t: safeDateMs(entry.created_at),
+      text: source.scope === 'admin' ? (entry.text || entry.kind) : entry.kind.replaceAll('_', ' ').replaceAll('.', ' · '),
+      reason: source.scope === 'admin' ? (entry.reason || '') : '',
+      actor: source.scope === 'admin' ? (entry.actor_id || entry.actor_role) : entry.actor_role, impact: 0 });
+  }
+  for (const correction of source.attendance_corrections || []) {
+    const si = studentIndex.get(correction.student_id);
+    if (si == null) continue;
+    working.log.push({ id: correction.id, si, kind: correction.reverts_id ? 'undo' : 'correct',
+      t: safeDateMs(correction.created_at), text: correction.reverts_id ? 'Reversed attendance correction' : 'Attendance ' + correction.type + ' correction',
+      reason: correction.reason || '', actor: source.scope === 'admin' ? correction.actor_id : 'missionaccounts_admin',
+      corrId: correction.reverts_id || correction.reverted_by_id ? null : correction.id, impact: 0 });
+  }
+  working.log.sort((a,b) => b.t - a.t);
   const correctionType = { add: 'att_add', remove: 'att_remove', step_relabel: 'step', name: 'name', note: 'note' };
   const revertedCorrectionIds = new Set((source.attendance_corrections || [])
     .map(correction => correction.reverts_id)
@@ -479,6 +505,8 @@ export function buildCanonicalModel(bootstrap) {
         ...(source.scope === 'admin' ? {
           integration_health: integrationHealth(bootstrap),
           attendance_issues: attendanceIssueQueue(bootstrap),
+          zoom_class_sources: source.zoom_class_sources || [],
+          zoom_occurrence_reviews: source.zoom_occurrence_reviews || [],
         } : {}),
         controls: {
           sessions: sessionRows.length,

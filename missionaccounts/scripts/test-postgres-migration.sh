@@ -1254,10 +1254,10 @@ select missionaccounts.api_ingest_and_reconcile_zoom_batch(
     )
   ),
   jsonb_build_array(
-    jsonb_build_object('provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-1','participant_source_id','stable-match','display_name','Same Display Name','duration_seconds',3600,'payload','{}'::jsonb,'payload_sha256',repeat('1',64)),
-    jsonb_build_object('provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-2','participant_source_id','new-user-one','display_name','Same Display Name','duration_seconds',3600,'payload','{}'::jsonb,'payload_sha256',repeat('2',64)),
-    jsonb_build_object('provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-3','participant_source_id','new-user-two','display_name','Same Display Name','duration_seconds',3600,'payload','{}'::jsonb,'payload_sha256',repeat('3',64)),
-    jsonb_build_object('provider_instance_id','pg-zoom-near-miss','provider_source_id','pg-reconcile-row-4','participant_source_id','near-miss-user','display_name','Near Miss Student','duration_seconds',3600,'payload','{}'::jsonb,'payload_sha256',repeat('4',64))
+    jsonb_build_object('provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-1','participant_source_id','stable-match','display_name','Same Display Name','duration_seconds',3600,'payload',jsonb_build_object('source','test'),'payload_sha256',repeat('1',64)),
+    jsonb_build_object('provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-2','participant_source_id','new-user-one','display_name','Same Display Name','duration_seconds',3600,'payload',jsonb_build_object('source','test'),'payload_sha256',repeat('2',64)),
+    jsonb_build_object('provider_instance_id','pg-zoom-confirmed','provider_source_id','pg-reconcile-row-3','participant_source_id','new-user-two','display_name','Same Display Name','duration_seconds',3600,'payload',jsonb_build_object('source','test'),'payload_sha256',repeat('3',64)),
+    jsonb_build_object('provider_instance_id','pg-zoom-near-miss','provider_source_id','pg-reconcile-row-4','participant_source_id','near-miss-user','display_name','Near Miss Student','duration_seconds',3600,'payload',jsonb_build_object('source','test'),'payload_sha256',repeat('4',64))
   )
 )->>'duplicate';
 reset role;
@@ -1961,5 +1961,10 @@ if [[ "$unhandled_provider_results" != $'false\ntrue\nignored|1|1' ]]; then
   echo "$unhandled_provider_results" >&2
   exit 1
 fi
+
+psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$app_dir/tests/repair-transactions.sql" >/dev/null
+psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$app_dir/tests/zoom-canonicalization.sql" >/dev/null
+psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$app_dir/tests/zoom-bounded-repair.sql" >/dev/null
+python3 "$app_dir/tests/zoom-concurrency.py" "$pg_tmp"
 
 echo "MissionAccounts PostgreSQL migration, account linkage/default comp, identity and device adjudication with split-grace custody, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody and admin review, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, unhandled-provider exception custody, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"

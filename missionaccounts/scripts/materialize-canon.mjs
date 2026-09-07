@@ -1,3 +1,4 @@
+import { repairCanon5401 } from './repair-canon-5401.mjs';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -98,7 +99,15 @@ for (const [needle, replacement] of productionCopyReplacements) {
 }
 const originalRuntimeExport = `render(); showOpeningExperience();
 window.__XP = {D, WS:()=>WS, model, cycleStats, render, decide, addCorr, undoCorr, setPM, setAuth, setContact, editSheet, otherSheet, paymentSheet, authSheet, resetSheet, applyTheme, setTheme, submitExam, decideExam, markPassed, withdrawExam, setComp, setRule, recordRuleDecision, graceWindows, basisOf, ORIG_TOTAL, migrate, touch, decideIdent, examView, examSheet, examDecideSheet, passedSheet, compSheet, showOpeningExperience, skipOpening, cmdRoute, meStudent, accountState, suggestionFor, unitsOf};`;
-const authoritativeRuntimeExport = `function hydrateAuthoritative(nextD,nextWS,idMaps){
+const authoritativeRuntimeExport = `function clearSensitiveState(){
+  ['sessions','students','events','groups','clusters','devices','distinct','excluded'].forEach(key=>D[key].splice(0));
+  D.meta={}; D.review_meeting=null; D.id_maps={}; WS=fresh();
+  Object.keys(ORIG_TOTAL).forEach(key=>delete ORIG_TOTAL[key]);
+  CACHE=null; CACHE_REV=-1; REV++;
+  document.title='MissionAccounts · Session ended';
+  document.body.querySelectorAll(':scope > :not(#missionaccountsRuntimeGate):not(#missionaccounts-runtime-gate-style)').forEach(node=>node.remove());
+}
+function hydrateAuthoritative(nextD,nextWS,idMaps){
   if(document.documentElement.dataset.missionaccountsBuild!=='production') throw new Error('Authoritative hydration is production-only');
   if(!nextD||!Array.isArray(nextD.cycles)||!Array.isArray(nextD.students)||!Array.isArray(nextD.sessions)||!Array.isArray(nextD.events)) throw new Error('Authoritative MissionAccounts model is incomplete');
   const nextCycles=new Map(nextD.cycles.map(c=>[c.key,c]));
@@ -383,7 +392,13 @@ for (const [needle, replacement] of productionAsyncHandlers) {
   if (!productionHtml.includes(needle)) throw new Error('Production asynchronous action handler is missing');
   productionHtml = productionHtml.replace(needle, replacement);
 }
-productionHtml = productionHtml.replace('unitsOf, hydrateAuthoritative};', 'unitsOf, hydrateAuthoritative, toast};');
+// A late save or animation callback must remain harmless after a session scrub.
+productionHtml = productionHtml.replace("function render(){", "function render(){ if(document.documentElement.dataset.missionaccountsRuntime==='unavailable') return;");
+productionHtml = productionHtml.replace("function closeSheet(){ const w=$('#sheetWrap');", "function closeSheet(){ const w=$('#sheetWrap'); if(!w)return;");
+productionHtml = productionHtml.replace("function hideToast(){", "function hideToast(){ if(!$('#toast'))return;");
+productionHtml = productionHtml.replace("function toast(msg, undo){", "function toast(msg, undo){ if(!$('#toast'))return;");
+productionHtml = productionHtml.replace('unitsOf, hydrateAuthoritative};', 'unitsOf, hydrateAuthoritative, toast, clearSensitiveState};');
+productionHtml = repairCanon5401(productionHtml);
 if (!productionHtml.includes("MissionAccountsRuntime.dispatch('billing-decision'")) throw new Error('Production action bus was not injected');
 if (!productionHtml.includes('data-missionaccounts-build="production"')) throw new Error('Production build marker was not injected');
 if (!productionHtml.includes('authenticated-role-scoped-runtime')) throw new Error('Production scoped data placeholder was not injected');

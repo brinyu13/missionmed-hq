@@ -13,11 +13,18 @@ const state = {
   payments: { provider: 'stripe', setupEnabled: false, mode: 'disabled', publishableKey: null },
 };
 
+const pendingMutationKeys = new Map();
 const auth = createMissionAccountsAuthClient({
+  onSessionChanged() { window.location.reload(); },
   onLockout(lockoutState, message) {
     state.mode = lockoutState || 'unavailable';
     state.authenticated = false;
     state.user = null;
+    state.bootstrap = null;
+    state.capabilities = {};
+    pendingMutationKeys.clear();
+    canonicalModel = null;
+    window.__XP?.clearSensitiveState?.();
     state.error = message || 'MissionAccounts access is unavailable.';
     document.documentElement.dataset.missionaccountsRuntime = 'unavailable';
     updateRuntimeGate(state.error);
@@ -40,6 +47,9 @@ const actionCapabilities = Object.freeze({
   'student-contact': 'student_contacts',
   'cycle-policy': 'billing_decisions',
   'billing-decision': 'billing_decisions',
+  'billing-decision-reversal': 'billing_decisions',
+  'billing-batch': 'billing_decisions',
+  'billing-batch-reversal': 'billing_decisions',
   'invoice-readiness': 'billing_decisions',
   'hosted-invoice': 'hosted_invoices',
   comp: 'comp_days',
@@ -51,7 +61,7 @@ const actionCapabilities = Object.freeze({
 });
 
 function notify(message) {
-  if (typeof window.__XP?.toast === 'function') window.__XP.toast(message);
+  if (state.authenticated && typeof window.__XP?.toast === 'function') window.__XP.toast(message);
 }
 
 function updateRuntimeGate(message) {
@@ -59,10 +69,24 @@ function updateRuntimeGate(message) {
   if (gate) gate.textContent = message || 'MissionAccounts access is unavailable.';
 }
 
+function remapStudentRoute(hash, oldIds, nextIds) {
+  const match = String(hash).match(/^(#\/student\/)(\d+)(?=[/?#]|$)/);
+  if (!match) return hash;
+  const id = oldIds?.[match[2]];
+  const index = id && Object.entries(nextIds || {}).find(([, value]) => value === id)?.[0];
+  return index == null ? '#/roster' : hash.replace(match[0], `${match[1]}${index}`);
+}
+
 async function refreshCanonical() {
   const initialHydration = state.bootstrap === null;
+  const oldIds = canonicalModel?.ids?.students;
   state.bootstrap = await auth.request('/ui/bootstrap');
-  canonicalModel = buildCanonicalModel(state.bootstrap);
+  const nextModel = buildCanonicalModel(state.bootstrap);
+  if (!initialHydration && state.bootstrap.scope !== 'student') {
+    const nextHash = remapStudentRoute(location.hash, oldIds, nextModel.ids.students);
+    if (nextHash !== location.hash) history.replaceState(null, '', `${location.pathname}${location.search}${nextHash}`);
+  }
+  canonicalModel = nextModel;
   if (typeof window.__XP?.hydrateAuthoritative !== 'function') throw new Error('MissionAccounts canonical renderer is unavailable.');
   if (initialHydration) {
     const requestedHash = window.__MISSIONACCOUNTS_REQUESTED_HASH;
@@ -81,6 +105,11 @@ async function refreshCanonical() {
   return canonicalModel;
 }
 
+function currentExamPlan(plans, studentId) {
+  return (plans || []).filter(plan => plan.student_id === studentId && !plan.superseded_by_id && !plan.withdrawn_at)
+    .sort((a, b) => String(a.submitted_at || '').localeCompare(String(b.submitted_at || ''))).at(-1);
+}
+
 function studentUuid(si) {
   const id = canonicalModel?.ids?.students?.[si];
   if (!id) throw new Error('MissionAccounts student identity is unavailable.');
@@ -96,6 +125,7 @@ function sessionUuid(ss) {
 async function dispatch(action, payload = {}) {
   if (!canonicalModel || state.mutating) return false;
   state.mutating = true;
+  let receipt = null;
   try {
     if (action === 'unsupported') throw new Error(payload.message || 'This control is not enabled in the production build yet.');
     const requiredCapability = actionCapabilities[action];
@@ -226,6 +256,22 @@ async function dispatch(action, payload = {}) {
       await window.MissionAccountsRuntime.mutation(`/admin/policy/${cycle}`, {
         body: { decision: payload.value, reason: 'Dr J selected the canonical 13–15-day cycle policy' },
       });
+    } else if (action === 'billing-decision-reversal') {
+      const decision = state.bootstrap.canon.billing_decisions.find(item => item.student_id === studentUuid(payload.si)
+        && item.cycle_key === databaseCycleKey[payload.k] && !item.superseded_by_id && ['approved', 'stale'].includes(item.state));
+      if (!decision) throw new Error('The current decision to reverse is unavailable.');
+      receipt = await window.MissionAccountsRuntime.mutation(`/admin/billing-decisions/${decision.id}/reverse`, {
+        body: { reason: payload.reason || 'Dr J reopened this billing decision for review' },
+      });
+    } else if (action === 'billing-batch') {
+      receipt = await window.MissionAccountsRuntime.mutation('/admin/billing-batches', {
+        body: { cycle_key: databaseCycleKey[payload.k], items: payload.items, reason: 'Dr J confirmed this displayed group of clean records' },
+        idempotencyKey: payload.requestId,
+      });
+    } else if (action === 'billing-batch-reversal') {
+      receipt = await window.MissionAccountsRuntime.mutation(`/admin/billing-batches/${payload.batchId}/reverse`, {
+        body: { reason: 'Dr J reversed the recorded batch confirmation' }, idempotencyKey: payload.requestId,
+      });
     } else if (action === 'billing-decision') {
       const body = { cycle_key: databaseCycleKey[payload.k], treatment: payload.t };
       if (['other', 'special'].includes(payload.t)) body.requested_amount_cents = Math.round(Number(payload.amt || 0) * 100);
@@ -294,11 +340,11 @@ async function dispatch(action, payload = {}) {
     } else if (action === 'student-passed') {
       await window.MissionAccountsRuntime.mutation('/me/exam-plan/passed', { body: {} });
     } else if (action === 'student-exam-withdraw') {
-      const plan = state.bootstrap.canon.exam_plans.find(item => item.student_id === studentUuid(payload.si));
+      const plan = currentExamPlan(state.bootstrap.canon.exam_plans, studentUuid(payload.si));
       if (!plan) throw new Error('The current exam plan is unavailable.');
       await window.MissionAccountsRuntime.mutation('/me/exam-plan/withdraw', { body: { plan_id: plan.id } });
     } else if (action === 'exam-transition') {
-      const plan = state.bootstrap.canon.exam_plans.find(item => item.student_id === studentUuid(payload.si));
+      const plan = currentExamPlan(state.bootstrap.canon.exam_plans, studentUuid(payload.si));
       if (!plan) throw new Error('The current exam plan is unavailable.');
       const resultAction = ['passed', 'not_passed', 'no_result'].includes(payload.action);
       const routeAction = resultAction ? 'result' : payload.action;
@@ -347,8 +393,8 @@ async function dispatch(action, payload = {}) {
       throw new Error('This MissionAccounts action is not connected.');
     }
     await refreshCanonical();
-    notify('Saved to MissionAccounts.');
-    return true;
+    if (!receipt?.processed) notify('Saved to MissionAccounts.');
+    return receipt || true;
   } catch (error) {
     notify(error instanceof Error ? error.message : 'MissionAccounts could not save that change.');
     return false;
@@ -372,12 +418,19 @@ window.MissionAccountsRuntime = Object.freeze({
     };
   },
   request(path, options = {}) { return auth.request(path, options); },
-  mutation(path, { method = 'POST', body, idempotencyKey = requestId('ui') } = {}) {
-    return auth.request(path, {
-      method,
-      headers: { 'Idempotency-Key': idempotencyKey },
-      body: body == null ? undefined : JSON.stringify(body),
-    });
+  async mutation(path, { method = 'POST', body, idempotencyKey } = {}) {
+    const fingerprint = JSON.stringify([path, method, body]);
+    const key = idempotencyKey || pendingMutationKeys.get(fingerprint) || requestId('ui');
+    pendingMutationKeys.set(fingerprint, key);
+    try {
+      const receipt = await auth.request(path, { method, headers: { 'Idempotency-Key': key },
+        body: body == null ? undefined : JSON.stringify(body) });
+      pendingMutationKeys.delete(fingerprint);
+      return receipt;
+    } catch (error) {
+      if (error.status >= 400 && error.status < 500) pendingMutationKeys.delete(fingerprint);
+      throw error; // Unknown outcomes keep the same key for a deliberate retry.
+    }
   },
   dispatch,
   getCanonicalModel() { return canonicalModel; },

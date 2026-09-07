@@ -242,9 +242,20 @@ function mma_no_store($response) {
     if ($response instanceof WP_REST_Response) {
         $response->header('Cache-Control', 'no-store, private');
         $response->header('Pragma', 'no-cache');
+        $response->header('Vary', 'Authorization, Cookie');
+        $response->header('X-Accel-Expires', '0');
     }
     return $response;
 }
+
+// Include denied token responses as well as successful issuance.
+function mma_rest_private_response($response, $server, $request) {
+    if ($request->get_route() === '/' . MMA_REST_NAMESPACE . MMA_REST_ROUTE) {
+        return mma_no_store($response);
+    }
+    return $response;
+}
+add_filter('rest_post_dispatch', 'mma_rest_private_response', 10, 3);
 
 function mma_token_endpoint($request) {
     $origin = mma_verify_origin($request);
@@ -307,6 +318,8 @@ function mma_ajax_bootstrap() {
     if (!headers_sent()) {
         header('Cache-Control: no-store, private', true);
         header('Pragma: no-cache', true);
+        header('Vary: Authorization, Cookie', true);
+        header('X-Accel-Expires: 0', true);
     }
     $return_to = isset($_GET['return_to']) ? wp_unslash($_GET['return_to']) : '';
     if (!is_user_logged_in()) {
