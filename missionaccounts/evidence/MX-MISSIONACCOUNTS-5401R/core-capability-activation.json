@@ -1,0 +1,37 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "source_commit": "48e4283277e9601b6026bd09bd177216582b8fbb",
+  "service": "857cdc07-2482-4cc0-a2a1-70b38f65542b",
+  "before_deployment": "4ca7573c-e7a3-408c-9277-c77743148634",
+  "before": {
+    "student_contacts": false,
+    "billing_decisions": false,
+    "attendance_corrections": false,
+    "identity_review": false,
+    "exam_plans": false,
+    "comp_days": false
+  },
+  "requested": {
+    "student_contacts": true,
+    "billing_decisions": true,
+    "attendance_corrections": true,
+    "identity_review": true,
+    "exam_plans": true,
+    "comp_days": true
+  },
+  "authority": "DR-202 phase 5; completed local transaction/security/regression tests; existing exact-user SSO pilot scope remains until entitlement repair",
+  "runtime_authority": "Railway environmentConfig; database feature_flag rows are a separate audit record, not the runtime enforcement layer",
+  "real_role_witness": "NOT_VERIFIED",
+  "money": {
+    "stripe_test": true,
+    "live_auto_billing": false
+  },
+  "state": "DEPLOYED",
+  "rollback": "Restore only these six variables to 0 and redeploy the same repaired source.",
+  "deployment": {
+    "id": "bb6bccdb-6003-477d-844e-aa36585d51a1",
+    "status": "SUCCESS",
+    "imageDigest": "sha256:d676f9ffb57e311bd82abcf20a65d26d01e4dd31dfaade7d1942f3baa20fd376"
+  },
+  "completed_at": "2026-09-07T04:25:29.691553+00:00"
+}

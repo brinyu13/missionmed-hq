@@ -1,0 +1,21 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "observed_before": "2026-09-07T04:47:30.118310+00:00",
+  "time_precision": "Exact request timestamp not retained; observed immediately before the completed final HTTP readback",
+  "url": "https://missionmedinstitute.com/wp-json/missionmed/v1/missionaccounts/token",
+  "method": "GET",
+  "registered_method": "POST",
+  "status": 404,
+  "bytes": 114,
+  "sha256": "321227fe038fc2f282fd904a174fbaf931eb5d763ce64eded0e6a3f31d32119f",
+  "headers": {
+    "content-type": "application/json; charset=UTF-8",
+    "cf-cache-status": "DYNAMIC",
+    "cache-control": "no-store, private",
+    "vary": "Accept-Encoding, Authorization, Cookie, Origin",
+    "pragma": "no-cache",
+    "x-kinsta-cache": "HIT"
+  },
+  "set_cookie_present": true,
+  "interpretation": "Wrong-method generic REST 404 was cached despite private no-store. No private payload was observed, but this reinforces that application headers do not establish provider exclusion. Include dedicated MissionAccounts token endpoint in cache-exclusion verification; do not reopen. Cookie values and payload were not retained."
+}

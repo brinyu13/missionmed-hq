@@ -1,0 +1,423 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "observed_at": "2026-09-07T04:44:41.468Z",
+  "source_commit": "48e4283277e9601b6026bd09bd177216582b8fbb",
+  "database": {
+    "charges": 0,
+    "consents": 0,
+    "invoices": 0,
+    "days_active": 3264,
+    "retirements": 76,
+    "source_rows": 5575,
+    "enabled_flags": 6,
+    "repair_audits": 1,
+    "events_physical": 4018,
+    "repair_receipts": 1,
+    "events_effective": 3941,
+    "students_visible": 271,
+    "billing_decisions": 0,
+    "sessions_physical": 421,
+    "students_physical": 347,
+    "exact_corroborations": 72,
+    "running_reconciliations": 0,
+    "unresolved_corroborations": 5
+  },
+  "repair_integrity": {
+    "state": "applied",
+    "cycle_counts": {
+      "2026-cycle-1": 34,
+      "2026-cycle-2": 35,
+      "2026-cycle-3": 31
+    },
+    "all_raw_unchanged": true,
+    "financial_unchanged": true,
+    "operation_unchanged": true,
+    "historical_unchanged": true,
+    "capability_activation_audits": 1
+  },
+  "capability_activation": {
+    "auto_billing": false,
+    "enabled_core": 6,
+    "activation_audits": 1
+  },
+  "security_advisors": {
+    "observed_at": "2026-09-07T04:43:30.625Z",
+    "counts": {
+      "INFO": 38
+    },
+    "names": [
+      "rls_enabled_no_policy"
+    ],
+    "scope": "Service-role-only MissionAccounts tables; INFO RLS without client policy is intentional. No WARN or ERROR notices. This does not certify application authorization."
+  },
+  "health": {
+    "status": "ok",
+    "app": "missionaccounts",
+    "mode": "configured",
+    "route_enabled": true,
+    "billing_decisions_enabled": true,
+    "attendance_corrections_enabled": true,
+    "identity_review_enabled": true,
+    "auto_billing_enabled": false,
+    "hosted_invoices_enabled": true,
+    "notifications_enabled": false,
+    "zoom_sync_enabled": true
+  },
+  "public_config": {
+    "basePath": "/missionaccounts/",
+    "wpBootstrapPath": "/wp-admin/admin-ajax.php?action=missionmed_missionaccounts_bootstrap",
+    "tokenRefreshSkewSeconds": 15,
+    "localAuth": false,
+    "identityMode": "missionmed-signed-jwt",
+    "payments": {
+      "provider": "stripe",
+      "setupEnabled": false,
+      "mode": "disabled",
+      "publishableKey": null
+    }
+  },
+  "http_probes": [
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts",
+      "method": "GET",
+      "status": 503,
+      "bytes": 142,
+      "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts",
+      "method": "GET",
+      "status": 503,
+      "bytes": 142,
+      "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts",
+      "method": "HEAD",
+      "status": 503,
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "ki-cf-cache-status": "BYPASS",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/",
+      "method": "GET",
+      "status": 503,
+      "bytes": 142,
+      "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/",
+      "method": "GET",
+      "status": 503,
+      "bytes": 142,
+      "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/",
+      "method": "HEAD",
+      "status": 503,
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "ki-cf-cache-status": "BYPASS",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/api/ui/bootstrap",
+      "method": "GET",
+      "status": 503,
+      "bytes": 142,
+      "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/api/ui/bootstrap",
+      "method": "GET",
+      "status": 503,
+      "bytes": 142,
+      "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/api/ui/bootstrap",
+      "method": "HEAD",
+      "status": 503,
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "ki-cf-cache-status": "BYPASS",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/api/session",
+      "method": "GET",
+      "status": 503,
+      "bytes": 142,
+      "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/api/session",
+      "method": "GET",
+      "status": 503,
+      "bytes": 142,
+      "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/api/session",
+      "method": "HEAD",
+      "status": 503,
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "ki-cf-cache-status": "BYPASS",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/deep-private-route",
+      "method": "GET",
+      "status": 503,
+      "bytes": 142,
+      "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/deep-private-route",
+      "method": "GET",
+      "status": 503,
+      "bytes": 142,
+      "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/missionaccounts/deep-private-route",
+      "method": "HEAD",
+      "status": 503,
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "ki-cf-cache-status": "BYPASS",
+        "x-kinsta-cache": "MISS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/wp-json/missionmed/v1/missionaccounts/token",
+      "method": "POST",
+      "status": 403,
+      "bytes": 98,
+      "sha256": "8dbcd5b6cc8bae205f23dcdc1a74b85b09ceeb367f67a62535d9a6214a6cd67b",
+      "headers": {
+        "content-type": "application/json; charset=UTF-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-store, private",
+        "vary": "Accept-Encoding, Authorization, Cookie",
+        "pragma": "no-cache",
+        "ki-cf-cache-status": "BYPASS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionmedinstitute.com/wp-admin/admin-ajax.php?action=missionmed_missionaccounts_bootstrap",
+      "method": "GET",
+      "status": 401,
+      "bytes": 256,
+      "sha256": "87e7a6860ddfb750690b49ca576858e38a3bd8bf1384a2b511f5b47428c23768",
+      "headers": {
+        "content-type": "application/json; charset=UTF-8",
+        "cf-cache-status": "DYNAMIC",
+        "cache-control": "no-cache, must-revalidate, max-age=0, no-store, private",
+        "vary": "Authorization, Cookie",
+        "pragma": "no-cache",
+        "ki-cf-cache-status": "BYPASS",
+        "x-kinsta-cache": "BYPASS"
+      },
+      "set_cookie_present": true
+    },
+    {
+      "url": "https://missionaccounts-production-production.up.railway.app/api/health",
+      "method": "GET",
+      "status": 200,
+      "bytes": 297,
+      "sha256": "759eca9785c2ce443097b555ac42134390242dfc73b1547935091c4e9c838b1b",
+      "headers": {
+        "cache-control": "no-store, private",
+        "content-type": "application/json; charset=utf-8",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "set_cookie_present": false
+    },
+    {
+      "url": "https://missionaccounts-production-production.up.railway.app/api/config",
+      "method": "GET",
+      "status": 200,
+      "bytes": 301,
+      "sha256": "71a047e7663d73162e7fdf1ed80cf3b98e9948eb052f54048072df95f951447a",
+      "headers": {
+        "cache-control": "no-store, private",
+        "content-type": "application/json; charset=utf-8",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "set_cookie_present": false
+    },
+    {
+      "url": "https://missionaccounts-production-production.up.railway.app/",
+      "method": "GET",
+      "status": 200,
+      "bytes": 666396,
+      "sha256": "43df23b9c0e4d5df3362d850897aae536cad2edbf64b236531bf7cfa7af4ca24",
+      "headers": {
+        "cache-control": "no-store, private",
+        "content-type": "text/html; charset=utf-8",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "set_cookie_present": false
+    }
+  ],
+  "railway_app": {
+    "cronSchedule": null,
+    "latestDeployment": {
+      "id": "8b38d28f-a285-47f7-8096-9f7aa852d43a",
+      "status": "SUCCESS",
+      "imageDigest": "sha256:d676f9ffb57e311bd82abcf20a65d26d01e4dd31dfaade7d1942f3baa20fd376"
+    },
+    "nextCronRunAt": null
+  },
+  "railway_worker": {
+    "cronSchedule": "30 6 * * *",
+    "latestDeployment": {
+      "id": "ebbf2d4b-612c-4e21-90ad-cb7934af34bd",
+      "status": "SUCCESS",
+      "imageDigest": "sha256:be57502e4471184b367f9c715cb67fa37e4cb51a5733fa422d1dae67b65a8de4"
+    },
+    "nextCronRunAt": "2026-09-07T06:30:00.000Z"
+  },
+  "http_observed_at": "2026-09-07T04:47:30.118310+00:00",
+  "acceptance": "Engineering readback only; public 503 retained; cache exclusion and full real-role reopening matrix NOT VERIFIED"
+}

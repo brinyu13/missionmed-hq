@@ -1,0 +1,21 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "recorded_at": "2026-09-07T04:56:11.674836+00:00",
+  "deployed_source_commit": "48e4283277e9601b6026bd09bd177216582b8fbb",
+  "acceptance": "PARTIAL; public 503 remains; not ready for 5402A",
+  "sha256": {
+    "core-capability-activation.json": "5e7a6795bf63eacf990ce695c9e0d149215515d5a2ba05adaf41673b6d644bc0",
+    "database-repair.json": "df8a7dc27252bbf69dac3cb9b0447ae9c9ab7719950b95c3fbfa2afebb52ec10",
+    "final-provider-readback.json": "6f6333cc455da1454c4965e32788d6811add98c170c72a02b7f101ea23e162cc",
+    "local-browser-summary.json": "ede1d9058d28047dc22f5f8a2d108dd5c38b9a41103586e1b9bd5ddfe8c256b7",
+    "local-validation.json": "ef1207845bbd8bc5b4345901f790524d9e2146e8bcda566512ebbac9eb0068b7",
+    "principal-api-probes.json": "74fce97695247aed44fb0f8e03ccfb3226e22687df25e8b73fc066837b37bf8a",
+    "provider-plan.json": "779ce819827a077b8f1b46ea8821a0b380af4d9e6a27e9f162a75a8442604025",
+    "railway-deployment.json": "ad095913f868d9d79f5f7e2e4b85198498b3cc519ac5721308c8a58c8e8ea1f1",
+    "schedule-metadata.json": "fd705faaffa5d34992e4f5e3a37bf9a44ac55c1c16e59ab2aaee45eadebdf27f",
+    "sso-wrong-method-cache-observation.json": "18a9103b05e6e9c6b15093b8781346438db1446b2d7b832b7f9401556d0b0c38",
+    "wordpress-deployment.json": "166aab386eec09f5229cdaab2f73dd3f4a9c55be03df3b10d9b36b8724437886",
+    "worker-pause.json": "175a45ecd8a2b114100ad44d8050c328ba08e2abef5f197c86eb906b39b73692",
+    "worker-resume.json": "eb17fd654f8e7dd07dc2b7f2f2ac8bcfd446b53234a2875bd2cdf59d55170998"
+  }
+}

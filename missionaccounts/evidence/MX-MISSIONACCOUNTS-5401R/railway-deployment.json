@@ -1,0 +1,55 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "source_commit": "48e4283277e9601b6026bd09bd177216582b8fbb",
+  "project": "244bf2d1-1eca-4b97-95ab-95a565a8b4d0",
+  "environment": "db6dae0e-cc37-4eff-9bed-3d5fe7cc8f9f",
+  "service": "857cdc07-2482-4cc0-a2a1-70b38f65542b",
+  "before": {
+    "environmentId": "db6dae0e-cc37-4eff-9bed-3d5fe7cc8f9f",
+    "latestDeployment": {
+      "deploymentStopped": false,
+      "id": "7baf5aa4-e51a-4d0c-8896-f3611731185c",
+      "status": "SUCCESS",
+      "imageDigest": "sha256:f5a2a891d4278936f0b42c3a914bd351acf94997393c841ab6159adfe88a103f"
+    },
+    "serviceId": "857cdc07-2482-4cc0-a2a1-70b38f65542b"
+  },
+  "archive_directory": "/tmp/mma5401r-deploy-fzj48pd7",
+  "files_sha256": {
+    ".dockerignore": "a98630b848278a350577c70540fb338ab18e363651509e53d533103bfcf6b16e",
+    "Dockerfile": "1b0acd0105a6b2e796114f3b9f57c24bb820134ef062f3547814550f614f40d3",
+    "package.json": "2a1221186912fd9dbb44033a728ccd9ed3a6d58c4e9d411fdb56a19ba62eda88",
+    "public/index.production.html": "43df23b9c0e4d5df3362d850897aae536cad2edbf64b236531bf7cfa7af4ca24",
+    "public/missionaccounts-auth.js": "3aeaa993853e2b0e79781385f42d55216d20df8f558dd1504d2c100697b6d7a7",
+    "public/missionaccounts-canonical-adapter.js": "fdf48a1973072f244ea1a61ba90aa8e6b36d50504e0f72f1b64bffa6835a2895",
+    "public/missionaccounts-runtime.js": "c55338393f70907a4d5612d10fb0372121b40b2ec3066b296abccc7d7d5b21a5",
+    "public/missionaccounts-stripe.js": "cb29dfe1cecefd080190d7dbf7fa180d8ac2fbef43903048092bc6151d9d58d9",
+    "railway.json": "73eae215352a3a37bea3bbe48295f46d70384fe30f8a4384f9435f353ccd8240",
+    "src/domain/billing-engine.mjs": "c01f5f693da28ad6cc640fca15897322338c0dfff56b04b810fbbc1f45f99d7a",
+    "src/domain/charge-engine.mjs": "e1b0b35a40d1cd4b5f4c133b15424ad3cc9e77a091ade318e6c0e0814fe60159",
+    "src/domain/exam-engine.mjs": "e6b1ddbcb1b87552b754c1f80e769f4239f86619bd458ec2f4f147356ae9e077",
+    "src/domain/source-normalizer.mjs": "10756586e56ac8ae5d8d6e9d98eef4f0201c96dabe39e323526d3fc8bcad0538",
+    "src/domain/zoom-provider.mjs": "183061b8632e3cfdb4259b8b55de2b55c4b908cee50c02d88c9dbc254de051bb",
+    "src/http/body.mjs": "0bb2d922ae49b5ba91544631588f4e76ea28a9a2b33538a1e150914a81398780",
+    "src/notifications/notification-gateway.mjs": "225e7011a1bb6483b29e63de5068f0f75701c6e980118de1cb40a44a7e01d2af",
+    "src/payments/stripe.mjs": "1fa1362dfc7afa61a86d4d39c95272d68fd2be7f8b84b0b6cc5a06738353dfde",
+    "src/providers/zoom-s2s-client.mjs": "e470aa591c9f2d52fa0b593d154891d7546fd777786e95596ee47ef7e2591f11",
+    "src/security/auth.mjs": "33e4af6bc6bc03f89a53872a2332396a2c4e1899669b80097725c766c9250e39",
+    "src/server.mjs": "b712e46f866fe44bb94d04f4026cf741ba4f7806790dee91d980097cf88aef6f",
+    "src/storage/supabase-rest.mjs": "d4288080e33d1bf366615b8931dfd1f364c3b34d9cec5d2331ee5e782cd38051",
+    "src/workers/zoom-sync.mjs": "e6dd5291a2e489084f9395d53f516958e36cb02b726dc905e4df4a0d5566575a"
+  },
+  "state": "SUCCESS",
+  "started_at": "2026-09-07T04:14:44.088044+00:00",
+  "after": {
+    "environmentId": "db6dae0e-cc37-4eff-9bed-3d5fe7cc8f9f",
+    "latestDeployment": {
+      "deploymentStopped": false,
+      "id": "4ca7573c-e7a3-408c-9277-c77743148634",
+      "status": "SUCCESS",
+      "imageDigest": "sha256:d676f9ffb57e311bd82abcf20a65d26d01e4dd31dfaade7d1942f3baa20fd376"
+    },
+    "serviceId": "857cdc07-2482-4cc0-a2a1-70b38f65542b"
+  },
+  "completed_at": "2026-09-07T04:15:10.873267+00:00"
+}

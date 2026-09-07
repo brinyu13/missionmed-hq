@@ -1,0 +1,287 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "observed_at": "2026-09-07T04:26:36.389892+00:00",
+  "method": "Existing legitimate WP pilot principals. Signed tokens and private response payloads stayed in process memory. Final shared request paths redact private student UUIDs. HTTP engineering probe, not genuine browser role/logout acceptance.",
+  "checks": [
+    {
+      "label": "principal-0-repeat-0",
+      "path": "/api/ui/bootstrap",
+      "status": 200,
+      "bytes": 3419533,
+      "sha256": "7f86c116cc1c1377ce09718c88daec7473ab676903d10586d43c120563283a37",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "scope": "admin",
+      "student_records": 271,
+      "events": 3941,
+      "classes": 100
+    },
+    {
+      "label": "principal-0-repeat-1",
+      "path": "/api/ui/bootstrap",
+      "status": 200,
+      "bytes": 3419533,
+      "sha256": "7f86c116cc1c1377ce09718c88daec7473ab676903d10586d43c120563283a37",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "scope": "admin",
+      "student_records": 271,
+      "events": 3941,
+      "classes": 100
+    },
+    {
+      "label": "principal-1-repeat-0",
+      "path": "/api/ui/bootstrap",
+      "status": 200,
+      "bytes": 38508,
+      "sha256": "531fd8cfbf638d903e349753971bcb03b6645f8f270f349e325a44584147cbdf",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "scope": "student",
+      "student_records": 1,
+      "events": 18,
+      "classes": 100
+    },
+    {
+      "label": "principal-1-repeat-1",
+      "path": "/api/ui/bootstrap",
+      "status": 200,
+      "bytes": 38508,
+      "sha256": "531fd8cfbf638d903e349753971bcb03b6645f8f270f349e325a44584147cbdf",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "scope": "student",
+      "student_records": 1,
+      "events": 18,
+      "classes": 100
+    },
+    {
+      "label": "principal-2-repeat-0",
+      "path": "/api/ui/bootstrap",
+      "status": 401,
+      "bytes": 61,
+      "sha256": "48eed677b285d25d89bfa5504930fb962b6673d33c1e26eb01f8a2acfde959e7",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      }
+    },
+    {
+      "label": "principal-2-repeat-1",
+      "path": "/api/ui/bootstrap",
+      "status": 401,
+      "bytes": 61,
+      "sha256": "48eed677b285d25d89bfa5504930fb962b6673d33c1e26eb01f8a2acfde959e7",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      }
+    },
+    {
+      "label": "principal-3-repeat-0",
+      "path": "/api/ui/bootstrap",
+      "status": 200,
+      "bytes": 36430,
+      "sha256": "14c3bdeafb66d724f5aa5a4b88c33c98887248f95ef4d50767a5e55d33e5f974",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "scope": "student",
+      "student_records": 1,
+      "events": 17,
+      "classes": 100
+    },
+    {
+      "label": "principal-3-repeat-1",
+      "path": "/api/ui/bootstrap",
+      "status": 200,
+      "bytes": 36430,
+      "sha256": "14c3bdeafb66d724f5aa5a4b88c33c98887248f95ef4d50767a5e55d33e5f974",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "scope": "student",
+      "student_records": 1,
+      "events": 17,
+      "classes": 100
+    },
+    {
+      "label": "principal-4-repeat-0",
+      "path": "/api/ui/bootstrap",
+      "status": 200,
+      "bytes": 3419533,
+      "sha256": "7f86c116cc1c1377ce09718c88daec7473ab676903d10586d43c120563283a37",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "scope": "admin",
+      "student_records": 271,
+      "events": 3941,
+      "classes": 100
+    },
+    {
+      "label": "principal-4-repeat-1",
+      "path": "/api/ui/bootstrap",
+      "status": 200,
+      "bytes": 3419533,
+      "sha256": "7f86c116cc1c1377ce09718c88daec7473ab676903d10586d43c120563283a37",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "scope": "admin",
+      "student_records": 271,
+      "events": 3941,
+      "classes": 100
+    },
+    {
+      "label": "student-a-session",
+      "path": "/api/session",
+      "status": 200,
+      "bytes": 470,
+      "sha256": "a1ecf15f0d0d38a14f1046c51801d8bbc09209b92488ba7b4493326ddde60047",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "capabilities": {
+        "student_contacts": true,
+        "billing_decisions": true,
+        "attendance_corrections": true,
+        "identity_review": true,
+        "exam_plans": true,
+        "comp_days": true,
+        "auto_billing": false,
+        "hosted_invoices": true,
+        "notifications": false,
+        "zoom_sync": true
+      },
+      "role": "student"
+    },
+    {
+      "label": "student-a-foreign-admin-record",
+      "path": "/api/admin/students/:foreign_student_id",
+      "status": 403,
+      "bytes": 91,
+      "sha256": "a8c1311bb7143ccabcab1d973d0a53331b669b81d56c5594dd37fbe55cb697a7",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      }
+    },
+    {
+      "label": "student-b-session",
+      "path": "/api/session",
+      "status": 200,
+      "bytes": 451,
+      "sha256": "c1c0aa1470fa38c8e8a809ae65e7e388a4aee87f4c559f5e730c5ff8b3b1122a",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "capabilities": {
+        "student_contacts": true,
+        "billing_decisions": true,
+        "attendance_corrections": true,
+        "identity_review": true,
+        "exam_plans": true,
+        "comp_days": true,
+        "auto_billing": false,
+        "hosted_invoices": true,
+        "notifications": false,
+        "zoom_sync": true
+      },
+      "role": "student"
+    },
+    {
+      "label": "student-b-foreign-admin-record",
+      "path": "/api/admin/students/:foreign_student_id",
+      "status": 403,
+      "bytes": 91,
+      "sha256": "a8c1311bb7143ccabcab1d973d0a53331b669b81d56c5594dd37fbe55cb697a7",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      }
+    },
+    {
+      "label": "founder-session",
+      "path": "/api/session",
+      "status": 200,
+      "bytes": 448,
+      "sha256": "b428e10c6af803aa5999eea6afa0b921232af632c0a7e96e64cc9615e64884c7",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      },
+      "capabilities": {
+        "student_contacts": true,
+        "billing_decisions": true,
+        "attendance_corrections": true,
+        "identity_review": true,
+        "exam_plans": true,
+        "comp_days": true,
+        "auto_billing": false,
+        "hosted_invoices": true,
+        "notifications": false,
+        "zoom_sync": true
+      },
+      "role": "founder"
+    },
+    {
+      "label": "anonymous-session",
+      "path": "/api/session",
+      "status": 401,
+      "bytes": 61,
+      "sha256": "48eed677b285d25d89bfa5504930fb962b6673d33c1e26eb01f8a2acfde959e7",
+      "headers": {
+        "cache-control": "no-store, private",
+        "pragma": "no-cache",
+        "vary": "Authorization, Cookie",
+        "x-accel-expires": "0"
+      }
+    }
+  ],
+  "sanitization": "Private student UUIDs in two denied-request paths replaced by :foreign_student_id before first remote filing; response digests/status/header/count evidence preserved."
+}

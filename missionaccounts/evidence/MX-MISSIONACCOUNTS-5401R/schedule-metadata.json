@@ -1,0 +1,19 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "observed_at": "2026-09-07T04:38:07.963876+00:00",
+  "verified_worker": {
+    "cronSchedule": "30 6 * * *",
+    "latestDeployment": {
+      "id": "ebbf2d4b-612c-4e21-90ad-cb7934af34bd",
+      "status": "SUCCESS"
+    },
+    "nextCronRunAt": "2026-09-07T06:30:00.000Z"
+  },
+  "app_deployment": {
+    "id": "8b38d28f-a285-47f7-8096-9f7aa852d43a",
+    "status": "SUCCESS",
+    "imageDigest": "sha256:d676f9ffb57e311bd82abcf20a65d26d01e4dd31dfaade7d1942f3baa20fd376"
+  },
+  "change": "App health UI now reports verified daily 06:30 UTC schedule",
+  "rollback": "Remove only MISSIONACCOUNTS_ZOOM_SCHEDULE_UTC and redeploy repaired app"
+}

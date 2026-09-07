@@ -1,0 +1,26 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R-48e4283",
+  "recorded_at": "2026-09-07T04:16:36.852313+00:00",
+  "files": [
+    {
+      "kind": "route",
+      "local": "infra/wordpress/missionmed-missionaccounts-route.php",
+      "target": "/www/theresidencyacademy_209/public/wp-content/mu-plugins/missionmed-missionaccounts-route.php",
+      "before_sha256": "ac5053d7ce7e86b5417a8fa67a380f1c365da97832d0908bb33b319688ba1eee",
+      "after_sha256": "01b9625234c74f0da0ceca3d89a69ef5c161b7593030bba55201a274884cecfc",
+      "backup": "/www/theresidencyacademy_209/private/MX-MISSIONACCOUNTS-5401R-48e4283-route-preimage.php",
+      "backup_sha256": "ac5053d7ce7e86b5417a8fa67a380f1c365da97832d0908bb33b319688ba1eee"
+    },
+    {
+      "kind": "sso",
+      "local": "wordpress/missionmed-missionaccounts-sso/missionmed-missionaccounts-sso.php",
+      "target": "/www/theresidencyacademy_209/public/wp-content/plugins/missionmed-missionaccounts-sso/missionmed-missionaccounts-sso.php",
+      "before_sha256": "e2e6e5a0caba6099cd5b1e17e1adcaed8817ea63ff757605a9969cfdef89d22a",
+      "after_sha256": "2b7f2567764efb6b7c22d69f37dfc603b0c7fc1fdf95aa414717614957704f74",
+      "backup": "/www/theresidencyacademy_209/private/MX-MISSIONACCOUNTS-5401R-48e4283-sso-preimage.php",
+      "backup_sha256": "e2e6e5a0caba6099cd5b1e17e1adcaed8817ea63ff757605a9969cfdef89d22a"
+    }
+  ],
+  "public_503_guard": "Retained unconditionally",
+  "exclusion_status": "Provider unconditional cache exclusion still unverified; headers alone do not close P0"
+}

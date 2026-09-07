@@ -1,0 +1,36 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "action": "Restore only the verified dedicated daily Zoom worker",
+  "before": {
+    "activeDeployments": [],
+    "cronSchedule": null,
+    "environmentId": "db6dae0e-cc37-4eff-9bed-3d5fe7cc8f9f",
+    "latestDeployment": null,
+    "nextCronRunAt": null,
+    "serviceId": "ed6498e3-81dd-479a-a659-28b1783e1a75"
+  },
+  "requested_deployment": {
+    "id": "ebbf2d4b-612c-4e21-90ad-cb7934af34bd",
+    "status": "INITIALIZING"
+  },
+  "state": "RESUMED",
+  "basis": "Repaired backend healthy; production exact-import replay creates no new mappings, corroborations, identities, events or billing effects.",
+  "after": {
+    "activeDeployments": [
+      {
+        "id": "ebbf2d4b-612c-4e21-90ad-cb7934af34bd",
+        "status": "SUCCESS"
+      }
+    ],
+    "cronSchedule": "30 6 * * *",
+    "environmentId": "db6dae0e-cc37-4eff-9bed-3d5fe7cc8f9f",
+    "latestDeployment": {
+      "id": "ebbf2d4b-612c-4e21-90ad-cb7934af34bd",
+      "status": "SUCCESS",
+      "imageDigest": "sha256:be57502e4471184b367f9c715cb67fa37e4cb51a5733fa422d1dae67b65a8de4"
+    },
+    "nextCronRunAt": "2026-09-07T06:30:00.000Z",
+    "serviceId": "ed6498e3-81dd-479a-a659-28b1783e1a75"
+  },
+  "completed_at": "2026-09-07T04:28:26.737576+00:00"
+}

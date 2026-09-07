@@ -1,0 +1,35 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "action": "Paused only MissionAccounts Zoom worker by removing its deployment and clearing its schedule",
+  "recorded_at": "2026-09-07T04:10:05.258551+00:00",
+  "project": "244bf2d1-1eca-4b97-95ab-95a565a8b4d0",
+  "before": {
+    "activeDeployments": [
+      {
+        "deploymentStopped": false,
+        "id": "e9067434-63b2-426e-837d-d60f64043805",
+        "status": "SUCCESS"
+      }
+    ],
+    "cronSchedule": "30 6 * * *",
+    "environmentId": "db6dae0e-cc37-4eff-9bed-3d5fe7cc8f9f",
+    "latestDeployment": {
+      "canRedeploy": true,
+      "canRollback": true,
+      "deploymentStopped": false,
+      "id": "e9067434-63b2-426e-837d-d60f64043805",
+      "status": "SUCCESS"
+    },
+    "nextCronRunAt": "2026-09-07T06:30:00.000Z",
+    "serviceId": "ed6498e3-81dd-479a-a659-28b1783e1a75"
+  },
+  "after": {
+    "activeDeployments": [],
+    "cronSchedule": null,
+    "environmentId": "db6dae0e-cc37-4eff-9bed-3d5fe7cc8f9f",
+    "latestDeployment": null,
+    "nextCronRunAt": null,
+    "serviceId": "ed6498e3-81dd-479a-a659-28b1783e1a75"
+  },
+  "restore": "Restore cron 30 6 * * *, redeploy recorded worker image only after repaired backend is verified. No service or credential deletion."
+}

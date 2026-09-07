@@ -1,0 +1,56 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "prepared_at": "2026-09-07T04:08:34.444231+00:00",
+  "source_commit": "48e4283277e9601b6026bd09bd177216582b8fbb",
+  "status": "PREPARED_NO_5401R_PROVIDER_MUTATION_YET",
+  "authority": [
+    "DR-202",
+    "DR-203"
+  ],
+  "boot": "universal and 5401R PASS 2026-09-07T04:07Z; HQ origin/main e71b3902f40e82e4d27813cc54aa836bc13d2c35",
+  "matrix": {
+    "url": "https://missionmedinstitute.com/missionaccounts/",
+    "status": 503,
+    "bytes": 142,
+    "sha256": "178de43b7b8e625112e5d8823aa898fdf1d33fdc19919e6e8f03d0702b86aa37",
+    "cache_control": "no-store, private",
+    "kinsta": "MISS",
+    "cloudflare": "DYNAMIC",
+    "mu_plugin_sha256": "ac5053d7ce7e86b5417a8fa67a380f1c365da97832d0908bb33b319688ba1eee",
+    "note": "Python user agent received generic edge 403; normal browser user agent and unchanged deployed MU hash verified expected containment. No auth bootstrap accepted."
+  },
+  "supabase": {
+    "project": "dwwsahpzblgrgducxtzw",
+    "status": "ACTIVE_HEALTHY",
+    "backup_observed": "Scheduled physical backup 2026-09-06 17:35:10 UTC, Restore control visible; read-only dashboard verification",
+    "backup_age_limitation": "Backup predates recent provider imports; private operation preimages are required inside source-preserving repair receipt. No blind database restore.",
+    "review": "Separate read-only zoom reviewer confirmed fourth migration SHA and prior concurrency/boundedness findings closed; builder test results are not independent acceptance.",
+    "migrations": {
+      "20260907025337_workflow_request_integrity_5401.sql": "9dc8546101d5203884cd654b04557e62674c6dac2e5e98dccd6c378da98038e9",
+      "20260907025905_bounded_billing_reversal_batch_5401.sql": "43c9fc377c867ef3c459bd4e93639dec7a5dbcb31c59fa9da892fca7ec2a3e07",
+      "20260907025943_zoom_canonical_occurrence_5401.sql": "84b83bc940154faa6014d3b724bf8fbb303eace83185f258e7449ae937ed3a89",
+      "20260907034102_bounded_zoom_repair_5401.sql": "1a0876fae43e46c6fc7fc01e3693be62a3174a9cbe4a66863ab963c021ec8fcf"
+    },
+    "rollback": "Leave compatible additive schema in place with flags off and Matrix contained. Data repair reversal only through api_reverse_zoom_5401 with exact receipt ID, expected operation postimage and contained/paused provider-readback SHA. Refuse intervening activity. It restores known defective 36/35/31 and must never be used while open."
+  },
+  "railway": {
+    "project": "244bf2d1-1eca-4b97-95ab-95a565a8b4d0",
+    "environment": "db6dae0e-cc37-4eff-9bed-3d5fe7cc8f9f",
+    "app_service": "857cdc07-2482-4cc0-a2a1-70b38f65542b",
+    "app_deployment": "7baf5aa4-e51a-4d0c-8896-f3611731185c",
+    "app_image": "sha256:f5a2a891d4278936f0b42c3a914bd351acf94997393c841ab6159adfe88a103f",
+    "worker_service": "ed6498e3-81dd-479a-a659-28b1783e1a75",
+    "worker_deployment": "e9067434-63b2-426e-837d-d60f64043805",
+    "worker_image": "sha256:be57502e4471184b367f9c715cb67fa37e4cb51a5733fa422d1dae67b65a8de4",
+    "worker_cron": "30 6 * * *",
+    "worker_next_before": "2026-09-07T06:30:00Z",
+    "worker_source": {
+      "repo": null,
+      "image": null
+    },
+    "stop_plan": "Remove only exact latest worker deployment, clear only its cron schedule, verify no active deployment and no next run. Service and configuration remain.",
+    "resume_plan": "After repaired backend and replay verification, restore cron 30 6 * * * and redeploy the recorded worker deployment with usePreviousImageTag=true; worker code is unchanged.",
+    "rollback_available": "Provider reports canRedeploy=true and canRollback=true for both recorded deployments."
+  },
+  "money": "No invoices, charges, Live Stripe, real cards, or auto-billing activation authorized."
+}

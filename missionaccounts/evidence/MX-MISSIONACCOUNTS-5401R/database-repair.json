@@ -1,0 +1,138 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "source_commit": "48e4283277e9601b6026bd09bd177216582b8fbb",
+  "migrations": [
+    {
+      "name": "20260907025337_workflow_request_integrity_5401",
+      "sha256": "9dc8546101d5203884cd654b04557e62674c6dac2e5e98dccd6c378da98038e9",
+      "completed_at": "2026-09-07T04:10:36.551Z",
+      "success": true
+    },
+    {
+      "name": "20260907025905_bounded_billing_reversal_batch_5401",
+      "sha256": "43c9fc377c867ef3c459bd4e93639dec7a5dbcb31c59fa9da892fca7ec2a3e07",
+      "completed_at": "2026-09-07T04:10:38.986Z",
+      "success": true
+    },
+    {
+      "name": "20260907025943_zoom_canonical_occurrence_5401",
+      "sha256": "84b83bc940154faa6014d3b724bf8fbb303eace83185f258e7449ae937ed3a89",
+      "completed_at": "2026-09-07T04:10:42.322Z",
+      "success": true
+    },
+    {
+      "name": "20260907034102_bounded_zoom_repair_5401",
+      "sha256": "1a0876fae43e46c6fc7fc01e3693be62a3174a9cbe4a66863ab963c021ec8fcf",
+      "completed_at": "2026-09-07T04:10:45.806Z",
+      "success": true
+    }
+  ],
+  "preflight": {
+    "events": 4018,
+    "charges": 0,
+    "consents": 0,
+    "invoices": 0,
+    "sessions": 421,
+    "students": 347,
+    "active_days": 3340,
+    "source_rows": 5575,
+    "enabled_flags": 0,
+    "schema_release": [
+      {
+        "applied_at": "2026-09-06T17:43:14.35753+00:00",
+        "release_id": "mx-missionaccounts-5301p",
+        "release_digest": "05db604eb01bdad825e921a55c73619617dae57d85ff4741d946a6095464b058"
+      }
+    ],
+    "billing_decisions": 0,
+    "running_reconciliations": 0
+  },
+  "acl": {
+    "new_receipts": 0,
+    "running_reconciliations": 0,
+    "unsafe_new_table_grants": 0,
+    "unsafe_repair_function_acl": false,
+    "new_tables_without_forced_rls": 0
+  },
+  "preview": {
+    "cycle_counts": {
+      "2026-cycle-1": 36,
+      "2026-cycle-2": 35,
+      "2026-cycle-3": 31
+    },
+    "before_sha256": "9cc1d863951c7c203b89394a90499e0b562668a27b728585a9e0378374bd2d00",
+    "all_raw_sha256": "ffbaed5efb7136a60c18c9e711ed82031750cad527b770eda01eca4bc3be18a0",
+    "derived_events": 77,
+    "source_classes": 2,
+    "financial_sha256": "863d902001a4e227b0894489fa2c2ace4ae59006d7c07da7957cf621d6d9bc0a",
+    "historical_sha256": "5549bc9983bc4d6a21aa489fd855709382860cbaf512bcf9f4848bd7ccc4deb6",
+    "active_review_days": 76,
+    "technical_students": 76
+  },
+  "receipt": {
+    "state": "applied",
+    "accepted": true,
+    "controls": {
+      "cycle_counts": {
+        "2026-cycle-1": 34,
+        "2026-cycle-2": 35,
+        "2026-cycle-3": 31
+      },
+      "all_raw_sha256": "ffbaed5efb7136a60c18c9e711ed82031750cad527b770eda01eca4bc3be18a0",
+      "source_classes": 2,
+      "financial_sha256": "863d902001a4e227b0894489fa2c2ace4ae59006d7c07da7957cf621d6d9bc0a",
+      "historical_sha256": "5549bc9983bc4d6a21aa489fd855709382860cbaf512bcf9f4848bd7ccc4deb6",
+      "raw_rows_preserved": 77,
+      "retired_review_days": 76,
+      "exact_corroborations": 72,
+      "unresolved_occurrences": 5,
+      "physical_events_preserved": 77,
+      "retired_technical_students": 76
+    },
+    "duplicate": false,
+    "repair_id": "44f24da2-b69e-4a20-af39-ec9d87a393d0"
+  },
+  "after_repair": {
+    "charges": 0,
+    "consents": 0,
+    "invoices": 0,
+    "days_active": 3264,
+    "retirements": 76,
+    "source_rows": 5575,
+    "enabled_flags": 0,
+    "repair_audits": 1,
+    "events_physical": 4018,
+    "repair_receipts": 1,
+    "events_effective": 3941,
+    "students_visible": 271,
+    "billing_decisions": 0,
+    "sessions_physical": 421,
+    "students_physical": 347,
+    "exact_corroborations": 72,
+    "running_reconciliations": 0,
+    "unresolved_corroborations": 5
+  },
+  "replay": {
+    "accepted": true,
+    "duplicate": true,
+    "canonicalization": {
+      "accepted": true,
+      "billing_mutations": 0,
+      "new_session_mappings": 0,
+      "active_source_sessions": 0,
+      "review_source_sessions": 0,
+      "new_exact_corroborations": 0,
+      "duplicate_source_sessions": 2,
+      "identity_decisions_created": 0,
+      "new_unresolved_corroborations": 0,
+      "historical_students_recomputed": 0
+    }
+  },
+  "replay_postcheck": {
+    "state": "applied",
+    "all_raw_unchanged": true,
+    "financial_unchanged": true,
+    "operation_unchanged": true,
+    "historical_unchanged": true
+  }
+}

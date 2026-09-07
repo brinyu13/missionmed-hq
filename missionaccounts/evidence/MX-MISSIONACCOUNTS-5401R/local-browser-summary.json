@@ -1,0 +1,40 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5401R",
+  "recorded_at": "2026-09-07T04:54:39.778433+00:00",
+  "scope": "Limited synthetic localhost browser smoke using repaired production HTML and PreviewStore; no production credentials, data, DB mutation or genuine-role acceptance",
+  "source_commit": "48e4283277e9601b6026bd09bd177216582b8fbb",
+  "actual_css_viewports": [
+    {
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "width": 1024,
+      "height": 768
+    }
+  ],
+  "390_css_viewport": "NOT_VERIFIED; inherited browser zoom and minimum viewport prevented the requested CSS width",
+  "checks": [
+    "Original four navigation controls rendered destinations",
+    "Reload/back and selected keyboard link activation",
+    "Synthetic student detail",
+    "Comp required-reason rejection kept dialog open",
+    "Synthetic email save/reload and clear to null",
+    "Observed console warning/error readback empty"
+  ],
+  "complete_six_production_workflow_witnesses": 0,
+  "real_dr_j": false,
+  "real_student_a": false,
+  "real_student_b": false,
+  "cleanup": {
+    "viewport_override_reset": true,
+    "own_loopback_server_stopped": true,
+    "stopped_pid": 13976
+  },
+  "limitations": [
+    "No production UI-to-DB complete witness",
+    "No actual student browser or View As acceptance substitution",
+    "PreviewStore batch RPCs do not implement authoritative database persistence",
+    "Not full responsive workflow QA"
+  ]
+}
