@@ -105,7 +105,9 @@ def seal(receipt):
     config['deploy']['startCommand']='node dist-api/server.mjs'
     files={'package.json':(PACKAGE/'package.json').read_bytes(),'package-lock.json':(PACKAGE/'package-lock.json').read_bytes(),'dist-api/server.mjs':(PACKAGE/'dist-api/server.mjs').read_bytes(),'railway.json':json_bytes(config)}
     entries={name:{'sha256':digest(raw),'bytes':len(raw)} for name,raw in sorted(files.items())}
-    seal_id='timeline-api-022-'+digest(json_bytes(entries))[:20]
+    # A frontend-only successor may have identical API bytes; its release seal
+    # still belongs to the exact new source commit and must not overwrite the old one.
+    seal_id='timeline-api-022-'+digest(json_bytes({'source_commit':head,'files':entries}))[:20]
     directory=OUT/'release-candidates'/seal_id
     need(not directory.exists(),'SEALED_CANDIDATE_ALREADY_EXISTS')
     guard();directory.mkdir(parents=True,mode=0o700)
