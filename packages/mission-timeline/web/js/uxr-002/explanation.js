@@ -7,10 +7,10 @@ export const EXPLANATION_BOUNDS=Object.freeze({
   maxX:1744,
   minY:112,
   maxY:904,
-  minWidth:220,
+  minWidth:132,
   maxWidth:520,
   minHeight:96,
-  maxHeight:220
+  maxHeight:320
 });
 
 function clean(value){
@@ -20,6 +20,39 @@ function clean(value){
 function clamp(value,min,max,fallback){
   const number=Number(value);
   return Math.max(min,Math.min(max,Number.isFinite(number)?number:fallback));
+}
+
+export function layoutExplanationText(text,{width=180,height=166,x=1470,y=674,rotation=8}={}){
+  const cardWidth=Math.max(EXPLANATION_BOUNDS.minWidth,Number(width)||180);
+  const requestedHeight=Math.max(EXPLANATION_BOUNDS.minHeight,Number(height)||166);
+  // Short explanations are plain paragraphs. Preserve every word and split a
+  // long token across visual lines instead of letting it escape the card.
+  const words=String(text||"").trim().split(/\s+/).filter(Boolean);
+  const wrap=(size)=>{
+    const capacity=Math.max(1,Math.floor((cardWidth-28)/(size*.57)));
+    const lines=[];let line="";
+    for(const original of words){
+      let word=original;
+      if(line&&line.length+1+word.length>capacity){lines.push(line);line="";}
+      while(word.length>capacity){lines.push(word.slice(0,capacity));word=word.slice(capacity);}
+      if(word)line=line?`${line} ${word}`:word;
+    }
+    if(line)lines.push(line);
+    return lines.length?lines:[""];
+  };
+  let fontSize=20,lines=wrap(fontSize);
+  while(fontSize>12&&lines.length*fontSize*1.12>requestedHeight-28){fontSize-=1;lines=wrap(fontSize);}
+  // A readable font establishes the minimum height. Resizing cannot clip or
+  // silently remove authored text; the scene, handles and export share this box.
+  const cardHeight=Math.max(requestedHeight,Math.ceil(lines.length*fontSize*1.12+28));
+  const angle=(Number(rotation)||0)*Math.PI/180;
+  const xPadding=Math.max(0,(Math.abs(cardWidth*Math.cos(angle))+Math.abs(cardHeight*Math.sin(angle))-cardWidth)/2);
+  const yPadding=Math.max(0,(Math.abs(cardWidth*Math.sin(angle))+Math.abs(cardHeight*Math.cos(angle))-cardHeight)/2);
+  return{
+    x:clamp(x,EXPLANATION_BOUNDS.minX,Math.min(EXPLANATION_BOUNDS.maxX,1920-cardWidth-xPadding),1470),
+    y:clamp(y,EXPLANATION_BOUNDS.minY,Math.min(EXPLANATION_BOUNDS.maxY,1080-cardHeight-yPadding),674),
+    width:cardWidth,height:cardHeight,fontSize,lines
+  };
 }
 
 function normalizedTarget(target={}){
@@ -48,6 +81,11 @@ export function normalizeExplanationEvent(event){
     0,
     EXPLANATION_TEXT_MAX
   );
+  const layout=layoutExplanationText(text,{
+    width:clamp(fields.width,EXPLANATION_BOUNDS.minWidth,EXPLANATION_BOUNDS.maxWidth,180),
+    height:clamp(fields.height,EXPLANATION_BOUNDS.minHeight,EXPLANATION_BOUNDS.maxHeight,166),
+    x:fields.x,y:fields.y
+  });
   return{
     ...source,
     id:clean(source.id)||uid("explanation"),
@@ -68,20 +106,10 @@ export function normalizeExplanationEvent(event){
       builderDomain:"explanation",
       elementType:"explanation",
       explanationText:text,
-      x:clamp(fields.x,EXPLANATION_BOUNDS.minX,EXPLANATION_BOUNDS.maxX,1180),
-      y:clamp(fields.y,EXPLANATION_BOUNDS.minY,EXPLANATION_BOUNDS.maxY,144),
-      width:clamp(
-        fields.width,
-        EXPLANATION_BOUNDS.minWidth,
-        EXPLANATION_BOUNDS.maxWidth,
-        360
-      ),
-      height:clamp(
-        fields.height,
-        EXPLANATION_BOUNDS.minHeight,
-        EXPLANATION_BOUNDS.maxHeight,
-        126
-      ),
+      x:layout.x,
+      y:layout.y,
+      width:layout.width,
+      height:layout.height,
       leaderEnabled:fields.leaderEnabled!==false,
       target:normalizedTarget(fields.target)
     }

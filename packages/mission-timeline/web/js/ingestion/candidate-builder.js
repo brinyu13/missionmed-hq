@@ -15,6 +15,10 @@ export function buildCandidates(records,sourceDocument){
   return (records||[]).map((record,index)=>{
     const dates=normalizeDateRange(record.dates||record.startDate||"");
     const classification=classifyEvent(record,dates);
+    if(record.fields?.dateRangeIncomplete){
+      classification.timelineKind="duration";
+      classification.warnings.push("The source range has a start date but its end date is missing; confirm the end or ongoing status.");
+    }
     const privacy=detectPrivacy(record,{classification});
     const requiresPrivateReview=privacy.sensitive||privacy.requiresExplicitDisclosure||classification.canonicalType==="PERSONAL_NOT_ON_CV"||classification.categoryId==="personal";
     const confidence=scoreConfidence({record,dateRange:dates,classification,privacy});

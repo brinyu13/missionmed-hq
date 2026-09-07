@@ -1,13 +1,13 @@
 {
   "schemaVersion": "d1-timeline-founder-reanchor-015-golden-manifest/1",
-  "namespace": "d1-timeline-founder-reanchor-015/synthetic-golden-master/keynote-2024-v1",
+  "namespace": "d1-timeline-founder-reanchor-021/synthetic-golden-master/keynote-2025-v1",
   "authority": {
-    "sourceKind": "FOUNDER_SUPPLIED_2024_KEYNOTE",
-    "sourceSha256": "da6a7fa74a2f5d42f53399a9fc00bfe7283e7e4b79f349fca062da0be106cc19",
-    "verifiedPngSha256": "494694390329b0c050d7b4ca55c32b06e78eadc6375014b8a6b32c17ef36447a",
-    "verifiedPdfSha256": "7d13f2746ff72e678a3a0b9c6a81dc42aedb467bc5266896ed9f253a4cc7e9e1",
+    "sourceKind": "FOUNDER_SELECTED_2025_KEYNOTE",
+    "sourceSha256": "113d22efb8ca2c00c29d8e57b92c1eb24ff2c66931f7138bbf23daa66dbba706",
+    "verifiedPngSha256": "bf48d25b2d46a75c868f98692d480147f8c7d8f234955608a27ca50b3b808836",
+    "verifiedPdfSha256": null,
     "boardAsset": {
-      "sourcePath": "Data/Magnetboard-1920-107.jpg",
+      "sourcePath": "Data/image1-8.jpeg",
       "path": "assets/founder_keynote_2024/background/Magnetboard-1920-107.jpg",
       "sha256": "f5d28c36504ea8fa0b54a55975b493bd9a0c1d6948ca447eb88a9198b8777cc1",
       "classification": "TEMPLATE_FURNITURE_NON_PERSONAL"
@@ -26,11 +26,41 @@
     "contentPolicy": "SYNTHETIC_ONLY",
     "founderImageryPublished": false,
     "path": "synthetic-founder-geometry.json",
-    "sha256": "fe185c69db634561521a1e8d7b626d1fa3cc9963c7fe6ecb2c1db50837fb0730"
+    "sha256": "bd5a8fd239b859bbb9278c687d1d1941730b6046eae115cf23bd8857957fbb44"
   },
   "serializer": {
     "id": "d1-founder-keynote-portable-svg/1",
-  "syntheticSvgSha256": "00a089a2be666e4caa02870be80772a88d712972b502b98fd4f1da8e259c8477",
+    "syntheticSvgSha256": "86d97133dab72c0991a151a370623671c0aa8522adc7a2a2b2833ef28fa59ab0",
+    "syntheticSvgSha256History": [
+      {
+        "sha256": "00a089a2be666e4caa02870be80772a88d712972b502b98fd4f1da8e259c8477",
+        "note": "pre-AAA-019 (no frame-slot groups)"
+      },
+      {
+        "sha256": "14e4150d49535a57ef9cc9f236f81651f7d9d3876a02e1d44b20e33e6d66de4f",
+        "note": "AAA-019: profile/photo1-3/logo wrapped in <g data-frame-slot data-media-state>, placeholder text pointer-events=none, empty logo hit rect; geometry and typography unchanged"
+      },
+      {
+        "sha256": "38485dba199bfbecbe6ae92873f595a211824a6cb06f294aa8a3e75618596e82",
+        "note": "AAA-019 Keynote fidelity: continuous edge-to-edge year ribbon with notch lines (data-axis-ribbon=continuous), darker navy band, bold numerals; arrow caption 'M/YY - M/YY' centred above, bold white label inside; milestone labels clamped inside the board"
+      },
+      {
+        "sha256": "6b4f3d5955a440e4720ee2c4b7cf0f6fff851cbe6ec6d60c0f068c88888bb60b",
+        "note": "AAA-019 Keynote fidelity: Color Key card 20,300,284,346 (40px rows, 36x30 swatches, underlined header) and profile card 13,661,545,410 (169x170 photo, 9 label/value rows incl. Step 3 / USCE / Research months) measured on FOUNDER_KEYNOTE_2025_GOLDEN.001.png"
+      },
+      {
+        "sha256": "ba63c3679588a3566031623418f364fb7604cf992af48cead9ef951d7c0f4cef",
+        "note": "AAA-019 Keynote fidelity: milestone flags are vector pennants planted on the ribbon (data-founder-milestone-style=pennant) with a white date chip, replacing the 72x92 signpost sprite"
+      },
+      {
+        "sha256": "48abb0c6cec4738b62c152005b1956d16a25a8f1a0851d15036268615f956e4c",
+        "note": "D1-021: metadata selects verified Founder 2025 source and PNG; 2024 authority retained explicitly as lineage; no geometry or paint changes."
+      },
+      {
+        "sha256": "86d97133dab72c0991a151a370623671c0aa8522adc7a2a2b2833ef28fa59ab0",
+        "note": "D1-021 physical readable-output repair: duration labels keep natural glyph widths and move beside short chronology bars; profile values wrap into native17px rows. Dates, event facts, duration paths and Founder furniture geometry remain unchanged; exact populated-CV and native reopen tests plus opened actual1920/2560/Letter/A4 output evidence validate the new paint."
+      }
+    ],
     "requiredComposition": {
       "defaultBackground": true,
       "yearRibbon": true,
@@ -43,5 +73,30 @@
     "meaning": "deterministic serializer and composition regression only",
     "founderVisualAcceptanceRequired": true,
     "pixelFidelityClaim": false
+  },
+  "lineage": {
+    "authority": {
+      "sourceKind": "FOUNDER_SUPPLIED_2024_KEYNOTE",
+      "sourceSha256": "da6a7fa74a2f5d42f53399a9fc00bfe7283e7e4b79f349fca062da0be106cc19",
+      "verifiedPngSha256": "494694390329b0c050d7b4ca55c32b06e78eadc6375014b8a6b32c17ef36447a",
+      "verifiedPdfSha256": "7d13f2746ff72e678a3a0b9c6a81dc42aedb467bc5266896ed9f253a4cc7e9e1",
+      "boardAsset": {
+        "sourcePath": "Data/Magnetboard-1920-107.jpg",
+        "path": "assets/founder_keynote_2024/background/Magnetboard-1920-107.jpg",
+        "sha256": "f5d28c36504ea8fa0b54a55975b493bd9a0c1d6948ca447eb88a9198b8777cc1",
+        "classification": "TEMPLATE_FURNITURE_NON_PERSONAL"
+      },
+      "usaFlagAsset": {
+        "sourcePath": "Data/USA%20Flag.H03-10831.png",
+        "path": "assets/founder_keynote_2024/flags/USA-Flag.H03-10831.png",
+        "sha256": "d2473ecf794b5e8eb69f8eefb107b04101fdef0da1d2e6830d35ab6815bf2a5d",
+        "classification": "TEMPLATE_FURNITURE_NON_PERSONAL"
+      },
+      "width": 1920,
+      "height": 1080,
+      "orientation": "landscape"
+    },
+    "namespace": "d1-timeline-founder-reanchor-015/synthetic-golden-master/keynote-2024-v1",
+    "fixtureSha256": "fe185c69db634561521a1e8d7b626d1fa3cc9963c7fe6ecb2c1db50837fb0730"
   }
 }

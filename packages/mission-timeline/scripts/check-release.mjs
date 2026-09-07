@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {assertPresentationVendorManifest,PRESENTATION_VENDOR_MANIFEST} from "./presentation-vendor-integrity.mjs";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");const dist=join(root,"dist");
 const manifest=JSON.parse(await readFile(join(dist,"release-manifest.json"),"utf8"));
@@ -19,6 +20,7 @@ for(const privateFixture of ["karaoke.jpg","newborn.jpg","nicu.jpg","profile_sam
    timeline. They live only in the accepted-asset root, never in web/, which is exactly why
    their absence is easy to ship unnoticed. Fail the release instead. */
 const REQUIRED_RUNTIME_ASSETS=[
+  "styles/prototype-021.css","styles/family-022.css","styles/admin-workspace-022.css","styles/ai-settings-022.css",
   ...["board_denim.jpg","leather_pebble.png","paper_bond.png","paper_hotpress.png","paper_rc.png","print_grain.png","satin.png","sticky_pulp.jpg"].map((name)=>`presentation/d1-409h-a1/assets/tex/${name}`),
   "presentation/d1-409h-a1/assets/photos/us_flag.png",
   ...["ptserif-400","ptserif-700","ptserif-700i","archivo-600","archivo-800","quicksand-500","quicksand-700","cutive-400","caveat-700"].map((name)=>`presentation/d1-409h-a1/assets/fonts/${name}.woff2`),
@@ -27,9 +29,25 @@ const REQUIRED_RUNTIME_ASSETS=[
 ];
 const missingRuntimeAssets=REQUIRED_RUNTIME_ASSETS.filter((path)=>!manifest.files[path]||!(manifest.files[path].bytes>0));
 if(missingRuntimeAssets.length)throw new Error(`RELEASE_RUNTIME_ASSET_MISSING:${missingRuntimeAssets.join(",")}`);
+const presentationRuntime=manifest.presentation_runtime;
+if(presentationRuntime?.manifest!==PRESENTATION_VENDOR_MANIFEST||manifest.files[PRESENTATION_VENDOR_MANIFEST]?.sha256!==presentationRuntime.sha256||!manifest.files[presentationRuntime.bundled_application])throw new Error('RELEASE_PRESENTATION_RUNTIME_MISSING');
+const presentationVendor=JSON.parse(await readFile(join(dist,PRESENTATION_VENDOR_MANIFEST),'utf8'));
+assertPresentationVendorManifest(presentationVendor);
+if(presentationRuntime.runtime_source_sha256!==presentationVendor.runtime.sha256)throw new Error('RELEASE_PRESENTATION_RUNTIME_IDENTITY_MISMATCH');
+for(const component of presentationVendor.components){
+  const notice=manifest.files[component.releaseNotice];
+  if(notice?.sha256!==component.notice.sha256||notice.bytes!==component.notice.bytes)throw new Error(`RELEASE_PRESENTATION_LICENSE_MISSING:${component.name}`);
+}
+const transitiveNotice=manifest.files[presentationVendor.transitiveNotice.releasePath];
+if(transitiveNotice?.sha256!==presentationVendor.transitiveNotice.sha256||transitiveNotice.bytes!==presentationVendor.transitiveNotice.bytes)throw new Error('RELEASE_PRESENTATION_TRANSITIVE_LICENSE_MISSING');
 const CORE_PROTECTED_TEXTURES=["board_denim.jpg","paper_bond.png","leather_pebble.png"].map((name)=>`presentation/d1-409h-a1/assets/tex/${name}`);
 const missingCoreTextures=CORE_PROTECTED_TEXTURES.filter((path)=>!manifest.files[path]);
 if(missingCoreTextures.length)throw new Error(`RELEASE_CORE_TEXTURE_MISSING:${missingCoreTextures.join(",")}`);
 const index=await readFile(join(dist,"index.html"),"utf8");if(!index.includes('<base href="/timeline/">')||!index.includes('D1_TIMELINE_RUNTIME_MODE="production"'))throw new Error("CANONICAL_PRODUCTION_BOOT_MISSING");
+if(/(?:\bfrom\s*|\bimport\s*)['"]\.\/?js\//.test(index))throw new Error('RELEASE_UNBUNDLED_INLINE_MODULE_IMPORT');
+if(/<script\b[^>]*\bsrc=['"]\.\/js\//.test(index))throw new Error('RELEASE_UNBUNDLED_SCRIPT_ENTRY');
+for(const style of ["prototype-021","family-022","admin-workspace-022","ai-settings-022"]){
+  if(!index.includes(`<link rel="stylesheet" href="./styles/${style}.css" data-${style}>`))throw new Error(`RELEASE_PRELINKED_STYLE_MISSING:${style}`);
+}
 if(!index.includes('timelineLegacyStateScrubbed="true"'))throw new Error("PRODUCTION_LEGACY_STATE_SCRUB_MISSING");
 console.log(JSON.stringify({ok:true,release_id:manifest.release_id,files:expected.length,hashes_verified:expected.length,runtime_assets_verified:REQUIRED_RUNTIME_ASSETS.length}));

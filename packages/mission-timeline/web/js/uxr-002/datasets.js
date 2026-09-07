@@ -1,4 +1,4 @@
-import {createMedicalSchoolProvider} from "./medical-school-registry.js";
+import {createMedicalSchoolProvider,countryCodeForSearch} from "./medical-school-registry.js";
 import {ISO_3166_ALPHA2} from "./iso-country-codes.js";
 import {
   ALL_ROTATION_SPECIALTIES,
@@ -34,9 +34,11 @@ export function createCountryProvider(options={}){
     async search(query){
       const needle=String(query||"").trim().toLocaleLowerCase();
       if(needle.length<2)return[];
+      const exactCode=countryCodeForSearch(query);
       return rows
-        .filter((item)=>item.value.toLocaleLowerCase().includes(needle)||
+        .filter((item)=>item.code===exactCode||item.value.toLocaleLowerCase().includes(needle)||
           item.code.toLocaleLowerCase().includes(needle))
+        .sort((left,right)=>Number(right.code===exactCode)-Number(left.code===exactCode))
         .slice(0,8);
     }
   });

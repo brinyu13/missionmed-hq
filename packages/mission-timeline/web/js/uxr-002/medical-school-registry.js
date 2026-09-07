@@ -1,4 +1,5 @@
 import {uid} from "./utils.js";
+import {ISO_3166_ALPHA2} from "./iso-country-codes.js";
 
 const NORMALIZED_RECORD=Symbol("normalized-medical-school-record");
 const SEARCH_TEXT_CACHE=new WeakMap();
@@ -7,6 +8,12 @@ export const MEDICAL_SCHOOL_DATASET_URL=globalThis.D1_TIMELINE_ASSET_URLS?.["dat
   ||new URL("../../data/medical-schools/us-dapip-2026-07-30.json",import.meta.url);
 export const GLOBAL_MEDICAL_SCHOOL_DATASET_URL=globalThis.D1_TIMELINE_ASSET_URLS?.["data/medical-schools/global-wikidata-2026-08-24.json"]
   ||new URL("../../data/medical-schools/global-wikidata-2026-08-24.json",import.meta.url);
+/* AAA-019 — curated identity-only supplement for the IMG schools the Wikidata "medical
+   school" class query misses (Semmelweis, Debrecen, Carol Davila, Karolinska, Sapienza, UBA,
+   AUC, Saba…) plus alias/city overrides for existing Wikidata identities ("SGU"). Built by
+   scripts/build-img-supplement-data.mjs; same verification law as the Wikidata set. */
+export const IMG_SUPPLEMENT_MEDICAL_SCHOOL_DATASET_URL=globalThis.D1_TIMELINE_ASSET_URLS?.["data/medical-schools/global-img-supplement-2026-09-05.json"]
+  ||new URL("../../data/medical-schools/global-img-supplement-2026-09-05.json",import.meta.url);
 
 function clean(value){
   return String(value||"").replace(/\s+/g," ").trim();
@@ -17,8 +24,34 @@ export function normalizeSchoolSearch(value){
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g,"")
     .toLocaleLowerCase()
-    .replace(/[^a-z0-9]+/g," ")
+    .replace(/[^\p{L}\p{N}]+/gu," ")
     .trim();
+}
+
+const COUNTRY_LOOKUP=new Map();
+let countryNames=null;
+try{countryNames=new Intl.DisplayNames(["en"],{type:"region"});}catch{}
+for(const {code,name} of ISO_3166_ALPHA2){
+  for(const label of [code,name,countryNames?.of(code)])if(label)COUNTRY_LOOKUP.set(normalizeSchoolSearch(label),code);
+}
+for(const [alias,code] of [["UK","GB"],["United Kingdom","GB"],["USA","US"],["U.S.A.","US"],["UAE","AE"],["Czechia","CZ"],["Türkiye","TR"]])COUNTRY_LOOKUP.set(normalizeSchoolSearch(alias),code);
+export const countryCodeForSearch=(value)=>COUNTRY_LOOKUP.get(normalizeSchoolSearch(value))||"";
+
+export function schoolSourceLabel(record={}){
+  const status=String(record.verification_status||"");
+  if(status.startsWith("curated-"))return"Curated identity · unverified";
+  if(status.startsWith("wikidata-"))return"Wikidata identity · accreditation unverified";
+  if(status==="source-reported-program")return"DAPIP program record";
+  if(status==="source-reported-agency")return"DAPIP agency record · program needs review";
+  return"Unverified source identity";
+}
+
+export function schoolSelectionExclusion(record={}){
+  const name=String(record.canonical_name||record.canonicalName||"");
+  if(record.superseded_by_canonical_school_id)return"superseded-source-crosswalk";
+  if(/\bveterinary\b/i.test(name))return"non-human-medical-program";
+  if(/\b(?:faculty|college|school|institute)\s+of\s+(?:pharmacy|physiotherapy|dentistry)\b/i.test(name)&&!/\b(?:pharmacy|dentistry)\s+(?:and|&)\s+(?:medical|medicine)\b/i.test(name))return"non-physician-program";
+  return"";
 }
 
 function recordSearchText(record){
@@ -73,7 +106,8 @@ function resultLabel(record){
   return[
     record.canonical_name,
     record.school_type,
-    location||record.country
+    location||"City not recorded",
+    record.country
   ].filter(Boolean).join(" · ");
 }
 
@@ -166,15 +200,17 @@ export function searchMedicalSchools(records,query,{
   if(needle.length<2)return[];
   const tokens=needle.split(" ").filter(Boolean);
   const countryFilter=normalizeSchoolSearch(country)==="all"?"":normalizeSchoolSearch(country);
+  const countryCode=countryCodeForSearch(country);
   const typeFilter=clean(schoolType).toUpperCase();
   return(records||[])
     .map(normalizeSchoolRecord)
     .filter(Boolean)
-    .filter((record)=>!record.superseded_by_canonical_school_id)
+    .filter((record)=>!schoolSelectionExclusion(record))
     .filter((record)=>
       (!countryFilter||
         normalizeSchoolSearch(record.country)===countryFilter||
-        normalizeSchoolSearch(record.country_code)===countryFilter)&&
+        normalizeSchoolSearch(record.country_code)===countryFilter||
+        (countryCode&&record.country_code===countryCode))&&
       (!typeFilter||record.school_type.toUpperCase()===typeFilter)
     )
     .map((record)=>({
@@ -196,6 +232,43 @@ export function searchMedicalSchools(records,query,{
     }));
 }
 
+/* Supplement manifests may carry `overrides.by_canonical_name.{aliases,cities}` for records
+   that live in another payload (e.g. adding "SGU" to a Wikidata identity). Overrides add
+   aliases and may correct a city; they never touch the canonical id or name. */
+function mergeRecordOverrides(payloads){
+  const aliases=new Map(),cities=new Map();
+  for(const payload of payloads){
+    const byName=payload?.manifest?.overrides?.by_canonical_name;
+    if(!byName||typeof byName!=="object")continue;
+    for(const [name,list] of Object.entries(byName.aliases||{})){
+      const key=clean(name);
+      if(!key||!Array.isArray(list))continue;
+      aliases.set(key,[...(aliases.get(key)||[]),...list.map(clean).filter(Boolean)]);
+    }
+    for(const [name,city] of Object.entries(byName.cities||{})){
+      const key=clean(name);
+      if(key&&clean(city))cities.set(key,clean(city));
+    }
+  }
+  return{aliases,cities};
+}
+
+function applyRecordOverrides(record,overrides){
+  if(!record||typeof record!=="object")return record;
+  const key=clean(record.canonical_name||record.canonicalName);
+  const extraAliases=overrides?.aliases?.get(key);
+  const city=overrides?.cities?.get(key);
+  if(!extraAliases&&!city)return record;
+  const next={...record};
+  if(extraAliases)next.alternate_names=[...(record.alternate_names||[]),...extraAliases];
+  if(city){
+    const previous=clean(record.city);
+    next.city=city;
+    if(previous&&previous!==city)next.alternate_cities=[...(record.alternate_cities||[]),previous];
+  }
+  return next;
+}
+
 async function defaultFetcher(url){
   const response=await fetch(url);
   if(!response.ok)throw new Error(
@@ -212,20 +285,24 @@ export function createMedicalSchoolProvider(options={}){
     ?options.urls
     :explicitLegacyUrl
       ?[options.url]
-      :[MEDICAL_SCHOOL_DATASET_URL,GLOBAL_MEDICAL_SCHOOL_DATASET_URL];
+      :[MEDICAL_SCHOOL_DATASET_URL,GLOBAL_MEDICAL_SCHOOL_DATASET_URL,IMG_SUPPLEMENT_MEDICAL_SCHOOL_DATASET_URL];
   let cache=Array.isArray(rows)?rows.map(normalizeSchoolRecord).filter(Boolean):null;
   let searchIndex=cache?buildTokenIndex(cache):null;
   let manifest=null;
   let pending=null;
   let loadError=null;
+  let sourceErrors=[];
   const load=async()=>{
     if(cache)return cache;
     if(pending)return pending;
-    pending=Promise.all(urls.map((url)=>Promise.resolve(fetcher(url)))).then((payloads)=>{
+    pending=Promise.allSettled(urls.map((url)=>Promise.resolve().then(()=>fetcher(url)))).then((results)=>{
+      const payloads=results.filter((result)=>result.status==="fulfilled").map((result)=>result.value);
+      sourceErrors=results.flatMap((result,index)=>result.status==="rejected"?[{url:String(urls[index]),message:String(result.reason?.message||result.reason)}]:[]);
       manifest=payloads.map((payload)=>payload?.manifest||null).filter(Boolean);
-      cache=payloads.flatMap((payload)=>payload?.records||[]).map(normalizeSchoolRecord).filter(Boolean);
+      const overrides=mergeRecordOverrides(payloads);
+      cache=payloads.flatMap((payload)=>payload?.records||[]).map((record)=>applyRecordOverrides(record,overrides)).map(normalizeSchoolRecord).filter(Boolean);
       searchIndex=buildTokenIndex(cache);
-      loadError=null;
+      loadError=sourceErrors.length?`${sourceErrors.length} of ${urls.length} local school sources unavailable`:null;
       return cache;
     }).catch((error)=>{
       loadError=String(error?.message||error);
@@ -260,6 +337,11 @@ export function createMedicalSchoolProvider(options={}){
         sourceCount:Array.isArray(manifest)?manifest.length:Number(!!manifest),
         countryCount:new Set((cache||[]).map((record)=>record.country).filter(Boolean)).size,
         recordCount:cache?.length||0,
+        selectableRecordCount:(cache||[]).filter((record)=>!schoolSelectionExclusion(record)).length,
+        excludedRecordCount:(cache||[]).filter((record)=>schoolSelectionExclusion(record)).length,
+        missingCityCount:(cache||[]).filter((record)=>!schoolSelectionExclusion(record)&&!record.city).length,
+        partial:sourceErrors.length>0&&!!cache?.length,
+        sourceErrors:Object.freeze(sourceErrors.map((item)=>Object.freeze({...item}))),
         indexKind:searchIndex?.kind||null,
         indexTokenCount:searchIndex?.tokens?.size||0,
         error:loadError

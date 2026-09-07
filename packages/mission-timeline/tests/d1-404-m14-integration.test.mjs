@@ -7,6 +7,7 @@ import {
   RESPONSIVE_BANNER,
   RESPONSIVE_BREAKPOINTS,
   buildResponsiveModel,
+  renderResponsiveNotice,
   responsiveTier
 } from "../web/js/uxr-002/responsive.js";
 
@@ -15,6 +16,7 @@ const index=await readFile(new URL("index.html",webRoot),"utf8");
 const adapter=await readFile(new URL("js/407f-engineering-adapter.js",webRoot),"utf8");
 const canvas=await readFile(new URL("js/uxr-002/canvas.js",webRoot),"utf8");
 const css=await readFile(new URL("styles/407f-upgrade.css",webRoot),"utf8");
+const familyCss=await readFile(new URL("styles/family-022.css",webRoot),"utf8");
 const packageJson=JSON.parse(await readFile(new URL("../package.json",import.meta.url),"utf8"));
 const buildScript=await readFile(new URL("../scripts/build-d1-404-candidate.mjs",import.meta.url),"utf8");
 
@@ -131,7 +133,7 @@ test("M14 installs the retained responsive runtime in the canonical 407F adapter
   assert.match(adapter,/setResponsiveWidth\s*\(/);
 });
 
-test("M14 canonical CSS implements the desktop overlay, tablet bottom tabs, and phone preview tiers",()=>{
+test("M14 responsive tiers remain while 022 supplies full phone Export controls",()=>{
   const desktop=mediaBlocks(css,1279);
   assert.match(desktop,/\.d1404HomeGrid/);
   assert.match(desktop,/\.d1404Builder/);
@@ -146,8 +148,18 @@ test("M14 canonical CSS implements the desktop overlay, tablet bottom tabs, and 
 
   const phone=mediaBlocks(css,767);
   assert.match(phone,/export407FPhoneBoard/);
-  assert.match(adapter,/data-responsive-mode="preview-only"/);
-  assert.match(adapter,/responsive407FBanner/);
+  // Ticket 022 enables actual downloads at 320px and 390px; the legacy tier model
+  // still governs Canvas, but must no longer short-circuit the Export renderer.
+  const exportHost=adapter.slice(adapter.indexOf("  function renderExportHost(){"),adapter.indexOf("      onOpenBuilder:",adapter.indexOf("  function renderExportHost(){")));
+  assert.match(exportHost,/exportHost\.innerHTML=renderExportScreen\(exportDocument,/);
+  assert.match(exportHost,/installExportScreen\(exportHost,exportDocument,/);
+  assert.doesNotMatch(exportHost,/contentMode|export407FPhoneBoard|preview-only/);
+  const familyPhone=mediaBlocks(familyCss,650);
+  assert.match(familyPhone,/\.export022Main,\.family022 \.export-controls\{display:grid!important;width:100%/);
+  assert.match(familyPhone,/\.export-format-list\{grid-template-columns:1fr/);
+  assert.match(familyPhone,/\.export-action\{min-height:52px/);
+  assert.match(adapter,/renderResponsiveNotice\(currentResponsiveModel\(\),"canvas"\)/);
+  assert.match(renderResponsiveNotice(modelAt(390),"canvas"),/responsive407FBanner/);
   assert.doesNotMatch(phone,/email[^}]*reminder/i);
 });
 

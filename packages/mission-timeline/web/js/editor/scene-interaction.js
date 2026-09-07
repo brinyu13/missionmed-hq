@@ -109,6 +109,18 @@ export function resizeSceneGeometry(original={},handle="se",dx=0,dy=0,{
   return next;
 }
 
+export function rotateSceneGeometry(original={},start={},point={}, {snapDegrees=0}={}){
+  const center={x:finite(original.x)+finite(original.width)/2,y:finite(original.y)+finite(original.height)/2};
+  const first={x:finite(start.x)-center.x,y:finite(start.y)-center.y};
+  const last={x:finite(point.x)-center.x,y:finite(point.y)-center.y};
+  if(Math.hypot(first.x,first.y)<1e-6||Math.hypot(last.x,last.y)<1e-6)return{...original};
+  const delta=(Math.atan2(last.y,last.x)-Math.atan2(first.y,first.x))*180/Math.PI;
+  let rotation=finite(original.rotation)+delta;
+  if(snapDegrees>0)rotation=Math.round(rotation/snapDegrees)*snapDegrees;
+  rotation=((rotation+180)%360+360)%360-180;
+  return{...original,rotation};
+}
+
 function constrain(box,board){
   const width=Math.min(board.width,Math.max(1,box.width));
   const height=Math.min(board.height,Math.max(1,box.height));

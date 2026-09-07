@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {createHash} from 'node:crypto';
 
 import {TimelineProductionAuthClient} from "../web/js/production/timeline-auth-client.js";
 
@@ -113,7 +114,7 @@ test("File Vault source adapter is same-origin, nonce-bound, metadata-only, and 
     if(String(url).endsWith(`/file-vault/sources/${id}/ingestions`))return new Response(JSON.stringify({document:{
       id,name:"CV.pdf",provider:"missionmed-filevault-v2",documentType:"curriculum_vitae",
       versionId:"22222222-2222-4222-8222-222222222222",mimeType:"application/pdf"
-    },source:{objectId:"object_filevault_12345678",sha256:"a".repeat(64),mimeType:"application/pdf"},contentBase64:Buffer.from("cv bytes").toString("base64")}),{status:201,headers:{"content-type":"application/json"}});
+    },source:{objectId:"object_filevault_12345678",sha256:createHash('sha256').update('cv bytes').digest('hex'),byteSize:8,mimeType:"application/pdf"},contentBase64:Buffer.from("cv bytes").toString("base64")}),{status:201,headers:{"content-type":"application/json"}});
     if(String(url).endsWith(`/file-vault/sources/${id}`))return new Response(JSON.stringify({document:{
       id,name:"CV.pdf",provider:"missionmed-filevault-v2",documentType:"curriculum_vitae",
       versionId:"22222222-2222-4222-8222-222222222222",mimeType:"application/pdf"

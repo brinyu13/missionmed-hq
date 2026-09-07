@@ -1,3 +1,5 @@
+import type { FounderStandardProvenance, FounderStandardRetrieval } from "./founder-standard-registry.js";
+import type { ProviderReceipt } from "./provider-receipt.js";
 import { TimelineError } from "../core/errors.js";
 
 export const CV_INTELLIGENCE_SCHEMA_VERSION = "d1-timeline-cv-intelligence-2" as const;
@@ -79,6 +81,8 @@ export interface CvExistingEventSummary {
 }
 
 export interface CvIntelligenceRequest {
+  /** Server-enriched only; the request parser deliberately ignores client standards. */
+  founderStandards?: FounderStandardRetrieval;
   source: CvSourceReference;
   blocks: CvSourceBlock[];
   documentType: CvDocumentType;
@@ -201,6 +205,8 @@ export interface CvQualitySuggestion extends Omit<CvProviderQualitySuggestion, "
 }
 
 export interface CvIntelligenceResponse {
+  founderStandardProvenance?: FounderStandardProvenance;
+  providerReceipt?: ProviderReceipt;
   analysisId: string;
   status: "COMPLETE" | "LIMITED_FALLBACK_REQUIRED";
   mode: "SERVER_AI" | "LOCAL_LIMITED";

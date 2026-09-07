@@ -1,9 +1,13 @@
+import { authorizeTimelineAi, type TimelineAiProcessingMode } from "./timeline-ai-authorization.js";
+import { emptyFounderStandardRetrieval, founderStandardProvenance, type FounderStandardRetriever } from "./founder-standard-registry.js";
+import { getProviderReceipt } from "./provider-receipt.js";
 import type { ObjectRecord, PrincipalContext, TimelineDocument } from "../contracts/types.js";
 import { sha256, stableStringify } from "../core/canonical.js";
 import { TimelineError } from "../core/errors.js";
 import {
   CV_INTELLIGENCE_PROMPT_VERSION,
   CV_INTELLIGENCE_SCHEMA_VERSION,
+  CV_CATEGORY_IDS,
   parseCvIntelligenceRequest,
   type CvIntelligenceResponse,
 } from "./cv-intelligence-schema.js";
@@ -24,17 +28,23 @@ export interface CvIntelligenceServiceOptions {
   provider?: CvIntelligenceProvider | null;
   expectedConsentVersion?: string | null;
   syntheticPrincipalIds?: Iterable<string>;
+  processingMode?: TimelineAiProcessingMode;
+  founderStandards?: FounderStandardRetriever;
 }
 
 export class CvIntelligenceService {
   private readonly provider: CvIntelligenceProvider | null;
   private readonly expectedConsentVersion: string | null;
   private readonly syntheticPrincipalIds: ReadonlySet<string>;
+  private readonly processingMode: TimelineAiProcessingMode;
+  private readonly founderStandards?: FounderStandardRetriever;
 
   constructor(options: CvIntelligenceServiceOptions = {}) {
     this.provider = options.provider ?? null;
     this.expectedConsentVersion = options.expectedConsentVersion?.trim() || null;
     this.syntheticPrincipalIds = new Set(options.syntheticPrincipalIds ?? []);
+    this.processingMode = options.processingMode ?? "synthetic_only";
+    this.founderStandards = options.founderStandards;
   }
 
   async analyze(
@@ -95,20 +105,18 @@ export class CvIntelligenceService {
 
     const analysisId = this.analysisId(document.id, exactSha256, request.idempotencyKey);
     if (!this.provider) return this.fallback(document, exactSha256, analysisId, "UNCONFIGURED");
-    if (!syntheticFixture) {
-      return this.fallback(
-        document,
-        exactSha256,
-        analysisId,
-        "AI_AUTHORIZATION_REQUIRED",
-        "AI CV analysis is limited to an authorized synthetic test fixture in this release. The exact source was not sent to the provider.",
+    const authorization = authorizeTimelineAi(context, {
+      processingMode: this.processingMode, expectedConsentVersion: this.expectedConsentVersion,
+      syntheticPrincipalIds: this.syntheticPrincipalIds, syntheticFixture,
+    });
+    if (!authorization.allowed) {
+      if (authorization.code === "TIMELINE_AI_PROCESSING_DISABLED") return this.fallback(
+        document, exactSha256, analysisId, "AI_AUTHORIZATION_REQUIRED",
+        "AI CV analysis is not enabled for student processing. The exact source was not sent to the provider.",
       );
-    }
-    if (!this.syntheticPrincipalIds.has(context.principalId)) {
       throw new TimelineError(
-        "CV_AI_SYNTHETIC_PRINCIPAL_REQUIRED",
-        "This principal is not authorized for synthetic AI CV verification.",
-        403,
+        authorization.code === "TIMELINE_AI_SYNTHETIC_PRINCIPAL_REQUIRED" ? "CV_AI_SYNTHETIC_PRINCIPAL_REQUIRED" : "CV_AI_CONSENT_REQUIRED",
+        "Current approved AI processing consent or an authorized synthetic test identity is required.", 403,
       );
     }
     if (!this.expectedConsentVersion || verifiedRequest.consentVersion !== this.expectedConsentVersion) {
@@ -116,7 +124,14 @@ export class CvIntelligenceService {
     }
 
     try {
+      const standards = this.founderStandards
+        ? await this.founderStandards.retrieve(context, { workflow: "CV", categoryIds: [...CV_CATEGORY_IDS] })
+        : emptyFounderStandardRetrieval();
+      verifiedRequest.founderStandards = standards;
       const providerResult = await this.provider.analyze(verifiedRequest, signal);
+      if (authorization.basis === "VERIFIED_STUDENT_CONSENT" && !getProviderReceipt(providerResult)?.responseId) {
+        return this.fallback(document, exactSha256, analysisId, "INVALID_PROVIDER_OUTPUT", "A verifiable AI receipt was unavailable. Review the limited parser instead.");
+      }
       const validated = postValidateCvProviderResult(providerResult, verifiedRequest);
       const reviewSummary = validated.candidates.reduce((summary, candidate) => {
         const key = candidate.review.lane.toLowerCase() as "high" | "medium" | "low";
@@ -136,6 +151,8 @@ export class CvIntelligenceService {
         mode: "SERVER_AI",
         provider: this.provider.descriptor.provider,
         model: this.provider.descriptor.model,
+        providerReceipt: getProviderReceipt(providerResult),
+        founderStandardProvenance: founderStandardProvenance(standards),
         schemaVersion: CV_INTELLIGENCE_SCHEMA_VERSION,
         promptVersion: CV_INTELLIGENCE_PROMPT_VERSION,
         sourceSha256: exactSha256,
@@ -148,6 +165,9 @@ export class CvIntelligenceService {
         prefillSummary,
       };
     } catch (error) {
+      if (error instanceof TimelineError && ["FOUNDER_STANDARD_RETRIEVAL_UNAVAILABLE", "FOUNDER_STANDARD_RETRIEVAL_LIMIT", "FOUNDER_STANDARD_INTEGRITY_FAILED"].includes(error.code)) {
+        return this.fallback(document, exactSha256, analysisId, "PROVIDER_UNAVAILABLE", "Approved standards could not be verified. Review the limited parser instead; the source was not sent to AI.");
+      }
       if (error instanceof CvIntelligenceProviderError) {
         return this.fallback(document, exactSha256, analysisId, error.code);
       }

@@ -73,17 +73,19 @@ export function resolveFileVaultSourceAdapter(candidate){
 
 export function createAuthenticatedFileVaultSourceAdapter({request}={}){
   if(typeof request!=="function")return createUnavailableFileVaultSourceAdapter();
-  const load=async(query="")=>{
+  const loadPage=async(query="",page=1)=>{
     const normalized=String(query||"").trim();
-    const payload=await request(normalized?`?query=${encodeURIComponent(normalized)}`:"");
-    return Array.isArray(payload?.documents)?payload.documents:[];
+    const params=new URLSearchParams();if(normalized)params.set('query',normalized);if(page>1)params.set('page',String(page));
+    const payload=await request(params.size?`?${params}`:"");
+    return{...payload,documents:Array.isArray(payload?.documents)?payload.documents:[]};
   };
   return Object.freeze({
     kind:SOURCE_KIND,
     connected:true,
     provider:"missionmed-filevault-v2",
-    async listRecent(){return load();},
-    async search(query){return load(query);},
+    async query({query='',page=1}={}){return loadPage(query,page);},
+    async listRecent(){return (await loadPage()).documents;},
+    async search(query){return (await loadPage(query)).documents;},
     async select(documentId,{timelineDocumentId,versionId}={}){
       const id=String(documentId||"").trim();
       if(!/^[1-9][0-9]{0,18}$/.test(id)){
@@ -109,12 +111,16 @@ export function createAuthenticatedFileVaultSourceAdapter({request}={}){
         if(!SMART_FILL_MIME.has(mimeType))throw stableUnavailableError("Smart Fill reads PDF and DOCX documents only.");
         const bytes=decodeBase64ToBytes(encoded);
         const declared=Number(source.byteSize);
-        if(!bytes.byteLength||(Number.isFinite(declared)&&declared>0&&bytes.byteLength!==declared)){
+        if(!bytes.byteLength||!Number.isSafeInteger(declared)||declared!==bytes.byteLength){
           throw stableUnavailableError("Timeline could not safely import that File Vault document.");
         }
         if(bytes.byteLength>SMART_FILL_MAX_BYTES){
           throw stableUnavailableError(`Smart Fill reads documents up to ${Math.round(SMART_FILL_MAX_BYTES/1024/1024)} MB.`);
         }
+        const expectedSha=String(source.sha256||'').toLowerCase();
+        const digest=await crypto.subtle.digest('SHA-256',bytes);
+        const actualSha=[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+        if(!/^[a-f0-9]{64}$/.test(expectedSha)||actualSha!==expectedSha)throw stableUnavailableError('The File Vault version checksum did not match. Please choose the document again.');
         const file=new File([bytes],String(document.name||"MissionMed document"),{
           type:mimeType,lastModified:Date.parse(String(document.updatedAt||""))||Date.now()
         });
@@ -137,6 +143,8 @@ export function normalizeFileVaultSourceDocument(record){
     provider:String(record?.provider||"missionmed-filevault-v2"),
     documentType:String(record?.documentType||"other"),
     versionId:String(record?.versionId||""),
+    versionNumber:Number(record?.versionNumber)||null,
+    isCurrentVersion:record?.isCurrentVersion===true,
     mimeType:String(record?.mimeType||""),
     fileType:String(record?.fileType||record?.mimeType||record?.documentType||"Document"),
     updatedAt:String(record?.updatedAt||""),
@@ -146,7 +154,7 @@ export function normalizeFileVaultSourceDocument(record){
   });
 }
 
-export async function queryFileVaultSource(adapter,{query=""}={}){
+export async function queryFileVaultSource(adapter,{query="",page=1}={}){
   const source=resolveFileVaultSourceAdapter(adapter);
   const normalizedQuery=String(query||"").trim();
   if(!source.connected){
@@ -157,7 +165,8 @@ export async function queryFileVaultSource(adapter,{query=""}={}){
       message:String(source.reason||"File Vault is unavailable.")
     });
   }
-  const records=normalizedQuery
+  const payload=typeof source.query==='function'?await source.query({query:normalizedQuery,page}):null;
+  const records=payload?payload.documents:normalizedQuery
     ?await source.search(normalizedQuery)
     :await source.listRecent();
   const documents=(Array.isArray(records)?records:[])
@@ -167,6 +176,9 @@ export async function queryFileVaultSource(adapter,{query=""}={}){
   return Object.freeze({
     status:documents.length?"ready":"empty",
     query:normalizedQuery,
+    page:Number(payload?.page)||1,
+    pageSize:Number(payload?.pageSize)||20,
+    total:Number(payload?.total)||documents.length,
     documents,
     message:documents.length
       ?"Choose one document to continue."
@@ -192,7 +204,7 @@ export function renderFileVaultSourceChooser(model){
         ${documents.map((document)=>`<label class="fileVaultSourceRow">
           <input type="radio" name="file-vault-source" value="${escapeHtml(document.id)}" data-file-vault-version="${escapeHtml(document.versionId)}">
           <span class="fileVaultSourceIcon" aria-hidden="true">▤</span>
-          <span><strong>${escapeHtml(document.name)}</strong><small>${escapeHtml(document.fileType)}${document.updatedAt?` · ${escapeHtml(document.updatedAt)}`:""}</small></span>
+          <span><strong>${escapeHtml(document.name)}</strong><small>${document.versionNumber?`Version ${escapeHtml(document.versionNumber)}${document.isCurrentVersion?' · Current':''} · `:''}${escapeHtml(document.fileType)}${document.updatedAt?` · ${escapeHtml(document.updatedAt)}`:""}</small></span>
         </label>`).join("")}
       </fieldset>`
     :`<div class="fileVaultSourceEmpty" role="status">
@@ -216,6 +228,7 @@ export function renderFileVaultSourceChooser(model){
     <div class="fileVaultSourceRecent">
       <h3>${model?.query?"Search results":"Recent documents"}</h3>
       ${rows}
+      ${Number(model?.total)>Number(model?.pageSize)?`<nav aria-label="File Vault result pages" style="display:flex;gap:12px;align-items:center;justify-content:space-between"><button type="button" class="btnD alt sm" data-file-vault-page="${Number(model.page)-1}" ${Number(model.page)<=1?'disabled':''}>Previous</button><span>Page ${Number(model.page)} of ${Math.ceil(Number(model.total)/Number(model.pageSize))}</span><button type="button" class="btnD alt sm" data-file-vault-page="${Number(model.page)+1}" ${Number(model.page)*Number(model.pageSize)>=Number(model.total)?'disabled':''}>Next</button></nav>`:''}
     </div>
     <footer>
       <span>${unavailable?"Local preview · no files fabricated":"One document at a time"}</span>

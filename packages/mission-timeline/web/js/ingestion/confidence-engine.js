@@ -8,7 +8,7 @@ export function scoreConfidence({record,dateRange,classification,privacy}){
     factor("title","Clear event title",14,!!record.title&&record.title.length>=3),
     factor("organization","Organization or institution present",8,!!record.organization),
     factor("taxonomy","Canonical event taxonomy match",16,classification.canonicalType!=="UNCLASSIFIED"),
-    factor("range","Complete or explicitly open-ended range",8,classification.timelineKind==="milestone"||!!dateRange?.end||dateRange?.openEnded),
+    factor("range","Complete or explicitly open-ended range",8,classification.timelineKind==="milestone"||!!dateRange?.end?.timelineMonth||dateRange?.openEnded),
     factor("provenance","Source block provenance available",10,(record.sourceBlocks||[]).length>0),
     factor("inferred","Inferred date detail",-14,!!dateRange?.inferred),
     factor("missing_date","Missing start date",-28,!dateRange?.start?.timelineMonth),
@@ -19,6 +19,13 @@ export function scoreConfidence({record,dateRange,classification,privacy}){
   let score=Math.max(0,Math.min(100,50+factors.reduce((sum,item)=>sum+item.points,0)));
   let level=score>=80?"HIGH":score>=60?"MEDIUM":score>=40?"LOW":"NEEDS_REVIEW";
   if(!dateRange?.start?.timelineMonth){score=Math.min(score,35);level="NEEDS_REVIEW";}
+  /* Other strong fields cannot turn a year-only placeholder or a missing range end
+     into a source-backed month. These candidates require an individual date review. */
+  const incompleteRange=record.fields?.dateRangeIncomplete||
+    (classification.timelineKind==="duration"&&!dateRange?.end?.timelineMonth&&!dateRange?.openEnded);
+  if(level==="HIGH"&&(dateRange?.inferred||incompleteRange||dateRange?.warnings?.length)){
+    score=Math.min(score,79);level="MEDIUM";
+  }
   if(privacy?.sensitive||classification.canonicalType==="UNCLASSIFIED"||dateRange?.validOrder===false)level="NEEDS_REVIEW";
   return {score,level,factors,summary:factors.map((item)=>(item.points>=0?"+":"")+item.points+" "+item.label)};
 }

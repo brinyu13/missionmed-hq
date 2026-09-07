@@ -16,7 +16,7 @@ import {
   parseExactDate
 } from "./exact-date-field.js";
 import {installMonthFields,monthFieldMarkup} from "./month-field.js";
-import {createUnverifiedSchoolSubmission} from "./medical-school-registry.js";
+import {createUnverifiedSchoolSubmission,schoolSourceLabel} from "./medical-school-registry.js";
 import {installReviewFinish,renderReviewFinish} from "./review.js";
 import {normalizeSpecialtyId} from "./specialty-taxonomy.js";
 import {escapeHtml,formatMonth,monthIndex,parseMonth,uid} from "./utils.js";
@@ -301,7 +301,7 @@ export function validateCoreInfo(profile={}){
   }
   if(!String(profile.medicalSchoolCountry||"").trim())errors.medicalSchoolCountry="Required.";
   if(!String(profile.graduationDate||"").trim())errors.graduationDate="Required.";
-  else if(!parseMonth(profile.graduationDate))errors.graduationDate="Enter a month and year, like 'Jun 2023'.";
+  else if(!(profile.graduationDatePrecision==='YEAR'&&/^(?:19|20)\d{2}$/.test(profile.graduationDate))&&!parseMonth(profile.graduationDate))errors.graduationDate="Enter a month and year, like 'Jun 2023'.";
   if(!["MD","DO","MBBS","Other"].includes(profile.degree))errors.degree="Required.";
   else if(profile.degree==="Other"&&!String(profile.degreeOther||"").trim())errors.degreeOther="Required.";
   if(
@@ -317,6 +317,8 @@ export function validateExam(exam={}){
   if(!String(exam.examDate||"").trim())errors.examDate="Required.";
   else if(!parseMonth(exam.examDate))errors.examDate="Enter a month and year, like 'Jun 2023'.";
   if(exam.studyStartDate&&!parseMonth(exam.studyStartDate))errors.studyStartDate="Enter a month and year, like 'Jun 2023'.";
+  else if(parseMonth(exam.studyStartDate)&&parseMonth(exam.examDate)&&
+    parseMonth(exam.studyStartDate)>parseMonth(exam.examDate))errors.studyStartDate='Study start must be on or before the exam date.';
   const passFailOnly=!!EXAM_SYSTEMS[exam.system]?.exams
     .find((item)=>item.id===exam.examId)?.passFailOnly;
   const scoredResult=["Passed","Failed"].includes(exam.result);
@@ -787,6 +789,10 @@ export function syncEducationMilestone(document,{idFactory=uid}={}){
   document.events=Array.isArray(document.events)?document.events:[];
   const profile=document.studentProfile||{};
   syncMedicalSchoolNormalizationQueue(document);
+  // Imported profile fields already belong to an accepted education event. Do
+  // not turn their summary into a second public, unprovenanced milestone.
+  const importedAuthority=profile.fieldProvenance?.graduationDate||profile.fieldProvenance?.medicalSchool;
+  if(importedAuthority?.sourceType==='document-intake')return document.events.find(event=>event.id===importedAuthority.sourceEventId)||null;
   const index=document.events.findIndex((event)=>event?.fields?.builderDomain==="core"&&event?.fields?.educationMilestone);
   if(!String(profile.medicalSchool||"").trim()||!parseMonth(profile.graduationDate)){
     if(index>=0)document.events.splice(index,1);
@@ -900,6 +906,7 @@ function renderCore(document){
   const aiPrefill=document.builder?.lastAiPrefill;
   const expected=!!profile.expectedGraduation;
   const unlisted=profile.medicalSchoolEntryMode==="unlisted";
+  const sourceClaimed=profile.medicalSchoolVerificationStatus==="unverified-source-claimed";
   const schoolRecord=profile.medicalSchoolRecord;
   const authorization=normalizeWorkAuthorization(
     profile
@@ -908,10 +915,10 @@ function renderCore(document){
     ?`<section class="school-unlisted-panel" aria-labelledby="school-unlisted-title">
       <div class="school-selector-heading">
         <div>
-          <h2 id="school-unlisted-title">School not listed</h2>
-          <p class="field-help">This entry is unverified and will be queued for administrative normalization.</p>
+          <h2 id="school-unlisted-title">${sourceClaimed?"From your CV — confirm school":"School not listed"}</h2>
+          <p class="field-help">${sourceClaimed?"This name came from your reviewed CV. Check for a registry match to confirm the identity; its absence has not been established.":"This entry is unverified and will be queued for administrative normalization."}</p>
         </div>
-        <button type="button" class="button tertiary" data-use-school-registry>Use school registry</button>
+        <button type="button" class="button tertiary" data-use-school-registry>${sourceClaimed?"Find registry match":"Use school registry"}</button>
       </div>
       ${textField({id:"medicalSchool",label:"School name",value:profile.medicalSchool,required:true,attributes:'data-profile-field="medicalSchool"'})}
       ${typeaheadField({id:"medicalSchoolCountry",label:"Country",value:profile.medicalSchoolCountry,provider:"countries",context:"core-country",required:true,allowFreeText:false})}
@@ -922,9 +929,9 @@ function renderCore(document){
       <div class="school-selector-heading">
         <div>
           <h2 id="school-registry-title">Medical school</h2>
-          <p class="field-help">Choose one authoritative record. Search also matches source aliases and location.</p>
+          <p class="field-help">Choose the matching source identity. Search also matches aliases and recorded locations. Coverage is incomplete.</p>
         </div>
-        <span class="school-source-badge">Global CC0 + U.S. DAPIP</span>
+        <span class="school-source-badge">Global CC0 + U.S. DAPIP + IMG curated</span>
       </div>
       <div class="school-filter-row" aria-label="Medical school filters">
         ${textField({id:"schoolCountryFilter",label:"Country filter (optional)",value:profile.schoolCountryFilter||"",placeholder:"e.g., Ghana, India, Brazil",attributes:'data-profile-field="schoolCountryFilter"'})}
@@ -936,19 +943,20 @@ function renderCore(document){
         <div><strong>${escapeHtml(schoolRecord.canonical_name||profile.medicalSchool)}</strong>
         <span>${escapeHtml([
           schoolRecord.school_type,
-          [schoolRecord.city,schoolRecord.state_or_region].filter(Boolean).join(", "),
+          [schoolRecord.city,schoolRecord.state_or_region].filter(Boolean).join(", ")||"City not recorded by source",
           schoolRecord.country
         ].filter(Boolean).join(" · "))}</span></div>
-        <span class="school-verification">Source-reported</span>
+        <span class="school-verification">${escapeHtml(schoolSourceLabel(schoolRecord))}</span>
       </article>`:""}
+      ${schoolRecord?`<details class="school-source-details"><summary>School source details</summary><p>${escapeHtml(schoolRecord.source||"Source not recorded")} · ${escapeHtml(schoolRecord.dataset_version||"Snapshot date not recorded")}</p><p>${escapeHtml(schoolRecord.source_url_or_reference||"No per-school source reference is attached. This curated identity needs independent confirmation.")}</p><p>A lookup match does not verify current accreditation, school activity, degree authority, or eligibility.</p></details>`:""}
       <button type="button" class="school-not-listed-link" data-school-not-listed>School not listed?</button>
-      <p class="field-help">U.S. MD/DO records use Department of Education source records. Global results are CC0 Wikidata identity matches, not accreditation claims. “School not listed” stays explicitly unverified.</p>
+      <p class="field-help">U.S. MD/DO records use Department of Education snapshots. Global results combine CC0 Wikidata identities and a separate unverified MissionMed curated supplement. No completeness or current accreditation is claimed. “School not listed” stays explicitly unverified.</p>
     </section>`;
   return`<form class="core-info-form" data-core-form novalidate>
-    ${aiPrefill?`<aside class="ai-prefill-summary" role="status"><strong>AI did the first pass.</strong> ${Number(aiPrefill.eventCount)||0} Timeline item(s) were built from your approved source. Check only the highlighted details.</aside>`:""}
+    ${aiPrefill?`<aside class="ai-prefill-summary" role="status"><strong>From your reviewed document.</strong> ${Number(aiPrefill.eventCount)||0} Timeline item(s) were built from your approved source. Check only the highlighted details.</aside>`:""}
     ${textField({id:"fullName",label:"Full name",value:profile.fullName,required:true,placeholder:"e.g., Amara Osei",attributes:'data-profile-field="fullName"'})}
     ${schoolSelector}
-    ${monthFieldMarkup({id:"core-graduation-date",label:expected?"Expected graduation":"Graduation date",value:profile.graduationDate,required:true})}
+    ${profile.graduationDatePrecision==='YEAR'?`${textField({id:"core-graduation-date",label:expected?"Expected graduation year":"Graduation year",value:profile.graduationDate,required:true,inputmode:"numeric",attributes:'pattern="[0-9]{4}" maxlength="4"'})}<p class="field-help">The source states a year only. Graduation month remains unconfirmed.</p>`:monthFieldMarkup({id:"core-graduation-date",label:expected?"Expected graduation":"Graduation date",value:profile.graduationDate,required:true})}
     <label class="check-row"><input type="checkbox" name="expectedGraduation" data-profile-field="expectedGraduation" ${expected?"checked":""}><span>I haven't graduated yet</span></label>
     ${segmented({legend:"Degree",name:"degree",values:["MD","DO","MBBS","Other"],selected:profile.degree,required:true,attributes:'data-profile-group="degree"'})}
     ${profile.degree==="Other"?textField({id:"degreeOther",label:"Specify degree",value:profile.degreeOther,required:true,attributes:'data-profile-field="degreeOther"'}):""}
@@ -983,7 +991,7 @@ function renderExamCard(exam){
   return`<article class="exam-card" data-exam-card data-exam-id="${escapeHtml(exam.id)}">
     <header><h3>${escapeHtml(title)}</h3><button type="button" class="button tertiary" data-delete-exam="${escapeHtml(exam.id)}">Delete</button></header>
     <div class="exam-primary-row">
-      ${monthFieldMarkup({id:`exam-study-${exam.id}`,label:"Started studying (optional)",value:exam.studyStartDate})}
+      ${monthFieldMarkup({id:`exam-study-${exam.id}`,label:"Started studying (optional)",value:exam.studyStartDate,error:validateExam(exam).studyStartDate||''})}
       ${monthFieldMarkup({id:`exam-date-${exam.id}`,label:exam.result==="Awaiting result"?"Exam date (taken)":"Exam date",value:exam.examDate,required:true})}
     </div>
     <div class="exam-secondary-row">
@@ -1400,7 +1408,7 @@ function examRecord(systemId,examId,idFactory){
   };
 }
 
-function installTypeahead(root,store,providers){
+export function installTypeahead(root,store,providers){
   root.querySelectorAll("[data-typeahead-field]").forEach((field)=>{
     const input=field.querySelector('input[role="combobox"]'),list=field.querySelector('[role="listbox"]');
     if(!input||!list)return;
@@ -1506,10 +1514,12 @@ function installTypeahead(root,store,providers){
       input.setAttribute("aria-expanded",String(rows.length>0));
       if(active>=0)input.setAttribute("aria-activedescendant",`${input.id}-option-${active}`);
       else input.removeAttribute("aria-activedescendant");
-      list.querySelectorAll("[data-typeahead-index]").forEach((button)=>button.addEventListener("mousedown",(event)=>{
-        event.preventDefault();
-        commit(rows[Number(button.dataset.typeaheadIndex)]);
-      }));
+      list.querySelectorAll("[data-typeahead-index]").forEach((button)=>{
+        let committed=false;
+        const choose=(event)=>{event.preventDefault();if(committed)return;committed=true;commit(rows[Number(button.dataset.typeaheadIndex)]);};
+        button.addEventListener("mousedown",choose);
+        button.addEventListener("click",choose);
+      });
     };
     const search=async()=>{
       const query=input.value.trim(),token=++request;
@@ -1539,6 +1549,7 @@ function installTypeahead(root,store,providers){
       paint();
     };
     input.addEventListener("input",()=>{search().catch(()=>{rows=typeaheadRows(input.value,[],{allowFreeText,limit:8});paint();});});
+    if(providerKey==="schools")input.addEventListener("focus",()=>{if(input.value.trim())search().catch(()=>{});});
     if(providerKey==="specialties"){
       input.addEventListener("focus",()=>{
         if(!input.value.trim())search().catch(()=>{});
@@ -1671,14 +1682,15 @@ export function installBuilder(root,store,{
     root.querySelector("[data-use-school-registry]")?.addEventListener(
       "click",
       ()=>store.mutate("Use medical school registry",(document)=>{
+        const sourceClaimed=document.studentProfile.medicalSchoolVerificationStatus==="unverified-source-claimed";
         Object.assign(document.studentProfile,{
-          medicalSchool:"",
+          medicalSchool:sourceClaimed?document.studentProfile.medicalSchool:"",
           canonicalSchoolId:"",
           medicalSchoolRecord:null,
-          medicalSchoolCountry:"",
-          medicalSchoolCity:"",
+          medicalSchoolCountry:sourceClaimed?document.studentProfile.medicalSchoolCountry:"",
+          medicalSchoolCity:sourceClaimed?document.studentProfile.medicalSchoolCity:"",
           medicalSchoolEntryMode:"registry",
-          medicalSchoolVerificationStatus:"",
+          medicalSchoolVerificationStatus:sourceClaimed?"unverified-source-claimed":"",
           medicalSchoolNormalizationStatus:"",
           medicalSchoolAnalyticsEligible:false,
           medicalSchoolUnlistedSubmission:null

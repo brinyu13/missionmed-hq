@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline SSO
  * Description: Default-off Timeline identity, LearnDash eligibility, JWT, same-origin API gateway, and Matrix launch seam.
- * Version: 500.0.4
+ * Version: 022.0.0
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: MissionMed
@@ -22,7 +22,7 @@ const MMTL_REST_NAMESPACE = 'missionmed-timeline/v1';
 const MMTL_REST_TOKEN_ROUTE = '/token';
 const MMTL_REST_FILEVAULT_SOURCES_ROUTE = '/file-vault/sources';
 const MMTL_COURSE_ID = 3893;
-const MMTL_VERSION = '500.0.5';
+const MMTL_VERSION = '022.0.0';
 const MMTL_PRINCIPAL_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 // Smart Fill is bounded by the browser parser that reads the handed-off bytes, not by the
 // larger Timeline SOURCE custody ceiling, so the chooser and the transfer agree on one limit.
@@ -36,6 +36,9 @@ function mmtl_defaults() {
         'eligibility_verified' => false,
         'entitlement_version' => '',
         'consent_version' => 'd1-500-v1',
+        'ai_processing_mode' => 'synthetic_only',
+        'ai_consent_version' => '',
+        'founder_standard_manager_wp_user_ids' => array(),
         'base_path' => '/timeline/',
         'matrix_url' => home_url('/member-dashboard/'),
         'api_origin' => '',
@@ -63,6 +66,9 @@ function mmtl_settings() {
     $settings['eligibility_verified'] = mmtl_bool($settings['eligibility_verified'] ?? false);
     $settings['entitlement_version'] = sanitize_text_field((string) ($settings['entitlement_version'] ?? ''));
     $settings['consent_version'] = sanitize_key((string) ($settings['consent_version'] ?? 'd1-500-v1'));
+    $settings['ai_processing_mode'] = ($settings['ai_processing_mode'] ?? '') === 'consented_students' ? 'consented_students' : 'synthetic_only';
+    $settings['ai_consent_version'] = sanitize_key((string) ($settings['ai_consent_version'] ?? ''));
+    $settings['founder_standard_manager_wp_user_ids'] = array_slice(array_values(array_unique(array_filter(array_map('absint', (array) ($settings['founder_standard_manager_wp_user_ids'] ?? array()))))), 0, 10);
     $settings['base_path'] = '/' . trim((string) $settings['base_path'], '/') . '/';
     $settings['matrix_url'] = esc_url_raw((string) $settings['matrix_url']);
     $settings['api_origin'] = untrailingslashit(esc_url_raw((string) $settings['api_origin']));
@@ -168,6 +174,7 @@ function mmtl_eligibility_state($user) {
         );
     }
     $consent = mmtl_remote_sync_consent((int) $user->ID, $settings);
+    $ai_consent = mmtl_ai_consent((int) $user->ID, $settings);
     return array(
         'role' => $administrator ? 'PROGRAM_ADMIN' : 'STUDENT',
         'administrator' => $administrator,
@@ -179,6 +186,12 @@ function mmtl_eligibility_state($user) {
         'remote_sync_allowed' => $administrator || !empty($consent['granted']),
         'consent_version' => (string) $consent['version'],
         'consented_at' => (string) $consent['recorded_at'],
+        'admin_workspace' => $administrator && $canary,
+        'founder_standards_manager' => $administrator && $canary && in_array((int) $user->ID, $settings['founder_standard_manager_wp_user_ids'], true),
+        'ai_consent' => !$administrator && !empty($ai_consent['granted']),
+        'ai_consent_version' => (string) $ai_consent['version'],
+        'ai_consented_at' => (string) $ai_consent['recorded_at'],
+        'ai_processing_available' => $settings['ai_processing_mode'] === 'consented_students' && $settings['ai_consent_version'] !== '',
     );
 }
 
@@ -325,7 +338,16 @@ function mmtl_issue_jwt($user, $access) {
         'timeline_remote_sync_consent' => !empty($access['remote_sync_consent']),
         'timeline_remote_sync_allowed' => !empty($access['remote_sync_allowed']),
         'timeline_consent_version' => (string) $access['consent_version'],
+        'timeline_admin_workspace' => !empty($access['admin_workspace']),
+        'timeline_founder_standards_manager' => !empty($access['founder_standards_manager']),
+        'timeline_ai_consent' => !empty($access['ai_consent']),
+        'timeline_ai_consent_version' => (string) ($access['ai_consent_version'] ?? ''),
+        'timeline_ai_consented_at' => (string) ($access['ai_consented_at'] ?? ''),
     );
+    if (!empty($access['admin_workspace']) && !empty($access['admin_subject_principal_id'])) {
+        $payload['timeline_admin_subject_principal_id'] = (string) $access['admin_subject_principal_id'];
+        $payload['timeline_admin_subject_wp_user_id'] = (int) $access['admin_subject_wp_user_id'];
+    }
     $encoded_header = mmtl_base64url_encode(wp_json_encode($header));
     $encoded_payload = mmtl_base64url_encode(wp_json_encode($payload));
     $signed = $encoded_header . '.' . $encoded_payload;
@@ -374,6 +396,11 @@ function mmtl_verify_jwt($token, $expected_principal, $expected_wp_user_id, $acc
         || (bool) ($claims['timeline_remote_sync_consent'] ?? false) !== !empty($access['remote_sync_consent'])
         || (bool) ($claims['timeline_remote_sync_allowed'] ?? false) !== !empty($access['remote_sync_allowed'])
         || !hash_equals((string) $access['consent_version'], (string) ($claims['timeline_consent_version'] ?? ''))
+        || (bool) ($claims['timeline_admin_workspace'] ?? false) !== !empty($access['admin_workspace'])
+        || (bool) ($claims['timeline_founder_standards_manager'] ?? false) !== !empty($access['founder_standards_manager'])
+        || (bool) ($claims['timeline_ai_consent'] ?? false) !== !empty($access['ai_consent'])
+        || !hash_equals((string) ($access['ai_consent_version'] ?? ''), (string) ($claims['timeline_ai_consent_version'] ?? ''))
+        || !hash_equals((string) ($access['ai_consented_at'] ?? ''), (string) ($claims['timeline_ai_consented_at'] ?? ''))
         || (int) ($claims['nbf'] ?? 0) > $now + 5
         || (int) ($claims['exp'] ?? 0) <= $now
         || !mmtl_valid_uuid((string) ($claims['jti'] ?? ''))
@@ -588,7 +615,7 @@ function mmtl_filevault_source_smart_fill_ready($descriptor) {
  * Return a storage-opaque descriptor. Signed URLs, object keys, document
  * contents, comments, advisor notes, and unrelated metadata are never copied.
  */
-function mmtl_filevault_source_descriptor($record, $owner_id, $require_version = false) {
+function mmtl_filevault_source_descriptor($record, $owner_id, $require_version = false, $requested_version_id = '') {
     if (!is_array($record) || absint($record['owner_id'] ?? 0) !== absint($owner_id)) {
         return null;
     }
@@ -606,7 +633,9 @@ function mmtl_filevault_source_descriptor($record, $owner_id, $require_version =
     $version = null;
     $current_number = (int) $declared_current;
     foreach ((array) ($record['versions'] ?? array()) as $candidate) {
-        if (is_array($candidate) && absint($candidate['number'] ?? 0) === $current_number) {
+        if (is_array($candidate) && ($requested_version_id !== ''
+            ? hash_equals((string) ($candidate['version_uuid'] ?? ''), (string) $requested_version_id)
+            : absint($candidate['number'] ?? 0) === $current_number)) {
             $version = $candidate;
             break;
         }
@@ -638,6 +667,7 @@ function mmtl_filevault_source_descriptor($record, $owner_id, $require_version =
         'documentType' => $document_type,
         'versionId' => $version_id,
         'versionNumber' => absint($version['number'] ?? $current_number),
+        'isCurrentVersion' => absint($version['number'] ?? 0) === $current_number,
         'verificationState' => $verification_state,
         'mimeType' => sanitize_text_field((string) ($version['mime_type'] ?? $record['mime_type'] ?? '')),
         'sizeBytes' => isset($version['file_size']) ? absint($version['file_size']) : (isset($record['file_size']) ? absint($record['file_size']) : null),
@@ -697,18 +727,25 @@ function mmtl_filevault_sources_endpoint($request) {
     $query = function_exists('mb_substr') ? mb_substr($query, 0, 80) : substr($query, 0, 80);
     $documents = array();
     foreach ($records as $record) {
-        $descriptor = mmtl_filevault_source_descriptor($record, $owner_id, true);
-        if ($descriptor === null
-            || !mmtl_filevault_source_smart_fill_ready($descriptor)
-            || ($query !== '' && stripos($descriptor['name'], $query) === false)) {
-            continue;
-        }
-        $documents[] = $descriptor;
-        if (count($documents) >= 20) {
-            break;
+        foreach ((array) ($record['versions'] ?? array()) as $version) {
+            $version_id = is_array($version) ? (string) ($version['version_uuid'] ?? '') : '';
+            if ($version_id === '') continue;
+            $descriptor = mmtl_filevault_source_descriptor($record, $owner_id, true, $version_id);
+            if ($descriptor === null
+                || !mmtl_filevault_source_smart_fill_ready($descriptor)
+                || ($query !== '' && stripos($descriptor['name'], $query) === false)) continue;
+            $documents[] = $descriptor;
         }
     }
-    return mmtl_filevault_source_response(array('documents' => $documents));
+    usort($documents, static function($a, $b) {
+        $recent = strcmp($b['updatedAt'], $a['updatedAt']);
+        if ($recent !== 0) return $recent;
+        $file = strcmp($a['id'], $b['id']);
+        return $file !== 0 ? $file : $b['versionNumber'] - $a['versionNumber'];
+    });
+    $total = count($documents);
+    $page = max(1, min(max(1, (int) ceil($total / 20)), absint($request->get_param('page')) ?: 1));
+    return mmtl_filevault_source_response(array('documents' => array_slice($documents, ($page - 1) * 20, 20), 'page' => $page, 'pageSize' => 20, 'total' => $total));
 }
 
 function mmtl_filevault_source_endpoint($request) {
@@ -742,12 +779,13 @@ function mmtl_filevault_ingestion_endpoint($request) {
         return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
     }
     // Re-read the owner-scoped V2 bootstrap at ingestion time. A chooser row is
-    // never authority for a later import, and a version change must fail closed.
+    // never authority for a later import. Resolve the exact requested clean version
+    // again, including historical versions; never substitute the current version.
     $record = mmtl_filevault_source_record_for_owner($id, get_current_user_id());
     if (is_wp_error($record)) {
         return $record;
     }
-    $descriptor = mmtl_filevault_source_descriptor($record, get_current_user_id(), true);
+    $descriptor = mmtl_filevault_source_descriptor($record, get_current_user_id(), true, $requested_version_id);
     if ($descriptor === null || !hash_equals((string) $descriptor['versionId'], $requested_version_id)) {
         return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
     }
@@ -910,10 +948,20 @@ function mmtl_ajax_bootstrap() {
         'consent_nonce' => wp_create_nonce('missionmed_timeline_remote_sync_consent'),
         'consent_action' => home_url($settings['base_path']),
         'consent_endpoint' => admin_url('admin-ajax.php'),
+        'admin_endpoint' => rest_url(MMTL_REST_NAMESPACE . '/admin'),
+        'admin_workspace' => !empty($access['admin_workspace']),
+        'founder_standards_manager' => !empty($access['founder_standards_manager']),
+        'ai_processing_available' => !empty($access['ai_processing_available']),
+        'ai_consent' => !empty($access['ai_consent']),
+        'ai_consent_version' => (string) $access['ai_consent_version'],
+        'ai_consented_at' => (string) $access['ai_consented_at'],
+        'ai_consent_nonce' => wp_create_nonce('missionmed_timeline_ai_consent'),
+        'ai_consent_endpoint' => rest_url(MMTL_REST_NAMESPACE . '/ai-consent'),
         'user' => array(
             'wp_user_id' => (int) $user->ID,
             'principal_id' => $principal,
             'role' => (string) $access['role'],
+            'display_name' => (string) $user->display_name,
             'synthetic_fixture' => get_user_meta((int) $user->ID, MMTL_SYNTHETIC_TEST_META, true) === '1',
         ),
     ));
@@ -1019,6 +1067,20 @@ function mmtl_proxy_api_request() {
     if (!preg_match('#^v1(?:/[A-Za-z0-9._~-]+)*$#', $path)) {
         mmtl_gateway_error('route_invalid', 'Timeline API route is invalid.', 404);
     }
+    // Only the dedicated capability-checked WP directory bridge may supply enrollment IDs.
+    if (preg_match('#^v1/admin(?:/|$)#', $path)) {
+        mmtl_gateway_error('admin_directory_route_required', 'Open the Timeline administrator workspace.', 403);
+    }
+    if (!empty($access['admin_workspace']) && preg_match('#^v1/(?:documents|objects)(?:/|$)#', $path)) {
+        $subject = mmtl_admin_subject(absint($_SERVER['HTTP_X_TIMELINE_SUBJECT_WP_USER_ID'] ?? 0));
+        if (is_wp_error($subject)) mmtl_gateway_error($subject->get_error_code(), $subject->get_error_message(), 403);
+        if ($subject['principal_id'] === '') mmtl_gateway_error('admin_subject_unavailable', 'This student has not started an available Timeline.', 403);
+        $access['admin_subject_principal_id'] = $subject['principal_id'];
+        $access['admin_subject_wp_user_id'] = $subject['wp_user_id'];
+        $scoped = mmtl_issue_jwt($user, $access);
+        if (is_wp_error($scoped)) mmtl_gateway_error('timeline_signer_unavailable', 'Timeline authorization is unavailable.', 503);
+        $token = $scoped['token'];
+    }
     $settings = mmtl_settings();
     if ($settings['api_origin'] === '' || !wp_http_validate_url($settings['api_origin'])) {
         mmtl_gateway_error('timeline_api_unavailable', 'Timeline API is not configured.', 503);
@@ -1050,6 +1112,8 @@ function mmtl_proxy_api_request() {
     }
     $request_id = sanitize_text_field($_SERVER['HTTP_X_REQUEST_ID'] ?? wp_generate_uuid4());
     $is_ai_route = preg_match('#/(?:quality/analyze|intake/(?:analyze|rescue))$#', $path) === 1;
+    // JWT verification above compares AI consent to the current WP record on every request.
+    // The API may still run deterministic parsing when optional provider consent is absent.
     $content_type = 'application/json';
     if ($is_media_upload) {
         $content_type = strtolower(trim((string) wp_unslash($_SERVER['CONTENT_TYPE'] ?? '')));
@@ -1156,3 +1220,5 @@ function mmtl_navigation_item($items) {
     return $items;
 }
 add_filter('missionmed_matrix_product_navigation', 'mmtl_navigation_item');
+
+require_once __DIR__ . '/includes/workspace-022.php';

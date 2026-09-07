@@ -1,8 +1,40 @@
 const DATE_HINT=/\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|spring|summer|fall|autumn|winter|early|mid|late)\.?\s+(?:\d{1,2},?\s+)?(?:19|20)\d{2}\b|\b\d{1,2}\/(?:19|20)\d{2}\b|\b(?:19|20)\d{2}\b|present|current/i;
 /* ISO first so "2023-01-15" is captured whole; the bare-year branch would otherwise stop at
    "2023" and leave "-01-15" glued to the title. */
-const DATE_POINT="(?:(?:19|20)\\d{2}-\\d{2}(?:-\\d{2})?|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|spring|summer|fall|autumn|winter|early|mid|late)\\.?\\s+(?:\\d{1,2},?\\s+)?(?:19|20)\\d{2}|\\d{1,2}/(?:19|20)\\d{2}|(?:19|20)\\d{2})";
+const DATE_POINT="(?:(?:19|20)\\d{2}-\\d{2}(?:-\\d{2})?|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|spring|summer|fall|autumn|winter|early|mid|late)\\.?\\s+(?:\\d{1,2},?\\s+)?(?:19|20)\\d{2}|\\d{1,2}/(?:\\d{1,2}/)?(?:19|20)\\d{2}|(?:19|20)\\d{2})";
 const DATE_RANGE=new RegExp(`(${DATE_POINT}(?:\\s*(?:-|–|—|to|through|until)\\s*(?:present|current|ongoing|${DATE_POINT}))?)`,"i");
+const DATE_CONTINUATION_END=new RegExp(`${DATE_POINT}\\s*(?:-|–|—|to|through|until)\\s*$`,"i");
+const DATE_ONLY=new RegExp(`^(?:${DATE_POINT}|present|current|ongoing)\\s*\\.?$`,"i");
+const DATE_SPLIT_MONTH_END=new RegExp(`${DATE_POINT}\\s*(?:-|–|—|to|through|until)\\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?\\s*$`,"i");
+const YEAR_ONLY=/^(?:19|20)\d{2}$/;
+
+/* PDF layout may wrap the end of a range onto the next line. Join only an explicit
+   unfinished range followed by a date-only continuation in the same page/section;
+   retain the original blocks for provenance instead of creating a synthetic excerpt. */
+function joinDateContinuations(blocks){
+  const joined=[];
+  for(let index=0;index<blocks.length;index++){
+    const block=blocks[index],next=blocks[index+1];
+    if(next&&next.pageNumber===block.pageNumber&&next.section===block.section&&
+      next.lineNumber===block.lineNumber+1&&
+      ((DATE_CONTINUATION_END.test(block.text)&&DATE_ONLY.test(next.text))||
+        (DATE_SPLIT_MONTH_END.test(block.text)&&YEAR_ONLY.test(next.text)))){
+      joined.push({...block,text:`${block.text} ${next.text}`,sourceBlocks:[block,next]});
+      index++;
+    }else joined.push(block);
+  }
+  return joined;
+}
+
+function recordFromPublication(block){
+  const match=block.text.match(/^(publication:\s*.+?)\s+((?:19|20)\d{2})\.?$/i);
+  if(!match)return null;
+  return{
+    section:block.section,pageNumber:block.pageNumber,pageNumbers:[block.pageNumber],
+    sourceBlocks:[block],title:match[1].trim(),organization:"",location:"",dates:match[2],
+    description:"",experienceType:"",specialty:"",rawText:block.text,fields:{}
+  };
+}
 
 function recordFromPipe(block){
   const parts=block.text.split("|").map((part)=>part.trim()).filter(Boolean);
@@ -157,11 +189,12 @@ function orientCredentialRecord(record){
 }
 
 export function parseCvBlocks(blocks){
+  blocks=joinDateContinuations(blocks||[]);
   const records=[];
   const consumed=new Set();
   const orientation=sectionEntryOrientation(blocks);
   (blocks||[]).forEach((block,index)=>{
-    const record=recordFromPipe(block)||recordFromFreeLine(block);
+    const record=recordFromPublication(block)||recordFromPipe(block)||recordFromFreeLine(block);
     if(!record)return;
     /* A dated line carrying no organization is usually one line of a two-line entry. The
        institution may sit either side of it, so consider both neighbours and take only one
@@ -194,7 +227,17 @@ export function parseCvBlocks(blocks){
     if(record){records.push(record);record.sourceBlocks.forEach((item)=>consumed.add(item.id));}
   });
   const keyValue=parseKeyValueGroups((blocks||[]).filter((block)=>!consumed.has(block.id)));
-  return records.concat(keyValue).map(orientCredentialRecord);
+  return records.concat(keyValue).sort((left,right)=>
+    left.pageNumber-right.pageNumber||
+    (left.sourceBlocks[0]?.lineNumber||0)-(right.sourceBlocks[0]?.lineNumber||0)
+  ).map((record)=>{
+    const sourceBlocks=record.sourceBlocks.flatMap((block)=>block.sourceBlocks||[block]);
+    const rawText=sourceBlocks.map((block)=>block.text).join("\n");
+    return orientCredentialRecord({...record,sourceBlocks,rawText,fields:{
+      ...record.fields,
+      ...(DATE_CONTINUATION_END.test(rawText)||DATE_SPLIT_MONTH_END.test(rawText)?{dateRangeIncomplete:true}:{})
+    }});
+  });
 }
 
 export function parseResumeBlocks(blocks){return parseCvBlocks(blocks).map((record)=>({...record,parserHint:"resume"}));}

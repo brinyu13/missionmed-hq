@@ -116,11 +116,31 @@ export class WordPressTimelineJwtVerifier {
       throw new TimelineError("PRINCIPAL_UNAVAILABLE", "Timeline principal is unavailable.", 403);
     }
 
+    // These capabilities come only from the verified current WordPress assertion.
+    // No body, local role lens or remote-save consent can grant AI processing.
+    const consentVersion = String(payload.timeline_ai_consent_version ?? "");
+    const consentedAt = String(payload.timeline_ai_consented_at ?? "");
+    const consentTime = Date.parse(consentedAt);
+    const aiConsent = role === "STUDENT" && payload.timeline_ai_consent === true
+      && /^[a-zA-Z0-9._:-]{1,160}$/.test(consentVersion)
+      && /^\d{4}-\d{2}-\d{2}T/.test(consentedAt)
+      && Number.isFinite(consentTime) && consentTime <= this.clock().getTime()
+      ? { version: consentVersion, consentedAt: new Date(consentTime).toISOString(), source: "WORDPRESS_VERIFIED" as const }
+      : undefined;
+
     return {
       principalId,
       wpUserId,
       isWordpressAdministrator,
       hasLearndash3893Access,
+      ...(aiConsent ? { aiConsent } : {}),
+      founderStandardsManager: role === "PROGRAM_ADMIN" && isWordpressAdministrator && payload.timeline_founder_standards_manager === true,
+      adminWorkspace: role === "PROGRAM_ADMIN" && isWordpressAdministrator && payload.timeline_admin_workspace === true,
+      ...(role === "PROGRAM_ADMIN" && isWordpressAdministrator && payload.timeline_admin_workspace === true
+        && UUID_PATTERN.test(String(payload.timeline_admin_subject_principal_id ?? "").toLowerCase())
+        && Number.isSafeInteger(payload.timeline_admin_subject_wp_user_id) && Number(payload.timeline_admin_subject_wp_user_id) > 0
+        ? { adminSubjectPrincipalId: String(payload.timeline_admin_subject_principal_id).toLowerCase(), adminSubjectWpUserId: Number(payload.timeline_admin_subject_wp_user_id) }
+        : {}),
       role,
       programIds: [...principal.programIds],
       assignedDocumentIds: [...principal.assignedDocumentIds],

@@ -27,6 +27,7 @@ import { TimelineError } from "../core/errors.js";
 import type { TimelineRepository } from "../persistence/repository.js";
 import { decide, type AuthorizedResource } from "../security/authorization.js";
 import { assertContentSafe } from "../security/content-policy.js";
+import { sanitizeProviderMetadata022, type ProviderAuthenticityService022 } from "../intelligence/provider-authenticity-022.js";
 
 export interface CreateDocumentInput {
   id?: string;
@@ -54,10 +55,11 @@ export class TimelineService {
   constructor(
     readonly repository: TimelineRepository,
     private readonly clock: () => Date = () => new Date(),
+    private readonly providerAuthenticity?: ProviderAuthenticityService022,
   ) {}
 
   withRepository(repository: TimelineRepository): TimelineService {
-    return new TimelineService(repository, this.clock);
+    return new TimelineService(repository, this.clock, this.providerAuthenticity);
   }
 
   async createDocument(context: PrincipalContext, input: CreateDocumentInput): Promise<DocumentRecord> {
@@ -68,7 +70,7 @@ export class TimelineService {
     }
     assertContentSafe({ title: input.title });
     const createdAt = now(this.clock);
-    const document: TimelineDocument = {
+    const document: TimelineDocument = sanitizeProviderMetadata022({
       ...(clone(input.document ?? {}) as TimelineDocument),
       id: input.id ?? newId("timeline"),
       schemaVersion: "d1-timeline-document-409.1",
@@ -84,7 +86,7 @@ export class TimelineService {
         source: "mission-timeline-repo-package",
         updatedAt: createdAt,
       },
-    };
+    }, this.providerAuthenticity);
     validateTimelineDocument(document);
     this.assertDocumentContentSafe(document);
     const record: DocumentRecord = {
@@ -109,9 +111,9 @@ export class TimelineService {
   }
 
   async listOwnDocuments(context: PrincipalContext): Promise<DocumentRecord[]> {
-    if (context.role === "STUDENT") return this.repository.listDocumentsForOwner(context.principalId);
+    if (context.role === "STUDENT") return (await this.repository.listDocumentsForOwner(context.principalId)).map(record => this.sanitizeRecord(record));
     if (context.role === "PROGRAM_ADMIN" || context.role === "ADVISOR" || context.role === "FACULTY") {
-      return this.repository.listAccessibleDocuments(context.principalId);
+      return (await this.repository.listAccessibleDocuments(context.principalId)).map(record => this.sanitizeRecord(record));
     }
     throw new TimelineError("FORBIDDEN", "Timeline document listing is not available.", 403);
   }
@@ -137,7 +139,7 @@ export class TimelineService {
         currentRevision: record.document.revision,
       });
     }
-    const sanitized = clone(snapshot);
+    let sanitized = clone(snapshot);
     if (!CHECKPOINT_SOURCE_SCHEMAS.has(String(sanitized.schemaVersion ?? ""))) {
       throw new TimelineError("DOCUMENT_SCHEMA_UNSUPPORTED", "Timeline document schema is not supported.", 400);
     }
@@ -146,6 +148,7 @@ export class TimelineService {
     sanitized.studentOwnerId = record.document.studentOwnerId;
     sanitized.programId = record.document.programId;
     sanitized.revision = baseRevision;
+    sanitized = sanitizeProviderMetadata022(sanitized, this.providerAuthenticity);
     validateTimelineDocument(sanitized);
     this.assertDocumentContentSafe(sanitized);
     const createdAt = now(this.clock);
@@ -172,13 +175,14 @@ export class TimelineService {
   ): Promise<TimelineVersion> {
     const record = await this.requireDocument(documentId);
     await this.require(context, "version:create", this.resource(record), "document", documentId);
-    const next = clone(snapshot);
+    let next = clone(snapshot);
     next.id = documentId;
     next.schemaVersion = "d1-timeline-document-409.1";
     next.studentOwnerId = record.document.studentOwnerId;
     next.programId = record.document.programId;
     next.revision = expectedRevision + 1;
     next.metadata = { ...(next.metadata ?? {}), updatedAt: now(this.clock), applicationVersion: "D1-412.0" };
+    next = sanitizeProviderMetadata022(next, this.providerAuthenticity);
     validateTimelineDocument(next);
     this.assertDocumentContentSafe(next);
     const contentSha256 = canonicalDocumentHash(next);
@@ -444,7 +448,11 @@ export class TimelineService {
   private async requireDocument(documentId: string): Promise<DocumentRecord> {
     const record = await this.repository.getDocument(documentId);
     if (!record || record.status === "DELETED") throw new TimelineError("DOCUMENT_NOT_FOUND", "Document not found.", 404);
-    return record;
+    return this.sanitizeRecord(record);
+  }
+
+  private sanitizeRecord(record: DocumentRecord): DocumentRecord {
+    return { ...record, document: sanitizeProviderMetadata022(record.document, this.providerAuthenticity) };
   }
 
   private resource(record: DocumentRecord): AuthorizedResource {

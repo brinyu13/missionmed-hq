@@ -1,0 +1,725 @@
+{
+  "schemaVersion": "d1-uxr-002.1",
+  "id": "d1-uxr-002-local-timeline",
+  "title": "Timeline Builder",
+  "createdAt": "2026-09-06T21:05:44.794Z",
+  "updatedAt": "2026-09-06T21:25:37.796Z",
+  "studentProfile": {
+    "fullName": "Synthetic Fidelity Review",
+    "medicalSchool": "",
+    "canonicalSchoolId": "",
+    "medicalSchoolRecord": null,
+    "medicalSchoolCountry": "",
+    "medicalSchoolEntryMode": "registry",
+    "medicalSchoolVerificationStatus": "",
+    "medicalSchoolNormalizationStatus": "",
+    "medicalSchoolAnalyticsEligible": false,
+    "medicalSchoolUnlistedSubmission": null,
+    "medicalSchoolCity": "",
+    "graduationDate": "",
+    "expectedGraduation": false,
+    "degree": "",
+    "degreeOther": "",
+    "visaStatus": "",
+    "currentUsWorkAuthorization": "",
+    "workAuthorizationOther": "",
+    "eadStatus": "",
+    "residencyVisaTypesOpenTo": "",
+    "interviewSeason": "",
+    "graduationDatePrecision": "",
+    "graduationExpected": false,
+    "specialtyGoal": ""
+  },
+  "categories": [
+    {
+      "id": "education",
+      "label": "Education",
+      "color": "#2C6E8F",
+      "icon": "graduation-cap"
+    },
+    {
+      "id": "exams",
+      "label": "Exams",
+      "color": "#3A78C9",
+      "icon": "badge-check"
+    },
+    {
+      "id": "clinical",
+      "label": "US Clinical",
+      "color": "#C8641C",
+      "icon": "stethoscope"
+    },
+    {
+      "id": "work",
+      "label": "Work",
+      "color": "#3F9B52",
+      "icon": "briefcase-medical"
+    },
+    {
+      "id": "research",
+      "label": "Research",
+      "color": "#C9A227",
+      "icon": "microscope"
+    },
+    {
+      "id": "personal",
+      "label": "Personal",
+      "color": "#8A5BBF",
+      "icon": "heart"
+    }
+  ],
+  "events": [
+    {
+      "id": "personal-event-a6b0a0ee-3ec5-490d-ad03-090157f7bef2",
+      "title": "Family care — phase 1 (synthetic)",
+      "categoryId": "personal",
+      "eventType": "duration",
+      "startDate": "2021-01",
+      "endDate": "2021-12",
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "guided-builder",
+      "provenance": [],
+      "fields": {
+        "happened": "Family care — phase 1 (synthetic)",
+        "whenKind": "Date range",
+        "fromCountry": "",
+        "fromCountryCode": "",
+        "fromCountryFlag": "",
+        "toCountry": "",
+        "toCountryCode": "",
+        "toCountryFlag": "",
+        "icon": "star",
+        "iconStyle": "Color",
+        "builderDomain": "personal",
+        "builderEntryId": "personal-entry-814639e4-c45e-4fac-845e-2cdfed8cc131",
+        "legacy407fCategory": "personal"
+      }
+    },
+    {
+      "id": "personal-event-15d99820-c40e-411f-b16e-fdc78281828d",
+      "title": "Family care — phase 2 (synthetic)",
+      "categoryId": "personal",
+      "eventType": "duration",
+      "startDate": "2022-01",
+      "endDate": "2024-12",
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "guided-builder",
+      "provenance": [],
+      "fields": {
+        "happened": "Family care — phase 2 (synthetic)",
+        "whenKind": "Date range",
+        "fromCountry": "",
+        "fromCountryCode": "",
+        "fromCountryFlag": "",
+        "toCountry": "",
+        "toCountryCode": "",
+        "toCountryFlag": "",
+        "icon": "star",
+        "iconStyle": "Color",
+        "builderDomain": "personal",
+        "builderEntryId": "personal-entry-7eea859d-5fc0-41ea-a65d-28ef0b0d6406",
+        "legacy407fCategory": "personal"
+      }
+    },
+    {
+      "id": "explanation-27d633e3-6ca9-4f4d-a887-a05513672f5e",
+      "title": "Synthetic example: family support during this period.",
+      "startDate": "2022-01",
+      "visibilityState": "INTERVIEWER_SAFE",
+      "fields": {
+        "explanationText": "Synthetic example: family support during this period.",
+        "target": {
+          "kind": "event",
+          "eventId": "personal-event-15d99820-c40e-411f-b16e-fdc78281828d",
+          "date": "",
+          "region": "",
+          "x": 960,
+          "y": 540
+        },
+        "builderDomain": "explanation",
+        "elementType": "explanation",
+        "x": 1180,
+        "y": 144,
+        "width": 360,
+        "height": 126,
+        "leaderEnabled": true,
+        "legacy407fCategory": "personal"
+      },
+      "categoryId": "personal",
+      "eventType": "milestone",
+      "endDate": null,
+      "openEnded": false,
+      "siteName": "",
+      "notes": "",
+      "sourceType": "guided-explanation",
+      "lane": null,
+      "provenance": []
+    },
+    {
+      "id": "exam-usmle-step-1-attempt-1-study-window",
+      "examTypeId": "usmle-step-1",
+      "systemId": "usmle",
+      "attemptId": "exam-usmle-step-1-attempt-1",
+      "categoryId": "exams",
+      "eventType": "duration",
+      "studyPeriodKind": "entered",
+      "title": "Step 1 — study period",
+      "startDate": "2021-01",
+      "endDate": "2022-01",
+      "openEnded": false,
+      "automatic": false,
+      "sourceType": "exam-workflow",
+      "visibilityState": "INTERVIEWER_SAFE",
+      "fields": {
+        "attemptId": "exam-usmle-step-1-attempt-1",
+        "automatic": false,
+        "builderDomain": "exams",
+        "builderEntryId": "exam-usmle-step-1-attempt-1",
+        "isStudyPeriod": true,
+        "studyPeriod": true
+      },
+      "isStudyPeriod": true
+    },
+    {
+      "id": "exam-usmle-step-1-attempt-1-milestone",
+      "examTypeId": "usmle-step-1",
+      "systemId": "usmle",
+      "attemptId": "exam-usmle-step-1-attempt-1",
+      "attemptNumber": 1,
+      "attemptLabel": null,
+      "categoryId": "exams",
+      "eventType": "milestone",
+      "title": "Step 1",
+      "startDate": "2022-01",
+      "endDate": null,
+      "openEnded": false,
+      "result": "Failed",
+      "score": "",
+      "showScoreOnTimeline": false,
+      "dangerDot": true,
+      "awaitingResult": false,
+      "tone": "neutral",
+      "sourceType": "exam-workflow",
+      "visibilityState": "INTERVIEWER_SAFE",
+      "fields": {
+        "attemptId": "exam-usmle-step-1-attempt-1",
+        "attemptNumber": 1,
+        "result": "Failed",
+        "score": "",
+        "showScoreOnTimeline": false,
+        "builderDomain": "exams",
+        "builderEntryId": "exam-usmle-step-1-attempt-1",
+        "isStudyPeriod": false,
+        "studyPeriod": false
+      },
+      "isStudyPeriod": false
+    },
+    {
+      "id": "exam-usmle-step-1-attempt-2-study-window",
+      "examTypeId": "usmle-step-1",
+      "systemId": "usmle",
+      "attemptId": "exam-usmle-step-1-attempt-2",
+      "categoryId": "exams",
+      "eventType": "duration",
+      "studyPeriodKind": "entered",
+      "title": "Step 1 — study period",
+      "startDate": "2022-02",
+      "endDate": "2022-05",
+      "openEnded": false,
+      "automatic": false,
+      "sourceType": "exam-workflow",
+      "visibilityState": "INTERVIEWER_SAFE",
+      "fields": {
+        "attemptId": "exam-usmle-step-1-attempt-2",
+        "automatic": false,
+        "builderDomain": "exams",
+        "builderEntryId": "exam-usmle-step-1-attempt-2",
+        "isStudyPeriod": true,
+        "studyPeriod": true
+      },
+      "isStudyPeriod": true
+    },
+    {
+      "id": "exam-usmle-step-1-attempt-2-milestone",
+      "examTypeId": "usmle-step-1",
+      "systemId": "usmle",
+      "attemptId": "exam-usmle-step-1-attempt-2",
+      "attemptNumber": 2,
+      "attemptLabel": "2nd attempt",
+      "categoryId": "exams",
+      "eventType": "milestone",
+      "title": "Step 1 · 2nd attempt",
+      "startDate": "2022-05",
+      "endDate": null,
+      "openEnded": false,
+      "result": "Passed",
+      "score": "",
+      "showScoreOnTimeline": false,
+      "dangerDot": false,
+      "awaitingResult": false,
+      "tone": "neutral",
+      "sourceType": "exam-workflow",
+      "visibilityState": "INTERVIEWER_SAFE",
+      "fields": {
+        "attemptId": "exam-usmle-step-1-attempt-2",
+        "attemptNumber": 2,
+        "result": "Passed",
+        "score": "",
+        "showScoreOnTimeline": false,
+        "builderDomain": "exams",
+        "builderEntryId": "exam-usmle-step-1-attempt-2",
+        "isStudyPeriod": false,
+        "studyPeriod": false
+      },
+      "isStudyPeriod": false
+    }
+  ],
+  "exams": [
+    {
+      "id": "exam-usmle-step-1-attempt-1",
+      "system": "USMLE",
+      "examId": "step-1",
+      "name": "Step 1",
+      "passFailOnly": true,
+      "attempt": 1,
+      "result": "Failed",
+      "score": "",
+      "examDate": "2022-01",
+      "studyStartDate": "2021-01",
+      "showScoreOnTimeline": false,
+      "showScoreTouched": false,
+      "showScoreLocked": true,
+      "automatic": false,
+      "linkedFailureAttemptId": null,
+      "sourceType": "guided-builder"
+    },
+    {
+      "id": "exam-usmle-step-1-attempt-2",
+      "system": "USMLE",
+      "examId": "step-1",
+      "name": "Step 1",
+      "passFailOnly": true,
+      "attempt": 2,
+      "result": "Passed",
+      "score": "",
+      "examDate": "2022-05",
+      "studyStartDate": "2022-02",
+      "showScoreOnTimeline": false,
+      "showScoreTouched": false,
+      "showScoreLocked": true,
+      "automatic": true,
+      "linkedFailureAttemptId": "exam-usmle-step-1-attempt-1",
+      "sourceType": "guided-builder"
+    }
+  ],
+  "medicalSchoolNormalizationQueue": [],
+  "builder": {
+    "step": 2,
+    "skipped": [],
+    "touched": [
+      1,
+      2,
+      6
+    ],
+    "examSystems": [
+      "USMLE"
+    ],
+    "examSystemSelectionExplicit": true,
+    "drafts": {
+      "clinical": {
+        "institution": "",
+        "institutionShortName": "",
+        "specialty": "",
+        "specialtyId": "",
+        "rotationType": "",
+        "city": "",
+        "state": "",
+        "startDate": "",
+        "endDate": "",
+        "rotationStartDate": "",
+        "rotationEndDate": "",
+        "rotationDatePrecision": "unknown",
+        "current": false,
+        "preceptor": "",
+        "lorStatus": "not-requested",
+        "lorTargetSpecialtyId": "",
+        "notes": ""
+      },
+      "work": {
+        "role": "",
+        "organization": "",
+        "country": "",
+        "city": "",
+        "kind": "",
+        "startDate": "",
+        "endDate": "",
+        "current": false,
+        "description": ""
+      },
+      "research": {
+        "projectTitle": "",
+        "institution": "",
+        "institutionShortName": "",
+        "role": "",
+        "roleOther": "",
+        "startDate": "",
+        "endDate": "",
+        "ongoing": false,
+        "publicationStatus": "Not published",
+        "journal": "",
+        "publicationYear": "",
+        "authorPosition": "",
+        "doiOrPmid": "",
+        "markPublication": false
+      },
+      "personal": {
+        "happened": "",
+        "whenKind": "One date",
+        "startDate": "",
+        "endDate": "",
+        "ongoing": false,
+        "fromCountry": "",
+        "fromCountryCode": "",
+        "toCountry": "",
+        "toCountryCode": "",
+        "icon": "star",
+        "iconStyle": "Color",
+        "visibilityState": "INTERVIEWER_SAFE"
+      }
+    },
+    "editing": {},
+    "examSuppressedRetakes": []
+  },
+  "theme": "keynote-classic",
+  "mode": "guided",
+  "layoutLock": true,
+  "advanced": {
+    "enteredBefore": false,
+    "background": {
+      "kind": "theme",
+      "preset": null,
+      "color": null,
+      "mediaId": null,
+      "dim": 20,
+      "scrim": "white"
+    },
+    "media": [],
+    "textBlocks": [],
+    "recentColors": []
+  },
+  "intake": {
+    "stage": "upload",
+    "progressIndex": 0,
+    "file": null,
+    "detectedType": "CV",
+    "consent": false,
+    "fileError": null,
+    "extraction": {
+      "statusIndex": 0,
+      "completed": false,
+      "errorCode": null,
+      "errorMessage": null,
+      "sourceDocument": null,
+      "parser": null
+    },
+    "candidates": [],
+    "suggestions": [],
+    "filter": "all",
+    "failure": null,
+    "approval": {
+      "inFlight": false,
+      "applied": false,
+      "versionSaved": false,
+      "versionName": null,
+      "fileName": null,
+      "errorCode": null,
+      "appliedCount": 0
+    },
+    "sourceDeleted": false,
+    "lastImport": null
+  },
+  "advisor": {
+    "status": "not-requested",
+    "requestedAt": null,
+    "message": "",
+    "advisorName": "Advisor",
+    "approvedAt": null,
+    "editedSince": false,
+    "checklist": [],
+    "questions": [],
+    "hiddenQuestionIds": [],
+    "comments": []
+  },
+  "preferences": {
+    "railPinned": false,
+    "advisorPaperSuggestionDismissed": false,
+    "advancedDialogSeen": false
+  },
+  "metadata": {
+    "source": "D1-402-407F-CANONICAL-RECOVERY",
+    "localOnly": true,
+    "productionWrites": false,
+    "canonicalUi": "407F",
+    "interview": {
+      "prog": "",
+      "date": "",
+      "label": ""
+    },
+    "stickyNote": "",
+    "boardMedia": {
+      "photos": {},
+      "logo": false,
+      "avatar": false
+    },
+    "wizard407F": {
+      "name": "Synthetic Fidelity Review",
+      "school": "",
+      "canonicalSchoolId": "",
+      "schoolRecord": null,
+      "schoolEntryMode": "registry",
+      "schoolVerificationStatus": "",
+      "schoolNormalizationStatus": "",
+      "schoolAnalyticsEligible": false,
+      "schoolUnlistedSubmission": null,
+      "schoolCountryFilter": "",
+      "schoolTypeFilter": "",
+      "schoolCity": "",
+      "country": "",
+      "grad": "",
+      "notGraduated": false,
+      "degree": "",
+      "degreeOther": "",
+      "visa": "",
+      "visaOther": "",
+      "eadStatus": "",
+      "residencyVisaTypesOpenTo": "",
+      "s1a": "",
+      "s1b": "",
+      "s2a": "",
+      "s2b": "",
+      "cla": "",
+      "clb": "",
+      "tha": "",
+      "thb": "",
+      "ra": "",
+      "rb": "",
+      "pt": "",
+      "pd": "",
+      "padv": false,
+      "ip": "",
+      "idt": "",
+      "gradPrecision": "",
+      "profileFieldProvenance": {}
+    },
+    "builder407F": {
+      "step": 2,
+      "skipped": {},
+      "touched": {
+        "1": true,
+        "2": true,
+        "6": true
+      },
+      "examSystems": [
+        "USMLE"
+      ],
+      "exams": [
+        {
+          "id": "exam-usmle-step-1-attempt-1",
+          "system": "USMLE",
+          "examId": "step-1",
+          "name": "Step 1",
+          "passFailOnly": true,
+          "attempt": 1,
+          "result": "Failed",
+          "score": "",
+          "examDate": "2022-01",
+          "studyStartDate": "2021-01",
+          "showScoreOnTimeline": false,
+          "showScoreTouched": false,
+          "showScoreLocked": true,
+          "automatic": false,
+          "linkedFailureAttemptId": null,
+          "sourceType": "guided-builder"
+        },
+        {
+          "id": "exam-usmle-step-1-attempt-2",
+          "system": "USMLE",
+          "examId": "step-1",
+          "name": "Step 1",
+          "passFailOnly": true,
+          "attempt": 2,
+          "result": "Passed",
+          "score": "",
+          "examDate": "2022-05",
+          "studyStartDate": "2022-02",
+          "showScoreOnTimeline": false,
+          "showScoreTouched": false,
+          "showScoreLocked": true,
+          "automatic": true,
+          "linkedFailureAttemptId": "exam-usmle-step-1-attempt-1",
+          "sourceType": "guided-builder"
+        }
+      ],
+      "examSystemSelectionExplicit": true,
+      "domainDrafts": {
+        "clinical": {
+          "institution": "",
+          "institutionShortName": "",
+          "specialty": "",
+          "specialtyId": "",
+          "rotationType": "",
+          "city": "",
+          "state": "",
+          "startDate": "",
+          "endDate": "",
+          "rotationStartDate": "",
+          "rotationEndDate": "",
+          "rotationDatePrecision": "unknown",
+          "current": false,
+          "preceptor": "",
+          "lorStatus": "not-requested",
+          "lorTargetSpecialtyId": "",
+          "notes": ""
+        },
+        "work": {
+          "role": "",
+          "organization": "",
+          "country": "",
+          "city": "",
+          "kind": "",
+          "startDate": "",
+          "endDate": "",
+          "current": false,
+          "description": ""
+        },
+        "research": {
+          "projectTitle": "",
+          "institution": "",
+          "institutionShortName": "",
+          "role": "",
+          "roleOther": "",
+          "startDate": "",
+          "endDate": "",
+          "ongoing": false,
+          "publicationStatus": "Not published",
+          "journal": "",
+          "publicationYear": "",
+          "authorPosition": "",
+          "doiOrPmid": "",
+          "markPublication": false
+        },
+        "personal": {
+          "happened": "",
+          "whenKind": "One date",
+          "startDate": "",
+          "endDate": "",
+          "ongoing": false,
+          "fromCountry": "",
+          "fromCountryCode": "",
+          "toCountry": "",
+          "toCountryCode": "",
+          "icon": "star",
+          "iconStyle": "Color",
+          "visibilityState": "INTERVIEWER_SAFE"
+        }
+      },
+      "domainEditing": {},
+      "examTouched": {
+        "exam-usmle-step-1-attempt-1": {
+          "studyStartDate": true,
+          "examDate": true,
+          "result": true
+        },
+        "exam-usmle-step-1-attempt-2": {
+          "studyStartDate": true,
+          "examDate": true,
+          "result": true
+        }
+      }
+    },
+    "sourceSchema": "d1-uxr-002.1",
+    "compatibilityMigration": {
+      "schemaVersion": "d1-405.compatibility-migration.1",
+      "sourceSchema": "d1-uxr-002.1",
+      "unknownFieldsPolicy": "preserved-uninterpreted",
+      "fabricatedLorStatus": false
+    }
+  },
+  "specialtyVariants": {
+    "schemaVersion": "d1-405.specialty-variants.1",
+    "activeVariantId": "specialty-variant:timeline",
+    "variants": [
+      {
+        "id": "specialty-variant:timeline",
+        "name": "Primary specialty timeline",
+        "specialty": {
+          "id": "",
+          "label": ""
+        },
+        "interviewTarget": {
+          "mode": "general",
+          "programId": "",
+          "programName": "",
+          "specialtyLabel": "",
+          "specialtyId": "",
+          "interviewDate": "",
+          "location": "",
+          "label": "",
+          "calendarEventId": "",
+          "meetingInformation": "",
+          "logoMediaId": "",
+          "logoFit": "contain",
+          "logoX": 1560,
+          "logoY": 112,
+          "logoWidth": 180,
+          "logoHeight": 96
+        },
+        "selectionState": "unknown",
+        "hiddenEventIds": []
+      }
+    ]
+  },
+  "exportState": {
+    "audience": "INTERVIEWER_SAFE",
+    "audienceDetails": {
+      "INTERVIEWER_SAFE": {},
+      "LOR_WRITER": {
+        "writerName": "",
+        "titlePosition": "",
+        "institution": "",
+        "specialty": "",
+        "relationship": "",
+        "understanding": ""
+      },
+      "PROFESSIONAL_CONNECTION": {
+        "name": "",
+        "position": "",
+        "organizationProgram": "",
+        "connection": "",
+        "purpose": ""
+      },
+      "MISSION_RESIDENCY_ALUMNI": {
+        "name": "",
+        "residencyProgram": "",
+        "specialty": "",
+        "relationshipIntroductionContext": "",
+        "purpose": ""
+      }
+    },
+    "formatId": "png-1920x1080",
+    "showPrintMargins": false,
+    "previewStatus": "ready",
+    "exporting": false,
+    "suggestionState": {
+      "advisorPaperPdfSuggestionShown": false
+    }
+  }
+}

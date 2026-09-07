@@ -10,6 +10,10 @@ if (acceptedWebAssetRoot && resolve(acceptedWebAssetRoot) !== acceptedWebAssetRo
 }
 const port = Number(process.env.PORT || 8792);
 const host = process.env.HOST || "127.0.0.1";
+const localSyntheticIntelligence = process.env.D1_LOCAL_SYNTHETIC_AI === "1"
+  ? (await import('./local-synthetic-intelligence-021.mjs')).handleLocalSyntheticIntelligence
+  : null;
+if (localSyntheticIntelligence && host !== '127.0.0.1') throw new Error('SYNTHETIC_REVIEW_REQUIRES_LOOPBACK_BINDING');
 
 const mounts = [
   { prefix: "/timeline/", root: join(packageRoot, "web") },
@@ -69,7 +73,7 @@ function safeFile(root, relativePath) {
   return target;
 }
 
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host || `${host}:${port}`}`);
   if (url.pathname === "/") {
     response.writeHead(302, { location: "/matrix/demo/" });
@@ -80,6 +84,7 @@ const server = createServer((request, response) => {
     sendJson(response, 200, { ok: true, service: "mission-timeline-local-demo", productionWrites: false });
     return;
   }
+  if (localSyntheticIntelligence && await localSyntheticIntelligence(request,response,url,securityHeaders)) return;
   if (url.pathname.startsWith("/api/timeline/")) {
     sendJson(response, 503, { error: { code: "LOCAL_DEMO_API_DISABLED", message: "The local Matrix demo is intentionally local-only." } });
     return;

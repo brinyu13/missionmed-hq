@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import test from "node:test";
+import {runInNewContext} from "node:vm";
 
 const read=(relativePath)=>readFileSync(new URL(`../${relativePath}`,import.meta.url),"utf8");
 const index=read("web/index.html");
@@ -82,7 +83,9 @@ test("M6 Core Info preserves 407F order while adding the normalized school selec
   assert.match(index,/data-school-combobox/);
   assert.match(index,/typed text alone is not saved as a verified school/);
   assert.match(index,/data-school-not-listed/);
-  assert.match(index,/UNVERIFIED · NORMALIZATION QUEUED/);
+  assert.match(index,/CV SOURCE FACT · REGISTRY MATCH NOT YET CONFIRMED/);
+  assert.match(index,/UNVERIFIED · EXCLUDED FROM VERIFIED ANALYTICS/);
+  assert.match(index,/function queueUnlistedSchool404\(\)\{\s*const w=state\.wiz;\s*if\(w\.schoolVerificationStatus==='unverified-source-claimed'\)return null;/);
   assert.match(index,/I haven&apos;t graduated yet/);
   assert.match(index,/U\.S\. Citizen/);
   assert.match(index,/Permanent Resident \/ Green Card/);
@@ -103,4 +106,18 @@ test("M3 builder state, wizard state, and Education survive the 407F persistence
   assert.match(adapter,/categoryId:event\.fields\?\.canonicalCategory\|\|/);
   assert.match(adapter,/education:"education"/);
   assert.match(index,/wiz:state\.wiz,builder:state\.builder/);
+});
+
+test('the actual inline school queue preserves CV source claims and queues only explicit unlisted submissions',()=>{
+  const implementation=index.slice(index.indexOf('function queueUnlistedSchool404(){'),index.indexOf('function syncCoreInfo(){'));
+  const claimed={school:'Synthetic CV School',country:'Romania',schoolEntryMode:'unlisted',schoolVerificationStatus:'unverified-source-claimed',schoolNormalizationStatus:'review-required',schoolAnalyticsEligible:false};
+  const original=structuredClone(claimed);
+  const context={state:{wiz:claimed},nid:()=>{throw new Error('A CV source claim must not allocate a queue ID');}};
+  assert.equal(runInNewContext(implementation+'\nqueueUnlistedSchool404()',context),null);
+  assert.deepEqual(claimed,original,'The accepted source claim remains intact and unqueued');
+  const submitted={...claimed,schoolVerificationStatus:'unverified'};
+  const queued=runInNewContext(implementation+'\nqueueUnlistedSchool404()',{state:{wiz:submitted},nid:()=> 'synthetic-school'});
+  assert.equal(queued.canonical_name,'Synthetic CV School');assert.equal(queued.country,'Romania');
+  assert.equal(queued.normalization_status,'queued');assert.equal(queued.analytics_eligible,false);
+  assert.equal(submitted.schoolRecord,queued);assert.equal(submitted.schoolUnlistedSubmission,queued);
 });

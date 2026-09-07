@@ -41,6 +41,17 @@ function rescueFile(name="Synthetic_Timeline.pptx",type="application/vnd.openxml
   return{name,type,size,lastModified:1,timelineRescue:true};
 }
 
+test("021 Rescue extraction identifies the uploaded Timeline while CV progress remains CV",()=>{
+  for(const rescue of [true,false]){
+    let state=transitionIntake(createIntakeState(),{type:"RECEIVE_FILE",file:rescue?rescueFile():pdf()});
+    state=transitionIntake(state,{type:"SET_CONSENT",value:true});
+    state=transitionIntake(state,{type:"START_EXTRACTION"});
+    const html=renderIntake(state);
+    assert.match(html,rescue?/Reading your Timeline…/:/Reading your CV…/);
+    if(rescue)assert.doesNotMatch(html,/Reading your CV/);
+  }
+});
+
 function candidate(overrides={}){
   return{
     id:"candidate-1",
@@ -120,7 +131,7 @@ test("the pure upload state gates extraction on both file and consent without mu
   assert.match(uploadHtml,/>Add your document<\/h1>/);
   assert.match(uploadHtml,/stored privately.*approved AI processor.*Nothing appears on your timeline until you approve it\./);
   assert.match(uploadHtml,/I consent to secure AI-assisted extraction/);
-  assert.match(uploadHtml,/data-intake-action="read" disabled>Read my document →<\/button>/);
+  assert.match(uploadHtml,/data-intake-action="read" disabled aria-disabled="true" title="Check the consent box first">Read my document →<\/button>/);
   assert.match(uploadHtml,/Looks like: CV/);
 
   const consented=transitionIntake(withFile,{type:"SET_CONSENT",value:true});
@@ -166,14 +177,21 @@ test("extraction is adapter-backed, truthfully described, and rotates only the f
   assert.equal(received.metadata.name,rawFile.name);
   assert.equal(received.documentType,"CV");
   assert.equal(received.signal.aborted,false);
-  assert.deepEqual(EXTRACTION_STATUSES,["Finding dates…","Matching institutions…","Sorting your story…"]);
-  assert.match(renderIntake(machine.state),/Finding dates…/);
+  /* AAA-019: student-language stages (11 §3), shown in order and held at the last one —
+     the narration never wraps back to "Reading…" while the read is still running. */
+  assert.deepEqual(EXTRACTION_STATUSES,[
+    "Reading your CV…",
+    "Finding your education and training…",
+    "Matching dates…",
+    "Organizing your experiences…",
+    "Building your Timeline…",
+    "Checking spacing and readability…"
+  ]);
+  assert.match(renderIntake(machine.state),/Reading your CV…/);
   machine.rotateStatus();
-  assert.match(renderIntake(machine.state),/Matching institutions…/);
-  machine.rotateStatus();
-  assert.match(renderIntake(machine.state),/Sorting your story…/);
-  machine.rotateStatus();
-  assert.match(renderIntake(machine.state),/Finding dates…/);
+  assert.match(renderIntake(machine.state),/Finding your education and training…/);
+  for(let step=0;step<10;step+=1)machine.rotateStatus();
+  assert.match(renderIntake(machine.state),/Checking spacing and readability…/);
 
   release({readable:true,candidates:[candidate()]});
   await pending;
@@ -278,7 +296,7 @@ test("review supports filtering, inline edits, high-confidence acceptance, and e
   assert.match(html,/Review 3 suggestions/);
   assert.match(html,/Accept what's right, fix what's close, reject what's wrong\. Nothing lands until you decide\./);
   assert.match(html,/3 of 3 decided/);
-  assert.match(html,/Add 2 accepted events to my timeline →/);
+  assert.match(html,/Add 1 and update 1 events →/);
 
   machine.decideCandidate("duplicate-high","undecided");
   machine.setFilter("all");
@@ -286,7 +304,8 @@ test("review supports filtering, inline edits, high-confidence acceptance, and e
   assert.match(duplicateHtml,/Looks like a duplicate of 'Research assistant at Example University'/);
   assert.match(duplicateHtml,/>Merge<\/button>/);
   assert.match(duplicateHtml,/>Add anyway<\/button>/);
-  assert.match(duplicateHtml,/class="confidence-tag success">High<\/span>/);
+  assert.match(duplicateHtml,/class="confidence-tag gold">Check required<\/span>/);
+  assert.match(duplicateHtml,/Source confidence: high/);
   assert.match(duplicateHtml,/“Research assistant from January through June\.”/);
 });
 
@@ -396,7 +415,7 @@ test("zero timeline writes occur before one versioned approval callback applies 
   assert.equal(document.intake.lastImport.acceptedCandidates[1].decision,"accepted");
   assert.equal(machine.state.stage,INTAKE_STAGES.DONE);
   assert.equal(machine.state.approval.appliedCount,2);
-  assert.match(renderIntake(machine.state),/Added 2 events from Synthetic_CV\.pdf\./);
+  assert.match(renderIntake(machine.state),/Added 1 and updated 1 events from Synthetic_CV\.pdf\./);
 
   await assert.rejects(
     ()=>machine.approveAccepted({saveVersion:async()=>{},applyBatch:async()=>{}}),

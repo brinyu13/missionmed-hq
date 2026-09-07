@@ -113,6 +113,7 @@ test("active Export preserves explicit audience, format, filename, and collapsed
   assert.deepEqual(EXPORT_FORMATS.map(({label})=>label),[
     "PNG · 1920 × 1080 — screens and slides",
     "PNG · 2560 × 1440 — high-res screens",
+    "Editable PowerPoint · also opens in Keynote",
     "PDF · Letter landscape — printing (300 DPI)",
     "PDF · A4 landscape — printing (300 DPI)"
   ]);
@@ -157,11 +158,12 @@ test("active Export preserves explicit audience, format, filename, and collapsed
   assert.match(html,/>Mission Residency alumni connection<\/option>/);
   assert.doesNotMatch(html,/>Everything</);
   assert.match(html,/data-export-audience-detail="writerName"/);
-  assert.equal((html.match(/name="export-format"/g)||[]).length,4);
+  assert.equal((html.match(/name="export-format"/g)||[]).length,5);
   assert.match(html,/data-month-field="export-interview-season"/);
   assert.match(html,/data-print-margin-mm="12\.7"/);
   assert.match(html,/<details class="card export-card print-guidance"/);
-  assert.doesNotMatch(html,/<details[^>]* open/);
+  assert.doesNotMatch(html,/<details class="card export-card print-guidance"[^>]* open/);
+  assert.match(html,/<details class="export022Settings" open><summary>Audience &amp; presentation<\/summary>/);
   const plain=html.replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&#039;/g,"'");
   for(const bullet of PRINT_GUIDANCE_COPY.bullets){
     assert.ok(plain.includes(bullet),bullet);

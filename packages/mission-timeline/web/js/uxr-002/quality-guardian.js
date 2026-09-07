@@ -3,6 +3,10 @@ import {
   deterministicAutoArrange
 } from "../editor/collision-engine-410.js";
 import {escapeHtml} from "./utils.js";
+import {applySceneCommandToDocument} from '../editor/scene-commands.js';
+import {serializeFounderPresentation} from '../presentation/founder-presentation-serializer.js';
+import {resolveFounderPresentationSvg} from '../presentation/resolved-founder-presentation.js';
+import {locked407FMilestoneGeometry} from './locked-407f-export.js';
 
 export const QUALITY_GUARDIAN_SCHEMA="d1-timeline-quality-guardian.1";
 export const QUALITY_GUARDIAN_SECTIONS=Object.freeze([
@@ -13,11 +17,39 @@ export const QUALITY_GUARDIAN_SECTIONS=Object.freeze([
   {id:"MISSIONMED_FORMAT",label:"MissionMed Format"},
   {id:"EXPORT",label:"Export"}
 ]);
+/* AAA-019 — chip vocabulary the student reads. The four bases keep their keys (the
+   server schema still emits SOURCE_FACT / RULE / AI_INFERENCE / PRESENTATION_RECOMMENDATION);
+   only the rendered text changed: "AI REVIEW" says what actually happened (a model reviewed
+   it — no inference is claimed without a provider result, Law QG1) and "FOUNDER STANDARD"
+   names whose presentation standard a layout recommendation comes from. The previous chip
+   strings stay accepted on the way in so stored reports never lose their basis. */
 export const QUALITY_GUARDIAN_BASES=Object.freeze({
   SOURCE_FACT:"SOURCE FACT",
-  AI_INFERENCE:"AI INFERENCE",
-  PRESENTATION:"PRESENTATION RECOMMENDATION"
+  RULE:"MISSIONMED RULE",
+  AI_INFERENCE:"AI REVIEW",
+  PRESENTATION:"FOUNDER STANDARD"
 });
+const LEGACY_CHIP_BASES=Object.freeze({
+  "AI INFERENCE":"AI REVIEW",
+  "PRESENTATION RECOMMENDATION":"FOUNDER STANDARD"
+});
+
+/* Normalize deterministic rule vocabulary and classify provider presentation actions.
+   A provider-origin finding is always displayed as AI REVIEW after its transport receipt;
+   its claimed basis never grants source-fact or Founder-standard authority. */
+const SERVER_BASIS_TO_CHIP=Object.freeze({
+  SOURCE_FACT:QUALITY_GUARDIAN_BASES.SOURCE_FACT,
+  RULE:QUALITY_GUARDIAN_BASES.RULE,
+  AI_INFERENCE:QUALITY_GUARDIAN_BASES.AI_INFERENCE,
+  PRESENTATION_RECOMMENDATION:QUALITY_GUARDIAN_BASES.PRESENTATION
+});
+const CHIP_BASIS_VALUES=new Set(Object.values(SERVER_BASIS_TO_CHIP));
+const chipBasis=(value)=>{
+  const raw=String(value??"").trim();
+  if(CHIP_BASIS_VALUES.has(raw))return raw;
+  if(LEGACY_CHIP_BASES[raw])return LEGACY_CHIP_BASES[raw];
+  return SERVER_BASIS_TO_CHIP[raw.toUpperCase().replace(/[\s-]+/g,"_")]||QUALITY_GUARDIAN_BASES.RULE;
+};
 
 const CANONICAL_CATEGORY_IDS=Object.freeze([
   "education","exams","clinical","work","research","personal"
@@ -128,7 +160,7 @@ function inspectContent(document,findings){
     if(sourceType.includes("ai")&&confidence!==null&&confidence<.75){
       add(findings,{
         section:"CONTENT",code:"LOW_CONFIDENCE_AI_INFERENCE",severity:"REVIEW",
-        basis:QUALITY_GUARDIAN_BASES.AI_INFERENCE,elementIds:[event.id],
+        basis:QUALITY_GUARDIAN_BASES.RULE,elementIds:[event.id],
         message:`“${clean(event.title)||"Untitled event"}” is a low-confidence AI interpretation.`,
         recommendation:"Compare the title, category, institution, and dates with the source.",
         evidence:{confidence}
@@ -137,14 +169,14 @@ function inspectContent(document,findings){
     const title=normalizedTitle(event?.title);
     const category=clean(event?.categoryId).toLowerCase();
     const likelyCategory=/(?:award|honou?r|prize|dean.?s list)/.test(title)
-      ?"personal"
+      ?"education"
       :/(?:research|publication|poster|abstract)/.test(title)
         ?"research"
         :null;
     if(likelyCategory&&category&&category!==likelyCategory){
       add(findings,{
         section:"CONTENT",code:"CATEGORY_REVIEW",severity:"REVIEW",
-        basis:QUALITY_GUARDIAN_BASES.AI_INFERENCE,elementIds:[event.id],
+        basis:QUALITY_GUARDIAN_BASES.RULE,elementIds:[event.id],
         message:`“${clean(event.title)}” may not belong in ${category}.`,
         recommendation:`Review the source and confirm whether ${likelyCategory} is more accurate.`,
         evidence:{currentCategory:category,suggestedCategory:likelyCategory}
@@ -212,7 +244,7 @@ function inspectLayout(document,findings){
       section:"LAYOUT",code:"COLLISION_RISK",severity:"REVIEW",
       basis:QUALITY_GUARDIAN_BASES.PRESENTATION,elementIds:ids,
       message:`${collisionWarnings.length} potential ${collisionWarnings.length===1?"collision needs":"collisions need"} attention.`,
-      recommendation:"Use Fix for me to reflow event lanes, then visually confirm the result.",
+      recommendation:"Use Fix for me to separate overlapping event positions, then visually confirm the result.",
       actionMode:"FIX_FOR_ME",fixKind:"AUTO_ARRANGE_EVENTS",
       evidence:{collisionCount:collisionWarnings.length,codes:[...new Set(collisionWarnings.map(({code})=>code))].join(",")}
     });
@@ -231,6 +263,25 @@ function inspectLayout(document,findings){
 }
 
 function inspectReadability(document,findings){
+  // Check the final painted text. Character count alone missed two-month
+  // duration labels squeezed by SVG textLength into unreadable glyphs.
+  let compressed=[];
+  try{
+    const paint=resolveFounderPresentationSvg(serializeFounderPresentation(document,{scope:"FULL_STORY"}).svg);
+    compressed=paint.nodes.filter(node=>{
+      if(node.kind!=="text"||!node.sourceAttributes.textLength||node.characterSpacing>=0)return false;
+      const naturalWidth=node.bounds.width-node.characterSpacing*(node.text.length-1);
+      return naturalWidth>0&&node.bounds.width/naturalWidth<.72;
+    });
+  }catch{}
+  if(compressed.length)add(findings,{
+    section:"READABILITY",code:"COMPRESSED_PRESENTATION_TEXT",severity:"REVIEW",
+    basis:QUALITY_GUARDIAN_BASES.PRESENTATION,
+    elementIds:[...new Set(compressed.map(node=>node.semanticRef||node.groupId||node.id))],
+    message:`${compressed.length} presentation ${compressed.length===1?"label is":"labels are"} horizontally compressed and may be unreadable.`,
+    recommendation:"Wrap the visible label or give it more room, then inspect the exported page at normal viewing size. Keep the source facts unchanged.",
+    evidence:{count:compressed.length,minimumWidthRatio:Math.min(...compressed.map(node=>node.bounds.width/(node.bounds.width-node.characterSpacing*(node.text.length-1))))}
+  });
   const longLabels=safeArray(document?.events).filter(({title})=>clean(title).length>58);
   if(longLabels.length){
     add(findings,{
@@ -386,7 +437,10 @@ export function deterministicFindingsForAi(report){
 }
 
 export function mergeAiQualityAnalysis(localReport,analysis){
-  const aiStatus=analysis?.status==="COMPLETE"&&analysis?.mode==="SERVER_AI"
+  const receipt=analysis?.providerReceipt;
+  const receiptVerified=Boolean(receipt?.responseId && receipt?.model && receipt?.store===false
+    && /^[a-f0-9]{64}$/.test(receipt?.inputSha256||"") && /^[a-f0-9]{64}$/.test(receipt?.outputSha256||""));
+  const aiStatus=analysis?.status==="COMPLETE"&&analysis?.mode==="SERVER_AI"&&receiptVerified
     ?"COMPLETE"
     :"UNAVAILABLE";
   const existing=new Set(safeArray(localReport?.findings).map((finding)=>
@@ -400,12 +454,10 @@ export function mergeAiQualityAnalysis(localReport,analysis){
       const key=[section,code,...elementIds.slice().sort()].join("|");
       if(!QUALITY_GUARDIAN_SECTIONS.some(({id})=>id===section)||existing.has(key))return[];
       const actionMode=finding?.actionMode==="FIX_FOR_ME"?"FIX_FOR_ME":"REVIEW";
-      const basis=[
-        QUALITY_GUARDIAN_BASES.SOURCE_FACT,
-        QUALITY_GUARDIAN_BASES.AI_INFERENCE,
-        QUALITY_GUARDIAN_BASES.PRESENTATION
-      ].includes(finding?.basis)?finding.basis:QUALITY_GUARDIAN_BASES.AI_INFERENCE;
-      if(actionMode==="FIX_FOR_ME"&&basis!==QUALITY_GUARDIAN_BASES.PRESENTATION)return[];
+      const providerClaimedBasis=clean(finding?.basis);
+      const safePresentationKinds=new Set(['AUTO_ARRANGE_EVENTS','CLAMP_OBJECTS','RESTORE_THEME_BACKGROUND','RESTORE_DEFAULT_THEME']);
+      if(actionMode==="FIX_FOR_ME"&&(chipBasis(providerClaimedBasis)!==QUALITY_GUARDIAN_BASES.PRESENTATION||!safePresentationKinds.has(clean(finding?.fixKind))))return[];
+      const basis=QUALITY_GUARDIAN_BASES.AI_INFERENCE;
       return[Object.freeze({
         id:clean(finding.id)||findingId(section,code,elementIds),
         section,
@@ -418,6 +470,7 @@ export function mergeAiQualityAnalysis(localReport,analysis){
         actionMode,
         fixKind:actionMode==="FIX_FOR_ME"?clean(finding?.fixKind)||null:null,
         evidence:Object.freeze({
+          providerClaimedBasis,
           confidence:Number(finding?.confidence)||0,
           provider:clean(analysis?.provider),
           model:clean(analysis?.model),
@@ -446,12 +499,15 @@ export function mergeAiQualityAnalysis(localReport,analysis){
     findings,
     ai:Object.freeze({
       status:aiStatus,
+      providerReceipt:aiStatus==="COMPLETE"?receipt:null,
+      providerAuthenticity:aiStatus==="COMPLETE"&&analysis?.providerAuthenticity?clone(analysis.providerAuthenticity):null,
+      founderStandardProvenance:aiStatus==="COMPLETE"&&analysis?.founderStandardProvenance?clone(analysis.founderStandardProvenance):null,
       provider:aiStatus==="COMPLETE"?clean(analysis.provider):null,
       model:aiStatus==="COMPLETE"?clean(analysis.model):null,
       promptVersion:clean(analysis?.promptVersion),
       standardVersion:clean(analysis?.standardVersion),
       unavailableMessage:aiStatus==="UNAVAILABLE"
-        ?clean(analysis?.unavailableMessage)||"Timeline AI is temporarily unavailable. Your Timeline was not changed."
+        ?clean(analysis?.unavailableMessage)||(analysis?.status==="COMPLETE"&&!receiptVerified?"The provider receipt could not be verified. Showing MissionMed rules only.":"Timeline AI is temporarily unavailable. Your Timeline was not changed.")
         :null
     }),
     oversight:Object.freeze({
@@ -484,7 +540,7 @@ function collisionCount(document){
   }catch{return Number.POSITIVE_INFINITY;}
 }
 
-function autoArrangeWithoutWorsening(document){
+function autoArrangeLanesWithoutWorsening(document){
   const events=safeArray(document?.events);
   const originals=events.map((event)=>({event,lane:event.lane,manualOffset:clone(event.manualOffset)}));
   const before=collisionCount(document);
@@ -518,6 +574,55 @@ function autoArrangeWithoutWorsening(document){
   return{...arranged,changed:true,before,after};
 }
 
+function reflowMilestonePresentation(document){
+  const initial=analyzeCollisionLayout(document,{scope:'FULL_STORY'});
+  let bestScore=initial.stats.collisionCount,moved=0;
+  if(!bestScore)return{changed:false,moved,before:0,after:0};
+  const implicated=new Set(initial.warnings.flatMap(warning=>warning.elementIds));
+  const milestones=initial.boxes.filter(box=>box.kind==='milestone'&&implicated.has(box.id)).slice(0,8);
+  for(const box of milestones){
+    const scene=serializeFounderPresentation(document,{scope:'FULL_STORY'}).scene;
+    const placed=locked407FMilestoneGeometry(scene,box.id);
+    // Respect an explicit Advanced placement/lock. This repair owns only new
+    // offsets and its prior offsets; it never changes date-axis x positions.
+    if(!placed||placed.rotation||placed.object?.locked||placed.object?.groupId||
+      (placed.object&&placed.object.presentation?.guardianAnchor!=='axis'))continue;
+    const axis=initial.fixedRegions.find(region=>region.id==='furniture:axis');
+    const below=axis?axis.y+axis.h+12:185;
+    const positions=[8,58,below,below+64,below+128,below+192]
+      .filter(y=>Math.abs(y-placed.y)>.01).sort((a,b)=>Math.abs(a-placed.y)-Math.abs(b-placed.y));
+    let best=null;
+    for(const y of positions){
+      const result=applySceneCommandToDocument(document,{
+        kind:'geometry',target:{type:'event',id:placed.object?.id||box.id},
+        geometry:{x:placed.x,y,width:placed.width,height:placed.height,rotation:0},
+        create:{type:'event',semanticRef:box.id,aspectLocked:false,presentation:{eventType:'milestone',guardianAnchor:'axis'}},
+        label:'Quality Guardian: separate milestone flags'
+      });
+      if(!result.changed)continue;
+      const review=analyzeCollisionLayout(result.document,{scope:'FULL_STORY'});
+      const candidate=review.boxes.find(item=>item.id===box.id);
+      if(!candidate||candidate.x<0||candidate.y<0||candidate.x+candidate.w>1920||candidate.y+candidate.h>1080)continue;
+      // Poles intentionally meet the axis. Flag bodies and labels must remain
+      // outside the date ribbon, even though that connector overlap is exempt.
+      if(axis&&candidate.y<axis.y+axis.h+6&&candidate.y+candidate.h>axis.y-6)continue;
+      const score=review.stats.collisionCount;
+      if(score<bestScore){bestScore=score;best=result.document;}
+      if(bestScore===0)break;
+    }
+    if(best){document.advanced=best.advanced;moved++;}
+    if(bestScore===0)break;
+  }
+  return{changed:moved>0,moved,before:initial.stats.collisionCount,after:bestScore};
+}
+
+function autoArrangeWithoutWorsening(document){
+  const before=collisionCount(document);
+  const lanes=autoArrangeLanesWithoutWorsening(document);
+  const milestones=reflowMilestonePresentation(document);
+  return{...lanes,changed:lanes.changed||milestones.changed,before,after:collisionCount(document),milestonesMoved:milestones.moved};
+}
+
 export function applySafeQualityFixes(document,report=analyzeTimelineQuality(document)){
   const next=clone(document);
   const requested=new Set(report.findings.filter(({actionMode})=>actionMode==="FIX_FOR_ME").map(({fixKind})=>fixKind));
@@ -534,7 +639,7 @@ export function applySafeQualityFixes(document,report=analyzeTimelineQuality(doc
   if(requested.has("AUTO_ARRANGE_EVENTS")){
     const result=autoArrangeWithoutWorsening(next);
     if(result.changed){
-      changes.push({kind:"AUTO_ARRANGE_EVENTS",scope:"PRESENTATION",message:`Reflowed ${result.placed} visible events and reduced collision warnings from ${result.before} to ${result.after}.`});
+      changes.push({kind:"AUTO_ARRANGE_EVENTS",scope:"PRESENTATION",message:`Adjusted event presentation and reduced collision warnings from ${result.before} to ${result.after}.`});
     }
   }
   if(requested.has("CLAMP_OBJECTS")){
@@ -586,13 +691,19 @@ export function renderQualityGuardian(report,{
   controlClasses={secondary:"button secondary",tertiary:"button tertiary",primary:"button primary"}
 }={}){
   const reviewViewer=viewer!=="Student view";
+  /* Law G-0: the header must state which engine actually ran. Without a COMPLETE server
+     result nothing here was reviewed by AI, so the page may not use the word at all. */
+  const aiComplete=report.ai?.status==="COMPLETE"&&Boolean(report.ai?.providerReceipt?.responseId);
   return`<div class="quality-guardian" data-quality-guardian-report>
     <p class="micro-label">Timeline Quality Guardian · ${escapeHtml(viewer)}</p>
     <h2 id="quality-guardian-title">${escapeHtml(report.headline)}</h2>
-    <p>Source facts, AI inferences, and presentation recommendations are shown separately. Fix for me never changes your biography.</p>
-    ${report.ai?`<p class="status-chip" data-quality-ai-status="${escapeHtml(report.ai.status)}">${report.ai.status==="COMPLETE"
-      ?`Live AI review · ${escapeHtml(report.ai.model)} · Standard ${escapeHtml(report.ai.standardVersion)}`
-      :escapeHtml(report.ai.unavailableMessage)}</p>`:""}
+    <p>${aiComplete
+      ?"Source facts, AI inferences, and presentation recommendations are shown separately."
+      :"Every finding below comes from MissionMed's own checks. Nothing here was reviewed by AI."} Fix for me never changes your biography.</p>
+    ${aiComplete
+      ?`<p class="status-chip" data-quality-ai-status="COMPLETE">Live AI review · ${escapeHtml(report.ai.model)} · Standard ${escapeHtml(report.ai.standardVersion)}</p>`
+      :`<p class="status-chip" data-quality-ai-status="${escapeHtml(report.ai?.status||"UNAVAILABLE")}">${escapeHtml(report.ai?.unavailableMessage||"Quick check · MissionMed rules only")}</p>`}
+    ${aiComplete?`<details class="quality-provider-receipt"><summary>AI review receipt</summary><dl><dt>Provider response</dt><dd>${escapeHtml(report.ai.providerReceipt.responseId)}</dd><dt>Model</dt><dd>${escapeHtml(report.ai.providerReceipt.model)}</dd><dt>Received</dt><dd>${escapeHtml(report.ai.providerReceipt.receivedAt||"")}</dd><dt>Provider storage</dt><dd>store: false</dd></dl></details>`:""}
     ${reviewViewer?`<section data-quality-oversight aria-label="Founder and mentor quality summary">
       <h3>Review summary</h3>
       <dl>

@@ -6,10 +6,15 @@ import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
 import {FOUNDER_KEYNOTE_CONTRACT} from "../web/js/presentation/founder-keynote-contract.js";
+import {readVerifiedPresentationVendor,PRESENTATION_VENDOR_MANIFEST} from "./presentation-vendor-integrity.mjs";
+import {packagedBrowserEntry} from "./browser-entry-021.mjs";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const web=join(root,"web");
 const dist=join(root,"dist");
+const presentationVendor=await readVerifiedPresentationVendor(root);
+const sourceIndex=await readFile(join(web,"index.html"),"utf8");
+const browserEntry=packagedBrowserEntry(sourceIndex);
 const mode=process.argv.includes("--mode=release")?"release":"local";
 const head=execFileSync("git",["rev-parse","HEAD"],{cwd:root,encoding:"utf8"}).trim();
 const acceptedBase="49ba56dacd2cddfc2fb2241839d54a03e85bc271";
@@ -60,7 +65,7 @@ if(mode==="release"){
 await rm(dist,{recursive:true,force:true});await mkdir(join(dist,"assets"),{recursive:true});
 const bundleTemp=join(dist,"assets","app.js");
 await build({
-  entryPoints:[join(web,"js","407f-engineering-adapter.js")],
+  stdin:{contents:browserEntry.contents,resolveDir:root,loader:"js"},
   outfile:bundleTemp,
   bundle:true,
   format:"esm",
@@ -76,7 +81,7 @@ await build({
 const bundle=await readFile(bundleTemp);const bundleHash=createHash("sha256").update(bundle).digest("hex");
 const bundleName=`assets/app.${bundleHash.slice(0,12)}.js`;await writeFile(join(dist,bundleName),bundle);await rm(bundleTemp);
 
-let index=await readFile(join(web,"index.html"),"utf8");
+let index=sourceIndex.replace(browserEntry.bootstrapElement,"");
 index=index.replace("<head>",'<head>\n<base href="/timeline/">\n<script>window.D1_TIMELINE_RUNTIME_MODE="production";</script>');
 const legacyBridgeAnchor="window.D1_407F_TEST={";
 const legacyStateScrub=`if(window.D1_TIMELINE_RUNTIME_MODE==="production"){
@@ -97,6 +102,9 @@ const legacyStateScrub=`if(window.D1_TIMELINE_RUNTIME_MODE==="production"){
 if(!index.includes(legacyBridgeAnchor))throw new Error("LEGACY_BRIDGE_ANCHOR_MISSING");
 index=index.replace(legacyBridgeAnchor,`${legacyStateScrub}${legacyBridgeAnchor}`);
 index=index.replace('<script type="module" src="./js/407f-engineering-adapter.js"></script>',`<script type="module" src="./${bundleName}"></script>`);
+index=index.replace('<script type="module" src="./js/prototype-021.js"></script>',"");
+index=index.replace('<script type="module" src="./js/family-022.js"></script>',"");
+index=index.replace("</head>",'<link rel="stylesheet" href="./styles/prototype-021.css" data-prototype-021>\n<link rel="stylesheet" href="./styles/family-022.css" data-family-022>\n<link rel="stylesheet" href="./styles/admin-workspace-022.css" data-admin-workspace-022>\n<link rel="stylesheet" href="./styles/ai-settings-022.css" data-ai-settings-022>\n</head>');
 if(index.includes("./js/407f-engineering-adapter.js"))throw new Error("PRODUCTION_ENTRYPOINT_REWRITE_FAILED");
 index=index.replace(' src="assets/renderer_400g_best.png"','');
 if(index.includes('src="assets/renderer_400g_best.png"'))throw new Error("PRIVATE_REVIEW_REFERENCE_PRESENT");
@@ -104,6 +112,10 @@ await writeFile(join(dist,"index.html"),index);
 
 await mkdir(join(dist,"styles"),{recursive:true});
 await cp(join(web,"styles","407f-upgrade.css"),join(dist,"styles","407f-upgrade.css"));
+await cp(join(web,"styles","prototype-021.css"),join(dist,"styles","prototype-021.css"));
+await cp(join(web,"styles","family-022.css"),join(dist,"styles","family-022.css"));
+await cp(join(web,"styles","admin-workspace-022.css"),join(dist,"styles","admin-workspace-022.css"));
+await cp(join(web,"styles","ai-settings-022.css"),join(dist,"styles","ai-settings-022.css"));
 const assetRefs=new Set();
 for(const text of [index,await readFile(join(web,"styles","407f-upgrade.css"),"utf8")]){
   for(const match of text.matchAll(/(?:src=|href=|url\()["']?([^"')\s]+)["']?/g)){
@@ -133,6 +145,7 @@ const acceptedRuntimeAssets=[
   "vendor/pdfjs/pdf.worker.min.mjs",
   "data/medical-schools/us-dapip-2026-07-30.json",
   "data/medical-schools/global-wikidata-2026-08-24.json",
+  "data/medical-schools/global-img-supplement-2026-09-05.json",
   ...["axis_left_end_cap_exact_crop_402a.png","axis_chevron_body_segment_exact_crop_402a.png","axis_right_end_cap_exact_crop_402a.png"].map((name)=>`assets/keynote_classic_402a/axis/${name}`),
   ...["work","usmle","teaching_hospital","personal","research","clinics"].flatMap((slug)=>["left_cap","body_segment","right_head"].map((part)=>`assets/keynote_classic_402a/arrows/${slug}_arrow_${part}_402a.png`)),
   ...["milestone_flag_marker_rebuild_gray_402a.png","milestone_flag_marker_rebuild_personal_402a.png","usa_flag_marker_scaled_34x28_402a.png"].map((name)=>`assets/keynote_classic_402a/flags/${name}`),
@@ -154,13 +167,19 @@ async function sourceBoundRuntimeAsset(asset){
 for(const asset of Object.values(FOUNDER_KEYNOTE_CONTRACT.assets)){
   await sourceBoundRuntimeAsset(asset);
 }
+await mkdir(join(dist,"vendor/presentation"),{recursive:true});
+await writeFile(join(dist,PRESENTATION_VENDOR_MANIFEST),presentationVendor.bytes);
+for(const component of presentationVendor.manifest.components){
+  await cp(join(root,component.notice.path),join(dist,component.releaseNotice));
+}
+await cp(join(root,presentationVendor.manifest.transitiveNotice.path),join(dist,presentationVendor.manifest.transitiveNotice.releasePath));
 
 async function filesBelow(directory){
   const out=[];for(const entry of (await readdir(directory,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name))){
     const full=join(directory,entry.name);if(entry.isDirectory())out.push(...await filesBelow(full));else if(entry.isFile())out.push(full);else throw new Error("UNSUPPORTED_RELEASE_ENTRY");
   }return out;
 }
-const types=new Map([[".html","text/html; charset=utf-8"],[".css","text/css; charset=utf-8"],[".js","text/javascript; charset=utf-8"],[".mjs","text/javascript; charset=utf-8"],[".json","application/json"],[".sha256","text/plain; charset=utf-8"],[".woff2","font/woff2"],[".png","image/png"],[".jpg","image/jpeg"],[".jpeg","image/jpeg"],[".webp","image/webp"],[".svg","image/svg+xml"]]);
+const types=new Map([[".html","text/html; charset=utf-8"],[".css","text/css; charset=utf-8"],[".js","text/javascript; charset=utf-8"],[".mjs","text/javascript; charset=utf-8"],[".json","application/json"],[".txt","text/plain; charset=utf-8"],[".sha256","text/plain; charset=utf-8"],[".woff2","font/woff2"],[".png","image/png"],[".jpg","image/jpeg"],[".jpeg","image/jpeg"],[".webp","image/webp"],[".svg","image/svg+xml"]]);
 const files={};
 for(const file of await filesBelow(dist)){
   if(file.endsWith("release-manifest.json"))continue;
@@ -170,5 +189,6 @@ for(const file of await filesBelow(dist)){
 }
 const descriptor=JSON.stringify(files);const releaseId=`timeline-${createHash("sha256").update(descriptor).digest("hex").slice(0,16)}`;
 const manifest={schema_version:"d1-500-release-manifest.1",release_id:releaseId,source_commit:head,accepted_base_commit:acceptedBase,asset_authority_manifest_sha256:externalManifestBytes?sha256(externalManifestBytes):null,reanchor_source_asset_authority_manifest_sha256:sha256(reanchorAssetManifestBytes),mode,canonical_path:"/timeline/",protected_kernel:"D1-409H-A1",files};
+manifest.presentation_runtime={manifest:PRESENTATION_VENDOR_MANIFEST,sha256:presentationVendor.sha256,bundled_application:bundleName,runtime_source_sha256:presentationVendor.manifest.runtime.sha256};
 await writeFile(join(dist,"release-manifest.json"),`${JSON.stringify(manifest,null,2)}\n`);
 console.log(JSON.stringify({ok:true,release_id:releaseId,source_commit:head,files:Object.keys(files).length,mode}));

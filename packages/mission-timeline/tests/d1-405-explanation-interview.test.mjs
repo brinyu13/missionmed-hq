@@ -78,6 +78,7 @@ test("M9 creates a bounded explanation without becoming a drawing system",()=>{
 
 test("M9 explanation move, resize, details, and delete are bounded and factual-safe",()=>{
   const document=fixture();
+  const originalChronology=structuredClone(document.events);
   const created=createExplanation(document,{
     text:"A concise explanation.",
     startDate:"2025-06",
@@ -91,11 +92,20 @@ test("M9 explanation move, resize, details, and delete are bounded and factual-s
     leaderEnabled:false
   }).event;
   assert.equal(updated.fields.x,96);
-  assert.equal(updated.fields.y,904);
+  assert.ok(updated.fields.y>=112&&updated.fields.y<=904);
   assert.equal(updated.fields.width,520);
   assert.equal(updated.fields.height,96);
+  // The rotated card must fit the board after a move followed by a resize.
+  // A fixed unrotated y=904 would permit larger cards to escape the board.
+  const {x,y,width,height}=updated.fields;
+  const angle=8*Math.PI/180,cx=x+width/2,cy=y+height/2;
+  for(const dx of [-width/2,width/2])for(const dy of [-height/2,height/2]){
+    const cornerX=cx+dx*Math.cos(angle)-dy*Math.sin(angle);
+    const cornerY=cy+dx*Math.sin(angle)+dy*Math.cos(angle);
+    assert.ok(cornerX>=0&&cornerX<=1920&&cornerY>=0&&cornerY<=1080);
+  }
   assert.equal(updated.fields.target.date,"2025-07");
-  assert.equal(document.events[0].title,"Internal Medicine Rotation");
+  assert.deepEqual(document.events.slice(0,1),originalChronology);
   assert.equal(deleteExplanation(document,created.id),true);
   assert.equal(document.events.length,1);
 });

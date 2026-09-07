@@ -4,6 +4,8 @@ import {
   migrateAdvancedScene,
   reconcileAdvancedScene
 } from "../editor/scene-graph.js";
+import {applySceneCommandToDocument} from "../editor/scene-commands.js";
+import {advancedElementPreviewMarkup} from "./locked-407f-export.js";
 
 const freezeDeep=(value)=>{
   if(!value||typeof value!=="object"||Object.isFrozen(value))return value;
@@ -31,7 +33,7 @@ export const PRESENTATION_CATEGORY_DEFAULTS=freezeDeep([
   {id:"research",label:"Research",color:"#C9A227"},
   {id:"personal",label:"Personal (Not on CV)",color:"#8A5BBF"}
 ]);
-export const COLOR_KEY_GEOMETRY_DEFAULT=freezeDeep({x:37,y:350,width:247,height:277});
+export const COLOR_KEY_GEOMETRY_DEFAULT=freezeDeep({x:20,y:300,width:284,height:346});
 export const COLOR_KEY_GEOMETRY_LIMITS=freezeDeep({
   boardWidth:1920,boardHeight:1080,minWidth:180,minHeight:200,maxWidth:760,maxHeight:720
 });
@@ -86,7 +88,8 @@ export const ADVANCED_EDITOR_PANELS=freezeDeep([
   {id:"shapes",label:"Shapes",icon:"●"},
   {id:"icons",label:"Icons",icon:"✦"},
   {id:"flags",label:"Flags",icon:"⚑"},
-  {id:"timeline",label:"Timeline",icon:"↔"}
+  {id:"timeline",label:"Timeline",icon:"↔"},
+  {id:"layers",label:"Layers",icon:"≡"}
 ]);
 
 /*
@@ -1024,6 +1027,21 @@ function normalizeMediaCrop(value={}){
   };
 }
 
+/* Pointer deltas must use the crop window's inverse screen transform. That
+   includes its zoom and any rotation/scale on the containing photo. */
+export function panMediaCrop(start,{dx=0,dy=0,screenToImage={},width,height,imageWidth,imageHeight}={}){
+  const crop=normalizeMediaCrop(start);
+  const imageDx=finite(screenToImage.a,1)*finite(dx,0)+finite(screenToImage.c,0)*finite(dy,0);
+  const imageDy=finite(screenToImage.b,0)*finite(dx,0)+finite(screenToImage.d,1)*finite(dy,0);
+  const slackX=finite(imageWidth,0)-finite(width,0)/crop.zoom;
+  const slackY=finite(imageHeight,0)-finite(height,0)/crop.zoom;
+  return normalizeMediaCrop({
+    ...crop,
+    x:slackX>0?crop.x-imageDx/slackX*100:crop.x,
+    y:slackY>0?crop.y-imageDy/slackY*100:crop.y
+  });
+}
+
 export function updateMediaPresentation(document,target,changes={}){
   const state=normalizeAdvancedStudioDocument(document);
   const id=typeof target==="string"?target:target?.id;
@@ -1042,11 +1060,15 @@ export function moveMediaElement(element,{x,y}={}){
   return{...clone(element),x:finite(x,element?.x||0),y:finite(y,element?.y||0)};
 }
 
+/* AAA-019 (Canva smart guides): besides the board edges and centre, a dragged object snaps
+   to the edges and centres of the other objects on the board (`peers`: [{x,y,width,height}]).
+   The nearest candidate inside `threshold` wins; on a tie the board wins over a peer. */
 export function snapAdvancedObjectToBoard(element,{
   boardWidth=1920,
   boardHeight=1080,
   threshold=12,
-  visualBounds=null
+  visualBounds=null,
+  peers=[]
 }={}){
   const next=clone(element||{});
   const bounds=visualBounds&&typeof visualBounds==="object"
@@ -1063,17 +1085,42 @@ export function snapAdvancedObjectToBoard(element,{
   const limit=Math.max(0,finite(threshold,12));
   const nearest=(candidates)=>candidates
     .filter(({delta})=>Math.abs(delta)<=limit)
-    .sort((left,right)=>Math.abs(left.delta)-Math.abs(right.delta))[0]||null;
-  const vertical=nearest([
+    .sort((left,right)=>Math.abs(left.delta)-Math.abs(right.delta)||(left.peer?1:0)-(right.peer?1:0))[0]||null;
+  const verticalCandidates=[
     {delta:-bounds.x,position:0,target:"left-edge"},
     {delta:boardWidth/2-(bounds.x+bounds.width/2),position:boardWidth/2,target:"horizontal-center"},
     {delta:boardWidth-(bounds.x+bounds.width),position:boardWidth,target:"right-edge"}
-  ]);
-  const horizontal=nearest([
+  ];
+  const horizontalCandidates=[
     {delta:-bounds.y,position:0,target:"top-edge"},
     {delta:boardHeight/2-(bounds.y+bounds.height/2),position:boardHeight/2,target:"vertical-center"},
     {delta:boardHeight-(bounds.y+bounds.height),position:boardHeight,target:"bottom-edge"}
-  ]);
+  ];
+  /* Peers are model boxes, so the dragged object's model box (not its visual bounds) is
+     what aligns with them — otherwise an icon whose glyph is smaller than its box would
+     snap its glyph, not its box, to a neighbour's box. */
+  const model={x:finite(next.x,0),y:finite(next.y,0),width:positive(next.width,1),height:positive(next.height,1)};
+  for(const peer of Array.isArray(peers)?peers:[]){
+    const px=finite(peer?.x,NaN),py=finite(peer?.y,NaN);
+    const pw=positive(peer?.width,0),ph=positive(peer?.height,0);
+    if(!Number.isFinite(px)||!Number.isFinite(py)||!pw||!ph)continue;
+    /* Edges align with edges (any pairing) and centres with centres — never a centre
+       with an edge, which is what makes a board feel magnetic in the wrong places. */
+    const pairs=(mineEdges,theirEdges,mineCentre,theirCentre)=>{
+      const out=[];
+      for(const mine of mineEdges)for(const theirs of theirEdges)out.push([mine,theirs]);
+      out.push([mineCentre,theirCentre]);
+      return out;
+    };
+    for(const [mine,theirs] of pairs([model.x,model.x+model.width],[px,px+pw],model.x+model.width/2,px+pw/2)){
+      verticalCandidates.push({delta:theirs-mine,position:theirs,target:"object-vertical",peer:true});
+    }
+    for(const [mine,theirs] of pairs([model.y,model.y+model.height],[py,py+ph],model.y+model.height/2,py+ph/2)){
+      horizontalCandidates.push({delta:theirs-mine,position:theirs,target:"object-horizontal",peer:true});
+    }
+  }
+  const vertical=nearest(verticalCandidates);
+  const horizontal=nearest(horizontalCandidates);
   if(vertical)next.x=finite(next.x,0)+vertical.delta;
   if(horizontal)next.y=finite(next.y,0)+horizontal.delta;
   return{
@@ -1907,7 +1954,8 @@ function advancedAssetItems(state,panel){
     detail:"ELEMENT",
     kind:String(item.kind||"element")
   }));
-  if(panel==="uploads")return[...media,...text,...elements];
+  /* Uploads is media only (Canva P1): scene shapes and text never masquerade as uploads. */
+  if(panel==="uploads")return media;
   if(panel==="photos")return media.filter(({kind})=>kind==="image");
   if(panel==="logos")return media.filter(({kind})=>kind==="logo");
   if(panel==="text")return text;
@@ -1917,7 +1965,13 @@ function advancedAssetItems(state,panel){
 
 function insertAssetTile(item){
   const action=item.action||"asset";
-  return`<button type="button" draggable="true" class="advanced-visual-asset" data-advanced-insert-asset data-advanced-action="${escapeHtml(action)}"${item.kind?` data-advanced-kind="${escapeHtml(item.kind)}"`:""}${item.value?` data-advanced-symbol="${escapeHtml(item.value)}"`:""} aria-label="${escapeHtml(item.label)}"><span class="advanced-visual-asset-preview" aria-hidden="true">${escapeHtml(item.symbol)}</span><span>${escapeHtml(item.label)}</span></button>`;
+  /* Shape and icon tiles draw the very markup the board will render; text, upload and
+     background tiles keep their glyph, which is what they are. */
+  const PREVIEW_KINDS=new Set(["rectangle","rounded-rectangle","circle","frame","callout","arrow-right","arrow-curved","arrow-thin","arrow-thick","arrow-double","milestone","hospital","research","graduation","line","separator","badge","label","ribbon","pin","marker","missionmed-wordmark"]);
+  const preview=item.kind&&PREVIEW_KINDS.has(String(item.kind))
+    ?`<span class="advanced-visual-asset-preview advanced-visual-asset-preview-shape" aria-hidden="true">${advancedElementPreviewMarkup(item.kind,{width:120,height:72,label:""})}</span>`
+    :`<span class="advanced-visual-asset-preview" aria-hidden="true">${escapeHtml(item.symbol)}</span>`;
+  return`<button type="button" draggable="true" class="advanced-visual-asset" data-advanced-insert-asset data-advanced-action="${escapeHtml(action)}"${item.kind?` data-advanced-kind="${escapeHtml(item.kind)}"`:""}${item.value?` data-advanced-symbol="${escapeHtml(item.value)}"`:""} aria-label="${escapeHtml(item.label)}" title="${escapeHtml(item.label)}">${preview}<span>${escapeHtml(item.label)}</span></button>`;
 }
 
 export function renderAdvancedToolRail(activePanel="elements"){
@@ -1966,6 +2020,18 @@ export function renderAdvancedAssetRail(document={},selection=null,{
       }).join("")}</div>`
       :(!inserts.length?'<p class="advanced-asset-rail-empty">No matching assets.</p>':"")}
   </section>`;
+}
+
+function advancedSelectionSummaryLabel(state,selection){
+  if(!selection)return"object";
+  if(selection.type==="multi")return`${safeArray(selection.members).length} objects`;
+  if(selection.type==="group")return"group";
+  const collection=advancedCollectionName(selection.type);
+  const item=collection?state.advanced[collection].find((candidate)=>String(candidate.id)===String(selection.id)):null;
+  if(!item)return String(selection.type);
+  if(selection.type==="text")return`text “${String(item.text||"").replace(/\s+/g," ").trim().slice(0,18)||"…"}”`;
+  if(selection.type==="media")return String(item.source?.name||"image").slice(0,24);
+  return String(item.label||item.kind||"shape").slice(0,24);
 }
 
 export function renderAdvancedSelectionControls(document={},{
@@ -2125,6 +2191,136 @@ function renderContextualPresentationControls(document,selection){
   return`<section class="advanced-context-panel" data-advanced-context="color-key"><header><strong>Color key</strong><span>Fixed six-category identity and order</span></header>${fieldset}<div class="advanced-palette-presets" role="group" aria-label="Harmonious color palettes"><button type="button" data-category-key-palette="missionmed">MissionMed</button><button type="button" data-category-key-palette="coastal">Coastal</button><button type="button" data-category-key-palette="heritage">Heritage</button></div></section>`;
 }
 
+/* AAA-019 — Layers panel (Canva S-group parity): every scene object top-to-bottom,
+   grouped rows, lock toggle, keyboard/drag reorder, and canvas↔panel selection sync. */
+export function advancedLayerRows(document={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  const objects=[
+    ...state.advanced.media.filter((item)=>item.placed!==false).map((item)=>({type:"media",id:String(item.id),label:String(item.source?.name||"Image"),kind:String(item.kind||"image"),glyph:"▧",z:finite(item.zIndex,finite(item.layerIndex,0)),locked:item.locked===true,groupId:item.groupId?String(item.groupId):null})),
+    ...state.advanced.textBlocks.map((item,index)=>({type:"text",id:String(item.id),label:String(item.text||`Text ${index+1}`).replace(/\s+/g," ").trim().slice(0,40)||`Text ${index+1}`,kind:"text",glyph:"T",z:finite(item.zIndex,finite(item.layerIndex,0)),locked:item.locked===true,groupId:item.groupId?String(item.groupId):null})),
+    ...state.advanced.elements.map((item,index)=>({type:"element",id:String(item.id),label:String(item.label||item.kind||`Shape ${index+1}`),kind:String(item.kind||"element"),glyph:item.kind==="country-flag"?"⚑":/arrow/.test(String(item.kind))?"→":/line/.test(String(item.kind))?"—":/circle/.test(String(item.kind))?"●":"▭",z:finite(item.zIndex,finite(item.layerIndex,0)),locked:item.locked===true,groupId:item.groupId?String(item.groupId):null}))
+  ].map((row)=>({...row,reorderable:true}));
+  const sceneObjects=state.advanced.scene?.objects||[];
+  for(const event of safeArray(state.events)){
+    const geometry=sceneObjects.find((item)=>item.type==="event"&&String(item.semanticRef||item.id)===String(event.id));
+    objects.push({type:"event",id:String(event.id),label:String(event.title||event.fields?.title||"Timeline event"),kind:"event",glyph:"↔",z:finite(geometry?.z,-1),locked:geometry?.locked===true,groupId:geometry?.groupId||null,reorderable:!!geometry});
+  }
+  objects.sort((left,right)=>right.z-left.z);
+  const groups=new Map(state.advanced.groups.map((group)=>[String(group.id),group]));
+  const rows=[];
+  const seenGroups=new Set();
+  for(const object of objects){
+    if(object.groupId&&groups.has(object.groupId)){
+      if(!seenGroups.has(object.groupId)){
+        seenGroups.add(object.groupId);
+        const group=groups.get(object.groupId);
+        rows.push({type:"group",id:object.groupId,label:String(group.label||"Group"),glyph:"⧉",locked:group.locked===true,z:object.z,reorderable:true,members:objects.filter((candidate)=>candidate.groupId===object.groupId)});
+      }
+      continue;
+    }
+    rows.push(object);
+  }
+  const fixed=[
+    {type:"headline",id:"headline",label:"Timeline headline",glyph:"T"},
+    {type:"axis",id:"axis",label:"Year axis",glyph:"↔"},
+    {type:"color-key",id:"color-key",label:"Color key",glyph:"●"},
+    {type:"profile",id:"profile",label:"Profile card",glyph:"▤"},
+    ...["photo1","photo2","photo3","profile","logo"].map((slot)=>({type:"frame",id:slot,label:slot==="profile"?"Profile photo":slot==="logo"?"Program logo":`Photo ${slot.slice(-1)}`,glyph:"▧"}))
+  ];
+  rows.push(...fixed.map((row)=>({...row,reorderable:false,kind:"template"})));
+  return rows;
+}
+
+export const CANONICAL_MEDIA_FRAME_SLOTS=Object.freeze({
+  photo1:{type:"photo",placement:"photo1",label:"Photo 1"},
+  photo2:{type:"photo",placement:"photo2",label:"Photo 2"},
+  photo3:{type:"photo",placement:"photo3",label:"Photo 3"},
+  profile:{type:"profilePhoto",placement:"profile",label:"Profile photo"},
+  logo:{type:"logo",placement:"ribbon",label:"Program logo"}
+});
+
+// Frame hit tests use the rendered rectangle and inverse screen transform. A rotated
+// photo's bounding-box corners are not drop targets; Fit/100/150 share the same math.
+export function hitTestMediaFrames(regions,point){
+  for(const region of [...regions].reverse()){
+    const {a,b,c,d,e,f}=region.screenMatrix||{};
+    const determinant=a*d-b*c;
+    if(!Number.isFinite(determinant)||Math.abs(determinant)<1e-12)continue;
+    const dx=point.x-e,dy=point.y-f;
+    const x=(d*dx-c*dy)/determinant,y=(-b*dx+a*dy)/determinant;
+    const box=region.geometry;
+    if(box&&x>=box.x&&x<=box.x+box.width&&y>=box.y&&y<=box.y+box.height)return region;
+  }
+  return null;
+}
+
+export function fillCanonicalMediaFrame(document,slot,mediaId,{id,consumePlacement=false}={}){
+  const spec=CANONICAL_MEDIA_FRAME_SLOTS[slot];
+  const asset=safeArray(document.advanced?.media).find((item)=>String(item.id)===String(mediaId));
+  if(!spec||!asset||asset.locked===true||document.layoutLock!==false||!id)return{document,changed:false};
+  const next=clone(document);
+  next.mediaItems=safeArray(next.mediaItems).filter((item)=>String(item.placement||"").toLowerCase()!==spec.placement);
+  next.mediaItems.push({id:String(id),type:spec.type,placement:spec.placement,mediaId:String(asset.id),source:clone(asset.source||{}),naturalAspect:Number(asset.naturalAspect)||null,altText:String(asset.source?.name||asset.name||""),crop:{x:50,y:50,zoom:1},visibilityState:"INTERVIEWER_SAFE"});
+  if(consumePlacement){
+    next.advanced.media=next.advanced.media.map((item)=>String(item.id)===String(mediaId)?{...item,placed:false}:item);
+    next.advanced.scene=reconcileAdvancedScene(next.advanced,{revision:next.revision});
+  }
+  return{document:next,changed:true};
+}
+
+// Shared by canvas and Layers: Shift/Command toggles members without changing facts.
+export function toggleAdvancedSelection(prior,target,additive=false){
+  if(!additive)return target||null;
+  if(!target?.type||!target?.id)return prior||null;
+  const members=prior?.type==="multi"?safeArray(prior.members).map((item)=>({...item})):prior?[{...prior}]:[];
+  const index=members.findIndex((item)=>item.type===target.type&&String(item.id)===String(target.id));
+  if(index>=0)members.splice(index,1);else members.push({...target});
+  return members.length>1?{type:"multi",members}:members[0]||null;
+}
+
+// One store replacement is the undo boundary. Scene commands retain native event geometry.
+export function reorderAdvancedLayers(document,dragged,target,position="before"){
+  const rows=advancedLayerRows(document).filter((row)=>row.reorderable);
+  const key=(row)=>`${row.type}:${row.id}`;
+  const from=rows.findIndex((row)=>key(row)===key(dragged));
+  if(from<0||!rows.some((row)=>key(row)===key(target))||key(dragged)===key(target))return{document,changed:false};
+  const [moving]=rows.splice(from,1);
+  const to=rows.findIndex((row)=>key(row)===key(target));
+  rows.splice(to+(position==="after"?1:0),0,moving);
+  let next=document,changed=false;
+  for(const row of [...rows].reverse()){
+    const result=applySceneCommandToDocument(next,{kind:"layer",target:{type:row.type,id:row.id},direction:"bring-to-front"});
+    if(result.changed){next=result.document;changed=true;}
+  }
+  return{document:next,changed};
+}
+
+export function renderLayersPanel(document={},selection=null){
+  const rows=advancedLayerRows(document);
+  const selectedKeys=new Set(selection?.type==="multi"
+    ?safeArray(selection.members).map((member)=>`${member.type}:${member.id}`)
+    :selection?.type&&selection?.id?[`${selection.type}:${selection.id}`]:[]);
+  const rowMarkup=(row,depth=0)=>{
+    const key=`${row.type}:${row.id}`;
+    const selected=selectedKeys.has(key)||(row.type!=="group"&&row.groupId&&selectedKeys.has(`group:${row.groupId}`));
+    return`<div class="advanced-layer-row${selected?" is-selected":""}${row.type==="group"?" is-group":""}" role="option" aria-selected="${String(!!selected)}" tabindex="0" draggable="${String(row.reorderable===true)}" data-advanced-layer-reorderable="${String(row.reorderable===true)}" data-advanced-layer-row="${escapeHtml(key)}" data-advanced-layer-type="${escapeHtml(row.type)}" data-advanced-layer-id="${escapeHtml(row.id)}" style="--layer-depth:${depth}">
+      <span class="advanced-layer-glyph" aria-hidden="true">${escapeHtml(row.glyph)}</span>
+      <span class="advanced-layer-name">${escapeHtml(row.label)}</span>
+      <span class="advanced-layer-kind">${escapeHtml(row.type==="group"?`${row.members.length} items`:row.type)}</span>
+      ${row.reorderable?`<span class="advanced-layer-tools">
+        <button type="button" data-advanced-layer-action="up" title="Bring forward (⌘])" aria-label="Bring ${escapeHtml(row.label)} forward">▲</button>
+        <button type="button" data-advanced-layer-action="down" title="Send backward (⌘[)" aria-label="Send ${escapeHtml(row.label)} backward">▼</button>
+        <button type="button" data-advanced-layer-action="${row.locked?"unlock":"lock"}" title="${row.locked?"Unlock":"Lock"}" aria-pressed="${String(!!row.locked)}" aria-label="${row.locked?"Unlock":"Lock"} ${escapeHtml(row.label)}">${row.locked?"🔒":"🔓"}</button>
+      </span>`:""}
+    </div>${row.type==="group"?row.members.map((member)=>rowMarkup(member,depth+1)).join(""):""}`;
+  };
+  return`<section class="advanced-layers-panel" aria-label="Layers" data-advanced-layers-panel>
+    <div class="advanced-asset-rail-heading"><strong>Layers</strong><span>${rows.length}</span></div>
+    <p class="advanced-layers-hint">Shift-click to select multiple objects. Drag free layers or use ▲ ▼. Timeline and template objects stay in their canonical presentation order.</p>
+    ${rows.length?`<div class="advanced-layer-list" role="listbox" aria-multiselectable="true" aria-label="Canonical board objects and template">${rows.map((row)=>rowMarkup(row)).join("")}</div>`:'<p class="advanced-asset-rail-empty">Nothing on the board yet. Add an element, text or a photo and it will appear here.</p>'}
+  </section>`;
+}
+
 export function renderAdvancedStudio(document={},options={}){
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)return"";
@@ -2133,25 +2329,26 @@ export function renderAdvancedStudio(document={},options={}){
     ?requestedPanel
     :"elements";
   const hasObjectContext=["media","text","element","group","multi","headline"].includes(options.selection?.type);
-  const contextual=renderContextualPresentationControls(state,options.selection)||
-    (hasObjectContext
-      ?renderAdvancedSelectionControls(state,options)
-      :"");
-  let panel=contextual;
-  if(panel&&hasObjectContext){
-    panel+=renderAdvancedAssetRail(state,options.selection,{
-      activePanel:"uploads",
-      query:options.query,
-      resolveObjectUrl:options.resolveObjectUrl
-    });
-  }
-  if(!panel&&activePanel==="backgrounds")panel=renderBackgroundPanel(state,{...options,activeTab:options.activeTab||"Presets"});
-  if(!panel&&activePanel==="timeline")panel=renderTimelineAssetPanel(options.selection);
-  if(!panel)panel=renderAdvancedAssetRail(state,options.selection,{
+  const contextual=renderContextualPresentationControls(state,options.selection)||"";
+  /* AAA-019 — selecting an object no longer hijacks the whole panel. The category the
+     student was browsing stays put (Canva keeps the asset panel open while you edit);
+     the selection's controls sit above it in a drawer that opens by default and can be
+     collapsed. Precision fields stay reachable, but they are no longer the primary
+     surface for moving things — the board is. */
+  const selectionDrawer=hasObjectContext
+    ?`<details class="advanced-selection-drawer" data-advanced-selection-drawer ${options.selectionDrawerOpen===false?"":"open"}><summary><span>Selected ${escapeHtml(advancedSelectionSummaryLabel(state,options.selection))}</span><small>Position, size &amp; style</small></summary>${renderAdvancedSelectionControls(state,options)}</details>`
+    :"";
+  let panel="";
+  if(activePanel==="layers")panel=contextual+renderLayersPanel(state,options.selection);
+  else if(contextual)panel=contextual;
+  else if(activePanel==="backgrounds")panel=renderBackgroundPanel(state,{...options,activeTab:options.activeTab||"Presets"});
+  else if(activePanel==="timeline")panel=renderTimelineAssetPanel(options.selection);
+  else panel=renderAdvancedAssetRail(state,options.selection,{
     activePanel,
     query:options.query,
     resolveObjectUrl:options.resolveObjectUrl
   });
+  panel=selectionDrawer+panel;
   const lockControl=`<label class="layout-lock-toggle advanced-layout-lock-control" data-advanced-layout-lock-control><input type="checkbox" data-layout-lock ${state.layoutLock?"checked":""}><span>Layout lock</span></label>`;
   return`<aside class="advanced-editor-sidebar" data-advanced-editor-sidebar>${renderAdvancedToolRail(activePanel)}<div class="advanced-content-panel" data-advanced-content-panel>${lockControl}${panel}</div><div class="advanced-legacy-insert-contract" hidden aria-hidden="true">${renderInsertStrip(state,{includeLayoutLock:false})}</div></aside>`;
 }
@@ -2207,6 +2404,17 @@ export function installAdvancedStudio(root,hooks={}){
     }
     if(closest(event.target,"[data-color-key-geometry-reset]")){
       hooks.onColorKeyGeometryReset?.(event);
+      return;
+    }
+    const layerAction=closest(event.target,"[data-advanced-layer-action]");
+    if(layerAction){
+      const row=closest(layerAction,"[data-advanced-layer-row]");
+      hooks.onLayerAction?.(String(layerAction.dataset.advancedLayerAction||""),{type:String(row?.dataset.advancedLayerType||""),id:String(row?.dataset.advancedLayerId||"")},event);
+      return;
+    }
+    const layerRow=closest(event.target,"[data-advanced-layer-row]");
+    if(layerRow){
+      hooks.onSelectObject?.({type:String(layerRow.dataset.advancedLayerType||""),id:String(layerRow.dataset.advancedLayerId||"")},event);
       return;
     }
     const selectObject=closest(event.target,"[data-advanced-select-object]");
@@ -2379,7 +2587,64 @@ export function installAdvancedStudio(root,hooks={}){
     const dim=closest(event.target,"[data-background-dim]");
     if(dim)hooks.onBackgroundDim?.(normalizeDim(dim.value),event);
   };
+  let draggingLayer=null;
+  const layerDragStart=(event)=>{
+    const row=closest(event.target,"[data-advanced-layer-row]");
+    if(!row||row.dataset.advancedLayerReorderable!=="true")return false;
+    draggingLayer={type:String(row.dataset.advancedLayerType||""),id:String(row.dataset.advancedLayerId||"")};
+    row.classList.add("is-dragging");
+    try{event.dataTransfer.setData("text/plain",`${draggingLayer.type}:${draggingLayer.id}`);event.dataTransfer.effectAllowed="move";}catch{}
+    return true;
+  };
+  const clearLayerDropMarks=()=>root.querySelectorAll("[data-advanced-layer-row].is-dragging,[data-advanced-layer-row].drop-before,[data-advanced-layer-row].drop-after").forEach((node)=>node.classList.remove("is-dragging","drop-before","drop-after"));
+  const layerDragOver=(event)=>{
+    const row=closest(event.target,"[data-advanced-layer-row]");
+    if(!row||row.dataset.advancedLayerReorderable!=="true"||!draggingLayer)return;
+    event.preventDefault();
+    const box=row.getBoundingClientRect();
+    const after=event.clientY>box.top+box.height/2;
+    root.querySelectorAll("[data-advanced-layer-row].drop-before,[data-advanced-layer-row].drop-after").forEach((node)=>node.classList.remove("drop-before","drop-after"));
+    row.classList.add(after?"drop-after":"drop-before");
+  };
+  const layerDrop=(event)=>{
+    const row=closest(event.target,"[data-advanced-layer-row]");
+    if(!row||row.dataset.advancedLayerReorderable!=="true"||!draggingLayer)return;
+    event.preventDefault();
+    const box=row.getBoundingClientRect();
+    const after=event.clientY>box.top+box.height/2;
+    const target={type:String(row.dataset.advancedLayerType||""),id:String(row.dataset.advancedLayerId||"")};
+    const dragged=draggingLayer;
+    draggingLayer=null;
+    clearLayerDropMarks();
+    if(dragged.type===target.type&&dragged.id===target.id)return;
+    hooks.onLayerReorder?.(dragged,target,after?"after":"before",event);
+  };
+  const layerDragEnd=()=>{draggingLayer=null;clearLayerDropMarks();};
+  const layerKeyDown=(event)=>{
+    const row=closest(event.target,"[data-advanced-layer-row]");
+    if(!row||event.target!==row)return;
+    const target={type:String(row.dataset.advancedLayerType||""),id:String(row.dataset.advancedLayerId||"")};
+    if(event.key==="Enter"||event.key===" "){
+      event.preventDefault();
+      /* Enter on the row that is already selected activates it (a text row opens its
+         editor), the way Enter on the board does; the first Enter selects. */
+      if(event.key==="Enter"&&row.getAttribute("aria-selected")==="true"&&target.type==="text"){
+        hooks.onLayerAction?.("edit-text",target,event);
+        return;
+      }
+      hooks.onSelectObject?.(target,event);
+      return;
+    }
+    if(row.dataset.advancedLayerReorderable==="true"&&event.altKey&&(event.key==="ArrowUp"||event.key==="ArrowDown")){event.preventDefault();hooks.onLayerAction?.(event.key==="ArrowUp"?"up":"down",target,event);return;}
+    if(event.key==="ArrowUp"||event.key==="ArrowDown"){
+      event.preventDefault();
+      const rows=[...root.querySelectorAll("[data-advanced-layer-row]")];
+      const index=rows.indexOf(row);
+      rows[event.key==="ArrowUp"?Math.max(0,index-1):Math.min(rows.length-1,index+1)]?.focus();
+    }
+  };
   const dragstart=(event)=>{
+    if(layerDragStart(event))return;
     const insert=closest(event.target,"[data-advanced-insert-asset]");
     if(insert){
       const payload={
@@ -2414,10 +2679,18 @@ export function installAdvancedStudio(root,hooks={}){
   root.addEventListener("change",change);
   root.addEventListener("input",input);
   root.addEventListener("dragstart",dragstart);
+  root.addEventListener("dragover",layerDragOver);
+  root.addEventListener("drop",layerDrop);
+  root.addEventListener("dragend",layerDragEnd);
+  root.addEventListener("keydown",layerKeyDown);
   return()=>{
     root.removeEventListener("click",click);
     root.removeEventListener("change",change);
     root.removeEventListener("input",input);
     root.removeEventListener("dragstart",dragstart);
+    root.removeEventListener("dragover",layerDragOver);
+    root.removeEventListener("drop",layerDrop);
+    root.removeEventListener("dragend",layerDragEnd);
+    root.removeEventListener("keydown",layerKeyDown);
   };
 }

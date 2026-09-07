@@ -2,6 +2,8 @@ import {buildKeynoteClassicScene} from "../uxr-002/board-renderer.js";
 import {serializeLocked407FPortableSvg} from "../uxr-002/locked-407f-export.js";
 import {DEFAULT_THEME_ID,applyThemeToScene} from "../uxr-002/themes.js";
 import {reconcileAdvancedScene,validateSceneGraph} from "../editor/scene-graph.js";
+import {projectPresentationFields,projectPresentationEventFields} from './presentation-field-privacy.js';
+import {projectPresentationExamEvents} from './presentation-exam-display.js';
 import {
   FOUNDER_COLOR_KEY_ROWS,
   FOUNDER_KEYNOTE_CONTRACT,
@@ -64,13 +66,15 @@ export function projectFounderPresentationDocument(document,{scope="INTERVIEWER_
   }
   const normalizedScope=String(scope||"INTERVIEWER_SAFE").toUpperCase();
   const allowed=VISIBLE_BY_SCOPE[normalizedScope]||VISIBLE_BY_SCOPE.INTERVIEWER_SAFE;
+  const events=projectPresentationExamEvents(document).filter(event=>allowed.has(visibility(event?.visibilityState||event?.visibility)));
+  const visibleEventIds=new Set(events.map(event=>String(event.id)));
+  const fields=projectPresentationFields(document,{allowed,visibleEventIds});
   return{
     ...document,
     theme:document.theme||FOUNDER_PRESENTATION_DEFAULTS.theme,
-    studentProfile:{...(document.studentProfile||{})},
-    events:(document.events||[]).filter((event)=>allowed.has(
-      visibility(event?.visibilityState||event?.visibility)
-    )),
+    studentProfile:fields.studentProfile,
+    events:projectPresentationEventFields(events,fields),
+    exams:fields.exams,
     mediaItems:(document.mediaItems||[]).filter((item)=>allowed.has(
       visibility(item?.visibilityState||item?.visibility)
     )),
@@ -117,7 +121,9 @@ function mediaProjection(document,resolvedById=new Map()){
       source,
       altText:String(item.altText||item.caption||""),
       crop:item.crop&&typeof item.crop==="object"?{...item.crop}:null,
-      order:photoOrder(item,index)
+      order:photoOrder(item,index),
+      slot:String(item.placement||"").toLowerCase(),
+      naturalAspect:Number(item.naturalAspect)>0?Number(item.naturalAspect):null
     };
     if(role==="profile"&&!projected.profilePhoto)projected.profilePhoto=record;
     else if(role==="logo"&&!projected.logo)projected.logo=record;
@@ -224,7 +230,7 @@ function advancedSceneProjection(document,resolvedById=new Map()){
   const legacyMedia=new Map((document.advanced.media||[]).map((item)=>[String(item?.id||""),item]));
   return{
     ...scene,
-    objects:scene.objects.map((object)=>{
+    objects:scene.objects.filter(object=>object.type!=='media'||legacyMedia.get(String(object.id))?.placed!==false).map((object)=>{
       if(object.type!=="media")return object;
       const legacy=legacyMedia.get(String(object.id));
       const source=resolvedById.get(String(object.id))||
@@ -244,12 +250,16 @@ function founderPresentationProjection(document,resolvedById){
     categoryKey:Object.freeze(founderCategoryKeyProjection(document).map(Object.freeze)),
     colorKeyGeometry:Object.freeze(boundedGeometry(
       document?.presentationOverrides?.colorKeyGeometry,
-      {x:37,y:350,width:247,height:277}
+      {x:20,y:300,width:284,height:346}
     )),
     profileGeometry:Object.freeze(boundedGeometry(
       document?.presentationOverrides?.profileGeometry,
-      {x:30,y:677,width:512,height:375}
+      {x:13,y:661,width:545,height:410}
     )),
+    photoFrames:Object.freeze(Object.fromEntries(Object.entries(
+      document?.presentationOverrides?.photoFrames&&typeof document.presentationOverrides.photoFrames==="object"
+        ?document.presentationOverrides.photoFrames:{}
+    ).map(([slot,geometry])=>[String(slot),Object.freeze({...(geometry||{})})]))),
     advancedScene:advancedSceneProjection(document,resolvedById)
   });
 }

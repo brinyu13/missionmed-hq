@@ -1,3 +1,7 @@
+import { assertProductionDatabaseReadiness, readProductionDatabaseHealth } from "./production-database-readiness.js";
+import { PostgresTimelineAdminService } from "../admin/postgres-admin-service.js";
+import { PostgresFounderStandardRegistry } from "../intelligence/founder-standard-registry.js";
+import { timelineAiProcessingMode } from "../intelligence/timeline-ai-authorization.js";
 import { createServer } from "node:http";
 
 import pg from "pg";
@@ -10,6 +14,7 @@ import { CvIntelligenceService } from "../intelligence/cv-intelligence-service.j
 import { OpenAiCvIntelligenceProvider } from "../intelligence/openai-cv-intelligence.js";
 import { OpenAiTimelineWorkflowProvider } from "../intelligence/openai-timeline-ai-workflows.js";
 import { TimelineAiWorkflowService } from "../intelligence/timeline-ai-workflow-service.js";
+import { ProviderAuthenticityService022 } from "../intelligence/provider-authenticity-022.js";
 import { sanitizeServerApprovedFounderPreferenceRules } from "../intelligence/timeline-ai-workflow-schema.js";
 import { PostgresTimelinePrincipalDirectory } from "../identity/postgres-principal-directory.js";
 import { WordPressTimelineJwtVerifier } from "../identity/wordpress-timeline-jwt.js";
@@ -97,10 +102,14 @@ const syntheticAiPrincipals = new Set(
     .map((value) => value.trim())
     .filter(Boolean),
 );
+const founderStandards = new PostgresFounderStandardRegistry(pool, { runtimeRole });
+const aiProcessingMode = timelineAiProcessingMode(process.env.TIMELINE_AI_PROCESSING_MODE);
 const cvIntelligence = new CvIntelligenceService({
   provider: aiProviderName === "openai" ? new OpenAiCvIntelligenceProvider({ apiKey: aiApiKey, model: aiModel }) : null,
   expectedConsentVersion: aiProviderName ? aiConsentVersion : null,
   syntheticPrincipalIds: syntheticAiPrincipals,
+  processingMode: aiProcessingMode,
+  founderStandards,
 });
 const founderPreferenceRulesRaw = process.env.TIMELINE_FOUNDER_PREFERENCE_RULES_JSON?.trim() ?? "";
 let founderPreferenceRules: ReturnType<typeof sanitizeServerApprovedFounderPreferenceRules> = [];
@@ -118,39 +127,26 @@ const timelineAiWorkflows = new TimelineAiWorkflowService(
   aiProviderName === "openai" ? new OpenAiTimelineWorkflowProvider({ apiKey: aiApiKey, model: aiModel }) : null,
   syntheticAiPrincipals,
   founderPreferenceRules,
+  { processingMode: aiProcessingMode, expectedConsentVersion: aiConsentVersion || null, founderStandards },
 );
+const providerAuthenticity = new ProviderAuthenticityService022(activeKeyId, secrets);
 const serviceProvider = (context: PrincipalContext) => new TimelineService(new PostgresTimelineRepository(pool, {
   rlsClaims: postgresClaimsFromPrincipal(context),
   runtimeRole,
   expectedSchemaVersion: POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION,
-}));
-const api = new TimelineHttpApi(serviceProvider, identity, objectStore, telemetry, RELEASE_VERSION, true, cvIntelligence, timelineAiWorkflows);
+}), () => new Date(), providerAuthenticity);
+const adminService = new PostgresTimelineAdminService(pool, () => new Date(), providerAuthenticity);
+const api = new TimelineHttpApi(serviceProvider, identity, objectStore, telemetry, RELEASE_VERSION, true, cvIntelligence, timelineAiWorkflows, { founderStandards, adminService, providerAuthenticity });
 
-await new PostgresTimelineRepository(pool, { expectedSchemaVersion: POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION }).initialize();
-const productionSchema = await pool.query("select to_regclass('timeline.admin_resource_grants') is not null as admin_grants_ready");
-if (productionSchema.rows[0]?.admin_grants_ready !== true) throw new Error("TIMELINE_PRODUCTION_SCHEMA_INCOMPLETE");
+await new PostgresTimelineRepository(pool, { runtimeRole, expectedSchemaVersion: POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION }).initialize();
+await assertProductionDatabaseReadiness(pool, runtimeRole);
 
 const handler = createTimelineProductionHttpHandler({
   api,
   gatewaySecret,
   releaseVersion: RELEASE_VERSION,
   expectedSchemaVersion: POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION,
-  health: async () => {
-    const client = await pool.connect();
-    let transaction = false;
-    try {
-      await client.query("begin");
-      transaction = true;
-      await client.query("set local statement_timeout = '3500ms'");
-      const result = await client.query("select timeline.schema_version() as schema_version");
-      await client.query("commit");
-      transaction = false;
-      return { schemaVersion: String(result.rows[0]?.schema_version ?? "") };
-    } finally {
-      if (transaction) await client.query("rollback").catch(() => {});
-      client.release();
-    }
-  },
+  health: () => readProductionDatabaseHealth(pool, runtimeRole),
   log: (event) => process.stdout.write(`${JSON.stringify(event)}\n`),
 });
 const server = createServer(handler);

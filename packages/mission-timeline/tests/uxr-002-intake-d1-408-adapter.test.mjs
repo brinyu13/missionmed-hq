@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {deflateRawSync} from "node:zlib";
+const providerReceipt022={responseId:'synthetic-provider-receipt',model:'approved-model',store:false,inputSha256:'a'.repeat(64),outputSha256:'b'.repeat(64)};
 
 import {
   createD1408PdfIntakeAdapter,
@@ -380,6 +381,7 @@ test("production CV adapter uploads a private SOURCE and maps evidence-bound AI 
       calls.push(["analyze",documentId,input]);
       return{
         mode:"SERVER_AI",analysisId:"analysis-1",provider:"openai",model:"approved-model",
+        providerReceipt:providerReceipt022,
         schemaVersion:"schema-1",promptVersion:"prompt-1",rejectedCandidateCount:0,
         candidates:[{
           id:"award-1",canonicalType:"AWARD_HONOR",categoryId:"education",timelineKind:"milestone",
@@ -397,6 +399,7 @@ test("production CV adapter uploads a private SOURCE and maps evidence-bound AI 
   });
   const result=await adapter.extract({file,documentType:"CV"});
   assert.equal(result.parser.intelligenceMode,"SERVER_AI");
+  assert.deepEqual(result.parser.providerReceipt,providerReceipt022);
   assert.equal(result.sourceDocument.objectId,"object-source");
   assert.equal(result.candidates[0].categoryId,"education");
   assert.equal(result.candidates[0].confidence,"high");
@@ -444,6 +447,7 @@ test("File Vault Smart Fill preserves trace-only custody through source and cand
       async signObjectUpload(){signCalls+=1;throw new Error("File Vault handoff must be reused");},
       async analyzeCv(){return{
         mode:"SERVER_AI",analysisId:"analysis-filevault",provider:"openai",model:"approved-model",
+        providerReceipt:providerReceipt022,
         schemaVersion:"schema-1",promptVersion:"prompt-1",rejectedCandidateCount:0,
         candidates:[{
           id:"award-filevault",canonicalType:"AWARD_HONOR",categoryId:"education",timelineKind:"milestone",
@@ -470,7 +474,7 @@ test("File Vault Smart Fill preserves trace-only custody through source and cand
   assert.notEqual(result.candidates[0].provenance[0].sourceCustody,result.sourceDocument.sourceCustody);
 });
 
-test("File Vault flow-owned SOURCE is deleted on local-limited, AI-empty, and provider failure paths",async()=>{
+test("readable File Vault fallback retains confirmed exact source custody; unreadable sources are released",async()=>{
   const sha256="b".repeat(64);
   const deleted=[];
   const fileFor=(objectId)=>{
@@ -482,7 +486,7 @@ test("File Vault flow-owned SOURCE is deleted on local-limited, AI-empty, and pr
     return file;
   };
   const localResult=(sourceBlocks)=>({
-    readable:true,outcome:"ready-for-review",candidates:[],
+    readable:true,outcome:"ready-for-review",candidates:[{id:"candidate-local",provenance:[{sourceBlockId:"block-1",sourceExcerpt:"Synthetic role"}],fields:{}}],
     sourceDocument:{id:"source-local",fileName:"synthetic_cv.pdf",fileSize:1024,mimeType:"application/pdf",sha256,effectiveType:"CV"},
     sourceBlocks,parser:{version:"408.1.0"}
   });
@@ -497,7 +501,12 @@ test("File Vault flow-owned SOURCE is deleted on local-limited, AI-empty, and pr
     localAdapter:{async extract(){return localResult([{id:"block-1",pageNumber:1,section:"work",text:"Synthetic role"}]);}},
     apiClient,documentId:"timeline-filevault-empty"
   });
-  assert.equal((await emptyAdapter.extract({file:fileFor("object-filevault-empty")})).parser.intelligenceMode,"LOCAL_LIMITED");
+  const empty=await emptyAdapter.extract({file:fileFor("object-filevault-empty")});
+  assert.equal(empty.parser.intelligenceMode,"LOCAL_LIMITED");
+  assert.equal(empty.sourceDocument.objectId,"object-filevault-empty");
+  assert.equal(empty.candidates[0].provenance[0].sourceObjectId,"object-filevault-empty");
+  assert.equal(empty.candidates[0].fields.sourceProvenance[0].sourceSha256,sha256);
+  assert.equal(empty.candidates[0].provenance[0].sourceCustody.versionId,"22222222-2222-4222-8222-222222222222");
   const catchAdapter=createProductionCvIntakeAdapter({
     localAdapter:{async extract(){return localResult([{id:"block-1",pageNumber:1,section:"work",text:"Synthetic role"}]);}},
     apiClient,documentId:"timeline-filevault-catch"
@@ -508,7 +517,9 @@ test("File Vault flow-owned SOURCE is deleted on local-limited, AI-empty, and pr
     apiClient,documentId:"timeline-filevault-local-limited"
   });
   await localLimitedAdapter.extract({file:fileFor("object-filevault-local-limited")});
-  assert.deepEqual(deleted,["object-filevault-empty","object-filevault-catch","object-filevault-local-limited"]);
+  assert.deepEqual(deleted,["object-filevault-local-limited"]);
+  await emptyAdapter.deleteSource();
+  assert.deepEqual(deleted,["object-filevault-local-limited","object-filevault-empty"]);
 });
 
 test("CV intelligence mapping is conservative when evidence is inferred",()=>{
@@ -540,9 +551,9 @@ test("Timeline Rescue keeps unclassified facts unresolved and exposes slide, cle
       rescue:{
         schemaVersion:"d1-timeline-rescue-1",format:"PDF",artifactSha256:"b".repeat(64),objects:[{id:"o1"}],warnings:[],unresolvedQuestions:[],
         candidates:[{
-          id:"rescue-unclassified",categoryId:"unclassified",title:"Community chapter",startDate:"2021-01",endDate:null,
-          timelineKind:"milestone",confidence:{score:.35,reasons:["No reliable category term"]},
-          provenance:[{pageOrSlide:3,sourceText:"Community chapter 2021",support:"SOURCE_FACT"}],uncertainties:["Confirm category"]
+          id:"rescue-unclassified",categoryId:"unclassified",title:"Community chapter",institution:"Source Chapter Office",startDate:"2021-01",endDate:null,
+          timelineKind:"duration",openEnded:true,datePrecision:{start:"YEAR",end:null},confidence:{score:.35,reasons:["No reliable category term"]},
+          provenance:[{pageOrSlide:3,sourceText:"Community chapter 2021–Present",support:"SOURCE_FACT"}],uncertainties:["Confirm category"]
         }],
         cleanupProposal:{authority:"MISSIONMED_D1_409H_CANONICAL_PRESENTATION",actions:[{id:"cleanup-bg",kind:"RESTORE_CANONICAL_BACKGROUND",candidateIds:[],reason:"Restore presentation only."}]},
         reconciliation:[{timelineCandidateId:"rescue-unclassified",cvCandidateId:"cv-1",state:"CATEGORY_CONFLICT",recommendation:"Review both categories."}]
@@ -553,6 +564,12 @@ test("Timeline Rescue keeps unclassified facts unresolved and exposes slide, cle
   const adapter=createProductionCvIntakeAdapter({apiClient,documentId:"timeline-rescue",ensureRemoteDocument:async()=>{}});
   const result=await adapter.extract({file,documentType:"CV"});
   assert.equal(result.candidates[0].categoryId,"");
+  assert.equal(result.candidates[0].openEnded,true);
+  assert.equal(result.candidates[0].title,"Community chapter");
+  assert.equal(result.candidates[0].fields.institution,"Source Chapter Office");
+  assert.equal(result.candidates[0].fields.siteName,"Source Chapter Office");
+  assert.deepEqual(result.candidates[0].fields.datePrecision,{start:"YEAR",end:null});
+  assert.equal(result.candidates[0].inferredFields[0].sourcePrecision,"YEAR");
   assert.equal(result.candidates[0].fields.mappingReviewRequired,true);
   assert.equal(result.candidates[0].provenance[0].pageNumber,3);
   assert.equal(result.parser.qualitySuggestions.length,2);
@@ -584,7 +601,7 @@ test("Timeline Rescue PPTX passes IntakeStateMachine validation and reaches the 
             timelineKind:"duration",confidence:{score:.88,reasons:["Explicit synthetic title and dates"]},
             provenance:[{pageOrSlide:1,sourceText:"Synthetic Research Fellowship 2021-2023",support:"SOURCE_FACT"}],uncertainties:[]
           }],
-          cleanupProposal:{authority:"MISSIONMED_FOUNDER_KEYNOTE_2024_CANONICAL_PRESENTATION",factualMutationAllowed:false,actions:[]},
+          cleanupProposal:{authority:"MISSIONMED_FOUNDER_KEYNOTE_2025_CANONICAL_PRESENTATION",factualMutationAllowed:false,actions:[]},
           reconciliation:[{timelineCandidateId:"rescue-research",cvCandidateId:"synthetic-cv-research",state:"DATE_CONFLICT",recommendation:"Review both dates.",requiresReview:true}]
         }
       };

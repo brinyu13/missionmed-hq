@@ -1,10 +1,11 @@
 import {HybridIndexedDbAdapter} from "../../../matrix/hybrid-indexeddb-adapter.js";
-import {TimelineProductionAuthClient} from "./timeline-auth-client.js";
+import {TimelineProductionAuthClient,TimelineProductionAuthError} from "./timeline-auth-client.js";
+import {MemoryPersistenceAdapter} from "../persistence/memory-adapter.js";
 
-function cacheName(origin,principalId,role){
+function cacheName(origin,principalId,role,subjectId=""){
   const environment=new URL(origin).hostname.toLowerCase().replace(/[^a-z0-9.-]/g,"-");
   const persona=String(role||"unknown").toLowerCase().replace(/[^a-z0-9_-]/g,"-");
-  return `missionmed-timeline:${environment}:principal:${principalId}:persona:${persona}:v3`;
+  return `missionmed-timeline:${environment}:principal:${principalId}:persona:${persona}${subjectId?`:subject:${subjectId}`:""}:v3`;
 }
 
 export function productionEntitlementAssertion(identity,currentUsage){
@@ -25,8 +26,9 @@ export function productionEntitlementAssertion(identity,currentUsage){
   });
 }
 
-export function productionRemotePersistenceAllowed(identity){
-  return identity?.role==="STUDENT"&&identity?.remoteSyncAllowed===true;
+export function productionRemotePersistenceAllowed(identity,subject=null){
+  return (identity?.role==="STUDENT"&&identity?.remoteSyncAllowed===true)||
+    (identity?.role==="PROGRAM_ADMIN"&&identity?.adminWorkspace===true&&subject?.canEdit===true&&!!subject?.principalId);
 }
 
 export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fetch.bind(globalThis),locationObject=globalThis.location}={}){
@@ -41,20 +43,38 @@ export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fet
     }
   });
   const identity=await authClient.initialize();
-  const remotePersistenceAllowed=productionRemotePersistenceAllowed(identity);
-  const listing=remotePersistenceAllowed
+  let subject=null;
+  let selectedDocument=null;
+  const adminWorkspace=identity.role==="PROGRAM_ADMIN";
+  if(adminWorkspace){
+    if(identity.adminWorkspace!==true)throw new TimelineProductionAuthError("ADMIN_WORKSPACE_UNAVAILABLE","The administrator workspace is not enabled for this account.",403);
+    const selected=new URL(locationObject.href||`${locationObject.origin}${locationObject.pathname||"/timeline/"}${locationObject.search||""}`).searchParams.get("student");
+    if(selected!==null){
+      if(!/^[1-9][0-9]{0,14}$/.test(selected))throw new TimelineProductionAuthError("ADMIN_SUBJECT_INVALID","Select a student from the roster.",400);
+      const opened=await authClient.openAdminStudent(Number(selected));
+      if(!opened?.documentId||!opened?.subject?.principalId||opened.studentPrincipalId!==opened.subject.principalId)throw new TimelineProductionAuthError("ADMIN_SUBJECT_INVALID","This student's Timeline is not available.",403);
+      subject=Object.freeze({...opened.subject,documentId:opened.documentId,grantExpiresAt:opened.grantExpiresAt});
+      authClient.setAdminSubject(Number(selected));
+      await authClient.refreshToken();
+      selectedDocument=await authClient.getDocument(opened.documentId);
+      if(selectedDocument?.document?.studentOwnerId!==subject.principalId)throw new TimelineProductionAuthError("ADMIN_SUBJECT_INVALID","This student's Timeline is not available.",403);
+    }
+  }
+  const remotePersistenceAllowed=productionRemotePersistenceAllowed(identity,subject);
+  const listing=selectedDocument?{documents:[selectedDocument]}:remotePersistenceAllowed
     ?await authClient.listDocuments()
     :{documents:[]};
   const documents=Array.isArray(listing?.documents)?listing.documents:[];
   const active=documents[0]||null;
   const newDocumentId=`timeline_${crypto.randomUUID()}`;
-  adapter=new HybridIndexedDbAdapter({
+  adapter=adminWorkspace&&!subject?new MemoryPersistenceAdapter():new HybridIndexedDbAdapter({
     apiClient:authClient,
     programId:String(active?.document?.programId||"missionmed-360:3893"),
-    name:cacheName(locationObject.origin,identity.principalId,identity.role),
+    name:cacheName(locationObject.origin,identity.principalId,identity.role,subject?.principalId||""),
     version:1,
     remoteSyncConsent:false
   });
+  if(adminWorkspace&&!subject)adapter.kind="ADMIN_WORKSPACE_EPHEMERAL";
   adapter.newDocumentId=newDocumentId;
   await adapter.open();
   if(active?.document){
@@ -75,7 +95,8 @@ export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fet
     membershipVersion:assertion.membershipVersion
   });
   return Object.freeze({
-    adapter,authClient,identity,documents,assertion,assertionForClaims,expectedBinding,
-    remotePersistenceAllowed,privateMediaStorageEnabled:remotePersistenceAllowed
+    adapter,authClient,identity,subject,adminWorkspace,documents,assertion,assertionForClaims,expectedBinding,
+    remotePersistenceAllowed,privateMediaStorageEnabled:remotePersistenceAllowed||!!selectedDocument,
+    privateMediaWriteEnabled:identity.role==="STUDENT"&&remotePersistenceAllowed
   });
 }

@@ -223,7 +223,7 @@ export function renderAdvancedBoard(
   }
   svg=applyHeadlineTypography(svg,state.headlineTypography);
   const layers=`<g data-advanced-layer="true">${mediaMarkup(state.media,resolveObjectUrl,{reducedMotion:!!options.reducedMotion})}${textMarkup(state.textBlocks)}${elementMarkup(state.elements)}</g>`;
-  svg=svg.replace("</svg>",`${layers}</svg>`);
+  {const closing=svg.lastIndexOf("</svg>");svg=closing<0?svg+layers:`${svg.slice(0,closing)}${layers}${svg.slice(closing)}`;}
   return{
     ...rendered,
     scene:{

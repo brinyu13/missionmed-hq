@@ -32,14 +32,23 @@ test("012A production auth client sends Timeline Rescue through the owner-authen
 });
 
 test("012A production UI exposes real Rescue input, review gating, and honest Keynote guidance",async()=>{
-  const [entry,intake]=await Promise.all([
+  const [entry,intake,review]=await Promise.all([
     readFile(new URL("../web/js/407f-engineering-adapter.js",import.meta.url),"utf8"),
     readFile(new URL("../web/js/uxr-002/intake-d1-408-adapter.js",import.meta.url),"utf8"),
+    readFile(new URL("../web/js/uxr-002/intake.js",import.meta.url),"utf8"),
   ]);
-  assert.match(entry,/Import an existing Timeline/);
+  /* AAA-019 (09 §1): the front door is "I already have a Timeline" — on Home and in the
+     intake — with student-language Keynote guidance and an honest local degrade. */
+  assert.match(entry,/I ALREADY HAVE A TIMELINE/);
   assert.match(entry,/data-timeline-rescue-file/);
-  assert.match(entry,/File > Export To > PowerPoint \(preferred\) or PDF/);
-  assert.match(entry,/Nothing is added until you review and accept it/);
+  assert.match(entry,/File → Export To → PowerPoint…/);
+  assert.match(entry,/You review each suggestion before adding it to a new MissionMed layout/);
+  assert.match(entry,/Photos, notes and original positions are not restored/);
+  assert.match(review,/Only the entries you accept and their supported profile details are added/);
+  assert.match(review,/Photos, notes and original object positions from the uploaded file are not restored/);
+  assert.match(review,/Your original file stays unchanged/);
+  assert.match(entry,/Timeline Rescue needs the MissionMed server/);
+  assert.match(entry,/homeRescueFile/);
   assert.match(intake,/input\.file\?\.timelineRescue===true/);
   assert.match(intake,/apiClient\.rescueTimeline/);
   assert.match(intake,/decision:"undecided"/);

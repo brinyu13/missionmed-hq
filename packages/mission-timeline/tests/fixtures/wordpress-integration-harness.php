@@ -175,6 +175,14 @@ $vault_record = array(
     )),
 );
 $vault_descriptor = mmtl_filevault_source_descriptor($vault_record, 101, true);
+$historical_record = $vault_record;
+$historical_record['versions'][] = array_merge($vault_record['versions'][0], array('number' => 1, 'version_uuid' => '11111111-1111-4111-8111-111111111111'));
+$historical = mmtl_filevault_source_descriptor($historical_record, 101, true, '11111111-1111-4111-8111-111111111111');
+$checks['filevault_historical_version_exact'] = is_array($historical) && $historical['versionNumber'] === 1 && $historical['isCurrentVersion'] === false;
+$checks['filevault_unknown_version_denied'] = mmtl_filevault_source_descriptor($historical_record, 101, true, '33333333-3333-4333-8333-333333333333') === null;
+$checks['filevault_historical_cross_owner_denied'] = mmtl_filevault_source_descriptor($historical_record, 102, true, '11111111-1111-4111-8111-111111111111') === null;
+$historical_record['versions'][1]['verification_state'] = 'pending_scan';
+$checks['filevault_historical_unconfirmed_denied'] = mmtl_filevault_source_descriptor($historical_record, 101, true, '11111111-1111-4111-8111-111111111111') === null;
 $checks['filevault_source_owner_bound'] = is_array($vault_descriptor)
     && $vault_descriptor['id'] === (string) $vault_record['id']
     && $vault_descriptor['versionId'] === $vault_record['versions'][0]['version_uuid'];

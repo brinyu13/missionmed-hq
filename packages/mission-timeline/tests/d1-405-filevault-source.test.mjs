@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {createHash} from 'node:crypto';
 import {readFile} from "node:fs/promises";
 import test from "node:test";
 
@@ -69,6 +70,8 @@ test("D1-405 File Vault source normalizes metadata-only rows and searches throug
     provider:"missionmed-filevault-v2",
     documentType:"other",
     versionId:"",
+    versionNumber:null,
+    isCurrentVersion:false,
     mimeType:"application/pdf",
     fileType:"application/pdf",
     updatedAt:"Jul 29, 2026",
@@ -97,7 +100,7 @@ test("D1-405 authenticated adapter uses only the bounded source routes",async()=
   assert.equal((await adapter.search(" my cv ")).length,1);
   assert.equal((await adapter.select(id)).versionId,"22222222-2222-4222-8222-222222222222");
   await assert.rejects(()=>adapter.select("not-a-vault-id"),(error)=>error.code===FILE_VAULT_SOURCE_UNAVAILABLE);
-  assert.deepEqual(calls,["","?query=my%20cv",`/${id}`]);
+  assert.deepEqual(calls,["","?query=my+cv",`/${id}`]);
 });
 
 test("D1-405 authenticated adapter performs an exact-version one-use ingestion without exposing a signed URL",async()=>{
@@ -109,7 +112,7 @@ test("D1-405 authenticated adapter performs an exact-version one-use ingestion w
     calls.push([suffix,options]);
     return{
       document:{id,name:"CV.pdf",provider:"missionmed-filevault-v2",documentType:"curriculum_vitae",versionId,mimeType:"application/pdf"},
-      source:{objectId:"object_filevault_12345678",sha256:"a".repeat(64),mimeType:"application/pdf"},
+      source:{objectId:"object_filevault_12345678",sha256:createHash('sha256').update('bounded cv bytes').digest('hex'),byteSize:Buffer.byteLength('bounded cv bytes'),mimeType:"application/pdf"},
       contentBase64
     };
   }});
@@ -146,7 +149,7 @@ test("D1-405 Timeline gateway is read-only, nonce-bound, entitled, and owner-fil
   assert.match(plugin,/const MMTL_FILEVAULT_SMART_FILL_MAX_BYTES = 20 \* 1024 \* 1024;/);
   assert.match(plugin,/limit_response_size' => MMTL_FILEVAULT_SMART_FILL_MAX_BYTES \+ 1/);
   assert.match(plugin,/function mmtl_filevault_source_smart_fill_ready/);
-  assert.match(plugin,/mmtl_filevault_source_descriptor\(\$record, \$owner_id, true\)/);
+  assert.match(plugin,/mmtl_filevault_source_descriptor\(\$record, \$owner_id, true, \$version_id\)/);
   assert.doesNotMatch(plugin,/\$current_number = max\(1,/);
   assert.match(plugin,/\$declared_current = \$record\['version'\] \?\? null;/);
   assert.match(plugin,/if \(\$version === null && \$require_version\) \{\s*return null;/);
@@ -181,7 +184,7 @@ function ingestionAdapter({bytes,mimeType="application/pdf",byteSize}={}){
   const body=bytes??Buffer.from("bounded cv bytes");
   return createAuthenticatedFileVaultSourceAdapter({request:async()=>({
     document:{id:VAULT_ID,name:"CV.pdf",provider:"missionmed-filevault-v2",documentType:"curriculum_vitae",versionId:VERSION_ID,mimeType},
-    source:{objectId:"object_filevault_12345678",sha256:"a".repeat(64),mimeType,...(byteSize===undefined?{}:{byteSize})},
+    source:{objectId:"object_filevault_12345678",sha256:createHash('sha256').update(body).digest('hex'),mimeType,byteSize:byteSize??body.length},
     contentBase64:Buffer.from(body).toString("base64")
   })});
 }
@@ -235,4 +238,17 @@ test("D1-405 File Vault chooser carries the version it already listed so selecti
     {documentId:VAULT_ID,versionId:VERSION_ID}
   );
   assert.equal(readFileVaultSourceSelection({querySelector:()=>null}),null);
+});
+
+test('022 File Vault pages retain historical versions and import checksums reject altered bytes',async()=>{
+  const old='11111111-1111-4111-8111-111111111111';const calls=[];
+  const adapter=createAuthenticatedFileVaultSourceAdapter({request:async(suffix,options)=>{
+    calls.push([suffix,options]);
+    if(!options)return{page:2,pageSize:20,total:21,documents:[{id:'27',name:'CV.pdf',versionId:old,versionNumber:1,isCurrentVersion:false,mimeType:'application/pdf'}]};
+    return{document:{id:'27',name:'CV.pdf',versionId:old,mimeType:'application/pdf'},source:{objectId:'object_source_022',byteSize:7,sha256:'a'.repeat(64)},contentBase64:Buffer.from('changed').toString('base64')};
+  }});
+  const model=await queryFileVaultSource(adapter,{query:'CV',page:2});assert.equal(model.page,2);assert.equal(model.total,21);assert.equal(model.documents[0].versionId,old);
+  assert.match(renderFileVaultSourceChooser(model),/Version 1/);assert.match(renderFileVaultSourceChooser(model),/Page 2 of 2/);
+  await assert.rejects(selectFileVaultSourceDocument(adapter,'27',{timelineDocumentId:'timeline_022',versionId:old}),/checksum did not match/);
+  assert.equal(calls[1][1].body.versionId,old);
 });

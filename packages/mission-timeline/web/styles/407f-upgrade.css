@@ -567,13 +567,20 @@
   border-radius:12px;
   box-shadow:0 16px 52px rgba(0,0,0,.48);
   left:50%;
-  max-width:390px;
-  padding:22px 26px;
+  max-width:560px;
+  padding:12px 18px;
   position:absolute;
-  text-align:center;
-  top:50%;
-  transform:translate(-50%,-50%);
+  text-align:left;
+  bottom:18px;
+  transform:translateX(-50%);
+  display:flex;
+  align-items:center;
+  gap:16px;
+  pointer-events:auto;
 }
+.homeEmptyOverlay h3{margin:0;font-size:15px;white-space:nowrap}
+.homeEmptyOverlay p{margin:0;flex:1;font-size:13px;color:var(--mid)}
+.homeEmptyOverlay .btnD{flex:0 0 auto}
 
 .fileVaultSourceDialog{
   display:grid;
@@ -608,6 +615,21 @@
 .quality-guardian-sections p{
   margin:0;
 }
+.quality-guardian .status-chip{
+  display:inline-block;
+  border:1px solid var(--edge2);
+  border-radius:999px;
+  color:var(--mid);
+  font-family:var(--num);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.08em;
+  padding:3px 8px;
+  margin:0 6px 4px 0;
+  vertical-align:middle;
+}
+.quality-guardian>p.status-chip{margin:0;justify-self:start}
+.quality-guardian .status-chip[data-quality-ai-status="COMPLETE"]{color:var(--cy);border-color:rgba(57,214,255,.5)}
 
 .quality-guardian-sections{
   display:grid;
@@ -787,17 +809,7 @@
   text-transform:uppercase;
 }
 
-.homeEmptyOverlay h3{
-  font-size:18px;
-  margin-bottom:8px;
-}
 
-.homeEmptyOverlay p{
-  color:var(--mid);
-  font-size:14px;
-  line-height:1.5;
-  margin-bottom:6px;
-}
 
 /*
  * Keep the canonical 407F atmospheric field deterministic even while the
@@ -2500,7 +2512,7 @@ main{
 .media407FCanvasLauncher{
   flex:none;
   min-height:44px;
-  position:static;
+  position:relative;
   z-index:auto;
 }
 
@@ -3522,8 +3534,15 @@ section[data-view="canvas"]{
   min-height:0;
   overflow:auto;
   padding:24px;
-  place-items:center;
+  /* AAA-019 — "safe" centring: a board wider than the stage (150%+) used to be centred
+     with its left half at a negative offset that no scrollbar could reach. The safe
+     keyword falls back to start alignment on overflow, so every part of a zoomed board
+     is pannable, while a small board still sits centred. */
+  place-items:safe center;
   position:relative;
+}
+.canvas407FHost .canvas-application[data-zoom-mode="percent"]{
+  margin:0 auto;
 }
 
 .canvas407FHost .canvas-application{
@@ -4860,9 +4879,15 @@ section[data-view="canvas"]{
 
 .intake407FHost .success-card{
   display:grid;
+  grid-template-columns:minmax(0,1fr);
+  min-width:0;
   gap:12px;
   text-align:center;
 }
+.intake407FHost .success-card>*{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.intake407FHost .success-card .button{white-space:normal;overflow-wrap:anywhere}
+.intake407FHost .intake-stage h1,
+.intake407FHost .intake-stage h2{min-width:0;max-width:100%;overflow-wrap:anywhere}
 
 .intake407FHost .success-check{
   background:rgba(74,222,157,.14);
@@ -5493,43 +5518,72 @@ section[data-view="canvas"]{
   outline:3px solid var(--cy);
 }
 
+.canvas407FHost .canvas-application{container-type:inline-size}
 .canvas407FHost .canvas-advanced-text-editor{
-  background:rgba(9,14,24,.98);
-  border:2px solid var(--cy);
-  border-radius:7px;
-  box-shadow:0 12px 34px rgba(0,0,0,.42);
+  background:transparent;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
   left:var(--advanced-text-left);
-  min-width:240px;
-  padding:8px;
-  position:absolute;
   top:var(--advanced-text-top);
-  transform:translate(-8px,-50%);
+  width:var(--advanced-text-width,20%);
+  height:var(--advanced-text-height,8%);
+  min-width:0;
+  padding:0;
+  position:absolute;
+  transform:none;
   z-index:100;
-}
-
-.canvas407FHost .canvas-advanced-text-editor textarea{
-  background:#0b101a;
-  border:1px solid var(--edge2);
-  color:var(--tx);
-  min-height:72px;
-  padding:7px;
-  resize:both;
-  width:100%;
-}
-
-.canvas407FHost .canvas-advanced-text-editor div{
   display:flex;
-  gap:6px;
-  justify-content:flex-end;
-  margin-top:6px;
+  flex-direction:column;
 }
-
-.canvas407FHost .canvas-advanced-text-editor button{
+.canvas407FHost .canvas-advanced-text-editor[data-text-vertical="center"]{justify-content:center}
+.canvas407FHost .canvas-advanced-text-editor[data-text-vertical="bottom"]{justify-content:flex-end}
+.canvas407FHost .canvas-advanced-text-editor label{display:block;flex:0 1 auto;min-height:0}
+.canvas407FHost .canvas-advanced-text-editor textarea{
+  background:transparent;
+  border:0;
+  outline:2px dashed rgba(57,214,255,.9);
+  outline-offset:2px;
+  border-radius:2px;
+  color:var(--advanced-text-color,#191C21);
+  font-family:var(--advanced-text-font,Inter),Inter,system-ui,sans-serif;
+  font-weight:var(--advanced-text-weight,400);
+  font-size:calc(var(--advanced-text-size,24) / 1920 * 100cqw);
+  line-height:var(--advanced-text-line-height,1.2);
+  text-align:left;
+  min-height:0;
+  height:100%;
+  padding:0;
+  margin:0;
+  resize:none;
+  overflow:hidden;
+  width:100%;
+  display:block;
+  caret-color:var(--cy);
+  box-shadow:none;
+}
+.canvas407FHost .canvas-advanced-text-editor[data-text-align="center"] textarea{text-align:center}
+.canvas407FHost .canvas-advanced-text-editor[data-text-align="right"] textarea{text-align:right}
+.canvas407FHost .canvas-advanced-text-editor textarea::selection{background:rgba(57,214,255,.35);color:inherit}
+.canvas407FHost .canvas-advanced-text-editor .canvas-advanced-text-editor-hint{
+  position:absolute;
+  left:0;
+  top:calc(100% + 6px);
+  display:flex;
+  gap:4px;
+  margin:0;
+  justify-content:flex-start;
+}
+.canvas407FHost .canvas-advanced-text-editor .canvas-advanced-text-editor-hint button{
   background:#162136;
   border:1px solid var(--edge2);
+  border-radius:4px;
   color:var(--tx);
-  min-height:34px;
-  padding:6px 9px;
+  font:700 10px/1 'Rajdhani',sans-serif;
+  letter-spacing:.08em;
+  min-height:22px;
+  padding:3px 8px;
+  text-transform:uppercase;
 }
 
 #modalIn .advanced-mode-dialog{
@@ -5712,6 +5766,15 @@ section[data-view="canvas"]{
   overflow:auto;
 }
 
+#modal:has(.qualityFixPreview){width:min(1142px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto}
+#modal:has(.qualityFixPreview) #modalIn{min-width:0}
+.qualityFixPreview{width:100%;min-width:0;max-height:calc(100vh - 72px);overflow:auto}
+.qualityFixComparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}
+.qualityFixComparison figure{min-width:0;margin:0}
+.qualityFixComparison figcaption{margin-bottom:8px;font-weight:700}
+.qualityFixComparison svg{display:block;width:100%;height:auto;background:#e6e6e3}
+@media(max-width:650px){.qualityFixComparison{grid-template-columns:minmax(0,1fr)}}
+
 .canvas407FHost .advanced-asset-rail{
   border:0;
   max-height:none;
@@ -5732,8 +5795,8 @@ section[data-view="canvas"]{
 
 .canvas407FHost .advanced-visual-asset-grid{
   display:grid;
-  gap:8px;
-  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  grid-template-columns:repeat(3,minmax(0,1fr));
   margin-bottom:12px;
 }
 
@@ -5745,12 +5808,20 @@ section[data-view="canvas"]{
   border-radius:8px;
   color:var(--tx);
   display:grid;
-  gap:6px;
+  gap:4px;
   justify-items:stretch;
-  min-height:104px;
+  min-height:0;
   overflow:hidden;
-  padding:7px;
-  text-align:left;
+  padding:5px;
+  text-align:center;
+}
+.canvas407FHost .advanced-visual-asset-preview-shape svg{
+  display:block;
+  height:100%;
+  width:100%;
+  max-height:44px;
+  padding:4px 8px;
+  box-sizing:border-box;
 }
 
 .canvas407FHost .advanced-visual-asset img,
@@ -5766,8 +5837,8 @@ section[data-view="canvas"]{
   border-radius:5px;
   color:var(--em);
   display:flex;
-  font:800 21px/1 var(--num);
-  height:62px;
+  font:800 18px/1 var(--num);
+  height:52px;
   justify-content:center;
   object-fit:contain;
   width:100%;
@@ -5775,7 +5846,10 @@ section[data-view="canvas"]{
 
 .canvas407FHost .advanced-visual-asset>span:not(.advanced-visual-asset-preview){
   font-size:10px;
-  line-height:1.25;
+  line-height:1.2;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 
 .canvas407FHost .advanced-visual-asset small{
@@ -6876,6 +6950,21 @@ section[data-view="canvas"]{
 .canvasEffectiveHitProxy{
   pointer-events:auto;
 }
+/* Small objects use enlarged hit targets; hover outlines the actual visible
+   source bounds without resizing that target or creating selection handles. */
+.canvas407FHost:has(.canvas-screen[data-mode="advanced"][data-view-only="false"]) .canvasEffectiveHitProxy:hover:not(:active):not([aria-selected="true"])::after{
+  content:"";
+  position:absolute;
+  pointer-events:none;
+  box-sizing:border-box;
+  left:50%;
+  top:50%;
+  width:var(--effective-source-width);
+  height:var(--effective-source-height);
+  transform:translate(-50%,-50%);
+  border:1.5px solid rgba(57,214,255,.75);
+  border-radius:2px;
+}
 .canvasEffectiveHitProxy [data-hit-edge]{
   pointer-events:none;
 }
@@ -7501,6 +7590,27 @@ main.isEntitlementReadOnly section[data-view] [draggable="true"]{
   .entitlement407F small{display:none}
   .entitlementBanner407F{align-items:flex-start;flex-direction:column;gap:5px}
 }
+/* AAA-019 (family Law 11 — mobile is a separate composition): at phone width the header
+   keeps the brand and ONE primary action. The access pill becomes a dot beside the brand,
+   the Guardian button becomes an icon, and nothing overlaps the wordmark. */
+@media (max-width:600px){
+  .d1404Header{gap:8px;padding-inline:10px;min-height:56px}
+  .d1404Header .matrixBack{font-size:10px;letter-spacing:.06em}
+  .d1404Header .brandBlock{min-width:0;flex:1 1 auto}
+  .d1404Header .headerSpacer{display:none}
+  .d1404Header .entitlement407F{
+    min-width:0;width:12px;height:12px;padding:0;border-radius:50%;
+    font-size:0;line-height:0;letter-spacing:0;
+    background:#B98A2E;border-color:rgba(255,255,255,.35);box-shadow:none;
+  }
+  .d1404Header .entitlement407F[data-access="DENIED"]{background:#6b4a1c}
+  .d1404Header .entitlement407F *{display:none}
+  .d1404Header #qualityGuardian407F{
+    padding:9px 10px;font-size:0;letter-spacing:0;min-width:40px;
+  }
+  .d1404Header #qualityGuardian407F::after{content:"✓";font-size:14px;letter-spacing:0}
+  .d1404Header .headerExport{min-width:0;padding:9px 12px;font-size:10px;letter-spacing:.12em}
+}
 
 .canonical-board-preview{position:relative}
 .canonical-board-preview.is-last-good .timeline-preview-recovery-status{position:absolute;z-index:20;right:12px;bottom:12px;max-width:min(360px,calc(100% - 24px));padding:8px 11px;border:1px solid rgba(255,255,255,.3);border-radius:8px;background:rgba(12,20,33,.9);box-shadow:0 4px 18px rgba(0,0,0,.28);color:#fff;font:650 12px/1.35 Inter,system-ui,sans-serif;pointer-events:none}
@@ -7533,7 +7643,7 @@ main.isEntitlementReadOnly section[data-view] [draggable="true"]{
   border:2px solid #39d6ff;
   box-shadow:0 0 0 1px rgba(7,17,31,.82),0 0 16px rgba(57,214,255,.38);
   pointer-events:none;
-  position:fixed;
+  position:absolute;
   z-index:120;
 }
 .advancedDirectSelection button{
@@ -7595,3 +7705,355 @@ main.isEntitlementReadOnly section[data-view] [draggable="true"]{
   position:fixed;
   z-index:121;
 }
+
+/* ---------------------------------------------------------------------------
+   A1 interaction substrate — D1-TIMELINE-CANVA-UX-FORENSIC-016
+   --------------------------------------------------------------------------- */
+
+/* A1.2 Selection suppression on the ACTIVE board.
+   The board is an inline SVG in the top document, so every label is a real text
+   node: without this, a body drag or a double-click selects year-ribbon and event
+   text instead of manipulating the object, which is what made the canvas read as
+   a web page rather than an editor. The identical rule in d1-411a/kernel-host.js
+   protects a different, inactive renderer and never applied here.
+   Inline text editing re-enables selection for the one editable subtree below, so the
+   caret keeps working inside whatever is actively being edited. (No comment may sit
+   directly above that rule: the Advanced selector-scoping contract in
+   d1-404-advanced-studio-integration parses everything between } and { as the
+   selector, and would read the comment as an unscoped one.) */
+.canvas407FHost .canvas-stage,
+.canvas407FHost .canvas-application{
+  -webkit-user-select:none;
+  user-select:none;
+}
+.canvas407FHost .canvas-application [contenteditable="true"],
+.canvas407FHost .canvas-application input,
+.canvas407FHost .canvas-application textarea,
+.canvas407FHost [data-advanced-text-editor],
+.canvas407FHost [data-advanced-text-editor] *{
+  -webkit-user-select:text;
+  user-select:text;
+}
+.d1404Header,
+#rail,
+.canvas407FHost .canvas-toolbar{
+  -webkit-user-select:none;
+  user-select:none;
+}
+.canvas407FHost .advanced-editor-sidebar{
+  -webkit-user-select:none;
+  user-select:none;
+}
+.canvas407FHost .advanced-editor-sidebar input,
+.canvas407FHost .advanced-editor-sidebar textarea{
+  -webkit-user-select:text;
+  user-select:text;
+}
+.canvas407FHost .canvas-toolbar input{
+  -webkit-user-select:text;
+  user-select:text;
+}
+
+/* A1.3 The selection surface takes keyboard focus, but a focus ring drawn around
+   the whole board is noise — the selection chrome already shows what is selected.
+   Keyboard users still get the per-object handle rings, which are focusable. */
+.canvas407FHost .canvas-application:focus,
+.canvas407FHost [data-canvas-keyboard-surface]:focus{
+  outline:none;
+}
+
+/* Coach hint for a board with no content yet. It must never intercept pointer
+   input: the empty board is still a live canvas, and the previous empty state
+   replaced the canvas entirely rather than sitting on top of it. */
+.canvas407FHost .canvas-coach-chip{
+  align-items:center;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  left:50%;
+  pointer-events:none;
+  position:absolute;
+  text-align:center;
+  top:62%;
+  transform:translate(-50%,-50%);
+  z-index:6;
+}
+
+.canvas407FHost .canvas-coach-chip p{
+  background:rgba(7,17,31,.72);
+  border-radius:999px;
+  color:#EAF2FF;
+  font-size:14px;
+  font-weight:600;
+  margin:0;
+  padding:8px 18px;
+}
+
+.canvas407FHost .canvas-coach-chip button{
+  background:var(--shell-surface,#132033);
+  border:1px solid var(--shell-border-strong,#2A3F5C);
+  border-radius:8px;
+  color:inherit;
+  font-weight:600;
+  min-height:36px;
+  padding:0 16px;
+  pointer-events:auto;
+}
+
+/* A1.4 Multi-selection chrome. Each member gets a light outline and the combined
+   bounds get a dashed box with a count, so a shift-click is visible on the board
+   rather than only in the panel. Deliberately handle-free: resizing a multi-selection
+   is not a supported command, and handles would advertise a gesture that does nothing. */
+.advancedDirectSelectionMember{
+  border:2px solid rgba(57,214,255,.75);
+  border-radius:2px;
+  box-sizing:border-box;
+  pointer-events:none;
+  position:absolute;
+  z-index:119;
+}
+
+.advancedDirectSelection.advancedDirectSelectionMulti{
+  border-style:dashed;
+  box-shadow:0 0 0 1px rgba(7,17,31,.62);
+}
+
+.advancedDirectSelectionCount{
+  background:#39d6ff;
+  border-radius:999px;
+  color:#07111F;
+  font-size:11px;
+  font-weight:700;
+  left:50%;
+  letter-spacing:.02em;
+  padding:2px 10px;
+  position:absolute;
+  top:-11px;
+  transform:translateX(-50%);
+  white-space:nowrap;
+}
+
+/* A2.6 Marquee band. Fixed-positioned like the selection chrome and inert to pointer
+   input so the gesture underneath it is never interrupted. */
+.advancedMarquee{
+  background:rgba(57,214,255,.14);
+  border:1.5px solid #39d6ff;
+  box-sizing:border-box;
+  pointer-events:none;
+  position:absolute;
+  z-index:118;
+}
+
+.canvas407FHost .advancedBoardChromeMarker{/* AAA-019 board chrome: hover affordance, frames, quick-bar, context menu, crop mode */display:none}
+.canvas407FHost .canvas-application [data-scene-object],
+.canvas407FHost .canvas-application [data-advanced-element],
+.canvas407FHost .canvas-application [data-advanced-text],
+.canvas407FHost .canvas-application [data-advanced-media],
+.canvas407FHost .canvas-application [data-frame-slot],
+.canvas407FHost .canvas-application [data-event-kind="arrow"],
+.canvas407FHost .canvas-application [data-event-kind="flag"],
+.canvas407FHost .canvas-application [data-artifact-chrome="color-key"],
+.canvas407FHost .canvas-application [data-artifact-chrome="profile"]{cursor:move}
+.canvas407FHost .canvas-application [data-frame-slot="profile"],
+.canvas407FHost .canvas-application [data-frame-slot="logo"]{cursor:pointer}
+.canvas407FHost .canvas-application[data-mode="guided"] [data-scene-object]{cursor:default}
+.advancedDirectHover{
+  box-sizing:border-box;
+  border:1.5px solid rgba(57,214,255,.75);
+  border-radius:2px;
+  pointer-events:none;
+  position:absolute;
+  z-index:118;
+}
+.canvas407FHost .canvas-application [data-frame-slot][data-frame-drop-active] > rect:first-of-type{
+  stroke:#39d6ff;stroke-width:8;filter:drop-shadow(0 0 14px rgba(57,214,255,.75));
+}
+.canvas407FHost .canvas-application [data-frame-slot][data-frame-drop-active] [data-media-state="empty"]{fill:#bfe9f7}
+.advancedDirectSelection[data-advanced-target-type="frame"]{border-style:solid}
+.advancedDirectSelection[data-advanced-target-type="frame"][data-advanced-frame-state="empty"]{border-style:dashed}
+.advancedQuickBar{
+  position:absolute;
+  z-index:130;
+  display:flex;
+  gap:2px;
+  padding:3px;
+  background:rgba(9,14,24,.97);
+  border:1px solid #31405c;
+  border-radius:9px;
+  box-shadow:0 10px 26px rgba(0,0,0,.42);
+  pointer-events:auto;
+  white-space:nowrap;
+}
+.advancedQuickBar button{
+  appearance:none;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:32px;
+  padding:0 10px;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:#e8eefb;
+  font:600 12px/1 Inter,system-ui,sans-serif;
+  cursor:pointer;
+}
+.advancedQuickBar button:hover,.advancedQuickBar button:focus-visible{background:#1a2740;outline:none;color:#fff}
+.advancedQuickBar button:focus-visible{box-shadow:0 0 0 2px #39d6ff inset}
+.advancedQuickBar button > span:first-child{font-size:14px;line-height:1;opacity:.9}
+@media (max-width:1180px){.advancedQuickBar .advancedQuickBarLabel{display:none}.advancedQuickBar button{padding:0 8px}}
+.advancedContextMenu{
+  position:fixed;
+  z-index:1200;
+  min-width:220px;
+  padding:6px;
+  background:rgba(9,14,24,.98);
+  border:1px solid #31405c;
+  border-radius:10px;
+  box-shadow:0 18px 40px rgba(0,0,0,.5);
+}
+.advancedContextMenu button{
+  appearance:none;
+  display:flex;
+  width:100%;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  min-height:32px;
+  padding:0 10px;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:#e8eefb;
+  font:500 13px/1 Inter,system-ui,sans-serif;
+  text-align:left;
+  cursor:pointer;
+}
+.advancedContextMenu button:hover,.advancedContextMenu button:focus-visible{background:#1a2740;outline:none}
+.advancedContextMenu button[disabled]{opacity:.4;cursor:default}
+.advancedContextMenu kbd{font:500 11px/1 Inter,system-ui,sans-serif;color:#7d8ba6;letter-spacing:.04em}
+.advancedContextMenu hr{border:0;border-top:1px solid #243046;margin:5px 4px}
+.canvas407FHost.advancedCropActive .canvas-application{cursor:move}
+.advancedCropChrome{position:absolute;inset:0;pointer-events:none;z-index:125}
+.advancedCropWindow{
+  position:absolute;
+  box-sizing:border-box;
+  border:2px solid #39d6ff;
+  box-shadow:0 0 0 9999px rgba(7,12,22,.45),0 0 18px rgba(57,214,255,.45);
+  pointer-events:none;
+}
+.advancedCropWindow::before,.advancedCropWindow::after{
+  content:"";position:absolute;pointer-events:none;border:0 solid rgba(255,255,255,.35);
+}
+.advancedCropWindow::before{inset:33.333% 0;border-width:1px 0}
+.advancedCropWindow::after{inset:0 33.333%;border-width:0 1px}
+.advancedCropBar{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:6px 8px;
+  background:rgba(9,14,24,.97);
+  border:1px solid #31405c;
+  border-radius:9px;
+  box-shadow:0 10px 26px rgba(0,0,0,.42);
+  pointer-events:auto;
+  color:#e8eefb;
+  font:600 12px/1 Inter,system-ui,sans-serif;
+  white-space:nowrap;
+}
+.advancedCropHint{color:#a9b7d0;font-weight:500}
+.advancedCropZoom{display:inline-flex;align-items:center;gap:6px;color:#a9b7d0}
+.advancedCropZoom input[type="range"]{width:110px;accent-color:#39d6ff}
+.advancedCropZoom output{min-width:38px;color:#e8eefb;font-variant-numeric:tabular-nums}
+.advancedCropButton{
+  appearance:none;min-height:30px;padding:0 12px;border:1px solid #31405c;border-radius:6px;
+  background:#162136;color:#e8eefb;font:700 12px/1 Inter,system-ui,sans-serif;cursor:pointer;
+}
+.advancedCropButtonPrimary{background:linear-gradient(90deg,#ffb340,#ff7a3d);border-color:transparent;color:#10131c}
+.advancedRailDragGhostImage{padding:4px;background:rgba(7,17,31,.6)}
+.advancedRailDragGhostImage img{display:block;max-width:120px;max-height:90px;border-radius:4px;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.advancedQuickBar[data-advanced-quick-bar-compact="true"] button{min-width:30px;padding:0 7px;justify-content:center}
+.advancedQuickBar[data-advanced-quick-bar-compact="true"] button > span:first-child{font-size:15px}
+.canvas407FHost .advanced-layers-panel{display:flex;flex-direction:column;gap:8px}
+.canvas407FHost .advanced-layers-hint{margin:0;color:#7d8ba6;font:500 11px/1.4 Inter,system-ui,sans-serif}
+.canvas407FHost .advanced-layer-list{display:flex;flex-direction:column;gap:2px}
+.canvas407FHost .advanced-layer-row{
+  display:grid;grid-template-columns:22px 1fr auto auto;align-items:center;gap:8px;
+  min-height:36px;padding:4px 6px 4px calc(6px + var(--layer-depth,0) * 16px);
+  border:1px solid transparent;border-radius:7px;background:#0f1626;color:#e8eefb;cursor:grab;
+  font:500 12px/1.2 Inter,system-ui,sans-serif;user-select:none;
+}
+.canvas407FHost .advanced-layer-row:hover{background:#162136}
+.canvas407FHost .advanced-layer-row:focus-visible{outline:none;box-shadow:0 0 0 2px #39d6ff inset}
+.canvas407FHost .advanced-layer-row.is-selected{border-color:#39d6ff;background:#122a3d}
+.canvas407FHost .advanced-layer-row.is-group{background:#121a2c}
+.canvas407FHost .advanced-layer-row.is-dragging{opacity:.4}
+.canvas407FHost .advanced-layer-row.drop-before{box-shadow:0 -2px 0 0 #39d6ff}
+.canvas407FHost .advanced-layer-row.drop-after{box-shadow:0 2px 0 0 #39d6ff}
+.canvas407FHost .advanced-layer-glyph{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:5px;background:#1a2740;color:#ffb340;font-size:12px}
+.canvas407FHost .advanced-layer-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.canvas407FHost .advanced-layer-kind{color:#7d8ba6;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.canvas407FHost .advanced-layer-tools{display:inline-flex;gap:2px;opacity:.55}
+.canvas407FHost .advanced-layer-row:hover .advanced-layer-tools, .canvas407FHost .advanced-layer-row.is-selected .advanced-layer-tools, .canvas407FHost .advanced-layer-row:focus-within .advanced-layer-tools{opacity:1}
+.canvas407FHost .advanced-layer-tools button{appearance:none;min-width:24px;min-height:24px;padding:0 4px;border:0;border-radius:4px;background:transparent;color:#a9b7d0;font-size:11px;cursor:pointer}
+.canvas407FHost .advanced-layer-tools button:hover, .canvas407FHost .advanced-layer-tools button:focus-visible{background:#243046;color:#fff;outline:none}
+.advancedContextMenu .advancedContextMenuAlign{padding:4px 8px 6px}
+.advancedContextMenu .advancedContextMenuAlignLabel{display:block;color:#7d8ba6;font:700 10px/1.4 Inter,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:2px 4px 4px}
+.advancedContextMenu .advancedContextMenuAlignRow{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.advancedContextMenu .advancedContextMenuAlignRow button{display:flex;align-items:center;justify-content:center;min-height:30px;padding:0;border-radius:6px;font-size:15px}
+.canvas407FHost .advanced-layout-lock-control[data-advanced-lock-nudge="true"]{animation:advancedLockNudge .6s ease;outline:2px solid #ffb340;outline-offset:2px;border-radius:6px}
+@keyframes advancedLockNudge{0%{transform:translateX(0)}25%{transform:translateX(-3px)}50%{transform:translateX(3px)}75%{transform:translateX(-2px)}100%{transform:translateX(0)}}
+.canvas407FHost .advanced-selection-drawer{border:1px solid #243046;border-radius:9px;background:#0d1422;margin-bottom:10px}
+.canvas407FHost .advanced-selection-drawer > summary{
+  list-style:none;cursor:pointer;display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  padding:9px 12px;color:#e8eefb;font:700 12px/1.2 Inter,system-ui,sans-serif;
+}
+.canvas407FHost .advanced-selection-drawer > summary::-webkit-details-marker{display:none}
+.canvas407FHost .advanced-selection-drawer > summary::before{content:"▸";margin-right:8px;color:#ffb340;font-size:11px}
+.canvas407FHost .advanced-selection-drawer[open] > summary::before{content:"▾"}
+.canvas407FHost .advanced-selection-drawer > summary small{color:#7d8ba6;font:500 11px/1.2 Inter,system-ui,sans-serif}
+.canvas407FHost .advanced-selection-drawer > :not(summary){padding:0 12px 12px}
+.homeRescueTile{margin-top:10px;cursor:pointer}
+.homeRescueTile:hover,.homeRescueTile:focus-within{border-color:var(--cy);color:var(--tx)}
+.homeRescueTile small{display:block;white-space:normal;line-height:1.35}
+.intake407FRescue{margin-top:18px}
+.intake407FRescue[data-rescue-server="unavailable"] [data-rescue-local-note]{color:var(--gd)}
+.btnD,button.btnD,label.btnD,a.btnD{
+  /* AAA-019 CTA hit-area law (05 §12): the parallelogram used to be a clip-path on the button, which also clipped the hit area; the decoration now lives on ::before and the button keeps its full rectangle. */
+  clip-path:none;
+  background:transparent;
+  isolation:isolate;
+  overflow:visible;
+  /* The decoration is absolutely positioned against the button, so the button must be its
+     own containing block — a `position:static` override (the MEDIA launcher had one) would
+     let ::before stretch across the whole toolbar and swallow the zoom controls' clicks. */
+  position:relative;
+}
+.btnD::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  clip-path:polygon(6% 0,100% 0,94% 100%,0 100%);
+  background:var(--btnD-bg,var(--edge));
+  transition:filter .15s,background .15s;
+}
+.btnD.go{--btnD-bg:linear-gradient(90deg,var(--em),var(--em2));background:transparent}
+.btnD.alt{--btnD-bg:var(--edge);background:transparent}
+.btnD.alt:hover{--btnD-bg:var(--edge2);background:transparent;color:#fff}
+.btnD.gd{--btnD-bg:linear-gradient(90deg,var(--gd),#e0b64e);background:transparent}
+.btnD:disabled{opacity:.45}
+.btnD:disabled::before{filter:grayscale(.4)}
+/* Disabled CTAs say why on hover (CV-5): the reason rides in aria-describedby/title. */
+.btnD[data-disabled-reason]:disabled{cursor:not-allowed}
+.intake407FHost .intake-review-basis{margin:8px 0 0;color:var(--mid);font-size:13px;line-height:1.45}
+.intake407FHost .intake-review-basis .status-chip{margin-right:6px}
+.intake407FHost .intake-review-basis[data-intake-review-basis="LOCAL_LIMITED"] .status-chip{color:var(--gd);border-color:rgba(255,215,106,.5)}
+.intake-read-gate{display:inline-block}
+.intake-read-gate[data-gate-reason]{cursor:not-allowed}
+.intake-read-gate[data-gate-reason] .button{pointer-events:none}
+.intake-gate-hint{margin:8px 0 0;color:var(--gd);font-size:13px}
+.intake-gate-hint.is-nudged{animation:intakeGateNudge .5s ease}
+@keyframes intakeGateNudge{0%{transform:translateX(0)}25%{transform:translateX(-4px)}50%{transform:translateX(4px)}75%{transform:translateX(-2px)}100%{transform:translateX(0)}}
+.intake-done-secondary{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}

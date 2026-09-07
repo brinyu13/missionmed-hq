@@ -9,6 +9,7 @@ export function buildProvenance(record,sourceDocument,method){
   return (record.sourceBlocks||[]).map((block)=>({
     id:"prov-"+stableHash(sourceDocument.id+"|"+block.id+"|"+record.title),
     sourceDocumentId:sourceDocument.id,
+    ...(/^[a-f0-9]{64}$/i.test(String(sourceDocument.sha256||""))?{sourceSha256:String(sourceDocument.sha256).toLowerCase()}:{}),
     fileName:sourceDocument.fileName,
     documentType:sourceDocument.effectiveType||sourceDocument.detectedType,
     detectedDocumentType:sourceDocument.detectedType,

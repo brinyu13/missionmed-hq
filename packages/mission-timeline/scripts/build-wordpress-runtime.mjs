@@ -143,6 +143,7 @@ const runtimeKeys=[
   "vendor/pdfjs/pdf.worker.min.mjs",
   "data/medical-schools/us-dapip-2026-07-30.json",
   "data/medical-schools/global-wikidata-2026-08-24.json",
+  "data/medical-schools/global-img-supplement-2026-09-05.json",
   "presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html",
   ...Object.values(FOUNDER_KEYNOTE_CONTRACT.assets).map((asset)=>asset.publicPath),
   ...[...byPath.keys()].filter((path)=>path.startsWith("assets/keynote_classic_402a/"))

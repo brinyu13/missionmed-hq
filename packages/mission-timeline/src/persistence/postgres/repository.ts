@@ -1880,10 +1880,26 @@ export class PostgresTimelineRepository implements TimelineRepository {
   }
 
   private async performSchemaCheck(): Promise<void> {
-    const result = await this.pool.query<DatabaseRow>(SCHEMA_CHECK_SQL, [
-      [...REQUIRED_TABLES],
-      REQUIRED_TABLES.length,
-    ]);
+    const values = [[...REQUIRED_TABLES], REQUIRED_TABLES.length];
+    // Schema checks precede request transactions. Explicitly enter the runtime
+    // role here too, so a NOINHERIT login needs no ambient schema permission.
+    let result;
+    if (this.options.runtimeRole) {
+      const client = await this.pool.connect(); let begun = false;
+      try {
+        await client.query("begin read only"); begun = true;
+        await client.query(`set local role ${this.options.runtimeRole}`);
+        await client.query("select set_config('request.jwt.claims',$1,true)", ["{}"]);
+        await client.query("set local statement_timeout = '3500ms'");
+        result = await client.query<DatabaseRow>(SCHEMA_CHECK_SQL, values);
+        await client.query("commit"); begun = false;
+      } finally {
+        if (begun) await client.query("rollback").catch(() => {});
+        client.release();
+      }
+    } else {
+      result = await this.pool.query<DatabaseRow>(SCHEMA_CHECK_SQL, values);
+    }
     const row = result.rows[0];
     if (
       !row ||

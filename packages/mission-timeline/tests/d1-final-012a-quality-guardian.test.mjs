@@ -113,7 +113,7 @@ test("semantic findings are Review actions and never mutate biography data",()=>
     assert.ok(findings.length>0,`${code} must be reported`);
     assert.ok(findings.every(({actionMode})=>actionMode==="REVIEW"));
   }
-  assert.equal(report.findings.find(({code})=>code==="LOW_CONFIDENCE_AI_INFERENCE").basis,QUALITY_GUARDIAN_BASES.AI_INFERENCE);
+  assert.equal(report.findings.find(({code})=>code==="LOW_CONFIDENCE_AI_INFERENCE").basis,QUALITY_GUARDIAN_BASES.RULE);
   assert.equal(report.findings.find(({code})=>code==="UNSUPPORTED_DERIVED_FACT").basis,QUALITY_GUARDIAN_BASES.SOURCE_FACT);
   const fixed=applySafeQualityFixes(source,report);
   assert.equal(fixed.semanticFieldsChanged,false);
@@ -167,7 +167,8 @@ test("off-canvas repair clamps only presentation geometry",()=>{
 test("automatic layout repair commits only when measured collision warnings decrease",()=>{
   const shared={
     categoryId:"work",eventType:"duration",startDate:"2020-01",endDate:"2020-12",
-    visibilityState:"INTERVIEWER_SAFE",sourceType:"manual",provenance:[],lane:0
+    visibilityState:"INTERVIEWER_SAFE",sourceType:"manual",provenance:[],lane:0,
+    manualOffset:{laneLocked:true}
   };
   const source=timeline({events:[
     {...shared,id:"anchor-start",title:"Start",eventType:"milestone",startDate:"2016-01",endDate:null},
@@ -202,8 +203,14 @@ test("rendered panel exposes every section, evidence basis, semantic Review, and
   assert.match(html,/Student-confirmed exceptions/);
   assert.match(html,/Export readiness/);
   assert.match(html,/SOURCE FACT/);
-  assert.match(html,/AI INFERENCE/);
-  assert.match(html,/PRESENTATION RECOMMENDATION/);
+  assert.match(html,/MISSIONMED RULE/);
+  // AAA-019 chip vocabulary: layout recommendations carry the Founder's presentation standard.
+  assert.match(html,/FOUNDER STANDARD/);
+  assert.doesNotMatch(html,/PRESENTATION RECOMMENDATION/);
+  // QG1: a deterministic run has no provider result, so it may not claim AI review.
+  assert.doesNotMatch(html,/AI REVIEW/);
+  assert.doesNotMatch(html,/AI INFERENCE/);
+  assert.doesNotMatch(html,/Live AI review/);
   assert.match(html,/Review/);
   assert.match(html,/Fix for me/);
   assert.doesNotMatch(html,/\d+\s*\/\s*100/);
@@ -230,6 +237,7 @@ test("live AI findings merge into the versioned MissionMed Format while unsafe f
   assert.ok(requestFindings.every(({category})=>QUALITY_GUARDIAN_SECTIONS.some(({id})=>id===category)));
   const merged=mergeAiQualityAnalysis(local,{
     status:"COMPLETE",mode:"SERVER_AI",provider:"openai",model:"gpt-test-pinned",
+    providerReceipt:{responseId:"resp_unit_fixture",model:"gpt-test-pinned",store:false,inputSha256:"a".repeat(64),outputSha256:"b".repeat(64),receivedAt:"2026-09-06T00:00:00.000Z"},
     promptVersion:"d1-timeline-quality-guardian-ai.1",standardVersion:"D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127",
     findings:[{
       id:"qg-ai:test",category:"READABILITY",code:"LONG_LABEL",severity:"REVIEW",
@@ -272,4 +280,60 @@ test("the production 407F entry exposes a visible release gate and an explicit p
   assert.match(adapter,/onCandidateDecision:async/);
   assert.match(adapter,/store\.entitlement\.canMutate===true/);
   assert.match(adapter,/document\.removeEventListener\("click",onQualityGuardianCapture,true\)/);
+});
+
+test("provider claims stay AI REVIEW while safe presentation fixes retain their independent eligibility",()=>{
+  const local=analyzeTimelineQuality(timeline());
+  const merged=mergeAiQualityAnalysis(local,{
+    status:"COMPLETE",mode:"SERVER_AI",provider:"openai",model:"gpt-test-pinned",
+    providerReceipt:{responseId:"resp_unit_fixture",model:"gpt-test-pinned",store:false,inputSha256:"a".repeat(64),outputSha256:"b".repeat(64),receivedAt:"2026-09-06T00:00:00.000Z"},
+    promptVersion:"d1-timeline-quality-guardian-ai.1",standardVersion:"D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127",
+    findings:[{
+      id:"qg-ai:source",category:"CONTENT",code:"SOURCE_CHECK",severity:"REVIEW",
+      basis:"SOURCE_FACT",elementIds:["event-1"],message:"Confirm the institution name.",
+      recommendation:"Compare against the source document.",confidence:.91,
+      actionMode:"REVIEW",fixKind:null
+    },{
+      id:"qg-ai:presentation",category:"LAYOUT",code:"CANONICAL_BACKGROUND_MISSING",severity:"REVIEW",
+      basis:"PRESENTATION_RECOMMENDATION",elementIds:[],message:"The approved background is missing.",
+      recommendation:"Restore the MissionMed theme background.",confidence:.88,
+      actionMode:"FIX_FOR_ME",fixKind:"RESTORE_THEME_BACKGROUND"
+    }],
+    unresolvedQuestions:[]
+  });
+  const byId=(id)=>merged.findings.find((finding)=>finding.id===id);
+
+  // Model wording is a review claim; only verified source evidence can establish a fact.
+  assert.equal(byId("qg-ai:source")?.basis,QUALITY_GUARDIAN_BASES.AI_INFERENCE);
+  assert.equal(byId("qg-ai:source")?.evidence.providerClaimedBasis,"SOURCE_FACT");
+
+  // The safe geometry action remains available independently of its attribution chip.
+  const presentation=byId("qg-ai:presentation");
+  assert.ok(presentation,"a PRESENTATION_RECOMMENDATION fix must survive the merge");
+  assert.equal(presentation.basis,QUALITY_GUARDIAN_BASES.AI_INFERENCE);
+  assert.equal(presentation.actionMode,"FIX_FOR_ME");
+
+  // An unknown model classification is still provider-origin AI review, never a rule.
+  const unknown=mergeAiQualityAnalysis(local,{
+    status:"COMPLETE",mode:"SERVER_AI",provider:"openai",model:"gpt-test-pinned",
+    providerReceipt:{responseId:"resp_unit_fixture",model:"gpt-test-pinned",store:false,inputSha256:"a".repeat(64),outputSha256:"b".repeat(64),receivedAt:"2026-09-06T00:00:00.000Z"},
+    promptVersion:"d1-timeline-quality-guardian-ai.1",standardVersion:"v1",
+    findings:[{
+      id:"qg-ai:unknown",category:"CONTENT",code:"MYSTERY",severity:"REVIEW",
+      basis:"SOMETHING_NEW",elementIds:[],message:"Unclassified.",
+      recommendation:"Review.",confidence:.5,actionMode:"REVIEW",fixKind:null
+    }],
+    unresolvedQuestions:[]
+  });
+  assert.equal(unknown.findings.find((finding)=>finding.id==="qg-ai:unknown")?.basis,QUALITY_GUARDIAN_BASES.AI_INFERENCE);
+});
+
+// Transport receipts in these unit fixtures are not live-provider evidence.
+test("021 cannot label a receipt-less COMPLETE payload as live AI",()=>{
+  const local=analyzeTimelineQuality(timeline());
+  const merged=mergeAiQualityAnalysis(local,{status:"COMPLETE",mode:"SERVER_AI",model:"unverified",findings:[{id:"fake-ai",category:"CONTENT",code:"FAKE",basis:"AI_INFERENCE",message:"Made up"}],unresolvedQuestions:[]});
+  assert.equal(merged.ai.status,"UNAVAILABLE");
+  assert.deepEqual(merged.findings,local.findings);
+  assert.match(renderQualityGuardian(merged),/receipt could not be verified/);
+  assert.doesNotMatch(renderQualityGuardian(merged),/Live AI review|Made up/);
 });

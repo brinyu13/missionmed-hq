@@ -3,6 +3,15 @@ const SEASONS={spring:[3,5],summer:[6,8],fall:[9,11],autumn:[9,11],winter:[12,2]
 
 function monthString(year,month){return String(year)+"-"+String(month).padStart(2,"0");}
 function basePoint(raw){return {raw:String(raw||"").trim(),timelineMonth:null,isoDate:null,precision:"UNKNOWN",inferred:false,openEnded:false,confidence:"LOW",warnings:[]};}
+function validMonth(year,month){return Number.isInteger(year)&&year>=1000&&year<=9999&&Number.isInteger(month)&&month>=1&&month<=12;}
+function validDay(year,month,day){
+  if(!validMonth(year,month)||!Number.isInteger(day)||day<1)return false;
+  return day<=new Date(Date.UTC(year,month,0)).getUTCDate();
+}
+function exactPoint(point,year,month,day=null){
+  if(!validMonth(year,month)||(day!==null&&!validDay(year,month,day)))return {...point,warnings:["Invalid calendar date; confirm the source date"]};
+  return {...point,timelineMonth:monthString(year,month),isoDate:day===null?null:monthString(year,month)+"-"+String(day).padStart(2,"0"),precision:day===null?"MONTH":"DAY",confidence:"HIGH"};
+}
 
 export function parseDatePoint(raw,{edge="start"}={}){
   const point=basePoint(raw);
@@ -11,21 +20,25 @@ export function parseDatePoint(raw,{edge="start"}={}){
   if(/^(present|current|ongoing|now)$/i.test(value))return {...point,precision:"OPEN_ENDED",openEnded:true,confidence:"HIGH"};
   let match=value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if(match){
-    const [,month,day,year]=match;
-    return {...point,timelineMonth:monthString(+year,+month),isoDate:year+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0"),precision:"DAY",confidence:"HIGH"};
+    const [,first,second,rawYear]=match,year=+rawYear;
+    const monthFirst=validDay(year,+first,+second),dayFirst=validDay(year,+second,+first);
+    if(monthFirst&&dayFirst&&first!==second)return {...point,warnings:["Ambiguous numeric date: confirm day/month or month/day order"]};
+    if(!monthFirst&&!dayFirst)return {...point,warnings:["Invalid calendar date; confirm the source date"]};
+    const resolved=monthFirst?exactPoint(point,year,+first,+second):exactPoint(point,year,+second,+first);
+    return {...resolved,confidence:"MEDIUM",warnings:["Numeric date interpreted as "+(monthFirst?"month/day/year":"day/month/year")+"; confirm source format"]};
   }
   match=value.match(/^(\d{1,2})\/(\d{4})$/);
-  if(match)return {...point,timelineMonth:monthString(+match[2],+match[1]),precision:"MONTH",confidence:"HIGH"};
+  if(match)return exactPoint(point,+match[2],+match[1]);
   match=value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(match)return {...point,timelineMonth:monthString(+match[1],+match[2]),isoDate:match[1]+"-"+match[2]+"-"+match[3],precision:"DAY",confidence:"HIGH"};
+  if(match)return exactPoint(point,+match[1],+match[2],+match[3]);
   match=value.match(/^(\d{4})-(\d{2})$/);
-  if(match)return {...point,timelineMonth:monthString(+match[1],+match[2]),precision:"MONTH",confidence:"HIGH"};
+  if(match)return exactPoint(point,+match[1],+match[2]);
   /* "Sept. 2019" and "Sep 12, 2019" are the two commonest CV month spellings; the trailing
      period and the day number both used to fall through to "Unrecognized date format". */
   match=value.match(/^([A-Za-z]+)\.?\s+(\d{1,2})\s+(\d{4})$/);
-  if(match&&MONTHS[match[1].toLowerCase()])return {...point,timelineMonth:monthString(+match[3],MONTHS[match[1].toLowerCase()]),isoDate:match[3]+"-"+String(MONTHS[match[1].toLowerCase()]).padStart(2,"0")+"-"+String(match[2]).padStart(2,"0"),precision:"DAY",confidence:"HIGH"};
+  if(match&&MONTHS[match[1].toLowerCase()])return exactPoint(point,+match[3],MONTHS[match[1].toLowerCase()],+match[2]);
   match=value.match(/^([A-Za-z]+)\.?\s+(\d{4})$/);
-  if(match&&MONTHS[match[1].toLowerCase()])return {...point,timelineMonth:monthString(+match[2],MONTHS[match[1].toLowerCase()]),precision:"MONTH",confidence:"HIGH"};
+  if(match&&MONTHS[match[1].toLowerCase()])return exactPoint(point,+match[2],MONTHS[match[1].toLowerCase()]);
   match=value.match(/^(spring|summer|fall|autumn|winter)\s+(\d{4})$/i);
   if(match){
     const [start,end]=SEASONS[match[1].toLowerCase()];
@@ -48,6 +61,7 @@ export function parseDatePoint(raw,{edge="start"}={}){
 export function monthIndex(value){
   if(!/^\d{4}-\d{2}$/.test(String(value||"")))return null;
   const [year,month]=value.split("-").map(Number);
+  if(!validMonth(year,month))return null;
   return year*12+month-1;
 }
 

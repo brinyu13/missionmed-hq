@@ -33,19 +33,63 @@ function integerAttribute(source: string, name: string): number | null {
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
-function geometry(block: string): RescueGeometry | null {
-  const xfrm = block.match(/<a:xfrm\b[^>]*>([\s\S]*?)<\/a:xfrm>/)?.[1]
-    ?? block.match(/<p:xfrm\b[^>]*>([\s\S]*?)<\/p:xfrm>/)?.[1]
-    ?? block;
-  const off = xfrm.match(/<(?:a|p):off\b[^>]*>/)?.[0];
-  const ext = xfrm.match(/<(?:a|p):ext\b[^>]*>/)?.[0];
-  if (!off || !ext) return null;
-  const x = integerAttribute(off, "x");
-  const y = integerAttribute(off, "y");
-  const width = integerAttribute(ext, "cx");
-  const height = integerAttribute(ext, "cy");
-  if (x === null || y === null || width === null || height === null) return null;
-  return { x, y, width, height, unit: "EMU" };
+type Matrix = [number, number, number, number, number, number];
+const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0];
+
+function multiply(left: Matrix, right: Matrix): Matrix {
+  const [a, b, c, d, e, f] = left, [g, h, i, j, k, l] = right;
+  return [a*g+c*h, b*g+d*h, a*i+c*j, b*i+d*j, a*k+c*l+e, b*k+d*l+f];
+}
+
+function translation(x: number, y: number): Matrix { return [1, 0, 0, 1, x, y]; }
+
+function aroundCenter(bounds: RescueGeometry, rotation: number, flipH: boolean, flipV: boolean): Matrix {
+  const radians = rotation * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians);
+  const x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
+  const rotationAndFlip: Matrix = [c*(flipH?-1:1), s*(flipH?-1:1), -s*(flipV?-1:1), c*(flipV?-1:1), 0, 0];
+  return multiply(multiply(translation(x, y), rotationAndFlip), translation(-x, -y));
+}
+
+function transformedBounds(bounds: RescueGeometry, matrix: Matrix): RescueGeometry {
+  const [a, b, c, d, e, f] = matrix;
+  const corners = [[bounds.x, bounds.y], [bounds.x + bounds.width, bounds.y], [bounds.x, bounds.y + bounds.height], [bounds.x + bounds.width, bounds.y + bounds.height]];
+  const points = corners.map(([x, y]) => ({ x: a*x!+c*y!+e, y: b*x!+d*y!+f }));
+  const x = Math.min(...points.map(p => p.x)), y = Math.min(...points.map(p => p.y));
+  return { x, y, width: Math.max(...points.map(p => p.x))-x, height: Math.max(...points.map(p => p.y))-y, unit: "EMU" };
+}
+
+function readTransform(block: string): { bounds: RescueGeometry; matrix: Matrix; rotationDegrees: number; flipH: boolean; flipV: boolean; childMatrix: Matrix } | null {
+  const match = block.match(/<(?:a|p):xfrm\b([^>]*)>([\s\S]*?)<\/(?:a|p):xfrm>/);
+  if (!match) return null;
+  const attrs = match[1]!, body = match[2]!;
+  const off = body.match(/<(?:a|p):off\b[^>]*>/)?.[0] ?? "";
+  const ext = body.match(/<(?:a|p):ext\b[^>]*>/)?.[0] ?? "";
+  const x = integerAttribute(off, "x"), y = integerAttribute(off, "y");
+  const width = integerAttribute(ext, "cx"), height = integerAttribute(ext, "cy");
+  if (x === null || y === null || width === null || height === null || width < 0 || height < 0) return null;
+  const bounds: RescueGeometry = { x, y, width, height, unit: "EMU" };
+  const rotationDegrees = (integerAttribute(attrs, "rot") ?? 0) / 60000;
+  const flipH = /^(?:1|true)$/.test(attribute(attrs, "flipH") ?? ""), flipV = /^(?:1|true)$/.test(attribute(attrs, "flipV") ?? "");
+  const matrix = aroundCenter(bounds, rotationDegrees, flipH, flipV);
+  const chOff = body.match(/<a:chOff\b[^>]*>/)?.[0] ?? "", chExt = body.match(/<a:chExt\b[^>]*>/)?.[0] ?? "";
+  const childX = integerAttribute(chOff, "x"), childY = integerAttribute(chOff, "y");
+  const childWidth = integerAttribute(chExt, "cx"), childHeight = integerAttribute(chExt, "cy");
+  const placement: Matrix = childX !== null && childY !== null && childWidth && childHeight
+    ? [width/childWidth, 0, 0, height/childHeight, x-childX*width/childWidth, y-childY*height/childHeight]
+    : IDENTITY;
+  return { bounds, matrix, rotationDegrees, flipH, flipV, childMatrix: multiply(matrix, placement) };
+}
+
+function semanticRole(name: string | null): RescueVisualObject["semanticRole"] {
+  const role = name?.match(/^MM:(?:group:)?(event|furniture|profile|media|annotation):/)?.[1];
+  return role as RescueVisualObject["semanticRole"];
+}
+
+function crop(block: string): RescueVisualObject["crop"] {
+  const rect = block.match(/<a:srcRect\b[^>]*>/)?.[0];
+  if (!rect) return undefined;
+  return { left: (integerAttribute(rect, "l") ?? 0)/100000, top: (integerAttribute(rect, "t") ?? 0)/100000,
+    right: (integerAttribute(rect, "r") ?? 0)/100000, bottom: (integerAttribute(rect, "b") ?? 0)/100000, unit: "FRACTION" };
 }
 
 function text(block: string): string | null {
@@ -75,8 +119,9 @@ function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function groupRanges(source: string): Array<{ start: number; end: number; id: string }> {
-  const ranges: Array<{ start: number; end: number; id: string }> = [];
+interface GroupRange { start: number; end: number; id: string; name: string | null; transform: ReturnType<typeof readTransform> }
+function groupRanges(source: string, slide: number): GroupRange[] {
+  const ranges: GroupRange[] = [];
   const stack: Array<{ start: number; tagEnd: number }> = [];
   const tags = /<(\/?)p:grpSp\b[^>]*>/g;
   for (const match of source.matchAll(tags)) {
@@ -85,12 +130,17 @@ function groupRanges(source: string): Array<{ start: number; end: number; id: st
       const open = stack.pop();
       if (!open) continue;
       const end = match.index! + match[0].length;
-      const prefix = source.slice(open.tagEnd, Math.min(end, open.tagEnd + 800));
-      const id = prefix.match(/<p:cNvPr\b[^>]*\bid="([^"]+)"/)?.[1] ?? `group-${open.start}`;
-      ranges.push({ start: open.start, end, id: `pptx-group-${id}` });
+      const prefix = source.slice(open.tagEnd, end).split(/<p:(?:sp|pic|cxnSp|grpSp)\b/)[0]!;
+      const tag = prefix.match(/<p:cNvPr\b[^>]*>/)?.[0] ?? "";
+      const id = attribute(tag, "id") ?? `group-${open.start}`;
+      ranges.push({ start: open.start, end, id: `pptx-s${slide}-group-${id}`, name: attribute(tag, "name"), transform: readTransform(prefix) });
     }
   }
   return ranges;
+}
+
+function ancestorMatrix(ranges: GroupRange[]): Matrix {
+  return [...ranges].sort((a, b) => a.start-b.start).reduce((matrix, range) => multiply(matrix, range.transform?.childMatrix ?? IDENTITY), IDENTITY);
 }
 
 function relationshipMap(source: string): Map<string, string> {
@@ -129,7 +179,7 @@ export function extractPptx(input: Uint8Array): PptxExtraction {
   for (const [slideIndex, path] of slideEntries.entries()) {
     const slideNumber = slideIndex + 1;
     const slideXml = xml(archive.get(path));
-    const ranges = groupRanges(slideXml);
+    const ranges = groupRanges(slideXml, slideNumber);
     const relationPath = path.replace("/slides/", "/slides/_rels/") + ".rels";
     const relations = relationshipMap(xml(archive.get(relationPath)));
     let zIndex = 0;
@@ -144,6 +194,9 @@ export function extractPptx(input: Uint8Array): PptxExtraction {
       const kind: RescueVisualObject["kind"] = tag === "pic" ? "IMAGE" : isLine ? "LINE" : text(block) ? "TEXT" : "SHAPE";
       const containingGroups = ranges.filter((range) => range.start < match.index! && range.end > match.index! + block.length);
       const groupId = containingGroups.sort((a, b) => (a.end - a.start) - (b.end - b.start))[0]?.id ?? null;
+      const localTransform = readTransform(block);
+      const matrix = multiply(ancestorMatrix(containingGroups), localTransform?.matrix ?? IDENTITY);
+      const objectName = name ? decodeXml(name) : null;
       let relationshipTarget: string | null = null;
       let mediaSha256: string | null = null;
       if (tag === "pic") {
@@ -155,35 +208,41 @@ export function extractPptx(input: Uint8Array): PptxExtraction {
         if (!relationshipTarget || !mediaSha256) warnings.push(`Slide ${slideNumber} image ${nativeId} could not be bound to embedded media.`);
       }
       const size = block.match(/<a:(?:defRPr|rPr|endParaRPr)\b[^>]*\bsz="(\d+)"/)?.[1];
+      const bold = block.match(/<a:(?:defRPr|rPr)\b[^>]*\bb="([01])"/)?.[1];
       objects.push({
         id: `pptx-s${slideNumber}-o${nativeId}`,
         pageOrSlide: slideNumber,
         kind,
-        name: name ? decodeXml(name) : null,
+        name: objectName,
         text: text(block),
-        geometry: geometry(block),
+        geometry: localTransform ? transformedBounds(localTransform.bounds, matrix) : null,
+        ...(localTransform ? { nativeTransform: { matrix, localGeometry: localTransform.bounds, rotationDegrees: localTransform.rotationDegrees, flipH: localTransform.flipH, flipV: localTransform.flipV } } : {}),
+        ...(tag === "pic" && crop(block) ? { crop: crop(block) } : {}),
+        ...(semanticRole(objectName) ? { semanticRole: semanticRole(objectName) } : {}),
         groupId,
         zIndex: zIndex++,
         fill: color(block, "fill"),
         stroke: color(block, "line"),
         fontFamily: block.match(/<a:latin\b[^>]*\btypeface="([^"]+)"/)?.[1] ?? null,
         fontSizePt: size ? Number(size) / 100 : null,
+        fontBold: bold === undefined ? null : bold === "1",
         relationshipTarget,
         mediaSha256,
       });
     }
-    const groupIds = [...new Set(objects.filter((item) => item.pageOrSlide === slideNumber).map((item) => item.groupId).filter(Boolean))] as string[];
-    for (const id of groupIds) {
-      const children = objects.filter((item) => item.groupId === id);
-      const measured = children.map((item) => item.geometry).filter((item): item is RescueGeometry => Boolean(item));
-      const x = measured.length ? Math.min(...measured.map((item) => item.x)) : 0;
-      const y = measured.length ? Math.min(...measured.map((item) => item.y)) : 0;
-      const maxX = measured.length ? Math.max(...measured.map((item) => item.x + item.width)) : 0;
-      const maxY = measured.length ? Math.max(...measured.map((item) => item.y + item.height)) : 0;
-      objects.push({ id, pageOrSlide: slideNumber, kind: "GROUP", name: null, text: null,
-        geometry: measured.length ? { x, y, width: maxX - x, height: maxY - y, unit: "EMU" } : null,
-        groupId: null, zIndex: Math.min(...children.map((item) => item.zIndex)), fill: null, stroke: null,
-        fontFamily: null, fontSizePt: null, relationshipTarget: null, mediaSha256: null });
+    // Every group is retained, including nesting and names; IDs are slide-scoped.
+    for (const range of ranges) {
+      const descendants = objects.filter(item => item.pageOrSlide === slideNumber && item.kind !== "GROUP" &&
+        (item.groupId === range.id || ranges.some(inner => inner.id === item.groupId && inner.start > range.start && inner.end < range.end)));
+      const measured = descendants.map(item => item.geometry).filter((item): item is RescueGeometry => Boolean(item));
+      const x = measured.length ? Math.min(...measured.map(item => item.x)) : 0;
+      const y = measured.length ? Math.min(...measured.map(item => item.y)) : 0;
+      const parent = ranges.filter(outer => outer.start < range.start && outer.end > range.end).sort((a, b) => (a.end-a.start)-(b.end-b.start))[0];
+      objects.push({ id: range.id, pageOrSlide: slideNumber, kind: "GROUP", name: range.name, text: null,
+        geometry: measured.length ? { x, y, width: Math.max(...measured.map(item => item.x+item.width))-x, height: Math.max(...measured.map(item => item.y+item.height))-y, unit: "EMU" } : null,
+        groupId: parent?.id ?? null, zIndex: descendants.length ? Math.min(...descendants.map(item => item.zIndex)) : 0, fill: null, stroke: null,
+        fontFamily: null, fontSizePt: null, relationshipTarget: null, mediaSha256: null,
+        ...(semanticRole(range.name) ? { semanticRole: semanticRole(range.name) } : {}) });
     }
   }
   return { slideCount: slideEntries.length, slideSize, objects, warnings: [...new Set(warnings)] };

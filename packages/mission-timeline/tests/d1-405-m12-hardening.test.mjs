@@ -57,7 +57,7 @@ test("M12 conceals prototype state until canonical hydration completes",()=>{
   );
   assert.match(
     adapter,
-    /window\.D1_407F_ENGINEERING=api;\s*bridge\.renderAll\(\);\s*document\.documentElement\.classList\.remove\("d1-hydrating"\)/
+    /window\.D1_407F_ENGINEERING=api;\s*api\.familyRuntime=installFamilyRuntime022\(\{runtime:productionRuntime,store,bridge\}\);\s*bridge\.renderAll\(\);\s*document\.documentElement\.classList\.remove\("d1-hydrating"\)/
   );
   assert.match(adapter,/Your Timeline needs a fresh connection\./);
   assert.match(adapter,/retry\.textContent="Retry"/);

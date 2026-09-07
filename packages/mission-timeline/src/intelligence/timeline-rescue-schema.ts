@@ -37,9 +37,21 @@ export interface RescueVisualObject {
   stroke: string | null;
   fontFamily: string | null;
   fontSizePt: number | null;
+  fontBold?: boolean | null;
   relationshipTarget: string | null;
   mediaSha256: string | null;
   sourceConfidence?: number | null;
+  /** Local-to-slide affine transform. Geometry is its enclosing slide-space rectangle. */
+  nativeTransform?: {
+    matrix: [number, number, number, number, number, number];
+    localGeometry: RescueGeometry;
+    rotationDegrees: number;
+    flipH: boolean;
+    flipV: boolean;
+  };
+  /** Source-rectangle crop fractions, retained independently of placement/rotation. */
+  crop?: { left: number; top: number; right: number; bottom: number; unit: "FRACTION" };
+  semanticRole?: "event" | "furniture" | "profile" | "media" | "annotation";
 }
 
 export interface RescueVisionObservation {
@@ -68,8 +80,15 @@ export interface RescueSemanticCandidate {
   timelineKind: "duration" | "milestone";
   startDate: string;
   endDate: string | null;
+  openEnded?: boolean;
   location: string | null;
   institution: string | null;
+  /** Visible profile facts reviewed with this medical-degree event, never extra events. */
+  profileClaims?: {
+    fullName?: { value: string; provenance: RescueSourceEvidence[] };
+    degree?: { value: string; provenance: RescueSourceEvidence[] };
+  };
+  datePrecision?: { start: "MONTH" | "YEAR"; end: "MONTH" | "YEAR" | null };
   confidence: {
     score: number;
     level: "HIGH" | "MEDIUM" | "LOW" | "NEEDS_REVIEW";
@@ -98,7 +117,7 @@ export interface RescueCleanupAction {
 }
 
 export interface RescueCleanupProposal {
-  authority: "MISSIONMED_FOUNDER_KEYNOTE_2024_CANONICAL_PRESENTATION";
+  authority: "MISSIONMED_FOUNDER_KEYNOTE_2025_CANONICAL_PRESENTATION";
   mode: "PROPOSAL_ONLY";
   factualMutationAllowed: false;
   actions: RescueCleanupAction[];

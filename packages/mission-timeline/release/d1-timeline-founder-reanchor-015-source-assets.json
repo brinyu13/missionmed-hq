@@ -15,6 +15,16 @@
       "source_manifest_sha256": "091f0113bb5bbb12574625f7d91f291b8e96258108ba558874c8056036494b1b",
       "license": "Creative Commons CC0 1.0",
       "verification_scope": "identity_only_no_accreditation_or_active_status_claim"
+    },
+    {
+      "path": "web/data/medical-schools/global-img-supplement-2026-09-05.json",
+      "bytes": 147216,
+      "sha256": "cdcdc40a3fc7c44e27019e29fd793b99e44e68fc9c00df1e46355b3fb034c928",
+      "source_manifest": "web/data/medical-schools/global-img-supplement-2026-09-05.json",
+      "source_manifest_sha256": "cdcdc40a3fc7c44e27019e29fd793b99e44e68fc9c00df1e46355b3fb034c928",
+      "license": "MissionMed internal reference data; identity facts only",
+      "verification_scope": "identity_only_no_accreditation_or_active_status_claim",
+      "custody_note": "Fable019 preserved source asset; registered by D1-TIMELINE-ASTRA6-AAA-FINAL-021 under explicit Founder local successor brief. Completeness and current status are not asserted."
     }
   ]
 }

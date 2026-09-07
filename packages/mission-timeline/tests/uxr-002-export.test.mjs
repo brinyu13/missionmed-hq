@@ -81,10 +81,11 @@ test("M10 preserves Interview-safe default and defines four explicit recipient a
   assert.equal(audienceDetailsComplete("LOR_WRITER",lorDetails),true);
   assert.equal(audienceDetailsComplete("LOR_WRITER",{}),false);
   assert.equal(DEFAULT_EXPORT_FORMAT_ID,"png-1920x1080");
-  assert.equal(EXPORT_FORMATS.length,4);
+  assert.equal(EXPORT_FORMATS.length,5);
   assert.deepEqual(EXPORT_FORMATS.map(({label})=>label),[
     "PNG · 1920 × 1080 — screens and slides",
     "PNG · 2560 × 1440 — high-res screens",
+    "Editable PowerPoint · also opens in Keynote",
     "PDF · Letter landscape — printing (300 DPI)",
     "PDF · A4 landscape — printing (300 DPI)"
   ]);
@@ -232,7 +233,7 @@ test("M10 renders explicit audience selection, progressive recipient details, an
     now:fixedNow
   });
   assert.match(html,/data-export-layout="two-column" data-export-controls-width="380"/);
-  assert.match(html,/<h1 id="export-title" tabindex="-1">Export<\/h1>/);
+  assert.match(html,/<h1 id="export-title" tabindex="-1">Make a clear <em>first impression\.<\/em><\/h1>/);
   assert.match(html,/data-export-audience/);
   assert.match(html,/>Interview-safe<\/option>/);
   assert.match(html,/>LOR writer<\/option>/);
@@ -243,14 +244,15 @@ test("M10 renders explicit audience selection, progressive recipient details, an
   assert.match(html,/data-export-audience-detail="understanding"/);
   assert.match(html,/Recipient details complete\./);
   assert.match(html,/data-month-field="export-interview-season"/);
-  assert.equal((html.match(/name="export-format"/g)||[]).length,4);
+  assert.equal((html.match(/name="export-format"/g)||[]).length,5);
   assert.match(html,/data-export-theme-trigger/);
   assert.match(html,/data-export-print-margins/);
   assert.match(html,/data-print-margin-mm="12\.7"/);
   assert.match(html,/class="button primary export-action"/);
   assert.match(html,/>Export PDF<\/button>/);
   assert.match(html,/<details class="card export-card print-guidance"/);
-  assert.doesNotMatch(html,/<details[^>]* open/);
+  assert.doesNotMatch(html,/<details class="card export-card print-guidance"[^>]* open/);
+  assert.match(html,/<details class="export022Settings" open><summary>Audience &amp; presentation<\/summary>/);
   for(const bullet of PRINT_GUIDANCE_COPY.bullets){
     const plain=html.replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&#039;/g,"'");
     assert.ok(plain.includes(bullet),`missing verbatim guidance: ${bullet}`);

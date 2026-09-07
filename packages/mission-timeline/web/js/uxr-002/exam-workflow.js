@@ -622,6 +622,11 @@ export function validateExamAttempt(attempt){
   });
   const examDate=validateMonthField(attempt.examDate,{required:true});
   const studyPeriodStart=validateMonthField(attempt.studyPeriodStart);
+  if(studyPeriodStart.valid&&examDate.valid&&studyPeriodStart.value&&
+    studyPeriodStart.value>examDate.value){
+    studyPeriodStart.valid=false;
+    studyPeriodStart.error='Study start must be on or before the exam date.';
+  }
   return{
     valid:result.valid&&score.valid&&examDate.valid&&studyPeriodStart.valid,
     result,
@@ -720,8 +725,12 @@ export function examTimelineEvents(state){
       if(examDate)events.push(milestoneEvent(examType,attempt));
     }
   }
+  const enteredStudyAttemptIds=new Set(events
+    .filter(event=>event.studyPeriodKind==='entered')
+    .map(event=>event.attemptId));
   events.push(...(state?.studyPeriods||[])
-    .filter((event)=>validAttemptIds.has(event.linkedFailureAttemptId))
+    .filter((event)=>validAttemptIds.has(event.linkedFailureAttemptId)&&
+      !enteredStudyAttemptIds.has(event.linkedRetakeAttemptId))
     .map((event)=>clone(event)));
   return events;
 }

@@ -16,6 +16,7 @@ import {parseErasBlocks} from "../ingestion/eras-parser.js";
 import {PARSER_VERSION} from "../ingestion/ingestion-state.js";
 import {detectSections} from "../ingestion/section-detector.js";
 import {buildQualitySuggestions} from "../ingestion/quality-review.js";
+import {rescueVisibleReviewFields} from "./rescue-profile-intake-021.js";
 
 const UXR_VISIBILITY=Object.freeze({
   INTERVIEWER_SAFE:"INTERVIEWER_SAFE",
@@ -365,6 +366,10 @@ function categoryFields(candidate,categoryId,provenance){
   if(categoryId==="education"){
     return{
       ...common,
+      ...(candidate.profileNameClaim?{
+        profileFullName:String(candidate.profileNameClaim.value),
+        profileNameProvenance:[structuredClone(candidate.profileNameClaim.provenance)]
+      }:{}),
       medicalSchool:organization,
       medicalSchoolCountry:sourceCountry,
       degree:exactDegree(candidate)
@@ -372,12 +377,13 @@ function categoryFields(candidate,categoryId,provenance){
   }
   if(categoryId==="exams"){
     const canonical=String(candidate?.canonicalType||"").toUpperCase();
+    const outcome=explicitExamOutcome(candidate);
     return{
       ...common,
       examSystem:/^(?:STEP_|USMLE_)|ECFMG/.test(canonical)?"USMLE":"",
       examName:String(candidate?.title||""),
-      result:"",
-      score:"",
+      result:outcome.result,
+      score:outcome.score,
       studyPeriodStart:canonical==="USMLE_STUDY_PERIOD"?String(candidate?.startDate||""):""
     };
   }
@@ -435,6 +441,39 @@ function categoryFields(candidate,categoryId,provenance){
       ?"Advisor only"
       :"Show everyone"
   };
+}
+
+/** Only explicit personal-name header forms qualify; arbitrary title lines do not. */
+export function sourceProfileNameClaim(sourceBlocks=[],sourceDocument={}){
+  const first=sourceBlocks.filter(block=>Number(block.pageNumber)===1&&String(block.text||"").trim())
+    .sort((a,b)=>(Number(a.lineNumber)||0)-(Number(b.lineNumber)||0))[0];
+  if(!first||!['unknown','personal'].includes(String(first.section||'unknown')))return null;
+  const raw=String(first.text).trim();
+  // A delimited CV label establishes a personal header; retain the untouched line as evidence.
+  const cvHeader=raw.match(/^(.+?)\s+[-–—|]\s+(?:(?:synthetic(?:\s+test)?|test)\s+)?(?:CV|Curriculum\s+Vitae)$/i);
+  const header=String(cvHeader?.[1]||raw).trim();
+  const match=header.match(/^(?:name:\s*|full name:\s*)(.+)$/i)||
+    header.match(/^(.+?),\s*(?:M\.?D\.?|D\.?O\.?|MBBS|MBChB|MBBCh|Ph\.?D\.?)$/i);
+  const value=String(match?.[1]||cvHeader?.[1]||'').trim();
+  if(cvHeader&&/\b(?:research|assistant|clinical|observership|internship|residency|volunteer|student|synthetic|test|cv)\b/i.test(value))return null;
+  if(!/^[\p{L}][\p{L}\p{M}.'’\-]*(?:\s+[\p{L}][\p{L}\p{M}.'’\-]*){1,5}$/u.test(value)||
+    /\b(?:curriculum|vitae|university|college|hospital|school|doctor|medicine|education|resume)\b/i.test(value))return null;
+  return{value,provenance:{
+    sourceDocumentId:String(sourceDocument.id||sourceDocument.objectId||first.sourceDocumentId||''),
+    sourceSha256:String(sourceDocument.sha256||''),fileName:String(sourceDocument.fileName||sourceDocument.name||''),
+    sourceBlockId:String(first.id||''),pageNumber:1,sourceExcerpt:raw,
+    extractionMethod:'EXPLICIT_CV_NAME_HEADER',evidenceFields:['fullName']
+  }};
+}
+
+function explicitExamOutcome(candidate){
+  if(!['STEP_1','STEP_2_CK','STEP_3'].includes(String(candidate.canonicalType||'').toUpperCase()))return{result:'',score:''};
+  const sources=[String(candidate.title||''),...(candidate.provenance||[]).map(item=>String(item.sourceExcerpt||item.excerpt||''))];
+  const values=sources.map(source=>source.match(/\b(?:USMLE\s+)?Step\s*(?:1|2\s*(?:CK|Clinical Knowledge)|3)\s*(?:[-–—:|,]\s*)?(?:(?:score|result)\s*[:=]?\s*)?(Passed|Pass|Failed|Fail|[1-3]\d{2})(?=\s*(?:[,;|]|$))/i)?.[1]).filter(Boolean);
+  const normalized=[...new Set(values.map(value=>/^pass/i.test(value)?'Passed':/^fail/i.test(value)?'Failed':value))];
+  if(normalized.length!==1)return{result:'',score:''};
+  const value=normalized[0];
+  return /^\d+$/.test(value)?{result:'',score:value}:{result:value,score:''};
 }
 
 export function mapD1408CandidateToUxr(candidate){
@@ -523,6 +562,7 @@ export function mapCvIntelligenceCandidateToUxr(candidate,{sourceDocument=null,s
   const categoryId=categoryIdFor(candidate);
   const mapped=mapD1408CandidateToUxr({
     ...candidate,
+    ...(categoryId==='education'&&exactDegree(candidate)?{profileNameClaim:sourceProfileNameClaim(sourceBlocks,sourceDocument||{})}:{}),
     provenance,
     dateRange:{openEnded:candidate.openEnded===true},
     visibilityRecommendation:cvCandidateVisibility(candidate,categoryId),
@@ -671,6 +711,10 @@ export function createD1408PdfIntakeAdapter({
       const sectionResult=detectSections(extraction.pages||[]);
       const records=parseRecords(effectiveType,sectionResult.blocks);
       const legacyCandidates=buildCandidates(records,sourceDocument);
+      const profileNameClaim=sourceProfileNameClaim(sectionResult.blocks,sourceDocument);
+      if(profileNameClaim)for(const candidate of legacyCandidates){
+        if(categoryIdFor(candidate)==='education'&&exactDegree(candidate))candidate.profileNameClaim=profileNameClaim;
+      }
       const candidates=legacyCandidates.map(mapD1408CandidateToUxr);
       const sourceBlocks=sectionResult.blocks.map((block)=>({
         id:String(block.id),
@@ -706,11 +750,21 @@ export function createProductionCvIntakeAdapter({
   apiClient,
   documentId,
   existingEvents=()=>[],
-  consentVersion="d1-ux-007-ai-v1",
+  consentVersion=null,
   ensureRemoteDocument=async()=>{}
 }={}){
   if(typeof localAdapter?.extract!=="function")throw new TypeError("A local intake adapter is required.");
   if(!apiClient||typeof apiClient.analyzeCv!=="function")return localAdapter;
+  /* The authenticated bootstrap is the only source of truth for the active AI consent
+     version. A literal pinned here goes stale the moment the server rotates
+     TIMELINE_AI_CONSENT_VERSION, and every CV run then fails CV_AI_CONSENT_REQUIRED
+     with no visible cause. Read it at call time; an explicit argument is a test seam. */
+  const resolveConsentVersion=()=>{
+    const bootstrapVersion=String(apiClient?.bootstrapState?.aiConsentVersion||"").trim();
+    if(bootstrapVersion)return bootstrapVersion;
+    const explicit=typeof consentVersion==="function"?consentVersion():consentVersion;
+    return String(explicit??"").trim();
+  };
   const confirmedSources=new Map();
   let activeSourceObjectId="";
   const deleteObject=async(objectId)=>{
@@ -778,7 +832,7 @@ export function createProductionCvIntakeAdapter({
             title:String(candidate.title||""),
             startDate:String(candidate.startDate||""),
             endDate:candidate.endDate?String(candidate.endDate):null,
-            openEnded:false,
+            openEnded:Boolean(candidate.openEnded),
             eventType:candidate.timelineKind==="milestone"?"milestone":"duration",
             confidence:Number(candidate.confidence?.score||0),
             confidenceDetails:{
@@ -792,16 +846,26 @@ export function createProductionCvIntakeAdapter({
               sourceDocumentName:String(file.name||"Existing Timeline"),
               sourceExcerpt:String(item.sourceText||"")
             })),
-            inferredFields:(Array.isArray(candidate.provenance)?candidate.provenance:[])
-              .filter(({support})=>support!=="SOURCE_FACT")
-              .map(()=>({field:"dates",reason:"Recovered from visual geometry; confirm before accepting."})),
+            inferredFields:[
+              ...(Array.isArray(candidate.provenance)?candidate.provenance:[])
+                .filter(({support})=>support!=="SOURCE_FACT")
+                .map(()=>({field:"dates",reason:"Recovered from visual geometry; confirm before accepting."})),
+              ...["start","end"].filter(edge=>candidate.datePrecision?.[edge]==="YEAR")
+                .map(edge=>({field:edge==="start"?"startDate":"endDate",sourcePrecision:"YEAR",reason:"The source gives a year only; its month is a positioning placeholder."}))
+            ],
             warnings:Array.isArray(candidate.uncertainties)?candidate.uncertainties:[],
             notes:"",
             visibilityState:UXR_VISIBILITY.INTERVIEWER_SAFE,
             fields:{
               rescueReviewRequired:true,
+              institution:String(candidate.institution||""),
+              siteName:String(candidate.institution||""),
+              ...(candidate.categoryId==="education"?{medicalSchool:String(candidate.institution||"")}:{ }),
+              ...(candidate.categoryId==="work"?{organization:String(candidate.institution||"")}:{ }),
+              datePrecision:candidate.datePrecision?structuredClone(candidate.datePrecision):null,
               mappingReviewRequired:String(candidate.categoryId)==="unclassified",
               canonicalType:String(candidate.categoryId)==="unclassified"?"UNCLASSIFIED":"TIMELINE_RESCUE_EVENT",
+              ...rescueVisibleReviewFields(candidate),
               aiOriginalSemantic:{
                 title:String(candidate.title||""),
                 categoryId:CATEGORY_BY_LEGACY_ID[String(candidate.categoryId)]||"",
@@ -810,7 +874,7 @@ export function createProductionCvIntakeAdapter({
               },
               rescueArtifactSha256:String(rescue.artifactSha256||sha256),
               rescueFormat:String(rescue.format||""),
-              cleanupAuthority:String(rescue.cleanupProposal?.authority||"MISSIONMED_FOUNDER_KEYNOTE_2024_CANONICAL_PRESENTATION")
+              cleanupAuthority:String(rescue.cleanupProposal?.authority||"MISSIONMED_FOUNDER_KEYNOTE_2025_CANONICAL_PRESENTATION")
             },
             decision:"undecided"
           }));
@@ -829,13 +893,16 @@ export function createProductionCvIntakeAdapter({
               detectedType:"TIMELINE_RESCUE",effectiveType:"TIMELINE_RESCUE",
               sections:[],recordCount:Number(rescue.objects?.length||0),candidateCount:candidates.length,
               networkCalls:true,
-              intelligenceMode:response?.ai?.mode==="SERVER_AI"?"SERVER_AI":"TIMELINE_RESCUE",
+              intelligenceMode:response?.ai?.mode==="SERVER_AI"&&verifiedProviderReceipt022(response?.ai?.providerReceipt)?"SERVER_AI":"TIMELINE_RESCUE",
+              ...(verifiedProviderReceipt022(response?.ai?.providerReceipt)?{providerReceipt:structuredClone(response.ai.providerReceipt),founderStandardProvenance:structuredClone(response.ai.founderStandardProvenance||null)}:{}),
+              ...(response?.ai?.providerAuthenticity?{providerAuthenticity:structuredClone(response.ai.providerAuthenticity)}:{}),
               analysisId:String(response?.ai?.analysisId||""),
               provider:String(response?.ai?.provider||""),
               model:String(response?.ai?.model||""),
               promptVersion:String(response?.ai?.promptVersion||"d1-timeline-rescue-ai.1"),
               aiStatus:String(response?.ai?.status||"NOT_RUN"),
-              aiUnavailableMessage:String(response?.ai?.unavailableMessage||""),
+              aiUnavailableMessage:String(response?.ai?.unavailableMessage||response?.aiUnavailable?.message||""),
+              fallbackReason:String(response?.aiUnavailable?.code||''),
               qualitySuggestions:rescueSuggestions,
               unresolvedQuestions:Array.isArray(rescue.unresolvedQuestions)?rescue.unresolvedQuestions:[],
               warnings:Array.isArray(rescue.warnings)?rescue.warnings:[],
@@ -870,10 +937,29 @@ export function createProductionCvIntakeAdapter({
       if(handedOffObjectId&&!reusableHandoff)await deleteObject(handedOffObjectId);
       let objectId=(reusableHandoff&&handedOffObjectId)||confirmedSources.get(sha256)||"";
       let created=false;
+      let sourceConfirmed=Boolean(objectId);
       const releaseFailedSource=async()=>{
+        if(sourceConfirmed)return;
         if(!created&&!reusableHandoff)return;
         await deleteObject(objectId);
         for(const [hash,id] of confirmedSources.entries())if(id===objectId)confirmedSources.delete(hash);
+      };
+      const readableFallback=(fallbackReason)=>{
+        if(!sourceConfirmed)return{...local,parser:{...local.parser,intelligenceMode:'LOCAL_LIMITED',fallbackReason}};
+        activeSourceObjectId=objectId;
+        const sourceCustody=reusableHandoff?sourceCustodyReference(handedOffCustody,{timelineObjectId:objectId,sha256}):null;
+        const bindReference=(item)=>({...item,sourceObjectId:objectId,sourceSha256:sha256,
+          ...(sourceCustody?{sourceCustody:structuredClone(sourceCustody)}:{})});
+        return{
+          ...local,
+          sourceDocument:{...source,objectId,custody:'TIMELINE_PRIVATE_SOURCE',...(sourceCustody?{sourceCustody:structuredClone(sourceCustody)}:{})},
+          candidates:(local.candidates||[]).map(candidate=>{
+            const provenance=(candidate.provenance||[]).map(bindReference);
+            return{...candidate,provenance,fields:{...candidate.fields,sourceProvenance:structuredClone(provenance),
+              ...(candidate.fields?.profileNameProvenance?{profileNameProvenance:candidate.fields.profileNameProvenance.map(bindReference)}:{})}};
+          }),
+          parser:{...local.parser,intelligenceMode:'LOCAL_LIMITED',fallbackReason}
+        };
       };
       try{
         await ensureRemoteDocument();
@@ -890,6 +976,7 @@ export function createProductionCvIntakeAdapter({
           await apiClient.uploadSignedObject(grant,file);
           const confirmed=await apiClient.confirmObjectUpload(objectId,grant.uploadToken);
           if(String(confirmed?.status||"")!=="CONFIRMED")throw new Error("Timeline source upload could not be confirmed.");
+          sourceConfirmed=true;
           confirmedSources.set(sha256,objectId);
         }
         const eventSummary=(typeof existingEvents==="function"?existingEvents():existingEvents||[]).map((event)=>({
@@ -908,15 +995,14 @@ export function createProductionCvIntakeAdapter({
           })),
           documentType:String(source.effectiveType||"CV")==="MYERAS"?"MYERAS":String(source.effectiveType||"CV")==="RESUME"?"RESUME":"CV",
           existingEvents:eventSummary,
-          consentVersion:String(consentVersion),
+          consentVersion:resolveConsentVersion(),
           idempotencyKey:`cv_${sha256.slice(0,32)}`
         });
         if(analysis?.mode!=="SERVER_AI"||!Array.isArray(analysis.candidates)||!analysis.candidates.length){
-          await releaseFailedSource();
-          return{
-            ...local,
-            parser:{...local.parser,intelligenceMode:"LOCAL_LIMITED",fallbackReason:analysis?.fallbackReason||"AI_EMPTY"}
-          };
+          return readableFallback(analysis?.fallbackReason||"AI_EMPTY");
+        }
+        if(!verifiedProviderReceipt022(analysis.providerReceipt)){
+          return readableFallback('AI_RECEIPT_UNVERIFIED');
         }
         activeSourceObjectId=objectId;
         const sourceCustody=handedOffCustody
@@ -948,6 +1034,9 @@ export function createProductionCvIntakeAdapter({
             analysisId:analysis.analysisId,
             provider:analysis.provider,
             model:analysis.model,
+            ...(analysis.providerReceipt?{providerReceipt:structuredClone(analysis.providerReceipt)}:{}),
+            ...(analysis.providerAuthenticity?{providerAuthenticity:structuredClone(analysis.providerAuthenticity)}:{}),
+            ...(analysis.founderStandardProvenance?{founderStandardProvenance:structuredClone(analysis.founderStandardProvenance)}:{}),
             schemaVersion:analysis.schemaVersion,
             promptVersion:analysis.promptVersion,
             rejectedCandidateCount:Number(analysis.rejectedCandidateCount)||0,
@@ -962,10 +1051,7 @@ export function createProductionCvIntakeAdapter({
         };
       }catch(error){
         await releaseFailedSource();
-        return{
-          ...local,
-          parser:{...local.parser,intelligenceMode:"LOCAL_LIMITED",fallbackReason:String(error?.code||"PROVIDER_UNAVAILABLE")}
-        };
+        return readableFallback(String(error?.code||"PROVIDER_UNAVAILABLE"));
       }
     },
     async deleteSource(){
@@ -980,3 +1066,4 @@ export function createProductionCvIntakeAdapter({
 export const D1_408_PDF_INTAKE_ADAPTER_CAPABILITY=Object.freeze(
   createD1408PdfIntakeAdapter().capability
 );
+import {verifiedProviderReceipt022} from '../production/provider-receipt-022.js';

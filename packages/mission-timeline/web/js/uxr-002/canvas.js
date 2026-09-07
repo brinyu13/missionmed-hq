@@ -119,6 +119,50 @@ const EDITING_ACTIONS = new Set([
   "toggle-visibility"
 ]);
 
+export function canvasEffectiveHitGeometry(target,rootBounds={left:0,top:0}) {
+  // A sticky paints after the chronology, including when it overlaps an event.
+  // It must participate in that same proxy order even when its card is already
+  // larger than 44px, otherwise an underlying event's proxy steals its gesture.
+  // The connector is not part of the card hit area.
+  const card=target?.querySelector?.("[data-explanation-card]");
+  const bounds=(card||target)?.getBoundingClientRect?.();
+  if(!bounds?.width||!bounds?.height)return null;
+  const width=Math.max(44,bounds.width),height=Math.max(44,bounds.height);
+  return{
+    left:bounds.left-rootBounds.left-(width-bounds.width)/2,
+    top:bounds.top-rootBounds.top-(height-bounds.height)/2,
+    width,height,sourceWidth:bounds.width,sourceHeight:bounds.height
+  };
+}
+
+export function canvasEffectiveHitClipPath(box,rootBounds,stageBounds){
+  if(!stageBounds)return"none";
+  const left=rootBounds.left+box.left,top=rootBounds.top+box.top;
+  const visibleLeft=Math.max(left,stageBounds.left),visibleTop=Math.max(top,stageBounds.top);
+  const visibleRight=Math.min(left+box.width,stageBounds.right),visibleBottom=Math.min(top+box.height,stageBounds.bottom);
+  if(visibleRight<=visibleLeft||visibleBottom<=visibleTop)return"inset(50%)";
+  return`inset(${visibleTop-top}px ${left+box.width-visibleRight}px ${top+box.height-visibleBottom}px ${visibleLeft-left}px)`;
+}
+
+export function canvasPaintHitPath(target,box,rootBounds={left:0,top:0},stageBounds=null){
+  const card=target?.querySelector?.("[data-explanation-card]");
+  const primitives=card?[card]:[...(target?.querySelectorAll?.("path,rect,text,image,circle,ellipse,polygon,line,polyline")||[])].filter(node=>!node.closest?.("defs"));
+  const bounds=(primitives.length?primitives:[target]).map(node=>node?.getBoundingClientRect?.()).filter(rect=>rect?.width>0&&rect?.height>0);
+  // The exact layer follows painted primitives, not the empty rectangle between
+  // an event's separate caption, arrow and label. Neighboring 44px padding stays
+  // below this layer and cannot intercept visible milestone or note content.
+  return bounds.map(rect=>{
+    const left=stageBounds?Math.max(rect.left,stageBounds.left):rect.left;
+    const top=stageBounds?Math.max(rect.top,stageBounds.top):rect.top;
+    const right=stageBounds?Math.min(rect.left+rect.width,stageBounds.right):rect.left+rect.width;
+    const bottom=stageBounds?Math.min(rect.top+rect.height,stageBounds.bottom):rect.top+rect.height;
+    const width=right-left,height=bottom-top;
+    if(width<=0||height<=0)return"";
+    const x=left-rootBounds.left-box.left,y=top-rootBounds.top-box.top;
+    return`M${x} ${y}h${width}v${height}h${-width}Z`;
+  }).filter(Boolean).join(' ');
+}
+
 function currentMonth(now = new Date()) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}`;
 }
@@ -1327,11 +1371,21 @@ function renderAdvancedTextEditor(document,state){
     (item)=>String(item.id)===String(edit.id)
   );
   if(!block)return"";
+  /* AAA-019 — in-place editing (Canva T3): the editor sits exactly over the text block,
+     same box, same alignment, font scaled with the board (container query units), and
+     the SVG glyphs underneath are hidden so the caret appears to be in the text itself.
+     Click-out commits (see the focusout handler); Escape cancels; Enter is a newline. */
   const left=Math.max(0,Math.min(100,Number(block.x||0)/1920*100));
   const top=Math.max(0,Math.min(100,Number(block.y||0)/1080*100));
-  return`<form class="canvas-advanced-text-editor" data-advanced-inline-text-form data-advanced-target-id="${escapeHtml(block.id)}" style="--advanced-text-left:${left}%;--advanced-text-top:${top}%">
-    <label><span class="sr-only">Edit selected text</span><textarea data-advanced-inline-text-input rows="3">${escapeHtml(edit.draft)}</textarea></label>
-    <div><button type="submit">Save text</button><button type="button" data-canvas-action="cancel-advanced-text">Cancel</button></div>
+  const width=Math.max(4,Math.min(100,Number(block.width||320)/1920*100));
+  const height=Math.max(2,Math.min(100,Number(block.height||90)/1080*100));
+  const size=Math.max(8,Math.min(72,Number(block.size)||24));
+  const align=["left","center","right"].includes(block.alignment)?block.alignment:"left";
+  const vertical=["top","center","bottom"].includes(block.verticalAlign)?block.verticalAlign:"top";
+  const lineHeight=Math.max(.8,Math.min(2,Number(block.lineHeight)||1.2));
+  return`<style data-advanced-text-editing-style>.canvas-application [data-advanced-text="${escapeHtml(block.id)}"]{opacity:0}</style><form class="canvas-advanced-text-editor" data-advanced-inline-text-form data-advanced-target-id="${escapeHtml(block.id)}" data-text-align="${align}" data-text-vertical="${vertical}" style="--advanced-text-left:${left}%;--advanced-text-top:${top}%;--advanced-text-width:${width}%;--advanced-text-height:${height}%;--advanced-text-size:${size};--advanced-text-line-height:${lineHeight};--advanced-text-weight:${Number(block.weight)||400};--advanced-text-color:${escapeHtml(block.color||"#191C21")};--advanced-text-font:${escapeHtml(block.font||"Inter")}">
+    <label><span class="sr-only">Edit selected text</span><textarea data-advanced-inline-text-input rows="1" aria-label="Edit text. Press Escape to cancel, click outside to finish." spellcheck="true">${escapeHtml(edit.draft)}</textarea></label>
+    <div class="canvas-advanced-text-editor-hint" aria-hidden="true"><button type="submit" data-canvas-text-done>Done</button><button type="button" data-canvas-action="cancel-advanced-text">Cancel</button></div>
   </form>`;
 }
 
@@ -1378,6 +1432,17 @@ function renderSelectionHandles(event,sceneEvent,state) {
     <button type="button" data-drag-kind="resize-start" aria-label="Adjust start month"></button>
     <button type="button" data-drag-kind="resize-end" aria-label="Adjust end month"></button>
   </div>`;
+}
+
+/* Placed media is the only advanced collection with an unplaced state; unplaced uploads
+   live in the library, not on the board, so they must not count as scene presence. */
+function advancedSceneItemCount(advanced) {
+  const placedMedia=Array.isArray(advanced?.media)
+    ? advanced.media.filter((item) => item?.placed !== false).length
+    : 0;
+  const textBlocks=Array.isArray(advanced?.textBlocks) ? advanced.textBlocks.length : 0;
+  const elements=Array.isArray(advanced?.elements) ? advanced.elements.length : 0;
+  return placedMedia + textBlocks + elements;
 }
 
 function emptyBoardMarkup(state) {
@@ -1472,7 +1537,17 @@ export function renderCanvas({
   let selectedSceneEvent = null;
   let usingProtectedPresentation=false;
 
-  if ((document?.events || []).length) {
+  /* A board is renderable whenever the document carries semantic events, freeform scene
+     items, or the canonical Founder furniture the renderer always draws. Gating the whole
+     .canvas-application on events alone meant Advanced Studio objects entered the model
+     and rendered nowhere — and with no .canvas-application there are no hit proxies, so a
+     drag fell through to the document and selected board text. Zero events is not zero
+     canvas. The predicate stays explicit so the law is legible and testable. */
+  const sceneItemCount=advancedSceneItemCount(document?.advanced);
+  const boardHasContent=(document?.events || []).length>0 || sceneItemCount>0;
+  const boardIsRenderable=true;
+
+  if (boardIsRenderable) {
     const rendered = renderBoard(document,{
       currentMonth:parseMonth(nowMonth) || currentMonth(),
       audience:"EVERYTHING",
@@ -1488,12 +1563,15 @@ export function renderCanvas({
       ?`width:${1920*Number(viewState.zoom.percent||100)/100}px;max-width:none`
       :"";
     const editable=isEditable(viewState);
+    /* The board now renders in view-only mode too, so the "Editing is unavailable."
+       contract the empty board used to carry has to move onto the live canvas rather
+       than disappear with it. */
     const canvasLabel=editable
       ?scene.accessibility.ariaLabel
-      :String(scene.accessibility.ariaLabel||"").replace(
+      :`${String(scene.accessibility.ariaLabel||"").replace(
         /; use Tab to move between events/g,
         ""
-      );
+      )}. Editing is unavailable.`;
     const protectedPresentation=String(rendered.kind||"").startsWith("d1-411a-");
     usingProtectedPresentation=protectedPresentation;
     const presentation=protectedPresentation
@@ -1504,6 +1582,10 @@ export function renderCanvas({
       ${renderSelectionHandles(selected,selectedSceneEvent,viewState)}
       ${renderInlineEditor(viewState,selectedSceneEvent)}
       ${renderAdvancedTextEditor(document,viewState)}
+      ${boardHasContent ? "" : `<div class="canvas-coach-chip" data-canvas-coach role="status">
+        <p>This is your board. Add an event, or drop in an element to start designing.</p>
+        <button type="button" data-canvas-action="open-builder">Open Builder</button>
+      </div>`}
       ${viewState.drag?.active ? `<output class="canvas-date-tooltip" role="status">${escapeHtml(viewState.drag.liveTooltip)}</output>` : ""}
     </div>`;
   }
@@ -1630,15 +1712,21 @@ export function installCanvas(
    * board gesture. Rendering a normalized clone is not enough because the
    * high-frequency interaction layer correctly guards against the canonical
    * store document, not the sidebar markup. */
-  const needsAdvancedFreePlacement=
-    store.document?.mode==="advanced"&&
-    store.document?.layoutLock!==false&&
-    store.document?.preferences?.advancedFreePlacementInitialized!==true;
-  if(
-    needsAdvancedFreePlacement&&
-    initialState.entitlementEditable===true&&
-    typeof store.mutate==="function"
-  ){
+  /* AAA-019 — the migration has to run for every document that reaches the store, not
+   * only the one present at install: a rescued deck, a CV apply, or a synced timeline can
+   * arrive later still carrying `layoutLock:true` with no free-placement flag, and then
+   * the sidebar (which renders the normalized clone) shows "unlocked" while every board
+   * gesture is silently refused by the canonical document. */
+  const ensureAdvancedFreePlacement=()=>{
+    const needsAdvancedFreePlacement=
+      store.document?.mode==="advanced"&&
+      store.document?.layoutLock!==false&&
+      store.document?.preferences?.advancedFreePlacementInitialized!==true;
+    if(
+      !needsAdvancedFreePlacement||
+      initialState.entitlementEditable!==true||
+      typeof store.mutate!=="function"
+    )return false;
     const migrated=normalizeAdvancedStudioDocument(store.document);
     store.mutate("Enable Advanced Studio free placement",(document)=>{
       document.layoutLock=migrated.layoutLock;
@@ -1647,13 +1735,16 @@ export function installCanvas(
         advancedFreePlacementInitialized:true
       };
     },{history:false});
-  }
+    return true;
+  };
+  ensureAdvancedFreePlacement();
   let state = initialState;
   let versions = [];
   let destroyed = false;
   let pointer = null;
   let panPointer = null;
   let effectiveHitFrame=0;
+  const effectiveHitSourceSemantics=new WeakMap();
 
   const copyElementAttributes=(target,source)=>{
     if(!target?.attributes||!source?.attributes)return;
@@ -1767,14 +1858,20 @@ export function installCanvas(
 
   const installEffectiveHitTargets=()=>{
     const priorProxies=[...(root.querySelectorAll?.(
-      "[data-canvas-effective-hit-proxy]"
+      "[data-canvas-effective-hit-proxy]:not([data-canvas-effective-hit-exact])"
     )||[])];
     const priorSources=[...(root.querySelectorAll?.(
       "[data-canvas-effective-hit-source]"
     )||[])];
     const rootBounds=root.getBoundingClientRect?.();
+    const stageBounds=root.querySelector?.(".canvas-stage")?.getBoundingClientRect?.();
+    const targets=[...(root.querySelectorAll?.(
+      "[data-canvas-event],[data-advanced-media],[data-advanced-text],[data-advanced-element],[data-selection-handles] [data-drag-kind]"
+    )||[])].filter(target=>!target.hasAttribute("data-canvas-effective-hit-proxy"));
+    const requiredTargetCount=targets.filter(target=>canvasEffectiveHitGeometry(target,rootBounds)).length;
     const stablePairs=priorProxies.map((proxy)=>({
       proxy,
+      exact:root.querySelector?.(`[data-canvas-effective-hit-exact][data-canvas-effective-hit-token="${proxy.dataset.canvasEffectiveHitToken}"]`),
       source:priorSources.find(
         (candidate)=>candidate.dataset.canvasEffectiveHitToken===
           proxy.dataset.canvasEffectiveHitToken
@@ -1784,25 +1881,22 @@ export function installCanvas(
       Boolean(rootBounds?.width&&rootBounds?.height)&&
       stablePairs.length>0&&
       stablePairs.length===priorSources.length&&
-      stablePairs.every(({source})=>{
-        const bounds=source?.getBoundingClientRect?.();
-        return Boolean(
-          bounds?.width&&
-          bounds?.height&&
-          (bounds.width<44||bounds.height<44)
-        );
-      });
+      stablePairs.length===requiredTargetCount&&
+      stablePairs.every(({source,exact})=>exact&&canvasEffectiveHitGeometry(source,rootBounds));
     if(canRefreshInPlace){
-      for(const {proxy,source} of stablePairs){
-        const targetBounds=source.getBoundingClientRect();
-        const width=Math.max(44,targetBounds.width);
-        const height=Math.max(44,targetBounds.height);
-        proxy.style.left=`${targetBounds.left-rootBounds.left-(width-targetBounds.width)/2}px`;
-        proxy.style.top=`${targetBounds.top-rootBounds.top-(height-targetBounds.height)/2}px`;
-        proxy.style.width=`${width}px`;
-        proxy.style.height=`${height}px`;
-        proxy.style.setProperty("--effective-source-width",`${targetBounds.width}px`);
-        proxy.style.setProperty("--effective-source-height",`${targetBounds.height}px`);
+      for(const {proxy,source,exact} of stablePairs){
+        const box=canvasEffectiveHitGeometry(source,rootBounds);
+        proxy.style.left=`${box.left}px`;
+        proxy.style.top=`${box.top}px`;
+        proxy.style.width=`${box.width}px`;
+        proxy.style.height=`${box.height}px`;
+        proxy.style.setProperty("--effective-source-width",`${box.sourceWidth}px`);
+        proxy.style.setProperty("--effective-source-height",`${box.sourceHeight}px`);
+        proxy.style.clipPath=canvasEffectiveHitClipPath(box,rootBounds,stageBounds);
+        exact.style.cssText=proxy.style.cssText;
+        exact.style.zIndex=proxy.hasAttribute("data-drag-kind")?"44":"43";
+        const paintPath=canvasPaintHitPath(source,box,rootBounds,stageBounds);
+        exact.style.clipPath=paintPath?`path("${paintPath}")`:"inset(50%)";
       }
       return;
     }
@@ -1812,29 +1906,27 @@ export function installCanvas(
         (candidate)=>candidate.dataset.canvasEffectiveHitToken===token
       );
       if(source){
-        source.setAttribute("role","button");
-        source.setAttribute("tabindex",proxy.getAttribute("tabindex")||"0");
-        source.setAttribute("aria-label",proxy.getAttribute("aria-label")||"Edit timeline item");
+        const original=effectiveHitSourceSemantics.get(source);
+        if(original)for(const [attribute,value] of Object.entries(original)){
+          if(value===null)source.removeAttribute(attribute);
+          else source.setAttribute(attribute,value);
+        }
+        effectiveHitSourceSemantics.delete(source);
         source.removeAttribute("data-canvas-effective-hit-source");
         source.removeAttribute("data-canvas-effective-hit-token");
       }
       proxy.remove();
     }
+    root.querySelectorAll?.("[data-canvas-effective-hit-exact]").forEach(proxy=>proxy.remove());
     if(!rootBounds?.width||!rootBounds?.height)return;
-    const targets=root.querySelectorAll?.(
-      "[data-canvas-event],[data-advanced-media],[data-advanced-text],[data-advanced-element]"
-    )||[];
     let proxySequence=0;
     for(const target of targets){
       if(
         target.hasAttribute("data-canvas-effective-hit-proxy")||
         target.hasAttribute("data-canvas-effective-hit-source")
       )continue;
-      const targetBounds=target.getBoundingClientRect?.();
-      if(!targetBounds?.width||!targetBounds?.height)continue;
-      if(targetBounds.width>=44&&targetBounds.height>=44)continue;
-      const width=Math.max(44,targetBounds.width);
-      const height=Math.max(44,targetBounds.height);
+      const box=canvasEffectiveHitGeometry(target,rootBounds);
+      if(!box)continue;
       const proxy=globalThis.document.createElement("button");
       proxy.type="button";
       proxy.className="canvasEffectiveHitProxy";
@@ -1855,6 +1947,30 @@ export function installCanvas(
           proxy.setAttribute(attribute,target.getAttribute(attribute)||"");
         }
       }
+      const dragKind=target.getAttribute("data-drag-kind");
+      if(dragKind){
+        // Selection handles paint above object hit targets. Put their actual
+        // controls in the same overlay layer so a card cannot steal a resize.
+        proxy.setAttribute("data-drag-kind",dragKind);
+        proxy.setAttribute("data-selection-handles","true");
+        proxy.setAttribute("data-event-id",target.closest?.("[data-selection-handles]")?.dataset?.eventId||"");
+      }
+      /* A stable id lets the shell's focus restoration find this proxy again after a
+         re-render. app.innerHTML is replaced wholesale on every render and focus is
+         re-established by id or name — a proxy with neither was unrecoverable, so
+         selecting an object handed focus to the route heading and the whole keyboard
+         map (nudge, resize, Enter-to-edit) died on the next repaint. The hit token is
+         a per-render sequence number and cannot serve: the id must follow the object. */
+      const proxyIdentity=
+        proxy.getAttribute("data-advanced-media")||
+        proxy.getAttribute("data-advanced-text")||
+        proxy.getAttribute("data-advanced-element")||
+        proxy.getAttribute("data-event-id")||
+        "";
+      if(proxyIdentity){
+        proxy.id=`canvas-hit-proxy-${proxyIdentity}`;
+        if(dragKind)proxy.id+=`-handle-${dragKind}`;
+      }
       proxy.setAttribute(
         "aria-label",
         target.getAttribute("aria-label")||
@@ -1862,29 +1978,60 @@ export function installCanvas(
           "Edit timeline item"
       );
       proxy.setAttribute("tabindex",target.getAttribute("tabindex")||"0");
-      proxy.style.left=`${targetBounds.left-rootBounds.left-(width-targetBounds.width)/2}px`;
-      proxy.style.top=`${targetBounds.top-rootBounds.top-(height-targetBounds.height)/2}px`;
-      proxy.style.width=`${width}px`;
-      proxy.style.height=`${height}px`;
-      proxy.style.setProperty("--effective-source-width",`${targetBounds.width}px`);
-      proxy.style.setProperty("--effective-source-height",`${targetBounds.height}px`);
+      proxy.style.left=`${box.left}px`;
+      proxy.style.top=`${box.top}px`;
+      proxy.style.width=`${box.width}px`;
+      proxy.style.height=`${box.height}px`;
+      proxy.style.setProperty("--effective-source-width",`${box.sourceWidth}px`);
+      proxy.style.setProperty("--effective-source-height",`${box.sourceHeight}px`);
+      proxy.style.clipPath=canvasEffectiveHitClipPath(box,rootBounds,stageBounds);
+      if(dragKind)proxy.style.zIndex="44";
       root.append(proxy);
+      const exact=globalThis.document.createElement("span");
+      for(const {name,value} of proxy.attributes)exact.setAttribute(name,value);
+      exact.innerHTML=proxy.innerHTML;
+      exact.removeAttribute("role");
+      exact.id=`${proxy.id}-paint`;
+      exact.setAttribute("data-canvas-effective-hit-exact","true");
+      exact.setAttribute("aria-hidden","true");
+      exact.setAttribute("tabindex","-1");
+      exact.style.zIndex=dragKind?"44":"43";
+      const paintPath=canvasPaintHitPath(target,box,rootBounds,stageBounds);
+      exact.style.clipPath=paintPath?`path("${paintPath}")`:"inset(50%)";
+      root.append(exact);
+      effectiveHitSourceSemantics.set(target,Object.fromEntries(
+        ["role","tabindex","aria-label","aria-hidden"].map(attribute=>[attribute,target.getAttribute(attribute)])
+      ));
       target.setAttribute("data-canvas-effective-hit-source","true");
       target.setAttribute("data-canvas-effective-hit-token",proxyToken);
       target.removeAttribute("role");
-      target.removeAttribute("tabindex");
+      target.setAttribute("tabindex","-1");
       target.removeAttribute("aria-label");
+      target.setAttribute("aria-hidden","true");
     }
   };
 
+  /* AAA-019 — the selection chrome, hover outline and quick-bar are owned by the
+     interaction seam in the adapter, not by this renderer. They must be rebuilt from
+     selection state after EVERY commit of new board markup (and after the hit proxies
+     exist, since focus lands on them), otherwise a fresh insert, a zoom step or an undo
+     leaves the model selected while the board shows nothing — the "invisible selection"
+     class of defect. One bubbling event after the proxies are installed is the seam. */
+  const announceCanvasRendered=()=>{
+    if(destroyed||typeof globalThis.CustomEvent!=="function")return;
+    root.dispatchEvent?.(new CustomEvent("d1:canvas-rendered",{bubbles:true,detail:{state}}));
+  };
   const queueEffectiveHitTargets=()=>{
     globalThis.cancelAnimationFrame?.(effectiveHitFrame);
-    effectiveHitFrame=globalThis.requestAnimationFrame?.(
-      installEffectiveHitTargets
-    )||0;
+    effectiveHitFrame=globalThis.requestAnimationFrame?.(()=>{
+      installEffectiveHitTargets();
+      announceCanvasRendered();
+    })||0;
   };
 
   const render = ({animateLayout=false}={}) => {
+    if (destroyed) return "";
+    ensureAdvancedFreePlacement();
     if (destroyed) return "";
     const markup=renderCanvas({
       document:store.document,
@@ -2260,6 +2407,9 @@ export function installCanvas(
         application.style.maxWidth="none";
         application.dataset.zoomMode="percent";
         application.dataset.zoomPercent=String(state.zoom.percent);
+        if(typeof globalThis.CustomEvent==="function"){
+          root.dispatchEvent?.(new CustomEvent("d1:canvas-viewport",{bubbles:true,detail:{state}}));
+        }
       }
       onStateChange(state);
       return;
@@ -2417,7 +2567,12 @@ export function installCanvas(
       }
       return;
     }
-    const insideCanvas = event.target.closest?.(".canvas-application,[data-canvas-event],[data-context-toolbar]");
+    /* AAA-019 red-team D3 — responsive.js stamps data-context-toolbar on <html>, which
+       made EVERY keydown on the page count as "inside the canvas": Tab from the sidebar or
+       the rail was swallowed and cycled guided events instead of moving focus. Only a real
+       toolbar element (never the document root) qualifies. */
+    const insideCanvasNode = event.target.closest?.(".canvas-application,[data-canvas-event],[data-context-toolbar]");
+    const insideCanvas = insideCanvasNode && insideCanvasNode !== document.documentElement && insideCanvasNode !== document.body;
     const commandUndo = isEditable(state) && (
       (event.metaKey || event.ctrlKey) &&
       String(event.key || "").toLowerCase() === "z"
@@ -2510,6 +2665,7 @@ export function installCanvas(
       transaction:null,
       moved:false
     };
+    root.dataset.canvasDragKind=pointer.kind;
     if (handle) {
       pointer.transaction = beginCanvasDrag(store.document,eventId,{
         kind:pointer.kind,
@@ -2569,6 +2725,7 @@ export function installCanvas(
   };
 
   const onPointerUp = () => {
+    delete root.dataset.canvasDragKind;
     if(panPointer){panPointer=null;return;}
     if (!pointer) return;
     if(!isEditable(state)){
@@ -2595,6 +2752,22 @@ export function installCanvas(
   root.addEventListener("change",onZoomCommit);
   root.addEventListener("submit",onSubmit);
   root.addEventListener("focusin",onFocusIn);
+  /* AAA-019 — click-out commits an inline text edit (Canva T3). Leaving the editor for
+     anything other than its own Done/Cancel buttons submits the draft; Escape still
+     cancels through the keydown path before focus moves. */
+  const onFocusOut=(event)=>{
+    const form=event.target?.closest?.("[data-advanced-inline-text-form]");
+    if(!form||!state.advancedTextEdit)return;
+    const next=event.relatedTarget;
+    if(next&&form.contains(next))return;
+    globalThis.setTimeout?.(()=>{
+      if(!state.advancedTextEdit||!form.isConnected)return;
+      const active=globalThis.document?.activeElement;
+      if(active&&form.contains(active))return;
+      form.requestSubmit?.();
+    },0);
+  };
+  root.addEventListener("focusout",onFocusOut);
   root.addEventListener("keydown",onKeyDown);
   root.addEventListener("wheel",onWheel,{passive:false});
   root.addEventListener("d1-411a:wheel-zoom",onKernelWheelZoom);
@@ -2629,6 +2802,7 @@ export function installCanvas(
       root.removeEventListener("change",onZoomCommit);
       root.removeEventListener("submit",onSubmit);
       root.removeEventListener("focusin",onFocusIn);
+      root.removeEventListener("focusout",onFocusOut);
       root.removeEventListener("keydown",onKeyDown);
       root.removeEventListener("wheel",onWheel);
       root.removeEventListener("d1-411a:wheel-zoom",onKernelWheelZoom);

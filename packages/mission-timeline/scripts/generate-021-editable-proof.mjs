@@ -1,0 +1,51 @@
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {resolve,dirname} from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {homedir} from 'node:os';
+import {createHash} from 'node:crypto';
+import {createRequire} from 'node:module';
+import {serializeFounderPresentation} from '../web/js/presentation/founder-presentation-serializer.js';
+import {createEditableFounderPptx} from '../web/js/presentation/editable-pptx.js';
+import {TIMELINE_SCENE_SCHEMA,TIMELINE_SCENE_VERSION} from '../web/js/editor/scene-graph.js';
+const packageRoot=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const worktree=resolve(packageRoot,'../..');
+const output=resolve(process.argv[2]||resolve(worktree,`_AI_HANDOFFS/from_codex/D1-TIMELINE-ASTRA6-AAA-FINAL-021/evidence/editable-presentation-generated-${Date.now()}`));
+const modules=process.env.TIMELINE_PRESENTATION_RUNTIME_MODULES||resolve(homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules');
+const require=createRequire(import.meta.url);
+const {createCanvas}=require(resolve(modules,'@napi-rs/canvas'));
+const sharp=require(resolve(modules,'sharp'));
+const context=createCanvas(1,1).getContext('2d');
+const measureText=(text,size,family,weight)=>{context.font=`${weight||400} ${size}px ${family}`;return context.measureText(text).width;};
+const landscapePath=resolve(worktree,'_AI_HANDOFFS/from_cowork/D1-TIMELINE-FABLE5-STORYFORGE-AAA-019/evidence/fixtures/landscape.png');
+const photo='data:image/png;base64,'+(await readFile(landscapePath)).toString('base64');
+const example=(id,title,categoryId,startDate,endDate)=>({id,title,categoryId,startDate,endDate,eventType:endDate?'duration':'milestone',visibilityState:'INTERVIEWER_SAFE',sourceType:'synthetic-fixture',provenance:[]});
+const events=[example('graduation','Medical Degree','education','2016-06',null),example('house-officer','House Officer','work','2016-07','2018-08'),example('step-study','Step 1 Study','exams','2017-03','2018-12'),example('clinical-one','Internal Medicine','clinical','2019-01','2019-07'),example('clinical-work','Clinical Work','work','2020-01','2021-12'),example('step-two','Step 2 CK','exams','2022-05',null),example('family','Family support','personal','2021-01','2026-09'),example('clinical-two','Clinical Elective','clinical','2023-01','2023-07'),example('research','Research Fellowship','research','2024-01','2026-09')];
+const sourceFacts=JSON.stringify({fixturePolicy:'SYNTHETIC_ONLY',scenario:'Native editable presentation proof',events},null,2)+'\n';
+const sourceFactsHash=createHash('sha256').update(sourceFacts).digest('hex');
+for(const event of events)event.provenance=[{sourceSha256:sourceFactsHash,pageOrSlide:1,basis:'SOURCE_FACT'}];
+const boxes={
+  'house-officer':[120,215,350,30],'step-study':[430,290,260,30],'clinical-one':[650,370,190,30],
+  'clinical-work':[850,450,280,30],family:[990,630,840,30],'clinical-two':[1150,730,200,30],research:[1380,880,350,30]
+};
+const fixture={schemaVersion:'d1-uxr-002/timeline-document/1',id:'d1-021-synthetic-editable-proof',revision:1,mode:'advanced',layoutLock:false,title:'Timeline: Astra Test',theme:'keynote-classic',studentProfile:{fullName:'Astra Test',medicalSchool:'Test College',degree:'MBBS',visaStatus:'Synthetic fixture',specialtyGoal:'Internal Medicine',interviewSeason:'2026-09'},metadata:{fixturePolicy:'SYNTHETIC_ONLY',renderCurrentMonth:'2026-09',interview:{date:'2026-09',programName:'Test Hospital',label:'INTERVIEW PRACTICE'}},events,exams:[{system:'USMLE',examId:'step-1',result:'Pass'},{system:'USMLE',examId:'step-2-ck',score:'250'},{system:'USMLE',examId:'step-3',result:'Pass'}],mediaItems:[{id:'profile',type:'profilePhoto',placement:'profile',resolvedUrl:photo,naturalAspect:1200/700,crop:{x:30,y:50,zoom:1.5},visibilityState:'INTERVIEWER_SAFE'},...[1,2,3].map((n)=>({id:`photo-${n}`,type:'photo',placement:`photo${n}`,resolvedUrl:photo,naturalAspect:1200/700,crop:{x:n*25,y:50,zoom:1+n/6},visibilityState:'INTERVIEWER_SAFE'}))],advanced:{media:[],textBlocks:[{id:'note-text',text:'Presentation safety\nEditable text and crop',x:1460,y:522,width:280,height:72,font:'Baskerville',size:22,color:'#4A3F14',fitMode:'auto',groupId:'note',zIndex:2}],elements:[{id:'note-card',kind:'rounded-rectangle',x:1440,y:506,width:320,height:104,fill:'#F5E47B',stroke:'#D1B84E',groupId:'note',zIndex:1}],groups:[{id:'note',children:['note-card','note-text']}],scene:{schema:TIMELINE_SCENE_SCHEMA,version:TIMELINE_SCENE_VERSION,revision:1,board:{width:1920,height:1080},objects:Object.entries(boxes).map(([id,b],z)=>({id:`event-position-${id}`,type:'event',semanticRef:id,geometry:{x:b[0],y:b[1],width:b[2],height:b[3],rotation:0},locked:false,aspectLocked:false,z,groupId:null,presentation:{}})),groups:[],legacyDigest:''}}};
+let {svg}=serializeFounderPresentation(fixture,{scope:'INTERVIEWER_SAFE',currentMonth:'2026-09'});
+const resolveImage=async src=>{
+  const tail=src.slice(src.indexOf('assets/'));
+  const bytes=await readFile(resolve(packageRoot,'web',tail));
+  return`data:${tail.endsWith('.png')?'image/png':'image/jpeg'};base64,${bytes.toString('base64')}`;
+};
+for(const source of new Set([...svg.matchAll(/href="([^"]+)"/g)].map(m=>m[1]).filter(v=>!v.startsWith('data:'))))svg=svg.replaceAll(`href="${source}"`,`href="${await resolveImage(source)}"`);
+const artifact=await createEditableFounderPptx({svg,document:fixture,measureText});
+await mkdir(output,{recursive:true});
+const write=(name,data)=>writeFile(resolve(output,name),data,{flag:'wx'});
+await write('021_SYNTHETIC_EDITABLE_TIMELINE.pptx',new Uint8Array(await artifact.blob.arrayBuffer()));
+await write('021_CANONICAL_TIMELINE.svg',svg);
+await write('021_SYNTHETIC_SOURCE_FACTS.json',sourceFacts);
+await write('021_SYNTHETIC_TIMELINE_FIXTURE.json',JSON.stringify(fixture,null,2)+'\n');
+await write('021_RECOVERY_BASELINE.json',JSON.stringify(artifact.recovery,null,2)+'\n');
+await write('021_OOXML_VALIDATION.json',JSON.stringify({...artifact.validation,recovery:undefined},null,2)+'\n');
+await write('021_CANONICAL_TIMELINE.png',await sharp(Buffer.from(svg)).resize(1920,1080).png().toBuffer());
+const files=['021_SYNTHETIC_EDITABLE_TIMELINE.pptx','021_CANONICAL_TIMELINE.svg','021_SYNTHETIC_TIMELINE_FIXTURE.json','021_SYNTHETIC_SOURCE_FACTS.json','021_RECOVERY_BASELINE.json','021_OOXML_VALIDATION.json','021_CANONICAL_TIMELINE.png'];
+const hashes=await Promise.all(files.map(async name=>({file:name,sha256:createHash('sha256').update(await readFile(resolve(output,name))).digest('hex')})));
+await write('CHECKSUMS.json',JSON.stringify(hashes,null,2)+'\n');
+console.log(JSON.stringify({output,editablePptx:true,nativeKeynote:false,validation:{...artifact.validation,recovery:undefined},hashes},null,2));

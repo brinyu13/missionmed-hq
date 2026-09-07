@@ -288,6 +288,7 @@ textarea{font-family:var(--disp);font-weight:400;min-height:64px;resize:vertical
 #toastDismiss:hover{color:var(--tx);border-color:var(--em)}
 #canvasResponsiveNotice407F:empty{display:none}
 #canvasResponsiveNotice407F{margin-bottom:12px}
+#canvasResponsiveNotice407F:not(:empty)+#canvas407F .canvas-responsive-banner{display:none}
 .responsive407FNoticeHint{margin-top:8px;color:var(--dim);font-family:var(--num);font-weight:600;font-size:12px;text-align:center}
 .hist{font-family:var(--num);font-weight:600;font-size:11.5px;color:var(--dim);padding:7px 0;border-bottom:1px solid var(--edge);display:flex;gap:10px}
 .hist b{color:var(--mid)}
@@ -604,6 +605,11 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
           <span class="homeUploadIcon" aria-hidden="true">⇧</span>
           <span><strong>Upload from this computer</strong><small>PDF or DOCX · up to 20 MB</small></span>
         </button>
+        <label class="homeLocalUpload homeRescueTile" id="homeRescue" for="homeRescueFile" data-timeline-rescue-home>
+          <span class="homeUploadIcon" aria-hidden="true">⟲</span>
+          <span><strong>I already have a Timeline</strong><small>Made it in Keynote or PowerPoint before? Upload it and we'll rebuild it here so you can edit it.</small></span>
+          <input id="homeRescueFile" type="file" accept=".pptx,.pdf,.png,.jpg,.jpeg,.key,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf,image/png,image/jpeg" hidden>
+        </label>
         <p class="homeAssurance">Nothing is added until you review and approve it.</p>
       </div>
     </section>
@@ -621,9 +627,9 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
         <div class="homePreviewShell" id="homePreviewShell">
           <div id="boardCommand"></div>
           <button class="homeCanvasLink" id="homeCanvasLink" data-nav="canvas" aria-label="Edit timeline"><span>EDIT TIMELINE</span></button>
-          <div class="homeEmptyOverlay" id="homeEmptyOverlay">
-            <h3>Your timeline will take shape here.</h3>
-            <p>Your latest working timeline will appear as you add information.</p>
+          <div class="homeEmptyOverlay" id="homeEmptyOverlay" role="status">
+            <h3>Your board is ready.</h3>
+            <p>Add your first event, or build it from your CV — your Timeline fills in as you go.</p>
             <button class="btnD go sm" data-nav="builder">START BUILDING ▸</button>
           </div>
         </div>
@@ -1300,8 +1306,10 @@ function renderHome(){
   }
   const shell=$('#homePreviewShell');
   if(shell)shell.classList.toggle('isEmpty',!count);
+  /* AAA-019 — the canonical board is always there, so Edit Timeline is always reachable
+     and the empty state is a coach chip under the board, never a card covering it. */
   const canvasLink=$('#homeCanvasLink');
-  if(canvasLink)canvasLink.hidden=!count;
+  if(canvasLink)canvasLink.hidden=false;
   const empty=$('#homeEmptyOverlay');
   if(empty)empty.hidden=!!count;
 }
@@ -1478,7 +1486,12 @@ const legacySnap=$('#ctlSnap');if(legacySnap)legacySnap.onclick=()=>{toast('Snap
 const legacyArrange=$('#ctlArrange');if(legacyArrange)legacyArrange.onclick=()=>{pushUndo();const d=curData();d.events.forEach(e=>e.lane=null);toast('Auto arrange · stair-step flow rebuilt');renderAll()};
 const legacyUndo=$('#ctlUndo');if(legacyUndo)legacyUndo.onclick=doUndo;
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){if($('#printOv').classList.contains('on')){$('#printOv').classList.remove('on');return}closeModal()}
+  if(e.key==='Escape'){
+    if(e.defaultPrevented)return;
+    if($('#printOv').classList.contains('on')){$('#printOv').classList.remove('on');return}
+    const closeOwned=window.D1_407F_ENGINEERING?.closeModal;
+    if(closeOwned){e.preventDefault();closeOwned()}else closeModal();
+  }
   if($('#canvasGrid')&&(e.key==='z'||e.key==='Z')&&(e.ctrlKey||e.metaKey||state.view==='canvas')&&!/input|textarea|select/i.test((e.target&&e.target.tagName)||'')){e.preventDefault();doUndo()}
 });
 $$('#zoomSeg button').forEach(b=>b.onclick=()=>{state.zoom=+b.dataset.z;$$('#zoomSeg button').forEach(x=>x.classList.toggle('on',x===b));applyZoom();toast('Zoom · '+state.zoom+'%')});
@@ -1623,24 +1636,28 @@ function canonicalExactDate404(value){
 }
 function coreInfoMarkup(){
   const w=state.wiz;
-  const countryOptions=COUNTRIES.map(c=>'<option value="'+esc(c)+'"'+(c===w.country?' selected':'')+'>'+esc(c)+'</option>').join('');
+  const registry=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.schoolRegistry;
+  const allCountryNames=registry&&typeof registry.allCountries==='function'?registry.allCountries().map(row=>row.label):COUNTRIES;
+  const countryNames=Array.from(new Set(allCountryNames.concat([w.country,w.schoolCountryFilter].filter(Boolean)))).sort((a,b)=>a.localeCompare(b));
+  const countryOptions=countryNames.map(c=>'<option value="'+esc(c)+'"'+(c===w.country?' selected':'')+'>'+esc(c)+'</option>').join('');
   const degreeButtons=['MD','DO','MBBS','Other'].map(d=>'<button type="button" class="builderSegment'+(w.degree===d?' on':'')+'" data-degree="'+d+'">'+d+'</button>').join('');
   const schoolRecord=w.schoolRecord||null;
   const schoolNeedsReview=schoolRecord&&schoolRecord.normalization_status!=='normalized';
   const unlisted=w.schoolEntryMode==='unlisted';
+  const sourceClaimed=w.schoolVerificationStatus==='unverified-source-claimed';
   const schoolMarkup=unlisted
     ?'<section class="schoolRegistryPanel unlisted" aria-labelledby="schoolRegistryTitle407F">'
-      +'<div class="schoolRegistryHeading"><div><div class="subt" id="schoolRegistryTitle407F">SCHOOL NOT LISTED</div><p>This entry is explicitly unverified and will be queued for administrative normalization.</p></div>'
-      +'<button type="button" class="btnD alt sm" data-school-use-registry>USE REGISTRY</button></div>'
+      +'<div class="schoolRegistryHeading"><div><div class="subt" id="schoolRegistryTitle407F">'+(sourceClaimed?'FROM YOUR CV — CONFIRM SCHOOL':'SCHOOL NOT LISTED')+'</div><p>'+(sourceClaimed?'Your CV supplies this school and country. Find its registry record to confirm the match; no retyping is needed.':'This student-entered school is unverified and can be submitted for normalization.')+'</p></div>'
+      +'<button type="button" class="btnD alt sm" data-school-use-registry>'+(sourceClaimed?'FIND REGISTRY MATCH':'USE REGISTRY')+'</button></div>'
       +'<label class="builderField"><span>School name</span><input type="text" data-core="school" value="'+esc(w.school||'')+'" autocomplete="organization" aria-describedby="unlistedSchoolError407F"><small id="unlistedSchoolError407F" data-error="school"></small></label>'
       +'<label class="builderField"><span>Country</span><select data-core="country" aria-describedby="unlistedCountryError407F"><option value="">Select a country</option>'+countryOptions+'</select><small id="unlistedCountryError407F" data-error="country"></small></label>'
       +'<label class="builderField"><span>City <em>Optional</em></span><input type="text" data-core="schoolCity" value="'+esc(w.schoolCity||'')+'"></label>'
-      +'<div class="schoolVerificationState unverified" role="status">UNVERIFIED · NORMALIZATION QUEUED · EXCLUDED FROM VERIFIED ANALYTICS</div>'
+      +'<div class="schoolVerificationState unverified" role="status">'+(sourceClaimed?'CV SOURCE FACT · REGISTRY MATCH NOT YET CONFIRMED':'UNVERIFIED · EXCLUDED FROM VERIFIED ANALYTICS')+'</div>'
       +'</section>'
     :'<section class="schoolRegistryPanel" aria-labelledby="schoolRegistryTitle407F">'
-      +'<div class="schoolRegistryHeading"><div><div class="subt" id="schoolRegistryTitle407F">MEDICAL SCHOOL REGISTRY</div><p>Choose a source-reported identity record. Search matches official names, aliases, city, and country.</p></div><span class="schoolSourceBadge">U.S. DAPIP + GLOBAL CC0</span></div>'
+      +'<div class="schoolRegistryHeading"><div><div class="subt" id="schoolRegistryTitle407F">MEDICAL SCHOOL REGISTRY</div><p>Choose a source-reported identity record. Search matches official names, aliases, city, and country.</p></div><span class="schoolSourceBadge" title="U.S. DAPIP snapshot, Wikidata CC0 identities, and the MissionMed curated IMG supplement — identity only, never accreditation">U.S. DAPIP + GLOBAL CC0 + IMG CURATED</span></div>'
       +'<div class="schoolFilterRow" aria-label="Medical school filters">'
-      +'<label class="builderField"><span>Country filter</span><select data-school-filter="country"><option value="">All available countries</option>'+COUNTRIES.map(c=>'<option value="'+esc(c)+'"'+(w.schoolCountryFilter===c?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select></label>'
+      +'<label class="builderField"><span>Country filter</span><select data-school-filter="country"><option value="">All available countries</option>'+countryNames.map(c=>'<option value="'+esc(c)+'"'+(w.schoolCountryFilter===c?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select></label>'
       +'<label class="builderField"><span>U.S. degree type <em>Optional</em></span><select data-school-filter="type"><option value="">All school types</option><option value="MD"'+(w.schoolTypeFilter==='MD'?' selected':'')+'>MD</option><option value="DO"'+(w.schoolTypeFilter==='DO'?' selected':'')+'>DO</option></select></label>'
       +'</div>'
       +'<label class="builderField schoolRegistryCombo" data-school-combobox><span>Search medical schools</span>'
@@ -1650,15 +1667,16 @@ function coreInfoMarkup(){
       +'<small class="builderHint" id="schoolRegistryHelp407F">Select a source-reported record; typed text alone is not saved as a verified school.</small>'
       +'<small id="schoolRegistryError407F" data-error="school"></small></label>'
       +(schoolRecord?'<article class="schoolSelectedCard'+(schoolNeedsReview?' needsReview':'')+'" aria-label="Selected medical school"><span class="schoolSelectedCheck" aria-hidden="true">✓</span><div><strong>'+esc(schoolRecord.canonical_name||w.school)+'</strong><span>'+esc([schoolRecord.school_type,[schoolRecord.city,schoolRecord.state_or_region].filter(Boolean).join(', '),schoolRecord.country].filter(Boolean).join(' · '))+'</span></div><span class="schoolVerificationState'+(schoolNeedsReview?' unverified':'')+'">'+(schoolNeedsReview?'NORMALIZATION REVIEW NEEDED':'SOURCE-REPORTED PROGRAM')+'</span></article>':'')
+      +(schoolRecord?'<details class="school-source-details"><summary>School source details</summary><p>'+esc(schoolRecord.source||'Source not supplied')+'</p><p>'+esc(schoolRecord.source_url_or_reference||'No individual source URL supplied')+'</p><p>'+esc(schoolRecord.city?'City supplied by source: '+schoolRecord.city:'City not supplied by source')+'</p><p>Identity record only; this selection does not establish accreditation.</p></details>':'')
       +'<button type="button" class="schoolNotListedLink" data-school-not-listed>SCHOOL NOT LISTED?</button>'
-      +'<p class="schoolCoverageNote">U.S. MD/DO records use Department of Education source data. Global identity results use a versioned CC0 Wikidata snapshot and do not claim accreditation; “School not listed” remains available and explicitly unverified.</p>'
+      +'<p class="schoolCoverageNote">U.S. records use Department of Education data. Global results combine a Wikidata CC0 snapshot and a MissionMed curated IMG supplement. Source details apply to each selected record. Coverage is incomplete and does not establish accreditation; “School not listed” remains available.</p>'
       +'</section>';
   const authorizationOptions=[''].concat(WORK_AUTHORIZATION_404).map(v=>'<option value="'+esc(v)+'"'+(v===w.visa?' selected':'')+'>'+(v||'Select current status')+'</option>').join('');
   return '<div class="builderFields">'
     +'<label class="builderField"><span>Full name</span><input type="text" data-core="name" value="'+esc(w.name||'')+'" placeholder="e.g., Amara Osei" aria-describedby="coreNameError407F"><small id="coreNameError407F" data-error="name"></small></label>'
     +schoolMarkup
     +'<!-- shared month control: data-core="grad" -->'
-    +dateControlMarkup404({precision:'month',id:'core-graduation-407f',label:w.notGraduated?'Expected graduation':'Graduation date',value:w.grad||'',required:true,help:'Type a month and year or use the calendar.',inputAttributes:{'data-core':'grad'},errorAttributes:{'data-error':'grad'}})
+    +(w.gradPrecision==='YEAR'?'<label class="builderField"><span>'+(w.notGraduated?'Expected graduation year':'Graduation year')+'</span><input type="text" id="core-graduation-407f" data-core="grad" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" value="'+esc(w.grad||'')+'" aria-describedby="coreGraduationYearHelp407F"><small id="coreGraduationYearHelp407F" class="builderHint">The source states a year only. Graduation month remains unconfirmed.</small><small data-error="grad"></small></label>':dateControlMarkup404({precision:'month',id:'core-graduation-407f',label:w.notGraduated?'Expected graduation':'Graduation date',value:w.grad||'',required:true,help:'Type a month and year or use the calendar.',inputAttributes:{'data-core':'grad'},errorAttributes:{'data-error':'grad'}}))
     +'<label class="builderToggle"><input type="checkbox" data-core-toggle="notGraduated"'+(w.notGraduated?' checked':'')+'> <span>I haven&apos;t graduated yet</span></label>'
     +'<fieldset class="builderField"><legend>Degree</legend><div class="builderSegments">'+degreeButtons+'</div><small data-error="degree"></small></fieldset>'
     +(w.degree==='Other'?'<label class="builderField"><span>Specify degree</span><input type="text" data-core="degreeOther" value="'+esc(w.degreeOther||'')+'"><small data-error="degreeOther"></small></label>':'')
@@ -1902,7 +1920,12 @@ function examError404(record,field){
   if(!examTouched404(record,field))return'';
   if(field==='result')return ['Passed','Failed','Awaiting result'].includes(record.result)?'':'Required.';
   if(field==='examDate')return !String(record.examDate||'').trim()?'Required.':(parseBuilderMonth(record.examDate)?'':"Enter a month and year, like 'Jun 2023'.");
-  if(field==='studyStartDate')return record.studyStartDate&&!parseBuilderMonth(record.studyStartDate)?"Enter a month and year, like 'Jun 2023'.":'';
+  if(field==='studyStartDate'){
+    const start=parseBuilderMonth(record.studyStartDate),exam=parseBuilderMonth(record.examDate);
+    if(record.studyStartDate&&!start)return"Enter a month and year, like 'Jun 2023'.";
+    if(start&&exam&&start>exam)return'Study start must be on or before the exam date.';
+    return'';
+  }
   if(field==='score'){
     const scoredResult=['Passed','Failed'].includes(record.result);
     if(scoredResult&&!record.passFailOnly&&!String(record.score||'').trim()){
@@ -2322,6 +2345,7 @@ function parseBuilderMonth(value){
 }
 function queueUnlistedSchool404(){
   const w=state.wiz;
+  if(w.schoolVerificationStatus==='unverified-source-claimed')return null;
   if(w.schoolEntryMode!=='unlisted'||!String(w.school||'').trim()||!String(w.country||'').trim())return null;
   const existing=w.schoolUnlistedSubmission||{};
   const canonicalId=existing.canonical_school_id||('unverified:medical-school-'+nid());
@@ -2361,10 +2385,12 @@ function syncCoreInfo(){
   state.profile.country=w.country||'';
   state.profile.visa=w.visa||'';
   const existing=state.user.events.find(e=>e.id==='education-core');
-  if(coreInfoValid()){
-    const next={id:'education-core',t:'Medical Degree — '+w.school,cat:'education',s:w.grad,e:null,mile:true,vis:'safe',loc:w.school,origin:'builder-core',notes:'',lane:null,fields:{canonicalCategory:'education',school:w.school,canonicalSchoolId:w.canonicalSchoolId||'',schoolVerificationStatus:w.schoolVerificationStatus||'',schoolAnalyticsEligible:w.schoolAnalyticsEligible===true,country:w.country,degree:w.degree==='Other'?(w.degreeOther||'Other'):w.degree,expected:!!w.notGraduated}};
+  const importedEducation=w.profileFieldProvenance?.graduationDate||w.profileFieldProvenance?.medicalSchool;
+  const importedSource=importedEducation?.sourceType==='document-intake';
+  if(coreInfoValid()&&!importedSource){
+    const next={id:'education-core',t:'Medical Degree — '+w.school,cat:'education',s:w.gradPrecision==='YEAR'?w.grad+'-01':w.grad,e:null,mile:true,vis:'safe',loc:w.school,origin:'builder-core',notes:'',lane:null,fields:{canonicalCategory:'education',school:w.school,canonicalSchoolId:w.canonicalSchoolId||'',schoolVerificationStatus:w.schoolVerificationStatus||'',schoolAnalyticsEligible:w.schoolAnalyticsEligible===true,country:w.country,degree:w.degree==='Other'?(w.degreeOther||'Other'):w.degree,expected:!!w.notGraduated,...(w.gradPrecision==='YEAR'?{datePrecision:{start:'YEAR',end:null}}:{})}};
     if(existing)Object.assign(existing,next);else state.user.events.push(next);
-  }else if(existing){
+  }else if(existing&&!importedSource){
     state.user.events=state.user.events.filter(e=>e.id!=='education-core');
   }
   state.saved=false;
@@ -2409,15 +2435,16 @@ function showCoreErrors(focusInvalid){
     }
   }
   const gradTarget=$('[data-error="grad"]');
-  if(gradTarget&&w.grad&&!parseBuilderMonth(w.grad)){
-    gradTarget.textContent="Enter a month and year, like 'Jun 2023'.";
+  const graduationValid=w.gradPrecision==='YEAR'?/^(?:19|20)\d{2}$/.test(w.grad):!!parseBuilderMonth(w.grad);
+  if(gradTarget&&w.grad&&!graduationValid){
+    gradTarget.textContent=w.gradPrecision==='YEAR'?"Enter the source year, like '2022'.":"Enter a month and year, like 'Jun 2023'.";
     const control=$('[data-core="grad"]');
     if(control){
       control.setAttribute('aria-invalid','true');
       if(!firstInvalid)firstInvalid=control;
     }
   }
-  const valid=coreInfoValid()&&!!parseBuilderMonth(w.grad);
+  const valid=coreInfoValid()&&graduationValid;
   if(!valid&&focusInvalid&&firstInvalid&&!$('#modalBk').classList.contains('on')){
     firstInvalid.focus();
     announceBuilder404('Complete the highlighted required field.');
@@ -2625,9 +2652,10 @@ document.addEventListener('click',e=>{
   }
   const schoolUseRegistry=e.target.closest('[data-school-use-registry]');
   if(schoolUseRegistry){
-    Object.assign(state.wiz,{school:'',canonicalSchoolId:'',schoolRecord:null,schoolEntryMode:'registry',schoolVerificationStatus:'',schoolNormalizationStatus:'',schoolAnalyticsEligible:false,schoolUnlistedSubmission:null,schoolCity:'',country:''});
+    const sourceClaimed=state.wiz.schoolVerificationStatus==='unverified-source-claimed';
+    Object.assign(state.wiz,{school:sourceClaimed?state.wiz.school:'',canonicalSchoolId:'',schoolRecord:null,schoolEntryMode:'registry',schoolVerificationStatus:sourceClaimed?'unverified-source-claimed':'',schoolNormalizationStatus:'',schoolAnalyticsEligible:false,schoolUnlistedSubmission:null,schoolCity:sourceClaimed?state.wiz.schoolCity:'',country:sourceClaimed?state.wiz.country:''});
     state.builder.touched[1]=true;renderBuilder404();
-    requestAnimationFrame(()=>{const control=$('[data-school-search]');if(control)control.focus()});
+    requestAnimationFrame(()=>{const control=$('[data-school-search]');if(control){control.focus();searchMedicalSchools404()}});
     return;
   }
   const typeaheadChoice=e.target.closest('[data-typeahead-choice]');
@@ -3369,6 +3397,17 @@ function lockProdDarkCanvas(){
 window.D1_407F_TEST={state:state,SPR402:SPR402,CATS:CATS,snapshotDoc:snapshotDoc,applyDoc:applyDoc,pushUndo:pushUndo,doUndo:doUndo,renderAll:renderAll,renderBoard:renderBoard,go:go,toast:toast,openModal:openModal,closeModal:closeModal,computeQuestions:computeQuestions,exCounts:exCounts,exWarnings:exWarnings,fixtureSet:fixtureSet};
 renderBuilder404();renderElems();renderMediaSlots();renderAdvisor();renderCands();renderAll();
 </script>
+<script type="module">
+import {IndexedDbAdapter} from './js/persistence/indexeddb-adapter.js';
+import './js/local-synthetic-intelligence-021.js';
+// The Founder prototype owns an isolated local draft; preserve all prior drafts.
+if (['localhost','127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).get('prototype') === '021') {
+  const reviewDraft = new URLSearchParams(location.search).get('draft') || '';
+  const reviewSuffix = /^[a-z0-9-]{1,32}$/.test(reviewDraft) ? `-${reviewDraft}` : '';
+  window.D1_PERSISTENCE_ADAPTER = new IndexedDbAdapter({name:`missionmed-timeline-astra-021-prototype${reviewSuffix}`,version:1});
+}
+</script>
 <script type="module" src="./js/407f-engineering-adapter.js"></script>
+<script type="module" src="./js/family-022.js"></script>
 </body>
 </html>

@@ -1,0 +1,41 @@
+{
+  "schema": "d1-timeline-presentation-vendor/1",
+  "delivery": "bundled_into_application_esm",
+  "runtime": {
+    "path": "web/vendor/presentation/pptx-runtime.js",
+    "bytes": 376502,
+    "sha256": "976d23e467d09a40c2c3387ddfb675280fb3aeeafcba45d2c405f7b3be1f63c7"
+  },
+  "components": [
+    {
+      "name": "pptxgenjs",
+      "version": "4.0.1",
+      "license": "MIT",
+      "upstream": "https://github.com/gitbrent/PptxGenJS",
+      "notice": {
+        "path": "web/vendor/presentation/PPTXGENJS-LICENSE",
+        "bytes": 1081,
+        "sha256": "7a2bfe96150786ed1908b8e63f98ebab88875c1e79e28faff6649e0f11f77e52"
+      },
+      "releaseNotice": "vendor/presentation/PPTXGENJS-LICENSE.txt"
+    },
+    {
+      "name": "jszip",
+      "version": "3.10.1",
+      "license": "MIT",
+      "upstream": "https://github.com/Stuk/jszip",
+      "notice": {
+        "path": "web/vendor/presentation/JSZIP-LICENSE",
+        "bytes": 33753,
+        "sha256": "566c953c6090b1218ca6217dd7359d45dde46581968586dc607d59a78af6a9c4"
+      },
+      "releaseNotice": "vendor/presentation/JSZIP-LICENSE.txt"
+    }
+  ],
+  "transitiveNotice": {
+    "path": "web/vendor/presentation/THIRD-PARTY-NOTICES",
+    "bytes": 16549,
+    "sha256": "ce5d199e373e3119a8a8b008cbb10840311d39d226f477863e08bf4733deb45b",
+    "releasePath": "vendor/presentation/THIRD-PARTY-NOTICES.txt"
+  }
+}

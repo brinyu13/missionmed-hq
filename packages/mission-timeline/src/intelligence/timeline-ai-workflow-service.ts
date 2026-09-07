@@ -1,3 +1,6 @@
+import { authorizeTimelineAi, type TimelineAiProcessingMode } from "./timeline-ai-authorization.js";
+import { emptyFounderStandardRetrieval, founderStandardProvenance, type FounderStandardProvenance, type FounderStandardRetriever } from "./founder-standard-registry.js";
+import { getProviderReceipt, type ProviderReceipt } from "./provider-receipt.js";
 import type { PrincipalContext, TimelineDocument } from "../contracts/types.js";
 import { sha256, stableStringify } from "../core/canonical.js";
 import { TimelineError } from "../core/errors.js";
@@ -27,6 +30,8 @@ const PRESENTATION_FIXES = new Set([
 ]);
 
 export interface TimelineQualityAnalysisResponse {
+  providerReceipt?: ProviderReceipt;
+  founderStandardProvenance?: FounderStandardProvenance;
   analysisId: string;
   status: "COMPLETE" | "AI_UNAVAILABLE";
   mode: "SERVER_AI" | "UNAVAILABLE";
@@ -42,6 +47,8 @@ export interface TimelineQualityAnalysisResponse {
 }
 
 export interface TimelineRescueObservationResponse {
+  providerReceipt?: ProviderReceipt;
+  founderStandardProvenance?: FounderStandardProvenance;
   analysisId: string;
   status: "COMPLETE" | "AI_UNAVAILABLE";
   mode: "SERVER_AI" | "UNAVAILABLE";
@@ -96,7 +103,9 @@ function safeQualityFindings(
       category: category as TimelineQualityAiFinding["category"],
       code,
       severity: severity as TimelineQualityAiFinding["severity"],
-      basis: basis as TimelineQualityAiFinding["basis"],
+      // Model output alone cannot establish a source fact. Presentation remains
+      // a recommendation category, never evidence of Founder approval.
+      basis: (basis === "SOURCE_FACT" ? "AI_INFERENCE" : basis) as TimelineQualityAiFinding["basis"],
       elementIds,
       message,
       recommendation,
@@ -121,6 +130,7 @@ export class TimelineAiWorkflowService {
     private readonly provider: TimelineAiWorkflowProvider | null = null,
     syntheticPrincipalIds: Iterable<string> = [],
     serverApprovedFounderPreferences: unknown = [],
+    private readonly options: { processingMode?: TimelineAiProcessingMode; expectedConsentVersion?: string | null; founderStandards?: FounderStandardRetriever } = {},
   ) {
     this.syntheticPrincipalIds = new Set(
       [...syntheticPrincipalIds].map((value) => String(value).trim()).filter(Boolean),
@@ -138,18 +148,25 @@ export class TimelineAiWorkflowService {
     signal?: AbortSignal,
   ): Promise<TimelineQualityAnalysisResponse> {
     this.assertOwner(context, document, "TIMELINE_QUALITY_OWNER_REQUIRED");
-    this.assertSyntheticAuthorized(context, syntheticFixture);
+    const authorization = this.assertProcessingAuthorized(context, syntheticFixture);
     const input = qualityInputFromDocument(document, deterministicFindings, this.serverApprovedFounderPreferences);
     const analysisId = `quality_analysis_${sha256(stableStringify({ documentId: document.id, revision: document.revision, prompt: TIMELINE_QUALITY_PROMPT_VERSION })).slice(0, 24)}`;
     if (!this.provider) return this.qualityUnavailable(document, analysisId);
     try {
+      const standards = this.options.founderStandards
+        ? await this.options.founderStandards.retrieve(context, { workflow: "GUARDIAN", categoryIds: document.events.map((event) => event.categoryId) })
+        : emptyFounderStandardRetrieval();
+      input.standard.approvedGuidance = standards;
       const result = await this.provider.analyzeQuality(input, signal);
+      if (authorization.basis === "VERIFIED_STUDENT_CONSENT" && !getProviderReceipt(result)?.responseId) return this.qualityUnavailable(document, analysisId);
       return {
         analysisId,
         status: "COMPLETE",
         mode: "SERVER_AI",
         provider: this.provider.descriptor.provider,
         model: this.provider.descriptor.model,
+        providerReceipt: getProviderReceipt(result),
+        founderStandardProvenance: founderStandardProvenance(standards),
         schemaVersion: TIMELINE_AI_WORKFLOW_SCHEMA_VERSION,
         promptVersion: TIMELINE_QUALITY_PROMPT_VERSION,
         standardVersion: MISSIONMED_TIMELINE_STANDARD_VERSION,
@@ -159,7 +176,7 @@ export class TimelineAiWorkflowService {
         unavailableMessage: null,
       };
     } catch (error) {
-      if (error instanceof TimelineAiWorkflowProviderError) return this.qualityUnavailable(document, analysisId);
+      if (error instanceof TimelineAiWorkflowProviderError || this.isStandardUnavailable(error)) return this.qualityUnavailable(document, analysisId);
       throw error;
     }
   }
@@ -172,17 +189,23 @@ export class TimelineAiWorkflowService {
     signal?: AbortSignal,
   ): Promise<TimelineRescueObservationResponse> {
     this.assertOwner(context, document, "TIMELINE_RESCUE_OWNER_REQUIRED");
-    this.assertSyntheticAuthorized(context, syntheticFixture);
+    const authorization = this.assertProcessingAuthorized(context, syntheticFixture);
     const analysisId = `rescue_analysis_${sha256(stableStringify({ documentId: document.id, artifactSha256: input.artifactSha256, prompt: TIMELINE_RESCUE_PROMPT_VERSION })).slice(0, 24)}`;
     if (!this.provider) return this.rescueUnavailable(analysisId);
     try {
-      const result = await this.provider.observeRescue(input, signal);
+      const standards = this.options.founderStandards
+        ? await this.options.founderStandards.retrieve(context, { workflow: "RESCUE" })
+        : emptyFounderStandardRetrieval();
+      const result = await this.provider.observeRescue({ ...input, founderStandards: standards }, signal);
+      if (authorization.basis === "VERIFIED_STUDENT_CONSENT" && !getProviderReceipt(result)?.responseId) return this.rescueUnavailable(analysisId);
       return {
         analysisId,
         status: "COMPLETE",
         mode: "SERVER_AI",
         provider: this.provider.descriptor.provider,
         model: this.provider.descriptor.model,
+        providerReceipt: getProviderReceipt(result),
+        founderStandardProvenance: founderStandardProvenance(standards),
         schemaVersion: TIMELINE_AI_WORKFLOW_SCHEMA_VERSION,
         promptVersion: TIMELINE_RESCUE_PROMPT_VERSION,
         observations: Array.isArray(result.observations) ? result.observations.slice(0, 2_000) : [],
@@ -190,7 +213,7 @@ export class TimelineAiWorkflowService {
         unavailableMessage: null,
       };
     } catch (error) {
-      if (error instanceof TimelineAiWorkflowProviderError) return this.rescueUnavailable(analysisId);
+      if (error instanceof TimelineAiWorkflowProviderError || this.isStandardUnavailable(error)) return this.rescueUnavailable(analysisId);
       throw error;
     }
   }
@@ -201,14 +224,19 @@ export class TimelineAiWorkflowService {
     }
   }
 
-  private assertSyntheticAuthorized(context: PrincipalContext, syntheticFixture: boolean): void {
-    if (!syntheticFixture || !this.syntheticPrincipalIds.has(context.principalId)) {
-      throw new TimelineError(
-        "TIMELINE_AI_SYNTHETIC_PRINCIPAL_REQUIRED",
-        "This AI workflow is restricted to an authorized synthetic test principal.",
-        403,
-      );
-    }
+  private assertProcessingAuthorized(context: PrincipalContext, syntheticFixture: boolean) {
+    const authorization = authorizeTimelineAi(context, { ...this.options, syntheticPrincipalIds: this.syntheticPrincipalIds, syntheticFixture });
+    if (!authorization.allowed) throw new TimelineError(
+      authorization.code === "TIMELINE_AI_PROCESSING_DISABLED" ? "TIMELINE_AI_SYNTHETIC_PRINCIPAL_REQUIRED" : authorization.code,
+      authorization.code === "TIMELINE_AI_PROCESSING_DISABLED"
+        ? "AI review is not enabled for student processing. MissionMed rules remain available."
+        : "Current approved AI processing consent or an authorized synthetic test identity is required.", 403,
+    );
+    return authorization;
+  }
+
+  private isStandardUnavailable(error: unknown): boolean {
+    return error instanceof TimelineError && ["FOUNDER_STANDARD_RETRIEVAL_UNAVAILABLE", "FOUNDER_STANDARD_RETRIEVAL_LIMIT", "FOUNDER_STANDARD_INTEGRITY_FAILED"].includes(error.code);
   }
 
   private qualityUnavailable(document: TimelineDocument, analysisId: string): TimelineQualityAnalysisResponse {

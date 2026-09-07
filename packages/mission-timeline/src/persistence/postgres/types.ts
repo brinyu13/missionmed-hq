@@ -26,6 +26,9 @@ export interface PostgresRlsClaims {
   wp_user_id?: number;
   is_wordpress_administrator?: boolean;
   has_learndash_3893_access?: boolean;
+  admin_workspace?: boolean;
+  admin_subject_principal_id?: string;
+  admin_subject_wp_user_id?: number;
   timeline_role: Role;
   program_ids: string[];
   service_scopes: string[];
@@ -100,6 +103,9 @@ export function postgresClaimsFromPrincipal(
       ? { has_learndash_3893_access: context.hasLearndash3893Access }
       : {}),
     timeline_role: context.role,
+    ...(context.adminWorkspace === true ? { admin_workspace: true,
+      admin_subject_principal_id: context.adminSubjectPrincipalId,
+      admin_subject_wp_user_id: context.adminSubjectWpUserId } : {}),
     program_ids: [...context.programIds],
     service_scopes: [...context.serviceScopes],
   };

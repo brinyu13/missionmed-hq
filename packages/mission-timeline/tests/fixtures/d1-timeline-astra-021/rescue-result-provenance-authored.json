@@ -1,0 +1,109 @@
+{
+  "fixturePolicy": "SYNTHETIC_ONLY",
+  "origin": "Actual PDF Rescue accepted document, preserved 021 browser evidence; only one exact exam and linked event retained",
+  "studentProfile": {
+    "fullName": "Synthetic Result Privacy"
+  },
+  "exams": [
+    {
+      "id": "cv-exam-rescue-candidate-92df0f3f0c3b6ac93661",
+      "system": "USMLE",
+      "examId": "step-1",
+      "name": "Step 1",
+      "result": "Passed",
+      "score": "",
+      "examDate": "2022-11",
+      "examDatePrecision": "MONTH",
+      "studyStartDate": "",
+      "passFailOnly": true,
+      "showScoreOnTimeline": false,
+      "showScoreTouched": true,
+      "attemptNumberUnconfirmed": true,
+      "sourceType": "document-intake",
+      "sourceCandidateId": "rescue-candidate-92df0f3f0c3b6ac93661",
+      "sourceEventId": "event-514208a2-546b-4f11-8880-e4bba58c1506",
+      "visibilityState": "INTERVIEWER_SAFE",
+      "provenance": [
+        {
+          "evidenceId": "rescue-evidence-d682784c0536ff9041ff",
+          "artifactSha256": "e6b7b4aeb118059e27d7dbbe556b09852dcd0a83b01042f1063920667d02b3d6",
+          "format": "PDF",
+          "pageOrSlide": 1,
+          "objectId": "vision-step-1",
+          "extractionMethod": "OCR_OR_VISION_OBSERVATION",
+          "support": "VISION_OBSERVATION",
+          "sourceText": "11/22\nUSMLE Step 1\n— Pass",
+          "geometry": {
+            "x": 0.752,
+            "y": 0.257,
+            "width": 0.091,
+            "height": 0.029,
+            "unit": "NORMALIZED"
+          },
+          "confidence": 0.99,
+          "pageNumber": 1,
+          "sourceDocumentName": "021_GOLDEN_CV_TIMELINE_LETTER.pdf",
+          "sourceExcerpt": "11/22\nUSMLE Step 1\n— Pass",
+          "extractionCandidateId": "rescue-candidate-92df0f3f0c3b6ac93661",
+          "sourceSnippet": "11/22\nUSMLE Step 1\n— Pass"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "event-514208a2-546b-4f11-8880-e4bba58c1506",
+      "title": "USMLE Step 1 — Pass",
+      "categoryId": "exams",
+      "eventType": "milestone",
+      "startDate": "2022-11",
+      "endDate": null,
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "document-intake",
+      "provenance": [
+        {
+          "evidenceId": "rescue-evidence-d682784c0536ff9041ff",
+          "artifactSha256": "e6b7b4aeb118059e27d7dbbe556b09852dcd0a83b01042f1063920667d02b3d6",
+          "format": "PDF",
+          "pageOrSlide": 1,
+          "objectId": "vision-step-1",
+          "extractionMethod": "OCR_OR_VISION_OBSERVATION",
+          "support": "VISION_OBSERVATION",
+          "sourceText": "11/22\nUSMLE Step 1\n— Pass",
+          "geometry": {
+            "x": 0.752,
+            "y": 0.257,
+            "width": 0.091,
+            "height": 0.029,
+            "unit": "NORMALIZED"
+          },
+          "confidence": 0.99,
+          "pageNumber": 1,
+          "sourceDocumentName": "021_GOLDEN_CV_TIMELINE_LETTER.pdf",
+          "sourceExcerpt": "11/22\nUSMLE Step 1\n— Pass",
+          "extractionCandidateId": "rescue-candidate-92df0f3f0c3b6ac93661",
+          "sourceSnippet": "11/22\nUSMLE Step 1\n— Pass"
+        }
+      ],
+      "fields": {
+        "rescueReviewRequired": true,
+        "institution": "",
+        "siteName": "",
+        "datePrecision": {
+          "start": "MONTH",
+          "end": null
+        },
+        "mappingReviewRequired": false,
+        "rescueArtifactSha256": "e6b7b4aeb118059e27d7dbbe556b09852dcd0a83b01042f1063920667d02b3d6",
+        "canonicalType": "STEP_1",
+        "examName": "USMLE Step 1",
+        "result": "Passed",
+        "score": ""
+      }
+    }
+  ]
+}

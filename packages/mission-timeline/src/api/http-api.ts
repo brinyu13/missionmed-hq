@@ -6,6 +6,9 @@ import { CvIntelligenceService } from "../intelligence/cv-intelligence-service.j
 import { TimelineAiWorkflowService } from "../intelligence/timeline-ai-workflow-service.js";
 import { analyzeTimelineRescue } from "../intelligence/timeline-rescue-service.js";
 import type { RescueCvCandidate } from "../intelligence/timeline-rescue-schema.js";
+import type { PostgresFounderStandardRegistry } from "../intelligence/founder-standard-registry.js";
+import type { ProviderAuthenticityService022 } from "../intelligence/provider-authenticity-022.js";
+import { canonicalServerQuality022, canonicalServerQualityFindings022, completeServerQuality022 } from "../intelligence/server-quality-022.js";
 import type { PrivateObjectStore } from "../storage/private-object-store.js";
 import type { PrivacySafeTelemetry } from "../telemetry/telemetry.js";
 
@@ -15,6 +18,15 @@ export interface TimelineIdentityVerifier {
 }
 
 export type TimelineServiceProvider = TimelineService | ((context: PrincipalContext) => TimelineService | Promise<TimelineService>);
+export interface TimelineAdminService {
+  roster(context: PrincipalContext, input: Record<string, unknown>): Promise<unknown>;
+  open(context: PrincipalContext, input: Record<string, unknown>): Promise<unknown>;
+}
+export interface TimelineHttpOptions {
+  adminService?: TimelineAdminService;
+  founderStandards?: PostgresFounderStandardRegistry;
+  providerAuthenticity?: ProviderAuthenticityService022;
+}
 
 // The bundled browser PDF/DOCX parser refuses anything over 20 MB, so accepting the 25 MB
 // SOURCE ceiling here only produced a band of files that ingest and then fail on review.
@@ -52,6 +64,7 @@ export class TimelineHttpApi {
     private readonly productionWrites = false,
     private readonly cvIntelligence = new CvIntelligenceService(),
     private readonly timelineAiWorkflows = new TimelineAiWorkflowService(),
+    private readonly options: TimelineHttpOptions = {},
   ) {}
 
   async handle(request: Request, trustedMatrixIdentity?: MatrixIdentity): Promise<Response> {
@@ -75,7 +88,7 @@ export class TimelineHttpApi {
         : this.serviceProvider;
       // Semantic analysis is a read-only, bounded provider call and must not hold a
       // PostgreSQL transaction or pool connection while waiting on the provider.
-      const response = routeClass === "intake"
+      const response = ["intake", "admin", "founder_standards"].includes(routeClass)
         ? await this.dispatch(request, url, context, service)
         : await service.repository.withTransaction((repository) =>
           this.dispatch(request, url, context, service.withRepository(repository)),
@@ -111,6 +124,29 @@ export class TimelineHttpApi {
     context: PrincipalContext,
     service: TimelineService,
   ): Promise<Response> {
+    if (url.pathname.startsWith('/v1/admin/')) {
+      if (context.role !== 'PROGRAM_ADMIN' || context.isWordpressAdministrator !== true || context.adminWorkspace !== true
+          || request.headers.get('x-timeline-admin-directory') !== 'learndash-3893') {
+        throw new TimelineError('ADMIN_DIRECTORY_REQUIRED', 'Timeline administrator access is required.', 403);
+      }
+      if (!this.options.adminService) throw new TimelineError('ADMIN_SERVICE_UNAVAILABLE', 'The Timeline roster is temporarily unavailable.', 503);
+      if (request.method === 'POST' && url.pathname === '/v1/admin/roster') return json(await this.options.adminService.roster(context, await body(request)));
+      if (request.method === 'POST' && url.pathname === '/v1/admin/open') return json(await this.options.adminService.open(context, await body(request)));
+      throw new TimelineError('ROUTE_NOT_FOUND', 'Timeline route is not available.', 404);
+    }
+    if (url.pathname.startsWith('/v1/founder-standards')) {
+      const registry = this.options.founderStandards;
+      if (!registry) throw new TimelineError('FOUNDER_STANDARDS_UNAVAILABLE', 'Founder standards are temporarily unavailable.', 503);
+      if (url.pathname === '/v1/founder-standards/approved' && request.method === 'GET') {
+        const workflow = String(url.searchParams.get('workflow') || 'GUARDIAN');
+        if (!['CV', 'GUARDIAN', 'RESCUE'].includes(workflow)) throw new TimelineError('WORKFLOW_INVALID', 'Choose a Timeline workflow.', 400);
+        return json(await registry.retrieve(context, { workflow: workflow as 'CV' | 'GUARDIAN' | 'RESCUE' }));
+      }
+      if (url.pathname === '/v1/founder-standards' && request.method === 'GET') return json(await registry.listForManagement(context));
+      if (url.pathname === '/v1/founder-standards/revisions' && request.method === 'POST') return json(await registry.createRevision(context, await body(request)), 201);
+      if (url.pathname === '/v1/founder-standards/decisions' && request.method === 'POST') return json(await registry.decide(context, await body(request)), 201);
+      throw new TimelineError('ROUTE_NOT_FOUND', 'Timeline route is not available.', 404);
+    }
     if (url.pathname === "/v1/documents" && request.method === "GET") {
       return json({ documents: await service.listOwnDocuments(context) });
     }
@@ -141,37 +177,35 @@ export class TimelineHttpApi {
         ? input.source as Record<string, unknown>
         : {};
       const sourceObject = await this.objectStore.getAuthorizedObjectBytes(context, String(source.objectId ?? ""));
-      return json(await this.cvIntelligence.analyze(
+      const analysis = await this.cvIntelligence.analyze(
         context,
         record.document,
         sourceObject,
         input,
         request.headers.get("x-timeline-synthetic-fixture") === "1",
-      ), 200);
+      );
+      const providerAuthenticity = this.options.providerAuthenticity?.sign(record.document, "CV", analysis,
+        { objectId: sourceObject.record.id, sha256: sourceObject.record.expectedSha256 });
+      return json({ ...analysis, ...(providerAuthenticity ? { providerAuthenticity } : {}) }, 200);
     }
     const qualityAnalyzeMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/quality\/analyze$/);
     if (qualityAnalyzeMatch && request.method === "POST") {
       const input = await body(request);
       const record = await service.getDocument(context, qualityAnalyzeMatch[1]!);
-      const deterministicFindings = Array.isArray(input.deterministicFindings)
-        ? input.deterministicFindings.slice(0, 100).flatMap((item) => {
-          if (!item || typeof item !== "object" || Array.isArray(item)) return [];
-          const value = item as Record<string, unknown>;
-          const category = String(value.category ?? "");
-          const severity = String(value.severity ?? "");
-          const id = String(value.id ?? "").trim().slice(0, 160);
-          const code = String(value.code ?? "").trim().slice(0, 100);
-          const message = String(value.message ?? "").trim().slice(0, 1_000);
-          if (!id || !message || !["CONTENT", "CHRONOLOGY", "LAYOUT", "READABILITY", "MISSIONMED_FORMAT", "EXPORT"].includes(category) || !["BLOCK_EXPORT", "REVIEW", "INFO"].includes(severity)) return [];
-          return [{ id, category, code, severity, elementIds: Array.isArray(value.elementIds) ? value.elementIds.map(String).slice(0, 100) : [], message }];
-        })
-        : [];
-      return json(await this.timelineAiWorkflows.analyzeQuality(
+      // The browser's findings are only hints; all signed readiness is computed
+      // against the saved source by the same canonical geometry/rules engine.
+      const localReport = canonicalServerQuality022(record.document);
+      const deterministicFindings = canonicalServerQualityFindings022(localReport);
+      const analysis = await this.timelineAiWorkflows.analyzeQuality(
         context,
         record.document,
         deterministicFindings as never,
         request.headers.get("x-timeline-synthetic-fixture") === "1",
-      ), 200);
+      );
+      const serverQuality = completeServerQuality022(localReport, analysis);
+      const signedResult = { ...analysis, serverQuality };
+      const providerAuthenticity = this.options.providerAuthenticity?.sign(record.document, "GUARDIAN", signedResult);
+      return json({ ...signedResult, ...(providerAuthenticity ? { providerAuthenticity } : {}) }, 200);
     }
     const rescueMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/intake\/rescue$/);
     if (rescueMatch && request.method === "POST") {
@@ -230,9 +264,10 @@ export class TimelineHttpApi {
         bytes: authorized.bytes,
       }, cvCandidates);
       const syntheticAiRequested = request.headers.get("x-timeline-synthetic-fixture") === "1";
-      const ai = initial.format === "KEYNOTE" || !syntheticAiRequested
-        ? null
-        : await this.timelineAiWorkflows.observeRescue(context, record.document, {
+      let ai: Awaited<ReturnType<TimelineAiWorkflowService['observeRescue']>> | null = null;
+      let aiUnavailable: { code: string; message: string } | null = null;
+      try {
+        if (initial.format !== 'KEYNOTE') ai = await this.timelineAiWorkflows.observeRescue(context, record.document, {
           artifactSha256: initial.artifactSha256,
           format: initial.format,
           pageOrSlideCount: initial.slideOrPageCount,
@@ -240,7 +275,14 @@ export class TimelineHttpApi {
           image: initial.format === "IMAGE" && ["image/png", "image/jpeg"].includes(expectedMimeType)
             ? { mimeType: expectedMimeType as "image/png" | "image/jpeg", bytes: authorized.bytes }
             : null,
-        }, true);
+          pdf: initial.format === "PDF" && expectedMimeType === "application/pdf"
+            ? { mimeType: "application/pdf", bytes: authorized.bytes }
+            : null,
+        }, syntheticAiRequested);
+      } catch (error) {
+        if (!(error instanceof TimelineError) || !['TIMELINE_AI_CONSENT_REQUIRED', 'TIMELINE_AI_PROCESSING_DISABLED', 'TIMELINE_AI_SYNTHETIC_PRINCIPAL_REQUIRED'].includes(error.code)) throw error;
+        aiUnavailable = { code: error.code, message: 'MissionMed parsing and conflict checks are available. Optional AI review requires your current consent.' };
+      }
       const rescue = ai?.status === "COMPLETE"
         ? analyzeTimelineRescue({
           filename,
@@ -250,9 +292,12 @@ export class TimelineHttpApi {
         }, cvCandidates)
         : initial;
       if (ai?.unresolvedQuestions.length) rescue.unresolvedQuestions = [...new Set([...rescue.unresolvedQuestions, ...ai.unresolvedQuestions])];
+      const providerAuthenticity = ai && this.options.providerAuthenticity?.sign(record.document, "RESCUE", { ...ai, rescue },
+        { objectId, sha256: expectedSha256 });
       return json({
         source: {objectId, filename, mimeType: expectedMimeType, sha256: expectedSha256},
-        ai,
+        ai: ai ? { ...ai, ...(providerAuthenticity ? { providerAuthenticity } : {}) } : null,
+        aiUnavailable,
         rescue,
       });
     }
@@ -461,6 +506,8 @@ export class TimelineHttpApi {
   }
 
   private routeClass(pathname: string): string {
+    if (pathname.startsWith('/v1/admin/')) return 'admin';
+    if (pathname.startsWith('/v1/founder-standards')) return 'founder_standards';
     if (pathname.includes("/comments")) return "review_comments";
     if (pathname.includes("/reviews")) return "reviews";
     if (pathname.includes("/versions")) return "versions";

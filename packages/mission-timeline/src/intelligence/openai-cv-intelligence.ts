@@ -1,3 +1,4 @@
+import { attachProviderReceipt } from "./provider-receipt.js";
 import {
   CV_INTELLIGENCE_PROMPT_VERSION,
   CV_INTELLIGENCE_SCHEMA_VERSION,
@@ -50,6 +51,7 @@ export class OpenAiCvIntelligenceProvider implements CvIntelligenceProvider {
     const timeout = AbortSignal.timeout(this.timeoutMs);
     const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
     let response: Response;
+    let requestBody = "";
     try {
       response = await this.fetchImpl(OPENAI_RESPONSES_ENDPOINT, {
         method: "POST",
@@ -57,7 +59,7 @@ export class OpenAiCvIntelligenceProvider implements CvIntelligenceProvider {
           authorization: `Bearer ${this.options.apiKey}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({
+        body: requestBody = JSON.stringify({
           model: this.descriptor.model,
           store: false,
           max_output_tokens: 24_000,
@@ -77,6 +79,7 @@ export class OpenAiCvIntelligenceProvider implements CvIntelligenceProvider {
                 "Classify medical school and degrees as Education; USMLE and ECFMG facts as USMLE; publications and research roles as Research; observerships, externships, clerkships, and rotations as Clinical; paid employment, leadership, and volunteering as Work unless the source establishes another canonical type.",
                 "Preserve international institution, city, country, and degree names exactly as written before normalization. Do not assume United States context.",
                 "Do not create uncertainty merely because an optional location, country, payment status, or duty description is absent. Leave an optional unsupported field null; ask only when the missing fact changes identity, chronology, category, or safe student acceptance.",
+                "founderStandards contains retrieved Founder-approved nonpersonal guidance only. It is not evidence about this student; never override source facts with an example or invent biography to match a standard.",
                 "Do not silently resolve ambiguity. Ask the smallest useful unresolved question.",
                 `Contract ${CV_INTELLIGENCE_SCHEMA_VERSION}; prompt ${CV_INTELLIGENCE_PROMPT_VERSION}.`,
               ].join("\n"),
@@ -88,6 +91,7 @@ export class OpenAiCvIntelligenceProvider implements CvIntelligenceProvider {
                 sourceSha256: request.source.sha256,
                 blocks: request.blocks,
                 existingEvents: request.existingEvents,
+                founderStandards: request.founderStandards,
               }),
             },
           ],
@@ -113,7 +117,7 @@ export class OpenAiCvIntelligenceProvider implements CvIntelligenceProvider {
     const text = outputText(payload as Record<string, unknown>);
     if (!text) throw new CvIntelligenceProviderError("INVALID_PROVIDER_OUTPUT", "Provider response contained no structured output.");
     try {
-      return JSON.parse(text) as CvProviderResult;
+      return attachProviderReceipt(JSON.parse(text) as CvProviderResult, response, payload as Record<string, unknown>, requestBody, text);
     } catch {
       throw new CvIntelligenceProviderError("INVALID_PROVIDER_OUTPUT", "Provider structured output was invalid JSON.");
     }

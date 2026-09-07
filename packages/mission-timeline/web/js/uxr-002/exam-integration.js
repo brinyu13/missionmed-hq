@@ -49,6 +49,18 @@ function builderRecordType(record){
   return BUILDER_TO_WORKFLOW_TYPE[`${record?.system}:${record?.examId}`]||null;
 }
 
+function hasIntakeAuthority(record){
+  return record?.sourceType==='document-intake'||Object.values(record?.fieldProvenance||{}).some(authority=>authority?.sourceType==='document-intake');
+}
+
+export function selectedBuilderExamSystems(document={}){
+  const selected=new Set(document.builder?.examSystems||[]);
+  if(document.builder?.examSystemSelectionExplicit!==true){
+    for(const record of document.exams||[])if(hasIntakeAuthority(record)&&BUILDER_SYSTEM_TO_WORKFLOW[record.system])selected.add(record.system);
+  }
+  return [...selected];
+}
+
 function workflowAttempt(state,typeId,attemptNumber){
   return state.exams
     .find((group)=>group.examTypeId===typeId)
@@ -66,7 +78,7 @@ function suppressedRetakeIds(document){
 export function examWorkflowFromDocument(document={}){
   let state=createExamWorkflowState();
   const records=Array.isArray(document.exams)?document.exams:[];
-  const selected=new Set(document.builder?.examSystems||[]);
+  const selected=new Set(selectedBuilderExamSystems(document));
   for(const builderSystem of selected){
     const workflowSystem=BUILDER_SYSTEM_TO_WORKFLOW[builderSystem];
     if(workflowSystem)state=setExamSystemActive(state,workflowSystem,true);
@@ -102,7 +114,7 @@ export function examWorkflowFromDocument(document={}){
         examDate:record.examDate||"",
         studyPeriodStart:record.studyStartDate||record.studyPeriodStart||""
       };
-      if(record.showScoreTouched||record.showScoreWasSet){
+      if(record.showScoreTouched||record.showScoreWasSet||hasIntakeAuthority(record)){
         changes.showScoreOnTimeline=!!record.showScoreOnTimeline;
       }
       state=updateExamAttempt(state,target.id,changes);
@@ -172,11 +184,24 @@ export function applyExamWorkflow(document,state){
     .map(([systemId])=>WORKFLOW_SYSTEM_TO_BUILDER[systemId])
     .filter(Boolean);
   const suppressed=suppressedRetakeIds(document);
+  const priorRecords=document.exams||[];
+  const importedWorkflowIds=new Set();
   document.exams=builderRecordsFromExamWorkflow(state)
-    .filter((record)=>!suppressed.has(record.id));
+    .filter((record)=>!suppressed.has(record.id))
+    .map(record=>{
+      const prior=priorRecords.find(item=>hasIntakeAuthority(item)&&builderRecordType(item)===builderRecordType(record)&&(Number(item.attempt)||1)===(Number(record.attempt)||1));
+      if(!prior)return record;
+      importedWorkflowIds.add(record.id);
+      // Normalizing/editing an accepted source record must not erase its
+      // privacy authority, or claim an inferred attempt number as source fact.
+      return {...clone(prior),...record,id:prior.id,sourceType:prior.sourceType,
+        ...(prior.attemptNumberUnconfirmed?{attempt:prior.attempt,attemptNumberUnconfirmed:true}:{})};
+    });
   document.events=[
     ...(document.events||[]).filter((event)=>event?.sourceType!=="exam-workflow"),
-    ...projectedExamEvents(state)
+    // The accepted source event already represents this fact. Creating another
+    // workflow event would duplicate it with the workflow's default public scope.
+    ...projectedExamEvents(state).filter(event=>!importedWorkflowIds.has(event.attemptId||event.fields?.attemptId||event.fields?.builderEntryId))
   ];
   return document;
 }
@@ -189,6 +214,7 @@ export function setBuilderExamSystem(document,builderSystem,active){
   const workflowSystem=BUILDER_SYSTEM_TO_WORKFLOW[builderSystem];
   if(!workflowSystem)throw new TypeError(`Unsupported Builder exam system: ${String(builderSystem)}`);
   const state=setExamSystemActive(examWorkflowFromDocument(document),workflowSystem,active);
+  document.builder={...(document.builder||{}),examSystemSelectionExplicit:true};
   return applyExamWorkflow(document,state);
 }
 

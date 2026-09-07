@@ -683,8 +683,13 @@ test("Advanced text opens a genuine on-canvas editor with explicit save and canc
   assert.match(html,/data-advanced-inline-text-form/);
   assert.match(html,/data-advanced-inline-text-input/);
   assert.match(html,/Interview story revised/);
-  assert.match(html,/Save text/);
+  // AAA-019 (Canva parity): the editor sits in the text's own geometry; commit is the
+  // explicit Done control (also click-out / focus-out), cancel is Escape or Cancel.
+  assert.match(html,/data-canvas-text-done/);
+  assert.match(html,/>Done</);
   assert.match(html,/data-canvas-action="cancel-advanced-text"/);
+  assert.match(html,/\[data-advanced-text="advanced-text"\]\{opacity:0\}/,"the SVG glyphs under the editor are hidden so the caret sits in the text itself");
+  assert.match(canvasSource,/onFocusOut/);
   assert.match(canvasSource,/store\.mutate\("Edit Advanced text"/);
 });
 
@@ -743,7 +748,9 @@ test("M8 tablet and phone Canvas contracts are view-only with the exact banner a
   const emptyHtml=renderCanvas({document:empty,state,currentMonth:"2026-07"});
   assert.match(
     emptyHtml,
-    /class="canvas-empty-board" role="region" aria-label="Timeline visualization, 0 events\. Editing is unavailable\."/
+    /* D1-016 A1.1: zero events no longer means zero canvas, so the view-only contract
+       now rides on the live .canvas-application instead of a placeholder that replaced it. */
+    /class="canvas-application" role="region" aria-label="Timeline visualization, 0 events\. Editing is unavailable\."/
   );
 });
 
@@ -808,7 +815,7 @@ test("M8 install owns delegated Canvas listeners, canonical rendering, responsiv
   assert.match(root.innerHTML,/Timeline visualization, 6 events; use Tab to move between events/);
   assert.deepEqual(
     [...root.listeners.keys()].sort(),
-    ["change","click","contextmenu","d1-411a:pan","d1-411a:wheel-zoom","dblclick","focusin","input","keydown","pointerdown","submit","wheel"].sort()
+    ["change","click","contextmenu","d1-411a:pan","d1-411a:wheel-zoom","dblclick","focusin","focusout","input","keydown","pointerdown","submit","wheel"].sort()
   );
   controller.setResponsiveWidth(900);
   assert.equal(controller.state.responsive.viewOnly,true);

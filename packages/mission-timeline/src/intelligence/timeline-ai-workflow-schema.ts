@@ -1,3 +1,4 @@
+import type { FounderStandardRetrieval } from "./founder-standard-registry.js";
 import type { TimelineDocument } from "../contracts/types.js";
 import type {
   RescueVisualObject,
@@ -60,6 +61,7 @@ export interface TimelineQualityAiInput {
     version: typeof MISSIONMED_TIMELINE_STANDARD_VERSION;
     requirements: readonly string[];
     founderPreferences: readonly TimelineFounderPreferenceRule[];
+    approvedGuidance?: FounderStandardRetrieval;
   };
 }
 
@@ -83,12 +85,17 @@ export interface TimelineQualityAiResult {
 }
 
 export interface TimelineRescueAiInput {
+  founderStandards?: FounderStandardRetrieval;
   artifactSha256: string;
   format: Exclude<TimelineRescueFormat, "KEYNOTE">;
   pageOrSlideCount: number;
   objects: RescueVisualObject[];
   image?: {
     mimeType: "image/png" | "image/jpeg";
+    bytes: Uint8Array;
+  } | null;
+  pdf?: {
+    mimeType: "application/pdf";
     bytes: Uint8Array;
   } | null;
 }
@@ -168,7 +175,7 @@ export const TIMELINE_RESCUE_OUTPUT_JSON_SCHEMA = {
 } as const;
 
 export const MISSIONMED_TIMELINE_STANDARD_REQUIREMENTS = Object.freeze([
-  "Use the checksum-bound 2024 Founder Keynote as the canonical MissionMed presentation authority.",
+  "Use the checksum-bound 2025 Founder Keynote as the canonical MissionMed presentation authority, preserving the recorded 2024 source lineage.",
   "Preserve its 1920 by 1080 landscape composition, MissionMed background, year ribbon, typography hierarchy, profile treatment, media rhythm, and intentional whitespace.",
   "Keep the six Founder Keynote Color Key category IDs and protected default order.",
   "Treat chronology as semantic evidence for initial composition, never as a fixed lane or swimlane constraint.",

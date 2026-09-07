@@ -340,7 +340,7 @@ test("C-09: HIGH bulk-accepts, MEDIUM waits for confirmation, and LOW asks only 
   assert.match(html,/Ready to accept \(1\)/);
   assert.match(html,/Confirm these \(2\)/);
   assert.match(html,/Needs your help \(1\)/);
-  assert.match(html,/NEEDS YOUR HELP/);
+  assert.match(html,/confidence-tag tertiary">Needs details/);
 
   // LOW asks only for what the document does not state: the end date, not the title,
   // not the start date, and not the institution.
@@ -471,6 +471,7 @@ test("C-06 and C-12: server AI review survives while source-identical candidates
     async analyzeCv(){
       return{
         mode:"SERVER_AI",analysisId:"analysis-1",provider:"openai",model:"approved-model",
+        providerReceipt:{responseId:'synthetic-022',model:'approved-model',store:false,inputSha256:'a'.repeat(64),outputSha256:'b'.repeat(64)},
         schemaVersion:"schema-1",promptVersion:"prompt-1",rejectedCandidateCount:0,
         candidates:[
           {

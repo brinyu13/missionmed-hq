@@ -8,6 +8,8 @@ import {
   resolveAdvisorPaperPdfSuggestion
 } from "./themes.js";
 import {clone,dateLabel,escapeHtml} from "./utils.js";
+import {projectPresentationFields,projectPresentationEventFields} from '../presentation/presentation-field-privacy.js';
+import {projectPresentationExamEvents} from '../presentation/presentation-exam-display.js';
 
 const freezeDeep=(value)=>{
   if(!value||typeof value!=="object"||Object.isFrozen(value))return value;
@@ -96,6 +98,16 @@ export const EXPORT_FORMATS=freezeDeep([
     label:"PNG · 2560 × 1440 — high-res screens",
     width:2560,
     height:1440,
+    dpi:null,
+    page:null
+  },
+  {
+    id:"pptx-editable",
+    kind:"PPTX",
+    extension:"pptx",
+    label:"Editable PowerPoint · also opens in Keynote",
+    width:1920,
+    height:1080,
     dpi:null,
     page:null
   },
@@ -339,7 +351,11 @@ export function buildExportPreviewInput(document,state={}){
   const filtered=filterEventsForAudience(document.events,normalized.audience);
   const selectedAudience=exportAudience(normalized.audience);
   const timeline=clone(document);
-  timeline.events=filtered.included;
+  timeline.events=projectPresentationExamEvents(document,filtered.included);
+  const fields=projectPresentationFields(document,{allowed:new Set([...filtered.policy.baselineVisibility,...(selectedAudience.scope?['ADVISOR_ONLY']:[])]),visibleEventIds:new Set(filtered.included.map(event=>String(event.id)))});
+  timeline.events=projectPresentationEventFields(timeline.events,fields);
+  timeline.studentProfile=fields.studentProfile;
+  timeline.exams=fields.exams;
   return{
     contract:"D1-UXR-002-EXPORT-RENDER-INPUT-V1",
     timeline,
@@ -387,7 +403,7 @@ export function buildExportRequest(document,state={},options={}){
   const now=options.now||new Date();
   return{
     contract:"D1-UXR-002-EXPORT-REQUEST-V1",
-    filename:buildExportFilename(document?.studentProfile?.fullName,format.id,{now}),
+    filename:buildExportFilename(renderInput.timeline.studentProfile.fullName,format.id,{now}),
     audience:normalized.audience,
     recipientContext:clone(
       normalized.audienceDetails[normalized.audience]
@@ -526,7 +542,7 @@ export function buildExportScreenModel(document,state={},options={}){
   const empty=eventCount===0;
   let hasStudentName=false;
   try{
-    parseStudentName(document?.studentProfile?.fullName);
+    parseStudentName(buildExportPreviewInput(document,normalized).timeline.studentProfile.fullName);
     hasStudentName=true;
   }catch{
     /* Incomplete or malformed profile data blocks export; it must not block app startup. */
@@ -655,22 +671,68 @@ export function renderPrintGuidance({disabled=false}={}){
   </details>`;
 }
 
+export const EXPORT_FORMAT_PRESENTATION=freezeDeep({
+  "png-1920x1080":{title:"PNG",use:"Ready to share on screen, in slides, or with an interviewer.",size:"1920 × 1080"},
+  "png-2560x1440":{title:"High-resolution PNG",use:"More detail for a large display or a crisp digital copy.",size:"2560 × 1440"},
+  "pptx-editable":{title:"Editable PowerPoint",use:"Keep text, arrows, images and layout editable. Also opens in Keynote.",size:"EDITABLE PPTX"},
+  "pdf-letter-landscape":{title:"Letter PDF",use:"A sharp landscape handout for US letter-size printing.",size:"11 × 8.5 IN · 300 DPI"},
+  "pdf-a4-landscape":{title:"A4 PDF",use:"A sharp landscape handout for international A4 printing.",size:"297 × 210 MM · 300 DPI"}
+});
+
 function renderFormatCard(model){
   return`<section class="card export-card export-format-card" aria-labelledby="export-format-title">
-    <h2 id="export-format-title">Format &amp; size</h2>
+    <h2 id="export-format-title">Choose your format</h2>
     <fieldset class="export-format-list">
       <legend class="sr-only">Export format and size</legend>
-      ${EXPORT_FORMATS.map((format)=>`<label class="export-format-option">
-        <input type="radio" name="export-format" value="${format.id}" ${model.format.id===format.id?"checked":""}${disabledAttribute(model.controlsDisabled)}>
-        <span>${format.label}</span>
-      </label>`).join("")}
+      ${EXPORT_FORMATS.map((format)=>{
+        const copy=EXPORT_FORMAT_PRESENTATION[format.id];
+        return`<label class="export-format-option">
+          <input type="radio" name="export-format" value="${format.id}" aria-label="${escapeHtml(format.label)}" ${model.format.id===format.id?"checked":""}${disabledAttribute(model.controlsDisabled)}>
+          <span><strong>${escapeHtml(copy.title)}</strong><small>${escapeHtml(copy.use)}</small><span class="export022FormatSize">${escapeHtml(copy.size)}</span></span>
+        </label>`;
+      }).join("")}
     </fieldset>
     ${model.showPrintMarginToggle?`<label class="check-row export-print-margin">
       <input type="checkbox" data-export-print-margins ${model.state.showPrintMargins?"checked":""}${disabledAttribute(model.controlsDisabled)}>
       <span>Show print margins</span>
     </label>`:""}
-  </section>
-  ${renderPrintGuidance({disabled:model.controlsDisabled})}`;
+  </section>`;
+}
+
+export function buildExportReadiness(document,report=null,{readinessCurrent}={}){
+  const current=report?.schemaVersion==="d1-timeline-quality-guardian.1" &&
+    (typeof readinessCurrent==="boolean"?readinessCurrent:Number(report.generatedFromRevision)===Number(document?.revision||0));
+  const receipt=report?.ai?.providerReceipt;
+  const ai=current && report?.ai?.status==="COMPLETE" &&
+    receipt?.store===false && Boolean(receipt?.responseId && receipt?.model) &&
+    /^[a-f0-9]{64}$/.test(receipt?.inputSha256||"") && /^[a-f0-9]{64}$/.test(receipt?.outputSha256||"");
+  const findings=current && Array.isArray(report?.findings)?report.findings.filter((item)=>item && (ai || !["AI REVIEW","AI INFERENCE","AI_INFERENCE"].includes(item.basis))).sort((a,b)=>(b.severity==="BLOCK_EXPORT")-(a.severity==="BLOCK_EXPORT")):[];
+  return Object.freeze({
+    current,ai,
+    state:current?String(report.state||"REVIEW"):"UNCHECKED",
+    headline:current?report.state==="READY"?"Ready for your final look":report.state==="BLOCKED"?"Resolve these items first":"A few things to review":"Run Guardian before sharing",
+    summary:current?ai?"MissionMed checks and real AI review are available for this Timeline.":"MissionMed checks are current. No verified AI review is available for this Timeline.":"Check your chronology, layout and interview readiness before downloading.",
+    findings,
+    model:ai?String(receipt.model):null,
+    receiptId:ai?String(receipt.responseId):null
+  });
+}
+
+function renderExportReadiness(document,report,readinessCurrent){
+  const quality=buildExportReadiness(document,report,{readinessCurrent});
+  return`<section class="card export-card export022Readiness" data-export-quality-state="${escapeHtml(quality.state)}" aria-labelledby="export022ReadinessTitle">
+    <div class="export022ReadinessHead"><h2 id="export022ReadinessTitle">Guardian readiness</h2><span>${quality.current?quality.state==="READY"?"CHECKED":"REVIEW":"NOT CHECKED"}</span></div>
+    <p><strong>${escapeHtml(quality.headline)}</strong></p><p>${escapeHtml(quality.summary)}</p>
+    ${quality.ai?`<details><summary>AI review receipt</summary><p>${escapeHtml(quality.model)} · ${escapeHtml(quality.receiptId)} · store: false</p></details>`:""}
+    ${quality.findings.slice(0,4).map((finding)=>`<div class="export022Finding"><small>${escapeHtml(finding.basis||"MISSIONMED RULE")}</small><p>${escapeHtml(finding.message||"Review this item in Guardian.")}</p><button type="button" class="button secondary" data-quality-guardian-open="true" data-export-quality-finding="${escapeHtml(finding.id||"")}">${finding.actionMode==="FIX_FOR_ME"?"Fix in Guardian":"Review in Guardian"}</button></div>`).join("")}
+    <button type="button" class="button secondary" data-quality-guardian-open="true"${disabledAttribute(!document?.events?.length)}>Check my Timeline</button>
+  </section>`;
+}
+
+function renderExportHistory(history=[]){
+  const completed=Array.isArray(history)?history.filter((entry)=>entry?.downloaded===true && typeof entry.filename==="string" && Number.isFinite(Date.parse(entry.exportedAt))).slice(0,5):[];
+  if(!completed.length)return"";
+  return`<details class="card export-card export022History"><summary>Recent exports</summary><ul>${completed.map((entry)=>`<li>${escapeHtml(entry.filename)}<time datetime="${escapeHtml(entry.exportedAt)}">${escapeHtml(new Date(entry.exportedAt).toLocaleString())}</time></li>`).join("")}</ul></details>`;
 }
 
 function renderAdvisorCard(model){
@@ -729,28 +791,33 @@ export function renderExportScreen(document,{
   state={},
   previewHtml="",
   now=new Date(),
-  entitlement=null
+  entitlement=null,
+  readiness=null,
+  readinessCurrent,
+  exportHistory=[]
 }={}){
   const model=buildExportScreenModel(document,state,{now,entitlement});
-  return`<div class="screen export-screen" data-screen="export" data-export-layout="two-column" data-export-controls-width="380">
+  return`<div class="screen export-screen" data-screen="export" data-export-layout="two-column" data-export-controls-width="380" data-export-order="preview-first">
+    <div class="export022Intro"><div><p class="micro-label">YOUR TIMELINE, READY TO SHARE</p><h1 id="export-title" tabindex="-1">Make a clear <em>first impression.</em></h1><p>Choose a finished handout or an editable presentation. What you see in the preview is what your file will contain.</p></div></div>
     <div class="export-layout">
-      <section class="export-controls" aria-labelledby="export-title">
-        <h1 id="export-title" tabindex="-1">Export</h1>
-        ${renderAudienceCard(model,document)}
-        ${renderThemeCard(model)}
+      <div class="export022Main">
+        ${renderPreview(model,previewHtml)}
+        <div class="export022PreviewCaption"><strong>Live export preview</strong><span>${escapeHtml(model.audience.label)} · ${model.eventCount} ${model.eventCount===1?"event":"events"} · ${escapeHtml(model.theme.name)}</span></div>
         ${renderFormatCard(model)}
-        ${renderAdvisorCard(model)}
-        ${model.exportBlockedReason
-          ?`<p class="export-blocker" role="status" id="export-blocked-reason" data-export-blocked-reason>${escapeHtml(model.exportBlockedReason)}</p>`
-          :""}
-        ${model.entitlementBlocked
-          ?`<p class="export-blocker" role="status">${escapeHtml(model.entitlementReason)} ${model.entitlementHasExistingTimeline
-            ?"Existing timeline data remains available to view."
-            :"Timeline creation and export are disabled."}</p>`
-          :""}
+        <details class="card export-card export022Keynote"><summary>Edit in Keynote</summary><p>Download Editable PowerPoint, then open the .pptx in Keynote on your Mac. Text, arrows, images and supported groups remain editable.</p><ol><li>Select Editable PowerPoint and download your file.</li><li>Open it in Keynote and review fonts, spacing and images.</li><li>Choose File → Save to keep a native .key copy.</li></ol><p>The browser downloads .pptx. A native .key file is created by Keynote when you save it.</p><button type="button" class="button secondary" data-export-keynote-select${disabledAttribute(model.controlsDisabled)}>Choose editable PowerPoint</button></details>
+        ${renderPrintGuidance({disabled:model.controlsDisabled})}
+      </div>
+      <aside class="export-controls" aria-label="Readiness and download">
+        ${renderExportReadiness(document,readiness,readinessCurrent)}
+        <details class="export022Settings"${model.audience.id!=="INTERVIEWER_SAFE"?" open":""}><summary>Audience &amp; presentation</summary>${renderAudienceCard(model,document)}${renderThemeCard(model)}</details>
+        <details class="export022Settings"><summary>Advisor review</summary>${renderAdvisorCard(model)}</details>
+        ${model.exportBlockedReason?`<p class="export-blocker" role="status" id="export-blocked-reason" data-export-blocked-reason>${escapeHtml(model.exportBlockedReason)}</p>`:""}
+        ${model.entitlementBlocked?`<p class="export-blocker" role="status">${escapeHtml(model.entitlementReason)} ${model.entitlementHasExistingTimeline?"Existing timeline data remains available to view.":"Timeline creation and export are disabled."}</p>`:""}
         <button type="button" class="button primary export-action"${model.exportBlockedReason?' aria-describedby="export-blocked-reason"':""} data-export-action${disabledAttribute(model.exportActionDisabled)}>Export ${model.format.kind}</button>
-      </section>
-      ${renderPreview(model,previewHtml)}
+        ${model.filename?`<p class="export022DownloadName">${escapeHtml(model.filename)}</p>`:""}
+        <div class="export022Progress" role="status" aria-live="polite" data-export-progress${model.state.exporting?"":" hidden"}><span class="spinner" aria-hidden="true"></span><span>Preparing your file. Keep this page open.</span></div>
+        ${renderExportHistory(exportHistory)}
+      </aside>
     </div>
   </div>`;
 }
@@ -937,6 +1004,7 @@ export function installExportScreen(root,document,{
   toast=()=>{},
   requestVersion=null,
   onStateChange=()=>{},
+  onExportComplete=()=>{},
   onOpenBuilder=()=>{},
   onThemeTrigger=()=>{},
   onThemeChange=()=>{},
@@ -955,6 +1023,7 @@ export function installExportScreen(root,document,{
   };
   const previewHost=root.querySelector("[data-export-preview]");
   const exportButton=root.querySelector("[data-export-action]");
+  const exportProgress=root.querySelector("[data-export-progress]");
   const updateRecipientGate=()=>{
     const complete=audienceDetailsComplete(current.audience,current.audienceDetails);
     const status=root.querySelector(
@@ -1034,6 +1103,12 @@ export function installExportScreen(root,document,{
     });
   });
 
+  root.querySelector("[data-export-keynote-select]")?.addEventListener("click",()=>{
+    const choice=root.querySelector('[name="export-format"][value="pptx-editable"]');
+    if(!choice||choice.disabled)return;
+    choice.checked=true;
+    choice.dispatchEvent(new Event("change",{bubbles:true}));
+  });
   root.querySelectorAll('[name="export-format"]').forEach((control)=>{
     control.addEventListener("change",()=>{
       const next=emit(reduceExportState(current,{type:"format",value:control.value}),"format");
@@ -1142,7 +1217,8 @@ export function installExportScreen(root,document,{
       return;
     }
     emit(reduceExportState(current,{type:"exporting",value:true}),"export-start");
-    setButtonBusy(exportButton,true,`Exporting ${format.kind}…`);
+    setButtonBusy(exportButton,true,`Preparing ${format.kind}…`);
+    if(exportProgress)exportProgress.hidden=false;
     try{
       const request=buildExportRequest(document,current,{now:now()});
       const result=await executeExportRequest(request,{
@@ -1158,11 +1234,19 @@ export function installExportScreen(root,document,{
           {partial:result.metadata}
         );
       }
+      try{
+        await onExportComplete(result);
+      }catch(_historyError){
+        toast("File downloaded. Export history could not sync.",{tone:"warning"});
+      }
     }catch(_error){
-      toast("Export failed — try again",{tone:"danger"});
+      if(_error?.partial?.downloaded===true){
+        toast("File downloaded. Its saved version needs attention.",{tone:"warning"});
+      }else toast("Export failed — try again",{tone:"danger"});
     }finally{
       emit(reduceExportState(current,{type:"exporting",value:false}),"export-finish");
       setButtonBusy(exportButton,false,`Export ${format.kind}`);
+      if(exportProgress)exportProgress.hidden=true;
       updateRecipientGate();
     }
   });

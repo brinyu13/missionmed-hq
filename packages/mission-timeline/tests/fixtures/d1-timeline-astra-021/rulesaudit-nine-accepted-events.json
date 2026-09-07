@@ -1,0 +1,1379 @@
+{
+  "sourceEvidence": "_AI_HANDOFFS/from_codex/D1-TIMELINE-ASTRA6-AAA-FINAL-021/evidence/browser/commission-cv-bulk-applied-document.json",
+  "events": [
+    {
+      "id": "event-964233ca-35b0-4063-9b50-06b8d5689866",
+      "title": "Doctor of Medicine (MD)",
+      "categoryId": "education",
+      "eventType": "duration",
+      "startDate": "2016-09",
+      "endDate": "2022-06",
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "Carol Davila University of Medicine and Pharmacy, Bucharest, Romania",
+      "notes": "",
+      "lane": null,
+      "sourceType": "document-intake",
+      "provenance": [
+        {
+          "id": "prov-83640172",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "education",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:4",
+          "sourceExcerpt": "Carol Davila University of Medicine and Pharmacy, Bucharest, Romania",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:e0639e2e",
+          "sourceSnippet": "Carol Davila University of Medicine and Pharmacy, Bucharest, Romania"
+        },
+        {
+          "id": "prov-43935c99",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "education",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:5",
+          "sourceExcerpt": "Doctor of Medicine (MD), September 2016 \u2013 June 2022",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:e0639e2e",
+          "sourceSnippet": "Doctor of Medicine (MD), September 2016 \u2013 June 2022"
+        }
+      ],
+      "fields": {
+        "canonicalType": "EDUCATION",
+        "sourceLocation": "",
+        "sourceCountry": "",
+        "sourceProvenance": [
+          {
+            "id": "prov-83640172",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "education",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:4",
+            "sourceExcerpt": "Carol Davila University of Medicine and Pharmacy, Bucharest, Romania",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          },
+          {
+            "id": "prov-43935c99",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "education",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:5",
+            "sourceExcerpt": "Doctor of Medicine (MD), September 2016 \u2013 June 2022",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          }
+        ],
+        "extractionConfidence": {
+          "score": 100,
+          "level": "HIGH",
+          "factors": [
+            {
+              "id": "section",
+              "label": "Recognized source section",
+              "points": 14
+            },
+            {
+              "id": "date",
+              "label": "Recognized start date",
+              "points": 18
+            },
+            {
+              "id": "precision",
+              "label": "Month or day date precision",
+              "points": 12
+            },
+            {
+              "id": "title",
+              "label": "Clear event title",
+              "points": 14
+            },
+            {
+              "id": "organization",
+              "label": "Organization or institution present",
+              "points": 8
+            },
+            {
+              "id": "taxonomy",
+              "label": "Canonical event taxonomy match",
+              "points": 16
+            },
+            {
+              "id": "range",
+              "label": "Complete or explicitly open-ended range",
+              "points": 8
+            },
+            {
+              "id": "provenance",
+              "label": "Source block provenance available",
+              "points": 10
+            }
+          ],
+          "summary": [
+            "+14 Recognized source section",
+            "+18 Recognized start date",
+            "+12 Month or day date precision",
+            "+14 Clear event title",
+            "+8 Organization or institution present",
+            "+16 Canonical event taxonomy match",
+            "+8 Complete or explicitly open-ended range",
+            "+10 Source block provenance available"
+          ]
+        },
+        "datePrecision": {
+          "start": "MONTH",
+          "end": "MONTH"
+        },
+        "inferredFields": [],
+        "mappingRationale": "Education wording or an education source section was detected.",
+        "mappingReviewRequired": false,
+        "extractionWarnings": [],
+        "privacy": {
+          "sensitive": false,
+          "flags": [],
+          "recommendation": "INTERVIEWER_SAFE",
+          "rationale": [],
+          "requiresExplicitDisclosure": false,
+          "privateByTaxonomy": false,
+          "legalOrMedicalJudgment": false
+        },
+        "duplicateGroupIds": [],
+        "conflictIds": [],
+        "profileFullName": "Ana Popescu",
+        "profileNameProvenance": [
+          {
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:1",
+            "pageNumber": 1,
+            "sourceExcerpt": "Ana Popescu, MD",
+            "extractionMethod": "EXPLICIT_CV_NAME_HEADER",
+            "evidenceFields": [
+              "fullName"
+            ]
+          }
+        ],
+        "medicalSchool": "Carol Davila University of Medicine and Pharmacy, Bucharest, Romania",
+        "medicalSchoolCountry": "",
+        "degree": "MD"
+      }
+    },
+    {
+      "id": "event-f3f62f38-925e-4c07-bf08-7498ce403cb8",
+      "title": "USMLE Step 1 \u2014 Pass",
+      "categoryId": "exams",
+      "eventType": "milestone",
+      "startDate": "2022-11",
+      "endDate": null,
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "document-intake",
+      "provenance": [
+        {
+          "id": "prov-456bd0a5",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "examinations",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:7",
+          "sourceExcerpt": "USMLE Step 1 \u2014 Pass, November 2022",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:59b64771",
+          "sourceSnippet": "USMLE Step 1 \u2014 Pass, November 2022"
+        }
+      ],
+      "fields": {
+        "canonicalType": "STEP_1",
+        "sourceLocation": "",
+        "sourceCountry": "",
+        "sourceProvenance": [
+          {
+            "id": "prov-456bd0a5",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "examinations",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:7",
+            "sourceExcerpt": "USMLE Step 1 \u2014 Pass, November 2022",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          }
+        ],
+        "extractionConfidence": {
+          "score": 100,
+          "level": "HIGH",
+          "factors": [
+            {
+              "id": "section",
+              "label": "Recognized source section",
+              "points": 14
+            },
+            {
+              "id": "date",
+              "label": "Recognized start date",
+              "points": 18
+            },
+            {
+              "id": "precision",
+              "label": "Month or day date precision",
+              "points": 12
+            },
+            {
+              "id": "title",
+              "label": "Clear event title",
+              "points": 14
+            },
+            {
+              "id": "taxonomy",
+              "label": "Canonical event taxonomy match",
+              "points": 16
+            },
+            {
+              "id": "range",
+              "label": "Complete or explicitly open-ended range",
+              "points": 8
+            },
+            {
+              "id": "provenance",
+              "label": "Source block provenance available",
+              "points": 10
+            }
+          ],
+          "summary": [
+            "+14 Recognized source section",
+            "+18 Recognized start date",
+            "+12 Month or day date precision",
+            "+14 Clear event title",
+            "+16 Canonical event taxonomy match",
+            "+8 Complete or explicitly open-ended range",
+            "+10 Source block provenance available"
+          ]
+        },
+        "datePrecision": {
+          "start": "MONTH",
+          "end": null
+        },
+        "inferredFields": [],
+        "mappingRationale": "Explicit Step 1 examination label detected.",
+        "mappingReviewRequired": false,
+        "extractionWarnings": [],
+        "privacy": {
+          "sensitive": false,
+          "flags": [],
+          "recommendation": "INTERVIEWER_SAFE",
+          "rationale": [],
+          "requiresExplicitDisclosure": false,
+          "privateByTaxonomy": false,
+          "legalOrMedicalJudgment": false
+        },
+        "duplicateGroupIds": [],
+        "conflictIds": [],
+        "examSystem": "USMLE",
+        "examName": "USMLE Step 1 \u2014 Pass",
+        "result": "Passed",
+        "score": "",
+        "studyPeriodStart": ""
+      }
+    },
+    {
+      "id": "event-9c3414f2-fea3-4f0f-b113-6cd459120d16",
+      "title": "USMLE Step 2 CK \u2014 251",
+      "categoryId": "exams",
+      "eventType": "milestone",
+      "startDate": "2023-03",
+      "endDate": null,
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "document-intake",
+      "provenance": [
+        {
+          "id": "prov-1b9812a4",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "examinations",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:8",
+          "sourceExcerpt": "USMLE Step 2 CK \u2014 251, March 2023",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:bad7559e",
+          "sourceSnippet": "USMLE Step 2 CK \u2014 251, March 2023"
+        }
+      ],
+      "fields": {
+        "canonicalType": "STEP_2_CK",
+        "sourceLocation": "",
+        "sourceCountry": "",
+        "sourceProvenance": [
+          {
+            "id": "prov-1b9812a4",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "examinations",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:8",
+            "sourceExcerpt": "USMLE Step 2 CK \u2014 251, March 2023",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          }
+        ],
+        "extractionConfidence": {
+          "score": 100,
+          "level": "HIGH",
+          "factors": [
+            {
+              "id": "section",
+              "label": "Recognized source section",
+              "points": 14
+            },
+            {
+              "id": "date",
+              "label": "Recognized start date",
+              "points": 18
+            },
+            {
+              "id": "precision",
+              "label": "Month or day date precision",
+              "points": 12
+            },
+            {
+              "id": "title",
+              "label": "Clear event title",
+              "points": 14
+            },
+            {
+              "id": "taxonomy",
+              "label": "Canonical event taxonomy match",
+              "points": 16
+            },
+            {
+              "id": "range",
+              "label": "Complete or explicitly open-ended range",
+              "points": 8
+            },
+            {
+              "id": "provenance",
+              "label": "Source block provenance available",
+              "points": 10
+            }
+          ],
+          "summary": [
+            "+14 Recognized source section",
+            "+18 Recognized start date",
+            "+12 Month or day date precision",
+            "+14 Clear event title",
+            "+16 Canonical event taxonomy match",
+            "+8 Complete or explicitly open-ended range",
+            "+10 Source block provenance available"
+          ]
+        },
+        "datePrecision": {
+          "start": "MONTH",
+          "end": null
+        },
+        "inferredFields": [],
+        "mappingRationale": "Explicit Step 2 CK examination label detected.",
+        "mappingReviewRequired": false,
+        "extractionWarnings": [],
+        "privacy": {
+          "sensitive": false,
+          "flags": [],
+          "recommendation": "INTERVIEWER_SAFE",
+          "rationale": [],
+          "requiresExplicitDisclosure": false,
+          "privateByTaxonomy": false,
+          "legalOrMedicalJudgment": false
+        },
+        "duplicateGroupIds": [],
+        "conflictIds": [],
+        "examSystem": "USMLE",
+        "examName": "USMLE Step 2 CK \u2014 251",
+        "result": "",
+        "score": "251",
+        "studyPeriodStart": ""
+      }
+    },
+    {
+      "id": "event-353f068e-19ea-499e-8df7-5fef50b6c647",
+      "title": "Observership, Internal Medicine, Mount Sinai Hospital, New York, NY",
+      "categoryId": "clinical",
+      "eventType": "duration",
+      "startDate": "2023-07",
+      "endDate": "2023-08",
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "document-intake",
+      "provenance": [
+        {
+          "id": "prov-59c78919",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "experiences",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:10",
+          "sourceExcerpt": "Observership, Internal Medicine, Mount Sinai Hospital, New York, NY \u2014 July 2023 \u2013 August 2023",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:12c3a37d",
+          "sourceSnippet": "Observership, Internal Medicine, Mount Sinai Hospital, New York, NY \u2014 July 2023 \u2013 August 2023"
+        }
+      ],
+      "fields": {
+        "canonicalType": "OBSERVERSHIP",
+        "sourceLocation": "",
+        "sourceCountry": "",
+        "sourceProvenance": [
+          {
+            "id": "prov-59c78919",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "experiences",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:10",
+            "sourceExcerpt": "Observership, Internal Medicine, Mount Sinai Hospital, New York, NY \u2014 July 2023 \u2013 August 2023",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          }
+        ],
+        "extractionConfidence": {
+          "score": 100,
+          "level": "HIGH",
+          "factors": [
+            {
+              "id": "section",
+              "label": "Recognized source section",
+              "points": 14
+            },
+            {
+              "id": "date",
+              "label": "Recognized start date",
+              "points": 18
+            },
+            {
+              "id": "precision",
+              "label": "Month or day date precision",
+              "points": 12
+            },
+            {
+              "id": "title",
+              "label": "Clear event title",
+              "points": 14
+            },
+            {
+              "id": "taxonomy",
+              "label": "Canonical event taxonomy match",
+              "points": 16
+            },
+            {
+              "id": "range",
+              "label": "Complete or explicitly open-ended range",
+              "points": 8
+            },
+            {
+              "id": "provenance",
+              "label": "Source block provenance available",
+              "points": 10
+            }
+          ],
+          "summary": [
+            "+14 Recognized source section",
+            "+18 Recognized start date",
+            "+12 Month or day date precision",
+            "+14 Clear event title",
+            "+16 Canonical event taxonomy match",
+            "+8 Complete or explicitly open-ended range",
+            "+10 Source block provenance available"
+          ]
+        },
+        "datePrecision": {
+          "start": "MONTH",
+          "end": "MONTH"
+        },
+        "inferredFields": [],
+        "mappingRationale": "Clinical-experience wording and United States geography were both detected.",
+        "mappingReviewRequired": false,
+        "extractionWarnings": [],
+        "privacy": {
+          "sensitive": false,
+          "flags": [],
+          "recommendation": "INTERVIEWER_SAFE",
+          "rationale": [],
+          "requiresExplicitDisclosure": false,
+          "privateByTaxonomy": false,
+          "legalOrMedicalJudgment": false
+        },
+        "duplicateGroupIds": [],
+        "conflictIds": [],
+        "institution": "",
+        "specialty": "",
+        "rotationType": "Observership",
+        "city": "",
+        "state": "",
+        "country": "",
+        "currentlyOnRotation": false
+      }
+    },
+    {
+      "id": "event-52ec7664-c17b-4b1a-8ab0-693b7f7fcf4f",
+      "title": "Clinical Elective, Cardiology, Cleveland Clinic, Cleveland, OH",
+      "categoryId": "clinical",
+      "eventType": "duration",
+      "startDate": "2023-10",
+      "endDate": "2023-11",
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "document-intake",
+      "provenance": [
+        {
+          "id": "prov-5a696b0e",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "experiences",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:11",
+          "sourceExcerpt": "Clinical Elective, Cardiology, Cleveland Clinic, Cleveland, OH \u2014 October 2023 \u2013 November 2023",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:8935eced",
+          "sourceSnippet": "Clinical Elective, Cardiology, Cleveland Clinic, Cleveland, OH \u2014 October 2023 \u2013 November 2023"
+        }
+      ],
+      "fields": {
+        "canonicalType": "USCE_CLINIC",
+        "sourceLocation": "",
+        "sourceCountry": "",
+        "sourceProvenance": [
+          {
+            "id": "prov-5a696b0e",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "experiences",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:11",
+            "sourceExcerpt": "Clinical Elective, Cardiology, Cleveland Clinic, Cleveland, OH \u2014 October 2023 \u2013 November 2023",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          }
+        ],
+        "extractionConfidence": {
+          "score": 100,
+          "level": "HIGH",
+          "factors": [
+            {
+              "id": "section",
+              "label": "Recognized source section",
+              "points": 14
+            },
+            {
+              "id": "date",
+              "label": "Recognized start date",
+              "points": 18
+            },
+            {
+              "id": "precision",
+              "label": "Month or day date precision",
+              "points": 12
+            },
+            {
+              "id": "title",
+              "label": "Clear event title",
+              "points": 14
+            },
+            {
+              "id": "taxonomy",
+              "label": "Canonical event taxonomy match",
+              "points": 16
+            },
+            {
+              "id": "range",
+              "label": "Complete or explicitly open-ended range",
+              "points": 8
+            },
+            {
+              "id": "provenance",
+              "label": "Source block provenance available",
+              "points": 10
+            }
+          ],
+          "summary": [
+            "+14 Recognized source section",
+            "+18 Recognized start date",
+            "+12 Month or day date precision",
+            "+14 Clear event title",
+            "+16 Canonical event taxonomy match",
+            "+8 Complete or explicitly open-ended range",
+            "+10 Source block provenance available"
+          ]
+        },
+        "datePrecision": {
+          "start": "MONTH",
+          "end": "MONTH"
+        },
+        "inferredFields": [],
+        "mappingRationale": "Clinical-experience wording and United States geography were both detected.",
+        "mappingReviewRequired": false,
+        "extractionWarnings": [],
+        "privacy": {
+          "sensitive": false,
+          "flags": [],
+          "recommendation": "INTERVIEWER_SAFE",
+          "rationale": [],
+          "requiresExplicitDisclosure": false,
+          "privateByTaxonomy": false,
+          "legalOrMedicalJudgment": false
+        },
+        "duplicateGroupIds": [],
+        "conflictIds": [],
+        "institution": "",
+        "specialty": "",
+        "rotationType": "",
+        "city": "",
+        "state": "",
+        "country": "",
+        "currentlyOnRotation": false
+      }
+    },
+    {
+      "id": "event-367499ad-72f9-4ff4-b009-67b42759a7e2",
+      "title": "Resident Physician (PGY-1 equivalent), Internal Medicine, Emergency University Hospital Bucharest",
+      "categoryId": "work",
+      "eventType": "duration",
+      "startDate": "2023-01",
+      "endDate": "2024-06",
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "document-intake",
+      "provenance": [
+        {
+          "id": "prov-1478fb02",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "work",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:13",
+          "sourceExcerpt": "Resident Physician (PGY-1 equivalent), Internal Medicine, Emergency University Hospital Bucharest",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:227d6e5d",
+          "sourceSnippet": "Resident Physician (PGY-1 equivalent), Internal Medicine, Emergency University Hospital Bucharest"
+        },
+        {
+          "id": "prov-56711567",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "work",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:14",
+          "sourceExcerpt": "\u2014 January 2023 \u2013 June 2024",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:227d6e5d",
+          "sourceSnippet": "\u2014 January 2023 \u2013 June 2024"
+        }
+      ],
+      "fields": {
+        "canonicalType": "RESIDENCY_FELLOWSHIP",
+        "sourceLocation": "",
+        "sourceCountry": "",
+        "sourceProvenance": [
+          {
+            "id": "prov-1478fb02",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "work",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:13",
+            "sourceExcerpt": "Resident Physician (PGY-1 equivalent), Internal Medicine, Emergency University Hospital Bucharest",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          },
+          {
+            "id": "prov-56711567",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "work",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:14",
+            "sourceExcerpt": "\u2014 January 2023 \u2013 June 2024",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          }
+        ],
+        "extractionConfidence": {
+          "score": 100,
+          "level": "HIGH",
+          "factors": [
+            {
+              "id": "section",
+              "label": "Recognized source section",
+              "points": 14
+            },
+            {
+              "id": "date",
+              "label": "Recognized start date",
+              "points": 18
+            },
+            {
+              "id": "precision",
+              "label": "Month or day date precision",
+              "points": 12
+            },
+            {
+              "id": "title",
+              "label": "Clear event title",
+              "points": 14
+            },
+            {
+              "id": "taxonomy",
+              "label": "Canonical event taxonomy match",
+              "points": 16
+            },
+            {
+              "id": "range",
+              "label": "Complete or explicitly open-ended range",
+              "points": 8
+            },
+            {
+              "id": "provenance",
+              "label": "Source block provenance available",
+              "points": 10
+            }
+          ],
+          "summary": [
+            "+14 Recognized source section",
+            "+18 Recognized start date",
+            "+12 Month or day date precision",
+            "+14 Clear event title",
+            "+16 Canonical event taxonomy match",
+            "+8 Complete or explicitly open-ended range",
+            "+10 Source block provenance available"
+          ]
+        },
+        "datePrecision": {
+          "start": "MONTH",
+          "end": "MONTH"
+        },
+        "inferredFields": [],
+        "mappingRationale": "Residency training wording detected.",
+        "mappingReviewRequired": false,
+        "extractionWarnings": [],
+        "privacy": {
+          "sensitive": false,
+          "flags": [],
+          "recommendation": "INTERVIEWER_SAFE",
+          "rationale": [],
+          "requiresExplicitDisclosure": false,
+          "privateByTaxonomy": false,
+          "legalOrMedicalJudgment": false
+        },
+        "duplicateGroupIds": [],
+        "conflictIds": [],
+        "organization": "",
+        "country": "",
+        "city": "",
+        "kind": "",
+        "stillWorking": false,
+        "description": ""
+      }
+    },
+    {
+      "id": "event-b1fa0b9b-8a45-4de8-ab43-bda96efbf8cd",
+      "title": "Research Assistant, Cardiovascular Outcomes Lab, Carol Davila University",
+      "categoryId": "research",
+      "eventType": "duration",
+      "startDate": "2021-03",
+      "endDate": "2022-12",
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "document-intake",
+      "provenance": [
+        {
+          "id": "prov-d1efb685",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "research",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:16",
+          "sourceExcerpt": "Research Assistant, Cardiovascular Outcomes Lab, Carol Davila University \u2014 March 2021 \u2013",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:dd6f39ae",
+          "sourceSnippet": "Research Assistant, Cardiovascular Outcomes Lab, Carol Davila University \u2014 March 2021 \u2013"
+        },
+        {
+          "id": "prov-f8b42220",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "research",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:17",
+          "sourceExcerpt": "December 2022",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:dd6f39ae",
+          "sourceSnippet": "December 2022"
+        }
+      ],
+      "fields": {
+        "canonicalType": "RESEARCH_EXPERIENCE",
+        "sourceLocation": "",
+        "sourceCountry": "",
+        "sourceProvenance": [
+          {
+            "id": "prov-d1efb685",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "research",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:16",
+            "sourceExcerpt": "Research Assistant, Cardiovascular Outcomes Lab, Carol Davila University \u2014 March 2021 \u2013",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          },
+          {
+            "id": "prov-f8b42220",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "research",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:17",
+            "sourceExcerpt": "December 2022",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          }
+        ],
+        "extractionConfidence": {
+          "score": 100,
+          "level": "HIGH",
+          "factors": [
+            {
+              "id": "section",
+              "label": "Recognized source section",
+              "points": 14
+            },
+            {
+              "id": "date",
+              "label": "Recognized start date",
+              "points": 18
+            },
+            {
+              "id": "precision",
+              "label": "Month or day date precision",
+              "points": 12
+            },
+            {
+              "id": "title",
+              "label": "Clear event title",
+              "points": 14
+            },
+            {
+              "id": "taxonomy",
+              "label": "Canonical event taxonomy match",
+              "points": 16
+            },
+            {
+              "id": "range",
+              "label": "Complete or explicitly open-ended range",
+              "points": 8
+            },
+            {
+              "id": "provenance",
+              "label": "Source block provenance available",
+              "points": 10
+            }
+          ],
+          "summary": [
+            "+14 Recognized source section",
+            "+18 Recognized start date",
+            "+12 Month or day date precision",
+            "+14 Clear event title",
+            "+16 Canonical event taxonomy match",
+            "+8 Complete or explicitly open-ended range",
+            "+10 Source block provenance available"
+          ]
+        },
+        "datePrecision": {
+          "start": "MONTH",
+          "end": "MONTH"
+        },
+        "inferredFields": [],
+        "mappingRationale": "Research-section context was detected and takes precedence over ambiguous fellowship wording.",
+        "mappingReviewRequired": false,
+        "extractionWarnings": [],
+        "privacy": {
+          "sensitive": false,
+          "flags": [],
+          "recommendation": "INTERVIEWER_SAFE",
+          "rationale": [],
+          "requiresExplicitDisclosure": false,
+          "privateByTaxonomy": false,
+          "legalOrMedicalJudgment": false
+        },
+        "duplicateGroupIds": [],
+        "conflictIds": [],
+        "institution": "",
+        "role": "",
+        "ongoing": false,
+        "publicationStatus": "",
+        "journal": "",
+        "publicationYear": "",
+        "authorPosition": "",
+        "doiOrPmid": "",
+        "markPublication": false
+      }
+    },
+    {
+      "id": "event-9e64bfe0-802f-43c0-8723-07e004734190",
+      "title": "Publication: Popescu A, et al. Outcomes after early anticoagulation. J Synthetic Cardiol.",
+      "categoryId": "research",
+      "eventType": "milestone",
+      "startDate": "2023-01",
+      "endDate": null,
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "document-intake",
+      "provenance": [
+        {
+          "id": "prov-b2f16532",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "research",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:18",
+          "sourceExcerpt": "Publication: Popescu A, et al. Outcomes after early anticoagulation. J Synthetic Cardiol. 2023.",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:b97232f8",
+          "sourceSnippet": "Publication: Popescu A, et al. Outcomes after early anticoagulation. J Synthetic Cardiol. 2023."
+        }
+      ],
+      "fields": {
+        "canonicalType": "PUBLICATION",
+        "sourceLocation": "",
+        "sourceCountry": "",
+        "sourceProvenance": [
+          {
+            "id": "prov-b2f16532",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "research",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:18",
+            "sourceExcerpt": "Publication: Popescu A, et al. Outcomes after early anticoagulation. J Synthetic Cardiol. 2023.",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          }
+        ],
+        "extractionConfidence": {
+          "score": 79,
+          "level": "MEDIUM",
+          "factors": [
+            {
+              "id": "section",
+              "label": "Recognized source section",
+              "points": 14
+            },
+            {
+              "id": "date",
+              "label": "Recognized start date",
+              "points": 18
+            },
+            {
+              "id": "title",
+              "label": "Clear event title",
+              "points": 14
+            },
+            {
+              "id": "taxonomy",
+              "label": "Canonical event taxonomy match",
+              "points": 16
+            },
+            {
+              "id": "range",
+              "label": "Complete or explicitly open-ended range",
+              "points": 8
+            },
+            {
+              "id": "provenance",
+              "label": "Source block provenance available",
+              "points": 10
+            },
+            {
+              "id": "inferred",
+              "label": "Inferred date detail",
+              "points": -14
+            }
+          ],
+          "summary": [
+            "+14 Recognized source section",
+            "+18 Recognized start date",
+            "+14 Clear event title",
+            "+16 Canonical event taxonomy match",
+            "+8 Complete or explicitly open-ended range",
+            "+10 Source block provenance available",
+            "-14 Inferred date detail"
+          ]
+        },
+        "datePrecision": {
+          "start": "YEAR",
+          "end": null
+        },
+        "inferredFields": [
+          {
+            "field": "startDate",
+            "reason": "Month placeholder is January; source precision remains year-only",
+            "sourcePrecision": "YEAR"
+          }
+        ],
+        "mappingRationale": "Publication wording detected.",
+        "mappingReviewRequired": false,
+        "extractionWarnings": [
+          "Month placeholder is January; source precision remains year-only"
+        ],
+        "privacy": {
+          "sensitive": false,
+          "flags": [],
+          "recommendation": "INTERVIEWER_SAFE",
+          "rationale": [],
+          "requiresExplicitDisclosure": false,
+          "privateByTaxonomy": false,
+          "legalOrMedicalJudgment": false
+        },
+        "duplicateGroupIds": [],
+        "conflictIds": [],
+        "institution": "",
+        "role": "",
+        "ongoing": false,
+        "publicationStatus": "",
+        "journal": "",
+        "publicationYear": "",
+        "authorPosition": "",
+        "doiOrPmid": "",
+        "markPublication": true
+      }
+    },
+    {
+      "id": "event-2e395626-c3ce-4377-a0dd-5cd5135344af",
+      "title": "Volunteer, Red Cross Romania, Bucharest",
+      "categoryId": "work",
+      "eventType": "duration",
+      "startDate": "2019-01",
+      "endDate": "2021-12",
+      "openEnded": false,
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "",
+      "notes": "",
+      "lane": null,
+      "sourceType": "document-intake",
+      "provenance": [
+        {
+          "id": "prov-8d73ce29",
+          "sourceDocumentId": "src-d261c62ac4e71f12",
+          "sourceObjectId": "",
+          "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+          "fileName": "synthetic-cv.pdf",
+          "documentType": "cv",
+          "detectedDocumentType": "cv",
+          "userDeclaredType": "cv",
+          "pageNumber": 1,
+          "pageId": "src-d261c62ac4e71f12:page:1",
+          "section": "volunteer",
+          "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:20",
+          "sourceExcerpt": "Volunteer, Red Cross Romania, Bucharest \u2014 2019 \u2013 2021",
+          "extractionMethod": "PDFJS_TEXT_LAYER",
+          "parserVersion": "408.1.0",
+          "sourceDocumentName": "synthetic-cv.pdf",
+          "extractionCandidateId": "src-d261c62ac4e71f12:candidate:f49b351c",
+          "sourceSnippet": "Volunteer, Red Cross Romania, Bucharest \u2014 2019 \u2013 2021"
+        }
+      ],
+      "fields": {
+        "canonicalType": "VOLUNTEER_EXPERIENCE",
+        "sourceLocation": "",
+        "sourceCountry": "",
+        "sourceProvenance": [
+          {
+            "id": "prov-8d73ce29",
+            "sourceDocumentId": "src-d261c62ac4e71f12",
+            "sourceObjectId": "",
+            "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+            "fileName": "synthetic-cv.pdf",
+            "documentType": "cv",
+            "detectedDocumentType": "cv",
+            "userDeclaredType": "cv",
+            "pageNumber": 1,
+            "pageId": "src-d261c62ac4e71f12:page:1",
+            "section": "volunteer",
+            "sourceBlockId": "src-d261c62ac4e71f12:page:1:block:20",
+            "sourceExcerpt": "Volunteer, Red Cross Romania, Bucharest \u2014 2019 \u2013 2021",
+            "extractionMethod": "PDFJS_TEXT_LAYER",
+            "parserVersion": "408.1.0"
+          }
+        ],
+        "extractionConfidence": {
+          "score": 79,
+          "level": "MEDIUM",
+          "factors": [
+            {
+              "id": "section",
+              "label": "Recognized source section",
+              "points": 14
+            },
+            {
+              "id": "date",
+              "label": "Recognized start date",
+              "points": 18
+            },
+            {
+              "id": "title",
+              "label": "Clear event title",
+              "points": 14
+            },
+            {
+              "id": "taxonomy",
+              "label": "Canonical event taxonomy match",
+              "points": 16
+            },
+            {
+              "id": "range",
+              "label": "Complete or explicitly open-ended range",
+              "points": 8
+            },
+            {
+              "id": "provenance",
+              "label": "Source block provenance available",
+              "points": 10
+            },
+            {
+              "id": "inferred",
+              "label": "Inferred date detail",
+              "points": -14
+            }
+          ],
+          "summary": [
+            "+14 Recognized source section",
+            "+18 Recognized start date",
+            "+14 Clear event title",
+            "+16 Canonical event taxonomy match",
+            "+8 Complete or explicitly open-ended range",
+            "+10 Source block provenance available",
+            "-14 Inferred date detail"
+          ]
+        },
+        "datePrecision": {
+          "start": "YEAR",
+          "end": "YEAR"
+        },
+        "inferredFields": [
+          {
+            "field": "startDate",
+            "reason": "Month placeholder is January; source precision remains year-only",
+            "sourcePrecision": "YEAR"
+          },
+          {
+            "field": "endDate",
+            "reason": "Month placeholder is December; source precision remains year-only",
+            "sourcePrecision": "YEAR"
+          }
+        ],
+        "mappingRationale": "Volunteer wording detected.",
+        "mappingReviewRequired": false,
+        "extractionWarnings": [
+          "Month placeholder is January; source precision remains year-only",
+          "Month placeholder is December; source precision remains year-only"
+        ],
+        "privacy": {
+          "sensitive": false,
+          "flags": [],
+          "recommendation": "INTERVIEWER_SAFE",
+          "rationale": [],
+          "requiresExplicitDisclosure": false,
+          "privateByTaxonomy": false,
+          "legalOrMedicalJudgment": false
+        },
+        "duplicateGroupIds": [],
+        "conflictIds": [],
+        "organization": "",
+        "country": "",
+        "city": "",
+        "kind": "",
+        "stillWorking": false,
+        "description": "",
+        "currentlyOnRotation": false,
+        "ongoing": false
+      }
+    }
+  ]
+}

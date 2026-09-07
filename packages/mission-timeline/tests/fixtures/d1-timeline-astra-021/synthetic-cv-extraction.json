@@ -1,0 +1,39 @@
+{
+  "sourceFilename": "synthetic-cv.pdf",
+  "sourceSha256": "d261c62ac4e71f123cc048d1db096af04126032ac4830ef6c8f8cacd09f4a81d",
+  "sourceAuthority": "Fable019 synthetic fixture; original PDF text extracted with the application PDF.js text layer reader",
+  "pages": [
+    {
+      "id": "src-d261c62ac4e71f12:page:1",
+      "sourceDocumentId": "src-d261c62ac4e71f12",
+      "pageNumber": 1,
+      "width": 612,
+      "height": 792,
+      "lines": [
+        "Ana Popescu, MD",
+        "Bucharest, Romania · ana.popescu.synthetic@example.com",
+        "EDUCATION",
+        "Carol Davila University of Medicine and Pharmacy, Bucharest, Romania",
+        "Doctor of Medicine (MD), September 2016 – June 2022",
+        "USMLE",
+        "USMLE Step 1 — Pass, November 2022",
+        "USMLE Step 2 CK — 251, March 2023",
+        "CLINICAL EXPERIENCE",
+        "Observership, Internal Medicine, Mount Sinai Hospital, New York, NY — July 2023 – August 2023",
+        "Clinical Elective, Cardiology, Cleveland Clinic, Cleveland, OH — October 2023 – November 2023",
+        "WORK EXPERIENCE",
+        "Resident Physician (PGY-1 equivalent), Internal Medicine, Emergency University Hospital Bucharest",
+        "— January 2023 – June 2024",
+        "RESEARCH",
+        "Research Assistant, Cardiovascular Outcomes Lab, Carol Davila University — March 2021 –",
+        "December 2022",
+        "Publication: Popescu A, et al. Outcomes after early anticoagulation. J Synthetic Cardiol. 2023.",
+        "VOLUNTEERING",
+        "Volunteer, Red Cross Romania, Bucharest — 2019 – 2021"
+      ],
+      "text": "Ana Popescu, MD\nBucharest, Romania · ana.popescu.synthetic@example.com\nEDUCATION\nCarol Davila University of Medicine and Pharmacy, Bucharest, Romania\nDoctor of Medicine (MD), September 2016 – June 2022\nUSMLE\nUSMLE Step 1 — Pass, November 2022\nUSMLE Step 2 CK — 251, March 2023\nCLINICAL EXPERIENCE\nObservership, Internal Medicine, Mount Sinai Hospital, New York, NY — July 2023 – August 2023\nClinical Elective, Cardiology, Cleveland Clinic, Cleveland, OH — October 2023 – November 2023\nWORK EXPERIENCE\nResident Physician (PGY-1 equivalent), Internal Medicine, Emergency University Hospital Bucharest\n— January 2023 – June 2024\nRESEARCH\nResearch Assistant, Cardiovascular Outcomes Lab, Carol Davila University — March 2021 –\nDecember 2022\nPublication: Popescu A, et al. Outcomes after early anticoagulation. J Synthetic Cardiol. 2023.\nVOLUNTEERING\nVolunteer, Red Cross Romania, Bucharest — 2019 – 2021",
+      "charCount": 899,
+      "extractionMethod": "PDFJS_TEXT_LAYER"
+    }
+  ]
+}

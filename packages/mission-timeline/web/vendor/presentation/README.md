@@ -1,0 +1,1 @@
+PptxGenJS 4.0.1 and JSZip 3.10.1, bundled locally for editable Timeline export. No CDN or runtime dependency downloads. Rebuild with node scripts/build-pptx-browser-vendor.mjs /absolute/path/to/node_modules. Upstream licenses are retained alongside the runtime.

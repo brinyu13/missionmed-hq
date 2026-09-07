@@ -10,11 +10,18 @@ export const INTAKE_STAGES=Object.freeze({
 });
 
 export const INTAKE_PROGRESS=Object.freeze(["Upload","Read","Review","Done"]);
+/* AAA-019 — student-language stages (11 §3). Each stage is shown for at least
+   EXTRACTION_MIN_STAGE_MS even when the read is instant, so the student can see what
+   happened rather than a flash between UPLOAD and REVIEW. */
 export const EXTRACTION_STATUSES=Object.freeze([
-  "Finding dates…",
-  "Matching institutions…",
-  "Sorting your story…"
+  "Reading your CV…",
+  "Finding your education and training…",
+  "Matching dates…",
+  "Organizing your experiences…",
+  "Building your Timeline…",
+  "Checking spacing and readability…"
 ]);
+export const EXTRACTION_MIN_STAGE_MS=550;
 export const DOCUMENT_TYPES=Object.freeze(["CV","MyERAS export","Résumé"]);
 export const INTAKE_FILTERS=Object.freeze(["all","accepted","rejected","undecided"]);
 export const MAX_DOCUMENT_BYTES=20*1024*1024;
@@ -339,7 +346,8 @@ export function candidateQuestions(candidate){
     questions.push({key:"categoryId",kind:"category",field:"categoryId",label:"Which part of your story is this?"});
   }
   const institution=INSTITUTION_FIELD_BY_CATEGORY[candidate?.categoryId];
-  if(institution&&!String(fields[institution]||"").trim()){
+  const awardWithoutSchool=candidate?.categoryId==="education"&&String(fields.canonicalType||"").toUpperCase()==="AWARD_HONOR";
+  if(institution&&!awardWithoutSchool&&!String(fields[institution]||"").trim()){
     questions.push({key:institution,kind:"text",extra:institution,label:INSTITUTION_QUESTIONS[candidate.categoryId]});
   }
   return questions;
@@ -528,6 +536,8 @@ export function hydrateIntakeState(value,{existingEvents=[]}={}){
   if(stage===INTAKE_STAGES.DONE){
     hydrated.approval.applied=true;
     hydrated.approval.appliedCount=Number(hydrated.approval.appliedCount||source.lastImport?.acceptedCount)||0;
+    hydrated.approval.addedCount=Number(hydrated.approval.addedCount??source.lastImport?.addedCount??hydrated.approval.appliedCount)||0;
+    hydrated.approval.mergedCount=Number(hydrated.approval.mergedCount??source.lastImport?.mergedCount)||0;
     hydrated.approval.fileName=hydrated.approval.fileName||source.lastImport?.fileName||source.file?.name||"document";
   }
   return hydrated;
@@ -604,7 +614,8 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       return state;
     case"ROTATE_STATUS":
       if(state.stage===INTAKE_STAGES.EXTRACTION&&!state.failure){
-        state.extraction.statusIndex=(state.extraction.statusIndex+1)%EXTRACTION_STATUSES.length;
+        /* Advance to the last stage and hold there — never wrap back to "Reading…". */
+        state.extraction.statusIndex=Math.min(EXTRACTION_STATUSES.length-1,state.extraction.statusIndex+1);
       }
       return state;
     case"EXTRACTION_SUCCEEDED":
@@ -660,7 +671,8 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
           ?VISIBILITY.ADVISOR_ONLY
           :VISIBILITY.INTERVIEWER_SAFE;
       }
-      if(candidate.categoryId==="education")candidate.eventType="milestone";
+      // Editing a degree's visibility or title must not turn its explicit
+      // training period into a graduation milestone at the start date.
       if(candidate.categoryId==="personal"){
         if(Object.hasOwn(patch,"visibilityState")){
           candidate.visibilityState=patch.visibilityState===VISIBILITY.INTERVIEWER_SAFE
@@ -815,6 +827,8 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.approval.inFlight=false;
       state.approval.applied=true;
       state.approval.appliedCount=Number(action.appliedCount)||0;
+      state.approval.addedCount=Number(action.addedCount??action.appliedCount)||0;
+      state.approval.mergedCount=Number(action.mergedCount)||0;
       state.approval.fileName=String(action.fileName||state.file?.name||"document");
       state.approval.errorCode=null;
       state.stage=INTAKE_STAGES.DONE;
@@ -929,13 +943,16 @@ function cvProfilePrefill(candidates=[]){
     String(candidate.fields?.canonicalType||"").toUpperCase()==="EDUCATION"
   );
   if(!degree)return null;
-  const graduationDate=graduation?.startDate||degree.endDate||(
-    String(degree.fields?.canonicalType||"").toUpperCase()==="GRADUATION"
-      ?degree.startDate
-      :null
-  );
+  // A separate BSc graduation must never supply the medical degree's date.
+  const graduationEdge=degree.endDate?"end":degree.eventType==="milestone"||String(degree.fields?.canonicalType||"").toUpperCase()==="GRADUATION"?"start":"end";
+  const graduationDate=graduationEdge==="start"?degree.startDate:degree.endDate;
+  const graduationDatePrecision=candidateDatePrecision(degree,graduationEdge+"Date");
   return{
     sourceCandidateId:String(degree.id),
+    visibilityState:degree.visibilityState||VISIBILITY.ADVISOR_ONLY,
+    fullName:Array.isArray(degree.fields?.profileNameProvenance)&&degree.fields.profileNameProvenance.length
+      ?String(degree.fields.profileFullName||'').trim():"",
+    fullNameProvenance:clone(degree.fields?.profileNameProvenance||[]),
     medicalSchool:String(
       degree.fields?.medicalSchool||
       degree.siteName||
@@ -943,8 +960,10 @@ function cvProfilePrefill(candidates=[]){
       ""
     ).trim(),
     medicalSchoolCountry:String(degree.fields?.medicalSchoolCountry||degree.fields?.sourceCountry||"").trim(),
-    graduationDate:graduationDate?String(graduationDate).slice(0,7):"",
+    graduationDate:graduationDate?String(graduationDate).slice(0,graduationDatePrecision==="YEAR"?4:7):"",
+    graduationDatePrecision,
     degree:String(degree.fields?.degree||"").trim(),
+    degreeProvenance:clone(degree.fields?.profileDegreeProvenance||[]),
     verificationStatus:"unverified-source-claimed",
     provenance:approvalProvenance(degree)
   };
@@ -955,9 +974,11 @@ function cvExamReviewQueue(candidates=[]){
     sourceCandidateId:String(candidate.id),
     canonicalType:String(candidate.fields?.canonicalType||""),
     examName:String(candidate.fields?.examName||candidate.title||""),
-    examDate:candidate.startDate?String(candidate.startDate).slice(0,7):"",
+    examDate:candidate.startDate?String(candidate.startDate).slice(0,candidateDatePrecision(candidate,"startDate")==="YEAR"?4:7):"",
+    examDatePrecision:candidateDatePrecision(candidate,"startDate"),
     result:String(candidate.fields?.result||""),
     score:String(candidate.fields?.score||""),
+    visibilityState:candidate.visibilityState||VISIBILITY.ADVISOR_ONLY,
     status:"needs-student-confirmation",
     provenance:approvalProvenance(candidate)
   }));
@@ -967,16 +988,29 @@ function mergePatch(existing,candidate,fileName){
   const existingRange=monthRange(existing),candidateRange=monthRange(candidate);
   const start=existingRange&&candidateRange?Math.min(existingRange.start,candidateRange.start):(existingRange?.start??candidateRange?.start);
   const end=existingRange&&candidateRange?Math.max(existingRange.end,candidateRange.end):(existingRange?.end??candidateRange?.end);
+  const evidenceKey=item=>JSON.stringify([
+    item.id||item.evidenceId||null,item.sourceSha256||item.artifactSha256||null,
+    item.sourceDocumentId||((item.sourceSha256||item.artifactSha256)?null:item.sourceDocumentName||item.fileName||null),item.sourceBlockId||item.objectId||null,
+    item.pageNumber??item.pageOrSlide??null,item.sourceExcerpt||item.sourceText||item.sourceSnippet||null,
+    item.extractionMethod||null
+  ]);
+  const seen=new Set(),provenance=[];
+  for(const item of existing.provenance||[]){
+    const key=evidenceKey(item);if(!seen.has(key)){seen.add(key);provenance.push(item);}
+  }
+  let newEvidence=false;
+  for(const item of approvalProvenance(candidate,fileName)){
+    const key=evidenceKey(item);if(!seen.has(key)){seen.add(key);provenance.push(item);newEvidence=true;}
+  }
   const snippet=candidate.sourceSnippet;
   const currentNotes=String(existing.notes||"").trim();
-  const notes=snippet&&!currentNotes.includes(snippet)?[currentNotes,snippet].filter(Boolean).join("\n"):currentNotes;
-  const provenance=[
-    ...(existing.provenance||[]),
-    ...approvalProvenance(candidate,fileName)
-  ];
+  const notes=newEvidence&&snippet&&!currentNotes.includes(snippet)?[currentNotes,snippet].filter(Boolean).join("\n"):currentNotes;
+  // monthRange uses the start as a comparison endpoint for a point event.
+  // That comparison bound is not a factual end date to write back on reupload.
+  const pointWithoutEnd=existing.eventType==="milestone"&&!existing.endDate;
   return{
     startDate:Number.isFinite(start)?monthString(start):existing.startDate,
-    endDate:existing.openEnded||candidate.openEnded?null:(Number.isFinite(end)?monthString(end):existing.endDate),
+    endDate:pointWithoutEnd||existing.openEnded||candidate.openEnded?null:(Number.isFinite(end)?monthString(end):existing.endDate),
     openEnded:!!existing.openEnded||!!candidate.openEnded,
     notes,
     provenance
@@ -1040,6 +1074,7 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
     history:{required:true,undoSteps:1},
     version:{name:versionName,kind:"automatic",requiredBeforeMutation:true},
     sourceDocument:state.file?clone(state.file):null,
+    analysis:state.extraction?.parser?clone(state.extraction.parser):null,
     documentType:state.detectedType,
     additions,
     merges,
@@ -1085,14 +1120,43 @@ export function applyApprovalBatchToDocument(document,batch){
       ?document.studentProfile:{};
     const prefill=batch.profilePrefill;
     const patch={};
-    for(const field of["medicalSchool","medicalSchoolCountry","graduationDate","degree"]){
-      if(!String(current[field]||"").trim()&&String(prefill[field]||"").trim())patch[field]=prefill[field];
+    const sourceEvent=nextEvents.find(event=>(event.provenance||[]).some(provenance=>String(provenance.extractionCandidateId)===prefill.sourceCandidateId));
+    const fieldProvenance=clone(current.fieldProvenance||{});
+    // Adding an imported school must not retroactively label independent
+    // preexisting profile values as that school's private source claims.
+    // Ambiguous earlier imports keep their existing conservative projection.
+    const hasPriorImportedProfile=current.medicalSchoolVerificationStatus==='unverified-source-claimed'||
+      current.medicalSchoolNormalizationStatus==='review-required'||current.fullNameProvenance?.length||
+      document.builder?.lastAiPrefill||document.intake?.lastImport||
+      (document.events||[]).some(event=>event.sourceType==='document-intake')||
+      Object.values(fieldProvenance).some(binding=>binding?.sourceType==='document-intake');
+    if(!hasPriorImportedProfile&&!String(current.medicalSchool||'').trim()&&prefill.medicalSchool){
+      for(const field of['medicalSchoolCountry','graduationDate','graduationDatePrecision','degree']){
+        if(String(current[field]||'').trim()&&!fieldProvenance[field]){
+          fieldProvenance[field]={sourceType:'manual',visibilityState:'INTERVIEWER_SAFE'};
+        }
+      }
     }
+    for(const field of["fullName","medicalSchool","medicalSchoolCountry","graduationDate","degree"]){
+      if(!String(current[field]||"").trim()&&String(prefill[field]||"").trim()){
+        patch[field]=prefill[field];
+        fieldProvenance[field]={sourceType:'document-intake',sourceCandidateId:prefill.sourceCandidateId,
+          sourceEventId:sourceEvent?.id||null,visibilityState:prefill.visibilityState,
+          provenance:clone(field==='fullName'?prefill.fullNameProvenance:field==='degree'&&prefill.degreeProvenance?.length?prefill.degreeProvenance:prefill.provenance)};
+      }
+    }
+    if(Object.keys(patch).length)patch.fieldProvenance=fieldProvenance;
+    if(patch.graduationDate){
+      patch.graduationDatePrecision=prefill.graduationDatePrecision;
+      fieldProvenance.graduationDatePrecision=clone(fieldProvenance.graduationDate);
+    }
+    if(patch.fullName)patch.fullNameProvenance=clone(prefill.fullNameProvenance||[]);
     if(patch.medicalSchool){
       patch.medicalSchoolEntryMode="unlisted";
       patch.medicalSchoolVerificationStatus=prefill.verificationStatus;
       patch.medicalSchoolNormalizationStatus="review-required";
       patch.medicalSchoolAnalyticsEligible=false;
+      for(const field of['medicalSchoolEntryMode','medicalSchoolVerificationStatus','medicalSchoolNormalizationStatus','medicalSchoolAnalyticsEligible'])fieldProvenance[field]=clone(fieldProvenance.medicalSchool);
     }
     document.studentProfile={...current,...patch};
   }
@@ -1102,6 +1166,34 @@ export function applyApprovalBatchToDocument(document,batch){
   const examBySource=new Map(priorExamQueue.map((item)=>[String(item.sourceCandidateId),clone(item)]));
   for(const item of batch.examReviewQueue||[])examBySource.set(String(item.sourceCandidateId),clone(item));
   document.builder.aiExamReviewQueue=[...examBySource.values()];
+  const examIds={STEP_1:'step-1',STEP_2_CK:'step-2-ck',STEP_3:'step-3'};
+  const exams=clone(Array.isArray(document.exams)?document.exams:[]);
+  for(const item of batch.examReviewQueue||[]){
+    const examId=examIds[item.canonicalType];
+    if(!examId||!item.provenance?.length||(!item.result&&!item.score))continue;
+    const existing=exams.find(exam=>exam.system==='USMLE'&&exam.examId===examId&&exam.examDate===item.examDate);
+    const sourceEvent=nextEvents.find(event=>(event.provenance||[]).some(provenance=>String(provenance.extractionCandidateId)===item.sourceCandidateId));
+    // Reimport may enrich empty fields, but never overwrite another accepted result.
+    if(existing){
+      for(const field of ['result','score'])if(!existing[field]&&item[field]){
+        existing[field]=item[field];
+        existing.fieldProvenance={...(existing.fieldProvenance||{}),[field]:{
+          sourceType:'document-intake',sourceCandidateId:item.sourceCandidateId,sourceEventId:sourceEvent?.id||null,
+          visibilityState:item.visibilityState,provenance:clone(item.provenance)}};
+      }
+      continue;
+    }
+    exams.push({id:`cv-exam-${item.sourceCandidateId}`,system:'USMLE',examId,
+      name:examId==='step-2-ck'?'Step 2 CK':examId==='step-1'?'Step 1':'Step 3',
+      result:item.result,score:item.score,examDate:item.examDate,examDatePrecision:item.examDatePrecision,studyStartDate:'',
+      passFailOnly:examId==='step-1',showScoreOnTimeline:Boolean(item.score),showScoreTouched:true,attemptNumberUnconfirmed:true,
+      sourceType:'document-intake',sourceCandidateId:item.sourceCandidateId,sourceEventId:sourceEvent?.id||null,
+      visibilityState:item.visibilityState,provenance:clone(item.provenance)});
+  }
+  document.exams=exams;
+  if((batch.examReviewQueue||[]).length){
+    document.builder.examSystems=[...new Set([...(document.builder.examSystems||[]),...exams.filter(exam=>(batch.examReviewQueue||[]).some(item=>item.sourceCandidateId===exam.sourceCandidateId)).map(exam=>exam.system)])];
+  }
   document.builder.lastAiPrefill={
     at:batch.createdAt,
     sourceFileName:String(batch.sourceDocument?.name||""),
@@ -1123,7 +1215,8 @@ export function applyApprovalBatchToDocument(document,batch){
       acceptedCount:batch.acceptedCount,
       addedCount:batch.addedCount,
       mergedCount:batch.mergedCount,
-      acceptedCandidates:(batch.acceptedCandidates||[]).map((candidate)=>clone(candidate))
+      acceptedCandidates:(batch.acceptedCandidates||[]).map((candidate)=>clone(candidate)),
+      analysis:batch.analysis?clone(batch.analysis):null
     }
   };
   document.events=nextEvents;
@@ -1150,8 +1243,15 @@ export function acceptedPreviewEvents(state,existingEvents=[]){
 }
 
 export class IntakeStateMachine{
-  constructor({adapter=null,initialState=null,existingEvents=[],clock=()=>new Date(),idFactory=null}={}){
+  constructor({adapter=null,initialState=null,existingEvents=[],clock=()=>new Date(),idFactory=null,narrationDelay=undefined}={}){
     this.adapter=adapter;
+    /* Tests pass narrationDelay:null to skip the read-aloud pacing; the product waits. */
+    this.narrationDelay=narrationDelay===undefined
+      ?(ms,signal)=>new Promise((resolve)=>{
+        const timer=setTimeout(resolve,ms);
+        signal?.addEventListener?.("abort",()=>{clearTimeout(timer);resolve();},{once:true});
+      })
+      :narrationDelay;
     this.existingEvents=clone(existingEvents||[]);
     this.clock=clock;
     this.idFactory=idFactory||((prefix)=>`${prefix}-${crypto.randomUUID()}`);
@@ -1224,6 +1324,7 @@ export class IntakeStateMachine{
     const run=++this.runSequence;
     this.dispatch({type:"START_EXTRACTION"});
     this.abortController=new AbortController();
+    const startedAt=Date.now();
     try{
       const response=await this.adapter.extract({
         file:this.sourceFile,
@@ -1232,6 +1333,13 @@ export class IntakeStateMachine{
         signal:this.abortController.signal
       });
       if(run!==this.runSequence||this.abortController.signal.aborted)return this.snapshot();
+      /* Narrate every stage at a readable pace before revealing the review. */
+      const minimum=EXTRACTION_MIN_STAGE_MS*EXTRACTION_STATUSES.length;
+      const remaining=minimum-(Date.now()-startedAt);
+      if(remaining>0&&typeof this.narrationDelay==="function"){
+        await this.narrationDelay(remaining,this.abortController.signal);
+        if(run!==this.runSequence||this.abortController.signal.aborted)return this.snapshot();
+      }
       const outcome=String(response?.outcome||response?.status||"").toLowerCase();
       if(response?.readable===false||["unreadable","scanned-no-text","scanned_no_text"].includes(outcome)){
         return this.dispatch({type:"EXTRACTION_UNREADABLE"});
@@ -1297,7 +1405,7 @@ export class IntakeStateMachine{
         undoSteps:1
       });
       const appliedCount=Number(result?.appliedCount??batch.acceptedCount);
-      this.dispatch({type:"APPROVAL_SUCCEEDED",appliedCount,fileName:batch.sourceDocument?.name});
+      this.dispatch({type:"APPROVAL_SUCCEEDED",appliedCount,addedCount:Number(result?.addedCount??batch.addedCount)||0,mergedCount:Number(result?.mergedCount??batch.mergedCount)||0,fileName:batch.sourceDocument?.name});
       return{batch,result:this.snapshot().approval};
     }catch(error){
       this.dispatch({type:"APPROVAL_FAILED",errorCode:String(error?.code||"APPROVAL_FAILED")});
@@ -1334,7 +1442,8 @@ function uploadMarkup(state){
     ${state.fileError?`<p class="field-error" role="alert">${escapeHtml(state.fileError)}</p>`:""}
     <p class="secondary-body">${INTAKE_COPY.privacy}</p>
     <label class="intake-consent"><input type="checkbox" data-intake-consent${state.consent?" checked":""}> <span>${INTAKE_COPY.consent}</span></label>
-    <button type="button" class="button primary" data-intake-action="read"${ready?"":" disabled"}>${INTAKE_COPY.read}</button>
+    <span class="intake-read-gate" data-intake-read-gate${ready?"":` data-gate-reason="${escapeHtml(!state.file?"Add your document first.":"Check the consent box first.")}"`}><button type="button" class="button primary" data-intake-action="read"${ready?"":` disabled aria-disabled="true" title="${escapeHtml(!state.file?"Add your document first":"Check the consent box first")}"`}>${INTAKE_COPY.read}</button></span>
+    ${ready?"":`<p class="intake-gate-hint" data-intake-gate-hint aria-live="polite">${escapeHtml(!state.file?"Add a PDF or DOCX to continue.":"Tick the consent box to read your document.")}</p>`}
   </section>`;
 }
 
@@ -1353,10 +1462,12 @@ function failureMarkup(kind){
 
 function extractionMarkup(state){
   if(state.failure)return failureMarkup(state.failure.kind);
+  const status=state.file?.timelineRescue===true&&state.extraction.statusIndex===0
+    ?"Reading your Timeline…":EXTRACTION_STATUSES[state.extraction.statusIndex];
   return`<section class="intake-stage intake-extraction" aria-labelledby="intake-title">
     <h1 id="intake-title">Reading ${escapeHtml(state.file?.name||"document")}…</h1>
     <div class="indeterminate-progress" role="progressbar" aria-label="Reading document"></div>
-    <p class="extraction-status" aria-live="polite">${EXTRACTION_STATUSES[state.extraction.statusIndex]}</p>
+    <p class="extraction-status" aria-live="polite">${status}</p>
   </section>`;
 }
 
@@ -1376,6 +1487,7 @@ const INTERNAL_CANDIDATE_FIELDS=new Set([
   "sourceLocation",
   "sourceProvenance",
   "extractionConfidence",
+  "extractionBasis",
   "datePrecision",
   "mappingRationale",
   "mappingReviewRequired",
@@ -1391,7 +1503,7 @@ function reviewField(candidate,field){
   const value=candidate.fields?.[field.key]??"";
   const attributes=`data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-extra="${escapeHtml(field.key)}"`;
   if(field.type==="select"){
-    return`<label>${escapeHtml(field.label)} <select ${attributes}>${field.options.map((option)=>`<option value="${escapeHtml(option)}"${String(value)===option?" selected":""}>${escapeHtml(option)}</option>`).join("")}</select></label>`;
+    return`<label>${escapeHtml(field.label)} <select ${attributes}>${field.key==="result"?`<option value=""${value?"":" selected"}>Not stated — review</option>`:""}${field.options.map((option)=>`<option value="${escapeHtml(option)}"${String(value)===option?" selected":""}>${escapeHtml(option)}</option>`).join("")}</select></label>`;
   }
   if(field.type==="checkbox"){
     const checked=value===true||value==="true";
@@ -1423,8 +1535,26 @@ function expandedFields(candidate,{includeIdentity=false}={}){
   </div>`;
 }
 
+export function candidateDatePrecision(candidate,field){
+  const precision=candidate?.fields?.datePrecision;
+  const edge=field==="endDate"?"end":"start";
+  if(typeof precision==="string")return precision.toUpperCase();
+  const direct=precision?.[edge]||precision?.[field];
+  if(direct)return String(direct).toUpperCase();
+  const inferred=[...(candidate?.inferredFields||[]),...(candidate?.fields?.inferredFields||[])].find((item)=>item.field===field&&item.sourcePrecision);
+  return String(inferred?.sourcePrecision||"").toUpperCase();
+}
+
+const candidateDateLabel=(candidate,field)=>candidateDatePrecision(candidate,field)==="YEAR"
+  ?String(candidate[field]||"").slice(0,4):String(candidate[field]||"");
+
 function candidateMonthField(candidate,field,label,value){
   const id=`intake-${encodeURIComponent(candidate.id)}-${field}`;
+  if(candidateDatePrecision(candidate,field)==="YEAR"){
+    return`<div class="candidate-month candidate-year"><label for="${id}">${escapeHtml(label)} year
+      <input id="${id}" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" value="${escapeHtml(String(value||"").slice(0,4))}" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="${field}" data-candidate-year-only="true" data-candidate-placeholder-month="${field==="endDate"?"12":"01"}" aria-describedby="${id}-precision">
+      </label><span class="field-help" id="${id}-precision">Year only · month unconfirmed</span></div>`;
+  }
   return`<div class="candidate-month" data-candidate-month data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="${field}">
     ${monthFieldMarkup({id,label,value:value||""})}
   </div>`;
@@ -1453,16 +1583,18 @@ function candidateEvidenceMarkup(candidate){
   const confidenceReasons=Array.isArray(details?.summary)?details.summary:[];
   const dateStatus=inferred.length
     ?`Inferred values: ${inferred.map((item)=>String(item.field||"date")).join(", ")}`
-    :"Extracted dates are explicit in the source";
-  return`<div class="candidate-evidence" aria-label="Extraction evidence">
+    :candidate.startDate?"No date inference recorded":"Start date needs review";
+  return`<details class="source-snippet candidate-evidence" aria-label="Extraction evidence">
+    <summary>Source and confidence${source?` · ${escapeHtml(source.locator)}`:""}</summary>
+    ${candidate.sourceSnippet?`<blockquote>“${escapeHtml(candidate.sourceSnippet)}”</blockquote>`:""}
+    ${candidate.fields?.profileFullName?`<p class="secondary-body">Name from the ${candidate.fields.rescueProfileClaims?'visible Timeline header and profile':'CV header'}: <strong>${escapeHtml(candidate.fields.profileFullName)}</strong>. Accepting this entry fills an empty profile name.</p>`:""}
     ${source?`<p class="secondary-body"><strong>${escapeHtml(source.fileName)}</strong> · ${escapeHtml(source.locator)}</p>`:""}
-    <p class="secondary-body">Extracted dates: ${escapeHtml(candidate.startDate||"Needs review")}${candidate.openEnded?" – ongoing":candidate.endDate?` – ${escapeHtml(candidate.endDate)}`:""} · ${escapeHtml(dateStatus)}</p>
+    <p class="secondary-body">Source confidence: ${escapeHtml(candidate.confidence)}. Review eligibility also accounts for duplicates and open checks.</p>
+    <p class="secondary-body">Extracted dates: ${escapeHtml(candidateDateLabel(candidate,"startDate")||"Needs review")}${candidate.openEnded?" – ongoing":candidate.endDate?` – ${escapeHtml(candidateDateLabel(candidate,"endDate"))}`:""} · ${escapeHtml(dateStatus)}</p>
     ${relation.map((item)=>`<p class="duplicate-banner">${escapeHtml(item)}</p>`).join("")}
-    ${confidenceReasons.length||warnings.length?`<details class="source-snippet confidence-review"><summary>Why ${escapeHtml(candidate.confidence)} confidence?</summary>
-      ${confidenceReasons.length?`<p>${escapeHtml(confidenceReasons.join(" · "))}</p>`:""}
-      ${warnings.length?`<p>Review notes: ${escapeHtml(warnings.join(" · "))}</p>`:""}
-    </details>`:""}
-  </div>`;
+    ${confidenceReasons.length?`<p><strong>Why ${escapeHtml(candidate.confidence)} confidence?</strong> ${escapeHtml(confidenceReasons.join(" · "))}</p>`:""}
+    ${warnings.length?`<p>Review notes: ${escapeHtml(warnings.join(" · "))}</p>`:""}
+  </details>`;
 }
 
 function suggestionLabel(type){
@@ -1491,9 +1623,26 @@ function suggestionMarkup(suggestion){
   </li>`;
 }
 
+function isTimelineRescueReview(state){
+  return [state.detectedType,state.extraction?.sourceDocument?.effectiveType,state.extraction?.parser?.effectiveType]
+    .some(type=>String(type||"").toUpperCase()==="TIMELINE_RESCUE")||
+    (state.candidates||[]).some(candidate=>candidate.fields?.rescueReviewRequired===true);
+}
+
+function rescueReconstructionMarkup(state){
+  if(!isTimelineRescueReview(state))return"";
+  return`<section class="intake-suggestions" aria-label="What Timeline Rescue rebuilds" data-rescue-reconstruction-notice>
+    <h2>What will be rebuilt</h2>
+    <p>Only the entries you accept and their supported profile details are added to a new MissionMed layout. These suggestions come from the uploaded Timeline; check them against your source documents.</p>
+    <p><strong>Photos, notes and original object positions from the uploaded file are not restored.</strong> Add photos or notes in Advanced Studio after rebuilding.</p>
+    <p class="secondary-body">Your original file stays unchanged. Preview the accepted suggestions below, then use Quality Guardian to check the rebuilt layout before exporting.</p>
+  </section>`;
+}
+
 function suggestionsMarkup(state){
   const suggestions=state.suggestions||[];
   if(!suggestions.length){
+    if(isTimelineRescueReview(state))return"";
     return`<section class="intake-suggestions empty" aria-label="Document check"><p class="secondary-body">${INTAKE_COPY.suggestionsClear}</p></section>`;
   }
   const open=openSuggestions(state).length;
@@ -1530,29 +1679,40 @@ function candidateQuestionsMarkup(candidate){
   </div>`;
 }
 
-function candidateMarkup(candidate,{lane="medium",suggestions=[]}={}){
+export function candidateReviewBasis(candidate,parser=null){
+  const basis=String(candidate?.fields?.extractionBasis||"").toUpperCase();
+  if(["MISSIONMED_RULE","DETERMINISTIC","SOURCE_CHECK"].includes(basis))return{mode:"MISSIONMED_RULE",label:"Source check"};
+  if((basis==="AI_REVIEW"||(!basis&&String(parser?.intelligenceMode||"").toUpperCase()==="SERVER_AI"))&&verifiedProviderReceipt022(parser?.providerReceipt))return{mode:"AI_REVIEW",label:"AI review"};
+  return{mode:"DOCUMENT_CHECK",label:"Document check"};
+}
+
+function candidateMarkup(candidate,{lane="medium",suggestions=[],parser=null}={}){
+  const basis=candidateReviewBasis(candidate,parser);
+  const basisMarkup=`<span class="candidate-basis" data-candidate-basis="${basis.mode}">${basis.label}</span>`;
   const positive=positiveDecision(candidate.decision);
   if(positive){
     return`<article class="candidate-row accepted" data-candidate-card="${escapeHtml(candidate.id)}">
       <span class="status-badge success">${candidate.decision==="merge"?"Merge":candidate.decision==="add-anyway"?"Add anyway":"Accepted"}</span>
       <strong>${escapeHtml(candidate.title)}</strong>
+      ${basisMarkup}
       <button type="button" class="button tertiary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="undecided">Undo</button>
     </article>`;
   }
   if(candidate.decision==="rejected"){
     return`<article class="candidate-row rejected" data-candidate-card="${escapeHtml(candidate.id)}">
-      <span>Rejected</span><strong>${escapeHtml(candidate.title)}</strong>
+      <span>Rejected</span><strong>${escapeHtml(candidate.title)}</strong>${basisMarkup}
       <button type="button" class="button tertiary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="undecided">Restore</button>
     </article>`;
   }
   if(candidate.reviewLater){
     return`<article class="candidate-row" data-candidate-card="${escapeHtml(candidate.id)}">
-      <span class="status-badge">Review later</span><strong>${escapeHtml(candidate.title)}</strong>
+      <span class="status-badge">Review later</span><strong>${escapeHtml(candidate.title)}</strong>${basisMarkup}
       <button type="button" class="button tertiary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="undecided">Review now</button>
     </article>`;
   }
-  const confidenceLabel=candidate.confidence[0].toUpperCase()+candidate.confidence.slice(1);
-  const confidenceClass=candidate.confidence==="high"?"success":candidate.confidence==="medium"?"gold":"tertiary";
+  const completeRescueReview=candidate.fields?.rescueReviewRequired&&candidateQuestions(candidate).length===0;
+  const confidenceLabel=lane==="high"?"Quick review":lane==="medium"||completeRescueReview?"Check required":"Needs details";
+  const confidenceClass=lane==="high"?"success":lane==="medium"?"gold":"tertiary";
   const visibility=`<label class="candidate-visibility">Timeline visibility
     <select data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="visibilityState">
       <option value="${VISIBILITY.INTERVIEWER_SAFE}"${candidate.visibilityState===VISIBILITY.INTERVIEWER_SAFE?" selected":""}>Show in interview Timeline</option>
@@ -1562,8 +1722,6 @@ function candidateMarkup(candidate,{lane="medium",suggestions=[]}={}){
   const fields=lane==="low"
     ?`<div class="candidate-fields needs-help">
       <strong>${escapeHtml(candidate.title||"Untitled entry")}</strong>
-      <span class="status-badge">NEEDS YOUR HELP</span>
-      <span class="confidence-tag ${confidenceClass}">${confidenceLabel}</span>
     </div>
     ${candidateQuestionsMarkup(candidate)}${visibility}`
     :`<div class="candidate-fields">
@@ -1571,16 +1729,15 @@ function candidateMarkup(candidate,{lane="medium",suggestions=[]}={}){
       <label>Proposed title <input type="text" value="${escapeHtml(candidate.title)}" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="title"></label>
       ${candidateMonthField(candidate,"startDate","Start",candidate.startDate)}
       ${candidateMonthField(candidate,"endDate","End",candidate.endDate)}
-      <span class="confidence-tag ${confidenceClass}">${confidenceLabel}</span>
       ${visibility}
     </div>`;
   return`<article class="candidate-card" data-candidate-card="${escapeHtml(candidate.id)}" data-review-lane="${escapeHtml(lane)}">
+    <div class="candidate-review-meta">${basisMarkup}<span class="confidence-tag ${confidenceClass}">${confidenceLabel}</span></div>
     ${candidate.duplicate?`<div class="duplicate-banner">Looks like a duplicate of '${escapeHtml(candidate.duplicate.eventTitle)}'</div>`:""}
     ${candidateSuggestionsMarkup(suggestions)}
     ${fields}
-    <details class="source-snippet" title="${escapeHtml(candidate.sourceSnippet)}">
-      <summary>“${escapeHtml(candidate.sourceSnippet)}”</summary>
-    </details>
+    ${candidate.fields?.rescueProfileClaims?`<p class="secondary-body" role="note" data-rescue-profile-review>Visible profile details: ${[candidate.fields.profileFullName?`Name: ${escapeHtml(candidate.fields.profileFullName)}`:'',candidate.fields.degree?`Degree: ${escapeHtml(candidate.fields.degree)}`:''].filter(Boolean).join(' · ')}. Accepting this entry fills empty profile fields using this entry's visibility.</p>`:""}
+    ${["startDate","endDate"].some((field)=>candidateDatePrecision(candidate,field)==="YEAR")?'<p class="candidate-year-warning" role="note">The source gives years only. Months remain unconfirmed; accepting keeps year-only precision.</p>':""}
     ${candidateEvidenceMarkup(candidate)}
     ${candidate.expanded?expandedFields(candidate,{includeIdentity:lane==="low"}):""}
     <div class="candidate-actions">
@@ -1599,24 +1756,84 @@ function candidateListMarkup(state){
   const sections=REVIEW_LANES.map((lane)=>{
     const members=lanes[lane.id].filter(({id})=>visible.has(id));
     if(!members.length)return"";
+    const rescueReview=lane.id==='low'&&members.every(candidate=>candidate.fields?.rescueReviewRequired);
     return`<section class="candidate-lane" data-review-lane="${lane.id}">
       <div class="candidate-lane-head">
-        <h2>${escapeHtml(lane.title)} (${members.length})</h2>
-        <p class="secondary-body">${escapeHtml(lane.hint)}</p>
+        <h2>${escapeHtml(rescueReview?'Verify source details':lane.title)} (${members.length})</h2>
+        <p class="secondary-body">${escapeHtml(rescueReview?'Check each entry against your Timeline. Answer only the details the source could not establish.':lane.hint)}</p>
       </div>
-      ${members.map((candidate)=>candidateMarkup(candidate,{lane:lane.id,suggestions:suggestionsForCandidate(state,candidate.id)})).join("")}
+      ${members.map((candidate)=>candidateMarkup(candidate,{lane:lane.id,suggestions:suggestionsForCandidate(state,candidate.id),parser:state.extraction?.parser})).join("")}
     </section>`;
   }).join("");
   const decided=lanes.decided
     .filter(({id})=>visible.has(id))
-    .map((candidate)=>candidateMarkup(candidate,{lane:"decided",suggestions:[]}))
+    .map((candidate)=>candidateMarkup(candidate,{lane:"decided",suggestions:[],parser:state.extraction?.parser}))
     .join("");
   return sections+decided||'<p class="secondary-body">No suggestions in this filter.</p>';
 }
 
+/* AAA-019 — no theater. The review screen says what produced the suggestions. A live
+   provider result names itself; anything else is called a local document check, with the
+   reason the AI did not run, so a student never mistakes a regex pass for an AI review. */
+const FALLBACK_REASON_COPY=Object.freeze({
+  AI_EMPTY:"the AI returned no suggestions",
+  PROVIDER_UNAVAILABLE:"the AI service could not be reached",
+  LOCAL_DEMO_API_DISABLED:"this local build runs without the AI service",
+  CONSENT_REQUIRED:"AI review needs your consent first",
+  CV_AI_CONSENT_REQUIRED:"enable optional Timeline AI in AI settings first",
+  TIMELINE_AI_CONSENT_REQUIRED:"enable optional Timeline AI in AI settings first",
+  TIMELINE_AI_PROCESSING_DISABLED:"AI processing is not enabled for this account",
+  AI_RECEIPT_UNVERIFIED:"the provider receipt could not be verified",
+  PRIVATE_MEDIA_DISABLED:"secure document storage is not enabled for your account yet",
+  NETWORK:"the AI service could not be reached"
+});
+export function reviewBasis(parser,candidates=[]){
+  const mode=String(parser?.intelligenceMode||"").toUpperCase();
+  if(mode==="SERVER_AI"&&verifiedProviderReceipt022(parser?.providerReceipt)){
+    const mixed=candidates.some((candidate)=>candidateReviewBasis(candidate,parser).mode==="MISSIONMED_RULE");
+    return{mode:"SERVER_AI",label:mixed?"AI review + source checks":"AI REVIEW",body:mixed?"AI suggestions are supplemented by source checks. Each entry shows its basis and stays a suggestion until you confirm it.":"Reviewed by MissionMed's AI. Every entry stays a suggestion until you confirm it."};
+  }
+  const reasonKey=String(parser?.fallbackReason||"").toUpperCase().replace(/[\s-]+/g,"_");
+  const reason=FALLBACK_REASON_COPY[reasonKey]||(parser?"AI review is not available right now":"AI review is not available in this build");
+  return{mode:"LOCAL_LIMITED",label:"DOCUMENT CHECK",body:`No AI review — ${reason}. These entries were read straight from your file by a local document check, so verify each date and name.`};
+}
+
+function providerReceiptMarkup(parser){
+  if(String(parser?.intelligenceMode||"").toUpperCase()!=="SERVER_AI"||!verifiedProviderReceipt022(parser?.providerReceipt))return"";
+  const receipt=parser?.providerReceipt;
+  if(!receipt?.responseId)return'<details class="intake-provider-receipt"><summary>AI review details</summary><p>No provider response receipt is attached to this review.</p></details>';
+  const rows=[
+    ["Provider",receipt.provider||parser.provider],
+    ["Model",receipt.model||parser.model],
+    ["Response ID",receipt.responseId],
+    ["Provider response storage",receipt.store===false?"Disabled (store: false)":"Not recorded"],
+    ["Received",receipt.receivedAt],
+    ["Result",parser.cached===true?"Previously completed response, reused":"Completed provider response"]
+  ].filter(([,value])=>value!==undefined&&value!==null&&value!=="");
+  return`<details class="intake-provider-receipt"><summary>AI review details</summary><dl>${rows.map(([label,value])=>`<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd></div>`).join("")}</dl></details>`;
+}
+
+function excludedCandidatesMarkup(state){
+  if(!verifiedProviderReceipt022(state.extraction?.parser?.providerReceipt))return'';
+  const count=Number(state.extraction?.parser?.rejectedCandidateCount);
+  if(!Number.isFinite(count)||count<1)return"";
+  const excluded=Math.floor(count);
+  const sourceCount=(state.candidates||[]).filter((candidate)=>candidateReviewBasis(candidate,state.extraction?.parser).mode==="MISSIONMED_RULE").length;
+  return`<aside class="intake-validation-notice" aria-label="Excluded AI interpretations">
+    <strong>${excluded} AI interpretation${excluded===1?" was":"s were"} excluded by validation.</strong>
+    <p>These interpretations could not be verified against the source and are not included in the suggestions you can accept.</p>
+    <p>${sourceCount?`${sourceCount} additional source-check entr${sourceCount===1?"y is":"ies are"} included below. These come from local source rules, not the excluded AI interpretations. Review them against your document for the missing history.`:"No source-check recovery is included here. After review, add any missing verified history in Builder."}</p>
+    ${sourceCount?'<button type="button" class="button tertiary small" data-intake-filter="all" data-intake-recovery-review>Show all suggestions</button>':""}
+  </aside>`;
+}
+
 function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
   const total=state.candidates.length;
+  const basis=reviewBasis(state.extraction?.parser,state.candidates);
   const accepted=acceptedCount(state);
+  const added=state.candidates.filter(candidate=>positiveDecision(candidate.decision)&&candidate.decision!=="merge").length;
+  const merged=new Set(state.candidates.filter(candidate=>candidate.decision==="merge").map(candidate=>candidate.duplicate?.eventId||candidate.id)).size;
+  const approveLabel=merged?added?`Add ${added} and update ${merged} events →`:`Update ${merged} existing events →`:`Add ${accepted} accepted events to my timeline →`;
   const high=highConfidenceCount(state);
   const previewEvents=acceptedPreviewEvents(state,existingEvents);
   const preview=typeof renderPreview==="function"
@@ -1626,7 +1843,11 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
     <div class="intake-review-heading">
       <h1 id="intake-title">Review ${total} suggestions</h1>
       <p>${INTAKE_COPY.reviewSubline}</p>
+      <p class="intake-review-basis" data-intake-review-basis="${basis.mode}"><span class="status-chip">${escapeHtml(basis.label)}</span> ${escapeHtml(basis.body)}</p>
+      ${providerReceiptMarkup(state.extraction?.parser)}
     </div>
+    ${rescueReconstructionMarkup(state)}
+    ${excludedCandidatesMarkup(state)}
     ${suggestionsMarkup(state)}
     <div class="intake-review-toolbar">
       <button type="button" class="button secondary" data-intake-action="accept-high"${high?"":" disabled"}>${high?`Accept all ${high} high-confidence entries`:"No high-confidence entries to accept"}</button>
@@ -1635,10 +1856,10 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
     </div>
     <div class="intake-review-grid">
       <div class="candidate-list">${candidateListMarkup(state)}</div>
-      <aside class="intake-live-preview" aria-label="Live board preview">${preview}</aside>
+      <details class="intake-live-preview" aria-label="Live board preview"><summary>Preview accepted suggestions (${accepted})</summary>${preview}</details>
     </div>
     <footer class="intake-review-footer">
-      <button type="button" class="button primary" data-intake-action="approve"${accepted&&!state.approval.inFlight?"":" disabled"}>${accepted?`Add ${accepted} accepted events to my timeline →`:INTAKE_COPY.emptyAccepted}</button>
+      <button type="button" class="button primary" data-intake-action="approve"${accepted&&!state.approval.inFlight?"":" disabled"}>${accepted?approveLabel:INTAKE_COPY.emptyAccepted}</button>
       <button type="button" class="button tertiary" data-intake-action="discard-all">Discard all</button>
     </footer>
   </section>`;
@@ -1646,14 +1867,21 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
 
 function doneMarkup(state){
   const filename=state.approval.fileName||state.file?.name||"document";
+  const added=Number(state.approval.addedCount??state.approval.appliedCount)||0;
+  const merged=Number(state.approval.mergedCount)||0;
+  const resultLabel=merged?added?`Added ${added} and updated ${merged} events`:`Updated ${merged} events`:`Added ${added} events`;
   return`<section class="intake-stage intake-done" aria-labelledby="intake-title">
     <div class="card success-card">
       <span class="success-check" aria-hidden="true">✓</span>
-      <h1 id="intake-title">Added ${state.approval.appliedCount} events from ${escapeHtml(filename)}.</h1>
+      <h1 id="intake-title">${resultLabel} from ${escapeHtml(filename)}.</h1>
       <p>${INTAKE_COPY.doneBody}</p>
       <button type="button" class="button primary" data-intake-action="open-canvas">Edit my timeline →</button>
+      <button type="button" class="button secondary" data-intake-action="quality-check">Run a quality check now →</button>
       <button type="button" class="button secondary" data-intake-action="open-builder">Review my timeline in the Builder</button>
-      <button type="button" class="button tertiary" data-intake-action="delete-document"${state.sourceDeleted?" disabled":""}>Delete the document</button>
+      <div class="intake-done-secondary">
+        <button type="button" class="button secondary" data-intake-action="try-another">Add another document</button>
+        <button type="button" class="button tertiary" data-intake-action="delete-document"${state.sourceDeleted?" disabled":""}>${state.sourceDeleted?"Document deleted":"Delete the document"}</button>
+      </div>
     </div>
   </section>`;
 }
@@ -1669,7 +1897,7 @@ export function renderIntake(state,options={}){
   return`<div class="screen intake-screen" data-screen="intake">
     <div class="intake-chrome">
       ${progressMarkup(state)}
-      <button type="button" class="button tertiary intake-cancel" data-intake-action="cancel">✕ Cancel upload</button>
+      <button type="button" class="button tertiary intake-cancel" data-intake-action="cancel">${state.stage===INTAKE_STAGES.DONE?"✕ Close":"✕ Cancel upload"}</button>
     </div>
     ${content}
   </div>`;
@@ -1683,6 +1911,12 @@ function closest(target,selector){
    machine (notably under browser automation and fast pointer use). Snapshot the
    visible review card once immediately before its decision so the event added
    to the Timeline is always the text the student can see. */
+function reviewedControlValue(control){
+  const value=control.type==="checkbox"?control.checked:control.value;
+  return control.dataset?.candidateYearOnly==="true"&&/^\d{4}$/.test(String(value).trim())
+    ?`${String(value).trim()}-${control.dataset.candidatePlaceholderMonth||"01"}`:value;
+}
+
 function commitVisibleCandidateFields(machine,target,candidateId){
   const card=closest(target,"[data-candidate-card]");
   if(!card?.querySelectorAll||String(card.dataset?.candidateCard||"")!==String(candidateId||""))return;
@@ -1692,7 +1926,7 @@ function commitVisibleCandidateFields(machine,target,candidateId){
     "input[data-candidate-extra],select[data-candidate-extra],textarea[data-candidate-extra]"
   );
   for(const control of controls){
-    const value=control.type==="checkbox"?control.checked:control.value;
+    const value=reviewedControlValue(control);
     if(control.dataset.candidateField){
       const key=control.dataset.candidateField;
       if(!Object.hasOwn(patch,key)||String(value||"").trim())patch[key]=value;
@@ -1736,7 +1970,7 @@ export function installIntake(root,machine,{
   };
   const unsubscribe=machine.subscribe((state)=>{
     if(state.stage===INTAKE_STAGES.EXTRACTION&&!state.failure&&statusTimer==null){
-      statusTimer=setIntervalFn(()=>machine.rotateStatus(),2000);
+      statusTimer=setIntervalFn(()=>machine.rotateStatus(),EXTRACTION_MIN_STAGE_MS);
     }else if(state.stage!==INTAKE_STAGES.EXTRACTION||state.failure){
       stopTicker();
     }
@@ -1745,6 +1979,7 @@ export function installIntake(root,machine,{
   });
 
   const handleClick=async(event)=>{
+    if(handleGateClick(event))return;
     const filter=closest(event.target,"[data-intake-filter]");
     if(filter){
       machine.setFilter(filter.dataset.intakeFilter);
@@ -1786,6 +2021,7 @@ export function installIntake(root,machine,{
       else if(action==="try-another")machine.resetUpload();
       else if(action==="guided-builder"||action==="open-builder")onNavigate("builder");
       else if(action==="open-canvas")onNavigate("canvas");
+      else if(action==="quality-check")onNavigate("quality-check");
       else if(action==="discard-all"){
         machine.discardAll();
         onNavigate("home");
@@ -1818,6 +2054,15 @@ export function installIntake(root,machine,{
     }
   };
 
+  const handleGateClick=(event)=>{
+    const gate=closest(event.target,"[data-intake-read-gate][data-gate-reason]");
+    if(!gate)return false;
+    onToast(String(gate.dataset.gateReason||"Check the consent box first."));
+    const hint=root.querySelector?.("[data-intake-gate-hint]");
+    if(hint){hint.classList.remove("is-nudged");void hint.offsetWidth;hint.classList.add("is-nudged");}
+    (root.querySelector?.("[data-intake-consent]")||root.querySelector?.("[data-intake-file]"))?.focus?.();
+    return true;
+  };
   const handleChange=(event)=>{
     if(event.target?.matches?.("[data-intake-file]")){
       const file=event.target.files?.[0];
@@ -1831,7 +2076,7 @@ export function installIntake(root,machine,{
     const field=event.target?.dataset?.candidateField;
     const extra=event.target?.dataset?.candidateExtra;
     const id=event.target?.dataset?.candidateId;
-    if(field&&id)machine.editCandidate(id,{[field]:event.target.value});
+    if(field&&id)machine.editCandidate(id,{[field]:reviewedControlValue(event.target)});
     else if(extra&&id)machine.editCandidate(id,{fields:{[extra]:event.target.type==="checkbox"?event.target.checked:event.target.value}});
   };
 
@@ -1858,3 +2103,4 @@ export function installIntake(root,machine,{
     root.removeEventListener("drop",handleDrop);
   };
 }
+import {verifiedProviderReceipt022} from '../production/provider-receipt-022.js';

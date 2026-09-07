@@ -48,6 +48,11 @@ export interface PrincipalContext {
   wpUserId?: number;
   isWordpressAdministrator?: boolean;
   hasLearndash3893Access?: boolean;
+  aiConsent?: { version: string; consentedAt: string; source: "WORDPRESS_VERIFIED" };
+  founderStandardsManager?: boolean;
+  adminWorkspace?: boolean;
+  adminSubjectPrincipalId?: string;
+  adminSubjectWpUserId?: number;
   role: Role;
   programIds: string[];
   assignedDocumentIds: string[];

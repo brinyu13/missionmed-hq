@@ -21,6 +21,9 @@ import {
   locked407FComposition,
   serializeLocked407FArtifact
 } from "./locked-407f-artifact.js";
+import {projectPresentationFields,projectPresentationEventFields} from '../presentation/presentation-field-privacy.js';
+import {projectPresentationExamEvents,presentationExamSummary} from '../presentation/presentation-exam-display.js';
+import {layoutExplanationText} from './explanation.js';
 
 const freeze = (value) => Object.freeze(value);
 const ENGINEERING_AXIS_WIDTH=Math.round(
@@ -604,16 +607,26 @@ function safeSvgId(value) {
   return normalized || "event";
 }
 
+function eventDatePrecision(event,field){
+  const value=event?.fields?.datePrecision||event?.datePrecision;
+  if(typeof value==='string')return value;
+  return value?.[field]||event?.fields?.inferredFields?.find(item=>item.field===`${field}Date`)?.sourcePrecision||null;
+}
+
+function eventDateLabel(event,value,field){
+  return eventDatePrecision(event,field)==='YEAR'?String(value||'').slice(0,4):formatMonth(value);
+}
+
 function eventAriaLabel(event, startMonth, endMonth) {
   const category = CATEGORY_DEFINITIONS.find(({ id }) => id === event.categoryId)?.label;
   const title = String(event.title ?? "Untitled event");
   if (isMilestone(event)) {
-    return `${title}, ${category}, ${formatMonth(startMonth)}${
+    return `${title}, ${category}, ${eventDateLabel(event,startMonth,'start')}${
       event?.fields?.lorSubmitted?", LOR submitted":""
     }`;
   }
-  return `${title}, ${category}, ${formatMonth(startMonth)} to ${
-    event?.openEnded ? "Present" : formatMonth(endMonth)
+  return `${title}, ${category}, ${eventDateLabel(event,startMonth,'start')} to ${
+    event?.openEnded ? "Present" : eventDateLabel(event,endMonth,'end')
   }${event?.fields?.lorSubmitted?", LOR submitted":""}`;
 }
 
@@ -669,16 +682,18 @@ function buildArrows(events, segments, laneResult, currentMonth, measureText) {
       lane,
       condensed,
       study,
+      examAttemptId:event.categoryId==="exams"?String(event.fields?.attemptId||""):"",
       provisional: study && isProvisional(event),
       actionChip:event?.actionChip?{...event.actionChip}:null,
       lorSubmitted:!!event?.fields?.lorSubmitted,
       openEnded,
       startMonth: geometry.startMonth,
       endMonth: geometry.endMonth,
+      datePrecision:{start:eventDatePrecision(event,'start'),end:eventDatePrecision(event,'end')},
       siteName:String(event.siteName||event.location||""),
       dateLabel:event.openEnded
-        ?`${formatMonth(geometry.startMonth)} – Present`
-        :`${formatMonth(geometry.startMonth)} – ${formatMonth(geometry.endMonth)}`,
+        ?`${eventDateLabel(event,geometry.startMonth,'start')} – Present`
+        :`${eventDateLabel(event,geometry.startMonth,'start')} – ${eventDateLabel(event,geometry.endMonth,'end')}`,
       x: geometry.x,
       x2: geometry.x2,
       width: geometry.width,
@@ -772,7 +787,15 @@ function buildFlags(events, segments, measureText) {
         fontWeight: 600
       },
       month,
+      datePrecision:{start:eventDatePrecision(event,'start'),end:null},
       dangerDot:!!event.dangerDot,
+      presentationRedactions:[...(event.presentationRedactions||[])],
+      // Only an explicitly supplied result controls the native attempt pennant.
+      // A numeric score, attempt ordinal or title never implies a pass/fail.
+      examAttemptId:event.categoryId==="exams"?String(event.fields?.attemptId||""):"",
+      examResult:event.categoryId==="exams"
+        ?({passed:"Passed",failed:"Failed"}[String(event.fields?.result||event.result||"").trim().toLowerCase()]||null)
+        :null,
       ariaLabel: eventAriaLabel(event, month, month)
     };
   });
@@ -857,6 +880,8 @@ function buildExplanations(explanationEvents,segments,arrows,flags){
   ]);
   return explanationEvents.map((event)=>{
     const fields=event.fields||{};
+    const text=String(fields.explanationText||event.title||"Explanation").slice(0,180);
+    const noteLayout=layoutExplanationText(text,{x:fields.x,y:fields.y,width:fields.width,height:fields.height});
     const target=fields.target||{};
     let anchor={
       x:Number(target.x)||960,
@@ -891,11 +916,11 @@ function buildExplanations(explanationEvents,segments,arrows,flags){
     return{
       kind:"explanation",
       id:String(event.id),
-      text:String(fields.explanationText||event.title||"Explanation").slice(0,180),
-      x:Number(fields.x)||CANONICAL_407F_ARTIFACT.sticky.x,
-      y:Number(fields.y)||CANONICAL_407F_ARTIFACT.sticky.y,
-      width:Number(fields.width)||CANONICAL_407F_ARTIFACT.sticky.width,
-      height:Number(fields.height)||CANONICAL_407F_ARTIFACT.sticky.height,
+      text,
+      x:noteLayout.x,
+      y:noteLayout.y,
+      width:noteLayout.width,
+      height:noteLayout.height,
       leaderEnabled:fields.leaderEnabled!==false,
       target:anchor,
       ariaLabel:`Explanation: ${String(fields.explanationText||event.title||"").slice(0,180)}`
@@ -994,8 +1019,9 @@ export function buildKeynoteClassicScene(
   if (typeof measureText !== "function") {
     throw new TypeError("measureText must be a deterministic function.");
   }
-  const filtered = audienceEvents(timeline?.events, audience);
-  const validated = validateRenderableEvents(filtered.included);
+  const filtered = audienceEvents(projectPresentationExamEvents(timeline), audience);
+  const projectedFields=projectPresentationFields(timeline,{allowed:new Set(filtered.audience==='EVERYTHING'?['INTERVIEWER_SAFE','INTERVIEW_SAFE','FULL_STORY','ADVISOR_ONLY','STUDENT_ONLY']:['INTERVIEWER_SAFE','INTERVIEW_SAFE','SAFE','VISIBLE']),visibleEventIds:new Set(filtered.included.map(event=>String(event.id)))});
+  const validated = validateRenderableEvents(projectPresentationEventFields(filtered.included,projectedFields));
   const explanationEvents=validated.renderable.filter(
     (event)=>event?.fields?.builderDomain==="explanation"
   );
@@ -1030,7 +1056,7 @@ export function buildKeynoteClassicScene(
     segments,
     interviewTarget
   );
-  const fullName = String(timeline?.studentProfile?.fullName || "Your journey");
+  const fullName = String(projectedFields.studentProfile.fullName || "Your journey");
   const segmentFirstYear = segments[0]?.startYear ?? segments[0]?.year;
   const segmentLastYear = segments.at(-1)?.year ?? segments.at(-1)?.endYear;
   const {firstYear,lastYear}=locked407FSpanYears({
@@ -1048,15 +1074,26 @@ export function buildKeynoteClassicScene(
     lastYear
   });
   const ariaLabel = `Timeline visualization, ${events.length} events; use Tab to move between events`;
-  const profile=timeline?.studentProfile||{};
-  const exams=Array.isArray(timeline?.exams)?timeline.exams:[];
-  const examValue=(system,examId)=>{
-    const match=exams.find((exam)=>
-      String(exam?.system||"").toUpperCase()===system&&
-      String(exam?.examId||"").toLowerCase()===examId
-    );
-    return String(match?.score||match?.result||"").trim();
+  const profile=projectedFields.studentProfile;
+  const exams=projectedFields.exams;
+  const categoryMonths=(list,categoryId)=>{
+    const spans=(list||[])
+      .filter((event)=>String(event?.categoryId||"")===categoryId&&/^\d{4}-\d{2}$/.test(String(event?.startDate||"")))
+      .map((event)=>{
+        const start=monthIndex(event.startDate);
+        const end=/^\d{4}-\d{2}$/.test(String(event.endDate||""))?monthIndex(event.endDate):start;
+        return[Math.min(start,end),Math.max(start,end)];
+      })
+      .sort((left,right)=>left[0]-right[0]);
+    let total=0,cursor=-Infinity;
+    for(const [start,end] of spans){
+      const from=Math.max(start,cursor+1);
+      if(end>=from)total+=end-from+1;
+      cursor=Math.max(cursor,end);
+    }
+    return total;
   };
+  const examValue=(system,examId)=>presentationExamSummary(exams,system,examId);
 
   return {
     renderer: "D1-UXR-002-Keynote-Classic",
@@ -1112,7 +1149,12 @@ export function buildKeynoteClassicScene(
         ""
       ),
       step1:examValue("USMLE","step-1"),
-      step2:examValue("USMLE","step-2-ck")
+      step2:examValue("USMLE","step-2-ck"),
+      step3:examValue("USMLE","step-3"),
+      /* AAA-019 Keynote fidelity — the Founder's profile card carries USCE and research
+         totals. Derived from the student's own events (whole months, inclusive), never typed. */
+      usceMonths:categoryMonths(events,"clinical"),
+      researchMonths:categoryMonths(events,"research")
     },
     artifact:{
       schemaVersion:"d1-405.canonical-407f-artifact.1",

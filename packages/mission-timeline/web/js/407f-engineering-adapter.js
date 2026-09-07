@@ -1,10 +1,14 @@
 import {TimelineStore} from "./uxr-002/store.js";
 import {prepareTimelineProductionRuntime} from "./production/timeline-production-runtime.js";
+import {installFamilyRuntime022} from "./production/family-runtime-022.js";
+import {qualitySourceText022,qualitySourceSha022,persistQualityReport022,recordCompletedExport022,restoreServerGuardian022} from "./production/quality-state-022.js";
+import {reconcileRestoredProviderTruth022} from "./production/provider-receipt-022.js";
 import {
   addBuilderExam,
   deleteBuilderExamAttempt,
   finalizeBuilderExams,
   normalizeExamDocument,
+  selectedBuilderExamSystems,
   restoreBuilderAutomaticRetake,
   setBuilderExamSystem,
   updateBuilderExamAttempt
@@ -19,7 +23,7 @@ import {
   rankCountryMatches,
   typeaheadRows
 } from "./uxr-002/builder.js";
-import {createRuntimeDatasets} from "./uxr-002/datasets.js";
+import {createRuntimeDatasets,browserCountryRows} from "./uxr-002/datasets.js";
 import {
   buildCompletenessSummary,
   computeStoryChecks
@@ -94,6 +98,7 @@ import {
   installAdvancedStudio,
   groupAdvancedObjects,
   moveMediaElement,
+  panMediaCrop,
   planModeSwitch,
   recordRecentColor,
   renderAdvancedStudio,
@@ -105,6 +110,7 @@ import {
   relativeLuminanceFromRgb,
   sampleEyeDropper,
   snapAdvancedObjectToBoard,
+  FREE_TEXT_SIZE,
   setBackgroundDim,
   setAxisPresentationOverride,
   setAxisSegmentWeights,
@@ -118,14 +124,20 @@ import {
   setMediaAspectLock,
   ungroupAdvancedObjects,
   updateMediaPresentation,
+  advancedLayerRows,
+  toggleAdvancedSelection,
+  reorderAdvancedLayers,
+  CANONICAL_MEDIA_FRAME_SLOTS,
+  hitTestMediaFrames,
+  fillCanonicalMediaFrame,
   updateTextContainerPresentation,
   updateTextBlockContent,
   validateBackgroundUpload,
   validateMediaUpload
 } from "./uxr-002/advanced-studio.js";
 import {applySceneCommandToDocument} from "./editor/scene-commands.js";
-import {sceneGraphFromLegacy} from "./editor/scene-graph.js";
-import {resizeSceneGeometry} from "./editor/scene-interaction.js";
+import {reconcileAdvancedScene} from "./editor/scene-graph.js";
+import {resizeSceneGeometry,rotateSceneGeometry} from "./editor/scene-interaction.js";
 import {
   renderKeynoteClassicBoard,
   serializeKeynoteClassicSvg
@@ -545,6 +557,8 @@ export function applyDocumentTo407FState(document,state){
     ),
     schoolCity:profile.medicalSchoolCity||"",
     grad:profile.graduationDate||"",
+    gradPrecision:profile.graduationDatePrecision||"",
+    profileFieldProvenance:clone(profile.fieldProvenance||{}),
     notGraduated:profile.graduationExpected===true,
     degree:profile.degree||"",
     degreeOther:profile.degreeOther||"",
@@ -559,7 +573,8 @@ export function applyDocumentTo407FState(document,state){
     ...state.builder,
     ...clone(document.metadata?.builder407F||{}),
     step:Number(document.builder?.step)||Number(state.builder?.step)||1,
-    examSystems:clone(document.builder?.examSystems||[]),
+    examSystems:selectedBuilderExamSystems(document),
+    examSystemSelectionExplicit:document.builder?.examSystemSelectionExplicit===true,
     exams:clone(document.exams||[]),
     domainDrafts:clone(document.builder?.drafts||{}),
     domainEditing:clone(document.builder?.editing||{})
@@ -627,6 +642,7 @@ export function apply407FStateToDocument(state,document){
     ),
     medicalSchoolCity:state.wiz?.schoolCity||"",
     graduationDate:state.wiz?.grad||"",
+    graduationDatePrecision:state.wiz?.gradPrecision||"",
     graduationExpected:!!state.wiz?.notGraduated,
     degree:state.wiz?.degree||"",
     degreeOther:state.wiz?.degreeOther||"",
@@ -675,6 +691,7 @@ export function apply407FStateToDocument(state,document){
     ...document.builder,
     step:Number(state.builder?.step)||1,
     examSystems:clone(state.builder?.examSystems||[]),
+    examSystemSelectionExplicit:state.builder?.examSystemSelectionExplicit===true,
     drafts:clone(state.builder?.domainDrafts||document.builder?.drafts||{}),
     editing:clone(state.builder?.domainEditing||document.builder?.editing||{}),
     touched:Object.entries(state.builder?.touched||{})
@@ -909,7 +926,7 @@ function autoArrange(document){
   return document;
 }
 
-function createObjectUrlRegistry(){
+export function createObjectUrlRegistry(){
   const urls=new Map();
   return{
     get:(id)=>urls.get(String(id))||null,
@@ -1008,9 +1025,30 @@ export function timelineRenderSignature(document){
     events:document?.events||[],
     advanced:document?.advanced||null,
     presentationOverrides:document?.presentationOverrides||null,
+    /* Frame fills and their crops live in mediaItems; without them here a filled
+       polaroid never re-rendered and stayed "DROP PHOTO" until an unrelated edit. */
+    mediaItems:document?.mediaItems||null,
     interview:document?.metadata?.interview||null,
     specialties:document?.specialties||document?.specialtyVariants||null
   });
+}
+
+/* A clipped landscape fill can overflow the SVG group's DOM bounds. The frame's
+   own rectangle remains the canonical geometry for selection, hover and gestures. */
+export function advancedFrameScreenBounds022(node){
+  const rect=node?.querySelector?.("rect");
+  if(!rect)return null;
+  try{
+    const box=rect.getBBox?.(),matrix=rect.getScreenCTM?.();
+    if(box?.width>0&&box?.height>0&&matrix&&[box.x,box.y,matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f].every(Number.isFinite)){
+      const corners=[[box.x,box.y],[box.x+box.width,box.y],[box.x+box.width,box.y+box.height],[box.x,box.y+box.height]]
+        .map(([x,y])=>({x:matrix.a*x+matrix.c*y+matrix.e,y:matrix.b*x+matrix.d*y+matrix.f}));
+      const left=Math.min(...corners.map(point=>point.x)),top=Math.min(...corners.map(point=>point.y));
+      const right=Math.max(...corners.map(point=>point.x)),bottom=Math.max(...corners.map(point=>point.y));
+      return{left,top,right,bottom,width:right-left,height:bottom-top};
+    }
+    return rect.getBoundingClientRect?.()||null;
+  }catch{return null;}
 }
 
 export function examMutationNeedsImmediateRender(changes={}){
@@ -1130,7 +1168,7 @@ function renderCanvasDetails(route,event,document){
     const fields=event.fields||{};
     return `<div class="canvas407FDetails" data-canvas-details-form data-event-id="${escapeMarkup(event.id)}">
       <div class="canvas407FDetailGrid">
-        <label class="canvas407FDetailField canvas407FDetailWide"><span>Explanation</span><textarea data-canvas-detail-field="explanationText">${escapeMarkup(fields.explanationText||event.title||"")}</textarea></label>
+        <label class="canvas407FDetailField canvas407FDetailWide"><span>Explanation</span><textarea maxlength="${EXPLANATION_TEXT_MAX}" data-canvas-detail-field="explanationText">${escapeMarkup(fields.explanationText||event.title||"")}</textarea></label>
         <label class="canvas407FDetailField"><span>X</span><input type="number" min="96" max="1744" data-canvas-detail-field="x" value="${Number(fields.x)||1470}"></label>
         <label class="canvas407FDetailField"><span>Y</span><input type="number" min="80" max="904" data-canvas-detail-field="y" value="${Number(fields.y)||574}"></label>
         <label class="canvas407FDetailField"><span>Width</span><input type="number" min="180" max="520" data-canvas-detail-field="width" value="${Number(fields.width)||300}"></label>
@@ -1306,6 +1344,7 @@ export async function boot407FEngineeringAdapter({
     ?await prepareTimelineProductionRuntime()
     :null;
   const privateMediaStorageEnabled=productionRuntime?.privateMediaStorageEnabled===true;
+  const privateMediaWriteEnabled=!productionRuntime||productionRuntime.privateMediaWriteEnabled===true;
   if(productionRuntime){
     window.D1_TIMELINE_PRODUCTION_ASSERTION=productionRuntime.assertion;
     window.D1_TIMELINE_PRODUCTION_BINDING=productionRuntime.expectedBinding;
@@ -1313,7 +1352,9 @@ export async function boot407FEngineeringAdapter({
   }
   store=store||new TimelineStore({adapter:productionRuntime?.adapter||null});
   const init=await store.initialize();
+  const authoritativeDocument022=structuredClone(productionRuntime?.documents?.find(record=>record.document?.id===store.document.id)?.document||null);
   if(runtimeMode==="production"){
+    reconcileRestoredProviderTruth022(store.document,authoritativeDocument022);
     store.document.metadata={
       ...(store.document.metadata||{}),
       localOnly:!productionRuntime?.remotePersistenceAllowed,
@@ -1389,6 +1430,7 @@ export async function boot407FEngineeringAdapter({
   };
   const MAX_PRODUCTION_MEDIA_BYTES=15*1024*1024;
   const prepareMediaPersistence=async(file,{id,kind,contentSha256})=>{
+    if(!privateMediaWriteEnabled)throw new Error('Private files are managed by the student. You can arrange and crop the images already in this Timeline.');
     const metadata={
       kind,
       name:file.name,
@@ -1528,14 +1570,46 @@ export async function boot407FEngineeringAdapter({
   const kernelManager=createD1411AKernelManager({
     resolveObjectUrl:(id)=>mediaUrls.get(id)
   });
+  /* AAA-019 — the live board was serialized without any resolved media URLs, so every
+     placed upload rendered as `data-media-state="missing"` (invisible) while the model,
+     the inspector and the "Media placed on timeline" toast all said it was there. The
+     object URLs already live in `mediaUrls`; hand them to the serializer the same way
+     the export path does through its mediaResolver. Frame fills (`mediaItems`) point at
+     a library asset through `mediaId`, so both ids resolve to the same URL. */
+  const liveMediaById=(timeline)=>{
+    const resolved=new Map();
+    const remember=(id,assetId)=>{
+      const key=String(id||"").trim();
+      if(!key||resolved.has(key))return;
+      const url=mediaUrls.get(assetId||key);
+      if(url)resolved.set(key,url);
+    };
+    for(const item of timeline?.advanced?.media||[])remember(item?.id);
+    for(const item of timeline?.mediaItems||[])remember(item?.id,item?.mediaId||item?.id);
+    const background=timeline?.advanced?.background;
+    if(background?.kind==="upload"&&background.mediaId)remember(background.mediaId);
+    return resolved;
+  };
+  const hydrateMissingAdvancedMedia=()=>mediaUrls.hydrate(store,store.document,{
+    remoteLoader:productionRuntime?(objectId)=>productionRuntime.authClient.downloadPrivateObject(objectId):null,
+    onError:()=>announceGlobal("One copied image could not be loaded yet. Your edits remain saved; try reopening the timeline.")
+  }).then((changed)=>{
+    if(!changed)return false;
+    canvasController?.render();
+    renderHomePreview();
+    renderBuilderEmbeddedPreview();
+    return true;
+  }).catch((error)=>{toastStudentError(error,"media");return false;});
   const renderResponsiveAdvancedBoard=(timeline,options={})=>{
     const surface=options.surface||"edit";
     const editable=surface==="edit"&&store.entitlement.canMutate===true;
     const projected=timelineWithLorPresentation(timeline);
+    const mediaById=liveMediaById(projected);
     const rendered=serializeFounderPresentation(projected,{
       audience:options.audience||"EVERYTHING",
       currentMonth:options.currentMonth||currentMonth(),
-      resourceNamespace:`timeline-${surface}`
+      resourceNamespace:`timeline-${surface}`,
+      mediaById
     });
     const interactive=surface==="edit"?editable:options.interactive!==false;
     const presentation=["builder","home","full-preview"].includes(surface)
@@ -1549,7 +1623,11 @@ export async function boot407FEngineeringAdapter({
       scene:rendered.scene,
       warnings:[],
       serializer:rendered.serializer,
-      renderSignature:timelineRenderSignature(projected),
+      /* Media hydration is asynchronous: the same document renders differently once
+         the object URLs arrive, so the signature that decides whether the mounted SVG
+         is swapped has to change with them — otherwise every image after a reload
+         stayed missing until an unrelated edit. */
+      renderSignature:`${timelineRenderSignature(projected)}|media:${[...mediaById.entries()].map(([id,url])=>`${id}=${url}`).sort().join(",")}`,
       presentationAuthority:"D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127"
     };
   };
@@ -1579,6 +1657,13 @@ export async function boot407FEngineeringAdapter({
   let onCanvasDetailsClick=()=>{};
   let onAdvancedObjectClick=()=>{};
   let onAdvancedObjectKeyDown=()=>{};
+  let onAdvancedSelectionKeyDown=()=>{};
+  let onAdvancedCanvasRendered=()=>{};
+  let onAdvancedQuickActionClick=()=>{};
+  let onAdvancedHoverMove=()=>{};
+  let onAdvancedHoverLeave=()=>{};
+  let onAdvancedContextMenu=()=>{};
+  let onAdvancedViewportChange=()=>{};
   let onAdvancedPointerDown=()=>{};
   let onAdvancedPointerMove=()=>{};
   let onAdvancedPointerUp=()=>{};
@@ -1911,6 +1996,15 @@ export async function boot407FEngineeringAdapter({
     document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
     document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
     document.getElementById("canvas407F")?.removeEventListener("keydown",onAdvancedObjectKeyDown);
+    document.removeEventListener("keydown",onAdvancedSelectionKeyDown);
+    document.getElementById("canvas407F")?.removeEventListener("d1:canvas-rendered",onAdvancedCanvasRendered);
+    document.removeEventListener("click",onAdvancedQuickActionClick,true);
+    document.getElementById("canvas407F")?.removeEventListener("contextmenu",onAdvancedContextMenu,true);
+    document.getElementById("canvas407F")?.removeEventListener("pointermove",onAdvancedHoverMove);
+    document.getElementById("canvas407F")?.removeEventListener("pointerleave",onAdvancedHoverLeave);
+    document.getElementById("canvas407F")?.removeEventListener("d1:canvas-viewport",onAdvancedViewportChange);
+    document.removeEventListener("scroll",onAdvancedViewportChange,true);
+    window.removeEventListener("resize",onAdvancedViewportChange);
     document.removeEventListener("pointerdown",onAdvancedPointerDown,true);
     document.removeEventListener("mousedown",onAdvancedPointerDown,true);
     canvasHost?.removeEventListener("dragover",onAdvancedRailDragOver);
@@ -2359,7 +2453,7 @@ export async function boot407FEngineeringAdapter({
     const mediaBadge=document.querySelector(".media407FLocalBadge");
     if(mediaBadge){
       mediaBadge.textContent=privateMediaStorageEnabled
-        ?"PRIVATE · SECURELY SYNCED"
+        ?"PRIVATE MEDIA · MISSIONMED ACCOUNT"
         :"LOCAL DEVICE ONLY";
     }
     if(page){
@@ -2376,6 +2470,9 @@ export async function boot407FEngineeringAdapter({
         reducedMotion,
         durableOnline:privateMediaStorageEnabled
       });
+    }
+    if(!privateMediaWriteEnabled){
+      for(const host of [page,drawer].filter(Boolean))host.querySelectorAll('[data-media-upload],[data-media-replace],[data-media-delete]').forEach(control=>{control.disabled=true;control.title='Private files are managed by the student.';});
     }
     const canvasHost=document.getElementById("canvas407F");
     if(
@@ -2413,15 +2510,27 @@ export async function boot407FEngineeringAdapter({
     mediaDrawerOpener?.focus?.();
     mediaDrawerOpener=null;
   };
-  const commitMediaPlacement=(id,{x=960,y=540}={})=>{
+  const commitMediaPlacement=(id,{x=null,y=null,select=true}={})=>{
+    if(x===null||y===null){const center=visibleBoardCenter();x=center.x;y=center.y;}
     let placed=false;
     store.mutate("Place Media asset",(document)=>{
       const result=placeMediaLibraryAsset(document.advanced.media,id,{x,y});
       placed=result.changed;
-      if(placed)document.advanced.media=result.media;
+      if(placed){
+        /* A newly placed image lands on top and is selected, like every insert. */
+        const top=nextAdvancedLayerIndex(document);
+        document.advanced.media=result.media.map((item)=>String(item.id)===String(id)
+          ?{...item,zIndex:top,layerIndex:top}
+          :item);
+        document.advanced.scene=reconcileAdvancedScene(document.advanced,{revision:document.revision});
+      }
     });
     if(!placed)return false;
     syncBridgeStateFromStore();
+    if(select&&store.document.mode==="advanced"){
+      canvasController?.setUiState({selectedEventId:null,advancedSelection:{type:"media",id:String(id)},advancedTextEdit:null});
+      requestAdvancedDirectSelection({type:"media",id:String(id)});
+    }
     renderMediaLibrarySurfaces();
     bridge.toast("Media placed on timeline");
     announceGlobal("Media placed on timeline");
@@ -2504,6 +2613,17 @@ export async function boot407FEngineeringAdapter({
             document.advanced.media,
             current.id
           );
+          /* AAA-019 red-team D7 — "everywhere it appears" includes the Founder frames:
+             a fill that references the deleted picture must go too, or the frame renders
+             half-empty and disagrees with itself after reload. */
+          if(Array.isArray(document.mediaItems)){
+            document.mediaItems=document.mediaItems.filter((item)=>
+              String(item?.mediaId||item?.id||"")!==String(current.id)
+            );
+          }
+          if(document.advanced?.background?.mediaId&&String(document.advanced.background.mediaId)===String(current.id)){
+            document.advanced.background={...document.advanced.background,kind:"theme",mediaId:null};
+          }
         },
         {blobs:[],reason:"DELETE_MEDIA_ASSET"}
       );
@@ -2561,6 +2681,9 @@ export async function boot407FEngineeringAdapter({
       {once:true}
     );
   };
+  /* AAA-019 — set by the canvas block once frames exist; lets the media rail hand a tile to an armed frame. */
+  let advancedFrameFillHook={armed:()=>false,consume:()=>false};
+  let advancedFrameDropHook=()=>false;
   onMediaLibraryClick=(event)=>{
     const open=event.target.closest?.("[data-open-media-library]");
     if(open){
@@ -2576,7 +2699,16 @@ export async function boot407FEngineeringAdapter({
     const place=event.target.closest?.("[data-media-place]");
     if(place){
       event.preventDefault();
+      /* An armed frame ("Choose from uploads") takes the tile instead of the board. */
+      if(advancedFrameFillHook.consume(String(place.dataset.mediaPlace||"")))return;
       commitMediaPlacement(place.dataset.mediaPlace);
+      return;
+    }
+    const armedTile=event.target.closest?.("[data-media-asset][data-advanced-select-object]");
+    if(armedTile&&advancedFrameFillHook.armed()){
+      event.preventDefault();
+      event.stopPropagation();
+      advancedFrameFillHook.consume(String(armedTile.dataset.mediaAsset||""));
       return;
     }
     const replace=event.target.closest?.("[data-media-replace]");
@@ -2648,12 +2780,15 @@ export async function boot407FEngineeringAdapter({
     const additions=[];
     const blobs=[];
     const rollbacks=[];
+    const acceptedIds=[];
     for(const file of files){
-      if([...existing,...additions].some((item)=>
+      const duplicate=[...existing,...additions].find((item)=>
         item.source?.name===file.name&&
         Number(item.source?.size)===Number(file.size)&&
         item.source?.type===file.type
-      )){
+      );
+      if(duplicate){
+        acceptedIds.push(duplicate.id);
         const message=`${file.name} is already in Media`;
         bridge.toast(message);
         announceGlobal(message);
@@ -2667,7 +2802,7 @@ export async function boot407FEngineeringAdapter({
           file,
           naturalWidth:metrics.width,
           naturalHeight:metrics.height,
-          layerIndex:existing.length+additions.length
+          layerIndex:nextAdvancedLayerIndex()+additions.length
         });
         const contentSha256=await sha256File(file);
         const persistence=await prepareMediaPersistence(file,{
@@ -2682,7 +2817,7 @@ export async function boot407FEngineeringAdapter({
         announceGlobal(`${file.name} could not be added. ${message}`);
       }
     }
-    if(!additions.length)return;
+    if(!additions.length)return acceptedIds;
     try{
       await store.mutateWithBlobs(
         "Add Media assets",
@@ -2693,7 +2828,7 @@ export async function boot407FEngineeringAdapter({
       await Promise.allSettled(rollbacks.map((rollback)=>rollback()));
       toastStudentError(error,"media");
       announceGlobal("Those images could not be added.");
-      return;
+      return [];
     }
     additions.forEach((asset,index)=>mediaUrls.set(asset.id,blobs[index].blob));
     syncBridgeFromStore();
@@ -2702,6 +2837,7 @@ export async function boot407FEngineeringAdapter({
     announceGlobal(
       `${additions.length} image${additions.length===1?"":"s"} added`
     );
+    return [...new Set([...acceptedIds,...additions.map((asset)=>asset.id)])];
   };
   onMediaLibraryDragStart=(event)=>{
     const card=event.target.closest?.("[data-media-asset]");
@@ -3335,32 +3471,44 @@ export async function boot407FEngineeringAdapter({
     tertiary:"homeTertiary",
     primary:"btnD go sm"
   });
+  let lastGuardianReport022=null;
+  let lastGuardianSource022='';
+  if(authoritativeDocument022)restoreServerGuardian022(store.document,authoritativeDocument022,{analyze:analyzeTimelineQuality,merge:mergeAiQualityAnalysis})
+    .then(restored=>{if(restored&&restored.sourceText===qualitySourceText022(store.document)){
+      lastGuardianReport022=restored.report;lastGuardianSource022=restored.sourceText;
+      store.document.metadata={...store.document.metadata,qualityReport022:structuredClone(restored.report),qualitySummary022:structuredClone(authoritativeDocument022.metadata.qualitySummary022)};
+    }}).catch(()=>{});
   const openQualityGuardian407F=async(stage="DURING_BUILDING")=>{
     let report=analyzeTimelineQuality(store.document,{stage});
-    const syntheticAi=productionRuntime?.authClient?.bootstrapState?.syntheticFixture===true;
-    if(syntheticAi){
+    const localSyntheticAi=runtimeMode!=="production"?window.D1_LOCAL_SYNTHETIC_AI:null;
+    const syntheticAi=!!localSyntheticAi||productionRuntime?.authClient?.bootstrapState?.syntheticFixture===true;
+    const consentedAi=productionRuntime?.authClient?.bootstrapState?.aiConsent===true&&productionRuntime?.identity?.role==="STUDENT";
+    if(syntheticAi||consentedAi){
       openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="quality-guardian-loading" data-quality-guardian-loading style="width:min(640px,calc(100vw - 40px))">
         <p class="micro-label">Timeline Quality Guardian</p>
         <h2 id="quality-guardian-loading">Checking your Timeline…</h2>
         <p>Running the live MissionMed AI review. Your Timeline stays unchanged until you approve a safe action.</p>
       </section>`,"[data-quality-guardian-loading]");
       try{
+        await store.saveNow('BEFORE_GUARDIAN_AI');
         const syncResult=await store.adapter.flush?.();
         if(Number(syncResult?.pending||0)>0||syncResult?.conflict===true){
           const unsynced=new Error("Save and sync this Timeline before running the AI review.");
           unsynced.code="TIMELINE_AI_DOCUMENT_NOT_SYNCED";
           throw unsynced;
         }
-        const requestedRevision=await store.adapter.getRemoteRevision?.(store.document.id);
+        const requestedRevision=localSyntheticAi?Number(store.document.revision||0):await store.adapter.getRemoteRevision?.(store.document.id);
         if(!Number.isInteger(requestedRevision)){
           const unsynced=new Error("Save and sync this Timeline before running the AI review.");
           unsynced.code="TIMELINE_AI_DOCUMENT_NOT_SYNCED";
           throw unsynced;
         }
         const requestedDocument=JSON.stringify(store.document);
-        const analysis=await productionRuntime.authClient.analyzeQuality(store.document.id,{
-          deterministicFindings:deterministicFindingsForAi(report)
-        });
+        const analysis=localSyntheticAi
+          ?await localSyntheticAi.analyzeQuality(store.document,deterministicFindingsForAi(report))
+          :await productionRuntime.authClient.analyzeQuality(store.document.id,{
+            deterministicFindings:deterministicFindingsForAi(report)
+          });
         if(Number(analysis?.documentRevision)!==requestedRevision||JSON.stringify(store.document)!==requestedDocument){
           const stale=new Error("Timeline changed while AI review was running. Run Check My Timeline again.");
           stale.code="TIMELINE_AI_STALE_DOCUMENT";
@@ -3377,12 +3525,19 @@ export async function boot407FEngineeringAdapter({
             ?"Timeline changed while AI review was running. Run Check My Timeline again."
             :error?.code==="TIMELINE_AI_DOCUMENT_NOT_SYNCED"
               ?"Save and sync this Timeline before running the AI review."
+            :String(error?.code||"").startsWith("SYNTHETIC_DOCUMENT_")
+              ?String(error.message)
             :"Timeline AI is temporarily unavailable. Your Timeline was not changed.",
           findings:[],
           unresolvedQuestions:[]
         });
       }
       closeStandardModal({restoreFocus:false});
+    }
+    lastGuardianReport022=report;
+    lastGuardianSource022=qualitySourceText022(store.document);
+    if(store.entitlement.canMutate===true){
+      try{await persistQualityReport022(store,report);}catch(error){bridge.toast('Guardian review completed. Its saved record needs attention.',{tone:'warning'});}
     }
     const dialog=openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="quality-guardian-title" data-quality-guardian-dialog style="width:min(860px,calc(100vw - 40px));max-height:min(820px,calc(100vh - 40px));overflow:auto">
       ${renderQualityGuardian(report,{
@@ -3429,8 +3584,38 @@ export async function boot407FEngineeringAdapter({
           ...report,
           findings:report.findings.filter(({id})=>id===selected.id)
         });
-        if(!result.changed)return;
-        if(report.ai?.status==="COMPLETE"&&String(selected.id).startsWith("qg-ai:")){
+        if(!result.changed){
+          button.textContent="No safe improvement found";
+          button.disabled=true;
+          return;
+        }
+        const beforeDocument=JSON.stringify(store.document);
+        const previewSvg=(timeline,side)=>serializeFounderPresentation(timeline,{
+          audience:"EVERYTHING",currentMonth:currentMonth(),
+          resourceNamespace:`guardian-fix-${side}`,mediaById:liveMediaById(timeline)
+        }).svg;
+        const beforeSvg=previewSvg(store.document,"before");
+        const afterSvg=previewSvg(result.document,"after");
+        closeStandardModal({restoreFocus:false});
+        const preview=openStandardModal(`<section class="export407FSuggestionDialog qualityFixPreview" role="dialog" aria-modal="true" aria-labelledby="quality-fix-title" data-quality-fix-preview>
+          <h2 id="quality-fix-title">Review the layout change</h2>
+          <p>Compare the proposed presentation change. Your dates, scores and experiences stay the same.</p>
+          <div class="qualityFixComparison"><figure><figcaption>Before</figcaption>${beforeSvg}</figure><figure><figcaption>Proposed</figcaption>${afterSvg}</figure></div>
+          <p data-quality-fix-status>Nothing has changed yet. Apply this change to save it as one undoable step.</p>
+          <div class="dialog-actions"><button class="btnD alt sm" data-quality-fix-cancel>Back to review</button><button class="btnD go sm" data-quality-fix-apply>Apply layout change</button></div>
+        </section>`,"[data-quality-fix-preview]");
+        if(!preview)return;
+        preview.querySelector("[data-quality-fix-cancel]")?.addEventListener("click",()=>{
+          closeStandardModal({restoreFocus:false});
+          void openQualityGuardian407F("DURING_BUILDING");
+        },{once:true});
+        preview.querySelector("[data-quality-fix-apply]")?.addEventListener("click",()=>{
+          if(JSON.stringify(store.document)!==beforeDocument||store.entitlement.canMutate!==true){
+            preview.querySelector("[data-quality-fix-status]").textContent="Your Timeline changed. Go back to review before applying a layout change.";
+            preview.querySelector("[data-quality-fix-apply]").disabled=true;
+            return;
+          }
+          if(report.ai?.status==="COMPLETE"&&String(selected.id).startsWith("qg-ai:")){
           appendTimelineAiFeedback(result.document,{
             workflow:"QUALITY_GUARDIAN",
             workflowVersion:report.ai.promptVersion,
@@ -3444,11 +3629,29 @@ export async function boot407FEngineeringAdapter({
             actorKind:qualityGuardianViewer(store.entitlement,bridge.state.view).startsWith("Founder")?"FOUNDER":"STUDENT",
             finalCanonicalReference:`document:${store.document.id}@revision:${Number(store.document.revision||0)+1}`
           });
-        }
-        store.replace(result.document,{label:"Quality Guardian: safe layout fix"});
-        syncBridgeFromStore();
-        closeStandardModal({restoreFocus:false});
-        queueMicrotask(()=>void openQualityGuardian407F("AFTER_SAFE_FIX"));
+          }
+          store.replace(result.document,{label:"Quality Guardian: safe layout fix"});
+          syncBridgeFromStore();
+          const appliedDocument=JSON.stringify(store.document);
+          preview.querySelector("[data-quality-fix-status]").textContent="Layout change saved. Your facts are unchanged.";
+          preview.querySelector("[data-quality-fix-apply]").remove();
+          const undo=document.createElement("button");
+          undo.className="btnD alt sm";
+          undo.textContent="Undo layout change";
+          undo.dataset.qualityFixUndo="true";
+          preview.querySelector(".dialog-actions").append(undo);
+          undo.addEventListener("click",()=>{
+            if(JSON.stringify(store.document)!==appliedDocument||store.historyStatus().undoLabel!=="Quality Guardian: safe layout fix"){
+              preview.querySelector("[data-quality-fix-status]").textContent="Your Timeline changed again. Close this preview and use the editor history to choose an undo step.";
+              undo.disabled=true;
+              return;
+            }
+            store.undo();
+            syncBridgeFromStore();
+            preview.querySelector("[data-quality-fix-status]").textContent="Layout change undone. The Before version is restored.";
+            undo.disabled=true;
+          },{once:true});
+        },{once:true});
       },{once:true});
     });
     dialog.querySelector("[data-quality-continue-export]")?.addEventListener(
@@ -3617,6 +3820,8 @@ export async function boot407FEngineeringAdapter({
       namespace,
       surface,
       timelineRenderSignature(store.document),
+      // Blob URLs arrive after the document: a cached preview must observe hydration.
+      JSON.stringify([...liveMediaById(store.document).entries()].sort()),
       store.entitlement.canMutate
     ].join("|");
     if(
@@ -3658,7 +3863,7 @@ export async function boot407FEngineeringAdapter({
       force
     });
   const renderHomePreview=({force=false}={})=>{
-    if(!(store.document?.events||[]).length)return false;
+    /* P0 canonical-board law: the Founder template renders on Home at zero events too. */
     return mountBuilderPreview(document.getElementById("boardCommand"),{
       surface:"home",
       namespace:"d1-405-home-preview",
@@ -3958,8 +4163,8 @@ export async function boot407FEngineeringAdapter({
   const furnitureGeometryFor=(document,key)=>normalizeFurnitureGeometry(
     document?.presentationOverrides?.[key],
     key==="colorKeyGeometry"
-      ?{x:37,y:350,width:247,height:277}
-      :{x:30,y:677,width:512,height:375}
+      ?{x:20,y:300,width:284,height:346}
+      :{x:13,y:661,width:545,height:410}
   );
   const rejectFurnitureCollision=(selection)=>{
     canvasController?.render?.();
@@ -4320,6 +4525,7 @@ export async function boot407FEngineeringAdapter({
         .catch((error)=>toastStudentError(error));
     },{once:true});
   };
+  api.openAdvancedStudio=()=>{bridge.go("canvas");requestCanvasMode("advanced");};
   const addAdvancedMedia=async(kind)=>{
     const accept=kind==="gif"
       ?".gif,image/gif"
@@ -4336,7 +4542,7 @@ export async function boot407FEngineeringAdapter({
       file,
       naturalWidth:metrics.width,
       naturalHeight:metrics.height,
-      layerIndex:store.document.advanced?.media?.length||0
+      layerIndex:nextAdvancedLayerIndex()
     });
     const contentSha256=await sha256File(file);
     const persistence=await prepareMediaPersistence(file,{id,kind,contentSha256});
@@ -4346,7 +4552,7 @@ export async function boot407FEngineeringAdapter({
         `Add ${kind}`,
         (document)=>{
           document.advanced.media.push(media);
-          document.advanced.scene=sceneGraphFromLegacy(document.advanced,{
+          document.advanced.scene=reconcileAdvancedScene(document.advanced,{
             revision:document.revision
           });
         },
@@ -4463,6 +4669,33 @@ export async function boot407FEngineeringAdapter({
     },0);
     return true;
   };
+  /* AAA-019 — a new object must land on top of everything already on the board.
+     Using `collection.length` as the layer index put a fresh insert UNDER older objects
+     with higher z (a rectangle inserted at z=2 vanished behind a text block at z=5). */
+  const nextAdvancedLayerIndex=(document=store.document)=>{
+    const advanced=document?.advanced||{};
+    const values=[...(advanced.media||[]),...(advanced.textBlocks||[]),...(advanced.elements||[])]
+      .flatMap((item)=>[Number(item?.zIndex),Number(item?.layerIndex)])
+      .filter((value)=>Number.isFinite(value));
+    return values.length?Math.max(...values)+1:0;
+  };
+  /* Centre of the part of the board the student can currently see, in board units.
+     Click-to-add lands here (Canva P2) instead of at a fixed board coordinate that may
+     be scrolled out of view at 150%. */
+  const visibleBoardCenter=()=>{
+    const application=canvasHost?.querySelector?.(".canvas-application");
+    const stage=canvasHost?.querySelector?.(".canvas-stage");
+    const board=application?.getBoundingClientRect?.();
+    const view=stage?.getBoundingClientRect?.();
+    if(!board?.width||!board?.height)return{x:960,y:540};
+    const left=Math.max(board.left,view?.left??board.left),right=Math.min(board.right,view?.right??board.right);
+    const top=Math.max(board.top,view?.top??board.top),bottom=Math.min(board.bottom,view?.bottom??board.bottom);
+    if(right<=left||bottom<=top)return{x:960,y:540};
+    return{
+      x:Math.max(0,Math.min(1920,((left+right)/2-board.left)/board.width*1920)),
+      y:Math.max(0,Math.min(1080,((top+bottom)/2-board.top)/board.height*1080))
+    };
+  };
   const openAdvancedPlacement=(width=200,height=104)=>{
     const occupied=[
       ...(store.document.advanced?.media||[]),
@@ -4478,38 +4711,47 @@ export async function boot407FEngineeringAdapter({
       candidate.y+candidate.height+18<=box.y||
       box.y+box.height+18<=candidate.y
     );
-    const candidates=[
-      [860,480],[1090,480],[630,480],[860,610],[860,350],
-      [1090,610],[630,610],[1090,350],[630,350],
-      [1380,480],[400,480],[1380,700],[400,700]
-    ].map(([x,y])=>({
-      x:Math.max(0,Math.min(1920-width,x)),
-      y:Math.max(0,Math.min(1080-height,y)),width,height
+    /* Click-to-add lands at the centre of what the student can see (Canva P2). A second
+       identical insert cascades by 24px so stacked copies stay visibly distinct, but
+       the object never wanders away from the centre to dodge other objects — it sits on
+       top of them, which is what "insert" means in every mature editor. */
+    const center=visibleBoardCenter();
+    const cx=center.x-width/2,cy=center.y-height/2;
+    const candidates=[0,1,2,3,4,5].map((step)=>({
+      x:Math.max(0,Math.min(1920-width,cx+step*24)),
+      y:Math.max(0,Math.min(1080-height,cy+step*24)),width,height
     }));
-    return candidates.find((candidate)=>!occupied.some((box)=>overlaps(candidate,box)))||candidates[0];
+    const sameSpot=(candidate,box)=>Math.abs(candidate.x-box.x)<2&&Math.abs(candidate.y-box.y)<2;
+    return candidates.find((candidate)=>!occupied.some((box)=>sameSpot(candidate,box)))||candidates[0];
   };
-  const insertAdvancedAsset=(kind,{x=null,y=null,countryCode="US"}={})=>{
+  const insertAdvancedAsset=(kind,{x=null,y=null,countryCode="US",centerOnPoint=false}={})=>{
     const id=uid("advanced-element");
     store.mutate("Add Timeline asset",(document)=>{
       document.advanced.elements=document.advanced.elements||[];
       const prototype=createAdvancedElement({id,kind,x:0,y:0,
         countryCode,
         label:"",
-        layerIndex:(document.advanced.elements||[]).length
+        layerIndex:nextAdvancedLayerIndex(document)
       });
+      /* A dropped asset is centred on the cursor, like the ghost that followed it. */
       const placement=x!==null&&y!==null&&Number.isFinite(Number(x))&&Number.isFinite(Number(y))
-        ?{x:Number(x),y:Number(y)}
+        ?{
+          x:Math.max(0,Math.min(1920-prototype.width,Number(x)-(centerOnPoint?prototype.width/2:0))),
+          y:Math.max(0,Math.min(1080-prototype.height,Number(y)-(centerOnPoint?prototype.height/2:0)))
+        }
         :openAdvancedPlacement(prototype.width,prototype.height);
       document.advanced.elements.push({...prototype,x:placement.x,y:placement.y});
-      document.advanced.scene=sceneGraphFromLegacy(document.advanced,{
+      document.advanced.scene=reconcileAdvancedScene(document.advanced,{
         revision:document.revision
       });
     });
     syncBridgeStateFromStore();
     canvasController?.setUiState({
+      selectedEventId:null,
       advancedSelection:{type:"element",id},
       advancedTextEdit:null
     });
+    requestAdvancedDirectSelection({type:"element",id});
     setTimeout(()=>canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')?.selectAdvancedObject?.("element",id),180);
     return id;
   };
@@ -4570,20 +4812,33 @@ export async function boot407FEngineeringAdapter({
       );
     },
     onPanel:(advancedPanel)=>{
+      /* AAA-019 (Canva parity): browsing a different side panel is not a deselect. The
+         selection — and its on-board chrome — stays; only an open inline text edit is
+         committed first so the draft is never lost behind a panel change. */
+      if(canvasController?.state?.advancedTextEdit){
+        canvasHost?.querySelector?.("[data-advanced-inline-text-form]")?.requestSubmit?.();
+      }
       canvasController?.setUiState({
         advancedPanel,
         advancedAssetQuery:"",
-        advancedSelection:null,
         advancedTextEdit:null,
         backgroundOpen:advancedPanel==="backgrounds"
       });
+      const kept=canvasController?.state?.advancedSelection;
+      if(kept)requestAdvancedDirectSelection(kept);
     },
-    onAssetSearch:(advancedAssetQuery)=>{
+    onAssetSearch:(advancedAssetQuery,event)=>{
+      const selection={start:event?.target?.selectionStart,end:event?.target?.selectionEnd,direction:event?.target?.selectionDirection};
       canvasController?.setUiState({advancedAssetQuery});
       queueMicrotask(()=>{
         const field=canvasHost?.querySelector?.("[data-advanced-asset-search]");
         field?.focus?.();
-        field?.setSelectionRange?.(field.value.length,field.value.length);
+        const end=field?.value?.length||0;
+        field?.setSelectionRange?.(
+          Number.isInteger(selection.start)?Math.min(selection.start,end):end,
+          Number.isInteger(selection.end)?Math.min(selection.end,end):end,
+          selection.direction||"none"
+        );
       });
     },
     onCategoryKeyPalette:(paletteId)=>{
@@ -4607,12 +4862,64 @@ export async function boot407FEngineeringAdapter({
         advancedSelection:{type:"color-key",id:"color-key"}
       });
     },
-    onSelectObject:(target)=>{
-      if(!target)return;
+    /* AAA-019 — Layers panel commands. Up/down/lock share the scene commands the
+       keyboard map uses; drag-reorder rewrites the z-order of the front-to-back list. */
+    onLayerAction:(action,target)=>{
+      if(!target?.type||!target?.id||store.entitlement.canMutate!==true)return;
+      const scoped={type:target.type,id:String(target.id)};
+      if(action==="up"||action==="down"){
+        const result=applySceneCommandToDocument(store.document,{kind:"layer",target:scoped,direction:action==="up"?"bring-forward":"send-backward",label:"Change Timeline layer"});
+        if(!result.changed)return;
+        store.replace(result.document,{label:"Change Timeline layer"});
+      }else if(action==="lock"||action==="unlock"){
+        const result=applySceneCommandToDocument(store.document,{kind:"lock",target:scoped,value:action==="lock",label:action==="lock"?"Lock Timeline object":"Unlock Timeline object"});
+        if(!result.changed)return;
+        store.replace(result.document,{label:action==="lock"?"Lock Timeline object":"Unlock Timeline object"});
+      }else if(action==="edit-text"){
+        beginAdvancedTextEdit(scoped);
+        return;
+      }else return;
+      syncBridgeStateFromStore();
+      canvasController?.setUiState({selectedEventId:null,advancedSelection:scoped,advancedTextEdit:null,advancedPanel:"layers"});
+      requestAdvancedDirectSelection(scoped);
+      announceGlobal(action==="up"?"Brought forward":action==="down"?"Sent backward":action==="lock"?"Locked":"Unlocked");
+    },
+    onLayerReorder:(dragged,target,position)=>{
+      if(store.entitlement.canMutate!==true||!dragged?.id||!target?.id)return;
+      const result=reorderAdvancedLayers(store.document,dragged,target,position);
+      if(!result.changed)return;
+      store.replace(result.document,{label:"Reorder layers"});
+      syncBridgeStateFromStore();
+      const selection={type:dragged.type,id:String(dragged.id)};
+      canvasController?.setUiState({selectedEventId:null,advancedSelection:selection,advancedTextEdit:null,advancedPanel:"layers"});
+      requestAdvancedDirectSelection(selection);
+      bridge.toast("Layers reordered");
+      announceGlobal("Layers reordered");
+    },
+    onSelectObject:(target,event=null)=>{
+      if(!target){
+        canvasController?.setUiState({advancedSelection:null,advancedTextEdit:null});
+        requestAdvancedDirectSelection(null);
+        return;
+      }
+      /* AAA-019 red-team D11 — a selection made from a Layers row keeps focus on that row
+         (re-found by id after the panel re-renders) so its own keyboard verbs keep working. */
+      const fromLayerRow=!!event?.target?.closest?.("[data-advanced-layer-row]");
+      const selection=toggleAdvancedSelection(canvasController?.state?.advancedSelection,target,!!(event?.shiftKey||event?.metaKey||event?.ctrlKey));
       canvasController?.setUiState({
-        selectedEventId:null,detailsEventId:null,advancedSelection:target,advancedTextEdit:null
+        selectedEventId:selection?.type==="event"?selection.id:null,detailsEventId:null,advancedSelection:selection,advancedTextEdit:null
       });
-      requestAdvancedDirectSelection(target);
+      requestAdvancedDirectSelection(selection);
+      if(fromLayerRow){
+        const refocusRow=()=>{
+          const escaped=globalThis.CSS?.escape?CSS.escape(String(target.id)):String(target.id);
+          const row=canvasHost?.querySelector?.(`[data-advanced-layer-row][data-advanced-layer-id="${escaped}"]`);
+          row?.focus?.({preventScroll:true});
+        };
+        queueMicrotask(refocusRow);
+        requestAnimationFrame(()=>requestAnimationFrame(refocusRow));
+        return;
+      }
       queueMicrotask(()=>{
         const protectedObjectId={
           axis:"year-axis",
@@ -4646,7 +4953,12 @@ export async function boot407FEngineeringAdapter({
         announceGlobal("Objects grouped");
       }catch(error){toastStudentError(error,"layout");}
     },
-    onClearSelection:()=>canvasController?.setUiState({advancedSelection:null,advancedTextEdit:null}),
+    onClearSelection:()=>{
+      canvasController?.setUiState({advancedSelection:null,advancedTextEdit:null});
+      /* State alone is not enough: the overlay lives on document.body and survives the
+         re-render, so without this the handles stayed on the board pointing at nothing. */
+      requestAdvancedDirectSelection(null);
+    },
     onAction:(action,_event,control)=>{
       if(action==="background"){
         canvasController?.setUiState({advancedPanel:"backgrounds",backgroundOpen:true,advancedSelection:null});
@@ -4657,16 +4969,18 @@ export async function boot407FEngineeringAdapter({
           :"Add your text";
         store.mutate("Add text",(document)=>{
           const prototype=createTextBlock({id,text,
-            layerIndex:document.advanced.textBlocks.length
+            layerIndex:nextAdvancedLayerIndex(document)
           });
           const placement=openAdvancedPlacement(prototype.width,prototype.height);
           document.advanced.textBlocks.push({...prototype,x:placement.x,y:placement.y});
-          document.advanced.scene=sceneGraphFromLegacy(document.advanced,{
+          document.advanced.scene=reconcileAdvancedScene(document.advanced,{
             revision:document.revision
           });
         });
         syncBridgeStateFromStore();
         canvasController?.setUiState({
+          selectedEventId:null,
+          detailsEventId:null,
           advancedSelection:{type:"text",id},
           advancedTextEdit:{id,draft:text}
         });
@@ -4692,6 +5006,7 @@ export async function boot407FEngineeringAdapter({
       /* Dragging an object the student already owns is a move, not an insert. Without
          this branch the drop silently did nothing while the app announced success. */
       if(payload.action==="place"&&payload.target){
+        if(payload.target.type==="media"&&advancedFrameDropHook(String(payload.target.id),{x,y}))return true;
         const result=placeAdvancedObjectAt(store.document,payload.target,{x,y});
         if(!result.changed)return false;
         store.replace(result.document,{label:result.mutation?.label||"Place Timeline object"});
@@ -4704,19 +5019,24 @@ export async function boot407FEngineeringAdapter({
         store.mutate("Add text",(document)=>{
           document.advanced.textBlocks.push(createTextBlock({
             id,text:payload.symbol||"Add your text",x,y,
-            layerIndex:document.advanced.textBlocks.length
+            layerIndex:nextAdvancedLayerIndex(document)
           }));
-          document.advanced.scene=sceneGraphFromLegacy(document.advanced,{
+          document.advanced.scene=reconcileAdvancedScene(document.advanced,{
             revision:document.revision
           });
         });
         syncBridgeStateFromStore();
-        canvasController?.setUiState({advancedSelection:{type:"text",id},advancedTextEdit:{id,draft:payload.symbol||"Add your text"}});
+        canvasController?.setUiState({
+          selectedEventId:null,
+          detailsEventId:null,
+          advancedSelection:{type:"text",id},
+          advancedTextEdit:{id,draft:payload.symbol||"Add your text"}
+        });
         return true;
       }
       if(payload.action==="asset"){
         insertAdvancedAsset(payload.assetKind||"rectangle",{
-          x,y,countryCode:payload.symbol||"US"
+          x,y,countryCode:payload.symbol||"US",centerOnPoint:true
         });
         return true;
       }
@@ -4747,7 +5067,7 @@ export async function boot407FEngineeringAdapter({
           ?{type:"multi",members}
           :members[0]||null;
         canvasController?.setUiState({advancedSelection:selection});
-        if(selection?.type!=="multi")requestAdvancedDirectSelection(selection);
+        requestAdvancedDirectSelection(selection);
         canvasHost?.querySelector?.(
           'd1-timeline-kernel[data-surface="edit"]'
         )?.releaseAdvancedGroup?.(target.id,members);
@@ -4788,6 +5108,9 @@ export async function boot407FEngineeringAdapter({
       store.replace(result.document,{label:result.mutation.label});
       syncBridgeStateFromStore();
       canvasController?.setUiState({advancedSelection:result.selection});
+      /* Delete leaves result.selection null; without this the handles of the object
+         that was just removed stayed on the board. */
+      requestAdvancedDirectSelection(result.selection||null);
       if(action==="duplicate"&&target?.type==="media"&&result.selection?.id){
         const duplicateId=result.selection.id;
         const source=(store.document.advanced?.media||[]).find(
@@ -5086,24 +5409,13 @@ export async function boot407FEngineeringAdapter({
         toastStudentError(error,"export");
       }
     }
-    const responsive=currentResponsiveModel();
-    if(responsive.screens.export.contentMode==="preview-only"){
-      exportHost.innerHTML=`<div class="export407FPhonePreview" data-responsive-screen="export" data-responsive-tier="${responsive.tier.id}" data-responsive-mode="preview-only">
-        <h1>Export</h1>
-        <div class="responsive407FBanner" role="status">Editing needs a larger screen.</div>
-        <div class="export407FPhoneBoard">${previewHtml||"<p>Add an event in Builder to preview your export.</p>"}</div>
-      </div>`;
-      api.export=Object.freeze({
-        state:"preview-only",
-        refreshPreview:renderExportHost,
-        destroy(){}
-      });
-      return;
-    }
     exportHost.innerHTML=renderExportScreen(exportDocument,{
       state:exportState,
       previewHtml,
-      entitlement:store.entitlement
+      entitlement:store.entitlement,
+      readiness:lastGuardianReport022&&lastGuardianSource022===qualitySourceText022(store.document)?lastGuardianReport022:analyzeTimelineQuality(store.document,{stage:"BEFORE_EXPORT"}),
+      readinessCurrent:true,
+      exportHistory:store.document.metadata?.exportHistory022||[]
     });
     exportController=installExportScreen(exportHost,exportDocument,{
       state:exportState,
@@ -5116,6 +5428,7 @@ export async function boot407FEngineeringAdapter({
         options?{...options,diagnostic:studentDiagnostic(message)}:options
       ),
       requestVersion:(label,kind)=>store.saveVersion(label,kind),
+      onExportComplete:result=>recordCompletedExport022(store,result),
       onStateChange:(state,reason)=>{
         exportState=state;
         if(store.entitlement.canMutate===true){
@@ -5639,6 +5952,9 @@ export async function boot407FEngineeringAdapter({
     }
   });
   api.schoolRegistry=Object.freeze({
+    allCountries(){
+      return browserCountryRows();
+    },
     search(query,filters={}){
       return runtimeDatasets.schools.search(query,{
         ...clone(filters||{}),
@@ -5888,6 +6204,27 @@ export async function boot407FEngineeringAdapter({
         const selectedBefore=store.document.events.find(
           (item)=>String(item.id)===String(eventId)
         );
+        if(isExplanationEvent(selectedBefore)){
+          const changes={};
+          for(const input of form.querySelectorAll("[data-canvas-detail-field]")){
+            const field=input.dataset.canvasDetailField;
+            changes[field==="explanationText"?"text":field]=input.type==="checkbox"?input.checked:input.value;
+          }
+          const draft=structuredClone(store.document);
+          const result=updateExplanation(draft,eventId,changes);
+          if(!result.ok){
+            bridge.toast(result.code==="EXPLANATION_TEXT_TOO_LONG"
+              ?`Keep your explanation to ${EXPLANATION_TEXT_MAX} characters or fewer.`
+              :"Enter a short explanation before saving.");
+            form.querySelector('[data-canvas-detail-field="explanationText"]')?.focus();
+            return;
+          }
+          store.replace(draft,{label:"Edit explanation details"});
+          syncBridgeStateFromStore();
+          canvasController.render({animateLayout:true});
+          bridge.toast("Explanation saved");
+          return;
+        }
         const clinical=(selectedBefore?.fields?.builderDomain||
           selectedBefore?.categoryId)==="clinical";
         if(clinical){
@@ -5975,6 +6312,7 @@ export async function boot407FEngineeringAdapter({
           const visible=form.querySelector("[data-canvas-variant-visible]")?.checked!==false;
           setVariantEventHidden(document,active.id,selected.id,!visible);
         });
+        syncBridgeStateFromStore();
         canvasController.render({animateLayout:true});
         bridge.toast("Event details saved");
         return;
@@ -6049,17 +6387,14 @@ export async function boot407FEngineeringAdapter({
             field?.select?.();
           });
         }else if(event.shiftKey||event.metaKey||event.ctrlKey){
-          const prior=canvasController?.state?.advancedSelection;
-          const members=prior?.type==="multi"?prior.members.slice():prior?[prior]:[];
-          const key=`${effectiveSelection.type}:${effectiveSelection.id}`;
-          const index=members.findIndex((item)=>`${item.type}:${item.id}`===key);
-          if(index>=0)members.splice(index,1);else members.push(effectiveSelection);
+          const nextSelection=toggleAdvancedSelection(canvasController?.state?.advancedSelection,effectiveSelection,true);
           canvasController?.setUiState({
-            advancedSelection:members.length>1?{type:"multi",members}:members[0]||null,
+            advancedSelection:nextSelection,
             advancedTextEdit:null
           });
-          if(members.length===1)showAdvancedDirectSelection(members[0]);
-          else clearAdvancedDirectSelection();
+          /* AAA-019 — a multi-selection must draw its chrome too; clearing here left the
+             panel saying "2 objects selected" while the board showed nothing. */
+          showAdvancedDirectSelection(nextSelection);
         }else{
           canvasController?.setUiState({advancedSelection:effectiveSelection,advancedTextEdit:null});
           showAdvancedDirectSelection(effectiveSelection);
@@ -6069,6 +6404,36 @@ export async function boot407FEngineeringAdapter({
     let advancedPointer=null;
     let axisPointer=null;
     let railPointer=null;
+    let marqueePointer=null;
+    let layoutLockExplainedAt=0;
+    const explainLayoutLock=()=>{
+      const now=Date.now();
+      if(now-layoutLockExplainedAt<4000)return;
+      layoutLockExplainedAt=now;
+      const message="Layout lock is on — turn it off (top of the side panel) to move, resize, or edit objects.";
+      bridge.toast?.(message);
+      announceGlobal?.(message);
+      const control=canvasHost?.querySelector?.("[data-advanced-layout-lock-control]");
+      if(control){
+        control.dataset.advancedLockNudge="true";
+        setTimeout(()=>{delete control.dataset.advancedLockNudge;},1200);
+      }
+    };
+    let advancedCrop=null;
+    /* event.detail is not a dependable double-press signal on this surface: the board
+       is driven by a pure pointer stream, and some environments deliver every
+       pointerdown with detail 0 and never synthesise mousedown/click/dblclick at all.
+       Track the second press ourselves from time and distance, which holds for any
+       pointer source. Resetting on a match stops a third press chaining into a fourth. */
+    let lastAdvancedPress={time:0,x:0,y:0};
+    const consumeDoublePress=(event)=>{
+      const now=Number(event.timeStamp)||performance.now();
+      const isDouble=
+        now-lastAdvancedPress.time<450&&
+        Math.hypot(event.clientX-lastAdvancedPress.x,event.clientY-lastAdvancedPress.y)<6;
+      lastAdvancedPress=isDouble?{time:0,x:0,y:0}:{time:now,x:event.clientX,y:event.clientY};
+      return isDouble;
+    };
     let nativeRailDrag=null;
     const advancedEditIframe=()=>canvasHost
       ?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')
@@ -6158,20 +6523,323 @@ export async function boot407FEngineeringAdapter({
         document.body.append(handle);
       });
     });
+    /* Selection chrome used to be fixed-positioned on document.body. That made it a
+       document-space overlay over a board that scrolls and zooms: it did not move when
+       the stage panned, and it painted over the asset rail and the inspector because
+       nothing clipped it. Mounting it inside .canvas-stage instead puts it in board
+       space — it scrolls with the content for free, and the stage's own overflow clips
+       it — which is the "overlay in board space, not fixed document space" the audit
+       asked for. Coordinates are relative to the stage's scrollable content, so the
+       scroll offset has to be added back in. */
+    const advancedOverlayHost=()=>canvasHost?.querySelector?.(".canvas-stage")||null;
+    const mountAdvancedOverlay=(node,bounds)=>{
+      const host=advancedOverlayHost();
+      if(!host||!bounds)return false;
+      const view=host.getBoundingClientRect();
+      node.style.left=`${bounds.left-view.left+host.scrollLeft}px`;
+      node.style.top=`${bounds.top-view.top+host.scrollTop}px`;
+      node.style.width=`${bounds.width}px`;
+      node.style.height=`${bounds.height}px`;
+      host.append(node);
+      return true;
+    };
+
+    const advancedMemberElement=(member)=>{
+      const id=String(member?.id||"");
+      if(!id)return null;
+      const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
+      return sceneVisualNode(canvasHost?.querySelector?.(
+        member.type==="media"?`[data-advanced-media="${escaped}"]`:
+        member.type==="text"?`[data-advanced-text="${escaped}"]`:
+        member.type==="element"?`[data-advanced-element="${escaped}"]`:""
+      ));
+    };
+
+    /* ===================== AAA-019 — quick-bar + context menu =====================
+       Every selection gets a floating quick-bar (Canva S2) with the two or three verbs a
+       student reaches for, and the same verbs are reachable from a right-click menu that
+       prints its shortcuts (Canva X1). Both dispatch through the selection engine. */
+    const advancedQuickActionsFor=(target,{frameState="empty"}={})=>{
+      const lockedNow=selectionIsLocked(target);
+      const lock={action:lockedNow?"unlock":"lock",label:lockedNow?"Unlock":"Lock",icon:lockedNow?"🔓":"🔒"};
+      if(target.type==="frame"){
+        return frameState==="filled"
+          ?[{action:"frame-replace",label:"Replace",icon:"⇄"},{action:"crop",label:"Crop",icon:"⌗"},{action:"frame-remove",label:"Remove photo",icon:"✕"}]
+          :[{action:"frame-choose",label:"Choose from uploads",icon:"▤"},{action:"frame-upload",label:"Upload photo",icon:"⇧"}];
+      }
+      if(target.type==="multi")return[{action:"group",label:"Group",icon:"⧉",keys:"⌘G"},{action:"duplicate",label:"Duplicate",icon:"⧉",keys:"⌘D"},{action:"delete",label:"Delete",icon:"🗑",keys:"⌫"}];
+      const common=[{action:"duplicate",label:"Duplicate",icon:"⧉",keys:"⌘D"},{action:"delete",label:"Delete",icon:"🗑",keys:"⌫"},lock,{action:"more",label:"More",icon:"⋯"}];
+      if(target.type==="media")return[{action:"crop",label:"Crop",icon:"⌗"},...common];
+      if(target.type==="text")return[{action:"edit-text",label:"Edit text",icon:"✎",keys:"Enter"},...common];
+      if(target.type==="group")return[{action:"ungroup",label:"Ungroup",icon:"⧈",keys:"⇧⌘G"},...common];
+      if(["element"].includes(target.type))return common;
+      return[];
+    };
+    const clearAdvancedQuickBar=()=>document.querySelectorAll?.("[data-advanced-quick-bar]").forEach((node)=>node.remove());
+    const mountAdvancedQuickBar=(target,bounds,{frameState="empty"}={})=>{
+      clearAdvancedQuickBar();
+      if(store.entitlement.canMutate!==true||store.document.mode!=="advanced")return;
+      const actions=advancedQuickActionsFor(target,{frameState});
+      if(!actions.length)return;
+      const host=advancedOverlayHost();
+      if(!host)return;
+      const bar=document.createElement("div");
+      bar.className="advancedQuickBar";
+      bar.dataset.advancedQuickBar="true";
+      bar.dataset.advancedDirectSelection="true";
+      bar.setAttribute("role","toolbar");
+      bar.setAttribute("aria-label","Selected object actions");
+      /* Frames and multi-selections carry short verb labels (few actions, unfamiliar
+         verbs); every other object gets a compact icon bar with tooltips, so the bar
+         never sprawls over neighbouring objects and steals their clicks. */
+      const compact=!["frame","multi"].includes(target.type);
+      bar.dataset.advancedQuickBarCompact=String(compact);
+      bar.innerHTML=actions.map((item)=>`<button type="button" data-advanced-quick-action="${item.action}" data-advanced-target-type="${target.type}" data-advanced-target-id="${target.id||""}" title="${item.label}${item.keys?` (${item.keys})`:""}" aria-label="${item.label}"><span aria-hidden="true">${item.icon}</span>${compact?"":`<span class="advancedQuickBarLabel">${item.label}</span>`}</button>`).join("");
+      const view=host.getBoundingClientRect();
+      const barWidth=compact?actions.length*34+8:Math.min(420,Math.max(120,actions.length*118));
+      const centred=bounds.left-view.left+host.scrollLeft+bounds.width/2-barWidth/2;
+      const leftAligned=bounds.left-view.left+host.scrollLeft;
+      const left=Math.max(4,Math.min(view.width-barWidth-4,barWidth>bounds.width+24?leftAligned:centred));
+      const above=bounds.top-view.top-46;
+      const top=above>=4?above+host.scrollTop:bounds.top-view.top+host.scrollTop+bounds.height+10;
+      bar.style.left=`${left}px`;
+      bar.style.top=`${top}px`;
+      host.append(bar);
+    };
+    const runAdvancedQuickAction=(action,target,anchor=null)=>{
+      const selection=canvasController?.state?.advancedSelection||target;
+      switch(action){
+        case"duplicate":return duplicateAdvancedSelection(selection);
+        case"delete":return deleteAdvancedSelection(selection);
+        case"lock":return lockAdvancedSelection(selection,true);
+        case"unlock":return lockAdvancedSelection(selection,false);
+        case"group":return groupAdvancedSelection(selection);
+        case"ungroup":return ungroupAdvancedSelection(selection);
+        case"bring-forward":case"send-backward":case"bring-to-front":case"send-to-back":return layerAdvancedSelection(selection,action);
+        case"copy":return copyAdvancedSelection(selection);
+        case"cut":return copyAdvancedSelection(selection)&&deleteAdvancedSelection(selection);
+        case"paste":return pasteAdvancedClipboard();
+        case"select-all":{const members=allAdvancedSelectableMembers();if(!members.length)return false;commitAdvancedSelection(members.length===1?members[0]:{type:"multi",members});return true;}
+        case"edit-text":return beginAdvancedTextEdit(target);
+        case"crop":return beginAdvancedCrop(target);
+        case"frame-choose":armAdvancedFrameFill(target.id);return true;
+        case"frame-upload":uploadIntoAdvancedFrame(target.id);return true;
+        case"frame-replace":armAdvancedFrameFill(target.id);return true;
+        case"frame-remove":return clearAdvancedFrame(target.id);
+        case"layers":canvasController?.setUiState({advancedPanel:"layers"});return true;
+        case"align-left":case"align-center":case"align-right":case"align-top":case"align-middle":case"align-bottom":
+          return alignAdvancedSelection(selection,action.replace("align-",""));
+        case"more":openAdvancedContextMenu({anchor,selection:target});return true;
+        default:return false;
+      }
+    };
+    const closeAdvancedContextMenu=()=>{
+      const menu=document.querySelector("[data-advanced-context-menu]");
+      if(!menu)return false;
+      menu.remove();
+      document.removeEventListener("pointerdown",onAdvancedContextMenuDismiss,true);
+      return true;
+    };
+    const onAdvancedContextMenuDismiss=(event)=>{
+      if(event.target.closest?.("[data-advanced-context-menu]"))return;
+      closeAdvancedContextMenu();
+    };
+    const advancedContextMenuItems=(selection)=>{
+      if(!selection)return[
+        {action:"paste",label:"Paste",keys:"⌘V",disabled:!advancedClipboard.length},
+        {action:"select-all",label:"Select all",keys:"⌘A"},
+        {action:"layers",label:"Layers…"}
+      ];
+      const lockedNow=selectionIsLocked(selection);
+      if(selection.type==="frame"){
+        const filled=advancedFrameItem(store.document,selection.id);
+        return filled
+          ?[{action:"frame-replace",label:"Replace photo"},{action:"crop",label:"Crop"},{action:"frame-remove",label:"Remove photo",keys:"⌫"}]
+          :[{action:"frame-choose",label:"Choose from uploads"},{action:"frame-upload",label:"Upload photo"}];
+      }
+      const items=[
+        {action:"cut",label:"Cut",keys:"⌘X"},
+        {action:"copy",label:"Copy",keys:"⌘C"},
+        {action:"paste",label:"Paste",keys:"⌘V",disabled:!advancedClipboard.length},
+        {action:"duplicate",label:"Duplicate",keys:"⌘D"},
+        {action:"delete",label:"Delete",keys:"⌫"},
+        {separator:true},
+        {action:lockedNow?"unlock":"lock",label:lockedNow?"Unlock":"Lock",keys:"⇧⌘L"},
+        selection.type==="multi"?{action:"group",label:"Group",keys:"⌘G"}:selection.type==="group"?{action:"ungroup",label:"Ungroup",keys:"⇧⌘G"}:null,
+        {separator:true},
+        {action:"bring-forward",label:"Bring forward",keys:"⌘]"},
+        {action:"send-backward",label:"Send backward",keys:"⌘["},
+        {action:"bring-to-front",label:"Bring to front",keys:"⌥⌘]"},
+        {action:"send-to-back",label:"Send to back",keys:"⌥⌘["},
+        {action:"layers",label:"Layers…"},
+        {separator:true}
+      ].filter(Boolean);
+      if(selection.type==="media")items.push({action:"crop",label:"Crop"});
+      if(selection.type==="text")items.push({action:"edit-text",label:"Edit text",keys:"Enter"});
+      /* Canva's "Align to page" — one row of six, so the whole selection can be squared to
+         the board without a nudge marathon. */
+      items.push({separator:true},{alignRow:true,label:"Align to board",items:[
+        {action:"align-left",label:"Left",icon:"⇤"},{action:"align-center",label:"Center",icon:"↔"},{action:"align-right",label:"Right",icon:"⇥"},
+        {action:"align-top",label:"Top",icon:"⤒"},{action:"align-middle",label:"Middle",icon:"↕"},{action:"align-bottom",label:"Bottom",icon:"⤓"}
+      ]});
+      if(items.at(-1)?.separator)items.pop();
+      return items;
+    };
+    /* Align the selection's combined box to the board; members keep their relative layout. */
+    const alignAdvancedSelection=(selection,edge)=>{
+      if(store.entitlement.canMutate!==true||store.document.layoutLock!==false)return false;
+      const members=advancedLeafMembers(selection);
+      if(!members.length||selectionIsLocked(selection))return false;
+      const boxes=members.map((member)=>({member,item:advancedItemFor(member)})).filter(({item})=>item);
+      if(!boxes.length)return false;
+      const left=Math.min(...boxes.map(({item})=>Number(item.x)||0));
+      const top=Math.min(...boxes.map(({item})=>Number(item.y)||0));
+      const right=Math.max(...boxes.map(({item})=>(Number(item.x)||0)+(Number(item.width)||0)));
+      const bottom=Math.max(...boxes.map(({item})=>(Number(item.y)||0)+(Number(item.height)||0)));
+      const width=right-left,height=bottom-top;
+      const dx=edge==="left"?-left:edge==="center"?960-(left+width/2):edge==="right"?1920-right:0;
+      const dy=edge==="top"?-top:edge==="middle"?540-(top+height/2):edge==="bottom"?1080-bottom:0;
+      if(!dx&&!dy)return false;
+      let working=store.document,changed=false;
+      const label=`Align to board ${edge}`;
+      for(const {member,item} of boxes){
+        const x=Math.max(0,Math.min(1920-(Number(item.width)||0),(Number(item.x)||0)+dx));
+        const y=Math.max(0,Math.min(1080-(Number(item.height)||0),(Number(item.y)||0)+dy));
+        const next=member.type==="media"?moveMediaElement(item,{x,y}):{...item,x,y};
+        const result=applySceneCommandToDocument(working,{kind:"geometry",target:member,geometry:next,label});
+        if(result.changed){working=result.document;changed=true;}
+      }
+      if(!changed)return false;
+      store.replace(working,{label});
+      commitAdvancedSelection(selection,{announce:`Aligned to board ${edge}`});
+      return true;
+    };
+    const openAdvancedContextMenu=({x=null,y=null,anchor=null,selection=null}={})=>{
+      closeAdvancedContextMenu();
+      if(store.document.mode!=="advanced"||store.entitlement.canMutate!==true)return false;
+      const items=advancedContextMenuItems(selection);
+      const menu=document.createElement("div");
+      menu.className="advancedContextMenu";
+      menu.dataset.advancedContextMenu="true";
+      menu.setAttribute("role","menu");
+      const itemButton=(item,extra="")=>`<button type="button" role="menuitem" data-advanced-quick-action="${item.action}" data-advanced-target-type="${selection?.type||""}" data-advanced-target-id="${selection?.id||""}"${item.disabled?" disabled":""}${extra}><span>${item.label}</span>${item.keys?`<kbd>${item.keys}</kbd>`:""}</button>`;
+      menu.innerHTML=items.map((item)=>item.separator
+        ?'<hr role="separator">'
+        :item.alignRow
+          ?`<div class="advancedContextMenuAlign" role="group" aria-label="${item.label}"><span class="advancedContextMenuAlignLabel">${item.label}</span><div class="advancedContextMenuAlignRow">${item.items.map((entry)=>`<button type="button" role="menuitem" data-advanced-quick-action="${entry.action}" data-advanced-target-type="${selection?.type||""}" data-advanced-target-id="${selection?.id||""}" title="${entry.label}" aria-label="${item.label}: ${entry.label}"><span aria-hidden="true">${entry.icon}</span></button>`).join("")}</div></div>`
+          :itemButton(item)
+      ).join("");
+      document.body.append(menu);
+      let left=x,top=y;
+      if(anchor?.getBoundingClientRect){const box=anchor.getBoundingClientRect();left=box.left;top=box.bottom+4;}
+      const size=menu.getBoundingClientRect();
+      left=Math.max(4,Math.min(window.innerWidth-size.width-4,Number(left)||0));
+      top=Math.max(4,Math.min(window.innerHeight-size.height-4,Number(top)||0));
+      menu.style.left=`${left}px`;
+      menu.style.top=`${top}px`;
+      queueMicrotask(()=>document.addEventListener("pointerdown",onAdvancedContextMenuDismiss,true));
+      menu.querySelector("button:not([disabled])")?.focus?.({preventScroll:true});
+      return true;
+    };
+    onAdvancedQuickActionClick=(event)=>{
+      const button=event.target.closest?.("[data-advanced-quick-action]");
+      if(!button)return;
+      event.preventDefault();
+      event.stopPropagation();
+      const action=String(button.dataset.advancedQuickAction||"");
+      const target=button.dataset.advancedTargetType?{type:String(button.dataset.advancedTargetType),id:String(button.dataset.advancedTargetId||"")}:null;
+      const inMenu=!!button.closest("[data-advanced-context-menu]");
+      if(inMenu)closeAdvancedContextMenu();
+      runAdvancedQuickAction(action,target,button);
+    };
+    onAdvancedContextMenu=(event)=>{
+      if(store.document.mode!=="advanced"||store.entitlement.canMutate!==true)return;
+      if(event.target.closest?.("[data-advanced-inline-text-input], input, textarea, select"))return;
+      /* Effective hit proxies (small objects, text at 100%) sit beside the board, not in
+         it (red-team D4); they carry the object's data attributes, so they resolve below. */
+      const surface=event.target.closest?.(".canvas-application, [data-advanced-direct-selection], [data-canvas-effective-hit-proxy]");
+      if(!surface)return;
+      event.preventDefault();
+      const object=advancedObjectForTarget(event.target);
+      let selection=canvasController?.state?.advancedSelection||null;
+      if(object&&!["event","color-key","profile","axis"].includes(object.type)){
+        const key=`${object.type}:${object.id}`;
+        const already=selection?.type==="multi"
+          ?(selection.members||[]).some((member)=>`${member.type}:${member.id}`===key)
+          :selection&&`${selection.type}:${selection.id}`===key;
+        if(!already){
+          selection={type:object.type,id:String(object.id)};
+          canvasController?.setUiState({selectedEventId:null,advancedSelection:selection,advancedTextEdit:null});
+          requestAdvancedDirectSelection(selection);
+        }
+      }else if(!object){
+        selection=null;
+      }else{
+        return;
+      }
+      openAdvancedContextMenu({x:event.clientX,y:event.clientY,selection});
+    };
     const clearAdvancedDirectSelection=()=>{
       document.querySelectorAll?.("[data-advanced-direct-selection]").forEach((node)=>node.remove());
       clearAdvancedAxisBoundaryHandles();
     };
+    const clearAdvancedHoverChrome=()=>document.querySelectorAll?.("[data-advanced-hover]").forEach((node)=>node.remove());
     const showAdvancedDirectSelection=(target)=>queueMicrotask(()=>{
+      const retainedRotationFocus=document.activeElement?.matches?.('[data-advanced-direct-handle="rotate"]');
       clearAdvancedDirectSelection();
-      if(!target||target.type==="multi"||target.type==="headline")return;
+      if(!target||target.type==="headline")return;
+      if(advancedCrop)return;
       if(target.type==="axis"){
         showAdvancedAxisBoundaryHandles();
         return;
       }
+      /* A1.4 — multi-selection used to return here and draw nothing, so shift-clicking
+         a second object changed state with no board feedback at all: the only evidence
+         was a line of panel text. Draw every member and the combined bounds, so what
+         will move, group, or delete is never ambiguous. No resize handles: resizing a
+         multi-selection is not a supported command, and drawing handles would promise
+         a gesture that does nothing. */
+      if(target.type==="multi"){
+        const members=(Array.isArray(target.members)?target.members:[])
+          .map((member)=>({member,element:advancedMemberElement(member)}))
+          .filter(({element})=>element);
+        const boxes=members
+          .map(({element})=>element.getBoundingClientRect?.())
+          .filter((box)=>box?.width&&box?.height);
+        if(boxes.length<2)return;
+        members.forEach(({member,element})=>{
+          const box=element.getBoundingClientRect?.();
+          if(!box?.width||!box?.height)return;
+          const outline=document.createElement("div");
+          outline.className="advancedDirectSelectionMember";
+          outline.dataset.advancedDirectSelection="true";
+          outline.dataset.advancedTargetType=String(member.type||"");
+          outline.dataset.advancedTargetId=String(member.id||"");
+          mountAdvancedOverlay(outline,box);
+        });
+        const combined=document.createElement("div");
+        combined.className="advancedDirectSelection advancedDirectSelectionMulti";
+        combined.dataset.advancedDirectSelection="true";
+        combined.dataset.advancedTargetType="multi";
+        combined.dataset.advancedMultiCount=String(members.length);
+        const left=Math.min(...boxes.map((box)=>box.left));
+        const top=Math.min(...boxes.map((box)=>box.top));
+        const combinedBounds={
+          left,top,
+          width:Math.max(...boxes.map((box)=>box.right))-left,
+          height:Math.max(...boxes.map((box)=>box.bottom))-top
+        };
+        const count=document.createElement("span");
+        count.className="advancedDirectSelectionCount";
+        count.textContent=`${members.length} selected`;
+        combined.append(count);
+        mountAdvancedOverlay(combined,combinedBounds);
+        mountAdvancedQuickBar(target,combinedBounds,{});
+        return;
+      }
       const escaped=globalThis.CSS?.escape?CSS.escape(target.id):target.id;
       const groupMembers=target.type==="group"?advancedGroupMembers(target.id):[];
-      const rawSource=target.type==="group"?groupMembers[0]?.element:canvasHost?.querySelector?.(
+      const rawSource=target.type==="group"?groupMembers[0]?.element:target.type==="frame"?advancedFrameNode(target.id):canvasHost?.querySelector?.(
         target.type==="media"?`[data-advanced-media="${escaped}"]`:
         target.type==="text"?`[data-advanced-text="${escaped}"]`:
         target.type==="element"?`[data-advanced-element="${escaped}"]`:
@@ -6185,15 +6853,26 @@ export async function boot407FEngineeringAdapter({
       const memberBounds=groupMembers.map(({element})=>element.getBoundingClientRect?.()).filter(
         (box)=>box?.width&&box?.height
       );
-      const bounds=memberBounds.length?{
+      let bounds=memberBounds.length?{
         left:Math.min(...memberBounds.map((box)=>box.left)),
         top:Math.min(...memberBounds.map((box)=>box.top)),
         right:Math.max(...memberBounds.map((box)=>box.right)),
         bottom:Math.max(...memberBounds.map((box)=>box.bottom))
-      }:source?.getBoundingClientRect?.();
+      }:target.type==="frame"?advancedFrameScreenBounds022(rawSource)||source?.getBoundingClientRect?.():source?.getBoundingClientRect?.();
       if(bounds&&!Object.hasOwn(bounds,"width")){
         bounds.width=bounds.right-bounds.left;
         bounds.height=bounds.bottom-bounds.top;
+      }
+      /* AAA-019 — a line or a hairline arrow has a near-zero box; give thin objects a
+         minimum visible chrome (Canva's 12px grab corridor) instead of drawing nothing. */
+      if(bounds&&(bounds.width>0||bounds.height>0)){
+        const minimum=14;
+        const padX=Math.max(0,(minimum-bounds.width)/2),padY=Math.max(0,(minimum-bounds.height)/2);
+        if(padX||padY)bounds={
+          left:bounds.left-padX,top:bounds.top-padY,
+          width:bounds.width+padX*2,height:bounds.height+padY*2,
+          right:bounds.left+bounds.width+padX,bottom:bounds.top+bounds.height+padY
+        };
       }
       if(!bounds?.width||!bounds?.height)return;
       const overlay=document.createElement("div");
@@ -6201,18 +6880,150 @@ export async function boot407FEngineeringAdapter({
       overlay.dataset.advancedDirectSelection="true";
       overlay.dataset.advancedTargetType=target.type;
       overlay.dataset.advancedTargetId=target.id;
-      overlay.style.left=`${bounds.left}px`;
-      overlay.style.top=`${bounds.top}px`;
-      overlay.style.width=`${bounds.width}px`;
-      overlay.style.height=`${bounds.height}px`;
-      overlay.innerHTML=["nw","n","ne","e","se","s","sw","w"].map((handle)=>`<button type="button" aria-label="Resize ${handle}" data-advanced-direct-handle="${handle}" data-advanced-target-type="${target.type}" data-advanced-target-id="${target.id}"></button>`).join("");
-      document.body.append(overlay);
+
+      overlay.tabIndex=-1;
+      const fixedFrame=target.type==="frame"&&!/^photo\d$/.test(String(target.id));
+      if(target.type==="frame")overlay.dataset.advancedFrameState=String(rawSource?.dataset?.mediaState||"empty");
+      overlay.innerHTML=fixedFrame?"":["nw","n","ne","e","se","s","sw","w"].map((handle)=>`<button type="button" aria-label="Resize ${handle}" data-advanced-direct-handle="${handle}" data-advanced-target-type="${target.type}" data-advanced-target-id="${target.id}"></button>`).join("");
+      if(document.body.classList.contains("prototype021")&&(["media","text","element","event"].includes(target.type)||(target.type==="frame"&&!fixedFrame))){
+        const rotate=document.createElement("button");
+        rotate.type="button";
+        rotate.dataset.advancedDirectHandle="rotate";
+        rotate.dataset.advancedTargetType=target.type;
+        rotate.dataset.advancedTargetId=target.id;
+        rotate.setAttribute("aria-label","Rotate object. Drag, or use arrow keys. Shift snaps to 15 degrees.");
+        rotate.title="Rotate · drag or use arrow keys · Shift for 15°";
+        rotate.textContent="↻";
+        overlay.append(rotate);
+      }
+      if(!mountAdvancedOverlay(overlay,bounds))return;
+      if(retainedRotationFocus)overlay.querySelector('[data-advanced-direct-handle="rotate"]')?.focus?.({preventScroll:true});
+      mountAdvancedQuickBar(target,bounds,{frameState:overlay.dataset.advancedFrameState});
+      /* A1.3 — pointer selection must hand keyboard focus to the object's hit proxy.
+         onAdvancedObjectKeyDown resolves its object from event.target and is bound to
+         canvasHost, so without this the entire keyboard map (nudge, Shift-resize,
+         Enter-to-edit) was unreachable after a click: activeElement stayed on <body>
+         and every arrow key fell through to the page. */
+      focusAdvancedSelectionTarget(target,groupMembers);
     });
     requestAdvancedDirectSelection=(target)=>showAdvancedDirectSelection(target);
+    /* Focus belongs on the hit proxy inside canvasHost, never on the overlay itself:
+       the overlay lives on document.body, outside the keydown listener's subtree.
+       A live text editor or form control always keeps focus — a selection redraw must
+       never yank the caret out from under someone who is typing. */
+    const editableHasFocus=()=>{
+      const active=document.activeElement;
+      if(!active)return false;
+      if(active.isContentEditable)return true;
+      return ["INPUT","TEXTAREA","SELECT"].includes(active.tagName);
+    };
+    const focusAdvancedSelectionTarget=(target,members=[])=>{
+      if(editableHasFocus())return;
+      /* AAA-019 red-team D11 — a selection made from the Layers panel (or any sidebar
+         control) keeps keyboard focus where the student is working; the row's own
+         Alt+Arrow reorder keys must not be hijacked by the board's resize map. */
+      if(document.activeElement?.closest?.(".advanced-editor-sidebar, [data-advanced-layer-row]"))return;
+      /* An open inline text editor owns focus even between renders. */
+      if(canvasController?.state?.advancedTextEdit){
+        queueMicrotask(()=>{
+          const field=canvasHost?.querySelector?.("[data-advanced-inline-text-input]");
+          /* Focus that has moved to the editor's own Done/Cancel buttons (Tab) stays there. */
+          if(document.activeElement?.closest?.("[data-advanced-inline-text-form]"))return;
+          if(field&&document.activeElement!==field&&!editableHasFocus())field.focus({preventScroll:true});
+        });
+        return;
+      }
+      const focusTarget=target?.type==="group"
+        ?members.find(({type,id})=>type&&id)||null
+        :target;
+      if(!focusTarget?.type||!focusTarget?.id)return;
+      if(!["media","text","element"].includes(focusTarget.type))return;
+      /* Pointer selection calls preventDefault to own the drag, which also suppresses
+         the browser's native focus. Focus has to be restored deliberately — but the hit
+         proxies are rebuilt during the render's animation frame, so a microtask here
+         queries a DOM that does not contain them yet and silently finds nothing. Wait
+         for the frame, and retry a couple of times for a render that lands late. */
+      const proxyId=`canvas-hit-proxy-${focusTarget.id}`;
+      let attempts=0;
+      const applyFocus=()=>{
+        if(editableHasFocus())return;
+        if(document.activeElement?.matches?.('[data-advanced-direct-handle="rotate"]'))return;
+        const node=document.getElementById(proxyId);
+        if(node){
+          node.focus({preventScroll:true});
+          return;
+        }
+        /* AAA-019 — hit proxies exist only for objects smaller than 44px on screen. A
+           large object (most of them at 100%+) never had a proxy, so focus stayed on
+           <body> and the whole keyboard map was dead for exactly the objects a student
+           touches most. Focus the object's own SVG node instead: it lives inside
+           canvasHost, so the per-object keydown handler resolves it like any proxy. */
+        const source=advancedMemberElement(focusTarget);
+        if(source&&source.isConnected){
+          if(!source.hasAttribute("tabindex"))source.setAttribute("tabindex","-1");
+          source.focus?.({preventScroll:true});
+          return;
+        }
+        if(attempts++<3)requestAnimationFrame(applyFocus);
+      };
+      /* Try immediately — the node usually exists already — then retry across frames
+         for a render that lands late. */
+      applyFocus();
+      if(!(document.activeElement&&document.activeElement!==document.body&&canvasHost?.contains?.(document.activeElement))){
+        requestAnimationFrame(applyFocus);
+      }
+    };
+
+    /* Keyboard commands share the scene commands the inspector buttons use, so a
+       shortcut and a button press are the same mutation and land in one undo step. */
+    const keyboardObjectAction=(target,action)=>{
+      if(store.entitlement.canMutate!==true)return false;
+      const result=applyAdvancedObjectAction(store.document,target,action,{
+        duplicateId:action==="duplicate"?uid(`advanced-${target?.type||"object"}`):""
+      });
+      if(!result.changed)return false;
+      store.replace(result.document,{label:result.mutation.label});
+      syncBridgeStateFromStore();
+      canvasController?.setUiState({advancedSelection:result.selection});
+      requestAdvancedDirectSelection(result.selection||null);
+      const message=action==="duplicate"?"Timeline object duplicated":"Timeline object deleted";
+      if(action==="duplicate")hydrateMissingAdvancedMedia();
+      bridge.toast(message);
+      announceGlobal(message);
+      return true;
+    };
+    const allAdvancedSelectableMembers=()=>[
+      ...(store.document.advanced?.media||[])
+        .filter((item)=>item?.placed!==false)
+        .map((item)=>({type:"media",id:String(item.id)})),
+      ...(store.document.advanced?.textBlocks||[]).map((item)=>({type:"text",id:String(item.id)})),
+      ...(store.document.advanced?.elements||[]).map((item)=>({type:"element",id:String(item.id)}))
+    ];
+
     const clearAdvancedAlignmentGuides=(svg=null)=>{
       const scope=svg||canvasHost;
       scope?.querySelectorAll?.("[data-advanced-alignment-guides]")
         .forEach((node)=>node.remove());
+    };
+    /* Every other unlocked-or-locked object on the board is a snap peer for the dragged
+       object (Canva's smart guides); the dragged object itself and its group members are not. */
+    const advancedSnapPeers=(pointer)=>{
+      const advanced=store.document.advanced||{};
+      const excluded=new Set([`${pointer?.type}:${pointer?.id}`]);
+      for(const member of pointer?.members||[])excluded.add(`${member?.type}:${member?.id}`);
+      const groupId=pointer?.type==="group"
+        ?String(pointer.id)
+        :(pointer?.groupId||advancedItemFor({type:pointer?.type,id:pointer?.id})?.groupId||null);
+      const rows=[
+        ...(advanced.media||[]).filter((item)=>item.placed!==false).map((item)=>({type:"media",item})),
+        ...(advanced.textBlocks||[]).map((item)=>({type:"text",item})),
+        ...(advanced.elements||[]).map((item)=>({type:"element",item}))
+      ];
+      return rows
+        .filter(({type,item})=>!excluded.has(`${type}:${item.id}`)&&!(groupId&&item.groupId===groupId))
+        .map(({item})=>({x:Number(item.x)||0,y:Number(item.y)||0,width:Number(item.width)||0,height:Number(item.height)||0}))
+        .filter((box)=>box.width>0&&box.height>0)
+        .slice(0,80);
     };
     const showAdvancedAlignmentGuides=(svg,guides={})=>{
       clearAdvancedAlignmentGuides(svg);
@@ -6269,8 +7080,8 @@ export async function boot407FEngineeringAdapter({
       const directPresentationItem=(type)=>{
         const key=type==="color-key"?"colorKeyGeometry":"profileGeometry";
         const fallback=type==="color-key"
-          ?{x:37,y:350,width:247,height:277}
-          :{x:30,y:677,width:512,height:375};
+          ?{x:20,y:300,width:284,height:346}
+          :{x:13,y:661,width:545,height:410};
         return{
           ...fallback,
           ...(store.document.presentationOverrides?.[key]||{}),
@@ -6279,6 +7090,7 @@ export async function boot407FEngineeringAdapter({
       };
       const directSource=(type,id)=>{
         const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
+        if(type==="frame")return advancedFrameNode(id);
         const source=canvasHost.querySelector(
           type==="media"?`[data-advanced-media="${escaped}"]`:
           type==="text"?`[data-advanced-text="${escaped}"]`:
@@ -6290,6 +7102,7 @@ export async function boot407FEngineeringAdapter({
         return sceneVisualNode(source);
       };
       const directItem=(type,id)=>{
+        if(type==="frame")return advancedFrameGeometryItem(id,advancedFrameNode(id));
         if(type==="event")return eventPresentationItem(id)||{};
         if(type==="color-key"||type==="profile")return directPresentationItem(type);
         const collection=type==="media"
@@ -6312,7 +7125,17 @@ export async function boot407FEngineeringAdapter({
         }
         const source=directSource(type,id);
         const item=directItem(type,id);
-        return item&&source?{type,id,item,element:source,handle:String(directHandle.dataset.advancedDirectHandle||"")}:null;
+        return item&&source?{type,id,item,element:source,...(type==="frame"?{bounds:advancedFrameScreenBounds022(source)}:{}),handle:String(directHandle.dataset.advancedDirectHandle||"")}:null;
+      }
+      /* Frames are checked before the profile card that contains the portrait well. */
+      const frameNode=target.closest?.("[data-frame-slot]");
+      if(frameNode&&ADVANCED_FRAME_SLOTS[String(frameNode.dataset.frameSlot||"")]){
+        const slot=String(frameNode.dataset.frameSlot);
+        return{
+          type:"frame",id:slot,item:advancedFrameGeometryItem(slot,frameNode),element:frameNode,bounds:advancedFrameScreenBounds022(frameNode),
+          frameState:String(frameNode.dataset.mediaState||"empty"),
+          fixed:!/^photo\d$/.test(slot)
+        };
       }
       const media=target.closest?.("[data-advanced-media]");
       if(media){
@@ -6387,6 +7210,16 @@ export async function boot407FEngineeringAdapter({
       const object=advancedObjectForTarget(event.target);
       if(!object)return;
       const key=String(event.key||"");
+      /* AAA-019 — everything except Enter/Space is handled by the selection engine
+         (onAdvancedSelectionKeyDown), which acts on the whole selection — groups and
+         multi-selections included — rather than on whichever member holds focus. The
+         canvas's own keyboard handler runs before this one on the same host and may
+         already have called preventDefault for its guided-mode intents, so the engine
+         is invoked directly here and marks the event so the document listener skips it. */
+      if(key!=="Enter"&&key!==" "){
+        onAdvancedSelectionKeyDown(event,{force:true});
+        return;
+      }
       if(key==="Enter"||key===" "){
         event.preventDefault();
         if(key==="Enter"&&object.type==="text"){
@@ -6409,10 +7242,43 @@ export async function boot407FEngineeringAdapter({
         }
         return;
       }
+      if(key==="Escape"){
+        event.preventDefault();
+        canvasController?.setUiState({advancedSelection:null,advancedTextEdit:null});
+        clearAdvancedDirectSelection();
+        return;
+      }
+      if(key==="Delete"||key==="Backspace"){
+        event.preventDefault();
+        if(selectionIsLocked({type:object.type,id:object.id})){explainLockedSelection("deleting");return;}
+        keyboardObjectAction({type:object.type,id:object.id},"delete");
+        return;
+      }
+      if((event.metaKey||event.ctrlKey)&&key.toLowerCase()==="d"){
+        event.preventDefault();
+        keyboardObjectAction({type:object.type,id:object.id},"duplicate");
+        return;
+      }
+      if((event.metaKey||event.ctrlKey)&&key.toLowerCase()==="a"){
+        /* Select the scene, not the page. Without this the browser selects the whole
+           document and the board paints as selected text. */
+        event.preventDefault();
+        const members=allAdvancedSelectableMembers();
+        if(members.length){
+          canvasController?.setUiState({
+            selectedEventId:null,
+            advancedSelection:members.length===1?members[0]:{type:"multi",members}
+          });
+          requestAdvancedDirectSelection(members.length===1?members[0]:{type:"multi",members});
+        }
+        return;
+      }
       if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(key))return;
       if(store.document.layoutLock!==false)return;
       event.preventDefault();
-      const step=event.altKey?1:8;
+      /* Arrow nudges by a single board unit and Shift by ten, matching every mature
+         editor; Alt is the resize modifier so the capability stays reachable. */
+      const step=event.shiftKey?10:1;
       const delta={
         ArrowLeft:{x:-step,y:0},
         ArrowRight:{x:step,y:0},
@@ -6422,7 +7288,7 @@ export async function boot407FEngineeringAdapter({
       const original=clone(object.item);
       let next;
       let label;
-      if(event.shiftKey&&["media","element","text"].includes(object.type)){
+      if(event.altKey&&["media","element","text"].includes(object.type)){
         const width=Math.max(48,Number(original.width||1)+delta.x);
         const unlocked=original.aspectLocked===false;
         next=constrainAdvancedObjectToBoard(object.type==="media"
@@ -6458,26 +7324,752 @@ export async function boot407FEngineeringAdapter({
       announceGlobal(message);
       restoreAdvancedObjectFocus(object.type,object.id);
     };
+    /* The per-object handler above needs focus to sit on that object's hit proxy, and
+       focus is fragile here: pointer selection calls preventDefault, and any later render
+       can move focus elsewhere. Selection state, by contrast, is authoritative. This
+       document-level handler is the fallback that makes the keyboard map survive focus
+       loss. It never fires when a text editor or form control has focus, and never
+       double-handles an event the focused-object handler already consumed. */
+    /* Both hit proxies and selection chrome use the painted viewport geometry. Wait
+       for the layout/ResizeObserver pass, then let the canvas queue refresh proxies
+       in place and announce its settled geometry to the selection-chrome listener. */
+    let viewportChangeFrame=0;
+    onAdvancedViewportChange=()=>{
+      /* A zoom change mid-gesture would commit against the old pointer→board mapping
+         (red-team D12); abandoning the gesture is the only honest outcome. */
+      if(advancedPointer?.moved)cancelAdvancedGesture();
+      if(viewportChangeFrame)return;
+      viewportChangeFrame=requestAnimationFrame(()=>{
+        viewportChangeFrame=0;
+        canvasController?.refreshEffectiveHitTargets?.();
+      });
+    };
+    /* ===================== AAA-019 — selection engine ======================
+       One selection-state-driven command layer for the keyboard map, the context
+       menu, the quick-bar and the Layers panel. Every command below resolves its
+       targets from `canvasController.state.advancedSelection`, never from focus,
+       so it works for proxied and un-proxied objects, groups and multi-selections
+       alike, and lands each command in exactly one undo step. */
+    const advancedLeafMembers=(selection)=>{
+      if(!selection)return[];
+      if(selection.type==="multi")return(Array.isArray(selection.members)?selection.members:[])
+        .flatMap((member)=>member?.type==="group"
+          ?advancedGroupMembers(member.id).map(({type,id})=>({type,id}))
+          :member?.type&&member?.id?[{type:member.type,id:String(member.id)}]:[]);
+      if(selection.type==="group")return advancedGroupMembers(selection.id).map(({type,id})=>({type,id}));
+      if(["media","text","element"].includes(selection.type)&&selection.id)return[{type:selection.type,id:String(selection.id)}];
+      return[];
+    };
+    const advancedCommandTargets=(selection)=>{
+      if(!selection)return[];
+      if(selection.type==="multi")return(Array.isArray(selection.members)?selection.members:[])
+        .filter((member)=>member?.type&&member?.id).map((member)=>({type:member.type,id:String(member.id)}));
+      if(["media","text","element","group"].includes(selection.type)&&selection.id)return[{type:selection.type,id:String(selection.id)}];
+      return[];
+    };
+    const advancedItemFor=(target)=>{
+      const collection=target.type==="media"?store.document.advanced?.media
+        :target.type==="text"?store.document.advanced?.textBlocks
+        :target.type==="element"?store.document.advanced?.elements:null;
+      return(collection||[]).find((item)=>String(item.id)===String(target.id))||null;
+    };
+    const selectionIsLocked=(selection)=>{
+      const targets=advancedCommandTargets(selection);
+      return targets.some((target)=>target.type==="group"
+        ?(store.document.advanced?.groups||[]).find((group)=>String(group.id)===target.id)?.locked===true
+        :advancedItemFor(target)?.locked===true);
+    };
+    const commitAdvancedSelection=(selection,{announce="",toast=""}={})=>{
+      syncBridgeStateFromStore();
+      canvasController?.setUiState({selectedEventId:null,advancedSelection:selection||null,advancedTextEdit:null});
+      requestAdvancedDirectSelection(selection||null);
+      if(toast)bridge.toast(toast);
+      if(announce)announceGlobal(announce);
+    };
+    /* Move (or Alt-resize) every leaf member of the selection by one delta in one undo step. */
+    const nudgeAdvancedSelection=(selection,delta,{resize=false}={})=>{
+      if(store.entitlement.canMutate!==true||store.document.layoutLock!==false)return false;
+      const members=advancedLeafMembers(selection);
+      if(!members.length)return false;
+      if(selectionIsLocked(selection))return explainLockedSelection(resize?"resizing":"moving");
+      let working=store.document;
+      let changed=false;
+      const label=resize?"Resize Timeline object":"Move Timeline object";
+      for(const member of members){
+        const original=advancedItemFor(member);
+        if(!original)continue;
+        let next;
+        if(resize){
+          const width=Math.max(48,Number(original.width||1)+delta.x);
+          const unlocked=original.aspectLocked===false;
+          next=constrainAdvancedObjectToBoard(member.type==="media"
+            ?resizeMediaElement(original,{width,height:Math.max(32,Number(original.height||1)+delta.y),shiftKey:unlocked})
+            :{...original,width,height:unlocked?Math.max(32,Number(original.height||1)+delta.y):width/(Number(original.width||1)/Number(original.height||1))});
+        }else{
+          const width=Number(original.width||0),height=Number(original.height||0);
+          const x=Math.max(0,Math.min(1920-width,Number(original.x||0)+delta.x));
+          const y=Math.max(0,Math.min(1080-height,Number(original.y||0)+delta.y));
+          next=constrainAdvancedObjectToBoard(member.type==="media"?moveMediaElement(original,{x,y}):{...original,x,y});
+        }
+        const result=applySceneCommandToDocument(working,{kind:"geometry",target:member,geometry:next,label});
+        if(result.changed){working=result.document;changed=true;}
+      }
+      if(!changed)return false;
+      store.replace(working,{label});
+      commitAdvancedSelection(selection,{announce:resize?"Resized with keyboard":"Moved with keyboard"});
+      return true;
+    };
+    const layerAdvancedSelection=(selection,direction)=>{
+      if(store.entitlement.canMutate!==true)return false;
+      const targets=advancedCommandTargets(selection);
+      if(!targets.length)return false;
+      let working=store.document;
+      let changed=false;
+      /* Front/back over several objects must keep their relative order: apply in z order. */
+      const ordered=[...targets].sort((left,right)=>{
+        const zl=Number(advancedItemFor(left)?.zIndex??0),zr=Number(advancedItemFor(right)?.zIndex??0);
+        return direction.startsWith("bring")?zl-zr:zr-zl;
+      });
+      for(const target of ordered){
+        const result=applySceneCommandToDocument(working,{kind:"layer",target,direction,label:"Change Timeline layer"});
+        if(result.changed){working=result.document;changed=true;}
+      }
+      if(!changed)return false;
+      store.replace(working,{label:"Change Timeline layer"});
+      const copy={"bring-forward":"Brought forward","send-backward":"Sent backward","bring-to-front":"Brought to front","send-to-back":"Sent to back"}[direction]||"Layer changed";
+      commitAdvancedSelection(selection,{announce:copy,toast:copy});
+      return true;
+    };
+    const duplicateAdvancedSelection=(selection)=>{
+      if(store.entitlement.canMutate!==true)return false;
+      const targets=advancedCommandTargets(selection);
+      if(!targets.length)return false;
+      let working=store.document;
+      const created=[];
+      for(const target of targets){
+        try{
+          const result=applyAdvancedObjectAction(working,target,"duplicate",{duplicateId:uid(`advanced-${target.type}`)});
+          if(result.changed){working=result.document;if(result.selection)created.push(result.selection);}
+        }catch(error){toastStudentError(error,"layout");}
+      }
+      if(!created.length)return false;
+      store.replace(working,{label:created.length>1?"Duplicate Timeline objects":"Duplicate Timeline object"});
+      const next=created.length===1?created[0]:{type:"multi",members:created};
+      commitAdvancedSelection(next,{toast:created.length>1?`${created.length} objects duplicated`:"Timeline object duplicated",announce:"Duplicated"});
+      hydrateMissingAdvancedMedia();
+      return true;
+    };
+    const explainLockedSelection=(verb)=>{
+      const message=`Unlock this Timeline object before ${verb} it.`;
+      bridge.toast(message);
+      announceGlobal(message);
+      return false;
+    };
+    const deleteAdvancedSelection=(selection)=>{
+      if(store.entitlement.canMutate!==true)return false;
+      const targets=advancedCommandTargets(selection);
+      if(!targets.length)return false;
+      /* AAA-019 red-team D1 — a lock protects against every destructive verb, not only
+         moves: Delete, Backspace, Cut and the menu all land here. */
+      if(selectionIsLocked(selection))return explainLockedSelection("deleting");
+      let working=store.document;
+      let count=0;
+      for(const target of targets){
+        try{
+          const result=applyAdvancedObjectAction(working,target,"delete");
+          if(result.changed){working=result.document;count+=1;}
+        }catch(error){toastStudentError(error,"layout");}
+      }
+      if(!count)return false;
+      store.replace(working,{label:count>1?"Delete Timeline objects":"Delete Timeline object"});
+      commitAdvancedSelection(null,{toast:count>1?`${count} objects deleted`:"Timeline object deleted",announce:"Deleted"});
+      return true;
+    };
+    const groupAdvancedSelection=(selection)=>{
+      if(selection?.type!=="multi")return false;
+      const members=advancedCommandTargets(selection);
+      if(members.length<2)return false;
+      advancedHooks().onGroup(members);
+      return true;
+    };
+    const ungroupAdvancedSelection=(selection)=>{
+      if(selection?.type==="group"){advancedHooks().onObjectAction("ungroup",{type:"group",id:selection.id});return true;}
+      if(selection?.type==="multi"){
+        const groups=advancedCommandTargets(selection).filter((target)=>target.type==="group");
+        if(!groups.length)return false;
+        groups.forEach((group)=>advancedHooks().onObjectAction("ungroup",group));
+        return true;
+      }
+      return false;
+    };
+    const lockAdvancedSelection=(selection,locked)=>{
+      const targets=advancedCommandTargets(selection);
+      if(!targets.length)return false;
+      let working=store.document,changed=false;
+      for(const target of targets){
+        const result=applySceneCommandToDocument(working,{kind:"lock",target,value:locked===true,label:locked?"Lock Timeline object":"Unlock Timeline object"});
+        if(result.changed){working=result.document;changed=true;}
+      }
+      if(!changed)return false;
+      store.replace(working,{label:locked?"Lock Timeline object":"Unlock Timeline object"});
+      commitAdvancedSelection(selection,{toast:locked?"Locked":"Unlocked",announce:locked?"Locked":"Unlocked"});
+      return true;
+    };
+    /* Scene-internal clipboard: copy keeps the object data, paste re-creates it offset. */
+    let advancedClipboard=[];
+    const copyAdvancedSelection=(selection)=>{
+      const members=advancedLeafMembers(selection).map((member)=>({type:member.type,item:clone(advancedItemFor(member))})).filter(({item})=>item);
+      if(!members.length)return false;
+      advancedClipboard=members;
+      bridge.toast(`${members.length===1?"Object":`${members.length} objects`} copied`);
+      return true;
+    };
+    const pasteAdvancedClipboard=()=>{
+      if(!advancedClipboard.length||store.entitlement.canMutate!==true)return false;
+      const created=[];
+      store.mutate("Paste Timeline objects",(document)=>{
+        document.advanced.media=document.advanced.media||[];
+        document.advanced.textBlocks=document.advanced.textBlocks||[];
+        document.advanced.elements=document.advanced.elements||[];
+        const collectionFor={media:"media",text:"textBlocks",element:"elements"};
+        const maxZ=Math.max(0,...[...document.advanced.media,...document.advanced.textBlocks,...document.advanced.elements].map((item)=>Number(item.zIndex)||0));
+        advancedClipboard.forEach(({type,item},index)=>{
+          const id=uid(`advanced-${type}`);
+          const width=Number(item.width)||1,height=Number(item.height)||1;
+          const pasted={...clone(item),id,groupId:null,locked:false,
+            x:Math.max(0,Math.min(1920-width,Number(item.x||0)+16)),
+            y:Math.max(0,Math.min(1080-height,Number(item.y||0)+16)),
+            zIndex:maxZ+index+1,layerIndex:maxZ+index+1};
+          if(type==="media")pasted.placed=true;
+          document.advanced[collectionFor[type]].push(pasted);
+          created.push({type,id});
+        });
+        document.advanced.scene=reconcileAdvancedScene(document.advanced,{revision:document.revision});
+      });
+      /* Duplicated media shares the source blob, so the pasted copy resolves to the same URL. */
+      created.filter(({type})=>type==="media").forEach(({id},index)=>{
+        const source=advancedClipboard.filter(({type})=>type==="media")[index]?.item;
+        const url=source?mediaUrls.get(source.id):null;
+        if(url&&!mediaUrls.get(id))fetch(url).then((response)=>response.blob()).then((blob)=>{mediaUrls.set(id,blob);canvasController?.render?.();}).catch(()=>{});
+      });
+      advancedClipboard=advancedClipboard.map((entry)=>({...entry,item:{...entry.item,x:Number(entry.item.x||0)+16,y:Number(entry.item.y||0)+16}}));
+      commitAdvancedSelection(created.length===1?created[0]:{type:"multi",members:created},{toast:"Pasted",announce:"Pasted"});
+      return true;
+    };
+    const beginAdvancedTextEdit=(target)=>{
+      const block=(store.document.advanced?.textBlocks||[]).find((item)=>String(item.id)===String(target?.id));
+      if(!block)return false;
+      canvasController?.setUiState({advancedSelection:{type:"text",id:String(block.id)},advancedTextEdit:{id:String(block.id),draft:String(block.text||"")}});
+      queueMicrotask(()=>{
+        const field=canvasHost.querySelector("[data-advanced-inline-text-input]");
+        field?.focus?.();
+        field?.select?.();
+      });
+      announceGlobal("Text editing opened");
+      return true;
+    };
+    /* Redraw the chrome from state after every board render. Skipped while a gesture is
+       live, because the gesture owns the board until it commits. */
+    const syncAdvancedSelectionChrome=()=>{
+      if(advancedPointer||marqueePointer||railPointer||axisPointer)return;
+      if(advancedCrop){clearAdvancedDirectSelection();renderAdvancedCropChrome();return;}
+      const selection=canvasController?.state?.advancedSelection||null;
+      if(!selection||store.document.mode!=="advanced"){
+        clearAdvancedDirectSelection();
+        return;
+      }
+      requestAdvancedDirectSelection(selection);
+    };
+    /* Hover outline (Canva S1): a light box follows the object under the pointer so a
+       student always knows what a press will grab. Never drawn on the selected object,
+       during a gesture, or in Guided mode. */
+    let hoverFrame=0;
+    const clearAdvancedHover=()=>document.querySelectorAll?.("[data-advanced-hover]").forEach((node)=>node.remove());
+    onAdvancedHoverMove=(event)=>{
+      if(hoverFrame)return;
+      hoverFrame=requestAnimationFrame(()=>{
+        hoverFrame=0;
+        if(advancedPointer||marqueePointer||railPointer||axisPointer||advancedCrop||store.document.mode!=="advanced"){clearAdvancedHover();return;}
+        const target=event.target?.closest?.(".canvas-application")?event.target:null;
+        const object=target?advancedObjectForTarget(target):null;
+        if(!object||["axis"].includes(object.type)){clearAdvancedHover();return;}
+        const selection=canvasController?.state?.advancedSelection;
+        const key=`${object.type}:${object.id}`;
+        const selected=selection?.type==="multi"
+          ?(selection.members||[]).some((member)=>`${member.type}:${member.id}`===key)
+          :selection&&`${selection.type}:${selection.id}`===key;
+        if(selected){clearAdvancedHover();return;}
+        const node=object.type==="event"?object.element:object.bounds?null:object.element;
+        const bounds=object.bounds||node?.getBoundingClientRect?.();
+        if(!bounds?.width||!bounds?.height){clearAdvancedHover();return;}
+        let hover=document.querySelector("[data-advanced-hover]");
+        if(!hover){
+          hover=document.createElement("div");
+          hover.className="advancedDirectHover";
+          hover.dataset.advancedHover="true";
+        }
+        hover.dataset.advancedTargetType=object.type;
+        hover.dataset.advancedTargetId=String(object.id||"");
+        mountAdvancedOverlay(hover,bounds);
+      });
+    };
+    onAdvancedHoverLeave=()=>clearAdvancedHover();
+    onAdvancedCanvasRendered=()=>{
+      syncAdvancedSelectionChrome();
+      /* A render during a rail drag re-syncs the SVG attributes and drops the drop-target
+         highlight; put it back where the pointer last was. */
+      if(railPointer?.payload?.action==="place"&&railPointer.payload.target?.type==="media"&&Number.isFinite(railPointer.lastX)){
+        highlightAdvancedFrameDropTarget(advancedFrameAtPoint(railPointer.lastX,railPointer.lastY));
+      }
+    };
+    onAdvancedSelectionKeyDown=(event,{force=false}={})=>{
+      if(event.__advancedSelectionHandled)return;
+      if(event.defaultPrevented&&!force)return;
+      event.__advancedSelectionHandled=true;
+      if(store.document.mode!=="advanced")return;
+      if(editableHasFocus())return;
+      if(bridge.state?.view&&bridge.state.view!=="canvas")return;
+      const selection=canvasController?.state?.advancedSelection||null;
+      const key=String(event.key||"");
+      const meta=event.metaKey||event.ctrlKey;
+      const lower=key.toLowerCase();
+      /* AAA-019 red-team D2 — Enter/Space on the editor's own Done/Cancel buttons, or on any
+         sidebar control, is that control's activation, never a board verb. */
+      if((key==="Enter"||key===" ")&&event.target?.closest?.("[data-advanced-inline-text-form], .advanced-editor-sidebar, [data-advanced-context-menu], [data-advanced-quick-bar], .canvas-toolbar"))return;
+      if(key==="Escape"){
+        if(cancelAdvancedGesture()){event.preventDefault();return;}
+        if(closeAdvancedContextMenu()){event.preventDefault();return;}
+        if(advancedCrop){event.preventDefault();cancelAdvancedCrop();return;}
+        if(!selection)return;
+        event.preventDefault();
+        commitAdvancedSelection(null);
+        return;
+      }
+      if(key==="Enter"&&advancedCrop){event.preventDefault();commitAdvancedCrop();return;}
+      if(advancedCrop)return;
+      const rotateHandle=event.target?.closest?.('[data-advanced-direct-handle="rotate"]');
+      if(rotateHandle&&["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Enter"," "].includes(key)){
+        event.preventDefault();
+        if(store.entitlement.canMutate!==true||store.document.layoutLock!==false||selectionIsLocked(selection))return;
+        const object=advancedObjectForTarget(rotateHandle);
+        if(!object)return;
+        if(object.type==="event"&&!Number.isFinite(Number(object.item.x))){
+          const node=object.element.querySelector?.('[data-continuous-duration-arrow],image')||object.element;
+          const box=node.getBBox?.();
+          if(!box?.width||!box?.height)return;
+          object.item={...object.item,x:box.x,y:box.y,width:box.width,height:box.height};
+        }
+        const direction=["ArrowLeft","ArrowDown"].includes(key)?-1:1;
+        const rotation=Number(object.item.rotation||0)+direction*(event.shiftKey||key==="Enter"||key===" "?15:1);
+        if(object.type==="frame"){
+          store.mutate("Rotate photo frame",(document)=>{
+            const index=String(object.id).replace(/^photo/,"");
+            document.presentationOverrides={...(document.presentationOverrides||{}),photoFrames:{
+              ...((document.presentationOverrides||{}).photoFrames||{}),
+              [index]:{...object.item,rotation:Math.max(-45,Math.min(45,rotation))}
+            }};
+          });
+        }else{
+          const result=applySceneCommandToDocument(store.document,{
+            kind:"geometry",target:{type:object.type,id:object.id},geometry:{...object.item,rotation},
+            ...(object.type==="event"?{create:{type:"event",semanticRef:object.id,aspectLocked:false,presentation:{eventType:store.document.events.find((item)=>String(item.id)===String(object.id))?.eventType||"duration"}}}:{}),
+            label:"Rotate Timeline object"
+          });
+          if(!result.changed)return;
+          store.replace(result.document,{label:"Rotate Timeline object"});
+        }
+        syncBridgeStateFromStore();
+        requestAdvancedDirectSelection({type:object.type,id:object.id});
+        queueMicrotask(()=>document.querySelector('[data-advanced-direct-handle="rotate"]')?.focus?.({preventScroll:true}));
+        announceGlobal("Object rotated");
+        return;
+      }
+      if(meta&&lower==="a"&&!event.shiftKey){
+        const members=allAdvancedSelectableMembers();
+        if(!members.length)return;
+        event.preventDefault();
+        commitAdvancedSelection(members.length===1?members[0]:{type:"multi",members});
+        return;
+      }
+      if(meta&&lower==="v"){if(pasteAdvancedClipboard())event.preventDefault();return;}
+      if(!selection)return;
+      if(meta&&lower==="c"){if(copyAdvancedSelection(selection))event.preventDefault();return;}
+      if(meta&&lower==="x"){if(copyAdvancedSelection(selection)&&deleteAdvancedSelection(selection))event.preventDefault();return;}
+      if(meta&&lower==="g"){
+        event.preventDefault();
+        if(event.shiftKey)ungroupAdvancedSelection(selection);else groupAdvancedSelection(selection);
+        return;
+      }
+      if(meta&&(key==="]"||key==="[")){
+        event.preventDefault();
+        layerAdvancedSelection(selection,key==="]"
+          ?(event.shiftKey?"bring-to-front":"bring-forward")
+          :(event.shiftKey?"send-to-back":"send-backward"));
+        return;
+      }
+      if(meta&&lower==="d"){event.preventDefault();duplicateAdvancedSelection(selection);return;}
+      if(meta&&event.shiftKey&&lower==="l"){event.preventDefault();lockAdvancedSelection(selection,!selectionIsLocked(selection));return;}
+      if(key==="Delete"||key==="Backspace"){
+        event.preventDefault();
+        if(selection.type==="frame")clearAdvancedFrame(selection.id);else deleteAdvancedSelection(selection);
+        return;
+      }
+      if(key==="Enter"&&selection.type==="frame"){event.preventDefault();if(advancedFrameItem(store.document,selection.id))beginAdvancedCrop(selection);else armAdvancedFrameFill(selection.id);return;}
+      if(key==="Enter"&&selection.type==="text"){event.preventDefault();beginAdvancedTextEdit(selection);return;}
+      if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(key)){
+        const step=event.shiftKey?10:1;
+        const delta={ArrowLeft:{x:-step,y:0},ArrowRight:{x:step,y:0},ArrowUp:{x:0,y:-step},ArrowDown:{x:0,y:step}}[key];
+        if(!advancedLeafMembers(selection).length)return;
+        event.preventDefault();
+        nudgeAdvancedSelection(selection,delta,{resize:event.altKey===true});
+      }
+    };
+    /* ===================== AAA-019 — frames, fill, crop ======================
+       The canonical polaroids, the profile portrait and the program-logo well are real
+       media containers (Canva "frame" P4–P6): EMPTY frames accept a drop / a chip
+       choice, FILLED frames replace / crop / clear. Fills live in `document.mediaItems`,
+       the seam the Founder serializer already renders for on-screen, PNG and PDF. */
+    const ADVANCED_FRAME_SLOTS=CANONICAL_MEDIA_FRAME_SLOTS;
+    const advancedFrameNodes=()=>[...(canvasHost?.querySelectorAll?.(".canvas-application [data-frame-slot]")||[])]
+      .filter((node)=>ADVANCED_FRAME_SLOTS[String(node.dataset.frameSlot||"")]);
+    const advancedFrameNode=(slot)=>advancedFrameNodes().find((node)=>node.dataset.frameSlot===String(slot))||null;
+    const advancedFrameAtPoint=(clientX,clientY)=>{
+      const regions=advancedFrameNodes().flatMap((node)=>{
+        const rect=node.querySelector("rect");
+        if(!rect?.getBBox||!rect?.getScreenCTM)return[];
+        return[{slot:String(node.dataset.frameSlot),node,state:String(node.dataset.mediaState||"empty"),geometry:rect.getBBox(),screenMatrix:rect.getScreenCTM()}];
+      });
+      return hitTestMediaFrames(regions,{x:clientX,y:clientY});
+    };
+    const clearAdvancedFrameDropTarget=()=>{
+      advancedEditSurface()?.querySelectorAll?.("[data-frame-drop-active]")
+        .forEach((node)=>node.removeAttribute("data-frame-drop-active"));
+    };
+    const highlightAdvancedFrameDropTarget=(frame)=>{
+      const current=advancedEditSurface()?.querySelector?.("[data-frame-drop-active]");
+      if(current&&current===frame?.node)return;
+      clearAdvancedFrameDropTarget();
+      if(frame?.node)frame.node.setAttribute("data-frame-drop-active","true");
+    };
+    const advancedFrameItem=(document,slot)=>{
+      const placement=ADVANCED_FRAME_SLOTS[slot]?.placement;
+      return(document?.mediaItems||[]).find((item)=>String(item?.placement||"").toLowerCase()===placement)||null;
+    };
+    const advancedFrameLabel=(slot)=>ADVANCED_FRAME_SLOTS[slot]?.label||"Photo frame";
+    const advancedFrameGeometryItem=(slot,node)=>{
+      const parsed=String(node?.dataset?.founderGeometry||"").split(",").map(Number);
+      if(/^photo\d$/.test(String(slot))&&parsed.length>=4&&parsed.slice(0,4).every(Number.isFinite)){
+        return{x:parsed[0],y:parsed[1],width:parsed[2],height:parsed[3],rotation:Number(parsed[4])||0,locked:false,aspectLocked:false};
+      }
+      try{
+        const box=node?.getBBox?.();
+        if(box)return{x:box.x,y:box.y,width:box.width,height:box.height,rotation:0,locked:false,aspectLocked:true};
+      }catch{}
+      return{x:0,y:0,width:1,height:1,rotation:0,locked:false,aspectLocked:true};
+    };
+    const advancedFrameSelection=(slot)=>({type:"frame",id:String(slot)});
+    const selectAdvancedFrame=(slot)=>{
+      const selection=advancedFrameSelection(slot);
+      canvasController?.setUiState({selectedEventId:null,advancedSelection:selection,advancedTextEdit:null});
+      requestAdvancedDirectSelection(selection);
+    };
+    const fillAdvancedFrame=(slot,mediaId,{label="",consumePlacement=false}={})=>{
+      const spec=ADVANCED_FRAME_SLOTS[slot];
+      if(!spec||store.entitlement.canMutate!==true)return false;
+      const prior=advancedFrameItem(store.document,slot);
+      const result=fillCanonicalMediaFrame(store.document,slot,mediaId,{id:`frame-${slot}-${uid("media")}`,consumePlacement});
+      if(!result.changed)return false;
+      store.replace(result.document,{label:label||(prior?`Replace ${spec.label.toLowerCase()}`:`Add ${spec.label.toLowerCase()}`)});
+      syncBridgeStateFromStore();
+      renderMediaLibrarySurfaces();
+      selectAdvancedFrame(slot);
+      const message=prior?`${spec.label} replaced`:`Photo added to ${spec.label.toLowerCase()}`;
+      bridge.toast(`${message} · Undo with ⌘Z`);
+      announceGlobal(message);
+      return true;
+    };
+    advancedFrameDropHook=(mediaId,{x,y})=>{
+      const surface=canvasHost?.querySelector?.('.canvas-application > svg[data-founder-serializer]')||advancedEditSurface();
+      const bounds=surface?.getBoundingClientRect?.();
+      if(!bounds?.width||!bounds?.height)return false;
+      const frame=advancedFrameAtPoint(bounds.left+Number(x)*bounds.width/1920,bounds.top+Number(y)*bounds.height/1080);
+      return frame?fillAdvancedFrame(frame.slot,mediaId):false;
+    };
+    const clearAdvancedFrame=(slot)=>{
+      const spec=ADVANCED_FRAME_SLOTS[slot];
+      if(!spec||!advancedFrameItem(store.document,slot)||store.entitlement.canMutate!==true)return false;
+      store.mutate(`Remove ${spec.label.toLowerCase()}`,(document)=>{
+        document.mediaItems=(document.mediaItems||[]).filter((item)=>String(item?.placement||"").toLowerCase()!==spec.placement);
+      });
+      syncBridgeStateFromStore();
+      renderMediaLibrarySurfaces();
+      selectAdvancedFrame(slot);
+      bridge.toast(`${spec.label} removed · Undo with ⌘Z`);
+      announceGlobal(`${spec.label} removed`);
+      return true;
+    };
+    /* "Choose from uploads" arms the Uploads panel: the next tile click fills the frame. */
+    let advancedFrameFillTarget=null;
+    const armAdvancedFrameFill=(slot)=>{
+      advancedFrameFillTarget=String(slot);
+      canvasController?.setUiState({advancedPanel:"uploads",advancedSelection:advancedFrameSelection(slot)});
+      bridge.toast(`Pick an upload for ${advancedFrameLabel(slot).toLowerCase()}, or drag one onto it`);
+      announceGlobal("Choose an upload to fill the frame");
+    };
+    const consumeAdvancedFrameFill=(mediaId)=>{
+      if(!advancedFrameFillTarget)return false;
+      const slot=advancedFrameFillTarget;
+      advancedFrameFillTarget=null;
+      return fillAdvancedFrame(slot,mediaId);
+    };
+    advancedFrameFillHook={armed:()=>!!advancedFrameFillTarget,consume:consumeAdvancedFrameFill};
+    const uploadIntoAdvancedFrame=async(slot)=>{
+      try{
+        const file=await chooseLocalFile(MEDIA_LIBRARY_ACCEPT.join(","));
+        if(!file)return false;
+        const input={files:[file],value:""};
+        const acceptedIds=await onMediaLibraryChange({target:{closest:()=>input}});
+        if(!acceptedIds?.length)return false;
+        return fillAdvancedFrame(slot,acceptedIds[0]);
+      }catch(error){
+        toastStudentError(error,"media");
+        return false;
+      }
+    };
+
+    /* ---- crop mode: fixed frame, the image moves inside it (Canva P6) ---- */
+    const advancedCropTargetInfo=(target)=>{
+      if(!target)return null;
+      if(target.type==="frame"){
+        const item=advancedFrameItem(store.document,target.id);
+        const node=advancedFrameNode(target.id);
+        const window_=node?.querySelector?.("svg[data-crop-zoom]");
+        return item&&window_?{kind:"frame",slot:String(target.id),item,node,window:window_}:null;
+      }
+      if(target.type==="media"){
+        const item=(store.document.advanced?.media||[]).find((candidate)=>String(candidate.id)===String(target.id));
+        const node=advancedMemberElement({type:"media",id:target.id});
+        const window_=node?.querySelector?.("svg[data-crop-zoom]")||(node?.matches?.("svg[data-crop-zoom]")?node:null);
+        return item&&window_&&item.fit!=="contain"?{kind:"media",id:String(target.id),item,node,window:window_}:null;
+      }
+      return null;
+    };
+    const cropWindowMetrics=(view)=>{
+      const width=Number(view.getAttribute("width"))||1,height=Number(view.getAttribute("height"))||1;
+      const imageWidth=Number(view.getAttribute("data-crop-image-width"))||width;
+      const imageHeight=Number(view.getAttribute("data-crop-image-height"))||height;
+      return{width,height,imageWidth,imageHeight};
+    };
+    const applyCropPreview=(session,crop)=>{
+      const view=session.window;
+      const {width,height,imageWidth,imageHeight}=cropWindowMetrics(view);
+      const zoom=Math.min(4,Math.max(1,Number(crop.zoom)||1));
+      const px=Math.min(100,Math.max(0,Number(crop.x)))/100,py=Math.min(100,Math.max(0,Number(crop.y)))/100;
+      const vw=width/zoom,vh=height/zoom;
+      view.setAttribute("viewBox",`${(imageWidth-vw)*px} ${(imageHeight-vh)*py} ${vw} ${vh}`);
+      view.setAttribute("data-crop-zoom",String(zoom));
+      const chrome=canvasHost?.querySelector?.("[data-advanced-crop-chrome]");
+      const slider=chrome?.querySelector?.("[data-crop-zoom-range]");
+      if(slider&&Number(slider.value)!==zoom)slider.value=String(zoom);
+      const readout=chrome?.querySelector?.("[data-crop-zoom-readout]");
+      if(readout)readout.textContent=`${Math.round(zoom*100)}%`;
+    };
+    const renderAdvancedCropChrome=()=>{
+      canvasHost?.querySelectorAll?.("[data-advanced-crop-chrome]").forEach((node)=>node.remove());
+      if(!advancedCrop)return;
+      const host=advancedOverlayHost();
+      const box=advancedCrop.kind==="frame"?advancedFrameScreenBounds022(advancedCrop.node):advancedCrop.node.getBoundingClientRect?.();
+      if(!host||!box?.width)return;
+      const chrome=document.createElement("div");
+      chrome.className="advancedCropChrome";
+      chrome.dataset.advancedCropChrome="true";
+      chrome.innerHTML=`<div class="advancedCropWindow" data-advanced-crop-window aria-hidden="true"></div>
+        <div class="advancedCropBar" role="toolbar" aria-label="Crop image">
+          <span class="advancedCropHint">Drag the photo to reposition</span>
+          <label class="advancedCropZoom"><span>Zoom</span><input type="range" min="1" max="4" step="0.02" value="${Number(advancedCrop.draft.zoom)||1}" data-crop-zoom-range aria-label="Crop zoom"><output data-crop-zoom-readout>${Math.round((Number(advancedCrop.draft.zoom)||1)*100)}%</output></label>
+          <button type="button" class="advancedCropButton" data-crop-cancel>Cancel</button>
+          <button type="button" class="advancedCropButton advancedCropButtonPrimary" data-crop-done>Done</button>
+        </div>`;
+      const view=host.getBoundingClientRect();
+      const windowNode=chrome.querySelector("[data-advanced-crop-window]");
+      windowNode.style.left=`${box.left-view.left+host.scrollLeft}px`;
+      windowNode.style.top=`${box.top-view.top+host.scrollTop}px`;
+      windowNode.style.width=`${box.width}px`;
+      windowNode.style.height=`${box.height}px`;
+      const bar=chrome.querySelector(".advancedCropBar");
+      bar.style.left=`${Math.max(8,box.left-view.left+host.scrollLeft)}px`;
+      bar.style.top=`${Math.max(8,box.top-view.top+host.scrollTop-48)}px`;
+      host.append(chrome);
+      chrome.querySelector("[data-crop-zoom-range]")?.addEventListener("input",(event)=>{
+        if(!advancedCrop)return;
+        advancedCrop.draft={...advancedCrop.draft,zoom:Number(event.target.value)||1};
+        applyCropPreview(advancedCrop,advancedCrop.draft);
+      });
+      chrome.querySelector("[data-crop-done]")?.addEventListener("click",()=>commitAdvancedCrop());
+      chrome.querySelector("[data-crop-cancel]")?.addEventListener("click",()=>cancelAdvancedCrop());
+    };
+    const beginAdvancedCrop=(target)=>{
+      if(store.entitlement.canMutate!==true)return false;
+      const info=advancedCropTargetInfo(target);
+      if(!info){
+        bridge.toast(target?.type==="frame"?"Add a photo to this frame first":"This image cannot be cropped");
+        return false;
+      }
+      cancelAdvancedCrop({silent:true});
+      const original={x:Number(info.item.crop?.x??50),y:Number(info.item.crop?.y??50),zoom:Number(info.item.crop?.zoom||1)};
+      advancedCrop={...info,original,draft:{...original},target:{...target}};
+      canvasHost?.classList.add("advancedCropActive");
+      clearAdvancedDirectSelection();
+      renderAdvancedCropChrome();
+      announceGlobal("Crop mode. Drag the photo to reposition, use the zoom slider, then press Done.");
+      return true;
+    };
+    const cancelAdvancedCrop=({silent=false}={})=>{
+      if(!advancedCrop)return false;
+      const session=advancedCrop;
+      advancedCrop=null;
+      if(session.window?.isConnected)applyCropPreview(session,session.original);
+      canvasHost?.classList.remove("advancedCropActive");
+      canvasHost?.querySelectorAll?.("[data-advanced-crop-chrome]").forEach((node)=>node.remove());
+      if(!silent){
+        requestAdvancedDirectSelection(session.target);
+        announceGlobal("Crop canceled");
+      }
+      return true;
+    };
+    const commitAdvancedCrop=()=>{
+      if(!advancedCrop)return false;
+      const session=advancedCrop;
+      advancedCrop=null;
+      canvasHost?.classList.remove("advancedCropActive");
+      canvasHost?.querySelectorAll?.("[data-advanced-crop-chrome]").forEach((node)=>node.remove());
+      const crop={
+        x:Math.min(100,Math.max(0,Number(session.draft.x))),
+        y:Math.min(100,Math.max(0,Number(session.draft.y))),
+        zoom:Math.min(4,Math.max(1,Number(session.draft.zoom)||1))
+      };
+      const unchanged=crop.x===session.original.x&&crop.y===session.original.y&&crop.zoom===session.original.zoom;
+      if(!unchanged){
+        if(session.kind==="frame"){
+          const placement=ADVANCED_FRAME_SLOTS[session.slot].placement;
+          store.mutate(`Crop ${advancedFrameLabel(session.slot).toLowerCase()}`,(document)=>{
+            document.mediaItems=(document.mediaItems||[]).map((item)=>
+              String(item?.placement||"").toLowerCase()===placement?{...item,crop}:item);
+          });
+        }else{
+          store.replace(updateMediaPresentation(store.document,session.id,{crop}),{label:"Crop image"});
+        }
+        syncBridgeStateFromStore();
+      }
+      canvasController?.setUiState({advancedSelection:session.target});
+      requestAdvancedDirectSelection(session.target);
+      bridge.toast(unchanged?"Crop unchanged":"Crop applied · Undo with ⌘Z");
+      announceGlobal(unchanged?"Crop unchanged":"Crop applied");
+      return true;
+    };
+    /* Pointer physics for crop: a drag inside the window pans the image. */
+    const advancedCropPointerDown=(event)=>{
+      if(!advancedCrop||event.button!==0)return false;
+      if(event.target.closest?.("[data-advanced-crop-chrome] .advancedCropBar"))return false;
+      const box=advancedCrop.node.getBoundingClientRect?.();
+      const inside=box&&event.clientX>=box.left&&event.clientX<=box.right&&event.clientY>=box.top&&event.clientY<=box.bottom;
+      if(!inside){
+        /* Click-out commits, like every mature crop mode. */
+        commitAdvancedCrop();
+        return true;
+      }
+      const view=advancedCrop.window;
+      const {width,height,imageWidth,imageHeight}=cropWindowMetrics(view);
+      const svg=advancedCrop.node.closest("svg[data-founder-serializer]")||advancedEditSurface();
+      const svgBounds=svg?.getBoundingClientRect?.();
+      const zoom=Math.min(4,Math.max(1,Number(advancedCrop.draft.zoom)||1));
+      let screenToImage={a:(svgBounds?.width?1920/svgBounds.width:1)/zoom,b:0,c:0,d:(svgBounds?.height?1080/svgBounds.height:1)/zoom};
+      try{
+        const inverse=view.getScreenCTM?.()?.inverse?.();
+        if(inverse&&[inverse.a,inverse.b,inverse.c,inverse.d].every(Number.isFinite)){
+          screenToImage={a:inverse.a,b:inverse.b,c:inverse.c,d:inverse.d};
+        }
+      }catch{/* The untransformed board fallback still accounts for crop zoom. */}
+      advancedCrop.pan={
+        startX:event.clientX,startY:event.clientY,start:{...advancedCrop.draft},
+        screenToImage,
+        width,height,imageWidth,imageHeight
+      };
+      event.preventDefault();
+      event.stopPropagation();
+      return true;
+    };
+    const advancedCropPointerMove=(event)=>{
+      if(!advancedCrop?.pan)return false;
+      const pan=advancedCrop.pan;
+      advancedCrop.draft=panMediaCrop(pan.start,{...pan,dx:event.clientX-pan.startX,dy:event.clientY-pan.startY});
+      applyCropPreview(advancedCrop,advancedCrop.draft);
+      event.preventDefault();
+      return true;
+    };
+    const advancedCropPointerUp=()=>{
+      if(!advancedCrop?.pan)return false;
+      delete advancedCrop.pan;
+      return true;
+    };
+
     onAdvancedPointerDown=(event)=>{
-      if(event.button!==0||railPointer||advancedPointer||axisPointer)return;
+      if(advancedCrop&&advancedCropPointerDown(event))return;
+      /* Click-out commits an open inline text edit (Canva T3). The press itself calls
+         preventDefault further down, which would otherwise suppress the blur that used
+         to commit — so the draft was silently discarded on the very click that a
+         student expects to "finish" the edit. */
+      if(canvasController?.state?.advancedTextEdit&&event.button===0&&!event.target.closest?.("[data-advanced-inline-text-form]")){
+        const form=canvasHost?.querySelector?.("[data-advanced-inline-text-form]");
+        if(form?.requestSubmit)form.requestSubmit();
+        else form?.dispatchEvent?.(new Event("submit",{bubbles:true,cancelable:true}));
+      }
+      if(event.button!==0||railPointer||advancedPointer||axisPointer||marqueePointer)return;
+      /* AAA-019 red-team D2 — a press on the inline editor itself (its textarea, Done or
+         Cancel) is the editor's business: it must never fall through to the marquee path,
+         whose release used to clear the draft before the button's click could commit it. */
+      if(event.target.closest?.("[data-advanced-inline-text-form]"))return;
       const railAsset=event.target.closest?.("[data-advanced-insert-asset]");
-      if(railAsset&&store.entitlement.canMutate===true){
+      /* AAA-019 — uploads and existing objects in the rail drag with the same pointer
+         ghost as built-in assets (Canva P3). The native HTML5 DnD path stays as a
+         fallback, but a press-and-move on a tile is now a real, visible drag. */
+      const railObject=railAsset?null:event.target.closest?.("[data-advanced-drag-object][data-advanced-target-type][data-advanced-target-id], [data-media-asset][data-media-place]");
+      if((railAsset||railObject)&&store.entitlement.canMutate===true){
         const ghost=document.createElement("div");
         ghost.className="advancedRailDragGhost";
-        ghost.textContent=railAsset.innerText?.trim()?.split("\n").at(-1)||"Timeline asset";
+        const tile=railAsset||railObject;
+        const preview=tile.querySelector?.("img");
+        if(preview?.src){
+          ghost.classList.add("advancedRailDragGhostImage");
+          const image=document.createElement("img");
+          image.src=preview.src;image.alt="";
+          ghost.append(image);
+        }else{
+          ghost.textContent=tile.innerText?.trim()?.split("\n")[0]||tile.getAttribute("aria-label")||"Timeline asset";
+        }
         ghost.style.left=`${event.clientX+14}px`;
         ghost.style.top=`${event.clientY+14}px`;
         document.body.append(ghost);
-        railPointer={
-          startX:event.clientX,startY:event.clientY,moved:false,ghost,
-          source:railAsset,pointerId:event.pointerId,
-          payload:{
+        const payload=railAsset
+          ?{
             kind:"insert",action:String(railAsset.dataset.advancedAction||"asset"),
             assetKind:String(railAsset.dataset.advancedKind||"rectangle"),
             symbol:String(railAsset.dataset.advancedSymbol||"")
           }
+          :{
+            kind:"insert",action:"place",
+            target:{
+              type:String(railObject.dataset.advancedTargetType||(railObject.hasAttribute("data-media-asset")?"media":"")),
+              id:String(railObject.dataset.advancedTargetId||railObject.dataset.mediaAsset||"")
+            }
+          };
+        railPointer={
+          startX:event.clientX,startY:event.clientY,moved:false,ghost,
+          source:tile,pointerId:event.pointerId,payload
         };
-        railAsset.setPointerCapture?.(event.pointerId);
+        /* No pointer capture: the rail re-renders on selection changes, and a captured
+           node that gets replaced swallows the pointerup — the document-level listeners
+           already see every move and release. */
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -6508,20 +8100,91 @@ export async function boot407FEngineeringAdapter({
         event.stopPropagation();
         return;
       }
-      if(store.document.layoutLock!==false)return;
+      if(store.document.layoutLock!==false){
+        /* AAA-019 — a locked layout used to swallow every press in silence, which reads as
+           "the editor is broken". Say why once per lock, and point at the switch. */
+        if(store.document.mode==="advanced"&&store.entitlement.canMutate===true&&advancedObjectForTarget(event.target)){
+          explainLayoutLock();
+        }
+        return;
+      }
       if(
         (event.shiftKey||event.metaKey||event.ctrlKey)&&
         !event.target.closest?.("[data-advanced-direct-handle]")
       )return;
+      const doublePress=Number(event.detail)>=2||consumeDoublePress(event);
       const object=advancedObjectForTarget(event.target,{
-        deep:Number(event.detail)>=2||event.altKey===true
+        deep:doublePress||event.altKey===true
       });
-      if(!object)return;
+      if(!object){
+        /* A2.6 — a press on empty board used to fall through here and do nothing, which
+           is what made "drag on the board" read as a page rather than a canvas. Rubber-band
+           instead. user-select:none on the substrate keeps this from becoming a text drag. */
+        if(store.document.mode!=="advanced"||store.entitlement.canMutate!==true)return;
+        const surface=event.target.closest?.(".canvas-application");
+        if(!surface||event.target.closest?.("[data-canvas-coach]"))return;
+        marqueePointer={
+          startX:event.clientX,startY:event.clientY,
+          pointerId:event.pointerId,moved:false,box:null,surface,
+          additive:event.shiftKey===true
+        };
+        event.preventDefault();
+        return;
+      }
       if(store.document.mode!=="advanced"&&[
-        "event","color-key","profile"
+        "event","color-key","profile","frame"
       ].includes(object.type))return;
+      if(object.type==="frame"){
+        /* Double-press on a filled frame opens crop; a press on a fixed well (profile
+           portrait, program logo) selects it and stops — those move with their card. */
+        if(doublePress&&object.frameState==="filled"&&store.entitlement.canMutate===true){
+          canvasController?.setUiState({selectedEventId:null,advancedSelection:{type:"frame",id:object.id},advancedTextEdit:null});
+          beginAdvancedCrop({type:"frame",id:object.id});
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        if(object.fixed||store.entitlement.canMutate!==true){
+          selectAdvancedFrame(object.id);
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+      }
+      if(doublePress&&object.type==="media"&&store.entitlement.canMutate===true&&!object.item?.groupId){
+        canvasController?.setUiState({selectedEventId:null,advancedSelection:{type:"media",id:object.id},advancedTextEdit:null});
+        if(beginAdvancedCrop({type:"media",id:object.id})){
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+      }
       if(object.item?.locked===true){
         bridge.toast("Unlock this Timeline object before moving or resizing it.");
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      /* A2.8 — double-press opens inline text editing, and it has to be detected here
+         rather than on click or dblclick. Committing a gesture on pointerup re-renders
+         the board, which replaces the very node the browser needs to have seen for both
+         press and release; no click event is ever dispatched, so the click-based
+         double-click path was unreachable. Reading event.detail on pointerdown is the
+         only place the second press is still observable. */
+      if(doublePress&&object.type==="text"&&store.entitlement.canMutate===true){
+        const block=(store.document.advanced?.textBlocks||[]).find(
+          (item)=>String(item.id)===String(object.id)
+        );
+        canvasController?.setUiState({
+          advancedSelection:{type:"text",id:object.id},
+          advancedTextEdit:{id:object.id,draft:String(block?.text||"")}
+        });
+        queueMicrotask(()=>{
+          const field=canvasHost.querySelector("[data-advanced-inline-text-input]");
+          field?.focus?.();
+          field?.select?.();
+        });
+        announceGlobal("Text editing opened");
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -6543,7 +8206,7 @@ export async function boot407FEngineeringAdapter({
         if(
           object.type!=="group"&&
           !object.element.hasAttribute?.("data-scene-object")&&
-          !["color-key","profile"].includes(object.type)&&
+          !["color-key","profile","frame"].includes(object.type)&&
           box&&Number.isFinite(box.x)&&Number.isFinite(box.y)&&box.width>0&&box.height>0
         ){
           modelBounds={x:box.x,y:box.y,width:box.width,height:box.height};
@@ -6566,12 +8229,16 @@ export async function boot407FEngineeringAdapter({
       );
       advancedPointer={
         ...object,
-        kind:resizeHandle?"resize":"move",
+        kind:resizeHandle==="rotate"?"rotate":resizeHandle?"resize":"move",
         handle:resizeHandle,
         startX:event.clientX,
         startY:event.clientY,
         scaleX:1920/svgBounds.width,
         scaleY:1080/svgBounds.height,
+        boardWidthAtPress:svgBounds.width,
+        rotationStart:{x:(event.clientX-svgBounds.left)*(1920/svgBounds.width),y:(event.clientY-svgBounds.top)*(1080/svgBounds.height)},
+        grabOffsetX:(event.clientX-svgBounds.left)*(1920/svgBounds.width)-Number(object.item.x||0),
+        grabOffsetY:(event.clientY-svgBounds.top)*(1080/svgBounds.height)-Number(object.item.y||0),
         svg,
         visualOffsetX:modelBounds.x-Number(object.item.x||0),
         visualOffsetY:modelBounds.y-Number(object.item.y||0),
@@ -6602,6 +8269,63 @@ export async function boot407FEngineeringAdapter({
       event.preventDefault();
       event.stopPropagation();
     };
+    /* AAA-019 (Canva D2): the selection box travels with the object while it is dragged or
+       resized — the quick-bar and hover chrome step aside for the gesture and come back on
+       release, when showAdvancedDirectSelection re-mounts everything against the committed
+       geometry. Only the existing overlay's box is moved here; nothing is re-rendered. */
+    /* AAA-019 red-team D6/D12 — Escape (or a zoom change) while a drag/resize is live
+       abandons it: every gesture node returns to its original transform, nothing commits,
+       no history entry. */
+    const cancelAdvancedGesture=()=>{
+      if(!advancedPointer)return false;
+      const pointer=advancedPointer;
+      advancedPointer=null;
+      const nodes=pointer.members?.length?pointer.members:[{element:pointer.element,originalTransform:pointer.originalTransform}];
+      for(const {element,originalTransform} of nodes){
+        if(!element?.setAttribute)continue;
+        if(originalTransform)element.setAttribute("transform",originalTransform);
+        else element.removeAttribute("transform");
+        delete element.dataset?.advancedDragging;
+      }
+      document.querySelectorAll?.("[data-advanced-dragging]").forEach((node)=>{delete node.dataset.advancedDragging;});
+      clearAdvancedAlignmentGuides(pointer.svg);
+      syncAdvancedSelectionChrome();
+      announceGlobal("Move cancelled");
+      return true;
+    };
+    const trackAdvancedSelectionChrome=(pointer)=>{
+      if(!pointer)return;
+      if(!pointer.chromeTracking){
+        pointer.chromeTracking=true;
+        clearAdvancedQuickBar();
+        clearAdvancedHoverChrome();
+        document.querySelectorAll?.("[data-advanced-context-menu], .advancedDirectSelectionMember").forEach((node)=>node.remove());
+      }
+      const nodes=(pointer.members?.length?pointer.members.map(({element})=>element):[pointer.element]).filter((node)=>node?.getBoundingClientRect);
+      if(!nodes.length)return;
+      let left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
+      for(const node of nodes){
+        const box=node.getBoundingClientRect();
+        if(!box.width&&!box.height)continue;
+        left=Math.min(left,box.left);top=Math.min(top,box.top);
+        right=Math.max(right,box.right);bottom=Math.max(bottom,box.bottom);
+      }
+      if(!Number.isFinite(left)||!Number.isFinite(top))return;
+      const host=advancedOverlayHost();
+      if(!host)return;
+      const view=host.getBoundingClientRect();
+      const minimum=28;
+      const width=Math.max(right-left,minimum),height=Math.max(bottom-top,minimum);
+      const padX=(width-(right-left))/2,padY=(height-(bottom-top))/2;
+      const overlays=[...host.querySelectorAll(".advancedDirectSelection:not([data-advanced-multi-outline])")];
+      const target=overlays.find((node)=>node.dataset.advancedTargetId===String(pointer.id))||overlays.at(-1);
+      if(!target)return;
+      target.style.left=`${left-padX-view.left+host.scrollLeft}px`;
+      target.style.top=`${top-padY-view.top+host.scrollTop}px`;
+      target.style.width=`${width}px`;
+      target.style.height=`${height}px`;
+      target.dataset.advancedGestureTracking="true";
+    };
     const applyDirectPreviewGeometry=(pointer,next)=>{
       const node=pointer.element;
       const original=pointer.original;
@@ -6629,9 +8353,16 @@ export async function boot407FEngineeringAdapter({
       }
       if(pointer.type==="color-key"||pointer.type==="profile"){
         const base=pointer.type==="color-key"
-          ?{width:247,height:277}
-          :{width:512,height:375};
+          ?{width:284,height:346}
+          :{width:545,height:410};
         node.setAttribute("transform",`translate(${next.x} ${next.y}) scale(${next.width/base.width} ${next.height/base.height})`);
+        return;
+      }
+      if(pointer.type==="frame"){
+        const sx=next.width/Math.max(1,Number(original.width)||1);
+        const sy=next.height/Math.max(1,Number(original.height)||1);
+        const rotation=Number(next.rotation)||0;
+        node.setAttribute("transform",`translate(${next.x} ${next.y}) scale(${sx} ${sy}) translate(${-original.x} ${-original.y}) rotate(${rotation} ${original.x+original.width/2} ${original.y+original.height/2})`);
         return;
       }
       if(pointer.type==="event"){
@@ -6645,6 +8376,26 @@ export async function boot407FEngineeringAdapter({
       node.setAttribute("transform",`translate(${next.x} ${next.y}) rotate(${Number(next.rotation)||0} ${next.width/2} ${next.height/2}) scale(${sx} ${sy})`);
     };
     onAdvancedPointerMove=(event)=>{
+      if(advancedCropPointerMove(event))return;
+      if(marqueePointer){
+        const pending=marqueePointer;
+        if(!pending.moved){
+          if(Math.hypot(event.clientX-pending.startX,event.clientY-pending.startY)<4)return;
+          pending.moved=true;
+          pending.box=document.createElement("div");
+          pending.box.className="advancedMarquee";
+          pending.box.dataset.advancedMarquee="true";
+        }
+        const left=Math.min(pending.startX,event.clientX);
+        const top=Math.min(pending.startY,event.clientY);
+        const width=Math.abs(event.clientX-pending.startX);
+        const height=Math.abs(event.clientY-pending.startY);
+        /* Kept in viewport coordinates for the hit test below, since the object bounds
+           it is compared against are viewport coordinates too. */
+        pending.rect={left,top,right:left+width,bottom:top+height};
+        mountAdvancedOverlay(pending.box,{left,top,width,height});
+        return;
+      }
       if(axisPointer){
         const pending=axisPointer;
         const dx=event.clientX-pending.startX;
@@ -6671,27 +8422,71 @@ export async function boot407FEngineeringAdapter({
         return;
       }
       if(railPointer){
+        railPointer.lastX=event.clientX;railPointer.lastY=event.clientY;
         railPointer.ghost.style.left=`${event.clientX+14}px`;
         railPointer.ghost.style.top=`${event.clientY+14}px`;
         railPointer.moved=railPointer.moved||Math.hypot(event.clientX-railPointer.startX,event.clientY-railPointer.startY)>5;
+        if(railPointer.payload?.action==="place"&&railPointer.payload.target?.type==="media"){
+          highlightAdvancedFrameDropTarget(advancedFrameAtPoint(event.clientX,event.clientY));
+        }
         event.preventDefault();
         return;
       }
       if(!advancedPointer)return;
+      if(advancedPointer.type==="media"&&advancedPointer.kind==="move"&&!advancedPointer.members?.length){
+        highlightAdvancedFrameDropTarget(advancedFrameAtPoint(event.clientX,event.clientY));
+      }
+      /* AAA-019 red-team D12 — keyboard zoom re-renders the board mid-gesture; the press
+         mapping is stale, so the gesture is abandoned rather than committed off-target. */
+      const liveBounds=advancedPointer.svg?.getBoundingClientRect?.();
+      if(advancedPointer.boardWidthAtPress&&liveBounds?.width&&Math.abs(liveBounds.width-advancedPointer.boardWidthAtPress)>1){
+        if(advancedPointer.kind==="rotate"){
+          cancelAdvancedGesture();
+          announceGlobal("Rotation canceled because the board zoom changed");
+          return;
+        }
+        /* Re-base the gesture on the new mapping so the grabbed point stays under the
+           pointer: the preview reached so far becomes the new origin of the drag. */
+        const preview=advancedPointer.preview||advancedPointer.original;
+        const scaleX=1920/liveBounds.width,scaleY=1080/liveBounds.height;
+        if(advancedPointer.kind==="move"){
+          /* The grabbed point follows the pointer: the object re-homes so that the spot
+             under the finger at press is under the finger again at the new zoom. */
+          const pointerBoardX=(event.clientX-liveBounds.left)*scaleX;
+          const pointerBoardY=(event.clientY-liveBounds.top)*scaleY;
+          const targetX=pointerBoardX-Number(advancedPointer.grabOffsetX||0);
+          const targetY=pointerBoardY-Number(advancedPointer.grabOffsetY||0);
+          advancedPointer.startX=event.clientX-(targetX-Number(advancedPointer.original.x))/scaleX;
+          advancedPointer.startY=event.clientY-(targetY-Number(advancedPointer.original.y))/scaleY;
+        }else{
+          advancedPointer.startX=event.clientX-(Number(preview.width)-Number(advancedPointer.original.width))/scaleX;
+          advancedPointer.startY=event.clientY-(Number(preview.height)-Number(advancedPointer.original.height))/scaleY;
+        }
+        advancedPointer.scaleX=scaleX;advancedPointer.scaleY=scaleY;
+        advancedPointer.boardWidthAtPress=liveBounds.width;
+      }
       const dx=(event.clientX-advancedPointer.startX)*advancedPointer.scaleX;
       const dy=(event.clientY-advancedPointer.startY)*advancedPointer.scaleY;
       if(!advancedPointer.moved&&Math.hypot(dx,dy)<4)return;
       advancedPointer.moved=true;
       const original=advancedPointer.original;
       let next;
-      if(advancedPointer.kind==="resize"){
+      if(advancedPointer.kind==="rotate"){
+        const bounds=advancedPointer.svg.getBoundingClientRect();
+        next=rotateSceneGeometry(original,advancedPointer.rotationStart,{
+          x:(event.clientX-bounds.left)*advancedPointer.scaleX,
+          y:(event.clientY-bounds.top)*advancedPointer.scaleY
+        },{snapDegrees:event.shiftKey?15:0});
+        if(advancedPointer.type==="frame")next.rotation=Math.max(-45,Math.min(45,next.rotation));
+        applyDirectPreviewGeometry(advancedPointer,next);
+      }else if(advancedPointer.kind==="resize"){
         const freeAspect=original.aspectLocked===false
           ?!event.shiftKey
           :event.shiftKey;
         const resized=resizeSceneGeometry(original,advancedPointer.handle||"se",dx,dy,{
           aspectLocked:!freeAspect,
           minimumWidth:advancedPointer.type==="profile"?360:48,
-          minimumHeight:advancedPointer.type==="profile"?272:32
+          minimumHeight:advancedPointer.type==="profile"?272:48
         });
         if(!freeAspect&&["e","w"].includes(advancedPointer.handle)){
           const ratio=original.width/Math.max(1,original.height);
@@ -6702,10 +8497,18 @@ export async function boot407FEngineeringAdapter({
           resized.width=resized.height*ratio;
           resized.x=original.x+(original.width-resized.width)/2;
         }
-        next=constrainAdvancedObjectToBoard({
-          ...clone(original),
-          ...resized
-        });
+        /* AAA-019 red-team D5 — a handle dragged past the board edge stops AT the edge; the
+           opposite (anchor) edge never slides. Clamp the moving edges before the generic
+           constrain, which only clamps position. */
+        const handleName=String(advancedPointer.handle||"se");
+        const clampedResize={...clone(original),...resized};
+        if(clampedResize.x<0){if(handleName.includes("w")){clampedResize.width+=clampedResize.x;}clampedResize.x=0;}
+        if(clampedResize.y<0){if(handleName.includes("n")){clampedResize.height+=clampedResize.y;}clampedResize.y=0;}
+        if(clampedResize.x+clampedResize.width>1920)clampedResize.width=1920-clampedResize.x;
+        if(clampedResize.y+clampedResize.height>1080)clampedResize.height=1080-clampedResize.y;
+        clampedResize.width=Math.max(48,clampedResize.width);
+        clampedResize.height=Math.max(advancedPointer.type==="profile"?272:48,clampedResize.height);
+        next=constrainAdvancedObjectToBoard(clampedResize);
         applyDirectPreviewGeometry(advancedPointer,next);
       }else{
         const width=Number(original.width||0);
@@ -6722,16 +8525,65 @@ export async function boot407FEngineeringAdapter({
             y:Number(next.y||0)+advancedPointer.visualOffsetY,
             width:advancedPointer.visualWidth,
             height:advancedPointer.visualHeight
-          }
+          },
+          peers:advancedSnapPeers(advancedPointer)
         });
         next=constrainAdvancedObjectToBoard(snapped.element);
         showAdvancedAlignmentGuides(advancedPointer.svg,snapped.guides);
         applyDirectPreviewGeometry(advancedPointer,next);
       }
       advancedPointer.preview=next;
+      trackAdvancedSelectionChrome(advancedPointer);
       event.preventDefault();
     };
     onAdvancedPointerUp=(event)=>{
+      if(advancedCropPointerUp())return;
+      if(marqueePointer){
+        const pending=marqueePointer;
+        marqueePointer=null;
+        pending.box?.remove();
+        if(!pending.moved||event?.type==="pointercancel"){
+          /* A press with no drag is a deselect, the same as clicking empty board. */
+          if(!pending.moved&&event?.type!=="pointercancel"){
+            canvasController?.setUiState({advancedSelection:null,advancedTextEdit:null});
+            requestAdvancedDirectSelection(null);
+          }
+          return;
+        }
+        const rect=pending.rect;
+        if(!rect)return;
+        /* Intersecting, not strictly contained: a band that visibly touches an object
+           should take it, which is what a Canva user expects from a rubber band. */
+        const hits=allAdvancedSelectableMembers().filter((member)=>{
+          const box=advancedMemberElement(member)?.getBoundingClientRect?.();
+          if(!box?.width||!box?.height)return false;
+          return box.left<rect.right&&box.right>rect.left&&
+            box.top<rect.bottom&&box.bottom>rect.top;
+        });
+        const existing=pending.additive
+          ?(()=>{
+            const current=canvasController?.state?.advancedSelection||null;
+            if(!current)return[];
+            if(current.type==="multi")return Array.isArray(current.members)?current.members:[];
+            return["media","text","element"].includes(current.type)
+              ?[{type:current.type,id:current.id}]
+              :[];
+          })()
+          :[];
+        const merged=[];
+        const seen=new Set();
+        for(const member of [...existing,...hits]){
+          const key=`${member.type}:${member.id}`;
+          if(seen.has(key))continue;
+          seen.add(key);
+          merged.push({type:member.type,id:member.id});
+        }
+        const next=merged.length===0?null:merged.length===1?merged[0]:{type:"multi",members:merged};
+        canvasController?.setUiState({selectedEventId:null,advancedSelection:next});
+        requestAdvancedDirectSelection(next);
+        if(merged.length)announceGlobal(`${merged.length} Timeline ${merged.length===1?"object":"objects"} selected`);
+        return;
+      }
       if(axisPointer){
         const pending=axisPointer;
         axisPointer=null;
@@ -6767,15 +8619,28 @@ export async function boot407FEngineeringAdapter({
       if(railPointer){
         const pending=railPointer;
         railPointer=null;
-        pending.source?.releasePointerCapture?.(pending.pointerId);
+        try{pending.source?.releasePointerCapture?.(pending.pointerId);}catch{}
         pending.ghost.remove();
+        clearAdvancedFrameDropTarget();
         const surface=advancedEditSurface();
         const bounds=surface?.getBoundingClientRect?.();
         if(pending.moved&&bounds&&event.clientX>=bounds.left&&event.clientX<=bounds.right&&event.clientY>=bounds.top&&event.clientY<=bounds.bottom){
-          const inserted=advancedHooks().onAssetDrop(pending.payload,{
-            x:Math.max(0,Math.min(1840,(event.clientX-bounds.left)*1920/bounds.width)),
-            y:Math.max(0,Math.min(1000,(event.clientY-bounds.top)*1080/bounds.height))
-          });
+          const point={
+            x:Math.max(0,Math.min(1920,(event.clientX-bounds.left)*1920/bounds.width)),
+            y:Math.max(0,Math.min(1080,(event.clientY-bounds.top)*1080/bounds.height))
+          };
+          /* A media drop over a frame fills the frame instead of placing a free object. */
+          const mediaId=pending.payload?.action==="place"&&pending.payload.target?.type==="media"?pending.payload.target.id:"";
+          const frame=mediaId?advancedFrameAtPoint(event.clientX,event.clientY):null;
+          if(frame){
+            fillAdvancedFrame(frame.slot,mediaId);
+            return;
+          }
+          if(mediaId&&(store.document.advanced?.media||[]).find((item)=>String(item.id)===mediaId)?.placed===false){
+            commitMediaPlacement(mediaId,point);
+            return;
+          }
+          const inserted=advancedHooks().onAssetDrop(pending.payload,point);
           if(inserted===true)bridge.toast("Added to your timeline");
         }
         return;
@@ -6783,6 +8648,7 @@ export async function boot407FEngineeringAdapter({
       if(!advancedPointer)return;
       const pointer=advancedPointer;
       advancedPointer=null;
+      clearAdvancedFrameDropTarget();
       clearAdvancedAlignmentGuides(pointer.svg);
       const gestureMembers=pointer.members?.length?pointer.members:[pointer];
       gestureMembers.forEach(({element})=>{
@@ -6804,7 +8670,11 @@ export async function boot407FEngineeringAdapter({
         showAdvancedDirectSelection({type:pointer.type,id:pointer.id});
         return;
       }
-      const label=pointer.kind==="resize"
+      if(pointer.type==="media"&&pointer.kind==="move"&&!pointer.members?.length){
+        const frame=advancedFrameAtPoint(event.clientX,event.clientY);
+        if(frame&&fillAdvancedFrame(frame.slot,pointer.id,{consumePlacement:true}))return;
+      }
+      const label=pointer.kind==="rotate"?"Rotate Timeline object":pointer.kind==="resize"
         ?"Resize Timeline object"
         :"Move Timeline object";
       let result;
@@ -6832,8 +8702,37 @@ export async function boot407FEngineeringAdapter({
           return;
         }
         result={document,changed:true,mutation:{label:"Change profile card presentation"}};
+      }else if(pointer.type==="frame"){
+        const document=clone(store.document);
+        const index=Number(String(pointer.id).replace(/^photo/,""));
+        const width=Math.max(60,Math.min(900,Number(pointer.preview.width)||pointer.original.width));
+        const height=Math.max(60,Math.min(700,Number(pointer.preview.height)||pointer.original.height));
+        document.presentationOverrides={...(document.presentationOverrides||{}),photoFrames:{
+          ...((document.presentationOverrides||{}).photoFrames||{}),
+          [String(index)]:{
+            x:Math.max(0,Math.min(1920-width,Number(pointer.preview.x)||0)),
+            y:Math.max(0,Math.min(1080-height,Number(pointer.preview.y)||0)),
+            width,height,rotation:Number(pointer.preview.rotation)||0
+          }
+        }};
+        result={document,changed:true,mutation:{label:pointer.kind==="rotate"?"Rotate photo frame":pointer.kind==="resize"?"Resize photo frame":"Move photo frame"}};
       }else{
-        result=applySceneCommandToDocument(store.document,{
+        /* AAA-019 (Canva T-series): a corner resize on a text box scales the type with the
+           box; a side handle only changes the wrap width. Font size follows the width ratio
+           and stays inside the free-text range. */
+        const cornerTextScale=pointer.type==="text"&&pointer.kind==="resize"&&/^(nw|ne|sw|se)$/.test(String(pointer.handle||""))
+          ?Math.max(.1,Number(pointer.preview.width)||1)/Math.max(1,Number(pointer.original.width)||1)
+          :null;
+        let base=store.document;
+        if(cornerTextScale&&Math.abs(cornerTextScale-1)>.01){
+          base=clone(store.document);
+          const block=(base.advanced?.textBlocks||[]).find((item)=>String(item.id)===String(pointer.id));
+          if(block){
+            block.size=Math.min(FREE_TEXT_SIZE.max,Math.max(FREE_TEXT_SIZE.min,Math.round((Number(block.size)||24)*cornerTextScale)));
+            if(cornerTextScale<1)block.fitMode="auto";
+          }
+        }
+        result=applySceneCommandToDocument(base,{
           kind:"geometry",
           target:{type:pointer.type,id:pointer.id},
           geometry:pointer.preview,
@@ -6855,7 +8754,7 @@ export async function boot407FEngineeringAdapter({
         ?{selectedEventId:pointer.id,advancedSelection:null}
         :{selectedEventId:null,advancedSelection:{type:pointer.type,id:pointer.id}});
       showAdvancedDirectSelection({type:pointer.type,id:pointer.id});
-      const message=pointer.kind==="resize"?"Timeline object resized":"Timeline object moved";
+      const message=pointer.kind==="rotate"?"Timeline object rotated":pointer.kind==="resize"?"Timeline object resized":"Timeline object moved";
       bridge.toast(message);
       announceGlobal(message);
     };
@@ -6873,7 +8772,10 @@ export async function boot407FEngineeringAdapter({
     onAdvancedRailDrop=(event)=>{
       const payload=railPayload(event);
       if(payload?.kind!=="insert"||store.entitlement.canMutate!==true)return;
-      const svg=event.target.closest?.("svg")||canvasHost.querySelector("svg");
+      const mediaId=payload.action==="place"&&payload.target?.type==="media"?String(payload.target.id):"";
+      const frame=mediaId?advancedFrameAtPoint(event.clientX,event.clientY):null;
+      if(frame&&fillAdvancedFrame(frame.slot,mediaId)){event.preventDefault();return;}
+      const svg=canvasHost.querySelector('.canvas-application > svg[data-founder-serializer]')||event.target.closest?.("svg")||canvasHost.querySelector("svg");
       const bounds=svg?.getBoundingClientRect?.();
       if(!bounds?.width||!bounds?.height)return;
       event.preventDefault();
@@ -6908,6 +8810,15 @@ export async function boot407FEngineeringAdapter({
     canvasHost.addEventListener("click",onCanvasDetailsClick);
     canvasHost.addEventListener("click",onAdvancedObjectClick);
     canvasHost.addEventListener("keydown",onAdvancedObjectKeyDown);
+    document.addEventListener("keydown",onAdvancedSelectionKeyDown);
+    canvasHost.addEventListener("d1:canvas-rendered",onAdvancedCanvasRendered);
+    document.addEventListener("click",onAdvancedQuickActionClick,true);
+    canvasHost.addEventListener("contextmenu",onAdvancedContextMenu,true);
+    canvasHost.addEventListener("pointermove",onAdvancedHoverMove);
+    canvasHost.addEventListener("pointerleave",onAdvancedHoverLeave);
+    canvasHost.addEventListener("d1:canvas-viewport",onAdvancedViewportChange);
+    document.addEventListener("scroll",onAdvancedViewportChange,true);
+    window.addEventListener("resize",onAdvancedViewportChange);
     // Capture at the document boundary so selection handles (fixed outside the
     // canvas subtree) and SVG objects share one gesture path. Recognized editor
     // gestures stop before the semantic Canvas listener can rewrite chronology.
@@ -6934,7 +8845,15 @@ export async function boot407FEngineeringAdapter({
       }
     })
       .then((changed)=>{
-        if(changed)canvasController?.render();
+        if(!changed)return;
+        canvasController?.render();
+        renderHomePreview();
+        renderBuilderEmbeddedPreview();
+        mountBuilderPreview(document.querySelector("[data-builder-preview-canvas]"),{
+          surface:"lightbox",
+          namespace:"d1-405-builder-lightbox"
+        });
+        requestAnimationFrame(onBuilderPreviewResize);
       })
       .catch((error)=>toastStudentError(error,"media"));
   }
@@ -6951,7 +8870,6 @@ export async function boot407FEngineeringAdapter({
           apiClient:productionRuntime.authClient,
           documentId:store.document.id,
           existingEvents:()=>clone(store.document.events||[]),
-          consentVersion:"d1-ux-007-ai-v1",
           ensureRemoteDocument:ensureRemoteDocumentForMedia
         })
         :localIntakeAdapter
@@ -6964,7 +8882,14 @@ export async function boot407FEngineeringAdapter({
       ...intakeAdapter,
       async extract(input){
         try{
-          return await intakeAdapter.extract(input);
+          const result=await intakeAdapter.extract(input);
+          /* AAA-019 — no theater: a result that never went near the AI says so, with the
+             reason, so the review screen can label it a local document check. */
+          if(result&&typeof result==="object"&&result.parser&&!result.parser.intelligenceMode){
+            return{...result,parser:{...result.parser,intelligenceMode:"LOCAL_LIMITED",
+              fallbackReason:productionRuntime?(privateMediaStorageEnabled?"PROVIDER_UNAVAILABLE":"PRIVATE_MEDIA_DISABLED"):"LOCAL_DEMO_API_DISABLED"}};
+          }
+          return result;
         }catch(error){
           if(error?.name==="AbortError")throw error;
           const translated=studentError(error,{context:"document"});
@@ -7005,17 +8930,60 @@ export async function boot407FEngineeringAdapter({
         existingEvents:store.document.events,
         renderPreview:renderIntakePreview
       });
-      if(state.stage==="upload"&&productionRuntime&&privateMediaStorageEnabled){
-        intakeHost.insertAdjacentHTML("beforeend",`<section class="intake-stage intake407FRescue" aria-labelledby="timelineRescueTitle">
-          <p class="micro407F">TIMELINE RESCUE</p>
-          <h2 id="timelineRescueTitle">Import an existing Timeline</h2>
-          <p>Recover editable events from a PowerPoint, PDF, or image. MissionMed restores the approved template; you review every recovered fact before anything is added.</p>
-          <label class="btnD alt" for="timelineRescueFile">Choose existing Timeline</label>
+      if(state.stage==="upload"){
+        const serverReady=!!(productionRuntime&&privateMediaStorageEnabled)||!!window.D1_LOCAL_SYNTHETIC_AI;
+        intakeHost.insertAdjacentHTML("beforeend",`<section class="intake-stage intake407FRescue" aria-labelledby="timelineRescueTitle" data-timeline-rescue-entry data-rescue-server="${serverReady?"ready":"unavailable"}">
+          <p class="micro407F">I ALREADY HAVE A TIMELINE</p>
+          <h2 id="timelineRescueTitle">Made your Timeline in Keynote or PowerPoint before?</h2>
+          <p>Upload it to recover the event details we can read. You review each suggestion before adding it to a new MissionMed layout. Photos, notes and original positions are not restored; your original file stays unchanged.</p>
+          <label class="btnD alt" for="timelineRescueFile">Upload my existing Timeline</label>
           <input id="timelineRescueFile" type="file" accept=".pptx,.pdf,.png,.jpg,.jpeg,.key,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf,image/png,image/jpeg" data-timeline-rescue-file hidden>
-          <p class="micro407F">Using Keynote? Choose the .key file for exact export guidance. Native .key parsing is not claimed.</p>
+          <p class="micro407F">PowerPoint, PDF, PNG or JPEG. Keynote files: choose the .key file and we'll show you the two-click export.</p>
+          ${serverReady?"":'<p class="micro407F" data-rescue-local-note>Rebuilding runs on MissionMed\'s secure server, which this local preview cannot reach — you can still see the entry and the Keynote guidance here.</p>'}
         </section>`);
       }
     };
+    /* AAA-019 — one front door for existing Timelines. Called from the Home tile, the
+       intake section and the CV dropzone (when the file is obviously a Timeline). */
+    const handleTimelineRescueFile=(file)=>{
+      if(!file)return;
+      const name=String(file.name||"").toLowerCase();
+      if(name.endsWith(".key")){
+        openIntakeDialog({
+          title:"Two clicks in Keynote first",
+          body:"Keynote files can't be read directly. In Keynote choose File → Export To → PowerPoint… and upload that file here. Rescue reads event details for your review; photos, notes and original positions are not restored. Keep your original Keynote file for reference and continued editing.",
+          primaryLabel:"Got it",secondaryLabel:"Close"
+        });
+        return;
+      }
+      if(!window.D1_LOCAL_SYNTHETIC_AI&&(!(productionRuntime&&privateMediaStorageEnabled)||typeof productionRuntime?.authClient?.rescueTimeline!=="function")){
+        openIntakeDialog({
+          title:"Timeline Rescue needs the MissionMed server",
+          body:`Rebuilding ${file.name} runs on MissionMed's secure server, and this local preview can't reach it. Nothing was uploaded. Open Timeline Builder from your Matrix account to rebuild this file — the same button is there.`,
+          primaryLabel:"OK",secondaryLabel:"Close"
+        });
+        return;
+      }
+      openIntakeDialog({
+        title:"Rebuild this Timeline?",
+        body:`We'll read ${file.name} for event details and dates. You review each suggestion before adding it to a new MissionMed layout. Photos, notes and original positions are not restored. Your original file stays unchanged.`,
+        primaryLabel:"Rebuild it",secondaryLabel:"Cancel",
+        onPrimary:()=>{
+          Object.defineProperty(file,"timelineRescue",{value:true,configurable:true});
+          intakeMachine.receiveFile(file);
+          intakeMachine.setConsent(true);
+          intakeMachine.startExtraction().catch((error)=>toastStudentError(error,"document"));
+        }
+      });
+    };
+    const looksLikeTimelineFile=(file)=>{
+      const name=String(file?.name||"").toLowerCase();
+      const type=String(file?.type||"").toLowerCase();
+      if(/\.(pptx|key|png|jpe?g)$/.test(name))return true;
+      if(type.startsWith("image/")||type.includes("presentationml"))return true;
+      return false;
+    };
+    const maybeTimelineFile=(file)=>/timeline|slide|keynote/i.test(String(file?.name||""))&&/\.pdf$/i.test(String(file?.name||""));
     const openIntakeDialog=(dialog)=>{
       if(typeof bridge.openModal!=="function")return;
       openStandardModal(`<section class="intake407FDialog" role="dialog" aria-modal="true" aria-labelledby="intake407FDialogTitle">
@@ -7045,25 +9013,39 @@ export async function boot407FEngineeringAdapter({
       const file=input?.files?.[0];
       if(!file)return;
       input.value="";
-      if(String(file.name||"").toLowerCase().endsWith(".key")){
-        openIntakeDialog({
-          title:"Export from Keynote first",
-          body:"In Keynote choose File > Export To > PowerPoint (preferred) or PDF, then upload that exported file here. Timeline Builder does not claim unreliable native .key parsing.",
-          primaryLabel:"I’ll export it",secondaryLabel:"Close"
-        });
+      handleTimelineRescueFile(file);
+    });
+    /* Unified classification: a slide deck or an image dropped on the CV dropzone is a
+       Timeline, not a CV — route it before the CV wizard rejects it; a PDF that looks like
+       one asks instead of guessing. */
+    intakeHost.addEventListener("change",(event)=>{
+      const input=event.target?.matches?.("[data-intake-file]")?event.target:null;
+      const file=input?.files?.[0];
+      if(!file)return;
+      if(looksLikeTimelineFile(file)){
+        event.stopImmediatePropagation();
+        input.value="";
+        handleTimelineRescueFile(file);
         return;
       }
-      openIntakeDialog({
-        title:"Analyze this existing Timeline?",
-        body:`MissionMed will privately process ${file.name} to recover structured events and presentation evidence. Nothing is added until you review and accept it.`,
-        primaryLabel:"Analyze safely",secondaryLabel:"Cancel",
-        onPrimary:()=>{
-          Object.defineProperty(file,"timelineRescue",{value:true,configurable:true});
-          intakeMachine.receiveFile(file);
-          intakeMachine.setConsent(true);
-          intakeMachine.startExtraction().catch((error)=>toastStudentError(error,"document"));
-        }
-      });
+      if(maybeTimelineFile(file)){
+        event.stopImmediatePropagation();
+        input.value="";
+        openIntakeDialog({
+          title:"Is this your CV, or a Timeline you made before?",
+          body:`${file.name} looks like it could be either. Choose how we should read it.`,
+          primaryLabel:"It's a Timeline",secondaryLabel:"It's my CV",
+          onPrimary:()=>handleTimelineRescueFile(file),
+          onSecondary:()=>intakeMachine.receiveFile(file)
+        });
+      }
+    },true);
+    document.getElementById("homeRescueFile")?.addEventListener("change",(event)=>{
+      const file=event.target?.files?.[0];
+      if(!file)return;
+      event.target.value="";
+      bridge.go("intake");
+      setTimeout(()=>handleTimelineRescueFile(file),60);
     });
     intakeCleanup=installIntake(intakeHost,intakeMachine,{
       onChange:(state)=>{
@@ -7077,7 +9059,18 @@ export async function boot407FEngineeringAdapter({
         bridge.state.intake=persistedIntakeState(state);
         bridge.renderAll();
       },
-      onNavigate:(route)=>bridge.go(route),
+      /* AAA-019 — the intake wizard speaks the UXR route vocabulary ("home"), while the
+         live shell's Home section is `command`. Cancelling or finishing an upload used to
+         call go("home"), which matched no section and left a blank screen — the "wizard
+         locks on DONE" a student experienced. Translate every intake route here. */
+      onNavigate:(route)=>{
+        if(route==="quality-check"){
+          bridge.go("canvas");
+          setTimeout(()=>{void openQualityGuardian407F("DURING_BUILDING");},80);
+          return;
+        }
+        bridge.go({home:"command",builder:"builder",canvas:"canvas",media:"media",export:"export",intake:"intake"}[String(route||"")]||"command");
+      },
       onToast:(message)=>bridge.toast(studentMessage(message,{context:"document"})),
       onError:(error)=>toastStudentError(error,"document"),
       openDialog:openIntakeDialog,
@@ -7166,6 +9159,7 @@ export async function boot407FEngineeringAdapter({
     lastState=stableState(bridge.state);
     applying=false;
     announceGlobal(message);
+    hydrateMissingAdvancedMedia();
     return entry;
   };
   api.undo=()=>applyHistory("undo");
@@ -7186,13 +9180,15 @@ export async function boot407FEngineeringAdapter({
     fileVaultTrap=null;
     bridge.closeModal?.();
   };
+  // The earlier inline Escape listener must use the owner's focus/inert cleanup.
+  api.closeModal=closeOwnedModal;
   const fileVaultSource=resolveFileVaultSourceAdapter(
     window.MISSIONMED_FILEVAULT_SOURCE_ADAPTER
   );
   let fileVaultQuerySequence=0;
-  const openFileVaultSource=async(query="")=>{
+  const openFileVaultSource=async(query="",page=1)=>{
     const sequence=++fileVaultQuerySequence;
-    const model=await queryFileVaultSource(fileVaultSource,{query});
+    const model=await queryFileVaultSource(fileVaultSource,{query,page});
     if(sequence!==fileVaultQuerySequence)return;
     bridge.openModal?.(renderFileVaultSourceChooser(model));
     const dialog=document.querySelector("[data-file-vault-source-dialog]");
@@ -7208,14 +9204,15 @@ export async function boot407FEngineeringAdapter({
         if(continueButton)continueButton.disabled=!radio.checked;
       });
     });
+    dialog?.querySelectorAll('[data-file-vault-page]').forEach(button=>button.addEventListener('click',()=>openFileVaultSource(query,Number(button.dataset.fileVaultPage)).catch(error=>toastStudentError(error,'document'))));
     continueButton?.addEventListener("click",async()=>{
       const selected=document.querySelector('input[name="file-vault-source"]:checked');
       if(!selected)return;
       try{
-        const selectedDescriptor=await fileVaultSource.select(selected.value);
+        await ensureRemoteDocumentForMedia();
         const imported=await selectFileVaultSourceDocument(fileVaultSource,selected.value,{
           timelineDocumentId:store.document.id,
-          versionId:String(selectedDescriptor?.versionId||"")
+          versionId:String(selected.dataset.fileVaultVersion||"")
         });
         if(!imported.file||!intakeMachine)throw new Error("Timeline could not open that File Vault document for Smart Fill.");
         intakeMachine.receiveFile(imported.file);
@@ -7436,6 +9433,7 @@ export async function boot407FEngineeringAdapter({
     ?installProductionMatrixReturn({store,productionRuntime})
     :installLocalMatrixAppMode({store});
   window.D1_407F_ENGINEERING=api;
+  api.familyRuntime=installFamilyRuntime022({runtime:productionRuntime,store,bridge});
   bridge.renderAll();
   document.documentElement.classList.remove("d1-hydrating");
   document.dispatchEvent(new CustomEvent("d1:407f-engineering-ready",{

@@ -1,0 +1,1488 @@
+{
+  "scope": "Exact PDF text-layer lines from independent extraction plus recorded provider candidates; no new AI request",
+  "sourceFilename": "012A_SYNTHETIC_CV.pdf",
+  "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+  "baselineSha256": "ef83e84a35623f67f699f995c6cbe1ccafa02b3df7fefbb40d588223a007f0cd",
+  "receiptSha256": "4db14fb58ab4f8ded1a8a368c2b543707e21a4e9f2dee6b3fc88ae037cdf7844",
+  "pages": [
+    {
+      "id": "src-9db0a22f8ecd7f2c:page:1",
+      "sourceDocumentId": "src-9db0a22f8ecd7f2c",
+      "pageNumber": 1,
+      "lines": [
+        "Alex Rivera — Synthetic Test CV",
+        "This document contains controlled fictional data for MissionMed production verification.",
+        "Education",
+        "Bachelor of Science in Biology, Northlake University — August 2014 to May 2018",
+        "Doctor of Medicine, Harborview International Medical School — August 2018 to June 2022",
+        "US Clinical Experience",
+        "Internal Medicine Observership, Lakeside Community Hospital, Chicago, Illinois — January 2024 to March",
+        "2024",
+        "Research",
+        "Cardiology Research Fellow, Meridian Research Institute — July 2022 to December 2023",
+        "Honors",
+        "Dean's Award for Clinical Excellence — June 2022",
+        "Certification",
+        "ECFMG Certification — September 2024"
+      ],
+      "text": "Alex Rivera — Synthetic Test CV\nThis document contains controlled fictional data for MissionMed production verification.\nEducation\nBachelor of Science in Biology, Northlake University — August 2014 to May 2018\nDoctor of Medicine, Harborview International Medical School — August 2018 to June 2022\nUS Clinical Experience\nInternal Medicine Observership, Lakeside Community Hospital, Chicago, Illinois — January 2024 to March\n2024\nResearch\nCardiology Research Fellow, Meridian Research Institute — July 2022 to December 2023\nHonors\nDean's Award for Clinical Excellence — June 2022\nCertification\nECFMG Certification — September 2024",
+      "extractionMethod": "PDFJS_TEXT_LAYER"
+    }
+  ],
+  "providerCandidates": [
+    {
+      "id": "cv_candidate_15c49a5ac07161e470d4320e",
+      "fingerprint": "15c49a5ac07161e470d4320ed34b76eeecc4013d9263b10eba3729ae84f6cea0",
+      "canonicalType": "EDUCATION",
+      "categoryId": "education",
+      "timelineKind": "duration",
+      "title": "Bachelor of Science in Biology",
+      "organization": "Northlake University",
+      "location": null,
+      "country": null,
+      "specialty": null,
+      "experienceType": null,
+      "startDate": "2014-08",
+      "endDate": "2018-05",
+      "datePrecision": "MONTH",
+      "openEnded": false,
+      "classificationReason": "The stated bachelor's degree is general education.",
+      "evidence": [
+        {
+          "field": "title",
+          "sourceBlockIds": [
+            "source_pdf_4"
+          ],
+          "excerpt": "Bachelor of Science in Biology",
+          "support": "EXPLICIT",
+          "reason": "Degree title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "field": "organization",
+          "sourceBlockIds": [
+            "source_pdf_4"
+          ],
+          "excerpt": "Northlake University",
+          "support": "EXPLICIT",
+          "reason": "Institution is explicitly named.",
+          "uncertainty": null
+        },
+        {
+          "field": "startDate",
+          "sourceBlockIds": [
+            "source_pdf_4"
+          ],
+          "excerpt": "August 2014 to May 2018",
+          "support": "EXPLICIT",
+          "reason": "Start month and year normalize to 2014-08.",
+          "uncertainty": null
+        },
+        {
+          "field": "endDate",
+          "sourceBlockIds": [
+            "source_pdf_4"
+          ],
+          "excerpt": "August 2014 to May 2018",
+          "support": "EXPLICIT",
+          "reason": "End month and year normalize to 2018-05.",
+          "uncertainty": null
+        },
+        {
+          "field": "canonicalType",
+          "sourceBlockIds": [
+            "source_pdf_4"
+          ],
+          "excerpt": "Bachelor of Science in Biology",
+          "support": "INFERRED",
+          "reason": "A bachelor's degree maps to EDUCATION.",
+          "uncertainty": null
+        },
+        {
+          "field": "categoryId",
+          "sourceBlockIds": [
+            "source_pdf_3"
+          ],
+          "excerpt": "Education",
+          "support": "EXPLICIT",
+          "reason": "The item appears under Education.",
+          "uncertainty": null
+        }
+      ],
+      "uncertainty": [],
+      "warnings": [],
+      "confidence": {
+        "score": 79,
+        "level": "MEDIUM",
+        "calibrationVersion": "evidence-v1",
+        "reasons": [
+          "5/6 populated fields have explicit source evidence.",
+          "1 field(s) rely on inference."
+        ]
+      },
+      "missingFields": [],
+      "duplicateOfEventIds": [],
+      "duplicateCandidateIds": [],
+      "safeToBulkAccept": false,
+      "normalizedInterpretation": {
+        "canonicalType": "EDUCATION",
+        "categoryId": "education",
+        "timelineKind": "duration",
+        "title": "Bachelor of Science in Biology",
+        "organization": "Northlake University",
+        "location": null,
+        "country": null,
+        "specialty": null,
+        "experienceType": null,
+        "startDate": "2014-08",
+        "endDate": "2018-05",
+        "datePrecision": "MONTH",
+        "openEnded": false
+      },
+      "provenance": [
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_4",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Bachelor of Science in Biology",
+          "charStart": 0,
+          "charEnd": 30,
+          "fields": [
+            "title"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Degree title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_4",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Northlake University",
+          "charStart": 32,
+          "charEnd": 52,
+          "fields": [
+            "organization"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Institution is explicitly named.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_4",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "August 2014 to May 2018",
+          "charStart": 55,
+          "charEnd": 78,
+          "fields": [
+            "startDate"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Start month and year normalize to 2014-08.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_4",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "August 2014 to May 2018",
+          "charStart": 55,
+          "charEnd": 78,
+          "fields": [
+            "endDate"
+          ],
+          "support": "EXPLICIT",
+          "reason": "End month and year normalize to 2018-05.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_4",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Bachelor of Science in Biology",
+          "charStart": 0,
+          "charEnd": 30,
+          "fields": [
+            "canonicalType"
+          ],
+          "support": "INFERRED",
+          "reason": "A bachelor's degree maps to EDUCATION.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_3",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Education",
+          "charStart": 0,
+          "charEnd": 9,
+          "fields": [
+            "categoryId"
+          ],
+          "support": "EXPLICIT",
+          "reason": "The item appears under Education.",
+          "uncertainty": null
+        }
+      ],
+      "review": {
+        "lane": "MEDIUM",
+        "action": "QUICK_CONFIRM",
+        "requiredFields": [],
+        "smallestQuestion": null
+      }
+    },
+    {
+      "id": "cv_candidate_ee38b683cd04367c40797651",
+      "fingerprint": "ee38b683cd04367c40797651dff9805bcfbc4c9192bed93789e6afbf67bd87a0",
+      "canonicalType": "MEDICAL_DEGREE",
+      "categoryId": "education",
+      "timelineKind": "duration",
+      "title": "Doctor of Medicine",
+      "organization": "Harborview International Medical School",
+      "location": null,
+      "country": null,
+      "specialty": null,
+      "experienceType": null,
+      "startDate": "2018-08",
+      "endDate": "2022-06",
+      "datePrecision": "MONTH",
+      "openEnded": false,
+      "classificationReason": "Doctor of Medicine is a medical degree listed under Education; the stated range is retained without creating a separate graduation event.",
+      "evidence": [
+        {
+          "field": "title",
+          "sourceBlockIds": [
+            "source_pdf_5"
+          ],
+          "excerpt": "Doctor of Medicine",
+          "support": "EXPLICIT",
+          "reason": "Degree title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "field": "organization",
+          "sourceBlockIds": [
+            "source_pdf_5"
+          ],
+          "excerpt": "Harborview International Medical School",
+          "support": "EXPLICIT",
+          "reason": "Medical school is explicitly named.",
+          "uncertainty": null
+        },
+        {
+          "field": "startDate",
+          "sourceBlockIds": [
+            "source_pdf_5"
+          ],
+          "excerpt": "August 2018 to June 2022",
+          "support": "EXPLICIT",
+          "reason": "Start month and year normalize to 2018-08.",
+          "uncertainty": null
+        },
+        {
+          "field": "endDate",
+          "sourceBlockIds": [
+            "source_pdf_5"
+          ],
+          "excerpt": "August 2018 to June 2022",
+          "support": "EXPLICIT",
+          "reason": "End month and year normalize to 2022-06.",
+          "uncertainty": null
+        },
+        {
+          "field": "canonicalType",
+          "sourceBlockIds": [
+            "source_pdf_5"
+          ],
+          "excerpt": "Doctor of Medicine",
+          "support": "INFERRED",
+          "reason": "The named degree maps to MEDICAL_DEGREE.",
+          "uncertainty": null
+        },
+        {
+          "field": "categoryId",
+          "sourceBlockIds": [
+            "source_pdf_3"
+          ],
+          "excerpt": "Education",
+          "support": "EXPLICIT",
+          "reason": "The medical degree appears under Education.",
+          "uncertainty": null
+        }
+      ],
+      "uncertainty": [],
+      "warnings": [],
+      "confidence": {
+        "score": 79,
+        "level": "MEDIUM",
+        "calibrationVersion": "evidence-v1",
+        "reasons": [
+          "5/6 populated fields have explicit source evidence.",
+          "1 field(s) rely on inference."
+        ]
+      },
+      "missingFields": [],
+      "duplicateOfEventIds": [],
+      "duplicateCandidateIds": [],
+      "safeToBulkAccept": false,
+      "normalizedInterpretation": {
+        "canonicalType": "MEDICAL_DEGREE",
+        "categoryId": "education",
+        "timelineKind": "duration",
+        "title": "Doctor of Medicine",
+        "organization": "Harborview International Medical School",
+        "location": null,
+        "country": null,
+        "specialty": null,
+        "experienceType": null,
+        "startDate": "2018-08",
+        "endDate": "2022-06",
+        "datePrecision": "MONTH",
+        "openEnded": false
+      },
+      "provenance": [
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_5",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Doctor of Medicine",
+          "charStart": 0,
+          "charEnd": 18,
+          "fields": [
+            "title"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Degree title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_5",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Harborview International Medical School",
+          "charStart": 20,
+          "charEnd": 59,
+          "fields": [
+            "organization"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Medical school is explicitly named.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_5",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "August 2018 to June 2022",
+          "charStart": 62,
+          "charEnd": 86,
+          "fields": [
+            "startDate"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Start month and year normalize to 2018-08.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_5",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "August 2018 to June 2022",
+          "charStart": 62,
+          "charEnd": 86,
+          "fields": [
+            "endDate"
+          ],
+          "support": "EXPLICIT",
+          "reason": "End month and year normalize to 2022-06.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_5",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Doctor of Medicine",
+          "charStart": 0,
+          "charEnd": 18,
+          "fields": [
+            "canonicalType"
+          ],
+          "support": "INFERRED",
+          "reason": "The named degree maps to MEDICAL_DEGREE.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_3",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Education",
+          "charStart": 0,
+          "charEnd": 9,
+          "fields": [
+            "categoryId"
+          ],
+          "support": "EXPLICIT",
+          "reason": "The medical degree appears under Education.",
+          "uncertainty": null
+        }
+      ],
+      "review": {
+        "lane": "MEDIUM",
+        "action": "QUICK_CONFIRM",
+        "requiredFields": [],
+        "smallestQuestion": null
+      }
+    },
+    {
+      "id": "cv_candidate_7a90aa9a784dd761133d6a92",
+      "fingerprint": "7a90aa9a784dd761133d6a92f8e27bd799810fc0778580d4bdf791a34af9bdde",
+      "canonicalType": "OBSERVERSHIP",
+      "categoryId": "cl",
+      "timelineKind": "duration",
+      "title": "Internal Medicine Observership",
+      "organization": "Lakeside Community Hospital",
+      "location": "Chicago, Illinois",
+      "country": "US",
+      "specialty": "Internal Medicine",
+      "experienceType": "Observership",
+      "startDate": "2024-01",
+      "endDate": "2024-03",
+      "datePrecision": "MONTH",
+      "openEnded": false,
+      "classificationReason": "An explicitly named observership under US Clinical Experience maps to Clinical. No teaching-hospital status is asserted.",
+      "evidence": [
+        {
+          "field": "title",
+          "sourceBlockIds": [
+            "source_pdf_7"
+          ],
+          "excerpt": "Internal Medicine Observership",
+          "support": "EXPLICIT",
+          "reason": "Experience title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "field": "organization",
+          "sourceBlockIds": [
+            "source_pdf_7"
+          ],
+          "excerpt": "Lakeside Community Hospital",
+          "support": "EXPLICIT",
+          "reason": "Host institution is explicitly named.",
+          "uncertainty": null
+        },
+        {
+          "field": "location",
+          "sourceBlockIds": [
+            "source_pdf_7"
+          ],
+          "excerpt": "Chicago, Illinois",
+          "support": "EXPLICIT",
+          "reason": "Location is preserved as written.",
+          "uncertainty": null
+        },
+        {
+          "field": "country",
+          "sourceBlockIds": [
+            "source_pdf_6"
+          ],
+          "excerpt": "US Clinical Experience",
+          "support": "INFERRED",
+          "reason": "The section heading establishes US context for this clinical item; the source abbreviation is preserved.",
+          "uncertainty": null
+        },
+        {
+          "field": "specialty",
+          "sourceBlockIds": [
+            "source_pdf_7"
+          ],
+          "excerpt": "Internal Medicine",
+          "support": "EXPLICIT",
+          "reason": "Specialty is explicitly included in the title.",
+          "uncertainty": null
+        },
+        {
+          "field": "experienceType",
+          "sourceBlockIds": [
+            "source_pdf_7"
+          ],
+          "excerpt": "Observership",
+          "support": "EXPLICIT",
+          "reason": "Experience type is explicitly stated.",
+          "uncertainty": null
+        },
+        {
+          "field": "startDate",
+          "sourceBlockIds": [
+            "source_pdf_7"
+          ],
+          "excerpt": "January 2024 to March 2024",
+          "support": "EXPLICIT",
+          "reason": "Start month and year normalize to 2024-01.",
+          "uncertainty": null
+        },
+        {
+          "field": "endDate",
+          "sourceBlockIds": [
+            "source_pdf_7"
+          ],
+          "excerpt": "January 2024 to March 2024",
+          "support": "EXPLICIT",
+          "reason": "End month and year normalize to 2024-03.",
+          "uncertainty": null
+        },
+        {
+          "field": "canonicalType",
+          "sourceBlockIds": [
+            "source_pdf_7"
+          ],
+          "excerpt": "Internal Medicine Observership",
+          "support": "EXPLICIT",
+          "reason": "The explicitly named observership maps directly to OBSERVERSHIP.",
+          "uncertainty": null
+        },
+        {
+          "field": "categoryId",
+          "sourceBlockIds": [
+            "source_pdf_6"
+          ],
+          "excerpt": "US Clinical Experience",
+          "support": "INFERRED",
+          "reason": "The clinical section maps to category cl.",
+          "uncertainty": null
+        }
+      ],
+      "uncertainty": [],
+      "warnings": [],
+      "confidence": {
+        "score": 76,
+        "level": "MEDIUM",
+        "calibrationVersion": "evidence-v1",
+        "reasons": [
+          "8/10 populated fields have explicit source evidence.",
+          "2 field(s) rely on inference."
+        ]
+      },
+      "missingFields": [],
+      "duplicateOfEventIds": [],
+      "duplicateCandidateIds": [],
+      "safeToBulkAccept": false,
+      "normalizedInterpretation": {
+        "canonicalType": "OBSERVERSHIP",
+        "categoryId": "cl",
+        "timelineKind": "duration",
+        "title": "Internal Medicine Observership",
+        "organization": "Lakeside Community Hospital",
+        "location": "Chicago, Illinois",
+        "country": "US",
+        "specialty": "Internal Medicine",
+        "experienceType": "Observership",
+        "startDate": "2024-01",
+        "endDate": "2024-03",
+        "datePrecision": "MONTH",
+        "openEnded": false
+      },
+      "provenance": [
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_7",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Internal Medicine Observership",
+          "charStart": 0,
+          "charEnd": 30,
+          "fields": [
+            "title"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Experience title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_7",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Lakeside Community Hospital",
+          "charStart": 32,
+          "charEnd": 59,
+          "fields": [
+            "organization"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Host institution is explicitly named.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_7",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Chicago, Illinois",
+          "charStart": 61,
+          "charEnd": 78,
+          "fields": [
+            "location"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Location is preserved as written.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_6",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "US Clinical Experience",
+          "charStart": 0,
+          "charEnd": 22,
+          "fields": [
+            "country"
+          ],
+          "support": "INFERRED",
+          "reason": "The section heading establishes US context for this clinical item; the source abbreviation is preserved.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_7",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Internal Medicine",
+          "charStart": 0,
+          "charEnd": 17,
+          "fields": [
+            "specialty"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Specialty is explicitly included in the title.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_7",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Observership",
+          "charStart": 18,
+          "charEnd": 30,
+          "fields": [
+            "experienceType"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Experience type is explicitly stated.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_7",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "January 2024 to March 2024",
+          "charStart": 81,
+          "charEnd": 107,
+          "fields": [
+            "startDate"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Start month and year normalize to 2024-01.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_7",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "January 2024 to March 2024",
+          "charStart": 81,
+          "charEnd": 107,
+          "fields": [
+            "endDate"
+          ],
+          "support": "EXPLICIT",
+          "reason": "End month and year normalize to 2024-03.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_7",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Internal Medicine Observership",
+          "charStart": 0,
+          "charEnd": 30,
+          "fields": [
+            "canonicalType"
+          ],
+          "support": "EXPLICIT",
+          "reason": "The explicitly named observership maps directly to OBSERVERSHIP.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_6",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "US Clinical Experience",
+          "charStart": 0,
+          "charEnd": 22,
+          "fields": [
+            "categoryId"
+          ],
+          "support": "INFERRED",
+          "reason": "The clinical section maps to category cl.",
+          "uncertainty": null
+        }
+      ],
+      "review": {
+        "lane": "MEDIUM",
+        "action": "QUICK_CONFIRM",
+        "requiredFields": [],
+        "smallestQuestion": null
+      }
+    },
+    {
+      "id": "cv_candidate_b9e248d6d42ee752619a17c5",
+      "fingerprint": "b9e248d6d42ee752619a17c50cdcb6754b6296f250b7d5b830bde1d434b35515",
+      "canonicalType": "RESEARCH_EXPERIENCE",
+      "categoryId": "res",
+      "timelineKind": "duration",
+      "title": "Cardiology Research Fellow",
+      "organization": "Meridian Research Institute",
+      "location": null,
+      "country": null,
+      "specialty": "Cardiology",
+      "experienceType": "Research Fellow",
+      "startDate": "2022-07",
+      "endDate": "2023-12",
+      "datePrecision": "MONTH",
+      "openEnded": false,
+      "classificationReason": "The Research Fellow role is listed under Research and does not establish clinical fellowship training.",
+      "evidence": [
+        {
+          "field": "title",
+          "sourceBlockIds": [
+            "source_pdf_9"
+          ],
+          "excerpt": "Cardiology Research Fellow",
+          "support": "EXPLICIT",
+          "reason": "Role title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "field": "organization",
+          "sourceBlockIds": [
+            "source_pdf_9"
+          ],
+          "excerpt": "Meridian Research Institute",
+          "support": "EXPLICIT",
+          "reason": "Institution is explicitly named.",
+          "uncertainty": null
+        },
+        {
+          "field": "specialty",
+          "sourceBlockIds": [
+            "source_pdf_9"
+          ],
+          "excerpt": "Cardiology",
+          "support": "EXPLICIT",
+          "reason": "The role explicitly names its research specialty.",
+          "uncertainty": null
+        },
+        {
+          "field": "experienceType",
+          "sourceBlockIds": [
+            "source_pdf_9"
+          ],
+          "excerpt": "Research Fellow",
+          "support": "EXPLICIT",
+          "reason": "The research role type is stated explicitly.",
+          "uncertainty": null
+        },
+        {
+          "field": "startDate",
+          "sourceBlockIds": [
+            "source_pdf_9"
+          ],
+          "excerpt": "July 2022 to December 2023",
+          "support": "EXPLICIT",
+          "reason": "Start month and year normalize to 2022-07.",
+          "uncertainty": null
+        },
+        {
+          "field": "endDate",
+          "sourceBlockIds": [
+            "source_pdf_9"
+          ],
+          "excerpt": "July 2022 to December 2023",
+          "support": "EXPLICIT",
+          "reason": "End month and year normalize to 2023-12.",
+          "uncertainty": null
+        },
+        {
+          "field": "canonicalType",
+          "sourceBlockIds": [
+            "source_pdf_9"
+          ],
+          "excerpt": "Cardiology Research Fellow",
+          "support": "INFERRED",
+          "reason": "An explicitly research-focused fellow role maps to RESEARCH_EXPERIENCE rather than clinical fellowship training.",
+          "uncertainty": null
+        },
+        {
+          "field": "categoryId",
+          "sourceBlockIds": [
+            "source_pdf_8"
+          ],
+          "excerpt": "Research",
+          "support": "EXPLICIT",
+          "reason": "The role appears under Research.",
+          "uncertainty": null
+        }
+      ],
+      "uncertainty": [],
+      "warnings": [],
+      "confidence": {
+        "score": 79,
+        "level": "MEDIUM",
+        "calibrationVersion": "evidence-v1",
+        "reasons": [
+          "7/8 populated fields have explicit source evidence.",
+          "1 field(s) rely on inference."
+        ]
+      },
+      "missingFields": [],
+      "duplicateOfEventIds": [],
+      "duplicateCandidateIds": [],
+      "safeToBulkAccept": false,
+      "normalizedInterpretation": {
+        "canonicalType": "RESEARCH_EXPERIENCE",
+        "categoryId": "res",
+        "timelineKind": "duration",
+        "title": "Cardiology Research Fellow",
+        "organization": "Meridian Research Institute",
+        "location": null,
+        "country": null,
+        "specialty": "Cardiology",
+        "experienceType": "Research Fellow",
+        "startDate": "2022-07",
+        "endDate": "2023-12",
+        "datePrecision": "MONTH",
+        "openEnded": false
+      },
+      "provenance": [
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_9",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Cardiology Research Fellow",
+          "charStart": 0,
+          "charEnd": 26,
+          "fields": [
+            "title"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Role title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_9",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Meridian Research Institute",
+          "charStart": 28,
+          "charEnd": 55,
+          "fields": [
+            "organization"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Institution is explicitly named.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_9",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Cardiology",
+          "charStart": 0,
+          "charEnd": 10,
+          "fields": [
+            "specialty"
+          ],
+          "support": "EXPLICIT",
+          "reason": "The role explicitly names its research specialty.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_9",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Research Fellow",
+          "charStart": 11,
+          "charEnd": 26,
+          "fields": [
+            "experienceType"
+          ],
+          "support": "EXPLICIT",
+          "reason": "The research role type is stated explicitly.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_9",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "July 2022 to December 2023",
+          "charStart": 58,
+          "charEnd": 84,
+          "fields": [
+            "startDate"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Start month and year normalize to 2022-07.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_9",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "July 2022 to December 2023",
+          "charStart": 58,
+          "charEnd": 84,
+          "fields": [
+            "endDate"
+          ],
+          "support": "EXPLICIT",
+          "reason": "End month and year normalize to 2023-12.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_9",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Cardiology Research Fellow",
+          "charStart": 0,
+          "charEnd": 26,
+          "fields": [
+            "canonicalType"
+          ],
+          "support": "INFERRED",
+          "reason": "An explicitly research-focused fellow role maps to RESEARCH_EXPERIENCE rather than clinical fellowship training.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_8",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Research",
+          "charStart": 0,
+          "charEnd": 8,
+          "fields": [
+            "categoryId"
+          ],
+          "support": "EXPLICIT",
+          "reason": "The role appears under Research.",
+          "uncertainty": null
+        }
+      ],
+      "review": {
+        "lane": "MEDIUM",
+        "action": "QUICK_CONFIRM",
+        "requiredFields": [],
+        "smallestQuestion": null
+      }
+    },
+    {
+      "id": "cv_candidate_5866b4d6fc9e8c6b7d9bc1e5",
+      "fingerprint": "5866b4d6fc9e8c6b7d9bc1e5dbbf24ffddef8db222d7b609ef1af47117a1c213",
+      "canonicalType": "AWARD_HONOR",
+      "categoryId": "education",
+      "timelineKind": "milestone",
+      "title": "Dean's Award for Clinical Excellence",
+      "organization": null,
+      "location": null,
+      "country": null,
+      "specialty": null,
+      "experienceType": null,
+      "startDate": "2022-06",
+      "endDate": null,
+      "datePrecision": "MONTH",
+      "openEnded": false,
+      "classificationReason": "The explicitly named award is an honor categorized as Education, not Work. Its single stated date is a milestone.",
+      "evidence": [
+        {
+          "field": "title",
+          "sourceBlockIds": [
+            "source_pdf_11"
+          ],
+          "excerpt": "Dean's Award for Clinical Excellence",
+          "support": "EXPLICIT",
+          "reason": "Award title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "field": "startDate",
+          "sourceBlockIds": [
+            "source_pdf_11"
+          ],
+          "excerpt": "June 2022",
+          "support": "EXPLICIT",
+          "reason": "The single award date normalizes to 2022-06; no end date is created.",
+          "uncertainty": null
+        },
+        {
+          "field": "canonicalType",
+          "sourceBlockIds": [
+            "source_pdf_11"
+          ],
+          "excerpt": "Dean's Award for Clinical Excellence",
+          "support": "INFERRED",
+          "reason": "The explicitly named award maps to AWARD_HONOR.",
+          "uncertainty": null
+        },
+        {
+          "field": "categoryId",
+          "sourceBlockIds": [
+            "source_pdf_10"
+          ],
+          "excerpt": "Honors",
+          "support": "INFERRED",
+          "reason": "Honors map to the education category under the classification rules.",
+          "uncertainty": null
+        }
+      ],
+      "uncertainty": [],
+      "warnings": [],
+      "confidence": {
+        "score": 54,
+        "level": "LOW",
+        "calibrationVersion": "evidence-v1",
+        "reasons": [
+          "2/4 populated fields have explicit source evidence.",
+          "2 field(s) rely on inference."
+        ]
+      },
+      "missingFields": [],
+      "duplicateOfEventIds": [],
+      "duplicateCandidateIds": [],
+      "safeToBulkAccept": false,
+      "normalizedInterpretation": {
+        "canonicalType": "AWARD_HONOR",
+        "categoryId": "education",
+        "timelineKind": "milestone",
+        "title": "Dean's Award for Clinical Excellence",
+        "organization": null,
+        "location": null,
+        "country": null,
+        "specialty": null,
+        "experienceType": null,
+        "startDate": "2022-06",
+        "endDate": null,
+        "datePrecision": "MONTH",
+        "openEnded": false
+      },
+      "provenance": [
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_11",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Dean's Award for Clinical Excellence",
+          "charStart": 0,
+          "charEnd": 36,
+          "fields": [
+            "title"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Award title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_11",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "June 2022",
+          "charStart": 39,
+          "charEnd": 48,
+          "fields": [
+            "startDate"
+          ],
+          "support": "EXPLICIT",
+          "reason": "The single award date normalizes to 2022-06; no end date is created.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_11",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Dean's Award for Clinical Excellence",
+          "charStart": 0,
+          "charEnd": 36,
+          "fields": [
+            "canonicalType"
+          ],
+          "support": "INFERRED",
+          "reason": "The explicitly named award maps to AWARD_HONOR.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_10",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "Honors",
+          "charStart": 0,
+          "charEnd": 6,
+          "fields": [
+            "categoryId"
+          ],
+          "support": "INFERRED",
+          "reason": "Honors map to the education category under the classification rules.",
+          "uncertainty": null
+        }
+      ],
+      "review": {
+        "lane": "LOW",
+        "action": "TARGETED_QUESTION",
+        "requiredFields": [],
+        "smallestQuestion": "Does Dean's Award for Clinical Excellence belong in the education category?"
+      }
+    },
+    {
+      "id": "cv_candidate_b7b0d9b7694953be32bdca1c",
+      "fingerprint": "b7b0d9b7694953be32bdca1c15eda90fdaa9456aa36902e7e21a5b308c247386",
+      "canonicalType": "ECFMG_CERTIFICATION",
+      "categoryId": "usmle",
+      "timelineKind": "milestone",
+      "title": "ECFMG Certification",
+      "organization": null,
+      "location": null,
+      "country": null,
+      "specialty": null,
+      "experienceType": null,
+      "startDate": "2024-09",
+      "endDate": null,
+      "datePrecision": "MONTH",
+      "openEnded": false,
+      "classificationReason": "The explicitly stated ECFMG certification maps to USMLE and is represented as a single-date milestone.",
+      "evidence": [
+        {
+          "field": "title",
+          "sourceBlockIds": [
+            "source_pdf_13"
+          ],
+          "excerpt": "ECFMG Certification",
+          "support": "EXPLICIT",
+          "reason": "Certification title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "field": "startDate",
+          "sourceBlockIds": [
+            "source_pdf_13"
+          ],
+          "excerpt": "September 2024",
+          "support": "EXPLICIT",
+          "reason": "The single certification date normalizes to 2024-09; no end date is created.",
+          "uncertainty": null
+        },
+        {
+          "field": "canonicalType",
+          "sourceBlockIds": [
+            "source_pdf_13"
+          ],
+          "excerpt": "ECFMG Certification",
+          "support": "EXPLICIT",
+          "reason": "The stated certification maps directly to ECFMG_CERTIFICATION.",
+          "uncertainty": null
+        },
+        {
+          "field": "categoryId",
+          "sourceBlockIds": [
+            "source_pdf_13"
+          ],
+          "excerpt": "ECFMG Certification",
+          "support": "INFERRED",
+          "reason": "ECFMG certification belongs in the usmle category under the classification rules.",
+          "uncertainty": null
+        }
+      ],
+      "uncertainty": [],
+      "warnings": [],
+      "confidence": {
+        "score": 72,
+        "level": "MEDIUM",
+        "calibrationVersion": "evidence-v1",
+        "reasons": [
+          "3/4 populated fields have explicit source evidence.",
+          "1 field(s) rely on inference."
+        ]
+      },
+      "missingFields": [],
+      "duplicateOfEventIds": [],
+      "duplicateCandidateIds": [],
+      "safeToBulkAccept": false,
+      "normalizedInterpretation": {
+        "canonicalType": "ECFMG_CERTIFICATION",
+        "categoryId": "usmle",
+        "timelineKind": "milestone",
+        "title": "ECFMG Certification",
+        "organization": null,
+        "location": null,
+        "country": null,
+        "specialty": null,
+        "experienceType": null,
+        "startDate": "2024-09",
+        "endDate": null,
+        "datePrecision": "MONTH",
+        "openEnded": false
+      },
+      "provenance": [
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_13",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "ECFMG Certification",
+          "charStart": 0,
+          "charEnd": 19,
+          "fields": [
+            "title"
+          ],
+          "support": "EXPLICIT",
+          "reason": "Certification title is stated verbatim.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_13",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "September 2024",
+          "charStart": 22,
+          "charEnd": 36,
+          "fields": [
+            "startDate"
+          ],
+          "support": "EXPLICIT",
+          "reason": "The single certification date normalizes to 2024-09; no end date is created.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_13",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "ECFMG Certification",
+          "charStart": 0,
+          "charEnd": 19,
+          "fields": [
+            "canonicalType"
+          ],
+          "support": "EXPLICIT",
+          "reason": "The stated certification maps directly to ECFMG_CERTIFICATION.",
+          "uncertainty": null
+        },
+        {
+          "sourceObjectId": "local_synthetic_cv",
+          "sourceSha256": "9db0a22f8ecd7f2cabcfcedb85fdd3aa5a640bbf6d345c4adb6a30225bd33dbb",
+          "sourceFileName": null,
+          "sourceBlockId": "source_pdf_13",
+          "pageNumber": 1,
+          "section": null,
+          "excerpt": "ECFMG Certification",
+          "charStart": 0,
+          "charEnd": 19,
+          "fields": [
+            "categoryId"
+          ],
+          "support": "INFERRED",
+          "reason": "ECFMG certification belongs in the usmle category under the classification rules.",
+          "uncertainty": null
+        }
+      ],
+      "review": {
+        "lane": "MEDIUM",
+        "action": "QUICK_CONFIRM",
+        "requiredFields": [],
+        "smallestQuestion": null
+      }
+    }
+  ],
+  "providerSourceBlocks": [
+    {
+      "id": "source_pdf_1",
+      "pageNumber": 1,
+      "section": null,
+      "text": "Alex Rivera — Synthetic Test CV"
+    },
+    {
+      "id": "source_pdf_2",
+      "pageNumber": 1,
+      "section": null,
+      "text": "This document contains controlled fictional data for MissionMed production verification."
+    },
+    {
+      "id": "source_pdf_3",
+      "pageNumber": 1,
+      "section": null,
+      "text": "Education"
+    },
+    {
+      "id": "source_pdf_4",
+      "pageNumber": 1,
+      "section": null,
+      "text": "Bachelor of Science in Biology, Northlake University — August 2014 to May 2018"
+    },
+    {
+      "id": "source_pdf_5",
+      "pageNumber": 1,
+      "section": null,
+      "text": "Doctor of Medicine, Harborview International Medical School — August 2018 to June 2022"
+    },
+    {
+      "id": "source_pdf_6",
+      "pageNumber": 1,
+      "section": null,
+      "text": "US Clinical Experience"
+    },
+    {
+      "id": "source_pdf_7",
+      "pageNumber": 1,
+      "section": null,
+      "text": "Internal Medicine Observership, Lakeside Community Hospital, Chicago, Illinois — January 2024 to March 2024"
+    },
+    {
+      "id": "source_pdf_8",
+      "pageNumber": 1,
+      "section": null,
+      "text": "Research"
+    },
+    {
+      "id": "source_pdf_9",
+      "pageNumber": 1,
+      "section": null,
+      "text": "Cardiology Research Fellow, Meridian Research Institute — July 2022 to December 2023"
+    },
+    {
+      "id": "source_pdf_10",
+      "pageNumber": 1,
+      "section": null,
+      "text": "Honors"
+    },
+    {
+      "id": "source_pdf_11",
+      "pageNumber": 1,
+      "section": null,
+      "text": "Dean's Award for Clinical Excellence — June 2022"
+    },
+    {
+      "id": "source_pdf_12",
+      "pageNumber": 1,
+      "section": null,
+      "text": "Certification"
+    },
+    {
+      "id": "source_pdf_13",
+      "pageNumber": 1,
+      "section": null,
+      "text": "ECFMG Certification — September 2024"
+    }
+  ]
+}

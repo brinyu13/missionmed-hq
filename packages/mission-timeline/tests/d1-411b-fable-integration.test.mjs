@@ -277,7 +277,7 @@ test("D1-411B direct presentation editor exposes only implemented handles and pe
   assert.match(adapter,/selectedEventId:null,detailsEventId:null,advancedSelection:selection/);
 });
 
-test("D1-411B Advanced object pointer contract shows transient snap guides without rotation",async()=>{
+test("D1-021 Advanced pointer contract retains transient snap guides and an explicit rotation mode",async()=>{
   const adapter=await readFile(new URL("js/407f-engineering-adapter.js",webRoot),"utf8");
   const styles=await readFile(new URL("styles/407f-upgrade.css",webRoot),"utf8");
   assert.match(adapter,/snapAdvancedObjectToBoard\(next,\{/);
@@ -287,7 +287,8 @@ test("D1-411B Advanced object pointer contract shows transient snap guides witho
   assert.match(adapter,/clearAdvancedAlignmentGuides\(pointer\.svg\)/);
   assert.match(adapter,/addEventListener\("pointercancel",onAdvancedPointerUp\)/);
   assert.match(styles,/\[data-advanced-alignment-guide\]/);
-  assert.doesNotMatch(adapter,/advancedPointer[^\n]{0,120}rotat/i);
+  assert.match(adapter,/kind:resizeHandle==="rotate"\?"rotate":resizeHandle\?"resize":"move"/);
+  assert.match(adapter,/if\(advancedPointer.kind==="rotate"\)[\s\S]*?rotateSceneGeometry\(original,advancedPointer.rotationStart/);
 });
 
 test("RC1 editor asset rail uses real local vector objects and supports durable grouping",()=>{
@@ -343,7 +344,11 @@ test("RC1 rail pointer bridge targets the protected shadow iframe and uses the d
   const adapter=await readFile(new URL("../web/js/407f-engineering-adapter.js",import.meta.url),"utf8");
   assert.match(adapter,/dataset\.advancedAction\|\|"asset"/);
   assert.match(adapter,/shadowRoot\s*\?\.querySelector\?\.\("iframe"\)/);
-  assert.match(adapter,/railAsset\.setPointerCapture\?\.\(event\.pointerId\)/);
+  /* AAA-019: pointer capture on a rail tile was retired on purpose — the rail re-renders on
+     selection changes and a captured node that gets replaced swallows the pointerup, leaving
+     the whole editor deaf. The document-level listeners see every move and release. */
+  assert.doesNotMatch(adapter,/railAsset\.setPointerCapture\?\.\(event\.pointerId\)/);
+  assert.match(adapter,/No pointer capture: the rail re-renders on selection changes/);
   assert.doesNotMatch(adapter,/dataset\.advancedInsertAsset\|\|"asset"/);
 });
 

@@ -624,10 +624,17 @@ test("selected text, headline, and media expose only their frozen runtime contro
     environment:{}
   });
   assert.ok(textHtml.includes("data-advanced-selection-controls"));
-  // Five frozen insert-strip actions remain exact; the persistent Uploads
-  // panel contributes the three visual upload tiles required by the editor
-  // steer without adding selection-specific mutations.
-  assert.equal((textHtml.match(/data-advanced-action=/g)||[]).length,8);
+  // AAA-019: selecting an object no longer hijacks the sidebar. The selection's
+  // controls sit in a collapsible drawer above the panel the student was browsing
+  // (Elements by default), so the asset tiles of that panel stay visible.
+  assert.ok(textHtml.includes("data-advanced-selection-drawer"));
+  assert.ok(textHtml.includes('data-advanced-panel="elements"'));
+  // The five frozen insert-strip actions remain exact inside the hidden legacy contract.
+  const legacyStrip=textHtml.match(/<div class="advanced-legacy-insert-contract"[\s\S]*?<\/aside>/)?.[0]||"";
+  assert.equal((legacyStrip.match(/data-advanced-action=/g)||[]).length,5);
+  // The visible panel contributes only insert-asset tiles, never selection-specific mutations.
+  const visible=textHtml.replace(legacyStrip,"");
+  assert.equal((visible.match(/data-advanced-action=/g)||[]).length,(visible.match(/data-advanced-insert-asset/g)||[]).length);
   // The original four layer/duplicate/delete actions plus the RC1-required
   // per-object lock control are all real document mutations.
   assert.equal((textHtml.match(/data-advanced-object-action=/g)||[]).length,5);
@@ -993,7 +1000,10 @@ test("install hook delegates actions without owning store, persistence, or netwo
     ["dim",60]
   ]);
   dispose();
-  assert.deepEqual(removed.map(({type})=>type),["click","change","input","dragstart"]);
+  // AAA-019: the Layers panel adds drag-to-reorder (dragover/drop/dragend) and
+  // keyboard reorder (keydown) delegation; every listener installed is removed.
+  assert.deepEqual(removed.map(({type})=>type),["click","change","input","dragstart","dragover","drop","dragend","keydown"]);
+  assert.deepEqual(removed.map(({type})=>type),[...listeners.keys()]);
 });
 
 test("capability contract is truthful: local descriptors and adapters, no generated/proprietary assets or network",()=>{
@@ -1071,7 +1081,19 @@ test("A10 every rail tile drags a payload a board drop handler accepts, with the
     elements:[createAdvancedElement({id:"shape-1",kind:"circle"})]
   }});
   const rail=renderAdvancedAssetRail(advanced,null,{activePanel:"uploads"});
-  assert.equal((rail.match(/data-advanced-drag-object/g)||[]).length,3);
+  // AAA-019 (Canva parity): Uploads holds the student's pictures only — the unplaced
+  // media tile is the one draggable asset; text and shapes already on the board are
+  // listed (and reordered) in the Layers panel instead of duplicated as rail tiles.
+  assert.equal((rail.match(/data-advanced-drag-object/g)||[]).length,1);
+  const layers=renderAdvancedStudio(advanced,{activePanel:"layers"});
+  // 021 Layers is the complete canonical inventory, including template furniture.
+  // The unplaced upload still appears only in Uploads; fixed rows cannot reorder.
+  assert.deepEqual(layers.match(/data-advanced-layer-type="[^"]+"/g),
+    ["text","element","headline","axis","color-key","profile","frame","frame","frame","frame","frame"]
+      .map((type)=>`data-advanced-layer-type="${type}"`));
+  assert.equal((layers.match(/data-advanced-layer-reorderable="true"/g)||[]).length,2);
+  assert.equal((layers.match(/data-advanced-layer-reorderable="false"/g)||[]).length,9);
+  assert.doesNotMatch(layers,/data-advanced-layer-row="media:media-1"/);
 
   const listeners=new Map();
   const payloads=[];

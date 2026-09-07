@@ -33,6 +33,7 @@ function unverifiedClinical(common,reason="Clinical-experience wording was found
 
 export function classifyEvent(record,dateRange){
   const text=joined(record);
+  const identityText=[record.title,record.experienceType].filter(Boolean).join(" ").toLowerCase();
   const hasRange=!!dateRange?.end||dateRange?.openEnded;
   const siteName=record.organization||"";
   const common={siteName,cityState:record.location||"",specialty:record.specialty||"",experienceType:record.experienceType||""};
@@ -69,23 +70,22 @@ export function classifyEvent(record,dateRange){
     record.section==="honors"||
     /\b(?:award|honou?r|distinction|prize|scholarship|dean'?s list|valedictorian|cum laude)\b/.test(text)
   )return result("AWARD_HONOR","education",hasRange?"duration":"milestone","Award or honor wording detected.",common);
-  /* Research staff overwhelmingly work at universities, so an employer name must not
-     imply a degree. The research-section rule is tested first, and "university"/"college"
-     only implies education when it appears in the entry's own title. */
-  if(record.section==="research"&&/\b(?:research|fellow|investigator|laboratory|study)\b/.test(text)){
+  /* A publication under Research is still a publication, not employment in a lab.
+     Source section names are context, not independent evidence of a role. */
+  if(/\b(?:publications?|published|journal article)\b/.test(identityText)||record.section==="publications")return result("PUBLICATION","res","milestone","Publication wording detected.",common);
+  if(record.section==="research"&&/\b(?:research|fellow|investigator|laboratory|study)\b/.test(identityText)){
     return result("RESEARCH_EXPERIENCE","res",hasRange?"duration":"milestone","Research-section context was detected and takes precedence over ambiguous fellowship wording.",common);
   }
   if(
     record.section==="education"||
-    /\b(?:bachelor(?:'s)?|master(?:'s)?|doctorate|ph\.?d\.?|b\.?s\.?|b\.?a\.?|m\.?s\.?)\b/.test(text)||
-    /\b(?:university|college|secondary school)\b/.test(String(record.title||"").toLowerCase())
+    /\b(?:bachelor(?:'s)?|master(?:'s)?|doctorate|ph\.?d\.?|b\.?s\.?|b\.?a\.?|m\.?s\.?)\b/.test(text)
   )return result("EDUCATION","education",hasRange?"duration":"milestone","Education wording or an education source section was detected.",common);
   if(/\bfellow(?:ship)?\b/.test(text))return result("RESIDENCY_FELLOWSHIP","work",hasRange?"duration":"milestone","Fellowship training wording detected.",common);
   if(/\bresiden(?:cy|t)\b/.test(text))return result("RESIDENCY_FELLOWSHIP","work",hasRange?"duration":"milestone","Residency training wording detected.",common);
   /* A sub-internship is a US clinical rotation, not a house-officer post; the substring
      "internship" inside it used to claim the entry before the rotation rule ran. */
   if(!/\bsub[- ]?internship\b/.test(text)&&(/\bintern(?:ship)?\b|\bhouse officer\b/.test(text)))return result("INTERNSHIP_HOUSE_OFFICER","work",hasRange?"duration":"milestone","Internship or house-officer wording detected.",common);
-  if(/\bobservership\b|\bexternship\b|\bsub[- ]?internship\b|\bclerkship\b|\b(?:usce|united states clinical experience)\b|\bclinical rotations?\b|\brotations?\b|\bclinical assistant\b/.test(text)){
+  if(/\bobservership\b|\bexternship\b|\bsub[- ]?internship\b|\bclerkship\b|\b(?:usce|united states clinical experience)\b|\bclinical (?:rotations?|electives?)\b|\brotations?\b|\bclinical assistant\b/.test(text)){
     const explicitUsce=EXPLICIT_USCE.test(text);
     if(explicitUsce&&NONFINAL_USCE.test(text))return unverifiedClinical(common,"USCE wording was negated or uncertain, so no completed United States clinical experience was inferred.","Negated or uncertain USCE wording must remain unclassified until human confirmation");
     if(!explicitUsce&&!hasUnitedStatesContext(record))return unverifiedClinical(common);
@@ -93,10 +93,9 @@ export function classifyEvent(record,dateRange){
     const canonicalType=/\bobservership\b/.test(text)?"OBSERVERSHIP":/\bexternship\b/.test(text)?"EXTERNSHIP":/\bsub[- ]?internship\b/.test(text)?"SUB_INTERNSHIP":/\bclerkship\b/.test(text)?"CLERKSHIP":clinic?"USCE_CLINIC":"USCE_TEACHING_HOSPITAL";
     return result(canonicalType,clinic?"cl":"th",hasRange?"duration":"milestone",explicitUsce?"Explicit USCE wording was detected.":"Clinical-experience wording and United States geography were both detected.",common);
   }
-  if(/\bpublication|published|journal article\b/.test(text))return result("PUBLICATION","res","milestone","Publication wording detected.",common);
   if(/\babstract|poster|presentation|presented\b/.test(text))return result("ABSTRACT_POSTER_PRESENTATION","res","milestone","Abstract, poster, or presentation wording detected.",common);
+  if(/\bvolunteer|community service\b/.test(identityText)||record.section==="volunteer")return result("VOLUNTEER_EXPERIENCE",/\bclinic|clinical|hospital\b/.test(text)?"cl":"work",hasRange?"duration":"milestone","Volunteer wording detected.",common);
   if(/\bresearch\b/.test(text))return result("RESEARCH_EXPERIENCE","res",hasRange?"duration":"milestone","Research wording detected.",common);
-  if(/\bvolunteer|community service\b/.test(text))return result("VOLUNTEER_EXPERIENCE",/\bclinic|clinical|hospital\b/.test(text)?"cl":"work",hasRange?"duration":"milestone","Volunteer wording detected.",common);
   if(/\bleadership|president|chair|coordinator\b/.test(text))return result("LEADERSHIP","work",hasRange?"duration":"milestone","Leadership wording detected.",common);
   if(/\b(?:certification|certificate|certified)\b/.test(text))return result("CERTIFICATION","education",hasRange?"duration":"milestone","General certification wording detected.",common);
   if(/\b(?:pregnan(?:t|cy)|parental(?: leave)?|maternity|paternity|daughter|son|child(?:care)?|baby|family (?:transition|reasons?|care|caregiving|responsibilit(?:y|ies)|circumstances?)|spouse|husband|wife|caregiver|in-laws?)\b/.test(text)||record.section==="personal")return result("PERSONAL_NOT_ON_CV","personal",hasRange?"duration":"milestone","Personal or family context detected.",common);

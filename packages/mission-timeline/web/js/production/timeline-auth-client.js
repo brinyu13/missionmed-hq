@@ -35,10 +35,13 @@ const AUTHORITY_REVOCATION_CODES=new Set([
 const isAuthorityRevocation=(code)=>AUTHORITY_REVOCATION_CODES.has(String(code||"").toLowerCase());
 
 export class TimelineProductionAuthClient{
-  constructor({fetchImpl=globalThis.fetch.bind(globalThis),locationObject=globalThis.location,documentObject=globalThis.document,globalObject=globalThis,onAccountSwitch=()=>{}}={}){
+  constructor({fetchImpl=globalThis.fetch.bind(globalThis),locationObject=globalThis.location,documentObject=globalThis.document,globalObject=globalThis,onAccountSwitch=()=>{},clock=()=>Date.now()}={}){
     this.fetchImpl=fetchImpl;this.locationObject=locationObject;this.documentObject=documentObject;this.globalObject=globalObject;this.onAccountSwitch=onAccountSwitch;
     this.bootstrapState=null;this.token="";this.claims=null;this.refreshing=null;this.refreshTimer=null;this.locked=false;this.claimListeners=new Set();
     this.fileVaultSourceAdapter=null;
+    this.subjectWpUserId=null;
+    this.clock=clock;this.closed=false;this.adminSubjectGrant=null;this.pendingAdminSubjectGrant=null;
+    this.adminGrantRenewing=null;this.adminGrantTimer=null;this.adminSubjectError=null;
     this.visibilityHandler=()=>{
       if(this.documentObject?.visibilityState==="visible")this.refreshToken().catch(()=>{});
     };
@@ -51,6 +54,7 @@ export class TimelineProductionAuthClient{
 
   async initialize(){
     this.locked=false;
+    this.closed=false;
     const origin=this.locationObject.origin;
     const endpoint=new URL("/wp-admin/admin-ajax.php",origin);
     endpoint.searchParams.set("action","missionmed_timeline_bootstrap");
@@ -70,6 +74,14 @@ export class TimelineProductionAuthClient{
       principalId:String(data.user?.principal_id||"").toLowerCase(),
       wpUserId:Number(data.user?.wp_user_id),
       role:String(data.user?.role||""),
+      displayName:String(data.user?.display_name||"Your account"),
+      adminEndpoint:sameOriginUrl(data.admin_endpoint||"/wp-json/missionmed-timeline/v1/admin",origin).replace(/\/$/,""),
+      aiConsentEndpoint:sameOriginUrl(data.ai_consent_endpoint||"/wp-json/missionmed-timeline/v1/ai-consent",origin),
+      aiProcessingAvailable:data.ai_processing_available===true,
+      aiConsent:data.ai_consent===true,
+      aiConsentVersion:String(data.ai_consent_version||""),
+      configuredAiConsentVersion:String(data.ai_consent_version||""),
+      aiConsentedAt:String(data.ai_consented_at||""),
       syntheticFixture:data.user?.synthetic_fixture===true,
       remoteSyncConsent:data.remote_sync_consent===true,
       remoteSyncAllowed:data.remote_sync_allowed===true||data.remote_sync_consent===true,
@@ -83,6 +95,8 @@ export class TimelineProductionAuthClient{
       throw new TimelineProductionAuthError("TIMELINE_BOOTSTRAP_INVALID","Timeline identity bootstrap is invalid.");
     }
     await this.refreshToken();
+    this.bootstrapState.adminWorkspace=this.claims?.timeline_admin_workspace===true&&this.bootstrapState.role==="PROGRAM_ADMIN";
+    this.bootstrapState.founderStandardsManager=this.claims?.timeline_founder_standards_manager===true&&this.bootstrapState.adminWorkspace;
     this.fileVaultSourceAdapter=createAuthenticatedFileVaultSourceAdapter({
       request:(suffix="",options={})=>this.requestFileVaultSource(suffix,options)
     });
@@ -122,6 +136,12 @@ export class TimelineProductionAuthClient{
     }
     this.bootstrapState.nonce=String(payload.nonce||this.bootstrapState.nonce);
     this.token=nextToken;this.claims=nextClaims;
+    this.bootstrapState.aiConsent=nextClaims.timeline_ai_consent===true;
+    this.bootstrapState.aiConsentVersion=String(nextClaims.timeline_ai_consent_version||"");
+    this.bootstrapState.configuredAiConsentVersion=String(nextClaims.timeline_ai_consent_version||this.bootstrapState.configuredAiConsentVersion||"");
+    this.bootstrapState.aiConsentedAt=String(nextClaims.timeline_ai_consented_at||"");
+    this.bootstrapState.adminWorkspace=nextClaims.timeline_admin_workspace===true&&this.bootstrapState.role==="PROGRAM_ADMIN";
+    this.bootstrapState.founderStandardsManager=nextClaims.timeline_founder_standards_manager===true&&this.bootstrapState.adminWorkspace;
     this.scheduleRefresh();
     for(const listener of this.claimListeners){
       try{listener(Object.freeze({...nextClaims}));}catch{}
@@ -144,9 +164,14 @@ export class TimelineProductionAuthClient{
 
   async request(path,{method="GET",body,headers={},retry=true,timeoutMs=20_000}={}){
     const token=await this.validToken();
+    await this.ensureAdminSubjectGrant();
+    const documentPath=String(path).match(/^\/documents\/([^/]+)/);
+    if(this.adminSubjectGrant&&documentPath&&decodeURIComponent(documentPath[1])!==this.adminSubjectGrant.documentId){
+      throw new TimelineProductionAuthError("ADMIN_DOCUMENT_MISMATCH","This workspace is bound to the selected student's open Timeline.",409);
+    }
     const response=await this.fetchImpl(`${this.bootstrapState.apiBase}${path}`,{
       method,credentials:"same-origin",cache:"no-store",
-      headers:{accept:"application/json",authorization:`Bearer ${token}`,...(body===undefined?{}:{"content-type":"application/json"}),...headers},
+      headers:{accept:"application/json",authorization:`Bearer ${token}`,...this.subjectHeaders(),...(body===undefined?{}:{"content-type":"application/json"}),...headers},
       body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(timeoutMs)
     });
     if(response.status===401&&retry){await this.refreshToken();return this.request(path,{method,body,headers,retry:false,timeoutMs});}
@@ -197,12 +222,15 @@ export class TimelineProductionAuthClient{
   lock(reason="session_invalid"){
     if(this.locked)return false;
     this.locked=true;this.token="";this.claims=null;clearTimeout(this.refreshTimer);this.refreshTimer=null;
+    clearTimeout(this.adminGrantTimer);this.adminGrantTimer=null;
     this.onAccountSwitch(reason);
     return true;
   }
 
   close(){
+    this.closed=true;
     clearTimeout(this.refreshTimer);this.refreshTimer=null;
+    clearTimeout(this.adminGrantTimer);this.adminGrantTimer=null;
     this.claimListeners.clear();
     this.documentObject?.removeEventListener?.("visibilitychange",this.visibilityHandler);
     if(this.globalObject?.MISSIONMED_FILEVAULT_SOURCE_ADAPTER===this.fileVaultSourceAdapter){
@@ -212,11 +240,103 @@ export class TimelineProductionAuthClient{
   }
 
   listDocuments(){return this.request("/documents");}
+  getDocument(documentId){return this.request(`/documents/${encodeURIComponent(documentId)}`);}
+  subjectHeaders(){return this.subjectWpUserId?{"x-timeline-subject-wp-user-id":String(this.subjectWpUserId)}:{};}
+  setAdminSubject(wpUserId){
+    if(this.bootstrapState?.adminWorkspace!==true||!Number.isSafeInteger(wpUserId)||wpUserId<1)throw new TimelineProductionAuthError("ADMIN_SUBJECT_INVALID","Select an authorized student from the roster.",403);
+    if(this.pendingAdminSubjectGrant?.wpUserId!==wpUserId)throw new TimelineProductionAuthError("ADMIN_SUBJECT_INVALID","Open the student's Timeline from the authorized roster first.",403);
+    this.subjectWpUserId=wpUserId;
+    this.adminSubjectGrant=this.pendingAdminSubjectGrant;this.pendingAdminSubjectGrant=null;this.adminSubjectError=null;
+    this.scheduleAdminGrantRenewal();
+  }
+
+  adminGrantFromOpen(wpUserId,result){
+    const principalId=String(result?.studentPrincipalId||"");
+    const expiresAt=Date.parse(String(result?.grantExpiresAt||""));
+    if(!result?.documentId||!principalId||result?.subject?.principalId!==principalId
+      ||Number(result?.subject?.wpUserId)!==wpUserId||!Number.isFinite(expiresAt)||expiresAt<=this.clock()){
+      throw new TimelineProductionAuthError("ADMIN_SUBJECT_INVALID","The student's current access could not be verified. Your local edits remain saved on this device.",403);
+    }
+    return Object.freeze({wpUserId,principalId,documentId:String(result.documentId),expiresAt,
+      canEdit:result.canEdit!==false&&result.subject.canEdit===true});
+  }
+
+  scheduleAdminGrantRenewal(){
+    clearTimeout(this.adminGrantTimer);this.adminGrantTimer=null;
+    if(!this.adminSubjectGrant||this.closed||this.locked||this.adminSubjectError)return;
+    this.adminGrantTimer=setTimeout(()=>this.ensureAdminSubjectGrant().catch(()=>{}),
+      Math.max(1000,this.adminSubjectGrant.expiresAt-this.clock()-45_000));
+    this.adminGrantTimer?.unref?.();
+  }
+
+  async ensureAdminSubjectGrant(){
+    if(!this.subjectWpUserId)return;
+    if(this.adminSubjectError)throw this.adminSubjectError;
+    if(this.closed||this.locked||this.bootstrapState?.adminWorkspace!==true||!this.adminSubjectGrant){
+      throw new TimelineProductionAuthError("ADMIN_WORKSPACE_REQUIRED","Administrator access must be verified before syncing this student's Timeline.",403);
+    }
+    if(this.adminSubjectGrant.expiresAt-this.clock()>60_000)return;
+    if(this.adminGrantRenewing)return this.adminGrantRenewing;
+    const current=this.adminSubjectGrant;
+    this.adminGrantRenewing=(async()=>{
+      // This dedicated WordPress endpoint freshly rechecks administrator capability,
+      // enrollment and principal binding before minting another bounded resource grant.
+      const result=await this.requestWorkspace(`${this.bootstrapState.adminEndpoint}/students/${current.wpUserId}/open`,{method:"POST",body:{}});
+      const next=this.adminGrantFromOpen(current.wpUserId,result);
+      if(next.documentId!==current.documentId||next.principalId!==current.principalId||next.canEdit!==current.canEdit){
+        this.adminSubjectError=new TimelineProductionAuthError("ADMIN_SUBJECT_CHANGED",
+          "The student's current Timeline or access changed. Your pending edits remain on this device. Return to the roster and reopen the student before continuing.",409);
+        clearTimeout(this.adminGrantTimer);this.adminGrantTimer=null;
+        throw this.adminSubjectError;
+      }
+      if(this.closed||this.locked||this.adminSubjectGrant!==current||this.subjectWpUserId!==current.wpUserId){
+        throw new TimelineProductionAuthError("ADMIN_SUBJECT_CHANGED","The selected student changed before access renewal completed.",409);
+      }
+      if(next.expiresAt-this.clock()<=30_000)throw new TimelineProductionAuthError("ADMIN_GRANT_RENEWAL_REQUIRED","Student access could not be renewed in time. Your pending edits remain on this device; retry syncing.",409);
+      this.adminSubjectGrant=next;
+      this.scheduleAdminGrantRenewal();
+    })().finally(()=>{this.adminGrantRenewing=null;});
+    return this.adminGrantRenewing;
+  }
+  async requestWorkspace(endpoint,{method="GET",body,retry=true}={}){
+    await this.validToken();
+    const target=sameOriginUrl(endpoint,this.locationObject.origin);
+    const response=await this.fetchImpl(target,{method,credentials:"same-origin",cache:"no-store",
+      headers:{accept:"application/json","x-wp-nonce":this.bootstrapState.nonce,...(body===undefined?{}:{"content-type":"application/json"})},
+      body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(40_000)});
+    const payload=await response.json().catch(()=>({}));
+    const code=String(payload?.code||payload?.error?.code||"TIMELINE_WORKSPACE_UNAVAILABLE");
+    if(retry&&(response.status===401||code==="csrf_failed"||code==="rest_cookie_invalid_nonce")){
+      await this.refreshToken();return this.requestWorkspace(endpoint,{method,body,retry:false});
+    }
+    if(response.status===401||isAuthorityRevocation(code))this.lock(`workspace_${code.toLowerCase()}`);
+    if(!response.ok)throw new TimelineProductionAuthError(code,payload?.message||payload?.error?.message||"The Timeline workspace is temporarily unavailable.",response.status);
+    return payload;
+  }
+  listAdminStudents({query="",filter="all",session="",page=1}={}){
+    const endpoint=new URL(`${this.bootstrapState.adminEndpoint}/roster`);
+    for(const [key,value] of Object.entries({query,filter,session,page}))endpoint.searchParams.set(key,String(value));
+    return this.requestWorkspace(endpoint.href);
+  }
+  async openAdminStudent(wpUserId){
+    if(!Number.isSafeInteger(wpUserId)||wpUserId<1)throw new TimelineProductionAuthError("ADMIN_SUBJECT_INVALID","Select a student from the roster.",400);
+    const result=await this.requestWorkspace(`${this.bootstrapState.adminEndpoint}/students/${wpUserId}/open`,{method:"POST",body:{}});
+    this.pendingAdminSubjectGrant=this.adminGrantFromOpen(wpUserId,result);
+    return result;
+  }
+  async setAiConsent(decision){
+    const result=await this.requestWorkspace(this.bootstrapState.aiConsentEndpoint,{method:"POST",body:{decision,version:this.bootstrapState.configuredAiConsentVersion||this.bootstrapState.aiConsentVersion,confirmed:decision==="grant"}});
+    await this.refreshToken();
+    return result;
+  }
   createDocument(document,programId){return this.request("/documents",{method:"POST",body:{id:document.id,programId,title:document.title,theme:document.theme,document}});}
   checkpoint(documentId,deviceId,baseRevision,snapshot){return this.request(`/documents/${encodeURIComponent(documentId)}/checkpoints/${encodeURIComponent(deviceId)}`,{method:"PUT",body:{baseRevision,snapshot}});}
   createVersion(documentId,baseRevision,snapshot,label){return this.request(`/documents/${encodeURIComponent(documentId)}/versions`,{method:"POST",body:{baseRevision,snapshot,label}});}
   analyzeCv(documentId,input){
-    return this.request(`/documents/${encodeURIComponent(documentId)}/intake/analyze`,{method:"POST",body:input,timeoutMs:65_000});
+    return this.request(`/documents/${encodeURIComponent(documentId)}/intake/analyze`,{
+      method:"POST",body:input,timeoutMs:65_000,
+      headers:this.bootstrapState?.syntheticFixture?{"x-timeline-synthetic-fixture":"1"}:{}
+    });
   }
   analyzeQuality(documentId,input){
     return this.request(`/documents/${encodeURIComponent(documentId)}/quality/analyze`,{
@@ -264,7 +384,7 @@ export class TimelineProductionAuthClient{
     const response=await this.fetchImpl(`${this.bootstrapState.apiBase}/objects/upload`,{
       method:"POST",credentials:"same-origin",cache:"no-store",
       headers:{
-        accept:"application/json",authorization:`Bearer ${token}`,
+        accept:"application/json",authorization:`Bearer ${token}`,...this.subjectHeaders(),
         "content-type":String(blob?.type||"application/octet-stream"),
         "x-timeline-document-id":String(documentId||""),
         "x-timeline-object-class":String(objectClass||"MEDIA"),

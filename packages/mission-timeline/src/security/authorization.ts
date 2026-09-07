@@ -77,6 +77,9 @@ export function decide(
   }
 
   if (context.role === "PROGRAM_ADMIN") {
+    if (context.adminWorkspace === true && (!context.adminSubjectPrincipalId || resource.ownerPrincipalId !== context.adminSubjectPrincipalId)) {
+      return { allowed: false, reason: "ADMIN_SUBJECT_MISMATCH" };
+    }
     if (!resource.documentId) return { allowed: false, reason: "ADMIN_RESOURCE_REQUIRED" };
     const grant = context.facultyGrants.find(
       (item) =>

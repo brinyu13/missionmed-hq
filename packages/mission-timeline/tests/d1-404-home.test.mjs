@@ -30,8 +30,10 @@ test("D1-405 Home preserves the five-second contract while making File Vault pri
     "PDF or DOCX · up to 20 MB",
     "Nothing is added until you review and approve it.",
     "Latest timeline preview",
-    "Your timeline will take shape here.",
-    "Your latest working timeline will appear as you add information.",
+    /* AAA-019: the canonical board is always on Home; the empty state is a coach chip. */
+    "Your board is ready.",
+    "Add your first event, or build it from your CV — your Timeline fills in as you go.",
+    "I already have a Timeline",
     "START BUILDING ▸"
   ];
   for(const copy of required)assert.ok(home.includes(copy),`missing frozen Home copy: ${copy}`);

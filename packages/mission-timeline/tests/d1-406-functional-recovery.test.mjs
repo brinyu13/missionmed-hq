@@ -105,7 +105,9 @@ test("D1-406 serializes explanation geometry and a connected target leader",()=>
     "leader endpoint must lie on the rendered target boundary"
   );
   const portable=serializeLocked407FPortableSvg(rendered);
-  assert.match(portable,/data-explanation-leader="true"[^>]*data-target-event-id="event-2"[^>]*marker-end="url\(#d1406-red-arrowhead\)"/);
+  assert.match(portable,/data-explanation-leader="true"[^>]*data-target-event-id="event-2"[^>]*d="M[^\"]+L[^\"]+"/);
+  assert.match(portable,/data-explanation-arrowhead="true"[^>]*d="M[^\"]+L[^\"]+L[^\"]+"/);
+  assert.doesNotMatch(portable,/data-explanation-leader="true"[^>]*marker-end=/,"Native output uses an editable explicit arrowhead path");
 });
 
 test("D1-406 keeps one geometry while making non-default theme presentation visibly distinct",()=>{
@@ -234,7 +236,9 @@ test("D1-406 recovery wiring preserves 407F visuals while closing keyboard and t
   assert.match(canvas,/live\.textContent="";\s*queueMicrotask/s);
   assert.match(html,/function syncNavigationCurrent\(v\)/);
   assert.match(html,/control\.setAttribute\('aria-current','page'\)/);
-  assert.match(css,/\.media407FCanvasLauncher\{[^}]*flex:none;[^}]*min-height:44px;[^}]*position:static;/s);
+  // AAA-019: the launcher is its own containing block (the btnD decoration lives on ::before),
+  // so `position:relative` replaces the earlier `position:static` reset; z-index stays auto.
+  assert.match(css,/\.media407FCanvasLauncher\{[^}]*flex:none;[^}]*min-height:44px;[^}]*position:relative;[^}]*z-index:auto;/s);
   assert.match(css,/\.guided-arrow-handles button\{[^}]*height:44px;[^}]*width:44px;/s);
   assert.match(css,/\.guided-explanation-handles button\{[^}]*height:44px;[^}]*width:44px;/s);
 });

@@ -18,10 +18,10 @@ const token=()=>`${encode({alg:"HS256",typ:"JWT",kid:"timeline-v1"})}.${encode({
   wp_user_id:42,timeline_role:"STUDENT",is_wordpress_administrator:false,
   has_learndash_3893_access:true,iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+120,jti
 })}.signature`;
-const administratorToken=()=>`${encode({alg:"HS256",typ:"JWT",kid:"timeline-v1"})}.${encode({
+const administratorToken=(overrides={})=>`${encode({alg:"HS256",typ:"JWT",kid:"timeline-v1"})}.${encode({
   iss:"https://missionmed.example/timeline/",aud:"mission-timeline",sub:principalId,
   wp_user_id:42,timeline_role:"PROGRAM_ADMIN",is_wordpress_administrator:true,
-  has_learndash_3893_access:false,iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+120,jti
+  has_learndash_3893_access:false,iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+120,jti,...overrides
 })}.signature`;
 
 function locationObject(){
@@ -40,7 +40,7 @@ test("production bootstrap fails before IndexedDB opens when WordPress identity 
   }finally{indexedDB.open=prior;}
 });
 
-test("approved administrators keep Timeline authoring device-local and never enqueue remote media or document writes",async()=>{
+test("administrators require the signed workspace capability before opening any local draft",async()=>{
   const originalIndexedDb=globalThis.indexedDB;
   let writeRequests=0;
   const fetchImpl=async(url,options={})=>{
@@ -58,14 +58,8 @@ test("approved administrators keep Timeline authoring device-local and never enq
   };
   try{
     globalThis.indexedDB=new IDBFactory();
-    const runtime=await prepareTimelineProductionRuntime({fetchImpl,locationObject:locationObject()});
-    assert.equal(productionRemotePersistenceAllowed(runtime.identity),false);
-    assert.equal(runtime.remotePersistenceAllowed,false);
-    assert.equal(runtime.privateMediaStorageEnabled,false);
-    assert.equal(runtime.adapter.remoteSyncConsent,false);
-    assert.deepEqual(await runtime.adapter.flush(),{synced:0,pending:0,consentRequired:true});
+    await assert.rejects(prepareTimelineProductionRuntime({fetchImpl,locationObject:locationObject()}),{code:'ADMIN_WORKSPACE_UNAVAILABLE'});
     assert.equal(writeRequests,0);
-    runtime.adapter.close();
   }finally{globalThis.indexedDB=originalIndexedDb;}
 });
 
@@ -98,6 +92,40 @@ test("eligible first-use students open the accepted Timeline locally before gran
     assert.equal(requests.some(({href})=>href.endsWith("/documents")),false);
     runtime.adapter.close();
   }finally{globalThis.indexedDB=originalIndexedDb;}
+});
+
+test("signed admin workspace starts without opening an existing local authoring draft",async()=>{
+  let opens=0;const prior=indexedDB.open.bind(indexedDB);indexedDB.open=(...args)=>{opens++;return prior(...args);};
+  const response=value=>new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}});
+  try{
+    const runtime=await prepareTimelineProductionRuntime({locationObject:locationObject(),fetchImpl:async url=>{
+      if(String(url).includes('admin-ajax.php'))return response({success:true,data:{nonce:'nonce',token_endpoint:'https://missionmed.example/token',api_base:'https://missionmed.example/api/v1',matrix_url:'https://missionmed.example/member-dashboard/',user:{wp_user_id:42,principal_id:principalId,role:'PROGRAM_ADMIN'}}});
+      if(String(url).endsWith('/token'))return response({token:administratorToken({timeline_admin_workspace:true})});
+      throw new Error(`Unexpected admin landing request ${url}`);
+    }});
+    assert.equal(runtime.adminWorkspace,true);assert.equal(runtime.subject,null);assert.equal(runtime.adapter.kind,'ADMIN_WORKSPACE_EPHEMERAL');assert.equal(opens,0);
+    assert.equal(runtime.remotePersistenceAllowed,false);assert.deepEqual(await runtime.adapter.list('documents'),[]);
+  }finally{indexedDB.open=prior;}
+});
+
+test("admin selected-student cache is bound to the server subject and rejects mismatched document owners",async()=>{
+  const studentId='9d8d7a7a-c915-4d36-a657-910ad2222001';let mismatch=false;const requests=[];
+  const response=value=>new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}});
+  const selectedLocation={...locationObject(),search:'?student=43'};
+  const fetchImpl=async(url,options={})=>{
+    const href=String(url);requests.push({href,headers:options.headers});
+    if(href.includes('admin-ajax.php'))return response({success:true,data:{nonce:'nonce',token_endpoint:'https://missionmed.example/token',api_base:'https://missionmed.example/api/v1',matrix_url:'https://missionmed.example/member-dashboard/',user:{wp_user_id:42,principal_id:principalId,role:'PROGRAM_ADMIN'}}});
+    if(href.endsWith('/token'))return response({token:administratorToken({timeline_admin_workspace:true})});
+    if(href.endsWith('/admin/students/43/open'))return response({documentId:'timeline_admin_subject_022',studentPrincipalId:studentId,grantExpiresAt:new Date(Date.now()+600000).toISOString(),subject:{principalId:studentId,wpUserId:43,displayName:'Synthetic Student',canEdit:true}});
+    if(href.endsWith('/documents/timeline_admin_subject_022'))return response({document:{id:'timeline_admin_subject_022',schemaVersion:'d1-timeline-document-409.1',studentOwnerId:mismatch?principalId:studentId,programId:'missionmed-360:3893',title:'Subject Timeline',revision:3,events:[],metadata:{}}});
+    throw new Error(`Unexpected selected-student request ${href}`);
+  };
+  const runtime=await prepareTimelineProductionRuntime({locationObject:selectedLocation,fetchImpl});
+  assert.equal(runtime.subject.principalId,studentId);assert.equal(runtime.remotePersistenceAllowed,true);assert.equal(runtime.privateMediaWriteEnabled,false);
+  assert.match(runtime.adapter.name,new RegExp(`principal:${principalId}:persona:program_admin:subject:${studentId}:v3$`));
+  assert.equal(requests.find(row=>row.href.endsWith('/documents/timeline_admin_subject_022')).headers['x-timeline-subject-wp-user-id'],'43');
+  runtime.adapter.close();mismatch=true;
+  await assert.rejects(prepareTimelineProductionRuntime({locationObject:selectedLocation,fetchImpl}),{code:'ADMIN_SUBJECT_INVALID'});
 });
 
 test("authenticated runtime uses a principal-and-resource scoped recovery cache and server hydration",async()=>{

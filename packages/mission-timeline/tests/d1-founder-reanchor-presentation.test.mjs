@@ -80,14 +80,17 @@ test("one deterministic portable serializer supplies preview/export composition 
   assert.match(first.svg,/data-founder-milestone-style="usa"/);
   assert.match(first.svg,new RegExp(`data-founder-usa-flag-asset-sha256="${FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag.sha256}"`));
   assert.match(first.svg,/data-founder-geometry="648,0,596,83"/);
-  assert.match(first.svg,/data-founder-geometry="37,350,247,277"/);
-  assert.match(first.svg,/data-founder-geometry="30,677,512,375"/);
+  assert.match(first.svg,/data-founder-geometry="20,300,284,346"/);
+  assert.match(first.svg,/data-founder-geometry="13,661,545,410"/);
   assert.match(first.svg,/data-founder-geometry="599,776,176,235,-10"/);
   assert.match(first.svg,/data-founder-geometry="753,884,223,140,-6"/);
   assert.match(first.svg,/data-founder-geometry="992,878,233,175,0"/);
   assert.match(first.svg,/M[^ ]+ 125H/);
   assert.match(first.svg,/font-family="'American Typewriter',Rockwell,'Courier New',serif" font-size="36"/);
-  assert.match(first.svg,/font-family="Futura,'Trebuchet MS',Arial,sans-serif" font-size="23"/);
+  // AAA-019 Keynote fidelity: year numerals are bold 26px Futura on one continuous band.
+  assert.match(first.svg,/font-family="Futura,'Trebuchet MS',Arial,sans-serif" font-size="26" font-weight="700"/);
+  assert.match(first.svg,/data-axis-ribbon="continuous"/);
+  assert.match(first.svg,/data-axis-band="true" d="M0 125H1920V161H0Z"/);
   assert.match(first.svg,/font-family="Baskerville,'Iowan Old Style','Times New Roman',serif" font-size="18"/);
   assert.equal((first.svg.match(/data-color-key-row=/g)||[]).length,FOUNDER_COLOR_KEY_ROWS.length);
   const keyOrder=[...first.svg.matchAll(/data-category-id="([^"]+)"/g)].map((match)=>match[1]);
