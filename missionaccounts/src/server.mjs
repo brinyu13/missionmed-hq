@@ -44,6 +44,7 @@ function environmentConfig() {
       zoomSync: process.env.MISSIONACCOUNTS_ZOOM_SYNC === '1',
     },
     stripeMode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
+    stripeAccountId: process.env.MISSIONACCOUNTS_STRIPE_ACCOUNT_ID || '',
     stripePublishableKey: process.env.MISSIONACCOUNTS_STRIPE_PUBLISHABLE_KEY || '',
     invoiceDueDays: Number(process.env.MISSIONACCOUNTS_INVOICE_DUE_DAYS || 30),
     workerToken: process.env.MISSIONACCOUNTS_WORKER_TOKEN || '',
@@ -845,6 +846,26 @@ export function createMissionAccountsServer({
         });
         throw error;
       }
+    }
+    const stripeCustomerRoute = request.method === 'GET'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/stripe-customer$/i)
+      : null;
+    if (stripeCustomerRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'paymentMethodSetup');
+      const accountId = String(config.stripeAccountId || '');
+      if (config.stripeMode !== 'live' || !/^acct_[A-Za-z0-9_]+$/.test(accountId)) {
+        throw requestError('Live Stripe Dashboard access is not configured', 503);
+      }
+      const student = await store.adminStudent(stripeCustomerRoute[1]);
+      if (!student) throw requestError('Student record not found', 404);
+      const customer = await store.stripeCustomerForStudent(stripeCustomerRoute[1]);
+      const customerId = String(customer?.provider_customer_ref || '');
+      if (!/^cus_[A-Za-z0-9_]+$/.test(customerId)) throw requestError('Stripe customer is not available', 404);
+      return json(response, 200, {
+        customer_id: customerId,
+        dashboard_url: `https://dashboard.stripe.com/${accountId}/customers/${customerId}`,
+      });
     }
     const dayChargeRoute = request.method === 'POST'
       ? url.pathname.match(/^\/api\/admin\/attendance-days\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/charge$/i)

@@ -36,6 +36,7 @@ const databaseCycleKey = Object.freeze({ june: '2026-cycle-1', july: '2026-cycle
 const actionCapabilities = Object.freeze({
   'payment-setup': 'payment_method_setup',
   'payment-remove': 'payment_method_setup',
+  'stripe-customer': 'payment_method_setup',
   'billing-authorization': 'auto_billing',
   'billing-authorization-revoke': 'auto_billing',
   'attendance-issue-report': 'attendance_corrections',
@@ -160,6 +161,15 @@ async function dispatch(action, payload = {}) {
         onConfirm: () => window.MissionAccountsRuntime.mutation('/me/payment-method', { method: 'DELETE' }),
       });
       if (!await decision.result) return true;
+    } else if (action === 'stripe-customer') {
+      if (!['missionaccounts_admin', 'founder'].includes(state.user?.role)) throw new Error('Only Dr J can open a Stripe customer.');
+      const customer = await auth.request(`/admin/students/${studentUuid(payload.si)}/stripe-customer`);
+      const dashboardUrl = String(customer?.dashboard_url || '');
+      if (!/^https:\/\/dashboard[.]stripe[.]com\/acct_[A-Za-z0-9_]+\/customers\/cus_[A-Za-z0-9_]+$/.test(dashboardUrl)) {
+        throw new Error('The Stripe customer link is invalid.');
+      }
+      window.location.assign(dashboardUrl);
+      return true;
     } else if (action === 'billing-authorization' || action === 'billing-authorization-revoke') {
       if (state.user?.role !== 'student') throw new Error('Only the signed-in student can change automatic billing authorization.');
       const current = state.bootstrap?.account?.billing_consent;

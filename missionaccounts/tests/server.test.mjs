@@ -14,6 +14,7 @@ const localConfig = {
   audience: 'missionaccounts',
   jwksUrl: 'https://issuer.invalid/jwks',
   features: { studentContacts: false, billingDecisions: false, attendanceCorrections: false, identityReview: false, examPlans: false, compDays: false, paymentMethodSetup: false, autoBilling: false, notifications: false, zoomSync: false },
+  stripeAccountId: '',
   workerToken: '',
 };
 const webhookConfig = {
@@ -324,6 +325,29 @@ test('student payment-method removal revokes billing consent before a retry-safe
     assert.equal(retry.status, 200);
     assert.equal((await retry.json()).duplicate, true);
     assert.equal(detachCalls.length, 1);
+  });
+});
+
+test('Dr J receives only the configured live Stripe customer link while students remain denied', async () => {
+  const store = new PreviewStore();
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  await store.saveStripeCustomer({ studentId, customerId: 'cus_live_student_1' });
+  const config = {
+    ...localConfig,
+    stripeMode: 'live',
+    stripeAccountId: 'acct_live_exam_prep',
+    features: { ...localConfig.features, paymentMethodSetup: true },
+  };
+  const path = `/api/admin/students/${studentId}/stripe-customer`;
+  await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+    const denied = await fetch(`${base}${path}`, { headers: { 'x-missionaccounts-local-role': 'student' } });
+    assert.equal(denied.status, 403);
+    const allowed = await fetch(`${base}${path}`, { headers: { 'x-missionaccounts-local-role': 'missionaccounts_admin' } });
+    assert.equal(allowed.status, 200);
+    assert.deepEqual(await allowed.json(), {
+      customer_id: 'cus_live_student_1',
+      dashboard_url: 'https://dashboard.stripe.com/acct_live_exam_prep/customers/cus_live_student_1',
+    });
   });
 });
 
