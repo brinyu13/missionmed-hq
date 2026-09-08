@@ -93,7 +93,7 @@ function mma_role_for_user($user, $settings = null) {
         return '';
     }
     $settings = is_array($settings) ? $settings : mma_settings();
-    $native = user_can($user, 'manage_options') ? 'missionaccounts_admin' : 'student';
+    $native = 'student';
     if (!mma_user_is_allowlisted($user, $settings)) {
         return $native;
     }
@@ -114,19 +114,18 @@ function mma_access_state($user) {
     if (empty($settings['missionaccounts_enabled'])) {
         return new WP_Error('missionaccounts_disabled', 'MissionAccounts is not enabled for this pilot.', array('status' => 403));
     }
-    $is_admin = user_can($user, 'manage_options');
     $is_allowlisted = mma_user_is_allowlisted($user, $settings);
     $has_product_id = mma_product_user_id((int) $user->ID) !== '';
-    if (!$is_admin && !$is_allowlisted && !$has_product_id) {
+    if (!$is_allowlisted && !$has_product_id) {
         return new WP_Error('user_not_enabled', 'MissionAccounts is not enabled for this account.', array('status' => 403));
     }
     $role = mma_role_for_user($user, $settings);
     if (!in_array($role, array('student', 'missionaccounts_admin', 'founder'), true)) {
         return new WP_Error('role_not_enabled', 'MissionAccounts is not enabled for this account role.', array('status' => 403));
     }
-    $source = $is_admin ? 'wordpress_admin'
-        : ($is_allowlisted ? 'wordpress_exact_user_pilot_allowlist'
-        : 'missionaccounts_provisioned_user');
+    $source = $is_allowlisted
+        ? 'wordpress_exact_user_pilot_allowlist'
+        : 'missionaccounts_provisioned_user';
     $entitlement = apply_filters('missionmed_missionaccounts_entitlement', array(
         'trusted' => true,
         'verified' => true,

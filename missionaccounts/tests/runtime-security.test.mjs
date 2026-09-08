@@ -235,6 +235,11 @@ test('MissionAccounts WordPress bridge is default-off, allowlisted, nonce/origin
   const source = await readFile(pluginPath, 'utf8');
   assert.match(source, /'missionaccounts_enabled'\s*=>\s*false/);
   assert.match(source, /mma_user_is_allowlisted/);
+  assert.match(source, /if \(!\$is_allowlisted && !\$has_product_id\)/);
+  assert.match(source, /\$native\s*=\s*'student'/);
+  assert.doesNotMatch(source, /\$native\s*=\s*user_can\([^\n]+manage_options[^\n]+missionaccounts_admin/);
+  assert.doesNotMatch(source, /if \(!\$is_admin && !\$is_allowlisted && !\$has_product_id\)/);
+  assert.doesNotMatch(source, /\$source\s*=\s*\$is_admin\s*\?/);
   assert.match(source, /wp_verify_nonce\(\$nonce, 'wp_rest'\)/);
   assert.match(source, /mma_verify_origin/);
   assert.match(source, /MISSIONACCOUNTS_JWT_SECRET/);
