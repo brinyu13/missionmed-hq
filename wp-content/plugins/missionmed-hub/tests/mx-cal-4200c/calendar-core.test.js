@@ -51,6 +51,13 @@ test('normalizes join and replay as separate safe actions', () => {
 	assert.equal(core.safeUrl('javascript:alert(1)'), '');
 });
 
+test('preserves server audience and persisted importance metadata', () => {
+	const core = loadCore();
+	const event = core.normalizeEvent({ id: 77, title: 'Private clinical', start_at: '2026-09-01T10:00:00', end_at: '2026-09-01T11:00:00', audience: '', meta: { audience: '', important: true } }, { admin: true });
+	assert.equal(event.audience, '');
+	assert.equal(event.important, true);
+});
+
 test('preserves both production Drills inventories and event types', () => {
 	const core = loadCore();
 	assert.equal(core.drillTopics['Step/Level 1'].length, 19);
@@ -58,7 +65,15 @@ test('preserves both production Drills inventories and event types', () => {
 	assert.ok(core.drillTopics['Step/Level 1'].includes('Micro / Infectious Disease'));
 	assert.ok(core.drillTopics['Step/Level 2/3'].includes('Surgery'));
 	assert.equal(core.buildDrillEvent('2026-09-03', 'Cardiology', 'Step/Level 1').eventType, 'drill_step1');
+	assert.equal(core.buildDrillEvent('2026-09-03', 'Cardiology', 'Step/Level 1').category, 'drill_step1');
 	assert.equal(core.buildDrillEvent('2026-09-03', 'Cardiology', 'Step/Level 2/3').eventType, 'drill_step23');
+	assert.equal(core.buildDrillEvent('2026-09-03', 'Cardiology', 'Step/Level 2/3').category, 'drill_step23');
+});
+
+test('write payloads strip unsafe meeting URLs', () => {
+	const core = loadCore();
+	assert.equal(core.eventPayload({ title: 'Safe', start: '2026-09-01T10:00:00', end: '2026-09-01T11:00:00', joinUrl: 'javascript:alert(1)' }).meeting_url, '');
+	assert.equal(core.todoPayload({ title: 'Safe', meetingUrl: 'data:text/html,bad' }).meeting_url, '');
 });
 
 test('scheduler entries merge without duplicating WordPress events', () => {
@@ -67,7 +82,18 @@ test('scheduler entries merge without duplicating WordPress events', () => {
 	const enriched = core.normalizeEvent({ id: 99, title: 'Advising', source: 'scheduler', source_id: 'a-1', start_at: '2026-09-01T15:00:00-04:00', meeting_url: 'https://example.com/join' }, {});
 	const merged = core.mergeEvents([primary], [enriched]);
 	assert.equal(merged.length, 1);
+	assert.equal(merged[0].id, 1, 'Scheduler enrichment must preserve the canonical WordPress event id');
 	assert.match(merged[0].joinUrl, /\/join$/);
+});
+
+test('parent category visibility hides descendant events', () => {
+	const core = loadCore();
+	const state = {
+		visibility: { exam_prep: false, drill_step1: true },
+		categories: [{ id: 'exam_prep', parentId: '' }, { id: 'drill_step1', parentId: 'exam_prep' }],
+		events: [core.normalizeEvent({ id: 1, title: 'Cardiology', event_type: 'drill_step1', category: 'drill_step1', start_at: '2026-09-03T10:00:00-04:00' }, {})]
+	};
+	assert.equal(core.visibleEvents(state).length, 0);
 });
 
 test('event create is server-success-first', async () => {
@@ -90,6 +116,27 @@ test('event create is server-success-first', async () => {
 	await mutation;
 	assert.equal(calendar.state.events.length, 1);
 	assert.equal(calendar.state.events[0].id, 51);
+});
+
+test('todo create update and delete mirror confirmed server state', async () => {
+	const app = {
+		profile: { is_admin: false },
+		api: {
+			post: (endpoint, payload) => Promise.resolve({ todo: { id: 61, ...payload } }),
+			put: (endpoint, payload) => Promise.resolve({ todo: { id: 61, ...payload } }),
+			delete: () => Promise.resolve({ success: true })
+		}
+	};
+	const calendar = loadCore().create(app);
+	const created = await calendar.createTodo({ title: 'QA task', priority: 'high', meetingUrl: 'https://example.com/qa' });
+	assert.equal(created.id, 61);
+	assert.equal(calendar.state.todos.length, 1);
+	assert.equal(calendar.state.todos[0].meetingUrl, 'https://example.com/qa');
+	const updated = await calendar.updateTodo({ ...created, title: 'QA task updated', completed: true });
+	assert.equal(updated.title, 'QA task updated');
+	assert.equal(calendar.state.todos[0].completed, true);
+	await calendar.deleteTodo(updated);
+	assert.equal(calendar.state.todos.length, 0);
 });
 
 test('view ranges are bounded and warm revisits use the shared cache', async () => {
@@ -129,6 +176,7 @@ test('primary Matrix requests receive AbortSignal and navigation physically abor
 			base: '/wp-json/mmed/v1',
 			request: (endpoint, options, params) => {
 				if (endpoint === '/todos') return Promise.resolve({ todos: [] });
+				if (endpoint === '/calendar/categories') return Promise.resolve({ categories: [] });
 				return new Promise((resolve, reject) => {
 					const call = { options, params, resolve, reject };
 					calls.push(call);
@@ -160,6 +208,7 @@ test('same-range revisit starts a current-generation request after stale abort',
 			base: '/wp-json/mmed/v1',
 			request: (endpoint, options, params) => {
 				if (endpoint === '/todos') return Promise.resolve({ todos: [] });
+				if (endpoint === '/calendar/categories') return Promise.resolve({ categories: [] });
 				return new Promise((resolve, reject) => {
 					calls.push({ options, params, resolve });
 					options.signal.addEventListener('abort', () => {
@@ -209,6 +258,36 @@ test('module-lived SWR cache survives route unmount/remount within 400 ms', asyn
 	assert.equal(remounted.state.todosStatus, 'ready', 'warm remount must not leave todos loading');
 	assert.equal(remounted.state.todos.length, 1, 'warm remount must hydrate current todo data');
 	assert.equal(remounted.state.todos[0].title, 'Warm remount task');
+});
+
+test('Scheduler failure is non-blocking when primary Matrix events succeed', async () => {
+	const app = { profile: { is_admin: false }, api: { base: '/wp-json/mmed/v1', request: (endpoint) => Promise.resolve(endpoint === '/events' ? { events: [{ id: 81, title: 'Matrix event', start_at: '2026-09-03T15:00:00-04:00' }] } : endpoint === '/todos' ? { todos: [] } : { categories: [] }) } };
+	const core = loadCore({ fetch: () => Promise.reject(new Error('Scheduler offline')) });
+	const calendar = core.create(app);
+	await calendar.start();
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	assert.equal(calendar.state.wpStatus, 'ready');
+	assert.equal(calendar.state.events[0].id, 81);
+	assert.equal(calendar.state.schedulerStatus, 'degraded');
+	calendar.destroy();
+});
+
+test('a hung primary Matrix request fails closed without a renderer-owned timer', async () => {
+	const app = { profile: { is_admin: false }, api: { base: '/wp-json/mmed/v1', request: (endpoint) => endpoint === '/events' ? new Promise(() => {}) : Promise.resolve(endpoint === '/todos' ? { todos: [] } : { categories: [] }) } };
+	const core = loadCore({ mmedStudentOsFeatureFlags: { calendar_experience: { experience: 'storyforge', primary_timeout_ms: 50, scheduler_timeout_ms: 50 } }, fetch: () => Promise.reject(new Error('Scheduler offline')) });
+	const calendar = core.create(app);
+	await assert.rejects(calendar.start(), /Primary Matrix Calendar request timed out/);
+	assert.equal(calendar.state.wpStatus, 'error');
+	assert.equal(calendar.state.schedulerStatus, 'degraded');
+	calendar.destroy();
+});
+
+test('join adapter honors Session Manager meeting_url and can_join', async () => {
+	const app = { profile: { is_admin: false }, api: { get: () => Promise.resolve({ can_join: true, meeting_url: 'https://example.com/meeting/9' }) } };
+	const calendar = loadCore().create(app);
+	const result = await calendar.getJoinInfo({ id: 9 });
+	assert.equal(result.available, true);
+	assert.match(result.joinUrl, /\/meeting\/9$/);
 });
 
 test('ET display contract is explicit and DST-aware', () => {

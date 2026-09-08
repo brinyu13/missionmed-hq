@@ -11,6 +11,8 @@
 	var config = (global.mmedStudentOsFeatureFlags && global.mmedStudentOsFeatureFlags.calendar_experience) || {};
 	var sharedPrimaryCache = {};
 	var localIdSequence = 0;
+	var PRIMARY_TIMEOUT_MS = Math.max(50, Number(config.primary_timeout_ms) || 8000);
+	var SCHEDULER_TIMEOUT_MS = Math.max(50, Number(config.scheduler_timeout_ms) || 2500);
 
 	var DRILL_TOPICS = {
 		'Step/Level 1': ['Cardiology','Pulmonary','Renal / GU','GIT / HEP','Endocrine','Neurology','Derm / Ophtho','Micro / Infectious Disease','Viruses / Protozoa / Parasites','Immunology','Muscle / Rheumatology','Heme / Onc','Oncology by Systems','Repro / GYN / OB','Biochem / Genetics / Vitamins','Psych / Ethics','Biostats / Public Health','ER Medicine','Mixed Review'],
@@ -143,12 +145,13 @@
 			meta: meta,
 			joinUrl: joinUrl,
 			meetingPlatform: text(raw.meeting_platform || raw.meetingPlatform || meta.meeting_platform || meta.meeting_provider || ''),
+			audience: text(raw.audience || meta.audience || ''),
 			replayUrl: replayUrl,
 			recordingStatus: text(raw.recording_status || meta.recording_status || ''),
 			writable: !scheduler && (isAdmin ? true : !(globalEvent || source === 'system')),
 			favoriteKey: '',
 			favorite: false,
-			important: !!(meta.match_day || eventType === 'deadline' || /MATCH DAY|SOAP|deadline|certification/i.test(raw.title || ''))
+			important: !!(meta.important || meta.match_day || eventType === 'deadline' || /MATCH DAY|SOAP|deadline|certification/i.test(raw.title || ''))
 		};
 		event.favoriteKey = favoriteKey(event);
 		return event;
@@ -198,10 +201,18 @@
 	function mergeEvents(primary, scheduler) {
 		var result = [];
 		var seen = {};
-		function add(event, replace) {
+		function add(event, enrich) {
 			var key = eventKey(event);
 			if (key && seen[key] !== undefined) {
-				if (replace) result[seen[key]] = event;
+				if (enrich) {
+					var canonical = result[seen[key]];
+					var enriched = Object.assign({}, canonical);
+					['joinUrl','replayUrl','meetingPlatform','recordingStatus','sourceId'].forEach(function (field) {
+						if (!enriched[field] && event[field]) enriched[field] = event[field];
+					});
+					enriched.meta = Object.assign({}, event.meta || {}, canonical.meta || {});
+					result[seen[key]] = enriched;
+				}
 				return;
 			}
 			if (key) seen[key] = result.length;
@@ -220,6 +231,51 @@
 				resolve(value);
 			}, function (error) {
 				global.clearTimeout(timer);
+				reject(error);
+			});
+		});
+	}
+
+	function requestWithDeadline(factory, milliseconds, outerSignal, label) {
+		var controller = global.AbortController ? new global.AbortController() : null;
+		var signal = controller ? controller.signal : outerSignal;
+		var settled = false;
+		var timer = 0;
+		var onOuterAbort = function () { if (controller) controller.abort(); };
+		if (outerSignal) {
+			if (outerSignal.aborted) onOuterAbort();
+			else if (typeof outerSignal.addEventListener === 'function') outerSignal.addEventListener('abort', onOuterAbort, { once: true });
+		}
+		function cleanup() {
+			if (timer) global.clearTimeout(timer);
+			if (outerSignal && typeof outerSignal.removeEventListener === 'function') outerSignal.removeEventListener('abort', onOuterAbort);
+		}
+		var request;
+		try {
+			request = factory(signal);
+		} catch (error) {
+			cleanup();
+			return Promise.reject(error);
+		}
+		return new Promise(function (resolve, reject) {
+			timer = global.setTimeout(function () {
+				if (settled) return;
+				settled = true;
+				if (controller) controller.abort();
+				var error = new Error(label || 'Request timed out');
+				error.name = 'TimeoutError';
+				cleanup();
+				reject(error);
+			}, milliseconds);
+			Promise.resolve(request).then(function (value) {
+				if (settled) return;
+				settled = true;
+				cleanup();
+				resolve(value);
+			}, function (error) {
+				if (settled) return;
+				settled = true;
+				cleanup();
 				reject(error);
 			});
 		});
@@ -245,7 +301,7 @@
 			end_at: localDateTime(event.end),
 			all_day: !!event.allDay,
 			description: event.description || '',
-			meeting_url: event.joinUrl || '',
+			meeting_url: safeUrl(event.joinUrl || ''),
 			meeting_platform: event.meetingPlatform || '',
 			category: event.category || '',
 			priority: event.priority || 0,
@@ -264,7 +320,7 @@
 			subtasks: Array.isArray(todo.subtasks) ? todo.subtasks : [],
 			sort_order: Number(todo.sortOrder || todo.sort_order || 0),
 			notes: todo.notes || '',
-			meeting_url: todo.meetingUrl || todo.meeting_url || '',
+			meeting_url: safeUrl(todo.meetingUrl || todo.meeting_url || ''),
 			meeting_platform: todo.meetingPlatform || todo.meeting_platform || ''
 		};
 	}
@@ -325,9 +381,25 @@
 		return days;
 	}
 
+	function categoryVisible(categoryId, visibility, categories) {
+		var byId = {};
+		(categories || []).forEach(function (category) { if (category && category.id) byId[String(category.id)] = category; });
+		var cursor = String(categoryId || '');
+		var visited = {};
+		while (cursor && !visited[cursor]) {
+			visited[cursor] = true;
+			if (visibility && visibility[cursor] === false) return false;
+			cursor = byId[cursor] && byId[cursor].parentId ? String(byId[cursor].parentId) : '';
+		}
+		return true;
+	}
+
+	function visibleEvents(state) {
+		return (state.events || []).filter(function (event) { return categoryVisible(event.category, state.visibility || {}, state.categories || []); });
+	}
+
 	function viewModel(state) {
-		var visibility = state.visibility || {};
-		var events = (state.events || []).filter(function (event) { return visibility[event.category] !== false; }).map(eventView);
+		var events = visibleEvents(state).map(eventView);
 		var byDay = {};
 		events.forEach(function (event) { if (!byDay[event.dateKey]) byDay[event.dateKey] = []; byDay[event.dateKey].push(event); });
 		var today = new Date();
@@ -339,6 +411,7 @@
 		var weekTitle = format(parseDate(weekDays[0].key), { month: 'short', day: 'numeric' }) + ' – ' + format(parseDate(weekDays[6].key), { month: 'short', day: 'numeric' });
 		return {
 			view: state.view,
+			events: events,
 			title: state.view === 'month' ? format(state.date, { month: 'long', year: 'numeric' }) : state.view === 'week' ? weekTitle : format(state.selectedDate || state.date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
 			todayLabel: format(today, { month: 'long', day: 'numeric' }),
 			todayKey: todayKey,
@@ -369,7 +442,7 @@
 			allDay: false,
 			description: 'Live drill with Dr. J',
 			eventType: stepOne ? 'drill_step1' : 'drill_step23',
-			category: 'drills',
+			category: stepOne ? 'drill_step1' : 'drill_step23',
 			meetingPlatform: '',
 			joinUrl: '',
 			meta: { drill_level: level, drill_topic: topic },
@@ -482,6 +555,13 @@
 			end: zonedDate(target.year, target.month, target.day, end.hour, end.minute, end.second)
 		});
 	}
+	function adjustEventDuration(event, minutes) {
+		var start = parseDate(event && event.start);
+		var end = parseDate(event && event.end);
+		var adjusted = new Date(end.getTime() + Number(minutes || 0) * MINUTE);
+		if (adjusted.getTime() - start.getTime() < 15 * MINUTE) return event;
+		return Object.assign({}, event, { end: adjusted });
+	}
 	function icsDate(value) {
 		var date = parseDate(value);
 		function pad(number) { return String(number).padStart(2, '0'); }
@@ -497,6 +577,9 @@
 		var CACHE_FRESH_MS = 30000;
 		var rangeGeneration = 0;
 		var rangeAbortController = null;
+		var primaryEvents = [];
+		var schedulerEvents = [];
+		var schedulerRetryTimer = 0;
 		var destroyed = false;
 		var today = new Date();
 		var state = {
@@ -574,27 +657,38 @@
 				var source = payload && payload.categories ? payload.categories : [];
 				var list = Array.isArray(source) ? source : Object.keys(source || {}).map(function (id) { return Object.assign({ id: id }, source[id]); });
 				var favorites = payload && Array.isArray(payload.favorites) ? payload.favorites.map(String) : [];
-				if (generation === rangeGeneration) set({ categories: list.map(normalizeCategory), visibility: payload && payload.visibility && typeof payload.visibility === 'object' ? payload.visibility : {}, favorites: favorites, events: applyFavorites(state.events, favorites), categoriesStatus: list.length ? 'ready' : 'empty' });
+				if (generation === rangeGeneration) {
+					primaryEvents = applyFavorites(primaryEvents, favorites);
+					schedulerEvents = applyFavorites(schedulerEvents, favorites);
+					set({ categories: list.map(normalizeCategory), visibility: payload && payload.visibility && typeof payload.visibility === 'object' ? payload.visibility : {}, favorites: favorites, events: mergeEvents(primaryEvents, schedulerEvents), categoriesStatus: list.length ? 'ready' : 'empty' });
+				}
 			}).catch(function (error) { if (!(error && error.name === 'AbortError') && generation === rangeGeneration) set({ categoriesStatus: 'error' }); });
 			set({ requestRange: { start: params.start, end: params.end }, cacheStatus: cached ? 'hit' : 'miss' });
 			if (cached) {
 				state.telemetry.cacheHits += 1;
-				set({ events: applyFavorites(cached.events.slice()), wpStatus: cached.events.length ? 'ready' : 'empty', error: '' });
+				primaryEvents = applyFavorites(cached.events.slice());
+				set({ events: mergeEvents(primaryEvents, schedulerEvents), wpStatus: primaryEvents.length ? 'ready' : 'empty', error: '' });
 				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary cache=hit range=' + key);
 				if (Date.now() - cached.savedAt < CACHE_FRESH_MS) return Promise.resolve(cached.events.slice());
 			}
 			var startedAt = Date.now();
-			var request = typeof api.request === 'function' ? api.request('/events', { method: 'GET', signal: signal }, params) : api.get('/events', params);
+			var request = requestWithDeadline(function (requestSignal) {
+				return typeof api.request === 'function' ? api.request('/events', { method: 'GET', signal: requestSignal }, params) : api.get('/events', params);
+			}, PRIMARY_TIMEOUT_MS, signal, 'Primary Matrix Calendar request timed out');
 			var events = request.then(function (payload) {
 				var normalized = payload && Array.isArray(payload.events) ? applyFavorites(payload.events.map(function (event) { return normalizeEvent(event, capabilities); })) : [];
 				sharedPrimaryCache[key] = { events: normalized.slice(), savedAt: Date.now() };
+				primaryEvents = normalized.slice();
 				state.telemetry.primaryLoadMs = Date.now() - startedAt;
 				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary cache=' + (cached ? 'revalidated' : 'miss') + ' duration_ms=' + state.telemetry.primaryLoadMs + ' range=' + key);
-				if (generation === rangeGeneration) set({ events: normalized, wpStatus: normalized.length ? 'ready' : 'empty', cacheStatus: cached ? 'revalidated' : 'stored', error: '' });
+				if (generation === rangeGeneration) set({ events: mergeEvents(primaryEvents, schedulerEvents), wpStatus: normalized.length ? 'ready' : 'empty', cacheStatus: cached ? 'revalidated' : 'stored', error: '' });
 				return normalized;
 			}).catch(function (error) {
-				if (error && error.name === 'AbortError') return [];
-				if (generation === rangeGeneration) set({ wpStatus: 'error', error: 'Live Matrix events could not be loaded.' });
+				if (error && error.name === 'AbortError' && (destroyed || generation !== rangeGeneration || (signal && signal.aborted))) return [];
+				if (generation === rangeGeneration) {
+					if (cached) set({ wpStatus: primaryEvents.length ? 'ready' : 'empty', error: 'Live Matrix events could not be refreshed. Showing recently cached events.' });
+					else set({ wpStatus: 'error', error: 'Live Matrix events could not be loaded.' });
+				}
 				throw error;
 			});
 			return events;
@@ -638,34 +732,41 @@
 			});
 		}
 		function loadScheduler(generation, signal) {
+			if (schedulerRetryTimer) { global.clearTimeout(schedulerRetryTimer); schedulerRetryTimer = 0; }
 			set({ schedulerStatus: 'loading' });
 			var params = range();
 			var endpoint = capabilities.admin ? '/api/scheduler/admin/calendar-feed' : '/api/scheduler/calendar-feed';
 			var url = new URL(endpoint, global.location.origin);
 			Object.keys(params).forEach(function (key) { if (key !== 'no_sync') url.searchParams.set(key, params[key]); });
-			var request = schedulerJson(url.toString(), signal, true).then(function (payload) {
+			var request = requestWithDeadline(function (requestSignal) { return schedulerJson(url.toString(), requestSignal, true); }, SCHEDULER_TIMEOUT_MS, signal, 'Scheduler enrichment timed out').then(function (payload) {
 				var data = payload && (payload.data || payload);
 				var events = data && Array.isArray(data.events) ? applyFavorites(data.events.map(function (event) { return normalizeEvent(event, capabilities); })) : [];
-				if (generation === rangeGeneration) set({ events: mergeEvents(state.events, events), schedulerStatus: events.length ? 'ready' : 'empty' });
+				if (generation === rangeGeneration) {
+					schedulerEvents = events.slice();
+					set({ events: mergeEvents(primaryEvents, schedulerEvents), schedulerStatus: events.length ? 'ready' : 'empty' });
+				}
 				return events;
 			});
-			return timeout(request, 2500, 'Scheduler enrichment timed out').catch(function () {
+			return request.catch(function () {
 				if (destroyed || (signal && signal.aborted)) return [];
 				if (generation === rangeGeneration) {
 					set({ schedulerStatus: 'degraded' });
-					global.setTimeout(function () { loadScheduler(generation, signal).catch(function () {}); }, 10000);
+					schedulerRetryTimer = global.setTimeout(function () { schedulerRetryTimer = 0; loadScheduler(generation, signal).catch(function () {}); }, 10000);
 				}
 				return [];
 			});
 		}
 
 		function beginGeneration() {
+			if (schedulerRetryTimer) { global.clearTimeout(schedulerRetryTimer); schedulerRetryTimer = 0; }
 			if (rangeAbortController) {
 				rangeAbortController.abort();
 				state.telemetry.cancelledRanges += 1;
 			}
 			rangeAbortController = global.AbortController ? new global.AbortController() : null;
 			rangeGeneration += 1;
+			primaryEvents = [];
+			schedulerEvents = [];
 			return { generation: rangeGeneration, signal: rangeAbortController ? rangeAbortController.signal : undefined };
 		}
 
@@ -687,10 +788,12 @@
 			if (!api || typeof api.post !== 'function') return Promise.reject(new Error('Calendar editing is unavailable.'));
 			if (!capabilities.admin && /^drill_/.test(String(candidate && candidate.eventType || ''))) return Promise.reject(new Error('Drills scheduling requires administrator access.'));
 			set({ busy: true, error: '' });
-			var authorizedCandidate = Object.assign({}, candidate, { audience: capabilities.admin ? (candidate.audience || 'all_students') : '' });
+			var hasAudience = candidate && Object.prototype.hasOwnProperty.call(candidate, 'audience');
+			var authorizedCandidate = Object.assign({}, candidate, { audience: capabilities.admin ? (hasAudience ? candidate.audience : 'all_students') : '' });
 			return api.post('/events', eventPayload(authorizedCandidate)).then(function (saved) {
 				var event = applyFavorites([normalizeEvent(saved && (saved.event || saved), capabilities)])[0];
-				set({ events: mergeEvents(state.events, [event]), busy: false });
+				primaryEvents = mergeEvents(primaryEvents, [event]);
+				set({ events: mergeEvents(primaryEvents, schedulerEvents), busy: false });
 				return event;
 			}).catch(function (error) { set({ busy: false, error: 'The event was not saved. Nothing changed.' }); throw error; });
 		}
@@ -700,7 +803,8 @@
 			set({ busy: true, error: '' });
 			return api.put('/events/' + encodeURIComponent(event.id), eventPayload(event)).then(function (saved) {
 				var normalized = normalizeEvent(saved && (saved.event || saved), capabilities);
-				set({ events: state.events.map(function (item) { return String(item.id) === String(normalized.id) ? normalized : item; }), busy: false });
+				primaryEvents = primaryEvents.map(function (item) { return String(item.id) === String(normalized.id) ? normalized : item; });
+				set({ events: mergeEvents(primaryEvents, schedulerEvents), busy: false });
 				return normalized;
 			}).catch(function (error) { set({ busy: false, error: 'The event was not updated. Nothing changed.' }); throw error; });
 		}
@@ -709,7 +813,8 @@
 			if (!event || !event.writable) return Promise.reject(new Error('This event is read-only.'));
 			set({ busy: true, error: '' });
 			return apiDelete(api, '/events/' + encodeURIComponent(event.id)).then(function () {
-				set({ events: state.events.filter(function (item) { return String(item.id) !== String(event.id); }), busy: false });
+				primaryEvents = primaryEvents.filter(function (item) { return String(item.id) !== String(event.id); });
+				set({ events: mergeEvents(primaryEvents, schedulerEvents), busy: false });
 			}).catch(function (error) { set({ busy: false, error: 'The event was not deleted. Nothing changed.' }); throw error; });
 		}
 
@@ -742,7 +847,8 @@
 		}
 
 		function refreshRecording(event) {
-			if (!event || !event.sourceId) return Promise.reject(new Error('Recording is unavailable.'));
+			if (event && event.replayUrl) return Promise.resolve({ ready: true, event: event });
+			if (!event || event.source !== 'scheduler' || !event.sourceId) return Promise.reject(new Error('Recording is unavailable.'));
 			return schedulerJson('/api/scheduler/appointments/' + encodeURIComponent(event.sourceId) + '/recording', undefined, true).then(function (payload) {
 				var data = payload && (payload.data || payload);
 				var url = safeUrl(data && (data.recording_url || data.playback_url || (data.recording && data.recording.playback_url)));
@@ -757,9 +863,10 @@
 			if (!event || !event.id || !api) return Promise.reject(new Error('Join information is unavailable.'));
 			var request = typeof api.get === 'function' ? api.get('/meetings/' + encodeURIComponent(event.id) + '/join') : api.request('/meetings/' + encodeURIComponent(event.id) + '/join', { method: 'GET' }, {});
 			return request.then(function (payload) {
+				var available = !!(payload && (payload.available || payload.can_join || payload.join_url || payload.meeting_url));
 				return {
-					available: !!(payload && (payload.available || payload.can_join || payload.join_url)),
-					joinUrl: safeUrl(payload && (payload.join_url || payload.url || (payload.join && payload.join.url))),
+					available: available,
+					joinUrl: available ? safeUrl(payload && (payload.meeting_url || payload.join_url || payload.url || (payload.join && payload.join.url))) : '',
 					reason: text(payload && (payload.reason || payload.message || ''))
 				};
 			});
@@ -776,7 +883,9 @@
 			if (!api || typeof api.put !== 'function') return Promise.reject(new Error('Favorites are unavailable.'));
 			return api.put('/calendar/favorites', { favorites: next }).then(function (payload) {
 				var saved = payload && Array.isArray(payload.favorites) ? payload.favorites.map(String) : next;
-				set({ favorites: saved, events: applyFavorites(state.events, saved) });
+				primaryEvents = applyFavorites(primaryEvents, saved);
+				schedulerEvents = applyFavorites(schedulerEvents, saved);
+				set({ favorites: saved, events: mergeEvents(primaryEvents, schedulerEvents) });
 				return saved;
 			});
 		}
@@ -815,6 +924,7 @@
 
 		function destroy() {
 			destroyed = true;
+			if (schedulerRetryTimer) { global.clearTimeout(schedulerRetryTimer); schedulerRetryTimer = 0; }
 			if (rangeAbortController) rangeAbortController.abort();
 			listeners = [];
 		}
@@ -886,6 +996,9 @@
 		combineDateTime: combineDateTime,
 		resizeEnd: resizeEnd,
 		moveEventToDate: moveEventToDate,
+		adjustEventDuration: adjustEventDuration,
+		categoryVisible: categoryVisible,
+		visibleEvents: visibleEvents,
 		icsDate: icsDate,
 		icsDateOnly: icsDateOnly,
 		now: function () { return new Date(); },

@@ -37,19 +37,19 @@
 		var favorites=[];
 		var categories=[
 			{id:'exam_prep',name:'ExamPrep',color:'#24b7ed',sort_order:10,parent_id:'',system:true,owner_scope:'system',admin_only:false},
-			{id:'drill_step1',name:"Dr. J's Drills — Step/Level 1",color:'#35c8f5',sort_order:11,parent_id:'exam_prep',system:true,owner_scope:'system',admin_only:true},
-			{id:'drill_step23',name:"Dr. J's Drills — Step/Level 2 & 3",color:'#7b8cff',sort_order:12,parent_id:'exam_prep',system:true,owner_scope:'system',admin_only:true},
+			{id:'drill_step1',name:"Dr. J's Drills — Step/Level 1",color:'#35c8f5',sort_order:11,parent_id:'exam_prep',event_type:'drill_step1',system:true,owner_scope:'system',admin_only:true},
+			{id:'drill_step23',name:"Dr. J's Drills — Step/Level 2 & 3",color:'#7b8cff',sort_order:12,parent_id:'exam_prep',event_type:'drill_step23',system:true,owner_scope:'system',admin_only:true},
 			{id:'mission_residency',name:'Mission Residency',color:'#efc84f',sort_order:20,parent_id:'',system:true,owner_scope:'system',admin_only:false},
-			{id:'mr_session_a',name:'Session A',color:'#f4d56e',sort_order:21,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
-			{id:'mr_session_b',name:'Session B',color:'#f4d56e',sort_order:22,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
-			{id:'mr_session_c',name:'Session C',color:'#f4d56e',sort_order:23,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
-			{id:'mr_session_d',name:'Session D',color:'#f4d56e',sort_order:24,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
-			{id:'mr_session_e',name:'Session E',color:'#f4d56e',sort_order:25,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
-			{id:'mr_session_f',name:'Session F',color:'#f4d56e',sort_order:26,parent_id:'mission_residency',system:true,owner_scope:'system',admin_only:false},
-			{id:'clinicals',name:'Clinicals',color:'#3ed597',sort_order:30,parent_id:'',system:true,owner_scope:'system',admin_only:false},
-			{id:'nrmp',name:'NRMP',color:'#ff5c7a',sort_order:40,parent_id:'',system:true,owner_scope:'system',admin_only:false},
-			{id:'arena',name:'Arena',color:'#8b5cf6',sort_order:50,parent_id:'',system:true,owner_scope:'system',admin_only:false},
-			{id:'appointments',name:'My Appointments',color:'#56d8f5',sort_order:60,parent_id:'',system:true,owner_scope:'system',admin_only:false}
+			{id:'mr_session_a',name:'Session A',color:'#f4d56e',sort_order:21,parent_id:'mission_residency',event_type:'mr_session',session:'A',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_b',name:'Session B',color:'#f4d56e',sort_order:22,parent_id:'mission_residency',event_type:'mr_session',session:'B',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_c',name:'Session C',color:'#f4d56e',sort_order:23,parent_id:'mission_residency',event_type:'mr_session',session:'C',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_d',name:'Session D',color:'#f4d56e',sort_order:24,parent_id:'mission_residency',event_type:'mr_session',session:'D',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_e',name:'Session E',color:'#f4d56e',sort_order:25,parent_id:'mission_residency',event_type:'mr_session',session:'E',system:true,owner_scope:'system',admin_only:false},
+			{id:'mr_session_f',name:'Session F',color:'#f4d56e',sort_order:26,parent_id:'mission_residency',event_type:'mr_session',session:'F',system:true,owner_scope:'system',admin_only:false},
+			{id:'clinicals',name:'Clinicals',color:'#3ed597',sort_order:30,parent_id:'',event_type:'rotation',system:true,owner_scope:'system',admin_only:false},
+			{id:'nrmp',name:'NRMP',color:'#ff5c7a',sort_order:40,parent_id:'',event_type:'nrmp_date',system:true,owner_scope:'system',admin_only:false},
+			{id:'arena',name:'Arena',color:'#8b5cf6',sort_order:50,parent_id:'',event_type:'arena_event',system:true,owner_scope:'system',admin_only:false},
+			{id:'appointments',name:'My Appointments',color:'#56d8f5',sort_order:60,parent_id:'',source:'scheduler',system:true,owner_scope:'system',admin_only:false}
 		];
 		function response(item){return Promise.resolve(JSON.parse(JSON.stringify(item)));}
 		window.MMED_OS={profile:{is_admin:qaIsAdmin},state:{route:'calendar',profile:{is_admin:qaIsAdmin}},render:{},api:{
@@ -70,9 +70,12 @@
 		window.setTimeout(function(){
 			if(params.get('perspective'))click('[data-perspective="'+params.get('perspective')+'"]');
 			if(params.get('view'))click('[data-view="'+params.get('view')+'"]');
+			if(params.get('sources')==='1')click('[data-toggle-sources]');
+			if(params.get('expand'))click('[data-toggle-collapse="'+params.get('expand')+'"]');
 			if(params.get('drills')==='1')click('[data-toggle-drills]');
 			if(params.get('tier')==='23')click('[data-drill-tab="Step/Level 2/3"]');
 			if(params.get('armed')==='1')click('[data-drill-topic]');
+			if(params.get('new')==='1')click('[data-new-event]');
 			if(params.get('drawer')==='1')click('[data-event-id]');
 			if(params.get('settings')==='1')click('[data-open-settings]');
 			document.body.setAttribute('data-qa-ready','true');
