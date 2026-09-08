@@ -49,7 +49,7 @@ export class SupabaseRestStore {
   }
 
   async studentByMatrixUser(userId) {
-    const rows = await this.request(`student?matrix_user_ref=eq.${encodeURIComponent(userId)}&select=id,matrix_user_ref,display_name,email,joined_at,comp_days_allowance,identity_state&limit=1`);
+    const rows = await this.request(`student?id=eq.${encodeURIComponent(userId)}&select=id,matrix_user_ref,display_name,email,joined_at,comp_days_allowance,identity_state&limit=1`);
     return rows[0] || null;
   }
 

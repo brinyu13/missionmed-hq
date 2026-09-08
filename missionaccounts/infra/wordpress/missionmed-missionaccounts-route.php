@@ -21,6 +21,18 @@ const MMMA_ROUTE_PREFIX = '/missionaccounts';
 const MMMA_MAX_REQUEST_BYTES = 2097152;
 const MMMA_MAX_RESPONSE_BYTES = 4194304;
 
+(function () {
+    $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    $path = (string) parse_url($uri, PHP_URL_PATH);
+    if ($path === '/missionaccounts' || str_starts_with($path, '/missionaccounts/')
+        || str_starts_with($path, '/wp-json/missionmed/v1/missionaccounts/')
+        || str_contains($uri, 'action=missionmed_missionaccounts_bootstrap')) {
+        if (!defined('DONOTCACHEPAGE'))   define('DONOTCACHEPAGE', true);
+        if (!defined('DONOTCACHEOBJECT')) define('DONOTCACHEOBJECT', true);
+        if (!defined('DONOTCDN'))         define('DONOTCDN', true);
+    }
+})();
+
 function mmma_route_enabled() {
     $value = defined('MISSIONACCOUNTS_ROUTE_ENABLED')
         ? MISSIONACCOUNTS_ROUTE_ENABLED
@@ -47,6 +59,15 @@ function mmma_upstream_origin() {
         return '';
     }
     return $value;
+}
+
+function mmma_route_open() {
+    $value = defined('MISSIONACCOUNTS_ROUTE_OPEN')
+        ? MISSIONACCOUNTS_ROUTE_OPEN
+        : getenv('MISSIONACCOUNTS_ROUTE_OPEN');
+    return $value === true
+        || $value === 1
+        || in_array(strtolower(trim((string) $value)), array('1', 'true', 'yes', 'on'), true);
 }
 
 function mmma_request_path() {
@@ -89,6 +110,9 @@ function mmma_private_headers() {
     header('Vary: Authorization, Cookie', true);
     header('Pragma: no-cache', true);
     header('X-Accel-Expires: 0', true);
+    header('Surrogate-Control: no-store', true);
+    header('CDN-Cache-Control: no-store', true);
+    header('Cloudflare-CDN-Cache-Control: no-store', true);
     header('X-Robots-Tag: noindex, nofollow', true);
 }
 
@@ -174,11 +198,7 @@ function mmma_emit_response($response, $method, $upstream_path) {
 }
 
 function mmma_proxy_request() {
-    // MX-MISSIONACCOUNTS-5400A-CONT: deny this gateway until the provider
-    // cache exclusion and full cross-user acceptance matrix are verified.
-    // This must precede the feature flag; disabling it must not fall through
-    // to another WordPress handler. Direct Railway remains isolated/available.
-    if (mmma_is_route_request()) {
+    if (mmma_is_route_request() && !mmma_route_open()) {
         mmma_json_error(503, 'missionaccounts_temporarily_unavailable',
             'MissionAccounts is temporarily unavailable while access protection is verified.');
     }

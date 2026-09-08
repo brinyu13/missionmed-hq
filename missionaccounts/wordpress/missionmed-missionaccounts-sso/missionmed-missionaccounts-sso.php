@@ -114,19 +114,25 @@ function mma_access_state($user) {
     if (empty($settings['missionaccounts_enabled'])) {
         return new WP_Error('missionaccounts_disabled', 'MissionAccounts is not enabled for this pilot.', array('status' => 403));
     }
-    if (!mma_user_is_allowlisted($user, $settings)) {
+    $is_admin = user_can($user, 'manage_options');
+    $is_allowlisted = mma_user_is_allowlisted($user, $settings);
+    $has_product_id = mma_product_user_id((int) $user->ID) !== '';
+    if (!$is_admin && !$is_allowlisted && !$has_product_id) {
         return new WP_Error('user_not_enabled', 'MissionAccounts is not enabled for this account.', array('status' => 403));
     }
     $role = mma_role_for_user($user, $settings);
     if (!in_array($role, array('student', 'missionaccounts_admin', 'founder'), true)) {
         return new WP_Error('role_not_enabled', 'MissionAccounts is not enabled for this account role.', array('status' => 403));
     }
+    $source = $is_admin ? 'wordpress_admin'
+        : ($is_allowlisted ? 'wordpress_exact_user_pilot_allowlist'
+        : 'missionaccounts_provisioned_user');
     $entitlement = apply_filters('missionmed_missionaccounts_entitlement', array(
         'trusted' => true,
         'verified' => true,
         'active' => true,
         'status' => 'active',
-        'source' => 'wordpress_exact_user_pilot_allowlist',
+        'source' => $source,
     ), $user, $role);
     if (!is_array($entitlement)
         || empty($entitlement['trusted'])
@@ -244,6 +250,9 @@ function mma_no_store($response) {
         $response->header('Pragma', 'no-cache');
         $response->header('Vary', 'Authorization, Cookie');
         $response->header('X-Accel-Expires', '0');
+        $response->header('Surrogate-Control', 'no-store');
+        $response->header('CDN-Cache-Control', 'no-store');
+        $response->header('Cloudflare-CDN-Cache-Control', 'no-store');
     }
     return $response;
 }
@@ -320,6 +329,9 @@ function mma_ajax_bootstrap() {
         header('Pragma: no-cache', true);
         header('Vary: Authorization, Cookie', true);
         header('X-Accel-Expires: 0', true);
+        header('Surrogate-Control: no-store', true);
+        header('CDN-Cache-Control: no-store', true);
+        header('Cloudflare-CDN-Cache-Control: no-store', true);
     }
     $return_to = isset($_GET['return_to']) ? wp_unslash($_GET['return_to']) : '';
     if (!is_user_logged_in()) {
@@ -418,3 +430,20 @@ function mma_enqueue_matrix_launch_adapter() {
     )) . ';', 'before');
 }
 add_action('wp_enqueue_scripts', 'mma_enqueue_matrix_launch_adapter', 30);
+
+function mma_inject_matrix_module() {
+    if (!mma_is_matrix_request() || !mma_user_can_enter()) {
+        return;
+    }
+    $settings = mma_settings();
+    $module = array(
+        'id' => 'missionaccounts',
+        'route' => 'missionaccounts',
+        'label' => 'MissionAccounts',
+        'icon' => 'MA',
+        'section' => 'Account',
+        'launch_url' => home_url($settings['base_path']),
+    );
+    echo '<script>(function(){var o=window.MMED_OS;if(o&&Array.isArray(o.modules)&&!o.modules.some(function(m){return m.id==="missionaccounts"})){o.modules.push(' . wp_json_encode($module) . ');}})();</script>' . "\n";
+}
+add_action('wp_footer', 'mma_inject_matrix_module', 5);
