@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "ticket": "D9-MATRIX-PLAN-415",
+  "scope": "origin/main...D9-415E changed files",
+  "result": "PASS_NO_NEW_UNREVIEWED_HIGH_CONFIDENCE_OR_PRIVATE_DATA_CANDIDATES",
+  "scanned_file_count": 211,
+  "scanned_byte_count": 11553364,
+  "binary_file_count": 11,
+  "forbidden_filename_candidate_count": 10,
+  "high_confidence_candidate_count": 1,
+  "credential_literal_candidate_count": 2,
+  "entropy_candidate_count": 223,
+  "email_literal_candidate_count": 33,
+  "private_data_literal_candidate_count": 1,
+  "reviewed_candidate_groups": [
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/mmed-webex-widget-adapter.js",
+      "class": "PKCS8_VALIDATION_MARKER_AND_PRIVATE_KEY_SCHEMA_LABELS",
+      "disposition": "FALSE_POSITIVE_NO_KEY_BODY_OR_VALUE"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/includes/class-mmed-notifications.php",
+      "class": "USER_EMAIL_FALLBACK_EXPRESSION",
+      "disposition": "SOURCE_EXPRESSION_NOT_EMBEDDED_PRIVATE_DATA"
+    }
+  ],
+  "matched_values_emitted": false
+}

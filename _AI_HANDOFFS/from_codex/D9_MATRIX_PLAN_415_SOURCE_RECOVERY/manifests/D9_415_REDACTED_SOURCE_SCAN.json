@@ -1,0 +1,433 @@
+{
+  "binary_file_count": 11,
+  "credential_literal_candidates": [
+    {
+      "identifier": "privateKey",
+      "length": 10,
+      "line": 2,
+      "path": "plugins/missionmed-hub/assets/mmed-webex-widget-adapter.js",
+      "placeholder_like": false,
+      "sha256": "f5b38ccd9dc77221f08eabf46be84cb3b72b2753eda52ae2916f8e9b00b11162"
+    },
+    {
+      "identifier": "privateKey",
+      "length": 10,
+      "line": 2,
+      "path": "plugins/missionmed-hub/assets/mmed-webex-widget-adapter.js",
+      "placeholder_like": false,
+      "sha256": "f5b38ccd9dc77221f08eabf46be84cb3b72b2753eda52ae2916f8e9b00b11162"
+    }
+  ],
+  "email_literal_candidates": [
+    {
+      "length": 31,
+      "line": 80,
+      "path": "plugins/missionmed-hub/CHANGELOG.md",
+      "role_address": true,
+      "sha256": "a2aebe032221549108c40250c2c81eea17291f2e1be9873a677cc48735ad42a7"
+    },
+    {
+      "length": 19,
+      "line": 1556,
+      "path": "plugins/missionmed-hub/assets/admin-os.js",
+      "role_address": false,
+      "sha256": "616bb35d31d0a6840d2d5adfeacde5979ea99a18ab5fa7bb633460029e20717e"
+    },
+    {
+      "length": 15,
+      "line": 2257,
+      "path": "plugins/missionmed-hub/assets/admin-sources/scheduler-admin-source.html",
+      "role_address": false,
+      "sha256": "af3c82544f648b38dc7d403473bb4b957cd04353afd9096fa871c1e469656c8c"
+    },
+    {
+      "length": 15,
+      "line": 1333,
+      "path": "plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-autojoin.js",
+      "role_address": false,
+      "sha256": "53e6cdc30765aade0129f85e5aeb50124b1d3f5bb9a70373be31e4eb328371e0"
+    },
+    {
+      "length": 15,
+      "line": 1349,
+      "path": "plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-autojoin.js",
+      "role_address": false,
+      "sha256": "53e6cdc30765aade0129f85e5aeb50124b1d3f5bb9a70373be31e4eb328371e0"
+    },
+    {
+      "length": 15,
+      "line": 1231,
+      "path": "plugins/missionmed-hub/assets/daily-drills-team-challenge-v3.js",
+      "role_address": false,
+      "sha256": "53e6cdc30765aade0129f85e5aeb50124b1d3f5bb9a70373be31e4eb328371e0"
+    },
+    {
+      "length": 15,
+      "line": 1247,
+      "path": "plugins/missionmed-hub/assets/daily-drills-team-challenge-v3.js",
+      "role_address": false,
+      "sha256": "53e6cdc30765aade0129f85e5aeb50124b1d3f5bb9a70373be31e4eb328371e0"
+    },
+    {
+      "length": 15,
+      "line": 657,
+      "path": "plugins/missionmed-hub/assets/daily-drills-team-challenge.js",
+      "role_address": false,
+      "sha256": "53e6cdc30765aade0129f85e5aeb50124b1d3f5bb9a70373be31e4eb328371e0"
+    },
+    {
+      "length": 18,
+      "line": 3865,
+      "path": "plugins/missionmed-hub/assets/student-os.646e3598d284fff3.js",
+      "role_address": false,
+      "sha256": "a5475d8b1e8fffd4572e3fee68e756ebbf20ac6686d88f15a20f78f20ea1c463"
+    },
+    {
+      "length": 33,
+      "line": 5472,
+      "path": "plugins/missionmed-hub/assets/student-os.646e3598d284fff3.js",
+      "role_address": false,
+      "sha256": "5cbbbf467f028c83a24b160b53ac4c76d1e95d9f087f91b7ef2a497cae9ec035"
+    },
+    {
+      "length": 28,
+      "line": 5474,
+      "path": "plugins/missionmed-hub/assets/student-os.646e3598d284fff3.js",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 18,
+      "line": 3865,
+      "path": "plugins/missionmed-hub/assets/student-os.js",
+      "role_address": false,
+      "sha256": "a5475d8b1e8fffd4572e3fee68e756ebbf20ac6686d88f15a20f78f20ea1c463"
+    },
+    {
+      "length": 33,
+      "line": 5472,
+      "path": "plugins/missionmed-hub/assets/student-os.js",
+      "role_address": false,
+      "sha256": "5cbbbf467f028c83a24b160b53ac4c76d1e95d9f087f91b7ef2a497cae9ec035"
+    },
+    {
+      "length": 28,
+      "line": 5474,
+      "path": "plugins/missionmed-hub/assets/student-os.js",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 971,
+      "path": "plugins/missionmed-hub/includes/class-mmed-hub-page.php",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 988,
+      "path": "plugins/missionmed-hub/includes/class-mmed-hub-page.php",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 33,
+      "line": 1005,
+      "path": "plugins/missionmed-hub/includes/class-mmed-hub-page.php",
+      "role_address": false,
+      "sha256": "5cbbbf467f028c83a24b160b53ac4c76d1e95d9f087f91b7ef2a497cae9ec035"
+    },
+    {
+      "length": 31,
+      "line": 18,
+      "path": "plugins/missionmed-hub/includes/class-mmed-notifications.php",
+      "role_address": true,
+      "sha256": "a2aebe032221549108c40250c2c81eea17291f2e1be9873a677cc48735ad42a7"
+    },
+    {
+      "length": 28,
+      "line": 427,
+      "path": "plugins/missionmed-hub/includes/class-mmed-welcome-email-admin.php",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 428,
+      "path": "plugins/missionmed-hub/includes/class-mmed-welcome-email-admin.php",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 505,
+      "path": "plugins/missionmed-hub/includes/class-mmed-welcome-email-admin.php",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 558,
+      "path": "plugins/missionmed-hub/includes/class-mmed-welcome-email-admin.php",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 609,
+      "path": "plugins/missionmed-hub/includes/class-mmed-welcome-email-admin.php",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 935,
+      "path": "plugins/missionmed-hub/includes/class-mmed-welcome-email-admin.php",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 69,
+      "path": "plugins/missionmed-hub/missionmed-hub.php",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 33,
+      "line": 70,
+      "path": "plugins/missionmed-hub/missionmed-hub.php",
+      "role_address": false,
+      "sha256": "5cbbbf467f028c83a24b160b53ac4c76d1e95d9f087f91b7ef2a497cae9ec035"
+    },
+    {
+      "length": 28,
+      "line": 71,
+      "path": "plugins/missionmed-hub/missionmed-hub.php",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 583,
+      "path": "plugins/missionmed-hub/templates/emails/welcome-360.html",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 583,
+      "path": "plugins/missionmed-hub/templates/emails/welcome-360.html",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 609,
+      "path": "plugins/missionmed-hub/templates/emails/welcome-360.html",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 609,
+      "path": "plugins/missionmed-hub/templates/emails/welcome-360.html",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 200,
+      "path": "plugins/missionmed-hub/templates/emails/welcome-drj-drills.html",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    },
+    {
+      "length": 28,
+      "line": 200,
+      "path": "plugins/missionmed-hub/templates/emails/welcome-drj-drills.html",
+      "role_address": true,
+      "sha256": "b1eb65ecda2be1431ed79e7fcb2a94e332c7f21e156923afb6a02bcaa52b3b86"
+    }
+  ],
+  "entropy_review_candidates": [
+    {
+      "entropy": 4.42,
+      "length": 90,
+      "line": 649,
+      "path": "mu-plugins/missionmed-performance-boost.php",
+      "sha256": "6931085aae8a09ab4d7783df3d3cd82005b0a2ac6bad3d8cfa63641436412bba"
+    },
+    {
+      "entropy": 4.413,
+      "length": 95,
+      "line": 650,
+      "path": "mu-plugins/missionmed-performance-boost.php",
+      "sha256": "62e9b28e40b749c8d39c431eba65e74da5ccd4927bda7682e3e39f562aa53921"
+    },
+    {
+      "entropy": 4.443,
+      "length": 94,
+      "line": 651,
+      "path": "mu-plugins/missionmed-performance-boost.php",
+      "sha256": "a55346c32267c54b6c61f2f7efcdf2add6b6f4b3240139ab757d1e8d82f89a8e"
+    },
+    {
+      "entropy": 4.435,
+      "length": 88,
+      "line": 652,
+      "path": "mu-plugins/missionmed-performance-boost.php",
+      "sha256": "a3993cfdc74323d50bdfd02cb0f9aaf2e40558772f4ea7c636e8ac92dce9e4fe"
+    },
+    {
+      "entropy": 4.418,
+      "length": 104,
+      "line": 653,
+      "path": "mu-plugins/missionmed-performance-boost.php",
+      "sha256": "ce001c4c656a4462742b6af77fca2c6221e4d1a5dfe4b9fd776a55e9d8398bcc"
+    },
+    {
+      "entropy": 4.37,
+      "length": 85,
+      "line": 654,
+      "path": "mu-plugins/missionmed-performance-boost.php",
+      "sha256": "fd88796c55783938fdc4a3d3dd704d6d71dba9c46fb49c9777b1d6b08a913a47"
+    },
+    {
+      "entropy": 4.435,
+      "length": 97,
+      "line": 655,
+      "path": "mu-plugins/missionmed-performance-boost.php",
+      "sha256": "784f7c6e438b4960c8f7aeea8179f38cf8eaf76b155385fd770a06669918d568"
+    },
+    {
+      "entropy": 4.397,
+      "length": 84,
+      "line": 656,
+      "path": "mu-plugins/missionmed-performance-boost.php",
+      "sha256": "a79a732dbb76b65e32a0a0838718eef3f07192593a38eb2331bdadb00ea6924a"
+    },
+    {
+      "entropy": 4.604,
+      "length": 52,
+      "line": 1065,
+      "path": "mu-plugins/missionmed-performance-boost.php",
+      "sha256": "e61492d1fc88217bda2f23f92deb4bc34057970e0886ae9c78a679e7761145c8"
+    },
+    {
+      "entropy": 4.421,
+      "length": 50,
+      "line": 1068,
+      "path": "mu-plugins/missionmed-performance-boost.php",
+      "sha256": "19e14c566da2ea1bf1779224abc3d62f0ad9ff11293cdc8000c09ad9624e249f"
+    },
+    {
+      "entropy": 4.35,
+      "length": 89,
+      "line": 48,
+      "path": "plugins/missionmed-hub/assets/admin-os.js",
+      "sha256": "fb95a5918dd7be9cd73da2c0cdbf600c1370bfbfda24a06ada5253cc3520fc5a"
+    },
+    {
+      "entropy": 4.414,
+      "length": 103,
+      "line": 49,
+      "path": "plugins/missionmed-hub/assets/admin-os.js",
+      "sha256": "fc1651db5b36b7ba0dcdb83d5aad849ba82d21e41bcdd6eeab4f0a5413ea2b8d"
+    },
+    {
+      "entropy": 4.485,
+      "length": 69,
+      "line": 167,
+      "path": "plugins/missionmed-hub/assets/admin-os.js",
+      "sha256": "9e2ac6957591bc5932446829c06b1e895b76af858966c7fbe633a85f0119ffba"
+    },
+    {
+      "entropy": 4.264,
+      "length": 85,
+      "line": 2,
+      "path": "plugins/missionmed-hub/assets/mmed-webex-widget-adapter.js",
+      "sha256": "99f7bacf65f3e097283fb27f0f46b9149606814358f34d7cd2975d5898484d6a"
+    },
+    {
+      "entropy": 4.285,
+      "length": 31,
+      "line": 587,
+      "path": "plugins/missionmed-hub/assets/scheduler-mount.js",
+      "sha256": "bc6e15aa49eca85709b96362c84cd7a87cf5a18f3d9014bd61c9d6e8d3a31c31"
+    },
+    {
+      "entropy": 4.38,
+      "length": 54,
+      "line": 5600,
+      "path": "plugins/missionmed-hub/assets/student-os.646e3598d284fff3.js",
+      "sha256": "a84c9f2168492e8863c60e3f25866a712db4fee7744115e661032223810a9970"
+    },
+    {
+      "entropy": 4.38,
+      "length": 54,
+      "line": 5600,
+      "path": "plugins/missionmed-hub/assets/student-os.js",
+      "sha256": "a84c9f2168492e8863c60e3f25866a712db4fee7744115e661032223810a9970"
+    },
+    {
+      "entropy": 4.601,
+      "length": 41,
+      "line": 95,
+      "path": "plugins/missionmed-hub/includes/video-resolver.php",
+      "sha256": "a21af2ab3e1bd52cf9104e2a2261c162d04442445653ef4c3b4c1ca93c3dadcd"
+    }
+  ],
+  "forbidden_filename_candidates": [
+    {
+      "path": "mu-plugins/missionmed-supabase-session-cookie-auth.php"
+    },
+    {
+      "path": "plugins/missionmed-hub/assets/admin-session-manager.css"
+    },
+    {
+      "path": "plugins/missionmed-hub/assets/admin-session-manager.js"
+    },
+    {
+      "path": "plugins/missionmed-hub/assets/student-os-live-session.css"
+    },
+    {
+      "path": "plugins/missionmed-hub/assets/student-os-live-session.js"
+    },
+    {
+      "path": "plugins/missionmed-hub/includes/class-mmed-session-analytics.php"
+    },
+    {
+      "path": "plugins/missionmed-hub/includes/class-mmed-session-chat.php"
+    },
+    {
+      "path": "plugins/missionmed-hub/includes/class-mmed-session-manager.php"
+    },
+    {
+      "path": "plugins/missionmed-hub/includes/class-mmed-session-reminders.php"
+    }
+  ],
+  "high_confidence_candidates": [
+    {
+      "length": 27,
+      "line": 2,
+      "path": "plugins/missionmed-hub/assets/mmed-webex-widget-adapter.js",
+      "rule": "private_key_marker",
+      "sha256": "3021d90eb9437b2d8f30e8363695c4418b5e5f1870801b5c317e9398ee0f572d"
+    }
+  ],
+  "private_data_literal_candidates": [
+    {
+      "identifier": "user_email",
+      "length": 3,
+      "line": 129,
+      "path": "plugins/missionmed-hub/includes/class-mmed-notifications.php",
+      "sha256": "e2f79e5b60330bba4c289962231b6ba2957d0b14e7deb3110417003c79dea635"
+    }
+  ],
+  "root": "sealed_forensic_snapshot/wp-content",
+  "scanned_byte_count": 10590108,
+  "scanned_file_count": 135,
+  "schema_version": "1.0"
+}

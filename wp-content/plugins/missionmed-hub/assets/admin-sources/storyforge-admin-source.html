@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StoryForge | MissionMed Matrix</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* === MATRIX DESIGN TOKENS (from student-os.css) === */
+:root{
+  --navy:#061727;
+  --navy2:#09243d;
+  --navy3:#0e3559;
+  --blue:#0e75a8;
+  --blue2:#17a3cf;
+  --gold:#d9b85b;
+  --gold2:#f3d576;
+  --paper:#f7f2e5;
+  --orange:#f06b2f;
+  --orange2:#ff8a37;
+  --green:#36c071;
+  --green2:#2ea85f;
+  --red:#d95c5c;
+  --matrix-heading:"Space Grotesk","Poppins",sans-serif;
+  --matrix-body:"Poppins",sans-serif;
+  --sidebar-w:252px;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--navy);color:#fff;font-family:var(--matrix-body);line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:0;color:inherit;background:none;outline:none}
+input,textarea,select{font-family:inherit;outline:none}
+a{color:inherit;text-decoration:none}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+
+/* === MATRIX SHELL (mirroring student-os-shell.php + student-os.css) === */
+.sos-shell{display:flex;width:100%;height:100vh}
+
+/* Sidebar */
+.sos-sidebar{position:fixed;top:0;left:0;bottom:0;z-index:20;display:flex;flex-direction:column;width:var(--sidebar-w);padding:24px 0;overflow-y:auto;background:linear-gradient(180deg,#040e1a 0%,#07192d 100%);border-right:1px solid rgba(255,255,255,.08);box-shadow:16px 0 48px rgba(0,0,0,.26)}
+.sos-brand{display:flex;gap:12px;align-items:center;padding:0 20px;margin-bottom:28px}
+.sos-brand-mark{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold2));box-shadow:0 4px 20px rgba(217,184,91,.35);color:var(--navy);font-family:var(--matrix-heading);font-size:15px;font-weight:700}
+.sos-brand-title{color:#fff;font-family:var(--matrix-heading);font-size:15px;font-weight:700;line-height:1.1}
+.sos-brand-title small{display:block;margin-top:3px;color:rgba(255,255,255,.45);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
+
+/* Nav */
+.sos-nav-section{margin-bottom:22px}
+.sos-nav-label{padding:0 20px;margin-bottom:8px;color:rgba(255,255,255,.32);font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.sos-nav-list{display:grid;gap:2px;list-style:none}
+.sos-nav-link{display:flex;align-items:center;gap:10px;width:100%;padding:10px 20px;border-left:3px solid transparent;background:transparent;color:rgba(255,255,255,.74);font-size:13px;font-weight:600;text-align:left;transition:background .2s,color .2s,border-color .2s;min-height:44px}
+.sos-nav-link:hover{background:rgba(255,255,255,.06);color:#fff}
+.sos-nav-link.is-active{background:rgba(217,184,91,.1);border-left-color:var(--gold);color:var(--gold2)}
+.sos-nav-icon{display:grid;place-items:center;width:22px;height:22px;flex:0 0 22px;border-radius:50%;background:rgba(255,255,255,.06);color:rgba(255,255,255,.76);font-family:var(--matrix-heading);font-size:10px;font-weight:800}
+.sos-nav-link.is-active .sos-nav-icon{background:rgba(217,184,91,.18);color:var(--gold2)}
+.sos-nav-badge{margin-left:auto;padding:2px 7px;border-radius:999px;background:var(--orange);color:#fff;font-size:10px;font-weight:700}
+
+/* User */
+.sos-sidebar-footer{padding:14px 20px 0;margin-top:auto;border-top:1px solid rgba(255,255,255,.06)}
+.sos-user{display:flex;align-items:center;gap:10px;min-width:0}
+.sos-user-avatar{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;overflow:hidden;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;font-size:12px;font-weight:800}
+.sos-user-name{overflow:hidden;color:#fff;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.sos-user-role{overflow:hidden;color:rgba(255,255,255,.42);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+
+/* Main area */
+.sos-main{position:relative;flex:1;min-height:100vh;margin-left:var(--sidebar-w);overflow:hidden}
+
+/* Aurora BG */
+.sos-bg-layer{position:fixed;top:0;right:0;bottom:0;left:var(--sidebar-w);z-index:0;overflow:hidden;contain:paint;pointer-events:none;background:linear-gradient(180deg,#0a2540 0%,#0e3a5c 30%,#0b3050 70%,#071e35 100%)}
+.sos-bg-layer::before{content:'';position:absolute;inset:0;z-index:2;background:linear-gradient(90deg,transparent,rgba(255,255,255,.025),transparent);background-size:200% 100%;animation:sos-shimmer 3s ease-in-out infinite}
+.sos-bg-layer::after{content:'';position:absolute;inset:0;z-index:2;background:radial-gradient(ellipse at 48% 38%,rgba(14,117,168,.12),transparent 58%),linear-gradient(180deg,rgba(6,23,39,0) 0%,rgba(6,23,39,.44) 100%);animation:sos-glow-pulse 6s ease-in-out infinite alternate}
+@keyframes sos-shimmer{0%,100%{background-position:200% 0}50%{background-position:0 0}}
+@keyframes sos-glow-pulse{0%{opacity:.8}100%{opacity:1}}
+.sos-bg{position:absolute;inset:-8% -10%;z-index:1;transform-origin:50% 10%}
+.sos-bg-a{background:linear-gradient(170deg,transparent 10%,rgba(54,192,113,.18) 25%,rgba(0,229,255,.15) 40%,transparent 55%);filter:blur(25px);animation:sos-aurora-a 5s ease-in-out infinite alternate}
+.sos-bg-b{background:linear-gradient(160deg,transparent 30%,rgba(168,85,247,.14) 42%,rgba(0,229,255,.12) 54%,transparent 68%);filter:blur(35px);animation:sos-aurora-b 7s ease-in-out infinite alternate}
+.sos-bg-c{background:linear-gradient(175deg,transparent 5%,rgba(54,192,113,.12) 18%,rgba(217,184,91,.1) 32%,transparent 48%);filter:blur(40px);animation:sos-aurora-c 9s ease-in-out infinite alternate}
+@keyframes sos-aurora-a{0%{transform:scale(1) translateY(0)}100%{transform:scale(1.04) translateY(-2%)}}
+@keyframes sos-aurora-b{0%{transform:scale(1.02) translateX(0)}100%{transform:scale(0.98) translateX(1.5%)}}
+@keyframes sos-aurora-c{0%{transform:scale(1) rotate(0)}100%{transform:scale(1.03) rotate(0.5deg)}}
+
+/* Content */
+.sos-content{position:relative;z-index:3;min-height:100vh;padding:34px 38px 62px}
+
+/* === MATRIX SHARED COMPONENTS === */
+
+/* Page header */
+.sos-page-header{max-width:760px;margin-bottom:28px}
+.sos-eyebrow{display:inline-flex;align-items:center;padding:5px 14px;margin-bottom:12px;border-radius:999px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.sos-page-title{margin-bottom:8px;color:#fff;font-family:var(--matrix-heading);font-size:42px;font-weight:700;line-height:1.12}
+.sos-page-copy{max-width:620px;color:rgba(255,255,255,.62);font-size:14px}
+
+/* Card */
+.sos-card{position:relative;overflow:hidden;border:1px solid rgba(23,163,207,.12);border-radius:8px;background:linear-gradient(180deg,#0d3a56 0%,#082a3f 100%);box-shadow:0 4px 8px rgba(0,0,0,.3),0 16px 48px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.05),inset 0 -3px 6px rgba(0,0,0,.2);transition:transform .3s,box-shadow .3s,border-color .3s}
+.sos-card:hover{border-color:rgba(23,163,207,.22);box-shadow:0 8px 16px rgba(0,0,0,.35),0 24px 64px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.08);transform:translateY(-3px)}
+.sos-card-pad{padding:22px}
+.sos-card-static{transition:none}.sos-card-static:hover{transform:none}
+
+/* Stat */
+.sos-stat{display:grid;min-height:126px;place-items:center;padding:20px;text-align:center}
+.sos-stat-value{display:block;color:var(--gold2);font-family:var(--matrix-heading);font-size:32px;font-weight:700;line-height:1}
+.sos-stat-label{display:block;margin-top:8px;color:rgba(255,255,255,.48);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+
+/* Panel title (blue dot + label) */
+.sos-panel-title{display:flex;gap:8px;align-items:center;margin-bottom:10px;color:var(--blue2);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.sos-panel-title::before{content:'';display:block;width:7px;height:7px;border-radius:50%;background:var(--blue2);box-shadow:0 0 6px var(--blue2)}
+.sos-panel-heading{margin-bottom:8px;color:#fff;font-family:var(--matrix-heading);font-size:18px;font-weight:700}
+.sos-panel-copy{color:rgba(255,255,255,.56);font-size:13px}
+
+/* Progress bar */
+.sos-progress{height:12px;margin-top:7px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.08);box-shadow:inset 0 2px 6px rgba(0,0,0,.38)}
+.sos-progress-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--green),var(--green2),rgba(243,213,118,.92));box-shadow:0 0 16px rgba(54,192,113,.45);transition:width .6s ease}
+
+/* Tabs (pill style) */
+.sos-tabs{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:22px}
+.sos-tab{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:8px 18px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.02)),rgba(6,23,39,.5);box-shadow:0 7px 18px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.12);color:rgba(255,255,255,.78);font-size:12px;font-weight:800;transition:transform .24s,box-shadow .24s,background .24s}
+.sos-tab:hover,.sos-tab.is-active{background:linear-gradient(135deg,var(--gold),var(--gold2));box-shadow:0 12px 28px rgba(0,0,0,.3),0 0 22px rgba(217,184,91,.22);color:var(--navy);transform:translateY(-2px)}
+.sos-tab .tab-badge{margin-left:6px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700}
+.sos-tab.is-active .tab-badge{background:rgba(6,23,39,.2);color:var(--navy)}
+.sos-tab:not(.is-active) .tab-badge{background:rgba(255,255,255,.12);color:rgba(255,255,255,.6)}
+
+/* Button (Matrix sos-btn) */
+.sos-btn{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:12px 18px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.02)),linear-gradient(180deg,#0f4668,#082a40);box-shadow:0 8px 18px rgba(0,0,0,.32),0 20px 50px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.16),inset 0 -4px 8px rgba(0,0,0,.25);color:#fff;font-size:14px;font-weight:800;transition:transform .24s,box-shadow .24s,border-color .24s,filter .24s}
+.sos-btn:hover{border-color:rgba(23,163,207,.5);box-shadow:0 12px 24px rgba(0,0,0,.38),0 28px 70px rgba(0,0,0,.32),0 0 22px rgba(23,163,207,.16),inset 0 1px 0 rgba(255,255,255,.22);transform:translateY(-2px) scale(1.015)}
+.sos-btn-primary{border-color:rgba(192,120,24,.5);background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0)),linear-gradient(135deg,#a06c14,#c89420,#daa830);box-shadow:0 12px 28px rgba(0,0,0,.38),0 0 34px rgba(180,120,20,.25),inset 0 1px 0 rgba(255,255,255,.28),inset 0 -5px 12px rgba(80,50,0,.3);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.sos-btn-sm{min-height:36px;padding:8px 14px;font-size:12px;font-weight:700;border-radius:8px}
+.sos-btn-ghost{background:rgba(255,255,255,.04);box-shadow:0 4px 10px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.06)}
+
+/* Grid */
+.sos-grid{display:grid;gap:18px}
+.sos-grid-stats{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:28px}
+.sos-grid-two{grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);align-items:start}
+
+/* Tracker board */
+.sos-tracker-board{padding:20px;margin-bottom:28px;border:1px solid rgba(255,255,255,.22);border-radius:8px;background:linear-gradient(180deg,#0b78a8,#0a5687);box-shadow:inset 0 0 0 2px rgba(255,255,255,.08),0 26px 80px rgba(0,0,0,.34)}
+
+/* Segment bar */
+.sos-segment-bar{display:grid;overflow:hidden;border:3px solid rgba(255,255,255,.72);border-radius:999px;background:#637689;filter:drop-shadow(0 8px 14px rgba(0,0,0,.34))}
+.sos-segment{position:relative;display:grid;min-height:52px;place-items:center;background:linear-gradient(180deg,#8ca0b2,#5d7285);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%);color:rgba(255,255,255,.55);font-family:var(--matrix-heading);font-size:18px;font-weight:800}
+.sos-segment:first-child{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%)}
+.sos-segment:last-child{clip-path:polygon(0 0,100% 0,100% 100%,0 100%,12px 50%)}
+.sos-segment.is-complete{background:linear-gradient(180deg,#31c46f,#159a56);color:#fff}
+.sos-segment.is-active{background:linear-gradient(180deg,var(--orange2),var(--orange));color:#fff;animation:sos-tracker-pulse 1.08s ease-in-out infinite}
+@keyframes sos-tracker-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+
+/* Notice */
+.sos-notice{padding:18px;border:1px solid rgba(243,213,118,.32);border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.03)),rgba(217,184,91,.12);box-shadow:0 12px 30px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.16);color:var(--gold2);font-size:13px;font-weight:800}
+
+/* Empty */
+.sos-empty{padding:22px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:rgba(9,36,61,.45);color:rgba(255,255,255,.66);font-size:13px}
+
+/* === STORYFORGE MODULE STYLES === */
+
+/* Module sub-tabs (inside sos-tabs wrapper) */
+.sf-tab-badge-orange{background:rgba(240,107,47,.2);color:var(--orange2)}
+.sf-tab-badge-green{background:rgba(54,192,113,.2);color:var(--green)}
+
+/* Three-column layout */
+.sf-layout{display:grid;gap:18px;margin-top:4px}
+.sf-layout-lib{grid-template-columns:340px minmax(0,1fr) 300px;align-items:start}
+.sf-layout-two{grid-template-columns:260px minmax(0,1fr);align-items:start}
+.sf-layout-three{grid-template-columns:220px minmax(0,1fr) 280px;align-items:start}
+
+/* Story stack (left panel) */
+.sf-stack-card{max-height:calc(100vh - 290px);overflow-y:auto}
+.sf-stack-controls{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.sf-stack-search{flex:1;position:relative}
+.sf-stack-search input{width:100%;padding:10px 14px 10px 36px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02)),rgba(6,23,39,.5);box-shadow:inset 0 2px 4px rgba(0,0,0,.2);color:#fff;font-size:12px;font-weight:600}
+.sf-stack-search input::placeholder{color:rgba(255,255,255,.35)}
+.sf-stack-search::before{content:"\1F50D";position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.35}
+
+/* Sort pills */
+.sf-sort-pills{display:flex;gap:4px}
+.sf-pill{padding:6px 10px;font-size:10px;font-weight:700;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:rgba(6,23,39,.5);color:rgba(255,255,255,.6);letter-spacing:.02em;transition:all .2s}
+.sf-pill:hover,.sf-pill.is-active{background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);box-shadow:0 4px 12px rgba(217,184,91,.2);border-color:transparent}
+
+/* Story item */
+.sf-story{display:flex;gap:12px;padding:14px 16px;margin-bottom:6px;border:1px solid rgba(255,255,255,.06);border-radius:8px;background:linear-gradient(180deg,rgba(13,58,86,.4),rgba(8,42,63,.5));cursor:pointer;transition:all .25s}
+.sf-story:hover{border-color:rgba(23,163,207,.18);background:linear-gradient(180deg,rgba(13,58,86,.6),rgba(8,42,63,.7));transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.sf-story.is-selected{border-color:rgba(217,184,91,.35);background:linear-gradient(135deg,rgba(217,184,91,.08),rgba(13,58,86,.5));box-shadow:0 0 20px rgba(217,184,91,.1)}
+.sf-story.is-gold{border-left:3px solid var(--gold)}
+
+.sf-rank{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0}
+.sf-rank-num{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:800;background:rgba(255,255,255,.06);color:rgba(255,255,255,.5)}
+.sf-rank-num.top{background:rgba(217,184,91,.15);color:var(--gold2)}
+
+/* Score orb */
+.sf-orb{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:800;flex-shrink:0;border:2px solid rgba(255,255,255,.1)}
+.sf-orb-gold{border-color:rgba(217,184,91,.4);color:var(--gold2);background:rgba(217,184,91,.12);box-shadow:0 0 16px rgba(217,184,91,.15)}
+.sf-orb-good{border-color:rgba(54,192,113,.3);color:var(--green);background:rgba(54,192,113,.1)}
+.sf-orb-mid{border-color:rgba(240,107,47,.3);color:var(--orange2);background:rgba(240,107,47,.1)}
+.sf-orb-low{border-color:rgba(217,92,92,.3);color:var(--red);background:rgba(217,92,92,.1)}
+
+.sf-story-body{flex:1;min-width:0}
+.sf-story-title{font-size:13px;font-weight:700;line-height:1.3;margin-bottom:2px}
+.sf-story-premise{font-size:11px;color:rgba(255,255,255,.5);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:6px}
+.sf-story-meta{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+
+/* Chips & Traits */
+.sf-chip{font-size:9px;padding:3px 9px;border-radius:999px;font-weight:700;letter-spacing:.04em;display:inline-flex;align-items:center;gap:3px}
+.sf-chip-gold{background:rgba(217,184,91,.18);color:var(--gold2);border:1px solid rgba(217,184,91,.3)}
+.sf-chip-green{background:rgba(54,192,113,.12);color:var(--green);border:1px solid rgba(54,192,113,.2)}
+.sf-chip-blue{background:rgba(14,117,168,.15);color:var(--blue2);border:1px solid rgba(23,163,207,.2)}
+.sf-chip-orange{background:rgba(240,107,47,.12);color:var(--orange2);border:1px solid rgba(240,107,47,.2)}
+.sf-chip-red{background:rgba(217,92,92,.12);color:var(--red);border:1px solid rgba(217,92,92,.2)}
+.sf-chip-muted{background:rgba(255,255,255,.06);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.08)}
+.sf-chip-purple{background:rgba(168,85,247,.12);color:#c4a0ff;border:1px solid rgba(168,85,247,.2)}
+
+.sf-trait{font-size:8px;padding:2px 7px;border-radius:999px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:inline-block}
+.tr-resilience,.tr-humility,.tr-cultural{background:rgba(168,85,247,.12);color:#c4a0ff}
+.tr-leadership,.tr-professionalism{background:rgba(217,184,91,.12);color:var(--gold2)}
+.tr-teamwork,.tr-service,.tr-research{background:rgba(14,117,168,.15);color:var(--blue2)}
+.tr-failure,.tr-conflict{background:rgba(240,107,47,.12);color:var(--orange2)}
+.tr-ethics,.tr-patient_care,.tr-adaptability{background:rgba(54,192,113,.12);color:var(--green)}
+.tr-communication,.tr-teaching{background:rgba(23,163,207,.12);color:var(--blue2)}
+.tr-advocacy{background:rgba(240,107,47,.12);color:var(--orange2)}
+
+/* Use badges */
+.sf-use{font-size:7px;padding:1px 5px;border-radius:4px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.ub-interview{background:rgba(217,184,91,.15);color:var(--gold2);border:1px solid rgba(217,184,91,.2)}
+.ub-ps{background:rgba(168,85,247,.12);color:#c4a0ff;border:1px solid rgba(168,85,247,.15)}
+.ub-eras{background:rgba(14,117,168,.15);color:var(--blue2);border:1px solid rgba(23,163,207,.15)}
+
+/* Detail panel */
+.sf-detail-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;color:rgba(255,255,255,.4);text-align:center;padding:40px}
+.sf-detail-empty h3{font-family:var(--matrix-heading);font-size:18px;font-weight:700;margin-bottom:6px;color:rgba(255,255,255,.6)}
+.sf-detail-empty p{font-size:13px;max-width:260px}
+.sf-detail-pad{padding:22px}
+.sf-detail-header{display:flex;align-items:flex-start;gap:18px;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sf-detail-title{font-family:var(--matrix-heading);font-size:20px;font-weight:700;line-height:1.2;margin-bottom:3px}
+.sf-detail-sub{font-size:12px;color:rgba(255,255,255,.5);margin-bottom:8px}
+.sf-detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+
+.sf-section{margin-bottom:18px}
+.sf-section-head{display:flex;gap:8px;align-items:center;margin-bottom:10px;color:var(--blue2);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.sf-section-head::before{content:'';display:block;width:7px;height:7px;border-radius:50%;background:var(--blue2);box-shadow:0 0 6px var(--blue2)}
+
+.sf-field{margin-bottom:10px}
+.sf-label{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;font-weight:700}
+.sf-val{font-size:13px;color:rgba(255,255,255,.85);line-height:1.6}
+
+.sf-why-box{padding:14px;border:1px solid rgba(54,192,113,.2);border-radius:8px;background:linear-gradient(180deg,rgba(54,192,113,.06),rgba(54,192,113,.02));margin-bottom:12px}
+.sf-why-box h5{font-size:10px;color:var(--green);font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.sf-why-box p{font-size:12px;color:rgba(255,255,255,.6);line-height:1.5}
+.sf-weak-box{padding:14px;border:1px solid rgba(217,92,92,.2);border-radius:8px;background:linear-gradient(180deg,rgba(217,92,92,.06),rgba(217,92,92,.02));margin-bottom:12px}
+.sf-weak-box h5{font-size:10px;color:var(--red);font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.sf-weak-box p{font-size:12px;color:rgba(255,255,255,.6);line-height:1.5}
+
+.sf-q-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid rgba(255,255,255,.06);border-radius:8px;background:rgba(255,255,255,.03);margin-bottom:4px;font-size:12px;color:rgba(255,255,255,.65)}
+.sf-q-fit{font-size:9px;font-weight:800;padding:2px 6px;border-radius:999px;background:rgba(217,184,91,.15);color:var(--gold2)}
+
+/* Score panel */
+.sf-score-panel{padding:18px;border:1px solid rgba(217,184,91,.15);border-radius:8px;background:linear-gradient(180deg,rgba(217,184,91,.06),rgba(217,184,91,.02));margin-top:16px}
+.sf-score-dots{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.sf-dot{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:rgba(255,255,255,.4);transition:all .2s}
+.sf-dot:hover{border-color:rgba(217,184,91,.4);color:var(--gold2)}
+.sf-dot.sel{background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);border-color:var(--gold);box-shadow:0 0 16px rgba(217,184,91,.3)}
+.sf-flags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.sf-flag{padding:5px 12px;font-size:10px;font-weight:700;border-radius:999px;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);transition:all .2s}
+.sf-flag:hover,.sf-flag.sel{border-color:rgba(217,184,91,.4);color:var(--gold2);background:rgba(217,184,91,.1)}
+.sf-ta{width:100%;min-height:60px;padding:10px 14px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(6,23,39,.5);color:#fff;font-size:12px;resize:vertical;line-height:1.5}
+.sf-ta::placeholder{color:rgba(255,255,255,.3)}
+.sf-ta:focus{border-color:rgba(217,184,91,.3)}
+
+/* Intel panel */
+.sf-intel-stat{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.sf-intel-stat:last-child{border-bottom:none}
+.sf-intel-stat .il{font-size:11px;color:rgba(255,255,255,.55)}
+.sf-intel-stat .iv{font-size:14px;font-weight:700}
+.iv-gold{color:var(--gold2)}.iv-green{color:var(--green)}.iv-orange{color:var(--orange2)}.iv-red{color:var(--red)}
+
+.sf-coverage-bar{height:12px;margin-top:7px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.08);box-shadow:inset 0 2px 6px rgba(0,0,0,.38)}
+.sf-coverage-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--gold),var(--gold2));box-shadow:0 0 12px rgba(217,184,91,.3);transition:width .6s}
+
+.sf-missing{font-size:11px;color:rgba(255,255,255,.55);padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:flex-start;gap:8px;line-height:1.3}
+.sf-missing:last-child{border-bottom:none}
+.sf-missing-dot{width:6px;height:6px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:4px}
+
+.sf-next-action{padding:12px;border:1px solid rgba(243,213,118,.25);border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02)),rgba(217,184,91,.08);box-shadow:0 8px 18px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.1);color:var(--gold2);font-size:11px;font-weight:600;line-height:1.5}
+
+.sf-oncall{padding:14px;border:1px dashed rgba(255,255,255,.12);border-radius:8px;background:rgba(9,36,61,.4);text-align:center;margin-top:8px}
+.sf-oncall .future-tag{display:inline-block;font-size:8px;padding:2px 8px;border-radius:999px;background:rgba(168,85,247,.15);color:#c4a0ff;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.sf-oncall h5{font-size:11px;color:rgba(255,255,255,.6);font-weight:700;margin-bottom:3px}
+.sf-oncall p{font-size:10px;color:rgba(255,255,255,.4);line-height:1.4}
+
+/* === WORKSHOP === */
+.sf-ws-rail-item{display:flex;align-items:flex-start;gap:10px;padding:8px;border-radius:8px;cursor:pointer;margin-bottom:2px;transition:all .2s}
+.sf-ws-rail-item:hover{background:rgba(255,255,255,.04)}
+.sf-ws-rail-item.is-active{background:rgba(217,184,91,.06);border-left:3px solid var(--gold)}
+.sf-ws-num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;flex-shrink:0;border:2px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);background:rgba(255,255,255,.04)}
+.sf-ws-num.done{border-color:var(--green);color:var(--green);background:rgba(54,192,113,.1)}
+.sf-ws-num.current{border-color:var(--gold);color:var(--gold2);background:rgba(217,184,91,.1)}
+.sf-ws-label{font-size:11px;color:rgba(255,255,255,.55);font-weight:600;line-height:1.3}
+.sf-ws-rail-item.is-active .sf-ws-label{color:#fff}
+
+.sf-ws-step{margin-bottom:16px;padding:18px;border:1px solid rgba(255,255,255,.06);border-radius:8px;background:linear-gradient(180deg,rgba(13,58,86,.4),rgba(8,42,63,.5))}
+.sf-ws-step.is-active{border-color:rgba(217,184,91,.2);box-shadow:0 0 20px rgba(217,184,91,.05)}
+.sf-ws-step-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.sf-ws-step-info h3{font-size:14px;font-weight:700;margin-bottom:2px}
+.sf-ws-step-info p{font-size:12px;color:rgba(255,255,255,.5)}
+.sf-ws-input{width:100%;padding:12px 14px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(6,23,39,.5);color:#fff;font-size:13px;line-height:1.6;resize:vertical}
+.sf-ws-input:focus{border-color:rgba(217,184,91,.3);box-shadow:0 0 0 3px rgba(217,184,91,.06)}
+.sf-ws-input::placeholder{color:rgba(255,255,255,.3)}
+.sf-ws-tip{margin-top:8px;padding:10px 12px;border-left:3px solid rgba(217,184,91,.4);border-radius:0 8px 8px 0;background:rgba(217,184,91,.04);font-size:11px;color:rgba(255,255,255,.55);line-height:1.5}
+.sf-ws-tip b{color:var(--gold2);font-weight:700}
+
+/* === INTERVIEW MATCH === */
+.sf-cat{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:3px;transition:all .2s}
+.sf-cat:hover{background:rgba(255,255,255,.04)}
+.sf-cat.is-active{background:rgba(217,184,91,.06);border-left:3px solid var(--gold)}
+.sf-cat-label{font-size:12px;color:rgba(255,255,255,.78);font-weight:600}
+.sf-cat-count{font-size:10px;color:rgba(255,255,255,.4);font-weight:700}
+.sf-cov-bar{height:4px;background:rgba(255,255,255,.06);border-radius:2px;margin-top:4px;overflow:hidden}
+.sf-cov-fill{height:100%;border-radius:2px;transition:width .3s}
+
+.sf-q-card{overflow:hidden;margin-bottom:14px}
+.sf-q-head{padding:16px 22px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.sf-q-text{font-size:15px;font-weight:700;flex:1;padding-right:14px;line-height:1.3}
+.sf-q-freq{font-size:9px;padding:3px 9px;border-radius:999px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.sf-q-freq-vc{background:rgba(54,192,113,.15);color:var(--green)}.sf-q-freq-c{background:rgba(14,117,168,.15);color:var(--blue2)}.sf-q-freq-o{background:rgba(240,107,47,.12);color:var(--orange2)}
+.sf-q-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px}
+.sf-q-ok{background:rgba(54,192,113,.12);color:var(--green)}.sf-q-gap{background:rgba(217,92,92,.12);color:var(--red)}
+.sf-q-body{padding:4px 22px 18px;border-top:1px solid rgba(255,255,255,.06)}
+.sf-q-match{display:flex;align-items:center;gap:12px;padding:10px 12px;margin-top:8px;border:1px solid rgba(255,255,255,.06);border-radius:8px;background:rgba(255,255,255,.03);transition:all .2s}
+.sf-q-match.primary{border-color:rgba(217,184,91,.2);background:rgba(217,184,91,.04)}
+.sf-q-match-label{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px}
+.qml-primary{background:rgba(217,184,91,.2);color:var(--gold2)}
+.qml-backup{background:rgba(255,255,255,.06);color:rgba(255,255,255,.5)}
+.sf-q-match-info{flex:1;min-width:0}
+.sf-q-match-title{font-size:12px;font-weight:700}
+.sf-q-match-why{font-size:10px;color:rgba(255,255,255,.4);margin-top:1px}
+.sf-fit{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.sf-fit-label{font-size:9px;font-weight:700;color:rgba(255,255,255,.4)}
+.sf-fit-bar{width:50px;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.sf-fit-fill{height:100%;border-radius:3px}
+
+/* === ADVISOR REVIEW === */
+.sf-ar-stat{background:linear-gradient(180deg,rgba(13,58,86,.5),rgba(8,42,63,.6));border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:12px;text-align:center}
+.sf-ar-stat-num{font-size:20px;font-weight:800;font-family:var(--matrix-heading);line-height:1}
+.sf-ar-stat-label{font-size:9px;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-top:3px}
+.sf-ar-student{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:2px;transition:all .2s}
+.sf-ar-student:hover{background:rgba(255,255,255,.04)}
+.sf-ar-student.is-active{background:rgba(217,184,91,.06);border-left:3px solid var(--gold)}
+.sf-ar-name{font-size:12px;font-weight:700}
+.sf-ar-pending{font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:rgba(240,107,47,.15);color:var(--orange2)}
+
+.sf-review-card{margin-bottom:18px}
+.sf-rc-title{font-family:var(--matrix-heading);font-size:16px;font-weight:700;margin-bottom:2px}
+.sf-rc-sub{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:14px}
+.sf-rc-excerpt{font-size:13px;color:rgba(255,255,255,.6);line-height:1.7;padding:14px 16px;background:rgba(255,255,255,.03);border-left:3px solid rgba(255,255,255,.1);border-radius:0 8px 8px 0;margin-bottom:16px}
+.sf-rc-score{display:flex;align-items:center;gap:16px;padding:16px 0;border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:14px}
+.sf-rc-flags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.sf-qf{padding:6px 14px;font-size:11px;font-weight:700;border-radius:999px;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);transition:all .2s}
+.sf-qf:hover,.sf-qf.sel{border-color:rgba(217,184,91,.4);color:var(--gold2);background:rgba(217,184,91,.08)}
+.sf-rc-actions{display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)}
+
+/* === READINESS === */
+.sf-rg-hero{text-align:center;margin-bottom:28px}
+.sf-rg-status{font-family:var(--matrix-heading);font-size:32px;font-weight:700;margin-bottom:4px}
+.sf-rg-sub{font-size:13px;color:rgba(255,255,255,.55)}
+.sf-rg-gates{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
+.sf-rg-gate-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sf-rg-gate-name{font-size:14px;font-weight:700}
+.sf-rg-badge{font-size:10px;font-weight:700;padding:4px 12px;border-radius:999px}
+.gb-met{background:rgba(54,192,113,.15);color:var(--green)}.gb-almost{background:rgba(240,107,47,.12);color:var(--orange2)}.gb-unmet{background:rgba(217,92,92,.12);color:var(--red)}
+.sf-rg-detail{font-size:12px;color:rgba(255,255,255,.55)}
+
+.sf-rg-readiness-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.sf-rb{text-align:center}
+.sf-rb h5{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:6px}
+.sf-rb-status{font-size:14px;font-weight:700;margin-bottom:2px}
+.sf-rb-sub{font-size:10px;color:rgba(255,255,255,.4)}
+
+.sf-rg-next-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(243,213,118,.08);font-size:13px;color:rgba(255,255,255,.8);line-height:1.5}
+.sf-rg-next-item:last-child{border-bottom:none}
+.sf-rg-next-num{width:24px;height:24px;border-radius:50%;background:rgba(217,184,91,.15);color:var(--gold2);font-size:11px;font-weight:700;display:grid;place-items:center;flex-shrink:0}
+
+.sf-advisor-rg-row{display:grid;grid-template-columns:1fr 60px 60px 60px 80px 80px;align-items:center;padding:12px 16px;border:1px solid rgba(255,255,255,.06);border-radius:8px;background:linear-gradient(180deg,rgba(13,58,86,.4),rgba(8,42,63,.5));margin-bottom:4px;font-size:12px;cursor:pointer;transition:all .2s}
+.sf-advisor-rg-row:hover{border-color:rgba(23,163,207,.18);transform:translateY(-1px)}
+</style>
+</head>
+<body>
+<div class="sos-shell">
+  <!-- SIDEBAR (matches real Matrix sidebar) -->
+  <aside class="sos-sidebar">
+    <div class="sos-brand">
+      <div class="sos-brand-mark">MM</div>
+      <div class="sos-brand-title">Matrix<small>MissionMed</small></div>
+    </div>
+    <div class="sos-nav-section">
+      <div class="sos-nav-label">Command</div>
+      <ul class="sos-nav-list">
+        <li><button class="sos-nav-link" onclick="void 0"><span class="sos-nav-icon">D</span><span>Dashboard</span></button></li>
+      </ul>
+    </div>
+    <div class="sos-nav-section">
+      <div class="sos-nav-label">Matrix</div>
+      <ul class="sos-nav-list">
+        <li><button class="sos-nav-link" onclick="void 0"><span class="sos-nav-icon">Ca</span><span>Calendar</span></button></li>
+        <li><button class="sos-nav-link" onclick="void 0"><span class="sos-nav-icon">Sc</span><span>Scheduler</span></button></li>
+        <li><button class="sos-nav-link is-active"><span class="sos-nav-icon">SF</span><span>StoryForge</span></button></li>
+        <li><button class="sos-nav-link" onclick="void 0"><span class="sos-nav-icon">Ar</span><span>Arena</span><span class="sos-nav-badge">3</span></button></li>
+        <li><button class="sos-nav-link" onclick="void 0"><span class="sos-nav-icon">FV</span><span>File Vault</span></button></li>
+        <li><button class="sos-nav-link" onclick="void 0"><span class="sos-nav-icon">RL</span><span>RankList</span></button></li>
+      </ul>
+    </div>
+    <div class="sos-nav-section">
+      <div class="sos-nav-label">Account</div>
+      <ul class="sos-nav-list">
+        <li><button class="sos-nav-link" onclick="void 0"><span class="sos-nav-icon">Co</span><span>Courses</span></button></li>
+        <li><button class="sos-nav-link" onclick="void 0"><span class="sos-nav-icon">Se</span><span>Settings</span></button></li>
+      </ul>
+    </div>
+    <div class="sos-sidebar-footer">
+      <div class="sos-user">
+        <div class="sos-user-avatar" id="userAvatar">SC</div>
+        <div>
+          <div class="sos-user-name" id="userName">Sarah Chen</div>
+          <div class="sos-user-role" id="userRole">Matrix Student</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="sos-main">
+    <div class="sos-bg-layer" aria-hidden="true">
+      <div class="sos-bg sos-bg-a"></div>
+      <div class="sos-bg sos-bg-b"></div>
+      <div class="sos-bg sos-bg-c"></div>
+    </div>
+    <div class="sos-content">
+      <!-- Page Header -->
+      <header class="sos-page-header">
+        <span class="sos-eyebrow">StoryForge</span>
+        <h1 class="sos-page-title">StoryForge</h1>
+        <p class="sos-page-copy">Build the stories that power your application. Collect, structure, score, and map your experiences to interview questions.</p>
+      </header>
+
+      <!-- Role toggle -->
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px">
+        <div style="display:flex;gap:6px">
+          <button class="sos-btn-sm sos-btn" style="min-height:36px;padding:8px 14px;font-size:12px" id="roleStudent" onclick="setRole('student')">Student View</button>
+          <button class="sos-btn-sm sos-btn sos-btn-ghost" style="min-height:36px;padding:8px 14px;font-size:12px" id="roleAdvisor" onclick="setRole('advisor')">Advisor View</button>
+        </div>
+        <button class="sos-btn sos-btn-primary" style="min-height:40px;padding:10px 20px;font-size:13px" onclick="openTab('workshop')">+ New Story</button>
+      </div>
+
+      <!-- Tabs (Matrix pill tabs) -->
+      <div class="sos-tabs" id="sfTabs">
+        <button class="sos-tab is-active" onclick="openTab('library')">Library <span class="tab-badge">14</span></button>
+        <button class="sos-tab" onclick="openTab('workshop')">Workshop</button>
+        <button class="sos-tab" onclick="openTab('match')">Interview Match <span class="tab-badge sf-tab-badge-green">18/30</span></button>
+        <button class="sos-tab" onclick="openTab('review')">Advisor Review <span class="tab-badge sf-tab-badge-orange">17</span></button>
+        <button class="sos-tab" onclick="openTab('gates')">Readiness <span class="tab-badge sf-tab-badge-green">5/7</span></button>
+      </div>
+
+      <!-- TAB PANELS -->
+      <div id="panel-library" class="sf-panel"></div>
+      <div id="panel-workshop" class="sf-panel" style="display:none"></div>
+      <div id="panel-match" class="sf-panel" style="display:none"></div>
+      <div id="panel-review" class="sf-panel" style="display:none"></div>
+      <div id="panel-gates" class="sf-panel" style="display:none"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ===== DATA (identical to MX-002) ===== */
+const TL={resilience:'Resilience',leadership:'Leadership',teamwork:'Teamwork',failure:'Failure',conflict:'Conflict',ethics:'Ethics',communication:'Communication',patient_care:'Patient Care',cultural:'Cultural',service:'Service',research:'Research',teaching:'Teaching',advocacy:'Advocacy',humility:'Humility',adaptability:'Adaptability',professionalism:'Professionalism'};
+const SL={gold:'Gold Story',good_needs_work:'Needs Work',too_generic:'Too Generic',risky:'Risky',do_not_use:'Do Not Use',ps_candidate:'PS Candidate',interview_candidate:'Interview Ready',eras_candidate:'ERAS Candidate'};
+const SC={gold:'sf-chip-gold',good_needs_work:'sf-chip-orange',too_generic:'sf-chip-muted',risky:'sf-chip-red',do_not_use:'sf-chip-red',ps_candidate:'sf-chip-green',interview_candidate:'sf-chip-gold',eras_candidate:'sf-chip-green'};
+const MC={raw:'sf-chip-muted',structured:'sf-chip-blue',reviewed:'sf-chip-blue',polished:'sf-chip-purple',interview_ready:'sf-chip-gold'};
+
+const stories=[
+{id:1,rank:1,title:"The One Where I Held the Patient's Hand",sub:"ICU rotation, third year",premise:"Stayed 45 min after shift to calm a terrified ICU patient during COVID restrictions.",conflict:"Attending said to chart. Patient was in distress. COVID blocked family visits.",action:"Stayed 45 min past shift. Held hand. Explained each monitor alarm in plain language.",result:"Patient calmed, stopped pulling IV lines. Attending praised it the next morning.",lesson:"Clinical presence is a clinical intervention.",growth:"Learned to trust instincts about patient care over workflow.",proof:"Patient-centered thinking, empathy under pressure, professional courage.",score:9,status:'gold',maturity:'interview_ready',tags:['patient_care','communication','resilience'],qs:["Patient who impacted you","Going above and beyond","Difficult decision","Empathy","Why medicine"],notes:"Lead with this for patient care and going above and beyond questions. Your strongest patient story.",uses:['interview','ps','eras'],whyWorks:"Maximum emotional impact. The specific detail of 45 minutes + explaining beeps makes it vivid.",weakness:"Mapped to 5 questions. Risk of overuse in back-to-back interviews."},
+{id:2,rank:2,title:"The One Where I Failed Organic Chemistry",sub:"Sophomore year, pre-med crisis",premise:"D+ in orgo, advisor said quit, worked as EMT, retook with an A-.",conflict:"Academic failure. Family disappointment. Advisor suggesting I quit.",action:"Worked as EMT. Hired tutor. Changed study methods. Retook course.",result:"A- on retake. Reinforced commitment to medicine.",lesson:"Failure is information, not identity.",growth:"Developed resilience and growth mindset.",proof:"Resilience, self-awareness, genuine motivation.",score:9,status:'gold',maturity:'polished',tags:['failure','resilience','adaptability'],qs:["Tell me about a failure","Why medicine","Greatest challenge","Resilience"],notes:"Perfect failure story. Specific grade, specific recovery, clear growth.",uses:['interview','ps'],whyWorks:"D+ to A- is a concrete, verifiable turnaround.",weakness:"None significant."},
+{id:3,rank:3,title:"The One Where the Translator Didn't Show Up",sub:"Free clinic, language barrier",premise:"Communicated in broken Spanish with a sick child's mother when the translator called in sick.",conflict:"No translator. Language barrier. Scared parent. Sick child.",action:"Used phone for terms, drew diagrams, spoke slowly, took extra time.",result:"Correct diagnosis, antibiotics started, enrolled in medical Spanish after.",lesson:"Communication barriers are problems to solve, not excuses.",growth:"Stopped avoiding linguistically inadequate situations.",proof:"Resourcefulness, cultural humility, equitable care.",score:8,status:'interview_candidate',maturity:'reviewed',tags:['communication','service','adaptability','humility'],qs:["Cultural competency","Overcoming challenges","Communication"],notes:"Strong cross-cultural story.",uses:['interview','eras'],whyWorks:"Shows resourcefulness under real constraint.",weakness:"Could use a stronger ending moment."},
+{id:4,rank:4,title:"The One Where I Led the Study Group Mutiny",sub:"Step prep, second year",premise:"Challenged an ineffective study group structure 3 weeks before Step 1.",conflict:"Confronting a peer who was leading poorly. Time pressure.",action:"Proposed restructuring with evidence. Had direct conversation. Organized sub-groups.",result:"8/12 beat practice averages. Original leader eventually thanked me.",lesson:"Leadership means saying what everyone thinks but nobody says.",growth:"Learned honest confrontation can help more than false harmony.",proof:"Leadership, conflict resolution, evidence-based decisions.",score:8,status:'gold',maturity:'polished',tags:['leadership','teamwork','conflict'],qs:["Leadership","Conflict with colleague","Teamwork","Difficult conversation"],notes:"Excellent. The original leader thanking you later is the gold.",uses:['interview'],whyWorks:"Shows both courage and diplomatic skill.",weakness:"None."},
+{id:5,rank:5,title:"The One Where I Almost Missed the Diagnosis",sub:"Internal medicine clerkship",premise:"Nearly missed an MI because of anchoring bias on pneumonia.",conflict:"Overconfidence and anchoring bias. Near-miss on critical diagnosis.",action:"After correction, reviewed entire approach. Created personal checklist.",result:"Patient received cardiac care in time. Near-miss, no harm.",lesson:"Overconfidence is the most dangerous clinical bias.",growth:"Now actively looks for what I think I can skip.",proof:"Intellectual humility, learning from mistakes, patient safety.",score:8,status:'good_needs_work',maturity:'structured',tags:['humility','patient_care','failure'],qs:["Weakness","Mistake you learned from","Patient safety"],notes:"Needs more on the emotional moment when you saw the troponin.",uses:['interview'],whyWorks:"Honest vulnerability.",weakness:"Middle is thin. Add gut-drop moment."},
+{id:6,rank:6,title:"The One Where I Taught the EMTs",sub:"Rural EMS summer",premise:"Organized peer training on peds protocols as the youngest team member.",conflict:"Youngest on team but saw knowledge gap affecting patients.",action:"Organized training using real local cases instead of textbook.",result:"60% adoption in a week. Monthly sessions established.",lesson:"Teaching works best from shared experience, not authority.",growth:"Discovered passion for medical education.",proof:"Teaching, initiative, diplomacy.",score:7,status:'interview_candidate',maturity:'reviewed',tags:['teaching','leadership','communication'],qs:["Teaching experience","Initiative"],notes:"Could strengthen with specific patient outcome.",uses:['interview','eras'],whyWorks:"Demonstrates initiative in real-stakes environment.",weakness:"Lacks specific patient case."},
+{id:7,rank:7,title:"The One Where I Sat With Grief",sub:"Hospice volunteer, first death",premise:"First patient death. Said nothing. Daughter said silence was the most helpful thing.",conflict:"No training. Instinct to fill silence. Fear of wrong words.",action:"Remained present and silent.",result:"Daughter explicitly said silence was the most helpful response.",lesson:"Presence without performance is its own care.",growth:"Changed how I approach all difficult conversations.",proof:"Emotional intelligence, maturity, genuine empathy.",score:9,status:'gold',maturity:'interview_ready',tags:['patient_care','communication','humility','service'],qs:["Difficult experience","Death and dying","What did you learn","Empathy"],notes:"One of your strongest. The daughter's words are powerful.",uses:['interview','ps'],whyWorks:"The daughter's direct quote is devastating.",weakness:"None. Deploy strategically."},
+{id:8,rank:8,title:"The One Where My Research Went Nowhere",sub:"Summer research fellowship",premise:"Negative results on pancreatic cancer biomarkers that saved a postdoc months.",conflict:"Felt wasted. PI disappointed. No publishable results.",action:"Presented negative results honestly at departmental meeting.",result:"Postdoc found data valuable. Ruled out dead-end pathway.",lesson:"Negative results are still results.",growth:"Stopped measuring research success only by publications.",proof:"Intellectual honesty, resilience, scientific process.",score:7,status:'good_needs_work',maturity:'structured',tags:['research','failure','resilience'],qs:["Research experience","Dealing with failure"],notes:"Postdoc part carries it. Strengthen the middle.",uses:['interview','eras'],whyWorks:"Honest about disappointing outcome with silver lining.",weakness:"Middle section is vague."},
+{id:9,rank:9,title:"The One Where I Called the Ethics Consult",sub:"Surgery clerkship, consent issue",premise:"Reported an attending for inadequate informed consent. Accepted career consequences.",conflict:"Witnessing bad consent. Fear of retaliation. Power imbalance as student.",action:"Reported to ethics after deliberation. Accepted consequences.",result:"Ethics confirmed inadequate consent. Patient got proper consent. Attending gave poor eval.",lesson:"Advocacy is not comfortable.",growth:"Internalized that patient advocacy is non-negotiable.",proof:"Moral courage, patient advocacy, ethical reasoning.",score:10,status:'gold',maturity:'interview_ready',tags:['ethics','advocacy','patient_care','resilience'],qs:["Ethical dilemma","Advocacy","Difficult decision","Conflict with authority","Courage","Professionalism"],notes:"Your SINGLE strongest story. The closer.",uses:['interview','ps','eras'],whyWorks:"Real stakes, real consequences, real courage.",weakness:"Use sparingly."},
+{id:10,rank:10,title:"The One Where I Built the Schedule",sub:"Student government logistics",premise:"Took over charity event coordination after previous coordinator quit.",conflict:"No time, no system, predecessor quit.",action:"Built spreadsheet, shift swaps, personally confirmed 40 volunteers.",result:"Smooth event. 2x fundraising.",lesson:"Operational excellence is undervalued leadership.",growth:"Discovered systems thinking ability.",proof:"Organization, initiative, follow-through.",score:6,status:'too_generic',maturity:'structured',tags:['leadership','teamwork','service'],qs:["Organizational challenge"],notes:"Reads like a resume bullet. Needs a near-disaster moment.",uses:['eras'],whyWorks:"Shows organizational skill.",weakness:"No emotional stakes."},
+{id:11,rank:11,title:"The One Where I Learned to Listen to My Mom",sub:"Family dinner revelation",premise:"Corrected own bias about nursing knowledge after mom called out a near-miss.",conflict:"Own arrogance about MD vs nursing knowledge.",action:"After dinner, actively sought nurse input on every rotation.",result:"Caught things I'd have missed. Better nursing relationships.",lesson:"Clinical insight doesn't follow hierarchy.",growth:"Recognized and corrected a bias I didn't know I had.",proof:"Self-awareness, interprofessional respect, growth.",score:8,status:'interview_candidate',maturity:'reviewed',tags:['humility','teamwork','communication','patient_care'],qs:["What did you learn about yourself","Teamwork","Interprofessional"],notes:"Personal angle makes it memorable.",uses:['interview'],whyWorks:"Personal, honest, relatable.",weakness:"None significant."},
+{id:12,rank:12,title:"The One Where I Stood in the Rain",sub:"Community health screening",premise:"Persisted through a rained-out health screening. Found undiagnosed hypertension.",conflict:"Rain, volunteers cancelled, temptation to cancel.",action:"Stayed full duration. Screened all 7 thoroughly.",result:"One undiagnosed hypertension identified.",lesson:"Showing up is the foundation of community health.",growth:"Stopped measuring impact by volume.",proof:"Commitment, persistence, public health mindset.",score:7,status:'good_needs_work',maturity:'structured',tags:['service','resilience','patient_care'],qs:["Community involvement","Persistence"],notes:"Good visual but needs more on the hypertension patient conversation.",uses:['interview','eras'],whyWorks:"Strong visual image.",weakness:"Needs hypertension patient conversation."},
+{id:13,rank:13,title:"The One Where I Said No",sub:"Research pressure, fourth year",premise:"Declined ghost authorship on a paper. Faculty later offered real co-authorship.",conflict:"Easy publication vs integrity. Pressure from respected faculty.",action:"Directly declined. Explained reasoning. Accepted career risk.",result:"Faculty respected decision. Offered legit co-authorship later.",lesson:"Integrity has a longer ROI than shortcuts.",growth:"Learned saying no opens better doors.",proof:"Academic integrity, professional ethics, courage.",score:7,status:'interview_candidate',maturity:'reviewed',tags:['ethics','professionalism','resilience'],qs:["Integrity","Difficult decision"],notes:"Clean. The CV line detail is memorable.",uses:['interview'],whyWorks:"Shows genuine integrity under real temptation.",weakness:"None."},
+{id:14,rank:14,title:"The One Where I Couldn't Save the Dog",sub:"Childhood, vocation origin",premise:"At 10, a dying dog taught the first lesson about medical helplessness.",conflict:"Dying animal. Child with no skills.",action:"Tried to help (failed). Processed over time.",result:"Formative motivation for medicine.",lesson:"Helplessness can point toward preparation.",growth:"Gravitated toward preparedness situations.",proof:"Early motivation, emotional depth.",score:5,status:'good_needs_work',maturity:'raw',tags:['patient_care','resilience'],qs:["Why medicine (brief)"],notes:"Risky. Age-10 stories can sound rehearsed. Keep to 30 sec max.",uses:[],whyWorks:"Origin story.",weakness:"Age-10 stories risk sounding rehearsed."}
+];
+
+const questions=[
+{id:1,text:"Tell me about yourself.",cat:'opener',freq:'vc',stories:[{sid:2,fit:5,why:"Orgo failure + EMT summer = complete arc"},{sid:1,fit:4,why:"Patient hand story anchors clinical identity"},{sid:9,fit:3,why:"Ethics consult shows moral compass"}]},
+{id:2,text:"Why do you want to be a doctor?",cat:'motivation',freq:'vc',stories:[{sid:14,fit:4,why:"Childhood origin, brief use only"},{sid:2,fit:4,why:"EMT summer reconnection"}]},
+{id:3,text:"Tell me about a time you failed.",cat:'failure',freq:'vc',stories:[{sid:2,fit:5,why:"D+ to A-. Textbook recovery."},{sid:8,fit:4,why:"Research negative results"},{sid:5,fit:4,why:"Near-miss diagnosis"}]},
+{id:4,text:"Describe a time you showed leadership.",cat:'leadership',freq:'c',stories:[{sid:4,fit:5,why:"Study group restructure under pressure"},{sid:6,fit:4,why:"EMT training as youngest member"}]},
+{id:5,text:"Tell me about an ethical dilemma.",cat:'ethics',freq:'c',stories:[{sid:9,fit:5,why:"Reported attending. Accepted consequences."},{sid:13,fit:3,why:"Declined ghost authorship"}]},
+{id:6,text:"How do you handle conflict?",cat:'teamwork',freq:'c',stories:[{sid:4,fit:4,why:"Confronted study group leader"},{sid:11,fit:3,why:"Corrected own bias"}]},
+{id:7,text:"Tell me about a patient who impacted you.",cat:'clinical',freq:'vc',stories:[{sid:1,fit:5,why:"ICU hand-holding. Maximum emotional impact."},{sid:7,fit:5,why:"Hospice silence. Equally powerful."},{sid:3,fit:4,why:"Translator. Action-oriented."}]},
+{id:8,text:"What is your greatest weakness?",cat:'failure',freq:'vc',stories:[{sid:5,fit:4,why:"Overconfidence. Now uses checklists."},{sid:11,fit:3,why:"Interprofessional arrogance. Self-corrected."}]},
+{id:9,text:"How do you handle receiving criticism?",cat:'behavioral',freq:'c',stories:[]},
+{id:10,text:"Describe adapting your communication style.",cat:'behavioral',freq:'c',stories:[]},
+{id:11,text:"What would you do if a co-resident behaved unprofessionally?",cat:'situational',freq:'o',stories:[]},
+{id:12,text:"Why this specialty?",cat:'specialty',freq:'vc',stories:[]}
+];
+const categories=[{id:'all',name:'All Questions',total:12,covered:8},{id:'opener',name:'Tell Me About Yourself',total:1,covered:1},{id:'motivation',name:'Motivation / Why',total:1,covered:1},{id:'failure',name:'Failure / Weakness',total:2,covered:2},{id:'leadership',name:'Leadership',total:1,covered:1},{id:'ethics',name:'Ethics',total:1,covered:1},{id:'teamwork',name:'Teamwork / Conflict',total:1,covered:1},{id:'clinical',name:'Clinical / Patient',total:1,covered:1},{id:'behavioral',name:'Behavioral',total:2,covered:0},{id:'situational',name:'Situational',total:1,covered:0},{id:'specialty',name:'Why Specialty',total:1,covered:0}];
+const gates=[{name:'Story Volume',req:10,cur:14,met:true},{name:'Scored 8+',req:5,cur:6,met:true},{name:'Adversity / Failure',req:2,cur:3,met:true},{name:'Teamwork / Leadership',req:2,cur:3,met:true},{name:'Why Medicine',req:1,cur:1,met:true},{name:'Patient Care / Service',req:1,cur:4,met:true},{name:'Personal Growth',req:1,cur:0,met:false}];
+const advisorStudents=[{name:'Sarah Chen',pending:3,stories:14,avg:7.2,gold:4,gates:'5/7'},{name:'Priya Mehta',pending:5,stories:11,avg:6.5,gold:2,gates:'4/7'},{name:'David Kim',pending:2,stories:8,avg:5.9,gold:1,gates:'2/7'},{name:'Lisa Park',pending:4,stories:6,avg:4.2,gold:0,gates:'1/7'},{name:'Omar Hassan',pending:2,stories:13,avg:6.9,gold:3,gates:'5/7'},{name:'Amara Johnson',pending:1,stories:16,avg:7.4,gold:5,gates:'6/7'},{name:'James Rodriguez',pending:0,stories:18,avg:7.8,gold:6,gates:'7/7'},{name:'Michael Torres',pending:0,stories:22,avg:8.1,gold:8,gates:'7/7'}];
+const reviewQueue=[{student:'Priya Mehta',title:"The One Where I Froze in the ER",mat:'structured',excerpt:"First ER night as volunteer. Patient seized. Everyone moved with purpose. I froze. The charge nurse said 'grab the suction.' That broke the spell..."},{student:'David Kim',title:"The One Where I Translated for My Grandmother",mat:'raw',excerpt:"Growing up I was my grandmother's translator at every medical appointment. I was 12 trying to explain diabetes in Korean..."},{student:'Lisa Park',title:"The One Where I Organized the Free Clinic",mat:'raw',excerpt:"Started a free clinic for undocumented immigrants. Eight months to launch. Hardest part wasn't logistics..."},{student:'Priya Mehta',title:"The One Where the Patient Refused Treatment",mat:'structured',excerpt:"Elderly patient with treatable cancer refused chemo. Family desperate. Attending told me to talk to her..."},{student:'Sarah Chen',title:"The One Where I Stood in the Rain",mat:'structured',excerpt:"Organized a free health screening. It poured. 3/4 volunteers cancelled..."},{student:'Lisa Park',title:"The One Where I Lost the Research Data",mat:'raw',excerpt:"Three months of data gone because I didn't back up the drive..."}];
+const wsSteps=[{num:1,title:"Start With the Memory",desc:"What happened? Just capture it.",ph:"Write freely.",tip:"The best stories have a specific moment, a choice you made, and a consequence.",val:"During my third-year ICU rotation, a motorcycle accident patient was alone due to COVID restrictions..."},{num:2,title:"Give It a Name",desc:"A memorable title helps recall under pressure.",ph:"The One Where...",tip:"'The One Where I Failed Orgo' beats 'Academic Resilience Story.'",val:"The One Where I Held the Patient's Hand",isInput:1},{num:3,title:"Who Was Involved?",desc:"Name the people by role.",ph:"The patient, the attending...",tip:"Keep it to 2-3 key people.",val:"The patient, the attending physician, and me."},{num:4,title:"What Was the Conflict?",desc:"Every strong story has tension.",ph:"What made this hard?",tip:"Interviewers remember the tension, not the triumph.",val:"Attending said to focus on charting. COVID blocked family. Patient in visible distress."},{num:5,title:"What Did YOU Do?",desc:"Not the team. What did YOU do?",ph:"Be specific.",tip:"'I stayed 45 minutes and explained every beep' beats 'I provided emotional support.'",val:"Stayed 45 min past shift. Held hand. Explained each monitor alarm in plain language."},{num:6,title:"What Was the Result?",desc:"Immediate outcome and unexpected consequences.",ph:"What changed?",tip:"The attending's reaction is the payoff.",val:"Patient calmed. Stopped pulling IV lines. Attending said it was the best clinical decision that week."},{num:7,title:"What Did You Learn?",desc:"The insight this gave you.",ph:"What's the takeaway?",tip:"One sentence. Clear. Memorable.",val:"Clinical presence is a clinical intervention."},{num:8,title:"How Did You Grow?",desc:"What changed about you?",ph:"How are you different now?",tip:"Growth proves maturity.",val:"I trust my instincts about patient care even when they conflict with workflow."},{num:9,title:"What Does This Prove?",desc:"What would an interviewer conclude?",ph:"What traits?",tip:"Name them explicitly.",val:"Patient-centered thinking, empathy under pressure, professional courage."},{num:10,title:"Tag Your Story",desc:"Select traits this story demonstrates.",ph:"",tip:"Tags match your story to interview questions.",val:"",isTags:1}];
+
+let role='student',selId=null;
+
+function orbClass(s){return s>=9?'sf-orb-gold':s>=7?'sf-orb-good':s>=5?'sf-orb-mid':s>0?'sf-orb-low':''}
+
+/* === RENDER === */
+function renderLibrary(){
+  let stackHtml=stories.map(s=>{
+    const sel=s.id===selId;
+    return `<div class="sf-story ${s.status==='gold'?'is-gold':''} ${sel?'is-selected':''}" onclick="selectStory(${s.id})">
+      <div class="sf-rank"><div class="sf-rank-num ${s.rank<=5?'top':''}">${s.rank}</div><div class="sf-orb ${orbClass(s.score)}" style="width:32px;height:32px;font-size:13px">${s.score||'--'}</div></div>
+      <div class="sf-story-body"><div class="sf-story-title">${s.title}</div><div class="sf-story-premise">${s.premise}</div>
+      <div class="sf-story-meta"><span class="sf-chip ${MC[s.maturity]||'sf-chip-muted'}" style="font-size:8px">${s.maturity.replace('_',' ')}</span>${s.status==='gold'?'<span class="sf-chip sf-chip-gold" style="font-size:8px">Gold</span>':''}${s.tags.slice(0,2).map(t=>`<span class="sf-trait tr-${t}">${TL[t]}</span>`).join('')}</div>
+      <div style="display:flex;gap:3px;margin-top:3px">${(s.uses||[]).map(u=>`<span class="sf-use ub-${u}">${u}</span>`).join('')}</div>
+      </div></div>`;
+  }).join('');
+
+  let detailHtml;
+  if(selId){
+    const s=stories.find(x=>x.id===selId);
+    detailHtml=`<div class="sf-detail-pad">
+      <div class="sf-detail-header"><div class="sf-orb ${orbClass(s.score)}" style="width:52px;height:52px;font-size:20px">${s.score}</div><div style="flex:1;min-width:0"><div class="sf-detail-title">${s.title}</div><div class="sf-detail-sub">${s.sub} &middot; <span class="sf-chip ${MC[s.maturity]}" style="font-size:9px">${s.maturity.replace('_',' ')}</span> ${s.status?'<span class="sf-chip '+SC[s.status]+'" style="font-size:9px">'+SL[s.status]+'</span>':''}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${s.tags.map(t=>`<span class="sf-trait tr-${t}">${TL[t]}</span>`).join('')}</div>
+      <div class="sf-detail-actions"><button class="sos-btn sos-btn-primary" style="min-height:36px;padding:8px 14px;font-size:12px" onclick="openTab('workshop')">Continue Workshop</button><button class="sos-btn sos-btn-sm sos-btn-ghost" onclick="openTab('match')">Map to Question</button><button class="sos-btn sos-btn-sm sos-btn-ghost">Submit for Review</button></div></div></div>
+      ${s.whyWorks?`<div class="sf-why-box"><h5>Why This Works</h5><p>${s.whyWorks}</p></div>`:''}
+      ${s.weakness?`<div class="sf-weak-box"><h5>Weakness Warning</h5><p>${s.weakness}</p></div>`:''}
+      <div class="sf-section"><div class="sf-section-head">Best-Fit Questions</div>${(s.qs||[]).map(q=>{const qo=questions.find(x=>x.stories.some(m=>m.sid===s.id));const fit=qo?qo.stories.find(m=>m.sid===s.id)?.fit:'';return `<div class="sf-q-item">${fit?`<span class="sf-q-fit">${fit}/5</span>`:''}${q}</div>`}).join('')}</div>
+      ${s.notes?`<div class="sf-section"><div class="sf-section-head">Advisor Notes</div><div class="sf-val">${s.notes}</div></div>`:''}
+      <div class="sf-section"><div class="sf-section-head">Structured Story</div>${[{l:'Conflict',v:s.conflict},{l:'Action',v:s.action},{l:'Result',v:s.result},{l:'Lesson',v:s.lesson},{l:'Growth',v:s.growth},{l:'Proof',v:s.proof}].map(f=>`<div class="sf-field"><div class="sf-label">${f.l}</div><div class="sf-val">${f.v||'<span style="color:rgba(255,255,255,.3);font-style:italic">Not filled in</span>'}</div></div>`).join('')}</div>
+      <div class="sf-score-panel"><div class="sf-section-head">Score This Story</div><div class="sf-score-dots">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="sf-dot ${s.score===n?'sel':''}" onclick="qSc(this)">${n}</button>`).join('')}</div><div class="sf-label" style="margin-bottom:4px">Status Flag</div><div class="sf-flags">${Object.entries(SL).map(([k,v])=>`<button class="sf-flag ${s.status===k?'sel':''}" onclick="tFlag(this)">${v}</button>`).join('')}</div><div class="sf-label" style="margin-bottom:4px">Coaching Notes</div><textarea class="sf-ta" rows="2" placeholder="Add feedback...">${s.notes||''}</textarea></div>
+    </div>`;
+  } else {
+    detailHtml=`<div class="sf-detail-empty"><div style="font-size:48px;opacity:.2;margin-bottom:14px">&#128220;</div><h3>Select a Story</h3><p>Click a story from the stack to view its full detail and action panel.</p></div>`;
+  }
+
+  let intelHtml=`
+    <div class="sos-card sos-card-static sos-card-pad" style="margin-bottom:14px"><div class="sos-panel-title">Story Intelligence</div>
+    <div class="sf-intel-stat"><span class="il">Total Stories</span><span class="iv">14</span></div>
+    <div class="sf-intel-stat"><span class="il">Gold Stories</span><span class="iv iv-gold">4</span></div>
+    <div class="sf-intel-stat"><span class="il">Avg Score</span><span class="iv iv-green">7.2</span></div>
+    <div class="sf-intel-stat"><span class="il">Interview Ready</span><span class="iv iv-gold">3</span></div>
+    <div class="sf-intel-stat"><span class="il">Awaiting Review</span><span class="iv iv-orange">3</span></div></div>
+    <div class="sos-card sos-card-static sos-card-pad" style="margin-bottom:14px"><div class="sos-panel-title">Question Coverage</div>
+    <div class="sf-intel-stat"><span class="il">Covered</span><span class="iv">18 / 30</span></div>
+    <div class="sf-coverage-bar"><div class="sf-coverage-fill" style="width:60%"></div></div>
+    <div style="font-size:10px;color:rgba(255,255,255,.35);text-align:right;margin-top:4px">60%</div></div>
+    <div class="sos-card sos-card-static sos-card-pad" style="margin-bottom:14px"><div class="sos-panel-title">Missing Story Types</div>
+    <div class="sf-missing"><span class="sf-missing-dot"></span>No "receiving criticism" story</div>
+    <div class="sf-missing"><span class="sf-missing-dot"></span>No "adapting communication" story</div>
+    <div class="sf-missing"><span class="sf-missing-dot"></span>Weak "why this specialty" coverage</div>
+    <div class="sf-missing"><span class="sf-missing-dot"></span>No situational ethics story</div></div>
+    <div class="sos-card sos-card-static sos-card-pad" style="margin-bottom:14px"><div class="sos-panel-title">Best Next Action</div>
+    <div class="sf-next-action">Write a story about receiving feedback or criticism. This covers 3 common interview questions you currently have no answer for.</div></div>
+    <div class="sos-card sos-card-static sos-card-pad" style="margin-bottom:14px"><div class="sos-panel-title" style="color:var(--orange2)">Overuse Warning</div>
+    <div style="font-size:11px;color:var(--orange2);line-height:1.4">"The One Where I Held the Patient's Hand" is mapped to 5 questions. Diversify.</div></div>
+    <div class="sf-oncall"><span class="future-tag">Coming Soon</span><h5>Interview On-Call</h5><p>Recorded practice answers will suggest stronger stories and flag overuse patterns.</p></div>`;
+
+  document.getElementById('panel-library').innerHTML=`
+    <div class="sf-stack-controls"><div class="sf-stack-search"><input type="text" placeholder="Search stories..." oninput="filterLib(this.value)"></div>
+    <div class="sf-sort-pills"><button class="sf-pill is-active" onclick="sortLib('rank',this)">Rank</button><button class="sf-pill" onclick="sortLib('score',this)">Score</button><button class="sf-pill" onclick="sortLib('recent',this)">New</button></div></div>
+    <div class="sf-layout sf-layout-lib"><div class="sos-card sos-card-static sf-stack-card" style="padding:10px">${stackHtml}</div><div class="sos-card sos-card-static" style="max-height:calc(100vh - 290px);overflow-y:auto">${detailHtml}</div><div style="max-height:calc(100vh - 290px);overflow-y:auto">${intelHtml}</div></div>`;
+}
+
+function selectStory(id){selId=id;renderLibrary()}
+function filterLib(v){document.querySelectorAll('.sf-story').forEach(c=>{c.style.display=c.textContent.toLowerCase().includes(v.toLowerCase())?'':'none'})}
+function sortLib(by,btn){document.querySelectorAll('.sf-pill').forEach(b=>b.classList.remove('is-active'));if(btn)btn.classList.add('is-active');if(by==='score')stories.sort((a,b)=>(b.score||0)-(a.score||0));else if(by==='recent')stories.sort((a,b)=>b.id-a.id);else stories.sort((a,b)=>a.rank-b.rank);renderLibrary()}
+
+function renderWorkshop(){
+  const rail=wsSteps.map(s=>{const done=s.val&&s.val.length>0;return `<div class="sf-ws-rail-item ${s.num===1?'is-active':''}" onclick="scrollWs(${s.num})"><div class="sf-ws-num ${done?'done':s.num===1?'current':''}">${done?'&#10003;':s.num}</div><div class="sf-ws-label">${s.title}</div></div>`}).join('');
+  const steps=wsSteps.map(s=>{
+    if(s.isTags){const sel=['patient_care','communication','resilience'];return `<div class="sf-ws-step is-active"><div class="sf-ws-step-head"><div class="sf-ws-num current">${s.num}</div><div class="sf-ws-step-info"><h3>${s.title}</h3><p>${s.desc}</p></div></div><div style="display:flex;flex-wrap:wrap;gap:5px">${Object.entries(TL).map(([k,v])=>`<button class="sf-flag ${sel.includes(k)?'sel':''}" onclick="this.classList.toggle('sel')">${v}</button>`).join('')}</div></div>`}
+    return `<div class="sf-ws-step is-active" id="wsS${s.num}"><div class="sf-ws-step-head"><div class="sf-ws-num ${s.val?'done':'current'}">${s.val?'&#10003;':s.num}</div><div class="sf-ws-step-info"><h3>${s.title}</h3><p>${s.desc}</p></div></div>${s.isInput?`<input class="sf-ws-input" placeholder="${s.ph}" value="${s.val}">`:`<textarea class="sf-ws-input" rows="3" placeholder="${s.ph}">${s.val}</textarea>`}${s.tip?`<div class="sf-ws-tip"><b>Tip:</b> ${s.tip}</div>`:''}</div>`}).join('');
+  const pStates=[{l:'Raw Memory',d:1},{l:'Structuring',c:1},{l:'Advisor Review'},{l:'Polished'},{l:'Interview Ready'},{l:'Gold Story'}];
+  const pipe=pStates.map((p,i)=>`${i>0?'<div style="width:1px;height:8px;background:rgba(255,255,255,.1);margin-left:3.5px"></div>':''}<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:10px;color:${p.c?'var(--gold2)':p.d?'var(--green)':'rgba(255,255,255,.35)'};font-weight:${p.c?'700':'500'}"><div style="width:8px;height:8px;border-radius:50%;${p.d?'background:var(--green);border:2px solid var(--green)':p.c?'background:var(--gold);border:2px solid var(--gold)':'border:2px solid rgba(255,255,255,.15)'}"></div>${p.l}</div>`).join('');
+
+  document.getElementById('panel-workshop').innerHTML=`<div class="sf-layout sf-layout-three">
+    <div class="sos-card sos-card-static sos-card-pad" style="max-height:calc(100vh - 290px);overflow-y:auto"><div class="sos-panel-title">Build Steps</div>${rail}<div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06)"><div class="sos-panel-title">Story State</div>${pipe}</div></div>
+    <div style="max-height:calc(100vh - 290px);overflow-y:auto"><div style="text-align:center;margin-bottom:24px"><div class="sos-panel-heading" style="font-size:22px">Story Workshop</div><p class="sos-panel-copy">Turn a raw memory into structured, scoreable, interview-ready evidence.</p></div>${steps}<div style="display:flex;justify-content:center;gap:10px;margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,.06)"><button class="sos-btn sos-btn-sm sos-btn-ghost">Save Draft</button><button class="sos-btn sos-btn-sm sos-btn-primary">Submit for Review</button></div></div>
+    <div class="sos-card sos-card-static sos-card-pad" style="max-height:calc(100vh - 290px);overflow-y:auto"><div class="sos-panel-title">Coaching Tips</div><div style="font-size:11px;color:rgba(255,255,255,.55);line-height:1.6"><p style="margin-bottom:10px">The best interview stories follow the STAR+ framework.</p><p style="margin-bottom:10px">Interviewers remember the <b style="color:var(--gold2)">tension</b>, not the triumph.</p><p>Be specific. "I helped" is not an action.</p></div><div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06)"><div class="sos-panel-title">Your Library</div><div class="sf-intel-stat"><span class="il">Total</span><span class="iv">14</span></div><div class="sf-intel-stat"><span class="il">Gold</span><span class="iv iv-gold">4</span></div><div class="sf-intel-stat"><span class="il">Awaiting Review</span><span class="iv iv-orange">3</span></div></div><div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06)"><div class="sos-panel-title" style="color:var(--red)">Gaps to Fill</div><div class="sf-missing"><span class="sf-missing-dot"></span>Receiving criticism</div><div class="sf-missing"><span class="sf-missing-dot"></span>Adapting communication</div><div class="sf-missing"><span class="sf-missing-dot"></span>Why this specialty</div></div></div>
+  </div>`;
+}
+
+function scrollWs(n){const el=document.getElementById('wsS'+n);if(el)el.scrollIntoView({behavior:'smooth',block:'center'})}
+
+function renderMatch(cf){
+  let fq=cf&&cf!=='all'?questions.filter(q=>q.cat===cf):questions;
+  const cats=categories.map(c=>{const p=c.total>0?Math.round(c.covered/c.total*100):0;const col=p>=80?'var(--green)':p>=40?'var(--gold)':'var(--red)';return `<div class="sf-cat ${c.id===(cf||'all')?'is-active':''}" onclick="renderMatch('${c.id}')"><div style="flex:1"><div class="sf-cat-label">${c.name}</div><div class="sf-cov-bar"><div class="sf-cov-fill" style="width:${p}%;background:${col}"></div></div></div><span class="sf-cat-count">${c.covered}/${c.total}</span></div>`}).join('');
+  const qs=fq.map(q=>{
+    const has=q.stories.length>0;const fc=q.freq==='vc'?'sf-q-freq-vc':q.freq==='c'?'sf-q-freq-c':'sf-q-freq-o';const ft=q.freq==='vc'?'Very Common':q.freq==='c'?'Common':'Occasional';
+    let body;
+    if(has){body=`<div class="sf-q-body">${q.stories.map((m,i)=>{const s=stories.find(x=>x.id===m.sid);if(!s)return'';const lbl=i===0?'Primary':'Backup';const lc=i===0?'qml-primary':'qml-backup';const fp=m.fit*20;const fc2=m.fit>=4?'var(--green)':m.fit>=3?'var(--gold)':'var(--orange)';return `<div class="sf-q-match ${i===0?'primary':''}"><div class="sf-orb ${orbClass(s.score)}" style="width:30px;height:30px;font-size:12px">${s.score}</div><div class="sf-q-match-info"><div class="sf-q-match-title">${s.title} <span class="sf-q-match-label ${lc}">${lbl}</span></div><div class="sf-q-match-why">${m.why}</div></div><div class="sf-fit"><span class="sf-fit-label">${m.fit}/5</span><div class="sf-fit-bar"><div class="sf-fit-fill" style="width:${fp}%;background:${fc2}"></div></div></div></div>`}).join('')}</div>`}
+    else{body=`<div class="sf-q-body" style="padding:14px 22px"><div style="display:flex;align-items:center;gap:12px"><div style="width:32px;height:32px;border-radius:50%;background:rgba(217,92,92,.12);display:grid;place-items:center;color:var(--red);font-size:16px;font-weight:800;flex-shrink:0">!</div><div><div style="font-size:12px;color:var(--red);font-weight:700">No Story Mapped</div><div style="font-size:11px;color:rgba(255,255,255,.4)">Build a new story or map an existing one.</div></div><button class="sos-btn sos-btn-sm sos-btn-ghost" onclick="openTab('workshop')" style="margin-left:auto">Build Story</button></div></div>`}
+    return `<div class="sos-card sos-card-static sf-q-card"><div class="sf-q-head" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'"><div class="sf-q-text">${q.text}</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0"><span class="sf-q-freq ${fc}">${ft}</span><span class="sf-q-badge ${has?'sf-q-ok':'sf-q-gap'}">${has?q.stories.length+' stories':'GAP'}</span></div></div>${body}</div>`}).join('');
+  const title=cf&&cf!=='all'?categories.find(c=>c.id===cf)?.name+' Questions':'All Questions';
+  const sub=`${fq.filter(q=>q.stories.length>0).length} of ${fq.length} covered`;
+  document.getElementById('panel-match').innerHTML=`<div class="sf-layout sf-layout-two">
+    <div class="sos-card sos-card-static sos-card-pad" style="max-height:calc(100vh - 290px);overflow-y:auto"><div class="sos-panel-title">Question Categories</div>${cats}<div class="sf-oncall" style="margin-top:14px"><span class="future-tag">Coming Soon</span><h5>Interview On-Call</h5><p>Recorded practice answers will suggest stronger stories.</p></div></div>
+    <div style="max-height:calc(100vh - 290px);overflow-y:auto"><div style="margin-bottom:18px"><div class="sos-panel-heading">${title}</div><div class="sos-panel-copy">${sub}</div></div>${qs}</div></div>`;
+}
+
+function renderReview(){
+  const stuList=advisorStudents.map((s,i)=>`<div class="sf-ar-student ${i===0?'is-active':''}" onclick="document.querySelectorAll('.sf-ar-student').forEach(x=>x.classList.remove('is-active'));this.classList.add('is-active')"><span class="sf-ar-name">${s.name}</span>${s.pending>0?`<span class="sf-ar-pending">${s.pending}</span>`:'<span style="font-size:10px;color:var(--green);font-weight:700">Done</span>'}</div>`).join('');
+  const cards=reviewQueue.map((r,i)=>`<div class="sos-card sos-card-static sf-review-card sos-card-pad">
+    <div class="sf-rc-title">${r.title}</div><div class="sf-rc-sub">${r.student} &middot; <span class="sf-chip ${MC[r.mat]||'sf-chip-muted'}" style="font-size:9px">${r.mat}</span></div>
+    <div class="sf-rc-excerpt">${r.excerpt}</div>
+    <div class="sf-rc-score"><span style="font-size:10px;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-right:8px">Score</span><div class="sf-score-dots" style="margin:0">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="sf-dot" onclick="qSc(this)">${n}</button>`).join('')}</div></div>
+    <div class="sf-rc-flags"><button class="sf-qf" onclick="tFlag(this)">&#9733; Gold Candidate</button><button class="sf-qf" onclick="tFlag(this)">&#9888; Risky</button><button class="sf-qf" onclick="tFlag(this)">&#8709; Too Generic</button><button class="sf-qf" onclick="tFlag(this)">&#9998; Needs Detail</button></div>
+    <div><span class="sf-label">Coaching Notes</span><textarea class="sf-ta" rows="2" placeholder="What should they improve?"></textarea></div>
+    <div class="sf-rc-actions"><span style="font-size:11px;color:rgba(255,255,255,.35)">Story ${i+1} of ${reviewQueue.length}</span><div style="display:flex;gap:8px"><button class="sos-btn sos-btn-sm sos-btn-ghost">Skip</button><button class="sos-btn sos-btn-sm sos-btn-primary">Score & Next &#8594;</button></div></div>
+  </div>`).join('');
+  document.getElementById('panel-review').innerHTML=`<div class="sf-layout sf-layout-two">
+    <div class="sos-card sos-card-static sos-card-pad" style="max-height:calc(100vh - 290px);overflow-y:auto"><div class="sos-panel-title">Coaching Queue</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"><div class="sf-ar-stat"><div class="sf-ar-stat-num" style="color:var(--orange2)">17</div><div class="sf-ar-stat-label">Pending</div></div><div class="sf-ar-stat"><div class="sf-ar-stat-num" style="color:var(--green)">4</div><div class="sf-ar-stat-label">Today</div></div><div class="sf-ar-stat"><div class="sf-ar-stat-num">2.1m</div><div class="sf-ar-stat-label">Avg Time</div></div><div class="sf-ar-stat"><div class="sf-ar-stat-num" style="color:var(--gold2)">8</div><div class="sf-ar-stat-label">Students</div></div></div>
+    ${stuList}</div>
+    <div style="max-height:calc(100vh - 290px);overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><div class="sos-panel-heading">Story Review</div><div style="display:flex;gap:8px"><button class="sos-btn sos-btn-sm sos-btn-ghost">Skip</button><button class="sos-btn sos-btn-sm sos-btn-primary">Score & Next &#8594;</button></div></div>${cards}</div></div>`;
+}
+
+function renderGates(){
+  const el=document.getElementById('panel-gates');
+  if(role==='advisor'){
+    el.innerHTML=`<div class="sf-rg-hero"><div class="sf-rg-status" style="color:var(--gold2)">Student Readiness Overview</div><div class="sf-rg-sub">Gate compliance across all active students.</div></div>
+    <div style="display:grid;grid-template-columns:1fr 60px 60px 60px 80px 80px;padding:6px 16px;margin-bottom:6px"><span style="font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.08em;font-weight:700">Student</span><span style="font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.08em;font-weight:700">Stories</span><span style="font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.08em;font-weight:700">Avg</span><span style="font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.08em;font-weight:700">Gold</span><span style="font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.08em;font-weight:700">Pending</span><span style="font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.08em;font-weight:700">Gates</span></div>
+    ${advisorStudents.map(s=>`<div class="sf-advisor-rg-row"><span style="font-weight:700">${s.name}</span><span>${s.stories}</span><span style="color:${s.avg>=7?'var(--green)':s.avg>=5?'var(--orange2)':'var(--red)'}">${s.avg}</span><span style="color:var(--gold2);font-weight:700">${s.gold}</span><span style="color:${s.pending?'var(--orange2)':'var(--green)'}">${s.pending||'-'}</span><span class="sf-chip ${s.gates==='7/7'?'sf-chip-green':'sf-chip-orange'}">${s.gates}</span></div>`).join('')}`;
+    return;
+  }
+  const gm=gates.filter(g=>g.met).length;const st=gm===gates.length?'Ready':'Almost Ready';const sc=gm===gates.length?'var(--green)':'var(--orange2)';
+  el.innerHTML=`<div style="max-width:940px">
+    <div class="sos-card sos-card-static sos-card-pad sf-rg-hero" style="margin-bottom:22px;text-align:center"><div class="sf-rg-status" style="color:${sc}">${st}</div><div class="sf-rg-sub">Your story library must meet these gates before advancing to personal statement drafting or interview prep.</div>
+    <div class="sos-grid-stats" style="margin-top:20px;margin-bottom:0"><div class="sos-card sos-stat" style="min-height:90px"><div><span class="sos-stat-value" style="color:${sc}">${gm}/${gates.length}</span><span class="sos-stat-label">Gates Met</span></div></div><div class="sos-card sos-stat" style="min-height:90px"><div><span class="sos-stat-value">14</span><span class="sos-stat-label">Stories</span></div></div><div class="sos-card sos-stat" style="min-height:90px"><div><span class="sos-stat-value" style="color:var(--green)">6</span><span class="sos-stat-label">Scored 8+</span></div></div><div class="sos-card sos-stat" style="min-height:90px"><div><span class="sos-stat-value">3</span><span class="sos-stat-label">Int. Ready</span></div></div></div></div>
+
+    <div class="sf-rg-readiness-grid">${[{t:'Personal Statement',s:'Ready',c:'var(--green)',d:'3 gold stories available'},{t:'Interview Prep',s:'Almost',c:'var(--orange2)',d:'18/30 questions covered'},{t:'ERAS Activities',s:'Ready',c:'var(--green)',d:'Key experiences documented'},{t:'Interview On-Call',s:'Pending',c:'rgba(255,255,255,.4)',d:'Coming in V3'}].map(r=>`<div class="sos-card sos-card-static sos-card-pad sf-rb"><h5>${r.t}</h5><div class="sf-rb-status" style="color:${r.c}">${r.s}</div><div class="sf-rb-sub">${r.d}</div></div>`).join('')}</div>
+
+    <div class="sos-card sos-card-static sos-card-pad" style="margin-bottom:22px"><div class="sos-panel-title">Story Lifecycle Pipeline</div>
+    <div class="sos-tracker-board" style="margin-bottom:0;padding:14px">
+    <div class="sos-segment-bar" style="grid-template-columns:repeat(6,1fr)">${[{l:'Raw',n:1},{l:'Structured',n:5,done:1},{l:'Reviewed',n:5,done:1},{l:'Polished',n:0},{l:'Int. Ready',n:3,active:1},{l:'Gold',n:4,done:1}].map(s=>`<div class="sos-segment ${s.done?'is-complete':s.active?'is-active':''}">${s.n}</div>`).join('')}</div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);margin-top:6px;text-align:center">${['Raw','Structured','Reviewed','Polished','Int. Ready','Gold'].map(l=>`<span style="font-size:9px;color:rgba(255,255,255,.45);font-weight:700;text-transform:uppercase;letter-spacing:.04em">${l}</span>`).join('')}</div>
+    </div></div>
+
+    <div class="sf-rg-gates">${gates.map(g=>{const p=Math.min(100,Math.round(g.cur/g.req*100));const fc=g.met?'var(--green)':p>=60?'var(--orange)':'var(--red)';const bc=g.met?'gb-met':p>=60?'gb-almost':'gb-unmet';const bt=g.met?'Met':p>=60?'Almost':'Not Met';return `<div class="sos-card sos-card-static sos-card-pad"><div class="sf-rg-gate-head"><span class="sf-rg-gate-name">${g.name}</span><span class="sf-rg-badge ${bc}">${bt}</span></div><div class="sos-progress"><div class="sos-progress-fill" style="width:${p}%;background:linear-gradient(90deg,${fc},${fc})"></div></div><div class="sf-rg-detail" style="margin-top:6px">${g.cur} of ${g.req} ${g.met?'&#10003;':'needed'}</div></div>`}).join('')}</div>
+
+    <div class="sos-notice" style="margin-top:22px"><div class="sos-panel-title" style="color:var(--gold2)">Recommended Next Actions</div>
+    <div class="sf-rg-next-item"><div class="sf-rg-next-num">1</div><div>Write a personal growth story to unlock your last gate.</div></div>
+    <div class="sf-rg-next-item"><div class="sf-rg-next-num">2</div><div>Strengthen "The One Where I Built the Schedule" (score 6) or replace it.</div></div>
+    <div class="sf-rg-next-item"><div class="sf-rg-next-num">3</div><div>Add a "receiving criticism" story to close your biggest interview gap.</div></div>
+    <div class="sf-rg-next-item"><div class="sf-rg-next-num">4</div><div>Polish 2 more stories to "Interview Ready" before mock interview season.</div></div></div>
+  </div>`;
+}
+
+/* === INTERACTION === */
+function openTab(id){
+  document.querySelectorAll('.sf-panel').forEach(p=>p.style.display='none');
+  document.getElementById('panel-'+id).style.display='';
+  document.querySelectorAll('.sos-tab').forEach((t,i)=>{const tabs=['library','workshop','match','review','gates'];t.classList.toggle('is-active',tabs[i]===id)});
+  if(id==='library')renderLibrary();
+  if(id==='workshop')renderWorkshop();
+  if(id==='match')renderMatch('all');
+  if(id==='review')renderReview();
+  if(id==='gates')renderGates();
+}
+function setRole(r){
+  role=r;
+  document.getElementById('roleStudent').className='sos-btn sos-btn-sm'+(r==='student'?'':' sos-btn-ghost');
+  document.getElementById('roleAdvisor').className='sos-btn sos-btn-sm'+(r==='advisor'?'':' sos-btn-ghost');
+  if(r==='advisor'){document.getElementById('userName').textContent='Dr. Brian';document.getElementById('userRole').textContent='Matrix Advisor';document.getElementById('userAvatar').textContent='DB'}
+  else{document.getElementById('userName').textContent='Sarah Chen';document.getElementById('userRole').textContent='Matrix Student';document.getElementById('userAvatar').textContent='SC'}
+  const ap=document.querySelector('.sf-panel:not([style*="display: none"]):not([style*="display:none"])');
+  if(ap&&ap.id==='panel-gates')renderGates();
+}
+function qSc(el){el.parentElement.querySelectorAll('.sf-dot').forEach(b=>b.classList.remove('sel'));el.classList.add('sel')}
+function tFlag(el){el.classList.toggle('sel')}
+
+/* === INIT === */
+renderLibrary();
+</script>
+</body>
+</html>
