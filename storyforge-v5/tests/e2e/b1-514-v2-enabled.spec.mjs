@@ -266,6 +266,7 @@ test(`[B1-514-E2E-02] ${ACCEPTANCE['B1-514-E2E-02']}`, async ({ page }) => {
   ));
   await page.getByRole('button', { name: 'Save this version' }).click();
   expect((await firstVersionSave).status()).toBe(200);
+  await expect(page.getByText('Purposeful version saved.')).toBeVisible();
   await expect(page.locator('#storyVersionText')).toHaveValue(VERSION_ONE);
   await page.locator('#storyVersionText').fill(VERSION_TWO);
   const secondVersionSave = page.waitForResponse((response) => (
