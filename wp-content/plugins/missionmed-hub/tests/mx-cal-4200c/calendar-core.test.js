@@ -290,6 +290,16 @@ test('join adapter honors Session Manager meeting_url and can_join', async () =>
 	assert.match(result.joinUrl, /\/meeting\/9$/);
 });
 
+test('join adapter preserves V1 direct-link behavior for normalized Calendar events', async () => {
+	let apiCalls = 0;
+	const app = { profile: { is_admin: true }, api: { get: () => { apiCalls += 1; return Promise.reject(new Error('should not call')); } } };
+	const calendar = loadCore().create(app);
+	const result = await calendar.getJoinInfo({ id: 10, joinUrl: 'https://example.com/meeting/10' });
+	assert.equal(result.available, true);
+	assert.match(result.joinUrl, /\/meeting\/10$/);
+	assert.equal(apiCalls, 0, 'a server-provided normalized URL must not be rejected by an event-ownership recheck');
+});
+
 test('ET display contract is explicit and DST-aware', () => {
 	const core = loadCore();
 	assert.equal(core.zone, 'America/New_York');

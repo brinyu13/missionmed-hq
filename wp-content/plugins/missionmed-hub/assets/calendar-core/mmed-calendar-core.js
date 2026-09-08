@@ -861,6 +861,7 @@
 
 		function getJoinInfo(event) {
 			if (!event || !event.id || !api) return Promise.reject(new Error('Join information is unavailable.'));
+			if (event.joinUrl) return Promise.resolve({ available: true, joinUrl: safeUrl(event.joinUrl), reason: '' });
 			var request = typeof api.get === 'function' ? api.get('/meetings/' + encodeURIComponent(event.id) + '/join') : api.request('/meetings/' + encodeURIComponent(event.id) + '/join', { method: 'GET' }, {});
 			return request.then(function (payload) {
 				var available = !!(payload && (payload.available || payload.can_join || payload.join_url || payload.meeting_url));
