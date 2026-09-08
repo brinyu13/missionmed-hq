@@ -16,9 +16,10 @@ const launchFile = fileURLToPath(new URL(
   import.meta.url,
 ));
 
-test('StoryForge admits trusted active 360 students without broadening admin or mentor access', () => {
+test('StoryForge admits trusted active 360 students and canonical administrators only', () => {
   const harness = String.raw`<?php
 define('ABSPATH', __DIR__);
+define('STORYFORGE_JWT_SECRET', 'unit-test-signing-secret-at-least-32-bytes');
 class WP_User {
     public $ID;
     public $roles;
@@ -68,6 +69,9 @@ function user_can($user, $capability) { return !empty($user->caps[$capability]);
 function get_user_meta($user_id, $key) { return $GLOBALS['meta'][$user_id][$key] ?? ''; }
 function home_url($path = '/') { return 'https://missionmed.test' . $path; }
 function wp_parse_url($url, $component = -1) { return parse_url($url, $component); }
+function esc_url_raw($value) { return (string) $value; }
+function wp_generate_uuid4() { return '99999999-9999-4999-8999-999999999999'; }
+function wp_json_encode($value) { return json_encode($value); }
 function mmhq_cam_build_entitlement($user_id) { return $GLOBALS['entitlements'][$user_id] ?? null; }
 require $argv[1];
 
@@ -75,7 +79,7 @@ $GLOBALS['settings'] = array(
     'storyforge_enabled' => true,
     'allowed_user_ids' => array(1, 107),
     'app_role_overrides' => array(1 => 'student', 107 => 'admin'),
-    'allowed_roles' => array('student', 'admin'),
+    'allowed_roles' => array('student'),
     'allowed_cohorts' => array('obsolete-pilot-cohort'),
 );
 $GLOBALS['entitlements'] = array(
@@ -83,6 +87,10 @@ $GLOBALS['entitlements'] = array(
     202 => array('trusted' => true, 'verified' => true, 'active' => false, 'status' => 'not_eligible', 'source' => 'wordpress_learndash_handoff'),
     203 => array('trusted' => true, 'verified' => true, 'active' => false, 'status' => 'revoked', 'source' => 'wordpress_learndash_handoff'),
     204 => array('trusted' => false, 'verified' => false, 'active' => false, 'status' => 'source_unavailable', 'source' => 'none'),
+    207 => array('trusted' => true, 'verified' => true, 'active' => true, 'status' => 'active', 'source' => 'wordpress_learndash_handoff'),
+);
+$GLOBALS['meta'] = array(
+    205 => array('_missionmed_storyforge_user_id' => 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'),
 );
 
 function result_for($user) {
@@ -103,8 +111,10 @@ $revoked = new WP_User(203, array('subscriber'));
 $unverified = new WP_User(204, array('subscriber'));
 $unlistedAdmin = new WP_User(205, array('administrator'), array('manage_options' => true));
 $unlistedMentor = new WP_User(206, array('mentor'));
+$adminAnd360 = new WP_User(207, array('administrator'), array('manage_options' => true));
 $founder = new WP_User(1, array('administrator'), array('manage_options' => true));
 $admin = new WP_User(107, array('administrator'), array('manage_options' => true));
+$invalid = new WP_User(0);
 
 // The live pilot has no cohort restriction. Keep that exact state for its two accounts.
 $studentResult = result_for($student);
@@ -113,9 +123,14 @@ $revokedResult = result_for($revoked);
 $unverifiedResult = result_for($unverified);
 $unlistedAdminResult = result_for($unlistedAdmin);
 $unlistedMentorResult = result_for($unlistedMentor);
+$adminAnd360Result = result_for($adminAnd360);
+$invalidResult = result_for($invalid);
 $GLOBALS['settings']['allowed_cohorts'] = array();
 $founderResult = result_for($founder);
 $adminResult = result_for($admin);
+$unlistedAdminToken = mmsf_issue_jwt($unlistedAdmin, mmsf_access_state($unlistedAdmin))['token'];
+$GLOBALS['settings']['storyforge_enabled'] = false;
+$disabledAdminResult = result_for($unlistedAdmin);
 
 echo json_encode(compact(
     'studentResult',
@@ -124,8 +139,12 @@ echo json_encode(compact(
     'unverifiedResult',
     'unlistedAdminResult',
     'unlistedMentorResult',
+    'adminAnd360Result',
+    'invalidResult',
     'founderResult',
-    'adminResult'
+    'adminResult',
+    'unlistedAdminToken',
+    'disabledAdminResult'
 ));
 `;
   const result = spawnSync(
@@ -134,7 +153,26 @@ echo json_encode(compact(
     { encoding: 'utf8' },
   );
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), {
+  const output = JSON.parse(result.stdout);
+  const adminTokenPayload = JSON.parse(Buffer.from(
+    output.unlistedAdminToken.split('.')[1],
+    'base64url',
+  ));
+  assert.deepEqual({
+    sub: adminTokenPayload.sub,
+    wp_user_id: adminTokenPayload.wp_user_id,
+    app_role: adminTokenPayload.app_role,
+    wordpress_admin: adminTokenPayload.wordpress_admin,
+    storyforge_eligible: adminTokenPayload.storyforge_eligible,
+  }, {
+    sub: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    wp_user_id: 205,
+    app_role: 'admin',
+    wordpress_admin: true,
+    storyforge_eligible: true,
+  });
+  delete output.unlistedAdminToken;
+  assert.deepEqual(output, {
     studentResult: {
       ok: true,
       role: 'student',
@@ -143,8 +181,18 @@ echo json_encode(compact(
     notEligibleResult: { ok: false, code: 'eligibility_required' },
     revokedResult: { ok: false, code: 'eligibility_revoked' },
     unverifiedResult: { ok: false, code: 'eligibility_required' },
-    unlistedAdminResult: { ok: false, code: 'user_not_enabled' },
+    unlistedAdminResult: {
+      ok: true,
+      role: 'admin',
+      source: 'wordpress_admin_capability',
+    },
     unlistedMentorResult: { ok: false, code: 'user_not_enabled' },
+    adminAnd360Result: {
+      ok: true,
+      role: 'admin',
+      source: 'wordpress_admin_capability',
+    },
+    invalidResult: { ok: false, code: 'session_required' },
     founderResult: {
       ok: true,
       role: 'student',
@@ -155,6 +203,7 @@ echo json_encode(compact(
       role: 'admin',
       source: 'wordpress_admin_capability',
     },
+    disabledAdminResult: { ok: false, code: 'storyforge_disabled' },
   });
 });
 

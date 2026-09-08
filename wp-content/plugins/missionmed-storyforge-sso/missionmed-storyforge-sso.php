@@ -244,8 +244,9 @@ function mmsf_access_state($user) {
     }
 
     $role = mmsf_role_for_user($user, $settings);
+    $has_admin_privilege = mmsf_native_role_for_user($user) === 'admin';
     $allowlisted = mmsf_user_is_allowlisted($user, $settings);
-    if (!$allowlisted && $role !== 'student') {
+    if (!$has_admin_privilege && !$allowlisted && $role !== 'student') {
         return new WP_Error(
             'user_not_enabled',
             'StoryForge is not enabled for this account.',
@@ -253,13 +254,14 @@ function mmsf_access_state($user) {
         );
     }
 
-    if (!in_array($role, $settings['allowed_roles'], true)) {
+    if (!$has_admin_privilege && !in_array($role, $settings['allowed_roles'], true)) {
         return new WP_Error('role_not_enabled', 'StoryForge is not enabled for this account role.', array('status' => 403));
     }
 
     $cohort = mmsf_cohort_for_user((int) $user->ID);
     if (
-        $role === 'student'
+        !$has_admin_privilege
+        && $role === 'student'
         && $allowlisted
         && !empty($settings['allowed_cohorts'])
         && !in_array($cohort, $settings['allowed_cohorts'], true)
@@ -269,9 +271,12 @@ function mmsf_access_state($user) {
 
     $entitlement = mmsf_entitlement_for_user($user);
     if (
-        empty($entitlement['trusted'])
+        !$has_admin_privilege
+        && (
+            empty($entitlement['trusted'])
         || empty($entitlement['verified'])
         || empty($entitlement['active'])
+        )
     ) {
         $status = sanitize_key((string) $entitlement['status']);
         $code = in_array($status, array('revoked', 'restricted', 'expired', 'refunded', 'cancelled'), true)

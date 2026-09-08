@@ -174,7 +174,7 @@ test('browser harnesses pin PostgreSQL 18 and the exact forward-only migration o
   }
 });
 
-test('integration fixtures exercise eligible-all students and preserve nonstudent denials', () => {
+test('integration fixtures exercise eligible students, canonical admins, and ordinary-role denials', () => {
   const integration = readFileSync(
     path.join(packageDir, 'scripts', 'run-integration.sh'),
     'utf8',
@@ -194,8 +194,10 @@ test('integration fixtures exercise eligible-all students and preserve nonstuden
     'the hosted Linux fixture must resolve the host-side StoryForge origin',
   );
   assert.match(integration, /if \[\[ "\$STUDENT_ACCESS" != "allowed:student" \]\]/);
+  assert.match(integration, /if \[\[ "\$SECOND_ADMIN_ACCESS" != "allowed:admin" \]\]/);
   assert.match(integration, /if \[\[ "\$INELIGIBLE_ACCESS" != "eligibility_revoked" \]\]/);
-  assert.match(integration, /for denied_state in "\$SECOND_ADMIN_ACCESS" "\$MENTOR_ACCESS"/);
+  assert.match(integration, /if \[\[ "\$MENTOR_ACCESS" != "user_not_enabled" \]\]/);
+  assert.match(integration, /SECOND_ADMIN_NAV=.*\$SECOND_ADMIN_ID/);
   assert.match(integration, /STUDENT_NAV=.*\$STUDENT_ID/);
   assert.match(integration, /DENIED_NAV=.*\$INELIGIBLE_ID/);
 });

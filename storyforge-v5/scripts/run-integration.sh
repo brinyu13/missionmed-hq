@@ -251,12 +251,14 @@ if [[ "$FOUNDER_ACCESS" != "allowed:student" ]]; then
   echo "Exact founder role override check failed: $FOUNDER_ACCESS" >&2
   exit 1
 fi
-for denied_state in "$SECOND_ADMIN_ACCESS" "$MENTOR_ACCESS"; do
-  if [[ "$denied_state" != "user_not_enabled" ]]; then
-    echo "Exact-user allowlist denial check failed: $denied_state" >&2
-    exit 1
-  fi
-done
+if [[ "$SECOND_ADMIN_ACCESS" != "allowed:admin" ]]; then
+  echo "Canonical administrator access check failed: $SECOND_ADMIN_ACCESS" >&2
+  exit 1
+fi
+if [[ "$MENTOR_ACCESS" != "user_not_enabled" ]]; then
+  echo "Exact-user mentor allowlist denial check failed: $MENTOR_ACCESS" >&2
+  exit 1
+fi
 if [[ "$STUDENT_ACCESS" != "allowed:student" ]]; then
   echo "Eligible student entitlement check failed: $STUDENT_ACCESS" >&2
   exit 1
@@ -267,10 +269,15 @@ if [[ "$INELIGIBLE_ACCESS" != "eligibility_revoked" ]]; then
 fi
 
 FOUNDER_NAV="$(wp eval "\$u=get_user_by('id',$FOUNDER_ID);wp_set_current_user(\$u->ID);echo do_shortcode('[missionmed_storyforge_navigation][missionmed_storyforge_dashboard_tile]');")"
+SECOND_ADMIN_NAV="$(wp eval "\$u=get_user_by('id',$SECOND_ADMIN_ID);wp_set_current_user(\$u->ID);echo do_shortcode('[missionmed_storyforge_navigation][missionmed_storyforge_dashboard_tile]');")"
 STUDENT_NAV="$(wp eval "\$u=get_user_by('id',$STUDENT_ID);wp_set_current_user(\$u->ID);echo do_shortcode('[missionmed_storyforge_navigation][missionmed_storyforge_dashboard_tile]');")"
-DENIED_NAV="$(wp eval "\$ids=array($SECOND_ADMIN_ID,$INELIGIBLE_ID,$MENTOR_ID);foreach(\$ids as \$id){\$u=get_user_by('id',\$id);wp_set_current_user(\$u->ID);echo do_shortcode('[missionmed_storyforge_navigation][missionmed_storyforge_dashboard_tile]');}")"
+DENIED_NAV="$(wp eval "\$ids=array($INELIGIBLE_ID,$MENTOR_ID);foreach(\$ids as \$id){\$u=get_user_by('id',\$id);wp_set_current_user(\$u->ID);echo do_shortcode('[missionmed_storyforge_navigation][missionmed_storyforge_dashboard_tile]');}")"
 if [[ "$FOUNDER_NAV" != *"missionmed-storyforge-nav"* || "$FOUNDER_NAV" != *"missionmed-storyforge-tile"* ]]; then
   echo "Exact founder navigation check failed." >&2
+  exit 1
+fi
+if [[ "$SECOND_ADMIN_NAV" != *"missionmed-storyforge-nav"* || "$SECOND_ADMIN_NAV" != *"missionmed-storyforge-tile"* ]]; then
+  echo "Canonical administrator navigation check failed." >&2
   exit 1
 fi
 if [[ "$STUDENT_NAV" != *"missionmed-storyforge-nav"* || "$STUDENT_NAV" != *"missionmed-storyforge-tile"* ]]; then
