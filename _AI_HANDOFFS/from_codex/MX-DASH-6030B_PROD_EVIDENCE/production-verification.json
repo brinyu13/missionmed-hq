@@ -1,0 +1,44 @@
+{
+  "ticket": "MX-DASH-6030B-PROD",
+  "verified_at": "2026-09-08",
+  "approved_commit": "2a56d7b80ddaf21bd46b1e4b217995bb1c5eebe9",
+  "production": {
+    "url": "https://missionmedinstitute.com/member-dashboard/?mx6030b=verify#dashboard",
+    "authenticated_admin": true,
+    "option_c_visible": true,
+    "old_enterprise_panel_visible": false,
+    "apps_checked": ["HomeBase", "Calendar", "Scheduler", "StoryForge", "IV Prep On-Call", "RISE", "RankList IQ", "LOR Studio"],
+    "desktop_admin_edit": true,
+    "mobile_viewport": {"width": 390, "height": 844},
+    "drawer_aria_expanded": true,
+    "horizontal_overflow": false,
+    "cinematic_object_fit": "cover",
+    "morph_focus_return": true,
+    "morph_progress": "1.0000",
+    "classic_control_present": true
+  },
+  "files": {
+    "wp-content/plugins/missionmed-hub/assets/dashboard-v2/mmed-dashboard-v2.6010b-students.js": {
+      "before_sha256": "8f216228f56d44a46c64ff10aacdbfa9cb38420afaf96ee20ea7a1546a14e6ac",
+      "after_sha256": "56dee16717478f9351cb038e6a0976c3f4fad71e522b092b552cff6754a66235"
+    },
+    "wp-content/plugins/missionmed-hub/assets/dashboard-v2/mmed-dashboard-v2.6010b-true-morph.css": {
+      "before_sha256": "4f78078ebd65d2966322ce283ee6a78e8693b450e3d136c56f2c0670034b57ed",
+      "after_sha256": "be5ade93749eb3fcd6d62cfcb3fa9c05278b07ef52fd53b84049a5faea68612d"
+    }
+  },
+  "entitlement_security": {
+    "restricted_user_id": 43,
+    "ranklist_visible": true,
+    "ranklist_allowed": false,
+    "direct_route_status": 403,
+    "direct_route_header": "entitlement-denied",
+    "rest_status": 403,
+    "rest_code": "mmed_matrix_entitlement_required"
+  },
+  "static_checks": {
+    "node_check": "PASS",
+    "aspect_ratio_tests": "2 PASS",
+    "git_diff_check": "PASS"
+  }
+}
