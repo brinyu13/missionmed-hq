@@ -34,8 +34,8 @@ let canonicalModel = null;
 
 const databaseCycleKey = Object.freeze({ june: '2026-cycle-1', july: '2026-cycle-2', august: '2026-cycle-3' });
 const actionCapabilities = Object.freeze({
-  'payment-setup': 'auto_billing',
-  'payment-remove': 'auto_billing',
+  'payment-setup': 'payment_method_setup',
+  'payment-remove': 'payment_method_setup',
   'billing-authorization': 'auto_billing',
   'billing-authorization-revoke': 'auto_billing',
   'attendance-issue-report': 'attendance_corrections',
@@ -137,6 +137,7 @@ async function dispatch(action, payload = {}) {
       if (!state.payments.setupEnabled || !state.payments.publishableKey) throw new Error('Secure Stripe payment setup is not enabled.');
       openSecureStripeSetup({
         publishableKey: state.payments.publishableKey,
+        mode: state.payments.mode,
         createSession: () => window.MissionAccountsRuntime.mutation('/me/payment-setup/session'),
         refresh: refreshCanonical,
         notify,

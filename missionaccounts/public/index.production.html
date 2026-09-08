@@ -1780,8 +1780,9 @@ function viewBilling(selK){ const m=model(); const focusK = CYK.find(k=>cycleSta
 
 /* ---------------- STUDENT LENS ---------------- */
 function setupCardHTML(e){ const pm=pmOf(e.i), au=authOf(e.i);
-  if(document.documentElement.dataset.missionaccountsBuild==='production'&&!missionAccountsCapability('auto_billing')) return `<div class="panel setup" id="setup"><span class="k">Payment activation pending</span><div class="t">Billing setup is not active yet.</div><div class="d">Your account and attendance remain available. No card action or automatic charge can occur until approved terms and the Stripe capability are explicitly activated.</div><button type="button" class="btn primary" disabled aria-disabled="true" data-capability-disabled="true" title="Payment activation is pending">Payment setup unavailable</button></div>`;
-  if(pm.state!=='on_file') return `<div class="panel setup" id="setup"><span class="k">Finish billing setup</span><div class="t">Add a secure payment method to attend Dr J Drills.</div><div class="d">Takes about a minute. Your card is entered on a secure payment page — MissionMed never sees the number.</div><button type="button" class="btn primary" data-pay="${e.i}|add">Add payment method</button></div>`;
+  if(document.documentElement.dataset.missionaccountsBuild==='production'&&!missionAccountsCapability('payment_method_setup')) return `<div class="panel setup" id="setup"><span class="k">Payment method setup pending</span><div class="t">Secure card setup is not active yet.</div><div class="d">Your account and attendance remain available. No card action or automatic charge can occur until payment setup is explicitly activated.</div><button type="button" class="btn primary" disabled aria-disabled="true" data-capability-disabled="true" title="Payment method setup is pending">Payment setup unavailable</button></div>`;
+  if(pm.state!=='on_file') return `<div class="panel setup" id="setup"><span class="k">Secure payment method</span><div class="t">Add a payment method for Dr J Drills.</div><div class="d">Your card is entered through Stripe's secure form — MissionMed never sees the number. Saving a payment method does not turn on automatic billing.</div><button type="button" class="btn primary" data-pay="${e.i}|add">Add payment method</button></div>`;
+  if(!missionAccountsCapability('auto_billing')) return `<div class="panel setup done" id="setup"><span class="k">Payment method saved</span><div class="t">✓ ${esc(pm.brand)} •••• ${esc(pm.last4)} is on file.</div><div class="d">Automatic billing is off. Dr J can collect manually in Stripe only after reviewing the approved amount.</div><div class="btnRow"><button type="button" class="btn soft sm" data-pay="${e.i}|update">Update card</button><button type="button" class="btn ghost xs" data-pay="${e.i}|remove">Remove card</button></div></div>`;
   if(au.state!=='authorized') return `<div class="panel setup" id="setup"><span class="k">Automatic Drills billing</span><div class="t">Review and accept billing terms.</div><div class="d">Your payment method is saved. One more step: accept the automatic-billing terms.</div><button type="button" class="btn primary" data-auth="${e.i}">Review &amp; accept</button></div>`;
   return `<div class="panel setup done" id="setup"><span class="k">Billing setup complete</span><div class="t">✓ Billing setup complete.</div><div class="d">${esc(pm.brand)} •••• ${esc(pm.last4)} · $25 per class day, charged within 24–48 hours after Dr J confirms you attended. Automatic billing: on.</div><div class="btnRow"><button type="button" class="btn soft sm" data-pay="${e.i}|update">Update card</button><button type="button" class="btn ghost sm" data-auth="${e.i}">Billing terms</button><button type="button" class="btn ghost sm" data-auth-off="${e.i}">Turn off automatic billing</button><button type="button" class="btn ghost xs" data-pay="${e.i}|remove">Remove card</button></div></div>`; }
 function examCardHTML(e){ const ev=examView(e.i); const ex=ev.ex; const first=e.n.split(' ')[0];
@@ -1871,7 +1872,8 @@ function missionAccountsCapability(name){
 function missionAccountsStatusBanner(){
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return '';
   const messages=[];
-  if(!missionAccountsCapability('auto_billing')) messages.push('Payment activation pending — no automatic charges can occur.');
+  if(!missionAccountsCapability('payment_method_setup')) messages.push('Stripe payment-method setup is disabled.');
+  if(!missionAccountsCapability('auto_billing')) messages.push('Automatic billing is disabled — no automatic charges can occur.');
   if(!missionAccountsCapability('hosted_invoices')) messages.push('Stripe-hosted invoicing is disabled — ready invoices cannot be sent.');
   if(!missionAccountsCapability('zoom_sync')) messages.push('Zoom sync not connected — no new attendance is being imported.');
   if(!missionAccountsCapability('notifications')) messages.push('Notification delivery pending — queued reminders remain durable and are not marked sent.');
@@ -1927,7 +1929,8 @@ function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRun
     ['attendance_corrections','[data-undo-corr],[data-report],[data-attendance-issue-review],[data-att],#eSaveNote,#eSaveId,[data-etab="attendance"]','Attendance corrections and issue review are not enabled for this environment.'],
     ['exam_plans','[data-exam-set],[data-exam],[data-passed],[data-exam-withdraw]','Exam-plan actions are not enabled for this environment.'],
     ['comp_days','[data-comp]','Comp-day editing is not enabled for this environment.'],
-    ['auto_billing','[data-pay],[data-auth],[data-auth-off]','Payment activation is pending; no payment action will occur.'],
+    ['payment_method_setup','[data-pay]','Payment-method setup is not enabled for this environment.'],
+    ['auto_billing','[data-auth],[data-auth-off]','Automatic billing is not enabled for this environment.'],
     ['hosted_invoices','[data-provider-invoice]','Stripe-hosted invoicing is not enabled for this environment.'],
   ];
   for(const [capability,selector,reason] of rules){

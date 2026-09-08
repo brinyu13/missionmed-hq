@@ -7,6 +7,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { createMissionAccountsServer } from '../src/server.mjs';
+import { StripeGateway } from '../src/payments/stripe.mjs';
 import { PreviewStore, SupabaseRestStore } from '../src/storage/supabase-rest.mjs';
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -309,7 +310,7 @@ test('browser Stripe setup uses only Stripe-hosted Elements and contains no Miss
   assert.doesNotMatch(source, /type=["'](?:text|tel|number)["'][^>]*(?:card|cvc|exp)|name=["'](?:card|cvc|exp)/i);
 });
 
-test('public config exposes only a feature-gated Stripe Test-Mode publishable key', async () => {
+test('public config exposes only a feature-gated publishable key matching an enabled Stripe mutation mode', async () => {
   const baseConfig = {
     production: true,
     localAuth: false,
@@ -320,12 +321,13 @@ test('public config exposes only a feature-gated Stripe Test-Mode publishable ke
     audience: 'missionaccounts',
     jwtSecret: 'test-production-secret-that-is-at-least-32-bytes',
     jwksUrl: '',
-    features: { autoBilling: true },
+    features: { paymentMethodSetup: true },
     stripeMode: 'test',
   };
   await withServer({
     config: { ...baseConfig, stripePublishableKey: 'pk_test_browser_safe_123' },
     store: new PreviewStore(),
+    stripeGateway: new StripeGateway({ secretKey: 'rk_test_server_only', mode: 'test' }),
   }, async base => {
     const response = await fetch(`${base}/missionaccounts/api/config`);
     const payload = await response.json();
@@ -340,10 +342,33 @@ test('public config exposes only a feature-gated Stripe Test-Mode publishable ke
   await withServer({
     config: { ...baseConfig, stripePublishableKey: 'pk_live_must_not_be_exposed' },
     store: new PreviewStore(),
+    stripeGateway: new StripeGateway({ secretKey: 'rk_test_server_only', mode: 'test' }),
   }, async base => {
     const payload = await (await fetch(`${base}/missionaccounts/api/config`)).json();
     assert.equal(payload.payments.setupEnabled, false);
     assert.equal(payload.payments.publishableKey, null);
+  });
+  await withServer({
+    config: { ...baseConfig, stripeMode: 'live', stripePublishableKey: 'pk_live_browser_safe_123' },
+    store: new PreviewStore(),
+    stripeGateway: new StripeGateway({ secretKey: 'rk_live_server_only', mode: 'live', liveMutationsEnabled: false }),
+  }, async base => {
+    const payload = await (await fetch(`${base}/missionaccounts/api/config`)).json();
+    assert.equal(payload.payments.setupEnabled, false);
+    assert.equal(payload.payments.publishableKey, null);
+  });
+  await withServer({
+    config: { ...baseConfig, stripeMode: 'live', stripePublishableKey: 'pk_live_browser_safe_123' },
+    store: new PreviewStore(),
+    stripeGateway: new StripeGateway({ secretKey: 'rk_live_server_only', mode: 'live', liveMutationsEnabled: true }),
+  }, async base => {
+    const payload = await (await fetch(`${base}/missionaccounts/api/config`)).json();
+    assert.deepEqual(payload.payments, {
+      provider: 'stripe',
+      setupEnabled: true,
+      mode: 'live',
+      publishableKey: 'pk_live_browser_safe_123',
+    });
   });
 });
 

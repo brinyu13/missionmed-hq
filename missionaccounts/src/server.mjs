@@ -37,6 +37,7 @@ function environmentConfig() {
       identityReview: process.env.MISSIONACCOUNTS_IDENTITY_REVIEW === '1',
       examPlans: process.env.MISSIONACCOUNTS_EXAM_PLANS === '1',
       compDays: process.env.MISSIONACCOUNTS_COMP_DAYS === '1',
+      paymentMethodSetup: process.env.MISSIONACCOUNTS_PAYMENT_METHOD_SETUP === '1',
       autoBilling: process.env.MISSIONACCOUNTS_AUTO_BILLING === '1',
       hostedInvoices: process.env.MISSIONACCOUNTS_HOSTED_INVOICES === '1',
       notifications: process.env.MISSIONACCOUNTS_NOTIFICATIONS === '1',
@@ -157,6 +158,7 @@ export function createMissionAccountsServer({
       zoom_provider_configured: zoomProviderConfigured(),
       zoom_schedule_utc: config.zoomScheduleUtc || null,
       hosted_invoices_enabled: Boolean(config.features?.hostedInvoices),
+      payment_method_setup_enabled: Boolean(config.features?.paymentMethodSetup),
       auto_billing_enabled: Boolean(config.features?.autoBilling),
       stripe: stripeState,
     };
@@ -271,9 +273,13 @@ export function createMissionAccountsServer({
   async function handleApi(request, response, url) {
     if (request.method === 'GET' && url.pathname === '/api/config') {
       const stripePublishableKey = String(config.stripePublishableKey || '');
-      const stripeSetupEnabled = config.features?.autoBilling === true
-        && config.stripeMode === 'test'
-        && /^pk_test_[A-Za-z0-9_]+$/.test(stripePublishableKey);
+      const stripeState = typeof stripeGateway?.configurationState === 'function'
+        ? stripeGateway.configurationState()
+        : { mutations_enabled: false };
+      const stripeMode = ['test', 'live'].includes(config.stripeMode) ? config.stripeMode : 'disabled';
+      const stripeSetupEnabled = config.features?.paymentMethodSetup === true
+        && stripeState.mutations_enabled === true
+        && new RegExp(`^pk_${stripeMode}_[A-Za-z0-9_]+$`).test(stripePublishableKey);
       return json(response, 200, {
         basePath: config.basePath || '/missionaccounts/',
         wpBootstrapPath: config.wpBootstrapPath || '/wp-admin/admin-ajax.php?action=missionmed_missionaccounts_bootstrap',
@@ -283,7 +289,7 @@ export function createMissionAccountsServer({
         payments: {
           provider: 'stripe',
           setupEnabled: stripeSetupEnabled,
-          mode: stripeSetupEnabled ? 'test' : 'disabled',
+          mode: stripeSetupEnabled ? stripeMode : 'disabled',
           publishableKey: stripeSetupEnabled ? stripePublishableKey : null,
         },
       });
@@ -297,6 +303,7 @@ export function createMissionAccountsServer({
         billing_decisions_enabled: Boolean(config.features?.billingDecisions),
         attendance_corrections_enabled: Boolean(config.features?.attendanceCorrections),
         identity_review_enabled: Boolean(config.features?.identityReview),
+        payment_method_setup_enabled: Boolean(config.features?.paymentMethodSetup),
         auto_billing_enabled: Boolean(config.features?.autoBilling),
         hosted_invoices_enabled: Boolean(config.features?.hostedInvoices),
         notifications_enabled: Boolean(config.features?.notifications),
@@ -304,7 +311,7 @@ export function createMissionAccountsServer({
       });
     }
     if (request.method === 'POST' && url.pathname === '/api/webhooks/stripe') {
-      if (!config.features?.autoBilling && !config.features?.hostedInvoices) {
+      if (!config.features?.paymentMethodSetup && !config.features?.autoBilling && !config.features?.hostedInvoices) {
         throw requestError('This MissionAccounts capability is not enabled', 503);
       }
       return receiveStripeWebhook(request, response);
@@ -486,6 +493,7 @@ export function createMissionAccountsServer({
           identity_review: Boolean(config.features?.identityReview),
           exam_plans: Boolean(config.features?.examPlans),
           comp_days: Boolean(config.features?.compDays),
+          payment_method_setup: Boolean(config.features?.paymentMethodSetup),
           auto_billing: Boolean(config.features?.autoBilling),
           hosted_invoices: Boolean(config.features?.hostedInvoices),
           notifications: Boolean(config.features?.notifications),
@@ -752,7 +760,7 @@ export function createMissionAccountsServer({
     }
     if (request.method === 'POST' && url.pathname === '/api/me/payment-setup/session') {
       requireRole(identity, ['student']);
-      requireFeature(config, 'autoBilling');
+      requireFeature(config, 'paymentMethodSetup');
       const student = await studentContext(identity);
       const requestId = requestIdFor(request);
       let customer = await store.stripeCustomerForStudent(student.id);
@@ -809,8 +817,8 @@ export function createMissionAccountsServer({
     }
     if (request.method === 'DELETE' && url.pathname === '/api/me/payment-method') {
       requireRole(identity, ['student']);
-      requireFeature(config, 'autoBilling');
-      stripeGateway.assertTestMode();
+      requireFeature(config, 'paymentMethodSetup');
+      stripeGateway.assertMutationAllowed();
       const student = await studentContext(identity);
       const requestId = requestIdFor(request);
       const prepared = await store.preparePaymentMethodRemoval({

@@ -1,8 +1,9 @@
 const STRIPE_JS_URL = 'https://js.stripe.com/v3/';
 let stripeJsPromise = null;
 
-export function isSafeTestPublishableKey(value) {
-  return /^pk_test_[A-Za-z0-9_]+$/.test(String(value || ''));
+export function isSafePublishableKey(value, mode) {
+  if (!['test', 'live'].includes(mode)) return false;
+  return new RegExp(`^pk_${mode}_[A-Za-z0-9_]+$`).test(String(value || ''));
 }
 
 export function loadStripeJs({ documentObject = document, windowObject = window } = {}) {
@@ -80,7 +81,7 @@ function paymentSetupMarkup() {
       <button type="button" data-primary id="missionaccountsStripeSubmit" disabled>Save payment method</button>
       <button type="button" id="missionaccountsStripeCancel">Not now</button>
     </div>
-    <p class="mma-stripe-secure">Test Mode only in this release candidate. No charge is created by saving a payment method.</p>
+    <p class="mma-stripe-secure">Saving a payment method does not create a charge or turn on automatic billing.</p>
   </section>`;
 }
 
@@ -94,6 +95,7 @@ function setupResultMessage(setupIntent) {
 
 export function openSecureStripeSetup({
   publishableKey,
+  mode,
   createSession,
   refresh,
   notify,
@@ -102,7 +104,7 @@ export function openSecureStripeSetup({
   windowObject = window,
   stripeLoader = loadStripeJs,
 } = {}) {
-  if (!isSafeTestPublishableKey(publishableKey)) throw new Error('Secure payment setup is not configured for Stripe Test Mode.');
+  if (!isSafePublishableKey(publishableKey, mode)) throw new Error('Secure payment setup configuration is invalid.');
   if (typeof createSession !== 'function') throw new Error('Secure payment setup session is unavailable.');
   const prior = documentObject.getElementById('missionaccountsStripeOverlay');
   if (prior) prior.remove();

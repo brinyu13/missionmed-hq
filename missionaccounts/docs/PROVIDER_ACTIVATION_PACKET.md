@@ -76,6 +76,7 @@ Variables:
 - `MISSIONACCOUNTS_STRIPE_WEBHOOK_SECRET`
 - `MISSIONACCOUNTS_STRIPE_MODE=test`
 - `MISSIONACCOUNTS_STRIPE_LIVE_MUTATIONS=0`
+- `MISSIONACCOUNTS_PAYMENT_METHOD_SETUP=0` until the intended setup mode and account are verified
 - `MISSIONACCOUNTS_HOSTED_INVOICES=0` until the Test invoice witness
 - `MISSIONACCOUNTS_AUTO_BILLING=0` until the Test automatic-charge witness
 
@@ -89,4 +90,4 @@ Founder/legal must approve the final student-facing consent text, version identi
 
 ### S4 — Live activation
 
-After independent Test/security acceptance, separately bind a Live restricted key and Live webhook secret, verify the same immutable account, run a bounded canary, and explicitly set all three gates: `MISSIONACCOUNTS_STRIPE_MODE=live`, `MISSIONACCOUNTS_STRIPE_LIVE_MUTATIONS=1`, and the one intended feature flag. Hosted invoices and automatic day charges can be activated independently. No Live key or charge is authorized by this packet.
+After independent Test/security acceptance, separately bind a Live restricted key and Live webhook secret, verify the same immutable account, run a bounded canary, and explicitly set all three gates: `MISSIONACCOUNTS_STRIPE_MODE=live`, `MISSIONACCOUNTS_STRIPE_LIVE_MUTATIONS=1`, and the one intended feature flag. `MISSIONACCOUNTS_PAYMENT_METHOD_SETUP=1` permits Customer and SetupIntent creation plus student removal of a saved method without enabling automatic billing. Hosted invoices and automatic day charges remain independent. No Live key or charge is authorized by this packet.

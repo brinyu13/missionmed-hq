@@ -2,13 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { StripeGateway, verifyStripeSignature } from '../src/payments/stripe.mjs';
-import { confirmStripeSetup, isSafeTestPublishableKey } from '../public/missionaccounts-stripe.js';
+import { confirmStripeSetup, isSafePublishableKey } from '../public/missionaccounts-stripe.js';
 
-test('browser Stripe setup rejects non-test publishable keys', () => {
-  assert.equal(isSafeTestPublishableKey('pk_test_browser_123'), true);
-  assert.equal(isSafeTestPublishableKey('pk_live_forbidden'), false);
-  assert.equal(isSafeTestPublishableKey('sk_test_secret'), false);
-  assert.equal(isSafeTestPublishableKey(''), false);
+test('browser Stripe setup accepts only publishable keys matching the server-authorized mode', () => {
+  assert.equal(isSafePublishableKey('pk_test_browser_123', 'test'), true);
+  assert.equal(isSafePublishableKey('pk_live_browser_123', 'live'), true);
+  assert.equal(isSafePublishableKey('pk_live_wrong_mode', 'test'), false);
+  assert.equal(isSafePublishableKey('pk_test_wrong_mode', 'live'), false);
+  assert.equal(isSafePublishableKey('sk_live_secret', 'live'), false);
+  assert.equal(isSafePublishableKey('', 'live'), false);
+  assert.equal(isSafePublishableKey('pk_live_browser_123', 'disabled'), false);
 });
 
 test('browser Stripe setup validates Elements before confirmSetup and preserves explicit future-use consent', async () => {

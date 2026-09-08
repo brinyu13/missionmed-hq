@@ -13,12 +13,12 @@ const localConfig = {
   issuer: 'https://issuer.invalid',
   audience: 'missionaccounts',
   jwksUrl: 'https://issuer.invalid/jwks',
-  features: { studentContacts: false, billingDecisions: false, attendanceCorrections: false, identityReview: false, examPlans: false, compDays: false, autoBilling: false, notifications: false, zoomSync: false },
+  features: { studentContacts: false, billingDecisions: false, attendanceCorrections: false, identityReview: false, examPlans: false, compDays: false, paymentMethodSetup: false, autoBilling: false, notifications: false, zoomSync: false },
   workerToken: '',
 };
 const webhookConfig = {
   ...localConfig,
-  features: { ...localConfig.features, autoBilling: true },
+  features: { ...localConfig.features, paymentMethodSetup: true },
 };
 
 async function withServer(options, run) {
@@ -253,7 +253,7 @@ test('Stripe SetupIntent webhook binds verified sanitized card metadata to the a
 });
 
 test('student payment setup creates a stable Stripe customer and returns only SetupIntent browser material', async () => {
-  const enabledConfig = { ...localConfig, features: { ...localConfig.features, autoBilling: true } };
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, paymentMethodSetup: true } };
   const store = new PreviewStore();
   const calls = { customers: 0, setupIntents: 0 };
   const gateway = {
@@ -288,7 +288,7 @@ test('student payment setup creates a stable Stripe customer and returns only Se
 });
 
 test('student payment-method removal revokes billing consent before a retry-safe Stripe detach', async () => {
-  const enabledConfig = { ...localConfig, features: { ...localConfig.features, autoBilling: true } };
+  const enabledConfig = { ...localConfig, features: { ...localConfig.features, paymentMethodSetup: true } };
   const store = new PreviewStore();
   const studentId = '00000000-0000-4000-8000-000000000001';
   store.seedPaymentMethod(studentId, { brand: 'visa', last4: '4242', status: 'on_file', provider_pm_ref: 'pm_test_remove_1' });
@@ -304,7 +304,7 @@ test('student payment-method removal revokes billing consent before a retry-safe
   });
   const detachCalls = [];
   const gateway = {
-    assertTestMode() {},
+    assertMutationAllowed() {},
     async detachPaymentMethod(paymentMethodId, requestId) {
       detachCalls.push({ paymentMethodId, requestId });
       return { id: paymentMethodId };
