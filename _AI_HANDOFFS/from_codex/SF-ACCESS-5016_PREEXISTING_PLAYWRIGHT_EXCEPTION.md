@@ -79,3 +79,43 @@ Playwright suite before production work may begin.
 
 This receipt is one-ticket evidence only. It is not a standing waiver for this test or
 for future Playwright failures.
+
+The test-only pause stabilization commit is
+`84a073deac0f5dda4ba723236757dc4a0d452382`.
+
+## Second self-resolved harness race
+
+The first post-stabilization full suite exposed a different untouched assertion in
+`tests/e2e/b1-514-v2-enabled.spec.mjs:277`:
+
+```text
+Expected visible: Earlier tellings (1)
+Actual: element not found after the second purposeful-version PATCH returned 200
+```
+
+The production save function performs work after the HTTP response resolves: it
+reloads Story Room data, restores the selected version tab, rerenders the room, and
+only then emits `Purposeful version saved.` The test waited for the first PATCH
+response and immediately edited the still-mounted textarea again. Under full-suite
+load, that edit could race the first save's post-response reload/rerender.
+
+The baseline test, frontend save lifecycle, and purposeful-version route are
+byte-identical between `c25470ef...` and `d35c93f...`. The SF-ACCESS runtime diff is
+limited to the separate `/api/session` response projection and its identity predicate;
+it does not participate in purposeful-version saving. A clean baseline run of the
+complete five-test B1-514 file passed 5/5 before correction.
+
+The narrow correction adds one assertion after the first PATCH: wait until the
+application's existing `Purposeful version saved.` completion notification is visible
+before making the second edit. It changes no product/runtime code and retains the
+original semantic checks for two successful saves, exact current text, one earlier
+telling, exact historical text, and persisted Inspiration preference.
+
+After correction, five separate fresh-database executions of the complete B1-514
+file passed on the baseline (25/25), and the same five fresh-database executions passed
+on the candidate (25/25). The correction is commit
+`5c6a45c6d3a5536a54c38245c863a3942377ed39`.
+
+This second classification is also ticket-local causal evidence, not a standing
+waiver. No red Playwright result is accepted for deployment. Any later failure still
+requires its own candidate/baseline classification.
