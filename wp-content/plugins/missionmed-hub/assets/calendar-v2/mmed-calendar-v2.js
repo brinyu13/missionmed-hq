@@ -717,7 +717,10 @@
 			global.clearInterval(timer);
 			if (!app || !app.render) return;
 			app.render.calendar = function () { mount(app); };
-			if (app.state && app.state.route === 'calendar') mount(app);
+			// Matrix Runtime owns route mounting once its v2 contract is active.
+			// Self-mounting here would create a first core instance that Runtime
+			// immediately destroys, aborting and duplicating the live request set.
+			if (app.state && app.state.route === 'calendar' && !(app.runtime && app.runtime.enabled)) mount(app);
 		}, 100);
 	}
 

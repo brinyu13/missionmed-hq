@@ -8,6 +8,15 @@ const vm = require('node:vm');
 
 const pluginRoot = path.resolve(__dirname, '../..');
 const coreSource = fs.readFileSync(path.join(pluginRoot, 'assets/calendar-core/mmed-calendar-core.js'), 'utf8');
+const v2Source = fs.readFileSync(path.join(pluginRoot, 'assets/calendar-v2/mmed-calendar-v2.js'), 'utf8');
+
+test('StoryForge renderer defers route mounting to Matrix Runtime v2', () => {
+	assert.match(
+		v2Source,
+		/route === 'calendar' && !\(app\.runtime && app\.runtime\.enabled\)/,
+		'Runtime-managed Calendar must not self-mount and duplicate or abort the primary request set'
+	);
+});
 
 function loadCore(overrides) {
 	const context = Object.assign({
