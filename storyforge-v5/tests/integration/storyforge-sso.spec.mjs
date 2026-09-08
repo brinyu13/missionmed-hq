@@ -58,6 +58,49 @@ test('anonymous login returns to the exact mounted deep link and obtains a real 
   }
 });
 
+test('canonical WordPress admin reaches a signed admin session without 360 role substitution', async ({ page }) => {
+  await logIn(page, 'secondadmin', 'storyforge-local-password');
+  const result = await page.evaluate(async () => {
+    const bootstrap = await fetch(
+      `/wp-admin/admin-ajax.php?action=missionmed_storyforge_bootstrap&return_to=${encodeURIComponent('/storyforge/')}`,
+      { credentials: 'include' },
+    ).then((response) => response.json());
+    const issuedResponse = await fetch(bootstrap.data.token_endpoint, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': bootstrap.data.nonce },
+      body: '{}',
+    });
+    const issued = await issuedResponse.json();
+    const claims = JSON.parse(atob(issued.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const sessionResponse = await fetch('/storyforge/api/session', {
+      headers: { Authorization: `Bearer ${issued.token}` },
+    });
+    const session = await sessionResponse.json();
+    return {
+      issuedStatus: issuedResponse.status,
+      sessionStatus: sessionResponse.status,
+      role: session.user?.role,
+      wordpressAdmin: session.user?.wordpress_admin,
+      eligible: session.user?.eligible,
+      identityMatches: session.user?.id === claims.sub
+        && String(session.user?.wp_user_id) === String(claims.wp_user_id),
+      tokenRole: claims.app_role,
+      cohort: session.user?.cohort,
+    };
+  });
+  expect(result).toEqual({
+    issuedStatus: 200,
+    sessionStatus: 200,
+    role: 'admin',
+    wordpressAdmin: true,
+    eligible: true,
+    identityMatches: true,
+    tokenRole: 'admin',
+    cohort: null,
+  });
+});
+
 test('Matrix navigation and dashboard tile are server-gated and StoryForge wins route precedence', async ({ page, request }) => {
   await logIn(page);
   await page.goto('/member-dashboard/');

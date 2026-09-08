@@ -115,6 +115,9 @@ b1_515r4_migrations=(
 b1_517_migrations=(
   "20260820120000_b1_517_myeras_alignment.sql"
 )
+sf_access_5014_migrations=(
+  "20260908193000_sf_access_5014_canonical_admin_identity.sql"
+)
 discovered_b1_514_migrations=()
 while IFS= read -r migration; do
   discovered_b1_514_migrations+=("$migration")
@@ -156,6 +159,9 @@ done
 for migration in "${b1_517_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/$migration"
 done
+for migration in "${sf_access_5014_migrations[@]}"; do
+  "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/$migration"
+done
 
 printf 'PostgreSQL parity: %s\n' "$("$POSTGRES_BIN" --version)"
 node --test \
@@ -178,6 +184,7 @@ node --test \
   "$PACKAGE_DIR/tests/postgres/b1-515r-inspiration-recommendations.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/b1-515r2-admin-population.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/b1-517-myeras.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/sf-access-5014-canonical-admin-authority.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/production-migration-transaction.test.mjs"
 
 node --test --test-concurrency=1 "$PACKAGE_DIR"/tests/pg/*.test.mjs

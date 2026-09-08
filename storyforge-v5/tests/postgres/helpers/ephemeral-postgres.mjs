@@ -36,6 +36,28 @@ const phaseOneMigrations = [
   '20260806190000_b1_512_concrete_configuration_media.sql',
 ];
 
+const currentMigrations = [
+  '20260810190000_b1_514_v2_r1_visibility_consent_activity.sql',
+  '20260810200000_b1_514_v2_r2_story_versions_provenance.sql',
+  '20260810210000_b1_514_v2_r3_inspiration.sql',
+  '20260810220000_b1_514_v2_ra_requests_guest.sql',
+  '20260810230000_b1_514_v2_preferences_environments.sql',
+  '20260810240000_b1_514_v2_ra_lifecycle_completion.sql',
+  '20260810250000_b1_514_v21_authored_segment_writes.sql',
+  '20260810260000_b1_514_guest_voice_contributions.sql',
+  '20260810270000_b1_514_request_delivery_attempts.sql',
+  '20260810280000_b1_514_guest_voice_cleanup_recovery.sql',
+  '20260812120000_b1_515_v201_reviews_collections_peer.sql',
+  '20260813120000_b1_515r_admin_subject_masterkey.sql',
+  '20260813130000_b1_515r_action_center_contribution_review.sql',
+  '20260813140000_b1_515r_arena_avatar_directory_groups.sql',
+  '20260813150000_b1_515r_inspiration_recommendation_publish_fix.sql',
+  '20260814120000_b1_515r2_admin_population_avatar_sound.sql',
+  '20260819220000_b1_515r4_admin_population_scope_repair.sql',
+  '20260820120000_b1_517_myeras_alignment.sql',
+  '20260908193000_sf_access_5014_canonical_admin_identity.sql',
+];
+
 function commandPath(name) {
   if (process.env.STORYFORGE_PG_BIN) {
     return path.join(process.env.STORYFORGE_PG_BIN, name);
@@ -92,6 +114,7 @@ function applySqlFile(socketDir, file) {
 
 export async function startEphemeralStoryForgeDatabase({
   applyPhaseOne = true,
+  applyCurrent = false,
 } = {}) {
   const postgresMajor = assertPostgresParity();
   const root = mkdtempSync(path.join(tmpdir(), 'storyforge-v55-pg-'));
@@ -138,6 +161,14 @@ export async function startEphemeralStoryForgeDatabase({
     );
     if (applyPhaseOne) {
       for (const migration of phaseOneMigrations) {
+        applySqlFile(
+          socketDir,
+          path.join(packageDir, 'infra/postgres/migrations', migration),
+        );
+      }
+    }
+    if (applyCurrent) {
+      for (const migration of currentMigrations) {
         applySqlFile(
           socketDir,
           path.join(packageDir, 'infra/postgres/migrations', migration),

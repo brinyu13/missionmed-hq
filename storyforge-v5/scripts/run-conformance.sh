@@ -116,6 +116,7 @@ phase_one_migrations=(
   "20260814120000_b1_515r2_admin_population_avatar_sound.sql"
   "20260819220000_b1_515r4_admin_population_scope_repair.sql"
   "20260820120000_b1_517_myeras_alignment.sql"
+  "20260908193000_sf_access_5014_canonical_admin_identity.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \

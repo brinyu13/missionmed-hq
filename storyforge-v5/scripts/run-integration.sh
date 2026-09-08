@@ -160,6 +160,7 @@ phase_one_migrations=(
   "20260814120000_b1_515r2_admin_population_avatar_sound.sql"
   "20260819220000_b1_515r4_admin_population_scope_repair.sql"
   "20260820120000_b1_517_myeras_alignment.sql"
+  "20260908193000_sf_access_5014_canonical_admin_identity.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
@@ -200,6 +201,7 @@ wp plugin activate missionmed-storyforge-sso
 wp role create mentor Mentor --clone=subscriber
 FOUNDER_ID="$(wp user get localadmin --field=ID)"
 FOUNDER_STORYFORGE_ID="33333333-3333-4333-8333-333333333333"
+SECOND_ADMIN_STORYFORGE_ID="44444444-4444-4444-8444-444444444444"
 wp user update "$FOUNDER_ID" --first_name='Dr' >/dev/null
 SECOND_ADMIN_ID="$(wp user create secondadmin secondadmin@example.test --role=administrator --user_pass=storyforge-local-password --display_name='Second Admin' --porcelain)"
 STUDENT_ID="$(wp user create maya maya@example.test --role=subscriber --user_pass=storyforge-local-password --display_name='Maya Student' --porcelain)"
@@ -210,9 +212,13 @@ MENTOR_TWO_ID="$(wp user create drrivera drrivera@example.test --role=mentor --u
   "INSERT INTO public.sf_users (id, wp_user_id, display_name, role, eligible) VALUES ('$FOUNDER_STORYFORGE_ID', $FOUNDER_ID, 'Founder Integration', 'student', true)" \
   >/dev/null
 "$PSQL_BIN" "${PSQL_ARGS[@]}" -c \
+  "INSERT INTO public.sf_users (id, wp_user_id, display_name, role, eligible) VALUES ('$SECOND_ADMIN_STORYFORGE_ID', $SECOND_ADMIN_ID, 'Second Admin Historical Profile', 'student', true)" \
+  >/dev/null
+"$PSQL_BIN" "${PSQL_ARGS[@]}" -c \
   "UPDATE public.sf_users SET wp_user_id = $STUDENT_ID WHERE id = '11111111-1111-4111-8111-111111111111'" \
   >/dev/null
 wp user meta update "$FOUNDER_ID" _missionmed_storyforge_user_id "$FOUNDER_STORYFORGE_ID"
+wp user meta update "$SECOND_ADMIN_ID" _missionmed_storyforge_user_id "$SECOND_ADMIN_STORYFORGE_ID"
 wp user meta update "$STUDENT_ID" _missionmed_storyforge_user_id 11111111-1111-4111-8111-111111111111
 wp user meta update "$STUDENT_ID" _missionmed_storyforge_cohort 2027
 wp user meta update "$STUDENT_ID" _missionmed_storyforge_local_eligible 1

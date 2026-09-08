@@ -6,6 +6,7 @@ import {
   defaultQuestionAgendaItems,
   defaultStoryAgendaItems,
   publicError,
+  sessionUserForIdentity,
 } from '../../server/app.mjs';
 import { verifyToken } from '../../server/auth.mjs';
 
@@ -83,6 +84,41 @@ test('the public Railway origin is API-only by default outside local fixture mod
 
   const fixture = await loadConfig({ STORYFORGE_DEV_AUTH: 'true' });
   assert.equal(fixture.config.originApiOnly, false);
+});
+
+test('canonical admin session projection preserves the signed actor without creating a student subject', () => {
+  const identity = {
+    sub: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    wpUserId: 9101,
+    role: 'admin',
+    eligible: true,
+    wordpressAdmin: true,
+    name: 'Canonical Administrator',
+    firstName: 'Canonical Administrator',
+  };
+  assert.deepEqual(sessionUserForIdentity(identity, null), {
+    id: identity.sub,
+    wp_user_id: '9101',
+    display_name: 'Canonical Administrator',
+    first_name: 'Canonical Administrator',
+    pronouns: null,
+    role: 'admin',
+    eligible: true,
+    cohort: null,
+    academic_year: null,
+    specialty: null,
+    application_cycle: null,
+    background_preference: 'ember',
+    reading_size_preference: 'standard',
+    theme_preference: 'dark',
+    inspiration_layout: 'list',
+    opening_sound_enabled: false,
+  });
+
+  const studentProfile = { id: identity.sub, role: 'student', cohort: '2027' };
+  assert.equal(sessionUserForIdentity({ ...identity, role: 'student' }, studentProfile), studentProfile);
+  assert.equal(sessionUserForIdentity({ ...identity, wordpressAdmin: false }, null), null);
+  assert.equal(sessionUserForIdentity({ ...identity, eligible: false }, null), null);
 });
 
 test('production rejects standalone SPA serving and a noncanonical Matrix base path', async () => {

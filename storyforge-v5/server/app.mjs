@@ -314,6 +314,33 @@ function sendJson(response, status, payload) {
   response.end(body);
 }
 
+export function sessionUserForIdentity(identity, profile = null) {
+  const canonicalAdmin = identity?.eligible === true
+    && identity?.role === 'admin'
+    && identity?.wordpressAdmin === true;
+  if (!canonicalAdmin) return profile;
+
+  return {
+    id: identity.sub,
+    wp_user_id: String(identity.wpUserId),
+    display_name: identity.name || 'MissionMed Administrator',
+    first_name: identity.firstName || '',
+    pronouns: profile?.pronouns ?? null,
+    role: 'admin',
+    eligible: true,
+    cohort: null,
+    academic_year: null,
+    specialty: null,
+    application_cycle: null,
+    background_preference: profile?.background_preference || 'ember',
+    reading_size_preference: profile?.reading_size_preference || 'standard',
+    theme_preference: profile?.theme_preference || 'dark',
+    inspiration_layout: profile?.inspiration_layout || 'list',
+    opening_sound_enabled: profile?.role === 'admin'
+      && profile?.opening_sound_enabled === true,
+  };
+}
+
 export function publicError(error) {
   const databaseStatus = {
     '22023': 400,
@@ -1361,7 +1388,7 @@ async function api(request, response, url, {
   }
 
   if (request.method === 'GET' && url.pathname === '/api/session') {
-    const user = await withIdentity(identity, async (client) => {
+    const profile = await withIdentity(identity, async (client) => {
       try {
         const result = await client.query(
           `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
@@ -1377,6 +1404,7 @@ async function api(request, response, url, {
         throw error;
       }
     });
+    const user = sessionUserForIdentity(identity, profile);
     if (!user) {
       const error = new Error('StoryForge profile is missing or eligibility was revoked.');
       error.code = 'eligibility_required';
