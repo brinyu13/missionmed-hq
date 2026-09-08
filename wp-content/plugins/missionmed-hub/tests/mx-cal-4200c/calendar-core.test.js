@@ -281,6 +281,32 @@ test('Scheduler failure is non-blocking when primary Matrix events succeed', asy
 	calendar.destroy();
 });
 
+test('primary Matrix events are prioritized ahead of supporting WordPress reads', async () => {
+	const calls = [];
+	let resolveEvents;
+	const app = {
+		profile: { is_admin: false },
+		api: {
+			base: '/wp-json/mmed/v1',
+			request: (endpoint) => {
+				calls.push(endpoint);
+				if (endpoint === '/events') return new Promise((resolve) => { resolveEvents = resolve; });
+				return Promise.resolve(endpoint === '/todos' ? { todos: [] } : { categories: [] });
+			}
+		}
+	};
+	const core = loadCore({ fetch: () => Promise.reject(new Error('Scheduler offline')) });
+	const calendar = core.create(app);
+	const started = calendar.start();
+	assert.deepEqual(calls, ['/events'], 'noncritical WordPress reads must not contend with the primary event request');
+	resolveEvents({ events: [{ id: 91, title: 'Primary first', start_at: '2026-09-03T15:00:00-04:00' }] });
+	await started;
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	assert.deepEqual(calls, ['/events', '/todos', '/calendar/categories']);
+	assert.equal(calendar.state.events[0].id, 91);
+	calendar.destroy();
+});
+
 test('a hung primary Matrix request fails closed without a renderer-owned timer', async () => {
 	const app = { profile: { is_admin: false }, api: { base: '/wp-json/mmed/v1', request: (endpoint) => endpoint === '/events' ? new Promise(() => {}) : Promise.resolve(endpoint === '/todos' ? { todos: [] } : { categories: [] }) } };
 	const core = loadCore({ mmedStudentOsFeatureFlags: { calendar_experience: { experience: 'storyforge', primary_timeout_ms: 50, scheduler_timeout_ms: 50 } }, fetch: () => Promise.reject(new Error('Scheduler offline')) });

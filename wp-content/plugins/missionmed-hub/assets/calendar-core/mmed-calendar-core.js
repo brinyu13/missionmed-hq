@@ -639,14 +639,7 @@
 			return { start: dateKey(start) + 'T00:00:00', end: dateKey(end) + 'T23:59:59', no_sync: '1' };
 		}
 
-		function loadPrimary(generation, signal) {
-			if (!api || (typeof api.request !== 'function' && typeof api.get !== 'function')) {
-				set({ wpStatus: 'error', todosStatus: 'error', error: 'Calendar service is unavailable.' });
-				return Promise.reject(new Error('Calendar service is unavailable'));
-			}
-			var params = range();
-			var key = String(api.base || '') + '|' + (capabilities.admin ? 'admin' : 'student') + '|' + params.start + '|' + params.end;
-			var cached = sharedPrimaryCache[key];
+		function loadSupportingData(generation, signal) {
 			var todoRequest = typeof api.request === 'function' ? api.request('/todos', { method: 'GET', signal: signal }, {}) : api.get('/todos');
 			todoRequest.then(function (payload) {
 				var todos = payload && Array.isArray(payload.todos) ? payload.todos.map(normalizeTodo) : [];
@@ -663,15 +656,29 @@
 					set({ categories: list.map(normalizeCategory), visibility: payload && payload.visibility && typeof payload.visibility === 'object' ? payload.visibility : {}, favorites: favorites, events: mergeEvents(primaryEvents, schedulerEvents), categoriesStatus: list.length ? 'ready' : 'empty' });
 				}
 			}).catch(function (error) { if (!(error && error.name === 'AbortError') && generation === rangeGeneration) set({ categoriesStatus: 'error' }); });
+		}
+
+		function loadPrimary(generation, signal) {
+			if (!api || (typeof api.request !== 'function' && typeof api.get !== 'function')) {
+				set({ wpStatus: 'error', todosStatus: 'error', error: 'Calendar service is unavailable.' });
+				return Promise.reject(new Error('Calendar service is unavailable'));
+			}
+			var params = range();
+			var key = String(api.base || '') + '|' + (capabilities.admin ? 'admin' : 'student') + '|' + params.start + '|' + params.end;
+			var cached = sharedPrimaryCache[key];
 			set({ requestRange: { start: params.start, end: params.end }, cacheStatus: cached ? 'hit' : 'miss' });
 			if (cached) {
 				state.telemetry.cacheHits += 1;
 				primaryEvents = applyFavorites(cached.events.slice());
 				set({ events: mergeEvents(primaryEvents, schedulerEvents), wpStatus: primaryEvents.length ? 'ready' : 'empty', error: '' });
 				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary cache=hit range=' + key);
-				if (Date.now() - cached.savedAt < CACHE_FRESH_MS) return Promise.resolve(cached.events.slice());
+				if (Date.now() - cached.savedAt < CACHE_FRESH_MS) {
+					loadSupportingData(generation, signal);
+					return Promise.resolve(cached.events.slice());
+				}
 			}
 			var startedAt = Date.now();
+			if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary start cache=' + (cached ? 'stale' : 'miss') + ' range=' + key);
 			var request = requestWithDeadline(function (requestSignal) {
 				return typeof api.request === 'function' ? api.request('/events', { method: 'GET', signal: requestSignal }, params) : api.get('/events', params);
 			}, PRIMARY_TIMEOUT_MS, signal, 'Primary Matrix Calendar request timed out');
@@ -680,16 +687,22 @@
 				sharedPrimaryCache[key] = { events: normalized.slice(), savedAt: Date.now() };
 				primaryEvents = normalized.slice();
 				state.telemetry.primaryLoadMs = Date.now() - startedAt;
-				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary cache=' + (cached ? 'revalidated' : 'miss') + ' duration_ms=' + state.telemetry.primaryLoadMs + ' range=' + key);
+				if (global.console && typeof global.console.info === 'function') global.console.info('[Matrix Calendar] primary success cache=' + (cached ? 'revalidated' : 'miss') + ' duration_ms=' + state.telemetry.primaryLoadMs + ' events=' + normalized.length + ' range=' + key);
 				if (generation === rangeGeneration) set({ events: mergeEvents(primaryEvents, schedulerEvents), wpStatus: normalized.length ? 'ready' : 'empty', cacheStatus: cached ? 'revalidated' : 'stored', error: '' });
 				return normalized;
 			}).catch(function (error) {
 				if (error && error.name === 'AbortError' && (destroyed || generation !== rangeGeneration || (signal && signal.aborted))) return [];
+				if (global.console && typeof global.console.warn === 'function') global.console.warn('[Matrix Calendar] primary failure class=' + String(error && error.name || 'Error') + ' status=' + String(error && error.status || 0) + ' duration_ms=' + (Date.now() - startedAt) + ' cache=' + (cached ? 'stale' : 'none') + ' stale_age_ms=' + (cached ? Date.now() - cached.savedAt : 0));
 				if (generation === rangeGeneration) {
 					if (cached) set({ wpStatus: primaryEvents.length ? 'ready' : 'empty', error: 'Live Matrix events could not be refreshed. Showing recently cached events.' });
 					else set({ wpStatus: 'error', error: 'Live Matrix events could not be loaded.' });
 				}
 				throw error;
+			});
+			events.then(function () {
+				if (!destroyed && generation === rangeGeneration) loadSupportingData(generation, signal);
+			}, function () {
+				if (!destroyed && generation === rangeGeneration) loadSupportingData(generation, signal);
 			});
 			return events;
 		}
