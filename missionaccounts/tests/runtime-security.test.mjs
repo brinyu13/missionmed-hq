@@ -243,6 +243,10 @@ test('MissionAccounts WordPress bridge is default-off, allowlisted, nonce/origin
   assert.doesNotMatch(source, /\$source\s*=\s*\$is_admin\s*\?/);
   assert.match(source, /wp_verify_nonce\(\$nonce, 'wp_rest'\)/);
   assert.match(source, /mma_verify_origin/);
+  assert.match(source, /missionmed_missionaccounts_bootstrap[^]*admin_url\('admin-ajax\.php'\)/);
+  assert.match(source, /\$_SERVER\['REQUEST_METHOD'\][^]*=== 'POST'/);
+  assert.match(source, /\$_SERVER\['HTTP_X_WP_NONCE'\]/);
+  assert.match(source, /wp_send_json\(\$issued, 200\)/);
   assert.match(source, /MISSIONACCOUNTS_JWT_SECRET/);
   assert.match(source, /'audience'\s*=>\s*'missionaccounts'/);
   assert.match(source, /'missionaccounts_eligible'\s*=>\s*true/);

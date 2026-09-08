@@ -211,7 +211,11 @@ function mma_allowed_origin() {
 }
 
 function mma_verify_origin($request) {
-    $origin = trim((string) $request->get_header('origin'));
+    return mma_verify_origin_value((string) $request->get_header('origin'));
+}
+
+function mma_verify_origin_value($origin) {
+    $origin = trim((string) $origin);
     if ($origin === '') {
         return true;
     }
@@ -313,7 +317,14 @@ function mma_bootstrap_payload($return_to) {
     $settings = mma_settings();
     return array(
         'nonce' => wp_create_nonce('wp_rest'),
-        'token_endpoint' => rest_url(MMA_REST_NAMESPACE . MMA_REST_ROUTE),
+        // Keep the browser exchange on the already cache-excluded admin-ajax
+        // action. Some production WordPress stacks reject cookie-authenticated
+        // REST requests before the route callback can validate its own nonce.
+        'token_endpoint' => add_query_arg(
+            'action',
+            'missionmed_missionaccounts_bootstrap',
+            admin_url('admin-ajax.php')
+        ),
         'matrix_url' => esc_url_raw((string) $settings['matrix_url']),
         'base_path' => (string) $settings['base_path'],
         'return_to' => mma_safe_return_url($return_to),
@@ -349,6 +360,42 @@ function mma_ajax_bootstrap() {
             'state' => 'access_unavailable',
             'message' => $access->get_error_message(),
         ), (int) ($access->get_error_data()['status'] ?? 403));
+    }
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
+        $origin = mma_verify_origin_value((string) ($_SERVER['HTTP_ORIGIN'] ?? ''));
+        if (is_wp_error($origin)) {
+            wp_send_json_error(array(
+                'code' => $origin->get_error_code(),
+                'state' => 'access_unavailable',
+                'message' => $origin->get_error_message(),
+            ), (int) ($origin->get_error_data()['status'] ?? 403));
+        }
+        $nonce = trim((string) ($_SERVER['HTTP_X_WP_NONCE'] ?? ''));
+        if ($nonce === '' || !wp_verify_nonce($nonce, 'wp_rest')) {
+            wp_send_json_error(array(
+                'code' => 'csrf_failed',
+                'state' => 'access_unavailable',
+                'message' => 'A valid WordPress nonce is required.',
+            ), 403);
+        }
+        $rate = mma_rate_limit((int) $user->ID);
+        if (is_wp_error($rate)) {
+            wp_send_json_error(array(
+                'code' => $rate->get_error_code(),
+                'state' => 'access_unavailable',
+                'message' => $rate->get_error_message(),
+            ), (int) ($rate->get_error_data()['status'] ?? 429));
+        }
+        $issued = mma_issue_jwt($user, $access);
+        if (is_wp_error($issued)) {
+            wp_send_json_error(array(
+                'code' => $issued->get_error_code(),
+                'state' => 'access_unavailable',
+                'message' => $issued->get_error_message(),
+            ), (int) ($issued->get_error_data()['status'] ?? 503));
+        }
+        $issued['nonce'] = wp_create_nonce('wp_rest');
+        wp_send_json($issued, 200);
     }
     wp_send_json_success(array_merge(mma_bootstrap_payload($return_to), array(
         'user' => array(
