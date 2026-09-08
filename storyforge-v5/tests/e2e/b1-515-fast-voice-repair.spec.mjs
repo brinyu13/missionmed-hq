@@ -128,8 +128,14 @@ test('[B1-515-FAST-VOICE-01] mentor feedback is idle until explicit Start and us
   expect(await page.evaluate(() => window.__mentorMicCalls())).toBe(1);
   await page.waitForTimeout(4_300);
   await expect(page.locator('#mentorNoteText')).toHaveValue(/Deterministic near-live transcript segment 1\./);
+  const pausedSegment = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && /\/api\/mentor-notes\/[a-f0-9-]+\/segments$/.test(new URL(response.url()).pathname)
+  ));
   await page.getByRole('button', { name: 'Pause' }).click();
   await expect(page.getByText(/Paused · nothing lost/)).toBeVisible();
+  expect((await pausedSegment).ok()).toBeTruthy();
+  await expect(page.locator('#mentorNoteText')).toHaveValue(/Deterministic near-live transcript segment 2\./);
   const pausedText = await page.locator('#mentorNoteText').inputValue();
   await page.waitForTimeout(400);
   await expect(page.locator('#mentorNoteText')).toHaveValue(pausedText);
