@@ -1921,7 +1921,7 @@ function missionAccountsHydrateProviderInvoice(root){
   }
   controls.reverse().forEach(control=>row.prepend(control));
 }
-function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRuntime?.state?.user?.role==='student') root.querySelectorAll('.demo,[data-lens]').forEach(node=>node.hidden=true);
+function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRuntime?.state?.user?.role==='student') root.querySelectorAll('.demo,[data-lens]').forEach(node=>{ if(node!==document.body) node.hidden=true; });
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return;
   const rules=[
     ['student_contacts','[data-save-contact],#eSaveId,[data-etab="identity"]','Student contact editing is not enabled for this environment.'],

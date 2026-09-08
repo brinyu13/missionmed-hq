@@ -118,6 +118,32 @@ test('every executable inline production script parses in the browser language g
   assert.ok(executableCount > 0);
 });
 
+test('student capability filtering never hides the document body', async () => {
+  const html = await readFile(productionShellPath, 'utf8');
+  const match = html.match(/function missionAccountsApplyCapabilityState\(root\)\{[\s\S]+?\n\}\n\nfunction missionAccountsEvidenceTabs/);
+  assert.ok(match, 'capability-state function must remain extractable');
+  const source = match[0].replace(/\n\nfunction missionAccountsEvidenceTabs$/, '');
+  const body = { hidden: false };
+  const demo = { hidden: false };
+  const root = {
+    querySelectorAll(selector) {
+      return selector === '.demo,[data-lens]' ? [body, demo] : [];
+    },
+  };
+  const sandbox = {
+    window: { MissionAccountsRuntime: { state: { user: { role: 'student' } } } },
+    document: { body, documentElement: { dataset: { missionaccountsBuild: 'production' } } },
+    missionAccountsCapability: () => true,
+    missionAccountsDisable: () => {},
+    root,
+  };
+  const context = vm.createContext(sandbox);
+  vm.runInContext(source, context);
+  vm.runInContext('missionAccountsApplyCapabilityState(root)', context);
+  assert.equal(body.hidden, false);
+  assert.equal(demo.hidden, true);
+});
+
 test('production server serves only the scoped shell while keeping mounted public config available', async () => {
   const config = {
     production: true,
