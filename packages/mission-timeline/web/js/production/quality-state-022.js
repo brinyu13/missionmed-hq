@@ -39,6 +39,13 @@ export async function recordCompletedExport022(store,result){
     document.metadata={...(document.metadata||{}),lastExport022:entry,exportHistory022:[entry,...(document.metadata?.exportHistory022||[])].slice(0,30)};
   },{history:false,material:false});
   await store.saveNow('EXPORT_COMPLETED');
-  if(store.adapter.remoteSyncConsent===true){const result=await store.adapter.flush();if(Number(result?.pending||0)>0||result?.conflict)throw new Error('Export history is waiting to sync.');}
+  if(store.adapter.remoteSyncConsent===true){
+    let result=await store.adapter.flush();
+    // A scheduled adapter flush can already be finishing when saveNow queues
+    // this export entry. Drain once more so a successful late checkpoint does
+    // not surface as a false sync warning.
+    if(Number(result?.pending||0)>0&&!result?.conflict)result=await store.adapter.flush();
+    if(Number(result?.pending||0)>0||result?.conflict)throw new Error('Export history is waiting to sync.');
+  }
   return entry;
 }

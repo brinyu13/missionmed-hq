@@ -15,7 +15,9 @@ test('Guardian record preserves the full review and only marks AI after a receip
 });
 test('history only records a verified download and exposes pending server synchronization',async()=>{
   const value=store();await assert.rejects(recordCompletedExport022(value,{completed:false}),/not confirmed/);assert.equal(value.document.metadata.lastExport022,undefined);
-  const result={completed:true,filename:'synthetic.png',metadata:{downloaded:true}};
-  await recordCompletedExport022(value,result);assert.equal(value.document.metadata.exportHistory022[0].filename,'synthetic.png');
-  value.adapter.flush=async()=>({pending:1,conflict:true});await assert.rejects(recordCompletedExport022(value,result),/waiting to sync/);assert.equal(value.document.metadata.exportHistory022.length,2);
+  const result={completed:true,filename:'synthetic.png',metadata:{downloaded:true,formatId:'png-1920x1080'}};
+  await recordCompletedExport022(value,result);assert.equal(value.document.metadata.exportHistory022[0].filename,'synthetic.png');assert.equal(value.document.metadata.exportHistory022[0].format,'png-1920x1080');
+  let flushes=0;value.adapter.flush=async()=>++flushes===1?{pending:1}:{pending:0};
+  await recordCompletedExport022(value,result);assert.equal(flushes,2);
+  value.adapter.flush=async()=>({pending:1,conflict:true});await assert.rejects(recordCompletedExport022(value,result),/waiting to sync/);assert.equal(value.document.metadata.exportHistory022.length,3);
 });

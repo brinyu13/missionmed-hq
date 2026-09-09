@@ -91,8 +91,8 @@ function installDownloadCase({executionMode="local",onExportComplete=()=>{},down
 }
 
 test("022 export completion callback runs only after a verified downloaded result",async()=>{
- let received=null;const actual=installDownloadCase({onExportComplete:async(result)=>{assert.equal(actual.progress.hidden,false);received=result;}});await actual.button.click();
- assert.equal(received.completed,true);assert.equal(received.metadata.downloaded,true);assert.equal(actual.progress.hidden,true);
+  let received=null;const actual=installDownloadCase({onExportComplete:async(result)=>{assert.equal(actual.progress.hidden,false);received=result;}});await actual.button.click();
+  assert.equal(received.completed,true);assert.equal(received.metadata.downloaded,true);assert.equal(received.metadata.formatId,"png-1920x1080");assert.equal(actual.progress.hidden,true);
  for(const options of [{executionMode:"simulated"},{downloaded:false}]){
   let callbacks=0;const incomplete=installDownloadCase({...options,onExportComplete:()=>{callbacks++;}});await incomplete.button.click();assert.equal(callbacks,0);
  }

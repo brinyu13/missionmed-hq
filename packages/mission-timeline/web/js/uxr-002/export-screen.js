@@ -878,6 +878,7 @@ export async function executeExportRequest(request,{
   const baseMetadata={
     adapterId:String(adapter.id||adapter.name||"anonymous-export-adapter"),
     executionMode,
+    formatId:String(request.format?.id||""),
     generated:Boolean(artifact),
     downloadAttempted:false,
     downloaded:false,
