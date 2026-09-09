@@ -8,6 +8,17 @@
     "node",
     "tools/start-production.mjs"
   ],
+  "researchWorker": {
+    "projectScope": "same Railway project and production environment",
+    "expectedEntrypoint": [
+      "node",
+      "tools/start-research-worker.mjs"
+    ],
+    "provider": "RISE_REPLAY_TEST",
+    "networkAllowed": false,
+    "spendAllowed": false,
+    "canonicalPromotion": "review-gated"
+  },
   "forbiddenEntrypoints": [
     "node missionmed-hq/server.mjs"
   ],

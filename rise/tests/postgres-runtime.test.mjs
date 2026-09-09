@@ -70,3 +70,22 @@ test("Postgres runtime rejects missing credentials and unknown TLS modes", () =>
     /must be require or disable/,
   );
 });
+
+test("on-demand research adapter is production-durable, RLS-bound, and zero-spend", async () => {
+  const source = await fs.readFile(new URL("../adapters/postgres-runtime.mjs", import.meta.url), "utf8");
+  const migration = await fs.readFile(new URL("../sql/008_on_demand_research.sql", import.meta.url), "utf8");
+  assert.match(source, /export async function createRiseResearchStore/);
+  assert.match(source, /pg_advisory_xact_lock/);
+  assert.match(source, /FOR UPDATE SKIP LOCKED/);
+  assert.match(source, /RESEARCH_PROVIDER_NOT_AUTHORIZED/);
+  assert.match(source, /actual_cost_usd = 0/);
+  assert.match(source, /current_date \+ \$2::integer/);
+  assert.match(migration, /CREATE TABLE rise_runtime\.research_router_settings/);
+  assert.match(migration, /CREATE TABLE rise_runtime\.research_jobs/);
+  assert.match(migration, /CREATE TABLE rise_runtime\.research_quota_ledgers/);
+  assert.match(migration, /canary_acgme_ids/);
+  assert.match(migration, /FORCE ROW LEVEL SECURITY/g);
+  assert.match(migration, /actual_spend_usd numeric\(12,4\) NOT NULL DEFAULT 0 CHECK \(actual_spend_usd = 0\)/);
+  assert.match(migration, /provider_key <> 'RISE_REPLAY_TEST'[\s\S]*network_allowed = false[\s\S]*spend_allowed = false/);
+  assert.doesNotMatch(migration, /GRANT [^;]+ TO (?:anon|authenticated|PUBLIC)/i);
+});

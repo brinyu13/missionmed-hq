@@ -128,7 +128,7 @@ async function loadRuntime() {
   for (let p = 2; p <= firstPage.totalPages; p++) {
     catalogPageRequests.push(riseFetch('/api/rise/v1/programs/catalog?page=' + p + '&pageSize=1000'));
   }
-  const [catalogPages, filterIntelligence, matrixProfile, savedResult, betaNotice] = await Promise.all([
+  const [catalogPages, filterIntelligence, matrixProfile, savedResult, betaNotice, researchControl] = await Promise.all([
     Promise.all(catalogPageRequests),
     riseFetch('/api/rise/v1/filter-intelligence'),
     riseFetch('/api/rise/v1/me/profile').catch(error => ({
@@ -137,6 +137,7 @@ async function loadRuntime() {
     })),
     riseFetch('/api/rise/v1/me/programs'),
     riseFetch('/api/rise/v1/me/beta-notice'),
+    riseFetch('/api/rise/v1/research/control').catch(() => ({ controls: null })),
   ]);
   const catalogRecords = [...firstPage.records, ...catalogPages.flatMap(page => page.records)];
   const registry = { registryReleaseId: firstPage.registryReleaseId, total: firstPage.total, records: catalogRecords };
@@ -149,6 +150,7 @@ async function loadRuntime() {
     session,
     status,
     betaNotice,
+    researchControl: researchControl.controls,
     saved,
     persistence: savedResult.persistence || 'unavailable',
     data: {
@@ -205,6 +207,7 @@ const state = {
   dismissedLocks: new Set(),
   updating: new Set(),                // program ids currently updating from an authorized research job
   changed: [],                        // ingest log for "Updated this week"
+  researchAdmin: { loading: false, error: null, control: null, revision: null, providers: [], jobs: [] },
 };
 
 /* Campaign state is loaded only from an authorized research backend. */
@@ -319,7 +322,7 @@ async function toggleSave(id, ev) {
   try { await persistProgramState(id); }
   catch (error) {
     if (previous) state.saved.set(id, previous); else state.saved.delete(id);
-    rerender(); toast('Could not sync My Programs — no change was saved.');
+    rerender(); toast('Could not sync My Programs' + (error.code ? ' (' + error.code + ')' : '') + ' — no change was saved.');
   }
 }
 window.toggleSave = toggleSave;
@@ -688,7 +691,7 @@ function fitRank(p) {
 }
 function activePills() {
   const f = state.find, pills = [];
-  if (f.q) pills.push({ k: 'q', label: `“${f.q}”` });
+  if (f.q) pills.push({ k: 'q', label: `”${f.q}”` });
   if (f.specialty) pills.push({ k: 'specialty', label: f.specialty });
   if (f.state) pills.push({ k: 'state', label: stateNames[f.state] || f.state });
   if (f.soap) pills.push({ k: 'soap', label: 'SOAP 2026' + (f.soapTrack ? ' · ' + f.soapTrack : '') });
@@ -976,12 +979,12 @@ function viewRank() {
   const items = [...state.saved.entries()].map(([id, rec]) => ({ p: byId.get(id), rec })).filter(x => x.p);
   return `<div class="view" data-view="rank">
     <p class="eyebrow">Rank List <span style="color:var(--vi)">· powered by RankList IQ</span></p>
-    <h1 class="h1">Rank <em>List</em></h1>
-    <p class="sub" style="max-width:680px;margin:8px 0 20px">When RankList IQ ships, it opens here with your My Programs set preloaded — your fit states, tiers and evidence go in; a priority order comes back as its own column, never folded into the tiers. RISE does not rebuild RankList IQ.</p>
-    <div class="covBanner">Feature-flagged shell. Nothing is promised until RankList IQ is real — this page exists so you can see where it lands.</div>
-    ${items.length ? `<div class="tblWrap"><table class="tbl"><caption>Your programs, as RankList IQ will receive them</caption>
+    <h1 class="h1">RankList <em>IQ</em></h1>
+    <p class="sub" style="max-width:680px;margin:8px 0 20px">RankList IQ transforms your saved programs, fit tiers, and verified evidence into a data-informed priority order — presented as its own column alongside your personal rankings, never replacing your judgment.</p>
+    <div class="covBanner" style="border-color:rgba(var(--accentGlow),.35);background:rgba(var(--accentGlow),.06)">Activates during Interview Season &bull; October 2026</div>
+    ${items.length ? `<div class="tblWrap"><table class="tbl"><caption>Your saved programs — RankList IQ will use these when it activates</caption>
       <tr><th>#</th><th>Program</th><th>Fit</th><th>State</th><th>RankList IQ priority</th></tr>
-      ${items.map(({ p, rec }, i) => { const f = computeFit(p); return `<tr><td>${i + 1}</td><td><b>${esc(p.name)}</b><br><span style="color:var(--dim);font-size:14px">${esc(p.city)}, ${p.state}</span></td><td>${f.tier ? (f.tier === 'gold' ? 'Gold Fit' : 'Silver Fit') : '—'} · ${esc(f.line)}</td><td>${rec.state.toLowerCase()}</td><td style="color:var(--dim)">arrives with RankList IQ</td></tr>`; }).join('')}
+      ${items.map(({ p, rec }, i) => { const f = computeFit(p); return `<tr><td>${i + 1}</td><td><b>${esc(p.name)}</b><br><span style="color:var(--dim);font-size:14px">${esc(p.city)}, ${p.state}</span></td><td>${f.tier ? (f.tier === 'gold' ? 'Gold Fit' : 'Silver Fit') : '—'} · ${esc(f.line)}</td><td>${rec.state.toLowerCase()}</td><td style="color:var(--dim)">October 2026</td></tr>`; }).join('')}
     </table></div>` : `<div class="emptyLib"><div class="big">No programs to rank yet.</div>Save programs first — the ★ on any row.</div>`}
   </div>`;
 }
@@ -1135,6 +1138,7 @@ function renderFile(p) {
         <button class="fAct pri" onclick="toggleSave('${p.id}',event);this.blur()">${saved ? '★ Saved' : '★ Save'}</button>
         <button class="fAct ${state.compare.includes(p.id) ? 'on' : ''}" onclick="toggleCompare('${p.id}')">${state.compare.includes(p.id) ? '✓ In Compare' : '⊞ Add to Compare'}</button>
         <button class="fAct" onclick="askMenu('${p.id}')">Ask about this ▾</button>
+        ${researchCtaButton(p)}
       </div>
     </div>
     <div class="tabStrip" role="tablist" aria-label="Program file sections">
@@ -1153,6 +1157,24 @@ window.askMenu = id => {
       <button class="fAct" onclick="closeModal();toast('Message routed to Dr Brian with this program attached. (Production wiring)')">✦ Ask Dr Brian</button>
     </div>
     <div class="mActs"><button class="mBtn sec" onclick="closeModal()">Close</button></div>`);
+};
+
+function researchCtaButton(p) {
+  const controls = runtime.researchControl;
+  if (!controls || !controls.globalEnabled || controls.emergencyKillSwitch) return '';
+  if (!state.canAdmin && !controls.studentEnabled) return '';
+  if (!(controls.canaryProgramIds || []).includes(p.acgme)) return '';
+  return `<button class="fAct" onclick="requestProgramResearch('${p.id}')">⚗ Research this program</button>`;
+}
+
+window.requestProgramResearch = async id => {
+  try {
+    const payload = await riseFetch('/api/rise/v1/program-specialties/' + encodeURIComponent(id) + '/research', {
+      method: 'POST', body: JSON.stringify({ source: state.canAdmin ? 'ADMIN' : 'STUDENT' }),
+    });
+    const status = payload.job?.status || 'QUEUED';
+    toast(payload.deduplicated ? `Research already ${status.toLowerCase()}.` : `Research request ${status.toLowerCase()}.`);
+  } catch (error) { toast(error.message || 'Research request unavailable.'); }
 };
 
 /* ---------- tab bodies ---------- */
@@ -1488,8 +1510,100 @@ function previewNumbers() {
   return { scope: scope.length, need: need.length, tasks, cost: tasks * UNIT_COST, eta: Math.max(4, Math.round(tasks * 0.8)), skipped: scope.length - need.length, rosterHolds, needList: need };
 }
 
+function researchControlPanel() {
+  const admin = state.researchAdmin, c = admin.control;
+  if (admin.loading && !c) return '<div class="stepCard" style="margin:18px 0">Loading live production router…</div>';
+  if (!c) return `<div class="stepCard" style="margin:18px 0">${esc(admin.error || 'Live production router unavailable.')}</div>`;
+  const providers = admin.providers || [];
+  const routeOptions = selected => providers.map(p => `<option value="${esc(p.providerKey)}" ${p.providerKey === selected ? 'selected' : ''}>${esc(p.providerKey)}</option>`).join('');
+  return `<div class="stepCard" style="margin:18px 0">
+    <div class="stepNum">Live production router · revision ${Number(admin.revision || 0)}</div>
+    <div class="pillRow" style="margin:8px 0 12px"><span class="pill">Build: ${esc(c.buildMode)}</span><span class="pill">Spend: $0.00</span><span class="pill">Canary: ${esc(c.canaryMode)} · ${Number(c.canaryProgramCount || 0)} programs</span><span class="pill">Rollout scope: ${esc(c.specialtyScope.join(', '))} · ${esc(c.stateScope.join(', '))}</span></div>
+    <div class="rvActs" style="margin-bottom:12px">
+      <button class="rvBtn ${c.globalEnabled ? 'on' : ''}" onclick="toggleResearchControl('globalEnabled')">Global ${c.globalEnabled ? 'enabled' : 'paused'}</button>
+      <button class="rvBtn ${c.studentEnabled ? 'on' : ''}" onclick="toggleResearchControl('studentEnabled')">Students ${c.studentEnabled ? 'enabled' : 'paused'}</button>
+      <button class="rvBtn ${c.emergencyKillSwitch ? 'on' : ''}" onclick="toggleResearchControl('emergencyKillSwitch')">Kill switch ${c.emergencyKillSwitch ? 'ACTIVE' : 'clear'}</button>
+    </div>
+    <form onsubmit="saveResearchControls(event)" class="intelFormGrid">
+      <label><span>Specialty scope</span><input name="specialtyScope" value="${esc(c.specialtyScope.join(', '))}" required></label>
+      <label><span>State scope</span><input name="stateScope" value="${esc(c.stateScope.join(', '))}" required></label>
+      <label class="wide"><span>Canary ACGME program IDs</span><input name="canaryProgramIds" value="${esc(c.canaryProgramIds.join(', '))}" required></label>
+      <label><span>Entitlement scope</span><input name="entitlementScope" value="${esc(c.entitlementScope.join(', '))}" required></label>
+      <label><span>Default quota</span><input name="defaultQuota" type="number" min="0" max="100" value="${Number(c.defaultQuota)}" required></label>
+      <label><span>Quota window days</span><input name="quotaWindowDays" type="number" min="1" max="366" value="${Number(c.quotaWindowDays)}" required></label>
+      <label><span>Concurrency cap</span><input name="concurrencyCap" type="number" min="1" max="32" value="${Number(c.concurrencyCap)}" required></label>
+      <label><span>Primary route</span><select name="primaryProvider">${routeOptions(c.primaryProvider)}</select></label>
+      <label><span>Fallback route</span><select name="fallbackProvider"><option value="">None</option>${routeOptions(c.fallbackProvider)}</select></label>
+      <label><span>Escalation route</span><select name="escalationProvider"><option value="">None</option>${routeOptions(c.escalationProvider)}</select></label>
+      <label><span>Budget cap</span><input value="$0.00 · authorization locked" disabled></label>
+      <div class="wide mActs"><button class="mBtn pri" type="submit">Save live router</button></div>
+    </form>
+    <div class="stepNum" style="margin-top:16px">Provider control</div>
+    ${providers.map(p => `<div class="taskRow"><span class="tp">${esc(p.providerKey)} · ${esc(p.modelKey)}</span><span class="tf">${esc(p.state)} · network ${p.networkAllowed ? 'on' : 'off'} · spend $${Number(p.actualSpendUsd || 0).toFixed(2)}</span><span class="tState">${p.enabled ? 'ENABLED' : 'PAUSED'}</span>${p.providerKey === 'RISE_REPLAY_TEST' ? `<button class="rowBtn" onclick="toggleReplayProvider()">${p.enabled ? 'Pause' : 'Enable'} replay</button>` : '<span class="cav">Separate approval required</span>'}</div>`).join('')}
+  </div>`;
+}
+
+function researchControlInput(c, changes = {}) {
+  return { globalEnabled:c.globalEnabled, studentEnabled:c.studentEnabled, emergencyKillSwitch:c.emergencyKillSwitch,
+    specialtyScope:c.specialtyScope, stateScope:c.stateScope, canaryMode:c.canaryMode,
+    canaryProgramIds:c.canaryProgramIds, entitlementScope:c.entitlementScope,
+    defaultQuota:c.defaultQuota, quotaWindowDays:c.quotaWindowDays, budgetCapUsd:0, concurrencyCap:c.concurrencyCap,
+    primaryProvider:c.primaryProvider, fallbackProvider:c.fallbackProvider, escalationProvider:c.escalationProvider, ...changes };
+}
+
+async function persistResearchControls(controls, reason) {
+  const payload = await riseFetch('/api/rise/v1/operator/research/router', { method:'PATCH', body:JSON.stringify({ expectedRevision:state.researchAdmin.revision, controls, reason }) });
+  state.researchAdmin.control = payload.controls; state.researchAdmin.revision = payload.revision; runtime.researchControl = payload.controls;
+  renderMain(currentRoute());
+}
+
+window.toggleResearchControl = async field => {
+  const c = state.researchAdmin.control;
+  try { await persistResearchControls(researchControlInput(c, { [field]:!c[field] }), `Admin toggled ${field}`); toast('Live router updated.'); }
+  catch (error) { toast(error.message || 'Router update failed.'); }
+};
+
+window.saveResearchControls = async event => {
+  event.preventDefault();
+  const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+  const csv = value => String(value || '').split(',').map(item => item.trim()).filter(Boolean);
+  try {
+    await persistResearchControls(researchControlInput(state.researchAdmin.control, {
+      specialtyScope:csv(values.specialtyScope), stateScope:csv(values.stateScope),
+      canaryProgramIds:csv(values.canaryProgramIds), entitlementScope:csv(values.entitlementScope),
+      defaultQuota:Number(values.defaultQuota), quotaWindowDays:Number(values.quotaWindowDays), concurrencyCap:Number(values.concurrencyCap),
+      primaryProvider:values.primaryProvider, fallbackProvider:values.fallbackProvider || null, escalationProvider:values.escalationProvider || null,
+    }), 'Admin updated live router scope'); toast('Live router scope saved.');
+  } catch (error) { toast(error.message || 'Router save failed.'); }
+};
+
+window.toggleReplayProvider = async () => {
+  const provider = state.researchAdmin.providers.find(item => item.providerKey === 'RISE_REPLAY_TEST');
+  if (!provider) return;
+  try {
+    const payload = await riseFetch('/api/rise/v1/operator/research/providers/RISE_REPLAY_TEST', { method:'PATCH', body:JSON.stringify({ expectedRevision:provider.revision, provider:{ ...provider, enabled:!provider.enabled }, reason:'Admin toggled zero-spend replay provider' }) });
+    state.researchAdmin.providers = state.researchAdmin.providers.map(item => item.providerKey === payload.provider.providerKey ? payload.provider : item);
+    renderMain(currentRoute()); toast('Replay provider updated.');
+  } catch (error) { toast(error.message || 'Provider update failed.'); }
+};
+
+async function loadAdminResearch(force = false) {
+  if (!state.canAdmin || state.researchAdmin.loading || (!force && state.researchAdmin.control)) return;
+  state.researchAdmin.loading = true;
+  try {
+    const [router, jobs] = await Promise.all([riseFetch('/api/rise/v1/operator/research/router'), riseFetch('/api/rise/v1/operator/research/jobs')]);
+    state.researchAdmin = { loading:false, error:null, control:router.controls, revision:router.revision, providers:router.providers || [], jobs:jobs.records || [] };
+  } catch (error) { state.researchAdmin = { ...state.researchAdmin, loading:false, error:error.message || 'Unavailable' }; }
+  if ((currentRoute() || '').startsWith('admin/')) renderMain(currentRoute());
+}
+
 function viewAdmin(sub) {
-  const head = `<div class="adminBanner"><b>Admin command center</b><span>The research factory is <b>not authorized</b> for this release. Preview and paid submission fail closed.</span></div>`;
+  const research = state.researchAdmin;
+  const live = research.control;
+  const summary = research.error ? `Control readback failed: ${esc(research.error)}` : live
+    ? `Live production router · ${live.globalEnabled ? 'enabled' : 'paused'} · emergency kill ${live.emergencyKillSwitch ? 'active' : 'clear'} · unapproved spend $0.00`
+    : 'Loading the live production research router…';
+  const head = `<div class="adminBanner"><b>Admin command center</b><span>${summary}</span></div>`;
   if (sub === 'queue') return `<div class="view">${head}${viewQueue()}</div>`;
   if (sub === 'review') return `<div class="view">${head}${viewReview()}</div>`;
   if (sub === 'coverage') return `<div class="view">${head}${viewCoverage()}</div>`;
@@ -1505,6 +1619,7 @@ function viewResearch() {
     <p class="eyebrow" style="color:var(--admin)">Research · Campaigns</p>
     <h1 class="h1">Operate the <em>intelligence</em></h1>
     <p class="sub" style="max-width:720px;margin:6px 0 4px">Describe the research, or build the scope by hand. RISE will resolve scope, processor and cost only after the production research adapter is authorized.</p>
+    ${researchControlPanel()}
     <div class="nlBar">
       <input id="nlInput" type="text" placeholder="Describe the research… e.g. “Update resident rosters in New Jersey”" aria-label="Natural-language research">
       <button class="nlGo" onclick="parseNL($('#nlInput').value)">Draft it</button>
@@ -1586,7 +1701,11 @@ window.runCampaign = () => toast('Research submission is disabled: no authorized
 
 /* ---------- queue ---------- */
 function viewQueue() {
-  return `<p class="eyebrow" style="color:var(--admin)">Queue</p><h1 class="h1">Task <em>monitor</em></h1><div class="emptyLib"><div class="big">No authorized research queue is connected.</div>Queued, running, returned, normalizing, QA, ingested, partial and failed states will appear only from the canonical research backend.</div>`;
+  const jobs = state.researchAdmin.jobs || [];
+  return `<p class="eyebrow" style="color:var(--admin)">Queue</p><h1 class="h1">Task <em>monitor</em></h1>
+    ${state.researchAdmin.error ? `<div class="emptyLib"><div class="big">Live queue unavailable.</div>${esc(state.researchAdmin.error)}</div>` : jobs.length
+      ? `<div class="stepCard">${jobs.map(job => `<div class="taskRow"><span class="tp">${esc(job.specialty)} · ${esc(job.state)} · ${esc(job.programSpecialtyId)}</span><span class="tf">${esc(job.providerKey)} · $${Number(job.actualCostUsd || 0).toFixed(2)}</span><span class="tState">${esc(job.status)}</span></div>`).join('')}</div>`
+      : '<div class="emptyLib"><div class="big">The live production queue is empty.</div>The durable queue is connected and the default router remains fail-closed.</div>'}`;
 }
 
 /* ---------- review queue + change detection (doc 12 §12.5) ---------- */
@@ -1629,7 +1748,10 @@ function viewCoverage() {
       <div class="sumStat"><span class="n">—</span><span class="l">Research adapter unavailable</span></div>
     </div>`;
 }
-function bindAdmin() {}
+function bindAdmin() {
+  const route = currentRoute() || '';
+  if (route === 'admin/research' || route === 'admin/queue') void loadAdminResearch();
+}
 
 Object.assign(globalThis, { state, D, $, $$, adminDraft, FAMILIES, byId, fitCache, renderMain, renderShell, openFileFor });
 

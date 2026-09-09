@@ -8,6 +8,7 @@ import path from "node:path";
 
 import {
   createMemoryStudentIntelStore,
+  createMemoryResearchStore,
   createMemoryStudentStore,
   createRiseServer,
   isProductionEnvironment,
@@ -25,6 +26,10 @@ function durableStudentStore() {
 
 function durableStudentIntelStore() {
   return { ...createMemoryStudentIntelStore(), scope: "durable_private" };
+}
+
+function durableResearchStore() {
+  return { ...createMemoryResearchStore(), scope: "durable_private_research" };
 }
 
 function durableFilterIntelligenceStore() {
@@ -543,6 +548,7 @@ test("production requires a shared durable abuse controller", () => {
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
     studentStore: durableStudentStore(),
     studentIntelStore: durableStudentIntelStore(),
+    researchStore: durableResearchStore(),
     filterIntelligenceStore: durableFilterIntelligenceStore(),
     matrixProfileAdapter: canonicalMatrixProfileAdapter(),
   };
@@ -590,6 +596,7 @@ test("production source rights fail closed after activation when the live decisi
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
     studentStore: durableStudentStore(),
     studentIntelStore: durableStudentIntelStore(),
+    researchStore: durableResearchStore(),
     filterIntelligenceStore: durableFilterIntelligenceStore(),
     abuseController: {
       scope: "shared_durable",

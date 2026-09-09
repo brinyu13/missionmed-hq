@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "contractId": "rise-on-demand-research-router-2026-09-09",
+  "buildMode": "LIVE_PRODUCTION",
+  "defaults": {
+    "globalEnabled": false,
+    "studentEnabled": false,
+    "emergencyKillSwitch": true,
+    "specialtyScope": ["Neurology"],
+    "stateScope": ["FL", "TX"],
+    "canaryMode": "PROGRAM_ID_ALLOWLIST",
+    "canaryProgramIds": [
+      "1854831078",
+      "1851113100"
+    ],
+    "entitlementScope": ["rise:private-beta"],
+    "subjectAllowlistHashes": [],
+    "defaultQuota": 1,
+    "quotaWindowDays": 30,
+    "budgetCapUsd": 0,
+    "concurrencyCap": 1,
+    "primaryProvider": "RISE_REPLAY_TEST",
+    "fallbackProvider": null,
+    "escalationProvider": null
+  },
+  "providers": [
+    {
+      "providerKey": "RISE_REPLAY_TEST",
+      "modelKey": "deterministic-private-replay-v1",
+      "state": "TEST_ONLY",
+      "enabled": true,
+      "networkAllowed": false,
+      "spendAllowed": false
+    },
+    {
+      "providerKey": "PARALLEL",
+      "modelKey": "unconfigured",
+      "state": "PAUSED",
+      "enabled": false,
+      "networkAllowed": false,
+      "spendAllowed": false
+    },
+    {
+      "providerKey": "CLAUDE_OPUS",
+      "modelKey": "unconfigured",
+      "state": "PAUSED",
+      "enabled": false,
+      "networkAllowed": false,
+      "spendAllowed": false
+    }
+  ]
+}

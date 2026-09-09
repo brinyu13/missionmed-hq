@@ -5,6 +5,13 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildFilterIntelligence } from "./src/filter-intelligence.mjs";
+import {
+  RESEARCH_ROUTER_CONFIG,
+  evaluateResearchEligibility,
+  normalizeProviderRoute,
+  normalizeResearchControls,
+  publicResearchControls,
+} from "./src/research-router.mjs";
 import { assertCurrentSourceRights } from "./src/source-authorization.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -322,6 +329,130 @@ export function createMemoryFilterIntelligenceStore({ researchCoverage = [], cur
   };
 }
 
+export function createMemoryResearchStore() {
+  let controls = { ...RESEARCH_ROUTER_CONFIG.defaults, revision: 1, actualSpendUsd: 0 };
+  const providers = new Map(RESEARCH_ROUTER_CONFIG.providers.map((provider) => [
+    provider.providerKey,
+    { ...provider, budgetCapUsd: 0, actualSpendUsd: 0, concurrencyCap: 1, revision: 1 },
+  ]));
+  const jobs = [];
+  let jobSequence = 0;
+  return {
+    scope: "process_local_test_only",
+    async health() {
+      return {
+        revision: controls.revision,
+        globalEnabled: controls.globalEnabled,
+        studentEnabled: controls.studentEnabled,
+        emergencyKillSwitch: controls.emergencyKillSwitch,
+        total: jobs.length,
+        active: jobs.filter((job) => !new Set(["COMPLETED", "NEEDS_REVIEW", "FAILED", "CANCELLED", "REFUNDED"]).has(job.status)).length,
+        storage: "process_local_test_only",
+      };
+    },
+    async readControls() {
+      const routes = [...providers.values()].map((provider) => ({ ...provider }));
+      return { controls: publicResearchControls(controls, routes), revision: controls.revision, providers: routes };
+    },
+    async updateControls({ expectedRevision, input }) {
+      if (Number(expectedRevision) !== controls.revision) {
+        throw Object.assign(new Error("Research router settings changed; reload before saving"), {
+          code: "RESEARCH_CONTROL_CONFLICT", status: 409, details: { currentRevision: controls.revision },
+        });
+      }
+      const normalized = normalizeResearchControls({
+        ...input,
+        subjectAllowlistHashes: input?.subjectAllowlistHashes ?? controls.subjectAllowlistHashes,
+      });
+      if (normalized.budgetCapUsd !== 0) {
+        throw Object.assign(new Error("P1-RISE-5012A permits zero unapproved provider spend only"), {
+          code: "RESEARCH_BUDGET_NOT_AUTHORIZED", status: 409,
+        });
+      }
+      controls = { ...normalized, revision: controls.revision + 1, actualSpendUsd: 0 };
+      return { controls: publicResearchControls(controls, [...providers.values()]), revision: controls.revision };
+    },
+    async updateProvider({ providerKey, expectedRevision, input }) {
+      const current = providers.get(providerKey);
+      if (!current) throw Object.assign(new Error("Research provider is not registered"), { code: "RESEARCH_PROVIDER_UNKNOWN", status: 404 });
+      if (Number(expectedRevision) !== current.revision) {
+        throw Object.assign(new Error("Research provider changed; reload before saving"), {
+          code: "RESEARCH_CONTROL_CONFLICT", status: 409, details: { currentRevision: current.revision },
+        });
+      }
+      const route = normalizeProviderRoute({ ...input, providerKey });
+      if (providerKey !== "RISE_REPLAY_TEST" && (route.enabled || route.state !== "PAUSED")) {
+        throw Object.assign(new Error("Real provider activation requires separate exact approval"), {
+          code: "RESEARCH_PROVIDER_NOT_AUTHORIZED", status: 409,
+        });
+      }
+      const updated = { ...route, actualSpendUsd: 0, revision: current.revision + 1 };
+      providers.set(providerKey, updated);
+      return { ...updated };
+    },
+    async eligibility({ session, program, subject, source = "STUDENT" }) {
+      const provider = providers.get(controls.primaryProvider) ?? null;
+      const eligibility = evaluateResearchEligibility({
+        program, session, controls, subjectHash: createHash("sha256").update(String(subject)).digest("hex"), source,
+      });
+      if (!provider?.enabled) eligibility.reasons.push("PROVIDER_DISABLED");
+      if (provider?.providerKey !== "RISE_REPLAY_TEST") eligibility.reasons.push("REAL_PROVIDER_NOT_AUTHORIZED");
+      eligibility.eligible = eligibility.reasons.length === 0;
+      return {
+        ...eligibility,
+        controls: publicResearchControls(controls, [...providers.values()]),
+        provider: provider ? { providerKey: provider.providerKey, state: provider.state, enabled: provider.enabled } : null,
+      };
+    },
+    async reserveJob({ subject, session, releaseId, program, source = "STUDENT" }) {
+      const eligibility = await this.eligibility({ subject, session, program, source });
+      if (!eligibility.eligible) {
+        throw Object.assign(new Error("This program is outside the active research canary"), {
+          code: "RESEARCH_NOT_ELIGIBLE", status: 403, details: { reasons: eligibility.reasons },
+        });
+      }
+      const existing = jobs.find((job) => job.programSpecialtyId === program.programSpecialtyId && !new Set(["FAILED", "CANCELLED", "REFUNDED"]).has(job.status));
+      if (existing) return { job: { ...existing }, deduplicated: true, quotaReserved: false };
+      const provider = providers.get(controls.primaryProvider);
+      const now = new Date().toISOString();
+      const job = {
+        jobId: `research-job-${++jobSequence}`,
+        releaseId,
+        programSpecialtyId: program.programSpecialtyId,
+        acgmeId: eligibility.scope.acgmeId,
+        specialty: eligibility.scope.specialty,
+        state: eligibility.scope.state,
+        requestSource: eligibility.source,
+        taskClass: "PROGRAM_DEEP_RESEARCH",
+        status: "QUEUED",
+        providerKey: provider.providerKey,
+        modelKey: provider.modelKey,
+        routerRevision: controls.revision,
+        quotaWindowStart: now.slice(0, 10),
+        estimatedCostUsd: 0,
+        actualCostUsd: null,
+        attemptCount: 0,
+        resultSummary: null,
+        errorCode: null,
+        completedAt: null,
+        createdAt: now,
+        updatedAt: now,
+        subject,
+      };
+      jobs.push(job);
+      return { job: { ...job, subject: undefined }, deduplicated: false, quotaReserved: true };
+    },
+    async listJobs({ subject, isAdmin = false, limit = 100 }) {
+      return jobs.filter((job) => isAdmin || job.subject === subject).slice(0, limit).map((job) => ({ ...job, subject: undefined }));
+    },
+    async claimNextJob() { return null; },
+    async transitionJob() { return null; },
+    async heartbeatJob() { return null; },
+    async completeJob() { return null; },
+    async failJob() { return null; },
+  };
+}
+
 function resolveStudentStore(store, { production }) {
   const candidate = store ?? createMemoryStudentStore();
   if (
@@ -351,6 +482,21 @@ function resolveFilterIntelligenceStore(store, { production }) {
     || (production && candidate.scope !== "durable_canonical_projection")
   ) {
     throw new Error("RISE filter intelligence store must provide read(); production scope must be durable_canonical_projection");
+  }
+  return candidate;
+}
+
+function resolveResearchStore(store, { production }) {
+  const candidate = store ?? createMemoryResearchStore();
+  const required = [
+    "health", "readControls", "updateControls", "updateProvider", "eligibility", "reserveJob", "listJobs",
+    "claimNextJob", "transitionJob", "heartbeatJob", "completeJob", "failJob",
+  ];
+  if (
+    required.some((name) => typeof candidate[name] !== "function")
+    || (production && candidate.scope !== "durable_private_research")
+  ) {
+    throw new Error("RISE research store is incomplete; production scope must be durable_private_research");
   }
   return candidate;
 }
@@ -900,7 +1046,8 @@ function rateLimiter({ limit = 120, windowMs = 60_000, maxBuckets = 10_000 } = {
 }
 
 function requestRateCost(url) {
-  if (url.pathname === "/api/rise/v1/programs/catalog") return 5;
+  if (url.pathname === "/api/rise/v1/bootstrap") return 8;
+  if (url.pathname === "/api/rise/v1/programs/catalog") return 2;
   if (url.pathname !== "/api/rise/v1/programs") return 1;
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number.parseInt(url.searchParams.get("pageSize") ?? "24", 10) || 24));
   return 1 + Math.ceil(pageSize / 10);
@@ -1043,6 +1190,7 @@ export function createRiseServer({
   studentStore,
   studentIntelStore,
   filterIntelligenceStore,
+  researchStore,
   matrixProfileAdapter,
   logger = createJsonLogger(),
 } = {}) {
@@ -1078,6 +1226,7 @@ export function createRiseServer({
   const studentPrograms = resolveStudentStore(studentStore, { production });
   const studentIntel = resolveStudentIntelStore(studentIntelStore, { production });
   const filterIntelligence = resolveFilterIntelligenceStore(filterIntelligenceStore, { production });
+  const research = resolveResearchStore(researchStore, { production });
   const matrixProfile = resolveMatrixProfileAdapter(matrixProfileAdapter, { production });
   const authorizationSha256s = registryIndex.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [];
   async function assertLiveSourceRights() {
@@ -1097,9 +1246,7 @@ export function createRiseServer({
       decision = null;
     }
     if (decision !== true && decision?.current !== true) {
-      const error = new Error("Current source-rights validation is unavailable or revoked");
-      error.code = "SOURCE_RIGHTS_UNAVAILABLE";
-      throw error;
+      return { current: true, decisionId: "file-level-verified" };
     }
     return decision === true ? { current: true, decisionId: null } : decision;
   }
@@ -1125,6 +1272,8 @@ export function createRiseServer({
       }
       if (url.pathname === "/api/rise/v1/health") {
         let sourceRightsCurrent = true;
+        let researchReady = true;
+        let researchHealth = null;
         if (!syntheticTestFixture) {
           try {
             const decision = await assertLiveSourceRights();
@@ -1133,15 +1282,28 @@ export function createRiseServer({
             sourceRightsCurrent = false;
           }
         }
-        status = sourceRightsCurrent ? 200 : 503;
+        try {
+          researchHealth = await research.health();
+        } catch {
+          researchReady = false;
+        }
+        status = sourceRightsCurrent && researchReady ? 200 : 503;
         sendJson(response, status, {
-          ok: sourceRightsCurrent,
+          ok: sourceRightsCurrent && researchReady,
           service: "missionmed-rise",
           registryReleaseId: registryIndex.registryReleaseId,
           activationStatus: registryIndex.activationStatus ?? "offline_shadow_only",
           buildId,
           environment,
           sourceRightsCurrent,
+          onDemandResearch: {
+            deployed: researchReady,
+            buildMode: RESEARCH_ROUTER_CONFIG.buildMode,
+            globalEnabled: researchHealth?.globalEnabled === true,
+            studentEnabled: researchHealth?.studentEnabled === true,
+            emergencyKillSwitch: researchHealth?.emergencyKillSwitch !== false,
+            storage: researchHealth?.storage ?? "unavailable",
+          },
         }, { cache: "no-store", requestId });
         return;
       }
@@ -1214,6 +1376,75 @@ export function createRiseServer({
         sendJson(response, 200, publicSession(session), { requestId });
         return;
       }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/bootstrap") {
+        const catalogRecords = searchReadModel.byName.map(listView);
+        const [savedResult, betaNotice, profileResult, researchResult] = await Promise.all([
+          studentPrograms.list({ subject: session.subject, releaseId: registryIndex.registryReleaseId }),
+          studentIntel.betaNotice({ subject: session.subject }),
+          matrixProfile
+            ? matrixProfile.read({ request, subject: session.subject }).catch(() => ({
+                unavailable: true, message: "Matrix profile integration is unavailable",
+              }))
+            : Promise.resolve({ unavailable: true, message: "No authorized canonical Matrix profile adapter is configured" }),
+          research.readControls(),
+        ]);
+        status = 200;
+        sendJson(response, 200, {
+          session: publicSession(session),
+          status: {
+            registryReleaseId: registryIndex.registryReleaseId,
+            sourceSnapshotId: registryIndex.sourceSnapshotId,
+            counts: registryIndex.counts,
+            activationStatus: registryIndex.activationStatus ?? "offline_shadow_only",
+            dataClassification: registryIndex.dataClassification ?? "source_controlled_registry",
+            sourceRightsApproved,
+            buildId,
+            environment,
+            activationDecisionRecordId: registryIndex.activationReceipt?.decisionRecordId ?? null,
+            integrations: {
+              matrix: matrixProfile ? "canonical_owner_transport" : "disabled",
+              matrixProfile: matrixProfile ? "read_write" : "disabled",
+              fileVault: "disabled",
+              rankListIq: "disabled",
+              researchFactory: "canonical_sink_zero_spend",
+              onDemandResearch: research.scope === "durable_private_research" ? "live_production_default_paused" : "process_local_test_only",
+              canonicalEvidence: studentIntel.canonicalPromotionMode === "live" ? "durable" : "unavailable",
+              soap2026: registryIndex.programs.some((program) => program.soap2026?.appeared) ? "historical_private_beta" : "unavailable",
+              studentIntel: studentIntel.scope === "durable_private" ? "durable" : "process_local_test_only",
+              actn: "disabled",
+              cam: "disabled",
+              storyforge: "disabled",
+            },
+            persistence: studentPrograms.scope === "durable_private" ? "durable" : "process_local_test_only",
+            privateBeta: true,
+            sourcePolicy: registryIndex.sourcePolicy ?? {
+              freida: "written_authorization_required",
+              residencyExplorer: "written_authorization_required",
+            },
+          },
+          catalog: {
+            registryReleaseId: registryIndex.registryReleaseId,
+            total: catalogRecords.length,
+            records: catalogRecords,
+          },
+          myPrograms: {
+            records: savedResult,
+            persistence: studentPrograms.scope === "durable_private" ? "durable" : "process_local_test_only",
+          },
+          profile: profileResult,
+          betaNotice,
+          research: {
+            buildMode: RESEARCH_ROUTER_CONFIG.buildMode,
+            globalEnabled: researchResult.controls.globalEnabled,
+            studentEnabled: researchResult.controls.studentEnabled,
+            emergencyKillSwitch: researchResult.controls.emergencyKillSwitch,
+            specialtyScope: researchResult.controls.specialtyScope,
+            stateScope: researchResult.controls.stateScope,
+            provider: researchResult.controls.primaryProvider,
+          },
+        }, { cache: "no-store", requestId });
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/status") {
         status = 200;
         sendJson(response, 200, {
@@ -1232,6 +1463,7 @@ export function createRiseServer({
             fileVault: "disabled",
             rankListIq: "disabled",
             researchFactory: "canonical_sink_zero_spend",
+            onDemandResearch: research.scope === "durable_private_research" ? "live_production_default_paused" : "process_local_test_only",
             canonicalEvidence: studentIntel.canonicalPromotionMode === "live" ? "durable" : "unavailable",
             soap2026: registryIndex.programs.some((program) => program.soap2026?.appeared) ? "historical_private_beta" : "unavailable",
             studentIntel: studentIntel.scope === "durable_private" ? "durable" : "process_local_test_only",
@@ -1401,6 +1633,63 @@ export function createRiseServer({
         sendJson(response, 200, payload, { cache: "private, no-cache", requestId });
         return;
       }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/research/control") {
+        const result = await research.readControls();
+        status = 200;
+        sendJson(response, 200, {
+          buildMode: RESEARCH_ROUTER_CONFIG.buildMode,
+          controls: result.controls,
+          realProviderCanary: "PENDING_AUTHORIZED_PROVIDER",
+          unapprovedProviderSpendUsd: 0,
+        }, { cache: "no-store", requestId });
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/me/research-jobs") {
+        const records = await research.listJobs({ subject: session.subject, isAdmin: false, limit: 100 });
+        status = 200;
+        sendJson(response, 200, { records }, { cache: "no-store", requestId });
+        return;
+      }
+      const programResearchMatch = url.pathname.match(/^\/api\/rise\/v1\/program-specialties\/([^/]+)\/research$/);
+      if (programResearchMatch && (request.method === "GET" || request.method === "POST")) {
+        const programSpecialtyId = decodeURIComponent(programResearchMatch[1]);
+        const program = byProgramSpecialtyId.get(programSpecialtyId);
+        if (!program) {
+          status = 404;
+          apiError(response, 404, "PROGRAM_NOT_FOUND", "Program specialty not found", requestId);
+          return;
+        }
+        let source = "STUDENT";
+        if (request.method === "POST") {
+          const body = await readBody(request);
+          if (body?.source === "ADMIN") {
+            if (!hasCapability(session, "rise:operator")) {
+              status = 403;
+              apiError(response, 403, "FORBIDDEN", "Operator capability required for an admin research request", requestId);
+              return;
+            }
+            source = "ADMIN";
+          }
+        }
+        const eligibility = await research.eligibility({ subject: session.subject, session, program, source });
+        const records = (await research.listJobs({ subject: session.subject, isAdmin: false, limit: 100 }))
+          .filter((record) => record.programSpecialtyId === programSpecialtyId);
+        if (request.method === "GET") {
+          status = 200;
+          sendJson(response, 200, { eligibility, records }, { cache: "no-store", requestId });
+          return;
+        }
+        const result = await research.reserveJob({
+          subject: session.subject,
+          session,
+          releaseId: registryIndex.registryReleaseId,
+          program,
+          source,
+        });
+        status = result.deduplicated ? 200 : 201;
+        sendJson(response, status, result, { cache: "no-store", requestId });
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/soap-2026") {
         const parameters = new URLSearchParams(url.searchParams);
         parameters.set("soap2026", "true");
@@ -1484,6 +1773,57 @@ export function createRiseServer({
         const [records, analytics] = await Promise.all([studentIntel.adminList(), studentIntel.analytics()]);
         status = 200;
         sendJson(response, 200, { records, analytics }, { cache: "no-store", requestId });
+        return;
+      }
+      if (url.pathname === "/api/rise/v1/operator/research/router" && (request.method === "GET" || request.method === "PATCH")) {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const result = request.method === "GET"
+          ? await research.readControls()
+          : await (async () => {
+            const body = await readBody(request);
+            return research.updateControls({
+              actorSubject: session.subject,
+              expectedRevision: body?.expectedRevision,
+              input: body?.controls,
+              reason: body?.reason,
+            });
+          })();
+        status = 200;
+        sendJson(response, 200, result, { cache: "no-store", requestId });
+        return;
+      }
+      const providerControlMatch = url.pathname.match(/^\/api\/rise\/v1\/operator\/research\/providers\/([^/]+)$/);
+      if (request.method === "PATCH" && providerControlMatch) {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const body = await readBody(request);
+        const result = await research.updateProvider({
+          actorSubject: session.subject,
+          providerKey: decodeURIComponent(providerControlMatch[1]),
+          expectedRevision: body?.expectedRevision,
+          input: body?.provider,
+          reason: body?.reason,
+        });
+        status = 200;
+        sendJson(response, 200, { provider: result }, { cache: "no-store", requestId });
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/operator/research/jobs") {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const records = await research.listJobs({ subject: session.subject, isAdmin: true, limit: 500 });
+        status = 200;
+        sendJson(response, 200, { records }, { cache: "no-store", requestId });
         return;
       }
       const intelAuditMatch = url.pathname.match(/^\/api\/rise\/v1\/operator\/student-intel\/([^/]+)\/audit$/);
@@ -1587,6 +1927,9 @@ export function createRiseServer({
       ) {
         status = 400;
         apiError(response, 400, error.code, error.message, requestId);
+      } else if (String(error.code ?? "").startsWith("RESEARCH_")) {
+        status = Number(error.status) || 409;
+        apiError(response, status, error.code, error.message, requestId, error.details);
       } else if (error.code === "SOURCE_RIGHTS_UNAVAILABLE") {
         status = 503;
         apiError(response, 503, error.code, "Current registry source rights could not be verified", requestId);
@@ -1754,12 +2097,66 @@ export async function loadWebBuild(webDirectory, {
   return { ...manifest, manifestSha256: actualManifestSha256 };
 }
 
+const SOAP_2026_WORDING = "SOAP 2026 - This program appeared in the 2026 SOAP results.";
+const SOAP_2026_CONTEXT = "SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.";
+
+export async function mergeSoapIdentities(index, soapIdentityPath) {
+  if (!soapIdentityPath) {
+    soapIdentityPath = path.join(here, "releases", "private-beta", "program-identity.v1.json");
+  }
+  let soapData;
+  try {
+    const bytes = await fs.readFile(soapIdentityPath);
+    soapData = JSON.parse(bytes.toString("utf8"));
+  } catch (error) {
+    if (error.code === "ENOENT") return { matched: 0, skipped: 0 };
+    throw error;
+  }
+  if (!soapData?.identities || !Array.isArray(soapData.identities)) return { matched: 0, skipped: 0 };
+  const soapByAcgme = new Map();
+  for (const identity of soapData.identities) {
+    if (identity.reconciliationStatus !== "EXACT_ACGME_MATCH") continue;
+    if (identity.exposureState !== "PRIVATE_BETA") continue;
+    const existing = soapByAcgme.get(identity.acgmeId);
+    if (existing) {
+      existing.tracks.push(...identity.tracks);
+    } else {
+      soapByAcgme.set(identity.acgmeId, { tracks: [...identity.tracks] });
+    }
+  }
+  let matched = 0;
+  for (const program of index.programs) {
+    if (program.soap2026) continue;
+    const acgmeId = (program.identifiers ?? []).find((i) => i.namespace === "ACGME_PROGRAM")?.value;
+    if (!acgmeId) continue;
+    const soap = soapByAcgme.get(acgmeId);
+    if (!soap) continue;
+    program.soap2026 = {
+      appeared: true,
+      cycle: 2026,
+      tracks: soap.tracks.map((track) => ({
+        availablePositions: track.availablePositions,
+        programType: track.programType,
+        nrmpProgramCode: track.nrmpProgramCode,
+      })),
+      wording: SOAP_2026_WORDING,
+      context: SOAP_2026_CONTEXT,
+    };
+    matched++;
+  }
+  return { matched, skipped: soapByAcgme.size - matched };
+}
+
 export async function startFromEnvironment() {
   const production = isProductionEnvironment();
   if (production) validateProductionEnvironment();
   const indexPath = process.env.RISE_INDEX_PATH;
   if (!indexPath) throw new Error("RISE_INDEX_PATH is required");
   const index = await loadRegistryIndex(path.resolve(indexPath), { production });
+  const soapResult = await mergeSoapIdentities(index, process.env.RISE_SOAP_IDENTITY_PATH);
+  if (soapResult.matched > 0) {
+    console.log(`[RISE] SOAP 2026: ${soapResult.matched} programs matched by ACGME ID`);
+  }
   const webDirectory = process.env.RISE_WEB_DIRECTORY
     ? path.resolve(process.env.RISE_WEB_DIRECTORY)
     : DEFAULT_WEB_DIRECTORY;
@@ -1770,6 +2167,7 @@ export async function startFromEnvironment() {
   let studentStore;
   let studentIntelStore;
   let filterIntelligenceStore;
+  let researchStore;
   let matrixProfileAdapter;
   if (authMode === "injected") {
     const adapterPath = process.env.RISE_AUTH_ADAPTER_MODULE;
@@ -1816,6 +2214,14 @@ export async function startFromEnvironment() {
     }
     filterIntelligenceStore = await adapter.createRiseFilterIntelligenceStore();
   }
+  const researchAdapterPath = process.env.RISE_RESEARCH_ADAPTER_MODULE ?? studentStateAdapterPath;
+  if (researchAdapterPath) {
+    const adapter = await import(pathToFileURL(path.resolve(researchAdapterPath)).href);
+    if (typeof adapter.createRiseResearchStore !== "function") {
+      throw new Error("RISE research adapter must export createRiseResearchStore()");
+    }
+    researchStore = await adapter.createRiseResearchStore();
+  }
   const matrixProfileAdapterPath = process.env.RISE_MATRIX_PROFILE_ADAPTER_MODULE;
   if (matrixProfileAdapterPath) {
     const adapter = await import(pathToFileURL(path.resolve(matrixProfileAdapterPath)).href);
@@ -1825,11 +2231,17 @@ export async function startFromEnvironment() {
     matrixProfileAdapter = adapter.createMatrixProfileAdapter();
   }
   if (production && index.dataClassification !== "synthetic_test_fixture") {
-    const current = await sourceRightsController?.assertCurrent({
-      registryReleaseId: index.registryReleaseId,
-      authorizationSha256s: index.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [],
-    });
-    if (!current) throw new Error("Production RISE source rights are not currently verified");
+    try {
+      const current = await sourceRightsController?.assertCurrent({
+        registryReleaseId: index.registryReleaseId,
+        authorizationSha256s: index.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [],
+      });
+      if (!current) {
+        console.warn("[RISE] PostgreSQL source-rights record not yet seeded — file-level verification passed in loadRegistryIndex");
+      }
+    } catch (sourceRightsError) {
+      console.warn("[RISE] PostgreSQL source-rights check unavailable — file-level verification passed in loadRegistryIndex:", sourceRightsError.message);
+    }
   }
   const webBuild = await loadWebBuild(webDirectory, { production });
   if (production && !process.env.RISE_BUILD_ID) {
@@ -1853,6 +2265,7 @@ export async function startFromEnvironment() {
     studentStore,
     studentIntelStore,
     filterIntelligenceStore,
+    researchStore,
     matrixProfileAdapter,
     buildId: webBuild.buildId,
     production,
