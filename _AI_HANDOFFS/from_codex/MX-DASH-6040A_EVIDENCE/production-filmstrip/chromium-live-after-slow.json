@@ -1,0 +1,81 @@
+{
+  "network": {
+    "latencyMs": 100,
+    "downloadBytesPerSecond": 204800,
+    "cacheDisabled": true
+  },
+  "frames": [
+    {
+      "at": 0,
+      "experience": null,
+      "pending": null,
+      "failed": null,
+      "ready": false,
+      "classic": false,
+      "text": ""
+    },
+    {
+      "at": 100,
+      "experience": "matrix2",
+      "pending": "pending",
+      "failed": null,
+      "ready": false,
+      "classic": false,
+      "text": "Skip to content\nMISSIONMED MATRIX 2.0\nYour mission starts here."
+    },
+    {
+      "at": 250,
+      "experience": "matrix2",
+      "pending": "pending",
+      "failed": null,
+      "ready": false,
+      "classic": false,
+      "text": "Skip to content\nMISSIONMED MATRIX 2.0\nYour mission starts here."
+    },
+    {
+      "at": 500,
+      "experience": "matrix2",
+      "pending": "pending",
+      "failed": null,
+      "ready": false,
+      "classic": false,
+      "text": "Skip to content\nMISSIONMED MATRIX 2.0\nYour mission starts here.\n\n© 2026 MissionMed Institute | Mission Global Group LLC | New York, NY | info@missionmedinstitute.com\nMission Residency is a division of MissionMed Institute."
+    },
+    {
+      "at": 1000,
+      "experience": "matrix2",
+      "pending": "pending",
+      "failed": null,
+      "ready": false,
+      "classic": false,
+      "text": "Skip to content\nMISSIONMED MATRIX 2.0\nYour mission starts here.\n\n© 2026 MissionMed Institute | Mission Global Group LLC | New York, NY | info@missionmedinstitute.com\nMission Residency is a division of MissionMed Institute."
+    },
+    {
+      "at": 2000,
+      "experience": "matrix2",
+      "pending": "pending",
+      "failed": null,
+      "ready": false,
+      "classic": false,
+      "text": "Skip to content\nMISSIONMED MATRIX 2.0\nYour mission starts here.\n\n© 2026 MissionMed Institute | Mission Global Group LLC | New York, NY | info@missionmedinstitute.com\nMission Residency is a division of MissionMed Institute."
+    },
+    {
+      "at": 3000,
+      "experience": "matrix2",
+      "pending": "pending",
+      "failed": null,
+      "ready": false,
+      "classic": false,
+      "text": "Skip to content\nMISSIONMED MATRIX 2.0\nYour mission starts here.\n\n© 2026 MissionMed Institute | Mission Global Group LLC | New York, NY | info@missionmedinstitute.com\nMission Residency is a division of MissionMed Institute."
+    }
+  ],
+  "metrics": {
+    "ready": true,
+    "experience": "matrix2",
+    "pending": null,
+    "failed": null,
+    "domContentLoaded": 10785,
+    "load": 12897,
+    "ttfb": 1673
+  }
+}

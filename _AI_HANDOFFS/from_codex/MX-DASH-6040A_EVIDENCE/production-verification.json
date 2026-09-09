@@ -1,0 +1,45 @@
+{
+  "ticket": "MX-DASH-6040A",
+  "verified_at": "2026-09-09T14:33:00Z",
+  "implementation_commit": "506d74c7d1a0b11aaa07578fb075fd7a5f80312c",
+  "production_template": {
+    "path": "wp-content/plugins/missionmed-hub/templates/student-os-shell.php",
+    "before_sha256": "efef5d88413924c981e475a678edae083de10cd9d664ab4f057ed9bcc398aea3",
+    "after_sha256": "2e2363facdd9243eb9e7e3d811d68a6e9d7ee42bd3d06c6e4e0d05f3cfbc4b49"
+  },
+  "chromium": {
+    "hard_reload_zero_classic_frames": true,
+    "warm_reload_zero_classic_frames": true,
+    "cold_slow_zero_classic_frames_through_3000ms": true,
+    "mobile_390x844_zero_classic_frames": true,
+    "ready_state_horizontal_overflow": false,
+    "hard_navigation_ms": { "ttfb": 1669, "dom_content_loaded": 2061, "load": 3739 },
+    "warm_navigation_ms": { "ttfb": 1580, "dom_content_loaded": 1937, "load": 2464 },
+    "slow_navigation_ms": { "ttfb": 1673, "dom_content_loaded": 10785, "load": 12897 },
+    "slow_profile": { "latency_ms": 100, "download_bytes_per_second": 204800, "cache_disabled": true }
+  },
+  "safari_webkit": {
+    "authenticated_student_matrix2": true,
+    "reload_zero_classic_frames": true,
+    "note": "Safari retained the previous Matrix2 frame while reloading and then displayed an unrelated existing site promo overlay; no Classic dashboard content appeared."
+  },
+  "personas": {
+    "matrix2_student": "PASS - authenticated Safari student",
+    "registered_non_enrolled_matrix2": "PASS - server-render and entitlement contract fixture",
+    "matrix2_admin": "PASS - authenticated Chromium admin",
+    "explicit_classic": "PASS - authenticated Chromium switch, immediate Classic render, then restored to Matrix2"
+  },
+  "regressions": {
+    "morph": "PASS - live HomeBase pencil and cinematic endpoints with CSS fallback target",
+    "entitlement": "PASS - 51 server assertions and 15 browser policy assertions; protected runtime bytes unchanged",
+    "aspect_ratio": "PASS - 2 static tests plus live object-fit cover",
+    "option_c": "PASS - live HomeBase, 3 chips, approved cinematic art, progressive drawer, no enterprise labels",
+    "admin_editor": "PASS - live editor form opened and closed without save",
+    "reduced_motion": "PASS - live reduced-motion target, no running animation or canvas",
+    "calendar_return": "PASS - Calendar to Dashboard returned directly to Matrix2 with no pending guard"
+  },
+  "runtime_lock": "UNCHANGED",
+  "rollback_path": "/www/theresidencyacademy_209/private/mx-dash-6040a-rollback-20260909T141045Z",
+  "cache_purge": "Kinsta site cache cleared successfully",
+  "provider_pre_finalization_readback": { "active_leases": 0, "active_waiters": 0 }
+}

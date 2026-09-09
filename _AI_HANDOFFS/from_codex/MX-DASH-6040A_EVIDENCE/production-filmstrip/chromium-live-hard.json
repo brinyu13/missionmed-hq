@@ -1,0 +1,59 @@
+{
+  "cacheDisabled": true,
+  "frames": [
+    {
+      "at": 0,
+      "experience": null,
+      "pending": null,
+      "ready": false,
+      "classic": false
+    },
+    {
+      "at": 100,
+      "experience": "matrix2",
+      "pending": "pending",
+      "ready": false,
+      "classic": false
+    },
+    {
+      "at": 250,
+      "experience": "matrix2",
+      "pending": "pending",
+      "ready": false,
+      "classic": false
+    },
+    {
+      "at": 500,
+      "experience": "matrix2",
+      "pending": "pending",
+      "ready": false,
+      "classic": false
+    },
+    {
+      "at": 1000,
+      "experience": "matrix2",
+      "pending": null,
+      "ready": true,
+      "classic": false
+    },
+    {
+      "at": 2000,
+      "experience": "matrix2",
+      "pending": null,
+      "ready": true,
+      "classic": false
+    },
+    {
+      "at": 3000,
+      "experience": "matrix2",
+      "pending": null,
+      "ready": true,
+      "classic": false
+    }
+  ],
+  "metrics": {
+    "domContentLoaded": 2061,
+    "load": 3739,
+    "ttfb": 1669
+  }
+}
