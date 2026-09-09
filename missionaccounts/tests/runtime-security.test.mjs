@@ -13,6 +13,7 @@ import { PreviewStore, SupabaseRestStore } from '../src/storage/supabase-rest.mj
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const productionShellPath = path.join(packageDir, 'public/index.production.html');
 const pluginPath = path.join(packageDir, 'wordpress/missionmed-missionaccounts-sso/missionmed-missionaccounts-sso.php');
+const matrixLaunchPath = path.join(packageDir, 'wordpress/missionmed-missionaccounts-sso/assets/matrix-launch.js');
 const routePath = path.join(packageDir, 'infra/wordpress/missionmed-missionaccounts-route.php');
 const dockerfilePath = path.join(packageDir, 'Dockerfile');
 const dockerignorePath = path.join(packageDir, '.dockerignore');
@@ -37,7 +38,7 @@ test('production shell preserves the canon but contains no historical roster pay
   const html = await readFile(productionShellPath, 'utf8');
   const runtimeSource = await readFile(path.join(packageDir, 'public/missionaccounts-runtime.js'), 'utf8');
   assert.match(html, /data-missionaccounts-build="production"/);
-  assert.match(html, /<title>MissionAccounts · MissionMed Institute<\/title>/);
+  assert.match(html, /<title>MyMissionMed Account · MissionMed Institute<\/title>/);
   assert.match(html, /MissionAccounts · server-authoritative record/);
   assert.match(html, /Server-authoritative state/);
   assert.match(html, /Automatic billing remains disabled|automatic billing remains disabled/);
@@ -54,9 +55,9 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /data-missionaccounts-runtime="authenticated-readonly"/);
   assert.match(html, /\[data-reset\][^\n]*display:none!important/);
   assert.match(html, /id="missionaccountsRuntimeGate"/);
-  assert.match(html, /function canRevealMissionAccountsShell\(\)\{ return document\.documentElement\.dataset\.missionaccountsBuild!=='production' \|\| document\.documentElement\.dataset\.missionaccountsRuntime==='authenticated-readonly'; \}/);
+  assert.match(html, /function canRevealMissionAccountsShell\(\)[^]*registered-limited/);
   assert.match(html, /if\(canRevealMissionAccountsShell\(\)\) document\.body\.classList\.remove\('is-booting'\)/);
-  assert.match(runtimeSource, /missionaccountsRuntime = state\.bootstrap \? 'authenticated-readonly' : 'preview';\n\s+if \(state\.bootstrap\) window\.__XP\?\.revealAuthoritative\?\.\(\)/);
+  assert.match(runtimeSource, /state\.bootstrap\?\.scope === 'registered'[^]*'registered-limited'[^]*'authenticated-readonly'/);
   assert.match(html, /id="hSearchInput" aria-label="Find a student"/);
   assert.match(html, /id="missionaccounts-bootstrap-route-guard"/);
   assert.match(html, /__MISSIONACCOUNTS_REQUESTED_HASH/);
@@ -70,7 +71,8 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.doesNotMatch(html, /Ahunna Nzerem|Adriana Rodríguez/);
   assert.match(html, /missionaccountsBuild==='production'\) return fresh\(\)/);
   assert.match(html, /missionaccountsBuild==='production'\) return;/);
-  assert.match(html, /function hydrateAuthoritative\(nextD,nextWS,idMaps\)/);
+  assert.match(html, /function hydrateAuthoritative\(nextD,nextWS,idMaps,nextProgramAccess\)/);
+  assert.match(html, /function hydrateAccountAccess\(access,user\)/);
   assert.match(runtimeSource, /attendanceEventGroups/);
   assert.match(runtimeSource, /Multiple preserved source attendances contribute to this logical attendance/);
   assert.match(html, /data-report\],\[data-attendance-issue-review\]/);
@@ -101,7 +103,7 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(runtimeSource, /'hosted-invoice': 'hosted_invoices'/);
   assert.match(runtimeSource, /Only Dr J can manage hosted invoices/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('exam-transition',\{si,action:'passed'/);
-  assert.match(html, /hydrateAuthoritative, revealAuthoritative, toast/);
+  assert.match(html, /hydrateAuthoritative, hydrateAccountAccess, revealAuthoritative, toast/);
   assert.match(html, /onclick=async\(\)=>\{ const si=\+b\.dataset\.saveContact/);
   assert.match(html, /onclick=async\(\)=>\{ const \[si,k,v\]=b\.dataset\.ready\.split/);
 });
@@ -260,15 +262,21 @@ test('isolated production packaging cannot include the private Founder preview',
   assert.equal(railway.deploy.healthcheckPath, '/api/health');
 });
 
-test('MissionAccounts WordPress bridge is default-off, allowlisted, nonce/origin checked, and product isolated', async () => {
+test('MyMissionMed Account bridge is default-off, registered-visible, enrollment-aware, nonce checked, and product isolated', async () => {
   execFileSync('php', ['-l', pluginPath], { stdio: 'pipe' });
-  const source = await readFile(pluginPath, 'utf8');
+  const [source, launch] = await Promise.all([readFile(pluginPath, 'utf8'), readFile(matrixLaunchPath, 'utf8')]);
   assert.match(source, /'missionaccounts_enabled'\s*=>\s*false/);
   assert.match(source, /mma_user_is_allowlisted/);
-  assert.match(source, /if \(!\$is_allowlisted && !\$has_product_id\)/);
-  assert.match(source, /\$native\s*=\s*'student'/);
+  assert.match(source, /function mma_program_access\(/);
+  assert.match(source, /MMED_Access_Gate', 'get_user_course_ids'/);
+  assert.match(source, /mmed_course_360elite/);
+  assert.match(source, /mmed_course_usmle/);
+  assert.match(source, /mmed_course_usce/);
+  assert.match(source, /\$native\s*=\s*'registered'/);
+  assert.match(source, /'program_access'\s*=>\s*\$access\['program_access'\]/);
+  assert.match(source, /'registered', 'student', 'missionaccounts_admin', 'founder'/);
+  assert.match(source, /MyMissionMed Account/);
   assert.doesNotMatch(source, /\$native\s*=\s*user_can\([^\n]+manage_options[^\n]+missionaccounts_admin/);
-  assert.doesNotMatch(source, /if \(!\$is_admin && !\$is_allowlisted && !\$has_product_id\)/);
   assert.doesNotMatch(source, /\$source\s*=\s*\$is_admin\s*\?/);
   assert.match(source, /wp_verify_nonce\(\$nonce, 'wp_rest'\)/);
   assert.match(source, /mma_verify_origin/);
@@ -279,9 +287,11 @@ test('MissionAccounts WordPress bridge is default-off, allowlisted, nonce/origin
   assert.match(source, /MISSIONACCOUNTS_JWT_SECRET/);
   assert.match(source, /'audience'\s*=>\s*'missionaccounts'/);
   assert.match(source, /'missionaccounts_eligible'\s*=>\s*true/);
-  assert.match(source, /array\('student', 'missionaccounts_admin', 'founder'\)/);
   assert.match(source, /wp_ajax_nopriv_missionmed_missionaccounts_bootstrap/);
   assert.doesNotMatch(source, /STORYFORGE_JWT_SECRET|storyforge_eligible/);
+  assert.match(launch, /data-missionaccounts-entry/);
+  assert.match(launch, /#sos-sidebar \.sos-nav-list/);
+  assert.match(launch, /MutationObserver/);
 });
 
 test('browser auth client uses the current StoryForge-family exchange shape without persisting bearer tokens', async () => {
@@ -327,7 +337,8 @@ test('browser runtime requests the authenticated role-scoped bootstrap before an
   assert.match(source, /const isReportRoute = String\(studentHash\)\.includes\('report=1'\)/);
   assert.match(source, /mutation\(`\/admin\/attendance-issues\/\$\{issueId\}\/review`/);
   assert.match(source, /Only Dr J can review attendance issues/);
-  assert.match(source, /missionaccountsRuntime = state\.bootstrap \? 'authenticated-readonly'/);
+  assert.match(source, /state\.bootstrap\?\.scope === 'registered'/);
+  assert.match(source, /window\.__XP\.hydrateAccountAccess/);
   assert.match(source, /function updateRuntimeGate\(message\)/);
   assert.match(source, /updateRuntimeGate\(state\.error\)/);
   assert.doesNotMatch(source, /missionaccountsRuntime\s*=\s*['"]ready['"]/);

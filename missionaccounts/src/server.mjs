@@ -507,10 +507,12 @@ export function createMissionAccountsServer({
     if (request.method === 'GET' && url.pathname === '/api/session') {
       const role = identity.roles.includes('founder') ? 'founder'
         : identity.roles.includes('missionaccounts_admin') ? 'missionaccounts_admin'
-          : 'student';
+          : identity.roles.includes('student') ? 'student'
+            : 'registered';
+      const registeredOnly = role === 'registered';
       return json(response, 200, {
         authenticated: true,
-        mode: role === 'student' ? 'student' : 'admin',
+        mode: registeredOnly ? 'registered' : role === 'student' ? 'student' : 'admin',
         user: {
           id: identity.userId,
           display_name: identity.displayName || '',
@@ -519,26 +521,28 @@ export function createMissionAccountsServer({
           role,
           avatar_thumbnail_url: identity.avatarThumbnailUrl || '',
         },
+        program_access: identity.programAccess,
         capabilities: {
-          student_contacts: Boolean(config.features?.studentContacts),
-          billing_decisions: Boolean(config.features?.billingDecisions),
-          attendance_corrections: Boolean(config.features?.attendanceCorrections),
-          identity_review: Boolean(config.features?.identityReview),
-          exam_plans: Boolean(config.features?.examPlans),
-          comp_days: Boolean(config.features?.compDays),
-          payment_method_setup: Boolean(config.features?.paymentMethodSetup),
-          manual_charges: Boolean(config.features?.manualCharges),
-          auto_billing: Boolean(config.features?.autoBilling),
-          hosted_invoices: Boolean(config.features?.hostedInvoices),
-          notifications: Boolean(config.features?.notifications),
-          zoom_sync: Boolean(config.features?.zoomSync),
+          student_contacts: !registeredOnly && Boolean(config.features?.studentContacts),
+          billing_decisions: !registeredOnly && Boolean(config.features?.billingDecisions),
+          attendance_corrections: !registeredOnly && Boolean(config.features?.attendanceCorrections),
+          identity_review: !registeredOnly && Boolean(config.features?.identityReview),
+          exam_plans: !registeredOnly && Boolean(config.features?.examPlans),
+          comp_days: !registeredOnly && Boolean(config.features?.compDays),
+          payment_method_setup: !registeredOnly && Boolean(config.features?.paymentMethodSetup),
+          manual_charges: !registeredOnly && Boolean(config.features?.manualCharges),
+          auto_billing: !registeredOnly && Boolean(config.features?.autoBilling),
+          hosted_invoices: !registeredOnly && Boolean(config.features?.hostedInvoices),
+          notifications: !registeredOnly && Boolean(config.features?.notifications),
+          zoom_sync: !registeredOnly && Boolean(config.features?.zoomSync),
         },
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/ui/bootstrap') {
       const role = identity.roles.includes('founder') ? 'founder'
         : identity.roles.includes('missionaccounts_admin') ? 'missionaccounts_admin'
-          : 'student';
+          : identity.roles.includes('student') ? 'student'
+            : 'registered';
       const user = {
         id: identity.userId,
         display_name: identity.displayName || '',
@@ -547,6 +551,14 @@ export function createMissionAccountsServer({
         role,
         avatar_thumbnail_url: identity.avatarThumbnailUrl || '',
       };
+      if (role === 'registered') {
+        return json(response, 200, {
+          schema_version: 'missionaccounts-ui-bootstrap-v1',
+          scope: 'registered',
+          user,
+          program_access: identity.programAccess,
+        });
+      }
       if (role === 'student') {
         const student = await studentContext(identity);
         const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan, canon] = await Promise.all([
@@ -562,6 +574,7 @@ export function createMissionAccountsServer({
           schema_version: 'missionaccounts-ui-bootstrap-v1',
           scope: 'student',
           user,
+          program_access: identity.programAccess,
           account: { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan },
           canon,
         });
@@ -580,6 +593,7 @@ export function createMissionAccountsServer({
         schema_version: 'missionaccounts-ui-bootstrap-v1',
         scope: 'admin',
         user,
+        program_access: identity.programAccess,
         home,
         students,
         cycles: cycleProjections.filter(Boolean),
@@ -590,6 +604,7 @@ export function createMissionAccountsServer({
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/me') {
+      requireRole(identity, ['student']);
       const student = await studentContext(identity);
       const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan] = await Promise.all([
         store.attendanceForStudent(student.id, url.searchParams.get('cycle')),

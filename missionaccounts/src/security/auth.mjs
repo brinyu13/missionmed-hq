@@ -1,7 +1,7 @@
 import { createHmac, createPublicKey, timingSafeEqual, verify } from 'node:crypto';
 
 const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
-const signedRoles = new Set(['student', 'missionaccounts_admin', 'founder']);
+const signedRoles = new Set(['registered', 'student', 'missionaccounts_admin', 'founder']);
 
 function decodePart(value) {
   return JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
@@ -43,12 +43,37 @@ function verifyClaims(payload, config) {
   if (!audiences.includes(config.audience)) deny('Identity token audience mismatch', 403);
 }
 
+function normalizedProgramAccess(value, role) {
+  if (value == null && role !== 'registered') {
+    return {
+      registered: true,
+      programs: {
+        mission_residency: { enrolled: false },
+        examprep: { enrolled: true },
+        clinicals: { enrolled: false },
+      },
+    };
+  }
+  if (!value || value.registered !== true || !value.programs || typeof value.programs !== 'object') {
+    deny('Identity token program access is invalid', 403);
+  }
+  return {
+    registered: true,
+    programs: {
+      mission_residency: { enrolled: value.programs.mission_residency?.enrolled === true },
+      examprep: { enrolled: value.programs.examprep?.enrolled === true },
+      clinicals: { enrolled: value.programs.clinicals?.enrolled === true },
+    },
+  };
+}
+
 function identityFromClaims(payload) {
   const signedRole = String(payload.app_role || '');
   const legacyRoles = Array.isArray(payload.app_metadata?.roles) ? payload.app_metadata.roles : [];
   const roles = signedRole ? [signedRole] : legacyRoles.filter(role => signedRoles.has(role));
   if (roles.length !== 1 || !signedRoles.has(roles[0])) deny('Identity token role is invalid', 403);
   if (payload.missionaccounts_eligible !== true) deny('MissionAccounts access is not active', 403);
+  const programAccess = normalizedProgramAccess(payload.program_access, roles[0]);
   const wpUserId = Number(payload.wp_user_id);
   if (!Number.isSafeInteger(wpUserId) || wpUserId <= 0) deny('Identity token WordPress user is invalid');
   return {
@@ -60,6 +85,7 @@ function identityFromClaims(payload) {
     displayName: typeof payload.name === 'string' ? payload.name : '',
     firstName: typeof payload.first_name === 'string' ? payload.first_name : '',
     avatarThumbnailUrl: typeof payload.avatar_thumbnail_url === 'string' ? payload.avatar_thumbnail_url : '',
+    programAccess,
   };
 }
 
@@ -94,10 +120,19 @@ export async function authenticate(request, config) {
   if (config.localAuth) {
     if (config.production) deny('Local authentication is disabled in production', 500);
     const role = request.headers['x-missionaccounts-local-role'] || 'student';
+    const programs = new Set(String(request.headers['x-missionaccounts-local-programs'] || (role === 'registered' ? '' : 'examprep')).split(',').map(value => value.trim()).filter(Boolean));
     return {
       userId: request.headers['x-missionaccounts-local-user'] || '00000000-0000-4000-8000-000000000001',
       email: role === 'student' ? 'student.preview@invalid.local' : 'admin.preview@invalid.local',
-      roles: role === 'student' ? ['student'] : [role],
+      roles: [role],
+      programAccess: {
+        registered: true,
+        programs: {
+          mission_residency: { enrolled: programs.has('mission_residency') },
+          examprep: { enrolled: programs.has('examprep') },
+          clinicals: { enrolled: programs.has('clinicals') },
+        },
+      },
       local: true,
     };
   }

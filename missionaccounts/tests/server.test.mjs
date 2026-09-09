@@ -103,6 +103,37 @@ async function withServer(options, run) {
   }
 }
 
+test('registered bootstrap exposes enrollment booleans but no private account or admin data', async () => {
+  const config = {
+    ...localConfig,
+    features: Object.fromEntries([
+      'studentContacts', 'billingDecisions', 'attendanceCorrections', 'identityReview',
+      'examPlans', 'compDays', 'paymentMethodSetup', 'manualCharges', 'autoBilling',
+      'hostedInvoices', 'notifications',
+    ].map(key => [key, true])),
+  };
+  const headers = {
+    'x-missionaccounts-local-role': 'registered',
+    'x-missionaccounts-local-programs': 'mission_residency',
+  };
+  await withServer({ config, store: new PreviewStore(), stripeGateway: new StripeGateway() }, async base => {
+    const session = await (await fetch(`${base}/api/session`, { headers })).json();
+    assert.equal(session.mode, 'registered');
+    assert.equal(session.program_access.programs.mission_residency.enrolled, true);
+    assert.ok(Object.values(session.capabilities).every(value => value === false));
+
+    const bootstrap = await (await fetch(`${base}/api/ui/bootstrap`, { headers })).json();
+    assert.equal(bootstrap.scope, 'registered');
+    assert.equal(bootstrap.program_access.programs.examprep.enrolled, false);
+    assert.equal('account' in bootstrap, false);
+    assert.equal('canon' in bootstrap, false);
+    assert.equal('students' in bootstrap, false);
+
+    const privateAccount = await fetch(`${base}/api/me`, { headers });
+    assert.equal(privateAccount.status, 403);
+  });
+});
+
 function stripeSignature(body, secret, timestamp) {
   const signature = createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');
   return `t=${timestamp},v1=${signature}`;

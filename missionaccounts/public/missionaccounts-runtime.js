@@ -7,6 +7,7 @@ const state = {
   authenticated: false,
   capabilities: {},
   user: null,
+  programAccess: null,
   bootstrap: null,
   error: null,
   mutating: false,
@@ -20,6 +21,7 @@ const auth = createMissionAccountsAuthClient({
     state.mode = lockoutState || 'unavailable';
     state.authenticated = false;
     state.user = null;
+    state.programAccess = null;
     state.bootstrap = null;
     state.capabilities = {};
     pendingMutationKeys.clear();
@@ -83,6 +85,19 @@ async function refreshCanonical() {
   const initialHydration = state.bootstrap === null;
   const oldIds = canonicalModel?.ids?.students;
   state.bootstrap = await auth.request('/ui/bootstrap');
+  state.programAccess = state.bootstrap.program_access || state.programAccess;
+  if (state.bootstrap.scope === 'registered') {
+    canonicalModel = null;
+    if (typeof window.__XP?.hydrateAccountAccess !== 'function') throw new Error('MyMissionMed Account access renderer is unavailable.');
+    if (initialHydration) {
+      const requestedHash = window.__MISSIONACCOUNTS_REQUESTED_HASH;
+      if (requestedHash) delete window.__MISSIONACCOUNTS_REQUESTED_HASH;
+      const hydrationHash = String(requestedHash || '').startsWith('#/program/') ? requestedHash : '#/program/examprep';
+      if (location.hash !== hydrationHash) history.replaceState(null, '', `${location.pathname}${location.search}${hydrationHash}`);
+    }
+    window.__XP.hydrateAccountAccess(state.programAccess, state.bootstrap.user);
+    return null;
+  }
   const nextModel = buildCanonicalModel(state.bootstrap);
   if (!initialHydration && state.bootstrap.scope !== 'student') {
     const nextHash = remapStudentRoute(location.hash, oldIds, nextModel.ids.students);
@@ -103,7 +118,7 @@ async function refreshCanonical() {
     }
     if (location.hash !== hydrationHash) history.replaceState(null, '', `${location.pathname}${location.search}${hydrationHash}`);
   }
-  window.__XP.hydrateAuthoritative(canonicalModel.data, canonicalModel.working, canonicalModel.ids);
+  window.__XP.hydrateAuthoritative(canonicalModel.data, canonicalModel.working, canonicalModel.ids, state.programAccess);
   return canonicalModel;
 }
 
@@ -481,8 +496,11 @@ try {
   state.authenticated = session.authenticated === true;
   state.capabilities = session.capabilities || {};
   state.user = session.user || null;
+  state.programAccess = session.program_access || null;
   if (state.authenticated) await refreshCanonical();
-  document.documentElement.dataset.missionaccountsRuntime = state.bootstrap ? 'authenticated-readonly' : 'preview';
+  document.documentElement.dataset.missionaccountsRuntime = state.bootstrap?.scope === 'registered'
+    ? 'registered-limited'
+    : state.bootstrap ? 'authenticated-readonly' : 'preview';
   if (state.bootstrap) window.__XP?.revealAuthoritative?.();
 } catch (error) {
   if (!error.redirecting) {

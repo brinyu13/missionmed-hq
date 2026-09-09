@@ -30,10 +30,29 @@ test('student deep links and back navigation cannot select an administrative ren
  const prefix=html.slice(html.indexOf('function render(){'),html.indexOf("  if(top==='mr') WS.ctx"));
  for(const hash of ['#/student/8','#/advanced/controls','#/cycle/june#attention','#/billing?cycle=all#rule']){
   const location={hash,pathname:'/missionaccounts/',search:''};const WS={lens:'admin',ctx:'mr'};
-  const context={location,WS,URLSearchParams,document:{documentElement:{dataset:{}}},window:{MissionAccountsRuntime:{state:{user:{role:'student'}}}},history:{replaceState:(_a,_b,u)=>{location.hash=u.slice(u.indexOf('#'));}}};
+  const context={ACCOUNT_ACCESS_MODE:false,location,WS,URLSearchParams,document:{documentElement:{dataset:{}}},window:{MissionAccountsRuntime:{state:{user:{role:'student'}}}},history:{replaceState:(_a,_b,u)=>{location.hash=u.slice(u.indexOf('#'));}}};
   const result=vm.runInNewContext(html.match(/function route\(\)\{[^\n]+/)[0]+'\n'+prefix+'return {top,r};};render()',context);
   assert.equal(result.top,'me');assert.equal(WS.lens,'student');assert.equal(WS.ctx,'xp');
  }
+});
+
+test('registered account landing provides enrollment-aware program states and responsive CTAs',()=>{
+ assert.match(html,/MyMissionMed Account/);
+ assert.match(html,/Mission Residency<\/button>/);
+ assert.match(html,/ExamPrep<\/button>/);
+ assert.match(html,/Looks like you're not enrolled yet\. Choose the program you want to explore\./);
+ assert.match(html,/Explore Mission Residency/);
+ assert.match(html,/Explore ExamPrep/);
+ assert.match(html,/Explore Clinicals/);
+ assert.match(html,/['"]\/mission-clinicals\/['"]/);
+ assert.doesNotMatch(html,/['"]\/clinicals\/['"]/);
+ assert.match(html,/Your Mission Residency account workspace is being prepared/);
+ assert.match(html,/function hydrateAccountAccess\(access,user\)/);
+ assert.match(html,/programDiscovery\(selected\)/);
+ assert.match(html,/@media\(max-width:820px\)\{\.programCards\{grid-template-columns:1fr\}/);
+ assert.match(html,/@media\(max-width:430px\)\{\.programTabs\{width:100%/);
+ assert.match(html,/@media\(max-width:640px\)\{#hdr>\.programTabs\{order:3;width:100%/);
+ assert.match(html,/body\.opening-active #hdr,body\.opening-active #rail,body\.opening-active #main\{visibility:hidden\}/);
 });
 
 function handler(start, end){const a=html.indexOf(start);assert.ok(a>=0,start);const b=html.indexOf(end,a+start.length);assert.ok(b>a,end);return html.slice(a+start.length,b);}

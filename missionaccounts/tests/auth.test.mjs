@@ -47,6 +47,32 @@ test('MissionAccounts accepts the product-scoped WordPress HS256 token and maps 
   assert.equal(identity.firstName, 'Test');
 });
 
+test('registered Matrix users receive normalized program access without gaining a student role', async () => {
+  const identity = await verifyMatrixJwt(token({
+    app_role: 'registered',
+    program_access: {
+      registered: true,
+      programs: {
+        mission_residency: { enrolled: true },
+        examprep: { enrolled: false },
+        clinicals: { enrolled: false },
+      },
+    },
+  }), config);
+  assert.deepEqual(identity.roles, ['registered']);
+  assert.equal(identity.programAccess.registered, true);
+  assert.equal(identity.programAccess.programs.mission_residency.enrolled, true);
+  assert.equal(identity.programAccess.programs.examprep.enrolled, false);
+});
+
+test('registered role fails closed without a server-signed registered program-access object', async () => {
+  await assert.rejects(verifyMatrixJwt(token({ app_role: 'registered' }), config), /program access is invalid/i);
+  await assert.rejects(verifyMatrixJwt(token({
+    app_role: 'registered',
+    program_access: { registered: false, programs: {} },
+  }), config), /program access is invalid/i);
+});
+
 test('MissionAccounts rejects a token signed by another product secret', async () => {
   await assert.rejects(
     verifyMatrixJwt(token({}, {}, 'another-product-secret-that-is-at-least-32-bytes'), config),
