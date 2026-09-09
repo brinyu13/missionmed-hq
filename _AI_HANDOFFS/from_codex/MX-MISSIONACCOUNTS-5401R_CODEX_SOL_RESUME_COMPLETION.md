@@ -1,6 +1,6 @@
 # MX-MISSIONACCOUNTS-5401R — Live Reopening and Stripe Activation Report
 
-Updated 2026-09-09 at 11:17 UTC. This is a standalone status and continuation handoff for the orchestrating ChatGPT thread. It records production evidence from the current run. It is not an independent MX-MISSIONACCOUNTS-5402A certification.
+Updated 2026-09-09 at 15:27 UTC / 11:27 EDT. This is a standalone status and continuation handoff for the orchestrating ChatGPT thread. It records production evidence from the current run. It is not an independent MX-MISSIONACCOUNTS-5402A certification.
 
 ## Executive verdict
 
@@ -18,30 +18,31 @@ Updated 2026-09-09 at 11:17 UTC. This is a standalone status and continuation ha
 | Dedicated LIVE restricted key | **BOUND / AUTHENTICATED** |
 | Dedicated LIVE webhook | **PASS / ENABLED / EXACT TEN EVENTS** |
 | LIVE payment-method setup | **PASS / REPLACEMENT LIVE METHOD ON FILE** |
-| Dr J manual Stripe collection | **PASS — $1 LIVE MANUAL CANARY SUCCEEDED; BUSINESS AMOUNTS NOT YET APPROVED** |
-| In-app one-student charge | **NOT LIVE-CAPABLE IN CURRENT BUILD; FIXED $25 + TEST-MODE GUARD** |
+| Dr J manual Stripe collection | **PASS — EXACT 3×$1 LIVE MISSIONACCOUNTS CANARY SUCCEEDED** |
+| In-app one-student charge | **PASS — EXPLICIT APPROVED-BALANCE WORKFLOW LIVE; CONFIRMATION REQUIRED** |
 | Broad automatic billing | **OFF** |
 | Hosted invoices | **OFF** |
 | Zoom / notifications | **PAUSED / OFF** |
-| Live money moved | **YES — $1.00 LIVE CANARY SUCCEEDED** |
+| Live money moved | **YES — $3.00 AUTHORIZED IN-APP CANARY; PRIOR SEPARATE $1.00 DASHBOARD PAYMENT EXCLUDED** |
 | Six persisted workflows | **PENDING** |
 | Responsive acceptance | **PENDING** |
 | Independent 5402A | **PENDING** |
 
 MissionAccounts previously passed the real browser privacy sequence using the same canonical route in this order: anonymous, Founder, genuine Dr J, genuine Student A, logout to anonymous, genuine Student B, and Founder again. A later repeat-visit test exposed the default Dr J shell briefly before Antonio's authenticated bootstrap completed. The route was immediately re-contained, the reveal path was repaired and deployed, and the exact Antonio repeat-visit path now shows only the guarded opening state followed by Antonio's student-only billing view. The route is open with live no-store/cache-bypass probes passing. The full principal sequence should be replayed once more on the repaired build before final P0 closure.
 
-Genuine student Antonio Patterson completed the LIVE Stripe Payment Element. The original method involved in the accessibility incident was locked and removed end to end. Antonio then saved a replacement LIVE Visa ending `7734` in Chrome and closed the hosted panel before automated inspection. The signed replacement `setup_intent.succeeded` webhook was received and processed; MissionAccounts stores only Stripe references and masked metadata. Founder authorization then promoted Antonio's existing verified Matrix-linked record from unresolved device evidence to a real student while preserving attendance and payment custody. In the genuine Dr J browser, Antonio now appears in the real-student directory with 18 class days and the replacement method on file. A manual **$1.00 LIVE canary** succeeded in the Founder-confirmed ExamPrep Stripe account. Automatic billing, hosted invoices, Zoom, and notifications remain off.
+Genuine student Antonio Patterson completed the LIVE Stripe Payment Element. The original method involved in the accessibility incident was locked and removed end to end. Antonio then saved a replacement LIVE Visa ending `7734` in Chrome and closed the hosted panel before automated inspection. The signed replacement `setup_intent.succeeded` webhook was received and processed; MissionAccounts stores only Stripe references and masked metadata. Founder authorization promoted Antonio's existing verified Matrix-linked record from unresolved device evidence to a real student while preserving attendance and payment custody.
 
+The genuine Dr J workflow then set June, July, and August to exact approved custom balances of $1.00 and used the new in-app **Charge $1** confirmation flow. Exactly three MissionAccounts-originated LIVE PaymentIntents succeeded in the Founder-confirmed ExamPrep Stripe account, one per cycle. All three signed `payment_intent.succeeded` webhooks were processed, all three MissionAccounts invoices became paid, and all three started/succeeded audit pairs are present. Automatic billing, scheduled charging, hosted invoices, Zoom, and notifications remain off. The earlier manually created Dashboard PaymentIntent remains classified as ignored external/unowned evidence and is excluded from this three-charge authorization.
 ## Exact source and deployment identity
 
 - Product worktree: `/Users/brianb/MissionMed_worktrees/MX-MISSIONACCOUNTS-5401R`
 - Branch: `codex/mx-missionaccounts-5401r`
-- Current pushed implementation HEAD: `8c5d0d86ae95b14705cc069b268dba3052701291`
+- Current pushed implementation HEAD: `0c4994f3ade9286954931a416b6d5e8a0a2db328`
 - Authority repository pushed HEAD: `46a977704bcd5615f397ffb9357a82fca57021a8`
 - Railway project: `244bf2d1-1eca-4b97-95ab-95a565a8b4d0`
 - Railway production service: `857cdc07-2482-4cc0-a2a1-70b38f65542b`
 - Railway direct origin: `https://missionaccounts-production-production.up.railway.app`
-- Current successful production deployment: `4970df44-4156-4ff2-b2f1-1cba548886c9`
+- Current successful production deployment: `2d882de5-771f-473a-843d-0b886070cf06`
 - Railway root directory: `missionaccounts`
 - Resume binding SHA-256: `d5b77640c2deaec0656dfcef89aed89f3ecefaec889d482bbc309fab6694d4e1`
 
@@ -58,10 +59,11 @@ Pushed implementation commits:
 - `f9b1ebfa2192b444f6fb21b26e87bdce187e1beb` — aligned five student-write authorization guards with the authenticated verified-student identity used by the server.
 - `b36c1c544244fd46e1d9811282e996add356331f` — added the Founder-authorized, custody-preserving Antonio person-promotion migration and mandatory vector.
 - `8c5d0d86ae95b14705cc069b268dba3052701291` — disambiguated the PL/pgSQL promotion variable after the first rollback-only provider rehearsal found a name collision.
+- `0c4994f3ade9286954931a416b6d5e8a0a2db328` — added the explicit, server-authoritative LIVE manual cycle charge, signed-webhook finality, per-cycle idempotency, confirmation UI, private RLS table, and mandatory tests.
 
 Validation at the current source:
 
-- Full Node suite: **180/180 PASS**
+- Full Node suite: **184/184 PASS**
 - Focused mandatory-vector suite: **43/43 PASS**
 - Focused runtime-security suite: **15/15 PASS** on the deployed client privacy repair
 - Source validation: **PASS**
@@ -277,7 +279,7 @@ No Stripe provider credential or webhook secret entered chat, shell output, sour
 
 ## Live runtime controls
 
-The current Railway deployment `4970df44-4156-4ff2-b2f1-1cba548886c9` has this verified state:
+The current Railway deployment `2d882de5-771f-473a-843d-0b886070cf06` runs the image built from source commit `0c4994f3ade9286954931a416b6d5e8a0a2db328` and has this verified state:
 
 | Variable/control | State |
 |---|---|
@@ -288,6 +290,7 @@ The current Railway deployment `4970df44-4156-4ff2-b2f1-1cba548886c9` has this v
 | dedicated webhook secret | configured |
 | `MISSIONACCOUNTS_STRIPE_LIVE_MUTATIONS` | `1` |
 | `MISSIONACCOUNTS_PAYMENT_METHOD_SETUP` | `1` |
+| `MISSIONACCOUNTS_MANUAL_CHARGES` | `1` |
 | `MISSIONACCOUNTS_AUTO_BILLING` | `0` |
 | `MISSIONACCOUNTS_HOSTED_INVOICES` | `0` |
 | `MISSIONACCOUNTS_ZOOM_SYNC` | `0` |
@@ -295,117 +298,92 @@ The current Railway deployment `4970df44-4156-4ff2-b2f1-1cba548886c9` has this v
 
 Runtime verification:
 
-- `/api/health`: `200`, healthy, `no-store, private`;
+- `/api/health`: `200`, healthy, `no-store, private`, manual charges enabled, automatic billing disabled;
 - `/api/config`: `200`, provider `stripe`, setup enabled, mode `live`, publishable key class `pk_live`, `no-store, private`;
 - live Stripe account request: `200`, exact account match, charges and payouts enabled.
 
-Broad automatic billing remains off. No charge, invoice, or automatic-billing consent was created by these configuration changes.
+Broad automatic billing remains off. The only new charges are the three explicit $1.00 Antonio cycle canaries documented below; no automatic-billing consent or dispatch was created.
+
+## Antonio 3×$1 LIVE MissionAccounts canary — PASS
+
+ANTONIO TEST STUDENT: VERIFIED
+LIVE STRIPE ACCOUNT: `acct_1TWHdrPqYqVwqSi5`
+SAVED CARD LAST4: `•••• 7734`
+
+### Custom balances
+
+June: **$1.00**
+July: **$1.00**
+August: **$1.00**
+
+JUNE LIVE CHARGE: **PASS**
+JUNE PAYMENTINTENT: `pi_3UDnDSPqYqVwqSi52FAmthFX`
+JUNE WEBHOOK: **PASS** — `evt_3UDnDSPqYqVwqSi52Q2zm80h`, signature verified, processed
+JUNE PAID STATE: **PASS**
+
+JULY LIVE CHARGE: **PASS**
+JULY PAYMENTINTENT: `pi_3UDnFmPqYqVwqSi51S4wLH9G`
+JULY WEBHOOK: **PASS** — `evt_3UDnFmPqYqVwqSi51k1U7OR1`, signature verified, processed
+JULY PAID STATE: **PASS**
+
+AUGUST LIVE CHARGE: **PASS**
+AUGUST PAYMENTINTENT: `pi_3UDnIhPqYqVwqSi52ASROIKU`
+AUGUST WEBHOOK: **PASS** — `evt_3UDnIhPqYqVwqSi52iRxB5ra`, signature verified, processed
+AUGUST PAID STATE: **PASS**
+
+TOTAL AUTHORIZED: **$3.00**
+TOTAL ACTUALLY CHARGED: **$3.00 under this authorization**
+SUCCESSFUL CHARGES: **3 / 3**
+DUPLICATE CHARGES: **0**
+
+BROAD AUTOMATIC BILLING: **OFF**
+SCHEDULED AUTO-CHARGE: **OFF**
+FOURTH CHARGE AUTHORIZED: **NO**
+
+DR J CAN CHARGE FROM MISSIONACCOUNTS TODAY: **YES**
+DR J CHARGE WORKFLOW: **PASS**
+IDEMPOTENCY: **PASS**
+AUDIT/HISTORY: **PASS**
+
+Production database readback proves three rows, three distinct PaymentIntents, one row for each authorized cycle, a total of 300 cents, three paid invoices, three signed and processed success webhooks, three started audit events, and three succeeded audit events. The private manual-charge table has forced RLS and grants only the service role. There are zero MissionAccounts automatic day-charge rows for Antonio, zero active automatic dispatches globally, and zero manual-cycle charges for any other student. Stripe Dashboard independently showed **Succeeded**, $1.00, Antonio Patterson, the ExamPrep account, the expected card mask, and the exact MissionAccounts metadata for the canaries.
+
+The prior manually created PaymentIntent `pi_3UDjQ8PqYqVwqSi505IVZ6ZH` remains a separate signed event in `ignored` state because it lacked MissionAccounts ownership metadata. It is not included in the $3.00 total above.
+
+The in-app path now enforces: genuine Dr J role; linked verified student; current approved collectible decision; draft/ready matching invoice; current saved Stripe Customer and PaymentMethod; exact card-mask recheck; server-derived amount; explicit confirmation; stable decision-scoped idempotency; signed webhook finality; paid invoice persistence; and private audit history. A successful or pending cycle cannot be submitted as another active manual charge. Failed charges remain visible and require a new deliberate decision; no automatic retry path was enabled.
+
+### Execution-governance note
+
+The three custom-balance writes were made in the genuine Dr J browser under explicit Founder authorization and produced the expected server audit records, but they were submitted without a concurrently held Engineering OS coordination lease. Each live charge was initiated only after a scoped Lease V2 grant; those 30-second leases expired during the external Stripe/webhook readback, and the coordination database confirms zero active leases. This did not create a payment, privacy, or data-consistency anomaly, but it is a process variance for the independent 5402A reviewer to evaluate.
 
 ## Remaining work for full AAA and functional deployment
 
-### 1. Human LIVE payment-method witness, replacement, and manual canary — PASS
+### 1. Final post-fix cross-principal replay — blocking P0 closure
 
-The genuine Antonio Patterson session completed the LIVE Stripe Payment Element at `https://missionmedinstitute.com/missionaccounts/#/me/billing`. The original method was removed after the accessibility incident. Antonio then saved a replacement method in Chrome, closed the hosted panel, and the signed replacement `setup_intent.succeeded` event was processed.
+Replay the canonical route with anonymous, Founder, genuine Dr J, genuine Student A, logout/anonymous, genuine Student B, and Founder again on source `0c4994f3`. The prior full sequence passed, the repaired Antonio repeat-visit path passed, and the current Dr J canary session remained private and role-correct. This final replay qualifies the exact deployed client across all principals.
 
-Current verified state:
+### 2. Six persisted workflow acceptance — blocking
 
-- Antonio's verified Matrix-linked student record: present and projected as a real person;
-- attendance custody: 18 current days across June, July, and August;
-- LIVE Stripe customer binding: present;
-- replacement MissionAccounts payment-method state: `on_file`;
-- masked method: Visa ending `7734`, expiry `05/32`;
-- automatic-billing consent: none;
-- approved billing decisions: `0`;
-- MissionAccounts charge rows for the canary: `0`;
-- Stripe LIVE canary: **$1.00 succeeded** at 2026-09-09 11:12:06 UTC;
-- Stripe PaymentIntent: `pi_3UDjQ8PqYqVwqSi505IVZ6ZH`;
-- signed `payment_intent.succeeded` event reached the dedicated webhook and was signature verified;
-- live money moved: **YES — $1.00**.
+Complete genuine browser UI → API → database → reload → audit/undo evidence for contact update, attendance correction/reversal, billing decision/reversal, identity adjudication, exam-plan lifecycle, comp-day change, and the student-report/Dr J-review pair. Do not replace genuine sessions with synthetic or API-only tests.
 
-The manual Dashboard payment intentionally had no MissionAccounts attendance metadata. The webhook therefore recorded it as an explicit external/unowned PaymentIntent, marked the signed inbox event `ignored`, and created one private `unhandled_webhook_event` exception. This is the fail-closed implemented behavior. It did not invent a billing decision or an in-app charge row.
+### 3. Responsive and interaction acceptance — blocking
 
-Verified chain: genuine Antonio browser → Stripe-hosted replacement setup → signed SetupIntent webhook → masked method on file → Founder-authorized person promotion → genuine Dr J real-student profile → exact Stripe Customer → $1 LIVE payment → Stripe `Succeeded` → signed MissionAccounts webhook intake.
+Repeat key role flows at approximately 1440px, 1024px, and 390px. Verify Matrix discovery, deep links, logout, keyboard use, focus, dialogs, overflow, errors, and recovery.
 
-### 1A. Card-field accessibility incident — SAFETY STOP
+### 4. Matrix left-menu discoverability — P1
 
-After the human submitted the card, a native Safari accessibility snapshot used to check the success state unexpectedly included the still-populated Stripe-hosted fields in tool output. This exposed the full card number, expiry, CVC, and ZIP to the execution record even though MissionAccounts itself stored only masked metadata. The executor stopped UI inspection immediately and did not repeat the values.
+The missing MissionAccounts entry in the student Matrix left rail remains confirmed. Direct canonical navigation works. Repair the canonical StoryForge-family navigation seam and prove entitled students and Dr J see the entry while non-entitled users do not.
 
-Completed containment:
+### 5. Stripe account status task — operational follow-up
 
-- the Founder closed the populated setup panel;
-- the Founder locked the card with its issuer;
-- Antonio removed the saved PaymentMethod in the real Chrome MissionAccounts session;
-- MissionAccounts recorded the removal and audit event;
-- a fresh Stripe Dashboard customer page confirmed no payment methods and no payments;
-- at that containment point, no charge, invoice, billing consent, or live money movement had occurred.
+Stripe shows a past-due **Provide an external account** task. The Founder must enter bank information directly in Stripe. Do not place bank information in chat, source, logs, screenshots, or automation. This does not invalidate the three succeeded card charges, but it affects payout readiness.
 
-The human later entered the replacement card only in Stripe-hosted fields and closed the panel before automated verification. The replacement and subsequent $1 canary are recorded in the current-state sections above. Do not inspect populated hosted fields with browser accessibility tooling.
+### 6. Independent audit — final AAA gate
 
-### 2. Final post-fix cross-principal replay — blocking P0 closure
+Hand off the exact current source, production evidence, remaining browser matrix, responsive results, and this governance variance to independent `MX-MISSIONACCOUNTS-5402A`. This task does not self-certify AAA.
 
-Replay the canonical route with anonymous, Founder, genuine Dr J, genuine Student A, logout/anonymous, genuine Student B, and Founder again. The prior full sequence passed, the repaired Antonio repeat-visit path passed, and the server/cache boundary did not change. This final replay qualifies the exact deployed client reveal fix across all principals.
+## No further money authorization
 
-### 3. Dr J manual collection witness — LIVE CANARY PASS / approved billing records pending
-
-The genuine Dr J session opened Antonio's real-student profile and verified the replacement Visa ending `7734`. **Open customer in Stripe** reached the exact production account and Customer. One manual $1 LIVE payment then succeeded.
-
-Antonio's current operational estimates remain unapproved:
-
-- June: $300;
-- July: $125;
-- August: $25.
-
-Dr J must make the real business decision for each cycle before those balances can be collected as student charges. The $1 canary did not approve or reduce any of them.
-
-### 4. Six persisted workflows — blocking
-
-With genuine Dr J and student roles, complete UI → API → database → reload → audit/undo evidence for:
-
-- contact update;
-- attendance correction and reversal;
-- billing decision and reversal;
-- identity adjudication;
-- exam-plan lifecycle;
-- comp-day change;
-- student report and Dr J review.
-
-The listed actions contain seven bullets because the student report and Dr J review form one end-to-end workflow. Do not replace these with synthetic or API-only success.
-
-### 5. Responsive and interaction acceptance — blocking
-
-Repeat key workflows at approximately:
-
-- `1440px`;
-- `1024px`;
-- `390px`.
-
-Verify Matrix discovery, deep links, logout, keyboard use, focus, dialogs, overflow, and error recovery.
-
-### 6. LIVE charge — manual canary PASS / in-app attendance charge still gated
-
-The authorized manual Stripe canary succeeded for Antonio: **$1.00 LIVE**, replacement Visa ending `7734`, PaymentIntent `pi_3UDjQ8PqYqVwqSi505IVZ6ZH`, provider status `Succeeded`.
-
-The current in-app attendance-day charge implementation remains intentionally unable to create a $1 LIVE canary. It hard-codes $25.00, requires an approved per-day billing decision, current billable attendance, saved payment method, accepted billing consent, and remaining approved amount, and the server calls `assertTestMode()` before dispatch. Broad automatic billing remains off. No control was weakened or bypassed.
-
-This manual canary proves the saved replacement method and Dr J's immediate Stripe Dashboard collection path. It does not prove the MissionAccounts in-app charge workflow because it contains no attendance metadata and creates no MissionAccounts charge row.
-
-### 7. Matrix left-menu discoverability — P1
-
-The missing MissionAccounts entry in the student Matrix left rail is confirmed. Direct canonical navigation works. Repair the canonical StoryForge-family navigation seam after the payment witness and P0 replay, then prove Dr J and entitled students see the entry while non-entitled users do not.
-
-### 8. Independent audit — final gate
-
-After the human payment witness, persisted workflows, responsive acceptance, and any authorized canary evidence are complete, hand off to independent `MX-MISSIONACCOUNTS-5402A`. This task must not self-certify AAA.
-
-## Exact next human action
-
-The replacement method and $1 LIVE canary are complete. In the genuine Dr J Antonio profile, decide whether the server-derived cycle estimates are operationally correct and approve only the amounts Dr J intends to collect:
-
-- June: $300;
-- July: $125;
-- August: $25.
-
-This is a real billing decision and was not inferred from attendance alone. Stripe also shows a past-due **Provide an external account** task because no bank account is on file. The Founder must open **Settings → Business → Account status → Provide an external account → Start** and enter the bank account directly in Stripe. Do not send bank information through chat or automation. After that and the Dr J decisions, complete the remaining persisted workflow, responsive, navigation, and independent 5402A gates. Broad automatic billing must remain off unless separately activated.
+The exact three-charge authorization is exhausted. Do not perform a fourth LIVE charge, retry a successful cycle, charge another student, or enable automatic/scheduled/bulk charging without new explicit Founder authorization. The explicit Dr J per-student approved-balance button may remain enabled; broad automatic billing remains off.
 
 ## Rollback custody
 

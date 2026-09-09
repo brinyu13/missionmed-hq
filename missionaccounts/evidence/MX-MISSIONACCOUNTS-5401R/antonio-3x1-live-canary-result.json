@@ -1,0 +1,105 @@
+{
+  "audit": {
+    "started_events": 3,
+    "succeeded_events": 3
+  },
+  "authority_prompt_sha256": "9770443d30a05b5d1e72f684d53dd62f962de34b0c67af2a39ff94e31f5ff8dd",
+  "cache": {
+    "cache_control": "no-store, private",
+    "cf_cache_status": "DYNAMIC",
+    "railway_health": 200,
+    "wordpress_gateway_health": 200,
+    "x_kinsta_cache": "BYPASS"
+  },
+  "charges": [
+    {
+      "amount_cents": 100,
+      "cycle": "2026-cycle-1",
+      "invoice_state": "paid",
+      "label": "June",
+      "payment_intent": "pi_3UDnDSPqYqVwqSi52FAmthFX",
+      "stripe_state": "succeeded",
+      "ui_paid_state": true,
+      "webhook_event": "evt_3UDnDSPqYqVwqSi52Q2zm80h",
+      "webhook_signature_verified": true,
+      "webhook_state": "processed"
+    },
+    {
+      "amount_cents": 100,
+      "cycle": "2026-cycle-2",
+      "invoice_state": "paid",
+      "label": "July",
+      "payment_intent": "pi_3UDnFmPqYqVwqSi51S4wLH9G",
+      "stripe_state": "succeeded",
+      "ui_paid_state": true,
+      "webhook_event": "evt_3UDnFmPqYqVwqSi51k1U7OR1",
+      "webhook_signature_verified": true,
+      "webhook_state": "processed"
+    },
+    {
+      "amount_cents": 100,
+      "cycle": "2026-cycle-3",
+      "invoice_state": "paid",
+      "label": "August",
+      "payment_intent": "pi_3UDnIhPqYqVwqSi52ASROIKU",
+      "stripe_state": "succeeded",
+      "ui_paid_state": true,
+      "webhook_event": "evt_3UDnIhPqYqVwqSi52iRxB5ra",
+      "webhook_signature_verified": true,
+      "webhook_state": "processed"
+    }
+  ],
+  "controls": {
+    "broad_automatic_billing": false,
+    "fourth_charge_authorized": false,
+    "hosted_invoices": false,
+    "manual_charges": true,
+    "notifications": false,
+    "scheduled_auto_charge": false,
+    "zoom": false
+  },
+  "coordination_note": "Custom-balance UI writes lacked a concurrent coordination lease. Each charge was initiated after a scoped Lease V2 grant; 30-second leases expired during provider readback. Zero active leases remained and payment/data invariants passed.",
+  "custom_balances": {
+    "2026-cycle-1": 100,
+    "2026-cycle-2": 100,
+    "2026-cycle-3": 100
+  },
+  "isolation": {
+    "active_auto_dispatches_global": 0,
+    "antonio_automatic_day_charges": 0,
+    "other_student_manual_charges": 0
+  },
+  "mission_id": "MX-MISSIONACCOUNTS-5401R",
+  "prior_external_payment": {
+    "counted_in_authorization": false,
+    "missionaccounts_state": "ignored",
+    "payment_intent": "pi_3UDjQ8PqYqVwqSi505IVZ6ZH"
+  },
+  "railway_deployment_id": "2d882de5-771f-473a-843d-0b886070cf06",
+  "recorded_at": "2026-09-09T15:27:00Z",
+  "saved_card": {
+    "brand": "visa",
+    "exp_month": 5,
+    "exp_year": 2032,
+    "last4": "7734",
+    "status": "on_file"
+  },
+  "schema_version": 1,
+  "source_commit": "0c4994f3ade9286954931a416b6d5e8a0a2db328",
+  "stripe_account": {
+    "id": "acct_1TWHdrPqYqVwqSi5",
+    "mode": "live",
+    "name": "MissionMed Institute ExamPrep"
+  },
+  "student": {
+    "classification": "verified_test_student",
+    "display_name": "Antonio Patterson"
+  },
+  "totals": {
+    "actually_charged_cents": 300,
+    "authorized_cents": 300,
+    "distinct_payment_intents": 3,
+    "duplicate_charges": 0,
+    "successful_charges": 3
+  }
+}
