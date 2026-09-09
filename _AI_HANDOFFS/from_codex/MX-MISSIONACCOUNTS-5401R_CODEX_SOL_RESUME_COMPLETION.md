@@ -14,7 +14,7 @@ Updated 2026-09-09 at 11:17 UTC. This is a standalone status and continuation ha
 | Real Dr J | **PASS** |
 | Real Student A | **PASS** |
 | Real Student B | **PASS** |
-| Stripe LIVE account | **VERIFIED** |
+| Stripe LIVE account | **VERIFIED / PAYMENTS ACTIVE / EXTERNAL BANK ACCOUNT TASK PAST DUE** |
 | Dedicated LIVE restricted key | **BOUND / AUTHENTICATED** |
 | Dedicated LIVE webhook | **PASS / ENABLED / EXACT TEN EVENTS** |
 | LIVE payment-method setup | **PASS / REPLACEMENT LIVE METHOD ON FILE** |
@@ -237,7 +237,8 @@ Founder-confirmed account:
 - business: `MissionMed Institute ExamPrep`
 - account: `acct_1TWHdrPqYqVwqSi5`
 - charges enabled: yes
-- payouts enabled: yes
+- payouts enabled by current account API/status: yes
+- provider account task: **Past due — provide an external bank account to continue using Stripe**
 
 Dedicated restricted LIVE key:
 
@@ -404,7 +405,7 @@ The replacement method and $1 LIVE canary are complete. In the genuine Dr J Anto
 - July: $125;
 - August: $25.
 
-This is a real billing decision and was not inferred from attendance alone. After those decisions, complete the remaining persisted workflow, responsive, navigation, and independent 5402A gates. Broad automatic billing must remain off unless separately activated.
+This is a real billing decision and was not inferred from attendance alone. Stripe also shows a past-due **Provide an external account** task because no bank account is on file. The Founder must open **Settings → Business → Account status → Provide an external account → Start** and enter the bank account directly in Stripe. Do not send bank information through chat or automation. After that and the Dr J decisions, complete the remaining persisted workflow, responsive, navigation, and independent 5402A gates. Broad automatic billing must remain off unless separately activated.
 
 ## Rollback custody
 
