@@ -3,6 +3,7 @@ import {createHash} from "node:crypto";
 import {createRequire} from "node:module";
 import {mkdirSync,readFileSync,statSync,writeFileSync} from "node:fs";
 import path from "node:path";
+import {inspectEditablePptx} from "../js/presentation/editable-pptx.js";
 
 const require=createRequire(import.meta.url);
 const playwrightRuntime=process.env.CODEX_PLAYWRIGHT_RUNTIME||
@@ -28,11 +29,14 @@ const files={
   editorPreview:artifact("RC1_EDITOR_SHARED_PREVIEW.png"),
   exportPreview:artifact("RC1_EXPORT_SHARED_PREVIEW.png"),
   png:artifact("RC1_TIMELINE_1920x1080.png"),
+  highRes:artifact("RC1_TIMELINE_2560x1440.png"),
   letter:artifact("RC1_TIMELINE_LETTER.pdf"),
   a4:artifact("RC1_TIMELINE_A4.pdf"),
+  pptx:artifact("RC1_TIMELINE_EDITABLE.pptx"),
   letterRender:artifact("RC1_TIMELINE_LETTER_RENDERED.png"),
   a4Render:artifact("RC1_TIMELINE_A4_RENDERED.png"),
   pngOpened:artifact("RC1_TIMELINE_PNG_OPENED.png"),
+  highResOpened:artifact("RC1_TIMELINE_HIGH_RES_OPENED.png"),
   letterOpened:artifact("RC1_TIMELINE_LETTER_OPENED.png"),
   a4Opened:artifact("RC1_TIMELINE_A4_OPENED.png"),
   receipt:artifact("RC1_EXPORT_BROWSER_RECEIPT.json")
@@ -85,6 +89,7 @@ async function inspectFounderSvg(locator,label){
     const selectors={
       background:"[data-board-background]",
       axis:'[data-layer="axis"]',
+      title:'[data-artifact-chrome="title"]',
       colorKey:'[data-artifact-chrome="color-key"]',
       profile:'[data-artifact-chrome="profile"]',
       event:'[data-event-id="rc1-duration-event"]',
@@ -112,6 +117,25 @@ async function inspectFounderSvg(locator,label){
           y:(bounds.top-svgBounds.top)/svgBounds.height,
           width:bounds.width/svgBounds.width,
           height:bounds.height/svgBounds.height
+        }
+      };
+    }
+    const milestoneVisualNodes=[...svg.querySelectorAll('[data-event-id="rc1-milestone-event"] > :not(line)')];
+    if(!milestoneVisualNodes.length)objects.milestoneVisual={present:false};
+    else{
+      const bounds=milestoneVisualNodes.map((node)=>node.getBoundingClientRect());
+      const left=Math.min(...bounds.map((box)=>box.left));
+      const top=Math.min(...bounds.map((box)=>box.top));
+      const right=Math.max(...bounds.map((box)=>box.right));
+      const bottom=Math.max(...bounds.map((box)=>box.bottom));
+      const tolerance=2;
+      objects.milestoneVisual={
+        present:true,visible:right>left&&bottom>top,
+        clipped:left<svgBounds.left-tolerance||top<svgBounds.top-tolerance||
+          right>svgBounds.right+tolerance||bottom>svgBounds.bottom+tolerance,
+        normalized:{
+          x:(left-svgBounds.left)/svgBounds.width,y:(top-svgBounds.top)/svgBounds.height,
+          width:(right-left)/svgBounds.width,height:(bottom-top)/svgBounds.height
         }
       };
     }
@@ -143,9 +167,21 @@ async function inspectFounderSvg(locator,label){
     `${label}: semantic or freeform presentation content is missing: ${JSON.stringify(result)}`);
   const missing=Object.entries(result.objects).filter(([,value])=>!value.present||!value.visible);
   const clipped=Object.entries(result.objects).filter(([,value])=>value.clipped);
+  const title=result.objects.title?.normalized;
+  const axis=result.objects.axis?.normalized;
+  const event=result.objects.event?.normalized;
+  const milestoneVisual=result.objects.milestoneVisual?.normalized;
   invariant(missing.length===0,`${label}: missing/hidden presentation objects: ${missing.map(([name])=>name).join(", ")}`);
   invariant(clipped.length===0,`${label}: clipped presentation objects: ${clipped.map(([name])=>name).join(", ")}`);
+  invariant(!boxesOverlap(title,milestoneVisual),`${label}: milestone overlaps the fixed title plaque: ${JSON.stringify({title,milestoneVisual})}`);
+  invariant(!boxesOverlap(axis,milestoneVisual),`${label}: milestone covers the axis/year ribbon: ${JSON.stringify({axis,milestoneVisual})}`);
+  invariant(!boxesOverlap(event,milestoneVisual),`${label}: milestone covers nearby duration content: ${JSON.stringify({event,milestoneVisual})}`);
   return result;
+}
+
+function boxesOverlap(left,right){
+  return left&&right&&left.x<right.x+right.width&&left.x+left.width>right.x&&
+    left.y<right.y+right.height&&left.y+left.height>right.y;
 }
 
 async function openedArtifactScreenshot(source,output,label){
@@ -364,9 +400,15 @@ try{
 
   const downloads={
     png:await exportArtifact("png-1920x1080",files.png),
+    highRes:await exportArtifact("png-2560x1440",files.highRes),
     letter:await exportArtifact("pdf-letter-landscape",files.letter),
-    a4:await exportArtifact("pdf-a4-landscape",files.a4)
+    a4:await exportArtifact("pdf-a4-landscape",files.a4),
+    pptx:await exportArtifact("pptx-editable",files.pptx)
   };
+  const pptxValidation=await inspectEditablePptx(readFileSync(files.pptx));
+  invariant(pptxValidation.errors.length===0&&pptxValidation.textCount>1&&
+    pptxValidation.shapeCount>1&&pptxValidation.groupCount>0,
+    `Editable PowerPoint validation failed: ${JSON.stringify({...pptxValidation,recovery:undefined,text:undefined})}`);
 
   execFileSync(pdftoppmExecutable,["-png","-f","1","-singlefile","-r","150",files.letter,files.letterRender.replace(/\.png$/i,"")],{stdio:"pipe"});
   execFileSync(pdftoppmExecutable,["-png","-f","1","-singlefile","-r","150",files.a4,files.a4Render.replace(/\.png$/i,"")],{stdio:"pipe"});
@@ -374,6 +416,7 @@ try{
 
   const opened={
     png:await openedArtifactScreenshot(files.png,files.pngOpened,"Opened Timeline PNG"),
+    highRes:await openedArtifactScreenshot(files.highRes,files.highResOpened,"Opened high-resolution Timeline PNG"),
     letter:await openedArtifactScreenshot(files.letterRender,files.letterOpened,"Opened Timeline Letter PDF page 1"),
     a4:await openedArtifactScreenshot(files.a4Render,files.a4Opened,"Opened Timeline A4 PDF page 1")
   };
@@ -393,6 +436,8 @@ try{
   }
   invariant(opened.png.naturalWidth===1920&&opened.png.naturalHeight===1080,
     `Opened PNG dimensions are ${JSON.stringify(opened.png)}.`);
+  invariant(opened.highRes.naturalWidth===2560&&opened.highRes.naturalHeight===1440,
+    `Opened high-resolution PNG dimensions are ${JSON.stringify(opened.highRes)}.`);
 
   const pdfInfo={
     letter:execFileSync(pdfinfoExecutable,[files.letter],{encoding:"utf8"}),
@@ -430,6 +475,7 @@ try{
     downloads,
     opened,
     comparisons,
+    pptxValidation:{...pptxValidation,recovery:undefined},
     pdfInfo:{
       letter:pdfInfo.letter.split("\n").filter((line)=>/^(Pages|Page size|File size):/.test(line)),
       a4:pdfInfo.a4.split("\n").filter((line)=>/^(Pages|Page size|File size):/.test(line))

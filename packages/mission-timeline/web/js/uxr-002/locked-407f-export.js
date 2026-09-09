@@ -348,17 +348,36 @@ function milestoneGeometry(flag,index,scale,scene,{interview=false}={}){
   const object=interview?null:presentationEventObject(scene,flag.id);
   const overridden=object?.geometry;
   const rawX=overridden?pixel(overridden.x):boardX(scale.xPercent(flag.month));
+  const x=overridden?rawX:Math.max(6,Math.min(WIDTH-60,rawX));
   const study=!interview&&flag.categoryId==="exams"&&flag.examAttemptId
     ?(scene.arrows||[]).find(arrow=>arrow.study&&arrow.examAttemptId===flag.examAttemptId):null;
   const studyBox=study?geometry(study,founderPortableLayout(scene),scale,scene):null;
-  return {object,overridden,x:overridden?rawX:Math.max(6,Math.min(WIDTH-60,rawX)),y:overridden?pixel(overridden.y):studyBox?studyBox.y-58:(index%2===0?58:65),width:overridden?Math.max(.25,Number(overridden.width)||50):50,height:overridden?Math.max(.25,Number(overridden.height)||64):64,rotation:overridden?Number(overridden.rotation)||0:0,defaultPoleBottom:studyBox?.y??FOUNDER_PORTABLE_GEOMETRY.axisTop};
+  const title=String((interview?"Interview":flag.title)||"");
+  const labelWidth=title.length*9.5+8;
+  const flipLabel=x+56+labelWidth>WIDTH-8;
+  const footprintLeft=Math.min(x,flipLabel?x-labelWidth-8:x+60);
+  const footprintRight=Math.max(x+56,flipLabel?x-8:x+60+labelWidth);
+  const plaque=FOUNDER_PORTABLE_GEOMETRY.title;
+  const crossesTitle=footprintLeft<plaque.x+plaque.width&&footprintRight>plaque.x;
+  /* The fixed title plaque owns y=0..83. Default milestone flags previously used
+     y=58/65 even when their date and label crossed the plaque, so the plaque painted
+     over the flag in the shared SVG, PNG, PDF and editable presentation. Place only
+     that automatic flag below the complete axis hit area and connect its pole to the
+     ribbon bottom. This preserves the chronological x anchor without covering either
+     the plaque or year labels. Manual Advanced Studio geometry remains exact. */
+  const belowAxisY=FOUNDER_PORTABLE_GEOMETRY.axisTop+FOUNDER_PORTABLE_GEOMETRY.axisHeight+18;
+  const automaticY=studyBox?studyBox.y-58:crossesTitle?belowAxisY:(index%2===0?58:65);
+  const defaultPoleBottom=studyBox?.y??(crossesTitle
+    ?FOUNDER_PORTABLE_GEOMETRY.axisTop+FOUNDER_PORTABLE_GEOMETRY.axisHeight
+    :FOUNDER_PORTABLE_GEOMETRY.axisTop);
+  return {object,overridden,x,y:overridden?pixel(overridden.y):automaticY,width:overridden?Math.max(.25,Number(overridden.width)||50):50,height:overridden?Math.max(.25,Number(overridden.height)||64):64,rotation:overridden?Number(overridden.rotation)||0:0,defaultPoleBottom};
 }
 
 export function locked407FMilestoneGeometry(scene,id){
   const index=(scene?.flags||[]).findIndex(flag=>String(flag.id)===String(id));
   if(index<0)return null;
   const {x,y,width,height,rotation,object}=milestoneGeometry(scene.flags[index],index,metrics(scene),scene);
-  return {x,y,width,height,rotation,axisY:FOUNDER_PORTABLE_GEOMETRY.axisTop,object};
+  return {x,y,width,height,rotation,axisY:FOUNDER_PORTABLE_GEOMETRY.axisTop,axisBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop+FOUNDER_PORTABLE_GEOMETRY.axisHeight,object};
 }
 
 function flagMarkup(flag,index,scale,scene,{interview=false}={}){
