@@ -9,7 +9,7 @@ Verdict: **COMPLETE — LIVE**
 - Decision records: `DR-212`, `DR-213`
 - MissionMed OS registration commit: `0a71311`
 - Founder runtime approval: exact MX-DASH-6040A override for `student_os_js`, `student_os_css`, `class_mmed_student_os_php`, `calendar_v4_js`, `calendar_v4_css`, and `storyforge_js`.
-- Product lease: `SHARED:MATRIX-SHELL`, lease `057e77f7-defd-4e6d-b4e6-d36dd38e5e6b`; deployment epoch `1653`; finalization epoch `1664`.
+- Product lease: `SHARED:MATRIX-SHELL`, lease `057e77f7-defd-4e6d-b4e6-d36dd38e5e6b`; deployment epoch `1653`; finalization epoch `1665`.
 - Dedicated worktree: `/Users/brianb/MissionMed_worktrees/MX-DASH-6040A-no-classic-flash`
 - Branch: `codex/mx-dash-6040a-no-classic-flash`
 - Implementation commit: `506d74c7d1a0b11aaa07578fb075fd7a5f80312c`
