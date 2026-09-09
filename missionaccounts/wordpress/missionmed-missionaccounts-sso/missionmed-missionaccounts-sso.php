@@ -568,7 +568,9 @@ function mma_enqueue_matrix_launch_adapter() {
         return;
     }
     $handle = 'missionmed-missionaccounts-matrix-launch';
-    wp_enqueue_script($handle, plugins_url('assets/matrix-launch.js', __FILE__), array(), MMA_VERSION, false);
+    // Match the proven Matrix launcher seam: load after the runtime has built
+    // the sidebar, while the launcher's observer preserves later rerenders.
+    wp_enqueue_script($handle, plugins_url('assets/matrix-launch.js', __FILE__), array(), MMA_VERSION, true);
     wp_add_inline_script($handle, 'window.MissionMedMissionAccountsLaunch=' . wp_json_encode(array(
         'target' => home_url(mma_settings()['base_path']),
     )) . ';', 'before');
