@@ -899,11 +899,11 @@ test("M11 read-only Canvas keeps inspection controls safe and cancels stale muta
   );
   assert.match(
     canvasSource,
-    /const onPointerMove = \(event\) => \{[\s\S]*if\(!isEditable\(state\)\)\{[\s\S]*pointer=null/
+    /const onPointerMove = \(event\) => \{[\s\S]*if\(!canvasEventInteractionAllowed\(pointer.eventId\)\|\|pointer.modeAtPress!==store.document.mode\)\{[\s\S]*pointer=null/
   );
   assert.match(
     canvasSource,
-    /const onPointerUp = \(\) => \{[\s\S]*if\(!isEditable\(state\)\)\{[\s\S]*pointer=null/
+    /const onPointerUp = \(\) => \{[\s\S]*if\(!canvasEventInteractionAllowed\(pointer.eventId\)\|\|pointer.modeAtPress!==store.document.mode\)\{[\s\S]*pointer=null/
   );
   assert.match(
     canvasSource,

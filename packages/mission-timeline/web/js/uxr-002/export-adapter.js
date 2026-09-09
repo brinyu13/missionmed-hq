@@ -15,8 +15,12 @@ export function printRasterSize(format){
   const dpi=Math.max(72,Number(format?.dpi)||300);
   const page=format?.page||{};
   const widthIn=Number(page.widthIn)||(Number(page.widthMm)?Number(page.widthMm)/25.4:11);
-  const width=Math.round(widthIn*dpi);
-  return{width,height:Math.round(width*1080/1920),dpi};
+  // Raster dimensions must stay exactly 16:9. Rounding a nominal print width
+  // such as A4's 3508px independently produced a 3508x1973 canvas, which is
+  // slightly wider than the canonical board and shifted the PDF placement.
+  // Round up to the next 16px boundary so the promised DPI is never reduced.
+  const width=Math.ceil(Math.ceil(widthIn*dpi)/16)*16;
+  return{width,height:width/16*9,dpi};
 }
 
 export function createLocalExportAdapter({

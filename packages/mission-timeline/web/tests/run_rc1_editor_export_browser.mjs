@@ -15,6 +15,7 @@ const pdfinfoExecutable=process.env.PDFINFO_EXECUTABLE||
   "/Users/brianb/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/pdfinfo";
 const appUrl=process.env.D1_APP_URL||"http://127.0.0.1:8796/web/?entitlement=administrator";
 const captureDir=process.env.D1_CAPTURE_DIR||"/private/tmp/d1-founder-shared-export-015";
+const themeId=process.env.D1_THEME||"keynote-classic";
 mkdirSync(captureDir,{recursive:true});
 const {chromium}=require(playwrightRuntime);
 
@@ -55,6 +56,9 @@ page.on("console",(message)=>{
 });
 
 async function navigate(route){
+  if(["canvas","rescue","media"].includes(route)){
+    await page.locator("#rail .family022Tools").evaluate((node)=>{node.open=true;});
+  }
   await page.locator(`#rail [data-v="${route}"]`).click();
   if(route==="export"){
     const continueButton=page.locator("[data-quality-continue-export]");
@@ -117,7 +121,11 @@ async function inspectFounderSvg(locator,label){
       height:Number(svg.getAttribute("height")),
       serializer:svg.dataset.founderSerializer,
       keynoteContract:svg.dataset.founderKeynoteContract,
+      theme:svg.dataset.timelineTheme||svg.getAttribute("data-timeline-theme")||null,
       backgroundSource:svg.querySelector("[data-board-background]")?.getAttribute("data-founder-board-source")||null,
+      boardInk:[...svg.querySelectorAll("[data-board-ink-role]")].map((node)=>({
+        role:node.getAttribute("data-board-ink-role"),fill:node.getAttribute("fill")
+      })),
       axisSegments:svg.querySelectorAll("[data-axis-segment-id]").length,
       colorKeyRows:svg.querySelectorAll("[data-color-key-row]").length,
       events:svg.querySelectorAll("[data-event-id]").length,
@@ -230,11 +238,12 @@ async function imageComparison(referenceFile,candidateFile,{cropCandidate=false}
 try{
   await page.goto(appUrl,{waitUntil:"networkidle"});
   await page.waitForFunction(()=>!!window.D1_407F_ENGINEERING);
-  await page.evaluate(()=>{
+  await page.evaluate((themeId)=>{
     const api=window.D1_407F_ENGINEERING;
     const document=api.store.snapshot();
     document.mode="advanced";
     document.layoutLock=false;
+    document.theme=themeId;
     document.title="Synthetic RC1 Export Fidelity Proof";
     document.studentProfile={
       ...document.studentProfile,
@@ -300,16 +309,26 @@ try{
     };
     api.store.replace(document,{label:"RC1 shared Founder export browser fixture",history:false});
     api.applyDocument();
-  });
+  },themeId);
 
   await navigate("canvas");
   const editorSvg=sharedSvg("canvas");
   const editorState=await inspectFounderSvg(editorSvg,"Edit Timeline");
+  if(themeId==="mission-navy"){
+    const outside=editorState.boardInk.filter(({role})=>role!=="inside-arrow");
+    invariant(outside.length>0&&outside.every(({fill})=>fill==="#F2F4F8"),
+      `Mission Navy editor board ink is not consistently light: ${JSON.stringify(editorState.boardInk)}`);
+  }
   await editorSvg.screenshot({path:files.editorPreview});
 
   await navigate("export");
   const exportSvg=sharedSvg("export");
   const exportState=await inspectFounderSvg(exportSvg,"Export preview");
+  if(themeId==="mission-navy"){
+    const outside=exportState.boardInk.filter(({role})=>role!=="inside-arrow");
+    invariant(outside.length>0&&outside.every(({fill})=>fill==="#F2F4F8"),
+      `Mission Navy export board ink is not consistently light: ${JSON.stringify(exportState.boardInk)}`);
+  }
   await exportSvg.screenshot({path:files.exportPreview});
   invariant(!await page.locator("[data-export-action]").isDisabled(),"Export action is disabled after visible Quality Guardian approval.");
   const resourceIdAudit=await page.evaluate(()=>{
@@ -383,7 +402,13 @@ try{
   invariant(/Pages:\s+1/.test(pdfInfo.a4)&&/Page size:\s+841\.89 x 595\.28 pts/.test(pdfInfo.a4),"A4 PDF page contract failed.");
   const a4PdfText=readFileSync(files.a4).toString("latin1");
   const a4Placement=a4PdfText.match(/841\.89 0 0 473\.563125 0 60\.858438 cm/)?.[0]||null;
-  invariant(a4Placement&&!/\d(?:\.\d+)?e[+-]\d/i.test(a4PdfText),"A4 PDF contains invalid exponent-form geometry.");
+  const imageMatrices=[...a4PdfText.matchAll(/\nq\r?\n([^\r\n]+) cm\r?\n\/Im\d+ Do/g)]
+    .map((match)=>match[1]);
+  invariant(
+    a4Placement&&imageMatrices.length===1&&
+      imageMatrices.every((matrix)=>!/(?:^|\s)[-+]?\d+(?:\.\d+)?e[-+]?\d+(?:\s|$)/i.test(matrix)),
+    `A4 PDF contains invalid exponent-form geometry: ${JSON.stringify(imageMatrices)}`
+  );
   invariant(consoleErrors.length===0,consoleErrors.join("\n"));
 
   const artifactReceipts=Object.fromEntries(Object.entries(files)
@@ -393,6 +418,7 @@ try{
     result:"PASS",
     generatedAt:new Date().toISOString(),
     appUrl,
+    themeId,
     chromeExecutable,
     routeProof:{usedVisibleRail:true,qualityGuardianContinued:true},
     repairsVerified:{

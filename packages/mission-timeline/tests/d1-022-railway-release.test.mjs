@@ -53,6 +53,7 @@ test('Actual PostgreSQL18 remote helper applies atomically, verifies NOINHERIT a
     await owner.query('alter table timeline.principals drop constraint synthetic_atomic_failure');
     const result=await runDatabaseOperation(input,pg,url('postgres'));
     assert.equal(result.status,'PASS');assert.equal(result.ambient_access_denied,true);assert.equal(result.schema_version,'d1-timeline-db-500.1');assert.equal(result.migrations.length,entries.length);
+    assert.equal(result.history_scope_ready,true);assert.equal(result.current_document_scope_ready,true);
     await assert.rejects(runDatabaseOperation(input,pg,url('postgres')),/DATABASE_BASELINE_CHANGED/);
     const count=(await owner.query("select count(*)::int as n from timeline.principals where id='timeline_admin_authority_022'")).rows[0].n;assert.equal(count,1);
     assert.equal((await runDatabaseOperation({action:'verify',replacementUrl:url('timeline_api_login_022',password)},pg,url('postgres'))).status,'PASS');

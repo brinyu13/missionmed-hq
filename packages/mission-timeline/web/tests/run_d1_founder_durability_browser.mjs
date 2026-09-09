@@ -124,6 +124,9 @@ const textObject=(id)=>page.locator(
 ).last();
 
 async function gotoView(view){
+  if(["canvas","rescue","media"].includes(view)){
+    await page.locator("#rail .family022Tools").evaluate((node)=>{node.open=true;});
+  }
   await page.locator(`#rail [data-v="${view}"]`).click();
   await page.waitForFunction(
     (expected)=>document.querySelector('#rail [aria-current="page"]')?.dataset.v===expected,

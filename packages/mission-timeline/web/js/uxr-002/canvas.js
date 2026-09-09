@@ -1421,7 +1421,7 @@ function interactiveBoardSvg(svg,scene,state) {
 }
 
 function renderSelectionHandles(event,sceneEvent,state) {
-  if (!event || !sceneEvent || !isEditable(state)) return "";
+  if (!event || !sceneEvent || !isEditable(state) || (state.mode==="advanced"&&eventKind(event)!=="explanation")) return "";
   if(sceneEvent.kind==="explanation"){
     return `<div class="guided-explanation-handles" data-selection-handles data-event-id="${escapeHtml(event.id)}" style="--explanation-x:${Number(sceneEvent.x)||0};--explanation-y:${Number(sceneEvent.y)||0};--explanation-width:${Number(sceneEvent.width)||300};--explanation-height:${Number(sceneEvent.height)||190}">
       <button type="button" data-drag-kind="free-resize" aria-label="Resize explanation"></button>
@@ -1739,6 +1739,14 @@ export function installCanvas(
   };
   ensureAdvancedFreePlacement();
   let state = initialState;
+  // Existing sticky-note gestures alter only their free presentation geometry.
+  // Chronology arrows and flags belong to Advanced Studio's scene gesture owner.
+  const canvasEventInteractionAllowed=(eventId)=>{
+    if(!isEditable(state)||store.entitlement?.canMutate===false)return false;
+    if(store.document.mode!=="advanced")return true;
+    return store.entitlement?.canMutate===true&&store.document.layoutLock===false&&
+      eventKind(eventById(store.document,eventId))==="explanation";
+  };
   let versions = [];
   let destroyed = false;
   let pointer = null;
@@ -1937,6 +1945,7 @@ export function installCanvas(
       for(const attribute of [
         "data-canvas-event",
         "data-event-id",
+        "data-event-kind",
         "data-advanced-media",
         "data-advanced-text",
         "data-advanced-element",
@@ -2259,7 +2268,7 @@ export function installCanvas(
       return;
     }
     if (eventTarget && !action) {
-      if (!isEditable(state)) return;
+      if (!canvasEventInteractionAllowed(eventTarget.dataset.eventId)) return;
       setState(selectCanvasEvent(state,eventTarget.dataset.eventId),{focus:"selected"});
       return;
     }
@@ -2359,7 +2368,7 @@ export function installCanvas(
 
   const onDoubleClick = (event) => {
     const target = event.target.closest?.("[data-canvas-event]");
-    if (!target || !isEditable(state)) return;
+    if (!target || !canvasEventInteractionAllowed(target.dataset.eventId)) return;
     event.preventDefault();
     const selected = assertEvent(store.document,target.dataset.eventId);
     setState(beginInlineLabelEdit(state,selected),{focus:"inline"});
@@ -2367,7 +2376,7 @@ export function installCanvas(
 
   const onContextMenu = (event) => {
     const target = event.target.closest?.("[data-canvas-event]");
-    if (!target || !isEditable(state)) return;
+    if (!target || !canvasEventInteractionAllowed(target.dataset.eventId)) return;
     event.preventDefault();
     const selectedState = selectCanvasEvent(state,target.dataset.eventId);
     setState({
@@ -2476,9 +2485,9 @@ export function installCanvas(
   };
 
   const onFocusIn = (event) => {
-    if(!isEditable(state))return;
     const target=event.target.closest?.("[data-canvas-event]");
     const eventId=String(target?.dataset?.eventId||"");
+    if(!canvasEventInteractionAllowed(eventId))return;
     if(!eventId||eventId===String(state.selectedEventId||""))return;
     if(!eventById(store.document,eventId))return;
     state=selectCanvasEvent(state,eventId);
@@ -2578,6 +2587,11 @@ export function installCanvas(
       String(event.key || "").toLowerCase() === "z"
     );
     if (!insideCanvas && !commandUndo) return;
+    // Advanced board keys belong to presentation selection, never date/lane editing.
+    if(store.document.mode==="advanced"&&!commandUndo){
+      const eventId=event.target.closest?.("[data-canvas-event]")?.dataset?.eventId||state.selectedEventId;
+      if(!canvasEventInteractionAllowed(eventId))return;
+    }
     const result = applyCanvasKeyboard(store,state,event,{
       currentMonth:nowMonth(),
       onDropReflow,
@@ -2650,11 +2664,13 @@ export function installCanvas(
       : event.target.closest?.("[data-canvas-event]");
     if (!target) return;
     const eventId = target.dataset.eventId;
+    if(!canvasEventInteractionAllowed(eventId))return;
     const selectedEvent=eventById(store.document,eventId);
     const application=target.closest?.(".canvas-application")||root.querySelector?.(".canvas-application");
     const bounds=application?.getBoundingClientRect?.();
     pointer = {
       eventId,
+      modeAtPress:store.document.mode,
       startX:Number(event.clientX || 0),
       startY:Number(event.clientY || 0),
       kind:handle?.dataset.dragKind || (
@@ -2682,7 +2698,7 @@ export function installCanvas(
       return;
     }
     if (!pointer) return;
-    if(!isEditable(state)){
+    if(!canvasEventInteractionAllowed(pointer.eventId)||pointer.modeAtPress!==store.document.mode){
       pointer=null;
       if(state.drag)setState({...state,drag:null});
       return;
@@ -2728,7 +2744,7 @@ export function installCanvas(
     delete root.dataset.canvasDragKind;
     if(panPointer){panPointer=null;return;}
     if (!pointer) return;
-    if(!isEditable(state)){
+    if(!canvasEventInteractionAllowed(pointer.eventId)||pointer.modeAtPress!==store.document.mode){
       pointer=null;
       if(state.drag)setState({...state,drag:null});
       return;

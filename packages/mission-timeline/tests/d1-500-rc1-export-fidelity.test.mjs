@@ -10,6 +10,7 @@ import {
   createD1411AKernelExportAdapter,
   exportPdfPageDimensions
 } from "../web/js/d1-411a/kernel-host.js";
+import {printRasterSize} from "../web/js/uxr-002/export-adapter.js";
 
 test("RC1 centers the canonical 16:9 board on true Letter and A4 landscape pages",()=>{
   assert.deepEqual(exportPdfPageDimensions({page:{name:"Letter"}}),{
@@ -41,6 +42,18 @@ test("RC1 centers the canonical 16:9 board on true Letter and A4 landscape pages
   assert.ok(Math.abs(a4.y-60.8584375)<1e-9);
   assert.equal(a4.width,841.89);
   assert.ok(Math.abs(a4.height-473.563125)<1e-9);
+});
+
+test("022 print rasters meet 300 DPI while retaining the exact 16:9 board",()=>{
+  const letter=printRasterSize({dpi:300,page:{widthIn:11}});
+  const a4=printRasterSize({dpi:300,page:{widthMm:297}});
+  assert.deepEqual(letter,{width:3312,height:1863,dpi:300});
+  assert.deepEqual(a4,{width:3520,height:1980,dpi:300});
+  for(const raster of [letter,a4]){
+    assert.equal(raster.width/raster.height,16/9);
+  }
+  assert.ok(letter.width>=3300);
+  assert.ok(a4.width>=Math.ceil(297/25.4*300));
 });
 
 test("RC1 PDF writer preserves board geometry instead of stretching to the paper aspect ratio",async()=>{

@@ -177,6 +177,9 @@ function background(scene){
     return`<linearGradient id="d1406-board" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${start}"/><stop offset="1" stop-color="${end}"/></linearGradient>`;
   }
   const id=String(scene?.theme?.id||"keynote-classic");
+  if(id==="mission-navy"){
+    return`<radialGradient id="d1406-board" cx=".5" cy=".3" r=".7071067811865476" gradientTransform="translate(.5 .3) scale(1 1.4) translate(-.5 -.3)"><stop offset="0" stop-color="#1B2A4A"/><stop offset="1" stop-color="#0E1730"/></radialGradient>`;
+  }
   if(id==="season-one-board"){
     return`<linearGradient id="d1406-board" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#121726"/><stop offset="1" stop-color="#070A12"/></linearGradient>`;
   }
@@ -191,6 +194,11 @@ function background(scene){
   }
   const board=FOUNDER_KEYNOTE_CONTRACT.assets.board;
   return`<pattern id="d1406-board" x="0" y="0" width="${board.width}" height="${board.height}" patternUnits="userSpaceOnUse"><image data-founder-board-template="true" data-founder-board-asset-sha256="${board.sha256}" href="${xml(founderBoardAssetUrl())}" x="0" y="0" width="${board.width}" height="${board.height}" preserveAspectRatio="xMidYMid slice"/></pattern>`;
+}
+
+function boardInk(scene){
+  const token=String(scene?.theme?.ink||"");
+  return /^#[0-9A-F]{6}$/i.test(token)?token:"#111827";
 }
 
 function advancedBackgroundLayer(scene){
@@ -276,10 +284,11 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const compactEnd=arrow.openEnded?"Present":formatFlagDate(arrow.endMonth,arrow.datePrecision?.end);
   const caption=`${compactStart} - ${compactEnd}`;
   const captionX=Math.max(box.x+40,Math.min(WIDTH-40,box.x+box.width/2));
-  const dates=`<text data-arrow-caption="true" x="${captionX}" y="${dateY}" text-anchor="middle" fill="#111827" font-family="${TYPE.event}" font-size="${dateSize}">${xml(caption)}</text>`;
+  const outsideInk=boardInk(scene);
+  const dates=`<text data-arrow-caption="true" data-board-ink-role="caption" x="${captionX}" y="${dateY}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="${dateSize}">${xml(caption)}</text>`;
   void start;void end;void duration;
   const site=arrow.siteName&&!tight
-    ?`<text x="${box.x+box.width/2}" y="${box.y+51}" text-anchor="middle" fill="#111827" font-family="${TYPE.event}" font-size="18">${xml(arrow.siteName)}</text>`
+    ?`<text data-board-ink-role="site" x="${box.x+box.width/2}" y="${box.y+51}" text-anchor="middle" fill="${outsideInk}" font-family="${TYPE.event}" font-size="18">${xml(arrow.siteName)}</text>`
     :"";
   const arrowHead=Math.min(24,Math.max(14,box.width*.14));
   const joined=box.personalSegment&&!box.personalSegment.terminal;
@@ -299,7 +308,8 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const titleY=box.y+22-(titleLines.length-1)*11;
   // Short chronology bars retain their exact dates/width. Their full readable
   // label sits beside the bar instead of crushing glyphs into a few pixels.
-  const titleMarkup=`<text data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${titleFits?'#FFFFFF':'#111827'}" font-family="${TYPE.event}" font-size="20" font-weight="700">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
+  const titleColor=titleFits?String(arrow?.label?.color||"#FFFFFF"):outsideInk;
+  const titleMarkup=`<text data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" data-board-ink-role="${titleFits?'inside-arrow':'outside-arrow'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${xml(titleColor)}" font-family="${TYPE.event}" font-size="20" font-weight="700">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
   const lor=arrow.lorSubmitted
     ?`<g data-lor-submitted="true" transform="translate(${box.x2-38} ${box.y-10})"><path d="M0 0H20V22L10 16L0 22Z" fill="#F3E7B3" stroke="#8C6B20"/><text x="10" y="14" text-anchor="middle" fill="#6C5018" font-family="Arial" font-size="11" font-weight="800">★</text></g>`
     :"";
@@ -371,7 +381,8 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   if(useUsFlag){
     const poleX=bx+4;
     const usaFlag=FOUNDER_KEYNOTE_CONTRACT.assets.usaFlag;
-    return`<g data-event-kind="flag" data-event-id="${xml(flag.id)}" data-founder-milestone-style="usa" aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by+2}" x2="${poleX}" y2="${overridden?anchoredPoleBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop}" stroke="#A9AFB2" stroke-width="4"/><image data-founder-usa-flag-asset-sha256="${usaFlag.sha256}" href="${xml(founderKeynoteAssetUrl(usaFlag))}" x="${bx}" y="${by}" width="50" height="41" preserveAspectRatio="xMinYMin meet"/><text x="${bx+54}" y="${by+31}" fill="#111827" font-family="${TYPE.event}" font-size="18">${xml(title)}</text><text x="${bx+54}" y="${by+52}" fill="#111827" font-family="${TYPE.event}" font-size="18">${xml(formatMonth(flag.month,flag.datePrecision?.start))}</text></g>`;
+    const ink=boardInk(scene);
+    return`<g data-event-kind="flag" data-event-id="${xml(flag.id)}" data-founder-milestone-style="usa" aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by+2}" x2="${poleX}" y2="${overridden?anchoredPoleBottom:FOUNDER_PORTABLE_GEOMETRY.axisTop}" stroke="#A9AFB2" stroke-width="4"/><image data-founder-usa-flag-asset-sha256="${usaFlag.sha256}" href="${xml(founderKeynoteAssetUrl(usaFlag))}" x="${bx}" y="${by}" width="50" height="41" preserveAspectRatio="xMinYMin meet"/><text data-board-ink-role="flag-label" x="${bx+54}" y="${by+31}" fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(title)}</text><text data-board-ink-role="flag-date" x="${bx+54}" y="${by+52}" fill="${ink}" font-family="${TYPE.event}" font-size="18">${xml(formatMonth(flag.month,flag.datePrecision?.start))}</text></g>`;
   }
   /* AAA-019 Keynote fidelity (016 §3 "Milestone flags"): the golden milestone is a waving
      grey pennant planted on the ribbon with a white date chip inside and the label beside it —
@@ -390,7 +401,7 @@ function flagMarkup(flag,index,scale,scene,{interview=false}={}){
   const words=String(title||"").split(/\s+/).filter(Boolean);
   const lines=words.length>2&&String(title||"").length>16?[words.slice(0,Math.ceil(words.length/2)).join(" "),words.slice(Math.ceil(words.length/2)).join(" ")]:[String(title||"")];
   const resultPrivacy=flag.presentationRedactions?.includes('EXAM_RESULT_PRIVATE')?' data-exam-result-private="true"':'';
-  const label=lines.map((line,lineIndex)=>`<text${resultPrivacy} x="${labelX}" y="${by+22+lineIndex*21}"${flipLabel?' text-anchor="end"':""} fill="#111827" font-family="${TYPE.event}" font-size="18">${xml(line)}</text>`).join("");
+  const label=lines.map((line,lineIndex)=>`<text${resultPrivacy} data-board-ink-role="flag-label" x="${labelX}" y="${by+22+lineIndex*21}"${flipLabel?' text-anchor="end"':""} fill="${boardInk(scene)}" font-family="${TYPE.event}" font-size="18">${xml(line)}</text>`).join("");
   return`<g data-event-kind="${interview?"interview-marker":"flag"}"${interview?"":` data-event-id="${xml(flag.id)}"`} data-founder-milestone-style="pennant"${examResult?` data-exam-result="${examResult}"`:""} aria-label="${xml(flag.ariaLabel)}"${transform}><line x1="${poleX}" y1="${by}" x2="${poleX}" y2="${poleBottom}" stroke="#8E9398" stroke-width="3"/><circle cx="${poleX}" cy="${by}" r="2.5" fill="#B9BDC1"/>${pennant}${chip}${label}</g>`;
 }
 
@@ -519,7 +530,7 @@ function interviewMarkup(scene,scale){
     ?`<g data-frame-slot="logo" data-media-state="filled" data-media-id="${xml(logo.id)}"><image data-program-logo="true" data-media-id="${xml(logo.id)}" href="${xml(logo.source)}" x="${x+8}" y="${y+5}" width="${width-16}" height="42" preserveAspectRatio="xMidYMid meet"/></g>`
     :`<g data-frame-slot="logo" data-media-state="empty"><rect x="${x}" y="${y}" width="${width}" height="52" fill="transparent"/><text x="${x+width/2}" y="${y+31}" text-anchor="middle" fill="#4A5670" font-family="${TYPE.axis}" font-size="16" font-weight="700" pointer-events="none">${xml(String(target.programName||target.prog||"PROGRAM LOGO").toUpperCase())}</text></g>`;
   const ribbonY=y+62;
-  return`${marker?flagMarkup(marker,0,scale,scene,{interview:true}):""}<g data-interview-destination="407f-ribbon"><rect x="${x}" y="${y}" width="${width}" height="52" fill="#FFFFFF" fill-opacity=".4" stroke="#26314D" stroke-opacity=".45" stroke-dasharray="4 3"/>${logoLayer}<path d="M${x} ${ribbonY}H${x+width}L${x+width-10} ${ribbonY+18}L${x+width} ${ribbonY+36}H${x}L${x+10} ${ribbonY+18}Z" fill="#7E4BB6"/><text x="${x+width/2}" y="${ribbonY+25}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.title}" font-size="18" font-weight="700">${xml(target.label||"YOUR BIG INTERVIEW")}</text><text x="${x+width/2}" y="${ribbonY+58}" text-anchor="middle" fill="#111827" font-family="${TYPE.event}" font-size="18">${marker?`Interview · ${xml(formatMonth(marker.month))}`:"Date pending"}</text></g>`;
+  return`${marker?flagMarkup(marker,0,scale,scene,{interview:true}):""}<g data-interview-destination="407f-ribbon"><rect x="${x}" y="${y}" width="${width}" height="52" fill="#FFFFFF" fill-opacity=".4" stroke="#26314D" stroke-opacity=".45" stroke-dasharray="4 3"/>${logoLayer}<path d="M${x} ${ribbonY}H${x+width}L${x+width-10} ${ribbonY+18}L${x+width} ${ribbonY+36}H${x}L${x+10} ${ribbonY+18}Z" fill="#7E4BB6"/><text x="${x+width/2}" y="${ribbonY+25}" text-anchor="middle" fill="#FFFFFF" font-family="${TYPE.title}" font-size="18" font-weight="700">${xml(target.label||"YOUR BIG INTERVIEW")}</text><text data-board-ink-role="interview-date" x="${x+width/2}" y="${ribbonY+58}" text-anchor="middle" fill="${boardInk(scene)}" font-family="${TYPE.event}" font-size="18">${marker?`Interview · ${xml(formatMonth(marker.month))}`:"Date pending"}</text></g>`;
 }
 
 function explanationMarkup(scene,explanation,index,scale){

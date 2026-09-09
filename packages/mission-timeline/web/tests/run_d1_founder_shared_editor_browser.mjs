@@ -65,14 +65,14 @@ async function check(name,operation){
 }
 
 const svg=()=>page.locator('.canvas-screen svg[data-founder-serializer]').first();
-// Small SVG labels receive a 44px effective hit target. It is appended after the
-// source node, so last() resolves to the real user hit target when present and
-// falls back to the SVG source for objects that are already large enough.
+// Direct manipulation is intentionally routed through the real effective hit
+// targets. Their DOM position can move around the SVG during rerenders, so the
+// browser proof addresses the proxy contract rather than relying on document order.
 const element=(id)=>page.locator(
-  `.canvas-screen svg [data-advanced-element="${id}"], [data-canvas-effective-hit-proxy][data-advanced-element="${id}"]`
+  `[data-canvas-effective-hit-proxy][data-advanced-element="${id}"]`
 ).last();
 const textObject=(id)=>page.locator(
-  `.canvas-screen svg [data-advanced-text="${id}"], [data-canvas-effective-hit-proxy][data-advanced-text="${id}"]`
+  `[data-canvas-effective-hit-proxy][data-advanced-text="${id}"]`
 ).last();
 const directSelection=(type,id)=>page.locator(
   `[data-advanced-direct-selection="true"][data-advanced-target-type="${type}"][data-advanced-target-id="${id}"]`
@@ -80,6 +80,15 @@ const directSelection=(type,id)=>page.locator(
 const directHandle=(type,id,handle)=>directSelection(type,id).locator(
   `[data-advanced-direct-handle="${handle}"]`
 ).first();
+
+async function locatorBox(locator,label="target"){
+  for(let attempt=0;attempt<12;attempt+=1){
+    const box=await locator.boundingBox();
+    if(box?.width&&box?.height)return box;
+    await page.waitForTimeout(50);
+  }
+  throw new Error(`${label} has no stable bounds: ${await locator.evaluateAll((nodes)=>nodes.length)}`);
+}
 
 async function geometry(type,id){
   return page.evaluate(({type,id})=>{
@@ -107,13 +116,13 @@ async function geometry(type,id){
 }
 
 async function select(target,type,id){
-  await target.click({position:{x:Math.max(2,(await target.boundingBox())?.width/2||2),y:Math.max(2,(await target.boundingBox())?.height/2||2)}});
+  const box=await locatorBox(target,`${type}:${id}`);
+  await target.click({position:{x:Math.max(2,box.width/2),y:Math.max(2,box.height/2)}});
   await directSelection(type,id).waitFor({state:"visible"});
 }
 
 async function dragLocator(locator,dx,dy,{steps=12,inspect}={}){
-  const box=await locator.boundingBox();
-  invariant(box,`drag target has no bounds: ${await locator.evaluateAll((nodes)=>nodes.length)}`);
+  const box=await locatorBox(locator,"drag target");
   const start={x:box.x+box.width/2,y:box.y+box.height/2};
   await page.mouse.move(start.x,start.y);
   await page.mouse.down();
@@ -176,6 +185,7 @@ await page.evaluate(()=>{
   api.store.replace(document,{label:"Founder shared editor synthetic proof",history:false});
   api.applyDocument();
 });
+await page.locator("#rail .family022Tools").evaluate((node)=>{node.open=true;});
 await page.locator('#rail [data-v="canvas"]').click();
 await page.waitForFunction(()=>document.querySelector('#rail [aria-current="page"]')?.dataset.v==="canvas");
 await svg().waitFor({state:"visible"});
@@ -219,7 +229,7 @@ await check("two real assets add from the rail, including physical rail drag",as
     return{count:elements.length,arrow:elements.filter((item)=>item.kind==="arrow-right").at(-1)||null};
   });
   invariant(result.count===afterClick+1&&result.arrow,`physical rail drag failed: ${JSON.stringify(result)}`);
-  invariant(Math.abs(result.arrow.x-1382)<90&&Math.abs(result.arrow.y-842)<90,
+  invariant(Math.abs(result.arrow.x+result.arrow.width/2-1382)<20&&Math.abs(result.arrow.y+result.arrow.height/2-842)<20,
     `rail drop position was not honored: ${JSON.stringify(result.arrow)}`);
   return{clickAdded:true,physicalDragAdded:true,dropGeometry:result.arrow};
 });
@@ -383,8 +393,9 @@ await check("Color Key directly moves and resizes as one composition",async()=>{
   const target=page.locator('.canvas-screen svg[data-founder-serializer] [data-artifact-chrome="color-key"]').first();
   const before=await geometry("color-key","color-key");
   await target.click();
-  await directSelection("color-key","color-key").waitFor({state:"visible"});
-  await dragLocator(target,58,-24);
+  const selection=directSelection("color-key","color-key");
+  await selection.waitFor({state:"visible"});
+  await dragLocator(selection,58,-24);
   const moved=await geometry("color-key","color-key");
   invariant(moved.x!==before.x||moved.y!==before.y,`Color Key did not move: ${JSON.stringify({before,moved})}`);
   await target.click();
@@ -398,12 +409,13 @@ await check("Color Key directly moves and resizes as one composition",async()=>{
 await check("profile card directly moves and resizes as one composition",async()=>{
   const target=page.locator('.canvas-screen svg[data-founder-serializer] [data-artifact-chrome="profile"]').first();
   const before=await geometry("profile","profile");
-  await target.click();
-  await directSelection("profile","profile").waitFor({state:"visible"});
-  await dragLocator(target,180,0);
+  await target.click({position:{x:24,y:24}});
+  const selection=directSelection("profile","profile");
+  await selection.waitFor({state:"visible"});
+  await dragLocator(selection,180,0);
   const moved=await geometry("profile","profile");
   invariant(moved.x!==before.x||moved.y!==before.y,`profile did not move: ${JSON.stringify({before,moved})}`);
-  await target.click();
+  await target.click({position:{x:24,y:24}});
   await directSelection("profile","profile").waitFor({state:"visible"});
   await dragLocator(directHandle("profile","profile","se"),20,10);
   const resized=await geometry("profile","profile");
@@ -425,8 +437,7 @@ await check("year-axis boundary changes adjacent weights live without remount",a
     }));
     return{weights,history:window.D1_407F_ENGINEERING.store.historyStatus()};
   });
-  const box=await handle.boundingBox();
-  invariant(box,"axis boundary handle has no bounds");
+  const box=await locatorBox(handle,"axis boundary handle");
   await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
   await page.mouse.down();
   await page.mouse.move(box.x+box.width/2+34,box.y+box.height/2,{steps:12});
@@ -461,11 +472,57 @@ await check("year-axis boundary changes adjacent weights live without remount",a
   await page.evaluate(()=>window.D1_407F_ENGINEERING.store.saveNow("FOUNDER_SHARED_EDITOR_BROWSER_PROOF"));
   await page.reload({waitUntil:"networkidle"});
   await page.waitForFunction(()=>!!window.D1_407F_ENGINEERING);
+  await page.locator("#rail .family022Tools").evaluate((node)=>{node.open=true;});
   await page.locator('#rail [data-v="canvas"]').click();
   await svg().waitFor({state:"visible"});
   const reloaded=await page.evaluate(()=>window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis||null);
   invariant(JSON.stringify(reloaded?.segmentWeights||null)===JSON.stringify(committed.axis.segmentWeights),"axis weights did not survive reload");
   return{before,live,committed:committed.axis,sumBefore,sumAfter,undo:true,redo:true,reloaded:true};
+});
+
+await check("mid-gesture entitlement revocation cancels the year-axis without mutation or page error",async()=>{
+  const axisSegment=page.locator('.canvas-screen svg[data-founder-serializer] [data-axis-hit-target]').first();
+  const axisBox=await axisSegment.boundingBox();
+  invariant(axisBox,"year-axis segment has no bounds for revocation check");
+  await axisSegment.click({position:{x:Math.max(2,Math.min(axisBox.width-2,axisBox.width*.35)),y:Math.max(2,axisBox.height*.5)}});
+  const handle=page.locator('[data-advanced-axis-boundary-handle]').first();
+  await handle.waitFor({state:"visible"});
+  const before=await page.evaluate(()=>({
+    axis:structuredClone(window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis||null),
+    history:window.D1_407F_ENGINEERING.store.historyStatus(),
+    entitlement:{...window.D1_407F_ENGINEERING.store.entitlement}
+  }));
+  const errorsBefore=browserErrors.length;
+  const box=await locatorBox(handle,"axis revocation handle");
+  const point={x:box.x+box.width/2,y:box.y+box.height/2};
+  await page.mouse.move(point.x,point.y);
+  await page.mouse.down();
+  await page.mouse.move(point.x+18,point.y,{steps:4});
+  await page.evaluate(()=>{
+    const store=window.D1_407F_ENGINEERING.store;
+    store.setEntitlement({
+      ...store.entitlement,
+      access:"READ_ONLY",canCreate:false,canMutate:false,canExport:false,
+      verified:true,denialCode:"CONTROLLED_BROWSER_REVOCATION",
+      reason:"Controlled browser revocation"
+    });
+  });
+  await page.mouse.move(point.x+36,point.y,{steps:4});
+  await page.mouse.up();
+  await page.waitForTimeout(180);
+  const denied=await page.evaluate(()=>({
+    axis:structuredClone(window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis||null),
+    history:window.D1_407F_ENGINEERING.store.historyStatus(),
+    dragging:document.querySelectorAll('[data-advanced-axis-dragging],[data-advanced-dragging]').length,
+    ghosts:document.querySelectorAll('.advancedRailDragGhost,.advancedMarquee,[data-advanced-crop-chrome]').length
+  }));
+  await page.evaluate((entitlement)=>window.D1_407F_ENGINEERING.store.setEntitlement(entitlement),before.entitlement);
+  await page.waitForTimeout(180);
+  invariant(JSON.stringify(denied.axis)===JSON.stringify(before.axis),`revoked axis gesture mutated the document: ${JSON.stringify({before:before.axis,after:denied.axis})}`);
+  invariant(denied.history.undoCount===before.history.undoCount,`revoked axis gesture added history: ${before.history.undoCount} -> ${denied.history.undoCount}`);
+  invariant(denied.dragging===0&&denied.ghosts===0,`revoked axis gesture left transient chrome: ${JSON.stringify(denied)}`);
+  invariant(browserErrors.length===errorsBefore,`revoked axis gesture emitted a browser error: ${browserErrors.slice(errorsBefore).join(" | ")}`);
+  return{documentUnchanged:true,historyUnchanged:true,transientChromeCleared:true,browserErrorsAdded:browserErrors.length-errorsBefore};
 });
 
 await check("zoom preserves the mounted Founder SVG node and selection",async()=>{
@@ -482,6 +539,7 @@ await check("zoom preserves the mounted Founder SVG node and selection",async()=
   await page.locator('[data-canvas-zoom-percent]').fill("135");
   await page.locator('[data-canvas-zoom-percent]').press("Enter");
   await page.locator('[data-canvas-zoom="fit"]').click();
+  await directSelection("element","proof-shape").waitFor({state:"visible"});
   const after=await page.evaluate(()=>({
     same:window.__founderProofSvg===document.querySelector('.canvas-screen svg[data-founder-serializer]'),
     marker:document.querySelector('.canvas-screen svg[data-founder-serializer]')?.dataset.founderProofIdentity||null,

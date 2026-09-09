@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
+import {attachSelectedSubjectDialog022} from '../web/js/production/selected-subject-context-022.js';
 import {installFocusTrap} from '../web/js/uxr-002/responsive.js';
 
 const html=await readFile(new URL('../web/index.html',import.meta.url),'utf8');
@@ -22,7 +23,7 @@ function actualModalHarness(){
   document.querySelector=selector=>selector==='[data-quality-guardian-dialog]'?dialog:nodes[selector]||null;
   dialog.querySelectorAll=()=>[button];
   const bridge={openModal(){backdrop.classList.add('on');},closeModal(){backdrop.classList.remove('on');}};
-  const context={document,window:{},bridge,api:{},installFocusTrap,$:selector=>nodes[selector.slice(1)]||null,state:{view:'builder'},closeModal:bridge.closeModal,doUndo(){throw new Error('Unexpected history mutation');},standardModalTrap:null,standardModalOpener:null,onStandardModalBackdrop:null,builderPreviewTrap:null,shortcutTrap:null,fileVaultTrap:null,closeBuilderPreview(){throw new Error('Unexpected preview');}};
+  const context={document,window:{},bridge,api:{},installFocusTrap,attachSelectedSubjectDialog022,productionRuntime:null,store:{document:null},$:selector=>nodes[selector.slice(1)]||null,state:{view:'builder'},closeModal:bridge.closeModal,doUndo(){throw new Error('Unexpected history mutation');},standardModalTrap:null,standardModalOpener:null,onStandardModalBackdrop:null,builderPreviewTrap:null,shortcutTrap:null,fileVaultTrap:null,closeBuilderPreview(){throw new Error('Unexpected preview');}};
   vm.createContext(context);
   vm.runInContext(adapter.slice(adapter.indexOf('  const standardModalBackgroundInert='),adapter.indexOf('  const qualityGuardianControls=')),context);
   vm.runInContext(adapter.slice(adapter.indexOf('  const closeOwnedModal='),adapter.indexOf('  const fileVaultSource=resolveFileVaultSourceAdapter(')),context);

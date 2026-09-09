@@ -103,7 +103,7 @@ export function installFamily022(api = window.D1_407F_ENGINEERING) {
   sync.append(syncLabel,syncRecovery);
   identity.after(sync);
   const subjectBanner=create('div',{class:'family022Subject',role:'status',hidden:''});
-  subjectBanner.innerHTML='<span class="family022SubjectInitials" aria-hidden="true"></span><div><span class="family022Eyebrow">VIEWING TIMELINE FOR</span><strong data-family-subject></strong><small data-family-subject-access></small></div><button type="button" class="btnD alt">Return to students</button>';
+  subjectBanner.innerHTML='<span class="family022SubjectInitials" aria-hidden="true"></span><div><span class="family022Eyebrow">VIEWING TIMELINE FOR</span><strong data-family-subject></strong><small data-family-subject-access></small></div><button type="button" class="btnD alt" aria-label="Return to students"><span class="family022ReturnFull" aria-hidden="true">Return to students</span><span class="family022ReturnCompact" aria-hidden="true">← Students</span></button>';
   node('main').prepend(subjectBanner);
   const diagnostics=create('details',{class:'family022Diagnostics',hidden:''});
   diagnostics.innerHTML='<summary>Local test workspace</summary><p data-family-diagnostics></p>';
@@ -171,6 +171,9 @@ export function installFamily022(api = window.D1_407F_ENGINEERING) {
   adminRosterNav.addEventListener('click',()=>{api.bridge.go('admin');action('admin-roster');});
   subjectBanner.querySelector('button').addEventListener('click',()=>action('exit-subject'));
   toolsList.addEventListener('click',(event)=>{if(event.target.closest('button'))tools.open=false;});
+  tools.addEventListener('keydown',(event)=>{
+    if(event.key==='Escape'&&tools.open){event.preventDefault();event.stopPropagation();tools.open=false;tools.querySelector('summary').focus();}
+  });
   function refresh(){
     attachRuntime();
     let snapshot;

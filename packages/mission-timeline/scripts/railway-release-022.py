@@ -183,9 +183,16 @@ def operate(plan,receipt,explicit):
     password=secrets.token_urlsafe(48)
     new_url=replacement_url(rendered['DATABASE_URL'],password)
     changed={**{name:rendered.get(name,'') for name in PATCH_NAMES},'DATABASE_URL':new_url,'TIMELINE_DATABASE_RUNTIME_ROLE':'timeline_authenticated','TIMELINE_RELEASE_VERSION':sealed['release_version'],'TIMELINE_AI_PROVIDER':'openai','TIMELINE_AI_CONSENT_VERSION':'d1-022-ai-v1','TIMELINE_AI_PROCESSING_MODE':'synthetic_only','TIMELINE_AI_SYNTHETIC_PRINCIPAL_IDS':''}
+    migration_names={
+        '20260907011000_d1_022_founder_standards.sql',
+        '20260907012000_d1_022_admin_workspace.sql',
+        '20260907013000_d1_022_admin_outbox.sql',
+        '20260908014000_d1_022_version_history_scope.sql',
+        '20260908015000_d1_022_current_document_version_scope.sql',
+    }
     migration_entries=[]
     for binding in plan['migrations']:
-        need(re.fullmatch(r'2026090701[123]000_d1_022_[a-z_]+\.sql',binding['name']),'MIGRATION_NAME_DENIED')
+        need(binding['name'] in migration_names,'MIGRATION_NAME_DENIED')
         raw=(PACKAGE/'database/migrations'/binding['name']).read_bytes();need(digest(raw)==binding['sha256'],'MIGRATION_PLAN_CHANGED');migration_entries.append({'name':binding['name'],'sql':raw.decode()})
     operation_id=secrets.token_hex(8)
     ledger=evidence_path(receipt).with_name('MIGRATION_OPERATION_'+operation_id+'_STARTED.json')

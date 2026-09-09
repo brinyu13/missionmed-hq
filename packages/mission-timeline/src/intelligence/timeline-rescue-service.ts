@@ -137,6 +137,7 @@ function isFurnitureText(text: string): boolean {
   if (yearRibbonValues(normalized).length) return true;
   if (!normalized || /^(?:19|20)\d{2}$/.test(normalized) || CATEGORY_LABELS.has(normalized) || normalized.length < 3) return true;
   if (/^timeline\s*:/.test(normalized)) return true;
+  if (/^step\s*[123](?:\s*ck)?\s*:\s*(?:pass(?:ed)?|fail(?:ed)?|\d{3})$/i.test(normalized)) return true;
   if (/^(?:work experience|personal \(not on cv\)|usmle studies|usce|clinical experience|research experience|teaching hospital|color key|medical school:.*|degree:.*|specialty:.*)$/.test(normalized)) return true;
   if (/^color key\b/.test(normalized) && /\bwork experience\b/.test(normalized) && /\busmle studies\b/.test(normalized)) return true;
   if (/\bmedical school\s*:/.test(normalized) && /\bdegree\s*:/.test(normalized)) return true;
@@ -246,6 +247,50 @@ function visualDurationRows(objects: RescueVisualObject[]) {
   });
 }
 
+/** Join a date immediately left of one observed milestone label. Both directions
+ * must be unique: overlapping rows, rival dates, pages and furniture stay apart.
+ * Geometry associates visible text; it never creates a date or a category. */
+function visualMilestoneRows(objects: RescueVisualObject[]) {
+  const visible=objects.filter(object=>object.id.startsWith('vision-')&&object.text&&object.geometry&&object.geometry.width>0&&object.geometry.height>0);
+  const dates=visible.filter(object=>{
+    const date=datesFromText(object.text!);
+    return date?.timelineKind==='milestone'&&date.strippedText==='';
+  });
+  const titles=visible.filter(object=>!datesFromText(object.text!)&&!isFurnitureText(object.text!)&&
+    !/^(?:step\s*[123](?:\s*ck)?\s*:|program logo|profile photo|drop photo|your big interview|date pending)/i.test(object.text!.trim()));
+  const adjacent=(date:RescueVisualObject,title:RescueVisualObject)=>{
+    const a=date.geometry!,b=title.geometry!;
+    if(date.pageOrSlide!==title.pageOrSlide||a.unit!==b.unit)return false;
+    const gap=b.x-(a.x+a.width),overlap=Math.min(a.y+a.height,b.y+b.height)-Math.max(a.y,b.y);
+    return gap>=-1e-8&&gap<=Math.min(a.height,b.height)*.75&&
+      Math.abs(a.y-b.y)<=Math.min(a.height,b.height)*.35&&overlap>=Math.min(a.height,b.height)*.65;
+  };
+  return dates.flatMap(date=>{
+    const matches=titles.filter(title=>adjacent(date,title));
+    if(matches.length!==1||dates.filter(other=>adjacent(other,matches[0]!)).length!==1)return [];
+    const title=matches[0]!,a=date.geometry!,b=title.geometry!;
+    const sources=[date,title];
+    // One known wrapped exam label may split after "Step 2". Join only the
+    // explicit CK/result line directly below the same left edge, never a score
+    // elsewhere in the profile or an arbitrary neighboring line.
+    if(/^USMLE\s+Step\s+2$/i.test(title.text!.trim())){
+      const continuations=visible.filter(other=>{
+        if(!/^CK(?:\s*[-–:]\s*(?:\d{3}|Pass(?:ed)?|Fail(?:ed)?))?$/i.test(other.text!.trim()))return false;
+        const c=other.geometry!,gap=c.y-(b.y+b.height);
+        return other.pageOrSlide===title.pageOrSlide&&c.unit===b.unit&&Math.abs(c.x-b.x)<=Math.min(c.height,b.height)*.25&&
+          gap>=0&&gap<=Math.min(c.height,b.height)*.5;
+      });
+      if(continuations.length===1)sources.push(continuations[0]!);
+    }
+    const boxes=sources.map(source=>source.geometry!);
+    const object:RescueVisualObject={...date,id:`vision-milestone-${date.id}`,text:sources.map(source=>source.text).join('\n'),
+      geometry:{x:a.x,y:Math.min(...boxes.map(box=>box.y)),width:Math.max(...boxes.map(box=>box.x+box.width))-a.x,
+        height:Math.max(...boxes.map(box=>box.y+box.height))-Math.min(...boxes.map(box=>box.y)),unit:a.unit},
+      sourceConfidence:Math.min(...sources.map(source=>source.sourceConfidence??.5))};
+    return [{object,sources,roles:{title:normalizedTitle(sources.slice(1).map(source=>source.text).join(' ')),institution:null,inferred:true}}];
+  });
+}
+
 function candidatesFromObjects(
   artifactSha256: string,
   format: Exclude<TimelineRescueFormat, "KEYNOTE">,
@@ -300,6 +345,9 @@ function candidatesFromObjects(
   if(format!=='PPTX')for(const row of visualDurationRows(objects.filter(object=>!ignored(object)&&!grouped.has(object.id)))){
     units.push(row);row.sources.forEach(object=>grouped.add(object.id));
   }
+  if(format!=='PPTX')for(const row of visualMilestoneRows(objects.filter(object=>!ignored(object)&&!grouped.has(object.id)))){
+    units.push(row);row.sources.forEach(object=>grouped.add(object.id));
+  }
   units.push(...objects.filter(object => object.text && !ignored(object) && !grouped.has(object.id)).map(object => ({ object, sources: [object], roles: visualObservationTextRoles(object) })));
   for (const { object, sources, roles } of units) {
     if (!object.text || isFurnitureText(object.text)) continue;
@@ -324,7 +372,7 @@ function candidatesFromObjects(
     evidence.push(...provenance);
     const uncertainties = [...dateEvidence.uncertainties];
     if (roles?.inferred) uncertainties.push(object.id.startsWith("vision-")
-      ? sources.length>1?"Date, title and institution were associated using adjacent observed text boxes; confirm this row against the source.":"Title and institution were separated using the observed source lines inside one visual region; confirm their roles against the source."
+      ? sources.length>1?(roles.institution?"Date, title and institution were associated using adjacent observed text boxes; confirm this row against the source.":"The visible date and milestone label were associated using adjacent observed text boxes; confirm them against the source."):"Title and institution were separated using the observed source lines inside one visual region; confirm their roles against the source."
       : "Title and institution were separated using visible text size and placement; confirm their roles.");
     if (!dateEvidence.explicit) uncertainties.push("Dates were inferred from object geometry against the visible year axis; confirm both dates.");
     if (category.categoryId === "unclassified") uncertainties.push("MissionMed category could not be established from the source text.");
@@ -432,24 +480,65 @@ function attachVisibleProfileClaims(
   return { evidence, unresolved };
 }
 
+const RESCUE_CATEGORY_ALIASES: Record<string,string> = {
+  education:'education',usmle:'exams',exam:'exams',exams:'exams',
+  th:'clinical',cl:'clinical',clinical:'clinical',usce:'clinical',us_clinical:'clinical',
+  res:'research',research:'research',research_awards:'research',work:'work',personal:'personal',unclassified:'unclassified',
+};
+const RESCUE_CATEGORY_NAMES: Record<string,string> = {education:'Education',exams:'Exams',clinical:'Clinical',research:'Research',work:'Work',personal:'Personal',unclassified:'Not established from the Timeline text'};
+const comparisonCategory=(value:string)=>RESCUE_CATEGORY_ALIASES[value.trim().toLowerCase()]??value.trim().toLowerCase();
+const categoryName=(value:string)=>RESCUE_CATEGORY_NAMES[comparisonCategory(value)]??(value.trim()||'Not recorded');
+const asRecord=(value:unknown):Record<string,unknown>=>value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:{};
+
+/** Applied, explicitly CV-typed history only. A Rescue import or untyped legacy
+ * draft cannot become a CV source merely because it has acceptedCandidates. */
+export function acceptedCvCandidatesForRescue(value:unknown):RescueCvCandidate[] {
+  const intake=asRecord(value);
+  const cvImport=(value:unknown)=>{
+    const record=asRecord(value),analysis=asRecord(record.analysis);
+    const types=[record.documentType,analysis.effectiveType,analysis.detectedType].filter(type=>String(type??'').trim()).map(type=>String(type).toUpperCase());
+    return types.length&&types.every(type=>['CV','RESUME','MYERAS'].includes(type))&&Array.isArray(record.acceptedCandidates)&&
+      record.acceptedCandidates.every(candidate=>Array.isArray(asRecord(candidate).provenance)&&(asRecord(candidate).provenance as unknown[]).length)?record:null;
+  };
+  const source=cvImport(intake.lastImport)??cvImport(intake.lastAcceptedCvImport);
+  if(!source)return [];
+  return (source.acceptedCandidates as unknown[]).map(asRecord)
+    .filter(candidate=>String(candidate.id??'').trim()&&String(candidate.title??'').trim())
+    .map(candidate=>({id:String(candidate.id),title:String(candidate.title),categoryId:String(candidate.categoryId??''),
+      startDate:candidate.startDate?String(candidate.startDate):null,endDate:candidate.endDate?String(candidate.endDate):null,provenance:candidate.provenance}));
+}
+
 function reconcile(timeline: RescueSemanticCandidate[], cv: RescueCvCandidate[]): RescueReconciliationItem[] {
+  if(!cv.length)return [];
   const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const used = new Set<string>();
   const output: RescueReconciliationItem[] = [];
+  const timelineDate=(candidate:RescueSemanticCandidate)=>{
+    const show=(value:string,edge:'start'|'end')=>candidate.datePrecision?.[edge]==='YEAR'?`${value.slice(0,4)} (year only)`:value;
+    return `${show(candidate.startDate,'start')}${candidate.openEnded?' – ongoing':candidate.endDate?` – ${show(candidate.endDate,'end')}`:' (milestone)'}`;
+  };
+  const cvDate=(item:RescueCvCandidate)=>`${item.startDate||'Not recorded'}${item.endDate?` – ${item.endDate}`:''}`;
   for (const candidate of timeline) {
     const title = normalize(candidate.title);
-    const match = cv.find((item) => !used.has(item.id) && (normalize(item.title) === title || normalize(item.title).includes(title) || title.includes(normalize(item.title))));
+    const matches = cv.filter(item=>!used.has(item.id)&&title&&normalize(item.title)===title);
+    // An ambiguous repeated title is not evidence that either source row matches.
+    const match=matches.length===1?matches[0]:undefined;
     if (!match) {
-      output.push({ timelineCandidateId: candidate.id, cvCandidateId: null, state: "TIMELINE_ONLY", authority: "CV_FACTS_TIMELINE_INTENT_MISSIONMED_PRESENTATION", recommendation: "Keep as student intent only after the student confirms this fact; it is not corroborated by the supplied CV.", requiresReview: true });
+      output.push({ timelineCandidateId: candidate.id, cvCandidateId: null, state: "TIMELINE_ONLY", authority: "CV_FACTS_TIMELINE_INTENT_MISSIONMED_PRESENTATION", recommendation: `“${candidate.title}” has no unique title match among your accepted CV entries. Confirm it against the original sources; it may be a separate or differently worded entry.`, requiresReview: true });
       continue;
     }
     used.add(match.id);
-    const state = match.startDate && (match.startDate !== candidate.startDate || (match.endDate ?? null) !== candidate.endDate)
-      ? "DATE_CONFLICT"
-      : match.categoryId && match.categoryId !== candidate.categoryId ? "CATEGORY_CONFLICT" : "MATCH";
-    output.push({ timelineCandidateId: candidate.id, cvCandidateId: match.id, state, authority: "CV_FACTS_TIMELINE_INTENT_MISSIONMED_PRESENTATION", recommendation: state === "MATCH" ? "Source facts agree; review before importing." : "Use the CV as factual authority, show both values, and require an explicit student decision.", requiresReview: true });
+    const datesDisagree=Boolean((match.startDate&&match.startDate!==candidate.startDate)||(match.endDate&&(match.endDate!==candidate.endDate))||
+      (match.startDate&&Boolean(match.endDate)!==Boolean(candidate.endDate)));
+    const categoriesDisagree=Boolean(match.categoryId&&comparisonCategory(match.categoryId)!==comparisonCategory(candidate.categoryId));
+    const state = datesDisagree?'DATE_CONFLICT':categoriesDisagree?'CATEGORY_CONFLICT':'MATCH';
+    const details=[datesDisagree?`Timeline: ${timelineDate(candidate)}. Accepted CV: ${cvDate(match)} (saved dates; check source precision).`:'',
+      categoriesDisagree?`Timeline category: ${categoryName(candidate.categoryId)}. Accepted CV category: ${categoryName(match.categoryId)}.`:''].filter(Boolean).join(' ');
+    output.push({timelineCandidateId:candidate.id,cvCandidateId:match.id,state,authority:"CV_FACTS_TIMELINE_INTENT_MISSIONMED_PRESENTATION",
+      recommendation:state==='MATCH'?`“${candidate.title}” matches an accepted CV title, with no disagreement in the recorded dates or category. Verify the original source before importing.`:
+        `“${candidate.title}”: ${details} Choose the supported value during review; no source facts have been changed.`,requiresReview:true});
   }
-  for (const item of cv) if (!used.has(item.id)) output.push({ timelineCandidateId: null, cvCandidateId: item.id, state: "CV_ONLY", authority: "CV_FACTS_TIMELINE_INTENT_MISSIONMED_PRESENTATION", recommendation: "The CV contains this fact but the imported Timeline does not. Ask the student whether it belongs on the Timeline.", requiresReview: true });
+  for (const item of cv) if (!used.has(item.id)) output.push({ timelineCandidateId: null, cvCandidateId: item.id, state: "CV_ONLY", authority: "CV_FACTS_TIMELINE_INTENT_MISSIONMED_PRESENTATION", recommendation: `Accepted CV entry “${item.title}” (${cvDate(item)}; ${categoryName(item.categoryId)}) has no unique title match in this Timeline. Check whether it belongs here or appears under another title.`, requiresReview: true });
   return output;
 }
 

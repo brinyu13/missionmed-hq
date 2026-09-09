@@ -40,16 +40,20 @@ export class TimelineProductionAuthClient{
     this.bootstrapState=null;this.token="";this.claims=null;this.refreshing=null;this.refreshTimer=null;this.locked=false;this.claimListeners=new Set();
     this.fileVaultSourceAdapter=null;
     this.subjectWpUserId=null;
-    this.clock=clock;this.closed=false;this.adminSubjectGrant=null;this.pendingAdminSubjectGrant=null;
+    this.clock=clock;this.closed=false;this.refreshRetryCount=0;this.adminSubjectGrant=null;this.pendingAdminSubjectGrant=null;
     this.adminGrantRenewing=null;this.adminGrantTimer=null;this.adminSubjectError=null;
+    this.resumeHandler=()=>{
+      if(!this.closed&&!this.locked&&this.bootstrapState)this.refreshToken().catch(()=>{});
+    };
     this.visibilityHandler=()=>{
-      if(this.documentObject?.visibilityState==="visible")this.refreshToken().catch(()=>{});
+      if(this.documentObject?.visibilityState==="visible")this.resumeHandler();
     };
     this.documentObject?.addEventListener?.("visibilitychange",this.visibilityHandler);
+    this.globalObject?.addEventListener?.("online",this.resumeHandler);
   }
 
   get configured(){
-    return Boolean(!this.locked&&this.bootstrapState?.apiBase&&this.token&&this.claims);
+    return Boolean(!this.closed&&!this.locked&&this.bootstrapState?.apiBase&&this.token&&this.claims);
   }
 
   async initialize(){
@@ -105,8 +109,12 @@ export class TimelineProductionAuthClient{
   }
 
   async refreshToken(){
+    if(this.closed)throw new TimelineProductionAuthError("TIMELINE_SESSION_CLOSED","Reopen Timeline to verify your session.",401);
     if(this.refreshing)return this.refreshing;
-    this.refreshing=this.performRefresh().finally(()=>{this.refreshing=null;});
+    this.refreshing=this.performRefresh().catch((error)=>{
+      this.scheduleRefreshRetry();
+      throw error;
+    }).finally(()=>{this.refreshing=null;});
     return this.refreshing;
   }
 
@@ -119,6 +127,7 @@ export class TimelineProductionAuthClient{
       signal:AbortSignal.timeout(20_000)
     });
     const payload=await response.json().catch(()=>({}));
+    if(this.closed||this.locked)throw new TimelineProductionAuthError("TIMELINE_SESSION_LOCKED","Timeline is locked for this browser session.",401);
     if(!response.ok){
       const code=payload?.code||payload?.error?.code||"TOKEN_REFRESH_FAILED";
       if(response.status===401||isAuthorityRevocation(code))this.lock(`refresh_${String(code).toLowerCase()}`);
@@ -142,6 +151,7 @@ export class TimelineProductionAuthClient{
     this.bootstrapState.aiConsentedAt=String(nextClaims.timeline_ai_consented_at||"");
     this.bootstrapState.adminWorkspace=nextClaims.timeline_admin_workspace===true&&this.bootstrapState.role==="PROGRAM_ADMIN";
     this.bootstrapState.founderStandardsManager=nextClaims.timeline_founder_standards_manager===true&&this.bootstrapState.adminWorkspace;
+    this.refreshRetryCount=0;
     this.scheduleRefresh();
     for(const listener of this.claimListeners){
       try{listener(Object.freeze({...nextClaims}));}catch{}
@@ -156,9 +166,10 @@ export class TimelineProductionAuthClient{
   }
 
   async validToken(){
+    if(this.closed)throw new TimelineProductionAuthError("TIMELINE_SESSION_CLOSED","Reopen Timeline to verify your session.",401);
     if(this.locked)throw new TimelineProductionAuthError("TIMELINE_SESSION_LOCKED","Timeline is locked for this browser session.",401);
     const expires=Number(this.claims?.exp||0)*1000;
-    if(!this.token||expires-Date.now()<30_000)await this.refreshToken();
+    if(!this.token||expires-this.clock()<30_000)await this.refreshToken();
     return this.token;
   }
 
@@ -214,8 +225,18 @@ export class TimelineProductionAuthClient{
 
   scheduleRefresh(){
     clearTimeout(this.refreshTimer);
-    const refreshAt=Math.max(1_000,Number(this.claims?.exp||0)*1000-Date.now()-30_000);
+    this.refreshTimer=null;
+    if(this.closed||this.locked)return;
+    const refreshAt=Math.max(1_000,Number(this.claims?.exp||0)*1000-this.clock()-30_000);
     this.refreshTimer=setTimeout(()=>this.refreshToken().catch(()=>{}),refreshAt);
+    this.refreshTimer?.unref?.();
+  }
+
+  scheduleRefreshRetry(){
+    clearTimeout(this.refreshTimer);this.refreshTimer=null;
+    if(this.closed||this.locked||!this.bootstrapState||this.refreshRetryCount>=6)return;
+    const delay=Math.min(30_000,5_000*2**this.refreshRetryCount++);
+    this.refreshTimer=setTimeout(()=>this.refreshToken().catch(()=>{}),delay);
     this.refreshTimer?.unref?.();
   }
 
@@ -233,6 +254,7 @@ export class TimelineProductionAuthClient{
     clearTimeout(this.adminGrantTimer);this.adminGrantTimer=null;
     this.claimListeners.clear();
     this.documentObject?.removeEventListener?.("visibilitychange",this.visibilityHandler);
+    this.globalObject?.removeEventListener?.("online",this.resumeHandler);
     if(this.globalObject?.MISSIONMED_FILEVAULT_SOURCE_ADAPTER===this.fileVaultSourceAdapter){
       delete this.globalObject.MISSIONMED_FILEVAULT_SOURCE_ADAPTER;
     }
@@ -332,6 +354,9 @@ export class TimelineProductionAuthClient{
   createDocument(document,programId){return this.request("/documents",{method:"POST",body:{id:document.id,programId,title:document.title,theme:document.theme,document}});}
   checkpoint(documentId,deviceId,baseRevision,snapshot){return this.request(`/documents/${encodeURIComponent(documentId)}/checkpoints/${encodeURIComponent(deviceId)}`,{method:"PUT",body:{baseRevision,snapshot}});}
   createVersion(documentId,baseRevision,snapshot,label){return this.request(`/documents/${encodeURIComponent(documentId)}/versions`,{method:"POST",body:{baseRevision,snapshot,label}});}
+  recoverConflict(documentId,input){return this.request(`/documents/${encodeURIComponent(documentId)}/conflict-recoveries`,{method:"POST",body:input});}
+  listVersions(documentId){return this.request(`/documents/${encodeURIComponent(documentId)}/versions`);}
+  getVersion(documentId,versionId){return this.request(`/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(versionId)}`);}
   analyzeCv(documentId,input){
     return this.request(`/documents/${encodeURIComponent(documentId)}/intake/analyze`,{
       method:"POST",body:input,timeoutMs:110_000,

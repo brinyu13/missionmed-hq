@@ -57,7 +57,7 @@ export class TimelinePersistenceManager{
     await this.saveDraft({reason:"BEFORE_VERSION"});const document=this.documentProvider(),createdAt=nowIso(this.clock),version={id:stableId("version",[document.id,createdAt,label,Math.random()]),documentId:document.id,label:String(label||"Named version").trim()||"Named version",createdAt,documentSnapshot:clone(document),contentHash:await sha256Hex(persistenceFingerprint(document)),eventCount:document.events?.length||0,mediaCount:document.mediaItems?.length||0};
     await this.adapter.put("versions",version);return version;
   }
-  async listVersions(documentId=this.state.persistence.activeDocumentId){const values=await this.adapter.list("versions",(item)=>item.documentId===documentId);return values.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));}
+  async listVersions(documentId=this.state.persistence.activeDocumentId){const values=typeof this.adapter.listDocumentVersions==="function"?await this.adapter.listDocumentVersions(documentId):await this.adapter.list("versions",(item)=>item.documentId===documentId);return values.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));}
   async restoreVersion(versionId){const version=await this.adapter.get("versions",versionId);if(!version)throw new Error("Version not found.");this.applyDocument(version.documentSnapshot);this.state.persistence.dirty=true;this.lastObservedFingerprint=null;await this.saveDraft({reason:"RESTORE_VERSION"});return version;}
   async compareVersion(versionId){const version=await this.adapter.get("versions",versionId);if(!version)throw new Error("Version not found.");return versionDiff(this.documentProvider(),version);}
   async duplicateDraft(name="Copy of Mission Timeline"){

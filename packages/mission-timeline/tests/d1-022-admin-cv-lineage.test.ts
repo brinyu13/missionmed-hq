@@ -55,6 +55,7 @@ test('actual intake approval and persisted DONE snapshot retain server-derived i
  machine.receiveFile({name:'Synthetic CV.pdf',type:'application/pdf',size:2439,lastModified:1});machine.setConsent(true);await machine.startExtraction();
  assert.equal(hasImportedCv022(document),true);machine.decideCandidate('candidate-test','accepted');
  await machine.approveAccepted({saveVersion:async()=>{},applyBatch:async(batch:unknown)=>applyApprovalBatchToDocument(document,batch)});
- assert.equal(document.intake.lastImport,null);assert.equal(document.intake.approval.applied,true);assert.equal(document.events.length,1);
+ assert.equal(document.intake.lastImport.documentType,'CV');assert.equal(document.intake.lastImport.acceptedCandidates.length,1);
+ assert.equal(document.intake.lastAcceptedCvImport.documentType,'CV');assert.equal(document.intake.approval.applied,true);assert.equal(document.events.length,1);
  assert.equal(hasImportedCv022(document),true);document.intake={lastImport:null,candidates:[]};assert.equal(hasImportedCv022(document),true);
 });

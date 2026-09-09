@@ -1,6 +1,7 @@
 import {TimelineStore} from "./uxr-002/store.js";
 import {prepareTimelineProductionRuntime} from "./production/timeline-production-runtime.js";
 import {installFamilyRuntime022} from "./production/family-runtime-022.js";
+import {attachSelectedSubjectDialog022} from "./production/selected-subject-context-022.js";
 import {qualitySourceText022,qualitySourceSha022,persistQualityReport022,recordCompletedExport022,restoreServerGuardian022} from "./production/quality-state-022.js";
 import {reconcileRestoredProviderTruth022} from "./production/provider-receipt-022.js";
 import {
@@ -582,6 +583,7 @@ export function applyDocumentTo407FState(document,state){
   };
   state.intake=clone(document.intake||{});
   state.canvasTheme=document.theme==="season-one-board"?"season":
+    document.theme==="mission-navy"?"navy":
     document.theme==="clean-advisor-paper"||document.theme==="advisor-paper"?"paper":
     document.theme==="horizon"?"horizon":
     document.theme==="little-journeys"?"journeys":"keynote";
@@ -685,6 +687,7 @@ export function apply407FStateToDocument(state,document){
     }
   }
   document.theme=state.canvasTheme==="season"?"season-one-board":
+    state.canvasTheme==="navy"?"mission-navy":
     state.canvasTheme==="paper"?"advisor-paper":
     state.canvasTheme==="horizon"?"horizon":
     state.canvasTheme==="journeys"?"little-journeys":"keynote-classic";
@@ -857,6 +860,9 @@ function installProductionPrivacyControl(identity){
 
 export function persistedIntakeState(state,priorIntake=null){
   const value=clone(state);
+  if(value.lastAcceptedCvImport==null&&priorIntake?.lastAcceptedCvImport){
+    value.lastAcceptedCvImport=clone(priorIntake.lastAcceptedCvImport);
+  }
   if(value.stage==="done"){
     // applyApprovalBatchToDocument owns this actual apply receipt; the machine's
     // subsequent DONE notification has not received it yet.
@@ -1707,6 +1713,7 @@ export async function boot407FEngineeringAdapter({
   let intakeMachine=null;
   let canvasSyncing=false;
   let unsubscribeStore=()=>{};
+  let cancelInvalidAdvancedSessions=()=>false;
   let onCanvasDetailsClick=()=>{};
   let onAdvancedObjectClick=()=>{};
   let onAdvancedObjectKeyDown=()=>{};
@@ -2225,6 +2232,7 @@ export async function boot407FEngineeringAdapter({
   };
   const activateSpecialtyVariantDialog=(dialog,{initialFocus=true}={})=>{
     if(!dialog)return;
+    attachSelectedSubjectDialog022(dialog,{runtime:productionRuntime,document:store.document});
     specialtyVariantTrap?.destroy();
     specialtyVariantTrap=installFocusTrap(dialog,{
       opener:specialtyVariantOpener,
@@ -3491,6 +3499,7 @@ export async function boot407FEngineeringAdapter({
     bridge.openModal?.(markup);
     const dialog=document.querySelector(selector);
     if(!dialog)return null;
+    attachSelectedSubjectDialog022(dialog,{runtime:productionRuntime,document:store.document});
     standardModalBackgroundInert(true);
     standardModalTrap?.destroy();
     standardModalTrap=installFocusTrap(dialog,{
@@ -5364,6 +5373,7 @@ export async function boot407FEngineeringAdapter({
     </section>`);
     const dialog=document.querySelector(".export407FThemeDialog");
     if(dialog){
+      attachSelectedSubjectDialog022(dialog,{runtime:productionRuntime,document:store.document});
       exportThemeTrap=installFocusTrap(dialog,{
         opener:exportThemeOpener,
         restoreFocus:false,
@@ -6058,6 +6068,7 @@ export async function boot407FEngineeringAdapter({
         <button type="button" class="btnD alt" data-conflict-cancel>CANCEL</button>
       </div>
     </div>`;
+    attachSelectedSubjectDialog022(dialog,{runtime:productionRuntime,document:store.document});
     const status=dialog.querySelector("[data-conflict-status]");
     const buttons=[...dialog.querySelectorAll("button")];
     dialog.querySelector("[data-conflict-cancel]").onclick=closeSyncConflictDialog;
@@ -6145,6 +6156,7 @@ export async function boot407FEngineeringAdapter({
         entitlementEditable
       }));
     }
+    cancelInvalidAdvancedSessions();
     const renderSignature=timelineRenderSignature(store.document);
     const documentPresentationChanged=renderSignature!==lastStoreRenderSignature;
     if(documentPresentationChanged){
@@ -6412,6 +6424,15 @@ export async function boot407FEngineeringAdapter({
       }
     };
     onAdvancedObjectClick=(event)=>{
+      if(store.document.mode==="advanced"){
+        const object=advancedObjectForTarget(event.target);
+        if(object?.type==="event"){
+          event.preventDefault();
+          commitAdvancedSelection({type:"event",id:object.id});
+          restoreAdvancedObjectFocus("event",object.id);
+          return;
+        }
+      }
       const media=event.target.closest?.("[data-advanced-media]");
       const text=event.target.closest?.("[data-advanced-text]");
       const element=event.target.closest?.("[data-advanced-element]");
@@ -6920,7 +6941,7 @@ export async function boot407FEngineeringAdapter({
         target.type==="media"?`[data-advanced-media="${escaped}"]`:
         target.type==="text"?`[data-advanced-text="${escaped}"]`:
         target.type==="element"?`[data-advanced-element="${escaped}"]`:
-        target.type==="event"?`[data-event-id="${escaped}"]`:
+        target.type==="event"?advancedEventSelector(target.id):
         target.type==="color-key"?'[data-artifact-chrome="color-key"]':
         target.type==="profile"?'[data-artifact-chrome="profile"]':""
       );
@@ -7128,32 +7149,35 @@ export async function boot407FEngineeringAdapter({
       }
       svg.append(layer);
     };
+    const advancedEventSelector=(id)=>{
+      const escaped=globalThis.CSS?.escape?CSS.escape(String(id)):String(id);
+      return `[data-event-kind][data-event-id="${escaped}"]:not([data-canvas-effective-hit-proxy])`;
+    };
     const advancedSourceElement=(type,id,fallback)=>{
       if(!fallback?.hasAttribute?.("data-canvas-effective-hit-proxy"))return sceneVisualNode(fallback);
-      const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
-      return sceneVisualNode(canvasHost.querySelector(
-        type==="media"
-          ?`[data-advanced-media="${escaped}"][data-canvas-effective-hit-source]`
-          :type==="text"
-            ?`[data-advanced-text="${escaped}"][data-canvas-effective-hit-source]`
-            :`[data-advanced-element="${escaped}"][data-canvas-effective-hit-source]`
-      )||fallback);
+      const escape=(value)=>globalThis.CSS?.escape?CSS.escape(String(value)):String(value);
+      const attribute=type==="event"?"data-event-id":type==="media"?"data-advanced-media":type==="text"?"data-advanced-text":"data-advanced-element";
+      const selector=`[${attribute}="${escape(id)}"][data-canvas-effective-hit-source]`;
+      const token=fallback.dataset.canvasEffectiveHitToken;
+      const paired=token?canvasHost.querySelector(`${selector}[data-canvas-effective-hit-token="${escape(token)}"]`):null;
+      // Tokens bind paint/button proxies to the exact SVG visual, not their expanded hit box.
+      return sceneVisualNode(paired||canvasHost.querySelector(selector)||(type==="event"?null:fallback));
+    };
+    const eventPresentationItem=(id)=>{
+      const object=(store.document.advanced?.scene?.objects||[]).find((candidate)=>
+        candidate?.type==="event"&&(
+          String(candidate.semanticRef||"")===String(id)||
+          String(candidate.id||"")===String(id)
+        )
+      );
+      return object?{
+        ...clone(object.geometry),
+        rotation:Number(object.geometry?.rotation)||0,
+        locked:object.locked===true,
+        aspectLocked:object.aspectLocked!==false
+      }:null;
     };
     const advancedObjectForTarget=(target,{deep=false}={})=>{
-      const eventPresentationItem=(id)=>{
-        const object=(store.document.advanced?.scene?.objects||[]).find((candidate)=>
-          candidate?.type==="event"&&(
-            String(candidate.semanticRef||"")===String(id)||
-            String(candidate.id||"")===String(id)
-          )
-        );
-        return object?{
-          ...clone(object.geometry),
-          rotation:Number(object.geometry?.rotation)||0,
-          locked:object.locked===true,
-          aspectLocked:object.aspectLocked!==false
-        }:null;
-      };
       const directPresentationItem=(type)=>{
         const key=type==="color-key"?"colorKeyGeometry":"profileGeometry";
         const fallback=type==="color-key"
@@ -7172,7 +7196,7 @@ export async function boot407FEngineeringAdapter({
           type==="media"?`[data-advanced-media="${escaped}"]`:
           type==="text"?`[data-advanced-text="${escaped}"]`:
           type==="element"?`[data-advanced-element="${escaped}"]`:
-          type==="event"?`[data-event-id="${escaped}"]`:
+          type==="event"?advancedEventSelector(id):
           type==="color-key"?'[data-artifact-chrome="color-key"]':
           type==="profile"?'[data-artifact-chrome="profile"]':""
         );
@@ -7256,10 +7280,9 @@ export async function boot407FEngineeringAdapter({
       const eventNode=target.closest?.('[data-event-kind="arrow"][data-event-id],[data-event-kind="flag"][data-event-id]');
       if(eventNode){
         const id=String(eventNode.dataset.eventId||"");
-        return{
-          type:"event",id,item:eventPresentationItem(id)||{},
-          element:eventNode
-        };
+        const element=advancedSourceElement("event",id,eventNode);
+        if(!element||!store.document.events.some((item)=>String(item.id)===id))return null;
+        return{type:"event",id,item:eventPresentationItem(id)||{},element};
       }
       const colorKey=target.closest?.('[data-artifact-chrome="color-key"]');
       if(colorKey)return{
@@ -7276,7 +7299,9 @@ export async function boot407FEngineeringAdapter({
     const restoreAdvancedObjectFocus=(type,id)=>queueMicrotask(()=>{
       const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
       canvasHost.querySelector(
-        type==="media"
+        type==="event"
+          ?`[data-canvas-effective-hit-proxy][data-event-id="${escaped}"]:not([data-canvas-effective-hit-exact]):not([data-drag-kind])`
+          :type==="media"
           ?`[data-canvas-effective-hit-proxy][data-advanced-media="${escaped}"], [data-advanced-media="${escaped}"]`
           :type==="text"
             ?`[data-canvas-effective-hit-proxy][data-advanced-text="${escaped}"], [data-advanced-text="${escaped}"]`
@@ -7285,7 +7310,7 @@ export async function boot407FEngineeringAdapter({
     });
     onAdvancedObjectKeyDown=(event)=>{
       const object=advancedObjectForTarget(event.target);
-      if(!object)return;
+      if(!object||(object.type==="event"&&store.document.mode!=="advanced"))return;
       const key=String(event.key||"");
       /* AAA-019 — everything except Enter/Space is handled by the selection engine
          (onAdvancedSelectionKeyDown), which acts on the whole selection — groups and
@@ -7299,6 +7324,11 @@ export async function boot407FEngineeringAdapter({
       }
       if(key==="Enter"||key===" "){
         event.preventDefault();
+        if(object.type==="event"){
+          commitAdvancedSelection({type:"event",id:object.id},{announce:"Timeline event selected"});
+          restoreAdvancedObjectFocus("event",object.id);
+          return;
+        }
         if(key==="Enter"&&object.type==="text"){
           canvasController?.setUiState({
             advancedSelection:{type:object.type,id:object.id},
@@ -7445,12 +7475,22 @@ export async function boot407FEngineeringAdapter({
       return[];
     };
     const advancedItemFor=(target)=>{
+      if(target.type==="event"){
+        const item=eventPresentationItem(target.id);
+        if(item)return item;
+        const source=canvasHost.querySelector(advancedEventSelector(target.id));
+        const visual=source?.querySelector?.("[data-continuous-duration-arrow],image")||source;
+        const box=visual?.getBBox?.();
+        return box?.width>0&&box?.height>0
+          ?{x:box.x,y:box.y,width:box.width,height:box.height,rotation:0,locked:false,aspectLocked:false}:null;
+      }
       const collection=target.type==="media"?store.document.advanced?.media
         :target.type==="text"?store.document.advanced?.textBlocks
         :target.type==="element"?store.document.advanced?.elements:null;
       return(collection||[]).find((item)=>String(item.id)===String(target.id))||null;
     };
     const selectionIsLocked=(selection)=>{
+      if(selection?.type==="event")return advancedItemFor(selection)?.locked===true;
       const targets=advancedCommandTargets(selection);
       return targets.some((target)=>target.type==="group"
         ?(store.document.advanced?.groups||[]).find((group)=>String(group.id)===target.id)?.locked===true
@@ -7466,7 +7506,7 @@ export async function boot407FEngineeringAdapter({
     /* Move (or Alt-resize) every leaf member of the selection by one delta in one undo step. */
     const nudgeAdvancedSelection=(selection,delta,{resize=false}={})=>{
       if(store.entitlement.canMutate!==true||store.document.layoutLock!==false)return false;
-      const members=advancedLeafMembers(selection);
+      const members=selection?.type==="event"&&selection.id?[{type:"event",id:String(selection.id)}]:advancedLeafMembers(selection);
       if(!members.length)return false;
       if(selectionIsLocked(selection))return explainLockedSelection(resize?"resizing":"moving");
       let working=store.document;
@@ -7477,18 +7517,20 @@ export async function boot407FEngineeringAdapter({
         if(!original)continue;
         let next;
         if(resize){
-          const width=Math.max(48,Number(original.width||1)+delta.x);
+          const width=Math.max(member.type==="event"?Math.min(48,original.width):48,Number(original.width||1)+delta.x);
+          const minimumHeight=member.type==="event"?Math.min(32,original.height):32;
           const unlocked=original.aspectLocked===false;
           next=constrainAdvancedObjectToBoard(member.type==="media"
-            ?resizeMediaElement(original,{width,height:Math.max(32,Number(original.height||1)+delta.y),shiftKey:unlocked})
-            :{...original,width,height:unlocked?Math.max(32,Number(original.height||1)+delta.y):width/(Number(original.width||1)/Number(original.height||1))});
+            ?resizeMediaElement(original,{width,height:Math.max(minimumHeight,Number(original.height||1)+delta.y),shiftKey:unlocked})
+            :{...original,width,height:unlocked?Math.max(minimumHeight,Number(original.height||1)+delta.y):width/(Number(original.width||1)/Number(original.height||1))},{minimumSize:member.type==="event"?1:48});
         }else{
           const width=Number(original.width||0),height=Number(original.height||0);
           const x=Math.max(0,Math.min(1920-width,Number(original.x||0)+delta.x));
           const y=Math.max(0,Math.min(1080-height,Number(original.y||0)+delta.y));
-          next=constrainAdvancedObjectToBoard(member.type==="media"?moveMediaElement(original,{x,y}):{...original,x,y});
+          next=constrainAdvancedObjectToBoard(member.type==="media"?moveMediaElement(original,{x,y}):{...original,x,y},{minimumSize:member.type==="event"?1:48});
         }
-        const result=applySceneCommandToDocument(working,{kind:"geometry",target:member,geometry:next,label});
+        const result=applySceneCommandToDocument(working,{kind:"geometry",target:member,geometry:next,label,
+          ...(member.type==="event"?{create:{type:"event",semanticRef:member.id,aspectLocked:false,presentation:{eventType:store.document.events.find(item=>String(item.id)===member.id)?.eventType||"duration"}}}:{})});
         if(result.changed){working=result.document;changed=true;}
       }
       if(!changed)return false;
@@ -7796,7 +7838,7 @@ export async function boot407FEngineeringAdapter({
       if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(key)){
         const step=event.shiftKey?10:1;
         const delta={ArrowLeft:{x:-step,y:0},ArrowRight:{x:step,y:0},ArrowUp:{x:0,y:-step},ArrowDown:{x:0,y:step}}[key];
-        if(!advancedLeafMembers(selection).length)return;
+        if(selection.type!=="event"&&!advancedLeafMembers(selection).length)return;
         event.preventDefault();
         nudgeAdvancedSelection(selection,delta,{resize:event.altKey===true});
       }
@@ -7994,7 +8036,7 @@ export async function boot407FEngineeringAdapter({
       }
       cancelAdvancedCrop({silent:true});
       const original={x:Number(info.item.crop?.x??50),y:Number(info.item.crop?.y??50),zoom:Number(info.item.crop?.zoom||1)};
-      advancedCrop={...info,original,draft:{...original},target:{...target}};
+      advancedCrop={...info,original,draft:{...original},target:{...target},modeAtPress:store.document.mode};
       canvasHost?.classList.add("advancedCropActive");
       clearAdvancedDirectSelection();
       renderAdvancedCropChrome();
@@ -8090,7 +8132,15 @@ export async function boot407FEngineeringAdapter({
       return true;
     };
 
+    const canEditAdvancedGeometry=()=>store.entitlement.canMutate===true&&
+      canvasController?.state?.entitlementEditable!==false&&
+      canvasController?.state?.responsive?.viewOnly!==true;
+    const canContinueAdvancedGesture=(pointer)=>canEditAdvancedGeometry()&&
+      store.document.layoutLock===false&&pointer.modeAtPress===store.document.mode&&
+      !selectionIsLocked({type:pointer.type,id:pointer.id});
     onAdvancedPointerDown=(event)=>{
+      // Read-only inspection must never start a mutable SVG preview.
+      if(!canEditAdvancedGeometry())return;
       if(advancedCrop&&advancedCropPointerDown(event))return;
       /* Click-out commits an open inline text edit (Canva T3). The press itself calls
          preventDefault further down, which would otherwise suppress the blur that used
@@ -8111,7 +8161,7 @@ export async function boot407FEngineeringAdapter({
          ghost as built-in assets (Canva P3). The native HTML5 DnD path stays as a
          fallback, but a press-and-move on a tile is now a real, visible drag. */
       const railObject=railAsset?null:event.target.closest?.("[data-advanced-drag-object][data-advanced-target-type][data-advanced-target-id], [data-media-asset][data-media-place]");
-      if((railAsset||railObject)&&store.entitlement.canMutate===true){
+      if((railAsset||railObject)&&canEditAdvancedGeometry()&&store.document.layoutLock===false&&store.document.mode==="advanced"){
         const ghost=document.createElement("div");
         ghost.className="advancedRailDragGhost";
         const tile=railAsset||railObject;
@@ -8142,7 +8192,7 @@ export async function boot407FEngineeringAdapter({
           };
         railPointer={
           startX:event.clientX,startY:event.clientY,moved:false,ghost,
-          source:tile,pointerId:event.pointerId,payload
+          source:tile,pointerId:event.pointerId,payload,modeAtPress:store.document.mode
         };
         /* No pointer capture: the rail re-renders on selection changes, and a captured
            node that gets replaced swallows the pointerup — the document-level listeners
@@ -8168,7 +8218,7 @@ export async function boot407FEngineeringAdapter({
         axisPointer={
           startX:event.clientX,index,segments,weights,left,right,leftBox,rightBox,
           pairWeight:weights[index].weight+weights[index+1].weight,
-          pairPixelWidth:Math.max(1,left.getBoundingClientRect().width+right.getBoundingClientRect().width),
+          pairPixelWidth:Math.max(1,left.getBoundingClientRect().width+right.getBoundingClientRect().width),modeAtPress:store.document.mode,
           preview:weights.map((item)=>({...item})),moved:false
         };
         left.dataset.advancedAxisDragging="left";
@@ -8190,10 +8240,22 @@ export async function boot407FEngineeringAdapter({
         !event.target.closest?.("[data-advanced-direct-handle]")
       )return;
       const doublePress=Number(event.detail)>=2||consumeDoublePress(event);
-      const object=advancedObjectForTarget(event.target,{
-        deep:doublePress||event.altKey===true
-      });
+      const shallowObject=advancedObjectForTarget(event.target);
+      const deepObject=(doublePress||event.altKey===true)
+        ?advancedObjectForTarget(event.target,{deep:true})
+        :shallowObject;
+      /* A quick click followed by a drag produces a second press inside the manual
+         double-press window. When that press lands on a grouped child, dragging must
+         still move the group; only a second press that is released without movement
+         drills into the child. Alt remains the explicit direct-child drag gesture. */
+      const deferredGroupedDeep=doublePress&&event.altKey!==true&&
+        shallowObject?.type==="group"&&deepObject&&deepObject.type!=="group"
+        ?{type:deepObject.type,id:String(deepObject.id)}
+        :null;
+      const object=deferredGroupedDeep?shallowObject:deepObject;
       if(!object){
+        // The existing explanation owner handles its free geometry; never start a marquee over it.
+        if(event.target.closest?.('[data-event-kind="explanation"][data-event-id]'))return;
         /* A2.6 — a press on empty board used to fall through here and do nothing, which
            is what made "drag on the board" read as a page rather than a canvas. Rubber-band
            instead. user-select:none on the substrate keeps this from becoming a text drag. */
@@ -8203,7 +8265,7 @@ export async function boot407FEngineeringAdapter({
         marqueePointer={
           startX:event.clientX,startY:event.clientY,
           pointerId:event.pointerId,moved:false,box:null,surface,
-          additive:event.shiftKey===true
+          additive:event.shiftKey===true,modeAtPress:store.document.mode
         };
         event.preventDefault();
         return;
@@ -8306,6 +8368,7 @@ export async function boot407FEngineeringAdapter({
       );
       advancedPointer={
         ...object,
+        modeAtPress:store.document.mode,
         kind:resizeHandle==="rotate"?"rotate":resizeHandle?"resize":"move",
         handle:resizeHandle,
         startX:event.clientX,
@@ -8329,6 +8392,7 @@ export async function boot407FEngineeringAdapter({
           original:clone(member.item),
           originalTransform:member.element.getAttribute?.("transform")
         })),
+        deferredGroupedDeep,
         moved:false
       };
       const gestureNodes=advancedPointer.members.length
@@ -8363,12 +8427,51 @@ export async function boot407FEngineeringAdapter({
         if(originalTransform)element.setAttribute("transform",originalTransform);
         else element.removeAttribute("transform");
         delete element.dataset?.advancedDragging;
+        delete element.dataset?.advancedResizeHandle;
       }
+      clearAdvancedFrameDropTarget();
       document.querySelectorAll?.("[data-advanced-dragging]").forEach((node)=>{delete node.dataset.advancedDragging;});
       clearAdvancedAlignmentGuides(pointer.svg);
       syncAdvancedSelectionChrome();
       announceGlobal("Move cancelled");
       return true;
+    };
+    const canContinueTransientAdvancedSession=(session,target=null)=>canEditAdvancedGeometry()&&
+      store.document.layoutLock===false&&session?.modeAtPress===store.document.mode&&
+      (!target||!selectionIsLocked(target));
+    cancelInvalidAdvancedSessions=()=>{
+      let cancelled=false;
+      if(advancedCrop&&!canContinueTransientAdvancedSession(advancedCrop,advancedCrop.target)){
+        cancelAdvancedCrop({silent:true});
+        cancelled=true;
+      }
+      if(marqueePointer&&!canContinueTransientAdvancedSession(marqueePointer)){
+        marqueePointer.box?.remove();
+        marqueePointer=null;
+        cancelled=true;
+      }
+      if(axisPointer&&!canContinueTransientAdvancedSession(axisPointer,{type:"axis",id:"axis"})){
+        delete axisPointer.left?.dataset?.advancedAxisDragging;
+        delete axisPointer.right?.dataset?.advancedAxisDragging;
+        axisPointer.left?.removeAttribute?.("transform");
+        axisPointer.right?.removeAttribute?.("transform");
+        axisPointer=null;
+        clearAdvancedAxisBoundaryHandles();
+        cancelled=true;
+      }
+      if(railPointer&&!canContinueTransientAdvancedSession(railPointer,railPointer.payload?.target||null)){
+        try{railPointer.source?.releasePointerCapture?.(railPointer.pointerId);}catch{}
+        railPointer.ghost?.remove?.();
+        railPointer=null;
+        clearAdvancedFrameDropTarget();
+        cancelled=true;
+      }
+      if(advancedPointer&&!canContinueAdvancedGesture(advancedPointer)){
+        cancelAdvancedGesture();
+        cancelled=true;
+      }
+      if(cancelled)announceGlobal("Timeline edit cancelled because access or editor state changed");
+      return cancelled;
     };
     const trackAdvancedSelectionChrome=(pointer)=>{
       if(!pointer)return;
@@ -8453,6 +8556,7 @@ export async function boot407FEngineeringAdapter({
       node.setAttribute("transform",`translate(${next.x} ${next.y}) rotate(${Number(next.rotation)||0} ${next.width/2} ${next.height/2}) scale(${sx} ${sy})`);
     };
     onAdvancedPointerMove=(event)=>{
+      if(cancelInvalidAdvancedSessions())return;
       if(advancedCropPointerMove(event))return;
       if(marqueePointer){
         const pending=marqueePointer;
@@ -8510,6 +8614,7 @@ export async function boot407FEngineeringAdapter({
         return;
       }
       if(!advancedPointer)return;
+      if(!canContinueAdvancedGesture(advancedPointer)){cancelAdvancedGesture();return;}
       if(advancedPointer.type==="media"&&advancedPointer.kind==="move"&&!advancedPointer.members?.length){
         highlightAdvancedFrameDropTarget(advancedFrameAtPoint(event.clientX,event.clientY));
       }
@@ -8563,7 +8668,7 @@ export async function boot407FEngineeringAdapter({
         const resized=resizeSceneGeometry(original,advancedPointer.handle||"se",dx,dy,{
           aspectLocked:!freeAspect,
           minimumWidth:advancedPointer.type==="profile"?360:48,
-          minimumHeight:advancedPointer.type==="profile"?272:48
+          minimumHeight:advancedPointer.type==="profile"?272:advancedPointer.type==="event"?Math.min(48,original.height):48
         });
         if(!freeAspect&&["e","w"].includes(advancedPointer.handle)){
           const ratio=original.width/Math.max(1,original.height);
@@ -8584,8 +8689,8 @@ export async function boot407FEngineeringAdapter({
         if(clampedResize.x+clampedResize.width>1920)clampedResize.width=1920-clampedResize.x;
         if(clampedResize.y+clampedResize.height>1080)clampedResize.height=1080-clampedResize.y;
         clampedResize.width=Math.max(48,clampedResize.width);
-        clampedResize.height=Math.max(advancedPointer.type==="profile"?272:48,clampedResize.height);
-        next=constrainAdvancedObjectToBoard(clampedResize);
+        clampedResize.height=Math.max(advancedPointer.type==="profile"?272:advancedPointer.type==="event"?Math.min(48,original.height):48,clampedResize.height);
+        next=constrainAdvancedObjectToBoard(clampedResize,{minimumSize:advancedPointer.type==="event"?1:48});
         applyDirectPreviewGeometry(advancedPointer,next);
       }else{
         const width=Number(original.width||0);
@@ -8594,7 +8699,7 @@ export async function boot407FEngineeringAdapter({
         const y=Math.max(0,Math.min(1080-height,Number(original.y||0)+dy));
         next=constrainAdvancedObjectToBoard(advancedPointer.type==="media"
           ?moveMediaElement(original,{x,y})
-          :{...clone(original),x,y});
+          :{...clone(original),x,y},{minimumSize:advancedPointer.type==="event"?1:48});
         const snapped=snapAdvancedObjectToBoard(next,{
           threshold:12,
           visualBounds:{
@@ -8605,7 +8710,7 @@ export async function boot407FEngineeringAdapter({
           },
           peers:advancedSnapPeers(advancedPointer)
         });
-        next=constrainAdvancedObjectToBoard(snapped.element);
+        next=constrainAdvancedObjectToBoard(snapped.element,{minimumSize:advancedPointer.type==="event"?1:48});
         showAdvancedAlignmentGuides(advancedPointer.svg,snapped.guides);
         applyDirectPreviewGeometry(advancedPointer,next);
       }
@@ -8614,6 +8719,12 @@ export async function boot407FEngineeringAdapter({
       event.preventDefault();
     };
     onAdvancedPointerUp=(event)=>{
+      if(event?.type==="pointercancel"&&advancedCrop?.pan){
+        cancelAdvancedCrop({silent:true});
+        announceGlobal("Crop cancelled");
+        return;
+      }
+      if(cancelInvalidAdvancedSessions())return;
       if(advancedCropPointerUp())return;
       if(marqueePointer){
         const pending=marqueePointer;
@@ -8699,6 +8810,7 @@ export async function boot407FEngineeringAdapter({
         try{pending.source?.releasePointerCapture?.(pending.pointerId);}catch{}
         pending.ghost.remove();
         clearAdvancedFrameDropTarget();
+        if(event?.type==="pointercancel")return;
         const surface=advancedEditSurface();
         const bounds=surface?.getBoundingClientRect?.();
         if(pending.moved&&bounds&&event.clientX>=bounds.left&&event.clientX<=bounds.right&&event.clientY>=bounds.top&&event.clientY<=bounds.bottom){
@@ -8723,6 +8835,7 @@ export async function boot407FEngineeringAdapter({
         return;
       }
       if(!advancedPointer)return;
+      if(!canContinueAdvancedGesture(advancedPointer)){cancelAdvancedGesture();return;}
       const pointer=advancedPointer;
       advancedPointer=null;
       clearAdvancedFrameDropTarget();
@@ -8744,6 +8857,28 @@ export async function boot407FEngineeringAdapter({
         return;
       }
       if(!pointer.moved){
+        if(pointer.deferredGroupedDeep){
+          const selection=pointer.deferredGroupedDeep;
+          canvasController?.setUiState({selectedEventId:null,advancedSelection:selection,advancedTextEdit:null});
+          showAdvancedDirectSelection(selection);
+          if(selection.type==="text"){
+            const block=(store.document.advanced?.textBlocks||[]).find(
+              (item)=>String(item.id)===selection.id
+            );
+            canvasController?.setUiState({
+              selectedEventId:null,
+              advancedSelection:selection,
+              advancedTextEdit:{id:selection.id,draft:String(block?.text||"")}
+            });
+            queueMicrotask(()=>{
+              const field=canvasHost.querySelector("[data-advanced-inline-text-input]");
+              field?.focus?.();
+              field?.select?.();
+            });
+          }
+          return;
+        }
+        if(pointer.type==="event")canvasController?.setUiState({selectedEventId:null,advancedSelection:{type:"event",id:pointer.id}});
         showAdvancedDirectSelection({type:pointer.type,id:pointer.id});
         return;
       }
@@ -8827,9 +8962,7 @@ export async function boot407FEngineeringAdapter({
       if(!result.changed)return;
       store.replace(result.document,{label:result.mutation?.label||label});
       syncBridgeStateFromStore();
-      canvasController?.setUiState(pointer.type==="event"
-        ?{selectedEventId:pointer.id,advancedSelection:null}
-        :{selectedEventId:null,advancedSelection:{type:pointer.type,id:pointer.id}});
+      canvasController?.setUiState({selectedEventId:null,advancedSelection:{type:pointer.type,id:pointer.id}});
       showAdvancedDirectSelection({type:pointer.type,id:pointer.id});
       const message=pointer.kind==="rotate"?"Timeline object rotated":pointer.kind==="resize"?"Timeline object resized":"Timeline object moved";
       bridge.toast(message);
@@ -9275,6 +9408,7 @@ export async function boot407FEngineeringAdapter({
     if(sequence!==fileVaultQuerySequence)return;
     bridge.openModal?.(renderFileVaultSourceChooser(model));
     const dialog=document.querySelector("[data-file-vault-source-dialog]");
+    attachSelectedSubjectDialog022(dialog,{runtime:productionRuntime,document:store.document});
     const search=document.querySelector("[data-file-vault-source-search]");
     const continueButton=document.querySelector("[data-file-vault-source-continue]");
     document.querySelector("[data-file-vault-source-close]")?.addEventListener(
@@ -9419,6 +9553,7 @@ export async function boot407FEngineeringAdapter({
       </div>
     </section>`);
     const dialog=document.querySelector("[data-builder-preview-sheet]");
+    attachSelectedSubjectDialog022(dialog,{runtime:productionRuntime,document:store.document});
     const canvas=document.querySelector("[data-builder-preview-canvas]");
     mountBuilderPreview(canvas,{
       surface:"lightbox",

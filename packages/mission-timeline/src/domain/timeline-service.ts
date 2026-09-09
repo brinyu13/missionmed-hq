@@ -113,7 +113,9 @@ export class TimelineService {
   async listOwnDocuments(context: PrincipalContext): Promise<DocumentRecord[]> {
     if (context.role === "STUDENT") return (await this.repository.listDocumentsForOwner(context.principalId)).map(record => this.sanitizeRecord(record));
     if (context.role === "PROGRAM_ADMIN" || context.role === "ADVISOR" || context.role === "FACULTY") {
-      return (await this.repository.listAccessibleDocuments(context.principalId)).map(record => this.sanitizeRecord(record));
+      return (await this.repository.listAccessibleDocuments(context.principalId))
+        .filter((record) => decide(context, "document:read", this.resource(record), this.clock).allowed)
+        .map(record => this.sanitizeRecord(record));
     }
     throw new TimelineError("FORBIDDEN", "Timeline document listing is not available.", 403);
   }
@@ -218,6 +220,114 @@ export class TimelineService {
     });
     await this.audit(context, "version:create", "version", version.id, "SUCCESS", "VERSION_CREATED");
     return saved;
+  }
+
+  async listDocumentVersions(context: PrincipalContext, documentId: string) {
+    const versions = await this.repository.listVersions(documentId);
+    const visible = versions.filter((version) => decide(
+      context,
+      "document:read",
+      this.versionResource(version),
+      this.clock,
+    ).allowed);
+    if (versions.length > 0 && visible.length === 0) {
+      throw new TimelineError("FORBIDDEN", "Timeline version history is not available.", 403);
+    }
+    if (versions.length === 0) {
+      const record = await this.requireDocument(documentId);
+      await this.require(context, "document:read", this.resource(record), "document", documentId);
+    }
+    // History exposes summaries only. Every row is independently checked
+    // against its exact immutable version grant before the snapshot can be
+    // requested through getDocumentVersion.
+    return visible.map(({ snapshot, ...version }) => ({
+      ...version, eventCount: snapshot.events.length,
+      mediaCount: Array.isArray(snapshot.mediaItems) ? snapshot.mediaItems.length : 0,
+    }));
+  }
+
+  async getDocumentVersion(context: PrincipalContext, documentId: string, versionId: string) {
+    const version = await this.repository.getVersion(versionId);
+    if (!version || version.documentId !== documentId) throw new TimelineError("VERSION_NOT_FOUND", "Version not found.", 404);
+    await this.require(
+      context,
+      "document:read",
+      this.versionResource(version),
+      "version",
+      versionId,
+    );
+    return version;
+  }
+
+  async recoverConflict(context: PrincipalContext, documentId: string, input: {
+    requestId: string; baseRevision: number; strategy: "KEEP_LOCAL" | "USE_SERVER"; snapshot: TimelineDocument;
+  }) {
+    if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(input.requestId) ||
+        !Number.isSafeInteger(input.baseRevision) || input.baseRevision < 0 || input.baseRevision > 2147483645 ||
+        !["KEEP_LOCAL", "USE_SERVER"].includes(input.strategy) || !input.snapshot ||
+        !CHECKPOINT_SOURCE_SCHEMAS.has(input.snapshot.schemaVersion)) {
+      throw new TimelineError("CONFLICT_RECOVERY_INVALID", "Conflict recovery input is invalid.", 400);
+    }
+    const requestSha256 = sha256(stableStringify(input));
+    const prefix = `conflict_${sha256(stableStringify([documentId, context.principalId, input.requestId])).slice(0, 32)}`;
+    // Both writes share one transaction: the losing copy is never visible as
+    // the current document. An uncertain client retries this exact identity.
+    return this.repository.withTransaction(async (repository) => {
+      const service = this.withRepository(repository);
+      const record = await service.requireDocument(documentId);
+      await service.require(context, "version:create", service.resource(record), "document", documentId);
+      const prior = await repository.getVersion(`${prefix}_recovery`);
+      const chosenPrior = await repository.getVersion(`${prefix}_chosen`);
+      if (prior || chosenPrior) {
+        const receipt = prior?.snapshot.metadata?.conflictRecovery022 as Record<string, unknown> | undefined;
+        if (!prior || !chosenPrior || receipt?.requestSha256 !== requestSha256 ||
+            prior.documentId !== documentId || chosenPrior.documentId !== documentId ||
+            prior.createdBy !== context.principalId || chosenPrior.createdBy !== context.principalId ||
+            prior.contentSha256 !== canonicalDocumentHash(prior.snapshot) ||
+            chosenPrior.contentSha256 !== canonicalDocumentHash(chosenPrior.snapshot)) {
+          throw new TimelineError("CONFLICT_RECOVERY_IDENTITY_MISMATCH", "This recovery identity belongs to different content.", 409);
+        }
+        return { schema: "d1-022-conflict-recovery.1", ...input, snapshot: undefined, requestSha256,
+          recoveryVersion: prior, chosenVersion: chosenPrior, document: record.document, replayed: true };
+      }
+      if (record.document.revision !== input.baseRevision) {
+        throw new TimelineError("REVISION_CONFLICT", "A newer Timeline was saved. Review the conflict again.", 409);
+      }
+      const local = clone(input.snapshot);
+      local.id = documentId; local.schemaVersion = TIMELINE_DOCUMENT_SCHEMA;
+      local.studentOwnerId = record.document.studentOwnerId; local.programId = record.document.programId;
+      const sanitizedLocal = sanitizeProviderMetadata022(local, this.providerAuthenticity);
+      validateTimelineDocument(sanitizedLocal); service.assertDocumentContentSafe(sanitizedLocal);
+      const at = now(this.clock);
+      const losing = clone(input.strategy === "USE_SERVER" ? sanitizedLocal : record.document);
+      const chosen = clone(input.strategy === "USE_SERVER" ? record.document : sanitizedLocal);
+      losing.metadata = { ...(losing.metadata ?? {}), conflictRecovery022: {
+        requestId: input.requestId, requestSha256, strategy: input.strategy, baseRevision: input.baseRevision,
+      } };
+      let current = record;
+      const saved: TimelineVersion[] = [];
+      for (const [index, source] of [losing, chosen].entries()) {
+        const snapshot = sanitizeProviderMetadata022({ ...source, revision: input.baseRevision + index + 1 }, this.providerAuthenticity);
+        const version: TimelineVersion = {
+          id: `${prefix}_${index === 0 ? "recovery" : "chosen"}`, documentId, revision: snapshot.revision,
+          parentVersionId: current.currentVersionId,
+          label: index === 0 ? `Conflict recovery · ${input.strategy === "USE_SERVER" ? "local" : "server"} copy`
+            : `Conflict resolved · ${input.strategy === "USE_SERVER" ? "server" : "local"} copy`,
+          snapshot, contentSha256: canonicalDocumentHash(snapshot), createdBy: context.principalId, createdAt: at,
+        };
+        const next = { ...current, document: snapshot, currentVersionId: version.id, updatedAt: at,
+          status: input.strategy === "KEEP_LOCAL" ? "DRAFT" as const : current.status };
+        saved.push(await repository.saveVersion(documentId, current.document.revision, next, version));
+        current = next;
+      }
+      if (input.strategy === "KEEP_LOCAL") await service.invalidatePriorApproval(context, documentId, saved[1]!);
+      await repository.addOutbox({ id: `${prefix}_outbox`, aggregateId: documentId,
+        eventType: "timeline.document.versioned", payload: { documentId, versionId: saved[1]!.id,
+          revision: saved[1]!.revision, recoveryVersionId: saved[0]!.id }, attempts: 0, availableAt: at, publishedAt: null });
+      await service.audit(context, "version:create", "version", saved[0]!.id, "SUCCESS", "CONFLICT_RECOVERY_PRESERVED");
+      return { schema: "d1-022-conflict-recovery.1", ...input, snapshot: undefined, requestSha256,
+        recoveryVersion: saved[0]!, chosenVersion: saved[1]!, document: current.document, replayed: false };
+    });
   }
 
   async assignAdvisor(context: PrincipalContext, assignment: AdvisorAssignment): Promise<AdvisorAssignment> {
@@ -461,6 +571,15 @@ export class TimelineService {
       ownerPrincipalId: record.document.studentOwnerId,
       programId: record.document.programId,
       versionId: record.currentVersionId ?? undefined,
+    };
+  }
+
+  private versionResource(version: TimelineVersion): AuthorizedResource {
+    return {
+      documentId: version.documentId,
+      ownerPrincipalId: version.snapshot.studentOwnerId,
+      programId: version.snapshot.programId,
+      versionId: version.id,
     };
   }
 

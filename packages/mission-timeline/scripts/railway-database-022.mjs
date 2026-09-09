@@ -5,6 +5,8 @@ export const MIGRATIONS_022 = Object.freeze([
   ['20260907011000_d1_022_founder_standards.sql','f1a27f6d763e944d95fdc0d21cbfc882008ebbecaa3a008480e366bb1ec00ee2'],
   ['20260907012000_d1_022_admin_workspace.sql','c7ae9018aa1f7e5b49d0335f6dd7bc5d5eaac5043fd6403bc836b030a112cc3e'],
   ['20260907013000_d1_022_admin_outbox.sql','5e8dfb6fea20a5a74a336c822198c0ed4fc9622fef9a2b93437dc2225f3fc299'],
+  ['20260908014000_d1_022_version_history_scope.sql','980e53e2317cf00d7fe627bdc10a4b5ea979fdc02c5a474d39d58a49496465a7'],
+  ['20260908015000_d1_022_current_document_version_scope.sql','901b52b7e237fdc140719caa8ea7f93e051f71640b0dce40cea5a4550667ebbc'],
 ]);
 export const LOGIN_022='timeline_api_login_022';
 export const ROLES_022=['timeline_authenticated','timeline_grant_authority','timeline_identity_sync'];
@@ -77,6 +79,8 @@ export async function runDatabaseOperation(input,pg,administrativeUrl){
       await restricted.query('set local role timeline_authenticated');
       const schema=(await restricted.query("select timeline.schema_version() as version,to_regclass('timeline.founder_standard_revisions') is not null and to_regclass('timeline.founder_standard_decisions') is not null as standards_ready")).rows[0];
       if(schema.version!=='d1-timeline-db-500.1'||!schema.standards_ready)throw Error('SCHEMA_READINESS_DENIED');
+      const versionScope=(await restricted.query("select to_regprocedure('timeline.can_read_version_022(text,text)') is not null as history_ready,to_regprocedure('timeline.can_read_current_document_022(text,text,text,timestamp with time zone)') is not null as current_document_ready")).rows[0];
+      if(!versionScope.history_ready||!versionScope.current_document_ready)throw Error('VERSION_SCOPE_READINESS_DENIED');
       const workflow=(await restricted.query("select to_regprocedure('timeline.admin_outbox_matches_022(text,text,text,text,jsonb,integer,timestamp with time zone,timestamp with time zone)') is not null as function_ready,(select count(*)::int from pg_policies where schemaname='timeline' and policyname in ('reviews_admin_insert_022','reviews_admin_update_022','comments_admin_insert_022','approvals_admin_insert_022','exports_admin_insert_022','outbox_admin_insert_022','outbox_admin_scope_022')) as policy_count")).rows[0];
       if(!workflow.function_ready||workflow.policy_count!==7)throw Error('ADMIN_WORKFLOW_READINESS_DENIED');
       await restricted.query('set local role timeline_identity_sync');
@@ -85,7 +89,7 @@ export async function runDatabaseOperation(input,pg,administrativeUrl){
       const issuer=(await restricted.query("select exists(select 1 from timeline.principals where id='timeline_admin_authority_022' and wp_user_id=-22022 and role='SERVICE' and status='ACTIVE') as ready")).rows[0];
       if(!issuer.ready)throw Error('ISSUER_READINESS_DENIED');
       await restricted.query('rollback');
-      return {status:'PASS',schema_version:schema.version,login:attrs,memberships:members,ambient_access_denied:true,standards_ready:true,issuer_ready:true,admin_workflow_ready:true,migrations:MIGRATIONS_022.map(([name,sha256])=>({name,sha256}))};
+      return {status:'PASS',schema_version:schema.version,login:attrs,memberships:members,ambient_access_denied:true,standards_ready:true,issuer_ready:true,admin_workflow_ready:true,history_scope_ready:true,current_document_scope_ready:true,migrations:MIGRATIONS_022.map(([name,sha256])=>({name,sha256}))};
     }finally{await restricted.end();}
   }finally{if(transaction)await client.query('rollback').catch(()=>{});await client.end();}
 }

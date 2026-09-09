@@ -68,4 +68,11 @@ export class TimelineApiClient {
       body: { baseRevision, snapshot, label },
     });
   }
+
+  recoverConflict(documentId, input) {
+    return this.request(`/documents/${encodeURIComponent(documentId)}/conflict-recoveries`, { method: "POST", body: input });
+  }
+
+  listVersions(documentId) { return this.request(`/documents/${encodeURIComponent(documentId)}/versions`); }
+  getVersion(documentId, versionId) { return this.request(`/documents/${encodeURIComponent(documentId)}/versions/${encodeURIComponent(versionId)}`); }
 }

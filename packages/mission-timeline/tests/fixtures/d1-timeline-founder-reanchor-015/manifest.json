@@ -30,7 +30,7 @@
   },
   "serializer": {
     "id": "d1-founder-keynote-portable-svg/1",
-    "syntheticSvgSha256": "8bfec7b482dda9ff7f82a490e2eb533d55e4096199d9632e3ece43d823c1c0a4",
+    "syntheticSvgSha256": "05207ed666c857b190dfeaa1eff4bcf96551f25e1c03a0a1466b116c4ac429d1",
     "syntheticSvgSha256History": [
       {
         "sha256": "00a089a2be666e4caa02870be80772a88d712972b502b98fd4f1da8e259c8477",
@@ -63,6 +63,10 @@
       {
         "sha256": "8bfec7b482dda9ff7f82a490e2eb533d55e4096199d9632e3ece43d823c1c0a4",
         "note": "D1-022 inherited category-paint repair: visible education duration uses canonical #2C6E8F and adds Education after the six unchanged Founder default rows. Six-row default and all Founder furniture geometry, event facts and dates remain unchanged. Supplemental Education plus LOR stays within the same card."
+      },
+      {
+        "sha256": "05207ed666c857b190dfeaa1eff4bcf96551f25e1c03a0a1466b116c4ac429d1",
+        "note": "D1-022 Mission Navy portability: board-background text gains explicit semantic roles and reads the theme ink token. Keynote Classic keeps the same paint, geometry, event facts and dates."
       }
     ],
     "requiredComposition": {

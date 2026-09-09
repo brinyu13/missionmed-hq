@@ -51,6 +51,8 @@ export const SUGGESTION_LABELS=Object.freeze({
   CHRONOLOGY_REVIEW:"Dates disagree",
   MISSING_END_DATE:"Missing end date",
   SOURCE_ITEM_NOT_INCLUDED:"Line we did not use",
+  RESCUE_CV_ONLY:"CV entry to consider",
+  RESCUE_TIMELINE_ONLY:"Timeline entry to verify",
   LABEL_READABILITY:"Label too long",
   VISUAL_OVERLAP:"Crowded timeline"
 });
@@ -299,8 +301,20 @@ export function normalizeSuggestions(list){
   return[...new Map(normalized.map((suggestion)=>[suggestion.id,suggestion])).values()];
 }
 
+function visibleSuggestions(state){
+  if(!state||!isTimelineRescueReview(state))return state?.suggestions||[];
+  const parser=state.extraction?.parser||{};
+  const routine=new Set((parser.cleanupProposal?.actions||[]).filter(action=>
+    ["RESTORE_CANONICAL_BACKGROUND","RESTORE_CANONICAL_FURNITURE","NORMALIZE_TYPOGRAPHY","REBUILD_SEMANTIC_EVENT"].includes(action.kind)).map(action=>String(action.id)));
+  const matches=new Set((parser.reconciliation||[]).filter(item=>item.state==="MATCH").map(item=>
+    `rescue-reconcile-${String(item.timelineCandidateId||"none")}-${String(item.cvCandidateId||"none")}-MATCH`));
+  // Legacy reviews keep their original receipt; only exact routine-action/MATCH
+  // IDs are presentation context. Unrelated warnings and real conflicts remain.
+  return(state.suggestions||[]).filter(suggestion=>!routine.has(suggestion.id)&&!matches.has(suggestion.id));
+}
+
 export function openSuggestions(state){
-  return(state?.suggestions||[]).filter((suggestion)=>suggestion.status==="open");
+  return visibleSuggestions(state).filter((suggestion)=>suggestion.status==="open");
 }
 
 export function suggestionsForCandidate(state,candidateId){
@@ -504,6 +518,18 @@ export function intakeCapabilityMetadata(adapter){
   });
 }
 
+export function acceptedCvImportReceipt(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))return null;
+  const analysis=value.analysis&&typeof value.analysis==="object"?value.analysis:{};
+  const types=[value.documentType,analysis.effectiveType,analysis.detectedType].filter(type=>String(type||"").trim()).map(type=>String(type).toUpperCase());
+  const documentType=types[0]||"";
+  if(!types.length||types.some(type=>!["CV","RESUME","MYERAS"].includes(type))||!Array.isArray(value.acceptedCandidates))return null;
+  if(!value.acceptedCandidates.every(candidate=>candidate&&typeof candidate==="object"&&Array.isArray(candidate.provenance)&&candidate.provenance.length))return null;
+  return{at:value.at||null,documentType,fileName:String(value.fileName||""),acceptedCount:value.acceptedCandidates.length,
+    acceptedCandidates:clone(value.acceptedCandidates),analysis:{analysisId:String(analysis.analysisId||""),
+      schemaVersion:String(analysis.schemaVersion||""),effectiveType:documentType}};
+}
+
 export function createIntakeState({file=null,candidates=[],existingEvents=[],suggestions=[]}={}){
   const validated=file?validateIntakeFile(file):null;
   const acceptedFile=validated?.valid?validated.metadata:null;
@@ -535,6 +561,7 @@ export function hydrateIntakeState(value,{existingEvents=[]}={}){
     stage,
     progressIndex:Number.isInteger(source.progressIndex)?source.progressIndex:progressIndex,
     extraction:{...base.extraction,...(source.extraction||{})},
+    lastAcceptedCvImport:acceptedCvImportReceipt(source.lastImport)||acceptedCvImportReceipt(source.lastAcceptedCvImport),
     candidates:(source.candidates||[]).map((candidate,index)=>normalizeCandidate(candidate,index,existingEvents)),
     suggestions:normalizeSuggestions(source.suggestions||[]),
     filter:INTAKE_FILTERS.includes(source.filter)?source.filter:"all",
@@ -806,6 +833,7 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
     }
     case"RESET_UPLOAD":{
       const reset=createIntakeState();
+      reset.lastAcceptedCvImport=acceptedCvImportReceipt(state.lastImport)||acceptedCvImportReceipt(state.lastAcceptedCvImport);
       return reset;
     }
     case"DISCARD_ALL":
@@ -1036,6 +1064,16 @@ export function validateCandidateForApproval(candidate){
   return errors;
 }
 
+/** The uploaded Rescue marker and completed extraction describe the current
+ * source. The filename-based upload guess can still say CV after Rescue. */
+export function intakeDocumentType(state){
+  const normalize=value=>String(value||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").trim().toUpperCase().replace(/^MYERAS EXPORT$/,"MYERAS");
+  const current=[state.extraction?.sourceDocument?.effectiveType,state.extraction?.parser?.effectiveType,state.extraction?.parser?.detectedType]
+    .map(normalize).filter(Boolean);
+  if(state.file?.timelineRescue===true||current.includes("TIMELINE_RESCUE"))return "TIMELINE_RESCUE";
+  return current[0]||normalize(state.detectedType)||"DOCUMENT";
+}
+
 export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${prefix}-${crypto.randomUUID()}`,clock=()=>new Date()}={}){
   if(state.stage!==INTAKE_STAGES.REVIEW)throw new Error("Approval is available only during Review.");
   const positive=state.candidates.filter((candidate)=>positiveDecision(candidate.decision));
@@ -1074,7 +1112,9 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
     );
     additions.push(event);
   }
-  const versionName=`Before CV import · ${dateLabel(clock())}`;
+  const documentType=intakeDocumentType(state);
+  const importName={TIMELINE_RESCUE:"Timeline Rescue",CV:"CV",RESUME:"résumé",MYERAS:"MyERAS"}[documentType]||"document";
+  const versionName=`Before ${importName} import · ${dateLabel(clock())}`;
   return{
     schemaVersion:"d1-uxr-002-intake-batch.2",
     label:"Add document suggestions",
@@ -1082,7 +1122,7 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
     version:{name:versionName,kind:"automatic",requiredBeforeMutation:true},
     sourceDocument:state.file?clone(state.file):null,
     analysis:state.extraction?.parser?clone(state.extraction.parser):null,
-    documentType:state.detectedType,
+    documentType,
     additions,
     merges,
     profilePrefill:cvProfilePrefill(positive),
@@ -1217,6 +1257,7 @@ export function applyApprovalBatchToDocument(document,batch){
     suggestions:(batch.qualitySuggestions||[]).map((suggestion)=>clone(suggestion)),
     filter:"all",
     lastImport:{
+      documentType:String(batch.documentType||""),
       at:batch.createdAt,
       fileName:batch.sourceDocument?.name||"",
       acceptedCount:batch.acceptedCount,
@@ -1226,6 +1267,8 @@ export function applyApprovalBatchToDocument(document,batch){
       analysis:batch.analysis?clone(batch.analysis):null
     }
   };
+  nextIntake.lastAcceptedCvImport=acceptedCvImportReceipt(nextIntake.lastImport)||
+    acceptedCvImportReceipt(document.intake?.lastImport)||acceptedCvImportReceipt(document.intake?.lastAcceptedCvImport);
   document.events=nextEvents;
   document.intake=nextIntake;
   return{appliedCount:batch.acceptedCount,addedCount:batch.addedCount,mergedCount:batch.mergedCount};
@@ -1412,6 +1455,11 @@ export class IntakeStateMachine{
         undoSteps:1
       });
       const appliedCount=Number(result?.appliedCount??batch.acceptedCount);
+      const priorCv=acceptedCvImportReceipt(this.state.lastImport)||acceptedCvImportReceipt(this.state.lastAcceptedCvImport);
+      this.state.lastImport={documentType:String(batch.documentType||""),at:batch.createdAt,fileName:batch.sourceDocument?.name||"",
+        acceptedCount:batch.acceptedCount,addedCount:batch.addedCount,mergedCount:batch.mergedCount,
+        acceptedCandidates:clone(batch.acceptedCandidates||[]),analysis:batch.analysis?clone(batch.analysis):null};
+      this.state.lastAcceptedCvImport=acceptedCvImportReceipt(this.state.lastImport)||priorCv;
       this.dispatch({type:"APPROVAL_SUCCEEDED",appliedCount,addedCount:Number(result?.addedCount??batch.addedCount)||0,mergedCount:Number(result?.mergedCount??batch.mergedCount)||0,fileName:batch.sourceDocument?.name});
       return{batch,result:this.snapshot().approval};
     }catch(error){
@@ -1646,8 +1694,22 @@ function rescueReconstructionMarkup(state){
   </section>`;
 }
 
+function rescueComparisonMarkup(state){
+  if(!isTimelineRescueReview(state))return "";
+  const items=state.extraction?.parser?.reconciliation||[];
+  const matched=items.filter(item=>item.state==="MATCH");
+  const names=matched.map(item=>(state.candidates||[]).find(candidate=>candidate.id===item.timelineCandidateId)?.title).filter(Boolean);
+  return `<section class="intake-suggestions" aria-label="Source comparison" data-rescue-source-comparison>
+    <h2>Source comparison</h2>
+    <p>${items.length?`${matched.length} of ${state.candidates?.length||0} Timeline entries match an accepted CV title, with no disagreement in the recorded dates or category.`:
+      'No accepted CV comparison is available for this import. Verify these entries against your original sources.'}</p>
+    ${names.length?`<details><summary>See matched entries</summary><ul>${names.map(name=>`<li>${escapeHtml(name)}</li>`).join("")}</ul></details>`:""}
+    ${items.length?'<p class="secondary-body">This compares saved, student-accepted CV entries. It does not certify the original facts. Review any differences below before importing.</p>':""}
+  </section>`;
+}
+
 function suggestionsMarkup(state){
-  const suggestions=state.suggestions||[];
+  const suggestions=visibleSuggestions(state);
   if(!suggestions.length){
     if(isTimelineRescueReview(state))return"";
     return`<section class="intake-suggestions empty" aria-label="Document check"><p class="secondary-body">${INTAKE_COPY.suggestionsClear}</p></section>`;
@@ -1854,6 +1916,7 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
       ${providerReceiptMarkup(state.extraction?.parser)}
     </div>
     ${rescueReconstructionMarkup(state)}
+    ${rescueComparisonMarkup(state)}
     ${excludedCandidatesMarkup(state)}
     ${suggestionsMarkup(state)}
     <div class="intake-review-toolbar">

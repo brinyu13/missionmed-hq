@@ -572,14 +572,16 @@ test("Timeline Rescue keeps unclassified facts unresolved and exposes slide, cle
   assert.equal(result.candidates[0].inferredFields[0].sourcePrecision,"YEAR");
   assert.equal(result.candidates[0].fields.mappingReviewRequired,true);
   assert.equal(result.candidates[0].provenance[0].pageNumber,3);
-  assert.equal(result.parser.qualitySuggestions.length,2);
+  assert.equal(result.parser.qualitySuggestions.length,1);
+  assert.equal(result.parser.cleanupProposal.actions.length,1);
   assert.ok(result.parser.qualitySuggestions.some(({type})=>type==="CATEGORY_REVIEW"));
   const review=createIntakeState({candidates:result.candidates,suggestions:result.qualitySuggestions});
   review.stage=INTAKE_STAGES.REVIEW;
   assert.match(renderIntake(review),/Page 3/);
   review.candidates[0].decision="accepted";
   assert.equal(validateCandidateForApproval(review.candidates[0]).categoryId,"Choose a category.");
-  assert.match(renderIntake(review),/Review this MissionMed presentation proposal/);
+  assert.match(renderIntake(review),/What will be rebuilt/);
+  assert.doesNotMatch(renderIntake(review),/Label too long/);
 });
 
 test("Timeline Rescue PPTX passes IntakeStateMachine validation and reaches the production Rescue adapter only after consent",async()=>{

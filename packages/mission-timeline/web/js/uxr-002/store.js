@@ -417,7 +417,7 @@ export class TimelineStore{
     if(
       !Number.isFinite(expiresAt)||
       expiresAt>this.clock().getTime()||
-      this.entitlement.denialCode==="ENTITLEMENT_EXPIRED"
+      ["ENTITLEMENT_EXPIRED","SESSION_VERIFICATION_EXPIRED"].includes(this.entitlement.denialCode)
     )return false;
     clearTimeout(this.entitlementTimer);
     this.entitlementTimer=null;
@@ -430,8 +430,8 @@ export class TimelineStore{
       canCreate:false,
       canMutate:false,
       canExport:false,
-      denialCode:"ENTITLEMENT_EXPIRED",
-      reason:"Timeline access expired."
+      denialCode:this.entitlement.mode==="production"?"SESSION_VERIFICATION_EXPIRED":"ENTITLEMENT_EXPIRED",
+      reason:this.entitlement.mode==="production"?"Timeline session verification expired.":"Timeline access expired."
     });
     if(emit)this.emit();
     return true;
@@ -714,7 +714,7 @@ export class TimelineStore{
   }
 
   async listVersions(){
-    const values=await this.adapter.list("versions",(item)=>item.documentId===this.document.id);
+    const values=typeof this.adapter.listDocumentVersions==="function"?await this.adapter.listDocumentVersions(this.document.id):await this.adapter.list("versions",(item)=>item.documentId===this.document.id);
     return values.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   }
 

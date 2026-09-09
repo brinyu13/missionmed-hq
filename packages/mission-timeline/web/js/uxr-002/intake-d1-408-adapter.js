@@ -833,6 +833,8 @@ export function createProductionCvIntakeAdapter({
           const rescue=response?.rescue||{};
           const rescueSuggestions=[];
           for(const action of rescue.cleanupProposal?.actions||[]){
+            // Rebuilding the canonical layout is an explanation, not a diagnosed defect.
+            if(action.kind!=="RESOLVE_LAYOUT_COLLISION")continue;
             rescueSuggestions.push({
               id:String(action.id||`rescue-cleanup-${rescueSuggestions.length+1}`),
               type:action.kind==="RESOLVE_LAYOUT_COLLISION"?"VISUAL_OVERLAP":"LABEL_READABILITY",
@@ -844,12 +846,13 @@ export function createProductionCvIntakeAdapter({
             });
           }
           for(const item of rescue.reconciliation||[]){
+            if(item.state==="MATCH")continue;
             rescueSuggestions.push({
               id:`rescue-reconcile-${String(item.timelineCandidateId||"none")}-${String(item.cvCandidateId||"none")}-${String(item.state||"review")}`,
-              type:item.state==="DATE_CONFLICT"?"CHRONOLOGY_REVIEW":item.state==="CATEGORY_CONFLICT"?"CATEGORY_REVIEW":"SOURCE_ITEM_NOT_INCLUDED",
+              type:item.state==="DATE_CONFLICT"?"CHRONOLOGY_REVIEW":item.state==="CATEGORY_CONFLICT"?"CATEGORY_REVIEW":item.state==="CV_ONLY"?"RESCUE_CV_ONLY":"RESCUE_TIMELINE_ONLY",
               severity:item.state==="MATCH"?"INFO":"REVIEW",
               candidateIds:item.timelineCandidateId?[String(item.timelineCandidateId)]:[],
-              reason:`Timeline Rescue reconciliation: ${String(item.state||"REVIEW").replaceAll("_"," ").toLowerCase()}.`,
+              reason:item.state==="DATE_CONFLICT"?"The saved source dates differ.":item.state==="CATEGORY_CONFLICT"?"Check the category against your accepted CV entry.":"Check an entry without a unique source match.",
               recommendation:String(item.recommendation||"Review the source comparison before importing."),
               source:"DETERMINISTIC"
             });

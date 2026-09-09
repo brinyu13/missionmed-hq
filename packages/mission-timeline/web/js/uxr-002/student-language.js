@@ -89,6 +89,7 @@ const ACCESS_LANGUAGE=Object.freeze({
   INDIVIDUAL_OVERRIDE_DENIED:"Timeline Builder isn't open on your account right now. Contact MissionMed to turn it back on.",
   MATCHING_ENTITLEMENTS_INACTIVE:"Your Timeline Builder access isn't active right now. Contact MissionMed to turn it back on.",
   ENTITLEMENT_EXPIRED:"Your Timeline Builder access has ended. Contact MissionMed to renew it.",
+  SESSION_VERIFICATION_EXPIRED:"Your session needs to reconnect. Editing will resume after your access is verified. If this persists, reload Timeline.",
   ENTITLEMENT_DISABLED:"Your Timeline Builder access is turned off right now. Contact MissionMed to turn it back on.",
   ZERO_TIMELINE_ALLOWANCE:"Your membership doesn't include a timeline yet. Contact MissionMed to add one.",
   TIMELINE_ALLOWANCE_REACHED:"You've already used every timeline your membership includes. Contact MissionMed if you need another.",

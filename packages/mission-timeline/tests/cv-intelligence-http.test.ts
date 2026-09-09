@@ -261,6 +261,7 @@ test("owner-authenticated Timeline Rescue reads the exact private source and ret
       events: [],
       intake: {
         lastImport: {
+          documentType: "CV",
           acceptedCandidates: [{
             id: "cv-research-fellow",
             decision: "accepted",

@@ -1,0 +1,1234 @@
+{
+  "016": {
+    "sourceReceiptSha256": "6cba99b0272d29557eb0f874dcb2ec78c7893c05f686845bbd4fae5eb6a7cb5f",
+    "observations": [
+      {
+        "id": "title",
+        "pageOrSlide": 1,
+        "text": "Timeline: Ana Popescu",
+        "geometry": {
+          "x": 0.339,
+          "y": 0.154,
+          "width": 0.307,
+          "height": 0.036,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "year-labels",
+        "pageOrSlide": 1,
+        "text": "2016  2017  2018  2019  2020  2021  2022  2023  2024",
+        "geometry": {
+          "x": 0.045,
+          "y": 0.222,
+          "width": 0.91,
+          "height": 0.022,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "education-date-range",
+        "pageOrSlide": 1,
+        "text": "9/16 - 6/22",
+        "geometry": {
+          "x": 0.379,
+          "y": 0.261,
+          "width": 0.057,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.96
+      },
+      {
+        "id": "education-degree",
+        "pageOrSlide": 1,
+        "text": "Doctor of Medicine (MD)",
+        "geometry": {
+          "x": 0.337,
+          "y": 0.279,
+          "width": 0.125,
+          "height": 0.016,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "education-institution",
+        "pageOrSlide": 1,
+        "text": "Carol Davila University of Medicine and Pharmacy",
+        "geometry": {
+          "x": 0.303,
+          "y": 0.3,
+          "width": 0.219,
+          "height": 0.015,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "volunteer-date-range",
+        "pageOrSlide": 1,
+        "text": "2019 - 2021",
+        "geometry": {
+          "x": 0.476,
+          "y": 0.316,
+          "width": 0.052,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.97
+      },
+      {
+        "id": "volunteer-role",
+        "pageOrSlide": 1,
+        "text": "Volunteer",
+        "geometry": {
+          "x": 0.473,
+          "y": 0.333,
+          "width": 0.06,
+          "height": 0.015,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "volunteer-organization",
+        "pageOrSlide": 1,
+        "text": "Red Cross Romania",
+        "geometry": {
+          "x": 0.462,
+          "y": 0.351,
+          "width": 0.079,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "research-date-range",
+        "pageOrSlide": 1,
+        "text": "3/21 - 12/22",
+        "geometry": {
+          "x": 0.644,
+          "y": 0.371,
+          "width": 0.051,
+          "height": 0.013,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.97
+      },
+      {
+        "id": "research-role",
+        "pageOrSlide": 1,
+        "text": "Research Assistant",
+        "geometry": {
+          "x": 0.619,
+          "y": 0.388,
+          "width": 0.101,
+          "height": 0.016,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "research-organization",
+        "pageOrSlide": 1,
+        "text": "Cardiovascular Outcomes Lab, Carol Davila University",
+        "geometry": {
+          "x": 0.569,
+          "y": 0.407,
+          "width": 0.205,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "residency-role",
+        "pageOrSlide": 1,
+        "text": "Resident Physician (PGY-1 equivalent)",
+        "geometry": {
+          "x": 0.571,
+          "y": 0.445,
+          "width": 0.185,
+          "height": 0.017,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "residency-date-range",
+        "pageOrSlide": 1,
+        "text": "1/23 - 6/24",
+        "geometry": {
+          "x": 0.824,
+          "y": 0.425,
+          "width": 0.052,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.97
+      },
+      {
+        "id": "residency-institution",
+        "pageOrSlide": 1,
+        "text": "Emergency University Hospital Bucharest",
+        "geometry": {
+          "x": 0.767,
+          "y": 0.465,
+          "width": 0.163,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "observership-date-range",
+        "pageOrSlide": 1,
+        "text": "7/23 - 8/23",
+        "geometry": {
+          "x": 0.82,
+          "y": 0.48,
+          "width": 0.047,
+          "height": 0.013,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.96
+      },
+      {
+        "id": "observership-role",
+        "pageOrSlide": 1,
+        "text": "Observership",
+        "geometry": {
+          "x": 0.746,
+          "y": 0.5,
+          "width": 0.073,
+          "height": 0.016,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "observership-institution",
+        "pageOrSlide": 1,
+        "text": "Mount Sinai Hospital",
+        "geometry": {
+          "x": 0.81,
+          "y": 0.52,
+          "width": 0.105,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "clinical-elective-date-range",
+        "pageOrSlide": 1,
+        "text": "10/23 - 11/23",
+        "geometry": {
+          "x": 0.84,
+          "y": 0.535,
+          "width": 0.058,
+          "height": 0.013,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.96
+      },
+      {
+        "id": "clinical-elective-role",
+        "pageOrSlide": 1,
+        "text": "Clinical Elective",
+        "geometry": {
+          "x": 0.76,
+          "y": 0.555,
+          "width": 0.089,
+          "height": 0.017,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "clinical-elective-institution",
+        "pageOrSlide": 1,
+        "text": "Cleveland Clinic",
+        "geometry": {
+          "x": 0.829,
+          "y": 0.575,
+          "width": 0.076,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "usmle-step-1-date",
+        "pageOrSlide": 1,
+        "text": "11/22",
+        "geometry": {
+          "x": 0.755,
+          "y": 0.258,
+          "width": 0.022,
+          "height": 0.019,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.97
+      },
+      {
+        "id": "usmle-step-1",
+        "pageOrSlide": 1,
+        "text": "USMLE Step 1\n- Pass",
+        "geometry": {
+          "x": 0.782,
+          "y": 0.258,
+          "width": 0.089,
+          "height": 0.03,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "usmle-step-2-date",
+        "pageOrSlide": 1,
+        "text": "3/23",
+        "geometry": {
+          "x": 0.79,
+          "y": 0.143,
+          "width": 0.024,
+          "height": 0.019,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.97
+      },
+      {
+        "id": "usmle-step-2",
+        "pageOrSlide": 1,
+        "text": "USMLE Step 2\nCK - 251",
+        "geometry": {
+          "x": 0.817,
+          "y": 0.145,
+          "width": 0.083,
+          "height": 0.03,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "anticoagulation-outcomes-date",
+        "pageOrSlide": 1,
+        "text": "2023",
+        "geometry": {
+          "x": 0.77,
+          "y": 0.177,
+          "width": 0.024,
+          "height": 0.019,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "anticoagulation-outcomes",
+        "pageOrSlide": 1,
+        "text": "Outcomes after\nearly anticoagulation.",
+        "geometry": {
+          "x": 0.799,
+          "y": 0.18,
+          "width": 0.099,
+          "height": 0.031,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "color-key",
+        "pageOrSlide": 1,
+        "text": "COLOR KEY\nWork Experience\nPersonal (Not on CV)\nUSMLE Studies\nUSCE: Teaching Hosp\nUSCE: Clinics\nResearch Experience\nEducation",
+        "geometry": {
+          "x": 0.02,
+          "y": 0.368,
+          "width": 0.136,
+          "height": 0.184,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "profile-name",
+        "pageOrSlide": 1,
+        "text": "Ana Popescu",
+        "geometry": {
+          "x": 0.024,
+          "y": 0.606,
+          "width": 0.076,
+          "height": 0.016,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "profile-medical-school",
+        "pageOrSlide": 1,
+        "text": "Medical school: Carol Davila\nUniversity of Medicine and\nPharmacy",
+        "geometry": {
+          "x": 0.024,
+          "y": 0.634,
+          "width": 0.143,
+          "height": 0.042,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "profile-degree",
+        "pageOrSlide": 1,
+        "text": "Degree: MD",
+        "geometry": {
+          "x": 0.024,
+          "y": 0.687,
+          "width": 0.058,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "profile-step-1",
+        "pageOrSlide": 1,
+        "text": "Step 1: Passed",
+        "geometry": {
+          "x": 0.024,
+          "y": 0.71,
+          "width": 0.069,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "profile-step-2",
+        "pageOrSlide": 1,
+        "text": "Step 2 CK: 251",
+        "geometry": {
+          "x": 0.024,
+          "y": 0.733,
+          "width": 0.075,
+          "height": 0.014,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "program-logo-placeholder",
+        "pageOrSlide": 1,
+        "text": "PROGRAM LOGO",
+        "geometry": {
+          "x": 0.885,
+          "y": 0.307,
+          "width": 0.092,
+          "height": 0.036,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "interview-banner-placeholder",
+        "pageOrSlide": 1,
+        "text": "YOUR BIG INTERVIEW",
+        "geometry": {
+          "x": 0.868,
+          "y": 0.346,
+          "width": 0.113,
+          "height": 0.016,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "interview-date-placeholder",
+        "pageOrSlide": 1,
+        "text": "Date pending",
+        "geometry": {
+          "x": 0.899,
+          "y": 0.37,
+          "width": 0.051,
+          "height": 0.013,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "profile-photo-placeholder",
+        "pageOrSlide": 1,
+        "text": "PROFILE PHOTO",
+        "geometry": {
+          "x": 0.195,
+          "y": 0.649,
+          "width": 0.078,
+          "height": 0.013,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "photo-placeholder-1",
+        "pageOrSlide": 1,
+        "text": "DROP PHOTO 1",
+        "geometry": {
+          "x": 0.321,
+          "y": 0.73,
+          "width": 0.071,
+          "height": 0.017,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "photo-placeholder-2",
+        "pageOrSlide": 1,
+        "text": "DROP PHOTO 2",
+        "geometry": {
+          "x": 0.414,
+          "y": 0.771,
+          "width": 0.078,
+          "height": 0.017,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "photo-placeholder-3",
+        "pageOrSlide": 1,
+        "text": "DROP PHOTO 3",
+        "geometry": {
+          "x": 0.541,
+          "y": 0.777,
+          "width": 0.078,
+          "height": 0.017,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      }
+    ]
+  },
+  "018": {
+    "sourceReceiptSha256": "451e318657175b7d505c472bb7ebecb1cd228d25ada95bf3dec9b4bbf3865280",
+    "observations": [
+      {
+        "id": "obs-01",
+        "pageOrSlide": 1,
+        "text": "Timeline: Ana Popescu",
+        "geometry": {
+          "x": 0.3906,
+          "y": 0.0241,
+          "width": 0.1911,
+          "height": 0.0364,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-02",
+        "pageOrSlide": 1,
+        "text": "2016",
+        "geometry": {
+          "x": 0.0453,
+          "y": 0.1197,
+          "width": 0.0378,
+          "height": 0.0264,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-03",
+        "pageOrSlide": 1,
+        "text": "2017",
+        "geometry": {
+          "x": 0.1646,
+          "y": 0.1197,
+          "width": 0.0372,
+          "height": 0.0264,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-04",
+        "pageOrSlide": 1,
+        "text": "2018",
+        "geometry": {
+          "x": 0.2714,
+          "y": 0.1197,
+          "width": 0.0358,
+          "height": 0.0264,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-05",
+        "pageOrSlide": 1,
+        "text": "2019",
+        "geometry": {
+          "x": 0.3792,
+          "y": 0.1197,
+          "width": 0.038,
+          "height": 0.0264,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-06",
+        "pageOrSlide": 1,
+        "text": "2020",
+        "geometry": {
+          "x": 0.4841,
+          "y": 0.1197,
+          "width": 0.0384,
+          "height": 0.0264,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-07",
+        "pageOrSlide": 1,
+        "text": "2021",
+        "geometry": {
+          "x": 0.5901,
+          "y": 0.1197,
+          "width": 0.0373,
+          "height": 0.0264,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-08",
+        "pageOrSlide": 1,
+        "text": "2022",
+        "geometry": {
+          "x": 0.6964,
+          "y": 0.1197,
+          "width": 0.0384,
+          "height": 0.0264,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-09",
+        "pageOrSlide": 1,
+        "text": "2023",
+        "geometry": {
+          "x": 0.8018,
+          "y": 0.1197,
+          "width": 0.0387,
+          "height": 0.0264,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-10",
+        "pageOrSlide": 1,
+        "text": "2024",
+        "geometry": {
+          "x": 0.9192,
+          "y": 0.1197,
+          "width": 0.0377,
+          "height": 0.0264,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-11",
+        "pageOrSlide": 1,
+        "text": "9/16 - 6/22",
+        "geometry": {
+          "x": 0.3782,
+          "y": 0.1721,
+          "width": 0.0633,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "obs-12",
+        "pageOrSlide": 1,
+        "text": "Doctor of Medicine (MD)",
+        "geometry": {
+          "x": 0.3364,
+          "y": 0.1972,
+          "width": 0.1283,
+          "height": 0.0204,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-13",
+        "pageOrSlide": 1,
+        "text": "Carol Davila University of Medicine and Pharmacy",
+        "geometry": {
+          "x": 0.3046,
+          "y": 0.2255,
+          "width": 0.1967,
+          "height": 0.018,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-14",
+        "pageOrSlide": 1,
+        "text": "2019 - 2021",
+        "geometry": {
+          "x": 0.4773,
+          "y": 0.2465,
+          "width": 0.0447,
+          "height": 0.0158,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "obs-15",
+        "pageOrSlide": 1,
+        "text": "Volunteer",
+        "geometry": {
+          "x": 0.4741,
+          "y": 0.2702,
+          "width": 0.0474,
+          "height": 0.0185,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-16",
+        "pageOrSlide": 1,
+        "text": "Red Cross Romania",
+        "geometry": {
+          "x": 0.4624,
+          "y": 0.298,
+          "width": 0.076,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-17",
+        "pageOrSlide": 1,
+        "text": "3/21 - 12/22",
+        "geometry": {
+          "x": 0.6437,
+          "y": 0.3226,
+          "width": 0.0653,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "obs-18",
+        "pageOrSlide": 1,
+        "text": "Research Assistant",
+        "geometry": {
+          "x": 0.6195,
+          "y": 0.3476,
+          "width": 0.0961,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-19",
+        "pageOrSlide": 1,
+        "text": "Cardiovascular Outcomes Lab, Carol Davila University",
+        "geometry": {
+          "x": 0.5641,
+          "y": 0.3779,
+          "width": 0.2083,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "obs-20",
+        "pageOrSlide": 1,
+        "text": "1/23 - 6/24",
+        "geometry": {
+          "x": 0.8228,
+          "y": 0.3985,
+          "width": 0.06,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "obs-21",
+        "pageOrSlide": 1,
+        "text": "Resident Physician (PGY-1 equivalent)",
+        "geometry": {
+          "x": 0.5727,
+          "y": 0.4247,
+          "width": 0.187,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-22",
+        "pageOrSlide": 1,
+        "text": "Emergency University Hospital Bucharest",
+        "geometry": {
+          "x": 0.7698,
+          "y": 0.4544,
+          "width": 0.191,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-23",
+        "pageOrSlide": 1,
+        "text": "7/23 - 8/23",
+        "geometry": {
+          "x": 0.8173,
+          "y": 0.4747,
+          "width": 0.0603,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "obs-24",
+        "pageOrSlide": 1,
+        "text": "Observership",
+        "geometry": {
+          "x": 0.7455,
+          "y": 0.4995,
+          "width": 0.0844,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-25",
+        "pageOrSlide": 1,
+        "text": "Mount Sinai Hospital",
+        "geometry": {
+          "x": 0.7913,
+          "y": 0.5284,
+          "width": 0.0964,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-26",
+        "pageOrSlide": 1,
+        "text": "10/23 - 11/23",
+        "geometry": {
+          "x": 0.8422,
+          "y": 0.5492,
+          "width": 0.0712,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "obs-27",
+        "pageOrSlide": 1,
+        "text": "Clinical Elective",
+        "geometry": {
+          "x": 0.7603,
+          "y": 0.575,
+          "width": 0.1043,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-28",
+        "pageOrSlide": 1,
+        "text": "Cleveland Clinic",
+        "geometry": {
+          "x": 0.8284,
+          "y": 0.6047,
+          "width": 0.0793,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-29",
+        "pageOrSlide": 1,
+        "text": "3/23",
+        "geometry": {
+          "x": 0.7917,
+          "y": 0.0167,
+          "width": 0.0178,
+          "height": 0.0167,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.96
+      },
+      {
+        "id": "obs-30",
+        "pageOrSlide": 1,
+        "text": "USMLE Step 2",
+        "geometry": {
+          "x": 0.8178,
+          "y": 0.0157,
+          "width": 0.0746,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-31",
+        "pageOrSlide": 1,
+        "text": "CK - 251",
+        "geometry": {
+          "x": 0.8176,
+          "y": 0.0361,
+          "width": 0.0417,
+          "height": 0.0167,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-32",
+        "pageOrSlide": 1,
+        "text": "2023",
+        "geometry": {
+          "x": 0.7734,
+          "y": 0.063,
+          "width": 0.0171,
+          "height": 0.0148,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.97
+      },
+      {
+        "id": "obs-33",
+        "pageOrSlide": 1,
+        "text": "Outcomes after\nearly anticoagulation.",
+        "geometry": {
+          "x": 0.7996,
+          "y": 0.0619,
+          "width": 0.1203,
+          "height": 0.0362,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "obs-34",
+        "pageOrSlide": 1,
+        "text": "11/22",
+        "geometry": {
+          "x": 0.7549,
+          "y": 0.1709,
+          "width": 0.0211,
+          "height": 0.0167,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.96
+      },
+      {
+        "id": "obs-35",
+        "pageOrSlide": 1,
+        "text": "USMLE Step 1\n- Pass",
+        "geometry": {
+          "x": 0.782,
+          "y": 0.169,
+          "width": 0.0714,
+          "height": 0.037,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-36",
+        "pageOrSlide": 1,
+        "text": "COLOR KEY",
+        "geometry": {
+          "x": 0.0208,
+          "y": 0.3193,
+          "width": 0.0581,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-37",
+        "pageOrSlide": 1,
+        "text": "Work Experience",
+        "geometry": {
+          "x": 0.0452,
+          "y": 0.3545,
+          "width": 0.0778,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-38",
+        "pageOrSlide": 1,
+        "text": "Personal (Not on CV)",
+        "geometry": {
+          "x": 0.0452,
+          "y": 0.3883,
+          "width": 0.1036,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-39",
+        "pageOrSlide": 1,
+        "text": "USMLE Studies",
+        "geometry": {
+          "x": 0.0452,
+          "y": 0.4221,
+          "width": 0.0737,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-40",
+        "pageOrSlide": 1,
+        "text": "USCE: Teaching Hosp",
+        "geometry": {
+          "x": 0.0452,
+          "y": 0.4559,
+          "width": 0.1078,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-41",
+        "pageOrSlide": 1,
+        "text": "USCE: Clinics",
+        "geometry": {
+          "x": 0.0452,
+          "y": 0.4897,
+          "width": 0.0704,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-42",
+        "pageOrSlide": 1,
+        "text": "Research Experience",
+        "geometry": {
+          "x": 0.0452,
+          "y": 0.5235,
+          "width": 0.1017,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-43",
+        "pageOrSlide": 1,
+        "text": "Education",
+        "geometry": {
+          "x": 0.0452,
+          "y": 0.5573,
+          "width": 0.0523,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-44",
+        "pageOrSlide": 1,
+        "text": "Ana Popescu",
+        "geometry": {
+          "x": 0.0239,
+          "y": 0.6458,
+          "width": 0.0881,
+          "height": 0.0204,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-45",
+        "pageOrSlide": 1,
+        "text": "Medical school: Carol Davila\nUniversity of Medicine and\nPharmacy",
+        "geometry": {
+          "x": 0.0239,
+          "y": 0.6854,
+          "width": 0.1253,
+          "height": 0.0556,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-46",
+        "pageOrSlide": 1,
+        "text": "Degree: MD",
+        "geometry": {
+          "x": 0.0239,
+          "y": 0.76,
+          "width": 0.053,
+          "height": 0.0167,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-47",
+        "pageOrSlide": 1,
+        "text": "Step 1: Passed",
+        "geometry": {
+          "x": 0.0239,
+          "y": 0.7922,
+          "width": 0.0677,
+          "height": 0.0167,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-48",
+        "pageOrSlide": 1,
+        "text": "Step 2 CK: 251",
+        "geometry": {
+          "x": 0.0239,
+          "y": 0.8246,
+          "width": 0.0773,
+          "height": 0.0167,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-49",
+        "pageOrSlide": 1,
+        "text": "PROGRAM LOGO",
+        "geometry": {
+          "x": 0.8859,
+          "y": 0.2343,
+          "width": 0.08,
+          "height": 0.0185,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-50",
+        "pageOrSlide": 1,
+        "text": "YOUR BIG INTERVIEW",
+        "geometry": {
+          "x": 0.8689,
+          "y": 0.2856,
+          "width": 0.1097,
+          "height": 0.0185,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-51",
+        "pageOrSlide": 1,
+        "text": "Date pending",
+        "geometry": {
+          "x": 0.8989,
+          "y": 0.3199,
+          "width": 0.0667,
+          "height": 0.0176,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-52",
+        "pageOrSlide": 1,
+        "text": "PROFILE PHOTO",
+        "geometry": {
+          "x": 0.1951,
+          "y": 0.7046,
+          "width": 0.0771,
+          "height": 0.0167,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.99
+      },
+      {
+        "id": "obs-53",
+        "pageOrSlide": 1,
+        "text": "DROP PHOTO 1",
+        "geometry": {
+          "x": 0.3229,
+          "y": 0.8192,
+          "width": 0.0699,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "obs-54",
+        "pageOrSlide": 1,
+        "text": "DROP PHOTO 2",
+        "geometry": {
+          "x": 0.4149,
+          "y": 0.872,
+          "width": 0.0766,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      },
+      {
+        "id": "obs-55",
+        "pageOrSlide": 1,
+        "text": "DROP PHOTO 3",
+        "geometry": {
+          "x": 0.5417,
+          "y": 0.8796,
+          "width": 0.071,
+          "height": 0.0194,
+          "unit": "NORMALIZED"
+        },
+        "confidence": 0.98
+      }
+    ]
+  }
+}

@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node scripts/build-d1-404-candidate.mjs",
     "test": "node --import tsx --test tests/*.test.ts && node --test tests/*.test.mjs",
-    "test:web": "node web/tests/run_d1_411b_kernel_browser.mjs",
+    "test:web": "node web/tests/run_d1_022_family_mobile_browser.mjs",
     "test:matrix-app-mode": "node web/tests/run_d1_411_matrix_app_mode.mjs",
     "build:api": "node scripts/build-api.mjs",
     "check:api-only": "node scripts/check-api-only-build.mjs",

@@ -69,7 +69,9 @@ try {
   await matrixPage.getByRole("button", { name: "Open Mission Timeline" }).click();
   await matrixPage.waitForURL(/\/web\/\?matrixAppMode=local/);
   await matrixPage.waitForFunction(() => Boolean(window.D1_407F_ENGINEERING && window.D1_407F_TEST));
-  await matrixPage.waitForSelector('#entitlement407F[data-access="FULL"]');
+  // The StoryForge-family header presents the account identity and keeps the
+  // legacy entitlement node attached as a compatibility state carrier.
+  await matrixPage.waitForSelector('#entitlement407F[data-access="FULL"]', { state: "attached" });
   const matrix = await runtimeSnapshot(matrixPage);
 
   assert(matrix.runtime?.version === "413.0.0-rc.0", `wrong runtime version: ${matrix.runtime?.version}`);

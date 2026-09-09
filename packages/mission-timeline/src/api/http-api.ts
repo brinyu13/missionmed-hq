@@ -4,8 +4,7 @@ import { asTimelineError, TimelineError } from "../core/errors.js";
 import type { TimelineService } from "../domain/timeline-service.js";
 import { CvIntelligenceService } from "../intelligence/cv-intelligence-service.js";
 import { TimelineAiWorkflowService } from "../intelligence/timeline-ai-workflow-service.js";
-import { analyzeTimelineRescue } from "../intelligence/timeline-rescue-service.js";
-import type { RescueCvCandidate } from "../intelligence/timeline-rescue-schema.js";
+import { acceptedCvCandidatesForRescue, analyzeTimelineRescue } from "../intelligence/timeline-rescue-service.js";
 import type { PostgresFounderStandardRegistry } from "../intelligence/founder-standard-registry.js";
 import type { ProviderAuthenticityService022 } from "../intelligence/provider-authenticity-022.js";
 import { canonicalServerQuality022, canonicalServerQualityFindings022, completeServerQuality022 } from "../intelligence/server-quality-022.js";
@@ -245,25 +244,7 @@ export class TimelineHttpApi {
       const intake = record.document.intake && typeof record.document.intake === "object"
         ? record.document.intake as Record<string, unknown>
         : {};
-      const lastImport = intake.lastImport && typeof intake.lastImport === "object" && !Array.isArray(intake.lastImport)
-        ? intake.lastImport as Record<string, unknown>
-        : {};
-      const hasAcceptedImport = Array.isArray(lastImport.acceptedCandidates);
-      const acceptedCvCandidates: unknown[] = hasAcceptedImport
-        ? lastImport.acceptedCandidates as unknown[]
-        : Array.isArray(intake.candidates) ? intake.candidates : [];
-      const cvCandidates: RescueCvCandidate[] = acceptedCvCandidates
-        .filter((candidate): candidate is Record<string, unknown> => Boolean(candidate && typeof candidate === "object" && !Array.isArray(candidate)))
-        .filter((candidate) => hasAcceptedImport || ["accepted", "merge", "add-anyway", "keep-both"].includes(String(candidate.decision ?? "")))
-        .map((candidate) => ({
-          id: String(candidate.id ?? ""),
-          title: String(candidate.title ?? ""),
-          categoryId: String(candidate.categoryId ?? ""),
-          startDate: candidate.startDate ? String(candidate.startDate) : null,
-          endDate: candidate.endDate ? String(candidate.endDate) : null,
-          provenance: candidate.provenance,
-        }))
-        .filter((candidate) => Boolean(candidate.id && candidate.title));
+      const cvCandidates = acceptedCvCandidatesForRescue(intake);
       const initial = analyzeTimelineRescue({
         filename,
         mimeType: expectedMimeType,
@@ -369,6 +350,21 @@ export class TimelineHttpApi {
       return json(result);
     }
     const versionMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/versions$/);
+    if (versionMatch && request.method === "GET") {
+      return json({ versions: await service.listDocumentVersions(context, versionMatch[1]!) });
+    }
+    const versionReadMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/versions\/([^/]+)$/);
+    if (versionReadMatch && request.method === "GET") {
+      return json(await service.getDocumentVersion(context, versionReadMatch[1]!, versionReadMatch[2]!));
+    }
+    const conflictMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/conflict-recoveries$/);
+    if (conflictMatch && request.method === "POST") {
+      const input = await body(request);
+      return json(await service.recoverConflict(context, conflictMatch[1]!, {
+        requestId: String(input.requestId ?? ""), baseRevision: Number(input.baseRevision),
+        strategy: input.strategy as never, snapshot: input.snapshot as never,
+      }), 201);
+    }
     if (versionMatch && request.method === "POST") {
       const input = await body(request);
       const result = await service.createVersion(

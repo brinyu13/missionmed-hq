@@ -108,7 +108,7 @@ function publicError(error){
   return 'The current student roster could not be loaded. Refresh to try again.';
 }
 
-export function mountTimelineAdminWorkspace(host,{authClient,onOpenStudent=()=>{},onError=()=>{}}={}){
+export function mountTimelineAdminWorkspace(host,{authClient,initialView,onOpenStudent=()=>{},onError=()=>{}}={}){
   if(!host||typeof authClient?.listAdminStudents!=='function')throw new TypeError('The Timeline administrator roster client is required.');
   const documentObject=host.ownerDocument;
   if(documentObject?.head&&!documentObject.querySelector('link[data-admin-workspace-022]')){
@@ -152,6 +152,6 @@ export function mountTimelineAdminWorkspace(host,{authClient,onOpenStudent=()=>{
   function onSubmit(event){if(!event.target?.matches?.('[data-admin022-search-form]'))return;event.preventDefault();void refresh({...currentFields(),page:1});}
   function onChange(event){if(!event.target?.matches?.('[data-admin022-filter], [data-admin022-session]'))return;void refresh({...currentFields(),page:1});}
   host.addEventListener('click',onClick);host.addEventListener('submit',onSubmit);host.addEventListener('change',onChange);host.addEventListener('input',onInput);
-  const ready=refresh();
-  return Object.freeze({ready,refresh,destroy(){destroyed=true;generation++;host.removeEventListener('click',onClick);host.removeEventListener('submit',onSubmit);host.removeEventListener('change',onChange);host.removeEventListener('input',onInput);host.innerHTML='';}});
+  const ready=refresh(initialView);
+  return Object.freeze({ready,refresh,getViewState:()=>Object.freeze({...currentFields(),page:model.page}),destroy(){destroyed=true;generation++;host.removeEventListener('click',onClick);host.removeEventListener('submit',onSubmit);host.removeEventListener('change',onChange);host.removeEventListener('input',onInput);host.innerHTML='';}});
 }
