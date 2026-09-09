@@ -537,3 +537,18 @@ test('charge eligibility rejects stale, free, zero-treatment, missing-method and
   assert.equal(chargeEligibility({ ...base, paymentMethod: null }).eligible, false);
   assert.equal(chargeEligibility({ ...base, consent: null }).eligible, false);
 });
+
+test('Founder-authorized Antonio promotion preserves custody and changes only the active identity classification', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260909105200_promote_antonio_real_student.sql', import.meta.url), 'utf8');
+  assert.match(sql, /student\.display_name = 'Antonio Patterson'/);
+  assert.match(sql, /student\.identity_state = 'verified'/);
+  assert.match(sql, /student\.matrix_user_ref is not null/);
+  assert.match(sql, /method\.status = 'on_file'/);
+  assert.match(sql, /insert into missionaccounts\.identity_alias/);
+  assert.match(sql, /source_device_alias\.display_value, 'verified', 1\.0000/);
+  assert.match(sql, /update missionaccounts\.identity_alias\s+set superseded_by_id = promoted_alias_id/s);
+  assert.match(sql, /'identity\.student_promoted'/);
+  assert.match(sql, /Founder explicitly confirmed Antonio is a real student/);
+  assert.doesNotMatch(sql, /delete from missionaccounts\./i);
+  assert.doesNotMatch(sql, /update missionaccounts\.(student|attendance_event|attendance_day|stripe_customer_private|payment_method_private|billing_consent|billing_decision|invoice|charge)\b/i);
+});
