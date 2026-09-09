@@ -52,6 +52,9 @@ test('registered account landing provides enrollment-aware program states and re
  assert.match(html,/@media\(max-width:820px\)\{\.programCards\{grid-template-columns:1fr\}/);
  assert.match(html,/@media\(max-width:430px\)\{\.programTabs\{width:100%/);
  assert.match(html,/@media\(max-width:640px\)\{#hdr>\.programTabs\{order:3;width:100%/);
+ assert.match(html,/@media\(max-width:1100px\) and \(min-width:641px\)\{:root\{--hdr:112px\}/);
+ assert.match(html,/@media\(max-width:640px\)\{:root\{--hdr:176px\}#hdr>\.brand\{flex:1 0 100%\}/);
+ assert.match(html,/#hdr>\.hActions\{order:2;width:100%;margin-left:0;justify-content:space-between/);
  assert.match(html,/body\.opening-active #hdr,body\.opening-active #rail,body\.opening-active #main\{visibility:hidden\}/);
 });
 
