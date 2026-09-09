@@ -42,6 +42,23 @@ class StoryForgeCookiePathTests(unittest.TestCase):
         self.assertIn("register_rest_route(MMSF_REST_NAMESPACE, MMSF_REST_ROUTE", SOURCE)
         self.assertIn("function mmsf_token_endpoint($request)", SOURCE)
 
+    def test_unrelated_pages_do_not_enter_storyforge_remote_work(self):
+        enqueue = re.search(
+            r"function mmsf_enqueue_matrix_launch_adapter\(\) \{(.+?)\n}",
+            SOURCE,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(enqueue)
+        self.assertIn(
+            "if (!mmsf_is_matrix_request() || !mmsf_user_can_enter())",
+            enqueue.group(1),
+        )
+        self.assertEqual(SOURCE.count("wp_remote_get("), 1)
+        self.assertLess(
+            SOURCE.index("function mmsf_issue_jwt"),
+            SOURCE.index("$avatar = mmsf_arena_avatar_for_user"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
