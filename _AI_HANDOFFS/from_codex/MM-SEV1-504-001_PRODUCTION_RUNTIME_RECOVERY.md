@@ -4,12 +4,13 @@
 
 **RECOVERED — FULL MATRIX RUNTIME VERIFIED**
 
-MissionMed production is stable after two bounded fixes:
+MissionMed production is stable after three bounded fixes:
 
 1. the Calendar runtime no longer automatically retries a failed recursive Scheduler authentication path every 10 seconds; and
-2. StoryForge now issues and verifies its short-lived WordPress nonce within the same `/wp-admin/admin-ajax.php` cookie context.
+2. StoryForge now issues and verifies its short-lived WordPress nonce within the same `/wp-admin/admin-ajax.php` cookie context; and
+3. the Scheduler WordPress proxy now reuses an established private `mmhq_session` instead of forcing a new signed handoff and Supabase session bootstrap on every auth check.
 
-The first defect caused the cross-Matrix PHP worker exhaustion and 504 incident. The second caused the remaining real-360 StoryForge 403 after the platform had stabilized. Both were reproduced with exact evidence and fixed independently. No database, role, enrollment, entitlement, cache-rule, provider, or broad Matrix change was made.
+The first and third defects formed the cross-Matrix PHP worker-exhaustion chain. The second caused the remaining real-360 StoryForge 403 after the initial platform stabilization. All three were reproduced with exact evidence and fixed independently. No database, role, enrollment, entitlement, cache-rule, provider, or broad Matrix change was made.
 
 ## Incident timeline
 
@@ -32,6 +33,9 @@ All times are UTC on 2026-09-09 unless stated otherwise.
 | 03:21:00 | StoryForge same-cookie-context token exchange atomically deployed as SSO `0.1.2`, SHA-256 `f3d34519f78cda688e4225cefb6ce9e1432fb7f3d4e9a28a490baae29c79f5c7`. |
 | 03:21–03:26 | Real 360 StoryForge Home becomes visible; authenticated token action and `/storyforge/api/session` both return 200 with private/no-store headers. |
 | 03:27 | Fresh Matrix click, not a direct API probe, again opens visible StoryForge Home. |
+| 03:29 | Final route sweep catches three residual proxy 502s. Railway records the paired requests as client-closed 499s at the WordPress 20-second ceiling. Other HQ auth requests succeed in about 4 seconds. |
+| 03:38:59 | Scheduler proxy `1.0.16` atomically deployed to reuse an existing `mmhq_session`. New SHA-256 `47e25a4897545fb34e3deb41ecd418a6109b9c370da6af6c7774a30f9d9495e7`. |
+| 03:40 | Authenticated auth/session returns 200 in about 840 ms and Calendar feed in about 1.1 seconds through proxy `1.0.16`. |
 
 ## Failure matrix
 
@@ -58,7 +62,7 @@ High-volume exact paths in the 02:00 hour included 110 Scheduler entitlement cal
 
 ### After repair
 
-Dashboard, Calendar, Scheduler, My Appointments, File Vault and real-360 StoryForge all render visibly. No 504 or new Nginx upstream timeout occurred during the post-release verification window.
+Dashboard, Calendar, Scheduler, My Appointments, File Vault and real-360 StoryForge all render visibly. The verification loop caught and repaired three residual Scheduler-proxy 502s before sealing. No 504 or new Nginx upstream timeout occurred after the Calendar repair, and no 5xx occurred after the final Scheduler proxy repair.
 
 ## Kinsta/PHP evidence
 
@@ -66,7 +70,7 @@ Dashboard, Calendar, Scheduler, My Appointments, File Vault and real-360 StoryFo
 
 **VERIFIED FACT:** PHP is 8.2.29. The pool has `pm.max_children = 4`, `pm.max_requests = 2500`, and PHP `memory_limit = 256M`. The database allows 10 connections.
 
-**VERIFIED FACT:** During the incident, the four-worker PHP pool was asked to hold an outer WordPress proxy request for up to 20 seconds while the external Scheduler service called back into multiple WordPress REST endpoints. The browser abandoned its enrichment request after 2.5 seconds and the Calendar scheduled another attempt after 10 seconds.
+**VERIFIED FACT:** During the incident, the four-worker PHP pool was asked to hold an outer WordPress proxy request for up to 20 seconds while the external Scheduler service called back into multiple WordPress REST endpoints. The proxy ignored an already-established HQ session and forced a fresh signed handoff/bootstrap. The browser abandoned its enrichment request after 2.5 seconds and the Calendar scheduled another attempt after 10 seconds.
 
 **VERIFIED FACT:** Host disk and memory were not pressured. Initial disk use was 4%; more than 7 GB memory remained available. After repair, host load was `3.56 4.40 4.94`, 7,067 MB remained available, and only 106 MB swap was used.
 
@@ -126,7 +130,7 @@ The same browser sent an exact-host `wordpress_logged_in` cookie scoped to `/wp-
 
 ### Cross-Matrix 504 root cause
 
-**PROVEN:** Calendar’s uncapped 10-second Scheduler retry loop amplified a slow recursive proxy topology beyond the four-worker PHP pool.
+**PROVEN:** Calendar’s uncapped 10-second Scheduler retry loop amplified a slow recursive proxy topology beyond the four-worker PHP pool, while the WordPress proxy unnecessarily forced a fresh HQ/Supabase bootstrap on every auth check.
 
 The causal chain was:
 
@@ -135,6 +139,7 @@ Calendar mount
   -> WordPress /api/auth/session proxy (20-second upstream allowance)
      -> external Scheduler/HQ service
         -> multiple synchronous callbacks into WordPress
+     -> proxy ignores existing mmhq_session and forces new bootstrap
   -> browser deadline at 2.5 seconds
   -> request abandoned client-side while PHP remains occupied
   -> automatic retry after 10 seconds
@@ -161,11 +166,14 @@ Entitlement was not causal: the same user evaluated as `wordpress_learndash_hand
 6. StoryForge entitlement evaluated allowed while its browser token response remained 403: entitlement theory rejected.
 7. CDP response body and cookie-scope comparison proved the nonce-cookie mismatch.
 8. Moving only the token exchange to the same admin-AJAX context changed the same browser from 403 to visible StoryForge Home; authenticated token and session calls both became 200.
+9. A final route sweep caught three proxy 502s at 21–46 seconds. Railway recorded paired 499s at about 19.98 seconds while direct health and anonymous session controls remained about 0.2 seconds.
+10. Reusing the established `mmhq_session` changed authenticated auth/session to 200 in about 840 ms and Calendar feed to 200 in about 1.1 seconds through proxy `1.0.16`.
 
 ## Stabilization actions
 
 - Stopped automatic Scheduler enrichment retry on degradation. Calendar primary data remains available; an explicit route/user refresh may try enrichment again.
 - Moved StoryForge token exchange to a private POST-only admin-AJAX action so nonce issuance and verification share the same WordPress auth cookie context.
+- Made Scheduler auth/session reuse an existing private HQ session and fall back to signed WordPress handoff only when no HQ session cookie exists.
 - Preserved the REST token route for compatibility.
 - Performed no PHP restart, database restart, cache purge, cache-rule edit, plugin rollback, Railway release, Supabase write or MissionAccounts change.
 
@@ -182,6 +190,7 @@ Commits:
 ```text
 f37709e fix(calendar): stop recursive scheduler retry storm
 12dd9b7 fix(storyforge): bind token exchange to bootstrap session
+2d59a53 fix(scheduler): reuse established HQ session
 ```
 
 Changed production files only:
@@ -190,6 +199,7 @@ Changed production files only:
 |---|---|---|
 | `wp-content/plugins/missionmed-hub/assets/calendar-core/mmed-calendar-core.js` | `cb289e622259cd373f1207a15b614af097563937223d51a3fdb8c6ab8e7b7633` | `b6f55c8888c4adc016dc39736a46e49f626887c11db2214d6bb8141b2c96c6ec` |
 | `wp-content/plugins/missionmed-storyforge-sso/missionmed-storyforge-sso.php` | `0c9f3828dce34a43754cf75b8d7f9d2456aa4f2b0677b4204d1d86d3287c4934` | `f3d34519f78cda688e4225cefb6ce9e1432fb7f3d4e9a28a490baae29c79f5c7` |
+| `wp-content/plugins/mm-scheduler-route-proxy/mm-scheduler-route-proxy.php` | `6e27dc7b2cd09ea44acc6df33253eb26d456ed437add662260d0b2f55c96a379` | `47e25a4897545fb34e3deb41ecd418a6109b9c370da6af6c7774a30f9d9495e7` |
 
 Calendar is file-mtime versioned and the browser loaded `?ver=1788923099`; no cache purge was needed. StoryForge SSO mode remained locked `0444`; Calendar mode remained `0644`; owner/group remained unchanged.
 
@@ -201,7 +211,7 @@ Calendar is file-mtime versioned and the browser loaded `?ver=1788923099`; no ca
 | Calendar syntax | PASS |
 | Calendar suite | PASS, 20/20 |
 | PHP syntax for StoryForge SSO | PASS |
-| Incident Python contract tests | PASS, 6/6 after final addition |
+| Incident Python contract tests | PASS, 9/9 |
 | Held-open production Calendar | PASS: zero new Scheduler auth/feed/entitlement requests after initial load |
 | Real 360 Matrix → StoryForge browser journey | PASS |
 | Operational multi-route timeout parser on incident window | Expected FAIL, 444 timeouts across six Matrix families |
@@ -213,7 +223,7 @@ Permanent incident guard:
 tools/mm-sev1-504-health-check.py
 ```
 
-It fails when repeated Nginx upstream failures span multiple Matrix route families. The StoryForge contract test also locks same-cookie-context exchange, method/origin/nonce/access/rate/JWT gates, REST compatibility and the unrelated-page remote-work boundary.
+It fails when repeated Nginx upstream failures span multiple Matrix route families or when one Matrix family crosses the runaway threshold; the latter explicitly covers a future MissionAccounts-only loop. The StoryForge contract test also locks same-cookie-context exchange, method/origin/nonce/access/rate/JWT gates, REST compatibility and the unrelated-page remote-work boundary.
 
 ## Production verification matrix
 
@@ -237,13 +247,13 @@ It fails when repeated Nginx upstream failures span multiple Matrix route famili
 
 ## 504-free stability window
 
-Calendar fix deployed at 03:04:59. StoryForge fix deployed at 03:21:00. At the report seal, the Kinsta Nginx error log had received no new upstream timeout since 02:31:27, and the operational health check remained:
+Calendar fix deployed at 03:04:59. StoryForge fix deployed at 03:21:00. The verification loop caught three Scheduler proxy 502s at 03:29 and deployed the session-reuse fix at 03:38:59. At the report seal, the Kinsta Nginx error log had received no new upstream timeout since 02:31:27, no post-proxy-fix access-log 5xx was present, and the operational health check remained:
 
 ```text
 MM_SEV1_504_HEALTH_PASS timeouts=0 matrix_families=0 routes=none
 ```
 
-The final sealed duration and access-log 5xx count are recorded in the closing commit after the last observation.
+The closing snapshot at 03:57:21 sealed an 18-minute-plus post-proxy-fix window: 87 Kinsta origin requests, zero 5xx, and no matching Railway HTTP response at status 400 or higher. The six Scheduler/auth requests in that window all succeeded; the slowest completed in 4.573 seconds. A held-open Calendar observation accumulated 13 unrelated origin requests but zero new Scheduler auth, feed, entitlement/profile/course callback, or 5xx requests. The last 500 WordPress debug-log entries contained zero fatal, parse, uncaught, or memory-limit errors.
 
 ## Cache/header verification
 
@@ -284,6 +294,14 @@ There was no growing Nginx upstream queue, no new 504, no new cross-route timeou
 - No WordPress role, user identity, LearnDash enrollment, StoryForge data, Supabase row, Railway deployment, database schema or cache configuration was modified.
 - Protected Matrix bytes other than the proven Calendar root-cause asset are unchanged. Verified retained hashes include Calendar V2 `b5696c...b17874`, classic renderer `6a1ca3...3cb480`, Scheduler mount `2a47b8...e7578`, student OS `38507e...937a`, and StoryForge launch adapter `fd96fc...105c`.
 
+Authority bootstrap completed in order through `BOOT.md`, `CURRENT.md`, `missions.json`, `products_index.json` and `authority_index.json`. The universal validator returned:
+
+```text
+BOOT_DEPENDENCY_VALIDATION_PASS profile=universal hq_tip=e71b3902f40e82e4d27813cc54aa836bc13d2c35
+```
+
+The dirty MissionMed OS worktree (`main`, `a0c7fe2b6dfcbaf4f7aa23c17e587b68defb9d19`) and dirty Calendar source worktree (`codex/mx-cal-4200c-calendar-v2`, `b5c3fb996a1d542d4e868e9f22393e6aa7764479`) were read-only. The clean StoryForge source worktree (`codex/sf-access-5014-end-to-end-admin-access`, `d53d7a411522bdf7c52e63b63a8af54524e18bb0`) was also read-only. All candidate edits were made only in the dedicated incident worktree.
+
 ## Rollback state
 
 Exact private rollback bytes exist on Kinsta:
@@ -291,6 +309,7 @@ Exact private rollback bytes exist on Kinsta:
 ```text
 /www/theresidencyacademy_209/private/mm-sev1-504-001/20260909T030416Z/mmed-calendar-core.js.before
 /www/theresidencyacademy_209/private/mm-sev1-504-001/20260909T032025Z/missionmed-storyforge-sso.php.before
+/www/theresidencyacademy_209/private/mm-sev1-504-001/20260909T033828Z/mm-scheduler-route-proxy.php.before
 ```
 
 Rollback only the affected file, verify its recorded predecessor SHA-256, restore original ownership/mode, and re-run the full route/security matrix. No rollback condition occurred.
@@ -299,6 +318,7 @@ Rollback only the affected file, verify its recorded predecessor SHA-256, restor
 
 - Calendar core: `b6f55c8888c4adc016dc39736a46e49f626887c11db2214d6bb8141b2c96c6ec`
 - StoryForge SSO `0.1.2`: `f3d34519f78cda688e4225cefb6ce9e1432fb7f3d4e9a28a490baae29c79f5c7`
+- Scheduler route proxy `1.0.16`: `47e25a4897545fb34e3deb41ecd418a6109b9c370da6af6c7774a30f9d9495e7`
 - StoryForge launch adapter unchanged: `fd96fc1e3c81135d31addc0ae9d354083e3db7a7268111193cb88845de91105c`
 - MissionAccounts SSO unchanged: `af08b97a26b015cbc6858f5fc09411103d26dca15a177164150a0deeb655e0c6`
 - MissionAccounts route unchanged: `045088fb125635032c3f82ea78fbc08f8a9ca7830da1c6007959a02556eb3bbe`
