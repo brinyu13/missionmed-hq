@@ -13,10 +13,77 @@ const localConfig = {
   issuer: 'https://issuer.invalid',
   audience: 'missionaccounts',
   jwksUrl: 'https://issuer.invalid/jwks',
-  features: { studentContacts: false, billingDecisions: false, attendanceCorrections: false, identityReview: false, examPlans: false, compDays: false, paymentMethodSetup: false, autoBilling: false, notifications: false, zoomSync: false },
+  features: { studentContacts: false, billingDecisions: false, attendanceCorrections: false, identityReview: false, examPlans: false, compDays: false, paymentMethodSetup: false, manualCharges: false, autoBilling: false, notifications: false, zoomSync: false },
   stripeAccountId: '',
   workerToken: '',
 };
+
+test('admin manual cycle charge is approval-bound, webhook-finalized, and retry-idempotent', async () => {
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const decisionId = '10000000-0000-4000-8000-000000000001';
+  const cycleKey = '2026-cycle-1';
+  const store = new PreviewStore();
+  const approved = await store.approveBillingDecision({
+    studentId, cycleKey, treatment: 'other', requestedAmountCents: 100,
+    note: 'Founder-authorized one-dollar production witness', actorId: 'dr-j', actorRole: 'missionaccounts_admin', requestId: 'decision-request-0001',
+  });
+  approved.decision.id = decisionId;
+  approved.invoice.decision_id = decisionId;
+  store.billingDecisions.set(`${studentId}:${cycleKey}`, approved.decision);
+  store.invoices.set(approved.invoice.id, approved.invoice);
+  await store.saveStripeCustomer({ studentId, customerId: 'cus_live_manual_1' });
+  store.seedPaymentMethod(studentId, {
+    brand: 'visa', last4: '7734', status: 'on_file', provider_pm_ref: 'pm_live_manual_1', provider_customer_ref: 'cus_live_manual_1',
+  });
+  let providerCalls = 0;
+  const gateway = {
+    assertMutationAllowed() {},
+    configurationState() { return { mode: 'live', credentials_configured: true, webhook_configured: true, mutations_enabled: true, live_mutations_enabled: true }; },
+    verifyWebhook() {},
+    async createManualCycleCharge(input) {
+      providerCalls += 1;
+      assert.equal(input.amountCents, 100);
+      assert.equal(input.decisionId, decisionId);
+      assert.equal(input.paymentMethodId, 'pm_live_manual_1');
+      return { id: 'pi_live_manual_cycle_1', status: 'succeeded' };
+    },
+  };
+  const config = { ...localConfig, features: { ...localConfig.features, manualCharges: true } };
+  const path = `/api/admin/students/${studentId}/cycles/${cycleKey}/charge`;
+  const headers = { 'content-type': 'application/json', 'x-missionaccounts-local-role': 'missionaccounts_admin', 'idempotency-key': 'manual-charge-request-0001' };
+  const body = JSON.stringify({ decision_id: decisionId, expected_amount_cents: 100, expected_last4: '7734' });
+  await withServer({ config, store, stripeGateway: gateway }, async base => {
+    const first = await fetch(`${base}${path}`, { method: 'POST', headers, body });
+    assert.equal(first.status, 202);
+    const receipt = await first.json();
+    assert.equal(receipt.payment_intent_id, 'pi_live_manual_cycle_1');
+    assert.equal(receipt.charge.amount_cents, 100);
+    assert.equal(receipt.customer_ref, undefined);
+    assert.equal(receipt.payment_method_ref, undefined);
+
+    const event = {
+      id: 'evt_live_manual_cycle_1', type: 'payment_intent.succeeded', data: { object: {
+        id: 'pi_live_manual_cycle_1', amount: 100, amount_received: 100, currency: 'usd', status: 'succeeded',
+        customer: 'cus_live_manual_1', payment_method: 'pm_live_manual_1',
+        metadata: { kind: 'manual_cycle_charge', manual_cycle_charge_id: receipt.charge.id, student_id: studentId, cycle_key: cycleKey, billing_decision_id: decisionId, amount_cents: '100' },
+      } },
+    };
+    const webhook = await fetch(`${base}/api/webhooks/stripe`, { method: 'POST', headers: { 'stripe-signature': 'verified-by-stub' }, body: JSON.stringify(event) });
+    assert.equal(webhook.status, 200);
+    const charge = store.manualCycleCharges.get(`${studentId}:${cycleKey}`);
+    assert.equal(charge.state, 'succeeded');
+    assert.equal(store.invoices.get(charge.invoice_id).state, 'paid');
+
+    const retry = await fetch(`${base}${path}`, { method: 'POST', headers, body });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).already_succeeded, true);
+    assert.equal(providerCalls, 1);
+    const fourth = await fetch(`${base}${path}`, { method: 'POST', headers: { ...headers, 'idempotency-key': 'manual-charge-request-0002' }, body });
+    assert.equal(fourth.status, 409);
+    assert.equal((await fourth.json()).reason, 'charge_already_succeeded');
+    assert.equal(providerCalls, 1);
+  });
+});
 const webhookConfig = {
   ...localConfig,
   features: { ...localConfig.features, paymentMethodSetup: true },

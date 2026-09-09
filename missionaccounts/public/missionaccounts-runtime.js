@@ -48,6 +48,7 @@ const actionCapabilities = Object.freeze({
   'student-contact': 'student_contacts',
   'cycle-policy': 'billing_decisions',
   'billing-decision': 'billing_decisions',
+  'manual-cycle-charge': 'manual_charges',
   'billing-decision-reversal': 'billing_decisions',
   'billing-batch': 'billing_decisions',
   'billing-batch-reversal': 'billing_decisions',
@@ -288,6 +289,23 @@ async function dispatch(action, payload = {}) {
       if (['other', 'special'].includes(payload.t)) body.requested_amount_cents = Math.round(Number(payload.amt || 0) * 100);
       if (payload.note) body.note = payload.note;
       await window.MissionAccountsRuntime.mutation(`/admin/students/${studentUuid(payload.si)}/decisions`, { body });
+    } else if (action === 'manual-cycle-charge') {
+      if (!['missionaccounts_admin', 'founder'].includes(state.user?.role)) throw new Error('Only Dr J can charge an approved balance.');
+      const studentId = studentUuid(payload.si);
+      const cycleKey = databaseCycleKey[payload.k];
+      const decision = state.bootstrap.canon.billing_decisions.find(item => item.id === payload.decisionId
+        && item.student_id === studentId && item.cycle_key === cycleKey && item.state === 'approved' && !item.superseded_by_id);
+      const method = state.bootstrap.students?.find(item => item.id === studentId)?.payment_method;
+      const expectedAmountCents = Number(payload.amountCents);
+      if (!decision || decision.amount_cents !== expectedAmountCents || decision.amount_cents <= 0) {
+        throw new Error('The approved collectible balance changed. Reopen this student before charging.');
+      }
+      if (!method || method.status !== 'on_file' || method.last4 !== payload.last4) {
+        throw new Error('The saved payment method changed. Reopen this student before charging.');
+      }
+      receipt = await window.MissionAccountsRuntime.mutation(`/admin/students/${studentId}/cycles/${cycleKey}/charge`, {
+        body: { decision_id: decision.id, expected_amount_cents: decision.amount_cents, expected_last4: method.last4 },
+      });
     } else if (action === 'invoice-readiness') {
       const studentId = studentUuid(payload.si);
       const cycleKey = databaseCycleKey[payload.k];

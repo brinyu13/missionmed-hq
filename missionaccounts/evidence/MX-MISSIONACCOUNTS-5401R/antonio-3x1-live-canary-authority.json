@@ -1,0 +1,21 @@
+{
+  "schema_version": "missionaccounts-live-canary-authority-v1",
+  "mission_id": "MX-MISSIONACCOUNTS-5401R",
+  "authority": "founder-explicit",
+  "source_prompt_sha256": "9770443d30a05b5d1e72f684d53dd62f962de34b0c67af2a39ff94e31f5ff8dd",
+  "stripe_account_id": "acct_1TWHdrPqYqVwqSi5",
+  "test_student": "Antonio Patterson",
+  "saved_card_last4": "7734",
+  "authorized_cycles": [
+    { "cycle_key": "2026-cycle-1", "label": "June 2026", "amount_cents": 100 },
+    { "cycle_key": "2026-cycle-2", "label": "July 2026", "amount_cents": 100 },
+    { "cycle_key": "2026-cycle-3", "label": "August 2026", "amount_cents": 100 }
+  ],
+  "maximum_authorized_total_cents": 300,
+  "maximum_authorized_charge_count": 3,
+  "prior_external_payment_counts": false,
+  "fourth_charge_authorized": false,
+  "automatic_billing_authorized": false,
+  "scheduled_charging_authorized": false,
+  "scope": "Audited custom decisions plus bounded source, configuration, database, deployment, and live acceptance changes required for exactly three explicit MissionAccounts charges."
+}

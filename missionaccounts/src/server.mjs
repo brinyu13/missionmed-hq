@@ -38,6 +38,7 @@ function environmentConfig() {
       examPlans: process.env.MISSIONACCOUNTS_EXAM_PLANS === '1',
       compDays: process.env.MISSIONACCOUNTS_COMP_DAYS === '1',
       paymentMethodSetup: process.env.MISSIONACCOUNTS_PAYMENT_METHOD_SETUP === '1',
+      manualCharges: process.env.MISSIONACCOUNTS_MANUAL_CHARGES === '1',
       autoBilling: process.env.MISSIONACCOUNTS_AUTO_BILLING === '1',
       hostedInvoices: process.env.MISSIONACCOUNTS_HOSTED_INVOICES === '1',
       notifications: process.env.MISSIONACCOUNTS_NOTIFICATIONS === '1',
@@ -160,6 +161,7 @@ export function createMissionAccountsServer({
       zoom_schedule_utc: config.zoomScheduleUtc || null,
       hosted_invoices_enabled: Boolean(config.features?.hostedInvoices),
       payment_method_setup_enabled: Boolean(config.features?.paymentMethodSetup),
+      manual_charges_enabled: Boolean(config.features?.manualCharges),
       auto_billing_enabled: Boolean(config.features?.autoBilling),
       stripe: stripeState,
     };
@@ -215,24 +217,53 @@ export function createMissionAccountsServer({
     } else if (['payment_intent.succeeded', 'payment_intent.payment_failed'].includes(event.type) && result.status !== 'processed') {
       const object = event.data.object;
       const studentId = String(object.metadata?.student_id || '');
-      const attendanceDayId = String(object.metadata?.attendance_day_id || '');
       const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (!uuid.test(studentId) || !uuid.test(attendanceDayId) || !/^pi_[A-Za-z0-9_]+$/.test(String(object.id || ''))) {
-        effect = await store.markProviderEventUnhandled({
-          provider: 'stripe',
-          eventId: event.id,
-          reason: 'PaymentIntent is not owned by MissionAccounts',
-        });
+      if (object.metadata?.kind === 'manual_cycle_charge') {
+        const manualCycleChargeId = String(object.metadata?.manual_cycle_charge_id || '');
+        const cycleKey = String(object.metadata?.cycle_key || '');
+        const decisionId = String(object.metadata?.billing_decision_id || '');
+        const amountCents = Number(object.metadata?.amount_cents);
+        if (!uuid.test(studentId) || !uuid.test(manualCycleChargeId) || !uuid.test(decisionId)
+          || !/^2026-cycle-[123]$/.test(cycleKey) || !Number.isInteger(amountCents) || amountCents <= 0
+          || !/^pi_[A-Za-z0-9_]+$/.test(String(object.id || ''))) {
+          effect = await store.markProviderEventUnhandled({
+            provider: 'stripe',
+            eventId: event.id,
+            reason: 'Manual cycle PaymentIntent is not owned by MissionAccounts',
+          });
+        } else {
+          effect = await store.processStripeManualCyclePaymentIntent({
+            eventId: event.id,
+            eventType: event.type,
+            paymentIntentId: object.id,
+            manualCycleChargeId,
+            studentId,
+            cycleKey,
+            decisionId,
+            amountCents,
+            failureCode: object.last_payment_error?.code || null,
+            failureMessage: object.last_payment_error?.message || null,
+          });
+        }
       } else {
-        effect = await store.processStripePaymentIntent({
-          eventId: event.id,
-          eventType: event.type,
-          paymentIntentId: object.id,
-          studentId,
-          attendanceDayId,
-          failureCode: object.last_payment_error?.code || null,
-          failureMessage: object.last_payment_error?.message || null,
-        });
+        const attendanceDayId = String(object.metadata?.attendance_day_id || '');
+        if (!uuid.test(studentId) || !uuid.test(attendanceDayId) || !/^pi_[A-Za-z0-9_]+$/.test(String(object.id || ''))) {
+          effect = await store.markProviderEventUnhandled({
+            provider: 'stripe',
+            eventId: event.id,
+            reason: 'PaymentIntent is not owned by MissionAccounts',
+          });
+        } else {
+          effect = await store.processStripePaymentIntent({
+            eventId: event.id,
+            eventType: event.type,
+            paymentIntentId: object.id,
+            studentId,
+            attendanceDayId,
+            failureCode: object.last_payment_error?.code || null,
+            failureMessage: object.last_payment_error?.message || null,
+          });
+        }
       }
     } else if ([
       'invoice.finalized', 'invoice.sent', 'invoice.paid', 'invoice.payment_failed',
@@ -305,6 +336,7 @@ export function createMissionAccountsServer({
         attendance_corrections_enabled: Boolean(config.features?.attendanceCorrections),
         identity_review_enabled: Boolean(config.features?.identityReview),
         payment_method_setup_enabled: Boolean(config.features?.paymentMethodSetup),
+        manual_charges_enabled: Boolean(config.features?.manualCharges),
         auto_billing_enabled: Boolean(config.features?.autoBilling),
         hosted_invoices_enabled: Boolean(config.features?.hostedInvoices),
         notifications_enabled: Boolean(config.features?.notifications),
@@ -312,7 +344,7 @@ export function createMissionAccountsServer({
       });
     }
     if (request.method === 'POST' && url.pathname === '/api/webhooks/stripe') {
-      if (!config.features?.paymentMethodSetup && !config.features?.autoBilling && !config.features?.hostedInvoices) {
+      if (!config.features?.paymentMethodSetup && !config.features?.manualCharges && !config.features?.autoBilling && !config.features?.hostedInvoices) {
         throw requestError('This MissionAccounts capability is not enabled', 503);
       }
       return receiveStripeWebhook(request, response);
@@ -495,6 +527,7 @@ export function createMissionAccountsServer({
           exam_plans: Boolean(config.features?.examPlans),
           comp_days: Boolean(config.features?.compDays),
           payment_method_setup: Boolean(config.features?.paymentMethodSetup),
+          manual_charges: Boolean(config.features?.manualCharges),
           auto_billing: Boolean(config.features?.autoBilling),
           hosted_invoices: Boolean(config.features?.hostedInvoices),
           notifications: Boolean(config.features?.notifications),
@@ -903,6 +936,58 @@ export function createMissionAccountsServer({
         payment_intent_id: paymentIntent.id,
         state: 'pending_webhook',
         audit_event_id: result.audit_event_id || null,
+      });
+    }
+    const manualCycleChargeRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/cycles\/(2026-cycle-[123])\/charge$/i)
+      : null;
+    if (manualCycleChargeRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'manualCharges');
+      stripeGateway.assertMutationAllowed();
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const decisionId = String(body.decision_id || '');
+      const expectedAmountCents = Number(body.expected_amount_cents);
+      const expectedLast4 = String(body.expected_last4 || '');
+      if (!uuid.test(decisionId) || !Number.isInteger(expectedAmountCents) || expectedAmountCents <= 0 || !/^\d{4}$/.test(expectedLast4)) {
+        throw requestError('Manual charge requires the displayed decision, amount, and masked card');
+      }
+      const prepared = await store.prepareManualCycleCharge({
+        studentId: manualCycleChargeRoute[1],
+        cycleKey: manualCycleChargeRoute[2],
+        expectedDecisionId: decisionId,
+        expectedAmountCents,
+        expectedLast4,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      if (prepared.accepted === false) return json(response, 409, prepared);
+      const { customer_ref: customerId, payment_method_ref: paymentMethodId, receipt_email: receiptEmail } = prepared;
+      const safePrepared = { ...prepared };
+      delete safePrepared.customer_ref;
+      delete safePrepared.payment_method_ref;
+      delete safePrepared.receipt_email;
+      if (prepared.charge.state === 'succeeded') return json(response, 200, { ...safePrepared, already_succeeded: true });
+      const paymentIntent = await stripeGateway.createManualCycleCharge({
+        customerId,
+        paymentMethodId,
+        studentId: prepared.charge.student_id,
+        cycleKey: prepared.charge.cycle_key,
+        decisionId: prepared.charge.decision_id,
+        manualCycleChargeId: prepared.charge.id,
+        amountCents: prepared.charge.amount_cents,
+        receiptEmail,
+        idempotencyKey: prepared.charge.idempotency_key,
+      });
+      if (!/^pi_[A-Za-z0-9_]+$/.test(String(paymentIntent.id || ''))) {
+        throw requestError('Stripe PaymentIntent response is incomplete', 502);
+      }
+      return json(response, prepared.duplicate ? 200 : 202, {
+        ...safePrepared,
+        payment_intent_id: paymentIntent.id,
+        state: 'pending_webhook',
       });
     }
     const accountLinkRoute = request.method === 'POST'

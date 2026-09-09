@@ -162,6 +162,40 @@ export class StripeGateway {
     }, `missionaccounts:billable-day:${attendanceDayId}:v1`);
   }
 
+  createManualCycleCharge({
+    customerId, paymentMethodId, studentId, cycleKey, decisionId,
+    manualCycleChargeId, amountCents, receiptEmail, idempotencyKey,
+  }) {
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const normalizedReceiptEmail = String(receiptEmail || '').trim().toLowerCase();
+    if (!/^cus_[A-Za-z0-9_]+$/.test(String(customerId || ''))
+      || !/^pm_[A-Za-z0-9_]+$/.test(String(paymentMethodId || ''))
+      || !uuid.test(String(studentId || ''))
+      || !uuid.test(String(decisionId || ''))
+      || !uuid.test(String(manualCycleChargeId || ''))
+      || !/^2026-cycle-[123]$/.test(String(cycleKey || ''))
+      || !Number.isInteger(amountCents) || amountCents <= 0
+      || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedReceiptEmail)
+      || String(idempotencyKey || '') !== `missionaccounts:manual-cycle:${decisionId}:v1`) {
+      throw Object.assign(new Error('Stripe manual cycle charge request is invalid'), { status: 400 });
+    }
+    return this.request('payment_intents', {
+      amount: String(amountCents),
+      currency: 'usd',
+      customer: customerId,
+      payment_method: paymentMethodId,
+      receipt_email: normalizedReceiptEmail,
+      confirm: 'true',
+      off_session: 'true',
+      'metadata[kind]': 'manual_cycle_charge',
+      'metadata[manual_cycle_charge_id]': manualCycleChargeId,
+      'metadata[student_id]': studentId,
+      'metadata[cycle_key]': cycleKey,
+      'metadata[billing_decision_id]': decisionId,
+      'metadata[amount_cents]': String(amountCents),
+    }, idempotencyKey);
+  }
+
   async createHostedInvoice({ customerId, internalInvoiceId, studentId, cycleKey, amountCents, description, dueDays }) {
     if (!/^cus_[A-Za-z0-9_]+$/.test(String(customerId || ''))
       || !/^[0-9a-f-]{36}$/i.test(String(internalInvoiceId || ''))

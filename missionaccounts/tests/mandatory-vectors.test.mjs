@@ -306,6 +306,25 @@ test('automatic day-charge preparation is database-authoritative and provider co
   assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_prepare_day_charge[^;]+to authenticated/s);
 });
 
+test('manual cycle charging is separately gated, server-authoritative, signed, and finality protected', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260909135347_manual_cycle_charge.sql', import.meta.url), 'utf8');
+  assert.match(sql, /create table missionaccounts\.manual_cycle_charge/);
+  assert.match(sql, /amount_cents integer not null check \(amount_cents > 0\)/);
+  assert.match(sql, /manual_cycle_charge_active_cycle_unique/);
+  assert.match(sql, /state in \('pending','succeeded'\)/);
+  assert.match(sql, /create function missionaccounts\.api_prepare_manual_cycle_charge/);
+  assert.match(sql, /decision_row\.amount_cents <> p_expected_amount_cents/);
+  assert.match(sql, /method_row\.last4 is distinct from p_expected_last4/);
+  assert.match(sql, /'missionaccounts:manual-cycle:' \|\| decision_row\.id::text \|\| ':v1'/);
+  assert.match(sql, /create function missionaccounts\.api_process_stripe_manual_cycle_payment_intent/);
+  assert.match(sql, /event_row\.signature_verified is not true/);
+  assert.match(sql, /stripe_manual_cycle_charge_event_binding_mismatch/);
+  assert.match(sql, /manual_cycle_charge_requires_financial_review/);
+  assert.match(sql, /force row level security/);
+  assert.match(sql, /grant execute on function missionaccounts\.api_prepare_manual_cycle_charge[^;]+to service_role/s);
+  assert.doesNotMatch(sql, /grant execute on function missionaccounts\.api_prepare_manual_cycle_charge[^;]+to authenticated/s);
+});
+
 test('notification outbox claiming is bounded, skip-locked, retryable, and service-role only', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8');
   assert.match(sql, /reminder_id uuid unique references missionaccounts\.reminder/);

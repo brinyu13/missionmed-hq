@@ -162,7 +162,7 @@ export class SupabaseRestStore {
       : 'id,cycle_key,starts_at,held_on,time_zone,step,state';
     const [
       cycles, sessions, students, aliases, attendanceEvents, attendanceDays,
-      billingDecisions, invoices, examPlans, examTransitions, graceWindows, reminders,
+      billingDecisions, invoices, manualCycleCharges, examPlans, examTransitions, graceWindows, reminders,
       corrections, ceilings, cyclePolicies, ruleDecisions, deviceIdentityDecisions, auditHistory,
     ] = await Promise.all([
       this.billingCycles(),
@@ -173,6 +173,7 @@ export class SupabaseRestStore {
       this.requestAll(`attendance_day?superseded_at=is.null${studentFilter}&select=id,student_id,cycle_key,day,kind,comp_index,same_day_multiple_events,engine_version&order=day.asc`),
       this.requestAll(`billing_decision?state=neq.cleared&superseded_by_id=is.null${studentFilter}&select=id,student_id,cycle_key,treatment,amount_cents,basis,state,note,decided_at&order=created_at.asc`),
       this.requestAll(`invoice?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,cycle_key,decision_id,state,amount_cents,provider_status,hosted_invoice_url,invoice_pdf,due_at,sent_at,paid_at,last_provider_event_at&order=created_at.asc`),
+      this.requestAll(`manual_cycle_charge?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,cycle_key,decision_id,invoice_id,amount_cents,state,failure_code,failure_message,succeeded_at,created_at,updated_at&order=created_at.asc`),
       this.requestAll(`exam_plan?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,step,exam_on,state,result,note,suggested_on,passed_on,submitted_at,decided_at,withdrawn_at,superseded_by_id&order=submitted_at.asc`),
       this.requestAll(`exam_transition?accepted=eq.true${studentFilter}&select=id,exam_plan_id,student_id,from_state,to_state,result,reason,actor_role,created_at&order=created_at.asc`),
       this.requestAll(`grace_window_projection?${admin ? '' : `student_id=eq.${encodeURIComponent(studentId)}&`}select=id,student_id,exam_plan_id,from_on,to_on,closed_reason,created_at&order=created_at.asc`),
@@ -200,6 +201,7 @@ export class SupabaseRestStore {
       attendance_days: attendanceDays,
       billing_decisions: billingDecisions,
       invoices,
+      manual_cycle_charges: manualCycleCharges,
       exam_plans: examPlans,
       exam_transitions: examTransitions,
       grace_windows: graceWindows,
@@ -467,6 +469,19 @@ export class SupabaseRestStore {
     });
   }
 
+  async prepareManualCycleCharge({ studentId, cycleKey, expectedDecisionId, expectedAmountCents, expectedLast4, actorId, actorRole, requestId }) {
+    return this.rpc('api_prepare_manual_cycle_charge', {
+      p_student_id: studentId,
+      p_cycle_key: cycleKey,
+      p_expected_decision_id: expectedDecisionId,
+      p_expected_amount_cents: expectedAmountCents,
+      p_expected_last4: expectedLast4,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
   async claimDueDayCharges({ now, workerId, limit }) {
     return this.rpc('api_claim_due_day_charges', {
       p_now: now,
@@ -514,6 +529,21 @@ export class SupabaseRestStore {
       p_payment_intent_ref: paymentIntentId,
       p_student_id: studentId,
       p_attendance_day_id: attendanceDayId,
+      p_failure_code: failureCode || null,
+      p_failure_message: failureMessage || null,
+    });
+  }
+
+  async processStripeManualCyclePaymentIntent({ eventId, eventType, paymentIntentId, manualCycleChargeId, studentId, cycleKey, decisionId, amountCents, failureCode, failureMessage }) {
+    return this.rpc('api_process_stripe_manual_cycle_payment_intent', {
+      p_provider_event_id: eventId,
+      p_event_type: eventType,
+      p_payment_intent_ref: paymentIntentId,
+      p_manual_cycle_charge_id: manualCycleChargeId,
+      p_student_id: studentId,
+      p_cycle_key: cycleKey,
+      p_decision_id: decisionId,
+      p_amount_cents: amountCents,
       p_failure_code: failureCode || null,
       p_failure_message: failureMessage || null,
     });
@@ -762,6 +792,8 @@ export class PreviewStore {
     this.stripeCustomers = new Map();
     this.chargesByDay = new Map();
     this.chargeMutations = new Map();
+    this.manualCycleCharges = new Map();
+    this.manualCycleChargeMutations = new Map();
     this.autoChargeDispatches = new Map();
     this.integrationExceptions = new Map();
     this.zoomImports = new Map();
@@ -815,6 +847,7 @@ export class PreviewStore {
         .flatMap(([, rows]) => rows.map(row => ({ ...row }))),
       billing_decisions: valuesFor(this.billingDecisions),
       invoices: valuesFor(this.invoices),
+      manual_cycle_charges: valuesFor(this.manualCycleCharges),
       exam_plans: [
         ...this.priorExamPlans.filter(plan => relevantStudentIds.has(plan.student_id)),
         ...valuesFor(this.examPlans),
@@ -987,6 +1020,7 @@ export class PreviewStore {
       status: paymentMethod.status || 'on_file',
       verified_at: paymentMethod.verified_at || null,
       provider_pm_ref: paymentMethod.provider_pm_ref || `pm_preview_${studentId}`,
+      provider_customer_ref: paymentMethod.provider_customer_ref || this.stripeCustomers.get(studentId)?.provider_customer_ref || null,
     });
   }
   seedBillingTerms(version, terms = {}) {
@@ -1710,6 +1744,66 @@ export class PreviewStore {
     this.chargeMutations.set(requestId, { fingerprint, result });
     return result;
   }
+
+  async prepareManualCycleCharge({ studentId, cycleKey, expectedDecisionId, expectedAmountCents, expectedLast4, actorId, actorRole, requestId }) {
+    const fingerprint = JSON.stringify({ studentId, cycleKey, expectedDecisionId, expectedAmountCents, expectedLast4, actorId, actorRole });
+    const existingMutation = this.manualCycleChargeMutations.get(requestId);
+    if (existingMutation) {
+      if (existingMutation.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      const charge = this.manualCycleCharges.get(`${studentId}:${cycleKey}`);
+      return { ...existingMutation.result, charge: charge ? { ...charge } : existingMutation.result.charge, duplicate: true };
+    }
+    const decision = this.billingDecisions.get(`${studentId}:${cycleKey}`);
+    const invoice = [...this.invoices.values()].find(row => row.decision_id === expectedDecisionId);
+    const customer = this.stripeCustomers.get(studentId);
+    const method = this.paymentMethods.get(studentId);
+    const existingCharge = this.manualCycleCharges.get(`${studentId}:${cycleKey}`);
+    const receiptEmail = studentId === this.previewStudentRecord.id ? String(this.previewStudentRecord.email || '').trim().toLowerCase() : '';
+    let rejection = null;
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole)) rejection = 'administrator_authority_required';
+    else if (studentId !== this.previewStudentRecord.id || this.previewStudentRecord.identity_state !== 'verified' || !this.previewStudentRecord.matrix_user_ref) rejection = 'verified_linked_student_required';
+    else if (!decision || decision.id !== expectedDecisionId || decision.state !== 'approved') rejection = 'current_approved_decision_required';
+    else if (decision.amount_cents !== expectedAmountCents) rejection = 'approved_amount_changed';
+    else if (decision.amount_cents <= 0 || ['ucc', 'mul', 'waived', 'prepaid', 'already_paid', 'already_invoiced'].includes(decision.treatment)) rejection = 'collectible_balance_required';
+    else if (existingCharge?.state === 'succeeded') rejection = 'charge_already_succeeded';
+    else if (existingCharge?.state === 'pending') rejection = 'charge_already_pending';
+    else if (!invoice || invoice.amount_cents !== decision.amount_cents || !['draft', 'ready'].includes(invoice.state) || invoice.provider_ref) rejection = 'collectible_invoice_mismatch';
+    else if (!customer) rejection = 'stripe_customer_required';
+    else if (!method || method.status !== 'on_file') rejection = 'payment_method_required';
+    else if (method.provider_customer_ref && method.provider_customer_ref !== customer.provider_customer_ref) rejection = 'stripe_customer_payment_method_mismatch';
+    else if (method.last4 !== expectedLast4) rejection = 'payment_method_changed';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(receiptEmail)) rejection = 'student_receipt_email_required';
+    const ordinal = this.manualCycleChargeMutations.size + 1;
+    if (rejection) {
+      const result = { accepted: false, duplicate: false, reason: rejection, audit_event_id: `preview-manual-cycle-charge-rejected-${ordinal}` };
+      this.manualCycleChargeMutations.set(requestId, { fingerprint, result });
+      return result;
+    }
+    const charge = {
+      id: `40000000-0000-4000-9000-${String(ordinal).padStart(12, '0')}`,
+      student_id: studentId,
+      cycle_key: cycleKey,
+      decision_id: decision.id,
+      invoice_id: invoice.id,
+      amount_cents: decision.amount_cents,
+      state: 'pending',
+      idempotency_key: `missionaccounts:manual-cycle:${decision.id}:v1`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.manualCycleCharges.set(`${studentId}:${cycleKey}`, charge);
+    const result = {
+      accepted: true,
+      duplicate: false,
+      charge: { ...charge },
+      customer_ref: customer.provider_customer_ref,
+      payment_method_ref: method.provider_pm_ref,
+      receipt_email: receiptEmail,
+      audit_event_id: `preview-manual-cycle-charge-started-${ordinal}`,
+    };
+    this.manualCycleChargeMutations.set(requestId, { fingerprint, result });
+    return result;
+  }
   async claimDueDayCharges({ now, workerId, limit }) {
     const nowMs = Date.parse(now);
     if (!Number.isFinite(nowMs) || !workerId || !Number.isInteger(limit) || limit < 1 || limit > 25) {
@@ -1914,6 +2008,41 @@ export class PreviewStore {
     charge.failure_message = failureMessage || null;
     event.state = 'processed';
     return { accepted: true, duplicate: false, audit_event_id: `preview-charge-webhook-audit-${eventId}`, charge: { ...charge } };
+  }
+
+  async processStripeManualCyclePaymentIntent({ eventId, eventType, paymentIntentId, manualCycleChargeId, studentId, cycleKey, decisionId, amountCents, failureCode, failureMessage }) {
+    const event = this.providerEvents.get(`stripe:${eventId}`);
+    const charge = this.manualCycleCharges.get(`${studentId}:${cycleKey}`);
+    if (!event || !charge) throw Object.assign(new Error('Stripe manual cycle charge event cannot be matched'), { status: 409 });
+    if (event.state === 'processed') return { accepted: true, duplicate: true, charge: { ...charge } };
+    const object = event.payload?.data?.object;
+    if (!event.signatureVerified || event.eventType !== eventType || object?.id !== paymentIntentId
+      || object?.metadata?.kind !== 'manual_cycle_charge'
+      || object?.metadata?.manual_cycle_charge_id !== manualCycleChargeId
+      || object?.metadata?.student_id !== studentId || object?.metadata?.cycle_key !== cycleKey
+      || object?.metadata?.billing_decision_id !== decisionId || Number(object?.metadata?.amount_cents) !== amountCents
+      || Number(object?.amount) !== amountCents || object?.currency !== 'usd'
+      || charge.id !== manualCycleChargeId || charge.decision_id !== decisionId || charge.amount_cents !== amountCents) {
+      throw Object.assign(new Error('Stripe manual cycle charge event binding mismatch'), { status: 409 });
+    }
+    if (eventType === 'payment_intent.succeeded' && (object.status !== 'succeeded' || Number(object.amount_received) !== amountCents)) {
+      throw Object.assign(new Error('Stripe manual cycle charge amount mismatch'), { status: 409 });
+    }
+    charge.provider_ref = paymentIntentId;
+    charge.state = eventType === 'payment_intent.succeeded' ? 'succeeded' : 'failed';
+    charge.failure_code = failureCode || null;
+    charge.failure_message = failureMessage || null;
+    charge.succeeded_at = charge.state === 'succeeded' ? new Date().toISOString() : null;
+    charge.updated_at = new Date().toISOString();
+    if (charge.state === 'succeeded') {
+      const invoice = this.invoices.get(charge.invoice_id);
+      if (!invoice || invoice.decision_id !== decisionId || invoice.amount_cents !== amountCents || !['draft', 'ready', 'paid'].includes(invoice.state)) {
+        throw Object.assign(new Error('Manual cycle charge invoice binding mismatch'), { status: 409 });
+      }
+      Object.assign(invoice, { state: 'paid', provider_status: 'paid', paid_at: invoice.paid_at || new Date().toISOString() });
+    }
+    event.state = 'processed';
+    return { accepted: true, duplicate: false, audit_event_id: `preview-manual-cycle-charge-webhook-${eventId}`, charge: { ...charge } };
   }
   seedNotification(notification) {
     const id = notification.id || `preview-notification-${this.notifications.size + 1}`;

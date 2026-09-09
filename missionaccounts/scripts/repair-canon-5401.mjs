@@ -98,5 +98,31 @@ async function missionAccountsConfirmGroupSheet(k,which){
 }
 `;
   html = html.replace('/* ---------------- ADVANCED ---------------- */', batchHelpers + '/* ---------------- ADVANCED ---------------- */');
+  replace('<input id="oAmt" type="number" min="0" step="5"', '<input id="oAmt" type="number" min="0" step="0.01"');
+  const manualChargeHelpers = `
+function missionAccountsManualChargeHTML(e,k){
+  if(document.documentElement.dataset.missionaccountsBuild!=='production'||!missionAccountsCapability('manual_charges'))return '';
+  const decision=WS.dec?.[e.i]?.[k]||null; const method=pmOf(e.i); const charge=WS.manualCharges?.[e.i]?.[k]||null;
+  if(!decision||decision.state!=='approved'||Number(decision.amt)<=0)return '';
+  if(charge?.state==='succeeded')return '<div class="panel" style="padding:18px;margin:14px 0"><div class="chHead"><span class="t">'+esc(cyc(k).label)+' payment</span><span class="chip approved">Paid · '+money(charge.amount)+'</span></div><p class="muted" style="margin-top:8px">Stripe confirmed this explicit charge. The collected state is stored in MissionAccounts.</p></div>';
+  if(charge?.state==='pending')return '<div class="panel" style="padding:18px;margin:14px 0"><div class="chHead"><span class="t">'+esc(cyc(k).label)+' payment</span><span class="chip future">Processing · '+money(charge.amount)+'</span></div><p class="muted" style="margin-top:8px">Waiting for the signed Stripe webhook. Reload before taking another action.</p></div>';
+  if(charge?.state==='failed')return '<div class="panel" style="padding:18px;margin:14px 0"><div class="chHead"><span class="t">'+esc(cyc(k).label)+' payment</span><span class="chip review">Charge failed</span></div><p class="muted" style="margin-top:8px">No paid state was recorded. Review the declined payment before requesting a separately authorized retry.</p></div>';
+  if(!method||method.state!=='on_file'||!/^\\d{4}$/.test(String(method.last4||'')))return '<div class="panel" style="padding:18px;margin:14px 0"><div class="t">Saved payment method required</div><p class="muted" style="margin-top:8px">The approved balance cannot be charged until the student has a verified card on file.</p></div>';
+  return '<div class="panel" style="padding:18px;margin:14px 0"><div class="chHead"><span class="t">Collect approved balance</span><span class="chip ready">Manual action</span></div><p class="muted" style="margin-top:8px">Approved '+money(decision.amt)+' · '+esc(method.brand||'card')+' •••• '+esc(method.last4)+'. Nothing runs automatically.</p><div class="btnRow" style="margin-top:12px"><button type="button" class="btn confirm" data-manual-charge="'+e.i+'|'+k+'">Charge '+money(decision.amt)+'</button></div></div>';
+}
+function missionAccountsManualChargeSheet(si,k){
+  const e=model().eff[si]; const decision=WS.dec?.[si]?.[k]||null; const method=pmOf(si);
+  if(!e||!decision||decision.state!=='approved'||Number(decision.amt)<=0||!method||method.state!=='on_file'){toast('The current approved balance and saved card are required.');return;}
+  openSheet('<div class="t">Confirm real charge</div><div class="d">Review every item. This action creates a real LIVE Stripe charge and cannot be treated as a preview.</div><div class="kv" style="margin-top:16px"><span class="k">Student</span><span class="v">'+esc(e.n)+'</span><span class="k">Cycle</span><span class="v">'+esc(cyc(k).label)+'</span><span class="k">Amount</span><span class="v money">'+money(decision.amt)+'</span><span class="k">Payment method</span><span class="v">'+esc(method.brand||'card')+' •••• '+esc(method.last4)+'</span></div><p class="why" style="margin-top:14px"><b>Real charge:</b> MissionAccounts will ask the server to recheck this exact approved balance and saved payment method before contacting Stripe.</p><div class="acts"><button type="button" class="btn confirm" id="mcGo">Confirm charge</button><button type="button" class="btn ghost" id="mcNo">Cancel</button></div>',()=>{
+    $('#mcNo').onclick=closeSheet; $('#mcGo').onclick=async()=>{const button=$('#mcGo');button.disabled=true;const saved=await window.MissionAccountsRuntime.dispatch('manual-cycle-charge',{si,k,decisionId:decision.id,amountCents:Math.round(Number(decision.amt)*100),last4:String(method.last4)});if(saved===false){button.disabled=false;return;}closeSheet();render();toast('Charge submitted. Reloading will show Stripe-confirmed status.');};
+  });
+}
+`;
+  html = html.replace('/* ---------------- ADVANCED ---------------- */', manualChargeHelpers + '/* ---------------- ADVANCED ---------------- */');
+  replace('    ${recordLayersHTML(e,k)}', '    ${missionAccountsManualChargeHTML(e,k)}\n    ${recordLayersHTML(e,k)}');
+  replace("  root.querySelectorAll('[data-other]').forEach(b=>b.onclick=async()=>{ const [si,k]=b.dataset.other.split('|'); otherSheet(+si,k); });",
+    "  root.querySelectorAll('[data-other]').forEach(b=>b.onclick=async()=>{ const [si,k]=b.dataset.other.split('|'); otherSheet(+si,k); });\n  root.querySelectorAll('[data-manual-charge]').forEach(b=>b.onclick=async()=>{ const [si,k]=b.dataset.manualCharge.split('|'); missionAccountsManualChargeSheet(+si,k); });");
+  replace("    ['hosted_invoices','[data-provider-invoice]','Stripe-hosted invoicing is not enabled for this environment.'],",
+    "    ['hosted_invoices','[data-provider-invoice]','Stripe-hosted invoicing is not enabled for this environment.'],\n    ['manual_charges','[data-manual-charge]','Manual Stripe charging is not enabled for this environment.'],");
   return html;
 }

@@ -1670,6 +1670,7 @@ function viewStudent(si, q){ const m=model(); const e=m.eff[m.canonOf(si)]; if(!
       <div><span class="lbl">How should we treat ${esc(c.label.replace(' Cycle',''))}?</span>${treat}</div>
     </div>
 
+    ${missionAccountsManualChargeHTML(e,k)}
     ${recordLayersHTML(e,k)}
     ${examPlanChapterHTML(e)}
 
@@ -1934,6 +1935,7 @@ function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRun
     ['payment_method_setup','[data-pay],[data-stripe-customer]','Payment-method setup is not enabled for this environment.'],
     ['auto_billing','[data-auth],[data-auth-off]','Automatic billing is not enabled for this environment.'],
     ['hosted_invoices','[data-provider-invoice]','Stripe-hosted invoicing is not enabled for this environment.'],
+    ['manual_charges','[data-manual-charge]','Manual Stripe charging is not enabled for this environment.'],
   ];
   for(const [capability,selector,reason] of rules){
     if(missionAccountsCapability(capability)) continue;
@@ -1993,6 +1995,24 @@ async function missionAccountsConfirmGroupSheet(k,which){
     $('#gNo').onclick=closeSheet; $('#gGo').onclick=async()=>{ const button=$('#gGo');button.disabled=true;const result=await window.MissionAccountsRuntime.dispatch('billing-batch',{k,items:requestItems,requestId});if(result===false){button.disabled=false;return;} missionAccountsBatchOutcome(result,k); };
   });
 }
+function missionAccountsManualChargeHTML(e,k){
+  if(document.documentElement.dataset.missionaccountsBuild!=='production'||!missionAccountsCapability('manual_charges'))return '';
+  const decision=WS.dec?.[e.i]?.[k]||null; const method=pmOf(e.i); const charge=WS.manualCharges?.[e.i]?.[k]||null;
+  if(!decision||decision.state!=='approved'||Number(decision.amt)<=0)return '';
+  if(charge?.state==='succeeded')return '<div class="panel" style="padding:18px;margin:14px 0"><div class="chHead"><span class="t">'+esc(cyc(k).label)+' payment</span><span class="chip approved">Paid · '+money(charge.amount)+'</span></div><p class="muted" style="margin-top:8px">Stripe confirmed this explicit charge. The collected state is stored in MissionAccounts.</p></div>';
+  if(charge?.state==='pending')return '<div class="panel" style="padding:18px;margin:14px 0"><div class="chHead"><span class="t">'+esc(cyc(k).label)+' payment</span><span class="chip future">Processing · '+money(charge.amount)+'</span></div><p class="muted" style="margin-top:8px">Waiting for the signed Stripe webhook. Reload before taking another action.</p></div>';
+  if(charge?.state==='failed')return '<div class="panel" style="padding:18px;margin:14px 0"><div class="chHead"><span class="t">'+esc(cyc(k).label)+' payment</span><span class="chip review">Charge failed</span></div><p class="muted" style="margin-top:8px">No paid state was recorded. Review the declined payment before requesting a separately authorized retry.</p></div>';
+  if(!method||method.state!=='on_file'||!/^\d{4}$/.test(String(method.last4||'')))return '<div class="panel" style="padding:18px;margin:14px 0"><div class="t">Saved payment method required</div><p class="muted" style="margin-top:8px">The approved balance cannot be charged until the student has a verified card on file.</p></div>';
+  return '<div class="panel" style="padding:18px;margin:14px 0"><div class="chHead"><span class="t">Collect approved balance</span><span class="chip ready">Manual action</span></div><p class="muted" style="margin-top:8px">Approved '+money(decision.amt)+' · '+esc(method.brand||'card')+' •••• '+esc(method.last4)+'. Nothing runs automatically.</p><div class="btnRow" style="margin-top:12px"><button type="button" class="btn confirm" data-manual-charge="'+e.i+'|'+k+'">Charge '+money(decision.amt)+'</button></div></div>';
+}
+function missionAccountsManualChargeSheet(si,k){
+  const e=model().eff[si]; const decision=WS.dec?.[si]?.[k]||null; const method=pmOf(si);
+  if(!e||!decision||decision.state!=='approved'||Number(decision.amt)<=0||!method||method.state!=='on_file'){toast('The current approved balance and saved card are required.');return;}
+  openSheet('<div class="t">Confirm real charge</div><div class="d">Review every item. This action creates a real LIVE Stripe charge and cannot be treated as a preview.</div><div class="kv" style="margin-top:16px"><span class="k">Student</span><span class="v">'+esc(e.n)+'</span><span class="k">Cycle</span><span class="v">'+esc(cyc(k).label)+'</span><span class="k">Amount</span><span class="v money">'+money(decision.amt)+'</span><span class="k">Payment method</span><span class="v">'+esc(method.brand||'card')+' •••• '+esc(method.last4)+'</span></div><p class="why" style="margin-top:14px"><b>Real charge:</b> MissionAccounts will ask the server to recheck this exact approved balance and saved payment method before contacting Stripe.</p><div class="acts"><button type="button" class="btn confirm" id="mcGo">Confirm charge</button><button type="button" class="btn ghost" id="mcNo">Cancel</button></div>',()=>{
+    $('#mcNo').onclick=closeSheet; $('#mcGo').onclick=async()=>{const button=$('#mcGo');button.disabled=true;const saved=await window.MissionAccountsRuntime.dispatch('manual-cycle-charge',{si,k,decisionId:decision.id,amountCents:Math.round(Number(decision.amt)*100),last4:String(method.last4)});if(saved===false){button.disabled=false;return;}closeSheet();render();toast('Charge submitted. Reloading will show Stripe-confirmed status.');};
+  });
+}
+
 /* ---------------- ADVANCED ---------------- */
 function viewAdvanced(tab, q){ if(tab==='controls')return missionAccountsDataControls(); if(tab==='sessions')return missionAccountsClasses(); tab=tab||'records'; const m=model(); const tabs=[['records','All records'],['groups','Combined names'],['distinct','Kept separate'],['sessions','Classes'],['controls','Data controls'],['health','Admin health'],['working','Working history']];
   let body='';
@@ -2033,7 +2053,7 @@ function otherSheet(si,k){ const e=model().eff[si]; const att=e.c[k]?e.c[k].att:
       <button type="button" class="opt" data-t="special"><b>Special arrangement</b><span>A different amount, with a note</span></button>
       <button type="button" class="opt" data-t="other"><b>Custom amount</b><span>Any amount</span></button>
     </div>
-    <div class="otherForm" id="oForm" hidden><div class="field"><label for="oAmt">Amount (USD)</label><input id="oAmt" type="number" min="0" step="5" value="${sug.amount}"></div><div class="field"><label for="oNote">Note (shown on the record)</label><input id="oNote" type="text" placeholder="e.g. Half price agreed in June · Family rate"></div></div>
+    <div class="otherForm" id="oForm" hidden><div class="field"><label for="oAmt">Amount (USD)</label><input id="oAmt" type="number" min="0" step="0.01" value="${sug.amount}"></div><div class="field"><label for="oNote">Note (shown on the record)</label><input id="oNote" type="text" placeholder="e.g. Half price agreed in June · Family rate"></div></div>
     <div class="acts"><button type="button" class="btn confirm" id="oSave" hidden>Save treatment</button><button type="button" class="btn ghost" id="oCancel">Cancel</button></div>`, w=>{ let chosen=null;
       w.querySelectorAll('.opt').forEach(b=>b.onclick=async()=>{ chosen=b.dataset.t; w.querySelectorAll('.opt').forEach(x=>x.classList.toggle('on',x===b)); const needsAmt = chosen==='special'||chosen==='other'; $('#oForm').hidden=!needsAmt; $('#oSave').hidden=false; if(!needsAmt){ if(await decide(si,k,chosen)===false)return; closeSheet(); render(); } else { $('#oAmt').focus(); } });
       $('#oSave').onclick=async()=>{ if(!chosen) return; const amt=Math.max(0,Math.round(+$('#oAmt').value||0)); if(await decide(si,k,chosen,amt,$('#oNote').value.trim())===false)return; closeSheet(); render(); }; $('#oCancel').onclick=closeSheet; }); }
@@ -2123,6 +2143,7 @@ function bind(root){
   root.querySelectorAll('[data-decide-amt]').forEach(b=>b.onclick=async()=>{ const [si,k,amt,note]=b.dataset.decideAmt.split('|'); if(await decide(+si,k,+amt===300?'fullcycle':'other',+amt,note)===false)return; render(); });
   root.querySelectorAll('[data-undecide]').forEach(b=>b.onclick=async()=>{ const [si,k]=b.dataset.undecide.split('|'); if(await undecide(+si,k)===false)return; render(); });
   root.querySelectorAll('[data-other]').forEach(b=>b.onclick=async()=>{ const [si,k]=b.dataset.other.split('|'); otherSheet(+si,k); });
+  root.querySelectorAll('[data-manual-charge]').forEach(b=>b.onclick=async()=>{ const [si,k]=b.dataset.manualCharge.split('|'); missionAccountsManualChargeSheet(+si,k); });
   root.querySelectorAll('[data-ident]').forEach(b=>{ if(document.documentElement.dataset.missionaccountsBuild==='production' && window.MissionAccountsRuntime.state.capabilities.identity_review!==true){ b.disabled=true; b.setAttribute('aria-disabled','true'); b.title='Identity review is not enabled for this environment.'; return; } b.onclick=async()=>{ const [id,d]=b.dataset.ident.split('|'); const cl=D.clusters.find(c=>c.id===id); if(await decideIdent(cl,d)===false)return; render(); }; });
   root.querySelectorAll('[data-ident-undo]').forEach(b=>{ if(document.documentElement.dataset.missionaccountsBuild==='production' && window.MissionAccountsRuntime.state.capabilities.identity_review!==true){ b.disabled=true; b.setAttribute('aria-disabled','true'); b.title='Identity review is not enabled for this environment.'; return; } b.onclick=async()=>{ const cl=D.clusters.find(c=>c.id===b.dataset.identUndo); if(document.documentElement.dataset.missionaccountsBuild==='production'){ window.MissionAccountsRuntime.dispatch('identity-adjudication',{clusterRef:cl.id,decision:'unsure',canonicalSi:null,note:'Dr J reopened this identity question for more evidence'}); return; } preserveGraceOnSplit(cl.members.map(mm=>mm.si)); delete WS.ident[cl.id]; logIt('undo',`Reopened: ${cl.members.map(m=>m.alias).join(' / ')}`); touch(); render(); }; });
   root.querySelectorAll('[data-dev]').forEach(b=>{ if(document.documentElement.dataset.missionaccountsBuild==='production' && window.MissionAccountsRuntime.state.capabilities.identity_review!==true){ b.disabled=true; b.setAttribute('aria-disabled','true'); b.title='Identity review is not enabled for this environment.'; return; } b.onclick=async()=>{ const [key,d]=b.dataset.dev.split('|'); const dv=D.devices.find(x=>x.key===key); if(d==='match') matchSheet(dv); else { if(await decideDevice(dv,d)===false)return; render(); } }; });

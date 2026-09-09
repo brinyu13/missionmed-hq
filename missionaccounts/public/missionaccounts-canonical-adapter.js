@@ -85,7 +85,7 @@ function attendanceIssueQueue(bootstrap) {
 function emptyWorking(scope) {
   return {
     v: 3,
-    dec: {}, ident: {}, dev: {}, contact: {}, policy: {}, ready: {}, providerInvoices: {}, corrs: [],
+    dec: {}, ident: {}, dev: {}, contact: {}, policy: {}, ready: {}, providerInvoices: {}, manualCharges: {}, corrs: [],
     pm: {}, auth: {}, exam: {}, examHistory: {}, grace: {}, comp: {},
     rule: 'day', ruleDecision: null, log: [],
     lens: scope === 'student' ? 'student' : 'admin', ctx: 'xp', meStudent: scope === 'student' ? 0 : null,
@@ -375,6 +375,22 @@ export function buildCanonicalModel(bootstrap) {
       working.ready[si] ||= {};
       working.ready[si][cycleKey] = true;
     }
+  }
+  for (const charge of source.manual_cycle_charges || []) {
+    const si = studentIndex.get(charge.student_id);
+    if (si == null) continue;
+    const cycleKey = mappedCycleKey(charge.cycle_key);
+    working.manualCharges[si] ||= {};
+    working.manualCharges[si][cycleKey] = {
+      id: String(charge.id || ''),
+      decisionId: String(charge.decision_id || ''),
+      invoiceId: String(charge.invoice_id || ''),
+      amount: Number(charge.amount_cents || 0) / 100,
+      state: ['pending', 'succeeded', 'failed'].includes(charge.state) ? charge.state : 'failed',
+      failureCode: String(charge.failure_code || ''),
+      failureMessage: String(charge.failure_message || '').slice(0, 300),
+      succeededAt: charge.succeeded_at || null,
+    };
   }
   for (const entry of source.audit_history || []) {
     if (entry.kind === 'attendance_correction.appended') continue; // Correction receipts carry the Undo target below.

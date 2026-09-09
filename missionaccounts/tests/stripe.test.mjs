@@ -184,6 +184,42 @@ test('Stripe day charges require and normalize a receipt email', async () => {
   }
 });
 
+test('Stripe manual cycle charges use the authoritative amount, complete binding metadata, and one stable idempotency key', async () => {
+  const originalFetch = globalThis.fetch;
+  let observed;
+  globalThis.fetch = async (url, options) => {
+    observed = { url, options };
+    return { ok: true, json: async () => ({ id: 'pi_live_manual_cycle_1', status: 'succeeded' }) };
+  };
+  try {
+    const decisionId = '10000000-0000-4000-8000-000000000001';
+    const chargeId = '20000000-0000-4000-8000-000000000001';
+    const studentId = '30000000-0000-4000-8000-000000000001';
+    const idempotencyKey = `missionaccounts:manual-cycle:${decisionId}:v1`;
+    const gateway = new StripeGateway({ secretKey: 'rk_live_example', mode: 'live', liveMutationsEnabled: true });
+    await gateway.createManualCycleCharge({
+      customerId: 'cus_live_manual_1', paymentMethodId: 'pm_live_manual_1', studentId,
+      cycleKey: '2026-cycle-1', decisionId, manualCycleChargeId: chargeId,
+      amountCents: 100, receiptEmail: ' Founder.Card@Example.org ', idempotencyKey,
+    });
+    assert.equal(observed.url, 'https://api.stripe.com/v1/payment_intents');
+    assert.equal(observed.options.body.get('amount'), '100');
+    assert.equal(observed.options.body.get('currency'), 'usd');
+    assert.equal(observed.options.body.get('confirm'), 'true');
+    assert.equal(observed.options.body.get('off_session'), 'true');
+    assert.equal(observed.options.body.get('receipt_email'), 'founder.card@example.org');
+    assert.equal(observed.options.body.get('metadata[kind]'), 'manual_cycle_charge');
+    assert.equal(observed.options.body.get('metadata[manual_cycle_charge_id]'), chargeId);
+    assert.equal(observed.options.body.get('metadata[student_id]'), studentId);
+    assert.equal(observed.options.body.get('metadata[cycle_key]'), '2026-cycle-1');
+    assert.equal(observed.options.body.get('metadata[billing_decision_id]'), decisionId);
+    assert.equal(observed.options.body.get('metadata[amount_cents]'), '100');
+    assert.equal(observed.options.headers['idempotency-key'], idempotencyKey);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('Stripe payment-method detach is Test-Mode-only and idempotently keyed', async () => {
   const originalFetch = globalThis.fetch;
   let observed;

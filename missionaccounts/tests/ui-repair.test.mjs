@@ -99,6 +99,20 @@ test('identity canonical selection waits and preserves selection sheet on reject
  assert.deepEqual(called,[]);resolve(false);await save;assert.deepEqual(called,[]);
 });
 
+test('manual charge confirmation names the student, cycle, exact amount, masked card, real charge, and both choices',()=>{
+ assert.match(html,/function missionAccountsManualChargeSheet\(si,k\)/);
+ assert.match(html,/Confirm real charge/);
+ assert.match(html,/This action creates a real LIVE Stripe charge/);
+ assert.match(html,/Student<\/span><span class="v">/);
+ assert.match(html,/Cycle<\/span><span class="v">/);
+ assert.match(html,/Amount<\/span><span class="v money">/);
+ assert.match(html,/Payment method<\/span><span class="v">/);
+ assert.match(html,/Confirm charge/);
+ assert.match(html,/>Cancel<\/button>/);
+ assert.match(html,/dispatch\('manual-cycle-charge'/);
+ assert.match(html,/data-manual-charge/);
+});
+
 test('batch partial receipt never navigates a missing record to a different student',()=>{
  let sheet='';
  vm.runInNewContext(fn('missionAccountsBatchOutcome')+`;missionAccountsBatchOutcome({approved_count:0,rejected_count:1,results:[{student_id:'gone',accepted:false,reason:'student_not_found'}]},'june')`,{
