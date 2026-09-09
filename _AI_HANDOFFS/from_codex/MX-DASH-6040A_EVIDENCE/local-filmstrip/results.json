@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-09-09T14:08:44.697Z",
+  "results": [
+    {
+      "engine": "chromium",
+      "frames": 8,
+      "elapsedMs": 4213,
+      "zeroClassicFrames": true,
+      "classicImmediate": true,
+      "mobile390x844": true,
+      "directMatrixRoute": true
+    },
+    {
+      "engine": "webkit",
+      "frames": 8,
+      "elapsedMs": 3934,
+      "zeroClassicFrames": true,
+      "classicImmediate": true,
+      "mobile390x844": true,
+      "directMatrixRoute": true
+    }
+  ]
+}
