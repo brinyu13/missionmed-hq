@@ -54,6 +54,9 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /data-missionaccounts-runtime="authenticated-readonly"/);
   assert.match(html, /\[data-reset\][^\n]*display:none!important/);
   assert.match(html, /id="missionaccountsRuntimeGate"/);
+  assert.match(html, /function canRevealMissionAccountsShell\(\)\{ return document\.documentElement\.dataset\.missionaccountsBuild!=='production' \|\| document\.documentElement\.dataset\.missionaccountsRuntime==='authenticated-readonly'; \}/);
+  assert.match(html, /if\(canRevealMissionAccountsShell\(\)\) document\.body\.classList\.remove\('is-booting'\)/);
+  assert.match(runtimeSource, /missionaccountsRuntime = state\.bootstrap \? 'authenticated-readonly' : 'preview';\n\s+if \(state\.bootstrap\) window\.__XP\?\.revealAuthoritative\?\.\(\)/);
   assert.match(html, /id="hSearchInput" aria-label="Find a student"/);
   assert.match(html, /id="missionaccounts-bootstrap-route-guard"/);
   assert.match(html, /__MISSIONACCOUNTS_REQUESTED_HASH/);
@@ -98,7 +101,7 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(runtimeSource, /'hosted-invoice': 'hosted_invoices'/);
   assert.match(runtimeSource, /Only Dr J can manage hosted invoices/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('exam-transition',\{si,action:'passed'/);
-  assert.match(html, /hydrateAuthoritative, toast/);
+  assert.match(html, /hydrateAuthoritative, revealAuthoritative, toast/);
   assert.match(html, /onclick=async\(\)=>\{ const si=\+b\.dataset\.saveContact/);
   assert.match(html, /onclick=async\(\)=>\{ const \[si,k,v\]=b\.dataset\.ready\.split/);
 });

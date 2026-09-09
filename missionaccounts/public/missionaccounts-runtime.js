@@ -465,6 +465,7 @@ try {
   state.user = session.user || null;
   if (state.authenticated) await refreshCanonical();
   document.documentElement.dataset.missionaccountsRuntime = state.bootstrap ? 'authenticated-readonly' : 'preview';
+  if (state.bootstrap) window.__XP?.revealAuthoritative?.();
 } catch (error) {
   if (!error.redirecting) {
     state.mode = 'unavailable';

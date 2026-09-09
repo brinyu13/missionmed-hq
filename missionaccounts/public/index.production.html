@@ -1258,6 +1258,8 @@ const OPENING_REDUCED_MOTION_MS = 650;    // donor value
 let openingStartedAt = performance.now(); let openingProgressTimer = 0; let openingDone = false;
 function delay(ms){ return new Promise(r=>window.setTimeout(r, ms)); }
 function reducedMotion(){ return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; }
+function canRevealMissionAccountsShell(){ return document.documentElement.dataset.missionaccountsBuild!=='production' || document.documentElement.dataset.missionaccountsRuntime==='authenticated-readonly'; }
+function revealAuthoritative(){ if(!canRevealMissionAccountsShell()) return false; document.body.classList.remove('opening-active'); document.body.classList.remove('is-booting'); if(openingNode) openingNode.hidden=true; return true; }
 function showOpeningExperience(){ if(!openingNode) return;
   try{ if(sessionStorage.getItem(OPENING_TAB_KEY)==='1' && !location.hash.includes('replay=1')){ dismissOpeningExperience({immediate:true}); return; } }catch(e){ /* a blocked session store may replay the bounded visual, never block access */ }
   const alreadyActive = !openingNode.hidden && document.body.classList.contains('opening-active'); if(alreadyActive) return;
@@ -1266,11 +1268,11 @@ function showOpeningExperience(){ if(!openingNode) return;
   const status = openingNode.querySelector('[data-opening-status]'); if(status) status.textContent='Opening your MissionAccounts workspace…';
   openingProgressTimer = window.setTimeout(()=>{ if(!openingNode.hidden && status) status.textContent='Preparing your workspace…'; }, 2100);
   completeOpeningExperience(); }
-function dismissOpeningExperience({immediate=false}={}){ if(!openingNode) return; if(openingProgressTimer) window.clearTimeout(openingProgressTimer); openingProgressTimer=0; openingNode.dataset.phase = immediate?'idle':'leaving'; document.body.classList.remove('opening-active'); document.body.classList.remove('is-booting'); if(immediate) openingNode.hidden=true; }
+function dismissOpeningExperience({immediate=false}={}){ if(!openingNode) return; if(openingProgressTimer) window.clearTimeout(openingProgressTimer); openingProgressTimer=0; openingNode.dataset.phase = immediate?'idle':'leaving'; document.body.classList.remove('opening-active'); if(canRevealMissionAccountsShell()) document.body.classList.remove('is-booting'); if(immediate) openingNode.hidden=true; }
 async function completeOpeningExperience(){ if(!openingNode || openingNode.hidden || openingDone) return; openingDone=true;
   const rm=reducedMotion(); const minimum = rm? OPENING_REDUCED_MOTION_MS : OPENING_MINIMUM_MS; const remaining=Math.max(0, minimum-(performance.now()-openingStartedAt)); if(remaining) await delay(remaining);
   try{ sessionStorage.setItem(OPENING_TAB_KEY,'1'); }catch(e){}
-  dismissOpeningExperience(); await delay(rm?0:250); openingNode.hidden=true; document.body.classList.remove('is-booting'); }
+  dismissOpeningExperience(); await delay(rm?0:250); openingNode.hidden=true; if(canRevealMissionAccountsShell()) document.body.classList.remove('is-booting'); }
 function skipOpening(){ if(!openingNode || openingNode.hidden) return; openingStartedAt = -1e9; openingDone=false; completeOpeningExperience(); }
 if(openingNode){ openingNode.addEventListener('click', skipOpening); document.addEventListener('keydown', e=>{ if((e.key==='Escape'||e.key==='Enter'||e.key===' ') && !openingNode.hidden) skipOpening(); }); }
 document.body.classList.toggle('motion-enabled', !reducedMotion());
@@ -2177,7 +2179,7 @@ function hydrateAuthoritative(nextD,nextWS,idMaps){
   return {students:D.students.length,sessions:D.sessions.length,events:D.events.length,lens:WS.lens};
 }
 render(); showOpeningExperience();
-window.__XP = {D, WS:()=>WS, model, cycleStats, render, decide, addCorr, undoCorr, setPM, setAuth, setContact, editSheet, otherSheet, paymentSheet, authSheet, resetSheet, applyTheme, setTheme, submitExam, decideExam, markPassed, withdrawExam, setComp, setRule, recordRuleDecision, graceWindows, basisOf, ORIG_TOTAL, migrate, touch, decideIdent, examView, examSheet, examDecideSheet, passedSheet, compSheet, showOpeningExperience, skipOpening, cmdRoute, meStudent, accountState, suggestionFor, unitsOf, hydrateAuthoritative, toast, clearSensitiveState};
+window.__XP = {D, WS:()=>WS, model, cycleStats, render, decide, addCorr, undoCorr, setPM, setAuth, setContact, editSheet, otherSheet, paymentSheet, authSheet, resetSheet, applyTheme, setTheme, submitExam, decideExam, markPassed, withdrawExam, setComp, setRule, recordRuleDecision, graceWindows, basisOf, ORIG_TOTAL, migrate, touch, decideIdent, examView, examSheet, examDecideSheet, passedSheet, compSheet, showOpeningExperience, skipOpening, cmdRoute, meStudent, accountState, suggestionFor, unitsOf, hydrateAuthoritative, revealAuthoritative, toast, clearSensitiveState};
 })();
 
 </script>
