@@ -277,6 +277,9 @@ test('MyMissionMed Account bridge is default-off, registered-visible, enrollment
   assert.match(source, /'registered', 'student', 'missionaccounts_admin', 'founder'/);
   assert.match(source, /MyMissionMed Account/);
   assert.match(source, /matrix-launch\.js[^\n]+MMA_VERSION, true\)/);
+  assert.match(source, /missionmed-missionaccounts-inline-launch/);
+  assert.match(source, /data-missionaccounts-entry/);
+  assert.match(source, /new MutationObserver\(mount\)/);
   assert.doesNotMatch(source, /\$native\s*=\s*user_can\([^\n]+manage_options[^\n]+missionaccounts_admin/);
   assert.doesNotMatch(source, /\$source\s*=\s*\$is_admin\s*\?/);
   assert.match(source, /wp_verify_nonce\(\$nonce, 'wp_rest'\)/);
