@@ -36,6 +36,18 @@ test('student deep links and back navigation cannot select an administrative ren
  }
 });
 
+test('student billing uses persisted manual-charge finality',()=>{
+ const status=vm.runInNewContext('('+fn('studentCycleStatus')+')',{
+  WS:{manualCharges:{0:{june:{state:'succeeded',amount:1}}}},
+  money:value=>'$'+value,
+  accountState:()=>({state:'approved',amount:1}),
+ });
+ assert.deepEqual(JSON.parse(JSON.stringify(status({i:0},'june'))),{chip:'paid',text:'Paid · $1',state:'paid',amount:1});
+ assert.match(fn('viewMe'),/Stripe confirmed/);
+ assert.match(fn('viewMe'),/nothing is charged automatically/i);
+ assert.doesNotMatch(fn('viewMe'),/Pay online once the invoice arrives by email/);
+});
+
 test('registered account landing provides enrollment-aware program states and responsive CTAs',()=>{
  assert.match(html,/MyMissionMed Account/);
  assert.match(html,/Mission Residency<\/button>/);
