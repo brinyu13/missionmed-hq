@@ -490,6 +490,28 @@ test('student attendance issue reports are self-bound, private, idempotent, audi
   assert.match(sql, /revoke all on missionaccounts\.attendance_issue from public, anon, authenticated/);
 });
 
+test('student-owned write RPCs use the server-authoritative student id after account bootstrap', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260909095640_align_student_write_identity_guards.sql', import.meta.url), 'utf8');
+  const functions = [
+    'api_submit_exam_plan',
+    'api_transition_exam_plan',
+    'api_withdraw_exam_plan',
+    'api_prepare_payment_method_removal',
+    'api_submit_attendance_issue',
+  ];
+  for (const name of functions) {
+    assert.match(sql, new RegExp(`create or replace function missionaccounts\\.${name}\\(`));
+    assert.match(sql, new RegExp(`revoke execute on function missionaccounts\\.${name}[^;]+from public, anon, authenticated`, 's'));
+    assert.match(sql, new RegExp(`grant execute on function missionaccounts\\.${name}[^;]+to service_role`, 's'));
+    assert.doesNotMatch(sql, new RegExp(`grant execute on function missionaccounts\\.${name}[^;]+to authenticated`, 's'));
+  }
+  assert.match(sql, /s\.id = p_student_id and s\.id::text = p_actor_id/);
+  assert.match(sql, /s\.id = current_plan\.student_id and s\.id::text = p_actor_id/);
+  assert.match(sql, /student_row\.id::text is distinct from p_actor_id/);
+  assert.match(sql, /where id = p_student_id and id::text = p_actor_id/);
+  assert.doesNotMatch(sql, /matrix_user_ref\s+(?:=|is distinct from)\s+p_actor_id/);
+});
+
 test('attendance issue review is admin-only, idempotent, audited, and notifies the student without editing attendance', async () => {
   const sql = await readFile(new URL('../supabase/migrations/20260906110611_attendance_issue_review_resolution.sql', import.meta.url), 'utf8');
   assert.match(sql, /create function missionaccounts\.api_resolve_attendance_issue/);
