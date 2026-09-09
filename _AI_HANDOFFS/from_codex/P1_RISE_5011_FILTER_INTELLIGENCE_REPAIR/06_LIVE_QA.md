@@ -30,6 +30,10 @@ The mobile canary used a fresh authorized session at 390 by 844. After the autho
 
 Anonymous `/rise/` redirected to WordPress. Anonymous direct filter API access returned HTTP 401.
 
-## Post-acceptance current-state replay
+## Post-recovery current-state replay
 
-After the successful canaries above, the shared Kinsta PHP-FPM pool saturated across multiple products. A final fresh replay received no bytes from either WordPress login or the public `/rise/` proxy before a 20-second client timeout, while `https://missionmed-rise-production.up.railway.app/api/rise/v1/health` returned HTTP 200 in 0.415 seconds with the expected build and registry. The fresh current-instant 360 SSO replay is therefore `BLOCKED_BY_SHARED_KINSTA_PHP_POOL`; no claim is made that the public entry path is presently healthy. The earlier authenticated production canary results remain valid evidence for the deployed filter behavior.
+After the successful canaries above, the shared Kinsta PHP-FPM pool saturated across multiple products. On September 9 it recovered without a RISE mutation. WordPress login returned HTTP 200 in 1.227 seconds, anonymous public `/rise/` returned the expected HTTP 302 to WordPress login in 1.253 seconds, and direct RISE health returned HTTP 200 in 0.224 seconds.
+
+A new fresh authorized 360 browser replay returned HTTP 200, `authenticated=true`, `role=student`, `audience=rise`, `privateBeta=true`, and the expected `rise:read`, `rise:premium`, `rise:private-beta`, and `rise:contribute` capabilities. Admin Tools remained absent and the operator endpoint returned HTTP 403. The replay reconfirmed all Table D counts, reset to 6,139, opened Program File and Student Intel, loaded SOAP and My Programs, and produced no page or request failures. An initial optional profile read briefly returned HTTP 503 during pool recovery; an isolated follow-up produced three consecutive HTTP 200 canonical Matrix profile reads with a profile object present, completing the seam readback.
+
+The dedicated settled mobile replay at 390 by 844 measured viewport, document client, document scroll, and body scroll widths at exactly 390 pixels. The drawer rectangle was left `15.609375`, right `390`, width `374.390625`; therefore the drawer and document passed without horizontal overflow. Temporary sessions from every replay were destroyed and exact-token verification returned false.

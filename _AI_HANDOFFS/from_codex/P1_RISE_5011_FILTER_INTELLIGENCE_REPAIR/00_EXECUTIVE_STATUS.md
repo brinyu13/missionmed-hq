@@ -4,7 +4,7 @@ The filter-intelligence repair is deployed and active in the isolated production
 
 A real test-labeled, currently authorized 360 identity completed a production browser canary after cutover. All required filter combinations, Program File, Student Intel, SOAP, My Programs, session claims, student/admin separation, and anonymous denial passed. A separate 390 by 844 live run proved the settled filter drawer ends exactly at the viewport edge with no document overflow. Temporary WordPress sessions were destroyed after each run.
 
-After these successful canaries, the shared Kinsta WordPress PHP-FPM pool entered a site-wide saturation window. Kinsta reported its four-thread limit reached and Nginx recorded simultaneous 180-second upstream timeouts across RISE SSO, Matrix, Scheduler, MissionAccounts, WordPress REST, and cron. A final replay on September 8 still received no bytes from WordPress login or the public `/rise/` proxy before a 20-second client timeout; the isolated Railway RISE health endpoint remained HTTP 200 in 0.415 seconds. This was not caused by 5011 and no WordPress or shared-auth mutation was made. A fresh current-instant 360 SSO replay therefore remains blocked on separately authorized Kinsta/PHP-pool recovery even though the deployed filter build and the completed post-cutover 360 canaries passed.
+After these successful canaries, the shared Kinsta WordPress PHP-FPM pool entered a site-wide saturation window. Kinsta reported its four-thread limit reached and Nginx recorded simultaneous 180-second upstream timeouts across RISE SSO, Matrix, Scheduler, MissionAccounts, WordPress REST, and cron. This was not caused by 5011 and no WordPress or shared-auth mutation was made. On September 9 the pool recovered without a RISE mutation: WordPress login returned HTTP 200, anonymous public `/rise/` returned the expected 302 to login, and the isolated Railway health endpoint returned HTTP 200. A new authorized 360 browser replay then passed session/audience/capability enforcement, every required filter combination, Program File, Student Intel, SOAP, My Programs, and clear-to-6,139 behavior. Three consecutive canonical Matrix profile reads returned HTTP 200, and a dedicated settled 390 by 844 probe again showed a 390-pixel document with the drawer fully inside the viewport. Temporary sessions were destroyed and exact-token readback returned false.
 
 ```text
 TICKET = P1-RISE-5011
@@ -59,10 +59,11 @@ STUDENT_INTEL_REGRESSION = NO
 FABLE_UI_PRESERVED = YES
 ZERO_BLAST_RADIUS_PASS = YES
 LIVE_BROWSER_QA_PASS = YES
-CURRENT_FRESH_360_SSO_REPLAY = BLOCKED_BY_SHARED_KINSTA_PHP_POOL
+CURRENT_FRESH_360_SSO_REPLAY = PASS
+CURRENT_MATRIX_PROFILE_READBACK = PASS
 
 NEW_PARALLEL_SPEND = $0.00
 DEPLOYMENT_STATUS = LIVE
 ```
 
-`CARIBBEAN_FILTER_PASS = YES` means the concept is independent from DO and truthfully disabled at count zero; it does not claim evidence that is not approved. `ALUMNI_FILTER_PASS = NOT_AVAILABLE` means no verified canonical ACTN/alumni joins exist in the live serving contract. `DEPLOYMENT_STATUS = LIVE` describes the isolated RISE deployment; it does not override the separately recorded current shared-Kinsta entry-path outage.
+`CARIBBEAN_FILTER_PASS = YES` means the concept is independent from DO and truthfully disabled at count zero; it does not claim evidence that is not approved. `ALUMNI_FILTER_PASS = NOT_AVAILABLE` means no verified canonical ACTN/alumni joins exist in the live serving contract. The separately recorded shared-Kinsta saturation window recovered and the required fresh post-recovery 360 acceptance passed.
