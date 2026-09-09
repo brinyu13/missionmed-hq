@@ -9,6 +9,7 @@ const vm = require('node:vm');
 const pluginRoot = path.resolve(__dirname, '../..');
 const coreSource = fs.readFileSync(path.join(pluginRoot, 'assets/calendar-core/mmed-calendar-core.js'), 'utf8');
 const v2Source = fs.readFileSync(path.join(pluginRoot, 'assets/calendar-v2/mmed-calendar-v2.js'), 'utf8');
+const v2Styles = fs.readFileSync(path.join(pluginRoot, 'assets/calendar-v2/mmed-calendar-v2.css'), 'utf8');
 
 test('StoryForge renderer defers route mounting to Matrix Runtime v2', () => {
 	assert.match(
@@ -16,6 +17,18 @@ test('StoryForge renderer defers route mounting to Matrix Runtime v2', () => {
 		/route === 'calendar' && !\(app\.runtime && app\.runtime\.enabled\)/,
 		'Runtime-managed Calendar must not self-mount and duplicate or abort the primary request set'
 	);
+});
+
+test('StoryForge Month view exposes overflow instead of clipping live events', () => {
+	assert.match(v2Source, /global\.innerHeight <= 900 \? 1 : 3/);
+	assert.match(v2Source, /day\.events\.slice\(0, eventLimit\)/);
+	assert.match(v2Source, /day\.events\.length - eventLimit/);
+});
+
+test('StoryForge view titles stay readable and Drills subjects avoid a nested scroller', () => {
+	assert.match(v2Styles, /\.mcv2-header h1 \{[^}]*color: #fff;/s);
+	assert.match(v2Styles, /\.mcv2-drills-rail \{[^}]*max-height: none;[^}]*overflow: visible;/s);
+	assert.match(v2Styles, /\.mcv2-drill-topics-rail \{[^}]*max-height: none;[^}]*overflow: visible;/s);
 });
 
 function loadCore(overrides) {

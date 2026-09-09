@@ -421,6 +421,7 @@
 }
 .mmed-calendar-v2 .mcv2-header h1 {
 	margin-top: 4px;
+	color: #fff;
 	font-size: clamp(28px, 3.5vw, 44px);
 	font-weight: 900;
 	letter-spacing: -.045em;
@@ -1035,11 +1036,11 @@
 .mmed-calendar-v2 .mcv2-category[draggable="true"] { cursor: grab; }
 .mmed-calendar-v2 .mcv2-drills-button { margin: 5px 0 5px 14px; width: calc(100% - 14px); min-height: 38px; padding: 8px 10px; clip-path: none; }
 .mmed-calendar-v2 .mcv2-drills-button[aria-expanded="true"] { border-color: var(--mcv2-cyan); background: rgba(57,214,255,.12); color: #d8f7ff; }
-.mmed-calendar-v2 .mcv2-drills-rail { margin-left: 14px; max-height: 300px; overflow: hidden; }
+.mmed-calendar-v2 .mcv2-drills-rail { margin-left: 14px; max-height: none; overflow: visible; }
 .mmed-calendar-v2 .mcv2-drill-tabs { display: grid; grid-template-columns: 1fr 1fr; }
 .mmed-calendar-v2 .mcv2-drill-tabs button { min-height: 38px; font-size: 11px; }
-.mmed-calendar-v2 .mcv2-drill-topics-rail { display: grid; grid-template-columns: 1fr; gap: 5px; max-height: 218px; overflow-y: auto; padding-right: 4px; }
-.mmed-calendar-v2 .mcv2-drill-topic-rail { min-height: 34px; padding: 6px 9px; border: 1px solid #314361; border-radius: 7px; background: #111c2c; color: #d6e2f4; font-size: 11px; line-height: 1.25; text-align: left; cursor: grab; }
+.mmed-calendar-v2 .mcv2-drill-topics-rail { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px; max-height: none; overflow: visible; padding-right: 0; }
+.mmed-calendar-v2 .mcv2-drill-topic-rail { min-width: 0; min-height: 34px; padding: 6px 7px; border: 1px solid #314361; border-radius: 7px; background: #111c2c; color: #d6e2f4; font-size: 10px; line-height: 1.2; text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: grab; }
 .mmed-calendar-v2 .mcv2-drill-topic-rail.is-armed { border-color: var(--mcv2-cyan); background: rgba(57,214,255,.14); color: #fff; box-shadow: 0 0 0 1px rgba(57,214,255,.35); }
 .mmed-calendar-v2 .mcv2-mini-calendar header { display: grid; grid-template-columns: 28px 1fr 28px; text-align: center; }
 .mmed-calendar-v2 .mcv2-mini-today { grid-column: 1 / -1; min-height: 24px; margin-top: 4px; border: 1px solid #33435c; border-radius: 5px; background: transparent; color: #bfeeff; font-size: 10px; cursor: pointer; }
@@ -1177,6 +1178,14 @@
 	.mmed-calendar-v2 .mcv2-event.is-compact .mcv2-event-time { display: none; }
 	.mmed-calendar-v2 .mcv2-event.is-compact strong { font-size: 8px; line-height: 1.15; }
 	.mmed-calendar-v2 .mcv2-day-events .mcv2-event:nth-child(n+3) { display: none; }
+}
+
+@media (min-width: 561px) and (max-height: 900px) {
+	.mmed-calendar-v2 .mcv2-day-events { gap: 1px; }
+	.mmed-calendar-v2 .mcv2-event.is-compact { min-height: 15px; height: 15px; padding: 1px 4px; }
+	.mmed-calendar-v2 .mcv2-event.is-compact .mcv2-event-time { display: none; }
+	.mmed-calendar-v2 .mcv2-event.is-compact strong { font-size: 8px; line-height: 1.15; }
+	.mmed-calendar-v2 .mcv2-more { display: block; min-height: 9px; padding: 0; font-size: 8px; line-height: 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

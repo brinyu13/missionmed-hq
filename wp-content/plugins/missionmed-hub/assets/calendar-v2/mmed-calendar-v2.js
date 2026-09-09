@@ -151,10 +151,11 @@
 
 	function renderMonth(model, state) {
 		var isAdmin = effectivePerspective(state) === 'administrator';
+		var eventLimit = global.innerWidth <= 560 ? 4 : global.innerHeight <= 900 ? 1 : 3;
 		var weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function (day) { return '<div class="mcv2-weekday">' + day + '</div>'; }).join('');
 		var cells = model.monthDays.map(function (day) {
-			var events = day.events.slice(0, 3).map(function (event) { return eventRow(event, true, isAdmin); }).join('');
-			var more = day.events.length > 3 ? '<button class="mcv2-more" data-day="' + day.key + '">+' + (day.events.length - 3) + ' more</button>' : '';
+			var events = day.events.slice(0, eventLimit).map(function (event) { return eventRow(event, true, isAdmin); }).join('');
+			var more = day.events.length > eventLimit ? '<button type="button" class="mcv2-more" data-day="' + day.key + '">+' + (day.events.length - eventLimit) + ' more</button>' : '';
 			return '<section class="mcv2-month-day' + (day.outside ? ' is-outside' : '') + (day.today ? ' is-today' : '') + '" data-drop-day="' + day.key + '" aria-label="' + esc(day.fullLabel) + '">' +
 				'<button type="button" class="mcv2-day-number" data-day="' + day.key + '" aria-label="Open ' + esc(day.fullLabel) + '">' + esc(day.label) + '</button>' +
 				'<div class="mcv2-day-events">' + events + more + '</div>' +
