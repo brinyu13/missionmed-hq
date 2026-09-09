@@ -7,7 +7,7 @@
 
 do $$
 declare
-  target_student_id uuid;
+  promoted_student_id uuid;
   source_device_alias missionaccounts.identity_alias%rowtype;
   promoted_alias_id uuid := gen_random_uuid();
   changed_rows integer;
@@ -42,7 +42,7 @@ begin
     raise exception using errcode = '23514', message = 'antonio_real_student_repair_state_mismatch';
   end if;
 
-  select student.id into strict target_student_id
+  select student.id into strict promoted_student_id
   from missionaccounts.student student
   where student.display_name = 'Antonio Patterson'
     and student.identity_state = 'verified'
@@ -58,14 +58,14 @@ begin
 
   select alias.* into strict source_device_alias
   from missionaccounts.identity_alias alias
-  where alias.student_id = target_student_id
+  where alias.student_id = promoted_student_id
     and alias.relationship_state = 'device'
     and alias.superseded_by_id is null
   for update;
 
   if exists (
     select 1 from missionaccounts.device_identity_decision decision
-    where decision.source_student_id = target_student_id
+    where decision.source_student_id = promoted_student_id
       and decision.superseded_by_id is null
   ) then
     raise exception using errcode = '23514', message = 'antonio_device_identity_decision_already_exists';
@@ -84,8 +84,8 @@ begin
     id, student_id, source_artifact_id, source_key, display_value,
     relationship_state, confidence, approved_by, approved_at
   ) values (
-    promoted_alias_id, target_student_id, source_device_alias.source_artifact_id,
-    'founder-person-promotion:5401r:' || target_student_id::text,
+    promoted_alias_id, promoted_student_id, source_device_alias.source_artifact_id,
+    'founder-person-promotion:5401r:' || promoted_student_id::text,
     source_device_alias.display_value, 'verified', 1.0000,
     'founder', now()
   );
@@ -102,7 +102,7 @@ begin
     actor_id, actor_role, subject_student_id, kind, text,
     from_val, to_val, reason, request_id
   ) values (
-    'founder:MX-MISSIONACCOUNTS-5401R', 'founder', target_student_id,
+    'founder:MX-MISSIONACCOUNTS-5401R', 'founder', promoted_student_id,
     'identity.student_promoted',
     'Promoted the existing verified Matrix-linked Antonio Patterson record to a real MissionAccounts student',
     jsonb_build_object('alias_id', source_device_alias.id, 'classification', 'device'),
