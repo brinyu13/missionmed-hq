@@ -182,16 +182,18 @@ Entitlement was not causal: the same user evaluated as `wordpress_learndash_hand
 Incident branch:
 
 ```text
-codex/mm-sev1-504-001-runtime-recovery
+codex/mm-sev1-504-001-runtime-recovery-main
 ```
 
 Commits:
 
 ```text
-f37709e fix(calendar): stop recursive scheduler retry storm
-12dd9b7 fix(storyforge): bind token exchange to bootstrap session
-2d59a53 fix(scheduler): reuse established HQ session
+05e99ee fix(calendar): stop recursive scheduler retry storm
+567739a fix(storyforge): bind token exchange to bootstrap session
+8ae7418 fix(scheduler): reuse established HQ session
 ```
+
+Review PR: `https://github.com/brinyu13/missionmed-hq/pull/27`
 
 Changed production files only:
 
