@@ -84,6 +84,47 @@ test("list-first Find Programs loads canonical identities and toggles to grid", 
   await expect(page.locator(".pRow")).toHaveCount(4);
 });
 
+test("visa, resident evidence, and research depth filters expose real counts and compose", async ({ page }) => {
+  await openRise(page, "find");
+  const acknowledge = page.getByRole("button", { name: "I understand", exact: true });
+  if (await acknowledge.isVisible()) await acknowledge.click();
+  await expect(page.getByRole("button", { name: /IMG evidence 2/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Visa published 2/ })).toBeVisible();
+
+  await page.locator("select[aria-label='Specialty']").selectOption("Internal Medicine");
+  await page.getByRole("button", { name: /More filters/ }).click();
+  await page.getByRole("button", { name: /J-1 sponsorship published/ }).click();
+  await page.getByRole("button", { name: "Show results", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /1 Internal Medicine program/ })).toBeVisible();
+  await expect(page.locator(".pRow")).toContainText("Atlas Internal Medicine Program");
+  await page.getByRole("button", { name: /IMG evidence/ }).click();
+  await expect(page.locator(".pRow")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+  await expect(page.locator(".pRow")).toHaveCount(4);
+  await page.getByRole("button", { name: /More filters/ }).click();
+  await page.getByRole("button", { name: /DO residents \/ graduates reported/ }).click();
+  await page.getByRole("button", { name: /Caribbean graduates on roster/ }).click();
+  await page.getByRole("button", { name: "Show results", exact: true }).click();
+  await expect(page.locator(".pRow")).toHaveCount(1);
+  await expect(page.locator(".pRow")).toContainText("Beacon Medicine Pediatrics Program");
+
+  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+  for (const [label, programName] of [
+    ["Deep Research", "Atlas Internal Medicine Program"],
+    ["Enriched Research", "Beacon Medicine Pediatrics Program"],
+    ["Basic Profile", "Cascade Neurology Program"],
+    ["Research Pending", "Delta Pediatrics Program"],
+  ]) {
+    await page.getByRole("button", { name: /More filters/ }).click();
+    await page.getByRole("button", { name: new RegExp(`^${label}`) }).click();
+    await page.getByRole("button", { name: "Show results", exact: true }).click();
+    await expect(page.locator(".pRow")).toHaveCount(1);
+    await expect(page.locator(".pRow")).toContainText(programName);
+    await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+  }
+});
+
 test("global program lookup and state filters preserve unknown-first program results", async ({ page }) => {
   await openRise(page, "find");
   await page.locator("#omni").fill("Atlas");

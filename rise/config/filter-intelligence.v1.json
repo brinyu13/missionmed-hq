@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "contractId": "rise-filter-intelligence-2026-09-08",
+  "researchDepth": {
+    "domainFields": [
+      "research.visa",
+      "research.resident_roster",
+      "research.leadership",
+      "research.abim",
+      "research.fellowship_inventory",
+      "research.img_accessibility",
+      "research.do_accessibility",
+      "research.caribbean_accessibility"
+    ],
+    "deepRequiredFields": [
+      "research.visa",
+      "research.resident_roster",
+      "research.leadership"
+    ],
+    "deepMinimumDomainCount": 6,
+    "enrichedMinimumDomainCount": 2,
+    "basicMinimumCoreDomainCount": 4,
+    "coreRegistryDomains": {
+      "officialWebsite": ["Program Website"],
+      "programStructure": ["Program Best Described As", "Total Residents"],
+      "applicationTimeline": ["Application Deadline", "Medical School Graduation Timeline"],
+      "visaPublication": ["J1", "H1B", "Visa Sponsorship"],
+      "residentComposition": ["IMG Graduates Percent", "DO Graduates Percent", "US MD Graduates Percent"]
+    }
+  },
+  "studentLabels": {
+    "deep": "Deep Research",
+    "enriched": "Enriched Research",
+    "basic": "Basic Profile",
+    "pending": "Research Pending"
+  },
+  "filterFlagBits": {
+    "j1": 1,
+    "h1b": 2,
+    "anyVisa": 4,
+    "img": 8,
+    "do": 16,
+    "caribbean": 32,
+    "usmd": 64,
+    "soap2026": 128,
+    "abim": 256,
+    "alumni": 512
+  },
+  "evidencePolicy": {
+    "visa": "Only explicit published sponsorship or visa-status evidence is filterable.",
+    "residentComposition": "Program-reported resident or graduate composition and approved roster evidence are observations, not admissions-policy claims.",
+    "dynamicFacts": "Only approved, non-conflicting STUDENT_VISIBLE or PRIVATE_BETA canonical current facts may affect student-facing fact filters.",
+    "researchDepth": "Depth exposes provider-neutral workflow coverage only; it never publishes review-gated claim content."
+  }
+}

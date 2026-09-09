@@ -20,7 +20,7 @@ function unknown() {
   return { knowledge: { state: "unknown", explicit: true } };
 }
 
-function program({ id, name, designation, city, state, memberships, j1, h1b, director, soap2026 = null }) {
+function program({ id, name, designation, city, state, memberships, j1, h1b, director, imgPercent, doPercent, usmdPercent, deadline, soap2026 = null }) {
   const fields = {
     "Program Website": known("https://example.test/program"),
     "Program Best Described As": known("University-based"),
@@ -33,9 +33,14 @@ function program({ id, name, designation, city, state, memberships, j1, h1b, dir
     Vacation: known("20 days"),
     J1: j1 ? known(true) : unknown(),
     H1B: h1b ? known(true) : unknown(),
+    "Visa Sponsorship": j1 || h1b ? known([j1 ? "J-1 through ECFMG" : "", h1b ? "H-1B" : ""].filter(Boolean).join("; ")) : unknown(),
     "COMLEX Accepted": unknown(),
     "Research Track": known(false),
   };
+  if (imgPercent !== undefined) fields["IMG Graduates Percent"] = known(`${imgPercent}%`);
+  if (doPercent !== undefined) fields["DO Graduates Percent"] = known(`${doPercent}%`);
+  if (usmdPercent !== undefined) fields["US MD Graduates Percent"] = known(`${usmdPercent}%`);
+  if (deadline) fields["Application Deadline"] = known(deadline);
   const knownSelectedClaims = Object.values(fields)
     .filter((field) => field.knowledge.state === "known").length;
   return {
@@ -121,6 +126,10 @@ const registryIndex = {
       city: "New York",
       state: "NY",
       j1: true,
+      imgPercent: 35,
+      doPercent: 12,
+      usmdPercent: 53,
+      deadline: "2026-11-30",
       director: "Dr. Test Director",
       memberships: [{ browseSpecialty: "Internal Medicine", relationship: "EXACT_DESIGNATION" }],
       soap2026: {
@@ -138,6 +147,7 @@ const registryIndex = {
       city: "Chicago",
       state: "IL",
       h1b: true,
+      deadline: "2026-12-01",
       director: "Dr. Synthetic Director",
       memberships: [
         { browseSpecialty: "Internal Medicine", relationship: "RELATED_COMBINED" },
@@ -150,6 +160,10 @@ const registryIndex = {
       designation: "Neurology",
       city: "Seattle",
       state: "WA",
+      imgPercent: 0,
+      doPercent: 0,
+      usmdPercent: 100,
+      deadline: "2026-12-15",
       director: "Dr. Fixture Director",
       memberships: [{ browseSpecialty: "Neurology", relationship: "EXACT_DESIGNATION" }],
     }),
@@ -178,6 +192,37 @@ const server = createRiseServer({
     async allowAuthenticatedSubject() { return true; },
   },
   logger: { info() {}, error() {} },
+  filterIntelligenceStore: {
+    scope: "process_local_test_only",
+    async read() {
+      return {
+        researchCoverage: [
+          {
+            acgmeId: "synthetic-atlas_im",
+            fields: [
+              "research.visa", "research.resident_roster", "research.leadership", "research.abim",
+              "research.fellowship_inventory", "research.img_accessibility", "research.do_accessibility",
+              "research.caribbean_accessibility",
+            ],
+          },
+          {
+            acgmeId: "synthetic-beacon_medpeds",
+            fields: ["research.visa", "research.resident_roster", "research.leadership"],
+          },
+        ],
+        currentFacts: [
+          {
+            subjectId: "rise_prg_beacon_medpeds",
+            field: "research.resident_roster",
+            canonicalValue: [
+              { classification: "IMG", caribbean: "YES" },
+              { classification: "US_DO", degree: "DO", caribbean: "NO" },
+            ],
+          },
+        ],
+      };
+    },
+  },
 });
 
 server.listen(port, "127.0.0.1", () => {

@@ -500,6 +500,57 @@ export async function createRiseStudentIntelStore({
   };
 }
 
+export async function createRiseFilterIntelligenceStore({
+  pool = databasePool(),
+  cacheTtlMs = 30_000,
+} = {}) {
+  await pool.query("SELECT 1 FROM rise_runtime.canonical_evidence_claims LIMIT 1");
+  await pool.query("SELECT 1 FROM rise_runtime.canonical_current_facts LIMIT 1");
+  const systemKey = "0".repeat(64);
+  let cached = null;
+  let cachedAt = 0;
+  return {
+    scope: "durable_canonical_projection",
+    async read() {
+      const now = Date.now();
+      if (cached && now - cachedAt < cacheTtlMs) return structuredClone(cached);
+      try {
+        const result = await withSubject(pool, systemKey, async (client) => {
+          const [coverage, facts] = await Promise.all([
+            client.query(`
+              SELECT
+                s.metadata->>'acgmeId' AS "acgmeId",
+                array_agg(DISTINCT c.field ORDER BY c.field) AS fields
+              FROM rise_runtime.canonical_evidence_sources s
+              JOIN rise_runtime.canonical_evidence_claims c USING (source_id)
+              WHERE s.source_type = 'completed_research_factory'
+                AND s.metadata->>'acgmeId' ~ '^[0-9]{10}$'
+              GROUP BY s.metadata->>'acgmeId'
+              ORDER BY s.metadata->>'acgmeId'
+            `),
+            client.query(`
+              SELECT
+                subject_id AS "subjectId",
+                field,
+                knowledge,
+                canonical_value AS "canonicalValue"
+              FROM rise_runtime.canonical_current_facts
+              ORDER BY subject_id, field
+            `),
+          ]);
+          return { researchCoverage: coverage.rows, currentFacts: facts.rows };
+        }, { isAdmin: true });
+        cached = result;
+        cachedAt = now;
+        return structuredClone(result);
+      } catch (error) {
+        if (cached) return structuredClone(cached);
+        throw error;
+      }
+    },
+  };
+}
+
 export async function createRiseCanonicalEvidenceStore({ pool = databasePool() } = {}) {
   await pool.query("SELECT 1 FROM rise_runtime.canonical_evidence_claims LIMIT 1");
   const systemKey = "0".repeat(64);

@@ -1,0 +1,171 @@
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import test from "node:test";
+
+import {
+  FILTER_INTELLIGENCE_CONFIG,
+  buildFilterIntelligence,
+  expandFilterIntelligenceRecord,
+  researchDepthFor,
+  staticFilterFacts,
+} from "../src/filter-intelligence.mjs";
+import { createRiseFilterIntelligenceStore } from "../adapters/postgres-runtime.mjs";
+
+test("embedded runtime contract matches the checked-in JSON contract", async () => {
+  const contract = JSON.parse(await fs.readFile(
+    new URL("../config/filter-intelligence.v1.json", import.meta.url),
+    "utf8",
+  ));
+  assert.deepEqual(FILTER_INTELLIGENCE_CONFIG, contract);
+});
+
+function known(value) {
+  return { knowledge: { state: "known", value, explicit: true } };
+}
+
+function program(id, fields = {}, { soap = false } = {}) {
+  return {
+    id: `program-${id}`,
+    programSpecialtyId: `program-specialty-${id}`,
+    identifiers: [{ namespace: "ACGME_PROGRAM", value: id.padStart(10, "0") }],
+    fields,
+    soap2026: soap ? { appeared: true } : null,
+  };
+}
+
+const strongCore = {
+  "Program Website": known("https://example.test/program"),
+  "Program Best Described As": known("University-based"),
+  "Application Deadline": known("2026-11-30"),
+  "Visa Sponsorship": known("J-1 through ECFMG"),
+  "IMG Graduates Percent": known("21.5%"),
+};
+
+test("static filters use explicit visa evidence and positive resident composition", () => {
+  const facts = staticFilterFacts(program("1", {
+    ...strongCore,
+    J1: known(true),
+    H1B: known(false),
+    "DO Graduates Percent": known("0.0%"),
+    "US MD Graduates Percent": known("78.5%"),
+  }));
+  assert.deepEqual(facts.visa, { j1: true, h1b: false, j1OrH1b: true, any: true });
+  assert.deepEqual(facts.residentEvidence, { img: true, do: false, caribbean: false, usmd: true });
+  assert.equal(facts.coreDomainCount, 5);
+
+  const vague = staticFilterFacts(program("2", {
+    "Visa Sponsorship": known("International graduates accepted; ECFMG required"),
+  }));
+  assert.equal(vague.visa.any, false);
+});
+
+test("research depth is deterministic and provider neutral", () => {
+  const p = program("3", strongCore);
+  const deepFields = [
+    "research.visa", "research.resident_roster", "research.leadership",
+    "research.abim", "research.fellowship_inventory", "research.img_accessibility",
+  ];
+  assert.equal(researchDepthFor(p, { fields: deepFields, provider: "PARALLEL" }), "deep");
+  assert.equal(researchDepthFor(p, { fields: deepFields, provider: "CLAUDE_OPUS" }), "deep");
+  assert.equal(researchDepthFor(p, { fields: ["research.visa", "research.leadership"] }), "enriched");
+  assert.equal(researchDepthFor(p, null), "basic");
+  assert.equal(researchDepthFor(program("4", { "Program Website": known("https://example.test") }), null), "pending");
+});
+
+test("approved structured current facts become filterable without frontend program lists", () => {
+  const programs = [
+    program("1", { ...strongCore, J1: known(true) }, { soap: true }),
+    program("2", { "Program Website": known("https://example.test/two") }),
+    program("3", strongCore),
+    program("4", {}),
+  ];
+  const result = buildFilterIntelligence(programs, {
+    generatedAt: "2026-09-08T00:00:00.000Z",
+    researchCoverage: [
+      {
+        acgmeId: "0000000001",
+        fields: [
+          "research.visa", "research.resident_roster", "research.leadership",
+          "research.abim", "research.fellowship_inventory", "research.img_accessibility",
+        ],
+      },
+      { acgmeId: "0000000002", fields: ["research.visa", "research.resident_roster"] },
+    ],
+    currentFacts: [
+      {
+        subjectId: "program-2",
+        field: "research.visa",
+        canonicalValue: { j1: "NO", h1b: "YES", summary: "ignored narrative" },
+      },
+      {
+        subjectId: "program-2",
+        field: "research.resident_roster",
+        canonicalValue: [
+          { classification: "IMG", caribbean: "YES" },
+          { classification: "US_DO", degree: "DO", caribbean: "NO" },
+        ],
+      },
+    ],
+  });
+  const expanded = result.records.map((record) => expandFilterIntelligenceRecord(record, result.flagBits));
+  assert.equal(expanded[0].researchDepth, "deep");
+  assert.equal(expanded[1].researchDepth, "enriched");
+  assert.equal(expanded[2].researchDepth, "basic");
+  assert.equal(expanded[3].researchDepth, "pending");
+  assert.equal(expanded[1].visa.h1b, true);
+  assert.deepEqual(expanded[1].residentEvidence, { img: true, do: true, caribbean: true, usmd: false });
+  assert.deepEqual(result.counts, {
+    visaData: 2,
+    j1Published: 1,
+    h1bPublished: 1,
+    j1OrH1bPublished: 2,
+    anyVisaEvidence: 3,
+    imgResidentEvidence: 3,
+    doResidentEvidence: 1,
+    caribbeanResidentEvidence: 1,
+    usmdResidentEvidence: 0,
+    deepResearch: 1,
+    enrichedResearch: 1,
+    basicProfile: 1,
+    researchPending: 1,
+    soap2026: 1,
+    missionMedAlumni: 0,
+    abimVerified: 0,
+  });
+});
+
+test("Postgres projection reads only domain coverage and approved current facts, then caches", async () => {
+  const calls = [];
+  let connects = 0;
+  const client = {
+    async query(sql) {
+      calls.push(String(sql));
+      if (String(sql).includes("array_agg")) {
+        return { rows: [{ acgmeId: "0000000001", fields: ["research.visa", "research.resident_roster"] }] };
+      }
+      if (String(sql).includes("canonical_current_facts")) {
+        return { rows: [{ subjectId: "program-1", field: "research.visa", knowledge: { state: "known" }, canonicalValue: { j1: "YES" } }] };
+      }
+      return { rows: [] };
+    },
+    release() {},
+  };
+  const pool = {
+    async query(sql) {
+      calls.push(String(sql));
+      return { rows: [] };
+    },
+    async connect() {
+      connects += 1;
+      return client;
+    },
+  };
+  const store = await createRiseFilterIntelligenceStore({ pool, cacheTtlMs: 60_000 });
+  const first = await store.read();
+  const second = await store.read();
+  assert.equal(store.scope, "durable_canonical_projection");
+  assert.deepEqual(second, first);
+  assert.equal(connects, 1);
+  assert.ok(calls.some((sql) => sql.includes("SET_CONFIG") || sql.includes("set_config")));
+  assert.equal(JSON.stringify(first).includes("canonical_value"), false);
+});

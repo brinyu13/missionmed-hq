@@ -27,6 +27,13 @@ function durableStudentIntelStore() {
   return { ...createMemoryStudentIntelStore(), scope: "durable_private" };
 }
 
+function durableFilterIntelligenceStore() {
+  return {
+    scope: "durable_canonical_projection",
+    async read() { return { researchCoverage: [], currentFacts: [] }; },
+  };
+}
+
 function canonicalMatrixProfileAdapter() {
   return {
     scope: "canonical_matrix_owner_transport",
@@ -307,6 +314,22 @@ test("authenticated catalog bootstrap returns every canonical identity in one bo
   assert.equal(response.headers.get("cache-control"), "private, no-cache");
 });
 
+test("filter intelligence exposes evidence-backed counts and one depth per canonical program", async () => {
+  const response = await fetch(`${baseUrl}/api/rise/v1/filter-intelligence`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "private, no-cache");
+  assert.equal(body.contractId, "rise-filter-intelligence-2026-09-08");
+  assert.equal(body.records.length, 3);
+  assert.equal(body.counts.j1Published, 1);
+  assert.equal(body.counts.h1bPublished, 1);
+  assert.equal(body.counts.j1OrH1bPublished, 2);
+  assert.equal(body.counts.researchPending, 3);
+  assert.ok(body.records.every((record) => ["deep", "enriched", "basic", "pending"].includes(record.researchDepth)));
+  assert.equal(JSON.stringify(body).includes("PARALLEL"), false);
+  assert.equal(JSON.stringify(body).includes("CLAUDE_OPUS"), false);
+});
+
 test("SOAP 2026 endpoint is historical-only, filterable, and returns bounded track evidence", async () => {
   const response = await fetch(`${baseUrl}/api/rise/v1/soap-2026?pageSize=10`);
   const body = await response.json();
@@ -520,6 +543,7 @@ test("production requires a shared durable abuse controller", () => {
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
     studentStore: durableStudentStore(),
     studentIntelStore: durableStudentIntelStore(),
+    filterIntelligenceStore: durableFilterIntelligenceStore(),
     matrixProfileAdapter: canonicalMatrixProfileAdapter(),
   };
   assert.throws(() => createRiseServer(options), /shared durable abuse controller/);
@@ -566,6 +590,7 @@ test("production source rights fail closed after activation when the live decisi
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
     studentStore: durableStudentStore(),
     studentIntelStore: durableStudentIntelStore(),
+    filterIntelligenceStore: durableFilterIntelligenceStore(),
     abuseController: {
       scope: "shared_durable",
       async allowPreAuth() { return true; },

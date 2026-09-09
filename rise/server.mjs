@@ -4,6 +4,7 @@ import http from "node:http";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { buildFilterIntelligence } from "./src/filter-intelligence.mjs";
 import { assertCurrentSourceRights } from "./src/source-authorization.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -312,6 +313,15 @@ export function createMemoryStudentIntelStore({ canonicalPromotionMode = "live" 
   };
 }
 
+export function createMemoryFilterIntelligenceStore({ researchCoverage = [], currentFacts = [] } = {}) {
+  return {
+    scope: "process_local_test_only",
+    async read() {
+      return structuredClone({ researchCoverage, currentFacts });
+    },
+  };
+}
+
 function resolveStudentStore(store, { production }) {
   const candidate = store ?? createMemoryStudentStore();
   if (
@@ -330,6 +340,17 @@ function resolveStudentIntelStore(store, { production }) {
   const required = ["betaNotice", "acknowledgeBetaNotice", "listProgram", "submit", "corroborate", "adminList", "moderate", "audit", "analytics", "verificationPreview"];
   if (required.some((name) => typeof candidate[name] !== "function") || (production && candidate.scope !== "durable_private")) {
     throw new Error("RISE Student Intel store is incomplete; production scope must be durable_private");
+  }
+  return candidate;
+}
+
+function resolveFilterIntelligenceStore(store, { production }) {
+  const candidate = store ?? createMemoryFilterIntelligenceStore();
+  if (
+    typeof candidate.read !== "function"
+    || (production && candidate.scope !== "durable_canonical_projection")
+  ) {
+    throw new Error("RISE filter intelligence store must provide read(); production scope must be durable_canonical_projection");
   }
   return candidate;
 }
@@ -1021,6 +1042,7 @@ export function createRiseServer({
   sourceRightsController,
   studentStore,
   studentIntelStore,
+  filterIntelligenceStore,
   matrixProfileAdapter,
   logger = createJsonLogger(),
 } = {}) {
@@ -1055,6 +1077,7 @@ export function createRiseServer({
     : resolveSourceRightsController(sourceRightsController, { production });
   const studentPrograms = resolveStudentStore(studentStore, { production });
   const studentIntel = resolveStudentIntelStore(studentIntelStore, { production });
+  const filterIntelligence = resolveFilterIntelligenceStore(filterIntelligenceStore, { production });
   const matrixProfile = resolveMatrixProfileAdapter(matrixProfileAdapter, { production });
   const authorizationSha256s = registryIndex.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [];
   async function assertLiveSourceRights() {
@@ -1353,13 +1376,29 @@ export function createRiseServer({
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/programs/catalog") {
-        const records = searchReadModel.byName.map(listView);
+        const allRecords = searchReadModel.byName;
+        const total = allRecords.length;
+        const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+        const pageSize = Math.min(1000, Math.max(50, Number.parseInt(url.searchParams.get("pageSize") ?? "1000", 10) || 1000));
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        const start = (page - 1) * pageSize;
+        const records = allRecords.slice(start, start + pageSize).map(listView);
         status = 200;
         sendJson(response, 200, {
           registryReleaseId: registryIndex.registryReleaseId,
-          total: records.length,
+          total,
+          page,
+          pageSize,
+          totalPages,
           records,
         }, { cache: "private, no-cache", requestId });
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/filter-intelligence") {
+        const dynamicEvidence = await filterIntelligence.read();
+        const payload = buildFilterIntelligence(registryIndex.programs, dynamicEvidence);
+        status = 200;
+        sendJson(response, 200, payload, { cache: "private, no-cache", requestId });
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/soap-2026") {
@@ -1730,6 +1769,7 @@ export async function startFromEnvironment() {
   let sourceRightsController;
   let studentStore;
   let studentIntelStore;
+  let filterIntelligenceStore;
   let matrixProfileAdapter;
   if (authMode === "injected") {
     const adapterPath = process.env.RISE_AUTH_ADAPTER_MODULE;
@@ -1771,6 +1811,10 @@ export async function startFromEnvironment() {
       throw new Error("RISE Student Intel adapter must export createRiseStudentIntelStore()");
     }
     studentIntelStore = await adapter.createRiseStudentIntelStore();
+    if (typeof adapter.createRiseFilterIntelligenceStore !== "function") {
+      throw new Error("RISE Student Intel adapter must export createRiseFilterIntelligenceStore()");
+    }
+    filterIntelligenceStore = await adapter.createRiseFilterIntelligenceStore();
   }
   const matrixProfileAdapterPath = process.env.RISE_MATRIX_PROFILE_ADAPTER_MODULE;
   if (matrixProfileAdapterPath) {
@@ -1808,6 +1852,7 @@ export async function startFromEnvironment() {
     sourceRightsController,
     studentStore,
     studentIntelStore,
+    filterIntelligenceStore,
     matrixProfileAdapter,
     buildId: webBuild.buildId,
     production,

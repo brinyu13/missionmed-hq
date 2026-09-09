@@ -34,8 +34,12 @@ function shortSpecialty(designation) {
   return known[designation] || designation.split(/\s|\//).filter(Boolean).map(word => word[0]).join('').slice(0, 6).toUpperCase();
 }
 
-function toFableProgram(record) {
+function toFableProgram(record, filterIntelligence, flagBits) {
   const evidenceCount = Number(record.evidence?.knownEvidenceLabeledClaims ?? record.evidence?.knownClaims ?? 0);
+  const flags = Number(filterIntelligence?.flags || 0);
+  const enabled = name => Boolean(flags & Number(flagBits?.[name] || 0));
+  const j1 = enabled('j1');
+  const h1b = enabled('h1b');
   return {
     id: record.programSpecialtyId,
     legacyId: null,
@@ -64,10 +68,17 @@ function toFableProgram(record) {
       nrmpProgramCode: track.nrmpProgramCode || null,
       source: 'SOAP 2026 bounded historical evidence',
     })),
+    browseMemberships: (record.browseMemberships || []).map(m => ({ browseSpecialty: m.browseSpecialty, relationship: m.relationship })),
     aliases: [],
     maturity: 'CANONICAL_IDENTITY_ONLY',
     demo: false,
     rich: null,
+    filterIntelligence: {
+      visa: { j1, h1b, j1OrH1b: j1 || h1b, any: enabled('anyVisa') },
+      residentEvidence: { img: enabled('img'), do: enabled('do'), caribbean: enabled('caribbean'), usmd: enabled('usmd') },
+      researchDepth: filterIntelligence?.researchDepth || 'pending',
+      soap2026: enabled('soap2026'), abim: enabled('abim'), alumni: enabled('alumni'),
+    },
   };
 }
 
@@ -109,28 +120,27 @@ function profileFromMatrix(payload) {
   };
 }
 
-async function loadAllPrograms() {
-  const catalog = await riseFetch('/api/rise/v1/programs/catalog');
-  return {
-    records: [...(catalog.records || [])],
-    registryReleaseId: catalog.registryReleaseId,
-    total: catalog.total,
-  };
-}
-
 async function loadRuntime() {
   const session = await riseFetch('/api/rise/v1/session');
-  const matrixProfileRequest = riseFetch('/api/rise/v1/me/profile').catch(error => ({
-    unavailable: true,
-    message: error?.message || 'Matrix profile integration is unavailable',
-  }));
-  const [status, registry, savedResult, matrixProfile, betaNotice] = await Promise.all([
-    riseFetch('/api/rise/v1/status'),
-    loadAllPrograms(),
+  const status = await riseFetch('/api/rise/v1/status');
+  const firstPage = await riseFetch('/api/rise/v1/programs/catalog?page=1&pageSize=1000');
+  const catalogPageRequests = [];
+  for (let p = 2; p <= firstPage.totalPages; p++) {
+    catalogPageRequests.push(riseFetch('/api/rise/v1/programs/catalog?page=' + p + '&pageSize=1000'));
+  }
+  const [catalogPages, filterIntelligence, matrixProfile, savedResult, betaNotice] = await Promise.all([
+    Promise.all(catalogPageRequests),
+    riseFetch('/api/rise/v1/filter-intelligence'),
+    riseFetch('/api/rise/v1/me/profile').catch(error => ({
+      unavailable: true,
+      message: error?.message || 'Matrix profile integration is unavailable',
+    })),
     riseFetch('/api/rise/v1/me/programs'),
-    matrixProfileRequest,
     riseFetch('/api/rise/v1/me/beta-notice'),
   ]);
+  const catalogRecords = [...firstPage.records, ...catalogPages.flatMap(page => page.records)];
+  const registry = { registryReleaseId: firstPage.registryReleaseId, total: firstPage.total, records: catalogRecords };
+  const filterByProgram = new Map((filterIntelligence.records || []).map(record => [record.programSpecialtyId, record]));
   const saved = new Map((savedResult.records || []).map(record => [record.programSpecialtyId, {
     state: record.state,
     notes: record.notes || '',
@@ -150,7 +160,9 @@ async function loadRuntime() {
         soapJoined: registry.records.filter(record => record.soap2026?.appeared).length,
       },
       profile: profileFromMatrix(matrixProfile),
-      programs: registry.records.map(toFableProgram),
+      filterCounts: filterIntelligence.counts || {},
+      filterPolicy: filterIntelligence.evidencePolicy || {},
+      programs: registry.records.map(record => toFableProgram(record, filterByProgram.get(record.programSpecialtyId), filterIntelligence.flagBits)),
     },
   };
 }
@@ -185,7 +197,7 @@ const state = {
   saved: runtime.saved,
   compare: [],
   underlying: null,                   // last non-file route
-  find: { mode: 'profile', q: '', state: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaPub: false, imgEv: false, sort: 'fit', view: 'list', shown: 50, scroll: 0, moreOpen: false },
+  find: { mode: 'profile', q: '', state: '', specialty: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, sort: 'fit', view: 'list', shown: 50, scroll: 0, moreOpen: false },
   fileTab: 'overview',
   fileFrom: 'find',
   campaigns: [],
@@ -200,6 +212,7 @@ const state = {
 /* ---------------- program index ---------------- */
 const byId = new Map(D.programs.map(p => [p.id, p]));
 const STATES = [...new Set(D.programs.map(p => p.state))].sort();
+const SPECIALTIES = [...new Set(D.programs.flatMap(p => (p.browseMemberships || []).map(m => m.browseSpecialty)))].sort();
 const stateNames = { AL:'Alabama', AR:'Arkansas', AZ:'Arizona', CA:'California', CO:'Colorado', CT:'Connecticut', DC:'Washington DC', DE:'Delaware', FL:'Florida', GA:'Georgia', IA:'Iowa', IL:'Illinois', IN:'Indiana', KS:'Kansas', KY:'Kentucky', LA:'Louisiana', MA:'Massachusetts', MD:'Maryland', MI:'Michigan', MN:'Minnesota', MO:'Missouri', MS:'Mississippi', MT:'Montana', NC:'North Carolina', ND:'North Dakota', NE:'Nebraska', NH:'New Hampshire', NJ:'New Jersey', NM:'New Mexico', NV:'Nevada', NY:'New York', OH:'Ohio', OK:'Oklahoma', OR:'Oregon', PA:'Pennsylvania', PR:'Puerto Rico', RI:'Rhode Island', SC:'South Carolina', SD:'South Dakota', TN:'Tennessee', TX:'Texas', UT:'Utah', VA:'Virginia', VT:'Vermont', WA:'Washington', WI:'Wisconsin', WV:'West Virginia', WY:'Wyoming' };
 
 /* ---------------- fit engine ---------------- */
@@ -626,17 +639,30 @@ window.doorBridge = () => unlockSheet('Match Bridge', 'No canonical production M
 /* ============ FIND PROGRAMS (doc 07) + MY PROGRAMS + RANK + PROFILE ============ */
 'use strict';
 
-function filteredPrograms() {
-  const f = state.find;
+function matchingPrograms(f = state.find) {
   let list = D.programs.slice();
   if (f.q) { const hits = new Set(searchPrograms(f.q).map(p => p.id)); list = list.filter(p => hits.has(p.id)); }
   if (f.state) list = list.filter(p => p.state === f.state);
+  if (f.specialty) list = list.filter(p => (p.browseMemberships || []).some(m => m.browseSpecialty === f.specialty));
   if (f.soap) list = list.filter(p => p.soap.length && (!f.soapTrack || p.soap.some(s => s.track === f.soapTrack)));
-  if (f.abim) list = list.filter(p => p.abim && p.abim.state === 'VERIFIED');
-  if (f.depth) list = list.filter(p => p.depth === f.depth);
-  if (f.visaPub) list = list.filter(p => p.rich && (p.rich.visa || []).some(v => v.state === 'meets' && /J-1|H-1B/.test(v.c)));
-  if (f.imgEv) list = list.filter(p => p.rich && (p.rich.roster || []).some(r => r.cat === 'IMG'));
+  if (f.abim) list = list.filter(p => p.filterIntelligence.abim);
+  if (f.depth) list = list.filter(p => p.filterIntelligence.researchDepth === f.depth);
+  if (f.visaMode) list = list.filter(p => ({
+    j1: p.filterIntelligence.visa.j1,
+    h1b: p.filterIntelligence.visa.h1b,
+    either: p.filterIntelligence.visa.j1OrH1b,
+    any: p.filterIntelligence.visa.any,
+  })[f.visaMode]);
+  if (f.imgEv) list = list.filter(p => p.filterIntelligence.residentEvidence.img);
+  if (f.doEv) list = list.filter(p => p.filterIntelligence.residentEvidence.do);
+  if (f.caribbeanEv) list = list.filter(p => p.filterIntelligence.residentEvidence.caribbean);
+  if (f.usmdEv) list = list.filter(p => p.filterIntelligence.residentEvidence.usmd);
   if (f.fresh) list = list.filter(p => freshness(p).label === f.fresh);
+  return list;
+}
+function filteredPrograms() {
+  const f = state.find;
+  const list = matchingPrograms(f);
   const cmp = {
     fit: (a, b) => fitRank(a) - fitRank(b) || a.name.localeCompare(b.name),
     name: (a, b) => a.name.localeCompare(b.name),
@@ -647,6 +673,9 @@ function filteredPrograms() {
   }[f.sort] || ((a, b) => a.name.localeCompare(b.name));
   list.sort(cmp);
   return list;
+}
+function filterOptionCount(patch) {
+  return matchingPrograms({ ...state.find, ...patch }).length;
 }
 function soapN(p) { return p.soap.reduce((s, x) => s + x.positions, 0); }
 function fitRank(p) {
@@ -660,30 +689,37 @@ function fitRank(p) {
 function activePills() {
   const f = state.find, pills = [];
   if (f.q) pills.push({ k: 'q', label: `“${f.q}”` });
+  if (f.specialty) pills.push({ k: 'specialty', label: f.specialty });
   if (f.state) pills.push({ k: 'state', label: stateNames[f.state] || f.state });
   if (f.soap) pills.push({ k: 'soap', label: 'SOAP 2026' + (f.soapTrack ? ' · ' + f.soapTrack : '') });
   if (f.abim) pills.push({ k: 'abim', label: 'ABIM verified' });
-  if (f.depth) pills.push({ k: 'depth', label: { gold: 'Gold dossier', enriched: 'Enriched', registry: 'Registry', demo: 'Demo' }[f.depth] });
-  if (f.visaPub) pills.push({ k: 'visaPub', label: 'Visa sponsorship published' });
-  if (f.imgEv) pills.push({ k: 'imgEv', label: 'IMG evidence on roster' });
+  if (f.depth) pills.push({ k: 'depth', label: { deep: 'Deep Research', enriched: 'Enriched Research', basic: 'Basic Profile', pending: 'Research Pending' }[f.depth] });
+  if (f.visaMode) pills.push({ k: 'visaMode', label: { j1: 'J-1 sponsorship published', h1b: 'H-1B sponsorship published', either: 'J-1 or H-1B published', any: 'Any visa evidence' }[f.visaMode] });
+  if (f.imgEv) pills.push({ k: 'imgEv', label: 'IMG resident / graduate evidence' });
+  if (f.doEv) pills.push({ k: 'doEv', label: 'DO resident / graduate evidence' });
+  if (f.caribbeanEv) pills.push({ k: 'caribbeanEv', label: 'Caribbean graduate roster evidence' });
+  if (f.usmdEv) pills.push({ k: 'usmdEv', label: 'US MD resident / graduate evidence' });
   if (f.fresh) pills.push({ k: 'fresh', label: f.fresh });
   return pills;
 }
 window.dropPill = k => {
   const f = state.find;
-  if (k === 'q') f.q = ''; if (k === 'state') f.state = ''; if (k === 'soap') { f.soap = false; f.soapTrack = ''; }
-  if (k === 'abim') f.abim = false; if (k === 'depth') f.depth = ''; if (k === 'visaPub') f.visaPub = false;
-  if (k === 'imgEv') f.imgEv = false; if (k === 'fresh') f.fresh = '';
+  if (k === 'q') f.q = ''; if (k === 'specialty') f.specialty = ''; if (k === 'state') f.state = ''; if (k === 'soap') { f.soap = false; f.soapTrack = ''; }
+  if (k === 'abim') f.abim = false; if (k === 'depth') f.depth = ''; if (k === 'visaMode') f.visaMode = '';
+  if (k === 'imgEv') f.imgEv = false; if (k === 'doEv') f.doEv = false; if (k === 'caribbeanEv') f.caribbeanEv = false; if (k === 'usmdEv') f.usmdEv = false; if (k === 'fresh') f.fresh = '';
   state.find.shown = 50; rerender();
 };
-window.clearFilters = () => { Object.assign(state.find, { q: '', state: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaPub: false, imgEv: false, shown: 50 }); rerender(); };
+window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, shown: 50 }); rerender(); };
 
 function sigIMG(p, f) {
-  if (p.rich && p.rich.roster) { const img = p.rich.roster.filter(r => r.cat === 'IMG').length; return `<span class="sig" title="Named examples on official records; composition % gated by denominator"><b>IMG ✓</b><span style="color:var(--dim)"> on roster</span></span>`; }
-  return `<span class="sig dimmed" title="Roster not yet researched or privacy-held">roster —</span>`;
+  if (p.filterIntelligence.residentEvidence.img) return `<span class="sig" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not admissions policy."><b>IMG ✓</b><span style="color:var(--dim)"> reported</span></span>`;
+  return `<span class="sig dimmed" title="No current filterable IMG resident or graduate evidence">IMG —</span>`;
 }
 function sigVisa(p) {
-  if (p.rich && p.rich.visa) { const listed = p.rich.visa.filter(v => /J-1|H-1B/.test(v.c) && v.state !== 'na').map(v => v.c); return `<span class="sig" title="Listed statuses — sponsorship detail in the File"><b>${listed.slice(0, 2).join(' · ')}</b><span style="color:var(--dim)"> listed</span></span>`; }
+  const visa = p.filterIntelligence.visa;
+  const listed = [visa.j1 ? 'J-1' : '', visa.h1b ? 'H-1B' : ''].filter(Boolean);
+  if (listed.length) return `<span class="sig" title="Explicit published sponsorship evidence"><b>${listed.join(' · ')}</b><span style="color:var(--dim)"> published</span></span>`;
+  if (visa.any) return `<span class="sig" title="Published visa evidence is available; J-1 or H-1B sponsorship is not established"><b>Visa ✓</b><span style="color:var(--dim)"> evidence</span></span>`;
   return `<span class="sig dimmed">○ visa not published</span>`;
 }
 function sigSOAP(p) {
@@ -732,18 +768,19 @@ function viewFind() {
     </div><div class="covBanner">SOAP participation reflects the 2026 Match cycle and does not predict future availability or match likelihood.</div>` : '';
   return `<div class="view" data-view="find">
     <p class="eyebrow">Find Programs</p>
-    <h1 class="h1"><em>${list.length}</em> ${f.soap ? 'SOAP 2026 ' : ''}Internal Medicine programs</h1>
+    <h1 class="h1"><em>${list.length}</em> ${f.soap ? 'SOAP 2026 ' : ''}${f.specialty || 'residency'} programs</h1>
     <div class="modeSeg" role="radiogroup" aria-label="Search mode">
       ${[['criteria', 'Set criteria'], ['profile', 'Use my profile'], ['cv', 'Use my CV']].map(([k, l]) => `<button role="radio" aria-checked="${f.mode === k}" class="${f.mode === k ? 'on' : ''}" onclick="setMode('${k}')">${l}</button>`).join('')}
     </div>
     ${f.mode === 'profile' ? `<div class="pillRow">${D.profile.facts.filter(x => ['Graduate type', 'Visa need', 'USMLE Step 2 CK', 'Year of graduation', 'USCE'].includes(x[0])).map(x => `<span class="pill profilePill">${esc(x[0])}: ${esc(x[1])}<button class="x" title="What-if: relax this for the session (does not change Matrix)" onclick="toast('What-if: fit shown as if “${esc(x[0])}” didn’t apply. Your Matrix profile is unchanged. (Production wiring: display only)')">✕</button></span>`).join('')}<span class="pill" style="border-style:dashed;background:none">from your Matrix profile</span></div>` : ''}
     ${soapSeg}
     <div class="filterRow">
-      <select class="fSel" aria-label="Specialty" onchange="toast('Production wiring corpus is Internal Medicine; FM and the other 29 specialty tabs join at ingest.')"><option>Internal Medicine</option><option>Family Medicine (corpus pending)</option></select>
+      <select class="fSel" aria-label="Specialty" onchange="state.find.specialty=this.value;state.find.shown=50;rerender()">
+        <option value="">All specialties</option>${SPECIALTIES.map(s => `<option value="${esc(s)}" ${f.specialty === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>
       <select class="fSel" aria-label="State" onchange="state.find.state=this.value;state.find.shown=50;rerender()">
         <option value="">All states</option>${STATES.map(s => `<option value="${s}" ${f.state === s ? 'selected' : ''}>${stateNames[s] || s}</option>`).join('')}</select>
-      <button class="fBtn ${f.imgEv ? 'on' : ''}" onclick="state.find.imgEv=!state.find.imgEv;rerender()" title="From current rosters where identified. Observation, not policy.">IMG evidence</button>
-      <button class="fBtn ${f.visaPub ? 'on' : ''}" onclick="state.find.visaPub=!state.find.visaPub;rerender()">Visa published</button>
+      <button class="fBtn ${f.imgEv ? 'on' : ''}" onclick="state.find.imgEv=!state.find.imgEv;state.find.shown=50;rerender()" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not policy.">IMG evidence <span class="fCount">${filterOptionCount({ imgEv: true }).toLocaleString()}</span></button>
+      <button class="fBtn ${f.visaMode === 'any' ? 'on' : ''}" onclick="state.find.visaMode=state.find.visaMode==='any'?'':'any';state.find.shown=50;rerender()">Visa published <span class="fCount">${filterOptionCount({ visaMode: 'any' }).toLocaleString()}</span></button>
       <button class="fBtn" onclick="openFilterDrawer()">More filters ${pills.length > (f.q ? 1 : 0) + (f.state ? 1 : 0) ? `<span class="badge">${pills.length}</span>` : ''}</button>
       ${pills.length ? `<button class="clearF" onclick="clearFilters()">Clear filters</button>` : ''}
     </div>
@@ -758,7 +795,7 @@ function viewFind() {
         <button class="${f.view === 'grid' ? 'on' : ''}" onclick="state.find.view='grid';rerender()">▦ Grid</button>
       </div>
     </div>
-    <div class="covBanner">Canonical identities are live in this release. Deep research remains unknown until current evidence is published by the active registry.</div>
+    <div class="covBanner">Filters use current canonical registry fields, approved evidence, and provider-neutral research workflow coverage. Resident evidence is observational, not an admissions-policy claim.</div>
     <div id="results">${shown.length
       ? (f.view === 'list' ? shown.map(p => programRow(p, 'find')).join('') : `<div class="cardGrid">${shown.map(p => programCard(p, 'find')).join('')}</div>`)
       : `<div class="emptyLib"><div class="big">No programs match.</div>Clear a filter, or try the program’s hospital name.<div style="margin-top:14px"><button class="rowBtn pri" onclick="clearFilters()">Clear filters</button></div></div>`}
@@ -982,30 +1019,40 @@ function viewProfile() {
 window.openFilterDrawer = () => {
   const f = state.find;
   const dw = $('#filterDrawer');
+  const count = patch => `<span class="fCount">${filterOptionCount(patch).toLocaleString()}</span>`;
+  const caribbeanAvailable = Number(D.filterCounts.caribbeanResidentEvidence || 0) > 0;
   dw.innerHTML = `<div class="drawer" role="dialog" aria-modal="true" aria-label="More filters">
     <button class="drawerClose" aria-label="Close" onclick="$('#filterDrawer').classList.remove('open')">✕</button>
     <h3>More filters</h3>
     <p class="sub" style="font-size:14px">Every filter states its evidence caveat. Nothing here guesses.</p>
     <div class="fGroup"><div class="fLbl">SOAP</div>
-      <button class="tgl ${f.soap ? 'on' : ''}" onclick="state.find.soap=!state.find.soap;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>SOAP 2026 history<span class="cav">Historical cycle evidence; no future availability or match-likelihood inference.</span></span></button>
+      <button class="tgl ${f.soap ? 'on' : ''}" onclick="state.find.soap=!state.find.soap;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>SOAP 2026 history<span class="cav">Historical cycle evidence; no future availability or match-likelihood inference.</span></span>${count({ soap: true })}</button>
     </div>
-    <div class="fGroup"><div class="fLbl">Evidence depth</div>
-      ${[['', 'Any depth'], ['gold', 'Gold dossier'], ['enriched', 'Enriched (Tier A)'], ['registry', 'Registry']].map(([k, l]) => `
-        <button class="tgl ${f.depth === k ? 'on' : ''}" onclick="state.find.depth='${k}';openFilterDrawer();rerenderKeepDrawer()"><span class="box">${f.depth === k ? '●' : ''}</span><span>${l}</span></button>`).join('')}
+    <div class="fGroup"><div class="fLbl">Research depth</div>
+      ${[
+        ['', 'Any research depth', 'All current canonical programs.'],
+        ['deep', 'Deep Research', 'Highest current major research pass with broad domain coverage.'],
+        ['enriched', 'Enriched Research', 'At least one meaningful research pass beyond the core profile.'],
+        ['basic', 'Basic Profile', 'Strong core registry profile; no substantial completed enrichment yet.'],
+        ['pending', 'Research Pending', 'Canonical identity exists; meaningful enrichment is not yet available.'],
+      ].map(([k, l, caveat]) => `
+        <button class="tgl ${f.depth === k ? 'on' : ''}" onclick="state.find.depth='${k}';openFilterDrawer();rerenderKeepDrawer()"><span class="box">${f.depth === k ? '●' : ''}</span><span>${l}<span class="cav">${caveat}</span></span>${count({ depth: k })}</button>`).join('')}
     </div>
-    <div class="fGroup"><div class="fLbl">Board performance</div>
-      <button class="tgl ${f.abim ? 'on' : ''}" onclick="state.find.abim=!state.find.abim;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>ABIM rate verified<span class="cav">Never borrowed from another program; title-ambiguous rows excluded.</span></span></button>
-    </div>
-    <div class="fGroup"><div class="fLbl">Graduate-type evidence</div>
-      <button class="tgl ${f.imgEv ? 'on' : ''}" onclick="state.find.imgEv=!state.find.imgEv;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>IMG evidence on roster<span class="cav">From current rosters where identified. Observation, not policy.</span></span></button>
-      <button class="tgl" onclick="toast('DO / Caribbean roster filters activate as rosters are researched (privacy decision pending).')"><span class="box"></span><span>DO / Caribbean evidence<span class="cav">Activates when rosters land — privacy review pending.</span></span></button>
+    <div class="fGroup"><div class="fLbl">Resident / graduate evidence</div>
+      <button class="tgl ${f.imgEv ? 'on' : ''}" onclick="state.find.imgEv=!state.find.imgEv;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>IMG residents / graduates reported<span class="cav">Program-reported composition or approved roster evidence. Observation, not admissions policy.</span></span>${count({ imgEv: true })}</button>
+      <button class="tgl ${f.doEv ? 'on' : ''}" onclick="state.find.doEv=!state.find.doEv;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>DO residents / graduates reported<span class="cav">Independent from Caribbean evidence. Observation, not admissions policy.</span></span>${count({ doEv: true })}</button>
+      <button class="tgl ${f.caribbeanEv ? 'on' : ''} ${caribbeanAvailable ? '' : 'unavailable'}" ${caribbeanAvailable ? `onclick="state.find.caribbeanEv=!state.find.caribbeanEv;openFilterDrawer();rerenderKeepDrawer()"` : 'disabled'}><span class="box">✓</span><span>Caribbean graduates on roster<span class="cav">${caribbeanAvailable ? 'Approved canonical roster observations only.' : 'Awaiting approved canonical roster evidence; review-gated research is not exposed.'}</span></span>${count({ caribbeanEv: true })}</button>
+      <button class="tgl ${f.usmdEv ? 'on' : ''}" onclick="state.find.usmdEv=!state.find.usmdEv;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>US MD residents / graduates reported<span class="cav">Program-reported composition or approved roster evidence.</span></span>${count({ usmdEv: true })}</button>
     </div>
     <div class="fGroup"><div class="fLbl">Visa</div>
-      <button class="tgl ${f.visaPub ? 'on' : ''}" onclick="state.find.visaPub=!state.find.visaPub;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Sponsorship published<span class="cav">Published sponsorship only — a listed status is not sponsorship.</span></span></button>
-    </div>
-    <div class="fGroup"><div class="fLbl">Freshness</div>
-      ${[['', 'Any'], ['Verified recently', 'Verified recently'], ['Current cycle', 'Current cycle'], ['Needs refresh', 'Needs refresh']].map(([k, l]) => `
-        <button class="tgl ${f.fresh === k ? 'on' : ''}" onclick="state.find.fresh='${k}';openFilterDrawer();rerenderKeepDrawer()"><span class="box">${f.fresh === k ? '●' : ''}</span><span>${l}</span></button>`).join('')}
+      ${[
+        ['', 'Any visa status', 'No visa evidence filter.'],
+        ['j1', 'J-1 sponsorship published', 'Explicit published J-1 sponsorship evidence only.'],
+        ['h1b', 'H-1B sponsorship published', 'Explicit published H-1B sponsorship evidence only.'],
+        ['either', 'J-1 or H-1B sponsorship published', 'At least one explicitly published sponsorship route.'],
+        ['any', 'Any visa sponsorship evidence', 'Any valid published visa evidence; no inference from IMG or ECFMG wording.'],
+      ].map(([k, l, caveat]) => `
+        <button class="tgl ${f.visaMode === k ? 'on' : ''}" onclick="state.find.visaMode='${k}';openFilterDrawer();rerenderKeepDrawer()"><span class="box">${f.visaMode === k ? '●' : ''}</span><span>${l}<span class="cav">${caveat}</span></span>${count({ visaMode: k })}</button>`).join('')}
     </div>
     <button class="fAct pri" style="margin-top:8px" onclick="$('#filterDrawer').classList.remove('open')">Show results</button>
   </div>`;
