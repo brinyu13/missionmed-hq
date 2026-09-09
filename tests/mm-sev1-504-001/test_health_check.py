@@ -32,6 +32,16 @@ class HealthCheckTests(unittest.TestCase):
         self.assertEqual(total, 1)
         self.assertEqual(families["other"], 1)
 
+    def test_repeated_missionaccounts_timeouts_are_a_runaway_single_route(self):
+        lines = [
+            f'2026/09/09 03:00:{second:02d} [error] request: "GET /missionaccounts/api/session HTTP/2.0", upstream timed out'
+            for second in range(20)
+        ]
+        total, families = MODULE.analyze(lines, "2026/09/09 03:00:00")
+        self.assertEqual(total, 20)
+        self.assertEqual(families["missionaccounts"], 20)
+        self.assertTrue(MODULE.is_incident(total, families, 5, 2, 20))
+
 
 if __name__ == "__main__":
     unittest.main()

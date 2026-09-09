@@ -51,16 +51,39 @@ def analyze(lines: list[str], since: str) -> tuple[int, collections.Counter[str]
     return total, families
 
 
+def is_incident(
+    total: int,
+    families: collections.Counter[str],
+    threshold: int,
+    family_threshold: int,
+    runaway_threshold: int,
+) -> bool:
+    matrix_families = {name for name, count in families.items() if name != "other" and count > 0}
+    cross_matrix_incident = total >= threshold and len(matrix_families) >= family_threshold
+    runaway_route = any(
+        name != "other" and count >= runaway_threshold
+        for name, count in families.items()
+    )
+    return cross_matrix_incident or runaway_route
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--since", default="", help="Nginx timestamp lower bound: YYYY/MM/DD HH:MM:SS")
     parser.add_argument("--threshold", type=int, default=5)
     parser.add_argument("--family-threshold", type=int, default=2)
+    parser.add_argument("--runaway-threshold", type=int, default=20)
     args = parser.parse_args()
 
     total, families = analyze(list(sys.stdin), args.since)
     matrix_families = {name for name, count in families.items() if name != "other" and count > 0}
-    incident = total >= args.threshold and len(matrix_families) >= args.family_threshold
+    incident = is_incident(
+        total,
+        families,
+        args.threshold,
+        args.family_threshold,
+        args.runaway_threshold,
+    )
     summary = ",".join(f"{name}:{families[name]}" for name in sorted(families)) or "none"
     print(
         f"MM_SEV1_504_HEALTH_{'FAIL' if incident else 'PASS'} "
