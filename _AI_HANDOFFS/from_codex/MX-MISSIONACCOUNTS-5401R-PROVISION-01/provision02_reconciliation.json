@@ -1,0 +1,23 @@
+{
+  "authority": [
+    "DR-220",
+    "DR-221"
+  ],
+  "baseline_commit": "884b02b0f1906e0b2056cfcbdb81c92390021d7a",
+  "counts": {
+    "NO_VALID_ROSTER_MATCH": 95,
+    "RESOLVED_EXISTING_WP": 3,
+    "RESOLVED_NEW_WP_NEEDED": 2,
+    "REVIEW_REQUIRED": 7,
+    "existing_wp_found": 3,
+    "new_wp_needed": 2,
+    "resolved_high_confidence": 5
+  },
+  "course": {
+    "id": 6357,
+    "name": "Dr J, Drills On-Call"
+  },
+  "invite_count": 15,
+  "source_workbook_sha256": "634ad89acb8e4ece30b611ff57bd107163c4b2e9a3d8829068527a62d5762f32",
+  "sponsor_exclusion": "BLOCKED_NO_EXISTING_DURABLE_FIELD_AND_NO_DDL_OR_RUNTIME_AUTHORITY"
+}

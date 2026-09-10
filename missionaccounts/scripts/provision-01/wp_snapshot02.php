@@ -1,0 +1,14 @@
+<?php
+/*PROVISION02_PAYLOAD*/
+if(!isset($provision02_payload)||!is_array($provision02_payload)||((int)($provision02_payload['course_id']??0))!==6357){throw new RuntimeException('p02_payload_invalid');}
+if(get_post_type(6357)!=='sfwd-courses'){throw new RuntimeException('p02_course_invalid');}
+function p02_norm($v){return strtolower((string)preg_replace('/[^\pL\pN]+/u','',remove_accents((string)$v)));}
+function p02_tokens($v){$s=strtolower(remove_accents((string)$v));$s=preg_replace('/[^\pL\pN]+/u',' ',$s);return array_values(array_filter(preg_split('/\s+/u',trim($s))));}
+function p02_fl($v){$t=p02_tokens($v);if(count($t)>=2){return p02_norm($t[0].$t[count($t)-1]);}return p02_norm($v);}
+function p02_set($v){$t=p02_tokens($v);sort($t,SORT_STRING);return implode('|',$t);}
+function p02_row($u){return ['id'=>(int)$u->ID,'login'=>(string)$u->user_login,'email'=>strtolower((string)$u->user_email),'display_name'=>(string)$u->display_name,'first_name'=>(string)get_user_meta($u->ID,'first_name',true),'last_name'=>(string)get_user_meta($u->ID,'last_name',true),'roles'=>array_values((array)$u->roles),'missionaccounts_student_id'=>(string)get_user_meta($u->ID,'_missionmed_missionaccounts_user_id',true)];}
+$users=get_users(['fields'=>['ID','user_login','user_email','display_name']]);$by_email=[];$by_link=[];$by_full=[];$by_fl=[];$by_set=[];$usernames=[];
+foreach($users as $u){$usernames[]=(string)$u->user_login;$e=strtolower((string)$u->user_email);if($e!=='')$by_email[$e][]=$u;$link=strtolower((string)get_user_meta($u->ID,'_missionmed_missionaccounts_user_id',true));if($link!=='')$by_link[$link][]=$u;$full=p02_norm($u->display_name);if($full!=='')$by_full[$full][]=$u;$f=(string)get_user_meta($u->ID,'first_name',true);$l=(string)get_user_meta($u->ID,'last_name',true);$fl=p02_norm($f.$l);if($fl==='')$fl=p02_fl($u->display_name);if($fl!=='')$by_fl[$fl][]=$u;$set=p02_set($u->display_name);if($set!=='')$by_set[$set][]=$u;}
+$out=['course_id'=>6357,'usernames'=>$usernames,'candidates'=>[]];
+foreach($provision02_payload['candidates'] as $c){$sid=strtolower((string)$c['student_id']);$groups=['link_matches'=>[],'email_matches'=>[],'exact_name_matches'=>[],'first_last_matches'=>[],'token_set_matches'=>[]];foreach(($by_link[$sid]??[]) as $u)$groups['link_matches'][(int)$u->ID]=$u;foreach($c['emails'] as $k)foreach(($by_email[strtolower((string)$k)]??[]) as $u)$groups['email_matches'][(int)$u->ID]=$u;foreach($c['full_name_keys'] as $k)foreach(($by_full[$k]??[]) as $u)$groups['exact_name_matches'][(int)$u->ID]=$u;foreach($c['first_last_keys'] as $k)foreach(($by_fl[$k]??[]) as $u)$groups['first_last_matches'][(int)$u->ID]=$u;foreach($c['token_set_keys'] as $k)foreach(($by_set[$k]??[]) as $u)$groups['token_set_matches'][(int)$u->ID]=$u;foreach($groups as $name=>$vals)$groups[$name]=array_values(array_map('p02_row',$vals));$out['candidates'][$sid]=$groups;}
+echo wp_json_encode($out,JSON_UNESCAPED_SLASHES);
