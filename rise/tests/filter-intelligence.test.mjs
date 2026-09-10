@@ -173,7 +173,7 @@ test("Postgres projection reads only domain coverage and approved current facts,
   assert.equal(connects, 1);
   assert.ok(calls.some((sql) => sql.includes("SET_CONFIG") || sql.includes("set_config")));
   assert.equal(JSON.stringify(first).includes("canonical_value"), false);
-  assert.match(calls.find((sql) => sql.includes("array_agg")), /review_state = 'APPROVED'/);
+  assert.match(calls.find((sql) => sql.includes("array_agg")), /disposition = 'APPROVED_CURRENT'/);
 });
 
 test("review-gated claims report pending evidence without inflating research depth", () => {

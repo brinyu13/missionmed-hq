@@ -2,10 +2,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { normalizeResearchFactoryRecord } from "../adapters/research-factory-ingest.mjs";
+import { normalizeParallelRawResearchRecord, normalizeResearchFactoryRecord } from "../adapters/research-factory-ingest.mjs";
 import { createRiseCanonicalEvidenceStore } from "../adapters/postgres-runtime.mjs";
 
-const DEFAULT_PARALLEL = "/Users/brianb/MissionMed/_AI_HANDOFFS/from_claude_code/P1_RISE_PARALLEL_CONTINUOUS_FACTORY_003/ingest_staging";
+const DEFAULT_PARALLEL = "/Users/brianb/MissionMed/_AI_HANDOFFS/from_claude_code/P1_RISE_PARALLEL_CONTINUOUS_FACTORY_003/raw_results";
 const DEFAULT_OPUS = "/Users/brianb/MissionMed/_AI_HANDOFFS/from_claude_code/P1_RISE_OPUS_IM_EXPIRING_TOKEN_SPRINT_009/ingest_staging";
 const DEFAULT_SONNET = "/Users/brianb/MissionMed/_AI_HANDOFFS/from_claude_code/P1_RISE_CLAUDE_SUBSTITUTE_RESEARCH_009/ingest_staging";
 
@@ -41,26 +41,76 @@ async function inputs(directory, label) {
   for (const name of names) {
     const filePath = path.join(directory, name);
     const snapshot = await stableJsonSnapshot(filePath);
+    let sourceResearch = null;
+    const sourceResult = snapshot.record?.source_result;
+    if (typeof sourceResult === "string") {
+      try {
+        const sourceSnapshot = await stableJsonSnapshot(sourceResult);
+        sourceResearch = sourceSnapshot.record?.research ?? null;
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+    }
     records.push(normalizeResearchFactoryRecord({
       record: snapshot.record,
       sourceBytes: snapshot.bytes,
       sourceFile: `${label}/${name}`,
+      sourceResearch,
     }));
   }
   return records;
 }
 
-export async function backfillResearchFactory(options = args([])) {
+async function parallelInputs(directory, label) {
+  const names = (await fs.readdir(directory)).filter((name) => name.endsWith(".json")).sort();
+  const records = [];
+  for (const name of names) {
+    const filePath = path.join(directory, name);
+    const snapshot = await stableJsonSnapshot(filePath);
+    if (snapshot.record?.output?.content) {
+      records.push(normalizeParallelRawResearchRecord({
+        record: snapshot.record,
+        sourceBytes: snapshot.bytes,
+        sourceFile: `${label}/${name}`,
+      }));
+    } else {
+      let sourceResearch = null;
+      if (typeof snapshot.record?.source_result === "string") {
+        try {
+          const sourceSnapshot = await stableJsonSnapshot(snapshot.record.source_result);
+          sourceResearch = sourceSnapshot.record?.research ?? null;
+        } catch (error) {
+          if (error?.code !== "ENOENT") throw error;
+        }
+      }
+      records.push(normalizeResearchFactoryRecord({
+        record: snapshot.record,
+        sourceBytes: snapshot.bytes,
+        sourceFile: `${label}/${name}`,
+        sourceResearch,
+      }));
+    }
+  }
+  return records;
+}
+
+export async function loadResearchFactoryInputs(options = args([])) {
   const selected = [];
-  if (["all", "both", "parallel"].includes(options.provider)) selected.push(...await inputs(options.parallel, "parallel"));
+  if (["all", "both", "parallel"].includes(options.provider)) selected.push(...await parallelInputs(options.parallel, "parallel-raw"));
   if (["all", "both", "opus"].includes(options.provider)) selected.push(...await inputs(options.opus, "claude-opus"));
   if (["all", "sonnet"].includes(options.provider)) selected.push(...await inputs(options.sonnet, "claude-sonnet"));
   const deduped = [...new Map(selected.map((item) => [item.idempotencyKey, item])).values()]
     .sort((left, right) => left.idempotencyKey.localeCompare(right.idempotencyKey));
+  return { selected, deduped };
+}
+
+export async function backfillResearchFactory(options = args([])) {
+  const { selected, deduped } = await loadResearchFactoryInputs(options);
   const summary = {
     completedInputFiles: selected.length,
     duplicateCompletedInputs: selected.length - deduped.length,
     uniqueIngests: deduped.length,
+    uniquePrograms: new Set(deduped.map((item) => item.acgmeId)).size,
     providers: Object.fromEntries([...new Set(deduped.map((item) => item.provider))].sort()
       .map((provider) => [provider, deduped.filter((item) => item.provider === provider).length])),
     claims: deduped.reduce((sum, item) => sum + item.claims.length, 0),

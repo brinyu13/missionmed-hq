@@ -23,6 +23,12 @@ function requiredString(value, name, minimumLength = 1) {
   return normalized;
 }
 
+export function databaseEvidenceSourceUrl(values = []) {
+  return values.find((value) => (
+    typeof value === "string" && value.startsWith("https://") && value.length <= 2048
+  )) ?? null;
+}
+
 export function buildDatabasePoolConfiguration({
   databaseUrl = process.env.RISE_DATABASE_URL,
   sslMode = process.env.RISE_DATABASE_SSL_MODE ?? "require",
@@ -515,6 +521,7 @@ export async function createRiseFilterIntelligenceStore({
 } = {}) {
   await pool.query("SELECT 1 FROM rise_runtime.canonical_evidence_claims LIMIT 1");
   await pool.query("SELECT 1 FROM rise_runtime.canonical_current_facts LIMIT 1");
+  await pool.query("SELECT 1 FROM rise_runtime.evidence_claim_review_current LIMIT 1");
   const systemKey = "0".repeat(64);
   let cached = null;
   let cachedAt = 0;
@@ -530,16 +537,15 @@ export async function createRiseFilterIntelligenceStore({
               SELECT
                 s.metadata->>'acgmeId' AS "acgmeId",
                 array_agg(DISTINCT c.field ORDER BY c.field)
-                  FILTER (WHERE c.review_state = 'APPROVED'
-                    AND c.conflict_state <> 'CONFLICTING'
-                    AND c.publication_state IN ('STUDENT_VISIBLE', 'PRIVATE_BETA')) AS fields,
+                  FILTER (WHERE r.disposition = 'APPROVED_CURRENT') AS fields,
                 array_agg(DISTINCT c.field ORDER BY c.field)
-                  FILTER (WHERE c.review_state <> 'APPROVED'
-                    OR c.conflict_state = 'CONFLICTING'
-                    OR c.publication_state NOT IN ('STUDENT_VISIBLE', 'PRIVATE_BETA')) AS "pendingFields",
+                  FILTER (WHERE r.disposition IS NULL OR r.disposition IN (
+                    'CONFLICT_REQUIRES_REVIEW', 'IDENTITY_AMBIGUITY'
+                  )) AS "pendingFields",
                 count(*)::integer AS "claimCount"
               FROM rise_runtime.canonical_evidence_sources s
               JOIN rise_runtime.canonical_evidence_claims c USING (source_id)
+              LEFT JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id = c.claim_id
               WHERE s.source_type = 'completed_research_factory'
                 AND s.metadata->>'acgmeId' ~ '^[0-9]{10}$'
               GROUP BY s.metadata->>'acgmeId'
@@ -555,10 +561,18 @@ export async function createRiseFilterIntelligenceStore({
                 f.publication_state AS "publicationState",
                 f.retrieved_at AS "retrievedAt",
                 s.provider,
-                s.source_url AS "sourceUrl",
+                coalesce(links.source_urls[1], s.source_url) AS "sourceUrl",
+                coalesce(links.source_urls, array_remove(ARRAY[s.source_url], NULL)) AS "sourceUrls",
                 s.source_locator AS "sourceLocator"
               FROM rise_runtime.canonical_current_facts f
               JOIN rise_runtime.canonical_evidence_sources s USING (source_id)
+              LEFT JOIN LATERAL (
+                SELECT array_agg(DISTINCT u.url ORDER BY u.url) AS source_urls
+                FROM rise_runtime.canonical_claim_promotion_lineage l
+                JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id = l.source_claim_id
+                CROSS JOIN LATERAL jsonb_array_elements_text(r.source_urls) u(url)
+                WHERE l.promoted_claim_id = f.claim_id
+              ) links ON true
               ORDER BY subject_id, field
             `),
           ]);
@@ -592,10 +606,18 @@ export async function createRiseFilterIntelligenceStore({
               f.publication_state AS "publicationState",
               f.retrieved_at AS "retrievedAt",
               s.provider,
-              s.source_url AS "sourceUrl",
+              coalesce(links.source_urls[1], s.source_url) AS "sourceUrl",
+              coalesce(links.source_urls, array_remove(ARRAY[s.source_url], NULL)) AS "sourceUrls",
               s.source_locator AS "sourceLocator"
             FROM rise_runtime.canonical_current_facts f
             JOIN rise_runtime.canonical_evidence_sources s USING (source_id)
+            LEFT JOIN LATERAL (
+              SELECT array_agg(DISTINCT u.url ORDER BY u.url) AS source_urls
+              FROM rise_runtime.canonical_claim_promotion_lineage l
+              JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id = l.source_claim_id
+              CROSS JOIN LATERAL jsonb_array_elements_text(r.source_urls) u(url)
+              WHERE l.promoted_claim_id = f.claim_id
+            ) links ON true
             WHERE f.subject_id = $1 OR s.metadata->>'acgmeId' = $2
             ORDER BY f.field, f.retrieved_at DESC
           `, [programId, acgmeId]),
@@ -604,15 +626,15 @@ export async function createRiseFilterIntelligenceStore({
               c.field,
               count(*)::integer AS "claimCount",
               array_agg(DISTINCT c.review_state ORDER BY c.review_state) AS "reviewStates",
+              array_agg(DISTINCT coalesce(r.disposition, 'WITHOUT_FINAL_DISPOSITION') ORDER BY coalesce(r.disposition, 'WITHOUT_FINAL_DISPOSITION')) AS dispositions,
               array_agg(DISTINCT s.provider ORDER BY s.provider) AS providers,
               max(c.retrieved_at) AS "latestRetrievedAt"
             FROM rise_runtime.canonical_evidence_sources s
             JOIN rise_runtime.canonical_evidence_claims c USING (source_id)
+            LEFT JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id = c.claim_id
             WHERE s.source_type = 'completed_research_factory'
               AND s.metadata->>'acgmeId' = $1
-              AND (c.review_state <> 'APPROVED'
-                OR c.conflict_state = 'CONFLICTING'
-                OR c.publication_state NOT IN ('STUDENT_VISIBLE', 'PRIVATE_BETA'))
+              AND (r.disposition IS NULL OR r.disposition <> 'APPROVED_CURRENT')
             GROUP BY c.field
             ORDER BY c.field
           `, [acgmeId]),
@@ -752,13 +774,17 @@ export async function createRiseCanonicalEvidenceStore({ pool = databasePool() }
         await client.query(`
           INSERT INTO rise_runtime.canonical_evidence_sources (
             source_id, provider, provider_run_id, source_type, source_file_sha256,
-            source_locator, retrieved_at, rights_state, exposure_state, metadata
-          ) VALUES ($1, $2, $3, 'completed_research_factory', $4, $5, $6, 'REVIEW_REQUIRED', 'INTERNAL_ONLY', $7::jsonb)
+            source_url, source_locator, retrieved_at, rights_state, exposure_state, metadata
+          ) VALUES ($1, $2, $3, 'completed_research_factory', $4, $5, $6, $7, 'REVIEW_REQUIRED', 'INTERNAL_ONLY', $8::jsonb)
           ON CONFLICT (source_id) DO NOTHING
         `, [
           sourceId, ingest.provider, ingest.providerRunId, ingest.sourceFileSha256,
+          databaseEvidenceSourceUrl(ingest.claims.flatMap((claim) => claim.sourceUrls ?? [])),
           ingest.sourceFile, ingest.stagedAt,
-          JSON.stringify({ campaignId: ingest.campaignId, acgmeId: ingest.acgmeId, newSpendUsd: 0 }),
+          JSON.stringify({
+            campaignId: ingest.campaignId, acgmeId: ingest.acgmeId, newSpendUsd: 0,
+            claimSourceUrlCount: new Set(ingest.claims.flatMap((claim) => claim.sourceUrls ?? [])).size,
+          }),
         ]);
         let insertedClaims = 0;
         for (const claim of ingest.claims) {
@@ -783,6 +809,53 @@ export async function createRiseCanonicalEvidenceStore({ pool = databasePool() }
           insertedClaims,
           claimCount: ingest.claims.length,
         };
+      }, { isAdmin: true });
+    },
+    async ensureReviewIdentitySource({ retrievedAt }) {
+      const timestamp = requiredString(retrievedAt, "retrievedAt");
+      return withSubject(pool, systemKey, async (client) => {
+        await client.query(`
+          INSERT INTO rise_runtime.canonical_evidence_sources (
+            source_id, provider, provider_run_id, source_type, source_locator, retrieved_at,
+            rights_state, exposure_state, metadata
+          ) VALUES ('rise_src_p1_rise_5012d_review','MISSIONMED_REVIEW','P1-RISE-5012D',
+                    'canonical_review_promotion','P1-RISE-5012D/registry-identity-reconciliation',$1,
+                    'APPROVED','PRIVATE_BETA',$2::jsonb)
+          ON CONFLICT (source_id) DO NOTHING
+        `, [timestamp, JSON.stringify({ registryIdentityBridge: true, newProviderSpendUsd: 0 })]);
+        return { sourceId: "rise_src_p1_rise_5012d_review" };
+      }, { isAdmin: true });
+    },
+    async upsertProgramIdentities(identities) {
+      return withSubject(pool, systemKey, async (client) => {
+        let upserted = 0;
+        for (const batch of chunks(identities)) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.canonical_program_identities (
+              program_identity_id, acgme_id, program_specialty_id, program_name, institution,
+              city, state, specialty, reconciliation_status, exposure_state, source_id, content_sha256
+            ) SELECT x.program_identity_id, x.acgme_id, x.program_specialty_id, x.program_name,
+                     x.institution, x.city, x.state, x.specialty, 'EXACT_ACGME_MATCH',
+                     'PRIVATE_BETA', x.source_id, x.content_sha256
+              FROM jsonb_to_recordset($1::jsonb) AS x(
+                program_identity_id text, acgme_id char(10), program_specialty_id text,
+                program_name text, institution text, city text, state text, specialty text,
+                source_id text, content_sha256 char(64)
+              ) ON CONFLICT (acgme_id) DO UPDATE SET
+                program_specialty_id=EXCLUDED.program_specialty_id,
+                program_name=EXCLUDED.program_name, institution=EXCLUDED.institution,
+                city=EXCLUDED.city, state=EXCLUDED.state, specialty=EXCLUDED.specialty,
+                reconciliation_status='EXACT_ACGME_MATCH', exposure_state='PRIVATE_BETA',
+                source_id=EXCLUDED.source_id, content_sha256=EXCLUDED.content_sha256, updated_at=now()
+          `, [JSON.stringify(batch.map((identity) => ({
+            program_identity_id: identity.programIdentityId, acgme_id: identity.acgmeId,
+            program_specialty_id: identity.programSpecialtyId, program_name: identity.programName,
+            institution: identity.institution, city: identity.city || null, state: identity.state,
+            specialty: identity.specialty, source_id: identity.sourceId, content_sha256: identity.contentSha256,
+          })))]);
+          upserted += result.rowCount;
+        }
+        return { upserted };
       }, { isAdmin: true });
     },
     async upsertProgramIdentity(identity) {
@@ -812,6 +885,324 @@ export async function createRiseCanonicalEvidenceStore({ pool = databasePool() }
           identity.sourceId, identity.contentSha256,
         ]);
         return result.rows[0];
+      }, { isAdmin: true });
+    },
+  };
+}
+
+function chunks(values, size = 250) {
+  const result = [];
+  for (let index = 0; index < values.length; index += size) result.push(values.slice(index, index + size));
+  return result;
+}
+
+function reviewEvent(decision, actorSubjectKey, reviewedAt) {
+  const decisionSha256 = sha256({
+    sourceClaimId: decision.claimId, disposition: decision.disposition, reason: decision.reason,
+    ruleVersion: decision.ruleVersion, normalizedValue: decision.normalizedValue,
+    sourceUrls: decision.sourceUrls ?? [], overridesReviewId: decision.overridesReviewId ?? null,
+  });
+  return {
+    reviewId: stableDatabaseId("rise_review", decisionSha256),
+    sourceClaimId: decision.claimId,
+    disposition: decision.disposition,
+    reasonCode: decision.reason,
+    ruleVersion: decision.ruleVersion,
+    normalizedValue: decision.normalizedValue ?? null,
+    sourceUrls: decision.sourceUrls ?? [],
+    qualityScore: Number(decision.qualityScore ?? 0),
+    actorSubjectKey,
+    decisionSha256,
+    overridesReviewId: decision.overridesReviewId ?? null,
+    createdAt: reviewedAt,
+  };
+}
+
+export async function createRiseEvidenceReviewStore({ pool = databasePool() } = {}) {
+  await pool.query("SELECT 1 FROM rise_runtime.evidence_claim_review_events LIMIT 1");
+  const systemKey = "0".repeat(64);
+  return {
+    scope: "durable_canonical_review",
+    async existingClaimIds(claimIds) {
+      return withSubject(pool, systemKey, async (client) => {
+        const found = new Set();
+        for (const batch of chunks([...new Set(claimIds.map(String))], 1_000)) {
+          const result = await client.query(`
+            SELECT claim_id AS "claimId" FROM rise_runtime.canonical_evidence_claims
+            WHERE claim_id = ANY($1::text[])
+          `, [batch]);
+          for (const row of result.rows) found.add(row.claimId);
+        }
+        return found;
+      }, { isAdmin: true });
+    },
+    async resolvedAcgmeIds(acgmeIds) {
+      return withSubject(pool, systemKey, async (client) => {
+        const result = await client.query(`
+          SELECT acgme_id::text AS "acgmeId"
+          FROM rise_runtime.canonical_program_identities
+          WHERE acgme_id = ANY($1::text[]) AND reconciliation_status = 'EXACT_ACGME_MATCH'
+        `, [[...new Set(acgmeIds.map(String))]]);
+        return new Set(result.rows.map((row) => row.acgmeId));
+      }, { isAdmin: true });
+    },
+    async applyCorpus({ review, actorSubject = "P1-RISE-5012D", reviewedAt }) {
+      const timestamp = requiredString(reviewedAt, "reviewedAt");
+      if (!Number.isFinite(Date.parse(timestamp))) throw new Error("reviewedAt must be an ISO timestamp");
+      const actorSubjectKey = sha256(`rise-evidence-review\0${actorSubject}`);
+      const events = review.decisions.map((decision) => reviewEvent(decision, actorSubjectKey, timestamp));
+      const eventByClaim = new Map(events.map((event) => [event.sourceClaimId, event]));
+      return withSubject(pool, systemKey, async (client) => {
+        let insertedReviews = 0;
+        for (const batch of chunks(events)) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.evidence_claim_review_events (
+              review_id, source_claim_id, disposition, reason_code, rule_version,
+              normalized_value, source_urls, quality_score, actor_subject_key, decision_sha256,
+              overrides_review_id, created_at
+            )
+            SELECT x.review_id, x.source_claim_id, x.disposition, x.reason_code, x.rule_version,
+                   x.normalized_value, x.source_urls, x.quality_score, x.actor_subject_key, x.decision_sha256,
+                   x.overrides_review_id, x.created_at
+            FROM jsonb_to_recordset($1::jsonb) AS x(
+              review_id text, source_claim_id text, disposition text, reason_code text, rule_version text,
+              normalized_value jsonb, source_urls jsonb, quality_score integer,
+              actor_subject_key char(64), decision_sha256 char(64), overrides_review_id text, created_at timestamptz
+            ) ON CONFLICT (decision_sha256) DO NOTHING
+          `, [JSON.stringify(batch.map((event) => ({
+            review_id: event.reviewId, source_claim_id: event.sourceClaimId, disposition: event.disposition,
+            reason_code: event.reasonCode, rule_version: event.ruleVersion, normalized_value: event.normalizedValue,
+            source_urls: event.sourceUrls, quality_score: event.qualityScore, actor_subject_key: event.actorSubjectKey,
+            decision_sha256: event.decisionSha256, overrides_review_id: event.overridesReviewId, created_at: event.createdAt,
+          })))]);
+          insertedReviews += result.rowCount;
+        }
+        const acgmeIds = [...new Set(review.promotions.map((promotion) => promotion.acgmeId))];
+        const identities = await client.query(`
+          SELECT acgme_id::text AS "acgmeId", program_identity_id AS "subjectId"
+          FROM rise_runtime.canonical_program_identities WHERE acgme_id = ANY($1::text[])
+        `, [acgmeIds]);
+        const subjectByAcgme = new Map(identities.rows.map((row) => [row.acgmeId, row.subjectId]));
+        if (subjectByAcgme.size !== acgmeIds.length) throw new Error("Promotion set contains unresolved canonical identities");
+        const promotionSourceId = "rise_src_p1_rise_5012d_review";
+        await client.query(`
+          INSERT INTO rise_runtime.canonical_evidence_sources (
+            source_id, provider, provider_run_id, source_type, source_locator, retrieved_at,
+            rights_state, exposure_state, metadata
+          ) VALUES ($1, 'MISSIONMED_REVIEW', 'P1-RISE-5012D', 'canonical_review_promotion',
+                    'P1-RISE-5012D/review-factory', $2, 'APPROVED', 'PRIVATE_BETA', $3::jsonb)
+          ON CONFLICT (source_id) DO NOTHING
+        `, [promotionSourceId, timestamp, JSON.stringify({ ruleVersion: review.ruleVersion, newProviderSpendUsd: 0 })]);
+        const promotionRows = review.promotions.map((promotion) => {
+          const subjectId = subjectByAcgme.get(promotion.acgmeId);
+          const valueSha256 = sha256(promotion.canonicalValue);
+          const claimId = stableDatabaseId("rise_claim", `5012d:${subjectId}:${promotion.field}:${valueSha256}`);
+          return {
+            claim_id: claimId, subject_id: subjectId, field: promotion.field,
+            knowledge: { state: "known", value: promotion.canonicalValue }, canonical_value: promotion.canonicalValue,
+            source_id: promotionSourceId, source_locator: `P1-RISE-5012D/${promotion.acgmeId}/${promotion.field}`,
+            observed_period: { kind: "reviewed_snapshot", label: timestamp.slice(0, 10) }, retrieved_at: timestamp,
+            content_sha256: sha256({ ticket: "P1-RISE-5012D", subjectId, field: promotion.field, value: promotion.canonicalValue }),
+            supersedes_claim_id: promotion.sourceClaimIds[0], source_claim_ids: promotion.sourceClaimIds,
+          };
+        });
+        let insertedPromotions = 0;
+        for (const batch of chunks(promotionRows)) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.canonical_evidence_claims (
+              claim_id, subject_id, field, knowledge, canonical_value, assertion_class,
+              publication_state, review_state, conflict_state, source_id, source_locator,
+              observed_period, retrieved_at, content_sha256, supersedes_claim_id
+            )
+            SELECT x.claim_id, x.subject_id, x.field, x.knowledge, x.canonical_value,
+                   'source_attributed_reconciled', 'PRIVATE_BETA', 'APPROVED', 'RESOLVED',
+                   x.source_id, x.source_locator, x.observed_period, x.retrieved_at,
+                   x.content_sha256, x.supersedes_claim_id
+            FROM jsonb_to_recordset($1::jsonb) AS x(
+              claim_id text, subject_id text, field text, knowledge jsonb, canonical_value jsonb,
+              source_id text, source_locator text, observed_period jsonb, retrieved_at timestamptz,
+              content_sha256 char(64), supersedes_claim_id text
+            ) ON CONFLICT (content_sha256) DO NOTHING
+          `, [JSON.stringify(batch)]);
+          insertedPromotions += result.rowCount;
+        }
+        const lineage = promotionRows.flatMap((promotion) => promotion.source_claim_ids.map((sourceClaimId, index) => ({
+          promoted_claim_id: promotion.claim_id, source_claim_id: sourceClaimId,
+          review_id: eventByClaim.get(sourceClaimId)?.reviewId, contributor_order: index,
+        }))).filter((row) => row.review_id);
+        let insertedLineage = 0;
+        for (const batch of chunks(lineage)) {
+          const result = await client.query(`
+            INSERT INTO rise_runtime.canonical_claim_promotion_lineage (
+              promoted_claim_id, source_claim_id, review_id, contributor_order
+            ) SELECT x.promoted_claim_id, x.source_claim_id, x.review_id, x.contributor_order
+              FROM jsonb_to_recordset($1::jsonb) AS x(
+                promoted_claim_id text, source_claim_id text, review_id text, contributor_order integer
+              ) ON CONFLICT (promoted_claim_id, source_claim_id) DO NOTHING
+          `, [JSON.stringify(batch)]);
+          insertedLineage += result.rowCount;
+        }
+        return { insertedReviews, insertedPromotions, insertedLineage, reviewCount: events.length, promotionCount: promotionRows.length };
+      }, { isAdmin: true });
+    },
+    async supersedeLegacyClaims({ currentClaimIds, actorSubject = "P1-RISE-5012D", reviewedAt }) {
+      const timestamp = requiredString(reviewedAt, "reviewedAt");
+      if (!Number.isFinite(Date.parse(timestamp))) throw new Error("reviewedAt must be an ISO timestamp");
+      const actorSubjectKey = sha256(`rise-evidence-review\0${actorSubject}`);
+      return withSubject(pool, systemKey, async (client) => {
+        const result = await client.query(`
+          SELECT c.claim_id AS "claimId", c.canonical_value AS value,
+                 array_remove(ARRAY[s.source_url], NULL) AS "sourceUrls"
+          FROM rise_runtime.canonical_evidence_claims c
+          JOIN rise_runtime.canonical_evidence_sources s USING(source_id)
+          LEFT JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id=c.claim_id
+          WHERE s.source_type='completed_research_factory'
+            AND NOT (c.claim_id = ANY($1::text[]))
+            AND r.source_claim_id IS NULL
+          ORDER BY c.claim_id
+        `, [[...new Set(currentClaimIds.map(String))]]);
+        const events = result.rows.map((row) => reviewEvent({
+          claimId: row.claimId,
+          disposition: "SUPERSEDED",
+          reason: "LEGACY_PROVIDER_CLAIM_SUPERSEDED_BY_5012D_REVIEW",
+          ruleVersion: "rise.review.5012d.1",
+          normalizedValue: row.value,
+          sourceUrls: row.sourceUrls ?? [],
+          qualityScore: 0,
+        }, actorSubjectKey, timestamp));
+        let insertedReviews = 0;
+        for (const batch of chunks(events)) {
+          const inserted = await client.query(`
+            INSERT INTO rise_runtime.evidence_claim_review_events (
+              review_id, source_claim_id, disposition, reason_code, rule_version,
+              normalized_value, source_urls, quality_score, actor_subject_key, decision_sha256,
+              overrides_review_id, created_at
+            ) SELECT x.review_id, x.source_claim_id, x.disposition, x.reason_code, x.rule_version,
+                     x.normalized_value, x.source_urls, x.quality_score, x.actor_subject_key, x.decision_sha256,
+                     x.overrides_review_id, x.created_at
+              FROM jsonb_to_recordset($1::jsonb) AS x(
+                review_id text, source_claim_id text, disposition text, reason_code text, rule_version text,
+                normalized_value jsonb, source_urls jsonb, quality_score integer,
+                actor_subject_key char(64), decision_sha256 char(64), overrides_review_id text, created_at timestamptz
+              ) ON CONFLICT (decision_sha256) DO NOTHING
+          `, [JSON.stringify(batch.map((event) => ({
+            review_id: event.reviewId, source_claim_id: event.sourceClaimId, disposition: event.disposition,
+            reason_code: event.reasonCode, rule_version: event.ruleVersion, normalized_value: event.normalizedValue,
+            source_urls: event.sourceUrls, quality_score: event.qualityScore, actor_subject_key: event.actorSubjectKey,
+            decision_sha256: event.decisionSha256, overrides_review_id: event.overridesReviewId, created_at: event.createdAt,
+          })))]);
+          insertedReviews += inserted.rowCount;
+        }
+        return { legacyClaims: events.length, insertedReviews };
+      }, { isAdmin: true });
+    },
+    async stats() {
+      return withSubject(pool, systemKey, async (client) => {
+        const totals = await client.query(`SELECT count(*)::integer AS total FROM rise_runtime.canonical_evidence_claims c JOIN rise_runtime.canonical_evidence_sources s USING(source_id) WHERE s.source_type='completed_research_factory'`);
+        const providers = await client.query(`SELECT s.provider, count(*)::integer AS claims FROM rise_runtime.canonical_evidence_claims c JOIN rise_runtime.canonical_evidence_sources s USING(source_id) WHERE s.source_type='completed_research_factory' GROUP BY s.provider ORDER BY s.provider`);
+        const dispositions = await client.query(`SELECT coalesce(r.disposition, 'WITHOUT_FINAL_DISPOSITION') AS disposition, count(*)::integer AS claims FROM rise_runtime.canonical_evidence_claims c JOIN rise_runtime.canonical_evidence_sources s USING(source_id) LEFT JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id=c.claim_id WHERE s.source_type='completed_research_factory' GROUP BY coalesce(r.disposition, 'WITHOUT_FINAL_DISPOSITION') ORDER BY disposition`);
+        const visible = await client.query(`SELECT count(*)::integer AS visible FROM rise_runtime.canonical_current_facts f JOIN rise_runtime.canonical_evidence_sources s USING(source_id) WHERE s.source_type='canonical_review_promotion'`);
+        return { totalClaims: totals.rows[0].total, providers: providers.rows, dispositions: dispositions.rows, visiblePromotions: visible.rows[0].visible };
+      }, { isAdmin: true });
+    },
+    async listExceptions({ disposition = null, limit = 100 } = {}) {
+      return withSubject(pool, systemKey, async (client) => {
+        const result = await client.query(`
+          SELECT r.review_id AS "reviewId", r.source_claim_id AS "claimId", r.disposition,
+                 r.reason_code AS reason, r.rule_version AS "ruleVersion", r.normalized_value AS value,
+                 r.source_urls AS "sourceUrls", s.provider, s.metadata->>'acgmeId' AS "acgmeId", c.field,
+                 i.program_name AS "programName", r.created_at AS "reviewedAt"
+          FROM rise_runtime.evidence_claim_review_current r
+          JOIN rise_runtime.canonical_evidence_claims c ON c.claim_id=r.source_claim_id
+          JOIN rise_runtime.canonical_evidence_sources s USING(source_id)
+          LEFT JOIN rise_runtime.canonical_program_identities i ON i.program_identity_id=c.subject_id
+          WHERE s.source_type='completed_research_factory'
+            AND r.disposition NOT IN ('APPROVED_CURRENT','APPROVED_HISTORICAL','RESEARCHED_NOT_FOUND','SUPERSEDED')
+            AND ($1::text IS NULL OR r.disposition=$1)
+          ORDER BY r.disposition, i.program_name, c.field, c.claim_id LIMIT $2
+        `, [disposition, Math.max(1, Math.min(Number(limit) || 100, 250))]);
+        return result.rows;
+      }, { isAdmin: true });
+    },
+    async manualDecision({ claimId, disposition, reason, actorSubject }) {
+      const allowed = new Set([
+        "APPROVED_CURRENT", "APPROVED_HISTORICAL", "RESEARCHED_NOT_FOUND",
+        "CONFLICT_REQUIRES_REVIEW", "INSUFFICIENT_EVIDENCE", "STALE_NEEDS_REFRESH",
+      ]);
+      const nextDisposition = requiredString(disposition, "disposition").toUpperCase();
+      const safeReason = requiredString(reason, "reason").slice(0, 480);
+      if (!allowed.has(nextDisposition)) throw new Error("Unsupported manual evidence disposition");
+      const actorSubjectKey = sha256("rise-evidence-review\0" + requiredString(actorSubject, "actorSubject"));
+      return withSubject(pool, actorSubjectKey, async (client) => {
+        const current = await client.query(`
+          SELECT r.review_id AS "reviewId", r.disposition, r.normalized_value AS value,
+                 r.source_urls AS "sourceUrls", r.quality_score AS "qualityScore",
+                 c.claim_id AS "claimId", c.field, c.subject_id AS "subjectId",
+                 i.acgme_id::text AS "acgmeId"
+          FROM rise_runtime.evidence_claim_review_current r
+          JOIN rise_runtime.canonical_evidence_claims c ON c.claim_id=r.source_claim_id
+          JOIN rise_runtime.canonical_program_identities i ON i.program_identity_id=c.subject_id
+          WHERE c.claim_id=$1
+          FOR UPDATE OF c
+        `, [claimId]);
+        if (current.rowCount !== 1) throw researchStoreError("EVIDENCE_CLAIM_NOT_FOUND", "Evidence claim is not available for review", 404);
+        const row = current.rows[0];
+        if (row.disposition === "APPROVED_CURRENT") {
+          throw researchStoreError("EVIDENCE_ALREADY_LIVE", "A live approved claim cannot be demoted through the exception queue", 409);
+        }
+        if (nextDisposition === "APPROVED_CURRENT"
+          && (row.value == null || !Array.isArray(row.sourceUrls) || row.sourceUrls.length === 0)) {
+          throw researchStoreError("EVIDENCE_APPROVAL_UNSUPPORTED", "Approval requires a normalized value and at least one preserved source URL", 409);
+        }
+        const timestamp = new Date().toISOString();
+        const event = reviewEvent({
+          claimId: row.claimId, disposition: nextDisposition, reason: "manual:" + safeReason,
+          ruleVersion: "5012d.manual.1", normalizedValue: row.value,
+          sourceUrls: row.sourceUrls ?? [], qualityScore: row.qualityScore,
+          overridesReviewId: row.reviewId,
+        }, actorSubjectKey, timestamp);
+        await client.query(`
+          INSERT INTO rise_runtime.evidence_claim_review_events (
+            review_id, source_claim_id, disposition, reason_code, rule_version,
+            normalized_value, source_urls, quality_score, actor_subject_key, decision_sha256,
+            overrides_review_id, created_at
+          ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12)
+        `, [event.reviewId, event.sourceClaimId, event.disposition, event.reasonCode, event.ruleVersion,
+          JSON.stringify(event.normalizedValue), JSON.stringify(event.sourceUrls), event.qualityScore,
+          event.actorSubjectKey, event.decisionSha256, event.overridesReviewId, event.createdAt]);
+        if (nextDisposition === "APPROVED_CURRENT") {
+          const sourceId = "rise_src_p1_rise_5012d_review";
+          await client.query(`
+            INSERT INTO rise_runtime.canonical_evidence_sources (
+              source_id, provider, provider_run_id, source_type, source_locator, retrieved_at,
+              rights_state, exposure_state, metadata
+            ) VALUES ($1,'MISSIONMED_REVIEW','P1-RISE-5012D','canonical_review_promotion',
+                      'P1-RISE-5012D/manual-review',$2,'APPROVED','PRIVATE_BETA',$3::jsonb)
+            ON CONFLICT (source_id) DO NOTHING
+          `, [sourceId, timestamp, JSON.stringify({ ruleVersion: "5012d.manual.1", newProviderSpendUsd: 0 })]);
+          const valueSha256 = sha256(row.value);
+          const promotedClaimId = stableDatabaseId("rise_claim", "5012d:" + row.subjectId + ":" + row.field + ":" + valueSha256);
+          const contentSha256 = sha256({ ticket: "P1-RISE-5012D", subjectId: row.subjectId, field: row.field, value: row.value });
+          await client.query(`
+            INSERT INTO rise_runtime.canonical_evidence_claims (
+              claim_id, subject_id, field, knowledge, canonical_value, assertion_class,
+              publication_state, review_state, conflict_state, source_id, source_locator,
+              observed_period, retrieved_at, content_sha256, supersedes_claim_id
+            ) VALUES ($1,$2,$3,$4::jsonb,$5::jsonb,'source_attributed_reconciled',
+                      'PRIVATE_BETA','APPROVED','RESOLVED',$6,$7,$8::jsonb,$9,$10,$11)
+            ON CONFLICT (content_sha256) DO NOTHING
+          `, [promotedClaimId, row.subjectId, row.field, JSON.stringify({ state: "known", value: row.value }),
+            JSON.stringify(row.value), sourceId, "P1-RISE-5012D/" + row.acgmeId + "/" + row.field,
+            JSON.stringify({ kind: "reviewed_snapshot", label: timestamp.slice(0, 10) }), timestamp,
+            contentSha256, row.claimId]);
+          await client.query(`
+            INSERT INTO rise_runtime.canonical_claim_promotion_lineage (
+              promoted_claim_id, source_claim_id, review_id, contributor_order
+            ) VALUES ($1,$2,$3,0)
+            ON CONFLICT (promoted_claim_id, source_claim_id) DO NOTHING
+          `, [promotedClaimId, row.claimId, event.reviewId]);
+        }
+        return { claimId: row.claimId, disposition: nextDisposition, reviewId: event.reviewId, reviewedAt: timestamp };
       }, { isAdmin: true });
     },
   };

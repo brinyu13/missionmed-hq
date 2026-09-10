@@ -332,6 +332,21 @@ export function createMemoryFilterIntelligenceStore({ researchCoverage = [], cur
   };
 }
 
+export function createMemoryEvidenceReviewStore() {
+  return {
+    scope: "process_local_test_only",
+    async stats() {
+      return { totalClaims: 0, providers: [], dispositions: [], visiblePromotions: 0 };
+    },
+    async listExceptions() { return []; },
+    async manualDecision() {
+      throw Object.assign(new Error("The local review fixture is read-only"), {
+        code: "EVIDENCE_REVIEW_READ_ONLY", status: 409,
+      });
+    },
+  };
+}
+
 export function createMemoryResearchStore() {
   let controls = { ...RESEARCH_ROUTER_CONFIG.defaults, revision: 1, actualSpendUsd: 0 };
   const providers = new Map(RESEARCH_ROUTER_CONFIG.providers.map((provider) => [
@@ -485,6 +500,18 @@ function resolveFilterIntelligenceStore(store, { production }) {
     || (production && candidate.scope !== "durable_canonical_projection")
   ) {
     throw new Error("RISE filter intelligence store must provide read(); production scope must be durable_canonical_projection");
+  }
+  return candidate;
+}
+
+function resolveEvidenceReviewStore(store, { production }) {
+  const candidate = store ?? createMemoryEvidenceReviewStore();
+  const required = ["stats", "listExceptions", "manualDecision"];
+  if (
+    required.some((name) => typeof candidate[name] !== "function")
+    || (production && candidate.scope !== "durable_canonical_review")
+  ) {
+    throw new Error("RISE evidence review store is incomplete; production scope must be durable_canonical_review");
   }
   return candidate;
 }
@@ -1212,6 +1239,7 @@ export function createRiseServer({
   studentStore,
   studentIntelStore,
   filterIntelligenceStore,
+  evidenceReviewStore,
   researchStore,
   matrixProfileAdapter,
   logger = createJsonLogger(),
@@ -1248,6 +1276,7 @@ export function createRiseServer({
   const studentPrograms = resolveStudentStore(studentStore, { production });
   const studentIntel = resolveStudentIntelStore(studentIntelStore, { production });
   const filterIntelligence = resolveFilterIntelligenceStore(filterIntelligenceStore, { production });
+  const evidenceReview = resolveEvidenceReviewStore(evidenceReviewStore, { production });
   const research = resolveResearchStore(researchStore, { production });
   const matrixProfile = resolveMatrixProfileAdapter(matrixProfileAdapter, { production });
   const authorizationSha256s = registryIndex.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [];
@@ -1857,6 +1886,38 @@ export function createRiseServer({
         sendJson(response, 200, { records }, { cache: "no-store", requestId });
         return;
       }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/operator/research/review") {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const [stats, records] = await Promise.all([
+          evidenceReview.stats(),
+          evidenceReview.listExceptions({ disposition: url.searchParams.get("disposition"), limit: url.searchParams.get("limit") ?? 250 }),
+        ]);
+        status = 200;
+        sendJson(response, 200, { stats, records }, { cache: "no-store", requestId });
+        return;
+      }
+      const reviewDecisionMatch = url.pathname.match(/^\/api\/rise\/v1\/operator\/research\/review\/([^/]+)$/);
+      if (request.method === "PATCH" && reviewDecisionMatch) {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const body = await readBody(request);
+        const result = await evidenceReview.manualDecision({
+          claimId: decodeURIComponent(reviewDecisionMatch[1]),
+          disposition: body?.disposition,
+          reason: body?.reason,
+          actorSubject: session.subject,
+        });
+        status = 200;
+        sendJson(response, 200, { result }, { cache: "no-store", requestId });
+        return;
+      }
       const intelAuditMatch = url.pathname.match(/^\/api\/rise\/v1\/operator\/student-intel\/([^/]+)\/audit$/);
       if (request.method === "GET" && intelAuditMatch) {
         if (!hasCapability(session, "rise:operator")) {
@@ -2198,6 +2259,7 @@ export async function startFromEnvironment() {
   let studentStore;
   let studentIntelStore;
   let filterIntelligenceStore;
+  let evidenceReviewStore;
   let researchStore;
   let matrixProfileAdapter;
   if (authMode === "injected") {
@@ -2244,6 +2306,10 @@ export async function startFromEnvironment() {
       throw new Error("RISE Student Intel adapter must export createRiseFilterIntelligenceStore()");
     }
     filterIntelligenceStore = await adapter.createRiseFilterIntelligenceStore();
+    if (typeof adapter.createRiseEvidenceReviewStore !== "function") {
+      throw new Error("RISE Student Intel adapter must export createRiseEvidenceReviewStore()");
+    }
+    evidenceReviewStore = await adapter.createRiseEvidenceReviewStore();
   }
   const researchAdapterPath = process.env.RISE_RESEARCH_ADAPTER_MODULE ?? studentStateAdapterPath;
   if (researchAdapterPath) {
@@ -2296,6 +2362,7 @@ export async function startFromEnvironment() {
     studentStore,
     studentIntelStore,
     filterIntelligenceStore,
+    evidenceReviewStore,
     researchStore,
     matrixProfileAdapter,
     buildId: webBuild.buildId,

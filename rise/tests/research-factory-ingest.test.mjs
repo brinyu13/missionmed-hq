@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeResearchFactoryRecord } from "../adapters/research-factory-ingest.mjs";
+import { extractEvidenceUrls, normalizeParallelRawResearchRecord, normalizeResearchFactoryRecord } from "../adapters/research-factory-ingest.mjs";
 
 function fixture(campaignId = "RISE-BOOTSTRAP-001") {
   return {
@@ -35,4 +35,29 @@ test("provider-neutral normalization converges Parallel and Claude without auto-
     sourceBytes: Buffer.from("{}"),
     sourceFile: "unknown.json",
   }), /Unsupported completed research campaign/);
+});
+
+test("raw Parallel results reproduce the original safe-fact staging contract and retain evidence URLs", () => {
+  const raw = {
+    run: { metadata: { acgme_id: "1400000000" }, modified_at: "2026-08-29T00:00:00.000Z" },
+    output: { content: {
+      visa: { j1: "YES", source_url: "https://program.example/visa" },
+      abim: { pass_rate: "NOT_FOUND" },
+      img_accessibility: { signal: "observed" },
+      caribbean_accessibility: { signal: "unknown" },
+      do_accessibility: { signal: "observed" },
+      leadership: [{ name: "Review Person" }], resident_roster: [], fellowship_inventory: ["Cardiology"],
+      sources: ["https://program.example/home"], conflicts: [],
+    } },
+  };
+  const normalized = normalizeParallelRawResearchRecord({
+    record: raw, sourceBytes: Buffer.from(JSON.stringify(raw)), sourceFile: "parallel-raw/example.json",
+  });
+  assert.equal(normalized.provider, "PARALLEL");
+  assert.equal(normalized.claims.length, 7);
+  assert.equal(normalized.claims.find((claim) => claim.field === "research.visa").sourceUrl, "https://program.example/home");
+  assert.ok(normalized.claims.find((claim) => claim.field === "research.visa").sourceUrls.includes("https://program.example/visa"));
+  assert.match(normalized.claims.find((claim) => claim.field === "research.leadership").sourceLocator, /#\/needs_review\/leadership$/);
+  assert.ok(normalized.claims.every((claim) => claim.publicationState === "REVIEW_REQUIRED"));
+  assert.deepEqual(extractEvidenceUrls({ source: "See https://a.example/x." }), ["https://a.example/x"]);
 });

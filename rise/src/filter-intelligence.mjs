@@ -85,7 +85,7 @@ function positivePercent(value) {
 }
 
 function affirmative(value) {
-  return value === true || ["YES", "TRUE", "SUPPORTED", "PUBLISHED"].includes(String(value ?? "").trim().toUpperCase());
+  return value === true || /^(?:YES|TRUE|SUPPORTED|PUBLISHED|AVAILABLE|SPONSORED)\b/.test(String(value ?? "").trim().toUpperCase());
 }
 
 function programIdentifier(program, namespace) {
@@ -99,6 +99,22 @@ function normalizedClassification(value) {
 function rosterRows(value) {
   if (!Array.isArray(value)) return [];
   return value.flatMap((row) => Array.isArray(row) ? rosterRows(row) : (row && typeof row === "object" ? [row] : []));
+}
+
+function dynamicSearchTerms(facts) {
+  const terms = new Set();
+  for (const fact of facts) {
+    const value = fact.canonicalValue ?? fact.canonical_value ?? fact.knowledge?.value;
+    if (fact.field === "research.resident_roster") {
+      for (const resident of rosterRows(value)) {
+        for (const term of [resident.medical_school, resident.medical_school_raw]) {
+          const normalized = String(term ?? "").trim();
+          if (normalized) terms.add(normalized);
+        }
+      }
+    }
+  }
+  return [...terms].sort().slice(0, 250);
 }
 
 function dynamicFactFlags(facts) {
@@ -130,7 +146,7 @@ function dynamicFactFlags(facts) {
       }
     }
     if (fact.field === "research.abim" && value && typeof value === "object") {
-      const passRate = Number(value.pass_rate ?? value.passRate);
+      const passRate = Number.parseFloat(String(value.pass_rate ?? value.passRate ?? "").replace(/[^0-9.]/g, ""));
       flags.abim ||= Number.isFinite(passRate) && passRate >= 0 && passRate <= 100;
     }
     if (fact.field === "MissionMed Alumni" || fact.field === "ACTN Connections") {
@@ -222,6 +238,7 @@ export function expandFilterIntelligenceRecord(record, flagBits = FILTER_FLAG_BI
     soap2026: enabled("soap2026"),
     abim: enabled("abim"),
     alumni: enabled("alumni"),
+    searchTerms: Array.isArray(record?.searchTerms) ? record.searchTerms : [],
   };
 }
 
@@ -315,6 +332,7 @@ export function buildFilterIntelligence(programs, {
     return {
       programSpecialtyId: program.programSpecialtyId,
       flags,
+      searchTerms: dynamicSearchTerms(dynamicFacts),
       researchDepth: depth,
       researchState: depthDetail.researchState,
       approvedDomainCount: depthDetail.approvedDomains.length,

@@ -77,6 +77,7 @@ function toFableProgram(record, filterIntelligence, flagBits) {
     researchProjection: null,
     profileLoading: false,
     intelligence: { ...(record.intelligence || {}) },
+    searchTerms: Array.isArray(filterIntelligence?.searchTerms) ? filterIntelligence.searchTerms : [],
     filterIntelligence: {
       visa: { j1, h1b, j1OrH1b: j1 || h1b, any: enabled('anyVisa') },
       residentEvidence: { img: enabled('img'), do: enabled('do'), caribbean: enabled('caribbean'), usmd: enabled('usmd') },
@@ -206,7 +207,7 @@ const state = {
   saved: runtime.saved,
   compare: [],
   underlying: null,                   // last non-file route
-  find: { mode: 'profile', q: '', state: '', specialty: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, sort: 'fit', view: 'list', shown: 50, scroll: 0, moreOpen: false },
+  find: { mode: 'profile', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, sort: 'fit', view: 'list', shown: 50, scroll: 0, moreOpen: false },
   fileTab: 'overview',
   fileFrom: 'find',
   campaigns: [],
@@ -214,7 +215,7 @@ const state = {
   dismissedLocks: new Set(),
   updating: new Set(),                // program ids currently updating from an authorized research job
   changed: [],                        // ingest log for "Updated this week"
-  researchAdmin: { loading: false, error: null, control: null, revision: null, providers: [], jobs: [] },
+  researchAdmin: { loading: false, error: null, control: null, revision: null, providers: [], jobs: [], reviewStats: null, reviewRecords: [] },
 };
 
 /* Campaign state is loaded only from an authorized research backend. */
@@ -223,6 +224,7 @@ const state = {
 const byId = new Map(D.programs.map(p => [p.id, p]));
 const STATES = [...new Set(D.programs.map(p => p.state))].sort();
 const SPECIALTIES = [...new Set(D.programs.flatMap(p => (p.browseMemberships || []).map(m => m.browseSpecialty)))].sort();
+const RESIDENT_SCHOOLS = [...new Set(D.programs.flatMap(p => p.searchTerms || []))].sort();
 const stateNames = { AL:'Alabama', AR:'Arkansas', AZ:'Arizona', CA:'California', CO:'Colorado', CT:'Connecticut', DC:'Washington DC', DE:'Delaware', FL:'Florida', GA:'Georgia', IA:'Iowa', IL:'Illinois', IN:'Indiana', KS:'Kansas', KY:'Kentucky', LA:'Louisiana', MA:'Massachusetts', MD:'Maryland', MI:'Michigan', MN:'Minnesota', MO:'Missouri', MS:'Mississippi', MT:'Montana', NC:'North Carolina', ND:'North Dakota', NE:'Nebraska', NH:'New Hampshire', NJ:'New Jersey', NM:'New Mexico', NV:'Nevada', NY:'New York', OH:'Ohio', OK:'Oklahoma', OR:'Oregon', PA:'Pennsylvania', PR:'Puerto Rico', RI:'Rhode Island', SC:'South Carolina', SD:'South Dakota', TN:'Tennessee', TX:'Texas', UT:'Utah', VA:'Virginia', VT:'Vermont', WA:'Washington', WI:'Wisconsin', WV:'West Virginia', WY:'Wyoming' };
 
 /* ---------------- fit engine ---------------- */
@@ -394,7 +396,7 @@ function renderShell() {
     <button class="railCta" onclick="focusLookup()">✦ <span>Tell me about…</span></button>
     ${student.map(([k, l, ic]) => `<button class="rtab ${activeBase === k ? 'on' : ''}" ${activeBase === k ? 'aria-current="page"' : ''} onclick="nav('${k}')">${ic}<span>${l}</span>${k === 'my' && savedN ? `<span class="badge">${savedN}</span>` : ''}</button>`).join('')}
     ${state.role === 'admin' ? `<div class="railSep"></div><div class="railGroupLbl">Research · Admin</div>` +
-      admin.map(([k, l, ic]) => `<button class="rtab adminTab ${r === k || (activeBase === 'admin' && k.endsWith(adminView) && r.startsWith('admin')) ? (r === k ? 'on' : '') : ''} ${r === k ? 'on' : ''}" onclick="nav('${k}')">${ic}<span>${l}</span>${k === 'admin/review' ? `<span class="badge">${4 - state.reviewDone.size > 0 ? 4 - state.reviewDone.size : ''}</span>` : ''}</button>`).join('') : ''}
+      admin.map(([k, l, ic]) => `<button class="rtab adminTab ${r === k || (activeBase === 'admin' && k.endsWith(adminView) && r.startsWith('admin')) ? (r === k ? 'on' : '') : ''} ${r === k ? 'on' : ''}" onclick="nav('${k}')">${ic}<span>${l}</span>${k === 'admin/review' ? `<span class="badge">${state.researchAdmin.reviewRecords.length || ''}</span>` : ''}</button>`).join('') : ''}
     <div class="railFoot">
       <button class="matrixBack" onclick="toast('Production wiring — Matrix link not wired.')">↩ <span>Back to Matrix</span></button>
       <div class="roleRow ${state.role}"><span class="roleDot"></span><span class="roleName">${state.role === 'admin' ? 'Admin' : 'Student'}</span></div>
@@ -421,7 +423,7 @@ function searchPrograms(q) {
   if (q.length < 2) return [];
   const toks = q.split(/\s+/);
   return D.programs.map(p => {
-    const hay = [p.name, p.inst, p.hospital, p.city, p.state, stateNames[p.state] || '', p.specName, p.acgme, p.legacyId, p.id, (p.aliases || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
+    const hay = [p.name, p.inst, p.hospital, p.city, p.state, stateNames[p.state] || '', p.specName, p.acgme, p.legacyId, p.id, (p.aliases || []).join(' '), (p.searchTerms || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
     let score = 0;
     if (!toks.every(t => hay.includes(t))) return null;
     if (p.name.toLowerCase().startsWith(q)) score += 40;
@@ -654,6 +656,10 @@ function matchingPrograms(f = state.find) {
   if (f.q) { const hits = new Set(searchPrograms(f.q).map(p => p.id)); list = list.filter(p => hits.has(p.id)); }
   if (f.state) list = list.filter(p => p.state === f.state);
   if (f.specialty) list = list.filter(p => (p.browseMemberships || []).some(m => m.browseSpecialty === f.specialty));
+  if (f.residentSchool) {
+    const school = f.residentSchool.trim().toLocaleLowerCase('en-US');
+    list = list.filter(p => (p.searchTerms || []).some(term => term.toLocaleLowerCase('en-US').includes(school)));
+  }
   if (f.soap) list = list.filter(p => p.soap.length && (!f.soapTrack || p.soap.some(s => s.track === f.soapTrack)));
   if (f.abim) list = list.filter(p => p.filterIntelligence.abim);
   if (f.depth) list = list.filter(p => p.filterIntelligence.researchDepth === f.depth);
@@ -701,6 +707,7 @@ function activePills() {
   if (f.q) pills.push({ k: 'q', label: `”${f.q}”` });
   if (f.specialty) pills.push({ k: 'specialty', label: f.specialty });
   if (f.state) pills.push({ k: 'state', label: stateNames[f.state] || f.state });
+  if (f.residentSchool) pills.push({ k: 'residentSchool', label: 'Resident school: ' + f.residentSchool });
   if (f.soap) pills.push({ k: 'soap', label: 'SOAP 2026' + (f.soapTrack ? ' · ' + f.soapTrack : '') });
   if (f.abim) pills.push({ k: 'abim', label: 'ABIM verified' });
   if (f.depth) pills.push({ k: 'depth', label: { deep: 'Deep Research', enriched: 'Enriched Research', basic: 'Basic Profile', pending: 'Research Pending' }[f.depth] });
@@ -714,12 +721,12 @@ function activePills() {
 }
 window.dropPill = k => {
   const f = state.find;
-  if (k === 'q') f.q = ''; if (k === 'specialty') f.specialty = ''; if (k === 'state') f.state = ''; if (k === 'soap') { f.soap = false; f.soapTrack = ''; }
+  if (k === 'q') f.q = ''; if (k === 'specialty') f.specialty = ''; if (k === 'state') f.state = ''; if (k === 'residentSchool') f.residentSchool = ''; if (k === 'soap') { f.soap = false; f.soapTrack = ''; }
   if (k === 'abim') f.abim = false; if (k === 'depth') f.depth = ''; if (k === 'visaMode') f.visaMode = '';
   if (k === 'imgEv') f.imgEv = false; if (k === 'doEv') f.doEv = false; if (k === 'caribbeanEv') f.caribbeanEv = false; if (k === 'usmdEv') f.usmdEv = false; if (k === 'fresh') f.fresh = '';
   state.find.shown = 50; rerender();
 };
-window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, shown: 50 }); rerender(); };
+window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, shown: 50 }); rerender(); };
 
 function sigIMG(p, f) {
   if (p.filterIntelligence.residentEvidence.img) return `<span class="sig" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not admissions policy."><b>IMG ✓</b><span style="color:var(--dim)"> ${esc(p.intelligence.imgGraduatesPercent || 'reported')}</span></span>`;
@@ -1092,6 +1099,10 @@ window.openFilterDrawer = () => {
       <button class="tgl ${f.doEv ? 'on' : ''}" onclick="state.find.doEv=!state.find.doEv;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>DO residents / graduates reported<span class="cav">Independent from Caribbean evidence. Observation, not admissions policy.</span></span>${count({ doEv: true })}</button>
       <button class="tgl ${f.caribbeanEv ? 'on' : ''} ${caribbeanAvailable ? '' : 'unavailable'}" ${caribbeanAvailable ? `onclick="state.find.caribbeanEv=!state.find.caribbeanEv;openFilterDrawer();rerenderKeepDrawer()"` : 'disabled'}><span class="box">✓</span><span>Caribbean graduates on roster<span class="cav">${caribbeanAvailable ? 'Approved canonical roster observations only.' : 'Awaiting approved canonical roster evidence; review-gated research is not exposed.'}</span></span>${count({ caribbeanEv: true })}</button>
       <button class="tgl ${f.usmdEv ? 'on' : ''}" onclick="state.find.usmdEv=!state.find.usmdEv;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>US MD residents / graduates reported<span class="cav">Program-reported composition or approved roster evidence.</span></span>${count({ usmdEv: true })}</button>
+      <label class="fLbl" for="residentSchoolFilter" style="margin-top:14px">Resident medical school</label>
+      <input id="residentSchoolFilter" class="fSel" style="width:100%" list="residentSchoolOptions" value="${esc(f.residentSchool)}" placeholder="Type a school name or alias" onchange="state.find.residentSchool=this.value.trim();state.find.shown=50;rerenderKeepDrawer()">
+      <datalist id="residentSchoolOptions">${RESIDENT_SCHOOLS.map(school => '<option value="' + esc(school) + '"></option>').join('')}</datalist>
+      <span class="cav">Matches approved current/recent resident-roster evidence only.</span>
     </div>
     <div class="fGroup"><div class="fLbl">Visa</div>
       ${[
@@ -1267,7 +1278,15 @@ function pendingResearchField(p, field) {
 }
 function researchStateText(p, field) {
   if (approvedResearchFact(p, field)) return 'Verified';
-  if (pendingResearchField(p, field)) return 'Evidence found · verification pending';
+  const pending = pendingResearchField(p, field);
+  const dispositions = new Set(pending?.dispositions || []);
+  if (dispositions.has('CONFLICT_REQUIRES_REVIEW')) return 'Conflicting published information · under review';
+  if (dispositions.has('STALE_NEEDS_REFRESH')) return 'Research needs refresh';
+  if (dispositions.has('IDENTITY_AMBIGUITY')) return 'Evidence found · identity verification pending';
+  if (dispositions.has('APPROVED_HISTORICAL')) return 'Historical evidence available · current status not established';
+  if (dispositions.has('RESEARCHED_NOT_FOUND')) return 'No published policy found';
+  if (dispositions.has('INSUFFICIENT_EVIDENCE')) return 'Research reviewed · no supportable published value';
+  if (pending) return 'Evidence found · verification pending';
   return p.profileLoading ? 'Loading…' : 'Not yet researched';
 }
 const DOMAIN_RESEARCH_FIELDS = {
@@ -1553,7 +1572,7 @@ function tabDetails(p, R) {
     </div>
     <div class="railCard"><div class="rLbl">Benefits</div>
       ${R && R.benefits && R.benefits.length ? `<ul class="bullets">${R.benefits.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : registryTable(p, ['Benefits', 'Vacation', 'Educational Stipend', 'Meal Allowance'], 'Program-reported benefits')}
-      ${approvedResearchTable(p, ['research.salary_benefits'], 'Approved salary and benefits research')}
+      ${approvedResearchTable(p, ['research.salary_benefits', 'research.abim'], 'Approved practical research')}
     </div>
   </div><div>
     <div class="railCard"><div class="rLbl">Identity</div>
@@ -1578,10 +1597,11 @@ window.openSources = (id, evidenceIdx) => {
     t: 'Approved canonical registry source', pub: url, tier: 1,
     acc: p.canonical?.source?.retrievedAt || p.verified || 'not stated', cur: 'current', url,
   }));
-  const researchSources = (p.researchProjection?.currentFacts || []).filter(fact => fact.sourceUrl).map(fact => ({
-    t: fact.field.replace(/^research\./, '').replaceAll('_', ' '), pub: 'Approved canonical research evidence', tier: 1,
-    acc: fact.retrievedAt || 'not stated', cur: 'current', url: fact.sourceUrl,
-  }));
+  const researchSources = (p.researchProjection?.currentFacts || []).flatMap(fact =>
+    (fact.sourceUrls?.length ? fact.sourceUrls : [fact.sourceUrl]).filter(Boolean).map(url => ({
+      t: fact.field.replace(/^research\./, '').replaceAll('_', ' '), pub: 'Approved canonical research evidence', tier: 1,
+      acc: fact.retrievedAt || 'not stated', cur: 'current', url,
+    })));
   const sourceRows = R.sources || [...canonicalSources, ...researchSources];
   const pendingFields = p.researchProjection?.pendingEvidence?.fields || [];
   const panel = $('#srcPanel');
@@ -1602,7 +1622,7 @@ window.openSources = (id, evidenceIdx) => {
           <div class="srcM"><span class="srcTier">Tier ${s.tier} · ${s.tier === 1 ? 'Official / approved' : s.tier === 2 ? 'Directory / internal' : 'Secondary'}</span><span>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">Open source ↗</a>` : esc(s.pub)}</span><span>accessed ${esc(s.acc)}</span><span class="cur-${s.cur}">${s.cur}</span></div>
         </div>`).join('')}
     </div>
-    ${pendingFields.length ? `<div class="fGroup"><div class="fLbl">Evidence awaiting verification</div><p class="sub" style="font-size:14px">Values remain hidden until review; provenance and source records are preserved.</p><div class="unkChips">${pendingFields.map(item => `<span class="unkChip">${esc(item.field.replace(/^research\./, '').replaceAll('_', ' '))} · verification pending</span>`).join('')}</div></div>` : ''}
+    ${pendingFields.length ? `<div class="fGroup"><div class="fLbl">Reviewed evidence state</div><p class="sub" style="font-size:14px">Unsupported or disputed values remain hidden; provenance and source records are preserved.</p><div class="unkChips">${pendingFields.map(item => `<span class="unkChip">${esc(item.field.replace(/^research\./, '').replaceAll('_', ' '))} · ${esc(researchStateText(p, item.field))}</span>`).join('')}</div></div>` : ''}
     ${R.conflicts && R.conflicts.length ? `<div class="fGroup"><div class="fLbl">Conflicts</div>
       ${R.conflicts.map(c => `<div class="srcRow"><div class="srcT">${stateTag('conflict', '')} ${esc(c.field)}</div>
         <div style="font-size:14px;color:var(--mid);margin-top:4px">A: ${esc(c.a)}<br>B: ${esc(c.b)}<br><span style="color:var(--dim)">How RISE shows it: ◐ until resolved · ${esc(c.res)}</span></div></div>`).join('')}
@@ -1745,8 +1765,16 @@ async function loadAdminResearch(force = false) {
   if (!state.canAdmin || state.researchAdmin.loading || (!force && state.researchAdmin.control)) return;
   state.researchAdmin.loading = true;
   try {
-    const [router, jobs] = await Promise.all([riseFetch('/api/rise/v1/operator/research/router'), riseFetch('/api/rise/v1/operator/research/jobs')]);
-    state.researchAdmin = { loading:false, error:null, control:router.controls, revision:router.revision, providers:router.providers || [], jobs:jobs.records || [] };
+    const [router, jobs, review] = await Promise.all([
+      riseFetch('/api/rise/v1/operator/research/router'),
+      riseFetch('/api/rise/v1/operator/research/jobs'),
+      riseFetch('/api/rise/v1/operator/research/review'),
+    ]);
+    state.researchAdmin = {
+      loading:false, error:null, control:router.controls, revision:router.revision,
+      providers:router.providers || [], jobs:jobs.records || [],
+      reviewStats:review.stats || null, reviewRecords:review.records || [],
+    };
   } catch (error) { state.researchAdmin = { ...state.researchAdmin, loading:false, error:error.message || 'Unavailable' }; }
   if ((currentRoute() || '').startsWith('admin/')) renderMain(currentRoute());
 }
@@ -1863,11 +1891,45 @@ function viewQueue() {
 }
 
 /* ---------- review queue + change detection (doc 12 §12.5) ---------- */
-const REVIEW_ITEMS = [];
 function viewReview() {
-  return `<p class="eyebrow" style="color:var(--admin)">Review</p><h1 class="h1">Nothing ships <em>unreviewed</em></h1><div class="emptyLib"><div class="big">No authorized review queue is connected.</div>Research changes cannot be accepted, rejected, or ingested from this release.</div>`;
+  const records = state.researchAdmin.reviewRecords || [];
+  const stats = state.researchAdmin.reviewStats;
+  const dispositions = Object.fromEntries((stats?.dispositions || []).map(item => [item.disposition, Number(item.claims || 0)]));
+  const summary = stats ? `<div class="sumStrip">
+    <div class="sumStat"><span class="n"><em>${Number(stats.totalClaims || 0).toLocaleString()}</em></span><span class="l">Provider claims</span></div>
+    <div class="sumStat"><span class="n">${Number(stats.visiblePromotions || 0).toLocaleString()}</span><span class="l">Live values</span></div>
+    <div class="sumStat"><span class="n">${Number(dispositions.CONFLICT_REQUIRES_REVIEW || 0).toLocaleString()}</span><span class="l">Conflicts</span></div>
+    <div class="sumStat"><span class="n">${Number(dispositions.INSUFFICIENT_EVIDENCE || 0).toLocaleString()}</span><span class="l">Insufficient</span></div>
+  </div>` : '';
+  return `<p class="eyebrow" style="color:var(--admin)">Evidence review</p><h1 class="h1">Exceptions with <em>durable decisions</em></h1>
+    <p class="sub" style="margin:8px 0 18px">Every provider claim has a final disposition. This queue contains only claims that still need a human exception decision; approving creates an append-only canonical promotion.</p>
+    ${summary}
+    ${state.researchAdmin.error ? `<div class="emptyLib"><div class="big">Live review queue unavailable.</div>${esc(state.researchAdmin.error)}</div>` : records.length
+      ? `<div class="stepCard">${records.map(item => `<article class="srcRow" style="margin-bottom:14px">
+          <div class="srcT">${esc(item.programName || item.acgmeId)} · ${esc(item.field.replace(/^research\./, '').replaceAll('_', ' '))}</div>
+          <div class="srcM"><span>${esc(item.provider)}</span><span>${esc(item.disposition)}</span><span>${esc(item.reason)}</span><span>reviewed ${esc(item.reviewedAt || 'not stated')}</span></div>
+          <p class="sub" style="margin:8px 0;font-size:14px"><b>Reviewed value:</b> ${esc(displayValue(item.value))}</p>
+          <div class="pillRow">${(item.sourceUrls || []).map(url => `<a class="pill" href="${esc(url)}" target="_blank" rel="noopener">Source ↗</a>`).join('') || '<span class="pill">No source URL</span>'}</div>
+          <div class="rvActs" style="margin-top:10px">
+            <button class="rvBtn" onclick="reviewDecide('${item.claimId}','APPROVED_CURRENT')">Approve current</button>
+            <button class="rvBtn" onclick="reviewDecide('${item.claimId}','INSUFFICIENT_EVIDENCE')">Reject / insufficient</button>
+            <button class="rvBtn" onclick="reviewDecide('${item.claimId}','APPROVED_HISTORICAL')">Mark historical</button>
+            <button class="rvBtn" onclick="reviewDecide('${item.claimId}','STALE_NEEDS_REFRESH')">Mark stale</button>
+          </div>
+        </article>`).join('')}</div>`
+      : '<div class="emptyLib"><div class="big">No exception claims remain.</div>All current claims have durable final dispositions.</div>'}`;
 }
-window.reviewDecide = () => toast('Review decisions are disabled until the canonical research backend is connected.');
+window.reviewDecide = async (claimId, disposition) => {
+  if (!confirm('Record ' + disposition.replaceAll('_', ' ').toLowerCase() + ' for this evidence claim?')) return;
+  try {
+    await riseFetch('/api/rise/v1/operator/research/review/' + encodeURIComponent(claimId), {
+      method:'PATCH', body:JSON.stringify({ disposition, reason:'Founder/admin exception review' }),
+    });
+    state.researchAdmin.control = null;
+    await loadAdminResearch(true);
+    toast('Durable review decision recorded.');
+  } catch (error) { toast(error.message || 'Review decision failed.'); }
+};
 
 /* ---------- coverage ---------- */
 function viewCoverage() {

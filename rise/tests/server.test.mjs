@@ -45,6 +45,15 @@ function durableFilterIntelligenceStore() {
   };
 }
 
+function durableEvidenceReviewStore() {
+  return {
+    scope: "durable_canonical_review",
+    async stats() { return { totalClaims: 0, providers: [], dispositions: [], visiblePromotions: 0 }; },
+    async listExceptions() { return []; },
+    async manualDecision() { return { disposition: "INSUFFICIENT_EVIDENCE" }; },
+  };
+}
+
 function canonicalMatrixProfileAdapter() {
   return {
     scope: "canonical_matrix_owner_transport",
@@ -201,6 +210,7 @@ let csrfToken;
 before(async () => {
   server = createRiseServer({
     registryIndex,
+    evidenceReviewStore: durableEvidenceReviewStore(),
     logger: { info() {}, error() {} },
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -396,6 +406,23 @@ test("matching, integrations, and operator writes fail closed", async () => {
   assert.equal(JSON.stringify(metricsBody).includes("local-preview"), false);
 });
 
+test("operator evidence review API exposes durable review state and accepts decisions", async () => {
+  const review = await fetch(`${baseUrl}/api/rise/v1/operator/research/review`);
+  assert.equal(review.status, 200);
+  assert.deepEqual(await review.json(), {
+    stats: { totalClaims: 0, providers: [], dispositions: [], visiblePromotions: 0 },
+    records: [],
+  });
+
+  const decided = await fetch(`${baseUrl}/api/rise/v1/operator/research/review/claim-fixture`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", "X-RISE-CSRF": csrfToken },
+    body: JSON.stringify({ disposition: "INSUFFICIENT_EVIDENCE", reason: "fixture review" }),
+  });
+  assert.equal(decided.status, 200);
+  assert.equal((await decided.json()).result.disposition, "INSUFFICIENT_EVIDENCE");
+});
+
 test("state-changing APIs require the authenticated session CSRF token", async () => {
   const missing = await fetch(`${baseUrl}/api/rise/v1/matches:evaluate`, {
     method: "POST",
@@ -559,6 +586,7 @@ test("production requires a shared durable abuse controller", () => {
     studentIntelStore: durableStudentIntelStore(),
     researchStore: durableResearchStore(),
     filterIntelligenceStore: durableFilterIntelligenceStore(),
+    evidenceReviewStore: durableEvidenceReviewStore(),
     matrixProfileAdapter: canonicalMatrixProfileAdapter(),
   };
   assert.throws(() => createRiseServer(options), /shared durable abuse controller/);
@@ -607,6 +635,7 @@ test("production retains the verified file-level source authorization when the a
     studentIntelStore: durableStudentIntelStore(),
     researchStore: durableResearchStore(),
     filterIntelligenceStore: durableFilterIntelligenceStore(),
+    evidenceReviewStore: durableEvidenceReviewStore(),
     abuseController: {
       scope: "shared_durable",
       async allowPreAuth() { return true; },

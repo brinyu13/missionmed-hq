@@ -8,6 +8,39 @@ const PROVIDERS = new Map([
   ["CLAUDE-SUBSTITUTE-009", "CLAUDE_SONNET"],
 ]);
 
+const PARALLEL_REVIEW_FIELDS = Object.freeze([
+  "visa", "abim", "img_accessibility", "caribbean_accessibility", "do_accessibility",
+  "leadership", "resident_roster", "fellowship_inventory",
+]);
+
+function pythonTruthy(value) {
+  if (value === null || value === undefined || value === false || value === 0 || value === "") return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value).length > 0;
+  return true;
+}
+
+export function extractEvidenceUrls(value) {
+  const urls = new Set();
+  const visit = (candidate) => {
+    if (typeof candidate === "string") {
+      for (const match of candidate.matchAll(/https?:\/\/[^\s\])}"'<>]+/g)) {
+        urls.add(match[0].replace(/[.,;]+$/, ""));
+      }
+      return;
+    }
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) visit(item);
+      return;
+    }
+    if (candidate && typeof candidate === "object") {
+      for (const item of Object.values(candidate)) visit(item);
+    }
+  };
+  visit(value);
+  return [...urls].sort();
+}
+
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -35,36 +68,47 @@ function validateRecord(record) {
   return { acgmeId, campaignId, provider, stagedAt };
 }
 
-export function normalizeResearchFactoryRecord({ record, sourceBytes, sourceFile }) {
+export function normalizeResearchFactoryRecord({ record, sourceBytes, sourceFile, sourceResearch = null }) {
   const { acgmeId, campaignId, provider, stagedAt } = validateRecord(record);
   const sourceFileSha256 = sha256(sourceBytes);
   const programSpecialty = canonicalProgramSpecialtyIdentity(acgmeId, "UNRESOLVED_SPECIALTY");
   const providerRunId = `${campaignId}:${acgmeId}:${sourceFileSha256}`;
   const claims = [];
-  for (const [field, value] of Object.entries(record.safe_facts).sort()) {
-    claims.push(createCanonicalEvidenceClaim({
+  const dossierUrls = extractEvidenceUrls(sourceResearch?.sources ?? []);
+  const claim = ({ bucket, field, value, sourceType, publicationState, reviewState }) => {
+    const directSourceUrls = extractEvidenceUrls(value);
+    const sourceUrls = [...new Set([...directSourceUrls, ...dossierUrls])].sort();
+    return {
+      ...createCanonicalEvidenceClaim({
       subjectId: programSpecialty.program.id,
       field: `research.${field}`,
       value,
       provider,
       providerRunId,
-      sourceType: "completed_research_factory_safe_fact",
-      sourceLocator: `${sourceFile}#/safe_facts/${field}`,
+      sourceType,
+      sourceUrl: sourceUrls[0] ?? null,
+      sourceLocator: `${sourceFile}#/${bucket}/${field}`,
       retrievedAt: stagedAt,
+      publicationState,
+      reviewState,
+      }),
+      directSourceUrls,
+      dossierSourceUrls: dossierUrls,
+      sourceUrls,
+    };
+  };
+  for (const [field, value] of Object.entries(record.safe_facts).sort()) {
+    claims.push(claim({
+      bucket: "safe_facts", field, value,
+      sourceType: "completed_research_factory_safe_fact",
       publicationState: "REVIEW_REQUIRED",
       reviewState: "PENDING_RIGHTS_AND_FIELD_REVIEW",
     }));
   }
   for (const [field, value] of Object.entries(record.needs_review).sort()) {
-    claims.push(createCanonicalEvidenceClaim({
-      subjectId: programSpecialty.program.id,
-      field: `research.${field}`,
-      value,
-      provider,
-      providerRunId,
+    claims.push(claim({
+      bucket: "needs_review", field, value,
       sourceType: "completed_research_factory_review_fact",
-      sourceLocator: `${sourceFile}#/needs_review/${field}`,
-      retrievedAt: stagedAt,
       publicationState: "REVIEW_REQUIRED",
       reviewState: "PENDING",
     }));
@@ -80,4 +124,41 @@ export function normalizeResearchFactoryRecord({ record, sourceBytes, sourceFile
     idempotencyKey: sha256(`${provider}\0${campaignId}\0${acgmeId}\0${sourceFileSha256}`),
     claims,
   };
+}
+
+export function normalizeParallelRawResearchRecord({ record, sourceBytes, sourceFile }) {
+  const content = record?.output?.content;
+  if (!content || Array.isArray(content) || typeof content !== "object") {
+    throw new Error("Parallel raw result must contain output.content");
+  }
+  const acgmeId = required(
+    record?.run?.metadata?.acgme_id ?? content?.program_identity?.acgme_id,
+    "parallel raw acgme_id",
+  );
+  const hasConflicts = Array.isArray(content.conflicts) && content.conflicts.length > 0;
+  const safeFacts = {};
+  const needsReview = {};
+  for (const field of PARALLEL_REVIEW_FIELDS.slice(0, 5)) {
+    const value = content[field];
+    if (!pythonTruthy(value)) continue;
+    (hasConflicts ? needsReview : safeFacts)[field] = value;
+  }
+  for (const field of PARALLEL_REVIEW_FIELDS.slice(5)) {
+    const value = content[field];
+    if (pythonTruthy(value)) needsReview[field] = value;
+  }
+  const stagedAt = record?.run?.modified_at ?? record?.run?.created_at;
+  return normalizeResearchFactoryRecord({
+    record: {
+      acgme_id: acgmeId,
+      campaign_id: "RISE-BOOTSTRAP-001",
+      staged_at: stagedAt,
+      safe_facts: safeFacts,
+      needs_review: needsReview,
+      source_result: sourceFile,
+    },
+    sourceBytes,
+    sourceFile,
+    sourceResearch: content,
+  });
 }

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "contractId": "p1-rise-5012d-provider-evidence-review-v1",
+  "ruleVersion": "5012d.1",
+  "finalDispositions": [
+    "APPROVED_CURRENT",
+    "APPROVED_HISTORICAL",
+    "RESEARCHED_NOT_FOUND",
+    "SUPERSEDED",
+    "CONFLICT_REQUIRES_REVIEW",
+    "INSUFFICIENT_EVIDENCE",
+    "STALE_NEEDS_REFRESH",
+    "IDENTITY_AMBIGUITY"
+  ],
+  "studentPublicationStates": ["STUDENT_VISIBLE", "PRIVATE_BETA"],
+  "preservedCanaryAcgmeIds": ["1851113100", "1854831078"],
+  "sourcePolicy": {
+    "authoritativeReferenceHosts": ["abim.org", "freida.ama-assn.org", "programdirectory.nrmp.org"],
+    "secondaryHosts": ["doximity.com", "imgprep.com", "matcharesident.com", "residencyadvisor.com", "residencymatch.ai", "residencyprograms.io"],
+    "socialHosts": ["facebook.com", "instagram.com", "linkedin.com", "tiktok.com", "x.com", "youtube.com"],
+    "requireCredibleSource": true
+  },
+  "privacy": {
+    "publicOfficialRosterNamesAllowedInAuthenticatedPrivateBeta": true,
+    "contactEmailAndPhoneExcludedFromStudentProjection": true
+  },
+  "providerBias": "NONE",
+  "newProviderSpendUsd": 0
+}
