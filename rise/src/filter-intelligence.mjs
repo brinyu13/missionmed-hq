@@ -3,33 +3,34 @@
 // checked-in JSON remains the human-readable contract and a test below ensures
 // these two representations cannot drift.
 export const FILTER_INTELLIGENCE_CONFIG = Object.freeze({
-  schemaVersion: 1,
-  contractId: "rise-filter-intelligence-2026-09-08",
+  schemaVersion: 2,
+  contractId: "rise-filter-intelligence-2026-09-10",
   researchDepth: {
-    domainFields: [
-      "research.visa",
-      "research.resident_roster",
-      "research.leadership",
-      "research.abim",
-      "research.fellowship_inventory",
-      "research.img_accessibility",
-      "research.do_accessibility",
-      "research.caribbean_accessibility",
-    ],
-    deepRequiredFields: [
-      "research.visa",
-      "research.resident_roster",
-      "research.leadership",
-    ],
-    deepMinimumDomainCount: 6,
-    enrichedMinimumDomainCount: 2,
-    basicMinimumCoreDomainCount: 4,
+    providerDomains: {
+      visaPublication: ["research.visa"],
+      residentRoster: ["research.resident_roster"],
+      leadership: ["research.leadership"],
+      boardPerformance: ["research.abim"],
+      fellowshipOutcomes: ["research.fellowship_inventory", "research.outcomes"],
+      applicationRequirements: ["research.application_requirements"],
+      curriculumFeatures: ["research.curriculum"],
+      salaryBenefits: ["research.salary_benefits"],
+      residentComposition: ["research.img_accessibility", "research.do_accessibility", "research.caribbean_accessibility"],
+    },
+    deepRequiredDomains: ["applicationRequirements", "visaPublication", "residentRoster", "leadership"],
+    deepMinimumDomainCount: 8,
+    enrichedMinimumDomainCount: 5,
+    requiresApprovedProviderDomainForEnriched: true,
+    basicMinimumDomainCount: 2,
     coreRegistryDomains: {
       officialWebsite: ["Program Website"],
-      programStructure: ["Program Best Described As", "Total Residents"],
-      applicationTimeline: ["Application Deadline", "Medical School Graduation Timeline"],
+      programStructure: ["Program Best Described As", "Program Length", "Total Residents", "Residents Per Year", "First Year Positions"],
+      applicationTimeline: ["Application Deadline", "Medical School Graduation Timeline", "Application Service"],
+      applicationRequirements: ["Step Preferences", "COMLEX Accepted", "IMG Step 1 Required", "IMG Step 2 Required", "DO COMLEX Level 1 Required", "DO COMLEX Level 2 Required", "Minimum LOR", "Maximum LOR", "Specialty Specific LOR Required", "Gap Experience Requirement", "Medical School Graduation Timeline", "Required Supplemental Information"],
       visaPublication: ["J1", "H1B", "Visa Sponsorship"],
       residentComposition: ["IMG Graduates Percent", "DO Graduates Percent", "US MD Graduates Percent"],
+      salaryBenefits: ["Salary PGY1", "Salary PGY2", "Salary PGY3", "Salary PGY4", "Benefits", "Vacation", "Educational Stipend", "Meal Allowance"],
+      curriculumFeatures: ["Clinic Structure", "Call Schedule", "Night Float", "Research Track", "Average Work Hours", "Required Away Rotations"],
     },
   },
   studentLabels: {
@@ -54,14 +55,16 @@ export const FILTER_INTELLIGENCE_CONFIG = Object.freeze({
     visa: "Only explicit published sponsorship or visa-status evidence is filterable.",
     residentComposition: "Program-reported resident or graduate composition and approved roster evidence are observations, not admissions-policy claims.",
     dynamicFacts: "Only approved, non-conflicting STUDENT_VISIBLE or PRIVATE_BETA canonical current facts may affect student-facing fact filters.",
-    researchDepth: "Depth exposes provider-neutral workflow coverage only; it never publishes review-gated claim content.",
+    researchDepth: "Depth is computed only from approved canonical facts and approved registry domains; review-gated claim presence never increases the tier.",
+    pendingEvidence: "Review-gated provider evidence is represented only as a verification-pending state; claim values and personal data remain hidden.",
   },
 });
 export const FILTER_FLAG_BITS = Object.freeze({ ...FILTER_INTELLIGENCE_CONFIG.filterFlagBits });
 
 const DEPTH_ORDER = Object.freeze(["deep", "enriched", "basic", "pending"]);
+const PROVIDER_DOMAIN_ENTRIES = Object.entries(FILTER_INTELLIGENCE_CONFIG.researchDepth.providerDomains);
 const VALID_FILTER_FIELDS = new Set([
-  ...FILTER_INTELLIGENCE_CONFIG.researchDepth.domainFields,
+  ...PROVIDER_DOMAIN_ENTRIES.flatMap(([, fields]) => fields),
   "MissionMed Alumni",
   "ACTN Connections",
 ]);
@@ -143,10 +146,10 @@ export function staticFilterFacts(program) {
   const h1b = knownValue(program, "H1B") === true;
   const explicitVisaText = /\b(?:J-?1|H-?1B|F-?1)\b/i.test(visaText);
   const coreDomains = FILTER_INTELLIGENCE_CONFIG.researchDepth.coreRegistryDomains;
-  const coreDomainCount = Object.values(coreDomains).filter((fields) => {
-    if (fields === coreDomains.visaPublication) return j1 || h1b || explicitVisaText;
+  const approvedDomains = Object.entries(coreDomains).filter(([name, fields]) => {
+    if (name === "visaPublication") return j1 || h1b || explicitVisaText;
     return hasKnownValue(program, fields);
-  }).length;
+  }).map(([name]) => name);
   return {
     visa: {
       j1,
@@ -162,25 +165,40 @@ export function staticFilterFacts(program) {
     },
     abim: false,
     alumni: false,
-    coreDomainCount,
+    coreDomainCount: approvedDomains.length,
+    approvedDomains,
   };
 }
 
-export function researchDepthFor(program, researchCoverage) {
+function providerDomains(fields = []) {
+  const fieldSet = new Set(fields);
+  return PROVIDER_DOMAIN_ENTRIES.filter(([, candidates]) => candidates.some((field) => fieldSet.has(field))).map(([name]) => name);
+}
+
+export function researchDepthDetail(program, researchCoverage) {
   const staticFacts = staticFilterFacts(program);
-  if (researchCoverage) {
-    const fields = new Set((researchCoverage.fields ?? []).filter((field) =>
-      FILTER_INTELLIGENCE_CONFIG.researchDepth.domainFields.includes(field)));
-    const required = FILTER_INTELLIGENCE_CONFIG.researchDepth.deepRequiredFields;
-    if (
-      fields.size >= FILTER_INTELLIGENCE_CONFIG.researchDepth.deepMinimumDomainCount
-      && required.every((field) => fields.has(field))
-    ) return "deep";
-    if (fields.size >= FILTER_INTELLIGENCE_CONFIG.researchDepth.enrichedMinimumDomainCount) return "enriched";
-  }
-  return staticFacts.coreDomainCount >= FILTER_INTELLIGENCE_CONFIG.researchDepth.basicMinimumCoreDomainCount
-    ? "basic"
-    : "pending";
+  const approvedProviderDomains = providerDomains(researchCoverage?.fields);
+  const pendingProviderDomains = providerDomains(researchCoverage?.pendingFields);
+  const approvedDomains = [...new Set([...staticFacts.approvedDomains, ...approvedProviderDomains])].sort();
+  const pendingDomains = [...new Set(pendingProviderDomains.filter((domain) => !approvedDomains.includes(domain)))].sort();
+  const required = FILTER_INTELLIGENCE_CONFIG.researchDepth.deepRequiredDomains;
+  let depth = "pending";
+  if (approvedProviderDomains.length > 0
+    && approvedDomains.length >= FILTER_INTELLIGENCE_CONFIG.researchDepth.deepMinimumDomainCount
+    && required.every((domain) => approvedDomains.includes(domain))) depth = "deep";
+  else if (approvedProviderDomains.length > 0
+    && approvedDomains.length >= FILTER_INTELLIGENCE_CONFIG.researchDepth.enrichedMinimumDomainCount) depth = "enriched";
+  else if (approvedDomains.length >= FILTER_INTELLIGENCE_CONFIG.researchDepth.basicMinimumDomainCount) depth = "basic";
+  const researchState = approvedProviderDomains.length
+    ? "VERIFIED_RESEARCH"
+    : pendingProviderDomains.length
+      ? "EVIDENCE_FOUND_VERIFICATION_PENDING"
+      : "NOT_YET_RESEARCHED";
+  return { depth, approvedDomains, pendingDomains, researchState };
+}
+
+export function researchDepthFor(program, researchCoverage) {
+  return researchDepthDetail(program, researchCoverage).depth;
 }
 
 export function expandFilterIntelligenceRecord(record, flagBits = FILTER_FLAG_BITS) {
@@ -198,6 +216,9 @@ export function expandFilterIntelligenceRecord(record, flagBits = FILTER_FLAG_BI
       usmd: enabled("usmd"),
     },
     researchDepth: record?.researchDepth,
+    researchState: record?.researchState ?? "NOT_YET_RESEARCHED",
+    approvedDomainCount: Number(record?.approvedDomainCount ?? 0),
+    pendingDomainCount: Number(record?.pendingDomainCount ?? 0),
     soap2026: enabled("soap2026"),
     abim: enabled("abim"),
     alumni: enabled("alumni"),
@@ -233,17 +254,21 @@ export function buildFilterIntelligence(programs, {
   const researchByAcgme = new Map(researchCoverage.map((record) => [String(record.acgmeId), record]));
   const factsBySubject = new Map();
   for (const fact of currentFacts) {
-    const subjectId = String(fact.subjectId ?? fact.subject_id ?? "");
-    if (!subjectId) continue;
-    if (!factsBySubject.has(subjectId)) factsBySubject.set(subjectId, []);
-    factsBySubject.get(subjectId).push(fact);
+    const keys = [fact.subjectId ?? fact.subject_id, fact.acgmeId ?? fact.acgme_id]
+      .map((value) => String(value ?? "")).filter(Boolean);
+    for (const key of new Set(keys)) {
+      if (!factsBySubject.has(key)) factsBySubject.set(key, []);
+      factsBySubject.get(key).push(fact);
+    }
   }
   const counts = emptyCounts();
   const records = programs.map((program) => {
     const staticFacts = staticFilterFacts(program);
-    const dynamic = dynamicFactFlags(factsBySubject.get(String(program.id)) ?? []);
     const acgmeId = programIdentifier(program, "ACGME_PROGRAM");
-    const depth = researchDepthFor(program, researchByAcgme.get(String(acgmeId)));
+    const dynamicFacts = [...(factsBySubject.get(String(program.id)) ?? []), ...(factsBySubject.get(String(acgmeId)) ?? [])];
+    const dynamic = dynamicFactFlags([...new Set(dynamicFacts)]);
+    const depthDetail = researchDepthDetail(program, researchByAcgme.get(String(acgmeId)));
+    const depth = depthDetail.depth;
     const filterFacts = {
       programSpecialtyId: program.programSpecialtyId,
       visa: {
@@ -287,7 +312,14 @@ export function buildFilterIntelligence(programs, {
       | (filterFacts.soap2026 ? FILTER_FLAG_BITS.soap2026 : 0)
       | (filterFacts.abim ? FILTER_FLAG_BITS.abim : 0)
       | (filterFacts.alumni ? FILTER_FLAG_BITS.alumni : 0);
-    return { programSpecialtyId: program.programSpecialtyId, flags, researchDepth: depth };
+    return {
+      programSpecialtyId: program.programSpecialtyId,
+      flags,
+      researchDepth: depth,
+      researchState: depthDetail.researchState,
+      approvedDomainCount: depthDetail.approvedDomains.length,
+      pendingDomainCount: depthDetail.pendingDomains.length,
+    };
   });
   if (DEPTH_ORDER.reduce((sum, depth) => sum + counts[depth === "deep" ? "deepResearch" : depth === "enriched" ? "enrichedResearch" : depth === "basic" ? "basicProfile" : "researchPending"], 0) !== programs.length) {
     throw new Error("RISE research-depth taxonomy must classify every program exactly once");

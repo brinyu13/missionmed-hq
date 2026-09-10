@@ -326,6 +326,9 @@ export function createMemoryFilterIntelligenceStore({ researchCoverage = [], cur
     async read() {
       return structuredClone({ researchCoverage, currentFacts });
     },
+    async readProgram() {
+      return { currentFacts: [], pendingEvidence: { fields: [], claimCount: 0 } };
+    },
   };
 }
 
@@ -583,6 +586,9 @@ function regionFor(state) {
 function listView(record) {
   const j1 = knownValue(record.fields.J1);
   const h1b = knownValue(record.fields.H1B);
+  const field = (name) => knownValue(record.fields[name]) ?? null;
+  const knownRegistryFieldCount = Object.values(record.fields ?? {})
+    .filter((claim) => claim?.knowledge?.state === "known").length;
   return {
     id: record.id,
     programSpecialtyId: record.programSpecialtyId,
@@ -598,6 +604,22 @@ function listView(record) {
     visa: {
       j1: j1 === true ? "known_yes" : "unknown",
       h1b: h1b === true ? "known_yes" : "unknown",
+    },
+    intelligence: {
+      knownRegistryFieldCount,
+      programLength: field("Program Length"),
+      totalResidents: field("Total Residents"),
+      residentsPerYear: field("Residents Per Year"),
+      firstYearPositions: field("First Year Positions"),
+      applicationDeadline: field("Application Deadline"),
+      applicationService: field("Application Service"),
+      interviewFormat: field("Applicant Interview Format"),
+      visaSponsorship: field("Visa Sponsorship"),
+      imgGraduatesPercent: field("IMG Graduates Percent"),
+      doGraduatesPercent: field("DO Graduates Percent"),
+      usmdGraduatesPercent: field("US MD Graduates Percent"),
+      stepPreferences: field("Step Preferences"),
+      comlexAccepted: field("COMLEX Accepted"),
     },
     evidence: record.evidence,
     soap2026: record.soap2026 ? {
@@ -1724,8 +1746,17 @@ export function createRiseServer({
           apiError(response, 404, "PROGRAM_NOT_FOUND", "Program specialty not found", requestId);
           return;
         }
+        const acgmeId = (record.identifiers ?? [])
+          .find((identifier) => identifier.namespace === "ACGME_PROGRAM")?.value ?? null;
+        const researchProjection = typeof filterIntelligence.readProgram === "function"
+          ? await filterIntelligence.readProgram({ programId: record.id, acgmeId })
+          : { currentFacts: [], pendingEvidence: { fields: [], claimCount: 0 } };
         status = 200;
-        sendJson(response, 200, { registryReleaseId: registryIndex.registryReleaseId, program: record }, {
+        sendJson(response, 200, {
+          registryReleaseId: registryIndex.registryReleaseId,
+          program: record,
+          research: researchProjection,
+        }, {
           cache: "no-store",
           requestId,
         });

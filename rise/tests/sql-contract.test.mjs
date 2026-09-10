@@ -19,6 +19,8 @@ const studentIntelUpPath = path.resolve(here, "../sql/006_student_intel.sql");
 const studentIntelDownPath = path.resolve(here, "../sql/006_student_intel.down.sql");
 const canonicalEvidenceUpPath = path.resolve(here, "../sql/007_canonical_evidence_bridge.sql");
 const canonicalEvidenceDownPath = path.resolve(here, "../sql/007_canonical_evidence_bridge.down.sql");
+const providerProvenanceUpPath = path.resolve(here, "../sql/009_research_provider_provenance.sql");
+const providerProvenanceDownPath = path.resolve(here, "../sql/009_research_provider_provenance.down.sql");
 const studentIntelVerificationPolicyPath = path.resolve(here, "../config/student-intel-verification.v1.json");
 
 async function readUp() {
@@ -429,6 +431,17 @@ test("migration 007 rollback preserves evidence and disables older runtime acces
   assert.match(sql, /REVOKE ALL ON rise_runtime\.canonical_evidence_claims FROM rise_app_runtime/);
   assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE|COLUMN)/i);
   assert.doesNotMatch(sql, /DELETE\s+FROM|TRUNCATE/i);
+});
+
+test("migration 009 preserves Sonnet provenance without promoting evidence", async () => {
+  const up = await fs.readFile(providerProvenanceUpPath, "utf8");
+  const down = await fs.readFile(providerProvenanceDownPath, "utf8");
+  assert.match(up, /^BEGIN;/m);
+  assert.match(up, /^COMMIT;/m);
+  assert.match(up, /'CLAUDE_SONNET'/);
+  assert.doesNotMatch(up, /canonical_current_facts|review_state\s*=\s*'APPROVED'/);
+  assert.match(down, /Cannot remove CLAUDE_SONNET provider while preserved evidence exists/);
+  assert.doesNotMatch(down, /DELETE\s+FROM|TRUNCATE|DROP\s+(?:TABLE|SCHEMA)/i);
 });
 
 test("Student Intel verification policy stages the required cadence without authorizing spend", async () => {

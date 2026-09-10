@@ -7,9 +7,10 @@ import { createRiseCanonicalEvidenceStore } from "../adapters/postgres-runtime.m
 
 const DEFAULT_PARALLEL = "/Users/brianb/MissionMed/_AI_HANDOFFS/from_claude_code/P1_RISE_PARALLEL_CONTINUOUS_FACTORY_003/ingest_staging";
 const DEFAULT_OPUS = "/Users/brianb/MissionMed/_AI_HANDOFFS/from_claude_code/P1_RISE_OPUS_IM_EXPIRING_TOKEN_SPRINT_009/ingest_staging";
+const DEFAULT_SONNET = "/Users/brianb/MissionMed/_AI_HANDOFFS/from_claude_code/P1_RISE_CLAUDE_SUBSTITUTE_RESEARCH_009/ingest_staging";
 
 function args(argv) {
-  const result = { dryRun: false, parallel: DEFAULT_PARALLEL, opus: DEFAULT_OPUS, provider: "both" };
+  const result = { dryRun: false, parallel: DEFAULT_PARALLEL, opus: DEFAULT_OPUS, sonnet: DEFAULT_SONNET, provider: "all" };
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index]?.replace(/^--/, "");
     const value = argv[index + 1];
@@ -17,7 +18,9 @@ function args(argv) {
     result[key] = value;
   }
   result.dryRun = String(result["dry-run"] ?? result.dryRun) === "true";
-  if (!new Set(["both", "parallel", "opus"]).has(result.provider)) throw new Error("provider must be both, parallel, or opus");
+  if (!new Set(["all", "both", "parallel", "opus", "sonnet"]).has(result.provider)) {
+    throw new Error("provider must be all, both, parallel, opus, or sonnet");
+  }
   return result;
 }
 
@@ -49,8 +52,9 @@ async function inputs(directory, label) {
 
 export async function backfillResearchFactory(options = args([])) {
   const selected = [];
-  if (options.provider !== "opus") selected.push(...await inputs(options.parallel, "parallel"));
-  if (options.provider !== "parallel") selected.push(...await inputs(options.opus, "claude-opus"));
+  if (["all", "both", "parallel"].includes(options.provider)) selected.push(...await inputs(options.parallel, "parallel"));
+  if (["all", "both", "opus"].includes(options.provider)) selected.push(...await inputs(options.opus, "claude-opus"));
+  if (["all", "sonnet"].includes(options.provider)) selected.push(...await inputs(options.sonnet, "claude-sonnet"));
   const deduped = [...new Map(selected.map((item) => [item.idempotencyKey, item])).values()]
     .sort((left, right) => left.idempotencyKey.localeCompare(right.idempotencyKey));
   const summary = {

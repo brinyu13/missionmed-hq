@@ -60,15 +60,19 @@ test("static filters use explicit visa evidence and positive resident compositio
 });
 
 test("research depth is deterministic and provider neutral", () => {
-  const p = program("3", strongCore);
+  const p = program("3", { ...strongCore, "Step Preferences": known("USMLE Step 1 passed: Yes") });
   const deepFields = [
     "research.visa", "research.resident_roster", "research.leadership",
-    "research.abim", "research.fellowship_inventory", "research.img_accessibility",
+    "research.abim", "research.fellowship_inventory", "research.img_accessibility", "research.curriculum",
   ];
   assert.equal(researchDepthFor(p, { fields: deepFields, provider: "PARALLEL" }), "deep");
   assert.equal(researchDepthFor(p, { fields: deepFields, provider: "CLAUDE_OPUS" }), "deep");
   assert.equal(researchDepthFor(p, { fields: ["research.visa", "research.leadership"] }), "enriched");
   assert.equal(researchDepthFor(p, null), "basic");
+  assert.equal(researchDepthFor(program("30", {
+    "Program Website": known("https://example.test"),
+    "Program Best Described As": known("University-based"),
+  }), null), "basic");
   assert.equal(researchDepthFor(program("4", { "Program Website": known("https://example.test") }), null), "pending");
 });
 
@@ -86,10 +90,10 @@ test("approved structured current facts become filterable without frontend progr
         acgmeId: "0000000001",
         fields: [
           "research.visa", "research.resident_roster", "research.leadership",
-          "research.abim", "research.fellowship_inventory", "research.img_accessibility",
+          "research.abim", "research.fellowship_inventory", "research.img_accessibility", "research.application_requirements", "research.curriculum",
         ],
       },
-      { acgmeId: "0000000002", fields: ["research.visa", "research.resident_roster"] },
+      { acgmeId: "0000000002", fields: ["research.visa", "research.resident_roster", "research.leadership", "research.abim"] },
     ],
     currentFacts: [
       {
@@ -114,6 +118,7 @@ test("approved structured current facts become filterable without frontend progr
   assert.equal(expanded[3].researchDepth, "pending");
   assert.equal(expanded[1].visa.h1b, true);
   assert.deepEqual(expanded[1].residentEvidence, { img: true, do: true, caribbean: true, usmd: false });
+  assert.equal(expanded[1].researchState, "VERIFIED_RESEARCH");
   assert.deepEqual(result.counts, {
     visaData: 2,
     j1Published: 1,
@@ -168,4 +173,21 @@ test("Postgres projection reads only domain coverage and approved current facts,
   assert.equal(connects, 1);
   assert.ok(calls.some((sql) => sql.includes("SET_CONFIG") || sql.includes("set_config")));
   assert.equal(JSON.stringify(first).includes("canonical_value"), false);
+  assert.match(calls.find((sql) => sql.includes("array_agg")), /review_state = 'APPROVED'/);
+});
+
+test("review-gated claims report pending evidence without inflating research depth", () => {
+  const p = program("5", { "Program Website": known("https://example.test/five") });
+  const result = buildFilterIntelligence([p], {
+    researchCoverage: [{
+      acgmeId: "0000000005",
+      fields: [],
+      pendingFields: ["research.visa", "research.resident_roster", "research.leadership", "research.abim"],
+    }],
+  });
+  const expanded = expandFilterIntelligenceRecord(result.records[0], result.flagBits);
+  assert.equal(expanded.researchDepth, "pending");
+  assert.equal(expanded.researchState, "EVIDENCE_FOUND_VERIFICATION_PENDING");
+  assert.equal(expanded.approvedDomainCount, 1);
+  assert.equal(expanded.pendingDomainCount, 4);
 });

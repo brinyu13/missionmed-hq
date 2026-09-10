@@ -529,7 +529,15 @@ export async function createRiseFilterIntelligenceStore({
             client.query(`
               SELECT
                 s.metadata->>'acgmeId' AS "acgmeId",
-                array_agg(DISTINCT c.field ORDER BY c.field) AS fields
+                array_agg(DISTINCT c.field ORDER BY c.field)
+                  FILTER (WHERE c.review_state = 'APPROVED'
+                    AND c.conflict_state <> 'CONFLICTING'
+                    AND c.publication_state IN ('STUDENT_VISIBLE', 'PRIVATE_BETA')) AS fields,
+                array_agg(DISTINCT c.field ORDER BY c.field)
+                  FILTER (WHERE c.review_state <> 'APPROVED'
+                    OR c.conflict_state = 'CONFLICTING'
+                    OR c.publication_state NOT IN ('STUDENT_VISIBLE', 'PRIVATE_BETA')) AS "pendingFields",
+                count(*)::integer AS "claimCount"
               FROM rise_runtime.canonical_evidence_sources s
               JOIN rise_runtime.canonical_evidence_claims c USING (source_id)
               WHERE s.source_type = 'completed_research_factory'
@@ -540,14 +548,28 @@ export async function createRiseFilterIntelligenceStore({
             client.query(`
               SELECT
                 subject_id AS "subjectId",
+                s.metadata->>'acgmeId' AS "acgmeId",
                 field,
                 knowledge,
-                canonical_value AS "canonicalValue"
-              FROM rise_runtime.canonical_current_facts
+                canonical_value AS "canonicalValue",
+                f.publication_state AS "publicationState",
+                f.retrieved_at AS "retrievedAt",
+                s.provider,
+                s.source_url AS "sourceUrl",
+                s.source_locator AS "sourceLocator"
+              FROM rise_runtime.canonical_current_facts f
+              JOIN rise_runtime.canonical_evidence_sources s USING (source_id)
               ORDER BY subject_id, field
             `),
           ]);
-          return { researchCoverage: coverage.rows, currentFacts: facts.rows };
+          return {
+            researchCoverage: coverage.rows.map((row) => ({
+              ...row,
+              fields: row.fields ?? [],
+              pendingFields: row.pendingFields ?? [],
+            })),
+            currentFacts: facts.rows,
+          };
         }, { isAdmin: true });
         cached = result;
         cachedAt = now;
@@ -556,6 +578,53 @@ export async function createRiseFilterIntelligenceStore({
         if (cached) return structuredClone(cached);
         throw error;
       }
+    },
+    async readProgram({ programId, acgmeId }) {
+      return withSubject(pool, systemKey, async (client) => {
+        const [facts, pending] = await Promise.all([
+          client.query(`
+            SELECT
+              f.subject_id AS "subjectId",
+              s.metadata->>'acgmeId' AS "acgmeId",
+              f.field,
+              f.knowledge,
+              f.canonical_value AS "canonicalValue",
+              f.publication_state AS "publicationState",
+              f.retrieved_at AS "retrievedAt",
+              s.provider,
+              s.source_url AS "sourceUrl",
+              s.source_locator AS "sourceLocator"
+            FROM rise_runtime.canonical_current_facts f
+            JOIN rise_runtime.canonical_evidence_sources s USING (source_id)
+            WHERE f.subject_id = $1 OR s.metadata->>'acgmeId' = $2
+            ORDER BY f.field, f.retrieved_at DESC
+          `, [programId, acgmeId]),
+          client.query(`
+            SELECT
+              c.field,
+              count(*)::integer AS "claimCount",
+              array_agg(DISTINCT c.review_state ORDER BY c.review_state) AS "reviewStates",
+              array_agg(DISTINCT s.provider ORDER BY s.provider) AS providers,
+              max(c.retrieved_at) AS "latestRetrievedAt"
+            FROM rise_runtime.canonical_evidence_sources s
+            JOIN rise_runtime.canonical_evidence_claims c USING (source_id)
+            WHERE s.source_type = 'completed_research_factory'
+              AND s.metadata->>'acgmeId' = $1
+              AND (c.review_state <> 'APPROVED'
+                OR c.conflict_state = 'CONFLICTING'
+                OR c.publication_state NOT IN ('STUDENT_VISIBLE', 'PRIVATE_BETA'))
+            GROUP BY c.field
+            ORDER BY c.field
+          `, [acgmeId]),
+        ]);
+        return {
+          currentFacts: facts.rows,
+          pendingEvidence: {
+            fields: pending.rows,
+            claimCount: pending.rows.reduce((sum, row) => sum + Number(row.claimCount ?? 0), 0),
+          },
+        };
+      }, { isAdmin: true });
     },
   };
 }
@@ -662,6 +731,13 @@ export async function createRiseCanonicalEvidenceStore({ pool = databasePool() }
     async ingestProviderRecord({ ingest }) {
       return withSubject(pool, systemKey, async (client) => {
         const sourceId = stableDatabaseId("rise_src", `${ingest.provider}:${ingest.providerRunId}`);
+        const identity = await client.query(`
+          SELECT program_identity_id AS "programIdentityId"
+          FROM rise_runtime.canonical_program_identities
+          WHERE acgme_id = $1
+          LIMIT 1
+        `, [ingest.acgmeId]);
+        const canonicalSubjectId = identity.rows[0]?.programIdentityId ?? null;
         const run = await client.query(`
           INSERT INTO rise_runtime.provider_ingest_runs (
             idempotency_key, provider, campaign_id, acgme_id, source_file,
@@ -694,7 +770,7 @@ export async function createRiseCanonicalEvidenceStore({ pool = databasePool() }
             ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14)
             ON CONFLICT (content_sha256) DO NOTHING
           `, [
-            claim.id, claim.subjectId, claim.field, JSON.stringify(claim.knowledge), JSON.stringify(claim.value),
+            claim.id, canonicalSubjectId ?? claim.subjectId, claim.field, JSON.stringify(claim.knowledge), JSON.stringify(claim.value),
             claim.assertionClass, claim.publicationState, claim.reviewState, claim.conflictState,
             sourceId, claim.sourceLocator, JSON.stringify(claim.observedPeriod), claim.retrievedAt, claim.contentSha256,
           ]);

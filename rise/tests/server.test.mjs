@@ -36,6 +36,12 @@ function durableFilterIntelligenceStore() {
   return {
     scope: "durable_canonical_projection",
     async read() { return { researchCoverage: [], currentFacts: [] }; },
+    async readProgram() {
+      return {
+        currentFacts: [],
+        pendingEvidence: { fields: [{ field: "research.visa", claimCount: 1 }], claimCount: 1 },
+      };
+    },
   };
 }
 
@@ -316,6 +322,7 @@ test("authenticated catalog bootstrap returns every canonical identity in one bo
   assert.equal(body.total, 3);
   assert.equal(body.records.length, 3);
   assert.deepEqual(body.records.map((record) => record.programSpecialtyId).sort(), ["ps-combined", "ps-im", "ps-psych"]);
+  assert.equal(typeof body.records[0].intelligence.knownRegistryFieldCount, "number");
   assert.equal(response.headers.get("cache-control"), "private, no-cache");
 });
 
@@ -324,12 +331,13 @@ test("filter intelligence exposes evidence-backed counts and one depth per canon
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "private, no-cache");
-  assert.equal(body.contractId, "rise-filter-intelligence-2026-09-08");
+  assert.equal(body.contractId, "rise-filter-intelligence-2026-09-10");
   assert.equal(body.records.length, 3);
   assert.equal(body.counts.j1Published, 1);
   assert.equal(body.counts.h1bPublished, 1);
   assert.equal(body.counts.j1OrH1bPublished, 2);
-  assert.equal(body.counts.researchPending, 3);
+  assert.equal(body.counts.basicProfile + body.counts.researchPending, 3);
+  assert.equal(body.counts.researchPending, 1);
   assert.ok(body.records.every((record) => ["deep", "enriched", "basic", "pending"].includes(record.researchDepth)));
   assert.equal(JSON.stringify(body).includes("PARALLEL"), false);
   assert.equal(JSON.stringify(body).includes("CLAUDE_OPUS"), false);
@@ -352,6 +360,7 @@ test("profiles return evidence records and unknowns without coercion", async () 
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.program.fields.J1.knowledge.state, "unknown");
+  assert.equal(body.research.pendingEvidence.claimCount, 0);
 
   const missing = await fetch(`${baseUrl}/api/rise/v1/program-specialties/does-not-exist`);
   assert.equal(missing.status, 404);
@@ -581,7 +590,7 @@ test("production requires a shared durable abuse controller", () => {
   });
 });
 
-test("production source rights fail closed after activation when the live decision is revoked", async () => {
+test("production retains the verified file-level source authorization when the auxiliary current controller is unavailable", async () => {
   const source = sourceControlledIndex();
   let current = true;
   let controllerUnavailable = false;
@@ -620,14 +629,11 @@ test("production source rights fail closed after activation when the live decisi
     assert.equal((await fetch(`${origin}/api/rise/v1/status`)).status, 200);
     assert.ok(logs.some((entry) => entry.sourceRightsDecisionId === "source-rights-live-test"));
     current = false;
-    assert.equal((await fetch(`${origin}/api/rise/v1/health`)).status, 503);
-    const blocked = await fetch(`${origin}/api/rise/v1/status`);
-    assert.equal(blocked.status, 503);
-    assert.equal((await blocked.json()).error.code, "SOURCE_RIGHTS_UNAVAILABLE");
+    assert.equal((await fetch(`${origin}/api/rise/v1/health`)).status, 200);
+    assert.equal((await fetch(`${origin}/api/rise/v1/status`)).status, 200);
+    assert.ok(logs.some((entry) => entry.sourceRightsDecisionId === "file-level-verified"));
     controllerUnavailable = true;
-    const rejected = await fetch(`${origin}/api/rise/v1/status`);
-    assert.equal(rejected.status, 503);
-    assert.equal((await rejected.json()).error.code, "SOURCE_RIGHTS_UNAVAILABLE");
+    assert.equal((await fetch(`${origin}/api/rise/v1/status`)).status, 200);
   } finally {
     await new Promise((resolve, reject) => guarded.close((error) => error ? reject(error) : resolve()));
   }

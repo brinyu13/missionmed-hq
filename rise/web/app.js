@@ -35,7 +35,7 @@ function shortSpecialty(designation) {
 }
 
 function toFableProgram(record, filterIntelligence, flagBits) {
-  const evidenceCount = Number(record.evidence?.knownEvidenceLabeledClaims ?? record.evidence?.knownClaims ?? 0);
+  const evidenceCount = Number(record.intelligence?.knownRegistryFieldCount ?? 0);
   const flags = Number(filterIntelligence?.flags || 0);
   const enabled = name => Boolean(flags & Number(flagBits?.[name] || 0));
   const j1 = enabled('j1');
@@ -55,10 +55,10 @@ function toFableProgram(record, filterIntelligence, flagBits) {
     url: record.officialUrl || null,
     tier: null,
     officialFacts: evidenceCount,
-    depth: evidenceCount ? 'registry' : 'identity',
+    depth: filterIntelligence?.researchDepth || (evidenceCount ? 'basic' : 'pending'),
     verified: record.source?.retrievedAt || record.source?.sourceUpdatedAt || null,
     type: record.programType || 'Not published',
-    positions: 'Not published',
+    positions: record.intelligence?.firstYearPositions ?? record.intelligence?.residentsPerYear ?? 'Not published',
     abim: { state: 'NOT_PUBLISHED' },
     domains: { ...UNKNOWN_DOMAINS },
     soap: (record.soap2026?.tracks || []).map(track => ({
@@ -73,10 +73,17 @@ function toFableProgram(record, filterIntelligence, flagBits) {
     maturity: 'CANONICAL_IDENTITY_ONLY',
     demo: false,
     rich: null,
+    canonical: null,
+    researchProjection: null,
+    profileLoading: false,
+    intelligence: { ...(record.intelligence || {}) },
     filterIntelligence: {
       visa: { j1, h1b, j1OrH1b: j1 || h1b, any: enabled('anyVisa') },
       residentEvidence: { img: enabled('img'), do: enabled('do'), caribbean: enabled('caribbean'), usmd: enabled('usmd') },
       researchDepth: filterIntelligence?.researchDepth || 'pending',
+      researchState: filterIntelligence?.researchState || 'NOT_YET_RESEARCHED',
+      approvedDomainCount: Number(filterIntelligence?.approvedDomainCount || 0),
+      pendingDomainCount: Number(filterIntelligence?.pendingDomainCount || 0),
       soap2026: enabled('soap2026'), abim: enabled('abim'), alumni: enabled('alumni'),
     },
   };
@@ -239,8 +246,8 @@ function freshness(p) {
   const d = p.verified ? new Date(p.verified) : new Date(0), now = new Date();
   const days = (now - d) / 864e5;
   if (days <= 45) return { cls: 'fp-ok', label: 'Verified recently' };
-  if (d >= new Date('2026-06-01')) return { cls: 'fp-cycle', label: 'Current cycle' };
-  return { cls: 'fp-old', label: 'Needs refresh' };
+  if (d >= new Date('2026-06-01')) return { cls: 'fp-cycle', label: 'Registry current' };
+  return { cls: 'fp-old', label: 'Registry needs refresh' };
 }
 const freshPill = p => { const f = freshness(p); return `<span class="freshPill ${f.cls}"><i></i>${f.label}</span>`; };
 
@@ -414,7 +421,7 @@ function searchPrograms(q) {
   if (q.length < 2) return [];
   const toks = q.split(/\s+/);
   return D.programs.map(p => {
-    const hay = [p.name, p.inst, p.city, p.state, stateNames[p.state] || '', (p.aliases || []).join(' ')].join(' ').toLowerCase();
+    const hay = [p.name, p.inst, p.hospital, p.city, p.state, stateNames[p.state] || '', p.specName, p.acgme, p.legacyId, p.id, (p.aliases || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
     let score = 0;
     if (!toks.every(t => hay.includes(t))) return null;
     if (p.name.toLowerCase().startsWith(q)) score += 40;
@@ -715,7 +722,7 @@ window.dropPill = k => {
 window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, shown: 50 }); rerender(); };
 
 function sigIMG(p, f) {
-  if (p.filterIntelligence.residentEvidence.img) return `<span class="sig" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not admissions policy."><b>IMG ✓</b><span style="color:var(--dim)"> reported</span></span>`;
+  if (p.filterIntelligence.residentEvidence.img) return `<span class="sig" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not admissions policy."><b>IMG ✓</b><span style="color:var(--dim)"> ${esc(p.intelligence.imgGraduatesPercent || 'reported')}</span></span>`;
   return `<span class="sig dimmed" title="No current filterable IMG resident or graduate evidence">IMG —</span>`;
 }
 function sigVisa(p) {
@@ -723,12 +730,29 @@ function sigVisa(p) {
   const listed = [visa.j1 ? 'J-1' : '', visa.h1b ? 'H-1B' : ''].filter(Boolean);
   if (listed.length) return `<span class="sig" title="Explicit published sponsorship evidence"><b>${listed.join(' · ')}</b><span style="color:var(--dim)"> published</span></span>`;
   if (visa.any) return `<span class="sig" title="Published visa evidence is available; J-1 or H-1B sponsorship is not established"><b>Visa ✓</b><span style="color:var(--dim)"> evidence</span></span>`;
-  return `<span class="sig dimmed">○ visa not published</span>`;
+  return p.intelligence.visaSponsorship != null
+    ? `<span class="sig dimmed">○ no published sponsorship</span>`
+    : `<span class="sig dimmed">○ visa not yet researched</span>`;
 }
 function sigSOAP(p) {
   if (!p.soap.length) return '';
   const n = soapN(p);
   return `<span class="sig" title="SOAP ${p.soap[0].year}: ${p.soap.map(s => s.track + ' ' + s.positions).join(', ')}"><b style="color:var(--gn)">SOAP ✓</b><span style="color:var(--dim)"> ${n}</span></span>`;
+}
+
+function researchDepthChip(p) {
+  const labels = { deep: 'Deep Research', enriched: 'Enriched Research', basic: 'Basic Profile', pending: 'Research Pending' };
+  return `<span class="evidenceChip depth-${esc(p.filterIntelligence.researchDepth)}">${labels[p.filterIntelligence.researchDepth] || 'Research Pending'} · ${p.filterIntelligence.approvedDomainCount} verified domains</span>`;
+}
+
+function filterMatchEvidence(p) {
+  const chips = [researchDepthChip(p)];
+  const evidence = p.filterIntelligence.residentEvidence;
+  if ((state.find.imgEv || evidence.img) && evidence.img) chips.push(`<span class="evidenceChip">IMG resident/graduate evidence${p.intelligence.imgGraduatesPercent ? ` · ${esc(p.intelligence.imgGraduatesPercent)}` : ''}</span>`);
+  if ((state.find.doEv || evidence.do) && evidence.do) chips.push(`<span class="evidenceChip">DO resident/graduate evidence${p.intelligence.doGraduatesPercent ? ` · ${esc(p.intelligence.doGraduatesPercent)}` : ''}</span>`);
+  if ((state.find.usmdEv || evidence.usmd) && evidence.usmd) chips.push(`<span class="evidenceChip">US MD resident/graduate evidence${p.intelligence.usmdGraduatesPercent ? ` · ${esc(p.intelligence.usmdGraduatesPercent)}` : ''}</span>`);
+  if (state.find.caribbeanEv && evidence.caribbean) chips.push('<span class="evidenceChip">Caribbean roster evidence</span>');
+  return `<span class="matchReasons">${chips.join('')}</span>`;
 }
 
 function programRow(p, origin) {
@@ -740,6 +764,7 @@ function programRow(p, origin) {
     <span class="rMain">
       <span class="rTitleLine"><span class="rName">${esc(p.name)}</span>${p.demo ? '<span class="demoTag">Demo</span>' : ''}${p.depth === 'gold' ? '<span class="demoTag" style="color:var(--gd);border-color:rgba(255,215,106,.5)">Gold dossier</span>' : ''}</span>
       <span class="rSub">${esc(p.inst)} · ${esc(p.city)}, ${p.state}${p.type ? ' · ' + esc(p.type) : ''}</span>
+      ${filterMatchEvidence(p)}
       ${showFit ? `<span class="rFit">${tierChip(p, f)}<span>${esc(f.line)}</span></span>` : ''}
     </span>
     <span class="rMeta">
@@ -757,6 +782,7 @@ function programCard(p, origin) {
       <button class="starBtn ${state.saved.has(p.id) ? 'on' : ''}" aria-pressed="${state.saved.has(p.id)}" aria-label="Save ${esc(p.name)}" onclick="toggleSave('${p.id}',event)">★</button></span>
     <span class="cName">${esc(p.name)}</span>
     <span class="cSub">${esc(p.inst)}<br>${esc(p.city)}, ${p.state}</span>
+    ${filterMatchEvidence(p)}
     <span class="cFoot">${sigIMG(p, f)}${sigVisa(p)}${sigSOAP(p)}${freshPill(p)}</span>
   </div>`;
 }
@@ -772,6 +798,12 @@ function viewFind() {
   return `<div class="view" data-view="find">
     <p class="eyebrow">Find Programs</p>
     <h1 class="h1"><em>${list.length}</em> ${f.soap ? 'SOAP 2026 ' : ''}${f.specialty || 'residency'} programs</h1>
+    <form class="centralProgramSearch" role="search" onsubmit="applyFindSearch(event)">
+      <span aria-hidden="true">⌕</span>
+      <input id="centralProgramSearch" type="search" value="${esc(f.q)}" autocomplete="off" aria-label="Search residency programs" placeholder="Search programs, hospitals, institutions, cities, states, specialties, or ACGME IDs…" oninput="queueFindSearch(this)">
+      ${f.q ? '<button type="button" class="centralSearchClear" aria-label="Clear program search" onclick="state.find.q=\'\';state.find.shown=50;rerender()">Clear</button>' : ''}
+      <button type="submit" class="rowBtn pri">Search</button>
+    </form>
     <div class="modeSeg" role="radiogroup" aria-label="Search mode">
       ${[['criteria', 'Set criteria'], ['profile', 'Use my profile'], ['cv', 'Use my CV']].map(([k, l]) => `<button role="radio" aria-checked="${f.mode === k}" class="${f.mode === k ? 'on' : ''}" onclick="setMode('${k}')">${l}</button>`).join('')}
     </div>
@@ -806,6 +838,20 @@ function viewFind() {
     ${list.length > f.shown ? `<button class="loadMore" onclick="state.find.shown+=50;rerender()">Load 50 more</button>` : ''}
   </div>`;
 }
+let findSearchTimer = null;
+window.applyFindSearch = event => { event.preventDefault(); state.find.q = String(new FormData(event.currentTarget).get('q') || event.currentTarget.querySelector('input')?.value || '').trim(); state.find.shown = 50; rerender(); };
+window.queueFindSearch = input => {
+  state.find.q = input.value;
+  clearTimeout(findSearchTimer);
+  findSearchTimer = setTimeout(() => {
+    state.find.shown = 50;
+    renderMain('find');
+    requestAnimationFrame(() => {
+      const next = $('#centralProgramSearch');
+      if (next) { next.focus(); next.setSelectionRange(next.value.length, next.value.length); }
+    });
+  }, 180);
+};
 window.setMode = k => {
   state.find.mode = k;
   if (k === 'cv') { cvSheet(); state.find.mode = 'profile'; return; }
@@ -1088,6 +1134,28 @@ function openFileFor(route) {
   $('#main').setAttribute('inert', '');
   renderShell();
   const t = $('#fileTitle'); if (t) { t.setAttribute('tabindex', '-1'); t.focus(); }
+  void hydrateProgramProfile(p);
+}
+async function hydrateProgramProfile(p) {
+  if (p.canonical || p.profileLoading) return;
+  p.profileLoading = true;
+  try {
+    const payload = await riseFetch('/api/rise/v1/program-specialties/' + encodeURIComponent(p.id));
+    p.canonical = payload.program || null;
+    p.researchProjection = payload.research || { currentFacts: [], pendingEvidence: { fields: [], claimCount: 0 } };
+    p.url = fieldValue(p, 'Program Website') || p.url;
+    p.type = fieldValue(p, 'Program Best Described As') || p.type;
+    p.positions = fieldValue(p, 'First Year Positions') || fieldValue(p, 'Residents Per Year') || p.positions;
+    p.domains = projectedDomainStates(p);
+  } catch (error) {
+    p.profileError = error.message || 'Program profile unavailable';
+  } finally {
+    p.profileLoading = false;
+  }
+  if (currentRoute().startsWith(`program/${p.id}/`)) {
+    const file = $('#file');
+    if (file) file.innerHTML = renderFile(p);
+  }
 }
 function closeFile(navigate = true) {
   const file = $('#file');
@@ -1109,8 +1177,9 @@ function renderFile(p) {
   const initials = p.name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const saved = state.saved.has(p.id);
   const soap = p.soap.length ? `SOAP 2026: <b style="color:var(--gn)">✓ ${soapN(p)} position${soapN(p) > 1 ? 's' : ''}</b> <span style="color:var(--dim)">(${p.soap.map(s => s.track).join(', ')})</span>` : `SOAP 2026: <b>—</b>`;
-  const imgSig = p.demo ? 'IMG/DO evidence: <b>strong (demo)</b>' : (p.rich && p.rich.roster ? 'IMG/DO evidence: <b>present on official records</b>' : 'IMG/DO evidence: <b>not yet researched</b>');
-  const visaSig = p.demo ? 'Visa: <b>J-1 · H-1B published</b>' : (p.rich && p.rich.visa ? 'Visa: <b>J-1 · H-1B listed</b> <span style="color:var(--dim)">(sponsorship not published)</span>' : 'Visa: <b>○ not published</b>');
+  const composition = [p.intelligence.imgGraduatesPercent ? `IMG ${p.intelligence.imgGraduatesPercent}` : '', p.intelligence.doGraduatesPercent ? `DO ${p.intelligence.doGraduatesPercent}` : '', p.intelligence.usmdGraduatesPercent ? `US MD ${p.intelligence.usmdGraduatesPercent}` : ''].filter(Boolean);
+  const imgSig = p.demo ? 'IMG/DO evidence: <b>strong (demo)</b>' : composition.length ? `Resident/graduate composition: <b>${composition.map(esc).join(' · ')}</b>` : `Resident evidence: <b>${researchStateText(p, 'research.resident_roster')}</b>`;
+  const visaSig = p.demo ? 'Visa: <b>J-1 · H-1B published</b>' : p.intelligence.visaSponsorship != null ? `Visa: <b>${esc(p.intelligence.visaSponsorship)}</b>` : `Visa: <b>${researchStateText(p, 'research.visa')}</b>`;
   return `<div class="fileSheet" role="dialog" aria-modal="true" aria-labelledby="fileTitle">
     <div class="fileTopBar">
       <button class="backBtn" onclick="closeFile()">${backLabel()}</button>
@@ -1178,8 +1247,65 @@ window.requestProgramResearch = async id => {
 };
 
 /* ---------- tab bodies ---------- */
+function fieldClaim(p, name) { return p.canonical?.fields?.[name] || null; }
+function fieldValue(p, name) {
+  const claim = fieldClaim(p, name);
+  return claim?.knowledge?.state === 'known' ? claim.knowledge.value : null;
+}
+function displayValue(value) {
+  if (value === true) return 'Yes';
+  if (value === false) return 'No';
+  if (Array.isArray(value)) return value.map(displayValue).join(' · ');
+  if (value && typeof value === 'object') return Object.entries(value).map(([key, item]) => `${key.replaceAll('_', ' ')}: ${displayValue(item)}`).join(' · ');
+  return String(value ?? '');
+}
+function approvedResearchFact(p, field) {
+  return (p.researchProjection?.currentFacts || []).find(fact => fact.field === field) || null;
+}
+function pendingResearchField(p, field) {
+  return (p.researchProjection?.pendingEvidence?.fields || []).find(item => item.field === field) || null;
+}
+function researchStateText(p, field) {
+  if (approvedResearchFact(p, field)) return 'Verified';
+  if (pendingResearchField(p, field)) return 'Evidence found · verification pending';
+  return p.profileLoading ? 'Loading…' : 'Not yet researched';
+}
+const DOMAIN_RESEARCH_FIELDS = {
+  roster: ['research.resident_roster'], leadership: ['research.leadership'], requirements: ['research.application_requirements'],
+  visa: ['research.visa'], salary: ['research.salary_benefits'], fellowship: ['research.fellowship_inventory'], outcomes: ['research.outcomes'],
+};
+const DOMAIN_REGISTRY_FIELDS = {
+  roster: ['IMG Graduates Percent', 'DO Graduates Percent', 'US MD Graduates Percent', 'Total Residents'],
+  leadership: ['Program Director', 'Program Coordinator'],
+  requirements: ['Step Preferences', 'COMLEX Accepted', 'Medical School Graduation Timeline', 'Gap Experience Requirement', 'Minimum LOR', 'Maximum LOR'],
+  visa: ['Visa Sponsorship', 'J1', 'H1B'], salary: ['Salary PGY1', 'Benefits', 'Vacation'],
+  fellowship: [], outcomes: [],
+};
+function projectedDomainStates(p) {
+  return Object.fromEntries(Object.keys(DOMAIN_RESEARCH_FIELDS).map(domain => {
+    const researchFields = DOMAIN_RESEARCH_FIELDS[domain];
+    if (researchFields.some(field => approvedResearchFact(p, field))) return [domain, 'VERIFIED'];
+    if ((DOMAIN_REGISTRY_FIELDS[domain] || []).some(field => fieldValue(p, field) != null)) return [domain, 'VERIFIED_REGISTRY'];
+    if (researchFields.some(field => pendingResearchField(p, field))) return [domain, 'EVIDENCE_FOUND_NOT_VERIFIED'];
+    return [domain, 'NOT_RESEARCHED'];
+  }));
+}
+function registryFactRows(p, fields) {
+  return fields.map(name => ({ name, value: fieldValue(p, name), claim: fieldClaim(p, name) })).filter(row => row.value != null);
+}
+function registryTable(p, fields, caption = 'Published program information') {
+  const rows = registryFactRows(p, fields);
+  if (!rows.length) return `<p class="sub">No approved published values are currently available for this section.</p>`;
+  return `<div class="tblWrap"><table class="tbl"><caption>${esc(caption)}</caption><tr><th>Field</th><th>Published value</th><th>Source date</th></tr>${rows.map(row => `<tr><td><b>${esc(row.name)}</b></td><td>${esc(displayValue(row.value))}</td><td>${esc(row.claim?.sourceUpdatedAt || row.claim?.retrievedAt || p.verified || 'Not stated')}</td></tr>`).join('')}</table></div>`;
+}
+function approvedResearchTable(p, fields, caption = 'Approved research evidence') {
+  const rows = fields.map(field => approvedResearchFact(p, field)).filter(Boolean);
+  if (!rows.length) return '';
+  return `<div class="tblWrap"><table class="tbl"><caption>${esc(caption)}</caption><tr><th>Domain</th><th>Approved current value</th><th>Verified / retrieved</th></tr>${rows.map(row => `<tr><td><b>${esc(row.field.replace(/^research\./, '').replaceAll('_', ' '))}</b></td><td>${esc(displayValue(row.canonicalValue ?? row.knowledge?.value))}</td><td>${esc(row.retrievedAt || 'Not stated')}</td></tr>`).join('')}</table></div>`;
+}
+
 function unknownFooter(p, extra) {
-  const map = { NOT_PUBLICLY_FOUND: 'Not published by the program', INTERNAL_CONTEXT_NOT_REVERIFIED: 'Not yet verified by RISE', NOT_PUBLICLY_FOUND_OR_NOT_EXHAUSTIVELY_VERIFIED: 'Not yet verified by RISE', ROSTER_COLLECTION_NOT_EXECUTED_PRIVACY_DECISION_NOT_MATERIALIZED: 'Held for privacy review', VERIFIED_PARTIAL_CURRENT_OFFICIAL: 'Partially verified', PARTIAL: 'Partially verified', DEMO: 'Representative demo' };
+  const map = { NOT_PUBLICLY_FOUND: 'Not published by the program', NOT_RESEARCHED: 'Not yet researched', EVIDENCE_FOUND_NOT_VERIFIED: 'Evidence found · verification pending', VERIFIED_REGISTRY: 'Approved registry evidence', INTERNAL_CONTEXT_NOT_REVERIFIED: 'Not yet verified by RISE', NOT_PUBLICLY_FOUND_OR_NOT_EXHAUSTIVELY_VERIFIED: 'Not yet verified by RISE', ROSTER_COLLECTION_NOT_EXECUTED_PRIVACY_DECISION_NOT_MATERIALIZED: 'Held for privacy review', VERIFIED_PARTIAL_CURRENT_OFFICIAL: 'Partially verified', PARTIAL: 'Partially verified', DEMO: 'Representative demo' };
   const fams = Object.entries(p.domains || {}).filter(([k, v]) => !/^VERIFIED$/.test(v)).map(([k, v]) => `${k[0].toUpperCase() + k.slice(1)} — ${map[v] || v.toLowerCase().replace(/_/g, ' ')}`);
   const chips = (extra || []).concat(fams);
   if (!chips.length) return '';
@@ -1210,10 +1336,12 @@ function fileTabBody(p, tab) {
 function tabOverview(p, R) {
   if (!R) {
     return `<div class="fileGrid"><div>
-      <h2 class="h2" style="margin-bottom:8px">Why this <em>program</em></h2>
-      <p class="sub">Evidence-backed differentiators appear here after deep research. This release has the canonical identity; narrative layers remain pending until source-located evidence is published.</p>
+      <h2 class="h2" style="margin-bottom:8px">Approved program <em>profile</em></h2>
+      ${p.profileLoading ? '<p class="sub">Loading the full approved program profile…</p>' : p.profileError ? `<div class="lawBanner">${esc(p.profileError)}</div>` : registryTable(p, ['Program Best Described As', 'Program Length', 'First Year Positions', 'Residents Per Year', 'Total Residents', 'Application Deadline', 'Applicant Interview Format', 'Application Service'], 'Approved canonical registry facts')}
+      ${approvedResearchTable(p, ['research.curriculum', 'research.program_overview'], 'Approved current research')}
+      <div class="lawBanner"><b>Research status:</b> ${p.filterIntelligence.researchState === 'EVIDENCE_FOUND_VERIFICATION_PENDING' ? 'Additional evidence exists and is awaiting verification. Approved registry facts remain available now.' : 'Additional domain research has not yet been verified.'}</div>
       ${p.soap.length ? `<div class="lawBanner">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} reported position${s.positions > 1 ? 's' : ''}`).join(' · ')}. Historical cycle evidence; no future availability or match-likelihood inference.</div>` : ''}
-      ${unknownFooter(p, ['Why This Program — deep research pending', 'Mission & curriculum — deep research pending'])}
+      ${unknownFooter(p, ['Narrative differentiators — not yet verified'])}
     </div><div>${snapshotRail(p)}</div></div>`;
   }
   return `<div class="fileGrid"><div>
@@ -1247,6 +1375,8 @@ function tabOverview(p, R) {
 }
 function famFresh(v) {
   if (/^VERIFIED$/.test(v)) return `<span class="freshPill fp-ok"><i></i>Verified recently</span>`;
+  if (/^VERIFIED_REGISTRY$/.test(v)) return `<span class="freshPill fp-cycle"><i></i>Approved registry evidence</span>`;
+  if (/^EVIDENCE_FOUND_NOT_VERIFIED$/.test(v)) return `<span style="color:var(--check);font-size:13.5px">Evidence found · verification pending</span>`;
   if (/PRIOR_CYCLE/.test(v)) return `<span class="freshPill fp-old"><i></i>Prior cycle</span>`;
   if (/PARTIAL/.test(v)) return `<span class="freshPill fp-cycle"><i></i>Partially verified</span>`;
   if (/DEMO/.test(v)) return `<span class="demoTag">Demo</span>`;
@@ -1255,7 +1385,7 @@ function famFresh(v) {
 }
 function snapshotRail(p) {
   return `<div class="railCard"><div class="rLbl">Snapshot</div>
-    ${[['Type', p.type || 'Not published'], ['Positions', p.positions || 'Not published'], ['ACGME ID', p.acgme || 'Not published'], ['Legacy RISE ID', p.legacyId || '—'], ['Official site', p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">program website ↗</a>` : 'Not recovered'], ['ABIM', p.abim.passRate ? `${p.abim.passRate}% pass · ${p.abim.examinees} examinees` : p.abim.claim ? `${p.abim.claim} (program claim)` : p.abim.state === 'VERIFIED_ABSENT' ? 'Not reported by ABIM' : 'Not verified']].map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+    ${[['Type', p.type || 'Not published'], ['Length', fieldValue(p, 'Program Length') || p.intelligence.programLength || 'Not published'], ['First-year positions', fieldValue(p, 'First Year Positions') || p.intelligence.firstYearPositions || 'Not published'], ['Total residents', fieldValue(p, 'Total Residents') || p.intelligence.totalResidents || 'Not published'], ['ACGME ID', p.acgme || 'Not published'], ['Official site', p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">program website ↗</a>` : 'Not recovered']].map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
   </div>
   ${p.rich && p.rich.people ? `<div class="railCard"><div class="rLbl">People</div>
     ${p.rich.people.slice(0, 3).map(x => `<div class="kv"><span class="k">${esc(x.role.split('·')[0].replace('Program Director', 'PD').replace('Associate PD', 'APD'))}</span><span class="v">${esc(x.n)}</span></div>`).join('')}
@@ -1266,10 +1396,13 @@ function tabFit(p, R) {
   if (!R) {
     return `<div>
       <div class="lawBanner"><b>Not published means the program hasn’t said.</b> RISE does not guess. Absence of a restriction is not acceptance.</div>
-      <div class="sumStrip">
-        <div class="sumStat"><span class="n">○</span><span class="l">Requirements</span></div>
-        <div class="sumStat"><span class="n" style="font-size:17px;font-weight:600;color:var(--mid)">${p.domains.requirements === 'NOT_PUBLICLY_FOUND' ? 'Not published by the program' : 'Not yet verified by RISE'}</span><span class="l">Current state</span></div>
-      </div>
+      <h2 class="h2" style="margin:20px 0 8px">Application requirements</h2>
+      ${registryTable(p, ['Step Preferences', 'COMLEX Accepted', 'IMG Step 1 Required', 'IMG Step 2 Required', 'DO COMLEX Level 1 Required', 'DO COMLEX Level 2 Required', 'Minimum LOR', 'Maximum LOR', 'Specialty Specific LOR Required', 'Medical School Graduation Timeline', 'Gap Experience Requirement', 'Required Supplemental Information', 'Application Deadline'], 'Program-reported requirements')}
+      <h2 class="h2" style="margin:24px 0 8px">Visa</h2>
+      ${registryTable(p, ['Visa Sponsorship', 'J1', 'H1B', 'F1 OPT First Year'], 'Program-reported visa information')}
+      ${approvedResearchTable(p, ['research.application_requirements', 'research.visa'], 'Approved application research')}
+      ${pendingResearchField(p, 'research.application_requirements') ? '<div class="gateNote">Additional application evidence found · verification pending.</div>' : ''}
+      ${pendingResearchField(p, 'research.visa') ? '<div class="gateNote">Additional visa evidence found · verification pending.</div>' : ''}
       ${p.soap.length ? `<h2 class="h2" style="margin:20px 0 8px">SOAP history</h2><p class="sub">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} reported positions`).join(' · ')} <i>(NRMP dataset)</i>. Historical evidence, not a promise.</p>` : ''}
       ${unknownFooter(p)}
     </div>`;
@@ -1316,9 +1449,12 @@ function tabFit(p, R) {
 
 function tabResidents(p, R) {
   if (!R || !R.rosterSummary) {
-    return `<div><div class="sumStrip"><div class="sumStat"><span class="n">○</span><span class="l">Roster</span></div>
-      <div class="sumStat"><span class="n" style="font-size:17px;font-weight:600;color:var(--mid)">${/PRIVACY/.test(p.domains.roster) ? 'Held for MissionMed’s roster privacy review' : 'Not yet researched'}</span><span class="l">Current state</span></div></div>
-      <div class="lawBanner">Current roster composition is observational evidence, not an admissions rule.</div>${unknownFooter(p)}</div>`;
+    const rosterState = researchStateText(p, 'research.resident_roster');
+    return `<div>
+      ${registryTable(p, ['Total Residents', 'Residents Per Year', 'IMG Graduates Percent', 'DO Graduates Percent', 'US MD Graduates Percent'], 'Program-reported resident and graduate composition')}
+      ${approvedResearchTable(p, ['research.resident_roster', 'research.img_accessibility', 'research.do_accessibility', 'research.caribbean_accessibility'], 'Approved roster research')}
+      <div class="lawBanner"><b>Named roster:</b> ${esc(rosterState)}. Current composition is observational evidence, not an admissions rule, and does not establish acceptance policy.</div>
+      ${unknownFooter(p)}</div>`;
   }
   const S = R.rosterSummary;
   const pct = S.img != null;
@@ -1352,7 +1488,10 @@ function tabResidents(p, R) {
 
 function tabPeople(p, R) {
   if (!R || !R.people) {
-    return `<div><p class="sub">Leadership ${p.domains.leadership === 'NOT_PUBLICLY_FOUND' ? 'was not publicly found in the last research pass' : 'is not yet verified by RISE'}.</p>${unknownFooter(p)}</div>`;
+    return `<div><h2 class="h2" style="margin-bottom:8px">Program leadership</h2>
+      ${registryTable(p, ['Program Director', 'Program Director Credentials', 'Program Coordinator', 'Coordinator Email', 'Coordinator Phone'], 'Approved leadership information')}
+      ${approvedResearchTable(p, ['research.leadership'], 'Approved leadership research')}
+      <div class="lawBanner"><b>Additional leadership research:</b> ${esc(researchStateText(p, 'research.leadership'))}</div>${unknownFooter(p)}</div>`;
   }
   return `<div>
     <div class="tblWrap"><table class="tbl">
@@ -1372,7 +1511,9 @@ function tabPeople(p, R) {
 
 function tabNext(p, R) {
   if (!R || !R.fellowships) {
-    return `<div><p class="sub">Fellowship inventory ${p.domains.fellowship === 'NOT_PUBLICLY_FOUND' ? 'not publicly found in the last pass' : 'not yet verified by RISE'}.</p>${unknownFooter(p)}</div>`;
+    return `<div><h2 class="h2" style="margin-bottom:8px">Fellowships & outcomes</h2>
+      ${approvedResearchTable(p, ['research.fellowship_inventory', 'research.outcomes'], 'Approved fellowship and outcomes research')}
+      <div class="lawBanner"><b>Fellowship inventory:</b> ${esc(researchStateText(p, 'research.fellowship_inventory'))}<br><b>Graduate outcomes:</b> ${esc(researchStateText(p, 'research.outcomes'))}</div>${unknownFooter(p)}</div>`;
   }
   const F = R.fellowships;
   return `<div>
@@ -1408,17 +1549,19 @@ function tabDetails(p, R) {
     <div class="railCard"><div class="rLbl">Board performance</div><p style="font-size:16px">${abim}</p></div>
     <div class="railCard"><div class="rLbl">Salary</div>
       ${R && R.salary ? `${R.salary.rows.map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
-      <p class="sub" style="font-size:14px;margin-top:8px">${esc(R.salary.label)} · <span style="color:var(--check)">${esc(R.salary.currentness)}</span></p>` : `<p class="sub">Not published / not yet verified.</p>`}
+      <p class="sub" style="font-size:14px;margin-top:8px">${esc(R.salary.label)} · <span style="color:var(--check)">${esc(R.salary.currentness)}</span></p>` : registryTable(p, ['Salary PGY1', 'Salary PGY2', 'Salary PGY3', 'Salary PGY4'], 'Program-reported salary')}
     </div>
     <div class="railCard"><div class="rLbl">Benefits</div>
-      ${R && R.benefits && R.benefits.length ? `<ul class="bullets">${R.benefits.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : `<p class="sub">Not yet verified.</p>`}
+      ${R && R.benefits && R.benefits.length ? `<ul class="bullets">${R.benefits.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : registryTable(p, ['Benefits', 'Vacation', 'Educational Stipend', 'Meal Allowance'], 'Program-reported benefits')}
+      ${approvedResearchTable(p, ['research.salary_benefits'], 'Approved salary and benefits research')}
     </div>
   </div><div>
     <div class="railCard"><div class="rLbl">Identity</div>
       ${[['ACGME ID', p.acgme || 'Not published'], ['Legacy RISE ID', p.legacyId || '—'], ['NRMP code', p.soap.length ? 'joined via SOAP dataset' : 'Not yet mapped'], ['Application service', R ? 'ERAS' : 'Not verified'], ['Official site', p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">↗ program website</a>` : 'Not recovered']].map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
     </div>
     <div class="railCard"><div class="rLbl">Curriculum & structure</div>
-      ${R ? `<ul class="bullets">${R.curriculum.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : '<p class="sub">Deep research pending.</p>'}
+      ${R ? `<ul class="bullets">${R.curriculum.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : registryTable(p, ['Clinic Structure', 'Call Schedule', 'Night Float', 'Average Work Hours', 'Research Track', 'Required Away Rotations', 'Moonlighting'], 'Program-reported structure and features')}
+      ${approvedResearchTable(p, ['research.curriculum'], 'Approved curriculum research')}
     </div>
     ${R && R.conflicts && R.conflicts.length ? `<div class="railCard"><div class="rLbl" style="color:var(--conflict)">Conflicts (${R.conflicts.length})</div>
       ${R.conflicts.slice(0, 3).map(c => `<div class="kv"><span class="k">${esc(c.field)}</span><span class="v" style="font-size:14px">${stateTag('conflict', '')} ${esc(c.a)} <span style="color:var(--dim)">vs</span> ${esc(c.b)}</span></div>`).join('')}
@@ -1431,24 +1574,35 @@ function tabDetails(p, R) {
 window.openSources = (id, evidenceIdx) => {
   const p = byId.get(id); if (!p) return;
   const R = p.rich || {};
+  const canonicalSources = (p.canonical?.source?.urls || [p.url]).filter(Boolean).map(url => ({
+    t: 'Approved canonical registry source', pub: url, tier: 1,
+    acc: p.canonical?.source?.retrievedAt || p.verified || 'not stated', cur: 'current', url,
+  }));
+  const researchSources = (p.researchProjection?.currentFacts || []).filter(fact => fact.sourceUrl).map(fact => ({
+    t: fact.field.replace(/^research\./, '').replaceAll('_', ' '), pub: 'Approved canonical research evidence', tier: 1,
+    acc: fact.retrievedAt || 'not stated', cur: 'current', url: fact.sourceUrl,
+  }));
+  const sourceRows = R.sources || [...canonicalSources, ...researchSources];
+  const pendingFields = p.researchProjection?.pendingEvidence?.fields || [];
   const panel = $('#srcPanel');
   panel.innerHTML = `<div class="drawer" role="dialog" aria-modal="true" aria-label="Sources and freshness">
     <button class="drawerClose" aria-label="Close" onclick="$('#srcPanel').classList.remove('open')">✕</button>
     <h3>Sources & freshness</h3>
     <p class="sub" style="font-size:14.5px">${esc(p.name)}</p>
     <div class="fGroup"><div class="fLbl">Freshness by family</div>
-      ${Object.entries(p.domains).map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v" style="font-size:14px">${famFresh(v)} <span style="color:var(--dim);font-size:12.5px">verified ${esc(p.verified)}</span></span></div>`).join('')}
+      ${Object.entries(p.domains).map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v" style="font-size:14px">${famFresh(v)} <span style="color:var(--dim);font-size:12.5px">registry retrieved ${esc(p.verified)}</span></span></div>`).join('')}
     </div>
     <div class="fGroup"><div class="fLbl">Coverage</div>
-      <p class="sub" style="font-size:14.5px">${p.depth === 'gold' ? `Research depth: <b>${esc(R.depthResult || '')}</b>` : p.depth === 'enriched' ? `Enriched pass — ${p.officialFacts} official facts recorded.` : p.depth === 'demo' ? 'Representative demo record.' : 'Registry depth — identity, official URL and ABIM verified where shown.'}</p>
+      <p class="sub" style="font-size:14.5px"><b>${esc({ deep: 'Deep Research', enriched: 'Enriched Research', basic: 'Basic Profile', pending: 'Research Pending' }[p.filterIntelligence.researchDepth] || 'Research Pending')}</b> · ${p.filterIntelligence.approvedDomainCount} approved meaningful domains. Raw claim count is not used as the depth label.</p>
     </div>
     <div class="fGroup"><div class="fLbl">Sources</div>
-      ${(R.sources || [{ t: 'Canonical registry source', pub: 'RISE corpus', tier: 2, acc: '2026-08-16', cur: 'current' }]).map((s, i) => `
+      ${(sourceRows.length ? sourceRows : [{ t: 'Canonical registry source', pub: 'RISE corpus', tier: 2, acc: p.verified || 'not stated', cur: 'current' }]).map((s, i) => `
         <div class="srcRow" ${evidenceIdx === i ? 'style="outline:2px solid var(--cy);border-radius:8px;padding:12px"' : ''}>
           <div class="srcT">${esc(s.t)}</div>
-          <div class="srcM"><span class="srcTier">Tier ${s.tier} · ${s.tier === 1 ? 'Official' : s.tier === 2 ? 'Directory / internal' : 'Secondary'}</span><span>${esc(s.pub)}</span><span>accessed ${esc(s.acc)}</span><span class="cur-${s.cur}">${s.cur}</span></div>
+          <div class="srcM"><span class="srcTier">Tier ${s.tier} · ${s.tier === 1 ? 'Official / approved' : s.tier === 2 ? 'Directory / internal' : 'Secondary'}</span><span>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">Open source ↗</a>` : esc(s.pub)}</span><span>accessed ${esc(s.acc)}</span><span class="cur-${s.cur}">${s.cur}</span></div>
         </div>`).join('')}
     </div>
+    ${pendingFields.length ? `<div class="fGroup"><div class="fLbl">Evidence awaiting verification</div><p class="sub" style="font-size:14px">Values remain hidden until review; provenance and source records are preserved.</p><div class="unkChips">${pendingFields.map(item => `<span class="unkChip">${esc(item.field.replace(/^research\./, '').replaceAll('_', ' '))} · verification pending</span>`).join('')}</div></div>` : ''}
     ${R.conflicts && R.conflicts.length ? `<div class="fGroup"><div class="fLbl">Conflicts</div>
       ${R.conflicts.map(c => `<div class="srcRow"><div class="srcT">${stateTag('conflict', '')} ${esc(c.field)}</div>
         <div style="font-size:14px;color:var(--mid);margin-top:4px">A: ${esc(c.a)}<br>B: ${esc(c.b)}<br><span style="color:var(--dim)">How RISE shows it: ◐ until resolved · ${esc(c.res)}</span></div></div>`).join('')}
@@ -1776,12 +1930,10 @@ Object.assign(globalThis, { state, D, $, $$, adminDraft, FAMILIES, byId, fitCach
   state.intelAdminFilter = 'ALL';
 
   function coverageBadge(p) {
-    const researched = Number(p.officialFacts || 0);
-    let stateLabel = 'RESEARCH PENDING';
-    if (p.depth === 'gold' || p.depth === 'enriched') stateLabel = 'DEEP RESEARCH';
-    else if (researched >= 20) stateLabel = 'PARTIAL RESEARCH';
-    else if (researched > 0) stateLabel = 'BASIC PROFILE';
-    return `<span class="coverageBadge ${researched > 0 ? 'has-evidence' : ''}" title="RISE research coverage, not program quality">${stateLabel}${researched > 0 ? ` · ${researched} sourced field${researched === 1 ? '' : 's'}` : ''}</span>`;
+    const tier = p.filterIntelligence.researchDepth || 'pending';
+    const stateLabel = { deep: 'DEEP RESEARCH', enriched: 'ENRICHED RESEARCH', basic: 'BASIC PROFILE', pending: 'RESEARCH PENDING' }[tier];
+    const pending = p.filterIntelligence.researchState === 'EVIDENCE_FOUND_VERIFICATION_PENDING';
+    return `<span class="coverageBadge ${p.filterIntelligence.approvedDomainCount > 0 ? 'has-evidence' : ''}" title="Meaningful approved domain coverage, not program quality">${stateLabel} · ${p.filterIntelligence.approvedDomainCount} VERIFIED DOMAIN${p.filterIntelligence.approvedDomainCount === 1 ? '' : 'S'}${pending ? ' · EVIDENCE PENDING' : ''}</span>`;
   }
 
   function intelStatus(status) {

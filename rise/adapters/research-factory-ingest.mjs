@@ -5,6 +5,7 @@ import { createCanonicalEvidenceClaim } from "../src/evidence.mjs";
 const PROVIDERS = new Map([
   ["RISE-BOOTSTRAP-001", "PARALLEL"],
   ["CLAUDE-SPRINT-009", "CLAUDE_OPUS"],
+  ["CLAUDE-SUBSTITUTE-009", "CLAUDE_SONNET"],
 ]);
 
 function sha256(value) {

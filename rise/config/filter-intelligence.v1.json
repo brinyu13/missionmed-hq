@@ -1,31 +1,37 @@
 {
-  "schemaVersion": 1,
-  "contractId": "rise-filter-intelligence-2026-09-08",
+  "schemaVersion": 2,
+  "contractId": "rise-filter-intelligence-2026-09-10",
   "researchDepth": {
-    "domainFields": [
-      "research.visa",
-      "research.resident_roster",
-      "research.leadership",
-      "research.abim",
-      "research.fellowship_inventory",
-      "research.img_accessibility",
-      "research.do_accessibility",
-      "research.caribbean_accessibility"
+    "providerDomains": {
+      "visaPublication": ["research.visa"],
+      "residentRoster": ["research.resident_roster"],
+      "leadership": ["research.leadership"],
+      "boardPerformance": ["research.abim"],
+      "fellowshipOutcomes": ["research.fellowship_inventory", "research.outcomes"],
+      "applicationRequirements": ["research.application_requirements"],
+      "curriculumFeatures": ["research.curriculum"],
+      "salaryBenefits": ["research.salary_benefits"],
+      "residentComposition": ["research.img_accessibility", "research.do_accessibility", "research.caribbean_accessibility"]
+    },
+    "deepRequiredDomains": [
+      "applicationRequirements",
+      "visaPublication",
+      "residentRoster",
+      "leadership"
     ],
-    "deepRequiredFields": [
-      "research.visa",
-      "research.resident_roster",
-      "research.leadership"
-    ],
-    "deepMinimumDomainCount": 6,
-    "enrichedMinimumDomainCount": 2,
-    "basicMinimumCoreDomainCount": 4,
+    "deepMinimumDomainCount": 8,
+    "enrichedMinimumDomainCount": 5,
+    "requiresApprovedProviderDomainForEnriched": true,
+    "basicMinimumDomainCount": 2,
     "coreRegistryDomains": {
       "officialWebsite": ["Program Website"],
-      "programStructure": ["Program Best Described As", "Total Residents"],
-      "applicationTimeline": ["Application Deadline", "Medical School Graduation Timeline"],
+      "programStructure": ["Program Best Described As", "Program Length", "Total Residents", "Residents Per Year", "First Year Positions"],
+      "applicationTimeline": ["Application Deadline", "Medical School Graduation Timeline", "Application Service"],
+      "applicationRequirements": ["Step Preferences", "COMLEX Accepted", "IMG Step 1 Required", "IMG Step 2 Required", "DO COMLEX Level 1 Required", "DO COMLEX Level 2 Required", "Minimum LOR", "Maximum LOR", "Specialty Specific LOR Required", "Gap Experience Requirement", "Medical School Graduation Timeline", "Required Supplemental Information"],
       "visaPublication": ["J1", "H1B", "Visa Sponsorship"],
-      "residentComposition": ["IMG Graduates Percent", "DO Graduates Percent", "US MD Graduates Percent"]
+      "residentComposition": ["IMG Graduates Percent", "DO Graduates Percent", "US MD Graduates Percent"],
+      "salaryBenefits": ["Salary PGY1", "Salary PGY2", "Salary PGY3", "Salary PGY4", "Benefits", "Vacation", "Educational Stipend", "Meal Allowance"],
+      "curriculumFeatures": ["Clinic Structure", "Call Schedule", "Night Float", "Research Track", "Average Work Hours", "Required Away Rotations"]
     }
   },
   "studentLabels": {
@@ -50,6 +56,7 @@
     "visa": "Only explicit published sponsorship or visa-status evidence is filterable.",
     "residentComposition": "Program-reported resident or graduate composition and approved roster evidence are observations, not admissions-policy claims.",
     "dynamicFacts": "Only approved, non-conflicting STUDENT_VISIBLE or PRIVATE_BETA canonical current facts may affect student-facing fact filters.",
-    "researchDepth": "Depth exposes provider-neutral workflow coverage only; it never publishes review-gated claim content."
+    "researchDepth": "Depth is computed only from approved canonical facts and approved registry domains; review-gated claim presence never increases the tier.",
+    "pendingEvidence": "Review-gated provider evidence is represented only as a verification-pending state; claim values and personal data remain hidden."
   }
 }

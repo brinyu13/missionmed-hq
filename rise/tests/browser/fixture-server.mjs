@@ -1,5 +1,6 @@
 import { createRiseServer } from "../../server.mjs";
 import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 const SELECTED_FIELD_COUNT = 72;
 
@@ -20,7 +21,7 @@ function unknown() {
   return { knowledge: { state: "unknown", explicit: true } };
 }
 
-function program({ id, name, designation, city, state, memberships, j1, h1b, director, imgPercent, doPercent, usmdPercent, deadline, soap2026 = null }) {
+function program({ id, name, designation, city, state, memberships, j1, h1b, director, imgPercent, doPercent, usmdPercent, deadline, soap2026 = null, sparse = false }) {
   const fields = {
     "Program Website": known("https://example.test/program"),
     "Program Best Described As": known("University-based"),
@@ -41,6 +42,11 @@ function program({ id, name, designation, city, state, memberships, j1, h1b, dir
   if (doPercent !== undefined) fields["DO Graduates Percent"] = known(`${doPercent}%`);
   if (usmdPercent !== undefined) fields["US MD Graduates Percent"] = known(`${usmdPercent}%`);
   if (deadline) fields["Application Deadline"] = known(deadline);
+  if (sparse) {
+    for (const field of Object.keys(fields)) {
+      if (field !== "Program Website") delete fields[field];
+    }
+  }
   const knownSelectedClaims = Object.values(fields)
     .filter((field) => field.knowledge.state === "known").length;
   return {
@@ -174,6 +180,7 @@ const registryIndex = {
       city: "Los Angeles",
       state: "CA",
       director: "Dr. Example Director",
+      sparse: true,
       memberships: [{ browseSpecialty: "Pediatrics", relationship: "EXACT_DESIGNATION" }],
     }),
   ],
@@ -185,7 +192,9 @@ const server = createRiseServer({
   authMode: "local-preview",
   buildId: "synthetic-browser-fixture",
   environment: "test",
-  webDirectory: fileURLToPath(new URL("../../dist/", import.meta.url)),
+  webDirectory: process.env.RISE_BROWSER_DIST
+    ? path.resolve(process.env.RISE_BROWSER_DIST)
+    : fileURLToPath(new URL("../../dist/", import.meta.url)),
   abuseController: {
     scope: "browser_test_fixture",
     async allowPreAuth() { return true; },
@@ -202,7 +211,7 @@ const server = createRiseServer({
             fields: [
               "research.visa", "research.resident_roster", "research.leadership", "research.abim",
               "research.fellowship_inventory", "research.img_accessibility", "research.do_accessibility",
-              "research.caribbean_accessibility",
+              "research.caribbean_accessibility", "research.application_requirements", "research.curriculum",
             ],
           },
           {

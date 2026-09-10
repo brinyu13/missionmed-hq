@@ -130,6 +130,13 @@ test("global program lookup and state filters preserve unknown-first program res
   await page.locator("#omni").fill("Atlas");
   await expect(page.locator("#omniAC")).toContainText("Atlas Internal Medicine Program");
   await page.locator("#omni").fill("");
+  await page.locator("#centralProgramSearch").fill("Cascade Neurology Teaching Hospital");
+  await expect(page.locator(".pRow")).toHaveCount(1);
+  await expect(page.locator(".pRow")).toContainText("Cascade Neurology Program");
+  await page.locator("#centralProgramSearch").fill("synthetic-atlas_im");
+  await expect(page.locator(".pRow")).toHaveCount(1);
+  await expect(page.locator(".pRow")).toContainText("Atlas Internal Medicine Program");
+  await page.locator("#centralProgramSearch").fill("");
   await page.locator("select[aria-label='State']").selectOption("CA");
   await expect(page.locator(".pRow")).toHaveCount(1);
   await expect(page.locator(".pRow")).toContainText("Delta Pediatrics Program");
@@ -146,7 +153,9 @@ test("Program File remains a routed immersive overlay with exactly six primary t
   await expect(page.locator("#file")).toContainText("synthetic-atlas_im");
   await expect(page.locator("#file")).not.toContainText("demo");
   await expect(page.locator("#file")).toContainText("Student Intel");
-  await expect(page.locator("#file .coverageBadge")).toContainText("BASIC PROFILE");
+  await expect(page.locator("#file .coverageBadge")).toContainText("DEEP RESEARCH");
+  await expect(page.locator("#fileBody")).toContainText("Approved canonical registry facts");
+  await expect(page.locator("#fileBody")).toContainText("Application Deadline");
   await page.screenshot({ path: path.join(artifactDirectory, "program-file-desktop.png"), fullPage: true });
 });
 
@@ -179,12 +188,12 @@ test("Student Intel contribution and admin moderation remain inside the Fable Pr
 test("all six Program File tabs expose evidence-safe content or honest empty states", async ({ page }) => {
   await openRise(page, "program/rise_ps_atlas_im/overview");
   const expectations = new Map([
-    ["Overview", "narrative layers remain pending"],
+    ["Overview", "Approved canonical registry facts"],
     ["Fit", "RISE does not guess"],
-    ["Residents", "Not yet researched"],
-    ["People", "Leadership is not yet verified"],
-    ["Fellowships & Outcomes", "Fellowship inventory not yet verified"],
-    ["Details", "Not published / not yet verified"],
+    ["Residents", "Program-reported resident and graduate composition"],
+    ["People", "Approved leadership information"],
+    ["Fellowships & Outcomes", "Fellowship inventory:"],
+    ["Details", "Program-reported salary"],
   ]);
   for (const [name, text] of expectations) {
     await page.getByRole("tab", { name, exact: true }).click();
@@ -239,7 +248,7 @@ test("profile, CV, entitlement, RankList IQ, and premium integrations fail close
   await expect(page.locator("#modal")).toContainText("File Vault connection unavailable");
   await page.locator("#modal .mBtn.sec").click();
   await page.getByRole("button", { name: "Rank List", exact: true }).click();
-  await expect(page.locator("#main")).toContainText("Feature-flagged shell");
+  await expect(page.locator("#main")).toContainText("Activates during Interview Season");
   await openRise(page);
   await page.getByText("Alumni Connections", { exact: true }).click();
   await expect(page.locator("#modal")).toContainText("fails closed");
@@ -250,14 +259,16 @@ test("admin command center preserves preview-before-spend and disables unbound p
   await openRise(page);
   await page.getByRole("button", { name: "Admin tools" }).click();
   await expect(page).toHaveURL(/#\/admin\/research$/);
-  await expect(page.locator("#main")).toContainText("research factory is not authorized");
+  await expect(page.locator("#main")).toContainText("Live production router");
+  await expect(page.locator("#main")).toContainText("emergency kill active");
+  await expect(page.locator("#main")).toContainText("unapproved spend $0.00");
   await expect(page.getByRole("button", { name: /run research/i }).first()).toBeDisabled();
   await page.getByPlaceholder(/Describe the research/).fill("Update resident rosters in New Jersey");
   await page.getByRole("button", { name: "Draft it" }).click();
   await expect(page.locator("#nlDraft")).toContainText("task count and cost require an authorized server preview");
   await expect(page.locator("#nlDraft").getByRole("button", { name: "Run research" })).toBeDisabled();
   await page.getByRole("button", { name: "Queue", exact: true }).click();
-  await expect(page.locator("#main")).toContainText("No authorized research queue is connected");
+  await expect(page.locator("#main")).toContainText("The durable queue is connected and the default router remains fail-closed");
   await page.getByRole("button", { name: /^Review/ }).click();
   await expect(page.locator("#main")).toContainText("No authorized review queue is connected");
 });

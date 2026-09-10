@@ -18,10 +18,14 @@ test("provider-neutral normalization converges Parallel and Claude without auto-
   const parallel = normalizeResearchFactoryRecord({ record: fixture(), sourceBytes: parallelBytes, sourceFile: "parallel/1400000000.json" });
   const opusRecord = fixture("CLAUDE-SPRINT-009");
   const opus = normalizeResearchFactoryRecord({ record: opusRecord, sourceBytes: Buffer.from(JSON.stringify(opusRecord)), sourceFile: "claude-opus/1400000000.json" });
+  const sonnetRecord = fixture("CLAUDE-SUBSTITUTE-009");
+  const sonnet = normalizeResearchFactoryRecord({ record: sonnetRecord, sourceBytes: Buffer.from(JSON.stringify(sonnetRecord)), sourceFile: "claude-sonnet/1400000000.json" });
   assert.equal(parallel.provider, "PARALLEL");
   assert.equal(opus.provider, "CLAUDE_OPUS");
+  assert.equal(sonnet.provider, "CLAUDE_SONNET");
   assert.notEqual(parallel.idempotencyKey, opus.idempotencyKey);
-  for (const ingest of [parallel, opus]) {
+  assert.notEqual(sonnet.idempotencyKey, opus.idempotencyKey);
+  for (const ingest of [parallel, opus, sonnet]) {
     assert.equal(ingest.claims.length, 2);
     assert.ok(ingest.claims.every((claim) => claim.publicationState === "REVIEW_REQUIRED"));
     assert.ok(ingest.claims.every((claim) => claim.reviewState !== "APPROVED"));

@@ -12,6 +12,12 @@
       "inputKind": "completed_ingest_staging",
       "newSpendAuthorizedUsd": 0,
       "publicationDefault": "REVIEW_REQUIRED"
+    },
+    "CLAUDE_SONNET": {
+      "campaignId": "CLAUDE-SUBSTITUTE-009",
+      "inputKind": "completed_ingest_staging",
+      "newSpendAuthorizedUsd": 0,
+      "publicationDefault": "REVIEW_REQUIRED"
     }
   },
   "blockedStudentFields": [
