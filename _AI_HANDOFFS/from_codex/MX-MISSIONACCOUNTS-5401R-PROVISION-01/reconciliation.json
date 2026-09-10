@@ -1,0 +1,2574 @@
+{
+  "authority": [
+    "DR-220",
+    "DR-221"
+  ],
+  "course": {
+    "id": 6357,
+    "name": "Dr J, Drills On-Call"
+  },
+  "rows": [
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "b7516f42-b677-5e6f-a5ed-717a690be323",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "df887cb6-ff79-55d3-9e69-a88ee78eb7ea",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "a***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "84a258ad-d5f4-5c38-9a5d-6a94f6dfe604",
+      "workbook_row": 78,
+      "wp_user_id": 351
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "8acf41a5-d784-59b6-bf73-8eb6d8dc0432",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "24889cf7-5e45-531f-875b-e36de0317e78",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "a8c0d177-3473-54ea-8256-72d0c260003b",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "2ce2044f-6925-53be-8d16-6375aa9af730",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "d77d93e1-2c1f-53de-a198-edd39645e577",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "453b7a6f-2738-591c-9e11-3ddcaa97889a",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "aab824d7-63d7-5a33-b4e0-0a370f6e394d",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "544bfe95-9b79-5543-a590-d505e1a994c2",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "t***@rowan.edu",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "b2a9e055-d55e-5bfc-8c0c-bd38f3b14b5c",
+      "workbook_row": 89,
+      "wp_user_id": 353
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "6a9edb3a-cba9-5863-a22a-0dafe43fe9f6",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "5445a87b-2752-52fd-9c53-7866c11c6ae6",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "0264476d-6ae8-5f36-97e2-2de576037019",
+      "workbook_row": 92,
+      "wp_user_id": 542
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "3a71fe5b-dad5-5220-978e-799351a19388",
+      "workbook_row": 93,
+      "wp_user_id": 632
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "3a72adff-6ace-5826-a226-37b9c57453e8",
+      "workbook_row": 96,
+      "wp_user_id": 467
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "a***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "3bb013d6-eae4-5054-b1c5-7997335785e8",
+      "workbook_row": 43,
+      "wp_user_id": 1322
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "126fc2e1-d6e6-58e2-affb-7428d56ec164",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "c4141b44-e8e9-5f16-a254-fa289b121b7c",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "f9f1ccfa-9b40-58a0-8e83-a6acb7998704",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "a***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "9a9b1340-84ef-525f-b7cf-b0d72112b374",
+      "workbook_row": 100,
+      "wp_user_id": 704
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "65edf43c-0033-555a-882a-9f12102b8736",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "a***@hotmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "b9bacc6a-cca1-599b-b178-83a40fcc43c8",
+      "workbook_row": 101,
+      "wp_user_id": 620
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "07f416ef-a238-5b6c-939e-a70f79848cae",
+      "workbook_row": 29,
+      "wp_user_id": 631
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "00e2487f-5616-5762-b65f-e08a8321e49a",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "b***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "b3774077-a47c-52c7-a392-83778fbe8594",
+      "workbook_row": 106,
+      "wp_user_id": 355
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "036b7b2c-df2a-512b-bb63-3015c348d00f",
+      "workbook_row": 107,
+      "wp_user_id": 445
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "b***@hotmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "19339eda-b8a0-5772-8ef4-b7adcf4c8e03",
+      "workbook_row": 108,
+      "wp_user_id": 479
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "d***@me.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "460917b6-0a34-590e-a945-d8922bd8be1b",
+      "workbook_row": 112,
+      "wp_user_id": 670
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "c***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "11ecd81b-8c2c-5eb2-8575-c1b8ac825651",
+      "workbook_row": 66,
+      "wp_user_id": 801
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "a01b875a-1702-5422-ad9d-8bc7b0a5e957",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "175a0f1e-a1ae-5850-8158-eae35e729cd5",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "c***@student.wmcarey.edu",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "f3cc8d7f-6a3b-555e-812f-1c0be2eefc6f",
+      "workbook_row": 117,
+      "wp_user_id": 1332
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "c***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "27f48bba-df5c-5ca5-bfb3-3fe20a1e7f7c",
+      "workbook_row": 119,
+      "wp_user_id": 1319
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "6f4868b4-f7cf-5858-8b67-43c3bfb7ed3d",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "c***@gmail.com",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "MUL",
+      "student_id": "9dd361db-29fa-5178-8a50-981b739d1fe0",
+      "workbook_row": 122,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "a***@rowan.edu",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "97b5118d-30cf-5e53-b508-4078a41fcb4a",
+      "workbook_row": 125,
+      "wp_user_id": 1323
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "51fbef02-803f-5525-b5c3-55f8629e5bac",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "44f4bfb4-6a8c-5c79-b25e-0111e7c76dd1",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "8c7b599e-2414-5389-a5c6-2e0f285ccca2",
+      "workbook_row": null,
+      "wp_user_id": 726
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "5a58551e-f094-5a1e-a891-8cdfb1cb26bf",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "9cb768b8-2151-54c5-8df6-b286f46d358a",
+      "workbook_row": 137,
+      "wp_user_id": 567
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "e***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "2b369618-73b2-5c88-ba7c-08a50a67e0ec",
+      "workbook_row": 14,
+      "wp_user_id": 461
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "bb703b48-c220-5ba0-ab99-4a63f47a9cf7",
+      "workbook_row": 133,
+      "wp_user_id": 531
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "4fcf21e7-3d7b-56e0-9d37-65988fb40c60",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "v***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "f6e34323-0ec9-5466-985d-af7cb3854602",
+      "workbook_row": 135,
+      "wp_user_id": 1333
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "09d7096a-651b-5d30-81d2-b9a1eb156de5",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "de34f810-bb1d-5f1b-8d58-fead6d3bc682",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "6d6df128-7b25-5f41-a2be-ad97785e0cb1",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "aae105cd-e351-5d38-92c6-b524de4b84c6",
+      "workbook_row": 142,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "a90d1852-433a-5045-b5b3-a7b92a7cbd25",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "f***@email.campbell.edu",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "ee3c39fd-9492-5919-ae25-eb0853106b8c",
+      "workbook_row": 75,
+      "wp_user_id": 1334
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "g***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "95c68fb2-25d8-5710-ac57-12e57ed2f9b2",
+      "workbook_row": 149,
+      "wp_user_id": 728
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "1589b5b7-b73f-53ba-bf2d-e375a9fa9d0c",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "g***@yahoo.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "59decca8-589a-5291-9492-1266ec729b51",
+      "workbook_row": 151,
+      "wp_user_id": 366
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "b***@rowan.edu",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "887db4a6-b181-59f6-84fe-a23cc1d995ba",
+      "workbook_row": 152,
+      "wp_user_id": 1324
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "fd07e141-2d57-57b9-8b3b-d542bb0ebee5",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "161956d4-34ec-5a13-baf9-734043c6929c",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "k***@rowan.edu",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "7149e0df-8e85-5db0-951e-494905d1369f",
+      "workbook_row": null,
+      "wp_user_id": 721
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "d***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "6a0e4271-b98e-58a1-909c-b6b0f7b04800",
+      "workbook_row": 155,
+      "wp_user_id": 513
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "j***@gmail.com",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "MUL",
+      "student_id": "c5909ee6-40ca-59ea-bc82-f43301682155",
+      "workbook_row": 156,
+      "wp_user_id": 134
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "b8628288-7085-56ed-b945-867b2ef46acf",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "5622f770-3202-59bd-9839-a4b3d4725e60",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "dc045162-fe15-587f-b97f-2f7797cabac8",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "h***@student.wmcarey.edu",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "23a0a931-2b01-5c00-bcf8-d01c7c9700f0",
+      "workbook_row": 158,
+      "wp_user_id": 119
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "c8d6cbd1-c796-571f-92c1-46478fb280d3",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "417ce3a6-db7c-5685-9ec5-566d2b51e46a",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "7a67d1c7-9962-5545-8fe5-db7af4d4cb92",
+      "workbook_row": 162,
+      "wp_user_id": 697
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "j***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "c482f6df-fcf8-5d06-8e03-502277e1f32b",
+      "workbook_row": 166,
+      "wp_user_id": 1325
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "9507a34f-53a4-50bf-a0d5-3f031f39f38c",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "f3d7e262-5ff2-5199-9f72-30a6c3dd333a",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "bbab4dca-e4f2-5cfc-b00a-f0e430c3df6d",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "4c6c0525-0195-5455-b4e2-da2094438971",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "421f4101-9553-50c5-bed2-750012767ddf",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "31007472-8c17-55fe-ac0b-9a15a3d3ad15",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "g***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "80884653-88e7-5870-9324-e40aa7f2089e",
+      "workbook_row": 177,
+      "wp_user_id": 66
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "30241f1a-26c0-5026-a492-c0ceb5893eb1",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "j***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "b31e38d8-3892-5e1d-a27b-ab18feb57c29",
+      "workbook_row": 178,
+      "wp_user_id": 124
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "j***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "90ed22be-b420-5ceb-a60a-cd3c179ad044",
+      "workbook_row": 35,
+      "wp_user_id": 1326
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "08b14780-e9ac-536c-9012-6d55d5e3e572",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "8097c691-6876-5eec-ac1b-39ceea794191",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "u***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "e0773b47-1028-54ea-8bf2-c89da2a16e04",
+      "workbook_row": 181,
+      "wp_user_id": 731
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "0f3a6104-aad0-59e1-955c-fc2e6fca9322",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "3446f921-ab3a-5759-8e94-7a31ca41478b",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "b79f8a76-7e78-5306-b66b-ba66f0156ac8",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "k***@students.xusom.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "c06b99a9-e5f7-5a0b-984d-66326547c324",
+      "workbook_row": 186,
+      "wp_user_id": 711
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "k***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "16a6e422-e6cc-5e34-9a6f-92b907c8b7e2",
+      "workbook_row": 187,
+      "wp_user_id": 488
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "71f93398-f08e-5649-afad-885cd3b009d8",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "k***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "ce1ea4a7-f2d2-5daa-b049-99f2e7118cc1",
+      "workbook_row": 64,
+      "wp_user_id": 145
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "04b333ca-597d-5bf7-96cd-7d03148331a6",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "k***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "40a1e9cf-d2fa-5fad-b35b-5d284a2ab589",
+      "workbook_row": 192,
+      "wp_user_id": 1327
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "882d8cb5-936b-5b1d-8d43-bc1d9796a0da",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "65d7d174-b987-5c8e-824f-0e4293fc0e7c",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "k***@yahoo.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "e00ac618-e5bb-5dc2-b52b-86a719930942",
+      "workbook_row": 194,
+      "wp_user_id": 466
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "652361f5-63d6-5528-8b1e-74f4ddece564",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "c896709d-e7e6-50d1-8dc5-9e26078deaf7",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "l***@outlook.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "e9b77c44-9d2e-5768-84a9-1c8be650a0b3",
+      "workbook_row": 9,
+      "wp_user_id": 115
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "ccc56051-3392-5c53-8e3d-1ba8cf17ebcc",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "39bec4b6-6d52-55cf-9865-b952b7e62ac4",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "86d14bc9-0687-58f9-9d02-49e7035986c0",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "1282a218-dac9-563b-b6dd-93c1300b92ba",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "7e1ed9fb-e7d8-5085-b7c9-2bd86cdc32aa",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "c10de8d3-dbd1-557b-9bcc-6670cbb6e8aa",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "b***@rowan.edu",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "e30b2fa6-6058-5ce5-b556-b6b6fd79a68c",
+      "workbook_row": 206,
+      "wp_user_id": 590
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "m***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "492495ac-b4f6-5c10-9a26-93d931d86bde",
+      "workbook_row": 208,
+      "wp_user_id": 116
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "m***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "033b7585-5a26-5684-bfe9-5fccfce1e284",
+      "workbook_row": 209,
+      "wp_user_id": 493
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "m***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "08ab339b-4da6-54a6-9364-a745dd63c681",
+      "workbook_row": 45,
+      "wp_user_id": 597
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "s***@rowan.edu",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "34214ccb-ec8b-525a-9ef1-25c0f6515e6a",
+      "workbook_row": 211,
+      "wp_user_id": 794
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "383475a0-ffe1-5b69-a41a-ed8ccc606d95",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "m***@student.wmcarey.edu",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "4bffc8fe-8a42-529f-914e-a803b75cd119",
+      "workbook_row": null,
+      "wp_user_id": 471
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "m***@gmail.com",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "MUL",
+      "student_id": "73c6dc14-a172-5cfc-8399-8f90ad4ed351",
+      "workbook_row": 212,
+      "wp_user_id": 739
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "25385019-b988-55d5-8273-a88164b088c6",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "dd642a6a-3900-53dc-9c49-202f77483eb5",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "147b4a33-4b2b-53b8-91ad-c70b86241957",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "af296d18-925f-56f0-b842-117a6715cb9f",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "40e8121c-0c7a-5d5c-89f3-71c6f5f59373",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "5ddb13e6-7707-51ed-b9de-664ee0f03514",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "77b2d45c-8f23-5bb0-90fd-9e3a707b3b79",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "9ac4dafa-b08a-50d4-b209-4c164422bc46",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "86f7ec62-756d-5662-b4d1-ccd4f43b0dd3",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "29a7255d-b49b-547f-a8d3-c55e58e1832d",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "449e82e2-ad48-5edb-af98-5e8f21b7872c",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "0caf9331-a7f3-5461-885c-a562c5f409f1",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "89e78033-d5d5-57fe-a516-580ad07515f4",
+      "workbook_row": 234,
+      "wp_user_id": 352
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "db262c41-bb50-5923-a82f-433719dbffc7",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "a9fdbbf1-7373-53fd-b765-5a6c0ae0defb",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "0bc5f908-466d-5873-b2fd-2b9c37189629",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "p***@rowan.edu",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "5bbe506d-9557-5a52-b44c-972ecf4676f3",
+      "workbook_row": 239,
+      "wp_user_id": 396
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "fa406721-eb53-565f-a8de-b5a7d73d2026",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "g***@rowan.edu",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "5171c2ec-5046-59e0-a22a-7362404bf9ec",
+      "workbook_row": 243,
+      "wp_user_id": 114
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "s***@gmail.com",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "MUL",
+      "student_id": "04d64fda-fcce-588f-aaa5-1d978ac29e36",
+      "workbook_row": 242,
+      "wp_user_id": 743
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "9fa76455-b0a9-5e29-ad78-39ebfb47f37f",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "4fd7c9a5-4014-5152-8fcc-290ac8417c1e",
+      "workbook_row": null,
+      "wp_user_id": 496
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "0b3db469-c04f-5925-996d-d672584f3939",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "8e5a3185-e85c-5de4-a4a8-81b00318c71e",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "3a1a6b3b-7fc1-5207-bf3f-2b0452d1a2a3",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "3667c6a7-bae8-57d0-888c-6a7dfd303367",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "7732037f-4573-5400-81e0-8abeae830b84",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "r***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "34e89c8f-372e-5f7b-9f2c-35d20c118039",
+      "workbook_row": 72,
+      "wp_user_id": 489
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "r***@gmail.com",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "MUL",
+      "student_id": "4993e760-7e79-5be3-a692-90faad3f2d99",
+      "workbook_row": 253,
+      "wp_user_id": 741
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "2f83d5ea-1e52-51ce-a208-c161b1cc2aa7",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "630d1102-6b19-53a1-8213-e096545c0fef",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "fee06f67-4e42-519f-9d90-00c0ac367c57",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "4d76930c-5b7e-5a78-96d6-f0845935f453",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "6ae96527-d2a8-52f8-b44b-fae0a99a4c44",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "s***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "20bd5697-29ab-5ec6-9228-55ccb486a854",
+      "workbook_row": 30,
+      "wp_user_id": 633
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "s***@gmail.com",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "MUL",
+      "student_id": "e10645ab-92b4-5d20-92df-d2fc10b16211",
+      "workbook_row": 260,
+      "wp_user_id": 558
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "ad73a19a-680c-5cfd-a672-f1c99bb65b07",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "a12a33ce-091a-5c0f-87b8-22d4fe5f24a0",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "s***@student.wmcarey.edu",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "08b3e9aa-a205-50c0-85f1-bfb2fec8b81c",
+      "workbook_row": 265,
+      "wp_user_id": 527
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "e14b8648-480e-5746-aa1f-2c946781ac56",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "392f12c6-78c6-57fa-8a1b-c1d896538f34",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "811a8329-6728-58d6-9fa7-ea5b77557102",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "142b08bb-9643-550c-acac-29a8030c7e02",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "5086a13c-3650-5e15-b214-bd4a1fb34925",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "s***@gmail.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "57eecc09-d72a-5e9b-95f8-8ff13e764a9f",
+      "workbook_row": 274,
+      "wp_user_id": 676
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "d***@rowan.edu",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "1079d413-a946-5f21-bcbb-721174cede91",
+      "workbook_row": 275,
+      "wp_user_id": 1328
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "4a7ac94d-100e-598a-83d4-5eaaf427b8db",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "t***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "5c21e5f6-5c83-5039-8837-0dbbd39620b2",
+      "workbook_row": 278,
+      "wp_user_id": 1329
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "t***@bu.edu",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "0ab6abf6-6d71-5e17-8f50-f7c2fd2a48ef",
+      "workbook_row": 279,
+      "wp_user_id": 1330
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "d***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "45703b5e-54c5-56b5-b42e-7fbd10e62215",
+      "workbook_row": 280,
+      "wp_user_id": 388
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "0c550406-7309-5d25-9f3d-a2f461f1b195",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "0bc64687-0358-51ce-b11f-a261fe7fb57c",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "t***@student.wmcarey.edu",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "8f3d20e5-ef4f-5cbf-b235-57641954df30",
+      "workbook_row": 281,
+      "wp_user_id": 526
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "fd372385-30e0-5220-8e1a-66c4d793dec0",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "t***@hotmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "a6b2b741-e38e-5df3-88a0-877618612286",
+      "workbook_row": 285,
+      "wp_user_id": 793
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "e226669d-4c2a-5eb1-885c-1b355850b665",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "bf145eb8-ec26-56ff-93b3-63070c0fc0e6",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "1bcc77dd-6974-5f72-9506-1f6b3b39065f",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "v***@gmail.com",
+      "reason": "unique_exact_normalized_name_with_attendance_alias",
+      "sponsor": "DIRECT",
+      "student_id": "caa0dc91-6510-546b-91c5-1d977ad31b80",
+      "workbook_row": 288,
+      "wp_user_id": 1331
+    },
+    {
+      "action": "REUSE_WP_ALREADY_READY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "PRESERVE",
+      "confidence": "HIGH",
+      "email_masked": "b***@yahoo.com",
+      "reason": "exact_verified_email",
+      "sponsor": "DIRECT",
+      "student_id": "9bb0fc50-d0f3-5e45-99cd-53136a907661",
+      "workbook_row": 289,
+      "wp_user_id": 515
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "",
+      "reason": "workbook_identity_not_exact",
+      "sponsor": "UNKNOWN",
+      "student_id": "0f43d213-bb4b-5dd6-8e23-84aedb395c8f",
+      "workbook_row": null,
+      "wp_user_id": null
+    },
+    {
+      "action": "REVIEW_IDENTITY",
+      "attendance_months": [
+        "2026-06",
+        "2026-07",
+        "2026-08"
+      ],
+      "billing_treatment": "HELD_MISSING_DURABLE_SPONSOR_CONTROL",
+      "confidence": "REVIEW",
+      "email_masked": "1***@uccaribe.edu",
+      "reason": "durable_sponsor_billing_exclusion_not_available",
+      "sponsor": "UCC",
+      "student_id": "d50fb7a9-2179-5255-b1b6-320895fe052b",
+      "workbook_row": 293,
+      "wp_user_id": 389
+    }
+  ],
+  "source_workbook_sha256": "634ad89acb8e4ece30b611ff57bd107163c4b2e9a3d8829068527a62d5762f32"
+}
