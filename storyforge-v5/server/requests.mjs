@@ -4,6 +4,8 @@ const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}
 const tokenPattern = /^[A-Za-z0-9_-]{43}$/;
 const pseudonymPattern = /^[a-f0-9]{64}$/;
 const relationships = new Set(['parent','sibling','spouse_partner','grandparent','cousin','best_friend','childhood_friend','medschool_friend','faculty','mentor','coworker','supervisor','teammate']);
+const postmarkAttemptMetadataKey = 'sfDeliveryAttemptId';
+const postmarkInvitationMetadataKey = 'sfInvitationId';
 
 export class RequestsError extends Error {
   constructor(code, message, status = 400, options = {}) {
@@ -78,8 +80,8 @@ function providerEvent(input = {}) {
   const metadata = input.Metadata && typeof input.Metadata === 'object' && !Array.isArray(input.Metadata)
     ? input.Metadata
     : {};
-  const attemptId = String(metadata.storyforgeDeliveryAttemptId || '').trim();
-  const invitationId = String(metadata.storyforgeInvitationId || '').trim();
+  const attemptId = String(metadata[postmarkAttemptMetadataKey] || '').trim();
+  const invitationId = String(metadata[postmarkInvitationMetadataKey] || '').trim();
   if ((attemptId && !uuidPattern.test(attemptId)) || (invitationId && !uuidPattern.test(invitationId))) {
     throw new RequestsError('invalid_webhook_event', 'Webhook event is invalid.');
   }
@@ -168,10 +170,10 @@ export function createRequestsService({ withIdentity, withServiceTransaction, po
         textBody: content.textBody,
         tag: purpose === 'reminder' ? 'storyforge-request-a-story-reminder' : 'storyforge-request-a-story',
         metadata: {
-          storyforgeDeliveryAttemptId: attemptId,
-          storyforgeInvitationId: reserved.id,
+          [postmarkAttemptMetadataKey]: attemptId,
+          [postmarkInvitationMetadataKey]: reserved.id,
           purpose,
-          ordinal: Number(reserved.delivery_ordinal),
+          ordinal: String(reserved.delivery_ordinal),
         },
       });
     } catch (error) {

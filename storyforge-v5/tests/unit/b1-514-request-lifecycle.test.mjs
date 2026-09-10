@@ -222,7 +222,11 @@ test('send and reminder commit a unique reservation before the one provider call
   assert.equal(sequence.some(({ values }) => JSON.stringify(values || []).includes('/guest/')), false);
   assert.equal(deliveries[0].metadata.purpose, 'initial');
   assert.equal(deliveries[1].metadata.purpose, 'reminder');
-  assert.equal(deliveries[0].metadata.storyforgeDeliveryAttemptId, '33333333-3333-4333-8333-333333333333');
+  assert.equal(deliveries[0].metadata.ordinal, '0');
+  assert.equal(deliveries[1].metadata.ordinal, '1');
+  assert.equal(deliveries[0].metadata.sfDeliveryAttemptId, '33333333-3333-4333-8333-333333333333');
+  assert.equal(deliveries[0].metadata.sfInvitationId, invitationId);
+  assert.equal(Object.keys(deliveries[0].metadata).every((key) => key.length <= 20), true);
   assert.equal(Object.hasOwn(deliveries[0].metadata, 'token'), false);
   assert.match(deliveries[1].subject, /^Reminder:/);
 });

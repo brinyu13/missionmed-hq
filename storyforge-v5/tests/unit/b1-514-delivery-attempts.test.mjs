@@ -201,8 +201,8 @@ test('signed webhook metadata is bounded to attempt and invitation identifiers o
     MessageID: 'provider-1',
     DeliveredAt: '2026-08-10T12:00:00Z',
     Metadata: {
-      storyforgeDeliveryAttemptId: attemptId,
-      storyforgeInvitationId: invitationId,
+      sfDeliveryAttemptId: attemptId,
+      sfInvitationId: invitationId,
       ignoredEmail: 'must-not-enter-sql@example.test',
     },
   });
