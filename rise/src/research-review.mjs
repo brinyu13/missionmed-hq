@@ -145,7 +145,7 @@ function isValid(field, value) {
   return value !== null && value !== undefined;
 }
 
-function preliminaryDecision({ claim, acgmeId, identityResolved = true }) {
+function preliminaryDecision({ claim, acgmeId, identityResolved = true, allowedCanaryAcgmeIds = new Set() }) {
   const sourceQuality = classifySourceUrls(claim.sourceUrls);
   const text = textOf(claim.value);
   const sourceCount = sourceQuality.institutional.length + sourceQuality.reference.length;
@@ -155,7 +155,9 @@ function preliminaryDecision({ claim, acgmeId, identityResolved = true }) {
     normalizedValue: normalizedValue(claim.field, claim.value), ruleVersion: REVIEW_RULE_VERSION,
   };
   if (!identityResolved || !/^\d{10}$/.test(String(acgmeId ?? ""))) return { ...base, disposition: "IDENTITY_AMBIGUITY", reason: "canonical_identity_not_exact", qualityScore: 0 };
-  if (PRESERVED_CANARY_ACGME_IDS.has(String(acgmeId))) throw new Error(`Protected 5012A canary holdout entered 5012D review: ${acgmeId}`);
+  if (PRESERVED_CANARY_ACGME_IDS.has(String(acgmeId)) && !allowedCanaryAcgmeIds.has(String(acgmeId))) {
+    throw new Error(`Protected 5012A canary holdout entered review without an exact 5012E allowance: ${acgmeId}`);
+  }
   if (NOT_RESEARCHED.test(text)) return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "source_explicitly_says_not_researched", qualityScore: 0 };
   if (CONFLICT.test(text)) return { ...base, disposition: "CONFLICT_REQUIRES_REVIEW", reason: "claim_contains_unresolved_conflict", qualityScore: 0 };
   if (NOT_FOUND.test(text)) return { ...base, disposition: "RESEARCHED_NOT_FOUND", reason: "completed_search_found_no_supportable_published_answer", qualityScore: sourceCount };
@@ -179,10 +181,11 @@ function mergeValues(field, decisions) {
   return decisions[0].normalizedValue;
 }
 
-export function reviewResearchCorpus(ingests, { resolvedAcgmeIds = null } = {}) {
+export function reviewResearchCorpus(ingests, { resolvedAcgmeIds = null, allowedCanaryAcgmeIds = new Set() } = {}) {
   const preliminary = ingests.flatMap((ingest) => ingest.claims.map((claim) => preliminaryDecision({
     claim, acgmeId: ingest.acgmeId,
     identityResolved: resolvedAcgmeIds ? resolvedAcgmeIds.has(String(ingest.acgmeId)) : true,
+    allowedCanaryAcgmeIds,
   })));
   const grouped = new Map();
   for (const decision of preliminary) {

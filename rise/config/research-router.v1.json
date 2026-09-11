@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractId": "rise-on-demand-research-router-2026-09-09",
+  "contractId": "rise-on-demand-research-router-2026-09-10-5012e",
   "buildMode": "LIVE_PRODUCTION",
   "defaults": {
     "globalEnabled": false,
@@ -15,9 +15,9 @@
     ],
     "entitlementScope": ["rise:private-beta"],
     "subjectAllowlistHashes": [],
-    "defaultQuota": 1,
+    "defaultQuota": 30,
     "quotaWindowDays": 30,
-    "budgetCapUsd": 0,
+    "budgetCapUsd": 12,
     "concurrencyCap": 1,
     "primaryProvider": "RISE_REPLAY_TEST",
     "fallbackProvider": null,
@@ -31,6 +31,26 @@
       "enabled": true,
       "networkAllowed": false,
       "spendAllowed": false
+    },
+    {
+      "providerKey": "OPENAI_TERRA",
+      "modelKey": "gpt-5.6-terra",
+      "state": "PAUSED",
+      "enabled": false,
+      "networkAllowed": false,
+      "spendAllowed": false,
+      "budgetCapUsd": 6,
+      "concurrencyCap": 1
+    },
+    {
+      "providerKey": "OPENAI_SOL",
+      "modelKey": "gpt-5.6-sol",
+      "state": "PAUSED",
+      "enabled": false,
+      "networkAllowed": false,
+      "spendAllowed": false,
+      "budgetCapUsd": 6,
+      "concurrencyCap": 1
     },
     {
       "providerKey": "PARALLEL",

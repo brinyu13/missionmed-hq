@@ -7,6 +7,7 @@ import {
   evaluateResearchEligibility,
   normalizeProviderRoute,
   normalizeResearchControls,
+  programDescriptor,
   publicResearchControls,
   researchDedupeKey,
 } from "../src/research-router.mjs";
@@ -17,6 +18,20 @@ const canaryProgram = {
   display: { state: "TX" },
   identifiers: [{ namespace: "ACGME_PROGRAM", value: "1854831078" }],
 };
+
+test("benchmark program descriptors normalize canonical US jurisdictions without widening the canary", () => {
+  assert.deepEqual(programDescriptor({
+    programSpecialtyId: "rise_ps_benchmark",
+    designation: "Internal Medicine",
+    display: { state: "New Jersey" },
+    identifiers: [{ namespace: "ACGME_PROGRAM", value: "1403321227" }],
+  }), {
+    specialty: "Internal Medicine",
+    state: "NJ",
+    programSpecialtyId: "rise_ps_benchmark",
+    acgmeId: "1403321227",
+  });
+});
 const student = {
   capabilities: ["rise:read", "rise:private-beta"],
 };
@@ -28,7 +43,8 @@ test("checked-in router contract matches the embedded production contract", asyn
   assert.equal(file.defaults.globalEnabled, false);
   assert.equal(file.defaults.studentEnabled, false);
   assert.equal(file.defaults.emergencyKillSwitch, true);
-  assert.equal(file.defaults.budgetCapUsd, 0);
+  assert.equal(file.defaults.budgetCapUsd, 12);
+  assert.equal(file.defaults.defaultQuota, 30);
 });
 
 test("default production research controls fail closed", () => {

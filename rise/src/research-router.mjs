@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 export const RESEARCH_ROUTER_CONFIG = Object.freeze({
   schemaVersion: 1,
-  contractId: "rise-on-demand-research-router-2026-09-09",
+  contractId: "rise-on-demand-research-router-2026-09-10-5012e",
   buildMode: "LIVE_PRODUCTION",
   defaults: Object.freeze({
     globalEnabled: false,
@@ -17,9 +17,9 @@ export const RESEARCH_ROUTER_CONFIG = Object.freeze({
     ]),
     entitlementScope: Object.freeze(["rise:private-beta"]),
     subjectAllowlistHashes: Object.freeze([]),
-    defaultQuota: 1,
+    defaultQuota: 30,
     quotaWindowDays: 30,
-    budgetCapUsd: 0,
+    budgetCapUsd: 12,
     concurrencyCap: 1,
     primaryProvider: "RISE_REPLAY_TEST",
     fallbackProvider: null,
@@ -33,6 +33,26 @@ export const RESEARCH_ROUTER_CONFIG = Object.freeze({
       enabled: true,
       networkAllowed: false,
       spendAllowed: false,
+    }),
+    Object.freeze({
+      providerKey: "OPENAI_TERRA",
+      modelKey: "gpt-5.6-terra",
+      state: "PAUSED",
+      enabled: false,
+      networkAllowed: false,
+      spendAllowed: false,
+      budgetCapUsd: 6,
+      concurrencyCap: 1,
+    }),
+    Object.freeze({
+      providerKey: "OPENAI_SOL",
+      modelKey: "gpt-5.6-sol",
+      state: "PAUSED",
+      enabled: false,
+      networkAllowed: false,
+      spendAllowed: false,
+      budgetCapUsd: 6,
+      concurrencyCap: 1,
     }),
     Object.freeze({
       providerKey: "PARALLEL",
@@ -54,15 +74,28 @@ export const RESEARCH_ROUTER_CONFIG = Object.freeze({
 });
 
 export const RESEARCH_PROVIDER_STATES = Object.freeze([
-  "TEST_ONLY", "BENCHMARKING", "PRODUCTION_APPROVED", "PAUSED",
+  "DISABLED", "CONFIGURED", "TEST_ONLY", "BENCHMARKING", "PRODUCTION_APPROVED", "PAUSED",
 ]);
+export const AUTHORIZED_PROVIDER_KEYS = Object.freeze(["OPENAI_TERRA", "OPENAI_SOL"]);
+export const AUTHORIZED_COMBINED_SPEND_USD = 12;
 export const RESEARCH_JOB_TERMINAL_STATES = Object.freeze([
   "COMPLETED", "NEEDS_REVIEW", "FAILED", "CANCELLED", "REFUNDED",
 ]);
 
 const STATE_NAMES = new Map([
-  ["FL", "Florida"],
-  ["TX", "Texas"],
+  ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"],
+  ["CA", "California"], ["CO", "Colorado"], ["CT", "Connecticut"], ["DE", "Delaware"],
+  ["DC", "District of Columbia"], ["FL", "Florida"], ["GA", "Georgia"], ["HI", "Hawaii"],
+  ["ID", "Idaho"], ["IL", "Illinois"], ["IN", "Indiana"], ["IA", "Iowa"],
+  ["KS", "Kansas"], ["KY", "Kentucky"], ["LA", "Louisiana"], ["ME", "Maine"],
+  ["MD", "Maryland"], ["MA", "Massachusetts"], ["MI", "Michigan"], ["MN", "Minnesota"],
+  ["MS", "Mississippi"], ["MO", "Missouri"], ["MT", "Montana"], ["NE", "Nebraska"],
+  ["NV", "Nevada"], ["NH", "New Hampshire"], ["NJ", "New Jersey"], ["NM", "New Mexico"],
+  ["NY", "New York"], ["NC", "North Carolina"], ["ND", "North Dakota"], ["OH", "Ohio"],
+  ["OK", "Oklahoma"], ["OR", "Oregon"], ["PA", "Pennsylvania"], ["PR", "Puerto Rico"],
+  ["RI", "Rhode Island"], ["SC", "South Carolina"], ["SD", "South Dakota"], ["TN", "Tennessee"],
+  ["TX", "Texas"], ["UT", "Utah"], ["VT", "Vermont"], ["VA", "Virginia"],
+  ["WA", "Washington"], ["WV", "West Virginia"], ["WI", "Wisconsin"], ["WY", "Wyoming"],
 ]);
 const STATE_CODES = new Map([...STATE_NAMES].flatMap(([code, name]) => [
   [code, code],
@@ -208,15 +241,20 @@ export function normalizeProviderRoute(input = {}) {
       code: "RESEARCH_CONTROL_INVALID",
     });
   }
-  if (state !== "PRODUCTION_APPROVED" && spendAllowed) {
-    throw Object.assign(new Error("Spend requires a production-approved provider"), {
+  if (spendAllowed && !AUTHORIZED_PROVIDER_KEYS.includes(providerKey)) {
+    throw Object.assign(new Error("Spend requires an authorized OpenAI research provider"), {
+      code: "RESEARCH_CONTROL_INVALID",
+    });
+  }
+  if (!["BENCHMARKING", "PRODUCTION_APPROVED"].includes(state) && spendAllowed) {
+    throw Object.assign(new Error("Spend requires a benchmarking or production-approved provider"), {
       code: "RESEARCH_CONTROL_INVALID",
     });
   }
   return { providerKey, modelKey, state, enabled, networkAllowed, spendAllowed, budgetCapUsd, concurrencyCap };
 }
 
-function programDescriptor(program) {
+export function programDescriptor(program) {
   const specialty = String(program?.designation ?? program?.specialty ?? "").trim();
   const state = canonicalStateCode(program?.display?.state ?? program?.state);
   const programSpecialtyId = String(program?.programSpecialtyId ?? "").trim();
@@ -295,6 +333,8 @@ export function publicResearchControls(controls, providers = []) {
     defaultQuota: normalized.defaultQuota,
     quotaWindowDays: normalized.quotaWindowDays,
     budgetCapUsd: normalized.budgetCapUsd,
+    actualSpendUsd: Number(controls?.actualSpendUsd ?? 0),
+    reservedSpendUsd: Number(controls?.reservedSpendUsd ?? 0),
     concurrencyCap: normalized.concurrencyCap,
     primaryProvider: normalized.primaryProvider,
     fallbackProvider: normalized.fallbackProvider,

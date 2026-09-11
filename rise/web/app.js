@@ -215,7 +215,7 @@ const state = {
   dismissedLocks: new Set(),
   updating: new Set(),                // program ids currently updating from an authorized research job
   changed: [],                        // ingest log for "Updated this week"
-  researchAdmin: { loading: false, error: null, control: null, revision: null, providers: [], jobs: [], reviewStats: null, reviewRecords: [] },
+  researchAdmin: { loading: false, error: null, control: null, revision: null, providers: [], jobs: [], benchmarks: [], frozenBenchmarkIds: [], reviewStats: null, reviewRecords: [] },
 };
 
 /* Campaign state is loaded only from an authorized research backend. */
@@ -390,7 +390,7 @@ function renderShell() {
     ['home', 'Home', ICONS.home], ['find', 'Find Programs', ICONS.find], ['soap', 'SOAP Explorer', ICONS.find], ['my', 'My Programs', ICONS.my],
     ['rank', 'Rank List', ICONS.rank], ['profile', 'My Profile', ICONS.prof],
   ];
-  const admin = [['admin/research', 'Research', ICONS.res], ['admin/queue', 'Queue', ICONS.queue], ['admin/review', 'Review', ICONS.review], ['admin/coverage', 'Coverage', ICONS.cov]];
+  const admin = [['admin/research', 'Research', ICONS.res], ['admin/benchmark', 'Benchmark', ICONS.res], ['admin/queue', 'Queue', ICONS.queue], ['admin/review', 'Review', ICONS.review], ['admin/coverage', 'Coverage', ICONS.cov]];
   const savedN = state.saved.size;
   $('#rail').innerHTML = `
     <button class="railCta" onclick="focusLookup()">✦ <span>Tell me about…</span></button>
@@ -1597,12 +1597,22 @@ window.openSources = (id, evidenceIdx) => {
     t: 'Approved canonical registry source', pub: url, tier: 1,
     acc: p.canonical?.source?.retrievedAt || p.verified || 'not stated', cur: 'current', url,
   }));
-  const researchSources = (p.researchProjection?.currentFacts || []).flatMap(fact =>
-    (fact.sourceUrls?.length ? fact.sourceUrls : [fact.sourceUrl]).filter(Boolean).map(url => ({
-      t: fact.field.replace(/^research\./, '').replaceAll('_', ' '), pub: 'Approved canonical research evidence', tier: 1,
-      acc: fact.retrievedAt || 'not stated', cur: 'current', url,
-    })));
-  const sourceRows = R.sources || [...canonicalSources, ...researchSources];
+  const researchSourceIndex = new Map();
+  for (const fact of p.researchProjection?.currentFacts || []) {
+    const domain = fact.field.replace(/^research\./, '').replaceAll('_', ' ');
+    for (const url of (fact.sourceUrls?.length ? fact.sourceUrls : [fact.sourceUrl]).filter(Boolean)) {
+      const row = researchSourceIndex.get(url) || {
+        t: 'Approved canonical research dossier source', pub: 'Approved canonical research evidence', tier: 1,
+        acc: fact.retrievedAt || 'not stated', cur: 'current', url, domains: new Set(),
+      };
+      row.domains.add(domain);
+      researchSourceIndex.set(url, row);
+    }
+  }
+  const researchSources = [...researchSourceIndex.values()].map(row => ({
+    ...row, t: `${row.t} · ${[...row.domains].sort().join(', ')}`,
+  }));
+  const sourceRows = R.sources || [...new Map([...canonicalSources, ...researchSources].map(row => [row.url || row.pub, row])).values()];
   const pendingFields = p.researchProjection?.pendingEvidence?.fields || [];
   const panel = $('#srcPanel');
   panel.innerHTML = `<div class="drawer" role="dialog" aria-modal="true" aria-label="Sources and freshness">
@@ -1692,7 +1702,7 @@ function researchControlPanel() {
   const routeOptions = selected => providers.map(p => `<option value="${esc(p.providerKey)}" ${p.providerKey === selected ? 'selected' : ''}>${esc(p.providerKey)}</option>`).join('');
   return `<div class="stepCard" style="margin:18px 0">
     <div class="stepNum">Live production router · revision ${Number(admin.revision || 0)}</div>
-    <div class="pillRow" style="margin:8px 0 12px"><span class="pill">Build: ${esc(c.buildMode)}</span><span class="pill">Spend: $0.00</span><span class="pill">Canary: ${esc(c.canaryMode)} · ${Number(c.canaryProgramCount || 0)} programs</span><span class="pill">Rollout scope: ${esc(c.specialtyScope.join(', '))} · ${esc(c.stateScope.join(', '))}</span></div>
+    <div class="pillRow" style="margin:8px 0 12px"><span class="pill">Build: ${esc(c.buildMode)}</span><span class="pill">Spend: $${Number(c.actualSpendUsd || 0).toFixed(4)} actual · $${Number(c.reservedSpendUsd || 0).toFixed(4)} reserved / $${Number(c.budgetCapUsd || 0).toFixed(2)}</span><span class="pill">Canary: ${esc(c.canaryMode)} · ${Number(c.canaryProgramCount || 0)} programs</span><span class="pill">Rollout scope: ${esc(c.specialtyScope.join(', '))} · ${esc(c.stateScope.join(', '))}</span></div>
     <div class="rvActs" style="margin-bottom:12px">
       <button class="rvBtn ${c.globalEnabled ? 'on' : ''}" onclick="toggleResearchControl('globalEnabled')">Global ${c.globalEnabled ? 'enabled' : 'paused'}</button>
       <button class="rvBtn ${c.studentEnabled ? 'on' : ''}" onclick="toggleResearchControl('studentEnabled')">Students ${c.studentEnabled ? 'enabled' : 'paused'}</button>
@@ -1709,11 +1719,11 @@ function researchControlPanel() {
       <label><span>Primary route</span><select name="primaryProvider">${routeOptions(c.primaryProvider)}</select></label>
       <label><span>Fallback route</span><select name="fallbackProvider"><option value="">None</option>${routeOptions(c.fallbackProvider)}</select></label>
       <label><span>Escalation route</span><select name="escalationProvider"><option value="">None</option>${routeOptions(c.escalationProvider)}</select></label>
-      <label><span>Budget cap</span><input value="$0.00 · authorization locked" disabled></label>
+      <label><span>Budget cap</span><input value="$${Number(c.budgetCapUsd || 0).toFixed(2)} · Founder-authorized hard cap" disabled></label>
       <div class="wide mActs"><button class="mBtn pri" type="submit">Save live router</button></div>
     </form>
     <div class="stepNum" style="margin-top:16px">Provider control</div>
-    ${providers.map(p => `<div class="taskRow"><span class="tp">${esc(p.providerKey)} · ${esc(p.modelKey)}</span><span class="tf">${esc(p.state)} · network ${p.networkAllowed ? 'on' : 'off'} · spend $${Number(p.actualSpendUsd || 0).toFixed(2)}</span><span class="tState">${p.enabled ? 'ENABLED' : 'PAUSED'}</span>${p.providerKey === 'RISE_REPLAY_TEST' ? `<button class="rowBtn" onclick="toggleReplayProvider()">${p.enabled ? 'Pause' : 'Enable'} replay</button>` : '<span class="cav">Separate approval required</span>'}</div>`).join('')}
+    ${providers.map(p => `<div class="taskRow"><span class="tp">${esc(p.providerKey)} · ${esc(p.modelKey)}</span><span class="tf">${esc(p.state)} · network ${p.networkAllowed ? 'on' : 'off'} · $${Number(p.actualSpendUsd || 0).toFixed(4)} actual / $${Number(p.reservedSpendUsd || 0).toFixed(4)} reserved</span><span class="tState">${p.enabled ? 'ENABLED' : 'PAUSED'}</span>${p.providerKey === 'RISE_REPLAY_TEST' ? `<button class="rowBtn" onclick="toggleReplayProvider()">${p.enabled ? 'Pause' : 'Enable'} replay</button>` : p.providerKey.startsWith('OPENAI_') ? `<span class="rvActs"><button class="rowBtn" onclick="setOpenAiProviderMode('${esc(p.providerKey)}','BENCHMARKING')" ${p.state === 'BENCHMARKING' ? 'disabled' : ''}>Benchmark</button><button class="rowBtn" onclick="setOpenAiProviderMode('${esc(p.providerKey)}','PRODUCTION_APPROVED')" ${p.state === 'PRODUCTION_APPROVED' ? 'disabled' : ''}>Approve production</button><button class="rowBtn" onclick="setOpenAiProviderMode('${esc(p.providerKey)}','PAUSED')" ${p.state === 'PAUSED' ? 'disabled' : ''}>Pause</button></span>` : '<span class="cav">Reserved and paused</span>'}</div>`).join('')}
   </div>`;
 }
 
@@ -1721,7 +1731,7 @@ function researchControlInput(c, changes = {}) {
   return { globalEnabled:c.globalEnabled, studentEnabled:c.studentEnabled, emergencyKillSwitch:c.emergencyKillSwitch,
     specialtyScope:c.specialtyScope, stateScope:c.stateScope, canaryMode:c.canaryMode,
     canaryProgramIds:c.canaryProgramIds, entitlementScope:c.entitlementScope,
-    defaultQuota:c.defaultQuota, quotaWindowDays:c.quotaWindowDays, budgetCapUsd:0, concurrencyCap:c.concurrencyCap,
+    defaultQuota:c.defaultQuota, quotaWindowDays:c.quotaWindowDays, budgetCapUsd:c.budgetCapUsd, concurrencyCap:c.concurrencyCap,
     primaryProvider:c.primaryProvider, fallbackProvider:c.fallbackProvider, escalationProvider:c.escalationProvider, ...changes };
 }
 
@@ -1761,18 +1771,35 @@ window.toggleReplayProvider = async () => {
   } catch (error) { toast(error.message || 'Provider update failed.'); }
 };
 
+window.setOpenAiProviderMode = async (providerKey, mode) => {
+  const provider = state.researchAdmin.providers.find(item => item.providerKey === providerKey);
+  if (!provider) return;
+  const active = mode === 'BENCHMARKING' || mode === 'PRODUCTION_APPROVED';
+  try {
+    const payload = await riseFetch('/api/rise/v1/operator/research/providers/' + encodeURIComponent(providerKey), {
+      method:'PATCH', body:JSON.stringify({ expectedRevision:provider.revision, provider:{ ...provider,
+        state:mode, enabled:active, networkAllowed:active, spendAllowed:active,
+      }, reason:`Admin set ${providerKey} to ${mode} under P1-RISE-5012E` }),
+    });
+    state.researchAdmin.providers = state.researchAdmin.providers.map(item => item.providerKey === payload.provider.providerKey ? payload.provider : item);
+    renderMain(currentRoute()); toast(`${providerKey} updated.`);
+  } catch (error) { toast(error.message || 'Provider update failed.'); }
+};
+
 async function loadAdminResearch(force = false) {
   if (!state.canAdmin || state.researchAdmin.loading || (!force && state.researchAdmin.control)) return;
   state.researchAdmin.loading = true;
   try {
-    const [router, jobs, review] = await Promise.all([
+    const [router, jobs, review, benchmarks] = await Promise.all([
       riseFetch('/api/rise/v1/operator/research/router'),
       riseFetch('/api/rise/v1/operator/research/jobs'),
       riseFetch('/api/rise/v1/operator/research/review'),
+      riseFetch('/api/rise/v1/operator/research/benchmarks'),
     ]);
     state.researchAdmin = {
       loading:false, error:null, control:router.controls, revision:router.revision,
-      providers:router.providers || [], jobs:jobs.records || [],
+      providers:router.providers || [], jobs:jobs.records || [], benchmarks:benchmarks.records || [],
+      frozenBenchmarkIds:benchmarks.frozenAcgmeIds || [],
       reviewStats:review.stats || null, reviewRecords:review.records || [],
     };
   } catch (error) { state.researchAdmin = { ...state.researchAdmin, loading:false, error:error.message || 'Unavailable' }; }
@@ -1787,10 +1814,33 @@ function viewAdmin(sub) {
     : 'Loading the live production research router…';
   const head = `<div class="adminBanner"><b>Admin command center</b><span>${summary}</span></div>`;
   if (sub === 'queue') return `<div class="view">${head}${viewQueue()}</div>`;
+  if (sub === 'benchmark') return `<div class="view">${head}${viewBenchmarkLab()}</div>`;
   if (sub === 'review') return `<div class="view">${head}${viewReview()}</div>`;
   if (sub === 'coverage') return `<div class="view">${head}${viewCoverage()}</div>`;
   return `<div class="view">${head}${viewResearch()}</div>`;
 }
+
+function viewBenchmarkLab() {
+  const records = state.researchAdmin.benchmarks || [];
+  const completed = records.filter(record => record.status === 'COMPLETED');
+  const totalCost = records.reduce((sum, record) => sum + Number(record.actualCostUsd || 0), 0);
+  return `<div class="secHead"><div><div class="eyebrow">P1-RISE-5012E</div><h1>Provider Benchmark Lab</h1><p class="sub">Frozen eight-program Parallel baseline versus OpenAI Terra and Sol. Benchmark output is isolated from canonical student evidence.</p></div></div>
+    <div class="stepCard"><div class="pillRow"><span class="pill">Frozen programs: ${state.researchAdmin.frozenBenchmarkIds.length}</span><span class="pill">Jobs: ${records.length}</span><span class="pill">Completed: ${completed.length}</span><span class="pill">Actual spend: $${totalCost.toFixed(4)}</span></div>
+      <div class="mActs"><button class="mBtn pri" onclick="runProviderBenchmark()">Queue Terra + Sol benchmark</button></div>
+    </div>
+    <div class="tblWrap"><table class="tbl"><tr><th>Program</th><th>Provider</th><th>Status</th><th>Findings</th><th>Latency</th><th>Cost</th></tr>${records.map(record => `<tr><td>${esc(record.acgmeId)}</td><td>${esc(record.modelKey)}</td><td>${esc(record.status)}</td><td>${Number(record.resultSummary?.findingCount || 0)}</td><td>${record.resultSummary?.latencyMs ? `${Number(record.resultSummary.latencyMs)} ms` : '—'}</td><td>$${Number(record.actualCostUsd || 0).toFixed(4)}</td></tr>`).join('') || '<tr><td colspan="6">No benchmark jobs have been queued.</td></tr>'}</table></div>`;
+}
+
+window.runProviderBenchmark = async () => {
+  try {
+    const payload = await riseFetch('/api/rise/v1/operator/research/benchmarks', {
+      method:'POST', body:JSON.stringify({ providerKeys:['OPENAI_TERRA','OPENAI_SOL'] }),
+    });
+    toast(`${payload.jobs.length} benchmark jobs queued.`);
+    state.researchAdmin.control = null;
+    await loadAdminResearch(true);
+  } catch (error) { toast(error.message || 'Benchmark queue failed.'); }
+};
 
 /* ---------- Research / Campaigns ---------- */
 function viewResearch() {
@@ -1966,7 +2016,9 @@ function viewCoverage() {
 }
 function bindAdmin() {
   const route = currentRoute() || '';
-  if (route === 'admin/research' || route === 'admin/queue') void loadAdminResearch();
+  if (['admin/research', 'admin/benchmark', 'admin/queue', 'admin/review', 'admin/coverage'].includes(route)) {
+    void loadAdminResearch();
+  }
 }
 
 Object.assign(globalThis, { state, D, $, $$, adminDraft, FAMILIES, byId, fitCache, renderMain, renderShell, openFileFor });

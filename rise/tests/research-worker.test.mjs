@@ -43,6 +43,31 @@ test("worker failure invokes the durable refund transition", async () => {
   assert.deepEqual(calls, ["RUNNING", "refund:job-refund:FIXTURE_FAILURE"]);
 });
 
+test("worker heartbeats a slow provider lease until result reconciliation", async () => {
+  const calls = [];
+  const store = {
+    async claimNextJob() { return { job: { jobId: "job-slow" }, leaseToken: "lease-slow" }; },
+    async transitionJob(input) { calls.push(`${input.status}:${input.leaseSeconds}`); },
+    async heartbeatJob(input) { calls.push(`heartbeat:${input.leaseSeconds}`); },
+    async completeJob(input) { calls.push(`complete:${input.status}`); return { jobId: input.jobId, status: input.status }; },
+    async failJob() { calls.push("fail"); },
+  };
+  const provider = {
+    async execute() {
+      await new Promise((resolve) => setTimeout(resolve, 35));
+      return { networkUsed: true, canonicalPromotion: "NOT_ATTEMPTED", actualCostUsd: 0.01 };
+    },
+  };
+  const result = await runResearchWorkerOnce({
+    store, provider, workerId: "test-worker", leaseSeconds: 180, heartbeatIntervalMs: 10,
+  });
+  assert.ok(calls.filter((call) => call === "heartbeat:180").length >= 2);
+  assert.deepEqual(calls.filter((call) => !call.startsWith("heartbeat:")), [
+    "RUNNING:180", "NORMALIZING:180", "PROMOTING:180", "complete:NEEDS_REVIEW",
+  ]);
+  assert.equal(result.status, "NEEDS_REVIEW");
+});
+
 test("provider-neutral worker selects the routed adapter and records canonical ingest custody", async () => {
   const calls = [];
   const store = {

@@ -12,6 +12,11 @@ import {
   normalizeResearchControls,
   publicResearchControls,
 } from "./src/research-router.mjs";
+
+const P1_RISE_5012E_FROZEN_BENCHMARK_ACGME_IDS = Object.freeze([
+  "1201611100", "1204821305", "1401121528", "1403100500",
+  "1403321227", "1403511262", "1400400928", "1201100747",
+]);
 import { assertCurrentSourceRights } from "./src/source-authorization.mjs";
 
 // P1-RISE-5012D binds this runtime to reviewed-evidence build rise_web_b8abd476daab.
@@ -1267,6 +1272,10 @@ export function createRiseServer({
     throw new Error("Production RISE requires a verified active-release receipt");
   }
   const byProgramSpecialtyId = new Map(registryIndex.programs.map((record) => [record.programSpecialtyId, record]));
+  const byAcgmeId = new Map(registryIndex.programs.flatMap((record) => {
+    const acgmeId = (record.identifiers ?? []).find((identifier) => identifier.namespace === "ACGME_PROGRAM")?.value;
+    return acgmeId ? [[acgmeId, record]] : [];
+  }));
   const searchReadModel = buildSearchReadModel(registryIndex.programs);
   const authenticate = createAuthenticator({ mode: authMode, authenticator, issuer: authIssuer, production });
   const abuse = resolveAbuseController(abuseController, { production });
@@ -1691,7 +1700,8 @@ export function createRiseServer({
         sendJson(response, 200, {
           buildMode: RESEARCH_ROUTER_CONFIG.buildMode,
           controls: result.controls,
-          realProviderCanary: "PENDING_AUTHORIZED_PROVIDER",
+          realProviderCanary: result.providers.some((provider) => provider.state === "PRODUCTION_APPROVED")
+            ? "PRODUCTION_APPROVED_ROUTE_AVAILABLE" : "PENDING_BENCHMARK_QUALITY_GATE",
           unapprovedProviderSpendUsd: 0,
         }, { cache: "no-store", requestId });
         return;
@@ -1885,6 +1895,37 @@ export function createRiseServer({
         const records = await research.listJobs({ subject: session.subject, isAdmin: true, limit: 500 });
         status = 200;
         sendJson(response, 200, { records }, { cache: "no-store", requestId });
+        return;
+      }
+      if (url.pathname === "/api/rise/v1/operator/research/benchmarks" && (request.method === "GET" || request.method === "POST")) {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        if (request.method === "GET") {
+          const records = (await research.listJobs({ subject: session.subject, isAdmin: true, limit: 500 }))
+            .filter((record) => record.taskClass === "PROVIDER_BENCHMARK");
+          status = 200;
+          sendJson(response, 200, { frozenAcgmeIds: P1_RISE_5012E_FROZEN_BENCHMARK_ACGME_IDS, records }, { cache: "no-store", requestId });
+          return;
+        }
+        const body = await readBody(request);
+        const programs = P1_RISE_5012E_FROZEN_BENCHMARK_ACGME_IDS.map((acgmeId) => byAcgmeId.get(acgmeId));
+        if (programs.some((program) => !program)) {
+          status = 409;
+          apiError(response, 409, "BENCHMARK_IDENTITY_DRIFT", "The frozen benchmark set no longer resolves exactly", requestId);
+          return;
+        }
+        const result = await research.reserveBenchmarkJobs({
+          subject: session.subject,
+          releaseId: registryIndex.registryReleaseId,
+          programs,
+          providerKeys: body?.providerKeys ?? ["OPENAI_TERRA", "OPENAI_SOL"],
+          batchKey: body?.batchKey ?? `P1-RISE-5012E-${new Date().toISOString()}`,
+        });
+        status = 201;
+        sendJson(response, 201, result, { cache: "no-store", requestId });
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/operator/research/review") {
