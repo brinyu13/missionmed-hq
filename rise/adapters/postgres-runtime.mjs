@@ -1571,7 +1571,7 @@ async function readDossierContext(client, acgmeId) {
       SELECT array_agg(DISTINCT f.field ORDER BY f.field) AS fields
       FROM rise_runtime.canonical_current_facts f
       LEFT JOIN rise_runtime.canonical_program_identities i ON i.program_identity_id = f.subject_id
-      LEFT JOIN rise_runtime.canonical_evidence_sources s USING (source_id)
+      LEFT JOIN rise_runtime.canonical_evidence_sources s ON s.source_id = f.source_id
       WHERE coalesce(i.acgme_id::text, s.metadata->>'acgmeId') = $1
     `, [acgmeId]),
   ]);
