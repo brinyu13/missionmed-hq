@@ -138,3 +138,33 @@ test("web-search action sources remain dossier evidence when structured JSON omi
   ]);
   assert.equal(result.benchmarkMetrics.sourceBackedCount, 1);
 });
+
+test("verified roster evidence fails closed when cross-field counts disagree", async () => {
+  const response = fixtureResponse();
+  const parsed = JSON.parse(response.output[1].content[0].text);
+  parsed.findings = [
+    { field: "resident_roster", status: "FOUND", summary: "Two residents.", value_json: JSON.stringify([{ name: "A" }, { name: "B" }]), source_urls: ["https://example.edu/residency/visa"] },
+    { field: "resident_medical_schools", status: "FOUND", summary: "Three schools.", value_json: JSON.stringify([{ resident: "A" }, { resident: "B" }, { resident: "C" }]), source_urls: ["https://example.edu/residency/visa"] },
+  ];
+  parsed.completion_matrix = {
+    current_resident_roster: { state: "VERIFIED", summary: "Roster verified.", source_urls: ["https://example.edu/residency/visa"] },
+    resident_medical_schools: { state: "VERIFIED", summary: "Schools verified.", source_urls: ["https://example.edu/residency/visa"] },
+  };
+  response.output[1].content[0].text = JSON.stringify(parsed);
+  const provider = createOpenAiResearchProvider({
+    providerKey: "OPENAI_TERRA",
+    apiKey: "test-key",
+    fetchImpl: async () => new Response(JSON.stringify(response), { status: 200 }),
+  });
+  await assert.rejects(provider.execute({
+    job: {
+      jobId: "job-roster-mismatch", taskClass: "PROGRAM_DEEP_RESEARCH",
+      programSpecialtyId: "rise_ps_e1ada2b6-9c76-59c0-89c9-62edf4960026",
+      acgmeId: "1854831078", specialty: "Child Neurology", state: "TX",
+      taskPayload: {
+        requestedDomains: ["current_resident_roster", "resident_medical_schools"],
+        requestedFields: ["research.resident_roster", "research.resident_medical_schools"],
+      },
+    },
+  }), (error) => error?.code === "DOSSIER_CROSS_FIELD_INCONSISTENT");
+});

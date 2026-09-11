@@ -54,6 +54,50 @@ function parseValue(finding) {
   try { return JSON.parse(finding.value_json); } catch { return { summary: finding.summary }; }
 }
 
+const ARRAY_FINDING_FIELDS = new Set([
+  "resident_roster", "resident_medical_schools", "leadership", "core_faculty",
+  "faculty_training_graph", "fellowship_inventory", "program_differentiators",
+]);
+
+function validateDossierCrossFieldConsistency(parsed) {
+  const values = new Map();
+  for (const finding of parsed.findings ?? []) {
+    if (finding.status !== "FOUND") continue;
+    const value = parseValue(finding);
+    if (ARRAY_FINDING_FIELDS.has(finding.field) && !Array.isArray(value)) {
+      throw Object.assign(new Error(`Deep research ${finding.field} must be a structured array`), {
+        code: "DOSSIER_FIELD_SHAPE_INVALID",
+      });
+    }
+    values.set(finding.field, value);
+  }
+
+  const roster = values.get("resident_roster");
+  const schools = values.get("resident_medical_schools");
+  const rosterVerified = parsed.completion_matrix?.current_resident_roster?.state === "VERIFIED";
+  const schoolsVerified = parsed.completion_matrix?.resident_medical_schools?.state === "VERIFIED";
+  if (rosterVerified && schoolsVerified && Array.isArray(roster) && Array.isArray(schools)
+    && roster.length !== schools.length) {
+    throw Object.assign(new Error("Deep research roster and medical-school counts disagree"), {
+      code: "DOSSIER_CROSS_FIELD_INCONSISTENT",
+    });
+  }
+
+  const expectedRosterCount = Array.isArray(roster) ? roster.length
+    : (schoolsVerified && Array.isArray(schools) ? schools.length : null);
+  if (expectedRosterCount != null) {
+    for (const field of ["img_accessibility", "do_accessibility", "usmd_accessibility", "caribbean_accessibility"]) {
+      const value = values.get(field);
+      if (value && Number.isInteger(Number(value.observed_roster_count))
+        && Number(value.observed_roster_count) !== expectedRosterCount) {
+        throw Object.assign(new Error(`Deep research ${field} denominator disagrees with the verified roster`), {
+          code: "DOSSIER_CROSS_FIELD_INCONSISTENT",
+        });
+      }
+    }
+  }
+}
+
 export function calculateOpenAiResearchCost({ providerKey, usage = {}, webSearchCalls = 0 }) {
   const pricing = PROVIDERS[providerKey];
   if (!pricing) throw new Error(`Unsupported OpenAI research provider: ${providerKey}`);
@@ -215,6 +259,7 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
         if (String(parsed.program_identity?.acgme_id) !== String(job.acgmeId)) {
           throw Object.assign(new Error("OpenAI research response identity mismatch"), { code: "OPENAI_IDENTITY_MISMATCH" });
         }
+        validateDossierCrossFieldConsistency(parsed);
         const citations = citationUrls(responsePayload);
         const completionUpdate = completionMatrix(parsed, job, citations);
         const mergedCompletion = mergeDossierCompletionMatrix(job.taskPayload?.baselineCompletionMatrix ?? {}, completionUpdate);
