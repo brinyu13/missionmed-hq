@@ -1542,7 +1542,18 @@ async function readResearchQuota(client, subjectKeyValue, controls, { lock = fal
     ORDER BY window_start DESC LIMIT 1
     ${lock ? "FOR UPDATE" : ""}
   `, [subjectKeyValue]);
-  return quotaRecord(result.rows[0], controls);
+  const row = result.rows[0];
+  if (!row) return quotaRecord(row, controls);
+  // The control-plane default is the current entitlement truth. Existing
+  // ledgers are reconciled on reservation, so eligibility/readback must show
+  // the same effective limit instead of a stale pre-activation value.
+  return quotaRecord({
+    ...row,
+    quotaLimit: Math.max(
+      Number(controls.defaultQuota),
+      Number(row.reservedCount || 0) + Number(row.consumedCount || 0),
+    ),
+  }, controls);
 }
 
 async function readDossierContext(client, acgmeId) {
