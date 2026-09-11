@@ -24,6 +24,11 @@ const admin = Object.freeze({
   eligible: true,
   cohort: '',
   wpUserId: 102,
+  wordpressAdmin: true,
+});
+const canonicalAdminWithStudentBaseRole = Object.freeze({
+  ...admin,
+  role: 'student',
 });
 
 function runtimeFixture(overrides = {}) {
@@ -138,9 +143,12 @@ function runtimeFixture(overrides = {}) {
 
 async function startFixture(context, fixture, options = {}) {
   const server = createAppServer({
-    authorizeRequest: async (request) => (
-      request.headers['x-test-role'] === 'admin' ? admin : student
-    ),
+    authorizeRequest: async (request) => {
+      if (request.headers['x-test-role'] === 'canonical-admin-student-base') {
+        return canonicalAdminWithStudentBaseRole;
+      }
+      return request.headers['x-test-role'] === 'admin' ? admin : student;
+    },
     identityTransaction: async (identity, operation) => operation({
       async query(sql) {
         if (String(sql).includes('FROM public.sf_users WHERE id')) {
@@ -519,6 +527,7 @@ test('foreign or missing audio playback is audited and returns the same private 
 test('verified Option B playback signs every derived key in stable order', async (context) => {
   const signedKeys = [];
   const events = [];
+  const transactionOptions = [];
   const stem = `storyforge-audio/${studentId}/story/${audioId}`;
   const fixture = runtimeFixture({
     recordingsService: {
@@ -532,23 +541,26 @@ test('verified Option B playback signs every derived key in stable order', async
     },
   });
   const origin = await startFixture(context, fixture, {
-    identityTransaction: async (identity, operation) => operation({
-      async query(sql, values) {
-        assert.match(String(sql), /FROM public\.sf_audio_assets/);
-        assert.deepEqual(values, [audioId]);
-        return {
-          rows: [{
-            id: audioId,
-            student_id: studentId,
-            story_id: recordingId,
-            object_key: stem,
-            content_type: 'audio/webm',
-            byte_size: 12,
-            duration_ms: 19_000,
-          }],
-        };
-      },
-    }),
+    identityTransaction: async (identity, operation, options = {}) => {
+      transactionOptions.push(options);
+      return operation({
+        async query(sql, values) {
+          assert.match(String(sql), /FROM public\.sf_audio_assets/);
+          assert.deepEqual(values, [audioId]);
+          return {
+            rows: [{
+              id: audioId,
+              student_id: studentId,
+              story_id: recordingId,
+              object_key: stem,
+              content_type: 'audio/webm',
+              byte_size: 12,
+              duration_ms: 19_000,
+            }],
+          };
+        },
+      });
+    },
     async audioPlaybackSigner({ objectKey }) {
       signedKeys.push(objectKey);
       return {
@@ -561,7 +573,7 @@ test('verified Option B playback signs every derived key in stable order', async
     },
   });
   const response = await json(await fetch(`${origin}/api/audio/${audioId}/playback`, {
-    headers: { 'x-test-role': 'admin' },
+    headers: { 'x-test-role': 'canonical-admin-student-base' },
   }));
   assert.equal(response.status, 200);
   assert.deepEqual(response.body.playbackUrls, [
@@ -576,6 +588,7 @@ test('verified Option B playback signs every derived key in stable order', async
   assert.equal(events[0].event, 'audio_playback_granted');
   assert.equal(events[0].actorId, adminId);
   assert.equal(events[0].studentId, studentId);
+  assert.deepEqual(transactionOptions, [{ adminMode: true }]);
 });
 
 test('restoring a linked voice draft emits only content-free recovery metadata', async (context) => {

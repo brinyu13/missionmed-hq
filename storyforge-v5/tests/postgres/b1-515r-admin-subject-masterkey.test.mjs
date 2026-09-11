@@ -16,6 +16,10 @@ const ADMIN = {
   sub: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', role: 'admin', wpUserId: 3101,
   wordpressAdmin: true, adminMode: true,
 };
+const CANONICAL_ADMIN_WITH_STUDENT_BASE = {
+  sub: 'f1111111-f111-4f11-8f11-f11111111111', role: 'student', wpUserId: 3102,
+  wordpressAdmin: true, adminMode: true,
+};
 
 const migrations = [
   '20260810190000_b1_514_v2_r1_visibility_consent_activity.sql',
@@ -30,6 +34,7 @@ const migrations = [
   '20260810280000_b1_514_guest_voice_cleanup_recovery.sql',
   '20260812120000_b1_515_v201_reviews_collections_peer.sql',
   '20260813120000_b1_515r_admin_subject_masterkey.sql',
+  '20260908193000_sf_access_5014_canonical_admin_identity.sql',
   '20260911030000_sf_audio_playback_admin_projection.sql',
 ];
 
@@ -54,8 +59,13 @@ test('B1-515R Admin actor + student subject reads are bounded, observable, and n
     await client.query(
       `INSERT INTO public.sf_users(id,wp_user_id,display_name,role,eligible,cohort)
        VALUES($1,$2,'Outside Student','student',true,'Other'),
-             ($3,$4,'Inactive Student','student',false,'2027')`,
-      [OUTSIDER.sub, OUTSIDER.wpUserId, INELIGIBLE.sub, INELIGIBLE.wpUserId],
+             ($3,$4,'Inactive Student','student',false,'2027'),
+             ($5,$6,'Canonical Admin Student Base','student',true,'')`,
+      [
+        OUTSIDER.sub, OUTSIDER.wpUserId,
+        INELIGIBLE.sub, INELIGIBLE.wpUserId,
+        CANONICAL_ADMIN_WITH_STUDENT_BASE.sub, CANONICAL_ADMIN_WITH_STUDENT_BASE.wpUserId,
+      ],
     );
     await client.query(
       `UPDATE public.sf_feature_flags SET scope='eligible_all',allowlist='{}',cohorts='{}'
@@ -189,6 +199,19 @@ test('B1-515R Admin actor + student subject reads are bounded, observable, and n
         audioByStory[byTitle['Mentor-visible draft'].id].id,
       ]);
 
+    });
+    await withIdentity(client, CANONICAL_ADMIN_WITH_STUDENT_BASE, async (db) => {
+      const visibleAudio = await db.query(
+        `SELECT id FROM public.sf_audio_assets
+         WHERE id = ANY($1::uuid[]) ORDER BY id`,
+        [[
+          audioByStory[byTitle['Mentor-visible draft'].id].id,
+          audioByStory[byTitle['Explicit private conflict'].id].id,
+        ]],
+      );
+      assert.deepEqual(visibleAudio.rows.map((row) => row.id), [
+        audioByStory[byTitle['Mentor-visible draft'].id].id,
+      ]);
     });
     await withIdentity(client, MENTOR, async (db) => {
       const direct = await db.query(

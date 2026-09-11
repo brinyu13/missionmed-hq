@@ -3389,7 +3389,7 @@ async function api(request, response, url, {
         [assetId],
       );
       return result.rows[0] || null;
-    });
+    }, { adminMode: identity.wordpressAdmin === true });
     if (!asset) {
       await withIdentity(identity, async (client) => auditWriter(client, {
         action: 'unauthorized_denied',
