@@ -18,5 +18,9 @@
   "database_schema_rehearsal": "PASS",
   "database_functional_rehearsal": "PASS",
   "live_payment_intents_created": 0,
-  "live_money_moved_cents": 0
+  "live_money_moved_cents": 0,
+  "wordpress_sso": {
+    "php_lint": "PASS",
+    "course_6357_disables_legacy_exact_user_enrollment_fallback": true
+  }
 }
