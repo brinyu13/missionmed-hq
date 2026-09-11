@@ -149,8 +149,9 @@ function dynamicFactFlags(facts) {
     if (!VALID_FILTER_FIELDS.has(fact.field)) continue;
     const value = fact.canonicalValue ?? fact.canonical_value ?? fact.knowledge?.value;
     if (fact.field === "research.visa" && value && typeof value === "object" && !Array.isArray(value)) {
-      flags.j1 ||= affirmative(value.j1);
-      flags.h1b ||= affirmative(value.h1b);
+      const supported = Array.isArray(value.supported) ? value.supported.map(String) : [];
+      flags.j1 ||= affirmative(value.j1) || supported.some((item) => /\bJ-?1\b/i.test(item));
+      flags.h1b ||= affirmative(value.h1b) || supported.some((item) => /\bH-?1B\b/i.test(item));
     }
     if (fact.field === "research.resident_roster") {
       for (const resident of rosterRows(value)) {

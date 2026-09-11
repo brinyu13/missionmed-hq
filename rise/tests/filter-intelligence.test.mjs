@@ -114,7 +114,7 @@ test("approved structured current facts become filterable without frontend progr
       {
         subjectId: "program-2",
         field: "research.visa",
-        canonicalValue: { j1: "NO", h1b: "YES", summary: "ignored narrative" },
+        canonicalValue: { supported: ["ECFMG J-1", "H-1B"], summary: "ignored narrative" },
       },
       {
         subjectId: "program-2",
@@ -136,6 +136,7 @@ test("approved structured current facts become filterable without frontend progr
   assert.equal(expanded[1].researchDepth, "enriched");
   assert.equal(expanded[2].researchDepth, "basic");
   assert.equal(expanded[3].researchDepth, "pending");
+  assert.equal(expanded[1].visa.j1, true);
   assert.equal(expanded[1].visa.h1b, true);
   assert.deepEqual(expanded[1].residentEvidence, { img: true, do: true, caribbean: true, usmd: false });
   assert.equal(expanded[1].researchState, "VERIFIED_RESEARCH");
@@ -143,7 +144,7 @@ test("approved structured current facts become filterable without frontend progr
   assert.ok(expanded[1].searchTerms.includes("Only during adult neurology months"));
   assert.deepEqual(result.counts, {
     visaData: 2,
-    j1Published: 1,
+    j1Published: 2,
     h1bPublished: 1,
     j1OrH1bPublished: 2,
     anyVisaEvidence: 3,

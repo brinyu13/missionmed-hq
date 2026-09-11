@@ -1194,7 +1194,8 @@ function renderFile(p) {
   const soap = p.soap.length ? `SOAP 2026: <b style="color:var(--gn)">✓ ${soapN(p)} position${soapN(p) > 1 ? 's' : ''}</b> <span style="color:var(--dim)">(${p.soap.map(s => s.track).join(', ')})</span>` : `SOAP 2026: <b>—</b>`;
   const composition = [p.intelligence.imgGraduatesPercent ? `IMG ${p.intelligence.imgGraduatesPercent}` : '', p.intelligence.doGraduatesPercent ? `DO ${p.intelligence.doGraduatesPercent}` : '', p.intelligence.usmdGraduatesPercent ? `US MD ${p.intelligence.usmdGraduatesPercent}` : ''].filter(Boolean);
   const imgSig = p.demo ? 'IMG/DO evidence: <b>strong (demo)</b>' : composition.length ? `Resident/graduate composition: <b>${composition.map(esc).join(' · ')}</b>` : `Resident evidence: <b>${researchStateText(p, 'research.resident_roster')}</b>`;
-  const visaSig = p.demo ? 'Visa: <b>J-1 · H-1B published</b>' : p.intelligence.visaSponsorship != null ? `Visa: <b>${esc(p.intelligence.visaSponsorship)}</b>` : `Visa: <b>${researchStateText(p, 'research.visa')}</b>`;
+  const researchedVisa = publishedVisaSummary(p);
+  const visaSig = p.demo ? 'Visa: <b>J-1 · H-1B published</b>' : researchedVisa ? `Visa: <b>${esc(researchedVisa)}</b>` : p.intelligence.visaSponsorship != null ? `Visa: <b>${esc(p.intelligence.visaSponsorship)}</b>` : `Visa: <b>${researchStateText(p, 'research.visa')}</b>`;
   return `<div class="fileSheet" role="dialog" aria-modal="true" aria-labelledby="fileTitle">
     <div class="fileTopBar">
       <button class="backBtn" onclick="closeFile()">${backLabel()}</button>
@@ -1311,6 +1312,16 @@ function displayValue(value) {
 function approvedResearchFact(p, field) {
   return (p.researchProjection?.currentFacts || []).find(fact => fact.field === field) || null;
 }
+function publishedVisaSummary(p) {
+  const fact = approvedResearchFact(p, 'research.visa');
+  if (!fact) return '';
+  const value = fact.canonicalValue ?? fact.knowledge?.value;
+  const supported = Array.isArray(value?.supported) ? value.supported.map(String) : [];
+  const labels = [];
+  if (value?.j1 === true || supported.some(item => /\bJ-?1\b/i.test(item))) labels.push('J-1');
+  if (value?.h1b === true || supported.some(item => /\bH-?1B\b/i.test(item))) labels.push('H-1B');
+  return labels.length ? `${labels.join(' · ')} sponsorship published` : 'Verified visa policy available';
+}
 function pendingResearchField(p, field) {
   return (p.researchProjection?.pendingEvidence?.fields || []).find(item => item.field === field) || null;
 }
@@ -1403,8 +1414,17 @@ function whyProgramSection(p) {
   const curriculum = approvedResearchFact(p, 'research.curriculum');
   const culture = approvedResearchFact(p, 'research.culture');
   const facilities = approvedResearchFact(p, 'research.facilities_patient_population');
-  const rows = [differentiators, curriculum, culture, facilities].filter(Boolean);
-  return `<section class="whyProgramSection"><h2 class="h2" style="margin-bottom:8px">Why this <em>program</em></h2><p class="sub">Source-backed differentiators and training features from the current shared dossier. Use these as research leads, then confirm fit in your own voice.</p>${rows.length ? `<div class="whyCards">${rows.map(row => `<article class="railCard"><div class="rLbl">${esc(row.field.replace(/^research\./,'').replaceAll('_',' '))}</div><p>${esc(displayValue(row.canonicalValue ?? row.knowledge?.value))}</p><span>${esc(row.retrievedAt || 'Date not stated')}</span></article>`).join('')}</div>` : `<div class="lawBanner"><b>Not yet available.</b> Verified program differentiators will appear here after the dossier is completed and reviewed.</div>`}</section>`;
+  const value = differentiators?.canonicalValue ?? differentiators?.knowledge?.value;
+  const entries = Array.isArray(value) ? value.filter(item => item && typeof item === 'object').slice(0, 12) : [];
+  const supporting = [curriculum, culture, facilities].filter(Boolean);
+  const cards = entries.length ? entries.map(item => `<article class="railCard whyEvidenceCard">
+    <div class="rLbl">${esc(String(item.category || 'Program feature').replaceAll('_', ' '))}</div>
+    <h3>${esc(item.title || 'Verified program differentiator')}</h3>
+    <p>${esc(item.detail || '')}</p>
+    ${item.applicant_relevance ? `<div class="whyWhy">Why it may matter: ${esc(item.applicant_relevance)}</div>` : ''}
+    <span>${item.source_url ? `<a href="${esc(item.source_url)}" target="_blank" rel="noopener">Official source ↗</a> · ` : ''}${esc(item.retrieved_at || differentiators.retrievedAt || 'Date not stated')}</span>
+  </article>`).join('') : supporting.map(row => `<article class="railCard"><div class="rLbl">${esc(row.field.replace(/^research\./,'').replaceAll('_',' '))}</div><p>${esc(displayValue(row.canonicalValue ?? row.knowledge?.value))}</p><span>${esc(row.retrievedAt || 'Date not stated')}</span></article>`).join('');
+  return `<section class="whyProgramSection"><h2 class="h2" style="margin-bottom:8px">Why this <em>program</em></h2><p class="sub">Source-backed differentiators and training features from the current shared dossier. Use these as research leads, then confirm fit in your own voice.</p>${cards ? `<div class="whyCards">${cards}</div>` : `<div class="lawBanner"><b>Not yet available.</b> Verified program differentiators will appear here after the dossier is completed and reviewed.</div>`}</section>`;
 }
 
 function tabOverview(p, R) {
@@ -1527,7 +1547,7 @@ function tabResidents(p, R) {
     const rosterState = researchStateText(p, 'research.resident_roster');
     return `<div>
       ${registryTable(p, ['Total Residents', 'Residents Per Year', 'IMG Graduates Percent', 'DO Graduates Percent', 'US MD Graduates Percent'], 'Program-reported resident and graduate composition')}
-      ${approvedResearchTable(p, ['research.resident_roster', 'research.img_accessibility', 'research.do_accessibility', 'research.caribbean_accessibility'], 'Approved roster research')}
+      ${approvedResearchTable(p, ['research.resident_roster', 'research.resident_medical_schools', 'research.img_accessibility', 'research.do_accessibility', 'research.usmd_accessibility', 'research.caribbean_accessibility'], 'Approved roster research')}
       <div class="lawBanner"><b>Named roster:</b> ${esc(rosterState)}. Current composition is observational evidence, not an admissions rule, and does not establish acceptance policy.</div>
       ${unknownFooter(p)}</div>`;
   }
@@ -1565,7 +1585,7 @@ function tabPeople(p, R) {
   if (!R || !R.people) {
     return `<div><h2 class="h2" style="margin-bottom:8px">Program leadership</h2>
       ${registryTable(p, ['Program Director', 'Program Director Credentials', 'Program Coordinator', 'Coordinator Email', 'Coordinator Phone'], 'Approved leadership information')}
-      ${approvedResearchTable(p, ['research.leadership'], 'Approved leadership research')}
+      ${approvedResearchTable(p, ['research.leadership', 'research.core_faculty', 'research.faculty_training_graph'], 'Approved leadership research')}
       <div class="lawBanner"><b>Additional leadership research:</b> ${esc(researchStateText(p, 'research.leadership'))}</div>${unknownFooter(p)}</div>`;
   }
   return `<div>

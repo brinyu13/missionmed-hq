@@ -27,7 +27,9 @@ test("isolated RISE deployment contract cannot launch the HQ service", async () 
   assert.equal(railway.deploy.healthcheckPath, contract.healthcheckPath);
   assert.equal(packageJson.scripts.start, "node server.mjs");
   assert.equal(packageJson.scripts["start:production"], "node tools/start-production.mjs");
-  assert.match(dockerfile, /CMD \["node", "tools\/start-production\.mjs"\]/);
+  assert.match(dockerfile, /RISE_PROCESS_MODE/);
+  assert.match(dockerfile, /exec node tools\/start-research-worker\.mjs/);
+  assert.match(dockerfile, /exec node tools\/start-production\.mjs/);
   assert.match(dockerfile, /node:22-alpine@sha256:[a-f0-9]{64}/);
   assert.match(dockerfile, /COPY adapters \.\/adapters/);
   assert.match(dockerfile, /COPY releases \.\/releases/);
