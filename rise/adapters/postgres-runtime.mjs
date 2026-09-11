@@ -14,6 +14,7 @@ import {
   researchDedupeKey,
   studentResearchStatus,
 } from "../src/research-router.mjs";
+import { APPLICATION_CARD_FIELDS, APPLICATION_PRIORITY_KEYS } from "../src/application-intelligence.mjs";
 
 const { Pool } = pg;
 const MAX_POOL_SIZE = 8;
@@ -203,6 +204,76 @@ export async function createRiseStudentStore({
           WHERE subject_key = $1 AND program_specialty_id = $2
         `, [key, programSpecialtyId]);
         return result.rowCount > 0;
+      });
+    },
+  };
+}
+
+function boundedUniqueList(values, allowed, { minimum, maximum, fallback }) {
+  if (!Array.isArray(values)) return [...fallback];
+  const result = [...new Set(values.map((value) => String(value ?? "").trim()).filter((value) => allowed.includes(value)))];
+  return result.length >= minimum && result.length <= maximum ? result : [...fallback];
+}
+
+export async function createRiseApplicationIntelligenceStore({
+  pool = databasePool(),
+  subjectHmacKey = process.env.RISE_STUDENT_STATE_SUBJECT_HMAC_KEY,
+} = {}) {
+  const hmacKey = requiredString(subjectHmacKey, "RISE_STUDENT_STATE_SUBJECT_HMAC_KEY", 32);
+  await pool.query("SELECT 1 FROM rise_runtime.student_application_preferences LIMIT 1");
+  await pool.query("SELECT 1 FROM rise_runtime.application_intelligence_events LIMIT 1");
+  const defaultRecord = Object.freeze({
+    personalizationEnabled: true,
+    priorities: ["visa", "exams", "yog", "usce", "research_depth"],
+    cardFields: ["visa", "exams", "yog", "usce", "composition", "research_depth"],
+  });
+  return {
+    scope: "durable_private",
+    async readPreferences({ subject }) {
+      const key = subjectKey(subject, hmacKey);
+      return withSubject(pool, key, async (client) => {
+        const result = await client.query(`
+          SELECT personalization_enabled AS "personalizationEnabled", priorities,
+                 card_fields AS "cardFields", updated_at AS "updatedAt"
+          FROM rise_runtime.student_application_preferences WHERE subject_key=$1
+        `, [key]);
+        return result.rows[0] ?? { ...defaultRecord, priorities: [...defaultRecord.priorities], cardFields: [...defaultRecord.cardFields] };
+      });
+    },
+    async writePreferences({ subject, personalizationEnabled, priorities, cardFields }) {
+      const key = subjectKey(subject, hmacKey);
+      const safePriorities = boundedUniqueList(priorities, APPLICATION_PRIORITY_KEYS, { minimum: 1, maximum: 5, fallback: defaultRecord.priorities });
+      const safeCardFields = boundedUniqueList(cardFields, APPLICATION_CARD_FIELDS, { minimum: 3, maximum: 8, fallback: defaultRecord.cardFields });
+      return withSubject(pool, key, async (client) => {
+        const result = await client.query(`
+          INSERT INTO rise_runtime.student_application_preferences (
+            subject_key, personalization_enabled, priorities, card_fields
+          ) VALUES ($1,$2,$3::text[],$4::text[])
+          ON CONFLICT (subject_key) DO UPDATE SET
+            personalization_enabled=excluded.personalization_enabled,
+            priorities=excluded.priorities, card_fields=excluded.card_fields, updated_at=now()
+          RETURNING personalization_enabled AS "personalizationEnabled", priorities,
+                    card_fields AS "cardFields", updated_at AS "updatedAt"
+        `, [key, personalizationEnabled !== false, safePriorities, safeCardFields]);
+        return result.rows[0];
+      });
+    },
+    async recordEvent({ subject, eventType, programSpecialtyId = null, dimension = null }) {
+      const key = subjectKey(subject, hmacKey);
+      const valid = new Set([
+        "SEARCH_USED", "FILTER_APPLIED", "SAME_SCHOOL_FILTER", "SAME_COUNTRY_FILTER",
+        "PERSONALIZATION_ENABLED", "PROGRAM_FILE_OPENED", "RESEARCH_MODAL_OPENED",
+        "RESEARCH_REQUEST_SUBMITTED", "RESEARCH_REQUEST_NO_OP", "PROGRAM_SAVED", "COMPARE_USED",
+      ]);
+      if (!valid.has(eventType)) throw new Error("Invalid application-intelligence event");
+      const safeDimension = dimension == null ? null : String(dimension).trim().slice(0, 64) || null;
+      return withSubject(pool, key, async (client) => {
+        await client.query(`
+          INSERT INTO rise_runtime.application_intelligence_events (
+            subject_key,event_type,program_specialty_id,dimension,metadata
+          ) VALUES ($1,$2,$3,$4,'{}'::jsonb)
+        `, [key, eventType, programSpecialtyId, safeDimension]);
+        return { recorded: true };
       });
     },
   };

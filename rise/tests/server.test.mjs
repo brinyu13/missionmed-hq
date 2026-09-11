@@ -8,6 +8,7 @@ import path from "node:path";
 
 import {
   createMemoryStudentIntelStore,
+  createMemoryApplicationIntelligenceStore,
   createMemoryResearchStore,
   createMemoryStudentStore,
   createRiseServer,
@@ -30,6 +31,10 @@ function durableStudentIntelStore() {
 
 function durableResearchStore() {
   return { ...createMemoryResearchStore(), scope: "durable_private_research" };
+}
+
+function durableApplicationIntelligenceStore() {
+  return { ...createMemoryApplicationIntelligenceStore(), scope: "durable_private" };
 }
 
 function durableFilterIntelligenceStore() {
@@ -353,6 +358,24 @@ test("filter intelligence exposes evidence-backed counts and one depth per canon
   assert.equal(JSON.stringify(body).includes("CLAUDE_OPUS"), false);
 });
 
+test("application priorities are private, validated by the store, and analytics accept only bounded events", async () => {
+  const headers = { "X-RISE-CSRF": csrfToken, "Content-Type": "application/json" };
+  const initial = await fetch(`${baseUrl}/api/rise/v1/me/application-preferences`);
+  assert.equal(initial.status, 200);
+  assert.equal((await initial.json()).preferences.personalizationEnabled, true);
+  const updated = await fetch(`${baseUrl}/api/rise/v1/me/application-preferences`, {
+    method: "PUT", headers,
+    body: JSON.stringify({ personalizationEnabled: false, priorities: ["visa", "yog"], cardFields: ["visa", "yog", "research_depth"] }),
+  });
+  assert.equal(updated.status, 200);
+  assert.deepEqual((await updated.json()).preferences.priorities, ["visa", "yog"]);
+  const event = await fetch(`${baseUrl}/api/rise/v1/analytics/events`, {
+    method: "POST", headers,
+    body: JSON.stringify({ eventType: "FILTER_APPLIED", dimension: "visa" }),
+  });
+  assert.equal(event.status, 202);
+});
+
 test("SOAP 2026 endpoint is historical-only, filterable, and returns bounded track evidence", async () => {
   const response = await fetch(`${baseUrl}/api/rise/v1/soap-2026?pageSize=10`);
   const body = await response.json();
@@ -585,6 +608,7 @@ test("production requires a shared durable abuse controller", () => {
     studentStore: durableStudentStore(),
     studentIntelStore: durableStudentIntelStore(),
     researchStore: durableResearchStore(),
+    applicationIntelligenceStore: durableApplicationIntelligenceStore(),
     filterIntelligenceStore: durableFilterIntelligenceStore(),
     evidenceReviewStore: durableEvidenceReviewStore(),
     matrixProfileAdapter: canonicalMatrixProfileAdapter(),
@@ -634,6 +658,7 @@ test("production retains the verified file-level source authorization when the a
     studentStore: durableStudentStore(),
     studentIntelStore: durableStudentIntelStore(),
     researchStore: durableResearchStore(),
+    applicationIntelligenceStore: durableApplicationIntelligenceStore(),
     filterIntelligenceStore: durableFilterIntelligenceStore(),
     evidenceReviewStore: durableEvidenceReviewStore(),
     abuseController: {

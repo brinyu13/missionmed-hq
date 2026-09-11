@@ -339,6 +339,27 @@ export function createMemoryFilterIntelligenceStore({ researchCoverage = [], cur
   };
 }
 
+export function createMemoryApplicationIntelligenceStore() {
+  const records = new Map();
+  const defaults = {
+    personalizationEnabled: true,
+    priorities: ["visa", "exams", "yog", "usce", "research_depth"],
+    cardFields: ["visa", "exams", "yog", "usce", "composition", "research_depth"],
+  };
+  return {
+    scope: "process_local_test_only",
+    async readPreferences({ subject }) {
+      return structuredClone(records.get(subject) ?? defaults);
+    },
+    async writePreferences({ subject, personalizationEnabled, priorities, cardFields }) {
+      const record = { personalizationEnabled: personalizationEnabled !== false, priorities, cardFields, updatedAt: new Date().toISOString() };
+      records.set(subject, record);
+      return structuredClone(record);
+    },
+    async recordEvent() { return { recorded: true }; },
+  };
+}
+
 export function createMemoryEvidenceReviewStore() {
   return {
     scope: "process_local_test_only",
@@ -531,6 +552,18 @@ function resolveFilterIntelligenceStore(store, { production }) {
     || (production && candidate.scope !== "durable_canonical_projection")
   ) {
     throw new Error("RISE filter intelligence store must provide read(); production scope must be durable_canonical_projection");
+  }
+  return candidate;
+}
+
+function resolveApplicationIntelligenceStore(store, { production }) {
+  const candidate = store ?? createMemoryApplicationIntelligenceStore();
+  const required = ["readPreferences", "writePreferences", "recordEvent"];
+  if (
+    required.some((name) => typeof candidate[name] !== "function")
+    || (production && candidate.scope !== "durable_private")
+  ) {
+    throw new Error("RISE application intelligence store is incomplete; production scope must be durable_private");
   }
   return candidate;
 }
@@ -1270,6 +1303,7 @@ export function createRiseServer({
   studentStore,
   studentIntelStore,
   filterIntelligenceStore,
+  applicationIntelligenceStore,
   evidenceReviewStore,
   researchStore,
   matrixProfileAdapter,
@@ -1311,6 +1345,7 @@ export function createRiseServer({
   const studentPrograms = resolveStudentStore(studentStore, { production });
   const studentIntel = resolveStudentIntelStore(studentIntelStore, { production });
   const filterIntelligence = resolveFilterIntelligenceStore(filterIntelligenceStore, { production });
+  const applicationIntelligence = resolveApplicationIntelligenceStore(applicationIntelligenceStore, { production });
   const evidenceReview = resolveEvidenceReviewStore(evidenceReviewStore, { production });
   const research = resolveResearchStore(researchStore, { production });
   const matrixProfile = resolveMatrixProfileAdapter(matrixProfileAdapter, { production });
@@ -1464,7 +1499,7 @@ export function createRiseServer({
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/bootstrap") {
         const catalogRecords = searchReadModel.byName.map(listView);
-        const [savedResult, betaNotice, profileResult, researchResult] = await Promise.all([
+        const [savedResult, betaNotice, profileResult, researchResult, applicationPreferences] = await Promise.all([
           studentPrograms.list({ subject: session.subject, releaseId: registryIndex.registryReleaseId }),
           studentIntel.betaNotice({ subject: session.subject }),
           matrixProfile
@@ -1473,6 +1508,7 @@ export function createRiseServer({
               }))
             : Promise.resolve({ unavailable: true, message: "No authorized canonical Matrix profile adapter is configured" }),
           research.readControls(),
+          applicationIntelligence.readPreferences({ subject: session.subject }),
         ]);
         status = 200;
         sendJson(response, 200, {
@@ -1518,6 +1554,7 @@ export function createRiseServer({
             persistence: studentPrograms.scope === "durable_private" ? "durable" : "process_local_test_only",
           },
           profile: profileResult,
+          applicationPreferences,
           betaNotice,
           research: {
             buildMode: RESEARCH_ROUTER_CONFIG.buildMode,
@@ -1693,6 +1730,34 @@ export function createRiseServer({
         sendJson(response, 200, payload, { cache: "no-store", requestId });
         return;
       }
+      if (url.pathname === "/api/rise/v1/me/application-preferences" && (request.method === "GET" || request.method === "PUT")) {
+        const payload = request.method === "GET"
+          ? await applicationIntelligence.readPreferences({ subject: session.subject })
+          : await (async () => {
+            const body = await readBody(request);
+            return applicationIntelligence.writePreferences({
+              subject: session.subject,
+              personalizationEnabled: body.personalizationEnabled,
+              priorities: body.priorities,
+              cardFields: body.cardFields,
+            });
+          })();
+        status = 200;
+        sendJson(response, 200, { preferences: payload }, { cache: "no-store", requestId });
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/api/rise/v1/analytics/events") {
+        const body = await readBody(request);
+        const result = await applicationIntelligence.recordEvent({
+          subject: session.subject,
+          eventType: String(body.eventType ?? ""),
+          programSpecialtyId: body.programSpecialtyId == null ? null : String(body.programSpecialtyId),
+          dimension: body.dimension == null ? null : String(body.dimension),
+        });
+        status = 202;
+        sendJson(response, 202, result, { cache: "no-store", requestId });
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/programs/catalog") {
         const allRecords = searchReadModel.byName;
         const total = allRecords.length;
@@ -1714,7 +1779,13 @@ export function createRiseServer({
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/filter-intelligence") {
         const dynamicEvidence = await filterIntelligence.read();
-        const payload = buildFilterIntelligence(registryIndex.programs, dynamicEvidence);
+        const profileResult = matrixProfile
+          ? await matrixProfile.read({ request, subject: session.subject }).catch(() => ({ profile: {} }))
+          : { profile: {} };
+        const payload = buildFilterIntelligence(registryIndex.programs, {
+          ...dynamicEvidence,
+          profile: profileResult?.profile ?? {},
+        });
         status = 200;
         sendJson(response, 200, payload, { cache: "private, no-cache", requestId });
         return;
@@ -2340,6 +2411,7 @@ export async function startFromEnvironment() {
   let studentStore;
   let studentIntelStore;
   let filterIntelligenceStore;
+  let applicationIntelligenceStore;
   let evidenceReviewStore;
   let researchStore;
   let matrixProfileAdapter;
@@ -2387,6 +2459,10 @@ export async function startFromEnvironment() {
       throw new Error("RISE Student Intel adapter must export createRiseFilterIntelligenceStore()");
     }
     filterIntelligenceStore = await adapter.createRiseFilterIntelligenceStore();
+    if (typeof adapter.createRiseApplicationIntelligenceStore !== "function") {
+      throw new Error("RISE Student Intel adapter must export createRiseApplicationIntelligenceStore()");
+    }
+    applicationIntelligenceStore = await adapter.createRiseApplicationIntelligenceStore();
     if (typeof adapter.createRiseEvidenceReviewStore !== "function") {
       throw new Error("RISE Student Intel adapter must export createRiseEvidenceReviewStore()");
     }
@@ -2443,6 +2519,7 @@ export async function startFromEnvironment() {
     studentStore,
     studentIntelStore,
     filterIntelligenceStore,
+    applicationIntelligenceStore,
     evidenceReviewStore,
     researchStore,
     matrixProfileAdapter,

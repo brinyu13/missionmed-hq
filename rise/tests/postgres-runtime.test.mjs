@@ -89,3 +89,19 @@ test("on-demand research adapter is production-durable, RLS-bound, and zero-spen
   assert.match(migration, /provider_key <> 'RISE_REPLAY_TEST'[\s\S]*network_allowed = false[\s\S]*spend_allowed = false/);
   assert.doesNotMatch(migration, /GRANT [^;]+ TO (?:anon|authenticated|PUBLIC)/i);
 });
+
+test("application intelligence preferences and analytics are private, RLS-bound, and additive", async () => {
+  const source = await fs.readFile(new URL("../adapters/postgres-runtime.mjs", import.meta.url), "utf8");
+  const migration = await fs.readFile(new URL("../sql/013_application_intelligence_preferences.sql", import.meta.url), "utf8");
+  assert.match(source, /export async function createRiseApplicationIntelligenceStore/);
+  assert.match(source, /student_application_preferences/);
+  assert.match(source, /application_intelligence_events/);
+  assert.match(migration, /CREATE TABLE rise_runtime\.student_application_preferences/);
+  assert.match(migration, /CREATE TABLE rise_runtime\.application_intelligence_events/);
+  assert.match(migration, /ENABLE ROW LEVEL SECURITY/g);
+  assert.match(migration, /FORCE ROW LEVEL SECURITY/g);
+  assert.match(migration, /GRANT SELECT, INSERT, UPDATE ON rise_runtime\.student_application_preferences TO rise_app_runtime/);
+  assert.doesNotMatch(migration, /GRANT [^;]+ TO (?:anon|authenticated|PUBLIC)/i);
+  assert.match(migration, /ADD COLUMN root_job_id uuid/);
+  assert.match(migration, /research_jobs_root_stage_unique_idx/);
+});

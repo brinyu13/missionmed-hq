@@ -84,6 +84,26 @@ test("list-first Find Programs loads canonical identities and toggles to grid", 
   await expect(page.locator(".pRow")).toHaveCount(4);
 });
 
+test("application intelligence is visible, customizable, and remains usable on mobile", async ({ page }) => {
+  await openRise(page, "find");
+  await expect(page.locator(".profileIntelligenceCallout")).toContainText("match probability");
+  await expect(page.locator(".applicationMiniGrid").first()).toContainText("Visa");
+  await page.getByRole("button", { name: "Customize cards" }).click();
+  await expect(page.locator("#modal")).toContainText("Choose what RISE puts first");
+  await expect(page.locator("#applicationPreferencesForm input[name='priorities']")).toHaveCount(13);
+  await page.getByRole("button", { name: "Save priorities" }).click();
+  await expect(page.locator("#modal")).not.toHaveClass(/open/);
+
+  await page.getByRole("button", { name: /More filters/ }).click();
+  await expect(page.locator("#filterDrawer")).toContainText("Exams & attempts");
+  await expect(page.locator("#filterDrawer")).toContainText("Residents from my medical school");
+  await expect(page.locator("#filterDrawer")).toContainText("In-house fellowships published");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator("#filterDrawer .drawer")).toBeVisible();
+  const drawerBox = await page.locator("#filterDrawer .drawer").boundingBox();
+  expect(drawerBox.width).toBeLessThanOrEqual(390);
+});
+
 test("visa, resident evidence, and research depth filters expose real counts and compose", async ({ page }) => {
   await openRise(page, "find");
   const acknowledge = page.getByRole("button", { name: "I understand", exact: true });

@@ -78,6 +78,8 @@ function toFableProgram(record, filterIntelligence, flagBits) {
     profileLoading: false,
     intelligence: { ...(record.intelligence || {}) },
     searchTerms: Array.isArray(filterIntelligence?.searchTerms) ? filterIntelligence.searchTerms : [],
+    application: filterIntelligence?.application || null,
+    applicationMatch: filterIntelligence?.applicationMatch || null,
     filterIntelligence: {
       visa: { j1, h1b, j1OrH1b: j1 || h1b, any: enabled('anyVisa') },
       residentEvidence: { img: enabled('img'), do: enabled('do'), caribbean: enabled('caribbean'), usmd: enabled('usmd') },
@@ -136,7 +138,7 @@ async function loadRuntime() {
   for (let p = 2; p <= firstPage.totalPages; p++) {
     catalogPageRequests.push(riseFetch('/api/rise/v1/programs/catalog?page=' + p + '&pageSize=1000'));
   }
-  const [catalogPages, filterIntelligence, matrixProfile, savedResult, betaNotice, researchControl] = await Promise.all([
+  const [catalogPages, filterIntelligence, matrixProfile, savedResult, betaNotice, researchControl, applicationPreferences] = await Promise.all([
     Promise.all(catalogPageRequests),
     riseFetch('/api/rise/v1/filter-intelligence'),
     riseFetch('/api/rise/v1/me/profile').catch(error => ({
@@ -146,6 +148,7 @@ async function loadRuntime() {
     riseFetch('/api/rise/v1/me/programs'),
     riseFetch('/api/rise/v1/me/beta-notice'),
     riseFetch('/api/rise/v1/research/control').catch(() => ({ controls: null })),
+    riseFetch('/api/rise/v1/me/application-preferences').catch(() => ({ preferences: null })),
   ]);
   const catalogRecords = [...firstPage.records, ...catalogPages.flatMap(page => page.records)];
   const registry = { registryReleaseId: firstPage.registryReleaseId, total: firstPage.total, records: catalogRecords };
@@ -172,6 +175,12 @@ async function loadRuntime() {
       profile: profileFromMatrix(matrixProfile),
       filterCounts: filterIntelligence.counts || {},
       filterPolicy: filterIntelligence.evidencePolicy || {},
+      applicationFacetCounts: filterIntelligence.applicationFacetCounts || {},
+      applicationPreferences: applicationPreferences.preferences || {
+        personalizationEnabled: true,
+        priorities: ['visa', 'exams', 'yog', 'usce', 'research_depth'],
+        cardFields: ['visa', 'exams', 'yog', 'usce', 'composition', 'research_depth'],
+      },
       programs: registry.records.map(record => toFableProgram(record, filterByProgram.get(record.programSpecialtyId), filterIntelligence.flagBits)),
     },
   };
@@ -207,7 +216,8 @@ const state = {
   saved: runtime.saved,
   compare: [],
   underlying: null,                   // last non-file route
-  find: { mode: 'profile', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, sort: 'fit', view: 'list', shown: 50, scroll: 0, moreOpen: false },
+  find: { mode: 'profile', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step2Minimum: '', comlex2: false, attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, sort: 'fit', view: 'list', shown: 50, scroll: 0, moreOpen: false },
+  applicationPreferences: D.applicationPreferences,
   fileTab: 'overview',
   fileFrom: 'find',
   campaigns: [],
@@ -230,9 +240,19 @@ const stateNames = { AL:'Alabama', AR:'Arkansas', AZ:'Arizona', CA:'California',
 /* ---------------- fit engine ---------------- */
 const fitCache = new Map();
 function computeFit(p) {
-  if (fitCache.has(p.id)) return fitCache.get(p.id);
-  const f = { tier: null, line: 'Needs more verified data — fit is not forced', reasons: [], rep: false, counts: null, known: false };
-  fitCache.set(p.id, f);
+  const cacheKey = `${p.id}:${state.find.mode}:${state.applicationPreferences.personalizationEnabled}`;
+  if (fitCache.has(cacheKey)) return fitCache.get(cacheKey);
+  const personalized = state.find.mode === 'profile' && state.applicationPreferences.personalizationEnabled && p.applicationMatch;
+  const groups = personalized ? p.applicationMatch : null;
+  const f = personalized ? {
+    tier: null,
+    line: groups.summary || 'No supported profile comparison is available',
+    reasons: [...(groups.blockers || []), ...(groups.cautions || []), ...(groups.positives || [])].slice(0, 3).map(item => item.title),
+    rep: false,
+    counts: { issue: (groups.blockers || []).length, check: (groups.cautions || []).length, meets: (groups.positives || []).length, unknown: (groups.unknowns || []).length },
+    known: [...(groups.blockers || []), ...(groups.cautions || []), ...(groups.positives || [])].length > 0,
+  } : { tier: null, line: 'Needs more verified data — fit is not forced', reasons: [], rep: false, counts: null, known: false };
+  fitCache.set(cacheKey, f);
   return f;
 }
 const tierHue = t => t === 'gold' ? 'var(--gold-fit)' : t === 'silver' ? 'var(--silver-fit)' : 'transparent';
@@ -673,6 +693,17 @@ function matchingPrograms(f = state.find) {
   if (f.doEv) list = list.filter(p => p.filterIntelligence.residentEvidence.do);
   if (f.caribbeanEv) list = list.filter(p => p.filterIntelligence.residentEvidence.caribbean);
   if (f.usmdEv) list = list.filter(p => p.filterIntelligence.residentEvidence.usmd);
+  if (f.step1Policy) list = list.filter(p => f.step1Policy === 'required' ? p.application?.exams?.step1Required === true : p.application?.exams?.step1Required !== true);
+  if (f.step2Minimum) list = list.filter(p => p.application?.exams?.step2Minimum !== null && p.application.exams.step2Minimum <= Number(f.step2Minimum));
+  if (f.comlex2) list = list.filter(p => p.application?.exams?.comlexLevel2Accepted === true);
+  if (f.attemptsMaximum) list = list.filter(p => p.application?.exams?.maxAttempts !== null && p.application.exams.maxAttempts >= Number(f.attemptsMaximum));
+  if (f.yogWindow) list = list.filter(p => p.application?.yog?.noPublishedCutoff || (p.application?.yog?.years !== null && p.application.yog.years >= Number(f.yogWindow)));
+  if (f.usceMode) list = list.filter(p => ({ required: p.application?.usce?.required, recommended: p.application?.usce?.recommended, unpublished: !p.application?.usce?.published })[f.usceMode]);
+  if (f.minImgPct) list = list.filter(p => (p.application?.roster?.composition?.IMG_NON_CARIBBEAN?.percent ?? p.application?.roster?.registryComposition?.img ?? -1) >= Number(f.minImgPct));
+  if (f.minDoPct) list = list.filter(p => (p.application?.roster?.composition?.US_DO?.percent ?? p.application?.roster?.registryComposition?.do ?? -1) >= Number(f.minDoPct));
+  if (f.sameSchool) list = list.filter(p => p.application?.roster?.sameSchoolCount > 0);
+  if (f.sameCountry) list = list.filter(p => p.application?.roster?.sameCountryCount > 0);
+  if (f.fellowships) list = list.filter(p => p.application?.fellowshipCount > 0);
   if (f.fresh) list = list.filter(p => freshness(p).label === f.fresh);
   return list;
 }
@@ -716,6 +747,17 @@ function activePills() {
   if (f.doEv) pills.push({ k: 'doEv', label: 'DO resident / graduate evidence' });
   if (f.caribbeanEv) pills.push({ k: 'caribbeanEv', label: 'Caribbean graduate roster evidence' });
   if (f.usmdEv) pills.push({ k: 'usmdEv', label: 'US MD resident / graduate evidence' });
+  if (f.step1Policy) pills.push({ k: 'step1Policy', label: f.step1Policy === 'required' ? 'Step 1 required' : 'No published Step 1 exclusion' });
+  if (f.step2Minimum) pills.push({ k: 'step2Minimum', label: `Published Step 2 minimum ≤ ${f.step2Minimum}` });
+  if (f.comlex2) pills.push({ k: 'comlex2', label: 'COMLEX Level 2 accepted' });
+  if (f.attemptsMaximum) pills.push({ k: 'attemptsMaximum', label: `Published policy accommodates ${f.attemptsMaximum} attempt${Number(f.attemptsMaximum) === 1 ? '' : 's'}` });
+  if (f.yogWindow) pills.push({ k: 'yogWindow', label: `YOG window ≥ ${f.yogWindow} years or no published cutoff` });
+  if (f.usceMode) pills.push({ k: 'usceMode', label: { required: 'USCE required', recommended: 'USCE recommended', unpublished: 'No published USCE requirement' }[f.usceMode] });
+  if (f.minImgPct) pills.push({ k: 'minImgPct', label: `IMG roster/composition ≥ ${f.minImgPct}%` });
+  if (f.minDoPct) pills.push({ k: 'minDoPct', label: `DO roster/composition ≥ ${f.minDoPct}%` });
+  if (f.sameSchool) pills.push({ k: 'sameSchool', label: 'Residents from my medical school' });
+  if (f.sameCountry) pills.push({ k: 'sameCountry', label: 'Residents from my school country' });
+  if (f.fellowships) pills.push({ k: 'fellowships', label: 'In-house fellowships published' });
   if (f.fresh) pills.push({ k: 'fresh', label: f.fresh });
   return pills;
 }
@@ -724,9 +766,11 @@ window.dropPill = k => {
   if (k === 'q') f.q = ''; if (k === 'specialty') f.specialty = ''; if (k === 'state') f.state = ''; if (k === 'residentSchool') f.residentSchool = ''; if (k === 'soap') { f.soap = false; f.soapTrack = ''; }
   if (k === 'abim') f.abim = false; if (k === 'depth') f.depth = ''; if (k === 'visaMode') f.visaMode = '';
   if (k === 'imgEv') f.imgEv = false; if (k === 'doEv') f.doEv = false; if (k === 'caribbeanEv') f.caribbeanEv = false; if (k === 'usmdEv') f.usmdEv = false; if (k === 'fresh') f.fresh = '';
+  if (['step1Policy','step2Minimum','attemptsMaximum','yogWindow','usceMode','minImgPct','minDoPct'].includes(k)) f[k] = '';
+  if (['comlex2','sameSchool','sameCountry','fellowships'].includes(k)) f[k] = false;
   state.find.shown = 50; rerender();
 };
-window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, shown: 50 }); rerender(); };
+window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step2Minimum: '', comlex2: false, attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, shown: 50 }); rerender(); };
 
 function sigIMG(p, f) {
   if (p.filterIntelligence.residentEvidence.img) return `<span class="sig" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not admissions policy."><b>IMG ✓</b><span style="color:var(--dim)"> ${esc(p.intelligence.imgGraduatesPercent || 'reported')}</span></span>`;
@@ -762,6 +806,39 @@ function filterMatchEvidence(p) {
   return `<span class="matchReasons">${chips.join('')}</span>`;
 }
 
+function applicationIndicator(p, key) {
+  const a = p.application || {};
+  const depth = { deep: 'Deep Research', enriched: 'Enriched Research', basic: 'Basic Profile', pending: 'Research Pending' }[p.filterIntelligence.researchDepth] || 'Research Pending';
+  if (key === 'visa') return ['Visa', a.visa?.j1 || a.visa?.h1b ? [a.visa.j1 ? 'J-1' : '', a.visa.h1b ? 'H-1B' : ''].filter(Boolean).join(' · ') + ' published' : (a.visa?.summary || 'Not yet researched')];
+  if (key === 'exams') return ['Exams', a.exams?.step2Minimum != null ? `Step 2 minimum ${a.exams.step2Minimum}` : a.exams?.comlexLevel2Accepted ? 'COMLEX Level 2 accepted' : 'No numeric cutoff published'];
+  if (key === 'yog') return ['YOG', a.yog?.noPublishedCutoff ? 'No published cutoff' : a.yog?.years != null ? `${a.yog.years}-year window` : 'Not published'];
+  if (key === 'usce') return ['USCE', a.usce?.required ? 'Required' : a.usce?.recommended ? 'Recommended' : a.usce?.published ? 'Published policy' : 'Not published'];
+  if (key === 'composition') {
+    const img = a.roster?.composition?.IMG_NON_CARIBBEAN?.percent ?? a.roster?.registryComposition?.img;
+    const value = img != null ? `IMG ${img}%` : a.roster?.total ? `${a.roster.total} roster entries` : 'Not yet classified';
+    return ['Residents', value];
+  }
+  if (key === 'research_depth') return ['Research', depth];
+  if (key === 'attempts') return ['Attempts', a.exams?.maxAttempts != null ? `Published max ${a.exams.maxAttempts}` : 'Not published'];
+  if (key === 'same_school') return ['Your school', a.roster?.sameSchoolCount ? `${a.roster.sameSchoolCount} roster match${a.roster.sameSchoolCount === 1 ? '' : 'es'}` : 'No supported match'];
+  if (key === 'same_country') return ['School country', a.roster?.sameCountryCount ? `${a.roster.sameCountryCount} roster match${a.roster.sameCountryCount === 1 ? '' : 'es'}` : 'No supported match'];
+  if (key === 'fellowships') return ['Fellowships', a.fellowshipCount ? `${a.fellowshipCount} published` : 'Not yet verified'];
+  if (key === 'soap') return ['SOAP 2026', p.soap.length ? `${soapN(p)} reported position${soapN(p) === 1 ? '' : 's'}` : 'No appearance'];
+  return [key.replaceAll('_', ' '), 'Unknown'];
+}
+
+function applicationCardSnapshot(p, limit = 6) {
+  const fields = (state.applicationPreferences.cardFields || []).slice(0, limit);
+  return `<span class="applicationMiniGrid">${fields.map(key => { const [label, value] = applicationIndicator(p, key); return `<span><b>${esc(label)}</b>${esc(value)}</span>`; }).join('')}</span>`;
+}
+
+function applicationMatchReasons(p) {
+  if (state.find.mode !== 'profile' || !state.applicationPreferences.personalizationEnabled || !p.applicationMatch) return '';
+  const groups = [['blockers','Known blocker'],['cautions','Caution'],['positives','Positive'],['unknowns','Unknown']];
+  const cards = groups.flatMap(([key,label]) => (p.applicationMatch[key] || []).slice(0, key === 'unknowns' ? 1 : 2).map(item => `<span class="matchSignal is-${key}"><b>${label}</b>${esc(item.title)}</span>`));
+  return cards.length ? `<span class="applicationMatchReasons">${cards.join('')}</span>` : '';
+}
+
 function programRow(p, origin) {
   const f = computeFit(p);
   const showFit = state.find.mode !== 'criteria' || origin !== 'find';
@@ -772,6 +849,8 @@ function programRow(p, origin) {
       <span class="rTitleLine"><span class="rName">${esc(p.name)}</span>${p.demo ? '<span class="demoTag">Demo</span>' : ''}${p.depth === 'gold' ? '<span class="demoTag" style="color:var(--gd);border-color:rgba(255,215,106,.5)">Gold dossier</span>' : ''}</span>
       <span class="rSub">${esc(p.inst)} · ${esc(p.city)}, ${p.state}${p.type ? ' · ' + esc(p.type) : ''}</span>
       ${filterMatchEvidence(p)}
+      ${applicationCardSnapshot(p)}
+      ${applicationMatchReasons(p)}
       ${showFit ? `<span class="rFit">${tierChip(p, f)}<span>${esc(f.line)}</span></span>` : ''}
     </span>
     <span class="rMeta">
@@ -790,6 +869,8 @@ function programCard(p, origin) {
     <span class="cName">${esc(p.name)}</span>
     <span class="cSub">${esc(p.inst)}<br>${esc(p.city)}, ${p.state}</span>
     ${filterMatchEvidence(p)}
+    ${applicationCardSnapshot(p)}
+    ${applicationMatchReasons(p)}
     <span class="cFoot">${sigIMG(p, f)}${sigVisa(p)}${sigSOAP(p)}${freshPill(p)}</span>
   </div>`;
 }
@@ -814,7 +895,7 @@ function viewFind() {
     <div class="modeSeg" role="radiogroup" aria-label="Search mode">
       ${[['criteria', 'Set criteria'], ['profile', 'Use my profile'], ['cv', 'Use my CV']].map(([k, l]) => `<button role="radio" aria-checked="${f.mode === k}" class="${f.mode === k ? 'on' : ''}" onclick="setMode('${k}')">${l}</button>`).join('')}
     </div>
-    ${f.mode === 'profile' ? `<div class="pillRow">${D.profile.facts.filter(x => ['Graduate type', 'Visa need', 'USMLE Step 2 CK', 'Year of graduation', 'USCE'].includes(x[0])).map(x => `<span class="pill profilePill">${esc(x[0])}: ${esc(x[1])}<button class="x" title="What-if: relax this for the session (does not change Matrix)" onclick="toast('What-if: fit shown as if “${esc(x[0])}” didn’t apply. Your Matrix profile is unchanged. (Production wiring: display only)')">✕</button></span>`).join('')}<span class="pill" style="border-style:dashed;background:none">from your Matrix profile</span></div>` : ''}
+    ${f.mode === 'profile' ? `<div class="profileIntelligenceCallout"><div><b>${state.applicationPreferences.personalizationEnabled ? 'Personalized application intelligence is on' : 'Personalized application intelligence is off'}</b><span>${D.profile.available ? 'RISE compares only supported published program facts with your canonical Matrix profile. It does not calculate match probability.' : 'Matrix is unavailable, so RISE is showing evidence without personalized conclusions.'}</span></div><div><button class="rowBtn" onclick="setApplicationPersonalization(${!state.applicationPreferences.personalizationEnabled})">Turn ${state.applicationPreferences.personalizationEnabled ? 'off' : 'on'}</button><button class="rowBtn pri" onclick="openApplicationPreferences()">Customize cards</button></div></div>` : ''}
     ${soapSeg}
     <div class="filterRow">
       <select class="fSel" aria-label="Specialty" onchange="state.find.specialty=this.value;state.find.shown=50;rerender()">
@@ -907,6 +988,50 @@ window.saveMatrixProfile = async event => {
     toast(error.message || 'Matrix profile update failed.');
   }
 };
+
+const APPLICATION_OPTION_LABELS = Object.freeze({
+  visa: 'Visa', exams: 'USMLE / COMLEX', attempts: 'Exam attempts', yog: 'Year of graduation', usce: 'USCE',
+  img: 'IMG evidence', do: 'DO evidence', same_school: 'Residents from my school', same_country: 'Residents from my school country',
+  location: 'Location', research_depth: 'Research depth', fellowships: 'In-house fellowships', soap: 'SOAP history',
+  composition: 'Resident composition',
+});
+window.setApplicationPersonalization = async enabled => {
+  const previous = state.applicationPreferences.personalizationEnabled;
+  state.applicationPreferences.personalizationEnabled = enabled;
+  fitCache.clear(); rerender();
+  try {
+    const payload = await riseFetch('/api/rise/v1/me/application-preferences', { method: 'PUT', body: JSON.stringify(state.applicationPreferences) });
+    state.applicationPreferences = payload.preferences;
+    void recordApplicationEvent('PERSONALIZATION_ENABLED', null, enabled ? 'enabled' : 'disabled');
+  } catch (error) {
+    state.applicationPreferences.personalizationEnabled = previous;
+    fitCache.clear(); rerender(); toast(error.message || 'Could not update personalization.');
+  }
+};
+window.openApplicationPreferences = () => {
+  const prefs = state.applicationPreferences;
+  const priorityKeys = ['visa','exams','attempts','yog','usce','img','do','same_school','same_country','location','research_depth','fellowships','soap'];
+  const cardKeys = ['visa','exams','yog','usce','composition','research_depth','attempts','same_school','same_country','fellowships','soap'];
+  openModal(`<div class="mKicker">Application priorities</div><div class="mTitle">Choose what RISE puts first</div><div class="mSum">Select 1–5 priorities and 3–8 card indicators. These preferences are private to your account and never change your canonical Matrix profile.</div><form id="applicationPreferencesForm" onsubmit="saveApplicationPreferences(event)"><fieldset class="preferenceGrid"><legend>My priorities</legend>${priorityKeys.map(key => `<label><input type="checkbox" name="priorities" value="${key}" ${prefs.priorities.includes(key) ? 'checked' : ''}> ${esc(APPLICATION_OPTION_LABELS[key])}</label>`).join('')}</fieldset><fieldset class="preferenceGrid"><legend>Program card indicators</legend>${cardKeys.map(key => `<label><input type="checkbox" name="cardFields" value="${key}" ${prefs.cardFields.includes(key) ? 'checked' : ''}> ${esc(APPLICATION_OPTION_LABELS[key])}</label>`).join('')}</fieldset><div class="mActs"><button class="mBtn pri" type="submit">Save priorities</button><button class="mBtn sec" type="button" onclick="closeModal()">Cancel</button></div></form>`);
+};
+window.saveApplicationPreferences = async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const next = { ...state.applicationPreferences, priorities: data.getAll('priorities'), cardFields: data.getAll('cardFields') };
+  if (next.priorities.length < 1 || next.priorities.length > 5 || next.cardFields.length < 3 || next.cardFields.length > 8) {
+    toast('Choose 1–5 priorities and 3–8 card indicators.'); return;
+  }
+  form.querySelector('button[type="submit"]').disabled = true;
+  try {
+    const payload = await riseFetch('/api/rise/v1/me/application-preferences', { method: 'PUT', body: JSON.stringify(next) });
+    state.applicationPreferences = payload.preferences; fitCache.clear(); closeModal(); rerender(); toast('Application priorities saved.');
+  } catch (error) { form.querySelector('button[type="submit"]').disabled = false; toast(error.message || 'Could not save priorities.'); }
+};
+
+function recordApplicationEvent(eventType, programSpecialtyId = null, dimension = null) {
+  return riseFetch('/api/rise/v1/analytics/events', { method: 'POST', body: JSON.stringify({ eventType, programSpecialtyId, dimension }) }).catch(() => null);
+}
 
 /* ---------- MY PROGRAMS ---------- */
 /* ---------- MY PROGRAMS ---------- */
@@ -1050,6 +1175,7 @@ function viewProfile() {
     <h1 class="h1">Your <em>profile</em></h1>
     <p class="sub" style="max-width:680px;margin:8px 0 18px">This is your canonical Matrix profile rendered in RISE — there is no separate RISE profile truth. Approved edits write through the server adapter and are re-read from Matrix.</p>
     <div class="covBanner">${prof.available ? 'Canonical Matrix values only. No representative applicant facts are shown.' : 'Matrix profile integration is unavailable. RISE will not create or display a second profile truth.'}</div>
+    <div class="profileIntelligenceCallout"><div><b>Personalized application intelligence</b><span>${state.applicationPreferences.personalizationEnabled ? 'On — blocker, caution, positive, and unknown signals use supported facts only.' : 'Off — RISE will show program evidence without profile-based conclusions.'}</span></div><div><button class="rowBtn" onclick="setApplicationPersonalization(${!state.applicationPreferences.personalizationEnabled})">Turn ${state.applicationPreferences.personalizationEnabled ? 'off' : 'on'}</button><button class="rowBtn pri" onclick="openApplicationPreferences()">Set my priorities</button></div></div>
     <div class="homeGrid">
       <section class="panel"><div class="pHead"><h2 class="h2">Applicant <em>facts</em></h2>${prof.available ? '<button class="pMore" onclick="editMatrixProfile()">Update ▸</button>' : ''}</div>
         <div class="pBody">${prof.facts.map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`).join('')}
@@ -1113,6 +1239,23 @@ window.openFilterDrawer = () => {
         ['any', 'Any visa sponsorship evidence', 'Any valid published visa evidence; no inference from IMG or ECFMG wording.'],
       ].map(([k, l, caveat]) => `
         <button class="tgl ${f.visaMode === k ? 'on' : ''}" onclick="state.find.visaMode='${k}';openFilterDrawer();rerenderKeepDrawer()"><span class="box">${f.visaMode === k ? '●' : ''}</span><span>${l}<span class="cav">${caveat}</span></span>${count({ visaMode: k })}</button>`).join('')}
+    </div>
+    <div class="fGroup"><div class="fLbl">Exams & attempts</div>
+      <button class="tgl ${f.comlex2 ? 'on' : ''}" onclick="state.find.comlex2=!state.find.comlex2;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>COMLEX Level 2 accepted<span class="cav">Supported published acceptance evidence.</span></span>${count({ comlex2: true })}</button>
+      <label class="filterField">Step 1 policy<select class="fSel" onchange="state.find.step1Policy=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option><option value="required" ${f.step1Policy === 'required' ? 'selected' : ''}>Published as required</option><option value="not_required_or_unknown" ${f.step1Policy === 'not_required_or_unknown' ? 'selected' : ''}>No published exclusion</option></select></label>
+      <label class="filterField">Maximum published Step 2 minimum<input class="fSel" inputmode="numeric" type="number" min="180" max="300" value="${esc(f.step2Minimum)}" placeholder="e.g. 240" onchange="state.find.step2Minimum=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
+      <label class="filterField">My exam attempts<input class="fSel" inputmode="numeric" type="number" min="1" max="12" value="${esc(f.attemptsMaximum)}" placeholder="Published limit must accommodate" onchange="state.find.attemptsMaximum=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
+    </div>
+    <div class="fGroup"><div class="fLbl">Graduation & US clinical experience</div>
+      <label class="filterField">Graduation window<select class="fSel" onchange="state.find.yogWindow=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option>${[1,2,3,5,10].map(years => `<option value="${years}" ${String(f.yogWindow) === String(years) ? 'selected' : ''}>Allows ${years}+ years or no published cutoff</option>`).join('')}</select></label>
+      ${[['','Any USCE state'],['required','USCE required'],['recommended','USCE recommended'],['unpublished','No published USCE requirement']].map(([key,label]) => `<button class="tgl ${f.usceMode === key ? 'on' : ''}" onclick="state.find.usceMode='${key}';openFilterDrawer();rerenderKeepDrawer()"><span class="box">${f.usceMode === key ? '●' : ''}</span><span>${label}</span>${count({ usceMode: key })}</button>`).join('')}
+    </div>
+    <div class="fGroup"><div class="fLbl">Resident composition & connections</div>
+      <label class="filterField">Minimum IMG evidence %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minImgPct)}" placeholder="e.g. 20" onchange="state.find.minImgPct=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
+      <label class="filterField">Minimum DO evidence %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minDoPct)}" placeholder="e.g. 10" onchange="state.find.minDoPct=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
+      <button class="tgl ${f.sameSchool ? 'on' : ''}" onclick="state.find.sameSchool=!state.find.sameSchool;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Residents from my medical school<span class="cav">Exact normalized school match in approved roster evidence.</span></span>${count({ sameSchool: true })}</button>
+      <button class="tgl ${f.sameCountry ? 'on' : ''}" onclick="state.find.sameCountry=!state.find.sameCountry;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Residents from my medical-school country<span class="cav">Country is used only when explicit or conservatively derived from the school.</span></span>${count({ sameCountry: true })}</button>
+      <button class="tgl ${f.fellowships ? 'on' : ''}" onclick="state.find.fellowships=!state.find.fellowships;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>In-house fellowships published</span>${count({ fellowships: true })}</button>
     </div>
     <button class="fAct pri" style="margin-top:8px" onclick="$('#filterDrawer').classList.remove('open')">Show results</button>
   </div>`;
@@ -1398,6 +1541,14 @@ function lockBlock(what, summary, skel) {
   </div>`;
 }
 
+function applicationIntelligenceSection(p) {
+  const keys = [...new Set([...(state.applicationPreferences.priorities || []), ...(state.applicationPreferences.cardFields || [])])].slice(0, 10);
+  const groups = p.applicationMatch || { blockers: [], cautions: [], positives: [], unknowns: [] };
+  const personalized = state.applicationPreferences.personalizationEnabled && state.find.mode === 'profile';
+  const groupCopy = { blockers: 'Known blockers', cautions: 'Cautions', positives: 'Positive signals', unknowns: 'Unknowns' };
+  return `<section class="applicationSnapshot"><div class="applicationSnapshotHead"><div><p class="eyebrow">Application intelligence</p><h2 class="h2">What matters <em>for your application</em></h2></div><button class="rowBtn" onclick="openApplicationPreferences()">Customize</button></div><div class="applicationSnapshotGrid">${keys.map(key => { const [label,value] = applicationIndicator(p,key); return `<div><span>${esc(label)}</span><b>${esc(value)}</b></div>`; }).join('')}</div>${personalized ? `<div class="applicationReasonGroups">${Object.entries(groupCopy).map(([key,label]) => `<section class="is-${key}"><h3>${label} <span>${groups[key]?.length || 0}</span></h3>${groups[key]?.length ? groups[key].slice(0,4).map(item => `<div><b>${esc(item.title)}</b><p>${esc(item.detail)}</p></div>`).join('') : '<p>None supported by current evidence.</p>'}</section>`).join('')}</div><div class="lawBanner">These are evidence-backed application signals, not a match probability. “Unknown” never means accepted.</div>` : `<div class="lawBanner">Personalized conclusions are off. Program evidence remains visible.</div>`}</section>`;
+}
+
 function fileTabBody(p, tab) {
   const R = p.rich;
   if (tab === 'overview') return tabOverview(p, R);
@@ -1415,7 +1566,7 @@ function whyProgramSection(p) {
   const culture = approvedResearchFact(p, 'research.culture');
   const facilities = approvedResearchFact(p, 'research.facilities_patient_population');
   const value = differentiators?.canonicalValue ?? differentiators?.knowledge?.value;
-  const entries = Array.isArray(value) ? value.filter(item => item && typeof item === 'object').slice(0, 12) : [];
+  const entries = evidenceRows(value, ['differentiators','items','reasons','features']).filter(item => item && typeof item === 'object').slice(0, 12);
   const supporting = [curriculum, culture, facilities].filter(Boolean);
   const cards = entries.length ? entries.map(item => `<article class="railCard whyEvidenceCard">
     <div class="rLbl">${esc(String(item.category || 'Program feature').replaceAll('_', ' '))}</div>
@@ -1424,12 +1575,12 @@ function whyProgramSection(p) {
     ${item.applicant_relevance ? `<div class="whyWhy">Why it may matter: ${esc(item.applicant_relevance)}</div>` : ''}
     <span>${item.source_url ? `<a href="${esc(item.source_url)}" target="_blank" rel="noopener">Official source ↗</a> · ` : ''}${esc(item.retrieved_at || differentiators.retrievedAt || 'Date not stated')}</span>
   </article>`).join('') : supporting.map(row => `<article class="railCard"><div class="rLbl">${esc(row.field.replace(/^research\./,'').replaceAll('_',' '))}</div><p>${esc(displayValue(row.canonicalValue ?? row.knowledge?.value))}</p><span>${esc(row.retrievedAt || 'Date not stated')}</span></article>`).join('');
-  return `<section class="whyProgramSection"><h2 class="h2" style="margin-bottom:8px">Why this <em>program</em></h2><p class="sub">Source-backed differentiators and training features from the current shared dossier. Use these as research leads, then confirm fit in your own voice.</p>${cards ? `<div class="whyCards">${cards}</div>` : `<div class="lawBanner"><b>Not yet available.</b> Verified program differentiators will appear here after the dossier is completed and reviewed.</div>`}</section>`;
+  return `<section class="whyProgramSection"><h2 class="h2" style="margin-bottom:8px">Why this <em>program</em></h2><p class="sub">Source-backed differentiators and training features from the current shared dossier. Use these as research leads, then confirm fit in your own voice.</p>${cards ? `<div class="whyCards">${cards}</div>${entries.length && entries.length < 5 ? '<div class="gateNote">The dossier currently supports fewer than five distinct differentiators; RISE will not pad the list with generic claims.</div>' : ''}` : `<div class="lawBanner"><b>Not yet available.</b> Verified program differentiators will appear here after the dossier is completed and reviewed.</div>`}</section>`;
 }
 
 function tabOverview(p, R) {
   if (!R) {
-    return `<div class="fileGrid"><div>
+    return `${applicationIntelligenceSection(p)}<div class="fileGrid"><div>
       <h2 class="h2" style="margin-bottom:8px">Approved program <em>profile</em></h2>
       ${p.profileLoading ? '<p class="sub">Loading the full approved program profile…</p>' : p.profileError ? `<div class="lawBanner">${esc(p.profileError)}</div>` : registryTable(p, ['Program Best Described As', 'Program Length', 'First Year Positions', 'Residents Per Year', 'Total Residents', 'Application Deadline', 'Applicant Interview Format', 'Application Service'], 'Approved canonical registry facts')}
       ${approvedResearchTable(p, ['research.curriculum', 'research.program_overview'], 'Approved current research')}
@@ -1439,7 +1590,7 @@ function tabOverview(p, R) {
       ${unknownFooter(p, ['Narrative differentiators — not yet verified'])}
     </div><div>${snapshotRail(p)}</div></div>`;
   }
-  return `<div class="fileGrid"><div>
+  return `${applicationIntelligenceSection(p)}<div class="fileGrid"><div>
     <h2 class="h2" style="margin-bottom:4px">Why this <em>program</em></h2>
     ${R.why.slice(0, state.member ? 99 : 3).map((w, i) => `<div class="whyItem">
       <div class="whyFact">${esc(w.fact)}</div>
@@ -1489,7 +1640,7 @@ function snapshotRail(p) {
 
 function tabFit(p, R) {
   if (!R) {
-    return `<div>
+    return `<div>${applicationIntelligenceSection(p)}
       <div class="lawBanner"><b>Not published means the program hasn’t said.</b> RISE does not guess. Absence of a restriction is not acceptance.</div>
       <h2 class="h2" style="margin:20px 0 8px">Application requirements</h2>
       ${registryTable(p, ['Step Preferences', 'COMLEX Accepted', 'IMG Step 1 Required', 'IMG Step 2 Required', 'DO COMLEX Level 1 Required', 'DO COMLEX Level 2 Required', 'Minimum LOR', 'Maximum LOR', 'Specialty Specific LOR Required', 'Medical School Graduation Timeline', 'Gap Experience Requirement', 'Required Supplemental Information', 'Application Deadline'], 'Program-reported requirements')}
@@ -1504,7 +1655,7 @@ function tabFit(p, R) {
   }
   const rows = R.requirements;
   const counts = computeFit(p).counts || { meets: 0, check: 0, unknown: 0 };
-  return `<div>
+  return `<div>${applicationIntelligenceSection(p)}
     <div class="sumStrip">
       <div class="sumStat"><span class="n"><em>${counts.meets}</em></span><span class="l">Meets</span></div>
       <div class="sumStat"><span class="n">${counts.check || 0}</span><span class="l">Check</span></div>
@@ -1542,12 +1693,52 @@ function tabFit(p, R) {
   </div>`;
 }
 
+function approvedResearchValue(p, field) {
+  const fact = approvedResearchFact(p, field);
+  return fact ? (fact.canonicalValue ?? fact.knowledge?.value ?? null) : null;
+}
+
+function evidenceRows(value, keys = []) {
+  if (Array.isArray(value)) return value.flatMap(item => Array.isArray(item) ? evidenceRows(item, keys) : [item]).filter(Boolean);
+  if (!value || typeof value !== 'object') return value == null ? [] : [value];
+  const prioritized = keys.filter(key => ['full_roster','residents','roster'].includes(key)).find(key => Array.isArray(value[key]));
+  if (prioritized) return evidenceRows(value[prioritized], keys);
+  const nested = keys.filter(key => Array.isArray(value[key])).flatMap(key => evidenceRows(value[key], keys));
+  if (nested.length) return nested;
+  return [value];
+}
+
+function genericRosterTable(p) {
+  const value = approvedResearchValue(p, 'research.resident_roster');
+  const rows = evidenceRows(value, ['full_roster','residents','roster','pgy_1','pgy_2','pgy_3','pgy_4','pgy4_chiefs','pgy3_chiefs','other_residents_identified'])
+    .filter(row => row && typeof row === 'object').slice(0, 250);
+  if (!rows.length) return '';
+  return `<div class="rosterSummaryLine"><b>${rows.length}</b> published current/recent roster entr${rows.length === 1 ? 'y' : 'ies'} available</div><div class="residentCardGrid">${rows.map(row => { const name = row.name || row.resident_name || 'Resident name not published'; const school = row.medical_school || row.medicalSchool || row.school || 'Medical school not published'; const degree = row.degree || ''; const pgy = row.pgy || row.pgy_year || row.pgy_level || row.PGY || row.class || row.class_of || 'PGY not published'; const country = row.medical_school_country || row.school_country || row.country || ''; const classification = row.classification || row.category || ''; return `<article><div class="residentIdentity"><b>${esc(name)}</b><span>${esc([degree,pgy].filter(Boolean).join(' · '))}</span></div><p>${esc(school)}</p><div class="residentMeta">${country ? `<span>${esc(country)}</span>` : '<span>Country not identified</span>'}${classification ? `<span>${esc(String(classification).replaceAll('_',' '))}</span>` : '<span>Category unknown</span>'}</div></article>`; }).join('')}</div>`;
+}
+
+function genericPeopleTable(p) {
+  const rows = [
+    ...evidenceRows(approvedResearchValue(p, 'research.leadership'), ['leadership','people','program_leadership']),
+    ...evidenceRows(approvedResearchValue(p, 'research.core_faculty'), ['faculty','people','core_faculty']),
+  ].filter(row => row && typeof row === 'object').slice(0, 100);
+  if (!rows.length) return '';
+  return `<div class="peopleCardGrid">${rows.map(row => { const name = row.name || row.full_name || row.person || 'Name not published'; const role = row.role || row.title || row.position || 'Role not published'; const training = row.training_summary || row.training || row.residency || row.fellowship || ''; const interests = row.interests || row.clinical_interests || row.research_interests || ''; const photo = String(row.photo_url || row.image_url || ''); const safePhoto = photo.startsWith('/') && !photo.startsWith('//') ? photo : ''; return `<article>${safePhoto ? `<img src="${esc(safePhoto)}" alt="" loading="lazy">` : '<div class="personPlaceholder" aria-hidden="true">◌</div>'}<div><h3>${esc(name)}</h3><b>${esc(role)}</b>${training ? `<p>${esc(displayValue(training))}</p>` : ''}${interests ? `<p class="sub">${esc(displayValue(interests))}</p>` : ''}</div></article>`; }).join('')}</div>`;
+}
+
+function genericFellowshipOutcomes(p) {
+  const fellowships = evidenceRows(approvedResearchValue(p, 'research.fellowship_inventory'), ['fellowships','inventory','programs']);
+  const outcomes = evidenceRows(approvedResearchValue(p, 'research.outcomes'), ['outcomes','graduates','placements']);
+  const cards = (label, rows) => rows.length ? `<section><h3>${label}</h3><div class="outcomeCardGrid">${rows.slice(0,80).map(row => `<article>${esc(typeof row === 'object' ? displayValue(row) : row)}</article>`).join('')}</div></section>` : `<section><h3>${label}</h3><p class="sub">Not yet available from approved evidence.</p></section>`;
+  return fellowships.length || outcomes.length ? `<div class="outcomesGrid">${cards('In-house fellowships',fellowships)}${cards('Graduate outcomes',outcomes)}</div>` : '';
+}
+
 function tabResidents(p, R) {
   if (!R || !R.rosterSummary) {
     const rosterState = researchStateText(p, 'research.resident_roster');
     return `<div>
       ${registryTable(p, ['Total Residents', 'Residents Per Year', 'IMG Graduates Percent', 'DO Graduates Percent', 'US MD Graduates Percent'], 'Program-reported resident and graduate composition')}
-      ${approvedResearchTable(p, ['research.resident_roster', 'research.resident_medical_schools', 'research.img_accessibility', 'research.do_accessibility', 'research.usmd_accessibility', 'research.caribbean_accessibility'], 'Approved roster research')}
+      ${genericRosterTable(p)}
+      ${approvedResearchTable(p, ['research.resident_medical_schools', 'research.img_accessibility', 'research.do_accessibility', 'research.usmd_accessibility', 'research.caribbean_accessibility'], 'Approved roster research')}
       <div class="lawBanner"><b>Named roster:</b> ${esc(rosterState)}. Current composition is observational evidence, not an admissions rule, and does not establish acceptance policy.</div>
       ${unknownFooter(p)}</div>`;
   }
@@ -1585,7 +1776,8 @@ function tabPeople(p, R) {
   if (!R || !R.people) {
     return `<div><h2 class="h2" style="margin-bottom:8px">Program leadership</h2>
       ${registryTable(p, ['Program Director', 'Program Director Credentials', 'Program Coordinator', 'Coordinator Email', 'Coordinator Phone'], 'Approved leadership information')}
-      ${approvedResearchTable(p, ['research.leadership', 'research.core_faculty', 'research.faculty_training_graph'], 'Approved leadership research')}
+      ${genericPeopleTable(p)}
+      ${approvedResearchTable(p, ['research.faculty_training_graph'], 'Approved leadership training research')}
       <div class="lawBanner"><b>Additional leadership research:</b> ${esc(researchStateText(p, 'research.leadership'))}</div>${unknownFooter(p)}</div>`;
   }
   return `<div>
@@ -1607,7 +1799,7 @@ function tabPeople(p, R) {
 function tabNext(p, R) {
   if (!R || !R.fellowships) {
     return `<div><h2 class="h2" style="margin-bottom:8px">Fellowships & outcomes</h2>
-      ${approvedResearchTable(p, ['research.fellowship_inventory', 'research.outcomes'], 'Approved fellowship and outcomes research')}
+      ${genericFellowshipOutcomes(p)}
       <div class="lawBanner"><b>Fellowship inventory:</b> ${esc(researchStateText(p, 'research.fellowship_inventory'))}<br><b>Graduate outcomes:</b> ${esc(researchStateText(p, 'research.outcomes'))}</div>${unknownFooter(p)}</div>`;
   }
   const F = R.fellowships;

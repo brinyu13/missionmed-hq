@@ -2,6 +2,12 @@
 // but intentionally does not copy repository-level configuration files. The
 // checked-in JSON remains the human-readable contract and a test below ensures
 // these two representations cannot drift.
+import {
+  applicationFacetCounts,
+  buildApplicationIntelligence,
+  evaluateApplicationCompatibility,
+} from "./application-intelligence.mjs";
+
 export const FILTER_INTELLIGENCE_CONFIG = Object.freeze({
   schemaVersion: 2,
   contractId: "rise-filter-intelligence-2026-09-10",
@@ -129,7 +135,14 @@ function dynamicSearchTerms(facts) {
   const terms = new Set();
   for (const fact of facts) {
     const value = fact.canonicalValue ?? fact.canonical_value ?? fact.knowledge?.value;
-    collectApprovedSearchTerms(value, terms);
+    if (fact.field === "research.resident_roster") {
+      for (const resident of rosterRows(value)) {
+        collectApprovedSearchTerms(resident.medical_school ?? resident.school, terms);
+        collectApprovedSearchTerms(resident.medical_school_raw, terms);
+      }
+    } else if (fact.field !== "research.leadership" && fact.field !== "research.core_faculty") {
+      collectApprovedSearchTerms(value, terms);
+    }
   }
   return [...terms].sort().slice(0, 250);
 }
@@ -273,6 +286,8 @@ export function expandFilterIntelligenceRecord(record, flagBits = FILTER_FLAG_BI
     abim: enabled("abim"),
     alumni: enabled("alumni"),
     searchTerms: Array.isArray(record?.searchTerms) ? record.searchTerms : [],
+    application: record?.application ?? null,
+    applicationMatch: record?.applicationMatch ?? null,
   };
 }
 
@@ -301,6 +316,7 @@ export function buildFilterIntelligence(programs, {
   researchCoverage = [],
   currentFacts = [],
   dossiers = [],
+  profile = {},
   generatedAt = new Date().toISOString(),
 } = {}) {
   const researchByAcgme = new Map(researchCoverage.map((record) => [String(record.acgmeId), record]));
@@ -369,6 +385,15 @@ export function buildFilterIntelligence(programs, {
       | (filterFacts.soap2026 ? FILTER_FLAG_BITS.soap2026 : 0)
       | (filterFacts.abim ? FILTER_FLAG_BITS.abim : 0)
       | (filterFacts.alumni ? FILTER_FLAG_BITS.alumni : 0);
+    const application = buildApplicationIntelligence(program, dynamicFacts, profile);
+    const applicationSummary = {
+      ...application,
+      roster: {
+        ...application.roster,
+        schools: undefined,
+        countries: undefined,
+      },
+    };
     return {
       programSpecialtyId: program.programSpecialtyId,
       flags,
@@ -378,6 +403,8 @@ export function buildFilterIntelligence(programs, {
       approvedDomainCount: depthDetail.approvedDomains.length,
       pendingDomainCount: depthDetail.pendingDomains.length,
       dossierDomainCount: depthDetail.dossierDomains.length,
+      application: applicationSummary,
+      applicationMatch: evaluateApplicationCompatibility(application, profile),
     };
   });
   if (DEPTH_ORDER.reduce((sum, depth) => sum + counts[depth === "deep" ? "deepResearch" : depth === "enriched" ? "enrichedResearch" : depth === "basic" ? "basicProfile" : "researchPending"], 0) !== programs.length) {
@@ -391,6 +418,11 @@ export function buildFilterIntelligence(programs, {
     flagBits: FILTER_FLAG_BITS,
     labels: FILTER_INTELLIGENCE_CONFIG.studentLabels,
     evidencePolicy: FILTER_INTELLIGENCE_CONFIG.evidencePolicy,
+    applicationFacetCounts: applicationFacetCounts(records),
+    profile: {
+      available: Boolean(profile && typeof profile === "object" && Object.values(profile).some((value) => value !== null && String(value).trim() !== "")),
+      personalizationReady: Boolean(profile?.medical_school || profile?.visa_status || profile?.step2_score || profile?.graduation_year || profile?.usce_months),
+    },
     records,
   };
 }
