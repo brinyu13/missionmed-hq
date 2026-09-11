@@ -27,7 +27,13 @@ test("roster promotions merge source-linked rows and normalize only safe school 
   assert.equal(result.promotions[0].canonicalValue.length, 2);
   assert.equal(result.promotions[0].canonicalValue[0].medical_school || result.promotions[0].canonicalValue[1].medical_school, "St. George's University School of Medicine");
   assert.equal(normalizeMedicalSchool("Unknown ABC").canonical, "Unknown ABC");
-  assert.equal(classifySourceUrls(["https://www.abim.org/x", "https://www.doximity.com/x"]).reference.length, 1);
+  const sources = classifySourceUrls([
+    "https://www.abim.org/x", "https://www.doximity.com/x",
+    "https://www.reddit.com/r/Residency/x", "https://en.wikipedia.org/wiki/Residency",
+  ]);
+  assert.equal(sources.reference.length, 1);
+  assert.equal(sources.secondary.length, 2);
+  assert.equal(sources.social.length, 1);
 });
 
 test("protected TX and FL Child Neurology holdouts fail closed", () => {

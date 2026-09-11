@@ -36,8 +36,9 @@ test("live admin controls can promote a benchmark winner to production approved"
   assert.match(app, /setOpenAiProviderMode\('\$\{esc\(p[.]providerKey\)\}','PRODUCTION_APPROVED'\)/);
   assert.match(app, /mode === 'BENCHMARKING' \|\| mode === 'PRODUCTION_APPROVED'/);
   assert.match(app, /enabled:active, networkAllowed:active, spendAllowed:active/);
-  assert.match(app, /researchSourceIndex = new Map\(\)/);
-  assert.match(app, /Approved canonical research dossier source/);
+  assert.match(app, /directResearchSourceIndex = new Map\(\)/);
+  assert.match(app, /Dossier discovery source/);
+  assert.match(app, /not asserted as direct support for every field/);
 });
 
 test("existing quota windows adopt the live configured quota without invalidating prior use", async () => {

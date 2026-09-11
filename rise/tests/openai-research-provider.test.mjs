@@ -29,7 +29,10 @@ function fixtureResponse(acgmeId = "1854831078") {
     id: "resp_fixture_5012e",
     usage: { input_tokens: 1000, input_tokens_details: { cached_tokens: 200 }, output_tokens: 500 },
     output: [
-      { type: "web_search_call", action: { sources: [{ url: "https://example.edu/residency/visa" }] } },
+      { type: "web_search_call", action: { sources: [
+        { url: "https://example.edu/residency/visa" },
+        { url: "https://unrelated.example/reference" },
+      ] } },
       { type: "message", content: [{ type: "output_text", text, annotations: [{ type: "url_citation", url: "https://example.edu/residency/visa" }] }] },
     ],
   };
@@ -125,7 +128,13 @@ test("web-search action sources remain dossier evidence when structured JSON omi
     },
   });
   assert.deepEqual(result.ingest.claims[0].directSourceUrls, []);
-  assert.deepEqual(result.ingest.claims[0].dossierSourceUrls, ["https://example.edu/residency/visa"]);
-  assert.deepEqual(result.ingest.claims[0].sourceUrls, ["https://example.edu/residency/visa"]);
+  assert.deepEqual(result.ingest.claims[0].dossierSourceUrls, [
+    "https://example.edu/residency/visa",
+    "https://unrelated.example/reference",
+  ]);
+  assert.deepEqual(result.ingest.claims[0].sourceUrls, [
+    "https://example.edu/residency/visa",
+    "https://unrelated.example/reference",
+  ]);
   assert.equal(result.benchmarkMetrics.sourceBackedCount, 1);
 });

@@ -1666,29 +1666,80 @@ function tabDetails(p, R) {
 }
 
 /* ---------- sources & freshness panel (doc 09 §9.8) ---------- */
+function sourceTrustPresentation(url, canonicalProgramUrl = '') {
+  let host = '';
+  let canonicalHost = '';
+  try { host = new URL(url).hostname.toLowerCase(); } catch {}
+  try { canonicalHost = new URL(canonicalProgramUrl).hostname.toLowerCase(); } catch {}
+  if (!host) return { tier: 2, label: 'Reviewed reference' };
+  if (/(^|\.)(facebook\.com|instagram\.com|linkedin\.com|reddit\.com|tiktok\.com|x\.com|youtube\.com)$/.test(host)) {
+    return { tier: 3, label: 'Community / secondary' };
+  }
+  if (/(^|\.)(wikipedia\.org|doximity\.com|imgprep\.com|matcharesident\.com|residencyadvisor\.com|residencymatch\.ai|residencyprograms\.io)$/.test(host)) {
+    return { tier: 3, label: 'Secondary / discovery' };
+  }
+  if (/(^|\.)(abim\.org|freida\.ama-assn\.org|programdirectory\.nrmp\.org)$/.test(host)) {
+    return { tier: 1, label: 'Official directory / approved' };
+  }
+  const firstParty = canonicalHost && (host === canonicalHost || host.endsWith(`.${canonicalHost}`) || canonicalHost.endsWith(`.${host}`));
+  if (firstParty || /\.(edu|gov)$/.test(host) || /(^|\.)(mayo\.edu|nemours\.org)$/.test(host)) {
+    return { tier: 1, label: 'Institutional / approved' };
+  }
+  return { tier: 2, label: 'Web reference / approved' };
+}
+
+function embeddedSourceUrls(value) {
+  const urls = new Set();
+  const visit = item => {
+    if (Array.isArray(item)) return item.forEach(visit);
+    if (!item || typeof item !== 'object') return;
+    for (const [key, child] of Object.entries(item)) {
+      if (/^(?:source_?url|url)$/i.test(key) && typeof child === 'string' && child.startsWith('https://')) urls.add(child);
+      else visit(child);
+    }
+  };
+  visit(value);
+  return [...urls].sort();
+}
+
 window.openSources = (id, evidenceIdx) => {
   const p = byId.get(id); if (!p) return;
   const R = p.rich || {};
   const canonicalSources = (p.canonical?.source?.urls || [p.url]).filter(Boolean).map(url => ({
-    t: 'Approved canonical registry source', pub: url, tier: 1,
+    t: 'Approved canonical registry source', pub: url, tier: 1, tierLabel: 'Official directory / approved',
     acc: p.canonical?.source?.retrievedAt || p.verified || 'not stated', cur: 'current', url,
   }));
-  const researchSourceIndex = new Map();
+  const directResearchSourceIndex = new Map();
+  const dossierSourceIndex = new Map();
   for (const fact of p.researchProjection?.currentFacts || []) {
     const domain = fact.field.replace(/^research\./, '').replaceAll('_', ' ');
-    for (const url of (fact.sourceUrls?.length ? fact.sourceUrls : [fact.sourceUrl]).filter(Boolean)) {
-      const row = researchSourceIndex.get(url) || {
-        t: 'Approved canonical research dossier source', pub: 'Approved canonical research evidence', tier: 1,
-        acc: fact.retrievedAt || 'not stated', cur: 'current', url, domains: new Set(),
+    for (const url of embeddedSourceUrls(fact.canonicalValue ?? fact.knowledge?.value)) {
+      const trust = sourceTrustPresentation(url, p.url);
+      const row = directResearchSourceIndex.get(url) || {
+        t: 'Direct canonical research source', pub: 'Direct source embedded in the approved value',
+        ...trust, tierLabel: trust.label, acc: fact.retrievedAt || 'not stated', cur: 'current', url, domains: new Set(),
       };
       row.domains.add(domain);
-      researchSourceIndex.set(url, row);
+      directResearchSourceIndex.set(url, row);
+    }
+    for (const url of (fact.sourceUrls?.length ? fact.sourceUrls : [fact.sourceUrl]).filter(Boolean)) {
+      if (directResearchSourceIndex.has(url)) continue;
+      const trust = sourceTrustPresentation(url, p.url);
+      const row = dossierSourceIndex.get(url) || {
+        t: 'Dossier discovery source', pub: 'Retained for dossier traceability; not asserted as direct support for every field',
+        ...trust, tierLabel: trust.label, acc: fact.retrievedAt || 'not stated', cur: 'current', url,
+      };
+      dossierSourceIndex.set(url, row);
     }
   }
-  const researchSources = [...researchSourceIndex.values()].map(row => ({
+  const directResearchSources = [...directResearchSourceIndex.values()].map(row => ({
     ...row, t: `${row.t} · ${[...row.domains].sort().join(', ')}`,
   }));
-  const sourceRows = R.sources || [...new Map([...canonicalSources, ...researchSources].map(row => [row.url || row.pub, row])).values()];
+  const sourceRows = R.sources || [...new Map([...canonicalSources, ...directResearchSources, ...dossierSourceIndex.values()].map(row => [row.url || row.pub, row])).values()];
+  const presentedSourceRows = sourceRows.map(row => {
+    const trust = sourceTrustPresentation(row.url, p.url);
+    return { ...row, tier: row.tier ?? trust.tier, tierLabel: row.tierLabel ?? trust.label };
+  });
   const pendingFields = p.researchProjection?.pendingEvidence?.fields || [];
   const panel = $('#srcPanel');
   panel.innerHTML = `<div class="drawer" role="dialog" aria-modal="true" aria-label="Sources and freshness">
@@ -1703,10 +1754,10 @@ window.openSources = (id, evidenceIdx) => {
     </div>
     ${p.researchProjection?.dossier ? `<div class="fGroup"><div class="fLbl">Deep Research Dossier V2</div><p class="sub" style="font-size:14px"><b>${esc(p.researchProjection.dossier.dossierOutcome || 'PARTIAL')}</b> · ${Math.round(Number(p.researchProjection.dossier.completionScore || 0) * 100)}% weighted resolution · researched ${esc(String(p.researchProjection.dossier.researchTimestamp || 'date not stated').slice(0,10))}</p><div class="dossierMatrix">${Object.entries(p.researchProjection.dossier.completionMatrix || {}).map(([domain, item]) => `<span class="matrix-${esc(String(item.state || '').toLowerCase())}"><b>${esc(domain.replaceAll('_',' '))}</b>${esc(String(item.state || '').replaceAll('_',' '))}</span>`).join('')}</div></div>` : ''}
     <div class="fGroup"><div class="fLbl">Sources</div>
-      ${(sourceRows.length ? sourceRows : [{ t: 'Canonical registry source', pub: 'RISE corpus', tier: 2, acc: p.verified || 'not stated', cur: 'current' }]).map((s, i) => `
+      ${(presentedSourceRows.length ? presentedSourceRows : [{ t: 'Canonical registry source', pub: 'RISE corpus', tier: 2, tierLabel: 'Directory / internal', acc: p.verified || 'not stated', cur: 'current' }]).map((s, i) => `
         <div class="srcRow" ${evidenceIdx === i ? 'style="outline:2px solid var(--cy);border-radius:8px;padding:12px"' : ''}>
           <div class="srcT">${esc(s.t)}</div>
-          <div class="srcM"><span class="srcTier">Tier ${s.tier} · ${s.tier === 1 ? 'Official / approved' : s.tier === 2 ? 'Directory / internal' : 'Secondary'}</span><span>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">Open source ↗</a>` : esc(s.pub)}</span><span>accessed ${esc(s.acc)}</span><span class="cur-${s.cur}">${s.cur}</span></div>
+          <div class="srcM"><span class="srcTier">Tier ${s.tier} · ${esc(s.tierLabel)}</span><span>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">Open source ↗</a>` : esc(s.pub)}</span><span>accessed ${esc(s.acc)}</span><span class="cur-${s.cur}">${s.cur}</span></div>
         </div>`).join('')}
     </div>
     ${pendingFields.length ? `<div class="fGroup"><div class="fLbl">Reviewed evidence state</div><p class="sub" style="font-size:14px">Unsupported or disputed values remain hidden; provenance and source records are preserved.</p><div class="unkChips">${pendingFields.map(item => `<span class="unkChip">${esc(item.field.replace(/^research\./, '').replaceAll('_', ' '))} · ${esc(researchStateText(p, item.field))}</span>`).join('')}</div></div>` : ''}

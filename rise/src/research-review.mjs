@@ -7,8 +7,8 @@ export const FINAL_DISPOSITIONS = Object.freeze([
 ]);
 export const PRESERVED_CANARY_ACGME_IDS = new Set(["1851113100", "1854831078"]);
 
-const SOCIAL_HOSTS = /(^|\.)(facebook\.com|instagram\.com|linkedin\.com|tiktok\.com|x\.com|youtube\.com)$/i;
-const SECONDARY_HOSTS = /(^|\.)(doximity\.com|imgprep\.com|matcharesident\.com|residencyadvisor\.com|residencymatch\.ai|residencyprograms\.io)$/i;
+const SOCIAL_HOSTS = /(^|\.)(facebook\.com|instagram\.com|linkedin\.com|reddit\.com|tiktok\.com|x\.com|youtube\.com)$/i;
+const SECONDARY_HOSTS = /(^|\.)(doximity\.com|imgprep\.com|matcharesident\.com|residencyadvisor\.com|residencymatch\.ai|residencyprograms\.io|wikipedia\.org)$/i;
 const REFERENCE_HOSTS = /(^|\.)(abim\.org|freida\.ama-assn\.org|programdirectory\.nrmp\.org)$/i;
 const NOT_RESEARCHED = /\b(?:not[_ ]re-?researched|not[_ ]researched|outside (?:the )?(?:specified )?scope|already.complete.not.researched|not a missing.field target)\b/i;
 const NOT_FOUND = /\b(?:researched[_ ]not[_ ]found|unavailable|not[_ ]applicable|unknown_after_recovery_search|not[_ ]found|not[_ ]available|not[_ ]reported|not[_ ]published|no published|unable to (?:locate|verify)|no exact program|verified absent)\b/i;

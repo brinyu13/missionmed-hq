@@ -230,11 +230,10 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
           if (!FIELDS.includes(finding.field) || seenFields.has(finding.field)) continue;
           seenFields.add(finding.field);
           const directSourceUrls = [...new Set((finding.source_urls ?? []).filter((url) => citations.has(url)))].sort();
-          // Structured Responses do not always repeat tool citations inside JSON.
-          // Preserve exact direct links when present, and otherwise retain the
-          // provider-returned web-search source set as dossier-level evidence,
-          // matching the existing provider-neutral research-factory contract.
-          const sourceUrls = [...new Set([...directSourceUrls, ...dossierSourceUrls])].sort();
+          // Prefer the finding's direct citations. Structured Responses do not
+          // always repeat tool citations inside JSON, so retain the dossier-wide
+          // discovery set only when no direct citation survived validation.
+          const sourceUrls = directSourceUrls.length ? directSourceUrls : dossierSourceUrls;
           const value = parseValue(finding);
           const claim = createCanonicalEvidenceClaim({
             subjectId: identity.program.id,
