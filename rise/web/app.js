@@ -242,7 +242,8 @@ const fitCache = new Map();
 function computeFit(p) {
   const cacheKey = `${p.id}:${state.find.mode}:${state.applicationPreferences.personalizationEnabled}`;
   if (fitCache.has(cacheKey)) return fitCache.get(cacheKey);
-  const personalized = state.find.mode === 'profile' && state.applicationPreferences.personalizationEnabled && p.applicationMatch;
+  const personalized = state.find.mode === 'profile' && state.applicationPreferences.personalizationEnabled
+    && D.profile.available && p.applicationMatch;
   const groups = personalized ? p.applicationMatch : null;
   const f = personalized ? {
     tier: null,
@@ -833,7 +834,8 @@ function applicationCardSnapshot(p, limit = 6) {
 }
 
 function applicationMatchReasons(p) {
-  if (state.find.mode !== 'profile' || !state.applicationPreferences.personalizationEnabled || !p.applicationMatch) return '';
+  if (state.find.mode !== 'profile' || !state.applicationPreferences.personalizationEnabled
+    || !D.profile.available || !p.applicationMatch) return '';
   const groups = [['blockers','Known blocker'],['cautions','Caution'],['positives','Positive'],['unknowns','Unknown']];
   const cards = groups.flatMap(([key,label]) => (p.applicationMatch[key] || []).slice(0, key === 'unknowns' ? 1 : 2).map(item => `<span class="matchSignal is-${key}"><b>${label}</b>${esc(item.title)}</span>`));
   return cards.length ? `<span class="applicationMatchReasons">${cards.join('')}</span>` : '';
@@ -1544,7 +1546,8 @@ function lockBlock(what, summary, skel) {
 function applicationIntelligenceSection(p) {
   const keys = [...new Set([...(state.applicationPreferences.priorities || []), ...(state.applicationPreferences.cardFields || [])])].slice(0, 10);
   const groups = p.applicationMatch || { blockers: [], cautions: [], positives: [], unknowns: [] };
-  const personalized = state.applicationPreferences.personalizationEnabled && state.find.mode === 'profile';
+  const personalized = state.applicationPreferences.personalizationEnabled && state.find.mode === 'profile'
+    && D.profile.available && p.applicationMatch;
   const groupCopy = { blockers: 'Known blockers', cautions: 'Cautions', positives: 'Positive signals', unknowns: 'Unknowns' };
   return `<section class="applicationSnapshot"><div class="applicationSnapshotHead"><div><p class="eyebrow">Application intelligence</p><h2 class="h2">What matters <em>for your application</em></h2></div><button class="rowBtn" onclick="openApplicationPreferences()">Customize</button></div><div class="applicationSnapshotGrid">${keys.map(key => { const [label,value] = applicationIndicator(p,key); return `<div><span>${esc(label)}</span><b>${esc(value)}</b></div>`; }).join('')}</div>${personalized ? `<div class="applicationReasonGroups">${Object.entries(groupCopy).map(([key,label]) => `<section class="is-${key}"><h3>${label} <span>${groups[key]?.length || 0}</span></h3>${groups[key]?.length ? groups[key].slice(0,4).map(item => `<div><b>${esc(item.title)}</b><p>${esc(item.detail)}</p></div>`).join('') : '<p>None supported by current evidence.</p>'}</section>`).join('')}</div><div class="lawBanner">These are evidence-backed application signals, not a match probability. “Unknown” never means accepted.</div>` : `<div class="lawBanner">Personalized conclusions are off. Program evidence remains visible.</div>`}</section>`;
 }

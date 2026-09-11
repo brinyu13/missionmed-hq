@@ -1441,6 +1441,10 @@ function researchJobRecord(row, { admin = false } = {}) {
     requiredDomains: row.requiredDomains ?? [],
     requestedFields: row.requestedFields ?? [],
     completionMatrix: row.completionMatrix ?? {},
+    rootJobId: row.rootJobId ?? null,
+    parentJobId: row.parentJobId ?? null,
+    stageOrdinal: row.stageOrdinal === null || row.stageOrdinal === undefined ? null : Number(row.stageOrdinal),
+    researchStage: row.researchStage ?? null,
   });
   return record;
 }
@@ -1502,6 +1506,11 @@ const RESEARCH_JOB_PROJECTION = `
   completion_score AS "completionScore",
   dossier_outcome AS "dossierOutcome",
   research_timestamp AS "researchTimestamp",
+  root_job_id AS "rootJobId",
+  parent_job_id AS "parentJobId",
+  stage_ordinal AS "stageOrdinal",
+  research_stage AS "researchStage",
+  student_charge_key AS "studentChargeKey",
   benchmark_batch_key AS "benchmarkBatchKey",
   benchmark_baseline AS "benchmarkBaseline",
   status,
@@ -2024,9 +2033,10 @@ export async function createRiseResearchStore({
             requester_subject_key, request_source, provider_key, model_key, router_revision,
             quota_window_start, estimated_cost_usd, task_payload, contract_version,
             result_schema_version, request_class, required_domains, requested_fields,
-            completion_matrix, completion_score, dossier_outcome
+            completion_matrix, completion_score, dossier_outcome,
+            root_job_id, parent_job_id, stage_ordinal, research_stage, student_charge_key
           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18,
-                    $19::text[],$20::text[],$21::jsonb,$22,$23)
+                    $19::text[],$20::text[],$21::jsonb,$22,$23,$1,NULL,1,$24,$8)
           RETURNING ${RESEARCH_JOB_PROJECTION}
         `, [
           jobId, dedupeKey, releaseId, eligibility.scope.programSpecialtyId, eligibility.scope.acgmeId,
@@ -2036,6 +2046,7 @@ export async function createRiseResearchStore({
           DEEP_RESEARCH_DOSSIER_V2.contractVersion, DEEP_RESEARCH_DOSSIER_V2.resultSchemaVersion,
           routing.requestClass, DEEP_RESEARCH_DOMAIN_KEYS, routing.requestedFields,
           JSON.stringify(routing.completion.matrix), routing.completion.completionScore, routing.completion.outcome,
+          routing.requestClass === "FULL" ? "TERRA_FULL" : "TERRA_DELTA",
         ]);
         await reserveResearchSpend(client, { jobId, provider, estimatedCostUsd });
         await client.query(`
@@ -2281,7 +2292,8 @@ export async function createRiseResearchStore({
       return withSubject(pool, systemKey, async (client) => {
         const selected = await client.query(`
           SELECT requester_subject_key, quota_window_start, attempt_count, provider_key, model_key,
-                 task_class, estimated_cost_usd, contract_version, task_payload
+                 task_class, estimated_cost_usd, contract_version, task_payload,
+                 root_job_id, stage_ordinal
           FROM rise_runtime.research_jobs
           WHERE job_id = $1 AND lease_token = $2 AND worker_id = $3
             AND status IN ('LEASED', 'RUNNING', 'NORMALIZING', 'PROMOTING')
@@ -2313,7 +2325,8 @@ export async function createRiseResearchStore({
           dossier?.researchTimestamp ?? null, dossier?.resultSchemaVersion ?? null,
         ]);
         const job = updated.rows[0];
-        if (selected.rows[0].task_class === "PROGRAM_DEEP_RESEARCH") {
+        if (selected.rows[0].task_class === "PROGRAM_DEEP_RESEARCH"
+          && (selected.rows[0].stage_ordinal === null || Number(selected.rows[0].stage_ordinal) === 1)) {
           await client.query(`
             UPDATE rise_runtime.research_quota_ledgers
             SET reserved_count = reserved_count - 1, consumed_count = consumed_count + 1, updated_at = now()
@@ -2335,6 +2348,114 @@ export async function createRiseResearchStore({
         return researchJobRecord(job, { admin: true });
       }, { isAdmin: true });
     },
+    async scheduleFollowup({ completedJob }) {
+      if (!completedJob?.jobId || completedJob.status !== "PARTIAL") {
+        return { scheduled: false, reason: "NOT_PARTIAL" };
+      }
+      return withSubject(pool, systemKey, async (client) => {
+        const parentResult = await client.query(`
+          SELECT ${RESEARCH_JOB_PROJECTION},
+                 requester_subject_key AS "requesterSubjectKey",
+                 release_id AS "releaseId"
+          FROM rise_runtime.research_jobs
+          WHERE job_id = $1 AND task_class = 'PROGRAM_DEEP_RESEARCH'
+            AND status = 'PARTIAL'
+          FOR UPDATE
+        `, [completedJob.jobId]);
+        if (parentResult.rowCount !== 1) return { scheduled: false, reason: "PARENT_NOT_PARTIAL" };
+        const parent = parentResult.rows[0];
+        const stageOrdinal = Number(parent.stageOrdinal ?? 1);
+        if (stageOrdinal >= 3) return { scheduled: false, reason: "TERMINAL_STAGE" };
+        if (!new Set(["TERRA_FULL", "TERRA_DELTA"]).has(parent.researchStage)) {
+          return { scheduled: false, reason: parent.researchStage === "SOL_CRITICAL_RESIDUE" ? "TERMINAL_STAGE" : "LEGACY_JOB" };
+        }
+
+        const { controls, providers } = await readResearchControls(client, { lock: true });
+        if (!controls.globalEnabled || controls.emergencyKillSwitch
+          || (parent.requestSource === "STUDENT" && !controls.studentEnabled)) {
+          return { scheduled: false, reason: "ROUTER_PAUSED" };
+        }
+
+        const routing = classifyDossierRequest({
+          completionMatrix: parent.completionMatrix ?? {},
+          researchedAt: parent.researchTimestamp ?? parent.completedAt ?? null,
+        });
+        if (routing.requestClass === "NO_OP" || !routing.requestedDomains.length) {
+          return { scheduled: false, reason: "NO_RESIDUE" };
+        }
+
+        const nextStageOrdinal = stageOrdinal + 1;
+        const nextStage = parent.researchStage === "TERRA_FULL" ? "TERRA_DELTA" : "SOL_CRITICAL_RESIDUE";
+        const providerKey = nextStage === "TERRA_DELTA" ? "OPENAI_TERRA" : "OPENAI_SOL";
+        const provider = providers.find((candidate) => candidate.providerKey === providerKey);
+        if (!isPaidRoute(provider)) return { scheduled: false, reason: `${providerKey}_NOT_APPROVED` };
+
+        let requestedDomains = routing.requestedDomains;
+        if (nextStage === "SOL_CRITICAL_RESIDUE") {
+          const criticalDomains = new Set(DEEP_RESEARCH_DOSSIER_V2.domains
+            .filter((domain) => domain.critical).map((domain) => domain.key));
+          requestedDomains = routing.requestedDomains.filter((domain) => criticalDomains.has(domain));
+          if (!requestedDomains.length) return { scheduled: false, reason: "NO_CRITICAL_RESIDUE" };
+        }
+        const requestedFields = [...new Set(DEEP_RESEARCH_DOSSIER_V2.domains
+          .filter((domain) => requestedDomains.includes(domain.key))
+          .flatMap((domain) => domain.fields))];
+        if (!requestedFields.length) return { scheduled: false, reason: "NO_REQUESTED_FIELDS" };
+
+        const rootJobId = parent.rootJobId ?? parent.jobId;
+        const childJobId = randomUUID();
+        const estimatedCostUsd = providerReservationUsd(provider);
+        const taskPayload = {
+          ...(parent.taskPayload ?? {}),
+          requestClass: "DELTA",
+          requestedDomains,
+          requestedFields,
+          baselineCompletionMatrix: parent.completionMatrix ?? {},
+          parentJobId: parent.jobId,
+          rootJobId,
+          researchStage: nextStage,
+        };
+        const dedupeKey = researchDedupeKey({
+          programSpecialtyId: parent.programSpecialtyId,
+          taskClass: `PROGRAM_DEEP_RESEARCH_${nextStage}`,
+          providerKey,
+          windowKey: rootJobId,
+        });
+        const inserted = await client.query(`
+          INSERT INTO rise_runtime.research_jobs (
+            job_id, dedupe_key, release_id, program_specialty_id, acgme_id, specialty, state_code,
+            requester_subject_key, request_source, provider_key, model_key, router_revision,
+            quota_window_start, estimated_cost_usd, task_payload, contract_version,
+            result_schema_version, request_class, required_domains, requested_fields,
+            completion_matrix, completion_score, dossier_outcome,
+            root_job_id, parent_job_id, stage_ordinal, research_stage, student_charge_key
+          ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,'DELTA',
+            $18::text[],$19::text[],$20::jsonb,$21,$22,$23,$24,$25,$26,$27
+          )
+          ON CONFLICT (root_job_id, stage_ordinal) WHERE root_job_id IS NOT NULL DO NOTHING
+          RETURNING ${RESEARCH_JOB_PROJECTION}
+        `, [
+          childJobId, dedupeKey, parent.releaseId, parent.programSpecialtyId, parent.acgmeId,
+          parent.specialty, parent.state, parent.requesterSubjectKey, parent.requestSource,
+          provider.providerKey, provider.modelKey, controls.revision, parent.quotaWindowStart,
+          estimatedCostUsd, JSON.stringify(taskPayload), DEEP_RESEARCH_DOSSIER_V2.contractVersion,
+          DEEP_RESEARCH_DOSSIER_V2.resultSchemaVersion, DEEP_RESEARCH_DOMAIN_KEYS,
+          requestedFields, JSON.stringify(parent.completionMatrix ?? {}), parent.completionScore,
+          parent.dossierOutcome, rootJobId, parent.jobId, nextStageOrdinal, nextStage,
+          parent.studentChargeKey ?? parent.requesterSubjectKey,
+        ]);
+        if (inserted.rowCount !== 1) return { scheduled: false, reason: "ALREADY_SCHEDULED" };
+        await reserveResearchSpend(client, { jobId: childJobId, provider, estimatedCostUsd });
+        await client.query(`
+          INSERT INTO rise_runtime.research_control_audit_events (
+            actor_subject_key, action, target_type, target_id, after_state, reason
+          ) VALUES ($1, 'RESERVE_JOB', 'JOB', $2, $3::jsonb,
+                    'P1-RISE-5012H automatic dossier residue continuation; root quota charged once')
+        `, [systemKey, childJobId, JSON.stringify(researchJobRecord(inserted.rows[0], { admin: true }))]);
+        return { scheduled: true, job: researchJobRecord(inserted.rows[0], { admin: true }) };
+      }, { isAdmin: true });
+    },
     async failJob({
       jobId, leaseToken, workerId, errorCode = "REPLAY_ADAPTER_FAILED", errorSummary = "Research replay failed",
       actualCostUsd = 0, usage = {}, providerResponseId = null, unknownCost = false,
@@ -2342,7 +2463,7 @@ export async function createRiseResearchStore({
       return withSubject(pool, systemKey, async (client) => {
         const selected = await client.query(`
           SELECT requester_subject_key, quota_window_start, attempt_count, provider_key, model_key,
-                 task_class, estimated_cost_usd
+                 task_class, estimated_cost_usd, stage_ordinal
           FROM rise_runtime.research_jobs
           WHERE job_id = $1 AND lease_token = $2 AND worker_id = $3
             AND status IN ('LEASED', 'RUNNING', 'NORMALIZING', 'PROMOTING')
@@ -2367,7 +2488,8 @@ export async function createRiseResearchStore({
           WHERE job_id = $1 AND lease_token = $2 AND worker_id = $3
           RETURNING ${RESEARCH_JOB_PROJECTION}
         `, [jobId, leaseToken, workerId, safeCode, safeSummary, reconciledCost]);
-        if (selected.rows[0].task_class === "PROGRAM_DEEP_RESEARCH") {
+        if (selected.rows[0].task_class === "PROGRAM_DEEP_RESEARCH"
+          && (selected.rows[0].stage_ordinal === null || Number(selected.rows[0].stage_ordinal) === 1)) {
           await client.query(`
             UPDATE rise_runtime.research_quota_ledgers
             SET reserved_count = reserved_count - 1, refunded_count = refunded_count + 1, updated_at = now()

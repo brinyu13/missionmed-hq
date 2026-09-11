@@ -124,7 +124,7 @@ export async function runResearchWorkerOnce({
       researchTimestamp: result.researchTimestamp,
     };
     await stopHeartbeat();
-    return await store.completeJob({
+    const completed = await store.completeJob({
       jobId: job.jobId,
       leaseToken,
       workerId: id,
@@ -142,6 +142,11 @@ export async function runResearchWorkerOnce({
         resultSchemaVersion: result.resultSchemaVersion,
       },
     });
+    if (!benchmarkOnly && completed?.status === "PARTIAL" && typeof store.scheduleFollowup === "function") {
+      const followup = await store.scheduleFollowup({ completedJob: completed });
+      return { ...completed, autoCompletion: followup };
+    }
+    return completed;
   } catch (error) {
     try { await stopHeartbeat(); } catch (heartbeatFailure) { error = heartbeatFailure; }
     await store.failJob({

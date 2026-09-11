@@ -89,3 +89,68 @@ test("provider-neutral worker selects the routed adapter and records canonical i
   assert.deepEqual(calls, ["RUNNING", "NORMALIZING", "canonical-ingest", "PROMOTING", "complete:COMPLETED:00000000-0000-4000-8000-000000000001"]);
   assert.equal(result.status, "COMPLETED");
 });
+
+test("partial deep-research completion schedules one durable residue continuation without another worker charge", async () => {
+  const calls = [];
+  const store = {
+    async claimNextJob() {
+      return {
+        job: {
+          jobId: "job-root", providerKey: "AUTHORIZED_FIXTURE", taskClass: "PROGRAM_DEEP_RESEARCH",
+          acgmeId: "1851113100",
+        },
+        leaseToken: "lease-root",
+      };
+    },
+    async transitionJob(input) { calls.push(input.status); },
+    async completeJob(input) {
+      calls.push(`complete:${input.status}`);
+      return { jobId: input.jobId, status: input.status, researchStage: "TERRA_FULL" };
+    },
+    async scheduleFollowup({ completedJob }) {
+      calls.push(`followup:${completedJob.jobId}`);
+      return { scheduled: true, job: { jobId: "job-child", researchStage: "TERRA_DELTA" } };
+    },
+    async failJob() { calls.push("refund"); },
+  };
+  const providers = new Map([["AUTHORIZED_FIXTURE", {
+    providerKey: "AUTHORIZED_FIXTURE",
+    async execute() {
+      return {
+        canonicalPromotion: "PROMOTED", ingest: { fixture: true }, dossierOutcome: "PARTIAL",
+        completionMatrix: { identity_structure: { state: "VERIFIED" } }, completionScore: 0.8,
+        researchTimestamp: "2026-09-11T00:00:00.000Z", resultSchemaVersion: "fixture.v2",
+      };
+    },
+  }]]);
+  const canonicalStore = {
+    async ingestProviderRecord() { return { ingestRunId: "00000000-0000-4000-8000-000000000002" }; },
+  };
+  const result = await runResearchWorkerOnce({ store, providers, canonicalStore, workerId: "test-worker" });
+  assert.deepEqual(calls, ["RUNNING", "NORMALIZING", "PROMOTING", "complete:PARTIAL", "followup:job-root"]);
+  assert.equal(result.autoCompletion.scheduled, true);
+  assert.equal(result.autoCompletion.job.researchStage, "TERRA_DELTA");
+});
+
+test("completed deep research does not schedule a residue continuation", async () => {
+  let followups = 0;
+  const store = {
+    async claimNextJob() {
+      return { job: { jobId: "job-deep", providerKey: "AUTHORIZED_FIXTURE", taskClass: "PROGRAM_DEEP_RESEARCH" }, leaseToken: "lease-deep" };
+    },
+    async transitionJob() {},
+    async completeJob(input) { return { jobId: input.jobId, status: input.status }; },
+    async scheduleFollowup() { followups += 1; },
+    async failJob() {},
+  };
+  const providers = new Map([["AUTHORIZED_FIXTURE", {
+    providerKey: "AUTHORIZED_FIXTURE",
+    async execute() {
+      return { canonicalPromotion: "PROMOTED", ingest: { fixture: true }, dossierOutcome: "DEEP" };
+    },
+  }]]);
+  const canonicalStore = { async ingestProviderRecord() { return { ingestRunId: "00000000-0000-4000-8000-000000000003" }; } };
+  const result = await runResearchWorkerOnce({ store, providers, canonicalStore, workerId: "test-worker" });
+  assert.equal(result.status, "COMPLETED");
+  assert.equal(followups, 0);
+});

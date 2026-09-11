@@ -86,7 +86,9 @@ test("list-first Find Programs loads canonical identities and toggles to grid", 
 
 test("application intelligence is visible, customizable, and remains usable on mobile", async ({ page }) => {
   await openRise(page, "find");
-  await expect(page.locator(".profileIntelligenceCallout")).toContainText("match probability");
+  await expect(page.locator(".profileIntelligenceCallout")).toContainText("Matrix is unavailable");
+  await expect(page.locator(".profileIntelligenceCallout")).toContainText("without personalized conclusions");
+  await expect(page.locator(".applicationMatchReasons")).toHaveCount(0);
   await expect(page.locator(".applicationMiniGrid").first()).toContainText("Visa");
   await page.getByRole("button", { name: "Customize cards" }).click();
   await expect(page.locator("#modal")).toContainText("Choose what RISE puts first");
