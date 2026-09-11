@@ -14,7 +14,7 @@ import {
 } from "./src/research-router.mjs";
 import { assertCurrentSourceRights } from "./src/source-authorization.mjs";
 
-// P1-RISE-5012D binds this runtime to the reviewed-evidence presentation contract.
+// P1-RISE-5012D binds this runtime to reviewed-evidence build rise_web_b8abd476daab.
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const DEFAULT_WEB_DIRECTORY = path.join(here, "web");
