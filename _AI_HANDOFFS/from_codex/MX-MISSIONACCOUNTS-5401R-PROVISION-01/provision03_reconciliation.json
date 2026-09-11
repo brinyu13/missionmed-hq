@@ -1,0 +1,33 @@
+{
+  "aliases_collapsed": 10,
+  "apply_auth": 43,
+  "apply_entitlement": 53,
+  "authority": [
+    "DR-220",
+    "DR-221",
+    "FOUNDER_PROVISION03_PRACTICAL_MATCHING_STEER"
+  ],
+  "counts": {
+    "ALIAS_OF_ALREADY_MATCHED_STUDENT": 10,
+    "AUTO_MATCH_UNIQUE_CLOSE_NAME": 25,
+    "AUTO_MATCH_UNIQUE_FIRST_NAME": 16,
+    "AUTO_MATCH_UNIQUE_LAST_NAME": 1,
+    "NONHUMAN_OR_INSUFFICIENT_IDENTITY": 39,
+    "TRUE_AMBIGUITY": 11
+  },
+  "course": {
+    "id": 6357,
+    "name": "Dr J, Drills On-Call"
+  },
+  "distinct_roster_humans": 114,
+  "new_roster_humans": 42,
+  "prior_unresolved": 102,
+  "provider_actions": {
+    "CREATE_WP": 25,
+    "HOLD_WP_CONFLICT": 3,
+    "REUSE_WP": 86
+  },
+  "resolved_attendance_identities": 124,
+  "source_workbook_sha256": "634ad89acb8e4ece30b611ff57bd107163c4b2e9a3d8829068527a62d5762f32",
+  "sponsored_humans": 32
+}
