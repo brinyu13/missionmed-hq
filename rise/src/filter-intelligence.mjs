@@ -208,30 +208,45 @@ function providerDomains(fields = []) {
   return PROVIDER_DOMAIN_ENTRIES.filter(([, candidates]) => candidates.some((field) => fieldSet.has(field))).map(([name]) => name);
 }
 
-export function researchDepthDetail(program, researchCoverage) {
+function completedDossierDomains(dossier) {
+  if (!dossier || !["COMPLETED", "PARTIAL"].includes(String(dossier.status ?? "").toUpperCase())) return [];
+  const matrix = dossier.completionMatrix ?? dossier.completion_matrix;
+  if (!matrix || typeof matrix !== "object" || Array.isArray(matrix)) return [];
+  return Object.entries(matrix)
+    .filter(([, value]) => value && typeof value === "object" && value.state !== "NOT_RESEARCHED")
+    .map(([domain]) => domain)
+    .sort();
+}
+
+export function researchDepthDetail(program, researchCoverage, dossier = null) {
   const staticFacts = staticFilterFacts(program);
   const approvedProviderDomains = providerDomains(researchCoverage?.fields);
   const pendingProviderDomains = providerDomains(researchCoverage?.pendingFields);
   const approvedDomains = [...new Set([...staticFacts.approvedDomains, ...approvedProviderDomains])].sort();
   const pendingDomains = [...new Set(pendingProviderDomains.filter((domain) => !approvedDomains.includes(domain)))].sort();
+  const dossierDomains = completedDossierDomains(dossier);
+  const dossierIsDeep = String(dossier?.dossierOutcome ?? dossier?.dossier_outcome ?? "").toUpperCase() === "DEEP"
+    && dossierDomains.length === 18
+    && Number(dossier?.completionScore ?? dossier?.completion_score ?? 0) >= 0.8;
   const required = FILTER_INTELLIGENCE_CONFIG.researchDepth.deepRequiredDomains;
   let depth = "pending";
-  if (approvedProviderDomains.length > 0
+  if (dossierIsDeep) depth = "deep";
+  else if (approvedProviderDomains.length > 0
     && approvedDomains.length >= FILTER_INTELLIGENCE_CONFIG.researchDepth.deepMinimumDomainCount
     && required.every((domain) => approvedDomains.includes(domain))) depth = "deep";
   else if (approvedProviderDomains.length > 0
     && approvedDomains.length >= FILTER_INTELLIGENCE_CONFIG.researchDepth.enrichedMinimumDomainCount) depth = "enriched";
   else if (approvedDomains.length >= FILTER_INTELLIGENCE_CONFIG.researchDepth.basicMinimumDomainCount) depth = "basic";
-  const researchState = approvedProviderDomains.length
+  const researchState = dossierDomains.length || approvedProviderDomains.length
     ? "VERIFIED_RESEARCH"
     : pendingProviderDomains.length
       ? "EVIDENCE_FOUND_VERIFICATION_PENDING"
       : "NOT_YET_RESEARCHED";
-  return { depth, approvedDomains, pendingDomains, researchState };
+  return { depth, approvedDomains, pendingDomains, dossierDomains, researchState };
 }
 
-export function researchDepthFor(program, researchCoverage) {
-  return researchDepthDetail(program, researchCoverage).depth;
+export function researchDepthFor(program, researchCoverage, dossier = null) {
+  return researchDepthDetail(program, researchCoverage, dossier).depth;
 }
 
 export function expandFilterIntelligenceRecord(record, flagBits = FILTER_FLAG_BITS) {
@@ -252,6 +267,7 @@ export function expandFilterIntelligenceRecord(record, flagBits = FILTER_FLAG_BI
     researchState: record?.researchState ?? "NOT_YET_RESEARCHED",
     approvedDomainCount: Number(record?.approvedDomainCount ?? 0),
     pendingDomainCount: Number(record?.pendingDomainCount ?? 0),
+    dossierDomainCount: Number(record?.dossierDomainCount ?? 0),
     soap2026: enabled("soap2026"),
     abim: enabled("abim"),
     alumni: enabled("alumni"),
@@ -283,9 +299,11 @@ function emptyCounts() {
 export function buildFilterIntelligence(programs, {
   researchCoverage = [],
   currentFacts = [],
+  dossiers = [],
   generatedAt = new Date().toISOString(),
 } = {}) {
   const researchByAcgme = new Map(researchCoverage.map((record) => [String(record.acgmeId), record]));
+  const dossierByAcgme = new Map(dossiers.map((record) => [String(record.acgmeId), record]));
   const factsBySubject = new Map();
   for (const fact of currentFacts) {
     const keys = [fact.subjectId ?? fact.subject_id, fact.acgmeId ?? fact.acgme_id]
@@ -301,7 +319,11 @@ export function buildFilterIntelligence(programs, {
     const acgmeId = programIdentifier(program, "ACGME_PROGRAM");
     const dynamicFacts = [...(factsBySubject.get(String(program.id)) ?? []), ...(factsBySubject.get(String(acgmeId)) ?? [])];
     const dynamic = dynamicFactFlags([...new Set(dynamicFacts)]);
-    const depthDetail = researchDepthDetail(program, researchByAcgme.get(String(acgmeId)));
+    const depthDetail = researchDepthDetail(
+      program,
+      researchByAcgme.get(String(acgmeId)),
+      dossierByAcgme.get(String(acgmeId)),
+    );
     const depth = depthDetail.depth;
     const filterFacts = {
       programSpecialtyId: program.programSpecialtyId,
@@ -354,6 +376,7 @@ export function buildFilterIntelligence(programs, {
       researchState: depthDetail.researchState,
       approvedDomainCount: depthDetail.approvedDomains.length,
       pendingDomainCount: depthDetail.pendingDomains.length,
+      dossierDomainCount: depthDetail.dossierDomains.length,
     };
   });
   if (DEPTH_ORDER.reduce((sum, depth) => sum + counts[depth === "deep" ? "deepResearch" : depth === "enriched" ? "enrichedResearch" : depth === "basic" ? "basicProfile" : "researchPending"], 0) !== programs.length) {

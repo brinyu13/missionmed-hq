@@ -1,4 +1,21 @@
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const dossierContract = require("../config/deep-research-dossier-v2.json");
+
+export const DEEP_RESEARCH_DOSSIER_V2 = Object.freeze({
+  ...dossierContract,
+  terminalStates: Object.freeze([...dossierContract.terminalStates]),
+  requestClasses: Object.freeze([...dossierContract.requestClasses]),
+  domains: Object.freeze(dossierContract.domains.map((domain) => Object.freeze({
+    ...domain,
+    fields: Object.freeze([...domain.fields]),
+  }))),
+});
+export const DEEP_RESEARCH_DOMAIN_KEYS = Object.freeze(DEEP_RESEARCH_DOSSIER_V2.domains.map((domain) => domain.key));
+export const DEEP_RESEARCH_FIELD_KEYS = Object.freeze([...new Set(DEEP_RESEARCH_DOSSIER_V2.domains.flatMap((domain) => domain.fields))]);
+export const DEEP_RESEARCH_TERMINAL_STATES = Object.freeze([...DEEP_RESEARCH_DOSSIER_V2.terminalStates]);
 
 export const RESEARCH_ROUTER_CONFIG = Object.freeze({
   schemaVersion: 1,
@@ -79,7 +96,7 @@ export const RESEARCH_PROVIDER_STATES = Object.freeze([
 export const AUTHORIZED_PROVIDER_KEYS = Object.freeze(["OPENAI_TERRA", "OPENAI_SOL"]);
 export const AUTHORIZED_COMBINED_SPEND_USD = 12;
 export const RESEARCH_JOB_TERMINAL_STATES = Object.freeze([
-  "COMPLETED", "NEEDS_REVIEW", "FAILED", "CANCELLED", "REFUNDED",
+  "COMPLETED", "PARTIAL", "NEEDS_REVIEW", "FAILED", "CANCELLED", "REFUNDED",
 ]);
 
 const STATE_NAMES = new Map([
@@ -313,6 +330,110 @@ export function researchDedupeKey({ programSpecialtyId, taskClass = "PROGRAM_DEE
   return createHash("sha256")
     .update(["rise-research-dedupe-v1", programId, task, window, provider].join("\0"))
     .digest("hex");
+}
+
+function normalizedMatrix(matrix = {}) {
+  return Object.fromEntries(DEEP_RESEARCH_DOSSIER_V2.domains.map((domain) => {
+    const input = matrix?.[domain.key];
+    const state = typeof input === "string" ? input : input?.state;
+    return [domain.key, DEEP_RESEARCH_TERMINAL_STATES.includes(state) ? {
+      state,
+      summary: String(input?.summary ?? "").slice(0, 600),
+      sourceUrls: [...new Set((input?.sourceUrls ?? input?.source_urls ?? [])
+        .filter((url) => String(url).startsWith("https://")))].slice(0, 12),
+    } : null];
+  }));
+}
+
+export function mergeDossierCompletionMatrix(baseline = {}, update = {}) {
+  const left = normalizedMatrix(baseline);
+  const right = normalizedMatrix(update);
+  return Object.fromEntries(DEEP_RESEARCH_DOMAIN_KEYS.map((key) => [key, right[key] ?? left[key] ?? {
+    state: "NOT_RESEARCHED", summary: "", sourceUrls: [],
+  }]));
+}
+
+export function evaluateDossierCompletion(matrix = {}) {
+  const normalized = mergeDossierCompletionMatrix({}, matrix);
+  const scoreByState = {
+    VERIFIED: 1,
+    PARTIALLY_VERIFIED: 0.85,
+    RESEARCHED_NOT_FOUND: 1,
+    EVIDENCE_FOUND_REVIEW_PENDING: 0.25,
+    CONFLICT: 0.65,
+    UNAVAILABLE: 1,
+    NOT_APPLICABLE: 1,
+    NOT_RESEARCHED: 0,
+  };
+  const counts = Object.fromEntries([...DEEP_RESEARCH_TERMINAL_STATES, "NOT_RESEARCHED"]
+    .map((state) => [state, DEEP_RESEARCH_DOMAIN_KEYS.filter((key) => normalized[key].state === state).length]));
+  const totalWeight = DEEP_RESEARCH_DOSSIER_V2.domains.reduce((sum, domain) => sum + domain.weight, 0);
+  const completedWeight = DEEP_RESEARCH_DOSSIER_V2.domains.reduce(
+    (sum, domain) => sum + domain.weight * (scoreByState[normalized[domain.key].state] ?? 0), 0,
+  );
+  const completionScore = Math.round(completedWeight / totalWeight * 10_000) / 10_000;
+  const criticalComplete = DEEP_RESEARCH_DOSSIER_V2.domains
+    .filter((domain) => domain.critical)
+    .every((domain) => normalized[domain.key].state !== "NOT_RESEARCHED");
+  const identityResolved = new Set(["VERIFIED", "PARTIALLY_VERIFIED"])
+    .has(normalized.identity_structure.state);
+  const deep = counts.NOT_RESEARCHED === 0
+    && criticalComplete
+    && identityResolved
+    && completionScore >= DEEP_RESEARCH_DOSSIER_V2.deepCompletionThreshold;
+  return {
+    contractId: DEEP_RESEARCH_DOSSIER_V2.contractId,
+    contractVersion: DEEP_RESEARCH_DOSSIER_V2.contractVersion,
+    requiredDomainCount: DEEP_RESEARCH_DOMAIN_KEYS.length,
+    completionScore,
+    counts,
+    criticalComplete, identityResolved,
+    deep,
+    outcome: deep ? "DEEP" : "PARTIAL",
+    matrix: normalized,
+  };
+}
+
+export function classifyDossierRequest({ completionMatrix = {}, approvedFields = [], researchedAt = null, now = new Date() } = {}) {
+  const completion = evaluateDossierCompletion(completionMatrix);
+  const hasV2Attempt = Object.values(completionMatrix ?? {}).some(Boolean);
+  const ageMs = researchedAt ? now.getTime() - new Date(researchedAt).getTime() : Number.POSITIVE_INFINITY;
+  const stale = Number.isFinite(ageMs) && ageMs > DEEP_RESEARCH_DOSSIER_V2.currentForDays * 86_400_000;
+  let requestClass = "FULL";
+  if (completion.deep) requestClass = stale ? "REFRESH" : "NO_OP";
+  else if (hasV2Attempt || approvedFields.length) requestClass = "DELTA";
+  const volatile = new Set([
+    "visa", "application_requirements", "current_resident_roster", "resident_medical_schools",
+    "resident_composition", "program_leadership", "core_faculty", "board_pass_rate",
+    "in_house_fellowships", "salary_benefits",
+  ]);
+  let requestedDomains;
+  if (requestClass === "FULL") requestedDomains = [...DEEP_RESEARCH_DOMAIN_KEYS];
+  else if (requestClass === "REFRESH") requestedDomains = DEEP_RESEARCH_DOMAIN_KEYS.filter((key) => volatile.has(key));
+  else if (requestClass === "DELTA") requestedDomains = DEEP_RESEARCH_DOMAIN_KEYS.filter((key) => {
+    const state = completion.matrix[key]?.state;
+    return !["VERIFIED", "RESEARCHED_NOT_FOUND", "UNAVAILABLE", "NOT_APPLICABLE"].includes(state);
+  });
+  else requestedDomains = [];
+  if (requestClass === "DELTA" && !hasV2Attempt) {
+    const approved = new Set(approvedFields);
+    requestedDomains = DEEP_RESEARCH_DOSSIER_V2.domains
+      .filter((domain) => !domain.fields.some((field) => approved.has(field)))
+      .map((domain) => domain.key);
+  }
+  const requestedFields = [...new Set(DEEP_RESEARCH_DOSSIER_V2.domains
+    .filter((domain) => requestedDomains.includes(domain.key)).flatMap((domain) => domain.fields))];
+  return { requestClass, requestedDomains, requestedFields, completion, stale };
+}
+
+export function studentResearchStatus(status) {
+  return ({
+    QUEUED: "QUEUED", LEASED: "RESEARCHING", RUNNING: "RESEARCHING",
+    NORMALIZING: "PROCESSING_REVIEWING", PROMOTING: "PROCESSING_REVIEWING",
+    COMPLETED: "UPDATED", PARTIAL: "PARTIAL", NEEDS_REVIEW: "PROCESSING_REVIEWING",
+    FAILED: "FAILED_REQUEST_RESTORED", CANCELLED: "FAILED_REQUEST_RESTORED",
+    REFUNDED: "FAILED_REQUEST_RESTORED", PAUSED: "QUEUED",
+  })[status] ?? "QUEUED";
 }
 
 export function publicResearchControls(controls, providers = []) {

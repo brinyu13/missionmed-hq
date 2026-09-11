@@ -636,3 +636,21 @@ body[data-theme="daylight"] .intelFormGrid input,body[data-theme="daylight"] .in
 @media(max-width:700px){.centralProgramSearch{align-items:stretch;flex-wrap:wrap}.centralProgramSearch>span{display:none}.centralProgramSearch input{flex-basis:100%;font-size:15px}.centralProgramSearch .rowBtn{flex:1}.matchReasons{width:100%}}
 
 .soapContext{margin:12px 0 18px;padding:14px 16px;border:1px solid rgba(74,222,128,.28);border-radius:14px;background:rgba(74,222,128,.07);color:var(--muted);line-height:1.55}.soapContext b{color:var(--gn)}.soapSearch{display:flex;gap:10px;margin-bottom:12px}.soapSearch input{min-width:0;flex:1;border:1px solid var(--edge);border-radius:12px;background:rgba(13,19,32,.72);color:var(--tx);font:inherit;padding:11px 13px}.soapSearch input:focus-visible{outline:2px solid var(--cy);outline-offset:2px}.soapFilters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px}@media(max-width:720px){.soapSearch{align-items:stretch;flex-direction:column}.soapFilters .fSel{width:100%}}
+
+/* P1-RISE-5012F additive Deep Research Dossier V2 UX. */
+.researchCta{border-color:rgba(57,214,255,.44);color:var(--cy)}
+.researchCta.isCurrent{border-color:rgba(74,222,157,.42);color:var(--gn);opacity:1;cursor:default}
+.researchNoCharge{display:block;color:var(--dim);font:700 10px/1.35 var(--num);letter-spacing:.06em;text-transform:uppercase;text-align:center;margin-top:-4px}
+.researchPromise{display:grid;gap:8px;margin:18px 0;padding:16px;border:1px solid var(--edge);border-radius:14px;background:rgba(57,214,255,.045)}
+.researchPromise b{color:var(--cy);font:700 12px var(--num);letter-spacing:.12em;text-transform:uppercase}
+.researchPromise span{position:relative;padding-left:20px;color:var(--mid);line-height:1.45}.researchPromise span:before{content:'✓';position:absolute;left:0;color:var(--gn)}
+.requestCost{margin-top:14px;color:var(--mid);font-size:14px}.requestCost b{color:var(--tx)}
+.quotaHeading{margin-top:20px;margin-bottom:0}.researchQuestion{margin-top:18px;color:var(--tx)}
+.quotaMeter{margin:18px 0 4px}.quotaMeter>div:first-child{display:flex;justify-content:space-between;gap:16px;color:var(--dim);font:700 12px var(--num);letter-spacing:.08em;text-transform:uppercase}.quotaMeter b{color:var(--tx)}
+.quotaTrack{height:7px;margin-top:8px;overflow:hidden;border-radius:999px;background:var(--edge)}.quotaTrack i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--cy),var(--gn))}
+.researchStatusOrb{width:46px;height:46px;margin:18px 0;border:3px solid var(--edge2);border-top-color:var(--cy);border-radius:50%}.researchStatusOrb.is-active{animation:researchSpin .9s linear infinite}.researchStatusOrb.is-done{border-color:var(--gn);position:relative}.researchStatusOrb.is-done:after{content:'✓';position:absolute;inset:0;display:grid;place-items:center;color:var(--gn);font-weight:900}
+@keyframes researchSpin{to{transform:rotate(360deg)}}
+.deepCurrent{color:var(--gn)!important;border-color:rgba(74,222,157,.5)!important}
+.whyCards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-top:18px}.whyCards article p{color:var(--mid);line-height:1.55;white-space:pre-wrap}.whyCards article>span{display:block;margin-top:10px;color:var(--dim);font:700 11px var(--num);letter-spacing:.06em;text-transform:uppercase}
+.dossierMatrix{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:12px}.dossierMatrix span{display:flex;justify-content:space-between;gap:8px;border:1px solid var(--edge);border-radius:9px;padding:8px;color:var(--dim);font:700 10px var(--num);letter-spacing:.04em;text-transform:uppercase}.dossierMatrix b{color:var(--mid);font-weight:700}.dossierMatrix .matrix-verified,.dossierMatrix .matrix-researched_not_found,.dossierMatrix .matrix-unavailable,.dossierMatrix .matrix-not_applicable{border-color:rgba(74,222,157,.3);color:var(--gn)}.dossierMatrix .matrix-conflict,.dossierMatrix .matrix-evidence_found_review_pending{border-color:rgba(255,179,64,.38);color:var(--check)}
+@media(max-width:700px){.modalSheet{margin:3vh 10px 5vh;padding:28px 18px 24px}.whyCards,.dossierMatrix{grid-template-columns:1fr}.researchNoCharge{text-align:left}.quotaMeter>div:first-child{font-size:11px}}

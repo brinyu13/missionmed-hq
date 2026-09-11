@@ -3,8 +3,12 @@ import fs from "node:fs/promises";
 import test from "node:test";
 
 import {
+  DEEP_RESEARCH_DOSSIER_V2,
+  DEEP_RESEARCH_DOMAIN_KEYS,
   RESEARCH_ROUTER_CONFIG,
   evaluateResearchEligibility,
+  evaluateDossierCompletion,
+  classifyDossierRequest,
   normalizeProviderRoute,
   normalizeResearchControls,
   programDescriptor,
@@ -45,6 +49,35 @@ test("checked-in router contract matches the embedded production contract", asyn
   assert.equal(file.defaults.emergencyKillSwitch, true);
   assert.equal(file.defaults.budgetCapUsd, 12);
   assert.equal(file.defaults.defaultQuota, 30);
+});
+
+test("Deep Research Dossier V2 is a deterministic 18-domain terminal contract", () => {
+  assert.equal(DEEP_RESEARCH_DOSSIER_V2.contractId, "MISSIONMED_DEEP_RESEARCH_DOSSIER_V2");
+  assert.equal(DEEP_RESEARCH_DOMAIN_KEYS.length, 18);
+  const matrix = Object.fromEntries(DEEP_RESEARCH_DOMAIN_KEYS.map((key) => [key, {
+    state: "RESEARCHED_NOT_FOUND", summary: "Meaningful search completed.", sourceUrls: [],
+  }]));
+  matrix.identity_structure.state = "VERIFIED";
+  matrix.visa.state = "VERIFIED";
+  matrix.application_requirements.state = "VERIFIED";
+  const completion = evaluateDossierCompletion(matrix);
+  assert.equal(completion.counts.NOT_RESEARCHED, 0);
+  assert.equal(completion.deep, true);
+  assert.equal(completion.outcome, "DEEP");
+  assert.equal(classifyDossierRequest({ completionMatrix: matrix, researchedAt: new Date().toISOString() }).requestClass, "NO_OP");
+});
+
+test("dossier routing distinguishes FULL, DELTA, REFRESH and leaves no arbitrary claim-count shortcut", () => {
+  assert.equal(classifyDossierRequest().requestClass, "FULL");
+  const partial = { visa: { state: "VERIFIED", summary: "J-1", sourceUrls: ["https://example.edu"] } };
+  const delta = classifyDossierRequest({ completionMatrix: partial });
+  assert.equal(delta.requestClass, "DELTA");
+  assert.ok(delta.requestedDomains.includes("application_requirements"));
+  assert.ok(!delta.requestedDomains.includes("visa"));
+  const complete = Object.fromEntries(DEEP_RESEARCH_DOMAIN_KEYS.map((key) => [key, { state: "RESEARCHED_NOT_FOUND" }]));
+  complete.identity_structure.state = "VERIFIED";
+  complete.visa.state = "VERIFIED";
+  assert.equal(classifyDossierRequest({ completionMatrix: complete, researchedAt: "2025-01-01T00:00:00.000Z" }).requestClass, "REFRESH");
 });
 
 test("default production research controls fail closed", () => {

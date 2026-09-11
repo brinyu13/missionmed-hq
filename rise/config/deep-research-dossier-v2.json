@@ -1,0 +1,37 @@
+{
+  "contractId": "MISSIONMED_DEEP_RESEARCH_DOSSIER_V2",
+  "contractVersion": "2.0.0",
+  "resultSchemaVersion": "missionmed.rise.deep-research-dossier.v2",
+  "currentForDays": 120,
+  "deepCompletionThreshold": 0.8,
+  "terminalStates": [
+    "VERIFIED",
+    "PARTIALLY_VERIFIED",
+    "RESEARCHED_NOT_FOUND",
+    "EVIDENCE_FOUND_REVIEW_PENDING",
+    "CONFLICT",
+    "UNAVAILABLE",
+    "NOT_APPLICABLE"
+  ],
+  "requestClasses": ["FULL", "DELTA", "REFRESH", "NO_OP"],
+  "domains": [
+    { "key": "identity_structure", "label": "Identity / structure", "weight": 8, "critical": true, "fields": ["research.program_overview"] },
+    { "key": "visa", "label": "Visa", "weight": 8, "critical": true, "fields": ["research.visa"] },
+    { "key": "application_requirements", "label": "Application requirements", "weight": 12, "critical": true, "fields": ["research.application_requirements"] },
+    { "key": "current_resident_roster", "label": "Current resident roster", "weight": 9, "critical": false, "fields": ["research.resident_roster"] },
+    { "key": "resident_medical_schools", "label": "Resident medical schools", "weight": 6, "critical": false, "fields": ["research.resident_medical_schools"] },
+    { "key": "resident_composition", "label": "IMG / DO / US MD / Caribbean evidence", "weight": 8, "critical": true, "fields": ["research.img_accessibility", "research.do_accessibility", "research.usmd_accessibility", "research.caribbean_accessibility"] },
+    { "key": "program_leadership", "label": "Program leadership", "weight": 7, "critical": false, "fields": ["research.leadership"] },
+    { "key": "core_faculty", "label": "Core faculty", "weight": 5, "critical": false, "fields": ["research.core_faculty"] },
+    { "key": "trained_here_retention", "label": "Trained here / retention", "weight": 4, "critical": false, "fields": ["research.faculty_training_graph"] },
+    { "key": "board_pass_rate", "label": "Board pass rate", "weight": 4, "critical": false, "fields": ["research.abim"] },
+    { "key": "in_house_fellowships", "label": "In-house fellowships", "weight": 5, "critical": false, "fields": ["research.fellowship_inventory"] },
+    { "key": "graduate_outcomes", "label": "Graduate fellowship / career outcomes", "weight": 5, "critical": false, "fields": ["research.outcomes"] },
+    { "key": "salary_benefits", "label": "Salary / benefits", "weight": 4, "critical": false, "fields": ["research.salary_benefits"] },
+    { "key": "curriculum_training", "label": "Curriculum / training details", "weight": 6, "critical": false, "fields": ["research.curriculum"] },
+    { "key": "research_scholarly", "label": "Research / scholarly opportunities", "weight": 4, "critical": false, "fields": ["research.research_opportunities"] },
+    { "key": "program_differentiators", "label": "Why This Program", "weight": 7, "critical": false, "fields": ["research.program_differentiators"] },
+    { "key": "culture_resident_experience", "label": "Culture / resident experience", "weight": 3, "critical": false, "fields": ["research.culture"] },
+    { "key": "facilities_patient_population", "label": "Facilities / patient population / community", "weight": 5, "critical": false, "fields": ["research.facilities_patient_population"] }
+  ]
+}

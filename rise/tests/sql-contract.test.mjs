@@ -21,6 +21,8 @@ const canonicalEvidenceUpPath = path.resolve(here, "../sql/007_canonical_evidenc
 const canonicalEvidenceDownPath = path.resolve(here, "../sql/007_canonical_evidence_bridge.down.sql");
 const providerProvenanceUpPath = path.resolve(here, "../sql/009_research_provider_provenance.sql");
 const providerProvenanceDownPath = path.resolve(here, "../sql/009_research_provider_provenance.down.sql");
+const dossierV2UpPath = path.resolve(here, "../sql/012_deep_research_dossier_v2.sql");
+const dossierV2DownPath = path.resolve(here, "../sql/012_deep_research_dossier_v2.down.sql");
 const studentIntelVerificationPolicyPath = path.resolve(here, "../config/student-intel-verification.v1.json");
 
 async function readUp() {
@@ -213,6 +215,25 @@ test("proposed rollback refuses destructive schema deletion", async () => {
   assert.match(sql, /reactivate a verified release instead/);
   assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
   assert.doesNotMatch(sql, /public\./i);
+});
+
+test("Deep Research Dossier V2 migration is additive, terminal, forced-RLS, and reversible in rehearsal", async () => {
+  const up = await fs.readFile(dossierV2UpPath, "utf8");
+  const down = await fs.readFile(dossierV2DownPath, "utf8");
+  assert.match(up, /^BEGIN;/m);
+  assert.match(up, /^COMMIT;/m);
+  for (const column of ["contract_version", "result_schema_version", "request_class", "required_domains", "requested_fields", "completion_matrix", "completion_score", "dossier_outcome", "research_timestamp"]) {
+    assert.match(up, new RegExp(`ADD COLUMN ${column}`));
+  }
+  assert.match(up, /cardinality\(required_domains\) = 18/);
+  assert.match(up, /NOT jsonb_path_exists\(completion_matrix/);
+  assert.match(up, /'COMPLETED', 'PARTIAL', 'NEEDS_REVIEW'/);
+  assert.match(up, /ALTER TABLE rise_runtime\.research_jobs FORCE ROW LEVEL SECURITY/);
+  assert.match(up, /ALTER TABLE rise_runtime\.research_job_attempts FORCE ROW LEVEL SECURITY/);
+  assert.doesNotMatch(up, /DROP (?:TABLE|SCHEMA)/i);
+  assert.match(down, /DROP COLUMN IF EXISTS contract_version/);
+  assert.match(down, /^BEGIN;/m);
+  assert.match(down, /^COMMIT;/m);
 });
 
 test("private application schema models consent, sessions, comparisons, handoffs, and operator work", async () => {

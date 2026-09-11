@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildFilterIntelligence } from "./src/filter-intelligence.mjs";
 import {
+  DEEP_RESEARCH_DOSSIER_V2,
   RESEARCH_ROUTER_CONFIG,
   evaluateResearchEligibility,
   normalizeProviderRoute,
@@ -360,7 +361,21 @@ export function createMemoryResearchStore() {
     { ...provider, budgetCapUsd: 0, actualSpendUsd: 0, concurrencyCap: 1, revision: 1 },
   ]));
   const jobs = [];
+  const quotaBySubject = new Map();
   let jobSequence = 0;
+  const publicJob = (job) => ({
+    programSpecialtyId: job.programSpecialtyId, acgmeId: job.acgmeId,
+    specialty: job.specialty, state: job.state, status: job.status,
+    studentStatus: job.status === "COMPLETED" ? "UPDATED" : job.status,
+    requestClass: job.requestClass, contractVersion: job.contractVersion,
+    dossierOutcome: job.dossierOutcome ?? null, completionScore: job.completionScore ?? null,
+    researchTimestamp: job.researchTimestamp ?? null, completedAt: job.completedAt,
+    submittedAt: job.createdAt, lastStatusUpdate: job.updatedAt,
+  });
+  const quota = (subject) => {
+    const used = quotaBySubject.get(subject) ?? 0;
+    return { quotaLimit: controls.defaultQuota, reservedCount: used, consumedCount: 0, refundedCount: 0, used, remaining: Math.max(0, controls.defaultQuota - used) };
+  };
   return {
     scope: "process_local_test_only",
     async health() {
@@ -370,7 +385,7 @@ export function createMemoryResearchStore() {
         studentEnabled: controls.studentEnabled,
         emergencyKillSwitch: controls.emergencyKillSwitch,
         total: jobs.length,
-        active: jobs.filter((job) => !new Set(["COMPLETED", "NEEDS_REVIEW", "FAILED", "CANCELLED", "REFUNDED"]).has(job.status)).length,
+        active: jobs.filter((job) => !new Set(["COMPLETED", "PARTIAL", "NEEDS_REVIEW", "FAILED", "CANCELLED", "REFUNDED"]).has(job.status)).length,
         storage: "process_local_test_only",
       };
     },
@@ -424,10 +439,16 @@ export function createMemoryResearchStore() {
       eligibility.eligible = eligibility.reasons.length === 0;
       return {
         ...eligibility,
-        controls: publicResearchControls(controls, [...providers.values()]),
-        provider: provider ? { providerKey: provider.providerKey, state: provider.state, enabled: provider.enabled } : null,
+        requestClass: jobs.some((job) => job.programSpecialtyId === program.programSpecialtyId && job.status === "QUEUED") ? "ACTIVE" : "FULL",
+        requestedDomains: DEEP_RESEARCH_DOSSIER_V2.domains.map((domain) => domain.key),
+        requestedFields: DEEP_RESEARCH_DOSSIER_V2.domains.flatMap((domain) => domain.fields),
+        dossier: { completionScore: 0, dossierOutcome: "PARTIAL", researchTimestamp: null },
+        activeJob: null,
+        quota: quota(subject),
+        chargeRequired: true,
       };
     },
+    async readQuota({ subject }) { return quota(subject); },
     async reserveJob({ subject, session, releaseId, program, source = "STUDENT" }) {
       const eligibility = await this.eligibility({ subject, session, program, source });
       if (!eligibility.eligible) {
@@ -436,7 +457,7 @@ export function createMemoryResearchStore() {
         });
       }
       const existing = jobs.find((job) => job.programSpecialtyId === program.programSpecialtyId && !new Set(["FAILED", "CANCELLED", "REFUNDED"]).has(job.status));
-      if (existing) return { job: { ...existing }, deduplicated: true, quotaReserved: false };
+      if (existing) return { job: publicJob(existing), deduplicated: true, quotaReserved: false, requestClass: "ACTIVE", quota: quota(subject) };
       const provider = providers.get(controls.primaryProvider);
       const now = new Date().toISOString();
       const job = {
@@ -448,6 +469,8 @@ export function createMemoryResearchStore() {
         state: eligibility.scope.state,
         requestSource: eligibility.source,
         taskClass: "PROGRAM_DEEP_RESEARCH",
+        requestClass: "FULL",
+        contractVersion: DEEP_RESEARCH_DOSSIER_V2.contractVersion,
         status: "QUEUED",
         providerKey: provider.providerKey,
         modelKey: provider.modelKey,
@@ -464,10 +487,12 @@ export function createMemoryResearchStore() {
         subject,
       };
       jobs.push(job);
-      return { job: { ...job, subject: undefined }, deduplicated: false, quotaReserved: true };
+      quotaBySubject.set(subject, (quotaBySubject.get(subject) ?? 0) + 1);
+      return { job: publicJob(job), deduplicated: false, quotaReserved: true, requestClass: "FULL", quota: quota(subject) };
     },
     async listJobs({ subject, isAdmin = false, limit = 100 }) {
-      return jobs.filter((job) => isAdmin || job.subject === subject).slice(0, limit).map((job) => ({ ...job, subject: undefined }));
+      return jobs.filter((job) => isAdmin || job.subject === subject).slice(0, limit)
+        .map((job) => isAdmin ? { ...job, subject: undefined } : publicJob(job));
     },
     async claimNextJob() { return null; },
     async transitionJob() { return null; },
@@ -525,7 +550,7 @@ function resolveEvidenceReviewStore(store, { production }) {
 function resolveResearchStore(store, { production }) {
   const candidate = store ?? createMemoryResearchStore();
   const required = [
-    "health", "readControls", "updateControls", "updateProvider", "eligibility", "reserveJob", "listJobs",
+    "health", "readControls", "updateControls", "updateProvider", "eligibility", "readQuota", "reserveJob", "listJobs",
     "claimNextJob", "transitionJob", "heartbeatJob", "completeJob", "failJob",
   ];
   if (
@@ -1696,13 +1721,27 @@ export function createRiseServer({
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/research/control") {
         const result = await research.readControls();
+        const operator = hasCapability(session, "rise:operator");
+        const studentControls = {
+          buildMode: result.controls.buildMode,
+          globalEnabled: result.controls.globalEnabled,
+          studentEnabled: result.controls.studentEnabled,
+          emergencyKillSwitch: result.controls.emergencyKillSwitch,
+          canaryMode: result.controls.canaryMode,
+          canaryProgramIds: result.controls.canaryProgramIds,
+          canaryProgramCount: result.controls.canaryProgramCount,
+          defaultQuota: result.controls.defaultQuota,
+          quotaWindowDays: result.controls.quotaWindowDays,
+        };
         status = 200;
         sendJson(response, 200, {
           buildMode: RESEARCH_ROUTER_CONFIG.buildMode,
-          controls: result.controls,
-          realProviderCanary: result.providers.some((provider) => provider.state === "PRODUCTION_APPROVED")
-            ? "PRODUCTION_APPROVED_ROUTE_AVAILABLE" : "PENDING_BENCHMARK_QUALITY_GATE",
-          unapprovedProviderSpendUsd: 0,
+          controls: operator ? result.controls : studentControls,
+          ...(operator ? {
+            realProviderCanary: result.providers.some((provider) => provider.state === "PRODUCTION_APPROVED")
+              ? "PRODUCTION_APPROVED_ROUTE_AVAILABLE" : "PENDING_BENCHMARK_QUALITY_GATE",
+            unapprovedProviderSpendUsd: 0,
+          } : {}),
         }, { cache: "no-store", requestId });
         return;
       }

@@ -11,7 +11,7 @@ const SOCIAL_HOSTS = /(^|\.)(facebook\.com|instagram\.com|linkedin\.com|tiktok\.
 const SECONDARY_HOSTS = /(^|\.)(doximity\.com|imgprep\.com|matcharesident\.com|residencyadvisor\.com|residencymatch\.ai|residencyprograms\.io)$/i;
 const REFERENCE_HOSTS = /(^|\.)(abim\.org|freida\.ama-assn\.org|programdirectory\.nrmp\.org)$/i;
 const NOT_RESEARCHED = /\b(?:not[_ ]re-?researched|not[_ ]researched|outside (?:the )?(?:specified )?scope|already.complete.not.researched|not a missing.field target)\b/i;
-const NOT_FOUND = /\b(?:unknown_after_recovery_search|not[_ ]found|not[_ ]available|not[_ ]reported|not[_ ]published|no published|unable to (?:locate|verify)|no exact program|verified absent)\b/i;
+const NOT_FOUND = /\b(?:researched[_ ]not[_ ]found|unavailable|not[_ ]applicable|unknown_after_recovery_search|not[_ ]found|not[_ ]available|not[_ ]reported|not[_ ]published|no published|unable to (?:locate|verify)|no exact program|verified absent)\b/i;
 const CONFLICT = /\b(?:conflicting|conflict_requires_review|unresolved conflict|conflict note|vs\.?\s+(?:official|freida|program))\b/i;
 const HISTORICAL = /\b(?:former|previous|historical|class of 20(?:1\d|2[0-4])|20(?:1\d|2[0-4]) roster)\b/i;
 
@@ -110,6 +110,12 @@ function normalizeLeadership(value) {
   }));
 }
 
+function normalizeGenericRows(value) {
+  return rows(value).filter((row) => row && typeof row === "object")
+    .map((row) => Object.fromEntries(Object.entries(row).map(([key, item]) => [key, typeof item === "string" ? cleanString(item) : item])))
+    .filter((row) => Object.values(row).some((item) => item !== null && item !== undefined && item !== ""));
+}
+
 function normalizeFellowships(value) {
   return rows(value).map((row) => typeof row === "string" ? { name: cleanString(row) } : {
     name: cleanString(row?.name ?? row?.program ?? row?.fellowship),
@@ -122,6 +128,10 @@ function normalizedValue(field, value) {
   if (field === "research.resident_roster") return normalizeRoster(value);
   if (field === "research.leadership") return normalizeLeadership(value);
   if (field === "research.fellowship_inventory") return normalizeFellowships(value);
+  if ([
+    "research.resident_medical_schools", "research.core_faculty", "research.faculty_training_graph",
+    "research.program_differentiators",
+  ].includes(field)) return normalizeGenericRows(value);
   return value;
 }
 
@@ -129,6 +139,10 @@ function isValid(field, value) {
   if (field === "research.resident_roster") return normalizeRoster(value).length > 0;
   if (field === "research.leadership") return normalizeLeadership(value).some((row) => row.role);
   if (field === "research.fellowship_inventory") return normalizeFellowships(value).length > 0;
+  if ([
+    "research.resident_medical_schools", "research.core_faculty", "research.faculty_training_graph",
+    "research.program_differentiators",
+  ].includes(field)) return normalizeGenericRows(value).length > 0;
   if (field === "research.abim") {
     const rate = scalar(value, ["pass_rate", "passRate", "rate", "percent_passing", "pass_rate_value"]);
     const match = String(rate ?? "").match(/(?:^|\D)(100|\d{1,2})(?:\.\d+)?\s*%/);
@@ -173,7 +187,11 @@ function preliminaryDecision({ claim, acgmeId, identityResolved = true, allowedC
 }
 
 function mergeValues(field, decisions) {
-  if (["research.resident_roster", "research.leadership", "research.fellowship_inventory"].includes(field)) {
+  if ([
+    "research.resident_roster", "research.resident_medical_schools", "research.leadership",
+    "research.core_faculty", "research.faculty_training_graph", "research.fellowship_inventory",
+    "research.program_differentiators",
+  ].includes(field)) {
     const unique = new Map();
     for (const decision of decisions) for (const row of decision.normalizedValue) unique.set(digest(row), row);
     return [...unique.values()].sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right)));
@@ -198,7 +216,11 @@ export function reviewResearchCorpus(ingests, { resolvedAcgmeIds = null, allowed
   for (const group of grouped.values()) {
     const approved = group.filter((decision) => decision.disposition === "APPROVED_CURRENT")
       .sort((left, right) => right.qualityScore - left.qualityScore || left.claimId.localeCompare(right.claimId));
-    const mergeable = ["research.resident_roster", "research.leadership", "research.fellowship_inventory"].includes(group[0].field);
+    const mergeable = [
+      "research.resident_roster", "research.resident_medical_schools", "research.leadership",
+      "research.core_faculty", "research.faculty_training_graph", "research.fellowship_inventory",
+      "research.program_differentiators",
+    ].includes(group[0].field);
     for (const decision of group) {
       if (decision.disposition !== "APPROVED_CURRENT" || mergeable || decision === approved[0]) final.push(decision);
       else final.push({ ...decision, disposition: "SUPERSEDED", reason: `stronger_current_claim:${approved[0].claimId}` });

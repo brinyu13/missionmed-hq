@@ -78,7 +78,11 @@ test("provider-neutral worker selects the routed adapter and records canonical i
   };
   const providers = new Map([["AUTHORIZED_FIXTURE", {
     providerKey: "AUTHORIZED_FIXTURE",
-    async execute() { return { canonicalPromotion: "PROMOTED", ingest: { fixture: true } }; },
+    async execute() { return {
+      canonicalPromotion: "PROMOTED", ingest: { fixture: true }, dossierOutcome: "DEEP",
+      completionMatrix: { fixture: { state: "VERIFIED" } }, completionScore: 1,
+      researchTimestamp: "2026-09-11T00:00:00.000Z", resultSchemaVersion: "fixture.v2",
+    }; },
   }]]);
   const canonicalStore = { async ingestProviderRecord() { calls.push("canonical-ingest"); return { ingestRunId: "00000000-0000-4000-8000-000000000001" }; } };
   const result = await runResearchWorkerOnce({ store, providers, canonicalStore, workerId: "test-worker" });

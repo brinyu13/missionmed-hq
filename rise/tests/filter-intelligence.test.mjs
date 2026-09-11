@@ -76,6 +76,21 @@ test("research depth is deterministic and provider neutral", () => {
   assert.equal(researchDepthFor(program("4", { "Program Website": known("https://example.test") }), null), "pending");
 });
 
+test("a completed Dossier V2 automatically promotes research depth without a frontend list", () => {
+  const matrix = Object.fromEntries([
+    "identity", "application_basics", "visa", "exams", "yog", "usce", "ecfmg",
+    "deadline", "signaling", "resident_roster", "resident_schools", "leadership",
+    "salary_benefits", "structure", "curriculum", "fellowships", "outcomes", "culture",
+  ].map((domain) => [domain, { state: "RESEARCHED_NOT_FOUND" }]));
+  matrix.identity = { state: "VERIFIED" };
+  assert.equal(researchDepthFor(program("31", {}), null, {
+    status: "COMPLETED",
+    completionMatrix: matrix,
+    completionScore: 1,
+    dossierOutcome: "DEEP",
+  }), "deep");
+});
+
 test("approved structured current facts become filterable without frontend program lists", () => {
   const programs = [
     program("1", { ...strongCore, J1: known(true) }, { soap: true }),
@@ -158,6 +173,9 @@ test("Postgres projection reads only domain coverage and approved current facts,
       if (String(sql).includes("canonical_current_facts")) {
         return { rows: [{ subjectId: "program-1", field: "research.visa", knowledge: { state: "known" }, canonicalValue: { j1: "YES" } }] };
       }
+      if (String(sql).includes("FROM rise_runtime.research_jobs")) {
+        return { rows: [{ acgmeId: "0000000001", status: "COMPLETED", completionMatrix: {}, completionScore: "1", dossierOutcome: "DEEP" }] };
+      }
       return { rows: [] };
     },
     release() {},
@@ -186,6 +204,7 @@ test("Postgres projection reads only domain coverage and approved current facts,
   assert.match(factsQuery, /WITH promoted_source_urls AS/);
   assert.doesNotMatch(factsQuery, /WHERE l\.promoted_claim_id = f\.claim_id/);
   assert.equal(first.currentFacts[0].field, "research.visa");
+  assert.equal(first.dossiers[0].completionScore, 1);
 });
 
 test("review-gated claims report pending evidence without inflating research depth", () => {

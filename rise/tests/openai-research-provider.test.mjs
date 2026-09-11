@@ -20,6 +20,9 @@ function fixtureResponse(acgmeId = "1854831078") {
       value_json: JSON.stringify({ j1: true, h1b: false }),
       source_urls: ["https://example.edu/residency/visa", "https://uncited.example/claim"],
     }],
+    completion_matrix: {
+      visa: { state: "VERIFIED", summary: "Official J-1 sponsorship evidence found.", source_urls: ["https://example.edu/residency/visa"] },
+    },
     research_summary: "One official source-backed finding.",
   });
   return {
@@ -71,11 +74,11 @@ test("Terra adapter emits review-gated canonical claims and keeps only cited URL
       jobId: "job-5012e", taskClass: "PROVIDER_BENCHMARK",
       programSpecialtyId: "rise_ps_e1ada2b6-9c76-59c0-89c9-62edf4960026",
       acgmeId: "1854831078", specialty: "Child Neurology", state: "TX",
-      taskPayload: { programName: "Fixture", institution: "Fixture", officialUrls: [] },
+      taskPayload: { programName: "Fixture", institution: "Fixture", officialUrls: [], requestedDomains: ["visa"], requestedFields: ["research.visa"] },
     },
   });
   assert.equal(result.providerKey, "OPENAI_TERRA");
-  assert.equal(requestBody.max_output_tokens, 8000);
+  assert.equal(requestBody.max_output_tokens, 16000);
   assert.equal(result.findingCount, 1);
   assert.equal(result.ingest.provider, "OPENAI");
   assert.equal(result.ingest.claims[0].publicationState, "REVIEW_REQUIRED");
@@ -103,7 +106,7 @@ test("provider identity mismatch fails closed before canonical ingestion", async
     fetchImpl: async () => new Response(JSON.stringify(fixtureResponse("1851113100")), { status: 200 }),
   });
   await assert.rejects(provider.execute({
-    job: { jobId: "job", taskClass: "PROGRAM_DEEP_RESEARCH", programSpecialtyId: "ps", acgmeId: "1854831078", specialty: "Child Neurology", state: "TX" },
+    job: { jobId: "job", taskClass: "PROGRAM_DEEP_RESEARCH", programSpecialtyId: "ps", acgmeId: "1854831078", specialty: "Child Neurology", state: "TX", taskPayload: { requestedDomains: ["visa"], requestedFields: ["research.visa"] } },
   }), /identity mismatch/);
 });
 
@@ -118,7 +121,7 @@ test("web-search action sources remain dossier evidence when structured JSON omi
       jobId: "job-dossier", taskClass: "PROVIDER_BENCHMARK",
       programSpecialtyId: "rise_ps_e1ada2b6-9c76-59c0-89c9-62edf4960026",
       acgmeId: "1854831078", specialty: "Child Neurology", state: "TX",
-      taskPayload: { programName: "Fixture", institution: "Fixture", officialUrls: [] },
+      taskPayload: { programName: "Fixture", institution: "Fixture", officialUrls: [], requestedDomains: ["visa"], requestedFields: ["research.visa"] },
     },
   });
   assert.deepEqual(result.ingest.claims[0].directSourceUrls, []);

@@ -2,17 +2,21 @@ import { createHash } from "node:crypto";
 
 import { createCanonicalEvidenceClaim } from "../src/evidence.mjs";
 import { canonicalProgramSpecialtyIdentity } from "../src/identity.mjs";
+import {
+  DEEP_RESEARCH_DOSSIER_V2,
+  DEEP_RESEARCH_DOMAIN_KEYS,
+  DEEP_RESEARCH_FIELD_KEYS,
+  evaluateDossierCompletion,
+  mergeDossierCompletionMatrix,
+} from "../src/research-router.mjs";
 
 const API_URL = "https://api.openai.com/v1/responses";
 const PROVIDERS = Object.freeze({
   OPENAI_TERRA: Object.freeze({ modelKey: "gpt-5.6-terra", inputPerMillion: 2, cachedPerMillion: 0.2, outputPerMillion: 12 }),
   OPENAI_SOL: Object.freeze({ modelKey: "gpt-5.6-sol", inputPerMillion: 4, cachedPerMillion: 0.4, outputPerMillion: 20 }),
 });
-const FIELDS = Object.freeze([
-  "program_overview", "visa", "application_requirements", "resident_roster", "leadership",
-  "salary_benefits", "curriculum", "fellowship_inventory", "outcomes",
-  "img_accessibility", "do_accessibility", "caribbean_accessibility", "usmd_accessibility",
-]);
+const FIELDS = Object.freeze(DEEP_RESEARCH_FIELD_KEYS.map((field) => field.replace(/^research\./, "")));
+const DOMAIN_BY_KEY = new Map(DEEP_RESEARCH_DOSSIER_V2.domains.map((domain) => [domain.key, domain]));
 
 function sha256(value) {
   return createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
@@ -60,11 +64,33 @@ export function calculateOpenAiResearchCost({ providerKey, usage = {}, webSearch
   return Math.ceil((tokenCost + Math.max(0, Number(webSearchCalls) || 0) * 0.01) * 10_000) / 10_000;
 }
 
-function researchSchema() {
+function requestedContract(job) {
+  const payload = job.taskPayload ?? {};
+  const requestedDomains = [...new Set(payload.requestedDomains ?? DEEP_RESEARCH_DOMAIN_KEYS)]
+    .filter((domain) => DEEP_RESEARCH_DOMAIN_KEYS.includes(domain));
+  const requestedFields = [...new Set(payload.requestedFields ?? DEEP_RESEARCH_FIELD_KEYS)]
+    .filter((field) => DEEP_RESEARCH_FIELD_KEYS.includes(field));
+  if (!requestedDomains.length || !requestedFields.length) {
+    throw Object.assign(new Error("Deep research request contains no valid work"), { code: "DOSSIER_REQUEST_EMPTY" });
+  }
+  return { requestedDomains, requestedFields };
+}
+
+function researchSchema(job) {
+  const { requestedDomains, requestedFields } = requestedContract(job);
+  const completionProperties = Object.fromEntries(requestedDomains.map((domain) => [domain, {
+    type: "object", additionalProperties: false,
+    required: ["state", "summary", "source_urls"],
+    properties: {
+      state: { type: "string", enum: [...DEEP_RESEARCH_DOSSIER_V2.terminalStates] },
+      summary: { type: "string", maxLength: 600 },
+      source_urls: { type: "array", maxItems: 12, items: { type: "string" } },
+    },
+  }]));
   return {
     type: "object",
     additionalProperties: false,
-    required: ["program_identity", "findings", "research_summary"],
+    required: ["program_identity", "completion_matrix", "findings", "research_summary"],
     properties: {
       program_identity: {
         type: "object", additionalProperties: false,
@@ -74,13 +100,18 @@ function researchSchema() {
           specialty: { type: "string" }, state: { type: "string" },
         },
       },
+      completion_matrix: {
+        type: "object", additionalProperties: false,
+        required: requestedDomains,
+        properties: completionProperties,
+      },
       findings: {
-        type: "array", maxItems: FIELDS.length,
+        type: "array", maxItems: Math.max(1, requestedFields.length + 8),
         items: {
           type: "object", additionalProperties: false,
           required: ["field", "status", "summary", "value_json", "source_urls"],
           properties: {
-            field: { type: "string", enum: [...FIELDS] },
+            field: { type: "string", enum: requestedFields.map((field) => field.replace(/^research\./, "")) },
             status: { type: "string", enum: ["FOUND", "NOT_FOUND", "CONFLICT"] },
             summary: { type: "string", maxLength: 600 },
             value_json: { type: "string", maxLength: 4000 },
@@ -95,14 +126,22 @@ function researchSchema() {
 
 function buildPrompt(job) {
   const payload = job.taskPayload ?? {};
+  const { requestedDomains, requestedFields } = requestedContract(job);
   const officialUrls = Array.isArray(payload.officialUrls) ? payload.officialUrls.filter((url) => String(url).startsWith("https://")).slice(0, 8) : [];
   return [
-    "Research one US residency program for MissionMed RISE.",
+    `Execute ${DEEP_RESEARCH_DOSSIER_V2.contractId} for one US residency program.`,
+    `Request class: ${payload.requestClass ?? "FULL"}. Attempt every requested domain systematically; do not stop after an arbitrary number of findings.`,
     "Use current official institutional/program sources first. Web search is enabled only to locate and verify those sources.",
-    "Never infer visa sponsorship, IMG/DO/Caribbean evidence, requirements, or outcomes from vague language.",
-    "For each supported domain, return FOUND with a compact JSON value and direct source URLs. Return NOT_FOUND only after a real search. Use CONFLICT for unresolved disagreement.",
-    "For resident_roster, leadership, and fellowship_inventory, value_json must be a JSON array of compact objects. Roster objects use name, degree, medical_school, pgy, classification, and source_url; leadership uses name, role, credentials, and source_url; fellowships use name, classification, and source_url. Omit unsupported keys rather than inventing values.",
-    "Keep each finding concise: summary under 300 characters and value_json under 1500 characters.",
+    "Never infer visa sponsorship, IMG/DO/Caribbean/USMD composition, requirements, trained-here relationships, board performance, or outcomes from vague language.",
+    "Resolve every requested completion_matrix domain to exactly one terminal state. RESEARCHED_NOT_FOUND means a meaningful search was performed and no supportable public answer was found. UNAVAILABLE means the source could not be reached or assessed. Do not use NOT_RESEARCHED.",
+    "For each supportable fact, return FOUND with compact JSON and direct source URLs. Return NOT_FOUND only after a real search. Use CONFLICT for unresolved disagreement.",
+    "application_requirements must separately address Step 2, COMLEX, attempts, YOG, USCE, ECFMG, deadline, signaling, citizenship/visa and graduation restrictions without inventing cutoffs.",
+    "resident_roster must use public professional roster data only and include name, degree, medical_school, medical_school_raw, pgy, track, roster_year and source_url where published. resident_medical_schools should preserve resident association and conservative school normalization. Accessibility fields are observational roster evidence, never admissions-policy claims.",
+    "leadership and core_faculty should include names, roles and public professional training/interests where published. faculty_training_graph uses explicit YES/NO/UNKNOWN flags for residency_at_current_program and fellowship_at_current_institution; do not infer from dates alone.",
+    "program_differentiators must be a JSON array of 5-12 source-backed, program-specific objects when available: title, detail, applicant_relevance, category, source_url, retrieved_at. Reject generic filler.",
+    "Board and graduate outcomes must retain year/cohort and distinguish complete lists from selected examples. Salary should prefer current institutional GME sources. Curriculum, research, culture and facilities must be concrete and program-specific.",
+    "For resident_roster, resident_medical_schools, leadership, core_faculty, faculty_training_graph, fellowship_inventory and program_differentiators, value_json should be an array of compact objects. Omit unsupported keys rather than inventing values.",
+    "Keep each finding concise: summary under 500 characters and value_json under 3500 characters.",
     "Do not include private contact data. Resident names may be included only when displayed on a current official roster and are observational evidence, not admissions policy.",
     `ACGME ID: ${job.acgmeId}`,
     `Program: ${payload.programName ?? "Unknown"}`,
@@ -110,8 +149,28 @@ function buildPrompt(job) {
     `Specialty: ${job.specialty}`,
     `State: ${job.state}`,
     `Known official URLs: ${officialUrls.join(", ") || "none supplied"}`,
-    `Research domains: ${FIELDS.join(", ")}`,
+    `Requested completion domains: ${requestedDomains.join(", ")}`,
+    `Requested canonical fields: ${requestedFields.join(", ")}`,
+    `Prior completion matrix for DELTA/REFRESH context: ${JSON.stringify(payload.baselineCompletionMatrix ?? {})}`,
   ].join("\n");
+}
+
+function completionMatrix(parsed, job, citations) {
+  const { requestedDomains } = requestedContract(job);
+  const result = {};
+  for (const domain of requestedDomains) {
+    const entry = parsed.completion_matrix?.[domain];
+    if (!entry || !DEEP_RESEARCH_DOSSIER_V2.terminalStates.includes(entry.state)) {
+      throw Object.assign(new Error(`Deep research response did not resolve ${domain}`), { code: "DOSSIER_COMPLETION_INVALID" });
+    }
+    const direct = [...new Set((entry.source_urls ?? []).filter((url) => citations.has(url)))].sort();
+    result[domain] = {
+      state: entry.state,
+      summary: String(entry.summary ?? "").slice(0, 600),
+      sourceUrls: direct.length ? direct : [...citations].sort(),
+    };
+  }
+  return result;
 }
 
 export function createOpenAiResearchProvider({ providerKey, apiKey = process.env.RISE_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY, fetchImpl = fetch } = {}) {
@@ -135,14 +194,14 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
             model: configuration.modelKey,
             store: false,
             reasoning: { effort: "medium" },
-            max_output_tokens: 8000,
-            max_tool_calls: 3,
+            max_output_tokens: 16000,
+            max_tool_calls: 8,
             tools: [{ type: "web_search" }],
             tool_choice: "auto",
             include: ["web_search_call.action.sources"],
             input: buildPrompt(job),
-            text: { format: { type: "json_schema", name: "rise_program_research", strict: true, schema: researchSchema() } },
-            metadata: { ticket: "P1-RISE-5012E", job_id: job.jobId, task_class: job.taskClass },
+            text: { format: { type: "json_schema", name: "rise_deep_research_dossier_v2", strict: true, schema: researchSchema(job) } },
+            metadata: { ticket: "P1-RISE-5012F", job_id: job.jobId, task_class: job.taskClass, contract: "DOSSIER_V2" },
           }),
         });
         responsePayload = await response.json().catch(() => ({}));
@@ -157,6 +216,9 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
           throw Object.assign(new Error("OpenAI research response identity mismatch"), { code: "OPENAI_IDENTITY_MISMATCH" });
         }
         const citations = citationUrls(responsePayload);
+        const completionUpdate = completionMatrix(parsed, job, citations);
+        const mergedCompletion = mergeDossierCompletionMatrix(job.taskPayload?.baselineCompletionMatrix ?? {}, completionUpdate);
+        const dossierCompletion = evaluateDossierCompletion(mergedCompletion);
         const dossierSourceUrls = [...citations].sort();
         const retrievedAt = new Date().toISOString();
         const providerRunId = responsePayload.id;
@@ -196,18 +258,45 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
             sourceUrls,
           });
         }
+        for (const domainKey of requestedContract(job).requestedDomains) {
+          const domain = DOMAIN_BY_KEY.get(domainKey);
+          const entry = completionUpdate[domainKey];
+          const hasFinding = domain.fields.some((field) => seenFields.has(field.replace(/^research\./, "")));
+          if (["VERIFIED", "PARTIALLY_VERIFIED"].includes(entry.state) && !hasFinding) {
+            throw Object.assign(new Error(`Deep research response resolved ${domainKey} without a structured finding`), {
+              code: "DOSSIER_FINDING_MISSING",
+            });
+          }
+          if (hasFinding) continue;
+          const field = domain.fields[0];
+          const sourceUrls = entry.sourceUrls;
+          const claim = createCanonicalEvidenceClaim({
+            subjectId: identity.program.id,
+            field,
+            value: { state: entry.state, note: entry.summary },
+            provider: "OPENAI",
+            providerRunId,
+            sourceType: "openai_responses_web_search",
+            sourceUrl: sourceUrls[0] ?? null,
+            sourceLocator: `openai-responses://${providerRunId}#/completion_matrix/${domainKey}`,
+            retrievedAt,
+            publicationState: "REVIEW_REQUIRED",
+            reviewState: "PENDING",
+          });
+          claims.push({ ...claim, provider: "OPENAI", directSourceUrls: sourceUrls, dossierSourceUrls, sourceUrls });
+        }
         const rawBytes = Buffer.from(JSON.stringify(responsePayload));
         const webSearchCalls = (responsePayload.output ?? []).filter((item) => item?.type === "web_search_call").length;
         const actualCostUsd = calculateOpenAiResearchCost({ providerKey, usage: responsePayload.usage, webSearchCalls });
         const ingest = {
           provider: "OPENAI",
-          campaignId: "P1-RISE-5012E",
+          campaignId: "P1-RISE-5012F",
           acgmeId: String(job.acgmeId),
           stagedAt: retrievedAt,
           sourceFile: `openai-responses://${providerRunId}`,
           sourceFileSha256: sha256(rawBytes),
           providerRunId,
-          idempotencyKey: sha256(`OPENAI\0P1-RISE-5012E\0${job.acgmeId}\0${providerRunId}`),
+          idempotencyKey: sha256(`OPENAI\0P1-RISE-5012F\0${job.acgmeId}\0${providerRunId}`),
           claims,
           newSpendUsd: actualCostUsd,
           providerKey,
@@ -221,6 +310,16 @@ export function createOpenAiResearchProvider({ providerKey, apiKey = process.env
           programSpecialtyId: job.programSpecialtyId, acgmeId: job.acgmeId,
           specialty: job.specialty, state: job.state,
           researchSummary: parsed.research_summary, findingCount: claims.length,
+          contractId: DEEP_RESEARCH_DOSSIER_V2.contractId,
+          contractVersion: DEEP_RESEARCH_DOSSIER_V2.contractVersion,
+          resultSchemaVersion: DEEP_RESEARCH_DOSSIER_V2.resultSchemaVersion,
+          requestClass: job.taskPayload?.requestClass ?? "FULL",
+          requestedDomains: requestedContract(job).requestedDomains,
+          requestedFields: requestedContract(job).requestedFields,
+          completionMatrix: dossierCompletion.matrix,
+          completionScore: dossierCompletion.completionScore,
+          dossierOutcome: dossierCompletion.outcome,
+          researchTimestamp: retrievedAt,
           benchmarkFindings,
           benchmarkMetrics: {
             foundCount: benchmarkFindings.filter((finding) => finding.status === "FOUND").length,

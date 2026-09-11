@@ -1147,13 +1147,17 @@ function openFileFor(route) {
   const t = $('#fileTitle'); if (t) { t.setAttribute('tabindex', '-1'); t.focus(); }
   void hydrateProgramProfile(p);
 }
-async function hydrateProgramProfile(p) {
-  if (p.canonical || p.profileLoading) return;
+async function hydrateProgramProfile(p, force = false) {
+  if ((!force && p.canonical) || p.profileLoading) return;
   p.profileLoading = true;
   try {
-    const payload = await riseFetch('/api/rise/v1/program-specialties/' + encodeURIComponent(p.id));
+    const [payload, request] = await Promise.all([
+      riseFetch('/api/rise/v1/program-specialties/' + encodeURIComponent(p.id)),
+      riseFetch('/api/rise/v1/program-specialties/' + encodeURIComponent(p.id) + '/research'),
+    ]);
     p.canonical = payload.program || null;
     p.researchProjection = payload.research || { currentFacts: [], pendingEvidence: { fields: [], claimCount: 0 } };
+    p.researchRequest = request;
     p.url = fieldValue(p, 'Program Website') || p.url;
     p.type = fieldValue(p, 'Program Best Described As') || p.type;
     p.positions = fieldValue(p, 'First Year Positions') || fieldValue(p, 'Residents Per Year') || p.positions;
@@ -1203,7 +1207,7 @@ function renderFile(p) {
     <div class="fileHead">
       <div class="fTile" aria-hidden="true">${initials}</div>
       <div class="fIdent">
-        <div class="fEyebrow">${esc(p.specName)} · ${esc(p.track)} ${p.demo ? '<span class="demoTag">Representative demo data</span>' : ''}${p.depth === 'gold' ? '<span class="demoTag" style="color:var(--gd);border-color:rgba(255,215,106,.5)">Gold dossier · 267 refs</span>' : ''}</div>
+        <div class="fEyebrow">${esc(p.specName)} · ${esc(p.track)} ${p.demo ? '<span class="demoTag">Representative demo data</span>' : ''}${p.depth === 'gold' ? '<span class="demoTag" style="color:var(--gd);border-color:rgba(255,215,106,.5)">Gold dossier · 267 refs</span>' : ''}${p.researchProjection?.dossier?.dossierOutcome === 'DEEP' ? `<span class="demoTag deepCurrent">Deep Research Current ✓ · ${esc(String(p.researchProjection.dossier.researchTimestamp || '').slice(0,10))}</span>` : ''}</div>
         <h1 class="fName" id="fileTitle">${esc(p.name)}</h1>
         <div class="fSub">${esc(p.inst)} · ${esc(p.city)}, ${p.state}${p.type ? ' · ' + esc(p.type) : ''}${p.positions ? ' · ' + esc(p.positions) : ''}</div>
         <div class="forYou">
@@ -1244,16 +1248,50 @@ function researchCtaButton(p) {
   if (!controls || !controls.globalEnabled || controls.emergencyKillSwitch) return '';
   if (!state.canAdmin && !controls.studentEnabled) return '';
   if (!(controls.canaryProgramIds || []).includes(p.acgme)) return '';
-  return `<button class="fAct" onclick="requestProgramResearch('${p.id}')">⚗ Research this program</button>`;
+  const eligibility = p.researchRequest?.eligibility;
+  const requestClass = eligibility?.requestClass || 'FULL';
+  const labels = {
+    FULL: 'Deep Research This Program', DELTA: 'Complete Deep Research',
+    REFRESH: 'Refresh This Program', NO_OP: 'Deep Research Current ✓',
+    ACTIVE: 'Research already underway',
+  };
+  const noCharge = requestClass === 'NO_OP' || requestClass === 'ACTIVE';
+  return `<button class="fAct researchCta ${requestClass === 'NO_OP' ? 'isCurrent' : ''}" ${requestClass === 'NO_OP' ? 'disabled' : ''} onclick="openResearchRequest('${p.id}')">⚗ ${labels[requestClass] || labels.FULL}</button><span class="researchNoCharge">${noCharge ? 'This will not use one of your requests' : requestClass === 'REFRESH' ? 'Uses 1 Research Request only if meaningful refresh work is needed' : 'Uses 1 Research Request'}</span>`;
 }
 
-window.requestProgramResearch = async id => {
+function quotaMeter(quota = {}) {
+  const used = Number(quota.used || 0), limit = Number(quota.quotaLimit || 0);
+  const pct = limit ? Math.min(100, Math.round(used / limit * 100)) : 0;
+  return `<div class="quotaMeter"><div><b>${used} used</b><span>${Math.max(0, Number(quota.remaining || 0))} remaining</span></div><div class="quotaTrack"><i style="width:${pct}%"></i></div></div>`;
+}
+
+function researchStatusCopy(status) {
+  return ({ QUEUED:'Queued', RESEARCHING:'Researching', PROCESSING_REVIEWING:'Processing / Reviewing', UPDATED:'Updated', PARTIAL:'Partial', FAILED_REQUEST_RESTORED:'Failed · Request Restored' })[status] || 'Queued';
+}
+
+window.openResearchRequest = id => {
+  const p = byId.get(id); if (!p) return;
+  const eligibility = p.researchRequest?.eligibility || {};
+  const requestClass = eligibility.requestClass || 'FULL';
+  const active = eligibility.activeJob;
+  if (active) {
+    openModal(`<div class="mKicker">Deep Research Dossier</div><div class="mTitle">${esc(researchStatusCopy(active.studentStatus))}</div><div class="researchStatusOrb is-active" aria-hidden="true"></div><div class="mSum">Research is already underway for ${esc(p.name)}. The completed improvement is shared automatically with every authorized RISE user.</div>${quotaMeter(eligibility.quota)}<div class="mActs"><button class="mBtn sec" onclick="closeModal()">Close</button></div>`);
+    return;
+  }
+  if (requestClass === 'NO_OP') return;
+  openModal(`<div class="mKicker">MissionMed Deep Research</div><div class="mTitle">Research this program?</div><div class="mSum"><b>Use one of your Research Requests to have RISE perform a comprehensive research pass on this program.</b></div><div class="researchPromise"><b>RISE will investigate</b><span>Visa sponsorship and application requirements</span><span>USMLE / COMLEX, attempts, YOG, USCE and ECFMG policies</span><span>Current residents, medical schools and roster composition evidence</span><span>Leadership, core faculty and training paths</span><span>Fellowships, board performance and graduate outcomes</span><span>Curriculum, research, culture, facilities and program-specific differentiators</span></div><div class="mKicker quotaHeading">Your Research Requests</div>${quotaMeter(eligibility.quota)}<div class="requestCost"><b>Before you use a request:</b> Research Requests are most valuable for programs you are genuinely considering. If this program is already deeply researched, or another student has already requested the same work, you will not be charged another request.</div><div class="mSum researchQuestion"><b>Are you sure you want RISE to research this program further?</b></div><div class="mActs"><button class="mBtn pri" onclick="confirmProgramResearch('${p.id}')">Research This Program</button><button class="mBtn sec" onclick="closeModal()">Not Yet</button></div>`);
+};
+
+window.confirmProgramResearch = async id => {
+  const p = byId.get(id); if (!p) return;
   try {
     const payload = await riseFetch('/api/rise/v1/program-specialties/' + encodeURIComponent(id) + '/research', {
       method: 'POST', body: JSON.stringify({ source: state.canAdmin ? 'ADMIN' : 'STUDENT' }),
     });
-    const status = payload.job?.status || 'QUEUED';
-    toast(payload.deduplicated ? `Research already ${status.toLowerCase()}.` : `Research request ${status.toLowerCase()}.`);
+    await hydrateProgramProfile(p, true);
+    const studentStatus = payload.job?.studentStatus || (payload.noOp ? 'UPDATED' : 'QUEUED');
+    openModal(`<div class="mKicker">Deep Research Dossier</div><div class="mTitle">${esc(researchStatusCopy(studentStatus))}</div><div class="researchStatusOrb ${studentStatus === 'UPDATED' ? 'is-done' : 'is-active'}" aria-hidden="true"></div><div class="mSum">${payload.deduplicated ? 'This shared research was already current or underway. No duplicate request was used.' : 'Your request is reserved and the production research worker will continue in the background.'}</div>${quotaMeter(payload.quota)}<div class="mActs"><button class="mBtn sec" onclick="closeModal()">Close</button></div>`);
+    if (!payload.noOp && studentStatus !== 'UPDATED') setTimeout(() => hydrateProgramProfile(p, true), 6000);
   } catch (error) { toast(error.message || 'Research request unavailable.'); }
 };
 
@@ -1290,8 +1328,13 @@ function researchStateText(p, field) {
   return p.profileLoading ? 'Loading…' : 'Not yet researched';
 }
 const DOMAIN_RESEARCH_FIELDS = {
-  roster: ['research.resident_roster'], leadership: ['research.leadership'], requirements: ['research.application_requirements'],
-  visa: ['research.visa'], salary: ['research.salary_benefits'], fellowship: ['research.fellowship_inventory'], outcomes: ['research.outcomes'],
+  identity: ['research.program_overview'], visa: ['research.visa'], requirements: ['research.application_requirements'],
+  roster: ['research.resident_roster'], resident_schools: ['research.resident_medical_schools'],
+  composition: ['research.img_accessibility','research.do_accessibility','research.usmd_accessibility','research.caribbean_accessibility'],
+  leadership: ['research.leadership'], faculty: ['research.core_faculty'], training_paths: ['research.faculty_training_graph'],
+  board: ['research.abim'], fellowship: ['research.fellowship_inventory'], outcomes: ['research.outcomes'],
+  salary: ['research.salary_benefits'], curriculum: ['research.curriculum'], scholarly: ['research.research_opportunities'],
+  differentiators: ['research.program_differentiators'], culture: ['research.culture'], facilities: ['research.facilities_patient_population'],
 };
 const DOMAIN_REGISTRY_FIELDS = {
   roster: ['IMG Graduates Percent', 'DO Graduates Percent', 'US MD Graduates Percent', 'Total Residents'],
@@ -1302,6 +1345,9 @@ const DOMAIN_REGISTRY_FIELDS = {
 };
 function projectedDomainStates(p) {
   return Object.fromEntries(Object.keys(DOMAIN_RESEARCH_FIELDS).map(domain => {
+    const dossierKey = ({ identity:'identity_structure', requirements:'application_requirements', roster:'current_resident_roster', resident_schools:'resident_medical_schools', composition:'resident_composition', leadership:'program_leadership', faculty:'core_faculty', training_paths:'trained_here_retention', board:'board_pass_rate', fellowship:'in_house_fellowships', outcomes:'graduate_outcomes', salary:'salary_benefits', curriculum:'curriculum_training', scholarly:'research_scholarly', differentiators:'program_differentiators', culture:'culture_resident_experience', facilities:'facilities_patient_population' })[domain] || domain;
+    const dossierState = p.researchProjection?.dossier?.completionMatrix?.[dossierKey]?.state;
+    if (dossierState) return [domain, dossierState];
     const researchFields = DOMAIN_RESEARCH_FIELDS[domain];
     if (researchFields.some(field => approvedResearchFact(p, field))) return [domain, 'VERIFIED'];
     if ((DOMAIN_REGISTRY_FIELDS[domain] || []).some(field => fieldValue(p, field) != null)) return [domain, 'VERIFIED_REGISTRY'];
@@ -1352,12 +1398,22 @@ function fileTabBody(p, tab) {
   return '';
 }
 
+function whyProgramSection(p) {
+  const differentiators = approvedResearchFact(p, 'research.program_differentiators');
+  const curriculum = approvedResearchFact(p, 'research.curriculum');
+  const culture = approvedResearchFact(p, 'research.culture');
+  const facilities = approvedResearchFact(p, 'research.facilities_patient_population');
+  const rows = [differentiators, curriculum, culture, facilities].filter(Boolean);
+  return `<section class="whyProgramSection"><h2 class="h2" style="margin-bottom:8px">Why this <em>program</em></h2><p class="sub">Source-backed differentiators and training features from the current shared dossier. Use these as research leads, then confirm fit in your own voice.</p>${rows.length ? `<div class="whyCards">${rows.map(row => `<article class="railCard"><div class="rLbl">${esc(row.field.replace(/^research\./,'').replaceAll('_',' '))}</div><p>${esc(displayValue(row.canonicalValue ?? row.knowledge?.value))}</p><span>${esc(row.retrievedAt || 'Date not stated')}</span></article>`).join('')}</div>` : `<div class="lawBanner"><b>Not yet available.</b> Verified program differentiators will appear here after the dossier is completed and reviewed.</div>`}</section>`;
+}
+
 function tabOverview(p, R) {
   if (!R) {
     return `<div class="fileGrid"><div>
       <h2 class="h2" style="margin-bottom:8px">Approved program <em>profile</em></h2>
       ${p.profileLoading ? '<p class="sub">Loading the full approved program profile…</p>' : p.profileError ? `<div class="lawBanner">${esc(p.profileError)}</div>` : registryTable(p, ['Program Best Described As', 'Program Length', 'First Year Positions', 'Residents Per Year', 'Total Residents', 'Application Deadline', 'Applicant Interview Format', 'Application Service'], 'Approved canonical registry facts')}
       ${approvedResearchTable(p, ['research.curriculum', 'research.program_overview'], 'Approved current research')}
+      ${whyProgramSection(p)}
       <div class="lawBanner"><b>Research status:</b> ${p.filterIntelligence.researchState === 'EVIDENCE_FOUND_VERIFICATION_PENDING' ? 'Additional evidence exists and is awaiting verification. Approved registry facts remain available now.' : 'Additional domain research has not yet been verified.'}</div>
       ${p.soap.length ? `<div class="lawBanner">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} reported position${s.positions > 1 ? 's' : ''}`).join(' · ')}. Historical cycle evidence; no future availability or match-likelihood inference.</div>` : ''}
       ${unknownFooter(p, ['Narrative differentiators — not yet verified'])}
@@ -1625,6 +1681,7 @@ window.openSources = (id, evidenceIdx) => {
     <div class="fGroup"><div class="fLbl">Coverage</div>
       <p class="sub" style="font-size:14.5px"><b>${esc({ deep: 'Deep Research', enriched: 'Enriched Research', basic: 'Basic Profile', pending: 'Research Pending' }[p.filterIntelligence.researchDepth] || 'Research Pending')}</b> · ${p.filterIntelligence.approvedDomainCount} approved meaningful domains. Raw claim count is not used as the depth label.</p>
     </div>
+    ${p.researchProjection?.dossier ? `<div class="fGroup"><div class="fLbl">Deep Research Dossier V2</div><p class="sub" style="font-size:14px"><b>${esc(p.researchProjection.dossier.dossierOutcome || 'PARTIAL')}</b> · ${Math.round(Number(p.researchProjection.dossier.completionScore || 0) * 100)}% weighted resolution · researched ${esc(String(p.researchProjection.dossier.researchTimestamp || 'date not stated').slice(0,10))}</p><div class="dossierMatrix">${Object.entries(p.researchProjection.dossier.completionMatrix || {}).map(([domain, item]) => `<span class="matrix-${esc(String(item.state || '').toLowerCase())}"><b>${esc(domain.replaceAll('_',' '))}</b>${esc(String(item.state || '').replaceAll('_',' '))}</span>`).join('')}</div></div>` : ''}
     <div class="fGroup"><div class="fLbl">Sources</div>
       ${(sourceRows.length ? sourceRows : [{ t: 'Canonical registry source', pub: 'RISE corpus', tier: 2, acc: p.verified || 'not stated', cur: 'current' }]).map((s, i) => `
         <div class="srcRow" ${evidenceIdx === i ? 'style="outline:2px solid var(--cy);border-radius:8px;padding:12px"' : ''}>
@@ -1702,7 +1759,7 @@ function researchControlPanel() {
   const routeOptions = selected => providers.map(p => `<option value="${esc(p.providerKey)}" ${p.providerKey === selected ? 'selected' : ''}>${esc(p.providerKey)}</option>`).join('');
   return `<div class="stepCard" style="margin:18px 0">
     <div class="stepNum">Live production router · revision ${Number(admin.revision || 0)}</div>
-    <div class="pillRow" style="margin:8px 0 12px"><span class="pill">Build: ${esc(c.buildMode)}</span><span class="pill">Spend: $${Number(c.actualSpendUsd || 0).toFixed(4)} actual · $${Number(c.reservedSpendUsd || 0).toFixed(4)} reserved / $${Number(c.budgetCapUsd || 0).toFixed(2)}</span><span class="pill">Canary: ${esc(c.canaryMode)} · ${Number(c.canaryProgramCount || 0)} programs</span><span class="pill">Rollout scope: ${esc(c.specialtyScope.join(', '))} · ${esc(c.stateScope.join(', '))}</span></div>
+    <div class="pillRow" style="margin:8px 0 12px"><span class="pill">Build: ${esc(c.buildMode)}</span><span class="pill">Contract: Dossier V2 · 18 domains</span><span class="pill">Spend: $${Number(c.actualSpendUsd || 0).toFixed(4)} actual · $${Number(c.reservedSpendUsd || 0).toFixed(4)} reserved / $${Number(c.budgetCapUsd || 0).toFixed(2)}</span><span class="pill">Canary: ${esc(c.canaryMode)} · ${Number(c.canaryProgramCount || 0)} programs</span><span class="pill">Rollout scope: ${esc(c.specialtyScope.join(', '))} · ${esc(c.stateScope.join(', '))}</span></div>
     <div class="rvActs" style="margin-bottom:12px">
       <button class="rvBtn ${c.globalEnabled ? 'on' : ''}" onclick="toggleResearchControl('globalEnabled')">Global ${c.globalEnabled ? 'enabled' : 'paused'}</button>
       <button class="rvBtn ${c.studentEnabled ? 'on' : ''}" onclick="toggleResearchControl('studentEnabled')">Students ${c.studentEnabled ? 'enabled' : 'paused'}</button>
@@ -1779,7 +1836,7 @@ window.setOpenAiProviderMode = async (providerKey, mode) => {
     const payload = await riseFetch('/api/rise/v1/operator/research/providers/' + encodeURIComponent(providerKey), {
       method:'PATCH', body:JSON.stringify({ expectedRevision:provider.revision, provider:{ ...provider,
         state:mode, enabled:active, networkAllowed:active, spendAllowed:active,
-      }, reason:`Admin set ${providerKey} to ${mode} under P1-RISE-5012E` }),
+      }, reason:`Admin set ${providerKey} to ${mode} under P1-RISE-5012F` }),
     });
     state.researchAdmin.providers = state.researchAdmin.providers.map(item => item.providerKey === payload.provider.providerKey ? payload.provider : item);
     renderMain(currentRoute()); toast(`${providerKey} updated.`);

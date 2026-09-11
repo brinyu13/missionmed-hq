@@ -270,7 +270,7 @@ test("admin command center preserves preview-before-spend and disables unbound p
   await page.getByRole("button", { name: "Queue", exact: true }).click();
   await expect(page.locator("#main")).toContainText("The durable queue is connected and the default router remains fail-closed");
   await page.getByRole("button", { name: /^Review/ }).click();
-  await expect(page.locator("#main")).toContainText("No authorized review queue is connected");
+  await expect(page.locator("#main")).toContainText("No exception claims remain");
 });
 
 test("narrow viewport preserves the consumer shell without horizontal document overflow", async ({ page }) => {

@@ -85,20 +85,23 @@ export async function runResearchWorkerOnce({
         const resolvedAcgmeIds = await evidenceReviewStore.resolvedAcgmeIds([job.acgmeId]);
         const review = reviewResearchCorpus([result.ingest], {
           resolvedAcgmeIds,
-          allowedCanaryAcgmeIds: new Set(["1854831078"]),
+          allowedCanaryAcgmeIds: new Set(["1854831078", "1851113100"]),
         });
         reviewReceipt = await evidenceReviewStore.applyCorpus({
           review,
-          actorSubject: "P1-RISE-5012E",
+          actorSubject: "P1-RISE-5012F",
           reviewedAt: new Date().toISOString(),
-          ticket: "P1-RISE-5012E",
-          promotionSourceId: "rise_src_p1_rise_5012e_review",
+          ticket: "P1-RISE-5012F",
+          promotionSourceId: "rise_src_p1_rise_5012f_review",
         });
       }
     }
     await store.transitionJob({ jobId: job.jobId, leaseToken, workerId: id, status: "PROMOTING", leaseSeconds });
-    const status = benchmarkOnly || (canonicalIngestRunId && (result.canonicalPromotion === "PROMOTED" || reviewReceipt?.insertedPromotions > 0))
-      ? "COMPLETED" : "NEEDS_REVIEW";
+    const promoted = Boolean(canonicalIngestRunId
+      && (result.canonicalPromotion === "PROMOTED" || reviewReceipt?.insertedPromotions > 0));
+    const status = benchmarkOnly ? "COMPLETED"
+      : promoted ? (result.dossierOutcome === "DEEP" ? "COMPLETED" : "PARTIAL")
+        : "NEEDS_REVIEW";
     const resultSummary = {
       providerKey: result.providerKey, modelKey: result.modelKey,
       providerResponseId: result.providerResponseId, networkUsed: result.networkUsed,
@@ -109,6 +112,16 @@ export async function runResearchWorkerOnce({
       benchmarkMetrics: benchmarkOnly ? (result.benchmarkMetrics ?? {}) : undefined,
       canonicalPromotion: benchmarkOnly ? "BENCHMARK_ISOLATED" : (result.canonicalPromotion === "PROMOTED" || reviewReceipt?.insertedPromotions > 0 ? "PROMOTED" : "NEEDS_REVIEW"),
       reviewReceipt,
+      contractId: result.contractId,
+      contractVersion: result.contractVersion,
+      resultSchemaVersion: result.resultSchemaVersion,
+      requestClass: result.requestClass,
+      requestedDomains: result.requestedDomains,
+      requestedFields: result.requestedFields,
+      completionMatrix: result.completionMatrix,
+      completionScore: result.completionScore,
+      dossierOutcome: result.dossierOutcome,
+      researchTimestamp: result.researchTimestamp,
     };
     await stopHeartbeat();
     return await store.completeJob({
@@ -121,6 +134,13 @@ export async function runResearchWorkerOnce({
       actualCostUsd: result.actualCostUsd ?? result.newSpendUsd ?? 0,
       usage: result.usage ?? {},
       providerResponseId: result.providerResponseId ?? null,
+      dossier: benchmarkOnly ? null : {
+        completionMatrix: result.completionMatrix,
+        completionScore: result.completionScore,
+        dossierOutcome: result.dossierOutcome,
+        researchTimestamp: result.researchTimestamp,
+        resultSchemaVersion: result.resultSchemaVersion,
+      },
     });
   } catch (error) {
     try { await stopHeartbeat(); } catch (heartbeatFailure) { error = heartbeatFailure; }
