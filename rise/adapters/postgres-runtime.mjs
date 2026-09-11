@@ -544,7 +544,13 @@ export async function createRiseFilterIntelligenceStore({
                 count(*)::integer AS "claimCount"
               FROM rise_runtime.canonical_evidence_sources s
               JOIN rise_runtime.canonical_evidence_claims c USING (source_id)
-              LEFT JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id = c.claim_id
+              LEFT JOIN LATERAL (
+                SELECT e.disposition
+                FROM rise_runtime.evidence_claim_review_events e
+                WHERE e.source_claim_id = c.claim_id
+                ORDER BY e.created_at DESC, e.review_id DESC
+                LIMIT 1
+              ) r ON true
               WHERE s.source_type = 'completed_research_factory'
                 AND s.metadata->>'acgmeId' ~ '^[0-9]{10}$'
               GROUP BY s.metadata->>'acgmeId'
@@ -556,9 +562,14 @@ export async function createRiseFilterIntelligenceStore({
                   l.promoted_claim_id,
                   array_agg(DISTINCT u.url ORDER BY u.url) AS source_urls
                 FROM rise_runtime.canonical_claim_promotion_lineage l
-                JOIN rise_runtime.evidence_claim_review_current r
-                  ON r.source_claim_id = l.source_claim_id
-                CROSS JOIN LATERAL jsonb_array_elements_text(r.source_urls) u(url)
+                JOIN LATERAL (
+                  SELECT e.source_urls
+                  FROM rise_runtime.evidence_claim_review_events e
+                  WHERE e.source_claim_id = l.source_claim_id
+                  ORDER BY e.created_at DESC, e.review_id DESC
+                  LIMIT 1
+                ) latest ON true
+                CROSS JOIN LATERAL jsonb_array_elements_text(latest.source_urls) u(url)
                 GROUP BY l.promoted_claim_id
               )
               SELECT
