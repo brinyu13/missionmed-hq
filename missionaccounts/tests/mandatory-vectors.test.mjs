@@ -367,6 +367,46 @@ test('automatic charge scheduling is bounded to 24-48 hours, retry-safe, and ser
   assert.match(sql, /force row level security/);
 });
 
+test('5403B replaces expiry with a durable, enrollment-gated, post-rollout queue while dispatch remains off', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20260911224524_autobilling_contract_closeout_5403b.sql', import.meta.url), 'utf8');
+  const claimSql = sql.slice(sql.indexOf('create or replace function missionaccounts.api_claim_due_day_charges'));
+
+  assert.match(sql, /create table missionaccounts\.program_enrollment_projection/);
+  assert.match(sql, /program_key text not null check \(program_key = 'examprep'\)/);
+  assert.match(sql, /course_id bigint not null check \(course_id = 6357\)/);
+  assert.match(sql, /alter table missionaccounts\.program_enrollment_projection force row level security/);
+  assert.match(sql, /grant all on missionaccounts\.program_enrollment_projection,[\s\S]+to service_role/);
+  assert.doesNotMatch(sql, /grant [^;]+ on missionaccounts\.program_enrollment_projection to (?:anon|authenticated)/);
+
+  assert.match(sql, /create function missionaccounts\.api_sync_program_enrollment/);
+  assert.match(sql, /p_actor_role <> 'student'/);
+  assert.match(sql, /student_row\.matrix_user_ref is distinct from p_actor_id/);
+  assert.match(sql, /p_source_observed_at < clock_timestamp\(\) - interval '15 minutes'/);
+  assert.match(sql, /valid_until[\s\S]+p_source_observed_at \+ contract_row\.enrollment_freshness/);
+
+  assert.match(sql, /live_dispatch_allowed boolean not null default false/);
+  assert.match(sql, /true, 6357, 2500, transaction_timestamp\(\),[\s\S]+false, true/);
+  assert.match(sql, /ad\.day >= \(contract_row\.rollout_cutoff at time zone 'America\/New_York'\)::date/);
+  assert.match(sql, /ad\.computed_at >= contract_row\.rollout_cutoff/);
+  assert.match(sql, /ad\.computed_at \+ contract_row\.eligible_delay/);
+  assert.match(sql, /'pending'/);
+  assert.match(sql, /state = 'held'[\s\S]+stale_claim_requires_review/);
+  assert.doesNotMatch(claimSql, /interval '48 hours'/);
+  assert.doesNotMatch(claimSql, /state = 'expired'/);
+
+  assert.match(sql, /p_actor_role <> 'service' or p_actor_id <> 'missionaccounts:auto-charge'/);
+  assert.match(sql, /automatic_billing_service_authority_required/);
+  assert.match(sql, /active_examprep_enrollment_required/);
+  assert.match(sql, /approved_billing_terms_required/);
+  assert.match(sql, /durable_charge_candidate_required/);
+  assert.match(sql, /pre_rollout_attendance_not_chargeable/);
+
+  assert.match(sql, /alter table missionaccounts\.billing_terms[\s\S]+add column if not exists body_text text/);
+  assert.match(sql, /billing_terms_body_hash_mismatch/);
+  assert.doesNotMatch(sql, /insert into missionaccounts\.billing_terms/);
+  assert.doesNotMatch(sql, /stripe\.com|net\.http|http_post/i);
+});
+
 test('every pending charge requires a validated student receipt email', async () => {
   const [initialSql, receiptSql] = await Promise.all([
     readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8'),

@@ -1,0 +1,22 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5403B",
+  "node_tests": {
+    "passed": 203,
+    "failed": 0
+  },
+  "mandatory_vectors": {
+    "passed": 45,
+    "failed": 0
+  },
+  "source_validation": {
+    "result": "PASS",
+    "attendance_events": 3941,
+    "human_cycle_rows": 498,
+    "identity_nodes": 370,
+    "total_amount": 77075
+  },
+  "database_schema_rehearsal": "PASS",
+  "database_functional_rehearsal": "PASS",
+  "live_payment_intents_created": 0,
+  "live_money_moved_cents": 0
+}

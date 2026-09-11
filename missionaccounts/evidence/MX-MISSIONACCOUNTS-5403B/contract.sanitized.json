@@ -1,0 +1,39 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5403B",
+  "course_id": 6357,
+  "enrollment_authority": "LearnDash course 6357 - Dr J, Drills On-Call",
+  "registered_alone_sufficient": false,
+  "amount_per_day_cents": 2500,
+  "rollout_cutoff": "set by production migration transaction time",
+  "enrollment_projection": "signed, subject-bound, freshness-bounded, fail-closed",
+  "eligible_delay_hours": 24,
+  "automatic_expiry_hours": null,
+  "durable_states": [
+    "pending",
+    "claimed",
+    "submitted",
+    "held",
+    "excluded",
+    "reversed"
+  ],
+  "live_dispatch_allowed_default": false,
+  "initial_canary_requires_dr_j_approval": true,
+  "approved_terms_published_by_migration": false,
+  "hosted_invoices_enabled_by_change": false,
+  "live_money_moved_cents": 0,
+  "required_gates": [
+    "verified canonical student",
+    "fresh active LearnDash 6357 enrollment",
+    "sponsor DIRECT",
+    "newly finalized post-rollout billable day",
+    "approved Dr J confirm decision containing exact day",
+    "on-file payment method",
+    "active student consent to exact approved terms",
+    "valid receipt email",
+    "no prior charge",
+    "durable candidate after 24-hour hold",
+    "service worker authority",
+    "environment live-dispatch flag",
+    "database live-dispatch flag"
+  ]
+}

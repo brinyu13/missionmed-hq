@@ -18,23 +18,42 @@ function reasonCount(rows, reason) {
   return rows.filter(row => row.reasons.includes(reason)).length;
 }
 
+function localDayInNewYork(instant) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(instant);
+  const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
 export function buildAutomaticBillingShadow({
   now,
+  rolloutCutoff,
   attendanceDays = [],
   students = [],
   billingDecisions = [],
   paymentMethods = [],
   billingConsents = [],
+  enrollmentProjections = [],
+  dispatches = [],
   charges = [],
   ruleDecisions = [],
 } = {}) {
   const evaluatedAt = new Date(now);
   if (!Number.isFinite(evaluatedAt.getTime())) throw new Error('Automatic-billing shadow requires an evaluation time');
+  const cutoffAt = new Date(rolloutCutoff);
+  const contractAvailable = Number.isFinite(cutoffAt.getTime());
   const nowMs = evaluatedAt.getTime();
+  const cutoffMs = contractAvailable ? cutoffAt.getTime() : Number.POSITIVE_INFINITY;
+  const cutoffLocalDay = contractAvailable ? localDayInNewYork(cutoffAt) : null;
   const studentById = new Map(array(students).map(row => [row.id, row]));
   const decisionByStudentCycle = currentBy(billingDecisions, row => key(row.student_id, row.cycle_key));
   const paymentMethodByStudent = new Map(array(paymentMethods).map(row => [row.student_id, row]));
   const consentByStudent = currentBy(billingConsents, row => row.student_id);
+  const enrollmentByStudent = new Map(array(enrollmentProjections)
+    .filter(row => row?.program_key === 'examprep')
+    .map(row => [row.student_id, row]));
+  const dispatchByDay = new Map(array(dispatches).map(row => [row.attendance_day_id, row]));
   const chargeByDay = new Map(array(charges).map(row => [row.attendance_day_id, row]));
   const reservedByStudentCycle = new Map();
   for (const charge of array(charges)) {
@@ -53,23 +72,39 @@ export function buildAutomaticBillingShadow({
       const decision = decisionByStudentCycle.get(key(day.student_id, day.cycle_key));
       const method = paymentMethodByStudent.get(day.student_id);
       const consent = consentByStudent.get(day.student_id);
+      const enrollment = enrollmentByStudent.get(day.student_id);
+      const dispatch = dispatchByDay.get(day.id);
       const priorCharge = chargeByDay.get(day.id);
       const computedMs = Date.parse(day.computed_at);
-      const ageMs = Number.isFinite(computedMs) ? nowMs - computedMs : Number.POSITIVE_INFINITY;
-      const withinWindow = ageMs >= 24 * 60 * 60 * 1000 && ageMs <= 48 * 60 * 60 * 1000;
-      const windowState = ageMs < 24 * 60 * 60 * 1000 ? 'not_yet_due'
-        : ageMs > 48 * 60 * 60 * 1000 ? 'expired'
-          : 'eligible';
-      const approvedBasis = Boolean(decision && array(decision.basis?.days).some(item => (
+      const finalizedPostRollout = contractAvailable
+        && Number.isFinite(computedMs)
+        && computedMs >= cutoffMs
+        && String(day.day || '') >= cutoffLocalDay;
+      const eligibleAfterMs = Number.isFinite(computedMs) ? computedMs + 24 * 60 * 60 * 1000 : Number.POSITIVE_INFINITY;
+      const holdElapsed = eligibleAfterMs <= nowMs;
+      const enrollmentValidUntilMs = Date.parse(enrollment?.valid_until || '');
+      const enrollmentActive = enrollment?.provider === 'learndash'
+        && Number(enrollment?.course_id) === 6357
+        && enrollment?.enrolled === true
+        && Number.isFinite(enrollmentValidUntilMs)
+        && enrollmentValidUntilMs > nowMs;
+      const approvedBasis = Boolean(decision && array(decision.basis?.days || decision.basis?.day_states).some(item => (
         item?.id === day.id && item?.kind === 'billable'
       )));
       const ruleActive = activeRules.some(rule => String(rule.effective_from || '') <= String(day.day || ''));
       const reserved = reservedByStudentCycle.get(key(day.student_id, day.cycle_key)) || 0;
       const approvedCapacity = Boolean(decision) && reserved + 2500 <= Number(decision.amount_cents || 0);
       const reasons = [];
+      if (!contractAvailable) reasons.push('automatic_billing_contract_required');
+      else if (!finalizedPostRollout) reasons.push('pre_rollout_attendance_not_chargeable');
       if (day.kind !== 'billable') reasons.push(`attendance_day_${day.kind || 'not_billable'}`);
       if (student.identity_state !== 'verified') reasons.push('student_identity_requires_review');
       if ((student.sponsor_type || 'DIRECT') !== 'DIRECT') reasons.push('sponsored_direct_liability_blocked');
+      if (!enrollmentActive) reasons.push(enrollment?.enrolled === false
+        ? 'active_examprep_enrollment_required'
+        : enrollment && enrollmentValidUntilMs <= nowMs
+          ? 'examprep_enrollment_projection_stale'
+          : 'active_examprep_enrollment_required');
       if (!decision || decision.state !== 'approved') reasons.push('approved_billing_decision_required');
       else if (decision.treatment !== 'confirm') reasons.push('per_day_billing_decision_required');
       else if (!approvedBasis) reasons.push('attendance_day_not_in_approved_basis');
@@ -77,7 +112,10 @@ export function buildAutomaticBillingShadow({
       if (!consent || consent.state !== 'authorized') reasons.push('billing_authorization_required');
       if (!validEmail(student.email)) reasons.push('student_receipt_email_required');
       if (!ruleActive) reasons.push('one_charge_per_calendar_day_rule_required');
-      if (!withinWindow) reasons.push(windowState === 'expired' ? 'automatic_charge_window_missed' : 'automatic_charge_window_not_open');
+      if (finalizedPostRollout && !holdElapsed) reasons.push('automatic_charge_hold_not_elapsed');
+      if (dispatch && ['held', 'failed', 'excluded', 'reversed'].includes(dispatch.state)) {
+        reasons.push(`durable_candidate_${dispatch.state}`);
+      }
       if (priorCharge) {
         const priorReason = {
           failed: 'explicit_retry_required',
@@ -96,6 +134,8 @@ export function buildAutomaticBillingShadow({
         || reason === 'refunded_day_requires_review'
         || reason === 'prior_charge_requires_review'
         || reason === 'attendance_day_needs_review'
+        || reason === 'durable_candidate_held'
+        || reason === 'durable_candidate_failed'
       ));
       return {
         student_id: day.student_id,
@@ -111,8 +151,13 @@ export function buildAutomaticBillingShadow({
         payment_method_status: method?.status || 'missing',
         payment_method_last4: method?.status === 'on_file' ? String(method.last4 || '') : null,
         consent_state: consent?.state || 'missing',
-        active_enrollment_gate: null,
-        window_state: windowState,
+        active_enrollment_gate: {
+          program: 'examprep', provider: enrollment?.provider || null,
+          course_id: enrollment?.course_id || null, active: enrollmentActive,
+          valid_until: enrollment?.valid_until || null,
+        },
+        queue_state: dispatch?.state || (finalizedPostRollout ? 'not_materialized' : 'ineligible'),
+        eligible_after: Number.isFinite(eligibleAfterMs) ? new Date(eligibleAfterMs).toISOString() : null,
         prior_charge_state: priorCharge?.state || null,
         status: reasons.length === 0 ? 'WOULD_CHARGE' : needsReview ? 'NEEDS_REVIEW' : 'WOULD_NOT_CHARGE',
         reasons,
@@ -123,15 +168,18 @@ export function buildAutomaticBillingShadow({
       || String(left.attendance_day_id).localeCompare(String(right.attendance_day_id)));
 
   const wouldCharge = rows.filter(row => row.status === 'WOULD_CHARGE');
+  const sponsoredRows = rows.filter(row => row.reasons.includes('sponsored_direct_liability_blocked'));
   return {
-    schema_version: 'missionaccounts-auto-billing-shadow-v1',
+    schema_version: 'missionaccounts-auto-billing-shadow-v2',
     evaluated_at: evaluatedAt.toISOString(),
     live_money_moved_cents: 0,
     live_dispatch_enabled: false,
     contract: {
       amount_per_billable_day_cents: 2500,
-      dispatch_window_hours: [24, 48],
-      active_enrollment_gate: 'absent_from_current_charge_contract',
+      rollout_cutoff: contractAvailable ? cutoffAt.toISOString() : null,
+      eligible_after_hours: 24,
+      automatic_expiry_hours: null,
+      active_enrollment_gate: 'fresh_signed_learndash_course_6357_projection',
       failed_charge_retry: 'explicit_human_action_required',
     },
     summary: {
@@ -139,7 +187,11 @@ export function buildAutomaticBillingShadow({
       would_charge_students: new Set(wouldCharge.map(row => row.student_id)).size,
       would_charge_days: wouldCharge.length,
       would_charge_total_cents: wouldCharge.reduce((sum, row) => sum + row.recommended_amount_cents, 0),
-      sponsored_excluded: rows.filter(row => row.reasons.includes('sponsored_direct_liability_blocked')).length,
+      sponsored_excluded: sponsoredRows.length,
+      sponsored_excluded_rows: sponsoredRows.length,
+      sponsored_excluded_students: new Set(sponsoredRows.map(row => row.student_id)).size,
+      enrollment_excluded: rows.filter(row => row.reasons.some(reason => reason.includes('examprep_enrollment'))).length,
+      pre_rollout_excluded: reasonCount(rows, 'pre_rollout_attendance_not_chargeable'),
       unresolved_or_review: rows.filter(row => row.status === 'NEEDS_REVIEW').length,
       missing_payment_method: reasonCount(rows, 'payment_method_required'),
       missing_consent: reasonCount(rows, 'billing_authorization_required'),

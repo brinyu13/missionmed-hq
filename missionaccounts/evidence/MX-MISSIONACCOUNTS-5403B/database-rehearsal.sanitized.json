@@ -1,0 +1,13 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5403B",
+  "environment": "disposable local PostgreSQL",
+  "all_migrations_applied_except": "20260909105200_promote_antonio_real_student.sql (production-data-specific migration, byte-identical to base)",
+  "new_migration_applied": true,
+  "enrollment_projection_rows": 1,
+  "durable_pending_candidates": 1,
+  "pre_rollout_candidates_revived": 0,
+  "charge_rows_created": 0,
+  "consent_after_enrollment_loss": "revoked",
+  "live_dispatch_allowed": false,
+  "result": "PASS"
+}
