@@ -1721,6 +1721,7 @@ window.openSources = (id, evidenceIdx) => {
       };
       row.domains.add(domain);
       directResearchSourceIndex.set(url, row);
+      dossierSourceIndex.delete(url);
     }
     for (const url of (fact.sourceUrls?.length ? fact.sourceUrls : [fact.sourceUrl]).filter(Boolean)) {
       if (directResearchSourceIndex.has(url)) continue;
@@ -1735,7 +1736,7 @@ window.openSources = (id, evidenceIdx) => {
   const directResearchSources = [...directResearchSourceIndex.values()].map(row => ({
     ...row, t: `${row.t} · ${[...row.domains].sort().join(', ')}`,
   }));
-  const sourceRows = R.sources || [...new Map([...canonicalSources, ...directResearchSources, ...dossierSourceIndex.values()].map(row => [row.url || row.pub, row])).values()];
+  const sourceRows = R.sources || [...new Map([...canonicalSources, ...dossierSourceIndex.values(), ...directResearchSources].map(row => [row.url || row.pub, row])).values()];
   const presentedSourceRows = sourceRows.map(row => {
     const trust = sourceTrustPresentation(row.url, p.url);
     return { ...row, tier: row.tier ?? trust.tier, tierLabel: row.tierLabel ?? trust.label };
