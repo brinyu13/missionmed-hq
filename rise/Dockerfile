@@ -32,4 +32,4 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 USER node
 EXPOSE 4177
-CMD ["node", "tools/start-production.mjs"]
+CMD ["/bin/sh", "-c", "if [ \"$RISE_PROCESS_MODE\" = \"worker\" ]; then exec node tools/start-research-worker.mjs; else exec node tools/start-production.mjs; fi"]
