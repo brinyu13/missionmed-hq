@@ -1,0 +1,7 @@
+program_outcome,count,definition
+reviewed_target_programs,1077,Program has at least one target provider claim reviewed in this tranche
+approved_current_live,939,Program has at least one approved-current canonical promoted fact
+without_approved_current,138,Reviewed target program has no approved-current winner
+only_unresolved,98,No approved-current approved-historical or researched-not-found outcome and at least one conflict or insufficient claim
+claims_without_disposition,0,No current review event exists for a provider claim
+canary_holdouts_untouched,2,Protected Child Neurology TX and FL IDs have zero provider claims
