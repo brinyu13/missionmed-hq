@@ -557,7 +557,7 @@ export async function createRiseFilterIntelligenceStore({
               ORDER BY s.metadata->>'acgmeId'
             `);
           const facts = await client.query(`
-              WITH promoted_source_urls AS (
+              WITH promoted_source_urls AS MATERIALIZED (
                 SELECT
                   l.promoted_claim_id,
                   array_agg(DISTINCT u.url ORDER BY u.url) AS source_urls
