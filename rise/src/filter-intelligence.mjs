@@ -101,18 +101,35 @@ function rosterRows(value) {
   return value.flatMap((row) => Array.isArray(row) ? rosterRows(row) : (row && typeof row === "object" ? [row] : []));
 }
 
+const SEARCH_TERM_NOISE = new Set([
+  "yes", "no", "true", "false", "unknown", "none", "not stated", "not found",
+  "found", "researched not found",
+]);
+
+function collectApprovedSearchTerms(value, terms, depth = 0) {
+  if (depth > 6 || value === null || value === undefined) return;
+  if (typeof value === "string") {
+    const normalized = value.replace(/\s+/g, " ").trim();
+    const lowered = normalized.toLocaleLowerCase("en-US");
+    if (normalized.length >= 3 && normalized.length <= 240 && !/^https?:\/\//i.test(normalized) && !SEARCH_TERM_NOISE.has(lowered)) {
+      terms.add(normalized);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) collectApprovedSearchTerms(entry, terms, depth + 1);
+    return;
+  }
+  if (typeof value === "object") {
+    for (const entry of Object.values(value)) collectApprovedSearchTerms(entry, terms, depth + 1);
+  }
+}
+
 function dynamicSearchTerms(facts) {
   const terms = new Set();
   for (const fact of facts) {
     const value = fact.canonicalValue ?? fact.canonical_value ?? fact.knowledge?.value;
-    if (fact.field === "research.resident_roster") {
-      for (const resident of rosterRows(value)) {
-        for (const term of [resident.medical_school, resident.medical_school_raw]) {
-          const normalized = String(term ?? "").trim();
-          if (normalized) terms.add(normalized);
-        }
-      }
-    }
+    collectApprovedSearchTerms(value, terms);
   }
   return [...terms].sort().slice(0, 250);
 }

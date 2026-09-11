@@ -105,9 +105,14 @@ test("approved structured current facts become filterable without frontend progr
         subjectId: "program-2",
         field: "research.resident_roster",
         canonicalValue: [
-          { classification: "IMG", caribbean: "YES" },
+          { classification: "IMG", caribbean: "YES", medical_school: "International University School of Medicine" },
           { classification: "US_DO", degree: "DO", caribbean: "NO" },
         ],
+      },
+      {
+        subjectId: "program-2",
+        field: "research.curriculum",
+        canonicalValue: { overnight_call: "Only during adult neurology months" },
       },
     ],
   });
@@ -119,6 +124,8 @@ test("approved structured current facts become filterable without frontend progr
   assert.equal(expanded[1].visa.h1b, true);
   assert.deepEqual(expanded[1].residentEvidence, { img: true, do: true, caribbean: true, usmd: false });
   assert.equal(expanded[1].researchState, "VERIFIED_RESEARCH");
+  assert.ok(expanded[1].searchTerms.includes("International University School of Medicine"));
+  assert.ok(expanded[1].searchTerms.includes("Only during adult neurology months"));
   assert.deepEqual(result.counts, {
     visaData: 2,
     j1Published: 1,
