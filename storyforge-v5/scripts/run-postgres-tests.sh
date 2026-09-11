@@ -117,6 +117,7 @@ b1_517_migrations=(
 )
 sf_access_5014_migrations=(
   "20260908193000_sf_access_5014_canonical_admin_identity.sql"
+  "20260911030000_sf_audio_playback_admin_projection.sql"
 )
 discovered_b1_514_migrations=()
 while IFS= read -r migration; do

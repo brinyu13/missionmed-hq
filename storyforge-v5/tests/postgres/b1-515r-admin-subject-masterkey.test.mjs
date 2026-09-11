@@ -30,6 +30,7 @@ const migrations = [
   '20260810280000_b1_514_guest_voice_cleanup_recovery.sql',
   '20260812120000_b1_515_v201_reviews_collections_peer.sql',
   '20260813120000_b1_515r_admin_subject_masterkey.sql',
+  '20260911030000_sf_audio_playback_admin_projection.sql',
 ];
 
 async function expectStoryNotFound(operation) {
@@ -88,6 +89,22 @@ test('B1-515R Admin actor + student subject reads are bounded, observable, and n
       `INSERT INTO public.sf_story_trash(story_id,student_id,trashed_by)
        VALUES($1,$2,$2)`,
       [byTitle['Trashed submitted'].id, OWNER.sub],
+    );
+    const insertedAudio = await client.query(
+      `INSERT INTO public.sf_audio_assets(
+         story_id,student_id,object_key,content_type,byte_size,duration_ms,state,verified_at
+       ) VALUES
+       ($1,$3,'storyforge-audio/visible','audio/webm',2048,158500,'verified',now()),
+       ($2,$3,'storyforge-audio/private','audio/webm',1024,42000,'verified',now())
+       RETURNING id,story_id,duration_ms`,
+      [
+        byTitle['Mentor-visible draft'].id,
+        byTitle['Explicit private conflict'].id,
+        OWNER.sub,
+      ],
+    );
+    const audioByStory = Object.fromEntries(
+      insertedAudio.rows.map((row) => [row.story_id, row]),
     );
 
     await assert.rejects(
@@ -150,6 +167,28 @@ test('B1-515R Admin actor + student subject reads are bounded, observable, and n
       assert.equal(detail.story.rowVersion, 0);
       assert.deepEqual(detail.versions, []);
 
+      const audioDetail = (await db.query(
+        'SELECT public.sf_admin_subject_story($1,$2) AS payload',
+        [OWNER.sub, byTitle['Mentor-visible draft'].id],
+      )).rows[0].payload;
+      assert.equal(
+        audioDetail.story.audioAssetId,
+        audioByStory[byTitle['Mentor-visible draft'].id].id,
+      );
+      assert.equal(audioDetail.story.audioDurationMs, 158500);
+
+      const visibleAudio = await db.query(
+        `SELECT id FROM public.sf_audio_assets
+         WHERE id = ANY($1::uuid[]) ORDER BY id`,
+        [[
+          audioByStory[byTitle['Mentor-visible draft'].id].id,
+          audioByStory[byTitle['Explicit private conflict'].id].id,
+        ]],
+      );
+      assert.deepEqual(visibleAudio.rows.map((row) => row.id), [
+        audioByStory[byTitle['Mentor-visible draft'].id].id,
+      ]);
+
     });
     await withIdentity(client, MENTOR, async (db) => {
       const direct = await db.query(
@@ -164,6 +203,14 @@ test('B1-515R Admin actor + student subject reads are bounded, observable, and n
         [[byTitle['Legacy submitted'].id, byTitle['Explicit private conflict'].id]],
       );
       assert.equal(direct.rowCount, 2);
+      const ownedAudio = await db.query(
+        `SELECT id FROM public.sf_audio_assets WHERE id = ANY($1::uuid[])`,
+        [[
+          audioByStory[byTitle['Mentor-visible draft'].id].id,
+          audioByStory[byTitle['Explicit private conflict'].id].id,
+        ]],
+      );
+      assert.equal(ownedAudio.rowCount, 2);
     });
 
     for (const deniedId of [
@@ -200,7 +247,7 @@ test('B1-515R Admin actor + student subject reads are bounded, observable, and n
        WHERE action IN('admin.subject_home_viewed','admin.subject_library_viewed','admin.subject_story_viewed')
        ORDER BY id`,
     );
-    assert.equal(audits.rowCount, 3);
+    assert.equal(audits.rowCount, 4);
     assert.ok(audits.rows.every((row) => row.actor_id === ADMIN.sub));
     assert.ok(audits.rows.every((row) => row.actor_role === 'admin'));
     assert.ok(audits.rows.every((row) => row.student_id === OWNER.sub));

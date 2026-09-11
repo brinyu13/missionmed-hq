@@ -56,6 +56,7 @@ const currentMigrations = [
   '20260819220000_b1_515r4_admin_population_scope_repair.sql',
   '20260820120000_b1_517_myeras_alignment.sql',
   '20260908193000_sf_access_5014_canonical_admin_identity.sql',
+  '20260911030000_sf_audio_playback_admin_projection.sql',
 ];
 
 function commandPath(name) {
