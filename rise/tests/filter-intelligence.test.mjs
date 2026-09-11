@@ -145,7 +145,7 @@ test("Postgres projection reads only domain coverage and approved current facts,
   const client = {
     async query(sql) {
       calls.push(String(sql));
-      if (String(sql).includes("array_agg")) {
+      if (String(sql).includes("completed_research_factory")) {
         return { rows: [{ acgmeId: "0000000001", fields: ["research.visa", "research.resident_roster"] }] };
       }
       if (String(sql).includes("canonical_current_facts")) {
@@ -173,7 +173,12 @@ test("Postgres projection reads only domain coverage and approved current facts,
   assert.equal(connects, 1);
   assert.ok(calls.some((sql) => sql.includes("SET_CONFIG") || sql.includes("set_config")));
   assert.equal(JSON.stringify(first).includes("canonical_value"), false);
-  assert.match(calls.find((sql) => sql.includes("array_agg")), /disposition = 'APPROVED_CURRENT'/);
+  const coverageQuery = calls.find((sql) => sql.includes("completed_research_factory"));
+  const factsQuery = calls.find((sql) => sql.includes("canonical_current_facts") && sql.includes("promoted_source_urls"));
+  assert.match(coverageQuery, /disposition = 'APPROVED_CURRENT'/);
+  assert.match(factsQuery, /WITH promoted_source_urls AS/);
+  assert.doesNotMatch(factsQuery, /WHERE l\.promoted_claim_id = f\.claim_id/);
+  assert.equal(first.currentFacts[0].field, "research.visa");
 });
 
 test("review-gated claims report pending evidence without inflating research depth", () => {

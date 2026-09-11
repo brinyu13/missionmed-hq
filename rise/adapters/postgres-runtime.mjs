@@ -532,8 +532,7 @@ export async function createRiseFilterIntelligenceStore({
       if (cached && now - cachedAt < cacheTtlMs) return structuredClone(cached);
       try {
         const result = await withSubject(pool, systemKey, async (client) => {
-          const [coverage, facts] = await Promise.all([
-            client.query(`
+          const coverage = await client.query(`
               SELECT
                 s.metadata->>'acgmeId' AS "acgmeId",
                 array_agg(DISTINCT c.field ORDER BY c.field)
@@ -550,8 +549,18 @@ export async function createRiseFilterIntelligenceStore({
                 AND s.metadata->>'acgmeId' ~ '^[0-9]{10}$'
               GROUP BY s.metadata->>'acgmeId'
               ORDER BY s.metadata->>'acgmeId'
-            `),
-            client.query(`
+            `);
+          const facts = await client.query(`
+              WITH promoted_source_urls AS (
+                SELECT
+                  l.promoted_claim_id,
+                  array_agg(DISTINCT u.url ORDER BY u.url) AS source_urls
+                FROM rise_runtime.canonical_claim_promotion_lineage l
+                JOIN rise_runtime.evidence_claim_review_current r
+                  ON r.source_claim_id = l.source_claim_id
+                CROSS JOIN LATERAL jsonb_array_elements_text(r.source_urls) u(url)
+                GROUP BY l.promoted_claim_id
+              )
               SELECT
                 subject_id AS "subjectId",
                 s.metadata->>'acgmeId' AS "acgmeId",
@@ -566,16 +575,9 @@ export async function createRiseFilterIntelligenceStore({
                 s.source_locator AS "sourceLocator"
               FROM rise_runtime.canonical_current_facts f
               JOIN rise_runtime.canonical_evidence_sources s USING (source_id)
-              LEFT JOIN LATERAL (
-                SELECT array_agg(DISTINCT u.url ORDER BY u.url) AS source_urls
-                FROM rise_runtime.canonical_claim_promotion_lineage l
-                JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id = l.source_claim_id
-                CROSS JOIN LATERAL jsonb_array_elements_text(r.source_urls) u(url)
-                WHERE l.promoted_claim_id = f.claim_id
-              ) links ON true
+              LEFT JOIN promoted_source_urls links ON links.promoted_claim_id = f.claim_id
               ORDER BY subject_id, field
-            `),
-          ]);
+            `);
           return {
             researchCoverage: coverage.rows.map((row) => ({
               ...row,
