@@ -2,7 +2,7 @@
 
 Review only. Do not deploy, migrate production, change WordPress, alter Railway variables, publish billing terms, or contact Stripe.
 
-DR-233 requires the builder and acceptance verifier to be distinct sessions. Review GitHub draft PR 28 at commit `a5ab97b53801202a682749b47a44c7d3fdbc5fcc` against base `031a9e812de3575d225de0064cc4be209d86b72b`.
+DR-233 requires the builder and acceptance verifier to be distinct sessions. Review the current head of GitHub draft PR 28 against base `031a9e812de3575d225de0064cc4be209d86b72b`. Confirm the current PR head before testing; the implementation commit is `a5ab97b53801202a682749b47a44c7d3fdbc5fcc` and later commits contain only review/preimage evidence.
 
 Verify the change is confined to `missionaccounts/` and satisfies DR-232/DR-233:
 
