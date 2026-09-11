@@ -1,5 +1,6 @@
 import { transitionExamPlan as applyExamTransition } from '../domain/exam-engine.mjs';
 import { buildDecisionBasis, calculateCycleAmount } from '../domain/billing-engine.mjs';
+import { buildAutomaticBillingShadow } from '../domain/auto-billing-shadow.mjs';
 
 function sanitizedPaymentMethod(row) {
   if (!row) return null;
@@ -655,6 +656,36 @@ export class SupabaseRestStore {
       zoom_review_classes: reviewClasses.length,
       zoom_review_occurrences: reviewOccurrences.length,
     };
+  }
+
+  async automaticBillingShadow({ now }) {
+    const [
+      attendanceDays,
+      students,
+      billingDecisions,
+      paymentMethods,
+      billingConsents,
+      charges,
+      ruleDecisions,
+    ] = await Promise.all([
+      this.requestAll('attendance_day?superseded_at=is.null&select=id,student_id,cycle_key,day,kind,same_day_multiple_events,computed_at'),
+      this.requestAll('student_identity_projection?absorbed=eq.false&excluded=eq.false&select=id,display_name,email,identity_state,sponsor_type'),
+      this.requestAll('billing_decision?superseded_by_id=is.null&select=id,student_id,cycle_key,treatment,amount_cents,basis,state,superseded_by_id'),
+      this.requestAll('payment_method_private?select=student_id,brand,last4,status'),
+      this.requestAll('billing_consent?superseded_by_id=is.null&select=student_id,state,superseded_by_id'),
+      this.requestAll('charge?select=student_id,attendance_day_id,amount_cents,state'),
+      this.requestAll('rule_decision?superseded_by_id=is.null&select=rule,effective_from,superseded_by_id'),
+    ]);
+    return buildAutomaticBillingShadow({
+      now,
+      attendanceDays,
+      students,
+      billingDecisions,
+      paymentMethods,
+      billingConsents,
+      charges,
+      ruleDecisions,
+    });
   }
 
   async adminStudents({ q = '', missing = null } = {}) {

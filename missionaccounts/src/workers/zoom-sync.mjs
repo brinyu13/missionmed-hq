@@ -64,16 +64,19 @@ export async function runZoomSync({ env = process.env, fetchImpl = fetch, now = 
     now,
     timeZone: env.MISSIONACCOUNTS_TIME_ZONE || 'America/New_York',
   });
+  const shadow = env.MISSIONACCOUNTS_ZOOM_WORKER_MODE === 'shadow';
+  const endpoint = shadow ? '/api/internal/zoom/shadow' : '/api/internal/zoom/sync';
+  const keyMode = shadow ? 'shadow:' : '';
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30_000);
   let response;
   try {
-    response = await fetchImpl(`${baseUrl}/api/internal/zoom/sync`, {
+    response = await fetchImpl(`${baseUrl}${endpoint}`, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${workerToken}`,
         'content-type': 'application/json',
-        'idempotency-key': `missionaccounts:zoom:daily:${window.local_day}`,
+        'idempotency-key': `missionaccounts:zoom:${keyMode}daily:${window.local_day}`,
       },
       body: JSON.stringify({ window_from: window.window_from, window_to: window.window_to }),
       signal: controller.signal,
@@ -89,6 +92,7 @@ export async function runZoomSync({ env = process.env, fetchImpl = fetch, now = 
   }
   return {
     accepted: true,
+    mode: shadow ? 'shadow' : 'effective',
     duplicate: result.duplicate === true,
     local_day: window.local_day,
     sessions: Number(result.sessions || 0),

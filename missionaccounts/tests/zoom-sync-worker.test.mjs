@@ -31,8 +31,27 @@ test('Zoom daily worker sends one stable authenticated idempotent window and ret
     window_from: '2026-09-05T04:00:00.000Z',
     window_to: '2026-09-06T04:00:00.000Z',
   });
-  assert.deepEqual(result, { accepted: true, duplicate: false, local_day: '2026-09-05', sessions: 2, source_rows: 41 });
+  assert.deepEqual(result, { accepted: true, mode: 'effective', duplicate: false, local_day: '2026-09-05', sessions: 2, source_rows: 41 });
   assert.doesNotMatch(JSON.stringify(result), /worker-token/);
+});
+
+test('Zoom worker can run the provider-only shadow path with a distinct idempotency key', async () => {
+  let observed;
+  const result = await runZoomSync({
+    env: {
+      MISSIONACCOUNTS_INTERNAL_BASE_URL: 'https://missionaccounts.example.test',
+      MISSIONACCOUNTS_WORKER_TOKEN: 'test-worker-token-at-least-24-characters',
+      MISSIONACCOUNTS_ZOOM_WORKER_MODE: 'shadow',
+    },
+    now: new Date('2026-09-06T13:00:00Z'),
+    fetchImpl: async (url, options) => {
+      observed = { url, options };
+      return new Response(JSON.stringify({ accepted: true, sessions: 2, source_rows: 41 }), { status: 200 });
+    },
+  });
+  assert.equal(observed.url, 'https://missionaccounts.example.test/api/internal/zoom/shadow');
+  assert.equal(observed.options.headers['idempotency-key'], 'missionaccounts:zoom:shadow:daily:2026-09-05');
+  assert.equal(result.mode, 'shadow');
 });
 
 test('Zoom daily worker rejects insecure remote origins and incomplete authentication', async () => {

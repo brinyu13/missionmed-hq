@@ -152,6 +152,21 @@ test('manual charge confirmation names the student, cycle, exact amount, masked 
  assert.match(html,/data-manual-charge/);
 });
 
+test('Dr J automation view explains the zero-money shadow and renders every billing gate',()=>{
+ assert.match(html,/function missionAccountsAutomaticBillingShadow\(\)/);
+ assert.match(html,/Run \$0 billing preview/);
+ assert.match(html,/This preview cannot contact Stripe or move money\./);
+ assert.match(html,/Live automatic charging remains off\./);
+ assert.match(html,/Would charge/);
+ assert.match(html,/Sponsored exclusions/);
+ assert.match(html,/Missing payment method/);
+ assert.match(html,/Missing consent/);
+ assert.match(html,/Held or review/);
+ assert.match(html,/data-auto-shadow/);
+ assert.match(html,/request\('\/admin\/automation\/shadow'\)/);
+ assert.doesNotMatch(fn('missionAccountsAutomaticBillingShadow'),/manual-cycle-charge|auto\/dispatch|PaymentIntent/);
+});
+
 test('batch partial receipt never navigates a missing record to a different student',()=>{
  let sheet='';
  vm.runInNewContext(fn('missionAccountsBatchOutcome')+`;missionAccountsBatchOutcome({approved_count:0,rejected_count:1,results:[{student_id:'gone',accepted:false,reason:'student_not_found'}]},'june')`,{

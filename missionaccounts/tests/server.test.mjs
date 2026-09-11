@@ -13,7 +13,7 @@ const localConfig = {
   issuer: 'https://issuer.invalid',
   audience: 'missionaccounts',
   jwksUrl: 'https://issuer.invalid/jwks',
-  features: { studentContacts: false, billingDecisions: false, attendanceCorrections: false, identityReview: false, examPlans: false, compDays: false, paymentMethodSetup: false, manualCharges: false, autoBilling: false, notifications: false, zoomSync: false },
+  features: { studentContacts: false, billingDecisions: false, attendanceCorrections: false, identityReview: false, examPlans: false, compDays: false, paymentMethodSetup: false, manualCharges: false, autoBilling: false, autoBillingShadow: false, notifications: false, zoomSync: false, zoomShadow: false, zoomEffectiveWrites: false, billableDayCalculation: false },
   stripeAccountId: '',
   workerToken: '',
 };
@@ -807,6 +807,46 @@ test('Zoom sync remains feature-off and provider-disconnected without creating r
   });
 });
 
+test('Zoom provider shadow returns only controls and cannot write attendance or billing', async () => {
+  const store = new PreviewStore();
+  let storeMutations = 0;
+  store.ingestZoomBatch = async () => { storeMutations += 1; throw new Error('shadow must not persist'); };
+  const zoomProvider = {
+    assertConfigured() {},
+    async ingestWindow() {
+      const batch = zoomBatchFixture();
+      batch.sessions[0].state = 'confirmed';
+      batch.sessions.push({ ...batch.sessions[0], provider_instance_id: 'instance-2', step: 's23' });
+      batch.artifact.sha256 = 'c'.repeat(64);
+      return batch;
+    },
+  };
+  const config = {
+    ...localConfig,
+    workerToken: 'zoom-shadow-worker-test',
+    features: { ...localConfig.features, zoomShadow: true },
+  };
+  await withServer({ config, store, stripeGateway: new StripeGateway(), zoomProvider }, async base => {
+    const response = await fetch(`${base}/api/internal/zoom/shadow`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer zoom-shadow-worker-test',
+        'content-type': 'application/json',
+        'idempotency-key': 'zoom-shadow-request-0001',
+      },
+      body: JSON.stringify({ window_from: '2026-09-01T00:00:00Z', window_to: '2026-09-02T00:00:00Z' }),
+    });
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.state, 'provider_shadow');
+    assert.equal(result.live_money_moved_cents, 0);
+    assert.equal(result.authoritative_attendance_written, false);
+    assert.equal(result.confirmed_sessions, 2);
+    assert.deepEqual(result.same_day_dual_track_dates, ['2026-09-01']);
+    assert.equal(storeMutations, 0);
+  });
+});
+
 test('Zoom sync reconciles only confirmed attendance and reports every prohibited automatic mutation', async () => {
   const store = new PreviewStore();
   const calls = [];
@@ -817,7 +857,7 @@ test('Zoom sync reconciles only confirmed attendance and reports every prohibite
   const config = {
     ...localConfig,
     workerToken: 'zoom-worker-test',
-    features: { ...localConfig.features, zoomSync: true },
+    features: { ...localConfig.features, zoomSync: true, zoomEffectiveWrites: true, billableDayCalculation: true },
   };
   await withServer({ config, store, stripeGateway: new StripeGateway(), zoomProvider }, async base => {
     const headers = {
@@ -857,7 +897,7 @@ test('Zoom provider failure creates one persistent run exception and exposes no 
   const config = {
     ...localConfig,
     workerToken: 'zoom-worker-failure-test',
-    features: { ...localConfig.features, zoomSync: true },
+    features: { ...localConfig.features, zoomSync: true, zoomEffectiveWrites: true, billableDayCalculation: true },
   };
   await withServer({ config, store, stripeGateway: new StripeGateway(), zoomProvider }, async base => {
     const headers = {
@@ -872,6 +912,38 @@ test('Zoom provider failure creates one persistent run exception and exposes no 
     const health = await store.adminHealth();
     assert.equal(health.latest_zoom_sync.state, 'failed');
     assert.equal(health.open_integration_exceptions, 1);
+  });
+});
+
+test('automatic-billing shadow is admin-only, read-only, and leaves live dispatch off', async () => {
+  const store = new PreviewStore();
+  let calls = 0;
+  store.automaticBillingShadow = async ({ now }) => {
+    calls += 1;
+    assert.match(now, /^2026-09-11T16:00:00/);
+    return {
+      schema_version: 'missionaccounts-auto-billing-shadow-v1',
+      live_money_moved_cents: 0,
+      live_dispatch_enabled: false,
+      summary: { would_charge_students: 0, would_charge_total_cents: 0 },
+      rows: [],
+    };
+  };
+  const config = { ...localConfig, features: { ...localConfig.features, autoBillingShadow: true } };
+  await withServer({
+    config,
+    store,
+    stripeGateway: { createDayCharge() { assert.fail('shadow must never contact Stripe'); } },
+    now: () => new Date('2026-09-11T16:00:00.000Z'),
+  }, async base => {
+    const denied = await fetch(`${base}/api/admin/automation/shadow`, { headers: { 'x-missionaccounts-local-role': 'student' } });
+    assert.equal(denied.status, 403);
+    const response = await fetch(`${base}/api/admin/automation/shadow`, { headers: { 'x-missionaccounts-local-role': 'missionaccounts_admin' } });
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.live_money_moved_cents, 0);
+    assert.equal(result.live_dispatch_enabled, false);
+    assert.equal(calls, 1);
   });
 });
 

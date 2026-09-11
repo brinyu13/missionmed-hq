@@ -43,6 +43,10 @@ function environmentConfig() {
       hostedInvoices: process.env.MISSIONACCOUNTS_HOSTED_INVOICES === '1',
       notifications: process.env.MISSIONACCOUNTS_NOTIFICATIONS === '1',
       zoomSync: process.env.MISSIONACCOUNTS_ZOOM_SYNC === '1',
+      zoomShadow: process.env.MISSIONACCOUNTS_ZOOM_SHADOW === '1',
+      zoomEffectiveWrites: process.env.MISSIONACCOUNTS_ZOOM_EFFECTIVE_WRITES === '1',
+      billableDayCalculation: process.env.MISSIONACCOUNTS_BILLABLE_DAY_CALCULATION === '1',
+      autoBillingShadow: process.env.MISSIONACCOUNTS_AUTO_BILLING_SHADOW === '1',
     },
     stripeMode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
     stripeAccountId: process.env.MISSIONACCOUNTS_STRIPE_ACCOUNT_ID || '',
@@ -139,7 +143,7 @@ export function createMissionAccountsServer({
   const zoomConfiguredAtStartup = typeof zoomProvider?.isConfigured === 'function'
     ? zoomProvider.isConfigured() === true
     : typeof zoomProvider?.ingestWindow === 'function';
-  if (config.features?.zoomSync && !zoomConfiguredAtStartup) {
+  if ((config.features?.zoomSync || config.features?.zoomShadow) && !zoomConfiguredAtStartup) {
     throw new Error('MissionAccounts Zoom sync is enabled without a configured provider');
   }
   function zoomProviderConfigured() {
@@ -157,12 +161,16 @@ export function createMissionAccountsServer({
     return {
       ...await store.adminHealth(),
       zoom_sync_enabled: Boolean(config.features?.zoomSync),
+      zoom_shadow_enabled: Boolean(config.features?.zoomShadow),
+      zoom_effective_writes_enabled: Boolean(config.features?.zoomEffectiveWrites),
+      billable_day_calculation_enabled: Boolean(config.features?.billableDayCalculation),
       zoom_provider_configured: zoomProviderConfigured(),
       zoom_schedule_utc: config.zoomScheduleUtc || null,
       hosted_invoices_enabled: Boolean(config.features?.hostedInvoices),
       payment_method_setup_enabled: Boolean(config.features?.paymentMethodSetup),
       manual_charges_enabled: Boolean(config.features?.manualCharges),
       auto_billing_enabled: Boolean(config.features?.autoBilling),
+      auto_billing_shadow_enabled: Boolean(config.features?.autoBillingShadow),
       stripe: stripeState,
     };
   }
@@ -341,6 +349,10 @@ export function createMissionAccountsServer({
         hosted_invoices_enabled: Boolean(config.features?.hostedInvoices),
         notifications_enabled: Boolean(config.features?.notifications),
         zoom_sync_enabled: Boolean(config.features?.zoomSync),
+        zoom_shadow_enabled: Boolean(config.features?.zoomShadow),
+        zoom_effective_writes_enabled: Boolean(config.features?.zoomEffectiveWrites),
+        billable_day_calculation_enabled: Boolean(config.features?.billableDayCalculation),
+        auto_billing_shadow_enabled: Boolean(config.features?.autoBillingShadow),
       });
     }
     if (request.method === 'POST' && url.pathname === '/api/webhooks/stripe') {
@@ -402,6 +414,8 @@ export function createMissionAccountsServer({
     }
     if (request.method === 'POST' && url.pathname === '/api/internal/zoom/sync') {
       requireFeature(config, 'zoomSync');
+      requireFeature(config, 'zoomEffectiveWrites');
+      requireFeature(config, 'billableDayCalculation');
       const bearer = String(request.headers.authorization || '').match(/^Bearer\s+(.+)$/i)?.[1] || '';
       if (!secureTokenEqual(bearer, config.workerToken)) throw requestError('Zoom worker authentication failed', 401);
       zoomProvider.assertConfigured();
@@ -451,6 +465,36 @@ export function createMissionAccountsServer({
         });
         throw error;
       }
+    }
+    if (request.method === 'POST' && url.pathname === '/api/internal/zoom/shadow') {
+      requireFeature(config, 'zoomShadow');
+      const bearer = String(request.headers.authorization || '').match(/^Bearer\s+(.+)$/i)?.[1] || '';
+      if (!secureTokenEqual(bearer, config.workerToken)) throw requestError('Zoom worker authentication failed', 401);
+      zoomProvider.assertConfigured();
+      const body = await readJsonBody(request, { limitBytes: 16_384 });
+      const windowFrom = String(body.window_from || '');
+      const windowTo = String(body.window_to || '');
+      const fromMs = Date.parse(windowFrom);
+      const toMs = Date.parse(windowTo);
+      if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs < fromMs || toMs - fromMs > 31 * 86_400_000) {
+        throw requestError('Zoom shadow requires an ordered ISO window no longer than 31 days');
+      }
+      const batch = await zoomProvider.ingestWindow({ from: windowFrom, to: windowTo });
+      return json(response, 200, {
+        accepted: true,
+        state: 'provider_shadow',
+        live_money_moved_cents: 0,
+        authoritative_attendance_written: false,
+        artifact_sha256: batch.artifact?.sha256 || null,
+        sessions: batch.sessions.length,
+        source_rows: batch.source_rows.length,
+        confirmed_sessions: batch.sessions.filter(item => item.state === 'confirmed').length,
+        review_sessions: batch.sessions.filter(item => item.state === 'needs_review').length,
+        same_day_dual_track_dates: [...new Set(batch.sessions.map(item => item.held_on).filter(day => (
+          batch.sessions.some(item => item.held_on === day && item.step === 's1')
+          && batch.sessions.some(item => item.held_on === day && item.step === 's23')
+        )))],
+      });
     }
     if (request.method === 'POST' && url.pathname === '/api/internal/notifications/drain') {
       requireFeature(config, 'notifications');
@@ -535,6 +579,8 @@ export function createMissionAccountsServer({
           hosted_invoices: !registeredOnly && Boolean(config.features?.hostedInvoices),
           notifications: !registeredOnly && Boolean(config.features?.notifications),
           zoom_sync: !registeredOnly && Boolean(config.features?.zoomSync),
+          zoom_shadow: !registeredOnly && Boolean(config.features?.zoomShadow),
+          auto_billing_shadow: !registeredOnly && Boolean(config.features?.autoBillingShadow),
         },
       });
     }
@@ -1389,6 +1435,11 @@ export function createMissionAccountsServer({
     if (request.method === 'GET' && url.pathname === '/api/admin/health') {
       requireRole(identity, ['missionaccounts_admin', 'founder']);
       return json(response, 200, await administrativeHealth());
+    }
+    if (request.method === 'GET' && url.pathname === '/api/admin/automation/shadow') {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'autoBillingShadow');
+      return json(response, 200, await store.automaticBillingShadow({ now: now().toISOString() }));
     }
     return json(response, 404, { code: 'NOT_FOUND', message: 'MissionAccounts endpoint not found' });
   }
