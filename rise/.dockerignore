@@ -7,11 +7,14 @@
 !src/**
 !adapters/
 !adapters/**
+!config/
+!config/deep-research-dossier-v2.json
 !releases/
 !releases/**
 !tools/
 !tools/build-app.mjs
 !tools/prepare-runtime.mjs
 !tools/start-production.mjs
+!tools/start-research-worker.mjs
 !web/
 !web/**
