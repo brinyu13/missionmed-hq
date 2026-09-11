@@ -49,7 +49,7 @@ export class SupabaseRestStore {
   }
 
   async studentByMatrixUser(userId) {
-    const rows = await this.request(`student?id=eq.${encodeURIComponent(userId)}&select=id,matrix_user_ref,display_name,email,joined_at,comp_days_allowance,identity_state&limit=1`);
+    const rows = await this.request(`student?id=eq.${encodeURIComponent(userId)}&select=id,matrix_user_ref,display_name,email,joined_at,comp_days_allowance,identity_state,sponsor_type,sponsor_name,sponsor_updated_at&limit=1`);
     return rows[0] || null;
   }
 
@@ -152,8 +152,8 @@ export class SupabaseRestStore {
     if (!admin && !studentId) throw new Error('Student canonical projection requires a student id');
     const studentFilter = admin ? '' : `&student_id=eq.${encodeURIComponent(studentId)}`;
     const studentPath = admin
-      ? 'student_identity_projection?select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,canonical_student_id,absorbed,device_source,excluded,device_decision_id,cluster_decision_id&order=display_name.asc&limit=1000'
-      : `student_identity_projection?id=eq.${encodeURIComponent(studentId)}&absorbed=eq.false&excluded=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,canonical_student_id,absorbed,device_source,excluded,device_decision_id,cluster_decision_id&limit=1`;
+      ? 'student_identity_projection?select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,sponsor_type,sponsor_name,sponsor_updated_at,canonical_student_id,absorbed,device_source,excluded,device_decision_id,cluster_decision_id&order=display_name.asc&limit=1000'
+      : `student_identity_projection?id=eq.${encodeURIComponent(studentId)}&absorbed=eq.false&excluded=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,sponsor_type,sponsor_name,sponsor_updated_at,canonical_student_id,absorbed,device_source,excluded,device_decision_id,cluster_decision_id&limit=1`;
     const aliasPath = admin
       ? 'identity_alias_projection?superseded_by_id=is.null&select=id,student_id,source_student_id,source_key,display_value,relationship_state,confidence&order=created_at.asc'
       : `identity_alias_projection?student_id=eq.${encodeURIComponent(studentId)}&superseded_by_id=is.null&select=id,student_id,source_student_id,source_key,display_value,relationship_state,confidence&order=created_at.asc`;
@@ -351,6 +351,11 @@ export class SupabaseRestStore {
   }
 
   async approveBillingDecision({ studentId, cycleKey, treatment, requestedAmountCents, note, actorId, actorRole, requestId }) {
+    const sponsorRows = await this.request(`student?id=eq.${encodeURIComponent(studentId)}&select=sponsor_type&limit=1`);
+    const sponsor = sponsorRows[0]?.sponsor_type || 'DIRECT';
+    if (sponsor !== 'DIRECT' && (String(treatment).toUpperCase() !== sponsor || Number(requestedAmountCents || 0) !== 0)) {
+      return { accepted: false, duplicate: false, reason: 'sponsored_direct_liability_blocked' };
+    }
     return this.rpc('api_approve_billing_decision', {
       p_student_id: studentId,
       p_cycle_key: cycleKey,
@@ -470,6 +475,10 @@ export class SupabaseRestStore {
   }
 
   async prepareManualCycleCharge({ studentId, cycleKey, expectedDecisionId, expectedAmountCents, expectedLast4, actorId, actorRole, requestId }) {
+    const sponsorRows = await this.request(`student?id=eq.${encodeURIComponent(studentId)}&select=sponsor_type&limit=1`);
+    if ((sponsorRows[0]?.sponsor_type || 'DIRECT') !== 'DIRECT') {
+      return { accepted: false, duplicate: false, reason: 'sponsored_direct_liability_blocked' };
+    }
     return this.rpc('api_prepare_manual_cycle_charge', {
       p_student_id: studentId,
       p_cycle_key: cycleKey,
@@ -650,7 +659,7 @@ export class SupabaseRestStore {
 
   async adminStudents({ q = '', missing = null } = {}) {
     const [students, paymentMethods, consents] = await Promise.all([
-      this.request('student_identity_projection?absorbed=eq.false&excluded=eq.false&select=id,display_name,email,joined_at,comp_days_allowance,identity_state&order=display_name.asc&limit=1000'),
+      this.request('student_identity_projection?absorbed=eq.false&excluded=eq.false&select=id,display_name,email,joined_at,comp_days_allowance,identity_state,sponsor_type,sponsor_name,sponsor_updated_at&order=display_name.asc&limit=1000'),
       this.request('payment_method?select=id,student_id,brand,last4,exp_month,exp_year,status,verified_at'),
       this.request('billing_consent?superseded_by_id=is.null&select=id,student_id,terms_version,state,accepted_at,revoked_at'),
     ]);
@@ -664,7 +673,7 @@ export class SupabaseRestStore {
     })).filter(student => {
       if (needle && !`${student.display_name} ${student.email || ''}`.toLocaleLowerCase().includes(needle)) return false;
       if (missing === 'email' && student.email) return false;
-      if (missing === 'setup' && student.payment_method?.status === 'on_file' && student.billing_consent?.state === 'authorized') return false;
+      if (missing === 'setup' && (student.sponsor_type !== 'DIRECT' || (student.payment_method?.status === 'on_file' && student.billing_consent?.state === 'authorized'))) return false;
       return true;
     });
   }
@@ -687,7 +696,7 @@ export class SupabaseRestStore {
         + attendanceIssues.length,
       identity_questions: identityClusters.length,
       attendance_issues: attendanceIssues.length,
-      missing_payment_setup: students.filter(student => student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized').length,
+      missing_payment_setup: students.filter(student => student.sponsor_type === 'DIRECT' && (student.payment_method?.status !== 'on_file' || student.billing_consent?.state !== 'authorized')).length,
       stale_decisions: decisions.filter(decision => decision.state === 'stale').length,
       ready_invoices: invoices.filter(invoice => invoice.state === 'ready').length,
       sent_invoices: invoices.filter(invoice => invoice.state === 'sent').length,
@@ -742,7 +751,7 @@ export class SupabaseRestStore {
   }
 
   async adminStudent(studentId) {
-    const rows = await this.request(`student_identity_projection?id=eq.${encodeURIComponent(studentId)}&absorbed=eq.false&excluded=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state&limit=1`);
+    const rows = await this.request(`student_identity_projection?id=eq.${encodeURIComponent(studentId)}&absorbed=eq.false&excluded=eq.false&select=id,display_name,email,phone,joined_at,comp_days_allowance,identity_state,sponsor_type,sponsor_name,sponsor_updated_at&limit=1`);
     const student = rows[0];
     if (!student) return null;
     const [attendance, billing, payment_method, billing_consent, exam_plan] = await Promise.all([
@@ -815,6 +824,9 @@ export class PreviewStore {
       joined_at: null,
       comp_days_allowance: 0,
       identity_state: 'verified',
+      sponsor_type: 'DIRECT',
+      sponsor_name: null,
+      sponsor_updated_at: null,
     };
   }
 
@@ -1347,6 +1359,12 @@ export class PreviewStore {
       if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
       return { ...existing.result, duplicate: true };
     }
+    const sponsor = this.previewStudentRecord.sponsor_type || 'DIRECT';
+    if (sponsor !== 'DIRECT' && (String(treatment).toUpperCase() !== sponsor || Number(requestedAmountCents || 0) !== 0)) {
+      const result = { accepted: false, duplicate: false, reason: 'sponsored_direct_liability_blocked' };
+      this.billingMutations.set(requestId, { fingerprint, result });
+      return result;
+    }
     const days = this.attendanceDays.get(`${studentId}:${cycleKey}`) || [];
     const cap = this.billingCaps.get(`${studentId}:${cycleKey}`) || null;
     const billableCount = days.filter(day => day.kind === 'billable').length;
@@ -1760,7 +1778,8 @@ export class PreviewStore {
     const existingCharge = this.manualCycleCharges.get(`${studentId}:${cycleKey}`);
     const receiptEmail = studentId === this.previewStudentRecord.id ? String(this.previewStudentRecord.email || '').trim().toLowerCase() : '';
     let rejection = null;
-    if (!['missionaccounts_admin', 'founder'].includes(actorRole)) rejection = 'administrator_authority_required';
+    if ((this.previewStudentRecord.sponsor_type || 'DIRECT') !== 'DIRECT') rejection = 'sponsored_direct_liability_blocked';
+    else if (!['missionaccounts_admin', 'founder'].includes(actorRole)) rejection = 'administrator_authority_required';
     else if (studentId !== this.previewStudentRecord.id || this.previewStudentRecord.identity_state !== 'verified' || !this.previewStudentRecord.matrix_user_ref) rejection = 'verified_linked_student_required';
     else if (!decision || decision.id !== expectedDecisionId || decision.state !== 'approved') rejection = 'current_approved_decision_required';
     else if (decision.amount_cents !== expectedAmountCents) rejection = 'approved_amount_changed';
@@ -1821,6 +1840,7 @@ export class PreviewStore {
         const existingCharge = this.chargesByDay.get(day.id);
         const computedMs = Date.parse(day.computed_at || '');
         const prerequisites = this.previewStudentRecord.id === studentId
+          && (this.previewStudentRecord.sponsor_type || 'DIRECT') === 'DIRECT'
           && this.previewStudentRecord.identity_state === 'verified'
           && day.kind === 'billable'
           && decision?.state === 'approved'

@@ -179,6 +179,7 @@ export function buildCanonicalModel(bootstrap) {
       ids: aliases.map(alias => alias.id),
       m: aliasValues.length > 1,
       k: student.device_source === true ? 'device' : 'person',
+      sponsor: ['UCC', 'MUL'].includes(student.sponsor_type) ? student.sponsor_type : 'DIRECT',
       c: cycles,
     };
   });

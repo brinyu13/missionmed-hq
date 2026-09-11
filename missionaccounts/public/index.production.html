@@ -1134,7 +1134,7 @@ function model(){ if(CACHE && CACHE_REV===REV) return CACHE;
   const notStudent = new Set(D.devices.filter(dv=>WS.dev[dv.key] && WS.dev[dv.key].d==='not').map(dv=>dv.si));
   // resolve chains
   const canonOf = si => { let x=si, guard=0; while(absorbed.has(x) && guard++<10) x=absorbed.get(x); return x; };
-  const eff = D.students.map(s=>({i:s.i, n:s.n, srcName:s.n, a:s.a.slice(), k:s.k, m:s.m, hk:s.hk, absorbed:absorbed.has(s.i)?canonOf(s.i):null, notStudent:notStudent.has(s.i), c:{}, src:{}, sessSets:{}, stepOv:{}, added:new Set(), removed:new Set(), notes:[]}));
+  const eff = D.students.map(s=>({i:s.i, n:s.n, srcName:s.n, a:s.a.slice(), k:s.k, m:s.m, hk:s.hk, sponsor:['UCC','MUL'].includes(s.sponsor)?s.sponsor:'DIRECT', absorbed:absorbed.has(s.i)?canonOf(s.i):null, notStudent:notStudent.has(s.i), c:{}, src:{}, sessSets:{}, stepOv:{}, added:new Set(), removed:new Set(), notes:[]}));
   CYK.forEach(k=>eff.forEach(e=>{ e.sessSets[k]=new Set(); }));
   D.events.forEach(([si,ss,mins,ai])=>{ const e=eff[canonOf(si)]; const se=D.sessions[ss]; e.sessSets[se.c].add(ss); if(absorbed.has(si)){ const al=D.students[si].a[ai]; if(!e.a.includes(al)) e.a.push(al); } });
   // source layer (what Zoom + the reconciliation say, after any name merges)
@@ -1171,6 +1171,7 @@ function decisionFor(si, k){ const d=WS.dec[si]; return d && d[k] ? d[k] : null;
 function contactOf(si){ return WS.contact[si] || {}; }
 function accountState(e, k){ // returns {state, amount, label, chip}
   const sug=suggestionFor(e,k); const dec=decisionFor(e.i,k); const email=!!contactOf(e.i).email;
+  if(e.sponsor==='UCC'||e.sponsor==='MUL') return {state:'nocharge',reason:e.sponsor,amount:0,chip:e.sponsor.toLowerCase(),label:'$0 due from student · '+e.sponsor};
   if(dec && basisChanged(e,k,dec)){ const b=basisOf(e,k); return {state:'stale',amount:dec.amt,chip:'review',label:`Basis changed · re-approve`,sug,dec,was:dec.basis,now:b}; }
   if(dec){ if(dec.t==='ucc') return {state:'nocharge',reason:'UCC',amount:0,chip:'ucc',label:'No charge · UCC'};
     if(dec.t==='mul') return {state:'nocharge',reason:'MUL',amount:0,chip:'mul',label:'No charge · MUL'};
@@ -1815,6 +1816,9 @@ function viewBilling(selK){ const m=model(); const focusK = CYK.find(k=>cycleSta
 
 /* ---------------- STUDENT LENS ---------------- */
 function setupCardHTML(e){ const pm=pmOf(e.i), au=authOf(e.i);
+  if(e.sponsor==='UCC'||e.sponsor==='MUL') return pm.state==='on_file'
+    ? `<div class="panel setup done" id="setup"><span class="k">${esc(e.sponsor)} sponsored account</span><div class="t">$0 due from you.</div><div class="d">Your saved ${esc(pm.brand)} •••• ${esc(pm.last4)} remains on file, but MissionAccounts will not use it for sponsored Drills liability.</div></div>`
+    : `<div class="panel setup done" id="setup"><span class="k">${esc(e.sponsor)} sponsored account</span><div class="t">$0 due from you.</div><div class="d">Your Drills account is sponsored. No payment method is required for this direct student balance.</div></div>`;
   if(document.documentElement.dataset.missionaccountsBuild==='production'&&!missionAccountsCapability('payment_method_setup')) return `<div class="panel setup" id="setup"><span class="k">Payment method setup pending</span><div class="t">Secure card setup is not active yet.</div><div class="d">Your account and attendance remain available. No card action or automatic charge can occur until payment setup is explicitly activated.</div><button type="button" class="btn primary" disabled aria-disabled="true" data-capability-disabled="true" title="Payment method setup is pending">Payment setup unavailable</button></div>`;
   if(pm.state!=='on_file') return `<div class="panel setup" id="setup"><span class="k">Secure payment method</span><div class="t">Add a payment method for Dr J Drills.</div><div class="d">Your card is entered through Stripe's secure form — MissionMed never sees the number. Saving a payment method does not turn on automatic billing.</div><button type="button" class="btn primary" data-pay="${e.i}|add">Add payment method</button></div>`;
   if(!missionAccountsCapability('auto_billing')) return `<div class="panel setup done" id="setup"><span class="k">Payment method saved</span><div class="t">✓ ${esc(pm.brand)} •••• ${esc(pm.last4)} is on file.</div><div class="d">Automatic billing is off. Dr J can collect manually in Stripe only after reviewing the approved amount.</div><div class="btnRow"><button type="button" class="btn soft sm" data-pay="${e.i}|update">Update card</button><button type="button" class="btn ghost xs" data-pay="${e.i}|remove">Remove card</button></div></div>`;
@@ -2030,6 +2034,7 @@ async function missionAccountsConfirmGroupSheet(k,which){
 }
 function missionAccountsManualChargeHTML(e,k){
   if(document.documentElement.dataset.missionaccountsBuild!=='production'||!missionAccountsCapability('manual_charges'))return '';
+  if(e.sponsor==='UCC'||e.sponsor==='MUL')return '<div class="panel" style="padding:18px;margin:14px 0"><div class="chHead"><span class="t">Sponsor</span><span class="chip '+e.sponsor.toLowerCase()+'">'+esc(e.sponsor)+'</span></div><p class="muted" style="margin-top:8px"><b>$0 due from student.</b> Attendance and payment history remain visible; direct MissionAccounts collection is blocked.</p></div>';
   const decision=WS.dec?.[e.i]?.[k]||null; const method=pmOf(e.i); const charge=WS.manualCharges?.[e.i]?.[k]||null;
   if(!decision||decision.state!=='approved'||Number(decision.amt)<=0)return '';
   if(charge?.state==='succeeded')return '<div class="panel" style="padding:18px;margin:14px 0"><div class="chHead"><span class="t">'+esc(cyc(k).label)+' payment</span><span class="chip approved">Paid · '+money(charge.amount)+'</span></div><p class="muted" style="margin-top:8px">Stripe confirmed this explicit charge. The collected state is stored in MissionAccounts.</p></div>';
@@ -2040,6 +2045,7 @@ function missionAccountsManualChargeHTML(e,k){
 }
 function missionAccountsManualChargeSheet(si,k){
   const e=model().eff[si]; const decision=WS.dec?.[si]?.[k]||null; const method=pmOf(si);
+  if(e&&(e.sponsor==='UCC'||e.sponsor==='MUL')){toast('Sponsored student direct liability is $0.');return;}
   if(!e||!decision||decision.state!=='approved'||Number(decision.amt)<=0||!method||method.state!=='on_file'){toast('The current approved balance and saved card are required.');return;}
   openSheet('<div class="t">Confirm real charge</div><div class="d">Review every item. This action creates a real LIVE Stripe charge and cannot be treated as a preview.</div><div class="kv" style="margin-top:16px"><span class="k">Student</span><span class="v">'+esc(e.n)+'</span><span class="k">Cycle</span><span class="v">'+esc(cyc(k).label)+'</span><span class="k">Amount</span><span class="v money">'+money(decision.amt)+'</span><span class="k">Payment method</span><span class="v">'+esc(method.brand||'card')+' •••• '+esc(method.last4)+'</span></div><p class="why" style="margin-top:14px"><b>Real charge:</b> MissionAccounts will ask the server to recheck this exact approved balance and saved payment method before contacting Stripe.</p><div class="acts"><button type="button" class="btn confirm" id="mcGo">Confirm charge</button><button type="button" class="btn ghost" id="mcNo">Cancel</button></div>',()=>{
     $('#mcNo').onclick=closeSheet; $('#mcGo').onclick=async()=>{const button=$('#mcGo');button.disabled=true;const saved=await window.MissionAccountsRuntime.dispatch('manual-cycle-charge',{si,k,decisionId:decision.id,amountCents:Math.round(Number(decision.amt)*100),last4:String(method.last4)});if(saved===false){button.disabled=false;return;}closeSheet();render();toast('Charge submitted. Reloading will show Stripe-confirmed status.');};
