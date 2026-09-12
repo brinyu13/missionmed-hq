@@ -209,6 +209,8 @@ test("Student Intel contribution and admin moderation remain inside the Fable Pr
 
 test("all six Program File tabs expose evidence-safe content or honest empty states", async ({ page }) => {
   await openRise(page, "program/rise_ps_atlas_im/overview");
+  const acknowledge = page.getByRole("button", { name: "I understand", exact: true });
+  if (await acknowledge.isVisible()) await acknowledge.click();
   const expectations = new Map([
     ["Overview", "Approved canonical registry facts"],
     ["Fit", "RISE does not guess"],
@@ -221,6 +223,11 @@ test("all six Program File tabs expose evidence-safe content or honest empty sta
     await page.getByRole("tab", { name, exact: true }).click();
     await expect(page.locator("#fileBody")).toContainText(text);
   }
+  await page.getByRole("tab", { name: "Fellowships & Outcomes", exact: true }).click();
+  await expect(page.locator("#fileBody")).toContainText("Cardiology Fellowship");
+  await expect(page.locator("#fileBody")).toContainText("Direct in-house fellowship");
+  await expect(page.locator("#fileBody")).not.toContainText("DIRECT_IM_IN_HOUSE");
+  await expect(page.locator("#fileBody")).not.toContainText("source url:");
 });
 
 test("Sources & Freshness stays available as a utility drawer", async ({ page }) => {
@@ -228,7 +235,7 @@ test("Sources & Freshness stays available as a utility drawer", async ({ page })
   await page.getByRole("button", { name: /sources & freshness/i }).click();
   await expect(page.locator("#srcPanel")).toHaveClass(/open/);
   await expect(page.locator("#srcPanel")).toContainText("Freshness by family");
-  await expect(page.locator("#srcPanel")).toContainText("Canonical registry source");
+  await expect(page.locator("#srcPanel")).toContainText(/canonical registry source/i);
   await expect(page.locator("#srcPanel")).toContainText("BETA · VERIFY WITH PROGRAM");
 });
 

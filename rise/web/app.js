@@ -1729,11 +1729,30 @@ function genericPeopleTable(p) {
   return `<div class="peopleCardGrid">${rows.map(row => { const name = row.name || row.full_name || row.person || 'Name not published'; const role = row.role || row.title || row.position || 'Role not published'; const training = row.training_summary || row.training || row.residency || row.fellowship || ''; const interests = row.interests || row.clinical_interests || row.research_interests || ''; const photo = String(row.photo_url || row.image_url || ''); const safePhoto = photo.startsWith('/') && !photo.startsWith('//') ? photo : ''; return `<article>${safePhoto ? `<img src="${esc(safePhoto)}" alt="" loading="lazy">` : '<div class="personPlaceholder" aria-hidden="true">◌</div>'}<div><h3>${esc(name)}</h3><b>${esc(role)}</b>${training ? `<p>${esc(displayValue(training))}</p>` : ''}${interests ? `<p class="sub">${esc(displayValue(interests))}</p>` : ''}</div></article>`; }).join('')}</div>`;
 }
 
+function evidenceCard(row, kind) {
+  if (!row || typeof row !== 'object') return `<article>${esc(row)}</article>`;
+  const sourceUrl = String(row.source_url || row.url || '').trim();
+  const safeSource = /^https:\/\//i.test(sourceUrl) ? sourceUrl : '';
+  const heading = row.name || row.program || row.fellowship || row.placement || row.destination || row.title
+    || (kind === 'fellowship' ? 'Published fellowship' : 'Published graduate outcome');
+  const classificationLabels = {
+    DIRECT_IM_IN_HOUSE: 'Direct in-house fellowship',
+    NOT_IM_ACCESSIBLE: 'Not directly accessible from Internal Medicine',
+    'UNCERTAIN/AFFILIATE': 'Affiliate relationship — confirm with program',
+  };
+  const classification = classificationLabels[String(row.classification || '').toUpperCase()]
+    || (row.classification ? String(row.classification).replaceAll('_', ' ').replaceAll('/', ' / ') : '');
+  const detailKeys = ['institution', 'specialty', 'year', 'graduate_year', 'role', 'summary', 'details', 'evidence'];
+  const details = detailKeys.map(key => row[key]).filter(value => value != null && value !== '').map(displayValue);
+  if (classification) details.push(classification);
+  return `<article><b>${esc(heading)}</b>${details.length ? `<p>${esc(details.join(' · '))}</p>` : ''}${safeSource ? `<a href="${esc(safeSource)}" target="_blank" rel="noopener noreferrer">View published source ↗</a>` : ''}</article>`;
+}
+
 function genericFellowshipOutcomes(p) {
   const fellowships = evidenceRows(approvedResearchValue(p, 'research.fellowship_inventory'), ['fellowships','inventory','programs']);
   const outcomes = evidenceRows(approvedResearchValue(p, 'research.outcomes'), ['outcomes','graduates','placements']);
-  const cards = (label, rows) => rows.length ? `<section><h3>${label}</h3><div class="outcomeCardGrid">${rows.slice(0,80).map(row => `<article>${esc(typeof row === 'object' ? displayValue(row) : row)}</article>`).join('')}</div></section>` : `<section><h3>${label}</h3><p class="sub">Not yet available from approved evidence.</p></section>`;
-  return fellowships.length || outcomes.length ? `<div class="outcomesGrid">${cards('In-house fellowships',fellowships)}${cards('Graduate outcomes',outcomes)}</div>` : '';
+  const cards = (label, rows, kind) => rows.length ? `<section><h3>${label}</h3><div class="outcomeCardGrid">${rows.slice(0,80).map(row => evidenceCard(row, kind)).join('')}</div></section>` : `<section><h3>${label}</h3><p class="sub">Not yet available from approved evidence.</p></section>`;
+  return fellowships.length || outcomes.length ? `<div class="outcomesGrid">${cards('In-house fellowships',fellowships,'fellowship')}${cards('Graduate outcomes',outcomes,'outcome')}</div>` : '';
 }
 
 function tabResidents(p, R) {

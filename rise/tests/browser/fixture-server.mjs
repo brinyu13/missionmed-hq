@@ -84,7 +84,7 @@ function program({ id, name, designation, city, state, memberships, j1, h1b, dir
       sourceDocumentId: "synthetic-source",
       authority: "SYNTHETIC_TEST",
       assertionClass: "synthetic_fixture",
-      urls: [],
+      urls: ["https://example.test/program-directory"],
       retrievedAt: "2026-07-09",
       sourceUpdatedAt: "2026-07-09",
       missionMedVerifiedAt: "2026-07-09",
@@ -186,6 +186,28 @@ const registryIndex = {
   ],
 };
 
+const researchFixtureFacts = [
+  {
+    subjectId: "rise_prg_atlas_im",
+    field: "research.fellowship_inventory",
+    canonicalValue: [
+      {
+        name: "Cardiology Fellowship",
+        classification: "DIRECT_IM_IN_HOUSE",
+        source_url: "https://example.edu/fellowships/cardiology",
+      },
+    ],
+  },
+  {
+    subjectId: "rise_prg_beacon_medpeds",
+    field: "research.resident_roster",
+    canonicalValue: [
+      { classification: "IMG", caribbean: "YES" },
+      { classification: "US_DO", degree: "DO", caribbean: "NO" },
+    ],
+  },
+];
+
 const port = Number.parseInt(process.env.RISE_FIXTURE_PORT ?? "4178", 10);
 const server = createRiseServer({
   registryIndex,
@@ -219,16 +241,14 @@ const server = createRiseServer({
             fields: ["research.visa", "research.resident_roster", "research.leadership"],
           },
         ],
-        currentFacts: [
-          {
-            subjectId: "rise_prg_beacon_medpeds",
-            field: "research.resident_roster",
-            canonicalValue: [
-              { classification: "IMG", caribbean: "YES" },
-              { classification: "US_DO", degree: "DO", caribbean: "NO" },
-            ],
-          },
-        ],
+        currentFacts: researchFixtureFacts,
+      };
+    },
+    async readProgram({ programId, acgmeId }) {
+      const keys = new Set([programId, acgmeId].filter(Boolean).map(String));
+      return {
+        currentFacts: researchFixtureFacts.filter((fact) => keys.has(String(fact.subjectId ?? fact.acgmeId ?? ""))),
+        pendingEvidence: { fields: [], claimCount: 0 },
       };
     },
   },
