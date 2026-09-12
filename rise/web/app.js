@@ -1599,11 +1599,33 @@ const DOMAIN_REGISTRY_FIELDS = {
 };
 function projectedDomainStates(p) {
   return Object.fromEntries(Object.keys(DOMAIN_RESEARCH_FIELDS).map(domain => {
-    const dossierKey = ({ identity:'identity_structure', requirements:'application_requirements', roster:'current_resident_roster', resident_schools:'resident_medical_schools', composition:'resident_composition', leadership:'program_leadership', faculty:'core_faculty', training_paths:'trained_here_retention', board:'board_pass_rate', fellowship:'in_house_fellowships', outcomes:'graduate_outcomes', salary:'salary_benefits', curriculum:'curriculum_training', scholarly:'research_scholarly', differentiators:'program_differentiators', culture:'culture_resident_experience', facilities:'facilities_patient_population' })[domain] || domain;
-    const dossierState = p.researchProjection?.dossier?.completionMatrix?.[dossierKey]?.state;
+    const dossierKeys = ({
+      identity: ['identity_structure'],
+      requirements: ['attempts_policy', 'deadline_signaling', 'ecfmg', 'step1_policy', 'step2_requirement', 'step2_timing', 'usce', 'yog_policy'],
+      roster: ['resident_roster'], resident_schools: ['resident_medical_schools'], composition: ['resident_composition'],
+      leadership: ['leadership'], faculty: ['core_faculty'], training_paths: ['trained_here_retention'],
+      board: ['board_pass_rate'], fellowship: ['fellowship_inventory'], outcomes: ['outcomes'], salary: ['salary_benefits'],
+      curriculum: ['curriculum'], scholarly: ['research_scholarly'], differentiators: ['program_differentiators'],
+      culture: ['culture_resident_experience'], facilities: ['facilities_patient_population'],
+    })[domain] || [domain];
+    const dossierState = dossierKeys.map(key => p.researchProjection?.dossier?.completionMatrix?.[key]?.state).find(Boolean);
     if (dossierState) return [domain, dossierState];
-    const directState = domainStatusRecord(p, dossierKey)?.value?.state;
-    if (directState) return [domain, directState];
+    const directStates = dossierKeys.map(key => domainStatusRecord(p, key)).filter(Boolean).map(record => {
+      const value = record.value ?? record.canonicalValue ?? record.normalizedValue;
+      const stateValue = String(value?.state || '').toUpperCase();
+      const disposition = String(record.disposition || '').toUpperCase();
+      if (stateValue === 'CONFLICT' || disposition === 'CONFLICT_REQUIRES_REVIEW') return 'CONFLICT';
+      if (stateValue === 'STALE_NEEDS_REFRESH' || disposition === 'STALE_NEEDS_REFRESH') return 'STALE_NEEDS_REFRESH';
+      if (stateValue === 'VERIFIED' || disposition === 'APPROVED_CURRENT') return 'VERIFIED';
+      if (stateValue === 'RESEARCHED_NOT_PUBLIC' || disposition === 'RESEARCHED_NOT_FOUND') return 'RESEARCHED_NOT_PUBLIC';
+      return 'EVIDENCE_FOUND_NOT_VERIFIED';
+    });
+    if (directStates.includes('CONFLICT')) return [domain, 'CONFLICT'];
+    if (directStates.includes('STALE_NEEDS_REFRESH')) return [domain, 'STALE_NEEDS_REFRESH'];
+    if (directStates.length && directStates.every(value => value === 'VERIFIED')) return [domain, 'VERIFIED'];
+    if (directStates.includes('VERIFIED')) return [domain, 'PARTIAL'];
+    if (directStates.length && directStates.every(value => value === 'RESEARCHED_NOT_PUBLIC')) return [domain, 'RESEARCHED_NOT_PUBLIC'];
+    if (directStates.length) return [domain, directStates[0]];
     const researchFields = DOMAIN_RESEARCH_FIELDS[domain];
     if (researchFields.some(field => approvedResearchFact(p, field))) return [domain, 'VERIFIED'];
     if ((DOMAIN_REGISTRY_FIELDS[domain] || []).some(field => fieldValue(p, field) != null)) return [domain, 'VERIFIED_REGISTRY'];
@@ -1632,6 +1654,12 @@ function unknownFooter(p, extra) {
   if (!chips.length) return '';
   return `<div class="unkFooter"><div class="lbl">Research & publication status</div><div class="unkChips">${chips.slice(0, 10).map(c => `<span class="unkChip">${esc(c)}</span>`).join('')}</div>
   ${state.role === 'admin' ? `<button class="rowBtn" style="margin-top:10px;color:var(--admin);border-color:rgba(127,163,255,.4)" onclick="closeFile();nav('admin/research');toast('Campaign scope pre-filled from this file’s gaps.')">⚗ Research this</button>` : ''}</div>`;
+}
+
+function researchCoverageBanner(p) {
+  const count = p.researchProjection?.domainStatuses?.length || 0;
+  if (count) return `<div class="lawBanner"><b>Research coverage:</b> ${count} research domains have recorded evidence states. Verified values, researched-not-public findings, and conflicts are labeled separately.</div>`;
+  return `<div class="lawBanner"><b>Research status:</b> ${p.filterIntelligence.researchState === 'EVIDENCE_FOUND_VERIFICATION_PENDING' ? 'Additional evidence exists and is awaiting verification. Approved registry facts remain available now.' : 'Additional domain research has not yet been verified.'}</div>`;
 }
 const srcBtnInline = (p, i) => `<button class="srcI" title="Open source" onclick="openSources('${p.id}',${i == null ? -1 : i})">ⓘ</button>`;
 
@@ -1688,9 +1716,9 @@ function tabOverview(p, R) {
       ${p.profileLoading ? '<p class="sub">Loading the full program profile…</p>' : p.profileError ? `<div class="lawBanner">${esc(p.profileError)}</div>` : registryTable(p, ['Program Best Described As', 'Program Length', 'First Year Positions', 'Residents Per Year', 'Total Residents', 'Application Deadline', 'Applicant Interview Format', 'Application Service'], 'Published program information')}
       ${approvedResearchTable(p, ['research.curriculum', 'research.program_overview'], 'Current program research')}
       ${whyProgramSection(p)}
-      <div class="lawBanner"><b>Research status:</b> ${p.filterIntelligence.researchState === 'EVIDENCE_FOUND_VERIFICATION_PENDING' ? 'Additional evidence exists and is awaiting verification. Approved registry facts remain available now.' : 'Additional domain research has not yet been verified.'}</div>
+      ${researchCoverageBanner(p)}
       ${p.soap.length ? `<div class="lawBanner">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} reported position${s.positions > 1 ? 's' : ''}`).join(' · ')}. Historical cycle evidence; no future availability or match-likelihood inference.</div>` : ''}
-      ${unknownFooter(p, ['Narrative differentiators — not yet verified'])}
+      ${unknownFooter(p)}
     </div><div>${snapshotRail(p)}</div></div>`;
   }
   return `${applicationIntelligenceSection(p)}<div class="fileGrid"><div>

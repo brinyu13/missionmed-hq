@@ -57,6 +57,13 @@ test("student bundle excludes representative medical facts and unsafe production
   assert.match(app, /does not predict future availability or match likelihood/);
   assert.doesNotMatch(app, /currently unfilled|easy match|guaranteed match|historical accessibility evidence/i);
   assert.doesNotMatch(app, /hashN\(/);
+  assert.doesNotMatch(app, /Narrative differentiators — not yet verified/);
+  assert.match(app, /Research coverage:/);
+  assert.match(app, /roster: \['resident_roster'\]/);
+  assert.match(app, /leadership: \['leadership'\]/);
+  assert.match(app, /fellowship: \['fellowship_inventory'\]/);
+  assert.match(app, /outcomes: \['outcomes'\]/);
+  assert.match(app, /curriculum: \['curriculum'\]/);
 });
 
 test("Fable preservation landmarks remain in production markup and styles", async () => {
