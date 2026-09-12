@@ -325,7 +325,9 @@ export function evaluateResearchEligibility({
 export function researchDedupeKey({ programSpecialtyId, taskClass = "PROGRAM_DEEP_RESEARCH", windowKey, providerKey }) {
   const programId = boundedString(programSpecialtyId, "programSpecialtyId", { maximum: 128 });
   const task = boundedString(taskClass, "taskClass", { maximum: 64 });
-  const window = boundedString(windowKey, "windowKey", { maximum: 32 });
+  // Root-job UUIDs are the durable continuation window for Dossier V2 child
+  // stages. Keep calendar/quota keys valid while accepting the canonical UUID.
+  const window = boundedString(windowKey, "windowKey", { maximum: 64 });
   const provider = boundedString(providerKey, "providerKey", { maximum: 64 });
   return createHash("sha256")
     .update(["rise-research-dedupe-v1", programId, task, window, provider].join("\0"))

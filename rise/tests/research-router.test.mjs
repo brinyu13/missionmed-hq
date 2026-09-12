@@ -200,6 +200,7 @@ test("dedupe keys are stable and isolate provider, program, and window", () => {
   assert.equal(researchDedupeKey(input), researchDedupeKey(input));
   assert.notEqual(researchDedupeKey(input), researchDedupeKey({ ...input, windowKey: "2026-09-10" }));
   assert.match(researchDedupeKey(input), /^[a-f0-9]{64}$/);
+  assert.match(researchDedupeKey({ ...input, windowKey: "56303671-4983-4d79-b622-c35bf994b453" }), /^[a-f0-9]{64}$/);
 });
 
 test("controls reject noncanonical state and nonzero global budget", () => {
