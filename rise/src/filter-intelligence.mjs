@@ -324,6 +324,7 @@ export function buildFilterIntelligence(programs, {
   dossiers = [],
   profile = {},
   generatedAt = new Date().toISOString(),
+  includeApplicationMatch = true,
 } = {}) {
   const researchByAcgme = new Map(researchCoverage.map((record) => [String(record.acgmeId), record]));
   const dossierByAcgme = new Map(dossiers.map((record) => [String(record.acgmeId), record]));
@@ -410,7 +411,9 @@ export function buildFilterIntelligence(programs, {
       pendingDomainCount: depthDetail.pendingDomains.length,
       dossierDomainCount: depthDetail.dossierDomains.length,
       application: applicationSummary,
-      applicationMatch: evaluateApplicationCompatibility(application, profile),
+      applicationMatch: includeApplicationMatch
+        ? evaluateApplicationCompatibility(application, profile)
+        : null,
     };
   });
   if (DEPTH_ORDER.reduce((sum, depth) => sum + counts[depth === "deep" ? "deepResearch" : depth === "enriched" ? "enrichedResearch" : depth === "basic" ? "basicProfile" : "researchPending"], 0) !== programs.length) {

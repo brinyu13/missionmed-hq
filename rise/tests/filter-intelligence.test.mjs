@@ -223,3 +223,15 @@ test("review-gated claims report pending evidence without inflating research dep
   assert.equal(expanded.approvedDomainCount, 1);
   assert.equal(expanded.pendingDomainCount, 4);
 });
+
+test("deferred bootstrap can omit personalized application match payloads", () => {
+  const result = buildFilterIntelligence([
+    program("6", { ...strongCore, J1: known(true) }),
+  ], {
+    includeApplicationMatch: false,
+  });
+
+  assert.equal(result.records[0].applicationMatch, null);
+  assert.equal(result.records[0].application.visa.j1, true);
+  assert.equal(result.counts.j1Published, 1);
+});

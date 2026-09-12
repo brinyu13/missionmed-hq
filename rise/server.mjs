@@ -1520,6 +1520,7 @@ export function createRiseServer({
           ? buildFilterIntelligence(registryIndex.programs, {
               ...dynamicEvidence,
               profile: profileResult?.profile ?? {},
+              includeApplicationMatch: !deferProfile,
             })
           : null;
         status = 200;
