@@ -126,7 +126,7 @@ test("visa, resident evidence, and research depth filters expose real counts and
 
   await page.locator("select[aria-label='Specialty']").selectOption("Internal Medicine");
   await page.getByRole("button", { name: /More filters/ }).click();
-  await page.getByRole("button", { name: /J-1 sponsorship published/ }).click();
+  await page.locator("#filterDrawer").getByRole("button", { name: /J-1 sponsorship published/ }).click();
   await page.getByRole("button", { name: "Show results", exact: true }).click();
   await expect(page.getByRole("heading", { name: /1 Internal Medicine program/ })).toBeVisible();
   await expect(page.locator(".pRow")).toContainText("Atlas Internal Medicine Program");
@@ -136,8 +136,8 @@ test("visa, resident evidence, and research depth filters expose real counts and
   await page.getByRole("button", { name: "Clear filters", exact: true }).click();
   await expect(page.locator(".pRow")).toHaveCount(4);
   await page.getByRole("button", { name: /More filters/ }).click();
-  await page.getByRole("button", { name: /DO residents \/ graduates reported/ }).click();
-  await page.getByRole("button", { name: /Caribbean graduates on roster/ }).click();
+  await page.locator("#filterDrawer").getByRole("button", { name: /DO residents \/ graduates reported/ }).click();
+  await page.locator("#filterDrawer").getByRole("button", { name: /Caribbean graduates on roster/ }).click();
   await page.getByRole("button", { name: "Show results", exact: true }).click();
   await expect(page.locator(".pRow")).toHaveCount(1);
   await expect(page.locator(".pRow")).toContainText("Beacon Medicine Pediatrics Program");
@@ -150,7 +150,7 @@ test("visa, resident evidence, and research depth filters expose real counts and
     ["Research Pending", "Delta Pediatrics Program"],
   ]) {
     await page.getByRole("button", { name: /More filters/ }).click();
-    await page.getByRole("button", { name: new RegExp(`^${label}`) }).click();
+    await page.locator("#filterDrawer").getByRole("button", { name: new RegExp(`^${label}`) }).click();
     await page.getByRole("button", { name: "Show results", exact: true }).click();
     await expect(page.locator(".pRow")).toHaveCount(1);
     await expect(page.locator(".pRow")).toContainText(programName);
@@ -187,8 +187,10 @@ test("Program File remains a routed immersive overlay with exactly six primary t
   await expect(page.locator("#file")).not.toContainText("demo");
   await expect(page.locator("#file")).toContainText("Student Intel");
   await expect(page.locator("#file .coverageBadge")).toContainText("DEEP RESEARCH");
+  await expect(page.locator("#fileBody")).toContainText("Objective program facts");
+  await expect(page.locator("#fileBody")).not.toContainText("Application Snapshot");
+  await page.getByRole("tab", { name: "Application Fit", exact: true }).click();
   await expect(page.locator("#fileBody")).toContainText("Application Snapshot");
-  await expect(page.locator("#fileBody")).toContainText("Application Deadline");
   await page.screenshot({ path: path.join(artifactDirectory, "program-file-desktop.png"), fullPage: true });
 });
 
@@ -223,7 +225,7 @@ test("all six Program File tabs expose evidence-safe content or honest empty sta
   const acknowledge = page.getByRole("button", { name: "I understand", exact: true });
   if (await acknowledge.isVisible()) await acknowledge.click();
   const expectations = new Map([
-    ["At a Glance", "Application Snapshot"],
+    ["At a Glance", "Objective program facts"],
     ["Application Fit", "RISE does not guess"],
     ["Residents", "Program-reported resident and graduate composition"],
     ["Leadership & Faculty", "Program leadership"],

@@ -1,4 +1,4 @@
-// P1-RISE-5012H: provider-neutral, evidence-backed application intelligence.
+// P1-RISE-5012J: provider-neutral, evidence-backed application intelligence.
 // This module never infers applicant demographics, nationality, or match odds.
 
 export const APPLICATION_PRIORITY_KEYS = Object.freeze([
@@ -174,6 +174,24 @@ function percent(value) {
   return Number.isFinite(number) && number >= 0 && number <= 100 ? number : null;
 }
 
+function evidenceState(value) {
+  return normalizedToken(value?.state ?? value?.sourceState).replaceAll(" ", "_").toUpperCase();
+}
+
+function isAvailableEvidence(value) {
+  return ["AVAILABLE_LIVE", "VERIFIED", "PARTIALLY_VERIFIED"].includes(evidenceState(value));
+}
+
+function explicitPositiveNumber(value, key) {
+  if (!value || typeof value !== "object" || !isAvailableEvidence(value)) return null;
+  const number = Number(value[key]);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function evidenceSummary(value) {
+  return text(value?.summary ?? value?.absence);
+}
+
 function profileClass(profile = {}) {
   const value = normalizedToken(profile.degree_type ?? profile.graduate_type ?? profile.is_img);
   if (/do|osteopathic/.test(value)) return "US_DO";
@@ -198,37 +216,71 @@ function summaryCount(value, total) {
 export function buildApplicationIntelligence(program, facts = [], profile = {}) {
   const application = dynamicValue(facts, "research.application_requirements") ?? {};
   const visaFact = dynamicValue(facts, "research.visa") ?? {};
+  const compositionFact = dynamicValue(facts, "research.resident_composition");
   const roster = normalizeResidentRoster(dynamicValue(facts, "research.resident_roster"));
+  // V2 fields are explicit evidence envelopes; never recover a number from conflict or absence prose.
+  const applicationV2 = application?.contractId === "rise-application-requirements-v2";
   const supported = Array.isArray(visaFact?.supported) ? visaFact.supported.map(String) : [];
   const j1 = known(program, "J1") === true || visaFact?.j1 === true || supported.some((item) => /\bJ-?1\b/i.test(item));
   const h1b = known(program, "H1B") === true || visaFact?.h1b === true || supported.some((item) => /\bH-?1B\b/i.test(item));
   const step1 = requirementField(program, profile, 1);
-  const step2 = requirementField(program, profile, 2);
-  const step2Minimum = findNumber(application, [/step\s*2/i, /usmle.*minimum/i, /minimum.*score/i]);
-  const comlex2Minimum = findNumber(application, [/comlex.*(?:2|level\s*2)/i, /level\s*2.*minimum/i]);
-  const maxAttempts = findNumber(application, [/max(?:imum)?\s*(?:usmle|comlex|exam)?\s*attempt/i, /attempt.*(?:limit|maximum)/i]);
-  const step1Policy = text(application.step1_policy);
-  const step2Timing = text(application.step2_timing);
-  const step1FirstAttemptRequired = /(?:first attempt|first sitting|one attempt)/i.test(step1Policy ?? "");
-  const step1FailureAllowed = /(?:failure|failed attempt).{0,30}(?:allowed|accepted|considered)|multiple attempts.{0,20}(?:allowed|accepted)/i.test(step1Policy ?? "");
-  const step2RequiredWithApplication = /(?:required|must be available).{0,36}(?:with|at (?:the )?time of|before).{0,18}(?:application|initial review|interview)/i.test(step2Timing ?? "");
-  const step2PendingFriendly = /(?:after (?:application|initial review)|before (?:ranking|rank list)|by (?:ranking|rank list)|score pending|not required.{0,24}(?:application|initial review))/i.test(step2Timing ?? "");
-  const yogRaw = known(program, "Medical School Graduation Timeline") ?? text(application.yog_policy);
+  const step2 = applicationV2 && isAvailableEvidence(application.step2) && typeof application.step2.required === "boolean"
+    ? application.step2.required : requirementField(program, profile, 2);
+  const step2Minimum = explicitPositiveNumber(application.step2, "publishedMinimum")
+    ?? (applicationV2 ? null : findNumber(application, [/step\s*2/i, /usmle.*minimum/i, /minimum.*score/i]));
+  const comlex2Minimum = explicitPositiveNumber(application.comlex, "publishedMinimum")
+    ?? (applicationV2 ? null : findNumber(application, [/comlex.*(?:2|level\s*2)/i, /level\s*2.*minimum/i]));
+  const maxAttempts = explicitPositiveNumber(application.attempts, "maximum")
+    ?? (applicationV2 ? null : findNumber(application, [/max(?:imum)?\s*(?:usmle|comlex|exam)?\s*attempt/i, /attempt.*(?:limit|maximum)/i]));
+  const step1Policy = text(application.step1?.summary ?? application.step1_policy);
+  const attemptsPolicy = text(application.attempts?.summary);
+  const step2Timing = text(application.step2?.summary ?? application.step2_timing);
+  const step1FirstAttemptRequired = maxAttempts === 1 || /(?:first attempt|first sitting|one attempt)/i.test(`${step1Policy ?? ""} ${attemptsPolicy ?? ""}`);
+  const step1FailureAllowed = /(?:failure|failed attempt).{0,30}(?:allowed|accepted|considered)|multiple attempts.{0,20}(?:allowed|accepted)/i.test(`${step1Policy ?? ""} ${attemptsPolicy ?? ""}`);
+  const timingCode = normalizedToken(application.step2?.timingCode).replaceAll(" ", "_").toUpperCase();
+  const step2RequiredWithApplication = timingCode === "REQUIRED_WITH_APPLICATION"
+    || /(?:required|must be available).{0,36}(?:with|at (?:the )?time of|before).{0,18}(?:application|initial review|interview)/i.test(step2Timing ?? "");
+  const step2PendingFriendly = ["BEFORE_RANK_LIST", "SCORE_MAY_FOLLOW_APPLICATION"].includes(timingCode)
+    || /(?:after (?:application|initial review)|before (?:ranking|rank list)|by (?:ranking|rank list)|score pending|not required.{0,24}(?:application|initial review))/i.test(step2Timing ?? "");
+  const yogNode = applicationV2 ? application.yog : null;
+  const yogRaw = known(program, "Medical School Graduation Timeline") ?? (isAvailableEvidence(yogNode) ? evidenceSummary(yogNode) : applicationV2 ? null : text(application.yog_policy));
   const yogNoCutoff = typeof yogRaw === "string" && /no cap|no (?:published )?(?:limit|cutoff)/i.test(yogRaw);
   const yogYears = typeof yogRaw === "number" ? yogRaw : (!yogNoCutoff ? findNumber({ yog: yogRaw }, [/yog|graduat/i]) : null);
-  const usceRaw = known(program, "Gap Experience Requirement") ?? text(application.usce);
+  const usceNode = applicationV2 ? application.usce : null;
+  const usceRaw = known(program, "Gap Experience Requirement") ?? (isAvailableEvidence(usceNode) ? evidenceSummary(usceNode) : applicationV2 ? null : text(application.usce));
   const usceText = text(usceRaw);
   const usceRequired = /clinical experience in the us/i.test(usceText ?? "");
-  const usceRecommended = /(?:recommend|prefer)/i.test(JSON.stringify(application)) && /(?:usce|clinical experience)/i.test(JSON.stringify(application));
-  const usceMonths = findNumber(application, [/usce.*month/i, /clinical experience.*month/i]);
+  const usceRecommended = /(?:recommend|prefer)/i.test(usceText ?? "") && /(?:usce|clinical experience)/i.test(usceText ?? "");
+  const usceMonths = applicationV2 ? findNumber({ usce: usceRaw }, [/usce.*month/i, /clinical experience.*month/i]) : findNumber(application, [/usce.*month/i, /clinical experience.*month/i]);
   const counts = { US_MD: 0, US_DO: 0, CARIBBEAN: 0, IMG_NON_CARIBBEAN: 0, UNKNOWN: 0 };
   for (const resident of roster) counts[resident.category] += 1;
   const total = roster.length;
   const classifiedTotal = total - counts.UNKNOWN;
-  const composition = Object.fromEntries(Object.entries(counts).map(([key, value]) => [
+  let composition = Object.fromEntries(Object.entries(counts).map(([key, value]) => [
     key,
     summaryCount(value, key === "UNKNOWN" ? total : classifiedTotal),
   ]));
+  composition.IMG_TOTAL = summaryCount(counts.IMG_NON_CARIBBEAN + counts.CARIBBEAN, classifiedTotal);
+  const hasNormalizedComposition = compositionFact?.contractId === "rise-roster-composition-estimate-v1";
+  if (hasNormalizedComposition) {
+    const percentagesAvailable = compositionFact.percentagesAvailable === true;
+    const directCounts = compositionFact.counts ?? {};
+    const directPercentages = compositionFact.percentages ?? {};
+    const directClassified = Number(compositionFact.classifiedTotal || 0);
+    const directTotal = Number(compositionFact.rosterTotal || 0);
+    const item = (count, directPercent) => ({
+      count: Number(count || 0), total: directClassified,
+      percent: percentagesAvailable && directPercent !== null && Number.isFinite(Number(directPercent)) ? Number(directPercent) : null,
+    });
+    composition = {
+      US_MD: item(directCounts.usMd, directPercentages.usMd),
+      US_DO: item(directCounts.do, directPercentages.do),
+      IMG_TOTAL: item(directCounts.img, directPercentages.img),
+      IMG_NON_CARIBBEAN: item(directCounts.imgOther, percentagesAvailable && directPercentages.img !== null && directPercentages.caribbeanImg !== null ? Number(directPercentages.img) - Number(directPercentages.caribbeanImg) : null),
+      CARIBBEAN: item(directCounts.caribbeanImg, directPercentages.caribbeanImg),
+      UNKNOWN: summaryCount(Number(directCounts.unresolved || 0), directTotal),
+    };
+  }
   const schools = new Map();
   const countries = new Map();
   for (const resident of roster) {
@@ -246,7 +298,12 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
   };
   const fellowshipValue = dynamicValue(facts, "research.fellowship_inventory");
   return {
-    visa: { j1, h1b, any: j1 || h1b || text(known(program, "Visa Sponsorship")) !== null, summary: text(known(program, "Visa Sponsorship")) ?? text(visaFact?.summary) },
+    visa: {
+      j1, h1b, any: visaFact?.any === true || j1 || h1b || text(known(program, "Visa Sponsorship")) !== null,
+      state: evidenceState(visaFact) || null,
+      summary: text(known(program, "Visa Sponsorship")) ?? evidenceSummary(visaFact),
+      absence: text(visaFact?.absence),
+    },
     exams: {
       step1Required: typeof step1 === "boolean" ? step1 : null,
       step1Policy,
@@ -257,17 +314,23 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
       step2Timing,
       step2RequiredWithApplication,
       step2PendingFriendly,
-      comlexLevel2Accepted: /level\s*2\s*passed:\s*yes/i.test(String(known(program, "COMLEX Accepted") ?? "")) || known(program, "DO COMLEX Level 2 Required") === true,
+      comlexLevel2Accepted: applicationV2 && isAvailableEvidence(application.comlex) && typeof application.comlex.accepted === "boolean"
+        ? application.comlex.accepted
+        : /level\s*2\s*passed:\s*yes/i.test(String(known(program, "COMLEX Accepted") ?? "")) || known(program, "DO COMLEX Level 2 Required") === true,
       comlexLevel2Required: known(program, "DO COMLEX Level 2 Required"),
       comlexLevel2Minimum: comlex2Minimum,
       maxAttempts,
     },
-    yog: { published: yogRaw !== null, years: yogYears, noPublishedCutoff: yogNoCutoff, raw: yogRaw },
-    usce: { published: usceRaw !== null || usceRecommended || usceMonths !== null, required: usceRequired, recommended: usceRecommended, minimumMonths: usceMonths, raw: usceRaw },
-    ecfmg: { published: /ecfmg/i.test(JSON.stringify(application)), summary: text(application?.medical_education_or_ecfmg_requirement) },
+    yog: { published: yogRaw !== null, years: yogYears, noPublishedCutoff: yogNoCutoff, raw: yogRaw, state: evidenceState(yogNode) || null },
+    usce: { published: usceRaw !== null || usceRecommended || usceMonths !== null, required: usceRequired, recommended: usceRecommended, minimumMonths: usceMonths, raw: usceRaw, state: evidenceState(usceNode) || null },
+    ecfmg: { published: applicationV2 ? isAvailableEvidence(application.ecfmg) : /ecfmg/i.test(JSON.stringify(application)), summary: applicationV2 ? evidenceSummary(application.ecfmg) : text(application?.medical_education_or_ecfmg_requirement), state: evidenceState(application.ecfmg) || null },
     roster: {
-      total, classifiedTotal, unclassifiedTotal: counts.UNKNOWN,
-      classificationState: classifiedTotal > 0 ? "PARTIALLY_OR_FULLY_CLASSIFIED" : total > 0 ? "UNCLASSIFIED_ROSTER" : "NO_ROSTER",
+      total: hasNormalizedComposition ? Number(compositionFact.rosterTotal || 0) : total,
+      classifiedTotal: hasNormalizedComposition ? Number(compositionFact.classifiedTotal || 0) : classifiedTotal,
+      unclassifiedTotal: hasNormalizedComposition ? Number(compositionFact.unclassifiedTotal || 0) : counts.UNKNOWN,
+      classificationState: hasNormalizedComposition
+        ? compositionFact.percentagesAvailable === true ? "PARTIALLY_OR_FULLY_CLASSIFIED" : Number(compositionFact.rosterTotal || 0) > 0 ? "UNCLASSIFIED_ROSTER" : "NO_ROSTER"
+        : classifiedTotal > 0 ? "PARTIALLY_OR_FULLY_CLASSIFIED" : total > 0 ? "UNCLASSIFIED_ROSTER" : "NO_ROSTER",
       schoolIdentified: roster.filter((resident) => resident.medicalSchoolKey).length,
       countryIdentified: roster.filter((resident) => resident.medicalSchoolCountry).length,
       distinctSchools: schools.size, distinctCountries: countries.size,
@@ -277,6 +340,12 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
       schools: [...schools].map(([key, value]) => ({ key, ...value })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
       countries: [...countries].map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count || a.country.localeCompare(b.country)),
       sameSchoolCount, sameCountryCount,
+      percentagesAvailable: hasNormalizedComposition ? compositionFact.percentagesAvailable === true : classifiedTotal > 0,
+      officialProgramStatistic: hasNormalizedComposition ? compositionFact.officialProgramStatistic === true : null,
+      coveragePercent: hasNormalizedComposition ? percent(compositionFact.coveragePercent) : (total ? Number(((classifiedTotal / total) * 100).toFixed(1)) : null),
+      estimateConfidence: text(compositionFact?.estimateConfidence),
+      disclaimer: text(compositionFact?.disclaimer),
+      absence: hasNormalizedComposition && compositionFact.percentagesAvailable !== true ? evidenceSummary(compositionFact) : null,
     },
     fellowshipCount: Array.isArray(fellowshipValue) ? fellowshipValue.length : 0,
     profile: { class: profileClass(profile), schoolKnown: Boolean(profileSchool), countryKnown: Boolean(profileCountry) },
@@ -332,6 +401,7 @@ export function applicationFacetCounts(records) {
     step1FailureAllowed: count((a) => a.exams.step1FailureAllowed),
     step1NoPublishedExclusion: count((a) => a.exams.step1Required !== true),
     step2MinimumPublished: count((a) => a.exams.step2Minimum !== null),
+    comlexLevel2MinimumPublished: count((a) => a.exams.comlexLevel2Minimum !== null),
     step2PendingFriendly: count((a) => a.exams.step2PendingFriendly),
     step2RequiredWithApplication: count((a) => a.exams.step2RequiredWithApplication),
     comlexLevel2Accepted: count((a) => a.exams.comlexLevel2Accepted),

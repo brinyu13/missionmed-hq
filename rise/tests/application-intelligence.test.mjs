@@ -113,3 +113,69 @@ test("application facet counts are derived from canonical records", () => {
   assert.equal(counts.comlexLevel2Accepted, 1);
   assert.equal(counts.yogNoPublishedCutoff, 2);
 });
+
+test("v2 evidence envelopes expose only supported numeric requirements and composition estimates", () => {
+  const intel = buildApplicationIntelligence(program({}), [
+    {
+      field: "research.application_requirements",
+      canonicalValue: {
+        contractId: "rise-application-requirements-v2",
+        step2: { state: "AVAILABLE_LIVE", required: true, publishedMinimum: 230, timingCode: "REQUIRED_WITH_APPLICATION" },
+        comlex: { state: "CONFLICT_REQUIRES_REVIEW", accepted: true, publishedMinimum: 450, summary: "Conflicting 450 and 500 values" },
+        attempts: { state: "AVAILABLE_LIVE", maximum: 2 },
+        yog: { state: "RESEARCHED_NOT_FOUND", summary: "A five year rule was not found" },
+      },
+    },
+    {
+      field: "research.resident_composition",
+      canonicalValue: {
+        contractId: "rise-roster-composition-estimate-v1",
+        percentagesAvailable: true,
+        officialProgramStatistic: false,
+        rosterTotal: 30,
+        classifiedTotal: 24,
+        unclassifiedTotal: 6,
+        coveragePercent: 80,
+        estimateConfidence: "HIGH",
+        disclaimer: "Roster-derived estimate.",
+        counts: { usMd: 6, do: 8, img: 10, imgOther: 8, caribbeanImg: 2, unresolved: 6 },
+        percentages: { usMd: 25, do: 33.3, img: 41.7, caribbeanImg: 8.3 },
+      },
+    },
+  ], {});
+  assert.equal(intel.exams.step2Minimum, 230);
+  assert.equal(intel.exams.step2RequiredWithApplication, true);
+  assert.equal(intel.exams.comlexLevel2Minimum, null);
+  assert.equal(intel.exams.comlexLevel2Accepted, false);
+  assert.equal(intel.exams.maxAttempts, 2);
+  assert.equal(intel.yog.years, null);
+  assert.equal(intel.roster.total, 30);
+  assert.equal(intel.roster.classifiedTotal, 24);
+  assert.equal(intel.roster.composition.US_DO.count, 8);
+  assert.equal(intel.roster.composition.US_DO.percent, 33.3);
+  assert.equal(intel.roster.composition.IMG_TOTAL.count, 10);
+  assert.equal(intel.roster.composition.CARIBBEAN.count, 2);
+  assert.equal(intel.roster.coveragePercent, 80);
+  assert.equal(intel.roster.officialProgramStatistic, false);
+});
+
+test("v2 unavailable resident composition preserves unknown instead of projecting zero", () => {
+  const intel = buildApplicationIntelligence(program({}), [{
+    field: "research.resident_composition",
+    canonicalValue: {
+      contractId: "rise-roster-composition-estimate-v1",
+      percentagesAvailable: false,
+      rosterTotal: 0,
+      classifiedTotal: 0,
+      unclassifiedTotal: 0,
+      counts: {},
+      percentages: {},
+      absence: "The program does not publish a usable resident roster.",
+    },
+  }], {});
+  assert.equal(intel.roster.percentagesAvailable, false);
+  assert.equal(intel.roster.composition.US_MD.percent, null);
+  assert.equal(intel.roster.composition.US_DO.percent, null);
+  assert.equal(intel.roster.composition.IMG_TOTAL.percent, null);
+  assert.match(intel.roster.absence, /does not publish/i);
+});

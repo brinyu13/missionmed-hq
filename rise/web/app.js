@@ -228,7 +228,7 @@ const state = {
   saved: runtime.saved,
   compare: [],
   underlying: null,                   // last non-file route
-  find: { mode: 'criteria', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, sort: 'name', view: 'list', shown: 50, scroll: 0, moreOpen: false },
+  find: { mode: 'criteria', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, sort: 'name', view: 'list', shown: 50, scroll: 0, moreOpen: false },
   applicationPreferences: D.applicationPreferences,
   fileTab: 'overview',
   fileFrom: 'find',
@@ -246,7 +246,7 @@ const state = {
 const byId = new Map(D.programs.map(p => [p.id, p]));
 const STATES = [...new Set(D.programs.map(p => p.state))].sort();
 const SPECIALTIES = [...new Set(D.programs.flatMap(p => (p.browseMemberships || []).map(m => m.browseSpecialty)))].sort();
-const RESIDENT_SCHOOLS = [...new Set(D.programs.flatMap(p => p.searchTerms || []))].sort();
+const RESIDENT_SCHOOLS = [...new Set(D.programs.flatMap(p => (p.application?.roster?.schools || []).map(school => school.label).filter(Boolean)))].sort();
 const stateNames = { AL:'Alabama', AR:'Arkansas', AZ:'Arizona', CA:'California', CO:'Colorado', CT:'Connecticut', DC:'Washington DC', DE:'Delaware', FL:'Florida', GA:'Georgia', IA:'Iowa', IL:'Illinois', IN:'Indiana', KS:'Kansas', KY:'Kentucky', LA:'Louisiana', MA:'Massachusetts', MD:'Maryland', MI:'Michigan', MN:'Minnesota', MO:'Missouri', MS:'Mississippi', MT:'Montana', NC:'North Carolina', ND:'North Dakota', NE:'Nebraska', NH:'New Hampshire', NJ:'New Jersey', NM:'New Mexico', NV:'Nevada', NY:'New York', OH:'Ohio', OK:'Oklahoma', OR:'Oregon', PA:'Pennsylvania', PR:'Puerto Rico', RI:'Rhode Island', SC:'South Carolina', SD:'South Dakota', TN:'Tennessee', TX:'Texas', UT:'Utah', VA:'Virginia', VT:'Vermont', WA:'Washington', WI:'Wisconsin', WV:'West Virginia', WY:'Wyoming' };
 
 /* ---------------- fit engine ---------------- */
@@ -735,7 +735,8 @@ function matchingPrograms(f = state.find) {
   if (f.specialty) list = list.filter(p => p.specName === f.specialty || (p.browseMemberships || []).some(m => m.browseSpecialty === f.specialty && m.relationship === 'EXACT_DESIGNATION'));
   if (f.residentSchool) {
     const school = f.residentSchool.trim().toLocaleLowerCase('en-US');
-    list = list.filter(p => (p.searchTerms || []).some(term => term.toLocaleLowerCase('en-US').includes(school)));
+    list = list.filter(p => (p.application?.roster?.schools || []).some(item =>
+      String(item.label || item.key || '').toLocaleLowerCase('en-US').includes(school)));
   }
   if (f.soap) list = list.filter(p => p.soap.length && (!f.soapTrack || p.soap.some(s => s.track === f.soapTrack)));
   if (f.abim) list = list.filter(p => p.filterIntelligence.abim);
@@ -755,11 +756,18 @@ function matchingPrograms(f = state.find) {
   if (f.step2Minimum) list = list.filter(p => p.application?.exams?.step2Minimum !== null && p.application.exams.step2Minimum <= Number(f.step2Minimum));
   if (f.step2TimingMode) list = list.filter(p => f.step2TimingMode === 'pending_friendly' ? p.application?.exams?.step2PendingFriendly : p.application?.exams?.step2RequiredWithApplication);
   if (f.comlex2) list = list.filter(p => p.application?.exams?.comlexLevel2Accepted === true);
+  if (f.comlex2Minimum) list = list.filter(p => p.application?.exams?.comlexLevel2Minimum !== null && p.application.exams.comlexLevel2Minimum <= Number(f.comlex2Minimum));
   if (f.attemptsMaximum) list = list.filter(p => p.application?.exams?.maxAttempts !== null && p.application.exams.maxAttempts >= Number(f.attemptsMaximum));
   if (f.yogWindow) list = list.filter(p => p.application?.yog?.noPublishedCutoff || (p.application?.yog?.years !== null && p.application.yog.years >= Number(f.yogWindow)));
   if (f.usceMode) list = list.filter(p => ({ required: p.application?.usce?.required, recommended: p.application?.usce?.recommended, unpublished: !p.application?.usce?.published })[f.usceMode]);
-  if (f.minImgPct) list = list.filter(p => (p.application?.roster?.composition?.IMG_NON_CARIBBEAN?.percent ?? p.application?.roster?.registryComposition?.img ?? -1) >= Number(f.minImgPct));
-  if (f.minDoPct) list = list.filter(p => (p.application?.roster?.composition?.US_DO?.percent ?? p.application?.roster?.registryComposition?.do ?? -1) >= Number(f.minDoPct));
+  if (f.minImgPct !== '') list = list.filter(p => {
+    const value = residentObservedPercent(p, 'img');
+    return value !== null && value > 0 && value >= Math.max(0, Number(f.minImgPct));
+  });
+  if (f.minDoPct !== '') list = list.filter(p => {
+    const value = residentObservedPercent(p, 'do');
+    return value !== null && value > 0 && value >= Math.max(0, Number(f.minDoPct));
+  });
   if (f.sameSchool) list = list.filter(p => p.application?.roster?.sameSchoolCount > 0);
   if (f.sameCountry) list = list.filter(p => p.application?.roster?.sameCountryCount > 0);
   if (f.fellowships) list = list.filter(p => p.application?.fellowshipCount > 0);
@@ -778,8 +786,21 @@ function filteredPrograms() {
     updated: (a, b) => new Date(b.verified) - new Date(a.verified),
     soap: (a, b) => soapN(b) - soapN(a),
   }[f.sort] || ((a, b) => a.name.localeCompare(b.name));
-  list.sort(cmp);
+  if (f.minImgPct !== '' || f.minDoPct !== '') {
+    list.sort((a, b) => {
+      const score = p => (f.minImgPct !== '' ? residentObservedPercent(p, 'img') || 0 : 0)
+        + (f.minDoPct !== '' ? residentObservedPercent(p, 'do') || 0 : 0);
+      return score(b) - score(a) || cmp(a, b);
+    });
+  } else list.sort(cmp);
   return list;
+}
+function residentObservedPercent(p, category) {
+  const roster = p.application?.roster || {};
+  const value = category === 'img'
+    ? roster.composition?.IMG_TOTAL?.percent ?? roster.registryComposition?.img
+    : roster.composition?.US_DO?.percent ?? roster.registryComposition?.do;
+  return Number.isFinite(Number(value)) ? Number(value) : null;
 }
 function filterOptionCount(patch) {
   return matchingPrograms({ ...state.find, ...patch }).length;
@@ -810,13 +831,14 @@ function activePills() {
   if (f.step1Policy) pills.push({ k: 'step1Policy', label: f.step1Policy === 'required' ? 'Step 1 required' : 'No published Step 1 exclusion' });
   if (f.step1FailureMode) pills.push({ k: 'step1FailureMode', label: f.step1FailureMode === 'first_attempt' ? 'Step 1 first-attempt policy' : 'Prior Step 1 failure allowed' });
   if (f.step2Minimum) pills.push({ k: 'step2Minimum', label: `Published Step 2 minimum ≤ ${f.step2Minimum}` });
+  if (f.comlex2Minimum) pills.push({ k: 'comlex2Minimum', label: `Published COMLEX Level 2 minimum ≤ ${f.comlex2Minimum}` });
   if (f.step2TimingMode) pills.push({ k: 'step2TimingMode', label: f.step2TimingMode === 'pending_friendly' ? 'Step 2 score may arrive later' : 'Step 2 required with application' });
   if (f.comlex2) pills.push({ k: 'comlex2', label: 'COMLEX Level 2 accepted' });
   if (f.attemptsMaximum) pills.push({ k: 'attemptsMaximum', label: `Published policy accommodates ${f.attemptsMaximum} attempt${Number(f.attemptsMaximum) === 1 ? '' : 's'}` });
   if (f.yogWindow) pills.push({ k: 'yogWindow', label: `YOG window ≥ ${f.yogWindow} years or no published cutoff` });
   if (f.usceMode) pills.push({ k: 'usceMode', label: { required: 'USCE required', recommended: 'USCE recommended', unpublished: 'No published USCE requirement' }[f.usceMode] });
-  if (f.minImgPct) pills.push({ k: 'minImgPct', label: `IMG roster/composition ≥ ${f.minImgPct}%` });
-  if (f.minDoPct) pills.push({ k: 'minDoPct', label: `DO roster/composition ≥ ${f.minDoPct}%` });
+  if (f.minImgPct !== '') pills.push({ k: 'minImgPct', label: `IMG-friendly · observed ≥ ${f.minImgPct || 0}%` });
+  if (f.minDoPct !== '') pills.push({ k: 'minDoPct', label: `DO-friendly · observed ≥ ${f.minDoPct || 0}%` });
   if (f.sameSchool) pills.push({ k: 'sameSchool', label: 'Residents from my medical school' });
   if (f.sameCountry) pills.push({ k: 'sameCountry', label: 'Residents from my school country' });
   if (f.fellowships) pills.push({ k: 'fellowships', label: 'In-house fellowships published' });
@@ -828,11 +850,11 @@ window.dropPill = k => {
   if (k === 'q') f.q = ''; if (k === 'specialty') f.specialty = ''; if (k === 'state') f.state = ''; if (k === 'residentSchool') f.residentSchool = ''; if (k === 'soap') { f.soap = false; f.soapTrack = ''; }
   if (k === 'abim') f.abim = false; if (k === 'depth') f.depth = ''; if (k === 'visaMode') f.visaMode = '';
   if (k === 'imgEv') f.imgEv = false; if (k === 'doEv') f.doEv = false; if (k === 'caribbeanEv') f.caribbeanEv = false; if (k === 'usmdEv') f.usmdEv = false; if (k === 'fresh') f.fresh = '';
-  if (['step1Policy','step1FailureMode','step2Minimum','step2TimingMode','attemptsMaximum','yogWindow','usceMode','minImgPct','minDoPct'].includes(k)) f[k] = '';
+  if (['step1Policy','step1FailureMode','step2Minimum','comlex2Minimum','step2TimingMode','attemptsMaximum','yogWindow','usceMode','minImgPct','minDoPct'].includes(k)) f[k] = '';
   if (['comlex2','sameSchool','sameCountry','fellowships'].includes(k)) f[k] = false;
   state.find.shown = 50; rerender();
 };
-window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, shown: 50 }); rerender(); };
+window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, shown: 50 }); rerender(); };
 
 function sigIMG(p, f) {
   if (p.filterIntelligence.residentEvidence.img) return `<span class="sig" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not admissions policy."><b>IMG ✓</b><span style="color:var(--dim)"> ${esc(p.intelligence.imgGraduatesPercent || 'reported')}</span></span>`;
@@ -860,12 +882,19 @@ function researchDepthChip(p) {
 
 function filterMatchEvidence(p) {
   const reasons = [];
+  if (state.find.residentSchool) reasons.push(`resident from ${state.find.residentSchool}`);
   if (state.find.imgEv) reasons.push('IMG roster evidence');
   if (state.find.doEv) reasons.push('DO roster evidence');
   if (state.find.caribbeanEv) reasons.push('Caribbean roster evidence');
   if (state.find.usmdEv) reasons.push('US MD roster evidence');
   if (state.find.visaMode) reasons.push({ j1:'J-1 sponsorship evidence', h1b:'H-1B sponsorship evidence', either:'published visa route', any:'visa evidence' }[state.find.visaMode]);
   if (state.find.depth) reasons.push(`${state.find.depth === 'deep' ? 'Deep' : state.find.depth === 'enriched' ? 'Enriched' : state.find.depth === 'basic' ? 'Basic' : 'Pending'} research`);
+  if (state.find.step2Minimum) reasons.push(`published Step 2 minimum ≤ ${state.find.step2Minimum}`);
+  if (state.find.comlex2Minimum) reasons.push(`published COMLEX Level 2 minimum ≤ ${state.find.comlex2Minimum}`);
+  if (state.find.minImgPct !== '') reasons.push(`IMG representation ≥ ${state.find.minImgPct || 0}%`);
+  if (state.find.minDoPct !== '') reasons.push(`DO representation ≥ ${state.find.minDoPct || 0}%`);
+  if (state.find.sameSchool) reasons.push('resident from your medical school');
+  if (state.find.sameCountry) reasons.push('resident from your medical-school country');
   return reasons.length ? `<span class="decisionMatchLine"><b>Why it matched</b>${esc(reasons.join(' · '))}</span>` : '';
 }
 
@@ -873,18 +902,29 @@ function residentCompositionPresentation(p) {
   const roster = p.application?.roster || {};
   const classified = Number(roster.classifiedTotal || 0);
   const total = Number(roster.total || 0);
-  if (classified > 0) {
-    const pieces = [['US MD','US_MD'],['DO','US_DO'],['IMG','IMG_NON_CARIBBEAN'],['Carib','CARIBBEAN']].map(([label,category]) => {
+  if (roster.percentagesAvailable && classified > 0) {
+    const pieces = [['US MD','US_MD'],['DO','US_DO'],['IMG','IMG_TOTAL'],['Caribbean','CARIBBEAN']].map(([label,category]) => {
       const item = roster.composition?.[category];
-      return item?.count > 0 && item.percent != null ? `${label} ${item.percent}%` : '';
+      return item?.count > 0 && item.percent != null ? `${label} ${item.percent}% (${item.count} of ${classified})` : '';
     }).filter(Boolean);
-    return `Roster-classified (n=${classified}): ${pieces.join(' · ')}${classified < total ? ` · ${total - classified} unclassified` : ''}`;
+    return `${pieces.join(' · ')}${classified < total ? ` · coverage ${classified} of ${total}` : ` · ${classified} classified`}`;
   }
-  if (total > 0) return `${total} residents listed · schools/classification unavailable`;
+  if (total > 0) return `${total} residents listed · composition estimate unavailable`;
   const reported = [['IMG',roster.registryComposition?.img],['DO',roster.registryComposition?.do],['US MD',roster.registryComposition?.usmd]]
     .filter(([,value]) => value != null).map(([label,value]) => `${label} ${value}%`);
   if (reported.length) return `Program reported: ${reported.join(' · ')}`;
+  if (roster.absence) return roster.absence;
   return domainStateSummary(p, 'resident_roster', 'Roster not yet researched');
+}
+
+function visaPresentation(p) {
+  const visa = p.application?.visa || {};
+  if (visa.j1 || visa.h1b) return [visa.j1 ? 'J-1 sponsorship published' : '', visa.h1b ? 'H-1B sponsorship published' : ''].filter(Boolean).join(' · ');
+  if (visa.state === 'CONFLICT_REQUIRES_REVIEW') return 'Conflicting visa evidence';
+  if (visa.state === 'RESEARCHED_NOT_FOUND' || visa.state === 'RESEARCHED_NOT_PUBLIC') return 'No published sponsorship policy found';
+  if (visa.state === 'STALE_NEEDS_REFRESH') return 'Visa policy needs refresh';
+  if (visa.state === 'AVAILABLE_LIVE' && visa.any === false) return 'No J-1/H-1B sponsorship published';
+  return domainStateSummary(p, 'visa', 'Visa policy not verified');
 }
 
 function applicationIndicator(p, key) {
@@ -897,7 +937,7 @@ function applicationIndicator(p, key) {
   if (key === 'step1') return ['Step 1 / Level 1', a.exams?.step1FirstAttemptRequired ? 'First attempt required' : a.exams?.step1FailureAllowed ? 'Prior failure allowed' : compact(a.exams?.step1Policy, domainStateSummary(p, 'step1_policy', 'Policy not yet researched'))];
   if (key === 'step2' || key === 'exams') return ['Step 2 / Level 2', a.exams?.step2Minimum != null ? `${a.exams.step2Minimum} minimum` : a.exams?.comlexLevel2Accepted ? 'COMLEX Level 2 accepted' : domainStateSummary(p, 'step2_requirement', 'No published minimum')];
   if (key === 'timing') return ['Score timing', a.exams?.step2PendingFriendly ? 'Score can arrive later' : a.exams?.step2RequiredWithApplication ? 'Required with application' : compact(a.exams?.step2Timing, domainStateSummary(p, 'step2_timing', 'Timing not published'))];
-  if (key === 'visa') return ['Visa', a.visa?.j1 || a.visa?.h1b ? [a.visa.j1 ? 'J-1 ✓' : '', a.visa.h1b ? 'H-1B ✓' : ''].filter(Boolean).join(' · ') : domainStateSummary(p, 'visa', a.visa?.summary || 'Policy not yet researched')];
+  if (key === 'visa') return ['Visa', visaPresentation(p)];
   if (key === 'yog') return ['YOG', a.yog?.noPublishedCutoff ? 'No published cutoff' : a.yog?.years != null ? `${a.yog.years}-year window` : 'Not published'];
   if (key === 'usce') return ['USCE', a.usce?.required ? 'Required' : a.usce?.recommended ? 'Recommended' : a.usce?.published ? 'Published policy' : 'Not published'];
   if (key === 'composition') {
@@ -1294,6 +1334,7 @@ window.openFilterDrawer = () => {
   const dw = $('#filterDrawer');
   const count = patch => `<span class="fCount">${filterOptionCount(patch).toLocaleString()}</span>`;
   const caribbeanAvailable = Number(D.filterCounts.caribbeanResidentEvidence || 0) > 0;
+  const comlexMinimumAvailable = Number(D.applicationFacetCounts.comlexLevel2MinimumPublished || 0) > 0;
   dw.innerHTML = `<div class="drawer" role="dialog" aria-modal="true" aria-label="More filters">
     <button class="drawerClose" aria-label="Close" onclick="$('#filterDrawer').classList.remove('open')">✕</button>
     <h3>More filters</h3>
@@ -1335,7 +1376,8 @@ window.openFilterDrawer = () => {
       <button class="tgl ${f.comlex2 ? 'on' : ''}" onclick="state.find.comlex2=!state.find.comlex2;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>COMLEX Level 2 accepted<span class="cav">Supported published acceptance evidence.</span></span>${count({ comlex2: true })}</button>
       <label class="filterField">Step 1 policy<select class="fSel" onchange="state.find.step1Policy=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option><option value="required" ${f.step1Policy === 'required' ? 'selected' : ''}>Published as required</option><option value="not_required_or_unknown" ${f.step1Policy === 'not_required_or_unknown' ? 'selected' : ''}>No published exclusion</option></select></label>
       <label class="filterField">Step 1 failure / attempts<select class="fSel" onchange="state.find.step1FailureMode=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option><option value="first_attempt" ${f.step1FailureMode === 'first_attempt' ? 'selected' : ''}>Explicit first-attempt requirement</option><option value="failure_allowed" ${f.step1FailureMode === 'failure_allowed' ? 'selected' : ''}>Prior failure explicitly allowed</option></select></label>
-      <label class="filterField">Maximum published Step 2 minimum<select class="fSel" onchange="state.find.step2Minimum=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published minimum</option>${[220,230,240].map(score => `<option value="${score}" ${String(f.step2Minimum) === String(score) ? 'selected' : ''}>${score} or lower</option>`).join('')}</select></label>
+      <label class="filterField">Maximum published Step 2 minimum<input class="fSel" inputmode="numeric" type="number" min="180" max="300" list="step2Thresholds" value="${esc(f.step2Minimum)}" placeholder="e.g. 230" onchange="state.find.step2Minimum=this.value;openFilterDrawer();rerenderKeepDrawer()"><datalist id="step2Thresholds"><option value="220"></option><option value="230"></option><option value="240"></option></datalist></label>
+      <label class="filterField">Maximum published COMLEX Level 2 minimum<input class="fSel" inputmode="numeric" type="number" min="400" max="800" value="${esc(f.comlex2Minimum)}" placeholder="${comlexMinimumAvailable ? 'e.g. 500' : 'No supported numeric minima yet'}" ${comlexMinimumAvailable ? '' : 'disabled'} onchange="state.find.comlex2Minimum=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">${comlexMinimumAvailable ? 'Only supported published numeric cutoffs are compared.' : 'RISE will enable this automatically when canonical numeric evidence is available.'}</span></label>
       <label class="filterField">Step 2 timing<select class="fSel" onchange="state.find.step2TimingMode=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any researched timing</option><option value="pending_friendly" ${f.step2TimingMode === 'pending_friendly' ? 'selected' : ''}>Score can arrive after initial application</option><option value="with_application" ${f.step2TimingMode === 'with_application' ? 'selected' : ''}>Required with application / initial review</option></select></label>
       <label class="filterField">My exam attempts<input class="fSel" inputmode="numeric" type="number" min="1" max="12" value="${esc(f.attemptsMaximum)}" placeholder="Published limit must accommodate" onchange="state.find.attemptsMaximum=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
     </div>
@@ -1344,8 +1386,8 @@ window.openFilterDrawer = () => {
       ${[['','Any USCE state'],['required','USCE required'],['recommended','USCE recommended'],['unpublished','No published USCE requirement']].map(([key,label]) => `<button class="tgl ${f.usceMode === key ? 'on' : ''}" onclick="state.find.usceMode='${key}';openFilterDrawer();rerenderKeepDrawer()"><span class="box">${f.usceMode === key ? '●' : ''}</span><span>${label}</span>${count({ usceMode: key })}</button>`).join('')}
     </div>
     <div class="fGroup"><div class="fLbl">Resident composition & connections</div>
-      <label class="filterField">Minimum IMG evidence %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minImgPct)}" placeholder="e.g. 20" onchange="state.find.minImgPct=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
-      <label class="filterField">Minimum DO evidence %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minDoPct)}" placeholder="e.g. 10" onchange="state.find.minDoPct=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
+      <label class="filterField">IMG-friendly · minimum observed %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minImgPct)}" placeholder="e.g. 20" onchange="state.find.minImgPct=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">Requires supported IMG representation above 0%; unknowns and true zeroes are excluded, then results sort highest first.</span></label>
+      <label class="filterField">DO-friendly · minimum observed %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minDoPct)}" placeholder="e.g. 10" onchange="state.find.minDoPct=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">Requires supported DO representation above 0%; unknowns and true zeroes are excluded, then results sort highest first.</span></label>
       <button class="tgl ${f.sameSchool ? 'on' : ''}" onclick="state.find.sameSchool=!state.find.sameSchool;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Residents from my medical school<span class="cav">Exact normalized school match in approved roster evidence.</span></span>${count({ sameSchool: true })}</button>
       <button class="tgl ${f.sameCountry ? 'on' : ''}" onclick="state.find.sameCountry=!state.find.sameCountry;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Residents from my medical-school country<span class="cav">Country is used only when explicit or conservatively derived from the school.</span></span>${count({ sameCountry: true })}</button>
       <button class="tgl ${f.fellowships ? 'on' : ''}" onclick="state.find.fellowships=!state.find.fellowships;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>In-house fellowships published</span>${count({ fellowships: true })}</button>
@@ -1575,10 +1617,12 @@ function domainStateSummary(p, domain, fallback = 'Not yet researched') {
   const stateValue = String(value?.state || '').toUpperCase();
   const disposition = String(record?.disposition || '').toUpperCase();
   const date = String(value?.retrievedDate || record?.retrievedAt || '').slice(0, 10);
-  if (stateValue === 'CONFLICT' || disposition === 'CONFLICT_REQUIRES_REVIEW') return 'Official sources conflict';
+  if (stateValue === 'CONFLICT' || stateValue === 'CONFLICT_REQUIRES_REVIEW' || disposition === 'CONFLICT_REQUIRES_REVIEW') return 'Official sources conflict';
   if (stateValue === 'STALE_NEEDS_REFRESH' || disposition === 'STALE_NEEDS_REFRESH') return 'Research needs refresh';
-  if (stateValue === 'RESEARCHED_NOT_PUBLIC' || disposition === 'RESEARCHED_NOT_FOUND') return `${date ? `Researched ${date} · ` : 'Researched · '}not publicly available`;
-  if (stateValue === 'VERIFIED' || disposition === 'APPROVED_CURRENT') return value?.summary || 'Verified';
+  if (stateValue === 'RESEARCHED_NOT_PUBLIC' || stateValue === 'RESEARCHED_NOT_FOUND' || disposition === 'RESEARCHED_NOT_FOUND') return value?.absence || `${date ? `Researched ${date} · ` : 'Researched · '}not publicly available`;
+  if (stateValue === 'NOT_APPLICABLE') return 'Not applicable';
+  if (stateValue === 'AVAILABLE_LIVE' || stateValue === 'VERIFIED' || disposition === 'APPROVED_CURRENT') return value?.summary || 'Verified';
+  if (stateValue === 'EVIDENCE_FOUND_REVIEW_PENDING') return 'Evidence found · verification pending';
   if (record) return 'Evidence found · verification pending';
   return fallback;
 }
@@ -1628,10 +1672,11 @@ function projectedDomainStates(p) {
       const value = record.value ?? record.canonicalValue ?? record.normalizedValue;
       const stateValue = String(value?.state || '').toUpperCase();
       const disposition = String(record.disposition || '').toUpperCase();
-      if (stateValue === 'CONFLICT' || disposition === 'CONFLICT_REQUIRES_REVIEW') return 'CONFLICT';
+      if (stateValue === 'CONFLICT' || stateValue === 'CONFLICT_REQUIRES_REVIEW' || disposition === 'CONFLICT_REQUIRES_REVIEW') return 'CONFLICT';
       if (stateValue === 'STALE_NEEDS_REFRESH' || disposition === 'STALE_NEEDS_REFRESH') return 'STALE_NEEDS_REFRESH';
-      if (stateValue === 'VERIFIED' || disposition === 'APPROVED_CURRENT') return 'VERIFIED';
-      if (stateValue === 'RESEARCHED_NOT_PUBLIC' || disposition === 'RESEARCHED_NOT_FOUND') return 'RESEARCHED_NOT_PUBLIC';
+      if (stateValue === 'AVAILABLE_LIVE' || stateValue === 'VERIFIED' || disposition === 'APPROVED_CURRENT') return 'VERIFIED';
+      if (stateValue === 'RESEARCHED_NOT_PUBLIC' || stateValue === 'RESEARCHED_NOT_FOUND' || disposition === 'RESEARCHED_NOT_FOUND') return 'RESEARCHED_NOT_PUBLIC';
+      if (stateValue === 'NOT_APPLICABLE') return 'NOT_APPLICABLE';
       return 'EVIDENCE_FOUND_NOT_VERIFIED';
     });
     if (directStates.includes('CONFLICT')) return [domain, 'CONFLICT'];
@@ -1725,7 +1770,7 @@ function whyProgramSection(p) {
 
 function tabOverview(p, R) {
   if (!R) {
-    return `${applicationIntelligenceSection(p)}<div class="fileGrid"><div>
+    return `${atAGlanceSection(p)}<div class="fileGrid"><div>
       <h2 class="h2" style="margin-bottom:8px">Program <em>profile</em></h2>
       ${p.profileLoading ? '<p class="sub">Loading the full program profile…</p>' : p.profileError ? `<div class="lawBanner">${esc(p.profileError)}</div>` : registryTable(p, ['Program Best Described As', 'Program Length', 'First Year Positions', 'Residents Per Year', 'Total Residents', 'Application Deadline', 'Applicant Interview Format', 'Application Service'], 'Published program information')}
       ${approvedResearchTable(p, ['research.curriculum', 'research.program_overview'], 'Current program research')}
@@ -1735,7 +1780,7 @@ function tabOverview(p, R) {
       ${unknownFooter(p)}
     </div><div>${snapshotRail(p)}</div></div>`;
   }
-  return `${applicationIntelligenceSection(p)}<div class="fileGrid"><div>
+  return `${atAGlanceSection(p)}<div class="fileGrid"><div>
     <h2 class="h2" style="margin-bottom:4px">Why this <em>program</em></h2>
     ${R.why.slice(0, state.member ? 99 : 3).map((w, i) => `<div class="whyItem">
       <div class="whyFact">${esc(w.fact)}</div>
@@ -1786,6 +1831,22 @@ function snapshotRail(p) {
     <button class="rowBtn" style="margin-top:10px" onclick="setFileTab('${p.id}','people')">All people →</button></div>` : ''}`;
 }
 
+function atAGlanceSection(p) {
+  const leaders = evidenceRows(approvedResearchValue(p, 'research.leadership'));
+  const pd = leaders.find(person => String(person?.roleCategory || '').toUpperCase() === 'PROGRAM_DIRECTOR')
+    || leaders.find(person => /program director/i.test(String(person?.role || '')));
+  const rows = [
+    ['Program type', p.type || 'Not published'],
+    ['Training length', fieldValue(p, 'Program Length') || p.intelligence.programLength || 'Not published'],
+    ['First-year positions', fieldValue(p, 'First Year Positions') || p.intelligence.firstYearPositions || 'Not published'],
+    ['Total residents', fieldValue(p, 'Total Residents') || p.intelligence.totalResidents || p.application?.roster?.total || 'Not published'],
+    ['Program director', pd?.name || fieldValue(p, 'Program Director') || 'Not yet verified'],
+    ['Resident background', residentCompositionPresentation(p)],
+    ['Research coverage', `${{deep:'Deep Research',enriched:'Enriched Research',basic:'Basic Profile',pending:'Research Pending'}[p.filterIntelligence.researchDepth] || 'Research Pending'} · ${p.filterIntelligence.approvedDomainCount} approved domains`],
+  ];
+  return `<section class="atGlanceSnapshot"><div><p class="eyebrow">Objective program facts</p><h2 class="h2">At a <em>Glance</em></h2><p class="sub">Program facts and current evidence independent of your applicant profile.</p></div><div class="atGlanceGrid">${rows.map(([label,value]) => `<div><span>${esc(label)}</span><b>${esc(value)}</b></div>`).join('')}</div></section>`;
+}
+
 function tabFit(p, R) {
   if (!R) {
     return `<div>${applicationIntelligenceSection(p)}
@@ -1794,7 +1855,7 @@ function tabFit(p, R) {
       ${registryTable(p, ['Step Preferences', 'COMLEX Accepted', 'IMG Step 1 Required', 'IMG Step 2 Required', 'DO COMLEX Level 1 Required', 'DO COMLEX Level 2 Required', 'Minimum LOR', 'Maximum LOR', 'Specialty Specific LOR Required', 'Medical School Graduation Timeline', 'Gap Experience Requirement', 'Required Supplemental Information', 'Application Deadline'], 'Program-reported requirements')}
       <h2 class="h2" style="margin:24px 0 8px">Visa</h2>
       ${registryTable(p, ['Visa Sponsorship', 'J1', 'H1B', 'F1 OPT First Year'], 'Program-reported visa information')}
-      ${approvedResearchTable(p, ['research.application_requirements', 'research.visa'], 'Approved application research')}
+      ${applicationEvidenceDisclosure(p)}
       ${pendingResearchField(p, 'research.application_requirements') ? '<div class="gateNote">Additional application evidence found · verification pending.</div>' : ''}
       ${pendingResearchField(p, 'research.visa') ? '<div class="gateNote">Additional visa evidence found · verification pending.</div>' : ''}
       ${p.soap.length ? `<h2 class="h2" style="margin:20px 0 8px">SOAP history</h2><p class="sub">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} reported positions`).join(' · ')} <i>(NRMP dataset)</i>. Historical evidence, not a promise.</p>` : ''}
@@ -1846,6 +1907,35 @@ function approvedResearchValue(p, field) {
   return fact ? (fact.canonicalValue ?? fact.knowledge?.value ?? null) : null;
 }
 
+function applicationEvidenceDisclosure(p) {
+  const applicationFact = approvedResearchFact(p, 'research.application_requirements');
+  const visaFact = approvedResearchFact(p, 'research.visa');
+  const application = applicationFact ? (applicationFact.canonicalValue ?? applicationFact.knowledge?.value ?? {}) : {};
+  const visa = visaFact ? (visaFact.canonicalValue ?? visaFact.knowledge?.value ?? {}) : {};
+  const stateLabel = value => String(value?.state || value?.sourceState || 'AVAILABLE_LIVE').replaceAll('_', ' ');
+  const items = [
+    ['Step 1 / Level 1', application.step1],
+    ['Step 2 CK', application.step2],
+    ['COMLEX Level 2', application.comlex],
+    ['Exam attempts', application.attempts],
+    ['Graduation year', application.yog],
+    ['US clinical experience', application.usce],
+    ['ECFMG', application.ecfmg],
+    ['Application deadline', application.applicationDeadline || application.deadline],
+    ['Visa sponsorship', visa],
+  ].filter(([, value]) => value && typeof value === 'object');
+  if (!items.length) return '';
+  const sources = [...new Set([...(applicationFact?.sourceUrls || []), ...(visaFact?.sourceUrls || [])])]
+    .filter(url => /^https:\/\//i.test(String(url))).slice(0, 12);
+  return `<details class="applicationEvidenceDisclosure"><summary>View detailed application and visa evidence</summary>
+    <div class="applicationEvidenceGrid">${items.map(([label, value]) => {
+      const detail = value.summary || value.absence || value.detail || value.value || 'Evidence state recorded; no concise public summary is available.';
+      return `<article><div><b>${esc(label)}</b><span>${esc(stateLabel(value))}</span></div><p>${esc(displayValue(detail))}</p></article>`;
+    }).join('')}</div>
+    ${sources.length ? `<div class="evidenceSourceLinks">${sources.map(url => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Official source ↗</a>`).join('')}</div>` : ''}
+  </details>`;
+}
+
 function evidenceRows(value, keys = []) {
   if (Array.isArray(value)) return value.flatMap(item => Array.isArray(item) ? evidenceRows(item, keys) : [item]).filter(Boolean);
   if (!value || typeof value !== 'object') return value == null ? [] : [value];
@@ -1863,25 +1953,50 @@ function genericRosterTable(p) {
     .filter(row => row && typeof row === 'object').slice(0, 250);
   if (!rows.length) return '';
   const roster = p.application?.roster || {};
-  const summary = roster.classifiedTotal > 0
-    ? `${roster.classifiedTotal} of ${rows.length} residents have a supported graduate classification; percentages use only that classified denominator.`
-    : `${rows.length} resident names are available, but their medical schools or graduate classifications are not published in the current evidence.`;
+  const total = Number(roster.total || rows.length);
+  const classified = Number(roster.classifiedTotal || 0);
+  const summary = roster.percentagesAvailable && classified > 0
+    ? `${residentCompositionPresentation(p)}. Resident background coverage: ${classified} of ${total}.`
+    : `${total || rows.length} resident names are available, but a supported resident-composition estimate is unavailable. Unknown is not zero.`;
+  const disclaimer = roster.disclaimer || 'Estimated from the residency roster published by the program. This is not an official program-level MD/DO/IMG statistic. Percentages are a best estimate based on identifiable medical schools and/or degree designations and may be incomplete.';
+  const clean = value => String(value || '').trim();
+  const unique = values => [...new Set(values.map(clean).filter(value => value && !/not published/i.test(value)))].sort((a,b) => a.localeCompare(b));
+  const pgyOptions = unique(rows.map(row => row.pgy || row.pgy_year || row.pgy_level || row.PGY || row.class || row.class_of));
+  const schoolOptions = unique(rows.map(row => row.medicalSchool || row.medical_school || row.school));
+  const countryOptions = unique(rows.map(row => row.medicalSchoolCountry || row.medical_school_country || row.school_country || row.country));
+  const profileSchool = clean(D.profile?.raw?.medical_school);
+  const profileCountry = clean(D.profile?.raw?.medical_school_country);
+  const matchedSchool = schoolOptions.find(value => value.toLocaleLowerCase('en-US') === profileSchool.toLocaleLowerCase('en-US'));
+  const matchedCountry = countryOptions.find(value => value.toLocaleLowerCase('en-US') === profileCountry.toLocaleLowerCase('en-US'));
   return `<section class="residentExplorer">
-    <div class="residentTruthNote"><b>Roster-derived evidence</b><span>${esc(summary)}</span></div>
+    <div class="residentTruthNote"><b>${roster.officialProgramStatistic ? 'Program-reported composition' : 'Roster-derived estimate'}</b><span>${esc(summary)} ${roster.officialProgramStatistic ? '' : esc(disclaimer)}</span></div>
+    <div class="residentQuickFilters">
+      ${matchedSchool ? `<button class="rowBtn" type="button" data-profile-value="${esc(matchedSchool)}" onclick="useResidentProfileFilter(this,'school')">My medical school</button>` : ''}
+      ${matchedCountry ? `<button class="rowBtn" type="button" data-profile-value="${esc(matchedCountry)}" onclick="useResidentProfileFilter(this,'country')">My medical-school country</button>` : ''}
+      <button class="rowBtn" type="button" onclick="clearResidentExplorer(this)">Clear resident filters</button>
+    </div>
     <div class="residentToolbar">
-      <label>Search residents<input type="search" data-resident-query placeholder="Name, school, country…" oninput="updateResidentExplorer(this)"></label>
+      <label>Resident name<input type="search" data-resident-name placeholder="Search resident name…" oninput="updateResidentExplorer(this)"></label>
+      <label>Medical-school search<input type="search" data-resident-school-query placeholder="Search medical school…" oninput="updateResidentExplorer(this)"></label>
+      <label>PGY / class<select data-resident-pgy onchange="updateResidentExplorer(this)"><option value="">All PGY levels</option>${pgyOptions.map(value => `<option value="${esc(value.toLocaleLowerCase('en-US'))}">${esc(value)}</option>`).join('')}</select></label>
+      <label>Medical school<select data-resident-school onchange="updateResidentExplorer(this)"><option value="">All medical schools</option>${schoolOptions.map(value => `<option value="${esc(value.toLocaleLowerCase('en-US'))}">${esc(value)}</option>`).join('')}</select></label>
+      <label>School country<select data-resident-country onchange="updateResidentExplorer(this)"><option value="">All countries</option>${countryOptions.map(value => `<option value="${esc(value.toLocaleLowerCase('en-US'))}">${esc(value)}</option>`).join('')}</select></label>
       <label>Graduate category<select data-resident-category onchange="updateResidentExplorer(this)"><option value="">All categories</option><option value="US_MD">US MD</option><option value="US_DO">US DO</option><option value="IMG_NON_CARIBBEAN">IMG</option><option value="CARIBBEAN">Caribbean</option><option value="UNKNOWN">Unknown</option></select></label>
-      <label>Sort<select data-resident-sort onchange="updateResidentExplorer(this)"><option value="published">Published order</option><option value="name">Resident name</option><option value="school">Medical school</option><option value="pgy">PGY / class</option></select></label>
+      <label>Sort<select data-resident-sort onchange="updateResidentExplorer(this)"><option value="published">Published order</option><option value="name">Resident name</option><option value="pgy">PGY / class</option><option value="school">Medical school</option><option value="country">School country</option></select></label>
     </div>
     <div class="rosterSummaryLine"><b data-resident-count>${rows.length}</b> of ${rows.length} published current/recent roster entr${rows.length === 1 ? 'y' : 'ies'}</div>
-    <div class="residentCardGrid" aria-live="polite">${rows.map((row,index) => { const name = row.name || row.resident_name || 'Resident name not published'; const school = row.medicalSchool || row.medical_school || row.school || 'Medical school not published'; const degree = row.degree || ''; const pgy = row.pgy || row.pgy_year || row.pgy_level || row.PGY || row.class || row.class_of || 'PGY not published'; const country = row.medicalSchoolCountry || row.medical_school_country || row.school_country || row.country || ''; const classification = row.category || row.classification || 'UNKNOWN'; const search = [name,school,country,classification,pgy].join(' ').toLocaleLowerCase('en-US'); return `<article data-order="${index}" data-name="${esc(String(name).toLocaleLowerCase('en-US'))}" data-school="${esc(String(school).toLocaleLowerCase('en-US'))}" data-pgy="${esc(String(pgy).toLocaleLowerCase('en-US'))}" data-category="${esc(classification)}" data-search="${esc(search)}"><div class="residentIdentity"><b>${esc(name)}</b><span>${esc([degree,pgy].filter(Boolean).join(' · '))}</span></div><p>${esc(school)}</p><div class="residentMeta">${country ? `<span>${esc(country)}</span>` : '<span>Country not identified</span>'}<span>${esc(String(classification).replaceAll('_',' '))}</span></div></article>`; }).join('')}</div>
+    <div class="residentCardGrid" aria-live="polite">${rows.map((row,index) => { const name = row.name || row.resident_name || 'Resident name not published'; const school = row.medicalSchool || row.medical_school || row.school || 'Medical school not published'; const degree = row.degree || ''; const pgy = row.pgy || row.pgy_year || row.pgy_level || row.PGY || row.class || row.class_of || 'PGY not published'; const country = row.medicalSchoolCountry || row.medical_school_country || row.school_country || row.country || ''; const classification = row.category || row.classification || 'UNKNOWN'; return `<article data-order="${index}" data-name="${esc(String(name).toLocaleLowerCase('en-US'))}" data-school="${esc(String(school).toLocaleLowerCase('en-US'))}" data-pgy="${esc(String(pgy).toLocaleLowerCase('en-US'))}" data-country="${esc(String(country).toLocaleLowerCase('en-US'))}" data-category="${esc(classification)}"><div class="residentIdentity"><b>${esc(name)}</b><span>${esc([degree,pgy].filter(Boolean).join(' · '))}</span></div><p>${esc(school)}</p><div class="residentMeta">${country ? `<span>${esc(country)}</span>` : '<span>Country not identified</span>'}<span>${esc(String(classification).replaceAll('_',' '))}</span></div></article>`; }).join('')}</div>
   </section>`;
 }
 
 window.updateResidentExplorer = control => {
   const root = control.closest('.residentExplorer');
   if (!root) return;
-  const query = String(root.querySelector('[data-resident-query]')?.value || '').trim().toLocaleLowerCase('en-US');
+  const nameQuery = String(root.querySelector('[data-resident-name]')?.value || '').trim().toLocaleLowerCase('en-US');
+  const schoolQuery = String(root.querySelector('[data-resident-school-query]')?.value || '').trim().toLocaleLowerCase('en-US');
+  const pgy = root.querySelector('[data-resident-pgy]')?.value || '';
+  const school = root.querySelector('[data-resident-school]')?.value || '';
+  const country = root.querySelector('[data-resident-country]')?.value || '';
   const category = root.querySelector('[data-resident-category]')?.value || '';
   const sort = root.querySelector('[data-resident-sort]')?.value || 'published';
   const grid = root.querySelector('.residentCardGrid');
@@ -1890,12 +2005,34 @@ window.updateResidentExplorer = control => {
   cards.sort((a,b) => key === 'order' ? Number(a.dataset.order) - Number(b.dataset.order) : String(a.dataset[key] || '').localeCompare(String(b.dataset[key] || '')));
   let visible = 0;
   cards.forEach(card => {
-    const show = (!query || card.dataset.search.includes(query)) && (!category || card.dataset.category === category);
+    const show = (!nameQuery || card.dataset.name.includes(nameQuery))
+      && (!schoolQuery || card.dataset.school.includes(schoolQuery))
+      && (!pgy || card.dataset.pgy === pgy)
+      && (!school || card.dataset.school === school)
+      && (!country || card.dataset.country === country)
+      && (!category || card.dataset.category === category);
     card.hidden = !show;
     if (show) visible += 1;
     grid.append(card);
   });
   root.querySelector('[data-resident-count]').textContent = visible;
+};
+
+window.useResidentProfileFilter = (button, field) => {
+  const root = button.closest('.residentExplorer');
+  if (!root) return;
+  const value = String(button.dataset.profileValue || '').toLocaleLowerCase('en-US');
+  const control = root.querySelector(field === 'school' ? '[data-resident-school]' : '[data-resident-country]');
+  if (control) control.value = value;
+  window.updateResidentExplorer(button);
+};
+
+window.clearResidentExplorer = button => {
+  const root = button.closest('.residentExplorer');
+  if (!root) return;
+  root.querySelectorAll('input').forEach(input => { input.value = ''; });
+  root.querySelectorAll('select').forEach(select => { select.value = select.hasAttribute('data-resident-sort') ? 'published' : ''; });
+  window.updateResidentExplorer(button);
 };
 
 function genericPeopleTable(p) {

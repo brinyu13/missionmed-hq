@@ -11,7 +11,7 @@
       "applicationRequirements": ["research.application_requirements"],
       "curriculumFeatures": ["research.curriculum"],
       "salaryBenefits": ["research.salary_benefits"],
-      "residentComposition": ["research.img_accessibility", "research.do_accessibility", "research.caribbean_accessibility"]
+      "residentComposition": ["research.resident_composition", "research.img_accessibility", "research.do_accessibility", "research.caribbean_accessibility"]
     },
     "deepRequiredDomains": [
       "applicationRequirements",

@@ -235,3 +235,23 @@ test("deferred bootstrap can omit personalized application match payloads", () =
   assert.equal(result.records[0].application.visa.j1, true);
   assert.equal(result.counts.j1Published, 1);
 });
+
+test("normalized resident composition counts drive independent IMG DO Caribbean and US MD filters", () => {
+  const result = buildFilterIntelligence([program("7", {})], {
+    currentFacts: [{
+      subjectId: "program-7",
+      field: "research.resident_composition",
+      canonicalValue: {
+        contractId: "rise-roster-composition-estimate-v1",
+        percentagesAvailable: true,
+        counts: { usMd: 4, do: 3, img: 5, imgOther: 3, caribbeanImg: 2 },
+      },
+    }],
+  });
+  const record = expandFilterIntelligenceRecord(result.records[0], result.flagBits);
+  assert.deepEqual(record.residentEvidence, { img: true, do: true, caribbean: true, usmd: true });
+  assert.equal(result.counts.imgResidentEvidence, 1);
+  assert.equal(result.counts.doResidentEvidence, 1);
+  assert.equal(result.counts.caribbeanResidentEvidence, 1);
+  assert.equal(result.counts.usmdResidentEvidence, 1);
+});

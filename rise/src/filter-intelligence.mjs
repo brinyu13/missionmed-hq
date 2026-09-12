@@ -21,7 +21,7 @@ export const FILTER_INTELLIGENCE_CONFIG = Object.freeze({
       applicationRequirements: ["research.application_requirements"],
       curriculumFeatures: ["research.curriculum"],
       salaryBenefits: ["research.salary_benefits"],
-      residentComposition: ["research.img_accessibility", "research.do_accessibility", "research.caribbean_accessibility"],
+      residentComposition: ["research.resident_composition", "research.img_accessibility", "research.do_accessibility", "research.caribbean_accessibility"],
     },
     deepRequiredDomains: ["applicationRequirements", "visaPublication", "residentRoster", "leadership"],
     deepMinimumDomainCount: 8,
@@ -176,11 +176,19 @@ function dynamicFactFlags(facts) {
       for (const resident of rosterRows(value)) {
         const classification = normalizedClassification(resident.classification);
         const degree = normalizedClassification(resident.degree ?? resident.degree_credential);
-        flags.img ||= classification === "IMG";
+        flags.img ||= classification === "IMG" || classification.startsWith("IMG_");
         flags.do ||= classification === "DO" || classification === "US_DO" || degree === "DO";
         flags.usmd ||= classification === "US_MD";
-        flags.caribbean ||= affirmative(resident.caribbean);
+        flags.caribbean ||= classification.includes("CARIBBEAN") || affirmative(resident.caribbean);
       }
+    }
+    if (fact.field === "research.resident_composition" && value && typeof value === "object" && !Array.isArray(value)) {
+      // Canonical counts make new reviewed roster hydration filterable without a frontend program list.
+      const counts = value.counts ?? {};
+      flags.img ||= Number(counts.img || 0) > 0;
+      flags.do ||= Number(counts.do || 0) > 0;
+      flags.usmd ||= Number(counts.usMd || 0) > 0;
+      flags.caribbean ||= Number(counts.caribbeanImg || 0) > 0;
     }
     if (fact.field === "research.abim" && value && typeof value === "object") {
       const passRate = Number.parseFloat(String(value.pass_rate ?? value.passRate ?? "").replace(/[^0-9.]/g, ""));
