@@ -1,3 +1,12 @@
+-- Migration: 20260911224524_autobilling_contract_closeout_5403b.sql
+-- Authority: DR-238 / MX-MISSIONACCOUNTS-5403B
+-- Date: 2026-09-12
+-- Depends on: 20260911131140_sponsor_control.sql
+-- Description: Add the enrollment, consent, and durable post-rollout automatic-billing contract while dispatch remains disabled.
+-- Idempotent: NO
+
+BEGIN;
+
 -- MX-MISSIONACCOUNTS-5403B: bounded automatic-billing contract closeout.
 -- This migration is additive and intentionally leaves live dispatch disabled.
 -- It publishes no billing terms and creates no Stripe object or charge.
@@ -936,3 +945,5 @@ comment on table missionaccounts.automatic_billing_contract is
   '5403B rollout cutoff and fail-closed automatic-billing controls. Live dispatch defaults off.';
 comment on column missionaccounts.auto_charge_dispatch.eligible_after is
   'Earliest eligible claim time. Rows do not auto-expire after this time.';
+
+COMMIT;

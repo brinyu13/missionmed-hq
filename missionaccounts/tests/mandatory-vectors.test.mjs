@@ -371,6 +371,10 @@ test('5403B replaces expiry with a durable, enrollment-gated, post-rollout queue
   const sql = await readFile(new URL('../supabase/migrations/20260911224524_autobilling_contract_closeout_5403b.sql', import.meta.url), 'utf8');
   const claimSql = sql.slice(sql.indexOf('create or replace function missionaccounts.api_claim_due_day_charges'));
 
+  assert.match(sql, /^-- Migration: 20260911224524_autobilling_contract_closeout_5403b\.sql\n-- Authority: DR-238 \/ MX-MISSIONACCOUNTS-5403B\n-- Date: 2026-09-12\n-- Depends on: 20260911131140_sponsor_control\.sql\n-- Description: Add the enrollment, consent, and durable post-rollout automatic-billing contract while dispatch remains disabled\.\n-- Idempotent: NO\n\nBEGIN;/);
+  assert.match(sql, /COMMIT;\s*$/);
+  assert.doesNotMatch(sql, /create\s+(?:unique\s+)?index\s+concurrently|refresh\s+materialized\s+view\s+concurrently|vacuum|reindex|cluster|create\s+database|drop\s+database/i);
+
   assert.match(sql, /create table missionaccounts\.program_enrollment_projection/);
   assert.match(sql, /program_key text not null check \(program_key = 'examprep'\)/);
   assert.match(sql, /course_id bigint not null check \(course_id = 6357\)/);

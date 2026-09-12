@@ -12,6 +12,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 app_dir=$(cd "$script_dir/.." && pwd)
 pg_tmp=$(mktemp -d /tmp/mx5403b-revfix-pg.XXXXXX)
 pg_port=$((55500 + RANDOM % 300))
+target_migration="$app_dir/supabase/migrations/20260911224524_autobilling_contract_closeout_5403b.sql"
 
 cleanup_pg() {
   pg_ctl -D "$pg_tmp/data" -m immediate stop >/dev/null 2>&1 || true
@@ -29,11 +30,48 @@ psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 \
   >/dev/null
 
 for migration in "$app_dir"/supabase/migrations/*.sql; do
-  if [[ "$(basename "$migration")" == "20260909105200_promote_antonio_real_student.sql" ]]; then
+  migration_name=$(basename "$migration")
+  if [[ "$migration_name" == "20260909105200_promote_antonio_real_student.sql" || "$migration_name" == "20260911224524_autobilling_contract_closeout_5403b.sql" ]]; then
     continue
   fi
   psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
 done
+
+expected_header=$'-- Migration: 20260911224524_autobilling_contract_closeout_5403b.sql\n-- Authority: DR-238 / MX-MISSIONACCOUNTS-5403B\n-- Date: 2026-09-12\n-- Depends on: 20260911131140_sponsor_control.sql\n-- Description: Add the enrollment, consent, and durable post-rollout automatic-billing contract while dispatch remains disabled.\n-- Idempotent: NO'
+if [[ "$(head -n 6 "$target_migration")" != "$expected_header" ]]; then
+  echo "MissionAccounts 5403B migration is missing the exact MR-078A header" >&2
+  exit 1
+fi
+if [[ "$(sed -n '8p' "$target_migration")" != "BEGIN;" || "$(tail -n 1 "$target_migration")" != "COMMIT;" ]]; then
+  echo "MissionAccounts 5403B migration is missing its top-level transaction wrapper" >&2
+  exit 1
+fi
+
+forced_failure_migration="$pg_tmp/20260911224524_forced_atomicity_failure.sql"
+awk '
+  { print }
+  /add column if not exists body_text text;/ && !inserted {
+    print "select 1 / 0; -- disposable forced mid-migration failure"
+    inserted = 1
+  }
+  END { if (!inserted) exit 42 }
+' "$target_migration" > "$forced_failure_migration"
+if psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 -f "$forced_failure_migration" >/dev/null 2>&1; then
+  echo "MissionAccounts 5403B forced-failure rehearsal unexpectedly succeeded" >&2
+  exit 1
+fi
+partial_apply_count=$(psql -h "$pg_tmp" -p "$pg_port" -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "select count(*) from information_schema.columns where table_schema = 'missionaccounts' and table_name = 'billing_terms' and column_name = 'body_text';")
+if [[ "$partial_apply_count" != "0" ]]; then
+  echo "MissionAccounts 5403B forced failure left a partial schema change" >&2
+  exit 1
+fi
+
+psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 -f "$target_migration" >/dev/null
+if psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 -f "$target_migration" >/dev/null 2>&1; then
+  echo "MissionAccounts 5403B non-idempotent migration unexpectedly replayed" >&2
+  exit 1
+fi
 
 result=$(psql -h "$pg_tmp" -p "$pg_port" -d postgres -Atq -v ON_ERROR_STOP=1 <<'SQL'
 insert into missionaccounts.student(id, matrix_user_ref, display_name, email, identity_state, sponsor_type)
