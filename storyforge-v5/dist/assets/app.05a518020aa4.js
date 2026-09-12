@@ -10881,12 +10881,13 @@ document.addEventListener('submit', async (event) => {
           }),
         });
       }
-      if (!result?.storyId || !result?.notificationId || result?.state !== 'promoted') {
+      const delivery = result?.contribution || result;
+      if (!delivery?.storyId || !delivery?.notificationId || delivery?.state !== 'promoted') {
         throw new Error('StoryForge could not confirm delivery. Your words remain on this page; please try again.');
       }
       guest.receipt = {
-        storyId: String(result.storyId),
-        notificationId: String(result.notificationId),
+        storyId: String(delivery.storyId),
+        notificationId: String(delivery.notificationId),
         transcript: guest.text,
         prompt: String(prompt?.text || ''),
         studentFirstName: String(guest.invitation?.student?.firstName || 'the student'),
