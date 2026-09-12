@@ -1795,6 +1795,7 @@ export function createRiseServer({
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/filter-intelligence") {
+        // Keep startup and evidence intelligence in independently bounded proxy responses.
         const includeProfile = url.searchParams.get("includeProfile") === "true";
         const dynamicEvidence = await filterIntelligence.read();
         const profileResult = includeProfile && matrixProfile
