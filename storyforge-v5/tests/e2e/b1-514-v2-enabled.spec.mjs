@@ -333,10 +333,25 @@ test(`[B1-514-E2E-03] ${ACCEPTANCE['B1-514-E2E-03']}`, async ({ page, browser })
     await guestPage.getByRole('button', { name: /Review my story/ }).click();
     await expect(guestPage.getByRole('heading', { name: 'These are your words.' })).toBeVisible();
     await guestPage.getByRole('button', { name: 'SEND TO MAYA ➤' }).click();
-    await expect(guestPage.getByRole('heading', { name: 'Thank you. ❤' })).toBeVisible();
+    const confirmation = guestPage.getByRole('dialog');
+    await expect(confirmation.getByRole('heading', { name: 'Story saved and Maya notified.' })).toBeVisible();
+    await confirmation.getByRole('button', { name: 'Continue' }).click();
+    await expect(guestPage.getByRole('heading', { name: 'Your story is safe with Maya.' })).toBeVisible();
+    await expect(guestPage.getByRole('status')).toContainText('private StoryForge Library');
+    const transcriptDownload = guestPage.waitForEvent('download');
+    await guestPage.getByRole('button', { name: 'Download transcript (.doc)' }).click();
+    expect((await transcriptDownload).suggestedFilename()).toBe('storyforge-maya-transcript.doc');
   } finally {
     await context.close();
   }
+
+  await page.reload();
+  await page.getByRole('button', { name: /Notifications/ }).first().click();
+  await expect(page.locator('[data-open-notification]').filter({ hasText: 'A private story from Jordan is ready in your StoryForge Library.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Story Library', exact: true }).click();
+  const contributedStory = page.locator('[data-story-row]').filter({ hasText: 'A story from Jordan' });
+  await expect(contributedStory).toHaveCount(1);
+  await expect(contributedStory.locator('.b1520GuestStoryChip')).toHaveText('◆ From Jordan · Parent');
 });
 
 test(`[B1-514-E2E-04] ${ACCEPTANCE['B1-514-E2E-04']}`, async ({ page }) => {

@@ -83,9 +83,10 @@ test('guest voice uses bounded token routes, near-live transcription, explicit r
 
 test('confirmed guest delivery exposes a receipt, student notification truth, and local safeguards', () => {
   const guest = section('function renderGuestContribution()', 'async function initGuest(');
-  assert.match(app, /result\?\.storyId/);
-  assert.match(app, /result\?\.notificationId/);
-  assert.match(app, /result\?\.state !== 'promoted'/);
+  assert.match(app, /const delivery = result\?\.contribution \|\| result/);
+  assert.match(app, /delivery\?\.storyId/);
+  assert.match(app, /delivery\?\.notificationId/);
+  assert.match(app, /delivery\?\.state !== 'promoted'/);
   assert.match(guest, /Delivery confirmed/);
   assert.match(guest, /private StoryForge Library/);
   assert.match(guest, /has been notified/);
