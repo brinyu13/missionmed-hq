@@ -51,13 +51,14 @@ test("all 34 PDs and all 566 unique residents are projected without identity inf
 test("terminal state envelopes supersede without approving disputed facts", () => {
   const review = reviewResearchCorpus(loaded.ingests, { resolvedAcgmeIds: new Set(loaded.summary.acgmeIds) });
   assert.equal(review.decisions.length, loaded.ingests.flatMap((item) => item.claims).length);
+  assert.equal(review.dispositions.APPROVED_CURRENT, review.decisions.length);
   const conflict = review.promotions.find((item) => item.field === "research.domain.visa" && item.canonicalValue.sourceState === "CONFLICT");
   assert.equal(conflict.canonicalValue.contractId, TERMINAL_STATE_CONTRACT);
   assert.equal(conflict.canonicalValue.state, "CONFLICT_REQUIRES_REVIEW");
   assert.ok(loaded.ingests.flatMap((item) => item.claims)
     .filter((claim) => claim.evidenceState === "TERMINAL_STATE_ENVELOPE")
     .every((claim) => claim.sourceUrls.length > 0));
-  assert.ok(review.promotions.length > 1_000);
+  assert.equal(review.promotions.length, review.decisions.length);
 });
 
 test("numeric cutoffs are conservative and omit preferences, ranges, and conflicts", () => {

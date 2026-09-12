@@ -226,7 +226,7 @@ function personRow(row, faculty = false) {
 
 function claimFactory({ program, packageSha256, retrievedAt }) {
   const providerRunId = `P1-RISE-5012J:${program.acgmeId}:${packageSha256}`;
-  return (field, value, sourceUrls, locator, evidenceState = "VERIFIED") => ({
+  return (field, value, sourceUrls, locator, evidenceState = "NORMALIZED_PACKAGE_PROJECTION") => ({
     ...createCanonicalEvidenceClaim({
       subjectId: program.programId, field, value, provider: "CLAUDE_OPUS", providerRunId,
       sourceType: "completed_normalized_hydration_package", sourceUrl: sourceUrls[0] ?? null,
@@ -338,7 +338,7 @@ export async function loadNormalizedHydrationPackage(root, { registryPath } = {}
       sourceState: rosterFact.status, summary: rosterFact.summary, absence: rosterFact.student_facing_absence_message,
       confidence: rosterFact.confidence, adversariallyValidated: rosterFact.adversarially_validated,
     }), urlList([residents.map((row) => row.source_url), sources("11_current_residents")]),
-    `P1-RISE-5012J/02_RESIDENTS_NORMALIZED.csv#${acgmeId}`, residents.length ? "VERIFIED" : "TERMINAL_STATE_ENVELOPE"));
+    `P1-RISE-5012J/02_RESIDENTS_NORMALIZED.csv#${acgmeId}`, residents.length ? "NORMALIZED_PACKAGE_PROJECTION" : "TERMINAL_STATE_ENVELOPE"));
 
     const composition = groups.composition.get(acgmeId)[0];
     const percentagesAvailable = bool(composition.percentages_available) === true;
@@ -355,7 +355,10 @@ export async function loadNormalizedHydrationPackage(root, { registryPath } = {}
       denominatorBasis: clean(composition.denominator_basis), estimateMethod: clean(composition.estimate_method),
       estimateConfidence: clean(composition.estimate_confidence), disclaimer: clean(composition.disclaimer),
       snapshot: clean(composition.roster_snapshot_date_or_cycle),
-    }, urlList(String(composition.source_urls ?? "").split(/\s*[;|]\s*/)), `P1-RISE-5012J/03_RESIDENT_COMPOSITION_ESTIMATES.csv#${acgmeId}`));
+    }, urlList([
+      String(composition.source_urls ?? "").split(/\s*[;|]\s*/),
+      sources("13_resident_composition", "11_current_residents"),
+    ]), `P1-RISE-5012J/03_RESIDENT_COMPOSITION_ESTIMATES.csv#${acgmeId}`));
 
     const leadership = groups.leadership.get(acgmeId).map((row) => personRow(row));
     const faculty = (groups.faculty.get(acgmeId) ?? []).map((row) => personRow(row, true));
@@ -365,7 +368,7 @@ export async function loadNormalizedHydrationPackage(root, { registryPath } = {}
       sourceState: facultyFact.status, summary: facultyFact.summary, absence: facultyFact.student_facing_absence_message,
       confidence: facultyFact.confidence, adversariallyValidated: facultyFact.adversarially_validated,
     }), urlList([faculty.map((row) => row.source_url), sources("15_core_faculty")]),
-    `P1-RISE-5012J/05_FACULTY_NORMALIZED.csv#${acgmeId}`, faculty.length ? "VERIFIED" : "TERMINAL_STATE_ENVELOPE"));
+    `P1-RISE-5012J/05_FACULTY_NORMALIZED.csv#${acgmeId}`, faculty.length ? "NORMALIZED_PACKAGE_PROJECTION" : "TERMINAL_STATE_ENVELOPE"));
 
     const application = groups.applicationRequirements.get(acgmeId)[0];
     const stepMinimum = ["VERIFIED", "PARTIALLY_VERIFIED"].includes(application.step2_required_status) ? hardMinimum(application.step2_published_minimum) : null;
@@ -405,7 +408,7 @@ export async function loadNormalizedHydrationPackage(root, { registryPath } = {}
     claims.push(claim("research.fellowship_inventory", fellowshipRows.length ? fellowshipRows : terminalState({
       sourceState: fellowshipFact.status, summary: fellowshipFact.summary, absence: fellowshipFact.student_facing_absence_message,
       confidence: fellowshipFact.confidence, adversariallyValidated: fellowshipFact.adversarially_validated,
-    }), urlList([fellowshipRows.map((row) => row.source_url), sources("18_fellowships")]), `P1-RISE-5012J/06_FELLOWSHIPS_OUTCOMES_NORMALIZED.jsonl#${acgmeId}/fellowships`, fellowshipRows.length ? "VERIFIED" : "TERMINAL_STATE_ENVELOPE"));
+    }), urlList([fellowshipRows.map((row) => row.source_url), sources("18_fellowships")]), `P1-RISE-5012J/06_FELLOWSHIPS_OUTCOMES_NORMALIZED.jsonl#${acgmeId}/fellowships`, fellowshipRows.length ? "NORMALIZED_PACKAGE_PROJECTION" : "TERMINAL_STATE_ENVELOPE"));
     for (const [field, value, domain] of [
       ["research.outcomes", fo.outcomes, "19_graduate_outcomes"], ["research.subspecialties", fo.subspecialties, "16_movement_disorders"],
       ["research.research_opportunities", fo.research_opportunities, "22_curriculum"],

@@ -118,7 +118,7 @@ function normalizeGenericRows(value) {
 
 function normalizeFellowships(value) {
   return rows(value).map((row) => typeof row === "string" ? { name: cleanString(row) } : {
-    name: cleanString(row?.name ?? row?.program ?? row?.fellowship),
+    name: cleanString(row?.name ?? row?.program ?? row?.fellowship ?? row?.fellowship_name ?? row?.item_name),
     summary: cleanString(row?.summary),
     classification: cleanString(row?.classification ?? row?.category),
     source_url: cleanString(row?.source_url ?? row?.url),
@@ -191,6 +191,17 @@ function preliminaryDecision({ claim, acgmeId, identityResolved = true, allowedC
       disposition: "APPROVED_CURRENT",
       reason: "source_linked_terminal_research_state",
       qualityScore: 200 + sourceCount,
+    };
+  }
+  if (declaredState === "NORMALIZED_PACKAGE_PROJECTION") {
+    if (!sourceCount || !isValid(claim.field, claim.value)) {
+      return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "normalized_projection_missing_source_or_schema", qualityScore: 0 };
+    }
+    return {
+      ...base,
+      disposition: "APPROVED_CURRENT",
+      reason: "sealed_normalized_package_projection",
+      qualityScore: 180 + sourceCount,
     };
   }
   if (declaredState === "NOT_RESEARCHED") return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "source_explicitly_says_not_researched", qualityScore: 0 };
