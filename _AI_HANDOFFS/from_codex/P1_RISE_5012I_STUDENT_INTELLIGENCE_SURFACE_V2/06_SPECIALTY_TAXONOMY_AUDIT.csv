@@ -1,0 +1,6 @@
+scope,canonical_count,live_browse_count,child_neurology_leak_count,status
+All canonical program-specialty records,6139,6139,0,PASS
+Supported browse specialties,31,31,0,PASS
+Texas Adult Neurology,16,16,0,PASS
+Texas and Florida Child Neurology designations,9,9,0,SEPARATE_FROM_ADULT
+Texas Adult Neurology imported dossiers,16,16,0,PASS
