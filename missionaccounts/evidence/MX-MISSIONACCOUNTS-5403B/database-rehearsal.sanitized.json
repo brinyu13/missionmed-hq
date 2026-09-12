@@ -30,5 +30,16 @@
   "program_enrollment_projection_forced_rls": true,
   "authenticated_rpc_execute_revoked": true,
   "service_role_rpc_execute_granted": true,
-  "result": "PASS"
+  "result": "PASS",
+  "mr078a_integrity": {
+    "header": "PASS",
+    "begin_commit_wrapper": "PASS",
+    "transaction_incompatible_statements": 0,
+    "forced_mid_migration_failure": "EXPECTED FAILURE",
+    "partial_schema_changes_after_failure": 0,
+    "normal_apply": "PASS",
+    "declared_idempotency": "NO",
+    "replay_result": "EXPECTED REJECTION",
+    "state_after_replay": "PRESERVED"
+  }
 }

@@ -8,6 +8,8 @@ The prior independent review of head `8e2860077a4fb8a21ba33f4f0fae60441af4c404` 
 
 The next independent review of head `120ec6e147e59839d16aaff6cbbaa8e46fc244f3` failed because `api_set_billing_consent` still compared the canonical actor UUID to optional legacy `matrix_user_ref`. Commit `d2d2ede1eae7190dd47f31fbf8374d479f4b21aa` binds consent grant and revoke authorization to `student.id::text = p_actor_id`. Its disposable PostgreSQL regressions cover grant and revoke with NULL and numeric legacy refs, cross-student grant and revoke, the existing source-subject mismatch case, and a forged actor matching only the legacy ref.
 
+A third independent review of head `579b03860005605305ebabd1e9d8c1bfc717b5f1` passed the identity/security and functional database checks but failed MR-078A file integrity because the new migration lacked its mandatory header and explicit transaction wrapper. DR-238, filed at MissionMed OS commit `43d41a3bb93a01f2113e5cb4d8d5e881cdff6ae1`, narrowly authorizes replacement of only that committed-but-unapplied migration at the same timestamp. Corrective commit `3955c28edf53595f5e0cc1f300f419954033e6b0` adds the exact header and `BEGIN; ... COMMIT;` without changing the migration body, plus disposable forced-failure rollback and declared non-idempotent replay checks. Verify DR-238, production-unapplied evidence, header/dependency/order, transaction compatibility, atomic rollback, and all preserved 5403B behavior independently.
+
 Verify the change is confined to `missionaccounts/` and satisfies DR-232/DR-233:
 
 - LearnDash course 6357 remains canonical; registration alone is insufficient.

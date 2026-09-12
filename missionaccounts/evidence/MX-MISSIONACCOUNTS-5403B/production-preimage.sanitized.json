@@ -13,7 +13,9 @@
     "auto_dispatch_rows": 0,
     "charge_rows": 0,
     "consent_rows": 0,
-    "billing_terms_rows": 0
+    "billing_terms_rows": 0,
+    "production_migration_tip": "20260911132835",
+    "auto_charge_dispatch_eligible_after_exists": false
   },
   "railway": {
     "project": "missionaccounts-production",
@@ -41,5 +43,6 @@
     "sso_local_sha256": "e055e23b61ac719cbd4fd10cc0d0c7141ab779037efd6e6ed9a5ce803098106d",
     "sso_remote_sha256": "e055e23b61ac719cbd4fd10cc0d0c7141ab779037efd6e6ed9a5ce803098106d"
   },
-  "live_money_moved_cents": 0
+  "live_money_moved_cents": 0,
+  "reverified_at": "2026-09-12T19:35:00Z"
 }

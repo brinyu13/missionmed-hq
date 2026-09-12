@@ -49,5 +49,20 @@
   "wordpress_sso": {
     "php_lint": "PASS",
     "course_6357_disables_legacy_exact_user_enrollment_fallback": true
+  },
+  "revfix_03": {
+    "failed_reviewed_head": "579b03860005605305ebabd1e9d8c1bfc717b5f1",
+    "authority_decision": "DR-238",
+    "authority_commit": "43d41a3bb93a01f2113e5cb4d8d5e881cdff6ae1",
+    "corrective_source_commit": "3955c28edf53595f5e0cc1f300f419954033e6b0",
+    "mr078a_header": "PASS",
+    "explicit_transaction_wrapper": "PASS",
+    "transaction_incompatible_statements": 0,
+    "forced_failure_atomic_rollback": "PASS",
+    "declared_idempotency": "NO",
+    "replay_rejected_cleanly": "PASS",
+    "production_mutation": "NONE",
+    "stripe_provider_calls": 0,
+    "live_dispatch": "OFF"
   }
 }
