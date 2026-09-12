@@ -12,10 +12,15 @@
     "contract": {
       "amount_per_billable_day_cents": 2500,
       "rollout_cutoff": "2026-09-09T12:00:00.000Z",
-      "eligible_after_hours": 24,
+      "ordinary_dispatch_target_hours": 24,
       "automatic_expiry_hours": null,
       "active_enrollment_gate": "fresh_signed_learndash_course_6357_projection",
-      "failed_charge_retry": "explicit_human_action_required"
+      "failed_charge_retry": "one_bounded_retry_after_12_hours",
+      "max_provider_attempts": 2,
+      "late_fee_eligible_after_failed_attempts": 2,
+      "late_fee_amount_cents": null,
+      "per_charge_student_approval_required": false,
+      "initial_canary_requires_admin_approval": true
     },
     "summary": {
       "candidates": 1,

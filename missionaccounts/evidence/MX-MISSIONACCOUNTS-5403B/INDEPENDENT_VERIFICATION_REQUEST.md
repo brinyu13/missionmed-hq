@@ -1,58 +1,31 @@
-# MX-MISSIONACCOUNTS-5403B independent verification request
+# MX-MISSIONACCOUNTS-5403B policy-alignment independent verification request
 
-Review only. Do not deploy, migrate production, change WordPress, alter Railway variables, publish billing terms, or contact Stripe.
+Review only. Do not deploy, merge, migrate production, change WordPress, alter Railway variables, publish billing terms, contact Stripe, create a PaymentIntent, or move money.
 
-DR-233 requires the builder and acceptance verifier to be distinct sessions. Review the current head of GitHub draft PR 28 against base `031a9e812de3575d225de0064cc4be209d86b72b`. Confirm the current PR head before testing. The original implementation commit is `a5ab97b53801202a682749b47a44c7d3fdbc5fcc`; the enrollment canonical-subject corrective source commit is `ea5c4176b7429873e558c7b9abd814b184470786`; and the consent canonical-subject corrective source commit is `d2d2ede1eae7190dd47f31fbf8374d479f4b21aa`.
+Confirm the current head of GitHub draft PR 28 and review that exact commit against base `031a9e812de3575d225de0064cc4be209d86b72b`. The Founder-policy source/test commit is `a39a30b865793e9404bf5af3137c4ca8e1ddcbd6`. Prior independent acceptance at `8a489334d0ffe8901d29e58421b51f834814956b` does not carry forward.
 
-The prior independent review of head `8e2860077a4fb8a21ba33f4f0fae60441af4c404` failed because `api_sync_program_enrollment` compared the authenticated canonical student UUID to the optional legacy `matrix_user_ref`. The corrective commit binds `p_student_id`, `p_actor_id`, and `p_source_subject` to `student.id`, updates PreviewStore so it cannot mask the production architecture, and adds explicit NULL-ref, numeric-ref, cross-student, subject-mismatch, and inactive-course-access regressions.
+Authority is DR-241 and DR-242 at MissionMed OS commit `f6449c93cc8d3e9da56ce4510540bc92dc3f4d58`. Confirm those decisions permit the bounded amendment of the committed-but-production-unapplied migration under MR-078A and prohibit deployment, production mutation, terms publication, and live money movement.
 
-The next independent review of head `120ec6e147e59839d16aaff6cbbaa8e46fc244f3` failed because `api_set_billing_consent` still compared the canonical actor UUID to optional legacy `matrix_user_ref`. Commit `d2d2ede1eae7190dd47f31fbf8374d479f4b21aa` binds consent grant and revoke authorization to `student.id::text = p_actor_id`. Its disposable PostgreSQL regressions cover grant and revoke with NULL and numeric legacy refs, cross-student grant and revoke, the existing source-subject mismatch case, and a forged actor matching only the legacy ref.
+Verify all of the following:
 
-A third independent review of head `579b03860005605305ebabd1e9d8c1bfc717b5f1` passed the identity/security and functional database checks but failed MR-078A file integrity because the new migration lacked its mandatory header and explicit transaction wrapper. DR-238, filed at MissionMed OS commit `43d41a3bb93a01f2113e5cb4d8d5e881cdff6ae1`, narrowly authorizes replacement of only that committed-but-unapplied migration at the same timestamp. Corrective commit `3955c28edf53595f5e0cc1f300f419954033e6b0` adds the exact header and `BEGIN; ... COMMIT;` without changing the migration body, plus disposable forced-failure rollback and declared non-idempotent replay checks. Verify DR-238, production-unapplied evidence, header/dependency/order, transaction compatibility, atomic rollback, and all preserved 5403B behavior independently.
+- $25 per eligible ExamPrep billable calendar day; multiple qualifying same-day sessions collapse to one day.
+- Attendance confirmation/finalization starts the scheduling clock. Ordinary processing targets 24 hours and is described to students as generally within 24–48 hours, without a cooling-off promise.
+- Valid obligations remain durable after 48 hours and never expire merely because the worker is delayed.
+- Advance student consent is required; no per-charge student approval is required after the bounded first-canary approval gate is released.
+- The first canary retains exact Dr J day/amount approval while `initial_canary_requires_admin_approval=true`.
+- One retry is scheduled 12 hours after a definite first failed provider attempt. The second failed attempt stops automatic retry and sets `late_fee_eligible_review`.
+- A provider outcome without a bound PaymentIntent is held for reconciliation and is not retried automatically.
+- Attempt-specific idempotency keys permit only attempts 1 and 2 and prevent duplicate successful charges.
+- No late-fee amount or automatic late-fee assessment is encoded.
+- Disabling consent blocks future automatic processing while preserving already-incurred obligations and submitted-payment history.
+- LearnDash course 6357, canonical `student.id`, signed enrollment freshness, DIRECT sponsorship, historical cutoff, exclusions, RLS/RPC, receipt email, prior-payment, and review gates remain fail-closed.
+- NULL/numeric legacy refs work only as metadata; cross-student and forged subjects remain blocked.
+- Both application and database live-dispatch gates remain OFF by default.
+- The migration does not insert or approve billing terms and production still lacks migration `20260911224524`.
 
-Verify the change is confined to `missionaccounts/` and satisfies DR-232/DR-233:
-
-- LearnDash course 6357 remains canonical; registration alone is insufficient.
-- Signed enrollment projection is subject-bound, current, private, and fail-closed at shadow, claim, and final preparation.
-- Student consent is independent from live dispatch, self-only, explicit, auditable, separately revocable, and requires DIRECT sponsorship, current enrollment, an on-file method, and exact approved terms text/hash.
-- The migration does not insert or approve billing terms.
-- The durable queue has a 24-hour minimum hold and no automatic 48-hour expiry.
-- Historical and pre-rollout days cannot be revived through recomputation.
-- Final preparation rechecks the exact Dr J-approved day, remaining approved amount, prior charge, valid receipt email, stable idempotency, service-worker authority, sponsorship, enrollment, consent, terms, and the database dispatch flag.
-- Both the Railway feature flag and database contract must be enabled before any automatic provider action; defaults remain off.
-- UCC/MUL, unresolved identities, grace, comp, no-charge, missing-method, missing-consent, stale enrollment, prior-paid, and held/review states fail closed.
-- No Stripe request, PaymentIntent, hosted invoice, enrollment mutation, public grant, destructive DDL, or RLS weakening occurs in this closeout.
-- Manual Dr J charging, payment-method setup, Zoom, privacy, and route behavior retain their regression coverage.
-
-Run:
-
-```bash
-cd /path/to/missionmed-hq/missionaccounts
-npm test
-npm run validate:source
-node --test tests/mandatory-vectors.test.mjs
-```
-
-Rehearse the new migration on disposable PostgreSQL using all schema migrations except the production-data-specific Antonio promotion migration `20260909105200_promote_antonio_real_student.sql`. Confirm the new migration applies and the functional result is equivalent to:
-
-```bash
-scripts/test-5403b-postgres-rehearsal.sh
-```
-
-```text
-program enrollment rows = 1
-pending durable candidates = 1
-pre-rollout candidates revived = 0
-charge rows = 0
-consent after eligibility loss = revoked
-live dispatch = false
-```
-
-Inspect the sanitized evidence in `missionaccounts/evidence/MX-MISSIONACCOUNTS-5403B/`.
+Run the full established suite, source validation, mandatory vectors, `scripts/test-5403b-postgres-rehearsal.sh`, shell/JavaScript syntax checks, and `git diff --check`. Inspect `missionaccounts/evidence/MX-MISSIONACCOUNTS-5403B/`.
 
 Return exactly one of:
 
-- `INDEPENDENT VERIFICATION: PASS` with reviewed commit, test counts, migration/security findings, and any non-blocking limits.
-- `INDEPENDENT VERIFICATION: FAIL` with exact blocking file/line and reason.
-
-Do not treat registration or builder tests alone as independent acceptance.
+- `INDEPENDENT VERIFICATION: PASS` with exact reviewed SHA, test counts, migration/security findings, production-untouched evidence, dispatch OFF, and money $0.
+- `INDEPENDENT VERIFICATION: FAIL` with the exact blocking file/line and reason.
