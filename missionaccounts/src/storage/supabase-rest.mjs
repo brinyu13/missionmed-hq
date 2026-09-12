@@ -521,7 +521,7 @@ export class SupabaseRestStore {
     });
   }
 
-  async finishAutoChargeDispatch({ dispatchId, workerId, succeeded, providerRef, error, now }) {
+  async finishAutoChargeDispatch({ dispatchId, workerId, providerRequestId, succeeded, providerRef, error, now }) {
     return this.rpc('api_finish_auto_charge_dispatch', {
       p_dispatch_id: dispatchId,
       p_worker_id: workerId,
@@ -878,6 +878,7 @@ export class PreviewStore {
     this.stripeCustomers = new Map();
     this.chargesByDay = new Map();
     this.chargeMutations = new Map();
+    this.chargeAttempts = new Map();
     this.manualCycleCharges = new Map();
     this.manualCycleChargeMutations = new Map();
     this.autoChargeDispatches = new Map();
@@ -1897,6 +1898,14 @@ export class PreviewStore {
     };
     charge.state = 'pending';
     this.chargesByDay.set(attendanceDayId, charge);
+    this.chargeAttempts.set(requestId, {
+      charge_id: charge.id,
+      provider_request_id: requestId,
+      provider_attempt_number: Number(requestId.match(/:attempt:([12])$/)?.[1] || 1),
+      provider_ref: null,
+      state: 'started',
+      explicit_retry: explicitRetry === true,
+    });
     const customer = this.stripeCustomers.get(studentId);
     const result = {
       accepted: true,
@@ -2087,18 +2096,32 @@ export class PreviewStore {
     }
     return { claimed, held, now };
   }
-  async finishAutoChargeDispatch({ dispatchId, workerId, succeeded, providerRef, error, now }) {
+  async finishAutoChargeDispatch({ dispatchId, workerId, providerRequestId, succeeded, providerRef, error, now }) {
     const retryDelayHours = Number(this.automaticBillingContract.retry_delay_hours || 12);
     const maxProviderAttempts = Number(this.automaticBillingContract.max_provider_attempts || 2);
     const dispatch = [...this.autoChargeDispatches.values()].find(item => item.id === dispatchId);
-    if (!dispatch || dispatch.state !== 'claimed' || dispatch.worker_id !== workerId) {
-      throw Object.assign(new Error('Automatic charge claim mismatch'), { status: 409 });
-    }
+    if (!dispatch) throw Object.assign(new Error('Automatic charge dispatch not found'), { status: 409 });
     const charge = this.chargesByDay.get(dispatch.attendance_day_id);
     if (!charge) throw Object.assign(new Error('Automatic charge not found'), { status: 409 });
+    const attempt = this.chargeAttempts.get(providerRequestId);
+    if (!attempt || attempt.charge_id !== charge.id) {
+      throw Object.assign(new Error('Automatic charge attempt mismatch'), { status: 409 });
+    }
+    const expectedTerminalState = succeeded ? 'succeeded' : 'failed';
+    if (attempt.state !== 'started') {
+      if (attempt.state === expectedTerminalState && attempt.provider_ref === providerRef) {
+        return { accepted: true, duplicate: true, dispatch: { ...dispatch }, charge: { ...charge } };
+      }
+      throw Object.assign(new Error('Automatic charge attempt terminal state mismatch'), { status: 409 });
+    }
+    if (dispatch.state !== 'claimed' || dispatch.worker_id !== workerId
+      || providerRequestId !== `${dispatch.idempotency_key}:attempt:${Number(dispatch.provider_failure_count || 0) + 1}`) {
+      throw Object.assign(new Error('Automatic charge claim mismatch'), { status: 409 });
+    }
     dispatch.worker_id = null;
     dispatch.locked_at = null;
     if (succeeded) {
+      attempt.provider_ref = providerRef;
       dispatch.state = 'submitted';
       dispatch.provider_ref = providerRef;
       dispatch.submitted_at = now;
@@ -2107,6 +2130,8 @@ export class PreviewStore {
       const definiteFailure = Boolean(providerRef);
       dispatch.last_error = error;
       if (definiteFailure) {
+        attempt.provider_ref = providerRef;
+        attempt.state = 'failed';
         dispatch.provider_failure_count = Number(dispatch.provider_failure_count || 0) + 1;
         charge.state = 'failed';
         charge.provider_ref = null;
@@ -2222,22 +2247,35 @@ export class PreviewStore {
     });
     return { accepted: true, duplicate: false, sync_run_id: row.id, exception_id: this.integrationExceptions.get(exceptionKey).id, state: 'failed' };
   }
-  async processStripePaymentIntent({ eventId, eventType, paymentIntentId, studentId, attendanceDayId, failureCode, failureMessage }) {
+  async processStripePaymentIntent({ eventId, eventType, paymentIntentId, studentId, attendanceDayId, providerRequestId, providerAttemptNumber, failureCode, failureMessage }) {
     const retryDelayHours = Number(this.automaticBillingContract.retry_delay_hours || 12);
     const maxProviderAttempts = Number(this.automaticBillingContract.max_provider_attempts || 2);
     const event = this.providerEvents.get(`stripe:${eventId}`);
     const charge = this.chargesByDay.get(attendanceDayId);
-    if (!event || !charge) throw Object.assign(new Error('Stripe charge event cannot be matched'), { status: 409 });
+    const attempt = this.chargeAttempts.get(providerRequestId);
+    if (!event || !charge || !attempt) throw Object.assign(new Error('Stripe charge event cannot be matched'), { status: 409 });
     if (event.state === 'processed') return { accepted: true, duplicate: true, charge: { ...charge } };
     const object = event.payload?.data?.object;
     if (!event.signatureVerified || event.eventType !== eventType || object?.id !== paymentIntentId
       || object?.metadata?.student_id !== studentId || object?.metadata?.attendance_day_id !== attendanceDayId
-      || charge.student_id !== studentId || (charge.provider_ref && charge.provider_ref !== paymentIntentId)) {
+      || object?.metadata?.provider_request_id !== providerRequestId
+      || Number(object?.metadata?.provider_attempt_number) !== providerAttemptNumber
+      || providerRequestId !== `missionaccounts:auto-charge:${attendanceDayId}:v2:attempt:${providerAttemptNumber}`
+      || attempt.charge_id !== charge.id || attempt.provider_attempt_number !== providerAttemptNumber
+      || (attempt.provider_ref && attempt.provider_ref !== paymentIntentId)
+      || charge.student_id !== studentId) {
       throw Object.assign(new Error('Stripe charge event binding mismatch'), { status: 409 });
     }
-    const failureAlreadyCounted = eventType === 'payment_intent.payment_failed' && charge.state === 'failed';
+    const nextState = eventType === 'payment_intent.succeeded' ? 'succeeded' : 'failed';
+    if (attempt.state !== 'started') {
+      if (attempt.state !== nextState) throw Object.assign(new Error('Stripe charge attempt terminal state mismatch'), { status: 409 });
+      event.state = 'processed';
+      return { accepted: true, duplicate: true, charge: { ...charge } };
+    }
+    attempt.provider_ref = paymentIntentId;
+    attempt.state = nextState;
     charge.provider_ref = paymentIntentId;
-    charge.state = eventType === 'payment_intent.succeeded' ? 'succeeded' : 'failed';
+    charge.state = nextState;
     charge.failure_code = failureCode || null;
     charge.failure_message = failureMessage || null;
     const dispatch = this.autoChargeDispatches.get(attendanceDayId);
@@ -2246,7 +2284,7 @@ export class PreviewStore {
         dispatch.state = 'submitted';
         dispatch.provider_ref = paymentIntentId;
         dispatch.last_error = null;
-      } else if (!failureAlreadyCounted) {
+      } else {
         charge.provider_ref = null;
         dispatch.provider_ref = null;
         dispatch.provider_failure_count = Number(dispatch.provider_failure_count || 0) + 1;

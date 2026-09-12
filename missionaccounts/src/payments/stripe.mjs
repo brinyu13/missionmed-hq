@@ -153,6 +153,8 @@ export class StripeGateway {
     if (retryKey && !new RegExp(`^missionaccounts:auto-charge:${attendanceDayId}:v2:attempt:[12]$`).test(retryKey)) {
       throw Object.assign(new Error('Stripe automatic charge idempotency key is invalid'), { status: 400 });
     }
+    const providerRequestId = retryKey || `missionaccounts:billable-day:${attendanceDayId}:v1`;
+    const providerAttemptNumber = retryKey ? Number(retryKey.match(/:attempt:([12])$/)?.[1]) : 1;
     return this.request('payment_intents', {
       amount: '2500',
       currency: 'usd',
@@ -163,7 +165,9 @@ export class StripeGateway {
       off_session: 'true',
       'metadata[student_id]': studentId,
       'metadata[attendance_day_id]': attendanceDayId,
-    }, retryKey || `missionaccounts:billable-day:${attendanceDayId}:v1`);
+      'metadata[provider_request_id]': providerRequestId,
+      'metadata[provider_attempt_number]': String(providerAttemptNumber),
+    }, providerRequestId);
   }
 
   createManualCycleCharge({

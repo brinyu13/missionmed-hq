@@ -281,7 +281,11 @@ export function createMissionAccountsServer({
         }
       } else {
         const attendanceDayId = String(object.metadata?.attendance_day_id || '');
-        if (!uuid.test(studentId) || !uuid.test(attendanceDayId) || !/^pi_[A-Za-z0-9_]+$/.test(String(object.id || ''))) {
+        const providerRequestId = String(object.metadata?.provider_request_id || '');
+        const providerAttemptNumber = Number(object.metadata?.provider_attempt_number);
+        const expectedProviderRequestId = `missionaccounts:auto-charge:${attendanceDayId}:v2:attempt:${providerAttemptNumber}`;
+        if (!uuid.test(studentId) || !uuid.test(attendanceDayId) || !/^pi_[A-Za-z0-9_]+$/.test(String(object.id || ''))
+          || ![1, 2].includes(providerAttemptNumber) || providerRequestId !== expectedProviderRequestId) {
           effect = await store.markProviderEventUnhandled({
             provider: 'stripe',
             eventId: event.id,
@@ -294,6 +298,8 @@ export function createMissionAccountsServer({
             paymentIntentId: object.id,
             studentId,
             attendanceDayId,
+            providerRequestId,
+            providerAttemptNumber,
             failureCode: object.last_payment_error?.code || null,
             failureMessage: object.last_payment_error?.message || null,
           });
@@ -424,7 +430,8 @@ export function createMissionAccountsServer({
             || error?.stripe?.payment_intent?.id
             || null;
           await store.finishAutoChargeDispatch({
-            dispatchId: item.dispatch_id, workerId, succeeded: false,
+            dispatchId: item.dispatch_id, workerId,
+            providerRequestId: item.provider_idempotency_key, succeeded: false,
             providerRef: /^pi_[A-Za-z0-9_]+$/.test(String(failedPaymentIntentRef || ''))
               ? failedPaymentIntentRef
               : null,
@@ -435,7 +442,8 @@ export function createMissionAccountsServer({
           continue;
         }
         await store.finishAutoChargeDispatch({
-          dispatchId: item.dispatch_id, workerId, succeeded: true,
+          dispatchId: item.dispatch_id, workerId,
+          providerRequestId: item.provider_idempotency_key, succeeded: true,
           providerRef: paymentIntent.id, error: null, now: now().toISOString(),
         });
         submitted += 1;

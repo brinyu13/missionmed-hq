@@ -100,6 +100,13 @@ alter table missionaccounts.auto_charge_dispatch
   add column if not exists provider_failure_count integer not null default 0,
   add column if not exists late_fee_eligible_at timestamptz;
 
+alter table missionaccounts.charge_attempt
+  add column if not exists provider_ref text;
+
+create unique index if not exists charge_attempt_provider_ref_unique
+  on missionaccounts.charge_attempt(provider_ref)
+  where provider_ref is not null;
+
 alter table missionaccounts.auto_charge_dispatch
   add constraint auto_charge_dispatch_provider_failure_count_check
     check (provider_failure_count >= 0 and provider_failure_count <= 2),
@@ -948,6 +955,7 @@ declare
   charge_row missionaccounts.charge%rowtype;
   day_row missionaccounts.attendance_day%rowtype;
   contract_row missionaccounts.automatic_billing_contract%rowtype;
+  attempt_row missionaccounts.charge_attempt%rowtype;
   audit_id uuid;
   next_failure_count integer;
   definite_failure boolean;
@@ -964,20 +972,6 @@ begin
   for update;
   if not found then raise exception using errcode = '23503', message = 'auto_charge_dispatch_not_found'; end if;
 
-  if dispatch_row.state = 'submitted' and p_succeeded
-     and dispatch_row.provider_ref is not distinct from p_provider_ref then
-    return jsonb_build_object('accepted', true, 'duplicate', true, 'dispatch', to_jsonb(dispatch_row));
-  end if;
-  if dispatch_row.state <> 'claimed' or dispatch_row.worker_id is distinct from p_worker_id then
-    raise exception using errcode = '22023', message = 'auto_charge_claim_mismatch';
-  end if;
-  if p_succeeded and coalesce(p_provider_ref, '') !~ '^pi_[A-Za-z0-9_]+$' then
-    raise exception using errcode = '22023', message = 'auto_charge_provider_ref_required';
-  end if;
-  if not p_succeeded and nullif(btrim(p_error), '') is null then
-    raise exception using errcode = '22023', message = 'auto_charge_error_required';
-  end if;
-
   select * into charge_row
   from missionaccounts.charge
   where attendance_day_id = dispatch_row.attendance_day_id
@@ -986,8 +980,42 @@ begin
   select * into day_row from missionaccounts.attendance_day where id = dispatch_row.attendance_day_id;
   select * into contract_row from missionaccounts.automatic_billing_contract where singleton = true;
   if not found then raise exception using errcode = '55000', message = 'automatic_billing_contract_unavailable'; end if;
+  select * into attempt_row
+  from missionaccounts.charge_attempt
+  where charge_id = charge_row.id
+    and ((p_provider_ref is not null and provider_ref = p_provider_ref) or state = 'started')
+  order by (provider_ref is not distinct from p_provider_ref) desc, attempted_at desc, id desc
+  limit 1
+  for update;
+  if not found then raise exception using errcode = '23503', message = 'auto_charge_attempt_not_found'; end if;
+  if attempt_row.state = 'succeeded' and p_succeeded
+     and attempt_row.provider_ref is not distinct from p_provider_ref then
+    return jsonb_build_object('accepted', true, 'duplicate', true, 'dispatch', to_jsonb(dispatch_row));
+  end if;
+  if attempt_row.state = 'failed' and not p_succeeded
+     and attempt_row.provider_ref is not distinct from p_provider_ref then
+    return jsonb_build_object('accepted', true, 'duplicate', true, 'dispatch', to_jsonb(dispatch_row));
+  end if;
+  if attempt_row.state <> 'started' then
+    raise exception using errcode = '22023', message = 'auto_charge_attempt_terminal_state_mismatch';
+  end if;
+  if dispatch_row.state <> 'claimed' or dispatch_row.worker_id is distinct from p_worker_id then
+    raise exception using errcode = '22023', message = 'auto_charge_claim_mismatch';
+  end if;
+  if p_provider_ref is not null and p_provider_ref !~ '^pi_[A-Za-z0-9_]+$' then
+    raise exception using errcode = '22023', message = 'auto_charge_provider_ref_invalid';
+  end if;
+  if p_succeeded and p_provider_ref is null then
+    raise exception using errcode = '22023', message = 'auto_charge_provider_ref_required';
+  end if;
+  if not p_succeeded and nullif(btrim(p_error), '') is null then
+    raise exception using errcode = '22023', message = 'auto_charge_error_required';
+  end if;
 
   if p_succeeded then
+    update missionaccounts.charge_attempt
+    set provider_ref = p_provider_ref
+    where id = attempt_row.id returning * into attempt_row;
     update missionaccounts.auto_charge_dispatch
     set state = 'submitted', provider_ref = p_provider_ref, submitted_at = p_now,
         worker_id = null, locked_at = null, last_error = null,
@@ -1018,12 +1046,9 @@ begin
       set provider_ref = null, state = 'failed', updated_at = p_now
       where id = charge_row.id returning * into charge_row;
       update missionaccounts.charge_attempt
-      set state = 'failed', error_code = 'stripe_submission_failed', error_message = left(p_error, 2000)
-      where id = (
-        select id from missionaccounts.charge_attempt
-        where charge_id = charge_row.id and state = 'started'
-        order by attempted_at desc limit 1
-      );
+      set provider_ref = p_provider_ref, state = 'failed',
+          error_code = 'stripe_submission_failed', error_message = left(p_error, 2000)
+      where id = attempt_row.id;
       event_suffix := case when next_state = 'pending' then 'retry-scheduled' else 'late-fee-eligible-review' end;
     else
       update missionaccounts.auto_charge_dispatch
@@ -1131,7 +1156,8 @@ declare
   audit_id uuid;
   next_state text;
   next_failure_count integer;
-  failure_already_counted boolean := false;
+  event_provider_request_id text;
+  event_provider_attempt_number integer;
 begin
   if p_event_type not in ('payment_intent.succeeded','payment_intent.payment_failed')
      or p_payment_intent_ref !~ '^pi_[A-Za-z0-9_]+$'
@@ -1161,8 +1187,7 @@ begin
      or event_row.payload #>> '{data,object,id}' is distinct from p_payment_intent_ref
      or event_row.payload #>> '{data,object,metadata,student_id}' is distinct from p_student_id::text
      or event_row.payload #>> '{data,object,metadata,attendance_day_id}' is distinct from p_attendance_day_id::text
-     or charge_row.student_id <> p_student_id
-     or (charge_row.state = 'succeeded' and charge_row.provider_ref is distinct from p_payment_intent_ref) then
+     or charge_row.student_id <> p_student_id then
     raise exception using errcode = '22023', message = 'stripe_charge_event_binding_mismatch';
   end if;
 
@@ -1173,15 +1198,42 @@ begin
   select * into contract_row
   from missionaccounts.automatic_billing_contract
   where singleton = true;
+  event_provider_request_id := event_row.payload #>> '{data,object,metadata,provider_request_id}';
+  begin
+    event_provider_attempt_number := (event_row.payload #>> '{data,object,metadata,provider_attempt_number}')::integer;
+  exception when invalid_text_representation then
+    raise exception using errcode = '22023', message = 'stripe_charge_event_attempt_binding_mismatch';
+  end;
+  if dispatch_row.id is null
+     or event_provider_attempt_number not in (1, 2)
+     or event_provider_request_id is distinct from
+       dispatch_row.idempotency_key || ':attempt:' || event_provider_attempt_number::text then
+    raise exception using errcode = '22023', message = 'stripe_charge_event_attempt_binding_mismatch';
+  end if;
   select * into attempt_row
   from missionaccounts.charge_attempt
-  where charge_id = charge_row.id
-  order by attempted_at desc, id desc
-  limit 1
+  where charge_id = charge_row.id and provider_request_id = event_provider_request_id
   for update;
+  if not found then
+    raise exception using errcode = '23503', message = 'stripe_charge_attempt_not_found';
+  end if;
 
   next_state := case when p_event_type = 'payment_intent.succeeded' then 'succeeded' else 'failed' end;
-  failure_already_counted := next_state = 'failed' and attempt_row.state = 'failed';
+  if attempt_row.provider_ref is not null and attempt_row.provider_ref <> p_payment_intent_ref then
+    raise exception using errcode = '22023', message = 'stripe_charge_event_attempt_binding_mismatch';
+  end if;
+  if attempt_row.state <> 'started' then
+    if attempt_row.state <> next_state then
+      raise exception using errcode = '22023', message = 'stripe_attempt_terminal_state_mismatch';
+    end if;
+    update missionaccounts.provider_event_inbox
+    set state = 'processed', processed_at = now()
+    where id = event_row.id;
+    return jsonb_build_object(
+      'accepted', true, 'duplicate', true, 'charge', to_jsonb(charge_row),
+      'dispatch', to_jsonb(dispatch_row), 'attempt', to_jsonb(attempt_row)
+    );
+  end if;
 
   update missionaccounts.charge
   set provider_ref = case when next_state = 'succeeded' then p_payment_intent_ref else null end,
@@ -1190,12 +1242,11 @@ begin
   where id = charge_row.id
   returning * into charge_row;
 
-  if attempt_row.id is not null and attempt_row.state = 'started' then
-    update missionaccounts.charge_attempt
-    set state = next_state, error_code = p_failure_code, error_message = left(p_failure_message, 2000)
-    where id = attempt_row.id
-    returning * into attempt_row;
-  end if;
+  update missionaccounts.charge_attempt
+  set provider_ref = p_payment_intent_ref, state = next_state,
+      error_code = p_failure_code, error_message = left(p_failure_message, 2000)
+  where id = attempt_row.id
+  returning * into attempt_row;
 
   if dispatch_row.id is not null then
     if next_state = 'succeeded' then
@@ -1204,7 +1255,7 @@ begin
           submitted_at = coalesce(submitted_at, now()), worker_id = null, locked_at = null,
           held_at = null, hold_reason = null, last_error = null, updated_at = now()
       where id = dispatch_row.id returning * into dispatch_row;
-    elsif not failure_already_counted then
+    else
       next_failure_count := dispatch_row.provider_failure_count + 1;
       update missionaccounts.auto_charge_dispatch
       set provider_ref = null,
@@ -1229,12 +1280,12 @@ begin
         jsonb_build_object(
           'charge_id', charge_row.id,
           'provider_ref', p_payment_intent_ref,
-          'provider_attempt_number', next_failure_count,
+          'provider_attempt_number', event_provider_attempt_number,
           'automatic_retry_scheduled', dispatch_row.state = 'pending',
           'late_fee_eligible_review', dispatch_row.state = 'held',
           'late_fee_amount_cents', null
         ),
-        dispatch_row.idempotency_key || ':attempt:' || next_failure_count::text || ':payment-failed'
+        event_provider_request_id || ':payment-failed'
       ) on conflict (idempotency_key) do nothing;
     end if;
   end if;
@@ -1290,9 +1341,9 @@ grant execute on function missionaccounts.api_claim_due_day_charges(timestamptz,
 to service_role;
 
 revoke execute on function missionaccounts.api_finish_auto_charge_dispatch(uuid, text, boolean, text, text, timestamptz)
-from public, anon, authenticated;
+  from public, anon, authenticated;
 grant execute on function missionaccounts.api_finish_auto_charge_dispatch(uuid, text, boolean, text, text, timestamptz)
-to service_role;
+  to service_role;
 
 revoke execute on function missionaccounts.api_process_stripe_payment_intent(text, text, text, uuid, uuid, text, text)
 from public, anon, authenticated;

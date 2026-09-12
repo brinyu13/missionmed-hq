@@ -282,7 +282,7 @@ select missionaccounts.api_claim_due_day_charges(
 select missionaccounts.api_finish_auto_charge_dispatch(
   (select id from missionaccounts.auto_charge_dispatch
    where attendance_day_id = '20000000-0000-4000-8000-000000005403'),
-  'disposable-worker-1', false, 'stripe_definite_failure', 'disposable first decline',
+  'disposable-worker-1', false, 'pi_disposable_attempt_1', 'disposable first decline',
   (select computed_at + interval '25 hours' from missionaccounts.attendance_day
    where id = '20000000-0000-4000-8000-000000005403')
 )->'dispatch'->>'state';
@@ -305,10 +305,71 @@ select missionaccounts.api_claim_due_day_charges(
   'disposable-worker-2', 1
 )->'claimed'->0->>'provider_idempotency_key';
 
+-- A delayed, signed attempt-one failure is idempotent after attempt two is
+-- claimed; it must never consume attempt two or change its claim.
+insert into missionaccounts.provider_event_inbox(
+  provider, provider_event_id, provider_object_id, event_type,
+  payload, signature_verified, state
+) values (
+  'stripe', 'evt-disposable-attempt-1-failure', 'pi_disposable_attempt_1',
+  'payment_intent.payment_failed',
+  jsonb_build_object('data', jsonb_build_object('object', jsonb_build_object(
+    'id', 'pi_disposable_attempt_1',
+    'metadata', jsonb_build_object(
+      'student_id', '00000000-0000-4000-8000-000000005401',
+      'attendance_day_id', '20000000-0000-4000-8000-000000005403',
+      'provider_request_id', 'missionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:1',
+      'provider_attempt_number', '1'
+    )
+  ))), true, 'received'
+);
+select missionaccounts.api_process_stripe_payment_intent(
+  'evt-disposable-attempt-1-failure', 'payment_intent.payment_failed',
+  'pi_disposable_attempt_1', '00000000-0000-4000-8000-000000005401',
+  '20000000-0000-4000-8000-000000005403', 'card_declined', 'delayed first failure'
+)->>'duplicate';
+select state || '|' || provider_failure_count || '|' || worker_id
+from missionaccounts.auto_charge_dispatch
+where attendance_day_id = '20000000-0000-4000-8000-000000005403';
+
+-- A conflicting late success for the already-failed attempt fails closed and
+-- likewise leaves the newer claim untouched.
+insert into missionaccounts.provider_event_inbox(
+  provider, provider_event_id, provider_object_id, event_type,
+  payload, signature_verified, state
+) values (
+  'stripe', 'evt-disposable-attempt-1-success', 'pi_disposable_attempt_1',
+  'payment_intent.succeeded',
+  jsonb_build_object('data', jsonb_build_object('object', jsonb_build_object(
+    'id', 'pi_disposable_attempt_1',
+    'metadata', jsonb_build_object(
+      'student_id', '00000000-0000-4000-8000-000000005401',
+      'attendance_day_id', '20000000-0000-4000-8000-000000005403',
+      'provider_request_id', 'missionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:1',
+      'provider_attempt_number', '1'
+    )
+  ))), true, 'received'
+);
+do $$
+begin
+  perform missionaccounts.api_process_stripe_payment_intent(
+    'evt-disposable-attempt-1-success', 'payment_intent.succeeded',
+    'pi_disposable_attempt_1', '00000000-0000-4000-8000-000000005401',
+    '20000000-0000-4000-8000-000000005403', null, null
+  );
+  raise exception 'expected delayed success to fail closed';
+exception when others then
+  if sqlerrm <> 'stripe_attempt_terminal_state_mismatch' then raise; end if;
+end;
+$$;
+select state || '|' || provider_failure_count || '|' || worker_id
+from missionaccounts.auto_charge_dispatch
+where attendance_day_id = '20000000-0000-4000-8000-000000005403';
+
 select missionaccounts.api_finish_auto_charge_dispatch(
   (select id from missionaccounts.auto_charge_dispatch
    where attendance_day_id = '20000000-0000-4000-8000-000000005403'),
-  'disposable-worker-2', false, 'stripe_definite_failure', 'disposable second decline',
+  'disposable-worker-2', false, 'pi_disposable_attempt_2', 'disposable second decline',
   (select computed_at + interval '37 hours' from missionaccounts.attendance_day
    where id = '20000000-0000-4000-8000-000000005403')
 )->'dispatch'->>'state';
@@ -362,7 +423,7 @@ select
 SQL
 )
 
-expected=$'true\ntrue\ntrue\nrevoked\ntrue\nrevoked\ntrue\n1\nmissionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:1\npending\npending|1|true|true\n0\nmissionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:2\nheld\nheld|2|late_fee_eligible_review|true\n0\n1|2|4|0\nfalse\n0\nrevoked\n1|0|0|1|revoked|false|true|true|true'
+expected=$'true\ntrue\ntrue\nrevoked\ntrue\nrevoked\ntrue\n1\nmissionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:1\npending\npending|1|true|true\n0\nmissionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:2\ntrue\nclaimed|1|disposable-worker-2\nclaimed|1|disposable-worker-2\nheld\nheld|2|late_fee_eligible_review|true\n0\n1|2|4|0\nfalse\n0\nrevoked\n1|0|0|1|revoked|false|true|true|true'
 if [[ "$result" != "$expected" ]]; then
   echo "MissionAccounts 5403B PostgreSQL rehearsal returned unexpected controls:" >&2
   echo "$result" >&2

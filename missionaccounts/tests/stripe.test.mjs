@@ -179,6 +179,8 @@ test('Stripe day charges require and normalize a receipt email', async () => {
     assert.equal(observed.url, 'https://api.stripe.com/v1/payment_intents');
     assert.equal(observed.options.body.get('receipt_email'), 'verified.student@example.org');
     assert.equal(observed.options.headers['idempotency-key'], 'missionaccounts:billable-day:day_1:v1');
+    assert.equal(observed.options.body.get('metadata[provider_request_id]'), 'missionaccounts:billable-day:day_1:v1');
+    assert.equal(observed.options.body.get('metadata[provider_attempt_number]'), '1');
 
     await gateway.createDayCharge({
       customerId: 'cus_1', paymentMethodId: 'pm_1', studentId: 'student_1', attendanceDayId: 'day_1',
@@ -186,6 +188,8 @@ test('Stripe day charges require and normalize a receipt email', async () => {
       idempotencyKey: 'missionaccounts:auto-charge:day_1:v2:attempt:2',
     });
     assert.equal(observed.options.headers['idempotency-key'], 'missionaccounts:auto-charge:day_1:v2:attempt:2');
+    assert.equal(observed.options.body.get('metadata[provider_request_id]'), 'missionaccounts:auto-charge:day_1:v2:attempt:2');
+    assert.equal(observed.options.body.get('metadata[provider_attempt_number]'), '2');
     assert.throws(() => gateway.createDayCharge({
       customerId: 'cus_1', paymentMethodId: 'pm_1', studentId: 'student_1', attendanceDayId: 'day_1',
       receiptEmail: 'verified.student@example.org',

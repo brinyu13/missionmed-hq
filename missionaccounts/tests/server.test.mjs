@@ -887,6 +887,70 @@ test('automatic charge submission makes one bounded retry, then enters late-fee-
   });
 });
 
+test('delayed Stripe events bind to their immutable attempt and cannot mutate a newer claimed retry', async () => {
+  const store = new PreviewStore();
+  const attendanceDayId = '10000000-0000-4000-8000-000000000029';
+  const { studentId } = await seedAutomaticChargeFixture(store, {
+    attendanceDayId,
+    computedAt: '2026-09-09T11:00:00.000Z',
+  });
+  const first = await store.claimDueDayCharges({
+    now: '2026-09-10T12:00:00.000Z', workerId: 'attempt-worker-1', limit: 1,
+  });
+  const attempt1RequestId = first.claimed[0].provider_idempotency_key;
+  await store.finishAutoChargeDispatch({
+    dispatchId: first.claimed[0].dispatch_id, workerId: 'attempt-worker-1',
+    providerRequestId: attempt1RequestId, succeeded: false,
+    providerRef: 'pi_test_bound_attempt_1', error: 'first decline', now: '2026-09-10T12:00:00.000Z',
+  });
+  const retry = await store.claimDueDayCharges({
+    now: '2026-09-11T00:00:00.000Z', workerId: 'attempt-worker-2', limit: 1,
+  });
+  assert.equal(retry.claimed[0].provider_attempt_number, 2);
+  const eventPayload = eventType => ({
+    data: { object: {
+      id: 'pi_test_bound_attempt_1',
+      metadata: {
+        student_id: studentId,
+        attendance_day_id: attendanceDayId,
+        provider_request_id: attempt1RequestId,
+        provider_attempt_number: '1',
+      },
+    } },
+    type: eventType,
+  });
+  await store.recordProviderEvent({
+    provider: 'stripe', eventId: 'evt_test_delayed_attempt_1_failure',
+    providerObjectId: 'pi_test_bound_attempt_1', eventType: 'payment_intent.payment_failed',
+    payload: eventPayload('payment_intent.payment_failed'), signatureVerified: true,
+  });
+  const delayedFailure = await store.processStripePaymentIntent({
+    eventId: 'evt_test_delayed_attempt_1_failure', eventType: 'payment_intent.payment_failed',
+    paymentIntentId: 'pi_test_bound_attempt_1', studentId, attendanceDayId,
+    providerRequestId: attempt1RequestId, providerAttemptNumber: 1,
+    failureCode: 'card_declined', failureMessage: 'delayed attempt-one failure',
+  });
+  assert.equal(delayedFailure.duplicate, true);
+  const dispatch = store.autoChargeDispatches.get(attendanceDayId);
+  assert.equal(dispatch.state, 'claimed');
+  assert.equal(dispatch.worker_id, 'attempt-worker-2');
+  assert.equal(dispatch.provider_failure_count, 1);
+
+  await store.recordProviderEvent({
+    provider: 'stripe', eventId: 'evt_test_delayed_attempt_1_success',
+    providerObjectId: 'pi_test_bound_attempt_1', eventType: 'payment_intent.succeeded',
+    payload: eventPayload('payment_intent.succeeded'), signatureVerified: true,
+  });
+  await assert.rejects(store.processStripePaymentIntent({
+    eventId: 'evt_test_delayed_attempt_1_success', eventType: 'payment_intent.succeeded',
+    paymentIntentId: 'pi_test_bound_attempt_1', studentId, attendanceDayId,
+    providerRequestId: attempt1RequestId, providerAttemptNumber: 1,
+  }), /terminal state mismatch/i);
+  assert.equal(dispatch.state, 'claimed');
+  assert.equal(dispatch.worker_id, 'attempt-worker-2');
+  assert.equal(dispatch.provider_failure_count, 1);
+});
+
 test('automatic charge worker holds an unknown provider outcome for reconciliation without retrying', async () => {
   const store = new PreviewStore();
   const attendanceDayId = '10000000-0000-4000-8000-000000000026';

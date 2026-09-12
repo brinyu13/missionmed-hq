@@ -368,7 +368,11 @@ test('automatic charge scheduling is bounded to 24-48 hours, retry-safe, and ser
 });
 
 test('5403B replaces expiry with a durable, enrollment-gated, post-rollout queue while dispatch remains off', async () => {
-  const sql = await readFile(new URL('../supabase/migrations/20260911224524_autobilling_contract_closeout_5403b.sql', import.meta.url), 'utf8');
+  const [sql, stripeSource, serverSource] = await Promise.all([
+    readFile(new URL('../supabase/migrations/20260911224524_autobilling_contract_closeout_5403b.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../src/payments/stripe.mjs', import.meta.url), 'utf8'),
+    readFile(new URL('../src/server.mjs', import.meta.url), 'utf8'),
+  ]);
   const claimSql = sql.slice(sql.indexOf('create or replace function missionaccounts.api_claim_due_day_charges'));
 
   assert.match(sql, /^-- Migration: 20260911224524_autobilling_contract_closeout_5403b\.sql\n-- Authority: DR-241 \/ DR-242 \/ MX-MISSIONACCOUNTS-5403B\n-- Date: 2026-09-12\n-- Depends on: 20260911131140_sponsor_control\.sql\n-- Description: Add the enrollment, consent, durable post-rollout automatic-billing contract, and bounded provider-retry policy while dispatch remains disabled\.\n-- Idempotent: NO\n\nBEGIN;/);
@@ -408,6 +412,15 @@ test('5403B replaces expiry with a durable, enrollment-gated, post-rollout queue
   assert.match(sql, /max_provider_attempts integer not null default 2/);
   assert.match(sql, /ad\.computed_at \+ contract_row\.ordinary_dispatch_delay/);
   assert.match(sql, /provider_failure_count integer not null default 0/);
+  assert.match(sql, /alter table missionaccounts\.charge_attempt[\s\S]+add column if not exists provider_ref text/);
+  assert.match(sql, /create unique index if not exists charge_attempt_provider_ref_unique/);
+  assert.match(sql, /event_provider_request_id := event_row\.payload #>> '\{data,object,metadata,provider_request_id\}'/);
+  assert.match(sql, /where charge_id = charge_row\.id and provider_request_id = event_provider_request_id/);
+  assert.match(sql, /stripe_attempt_terminal_state_mismatch/);
+  assert.match(stripeSource, /'metadata\[provider_request_id\]': providerRequestId/);
+  assert.match(stripeSource, /'metadata\[provider_attempt_number\]': String\(providerAttemptNumber\)/);
+  assert.match(serverSource, /providerRequestId !== expectedProviderRequestId/);
+  assert.match(serverSource, /providerRequestId,[\s\S]+providerAttemptNumber/);
   assert.match(sql, /provider_outcome_unknown_requires_reconciliation/);
   assert.match(sql, /late_fee_eligible_review/);
   assert.match(sql, /'late_fee_amount_cents', null/);
