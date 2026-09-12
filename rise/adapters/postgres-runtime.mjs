@@ -2209,7 +2209,7 @@ export async function createRiseResearchStore({
               (j.task_class = 'PROVIDER_BENCHMARK' AND p.provider_key IN ('OPENAI_TERRA','OPENAI_SOL')
                 AND p.state IN ('BENCHMARKING','PRODUCTION_APPROVED') AND p.network_allowed AND p.spend_allowed)
               OR
-              (j.task_class = 'PROGRAM_DEEP_RESEARCH' AND j.provider_key = $1 AND (
+              (j.task_class = 'PROGRAM_DEEP_RESEARCH' AND j.provider_key = ANY($1::text[]) AND (
                 (p.provider_key = 'RISE_REPLAY_TEST' AND p.state='TEST_ONLY' AND NOT p.network_allowed AND NOT p.spend_allowed)
                 OR (p.provider_key IN ('OPENAI_TERRA','OPENAI_SOL') AND p.state='PRODUCTION_APPROVED' AND p.network_allowed AND p.spend_allowed)
               ))
@@ -2217,7 +2217,7 @@ export async function createRiseResearchStore({
           ORDER BY CASE WHEN j.task_class='PROVIDER_BENCHMARK' THEN 0 ELSE 1 END, j.created_at, j.job_id
           LIMIT 1
           FOR UPDATE OF j SKIP LOCKED -- queue safety contract: FOR UPDATE SKIP LOCKED
-        `, [controls.primaryProvider]);
+        `, [[controls.primaryProvider, controls.fallbackProvider, controls.escalationProvider].filter(Boolean)]);
         if (selected.rowCount === 0) return null;
         const selectedProvider = providers.find((provider) => provider.providerKey === selected.rows[0].providerKey);
         if (!selectedProvider) return null;

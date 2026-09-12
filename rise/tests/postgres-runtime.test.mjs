@@ -106,6 +106,8 @@ test("application intelligence preferences and analytics are private, RLS-bound,
   assert.match(migration, /research_jobs_root_stage_unique_idx/);
   assert.match(source, /async scheduleFollowup\(\{ completedJob \}\)/);
   assert.match(source, /"TERRA_DELTA" : "SOL_CRITICAL_RESIDUE"/);
+  assert.match(source, /j\.provider_key = ANY\(\$1::text\[\]\)/);
+  assert.match(source, /controls\.primaryProvider, controls\.fallbackProvider, controls\.escalationProvider/);
   assert.match(source, /root quota charged once/);
   assert.doesNotMatch(source, /studentChargeKey: row\.studentChargeKey/);
 });
