@@ -1,7 +1,7 @@
 {
   "ticket": "MX-MISSIONACCOUNTS-5403B",
   "node_tests": {
-    "passed": 203,
+    "passed": 206,
     "failed": 0
   },
   "mandatory_vectors": {
@@ -17,6 +17,17 @@
   },
   "database_schema_rehearsal": "PASS",
   "database_functional_rehearsal": "PASS",
+  "revfix_01": {
+    "old_reviewed_head": "8e2860077a4fb8a21ba33f4f0fae60441af4c404",
+    "corrective_source_commit": "ea5c4176b7429873e558c7b9abd814b184470786",
+    "canonical_subject_architecture": "PASS",
+    "legacy_matrix_user_ref_removed_from_enrollment_subject_binding": true,
+    "null_legacy_ref": "PASS",
+    "numeric_legacy_ref": "PASS",
+    "cross_student_attack": "PASS",
+    "source_subject_mismatch": "PASS",
+    "inactive_course_access": "PASS"
+  },
   "live_payment_intents_created": 0,
   "live_money_moved_cents": 0,
   "wordpress_sso": {

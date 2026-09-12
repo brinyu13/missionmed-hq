@@ -2,7 +2,9 @@
 
 Review only. Do not deploy, migrate production, change WordPress, alter Railway variables, publish billing terms, or contact Stripe.
 
-DR-233 requires the builder and acceptance verifier to be distinct sessions. Review the current head of GitHub draft PR 28 against base `031a9e812de3575d225de0064cc4be209d86b72b`. Confirm the current PR head before testing; the implementation commit is `a5ab97b53801202a682749b47a44c7d3fdbc5fcc` and later commits contain only review/preimage evidence.
+DR-233 requires the builder and acceptance verifier to be distinct sessions. Review the current head of GitHub draft PR 28 against base `031a9e812de3575d225de0064cc4be209d86b72b`. Confirm the current PR head before testing. The original implementation commit is `a5ab97b53801202a682749b47a44c7d3fdbc5fcc`; the canonical-subject corrective source commit is `ea5c4176b7429873e558c7b9abd814b184470786`.
+
+The prior independent review of head `8e2860077a4fb8a21ba33f4f0fae60441af4c404` failed because `api_sync_program_enrollment` compared the authenticated canonical student UUID to the optional legacy `matrix_user_ref`. The corrective commit binds `p_student_id`, `p_actor_id`, and `p_source_subject` to `student.id`, updates PreviewStore so it cannot mask the production architecture, and adds explicit NULL-ref, numeric-ref, cross-student, subject-mismatch, and inactive-course-access regressions.
 
 Verify the change is confined to `missionaccounts/` and satisfies DR-232/DR-233:
 
@@ -28,6 +30,10 @@ node --test tests/mandatory-vectors.test.mjs
 ```
 
 Rehearse the new migration on disposable PostgreSQL using all schema migrations except the production-data-specific Antonio promotion migration `20260909105200_promote_antonio_real_student.sql`. Confirm the new migration applies and the functional result is equivalent to:
+
+```bash
+scripts/test-5403b-postgres-rehearsal.sh
+```
 
 ```text
 program enrollment rows = 1

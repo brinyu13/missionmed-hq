@@ -3,11 +3,22 @@
   "environment": "disposable local PostgreSQL",
   "all_migrations_applied_except": "20260909105200_promote_antonio_real_student.sql (production-data-specific migration, byte-identical to base)",
   "new_migration_applied": true,
+  "rehearsal_script": "scripts/test-5403b-postgres-rehearsal.sh",
+  "subject_binding_regressions": {
+    "canonical_uuid_with_null_matrix_user_ref": "PASS",
+    "canonical_uuid_with_legacy_numeric_matrix_user_ref": "PASS",
+    "cross_student_attack": "PASS",
+    "source_subject_mismatch": "PASS",
+    "course_access_false_projects_inactive": "PASS"
+  },
   "enrollment_projection_rows": 1,
   "durable_pending_candidates": 1,
   "pre_rollout_candidates_revived": 0,
   "charge_rows_created": 0,
   "consent_after_enrollment_loss": "revoked",
   "live_dispatch_allowed": false,
+  "program_enrollment_projection_forced_rls": true,
+  "authenticated_rpc_execute_revoked": true,
+  "service_role_rpc_execute_granted": true,
   "result": "PASS"
 }
