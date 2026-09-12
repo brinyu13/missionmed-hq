@@ -516,7 +516,7 @@ function safeUuid(value) {
 function storyProjection(prefix = '') {
   const p = prefix ? `${prefix}.` : '';
   return `${p}id, ${p}student_id, ${p}title, ${p}original_text, ${p}current_text,
-    ${p}capture_type, ${p}status, ${p}student_score, ${p}mentor_score,
+    ${p}capture_type, ${p}origin, ${p}status, ${p}student_score, ${p}mentor_score,
     ${p}review_suitability,
     ${p}classification, ${p}starred, ${p}needs_followup, ${p}categories, ${p}uses,
     (SELECT count(*)::integer

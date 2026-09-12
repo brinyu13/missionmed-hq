@@ -283,3 +283,16 @@ test('guest voice requires a signed gateway pseudonym and applies independent to
     (error) => error.code === 'guest_rate_limited' && error.status === 429,
   );
 });
+
+test('status polling uses isolated counters and cannot consume mutation capacity', async () => {
+  const subject = fixture();
+  await subject.service.status(token, recordingId, { ip: gatewayPseudonym });
+  await subject.service.open(token, { ip: gatewayPseudonym });
+  const scopes = subject.queries
+    .filter(({ sql }) => sql.includes('sf_guest_rate_hit'))
+    .map(({ values }) => values[0]);
+  assert.equal(scopes.length, 4);
+  assert.notEqual(scopes[0], scopes[2]);
+  assert.notEqual(scopes[1], scopes[3]);
+  assert.equal(new Set(scopes).size, 4);
+});

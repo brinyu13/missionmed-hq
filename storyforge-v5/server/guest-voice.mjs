@@ -216,7 +216,7 @@ export function createGuestVoiceService({
     }
   }
 
-  async function rateLimit(client, tokenHash, ip) {
+  async function rateLimit(client, tokenHash, ip, { channel = 'mutation' } = {}) {
     const pseudonym = String(ip || '').trim().toLowerCase();
     if (!pseudonymPattern.test(pseudonym)) {
       throw new GuestVoiceError(
@@ -226,10 +226,16 @@ export function createGuestVoiceService({
       );
     }
     const bucket = new Date(Math.floor(now().getTime() / 900_000) * 900_000).toISOString();
-    const scopes = [
-      [sha256(`token:${tokenHash}`), 120],
-      [sha256(`client:${pseudonym}`), 240],
-    ];
+    const statusChannel = channel === 'status';
+    const scopes = statusChannel
+      ? [
+        [sha256(`token:status:${tokenHash}`), 1_000],
+        [sha256(`client:status:${pseudonym}`), 2_000],
+      ]
+      : [
+        [sha256(`token:${tokenHash}`), 120],
+        [sha256(`client:${pseudonym}`), 240],
+      ];
     for (const [scope, limit] of scopes) {
       const result = await client.query('SELECT public.sf_guest_rate_hit($1,$2) AS attempts', [scope, bucket]);
       if (Number(result.rows[0]?.attempts || 0) > limit) {
@@ -410,7 +416,7 @@ export function createGuestVoiceService({
       const tokenHash = sha256(guestToken(tokenValue));
       const recordingId = uuid(recordingIdValue, 'Recording');
       return transaction(async (client) => {
-        await rateLimit(client, tokenHash, ip);
+        await rateLimit(client, tokenHash, ip, { channel: 'status' });
         return (await client.query(
           'SELECT public.sf_guest_voice_status($1,$2) AS payload',
           [tokenHash, recordingId],

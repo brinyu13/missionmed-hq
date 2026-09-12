@@ -118,6 +118,7 @@ b1_517_migrations=(
 sf_access_5014_migrations=(
   "20260908193000_sf_access_5014_canonical_admin_identity.sql"
   "20260911030000_sf_audio_playback_admin_projection.sql"
+  "20260912190000_sf_request_story_delivery_hydration.sql"
 )
 discovered_b1_514_migrations=()
 while IFS= read -r migration; do
@@ -186,6 +187,7 @@ node --test \
   "$PACKAGE_DIR/tests/postgres/b1-515r2-admin-population.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/b1-517-myeras.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/sf-access-5014-canonical-admin-authority.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/sf-request-story-delivery-hydration.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/production-migration-transaction.test.mjs"
 
 node --test --test-concurrency=1 "$PACKAGE_DIR"/tests/pg/*.test.mjs

@@ -57,7 +57,7 @@ test('guest journey records started explicitly, shows one governed question, rev
   assert.match(guest, /Review before sharing/);
   assert.match(guest, /id="guestReviewForm"/);
   assert.match(guest, /Nothing is shared until you press the button below/);
-  assert.match(guest, /Thank you\. ❤/);
+  assert.match(guest, /Delivery confirmed/);
   assert.match(guest, /Tell another story/);
   assert.match(app, /kind: 'text'/);
 });
@@ -76,6 +76,33 @@ test('guest voice uses bounded token routes, near-live transcription, explicit r
   assert.match(app, /addEventListener\('pagehide'/);
   assert.match(app, /keepalive: true/);
   assert.match(app, /instanceof FormData/);
+  assert.doesNotMatch(voice, /form\.set\('mimeType'/);
+  assert.match(voice, /voice\.localChunks\.push\(blob\)/);
+  assert.match(voice, /3_000/);
+});
+
+test('confirmed guest delivery exposes a receipt, student notification truth, and local safeguards', () => {
+  const guest = section('function renderGuestContribution()', 'async function initGuest(');
+  assert.match(app, /result\?\.storyId/);
+  assert.match(app, /result\?\.notificationId/);
+  assert.match(app, /result\?\.state !== 'promoted'/);
+  assert.match(guest, /Delivery confirmed/);
+  assert.match(guest, /private StoryForge Library/);
+  assert.match(guest, /has been notified/);
+  assert.match(guest, /role="dialog"/);
+  assert.match(guest, /data-guest-download-audio/);
+  assert.match(guest, /data-guest-download-transcript/);
+  assert.match(app, /application\/msword/);
+  assert.match(app, /URL\.createObjectURL/);
+});
+
+test('contributed stories carry their server-projected origin into a visible library badge', () => {
+  const row = section('function storyRow(', 'function emptyState(');
+  assert.match(app, /originDetail: raw\.origin/);
+  assert.match(row, /story\.origin === 'contribution'/);
+  assert.match(row, /b1520GuestStoryChip/);
+  assert.match(row, /From \$\{esc\(contributionName\)\}/);
+  assert.match(styles, /\.b1520GuestStoryChip/);
 });
 
 test('guest and student untrusted fields stay escaped and the text contribution remains bounded', () => {

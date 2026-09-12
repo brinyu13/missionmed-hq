@@ -68,3 +68,16 @@ test('PostgreSQL runner seeds both canonical governed libraries before legacy ma
   assert.ok(contributors < authorization);
   assert.match(source, /STORYFORGE_DATABASE_URL="postgresql:\/\/postgres@127\.0\.0\.1:\$SF_PG_PORT\/storyforge\?sslmode=disable"/);
 });
+
+test('PostgreSQL runner applies the Request-a-Story hydration repair last', () => {
+  const train = bashArray('sf_access_5014_migrations');
+  assert.deepEqual(train.slice(-3), [
+    '20260908193000_sf_access_5014_canonical_admin_identity.sql',
+    '20260911030000_sf_audio_playback_admin_projection.sql',
+    '20260912190000_sf_request_story_delivery_hydration.sql',
+  ]);
+  const hydration = source.indexOf('20260912190000_sf_request_story_delivery_hydration.sql');
+  const apply = source.indexOf('for migration in "${sf_access_5014_migrations[@]}"');
+  const tests = source.indexOf("printf 'PostgreSQL parity:");
+  assert.ok(hydration > 0 && apply > hydration && tests > apply);
+});
