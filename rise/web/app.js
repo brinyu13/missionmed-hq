@@ -1,5 +1,5 @@
 /* Generated from the founder-approved Fable 5002 shell. Do not edit directly. */
-/* Release: P1-RISE-5012H application intelligence UX. */
+/* Release: P1-RISE-5012H application intelligence UX + disabled six-specialty research scope. */
 'use strict';
 
 const UNKNOWN_DOMAINS = Object.freeze({
