@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const REVIEW_RULE_VERSION = "5012i.1";
+export const REVIEW_RULE_VERSION = "5012j.1";
 export const FINAL_DISPOSITIONS = Object.freeze([
   "APPROVED_CURRENT", "APPROVED_HISTORICAL", "RESEARCHED_NOT_FOUND", "SUPERSEDED",
   "CONFLICT_REQUIRES_REVIEW", "INSUFFICIENT_EVIDENCE", "STALE_NEEDS_REFRESH", "IDENTITY_AMBIGUITY",
@@ -126,6 +126,7 @@ function normalizeFellowships(value) {
 }
 
 function normalizedValue(field, value) {
+  if (value?.contractId === "rise-terminal-evidence-state-v1") return value;
   if (field === "research.resident_roster") return normalizeRoster(value);
   if (field === "research.leadership") return normalizeLeadership(value);
   if (field === "research.fellowship_inventory") return normalizeFellowships(value);
@@ -137,6 +138,12 @@ function normalizedValue(field, value) {
 }
 
 function isValid(field, value) {
+  if (value?.contractId === "rise-terminal-evidence-state-v1") {
+    return new Set([
+      "AVAILABLE_LIVE", "RESEARCHED_NOT_FOUND", "RESEARCHED_NOT_PUBLIC",
+      "CONFLICT_REQUIRES_REVIEW", "STALE_NEEDS_REFRESH", "NOT_APPLICABLE",
+    ]).has(value.state);
+  }
   if (field === "research.resident_roster") return normalizeRoster(value).length > 0;
   if (field === "research.leadership") return normalizeLeadership(value).some((row) => row.role);
   if (field === "research.fellowship_inventory") return normalizeFellowships(value).length > 0;
@@ -174,6 +181,18 @@ function preliminaryDecision({ claim, acgmeId, identityResolved = true, allowedC
     throw new Error(`Protected 5012A canary holdout entered review without an exact 5012E allowance: ${acgmeId}`);
   }
   const declaredState = String(claim.evidenceState ?? "").trim().toUpperCase();
+  if (declaredState === "TERMINAL_STATE_ENVELOPE") {
+    if (claim.value?.contractId !== "rise-terminal-evidence-state-v1" || !isValid(claim.field, claim.value)) {
+      return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "invalid_terminal_state_envelope", qualityScore: 0 };
+    }
+    return {
+      ...base,
+      terminalStateEnvelope: true,
+      disposition: "APPROVED_CURRENT",
+      reason: "source_linked_terminal_research_state",
+      qualityScore: 200 + sourceCount,
+    };
+  }
   if (declaredState === "NOT_RESEARCHED") return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "source_explicitly_says_not_researched", qualityScore: 0 };
   if (declaredState === "CONFLICT") return { ...base, disposition: "CONFLICT_REQUIRES_REVIEW", reason: "source_declares_unresolved_conflict", qualityScore: 0 };
   if (["RESEARCHED_NOT_FOUND", "NOT_APPLICABLE"].includes(declaredState)) {
@@ -201,6 +220,9 @@ function mergeValues(field, decisions) {
     "research.core_faculty", "research.faculty_training_graph", "research.fellowship_inventory",
     "research.program_differentiators",
   ].includes(field)) {
+    if (decisions.some((decision) => !Array.isArray(decision.normalizedValue))) {
+      return decisions[0].normalizedValue;
+    }
     const unique = new Map();
     for (const decision of decisions) for (const row of decision.normalizedValue) unique.set(digest(row), row);
     return [...unique.values()].sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right)));
@@ -225,7 +247,7 @@ export function reviewResearchCorpus(ingests, { resolvedAcgmeIds = null, allowed
   for (const group of grouped.values()) {
     const approved = group.filter((decision) => decision.disposition === "APPROVED_CURRENT")
       .sort((left, right) => right.qualityScore - left.qualityScore || left.claimId.localeCompare(right.claimId));
-    const mergeable = [
+    const mergeable = !approved.some((decision) => decision.terminalStateEnvelope) && [
       "research.resident_roster", "research.resident_medical_schools", "research.leadership",
       "research.core_faculty", "research.faculty_training_graph", "research.fellowship_inventory",
       "research.program_differentiators",
