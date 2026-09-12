@@ -1852,11 +1852,13 @@ function genericRosterTable(p) {
 
 function genericPeopleTable(p) {
   const rows = [
-    ...evidenceRows(approvedResearchValue(p, 'research.leadership'), ['leadership','people','program_leadership']),
-    ...evidenceRows(approvedResearchValue(p, 'research.core_faculty'), ['faculty','people','core_faculty']),
+    ...evidenceRows(approvedResearchValue(p, 'research.leadership'), ['leadership','people','program_leadership'])
+      .map(row => ({ ...row, _risePeopleKind: 'leadership' })),
+    ...evidenceRows(approvedResearchValue(p, 'research.core_faculty'), ['faculty','people','core_faculty'])
+      .map(row => ({ ...row, _risePeopleKind: 'faculty' })),
   ].filter(row => row && typeof row === 'object').slice(0, 100);
   if (!rows.length) return '';
-  return `<div class="peopleCardGrid">${rows.map(row => { const name = row.name || row.full_name || row.person || 'Name not published'; const role = row.role || row.title || row.position || 'Role not published'; const training = row.training_summary || row.training || row.residency || row.fellowship || ''; const interests = row.interests || row.clinical_interests || row.research_interests || ''; const photo = String(row.photo_url || row.image_url || ''); const safePhoto = photo.startsWith('/') && !photo.startsWith('//') ? photo : ''; return `<article>${safePhoto ? `<img src="${esc(safePhoto)}" alt="" loading="lazy">` : '<div class="personPlaceholder" aria-hidden="true">◌</div>'}<div><h3>${esc(name)}</h3><b>${esc(role)}</b>${training ? `<p>${esc(displayValue(training))}</p>` : ''}${interests ? `<p class="sub">${esc(displayValue(interests))}</p>` : ''}</div></article>`; }).join('')}</div>`;
+  return `<div class="peopleCardGrid">${rows.map(row => { const summary = row.summary || row.details || row.evidence || ''; const publishedName = row.name || row.full_name || row.person || ''; const name = publishedName || (summary ? (row._risePeopleKind === 'faculty' ? 'Core faculty' : 'Program leadership') : 'Name not published'); const role = row.role || row.title || row.position || (summary ? 'Research summary' : 'Role not published'); const training = row.training_summary || row.training || row.residency || row.fellowship || (!publishedName ? summary : ''); const interests = row.interests || row.clinical_interests || row.research_interests || ''; const photo = String(row.photo_url || row.image_url || ''); const safePhoto = photo.startsWith('/') && !photo.startsWith('//') ? photo : ''; return `<article>${safePhoto ? `<img src="${esc(safePhoto)}" alt="" loading="lazy">` : '<div class="personPlaceholder" aria-hidden="true">◌</div>'}<div><h3>${esc(name)}</h3><b>${esc(role)}</b>${training ? `<p>${esc(displayValue(training))}</p>` : ''}${interests ? `<p class="sub">${esc(displayValue(interests))}</p>` : ''}</div></article>`; }).join('')}</div>`;
 }
 
 function evidenceCard(row, kind) {

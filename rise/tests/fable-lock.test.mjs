@@ -64,6 +64,8 @@ test("student bundle excludes representative medical facts and unsafe production
   assert.match(app, /fellowship: \['fellowship_inventory'\]/);
   assert.match(app, /outcomes: \['outcomes'\]/);
   assert.match(app, /curriculum: \['curriculum'\]/);
+  assert.match(app, /row\.summary \|\| row\.details \|\| row\.evidence/);
+  assert.match(app, /row\._risePeopleKind === 'faculty' \? 'Core faculty' : 'Program leadership'/);
 });
 
 test("Fable preservation landmarks remain in production markup and styles", async () => {
