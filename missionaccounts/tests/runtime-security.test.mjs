@@ -272,6 +272,8 @@ test('MyMissionMed Account bridge is default-off, registered-visible, enrollment
   assert.match(source, /mmed_course_360elite/);
   assert.match(source, /mmed_course_usmle/);
   assert.match(source, /mmed_course_usce/);
+  assert.match(source, /\$exact_examprep_grant\s*=\s*\$registered[\s\S]+empty\(\$program_ids\['examprep'\]\)[\s\S]+mma_user_is_allowlisted/);
+  assert.match(source, /'examprep'\s*=>\s*array\('enrolled'\s*=>\s*\$enrolled\('examprep'\) \|\| \$exact_examprep_grant\)/);
   assert.match(source, /\$native\s*=\s*'registered'/);
   assert.match(source, /'program_access'\s*=>\s*\$access\['program_access'\]/);
   assert.match(source, /'registered', 'student', 'missionaccounts_admin', 'founder'/);

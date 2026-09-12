@@ -1,0 +1,32 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5403B",
+  "observed_at": "2026-09-11T23:18:35Z",
+  "phase": "pre-migration baseline",
+  "security": {
+    "levels": {
+      "INFO": 43
+    },
+    "names": [
+      "rls_enabled_no_policy"
+    ],
+    "missionaccounts_scope": "private service-role tables; no WARN or ERROR returned"
+  },
+  "performance": {
+    "levels": {
+      "INFO": 71
+    },
+    "names": [
+      "unindexed_foreign_keys",
+      "auth_db_connections_absolute"
+    ],
+    "unindexed_foreign_keys": 70,
+    "auth_connection_strategy": 1,
+    "new_5403b_entities_present": false
+  },
+  "remediation_links": {
+    "rls_enabled_no_policy": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+    "unindexed_foreign_keys": "https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys",
+    "auth_connection_strategy": "https://supabase.com/docs/guides/deployment/going-into-prod"
+  },
+  "live_money_moved_cents": 0
+}

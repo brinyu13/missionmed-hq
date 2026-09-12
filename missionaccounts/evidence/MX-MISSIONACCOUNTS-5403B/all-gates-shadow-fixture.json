@@ -1,0 +1,65 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5403B",
+  "fixture_only": true,
+  "provider_calls": 0,
+  "payment_intents_created": 0,
+  "expected": "WOULD_CHARGE",
+  "result": {
+    "schema_version": "missionaccounts-auto-billing-shadow-v2",
+    "evaluated_at": "2026-09-11T16:00:00.000Z",
+    "live_money_moved_cents": 0,
+    "live_dispatch_enabled": false,
+    "contract": {
+      "amount_per_billable_day_cents": 2500,
+      "rollout_cutoff": "2026-09-09T12:00:00.000Z",
+      "eligible_after_hours": 24,
+      "automatic_expiry_hours": null,
+      "active_enrollment_gate": "fresh_signed_learndash_course_6357_projection",
+      "failed_charge_retry": "explicit_human_action_required"
+    },
+    "summary": {
+      "candidates": 1,
+      "would_charge_students": 1,
+      "would_charge_days": 1,
+      "would_charge_total_cents": 2500,
+      "sponsored_excluded": 0,
+      "sponsored_excluded_rows": 0,
+      "sponsored_excluded_students": 0,
+      "enrollment_excluded": 0,
+      "pre_rollout_excluded": 0,
+      "unresolved_or_review": 0,
+      "missing_payment_method": 0,
+      "missing_consent": 0,
+      "other_excluded": 0
+    },
+    "rows": [
+      {
+        "student_id": "00000000-0000-4000-8000-000000005403",
+        "student": "Sanitized all-gates fixture",
+        "date": "2026-09-10",
+        "cycle_key": "2026-cycle-3",
+        "attendance_day_id": "10000000-0000-4000-8000-000000005403",
+        "attendance_evidence": "multiple_events_one_day",
+        "billable_status": "billable",
+        "sponsor": "DIRECT",
+        "recommended_amount_cents": 2500,
+        "approved_amount_cents": 2500,
+        "payment_method_status": "on_file",
+        "payment_method_last4": "0000",
+        "consent_state": "authorized",
+        "active_enrollment_gate": {
+          "program": "examprep",
+          "provider": "learndash",
+          "course_id": 6357,
+          "active": true,
+          "valid_until": "2026-09-12T16:00:00.000Z"
+        },
+        "queue_state": "pending",
+        "eligible_after": "2026-09-11T12:00:00.000Z",
+        "prior_charge_state": null,
+        "status": "WOULD_CHARGE",
+        "reasons": []
+      }
+    ]
+  }
+}

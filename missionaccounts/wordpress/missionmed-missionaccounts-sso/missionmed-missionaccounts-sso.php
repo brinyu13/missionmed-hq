@@ -149,6 +149,7 @@ function mma_program_access($user, $settings = null) {
     // The existing exact-user MissionAccounts grant is the current ExamPrep
     // authority while the canonical ExamPrep LearnDash option remains unset.
     $exact_examprep_grant = $registered
+        && empty($program_ids['examprep'])
         && mma_user_is_allowlisted($user, $settings)
         && mma_product_user_id((int) $user->ID) !== '';
     $access = array(

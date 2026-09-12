@@ -1,0 +1,53 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5403B",
+  "node_tests": {
+    "passed": 206,
+    "failed": 0
+  },
+  "mandatory_vectors": {
+    "passed": 45,
+    "failed": 0
+  },
+  "source_validation": {
+    "result": "PASS",
+    "attendance_events": 3941,
+    "human_cycle_rows": 498,
+    "identity_nodes": 370,
+    "total_amount": 77075
+  },
+  "database_schema_rehearsal": "PASS",
+  "database_functional_rehearsal": "PASS",
+  "revfix_01": {
+    "old_reviewed_head": "8e2860077a4fb8a21ba33f4f0fae60441af4c404",
+    "corrective_source_commit": "ea5c4176b7429873e558c7b9abd814b184470786",
+    "canonical_subject_architecture": "PASS",
+    "legacy_matrix_user_ref_removed_from_enrollment_subject_binding": true,
+    "null_legacy_ref": "PASS",
+    "numeric_legacy_ref": "PASS",
+    "cross_student_attack": "PASS",
+    "source_subject_mismatch": "PASS",
+    "inactive_course_access": "PASS"
+  },
+  "revfix_02": {
+    "failed_reviewed_head": "120ec6e147e59839d16aaff6cbbaa8e46fc244f3",
+    "corrective_source_commit": "d2d2ede1eae7190dd47f31fbf8374d479f4b21aa",
+    "consent_subject_bound_to_student_id": true,
+    "grant_null_legacy_ref": "PASS",
+    "grant_numeric_legacy_ref": "PASS",
+    "revoke_null_legacy_ref": "PASS",
+    "revoke_numeric_legacy_ref": "PASS",
+    "cross_student_grant_blocked": "PASS",
+    "cross_student_revoke_blocked": "PASS",
+    "subject_mismatch_blocked": "PASS",
+    "forged_legacy_ref_actor_blocked": "PASS",
+    "production_mutation": "NONE",
+    "stripe_provider_calls": 0,
+    "live_dispatch": "OFF"
+  },
+  "live_payment_intents_created": 0,
+  "live_money_moved_cents": 0,
+  "wordpress_sso": {
+    "php_lint": "PASS",
+    "course_6357_disables_legacy_exact_user_enrollment_fallback": true
+  }
+}

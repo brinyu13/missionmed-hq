@@ -1,0 +1,45 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5403B",
+  "observed_at": "2026-09-11T23:16:00Z",
+  "source_commit": "a5ab97b53801202a682749b47a44c7d3fdbc5fcc",
+  "supabase": {
+    "project_id": "dwwsahpzblgrgducxtzw",
+    "schema": "missionaccounts",
+    "schema_exists": true,
+    "migration_20260911224524_applied": false,
+    "program_enrollment_projection_exists": false,
+    "automatic_billing_contract_exists": false,
+    "billing_terms_body_text_exists": false,
+    "auto_dispatch_rows": 0,
+    "charge_rows": 0,
+    "consent_rows": 0,
+    "billing_terms_rows": 0
+  },
+  "railway": {
+    "project": "missionaccounts-production",
+    "environment": "production",
+    "service": "missionaccounts-production",
+    "auto_billing": "OFF",
+    "auto_billing_consent": "ABSENT",
+    "auto_billing_shadow": "ON",
+    "hosted_invoices": "OFF",
+    "notifications": "OFF",
+    "route_enabled": "ON",
+    "zoom_sync": "ON",
+    "zoom_effective_writes": "ON",
+    "billable_day_calculation": "ON"
+  },
+  "wordpress": {
+    "host_alias": "missionmed-kinsta",
+    "course_option": "mmed_course_usmle",
+    "option_preimage": "absent_or_empty",
+    "course_6357": {
+      "title": "Dr J, Drills On-Call",
+      "status": "publish",
+      "type": "sfwd-courses"
+    },
+    "sso_local_sha256": "e055e23b61ac719cbd4fd10cc0d0c7141ab779037efd6e6ed9a5ce803098106d",
+    "sso_remote_sha256": "e055e23b61ac719cbd4fd10cc0d0c7141ab779037efd6e6ed9a5ce803098106d"
+  },
+  "live_money_moved_cents": 0
+}
