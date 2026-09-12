@@ -356,6 +356,12 @@ test("deferred startup bootstrap consolidates essential runtime data without blo
 });
 
 test("filter intelligence exposes evidence-backed counts and one depth per canonical program", async () => {
+  const compactResponse = await fetch(`${baseUrl}/api/rise/v1/filter-intelligence`);
+  const compactBody = await compactResponse.json();
+  assert.equal(compactResponse.status, 200);
+  assert.ok(compactBody.records.every((record) => record.applicationMatch === null));
+  assert.equal("profilePayload" in compactBody, false);
+
   const response = await fetch(`${baseUrl}/api/rise/v1/filter-intelligence?includeProfile=true`);
   const body = await response.json();
   assert.equal(response.status, 200);

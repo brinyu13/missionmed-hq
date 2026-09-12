@@ -1795,8 +1795,9 @@ export function createRiseServer({
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/filter-intelligence") {
+        const includeProfile = url.searchParams.get("includeProfile") === "true";
         const dynamicEvidence = await filterIntelligence.read();
-        const profileResult = matrixProfile
+        const profileResult = includeProfile && matrixProfile
           ? await matrixProfile.read({ request, subject: session.subject }).catch(() => ({
               unavailable: true, message: "Matrix profile integration is unavailable", profile: {},
             }))
@@ -1804,11 +1805,12 @@ export function createRiseServer({
         const payload = buildFilterIntelligence(registryIndex.programs, {
           ...dynamicEvidence,
           profile: profileResult?.profile ?? {},
+          includeApplicationMatch: includeProfile,
         });
         status = 200;
         sendJson(response, 200, {
           ...payload,
-          ...(url.searchParams.get("includeProfile") === "true" ? { profilePayload: profileResult } : {}),
+          ...(includeProfile ? { profilePayload: profileResult } : {}),
         }, { cache: "private, no-cache", requestId });
         return;
       }

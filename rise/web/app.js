@@ -152,11 +152,13 @@ function showRiseLoadingState() {
 showRiseLoadingState();
 
 async function loadRuntime() {
-  const bootstrap = await riseFetch('/api/rise/v1/bootstrap?profile=deferred&filterIntelligence=true');
+  const [bootstrap, filterIntelligence] = await Promise.all([
+    riseFetch('/api/rise/v1/bootstrap?profile=deferred&filterIntelligence=false'),
+    riseFetch('/api/rise/v1/filter-intelligence'),
+  ]);
   const session = bootstrap.session;
   const status = bootstrap.status;
   const registry = bootstrap.catalog;
-  const filterIntelligence = bootstrap.filterIntelligence || {};
   const matrixProfile = bootstrap.profile;
   const savedResult = bootstrap.myPrograms || { records: [], persistence: 'unavailable' };
   const filterByProgram = new Map((filterIntelligence.records || []).map(record => [record.programSpecialtyId, record]));
