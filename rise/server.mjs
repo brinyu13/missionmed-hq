@@ -1499,17 +1499,28 @@ export function createRiseServer({
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/bootstrap") {
         const catalogRecords = searchReadModel.byName.map(listView);
-        const [savedResult, betaNotice, profileResult, researchResult, applicationPreferences] = await Promise.all([
+        const deferProfile = url.searchParams.get("profile") === "deferred";
+        const includeFilterIntelligence = url.searchParams.get("filterIntelligence") === "true";
+        const [savedResult, betaNotice, profileResult, researchResult, applicationPreferences, dynamicEvidence] = await Promise.all([
           studentPrograms.list({ subject: session.subject, releaseId: registryIndex.registryReleaseId }),
           studentIntel.betaNotice({ subject: session.subject }),
-          matrixProfile
+          deferProfile
+            ? Promise.resolve({ unavailable: true, message: "Matrix profile is loading in the background" })
+            : matrixProfile
             ? matrixProfile.read({ request, subject: session.subject }).catch(() => ({
                 unavailable: true, message: "Matrix profile integration is unavailable",
               }))
             : Promise.resolve({ unavailable: true, message: "No authorized canonical Matrix profile adapter is configured" }),
           research.readControls(),
           applicationIntelligence.readPreferences({ subject: session.subject }),
+          includeFilterIntelligence ? filterIntelligence.read() : Promise.resolve(null),
         ]);
+        const initialFilterIntelligence = includeFilterIntelligence
+          ? buildFilterIntelligence(registryIndex.programs, {
+              ...dynamicEvidence,
+              profile: profileResult?.profile ?? {},
+            })
+          : null;
         status = 200;
         sendJson(response, 200, {
           session: publicSession(session),
@@ -1553,6 +1564,7 @@ export function createRiseServer({
             records: savedResult,
             persistence: studentPrograms.scope === "durable_private" ? "durable" : "process_local_test_only",
           },
+          ...(initialFilterIntelligence ? { filterIntelligence: initialFilterIntelligence } : {}),
           profile: profileResult,
           applicationPreferences,
           betaNotice,
@@ -1561,6 +1573,9 @@ export function createRiseServer({
             globalEnabled: researchResult.controls.globalEnabled,
             studentEnabled: researchResult.controls.studentEnabled,
             emergencyKillSwitch: researchResult.controls.emergencyKillSwitch,
+            canaryMode: researchResult.controls.canaryMode,
+            canaryProgramIds: researchResult.controls.canaryProgramIds,
+            canaryProgramCount: researchResult.controls.canaryProgramCount,
             specialtyScope: researchResult.controls.specialtyScope,
             stateScope: researchResult.controls.stateScope,
             provider: researchResult.controls.primaryProvider,
@@ -1780,14 +1795,19 @@ export function createRiseServer({
       if (request.method === "GET" && url.pathname === "/api/rise/v1/filter-intelligence") {
         const dynamicEvidence = await filterIntelligence.read();
         const profileResult = matrixProfile
-          ? await matrixProfile.read({ request, subject: session.subject }).catch(() => ({ profile: {} }))
-          : { profile: {} };
+          ? await matrixProfile.read({ request, subject: session.subject }).catch(() => ({
+              unavailable: true, message: "Matrix profile integration is unavailable", profile: {},
+            }))
+          : { unavailable: true, message: "No authorized canonical Matrix profile adapter is configured", profile: {} };
         const payload = buildFilterIntelligence(registryIndex.programs, {
           ...dynamicEvidence,
           profile: profileResult?.profile ?? {},
         });
         status = 200;
-        sendJson(response, 200, payload, { cache: "private, no-cache", requestId });
+        sendJson(response, 200, {
+          ...payload,
+          ...(url.searchParams.get("includeProfile") === "true" ? { profilePayload: profileResult } : {}),
+        }, { cache: "private, no-cache", requestId });
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/research/control") {

@@ -341,8 +341,22 @@ test("authenticated catalog bootstrap returns every canonical identity in one bo
   assert.equal(response.headers.get("cache-control"), "private, no-cache");
 });
 
+test("deferred startup bootstrap consolidates essential runtime data without blocking on Matrix", async () => {
+  const response = await fetch(`${baseUrl}/api/rise/v1/bootstrap?profile=deferred&filterIntelligence=true`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.session.audience, "rise");
+  assert.equal(body.catalog.total, 3);
+  assert.equal(body.catalog.records.length, 3);
+  assert.equal(body.profile.unavailable, true);
+  assert.equal(body.filterIntelligence.records.length, 3);
+  assert.equal(body.filterIntelligence.counts.j1Published, 1);
+  assert.equal(body.myPrograms.persistence, "process_local_test_only");
+  assert.equal(body.research.emergencyKillSwitch, true);
+});
+
 test("filter intelligence exposes evidence-backed counts and one depth per canonical program", async () => {
-  const response = await fetch(`${baseUrl}/api/rise/v1/filter-intelligence`);
+  const response = await fetch(`${baseUrl}/api/rise/v1/filter-intelligence?includeProfile=true`);
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "private, no-cache");
@@ -354,6 +368,7 @@ test("filter intelligence exposes evidence-backed counts and one depth per canon
   assert.equal(body.counts.basicProfile + body.counts.researchPending, 3);
   assert.equal(body.counts.researchPending, 1);
   assert.ok(body.records.every((record) => ["deep", "enriched", "basic", "pending"].includes(record.researchDepth)));
+  assert.equal(body.profilePayload.unavailable, true);
   assert.equal(JSON.stringify(body).includes("PARALLEL"), false);
   assert.equal(JSON.stringify(body).includes("CLAUDE_OPUS"), false);
 });

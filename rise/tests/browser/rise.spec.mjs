@@ -27,6 +27,19 @@ test.beforeAll(async () => {
   await fs.mkdir(artifactDirectory, { recursive: true });
 });
 
+test("cold startup presents a visible loading state instead of a blank application body", async ({ page }) => {
+  await page.route("**/api/rise/v1/bootstrap?*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    await route.continue();
+  });
+  const navigation = page.goto('/rise/#/home');
+  await expect(page.locator('.riseBootStatus')).toBeVisible();
+  await expect(page.locator('.riseBootStatus')).toContainText('Preparing your program intelligence');
+  await navigation;
+  await expect(page.locator('body')).not.toHaveClass(/is-booting/);
+  await expect(page.locator('#main')).toContainText('Good morning');
+});
+
 test("private-beta notice is explicit, persistent, and acknowledged server-side", async ({ page }) => {
   await openRise(page);
   await expect(page.locator("#modal")).toContainText("RISE private beta");

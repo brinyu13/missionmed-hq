@@ -131,28 +131,27 @@ function profileFromMatrix(payload) {
   };
 }
 
-async function loadRuntime() {
-  const session = await riseFetch('/api/rise/v1/session');
-  const status = await riseFetch('/api/rise/v1/status');
-  const firstPage = await riseFetch('/api/rise/v1/programs/catalog?page=1&pageSize=1000');
-  const catalogPageRequests = [];
-  for (let p = 2; p <= firstPage.totalPages; p++) {
-    catalogPageRequests.push(riseFetch('/api/rise/v1/programs/catalog?page=' + p + '&pageSize=1000'));
+function showRiseLoadingState() {
+  document.body.classList.add('is-booting');
+  const rail = document.querySelector('#rail');
+  const main = document.querySelector('#main');
+  if (rail) rail.innerHTML = '<div class="railCta" aria-hidden="true">Loading RISE</div><div class="railFoot"><div class="identity">Verified intelligence is preparing…</div></div>';
+  if (main) {
+    main.setAttribute('aria-busy', 'true');
+    main.innerHTML = '<div class="view riseBootStatus" role="status" aria-live="polite"><p class="eyebrow">RISE is loading</p><h1 class="h1">Preparing your <em>program intelligence</em></h1><div class="panel" style="margin-top:24px"><div class="pBody"><p class="sub">Loading the current program registry, evidence, filters, and saved programs…</p></div></div></div>';
   }
-  const [catalogPages, filterIntelligence, matrixProfile, savedResult, betaNotice, researchControl, applicationPreferences] = await Promise.all([
-    Promise.all(catalogPageRequests),
-    riseFetch('/api/rise/v1/filter-intelligence'),
-    riseFetch('/api/rise/v1/me/profile').catch(error => ({
-      unavailable: true,
-      message: error?.message || 'Matrix profile integration is unavailable',
-    })),
-    riseFetch('/api/rise/v1/me/programs'),
-    riseFetch('/api/rise/v1/me/beta-notice'),
-    riseFetch('/api/rise/v1/research/control').catch(() => ({ controls: null })),
-    riseFetch('/api/rise/v1/me/application-preferences').catch(() => ({ preferences: null })),
-  ]);
-  const catalogRecords = [...firstPage.records, ...catalogPages.flatMap(page => page.records)];
-  const registry = { registryReleaseId: firstPage.registryReleaseId, total: firstPage.total, records: catalogRecords };
+}
+
+showRiseLoadingState();
+
+async function loadRuntime() {
+  const bootstrap = await riseFetch('/api/rise/v1/bootstrap?profile=deferred&filterIntelligence=true');
+  const session = bootstrap.session;
+  const status = bootstrap.status;
+  const registry = bootstrap.catalog;
+  const filterIntelligence = bootstrap.filterIntelligence || {};
+  const matrixProfile = bootstrap.profile;
+  const savedResult = bootstrap.myPrograms || { records: [], persistence: 'unavailable' };
   const filterByProgram = new Map((filterIntelligence.records || []).map(record => [record.programSpecialtyId, record]));
   const saved = new Map((savedResult.records || []).map(record => [record.programSpecialtyId, {
     state: record.state,
@@ -161,8 +160,8 @@ async function loadRuntime() {
   return {
     session,
     status,
-    betaNotice,
-    researchControl: researchControl.controls,
+    betaNotice: bootstrap.betaNotice,
+    researchControl: bootstrap.research,
     saved,
     persistence: savedResult.persistence || 'unavailable',
     data: {
@@ -177,7 +176,7 @@ async function loadRuntime() {
       filterCounts: filterIntelligence.counts || {},
       filterPolicy: filterIntelligence.evidencePolicy || {},
       applicationFacetCounts: filterIntelligence.applicationFacetCounts || {},
-      applicationPreferences: applicationPreferences.preferences || {
+      applicationPreferences: bootstrap.applicationPreferences || {
         personalizationEnabled: true,
         priorities: ['visa', 'exams', 'yog', 'usce', 'research_depth'],
         cardFields: ['visa', 'exams', 'yog', 'usce', 'composition', 'research_depth'],
@@ -193,7 +192,10 @@ try {
 } catch (error) {
   document.body.classList.remove('is-booting');
   const main = document.querySelector('#main');
-  if (main) main.innerHTML = `<div class="view"><p class="eyebrow">RISE unavailable</p><h1 class="h1">We could not load your <em>verified data</em></h1><p class="sub">${String(error.message).replace(/[&<>"']/g, '')}</p></div>`;
+  if (main) {
+    main.removeAttribute('aria-busy');
+    main.innerHTML = `<div class="view"><p class="eyebrow">RISE unavailable</p><h1 class="h1">We could not load your <em>verified data</em></h1><p class="sub">${String(error.message).replace(/[&<>"']/g, '')}</p></div>`;
+  }
   throw error;
 }
 globalThis.__RISE_RUNTIME__ = runtime;
@@ -240,6 +242,41 @@ const stateNames = { AL:'Alabama', AR:'Arkansas', AZ:'Arizona', CA:'California',
 
 /* ---------------- fit engine ---------------- */
 const fitCache = new Map();
+let deferredProfileHydrationStarted = false;
+async function hydrateDeferredPersonalization() {
+  if (deferredProfileHydrationStarted) return;
+  deferredProfileHydrationStarted = true;
+  try {
+    const personalized = await riseFetch('/api/rise/v1/filter-intelligence?includeProfile=true');
+    const nextProfile = profileFromMatrix(personalized.profilePayload || {
+      unavailable: true, message: 'Matrix profile integration is unavailable',
+    });
+    Object.assign(D.profile, nextProfile);
+    if (nextProfile.available) {
+      const byProgram = new Map((personalized.records || []).map(record => [record.programSpecialtyId, record]));
+      for (const program of D.programs) {
+        const record = byProgram.get(program.id);
+        if (!record) continue;
+        program.application = record.application || program.application;
+        program.applicationMatch = record.applicationMatch || null;
+      }
+      D.applicationFacetCounts = personalized.applicationFacetCounts || D.applicationFacetCounts;
+    }
+    fitCache.clear();
+    rerender();
+  } catch {
+    Object.assign(D.profile, profileFromMatrix({
+      unavailable: true, message: 'Matrix profile integration is unavailable',
+    }));
+    fitCache.clear();
+    rerender();
+  }
+}
+function scheduleDeferredPersonalization() {
+  const start = () => void hydrateDeferredPersonalization();
+  if ('requestIdleCallback' in globalThis) globalThis.requestIdleCallback(start, { timeout: 2500 });
+  else globalThis.setTimeout(start, 500);
+}
 function computeFit(p) {
   const cacheKey = `${p.id}:${state.find.mode}:${state.applicationPreferences.personalizationEnabled}`;
   if (fitCache.has(cacheKey)) return fitCache.get(cacheKey);
@@ -2684,6 +2721,7 @@ Object.assign(globalThis, { state, D, $, $$, adminDraft, FAMILIES, byId, fitCach
 /* ============ boot ============ */
 function init() {
   document.body.classList.remove('is-booting');
+  $('#main').removeAttribute('aria-busy');
   lookupBind('#omni', '#omniAC', 'home');
   document.addEventListener('keydown', e => {
     if (e.key === '/' && !/input|textarea|select/i.test(document.activeElement.tagName)) { e.preventDefault(); focusLookup(); }
@@ -2707,5 +2745,6 @@ function init() {
   });
   if (!location.hash) location.hash = '#/home';
   onRoute();
+  scheduleDeferredPersonalization();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
