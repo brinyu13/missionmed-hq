@@ -410,6 +410,8 @@ const state = {
       promptId: '',
       text: '',
       sentCount: 0,
+      receipt: null,
+      confirmationOpen: false,
       voice: null,
     },
   },
@@ -592,6 +594,7 @@ function normalizeStory(raw = {}) {
     rowVersion: Number(firstDefined(raw.rowVersion, raw.row_version, 0)) || 0,
     captureType: String(firstDefined(raw.captureType, raw.capture_type, 'text')),
     origin: String(firstDefined(raw.origin?.type, raw.origin?.source, raw.origin_type, raw.source, 'direct')),
+    originDetail: raw.origin && typeof raw.origin === 'object' ? raw.origin : null,
     archivedAt: isoValue(firstDefined(raw.archivedAt, raw.archived_at)),
     trashedAt: isoValue(firstDefined(raw.trashedAt, raw.trashed_at)),
     collection: ['archive', 'archived'].includes(String(raw.collection))
@@ -1389,6 +1392,17 @@ function storyRow(story, options = {}) {
   const unread = storyHasUnreadMentorActivity(story);
   const audio = story.captureType === 'audio' || story.audioAssetId;
   const duration = story.audioDurationMs ? formatDuration(story.audioDurationMs) : '';
+  const contribution = story.origin === 'contribution';
+  const contributionName = String(firstDefined(
+    story.originDetail?.contributorFirstName,
+    story.originDetail?.contributor_first_name,
+    'Family or friend',
+  ));
+  const contributionRelationship = requestRelationshipLabel(firstDefined(
+    story.originDetail?.relationship,
+    story.originDetail?.relationshipId,
+    '',
+  ));
   const collectionActions = state.capabilities?.storyArchive && isStudent() && story.collection !== 'active'
     ? `<button class="rowBtn pri" type="button" data-library-collection="active" data-story-id="${attr(story.id)}" data-row-version="${attr(story.rowVersion)}">Restore to Library</button>${story.collection === 'archived' ? `<button class="rowBtn danger" type="button" data-library-collection="trashed" data-story-id="${attr(story.id)}" data-row-version="${attr(story.rowVersion)}">Move to Trash</button>` : ''}`
     : '';
@@ -1399,6 +1413,7 @@ function storyRow(story, options = {}) {
       <div class="rTitle">${story.prefixEnabled ? '<span class="pre">The One Where</span>' : ''}${esc(story.title)}
         ${unread ? '<span class="emberDot" title="New mentor feedback"></span>' : ''}
         ${audio ? `<span class="audChip" title="Original audio preserved${duration ? ` — ${duration}` : ''}">🎙${duration ? ` ${duration}` : ''}</span>` : ''}
+        ${contribution ? `<span class="b1520GuestStoryChip" title="Contributed privately by ${attr(contributionName)}">◆ From ${esc(contributionName)}${contributionRelationship ? ` · ${esc(contributionRelationship)}` : ''}</span>` : ''}
       </div>
       <div class="rSub">
         ${excerpt(story) ? `<span class="exc">“${esc(excerpt(story))}”</span>` : '<span class="exc">No telling yet — add it when you have two minutes.</span>'}
@@ -9958,12 +9973,27 @@ document.addEventListener('click', async (event) => {
       $('#guestReviewText')?.focus({ preventScroll: true });
       return;
     }
+    if (button.matches('[data-guest-confirmation-close]')) {
+      state.v2.guest.confirmationOpen = false;
+      renderGuestContribution();
+      return;
+    }
+    if (button.matches('[data-guest-download-transcript]')) {
+      downloadGuestTranscript();
+      return;
+    }
+    if (button.matches('[data-guest-download-audio]')) {
+      downloadGuestAudio();
+      return;
+    }
     if (button.matches('[data-guest-tell-another]')) {
       const guest = state.v2.guest;
       guest.promptIndex = (guest.promptIndex + 1) % Math.max(1, asArray(guest.invitation?.prompts).length);
       guest.promptId = '';
       guest.text = '';
       guest.captureMode = '';
+      guest.receipt = null;
+      guest.confirmationOpen = false;
       guest.voice = null;
       guest.mode = 'question';
       renderGuestContribution();
@@ -10821,20 +10851,28 @@ document.addEventListener('submit', async (event) => {
     if (event.target.id === 'guestReviewForm') {
       event.preventDefault();
       const guest = state.v2.guest;
+      const prompts = asArray(guest.invitation?.prompts);
+      const prompt = prompts[guest.promptIndex % Math.max(1, prompts.length)] || null;
       guest.text = $('#guestReviewText', event.target)?.value.trim() || '';
       if (!guest.text || !guest.promptId) throw new Error('Your story and its memory question are required.');
+      let result;
+      let localAudio = null;
       if (guest.voice?.recordingId) {
-        await guestJson(
+        const voice = guest.voice;
+        result = await guestJson(
           `${guest.route.basePath}api/requests/guest/${guest.route.token}/voice/${guest.voice.recordingId}/finish`,
           {
             method: 'POST',
             body: JSON.stringify({ promptId: guest.promptId, transcript: guest.text }),
           },
         );
-        stopGuestVoiceClock(guest.voice);
+        if (voice.localChunks?.length) {
+          localAudio = new Blob(voice.localChunks, { type: voice.mimeType || guestVoiceMimeType() });
+        }
+        stopGuestVoiceClock(voice);
         guest.voice = null;
       } else {
-        await guestJson(`${guest.route.basePath}api/requests/guest/${guest.route.token}/contributions`, {
+        result = await guestJson(`${guest.route.basePath}api/requests/guest/${guest.route.token}/contributions`, {
           method: 'POST',
           body: JSON.stringify({
             promptId: guest.promptId,
@@ -10843,9 +10881,24 @@ document.addEventListener('submit', async (event) => {
           }),
         });
       }
+      if (!result?.storyId || !result?.notificationId || result?.state !== 'promoted') {
+        throw new Error('StoryForge could not confirm delivery. Your words remain on this page; please try again.');
+      }
+      guest.receipt = {
+        storyId: String(result.storyId),
+        notificationId: String(result.notificationId),
+        transcript: guest.text,
+        prompt: String(prompt?.text || ''),
+        studentFirstName: String(guest.invitation?.student?.firstName || 'the student'),
+        audioBlob: localAudio,
+        audioMimeType: String(localAudio?.type || ''),
+        confirmedAt: new Date().toISOString(),
+      };
+      guest.confirmationOpen = true;
       guest.sentCount += 1;
       guest.mode = 'thanks';
       renderGuestContribution();
+      window.setTimeout(() => $('[data-guest-confirmation-dialog]')?.focus({ preventScroll: true }), 0);
     }
     if (event.target.id === 'questionAddForm') {
       event.preventDefault();
@@ -11237,6 +11290,20 @@ document.addEventListener('mousedown', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  const receiptDialog = $('[data-guest-confirmation-dialog]');
+  if (receiptDialog) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      state.v2.guest.confirmationOpen = false;
+      renderGuestContribution();
+      return;
+    }
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      $('[data-guest-confirmation-close]', receiptDialog)?.focus();
+      return;
+    }
+  }
   const storyTab = event.target.closest?.('[data-story-tab]');
   if (storyTab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
     const tabs = $$('[data-story-tab]', storyTab.closest('[role="tablist"]'));
@@ -11488,6 +11555,48 @@ function guestVoiceTime(milliseconds) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
+function guestDownloadName(kind, extension) {
+  const firstName = String(state.v2.guest?.receipt?.studentFirstName || 'story')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'story';
+  return `storyforge-${firstName}-${kind}.${extension}`;
+}
+
+function downloadGuestBlob(blob, name) {
+  if (!(blob instanceof Blob) || !blob.size) throw new Error('This local copy is unavailable in this browser.');
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.hidden = true;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+}
+
+function downloadGuestTranscript() {
+  const receipt = state.v2.guest?.receipt;
+  if (!receipt?.transcript) throw new Error('The transcript copy is unavailable.');
+  const documentHtml = `<!doctype html><html><head><meta charset="utf-8"><title>StoryForge story transcript</title></head><body><h1>StoryForge story transcript</h1><p><strong>Memory question:</strong> ${esc(receipt.prompt || 'Story contribution')}</p><p><strong>Confirmed:</strong> ${esc(formatDateTime(receipt.confirmedAt))}</p><hr><p>${esc(receipt.transcript).replaceAll('\n', '<br>')}</p></body></html>`;
+  downloadGuestBlob(
+    new Blob([documentHtml], { type: 'application/msword;charset=utf-8' }),
+    guestDownloadName('transcript', 'doc'),
+  );
+}
+
+function downloadGuestAudio() {
+  const receipt = state.v2.guest?.receipt;
+  const extension = ({
+    'audio/webm': 'webm',
+    'audio/mp4': 'm4a',
+    'audio/ogg': 'ogg',
+    'audio/mpeg': 'mp3',
+  })[String(receipt?.audioMimeType || '').split(';')[0]] || 'audio';
+  downloadGuestBlob(receipt?.audioBlob, guestDownloadName('original-audio', extension));
+}
+
 function stopGuestVoiceClock(voice = state.v2.guest.voice) {
   if (voice?.clock) window.clearInterval(voice.clock);
   if (voice?.poll) window.clearTimeout(voice.poll);
@@ -11536,7 +11645,7 @@ function scheduleGuestVoiceStatus() {
       voice.statusMessage = error.message || 'Live transcription is reconnecting…';
     }
     scheduleGuestVoiceStatus();
-  }, 2_000);
+  }, 3_000);
 }
 
 function enqueueGuestVoiceSegment(blob, durationMs) {
@@ -11545,11 +11654,11 @@ function enqueueGuestVoiceSegment(blob, durationMs) {
   if (!voice || !blob?.size) return;
   const seq = voice.seq;
   voice.seq += 1;
+  voice.localChunks.push(blob);
   const form = new FormData();
   const mimeType = guestVoiceMimeType() || String(blob.type || '').split(';')[0];
   form.set('seq', String(seq));
   form.set('durationMs', String(Math.max(1, Math.min(60_000, Math.round(durationMs)))));
-  form.set('mimeType', mimeType);
   form.set('segment', new Blob([blob], { type: mimeType }), voiceFileName(seq, mimeType));
   voice.uploadChain = voice.uploadChain.then(async () => {
     voice.uploading = true;
@@ -11674,6 +11783,7 @@ async function startGuestVoice() {
       .filter(Boolean)
       .join(' '),
     failedSegments: [],
+    localChunks: [],
     server: restoredStatus,
     uploading: false,
     uploadError: null,
@@ -11764,9 +11874,10 @@ function renderGuestContribution() {
   const firstName = invitation.student?.firstName || 'your student';
   const prompt = prompts[guest.promptIndex % Math.max(1, prompts.length)] || null;
   const voice = guest.voice;
+  const receipt = guest.receipt;
   let body;
   if (guest.mode === 'thanks') {
-    body = `<div class="b1514RaGuestCenter"><h1 class="h1" id="guestTitle">Thank you. ❤</h1><p>Your story is on its way to ${esc(firstName)} — and only to ${esc(firstName)}.</p><p>You can close this page now, or tell one more if another memory came to mind.</p><button class="btnSave b1514RaGuestPrimary" type="button" data-guest-tell-another>Tell another story</button></div>`;
+    body = `<div class="b1514RaGuestCenter b1520Receipt"><div class="b1520ReceiptSeal" aria-hidden="true">✓</div><div class="eyebrow">Delivery confirmed</div><h1 class="h1" id="guestTitle">Your story is safe with ${esc(firstName)}.</h1><p role="status">It is now in ${esc(firstName)}’s private StoryForge Library, and ${esc(firstName)} has been notified.</p><div class="b1520ReceiptProof"><span>Story saved</span><span>Student notified</span><span>Private by default</span></div><div class="b1520DownloadPanel"><b>Keep your own copy</b><p>These downloads stay on this device. StoryForge does not choose where you save them.</p><div class="inlineActions">${receipt?.audioBlob ? '<button class="rowBtn" type="button" data-guest-download-audio>Download original audio</button>' : ''}<button class="rowBtn" type="button" data-guest-download-transcript>Download transcript (.doc)</button></div></div><p>You can close this page now, or tell one more if another memory came to mind.</p><button class="btnSave b1514RaGuestPrimary" type="button" data-guest-tell-another>Tell another story</button></div>`;
   } else if (guest.mode === 'voice_recording' && prompt && voice) {
     body = `<div class="b1514RaGuestQuestion b1514RaVoice"><div class="eyebrow">Recording privately</div><h1 class="h1" id="guestTitle">Tell it the way you remember it.</h1><div class="b1514RaGuestAsked"><b>${esc(firstName)} asked</b><span>“${esc(guestPromptText(prompt.text, firstName))}”</span></div><div class="b1514RaVoiceOrb" aria-hidden="true"><span></span></div><div class="b1514RaVoiceTime" data-guest-voice-time>${esc(guestVoiceTime(Date.now() - voice.startedAt))}</div><p role="status" aria-live="polite">${voice.uploadError ? 'One segment needs a secure upload retry. Recording is paused.' : voice.uploading ? 'Keeping this part safe and transcribing…' : 'Listening — speak naturally. StoryForge is typing while you talk.'}</p>${voice.liveTranscript ? `<div class="b1514RaLiveTranscript"><b>Live transcript</b><p>${esc(voice.liveTranscript)}</p></div>` : ''}<div class="inlineActions">${voice.uploadError ? '<button class="btnSave b1514RaGuestPrimary" type="button" data-guest-retry-upload>Retry secure upload</button>' : '<button class="btnSave b1514RaGuestPrimary danger" type="button" data-guest-stop-voice>■ Stop &amp; review</button>'}<button class="rowBtn" type="button" data-guest-cancel-voice>Discard recording</button></div></div>`;
   } else if (guest.mode === 'voice_preparing' && prompt && voice) {
@@ -11781,11 +11892,14 @@ function renderGuestContribution() {
   } else {
     body = `<div class="b1514RaGuestCenter"><div class="eyebrow">A private invitation from ${esc(firstName)}</div><h1 class="h1" id="guestTitle">${esc(firstName)} asked for your help.</h1>${invitation.personalMessage ? `<blockquote>“${esc(invitation.personalMessage)}”</blockquote>` : ''}<p>${esc(firstName)} is collecting real stories from people who know them well.</p><p class="b1514RaGuestJourney">${esc(invitation.journeyLine || guestWelcomeLine(invitation.relationship))}</p><div class="b1514RaGuestHow" role="list"><span role="listitem"><b>1</b> Pick one memory</span><span role="listitem"><b>2</b> Tell it in your own words</span><span role="listitem"><b>3</b> Review it before sharing</span></div><p class="b1514RaGuestBig">You do not need to write perfectly.<br>Just tell it the way you remember it.</p><button class="btnSave b1514RaGuestPrimary" type="button" data-guest-start-text>BEGIN</button></div>`;
   }
+  const confirmation = guest.mode === 'thanks' && guest.confirmationOpen
+    ? `<div class="b1520ReceiptOverlay"><div class="b1520ReceiptDialog" role="dialog" aria-modal="true" aria-labelledby="b1520ReceiptTitle" tabindex="-1" data-guest-confirmation-dialog><div class="b1520ReceiptSeal" aria-hidden="true">✓</div><div class="eyebrow">Confirmed by StoryForge</div><h2 id="b1520ReceiptTitle">Story saved and ${esc(firstName)} notified.</h2><p>Your story is in ${esc(firstName)}’s private library now. You may download your own copies before closing this page.</p><button class="btnSave b1514RaGuestPrimary" type="button" data-guest-confirmation-close>Continue</button></div></div>`
+    : '';
   main.innerHTML = `<section class="storyforgeGuest" aria-labelledby="guestTitle">
     <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div>${body}
     <div class="b1513ConsentCopy"><p>Your contribution is private to the student who invited you. It does not give you Matrix access. The link expires automatically and can be revoked.</p><small>Privacy notice ${esc(invitation.disclosureVersion)} · expires ${esc(formatDate(invitation.expiresAt))}</small></div>
     <div class="b1514RaGuestFoot">MissionMed StoryForge · private invitation · nothing is public</div>
-  </section>`;
+  </section>${confirmation}`;
 }
 
 async function initGuest(route) {
@@ -11800,6 +11914,8 @@ async function initGuest(route) {
       text: '',
       sentCount: 0,
       captureMode: '',
+      receipt: null,
+      confirmationOpen: false,
       voice: null,
     };
     if (!guestPagehideBound) {
