@@ -200,8 +200,8 @@ export function normalizeResearchControls(input = {}) {
     });
   }
   const canaryMode = boundedString(source.canaryMode, "canaryMode", { maximum: 32 });
-  if (canaryMode !== "PROGRAM_ID_ALLOWLIST") {
-    throw Object.assign(new Error("Research canary mode must be PROGRAM_ID_ALLOWLIST"), {
+  if (!["PROGRAM_ID_ALLOWLIST", "SPECIALTY_SCOPE"].includes(canaryMode)) {
+    throw Object.assign(new Error("Research scope mode must be PROGRAM_ID_ALLOWLIST or SPECIALTY_SCOPE"), {
       code: "RESEARCH_CONTROL_INVALID",
     });
   }
@@ -210,7 +210,8 @@ export function normalizeResearchControls(input = {}) {
     "canaryProgramIds",
     { maximumItems: 100, itemMaximum: 10 },
   );
-  if (!canaryProgramIds.length || canaryProgramIds.some((value) => !/^\d{10}$/.test(value))) {
+  if ((canaryMode === "PROGRAM_ID_ALLOWLIST" && !canaryProgramIds.length)
+    || canaryProgramIds.some((value) => !/^\d{10}$/.test(value))) {
     throw Object.assign(new Error("Research canary ACGME program IDs are invalid"), {
       code: "RESEARCH_CONTROL_INVALID",
     });
@@ -296,9 +297,11 @@ export function evaluateResearchEligibility({
   if (!normalizedControls.globalEnabled) reasons.push("GLOBAL_PAUSED");
   if (!administrator && !normalizedControls.studentEnabled) reasons.push("STUDENT_PAUSED");
   if (!descriptor.programSpecialtyId || !descriptor.acgmeId) reasons.push("PROGRAM_IDENTITY_UNAVAILABLE");
-  if (!normalizedControls.canaryProgramIds.includes(descriptor.acgmeId)) {
-    reasons.push("PROGRAM_OUT_OF_CANARY");
-  }
+  if (normalizedControls.canaryMode === "PROGRAM_ID_ALLOWLIST"
+    && !normalizedControls.canaryProgramIds.includes(descriptor.acgmeId)) reasons.push("PROGRAM_OUT_OF_CANARY");
+  if (normalizedControls.canaryMode === "SPECIALTY_SCOPE"
+    && (!normalizedControls.specialtyScope.includes(descriptor.specialty)
+      || !normalizedControls.stateScope.includes(descriptor.state))) reasons.push("PROGRAM_OUT_OF_SCOPE");
   if (!administrator) {
     const capabilities = new Set(session?.capabilities ?? []);
     if (!normalizedControls.entitlementScope.some((capability) => capabilities.has(capability) || capabilities.has("rise:admin"))) {

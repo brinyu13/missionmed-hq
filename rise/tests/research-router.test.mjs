@@ -126,6 +126,32 @@ test("student canary requires exact program allowlist, entitlement, and optional
   }).reasons, ["SUBJECT_OUT_OF_CANARY"]);
 });
 
+test("six-specialty mode derives eligibility from server-side specialty and state scope", () => {
+  const controls = normalizeResearchControls({
+    ...RESEARCH_ROUTER_CONFIG.defaults,
+    globalEnabled: true,
+    studentEnabled: true,
+    emergencyKillSwitch: false,
+    canaryMode: "SPECIALTY_SCOPE",
+    canaryProgramIds: [],
+    specialtyScope: ["Internal Medicine", "Family Medicine", "Pediatrics", "Psychiatry", "Neurology", "General Surgery"],
+    stateScope: ["MI"],
+  });
+  const scoped = {
+    programSpecialtyId: "rise_ps_scoped",
+    designation: "Internal Medicine",
+    display: { state: "MI" },
+    identifiers: [{ namespace: "ACGME_PROGRAM", value: "1402521187" }],
+  };
+  assert.equal(evaluateResearchEligibility({ program: scoped, session: student, controls }).eligible, true);
+  assert.deepEqual(evaluateResearchEligibility({
+    program: { ...scoped, designation: "Dermatology" }, session: student, controls,
+  }).reasons, ["PROGRAM_OUT_OF_SCOPE"]);
+  assert.deepEqual(evaluateResearchEligibility({
+    program: { ...scoped, display: { state: "OH" } }, session: student, controls,
+  }).reasons, ["PROGRAM_OUT_OF_SCOPE"]);
+});
+
 test("administrator can use the bounded scope while student execution remains paused", () => {
   const controls = normalizeResearchControls({
     ...RESEARCH_ROUTER_CONFIG.defaults,

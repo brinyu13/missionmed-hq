@@ -1394,7 +1394,12 @@ function researchCtaButton(p) {
   const controls = runtime.researchControl;
   if (!controls || !controls.globalEnabled || controls.emergencyKillSwitch) return '';
   if (!state.canAdmin && !controls.studentEnabled) return '';
-  if (!(controls.canaryProgramIds || []).includes(p.acgme)) return '';
+  const inScope = controls.canaryMode === 'PROGRAM_ID_ALLOWLIST'
+    ? (controls.canaryProgramIds || []).includes(p.acgme)
+    : controls.canaryMode === 'SPECIALTY_SCOPE'
+      && (controls.specialtyScope || []).includes(p.specName)
+      && (controls.stateScope || []).includes(p.state);
+  if (!inScope) return '';
   const eligibility = p.researchRequest?.eligibility;
   const requestClass = eligibility?.requestClass || 'FULL';
   const labels = {
