@@ -403,7 +403,7 @@ export function classifyDossierRequest({ completionMatrix = {}, approvedFields =
   const stale = Number.isFinite(ageMs) && ageMs > DEEP_RESEARCH_DOSSIER_V2.currentForDays * 86_400_000;
   let requestClass = "FULL";
   if (completion.deep) requestClass = stale ? "REFRESH" : "NO_OP";
-  else if (hasV2Attempt || approvedFields.length) requestClass = "DELTA";
+  else if (hasV2Attempt) requestClass = "DELTA";
   const volatile = new Set([
     "visa", "application_requirements", "current_resident_roster", "resident_medical_schools",
     "resident_composition", "program_leadership", "core_faculty", "board_pass_rate",
@@ -417,12 +417,9 @@ export function classifyDossierRequest({ completionMatrix = {}, approvedFields =
     return !["VERIFIED", "RESEARCHED_NOT_FOUND", "UNAVAILABLE", "NOT_APPLICABLE"].includes(state);
   });
   else requestedDomains = [];
-  if (requestClass === "DELTA" && !hasV2Attempt) {
-    const approved = new Set(approvedFields);
-    requestedDomains = DEEP_RESEARCH_DOSSIER_V2.domains
-      .filter((domain) => !domain.fields.some((field) => approved.has(field)))
-      .map((domain) => domain.key);
-  }
+  // Existing canonical fields improve the research context, but they are not a
+  // Dossier V2 domain-attempt receipt. The first V2 run must attempt all 18
+  // domains so terminal rows cannot strand NOT_RESEARCHED states.
   const requestedFields = [...new Set(DEEP_RESEARCH_DOSSIER_V2.domains
     .filter((domain) => requestedDomains.includes(domain.key)).flatMap((domain) => domain.fields))];
   return { requestClass, requestedDomains, requestedFields, completion, stale };

@@ -69,6 +69,7 @@ test("Deep Research Dossier V2 is a deterministic 18-domain terminal contract", 
 
 test("dossier routing distinguishes FULL, DELTA, REFRESH and leaves no arbitrary claim-count shortcut", () => {
   assert.equal(classifyDossierRequest().requestClass, "FULL");
+  assert.equal(classifyDossierRequest({ approvedFields: ["visa.j1", "program.leadership"] }).requestClass, "FULL");
   const partial = { visa: { state: "VERIFIED", summary: "J-1", sourceUrls: ["https://example.edu"] } };
   const delta = classifyDossierRequest({ completionMatrix: partial });
   assert.equal(delta.requestClass, "DELTA");
