@@ -35,6 +35,8 @@ test("all attempted domains retain verified, researched-not-public, or conflict 
   assert.equal(states.CONFLICT.length, 28);
   assert.equal(states.NOT_YET_RESEARCHED, undefined);
   assert.ok(domainClaims.every((claim) => claim.publicationState === "REVIEW_REQUIRED"));
+  assert.ok(domainClaims.filter((claim) => claim.value.state === "CONFLICT").every((claim) => claim.conflictState === "CONFLICTING"));
+  assert.ok(domainClaims.filter((claim) => claim.value.state !== "CONFLICT").every((claim) => claim.conflictState === "NONE"));
 });
 
 test("negative H-1B findings never become affirmative sponsorship evidence", async () => {

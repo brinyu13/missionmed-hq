@@ -214,7 +214,7 @@ export function normalizeStructuredResearchDossier({ record, sourceBytes, source
       sourceType: "completed_structured_research_dossier", sourceUrl: sourceUrls[0] ?? null,
       sourceLocator: `${sourceFile}${sourceLocator}`, retrievedAt: stagedAt,
       publicationState: "REVIEW_REQUIRED", reviewState: "PENDING",
-      conflictState: evidenceState === "CONFLICT" ? "UNRESOLVED" : "NONE",
+      conflictState: evidenceState === "CONFLICT" ? "CONFLICTING" : "NONE",
     }),
     provider, evidenceState, directSourceUrls: sourceUrls, dossierSourceUrls: sourceUrls, sourceUrls,
   });
@@ -232,6 +232,32 @@ export function normalizeStructuredResearchDossier({ record, sourceBytes, source
     sourceFile, sourceFileSha256, providerRunId,
     idempotencyKey: sha256(`${provider}\0${campaignId}\0${acgmeId}\0${sourceFileSha256}`),
     claims, domainCount: resolved.size, newSpendUsd: 0,
+  };
+}
+
+export function normalizeStoredStructuredDossierIngest(ingest) {
+  return {
+    ...ingest,
+    claims: ingest.claims.map((claim) => {
+      if (claim.conflictState !== "UNRESOLVED") return claim;
+      const canonical = createCanonicalEvidenceClaim({
+        subjectId: claim.subjectId,
+        field: claim.field,
+        value: claim.value,
+        provider: claim.provider,
+        providerRunId: claim.providerRunId,
+        sourceType: claim.sourceType,
+        sourceUrl: claim.sourceUrl,
+        sourceLocator: claim.sourceLocator,
+        retrievedAt: claim.retrievedAt,
+        observedPeriod: claim.observedPeriod,
+        assertionClass: claim.assertionClass,
+        publicationState: claim.publicationState,
+        reviewState: claim.reviewState,
+        conflictState: "CONFLICTING",
+      });
+      return { ...claim, ...canonical };
+    }),
   };
 }
 

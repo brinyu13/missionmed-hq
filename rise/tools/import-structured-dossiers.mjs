@@ -5,7 +5,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createRiseCanonicalEvidenceStore, createRiseEvidenceReviewStore } from "../adapters/postgres-runtime.mjs";
-import { normalizeStructuredResearchDossier, structuredDossierSummary, STRUCTURED_DOSSIER_CONTRACT } from "../adapters/structured-research-dossier-ingest.mjs";
+import {
+  normalizeStoredStructuredDossierIngest,
+  normalizeStructuredResearchDossier,
+  structuredDossierSummary,
+  STRUCTURED_DOSSIER_CONTRACT,
+} from "../adapters/structured-research-dossier-ingest.mjs";
 import { reviewResearchCorpus } from "../src/research-review.mjs";
 
 const DEFAULT_ROOTS = Object.freeze([
@@ -98,7 +103,7 @@ export async function loadStructuredDossierBundle(bundlePath = DEFAULT_BUNDLE) {
   if (bundle.contractId !== STRUCTURED_DOSSIER_CONTRACT || expected !== sha256(unsigned)) {
     throw new Error("Structured dossier bundle contract or checksum is invalid");
   }
-  return validateCorpus(bundle.ingests);
+  return validateCorpus(bundle.ingests.map(normalizeStoredStructuredDossierIngest));
 }
 
 function registryIdentity(program) {
