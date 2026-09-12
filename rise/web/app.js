@@ -869,6 +869,24 @@ function filterMatchEvidence(p) {
   return reasons.length ? `<span class="decisionMatchLine"><b>Why it matched</b>${esc(reasons.join(' · '))}</span>` : '';
 }
 
+function residentCompositionPresentation(p) {
+  const roster = p.application?.roster || {};
+  const classified = Number(roster.classifiedTotal || 0);
+  const total = Number(roster.total || 0);
+  if (classified > 0) {
+    const pieces = [['US MD','US_MD'],['DO','US_DO'],['IMG','IMG_NON_CARIBBEAN'],['Carib','CARIBBEAN']].map(([label,category]) => {
+      const item = roster.composition?.[category];
+      return item?.count > 0 && item.percent != null ? `${label} ${item.percent}%` : '';
+    }).filter(Boolean);
+    return `Roster-classified (n=${classified}): ${pieces.join(' · ')}${classified < total ? ` · ${total - classified} unclassified` : ''}`;
+  }
+  if (total > 0) return `${total} residents listed · schools/classification unavailable`;
+  const reported = [['IMG',roster.registryComposition?.img],['DO',roster.registryComposition?.do],['US MD',roster.registryComposition?.usmd]]
+    .filter(([,value]) => value != null).map(([label,value]) => `${label} ${value}%`);
+  if (reported.length) return `Program reported: ${reported.join(' · ')}`;
+  return domainStateSummary(p, 'resident_roster', 'Roster not yet researched');
+}
+
 function applicationIndicator(p, key) {
   const a = p.application || {};
   const depth = { deep: 'Deep Research', enriched: 'Enriched Research', basic: 'Basic Profile', pending: 'Research Pending' }[p.filterIntelligence.researchDepth] || 'Research Pending';
@@ -883,12 +901,7 @@ function applicationIndicator(p, key) {
   if (key === 'yog') return ['YOG', a.yog?.noPublishedCutoff ? 'No published cutoff' : a.yog?.years != null ? `${a.yog.years}-year window` : 'Not published'];
   if (key === 'usce') return ['USCE', a.usce?.required ? 'Required' : a.usce?.recommended ? 'Recommended' : a.usce?.published ? 'Published policy' : 'Not published'];
   if (key === 'composition') {
-    const pieces = [['US MD','US_MD'],['DO','US_DO'],['IMG','IMG_NON_CARIBBEAN'],['Carib','CARIBBEAN']].map(([label,category]) => {
-      const value = a.roster?.composition?.[category]?.percent;
-      return value != null ? `${label} ${value}%` : '';
-    }).filter(Boolean);
-    const value = pieces.length ? pieces.join(' · ') : a.roster?.total ? `${a.roster.total} residents identified` : domainStateSummary(p, 'resident_roster', 'Roster not yet researched');
-    return ['Residents', value];
+    return ['Residents', residentCompositionPresentation(p)];
   }
   if (key === 'signals') return ['Resident schools', hasUsableProfile() && (a.roster?.sameSchoolCount || a.roster?.sameCountryCount) ? [a.roster.sameSchoolCount ? `${a.roster.sameSchoolCount} from your school` : '', a.roster.sameCountryCount ? `${a.roster.sameCountryCount} same-country` : ''].filter(Boolean).join(' · ') : a.roster?.schoolIdentified ? `${a.roster.schoolIdentified} schools identified` : domainStateSummary(p, 'resident_medical_schools', 'Schools not yet researched')];
   if (key === 'research_depth') return ['Research', depth];
@@ -965,7 +978,7 @@ function viewFind() {
       ${f.q ? '<button type="button" class="centralSearchClear" aria-label="Clear program search" onclick="state.find.q=\'\';state.find.shown=50;rerender()">Clear</button>' : ''}
       <button type="submit" class="rowBtn pri">Search</button>
     </form>
-    <div class="modeSeg" role="radiogroup" aria-label="Search mode">
+    <div class="modeSeg searchModeSeg" role="radiogroup" aria-label="Search mode">
       ${[['criteria', 'Set criteria'], ['profile', 'Use my profile'], ['cv', 'Use my CV']].map(([k, l]) => `<button role="radio" aria-checked="${f.mode === k}" class="${f.mode === k ? 'on' : ''}" ${k === 'profile' && !hasUsableProfile() ? 'disabled title="Complete the essential Matrix profile fields to enable personalization"' : `onclick="setMode('${k}')"`}>${l}</button>`).join('')}
     </div>
     ${!hasUsableProfile() ? profileUnlockCallout() : f.mode === 'profile' ? `<div class="profileIntelligenceCallout"><div><b>${state.applicationPreferences.personalizationEnabled ? 'Personalized application intelligence is on' : 'Personalized application intelligence is off'}</b><span>RISE compares supported program facts with your Matrix profile and explains every signal. It never predicts your match odds.</span></div><div><button class="rowBtn" onclick="setApplicationPersonalization(${!state.applicationPreferences.personalizationEnabled})">Turn ${state.applicationPreferences.personalizationEnabled ? 'off' : 'on'}</button><button class="rowBtn pri" onclick="openApplicationPreferences()">Customize cards</button></div></div>` : ''}
@@ -1265,7 +1278,8 @@ function viewProfile() {
         <section class="panel"><div class="pHead"><h2 class="h2">Use it</h2></div>
           <div class="pBody" style="display:flex;flex-direction:column;gap:10px">
             <button class="fAct pri" ${hasUsableProfile() ? `onclick="Object.assign(state.find,{mode:'profile',sort:'fit'});nav('find')"` : `onclick="location.assign('/member-dashboard/#profile')"`}>${hasUsableProfile() ? 'Use my profile to find programs' : 'Complete essential profile fields'}</button>
-            <button class="fAct" onclick="cvSheet()">Use my CV instead</button>
+            <button class="fAct unavailableAction" disabled title="CV matching is not connected to the production RISE profile contract">CV matching unavailable</button>
+            <p class="actionNote">Use your Matrix profile for personalized comparisons. RISE does not upload or interpret a CV while the File Vault seam is unavailable.</p>
           </div>
         </section>
       </div>
@@ -1415,7 +1429,7 @@ function renderFile(p) {
   const saved = state.saved.has(p.id);
   const soap = p.soap.length ? `SOAP 2026: <b style="color:var(--gn)">✓ ${soapN(p)} position${soapN(p) > 1 ? 's' : ''}</b> <span style="color:var(--dim)">(${p.soap.map(s => s.track).join(', ')})</span>` : `SOAP 2026: <b>—</b>`;
   const composition = [p.intelligence.imgGraduatesPercent ? `IMG ${p.intelligence.imgGraduatesPercent}` : '', p.intelligence.doGraduatesPercent ? `DO ${p.intelligence.doGraduatesPercent}` : '', p.intelligence.usmdGraduatesPercent ? `US MD ${p.intelligence.usmdGraduatesPercent}` : ''].filter(Boolean);
-  const imgSig = p.demo ? 'IMG/DO evidence: <b>strong (demo)</b>' : composition.length ? `Resident/graduate composition: <b>${composition.map(esc).join(' · ')}</b>` : `Resident evidence: <b>${researchStateText(p, 'research.resident_roster')}</b>`;
+  const imgSig = p.demo ? 'IMG/DO evidence: <b>strong (demo)</b>' : composition.length ? `Program-reported composition: <b>${composition.map(esc).join(' · ')}</b>` : `Resident evidence: <b>${researchStateText(p, 'research.resident_roster')}</b>`;
   const researchedVisa = publishedVisaSummary(p);
   const visaSig = p.demo ? 'Visa: <b>J-1 · H-1B published</b>' : researchedVisa ? `Visa: <b>${esc(researchedVisa)}</b>` : p.intelligence.visaSponsorship != null ? `Visa: <b>${esc(p.intelligence.visaSponsorship)}</b>` : `Visa: <b>${researchStateText(p, 'research.visa')}</b>`;
   return `<div class="fileSheet" role="dialog" aria-modal="true" aria-labelledby="fileTitle">
@@ -1844,11 +1858,45 @@ function evidenceRows(value, keys = []) {
 
 function genericRosterTable(p) {
   const value = approvedResearchValue(p, 'research.resident_roster');
-  const rows = evidenceRows(value, ['full_roster','residents','roster','pgy_1','pgy_2','pgy_3','pgy_4','pgy4_chiefs','pgy3_chiefs','other_residents_identified'])
+  const normalized = p.application?.roster?.entries;
+  const rows = (Array.isArray(normalized) ? normalized : evidenceRows(value, ['full_roster','residents','roster','pgy_1','pgy_2','pgy_3','pgy_4','pgy4_chiefs','pgy3_chiefs','other_residents_identified']))
     .filter(row => row && typeof row === 'object').slice(0, 250);
   if (!rows.length) return '';
-  return `<div class="rosterSummaryLine"><b>${rows.length}</b> published current/recent roster entr${rows.length === 1 ? 'y' : 'ies'} available</div><div class="residentCardGrid">${rows.map(row => { const name = row.name || row.resident_name || 'Resident name not published'; const school = row.medical_school || row.medicalSchool || row.school || 'Medical school not published'; const degree = row.degree || ''; const pgy = row.pgy || row.pgy_year || row.pgy_level || row.PGY || row.class || row.class_of || 'PGY not published'; const country = row.medical_school_country || row.school_country || row.country || ''; const classification = row.classification || row.category || ''; return `<article><div class="residentIdentity"><b>${esc(name)}</b><span>${esc([degree,pgy].filter(Boolean).join(' · '))}</span></div><p>${esc(school)}</p><div class="residentMeta">${country ? `<span>${esc(country)}</span>` : '<span>Country not identified</span>'}${classification ? `<span>${esc(String(classification).replaceAll('_',' '))}</span>` : '<span>Category unknown</span>'}</div></article>`; }).join('')}</div>`;
+  const roster = p.application?.roster || {};
+  const summary = roster.classifiedTotal > 0
+    ? `${roster.classifiedTotal} of ${rows.length} residents have a supported graduate classification; percentages use only that classified denominator.`
+    : `${rows.length} resident names are available, but their medical schools or graduate classifications are not published in the current evidence.`;
+  return `<section class="residentExplorer">
+    <div class="residentTruthNote"><b>Roster-derived evidence</b><span>${esc(summary)}</span></div>
+    <div class="residentToolbar">
+      <label>Search residents<input type="search" data-resident-query placeholder="Name, school, country…" oninput="updateResidentExplorer(this)"></label>
+      <label>Graduate category<select data-resident-category onchange="updateResidentExplorer(this)"><option value="">All categories</option><option value="US_MD">US MD</option><option value="US_DO">US DO</option><option value="IMG_NON_CARIBBEAN">IMG</option><option value="CARIBBEAN">Caribbean</option><option value="UNKNOWN">Unknown</option></select></label>
+      <label>Sort<select data-resident-sort onchange="updateResidentExplorer(this)"><option value="published">Published order</option><option value="name">Resident name</option><option value="school">Medical school</option><option value="pgy">PGY / class</option></select></label>
+    </div>
+    <div class="rosterSummaryLine"><b data-resident-count>${rows.length}</b> of ${rows.length} published current/recent roster entr${rows.length === 1 ? 'y' : 'ies'}</div>
+    <div class="residentCardGrid" aria-live="polite">${rows.map((row,index) => { const name = row.name || row.resident_name || 'Resident name not published'; const school = row.medicalSchool || row.medical_school || row.school || 'Medical school not published'; const degree = row.degree || ''; const pgy = row.pgy || row.pgy_year || row.pgy_level || row.PGY || row.class || row.class_of || 'PGY not published'; const country = row.medicalSchoolCountry || row.medical_school_country || row.school_country || row.country || ''; const classification = row.category || row.classification || 'UNKNOWN'; const search = [name,school,country,classification,pgy].join(' ').toLocaleLowerCase('en-US'); return `<article data-order="${index}" data-name="${esc(String(name).toLocaleLowerCase('en-US'))}" data-school="${esc(String(school).toLocaleLowerCase('en-US'))}" data-pgy="${esc(String(pgy).toLocaleLowerCase('en-US'))}" data-category="${esc(classification)}" data-search="${esc(search)}"><div class="residentIdentity"><b>${esc(name)}</b><span>${esc([degree,pgy].filter(Boolean).join(' · '))}</span></div><p>${esc(school)}</p><div class="residentMeta">${country ? `<span>${esc(country)}</span>` : '<span>Country not identified</span>'}<span>${esc(String(classification).replaceAll('_',' '))}</span></div></article>`; }).join('')}</div>
+  </section>`;
 }
+
+window.updateResidentExplorer = control => {
+  const root = control.closest('.residentExplorer');
+  if (!root) return;
+  const query = String(root.querySelector('[data-resident-query]')?.value || '').trim().toLocaleLowerCase('en-US');
+  const category = root.querySelector('[data-resident-category]')?.value || '';
+  const sort = root.querySelector('[data-resident-sort]')?.value || 'published';
+  const grid = root.querySelector('.residentCardGrid');
+  const cards = [...grid.querySelectorAll('article')];
+  const key = sort === 'published' ? 'order' : sort;
+  cards.sort((a,b) => key === 'order' ? Number(a.dataset.order) - Number(b.dataset.order) : String(a.dataset[key] || '').localeCompare(String(b.dataset[key] || '')));
+  let visible = 0;
+  cards.forEach(card => {
+    const show = (!query || card.dataset.search.includes(query)) && (!category || card.dataset.category === category);
+    card.hidden = !show;
+    if (show) visible += 1;
+    grid.append(card);
+  });
+  root.querySelector('[data-resident-count]').textContent = visible;
+};
 
 function genericPeopleTable(p) {
   const rows = [

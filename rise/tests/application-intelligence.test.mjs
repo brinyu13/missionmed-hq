@@ -58,6 +58,41 @@ test("application intelligence combines registry and approved research conservat
   assert.equal(intel.fellowshipCount, 2);
 });
 
+test("unclassified resident rosters never render known categories as zero percent", () => {
+  const intel = buildApplicationIntelligence(program({}), [{
+    field: "research.resident_roster",
+    canonicalValue: [
+      { name: "Resident One" },
+      { name: "Resident Two", pgy: "PGY-2" },
+    ],
+  }], {});
+  assert.equal(intel.roster.total, 2);
+  assert.equal(intel.roster.classifiedTotal, 0);
+  assert.equal(intel.roster.unclassifiedTotal, 2);
+  assert.equal(intel.roster.classificationState, "UNCLASSIFIED_ROSTER");
+  assert.equal(intel.roster.composition.US_MD.percent, null);
+  assert.equal(intel.roster.composition.US_DO.percent, null);
+  assert.equal(intel.roster.composition.IMG_NON_CARIBBEAN.percent, null);
+  assert.equal(intel.roster.composition.CARIBBEAN.percent, null);
+  assert.equal(intel.roster.composition.UNKNOWN.percent, 100);
+});
+
+test("roster category percentages use classified residents as their denominator", () => {
+  const intel = buildApplicationIntelligence(program({}), [{
+    field: "research.resident_roster",
+    canonicalValue: [
+      { name: "US MD", classification: "US_MD" },
+      { name: "IMG", classification: "IMG" },
+      { name: "Unknown" },
+    ],
+  }], {});
+  assert.equal(intel.roster.total, 3);
+  assert.equal(intel.roster.classifiedTotal, 2);
+  assert.equal(intel.roster.composition.US_MD.percent, 50);
+  assert.equal(intel.roster.composition.IMG_NON_CARIBBEAN.percent, 50);
+  assert.equal(intel.roster.composition.UNKNOWN.percent, 33.3);
+});
+
 test("compatibility labels blockers, cautions, positives, and unknowns without match odds", () => {
   const intel = buildApplicationIntelligence(program({
     J1: known(false), "Medical School Graduation Timeline": known("3 years"),

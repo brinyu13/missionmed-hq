@@ -37,7 +37,7 @@ test("cold startup presents a visible loading state instead of a blank applicati
   await expect(page.locator('.riseBootStatus')).toContainText('Preparing your program intelligence');
   await navigation;
   await expect(page.locator('body')).not.toHaveClass(/is-booting/);
-  await expect(page.locator('#main')).toContainText('Good morning');
+  await expect(page.locator('#main')).toContainText(/Good (morning|afternoon|evening)/);
 });
 
 test("private-beta notice is explicit, persistent, and acknowledged server-side", async ({ page }) => {
@@ -284,9 +284,8 @@ test("Compare preserves the four-program cap and unknown states", async ({ page 
 test("profile, CV, entitlement, RankList IQ, and premium integrations fail closed honestly", async ({ page }) => {
   await openRise(page, "profile");
   await expect(page.locator("#main")).toContainText("profile is temporarily unavailable");
-  await page.getByRole("button", { name: "Use my CV instead" }).click();
-  await expect(page.locator("#modal")).toContainText("File Vault connection unavailable");
-  await page.locator("#modal .mBtn.sec").click();
+  await expect(page.getByRole("button", { name: "CV matching unavailable" })).toBeDisabled();
+  await expect(page.locator("#main")).toContainText("does not upload or interpret a CV");
   await page.getByRole("button", { name: "Rank List", exact: true }).click();
   await expect(page.locator("#main")).toContainText("Activates during Interview Season");
   await openRise(page);

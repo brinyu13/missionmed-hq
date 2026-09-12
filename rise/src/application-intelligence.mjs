@@ -224,6 +224,11 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
   const counts = { US_MD: 0, US_DO: 0, CARIBBEAN: 0, IMG_NON_CARIBBEAN: 0, UNKNOWN: 0 };
   for (const resident of roster) counts[resident.category] += 1;
   const total = roster.length;
+  const classifiedTotal = total - counts.UNKNOWN;
+  const composition = Object.fromEntries(Object.entries(counts).map(([key, value]) => [
+    key,
+    summaryCount(value, key === "UNKNOWN" ? total : classifiedTotal),
+  ]));
   const schools = new Map();
   const countries = new Map();
   for (const resident of roster) {
@@ -261,11 +266,14 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
     usce: { published: usceRaw !== null || usceRecommended || usceMonths !== null, required: usceRequired, recommended: usceRecommended, minimumMonths: usceMonths, raw: usceRaw },
     ecfmg: { published: /ecfmg/i.test(JSON.stringify(application)), summary: text(application?.medical_education_or_ecfmg_requirement) },
     roster: {
-      total, schoolIdentified: roster.filter((resident) => resident.medicalSchoolKey).length,
+      total, classifiedTotal, unclassifiedTotal: counts.UNKNOWN,
+      classificationState: classifiedTotal > 0 ? "PARTIALLY_OR_FULLY_CLASSIFIED" : total > 0 ? "UNCLASSIFIED_ROSTER" : "NO_ROSTER",
+      schoolIdentified: roster.filter((resident) => resident.medicalSchoolKey).length,
       countryIdentified: roster.filter((resident) => resident.medicalSchoolCountry).length,
       distinctSchools: schools.size, distinctCountries: countries.size,
-      composition: Object.fromEntries(Object.entries(counts).map(([key, value]) => [key, summaryCount(value, total)])),
+      composition,
       registryComposition,
+      entries: roster,
       schools: [...schools].map(([key, value]) => ({ key, ...value })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
       countries: [...countries].map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count || a.country.localeCompare(b.country)),
       sameSchoolCount, sameCountryCount,
