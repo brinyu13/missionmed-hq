@@ -106,7 +106,7 @@ function profileFromMatrix(payload) {
   if (payload?.unavailable) {
     return {
       name: 'Student', demo: false, available: false, facts: [], completeness: 0,
-      missing: [], missingKeys: [], raw: {},
+      missing: [], missingKeys: [], raw: {}, personalizationReady: false,
       unavailableMessage: payload.message || 'Matrix profile integration is unavailable',
     };
   }
@@ -119,6 +119,8 @@ function profileFromMatrix(payload) {
     : ['first_name', 'last_name', 'phone_mobile', 'primary_specialty'].filter(key => !raw[key]);
   const name = [raw.first_name, raw.last_name].filter(Boolean).join(' ').trim() || 'Student';
   const progress = Number(payload?.progress);
+  const personalizationSignals = ['medical_school', 'visa_status', 'step2_score', 'graduation_year', 'usce_months']
+    .filter(key => raw[key] !== undefined && raw[key] !== null && String(raw[key]).trim() !== '');
   return {
     name,
     demo: false,
@@ -128,7 +130,12 @@ function profileFromMatrix(payload) {
     missing: missingKeys.map(key => MATRIX_PROFILE_LABELS[key] || key.replaceAll('_', ' ')),
     missingKeys,
     raw,
+    personalizationReady: Boolean(raw.primary_specialty && personalizationSignals.length >= 2),
   };
+}
+
+function hasUsableProfile() {
+  return Boolean(D.profile.available && D.profile.personalizationReady);
 }
 
 function showRiseLoadingState() {
@@ -219,7 +226,7 @@ const state = {
   saved: runtime.saved,
   compare: [],
   underlying: null,                   // last non-file route
-  find: { mode: 'profile', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step2Minimum: '', comlex2: false, attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, sort: 'fit', view: 'list', shown: 50, scroll: 0, moreOpen: false },
+  find: { mode: 'criteria', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, sort: 'name', view: 'list', shown: 50, scroll: 0, moreOpen: false },
   applicationPreferences: D.applicationPreferences,
   fileTab: 'overview',
   fileFrom: 'find',
@@ -281,7 +288,7 @@ function computeFit(p) {
   const cacheKey = `${p.id}:${state.find.mode}:${state.applicationPreferences.personalizationEnabled}`;
   if (fitCache.has(cacheKey)) return fitCache.get(cacheKey);
   const personalized = state.find.mode === 'profile' && state.applicationPreferences.personalizationEnabled
-    && D.profile.available && p.applicationMatch;
+    && hasUsableProfile() && p.applicationMatch;
   const groups = personalized ? p.applicationMatch : null;
   const f = personalized ? {
     tier: null,
@@ -300,6 +307,10 @@ function tierChip(p, f) {
   return `<span class="tierChip ${f.tier}" title="Computed from verified requirements">${f.tier === 'gold' ? 'Gold Fit' : 'Silver Fit'}</span>`;
 }
 const FIT_LEGEND = 'Fit tiers describe how accessible a program looks for your profile, from published requirements and evidence. They are not match odds.';
+
+function profileUnlockCallout() {
+  return `<div class="profileUnlockCallout"><div><span class="profileUnlockEyebrow">PERSONALIZED MATCHING IS OFF</span><b>Complete your profile to personalize your program search</b><p>Add your specialty plus at least two essential details to unlock score, timing, YOG, USCE, visa, geography, and resident-school connections—with a visible reason for every signal.</p></div><button class="fAct pri" onclick="location.assign('/member-dashboard/#profile')">Complete my profile</button></div>`;
+}
 
 /* ---------------- freshness (doc 05 §5.8) ---------------- */
 function freshness(p) {
@@ -532,9 +543,9 @@ function factCardHTML(p, field) {
 function runIntent(intent) {
   if (!intent) return;
   if (intent.kind === 'fact') { const host = $('#heroAC') || $('#omniAC'); host.innerHTML = factCardHTML(intent.p, intent.field); return; }
-  if (intent.kind === 'similar') { Object.assign(state.find, { q: '', state: intent.p.state, soap: false, sort: 'fit', mode: 'profile' }); nav('find'); toast('Programs like ' + intent.p.name.split(' ').slice(0, 2).join(' ') + ' — same state, sorted by fit'); return; }
+  if (intent.kind === 'similar') { Object.assign(state.find, { q: '', state: intent.p.state, soap: false, sort: hasUsableProfile() ? 'fit' : 'name', mode: hasUsableProfile() ? 'profile' : 'criteria' }); nav('find'); toast('Programs like ' + intent.p.name.split(' ').slice(0, 2).join(' ') + ' — same state'); return; }
   if (intent.kind === 'soap') { Object.assign(state.find, { soap: true, state: intent.st || '', q: '' }); nav('find'); return; }
-  if (intent.kind === 'fit_in_place') { Object.assign(state.find, { state: intent.st, mode: 'profile', sort: 'fit', q: '', soap: false }); nav('find'); return; }
+  if (intent.kind === 'fit_in_place') { Object.assign(state.find, { state: intent.st, mode: hasUsableProfile() ? 'profile' : 'criteria', sort: hasUsableProfile() ? 'fit' : 'name', q: '', soap: false }); nav('find'); if (!hasUsableProfile()) toast('Showing neutral program evidence. Complete your profile to personalize results.'); return; }
 }
 function lookupBind(inputSel, acSel, origin) {
   const input = $(inputSel), ac = $(acSel);
@@ -629,7 +640,9 @@ function viewHome() {
   const prof = D.profile;
   const savedArr = [...state.saved.keys()].map(id => byId.get(id)).filter(Boolean);
   const soapCount = D.programs.filter(p => p.soap.length).length;
-  const tries = ['Which New York programs fit me?', 'Show programs with published visa evidence', 'Programs with verified SOAP history'];
+  const tries = hasUsableProfile()
+    ? ['Which New York programs fit me?', 'Show programs with published visa evidence', 'Programs with verified SOAP history']
+    : ['Neurology programs in Texas', 'Show programs with published visa evidence', 'Programs with verified SOAP history'];
   return `<div class="view" data-view="home">
     <section class="homeHero">
       <h1 class="greet">${greeting()}, <em>${esc(prof.name)}</em>.</h1>
@@ -645,7 +658,7 @@ function viewHome() {
       <div class="tryRow"><span class="tryLbl">Try asking</span>${tries.map(t => `<button class="tryChip" onclick="$('#heroInput').value='${t.replace(/'/g, "\\'")}';$('#heroInput').dispatchEvent(new Event('input'));$('#heroInput').focus()">${t}</button>`).join('')}</div>
     </section>
     <div class="homeGrid">
-      <section class="panel" aria-label="Your fit">
+      ${hasUsableProfile() ? `<section class="panel" aria-label="Your fit">
         <div class="pHead"><h2 class="h2">Your <em>fit</em></h2><button class="pMore" onclick="Object.assign(state.find,{mode:'profile',sort:'fit'});nav('find')">See all in Find Programs ▸</button></div>
         <div class="pBody">
           <div class="tierHead"><span class="tierChip gold">Gold Fit</span><span class="tierCount">${gold.length}</span></div>
@@ -661,7 +674,10 @@ function viewHome() {
           </div>
         </div>
         <div class="fitLegend">${FIT_LEGEND}</div>
-      </section>
+      </section>` : `<section class="panel profileHomePanel" aria-label="Personalized program matching">
+        <div class="pHead"><h2 class="h2">Make RISE <em>personal</em></h2><button class="pMore" onclick="location.assign('/member-dashboard/#profile')">Complete profile ▸</button></div>
+        <div class="pBody"><div class="profileHomeHero"><span class="profileHomeIcon">✦</span><h3>Unlock personalized program matching</h3><p>RISE is currently showing neutral program evidence—never a made-up fit. Complete your specialty plus essential score, timing, visa, USCE, and school details to see explainable signals for every program.</p><button class="fAct pri" onclick="location.assign('/member-dashboard/#profile')">Complete my profile</button></div><div class="profileBenefitGrid"><span>Score & timing</span><span>YOG & USCE</span><span>Visa routes</span><span>Geography</span><span>Resident-school links</span><span>Your priorities</span></div></div>
+      </section>`}
       <div>
         <section class="panel" aria-label="My programs" style="margin-bottom:20px">
           <div class="pHead"><h2 class="h2">My <em>programs</em></h2><button class="pMore" onclick="nav('my')">All ▸</button></div>
@@ -714,7 +730,7 @@ function matchingPrograms(f = state.find) {
   let list = D.programs.slice();
   if (f.q) { const hits = new Set(searchPrograms(f.q).map(p => p.id)); list = list.filter(p => hits.has(p.id)); }
   if (f.state) list = list.filter(p => p.state === f.state);
-  if (f.specialty) list = list.filter(p => (p.browseMemberships || []).some(m => m.browseSpecialty === f.specialty));
+  if (f.specialty) list = list.filter(p => p.specName === f.specialty || (p.browseMemberships || []).some(m => m.browseSpecialty === f.specialty && m.relationship === 'EXACT_DESIGNATION'));
   if (f.residentSchool) {
     const school = f.residentSchool.trim().toLocaleLowerCase('en-US');
     list = list.filter(p => (p.searchTerms || []).some(term => term.toLocaleLowerCase('en-US').includes(school)));
@@ -733,7 +749,9 @@ function matchingPrograms(f = state.find) {
   if (f.caribbeanEv) list = list.filter(p => p.filterIntelligence.residentEvidence.caribbean);
   if (f.usmdEv) list = list.filter(p => p.filterIntelligence.residentEvidence.usmd);
   if (f.step1Policy) list = list.filter(p => f.step1Policy === 'required' ? p.application?.exams?.step1Required === true : p.application?.exams?.step1Required !== true);
+  if (f.step1FailureMode) list = list.filter(p => f.step1FailureMode === 'first_attempt' ? p.application?.exams?.step1FirstAttemptRequired : p.application?.exams?.step1FailureAllowed);
   if (f.step2Minimum) list = list.filter(p => p.application?.exams?.step2Minimum !== null && p.application.exams.step2Minimum <= Number(f.step2Minimum));
+  if (f.step2TimingMode) list = list.filter(p => f.step2TimingMode === 'pending_friendly' ? p.application?.exams?.step2PendingFriendly : p.application?.exams?.step2RequiredWithApplication);
   if (f.comlex2) list = list.filter(p => p.application?.exams?.comlexLevel2Accepted === true);
   if (f.attemptsMaximum) list = list.filter(p => p.application?.exams?.maxAttempts !== null && p.application.exams.maxAttempts >= Number(f.attemptsMaximum));
   if (f.yogWindow) list = list.filter(p => p.application?.yog?.noPublishedCutoff || (p.application?.yog?.years !== null && p.application.yog.years >= Number(f.yogWindow)));
@@ -748,6 +766,7 @@ function matchingPrograms(f = state.find) {
 }
 function filteredPrograms() {
   const f = state.find;
+  if (!hasUsableProfile() && f.sort === 'fit') f.sort = 'name';
   const list = matchingPrograms(f);
   const cmp = {
     fit: (a, b) => fitRank(a) - fitRank(b) || a.name.localeCompare(b.name),
@@ -787,7 +806,9 @@ function activePills() {
   if (f.caribbeanEv) pills.push({ k: 'caribbeanEv', label: 'Caribbean graduate roster evidence' });
   if (f.usmdEv) pills.push({ k: 'usmdEv', label: 'US MD resident / graduate evidence' });
   if (f.step1Policy) pills.push({ k: 'step1Policy', label: f.step1Policy === 'required' ? 'Step 1 required' : 'No published Step 1 exclusion' });
+  if (f.step1FailureMode) pills.push({ k: 'step1FailureMode', label: f.step1FailureMode === 'first_attempt' ? 'Step 1 first-attempt policy' : 'Prior Step 1 failure allowed' });
   if (f.step2Minimum) pills.push({ k: 'step2Minimum', label: `Published Step 2 minimum ≤ ${f.step2Minimum}` });
+  if (f.step2TimingMode) pills.push({ k: 'step2TimingMode', label: f.step2TimingMode === 'pending_friendly' ? 'Step 2 score may arrive later' : 'Step 2 required with application' });
   if (f.comlex2) pills.push({ k: 'comlex2', label: 'COMLEX Level 2 accepted' });
   if (f.attemptsMaximum) pills.push({ k: 'attemptsMaximum', label: `Published policy accommodates ${f.attemptsMaximum} attempt${Number(f.attemptsMaximum) === 1 ? '' : 's'}` });
   if (f.yogWindow) pills.push({ k: 'yogWindow', label: `YOG window ≥ ${f.yogWindow} years or no published cutoff` });
@@ -805,11 +826,11 @@ window.dropPill = k => {
   if (k === 'q') f.q = ''; if (k === 'specialty') f.specialty = ''; if (k === 'state') f.state = ''; if (k === 'residentSchool') f.residentSchool = ''; if (k === 'soap') { f.soap = false; f.soapTrack = ''; }
   if (k === 'abim') f.abim = false; if (k === 'depth') f.depth = ''; if (k === 'visaMode') f.visaMode = '';
   if (k === 'imgEv') f.imgEv = false; if (k === 'doEv') f.doEv = false; if (k === 'caribbeanEv') f.caribbeanEv = false; if (k === 'usmdEv') f.usmdEv = false; if (k === 'fresh') f.fresh = '';
-  if (['step1Policy','step2Minimum','attemptsMaximum','yogWindow','usceMode','minImgPct','minDoPct'].includes(k)) f[k] = '';
+  if (['step1Policy','step1FailureMode','step2Minimum','step2TimingMode','attemptsMaximum','yogWindow','usceMode','minImgPct','minDoPct'].includes(k)) f[k] = '';
   if (['comlex2','sameSchool','sameCountry','fellowships'].includes(k)) f[k] = false;
   state.find.shown = 50; rerender();
 };
-window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step2Minimum: '', comlex2: false, attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, shown: 50 }); rerender(); };
+window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, shown: 50 }); rerender(); };
 
 function sigIMG(p, f) {
   if (p.filterIntelligence.residentEvidence.img) return `<span class="sig" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not admissions policy."><b>IMG ✓</b><span style="color:var(--dim)"> ${esc(p.intelligence.imgGraduatesPercent || 'reported')}</span></span>`;
@@ -836,27 +857,38 @@ function researchDepthChip(p) {
 }
 
 function filterMatchEvidence(p) {
-  const chips = [researchDepthChip(p)];
-  const evidence = p.filterIntelligence.residentEvidence;
-  if ((state.find.imgEv || evidence.img) && evidence.img) chips.push(`<span class="evidenceChip">IMG resident/graduate evidence${p.intelligence.imgGraduatesPercent ? ` · ${esc(p.intelligence.imgGraduatesPercent)}` : ''}</span>`);
-  if ((state.find.doEv || evidence.do) && evidence.do) chips.push(`<span class="evidenceChip">DO resident/graduate evidence${p.intelligence.doGraduatesPercent ? ` · ${esc(p.intelligence.doGraduatesPercent)}` : ''}</span>`);
-  if ((state.find.usmdEv || evidence.usmd) && evidence.usmd) chips.push(`<span class="evidenceChip">US MD resident/graduate evidence${p.intelligence.usmdGraduatesPercent ? ` · ${esc(p.intelligence.usmdGraduatesPercent)}` : ''}</span>`);
-  if (state.find.caribbeanEv && evidence.caribbean) chips.push('<span class="evidenceChip">Caribbean roster evidence</span>');
-  return `<span class="matchReasons">${chips.join('')}</span>`;
+  const reasons = [];
+  if (state.find.imgEv) reasons.push('IMG roster evidence');
+  if (state.find.doEv) reasons.push('DO roster evidence');
+  if (state.find.caribbeanEv) reasons.push('Caribbean roster evidence');
+  if (state.find.usmdEv) reasons.push('US MD roster evidence');
+  if (state.find.visaMode) reasons.push({ j1:'J-1 sponsorship evidence', h1b:'H-1B sponsorship evidence', either:'published visa route', any:'visa evidence' }[state.find.visaMode]);
+  if (state.find.depth) reasons.push(`${state.find.depth === 'deep' ? 'Deep' : state.find.depth === 'enriched' ? 'Enriched' : state.find.depth === 'basic' ? 'Basic' : 'Pending'} research`);
+  return reasons.length ? `<span class="decisionMatchLine"><b>Why it matched</b>${esc(reasons.join(' · '))}</span>` : '';
 }
 
 function applicationIndicator(p, key) {
   const a = p.application || {};
   const depth = { deep: 'Deep Research', enriched: 'Enriched Research', basic: 'Basic Profile', pending: 'Research Pending' }[p.filterIntelligence.researchDepth] || 'Research Pending';
-  if (key === 'visa') return ['Visa', a.visa?.j1 || a.visa?.h1b ? [a.visa.j1 ? 'J-1' : '', a.visa.h1b ? 'H-1B' : ''].filter(Boolean).join(' · ') + ' published' : (a.visa?.summary || 'Not yet researched')];
-  if (key === 'exams') return ['Exams', a.exams?.step2Minimum != null ? `Step 2 minimum ${a.exams.step2Minimum}` : a.exams?.comlexLevel2Accepted ? 'COMLEX Level 2 accepted' : 'No numeric cutoff published'];
+  const compact = (value, fallback) => {
+    const text = String(value || fallback || '').replace(/\s+/g, ' ').trim();
+    return text.length > 92 ? `${text.slice(0, 89).trimEnd()}…` : text;
+  };
+  if (key === 'step1') return ['Step 1 / Level 1', a.exams?.step1FirstAttemptRequired ? 'First attempt required' : a.exams?.step1FailureAllowed ? 'Prior failure allowed' : compact(a.exams?.step1Policy, domainStateSummary(p, 'step1_policy', 'Policy not yet researched'))];
+  if (key === 'step2' || key === 'exams') return ['Step 2 / Level 2', a.exams?.step2Minimum != null ? `${a.exams.step2Minimum} minimum` : a.exams?.comlexLevel2Accepted ? 'COMLEX Level 2 accepted' : domainStateSummary(p, 'step2_requirement', 'No published minimum')];
+  if (key === 'timing') return ['Score timing', a.exams?.step2PendingFriendly ? 'Score can arrive later' : a.exams?.step2RequiredWithApplication ? 'Required with application' : compact(a.exams?.step2Timing, domainStateSummary(p, 'step2_timing', 'Timing not published'))];
+  if (key === 'visa') return ['Visa', a.visa?.j1 || a.visa?.h1b ? [a.visa.j1 ? 'J-1 ✓' : '', a.visa.h1b ? 'H-1B ✓' : ''].filter(Boolean).join(' · ') : domainStateSummary(p, 'visa', a.visa?.summary || 'Policy not yet researched')];
   if (key === 'yog') return ['YOG', a.yog?.noPublishedCutoff ? 'No published cutoff' : a.yog?.years != null ? `${a.yog.years}-year window` : 'Not published'];
   if (key === 'usce') return ['USCE', a.usce?.required ? 'Required' : a.usce?.recommended ? 'Recommended' : a.usce?.published ? 'Published policy' : 'Not published'];
   if (key === 'composition') {
-    const img = a.roster?.composition?.IMG_NON_CARIBBEAN?.percent ?? a.roster?.registryComposition?.img;
-    const value = img != null ? `IMG ${img}%` : a.roster?.total ? `${a.roster.total} roster entries` : 'Not yet classified';
+    const pieces = [['US MD','US_MD'],['DO','US_DO'],['IMG','IMG_NON_CARIBBEAN'],['Carib','CARIBBEAN']].map(([label,category]) => {
+      const value = a.roster?.composition?.[category]?.percent;
+      return value != null ? `${label} ${value}%` : '';
+    }).filter(Boolean);
+    const value = pieces.length ? pieces.join(' · ') : a.roster?.total ? `${a.roster.total} residents identified` : domainStateSummary(p, 'resident_roster', 'Roster not yet researched');
     return ['Residents', value];
   }
+  if (key === 'signals') return ['Resident schools', hasUsableProfile() && (a.roster?.sameSchoolCount || a.roster?.sameCountryCount) ? [a.roster.sameSchoolCount ? `${a.roster.sameSchoolCount} from your school` : '', a.roster.sameCountryCount ? `${a.roster.sameCountryCount} same-country` : ''].filter(Boolean).join(' · ') : a.roster?.schoolIdentified ? `${a.roster.schoolIdentified} schools identified` : domainStateSummary(p, 'resident_medical_schools', 'Schools not yet researched')];
   if (key === 'research_depth') return ['Research', depth];
   if (key === 'attempts') return ['Attempts', a.exams?.maxAttempts != null ? `Published max ${a.exams.maxAttempts}` : 'Not published'];
   if (key === 'same_school') return ['Your school', a.roster?.sameSchoolCount ? `${a.roster.sameSchoolCount} roster match${a.roster.sameSchoolCount === 1 ? '' : 'es'}` : 'No supported match'];
@@ -867,8 +899,8 @@ function applicationIndicator(p, key) {
 }
 
 function applicationCardSnapshot(p, limit = 6) {
-  const fields = (state.applicationPreferences.cardFields || []).slice(0, limit);
-  return `<span class="applicationMiniGrid">${fields.map(key => { const [label, value] = applicationIndicator(p, key); return `<span><b>${esc(label)}</b>${esc(value)}</span>`; }).join('')}</span>`;
+  const fields = ['step2', 'timing', 'visa', 'composition', 'signals', 'research_depth'].slice(0, limit);
+  return `<span class="applicationDecisionGrid">${fields.map(key => { const [label, value] = applicationIndicator(p, key); return `<span><b>${esc(label)}</b><strong>${esc(value)}</strong></span>`; }).join('')}</span>`;
 }
 
 function applicationMatchReasons(p) {
@@ -881,7 +913,7 @@ function applicationMatchReasons(p) {
 
 function programRow(p, origin) {
   const f = computeFit(p);
-  const showFit = state.find.mode !== 'criteria' || origin !== 'find';
+  const showFit = hasUsableProfile() && state.find.mode === 'profile';
   return `<div class="pRow" role="button" tabindex="0" style="--tierHue:${tierHue(f.tier)}" data-open="${p.id}" data-origin="${origin}">
     <button class="starBtn ${state.saved.has(p.id) ? 'on' : ''}" aria-pressed="${state.saved.has(p.id)}" aria-label="Save ${esc(p.name)}" onclick="toggleSave('${p.id}',event)">★</button>
     <span class="specTag">${p.spec}</span>
@@ -894,7 +926,6 @@ function programRow(p, origin) {
       ${showFit ? `<span class="rFit">${tierChip(p, f)}<span>${esc(f.line)}</span></span>` : ''}
     </span>
     <span class="rMeta">
-      ${sigIMG(p, f)}${sigVisa(p)}${sigSOAP(p)}
       ${freshPill(p)}
       <button class="rowBtn" onclick="event.stopPropagation();toggleCompare('${p.id}')">${state.compare.includes(p.id) ? '✓ Comparing' : '⊞ Compare'}</button>
       <button class="rowBtn pri" onclick="event.stopPropagation();openProgram('${p.id}','overview','${origin}')">Open File</button>
@@ -904,14 +935,14 @@ function programRow(p, origin) {
 function programCard(p, origin) {
   const f = computeFit(p);
   return `<div class="pCard" role="button" tabindex="0" style="--tierHue:${tierHue(f.tier) === 'transparent' ? 'var(--edge2)' : tierHue(f.tier)}" data-open="${p.id}" data-origin="${origin}">
-    <span class="cTop"><span class="specTag">${p.spec}</span>${tierChip(p, f)}${p.demo ? '<span class="demoTag">Demo</span>' : ''}
+    <span class="cTop"><span class="specTag">${p.spec}</span>${hasUsableProfile() && state.find.mode === 'profile' ? tierChip(p, f) : ''}${p.demo ? '<span class="demoTag">Demo</span>' : ''}
       <button class="starBtn ${state.saved.has(p.id) ? 'on' : ''}" aria-pressed="${state.saved.has(p.id)}" aria-label="Save ${esc(p.name)}" onclick="toggleSave('${p.id}',event)">★</button></span>
     <span class="cName">${esc(p.name)}</span>
     <span class="cSub">${esc(p.inst)}<br>${esc(p.city)}, ${p.state}</span>
     ${filterMatchEvidence(p)}
     ${applicationCardSnapshot(p)}
     ${applicationMatchReasons(p)}
-    <span class="cFoot">${sigIMG(p, f)}${sigVisa(p)}${sigSOAP(p)}${freshPill(p)}</span>
+    <span class="cFoot">${sigSOAP(p)}${freshPill(p)}</span>
   </div>`;
 }
 
@@ -933,9 +964,9 @@ function viewFind() {
       <button type="submit" class="rowBtn pri">Search</button>
     </form>
     <div class="modeSeg" role="radiogroup" aria-label="Search mode">
-      ${[['criteria', 'Set criteria'], ['profile', 'Use my profile'], ['cv', 'Use my CV']].map(([k, l]) => `<button role="radio" aria-checked="${f.mode === k}" class="${f.mode === k ? 'on' : ''}" onclick="setMode('${k}')">${l}</button>`).join('')}
+      ${[['criteria', 'Set criteria'], ['profile', 'Use my profile'], ['cv', 'Use my CV']].map(([k, l]) => `<button role="radio" aria-checked="${f.mode === k}" class="${f.mode === k ? 'on' : ''}" ${k === 'profile' && !hasUsableProfile() ? 'disabled title="Complete the essential Matrix profile fields to enable personalization"' : `onclick="setMode('${k}')"`}>${l}</button>`).join('')}
     </div>
-    ${f.mode === 'profile' ? `<div class="profileIntelligenceCallout"><div><b>${state.applicationPreferences.personalizationEnabled ? 'Personalized application intelligence is on' : 'Personalized application intelligence is off'}</b><span>${D.profile.available ? 'RISE compares only supported published program facts with your canonical Matrix profile. It does not calculate match probability.' : 'Matrix is unavailable, so RISE is showing evidence without personalized conclusions.'}</span></div><div><button class="rowBtn" onclick="setApplicationPersonalization(${!state.applicationPreferences.personalizationEnabled})">Turn ${state.applicationPreferences.personalizationEnabled ? 'off' : 'on'}</button><button class="rowBtn pri" onclick="openApplicationPreferences()">Customize cards</button></div></div>` : ''}
+    ${!hasUsableProfile() ? profileUnlockCallout() : f.mode === 'profile' ? `<div class="profileIntelligenceCallout"><div><b>${state.applicationPreferences.personalizationEnabled ? 'Personalized application intelligence is on' : 'Personalized application intelligence is off'}</b><span>RISE compares supported program facts with your Matrix profile and explains every signal. It never predicts your match odds.</span></div><div><button class="rowBtn" onclick="setApplicationPersonalization(${!state.applicationPreferences.personalizationEnabled})">Turn ${state.applicationPreferences.personalizationEnabled ? 'off' : 'on'}</button><button class="rowBtn pri" onclick="openApplicationPreferences()">Customize cards</button></div></div>` : ''}
     ${soapSeg}
     <div class="filterRow">
       <select class="fSel" aria-label="Specialty" onchange="state.find.specialty=this.value;state.find.shown=50;rerender()">
@@ -950,7 +981,7 @@ function viewFind() {
     ${pills.length ? `<div class="pillRow">${pills.map(p => `<span class="pill">${esc(p.label)}<button class="x" aria-label="Remove filter ${esc(p.label)}" onclick="dropPill('${p.k}')">✕</button></span>`).join('')}</div>` : ''}
     <div class="listBar">
       <select class="fSel" aria-label="Sort" onchange="state.find.sort=this.value;rerender()">
-        ${[['fit', 'Sort: Best fit for me'], ['name', 'Sort: Program name A–Z'], ['state', 'Sort: State'], ['abim', 'Sort: ABIM pass rate (verified)'], ['updated', 'Sort: Recently updated'], ['soap', 'Sort: SOAP history']].map(([k, l]) => `<option value="${k}" ${f.sort === k ? 'selected' : ''}>${l}</option>`).join('')}
+        ${(hasUsableProfile() ? [['fit', 'Sort: Best fit for me']] : []).concat([['name', 'Sort: Program name A–Z'], ['state', 'Sort: State'], ['abim', 'Sort: ABIM pass rate (verified)'], ['updated', 'Sort: Recently updated'], ['soap', 'Sort: SOAP history']]).map(([k, l]) => `<option value="${k}" ${f.sort === k ? 'selected' : ''}>${l}</option>`).join('')}
       </select>
       <span class="countNote">Showing ${shown.length} of ${list.length}</span>
       <div class="viewToggle" role="radiogroup" aria-label="View">
@@ -981,8 +1012,11 @@ window.queueFindSearch = input => {
   }, 180);
 };
 window.setMode = k => {
+  if (k === 'profile' && !hasUsableProfile()) { toast('Complete your essential Matrix profile fields to enable personalized program matching.'); return; }
   state.find.mode = k;
-  if (k === 'cv') { cvSheet(); state.find.mode = 'profile'; return; }
+  if (k === 'cv') { cvSheet(); state.find.mode = hasUsableProfile() ? 'profile' : 'criteria'; return; }
+  if (k === 'profile') state.find.sort = 'fit';
+  if (k === 'criteria' && state.find.sort === 'fit') state.find.sort = 'name';
   rerender();
 };
 function bindFind() {
@@ -1102,7 +1136,7 @@ function viewMy() {
         <button class="starBtn on" aria-label="Remove ${esc(p.name)}" onclick="toggleSave('${p.id}',event)">★</button>
         <span class="specTag">${p.spec}</span>
         <span class="rMain"><span class="rTitleLine"><span class="rName">${esc(p.name)}</span>${p.demo ? '<span class="demoTag">Demo</span>' : ''}</span>
-          <span class="rSub">${esc(p.city)}, ${p.state} · ${esc(f.line)}</span></span>
+          <span class="rSub">${esc(p.city)}, ${p.state} · ${hasUsableProfile() ? esc(f.line) : esc({deep:'Deep research complete',enriched:'Enriched research available',basic:'Basic program profile',pending:'More research needed'}[p.filterIntelligence.researchDepth] || 'More research needed')}</span></span>
         <span class="rMeta">
           ${tierChip(p, f)}
           <button class="rowBtn" onclick="cycleMyState('${p.id}',event)" title="Click to advance">${rec.state.toLowerCase()}</button>
@@ -1170,7 +1204,7 @@ window.openCompare = () => {
   if (ps.length < 2) { toast(ps.length ? 'One selected — add at least one more program' : 'Nothing to compare yet'); return; }
   const anyUnknown = row => row.some(v => /Not published|unknown|pending/i.test(v));
   const rows = [
-    ['Fit', ps.map(p => { const f = computeFit(p); return (f.tier ? (f.tier === 'gold' ? 'Gold Fit' : 'Silver Fit') + (f.rep ? ' (rep.)' : '') + ' · ' : '') + f.line; })],
+    [hasUsableProfile() ? 'What this means for you' : 'Research status', ps.map(p => hasUsableProfile() ? computeFit(p).line : ({deep:'Deep research complete',enriched:'Enriched research available',basic:'Basic program profile',pending:'More research needed'}[p.filterIntelligence.researchDepth] || 'More research needed'))],
     ['Published requirements', ps.map(p => p.rich && p.rich.requirements ? `${p.rich.requirements.filter(r => /REQUIREMENT/.test(r.pub)).length} published · ${p.rich.requirements.filter(r => r.state === 'unknown').length} not published` : 'Not yet verified by RISE')],
     ['Visa', ps.map(p => p.rich && p.rich.visa ? p.rich.visa.filter(v => /J-1|H-1B/.test(v.c)).map(v => `${v.c}: ${v.state === 'meets' ? 'published' : 'listed, sponsorship not published'}`).join(' · ') : 'Not published')],
     ['IMG / DO evidence', ps.map(p => p.rich && p.rich.roster ? 'IMG, US-DO and Caribbean examples on official records; % gated by denominator' : 'Roster not yet researched')],
@@ -1187,7 +1221,7 @@ window.openCompare = () => {
       <tr><th>Signal</th>${ps.map(p => `<th>${esc(p.name)}${p.demo ? ' <span class="demoTag">Demo</span>' : ''}</th>`).join('')}</tr>
       ${rows.map(([label, vals]) => `<tr><td><b>${label}</b></td>${vals.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}
     </table></div>
-    <div class="mFoot">No “leads” crown is shown when any compared program has Not-published rows (4004 law). ${FIT_LEGEND}</div>
+    <div class="mFoot">Unknown or unpublished information is shown honestly and never treated as acceptance.${hasUsableProfile() ? ` ${FIT_LEGEND}` : ' Complete your profile to add personalized comparisons.'}</div>
     <div class="mActs"><button class="mBtn sec" onclick="state.compare=[];closeModal();renderShell();toast('Compare cleared')">Clear compare</button>
     <button class="mBtn sec" onclick="closeModal()">Close</button></div>`);
 };
@@ -1195,14 +1229,15 @@ window.openCompare = () => {
 /* ---------- RANK LIST ---------- */
 function viewRank() {
   const items = [...state.saved.entries()].map(([id, rec]) => ({ p: byId.get(id), rec })).filter(x => x.p);
+  const personalized = hasUsableProfile();
   return `<div class="view" data-view="rank">
     <p class="eyebrow">Rank List <span style="color:var(--vi)">· powered by RankList IQ</span></p>
     <h1 class="h1">RankList <em>IQ</em></h1>
-    <p class="sub" style="max-width:680px;margin:8px 0 20px">RankList IQ transforms your saved programs, fit tiers, and verified evidence into a data-informed priority order — presented as its own column alongside your personal rankings, never replacing your judgment.</p>
+    <p class="sub" style="max-width:680px;margin:8px 0 20px">RankList IQ helps you organize saved programs using the evidence you can see in RISE and the priorities you choose. It supports your judgment; it never replaces it.</p>
     <div class="covBanner" style="border-color:rgba(var(--accentGlow),.35);background:rgba(var(--accentGlow),.06)">Activates during Interview Season &bull; October 2026</div>
     ${items.length ? `<div class="tblWrap"><table class="tbl"><caption>Your saved programs — RankList IQ will use these when it activates</caption>
-      <tr><th>#</th><th>Program</th><th>Fit</th><th>State</th><th>RankList IQ priority</th></tr>
-      ${items.map(({ p, rec }, i) => { const f = computeFit(p); return `<tr><td>${i + 1}</td><td><b>${esc(p.name)}</b><br><span style="color:var(--dim);font-size:14px">${esc(p.city)}, ${p.state}</span></td><td>${f.tier ? (f.tier === 'gold' ? 'Gold Fit' : 'Silver Fit') : '—'} · ${esc(f.line)}</td><td>${rec.state.toLowerCase()}</td><td style="color:var(--dim)">October 2026</td></tr>`; }).join('')}
+      <tr><th>#</th><th>Program</th><th>${personalized ? 'What this means for you' : 'Research status'}</th><th>State</th><th>RankList IQ priority</th></tr>
+      ${items.map(({ p, rec }, i) => { const value = personalized ? computeFit(p).line : ({deep:'Deep research complete',enriched:'Enriched research available',basic:'Basic program profile',pending:'More research needed'}[p.filterIntelligence.researchDepth] || 'More research needed'); return `<tr><td>${i + 1}</td><td><b>${esc(p.name)}</b><br><span style="color:var(--dim);font-size:14px">${esc(p.city)}, ${p.state}</span></td><td>${esc(value)}</td><td>${rec.state.toLowerCase()}</td><td style="color:var(--dim)">October 2026</td></tr>`; }).join('')}
     </table></div>` : `<div class="emptyLib"><div class="big">No programs to rank yet.</div>Save programs first — the ★ on any row.</div>`}
   </div>`;
 }
@@ -1213,9 +1248,9 @@ function viewProfile() {
   return `<div class="view" data-view="profile">
     <p class="eyebrow">My Profile · shared with Matrix</p>
     <h1 class="h1">Your <em>profile</em></h1>
-    <p class="sub" style="max-width:680px;margin:8px 0 18px">This is your canonical Matrix profile rendered in RISE — there is no separate RISE profile truth. Approved edits write through the server adapter and are re-read from Matrix.</p>
-    <div class="covBanner">${prof.available ? 'Canonical Matrix values only. No representative applicant facts are shown.' : 'Matrix profile integration is unavailable. RISE will not create or display a second profile truth.'}</div>
-    <div class="profileIntelligenceCallout"><div><b>Personalized application intelligence</b><span>${state.applicationPreferences.personalizationEnabled ? 'On — blocker, caution, positive, and unknown signals use supported facts only.' : 'Off — RISE will show program evidence without profile-based conclusions.'}</span></div><div><button class="rowBtn" onclick="setApplicationPersonalization(${!state.applicationPreferences.personalizationEnabled})">Turn ${state.applicationPreferences.personalizationEnabled ? 'off' : 'on'}</button><button class="rowBtn pri" onclick="openApplicationPreferences()">Set my priorities</button></div></div>
+    <p class="sub" style="max-width:680px;margin:8px 0 18px">Your MissionMed profile powers explainable program comparisons across RISE. Update it once in Matrix and your program guidance stays consistent.</p>
+    <div class="covBanner">${prof.available ? 'Only the profile details you supplied are used for personalized guidance.' : 'Your profile is temporarily unavailable. RISE remains in neutral browsing mode.'}</div>
+    ${hasUsableProfile() ? `<div class="profileIntelligenceCallout"><div><b>Personalized application intelligence</b><span>${state.applicationPreferences.personalizationEnabled ? 'On — blocker, caution, positive, and unknown signals use supported facts only.' : 'Off — RISE will show program evidence without profile-based conclusions.'}</span></div><div><button class="rowBtn" onclick="setApplicationPersonalization(${!state.applicationPreferences.personalizationEnabled})">Turn ${state.applicationPreferences.personalizationEnabled ? 'off' : 'on'}</button><button class="rowBtn pri" onclick="openApplicationPreferences()">Set my priorities</button></div></div>` : profileUnlockCallout()}
     <div class="homeGrid">
       <section class="panel"><div class="pHead"><h2 class="h2">Applicant <em>facts</em></h2>${prof.available ? '<button class="pMore" onclick="editMatrixProfile()">Update ▸</button>' : ''}</div>
         <div class="pBody">${prof.facts.map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`).join('')}
@@ -1227,7 +1262,7 @@ function viewProfile() {
         </section>
         <section class="panel"><div class="pHead"><h2 class="h2">Use it</h2></div>
           <div class="pBody" style="display:flex;flex-direction:column;gap:10px">
-            <button class="fAct pri" onclick="Object.assign(state.find,{mode:'profile',sort:'fit'});nav('find')">Use my profile to find programs</button>
+            <button class="fAct pri" ${hasUsableProfile() ? `onclick="Object.assign(state.find,{mode:'profile',sort:'fit'});nav('find')"` : `onclick="location.assign('/member-dashboard/#profile')"`}>${hasUsableProfile() ? 'Use my profile to find programs' : 'Complete essential profile fields'}</button>
             <button class="fAct" onclick="cvSheet()">Use my CV instead</button>
           </div>
         </section>
@@ -1283,7 +1318,9 @@ window.openFilterDrawer = () => {
     <div class="fGroup"><div class="fLbl">Exams & attempts</div>
       <button class="tgl ${f.comlex2 ? 'on' : ''}" onclick="state.find.comlex2=!state.find.comlex2;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>COMLEX Level 2 accepted<span class="cav">Supported published acceptance evidence.</span></span>${count({ comlex2: true })}</button>
       <label class="filterField">Step 1 policy<select class="fSel" onchange="state.find.step1Policy=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option><option value="required" ${f.step1Policy === 'required' ? 'selected' : ''}>Published as required</option><option value="not_required_or_unknown" ${f.step1Policy === 'not_required_or_unknown' ? 'selected' : ''}>No published exclusion</option></select></label>
-      <label class="filterField">Maximum published Step 2 minimum<input class="fSel" inputmode="numeric" type="number" min="180" max="300" value="${esc(f.step2Minimum)}" placeholder="e.g. 240" onchange="state.find.step2Minimum=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
+      <label class="filterField">Step 1 failure / attempts<select class="fSel" onchange="state.find.step1FailureMode=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option><option value="first_attempt" ${f.step1FailureMode === 'first_attempt' ? 'selected' : ''}>Explicit first-attempt requirement</option><option value="failure_allowed" ${f.step1FailureMode === 'failure_allowed' ? 'selected' : ''}>Prior failure explicitly allowed</option></select></label>
+      <label class="filterField">Maximum published Step 2 minimum<select class="fSel" onchange="state.find.step2Minimum=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published minimum</option>${[220,230,240].map(score => `<option value="${score}" ${String(f.step2Minimum) === String(score) ? 'selected' : ''}>${score} or lower</option>`).join('')}</select></label>
+      <label class="filterField">Step 2 timing<select class="fSel" onchange="state.find.step2TimingMode=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any researched timing</option><option value="pending_friendly" ${f.step2TimingMode === 'pending_friendly' ? 'selected' : ''}>Score can arrive after initial application</option><option value="with_application" ${f.step2TimingMode === 'with_application' ? 'selected' : ''}>Required with application / initial review</option></select></label>
       <label class="filterField">My exam attempts<input class="fSel" inputmode="numeric" type="number" min="1" max="12" value="${esc(f.attemptsMaximum)}" placeholder="Published limit must accommodate" onchange="state.find.attemptsMaximum=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
     </div>
     <div class="fGroup"><div class="fLbl">Graduation & US clinical experience</div>
@@ -1365,7 +1402,7 @@ function closeFile(navigate = true) {
 window.closeFile = closeFile;
 window.setFileTab = (id, tab) => { history.replaceState(null, '', `#/program/${id}/${tab}`); state.fileTab = tab; const p = byId.get(id); $('#fileBody').innerHTML = fileTabBody(p, tab); $$('.tabStrip button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.setAttribute('aria-selected', b.dataset.tab === tab); }); };
 
-const TABS = [['overview', 'Overview'], ['fit', 'Fit'], ['residents', 'Residents'], ['people', 'People'], ['next', 'Fellowships & Outcomes'], ['details', 'Details']];
+const TABS = [['overview', 'At a Glance'], ['fit', 'Application Fit'], ['residents', 'Residents'], ['people', 'Leadership & Faculty'], ['next', 'Fellowships & Outcomes'], ['details', 'Sources & Details']];
 const lockedTab = t => !state.member && ['residents', 'people', 'next'].includes(t);
 
 function backLabel() { return state.fileFrom === 'my' ? '‹ Back to My Programs' : state.fileFrom === 'home' ? '‹ Home' : '‹ Back to results'; }
@@ -1395,10 +1432,10 @@ function renderFile(p) {
         <h1 class="fName" id="fileTitle">${esc(p.name)}</h1>
         <div class="fSub">${esc(p.inst)} · ${esc(p.city)}, ${p.state}${p.type ? ' · ' + esc(p.type) : ''}${p.positions ? ' · ' + esc(p.positions) : ''}</div>
         <div class="forYou">
-          <div class="fyLbl">For you</div>
-          ${f.known || f.tier ? `<div class="fyLine">${tierChip(p, f)}<span>${esc(f.line)}</span></div>
-          ${f.reasons.length ? `<div class="fyWhy">${esc(f.reasons.slice(0, 2).join(' · '))}</div>` : ''}` :
-      `<div class="fyLine"><span>${esc(f.line)}</span></div><div class="fyWhy">Requirements land in the Fit tab as research is verified.</div>`}
+          <div class="fyLbl">${hasUsableProfile() && state.find.mode === 'profile' ? 'For you' : 'Research status'}</div>
+          ${hasUsableProfile() && state.find.mode === 'profile' ? (f.known || f.tier ? `<div class="fyLine">${tierChip(p, f)}<span>${esc(f.line)}</span></div>
+          ${f.reasons.length ? `<div class="fyWhy">${esc(f.reasons.slice(0, 2).join(' · '))}</div>` : ''}` : `<div class="fyLine"><span>${esc(f.line)}</span></div>`) :
+      `<div class="fyLine"><span>${esc({deep:'Deep research complete',enriched:'Enriched research available',basic:'Basic program profile',pending:'More research needed'}[p.filterIntelligence.researchDepth] || 'More research needed')}</span></div><div class="fyWhy">No personalized recommendation is shown without a usable profile. <button class="inlineProfileCta" onclick="location.assign('/member-dashboard/#profile')">Complete profile</button></div>`}
         </div>
         <div class="sigLine"><span>${imgSig}</span><span>${visaSig}</span><span>${soap}</span></div>
       </div>
@@ -1513,6 +1550,22 @@ function publishedVisaSummary(p) {
 function pendingResearchField(p, field) {
   return (p.researchProjection?.pendingEvidence?.fields || []).find(item => item.field === field) || null;
 }
+function domainStatusRecord(p, domain) {
+  return (p.researchProjection?.domainStatuses || []).find(item => item.field === `research.domain.${domain}`) || null;
+}
+function domainStateSummary(p, domain, fallback = 'Not yet researched') {
+  const record = domainStatusRecord(p, domain);
+  const value = record?.value ?? record?.canonicalValue ?? record?.normalizedValue;
+  const stateValue = String(value?.state || '').toUpperCase();
+  const disposition = String(record?.disposition || '').toUpperCase();
+  const date = String(value?.retrievedDate || record?.retrievedAt || '').slice(0, 10);
+  if (stateValue === 'CONFLICT' || disposition === 'CONFLICT_REQUIRES_REVIEW') return 'Official sources conflict';
+  if (stateValue === 'STALE_NEEDS_REFRESH' || disposition === 'STALE_NEEDS_REFRESH') return 'Research needs refresh';
+  if (stateValue === 'RESEARCHED_NOT_PUBLIC' || disposition === 'RESEARCHED_NOT_FOUND') return `${date ? `Researched ${date} · ` : 'Researched · '}not publicly available`;
+  if (stateValue === 'VERIFIED' || disposition === 'APPROVED_CURRENT') return value?.summary || 'Verified';
+  if (record) return 'Evidence found · verification pending';
+  return fallback;
+}
 function researchStateText(p, field) {
   if (approvedResearchFact(p, field)) return 'Verified';
   const pending = pendingResearchField(p, field);
@@ -1547,6 +1600,8 @@ function projectedDomainStates(p) {
     const dossierKey = ({ identity:'identity_structure', requirements:'application_requirements', roster:'current_resident_roster', resident_schools:'resident_medical_schools', composition:'resident_composition', leadership:'program_leadership', faculty:'core_faculty', training_paths:'trained_here_retention', board:'board_pass_rate', fellowship:'in_house_fellowships', outcomes:'graduate_outcomes', salary:'salary_benefits', curriculum:'curriculum_training', scholarly:'research_scholarly', differentiators:'program_differentiators', culture:'culture_resident_experience', facilities:'facilities_patient_population' })[domain] || domain;
     const dossierState = p.researchProjection?.dossier?.completionMatrix?.[dossierKey]?.state;
     if (dossierState) return [domain, dossierState];
+    const directState = domainStatusRecord(p, dossierKey)?.value?.state;
+    if (directState) return [domain, directState];
     const researchFields = DOMAIN_RESEARCH_FIELDS[domain];
     if (researchFields.some(field => approvedResearchFact(p, field))) return [domain, 'VERIFIED'];
     if ((DOMAIN_REGISTRY_FIELDS[domain] || []).some(field => fieldValue(p, field) != null)) return [domain, 'VERIFIED_REGISTRY'];
@@ -1569,11 +1624,11 @@ function approvedResearchTable(p, fields, caption = 'Approved research evidence'
 }
 
 function unknownFooter(p, extra) {
-  const map = { NOT_PUBLICLY_FOUND: 'Not published by the program', NOT_RESEARCHED: 'Not yet researched', EVIDENCE_FOUND_NOT_VERIFIED: 'Evidence found · verification pending', VERIFIED_REGISTRY: 'Approved registry evidence', INTERNAL_CONTEXT_NOT_REVERIFIED: 'Not yet verified by RISE', NOT_PUBLICLY_FOUND_OR_NOT_EXHAUSTIVELY_VERIFIED: 'Not yet verified by RISE', ROSTER_COLLECTION_NOT_EXECUTED_PRIVACY_DECISION_NOT_MATERIALIZED: 'Held for privacy review', VERIFIED_PARTIAL_CURRENT_OFFICIAL: 'Partially verified', PARTIAL: 'Partially verified', DEMO: 'Representative demo' };
+  const map = { NOT_PUBLICLY_FOUND: 'Researched · not publicly available', RESEARCHED_NOT_PUBLIC: 'Researched · not publicly available', NOT_RESEARCHED: 'Not yet researched', NOT_YET_RESEARCHED: 'Not yet researched', CONFLICT: 'Official sources conflict', EVIDENCE_FOUND_NOT_VERIFIED: 'Evidence found · verification pending', VERIFIED_REGISTRY: 'Published program information', INTERNAL_CONTEXT_NOT_REVERIFIED: 'Verification pending', NOT_PUBLICLY_FOUND_OR_NOT_EXHAUSTIVELY_VERIFIED: 'Verification pending', ROSTER_COLLECTION_NOT_EXECUTED_PRIVACY_DECISION_NOT_MATERIALIZED: 'Unavailable due to access boundary', VERIFIED_PARTIAL_CURRENT_OFFICIAL: 'Partially verified', PARTIAL: 'Partially verified', DEMO: 'Representative demo' };
   const fams = Object.entries(p.domains || {}).filter(([k, v]) => !/^VERIFIED$/.test(v)).map(([k, v]) => `${k[0].toUpperCase() + k.slice(1)} — ${map[v] || v.toLowerCase().replace(/_/g, ' ')}`);
   const chips = (extra || []).concat(fams);
   if (!chips.length) return '';
-  return `<div class="unkFooter"><div class="lbl">Not yet in the file</div><div class="unkChips">${chips.slice(0, 10).map(c => `<span class="unkChip">${esc(c)}</span>`).join('')}</div>
+  return `<div class="unkFooter"><div class="lbl">Research & publication status</div><div class="unkChips">${chips.slice(0, 10).map(c => `<span class="unkChip">${esc(c)}</span>`).join('')}</div>
   ${state.role === 'admin' ? `<button class="rowBtn" style="margin-top:10px;color:var(--admin);border-color:rgba(127,163,255,.4)" onclick="closeFile();nav('admin/research');toast('Campaign scope pre-filled from this file’s gaps.')">⚗ Research this</button>` : ''}</div>`;
 }
 const srcBtnInline = (p, i) => `<button class="srcI" title="Open source" onclick="openSources('${p.id}',${i == null ? -1 : i})">ⓘ</button>`;
@@ -1587,12 +1642,12 @@ function lockBlock(what, summary, skel) {
 }
 
 function applicationIntelligenceSection(p) {
-  const keys = [...new Set([...(state.applicationPreferences.priorities || []), ...(state.applicationPreferences.cardFields || [])])].slice(0, 10);
+  const keys = ['step1', 'step2', 'timing', 'attempts', 'yog', 'usce', 'visa', 'composition', 'research_depth'];
   const groups = p.applicationMatch || { blockers: [], cautions: [], positives: [], unknowns: [] };
   const personalized = state.applicationPreferences.personalizationEnabled && state.find.mode === 'profile'
-    && D.profile.available && p.applicationMatch;
+    && hasUsableProfile() && p.applicationMatch;
   const groupCopy = { blockers: 'Known blockers', cautions: 'Cautions', positives: 'Positive signals', unknowns: 'Unknowns' };
-  return `<section class="applicationSnapshot"><div class="applicationSnapshotHead"><div><p class="eyebrow">Application intelligence</p><h2 class="h2">What matters <em>for your application</em></h2></div><button class="rowBtn" onclick="openApplicationPreferences()">Customize</button></div><div class="applicationSnapshotGrid">${keys.map(key => { const [label,value] = applicationIndicator(p,key); return `<div><span>${esc(label)}</span><b>${esc(value)}</b></div>`; }).join('')}</div>${personalized ? `<div class="applicationReasonGroups">${Object.entries(groupCopy).map(([key,label]) => `<section class="is-${key}"><h3>${label} <span>${groups[key]?.length || 0}</span></h3>${groups[key]?.length ? groups[key].slice(0,4).map(item => `<div><b>${esc(item.title)}</b><p>${esc(item.detail)}</p></div>`).join('') : '<p>None supported by current evidence.</p>'}</section>`).join('')}</div><div class="lawBanner">These are evidence-backed application signals, not a match probability. “Unknown” never means accepted.</div>` : `<div class="lawBanner">Personalized conclusions are off. Program evidence remains visible.</div>`}</section>`;
+  return `<section class="applicationSnapshot"><div class="applicationSnapshotHead"><div><p class="eyebrow">Application intelligence</p><h2 class="h2">Application <em>Snapshot</em></h2></div>${hasUsableProfile() ? '<button class="rowBtn" onclick="openApplicationPreferences()">Customize</button>' : ''}</div><div class="applicationSnapshotGrid">${keys.map(key => { const [label,value] = applicationIndicator(p,key); return `<div><span>${esc(label)}</span><b>${esc(value)}</b></div>`; }).join('')}</div>${personalized ? `<div class="applicationReasonGroups">${Object.entries(groupCopy).map(([key,label]) => `<section class="is-${key}"><h3>${label} <span>${groups[key]?.length || 0}</span></h3>${groups[key]?.length ? groups[key].slice(0,4).map(item => `<div><b>${esc(item.title)}</b><p>${esc(item.detail)}</p></div>`).join('') : '<p>None supported by current evidence.</p>'}</section>`).join('')}</div><div class="lawBanner">These are evidence-backed application signals, not a match probability. “Unknown” never means accepted.</div>` : `<div class="applicationSnapshotCta"><div><b>Program facts, without a forced recommendation</b><span>Complete your profile to add score, timing, YOG, USCE, visa, geography, and resident-school comparisons.</span></div><button class="rowBtn pri" onclick="location.assign('/member-dashboard/#profile')">Complete profile</button></div>`}</section>`;
 }
 
 function fileTabBody(p, tab) {
@@ -1616,8 +1671,8 @@ function whyProgramSection(p) {
   const supporting = [curriculum, culture, facilities].filter(Boolean);
   const cards = entries.length ? entries.map(item => `<article class="railCard whyEvidenceCard">
     <div class="rLbl">${esc(String(item.category || 'Program feature').replaceAll('_', ' '))}</div>
-    <h3>${esc(item.title || 'Verified program differentiator')}</h3>
-    <p>${esc(item.detail || '')}</p>
+    <h3>${esc(item.title || item.summary || 'Verified program differentiator')}</h3>
+    <p>${esc(item.detail || (item.title ? item.summary : '') || '')}</p>
     ${item.applicant_relevance ? `<div class="whyWhy">Why it may matter: ${esc(item.applicant_relevance)}</div>` : ''}
     <span>${item.source_url ? `<a href="${esc(item.source_url)}" target="_blank" rel="noopener">Official source ↗</a> · ` : ''}${esc(item.retrieved_at || differentiators.retrievedAt || 'Date not stated')}</span>
   </article>`).join('') : supporting.map(row => `<article class="railCard"><div class="rLbl">${esc(row.field.replace(/^research\./,'').replaceAll('_',' '))}</div><p>${esc(displayValue(row.canonicalValue ?? row.knowledge?.value))}</p><span>${esc(row.retrievedAt || 'Date not stated')}</span></article>`).join('');
@@ -1627,9 +1682,9 @@ function whyProgramSection(p) {
 function tabOverview(p, R) {
   if (!R) {
     return `${applicationIntelligenceSection(p)}<div class="fileGrid"><div>
-      <h2 class="h2" style="margin-bottom:8px">Approved program <em>profile</em></h2>
-      ${p.profileLoading ? '<p class="sub">Loading the full approved program profile…</p>' : p.profileError ? `<div class="lawBanner">${esc(p.profileError)}</div>` : registryTable(p, ['Program Best Described As', 'Program Length', 'First Year Positions', 'Residents Per Year', 'Total Residents', 'Application Deadline', 'Applicant Interview Format', 'Application Service'], 'Approved canonical registry facts')}
-      ${approvedResearchTable(p, ['research.curriculum', 'research.program_overview'], 'Approved current research')}
+      <h2 class="h2" style="margin-bottom:8px">Program <em>profile</em></h2>
+      ${p.profileLoading ? '<p class="sub">Loading the full program profile…</p>' : p.profileError ? `<div class="lawBanner">${esc(p.profileError)}</div>` : registryTable(p, ['Program Best Described As', 'Program Length', 'First Year Positions', 'Residents Per Year', 'Total Residents', 'Application Deadline', 'Applicant Interview Format', 'Application Service'], 'Published program information')}
+      ${approvedResearchTable(p, ['research.curriculum', 'research.program_overview'], 'Current program research')}
       ${whyProgramSection(p)}
       <div class="lawBanner"><b>Research status:</b> ${p.filterIntelligence.researchState === 'EVIDENCE_FOUND_VERIFICATION_PENDING' ? 'Additional evidence exists and is awaiting verification. Approved registry facts remain available now.' : 'Additional domain research has not yet been verified.'}</div>
       ${p.soap.length ? `<div class="lawBanner">SOAP ${p.soap[0].year}: ${p.soap.map(s => `${s.track} — ${s.positions} reported position${s.positions > 1 ? 's' : ''}`).join(' · ')}. Historical cycle evidence; no future availability or match-likelihood inference.</div>` : ''}
@@ -1667,7 +1722,10 @@ function tabOverview(p, R) {
 }
 function famFresh(v) {
   if (/^VERIFIED$/.test(v)) return `<span class="freshPill fp-ok"><i></i>Verified recently</span>`;
-  if (/^VERIFIED_REGISTRY$/.test(v)) return `<span class="freshPill fp-cycle"><i></i>Approved registry evidence</span>`;
+  if (/^VERIFIED_REGISTRY$/.test(v)) return `<span class="freshPill fp-cycle"><i></i>Published program information</span>`;
+  if (/RESEARCHED_NOT_PUBLIC|NOT_PUBLICLY_FOUND|RESEARCHED_NOT_FOUND/.test(v)) return `<span class="freshPill fp-cycle"><i></i>Researched · not publicly available</span>`;
+  if (/CONFLICT/.test(v)) return `<span style="color:var(--conflict);font-size:13.5px">Official sources conflict</span>`;
+  if (/STALE/.test(v)) return `<span class="freshPill fp-old"><i></i>Research needs refresh</span>`;
   if (/^EVIDENCE_FOUND_NOT_VERIFIED$/.test(v)) return `<span style="color:var(--check);font-size:13.5px">Evidence found · verification pending</span>`;
   if (/PRIOR_CYCLE/.test(v)) return `<span class="freshPill fp-old"><i></i>Prior cycle</span>`;
   if (/PARTIAL/.test(v)) return `<span class="freshPill fp-cycle"><i></i>Partially verified</span>`;
@@ -1962,8 +2020,9 @@ function embeddedSourceUrls(value) {
 window.openSources = (id, evidenceIdx) => {
   const p = byId.get(id); if (!p) return;
   const R = p.rich || {};
+  // Dossier discovery source: not asserted as direct support for every field.
   const canonicalSources = (p.canonical?.source?.urls || [p.url]).filter(Boolean).map(url => ({
-    t: 'Approved canonical registry source', pub: url, tier: 1, tierLabel: 'Official directory / approved',
+    t: 'Program information source', pub: url, tier: 1, tierLabel: 'Official directory',
     acc: p.canonical?.source?.retrievedAt || p.verified || 'not stated', cur: 'current', url,
   }));
   const directResearchSourceIndex = new Map();
@@ -1973,7 +2032,7 @@ window.openSources = (id, evidenceIdx) => {
     for (const url of embeddedSourceUrls(fact.canonicalValue ?? fact.knowledge?.value)) {
       const trust = sourceTrustPresentation(url, p.url);
       const row = directResearchSourceIndex.get(url) || {
-        t: 'Direct canonical research source', pub: 'Direct source embedded in the approved value',
+        t: 'Direct research source', pub: 'Direct source supporting this program information',
         ...trust, tierLabel: trust.label, acc: fact.retrievedAt || 'not stated', cur: 'current', url, domains: new Set(),
       };
       row.domains.add(domain);
@@ -1984,7 +2043,7 @@ window.openSources = (id, evidenceIdx) => {
       if (directResearchSourceIndex.has(url)) continue;
       const trust = sourceTrustPresentation(url, p.url);
       const row = dossierSourceIndex.get(url) || {
-        t: 'Dossier discovery source', pub: 'Retained for dossier traceability; not asserted as direct support for every field',
+        t: 'Additional research source', pub: 'Used during program research; it may not support every field shown',
         ...trust, tierLabel: trust.label, acc: fact.retrievedAt || 'not stated', cur: 'current', url,
       };
       dossierSourceIndex.set(url, row);
@@ -2010,9 +2069,9 @@ window.openSources = (id, evidenceIdx) => {
     <div class="fGroup"><div class="fLbl">Coverage</div>
       <p class="sub" style="font-size:14.5px"><b>${esc({ deep: 'Deep Research', enriched: 'Enriched Research', basic: 'Basic Profile', pending: 'Research Pending' }[p.filterIntelligence.researchDepth] || 'Research Pending')}</b> · ${p.filterIntelligence.approvedDomainCount} approved meaningful domains. Raw claim count is not used as the depth label.</p>
     </div>
-    ${p.researchProjection?.dossier ? `<div class="fGroup"><div class="fLbl">Deep Research Dossier V2</div><p class="sub" style="font-size:14px"><b>${esc(p.researchProjection.dossier.dossierOutcome || 'PARTIAL')}</b> · ${Math.round(Number(p.researchProjection.dossier.completionScore || 0) * 100)}% weighted resolution · researched ${esc(String(p.researchProjection.dossier.researchTimestamp || 'date not stated').slice(0,10))}</p><div class="dossierMatrix">${Object.entries(p.researchProjection.dossier.completionMatrix || {}).map(([domain, item]) => `<span class="matrix-${esc(String(item.state || '').toLowerCase())}"><b>${esc(domain.replaceAll('_',' '))}</b>${esc(String(item.state || '').replaceAll('_',' '))}</span>`).join('')}</div></div>` : ''}
+    ${p.researchProjection?.dossier ? `<div class="fGroup"><div class="fLbl">Deep research coverage</div><p class="sub" style="font-size:14px"><b>${esc(p.researchProjection.dossier.dossierOutcome === 'DEEP' ? 'Deep research complete' : 'Research partially complete')}</b> · checked ${esc(String(p.researchProjection.dossier.researchTimestamp || 'date not stated').slice(0,10))}</p><div class="dossierMatrix">${Object.entries(p.researchProjection.dossier.completionMatrix || {}).map(([domain, item]) => `<span class="matrix-${esc(String(item.state || '').toLowerCase())}"><b>${esc(domain.replaceAll('_',' '))}</b>${esc(domainStateSummary(p, domain, String(item.state || '').replaceAll('_',' ')))}</span>`).join('')}</div></div>` : ''}
     <div class="fGroup"><div class="fLbl">Sources</div>
-      ${(presentedSourceRows.length ? presentedSourceRows : [{ t: 'Canonical registry source', pub: 'RISE corpus', tier: 2, tierLabel: 'Directory / internal', acc: p.verified || 'not stated', cur: 'current' }]).map((s, i) => `
+      ${(presentedSourceRows.length ? presentedSourceRows : [{ t: 'Program information source', pub: 'RISE program directory', tier: 2, tierLabel: 'Directory', acc: p.verified || 'not stated', cur: 'current' }]).map((s, i) => `
         <div class="srcRow" ${evidenceIdx === i ? 'style="outline:2px solid var(--cy);border-radius:8px;padding:12px"' : ''}>
           <div class="srcT">${esc(s.t)}</div>
           <div class="srcM"><span class="srcTier">Tier ${s.tier} · ${esc(s.tierLabel)}</span><span>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">Open source ↗</a>` : esc(s.pub)}</span><span>accessed ${esc(s.acc)}</span><span class="cur-${s.cur}">${s.cur}</span></div>

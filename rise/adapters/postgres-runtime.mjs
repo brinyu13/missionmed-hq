@@ -705,7 +705,7 @@ export async function createRiseFilterIntelligenceStore({
     },
     async readProgram({ programId, acgmeId }) {
       return withSubject(pool, systemKey, async (client) => {
-        const [facts, pending, dossier] = await Promise.all([
+        const [facts, pending, dossier, domains] = await Promise.all([
           client.query(`
             SELECT
               f.subject_id AS "subjectId",
@@ -767,6 +767,22 @@ export async function createRiseFilterIntelligenceStore({
             ORDER BY research_timestamp DESC NULLS LAST, created_at DESC
             LIMIT 1
           `, [acgmeId, DEEP_RESEARCH_DOSSIER_V2.contractVersion]),
+          client.query(`
+            SELECT DISTINCT ON (c.field)
+              c.field,
+              coalesce(r.normalized_value, c.canonical_value) AS value,
+              coalesce(r.disposition, 'WITHOUT_FINAL_DISPOSITION') AS disposition,
+              r.reason_code AS reason,
+              coalesce(r.source_urls, '[]'::jsonb) AS "sourceUrls",
+              c.retrieved_at AS "retrievedAt"
+            FROM rise_runtime.canonical_evidence_sources s
+            JOIN rise_runtime.canonical_evidence_claims c USING (source_id)
+            LEFT JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id = c.claim_id
+            WHERE s.source_type = 'completed_research_factory'
+              AND s.metadata->>'acgmeId' = $1
+              AND c.field LIKE 'research.domain.%'
+            ORDER BY c.field, c.retrieved_at DESC, c.claim_id DESC
+          `, [acgmeId]),
         ]);
         return {
           currentFacts: facts.rows,
@@ -779,6 +795,7 @@ export async function createRiseFilterIntelligenceStore({
             completionScore: Number(dossier.rows[0].completionScore ?? 0),
             status: studentResearchStatus(dossier.rows[0].status),
           } : null,
+          domainStatuses: domains.rows,
         };
       }, { isAdmin: true });
     },
@@ -949,19 +966,25 @@ export async function createRiseCanonicalEvidenceStore({ pool = databasePool() }
         };
       }, { isAdmin: true });
     },
-    async ensureReviewIdentitySource({ retrievedAt }) {
+    async ensureReviewIdentitySource({
+      retrievedAt,
+      sourceId = "rise_src_p1_rise_5012d_review",
+      ticket = "P1-RISE-5012D",
+      sourceLocator = "P1-RISE-5012D/registry-identity-reconciliation",
+    }) {
       const timestamp = requiredString(retrievedAt, "retrievedAt");
       return withSubject(pool, systemKey, async (client) => {
         await client.query(`
           INSERT INTO rise_runtime.canonical_evidence_sources (
             source_id, provider, provider_run_id, source_type, source_locator, retrieved_at,
             rights_state, exposure_state, metadata
-          ) VALUES ('rise_src_p1_rise_5012d_review','MISSIONMED_REVIEW','P1-RISE-5012D',
-                    'canonical_review_promotion','P1-RISE-5012D/registry-identity-reconciliation',$1,
-                    'APPROVED','PRIVATE_BETA',$2::jsonb)
+          ) VALUES ($1,'MISSIONMED_REVIEW',$2,
+                    'canonical_review_promotion',$3,$4,
+                    'APPROVED','PRIVATE_BETA',$5::jsonb)
           ON CONFLICT (source_id) DO NOTHING
-        `, [timestamp, JSON.stringify({ registryIdentityBridge: true, newProviderSpendUsd: 0 })]);
-        return { sourceId: "rise_src_p1_rise_5012d_review" };
+        `, [sourceId, ticket, sourceLocator, timestamp,
+          JSON.stringify({ registryIdentityBridge: true, newProviderSpendUsd: 0, ticket })]);
+        return { sourceId };
       }, { isAdmin: true });
     },
     async upsertProgramIdentities(identities) {

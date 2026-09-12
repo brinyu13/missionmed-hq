@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const REVIEW_RULE_VERSION = "5012d.1";
+export const REVIEW_RULE_VERSION = "5012i.1";
 export const FINAL_DISPOSITIONS = Object.freeze([
   "APPROVED_CURRENT", "APPROVED_HISTORICAL", "RESEARCHED_NOT_FOUND", "SUPERSEDED",
   "CONFLICT_REQUIRES_REVIEW", "INSUFFICIENT_EVIDENCE", "STALE_NEEDS_REFRESH", "IDENTITY_AMBIGUITY",
@@ -90,7 +90,7 @@ function normalizeRoster(value) {
     const school = normalizeMedicalSchool(row.medical_school ?? row.school);
     return {
       name: cleanString(row.name),
-      degree: cleanString(row.degree),
+      degree: cleanString(row.degree ?? row.degree_credential),
       medical_school: school?.canonical ?? null,
       medical_school_raw: school?.raw ?? null,
       pgy: cleanString(row.pgy ?? row.pgy_year ?? row.pgy_level ?? row.PGY ?? row.class ?? row.class_of),
@@ -119,9 +119,10 @@ function normalizeGenericRows(value) {
 function normalizeFellowships(value) {
   return rows(value).map((row) => typeof row === "string" ? { name: cleanString(row) } : {
     name: cleanString(row?.name ?? row?.program ?? row?.fellowship),
+    summary: cleanString(row?.summary),
     classification: cleanString(row?.classification ?? row?.category),
     source_url: cleanString(row?.source_url ?? row?.url),
-  }).filter((row) => row.name);
+  }).filter((row) => row.name || row.summary);
 }
 
 function normalizedValue(field, value) {
@@ -172,6 +173,14 @@ function preliminaryDecision({ claim, acgmeId, identityResolved = true, allowedC
   if (PRESERVED_CANARY_ACGME_IDS.has(String(acgmeId)) && !allowedCanaryAcgmeIds.has(String(acgmeId))) {
     throw new Error(`Protected 5012A canary holdout entered review without an exact 5012E allowance: ${acgmeId}`);
   }
+  const declaredState = String(claim.evidenceState ?? "").trim().toUpperCase();
+  if (declaredState === "NOT_RESEARCHED") return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "source_explicitly_says_not_researched", qualityScore: 0 };
+  if (declaredState === "CONFLICT") return { ...base, disposition: "CONFLICT_REQUIRES_REVIEW", reason: "source_declares_unresolved_conflict", qualityScore: 0 };
+  if (["RESEARCHED_NOT_FOUND", "NOT_APPLICABLE"].includes(declaredState)) {
+    return { ...base, disposition: "RESEARCHED_NOT_FOUND", reason: "completed_search_declares_no_supportable_published_answer", qualityScore: sourceCount };
+  }
+  if (declaredState === "STALE") return { ...base, disposition: "STALE_NEEDS_REFRESH", reason: "source_declares_stale_evidence", qualityScore: sourceCount };
+  if (declaredState === "UNAVAILABLE") return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "source_unavailable_after_attempt", qualityScore: sourceCount };
   if (NOT_RESEARCHED.test(text)) return { ...base, disposition: "INSUFFICIENT_EVIDENCE", reason: "source_explicitly_says_not_researched", qualityScore: 0 };
   if (CONFLICT.test(text)) return { ...base, disposition: "CONFLICT_REQUIRES_REVIEW", reason: "claim_contains_unresolved_conflict", qualityScore: 0 };
   if (NOT_FOUND.test(text)) return { ...base, disposition: "RESEARCHED_NOT_FOUND", reason: "completed_search_found_no_supportable_published_answer", qualityScore: sourceCount };

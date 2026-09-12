@@ -26,8 +26,11 @@ COPY src ./src
 COPY adapters ./adapters
 # Dossier V2 is a runtime contract, not a build-only fixture.
 COPY config/deep-research-dossier-v2.json ./config/deep-research-dossier-v2.json
+# P1-RISE-5012I packages the reviewed Texas bundle and one provider-neutral,
+# operator-invoked importer. Startup never runs the importer automatically.
+COPY config/research-dossiers/texas-adult-neurology-2026-09-12.v1.json ./config/research-dossiers/texas-adult-neurology-2026-09-12.v1.json
 COPY releases ./releases
-COPY tools/prepare-runtime.mjs tools/start-production.mjs tools/start-research-worker.mjs ./tools/
+COPY tools/import-structured-dossiers.mjs tools/prepare-runtime.mjs tools/start-production.mjs tools/start-research-worker.mjs ./tools/
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 USER node

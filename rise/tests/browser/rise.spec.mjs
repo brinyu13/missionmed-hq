@@ -90,7 +90,9 @@ test("list-first Find Programs loads canonical identities and toggles to grid", 
   await expect(page.locator('[data-view="find"]')).toBeVisible();
   await expect(page.locator(".pRow")).toHaveCount(4);
   await expect(page.locator(".pCard")).toHaveCount(0);
-  await expect(page.getByText("Needs more verified data — fit is not forced").first()).toBeVisible();
+  await expect(page.locator(".profileUnlockCallout")).toContainText("Complete your profile to personalize");
+  await expect(page.getByRole("radio", { name: "Use my profile" })).toBeDisabled();
+  await expect(page.locator(".applicationDecisionGrid")).toHaveCount(4);
   await page.getByRole("button", { name: "▦ Grid", exact: true }).click();
   await expect(page.locator(".pCard")).toHaveCount(4);
   await page.getByRole("button", { name: "☰ List", exact: true }).click();
@@ -99,15 +101,11 @@ test("list-first Find Programs loads canonical identities and toggles to grid", 
 
 test("application intelligence is visible, customizable, and remains usable on mobile", async ({ page }) => {
   await openRise(page, "find");
-  await expect(page.locator(".profileIntelligenceCallout")).toContainText("Matrix is unavailable");
-  await expect(page.locator(".profileIntelligenceCallout")).toContainText("without personalized conclusions");
+  await expect(page.locator(".profileUnlockCallout")).toContainText("PERSONALIZED MATCHING IS OFF");
+  await expect(page.locator(".profileUnlockCallout")).toContainText("score, timing, YOG, USCE, visa");
   await expect(page.locator(".applicationMatchReasons")).toHaveCount(0);
-  await expect(page.locator(".applicationMiniGrid").first()).toContainText("Visa");
-  await page.getByRole("button", { name: "Customize cards" }).click();
-  await expect(page.locator("#modal")).toContainText("Choose what RISE puts first");
-  await expect(page.locator("#applicationPreferencesForm input[name='priorities']")).toHaveCount(13);
-  await page.getByRole("button", { name: "Save priorities" }).click();
-  await expect(page.locator("#modal")).not.toHaveClass(/open/);
+  await expect(page.locator(".applicationDecisionGrid").first()).toContainText("Visa");
+  await expect(page.locator(".applicationDecisionGrid").first()).toContainText("Score timing");
 
   await page.getByRole("button", { name: /More filters/ }).click();
   await expect(page.locator("#filterDrawer")).toContainText("Exams & attempts");
@@ -183,13 +181,13 @@ test("Program File remains a routed immersive overlay with exactly six primary t
   await expect(page).toHaveURL(/#\/program\/rise_ps_atlas_im\/overview$/);
   await expect(page.locator("#file")).toHaveClass(/open/);
   await expect(page.locator(".tabStrip button")).toHaveText([
-    "Overview", "Fit", "Residents", "People", "Fellowships & Outcomes", "Details",
+    "At a Glance", "Application Fit", "Residents", "Leadership & Faculty", "Fellowships & Outcomes", "Sources & Details",
   ]);
   await expect(page.locator("#file")).toContainText("synthetic-atlas_im");
   await expect(page.locator("#file")).not.toContainText("demo");
   await expect(page.locator("#file")).toContainText("Student Intel");
   await expect(page.locator("#file .coverageBadge")).toContainText("DEEP RESEARCH");
-  await expect(page.locator("#fileBody")).toContainText("Approved canonical registry facts");
+  await expect(page.locator("#fileBody")).toContainText("Application Snapshot");
   await expect(page.locator("#fileBody")).toContainText("Application Deadline");
   await page.screenshot({ path: path.join(artifactDirectory, "program-file-desktop.png"), fullPage: true });
 });
@@ -225,12 +223,12 @@ test("all six Program File tabs expose evidence-safe content or honest empty sta
   const acknowledge = page.getByRole("button", { name: "I understand", exact: true });
   if (await acknowledge.isVisible()) await acknowledge.click();
   const expectations = new Map([
-    ["Overview", "Approved canonical registry facts"],
-    ["Fit", "RISE does not guess"],
+    ["At a Glance", "Application Snapshot"],
+    ["Application Fit", "RISE does not guess"],
     ["Residents", "Program-reported resident and graduate composition"],
-    ["People", "Approved leadership information"],
+    ["Leadership & Faculty", "Program leadership"],
     ["Fellowships & Outcomes", "Fellowship inventory:"],
-    ["Details", "Program-reported salary"],
+    ["Sources & Details", "Program-reported salary"],
   ]);
   for (const [name, text] of expectations) {
     await page.getByRole("tab", { name, exact: true }).click();
@@ -248,7 +246,7 @@ test("Sources & Freshness stays available as a utility drawer", async ({ page })
   await page.getByRole("button", { name: /sources & freshness/i }).click();
   await expect(page.locator("#srcPanel")).toHaveClass(/open/);
   await expect(page.locator("#srcPanel")).toContainText("Freshness by family");
-  await expect(page.locator("#srcPanel")).toContainText(/canonical registry source/i);
+  await expect(page.locator("#srcPanel")).toContainText(/program information source/i);
   await expect(page.locator("#srcPanel")).toContainText("BETA · VERIFY WITH PROGRAM");
 });
 
@@ -285,7 +283,7 @@ test("Compare preserves the four-program cap and unknown states", async ({ page 
 
 test("profile, CV, entitlement, RankList IQ, and premium integrations fail closed honestly", async ({ page }) => {
   await openRise(page, "profile");
-  await expect(page.locator("#main")).toContainText("Matrix profile integration is unavailable");
+  await expect(page.locator("#main")).toContainText("profile is temporarily unavailable");
   await page.getByRole("button", { name: "Use my CV instead" }).click();
   await expect(page.locator("#modal")).toContainText("File Vault connection unavailable");
   await page.locator("#modal .mBtn.sec").click();
@@ -324,6 +322,13 @@ test("narrow viewport preserves the consumer shell without horizontal document o
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
   await expect(page.locator('[data-view="find"] .eyebrow')).toHaveText("Find Programs");
+  await page.locator(".pRow .rowBtn.pri").first().click();
+  const fileDimensions = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(fileDimensions.scrollWidth).toBeLessThanOrEqual(fileDimensions.clientWidth + 1);
+  await expect(page.locator(".tabStrip button")).toHaveCount(6);
   await page.screenshot({ path: path.join(artifactDirectory, "find-mobile.png"), fullPage: true });
 });
 

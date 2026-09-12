@@ -334,7 +334,7 @@ export function createMemoryFilterIntelligenceStore({ researchCoverage = [], cur
       return structuredClone({ researchCoverage, currentFacts });
     },
     async readProgram() {
-      return { currentFacts: [], pendingEvidence: { fields: [], claimCount: 0 } };
+      return { currentFacts: [], pendingEvidence: { fields: [], claimCount: 0 }, domainStatuses: [] };
     },
   };
 }
@@ -770,7 +770,8 @@ function selectedSpecialtyMatch(record, specialty, includeCombined, metadata) {
   if (!specialty || record.designation === specialty) return true;
   const relationship = metadata.specialtyRelationships.get(specialty);
   if (!relationship) return false;
-  return relationship !== "RELATED_COMBINED" || includeCombined;
+  if (relationship === "EXACT_DESIGNATION") return true;
+  return includeCombined && relationship === "RELATED_COMBINED";
 }
 
 function searchPrograms(readModel, searchParams) {

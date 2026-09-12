@@ -140,7 +140,13 @@ function dynamicSearchTerms(facts) {
         collectApprovedSearchTerms(resident.medical_school ?? resident.school, terms);
         collectApprovedSearchTerms(resident.medical_school_raw, terms);
       }
-    } else if (fact.field !== "research.leadership" && fact.field !== "research.core_faculty") {
+    } else if (fact.field === "research.leadership" || fact.field === "research.core_faculty") {
+      for (const person of rosterRows(value)) {
+        collectApprovedSearchTerms(person.name, terms);
+        collectApprovedSearchTerms(person.role ?? person.title, terms);
+        collectApprovedSearchTerms(person.subspecialty ?? person.specialty ?? person.clinical_interest, terms);
+      }
+    } else {
       collectApprovedSearchTerms(value, terms);
     }
   }
@@ -169,7 +175,7 @@ function dynamicFactFlags(facts) {
     if (fact.field === "research.resident_roster") {
       for (const resident of rosterRows(value)) {
         const classification = normalizedClassification(resident.classification);
-        const degree = normalizedClassification(resident.degree);
+        const degree = normalizedClassification(resident.degree ?? resident.degree_credential);
         flags.img ||= classification === "IMG";
         flags.do ||= classification === "DO" || classification === "US_DO" || degree === "DO";
         flags.usmd ||= classification === "US_MD";

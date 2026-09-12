@@ -115,7 +115,7 @@ export function normalizeResidentRoster(value) {
       rowKey: `${normalizedToken(row.name ?? "resident") || "resident"}-${index + 1}`,
       name: text(row.name ?? row.resident_name) ?? "Resident name not published",
       pgy: text(row.pgy ?? row.pgy_year ?? row.pgy_level ?? row.PGY ?? row.class ?? row.class_of) ?? "PGY not published",
-      degree: text(row.degree),
+      degree: text(row.degree ?? row.degree_credential),
       medicalSchool: school?.display ?? null,
       medicalSchoolKey: school?.canonical ?? null,
       medicalSchoolCountry: medicalSchoolCountry(school?.display, row.medical_school_country ?? row.school_country ?? row.country, category),
@@ -207,10 +207,16 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
   const step2Minimum = findNumber(application, [/step\s*2/i, /usmle.*minimum/i, /minimum.*score/i]);
   const comlex2Minimum = findNumber(application, [/comlex.*(?:2|level\s*2)/i, /level\s*2.*minimum/i]);
   const maxAttempts = findNumber(application, [/max(?:imum)?\s*(?:usmle|comlex|exam)?\s*attempt/i, /attempt.*(?:limit|maximum)/i]);
-  const yogRaw = known(program, "Medical School Graduation Timeline");
+  const step1Policy = text(application.step1_policy);
+  const step2Timing = text(application.step2_timing);
+  const step1FirstAttemptRequired = /(?:first attempt|first sitting|one attempt)/i.test(step1Policy ?? "");
+  const step1FailureAllowed = /(?:failure|failed attempt).{0,30}(?:allowed|accepted|considered)|multiple attempts.{0,20}(?:allowed|accepted)/i.test(step1Policy ?? "");
+  const step2RequiredWithApplication = /(?:required|must be available).{0,36}(?:with|at (?:the )?time of|before).{0,18}(?:application|initial review|interview)/i.test(step2Timing ?? "");
+  const step2PendingFriendly = /(?:after (?:application|initial review)|before (?:ranking|rank list)|by (?:ranking|rank list)|score pending|not required.{0,24}(?:application|initial review))/i.test(step2Timing ?? "");
+  const yogRaw = known(program, "Medical School Graduation Timeline") ?? text(application.yog_policy);
   const yogNoCutoff = typeof yogRaw === "string" && /no cap|no (?:published )?(?:limit|cutoff)/i.test(yogRaw);
   const yogYears = typeof yogRaw === "number" ? yogRaw : (!yogNoCutoff ? findNumber({ yog: yogRaw }, [/yog|graduat/i]) : null);
-  const usceRaw = known(program, "Gap Experience Requirement");
+  const usceRaw = known(program, "Gap Experience Requirement") ?? text(application.usce);
   const usceText = text(usceRaw);
   const usceRequired = /clinical experience in the us/i.test(usceText ?? "");
   const usceRecommended = /(?:recommend|prefer)/i.test(JSON.stringify(application)) && /(?:usce|clinical experience)/i.test(JSON.stringify(application));
@@ -238,8 +244,14 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
     visa: { j1, h1b, any: j1 || h1b || text(known(program, "Visa Sponsorship")) !== null, summary: text(known(program, "Visa Sponsorship")) ?? text(visaFact?.summary) },
     exams: {
       step1Required: typeof step1 === "boolean" ? step1 : null,
+      step1Policy,
+      step1FirstAttemptRequired,
+      step1FailureAllowed,
       step2Required: typeof step2 === "boolean" ? step2 : null,
       step2Minimum,
+      step2Timing,
+      step2RequiredWithApplication,
+      step2PendingFriendly,
       comlexLevel2Accepted: /level\s*2\s*passed:\s*yes/i.test(String(known(program, "COMLEX Accepted") ?? "")) || known(program, "DO COMLEX Level 2 Required") === true,
       comlexLevel2Required: known(program, "DO COMLEX Level 2 Required"),
       comlexLevel2Minimum: comlex2Minimum,
@@ -308,8 +320,12 @@ export function applicationFacetCounts(records) {
   const count = (predicate) => records.reduce((sum, record) => sum + (predicate(record.application) ? 1 : 0), 0);
   return {
     step1Required: count((a) => a.exams.step1Required === true),
+    step1FirstAttemptRequired: count((a) => a.exams.step1FirstAttemptRequired),
+    step1FailureAllowed: count((a) => a.exams.step1FailureAllowed),
     step1NoPublishedExclusion: count((a) => a.exams.step1Required !== true),
     step2MinimumPublished: count((a) => a.exams.step2Minimum !== null),
+    step2PendingFriendly: count((a) => a.exams.step2PendingFriendly),
+    step2RequiredWithApplication: count((a) => a.exams.step2RequiredWithApplication),
     comlexLevel2Accepted: count((a) => a.exams.comlexLevel2Accepted),
     attemptsPolicyPublished: count((a) => a.exams.maxAttempts !== null),
     yogNoPublishedCutoff: count((a) => !a.yog.published || a.yog.noPublishedCutoff),
