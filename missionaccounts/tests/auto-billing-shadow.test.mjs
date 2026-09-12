@@ -88,6 +88,15 @@ test('durable candidates do not expire after 48 hours and stale enrollment fails
   assert.ok(stale.rows[0].reasons.includes('examprep_enrollment_projection_stale'));
 });
 
+test('registration without signed course access remains ineligible for automatic billing', () => {
+  const input = fixture();
+  input.enrollmentProjections[0].enrolled = false;
+  const result = buildAutomaticBillingShadow(input);
+  assert.equal(result.rows[0].status, 'WOULD_NOT_CHARGE');
+  assert.ok(result.rows[0].reasons.includes('active_examprep_enrollment_required'));
+  assert.equal(result.summary.would_charge_days, 0);
+});
+
 test('an old calendar day cannot be revived by post-rollout recomputation', () => {
   const input = fixture();
   input.rolloutCutoff = '2026-09-11T12:00:00.000Z';

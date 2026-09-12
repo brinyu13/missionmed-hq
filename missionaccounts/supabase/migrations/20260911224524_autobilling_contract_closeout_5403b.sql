@@ -164,7 +164,7 @@ begin
     raise exception using errcode = '23503', message = 'student_not_found';
   end if;
   if student_row.identity_state <> 'verified'
-     or student_row.matrix_user_ref is distinct from p_actor_id
+     or student_row.id::text is distinct from p_actor_id
      or p_source_subject is distinct from p_actor_id then
     raise exception using errcode = '42501', message = 'student_enrollment_subject_mismatch';
   end if;

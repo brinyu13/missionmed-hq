@@ -50,6 +50,8 @@ export class SupabaseRestStore {
   }
 
   async studentByMatrixUser(userId) {
+    // Historical method name: the signed MissionAccounts subject is the
+    // canonical student UUID, so resolution is intentionally by student.id.
     const rows = await this.request(`student?id=eq.${encodeURIComponent(userId)}&select=id,matrix_user_ref,display_name,email,joined_at,comp_days_allowance,identity_state,sponsor_type,sponsor_name,sponsor_updated_at&limit=1`);
     return rows[0] || null;
   }
@@ -898,7 +900,7 @@ export class PreviewStore {
   }
 
   async studentByMatrixUser(userId) {
-    return this.previewStudentRecord.matrix_user_ref === userId ? { ...this.previewStudentRecord } : null;
+    return this.previewStudentRecord.id === userId ? { ...this.previewStudentRecord } : null;
   }
   async syncProgramEnrollment({ studentId, enrolled, sourceSubject, sourceObservedAt, actorId, requestId }) {
     const fingerprint = JSON.stringify({ studentId, enrolled: enrolled === true, sourceSubject, sourceObservedAt, actorId });
@@ -909,7 +911,7 @@ export class PreviewStore {
     }
     if (studentId !== this.previewStudentRecord.id
       || this.previewStudentRecord.identity_state !== 'verified'
-      || this.previewStudentRecord.matrix_user_ref !== actorId
+      || this.previewStudentRecord.id !== actorId
       || sourceSubject !== actorId) {
       throw Object.assign(new Error('Student enrollment subject mismatch'), { status: 403 });
     }

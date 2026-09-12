@@ -31,6 +31,73 @@ function seedActiveExamPrepEnrollment(store, studentId = '00000000-0000-4000-800
   });
 }
 
+test('program enrollment uses the canonical student UUID and ignores optional legacy Matrix refs', async () => {
+  const canonicalStudentId = '00000000-0000-4000-8000-000000000001';
+  const otherStudentId = '00000000-0000-4000-8000-000000000002';
+  const store = new PreviewStore();
+
+  store.previewStudentRecord.matrix_user_ref = null;
+  assert.equal((await store.studentByMatrixUser(canonicalStudentId)).id, canonicalStudentId);
+  const nullLegacyRef = await store.syncProgramEnrollment({
+    studentId: canonicalStudentId,
+    enrolled: true,
+    sourceSubject: canonicalStudentId,
+    sourceObservedAt: '2026-09-11T12:00:00.000Z',
+    actorId: canonicalStudentId,
+    requestId: 'canonical-enrollment-null-legacy-ref',
+  });
+  assert.equal(nullLegacyRef.accepted, true);
+
+  store.previewStudentRecord.matrix_user_ref = '471';
+  assert.equal((await store.studentByMatrixUser(canonicalStudentId)).id, canonicalStudentId);
+  const numericLegacyRef = await store.syncProgramEnrollment({
+    studentId: canonicalStudentId,
+    enrolled: true,
+    sourceSubject: canonicalStudentId,
+    sourceObservedAt: '2026-09-11T12:01:00.000Z',
+    actorId: canonicalStudentId,
+    requestId: 'canonical-enrollment-numeric-legacy-ref',
+  });
+  assert.equal(numericLegacyRef.accepted, true);
+
+  await assert.rejects(store.syncProgramEnrollment({
+    studentId: otherStudentId,
+    enrolled: true,
+    sourceSubject: canonicalStudentId,
+    sourceObservedAt: '2026-09-11T12:02:00.000Z',
+    actorId: canonicalStudentId,
+    requestId: 'canonical-enrollment-cross-student',
+  }), error => error.status === 403);
+
+  await assert.rejects(store.syncProgramEnrollment({
+    studentId: canonicalStudentId,
+    enrolled: true,
+    sourceSubject: otherStudentId,
+    sourceObservedAt: '2026-09-11T12:03:00.000Z',
+    actorId: canonicalStudentId,
+    requestId: 'canonical-enrollment-subject-mismatch',
+  }), error => error.status === 403);
+});
+
+test('signed course-access denial projects an inactive enrollment for the canonical student', async () => {
+  const studentId = '00000000-0000-4000-8000-000000000001';
+  const store = new PreviewStore();
+  store.previewStudentRecord.matrix_user_ref = null;
+  await withServer({ config: localConfig, store, stripeGateway: new StripeGateway() }, async base => {
+    const response = await fetch(`${base}/api/ui/bootstrap`, {
+      headers: {
+        'x-missionaccounts-local-role': 'student',
+        'x-missionaccounts-local-user': studentId,
+        'x-missionaccounts-local-programs': 'mission_residency',
+      },
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.account.student.program_enrollment.enrolled, false);
+    assert.equal(store.enrollmentProjections.get(studentId).enrolled, false);
+  });
+});
+
 test('admin manual cycle charge is approval-bound, webhook-finalized, and retry-idempotent', async () => {
   const studentId = '00000000-0000-4000-8000-000000000001';
   const decisionId = '10000000-0000-4000-8000-000000000001';
@@ -1053,8 +1120,13 @@ test('administrator account linking is idempotent, private, and applies the post
     assert.equal(retry.status, 200);
     assert.equal((await retry.json()).duplicate, true);
 
-    const studentBootstrap = await fetch(`${base}/api/ui/bootstrap`, {
+    const legacySubjectDenied = await fetch(`${base}/api/ui/bootstrap`, {
       headers: { 'x-missionaccounts-local-role': 'student', 'x-missionaccounts-local-user': matrixUserId },
+    });
+    assert.equal(legacySubjectDenied.status, 404);
+
+    const studentBootstrap = await fetch(`${base}/api/ui/bootstrap`, {
+      headers: { 'x-missionaccounts-local-role': 'student', 'x-missionaccounts-local-user': studentId },
     });
     assert.equal(studentBootstrap.status, 200);
     assert.equal((await studentBootstrap.json()).account.student.comp_days_allowance, 5);

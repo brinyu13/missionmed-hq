@@ -380,7 +380,12 @@ test('5403B replaces expiry with a durable, enrollment-gated, post-rollout queue
 
   assert.match(sql, /create function missionaccounts\.api_sync_program_enrollment/);
   assert.match(sql, /p_actor_role <> 'student'/);
-  assert.match(sql, /student_row\.matrix_user_ref is distinct from p_actor_id/);
+  assert.match(sql, /student_row\.id::text is distinct from p_actor_id/);
+  assert.match(sql, /p_source_subject is distinct from p_actor_id/);
+  assert.doesNotMatch(
+    sql.slice(sql.indexOf('create function missionaccounts.api_sync_program_enrollment'), sql.indexOf('create function missionaccounts.api_refresh_auto_charge_candidates')),
+    /matrix_user_ref\s+(?:=|is distinct from)\s+p_actor_id/,
+  );
   assert.match(sql, /p_source_observed_at < clock_timestamp\(\) - interval '15 minutes'/);
   assert.match(sql, /valid_until[\s\S]+p_source_observed_at \+ contract_row\.enrollment_freshness/);
 
