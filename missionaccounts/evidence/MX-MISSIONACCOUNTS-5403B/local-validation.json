@@ -28,6 +28,22 @@
     "source_subject_mismatch": "PASS",
     "inactive_course_access": "PASS"
   },
+  "revfix_02": {
+    "failed_reviewed_head": "120ec6e147e59839d16aaff6cbbaa8e46fc244f3",
+    "corrective_source_commit": "d2d2ede1eae7190dd47f31fbf8374d479f4b21aa",
+    "consent_subject_bound_to_student_id": true,
+    "grant_null_legacy_ref": "PASS",
+    "grant_numeric_legacy_ref": "PASS",
+    "revoke_null_legacy_ref": "PASS",
+    "revoke_numeric_legacy_ref": "PASS",
+    "cross_student_grant_blocked": "PASS",
+    "cross_student_revoke_blocked": "PASS",
+    "subject_mismatch_blocked": "PASS",
+    "forged_legacy_ref_actor_blocked": "PASS",
+    "production_mutation": "NONE",
+    "stripe_provider_calls": 0,
+    "live_dispatch": "OFF"
+  },
   "live_payment_intents_created": 0,
   "live_money_moved_cents": 0,
   "wordpress_sso": {

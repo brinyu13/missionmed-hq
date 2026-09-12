@@ -11,6 +11,16 @@
     "source_subject_mismatch": "PASS",
     "course_access_false_projects_inactive": "PASS"
   },
+  "consent_subject_binding_regressions": {
+    "grant_with_null_matrix_user_ref": "PASS",
+    "grant_with_legacy_numeric_matrix_user_ref": "PASS",
+    "revoke_with_null_matrix_user_ref": "PASS",
+    "revoke_with_legacy_numeric_matrix_user_ref": "PASS",
+    "cross_student_grant": "PASS",
+    "cross_student_revoke": "PASS",
+    "source_subject_mismatch": "PASS via enrollment projection regression",
+    "forged_legacy_ref_actor": "PASS"
+  },
   "enrollment_projection_rows": 1,
   "durable_pending_candidates": 1,
   "pre_rollout_candidates_revived": 0,

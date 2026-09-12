@@ -6,6 +6,8 @@
   "amount_per_day_cents": 2500,
   "rollout_cutoff": "set by production migration transaction time",
   "enrollment_projection": "signed, subject-bound, freshness-bounded, fail-closed",
+  "canonical_student_subject": "authenticated MissionAccounts JWT subject = identity.userId = missionaccounts.student.id",
+  "legacy_matrix_user_ref_is_authority": false,
   "eligible_delay_hours": 24,
   "automatic_expiry_hours": null,
   "durable_states": [
