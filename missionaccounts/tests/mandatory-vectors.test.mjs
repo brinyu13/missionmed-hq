@@ -387,6 +387,12 @@ test('5403B replaces expiry with a durable, enrollment-gated, post-rollout queue
     /matrix_user_ref\s+(?:=|is distinct from)\s+p_actor_id/,
   );
   assert.match(sql, /p_source_observed_at < clock_timestamp\(\) - interval '15 minutes'/);
+  const consentSql = sql.slice(
+    sql.indexOf('create or replace function missionaccounts.api_set_billing_consent'),
+    sql.indexOf('create or replace function missionaccounts.api_prepare_day_charge'),
+  );
+  assert.match(consentSql, /student_row\.id::text is distinct from p_actor_id/);
+  assert.doesNotMatch(consentSql, /matrix_user_ref\s+(?:=|is distinct from|is null)[\s\S]*p_actor_id/);
   assert.match(sql, /valid_until[\s\S]+p_source_observed_at \+ contract_row\.enrollment_freshness/);
 
   assert.match(sql, /live_dispatch_allowed boolean not null default false/);

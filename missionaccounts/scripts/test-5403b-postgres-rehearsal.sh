@@ -90,9 +90,6 @@ end;
 $$;
 
 reset role;
-update missionaccounts.student
-set matrix_user_ref = id::text
-where id = '00000000-0000-4000-8000-000000005401';
 update missionaccounts.automatic_billing_contract
 set rollout_cutoff = clock_timestamp() - interval '72 hours';
 
@@ -104,13 +101,96 @@ insert into missionaccounts.billing_terms(
   'approved', 'disposable-founder', clock_timestamp(), 'Disposable test terms body'
 );
 insert into missionaccounts.stripe_customer_private(student_id, provider, provider_customer_ref)
-values ('00000000-0000-4000-8000-000000005401', 'stripe', 'cus_disposable_revfix');
+values
+  ('00000000-0000-4000-8000-000000005401', 'stripe', 'cus_disposable_revfix_a'),
+  ('00000000-0000-4000-8000-000000005402', 'stripe', 'cus_disposable_revfix_b');
 insert into missionaccounts.payment_method_private(
   student_id, provider, provider_customer_ref, provider_pm_ref, brand, last4, status, verified_at
-) values (
-  '00000000-0000-4000-8000-000000005401', 'stripe', 'cus_disposable_revfix',
-  'pm_disposable_revfix', 'visa', '4242', 'on_file', clock_timestamp()
-);
+) values
+  (
+    '00000000-0000-4000-8000-000000005401', 'stripe', 'cus_disposable_revfix_a',
+    'pm_disposable_revfix_a', 'visa', '4242', 'on_file', clock_timestamp()
+  ),
+  (
+    '00000000-0000-4000-8000-000000005402', 'stripe', 'cus_disposable_revfix_b',
+    'pm_disposable_revfix_b', 'visa', '4444', 'on_file', clock_timestamp()
+  );
+
+-- Consent subject binding uses the canonical student UUID, never matrix_user_ref.
+update missionaccounts.student set matrix_user_ref = null
+where id = '00000000-0000-4000-8000-000000005401';
+set role service_role;
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'authorize', 'revfix-test-v1', '127.0.0.1',
+  'Grant with NULL legacy ref', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-grant-null'
+)->>'accepted';
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'revoke', null, '127.0.0.1',
+  'Revoke with NULL legacy ref', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-revoke-null'
+)->'consent'->>'state';
+
+reset role;
+update missionaccounts.student set matrix_user_ref = '471'
+where id = '00000000-0000-4000-8000-000000005401';
+set role service_role;
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'authorize', 'revfix-test-v1', '127.0.0.1',
+  'Grant with numeric legacy ref', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-grant-numeric'
+)->>'accepted';
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'revoke', null, '127.0.0.1',
+  'Revoke with numeric legacy ref', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-revoke-numeric'
+)->'consent'->>'state';
+
+do $$
+begin
+  begin
+    perform missionaccounts.api_set_billing_consent(
+      '00000000-0000-4000-8000-000000005402', 'authorize', 'revfix-test-v1', '127.0.0.1',
+      'Cross-student grant must fail', '00000000-0000-4000-8000-000000005401',
+      'student', 'revfix-consent-cross-grant'
+    );
+    raise exception 'cross_student_consent_grant_was_accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'student_consent_subject_mismatch' then raise; end if;
+  end;
+
+  begin
+    perform missionaccounts.api_set_billing_consent(
+      '00000000-0000-4000-8000-000000005402', 'revoke', null, '127.0.0.1',
+      'Cross-student revoke must fail', '00000000-0000-4000-8000-000000005401',
+      'student', 'revfix-consent-cross-revoke'
+    );
+    raise exception 'cross_student_consent_revoke_was_accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'student_consent_subject_mismatch' then raise; end if;
+  end;
+
+  begin
+    perform missionaccounts.api_set_billing_consent(
+      '00000000-0000-4000-8000-000000005401', 'authorize', 'revfix-test-v1', '127.0.0.1',
+      'Forged legacy actor must fail', '471',
+      'student', 'revfix-consent-forged-legacy-actor'
+    );
+    raise exception 'forged_legacy_ref_actor_was_accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'student_consent_subject_mismatch' then raise; end if;
+  end;
+end;
+$$;
+
+-- Leave one active canonical consent for the durable-queue rehearsal.
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'authorize', 'revfix-test-v1', '127.0.0.1',
+  'Disposable explicit consent', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-authorize'
+)->>'accepted';
+
+reset role;
 insert into missionaccounts.engine_run(id, engine_version, source_digest, state, finished_at)
 values (
   '10000000-0000-4000-8000-000000005403', 'revfix-rehearsal-v1', repeat('5', 64),
@@ -146,11 +226,6 @@ insert into missionaccounts.billing_decision(
 );
 
 set role service_role;
-select missionaccounts.api_set_billing_consent(
-  '00000000-0000-4000-8000-000000005401', 'authorize', 'revfix-test-v1', '127.0.0.1',
-  'Disposable explicit consent', '00000000-0000-4000-8000-000000005401',
-  'student', 'revfix-consent-authorize'
-)->>'accepted';
 select missionaccounts.api_refresh_auto_charge_candidates(clock_timestamp())->>'inserted';
 
 -- Case E: signed course access false projects inactive and blocks new eligibility.
@@ -180,11 +255,11 @@ select
 SQL
 )
 
-expected=$'true\ntrue\ntrue\n1\nfalse\n0\nrevoked\n1|1|0|0|revoked|false|true|true|true'
+expected=$'true\ntrue\ntrue\nrevoked\ntrue\nrevoked\ntrue\n1\nfalse\n0\nrevoked\n1|1|0|0|revoked|false|true|true|true'
 if [[ "$result" != "$expected" ]]; then
   echo "MissionAccounts 5403B PostgreSQL rehearsal returned unexpected controls:" >&2
   echo "$result" >&2
   exit 1
 fi
 
-echo "MissionAccounts 5403B canonical-subject, inactive-enrollment, durable-queue, consent-revocation, RLS, and grant rehearsal: PASS"
+echo "MissionAccounts 5403B canonical enrollment/consent subjects, NULL/numeric consent grant/revoke, cross-student denial, inactive-enrollment, durable-queue, RLS, and grant rehearsal: PASS"
