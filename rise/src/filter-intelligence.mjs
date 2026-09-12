@@ -326,6 +326,99 @@ function emptyCounts() {
   };
 }
 
+function compactText(value, maximum = 160) {
+  const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  return normalized.length > maximum ? `${normalized.slice(0, maximum - 1).trimEnd()}…` : normalized;
+}
+
+function compactSparse(value) {
+  if (value == null || value === false || value === 0 || value === "") return undefined;
+  if (Array.isArray(value)) {
+    const compacted = value.map(compactSparse).filter((entry) => entry !== undefined);
+    return compacted.length ? compacted : undefined;
+  }
+  if (typeof value === "object") {
+    const compacted = Object.fromEntries(Object.entries(value)
+      .map(([key, entry]) => [key, compactSparse(entry)])
+      .filter(([, entry]) => entry !== undefined));
+    return Object.keys(compacted).length ? compacted : undefined;
+  }
+  return value;
+}
+
+// The all-program filter response crosses the WordPress boundary during RISE
+// startup. Keep only card/filter/profile-comparison fields here; full evidence
+// and named resident rows remain available from the per-program endpoint.
+function compactApplicationIntelligence(application) {
+  const roster = application?.roster ?? {};
+  const compacted = compactSparse({
+    visa: {
+      j1: application?.visa?.j1 === true,
+      h1b: application?.visa?.h1b === true,
+      any: application?.visa?.any === true,
+      state: application?.visa?.state ?? null,
+    },
+    exams: {
+      step1Required: application?.exams?.step1Required ?? null,
+      step1Policy: compactText(application?.exams?.step1Policy),
+      step1FirstAttemptRequired: application?.exams?.step1FirstAttemptRequired === true,
+      step1FailureAllowed: application?.exams?.step1FailureAllowed === true,
+      step2Required: application?.exams?.step2Required ?? null,
+      step2Minimum: application?.exams?.step2Minimum ?? null,
+      step2Timing: compactText(application?.exams?.step2Timing),
+      step2RequiredWithApplication: application?.exams?.step2RequiredWithApplication === true,
+      step2PendingFriendly: application?.exams?.step2PendingFriendly === true,
+      comlexLevel2Accepted: application?.exams?.comlexLevel2Accepted === true,
+      comlexLevel2Required: application?.exams?.comlexLevel2Required ?? null,
+      comlexLevel2Minimum: application?.exams?.comlexLevel2Minimum ?? null,
+      maxAttempts: application?.exams?.maxAttempts ?? null,
+    },
+    yog: {
+      published: application?.yog?.published === true,
+      years: application?.yog?.years ?? null,
+      noPublishedCutoff: application?.yog?.noPublishedCutoff === true,
+      state: application?.yog?.state ?? null,
+    },
+    usce: {
+      published: application?.usce?.published === true,
+      required: application?.usce?.required === true,
+      recommended: application?.usce?.recommended === true,
+      minimumMonths: application?.usce?.minimumMonths ?? null,
+      state: application?.usce?.state ?? null,
+    },
+    ecfmg: {
+      published: application?.ecfmg?.published === true,
+      state: application?.ecfmg?.state ?? null,
+    },
+    roster: {
+      total: Number(roster.total || 0),
+      classifiedTotal: Number(roster.classifiedTotal || 0),
+      unclassifiedTotal: Number(roster.unclassifiedTotal || 0),
+      classificationState: roster.classificationState ?? "NO_ROSTER",
+      schoolIdentified: Number(roster.schoolIdentified || 0),
+      countryIdentified: Number(roster.countryIdentified || 0),
+      distinctSchools: Number(roster.distinctSchools || 0),
+      distinctCountries: Number(roster.distinctCountries || 0),
+      composition: roster.composition ?? {},
+      registryComposition: roster.registryComposition ?? {},
+      schools: (roster.schools ?? []).map(({ key, label, count }) => ({ key, label, count })),
+      countries: (roster.countries ?? []).map(({ country, count }) => ({ country, count })),
+      sameSchoolCount: Number(roster.sameSchoolCount || 0),
+      sameCountryCount: Number(roster.sameCountryCount || 0),
+      percentagesAvailable: roster.percentagesAvailable === true,
+      officialProgramStatistic: roster.officialProgramStatistic === true ? true : null,
+      coveragePercent: roster.coveragePercent ?? null,
+      estimateConfidence: roster.estimateConfidence ?? null,
+    },
+    fellowshipCount: Number(application?.fellowshipCount || 0),
+  }) ?? {};
+  for (const key of ["visa", "exams", "yog", "usce", "ecfmg", "roster"]) {
+    compacted[key] ??= {};
+  }
+  return compacted;
+}
+
 export function buildFilterIntelligence(programs, {
   researchCoverage = [],
   currentFacts = [],
@@ -401,14 +494,7 @@ export function buildFilterIntelligence(programs, {
       | (filterFacts.abim ? FILTER_FLAG_BITS.abim : 0)
       | (filterFacts.alumni ? FILTER_FLAG_BITS.alumni : 0);
     const application = buildApplicationIntelligence(program, dynamicFacts, profile);
-    const applicationSummary = {
-      ...application,
-      roster: {
-        ...application.roster,
-        schools: undefined,
-        countries: undefined,
-      },
-    };
+    const applicationSummary = compactApplicationIntelligence(application);
     return {
       programSpecialtyId: program.programSpecialtyId,
       flags,

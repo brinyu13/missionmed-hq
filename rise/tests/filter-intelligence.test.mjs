@@ -142,6 +142,9 @@ test("approved structured current facts become filterable without frontend progr
   assert.equal(expanded[1].researchState, "VERIFIED_RESEARCH");
   assert.ok(expanded[1].searchTerms.includes("International University School of Medicine"));
   assert.ok(expanded[1].searchTerms.includes("Only during adult neurology months"));
+  assert.equal("entries" in result.records[1].application.roster, false);
+  assert.ok(Array.isArray(result.records[1].application.roster.schools));
+  assert.ok(Buffer.byteLength(JSON.stringify(result.records[1].application)) < 5_000);
   assert.deepEqual(result.counts, {
     visaData: 2,
     j1Published: 2,

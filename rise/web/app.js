@@ -14,7 +14,15 @@ async function riseFetch(path, options = {}) {
     headers.set('X-RISE-CSRF', globalThis.__RISE_RUNTIME__.session.csrfToken);
   }
   const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', ...options, headers });
-  const body = await response.json().catch(() => ({}));
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    const error = new Error('RISE received an incomplete data response. Please retry.');
+    error.code = 'RISE_INCOMPLETE_RESPONSE';
+    error.status = response.status;
+    throw error;
+  }
   if (!response.ok) {
     const error = new Error(body?.error?.message || `RISE request failed (${response.status})`);
     error.code = body?.error?.code || 'RISE_REQUEST_FAILED';
@@ -1417,13 +1425,14 @@ function openFileFor(route) {
   if (!p) { nav('find'); return; }
   state.fileTab = tab || 'overview';
   const file = $('#file');
+  const hydration = hydrateProgramProfile(p);
   file.innerHTML = renderFile(p);
   file.classList.add('open');
   document.body.style.overflow = 'hidden';
   $('#main').setAttribute('inert', '');
   renderShell();
   const t = $('#fileTitle'); if (t) { t.setAttribute('tabindex', '-1'); t.focus(); }
-  void hydrateProgramProfile(p);
+  void hydration;
 }
 async function hydrateProgramProfile(p, force = false) {
   if ((!force && p.canonical) || p.profileLoading) return;
