@@ -21,11 +21,16 @@ test("review factory assigns one final disposition and supersedes weaker scalar 
 
 test("roster promotions merge source-linked rows and normalize only safe school aliases", () => {
   const result = reviewResearchCorpus([{ acgmeId: "1400000000", claims: [
-    claim("a", "research.resident_roster", [{ name: "Resident A", medical_school: "SGU", degree: "MD", classification: "IMG" }]),
+    claim("a", "research.resident_roster", [{ name: "Resident A", medical_school: "SGU", medical_school_country: "Grenada", degree: "MD", classification: "IMG", classification_evidence: "Published school", classification_confidence: "HIGH", track: "Categorical" }]),
     claim("b", "research.resident_roster", [{ name: "Resident B", medical_school: "Unknown ABC", degree: "DO", classification: "US_DO" }]),
   ] }]);
   assert.equal(result.promotions[0].canonicalValue.length, 2);
   assert.equal(result.promotions[0].canonicalValue[0].medical_school || result.promotions[0].canonicalValue[1].medical_school, "St. George's University School of Medicine");
+  const residentA = result.promotions[0].canonicalValue.find((row) => row.name === "Resident A");
+  assert.equal(residentA.medical_school_country, "Grenada");
+  assert.equal(residentA.classification_evidence, "Published school");
+  assert.equal(residentA.classification_confidence, "HIGH");
+  assert.equal(residentA.track, "Categorical");
   assert.equal(normalizeMedicalSchool("Unknown ABC").canonical, "Unknown ABC");
   const sources = classifySourceUrls([
     "https://www.abim.org/x", "https://www.doximity.com/x",

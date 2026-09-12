@@ -93,10 +93,17 @@ function normalizeRoster(value) {
       degree: cleanString(row.degree ?? row.degree_credential),
       medical_school: school?.canonical ?? null,
       medical_school_raw: school?.raw ?? null,
+      medical_school_country: cleanString(row.medical_school_country ?? row.school_country ?? row.country),
       pgy: cleanString(row.pgy ?? row.pgy_year ?? row.pgy_level ?? row.PGY ?? row.class ?? row.class_of),
+      track: cleanString(row.track),
+      role: cleanString(row.role ?? row.public_role),
       classification: cleanString(row.classification),
+      classification_evidence: cleanString(row.classification_evidence ?? row.classificationEvidence),
+      classification_confidence: cleanString(row.classification_confidence ?? row.classificationConfidence),
       caribbean: row.caribbean ?? row.Caribbean ?? row.caribbean_status ?? null,
       source_url: cleanString(row.source_url ?? row.url),
+      source_date: cleanString(row.source_date ?? row.sourceDate),
+      conflict: row.conflict ?? row.conflict_flag ?? false,
     };
   });
 }

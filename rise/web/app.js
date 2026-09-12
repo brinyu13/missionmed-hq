@@ -2123,8 +2123,12 @@ function tabResidents(p, R) {
 
 function tabPeople(p, R) {
   if (!R || !R.people) {
+    const leadershipFields = ['Program Director', 'Program Director Credentials', 'Program Coordinator', 'Coordinator Email', 'Coordinator Phone'];
+    const registryLeadership = registryFactRows(p, leadershipFields).length
+      ? registryTable(p, leadershipFields, 'Approved leadership information')
+      : '';
     return `<div><h2 class="h2" style="margin-bottom:8px">Program leadership</h2>
-      ${registryTable(p, ['Program Director', 'Program Director Credentials', 'Program Coordinator', 'Coordinator Email', 'Coordinator Phone'], 'Approved leadership information')}
+      ${registryLeadership}
       ${genericPeopleTable(p)}
       ${approvedResearchTable(p, ['research.faculty_training_graph'], 'Approved leadership training research')}
       <div class="lawBanner"><b>Additional leadership research:</b> ${esc(researchStateText(p, 'research.leadership'))}</div>${unknownFooter(p)}</div>`;

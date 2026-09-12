@@ -236,6 +236,14 @@ test("all six Program File tabs expose evidence-safe content or honest empty sta
     await page.getByRole("tab", { name, exact: true }).click();
     await expect(page.locator("#fileBody")).toContainText(text);
   }
+  await page.getByRole("tab", { name: "Residents", exact: true }).click();
+  await expect(page.locator("#fileBody")).toContainText("Pakistan");
+  await expect(page.locator("[data-resident-country]")).toContainText("United States");
+  await page.locator("[data-resident-country]").selectOption({ label: "Pakistan" });
+  await expect(page.locator("[data-resident-count]")).toHaveText("1");
+  await page.getByRole("tab", { name: "Leadership & Faculty", exact: true }).click();
+  await expect(page.locator("#fileBody")).toContainText("Dr. Avery Atlas");
+  await expect(page.locator("#fileBody")).not.toContainText("No approved published values are currently available for this section.");
   await page.getByRole("tab", { name: "Fellowships & Outcomes", exact: true }).click();
   await expect(page.locator("#fileBody")).toContainText("Cardiology Fellowship");
   await expect(page.locator("#fileBody")).toContainText("Direct in-house fellowship");

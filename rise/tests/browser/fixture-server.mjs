@@ -189,6 +189,21 @@ const registryIndex = {
 const researchFixtureFacts = [
   {
     subjectId: "rise_prg_atlas_im",
+    field: "research.resident_roster",
+    canonicalValue: [
+      { name: "A. Resident", pgy: "PGY-2", medical_school: "Aga Khan University", medical_school_country: "Pakistan", classification: "IMG" },
+      { name: "B. Resident", pgy: "PGY-3", medical_school: "Lake Erie College of Osteopathic Medicine", medical_school_country: "United States", degree: "DO", classification: "US_DO" },
+    ],
+  },
+  {
+    subjectId: "rise_prg_atlas_im",
+    field: "research.leadership",
+    canonicalValue: [
+      { name: "Dr. Avery Atlas", role: "Program Director", credentials: "MD" },
+    ],
+  },
+  {
+    subjectId: "rise_prg_atlas_im",
     field: "research.fellowship_inventory",
     canonicalValue: [
       {
