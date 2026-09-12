@@ -14,6 +14,8 @@
   "automatic_expiry_hours": null,
   "retry_delay_hours": 12,
   "max_provider_attempts": 2,
+  "provider_attempt_binding": "immutable provider request ID and attempt number in Stripe metadata, with PaymentIntent reference stored on the exact charge_attempt",
+  "out_of_order_webhook_policy": "terminal matching attempt is idempotent; conflicting terminal event fails closed; newer attempts remain unchanged",
   "late_fee_eligible_after_failed_attempts": 2,
   "late_fee_amount_cents": null,
   "per_charge_student_approval_required": false,

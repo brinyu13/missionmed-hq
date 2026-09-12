@@ -28,6 +28,12 @@
   "simulated_charge_rows_created": 1,
   "simulated_provider_attempts": 2,
   "simulated_failed_provider_attempts": 2,
+  "provider_attempt_binding_regressions": {
+    "payment_intent_ref_persisted_on_exact_attempt": "PASS",
+    "delayed_attempt_one_failure_after_attempt_two_claim": "PASS_IDEMPOTENT",
+    "delayed_conflicting_attempt_one_success": "PASS_FAIL_CLOSED",
+    "newer_attempt_two_claim_unchanged": "PASS"
+  },
   "retry_delay_hours": 12,
   "late_fee_eligible_review": "PASS",
   "late_fee_amount_columns": 0,

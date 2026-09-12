@@ -1,7 +1,7 @@
 {
   "ticket": "MX-MISSIONACCOUNTS-5403B",
   "node_tests": {
-    "passed": 210,
+    "passed": 211,
     "failed": 0
   },
   "mandatory_vectors": {
@@ -55,6 +55,24 @@
     "retry_delay_hours": 12,
     "max_provider_attempts": 2,
     "late_fee_amount_cents": null,
+    "production_mutation": "NONE",
+    "stripe_provider_calls": 0,
+    "live_dispatch": "OFF"
+  },
+  "revfix_04": {
+    "failed_reviewed_head": "2f72bc2ff260050d5a905a84ddfba0326c2ac7fe",
+    "corrective_source_commit": "292e98403519b5811786f6beab57cd4a3889da60",
+    "stripe_metadata_attempt_binding": "PASS",
+    "exact_charge_attempt_provider_ref": "PASS",
+    "delayed_attempt_one_failure_idempotent": "PASS",
+    "conflicting_delayed_success_fail_closed": "PASS",
+    "newer_attempt_claim_preserved": "PASS",
+    "production_readback_at": "2026-09-12T21:16:00Z",
+    "production_migration_applied": false,
+    "production_enrollment_projection_exists": false,
+    "production_automatic_billing_contract_exists": false,
+    "production_dispatch_rows": 0,
+    "production_charge_rows": 0,
     "production_mutation": "NONE",
     "stripe_provider_calls": 0,
     "live_dispatch": "OFF"
