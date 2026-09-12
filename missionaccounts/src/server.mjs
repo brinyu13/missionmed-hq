@@ -414,13 +414,20 @@ export function createMissionAccountsServer({
             studentId: item.charge.student_id,
             attendanceDayId: item.attendance_day_id,
             receiptEmail: item.receipt_email,
+            idempotencyKey: item.provider_idempotency_key,
           });
           if (!/^pi_[A-Za-z0-9_]+$/.test(String(paymentIntent.id || ''))) {
             throw requestError('Stripe PaymentIntent response is incomplete', 502);
           }
         } catch (error) {
+          const failedPaymentIntentRef = error?.stripe?.error?.payment_intent?.id
+            || error?.stripe?.payment_intent?.id
+            || null;
           await store.finishAutoChargeDispatch({
-            dispatchId: item.dispatch_id, workerId, succeeded: false, providerRef: null,
+            dispatchId: item.dispatch_id, workerId, succeeded: false,
+            providerRef: /^pi_[A-Za-z0-9_]+$/.test(String(failedPaymentIntentRef || ''))
+              ? failedPaymentIntentRef
+              : null,
             error: error instanceof Error ? error.message : 'Stripe charge submission failed',
             now: now().toISOString(),
           });

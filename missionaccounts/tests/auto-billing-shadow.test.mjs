@@ -39,6 +39,11 @@ test('zero-money shadow reports an eligible direct day without creating a provid
   assert.equal(result.rows[0].attendance_evidence, 'multiple_events_one_day');
   assert.equal(result.rows[0].active_enrollment_gate.active, true);
   assert.equal(result.contract.automatic_expiry_hours, null);
+  assert.equal(result.contract.ordinary_dispatch_target_hours, 24);
+  assert.equal(result.contract.failed_charge_retry, 'one_bounded_retry_after_12_hours');
+  assert.equal(result.contract.max_provider_attempts, 2);
+  assert.equal(result.contract.late_fee_amount_cents, null);
+  assert.equal(result.contract.per_charge_student_approval_required, false);
 });
 
 test('sponsored, unresolved, missing-method, missing-consent and failed-charge rows fail closed', () => {
@@ -48,7 +53,7 @@ test('sponsored, unresolved, missing-method, missing-consent and failed-charge r
     { suffix: '3', student: { identity_state: 'needs_review' }, expected: 'student_identity_requires_review' },
     { suffix: '4', method: null, expected: 'payment_method_required' },
     { suffix: '5', consent: null, expected: 'billing_authorization_required' },
-    { suffix: '6', charge: { state: 'failed', amount_cents: 2500 }, expected: 'explicit_retry_required' },
+    { suffix: '6', charge: { state: 'failed', amount_cents: 2500 }, expected: 'provider_failure_requires_review' },
   ];
   const input = { ...base, attendanceDays: [], students: [], billingDecisions: [], paymentMethods: [], billingConsents: [], enrollmentProjections: [], charges: [] };
   for (const item of copies) {
@@ -72,6 +77,28 @@ test('sponsored, unresolved, missing-method, missing-consent and failed-charge r
   assert.equal(result.summary.sponsored_excluded_rows, 1);
   assert.equal(result.summary.missing_payment_method, 1);
   assert.equal(result.summary.missing_consent, 1);
+});
+
+test('one scheduled provider retry remains eligible and the two-failure ceiling enters fee-free review', () => {
+  const input = fixture();
+  const dayId = input.attendanceDays[0].id;
+  input.charges = [{ student_id: input.students[0].id, attendance_day_id: dayId, amount_cents: 2500, state: 'failed' }];
+  input.dispatches = [{
+    attendance_day_id: dayId, state: 'pending', provider_failure_count: 1,
+    eligible_after: '2026-09-11T15:00:00.000Z',
+  }];
+  const retry = buildAutomaticBillingShadow(input);
+  assert.equal(retry.rows[0].status, 'WOULD_CHARGE');
+  assert.equal(retry.rows[0].reasons.includes('provider_failure_requires_review'), false);
+
+  input.dispatches[0] = {
+    attendance_day_id: dayId, state: 'held', provider_failure_count: 2,
+    eligible_after: '2026-09-11T15:00:00.000Z', hold_reason: 'late_fee_eligible_review',
+  };
+  const exhausted = buildAutomaticBillingShadow(input);
+  assert.equal(exhausted.rows[0].status, 'NEEDS_REVIEW');
+  assert.ok(exhausted.rows[0].reasons.includes('provider_failure_requires_review'));
+  assert.equal(exhausted.contract.late_fee_amount_cents, null);
 });
 
 test('durable candidates do not expire after 48 hours and stale enrollment fails closed', () => {

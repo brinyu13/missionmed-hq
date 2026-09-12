@@ -56,7 +56,11 @@ test('automatic-billing consent is independent from dispatch and requires exact 
  assert.match(html,/Automatic billing remains disabled while the exact billing terms await Founder approval/);
  assert.match(html,/data-auth-off/);
  assert.match(html,/fresh ExamPrep enrollment/);
- assert.match(html,/Newly finalized days are held for at least 24 hours/);
+ assert.match(html,/Eligible attendance is generally processed within 24–48 hours/);
+ assert.match(html,/No individual approval is required for each charge after advance authorization is enabled/);
+ assert.match(html,/one automatic retry/);
+ assert.match(html,/no late-fee amount is encoded by this release/);
+ assert.doesNotMatch(html,/held for at least 24 hours/);
  assert.match(html,/live dispatch off/);
  assert.match(html,/Sponsored exclusions[\s\S]+students · [^<]+rows/);
 });

@@ -1,8 +1,8 @@
 -- Migration: 20260911224524_autobilling_contract_closeout_5403b.sql
--- Authority: DR-238 / MX-MISSIONACCOUNTS-5403B
+-- Authority: DR-241 / DR-242 / MX-MISSIONACCOUNTS-5403B
 -- Date: 2026-09-12
 -- Depends on: 20260911131140_sponsor_control.sql
--- Description: Add the enrollment, consent, and durable post-rollout automatic-billing contract while dispatch remains disabled.
+-- Description: Add the enrollment, consent, durable post-rollout automatic-billing contract, and bounded provider-retry policy while dispatch remains disabled.
 -- Idempotent: NO
 
 BEGIN;
@@ -66,8 +66,12 @@ create table missionaccounts.automatic_billing_contract (
   rollout_cutoff timestamptz not null,
   enrollment_freshness interval not null default interval '6 hours'
     check (enrollment_freshness > interval '0' and enrollment_freshness <= interval '24 hours'),
-  eligible_delay interval not null default interval '24 hours'
-    check (eligible_delay >= interval '24 hours'),
+  ordinary_dispatch_delay interval not null default interval '24 hours'
+    check (ordinary_dispatch_delay >= interval '24 hours' and ordinary_dispatch_delay <= interval '48 hours'),
+  retry_delay interval not null default interval '12 hours'
+    check (retry_delay > interval '0' and retry_delay <= interval '24 hours'),
+  max_provider_attempts integer not null default 2
+    check (max_provider_attempts = 2),
   live_dispatch_allowed boolean not null default false,
   initial_canary_requires_admin_approval boolean not null default true,
   created_at timestamptz not null default now(),
@@ -76,11 +80,13 @@ create table missionaccounts.automatic_billing_contract (
 
 insert into missionaccounts.automatic_billing_contract(
   singleton, course_id, amount_per_day_cents, rollout_cutoff,
-  enrollment_freshness, eligible_delay, live_dispatch_allowed,
+  enrollment_freshness, ordinary_dispatch_delay, retry_delay,
+  max_provider_attempts, live_dispatch_allowed,
   initial_canary_requires_admin_approval
 ) values (
   true, 6357, 2500, transaction_timestamp(),
-  interval '6 hours', interval '24 hours', false, true
+  interval '6 hours', interval '24 hours', interval '12 hours',
+  2, false, true
 )
 on conflict (singleton) do nothing;
 
@@ -90,7 +96,18 @@ alter table missionaccounts.auto_charge_dispatch
   add column if not exists attendance_finalized_at timestamptz,
   add column if not exists provenance jsonb not null default '{}'::jsonb,
   add column if not exists held_at timestamptz,
-  add column if not exists hold_reason text;
+  add column if not exists hold_reason text,
+  add column if not exists provider_failure_count integer not null default 0,
+  add column if not exists late_fee_eligible_at timestamptz;
+
+alter table missionaccounts.auto_charge_dispatch
+  add constraint auto_charge_dispatch_provider_failure_count_check
+    check (provider_failure_count >= 0 and provider_failure_count <= 2),
+  add constraint auto_charge_dispatch_late_fee_state_check
+    check (
+      late_fee_eligible_at is null
+      or (state = 'held' and provider_failure_count = 2 and hold_reason = 'late_fee_eligible_review')
+    );
 
 alter table missionaccounts.auto_charge_dispatch
   drop constraint if exists auto_charge_dispatch_state_check;
@@ -266,7 +283,7 @@ begin
     ad.id,
     'pending',
     'missionaccounts:auto-charge:' || ad.id::text || ':v2',
-    ad.computed_at + contract_row.eligible_delay,
+    ad.computed_at + contract_row.ordinary_dispatch_delay,
     contract_row.rollout_cutoff,
     ad.computed_at,
     jsonb_build_object(
@@ -275,6 +292,10 @@ begin
       'rollout_cutoff', contract_row.rollout_cutoff,
       'attendance_day', ad.day,
       'attendance_finalized_at', ad.computed_at,
+      'consent_id', bc.id,
+      'consent_terms_version', bc.terms_version,
+      'consent_accepted_at', bc.accepted_at,
+      'ordinary_dispatch_target', ad.computed_at + contract_row.ordinary_dispatch_delay,
       'created_without_provider_action', true
     )
   from missionaccounts.attendance_day ad
@@ -289,12 +310,6 @@ begin
    and ep.course_id = contract_row.course_id
    and ep.enrolled is true
    and ep.valid_until > p_now
-  join missionaccounts.billing_decision bd
-    on bd.student_id = ad.student_id
-   and bd.cycle_key = ad.cycle_key
-   and bd.superseded_by_id is null
-   and bd.state = 'approved'
-   and bd.treatment = 'confirm'
   join missionaccounts.payment_method_private pm
     on pm.student_id = ad.student_id and pm.status = 'on_file'
   join missionaccounts.billing_consent bc
@@ -310,10 +325,20 @@ begin
       where rd.rule = 'one_charge_per_calendar_day'
         and rd.superseded_by_id is null and rd.effective_from <= ad.day
     )
-    and exists (
-      select 1
-      from jsonb_array_elements(coalesce(bd.basis->'days', bd.basis->'day_states', '[]'::jsonb)) approved_day
-      where approved_day->>'id' = ad.id::text and approved_day->>'kind' = 'billable'
+    and (
+      contract_row.initial_canary_requires_admin_approval is not true
+      or exists (
+        select 1
+        from missionaccounts.billing_decision bd,
+          jsonb_array_elements(coalesce(bd.basis->'days', bd.basis->'day_states', '[]'::jsonb)) approved_day
+        where bd.student_id = ad.student_id
+          and bd.cycle_key = ad.cycle_key
+          and bd.superseded_by_id is null
+          and bd.state = 'approved'
+          and bd.treatment = 'confirm'
+          and approved_day->>'id' = ad.id::text
+          and approved_day->>'kind' = 'billable'
+      )
     )
     and not exists (
       select 1 from missionaccounts.charge c
@@ -639,7 +664,9 @@ begin
     for update;
     if not found
        or dispatch_row.state <> 'claimed'
-       or dispatch_row.idempotency_key is distinct from p_request_id
+       or p_request_id is distinct from (
+         dispatch_row.idempotency_key || ':attempt:' || (dispatch_row.provider_failure_count + 1)::text
+       )
        or dispatch_row.eligible_after is null
        or dispatch_row.eligible_after > clock_timestamp()
        or dispatch_row.rollout_cutoff is distinct from contract_row.rollout_cutoff
@@ -663,7 +690,7 @@ begin
       and ep.valid_until > clock_timestamp()
   ) then rejection_reason := 'active_examprep_enrollment_required'; end if;
 
-  if rejection_reason is null then
+  if rejection_reason is null and contract_row.initial_canary_requires_admin_approval is true then
     select * into decision_row
     from missionaccounts.billing_decision
     where student_id = day_row.student_id and cycle_key = day_row.cycle_key
@@ -723,7 +750,7 @@ begin
     end if;
   end if;
 
-  if rejection_reason is null then
+  if rejection_reason is null and contract_row.initial_canary_requires_admin_approval is true then
     select coalesce(sum(c.amount_cents), 0)::integer into reserved_amount_cents
     from missionaccounts.charge c
     join missionaccounts.attendance_day ad on ad.id = c.attendance_day_id
@@ -842,7 +869,7 @@ begin
   get diagnostics held_count = row_count;
 
   for candidate in
-    select d.id, d.attendance_day_id, d.idempotency_key
+    select d.id, d.attendance_day_id, d.idempotency_key, d.provider_failure_count
     from missionaccounts.auto_charge_dispatch d
     join missionaccounts.attendance_day ad on ad.id = d.attendance_day_id
     where d.state = 'pending'
@@ -867,14 +894,16 @@ begin
       candidate.attendance_day_id,
       'missionaccounts:auto-charge',
       'service',
-      candidate.idempotency_key,
-      false
+      candidate.idempotency_key || ':attempt:' || (candidate.provider_failure_count + 1)::text,
+      candidate.provider_failure_count > 0
     );
 
     if coalesce((prepared->>'accepted')::boolean, false) then
       claimed_items := claimed_items || jsonb_build_array(jsonb_build_object(
         'dispatch_id', candidate.id,
         'attendance_day_id', candidate.attendance_day_id,
+        'provider_attempt_number', candidate.provider_failure_count + 1,
+        'provider_idempotency_key', candidate.idempotency_key || ':attempt:' || (candidate.provider_failure_count + 1)::text,
         'customer_ref', prepared->>'customer_ref',
         'payment_method_ref', prepared->>'payment_method_ref',
         'receipt_email', prepared->>'receipt_email',
@@ -901,6 +930,350 @@ begin
 end;
 $$;
 
+create or replace function missionaccounts.api_finish_auto_charge_dispatch(
+  p_dispatch_id uuid,
+  p_worker_id text,
+  p_succeeded boolean,
+  p_provider_ref text default null,
+  p_error text default null,
+  p_now timestamptz default now()
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  dispatch_row missionaccounts.auto_charge_dispatch%rowtype;
+  charge_row missionaccounts.charge%rowtype;
+  day_row missionaccounts.attendance_day%rowtype;
+  contract_row missionaccounts.automatic_billing_contract%rowtype;
+  audit_id uuid;
+  next_failure_count integer;
+  definite_failure boolean;
+  next_state text;
+  event_suffix text;
+begin
+  if p_dispatch_id is null or nullif(btrim(p_worker_id), '') is null or p_now is null then
+    raise exception using errcode = '22023', message = 'invalid_auto_charge_finish';
+  end if;
+
+  select * into dispatch_row
+  from missionaccounts.auto_charge_dispatch
+  where id = p_dispatch_id
+  for update;
+  if not found then raise exception using errcode = '23503', message = 'auto_charge_dispatch_not_found'; end if;
+
+  if dispatch_row.state = 'submitted' and p_succeeded
+     and dispatch_row.provider_ref is not distinct from p_provider_ref then
+    return jsonb_build_object('accepted', true, 'duplicate', true, 'dispatch', to_jsonb(dispatch_row));
+  end if;
+  if dispatch_row.state <> 'claimed' or dispatch_row.worker_id is distinct from p_worker_id then
+    raise exception using errcode = '22023', message = 'auto_charge_claim_mismatch';
+  end if;
+  if p_succeeded and coalesce(p_provider_ref, '') !~ '^pi_[A-Za-z0-9_]+$' then
+    raise exception using errcode = '22023', message = 'auto_charge_provider_ref_required';
+  end if;
+  if not p_succeeded and nullif(btrim(p_error), '') is null then
+    raise exception using errcode = '22023', message = 'auto_charge_error_required';
+  end if;
+
+  select * into charge_row
+  from missionaccounts.charge
+  where attendance_day_id = dispatch_row.attendance_day_id
+  for update;
+  if not found then raise exception using errcode = '23503', message = 'auto_charge_not_found'; end if;
+  select * into day_row from missionaccounts.attendance_day where id = dispatch_row.attendance_day_id;
+  select * into contract_row from missionaccounts.automatic_billing_contract where singleton = true;
+  if not found then raise exception using errcode = '55000', message = 'automatic_billing_contract_unavailable'; end if;
+
+  if p_succeeded then
+    update missionaccounts.auto_charge_dispatch
+    set state = 'submitted', provider_ref = p_provider_ref, submitted_at = p_now,
+        worker_id = null, locked_at = null, last_error = null,
+        hold_reason = null, held_at = null, updated_at = p_now
+    where id = dispatch_row.id returning * into dispatch_row;
+    update missionaccounts.charge
+    set provider_ref = p_provider_ref, updated_at = p_now
+    where id = charge_row.id returning * into charge_row;
+    event_suffix := 'submitted';
+  else
+    -- A Stripe HTTP error is a definite provider response. A network/transport
+    -- error carries no marker and must be reconciled before any retry.
+    definite_failure := p_provider_ref is not null;
+    if definite_failure then
+      next_failure_count := dispatch_row.provider_failure_count + 1;
+      next_state := case when next_failure_count < contract_row.max_provider_attempts then 'pending' else 'held' end;
+      update missionaccounts.auto_charge_dispatch
+      set state = next_state,
+          provider_failure_count = next_failure_count,
+          eligible_after = case when next_state = 'pending' then p_now + contract_row.retry_delay else eligible_after end,
+          worker_id = null, locked_at = null,
+          held_at = case when next_state = 'held' then p_now else null end,
+          hold_reason = case when next_state = 'held' then 'late_fee_eligible_review' else null end,
+          late_fee_eligible_at = case when next_state = 'held' then p_now else null end,
+          last_error = left(p_error, 2000), updated_at = p_now
+      where id = dispatch_row.id returning * into dispatch_row;
+      update missionaccounts.charge
+      set provider_ref = null, state = 'failed', updated_at = p_now
+      where id = charge_row.id returning * into charge_row;
+      update missionaccounts.charge_attempt
+      set state = 'failed', error_code = 'stripe_submission_failed', error_message = left(p_error, 2000)
+      where id = (
+        select id from missionaccounts.charge_attempt
+        where charge_id = charge_row.id and state = 'started'
+        order by attempted_at desc limit 1
+      );
+      event_suffix := case when next_state = 'pending' then 'retry-scheduled' else 'late-fee-eligible-review' end;
+    else
+      update missionaccounts.auto_charge_dispatch
+      set state = 'held', worker_id = null, locked_at = null,
+          held_at = p_now, hold_reason = 'provider_outcome_unknown_requires_reconciliation',
+          last_error = left(p_error, 2000), updated_at = p_now
+      where id = dispatch_row.id returning * into dispatch_row;
+      event_suffix := 'provider-outcome-unknown';
+    end if;
+
+    insert into missionaccounts.integration_exception(
+      provider, kind, student_id, attendance_day_id, details, idempotency_key
+    ) values (
+      'stripe',
+      case when definite_failure then 'automatic_charge_submission_failed' else 'automatic_charge_outcome_unknown' end,
+      charge_row.student_id, charge_row.attendance_day_id,
+      jsonb_build_object(
+        'charge_id', charge_row.id,
+        'provider_attempt_number', dispatch_row.provider_failure_count + case when definite_failure then 0 else 1 end,
+        'provider_ref', case when p_provider_ref ~ '^pi_[A-Za-z0-9_]+$' then p_provider_ref else null end,
+        'error', left(p_error, 2000),
+        'automatic_retry_scheduled', definite_failure and dispatch_row.state = 'pending',
+        'late_fee_amount_cents', null
+      ),
+      dispatch_row.idempotency_key || ':' || event_suffix
+    ) on conflict (idempotency_key) do nothing;
+
+    if definite_failure then
+      insert into missionaccounts.notification_outbox(
+        student_id, channel, audience, event_kind, payload, state, idempotency_key
+      )
+      select
+        charge_row.student_id, 'matrix', audience, 'charge.failed',
+        jsonb_build_object(
+          'attendance_day_id', charge_row.attendance_day_id,
+          'amount_cents', charge_row.amount_cents,
+          'state', 'failed',
+          'provider_attempt_number', dispatch_row.provider_failure_count,
+          'automatic_retry_scheduled', dispatch_row.state = 'pending',
+          'late_fee_eligible_review', dispatch_row.state = 'held',
+          'late_fee_amount_cents', null
+        ),
+        'pending', dispatch_row.idempotency_key || ':attempt:' || dispatch_row.provider_failure_count::text || ':charge-failed-' || audience
+      from unnest(array['student','missionaccounts_admin']) audience
+      on conflict (idempotency_key) do nothing;
+    end if;
+  end if;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, to_val, reason, request_id
+  ) values (
+    p_worker_id, 'system', charge_row.student_id,
+    case
+      when p_succeeded then 'auto_charge.submitted'
+      when definite_failure and dispatch_row.state = 'pending' then 'auto_charge.retry_scheduled'
+      when definite_failure then 'auto_charge.late_fee_eligible_review'
+      else 'auto_charge.provider_outcome_unknown'
+    end,
+    case
+      when p_succeeded then 'Automatic attendance-day charge submitted to Stripe'
+      when definite_failure and dispatch_row.state = 'pending' then 'First automatic payment attempt failed; one bounded retry was scheduled'
+      when definite_failure then 'Second automatic payment attempt failed; automatic retry stopped for late-fee eligibility review'
+      else 'Automatic payment outcome is unknown and requires reconciliation before retry'
+    end,
+    jsonb_build_object(
+      'dispatch_id', dispatch_row.id, 'charge_id', charge_row.id,
+      'attendance_day_id', charge_row.attendance_day_id, 'day', day_row.day,
+      'amount_cents', charge_row.amount_cents, 'state', dispatch_row.state,
+      'provider_ref', case when p_provider_ref ~ '^pi_[A-Za-z0-9_]+$' then p_provider_ref else null end,
+      'provider_failure_count', dispatch_row.provider_failure_count,
+      'late_fee_eligible_at', dispatch_row.late_fee_eligible_at,
+      'late_fee_amount_cents', null
+    ),
+    case when p_succeeded then 'stripe_payment_intent_submitted' else left(p_error, 2000) end,
+    dispatch_row.idempotency_key || ':' || event_suffix || ':finish'
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'accepted', true, 'duplicate', false, 'audit_event_id', audit_id,
+    'dispatch', to_jsonb(dispatch_row), 'charge', to_jsonb(charge_row)
+  );
+end;
+$$;
+
+create or replace function missionaccounts.api_process_stripe_payment_intent(
+  p_provider_event_id text,
+  p_event_type text,
+  p_payment_intent_ref text,
+  p_student_id uuid,
+  p_attendance_day_id uuid,
+  p_failure_code text default null,
+  p_failure_message text default null
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = pg_catalog, missionaccounts
+as $$
+declare
+  event_row missionaccounts.provider_event_inbox%rowtype;
+  charge_row missionaccounts.charge%rowtype;
+  dispatch_row missionaccounts.auto_charge_dispatch%rowtype;
+  contract_row missionaccounts.automatic_billing_contract%rowtype;
+  attempt_row missionaccounts.charge_attempt%rowtype;
+  audit_id uuid;
+  next_state text;
+  next_failure_count integer;
+  failure_already_counted boolean := false;
+begin
+  if p_event_type not in ('payment_intent.succeeded','payment_intent.payment_failed')
+     or p_payment_intent_ref !~ '^pi_[A-Za-z0-9_]+$'
+     or p_student_id is null or p_attendance_day_id is null then
+    raise exception using errcode = '22023', message = 'invalid_payment_intent_event';
+  end if;
+
+  select * into event_row
+  from missionaccounts.provider_event_inbox
+  where provider = 'stripe' and provider_event_id = p_provider_event_id
+  for update;
+  if not found then raise exception using errcode = '23503', message = 'stripe_event_not_found'; end if;
+
+  select * into charge_row
+  from missionaccounts.charge
+  where attendance_day_id = p_attendance_day_id
+  for update;
+  if not found then raise exception using errcode = '23503', message = 'charge_not_found'; end if;
+
+  if event_row.state = 'processed' then
+    return jsonb_build_object('accepted', true, 'duplicate', true, 'charge', to_jsonb(charge_row));
+  end if;
+
+  if event_row.signature_verified is not true
+     or event_row.event_type <> p_event_type
+     or event_row.provider_object_id is distinct from p_payment_intent_ref
+     or event_row.payload #>> '{data,object,id}' is distinct from p_payment_intent_ref
+     or event_row.payload #>> '{data,object,metadata,student_id}' is distinct from p_student_id::text
+     or event_row.payload #>> '{data,object,metadata,attendance_day_id}' is distinct from p_attendance_day_id::text
+     or charge_row.student_id <> p_student_id
+     or (charge_row.state = 'succeeded' and charge_row.provider_ref is distinct from p_payment_intent_ref) then
+    raise exception using errcode = '22023', message = 'stripe_charge_event_binding_mismatch';
+  end if;
+
+  select * into dispatch_row
+  from missionaccounts.auto_charge_dispatch
+  where attendance_day_id = p_attendance_day_id
+  for update;
+  select * into contract_row
+  from missionaccounts.automatic_billing_contract
+  where singleton = true;
+  select * into attempt_row
+  from missionaccounts.charge_attempt
+  where charge_id = charge_row.id
+  order by attempted_at desc, id desc
+  limit 1
+  for update;
+
+  next_state := case when p_event_type = 'payment_intent.succeeded' then 'succeeded' else 'failed' end;
+  failure_already_counted := next_state = 'failed' and attempt_row.state = 'failed';
+
+  update missionaccounts.charge
+  set provider_ref = case when next_state = 'succeeded' then p_payment_intent_ref else null end,
+      state = next_state,
+      updated_at = now()
+  where id = charge_row.id
+  returning * into charge_row;
+
+  if attempt_row.id is not null and attempt_row.state = 'started' then
+    update missionaccounts.charge_attempt
+    set state = next_state, error_code = p_failure_code, error_message = left(p_failure_message, 2000)
+    where id = attempt_row.id
+    returning * into attempt_row;
+  end if;
+
+  if dispatch_row.id is not null then
+    if next_state = 'succeeded' then
+      update missionaccounts.auto_charge_dispatch
+      set state = 'submitted', provider_ref = p_payment_intent_ref,
+          submitted_at = coalesce(submitted_at, now()), worker_id = null, locked_at = null,
+          held_at = null, hold_reason = null, last_error = null, updated_at = now()
+      where id = dispatch_row.id returning * into dispatch_row;
+    elsif not failure_already_counted then
+      next_failure_count := dispatch_row.provider_failure_count + 1;
+      update missionaccounts.auto_charge_dispatch
+      set provider_ref = null,
+          provider_failure_count = next_failure_count,
+          state = case when next_failure_count < contract_row.max_provider_attempts then 'pending' else 'held' end,
+          eligible_after = case
+            when next_failure_count < contract_row.max_provider_attempts then now() + contract_row.retry_delay
+            else eligible_after
+          end,
+          worker_id = null, locked_at = null,
+          held_at = case when next_failure_count >= contract_row.max_provider_attempts then now() else null end,
+          hold_reason = case when next_failure_count >= contract_row.max_provider_attempts then 'late_fee_eligible_review' else null end,
+          late_fee_eligible_at = case when next_failure_count >= contract_row.max_provider_attempts then now() else null end,
+          last_error = left(coalesce(p_failure_message, p_failure_code, 'Stripe reported payment failure'), 2000),
+          updated_at = now()
+      where id = dispatch_row.id returning * into dispatch_row;
+
+      insert into missionaccounts.integration_exception(
+        provider, kind, student_id, attendance_day_id, details, idempotency_key
+      ) values (
+        'stripe', 'automatic_charge_payment_failed', charge_row.student_id, charge_row.attendance_day_id,
+        jsonb_build_object(
+          'charge_id', charge_row.id,
+          'provider_ref', p_payment_intent_ref,
+          'provider_attempt_number', next_failure_count,
+          'automatic_retry_scheduled', dispatch_row.state = 'pending',
+          'late_fee_eligible_review', dispatch_row.state = 'held',
+          'late_fee_amount_cents', null
+        ),
+        dispatch_row.idempotency_key || ':attempt:' || next_failure_count::text || ':payment-failed'
+      ) on conflict (idempotency_key) do nothing;
+    end if;
+  end if;
+
+  update missionaccounts.provider_event_inbox
+  set state = 'processed', processed_at = now()
+  where id = event_row.id;
+
+  insert into missionaccounts.audit_event(
+    actor_id, actor_role, subject_student_id, kind, text, to_val, reason, request_id
+  ) values (
+    'stripe:' || p_provider_event_id, 'provider', p_student_id,
+    case when next_state = 'succeeded' then 'charge.succeeded' else 'charge.failed' end,
+    case when next_state = 'succeeded'
+      then 'Stripe confirmed a $25 attendance-day charge'
+      else 'Stripe reported an attendance-day charge failure'
+    end,
+    jsonb_build_object(
+      'charge_id', charge_row.id,
+      'attendance_day_id', charge_row.attendance_day_id,
+      'provider_ref', p_payment_intent_ref,
+      'state', charge_row.state,
+      'provider_failure_count', case when dispatch_row.id is null then null else dispatch_row.provider_failure_count end,
+      'automatic_retry_scheduled', dispatch_row.state = 'pending',
+      'late_fee_eligible_review', dispatch_row.state = 'held' and dispatch_row.hold_reason = 'late_fee_eligible_review',
+      'late_fee_amount_cents', null
+    ),
+    p_failure_message,
+    'stripe:' || p_provider_event_id
+  ) returning id into audit_id;
+
+  return jsonb_build_object(
+    'accepted', true, 'duplicate', false, 'audit_event_id', audit_id,
+    'charge', to_jsonb(charge_row),
+    'dispatch', case when dispatch_row.id is null then null else to_jsonb(dispatch_row) end
+  );
+end;
+$$;
+
 revoke execute on function missionaccounts.api_sync_program_enrollment(uuid, text, bigint, boolean, text, timestamptz, text, text, text)
 from public, anon, authenticated;
 grant execute on function missionaccounts.api_sync_program_enrollment(uuid, text, bigint, boolean, text, timestamptz, text, text, text)
@@ -914,6 +1287,16 @@ to service_role;
 revoke execute on function missionaccounts.api_claim_due_day_charges(timestamptz, text, integer)
 from public, anon, authenticated;
 grant execute on function missionaccounts.api_claim_due_day_charges(timestamptz, text, integer)
+to service_role;
+
+revoke execute on function missionaccounts.api_finish_auto_charge_dispatch(uuid, text, boolean, text, text, timestamptz)
+from public, anon, authenticated;
+grant execute on function missionaccounts.api_finish_auto_charge_dispatch(uuid, text, boolean, text, text, timestamptz)
+to service_role;
+
+revoke execute on function missionaccounts.api_process_stripe_payment_intent(text, text, text, uuid, uuid, text, text)
+from public, anon, authenticated;
+grant execute on function missionaccounts.api_process_stripe_payment_intent(text, text, text, uuid, uuid, text, text)
 to service_role;
 
 revoke execute on function missionaccounts.api_set_billing_consent(uuid, text, text, inet, text, text, text, text)
@@ -942,8 +1325,12 @@ on missionaccounts.billing_terms to authenticated;
 comment on table missionaccounts.program_enrollment_projection is
   'Fresh fail-closed projection of signed LearnDash course-6357 ExamPrep access; LearnDash remains canonical.';
 comment on table missionaccounts.automatic_billing_contract is
-  '5403B rollout cutoff and fail-closed automatic-billing controls. Live dispatch defaults off.';
+  '5403B rollout cutoff, ordinary 24-48 hour cadence, and fail-closed automatic-billing controls. Live dispatch defaults off.';
 comment on column missionaccounts.auto_charge_dispatch.eligible_after is
-  'Earliest eligible claim time. Rows do not auto-expire after this time.';
+  'Operational next-attempt schedule. It is not a consumer cooling-off hold or expiry.';
+comment on column missionaccounts.auto_charge_dispatch.provider_failure_count is
+  'Count of definite unsuccessful provider attempts; at most two before automatic retry stops.';
+comment on column missionaccounts.auto_charge_dispatch.late_fee_eligible_at is
+  'Review eligibility after two definite failures. No late-fee amount is encoded or assessed.';
 
 COMMIT;

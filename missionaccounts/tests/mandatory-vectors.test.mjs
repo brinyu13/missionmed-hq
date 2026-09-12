@@ -371,7 +371,7 @@ test('5403B replaces expiry with a durable, enrollment-gated, post-rollout queue
   const sql = await readFile(new URL('../supabase/migrations/20260911224524_autobilling_contract_closeout_5403b.sql', import.meta.url), 'utf8');
   const claimSql = sql.slice(sql.indexOf('create or replace function missionaccounts.api_claim_due_day_charges'));
 
-  assert.match(sql, /^-- Migration: 20260911224524_autobilling_contract_closeout_5403b\.sql\n-- Authority: DR-238 \/ MX-MISSIONACCOUNTS-5403B\n-- Date: 2026-09-12\n-- Depends on: 20260911131140_sponsor_control\.sql\n-- Description: Add the enrollment, consent, and durable post-rollout automatic-billing contract while dispatch remains disabled\.\n-- Idempotent: NO\n\nBEGIN;/);
+  assert.match(sql, /^-- Migration: 20260911224524_autobilling_contract_closeout_5403b\.sql\n-- Authority: DR-241 \/ DR-242 \/ MX-MISSIONACCOUNTS-5403B\n-- Date: 2026-09-12\n-- Depends on: 20260911131140_sponsor_control\.sql\n-- Description: Add the enrollment, consent, durable post-rollout automatic-billing contract, and bounded provider-retry policy while dispatch remains disabled\.\n-- Idempotent: NO\n\nBEGIN;/);
   assert.match(sql, /COMMIT;\s*$/);
   assert.doesNotMatch(sql, /create\s+(?:unique\s+)?index\s+concurrently|refresh\s+materialized\s+view\s+concurrently|vacuum|reindex|cluster|create\s+database|drop\s+database/i);
 
@@ -403,7 +403,15 @@ test('5403B replaces expiry with a durable, enrollment-gated, post-rollout queue
   assert.match(sql, /true, 6357, 2500, transaction_timestamp\(\),[\s\S]+false, true/);
   assert.match(sql, /ad\.day >= \(contract_row\.rollout_cutoff at time zone 'America\/New_York'\)::date/);
   assert.match(sql, /ad\.computed_at >= contract_row\.rollout_cutoff/);
-  assert.match(sql, /ad\.computed_at \+ contract_row\.eligible_delay/);
+  assert.match(sql, /ordinary_dispatch_delay interval not null default interval '24 hours'/);
+  assert.match(sql, /retry_delay interval not null default interval '12 hours'/);
+  assert.match(sql, /max_provider_attempts integer not null default 2/);
+  assert.match(sql, /ad\.computed_at \+ contract_row\.ordinary_dispatch_delay/);
+  assert.match(sql, /provider_failure_count integer not null default 0/);
+  assert.match(sql, /provider_outcome_unknown_requires_reconciliation/);
+  assert.match(sql, /late_fee_eligible_review/);
+  assert.match(sql, /'late_fee_amount_cents', null/);
+  assert.match(sql, /idempotency_key \|\| ':attempt:' \|\| \(candidate\.provider_failure_count \+ 1\)::text/);
   assert.match(sql, /'pending'/);
   assert.match(sql, /state = 'held'[\s\S]+stale_claim_requires_review/);
   assert.doesNotMatch(claimSql, /interval '48 hours'/);
@@ -419,6 +427,7 @@ test('5403B replaces expiry with a durable, enrollment-gated, post-rollout queue
   assert.match(sql, /alter table missionaccounts\.billing_terms[\s\S]+add column if not exists body_text text/);
   assert.match(sql, /billing_terms_body_hash_mismatch/);
   assert.doesNotMatch(sql, /insert into missionaccounts\.billing_terms/);
+  assert.doesNotMatch(sql, /late_fee_amount_cents\s*[:=]\s*[1-9]/i);
   assert.doesNotMatch(sql, /stripe\.com|net\.http|http_post/i);
 });
 

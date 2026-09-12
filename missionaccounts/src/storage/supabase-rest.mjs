@@ -699,14 +699,18 @@ export class SupabaseRestStore {
       this.requestAll('payment_method_private?select=student_id,brand,last4,status'),
       this.requestAll('billing_consent?superseded_by_id=is.null&select=student_id,state,superseded_by_id'),
       this.requestAll('program_enrollment_projection?program_key=eq.examprep&select=student_id,program_key,provider,course_id,enrolled,source_observed_at,verified_at,valid_until'),
-      this.requestAll('auto_charge_dispatch?select=attendance_day_id,state,eligible_after,held_at,hold_reason'),
+      this.requestAll('auto_charge_dispatch?select=attendance_day_id,state,eligible_after,held_at,hold_reason,provider_failure_count,late_fee_eligible_at'),
       this.requestAll('charge?select=student_id,attendance_day_id,amount_cents,state'),
       this.requestAll('rule_decision?superseded_by_id=is.null&select=rule,effective_from,superseded_by_id'),
-      this.request('automatic_billing_contract?singleton=eq.true&select=rollout_cutoff,live_dispatch_allowed&limit=1'),
+      this.request('automatic_billing_contract?singleton=eq.true&select=rollout_cutoff,ordinary_dispatch_delay,retry_delay,max_provider_attempts,live_dispatch_allowed,initial_canary_requires_admin_approval&limit=1'),
     ]);
     const shadow = buildAutomaticBillingShadow({
       now,
       rolloutCutoff: contracts[0]?.rollout_cutoff,
+      ordinaryDispatchDelayHours: 24,
+      retryDelayHours: 12,
+      maxProviderAttempts: contracts[0]?.max_provider_attempts || 2,
+      initialCanaryRequiresAdminApproval: contracts[0]?.initial_canary_requires_admin_approval !== false,
       attendanceDays,
       students,
       billingDecisions,
@@ -864,7 +868,11 @@ export class PreviewStore {
     this.enrollmentMutations = new Map();
     this.automaticBillingContract = {
       rollout_cutoff: new Date(0).toISOString(),
+      ordinary_dispatch_delay_hours: 24,
+      retry_delay_hours: 12,
+      max_provider_attempts: 2,
       live_dispatch_allowed: false,
+      initial_canary_requires_admin_approval: true,
     };
     this.paymentRemovalMutations = new Map();
     this.stripeCustomers = new Map();
@@ -1844,7 +1852,8 @@ export class PreviewStore {
     else if (actorRole !== 'service' || actorId !== 'missionaccounts:auto-charge') rejection = 'automatic_charge_service_authority_required';
     else if (!Number.isFinite(cutoffMs) || !Number.isFinite(computedMs)
       || computedMs < cutoffMs || String(day.day || '') < String(this.automaticBillingContract.rollout_cutoff).slice(0, 10)) rejection = 'pre_rollout_attendance_not_chargeable';
-    else if (!dispatch || dispatch.state !== 'claimed' || dispatch.idempotency_key !== requestId
+    else if (!dispatch || dispatch.state !== 'claimed'
+      || `${dispatch.idempotency_key}:attempt:${Number(dispatch.provider_failure_count || 0) + 1}` !== requestId
       || dispatch.rollout_cutoff !== this.automaticBillingContract.rollout_cutoff
       || dispatch.attendance_finalized_at !== day.computed_at
       || Date.parse(dispatch.eligible_after || '') > evaluationMs) rejection = 'durable_charge_candidate_required';
@@ -1853,9 +1862,12 @@ export class PreviewStore {
     else if (enrollment?.provider !== 'learndash' || enrollment?.course_id !== 6357
       || enrollment?.enrolled !== true || Date.parse(enrollment.valid_until || '') <= evaluationMs) rejection = 'active_examprep_enrollment_required';
     else if (day.kind !== 'billable') rejection = 'attendance_day_not_billable';
-    else if (!decision || decision.state !== 'approved') rejection = 'approved_billing_decision_required';
-    else if (decision.treatment !== 'confirm') rejection = 'per_day_billing_decision_required';
-    else if (!(decision.basis?.day_states || decision.basis?.days || []).some(item => item.id === attendanceDayId && item.kind === 'billable')) rejection = 'attendance_day_not_in_approved_basis';
+    else if (this.automaticBillingContract.initial_canary_requires_admin_approval !== false
+      && (!decision || decision.state !== 'approved')) rejection = 'approved_billing_decision_required';
+    else if (this.automaticBillingContract.initial_canary_requires_admin_approval !== false
+      && decision.treatment !== 'confirm') rejection = 'per_day_billing_decision_required';
+    else if (this.automaticBillingContract.initial_canary_requires_admin_approval !== false
+      && !(decision.basis?.day_states || decision.basis?.days || []).some(item => item.id === attendanceDayId && item.kind === 'billable')) rejection = 'attendance_day_not_in_approved_basis';
     else if (method?.status !== 'on_file') rejection = 'payment_method_required';
     else if (consent?.state !== 'authorized') rejection = 'billing_authorization_required';
     else if (terms?.status !== 'approved' || !terms?.body_text) rejection = 'approved_billing_terms_required';
@@ -1867,7 +1879,8 @@ export class PreviewStore {
     const reservedAmount = [...this.chargesByDay.values()]
       .filter(charge => charge.student_id === studentId && charge.cycle_key === cycleKey && charge.attendance_day_id !== attendanceDayId && ['pending', 'succeeded'].includes(charge.state))
       .reduce((sum, charge) => sum + charge.amount_cents, 0);
-    if (!rejection && reservedAmount + 2_500 > decision.amount_cents) rejection = 'approved_amount_exhausted';
+    if (!rejection && this.automaticBillingContract.initial_canary_requires_admin_approval !== false
+      && reservedAmount + 2_500 > decision.amount_cents) rejection = 'approved_amount_exhausted';
     const ordinal = this.chargeMutations.size + 1;
     if (rejection) {
       const result = { accepted: false, reason: rejection, audit_event_id: `preview-charge-audit-${ordinal}` };
@@ -1959,6 +1972,8 @@ export class PreviewStore {
   }
   async claimDueDayCharges({ now, workerId, limit }) {
     const nowMs = Date.parse(now);
+    const ordinaryDispatchDelayHours = Number(this.automaticBillingContract.ordinary_dispatch_delay_hours || 24);
+    const maxProviderAttempts = Number(this.automaticBillingContract.max_provider_attempts || 2);
     if (!Number.isFinite(nowMs) || !workerId || !Number.isInteger(limit) || limit < 1 || limit > 25) {
       throw Object.assign(new Error('Invalid automatic charge claim'), { status: 400 });
     }
@@ -2000,23 +2015,31 @@ export class PreviewStore {
           && enrollment?.enrolled === true
           && Date.parse(enrollment.valid_until || '') > nowMs
           && day.kind === 'billable'
-          && decision?.state === 'approved'
-          && decision?.treatment === 'confirm'
-          && (decision.basis?.day_states || decision.basis?.days || []).some(item => item.id === day.id && item.kind === 'billable')
+          && (this.automaticBillingContract.initial_canary_requires_admin_approval === false || (
+            decision?.state === 'approved'
+            && decision?.treatment === 'confirm'
+            && (decision.basis?.day_states || decision.basis?.days || []).some(item => item.id === day.id && item.kind === 'billable')
+          ))
           && method?.status === 'on_file'
           && consent?.state === 'authorized'
-          && !existingCharge;
-        if (!prerequisites) continue;
+          && (!existingCharge || (
+            existingCharge.state === 'failed'
+            && dispatch?.state === 'pending'
+            && Number(dispatch.provider_failure_count || 0) < maxProviderAttempts
+          ));
+        if (!dispatch && !prerequisites) continue;
         if (!dispatch) {
           dispatch = {
             id: `preview-auto-charge-dispatch-${this.autoChargeDispatches.size + 1}`,
             attendance_day_id: day.id,
             state: 'pending',
             idempotency_key: `missionaccounts:auto-charge:${day.id}:v2`,
-            eligible_after: new Date(computedMs + 24 * 3_600_000).toISOString(),
+            eligible_after: new Date(computedMs + ordinaryDispatchDelayHours * 3_600_000).toISOString(),
             rollout_cutoff: this.automaticBillingContract.rollout_cutoff,
             attendance_finalized_at: day.computed_at,
             attempt_count: 0,
+            provider_failure_count: 0,
+            late_fee_eligible_at: null,
           };
           this.autoChargeDispatches.set(day.id, dispatch);
         }
@@ -2037,8 +2060,8 @@ export class PreviewStore {
           attendanceDayId: day.id,
           actorId: 'missionaccounts:auto-charge',
           actorRole: 'service',
-          requestId: dispatch.idempotency_key,
-          explicitRetry: false,
+          requestId: `${dispatch.idempotency_key}:attempt:${Number(dispatch.provider_failure_count || 0) + 1}`,
+          explicitRetry: Number(dispatch.provider_failure_count || 0) > 0,
         });
         if (!prepared.accepted) {
           Object.assign(dispatch, {
@@ -2051,6 +2074,8 @@ export class PreviewStore {
         claimed.push({
           dispatch_id: dispatch.id,
           attendance_day_id: day.id,
+          provider_attempt_number: Number(dispatch.provider_failure_count || 0) + 1,
+          provider_idempotency_key: `${dispatch.idempotency_key}:attempt:${Number(dispatch.provider_failure_count || 0) + 1}`,
           customer_ref: prepared.customer_ref,
           payment_method_ref: prepared.payment_method_ref,
           receipt_email: prepared.receipt_email,
@@ -2063,6 +2088,8 @@ export class PreviewStore {
     return { claimed, held, now };
   }
   async finishAutoChargeDispatch({ dispatchId, workerId, succeeded, providerRef, error, now }) {
+    const retryDelayHours = Number(this.automaticBillingContract.retry_delay_hours || 12);
+    const maxProviderAttempts = Number(this.automaticBillingContract.max_provider_attempts || 2);
     const dispatch = [...this.autoChargeDispatches.values()].find(item => item.id === dispatchId);
     if (!dispatch || dispatch.state !== 'claimed' || dispatch.worker_id !== workerId) {
       throw Object.assign(new Error('Automatic charge claim mismatch'), { status: 409 });
@@ -2077,21 +2104,51 @@ export class PreviewStore {
       dispatch.submitted_at = now;
       charge.provider_ref = providerRef;
     } else {
-      dispatch.state = 'failed';
+      const definiteFailure = Boolean(providerRef);
       dispatch.last_error = error;
-      charge.state = 'failed';
-      const exceptionKey = `${dispatch.idempotency_key}:submission-failed`;
+      if (definiteFailure) {
+        dispatch.provider_failure_count = Number(dispatch.provider_failure_count || 0) + 1;
+        charge.state = 'failed';
+        charge.provider_ref = null;
+        if (dispatch.provider_failure_count < maxProviderAttempts) {
+          dispatch.state = 'pending';
+          dispatch.eligible_after = new Date(Date.parse(now) + retryDelayHours * 3_600_000).toISOString();
+          dispatch.held_at = null;
+          dispatch.hold_reason = null;
+        } else {
+          dispatch.state = 'held';
+          dispatch.held_at = now;
+          dispatch.hold_reason = 'late_fee_eligible_review';
+          dispatch.late_fee_eligible_at = now;
+        }
+      } else {
+        dispatch.state = 'held';
+        dispatch.held_at = now;
+        dispatch.hold_reason = 'provider_outcome_unknown_requires_reconciliation';
+      }
+      const eventSuffix = definiteFailure
+        ? dispatch.state === 'pending' ? 'retry-scheduled' : 'late-fee-eligible-review'
+        : 'provider-outcome-unknown';
+      const exceptionKey = `${dispatch.idempotency_key}:${eventSuffix}`;
       this.integrationExceptions.set(exceptionKey, {
         id: `preview-integration-exception-${this.integrationExceptions.size + 1}`,
-        provider: 'stripe', kind: 'automatic_charge_submission_failed',
+        provider: 'stripe', kind: definiteFailure ? 'automatic_charge_submission_failed' : 'automatic_charge_outcome_unknown',
         student_id: charge.student_id, attendance_day_id: charge.attendance_day_id,
         state: 'open', idempotency_key: exceptionKey,
       });
-      for (const audience of ['student', 'missionaccounts_admin']) {
+      for (const audience of definiteFailure ? ['student', 'missionaccounts_admin'] : []) {
         this.seedNotification({
           student_id: charge.student_id, audience, event_kind: 'charge.failed',
-          idempotency_key: `${dispatch.idempotency_key}:charge-failed-${audience}`,
-          payload: { attendance_day_id: charge.attendance_day_id, amount_cents: charge.amount_cents, state: 'failed' },
+          idempotency_key: `${dispatch.idempotency_key}:attempt:${dispatch.provider_failure_count}:charge-failed-${audience}`,
+          payload: {
+            attendance_day_id: charge.attendance_day_id,
+            amount_cents: charge.amount_cents,
+            state: 'failed',
+            provider_attempt_number: dispatch.provider_failure_count,
+            automatic_retry_scheduled: dispatch.state === 'pending',
+            late_fee_eligible_review: dispatch.state === 'held',
+            late_fee_amount_cents: null,
+          },
         });
       }
     }
@@ -2166,6 +2223,8 @@ export class PreviewStore {
     return { accepted: true, duplicate: false, sync_run_id: row.id, exception_id: this.integrationExceptions.get(exceptionKey).id, state: 'failed' };
   }
   async processStripePaymentIntent({ eventId, eventType, paymentIntentId, studentId, attendanceDayId, failureCode, failureMessage }) {
+    const retryDelayHours = Number(this.automaticBillingContract.retry_delay_hours || 12);
+    const maxProviderAttempts = Number(this.automaticBillingContract.max_provider_attempts || 2);
     const event = this.providerEvents.get(`stripe:${eventId}`);
     const charge = this.chargesByDay.get(attendanceDayId);
     if (!event || !charge) throw Object.assign(new Error('Stripe charge event cannot be matched'), { status: 409 });
@@ -2176,10 +2235,35 @@ export class PreviewStore {
       || charge.student_id !== studentId || (charge.provider_ref && charge.provider_ref !== paymentIntentId)) {
       throw Object.assign(new Error('Stripe charge event binding mismatch'), { status: 409 });
     }
+    const failureAlreadyCounted = eventType === 'payment_intent.payment_failed' && charge.state === 'failed';
     charge.provider_ref = paymentIntentId;
     charge.state = eventType === 'payment_intent.succeeded' ? 'succeeded' : 'failed';
     charge.failure_code = failureCode || null;
     charge.failure_message = failureMessage || null;
+    const dispatch = this.autoChargeDispatches.get(attendanceDayId);
+    if (dispatch) {
+      if (charge.state === 'succeeded') {
+        dispatch.state = 'submitted';
+        dispatch.provider_ref = paymentIntentId;
+        dispatch.last_error = null;
+      } else if (!failureAlreadyCounted) {
+        charge.provider_ref = null;
+        dispatch.provider_ref = null;
+        dispatch.provider_failure_count = Number(dispatch.provider_failure_count || 0) + 1;
+        dispatch.last_error = failureMessage || failureCode || 'Stripe reported payment failure';
+        if (dispatch.provider_failure_count < maxProviderAttempts) {
+          dispatch.state = 'pending';
+          dispatch.eligible_after = new Date(Date.now() + retryDelayHours * 3_600_000).toISOString();
+          dispatch.held_at = null;
+          dispatch.hold_reason = null;
+        } else {
+          dispatch.state = 'held';
+          dispatch.held_at = new Date().toISOString();
+          dispatch.hold_reason = 'late_fee_eligible_review';
+          dispatch.late_fee_eligible_at = dispatch.held_at;
+        }
+      }
+    }
     event.state = 'processed';
     return { accepted: true, duplicate: false, audit_event_id: `preview-charge-webhook-audit-${eventId}`, charge: { ...charge } };
   }

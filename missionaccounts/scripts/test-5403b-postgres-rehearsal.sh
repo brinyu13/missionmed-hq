@@ -37,7 +37,7 @@ for migration in "$app_dir"/supabase/migrations/*.sql; do
   psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
 done
 
-expected_header=$'-- Migration: 20260911224524_autobilling_contract_closeout_5403b.sql\n-- Authority: DR-238 / MX-MISSIONACCOUNTS-5403B\n-- Date: 2026-09-12\n-- Depends on: 20260911131140_sponsor_control.sql\n-- Description: Add the enrollment, consent, and durable post-rollout automatic-billing contract while dispatch remains disabled.\n-- Idempotent: NO'
+expected_header=$'-- Migration: 20260911224524_autobilling_contract_closeout_5403b.sql\n-- Authority: DR-241 / DR-242 / MX-MISSIONACCOUNTS-5403B\n-- Date: 2026-09-12\n-- Depends on: 20260911131140_sponsor_control.sql\n-- Description: Add the enrollment, consent, durable post-rollout automatic-billing contract, and bounded provider-retry policy while dispatch remains disabled.\n-- Idempotent: NO'
 if [[ "$(head -n 6 "$target_migration")" != "$expected_header" ]]; then
   echo "MissionAccounts 5403B migration is missing the exact MR-078A header" >&2
   exit 1
@@ -266,6 +266,75 @@ insert into missionaccounts.billing_decision(
 set role service_role;
 select missionaccounts.api_refresh_auto_charge_candidates(clock_timestamp())->>'inserted';
 
+-- The disposable database alone enables dispatch to exercise the authorized
+-- provider-failure contract. No provider is contacted and no money moves.
+reset role;
+update missionaccounts.automatic_billing_contract
+set live_dispatch_allowed = true;
+set role service_role;
+
+select missionaccounts.api_claim_due_day_charges(
+  (select computed_at + interval '25 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-1', 1
+)->'claimed'->0->>'provider_idempotency_key';
+
+select missionaccounts.api_finish_auto_charge_dispatch(
+  (select id from missionaccounts.auto_charge_dispatch
+   where attendance_day_id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-1', false, 'stripe_definite_failure', 'disposable first decline',
+  (select computed_at + interval '25 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403')
+)->'dispatch'->>'state';
+
+select state || '|' || provider_failure_count || '|' ||
+       (hold_reason is null)::text || '|' || (late_fee_eligible_at is null)::text
+from missionaccounts.auto_charge_dispatch
+where attendance_day_id = '20000000-0000-4000-8000-000000005403';
+
+-- The retry is not claimable before the bounded 12-hour retry target.
+select jsonb_array_length(missionaccounts.api_claim_due_day_charges(
+  (select computed_at + interval '36 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-early', 1
+)->'claimed');
+
+select missionaccounts.api_claim_due_day_charges(
+  (select computed_at + interval '37 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-2', 1
+)->'claimed'->0->>'provider_idempotency_key';
+
+select missionaccounts.api_finish_auto_charge_dispatch(
+  (select id from missionaccounts.auto_charge_dispatch
+   where attendance_day_id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-2', false, 'stripe_definite_failure', 'disposable second decline',
+  (select computed_at + interval '37 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403')
+)->'dispatch'->>'state';
+
+select state || '|' || provider_failure_count || '|' || hold_reason || '|' ||
+       (late_fee_eligible_at is not null)::text
+from missionaccounts.auto_charge_dispatch
+where attendance_day_id = '20000000-0000-4000-8000-000000005403';
+
+select jsonb_array_length(missionaccounts.api_claim_due_day_charges(
+  (select computed_at + interval '72 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-after-ceiling', 1
+)->'claimed');
+
+reset role;
+select
+  (select count(*) from missionaccounts.charge where amount_cents = 2500) || '|' ||
+  (select count(*) from missionaccounts.charge_attempt where state = 'failed') || '|' ||
+  (select count(*) from missionaccounts.notification_outbox where event_kind = 'charge.failed') || '|' ||
+  (select count(*) from information_schema.columns
+   where table_schema = 'missionaccounts' and column_name like 'late_fee_amount%');
+update missionaccounts.automatic_billing_contract
+set live_dispatch_allowed = false;
+set role service_role;
+
 -- Case E: signed course access false projects inactive and blocks new eligibility.
 select missionaccounts.api_sync_program_enrollment(
   '00000000-0000-4000-8000-000000005401', 'examprep', 6357, false,
@@ -293,11 +362,11 @@ select
 SQL
 )
 
-expected=$'true\ntrue\ntrue\nrevoked\ntrue\nrevoked\ntrue\n1\nfalse\n0\nrevoked\n1|1|0|0|revoked|false|true|true|true'
+expected=$'true\ntrue\ntrue\nrevoked\ntrue\nrevoked\ntrue\n1\nmissionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:1\npending\npending|1|true|true\n0\nmissionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:2\nheld\nheld|2|late_fee_eligible_review|true\n0\n1|2|4|0\nfalse\n0\nrevoked\n1|0|0|1|revoked|false|true|true|true'
 if [[ "$result" != "$expected" ]]; then
   echo "MissionAccounts 5403B PostgreSQL rehearsal returned unexpected controls:" >&2
   echo "$result" >&2
   exit 1
 fi
 
-echo "MissionAccounts 5403B canonical enrollment/consent subjects, NULL/numeric consent grant/revoke, cross-student denial, inactive-enrollment, durable-queue, RLS, and grant rehearsal: PASS"
+echo "MissionAccounts 5403B canonical subjects, consent, durable queue, bounded retry, two-failure review, no encoded fee, RLS, and grants rehearsal: PASS"

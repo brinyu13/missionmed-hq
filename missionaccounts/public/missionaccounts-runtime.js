@@ -195,6 +195,8 @@ async function dispatch(action, payload = {}) {
           title: 'Turn off automatic billing?',
           intro: 'Future Drills attendance will not be charged automatically after this authorization is revoked.',
           facts: [
+            'Eligible attendance incurred while authorization was active remains on your account.',
+            'A payment already submitted to Stripe is not reversed.',
             'Past attendance, invoices, payments, and authorization history stay intact.',
             'Your saved payment method remains on file unless you remove it separately.',
           ],
@@ -214,8 +216,8 @@ async function dispatch(action, payload = {}) {
           facts: [
             '$25 maximum per student per calendar day of billable Live Drills attendance.',
             'Step 1 and Step 2/3 on the same calendar day still produce at most one $25 charge.',
-            'A newly finalized eligible day is held for at least 24 hours and remains pending until charged or explicitly held, excluded, reversed, or superseded.',
-            'Dr J must approve the exact billable day and sufficient balance before it can be prepared.',
+            'Eligible attendance is generally processed within 24–48 hours after it is confirmed billable and remains durable if processing is delayed.',
+            'Dr J approves the exact first canary day. Ordinary eligible days do not require individual approval after that bounded gate is released.',
             'You can turn off automatic billing and remove the saved payment method from MissionAccounts.',
           ],
           consentLabel: 'I authorize MissionMed Institute to charge my saved Stripe payment method under these approved Drills terms.',

@@ -676,7 +676,14 @@ async function seedAutomaticChargeFixture(store, { computedAt, attendanceDayId }
   });
   store.seedBillingTerms('test-terms-v1');
   seedActiveExamPrepEnrollment(store, studentId);
-  store.automaticBillingContract = { rollout_cutoff: '2026-09-08T00:00:00.000Z', live_dispatch_allowed: true };
+  store.automaticBillingContract = {
+    rollout_cutoff: '2026-09-08T00:00:00.000Z',
+    ordinary_dispatch_delay_hours: 24,
+    retry_delay_hours: 12,
+    max_provider_attempts: 2,
+    live_dispatch_allowed: true,
+    initial_canary_requires_admin_approval: true,
+  };
   await store.setBillingConsent({
     studentId, action: 'authorize', termsVersion: 'test-terms-v1', acceptedIp: '127.0.0.1',
     reason: 'Student accepted automatic billing terms', actorId: studentId,
@@ -704,7 +711,7 @@ test('automatic charge worker stops before claiming database work unless Stripe 
   });
 });
 
-test('automatic charge worker submits one durable post-rollout day after its 24-hour hold', async () => {
+test('automatic charge worker submits one durable post-rollout day at its ordinary 24-hour target', async () => {
   const store = new PreviewStore();
   const attendanceDayId = '10000000-0000-4000-8000-000000000021';
   await seedAutomaticChargeFixture(store, {
@@ -731,6 +738,7 @@ test('automatic charge worker submits one durable post-rollout day after its 24-
     assert.equal(calls.length, 1);
     assert.equal(calls[0].attendanceDayId, attendanceDayId);
     assert.equal(calls[0].receiptEmail, 'student.preview@invalid.local');
+    assert.equal(calls[0].idempotencyKey, `missionaccounts:auto-charge:${attendanceDayId}:v2:attempt:1`);
     assert.equal(store.chargesByDay.get(attendanceDayId).provider_ref, 'pi_test_automatic_charge_1');
     assert.equal(store.autoChargeDispatches.get(attendanceDayId).state, 'submitted');
 
@@ -820,7 +828,7 @@ test('automatic charge worker leaves early days pending and does not expire a du
   });
 });
 
-test('automatic charge submission failure is notified and never retried automatically', async () => {
+test('automatic charge submission makes one bounded retry, then enters late-fee-eligible review without assessing a fee', async () => {
   const store = new PreviewStore();
   const attendanceDayId = '10000000-0000-4000-8000-000000000024';
   await seedAutomaticChargeFixture(store, {
@@ -830,15 +838,21 @@ test('automatic charge submission failure is notified and never retried automati
   let calls = 0;
   const gateway = {
     assertMutationAllowed() {},
-    async createDayCharge() { calls += 1; throw new Error('test provider rejection'); },
+    async createDayCharge() {
+      calls += 1;
+      throw Object.assign(new Error('test provider rejection'), {
+        stripe: { error: { code: 'card_declined', payment_intent: { id: `pi_test_failed_attempt_${calls}` } } },
+      });
+    },
   };
   const config = {
     ...localConfig,
     workerToken: 'automatic-charge-failure-worker',
     features: { ...localConfig.features, autoBilling: true },
   };
+  let currentNow = '2026-09-10T12:00:00.000Z';
   await withServer({
-    config, store, stripeGateway: gateway, now: () => new Date('2026-09-10T12:00:00.000Z'),
+    config, store, stripeGateway: gateway, now: () => new Date(currentNow),
   }, async base => {
     const headers = { authorization: 'Bearer automatic-charge-failure-worker' };
     const first = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers });
@@ -846,10 +860,96 @@ test('automatic charge submission failure is notified and never retried automati
     assert.equal(store.chargesByDay.get(attendanceDayId).state, 'failed');
     assert.equal(store.notifications.size, 2);
     assert.equal(store.integrationExceptions.size, 1);
+    assert.equal(store.autoChargeDispatches.get(attendanceDayId).state, 'pending');
+    assert.equal(store.autoChargeDispatches.get(attendanceDayId).provider_failure_count, 1);
+    assert.equal(store.autoChargeDispatches.get(attendanceDayId).eligible_after, '2026-09-11T00:00:00.000Z');
 
+    currentNow = '2026-09-10T23:59:59.000Z';
     const second = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers });
     assert.deepEqual(await second.json(), { claimed: 0, submitted: 0, failed: 0, held: 0 });
     assert.equal(calls, 1);
+
+    currentNow = '2026-09-11T00:00:00.000Z';
+    const retry = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers });
+    assert.deepEqual(await retry.json(), { claimed: 1, submitted: 0, failed: 1, held: 0 });
+    const dispatch = store.autoChargeDispatches.get(attendanceDayId);
+    assert.equal(calls, 2);
+    assert.equal(dispatch.state, 'held');
+    assert.equal(dispatch.provider_failure_count, 2);
+    assert.equal(dispatch.hold_reason, 'late_fee_eligible_review');
+    assert.equal(dispatch.late_fee_eligible_at, currentNow);
+    assert.equal(store.notifications.size, 4);
+    assert.equal([...store.notifications.values()].every(row => row.payload.late_fee_amount_cents === null), true);
+
+    const afterCeiling = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers });
+    assert.deepEqual(await afterCeiling.json(), { claimed: 0, submitted: 0, failed: 0, held: 0 });
+    assert.equal(calls, 2);
+  });
+});
+
+test('automatic charge worker holds an unknown provider outcome for reconciliation without retrying', async () => {
+  const store = new PreviewStore();
+  const attendanceDayId = '10000000-0000-4000-8000-000000000026';
+  await seedAutomaticChargeFixture(store, { attendanceDayId, computedAt: '2026-09-09T11:00:00.000Z' });
+  let calls = 0;
+  const gateway = {
+    assertMutationAllowed() {},
+    async createDayCharge() {
+      calls += 1;
+      throw Object.assign(new Error('Stripe service outcome unknown'), { stripe: { error: { type: 'api_error' } } });
+    },
+  };
+  const config = { ...localConfig, workerToken: 'automatic-charge-unknown-worker', features: { ...localConfig.features, autoBilling: true } };
+  await withServer({ config, store, stripeGateway: gateway, now: () => new Date('2026-09-10T12:00:00.000Z') }, async base => {
+    const headers = { authorization: 'Bearer automatic-charge-unknown-worker' };
+    const first = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers });
+    assert.deepEqual(await first.json(), { claimed: 1, submitted: 0, failed: 1, held: 0 });
+    const dispatch = store.autoChargeDispatches.get(attendanceDayId);
+    assert.equal(dispatch.state, 'held');
+    assert.equal(dispatch.provider_failure_count, 0);
+    assert.equal(dispatch.hold_reason, 'provider_outcome_unknown_requires_reconciliation');
+    assert.equal(store.chargesByDay.get(attendanceDayId).state, 'pending');
+    assert.equal(store.notifications.size, 0);
+    const second = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers });
+    assert.deepEqual(await second.json(), { claimed: 0, submitted: 0, failed: 0, held: 0 });
+    assert.equal(calls, 1);
+  });
+});
+
+test('disabling consent preserves an already-incurred candidate for review and prevents automatic submission', async () => {
+  const store = new PreviewStore();
+  const attendanceDayId = '10000000-0000-4000-8000-000000000028';
+  const { studentId } = await seedAutomaticChargeFixture(store, { attendanceDayId, computedAt: '2026-09-09T11:00:00.000Z' });
+  const beforeDue = await store.claimDueDayCharges({ now: '2026-09-10T10:00:00.000Z', workerId: 'pre-revocation-worker', limit: 1 });
+  assert.equal(beforeDue.claimed.length, 0);
+  assert.equal(store.autoChargeDispatches.get(attendanceDayId).state, 'pending');
+
+  await store.setBillingConsent({
+    studentId, action: 'revoke', termsVersion: null, acceptedIp: null,
+    reason: 'Student disabled future automatic billing', actorId: studentId,
+    requestId: 'auto-charge-consent-revoke-after-incurred-day',
+  });
+  const afterRevoke = await store.claimDueDayCharges({ now: '2026-09-10T12:00:00.000Z', workerId: 'post-revocation-worker', limit: 1 });
+  assert.equal(afterRevoke.claimed.length, 0);
+  assert.equal(afterRevoke.held, 1);
+  assert.equal(store.autoChargeDispatches.get(attendanceDayId).state, 'held');
+  assert.equal(store.autoChargeDispatches.get(attendanceDayId).hold_reason, 'billing_authorization_required');
+  assert.equal(store.chargesByDay.size, 0);
+});
+
+test('ordinary automatic billing does not require per-charge Dr J approval after the first-canary gate is disabled', async () => {
+  const store = new PreviewStore();
+  const attendanceDayId = '10000000-0000-4000-8000-000000000027';
+  const { studentId, cycleKey } = await seedAutomaticChargeFixture(store, { attendanceDayId, computedAt: '2026-09-09T11:00:00.000Z' });
+  store.automaticBillingContract.initial_canary_requires_admin_approval = false;
+  store.billingDecisions.delete(`${studentId}:${cycleKey}`);
+  const calls = [];
+  const gateway = { assertMutationAllowed() {}, async createDayCharge(args) { calls.push(args); return { id: 'pi_test_without_per_charge_approval' }; } };
+  const config = { ...localConfig, workerToken: 'automatic-charge-no-per-charge-approval', features: { ...localConfig.features, autoBilling: true } };
+  await withServer({ config, store, stripeGateway: gateway, now: () => new Date('2026-09-10T12:00:00.000Z') }, async base => {
+    const response = await fetch(`${base}/api/internal/charges/drain`, { method: 'POST', headers: { authorization: 'Bearer automatic-charge-no-per-charge-approval' } });
+    assert.deepEqual(await response.json(), { claimed: 1, submitted: 1, failed: 0, held: 0 });
+    assert.equal(calls.length, 1);
   });
 });
 

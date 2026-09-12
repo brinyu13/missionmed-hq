@@ -29,6 +29,10 @@ function localDayInNewYork(instant) {
 export function buildAutomaticBillingShadow({
   now,
   rolloutCutoff,
+  ordinaryDispatchDelayHours = 24,
+  retryDelayHours = 12,
+  maxProviderAttempts = 2,
+  initialCanaryRequiresAdminApproval = true,
   attendanceDays = [],
   students = [],
   billingDecisions = [],
@@ -80,8 +84,12 @@ export function buildAutomaticBillingShadow({
         && Number.isFinite(computedMs)
         && computedMs >= cutoffMs
         && String(day.day || '') >= cutoffLocalDay;
-      const eligibleAfterMs = Number.isFinite(computedMs) ? computedMs + 24 * 60 * 60 * 1000 : Number.POSITIVE_INFINITY;
-      const holdElapsed = eligibleAfterMs <= nowMs;
+      const initialScheduleMs = Number.isFinite(computedMs)
+        ? computedMs + ordinaryDispatchDelayHours * 60 * 60 * 1000
+        : Number.POSITIVE_INFINITY;
+      const scheduledAttemptMs = Date.parse(dispatch?.eligible_after || '');
+      const eligibleAfterMs = Number.isFinite(scheduledAttemptMs) ? scheduledAttemptMs : initialScheduleMs;
+      const dispatchTargetReached = eligibleAfterMs <= nowMs;
       const enrollmentValidUntilMs = Date.parse(enrollment?.valid_until || '');
       const enrollmentActive = enrollment?.provider === 'learndash'
         && Number(enrollment?.course_id) === 6357
@@ -105,32 +113,37 @@ export function buildAutomaticBillingShadow({
         : enrollment && enrollmentValidUntilMs <= nowMs
           ? 'examprep_enrollment_projection_stale'
           : 'active_examprep_enrollment_required');
-      if (!decision || decision.state !== 'approved') reasons.push('approved_billing_decision_required');
-      else if (decision.treatment !== 'confirm') reasons.push('per_day_billing_decision_required');
-      else if (!approvedBasis) reasons.push('attendance_day_not_in_approved_basis');
+      if (initialCanaryRequiresAdminApproval) {
+        if (!decision || decision.state !== 'approved') reasons.push('approved_billing_decision_required');
+        else if (decision.treatment !== 'confirm') reasons.push('per_day_billing_decision_required');
+        else if (!approvedBasis) reasons.push('attendance_day_not_in_approved_basis');
+      }
       if (!method || method.status !== 'on_file') reasons.push('payment_method_required');
       if (!consent || consent.state !== 'authorized') reasons.push('billing_authorization_required');
       if (!validEmail(student.email)) reasons.push('student_receipt_email_required');
       if (!ruleActive) reasons.push('one_charge_per_calendar_day_rule_required');
-      if (finalizedPostRollout && !holdElapsed) reasons.push('automatic_charge_hold_not_elapsed');
+      if (finalizedPostRollout && !dispatchTargetReached) reasons.push('automatic_charge_not_yet_scheduled');
       if (dispatch && ['held', 'failed', 'excluded', 'reversed'].includes(dispatch.state)) {
         reasons.push(`durable_candidate_${dispatch.state}`);
       }
       if (priorCharge) {
-        const priorReason = {
-          failed: 'explicit_retry_required',
-          succeeded: 'charge_already_succeeded',
-          refunded: 'refunded_day_requires_review',
-          pending: 'charge_already_pending',
-        }[priorCharge.state] || 'prior_charge_requires_review';
-        reasons.push(priorReason);
+        let priorReason = 'prior_charge_requires_review';
+        if (priorCharge.state === 'failed') {
+          priorReason = dispatch?.state === 'pending'
+            && Number(dispatch.provider_failure_count || 0) < maxProviderAttempts
+            ? null
+            : 'provider_failure_requires_review';
+        } else if (priorCharge.state === 'succeeded') priorReason = 'charge_already_succeeded';
+        else if (priorCharge.state === 'refunded') priorReason = 'refunded_day_requires_review';
+        else if (priorCharge.state === 'pending') priorReason = 'charge_already_pending';
+        if (priorReason) reasons.push(priorReason);
       }
       if (decision && !approvedCapacity) reasons.push('approved_amount_exhausted');
       const needsReview = reasons.some(reason => (
         reason === 'student_identity_requires_review'
         || reason === 'approved_billing_decision_required'
         || reason === 'attendance_day_not_in_approved_basis'
-        || reason === 'explicit_retry_required'
+        || reason === 'provider_failure_requires_review'
         || reason === 'refunded_day_requires_review'
         || reason === 'prior_charge_requires_review'
         || reason === 'attendance_day_needs_review'
@@ -177,10 +190,15 @@ export function buildAutomaticBillingShadow({
     contract: {
       amount_per_billable_day_cents: 2500,
       rollout_cutoff: contractAvailable ? cutoffAt.toISOString() : null,
-      eligible_after_hours: 24,
+      ordinary_dispatch_target_hours: ordinaryDispatchDelayHours,
       automatic_expiry_hours: null,
       active_enrollment_gate: 'fresh_signed_learndash_course_6357_projection',
-      failed_charge_retry: 'explicit_human_action_required',
+      failed_charge_retry: `one_bounded_retry_after_${retryDelayHours}_hours`,
+      max_provider_attempts: maxProviderAttempts,
+      late_fee_eligible_after_failed_attempts: maxProviderAttempts,
+      late_fee_amount_cents: null,
+      per_charge_student_approval_required: false,
+      initial_canary_requires_admin_approval: initialCanaryRequiresAdminApproval,
     },
     summary: {
       candidates: rows.length,
