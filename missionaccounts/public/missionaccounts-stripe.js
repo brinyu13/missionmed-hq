@@ -216,7 +216,7 @@ function actionDialogMarkup({ needsConsent, danger }) {
     #missionaccountsPaymentStatus[data-kind="error"]{color:#a12622}
     #missionaccountsPaymentDialog .mma-payment-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
     #missionaccountsPaymentDialog button{appearance:none;border:1px solid var(--line,#d9d4c7);border-radius:999px;padding:10px 16px;background:transparent;color:inherit;font:800 14px/1 var(--sans,system-ui,sans-serif);cursor:pointer}
-    #missionaccountsPaymentConfirm{background:${danger ? '#a12622' : 'var(--ink,#171a21)'}!important;border-color:${danger ? '#a12622' : 'var(--ink,#171a21)'}!important;color:#fff!important}
+    #missionaccountsPaymentConfirm{background:${danger ? '#a12622' : 'linear-gradient(90deg,#168052,#14764f)'}!important;border-color:${danger ? '#a12622' : '#14764f'}!important;color:#fff!important}
     #missionaccountsPaymentDialog button:disabled{opacity:.5;cursor:wait}
     #missionaccountsPaymentClose{position:absolute;right:22px;top:20px;width:36px;height:36px;padding:0!important;font-size:22px!important}
     @media (min-width:760px){#missionaccountsPaymentOverlay{place-items:center;padding:24px}#missionaccountsPaymentDialog{border-radius:22px}}
