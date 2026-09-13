@@ -3,6 +3,7 @@
  * MR-WEB-0912 exact live-card lifecycle controller.
  *
  * Run through authenticated production WP-CLI:
+ *   wp eval-file - -- preflight
  *   wp eval-file - -- prepare
  *   wp eval-file - -- inspect interview_week|complete ORDER_ID
  *   wp eval-file - -- refund interview_week|complete ORDER_ID
@@ -297,6 +298,36 @@ function mr0912_live_refund(string $offerKey, int $orderId): array {
 }
 
 try {
+    if ($mode === 'preflight') {
+        $gateway = mr0912_live_gateway();
+        $runtime = function_exists('mm_mr_p0_runtime_config') ? mm_mr_p0_runtime_config() : [];
+        $checks = [
+            'official_live_stripe_enabled' => $gateway->enabled === 'yes',
+            'official_stripe_live_mode' => ($gateway->settings['testmode'] ?? 'yes') === 'no',
+            'live_order_manifest_absent' => !file_exists(MR0912_LIVE_MANIFEST),
+            'legacy_acceptance_cannot_open_campaign' => ($runtime['campaign']['go_live_gate']['verified_live_at'] ?? null) === null
+                && empty($runtime['production']['acceptance_binding_valid']),
+        ];
+        foreach (mr0912_live_specs() as $key => $spec) {
+            $variation = mr0912_live_assert_product($spec);
+            $checks[$key . '_exact_price_mapping_parent'] = $variation instanceof WC_Product_Variation;
+            $checks[$key . '_still_fail_closed'] = !$variation->is_in_stock()
+                && (string) get_option('mmed_mr_0912_' . $key . '_verified_live_at', '') === ''
+                && (string) get_option('mmed_mr_0912_' . $key . '_acceptance_binding_sha256', '') === '';
+        }
+        $failed = array_keys(array_filter($checks, static fn($value) => $value !== true));
+        echo wp_json_encode([
+            'schema' => 'missionmed.mr_web_0912.live_card_preflight.v1',
+            'verified_at_utc' => gmdate('c'),
+            'payment_initiated' => false,
+            'checks' => $checks,
+            'pass_count' => count($checks) - count($failed),
+            'check_count' => count($checks),
+            'result' => $failed ? 'FAIL' : 'PASS',
+            'failed' => $failed,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), "\n";
+        exit($failed ? 1 : 0);
+    }
     if ($mode === 'prepare') {
         if (file_exists(MR0912_LIVE_MANIFEST)) throw new RuntimeException('Live-card manifest already exists; refusing duplicate orders.');
         mr0912_live_gateway();
@@ -326,7 +357,7 @@ try {
         exit(0);
     }
     if (!in_array($mode, ['inspect', 'refund', 'final'], true) || $orderId <= 0) {
-        throw new RuntimeException('Usage: prepare OR inspect|refund|final OFFER ORDER_ID');
+        throw new RuntimeException('Usage: preflight|prepare OR inspect|refund|final OFFER ORDER_ID');
     }
     $result = $mode === 'refund'
         ? mr0912_live_refund($offerKey, $orderId)
