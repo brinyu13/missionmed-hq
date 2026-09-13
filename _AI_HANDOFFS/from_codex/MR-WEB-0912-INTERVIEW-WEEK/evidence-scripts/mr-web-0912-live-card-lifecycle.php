@@ -24,9 +24,22 @@ foreach (['new_order', 'customer_processing_order', 'customer_completed_order', 
     add_filter('woocommerce_email_enabled_' . $emailId, '__return_false', 999);
 }
 
-$mode = (string) ($args[0] ?? '');
-$offerKey = (string) ($args[1] ?? '');
-$orderId = (int) ($args[2] ?? 0);
+$tokens = array_values(array_filter(
+    array_map('strval', (array) ($args ?? [])),
+    static fn(string $value): bool => !in_array($value, ['', '-', '--'], true)
+));
+$mode = '';
+$offerKey = '';
+$orderId = 0;
+foreach ($tokens as $token) {
+    if ($mode === '' && in_array($token, ['preflight', 'prepare', 'inspect', 'refund', 'final'], true)) {
+        $mode = $token;
+    } elseif ($offerKey === '' && in_array($token, ['interview_week', 'complete'], true)) {
+        $offerKey = $token;
+    } elseif ($orderId === 0 && ctype_digit($token)) {
+        $orderId = (int) $token;
+    }
+}
 
 function mr0912_live_specs(): array {
     return [
