@@ -480,6 +480,13 @@ $checks = [
     'interview_acceptance_absent' => !$state['options']['mmed_mr_0912_interview_week_verified_live_at']['exists'] && !$state['options']['mmed_mr_0912_interview_week_acceptance_binding_sha256']['exists'],
     'complete_acceptance_absent' => !$state['options']['mmed_mr_0912_complete_verified_live_at']['exists'] && !$state['options']['mmed_mr_0912_complete_acceptance_binding_sha256']['exists'],
 ];
+$checks['target_inventory_' . (in_array($mode, ['apply-products-closed', 'apply-onboarding'], true) ? 'closed' : 'open')] =
+    in_array($mode, ['apply-products-closed', 'apply-onboarding'], true)
+        ? $p['5504']['stock_status'] === 'outofstock' && $p['5867']['stock_status'] === 'outofstock' && $p['3576']['stock_status'] === 'outofstock' && $p['5865']['stock_status'] === 'outofstock'
+        : $p['5504']['stock_status'] === 'instock' && $p['5867']['stock_status'] === 'instock' && $p['3576']['stock_status'] === 'instock' && $p['5865']['stock_status'] === 'instock';
+if ($mode === 'apply-products-closed') {
+    unset($checks['course_titles'], $checks['onboarding_present']);
+}
 $safe = mr0912_safe_summary($state, $mode);
 $safe['checks'] = $checks;
 $safe['passed'] = count(array_filter($checks));
