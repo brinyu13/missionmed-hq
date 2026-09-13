@@ -8,8 +8,6 @@
  * This controller never creates orders, users, coupons, payment plans, events,
  * meetings, or acceptance options. Optional and unproved paths remain closed.
  */
-declare(strict_types=1);
-
 if (!defined('ABSPATH')) {
     fwrite(STDERR, "Run through wp eval-file.\n");
     exit(2);
