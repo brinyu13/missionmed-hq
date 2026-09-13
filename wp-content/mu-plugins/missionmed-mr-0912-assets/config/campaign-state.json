@@ -1,0 +1,72 @@
+{
+  "_release_asset_dir": "missionmed-mr-0912-assets",
+  "schema": "missionmed.mr-web-0912.campaign.v1",
+  "mission": "MR-WEB-0912",
+  "authority": ["DR-246", "DR-247"],
+  "timezone": "America/New_York",
+  "campaign": {
+    "id": "fall_2026_interview_week",
+    "go_live_gate": {
+      "verified_live_at": null,
+      "verified_by": null,
+      "blocks_checkout": true,
+      "required_evidence": "Current payment, order, account, correct entitlement, unrelated-course exclusion, onboarding, refund/revocation, rendered QA, and independent acceptance"
+    },
+    "early_terms_end": "2026-09-23T23:59:59-04:00",
+    "next_foundation": "Anticipated around November 8, 2026"
+  },
+  "positioning": {
+    "headline": "Don't use your real interviews as practice.",
+    "premise": "Train Before You Test.",
+    "career_value": "Built for interview season. Useful for the rest of your career."
+  },
+  "schedule": [
+    {"date": "Thu Sep 24", "label": "Orientation + Match Primer", "time": "Evening"},
+    {"date": "Sat Sep 26", "label": "Day 1", "time": "11 AM-4 PM ET"},
+    {"date": "Sun Sep 27", "label": "Day 2", "time": "11 AM-4 PM ET"},
+    {"date": "Tue Sep 29", "label": "Day 3", "time": "Evening"},
+    {"date": "Thu Oct 1", "label": "Day 4", "time": "Evening"},
+    {"date": "Sat Oct 3", "label": "Day 5", "time": "11 AM-4 PM ET"}
+  ],
+  "curriculum": [
+    "Communication & Delivery",
+    "Content Building & Question Strategy",
+    "Interviewer Types & Formats",
+    "Virtual + In-Person Strategy",
+    "Program Research & Fit",
+    "During & After the Interview"
+  ],
+  "offers": {
+    "interview_week": {
+      "name": "IV Prep Essentials: Interview Week",
+      "descriptor": "Mission Residency's Live Interview-Season Kickoff",
+      "price": 500,
+      "payment_label": "one payment",
+      "includes": ["Orientation + Match Primer", "Five live online training days", "Foundational interview and communication curriculum", "Priority opportunity to request a limited standalone mock-IV reservation"],
+      "excludes": ["An included individual Signature Mock Interview", "Complete's season-long small-group coaching, debriefs, practice, and support"],
+      "complete_includes_this": true,
+      "runtime": {"checkout_allowed": false, "checkout_url": null}
+    },
+    "complete": {
+      "name": "IV Prep Complete",
+      "descriptor": "Interview Week plus the whole season around it",
+      "standard_price": 3499,
+      "includes_interview_week": true,
+      "benefits": ["Interview Week", "Debrief and individualized action-plan workflow", "Continued practice", "Personalized feedback", "Interview-season coaching and support"],
+      "mock_count": null,
+      "mock_count_public": false,
+      "group_availability_public": false,
+      "runtime": {"checkout_allowed": false, "checkout_url": null}
+    }
+  },
+  "payment_options": {
+    "early_zelle_paid_in_full": {"amount": 2799, "public_verified": false},
+    "early_card_paid_in_full": {"amount": 3099, "public_verified": false},
+    "early_installments_total": {"amount": 3299, "public_verified": false, "cadence": null},
+    "standard": {"amount": 3499, "authority_approved": true, "public_verified": false}
+  },
+  "upgrade_credit": {"amount": 500, "applies_to": "standard_complete_only", "public_verified": false, "double_credit_prevention_verified": false},
+  "alumni": {"session": "J", "discount": 100, "public_verified": false, "coupon_present": false, "stacking_verified": false},
+  "capacity": {"interview_week_public": null, "complete_groups_public": null},
+  "claims": {"outcome_statistics_public": false, "replacement_statistic": null}
+}
