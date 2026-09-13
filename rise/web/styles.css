@@ -698,7 +698,11 @@ body[data-theme="daylight"] .intelFormGrid input,body[data-theme="daylight"] .in
 .pRow .applicationDecisionGrid>span{min-height:76px;padding:10px 12px}
 .pRow .applicationDecisionGrid strong{font-size:14px;line-height:1.35}
 .atGlanceSnapshot{display:block}.atGlanceSnapshot>div:first-child{max-width:920px;margin-bottom:16px}
-.atGlanceGrid{grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:10px}
+.atGlanceGrid{grid-template-columns:repeat(12,minmax(0,1fr));gap:10px}
+.atGlanceGrid>div:nth-child(1),.atGlanceGrid>div:nth-child(5){grid-column:span 3}
+.atGlanceGrid>div:nth-child(2),.atGlanceGrid>div:nth-child(3),.atGlanceGrid>div:nth-child(4){grid-column:span 2}
+.atGlanceGrid>div:nth-child(6){grid-column:span 8}
+.atGlanceGrid>div:nth-child(7){grid-column:span 4}
 .atGlanceGrid>div{min-height:86px;padding:14px 15px}.atGlanceGrid b{font-size:15px}
 .peopleCardGrid article b,.residentTruthNote b{color:var(--accent)}
 .peopleCardGrid p,.residentTruthNote span,.applicationEvidenceGrid p,.outcomeCardGrid article{color:var(--mid)}
@@ -706,5 +710,5 @@ body[data-theme="daylight"] .intelFormGrid input,body[data-theme="daylight"] .in
 .drawer{display:flex;flex-direction:column}.drawer>h3,.drawer>.sub{order:0}.filterComposition{order:1}.filterExams{order:2}.filterGraduation{order:3}.filterVisa{order:4}.filterResidentEvidence{order:5}.advancedFilters{order:6;margin-top:14px;border:1px solid var(--edge);border-radius:13px;background:rgba(13,19,32,.28)}.drawer>.fAct{order:7}
 .advancedFilters>summary{cursor:pointer;padding:14px 15px;color:var(--mid);font:800 11px var(--num);letter-spacing:.1em;text-transform:uppercase}
 .advancedFilters[open]>summary{border-bottom:1px solid var(--edge)}.advancedFilters>.fGroup{padding-inline:14px}
-@media(max-width:1220px){.pRow .applicationDecisionGrid{grid-template-columns:repeat(3,minmax(160px,1fr))}.pRowHead{grid-template-columns:auto auto minmax(220px,1fr)}.pRowHead .rMeta{grid-column:2/-1;justify-self:start;flex-wrap:wrap}}
-@media(max-width:700px){.pRowHead{grid-template-columns:auto 1fr}.pRowHead .specTag{grid-column:2}.pRowHead .rIdentity{grid-column:1/-1}.pRowHead .rMeta{grid-column:1/-1}.pRow .applicationDecisionGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.pRow .applicationDecisionGrid>span{min-height:0}.view{padding-inline:14px}}
+@media(max-width:1220px){.pRow .applicationDecisionGrid{grid-template-columns:repeat(3,minmax(160px,1fr))}.pRowHead{grid-template-columns:auto auto minmax(220px,1fr)}.pRowHead .rMeta{grid-column:2/-1;justify-self:start;flex-wrap:wrap}.atGlanceGrid>div{grid-column:span 6}.atGlanceGrid>div:nth-child(6){grid-column:span 12}}
+@media(max-width:700px){.pRowHead{grid-template-columns:auto 1fr}.pRowHead .specTag{grid-column:2}.pRowHead .rIdentity{grid-column:1/-1}.pRowHead .rMeta{grid-column:1/-1}.pRow .applicationDecisionGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.pRow .applicationDecisionGrid>span{min-height:0}.view{padding-inline:14px}.atGlanceGrid>div,.atGlanceGrid>div:nth-child(6){grid-column:1/-1}}

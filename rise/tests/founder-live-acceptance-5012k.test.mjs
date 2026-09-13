@@ -89,3 +89,10 @@ test("5012K makes applicant-first filter order the DOM and accessibility order",
   }
   assert.match(appSource, /drawer\.append\(section\)/);
 });
+
+test("5012K gives long At a Glance evidence proportional desktop width", async () => {
+  const styles = await fs.readFile(path.join(ROOT, "web/styles.css"), "utf8");
+  assert.match(styles, /\.atGlanceGrid\{grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.atGlanceGrid>div:nth-child\(6\)\{grid-column:span 8\}/);
+  assert.match(styles, /@media\(max-width:700px\)[^}]*[\s\S]*?\.atGlanceGrid>div,\.atGlanceGrid>div:nth-child\(6\)\{grid-column:1\/-1\}/);
+});
