@@ -118,6 +118,19 @@ test("application intelligence is visible, customizable, and remains usable on m
   expect(drawerBox.width).toBeLessThanOrEqual(390);
 });
 
+test("resident-school aliases filter canonical roster evidence without a hard-coded program list", async ({ page }) => {
+  await openRise(page, "find");
+  const acknowledge = page.getByRole("button", { name: "I understand", exact: true });
+  if (await acknowledge.isVisible()) await acknowledge.click();
+  await page.getByRole("button", { name: /More filters/ }).click();
+  await expect(page.locator('#residentSchoolOptions option[value="LECOM"]')).toHaveCount(1);
+  await page.locator('#residentSchoolFilter').fill('LECOM');
+  await page.locator('#residentSchoolFilter').dispatchEvent('change');
+  await page.getByRole("button", { name: "Show results", exact: true }).click();
+  await expect(page.locator('.pRow')).toHaveCount(1);
+  await expect(page.locator('.pRow')).toContainText('Atlas Internal Medicine Program');
+});
+
 test("visa, resident evidence, and research depth filters expose real counts and compose", async ({ page }) => {
   await openRise(page, "find");
   const acknowledge = page.getByRole("button", { name: "I understand", exact: true });

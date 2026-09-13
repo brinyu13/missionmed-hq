@@ -694,9 +694,9 @@ body[data-theme="daylight"] .intelFormGrid input,body[data-theme="daylight"] .in
 .pRow{display:grid;grid-template-columns:minmax(0,1fr);gap:13px;padding:18px 20px}
 .pRowHead{display:grid;grid-template-columns:auto auto minmax(260px,1fr) auto;align-items:center;gap:13px;min-width:0}
 .rIdentity{display:block;min-width:0}.rMain{display:block;min-width:0;padding-left:0}.rMeta{justify-self:end}
-.pRow .applicationDecisionGrid{grid-template-columns:repeat(6,minmax(150px,1fr));width:100%;margin-top:4px}
-.pRow .applicationDecisionGrid>span{min-height:76px;padding:10px 12px}
-.pRow .applicationDecisionGrid strong{font-size:14px;line-height:1.35}
+.pRow .applicationDecisionGrid{grid-template-columns:minmax(145px,1.6fr) minmax(220px,3.2fr) minmax(185px,2.2fr) minmax(245px,3.6fr) minmax(170px,2fr) minmax(140px,1.5fr);width:100%;margin-top:4px}
+.pRow .applicationDecisionGrid>span{min-height:0;padding:10px 12px}
+.pRow .applicationDecisionGrid strong{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:3;font-size:14px;line-height:1.35}
 .atGlanceSnapshot{display:block}.atGlanceSnapshot>div:first-child{max-width:920px;margin-bottom:16px}
 .atGlanceGrid{grid-template-columns:repeat(12,minmax(0,1fr));gap:10px}
 .atGlanceGrid>div:nth-child(1),.atGlanceGrid>div:nth-child(5){grid-column:span 3}

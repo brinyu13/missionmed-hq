@@ -91,6 +91,17 @@ test("a completed Dossier V2 automatically promotes research depth without a fro
   }), "deep");
 });
 
+test("compact filter projection preserves normalized medical-school aliases", () => {
+  const [record] = buildFilterIntelligence([program("alias")], {
+    currentFacts: [{
+      subjectId: "program-alias",
+      field: "research.resident_roster",
+      canonicalValue: [{ name: "Resident", medical_school: "Lake Erie College of Osteopathic Medicine", degree: "DO" }],
+    }],
+  }).records;
+  assert.ok(record.application.roster.schools[0].aliases.includes("LECOM"));
+});
+
 test("approved structured current facts become filterable without frontend program lists", () => {
   const programs = [
     program("1", { ...strongCore, J1: known(true) }, { soap: true }),

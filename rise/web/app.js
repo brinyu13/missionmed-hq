@@ -104,8 +104,8 @@ function toFableProgram(record, filterIntelligence, flagBits) {
 const MATRIX_PROFILE_LABELS = Object.freeze({
   primary_specialty: 'Specialty of choice', medical_school: 'Medical school', medical_school_country: 'Medical school country',
   graduation_year: 'Graduation year', is_img: 'IMG status', step1_status: 'Step 1 / Level 1 status',
-  step1_score: 'Step 1 / Level 1 score', step2_status: 'Step 2 CK / Level 2 status',
-  step2_score: 'Step 2 CK / Level 2 score', visa_status: 'Visa / citizenship', usce_months: 'USCE months',
+  step1_score: 'Step 1 / Level 1 score', step2_status: 'Step 2 CK status',
+  step2_score: 'Step 2 CK score', comlex_level_2_score: 'COMLEX Level 2 score', visa_status: 'Visa / citizenship', usce_months: 'USCE months',
   current_location: 'Application-season location', match_cycle: 'Match cycle', phone_mobile: 'Phone / mobile',
   first_name: 'First name', last_name: 'Last name',
 });
@@ -118,8 +118,10 @@ function profileFromMatrix(payload) {
       unavailableMessage: payload.message || 'Matrix profile integration is unavailable',
     };
   }
-  const raw = payload?.profile && typeof payload.profile === 'object' ? payload.profile : {};
-  const factKeys = ['primary_specialty', 'medical_school', 'medical_school_country', 'graduation_year', 'is_img', 'step1_status', 'step1_score', 'step2_status', 'step2_score', 'visa_status', 'usce_months', 'current_location', 'match_cycle'];
+  const raw = payload?.profile && typeof payload.profile === 'object' ? { ...payload.profile } : {};
+  if (raw.step2_score == null && raw.usmle_step2_score != null) raw.step2_score = raw.usmle_step2_score;
+  if (raw.comlex_level_2_score == null) raw.comlex_level_2_score = raw.comlex_level2_score ?? raw.comlex2_score ?? null;
+  const factKeys = ['primary_specialty', 'medical_school', 'medical_school_country', 'graduation_year', 'is_img', 'step1_status', 'step1_score', 'step2_status', 'step2_score', 'comlex_level_2_score', 'visa_status', 'usce_months', 'current_location', 'match_cycle'];
   const facts = factKeys.filter(key => raw[key] !== undefined && raw[key] !== null && String(raw[key]).trim() !== '')
     .map(key => [MATRIX_PROFILE_LABELS[key], String(raw[key])]);
   const missingKeys = Array.isArray(payload?.required_fields)
@@ -127,7 +129,7 @@ function profileFromMatrix(payload) {
     : ['first_name', 'last_name', 'phone_mobile', 'primary_specialty'].filter(key => !raw[key]);
   const name = [raw.first_name, raw.last_name].filter(Boolean).join(' ').trim() || 'Student';
   const progress = Number(payload?.progress);
-  const personalizationSignals = ['medical_school', 'visa_status', 'step2_score', 'graduation_year', 'usce_months']
+  const personalizationSignals = ['medical_school', 'visa_status', 'step2_score', 'comlex_level_2_score', 'graduation_year', 'usce_months']
     .filter(key => raw[key] !== undefined && raw[key] !== null && String(raw[key]).trim() !== '');
   return {
     name,
@@ -254,7 +256,38 @@ const state = {
 const byId = new Map(D.programs.map(p => [p.id, p]));
 const STATES = [...new Set(D.programs.map(p => p.state))].sort();
 const SPECIALTIES = [...new Set(D.programs.flatMap(p => (p.browseMemberships || []).map(m => m.browseSpecialty)))].sort();
-const RESIDENT_SCHOOLS = [...new Set(D.programs.flatMap(p => (p.application?.roster?.schools || []).map(school => school.label).filter(Boolean)))].sort();
+function normalizeSchoolToken(value) {
+  return String(value || '').toLocaleLowerCase('en-US').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+const RESIDENT_SCHOOLS = (() => {
+  const schools = new Map();
+  for (const item of D.programs.flatMap(p => p.application?.roster?.schools || [])) {
+    const key = item.key || normalizeSchoolToken(item.label);
+    if (!key) continue;
+    const previous = schools.get(key);
+    schools.set(key, {
+      key,
+      label: previous?.label || item.label || key,
+      aliases: [...new Set([...(previous?.aliases || []), ...(item.aliases || []), item.label].filter(Boolean))],
+    });
+  }
+  return [...schools.values()].sort((a, b) => a.label.localeCompare(b.label));
+})();
+function resolvedResidentSchoolKey(value) {
+  const token = normalizeSchoolToken(value);
+  return RESIDENT_SCHOOLS.find(item => [item.key, item.label, ...item.aliases].some(candidate => normalizeSchoolToken(candidate) === token))?.key || null;
+}
+function residentSchoolMatches(item, value) {
+  const token = normalizeSchoolToken(value);
+  if (!token) return true;
+  const resolved = resolvedResidentSchoolKey(value);
+  if (resolved) return item.key === resolved || normalizeSchoolToken(item.key) === normalizeSchoolToken(resolved);
+  return [item.key, item.label, ...(item.aliases || [])].some(candidate => normalizeSchoolToken(candidate).includes(token));
+}
+function profileScore(keys, minimum, maximum) {
+  const value = Number(keys.map(key => D.profile?.raw?.[key]).find(candidate => candidate !== undefined && candidate !== null && String(candidate).trim() !== ''));
+  return Number.isFinite(value) && value >= minimum && value <= maximum ? value : null;
+}
 const stateNames = { AL:'Alabama', AR:'Arkansas', AZ:'Arizona', CA:'California', CO:'Colorado', CT:'Connecticut', DC:'Washington DC', DE:'Delaware', FL:'Florida', GA:'Georgia', IA:'Iowa', IL:'Illinois', IN:'Indiana', KS:'Kansas', KY:'Kentucky', LA:'Louisiana', MA:'Massachusetts', MD:'Maryland', MI:'Michigan', MN:'Minnesota', MO:'Missouri', MS:'Mississippi', MT:'Montana', NC:'North Carolina', ND:'North Dakota', NE:'Nebraska', NH:'New Hampshire', NJ:'New Jersey', NM:'New Mexico', NV:'Nevada', NY:'New York', OH:'Ohio', OK:'Oklahoma', OR:'Oregon', PA:'Pennsylvania', PR:'Puerto Rico', RI:'Rhode Island', SC:'South Carolina', SD:'South Dakota', TN:'Tennessee', TX:'Texas', UT:'Utah', VA:'Virginia', VT:'Vermont', WA:'Washington', WI:'Wisconsin', WV:'West Virginia', WY:'Wyoming' };
 
 /* ---------------- fit engine ---------------- */
@@ -742,9 +775,7 @@ function matchingPrograms(f = state.find) {
   if (f.state) list = list.filter(p => p.state === f.state);
   if (f.specialty) list = list.filter(p => p.specName === f.specialty || (p.browseMemberships || []).some(m => m.browseSpecialty === f.specialty && m.relationship === 'EXACT_DESIGNATION'));
   if (f.residentSchool) {
-    const school = f.residentSchool.trim().toLocaleLowerCase('en-US');
-    list = list.filter(p => (p.application?.roster?.schools || []).some(item =>
-      String(item.label || item.key || '').toLocaleLowerCase('en-US').includes(school)));
+    list = list.filter(p => (p.application?.roster?.schools || []).some(item => residentSchoolMatches(item, f.residentSchool)));
   }
   if (f.soap) list = list.filter(p => p.soap.length && (!f.soapTrack || p.soap.some(s => s.track === f.soapTrack)));
   if (f.abim) list = list.filter(p => p.filterIntelligence.abim);
@@ -804,7 +835,9 @@ function filteredPrograms() {
     updated: (a, b) => new Date(b.verified) - new Date(a.verified),
     soap: (a, b) => soapN(b) - soapN(a),
   }[f.sort] || ((a, b) => a.name.localeCompare(b.name));
-  if (f.minImgPct !== '' || f.minDoPct !== '') {
+  if (f.sameSchool) {
+    list.sort((a, b) => Number(b.application?.roster?.sameSchoolCount || 0) - Number(a.application?.roster?.sameSchoolCount || 0) || cmp(a, b));
+  } else if (f.minImgPct !== '' || f.minDoPct !== '') {
     list.sort((a, b) => {
       const score = p => (f.minImgPct !== '' ? residentObservedPercent(p, 'img') || 0 : 0)
         + (f.minDoPct !== '' ? residentObservedPercent(p, 'do') || 0 : 0);
@@ -858,7 +891,7 @@ function activePills() {
   if (f.usceMode) pills.push({ k: 'usceMode', label: { required: 'USCE required', recommended: 'USCE recommended', unpublished: 'No published USCE requirement' }[f.usceMode] });
   if (f.minImgPct !== '') pills.push({ k: 'minImgPct', label: `IMG-friendly · observed ≥ ${f.minImgPct || 0}%` });
   if (f.minDoPct !== '') pills.push({ k: 'minDoPct', label: `DO-friendly · observed ≥ ${f.minDoPct || 0}%` });
-  if (f.sameSchool) pills.push({ k: 'sameSchool', label: 'Residents from my medical school' });
+  if (f.sameSchool) pills.push({ k: 'sameSchool', label: `Residents from ${D.profile?.raw?.medical_school || 'my medical school'}` });
   if (f.sameCountry) pills.push({ k: 'sameCountry', label: 'Residents from my school country' });
   if (f.fellowships) pills.push({ k: 'fellowships', label: 'In-house fellowships published' });
   if (f.fresh) pills.push({ k: 'fresh', label: f.fresh });
@@ -912,7 +945,7 @@ function filterMatchEvidence(p) {
   if (state.find.comlex2Minimum) reasons.push(`published COMLEX Level 2 minimum ≤ ${state.find.comlex2Minimum}`);
   if (state.find.minImgPct !== '') reasons.push(`IMG representation ≥ ${state.find.minImgPct || 0}%`);
   if (state.find.minDoPct !== '') reasons.push(`DO representation ≥ ${state.find.minDoPct || 0}%`);
-  if (state.find.sameSchool) reasons.push('resident from your medical school');
+  if (state.find.sameSchool) reasons.push(`resident from ${D.profile?.raw?.medical_school || 'your medical school'}`);
   if (state.find.sameCountry) reasons.push('resident from your medical-school country');
   return reasons.length ? `<span class="decisionMatchLine"><b>Why it matched</b>${esc(reasons.join(' · '))}</span>` : '';
 }
@@ -962,7 +995,7 @@ function applicationIndicator(p, key) {
   if (key === 'composition') {
     return ['Residents', residentCompositionPresentation(p)];
   }
-  if (key === 'signals') return ['Resident schools', hasUsableProfile() && (a.roster?.sameSchoolCount || a.roster?.sameCountryCount) ? [a.roster.sameSchoolCount ? `${a.roster.sameSchoolCount} from your school` : '', a.roster.sameCountryCount ? `${a.roster.sameCountryCount} same-country` : ''].filter(Boolean).join(' · ') : a.roster?.schoolIdentified ? `${a.roster.schoolIdentified} schools identified` : domainStateSummary(p, 'resident_medical_schools', 'Schools not yet researched')];
+  if (key === 'signals') return ['Resident schools', hasUsableProfile() && (a.roster?.sameSchoolCount || a.roster?.sameCountryCount) ? [a.roster.sameSchoolCount ? `${a.roster.sameSchoolCount} from ${D.profile?.raw?.medical_school || 'your school'}` : '', a.roster.sameCountryCount ? `${a.roster.sameCountryCount} same-country` : ''].filter(Boolean).join(' · ') : a.roster?.schoolIdentified ? `${a.roster.schoolIdentified} schools identified` : domainStateSummary(p, 'resident_medical_schools', 'Schools not yet researched')];
   if (key === 'research_depth') return ['Research', depth];
   if (key === 'attempts') return ['Attempts', a.exams?.maxAttempts != null ? `Published max ${a.exams.maxAttempts}` : 'Not published'];
   if (key === 'same_school') return ['Your school', a.roster?.sameSchoolCount ? `${a.roster.sameSchoolCount} roster match${a.roster.sameSchoolCount === 1 ? '' : 'es'}` : 'No supported match'];
@@ -974,7 +1007,7 @@ function applicationIndicator(p, key) {
 
 function applicationCardSnapshot(p, limit = 6) {
   const fields = ['step2', 'timing', 'visa', 'composition', 'signals', 'research_depth'].slice(0, limit);
-  return `<span class="applicationDecisionGrid">${fields.map(key => { const [label, value] = applicationIndicator(p, key); return `<span><b>${esc(label)}</b><strong>${esc(value)}</strong></span>`; }).join('')}</span>`;
+  return `<span class="applicationDecisionGrid">${fields.map(key => { const [label, value] = applicationIndicator(p, key); return `<span><b>${esc(label)}</b><strong title="${esc(value)}">${esc(value)}</strong></span>`; }).join('')}</span>`;
 }
 
 function applicationMatchReasons(p) {
@@ -1356,6 +1389,9 @@ window.openFilterDrawer = () => {
   const count = patch => `<span class="fCount">${filterOptionCount(patch).toLocaleString()}</span>`;
   const caribbeanAvailable = Number(D.filterCounts.caribbeanResidentEvidence || 0) > 0;
   const comlexMinimumAvailable = Number(D.applicationFacetCounts.comlexLevel2MinimumPublished || 0) > 0;
+  const matrixSchool = String(D.profile?.raw?.medical_school || '').trim();
+  const matrixStep2 = profileScore(['step2_score', 'usmle_step2_score'], 180, 300);
+  const matrixComlex2 = profileScore(['comlex_level_2_score', 'comlex_level2_score', 'comlex2_score'], 400, 800);
   dw.innerHTML = `<div class="drawer" role="dialog" aria-modal="true" aria-label="More filters">
     <button class="drawerClose" aria-label="Close" onclick="$('#filterDrawer').classList.remove('open')">✕</button>
     <h3>More filters</h3>
@@ -1396,7 +1432,9 @@ window.openFilterDrawer = () => {
       <label class="filterField">Step 1 policy<select class="fSel" onchange="state.find.step1Policy=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option><option value="required" ${f.step1Policy === 'required' ? 'selected' : ''}>Published as required</option><option value="not_required_or_unknown" ${f.step1Policy === 'not_required_or_unknown' ? 'selected' : ''}>No published exclusion</option></select></label>
       <label class="filterField">Step 1 failure / attempts<select class="fSel" onchange="state.find.step1FailureMode=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option><option value="first_attempt" ${f.step1FailureMode === 'first_attempt' ? 'selected' : ''}>Explicit first-attempt requirement</option><option value="failure_allowed" ${f.step1FailureMode === 'failure_allowed' ? 'selected' : ''}>Prior failure explicitly allowed</option></select></label>
       <label class="filterField">Maximum published Step 2 minimum<input class="fSel" inputmode="numeric" type="number" min="180" max="300" list="step2Thresholds" value="${esc(f.step2Minimum)}" placeholder="e.g. 230" onchange="state.find.step2Minimum=this.value;openFilterDrawer();rerenderKeepDrawer()"><datalist id="step2Thresholds"><option value="220"></option><option value="230"></option><option value="240"></option></datalist></label>
+      ${matrixStep2 !== null ? `<button class="tgl ${String(f.step2Minimum) === String(matrixStep2) ? 'on' : ''}" onclick="state.find.step2Minimum=String(${matrixStep2});openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Compatible with my Step 2 score · ${matrixStep2}<span class="cav">Requires a supported published minimum at or below your confirmed Matrix score.</span></span>${count({ step2Minimum: String(matrixStep2) })}</button>` : ''}
       <label class="filterField">Maximum published COMLEX Level 2 minimum<input class="fSel" inputmode="numeric" type="number" min="400" max="800" value="${esc(f.comlex2Minimum)}" placeholder="${comlexMinimumAvailable ? 'e.g. 500' : 'No supported numeric minima yet'}" ${comlexMinimumAvailable ? '' : 'disabled'} onchange="state.find.comlex2Minimum=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">${comlexMinimumAvailable ? 'Only supported published numeric cutoffs are compared.' : 'RISE will enable this automatically when canonical numeric evidence is available.'}</span></label>
+      ${matrixComlex2 !== null && comlexMinimumAvailable ? `<button class="tgl ${String(f.comlex2Minimum) === String(matrixComlex2) ? 'on' : ''}" onclick="state.find.comlex2Minimum=String(${matrixComlex2});openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Compatible with my COMLEX Level 2 score · ${matrixComlex2}<span class="cav">Requires a supported published minimum at or below your confirmed Matrix score.</span></span>${count({ comlex2Minimum: String(matrixComlex2) })}</button>` : ''}
       <label class="filterField">Step 2 requirement / timing<select class="fSel" onchange="state.find.step2TimingMode=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any researched timing</option><option value="with_application" ${f.step2TimingMode === 'with_application' ? 'selected' : ''}>Required with application / initial review</option><option value="before_interview" ${f.step2TimingMode === 'before_interview' ? 'selected' : ''}>Required before interview consideration</option><option value="before_ranking" ${f.step2TimingMode === 'before_ranking' ? 'selected' : ''}>Required before ranking</option><option value="before_start" ${f.step2TimingMode === 'before_start' ? 'selected' : ''}>Required before start / matriculation</option><option value="recommended" ${f.step2TimingMode === 'recommended' ? 'selected' : ''}>Recommended / preferred</option><option value="no_initial_review_barrier" ${f.step2TimingMode === 'no_initial_review_barrier' ? 'selected' : ''}>No published initial-review barrier</option><option value="timing_not_published" ${f.step2TimingMode === 'timing_not_published' ? 'selected' : ''}>Timing researched, not published</option><option value="conflict" ${f.step2TimingMode === 'conflict' ? 'selected' : ''}>Conflict / unclear</option></select><span class="cav">Numeric minimum, pass requirement, preference, and timing remain separate evidence states.</span></label>
       <label class="filterField">My exam attempts<input class="fSel" inputmode="numeric" type="number" min="1" max="12" value="${esc(f.attemptsMaximum)}" placeholder="Published limit must accommodate" onchange="state.find.attemptsMaximum=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
     </div>
@@ -1407,9 +1445,9 @@ window.openFilterDrawer = () => {
     <div class="fGroup filterComposition"><div class="fLbl">Applicant match</div>
       <label class="fLbl" for="residentSchoolFilter">Resident medical school</label>
       <input id="residentSchoolFilter" class="fSel" style="width:100%" list="residentSchoolOptions" value="${esc(f.residentSchool)}" placeholder="Type a school name or alias" onchange="state.find.residentSchool=this.value.trim();state.find.shown=50;rerenderKeepDrawer()">
-      <datalist id="residentSchoolOptions">${RESIDENT_SCHOOLS.map(school => '<option value="' + esc(school) + '"></option>').join('')}</datalist>
+      <datalist id="residentSchoolOptions">${RESIDENT_SCHOOLS.flatMap(school => [school.label, ...school.aliases].map(value => `<option value="${esc(value)}" label="${esc(school.label)}"></option>`)).join('')}</datalist>
       <span class="cav">Matches approved current/recent resident-roster evidence only.</span>
-      <button class="tgl ${f.sameSchool ? 'on' : ''}" onclick="state.find.sameSchool=!state.find.sameSchool;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Residents from my medical school<span class="cav">Exact normalized school match in approved roster evidence.</span></span>${count({ sameSchool: true })}</button>
+      ${matrixSchool ? `<button class="tgl ${f.sameSchool ? 'on' : ''}" onclick="state.find.sameSchool=!state.find.sameSchool;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Residents from ${esc(matrixSchool)}<span class="cav">Canonical school-name and alias match in approved roster evidence; strongest connections sort first.</span></span>${count({ sameSchool: true })}</button>` : '<button class="tgl unavailable" disabled><span class="box">—</span><span>Residents from my medical school<span class="cav">Add your medical school in Matrix to enable this filter.</span></span></button>'}
       <button class="tgl ${f.sameCountry ? 'on' : ''}" onclick="state.find.sameCountry=!state.find.sameCountry;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Residents from my medical-school country<span class="cav">Country is used only when explicit or conservatively derived from the school.</span></span>${count({ sameCountry: true })}</button>
       <label class="filterField">IMG-friendly · minimum observed %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minImgPct)}" placeholder="e.g. 20" onchange="state.find.minImgPct=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">Requires supported IMG representation above 0%; unknowns and true zeroes are excluded, then results sort highest first.</span></label>
       <label class="filterField">DO-friendly · minimum observed %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minDoPct)}" placeholder="e.g. 10" onchange="state.find.minDoPct=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">Requires supported DO representation above 0%; unknowns and true zeroes are excluded, then results sort highest first.</span></label>
@@ -2010,13 +2048,14 @@ function genericRosterTable(p) {
   const countryOptions = unique(rows.map(row => row.medicalSchoolCountry || row.medical_school_country || row.school_country || row.country));
   const profileSchool = clean(D.profile?.raw?.medical_school);
   const profileCountry = clean(D.profile?.raw?.medical_school_country);
-  const matchedSchool = schoolOptions.find(value => value.toLocaleLowerCase('en-US') === profileSchool.toLocaleLowerCase('en-US'));
+  const matchedSchoolRecord = (roster.schools || []).find(item => residentSchoolMatches(item, profileSchool));
+  const matchedSchool = matchedSchoolRecord?.label || schoolOptions.find(value => normalizeSchoolToken(value) === normalizeSchoolToken(profileSchool));
   const matchedCountry = countryOptions.find(value => value.toLocaleLowerCase('en-US') === profileCountry.toLocaleLowerCase('en-US'));
   return `<section class="residentExplorer">
     <div class="residentTruthNote"><b>${roster.officialProgramStatistic ? 'Program-reported composition' : 'Roster-derived estimate'}</b><span>${esc(summary)} ${roster.officialProgramStatistic ? '' : esc(disclaimer)}</span></div>
     <div class="residentQuickFilters">
-      ${matchedSchool ? `<button class="rowBtn" type="button" data-profile-value="${esc(matchedSchool)}" onclick="useResidentProfileFilter(this,'school')">My medical school</button>` : ''}
-      ${matchedCountry ? `<button class="rowBtn" type="button" data-profile-value="${esc(matchedCountry)}" onclick="useResidentProfileFilter(this,'country')">My medical-school country</button>` : ''}
+      ${matchedSchool ? `<button class="rowBtn" type="button" data-profile-value="${esc(matchedSchool)}" onclick="useResidentProfileFilter(this,'school')">My medical school · ${esc(profileSchool)}</button>` : ''}
+      ${matchedCountry ? `<button class="rowBtn" type="button" data-profile-value="${esc(matchedCountry)}" onclick="useResidentProfileFilter(this,'country')">My medical-school country · ${esc(profileCountry)}</button>` : ''}
       <button class="rowBtn" type="button" onclick="clearResidentExplorer(this)">Clear resident filters</button>
     </div>
     <div class="residentToolbar">
@@ -2029,7 +2068,7 @@ function genericRosterTable(p) {
       <label>Sort<select data-resident-sort onchange="updateResidentExplorer(this)"><option value="published">Published order</option><option value="name">Resident name</option><option value="pgy">PGY / class</option><option value="school">Medical school</option><option value="country">School country</option></select></label>
     </div>
     <div class="rosterSummaryLine"><b data-resident-count>${rows.length}</b> of ${rows.length} published current/recent roster entr${rows.length === 1 ? 'y' : 'ies'}</div>
-    <div class="residentCardGrid" aria-live="polite">${rows.map((row,index) => { const name = row.name || row.resident_name || 'Resident name not published'; const school = row.medicalSchool || row.medical_school || row.school || 'Medical school not published'; const degree = row.degree || ''; const pgy = row.pgy || row.pgy_year || row.pgy_level || row.PGY || row.class || row.class_of || 'PGY not published'; const country = row.medicalSchoolCountry || row.medical_school_country || row.school_country || row.country || ''; const classification = row.category || row.classification || 'UNKNOWN'; return `<article data-order="${index}" data-name="${esc(String(name).toLocaleLowerCase('en-US'))}" data-school="${esc(String(school).toLocaleLowerCase('en-US'))}" data-pgy="${esc(String(pgy).toLocaleLowerCase('en-US'))}" data-country="${esc(String(country).toLocaleLowerCase('en-US'))}" data-category="${esc(classification)}"><div class="residentIdentity"><b>${esc(name)}</b><span>${esc([degree,pgy].filter(Boolean).join(' · '))}</span></div><p>${esc(school)}</p><div class="residentMeta">${country ? `<span>${esc(country)}</span>` : '<span>Country not identified</span>'}<span>${esc(String(classification).replaceAll('_',' '))}</span></div></article>`; }).join('')}</div>
+    <div class="residentCardGrid" aria-live="polite">${rows.map((row,index) => { const name = row.name || row.resident_name || 'Resident name not published'; const school = row.medicalSchool || row.medical_school || row.school || 'Medical school not published'; const aliases = (row.medicalSchoolAliases || []).join(' '); const degree = row.degree || ''; const pgy = row.pgy || row.pgy_year || row.pgy_level || row.PGY || row.class || row.class_of || 'PGY not published'; const country = row.medicalSchoolCountry || row.medical_school_country || row.school_country || row.country || ''; const classification = row.category || row.classification || 'UNKNOWN'; return `<article data-order="${index}" data-name="${esc(String(name).toLocaleLowerCase('en-US'))}" data-school="${esc(String(school).toLocaleLowerCase('en-US'))}" data-school-aliases="${esc(String(aliases).toLocaleLowerCase('en-US'))}" data-pgy="${esc(String(pgy).toLocaleLowerCase('en-US'))}" data-country="${esc(String(country).toLocaleLowerCase('en-US'))}" data-category="${esc(classification)}"><div class="residentIdentity"><b>${esc(name)}</b><span>${esc([degree,pgy].filter(Boolean).join(' · '))}</span></div><p>${esc(school)}</p><div class="residentMeta">${country ? `<span>${esc(country)}</span>` : '<span>Country not identified</span>'}<span>${esc(String(classification).replaceAll('_',' '))}</span></div></article>`; }).join('')}</div>
   </section>`;
 }
 
@@ -2050,7 +2089,7 @@ window.updateResidentExplorer = control => {
   let visible = 0;
   cards.forEach(card => {
     const show = (!nameQuery || card.dataset.name.includes(nameQuery))
-      && (!schoolQuery || card.dataset.school.includes(schoolQuery))
+      && (!schoolQuery || card.dataset.school.includes(schoolQuery) || card.dataset.schoolAliases.includes(schoolQuery))
       && (!pgy || card.dataset.pgy === pgy)
       && (!school || card.dataset.school === school)
       && (!country || card.dataset.country === country)

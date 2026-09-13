@@ -47,13 +47,30 @@ const COUNTRY_PATTERNS = Object.freeze([
 ]);
 
 const CARIBBEAN_SCHOOLS = /\b(?:st\.? george'?s university|ross university|american university of the caribbean|saba university|university of medicine and health sciences|medical university of the americas|windsor university school of medicine|avalon university|all saints university|st\.? matthew'?s university|trinity school of medicine|xavier university school of medicine)\b/i;
-const SCHOOL_ALIASES = new Map([
-  ["sgu", "st georges university school of medicine"],
-  ["st georges university", "st georges university school of medicine"],
-  ["ross university", "ross university school of medicine"],
-  ["auc", "american university of the caribbean school of medicine"],
-  ["lecom", "lake erie college of osteopathic medicine"],
+const SCHOOL_ALIAS_GROUPS = Object.freeze([
+  {
+    canonical: "st georges university school of medicine",
+    display: "St. George's University School of Medicine",
+    aliases: ["SGU", "St. George's University", "St Georges University", "St Georges University School of Medicine"],
+  },
+  {
+    canonical: "ross university school of medicine",
+    display: "Ross University School of Medicine",
+    aliases: ["Ross", "Ross University", "RUSM"],
+  },
+  {
+    canonical: "american university of the caribbean school of medicine",
+    display: "American University of the Caribbean School of Medicine",
+    aliases: ["AUC", "AUC School of Medicine", "American University of the Caribbean"],
+  },
+  {
+    canonical: "lake erie college of osteopathic medicine",
+    display: "Lake Erie College of Osteopathic Medicine",
+    aliases: ["LECOM", "Lake Erie COM"],
+  },
 ]);
+const SCHOOL_ALIASES = new Map(SCHOOL_ALIAS_GROUPS.flatMap((group) =>
+  [group.canonical, group.display, ...group.aliases].map((value) => [normalizedToken(value), group])));
 
 function text(value) {
   const result = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -70,7 +87,13 @@ export function normalizeMedicalSchoolName(value) {
   const raw = text(value);
   if (!raw) return null;
   const token = normalizedToken(raw);
-  return { raw, canonical: SCHOOL_ALIASES.get(token) ?? token, display: raw };
+  const group = SCHOOL_ALIASES.get(token);
+  return {
+    raw,
+    canonical: group?.canonical ?? token,
+    display: group?.display ?? raw,
+    aliases: [...new Set([raw, group?.display, ...(group?.aliases ?? [])].filter(Boolean))],
+  };
 }
 
 export function medicalSchoolCountry(value, explicitCountry = null, classification = null) {
@@ -118,6 +141,7 @@ export function normalizeResidentRoster(value) {
       degree: text(row.degree ?? row.degree_credential),
       medicalSchool: school?.display ?? null,
       medicalSchoolKey: school?.canonical ?? null,
+      medicalSchoolAliases: school?.aliases ?? [],
       medicalSchoolCountry: medicalSchoolCountry(school?.display, row.medical_school_country ?? row.school_country ?? row.country, category),
       category,
       track: text(row.track),
@@ -295,7 +319,14 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
   const schools = new Map();
   const countries = new Map();
   for (const resident of roster) {
-    if (resident.medicalSchoolKey) schools.set(resident.medicalSchoolKey, { label: resident.medicalSchool, count: (schools.get(resident.medicalSchoolKey)?.count ?? 0) + 1 });
+    if (resident.medicalSchoolKey) {
+      const previous = schools.get(resident.medicalSchoolKey);
+      schools.set(resident.medicalSchoolKey, {
+        label: previous?.label ?? resident.medicalSchool,
+        count: (previous?.count ?? 0) + 1,
+        aliases: new Set([...(previous?.aliases ?? []), ...(resident.medicalSchoolAliases ?? [])]),
+      });
+    }
     if (resident.medicalSchoolCountry) countries.set(resident.medicalSchoolCountry, (countries.get(resident.medicalSchoolCountry) ?? 0) + 1);
   }
   const profileSchool = normalizeMedicalSchoolName(profile.medical_school);
@@ -359,7 +390,7 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
       composition,
       registryComposition,
       entries: roster,
-      schools: [...schools].map(([key, value]) => ({ key, ...value })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+      schools: [...schools].map(([key, value]) => ({ key, label: value.label, count: value.count, aliases: [...value.aliases].sort() })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
       countries: [...countries].map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count || a.country.localeCompare(b.country)),
       sameSchoolCount, sameCountryCount,
       percentagesAvailable: hasNormalizedComposition ? compositionFact.percentagesAvailable === true : classifiedTotal > 0,
@@ -389,6 +420,14 @@ export function evaluateApplicationCompatibility(intel, profile = {}) {
     else if (step2Score < intel.exams.step2Minimum + 5) add("cautions", "step2", "Step 2 score is close to the published minimum", `Published minimum ${intel.exams.step2Minimum}; your profile ${step2Score}.`);
     else add("positives", "step2", "Step 2 score is above the published minimum", `Published minimum ${intel.exams.step2Minimum}; your profile ${step2Score}.`);
   } else add("unknowns", "step2", "Step 2 minimum not available", "No supported numeric cutoff is available for this program.");
+  const comlex2Score = Number(profile.comlex_level_2_score ?? profile.comlex_level2_score ?? profile.comlex2_score);
+  if (intel.exams.comlexLevel2Minimum !== null && Number.isFinite(comlex2Score)) {
+    if (comlex2Score < intel.exams.comlexLevel2Minimum) add("blockers", "comlex2", "Published COMLEX Level 2 minimum is higher", `Published minimum ${intel.exams.comlexLevel2Minimum}; your profile ${comlex2Score}.`);
+    else add("positives", "comlex2", "COMLEX Level 2 score clears the published minimum", `Published minimum ${intel.exams.comlexLevel2Minimum}; your profile ${comlex2Score}.`);
+  } else if (Number.isFinite(comlex2Score)) {
+    if (intel.exams.comlexLevel2Accepted) add("positives", "comlex2", "COMLEX Level 2 is accepted", "The program publishes COMLEX Level 2 acceptance, but no supported numeric cutoff is available.");
+    else add("unknowns", "comlex2", "COMLEX Level 2 compatibility not established", "No supported COMLEX Level 2 acceptance or numeric cutoff is available.");
+  }
   const visaNeed = normalizedToken(profile.visa_status ?? profile.visa_requirement);
   if (/j\s*1/.test(visaNeed)) {
     if (intel.visa.j1) add("positives", "visa", "J-1 sponsorship published", "The program has explicit published J-1 evidence.");
@@ -408,7 +447,7 @@ export function evaluateApplicationCompatibility(intel, profile = {}) {
     if (usceMonths < intel.usce.minimumMonths) add("blockers", "usce", "Published USCE minimum is higher", `Program publishes ${intel.usce.minimumMonths} month(s); your profile ${usceMonths}.`);
     else add("positives", "usce", "Profile meets the published USCE minimum", `Program publishes ${intel.usce.minimumMonths} month(s); your profile ${usceMonths}.`);
   } else if (intel.usce.required && !Number.isFinite(usceMonths)) add("cautions", "usce", "US clinical experience is published as required", "Add USCE months to your Matrix profile to compare.");
-  if (intel.roster.sameSchoolCount > 0) add("positives", "same_school", "Residents from your medical school", `${intel.roster.sameSchoolCount} current/recent roster entr${intel.roster.sameSchoolCount === 1 ? "y" : "ies"} match your school.`);
+  if (intel.roster.sameSchoolCount > 0) add("positives", "same_school", `Residents from ${text(profile.medical_school) ?? "your medical school"}`, `${intel.roster.sameSchoolCount} current/recent roster entr${intel.roster.sameSchoolCount === 1 ? "y" : "ies"} match your school.`);
   if (intel.roster.sameCountryCount > 0) add("positives", "same_country", "Residents from your medical-school country", `${intel.roster.sameCountryCount} current/recent roster entr${intel.roster.sameCountryCount === 1 ? "y" : "ies"} attended school in that country.`);
   const klass = profileClass(profile);
   if ((klass === "IMG" || klass === "CARIBBEAN") && (intel.roster.composition.IMG_NON_CARIBBEAN.count + intel.roster.composition.CARIBBEAN.count > 0)) add("positives", "img", "Observed IMG representation", "Current/recent roster evidence includes international medical graduates; this is not an admissions-policy claim.");

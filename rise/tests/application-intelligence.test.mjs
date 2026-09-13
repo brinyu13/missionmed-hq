@@ -32,6 +32,29 @@ test("resident normalization uses school evidence, never a person's name, for ca
   assert.equal(medicalSchoolCountry("Unidentified medical school", null, null), null);
   assert.equal(rosterCategory({ name: "India Pakistan", medical_school: "Unknown" }), "UNKNOWN");
   assert.equal(normalizeMedicalSchoolName("SGU").canonical, "st georges university school of medicine");
+  assert.equal(normalizeMedicalSchoolName("SGU").display, "St. George's University School of Medicine");
+  assert.ok(normalizeMedicalSchoolName("St. George's University").aliases.includes("SGU"));
+});
+
+test("school aliases reconcile to one canonical resident-school connection", () => {
+  const intel = buildApplicationIntelligence(program({}), [{
+    field: "research.resident_roster",
+    canonicalValue: [{ name: "Resident", medical_school: "St. George's University School of Medicine", classification: "IMG" }],
+  }], { medical_school: "SGU" });
+  assert.equal(intel.roster.sameSchoolCount, 1);
+  assert.ok(intel.roster.schools[0].aliases.includes("SGU"));
+  assert.equal(intel.roster.entries[0].medicalSchool, "St. George's University School of Medicine");
+});
+
+test("COMLEX Level 2 profile comparison is separate from USMLE Step 2", () => {
+  const intel = buildApplicationIntelligence(program({}), [{
+    field: "research.application_requirements",
+    canonicalValue: { contractId: "rise-application-requirements-v2", comlex: { state: "AVAILABLE_LIVE", accepted: true, publishedMinimum: 500 } },
+  }], {});
+  const passing = evaluateApplicationCompatibility(intel, { comlex_level_2_score: 550 });
+  const failing = evaluateApplicationCompatibility(intel, { comlex_level_2_score: 450 });
+  assert.ok(passing.positives.some((item) => item.criterion === "comlex2"));
+  assert.ok(failing.blockers.some((item) => item.criterion === "comlex2"));
 });
 
 test("application intelligence combines registry and approved research conservatively", () => {

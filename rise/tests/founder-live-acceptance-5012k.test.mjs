@@ -97,6 +97,24 @@ test("5012K gives long At a Glance evidence proportional desktop width", async (
   assert.match(styles, /@media\(max-width:700px\)[^}]*[\s\S]*?\.atGlanceGrid>div,\.atGlanceGrid>div:nth-child\(6\)\{grid-column:1\/-1\}/);
 });
 
+test("5012K gives long result evidence proportional width and a bounded three-line summary", async () => {
+  const [styles, appSource] = await Promise.all([
+    fs.readFile(path.join(ROOT, "web/styles.css"), "utf8"),
+    fs.readFile(path.join(ROOT, "web/app.js"), "utf8"),
+  ]);
+  assert.match(styles, /\.pRow \.applicationDecisionGrid\{grid-template-columns:minmax\(145px,1\.6fr\).*minmax\(245px,3\.6fr\)/);
+  assert.match(styles, /\.pRow \.applicationDecisionGrid strong\{[^}]*-webkit-line-clamp:3/);
+  assert.match(appSource, /<strong title="\$\{esc\(value\)\}">/);
+});
+
+test("5012K exposes normalized school aliases and conditional Matrix score shortcuts", async () => {
+  const appSource = await fs.readFile(path.join(ROOT, "web/app.js"), "utf8");
+  assert.match(appSource, /residentSchoolMatches\(item, f\.residentSchool\)/);
+  assert.match(appSource, /Compatible with my Step 2 score/);
+  assert.match(appSource, /Compatible with my COMLEX Level 2 score/);
+  assert.match(appSource, /strongest connections sort first/);
+});
+
 test("5012K renders the leadership hierarchy before core faculty", async () => {
   const appSource = await fs.readFile(path.join(ROOT, "web/app.js"), "utf8");
   const hierarchy = ["PROGRAM_DIRECTOR", "ASSOCIATE_PROGRAM_DIRECTOR", "PROGRAM_COORDINATOR", "DIVISION_CHIEF"];

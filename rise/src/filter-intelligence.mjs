@@ -411,7 +411,7 @@ function compactApplicationIntelligence(application) {
       distinctCountries: Number(roster.distinctCountries || 0),
       composition: roster.composition ?? {},
       registryComposition: roster.registryComposition ?? {},
-      schools: (roster.schools ?? []).map(({ key, label, count }) => ({ key, label, count })),
+      schools: (roster.schools ?? []).map(({ key, label, count, aliases }) => ({ key, label, count, aliases: Array.isArray(aliases) ? aliases : [] })),
       countries: (roster.countries ?? []).map(({ country, count }) => ({ country, count })),
       sameSchoolCount: Number(roster.sameSchoolCount || 0),
       sameCountryCount: Number(roster.sameCountryCount || 0),
