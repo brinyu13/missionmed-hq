@@ -6,3 +6,5 @@
 - Filter ordering relied on presentation order rather than applicant-first DOM order.
 - The generic people renderer preserved upstream ordering and lacked deterministic hierarchy/name deduplication.
 - Resident absence, unknown composition and researched-not-public states were not kept sufficiently distinct in every surface.
+- Medical-school search received compact resident data without preserving canonical alias tokens, so common student shorthand was not guaranteed to survive every serving path.
+- Profile score presentation reused a generic score label instead of keeping Step 2 CK and COMLEX Level 2 independently named and gated.

@@ -12,5 +12,9 @@
 | DO roster evidence | Mapping existed | 3,671 live programs |
 | Caribbean roster evidence | Mapping existed | 122 live programs |
 | US MD roster evidence | Mapping existed | 5,005 live programs |
+| Resident-school aliases | Exact/variant strings could diverge after compact projection | Canonical aliases for SGU, Ross/RUSM, AUC and LECOM survive compact payload, typeahead and filtering |
+| Profile exam controls | Generic score label could blur Step 2 CK and COMLEX Level 2 | Independent score labels, keys, shortcuts and compatibility reasons |
+| Same-school ordering | Connection was filterable but not always strongest-first | Supported resident connection count sorts descending |
 
 Filters remain derived from the canonical/live model. No frontend program allowlist was introduced. Clear, composition and result-count behavior are covered by automated and live QA.
+The current Founder Matrix profile does not include a usable medical school or exam-score payload, so profile-specific one-click controls remain honestly disabled in live QA. Complete-profile fixtures cover those conditional paths without fabricating Founder data.
