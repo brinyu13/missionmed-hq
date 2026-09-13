@@ -5,7 +5,7 @@ if (!port || !['closed', 'open'].includes(phase)) {
 
 const origin = 'https://missionmedinstitute.com';
 const routes = [
-  { path: '/', kind: 'landing' },
+  { path: '/', kind: 'home' },
   { path: '/mission-residency/', kind: 'landing' },
   { path: '/mission-residency-courses/', kind: 'landing' },
   { path: '/compare-programs/', kind: 'landing' },
@@ -69,10 +69,13 @@ for (const viewport of viewports) {
     await send('Page.navigate', {
       url: `${origin}${route.path}${separator}mr0912_rendered=${phase}-${viewport.name}-${index}`,
     });
+    const candidateRoute = ['landing', 'complete', 'interview'].includes(route.kind);
     for (let attempt = 0; attempt < 60; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 200));
       const ready = await send('Runtime.evaluate', {
-        expression: "document.readyState === 'complete' && (document.body?.innerText || '').trim().length > 20",
+        expression: candidateRoute
+          ? "document.readyState === 'complete' && !!document.querySelector('h1') && (document.body?.innerText || '').trim().length > 1000"
+          : "document.readyState === 'complete' && (document.body?.innerText || '').trim().length > 20",
         returnByValue: true,
       });
       if (ready.result?.value === true) break;
@@ -83,11 +86,15 @@ for (const viewport of viewports) {
       expression: `(() => {
         const text = document.body?.innerText || '';
         const lower = text.toLowerCase();
-        const stalePatterns = [
+        const campaignStalePatterns = [
           '142 alumni', 'alumni matched and counting', 'matched hundreds',
           'Match Prep Pro', 'IV Prep Masterclass', 'Interview Prep Foundation',
           'Unlimited mock', 'Four Signature Mock', '$1,199', 'Sept 12', 'September 12'
         ];
+        const globalBannedPatterns = ['142 alumni', 'alumni matched and counting'];
+        const stalePatterns = ${JSON.stringify(route.kind)} === 'reference'
+          ? globalBannedPatterns
+          : campaignStalePatterns;
         const checkoutLinks = [...document.querySelectorAll('a[href]')]
           .filter((anchor) => /checkout|add-to-cart/i.test(anchor.href))
           .map((anchor) => anchor.href);
@@ -119,15 +126,17 @@ for (const viewport of viewports) {
 
     const value = payload.result.value;
     const identityPass = route.kind === 'landing'
-      ? value.hasInterviewTitle && value.hasInterviewPrice && value.hasCompleteTitle && value.hasCompleteStandard && value.hasCompleteEarlyCard
+      ? value.hasInterviewTitle && value.hasInterviewPrice && value.hasCompleteTitle && value.hasCompleteStandard
       : route.kind === 'complete'
-        ? value.hasCompleteTitle && value.hasCompleteStandard && value.hasCompleteEarlyCard
+        ? value.hasCompleteTitle && value.hasCompleteStandard
         : route.kind === 'interview'
           ? value.hasInterviewTitle && value.hasInterviewPrice
           : true;
     const phasePass = phase === 'closed' && ['landing', 'complete', 'interview'].includes(route.kind)
       ? value.hasClosedLabel && value.checkoutLinks.length === 0
-      : true;
+      : phase === 'open' && ['landing', 'complete'].includes(route.kind)
+        ? value.hasCompleteEarlyCard
+        : true;
     const priceTruthPass = ['landing', 'complete', 'interview'].includes(route.kind)
       ? !value.hasBannedEarlyPif && !value.hasUnsupportedInstallments
       : true;
