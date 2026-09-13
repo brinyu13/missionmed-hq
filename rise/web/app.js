@@ -2085,9 +2085,27 @@ function genericPeopleTable(p) {
       .map(row => ({ ...row, _risePeopleKind: 'leadership' })),
     ...evidenceRows(approvedResearchValue(p, 'research.core_faculty'), ['faculty','people','core_faculty'])
       .map(row => ({ ...row, _risePeopleKind: 'faculty' })),
-  ].filter(row => row && typeof row === 'object').slice(0, 100);
+  ].filter(row => row && typeof row === 'object');
   if (!rows.length) return '';
-  return `<div class="peopleCardGrid">${rows.map(row => { const summary = row.summary || row.details || row.evidence || ''; const publishedName = row.name || row.full_name || row.person || ''; const name = publishedName || (summary ? (row._risePeopleKind === 'faculty' ? 'Core faculty' : 'Program leadership') : 'Name not published'); const role = row.role || row.title || row.position || (summary ? 'Research summary' : 'Role not published'); const training = row.training_summary || row.training || row.residency || row.fellowship || (!publishedName ? summary : ''); const interests = row.interests || row.clinical_interests || row.research_interests || ''; const photo = String(row.photo_url || row.image_url || ''); const safePhoto = photo.startsWith('/') && !photo.startsWith('//') ? photo : ''; return `<article>${safePhoto ? `<img src="${esc(safePhoto)}" alt="" loading="lazy">` : '<div class="personPlaceholder" aria-hidden="true">◌</div>'}<div><h3>${esc(name)}</h3><b>${esc(role)}</b>${training ? `<p>${esc(displayValue(training))}</p>` : ''}${interests ? `<p class="sub">${esc(displayValue(interests))}</p>` : ''}</div></article>`; }).join('')}</div>`;
+  const leadershipRank = row => {
+    const category = String(row.roleCategory || row.role_category || '').toUpperCase();
+    const role = String(row.role || row.title || row.position || '').toLowerCase();
+    if (category === 'PROGRAM_DIRECTOR' || /\bprogram director\b/.test(role)) return 0;
+    if (/ASSOCIATE_PROGRAM_DIRECTOR|ASSISTANT_PROGRAM_DIRECTOR/.test(category) || /\b(?:associate|assistant) program director\b/.test(role)) return 1;
+    if (category === 'PROGRAM_COORDINATOR' || /\bprogram coordinator\b/.test(role)) return 2;
+    if (/CHAIR|DIVISION_CHIEF/.test(category) || /\b(?:chair|division chief)\b/.test(role)) return 3;
+    return row._risePeopleKind === 'leadership' ? 4 : 5;
+  };
+  const seenPeople = new Set();
+  const orderedRows = rows
+    .sort((left, right) => leadershipRank(left) - leadershipRank(right))
+    .filter(row => {
+      const name = String(row.name || row.full_name || row.person || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+      if (!name || !seenPeople.has(name)) { if (name) seenPeople.add(name); return true; }
+      return false;
+    })
+    .slice(0, 100);
+  return `<div class="peopleCardGrid">${orderedRows.map(row => { const summary = row.summary || row.details || row.evidence || ''; const publishedName = row.name || row.full_name || row.person || ''; const name = publishedName || (summary ? (row._risePeopleKind === 'faculty' ? 'Core faculty' : 'Program leadership') : 'Name not published'); const role = row.role || row.title || row.position || (summary ? 'Research summary' : 'Role not published'); const training = row.training_summary || row.training || row.residency || row.fellowship || (!publishedName ? summary : ''); const interests = row.interests || row.clinical_interests || row.research_interests || ''; const photo = String(row.photo_url || row.image_url || ''); const safePhoto = photo.startsWith('/') && !photo.startsWith('//') ? photo : ''; return `<article>${safePhoto ? `<img src="${esc(safePhoto)}" alt="" loading="lazy">` : '<div class="personPlaceholder" aria-hidden="true">◌</div>'}<div><h3>${esc(name)}</h3><b>${esc(role)}</b>${training ? `<p>${esc(displayValue(training))}</p>` : ''}${interests ? `<p class="sub">${esc(displayValue(interests))}</p>` : ''}</div></article>`; }).join('')}</div>`;
 }
 
 function evidenceCard(row, kind) {

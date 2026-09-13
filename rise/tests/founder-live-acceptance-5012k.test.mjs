@@ -96,3 +96,17 @@ test("5012K gives long At a Glance evidence proportional desktop width", async (
   assert.match(styles, /\.atGlanceGrid>div:nth-child\(6\)\{grid-column:span 8\}/);
   assert.match(styles, /@media\(max-width:700px\)[^}]*[\s\S]*?\.atGlanceGrid>div,\.atGlanceGrid>div:nth-child\(6\)\{grid-column:1\/-1\}/);
 });
+
+test("5012K renders the leadership hierarchy before core faculty", async () => {
+  const appSource = await fs.readFile(path.join(ROOT, "web/app.js"), "utf8");
+  const hierarchy = ["PROGRAM_DIRECTOR", "ASSOCIATE_PROGRAM_DIRECTOR", "PROGRAM_COORDINATOR", "DIVISION_CHIEF"];
+  let previous = appSource.indexOf("const leadershipRank");
+  assert.ok(previous >= 0);
+  for (const token of hierarchy) {
+    const offset = appSource.indexOf(token, previous);
+    assert.ok(offset > previous, `${token} must follow the prior leadership rank`);
+    previous = offset;
+  }
+  assert.match(appSource, /sort\(\(left, right\) => leadershipRank\(left\) - leadershipRank\(right\)\)/);
+  assert.match(appSource, /seenPeople\.has\(name\)/);
+});
