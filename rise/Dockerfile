@@ -29,8 +29,11 @@ COPY config/deep-research-dossier-v2.json ./config/deep-research-dossier-v2.json
 # P1-RISE-5012I packages the reviewed Texas bundle and one provider-neutral,
 # operator-invoked importer. Startup never runs the importer automatically.
 COPY config/research-dossiers/texas-adult-neurology-2026-09-12.v1.json ./config/research-dossiers/texas-adult-neurology-2026-09-12.v1.json
+# 5012K performs one operator-invoked, zero-spend re-promotion of the already
+# reviewed TX/FL Adult Neurology package. Startup never runs this importer.
+COPY config/research-packages/tx-fl-adult-neurology-2026-09-12.v1 ./config/research-packages/tx-fl-adult-neurology-2026-09-12.v1
 COPY releases ./releases
-COPY tools/import-structured-dossiers.mjs tools/prepare-runtime.mjs tools/start-production.mjs tools/start-research-worker.mjs ./tools/
+COPY tools/import-normalized-hydration-package.mjs tools/import-structured-dossiers.mjs tools/prepare-runtime.mjs tools/start-production.mjs tools/start-research-worker.mjs ./tools/
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 USER node

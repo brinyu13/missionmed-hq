@@ -8,11 +8,11 @@ import { reviewResearchCorpus } from "../src/research-review.mjs";
 
 const DEFAULT_PACKAGE = fileURLToPath(new URL("../config/research-packages/tx-fl-adult-neurology-2026-09-12.v1", import.meta.url));
 const DEFAULT_REGISTRY = fileURLToPath(new URL("../releases/student-rights-safe/api-index.json", import.meta.url));
-const TICKET = "P1-RISE-5012J";
-const PROMOTION_SOURCE_ID = "rise_src_p1_rise_5012j_review";
+const DEFAULT_TICKET = "P1-RISE-5012J";
+const DEFAULT_PROMOTION_SOURCE_ID = "rise_src_p1_rise_5012j_review";
 
 function args(argv) {
-  const result = { packageRoot: DEFAULT_PACKAGE, registryPath: DEFAULT_REGISTRY, apply: false, reviewedAt: null };
+  const result = { packageRoot: DEFAULT_PACKAGE, registryPath: DEFAULT_REGISTRY, apply: false, reviewedAt: null, ticket: DEFAULT_TICKET, promotionSourceId: DEFAULT_PROMOTION_SOURCE_ID };
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index]?.replace(/^--/, "");
     const value = argv[index + 1];
@@ -21,6 +21,8 @@ function args(argv) {
     else if (key === "registry") result.registryPath = value;
     else if (key === "apply") result.apply = value === "true";
     else if (key === "reviewed-at") result.reviewedAt = value;
+    else if (key === "ticket") result.ticket = value;
+    else if (key === "promotion-source-id") result.promotionSourceId = value;
     else throw new Error(`Unknown argument: --${key}`);
   }
   return result;
@@ -33,8 +35,8 @@ export async function importNormalizedHydrationPackage(options = args([])) {
   const evidenceStore = await createRiseCanonicalEvidenceStore();
   const reviewStore = await createRiseEvidenceReviewStore();
   await evidenceStore.ensureReviewIdentitySource({
-    retrievedAt: options.reviewedAt, sourceId: PROMOTION_SOURCE_ID, ticket: TICKET,
-    sourceLocator: `${TICKET}/tx-fl-adult-neurology-identity-reconciliation`,
+    retrievedAt: options.reviewedAt, sourceId: options.promotionSourceId, ticket: options.ticket,
+    sourceLocator: `${options.ticket}/tx-fl-adult-neurology-identity-reconciliation`,
   });
   const identityReadback = await evidenceStore.upsertProgramIdentities(loaded.identities);
   const resolved = await reviewStore.resolvedAcgmeIds(loaded.summary.acgmeIds);
@@ -49,8 +51,8 @@ export async function importNormalizedHydrationPackage(options = args([])) {
   if (after.size !== targetClaimIds.length) throw new Error(`Canonical claim ingestion incomplete: ${after.size}/${targetClaimIds.length}`);
   const review = reviewResearchCorpus(loaded.ingests, { resolvedAcgmeIds: resolved });
   const applied = await reviewStore.applyCorpus({
-    review, actorSubject: TICKET, reviewedAt: options.reviewedAt,
-    ticket: TICKET, promotionSourceId: PROMOTION_SOURCE_ID,
+    review, actorSubject: options.ticket, reviewedAt: options.reviewedAt,
+    ticket: options.ticket, promotionSourceId: options.promotionSourceId,
   });
   return {
     ...loaded.summary, apply: true, identityReadback,

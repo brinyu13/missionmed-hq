@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const REVIEW_RULE_VERSION = "5012j.1";
+export const REVIEW_RULE_VERSION = "5012k.1";
 export const FINAL_DISPOSITIONS = Object.freeze([
   "APPROVED_CURRENT", "APPROVED_HISTORICAL", "RESEARCHED_NOT_FOUND", "SUPERSEDED",
   "CONFLICT_REQUIRES_REVIEW", "INSUFFICIENT_EVIDENCE", "STALE_NEEDS_REFRESH", "IDENTITY_AMBIGUITY",
@@ -113,6 +113,16 @@ function normalizeLeadership(value) {
     name: cleanString(row.name),
     role: cleanString(row.role ?? row.title),
     credentials: cleanString(row.credentials ?? row.degree),
+    roleCategory: cleanString(row.roleCategory ?? row.role_category),
+    medicalSchool: cleanString(row.medicalSchool ?? row.medical_school),
+    residencyProgram: cleanString(row.residencyProgram ?? row.residency_program),
+    fellowshipProgram: cleanString(row.fellowshipProgram ?? row.fellowship_program),
+    subspecialty: cleanString(row.subspecialty),
+    confidence: cleanString(row.confidence),
+    sectionStatus: cleanString(row.sectionStatus ?? row.section_status),
+    adversariallyValidated: cleanString(row.adversariallyValidated ?? row.adversarially_validated),
+    conflictState: cleanString(row.conflictState ?? row.conflict_state),
+    absence: cleanString(row.absence ?? row.absence_message),
     source_url: cleanString(row.source_url ?? row.official_profile_url ?? row.profile_url ?? row.url),
   }));
 }

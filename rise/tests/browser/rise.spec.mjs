@@ -108,6 +108,7 @@ test("application intelligence is visible, customizable, and remains usable on m
   await expect(page.locator(".applicationDecisionGrid").first()).toContainText("Score timing");
 
   await page.getByRole("button", { name: /More filters/ }).click();
+  await expect(page.locator("#filterDrawer .filterComposition")).toContainText("Applicant match");
   await expect(page.locator("#filterDrawer")).toContainText("Exams & attempts");
   await expect(page.locator("#filterDrawer")).toContainText("Residents from my medical school");
   await expect(page.locator("#filterDrawer")).toContainText("In-house fellowships published");
@@ -150,6 +151,7 @@ test("visa, resident evidence, and research depth filters expose real counts and
     ["Research Pending", "Delta Pediatrics Program"],
   ]) {
     await page.getByRole("button", { name: /More filters/ }).click();
+    await page.locator("#filterDrawer .advancedFilters summary").click();
     await page.locator("#filterDrawer").getByRole("button", { name: new RegExp(`^${label}`) }).click();
     await page.getByRole("button", { name: "Show results", exact: true }).click();
     await expect(page.locator(".pRow")).toHaveCount(1);

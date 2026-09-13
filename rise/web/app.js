@@ -236,7 +236,7 @@ const state = {
   saved: runtime.saved,
   compare: [],
   underlying: null,                   // last non-file route
-  find: { mode: 'criteria', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, sort: 'name', view: 'list', shown: 50, scroll: 0, moreOpen: false },
+  find: { mode: 'criteria', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlexWithoutUsmle: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, sort: 'name', view: 'list', shown: 50, scroll: 0, moreOpen: false },
   applicationPreferences: D.applicationPreferences,
   fileTab: 'overview',
   fileFrom: 'find',
@@ -762,8 +762,18 @@ function matchingPrograms(f = state.find) {
   if (f.step1Policy) list = list.filter(p => f.step1Policy === 'required' ? p.application?.exams?.step1Required === true : p.application?.exams?.step1Required !== true);
   if (f.step1FailureMode) list = list.filter(p => f.step1FailureMode === 'first_attempt' ? p.application?.exams?.step1FirstAttemptRequired : p.application?.exams?.step1FailureAllowed);
   if (f.step2Minimum) list = list.filter(p => p.application?.exams?.step2Minimum !== null && p.application.exams.step2Minimum <= Number(f.step2Minimum));
-  if (f.step2TimingMode) list = list.filter(p => f.step2TimingMode === 'pending_friendly' ? p.application?.exams?.step2PendingFriendly : p.application?.exams?.step2RequiredWithApplication);
+  if (f.step2TimingMode) list = list.filter(p => ({
+    with_application: p.application?.exams?.step2RequiredWithApplication,
+    before_interview: p.application?.exams?.step2RequiredForInterview,
+    before_ranking: p.application?.exams?.step2RequiredBeforeRanking,
+    before_start: p.application?.exams?.step2RequiredBeforeStart,
+    recommended: p.application?.exams?.step2Recommended,
+    no_initial_review_barrier: p.application?.exams?.step2NoPublishedInitialReviewBarrier,
+    timing_not_published: p.application?.exams?.step2TimingNotPublished,
+    conflict: p.application?.exams?.step2TimingConflict,
+  })[f.step2TimingMode]);
   if (f.comlex2) list = list.filter(p => p.application?.exams?.comlexLevel2Accepted === true);
+  if (f.comlexWithoutUsmle) list = list.filter(p => p.application?.exams?.comlexAcceptedWithoutUsmle === true);
   if (f.comlex2Minimum) list = list.filter(p => p.application?.exams?.comlexLevel2Minimum !== null && p.application.exams.comlexLevel2Minimum <= Number(f.comlex2Minimum));
   if (f.attemptsMaximum) list = list.filter(p => p.application?.exams?.maxAttempts !== null && p.application.exams.maxAttempts >= Number(f.attemptsMaximum));
   if (f.yogWindow) list = list.filter(p => p.application?.yog?.noPublishedCutoff || (p.application?.yog?.years !== null && p.application.yog.years >= Number(f.yogWindow)));
@@ -840,8 +850,9 @@ function activePills() {
   if (f.step1FailureMode) pills.push({ k: 'step1FailureMode', label: f.step1FailureMode === 'first_attempt' ? 'Step 1 first-attempt policy' : 'Prior Step 1 failure allowed' });
   if (f.step2Minimum) pills.push({ k: 'step2Minimum', label: `Published Step 2 minimum ≤ ${f.step2Minimum}` });
   if (f.comlex2Minimum) pills.push({ k: 'comlex2Minimum', label: `Published COMLEX Level 2 minimum ≤ ${f.comlex2Minimum}` });
-  if (f.step2TimingMode) pills.push({ k: 'step2TimingMode', label: f.step2TimingMode === 'pending_friendly' ? 'Step 2 score may arrive later' : 'Step 2 required with application' });
+  if (f.step2TimingMode) pills.push({ k: 'step2TimingMode', label: ({with_application:'Step 2 required with application',before_interview:'Step 2 required before interview',before_ranking:'Step 2 required before ranking',before_start:'Step 2 required before start',recommended:'Step 2 recommended / preferred',no_initial_review_barrier:'No published Step 2 initial-review barrier',timing_not_published:'Step 2 timing not published',conflict:'Step 2 timing conflict / unclear'})[f.step2TimingMode] });
   if (f.comlex2) pills.push({ k: 'comlex2', label: 'COMLEX Level 2 accepted' });
+  if (f.comlexWithoutUsmle) pills.push({ k: 'comlexWithoutUsmle', label: 'COMLEX accepted without USMLE' });
   if (f.attemptsMaximum) pills.push({ k: 'attemptsMaximum', label: `Published policy accommodates ${f.attemptsMaximum} attempt${Number(f.attemptsMaximum) === 1 ? '' : 's'}` });
   if (f.yogWindow) pills.push({ k: 'yogWindow', label: `YOG window ≥ ${f.yogWindow} years or no published cutoff` });
   if (f.usceMode) pills.push({ k: 'usceMode', label: { required: 'USCE required', recommended: 'USCE recommended', unpublished: 'No published USCE requirement' }[f.usceMode] });
@@ -859,10 +870,10 @@ window.dropPill = k => {
   if (k === 'abim') f.abim = false; if (k === 'depth') f.depth = ''; if (k === 'visaMode') f.visaMode = '';
   if (k === 'imgEv') f.imgEv = false; if (k === 'doEv') f.doEv = false; if (k === 'caribbeanEv') f.caribbeanEv = false; if (k === 'usmdEv') f.usmdEv = false; if (k === 'fresh') f.fresh = '';
   if (['step1Policy','step1FailureMode','step2Minimum','comlex2Minimum','step2TimingMode','attemptsMaximum','yogWindow','usceMode','minImgPct','minDoPct'].includes(k)) f[k] = '';
-  if (['comlex2','sameSchool','sameCountry','fellowships'].includes(k)) f[k] = false;
+  if (['comlex2','comlexWithoutUsmle','sameSchool','sameCountry','fellowships'].includes(k)) f[k] = false;
   state.find.shown = 50; rerender();
 };
-window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, shown: 50 }); rerender(); };
+window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlexWithoutUsmle: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, shown: 50 }); rerender(); };
 
 function sigIMG(p, f) {
   if (p.filterIntelligence.residentEvidence.img) return `<span class="sig" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not admissions policy."><b>IMG ✓</b><span style="color:var(--dim)"> ${esc(p.intelligence.imgGraduatesPercent || 'reported')}</span></span>`;
@@ -978,20 +989,22 @@ function programRow(p, origin) {
   const f = computeFit(p);
   const showFit = hasUsableProfile() && state.find.mode === 'profile';
   return `<div class="pRow" role="button" tabindex="0" style="--tierHue:${tierHue(f.tier)}" data-open="${p.id}" data-origin="${origin}">
-    <button class="starBtn ${state.saved.has(p.id) ? 'on' : ''}" aria-pressed="${state.saved.has(p.id)}" aria-label="Save ${esc(p.name)}" onclick="toggleSave('${p.id}',event)">★</button>
-    <span class="specTag">${p.spec}</span>
+    <span class="pRowHead">
+      <button class="starBtn ${state.saved.has(p.id) ? 'on' : ''}" aria-pressed="${state.saved.has(p.id)}" aria-label="Save ${esc(p.name)}" onclick="toggleSave('${p.id}',event)">★</button>
+      <span class="specTag">${p.spec}</span>
+      <span class="rIdentity"><span class="rTitleLine"><span class="rName">${esc(p.name)}</span>${p.demo ? '<span class="demoTag">Demo</span>' : ''}${p.depth === 'gold' ? '<span class="demoTag" style="color:var(--gd);border-color:rgba(255,215,106,.5)">Gold dossier</span>' : ''}</span>
+      <span class="rSub">${esc(p.inst)} · ${esc(p.city)}, ${p.state}${p.type ? ' · ' + esc(p.type) : ''}</span></span>
+      <span class="rMeta">
+        ${freshPill(p)}
+        <button class="rowBtn" onclick="event.stopPropagation();toggleCompare('${p.id}')">${state.compare.includes(p.id) ? '✓ Comparing' : '⊞ Compare'}</button>
+        <button class="rowBtn pri" onclick="event.stopPropagation();openProgram('${p.id}','overview','${origin}')">Open File</button>
+      </span>
+    </span>
     <span class="rMain">
-      <span class="rTitleLine"><span class="rName">${esc(p.name)}</span>${p.demo ? '<span class="demoTag">Demo</span>' : ''}${p.depth === 'gold' ? '<span class="demoTag" style="color:var(--gd);border-color:rgba(255,215,106,.5)">Gold dossier</span>' : ''}</span>
-      <span class="rSub">${esc(p.inst)} · ${esc(p.city)}, ${p.state}${p.type ? ' · ' + esc(p.type) : ''}</span>
       ${filterMatchEvidence(p)}
       ${applicationCardSnapshot(p)}
       ${applicationMatchReasons(p)}
       ${showFit ? `<span class="rFit">${tierChip(p, f)}<span>${esc(f.line)}</span></span>` : ''}
-    </span>
-    <span class="rMeta">
-      ${freshPill(p)}
-      <button class="rowBtn" onclick="event.stopPropagation();toggleCompare('${p.id}')">${state.compare.includes(p.id) ? '✓ Comparing' : '⊞ Compare'}</button>
-      <button class="rowBtn pri" onclick="event.stopPropagation();openProgram('${p.id}','overview','${origin}')">Open File</button>
     </span>
   </div>`;
 }
@@ -1347,10 +1360,11 @@ window.openFilterDrawer = () => {
     <button class="drawerClose" aria-label="Close" onclick="$('#filterDrawer').classList.remove('open')">✕</button>
     <h3>More filters</h3>
     <p class="sub" style="font-size:14px">Every filter states its evidence caveat. Nothing here guesses.</p>
-    <div class="fGroup"><div class="fLbl">SOAP</div>
+    <details class="advancedFilters"><summary>Advanced / research coverage</summary>
+    <div class="fGroup filterSoap"><div class="fLbl">SOAP</div>
       <button class="tgl ${f.soap ? 'on' : ''}" onclick="state.find.soap=!state.find.soap;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>SOAP 2026 history<span class="cav">Historical cycle evidence; no future availability or match-likelihood inference.</span></span>${count({ soap: true })}</button>
     </div>
-    <div class="fGroup"><div class="fLbl">Research depth</div>
+    <div class="fGroup filterResearch"><div class="fLbl">Research depth</div>
       ${[
         ['', 'Any research depth', 'All current canonical programs.'],
         ['deep', 'Deep Research', 'Highest current major research pass with broad domain coverage.'],
@@ -1359,18 +1373,14 @@ window.openFilterDrawer = () => {
         ['pending', 'Research Pending', 'Canonical identity exists; meaningful enrichment is not yet available.'],
       ].map(([k, l, caveat]) => `
         <button class="tgl ${f.depth === k ? 'on' : ''}" onclick="state.find.depth='${k}';openFilterDrawer();rerenderKeepDrawer()"><span class="box">${f.depth === k ? '●' : ''}</span><span>${l}<span class="cav">${caveat}</span></span>${count({ depth: k })}</button>`).join('')}
-    </div>
-    <div class="fGroup"><div class="fLbl">Resident / graduate evidence</div>
+    </div></details>
+    <div class="fGroup filterResidentEvidence"><div class="fLbl">Resident roster evidence</div>
       <button class="tgl ${f.imgEv ? 'on' : ''}" onclick="state.find.imgEv=!state.find.imgEv;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>IMG residents / graduates reported<span class="cav">Program-reported composition or approved roster evidence. Observation, not admissions policy.</span></span>${count({ imgEv: true })}</button>
       <button class="tgl ${f.doEv ? 'on' : ''}" onclick="state.find.doEv=!state.find.doEv;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>DO residents / graduates reported<span class="cav">Independent from Caribbean evidence. Observation, not admissions policy.</span></span>${count({ doEv: true })}</button>
       <button class="tgl ${f.caribbeanEv ? 'on' : ''} ${caribbeanAvailable ? '' : 'unavailable'}" ${caribbeanAvailable ? `onclick="state.find.caribbeanEv=!state.find.caribbeanEv;openFilterDrawer();rerenderKeepDrawer()"` : 'disabled'}><span class="box">✓</span><span>Caribbean graduates on roster<span class="cav">${caribbeanAvailable ? 'Approved canonical roster observations only.' : 'Awaiting approved canonical roster evidence; review-gated research is not exposed.'}</span></span>${count({ caribbeanEv: true })}</button>
       <button class="tgl ${f.usmdEv ? 'on' : ''}" onclick="state.find.usmdEv=!state.find.usmdEv;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>US MD residents / graduates reported<span class="cav">Program-reported composition or approved roster evidence.</span></span>${count({ usmdEv: true })}</button>
-      <label class="fLbl" for="residentSchoolFilter" style="margin-top:14px">Resident medical school</label>
-      <input id="residentSchoolFilter" class="fSel" style="width:100%" list="residentSchoolOptions" value="${esc(f.residentSchool)}" placeholder="Type a school name or alias" onchange="state.find.residentSchool=this.value.trim();state.find.shown=50;rerenderKeepDrawer()">
-      <datalist id="residentSchoolOptions">${RESIDENT_SCHOOLS.map(school => '<option value="' + esc(school) + '"></option>').join('')}</datalist>
-      <span class="cav">Matches approved current/recent resident-roster evidence only.</span>
     </div>
-    <div class="fGroup"><div class="fLbl">Visa</div>
+    <div class="fGroup filterVisa"><div class="fLbl">Visa</div>
       ${[
         ['', 'Any visa status', 'No visa evidence filter.'],
         ['j1', 'J-1 sponsorship published', 'Explicit published J-1 sponsorship evidence only.'],
@@ -1380,24 +1390,29 @@ window.openFilterDrawer = () => {
       ].map(([k, l, caveat]) => `
         <button class="tgl ${f.visaMode === k ? 'on' : ''}" onclick="state.find.visaMode='${k}';openFilterDrawer();rerenderKeepDrawer()"><span class="box">${f.visaMode === k ? '●' : ''}</span><span>${l}<span class="cav">${caveat}</span></span>${count({ visaMode: k })}</button>`).join('')}
     </div>
-    <div class="fGroup"><div class="fLbl">Exams & attempts</div>
+    <div class="fGroup filterExams"><div class="fLbl">Exams & attempts</div>
       <button class="tgl ${f.comlex2 ? 'on' : ''}" onclick="state.find.comlex2=!state.find.comlex2;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>COMLEX Level 2 accepted<span class="cav">Supported published acceptance evidence.</span></span>${count({ comlex2: true })}</button>
+      <button class="tgl ${f.comlexWithoutUsmle ? 'on' : ''}" onclick="state.find.comlexWithoutUsmle=!state.find.comlexWithoutUsmle;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>COMLEX accepted without USMLE<span class="cav">Shown only when approved evidence explicitly supports the substitution.</span></span>${count({ comlexWithoutUsmle: true })}</button>
       <label class="filterField">Step 1 policy<select class="fSel" onchange="state.find.step1Policy=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option><option value="required" ${f.step1Policy === 'required' ? 'selected' : ''}>Published as required</option><option value="not_required_or_unknown" ${f.step1Policy === 'not_required_or_unknown' ? 'selected' : ''}>No published exclusion</option></select></label>
       <label class="filterField">Step 1 failure / attempts<select class="fSel" onchange="state.find.step1FailureMode=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option><option value="first_attempt" ${f.step1FailureMode === 'first_attempt' ? 'selected' : ''}>Explicit first-attempt requirement</option><option value="failure_allowed" ${f.step1FailureMode === 'failure_allowed' ? 'selected' : ''}>Prior failure explicitly allowed</option></select></label>
       <label class="filterField">Maximum published Step 2 minimum<input class="fSel" inputmode="numeric" type="number" min="180" max="300" list="step2Thresholds" value="${esc(f.step2Minimum)}" placeholder="e.g. 230" onchange="state.find.step2Minimum=this.value;openFilterDrawer();rerenderKeepDrawer()"><datalist id="step2Thresholds"><option value="220"></option><option value="230"></option><option value="240"></option></datalist></label>
       <label class="filterField">Maximum published COMLEX Level 2 minimum<input class="fSel" inputmode="numeric" type="number" min="400" max="800" value="${esc(f.comlex2Minimum)}" placeholder="${comlexMinimumAvailable ? 'e.g. 500' : 'No supported numeric minima yet'}" ${comlexMinimumAvailable ? '' : 'disabled'} onchange="state.find.comlex2Minimum=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">${comlexMinimumAvailable ? 'Only supported published numeric cutoffs are compared.' : 'RISE will enable this automatically when canonical numeric evidence is available.'}</span></label>
-      <label class="filterField">Step 2 timing<select class="fSel" onchange="state.find.step2TimingMode=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any researched timing</option><option value="pending_friendly" ${f.step2TimingMode === 'pending_friendly' ? 'selected' : ''}>Score can arrive after initial application</option><option value="with_application" ${f.step2TimingMode === 'with_application' ? 'selected' : ''}>Required with application / initial review</option></select></label>
+      <label class="filterField">Step 2 requirement / timing<select class="fSel" onchange="state.find.step2TimingMode=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any researched timing</option><option value="with_application" ${f.step2TimingMode === 'with_application' ? 'selected' : ''}>Required with application / initial review</option><option value="before_interview" ${f.step2TimingMode === 'before_interview' ? 'selected' : ''}>Required before interview consideration</option><option value="before_ranking" ${f.step2TimingMode === 'before_ranking' ? 'selected' : ''}>Required before ranking</option><option value="before_start" ${f.step2TimingMode === 'before_start' ? 'selected' : ''}>Required before start / matriculation</option><option value="recommended" ${f.step2TimingMode === 'recommended' ? 'selected' : ''}>Recommended / preferred</option><option value="no_initial_review_barrier" ${f.step2TimingMode === 'no_initial_review_barrier' ? 'selected' : ''}>No published initial-review barrier</option><option value="timing_not_published" ${f.step2TimingMode === 'timing_not_published' ? 'selected' : ''}>Timing researched, not published</option><option value="conflict" ${f.step2TimingMode === 'conflict' ? 'selected' : ''}>Conflict / unclear</option></select><span class="cav">Numeric minimum, pass requirement, preference, and timing remain separate evidence states.</span></label>
       <label class="filterField">My exam attempts<input class="fSel" inputmode="numeric" type="number" min="1" max="12" value="${esc(f.attemptsMaximum)}" placeholder="Published limit must accommodate" onchange="state.find.attemptsMaximum=this.value;openFilterDrawer();rerenderKeepDrawer()"></label>
     </div>
-    <div class="fGroup"><div class="fLbl">Graduation & US clinical experience</div>
+    <div class="fGroup filterGraduation"><div class="fLbl">Graduation & US clinical experience</div>
       <label class="filterField">Graduation window<select class="fSel" onchange="state.find.yogWindow=this.value;openFilterDrawer();rerenderKeepDrawer()"><option value="">Any published state</option>${[1,2,3,5,10].map(years => `<option value="${years}" ${String(f.yogWindow) === String(years) ? 'selected' : ''}>Allows ${years}+ years or no published cutoff</option>`).join('')}</select></label>
       ${[['','Any USCE state'],['required','USCE required'],['recommended','USCE recommended'],['unpublished','No published USCE requirement']].map(([key,label]) => `<button class="tgl ${f.usceMode === key ? 'on' : ''}" onclick="state.find.usceMode='${key}';openFilterDrawer();rerenderKeepDrawer()"><span class="box">${f.usceMode === key ? '●' : ''}</span><span>${label}</span>${count({ usceMode: key })}</button>`).join('')}
     </div>
-    <div class="fGroup"><div class="fLbl">Resident composition & connections</div>
-      <label class="filterField">IMG-friendly · minimum observed %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minImgPct)}" placeholder="e.g. 20" onchange="state.find.minImgPct=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">Requires supported IMG representation above 0%; unknowns and true zeroes are excluded, then results sort highest first.</span></label>
-      <label class="filterField">DO-friendly · minimum observed %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minDoPct)}" placeholder="e.g. 10" onchange="state.find.minDoPct=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">Requires supported DO representation above 0%; unknowns and true zeroes are excluded, then results sort highest first.</span></label>
+    <div class="fGroup filterComposition"><div class="fLbl">Applicant match</div>
+      <label class="fLbl" for="residentSchoolFilter">Resident medical school</label>
+      <input id="residentSchoolFilter" class="fSel" style="width:100%" list="residentSchoolOptions" value="${esc(f.residentSchool)}" placeholder="Type a school name or alias" onchange="state.find.residentSchool=this.value.trim();state.find.shown=50;rerenderKeepDrawer()">
+      <datalist id="residentSchoolOptions">${RESIDENT_SCHOOLS.map(school => '<option value="' + esc(school) + '"></option>').join('')}</datalist>
+      <span class="cav">Matches approved current/recent resident-roster evidence only.</span>
       <button class="tgl ${f.sameSchool ? 'on' : ''}" onclick="state.find.sameSchool=!state.find.sameSchool;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Residents from my medical school<span class="cav">Exact normalized school match in approved roster evidence.</span></span>${count({ sameSchool: true })}</button>
       <button class="tgl ${f.sameCountry ? 'on' : ''}" onclick="state.find.sameCountry=!state.find.sameCountry;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Residents from my medical-school country<span class="cav">Country is used only when explicit or conservatively derived from the school.</span></span>${count({ sameCountry: true })}</button>
+      <label class="filterField">IMG-friendly · minimum observed %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minImgPct)}" placeholder="e.g. 20" onchange="state.find.minImgPct=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">Requires supported IMG representation above 0%; unknowns and true zeroes are excluded, then results sort highest first.</span></label>
+      <label class="filterField">DO-friendly · minimum observed %<input class="fSel" inputmode="numeric" type="number" min="0" max="100" value="${esc(f.minDoPct)}" placeholder="e.g. 10" onchange="state.find.minDoPct=this.value;openFilterDrawer();rerenderKeepDrawer()"><span class="cav">Requires supported DO representation above 0%; unknowns and true zeroes are excluded, then results sort highest first.</span></label>
       <button class="tgl ${f.fellowships ? 'on' : ''}" onclick="state.find.fellowships=!state.find.fellowships;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>In-house fellowships published</span>${count({ fellowships: true })}</button>
     </div>
     <button class="fAct pri" style="margin-top:8px" onclick="$('#filterDrawer').classList.remove('open')">Show results</button>
@@ -1842,8 +1857,12 @@ function snapshotRail(p) {
 
 function atAGlanceSection(p) {
   const leaders = evidenceRows(approvedResearchValue(p, 'research.leadership'));
-  const pd = leaders.find(person => String(person?.roleCategory || '').toUpperCase() === 'PROGRAM_DIRECTOR')
-    || leaders.find(person => /program director/i.test(String(person?.role || '')));
+  const isProgramDirector = person => {
+    if (String(person?.roleCategory || person?.role_category || '').toUpperCase() === 'PROGRAM_DIRECTOR') return true;
+    const role = String(person?.role || person?.title || '');
+    return /\bprogram director\b|\bresidency (?:training )?program director\b|\bdirector,?\s+[^.;]{0,45}\bresidency training program\b/i.test(role);
+  };
+  const pd = leaders.find(isProgramDirector);
   const rows = [
     ['Program type', p.type || 'Not published'],
     ['Training length', fieldValue(p, 'Program Length') || p.intelligence.programLength || 'Not published'],

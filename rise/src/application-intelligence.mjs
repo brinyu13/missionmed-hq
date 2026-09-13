@@ -217,7 +217,8 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
   const application = dynamicValue(facts, "research.application_requirements") ?? {};
   const visaFact = dynamicValue(facts, "research.visa") ?? {};
   const compositionFact = dynamicValue(facts, "research.resident_composition");
-  const roster = normalizeResidentRoster(dynamicValue(facts, "research.resident_roster"));
+  const rosterValue = dynamicValue(facts, "research.resident_roster");
+  const roster = normalizeResidentRoster(rosterValue);
   // V2 fields are explicit evidence envelopes; never recover a number from conflict or absence prose.
   const applicationV2 = application?.contractId === "rise-application-requirements-v2";
   const supported = Array.isArray(visaFact?.supported) ? visaFact.supported.map(String) : [];
@@ -235,6 +236,7 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
   const step1Policy = text(application.step1?.summary ?? application.step1_policy);
   const attemptsPolicy = text(application.attempts?.summary);
   const step2Timing = text(application.step2?.summary ?? application.step2_timing);
+  const step2EvidenceState = evidenceState(application.step2) || null;
   const step1FirstAttemptRequired = maxAttempts === 1 || /(?:first attempt|first sitting|one attempt)/i.test(`${step1Policy ?? ""} ${attemptsPolicy ?? ""}`);
   const step1FailureAllowed = /(?:failure|failed attempt).{0,30}(?:allowed|accepted|considered)|multiple attempts.{0,20}(?:allowed|accepted)/i.test(`${step1Policy ?? ""} ${attemptsPolicy ?? ""}`);
   const timingCode = normalizedToken(application.step2?.timingCode).replaceAll(" ", "_").toUpperCase();
@@ -242,6 +244,15 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
     || /(?:required|must be available).{0,36}(?:with|at (?:the )?time of|before).{0,18}(?:application|initial review|interview)/i.test(step2Timing ?? "");
   const step2PendingFriendly = ["BEFORE_RANK_LIST", "SCORE_MAY_FOLLOW_APPLICATION"].includes(timingCode)
     || /(?:after (?:application|initial review)|before (?:ranking|rank list)|by (?:ranking|rank list)|score pending|not required.{0,24}(?:application|initial review))/i.test(step2Timing ?? "");
+  const step2RequiredForInterview = timingCode === "REQUIRES_STEP2_BEFORE_INTERVIEW";
+  const step2RequiredBeforeRanking = timingCode === "REQUIRES_STEP2_BEFORE_RANKING";
+  const step2RequiredBeforeStart = timingCode === "REQUIRES_STEP2_BEFORE_START";
+  const step2TimingConflict = timingCode === "PUBLISHED_SOURCES_CONFLICT" || step2EvidenceState === "CONFLICT";
+  const step2NoPublishedInitialReviewBarrier = timingCode === "NO_PUBLISHED_INITIAL_REVIEW_BARRIER";
+  const step2TimingNotPublished = timingCode === "RESEARCHED_NOT_PUBLIC";
+  const step2Recommended = isAvailableEvidence(application.step2)
+    && /\b(?:recommend(?:ed|ation)?|prefer(?:red|ence)?)\b/i.test(step2Timing ?? "");
+  const comlexSummary = text(application.comlex?.summary);
   const yogNode = applicationV2 ? application.yog : null;
   const yogRaw = known(program, "Medical School Graduation Timeline") ?? (isAvailableEvidence(yogNode) ? evidenceSummary(yogNode) : applicationV2 ? null : text(application.yog_policy));
   const yogNoCutoff = typeof yogRaw === "string" && /no cap|no (?:published )?(?:limit|cutoff)/i.test(yogRaw);
@@ -312,13 +323,24 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
       step2Required: typeof step2 === "boolean" ? step2 : null,
       step2Minimum,
       step2Timing,
+      step2TimingCode: timingCode || null,
       step2RequiredWithApplication,
       step2PendingFriendly,
+      step2RequiredForInterview,
+      step2RequiredBeforeRanking,
+      step2RequiredBeforeStart,
+      step2TimingConflict,
+      step2NoPublishedInitialReviewBarrier,
+      step2TimingNotPublished,
+      step2Recommended,
       comlexLevel2Accepted: applicationV2 && isAvailableEvidence(application.comlex) && typeof application.comlex.accepted === "boolean"
         ? application.comlex.accepted
         : /level\s*2\s*passed:\s*yes/i.test(String(known(program, "COMLEX Accepted") ?? "")) || known(program, "DO COMLEX Level 2 Required") === true,
       comlexLevel2Required: known(program, "DO COMLEX Level 2 Required"),
       comlexLevel2Minimum: comlex2Minimum,
+      comlexAcceptedWithoutUsmle: applicationV2 && isAvailableEvidence(application.comlex)
+        ? /(?:comlex.{0,40}(?:without|instead of|in lieu of).{0,24}usmle|usmle.{0,32}(?:not required|optional).{0,32}comlex)/i.test(comlexSummary ?? "")
+        : false,
       maxAttempts,
     },
     yog: { published: yogRaw !== null, years: yogYears, noPublishedCutoff: yogNoCutoff, raw: yogRaw, state: evidenceState(yogNode) || null },
@@ -345,7 +367,9 @@ export function buildApplicationIntelligence(program, facts = [], profile = {}) 
       coveragePercent: hasNormalizedComposition ? percent(compositionFact.coveragePercent) : (total ? Number(((classifiedTotal / total) * 100).toFixed(1)) : null),
       estimateConfidence: text(compositionFact?.estimateConfidence),
       disclaimer: text(compositionFact?.disclaimer),
-      absence: hasNormalizedComposition && compositionFact.percentagesAvailable !== true ? evidenceSummary(compositionFact) : null,
+      absence: hasNormalizedComposition && compositionFact.percentagesAvailable !== true
+        ? evidenceSummary(compositionFact) ?? evidenceSummary(rosterValue)
+        : null,
     },
     fellowshipCount: Array.isArray(fellowshipValue) ? fellowshipValue.length : 0,
     profile: { class: profileClass(profile), schoolKnown: Boolean(profileSchool), countryKnown: Boolean(profileCountry) },
