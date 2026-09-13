@@ -50,7 +50,28 @@ export class SupabaseRestStore {
   }
 
   async studentByMatrixUser(userId) {
+    // Historical method name: the signed MissionAccounts subject is the
+    // canonical student UUID, so resolution is intentionally by student.id.
     const rows = await this.request(`student?id=eq.${encodeURIComponent(userId)}&select=id,matrix_user_ref,display_name,email,joined_at,comp_days_allowance,identity_state,sponsor_type,sponsor_name,sponsor_updated_at&limit=1`);
+    return rows[0] || null;
+  }
+
+  async syncProgramEnrollment({ studentId, enrolled, sourceSubject, sourceObservedAt, actorId, requestId }) {
+    return this.rpc('api_sync_program_enrollment', {
+      p_student_id: studentId,
+      p_program_key: 'examprep',
+      p_course_id: 6357,
+      p_enrolled: enrolled === true,
+      p_source_subject: sourceSubject,
+      p_source_observed_at: sourceObservedAt,
+      p_actor_id: actorId,
+      p_actor_role: 'student',
+      p_request_id: requestId,
+    });
+  }
+
+  async enrollmentForStudent(studentId) {
+    const rows = await this.request(`program_enrollment_projection?student_id=eq.${encodeURIComponent(studentId)}&program_key=eq.examprep&select=program_key,provider,course_id,enrolled,source_observed_at,verified_at,valid_until&limit=1`);
     return rows[0] || null;
   }
 
@@ -244,7 +265,7 @@ export class SupabaseRestStore {
   }
 
   async currentBillingTerms() {
-    const rows = await this.request('billing_terms?status=eq.approved&select=version,summary,body_sha256,status&order=approved_at.desc&limit=1');
+    const rows = await this.request('billing_terms?status=eq.approved&select=version,summary,body_sha256,body_text,status&order=approved_at.desc&limit=1');
     return rows[0] || null;
   }
 
@@ -500,7 +521,7 @@ export class SupabaseRestStore {
     });
   }
 
-  async finishAutoChargeDispatch({ dispatchId, workerId, succeeded, providerRef, error, now }) {
+  async finishAutoChargeDispatch({ dispatchId, workerId, providerRequestId, succeeded, providerRef, error, now }) {
     return this.rpc('api_finish_auto_charge_dispatch', {
       p_dispatch_id: dispatchId,
       p_worker_id: workerId,
@@ -659,33 +680,48 @@ export class SupabaseRestStore {
   }
 
   async automaticBillingShadow({ now }) {
+    const refresh = await this.rpc('api_refresh_auto_charge_candidates', { p_now: now });
     const [
       attendanceDays,
       students,
       billingDecisions,
       paymentMethods,
       billingConsents,
+      enrollmentProjections,
+      dispatches,
       charges,
       ruleDecisions,
+      contracts,
     ] = await Promise.all([
       this.requestAll('attendance_day?superseded_at=is.null&select=id,student_id,cycle_key,day,kind,same_day_multiple_events,computed_at'),
       this.requestAll('student_identity_projection?absorbed=eq.false&excluded=eq.false&select=id,display_name,email,identity_state,sponsor_type'),
       this.requestAll('billing_decision?superseded_by_id=is.null&select=id,student_id,cycle_key,treatment,amount_cents,basis,state,superseded_by_id'),
       this.requestAll('payment_method_private?select=student_id,brand,last4,status'),
       this.requestAll('billing_consent?superseded_by_id=is.null&select=student_id,state,superseded_by_id'),
+      this.requestAll('program_enrollment_projection?program_key=eq.examprep&select=student_id,program_key,provider,course_id,enrolled,source_observed_at,verified_at,valid_until'),
+      this.requestAll('auto_charge_dispatch?select=attendance_day_id,state,eligible_after,held_at,hold_reason,provider_failure_count,late_fee_eligible_at'),
       this.requestAll('charge?select=student_id,attendance_day_id,amount_cents,state'),
       this.requestAll('rule_decision?superseded_by_id=is.null&select=rule,effective_from,superseded_by_id'),
+      this.request('automatic_billing_contract?singleton=eq.true&select=rollout_cutoff,ordinary_dispatch_delay,retry_delay,max_provider_attempts,live_dispatch_allowed,initial_canary_requires_admin_approval&limit=1'),
     ]);
-    return buildAutomaticBillingShadow({
+    const shadow = buildAutomaticBillingShadow({
       now,
+      rolloutCutoff: contracts[0]?.rollout_cutoff,
+      ordinaryDispatchDelayHours: 24,
+      retryDelayHours: 12,
+      maxProviderAttempts: contracts[0]?.max_provider_attempts || 2,
+      initialCanaryRequiresAdminApproval: contracts[0]?.initial_canary_requires_admin_approval !== false,
       attendanceDays,
       students,
       billingDecisions,
       paymentMethods,
       billingConsents,
+      enrollmentProjections,
+      dispatches,
       charges,
       ruleDecisions,
     });
+    return { ...shadow, queue_refresh: refresh };
   }
 
   async adminStudents({ q = '', missing = null } = {}) {
@@ -828,10 +864,21 @@ export class PreviewStore {
     this.billingTerms = new Map();
     this.billingConsents = new Map();
     this.consentMutations = new Map();
+    this.enrollmentProjections = new Map();
+    this.enrollmentMutations = new Map();
+    this.automaticBillingContract = {
+      rollout_cutoff: new Date(0).toISOString(),
+      ordinary_dispatch_delay_hours: 24,
+      retry_delay_hours: 12,
+      max_provider_attempts: 2,
+      live_dispatch_allowed: false,
+      initial_canary_requires_admin_approval: true,
+    };
     this.paymentRemovalMutations = new Map();
     this.stripeCustomers = new Map();
     this.chargesByDay = new Map();
     this.chargeMutations = new Map();
+    this.chargeAttempts = new Map();
     this.manualCycleCharges = new Map();
     this.manualCycleChargeMutations = new Map();
     this.autoChargeDispatches = new Map();
@@ -862,8 +909,41 @@ export class PreviewStore {
   }
 
   async studentByMatrixUser(userId) {
-    return this.previewStudentRecord.matrix_user_ref === userId ? { ...this.previewStudentRecord } : null;
+    return this.previewStudentRecord.id === userId ? { ...this.previewStudentRecord } : null;
   }
+  async syncProgramEnrollment({ studentId, enrolled, sourceSubject, sourceObservedAt, actorId, requestId }) {
+    const fingerprint = JSON.stringify({ studentId, enrolled: enrolled === true, sourceSubject, sourceObservedAt, actorId });
+    const existing = this.enrollmentMutations.get(requestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...existing.result, duplicate: true };
+    }
+    if (studentId !== this.previewStudentRecord.id
+      || this.previewStudentRecord.identity_state !== 'verified'
+      || this.previewStudentRecord.id !== actorId
+      || sourceSubject !== actorId) {
+      throw Object.assign(new Error('Student enrollment subject mismatch'), { status: 403 });
+    }
+    const observedMs = Date.parse(sourceObservedAt);
+    if (!Number.isFinite(observedMs)) throw Object.assign(new Error('Program enrollment observation is invalid'), { status: 400 });
+    const projection = {
+      student_id: studentId,
+      program_key: 'examprep',
+      provider: 'learndash',
+      course_id: 6357,
+      enrolled: enrolled === true,
+      source_subject: sourceSubject,
+      source_observed_at: new Date(observedMs).toISOString(),
+      verified_at: new Date().toISOString(),
+      valid_until: new Date(observedMs + 6 * 3_600_000).toISOString(),
+      last_request_id: requestId,
+    };
+    this.enrollmentProjections.set(studentId, projection);
+    const result = { accepted: true, duplicate: false, projection: { ...projection }, audit_event_id: `preview-enrollment-audit-${this.enrollmentMutations.size + 1}` };
+    this.enrollmentMutations.set(requestId, { fingerprint, result });
+    return result;
+  }
+  async enrollmentForStudent(studentId) { return this.enrollmentProjections.get(studentId) || null; }
   async billingCycles() {
     return [
       { key: '2026-cycle-1', label: 'June Cycle', starts_on: '2026-06-08', ends_on: '2026-07-13', state: 'estimate' },
@@ -1071,6 +1151,7 @@ export class PreviewStore {
       version,
       summary: terms.summary || 'Preview-only automatic billing terms',
       body_sha256: terms.body_sha256 || 'c'.repeat(64),
+      body_text: terms.body_text || 'Preview-only automatic billing terms.',
       status: terms.status || 'approved',
     });
   }
@@ -1596,17 +1677,29 @@ export class PreviewStore {
     this.correctionMutations.set(requestId, { fingerprint, result });
     return result;
   }
-  async setBillingConsent({ studentId, action, termsVersion, acceptedIp, reason, actorId, requestId }) {
+  async setBillingConsent({ studentId, action, termsVersion, acceptedIp, reason, actorId, actorRole, requestId }) {
     const fingerprint = JSON.stringify({ studentId, action, termsVersion, reason, actorId });
     const existingMutation = this.consentMutations.get(requestId);
     if (existingMutation) {
       if (existingMutation.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
       return { ...existingMutation.result, duplicate: true };
     }
+    const effectiveActorRole = actorRole || (actorId === studentId ? 'student' : null);
+    if (effectiveActorRole !== 'student' || actorId !== studentId || studentId !== this.previewStudentRecord.id) {
+      throw Object.assign(new Error('Student consent subject mismatch'), { status: 403 });
+    }
     const current = this.billingConsents.get(studentId) || null;
+    const enrollment = this.enrollmentProjections.get(studentId);
+    const enrollmentActive = enrollment?.provider === 'learndash'
+      && enrollment?.course_id === 6357
+      && enrollment?.enrolled === true
+      && Date.parse(enrollment.valid_until || '') > Date.now();
     let rejection = null;
     if (action === 'authorize') {
-      if (this.billingTerms.get(termsVersion)?.status !== 'approved') rejection = 'approved_billing_terms_required';
+      if ((this.previewStudentRecord.sponsor_type || 'DIRECT') !== 'DIRECT') rejection = 'sponsored_direct_liability_blocked';
+      else if (!enrollmentActive) rejection = 'active_examprep_enrollment_required';
+      else if (this.billingTerms.get(termsVersion)?.status !== 'approved'
+        || !this.billingTerms.get(termsVersion)?.body_text) rejection = 'approved_billing_terms_required';
       else if (this.paymentMethods.get(studentId)?.status !== 'on_file') rejection = 'payment_method_required';
       else if (current?.state === 'authorized' && current.terms_version === termsVersion) rejection = 'authorization_already_active';
     } else if (action === 'revoke') {
@@ -1725,7 +1818,7 @@ export class PreviewStore {
     method.last_error = succeeded ? null : error || 'Provider removal failed';
     return { accepted: true, duplicate: false, payment_method: sanitizedPaymentMethod(method) };
   }
-  async prepareDayCharge({ attendanceDayId, actorId, requestId, explicitRetry }) {
+  async prepareDayCharge({ attendanceDayId, actorId, actorRole, requestId, explicitRetry }) {
     const fingerprint = JSON.stringify({ attendanceDayId, actorId, explicitRetry: explicitRetry === true });
     const priorMutation = this.chargeMutations.get(requestId);
     if (priorMutation) {
@@ -1746,16 +1839,39 @@ export class PreviewStore {
     const decision = studentId ? this.billingDecisions.get(`${studentId}:${cycleKey}`) : null;
     const method = studentId ? this.paymentMethods.get(studentId) : null;
     const consent = studentId ? this.billingConsents.get(studentId) : null;
+    const terms = consent ? this.billingTerms.get(consent.terms_version) : null;
+    const enrollment = studentId ? this.enrollmentProjections.get(studentId) : null;
+    const dispatch = this.autoChargeDispatches.get(attendanceDayId) || null;
+    const evaluationMs = Date.parse(this.currentAutomaticBillingNow || new Date().toISOString());
+    const cutoffMs = Date.parse(this.automaticBillingContract.rollout_cutoff);
+    const computedMs = Date.parse(day?.computed_at || '');
     const receiptEmail = studentId === this.previewStudentRecord.id ? String(this.previewStudentRecord.email || '').trim().toLowerCase() : '';
     const existingCharge = this.chargesByDay.get(attendanceDayId) || null;
     let rejection = null;
     if (!day) rejection = 'current_attendance_day_not_found';
+    else if (this.automaticBillingContract.live_dispatch_allowed !== true) rejection = 'automatic_billing_dispatch_disabled';
+    else if (actorRole !== 'service' || actorId !== 'missionaccounts:auto-charge') rejection = 'automatic_charge_service_authority_required';
+    else if (!Number.isFinite(cutoffMs) || !Number.isFinite(computedMs)
+      || computedMs < cutoffMs || String(day.day || '') < String(this.automaticBillingContract.rollout_cutoff).slice(0, 10)) rejection = 'pre_rollout_attendance_not_chargeable';
+    else if (!dispatch || dispatch.state !== 'claimed'
+      || `${dispatch.idempotency_key}:attempt:${Number(dispatch.provider_failure_count || 0) + 1}` !== requestId
+      || dispatch.rollout_cutoff !== this.automaticBillingContract.rollout_cutoff
+      || dispatch.attendance_finalized_at !== day.computed_at
+      || Date.parse(dispatch.eligible_after || '') > evaluationMs) rejection = 'durable_charge_candidate_required';
+    else if ((this.previewStudentRecord.sponsor_type || 'DIRECT') !== 'DIRECT') rejection = 'sponsored_direct_liability_blocked';
+    else if (this.previewStudentRecord.identity_state !== 'verified') rejection = 'student_identity_requires_review';
+    else if (enrollment?.provider !== 'learndash' || enrollment?.course_id !== 6357
+      || enrollment?.enrolled !== true || Date.parse(enrollment.valid_until || '') <= evaluationMs) rejection = 'active_examprep_enrollment_required';
     else if (day.kind !== 'billable') rejection = 'attendance_day_not_billable';
-    else if (!decision || decision.state !== 'approved') rejection = 'approved_billing_decision_required';
-    else if (decision.treatment !== 'confirm') rejection = 'per_day_billing_decision_required';
-    else if (!(decision.basis?.day_states || decision.basis?.days || []).some(item => item.id === attendanceDayId && item.kind === 'billable')) rejection = 'attendance_day_not_in_approved_basis';
+    else if (this.automaticBillingContract.initial_canary_requires_admin_approval !== false
+      && (!decision || decision.state !== 'approved')) rejection = 'approved_billing_decision_required';
+    else if (this.automaticBillingContract.initial_canary_requires_admin_approval !== false
+      && decision.treatment !== 'confirm') rejection = 'per_day_billing_decision_required';
+    else if (this.automaticBillingContract.initial_canary_requires_admin_approval !== false
+      && !(decision.basis?.day_states || decision.basis?.days || []).some(item => item.id === attendanceDayId && item.kind === 'billable')) rejection = 'attendance_day_not_in_approved_basis';
     else if (method?.status !== 'on_file') rejection = 'payment_method_required';
     else if (consent?.state !== 'authorized') rejection = 'billing_authorization_required';
+    else if (terms?.status !== 'approved' || !terms?.body_text) rejection = 'approved_billing_terms_required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(receiptEmail)) rejection = 'student_receipt_email_required';
     else if (existingCharge?.state === 'failed' && explicitRetry !== true) rejection = 'explicit_retry_required';
     else if (existingCharge?.state === 'succeeded') rejection = 'charge_already_succeeded';
@@ -1764,7 +1880,8 @@ export class PreviewStore {
     const reservedAmount = [...this.chargesByDay.values()]
       .filter(charge => charge.student_id === studentId && charge.cycle_key === cycleKey && charge.attendance_day_id !== attendanceDayId && ['pending', 'succeeded'].includes(charge.state))
       .reduce((sum, charge) => sum + charge.amount_cents, 0);
-    if (!rejection && reservedAmount + 2_500 > decision.amount_cents) rejection = 'approved_amount_exhausted';
+    if (!rejection && this.automaticBillingContract.initial_canary_requires_admin_approval !== false
+      && reservedAmount + 2_500 > decision.amount_cents) rejection = 'approved_amount_exhausted';
     const ordinal = this.chargeMutations.size + 1;
     if (rejection) {
       const result = { accepted: false, reason: rejection, audit_event_id: `preview-charge-audit-${ordinal}` };
@@ -1781,6 +1898,14 @@ export class PreviewStore {
     };
     charge.state = 'pending';
     this.chargesByDay.set(attendanceDayId, charge);
+    this.chargeAttempts.set(requestId, {
+      charge_id: charge.id,
+      provider_request_id: requestId,
+      provider_attempt_number: Number(requestId.match(/:attempt:([12])$/)?.[1] || 1),
+      provider_ref: null,
+      state: 'started',
+      explicit_retry: explicitRetry === true,
+    });
     const customer = this.stripeCustomers.get(studentId);
     const result = {
       accepted: true,
@@ -1856,119 +1981,199 @@ export class PreviewStore {
   }
   async claimDueDayCharges({ now, workerId, limit }) {
     const nowMs = Date.parse(now);
+    const ordinaryDispatchDelayHours = Number(this.automaticBillingContract.ordinary_dispatch_delay_hours || 24);
+    const maxProviderAttempts = Number(this.automaticBillingContract.max_provider_attempts || 2);
     if (!Number.isFinite(nowMs) || !workerId || !Number.isInteger(limit) || limit < 1 || limit > 25) {
       throw Object.assign(new Error('Invalid automatic charge claim'), { status: 400 });
     }
-    let expired = 0;
+    if (this.automaticBillingContract.live_dispatch_allowed !== true) {
+      return { claimed: [], held: 0, reason: 'automatic_billing_dispatch_disabled', now };
+    }
+    const cutoffMs = Date.parse(this.automaticBillingContract.rollout_cutoff);
+    const cutoffDay = String(this.automaticBillingContract.rollout_cutoff).slice(0, 10);
+    let held = 0;
+    for (const dispatch of this.autoChargeDispatches.values()) {
+      if (dispatch.state === 'claimed' && Date.parse(dispatch.locked_at || '') < nowMs - 600_000) {
+        Object.assign(dispatch, {
+          state: 'held', worker_id: null, locked_at: null, held_at: now,
+          hold_reason: 'stale_claim_requires_review', last_error: 'stale_claim_requires_review',
+        });
+        held += 1;
+      }
+    }
     const claimable = [];
     for (const [key, days] of this.attendanceDays) {
       const [studentId, cycleKey] = key.split(':');
       const decision = this.billingDecisions.get(key);
       const method = this.paymentMethods.get(studentId);
       const consent = this.billingConsents.get(studentId);
+      const enrollment = this.enrollmentProjections.get(studentId);
       for (const day of days) {
         let dispatch = this.autoChargeDispatches.get(day.id);
-        const existingCharge = this.chargesByDay.get(day.id);
         const computedMs = Date.parse(day.computed_at || '');
-        const prerequisites = this.previewStudentRecord.id === studentId
+        const existingCharge = this.chargesByDay.get(day.id);
+        const prerequisites = Number.isFinite(cutoffMs)
+          && Number.isFinite(computedMs)
+          && computedMs >= cutoffMs
+          && String(day.day || '') >= cutoffDay
+          && this.previewStudentRecord.id === studentId
           && (this.previewStudentRecord.sponsor_type || 'DIRECT') === 'DIRECT'
           && this.previewStudentRecord.identity_state === 'verified'
+          && enrollment?.provider === 'learndash'
+          && enrollment?.course_id === 6357
+          && enrollment?.enrolled === true
+          && Date.parse(enrollment.valid_until || '') > nowMs
           && day.kind === 'billable'
-          && decision?.state === 'approved'
-          && decision?.treatment === 'confirm'
-          && (decision.basis?.day_states || decision.basis?.days || []).some(item => item.id === day.id && item.kind === 'billable')
+          && (this.automaticBillingContract.initial_canary_requires_admin_approval === false || (
+            decision?.state === 'approved'
+            && decision?.treatment === 'confirm'
+            && (decision.basis?.day_states || decision.basis?.days || []).some(item => item.id === day.id && item.kind === 'billable')
+          ))
           && method?.status === 'on_file'
           && consent?.state === 'authorized'
-          && (!existingCharge || (dispatch?.state === 'claimed' && existingCharge.state === 'pending'));
-        if (!prerequisites || !Number.isFinite(computedMs)) continue;
-        const ageHours = (nowMs - computedMs) / 3_600_000;
-        if (ageHours > 48) {
-          const exceptionKey = `missionaccounts:auto-charge-window:${day.id}:v1`;
-          if (!this.integrationExceptions.has(exceptionKey)) {
-            this.integrationExceptions.set(exceptionKey, {
-              id: `preview-integration-exception-${this.integrationExceptions.size + 1}`,
-              provider: 'stripe', kind: 'automatic_charge_window_missed', student_id: studentId,
-              attendance_day_id: day.id, state: 'open', idempotency_key: exceptionKey,
-            });
-            expired += 1;
-          }
-          if (dispatch && ['eligible', 'claimed'].includes(dispatch.state)) dispatch.state = 'expired';
-          continue;
-        }
-        if (ageHours < 24) continue;
+          && (!existingCharge || (
+            existingCharge.state === 'failed'
+            && dispatch?.state === 'pending'
+            && Number(dispatch.provider_failure_count || 0) < maxProviderAttempts
+          ));
+        if (!dispatch && !prerequisites) continue;
         if (!dispatch) {
           dispatch = {
             id: `preview-auto-charge-dispatch-${this.autoChargeDispatches.size + 1}`,
             attendance_day_id: day.id,
-            state: 'eligible', idempotency_key: `missionaccounts:auto-charge:${day.id}:v1`,
+            state: 'pending',
+            idempotency_key: `missionaccounts:auto-charge:${day.id}:v2`,
+            eligible_after: new Date(computedMs + ordinaryDispatchDelayHours * 3_600_000).toISOString(),
+            rollout_cutoff: this.automaticBillingContract.rollout_cutoff,
+            attendance_finalized_at: day.computed_at,
             attempt_count: 0,
+            provider_failure_count: 0,
+            late_fee_eligible_at: null,
           };
           this.autoChargeDispatches.set(day.id, dispatch);
         }
-        const staleClaim = dispatch.state === 'claimed'
-          && Date.parse(dispatch.locked_at || '') < nowMs - 600_000;
-        if (dispatch.state === 'eligible' || staleClaim) claimable.push({ dispatch, studentId, cycleKey, day });
+        if (dispatch.state === 'pending' && Date.parse(dispatch.eligible_after || '') <= nowMs) {
+          claimable.push({ dispatch, day });
+        }
       }
     }
     const claimed = [];
-    for (const { dispatch, day } of claimable.slice(0, limit)) {
-      dispatch.state = 'claimed';
-      dispatch.worker_id = workerId;
-      dispatch.locked_at = now;
-      dispatch.attempt_count += 1;
-      const prepared = await this.prepareDayCharge({
-        attendanceDayId: day.id,
-        actorId: 'missionaccounts:auto-charge',
-        actorRole: 'service',
-        requestId: dispatch.idempotency_key,
-        explicitRetry: false,
-      });
-      if (!prepared.accepted) {
-        dispatch.state = 'failed';
-        dispatch.last_error = prepared.reason;
-        continue;
+    this.currentAutomaticBillingNow = now;
+    try {
+      for (const { dispatch, day } of claimable.slice(0, limit)) {
+        Object.assign(dispatch, {
+          state: 'claimed', worker_id: workerId, locked_at: now,
+          attempt_count: dispatch.attempt_count + 1, last_error: null,
+        });
+        const prepared = await this.prepareDayCharge({
+          attendanceDayId: day.id,
+          actorId: 'missionaccounts:auto-charge',
+          actorRole: 'service',
+          requestId: `${dispatch.idempotency_key}:attempt:${Number(dispatch.provider_failure_count || 0) + 1}`,
+          explicitRetry: Number(dispatch.provider_failure_count || 0) > 0,
+        });
+        if (!prepared.accepted) {
+          Object.assign(dispatch, {
+            state: 'held', worker_id: null, locked_at: null, held_at: now,
+            hold_reason: prepared.reason, last_error: prepared.reason,
+          });
+          held += 1;
+          continue;
+        }
+        claimed.push({
+          dispatch_id: dispatch.id,
+          attendance_day_id: day.id,
+          provider_attempt_number: Number(dispatch.provider_failure_count || 0) + 1,
+          provider_idempotency_key: `${dispatch.idempotency_key}:attempt:${Number(dispatch.provider_failure_count || 0) + 1}`,
+          customer_ref: prepared.customer_ref,
+          payment_method_ref: prepared.payment_method_ref,
+          receipt_email: prepared.receipt_email,
+          charge: prepared.charge,
+        });
       }
-      claimed.push({
-        dispatch_id: dispatch.id,
-        attendance_day_id: day.id,
-        customer_ref: prepared.customer_ref,
-        payment_method_ref: prepared.payment_method_ref,
-        receipt_email: prepared.receipt_email,
-        charge: prepared.charge,
-      });
+    } finally {
+      this.currentAutomaticBillingNow = null;
     }
-    return { claimed, expired, now };
+    return { claimed, held, now };
   }
-  async finishAutoChargeDispatch({ dispatchId, workerId, succeeded, providerRef, error, now }) {
+  async finishAutoChargeDispatch({ dispatchId, workerId, providerRequestId, succeeded, providerRef, error, now }) {
+    const retryDelayHours = Number(this.automaticBillingContract.retry_delay_hours || 12);
+    const maxProviderAttempts = Number(this.automaticBillingContract.max_provider_attempts || 2);
     const dispatch = [...this.autoChargeDispatches.values()].find(item => item.id === dispatchId);
-    if (!dispatch || dispatch.state !== 'claimed' || dispatch.worker_id !== workerId) {
-      throw Object.assign(new Error('Automatic charge claim mismatch'), { status: 409 });
-    }
+    if (!dispatch) throw Object.assign(new Error('Automatic charge dispatch not found'), { status: 409 });
     const charge = this.chargesByDay.get(dispatch.attendance_day_id);
     if (!charge) throw Object.assign(new Error('Automatic charge not found'), { status: 409 });
+    const attempt = this.chargeAttempts.get(providerRequestId);
+    if (!attempt || attempt.charge_id !== charge.id) {
+      throw Object.assign(new Error('Automatic charge attempt mismatch'), { status: 409 });
+    }
+    const expectedTerminalState = succeeded ? 'succeeded' : 'failed';
+    if (attempt.state !== 'started') {
+      if (attempt.state === expectedTerminalState && attempt.provider_ref === providerRef) {
+        return { accepted: true, duplicate: true, dispatch: { ...dispatch }, charge: { ...charge } };
+      }
+      throw Object.assign(new Error('Automatic charge attempt terminal state mismatch'), { status: 409 });
+    }
+    if (dispatch.state !== 'claimed' || dispatch.worker_id !== workerId
+      || providerRequestId !== `${dispatch.idempotency_key}:attempt:${Number(dispatch.provider_failure_count || 0) + 1}`) {
+      throw Object.assign(new Error('Automatic charge claim mismatch'), { status: 409 });
+    }
     dispatch.worker_id = null;
     dispatch.locked_at = null;
     if (succeeded) {
+      attempt.provider_ref = providerRef;
       dispatch.state = 'submitted';
       dispatch.provider_ref = providerRef;
       dispatch.submitted_at = now;
       charge.provider_ref = providerRef;
     } else {
-      dispatch.state = 'failed';
+      const definiteFailure = Boolean(providerRef);
       dispatch.last_error = error;
-      charge.state = 'failed';
-      const exceptionKey = `${dispatch.idempotency_key}:submission-failed`;
+      if (definiteFailure) {
+        attempt.provider_ref = providerRef;
+        attempt.state = 'failed';
+        dispatch.provider_failure_count = Number(dispatch.provider_failure_count || 0) + 1;
+        charge.state = 'failed';
+        charge.provider_ref = null;
+        if (dispatch.provider_failure_count < maxProviderAttempts) {
+          dispatch.state = 'pending';
+          dispatch.eligible_after = new Date(Date.parse(now) + retryDelayHours * 3_600_000).toISOString();
+          dispatch.held_at = null;
+          dispatch.hold_reason = null;
+        } else {
+          dispatch.state = 'held';
+          dispatch.held_at = now;
+          dispatch.hold_reason = 'late_fee_eligible_review';
+          dispatch.late_fee_eligible_at = now;
+        }
+      } else {
+        dispatch.state = 'held';
+        dispatch.held_at = now;
+        dispatch.hold_reason = 'provider_outcome_unknown_requires_reconciliation';
+      }
+      const eventSuffix = definiteFailure
+        ? dispatch.state === 'pending' ? 'retry-scheduled' : 'late-fee-eligible-review'
+        : 'provider-outcome-unknown';
+      const exceptionKey = `${dispatch.idempotency_key}:${eventSuffix}`;
       this.integrationExceptions.set(exceptionKey, {
         id: `preview-integration-exception-${this.integrationExceptions.size + 1}`,
-        provider: 'stripe', kind: 'automatic_charge_submission_failed',
+        provider: 'stripe', kind: definiteFailure ? 'automatic_charge_submission_failed' : 'automatic_charge_outcome_unknown',
         student_id: charge.student_id, attendance_day_id: charge.attendance_day_id,
         state: 'open', idempotency_key: exceptionKey,
       });
-      for (const audience of ['student', 'missionaccounts_admin']) {
+      for (const audience of definiteFailure ? ['student', 'missionaccounts_admin'] : []) {
         this.seedNotification({
           student_id: charge.student_id, audience, event_kind: 'charge.failed',
-          idempotency_key: `${dispatch.idempotency_key}:charge-failed-${audience}`,
-          payload: { attendance_day_id: charge.attendance_day_id, amount_cents: charge.amount_cents, state: 'failed' },
+          idempotency_key: `${dispatch.idempotency_key}:attempt:${dispatch.provider_failure_count}:charge-failed-${audience}`,
+          payload: {
+            attendance_day_id: charge.attendance_day_id,
+            amount_cents: charge.amount_cents,
+            state: 'failed',
+            provider_attempt_number: dispatch.provider_failure_count,
+            automatic_retry_scheduled: dispatch.state === 'pending',
+            late_fee_eligible_review: dispatch.state === 'held',
+            late_fee_amount_cents: null,
+          },
         });
       }
     }
@@ -2042,21 +2247,61 @@ export class PreviewStore {
     });
     return { accepted: true, duplicate: false, sync_run_id: row.id, exception_id: this.integrationExceptions.get(exceptionKey).id, state: 'failed' };
   }
-  async processStripePaymentIntent({ eventId, eventType, paymentIntentId, studentId, attendanceDayId, failureCode, failureMessage }) {
+  async processStripePaymentIntent({ eventId, eventType, paymentIntentId, studentId, attendanceDayId, providerRequestId, providerAttemptNumber, failureCode, failureMessage }) {
+    const retryDelayHours = Number(this.automaticBillingContract.retry_delay_hours || 12);
+    const maxProviderAttempts = Number(this.automaticBillingContract.max_provider_attempts || 2);
     const event = this.providerEvents.get(`stripe:${eventId}`);
     const charge = this.chargesByDay.get(attendanceDayId);
-    if (!event || !charge) throw Object.assign(new Error('Stripe charge event cannot be matched'), { status: 409 });
+    const attempt = this.chargeAttempts.get(providerRequestId);
+    if (!event || !charge || !attempt) throw Object.assign(new Error('Stripe charge event cannot be matched'), { status: 409 });
     if (event.state === 'processed') return { accepted: true, duplicate: true, charge: { ...charge } };
     const object = event.payload?.data?.object;
     if (!event.signatureVerified || event.eventType !== eventType || object?.id !== paymentIntentId
       || object?.metadata?.student_id !== studentId || object?.metadata?.attendance_day_id !== attendanceDayId
-      || charge.student_id !== studentId || (charge.provider_ref && charge.provider_ref !== paymentIntentId)) {
+      || object?.metadata?.provider_request_id !== providerRequestId
+      || Number(object?.metadata?.provider_attempt_number) !== providerAttemptNumber
+      || providerRequestId !== `missionaccounts:auto-charge:${attendanceDayId}:v2:attempt:${providerAttemptNumber}`
+      || attempt.charge_id !== charge.id || attempt.provider_attempt_number !== providerAttemptNumber
+      || (attempt.provider_ref && attempt.provider_ref !== paymentIntentId)
+      || charge.student_id !== studentId) {
       throw Object.assign(new Error('Stripe charge event binding mismatch'), { status: 409 });
     }
+    const nextState = eventType === 'payment_intent.succeeded' ? 'succeeded' : 'failed';
+    if (attempt.state !== 'started') {
+      if (attempt.state !== nextState) throw Object.assign(new Error('Stripe charge attempt terminal state mismatch'), { status: 409 });
+      event.state = 'processed';
+      return { accepted: true, duplicate: true, charge: { ...charge } };
+    }
+    attempt.provider_ref = paymentIntentId;
+    attempt.state = nextState;
     charge.provider_ref = paymentIntentId;
-    charge.state = eventType === 'payment_intent.succeeded' ? 'succeeded' : 'failed';
+    charge.state = nextState;
     charge.failure_code = failureCode || null;
     charge.failure_message = failureMessage || null;
+    const dispatch = this.autoChargeDispatches.get(attendanceDayId);
+    if (dispatch) {
+      if (charge.state === 'succeeded') {
+        dispatch.state = 'submitted';
+        dispatch.provider_ref = paymentIntentId;
+        dispatch.last_error = null;
+      } else {
+        charge.provider_ref = null;
+        dispatch.provider_ref = null;
+        dispatch.provider_failure_count = Number(dispatch.provider_failure_count || 0) + 1;
+        dispatch.last_error = failureMessage || failureCode || 'Stripe reported payment failure';
+        if (dispatch.provider_failure_count < maxProviderAttempts) {
+          dispatch.state = 'pending';
+          dispatch.eligible_after = new Date(Date.now() + retryDelayHours * 3_600_000).toISOString();
+          dispatch.held_at = null;
+          dispatch.hold_reason = null;
+        } else {
+          dispatch.state = 'held';
+          dispatch.held_at = new Date().toISOString();
+          dispatch.hold_reason = 'late_fee_eligible_review';
+          dispatch.late_fee_eligible_at = dispatch.held_at;
+        }
+      }
+    }
     event.state = 'processed';
     return { accepted: true, duplicate: false, audit_event_id: `preview-charge-webhook-audit-${eventId}`, charge: { ...charge } };
   }
@@ -2376,6 +2621,23 @@ export class PreviewStore {
       exam_plan: await this.currentExamPlanForStudent(studentId),
     };
   }
+  async automaticBillingShadow({ now }) {
+    const attendanceDays = [...this.attendanceDays.values()].flat();
+    return buildAutomaticBillingShadow({
+      now,
+      rolloutCutoff: this.automaticBillingContract.rollout_cutoff,
+      attendanceDays,
+      students: [{ ...this.previewStudentRecord }],
+      billingDecisions: [...this.billingDecisions.values()],
+      paymentMethods: [...this.paymentMethods.entries()].map(([studentId, method]) => ({ student_id: studentId, ...method })),
+      billingConsents: [...this.billingConsents.values()],
+      enrollmentProjections: [...this.enrollmentProjections.values()],
+      dispatches: [...this.autoChargeDispatches.values()],
+      charges: [...this.chargesByDay.values()],
+      ruleDecisions: [{ rule: 'one_charge_per_calendar_day', effective_from: '2026-01-01' }],
+    });
+  }
+
   async adminHealth() {
     const latestZoomSync = [...this.syncRuns.values()].at(-1) || null;
     return {

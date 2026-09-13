@@ -48,6 +48,23 @@ test('student billing uses persisted manual-charge finality',()=>{
  assert.doesNotMatch(fn('viewMe'),/Pay online once the invoice arrives by email/);
 });
 
+test('automatic-billing consent is independent from dispatch and requires exact approved terms',()=>{
+ assert.match(runtime,/['"]billing-authorization['"]:\s*['"]auto_billing_consent['"]/);
+ assert.match(runtime,/['"]billing-authorization-revoke['"]:\s*['"]auto_billing_consent['"]/);
+ assert.match(runtime,/terms\.status !== 'approved' \|\| !String\(terms\.body_text \|\| ''\)\.trim\(\)/);
+ assert.match(runtime,/intro: terms\.body_text/);
+ assert.match(html,/Automatic billing remains disabled while the exact billing terms await Founder approval/);
+ assert.match(html,/data-auth-off/);
+ assert.match(html,/fresh ExamPrep enrollment/);
+ assert.match(html,/Eligible attendance is generally processed within 24–48 hours/);
+ assert.match(html,/No individual approval is required for each charge after advance authorization is enabled/);
+ assert.match(html,/one automatic retry/);
+ assert.match(html,/no late-fee amount is encoded by this release/);
+ assert.doesNotMatch(html,/held for at least 24 hours/);
+ assert.match(html,/live dispatch off/);
+ assert.match(html,/Sponsored exclusions[\s\S]+students · [^<]+rows/);
+});
+
 test('registered account landing provides enrollment-aware program states and responsive CTAs',()=>{
  assert.match(html,/MyMissionMed Account/);
  assert.match(html,/Mission Residency<\/button>/);

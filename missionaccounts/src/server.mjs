@@ -40,6 +40,7 @@ function environmentConfig() {
       paymentMethodSetup: process.env.MISSIONACCOUNTS_PAYMENT_METHOD_SETUP === '1',
       manualCharges: process.env.MISSIONACCOUNTS_MANUAL_CHARGES === '1',
       autoBilling: process.env.MISSIONACCOUNTS_AUTO_BILLING === '1',
+      autoBillingConsent: process.env.MISSIONACCOUNTS_AUTO_BILLING_CONSENT === '1',
       hostedInvoices: process.env.MISSIONACCOUNTS_HOSTED_INVOICES === '1',
       notifications: process.env.MISSIONACCOUNTS_NOTIFICATIONS === '1',
       zoomSync: process.env.MISSIONACCOUNTS_ZOOM_SYNC === '1',
@@ -170,6 +171,7 @@ export function createMissionAccountsServer({
       payment_method_setup_enabled: Boolean(config.features?.paymentMethodSetup),
       manual_charges_enabled: Boolean(config.features?.manualCharges),
       auto_billing_enabled: Boolean(config.features?.autoBilling),
+      auto_billing_consent_enabled: Boolean(config.features?.autoBillingConsent),
       auto_billing_shadow_enabled: Boolean(config.features?.autoBillingShadow),
       stripe: stripeState,
     };
@@ -178,7 +180,31 @@ export function createMissionAccountsServer({
   async function studentContext(identity) {
     const student = await store.studentByMatrixUser(identity.userId);
     if (!student) throw requestError('MissionAccounts record not found', 404);
-    return student;
+    const issuedAtSeconds = Number(identity.claims?.iat);
+    const sourceObservedAt = Number.isFinite(issuedAtSeconds)
+      ? new Date(issuedAtSeconds * 1_000).toISOString()
+      : now().toISOString();
+    const requestToken = String(identity.claims?.jti || `local:${identity.userId}:${sourceObservedAt}`);
+    const observed = await store.syncProgramEnrollment({
+      studentId: student.id,
+      enrolled: identity.programAccess?.programs?.examprep?.enrolled === true,
+      sourceSubject: identity.userId,
+      sourceObservedAt,
+      actorId: identity.userId,
+      requestId: `missionaccounts:enrollment:${requestToken}`,
+    });
+    return {
+      ...student,
+      program_enrollment: observed?.projection ? {
+        program_key: observed.projection.program_key,
+        provider: observed.projection.provider,
+        course_id: observed.projection.course_id,
+        enrolled: observed.projection.enrolled,
+        source_observed_at: observed.projection.source_observed_at,
+        verified_at: observed.projection.verified_at,
+        valid_until: observed.projection.valid_until,
+      } : null,
+    };
   }
 
   async function receiveStripeWebhook(request, response) {
@@ -255,7 +281,11 @@ export function createMissionAccountsServer({
         }
       } else {
         const attendanceDayId = String(object.metadata?.attendance_day_id || '');
-        if (!uuid.test(studentId) || !uuid.test(attendanceDayId) || !/^pi_[A-Za-z0-9_]+$/.test(String(object.id || ''))) {
+        const providerRequestId = String(object.metadata?.provider_request_id || '');
+        const providerAttemptNumber = Number(object.metadata?.provider_attempt_number);
+        const expectedProviderRequestId = `missionaccounts:auto-charge:${attendanceDayId}:v2:attempt:${providerAttemptNumber}`;
+        if (!uuid.test(studentId) || !uuid.test(attendanceDayId) || !/^pi_[A-Za-z0-9_]+$/.test(String(object.id || ''))
+          || ![1, 2].includes(providerAttemptNumber) || providerRequestId !== expectedProviderRequestId) {
           effect = await store.markProviderEventUnhandled({
             provider: 'stripe',
             eventId: event.id,
@@ -268,6 +298,8 @@ export function createMissionAccountsServer({
             paymentIntentId: object.id,
             studentId,
             attendanceDayId,
+            providerRequestId,
+            providerAttemptNumber,
             failureCode: object.last_payment_error?.code || null,
             failureMessage: object.last_payment_error?.message || null,
           });
@@ -346,6 +378,7 @@ export function createMissionAccountsServer({
         payment_method_setup_enabled: Boolean(config.features?.paymentMethodSetup),
         manual_charges_enabled: Boolean(config.features?.manualCharges),
         auto_billing_enabled: Boolean(config.features?.autoBilling),
+        auto_billing_consent_enabled: Boolean(config.features?.autoBillingConsent),
         hosted_invoices_enabled: Boolean(config.features?.hostedInvoices),
         notifications_enabled: Boolean(config.features?.notifications),
         zoom_sync_enabled: Boolean(config.features?.zoomSync),
@@ -365,9 +398,10 @@ export function createMissionAccountsServer({
       requireFeature(config, 'autoBilling');
       const bearer = String(request.headers.authorization || '').match(/^Bearer\s+(.+)$/i)?.[1] || '';
       if (!secureTokenEqual(bearer, config.workerToken)) throw requestError('Charge worker authentication failed', 401);
-      // This check deliberately precedes every database claim so a disabled or
-      // live-mode Stripe configuration cannot reserve financial work.
-      stripeGateway.assertTestMode();
+      // This check deliberately precedes every database claim. Live provider
+      // access still requires the independent Stripe activation gate, while
+      // the database contract and this route's feature flag remain separate.
+      stripeGateway.assertMutationAllowed();
       const rawBody = await readRawBody(request, { limitBytes: 16_384 });
       const body = rawBody.length ? parseJsonBody(rawBody) : {};
       const limit = body.limit == null ? 10 : Number(body.limit);
@@ -386,13 +420,21 @@ export function createMissionAccountsServer({
             studentId: item.charge.student_id,
             attendanceDayId: item.attendance_day_id,
             receiptEmail: item.receipt_email,
+            idempotencyKey: item.provider_idempotency_key,
           });
           if (!/^pi_[A-Za-z0-9_]+$/.test(String(paymentIntent.id || ''))) {
             throw requestError('Stripe PaymentIntent response is incomplete', 502);
           }
         } catch (error) {
+          const failedPaymentIntentRef = error?.stripe?.error?.payment_intent?.id
+            || error?.stripe?.payment_intent?.id
+            || null;
           await store.finishAutoChargeDispatch({
-            dispatchId: item.dispatch_id, workerId, succeeded: false, providerRef: null,
+            dispatchId: item.dispatch_id, workerId,
+            providerRequestId: item.provider_idempotency_key, succeeded: false,
+            providerRef: /^pi_[A-Za-z0-9_]+$/.test(String(failedPaymentIntentRef || ''))
+              ? failedPaymentIntentRef
+              : null,
             error: error instanceof Error ? error.message : 'Stripe charge submission failed',
             now: now().toISOString(),
           });
@@ -400,7 +442,8 @@ export function createMissionAccountsServer({
           continue;
         }
         await store.finishAutoChargeDispatch({
-          dispatchId: item.dispatch_id, workerId, succeeded: true,
+          dispatchId: item.dispatch_id, workerId,
+          providerRequestId: item.provider_idempotency_key, succeeded: true,
           providerRef: paymentIntent.id, error: null, now: now().toISOString(),
         });
         submitted += 1;
@@ -409,7 +452,7 @@ export function createMissionAccountsServer({
         claimed: (batch.claimed || []).length,
         submitted,
         failed,
-        expired: Number(batch.expired || 0),
+        held: Number(batch.held || 0),
       });
     }
     if (request.method === 'POST' && url.pathname === '/api/internal/zoom/sync') {
@@ -576,6 +619,7 @@ export function createMissionAccountsServer({
           payment_method_setup: !registeredOnly && Boolean(config.features?.paymentMethodSetup),
           manual_charges: !registeredOnly && Boolean(config.features?.manualCharges),
           auto_billing: !registeredOnly && Boolean(config.features?.autoBilling),
+          auto_billing_consent: !registeredOnly && Boolean(config.features?.autoBillingConsent),
           hosted_invoices: !registeredOnly && Boolean(config.features?.hostedInvoices),
           notifications: !registeredOnly && Boolean(config.features?.notifications),
           zoom_sync: !registeredOnly && Boolean(config.features?.zoomSync),
@@ -884,7 +928,7 @@ export function createMissionAccountsServer({
     }
     if (['POST', 'DELETE'].includes(request.method) && url.pathname === '/api/me/consent') {
       requireRole(identity, ['student']);
-      requireFeature(config, 'autoBilling');
+      requireFeature(config, 'autoBillingConsent');
       const student = await studentContext(identity);
       const rawBody = await readRawBody(request, { limitBytes: 16_384 });
       const body = rawBody.length ? parseJsonBody(rawBody) : {};

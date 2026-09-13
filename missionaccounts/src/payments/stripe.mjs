@@ -144,11 +144,17 @@ export class StripeGateway {
     );
   }
 
-  createDayCharge({ customerId, paymentMethodId, studentId, attendanceDayId, receiptEmail }) {
+  createDayCharge({ customerId, paymentMethodId, studentId, attendanceDayId, receiptEmail, idempotencyKey }) {
     const normalizedReceiptEmail = String(receiptEmail || '').trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedReceiptEmail)) {
       throw Object.assign(new Error('A valid student receipt email is required before charging'), { status: 409 });
     }
+    const retryKey = String(idempotencyKey || '');
+    if (retryKey && !new RegExp(`^missionaccounts:auto-charge:${attendanceDayId}:v2:attempt:[12]$`).test(retryKey)) {
+      throw Object.assign(new Error('Stripe automatic charge idempotency key is invalid'), { status: 400 });
+    }
+    const providerRequestId = retryKey || `missionaccounts:billable-day:${attendanceDayId}:v1`;
+    const providerAttemptNumber = retryKey ? Number(retryKey.match(/:attempt:([12])$/)?.[1]) : 1;
     return this.request('payment_intents', {
       amount: '2500',
       currency: 'usd',
@@ -159,7 +165,9 @@ export class StripeGateway {
       off_session: 'true',
       'metadata[student_id]': studentId,
       'metadata[attendance_day_id]': attendanceDayId,
-    }, `missionaccounts:billable-day:${attendanceDayId}:v1`);
+      'metadata[provider_request_id]': providerRequestId,
+      'metadata[provider_attempt_number]': String(providerAttemptNumber),
+    }, providerRequestId);
   }
 
   createManualCycleCharge({

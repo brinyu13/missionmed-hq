@@ -1,0 +1,433 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+for required_command in initdb pg_ctl psql; do
+  if ! command -v "$required_command" >/dev/null 2>&1; then
+    echo "MissionAccounts 5403B PostgreSQL rehearsal requires: $required_command" >&2
+    exit 1
+  fi
+done
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+app_dir=$(cd "$script_dir/.." && pwd)
+pg_tmp=$(mktemp -d /tmp/mx5403b-revfix-pg.XXXXXX)
+pg_port=$((55500 + RANDOM % 300))
+target_migration="$app_dir/supabase/migrations/20260911224524_autobilling_contract_closeout_5403b.sql"
+
+cleanup_pg() {
+  pg_ctl -D "$pg_tmp/data" -m immediate stop >/dev/null 2>&1 || true
+  if [[ "$pg_tmp" == /tmp/mx5403b-revfix-pg.* ]]; then
+    rm -r "$pg_tmp"
+  fi
+}
+trap cleanup_pg EXIT
+
+initdb -D "$pg_tmp/data" --no-locale --encoding=UTF8 --auth=trust >/dev/null
+pg_ctl -D "$pg_tmp/data" -o "-F -p $pg_port -k $pg_tmp -c listen_addresses=''" -w start >/dev/null
+
+psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 \
+  -c "create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create function auth.uid() returns uuid language sql stable as 'select null::uuid'; create function auth.jwt() returns jsonb language sql stable as 'select jsonb_build_object()';" \
+  >/dev/null
+
+for migration in "$app_dir"/supabase/migrations/*.sql; do
+  migration_name=$(basename "$migration")
+  if [[ "$migration_name" == "20260909105200_promote_antonio_real_student.sql" || "$migration_name" == "20260911224524_autobilling_contract_closeout_5403b.sql" ]]; then
+    continue
+  fi
+  psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
+done
+
+expected_header=$'-- Migration: 20260911224524_autobilling_contract_closeout_5403b.sql\n-- Authority: DR-241 / DR-242 / MX-MISSIONACCOUNTS-5403B\n-- Date: 2026-09-12\n-- Depends on: 20260911131140_sponsor_control.sql\n-- Description: Add the enrollment, consent, durable post-rollout automatic-billing contract, and bounded provider-retry policy while dispatch remains disabled.\n-- Idempotent: NO'
+if [[ "$(head -n 6 "$target_migration")" != "$expected_header" ]]; then
+  echo "MissionAccounts 5403B migration is missing the exact MR-078A header" >&2
+  exit 1
+fi
+if [[ "$(sed -n '8p' "$target_migration")" != "BEGIN;" || "$(tail -n 1 "$target_migration")" != "COMMIT;" ]]; then
+  echo "MissionAccounts 5403B migration is missing its top-level transaction wrapper" >&2
+  exit 1
+fi
+
+forced_failure_migration="$pg_tmp/20260911224524_forced_atomicity_failure.sql"
+awk '
+  { print }
+  /add column if not exists body_text text;/ && !inserted {
+    print "select 1 / 0; -- disposable forced mid-migration failure"
+    inserted = 1
+  }
+  END { if (!inserted) exit 42 }
+' "$target_migration" > "$forced_failure_migration"
+if psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 -f "$forced_failure_migration" >/dev/null 2>&1; then
+  echo "MissionAccounts 5403B forced-failure rehearsal unexpectedly succeeded" >&2
+  exit 1
+fi
+partial_apply_count=$(psql -h "$pg_tmp" -p "$pg_port" -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "select count(*) from information_schema.columns where table_schema = 'missionaccounts' and table_name = 'billing_terms' and column_name = 'body_text';")
+if [[ "$partial_apply_count" != "0" ]]; then
+  echo "MissionAccounts 5403B forced failure left a partial schema change" >&2
+  exit 1
+fi
+
+psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 -f "$target_migration" >/dev/null
+if psql -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP=1 -f "$target_migration" >/dev/null 2>&1; then
+  echo "MissionAccounts 5403B non-idempotent migration unexpectedly replayed" >&2
+  exit 1
+fi
+
+result=$(psql -h "$pg_tmp" -p "$pg_port" -d postgres -Atq -v ON_ERROR_STOP=1 <<'SQL'
+insert into missionaccounts.student(id, matrix_user_ref, display_name, email, identity_state, sponsor_type)
+values
+  ('00000000-0000-4000-8000-000000005401', null, 'Canonical Student A', 'student-a@example.test', 'verified', 'DIRECT'),
+  ('00000000-0000-4000-8000-000000005402', '902', 'Canonical Student B', 'student-b@example.test', 'verified', 'DIRECT');
+
+set role service_role;
+
+-- Case A: the signed canonical UUID succeeds with a NULL legacy ref.
+select missionaccounts.api_sync_program_enrollment(
+  '00000000-0000-4000-8000-000000005401', 'examprep', 6357, true,
+  '00000000-0000-4000-8000-000000005401', clock_timestamp(),
+  '00000000-0000-4000-8000-000000005401', 'student', 'revfix-enrollment-null-ref'
+)->>'accepted';
+
+reset role;
+update missionaccounts.student set matrix_user_ref = '471'
+where id = '00000000-0000-4000-8000-000000005401';
+set role service_role;
+
+-- Case B: a legacy numeric ref does not replace the canonical UUID subject.
+select missionaccounts.api_sync_program_enrollment(
+  '00000000-0000-4000-8000-000000005401', 'examprep', 6357, true,
+  '00000000-0000-4000-8000-000000005401', clock_timestamp(),
+  '00000000-0000-4000-8000-000000005401', 'student', 'revfix-enrollment-numeric-ref'
+)->>'accepted';
+
+-- Cases C and D must fail closed with the documented subject error.
+do $$
+begin
+  begin
+    perform missionaccounts.api_sync_program_enrollment(
+      '00000000-0000-4000-8000-000000005402', 'examprep', 6357, true,
+      '00000000-0000-4000-8000-000000005401', clock_timestamp(),
+      '00000000-0000-4000-8000-000000005401', 'student', 'revfix-cross-student'
+    );
+    raise exception 'cross_student_attack_was_accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'student_enrollment_subject_mismatch' then raise; end if;
+  end;
+
+  begin
+    perform missionaccounts.api_sync_program_enrollment(
+      '00000000-0000-4000-8000-000000005401', 'examprep', 6357, true,
+      '00000000-0000-4000-8000-000000005402', clock_timestamp(),
+      '00000000-0000-4000-8000-000000005401', 'student', 'revfix-subject-mismatch'
+    );
+    raise exception 'source_subject_mismatch_was_accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'student_enrollment_subject_mismatch' then raise; end if;
+  end;
+end;
+$$;
+
+reset role;
+update missionaccounts.automatic_billing_contract
+set rollout_cutoff = clock_timestamp() - interval '72 hours';
+
+insert into missionaccounts.billing_terms(
+  version, summary, body_sha256, status, approved_by, approved_at, body_text
+) values (
+  'revfix-test-v1', 'Disposable test terms',
+  encode(extensions.digest(convert_to('Disposable test terms body', 'UTF8'), 'sha256'), 'hex'),
+  'approved', 'disposable-founder', clock_timestamp(), 'Disposable test terms body'
+);
+insert into missionaccounts.stripe_customer_private(student_id, provider, provider_customer_ref)
+values
+  ('00000000-0000-4000-8000-000000005401', 'stripe', 'cus_disposable_revfix_a'),
+  ('00000000-0000-4000-8000-000000005402', 'stripe', 'cus_disposable_revfix_b');
+insert into missionaccounts.payment_method_private(
+  student_id, provider, provider_customer_ref, provider_pm_ref, brand, last4, status, verified_at
+) values
+  (
+    '00000000-0000-4000-8000-000000005401', 'stripe', 'cus_disposable_revfix_a',
+    'pm_disposable_revfix_a', 'visa', '4242', 'on_file', clock_timestamp()
+  ),
+  (
+    '00000000-0000-4000-8000-000000005402', 'stripe', 'cus_disposable_revfix_b',
+    'pm_disposable_revfix_b', 'visa', '4444', 'on_file', clock_timestamp()
+  );
+
+-- Consent subject binding uses the canonical student UUID, never matrix_user_ref.
+update missionaccounts.student set matrix_user_ref = null
+where id = '00000000-0000-4000-8000-000000005401';
+set role service_role;
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'authorize', 'revfix-test-v1', '127.0.0.1',
+  'Grant with NULL legacy ref', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-grant-null'
+)->>'accepted';
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'revoke', null, '127.0.0.1',
+  'Revoke with NULL legacy ref', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-revoke-null'
+)->'consent'->>'state';
+
+reset role;
+update missionaccounts.student set matrix_user_ref = '471'
+where id = '00000000-0000-4000-8000-000000005401';
+set role service_role;
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'authorize', 'revfix-test-v1', '127.0.0.1',
+  'Grant with numeric legacy ref', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-grant-numeric'
+)->>'accepted';
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'revoke', null, '127.0.0.1',
+  'Revoke with numeric legacy ref', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-revoke-numeric'
+)->'consent'->>'state';
+
+do $$
+begin
+  begin
+    perform missionaccounts.api_set_billing_consent(
+      '00000000-0000-4000-8000-000000005402', 'authorize', 'revfix-test-v1', '127.0.0.1',
+      'Cross-student grant must fail', '00000000-0000-4000-8000-000000005401',
+      'student', 'revfix-consent-cross-grant'
+    );
+    raise exception 'cross_student_consent_grant_was_accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'student_consent_subject_mismatch' then raise; end if;
+  end;
+
+  begin
+    perform missionaccounts.api_set_billing_consent(
+      '00000000-0000-4000-8000-000000005402', 'revoke', null, '127.0.0.1',
+      'Cross-student revoke must fail', '00000000-0000-4000-8000-000000005401',
+      'student', 'revfix-consent-cross-revoke'
+    );
+    raise exception 'cross_student_consent_revoke_was_accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'student_consent_subject_mismatch' then raise; end if;
+  end;
+
+  begin
+    perform missionaccounts.api_set_billing_consent(
+      '00000000-0000-4000-8000-000000005401', 'authorize', 'revfix-test-v1', '127.0.0.1',
+      'Forged legacy actor must fail', '471',
+      'student', 'revfix-consent-forged-legacy-actor'
+    );
+    raise exception 'forged_legacy_ref_actor_was_accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'student_consent_subject_mismatch' then raise; end if;
+  end;
+end;
+$$;
+
+-- Leave one active canonical consent for the durable-queue rehearsal.
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'authorize', 'revfix-test-v1', '127.0.0.1',
+  'Disposable explicit consent', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-authorize'
+)->>'accepted';
+
+reset role;
+insert into missionaccounts.engine_run(id, engine_version, source_digest, state, finished_at)
+values (
+  '10000000-0000-4000-8000-000000005403', 'revfix-rehearsal-v1', repeat('5', 64),
+  'succeeded', clock_timestamp()
+);
+insert into missionaccounts.attendance_day(
+  id, engine_run_id, student_id, cycle_key, day, kind, engine_version, source_digest, computed_at
+) values
+  (
+    '20000000-0000-4000-8000-000000005403', '10000000-0000-4000-8000-000000005403',
+    '00000000-0000-4000-8000-000000005401', '2026-cycle-3',
+    ((select rollout_cutoff from missionaccounts.automatic_billing_contract where singleton) at time zone 'America/New_York')::date + 1,
+    'billable', 'revfix-rehearsal-v1', repeat('6', 64),
+    (select rollout_cutoff + interval '1 hour' from missionaccounts.automatic_billing_contract where singleton)
+  ),
+  (
+    '20000000-0000-4000-8000-000000005404', '10000000-0000-4000-8000-000000005403',
+    '00000000-0000-4000-8000-000000005401', '2026-cycle-3',
+    ((select rollout_cutoff from missionaccounts.automatic_billing_contract where singleton) at time zone 'America/New_York')::date - 1,
+    'billable', 'revfix-rehearsal-v1', repeat('7', 64),
+    (select rollout_cutoff + interval '1 hour' from missionaccounts.automatic_billing_contract where singleton)
+  );
+insert into missionaccounts.billing_decision(
+  student_id, cycle_key, treatment, amount_cents, note, basis, basis_sha256,
+  state, decided_by, decided_at, request_id
+) values (
+  '00000000-0000-4000-8000-000000005401', '2026-cycle-3', 'confirm', 2500,
+  'Disposable exact-day approval',
+  jsonb_build_object('days', jsonb_build_array(jsonb_build_object(
+    'id', '20000000-0000-4000-8000-000000005403', 'kind', 'billable'
+  ))),
+  repeat('8', 64), 'approved', 'disposable-dr-j', clock_timestamp(), 'revfix-decision'
+);
+
+set role service_role;
+select missionaccounts.api_refresh_auto_charge_candidates(clock_timestamp())->>'inserted';
+
+-- The disposable database alone enables dispatch to exercise the authorized
+-- provider-failure contract. No provider is contacted and no money moves.
+reset role;
+update missionaccounts.automatic_billing_contract
+set live_dispatch_allowed = true;
+set role service_role;
+
+select missionaccounts.api_claim_due_day_charges(
+  (select computed_at + interval '25 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-1', 1
+)->'claimed'->0->>'provider_idempotency_key';
+
+select missionaccounts.api_finish_auto_charge_dispatch(
+  (select id from missionaccounts.auto_charge_dispatch
+   where attendance_day_id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-1', false, 'pi_disposable_attempt_1', 'disposable first decline',
+  (select computed_at + interval '25 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403')
+)->'dispatch'->>'state';
+
+select state || '|' || provider_failure_count || '|' ||
+       (hold_reason is null)::text || '|' || (late_fee_eligible_at is null)::text
+from missionaccounts.auto_charge_dispatch
+where attendance_day_id = '20000000-0000-4000-8000-000000005403';
+
+-- The retry is not claimable before the bounded 12-hour retry target.
+select jsonb_array_length(missionaccounts.api_claim_due_day_charges(
+  (select computed_at + interval '36 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-early', 1
+)->'claimed');
+
+select missionaccounts.api_claim_due_day_charges(
+  (select computed_at + interval '37 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-2', 1
+)->'claimed'->0->>'provider_idempotency_key';
+
+-- A delayed, signed attempt-one failure is idempotent after attempt two is
+-- claimed; it must never consume attempt two or change its claim.
+insert into missionaccounts.provider_event_inbox(
+  provider, provider_event_id, provider_object_id, event_type,
+  payload, signature_verified, state
+) values (
+  'stripe', 'evt-disposable-attempt-1-failure', 'pi_disposable_attempt_1',
+  'payment_intent.payment_failed',
+  jsonb_build_object('data', jsonb_build_object('object', jsonb_build_object(
+    'id', 'pi_disposable_attempt_1',
+    'metadata', jsonb_build_object(
+      'student_id', '00000000-0000-4000-8000-000000005401',
+      'attendance_day_id', '20000000-0000-4000-8000-000000005403',
+      'provider_request_id', 'missionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:1',
+      'provider_attempt_number', '1'
+    )
+  ))), true, 'received'
+);
+select missionaccounts.api_process_stripe_payment_intent(
+  'evt-disposable-attempt-1-failure', 'payment_intent.payment_failed',
+  'pi_disposable_attempt_1', '00000000-0000-4000-8000-000000005401',
+  '20000000-0000-4000-8000-000000005403', 'card_declined', 'delayed first failure'
+)->>'duplicate';
+select state || '|' || provider_failure_count || '|' || worker_id
+from missionaccounts.auto_charge_dispatch
+where attendance_day_id = '20000000-0000-4000-8000-000000005403';
+
+-- A conflicting late success for the already-failed attempt fails closed and
+-- likewise leaves the newer claim untouched.
+insert into missionaccounts.provider_event_inbox(
+  provider, provider_event_id, provider_object_id, event_type,
+  payload, signature_verified, state
+) values (
+  'stripe', 'evt-disposable-attempt-1-success', 'pi_disposable_attempt_1',
+  'payment_intent.succeeded',
+  jsonb_build_object('data', jsonb_build_object('object', jsonb_build_object(
+    'id', 'pi_disposable_attempt_1',
+    'metadata', jsonb_build_object(
+      'student_id', '00000000-0000-4000-8000-000000005401',
+      'attendance_day_id', '20000000-0000-4000-8000-000000005403',
+      'provider_request_id', 'missionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:1',
+      'provider_attempt_number', '1'
+    )
+  ))), true, 'received'
+);
+do $$
+begin
+  perform missionaccounts.api_process_stripe_payment_intent(
+    'evt-disposable-attempt-1-success', 'payment_intent.succeeded',
+    'pi_disposable_attempt_1', '00000000-0000-4000-8000-000000005401',
+    '20000000-0000-4000-8000-000000005403', null, null
+  );
+  raise exception 'expected delayed success to fail closed';
+exception when others then
+  if sqlerrm <> 'stripe_attempt_terminal_state_mismatch' then raise; end if;
+end;
+$$;
+select state || '|' || provider_failure_count || '|' || worker_id
+from missionaccounts.auto_charge_dispatch
+where attendance_day_id = '20000000-0000-4000-8000-000000005403';
+
+select missionaccounts.api_finish_auto_charge_dispatch(
+  (select id from missionaccounts.auto_charge_dispatch
+   where attendance_day_id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-2', false, 'pi_disposable_attempt_2', 'disposable second decline',
+  (select computed_at + interval '37 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403')
+)->'dispatch'->>'state';
+
+select state || '|' || provider_failure_count || '|' || hold_reason || '|' ||
+       (late_fee_eligible_at is not null)::text
+from missionaccounts.auto_charge_dispatch
+where attendance_day_id = '20000000-0000-4000-8000-000000005403';
+
+select jsonb_array_length(missionaccounts.api_claim_due_day_charges(
+  (select computed_at + interval '72 hours' from missionaccounts.attendance_day
+   where id = '20000000-0000-4000-8000-000000005403'),
+  'disposable-worker-after-ceiling', 1
+)->'claimed');
+
+reset role;
+select
+  (select count(*) from missionaccounts.charge where amount_cents = 2500) || '|' ||
+  (select count(*) from missionaccounts.charge_attempt where state = 'failed') || '|' ||
+  (select count(*) from missionaccounts.notification_outbox where event_kind = 'charge.failed') || '|' ||
+  (select count(*) from information_schema.columns
+   where table_schema = 'missionaccounts' and column_name like 'late_fee_amount%');
+update missionaccounts.automatic_billing_contract
+set live_dispatch_allowed = false;
+set role service_role;
+
+-- Case E: signed course access false projects inactive and blocks new eligibility.
+select missionaccounts.api_sync_program_enrollment(
+  '00000000-0000-4000-8000-000000005401', 'examprep', 6357, false,
+  '00000000-0000-4000-8000-000000005401', clock_timestamp(),
+  '00000000-0000-4000-8000-000000005401', 'student', 'revfix-enrollment-inactive'
+)->'projection'->>'enrolled';
+select missionaccounts.api_refresh_auto_charge_candidates(clock_timestamp())->>'inserted';
+select missionaccounts.api_set_billing_consent(
+  '00000000-0000-4000-8000-000000005401', 'revoke', null, '127.0.0.1',
+  'Disposable revocation after eligibility loss', '00000000-0000-4000-8000-000000005401',
+  'student', 'revfix-consent-revoke'
+)->'consent'->>'state';
+
+reset role;
+select
+  (select count(*) from missionaccounts.program_enrollment_projection) || '|' ||
+  (select count(*) from missionaccounts.auto_charge_dispatch where state = 'pending') || '|' ||
+  (select count(*) from missionaccounts.auto_charge_dispatch where attendance_day_id = '20000000-0000-4000-8000-000000005404') || '|' ||
+  (select count(*) from missionaccounts.charge) || '|' ||
+  (select state from missionaccounts.billing_consent where student_id = '00000000-0000-4000-8000-000000005401' and superseded_by_id is null) || '|' ||
+  (select live_dispatch_allowed from missionaccounts.automatic_billing_contract where singleton) || '|' ||
+  (select relforcerowsecurity from pg_class where oid = 'missionaccounts.program_enrollment_projection'::regclass) || '|' ||
+  (not has_function_privilege('authenticated', 'missionaccounts.api_sync_program_enrollment(uuid,text,bigint,boolean,text,timestamptz,text,text,text)', 'execute')) || '|' ||
+  has_function_privilege('service_role', 'missionaccounts.api_sync_program_enrollment(uuid,text,bigint,boolean,text,timestamptz,text,text,text)', 'execute');
+SQL
+)
+
+expected=$'true\ntrue\ntrue\nrevoked\ntrue\nrevoked\ntrue\n1\nmissionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:1\npending\npending|1|true|true\n0\nmissionaccounts:auto-charge:20000000-0000-4000-8000-000000005403:v2:attempt:2\ntrue\nclaimed|1|disposable-worker-2\nclaimed|1|disposable-worker-2\nheld\nheld|2|late_fee_eligible_review|true\n0\n1|2|4|0\nfalse\n0\nrevoked\n1|0|0|1|revoked|false|true|true|true'
+if [[ "$result" != "$expected" ]]; then
+  echo "MissionAccounts 5403B PostgreSQL rehearsal returned unexpected controls:" >&2
+  echo "$result" >&2
+  exit 1
+fi
+
+echo "MissionAccounts 5403B canonical subjects, consent, durable queue, bounded retry, two-failure review, no encoded fee, RLS, and grants rehearsal: PASS"

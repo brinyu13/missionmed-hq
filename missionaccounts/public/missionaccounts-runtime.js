@@ -39,8 +39,8 @@ const actionCapabilities = Object.freeze({
   'payment-setup': 'payment_method_setup',
   'payment-remove': 'payment_method_setup',
   'stripe-customer': 'payment_method_setup',
-  'billing-authorization': 'auto_billing',
-  'billing-authorization-revoke': 'auto_billing',
+  'billing-authorization': 'auto_billing_consent',
+  'billing-authorization-revoke': 'auto_billing_consent',
   'attendance-issue-report': 'attendance_corrections',
   'attendance-issue-review': 'attendance_corrections',
   'attendance-correction': 'attendance_corrections',
@@ -195,6 +195,8 @@ async function dispatch(action, payload = {}) {
           title: 'Turn off automatic billing?',
           intro: 'Future Drills attendance will not be charged automatically after this authorization is revoked.',
           facts: [
+            'Eligible attendance incurred while authorization was active remains on your account.',
+            'A payment already submitted to Stripe is not reversed.',
             'Past attendance, invoices, payments, and authorization history stay intact.',
             'Your saved payment method remains on file unless you remove it separately.',
           ],
@@ -205,14 +207,17 @@ async function dispatch(action, payload = {}) {
         if (!await decision.result) return true;
       } else {
         const terms = state.bootstrap?.account?.billing_terms;
-        if (!terms?.version || terms.status !== 'approved') throw new Error('The automatic-billing terms are not approved yet.');
+        if (!terms?.version || terms.status !== 'approved' || !String(terms.body_text || '').trim()) {
+          throw new Error('The automatic-billing terms are not approved yet.');
+        }
         const decision = openPaymentActionDialog({
           title: 'Automatic Drills billing',
-          intro: terms.summary || 'Review and accept the approved terms for automatic Drills billing.',
+          intro: terms.body_text,
           facts: [
             '$25 maximum per student per calendar day of billable Live Drills attendance.',
             'Step 1 and Step 2/3 on the same calendar day still produce at most one $25 charge.',
-            'An eligible day is charged 24–48 hours after Dr J confirms attendance.',
+            'Eligible attendance is generally processed within 24–48 hours after it is confirmed billable and remains durable if processing is delayed.',
+            'Dr J approves the exact first canary day. Ordinary eligible days do not require individual approval after that bounded gate is released.',
             'You can turn off automatic billing and remove the saved payment method from MissionAccounts.',
           ],
           consentLabel: 'I authorize MissionMed Institute to charge my saved Stripe payment method under these approved Drills terms.',

@@ -1,0 +1,99 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5403B",
+  "node_tests": {
+    "passed": 211,
+    "failed": 0
+  },
+  "mandatory_vectors": {
+    "passed": 45,
+    "failed": 0
+  },
+  "source_validation": {
+    "result": "PASS",
+    "attendance_events": 3941,
+    "human_cycle_rows": 498,
+    "identity_nodes": 370,
+    "total_amount": 77075
+  },
+  "database_schema_rehearsal": "PASS",
+  "database_functional_rehearsal": "PASS",
+  "revfix_01": {
+    "old_reviewed_head": "8e2860077a4fb8a21ba33f4f0fae60441af4c404",
+    "corrective_source_commit": "ea5c4176b7429873e558c7b9abd814b184470786",
+    "canonical_subject_architecture": "PASS",
+    "legacy_matrix_user_ref_removed_from_enrollment_subject_binding": true,
+    "null_legacy_ref": "PASS",
+    "numeric_legacy_ref": "PASS",
+    "cross_student_attack": "PASS",
+    "source_subject_mismatch": "PASS",
+    "inactive_course_access": "PASS"
+  },
+  "revfix_02": {
+    "failed_reviewed_head": "120ec6e147e59839d16aaff6cbbaa8e46fc244f3",
+    "corrective_source_commit": "d2d2ede1eae7190dd47f31fbf8374d479f4b21aa",
+    "consent_subject_bound_to_student_id": true,
+    "grant_null_legacy_ref": "PASS",
+    "grant_numeric_legacy_ref": "PASS",
+    "revoke_null_legacy_ref": "PASS",
+    "revoke_numeric_legacy_ref": "PASS",
+    "cross_student_grant_blocked": "PASS",
+    "cross_student_revoke_blocked": "PASS",
+    "subject_mismatch_blocked": "PASS",
+    "forged_legacy_ref_actor_blocked": "PASS",
+    "production_mutation": "NONE",
+    "stripe_provider_calls": 0,
+    "live_dispatch": "OFF"
+  },
+  "live_payment_intents_created": 0,
+  "live_money_moved_cents": 0,
+  "founder_policy_alignment": {
+    "authority_decisions": ["DR-241", "DR-242"],
+    "authority_commit": "f6449c93cc8d3e9da56ce4510540bc92dc3f4d58",
+    "source_test_commit": "a39a30b865793e9404bf5af3137c4ca8e1ddcbd6",
+    "ordinary_dispatch_target_hours": 24,
+    "automatic_expiry_hours": null,
+    "retry_delay_hours": 12,
+    "max_provider_attempts": 2,
+    "late_fee_amount_cents": null,
+    "production_mutation": "NONE",
+    "stripe_provider_calls": 0,
+    "live_dispatch": "OFF"
+  },
+  "revfix_04": {
+    "failed_reviewed_head": "2f72bc2ff260050d5a905a84ddfba0326c2ac7fe",
+    "corrective_source_commit": "292e98403519b5811786f6beab57cd4a3889da60",
+    "stripe_metadata_attempt_binding": "PASS",
+    "exact_charge_attempt_provider_ref": "PASS",
+    "delayed_attempt_one_failure_idempotent": "PASS",
+    "conflicting_delayed_success_fail_closed": "PASS",
+    "newer_attempt_claim_preserved": "PASS",
+    "production_readback_at": "2026-09-12T21:16:00Z",
+    "production_migration_applied": false,
+    "production_enrollment_projection_exists": false,
+    "production_automatic_billing_contract_exists": false,
+    "production_dispatch_rows": 0,
+    "production_charge_rows": 0,
+    "production_mutation": "NONE",
+    "stripe_provider_calls": 0,
+    "live_dispatch": "OFF"
+  },
+  "wordpress_sso": {
+    "php_lint": "PASS",
+    "course_6357_disables_legacy_exact_user_enrollment_fallback": true
+  },
+  "revfix_03": {
+    "failed_reviewed_head": "579b03860005605305ebabd1e9d8c1bfc717b5f1",
+    "authority_decision": "DR-238",
+    "authority_commit": "43d41a3bb93a01f2113e5cb4d8d5e881cdff6ae1",
+    "corrective_source_commit": "3955c28edf53595f5e0cc1f300f419954033e6b0",
+    "mr078a_header": "PASS",
+    "explicit_transaction_wrapper": "PASS",
+    "transaction_incompatible_statements": 0,
+    "forced_failure_atomic_rollback": "PASS",
+    "declared_idempotency": "NO",
+    "replay_rejected_cleanly": "PASS",
+    "production_mutation": "NONE",
+    "stripe_provider_calls": 0,
+    "live_dispatch": "OFF"
+  }
+}

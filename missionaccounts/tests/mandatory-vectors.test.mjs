@@ -367,6 +367,83 @@ test('automatic charge scheduling is bounded to 24-48 hours, retry-safe, and ser
   assert.match(sql, /force row level security/);
 });
 
+test('5403B replaces expiry with a durable, enrollment-gated, post-rollout queue while dispatch remains off', async () => {
+  const [sql, stripeSource, serverSource] = await Promise.all([
+    readFile(new URL('../supabase/migrations/20260911224524_autobilling_contract_closeout_5403b.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../src/payments/stripe.mjs', import.meta.url), 'utf8'),
+    readFile(new URL('../src/server.mjs', import.meta.url), 'utf8'),
+  ]);
+  const claimSql = sql.slice(sql.indexOf('create or replace function missionaccounts.api_claim_due_day_charges'));
+
+  assert.match(sql, /^-- Migration: 20260911224524_autobilling_contract_closeout_5403b\.sql\n-- Authority: DR-241 \/ DR-242 \/ MX-MISSIONACCOUNTS-5403B\n-- Date: 2026-09-12\n-- Depends on: 20260911131140_sponsor_control\.sql\n-- Description: Add the enrollment, consent, durable post-rollout automatic-billing contract, and bounded provider-retry policy while dispatch remains disabled\.\n-- Idempotent: NO\n\nBEGIN;/);
+  assert.match(sql, /COMMIT;\s*$/);
+  assert.doesNotMatch(sql, /create\s+(?:unique\s+)?index\s+concurrently|refresh\s+materialized\s+view\s+concurrently|vacuum|reindex|cluster|create\s+database|drop\s+database/i);
+
+  assert.match(sql, /create table missionaccounts\.program_enrollment_projection/);
+  assert.match(sql, /program_key text not null check \(program_key = 'examprep'\)/);
+  assert.match(sql, /course_id bigint not null check \(course_id = 6357\)/);
+  assert.match(sql, /alter table missionaccounts\.program_enrollment_projection force row level security/);
+  assert.match(sql, /grant all on missionaccounts\.program_enrollment_projection,[\s\S]+to service_role/);
+  assert.doesNotMatch(sql, /grant [^;]+ on missionaccounts\.program_enrollment_projection to (?:anon|authenticated)/);
+
+  assert.match(sql, /create function missionaccounts\.api_sync_program_enrollment/);
+  assert.match(sql, /p_actor_role <> 'student'/);
+  assert.match(sql, /student_row\.id::text is distinct from p_actor_id/);
+  assert.match(sql, /p_source_subject is distinct from p_actor_id/);
+  assert.doesNotMatch(
+    sql.slice(sql.indexOf('create function missionaccounts.api_sync_program_enrollment'), sql.indexOf('create function missionaccounts.api_refresh_auto_charge_candidates')),
+    /matrix_user_ref\s+(?:=|is distinct from)\s+p_actor_id/,
+  );
+  assert.match(sql, /p_source_observed_at < clock_timestamp\(\) - interval '15 minutes'/);
+  const consentSql = sql.slice(
+    sql.indexOf('create or replace function missionaccounts.api_set_billing_consent'),
+    sql.indexOf('create or replace function missionaccounts.api_prepare_day_charge'),
+  );
+  assert.match(consentSql, /student_row\.id::text is distinct from p_actor_id/);
+  assert.doesNotMatch(consentSql, /matrix_user_ref\s+(?:=|is distinct from|is null)[\s\S]*p_actor_id/);
+  assert.match(sql, /valid_until[\s\S]+p_source_observed_at \+ contract_row\.enrollment_freshness/);
+
+  assert.match(sql, /live_dispatch_allowed boolean not null default false/);
+  assert.match(sql, /true, 6357, 2500, transaction_timestamp\(\),[\s\S]+false, true/);
+  assert.match(sql, /ad\.day >= \(contract_row\.rollout_cutoff at time zone 'America\/New_York'\)::date/);
+  assert.match(sql, /ad\.computed_at >= contract_row\.rollout_cutoff/);
+  assert.match(sql, /ordinary_dispatch_delay interval not null default interval '24 hours'/);
+  assert.match(sql, /retry_delay interval not null default interval '12 hours'/);
+  assert.match(sql, /max_provider_attempts integer not null default 2/);
+  assert.match(sql, /ad\.computed_at \+ contract_row\.ordinary_dispatch_delay/);
+  assert.match(sql, /provider_failure_count integer not null default 0/);
+  assert.match(sql, /alter table missionaccounts\.charge_attempt[\s\S]+add column if not exists provider_ref text/);
+  assert.match(sql, /create unique index if not exists charge_attempt_provider_ref_unique/);
+  assert.match(sql, /event_provider_request_id := event_row\.payload #>> '\{data,object,metadata,provider_request_id\}'/);
+  assert.match(sql, /where charge_id = charge_row\.id and provider_request_id = event_provider_request_id/);
+  assert.match(sql, /stripe_attempt_terminal_state_mismatch/);
+  assert.match(stripeSource, /'metadata\[provider_request_id\]': providerRequestId/);
+  assert.match(stripeSource, /'metadata\[provider_attempt_number\]': String\(providerAttemptNumber\)/);
+  assert.match(serverSource, /providerRequestId !== expectedProviderRequestId/);
+  assert.match(serverSource, /providerRequestId,[\s\S]+providerAttemptNumber/);
+  assert.match(sql, /provider_outcome_unknown_requires_reconciliation/);
+  assert.match(sql, /late_fee_eligible_review/);
+  assert.match(sql, /'late_fee_amount_cents', null/);
+  assert.match(sql, /idempotency_key \|\| ':attempt:' \|\| \(candidate\.provider_failure_count \+ 1\)::text/);
+  assert.match(sql, /'pending'/);
+  assert.match(sql, /state = 'held'[\s\S]+stale_claim_requires_review/);
+  assert.doesNotMatch(claimSql, /interval '48 hours'/);
+  assert.doesNotMatch(claimSql, /state = 'expired'/);
+
+  assert.match(sql, /p_actor_role <> 'service' or p_actor_id <> 'missionaccounts:auto-charge'/);
+  assert.match(sql, /automatic_billing_service_authority_required/);
+  assert.match(sql, /active_examprep_enrollment_required/);
+  assert.match(sql, /approved_billing_terms_required/);
+  assert.match(sql, /durable_charge_candidate_required/);
+  assert.match(sql, /pre_rollout_attendance_not_chargeable/);
+
+  assert.match(sql, /alter table missionaccounts\.billing_terms[\s\S]+add column if not exists body_text text/);
+  assert.match(sql, /billing_terms_body_hash_mismatch/);
+  assert.doesNotMatch(sql, /insert into missionaccounts\.billing_terms/);
+  assert.doesNotMatch(sql, /late_fee_amount_cents\s*[:=]\s*[1-9]/i);
+  assert.doesNotMatch(sql, /stripe\.com|net\.http|http_post/i);
+});
+
 test('every pending charge requires a validated student receipt email', async () => {
   const [initialSql, receiptSql] = await Promise.all([
     readFile(new URL('../supabase/migrations/20260906062212_missionaccounts_initial_schema.sql', import.meta.url), 'utf8'),
