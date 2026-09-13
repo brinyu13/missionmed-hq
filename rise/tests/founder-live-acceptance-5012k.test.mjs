@@ -70,3 +70,22 @@ test("5012K keeps Step 2 timing, preference, unpublished, and conflict states di
   assert.equal(count("step2RequiredBeforeStart"), 3);
   assert.equal(count("step2RequiredForInterview"), 3);
 });
+
+test("5012K makes applicant-first filter order the DOM and accessibility order", async () => {
+  const appSource = await fs.readFile(path.join(ROOT, "web/app.js"), "utf8");
+  const order = [
+    "'.filterComposition'",
+    "'.filterExams'",
+    "'.filterGraduation'",
+    "'.filterVisa'",
+    "'.filterResidentEvidence'",
+    "'.advancedFilters'",
+  ];
+  let previous = -1;
+  for (const selector of order) {
+    const offset = appSource.indexOf(selector, appSource.indexOf("const drawer = dw.querySelector"));
+    assert.ok(offset > previous, `${selector} must follow the applicant-first DOM order`);
+    previous = offset;
+  }
+  assert.match(appSource, /drawer\.append\(section\)/);
+});

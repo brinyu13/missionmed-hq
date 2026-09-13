@@ -1417,6 +1417,22 @@ window.openFilterDrawer = () => {
     </div>
     <button class="fAct pri" style="margin-top:8px" onclick="$('#filterDrawer').classList.remove('open')">Show results</button>
   </div>`;
+  // Keep the applicant-first information architecture deterministic even when
+  // a browser is carrying an older cached stylesheet. DOM order is also the
+  // reading order for assistive technology; CSS `order` alone is not enough.
+  const drawer = dw.querySelector('.drawer');
+  [
+    '.filterComposition',
+    '.filterExams',
+    '.filterGraduation',
+    '.filterVisa',
+    '.filterResidentEvidence',
+    '.advancedFilters',
+    '.fAct',
+  ].forEach((selector) => {
+    const section = drawer?.querySelector(selector);
+    if (section) drawer.append(section);
+  });
   dw.classList.add('open');
 };
 window.rerenderKeepDrawer = () => { state.find.shown = 50; renderMain('find'); };
