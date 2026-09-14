@@ -14,13 +14,13 @@ create table missionaccounts.student_onboarding_profile (
   student_id uuid primary key references missionaccounts.student(id),
   preferred_name text,
   school_name text,
-  best_contact_method text not null check (best_contact_method in ('email','phone')),
-  mailing_line1 text not null,
+  best_contact_method text check (best_contact_method in ('email','phone')),
+  mailing_line1 text,
   mailing_line2 text,
-  mailing_city text not null,
-  mailing_region text not null,
-  mailing_postal_code text not null,
-  mailing_country_code text not null default 'US'
+  mailing_city text,
+  mailing_region text,
+  mailing_postal_code text,
+  mailing_country_code text
     check (mailing_country_code ~ '^[A-Z]{2}$'),
   revision integer not null default 1 check (revision > 0),
   created_at timestamptz not null default now(),
@@ -87,6 +87,9 @@ begin
     and resolution_row.canonical_student_id = p_student_id
     and coalesce(resolution_row.absorbed, false) = false
     and coalesce(resolution_row.excluded, false) = false;
+  if not account_ready then
+    raise exception using errcode = '42501', message = 'onboarding_canonical_identity_required';
+  end if;
 
   select * into profile_row
   from missionaccounts.student_onboarding_profile
@@ -208,6 +211,7 @@ create function missionaccounts.api_save_student_onboarding(
   p_mailing_region text,
   p_mailing_postal_code text,
   p_mailing_country_code text,
+  p_changed_fields text[],
   p_expected_revision integer,
   p_actor_id text,
   p_actor_role text,
@@ -235,6 +239,16 @@ declare
   clean_region text := nullif(btrim(p_mailing_region), '');
   clean_postal text := nullif(btrim(p_mailing_postal_code), '');
   clean_country text := upper(btrim(p_mailing_country_code));
+  canonical_fields text[];
+  next_preferred text;
+  next_school text;
+  next_contact text;
+  next_line1 text;
+  next_line2 text;
+  next_city text;
+  next_region text;
+  next_postal text;
+  next_country text;
   changed text[];
 begin
   if p_actor_role <> 'student' or p_actor_id <> p_student_id::text then
@@ -246,15 +260,27 @@ begin
   if p_expected_revision is null or p_expected_revision < 0 then
     raise exception using errcode = '22023', message = 'onboarding_revision_invalid';
   end if;
-  if clean_school is null or length(clean_school) not between 2 and 160
-     or clean_contact not in ('email','phone')
-     or clean_line1 is null or length(clean_line1) not between 3 and 160
-     or clean_city is null or length(clean_city) not between 2 and 100
-     or clean_region is null or length(clean_region) not between 2 and 100
-     or clean_postal is null or length(clean_postal) not between 2 and 24
-     or clean_country !~ '^[A-Z]{2}$'
-     or (clean_preferred is not null and length(clean_preferred) > 80)
-     or (clean_line2 is not null and length(clean_line2) > 160) then
+  select array_agg(field order by field) into canonical_fields
+  from unnest(p_changed_fields) field;
+  if p_changed_fields is null
+     or cardinality(p_changed_fields) not between 1 and 9
+     or cardinality(canonical_fields) <> (select count(distinct field) from unnest(p_changed_fields) field)
+     or exists (
+       select 1 from unnest(p_changed_fields) field
+       where field not in (
+         'preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2',
+         'mailing_city','mailing_region','mailing_postal_code','mailing_country_code'
+       )
+     )
+     or ('school_name' = any(p_changed_fields) and (clean_school is null or length(clean_school) not between 2 and 160))
+     or ('best_contact_method' = any(p_changed_fields) and clean_contact not in ('email','phone'))
+     or ('mailing_line1' = any(p_changed_fields) and (clean_line1 is null or length(clean_line1) not between 3 and 160))
+     or ('mailing_city' = any(p_changed_fields) and (clean_city is null or length(clean_city) not between 2 and 100))
+     or ('mailing_region' = any(p_changed_fields) and (clean_region is null or length(clean_region) not between 2 and 100))
+     or ('mailing_postal_code' = any(p_changed_fields) and (clean_postal is null or length(clean_postal) not between 2 and 24))
+     or ('mailing_country_code' = any(p_changed_fields) and clean_country !~ '^[A-Z]{2}$')
+     or ('preferred_name' = any(p_changed_fields) and clean_preferred is not null and length(clean_preferred) > 80)
+     or ('mailing_line2' = any(p_changed_fields) and clean_line2 is not null and length(clean_line2) > 160) then
     raise exception using errcode = '22023', message = 'onboarding_profile_invalid';
   end if;
 
@@ -269,23 +295,9 @@ begin
     'mailing_region', clean_region,
     'mailing_postal_code', clean_postal,
     'mailing_country_code', clean_country,
+    'changed_fields', canonical_fields,
     'expected_revision', p_expected_revision
   )::text, 'UTF8'), 'sha256'), 'hex');
-
-  select * into existing_submission
-  from missionaccounts.student_onboarding_submission
-  where request_id = p_request_id;
-  if found then
-    if existing_submission.student_id <> p_student_id
-       or existing_submission.request_sha256 <> request_hash then
-      raise exception using errcode = '23505', message = 'onboarding_idempotency_conflict';
-    end if;
-    return jsonb_build_object(
-      'accepted', true,
-      'duplicate', true,
-      'onboarding', missionaccounts.onboarding_state_for_student(p_student_id)
-    );
-  end if;
 
   select * into student_row
   from missionaccounts.student
@@ -304,6 +316,24 @@ begin
     raise exception using errcode = '42501', message = 'onboarding_canonical_identity_required';
   end if;
 
+  -- The canonical student row is the per-subject serialization point. Recheck
+  -- the request only after acquiring it so simultaneous identical retries see
+  -- the committed submission instead of racing into a revision conflict.
+  select * into existing_submission
+  from missionaccounts.student_onboarding_submission
+  where request_id = p_request_id;
+  if found then
+    if existing_submission.student_id <> p_student_id
+       or existing_submission.request_sha256 <> request_hash then
+      raise exception using errcode = '23505', message = 'onboarding_idempotency_conflict';
+    end if;
+    return jsonb_build_object(
+      'accepted', true,
+      'duplicate', true,
+      'onboarding', missionaccounts.onboarding_state_for_student(p_student_id)
+    );
+  end if;
+
   select * into profile_row
   from missionaccounts.student_onboarding_profile
   where student_id = p_student_id
@@ -314,16 +344,26 @@ begin
   end if;
   next_revision := current_revision + 1;
 
+  next_preferred := case when 'preferred_name' = any(p_changed_fields) then clean_preferred else profile_row.preferred_name end;
+  next_school := case when 'school_name' = any(p_changed_fields) then clean_school else profile_row.school_name end;
+  next_contact := case when 'best_contact_method' = any(p_changed_fields) then clean_contact else profile_row.best_contact_method end;
+  next_line1 := case when 'mailing_line1' = any(p_changed_fields) then clean_line1 else profile_row.mailing_line1 end;
+  next_line2 := case when 'mailing_line2' = any(p_changed_fields) then clean_line2 else profile_row.mailing_line2 end;
+  next_city := case when 'mailing_city' = any(p_changed_fields) then clean_city else profile_row.mailing_city end;
+  next_region := case when 'mailing_region' = any(p_changed_fields) then clean_region else profile_row.mailing_region end;
+  next_postal := case when 'mailing_postal_code' = any(p_changed_fields) then clean_postal else profile_row.mailing_postal_code end;
+  next_country := case when 'mailing_country_code' = any(p_changed_fields) then clean_country else profile_row.mailing_country_code end;
+
   changed := array_remove(array[
-    case when profile_row.student_id is null or profile_row.preferred_name is distinct from clean_preferred then 'preferred_name' end,
-    case when profile_row.student_id is null or profile_row.school_name is distinct from clean_school then 'school_name' end,
-    case when profile_row.student_id is null or profile_row.best_contact_method is distinct from clean_contact then 'best_contact_method' end,
-    case when profile_row.student_id is null or profile_row.mailing_line1 is distinct from clean_line1 then 'mailing_line1' end,
-    case when profile_row.student_id is null or profile_row.mailing_line2 is distinct from clean_line2 then 'mailing_line2' end,
-    case when profile_row.student_id is null or profile_row.mailing_city is distinct from clean_city then 'mailing_city' end,
-    case when profile_row.student_id is null or profile_row.mailing_region is distinct from clean_region then 'mailing_region' end,
-    case when profile_row.student_id is null or profile_row.mailing_postal_code is distinct from clean_postal then 'mailing_postal_code' end,
-    case when profile_row.student_id is null or profile_row.mailing_country_code is distinct from clean_country then 'mailing_country_code' end
+    case when 'preferred_name' = any(p_changed_fields) and profile_row.preferred_name is distinct from next_preferred then 'preferred_name' end,
+    case when 'school_name' = any(p_changed_fields) and profile_row.school_name is distinct from next_school then 'school_name' end,
+    case when 'best_contact_method' = any(p_changed_fields) and profile_row.best_contact_method is distinct from next_contact then 'best_contact_method' end,
+    case when 'mailing_line1' = any(p_changed_fields) and profile_row.mailing_line1 is distinct from next_line1 then 'mailing_line1' end,
+    case when 'mailing_line2' = any(p_changed_fields) and profile_row.mailing_line2 is distinct from next_line2 then 'mailing_line2' end,
+    case when 'mailing_city' = any(p_changed_fields) and profile_row.mailing_city is distinct from next_city then 'mailing_city' end,
+    case when 'mailing_region' = any(p_changed_fields) and profile_row.mailing_region is distinct from next_region then 'mailing_region' end,
+    case when 'mailing_postal_code' = any(p_changed_fields) and profile_row.mailing_postal_code is distinct from next_postal then 'mailing_postal_code' end,
+    case when 'mailing_country_code' = any(p_changed_fields) and profile_row.mailing_country_code is distinct from next_country then 'mailing_country_code' end
   ], null);
   if cardinality(changed) = 0 then
     changed := array['profile_confirmed']::text[];
@@ -334,9 +374,9 @@ begin
     mailing_line1, mailing_line2, mailing_city, mailing_region,
     mailing_postal_code, mailing_country_code, revision, updated_at
   ) values (
-    p_student_id, clean_preferred, clean_school, clean_contact,
-    clean_line1, clean_line2, clean_city, clean_region,
-    clean_postal, clean_country, next_revision, clock_timestamp()
+    p_student_id, next_preferred, next_school, next_contact,
+    next_line1, next_line2, next_city, next_region,
+    next_postal, next_country, next_revision, clock_timestamp()
   ) on conflict (student_id) do update set
     preferred_name = excluded.preferred_name,
     school_name = excluded.school_name,
@@ -408,6 +448,13 @@ begin
     from missionaccounts.student student
     join missionaccounts.identity_student_resolution resolution
       on resolution.source_student_id = student.id
+    join missionaccounts.program_enrollment_projection enrollment
+      on enrollment.student_id = student.id
+     and enrollment.program_key = 'examprep'
+     and enrollment.provider = 'learndash'
+     and enrollment.course_id = 6357
+     and enrollment.enrolled
+     and enrollment.valid_until > clock_timestamp()
     cross join lateral (
       select missionaccounts.onboarding_state_for_student(student.id) as value
     ) derived
@@ -435,14 +482,14 @@ revoke execute on function missionaccounts.onboarding_state_for_student(uuid)
 from public, anon, authenticated;
 revoke execute on function missionaccounts.api_get_student_onboarding(uuid, text, text)
 from public, anon, authenticated;
-revoke execute on function missionaccounts.api_save_student_onboarding(uuid, text, text, text, text, text, text, text, text, text, integer, text, text, text)
+revoke execute on function missionaccounts.api_save_student_onboarding(uuid, text, text, text, text, text, text, text, text, text, text[], integer, text, text, text)
 from public, anon, authenticated;
 revoke execute on function missionaccounts.api_admin_onboarding_queue(text, text)
 from public, anon, authenticated;
 
 grant execute on function missionaccounts.api_get_student_onboarding(uuid, text, text)
 to service_role;
-grant execute on function missionaccounts.api_save_student_onboarding(uuid, text, text, text, text, text, text, text, text, text, integer, text, text, text)
+grant execute on function missionaccounts.api_save_student_onboarding(uuid, text, text, text, text, text, text, text, text, text, text[], integer, text, text, text)
 to service_role;
 grant execute on function missionaccounts.api_admin_onboarding_queue(text, text)
 to service_role;

@@ -133,28 +133,36 @@ function onboardingProfileFromBody(body) {
     'mailing_city', 'mailing_region', 'mailing_postal_code', 'mailing_country_code', 'expected_revision',
   ]);
   if (Object.keys(body).some(key => !allowed.has(key))) throw requestError('Onboarding profile contains an unsupported field');
-  const value = (key, max, required = true) => {
+  const changedFields = Object.keys(body).filter(key => key !== 'expected_revision');
+  if (changedFields.length === 0) throw requestError('Onboarding profile contains no changes');
+  const value = (key, max, allowEmpty = false) => {
     const clean = String(body[key] ?? '').trim();
-    if ((required && !clean) || clean.length > max) throw requestError(`Onboarding ${key} is invalid`);
+    if ((!allowEmpty && !clean) || clean.length > max) throw requestError(`Onboarding ${key} is invalid`);
     return clean || null;
   };
-  const profile = {
-    preferred_name: value('preferred_name', 80, false),
-    school_name: value('school_name', 160),
-    best_contact_method: value('best_contact_method', 10),
-    mailing_line1: value('mailing_line1', 160),
-    mailing_line2: value('mailing_line2', 160, false),
-    mailing_city: value('mailing_city', 100),
-    mailing_region: value('mailing_region', 100),
-    mailing_postal_code: value('mailing_postal_code', 24),
-    mailing_country_code: value('mailing_country_code', 2).toUpperCase(),
+  const rules = {
+    preferred_name: [80, true],
+    school_name: [160, false],
+    best_contact_method: [10, false],
+    mailing_line1: [160, false],
+    mailing_line2: [160, true],
+    mailing_city: [100, false],
+    mailing_region: [100, false],
+    mailing_postal_code: [24, false],
+    mailing_country_code: [2, false],
   };
-  if (!['email', 'phone'].includes(profile.best_contact_method) || !/^[A-Z]{2}$/.test(profile.mailing_country_code)) {
+  const profile = Object.fromEntries(changedFields.map(key => {
+    const [max, allowEmpty] = rules[key];
+    const clean = value(key, max, allowEmpty);
+    return [key, key === 'mailing_country_code' ? clean.toUpperCase() : key === 'best_contact_method' ? clean.toLowerCase() : clean];
+  }));
+  if ((Object.hasOwn(profile, 'best_contact_method') && !['email', 'phone'].includes(profile.best_contact_method))
+      || (Object.hasOwn(profile, 'mailing_country_code') && !/^[A-Z]{2}$/.test(profile.mailing_country_code))) {
     throw requestError('Onboarding contact method or country is invalid');
   }
   const expectedRevision = Number(body.expected_revision);
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw requestError('Onboarding revision is invalid');
-  return { profile, expectedRevision };
+  return { profile, changedFields, expectedRevision };
 }
 
 function secureTokenEqual(actual, expected) {
@@ -762,10 +770,11 @@ export function createMissionAccountsServer({
       requireRole(identity, ['student']);
       requireFeature(config, 'onboarding');
       const student = await studentContext(identity);
-      const { profile, expectedRevision } = onboardingProfileFromBody(await readJsonBody(request, { limitBytes: 12_288 }));
+      const { profile, changedFields, expectedRevision } = onboardingProfileFromBody(await readJsonBody(request, { limitBytes: 12_288 }));
       const result = await store.saveStudentOnboarding({
         studentId: student.id,
         profile,
+        changedFields,
         expectedRevision,
         actorId: identity.userId,
         actorRole: 'student',

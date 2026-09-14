@@ -1,6 +1,6 @@
 {
   "ticket": "MX-MISSIONACCOUNTS-5404A",
-  "captured_at": "2026-09-14T11:36:00Z",
+  "captured_at": "2026-09-14T12:08:09Z",
   "stage": "SOURCE_CANDIDATE_AWAITING_INDEPENDENT_TECHNICAL_VERIFICATION",
   "source_base": "8450144bda8aabb3bac2a671e524b6af9d64b1a4",
   "source_base_missionaccounts_tree": "3133c78ad1228db14b829f608861503fdf4fdc09",
@@ -20,24 +20,50 @@
     "feature_flag": "MISSIONACCOUNTS_ONBOARDING",
     "student_route": "#/me/onboarding",
     "admin_route": "#/onboarding",
-    "student_api": ["GET /api/me/onboarding", "POST /api/me/onboarding"],
-    "admin_api": ["GET /api/admin/onboarding"],
+    "student_api": [
+      "GET /api/me/onboarding",
+      "POST /api/me/onboarding"
+    ],
+    "admin_api": [
+      "GET /api/admin/onboarding"
+    ],
     "access_enforcement_added": false,
     "notification_delivery_added": false,
     "billing_or_dispatch_change_added": false
   },
   "source_sha256": {
-    "public/index.production.html": "fe6f9bea092c2881242d4cd652e1d9c15d1d28c62f9ea6369dafc3527c8664b8",
+    "public/index.production.html": "584d41e8487d5c67a516659982346753c5135a107ab3c117c289d5f0fbd58f3b",
     "public/missionaccounts-runtime.js": "7e24869fc3d44306f61568f8560c0ca28e43177c9b48b07dc7efc0f783462a30",
-    "src/server.mjs": "399107b4dc12a0f7ecfee87f4af02a466ad888463a5f0a23d2fcb85223fd1291",
-    "src/storage/supabase-rest.mjs": "7218eb070e5630d5c121f704d409ab4360f2e7f26143e8a5b72ce01aea569d1e",
-    "supabase/migrations/20260914111824_dedicated_examprep_onboarding_5404a.sql": "510bedc7b7fbc8634bd22355d3a846fc39ca3fef01fee5c2e88023d7275f9ea7",
-    "tests/onboarding.test.mjs": "1610ac6febd0ef3d0d524ce451f6c9585e5e648bea0f7f139dc9d83055e4820c",
-    "scripts/test-5404a-postgres-rehearsal.sh": "81d4bca69f5ee9100fc403886dceabe41cc89212f5312d38bd87181c070d20b1"
+    "src/server.mjs": "a7aa1bd1063ec520085ee7c0b4befb5269cb0f5b751be16a06904a941ef824e4",
+    "src/storage/supabase-rest.mjs": "e59f8f91bd5d440484e062c4bce7fb511c00ba6365af1c4d9e0c998f6ab49066",
+    "supabase/migrations/20260914111824_dedicated_examprep_onboarding_5404a.sql": "a6083c0578cf2db0e60508b9b56350dba02aacc428e2a799547c172d7142b49a",
+    "tests/onboarding.test.mjs": "ddc01a3c67f6951c8e01f0f7c14cf9f277adc92801a109bef86bde8a3723bfc9",
+    "scripts/test-5404a-postgres-rehearsal.sh": "0660cb9ec4a7d977f803a0c1343aaaf92d85f683d45e8db99e766fcc4a93333e"
   },
   "validation": {
-    "npm_test": {"result": "PASS", "tests": 216, "failed": 0},
-    "source_validation": {"result": "PASS", "attendance_events": 3941, "human_cycle_rows": 498, "identity_nodes": 370},
+    "independent_history": [
+      {
+        "candidate": "f896111844ffa48ccf549f5dc21afe03812fb0bd",
+        "result": "FAIL",
+        "corrected_findings": [
+          "single-field incremental save was missing",
+          "concurrent identical retries could return a revision conflict",
+          "ambiguous canonical identity could read an existing profile",
+          "admin queue was not bounded to current authoritative ExamPrep enrollment"
+        ]
+      }
+    ],
+    "npm_test": {
+      "result": "PASS",
+      "tests": 219,
+      "failed": 0
+    },
+    "source_validation": {
+      "result": "PASS",
+      "attendance_events": 3941,
+      "human_cycle_rows": 498,
+      "identity_nodes": 370
+    },
     "postgres_rehearsal": {
       "result": "PASS",
       "proved": [
@@ -46,8 +72,12 @@
         "forced row-level security on both onboarding tables",
         "service-role-only RPC execution",
         "cross-student subject denial",
+        "ambiguous canonical identity read denial",
+        "single-field incremental save and resume",
         "optimistic revision conflict",
         "idempotent request replay",
+        "concurrent identical request deduplication",
+        "current ExamPrep-enrollment-bounded admin queue",
         "zero notification rows",
         "zero charge rows",
         "zero hosted-invoice dispatch rows"
@@ -55,12 +85,24 @@
     },
     "rendered_browser": {
       "result": "PASS",
-      "student_save_resume": "PASS; synthetic profile persisted from revision 0 to revision 1 and rerendered as IN_PROGRESS",
-      "admin_minimum_queue": "PASS; completion, missing steps, and last updated visible without address/contact/provider references",
+      "student_save_resume": "PASS; a synthetic school-only patch persisted from revision 0 to revision 1, rerendered as IN_PROGRESS, and preserved the incomplete profile state",
+      "admin_minimum_queue": "PASS; current authoritative ExamPrep enrollment showed completion, missing steps, and last updated without address/contact/provider references",
       "viewports": {
-        "1440": {"horizontal_overflow": false, "student_form_visible": true, "navigation_visible": true},
-        "1024": {"horizontal_overflow": false, "student_form_visible": true, "navigation_visible": true},
-        "390": {"horizontal_overflow": false, "student_form_visible": true, "navigation_visible": true}
+        "1440": {
+          "horizontal_overflow": false,
+          "student_form_visible": true,
+          "navigation_visible": true
+        },
+        "1024": {
+          "horizontal_overflow": false,
+          "student_form_visible": true,
+          "navigation_visible": true
+        },
+        "390": {
+          "horizontal_overflow": false,
+          "student_form_visible": true,
+          "navigation_visible": true
+        }
       }
     }
   },

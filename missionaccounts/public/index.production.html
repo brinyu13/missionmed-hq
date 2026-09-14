@@ -1881,15 +1881,15 @@ function viewMeOnboarding(){ const data=window.MissionAccountsRuntime?.state?.bo
   return `<section class="view"><div class="onboardHero"><div><div class="eyebrow em">ExamPrep onboarding</div><h1 class="h1" style="margin-top:8px">Your ExamPrep account, ready in one place.</h1><p class="lead" style="margin-top:10px">Save your profile now, then use the checklist to finish the existing account steps. You can leave and resume at any time.</p></div><div class="onboardMeter" role="status"><div class="n">${pct}%</div><div class="d">${done} of ${applicable.length} account steps ready · ${esc(onboardingStatusLabel(data.status))}</div><div class="progress light green" style="margin-top:10px"><i style="width:${pct}%"></i></div></div></div>
     <div class="onboardGrid"><form class="panel onboardForm" data-onboarding-form novalidate><div class="chHead" style="margin-top:0"><span class="t">Your profile</span><span class="chip ${data.status==='COMPLETE'?'approved':data.status==='IN_PROGRESS'?'ready':'future'}">${esc(onboardingStatusLabel(data.status))}</span></div><p class="muted">Your login name, email and phone stay in your canonical MissionMed account. This form stores only the onboarding profile fields shown below.</p><div class="onboardFields">
       <label>Preferred name <input name="preferred_name" maxlength="80" autocomplete="nickname" value="${esc(profile.preferred_name||'')}"></label>
-      <label>School <input name="school_name" maxlength="160" autocomplete="organization" required value="${esc(profile.school_name||'')}"></label>
-      <label>Best way to contact you <select name="best_contact_method" required><option value="email" ${profile.best_contact_method==='email'?'selected':''}>Email</option><option value="phone" ${profile.best_contact_method==='phone'?'selected':''}>Phone</option></select></label>
-      <label>Country <input name="mailing_country_code" maxlength="2" autocomplete="country" required value="${esc(profile.mailing_country_code||'US')}"></label>
-      <label class="wide">Mailing address <input name="mailing_line1" maxlength="160" autocomplete="address-line1" required value="${esc(profile.mailing_line1||'')}"></label>
+      <label>School <input name="school_name" maxlength="160" autocomplete="organization" value="${esc(profile.school_name||'')}"></label>
+      <label>Best way to contact you <select name="best_contact_method"><option value="">Choose one</option><option value="email" ${profile.best_contact_method==='email'?'selected':''}>Email</option><option value="phone" ${profile.best_contact_method==='phone'?'selected':''}>Phone</option></select></label>
+      <label>Country <input name="mailing_country_code" maxlength="2" autocomplete="country" value="${esc(profile.mailing_country_code||'US')}"></label>
+      <label class="wide">Mailing address <input name="mailing_line1" maxlength="160" autocomplete="address-line1" value="${esc(profile.mailing_line1||'')}"></label>
       <label class="wide">Address line 2 <input name="mailing_line2" maxlength="160" autocomplete="address-line2" value="${esc(profile.mailing_line2||'')}"></label>
-      <label>City <input name="mailing_city" maxlength="100" autocomplete="address-level2" required value="${esc(profile.mailing_city||'')}"></label>
-      <label>State or region <input name="mailing_region" maxlength="100" autocomplete="address-level1" required value="${esc(profile.mailing_region||'')}"></label>
-      <label>Postal code <input name="mailing_postal_code" maxlength="24" autocomplete="postal-code" required value="${esc(profile.mailing_postal_code||'')}"></label>
-    </div><div class="btnRow" style="margin-top:20px"><button class="btn primary" type="submit">Save and continue</button><span class="muted">Revision ${Number(data.revision||0)}${data.last_updated_at?' · saved '+esc(fmtStamp(data.last_updated_at)):''}</span></div></form>
+      <label>City <input name="mailing_city" maxlength="100" autocomplete="address-level2" value="${esc(profile.mailing_city||'')}"></label>
+      <label>State or region <input name="mailing_region" maxlength="100" autocomplete="address-level1" value="${esc(profile.mailing_region||'')}"></label>
+      <label>Postal code <input name="mailing_postal_code" maxlength="24" autocomplete="postal-code" value="${esc(profile.mailing_postal_code||'')}"></label>
+    </div><div class="btnRow" style="margin-top:20px"><button class="btn primary" type="submit">Save progress</button><span class="muted">Revision ${Number(data.revision||0)}${data.last_updated_at?' · saved '+esc(fmtStamp(data.last_updated_at)):''}</span></div></form>
     <aside><div class="chHead" style="margin-top:0"><span class="t">Your checklist</span><span class="c">${data.missing_steps?.length?data.missing_steps.length+' remaining':'All ready'}</span></div><div class="onboardSteps">${stepHTML}</div><div class="panel" style="padding:16px;margin-top:12px"><b>Canonical contact</b><p class="muted" style="margin-top:6px">${esc(data.student?.email||'Email missing')} · ${esc(data.student?.phone||'Phone missing')}</p></div></aside></div></section>`; }
 function viewAdminOnboarding(){ const rows=window.MissionAccountsRuntime?.state?.bootstrap?.onboarding_queue||[]; const counts={COMPLETE:0,IN_PROGRESS:0,NOT_STARTED:0}; rows.forEach(row=>{counts[row.status]=(counts[row.status]||0)+1;});
   return `<section class="view"><div class="eyebrow em">ExamPrep onboarding</div><h1 class="h1" style="margin-top:8px">Who is ready, and what is missing.</h1><p class="lead" style="margin-top:10px">This view shows completion status only. It does not impersonate a student, expose a mailing address or change access, billing or consent.</p><div class="band" style="margin-top:20px"><div class="cell"><span class="l">Complete</span><span class="n ok">${counts.COMPLETE||0}</span></div><div class="cell"><span class="l">In progress</span><span class="n">${counts.IN_PROGRESS||0}</span></div><div class="cell"><span class="l">Not started</span><span class="n est">${counts.NOT_STARTED||0}</span></div><div class="cell"><span class="l">Students</span><span class="n">${rows.length}</span></div></div><div class="onboardQueue">${rows.map(row=>`<div class="onboardRow"><div class="who">${esc(row.preferred_name||row.display_name||'Student')}</div><span class="chip ${row.status==='COMPLETE'?'approved':row.status==='IN_PROGRESS'?'ready':'future'}">${esc(onboardingStatusLabel(row.status))}</span><div class="missing">${row.missing_steps?.length?'Missing: '+row.missing_steps.map(onboardingMissingLabel).join(' · '):'All applicable steps complete'}</div><div class="updated">${row.last_updated_at?esc(fmtStamp(row.last_updated_at)):'No profile save yet'}</div></div>`).join('')||'<div class="panel empty" style="padding:22px">No canonical students are available in this source preview.</div>'}</div></section>`; }
@@ -2253,17 +2253,16 @@ function bind(root){
     button.disabled=true; button.textContent='Saving…';
     try{
       const values=Object.fromEntries(new FormData(onboardingForm).entries());
-      const profile={
-        preferred_name:values.preferred_name,
-        school_name:values.school_name,
-        best_contact_method:values.best_contact_method,
-        mailing_line1:values.mailing_line1,
-        mailing_line2:values.mailing_line2,
-        mailing_city:values.mailing_city,
-        mailing_region:values.mailing_region,
-        mailing_postal_code:values.mailing_postal_code,
-        mailing_country_code:String(values.mailing_country_code||'').toUpperCase(),
-      };
+      const current=window.MissionAccountsRuntime?.state?.bootstrap?.onboarding?.profile||{};
+      const optional=new Set(['preferred_name','mailing_line2']);
+      const profile={};
+      ['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'].forEach(key=>{
+        let value=String(values[key]||'').trim();
+        if(key==='mailing_country_code') value=value.toUpperCase();
+        const prior=String(current[key]||'').trim();
+        if(value!==prior && (value||optional.has(key))) profile[key]=value;
+      });
+      if(!Object.keys(profile).length){ toast('No onboarding changes to save.'); return; }
       const expectedRevision=Number(window.MissionAccountsRuntime?.state?.bootstrap?.onboarding?.revision||0);
       const receipt=await window.MissionAccountsRuntime.dispatch('onboarding-save',{profile,expectedRevision});
       if(receipt!==false){ render(); toast(receipt?.duplicate?'Your profile was already saved.':'Onboarding profile saved.'); }

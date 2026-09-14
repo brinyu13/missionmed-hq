@@ -66,10 +66,10 @@ select
   (not has_table_privilege('authenticated','missionaccounts.student_onboarding_profile','select')) || '|' ||
   (not has_table_privilege('authenticated','missionaccounts.student_onboarding_submission','select')) || '|' ||
   (not has_function_privilege('authenticated','missionaccounts.api_get_student_onboarding(uuid,text,text)','execute')) || '|' ||
-  (not has_function_privilege('authenticated','missionaccounts.api_save_student_onboarding(uuid,text,text,text,text,text,text,text,text,text,integer,text,text,text)','execute')) || '|' ||
+  (not has_function_privilege('authenticated','missionaccounts.api_save_student_onboarding(uuid,text,text,text,text,text,text,text,text,text,text[],integer,text,text,text)','execute')) || '|' ||
   (not has_function_privilege('authenticated','missionaccounts.api_admin_onboarding_queue(text,text)','execute')) || '|' ||
   has_function_privilege('service_role','missionaccounts.api_get_student_onboarding(uuid,text,text)','execute') || '|' ||
-  has_function_privilege('service_role','missionaccounts.api_save_student_onboarding(uuid,text,text,text,text,text,text,text,text,text,integer,text,text,text)','execute') || '|' ||
+  has_function_privilege('service_role','missionaccounts.api_save_student_onboarding(uuid,text,text,text,text,text,text,text,text,text,text[],integer,text,text,text)','execute') || '|' ||
   has_function_privilege('service_role','missionaccounts.api_admin_onboarding_queue(text,text)','execute');
 SQL
 )
@@ -81,18 +81,37 @@ values
   ('00000000-0000-4000-8000-000000005401',null,'Canonical Direct','direct@example.test','+15555550101','verified','DIRECT',null,null,null,null),
   ('00000000-0000-4000-8000-000000005402',null,'Canonical Sponsored','sponsored@example.test','+15555550102','verified','UCC','UCC',clock_timestamp(),'pg-rehearsal','pg-sponsor-5404a-0001');
 
+insert into missionaccounts.program_enrollment_projection(
+  student_id,program_key,provider,course_id,enrolled,source_subject,
+  source_observed_at,verified_at,valid_until,last_request_id
+) values (
+  '00000000-0000-4000-8000-000000005401','examprep','learndash',6357,true,
+  '00000000-0000-4000-8000-000000005401',clock_timestamp(),clock_timestamp(),
+  clock_timestamp() + interval '1 day','pg-enrollment-5404a-0001'
+);
+
 set role service_role;
 select missionaccounts.api_get_student_onboarding(
   '00000000-0000-4000-8000-000000005401','00000000-0000-4000-8000-000000005401','student'
 )->>'status';
 select missionaccounts.api_save_student_onboarding(
+  '00000000-0000-4000-8000-000000005402',null,'First saved field',null,
+  null,null,null,null,null,null,array['school_name'],0,
+  '00000000-0000-4000-8000-000000005402','student','pg-onboard-partial-0001'
+)->>'duplicate';
+select missionaccounts.api_get_student_onboarding(
+  '00000000-0000-4000-8000-000000005402','00000000-0000-4000-8000-000000005402','student'
+)->'profile'->>'school_name';
+select missionaccounts.api_save_student_onboarding(
   '00000000-0000-4000-8000-000000005401','Ari','Mission Medical School','email',
-  '100 Learning Way','Unit 4','Atlanta','GA','30303','US',0,
+  '100 Learning Way','Unit 4','Atlanta','GA','30303','US',
+  array['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'],0,
   '00000000-0000-4000-8000-000000005401','student','pg-onboard-direct-0001'
 )->>'duplicate';
 select missionaccounts.api_save_student_onboarding(
   '00000000-0000-4000-8000-000000005401','Ari','Mission Medical School','email',
-  '100 Learning Way','Unit 4','Atlanta','GA','30303','US',0,
+  '100 Learning Way','Unit 4','Atlanta','GA','30303','US',
+  array['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'],0,
   '00000000-0000-4000-8000-000000005401','student','pg-onboard-direct-0001'
 )->>'duplicate';
 select missionaccounts.api_get_student_onboarding(
@@ -111,12 +130,24 @@ begin
   begin
     perform missionaccounts.api_save_student_onboarding(
       '00000000-0000-4000-8000-000000005401','Ari','Changed School','email',
-      '100 Learning Way',null,'Atlanta','GA','30303','US',0,
+      '100 Learning Way',null,'Atlanta','GA','30303','US',
+      array['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'],0,
       '00000000-0000-4000-8000-000000005401','student','pg-onboard-stale-0001');
     raise exception 'stale_revision_accepted';
   exception when serialization_failure then
     if sqlerrm <> 'onboarding_revision_conflict' then raise; end if;
   end;
+  update missionaccounts.student set identity_state = 'needs_review'
+  where id = '00000000-0000-4000-8000-000000005402';
+  begin
+    perform missionaccounts.api_get_student_onboarding(
+      '00000000-0000-4000-8000-000000005402','00000000-0000-4000-8000-000000005402','student');
+    raise exception 'ambiguous_identity_read_accepted';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'onboarding_canonical_identity_required' then raise; end if;
+  end;
+  update missionaccounts.student set identity_state = 'verified'
+  where id = '00000000-0000-4000-8000-000000005402';
 end;
 $$;
 
@@ -131,7 +162,42 @@ select
 SQL
 )
 
-expected=$'NOT_STARTED\nfalse\ntrue\nIN_PROGRESS\n2\n1|1|0|0|0'
+expected=$'NOT_STARTED\nfalse\nFirst saved field\nfalse\ntrue\nIN_PROGRESS\n1\n2|2|0|0|0'
 [[ "$results" == "$expected" ]] || { echo "5404A PostgreSQL controls returned unexpected results:" >&2; echo "$results" >&2; exit 1; }
 
-echo "MissionAccounts 5404A PostgreSQL rehearsal passed: atomic migration, replay rejection, forced RLS, service-only RPCs, subject isolation, revision/idempotency, zero notifications, zero charges, zero invoice dispatch."
+first_out="$pg_tmp/concurrent-first.out"
+second_out="$pg_tmp/concurrent-second.out"
+(
+  "${psql_cmd[@]}" -Atq >"$first_out" <<'SQL'
+set role service_role;
+begin;
+select missionaccounts.api_save_student_onboarding(
+  '00000000-0000-4000-8000-000000005401',null,'Concurrent School',null,
+  null,null,null,null,null,null,array['school_name'],1,
+  '00000000-0000-4000-8000-000000005401','student','pg-onboard-concurrent-0001'
+)->>'duplicate';
+select pg_sleep(1);
+commit;
+SQL
+) &
+first_pid=$!
+sleep 0.2
+(
+  "${psql_cmd[@]}" -Atq >"$second_out" <<'SQL'
+set role service_role;
+select missionaccounts.api_save_student_onboarding(
+  '00000000-0000-4000-8000-000000005401',null,'Concurrent School',null,
+  null,null,null,null,null,null,array['school_name'],1,
+  '00000000-0000-4000-8000-000000005401','student','pg-onboard-concurrent-0001'
+)->>'duplicate';
+SQL
+) &
+second_pid=$!
+wait "$first_pid"
+wait "$second_pid"
+[[ "$(grep -E '^(true|false)$' "$first_out")" == 'false' ]] || { echo "5404A first concurrent save did not create the mutation" >&2; exit 1; }
+[[ "$(grep -E '^(true|false)$' "$second_out")" == 'true' ]] || { echo "5404A identical concurrent retry did not deduplicate" >&2; exit 1; }
+concurrency=$("${psql_cmd[@]}" -Atq -c "select revision || '|' || (select count(*) from missionaccounts.student_onboarding_submission where student_id='00000000-0000-4000-8000-000000005401') from missionaccounts.student_onboarding_profile where student_id='00000000-0000-4000-8000-000000005401';")
+[[ "$concurrency" == '2|2' ]] || { echo "5404A concurrent save changed profile or submission count unexpectedly: $concurrency" >&2; exit 1; }
+
+echo "MissionAccounts 5404A PostgreSQL rehearsal passed: atomic migration, replay rejection, forced RLS, service-only RPCs, subject isolation, partial saves, concurrent idempotency, enrollment-bounded admin queue, zero notifications, zero charges, zero invoice dispatch."

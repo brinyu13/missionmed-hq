@@ -83,18 +83,19 @@ export class SupabaseRestStore {
     });
   }
 
-  async saveStudentOnboarding({ studentId, profile, expectedRevision, actorId, actorRole, requestId }) {
+  async saveStudentOnboarding({ studentId, profile, changedFields = Object.keys(profile).filter(field => field !== 'expected_revision'), expectedRevision, actorId, actorRole, requestId }) {
     return this.rpc('api_save_student_onboarding', {
       p_student_id: studentId,
-      p_preferred_name: profile.preferred_name || null,
-      p_school_name: profile.school_name,
-      p_best_contact_method: profile.best_contact_method,
-      p_mailing_line1: profile.mailing_line1,
-      p_mailing_line2: profile.mailing_line2 || null,
-      p_mailing_city: profile.mailing_city,
-      p_mailing_region: profile.mailing_region,
-      p_mailing_postal_code: profile.mailing_postal_code,
-      p_mailing_country_code: profile.mailing_country_code,
+      p_preferred_name: profile.preferred_name ?? null,
+      p_school_name: profile.school_name ?? null,
+      p_best_contact_method: profile.best_contact_method ?? null,
+      p_mailing_line1: profile.mailing_line1 ?? null,
+      p_mailing_line2: profile.mailing_line2 ?? null,
+      p_mailing_city: profile.mailing_city ?? null,
+      p_mailing_region: profile.mailing_region ?? null,
+      p_mailing_postal_code: profile.mailing_postal_code ?? null,
+      p_mailing_country_code: profile.mailing_country_code ?? null,
+      p_changed_fields: changedFields,
       p_expected_revision: expectedRevision,
       p_actor_id: actorId,
       p_actor_role: actorRole,
@@ -1022,34 +1023,35 @@ export class PreviewStore {
     if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
     return this.onboardingState(studentId);
   }
-  async saveStudentOnboarding({ studentId, profile, expectedRevision, actorId, actorRole, requestId }) {
+  async saveStudentOnboarding({ studentId, profile, changedFields = Object.keys(profile).filter(field => field !== 'expected_revision'), expectedRevision, actorId, actorRole, requestId }) {
     if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
-    const normalized = {
-      preferred_name: String(profile.preferred_name || '').trim() || null,
-      school_name: String(profile.school_name || '').trim(),
-      best_contact_method: String(profile.best_contact_method || '').trim().toLowerCase(),
-      mailing_line1: String(profile.mailing_line1 || '').trim(),
-      mailing_line2: String(profile.mailing_line2 || '').trim() || null,
-      mailing_city: String(profile.mailing_city || '').trim(),
-      mailing_region: String(profile.mailing_region || '').trim(),
-      mailing_postal_code: String(profile.mailing_postal_code || '').trim(),
-      mailing_country_code: String(profile.mailing_country_code || '').trim().toUpperCase(),
-    };
-    const fingerprint = JSON.stringify({ studentId, normalized, expectedRevision, actorId, actorRole });
+    const allowed = new Set(['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code']);
+    if (!changedFields.length || changedFields.some(field => !allowed.has(field)) || new Set(changedFields).size !== changedFields.length) {
+      throw Object.assign(new Error('Onboarding profile contains invalid changes'), { status: 400 });
+    }
+    const canonicalFields = [...changedFields].sort();
+    const normalized = Object.fromEntries(canonicalFields.map(field => {
+      let value = String(profile[field] || '').trim();
+      if (field === 'best_contact_method') value = value.toLowerCase();
+      if (field === 'mailing_country_code') value = value.toUpperCase();
+      return [field, value || null];
+    }));
+    const fingerprint = JSON.stringify({ studentId, normalized, changedFields: canonicalFields, expectedRevision, actorId, actorRole });
     const prior = this.onboardingMutations.get(requestId);
     if (prior) {
       if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
       return { ...structuredClone(prior.result), duplicate: true };
     }
     if (this.previewStudentRecord.identity_state !== 'verified') throw Object.assign(new Error('Canonical student identity is required'), { status: 403 });
-    if (!normalized.school_name || !['email', 'phone'].includes(normalized.best_contact_method)
-      || !normalized.mailing_line1 || !normalized.mailing_city || !normalized.mailing_region
-      || !normalized.mailing_postal_code || !/^[A-Z]{2}$/.test(normalized.mailing_country_code)) {
-      throw Object.assign(new Error('Onboarding profile is incomplete'), { status: 400 });
+    const required = ['school_name','best_contact_method','mailing_line1','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'];
+    if (required.some(field => Object.hasOwn(normalized, field) && !normalized[field])
+      || (Object.hasOwn(normalized, 'best_contact_method') && !['email', 'phone'].includes(normalized.best_contact_method))
+      || (Object.hasOwn(normalized, 'mailing_country_code') && !/^[A-Z]{2}$/.test(normalized.mailing_country_code))) {
+      throw Object.assign(new Error('Onboarding profile change is invalid'), { status: 400 });
     }
     const current = this.onboardingProfiles.get(studentId) || null;
     if ((current?.revision || 0) !== expectedRevision) throw Object.assign(new Error('Onboarding was updated in another session. Reload before saving.'), { status: 409 });
-    const saved = { ...normalized, revision: expectedRevision + 1, updated_at: new Date().toISOString() };
+    const saved = { ...(current || {}), ...normalized, revision: expectedRevision + 1, updated_at: new Date().toISOString() };
     this.onboardingProfiles.set(studentId, saved);
     const result = { accepted: true, duplicate: false, onboarding: this.onboardingState(studentId) };
     this.onboardingMutations.set(requestId, { fingerprint, result: structuredClone(result) });
@@ -1057,6 +1059,12 @@ export class PreviewStore {
   }
   async adminOnboardingQueue({ actorId, actorRole }) {
     if (!['missionaccounts_admin', 'founder'].includes(actorRole) || !actorId) throw Object.assign(new Error('Onboarding administrator authority required'), { status: 403 });
+    const enrollment = this.enrollmentProjections.get(this.previewStudentRecord.id);
+    if (enrollment?.program_key !== 'examprep'
+      || enrollment?.provider !== 'learndash'
+      || enrollment?.course_id !== 6357
+      || enrollment?.enrolled !== true
+      || Date.parse(enrollment.valid_until || '') <= Date.now()) return [];
     const state = this.onboardingState(this.previewStudentRecord.id);
     return [{
       student_id: this.previewStudentRecord.id,

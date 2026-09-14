@@ -42,7 +42,7 @@ Do not point this source review at production and do not enter real student info
 
 - Left rail exposes `Onboarding` inside ExamPrep.
 - Five-second message: `Your ExamPrep account, ready in one place.`
-- Dominant action: `Save and continue`.
+- Dominant action: `Save progress`.
 - Progress card shows an explicit percentage, completed/applicable-step count, and `Not started`, `In progress`, or `Complete`.
 - Profile form explains that login name, email, and phone remain in the canonical MissionMed account.
 - Checklist links to the existing exam plan, payment/billing workspace, and WordPress recovery.
@@ -51,13 +51,13 @@ Do not point this source review at production and do not enter real student info
 
 ### Student, save/resume witness
 
-A synthetic local student saved an approved-field profile. The UI rerendered from revision 0 / `Not started` to revision 1 / `In progress`, moved progress from 43% to 57%, and preserved the profile on another GET. No notification, charge, invoice, consent, enrollment, or access state changed.
+A synthetic local student saved an approved-field profile incrementally. The UI rerendered from revision 0 / `Not started` to revision 1 / `In progress`, moved progress from 43% to 57%, and preserved the profile on another GET. A student may save any populated approved field without completing the full form. No notification, charge, invoice, consent, enrollment, or access state changed.
 
 ### Dr J
 
 - Left rail exposes `Onboarding` without Student Preview or impersonation.
 - Five-second message: `Who is ready, and what is missing.`
-- Summary gives complete, in-progress, not-started, and student counts.
+- Summary gives complete, in-progress, not-started, and student counts for current canonical ExamPrep enrollment only.
 - Each row gives display/preferred name, status, missing steps, and last update.
 - Queue omits mailing address, email, phone, Stripe references, and provider secrets.
 

@@ -127,6 +127,40 @@ test('student saves, resumes, edits, and idempotently replays only their onboard
   }, initialSideEffects);
 });
 
+test('student can save one approved onboarding field and resume the partial profile', async () => {
+  const store = new PreviewStore();
+  await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+    const saved = await fetch(`${base}/api/me/onboarding`, {
+      method: 'POST',
+      headers: { ...studentHeaders, 'idempotency-key': 'onboard-partial-0001' },
+      body: JSON.stringify({ school_name: 'First saved field', expected_revision: 0 }),
+    });
+    assert.equal(saved.status, 201);
+    const body = await saved.json();
+    assert.equal(body.onboarding.profile.school_name, 'First saved field');
+    assert.equal(body.onboarding.profile.mailing_line1, undefined);
+    assert.equal(body.onboarding.status, 'IN_PROGRESS');
+    assert.equal(body.onboarding.revision, 1);
+
+    const resumed = await fetch(`${base}/api/me/onboarding`, { headers: studentHeaders });
+    assert.equal((await resumed.json()).onboarding.profile.school_name, 'First saved field');
+  });
+});
+
+test('ambiguous canonical identity cannot read a previously saved onboarding profile', async () => {
+  const store = new PreviewStore();
+  await store.saveStudentOnboarding({
+    studentId, profile: { school_name: 'Private School' }, changedFields: ['school_name'],
+    expectedRevision: 0, actorId: studentId, actorRole: 'student', requestId: 'onboard-private-0001',
+  });
+  store.previewStudentRecord.identity_state = 'needs_review';
+  await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+    const response = await fetch(`${base}/api/me/onboarding`, { headers: studentHeaders });
+    assert.equal(response.status, 403);
+    assert.doesNotMatch(await response.text(), /Private School/);
+  });
+});
+
 test('completion is server-derived and sponsored students do not require payment or consent', async () => {
   const direct = new PreviewStore();
   direct.previewStudentRecord.phone = '+15555550123';
@@ -150,6 +184,10 @@ test('completion is server-derived and sponsored students do not require payment
 
 test('student subject isolation, admin minimum queue, and unsupported sensitive fields fail closed', async () => {
   const store = new PreviewStore();
+  store.enrollmentProjections.set(studentId, {
+    student_id: studentId, program_key: 'examprep', provider: 'learndash',
+    course_id: 6357, enrolled: true, valid_until: '2099-01-01T00:00:00.000Z',
+  });
   await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
     const wrongSubject = await fetch(`${base}/api/me/onboarding`, {
       headers: { ...studentHeaders, 'x-missionaccounts-local-user': '00000000-0000-4000-8000-000000000002' },
@@ -185,12 +223,30 @@ test('student subject isolation, admin minimum queue, and unsupported sensitive 
   });
 });
 
+test('admin onboarding queue includes only current canonical ExamPrep enrollment', async () => {
+  const store = new PreviewStore();
+  const withoutEnrollment = await store.adminOnboardingQueue({ actorId: 'dr-j', actorRole: 'missionaccounts_admin' });
+  assert.deepEqual(withoutEnrollment, []);
+  store.enrollmentProjections.set(studentId, {
+    student_id: studentId, program_key: 'examprep', provider: 'learndash',
+    course_id: 6357, enrolled: false, valid_until: '2099-01-01T00:00:00.000Z',
+  });
+  assert.deepEqual(await store.adminOnboardingQueue({ actorId: 'dr-j', actorRole: 'missionaccounts_admin' }), []);
+  store.enrollmentProjections.set(studentId, {
+    student_id: studentId, program_key: 'examprep', provider: 'learndash',
+    course_id: 6357, enrolled: true, valid_until: '2020-01-01T00:00:00.000Z',
+  });
+  assert.deepEqual(await store.adminOnboardingQueue({ actorId: 'dr-j', actorRole: 'missionaccounts_admin' }), []);
+});
+
 test('production HTML exposes accessible responsive onboarding routes without adding money or delivery actions', async () => {
   const html = await readFile(new URL('../public/index.production.html', import.meta.url), 'utf8');
   const runtime = await readFile(new URL('../public/missionaccounts-runtime.js', import.meta.url), 'utf8');
   assert.match(html, /data-onboarding-form/);
   assert.match(html, /ExamPrep onboarding/);
   assert.match(html, /You can leave and resume at any time/);
+  assert.match(html, />Save progress<\/button>/);
+  assert.doesNotMatch(html, /name="(?:school_name|best_contact_method|mailing_line1|mailing_city|mailing_region|mailing_postal_code|mailing_country_code)"[^>]*\brequired\b/);
   assert.match(html, /@media\s*\(max-width:\s*960px\)/);
   assert.match(html, /@media\s*\(max-width:\s*640px\)/);
   assert.match(runtime, /'onboarding-save': 'onboarding'/);
