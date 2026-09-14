@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
+import { isIsoCountryCode } from '../public/missionaccounts-countries.js';
 import { createReadStream, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -110,8 +111,8 @@ function mime(file) {
   return ({ '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' })[path.extname(file)] || 'application/octet-stream';
 }
 
-function requestError(message, status = 400) {
-  return Object.assign(new Error(message), { status });
+function requestError(message, status = 400, details = {}) {
+  return Object.assign(new Error(message), { status, ...details });
 }
 
 function requestIdFor(request) {
@@ -135,9 +136,16 @@ function onboardingProfileFromBody(body) {
   if (Object.keys(body).some(key => !allowed.has(key))) throw requestError('Onboarding profile contains an unsupported field');
   const changedFields = Object.keys(body).filter(key => key !== 'expected_revision');
   if (changedFields.length === 0) throw requestError('Onboarding profile contains no changes');
+  const labels = {
+    preferred_name: 'Preferred name', school_name: 'School', best_contact_method: 'Best way to contact you',
+    mailing_line1: 'Mailing address', mailing_line2: 'Address line 2', mailing_city: 'City',
+    mailing_region: 'State or region', mailing_postal_code: 'Postal code', mailing_country_code: 'Country',
+  };
   const value = (key, max, allowEmpty = false) => {
     const clean = String(body[key] ?? '').trim();
-    if ((!allowEmpty && !clean) || clean.length > max) throw requestError(`Onboarding ${key} is invalid`);
+    if ((!allowEmpty && !clean) || clean.length > max) {
+      throw requestError(`${labels[key]} is ${!clean ? 'required' : 'too long'}.`, 400, { field: key });
+    }
     return clean || null;
   };
   const rules = {
@@ -156,9 +164,11 @@ function onboardingProfileFromBody(body) {
     const clean = value(key, max, allowEmpty);
     return [key, key === 'mailing_country_code' ? clean.toUpperCase() : key === 'best_contact_method' ? clean.toLowerCase() : clean];
   }));
-  if ((Object.hasOwn(profile, 'best_contact_method') && !['email', 'phone'].includes(profile.best_contact_method))
-      || (Object.hasOwn(profile, 'mailing_country_code') && !/^[A-Z]{2}$/.test(profile.mailing_country_code))) {
-    throw requestError('Onboarding contact method or country is invalid');
+  if (Object.hasOwn(profile, 'best_contact_method') && !['email', 'phone'].includes(profile.best_contact_method)) {
+    throw requestError('Choose email or phone as your best contact method.', 400, { field: 'best_contact_method' });
+  }
+  if (Object.hasOwn(profile, 'mailing_country_code') && !isIsoCountryCode(profile.mailing_country_code)) {
+    throw requestError('Choose a country from the list.', 400, { field: 'mailing_country_code' });
   }
   const expectedRevision = Number(body.expected_revision);
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw requestError('Onboarding revision is invalid');
@@ -1605,7 +1615,11 @@ export function createMissionAccountsServer({
       else await serveStatic(response, url.pathname);
     } catch (error) {
       const status = Number(error.status) || 500;
-      json(response, status, { code: status === 500 ? 'INTERNAL_ERROR' : 'REQUEST_DENIED', message: config.production && status === 500 ? 'MissionAccounts request failed' : error.message });
+      json(response, status, {
+        code: status === 500 ? 'INTERNAL_ERROR' : 'REQUEST_DENIED',
+        message: config.production && status === 500 ? 'MissionAccounts request failed' : error.message,
+        ...((status === 400 || status === 409) && typeof error.field === 'string' ? { field: error.field } : {}),
+      });
     }
   });
 }

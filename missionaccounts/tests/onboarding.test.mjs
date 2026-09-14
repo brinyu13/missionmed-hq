@@ -5,6 +5,7 @@ import { once } from 'node:events';
 import { createMissionAccountsServer } from '../src/server.mjs';
 import { PreviewStore } from '../src/storage/supabase-rest.mjs';
 import { StripeGateway } from '../src/payments/stripe.mjs';
+import { isIsoCountryCode } from '../public/missionaccounts-countries.js';
 
 const studentId = '00000000-0000-4000-8000-000000000001';
 const features = {
@@ -213,7 +214,7 @@ test('student subject isolation, admin minimum queue, and unsupported sensitive 
     assert.equal(queue.status, 200);
     const row = (await queue.json()).students[0];
     assert.deepEqual(Object.keys(row).sort(), [
-      'display_name', 'last_updated_at', 'missing_steps', 'payment_requirement',
+      'display_name', 'last_seen_at', 'last_updated_at', 'missing_steps', 'payment_requirement',
       'preferred_name', 'progress', 'status', 'student_id',
     ]);
     assert.equal(row.email, undefined);
@@ -223,7 +224,7 @@ test('student subject isolation, admin minimum queue, and unsupported sensitive 
   });
 });
 
-test('admin onboarding queue includes only current canonical ExamPrep enrollment', async () => {
+test('admin onboarding queue keeps enrolled canonical ExamPrep students visible after freshness expires', async () => {
   const store = new PreviewStore();
   const withoutEnrollment = await store.adminOnboardingQueue({ actorId: 'dr-j', actorRole: 'missionaccounts_admin' });
   assert.deepEqual(withoutEnrollment, []);
@@ -234,9 +235,40 @@ test('admin onboarding queue includes only current canonical ExamPrep enrollment
   assert.deepEqual(await store.adminOnboardingQueue({ actorId: 'dr-j', actorRole: 'missionaccounts_admin' }), []);
   store.enrollmentProjections.set(studentId, {
     student_id: studentId, program_key: 'examprep', provider: 'learndash',
-    course_id: 6357, enrolled: true, valid_until: '2020-01-01T00:00:00.000Z',
+    course_id: 6357, enrolled: true, source_observed_at: '2020-01-01T00:00:00.000Z',
+    valid_until: '2020-01-01T06:00:00.000Z',
   });
-  assert.deepEqual(await store.adminOnboardingQueue({ actorId: 'dr-j', actorRole: 'missionaccounts_admin' }), []);
+  const staleVisible = await store.adminOnboardingQueue({ actorId: 'dr-j', actorRole: 'missionaccounts_admin' });
+  assert.equal(staleVisible.length, 1);
+  assert.equal(staleVisible[0].last_seen_at, '2020-01-01T00:00:00.000Z');
+  assert.equal(staleVisible.filter(row => row.status === 'NOT_STARTED').length, 1);
+});
+
+test('country validation stores real ISO alpha-2 codes and rejects nonexistent codes with field context', async () => {
+  for (const code of ['US', 'NG', 'PK', 'GB']) assert.equal(isIsoCountryCode(code), true);
+  assert.equal(isIsoCountryCode('ZZ'), false);
+  const store = new PreviewStore();
+  await withServer({ config, store, stripeGateway: new StripeGateway() }, async base => {
+    for (const [index, code] of ['US', 'NG', 'PK', 'GB'].entries()) {
+      const response = await fetch(base + '/api/me/onboarding', {
+        method: 'POST',
+        headers: { ...studentHeaders, 'idempotency-key': 'country-valid-' + index + '-0001' },
+        body: JSON.stringify({ mailing_country_code: code, expected_revision: index }),
+      });
+      assert.equal(response.status, 201);
+      assert.equal((await response.json()).onboarding.profile.mailing_country_code, code);
+    }
+    const invalid = await fetch(base + '/api/me/onboarding', {
+      method: 'POST',
+      headers: { ...studentHeaders, 'idempotency-key': 'country-invalid-0001' },
+      body: JSON.stringify({ mailing_country_code: 'ZZ', expected_revision: 4 }),
+    });
+    assert.equal(invalid.status, 400);
+    const body = await invalid.json();
+    assert.equal(body.field, 'mailing_country_code');
+    assert.equal(body.message, 'Choose a country from the list.');
+    assert.equal(store.onboardingProfiles.get(studentId).mailing_country_code, 'GB');
+  });
 });
 
 test('production HTML exposes accessible responsive onboarding routes without adding money or delivery actions', async () => {
@@ -245,7 +277,18 @@ test('production HTML exposes accessible responsive onboarding routes without ad
   assert.match(html, /data-onboarding-form/);
   assert.match(html, /ExamPrep onboarding/);
   assert.match(html, /You can leave and resume at any time/);
-  assert.match(html, />Save progress<\/button>/);
+  assert.match(html, /\$\{uiStatus==='COMPLETE'\?'Save changes':'Save progress'\}/);
+  assert.match(html, /<select name="mailing_country_code"/);
+  assert.doesNotMatch(html, /<input name="mailing_country_code"/);
+  assert.match(html, /Nothing on this page charges you\. Card and billing authorization are separate steps on your Billing page, and you review each one first\./);
+  assert.match(html, /Preferred name \(optional\)/);
+  assert.match(html, /Address line 2 \(optional\)/);
+  assert.match(html, /Needed to finish your profile/);
+  assert.match(html, /Your ExamPrep account is ready\. Dr J can see you are complete/);
+  assert.match(html, /Students appear here after their first sign-in to MissionAccounts\./);
+  assert.match(html, /Last opened MissionAccounts ·/);
+  assert.match(html, /goes by/);
+  assert.match(runtime, /dataset\.missionaccountsRole/);
   assert.doesNotMatch(html, /name="(?:school_name|best_contact_method|mailing_line1|mailing_city|mailing_region|mailing_postal_code|mailing_country_code)"[^>]*\brequired\b/);
   assert.match(html, /@media\s*\(max-width:\s*960px\)/);
   assert.match(html, /@media\s*\(max-width:\s*640px\)/);

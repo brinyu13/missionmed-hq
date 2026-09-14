@@ -1017,13 +1017,18 @@ html[data-theme="dark"] .programCard,html[data-theme="dark"] .accessState{backgr
 .onboardFields .wide{grid-column:1/-1}.onboardFields label{display:flex;flex-direction:column;gap:6px;font-weight:800;font-size:13px;color:var(--ink2)}
 .onboardFields input,.onboardFields select{width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--line2);border-radius:11px;background:var(--sheet);color:var(--ink);font:600 15px var(--disp)}
 .onboardFields input:focus-visible,.onboardFields select:focus-visible{outline:3px solid color-mix(in srgb,var(--em) 50%,transparent);outline-offset:2px}
+.onboardFields [aria-invalid="true"]{border-color:var(--redInk);box-shadow:0 0 0 2px color-mix(in srgb,var(--redInk) 20%,transparent)}
+.fieldErr,.fieldNeed{display:block;font-size:12px;line-height:1.35;font-weight:650}.fieldErr{color:var(--redInk)}.fieldNeed{color:var(--mute)}
+.fieldErr[hidden],.fieldNeed[hidden]{display:none}
+html[data-missionaccounts-role="student"] .demo{display:none!important}
+h1:focus:not(:focus-visible){outline:0}
 .onboardSteps{display:flex;flex-direction:column;gap:10px}.onboardStep{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:start;padding:15px;border:1px solid var(--line);border-radius:14px;background:var(--sheet)}
 .onboardStep .mark{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--sheet2);color:var(--mute);font:900 13px var(--num)}
 .onboardStep.done .mark{background:var(--greenSoft);color:var(--greenInk)}.onboardStep b{display:block}.onboardStep small{display:block;margin-top:3px;color:var(--mute);line-height:1.4}
-.onboardQueue{display:grid;gap:10px;margin-top:20px}.onboardRow{display:grid;grid-template-columns:minmax(180px,1fr) 130px minmax(240px,1.2fr) 150px;gap:14px;align-items:center;padding:15px 18px;border:1px solid var(--line);border-radius:14px;background:var(--sheet)}
-.onboardRow .who{font-weight:850}.onboardRow .missing{font-size:13px;color:var(--mute)}
+.onboardQueue{display:grid;gap:10px;margin-top:20px}.onboardRow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,2fr) minmax(0,170px);gap:14px;align-items:center;padding:15px 18px;border:1px solid var(--line);border-radius:14px;background:var(--sheet)}
+.onboardRow .who{font-weight:850;min-width:0}.onboardRow .who small{display:block;color:var(--mute);font-size:12px;margin-top:3px}.onboardRow .missing{font-size:13px;color:var(--mute);min-width:0}.onboardRow .updated{min-width:0;font-size:12px;color:var(--mute);line-height:1.45}
 @media(max-width:960px){.onboardGrid{grid-template-columns:1fr}.onboardRow{grid-template-columns:1fr auto}.onboardRow .missing,.onboardRow .updated{grid-column:1/-1}}
-@media(max-width:640px){.onboardHero{grid-template-columns:1fr}.onboardMeter{min-width:0}.onboardFields{grid-template-columns:1fr}.onboardFields .wide{grid-column:auto}.onboardForm{padding:18px}.onboardStep{grid-template-columns:30px 1fr}.onboardStep .btn{grid-column:2;justify-self:start}.onboardRow{grid-template-columns:1fr}.onboardRow .missing,.onboardRow .updated{grid-column:auto}}
+@media(max-width:640px){.onboardHero{grid-template-columns:1fr}.onboardMeter{min-width:0}.onboardFields{grid-template-columns:1fr}.onboardFields .wide{grid-column:auto}.onboardForm{padding:18px}.onboardStep{grid-template-columns:30px 1fr}.onboardStep .btn{grid-column:2;justify-self:start;min-height:40px}.onboardRow{grid-template-columns:1fr}.onboardRow .missing,.onboardRow .updated{grid-column:auto}}
 
 </style>
 </head>
@@ -1298,7 +1303,7 @@ function markReady(si,k,v){ if(document.documentElement.dataset.missionaccountsB
 /* ---------------- theme ---------------- */
 function themePref(){ try{ return localStorage.getItem(THEME_KEY)||'daylight'; }catch(e){ return 'daylight'; } }
 function applyTheme(){ const pref=themePref(); const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; const resolved = pref==='system'? (sysDark?'dark':'daylight') : pref; document.documentElement.dataset.theme=resolved; document.documentElement.dataset.themePref=pref; const meta=document.querySelector('meta[name=theme-color]'); if(meta) meta.content = resolved==='dark'?'#0a0d14':'#0a0d14'; }
-function setTheme(p){ try{ localStorage.setItem(THEME_KEY,p); }catch(e){} applyTheme(); if(ACCOUNT_ACCESS_MODE) renderAccountAccess(); else shell(); }
+function setTheme(p){ try{ localStorage.setItem(THEME_KEY,p); }catch(e){} applyTheme(); if(ACCOUNT_ACCESS_MODE) renderAccountAccess(); else shell(); missionAccountsApplyCapabilityState(document); }
 if(window.matchMedia){ try{ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme); }catch(e){} }
 applyTheme();
 
@@ -1388,7 +1393,7 @@ function bindCommandHero(root){ const q=root.querySelector('#cmdQ'); if(!q) retu
 
 /* ---------------- toast / sheet ---------------- */
 let toastTimer=null;
-function toast(msg, undo){ if(!$('#toast'))return; const t=$('#toast'); t.innerHTML=`<span>${esc(msg)}</span>${undo?'<button type="button">Undo</button>':''}`; if(undo) t.querySelector('button').onclick=async()=>{ undo(); hideToast(); }; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(hideToast, 6500); }
+function toast(msg, actionOrOptions){ if(!$('#toast'))return; const options=typeof actionOrOptions==='function'?{label:'Undo',action:actionOrOptions}:(actionOrOptions||{}); const t=$('#toast'); t.innerHTML=`<span>${esc(msg)}</span>${typeof options.action==='function'?'<button type="button">'+esc(options.label||'Continue')+'</button>':''}`; if(typeof options.action==='function') t.querySelector('button').onclick=async()=>{ options.action(); hideToast(); }; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(hideToast, 6500); }
 function hideToast(){ if(!$('#toast'))return; $('#toast').classList.remove('show'); }
 let sheetReturn=null;
 function openSheet(html, onMount){ hideToast(); const w=$('#sheetWrap'); sheetReturn=document.activeElement; w.innerHTML=`<div class="sheet" role="dialog" aria-modal="true" tabindex="-1">${html}</div>`; w.classList.add('open'); if(onMount) onMount(w); missionAccountsApplyCapabilityState(w); const sheet=w.querySelector('.sheet'); const focusables=()=>[...w.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(node=>!node.hidden&&node.getClientRects().length>0); if(!w.contains(document.activeElement)){ const first=focusables()[0]||sheet; first.focus({preventScroll:true}); } w.onkeydown=e=>{ if(e.key!=='Tab')return; const items=focusables(); if(!items.length){ e.preventDefault(); sheet.focus(); return; } const first=items[0],last=items[items.length-1]; if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); } else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); } }; w.onclick=e=>{ if(e.target===w) closeSheet(); }; }
@@ -1866,33 +1871,36 @@ function viewMeExam(e){ const ev=examView(e.i); const ex=ev.ex; const steps=[['n
 function studentCycleStatus(e,k){ const charge=WS.manualCharges?.[e.i]?.[k]||null; if(charge?.state==='succeeded') return {chip:'paid',text:`Paid · ${money(charge.amount)}`,state:'paid',amount:Number(charge.amount)||0}; if(charge?.state==='pending') return {chip:'ready',text:`Processing · ${money(charge.amount)}`,state:'processing',amount:Number(charge.amount)||0}; if(charge?.state==='failed') return {chip:'review',text:'Payment needs attention',state:'failed',amount:Number(charge.amount)||0}; const st=accountState(e,k); if(st.state==='nocharge') return {chip:'none',text:'No charge this cycle',state:st.state,amount:0}; if(st.state==='handled') return {chip:'none',text:'Nothing due · '+st.reason.toLowerCase(),state:st.state,amount:0}; if(st.state==='ready'||st.state==='approved') return {chip:'approved',text:`${money(st.amount)} · approved balance`,state:st.state,amount:st.amount}; if(st.state==='approvedNoEmail') return {chip:'approved',text:`${money(st.amount)} · we need your email`,state:st.state,amount:st.amount}; return {chip:'review',text:'Amount coming — Dr J is finalizing it',state:st.state,amount:st.amount}; }
 function onboardingStatusLabel(value){ return ({NOT_STARTED:'Not started',IN_PROGRESS:'In progress',COMPLETE:'Complete'})[value]||'Needs review'; }
 function onboardingMissingLabel(value){ return ({ACCOUNT:'Account connection',PROFILE:'Profile and mailing address',CONTACT:'Email and phone',EXAM_PLAN:'Exam plan',PAYMENT_METHOD:'Payment method',BILLING_CONSENT:'Billing authorization'})[value]||String(value||'').replaceAll('_',' ').toLowerCase(); }
+function onboardingCountryOptions(selected){ const rows=window.MissionAccountsCountries?.options?.('en')||[{code:'US',name:'United States'}]; return rows.map(row=>`<option value="${esc(row.code)}" ${row.code===selected?'selected':''}>${esc(row.name)}</option>`).join(''); }
+function onboardingFieldHelp(name,needed){ return `<small id="${name}Need" class="fieldNeed" ${needed?'':'hidden'}>Needed to finish your profile</small><small id="${name}Error" class="fieldErr" hidden></small>`; }
 function viewMeOnboarding(){ const data=window.MissionAccountsRuntime?.state?.bootstrap?.onboarding;
-  if(!data) return `<section class="view"><div class="eyebrow em">ExamPrep onboarding</div><h1 class="h1">Onboarding is not available yet.</h1><p class="lead">Your MissionAccounts workspace remains available. Return here when onboarding is enabled.</p><a class="btn primary" href="#/me">Return to my account</a></section>`;
-  const profile=data.profile||{}; const progress=data.progress||{}; const applicable=Object.entries(progress).filter(([,value])=>value!==null); const done=applicable.filter(([,value])=>value===true).length; const pct=Math.round(100*done/Math.max(1,applicable.length));
+  if(!data){ const admin=['missionaccounts_admin','founder'].includes(window.MissionAccountsRuntime?.state?.user?.role); return admin?`<section class="view"><div class="eyebrow em">ExamPrep onboarding</div><h1 class="h1">Onboarding is completed by each student from their own account.</h1><p class="lead">Use the onboarding queue to see who is ready and which steps remain.</p><a class="btn primary" href="#/onboarding">Open the onboarding queue</a></section>`:`<section class="view"><div class="eyebrow em">ExamPrep onboarding</div><h1 class="h1">Onboarding is not available yet.</h1><p class="lead">Your MissionAccounts workspace remains available. Return here when onboarding is enabled.</p><a class="btn primary" href="#/me">Return to my account</a></section>`; }
+  const profile=data.profile||{}; const progress=data.progress||{}; const actionable=['profile','contact','exam_plan',...(data.payment_requirement==='REQUIRED'?['payment_method','billing_consent']:[])]; const done=actionable.filter(key=>progress[key]===true).length; const pct=Math.round(100*done/Math.max(1,actionable.length)); const uiStatus=data.status==='NOT_STARTED'&&done>0?'IN_PROGRESS':data.status; const needs=key=>uiStatus==='IN_PROGRESS'&&!progress.profile&&!String(profile[key]||'').trim();
   const steps=[
-    ['account','Account connected','Your signed-in Matrix identity is bound to this ExamPrep account',null],
+    ['account','Account connected','You are signed in with your MissionMed account',null],
     ['contact','Email and phone','Contact details come from your MissionMed account','/my-account/'],
     ['profile','Profile and mailing address','Your school, preferred name and mailing details are saved here','#/me/onboarding'],
     ['exam_plan','Exam plan','Tell Dr J which exam and date you are preparing for','#/me/exam'],
-    ...(data.payment_requirement==='REQUIRED'?[['payment_method','Payment method','Stripe securely stores your card; MissionMed never sees the card number','#/me/billing'],['billing_consent','Billing authorization','Review the approved Drills terms separately from saving a card','#/me/billing']]:[]),
+    ...(data.payment_requirement==='REQUIRED'?[['payment_method','Payment method','Stripe securely stores your card; MissionMed never sees the card number','#/me/billing'],['billing_consent','Billing authorization','Read and accept the Drills billing terms — a separate step from saving a card.','#/me/billing']]:[]),
     ['recovery_available','Account recovery','Use MissionMed password recovery if you ever lose access',data.recovery_url||'/my-account/lost-password/'],
   ];
-  const stepHTML=steps.map(([key,title,detail,href])=>{ const ready=progress[key]===true; return `<div class="onboardStep ${ready?'done':''}"><span class="mark" aria-hidden="true">${ready?'✓':'·'}</span><div><b>${esc(title)}</b><small>${esc(detail)}</small></div>${href?`<a class="btn ${ready?'ghost':'soft'} xs" href="${esc(href)}">${ready?'Review':'Complete'}</a>`:''}</div>`; }).join('');
-  return `<section class="view"><div class="onboardHero"><div><div class="eyebrow em">ExamPrep onboarding</div><h1 class="h1" style="margin-top:8px">Your ExamPrep account, ready in one place.</h1><p class="lead" style="margin-top:10px">Save your profile now, then use the checklist to finish the existing account steps. You can leave and resume at any time.</p></div><div class="onboardMeter" role="status"><div class="n">${pct}%</div><div class="d">${done} of ${applicable.length} account steps ready · ${esc(onboardingStatusLabel(data.status))}</div><div class="progress light green" style="margin-top:10px"><i style="width:${pct}%"></i></div></div></div>
-    <div class="onboardGrid"><form class="panel onboardForm" data-onboarding-form novalidate><div class="chHead" style="margin-top:0"><span class="t">Your profile</span><span class="chip ${data.status==='COMPLETE'?'approved':data.status==='IN_PROGRESS'?'ready':'future'}">${esc(onboardingStatusLabel(data.status))}</span></div><p class="muted">Your login name, email and phone stay in your canonical MissionMed account. This form stores only the onboarding profile fields shown below.</p><div class="onboardFields">
-      <label>Preferred name <input name="preferred_name" maxlength="80" autocomplete="nickname" value="${esc(profile.preferred_name||'')}"></label>
-      <label>School <input name="school_name" maxlength="160" autocomplete="organization" value="${esc(profile.school_name||'')}"></label>
-      <label>Best way to contact you <select name="best_contact_method"><option value="">Choose one</option><option value="email" ${profile.best_contact_method==='email'?'selected':''}>Email</option><option value="phone" ${profile.best_contact_method==='phone'?'selected':''}>Phone</option></select></label>
-      <label>Country <input name="mailing_country_code" maxlength="2" autocomplete="country" value="${esc(profile.mailing_country_code||'US')}"></label>
-      <label class="wide">Mailing address <input name="mailing_line1" maxlength="160" autocomplete="address-line1" value="${esc(profile.mailing_line1||'')}"></label>
-      <label class="wide">Address line 2 <input name="mailing_line2" maxlength="160" autocomplete="address-line2" value="${esc(profile.mailing_line2||'')}"></label>
-      <label>City <input name="mailing_city" maxlength="100" autocomplete="address-level2" value="${esc(profile.mailing_city||'')}"></label>
-      <label>State or region <input name="mailing_region" maxlength="100" autocomplete="address-level1" value="${esc(profile.mailing_region||'')}"></label>
-      <label>Postal code <input name="mailing_postal_code" maxlength="24" autocomplete="postal-code" value="${esc(profile.mailing_postal_code||'')}"></label>
-    </div><div class="btnRow" style="margin-top:20px"><button class="btn primary" type="submit">Save progress</button><span class="muted">Revision ${Number(data.revision||0)}${data.last_updated_at?' · saved '+esc(fmtStamp(data.last_updated_at)):''}</span></div></form>
-    <aside><div class="chHead" style="margin-top:0"><span class="t">Your checklist</span><span class="c">${data.missing_steps?.length?data.missing_steps.length+' remaining':'All ready'}</span></div><div class="onboardSteps">${stepHTML}</div><div class="panel" style="padding:16px;margin-top:12px"><b>Canonical contact</b><p class="muted" style="margin-top:6px">${esc(data.student?.email||'Email missing')} · ${esc(data.student?.phone||'Phone missing')}</p></div></aside></div></section>`; }
+  const stepHTML=steps.map(([key,title,detail,href])=>{ const ready=progress[key]===true; return `<div class="onboardStep ${ready?'done':''}"><span class="mark" aria-hidden="true">${ready?'✓':'·'}</span><div><b>${esc(title)}</b><small>${esc(detail)}</small></div>${href?`<a class="btn ${ready?'ghost':'soft'} xs" href="${esc(href)}" ${href.startsWith('/')?'target="_blank" rel="noopener"':''}>${ready?'Review':'Complete'}</a>`:''}</div>`; }).join('');
+  const lead=uiStatus==='COMPLETE'?'Your ExamPrep account is ready. Dr J can see you are complete — nothing else is needed from you right now. You can update these details any time.':'Save your profile now, then use the checklist to finish the existing account steps. You can leave and resume at any time.';
+  return `<section class="view"><div class="onboardHero"><div><div class="eyebrow em">ExamPrep onboarding</div><h1 class="h1" style="margin-top:8px">Your ExamPrep account, ready in one place.</h1><p class="lead" style="margin-top:10px">${esc(lead)}</p><p class="muted" style="margin-top:8px">Nothing on this page charges you. Card and billing authorization are separate steps on your Billing page, and you review each one first.</p></div><div class="onboardMeter" role="status"><div class="n">${pct}%</div><div class="d">${done} of ${actionable.length} steps done · ${esc(onboardingStatusLabel(uiStatus))}</div><div class="progress light green" style="margin-top:10px"><i style="width:${pct}%"></i></div></div></div>
+    <div class="onboardGrid"><form class="panel onboardForm" data-onboarding-form novalidate><div class="chHead" style="margin-top:0"><span class="t">Your profile</span><span class="chip ${uiStatus==='COMPLETE'?'approved':uiStatus==='IN_PROGRESS'?'ready':'future'}">${esc(onboardingStatusLabel(uiStatus))}</span></div><p class="muted">Your login name, email and phone stay in your MissionMed account. This form stores only the onboarding profile fields shown below.</p><div class="onboardFields">
+      <label>Preferred name (optional) <input name="preferred_name" maxlength="80" autocomplete="nickname" aria-describedby="preferred_nameNeed preferred_nameError" value="${esc(profile.preferred_name||'')}">${onboardingFieldHelp('preferred_name',false)}</label>
+      <label>School <input name="school_name" maxlength="160" autocomplete="organization" aria-describedby="school_nameNeed school_nameError" value="${esc(profile.school_name||'')}">${onboardingFieldHelp('school_name',needs('school_name'))}</label>
+      <label>Best way to contact you <select name="best_contact_method" aria-describedby="best_contact_methodNeed best_contact_methodError"><option value="">Choose one</option><option value="email" ${profile.best_contact_method==='email'?'selected':''}>Email</option><option value="phone" ${profile.best_contact_method==='phone'?'selected':''}>Phone</option></select>${onboardingFieldHelp('best_contact_method',needs('best_contact_method'))}</label>
+      <label>Country <select name="mailing_country_code" autocomplete="country" aria-describedby="mailing_country_codeNeed mailing_country_codeError">${onboardingCountryOptions(profile.mailing_country_code||'US')}</select>${onboardingFieldHelp('mailing_country_code',needs('mailing_country_code'))}</label>
+      <label class="wide">Mailing address <input name="mailing_line1" maxlength="160" autocomplete="address-line1" aria-describedby="mailing_line1Need mailing_line1Error" value="${esc(profile.mailing_line1||'')}">${onboardingFieldHelp('mailing_line1',needs('mailing_line1'))}</label>
+      <label class="wide">Address line 2 (optional) <input name="mailing_line2" maxlength="160" autocomplete="address-line2" aria-describedby="mailing_line2Need mailing_line2Error" value="${esc(profile.mailing_line2||'')}">${onboardingFieldHelp('mailing_line2',false)}</label>
+      <label>City <input name="mailing_city" maxlength="100" autocomplete="address-level2" aria-describedby="mailing_cityNeed mailing_cityError" value="${esc(profile.mailing_city||'')}">${onboardingFieldHelp('mailing_city',needs('mailing_city'))}</label>
+      <label>State or region <input name="mailing_region" maxlength="100" autocomplete="address-level1" aria-describedby="mailing_regionNeed mailing_regionError" value="${esc(profile.mailing_region||'')}">${onboardingFieldHelp('mailing_region',needs('mailing_region'))}</label>
+      <label>Postal code <input name="mailing_postal_code" maxlength="24" autocomplete="postal-code" aria-describedby="mailing_postal_codeNeed mailing_postal_codeError" value="${esc(profile.mailing_postal_code||'')}">${onboardingFieldHelp('mailing_postal_code',needs('mailing_postal_code'))}</label>
+    </div><div class="btnRow" style="margin-top:20px"><button class="btn primary" type="submit">${uiStatus==='COMPLETE'?'Save changes':'Save progress'}</button><span class="muted">${data.last_updated_at?'Saved '+esc(fmtStamp(data.last_updated_at)):'Not saved yet'}</span></div></form>
+    <aside><div class="chHead" style="margin-top:0"><span class="t">${uiStatus==='COMPLETE'?'All ready ✓':'Your checklist'}</span><span class="c">${data.missing_steps?.length?data.missing_steps.length+' remaining':'All ready'}</span></div><div class="onboardSteps">${stepHTML}</div><div class="panel" style="padding:16px;margin-top:12px"><b>Your contact details</b><p class="muted" style="margin-top:6px">${esc(data.student?.email||'Email missing')} · ${esc(data.student?.phone||'Phone missing')}</p></div></aside></div></section>`; }
 function viewAdminOnboarding(){ const rows=window.MissionAccountsRuntime?.state?.bootstrap?.onboarding_queue||[]; const counts={COMPLETE:0,IN_PROGRESS:0,NOT_STARTED:0}; rows.forEach(row=>{counts[row.status]=(counts[row.status]||0)+1;});
-  return `<section class="view"><div class="eyebrow em">ExamPrep onboarding</div><h1 class="h1" style="margin-top:8px">Who is ready, and what is missing.</h1><p class="lead" style="margin-top:10px">This view shows completion status only. It does not impersonate a student, expose a mailing address or change access, billing or consent.</p><div class="band" style="margin-top:20px"><div class="cell"><span class="l">Complete</span><span class="n ok">${counts.COMPLETE||0}</span></div><div class="cell"><span class="l">In progress</span><span class="n">${counts.IN_PROGRESS||0}</span></div><div class="cell"><span class="l">Not started</span><span class="n est">${counts.NOT_STARTED||0}</span></div><div class="cell"><span class="l">Students</span><span class="n">${rows.length}</span></div></div><div class="onboardQueue">${rows.map(row=>`<div class="onboardRow"><div class="who">${esc(row.preferred_name||row.display_name||'Student')}</div><span class="chip ${row.status==='COMPLETE'?'approved':row.status==='IN_PROGRESS'?'ready':'future'}">${esc(onboardingStatusLabel(row.status))}</span><div class="missing">${row.missing_steps?.length?'Missing: '+row.missing_steps.map(onboardingMissingLabel).join(' · '):'All applicable steps complete'}</div><div class="updated">${row.last_updated_at?esc(fmtStamp(row.last_updated_at)):'No profile save yet'}</div></div>`).join('')||'<div class="panel empty" style="padding:22px">No canonical students are available in this source preview.</div>'}</div></section>`; }
+  return `<section class="view"><div class="eyebrow em">ExamPrep onboarding</div><h1 class="h1" style="margin-top:8px">Who is ready, and what is missing.</h1><p class="lead" style="margin-top:10px">This view shows completion status only. It does not impersonate a student, expose a mailing address or change access, billing or consent.</p><p class="muted" style="margin-top:8px">Students appear here after their first sign-in to MissionAccounts.</p><div class="band" style="margin-top:20px"><div class="cell"><span class="l">Complete</span><span class="n ok">${counts.COMPLETE||0}</span></div><div class="cell"><span class="l">In progress</span><span class="n">${counts.IN_PROGRESS||0}</span></div><div class="cell"><span class="l">Not started</span><span class="n">${counts.NOT_STARTED||0}</span></div><div class="cell"><span class="l">Students</span><span class="n">${rows.length}</span></div></div><div class="onboardQueue">${rows.map(row=>`<div class="onboardRow"><div class="who">${esc(row.display_name||'Student')}${row.preferred_name&&row.preferred_name!==row.display_name?`<small>· goes by ${esc(row.preferred_name)}</small>`:''}</div><span class="chip ${row.status==='COMPLETE'?'approved':row.status==='IN_PROGRESS'?'ready':'future'}">${esc(onboardingStatusLabel(row.status))}</span><div class="missing">${row.missing_steps?.length?'Missing: '+row.missing_steps.map(onboardingMissingLabel).join(' · '):'All applicable steps complete'}</div><div class="updated"><span>Last opened MissionAccounts · ${row.last_seen_at?esc(fmtStamp(row.last_seen_at)):'Not available'}</span><br><span>${row.last_updated_at?'Last profile save · '+esc(fmtStamp(row.last_updated_at)):'No profile save yet'}</span></div></div>`).join('')||'<div class="panel empty" style="padding:22px">No ExamPrep students have opened MissionAccounts yet.</div>'}</div></section>`; }
 function viewMe(sub){ const e=meStudent(); if(sub==='onboarding') return viewMeOnboarding(); const cyclesWith=CYK.filter(k=>e.c[k]); const latest=cyclesWith[cyclesWith.length-1]; if(document.documentElement.dataset.missionaccountsBuild==='production'&&!latest&&!['billing','exam'].includes(sub)) sub='billing';
   const status = k => studentCycleStatus(e,k); const paidCycles=cyclesWith.map(k=>status(k)).filter(s=>s.state==='paid'); const paidTotal=paidCycles.reduce((sum,s)=>sum+s.amount,0); const paymentSummary=paidCycles.length?`Stripe confirmed ${paidCycles.length} ${paidCycles.length===1?'payment':'payments'} totaling ${money(paidTotal)}. Nothing is charged automatically; each manual charge requires Dr J's approved balance and an explicit confirmation.`:'You have not been charged anything. Amounts appear here once Dr J confirms them, and nothing is charged automatically.';
   const picker = '';
@@ -1969,6 +1977,7 @@ function missionAccountsCapability(name){
 }
 function missionAccountsStatusBanner(){
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return '';
+  if(window.MissionAccountsRuntime?.state?.user?.role==='student') return '';
   const messages=[];
   if(!missionAccountsCapability('payment_method_setup')) messages.push('Stripe payment-method setup is disabled.');
   if(!missionAccountsCapability('auto_billing_consent')) messages.push('Student automatic-billing authorization is disabled.');
@@ -2249,26 +2258,35 @@ function bind(root){
     event.preventDefault();
     if(!onboardingForm.reportValidity()) return;
     const button=onboardingForm.querySelector('button[type="submit"]');
+    onboardingForm.querySelectorAll('[aria-invalid="true"]').forEach(field=>field.removeAttribute('aria-invalid'));
+    onboardingForm.querySelectorAll('.fieldErr').forEach(error=>{error.hidden=true;error.textContent='';});
+    const values=Object.fromEntries(new FormData(onboardingForm).entries());
+    const current=window.MissionAccountsRuntime?.state?.bootstrap?.onboarding?.profile||{};
+    const optional=new Set(['preferred_name','mailing_line2']);
+    const profile={};
+    ['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'].forEach(key=>{
+      let value=String(values[key]||'').trim();
+      if(key==='mailing_country_code') value=value.toUpperCase();
+      const priorValue=String(current[key]||'').trim();
+      if(key==='mailing_country_code'&&!priorValue&&value==='US') return;
+      if(value!==priorValue && (value||optional.has(key))) profile[key]=value;
+    });
+    if(!Object.keys(profile).length){ toast('No onboarding changes to save.'); return; }
     const prior=button.textContent;
     button.disabled=true; button.textContent='Saving…';
     try{
-      const values=Object.fromEntries(new FormData(onboardingForm).entries());
-      const current=window.MissionAccountsRuntime?.state?.bootstrap?.onboarding?.profile||{};
-      const optional=new Set(['preferred_name','mailing_line2']);
-      const profile={};
-      ['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'].forEach(key=>{
-        let value=String(values[key]||'').trim();
-        if(key==='mailing_country_code') value=value.toUpperCase();
-        const prior=String(current[key]||'').trim();
-        if(value!==prior && (value||optional.has(key))) profile[key]=value;
-      });
-      if(!Object.keys(profile).length){ toast('No onboarding changes to save.'); return; }
       const expectedRevision=Number(window.MissionAccountsRuntime?.state?.bootstrap?.onboarding?.revision||0);
       const receipt=await window.MissionAccountsRuntime.dispatch('onboarding-save',{profile,expectedRevision});
-      if(receipt!==false){ render(); toast(receipt?.duplicate?'Your profile was already saved.':'Onboarding profile saved.'); }
+      render(); toast(receipt?.duplicate?'Your profile was already saved.':'Onboarding profile saved.');
     }catch(error){
+      const message=error instanceof Error?error.message:'Your profile could not be saved.';
+      if(error?.status===400&&error.field){
+        const field=onboardingForm.elements.namedItem(error.field); const inline=onboardingForm.querySelector('#'+CSS.escape(error.field)+'Error');
+        if(field){field.setAttribute('aria-invalid','true');field.focus();} if(inline){inline.textContent=message;inline.hidden=false;}
+      }
+      if(error?.status===409) toast(message,{label:'Reload',action:()=>location.reload()}); else toast(message);
+    }finally{
       button.disabled=false; button.textContent=prior;
-      toast(error instanceof Error?error.message:'Your profile could not be saved.');
     }
   });
   root.querySelectorAll('[data-go]').forEach(el=>{ el.addEventListener('click',e=>{ if(el.tagName==='A') return; go(el.dataset.go); }); if(el.getAttribute('role')==='link') el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') go(el.dataset.go); }); });
@@ -2341,6 +2359,7 @@ window.__XP = {D, WS:()=>WS, model, cycleStats, render, decide, addCorr, undoCor
 
 </script>
 
+<script type="module" src="./missionaccounts-countries.js"></script>
 <script type="module" src="./assets/runtime"></script>
 </body>
 </html>

@@ -14,6 +14,7 @@ app_dir=$(cd "$script_dir/.." && pwd)
 pg_tmp=$(mktemp -d /tmp/mx5404a-onboarding-pg.XXXXXX)
 pg_port=$((55800 + RANDOM % 300))
 target="$app_dir/supabase/migrations/20260914111824_dedicated_examprep_onboarding_5404a.sql"
+visibility="$app_dir/supabase/migrations/20260914114700_onboarding_queue_visibility_5404a.sql"
 
 cleanup_pg() {
   "$pg_bin/pg_ctl" -D "$pg_tmp/data" -m immediate stop >/dev/null 2>&1 || true
@@ -29,7 +30,7 @@ psql_cmd=("$pg_bin/psql" -h "$pg_tmp" -p "$pg_port" -d postgres -v ON_ERROR_STOP
 for migration in "$app_dir"/supabase/migrations/*.sql; do
   name=$(basename "$migration")
   case "$name" in
-    20260909105200_promote_antonio_real_student.sql|20260914111824_dedicated_examprep_onboarding_5404a.sql) continue ;;
+    20260909105200_promote_antonio_real_student.sql|20260914111824_dedicated_examprep_onboarding_5404a.sql|20260914114700_onboarding_queue_visibility_5404a.sql) continue ;;
   esac
   "${psql_cmd[@]}" -f "$migration" >/dev/null
 done
@@ -37,6 +38,10 @@ done
 expected_header=$'-- Migration: 20260914111824_dedicated_examprep_onboarding_5404a.sql\n-- Authority: DR-252 / MX-MISSIONACCOUNTS-5404A\n-- Date: 2026-09-14\n-- Depends on: 20260911224524_autobilling_contract_closeout_5403b.sql\n-- Description: Add a private, canonical-student ExamPrep onboarding profile, server-derived completion, and least-privilege self/admin RPCs.\n-- Idempotent: NO'
 [[ "$(head -n 6 "$target")" == "$expected_header" ]] || { echo "5404A migration MR-078A header mismatch" >&2; exit 1; }
 [[ "$(sed -n '8p' "$target")" == "BEGIN;" && "$(tail -n 1 "$target")" == "COMMIT;" ]] || { echo "5404A transaction wrapper mismatch" >&2; exit 1; }
+
+expected_visibility_header=$'-- Migration: 20260914114700_onboarding_queue_visibility_5404a.sql\n-- Authority: DR-254 / MX-MISSIONACCOUNTS-5404A\n-- Date: 2026-09-14\n-- Depends on: 20260914111824_dedicated_examprep_onboarding_5404a.sql\n-- Description: Keep enrolled canonical students visible in the read-only onboarding queue after enrollment freshness expires.\n-- Idempotent: YES'
+[[ "$(head -n 6 "$visibility")" == "$expected_visibility_header" ]] || { echo "5404A visibility migration MR-078A header mismatch" >&2; exit 1; }
+[[ "$(sed -n '8p' "$visibility")" == "BEGIN;" && "$(tail -n 1 "$visibility")" == "COMMIT;" ]] || { echo "5404A visibility transaction wrapper mismatch" >&2; exit 1; }
 
 forced="$pg_tmp/forced.sql"
 awk '
@@ -58,6 +63,8 @@ if "${psql_cmd[@]}" -f "$target" >/dev/null 2>&1; then
   echo "5404A non-idempotent migration unexpectedly replayed" >&2
   exit 1
 fi
+"${psql_cmd[@]}" -f "$visibility" >/dev/null
+"${psql_cmd[@]}" -f "$visibility" >/dev/null
 
 security=$("${psql_cmd[@]}" -Atq <<'SQL'
 select
@@ -151,7 +158,19 @@ begin
 end;
 $$;
 
+update missionaccounts.program_enrollment_projection
+set source_observed_at = clock_timestamp() - interval '7 hours',
+    valid_until = clock_timestamp() - interval '1 hour'
+where student_id = '00000000-0000-4000-8000-000000005401';
 select jsonb_array_length(missionaccounts.api_admin_onboarding_queue('dr-j','missionaccounts_admin'));
+select (missionaccounts.api_admin_onboarding_queue('dr-j','missionaccounts_admin')->0 ? 'last_seen_at');
+update missionaccounts.program_enrollment_projection
+set enrolled = false
+where student_id = '00000000-0000-4000-8000-000000005401';
+select jsonb_array_length(missionaccounts.api_admin_onboarding_queue('dr-j','missionaccounts_admin'));
+update missionaccounts.program_enrollment_projection
+set enrolled = true
+where student_id = '00000000-0000-4000-8000-000000005401';
 reset role;
 select
   (select count(*) from missionaccounts.student_onboarding_profile) || '|' ||
@@ -162,7 +181,7 @@ select
 SQL
 )
 
-expected=$'NOT_STARTED\nfalse\nFirst saved field\nfalse\ntrue\nIN_PROGRESS\n1\n2|2|0|0|0'
+expected=$'NOT_STARTED\nfalse\nFirst saved field\nfalse\ntrue\nIN_PROGRESS\n1\nt\n0\n2|2|0|0|0'
 [[ "$results" == "$expected" ]] || { echo "5404A PostgreSQL controls returned unexpected results:" >&2; echo "$results" >&2; exit 1; }
 
 first_out="$pg_tmp/concurrent-first.out"
@@ -200,4 +219,4 @@ wait "$second_pid"
 concurrency=$("${psql_cmd[@]}" -Atq -c "select revision || '|' || (select count(*) from missionaccounts.student_onboarding_submission where student_id='00000000-0000-4000-8000-000000005401') from missionaccounts.student_onboarding_profile where student_id='00000000-0000-4000-8000-000000005401';")
 [[ "$concurrency" == '2|2' ]] || { echo "5404A concurrent save changed profile or submission count unexpectedly: $concurrency" >&2; exit 1; }
 
-echo "MissionAccounts 5404A PostgreSQL rehearsal passed: atomic migration, replay rejection, forced RLS, service-only RPCs, subject isolation, partial saves, concurrent idempotency, enrollment-bounded admin queue, zero notifications, zero charges, zero invoice dispatch."
+echo "MissionAccounts 5404A PostgreSQL rehearsal passed: atomic migration, declared replay behavior, forced RLS, service-only RPCs, subject isolation, partial saves, concurrent idempotency, stale-enrollment queue visibility, billing-freshness isolation, zero notifications, zero charges, zero invoice dispatch."

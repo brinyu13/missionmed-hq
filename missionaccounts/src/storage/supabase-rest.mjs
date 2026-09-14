@@ -1,6 +1,7 @@
 import { transitionExamPlan as applyExamTransition } from '../domain/exam-engine.mjs';
 import { buildDecisionBasis, calculateCycleAmount } from '../domain/billing-engine.mjs';
 import { buildAutomaticBillingShadow } from '../domain/auto-billing-shadow.mjs';
+import { isIsoCountryCode } from '../../public/missionaccounts-countries.js';
 
 function sanitizedPaymentMethod(row) {
   if (!row) return null;
@@ -1046,7 +1047,7 @@ export class PreviewStore {
     const required = ['school_name','best_contact_method','mailing_line1','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'];
     if (required.some(field => Object.hasOwn(normalized, field) && !normalized[field])
       || (Object.hasOwn(normalized, 'best_contact_method') && !['email', 'phone'].includes(normalized.best_contact_method))
-      || (Object.hasOwn(normalized, 'mailing_country_code') && !/^[A-Z]{2}$/.test(normalized.mailing_country_code))) {
+      || (Object.hasOwn(normalized, 'mailing_country_code') && !isIsoCountryCode(normalized.mailing_country_code))) {
       throw Object.assign(new Error('Onboarding profile change is invalid'), { status: 400 });
     }
     const current = this.onboardingProfiles.get(studentId) || null;
@@ -1063,8 +1064,7 @@ export class PreviewStore {
     if (enrollment?.program_key !== 'examprep'
       || enrollment?.provider !== 'learndash'
       || enrollment?.course_id !== 6357
-      || enrollment?.enrolled !== true
-      || Date.parse(enrollment.valid_until || '') <= Date.now()) return [];
+      || enrollment?.enrolled !== true) return [];
     const state = this.onboardingState(this.previewStudentRecord.id);
     return [{
       student_id: this.previewStudentRecord.id,
@@ -1074,6 +1074,7 @@ export class PreviewStore {
       missing_steps: [...state.missing_steps],
       progress: { ...state.progress },
       payment_requirement: state.payment_requirement,
+      last_seen_at: enrollment.source_observed_at || null,
       last_updated_at: state.last_updated_at,
     }];
   }

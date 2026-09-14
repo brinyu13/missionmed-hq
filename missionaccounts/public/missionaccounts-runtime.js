@@ -448,9 +448,10 @@ async function dispatch(action, payload = {}) {
       throw new Error('This MissionAccounts action is not connected.');
     }
     await refreshCanonical();
-    if (!receipt?.processed) notify('Saved to MissionAccounts.');
+    if (!receipt?.processed && action !== 'onboarding-save') notify('Saved to MissionAccounts.');
     return receipt || true;
   } catch (error) {
+    if (action === 'onboarding-save') throw error;
     notify(error instanceof Error ? error.message : 'MissionAccounts could not save that change.');
     return false;
   } finally {
@@ -507,6 +508,7 @@ try {
   state.authenticated = session.authenticated === true;
   state.capabilities = session.capabilities || {};
   state.user = session.user || null;
+  document.documentElement.dataset.missionaccountsRole = String(state.user?.role || '');
   state.programAccess = session.program_access || null;
   if (state.authenticated) await refreshCanonical();
   document.documentElement.dataset.missionaccountsRuntime = state.bootstrap?.scope === 'registered'

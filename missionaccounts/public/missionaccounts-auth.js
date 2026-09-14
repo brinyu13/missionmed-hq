@@ -5,6 +5,7 @@ function authError(payload, status) {
   error.state = body.state || '';
   error.status = status;
   error.loginUrl = body.login_url || '';
+  error.field = typeof body.field === 'string' ? body.field : '';
   return error;
 }
 
