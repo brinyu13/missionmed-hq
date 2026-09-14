@@ -1,5 +1,16 @@
 # MR-WEB-0914 Fable 5 CRO Closure Report
 
+> **SUPERSEDED — DO NOT USE AS THE FINAL FABLE 5 CLOSURE VERDICT.**
+>
+> A fresh finding-by-finding audit of current rendered production found that
+> this report's blanket `DEPLOYED AND VERIFIED` conclusion and its claim that
+> no internal QA/governance language remained were not supported. Use
+> `MR-WEB-0914-FABLE5-FINAL-CLOSURE-EVIDENCE.md` in this directory as the
+> controlling closure report. It records 19 FIXED, 4 INTENTIONALLY DEFERRED,
+> 13 BLOCKED, and 0 NO LONGER APPLICABLE findings, with live proof and campaign
+> impact for each item. This notice preserves the historical report rather than
+> rewriting its original evidence.
+
 Current through: 2026-09-14 15:02 UTC
 
 Status: **MR-WEB-0914 FABLE 5 CRO CLOSURE = DEPLOYED AND VERIFIED**
