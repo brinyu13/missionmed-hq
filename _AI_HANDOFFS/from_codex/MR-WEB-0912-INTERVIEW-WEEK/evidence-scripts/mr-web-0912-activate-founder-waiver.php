@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
 
 const MR0912_WAIVER_PREIMAGE = '/www/theresidencyacademy_209/private/mr-web-0912/20260913T154300-0400-pre-fall-update/object-preimage.json';
 const MR0912_WAIVER_PREIMAGE_SHA256 = 'a13f6001117fd42b71ed7c00c0d165c292cdb9bb9768760e6749d6afe8e54f35';
-const MR0912_WAIVER_PLUGIN_SHA256 = '5de4b955ec3fab04881d77683eb227bd99ad2043bb59e6abf2828b00f270a666';
+const MR0912_WAIVER_PLUGIN_SHA256 = '5d2e36fee143460f2a9151c370e255ebb54f18ab7a9e14038e3bcadc39754ed0';
 const MR0912_WAIVER_STATUS = 'waived_by_founder_not_executed';
 const MR0912_WAIVER_AUTHORITY = 'DR-251';
 
