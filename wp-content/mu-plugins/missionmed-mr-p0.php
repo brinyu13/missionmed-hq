@@ -31,8 +31,14 @@ function mm_mr_p0_clean_commercial_chrome(): bool {
     return mm_mr_p0_enabled() || mm_mr_p0_launch_product_in_cart();
 }
 
+function mm_mr_0912_founder_waiver_valid(): bool {
+    return get_option('mmed_mr_0912_financial_test_status', '') === 'waived_by_founder_not_executed'
+        && get_option('mmed_mr_0912_financial_test_authority', '') === 'DR-251';
+}
+
 function mm_mr_0912_acceptance_binding(string $offerKey, string $verifiedAt, array $runtime): string {
-    if (!in_array($offerKey, ['interview_week', 'complete'], true) || !isset(
+    if (!mm_mr_0912_founder_waiver_valid()
+        || !in_array($offerKey, ['interview_week', 'complete'], true) || !isset(
         $runtime['woo_product_id'],
         $runtime['woo_variation_id'],
         $runtime['woo_price'],
@@ -54,6 +60,8 @@ function mm_mr_0912_acceptance_binding(string $offerKey, string $verifiedAt, arr
         'related_course_ids' => array_map('intval', (array) $runtime['related_course_ids']),
         'mapping_verified' => (bool) $runtime['mapping_verified'],
         'parent_verified' => (bool) $runtime['parent_verified'],
+        'financial_acceptance_status' => 'waived_by_founder_not_executed',
+        'financial_acceptance_authority' => 'DR-251',
     ];
     return hash('sha256', (string) wp_json_encode($facts, JSON_UNESCAPED_SLASHES));
 }
@@ -125,7 +133,7 @@ function mm_mr_p0_runtime_config(): array {
         $allAccepted = $allAccepted && $acceptanceBound;
         $config['campaign']['go_live_gate']['offers'][$key] = [
             'verified_live_at' => $acceptanceBound ? $verifiedAt : null,
-            'verified_by' => $acceptanceBound ? 'MR-WEB-0912 independent controlled production acceptance' : null,
+            'verified_by' => $acceptanceBound ? 'MR-WEB-0912 DR-251 Founder waiver plus independent non-financial production acceptance' : null,
         ];
         if ($acceptanceBound && !empty($runtime['product_eligible'])) {
             $config['offers'][$key]['runtime']['checkout_allowed'] = true;
@@ -134,7 +142,12 @@ function mm_mr_p0_runtime_config(): array {
         unset($config['offers'][$key]['runtime']['checkout_candidate_url']);
     }
     $config['campaign']['go_live_gate']['verified_live_at'] = $allAccepted ? 'per-offer' : null;
-    $config['campaign']['go_live_gate']['verified_by'] = $allAccepted ? 'MR-WEB-0912 independent controlled production acceptance' : null;
+    $config['campaign']['go_live_gate']['verified_by'] = $allAccepted ? 'MR-WEB-0912 DR-251 Founder waiver plus independent non-financial production acceptance' : null;
+    $config['campaign']['go_live_gate']['financial_acceptance'] = [
+        'status' => mm_mr_0912_founder_waiver_valid() ? 'waived_by_founder_not_executed' : 'not_executed',
+        'authority' => mm_mr_0912_founder_waiver_valid() ? 'DR-251' : null,
+        'passed' => false,
+    ];
     if (!empty($config['offers']['complete']['runtime']['checkout_allowed'])) {
         $verifiedPriceKey = time() <= strtotime('2026-09-24T03:59:59Z')
             ? 'early_card_paid_in_full'
@@ -157,6 +170,9 @@ function mm_mr_p0_runtime_config(): array {
         'woo_price_authoritative' => true,
         'activation_fail_closed' => true,
         'acceptance_binding_valid' => $allAccepted,
+        'live_stripe_financial_acceptance' => mm_mr_0912_founder_waiver_valid()
+            ? 'WAIVED BY FOUNDER / NOT EXECUTED'
+            : 'NOT EXECUTED',
     ];
     return $config;
 }
@@ -228,6 +244,16 @@ function mm_mr_0912_validate_cart(): void {
 }
 add_action('woocommerce_check_cart_items', 'mm_mr_0912_validate_cart', 999);
 
+function mm_mr_0912_card_only_gateways(array $gateways): array {
+    return isset($gateways['stripe']) ? ['stripe' => $gateways['stripe']] : [];
+}
+
+add_filter('woocommerce_available_payment_gateways', static function (array $gateways): array {
+    return mm_mr_p0_launch_product_in_cart()
+        ? mm_mr_0912_card_only_gateways($gateways)
+        : $gateways;
+}, 999);
+
 function mm_mr_p0_render_asset_page(string $page): never {
     $path = MM_MR_P0_ASSET_DIR . '/pages/offer.html';
     $html = is_readable($path) ? (string) file_get_contents($path) : '';
@@ -267,6 +293,10 @@ add_action('template_redirect', static function (): void {
         '/product/iv-prep-complete' => 3576,
         '/product/iv-prep-essentials' => 5504,
     ];
+    if ($path === '/mission-residency-waitlist') {
+        wp_safe_redirect(home_url('/mission-residency/'), 302, 'MissionMed MR-WEB-0912');
+        exit;
+    }
     if (isset($aliases[$path])) {
         $target = get_permalink($aliases[$path]);
         if (is_string($target) && $target !== '') {
@@ -305,12 +335,51 @@ add_action('template_redirect', static function (): void {
                 'Four Signature Mock Interviews',
                 'physicians who have matched hundreds of candidates',
                 '<div class="mm-mr-p0-route__card"><strong>IV Prep Essentials</strong>',
+                'href="https://missionmedinstitute.com/mission-residency-waitlist/"',
+                'href="/mission-residency-waitlist/"',
+                'Join the Next Match Strategy Session',
+                'See Upcoming Sessions',
             ],
             [
                 'Signature Mock entitlement confirmed at enrollment',
                 'Signature Mock entitlement confirmed at enrollment',
                 'physician mentors who teach residency applicants',
                 '<div class="mm-mr-p0-route__card"><strong>IV Prep Essentials: Interview Week</strong>',
+                'href="https://missionmedinstitute.com/mission-residency/"',
+                'href="/mission-residency/"',
+                'Explore Interview Week and Complete',
+                'View Interview Week and Complete',
+            ],
+            $html
+        );
+    });
+}, 1);
+
+add_action('template_redirect', static function (): void {
+    if (!mm_mr_p0_enabled()) return;
+    $path = '/' . trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH), '/');
+    if (!in_array($path, ['/terms-of-agreement', '/refund-cancellation-policy'], true)) return;
+    ob_start(static function (string $html): string {
+        return str_ireplace(
+            [
+                'Match Prep Pro',
+                'Payments, Enrollment, And MatchFirst',
+                'payment plan, MatchFirst, or another approved method',
+                'MatchFirst or deferred-payment arrangements',
+                'MatchFirst And Deferred Payments',
+                'MatchFirst is a specific deferred-payment arrangement when offered in writing.',
+                'MatchFirst enrollment terms',
+                'MatchFirst',
+            ],
+            [
+                'IV Prep Complete',
+                'Payments And Enrollment',
+                'payment plan or another approved method',
+                'Deferred-payment arrangements',
+                'Written Deferred-Payment Arrangements',
+                'A deferred-payment arrangement applies only when offered in writing.',
+                'written enrollment terms',
+                'written deferred payment',
             ],
             $html
         );
@@ -321,6 +390,32 @@ add_action('wp_head', static function (): void {
     if (!mm_mr_p0_clean_commercial_chrome()) return;
     echo '<style id="mm-mr-p0-claims-cleanup">#mm-l5-header .mm-l5__top>span:first-child{display:none!important}#mm-l5-header .mm-l5__top{justify-content:flex-end!important}body.home #mm-pgm-inject,body.home .mm-pgm{display:none!important}body.home .mm-mr-p0-route{background:#081a2f;color:#f8f3e7;padding:clamp(44px,7vw,84px) 24px;font-family:Inter,system-ui,sans-serif}body.home .mm-mr-p0-route__in{max-width:1160px;margin:auto;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:42px;align-items:center}body.home .mm-mr-p0-route__k,body.home .mm-mr-p0-route__card-k{color:#e5bd62;text-transform:uppercase;letter-spacing:.16em;font-size:.78rem;font-weight:800}body.home .mm-mr-p0-route h2{color:#fff;font:600 clamp(2.2rem,5vw,4.3rem)/1.02 Georgia,serif;margin:.35em 0}body.home .mm-mr-p0-route p{color:#f8f3e7;font-size:1.1rem;line-height:1.65;max-width:720px}body.home .mm-mr-p0-route__card{background:#102945;border:1px solid rgba(229,189,98,.45);padding:28px;border-radius:18px}body.home .mm-mr-p0-route__card strong{display:block;color:#fff;font:600 1.7rem/1.15 Georgia,serif;margin:.45em 0}body.home .mm-mr-p0-route a{display:inline-block;background:#e5bd62;color:#071626!important;text-decoration:none!important;font-weight:800;padding:14px 22px;border-radius:999px;margin-top:14px}@media(max-width:760px){body.home .mm-mr-p0-route__in{grid-template-columns:1fr}}</style>';
 }, 99);
+
+function mm_mr_0912_is_customer_funnel_route(): bool {
+    $path = '/' . trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH), '/') . '/';
+    return in_array($path, [
+        '/', '/mission-residency/', '/mission-residency-courses/', '/compare-programs/',
+        '/course-comparison/', '/product/match-prep-pro/', '/product/iv-prep-complete/',
+        '/product/iv-prep-masterclass/', '/product/iv-prep-essentials/', '/cart/', '/checkout/',
+        '/mission-residency-waitlist/', '/terms-of-agreement/', '/refund-cancellation-policy/',
+        '/privacy-policy/',
+    ], true);
+}
+
+add_action('wp_head', static function (): void {
+    if (!mm_mr_p0_enabled() || !mm_mr_0912_is_customer_funnel_route()) return;
+    echo '<style id="mm-mr-0912-mobile-notice-containment">#mm-mobile-notice,#mm-mobile-notice-styles{display:none!important}</style>';
+}, PHP_INT_MAX);
+
+add_action('wp_footer', static function (): void {
+    if (!mm_mr_p0_enabled() || !mm_mr_0912_is_customer_funnel_route()) return;
+    echo '<script id="mm-mr-0912-mobile-notice-containment-script">(function(){function remove(){var n=document.getElementById("mm-mobile-notice");if(n)n.remove();}remove();new MutationObserver(remove).observe(document.documentElement,{childList:true,subtree:true});}());</script>';
+}, PHP_INT_MAX);
+
+add_action('woocommerce_review_order_before_submit', static function (): void {
+    if (!mm_mr_p0_launch_product_in_cart()) return;
+    echo '<p class="mm-mr-0912-policy-links"><a href="' . esc_url(home_url('/terms-of-agreement/')) . '" target="_blank" rel="noopener">Terms of Agreement</a> · <a href="' . esc_url(home_url('/refund-cancellation-policy/')) . '" target="_blank" rel="noopener">Refund &amp; Cancellation Policy</a> · <a href="' . esc_url(home_url('/privacy-policy/')) . '" target="_blank" rel="noopener">Privacy Policy</a></p>';
+}, 8);
 
 add_action('wp_footer', static function (): void {
     if (!mm_mr_p0_clean_commercial_chrome()) return;

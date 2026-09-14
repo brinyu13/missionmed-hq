@@ -29,6 +29,8 @@ $GLOBALS['mr0912_options'] = [
     'mmed_mr_0912_interview_week_acceptance_binding_sha256' => '',
     'mmed_mr_0912_complete_verified_live_at' => '',
     'mmed_mr_0912_complete_acceptance_binding_sha256' => '',
+    'mmed_mr_0912_financial_test_status' => '',
+    'mmed_mr_0912_financial_test_authority' => '',
 ];
 $GLOBALS['mr0912_prices'] = [5867 => 1199.0, 5865 => 2799.0];
 $GLOBALS['mr0912_parents'] = [5867 => 5504, 5865 => 3576];
@@ -69,8 +71,9 @@ $check = static function (bool $condition, string $label) use (&$failures, &$ass
 
 $configPath = $assetRoot . '/config/campaign-state.json';
 $config = json_decode((string) file_get_contents($configPath), true, flags: JSON_THROW_ON_ERROR);
+$javascript = (string) file_get_contents($assetRoot . '/js/mr-0912.js');
 $check($config['mission'] === 'MR-WEB-0912', 'mission');
-$check($config['authority'] === ['DR-246', 'DR-247'], 'authority');
+$check($config['authority'] === ['DR-246', 'DR-247', 'DR-251'], 'authority');
 $check($config['offers']['interview_week']['price'] === 500, 'interview-week-price');
 $check($config['offers']['complete']['standard_price'] === 3499, 'complete-standard-price');
 $check($config['offers']['complete']['includes_interview_week'] === true, 'complete-includes-interview-week');
@@ -82,6 +85,10 @@ $check($config['payment_options']['standard']['public_verified'] === false, 'sta
 $check($config['upgrade_credit']['public_verified'] === false, 'upgrade-fail-closed');
 $check($config['alumni']['public_verified'] === false, 'alumni-fail-closed');
 $check(array_column($config['schedule'], 'time') === ['Evening', '11 AM-4 PM ET', '11 AM-4 PM ET', 'Evening', 'Evening', '11 AM-4 PM ET'], 'schedule-precision');
+$check(!str_contains($javascript, 'verificationNote'), 'no-customer-visible-verification-note');
+$check(!str_contains($javascript, 'Current operational limits'), 'no-customer-visible-operational-qa');
+$check(str_contains((string) file_get_contents($plugin), 'refund-cancellation-policy'), 'checkout-policy-links');
+$check(str_contains((string) file_get_contents($plugin), 'mission-residency-waitlist'), 'legacy-waitlist-containment');
 
 $runtime = mm_mr_p0_runtime_config();
 $check($runtime['campaign']['go_live_gate']['verified_live_at'] === null, 'old-acceptance-not-inherited');
@@ -112,6 +119,9 @@ $GLOBALS['mr0912_options']['mmed_mr_0912_interview_week_verified_live_at'] = '20
 $runtime = mm_mr_p0_runtime_config();
 $check($runtime['campaign']['go_live_gate']['verified_live_at'] === null, 'timestamp-without-binding-rejected');
 $check($runtime['offers']['interview_week']['runtime']['checkout_allowed'] === false, 'unbound-interview-week-blocked');
+$check(mm_mr_0912_acceptance_binding('interview_week', '2026-09-13T17:00:00Z', $runtime['offers']['interview_week']['runtime']) === '', 'binding-requires-founder-waiver');
+$GLOBALS['mr0912_options']['mmed_mr_0912_financial_test_status'] = 'waived_by_founder_not_executed';
+$GLOBALS['mr0912_options']['mmed_mr_0912_financial_test_authority'] = 'DR-251';
 $GLOBALS['mr0912_options']['mmed_mr_0912_interview_week_acceptance_binding_sha256'] = mm_mr_0912_acceptance_binding(
     'interview_week',
     $GLOBALS['mr0912_options']['mmed_mr_0912_interview_week_verified_live_at'],
@@ -137,10 +147,13 @@ $check($runtime['offers']['complete']['runtime']['checkout_allowed'] === true, '
 $check($runtime['payment_options']['early_card_paid_in_full']['public_verified'] === true, 'accepted-card-rail-published');
 $check($runtime['payment_options']['early_card_paid_in_full']['amount'] === 3099, 'accepted-card-amount-published');
 $check($runtime['production']['acceptance_binding_valid'] === true, 'acceptance-binding-valid');
+$check($runtime['production']['live_stripe_financial_acceptance'] === 'WAIVED BY FOUNDER / NOT EXECUTED', 'waiver-reported-not-pass');
+$check($runtime['campaign']['go_live_gate']['financial_acceptance']['passed'] === false, 'financial-acceptance-not-pass');
 $check(str_contains((string) $runtime['offers']['interview_week']['runtime']['checkout_url'], 'add-to-cart=5504'), 'interview-week-checkout-identity');
 $check(str_contains((string) $runtime['offers']['complete']['runtime']['checkout_url'], 'add-to-cart=3576'), 'complete-checkout-identity');
 
 $GLOBALS['mr0912_woo']->cart->items = [['product_id' => 5504, 'variation_id' => 5867]];
+$check(array_keys(mm_mr_0912_card_only_gateways(['stripe' => 'card', 'bacs' => 'manual'])) === ['stripe'], 'mission-residency-card-only');
 $check(mm_mr_0912_validate_add_to_cart(true, 3576, 1, 5865) === false, 'double-purchase-add-blocked');
 $GLOBALS['mr0912_woo']->cart->items[] = ['product_id' => 3576, 'variation_id' => 5865];
 $GLOBALS['mr0912_notices'] = [];

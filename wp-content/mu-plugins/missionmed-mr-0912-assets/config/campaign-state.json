@@ -2,7 +2,7 @@
   "_release_asset_dir": "missionmed-mr-0912-assets",
   "schema": "missionmed.mr-web-0912.campaign.v1",
   "mission": "MR-WEB-0912",
-  "authority": ["DR-246", "DR-247"],
+  "authority": ["DR-246", "DR-247", "DR-251"],
   "timezone": "America/New_York",
   "campaign": {
     "id": "fall_2026_interview_week",
@@ -10,7 +10,7 @@
       "verified_live_at": null,
       "verified_by": null,
       "blocks_checkout": true,
-      "required_evidence": "Current payment, order, account, correct entitlement, unrelated-course exclusion, onboarding, refund/revocation, rendered QA, and independent acceptance"
+      "required_evidence": "DR-251 Founder waiver, current product/account/mapping truth, entitlement and refund simulation, non-financial cart and checkout, rendered QA, analytics observation, rollback, and independent acceptance"
     },
     "early_terms_end": "2026-09-23T23:59:59-04:00",
     "next_foundation": "Anticipated around November 8, 2026"
