@@ -1,0 +1,81 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5404A",
+  "captured_at": "2026-09-14T16:32:48Z",
+  "stage": "FABLE_REMEDIATION_SOURCE_READY_FOR_FRESH_INDEPENDENT_TECHNICAL_VERIFICATION",
+  "source_base": "8450144bda8aabb3bac2a671e524b6af9d64b1a4",
+  "source_base_missionaccounts_tree": "3133c78ad1228db14b829f608861503fdf4fdc09",
+  "branch": "codex/mx-missionaccounts-5404a",
+  "corrective_source_commit": "2555afbcc3b124d466a97003440e6b0e447f1c6a",
+  "original_fable_candidate": "fefa88587e7692c73c625d3ad388fc50ae7667d3",
+  "original_fable_result_sha256": "f0b94f91c87174a1a9b408fe11c13d4c37a50d46e776d36e1fc92dd2bdad7db9",
+  "authority": {
+    "decision_record": "DR-254",
+    "missionmed_os_commit": "eb4a9c1565b3e4a4ce1ad6c859dbdd949ef5ad8c",
+    "decision_record_sha256": "1e9ae5f9da86397fe9bf7171473223f311b0d175937c2e7a23f0480d98b717cd",
+    "registration_sha256": "b2978aff4f82526fcc6d27055f8b071e74f7ee3155898b0027aa855c305234d4",
+    "deployment_authorized": false,
+    "production_mutation_authorized": false,
+    "money_authorized_usd": 0.0
+  },
+  "fable_findings_disposition": {
+    "P0_1_queue_truth": "FIXED: the read-only onboarding queue retains enrolled=true and canonical ExamPrep/LearnDash/course and identity guards, omits valid_until only for queue visibility, and exposes last_seen_at",
+    "P1_1_save_recovery": "FIXED: change detection precedes locking; finally restores Save; 400 renders a focused inline field error; expected revision conflicts use PostgREST-safe PT409 and render Reload without transaction retries",
+    "P1_2_country": "FIXED: 249-code ISO 3166 alpha-2 selector shows names and stores codes; invalid codes fail with field context; default US persists with the first real edit while an untouched form remains untouched",
+    "P1_3_role_guard": "FIXED: authenticated role is stamped on the document and capability guards are reapplied after theme rerender",
+    "P1_4_queue_identity": "FIXED: canonical display name is primary and differing preferred name is secondary as goes by",
+    "P1_5_truthful_progress": "FIXED: percent counts only actionable applicable steps",
+    "P1_6_required_optional": "FIXED: preferred name and address line 2 are optional; empty required fields have accessible completion hints",
+    "P1_7_complete_state": "FIXED: completion message, 100 percent, Save changes, and All ready are rendered",
+    "P1_8_student_ops_banner": "FIXED: operations status remains admin-only",
+    "P1_9_no_charge_copy": "FIXED: exact trust sentence is present"
+  },
+  "source_sha256": {
+    "public/index.production.html": "439c226df3421d2f61470fee82610b73022032b66d40f877c51391c42aefbb74",
+    "public/missionaccounts-auth.js": "46a95e7fc617371dd7bba2bd91ab6252c98606b7691a086ff4d3596b2a960531",
+    "public/missionaccounts-countries.js": "9fb769b723f5db8488c789aa61f8c98c0a620fac63d8a5c2773a0821ae15d88d",
+    "public/missionaccounts-runtime.js": "5651a00543dc10211e16a8556bb28640fb7711ec12504056bbc3d369cd9e366e",
+    "scripts/test-5404a-postgres-rehearsal.sh": "b839ab16731e9cde020a318a757692497d3b0d15bcf748e001c17bf329e1a7dd",
+    "src/server.mjs": "bc090f65904be861b7e7408ee28bbea76a9a929e476cb31ca4033d675e6c9d48",
+    "src/storage/supabase-rest.mjs": "162ecf856c4caa2d96a28faaeaacf8f2eea86a18f57268625cf610959222a9d7",
+    "supabase/migrations/20260914111824_dedicated_examprep_onboarding_5404a.sql": "54be27e8026f9d0919fb6a91182f2ce0420c2179ca49f2a504f109902f36e44b",
+    "supabase/migrations/20260914114700_onboarding_queue_visibility_5404a.sql": "b703959c19455c09218a7c052247f90cbd63092682520f428662d2ab6b382e91",
+    "tests/onboarding.test.mjs": "0c6debdf83f697e9ad1da4ccf4a37f1800b6700a74e0914c4836a7bc8e52524a",
+    "tests/ui-repair.test.mjs": "f9fdf8bc9f3a8c64c27db278577977dbdd2a222a382ae3d1693c3c96140f7f4d"
+  },
+  "validation": {
+    "npm_test": {"result": "PASS", "tests": 223, "failed": 0},
+    "focused_onboarding_ui": {"result": "PASS", "tests": 28, "failed": 0},
+    "source_validation": {"result": "PASS", "attendance_events": 3941, "human_cycle_rows": 498, "identity_nodes": 370, "applied_merge_groups": 63, "unresolved_relationships": 34},
+    "postgres_5404a": {"result": "PASS", "proved": ["atomic original migration", "declared forward-migration replay behavior", "forced RLS", "service-role-only RPCs", "subject isolation", "partial saves", "concurrent idempotency", "stale enrolled row visible", "enrolled=false absent", "billing freshness isolated", "zero notifications", "zero charges", "zero invoice dispatch"]},
+    "postgres_5403b_non_regression": {"result": "PASS", "automatic_billing_freshness_changed": false},
+    "rendered_browser": {
+      "result": "PASS",
+      "student_first_visit": "0 of 5 actionable steps and Not started; country selector has 249 options; Save progress is dominant; no operations banner",
+      "save_resume": "synthetic one-field save persisted; no-change Save stayed enabled",
+      "http_400": "field focused, aria-invalid=true, inline error visible, Save enabled",
+      "http_409": "Reload action visible, Save enabled",
+      "country": "Nigeria displayed and NG persisted",
+      "theme_role_guard": "student role persisted and Dr J/Preview controls remained hidden after theme change",
+      "complete": "100 percent, Complete, Save changes, All ready, and explicit completion message",
+      "admin_queue": "enrolled row remained visible after valid_until expired; Last opened timestamp rendered; display name primary and goes by nickname secondary",
+      "viewports": {
+        "1440": {"student_horizontal_overflow": false, "admin_horizontal_overflow": false},
+        "1024": {"student_horizontal_overflow": false},
+        "390": {"student_horizontal_overflow": false, "admin_horizontal_overflow": false, "save_visible": true, "country_selector_width_px": 320}
+      }
+    }
+  },
+  "provider_readback": {
+    "production_database_changed": false,
+    "production_latest_migration": "20260913133139 / 20260911224524_autobilling_contract_closeout_5403b",
+    "production_5404a_migrations_applied": 0,
+    "production_deployed": false,
+    "messages_sent": 0,
+    "notification_rows_created": 0,
+    "payment_intents_created": 0,
+    "money_moved_usd": 0.0,
+    "automatic_dispatch_changed": false,
+    "zoom_changed": false
+  },
+  "next_gate": "FRESH_INDEPENDENT_TECHNICAL_VERIFICATION_THEN_EXTERNAL_TARGETED_FABLE5_RECHECK"
+}

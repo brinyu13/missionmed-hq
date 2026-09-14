@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
+import { isIsoCountryCode } from '../public/missionaccounts-countries.js';
 import { createReadStream, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +49,7 @@ function environmentConfig() {
       zoomEffectiveWrites: process.env.MISSIONACCOUNTS_ZOOM_EFFECTIVE_WRITES === '1',
       billableDayCalculation: process.env.MISSIONACCOUNTS_BILLABLE_DAY_CALCULATION === '1',
       autoBillingShadow: process.env.MISSIONACCOUNTS_AUTO_BILLING_SHADOW === '1',
+      onboarding: process.env.MISSIONACCOUNTS_ONBOARDING === '1',
     },
     stripeMode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
     stripeAccountId: process.env.MISSIONACCOUNTS_STRIPE_ACCOUNT_ID || '',
@@ -109,8 +111,8 @@ function mime(file) {
   return ({ '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' })[path.extname(file)] || 'application/octet-stream';
 }
 
-function requestError(message, status = 400) {
-  return Object.assign(new Error(message), { status });
+function requestError(message, status = 400, details = {}) {
+  return Object.assign(new Error(message), { status, ...details });
 }
 
 function requestIdFor(request) {
@@ -123,6 +125,54 @@ function requestIdFor(request) {
 
 function requireFeature(config, feature) {
   if (!config.features?.[feature]) throw requestError('This MissionAccounts capability is not enabled', 503);
+}
+
+function onboardingProfileFromBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw requestError('Onboarding profile is invalid');
+  const allowed = new Set([
+    'preferred_name', 'school_name', 'best_contact_method', 'mailing_line1', 'mailing_line2',
+    'mailing_city', 'mailing_region', 'mailing_postal_code', 'mailing_country_code', 'expected_revision',
+  ]);
+  if (Object.keys(body).some(key => !allowed.has(key))) throw requestError('Onboarding profile contains an unsupported field');
+  const changedFields = Object.keys(body).filter(key => key !== 'expected_revision');
+  if (changedFields.length === 0) throw requestError('Onboarding profile contains no changes');
+  const labels = {
+    preferred_name: 'Preferred name', school_name: 'School', best_contact_method: 'Best way to contact you',
+    mailing_line1: 'Mailing address', mailing_line2: 'Address line 2', mailing_city: 'City',
+    mailing_region: 'State or region', mailing_postal_code: 'Postal code', mailing_country_code: 'Country',
+  };
+  const value = (key, max, allowEmpty = false) => {
+    const clean = String(body[key] ?? '').trim();
+    if ((!allowEmpty && !clean) || clean.length > max) {
+      throw requestError(`${labels[key]} is ${!clean ? 'required' : 'too long'}.`, 400, { field: key });
+    }
+    return clean || null;
+  };
+  const rules = {
+    preferred_name: [80, true],
+    school_name: [160, false],
+    best_contact_method: [10, false],
+    mailing_line1: [160, false],
+    mailing_line2: [160, true],
+    mailing_city: [100, false],
+    mailing_region: [100, false],
+    mailing_postal_code: [24, false],
+    mailing_country_code: [2, false],
+  };
+  const profile = Object.fromEntries(changedFields.map(key => {
+    const [max, allowEmpty] = rules[key];
+    const clean = value(key, max, allowEmpty);
+    return [key, key === 'mailing_country_code' ? clean.toUpperCase() : key === 'best_contact_method' ? clean.toLowerCase() : clean];
+  }));
+  if (Object.hasOwn(profile, 'best_contact_method') && !['email', 'phone'].includes(profile.best_contact_method)) {
+    throw requestError('Choose email or phone as your best contact method.', 400, { field: 'best_contact_method' });
+  }
+  if (Object.hasOwn(profile, 'mailing_country_code') && !isIsoCountryCode(profile.mailing_country_code)) {
+    throw requestError('Choose a country from the list.', 400, { field: 'mailing_country_code' });
+  }
+  const expectedRevision = Number(body.expected_revision);
+  if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw requestError('Onboarding revision is invalid');
+  return { profile, changedFields, expectedRevision };
 }
 
 function secureTokenEqual(actual, expected) {
@@ -173,6 +223,7 @@ export function createMissionAccountsServer({
       auto_billing_enabled: Boolean(config.features?.autoBilling),
       auto_billing_consent_enabled: Boolean(config.features?.autoBillingConsent),
       auto_billing_shadow_enabled: Boolean(config.features?.autoBillingShadow),
+      onboarding_enabled: Boolean(config.features?.onboarding),
       stripe: stripeState,
     };
   }
@@ -625,6 +676,7 @@ export function createMissionAccountsServer({
           zoom_sync: !registeredOnly && Boolean(config.features?.zoomSync),
           zoom_shadow: !registeredOnly && Boolean(config.features?.zoomShadow),
           auto_billing_shadow: !registeredOnly && Boolean(config.features?.autoBillingShadow),
+          onboarding: !registeredOnly && Boolean(config.features?.onboarding),
         },
       });
     }
@@ -651,7 +703,7 @@ export function createMissionAccountsServer({
       }
       if (role === 'student') {
         const student = await studentContext(identity);
-        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan, canon] = await Promise.all([
+        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan, canon, onboarding] = await Promise.all([
           store.attendanceForStudent(student.id),
           store.billingForStudent(student.id),
           store.paymentMethodForStudent(student.id),
@@ -659,6 +711,9 @@ export function createMissionAccountsServer({
           store.currentBillingTerms(),
           store.currentExamPlanForStudent(student.id),
           store.canonicalUiData({ scope: 'student', studentId: student.id }),
+          config.features?.onboarding
+            ? store.onboardingForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student' })
+            : Promise.resolve(null),
         ]);
         return json(response, 200, {
           schema_version: 'missionaccounts-ui-bootstrap-v1',
@@ -666,11 +721,12 @@ export function createMissionAccountsServer({
           user,
           program_access: identity.programAccess,
           account: { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan },
+          onboarding,
           canon,
         });
       }
       const cycles = await store.billingCycles();
-      const [home, students, cycleProjections, identityClusters, attendanceIssues, health, canon] = await Promise.all([
+      const [home, students, cycleProjections, identityClusters, attendanceIssues, health, canon, onboardingQueue] = await Promise.all([
         store.adminHome({ today: localDayFromIso(now().toISOString()) }),
         store.adminStudents(),
         Promise.all(cycles.map(cycle => store.adminCycle(cycle.key))),
@@ -678,6 +734,12 @@ export function createMissionAccountsServer({
         store.adminAttendanceIssues({ state: 'all' }),
         administrativeHealth(),
         store.canonicalUiData({ scope: 'admin' }),
+        config.features?.onboarding
+          ? store.adminOnboardingQueue({
+            actorId: identity.userId,
+            actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+          })
+          : Promise.resolve([]),
       ]);
       return json(response, 200, {
         schema_version: 'missionaccounts-ui-bootstrap-v1',
@@ -691,6 +753,7 @@ export function createMissionAccountsServer({
         attendance_issues: attendanceIssues,
         health,
         canon,
+        onboarding_queue: onboardingQueue,
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/me') {
@@ -705,6 +768,39 @@ export function createMissionAccountsServer({
         store.currentExamPlanForStudent(student.id),
       ]);
       return json(response, 200, { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan });
+    }
+    if (request.method === 'GET' && url.pathname === '/api/me/onboarding') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'onboarding');
+      const student = await studentContext(identity);
+      const onboarding = await store.onboardingForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student' });
+      return json(response, 200, { onboarding });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/me/onboarding') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'onboarding');
+      const student = await studentContext(identity);
+      const { profile, changedFields, expectedRevision } = onboardingProfileFromBody(await readJsonBody(request, { limitBytes: 12_288 }));
+      const result = await store.saveStudentOnboarding({
+        studentId: student.id,
+        profile,
+        changedFields,
+        expectedRevision,
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
+    if (request.method === 'GET' && url.pathname === '/api/admin/onboarding') {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'onboarding');
+      return json(response, 200, {
+        students: await store.adminOnboardingQueue({
+          actorId: identity.userId,
+          actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        }),
+      });
     }
     if (request.method === 'POST' && url.pathname === '/api/me/exam-plan') {
       requireRole(identity, ['student']);
@@ -1494,6 +1590,7 @@ export function createMissionAccountsServer({
     const mountedPath = pathname.startsWith(normalizedBase) ? pathname.slice(normalizedBase.length) : pathname.replace(/^\/+/, '');
     const requestedIndex = config.production ? 'index.production.html' : 'index.html';
     const assetAliases = {
+      'assets/countries': 'missionaccounts-countries.js',
       'assets/runtime': 'missionaccounts-runtime.js',
       'assets/auth': 'missionaccounts-auth.js',
       'assets/canonical-adapter': 'missionaccounts-canonical-adapter.js',
@@ -1519,7 +1616,11 @@ export function createMissionAccountsServer({
       else await serveStatic(response, url.pathname);
     } catch (error) {
       const status = Number(error.status) || 500;
-      json(response, status, { code: status === 500 ? 'INTERNAL_ERROR' : 'REQUEST_DENIED', message: config.production && status === 500 ? 'MissionAccounts request failed' : error.message });
+      json(response, status, {
+        code: status === 500 ? 'INTERNAL_ERROR' : 'REQUEST_DENIED',
+        message: config.production && status === 500 ? 'MissionAccounts request failed' : error.message,
+        ...((status === 400 || status === 409) && typeof error.field === 'string' ? { field: error.field } : {}),
+      });
     }
   });
 }

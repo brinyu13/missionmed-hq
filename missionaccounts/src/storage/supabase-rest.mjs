@@ -1,6 +1,7 @@
 import { transitionExamPlan as applyExamTransition } from '../domain/exam-engine.mjs';
 import { buildDecisionBasis, calculateCycleAmount } from '../domain/billing-engine.mjs';
 import { buildAutomaticBillingShadow } from '../domain/auto-billing-shadow.mjs';
+import { isIsoCountryCode } from '../../public/missionaccounts-countries.js';
 
 function sanitizedPaymentMethod(row) {
   if (!row) return null;
@@ -73,6 +74,41 @@ export class SupabaseRestStore {
   async enrollmentForStudent(studentId) {
     const rows = await this.request(`program_enrollment_projection?student_id=eq.${encodeURIComponent(studentId)}&program_key=eq.examprep&select=program_key,provider,course_id,enrolled,source_observed_at,verified_at,valid_until&limit=1`);
     return rows[0] || null;
+  }
+
+  async onboardingForStudent({ studentId, actorId, actorRole }) {
+    return this.rpc('api_get_student_onboarding', {
+      p_student_id: studentId,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+    });
+  }
+
+  async saveStudentOnboarding({ studentId, profile, changedFields = Object.keys(profile).filter(field => field !== 'expected_revision'), expectedRevision, actorId, actorRole, requestId }) {
+    return this.rpc('api_save_student_onboarding', {
+      p_student_id: studentId,
+      p_preferred_name: profile.preferred_name ?? null,
+      p_school_name: profile.school_name ?? null,
+      p_best_contact_method: profile.best_contact_method ?? null,
+      p_mailing_line1: profile.mailing_line1 ?? null,
+      p_mailing_line2: profile.mailing_line2 ?? null,
+      p_mailing_city: profile.mailing_city ?? null,
+      p_mailing_region: profile.mailing_region ?? null,
+      p_mailing_postal_code: profile.mailing_postal_code ?? null,
+      p_mailing_country_code: profile.mailing_country_code ?? null,
+      p_changed_fields: changedFields,
+      p_expected_revision: expectedRevision,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
+  async adminOnboardingQueue({ actorId, actorRole }) {
+    return this.rpc('api_admin_onboarding_queue', {
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+    });
   }
 
   async billingCycles() {
@@ -866,6 +902,8 @@ export class PreviewStore {
     this.consentMutations = new Map();
     this.enrollmentProjections = new Map();
     this.enrollmentMutations = new Map();
+    this.onboardingProfiles = new Map();
+    this.onboardingMutations = new Map();
     this.automaticBillingContract = {
       rollout_cutoff: new Date(0).toISOString(),
       ordinary_dispatch_delay_hours: 24,
@@ -944,6 +982,102 @@ export class PreviewStore {
     return result;
   }
   async enrollmentForStudent(studentId) { return this.enrollmentProjections.get(studentId) || null; }
+  onboardingState(studentId) {
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    const student = this.previewStudentRecord;
+    if (student.identity_state !== 'verified') throw Object.assign(new Error('Canonical student identity is required'), { status: 403 });
+    const profile = this.onboardingProfiles.get(studentId) || null;
+    const direct = student.sponsor_type === 'DIRECT';
+    const paymentMethod = this.paymentMethods.get(studentId) || null;
+    const consent = this.billingConsents.get(studentId) || null;
+    const examPlan = this.examPlans.get(studentId) || null;
+    const progress = {
+      account: true,
+      profile: Boolean(profile?.school_name && profile?.best_contact_method && profile?.mailing_line1
+        && profile?.mailing_city && profile?.mailing_region && profile?.mailing_postal_code && profile?.mailing_country_code),
+      contact: Boolean(student.email && student.phone),
+      exam_plan: Boolean(examPlan),
+      payment_method: direct ? paymentMethod?.status === 'on_file' : null,
+      billing_consent: direct ? consent?.state === 'authorized' : null,
+      recovery_available: true,
+    };
+    const missing = [];
+    if (!progress.account) missing.push('ACCOUNT');
+    if (!progress.profile) missing.push('PROFILE');
+    if (!progress.contact) missing.push('CONTACT');
+    if (!progress.exam_plan) missing.push('EXAM_PLAN');
+    if (direct && !progress.payment_method) missing.push('PAYMENT_METHOD');
+    if (direct && !progress.billing_consent) missing.push('BILLING_CONSENT');
+    return {
+      student: { display_name: student.display_name, email: student.email, phone: student.phone, sponsor_type: student.sponsor_type },
+      profile: profile ? { ...profile } : null,
+      status: missing.length === 0 ? 'COMPLETE' : profile ? 'IN_PROGRESS' : 'NOT_STARTED',
+      missing_steps: missing,
+      progress,
+      payment_requirement: direct ? 'REQUIRED' : 'NOT_APPLICABLE',
+      revision: profile?.revision || 0,
+      last_updated_at: profile?.updated_at || null,
+      recovery_url: '/my-account/lost-password/',
+    };
+  }
+  async onboardingForStudent({ studentId, actorId, actorRole }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
+    return this.onboardingState(studentId);
+  }
+  async saveStudentOnboarding({ studentId, profile, changedFields = Object.keys(profile).filter(field => field !== 'expected_revision'), expectedRevision, actorId, actorRole, requestId }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
+    const allowed = new Set(['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code']);
+    if (!changedFields.length || changedFields.some(field => !allowed.has(field)) || new Set(changedFields).size !== changedFields.length) {
+      throw Object.assign(new Error('Onboarding profile contains invalid changes'), { status: 400 });
+    }
+    const canonicalFields = [...changedFields].sort();
+    const normalized = Object.fromEntries(canonicalFields.map(field => {
+      let value = String(profile[field] || '').trim();
+      if (field === 'best_contact_method') value = value.toLowerCase();
+      if (field === 'mailing_country_code') value = value.toUpperCase();
+      return [field, value || null];
+    }));
+    const fingerprint = JSON.stringify({ studentId, normalized, changedFields: canonicalFields, expectedRevision, actorId, actorRole });
+    const prior = this.onboardingMutations.get(requestId);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...structuredClone(prior.result), duplicate: true };
+    }
+    if (this.previewStudentRecord.identity_state !== 'verified') throw Object.assign(new Error('Canonical student identity is required'), { status: 403 });
+    const required = ['school_name','best_contact_method','mailing_line1','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'];
+    if (required.some(field => Object.hasOwn(normalized, field) && !normalized[field])
+      || (Object.hasOwn(normalized, 'best_contact_method') && !['email', 'phone'].includes(normalized.best_contact_method))
+      || (Object.hasOwn(normalized, 'mailing_country_code') && !isIsoCountryCode(normalized.mailing_country_code))) {
+      throw Object.assign(new Error('Onboarding profile change is invalid'), { status: 400 });
+    }
+    const current = this.onboardingProfiles.get(studentId) || null;
+    if ((current?.revision || 0) !== expectedRevision) throw Object.assign(new Error('Onboarding was updated in another session. Reload before saving.'), { status: 409 });
+    const saved = { ...(current || {}), ...normalized, revision: expectedRevision + 1, updated_at: new Date().toISOString() };
+    this.onboardingProfiles.set(studentId, saved);
+    const result = { accepted: true, duplicate: false, onboarding: this.onboardingState(studentId) };
+    this.onboardingMutations.set(requestId, { fingerprint, result: structuredClone(result) });
+    return result;
+  }
+  async adminOnboardingQueue({ actorId, actorRole }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole) || !actorId) throw Object.assign(new Error('Onboarding administrator authority required'), { status: 403 });
+    const enrollment = this.enrollmentProjections.get(this.previewStudentRecord.id);
+    if (enrollment?.program_key !== 'examprep'
+      || enrollment?.provider !== 'learndash'
+      || enrollment?.course_id !== 6357
+      || enrollment?.enrolled !== true) return [];
+    const state = this.onboardingState(this.previewStudentRecord.id);
+    return [{
+      student_id: this.previewStudentRecord.id,
+      display_name: this.previewStudentRecord.display_name,
+      preferred_name: state.profile?.preferred_name || null,
+      status: state.status,
+      missing_steps: [...state.missing_steps],
+      progress: { ...state.progress },
+      payment_requirement: state.payment_requirement,
+      last_seen_at: enrollment.source_observed_at || null,
+      last_updated_at: state.last_updated_at,
+    }];
+  }
   async billingCycles() {
     return [
       { key: '2026-cycle-1', label: 'June Cycle', starts_on: '2026-06-08', ends_on: '2026-07-13', state: 'estimate' },

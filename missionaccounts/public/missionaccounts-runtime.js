@@ -62,6 +62,7 @@ const actionCapabilities = Object.freeze({
   'student-passed': 'exam_plans',
   'student-exam-withdraw': 'exam_plans',
   'exam-transition': 'exam_plans',
+  'onboarding-save': 'onboarding',
 });
 
 function notify(message) {
@@ -114,7 +115,7 @@ async function refreshCanonical() {
       const hasAttendance = Object.keys(canonicalModel.data.students[0]?.c || {}).length > 0;
       const routeWithoutQuery = String(studentHash).split('?')[0];
       const isReportRoute = String(studentHash).includes('report=1');
-      hydrationHash = !hasAttendance && !isReportRoute && !['#/me/billing', '#/me/exam'].includes(routeWithoutQuery) ? '#/me/billing' : studentHash;
+      hydrationHash = !hasAttendance && !isReportRoute && !['#/me/billing', '#/me/exam', '#/me/onboarding'].includes(routeWithoutQuery) ? '#/me/billing' : studentHash;
     }
     if (location.hash !== hydrationHash) history.replaceState(null, '', `${location.pathname}${location.search}${hydrationHash}`);
   }
@@ -438,13 +439,19 @@ async function dispatch(action, payload = {}) {
           reverts_id: correction.id,
         },
       });
+    } else if (action === 'onboarding-save') {
+      if (state.user?.role !== 'student') throw new Error('Only the signed-in student can save onboarding details.');
+      receipt = await window.MissionAccountsRuntime.mutation('/me/onboarding', {
+        body: { ...payload.profile, expected_revision: payload.expectedRevision },
+      });
     } else {
       throw new Error('This MissionAccounts action is not connected.');
     }
     await refreshCanonical();
-    if (!receipt?.processed) notify('Saved to MissionAccounts.');
+    if (!receipt?.processed && action !== 'onboarding-save') notify('Saved to MissionAccounts.');
     return receipt || true;
   } catch (error) {
+    if (action === 'onboarding-save') throw error;
     notify(error instanceof Error ? error.message : 'MissionAccounts could not save that change.');
     return false;
   } finally {
@@ -501,6 +508,7 @@ try {
   state.authenticated = session.authenticated === true;
   state.capabilities = session.capabilities || {};
   state.user = session.user || null;
+  document.documentElement.dataset.missionaccountsRole = String(state.user?.role || '');
   state.programAccess = session.program_access || null;
   if (state.authenticated) await refreshCanonical();
   document.documentElement.dataset.missionaccountsRuntime = state.bootstrap?.scope === 'registered'

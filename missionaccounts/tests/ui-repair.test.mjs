@@ -92,6 +92,34 @@ test('registered account landing provides enrollment-aware program states and re
  assert.match(html,/body\.opening-active #hdr,body\.opening-active #rail,body\.opening-active #main\{visibility:hidden\}/);
 });
 
+test('onboarding UI recovers saves, keeps student role guards, and uses truthful copy',()=>{
+ const theme=fn('setTheme');
+ assert.match(theme,/missionAccountsApplyCapabilityState\(document\)/);
+ assert.match(html,/html\[data-missionaccounts-role="student"\] \.demo\{display:none!important\}/);
+ const bind=fn('bind');
+ const noChange=bind.indexOf("if(!Object.keys(profile).length)");
+ const disable=bind.indexOf("button.disabled=true");
+ assert.ok(noChange>0&&disable>noChange);
+ assert.match(bind,/finally\{[\s\S]*button\.disabled=false; button\.textContent=prior/);
+ assert.match(bind,/error\?\.status===400&&error\.field/);
+ assert.match(bind,/setAttribute\('aria-invalid','true'\)/);
+ assert.match(bind,/error\?\.status===409/);
+ assert.match(bind,/label:'Reload'/);
+ assert.match(fn('missionAccountsStatusBanner'),/state\?\.user\?\.role==='student'/);
+ assert.match(fn('viewMeOnboarding'),/const actionable=\['profile','contact','exam_plan'/);
+ assert.match(fn('viewMeOnboarding'),/Save changes/);
+});
+
+test('default US country persists with the first real onboarding edit but not an untouched form',()=>{
+ const changes=vm.runInNewContext('('+fn('onboardingProfileChanges')+')');
+ assert.deepEqual(JSON.parse(JSON.stringify(changes({mailing_country_code:'US'},{}))),{});
+ assert.deepEqual(JSON.parse(JSON.stringify(changes({school_name:'Mission Medical School',mailing_country_code:'US'},{}))),{
+  school_name:'Mission Medical School',mailing_country_code:'US'
+ });
+ assert.deepEqual(JSON.parse(JSON.stringify(changes({mailing_country_code:'NG'},{}))),{mailing_country_code:'NG'});
+ assert.deepEqual(JSON.parse(JSON.stringify(changes({school_name:'Updated School',mailing_country_code:'US'},{school_name:'Original School',mailing_country_code:'US'}))),{school_name:'Updated School'});
+});
+
 function handler(start, end){const a=html.indexOf(start);assert.ok(a>=0,start);const b=html.indexOf(end,a+start.length);assert.ok(b>a,end);return html.slice(a+start.length,b);}
 for(const item of [
  {name:'comp',code:()=>handler("$('#cGo').onclick=", "; $('#cNo')"), action:'setComp'},

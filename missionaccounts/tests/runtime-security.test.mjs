@@ -188,12 +188,13 @@ test('production server serves only the scoped shell while keeping mounted publi
     const privateSession = await fetch(`${base}/missionaccounts/api/session`);
     assert.equal(privateSession.status, 401);
 
-    const assetPaths = ['runtime', 'auth', 'canonical-adapter', 'stripe'];
+    const assetPaths = ['countries', 'runtime', 'auth', 'canonical-adapter', 'stripe'];
     for (const asset of assetPaths) {
       const response = await fetch(`${base}/missionaccounts/assets/${asset}`);
       assert.equal(response.status, 200, `${asset} must be available at an extensionless Matrix gateway path`);
       assert.match(response.headers.get('content-type'), /application\/javascript/);
     }
+    assert.match(html, /src="\.\/assets\/countries"/);
     const runtime = await (await fetch(`${base}/missionaccounts/assets/runtime`)).text();
     assert.match(runtime, /from '\.\/auth'/);
     assert.doesNotMatch(runtime, /from '\.\/missionaccounts-auth\.js'/);
@@ -247,6 +248,7 @@ test('isolated production packaging cannot include the private Founder preview',
   assert.match(dockerfile, /FROM node:22-alpine/);
   assert.match(dockerfile, /public\/index\.production\.html/);
   assert.match(dockerfile, /public\/missionaccounts-canonical-adapter\.js/);
+  assert.match(dockerfile, /public\/missionaccounts-countries\.js/);
   assert.match(dockerfile, /public\/missionaccounts-stripe\.js/);
   assert.doesNotMatch(dockerfile, /COPY\s+(?:--[^\s]+\s+)*\.\s/);
   assert.doesNotMatch(dockerfile, /COPY[^\n]*public(?:\s|\/\s)/);
@@ -254,6 +256,7 @@ test('isolated production packaging cannot include the private Founder preview',
   assert.match(dockerignore, /^\*$/m);
   assert.match(dockerignore, /!public\/index\.production\.html/);
   assert.match(dockerignore, /!public\/missionaccounts-canonical-adapter\.js/);
+  assert.match(dockerignore, /!public\/missionaccounts-countries\.js/);
   assert.match(dockerignore, /!public\/missionaccounts-stripe\.js/);
   assert.doesNotMatch(dockerignore, /!public\/index\.html|!public\/canon-manifest\.json/);
   const railway = JSON.parse(railwaySource);
