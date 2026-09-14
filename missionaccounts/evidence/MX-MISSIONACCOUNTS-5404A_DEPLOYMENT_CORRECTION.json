@@ -1,6 +1,6 @@
 {
   "ticket": "MX-MISSIONACCOUNTS-5404A",
-  "stage": "FAIL_CLOSED_DOCKER_PACKAGING_CORRECTION",
+  "stage": "FAIL_CLOSED_DOCKER_AND_GATEWAY_ASSET_CORRECTION",
   "authority": [
     "DR-255",
     "DR-256"
@@ -28,7 +28,15 @@
   "correction": {
     "dockerfile": "Copy public/missionaccounts-countries.js into /app/public.",
     "dockerignore": "Include public/missionaccounts-countries.js in the bounded build context.",
-    "regression": "The production packaging test requires both declarations."
+    "gateway_asset": "Serve the country module through the existing extensionless Matrix asset seam at assets/countries.",
+    "regression": "The production packaging test requires the module in the image and the runtime security test requires the gateway-compatible asset path."
+  },
+  "gateway_containment": {
+    "failed_public_asset": "/missionaccounts/missionaccounts-countries.js returned 404 while onboarding was enabled",
+    "onboarding_disabled": true,
+    "containment_deployment_id": "b7972538-11bb-423e-a0dc-502e92f8440c",
+    "live_private_acceptance_started": false,
+    "student_data_written": false
   },
   "safety": {
     "notification_outbox_growth": 0,
@@ -44,7 +52,9 @@
   "corrected_source_sha256": {
     ".dockerignore": "93ff7866c9faac3175c6b2cd8b312362723ad4bf604fd7245a862ef0792a2b6d",
     "Dockerfile": "7b5069ffd0c7611b6d98cc779c00f906e4ce3a38702531bbcf2e1f0cca7c816c",
-    "tests/runtime-security.test.mjs": "461406957c93ea463cc2de4099ed8d312bf320378d711ea78b6eda1b5bd1fdf0"
+    "tests/runtime-security.test.mjs": "a7860cca78a119d7f252ac638867accd738f4f139d735ee937979daa942d3d05",
+    "public/index.production.html": "0f983f4d31485f8a1d638d3e959bf3daa00b864ad2b7040d7c1b06475397a5fe",
+    "src/server.mjs": "369a3849e32353bf5c8e691a63c287465d8fdd229169695bc2def9f60aa7af74"
   },
   "validation": {
     "npm_test": "PASS 223/223",
@@ -53,6 +63,8 @@
     "postgres_5403b_non_regression": "PASS",
     "docker_build": "PASS",
     "container_server_module_import": "PASS",
-    "git_diff_check": "PASS"
+    "git_diff_check": "PASS",
+    "gateway_asset_route_test": "PASS",
+    "onboarding_containment_readback": "PASS (0)"
   }
 }

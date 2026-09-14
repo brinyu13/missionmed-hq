@@ -1590,6 +1590,7 @@ export function createMissionAccountsServer({
     const mountedPath = pathname.startsWith(normalizedBase) ? pathname.slice(normalizedBase.length) : pathname.replace(/^\/+/, '');
     const requestedIndex = config.production ? 'index.production.html' : 'index.html';
     const assetAliases = {
+      'assets/countries': 'missionaccounts-countries.js',
       'assets/runtime': 'missionaccounts-runtime.js',
       'assets/auth': 'missionaccounts-auth.js',
       'assets/canonical-adapter': 'missionaccounts-canonical-adapter.js',

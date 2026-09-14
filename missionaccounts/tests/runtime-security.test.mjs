@@ -188,12 +188,13 @@ test('production server serves only the scoped shell while keeping mounted publi
     const privateSession = await fetch(`${base}/missionaccounts/api/session`);
     assert.equal(privateSession.status, 401);
 
-    const assetPaths = ['runtime', 'auth', 'canonical-adapter', 'stripe'];
+    const assetPaths = ['countries', 'runtime', 'auth', 'canonical-adapter', 'stripe'];
     for (const asset of assetPaths) {
       const response = await fetch(`${base}/missionaccounts/assets/${asset}`);
       assert.equal(response.status, 200, `${asset} must be available at an extensionless Matrix gateway path`);
       assert.match(response.headers.get('content-type'), /application\/javascript/);
     }
+    assert.match(html, /src="\.\/assets\/countries"/);
     const runtime = await (await fetch(`${base}/missionaccounts/assets/runtime`)).text();
     assert.match(runtime, /from '\.\/auth'/);
     assert.doesNotMatch(runtime, /from '\.\/missionaccounts-auth\.js'/);
