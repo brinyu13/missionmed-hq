@@ -1,113 +1,74 @@
 {
   "ticket": "MX-MISSIONACCOUNTS-5404A",
-  "captured_at": "2026-09-14T12:08:09Z",
-  "stage": "SOURCE_CANDIDATE_AWAITING_INDEPENDENT_TECHNICAL_VERIFICATION",
+  "captured_at": "2026-09-14T16:13:00Z",
+  "stage": "FABLE_REMEDIATION_SOURCE_READY_FOR_FRESH_INDEPENDENT_TECHNICAL_VERIFICATION",
   "source_base": "8450144bda8aabb3bac2a671e524b6af9d64b1a4",
   "source_base_missionaccounts_tree": "3133c78ad1228db14b829f608861503fdf4fdc09",
   "branch": "codex/mx-missionaccounts-5404a",
+  "corrective_source_commit": "9e631679b2746c509ff3575ded4369688fb8fd4e",
+  "original_fable_candidate": "fefa88587e7692c73c625d3ad388fc50ae7667d3",
+  "original_fable_result_sha256": "f0b94f91c87174a1a9b408fe11c13d4c37a50d46e776d36e1fc92dd2bdad7db9",
   "authority": {
-    "decision_record": "DR-252",
-    "decision_record_sha256": "371ca18027c42e647015604bca8bf713ea97954b584d05b21bfa6655f3d4f3ba",
-    "registration_sha256": "b144dbba94a2b4f1550df1e44379cf685ee417c0324c2ab23b0a1012c2accfaf",
+    "decision_record": "DR-254",
+    "missionmed_os_commit": "eb4a9c1565b3e4a4ce1ad6c859dbdd949ef5ad8c",
+    "decision_record_sha256": "1e9ae5f9da86397fe9bf7171473223f311b0d175937c2e7a23f0480d98b717cd",
+    "registration_sha256": "b2978aff4f82526fcc6d27055f8b071e74f7ee3155898b0027aa855c305234d4",
     "deployment_authorized": false,
     "production_mutation_authorized": false,
     "money_authorized_usd": 0.0
   },
-  "implementation": {
-    "canonical_subject": "authenticated JWT subject == identity.userId == missionaccounts.student.id",
-    "profile_is_one_to_one_with_canonical_student": true,
-    "completion_is_server_derived": true,
-    "feature_flag": "MISSIONACCOUNTS_ONBOARDING",
-    "student_route": "#/me/onboarding",
-    "admin_route": "#/onboarding",
-    "student_api": [
-      "GET /api/me/onboarding",
-      "POST /api/me/onboarding"
-    ],
-    "admin_api": [
-      "GET /api/admin/onboarding"
-    ],
-    "access_enforcement_added": false,
-    "notification_delivery_added": false,
-    "billing_or_dispatch_change_added": false
+  "fable_findings_disposition": {
+    "P0_1_queue_truth": "FIXED: the read-only onboarding queue retains enrolled=true and canonical ExamPrep/LearnDash/course and identity guards, omits valid_until only for queue visibility, and exposes last_seen_at",
+    "P1_1_save_recovery": "FIXED: change detection precedes locking; finally restores Save; 400 renders a focused inline field error; 409 renders Reload",
+    "P1_2_country": "FIXED: 249-code ISO 3166 alpha-2 selector shows names and stores codes; invalid codes fail with field context",
+    "P1_3_role_guard": "FIXED: authenticated role is stamped on the document and capability guards are reapplied after theme rerender",
+    "P1_4_queue_identity": "FIXED: canonical display name is primary and differing preferred name is secondary as goes by",
+    "P1_5_truthful_progress": "FIXED: percent counts only actionable applicable steps",
+    "P1_6_required_optional": "FIXED: preferred name and address line 2 are optional; empty required fields have accessible completion hints",
+    "P1_7_complete_state": "FIXED: completion message, 100 percent, Save changes, and All ready are rendered",
+    "P1_8_student_ops_banner": "FIXED: operations status remains admin-only",
+    "P1_9_no_charge_copy": "FIXED: exact trust sentence is present"
   },
   "source_sha256": {
-    "public/index.production.html": "584d41e8487d5c67a516659982346753c5135a107ab3c117c289d5f0fbd58f3b",
-    "public/missionaccounts-runtime.js": "7e24869fc3d44306f61568f8560c0ca28e43177c9b48b07dc7efc0f783462a30",
-    "src/server.mjs": "a7aa1bd1063ec520085ee7c0b4befb5269cb0f5b751be16a06904a941ef824e4",
-    "src/storage/supabase-rest.mjs": "e59f8f91bd5d440484e062c4bce7fb511c00ba6365af1c4d9e0c998f6ab49066",
+    "public/index.production.html": "9ac94f95bb618ad07cbef627eeb995554f1034714a8858e80bc49356db25958f",
+    "public/missionaccounts-auth.js": "46a95e7fc617371dd7bba2bd91ab6252c98606b7691a086ff4d3596b2a960531",
+    "public/missionaccounts-countries.js": "9fb769b723f5db8488c789aa61f8c98c0a620fac63d8a5c2773a0821ae15d88d",
+    "public/missionaccounts-runtime.js": "5651a00543dc10211e16a8556bb28640fb7711ec12504056bbc3d369cd9e366e",
+    "scripts/test-5404a-postgres-rehearsal.sh": "d839d8451e4defd0be6cf863f7507c8e641f84b95fc2b11ee5142ff69f628270",
+    "src/server.mjs": "bc090f65904be861b7e7408ee28bbea76a9a929e476cb31ca4033d675e6c9d48",
+    "src/storage/supabase-rest.mjs": "162ecf856c4caa2d96a28faaeaacf8f2eea86a18f57268625cf610959222a9d7",
     "supabase/migrations/20260914111824_dedicated_examprep_onboarding_5404a.sql": "a6083c0578cf2db0e60508b9b56350dba02aacc428e2a799547c172d7142b49a",
-    "tests/onboarding.test.mjs": "ddc01a3c67f6951c8e01f0f7c14cf9f277adc92801a109bef86bde8a3723bfc9",
-    "scripts/test-5404a-postgres-rehearsal.sh": "0660cb9ec4a7d977f803a0c1343aaaf92d85f683d45e8db99e766fcc4a93333e"
+    "supabase/migrations/20260914114700_onboarding_queue_visibility_5404a.sql": "b703959c19455c09218a7c052247f90cbd63092682520f428662d2ab6b382e91",
+    "tests/onboarding.test.mjs": "292571d4c5de31d5aadd2a6db73563aaa6db78356eb3950104c1c610964360df",
+    "tests/ui-repair.test.mjs": "d341172bf504027382592659042cf1a1cfe13700e885446b0f8fb1a8ec5d1f25"
   },
   "validation": {
-    "independent_history": [
-      {
-        "candidate": "f896111844ffa48ccf549f5dc21afe03812fb0bd",
-        "result": "FAIL",
-        "corrected_findings": [
-          "single-field incremental save was missing",
-          "concurrent identical retries could return a revision conflict",
-          "ambiguous canonical identity could read an existing profile",
-          "admin queue was not bounded to current authoritative ExamPrep enrollment"
-        ]
-      }
-    ],
-    "npm_test": {
-      "result": "PASS",
-      "tests": 219,
-      "failed": 0
-    },
-    "source_validation": {
-      "result": "PASS",
-      "attendance_events": 3941,
-      "human_cycle_rows": 498,
-      "identity_nodes": 370
-    },
-    "postgres_rehearsal": {
-      "result": "PASS",
-      "proved": [
-        "transactional rollback after forced mid-migration failure",
-        "declared non-idempotent replay rejection",
-        "forced row-level security on both onboarding tables",
-        "service-role-only RPC execution",
-        "cross-student subject denial",
-        "ambiguous canonical identity read denial",
-        "single-field incremental save and resume",
-        "optimistic revision conflict",
-        "idempotent request replay",
-        "concurrent identical request deduplication",
-        "current ExamPrep-enrollment-bounded admin queue",
-        "zero notification rows",
-        "zero charge rows",
-        "zero hosted-invoice dispatch rows"
-      ]
-    },
+    "npm_test": {"result": "PASS", "tests": 221, "failed": 0},
+    "focused_onboarding_ui": {"result": "PASS", "tests": 26, "failed": 0},
+    "source_validation": {"result": "PASS", "attendance_events": 3941, "human_cycle_rows": 498, "identity_nodes": 370, "applied_merge_groups": 63, "unresolved_relationships": 34},
+    "postgres_5404a": {"result": "PASS", "proved": ["atomic original migration", "declared forward-migration replay behavior", "forced RLS", "service-role-only RPCs", "subject isolation", "partial saves", "concurrent idempotency", "stale enrolled row visible", "enrolled=false absent", "billing freshness isolated", "zero notifications", "zero charges", "zero invoice dispatch"]},
+    "postgres_5403b_non_regression": {"result": "PASS", "automatic_billing_freshness_changed": false},
     "rendered_browser": {
       "result": "PASS",
-      "student_save_resume": "PASS; a synthetic school-only patch persisted from revision 0 to revision 1, rerendered as IN_PROGRESS, and preserved the incomplete profile state",
-      "admin_minimum_queue": "PASS; current authoritative ExamPrep enrollment showed completion, missing steps, and last updated without address/contact/provider references",
+      "student_first_visit": "0 of 5 actionable steps and Not started; country selector has 249 options; Save progress is dominant; no operations banner",
+      "save_resume": "synthetic one-field save persisted; no-change Save stayed enabled",
+      "http_400": "field focused, aria-invalid=true, inline error visible, Save enabled",
+      "http_409": "Reload action visible, Save enabled",
+      "country": "Nigeria displayed and NG persisted",
+      "theme_role_guard": "student role persisted and Dr J/Preview controls remained hidden after theme change",
+      "complete": "100 percent, Complete, Save changes, All ready, and explicit completion message",
+      "admin_queue": "enrolled row remained visible after valid_until expired; Last opened timestamp rendered; display name primary and goes by nickname secondary",
       "viewports": {
-        "1440": {
-          "horizontal_overflow": false,
-          "student_form_visible": true,
-          "navigation_visible": true
-        },
-        "1024": {
-          "horizontal_overflow": false,
-          "student_form_visible": true,
-          "navigation_visible": true
-        },
-        "390": {
-          "horizontal_overflow": false,
-          "student_form_visible": true,
-          "navigation_visible": true
-        }
+        "1440": {"student_horizontal_overflow": false, "admin_horizontal_overflow": false},
+        "1024": {"student_horizontal_overflow": false},
+        "390": {"student_horizontal_overflow": false, "admin_horizontal_overflow": false, "save_visible": true, "country_selector_width_px": 320}
       }
     }
   },
   "provider_readback": {
     "production_database_changed": false,
+    "production_latest_migration": "20260913133139 / 20260911224524_autobilling_contract_closeout_5403b",
+    "production_5404a_migrations_applied": 0,
     "production_deployed": false,
     "messages_sent": 0,
     "notification_rows_created": 0,
@@ -116,5 +77,5 @@
     "automatic_dispatch_changed": false,
     "zoom_changed": false
   },
-  "next_gate": "FRESH_INDEPENDENT_TECHNICAL_VERIFICATION_THEN_EXTERNAL_FABLE5_UX_REDTEAM"
+  "next_gate": "FRESH_INDEPENDENT_TECHNICAL_VERIFICATION_THEN_EXTERNAL_TARGETED_FABLE5_RECHECK"
 }
