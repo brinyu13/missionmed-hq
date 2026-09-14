@@ -340,7 +340,7 @@ begin
   for update;
   current_revision := coalesce(profile_row.revision, 0);
   if current_revision <> p_expected_revision then
-    raise exception using errcode = '40001', message = 'onboarding_revision_conflict';
+    raise exception using errcode = 'PT409', message = 'onboarding_revision_conflict';
   end if;
   next_revision := current_revision + 1;
 

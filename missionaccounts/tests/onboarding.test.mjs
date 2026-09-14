@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { createMissionAccountsServer } from '../src/server.mjs';
-import { PreviewStore } from '../src/storage/supabase-rest.mjs';
+import { PreviewStore, SupabaseRestStore } from '../src/storage/supabase-rest.mjs';
 import { StripeGateway } from '../src/payments/stripe.mjs';
 import { isIsoCountryCode } from '../public/missionaccounts-countries.js';
 
@@ -126,6 +126,40 @@ test('student saves, resumes, edits, and idempotently replays only their onboard
     hostedInvoices: store.hostedInvoiceDispatches.size,
     charges: store.chargesByDay.size,
   }, initialSideEffects);
+});
+
+test('provider revision conflict maps once to HTTP 409 without a retryable serialization code', async () => {
+  const migration = await readFile(new URL('../supabase/migrations/20260914111824_dedicated_examprep_onboarding_5404a.sql', import.meta.url), 'utf8');
+  assert.match(migration, /errcode = 'PT409', message = 'onboarding_revision_conflict'/);
+  assert.doesNotMatch(migration, /errcode = '40001', message = 'onboarding_revision_conflict'/);
+
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ code: 'PT409', message: 'onboarding_revision_conflict' }), {
+      status: 409,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  try {
+    const providerStore = new SupabaseRestStore({ url: 'https://provider.invalid', serviceKey: 'service-key' });
+    await assert.rejects(
+      providerStore.saveStudentOnboarding({
+        studentId,
+        profile: { school_name: 'Updated School' },
+        changedFields: ['school_name'],
+        expectedRevision: 0,
+        actorId: studentId,
+        actorRole: 'student',
+        requestId: 'provider-stale-revision-0001',
+      }),
+      error => error.status === 409 && error.result?.code === 'PT409' && error.message === 'onboarding_revision_conflict',
+    );
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('student can save one approved onboarding field and resume the partial profile', async () => {

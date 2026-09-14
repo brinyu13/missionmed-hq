@@ -141,7 +141,7 @@ begin
       array['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'],0,
       '00000000-0000-4000-8000-000000005401','student','pg-onboard-stale-0001');
     raise exception 'stale_revision_accepted';
-  exception when serialization_failure then
+  exception when sqlstate 'PT409' then
     if sqlerrm <> 'onboarding_revision_conflict' then raise; end if;
   end;
   update missionaccounts.student set identity_state = 'needs_review'
