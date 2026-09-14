@@ -2252,6 +2252,20 @@ function render(){ if(document.documentElement.dataset.missionaccountsRuntime===
   const anchor=r.raw.split('#')[1]; if(anchor){ const el=document.getElementById(anchor); if(el) setTimeout(()=>el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'}),60); }
   document.title = `MyMissionMed Account · ${top==='home'?'Home':top==='cycle'?cyc(r.parts[1]||'june')?.label||'Cycle':top==='student'?(model().eff[+r.parts[1]]||{}).n||'Student':top==='mr'?'Mission Residency':top.charAt(0).toUpperCase()+top.slice(1)}`;
 }
+function onboardingProfileChanges(values,current){
+  const optional=new Set(['preferred_name','mailing_line2']);
+  const profile={};
+  let defaultCountry='';
+  ['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'].forEach(key=>{
+    let value=String(values[key]||'').trim();
+    if(key==='mailing_country_code') value=value.toUpperCase();
+    const priorValue=String(current[key]||'').trim();
+    if(key==='mailing_country_code'&&!priorValue&&value==='US'){ defaultCountry=value; return; }
+    if(value!==priorValue && (value||optional.has(key))) profile[key]=value;
+  });
+  if(defaultCountry&&Object.keys(profile).length) profile.mailing_country_code=defaultCountry;
+  return profile;
+}
 function bind(root){
   const onboardingForm=root.querySelector('[data-onboarding-form]');
   if(onboardingForm) onboardingForm.addEventListener('submit',async event=>{
@@ -2262,15 +2276,7 @@ function bind(root){
     onboardingForm.querySelectorAll('.fieldErr').forEach(error=>{error.hidden=true;error.textContent='';});
     const values=Object.fromEntries(new FormData(onboardingForm).entries());
     const current=window.MissionAccountsRuntime?.state?.bootstrap?.onboarding?.profile||{};
-    const optional=new Set(['preferred_name','mailing_line2']);
-    const profile={};
-    ['preferred_name','school_name','best_contact_method','mailing_line1','mailing_line2','mailing_city','mailing_region','mailing_postal_code','mailing_country_code'].forEach(key=>{
-      let value=String(values[key]||'').trim();
-      if(key==='mailing_country_code') value=value.toUpperCase();
-      const priorValue=String(current[key]||'').trim();
-      if(key==='mailing_country_code'&&!priorValue&&value==='US') return;
-      if(value!==priorValue && (value||optional.has(key))) profile[key]=value;
-    });
+    const profile=onboardingProfileChanges(values,current);
     if(!Object.keys(profile).length){ toast('No onboarding changes to save.'); return; }
     const prior=button.textContent;
     button.disabled=true; button.textContent='Saving…';

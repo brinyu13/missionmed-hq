@@ -110,6 +110,16 @@ test('onboarding UI recovers saves, keeps student role guards, and uses truthful
  assert.match(fn('viewMeOnboarding'),/Save changes/);
 });
 
+test('default US country persists with the first real onboarding edit but not an untouched form',()=>{
+ const changes=vm.runInNewContext('('+fn('onboardingProfileChanges')+')');
+ assert.deepEqual(JSON.parse(JSON.stringify(changes({mailing_country_code:'US'},{}))),{});
+ assert.deepEqual(JSON.parse(JSON.stringify(changes({school_name:'Mission Medical School',mailing_country_code:'US'},{}))),{
+  school_name:'Mission Medical School',mailing_country_code:'US'
+ });
+ assert.deepEqual(JSON.parse(JSON.stringify(changes({mailing_country_code:'NG'},{}))),{mailing_country_code:'NG'});
+ assert.deepEqual(JSON.parse(JSON.stringify(changes({school_name:'Updated School',mailing_country_code:'US'},{school_name:'Original School',mailing_country_code:'US'}))),{school_name:'Updated School'});
+});
+
 function handler(start, end){const a=html.indexOf(start);assert.ok(a>=0,start);const b=html.indexOf(end,a+start.length);assert.ok(b>a,end);return html.slice(a+start.length,b);}
 for(const item of [
  {name:'comp',code:()=>handler("$('#cGo').onclick=", "; $('#cNo')"), action:'setComp'},
