@@ -48,6 +48,7 @@ function environmentConfig() {
       zoomEffectiveWrites: process.env.MISSIONACCOUNTS_ZOOM_EFFECTIVE_WRITES === '1',
       billableDayCalculation: process.env.MISSIONACCOUNTS_BILLABLE_DAY_CALCULATION === '1',
       autoBillingShadow: process.env.MISSIONACCOUNTS_AUTO_BILLING_SHADOW === '1',
+      onboarding: process.env.MISSIONACCOUNTS_ONBOARDING === '1',
     },
     stripeMode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
     stripeAccountId: process.env.MISSIONACCOUNTS_STRIPE_ACCOUNT_ID || '',
@@ -125,6 +126,37 @@ function requireFeature(config, feature) {
   if (!config.features?.[feature]) throw requestError('This MissionAccounts capability is not enabled', 503);
 }
 
+function onboardingProfileFromBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw requestError('Onboarding profile is invalid');
+  const allowed = new Set([
+    'preferred_name', 'school_name', 'best_contact_method', 'mailing_line1', 'mailing_line2',
+    'mailing_city', 'mailing_region', 'mailing_postal_code', 'mailing_country_code', 'expected_revision',
+  ]);
+  if (Object.keys(body).some(key => !allowed.has(key))) throw requestError('Onboarding profile contains an unsupported field');
+  const value = (key, max, required = true) => {
+    const clean = String(body[key] ?? '').trim();
+    if ((required && !clean) || clean.length > max) throw requestError(`Onboarding ${key} is invalid`);
+    return clean || null;
+  };
+  const profile = {
+    preferred_name: value('preferred_name', 80, false),
+    school_name: value('school_name', 160),
+    best_contact_method: value('best_contact_method', 10),
+    mailing_line1: value('mailing_line1', 160),
+    mailing_line2: value('mailing_line2', 160, false),
+    mailing_city: value('mailing_city', 100),
+    mailing_region: value('mailing_region', 100),
+    mailing_postal_code: value('mailing_postal_code', 24),
+    mailing_country_code: value('mailing_country_code', 2).toUpperCase(),
+  };
+  if (!['email', 'phone'].includes(profile.best_contact_method) || !/^[A-Z]{2}$/.test(profile.mailing_country_code)) {
+    throw requestError('Onboarding contact method or country is invalid');
+  }
+  const expectedRevision = Number(body.expected_revision);
+  if (!Number.isInteger(expectedRevision) || expectedRevision < 0) throw requestError('Onboarding revision is invalid');
+  return { profile, expectedRevision };
+}
+
 function secureTokenEqual(actual, expected) {
   const left = Buffer.from(String(actual || ''));
   const right = Buffer.from(String(expected || ''));
@@ -173,6 +205,7 @@ export function createMissionAccountsServer({
       auto_billing_enabled: Boolean(config.features?.autoBilling),
       auto_billing_consent_enabled: Boolean(config.features?.autoBillingConsent),
       auto_billing_shadow_enabled: Boolean(config.features?.autoBillingShadow),
+      onboarding_enabled: Boolean(config.features?.onboarding),
       stripe: stripeState,
     };
   }
@@ -625,6 +658,7 @@ export function createMissionAccountsServer({
           zoom_sync: !registeredOnly && Boolean(config.features?.zoomSync),
           zoom_shadow: !registeredOnly && Boolean(config.features?.zoomShadow),
           auto_billing_shadow: !registeredOnly && Boolean(config.features?.autoBillingShadow),
+          onboarding: !registeredOnly && Boolean(config.features?.onboarding),
         },
       });
     }
@@ -651,7 +685,7 @@ export function createMissionAccountsServer({
       }
       if (role === 'student') {
         const student = await studentContext(identity);
-        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan, canon] = await Promise.all([
+        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan, canon, onboarding] = await Promise.all([
           store.attendanceForStudent(student.id),
           store.billingForStudent(student.id),
           store.paymentMethodForStudent(student.id),
@@ -659,6 +693,9 @@ export function createMissionAccountsServer({
           store.currentBillingTerms(),
           store.currentExamPlanForStudent(student.id),
           store.canonicalUiData({ scope: 'student', studentId: student.id }),
+          config.features?.onboarding
+            ? store.onboardingForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student' })
+            : Promise.resolve(null),
         ]);
         return json(response, 200, {
           schema_version: 'missionaccounts-ui-bootstrap-v1',
@@ -666,11 +703,12 @@ export function createMissionAccountsServer({
           user,
           program_access: identity.programAccess,
           account: { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan },
+          onboarding,
           canon,
         });
       }
       const cycles = await store.billingCycles();
-      const [home, students, cycleProjections, identityClusters, attendanceIssues, health, canon] = await Promise.all([
+      const [home, students, cycleProjections, identityClusters, attendanceIssues, health, canon, onboardingQueue] = await Promise.all([
         store.adminHome({ today: localDayFromIso(now().toISOString()) }),
         store.adminStudents(),
         Promise.all(cycles.map(cycle => store.adminCycle(cycle.key))),
@@ -678,6 +716,12 @@ export function createMissionAccountsServer({
         store.adminAttendanceIssues({ state: 'all' }),
         administrativeHealth(),
         store.canonicalUiData({ scope: 'admin' }),
+        config.features?.onboarding
+          ? store.adminOnboardingQueue({
+            actorId: identity.userId,
+            actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+          })
+          : Promise.resolve([]),
       ]);
       return json(response, 200, {
         schema_version: 'missionaccounts-ui-bootstrap-v1',
@@ -691,6 +735,7 @@ export function createMissionAccountsServer({
         attendance_issues: attendanceIssues,
         health,
         canon,
+        onboarding_queue: onboardingQueue,
       });
     }
     if (request.method === 'GET' && url.pathname === '/api/me') {
@@ -705,6 +750,38 @@ export function createMissionAccountsServer({
         store.currentExamPlanForStudent(student.id),
       ]);
       return json(response, 200, { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan });
+    }
+    if (request.method === 'GET' && url.pathname === '/api/me/onboarding') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'onboarding');
+      const student = await studentContext(identity);
+      const onboarding = await store.onboardingForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student' });
+      return json(response, 200, { onboarding });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/me/onboarding') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'onboarding');
+      const student = await studentContext(identity);
+      const { profile, expectedRevision } = onboardingProfileFromBody(await readJsonBody(request, { limitBytes: 12_288 }));
+      const result = await store.saveStudentOnboarding({
+        studentId: student.id,
+        profile,
+        expectedRevision,
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
+    }
+    if (request.method === 'GET' && url.pathname === '/api/admin/onboarding') {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'onboarding');
+      return json(response, 200, {
+        students: await store.adminOnboardingQueue({
+          actorId: identity.userId,
+          actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        }),
+      });
     }
     if (request.method === 'POST' && url.pathname === '/api/me/exam-plan') {
       requireRole(identity, ['student']);

@@ -75,6 +75,40 @@ export class SupabaseRestStore {
     return rows[0] || null;
   }
 
+  async onboardingForStudent({ studentId, actorId, actorRole }) {
+    return this.rpc('api_get_student_onboarding', {
+      p_student_id: studentId,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+    });
+  }
+
+  async saveStudentOnboarding({ studentId, profile, expectedRevision, actorId, actorRole, requestId }) {
+    return this.rpc('api_save_student_onboarding', {
+      p_student_id: studentId,
+      p_preferred_name: profile.preferred_name || null,
+      p_school_name: profile.school_name,
+      p_best_contact_method: profile.best_contact_method,
+      p_mailing_line1: profile.mailing_line1,
+      p_mailing_line2: profile.mailing_line2 || null,
+      p_mailing_city: profile.mailing_city,
+      p_mailing_region: profile.mailing_region,
+      p_mailing_postal_code: profile.mailing_postal_code,
+      p_mailing_country_code: profile.mailing_country_code,
+      p_expected_revision: expectedRevision,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+    });
+  }
+
+  async adminOnboardingQueue({ actorId, actorRole }) {
+    return this.rpc('api_admin_onboarding_queue', {
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+    });
+  }
+
   async billingCycles() {
     return this.request('cycle?select=key,label,starts_on,ends_on,state&order=starts_on.asc');
   }
@@ -866,6 +900,8 @@ export class PreviewStore {
     this.consentMutations = new Map();
     this.enrollmentProjections = new Map();
     this.enrollmentMutations = new Map();
+    this.onboardingProfiles = new Map();
+    this.onboardingMutations = new Map();
     this.automaticBillingContract = {
       rollout_cutoff: new Date(0).toISOString(),
       ordinary_dispatch_delay_hours: 24,
@@ -944,6 +980,95 @@ export class PreviewStore {
     return result;
   }
   async enrollmentForStudent(studentId) { return this.enrollmentProjections.get(studentId) || null; }
+  onboardingState(studentId) {
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    const student = this.previewStudentRecord;
+    if (student.identity_state !== 'verified') throw Object.assign(new Error('Canonical student identity is required'), { status: 403 });
+    const profile = this.onboardingProfiles.get(studentId) || null;
+    const direct = student.sponsor_type === 'DIRECT';
+    const paymentMethod = this.paymentMethods.get(studentId) || null;
+    const consent = this.billingConsents.get(studentId) || null;
+    const examPlan = this.examPlans.get(studentId) || null;
+    const progress = {
+      account: true,
+      profile: Boolean(profile?.school_name && profile?.best_contact_method && profile?.mailing_line1
+        && profile?.mailing_city && profile?.mailing_region && profile?.mailing_postal_code && profile?.mailing_country_code),
+      contact: Boolean(student.email && student.phone),
+      exam_plan: Boolean(examPlan),
+      payment_method: direct ? paymentMethod?.status === 'on_file' : null,
+      billing_consent: direct ? consent?.state === 'authorized' : null,
+      recovery_available: true,
+    };
+    const missing = [];
+    if (!progress.account) missing.push('ACCOUNT');
+    if (!progress.profile) missing.push('PROFILE');
+    if (!progress.contact) missing.push('CONTACT');
+    if (!progress.exam_plan) missing.push('EXAM_PLAN');
+    if (direct && !progress.payment_method) missing.push('PAYMENT_METHOD');
+    if (direct && !progress.billing_consent) missing.push('BILLING_CONSENT');
+    return {
+      student: { display_name: student.display_name, email: student.email, phone: student.phone, sponsor_type: student.sponsor_type },
+      profile: profile ? { ...profile } : null,
+      status: missing.length === 0 ? 'COMPLETE' : profile ? 'IN_PROGRESS' : 'NOT_STARTED',
+      missing_steps: missing,
+      progress,
+      payment_requirement: direct ? 'REQUIRED' : 'NOT_APPLICABLE',
+      revision: profile?.revision || 0,
+      last_updated_at: profile?.updated_at || null,
+      recovery_url: '/my-account/lost-password/',
+    };
+  }
+  async onboardingForStudent({ studentId, actorId, actorRole }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
+    return this.onboardingState(studentId);
+  }
+  async saveStudentOnboarding({ studentId, profile, expectedRevision, actorId, actorRole, requestId }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
+    const normalized = {
+      preferred_name: String(profile.preferred_name || '').trim() || null,
+      school_name: String(profile.school_name || '').trim(),
+      best_contact_method: String(profile.best_contact_method || '').trim().toLowerCase(),
+      mailing_line1: String(profile.mailing_line1 || '').trim(),
+      mailing_line2: String(profile.mailing_line2 || '').trim() || null,
+      mailing_city: String(profile.mailing_city || '').trim(),
+      mailing_region: String(profile.mailing_region || '').trim(),
+      mailing_postal_code: String(profile.mailing_postal_code || '').trim(),
+      mailing_country_code: String(profile.mailing_country_code || '').trim().toUpperCase(),
+    };
+    const fingerprint = JSON.stringify({ studentId, normalized, expectedRevision, actorId, actorRole });
+    const prior = this.onboardingMutations.get(requestId);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...structuredClone(prior.result), duplicate: true };
+    }
+    if (this.previewStudentRecord.identity_state !== 'verified') throw Object.assign(new Error('Canonical student identity is required'), { status: 403 });
+    if (!normalized.school_name || !['email', 'phone'].includes(normalized.best_contact_method)
+      || !normalized.mailing_line1 || !normalized.mailing_city || !normalized.mailing_region
+      || !normalized.mailing_postal_code || !/^[A-Z]{2}$/.test(normalized.mailing_country_code)) {
+      throw Object.assign(new Error('Onboarding profile is incomplete'), { status: 400 });
+    }
+    const current = this.onboardingProfiles.get(studentId) || null;
+    if ((current?.revision || 0) !== expectedRevision) throw Object.assign(new Error('Onboarding was updated in another session. Reload before saving.'), { status: 409 });
+    const saved = { ...normalized, revision: expectedRevision + 1, updated_at: new Date().toISOString() };
+    this.onboardingProfiles.set(studentId, saved);
+    const result = { accepted: true, duplicate: false, onboarding: this.onboardingState(studentId) };
+    this.onboardingMutations.set(requestId, { fingerprint, result: structuredClone(result) });
+    return result;
+  }
+  async adminOnboardingQueue({ actorId, actorRole }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole) || !actorId) throw Object.assign(new Error('Onboarding administrator authority required'), { status: 403 });
+    const state = this.onboardingState(this.previewStudentRecord.id);
+    return [{
+      student_id: this.previewStudentRecord.id,
+      display_name: this.previewStudentRecord.display_name,
+      preferred_name: state.profile?.preferred_name || null,
+      status: state.status,
+      missing_steps: [...state.missing_steps],
+      progress: { ...state.progress },
+      payment_requirement: state.payment_requirement,
+      last_updated_at: state.last_updated_at,
+    }];
+  }
   async billingCycles() {
     return [
       { key: '2026-cycle-1', label: 'June Cycle', starts_on: '2026-06-08', ends_on: '2026-07-13', state: 'estimate' },

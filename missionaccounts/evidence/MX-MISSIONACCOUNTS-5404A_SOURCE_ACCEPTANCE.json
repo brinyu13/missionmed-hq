@@ -1,0 +1,78 @@
+{
+  "ticket": "MX-MISSIONACCOUNTS-5404A",
+  "captured_at": "2026-09-14T11:36:00Z",
+  "stage": "SOURCE_CANDIDATE_AWAITING_INDEPENDENT_TECHNICAL_VERIFICATION",
+  "source_base": "8450144bda8aabb3bac2a671e524b6af9d64b1a4",
+  "source_base_missionaccounts_tree": "3133c78ad1228db14b829f608861503fdf4fdc09",
+  "branch": "codex/mx-missionaccounts-5404a",
+  "authority": {
+    "decision_record": "DR-252",
+    "decision_record_sha256": "371ca18027c42e647015604bca8bf713ea97954b584d05b21bfa6655f3d4f3ba",
+    "registration_sha256": "b144dbba94a2b4f1550df1e44379cf685ee417c0324c2ab23b0a1012c2accfaf",
+    "deployment_authorized": false,
+    "production_mutation_authorized": false,
+    "money_authorized_usd": 0.0
+  },
+  "implementation": {
+    "canonical_subject": "authenticated JWT subject == identity.userId == missionaccounts.student.id",
+    "profile_is_one_to_one_with_canonical_student": true,
+    "completion_is_server_derived": true,
+    "feature_flag": "MISSIONACCOUNTS_ONBOARDING",
+    "student_route": "#/me/onboarding",
+    "admin_route": "#/onboarding",
+    "student_api": ["GET /api/me/onboarding", "POST /api/me/onboarding"],
+    "admin_api": ["GET /api/admin/onboarding"],
+    "access_enforcement_added": false,
+    "notification_delivery_added": false,
+    "billing_or_dispatch_change_added": false
+  },
+  "source_sha256": {
+    "public/index.production.html": "fe6f9bea092c2881242d4cd652e1d9c15d1d28c62f9ea6369dafc3527c8664b8",
+    "public/missionaccounts-runtime.js": "7e24869fc3d44306f61568f8560c0ca28e43177c9b48b07dc7efc0f783462a30",
+    "src/server.mjs": "399107b4dc12a0f7ecfee87f4af02a466ad888463a5f0a23d2fcb85223fd1291",
+    "src/storage/supabase-rest.mjs": "7218eb070e5630d5c121f704d409ab4360f2e7f26143e8a5b72ce01aea569d1e",
+    "supabase/migrations/20260914111824_dedicated_examprep_onboarding_5404a.sql": "510bedc7b7fbc8634bd22355d3a846fc39ca3fef01fee5c2e88023d7275f9ea7",
+    "tests/onboarding.test.mjs": "1610ac6febd0ef3d0d524ce451f6c9585e5e648bea0f7f139dc9d83055e4820c",
+    "scripts/test-5404a-postgres-rehearsal.sh": "81d4bca69f5ee9100fc403886dceabe41cc89212f5312d38bd87181c070d20b1"
+  },
+  "validation": {
+    "npm_test": {"result": "PASS", "tests": 216, "failed": 0},
+    "source_validation": {"result": "PASS", "attendance_events": 3941, "human_cycle_rows": 498, "identity_nodes": 370},
+    "postgres_rehearsal": {
+      "result": "PASS",
+      "proved": [
+        "transactional rollback after forced mid-migration failure",
+        "declared non-idempotent replay rejection",
+        "forced row-level security on both onboarding tables",
+        "service-role-only RPC execution",
+        "cross-student subject denial",
+        "optimistic revision conflict",
+        "idempotent request replay",
+        "zero notification rows",
+        "zero charge rows",
+        "zero hosted-invoice dispatch rows"
+      ]
+    },
+    "rendered_browser": {
+      "result": "PASS",
+      "student_save_resume": "PASS; synthetic profile persisted from revision 0 to revision 1 and rerendered as IN_PROGRESS",
+      "admin_minimum_queue": "PASS; completion, missing steps, and last updated visible without address/contact/provider references",
+      "viewports": {
+        "1440": {"horizontal_overflow": false, "student_form_visible": true, "navigation_visible": true},
+        "1024": {"horizontal_overflow": false, "student_form_visible": true, "navigation_visible": true},
+        "390": {"horizontal_overflow": false, "student_form_visible": true, "navigation_visible": true}
+      }
+    }
+  },
+  "provider_readback": {
+    "production_database_changed": false,
+    "production_deployed": false,
+    "messages_sent": 0,
+    "notification_rows_created": 0,
+    "payment_intents_created": 0,
+    "money_moved_usd": 0.0,
+    "automatic_dispatch_changed": false,
+    "zoom_changed": false
+  },
+  "next_gate": "FRESH_INDEPENDENT_TECHNICAL_VERIFICATION_THEN_EXTERNAL_FABLE5_UX_REDTEAM"
+}
