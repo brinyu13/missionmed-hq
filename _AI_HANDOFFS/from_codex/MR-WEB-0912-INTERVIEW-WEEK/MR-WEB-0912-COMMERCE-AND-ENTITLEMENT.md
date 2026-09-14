@@ -1,100 +1,85 @@
 # MR-WEB-0912 Commerce and Entitlement Matrix
 
-Current through: 2026-09-14 02:39 UTC
+Current through: 2026-09-14 12:48 UTC
 
-Status: **MR-WEB-0912 PRODUCTION = BLOCKED** pending the exact $1.00
-minimum-charge authorization and controlled live acceptance.
+Status: **CORE CARD OFFERS ACTIVE; OPTIONAL RAILS FAIL-CLOSED**
 
-## Woo and entitlement objects
+`LIVE STRIPE FINANCIAL ACCEPTANCE = WAIVED BY FOUNDER / NOT EXECUTED`
 
-| Offer | Exact object | Current production state | Activation guard |
-|---|---|---|---|
-| Interview Week | parent 5504 / variation 5867 / course 3646 | `IV Prep Essentials: Interview Week`; $500; published but out of stock; exact mapping `[3646]` | Requires its own live acceptance timestamp and binding plus exact runtime price, parent, mapping, stock, and purchasability checks |
-| Complete | parent 3576 / variation 5865 / course 5227 | `IV Prep Complete`; $3,099 early card price; $3,499 regular anchor; published but out of stock; exact mapping `[5227]` | Requires its own live acceptance timestamp and binding plus time-appropriate price, parent, mapping, stock, and purchasability checks |
-| 360 | parent 3575 / variations 5862, 5863 / course 3893 | $5,499 published reference; out of stock | Preserved closed and outside MR-WEB-0912 activation |
+## Active production objects
 
-Guest checkout is disabled and checkout account/login is enabled. Direct
-add-to-cart URLs, stale carts, inactive offers, and carts containing both
-Interview Week and Complete are rejected server-side. Complete includes
-Interview Week and must not create a second charge.
+| Offer | Woo object | Price | LearnDash | Checkout state |
+|---|---|---:|---:|---|
+| IV Prep Essentials: Interview Week | parent 5504 / variation 5867 | $500 | 3646 | in stock, sold individually, purchasable, Stripe/card active |
+| IV Prep Complete early card PIF | parent 3576 / variation 5865 | $3,099 through Sep 23 | 5227 | in stock, sold individually, purchasable, Stripe/card active |
+| IV Prep Complete standard anchor | parent 3576 / variation 5865 | $3,499 regular | 5227 | regular-price anchor; sale expires Sep 23 11:59:59 PM EDT |
 
-## Payment and adjustment paths
+The two acceptance timestamps are `2026-09-14T12:03:20Z`, re-issued after the
+single-seat correction. Each stored binding
+is recomputed from the exact product, variation, current price, course, related-
+course mapping, parent relationship, DR-251, and
+`waived_by_founder_not_executed` financial status.
 
-| Path | Authority amount | Current evidence | Production state |
-|---|---:|---|---|
-| Interview Week card | $500 | Product/mapping/price readback PASS; non-payment entitlement lifecycle PASS; live $0.50 acceptance not run | fail-closed |
-| Complete early card PIF | $3,099 | Product/mapping/price readback PASS; non-payment entitlement lifecycle PASS; live $0.50 acceptance not run | fail-closed |
-| Complete standard | $3,499 | Regular-price anchor configured; no separate live transaction required during early window | display/expiry anchor; fail-closed with offer |
-| Complete early Zelle PIF | $2,799 | BACS/Zelle disabled; no operational lifecycle proof | unavailable |
-| Complete installments | $3,299 total | No approved cadence, mechanism, or lifecycle | unavailable |
-| Dr J alumni | additional $100 | Old draft coupon is not safely scoped or stacking-proven | unavailable |
-| Interview Week credit | $500 toward standard Complete only | No deterministic, single-use, order-derived, refund-safe implementation | unavailable |
+Complete includes Interview Week. Checkout never creates a separate $500 item
+or charge for a Complete selection, and mixed Interview Week + Complete carts
+are rejected in both directions.
 
-The card path uses the official Stripe gateway in live mode with only card
-enabled. The account is US/USD with charges enabled and card-payments active.
-Woo taxes are disabled. WooPayments and BACS are disabled.
+Guest checkout is disabled and checkout account creation/login is enabled.
+Although Woo has other global gateway registrations, a cart containing either
+MR-WEB-0912 product receives only the official `stripe` gateway.
 
-## Entitlement and onboarding readback
+## Fail-closed paths
 
-- 5504/5867 maps exactly to LearnDash 3646.
-- 3576/5865 maps exactly to LearnDash 5227.
-- Course 3646 raw and filtered title:
-  `IV Prep Essentials: Interview Week`; onboarding body present; zero steps.
-- Course 5227 raw and filtered title:
-  `IV Prep Complete`; onboarding body present; zero steps.
-- No matching Calendar/Webex object exists.
-- No approved exact evening time exists, so no time was invented.
-- Non-payment grant/refund/reorder harness: 22/22 PASS.
+| Path | Final state | Reason |
+|---|---|---|
+| Complete early Zelle PIF $2,799 | unavailable | manual/BACS lifecycle not verified |
+| Complete installments $3,299 | unavailable | cadence and mechanism not approved |
+| Dr J additional $100 | unavailable | coupon eligibility and stacking not verified |
+| Interview Week $500 standard-tuition credit | unavailable | deterministic, single-use, order-derived, refund-safe mechanism absent |
+| Unverified logistics/claims | unavailable | no approved exact times, capacity, replay, mock-count, or refund evidence |
 
-## Controlled live-card acceptance
+An old draft $100 coupon was not activated or repurposed. The 360 parent 3575
+and variations 5862/5863 remain out of stock.
 
-Stripe's verified minimum for the current USD/card configuration is $0.50.
-The accepted design therefore uses two sequential $0.50 charges, one for each
-actual product identity, for an aggregate temporary charge of $1.00.
+## Mapping, onboarding, and guard readback
 
-The private authenticated controller records the real public line subtotal but
-sets only the controlled order line total to $0.50. It never changes a product
-price and creates no coupon, public route, or public filter. For each offer it
-must prove:
+- 5504 and 5867 map exactly to LearnDash `[3646]`.
+- 3576 and 5865 map exactly to LearnDash `[5227]`.
+- Course 3646 raw/filtered title is
+  `IV Prep Essentials: Interview Week`; onboarding body present.
+- Course 5227 raw/filtered title is `IV Prep Complete`; onboarding body present.
+- No matching Calendar/Webex object or approved exact evening time exists.
+- Cross-wired parent/variation pairs and parent-only variable-product requests
+  show `This enrollment selection is not valid.` and leave the cart empty.
+- Both mixed-cart directions preserve the first valid offer and reject the
+  second with the Complete-includes-Interview-Week notice.
+- Both parents and target variations are sold individually. Direct quantity-two
+  requests fail closed, and an unsafe stale non-unit cart exposes no payment
+  gateway.
 
-1. exact product, variation, account, public subtotal, $0.50 line total, and no
-   coupon, fee, tax, shipping item, or second product;
-2. successful buyer login and a live Stripe USD/card charge;
-3. Woo paid-order state and correct LearnDash entitlement/counter;
-4. unrelated-course exclusion;
-5. immediate idempotent Stripe refund and native Woo full refund;
-6. correct entitlement revocation with unrelated access preserved;
-7. removal of temporary-login metadata, every WordPress session, private URLs,
-   and any Woo payment token.
+## Acceptance truth
 
-Refund containment proceeds even if an acceptance assertion fails. The overall
-verdict remains FAIL unless both paid acceptance and post-refund containment
-pass. The state machine supports safe retry after Stripe has refunded but Woo
-has not yet recorded the refund.
+- Product/course/source readback: 13/13 PASS.
+- Waiver-aware activation verification: 16/16 PASS.
+- Non-payment entitlement/refund simulation: 22/22 PASS.
+- Real cart and checkout rendering: both prices, exact identities, Stripe-only
+  rail, account creation, and policy links PASS at 1440/1024/390.
+- Direct/stale/mixed/quantity cart guard suite: 8/8 PASS.
+- No Place order action was invoked.
+- Independent non-financial production acceptance: ACCEPTED, including a
+  retest of the original stale Complete quantity-two session with zero payment
+  gateways and no Place Order control.
 
-Current controller SHA-256:
-`3ee54ba3417efb26cf7d413861fa3b4c5aa8c4a1d45c48556cc996b25be89c0d`.
-Independent source/design review: PASS. Live preflight: 14/14 PASS. No controlled
-order, subscriber, private live-card manifest, or charge exists.
+The 22/22 simulation and prior Mission Residency P0 transaction history support
+the stack design, but neither is recorded as MR-WEB-0912 live financial
+acceptance. The actual live Stripe charge, paid Woo order, entitlement,
+immediate refund, and revocation lifecycle remains Founder-waived and was not
+performed.
 
-## Authorization gate
+## Containment
 
-Do not create the controlled orders or initiate payment until the Founder says:
-
-> I authorize two $0.50 live Stripe charges, totaling $1.00, followed by
-> immediate refunds.
-
-`execute prompt` does not name the financial total and is not sufficient.
-
-## Per-offer activation rule
-
-After authorization, run Interview Week and Complete sequentially. Hard-stop
-and keep the affected offer closed on any failure. After both terminal refunds,
-separately prove public product data, rendered prices, direct-cart totals, and
-checkout totals at $500 and $3,099 without another charge. Activate only the
-offer whose entire lifecycle passes, then perform logged-out rendered QA and
-fresh independent production acceptance.
-
-Optional Zelle, installments, alumni coupon/stacking, upgrade credit, and
-unapproved session logistics remain independently fail-closed. If DR-246/247
-permits partial activation, they do not block a fully proven card offer.
+If either offer's bound runtime facts drift, its computed checkout eligibility
+fails closed. The activation controller's `disable` mode clears both acceptance
+pairs and waiver options and closes both target parents/variations. A narrower
+incident can clear and close only the affected offer. Exact object/source
+preimages and the MyKinsta recovery point remain available.

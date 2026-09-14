@@ -1,196 +1,296 @@
 # MR-WEB-0912 Production Enablement Report
 
-Current through: 2026-09-14 02:39 UTC
+Current through: 2026-09-14 12:48 UTC
 
-Status: **MR-WEB-0912 PRODUCTION = BLOCKED**
+Status: **MR-WEB-0912 PRODUCTION = DEPLOYED AND ACTIVATED WITH FOUNDER FINANCIAL-TEST WAIVER**
 
-This report supersedes the earlier Tranche 0 stop report. The fresh-backup and
-course-title blockers were resolved, the approved fail-closed production
-tranches were executed, and the remaining card gate was redesigned as two
-minimum-value live transactions. No financial transaction has been initiated
-because the Founder has not authorized the exact $1.00 aggregate amount.
+`LIVE STRIPE FINANCIAL ACCEPTANCE = WAIVED BY FOUNDER / NOT EXECUTED`
 
-## 1. Authority, BOOT, and Git identity
+No live MR-WEB-0912 order, payment, charge, or refund was created. This report
+does not record the waived financial lifecycle as PASS.
 
-- Worktree: `/Users/brianb/MissionMed_worktrees/mr-web-0912-interview-week`
-- Branch: `codex/mr-web-0912-interview-week`
-- Preserved production-source candidate:
-  `7d25221fe1136c7dfceefc49663cbe930df24094`
-- Current committed harness-safety descendant:
-  `3b2888276a5b7cd62ef551544676dfb0dfe7f0e9`
-- Current local HEAD matches origin and the worktree is clean.
-- Production plugin and MR-WEB-0912 assets remain byte-identical to the
-  preserved candidate; the descendant changes only acceptance tooling.
-- Universal and MR-WEB-0912 BOOT: PASS at MissionMed HQ tip
-  `e71b3902f40e82e4d27813cc54aa836bc13d2c35`.
-- Canonical authority: DR-246 and DR-247.
+## 1. Authority and BOOT
+
+- DR-246 and DR-247 required live financial acceptance and did not themselves
+  authorize a waiver.
+- The Founder made a release-specific risk decision. Canonical DR-251 records
+  that decision for MR-WEB-0912 only; it does not weaken global MissionMed
+  policy.
+- Waiver record:
+  `decisions/DR-251_mr_web_0912_founder_live_financial_acceptance_waiver.md`.
+- Waiver receipt:
+  `handoffs/from_codex/MR_WEB_0912_FOUNDER_FINANCIAL_WAIVER/MR_WEB_0912_FOUNDER_FINANCIAL_WAIVER_RECEIPT.md`.
+- MissionMed OS current origin/main: `e9dd89023fc7a9d6daa9611723ccfcef9345ec5f`.
+- MissionMed HQ origin/main: `e71b3902f40e82e4d27813cc54aa836bc13d2c35`.
+- Fresh universal BOOT: PASS.
+- Fresh MR-WEB-0912 profile BOOT: PASS.
 - Canonical MR-079 SHA-256:
   `9638e67841e98b278244c0d4f9ecd0ccbdc7a9e17c50a67dd45d1d31895a0357`.
 
-## 2. Provider recovery point
+## 2. Git and source custody
 
-MissionMed Institute / Live contains the required manual recovery point:
+- Worktree: `/Users/brianb/MissionMed_worktrees/mr-web-0912-interview-week`.
+- Branch: `codex/mr-web-0912-interview-week`.
+- Preserved reviewed candidate:
+  `7d25221fe1136c7dfceefc49663cbe930df24094`.
+- Bounded source descendant at final activation QA: `58a3f17`.
+- No redesign or new Fable CRO program was introduced. Descendant changes are
+  activation controls, truthful customer-facing corrections, evidence, and a
+  bounded fixes for empty-variation add-to-cart input and single-seat quantity
+  enforcement.
+- Live plugin SHA-256:
+  `49becfe0224d354b7f999bb4f5f466cf7dd0b0126aac84ae557f1fdce6b38448`.
+- Live campaign-state SHA-256:
+  `e02c8e26362699a78fc4d2e14c685ba2acee4a24e647eacf6809c86538ad3983`.
+- Live JavaScript SHA-256:
+  `969ea690f698b5c8cad5e1050f283d3583eea88b15af2c702711f374fac2ed19`.
+- Live CSS SHA-256:
+  `743c70b75968e30c251bcdd1619cb2cb21fd8835bbbcd9b52cb85c1ca47b93e2`.
+- Live offer shell SHA-256:
+  `9aaabfa8a0db5c5af663282b4b78410444fa9802f6d875362bfd0ac565be5216`.
 
-- label: `pre fall update`;
+## 3. Recovery point and exact preimage
+
+MyKinsta MissionMed Live contains the mission-appropriate recovery point:
+
+- label/note: `pre fall update`;
 - created: 2026-09-13 3:43 PM EDT;
 - expiration: 2026-09-27 3:43 PM EDT;
 - visible retention: 14 days;
 - restore action: available.
 
-Codex did not create, delete, rename, or restore any backup.
+Codex did not create, delete, rename, or restore a provider backup.
 
-## 3. Course-3646 reconciliation
+- Object preimage:
+  `/www/theresidencyacademy_209/private/mr-web-0912/20260913T154300-0400-pre-fall-update/object-preimage.json`.
+- Mode: `0600`.
+- SHA-256:
+  `a13f6001117fd42b71ed7c00c0d165c292cdb9bb9768760e6749d6afe8e54f35`.
+- Exact prior source copies are adjacent under `source-preimage/`.
+- The ledger covers the two target parents and variations, 360 reference
+  objects, courses, mappings, options, acceptance pairs, sanitized gateways,
+  coupons, Calendar/Webex inventory, and source manifests.
 
-The discrepancy was a filtered-runtime artifact, not an untracked production
-rename. Before correction, the database title was `IV Prep Complete
-Masterclass`, while the old live filter returned `IV Prep Essentials`.
-Current authoritative raw and filtered identities agree:
+## 4. Course-3646 title reconciliation
+
+The discrepancy was a stale filtered-runtime/reporting artifact, not a new
+untracked production rename. Current raw and filtered production truth agrees:
 
 - course 3646: `IV Prep Essentials: Interview Week`;
-- product 5504 / variation 5867 mapping: exactly `[3646]`;
+- Woo 5504 / 5867 maps exactly to LearnDash `[3646]`;
 - course 5227: `IV Prep Complete`;
-- product 3576 / variation 5865 mapping: exactly `[5227]`.
+- Woo 3576 / 5865 maps exactly to LearnDash `[5227]`.
 
-## 4. Preimage and rollback custody
+The current `IV Prep Essentials: Interview Week` identity is therefore correct
+for MR-WEB-0912.
 
-- Private preimage:
-  `/www/theresidencyacademy_209/private/mr-web-0912/20260913T154300-0400-pre-fall-update/object-preimage.json`
-- Mode: `0600`
-- SHA-256:
-  `a13f6001117fd42b71ed7c00c0d165c292cdb9bb9768760e6749d6afe8e54f35`
-- Exact source copies: adjacent `source-preimage/` directory.
+## 5. Activated offers and inventory
 
-The ledger covers target and 360-reference products, courses, options,
-acceptances, sanitized gateways, coupons, Calendar/Webex inventory, and source
-hashes.
-
-## 5. Current Woo and LearnDash state
-
-| Offer | Product / variation | Price | Course | Inventory |
+| Offer | Woo parent / variation | Public price | LearnDash | Production state |
 |---|---|---:|---:|---|
-| Interview Week | 5504 / 5867 | $500 | 3646 | out of stock |
-| Complete early card PIF | 3576 / 5865 | $3,099 | 5227 | out of stock |
-| Complete standard anchor | 3576 | $3,499 regular | 5227 | out of stock |
-| 360 reference | 3575 / 5862 / 5863 | $5,499 | 3893 | out of stock |
+| IV Prep Essentials: Interview Week | 5504 / 5867 | $500 | 3646 | published, in stock, sold individually, purchasable, Stripe/card checkout active |
+| IV Prep Complete early card PIF | 3576 / 5865 | $3,099 through Sep 23 | 5227 | published, in stock, sold individually, purchasable, Stripe/card checkout active |
+| IV Prep Complete standard anchor | 3576 / 5865 | $3,499 regular | 5227 | displayed regular-price anchor; sale expires 2026-09-23 11:59:59 PM EDT |
 
-The Complete sale window is configured through 2026-09-23 11:59:59 PM EDT.
-Courses 3646 and 5227 have bounded onboarding bodies. No invented evening time,
-Calendar event, or Webex object was added; matching Calendar/Webex count is 0.
+Both offer-specific acceptance bindings were re-issued after the bounded
+single-seat correction at `2026-09-14T12:03:20Z`. They bind exact product,
+variation, price, course,
+mapping, authority `DR-251`, and the non-PASS financial status. Complete copy
+states that Interview Week is included and never adds a separate $500 charge.
 
-## 6. Rails and commercial controls
+The 360 reference parent 3575 and variations 5862/5863 remain out of stock and
+outside MR-WEB-0912 activation.
 
-- Official Woo Stripe gateway: enabled, live mode, card-only.
-- Live Stripe account: US/USD, charges enabled, card-payments active.
-- Guest checkout: disabled; checkout account/login flow: enabled.
-- Woo taxes: disabled, supporting an exact $0.50 controlled total.
-- BACS/Zelle and WooPayments: disabled and fail-closed.
-- Installments: unavailable; no approved cadence/mechanism exists.
-- Dr J alumni discount: unavailable; the old draft coupon is not a safe,
-  verified MR-WEB-0912 coupon and was not activated.
-- $500 Interview Week to standard-Complete credit: unavailable pending a
-  deterministic, order-derived, single-use, refund-safe mechanism.
-- Banned `142 alumni matched` claim: not published.
+## 6. Exact fail-closed paths
 
-## 7. Source deployment and runtime proof
+- Zelle/manual/BACS: unavailable and not rendered as an approved offer.
+- Installments: unavailable; no cadence or implementation was invented.
+- Dr J additional $100 coupon: unavailable; no coupon/stacking claim was
+  activated.
+- $500 Interview Week to standard-Complete credit: unavailable; no retroactive
+  early-price credit mechanism was activated.
+- Unverified mock counts, capacities, exact evening times, replay rules,
+  guarantees, or refund claims: not published.
+- The banned `142 alumni matched` claim and stale MatchFirst/old-price copy are
+  not published.
 
-The fail-closed candidate is deployed. Current MR-WEB-0912 hashes:
+Woo may have other globally configured gateways, but whenever an MR-WEB-0912
+product is in the cart the available-gateway list is reduced to `stripe` only.
 
-- plugin: `04ab7d2bbffbd692bec386ac401bf3c24eba4abb8b4289f9938273801e661235`
-- config: `ee1db70bdfda3ec0e5141e83456cc3cd1cf09adf5c3650b8e36d3a6e4eea099d`
-- CSS: `743c70b75968e30c251bcdd1619cb2cb21fd8835bbbcd9b52cb85c1ca47b93e2`
-- JavaScript: `64b36ab289d0e2fe355ac91b5a1a2c4369148a1346a47b8ab53bd8eadad5e1d0`
-- offer page: `9aaabfa8a0db5c5af663282b4b78410444fa9802f6d875362bfd0ac565be5216`
+## 7. Production acceptance
 
-Release validation passed 64/64. Offer-specific acceptance timestamps and
-bindings are absent, so both checkout paths remain fail-closed.
+### State and entitlement evidence
 
-## 8. Existing acceptance evidence
+- Release harness: 81/81 PASS.
+- Waiver-aware activation controller: 16/16 PASS at
+  2026-09-14 12:03:20 UTC.
+- Product/course/source readback: 13/13 PASS at
+  2026-09-14 12:06:04 UTC after the bounded single-seat correction.
+- Non-payment Woo to LearnDash simulation: 22/22 PASS for exact grant,
+  unrelated-course exclusion, refund simulation, revocation, unrelated access
+  preservation, and reorder behavior.
+- Prior Mission Residency P0 history proves Stripe to Woo to LearnDash to
+  refund/revocation behavior on the same production stack; it is supporting
+  stack evidence, not a substitute MR-WEB-0912 transaction.
+- `LIVE STRIPE FINANCIAL ACCEPTANCE = WAIVED BY FOUNDER / NOT EXECUTED`.
 
-- Non-payment Woo-to-LearnDash harness: 22/22 PASS for both exact identities,
-  including grant, exclusion, refund, revocation, and reorder behavior.
-- Logged-out rendered production sweep: 36/36 PASS at 1440, 1024, and 390
-  pixels across corporate, Mission Residency, compare/product aliases, 360,
-  cart, and checkout surfaces.
-- These results do not substitute for controlled live financial acceptance.
+### Fresh logged-out rendered QA
 
-## 9. Minimum-charge acceptance design
+The final production sweep completed at 2026-09-14 12:08:58 UTC after the
+single-seat correction:
 
-Stripe documents $0.50 USD as the minimum supported charge. Live account and
-Woo readback confirmed that the current account/currency/card configuration
-supports that amount.
+- viewports: 1440 desktop, 1024 tablet, and 390 mobile;
+- routes: homepage, Mission Residency, two comparison aliases, both current and
+  legacy product aliases, cart, checkout, legacy waitlist, terms, refund, and
+  privacy;
+- public route/viewport checks: 45/45 PASS;
+- real checkout render cases: 6/6 PASS;
+- combined result: 51/51 PASS.
 
-The controller creates real Woo orders for the actual variations. Each order
-line records the public subtotal ($500 or $3,099), while only its private line
-total is $0.50. It creates no product-price mutation, coupon, public route, or
-public filter.
+Both real checkout pages displayed the correct item and amount, one payment
+method (`stripe`), Stripe Elements, Place order control, account creation, and
+terms/refund/privacy links. The verifier did not click Place order.
 
-Per offer, the flow verifies exact product, variation, account, and line values;
-uses a fresh subscriber and a 256-bit temporary credential held only in the
-private mode-0600 manifest; performs a real live Stripe card charge; reads back
-Stripe, Woo, and LearnDash state; immediately issues an idempotent Stripe
-refund; creates the native Woo refund; verifies revocation; and removes login
-metadata, sessions, URLs, and Woo payment tokens.
+The funnel contains no internal QA/governance copy, activation-placeholder
+copy, OUT OF STOCK leakage, scoped mobile desktop-warning banner, `142 alumni`
+claim, MatchFirst language, stale price, or horizontal overflow. The homepage
+CTA no longer targets the stale waitlist. The legacy waitlist route redirects
+to `/mission-residency/?from=legacy-waitlist`.
 
-Refund containment is independent of acceptance success: entitlement or login
-failure is recorded as FAIL but cannot prevent refund. The state machine resumes
-safely after a Stripe-refunded / Woo-unrefunded interruption. Overall success
-requires both paid acceptance and post-refund containment.
+### Direct, stale, and mixed-cart guards
 
-- Controller: `evidence-scripts/mr-web-0912-live-card-lifecycle.php`
-- SHA-256:
-  `3ee54ba3417efb26cf7d413861fa3b4c5aa8c4a1d45c48556cc996b25be89c0d`
-- PHP syntax and `git diff --check`: PASS
-- Independent source/design review: PASS
-- Latest committed live read-only preflight: 14/14 PASS at
-  2026-09-14 02:37:14 UTC.
+Final guard sweep at 2026-09-14 12:04:13 UTC: 8/8 PASS.
 
-No controlled order, subscriber, live-card manifest, or charge exists.
+- Missing variations and cross-wired parent/variation pairs fail closed with
+  `This enrollment selection is not valid.` and an empty cart.
+- Interview Week then Complete retains only Interview Week and rejects
+  Complete.
+- Complete then Interview Week retains only Complete and rejects Interview
+  Week.
+- Both mixed-cart notices state that Complete already includes Interview Week.
+- Direct quantity-two requests for both offers fail closed with
+  `Enrollment is limited to one seat per account.` and an empty cart.
 
-## 10. Authorization boundary
+An initial missing-variation test exposed a strict PHP argument-type error. The
+bounded fix accepts Woo's empty string, casts it to the expected integer, and
+preserves the same fail-closed decision. The full state/readback/render/guard
+suite passed again after deployment.
 
-Required authorization: **$1.00 total**, consisting only of two sequential
-$0.50 live card charges, each immediately refunded.
+The first independent review then identified a separate same-offer quantity-two
+path that could reach Complete checkout at $6,198. Production was corrected by
+setting both parents and both target variations to sold-individually, rejecting
+non-unit add-to-cart requests, treating stale non-unit carts as unsafe, and
+removing payment gateways from an unsafe stale cart. No order or payment was
+submitted. All source, activation, readback, guard, and rendered suites above
+were rerun after that correction.
 
-The Founder must explicitly authorize that exact total before `prepare` or any
-payment action. Required wording:
+### Analytics
 
-> I authorize two $0.50 live Stripe charges, totaling $1.00, followed by
-> immediate refunds.
+- Google tag loader observed: `GT-PJ7SPCWF`.
+- GA4 collection observed: `G-B4B4E26HMW`.
+- Network requests were observed on homepage, Mission Residency, and both real
+  checkout render paths, including mobile.
 
-`execute prompt` is not financial authorization because it does not name the
-specific authorized total.
+## 8. Independent acceptance
 
-## 11. Remaining execution gates
+Independent non-financial production acceptance: **ACCEPTED**.
 
-1. explicit Founder authorization for the exact $1.00 total;
-2. Interview Week live charge, entitlement, refund, and revocation lifecycle;
-3. Complete live charge, entitlement, refund, and revocation lifecycle;
-4. proof that the temporary mechanism is inactive and credentials/sessions/
-   tokens are removed;
-5. non-financial rendered price, direct-cart, and checkout proof at $500 and
-   $3,099;
-6. activation only for each offer whose lifecycle passes;
-7. post-activation rendered QA and independent production acceptance.
+The verifier was explicitly told and recorded:
 
-Zelle, installments, Dr J coupon/stacking, upgrade credit, and session logistics
-remain independently blocked and must stay fail-closed. DR-246/247 may permit a
-proven card offer to activate without those optional rails.
+`LIVE FINANCIAL TRANSACTION TEST = FOUNDER-WAIVED / NOT PERFORMED`
 
-## 12. State delta
+The verifier did not relabel the waived lifecycle as PASS and created no order
+or payment. Independent evidence included:
 
-| Surface | Prior Tranche 0 report | Current authoritative state |
+- universal and MR-WEB-0912 BOOT PASS;
+- exact pushed source `58a3f1747421e53715b39d064446886b25daaf6b`
+  and live plugin hash match;
+- 81-assertion release validator PASS, 16/16 activation PASS, and fresh 13/13
+  live readback at 2026-09-14 12:10:17 UTC;
+- both bindings at 2026-09-14 12:03:20 UTC, exact product/variation/price/course
+  mappings, inventory, account-required checkout, and sold-individually state;
+- the original stale Complete quantity-two session now showing the cart-issue
+  hard stop, zero payment gateways, and no Place Order control;
+- fresh cookie-free quantity-two requests for both offers returning the
+  one-seat rejection, empty cart, and no checkout link;
+- independent 390px pricing/copy/overflow review, GT/GA network proof, optional
+  rail closure, redirects/policies, and rollback readiness.
+
+The provider coordination readback at 2026-09-14 12:48:30 UTC found zero
+active registry leases, zero active MR-WEB-0912 path conflicts, and zero
+pending registry waiters.
+
+## 9. Rollback readiness
+
+- The waiver activation controller has a bounded `disable` path that clears
+  both MR-WEB-0912 acceptance pairs and waiver options and returns both target
+  parents/variations to out-of-stock.
+- Per-offer containment may instead clear only the affected binding/timestamp
+  and close only that offer.
+- Exact object and source preimages are available before any restoration.
+- The provider recovery point is available through Sep 27; provider restore
+  remains a separately authorized last resort.
+- No financial object exists to refund, reconcile, or preserve for this
+  release.
+
+## 10. Production URLs
+
+- Homepage: https://missionmedinstitute.com/
+- Mission Residency: https://missionmedinstitute.com/mission-residency/
+- Offer comparison: https://missionmedinstitute.com/mission-residency-courses/
+- Interview Week canonical product route:
+  https://missionmedinstitute.com/product/iv-prep-masterclass/
+- Interview Week customer alias:
+  https://missionmedinstitute.com/product/iv-prep-essentials/
+- Complete canonical product route:
+  https://missionmedinstitute.com/product/match-prep-pro/
+- Complete customer alias:
+  https://missionmedinstitute.com/product/iv-prep-complete/
+- Cart: https://missionmedinstitute.com/cart/
+- Checkout: https://missionmedinstitute.com/checkout/
+- Terms: https://missionmedinstitute.com/terms-of-agreement/
+- Refund/cancellation:
+  https://missionmedinstitute.com/refund-cancellation-policy/
+- Privacy: https://missionmedinstitute.com/privacy-policy/
+
+## 11. State delta
+
+| Surface | Pre-mission production truth | Final production truth |
 |---|---|---|
-| Backup | no fresh point | fresh `pre fall update` point verified |
-| Course 3646 | unresolved drift | raw/filtered title reconciled |
-| Preimage | incomplete | full private mode-0600 ledger present |
-| Interview Week | $1,199, in stock | $500, mapped to 3646, fail-closed |
-| Complete | $2,799, in stock | $3,099 early / $3,499 standard, mapped to 5227, fail-closed |
-| Onboarding | absent | bounded course bodies present |
-| Candidate source | not deployed | deployed fail-closed and hash-verified |
-| Rendered QA | not run | logged-out 36/36 PASS |
-| Entitlement simulation | not run | 22/22 PASS |
-| Live payment | not run | still not run; $1.00 authorization pending |
-| Activation | absent | still absent by design |
+| Authority | DR-246/247; no waiver path | scoped DR-251 Founder waiver canonically filed and BOOT-routed |
+| Backup | no fresh mission point at first stop | fresh `pre fall update` recovery point verified |
+| Preimage | incomplete | full mode-0600 object/source ledger |
+| Course 3646 | raw/filter/report discrepancy | raw and filtered `IV Prep Essentials: Interview Week`; exact mapping verified |
+| Interview Week | old $1,199 presentation and no MR-WEB-0912 binding | 5504/5867 at $500, in stock, bound, card checkout active |
+| Complete | prior $2,799 presentation and no MR-WEB-0912 binding | 3576/5865 at $3,099 early / $3,499 regular, in stock, bound, card checkout active |
+| Complete inclusion | potentially ambiguous | Interview Week explicitly included; mixed-cart second charge blocked |
+| Optional rails | requested but unproved | Zelle, installments, Dr J coupon, and upgrade credit explicitly fail-closed |
+| Onboarding | absent/incomplete | bounded 3646 and 5227 course bodies present |
+| Source | candidate not deployed | preserved candidate plus bounded activation corrections deployed/hash-matched |
+| Homepage | stale waitlist routing/copy risk | current Mission Residency CTA and scoped customer-safe copy |
+| Mobile funnel | desktop-warning leakage risk | warning absent on campaign/cart/checkout; 390 QA PASS |
+| Cart guards | mixed/stale protections incomplete | cross-wire, missing-variation, quantity-two, unsafe stale-cart payment, and both mixed directions fail closed; all target objects sold individually |
+| Analytics | required verification open | tag loader and GA4 collect observed on required funnel surfaces |
+| Entitlement | exact MR-WEB-0912 proof absent | non-payment simulation 22/22 PASS |
+| Live financial lifecycle | not run | waived by Founder; not executed; not PASS |
+| Independent acceptance | initial quantity-two blocker | blocker corrected and independently retested; non-financial production acceptance ACCEPTED |
+| Activation | both core offers closed | both verified core card offers activated; optional rails remain closed |
 
-No production acceptance or activation is claimed until all applicable gates
-pass.
+## 12. Remaining risks and blockers
+
+There is no remaining non-waived activation blocker in the evidence above.
+
+Residual risks accepted or intentionally deferred:
+
+1. The actual MR-WEB-0912 live Stripe payment, paid-order, entitlement,
+   immediate-refund, and revocation lifecycle was not executed. This is the
+   explicit Founder-accepted release risk.
+2. Zelle/manual, installments, Dr J coupon/stacking, and the $500 standard-price
+   upgrade credit have no approved end-to-end mechanism and remain unavailable.
+3. No exact evening time or Calendar/Webex object exists; the funnel does not
+   invent one.
+4. Production WP-CLI emits pre-existing plugin translation notices and may exit
+   255 after successful cache work; exact source hashes and browser readback,
+   not that unstable exit code alone, are the deployment truth.
+5. The dedicated Fable CRO closure/re-audit remains separate and begins only
+   after this activation mission is sealed.
