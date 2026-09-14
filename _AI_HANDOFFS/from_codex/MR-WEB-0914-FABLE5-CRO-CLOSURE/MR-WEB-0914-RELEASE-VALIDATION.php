@@ -31,6 +31,8 @@ $check(str_contains($source['js'],'video-play'),'explicit-video-play-control');
 $check(str_contains($source['js'],'Detailed comparison'),'detailed-comparison');
 $check(str_contains($source['js'],'It is not an additional $500.'),'no-double-charge-copy');
 $check(str_contains($source['js'],'after-enrollment'),'after-enrollment-section');
+$check(str_contains($source['js'],"href.charAt(0)==='#'?location.pathname+location.search+href"),'fragment-base-containment');
+$check(str_contains($source['js'],'target.scrollIntoView()'),'dynamic-fragment-scroll');
 $check(str_contains($source['php'],"add_action('woocommerce_thankyou', 'mm_mr_0914_post_enrollment_expectations', 5)"),'thankyou-hook');
 $check(str_contains($source['php'],'Version: 1.3.0'),'plugin-version');
 $check(str_contains($source['php'],'../css/mr-0912.css'),'css-cache-busting');
