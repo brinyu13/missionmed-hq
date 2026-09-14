@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: MissionMed Mission Residency P0
- * Description: Reversible MR-WEB-0912 Interview Week and Complete router with fail-closed commerce activation.
- * Version: 1.2.0
+ * Description: Reversible MR-WEB-0912 commerce activation with the bounded MR-WEB-0914 Fable 5 customer journey.
+ * Version: 1.3.0
  */
 declare(strict_types=1);
 
@@ -82,12 +82,18 @@ function mm_mr_0912_output_boundary(string $html): string {
         $html = mm_mr_0912_clean_policy_markup($html);
     }
 
-    $javascript = MM_MR_P0_ASSET_DIR . '/js/mr-0912.js';
-    if (is_file($javascript)) {
-        $version = substr((string) hash_file('sha256', $javascript), 0, 12);
+    // Final output contains ../js/mr-0912.js?v=<content-hash> and the
+    // equivalent CSS reference so caches cannot retain a prior presentation.
+    $versionedAssets = [
+        '../css/mr-0912.css' => MM_MR_P0_ASSET_DIR . '/css/mr-0912.css',
+        '../js/mr-0912.js' => MM_MR_P0_ASSET_DIR . '/js/mr-0912.js',
+    ];
+    foreach ($versionedAssets as $reference => $assetPath) {
+        if (!is_file($assetPath)) continue;
+        $version = substr((string) hash_file('sha256', $assetPath), 0, 12);
         $html = preg_replace(
-            '~\.\./js/mr-0912\.js(?:\?v=[0-9a-f]{12})*~',
-            '../js/mr-0912.js?v=' . $version,
+            '~' . preg_quote($reference, '~') . '(?:\?v=[0-9a-f]{12})*~',
+            $reference . '?v=' . $version,
             $html
         ) ?? $html;
     }
@@ -392,12 +398,16 @@ function mm_mr_p0_render_asset_page(string $page): never {
         echo 'Mission Residency is temporarily unavailable.';
         exit;
     }
-    $javascript = MM_MR_P0_ASSET_DIR . '/js/mr-0912.js';
-    if (is_file($javascript)) {
-        $version = substr((string) hash_file('sha256', $javascript), 0, 12);
+    $versionedAssets = [
+        '../css/mr-0912.css' => MM_MR_P0_ASSET_DIR . '/css/mr-0912.css',
+        '../js/mr-0912.js' => MM_MR_P0_ASSET_DIR . '/js/mr-0912.js',
+    ];
+    foreach ($versionedAssets as $reference => $assetPath) {
+        if (!is_file($assetPath)) continue;
+        $version = substr((string) hash_file('sha256', $assetPath), 0, 12);
         $html = preg_replace(
-            '~\.\./js/mr-0912\.js(?:\?v=[0-9a-f]{12})*~',
-            '../js/mr-0912.js?v=' . $version,
+            '~' . preg_quote($reference, '~') . '(?:\?v=[0-9a-f]{12})*~',
+            $reference . '?v=' . $version,
             $html
         ) ?? $html;
     }
@@ -588,6 +598,34 @@ add_action('woocommerce_review_order_before_submit', static function (): void {
     echo '<p class="mm-mr-0912-policy-links"><a href="' . esc_url(home_url('/terms-of-agreement/')) . '" target="_blank" rel="noopener">Terms of Agreement</a> · <a href="' . esc_url(home_url('/refund-cancellation-policy/')) . '" target="_blank" rel="noopener">Refund &amp; Cancellation Policy</a> · <a href="' . esc_url(home_url('/privacy-policy/')) . '" target="_blank" rel="noopener">Privacy Policy</a></p>';
 }, 8);
 
+function mm_mr_0914_post_enrollment_expectations(int $orderId): void {
+    if (!mm_mr_p0_enabled() || !function_exists('wc_get_order')) return;
+    $order = wc_get_order($orderId);
+    if (!$order || !method_exists($order, 'get_items')) return;
+    $offers = [];
+    foreach ($order->get_items() as $item) {
+        if (!is_object($item) || !method_exists($item, 'get_product_id')) continue;
+        $offer = mm_mr_0912_offer_for_product(
+            (int) $item->get_product_id(),
+            method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0
+        );
+        if (in_array($offer, ['interview_week', 'complete'], true)) $offers[$offer] = true;
+    }
+    if (!$offers) return;
+    $confirmed = method_exists($order, 'is_paid') && $order->is_paid();
+    echo '<section class="mm-mr-0914-next" aria-labelledby="mm-mr-0914-next-title"><h2 id="mm-mr-0914-next-title">'
+        . esc_html($confirmed ? 'Enrollment confirmed. Here is what happens next.' : 'Order received. Here is what happens next.')
+        . '</h2><ol><li>Keep this order confirmation for your records.</li>'
+        . '<li>Use the same MissionMed account in <a href="' . esc_url(wc_get_page_permalink('myaccount')) . '">My Account</a> and My Courses.</li>'
+        . '<li>Your enrollment confirmation provides the approved schedule, placement, and Signature Mock details for your program.</li>';
+    if (isset($offers['complete'])) {
+        echo '<li>IV Prep Complete includes Interview Week. There is no separate Interview Week charge.</li>';
+    }
+    echo '<li>If confirmed access does not appear as expected, <a href="' . esc_url(home_url('/contact/')) . '">contact Admissions</a>.</li>'
+        . '</ol></section>';
+}
+add_action('woocommerce_thankyou', 'mm_mr_0914_post_enrollment_expectations', 5);
+
 add_action('wp_footer', static function (): void {
     if (!mm_mr_p0_clean_commercial_chrome()) return;
     $script = <<<'JS'
@@ -646,7 +684,7 @@ add_filter('the_content', static function (string $content): string {
     );
     $route = '<section class="mm-mr-p0-route" aria-label="Mission Residency Fall 2026">'
         . '<style>.mm-mr-p0-route{background:#081a2f;color:#f8f3e7;padding:clamp(44px,7vw,84px) 24px;font-family:Inter,system-ui,sans-serif}.mm-mr-p0-route__in{max-width:1160px;margin:auto;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:42px;align-items:center}.mm-mr-p0-route__k,.mm-mr-p0-route__card-k{color:#e5bd62;text-transform:uppercase;letter-spacing:.16em;font-size:.78rem;font-weight:800}.mm-mr-p0-route h2{color:#fff;font:600 clamp(2.2rem,5vw,4.3rem)/1.02 Georgia,serif;margin:.35em 0}.mm-mr-p0-route p{font-size:1.1rem;line-height:1.65;max-width:720px}.mm-mr-p0-route__card{background:#102945;border:1px solid rgba(229,189,98,.45);padding:28px;border-radius:18px}.mm-mr-p0-route__card strong{display:block;color:#fff;font:600 1.7rem/1.15 Georgia,serif;margin:.45em 0}.mm-mr-p0-route a{display:inline-block;background:#e5bd62;color:#071626!important;text-decoration:none!important;font-weight:800;padding:14px 22px;border-radius:999px;margin-top:14px}@media(max-width:760px){.mm-mr-p0-route__in{grid-template-columns:1fr}}</style>'
-        . '<div class="mm-mr-p0-route__in"><div><span class="mm-mr-p0-route__k">Mission Residency · Fall 2026</span><h2>Don&#8217;t use your real interviews as practice.</h2><p>Train Before You Test with live, physician-led residency interview preparation built for interview season and useful for the rest of your career.</p><a href="' . esc_url(home_url('/mission-residency/')) . '">Explore Mission Residency</a></div>'
-        . '<div class="mm-mr-p0-route__card"><span class="mm-mr-p0-route__card-k">Interview Week</span><strong>Live interview-season kickoff.</strong><p>Orientation, Match Primer, and five live online training days beginning September 24. Complete includes Interview Week.</p><a href="' . esc_url(home_url('/mission-residency/')) . '">View the two paths</a></div></div></section>';
+        . '<div class="mm-mr-p0-route__in"><div><span class="mm-mr-p0-route__k">Mission Residency · Fall 2026</span><h2>Don&#8217;t use your real interviews as practice.</h2><p>One expert. Your whole interview season. Learn the framework, practice under pressure, and improve with physician-led feedback before programs see you.</p><a href="' . esc_url(home_url('/mission-residency/')) . '">Explore Mission Residency</a></div>'
+        . '<div class="mm-mr-p0-route__card"><span class="mm-mr-p0-route__card-k">Two clear paths</span><strong>Live kickoff or whole-season support.</strong><p>Interview Week builds the live foundation. Complete includes Interview Week and continues the coaching, practice, and feedback.</p><a href="' . esc_url(home_url('/mission-residency-courses/')) . '">Compare the two paths</a></div></div></section>';
     return $route . $content;
 }, 20);

@@ -20,6 +20,75 @@
     "premise": "Train Before You Test.",
     "career_value": "Built for interview season. Useful for the rest of your career."
   },
+  "cro": {
+    "mission": "MR-WEB-0914-FABLE5-CRO-CLOSURE",
+    "authority": "DR-253",
+    "boutique": {
+      "headline": "One expert. Your whole interview season.",
+      "body": "Mission Residency is physician-led, personal, and built around deliberate practice. Dr. Brian remains meaningfully involved while the training system keeps each step clear."
+    },
+    "assets": {
+      "hero": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-mr-006/mission-residency-run-mr006-q100.webp",
+      "class": "https://missionmedinstitute.com/wp-content/uploads/2026/03/Mission_Class_Screenshot-1-scaled.png.webp",
+      "dr_brian": "https://missionmedinstitute.com/wp-content/uploads/2026/03/DrBrian_Headshot_01-600x485.jpg"
+    },
+    "method": [
+      {"title": "Learn", "body": "Understand how strong residency interview answers are built."},
+      {"title": "Practice", "body": "Use the framework repeatedly before the stakes are real."},
+      {"title": "Mock", "body": "Enter a realistic interview conversation with a clear purpose."},
+      {"title": "Analyze", "body": "Identify what landed, what did not, and why."},
+      {"title": "Remediate", "body": "Turn feedback into a focused action plan."},
+      {"title": "Repeat", "body": "Return sharper for the next interview instead of repeating the same mistakes."}
+    ],
+    "journey": [
+      {"title": "Build the foundation", "body": "Learn the communication and answer-building system."},
+      {"title": "Practice under pressure", "body": "Move from knowing the framework to using it aloud."},
+      {"title": "Get assessed", "body": "Use structured feedback to find the next improvement."},
+      {"title": "Prepare for real interviews", "body": "Apply the system to the formats and programs in front of you."},
+      {"title": "Keep improving", "body": "Complete students continue the coaching and practice loop through interview season."}
+    ],
+    "testimonials": [
+      {"name": "Marian", "tag": "Transformation", "quote": "You made me fall in love with my story.", "poster": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-03-marian-tearful-match-call.jpg", "video": "https://cdn.missionmedinstitute.com/other/emotional_marianne_overwhelming_joy_family_crying_06.mp4"},
+      {"name": "Chelsey & Danny", "tag": "Five cycles", "quote": "You make a difference in people's life.", "poster": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-04-chelsey-matched-after-5-cycles.jpg", "video": "https://cdn.missionmedinstitute.com/other/gratitude_chelsea_danny_thanking_dr_brian_life_cha_07.mp4"},
+      {"name": "Yamini", "tag": "Finding her voice", "quote": "You gave me voice to express myself.", "poster": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-05-yamini-left-medicine-15-years.jpg", "video": "https://cdn.missionmedinstitute.com/other/emotional_yamini_emotional_match_relief_19.mp4"},
+      {"name": "Gunjan", "tag": "Family reaction", "quote": "This is the best feeling right now.", "poster": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-06-gunjan-family-finds-out.jpg", "video": "https://cdn.missionmedinstitute.com/other/emotional_gunjan_emotional_crying_family_reaction_93.mp4"},
+      {"name": "Sana", "tag": "Persistence", "quote": "Being persistent and just trying harder... it does pay off.", "poster": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-07-sana-failed-last-year-matched-this-year.jpg", "video": "https://cdn.missionmedinstitute.com/other/best_decision_sana_everything_worth_it_208.mp4"},
+      {"name": "Maisha", "tag": "Best decision", "quote": "Coming up to you was one of the best decisions in my life.", "poster": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-08-maisha-best-decision.jpg", "video": "https://cdn.missionmedinstitute.com/other/best_decision_maisha_best_decision_testimony_10.mp4"},
+      {"name": "Maksura", "tag": "Belonging", "quote": "It feels like I belong to somewhere.", "poster": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-09-maksura-found-where-she-belonged.jpg", "video": "https://cdn.missionmedinstitute.com/other/support_system_maksura_belonging_community_support_137.mp4"},
+      {"name": "Mahabuba", "tag": "Confidence", "quote": "You are the person who gave me the confidence.", "poster": "https://missionmedinstitute.com/wp-content/uploads/2026/06/mm-speed-home-012/mm-home-012-10-mahabuba-confidence.jpg", "video": "https://cdn.missionmedinstitute.com/other/best_decision_mahbuba_best_day_emotional_reaction_45.mp4"}
+    ],
+    "signature_mock": {
+      "headline": "A Signature Mock is more than a practice interview.",
+      "body": "It is a live, personalized interview simulation followed by structured analysis, a debrief, and an individualized action plan. Your enrollment confirmation states the exact Signature Mock details included in your program."
+    },
+    "mentor": {
+      "headline": "Physician-led preparation with Dr. Brian.",
+      "body": "Dr. Brian teaches the communication framework, listens for the story underneath an answer, and turns observed patterns into the next practice plan."
+    },
+    "closed_360": {
+      "name": "360 Match Mentorship",
+      "status": "Enrollment closed for the current cycle",
+      "body": "360 is Mission Residency's highest-touch, one-to-one mentorship model. It is shown only to explain the full program family; there is no purchase path or seat promise on this page."
+    },
+    "post_enrollment": [
+      "Keep the order confirmation for your records.",
+      "Use the same MissionMed account at My Account and My Courses.",
+      "Your enrollment confirmation provides the approved schedule, placement, and Signature Mock details for your program.",
+      "Complete students begin with Interview Week; there is no separate Interview Week charge.",
+      "Contact Admissions if your confirmed access does not appear as expected."
+    ],
+    "faq": [
+      {"question": "Which option should I choose?", "answer": "Choose Interview Week for the live foundational kickoff. Choose Complete when you want Interview Week plus continued practice, personalized feedback, and interview-season coaching."},
+      {"question": "Do I buy both programs?", "answer": "No. IV Prep Complete includes Interview Week. The two prices are never added together."},
+      {"question": "Does Interview Week include an individual Signature Mock?", "answer": "No individual Signature Mock Interview is included in the $500 tuition. A limited standalone reservation opportunity may be offered separately."},
+      {"question": "What is a Signature Mock?", "answer": "A live, personalized interview simulation followed by structured analysis, a debrief, and an individualized action plan. Your confirmation states the exact details included in your enrollment."},
+      {"question": "What happens after I enroll?", "answer": "Keep your confirmation, use the same MissionMed account for My Account and My Courses, and follow the approved schedule and placement details supplied with your enrollment."},
+      {"question": "Are the evening times final?", "answer": "No exact evening clock time is published yet. Use only the approved schedule supplied with your enrollment."},
+      {"question": "Is September the last training opportunity?", "answer": "No. The next foundational training is anticipated around November 8, 2026."},
+      {"question": "Do you guarantee a Match?", "answer": "No. No coach can guarantee a Match. Mission Residency provides preparation, practice, feedback, and strategy."},
+      {"question": "How can I pay?", "answer": "The currently verified public checkout for these offers is card only. Any other payment option remains unavailable unless MissionMed separately confirms it."}
+    ]
+  },
   "schedule": [
     {"date": "Thu Sep 24", "label": "Orientation + Match Primer", "time": "Evening"},
     {"date": "Sat Sep 26", "label": "Day 1", "time": "11 AM-4 PM ET"},

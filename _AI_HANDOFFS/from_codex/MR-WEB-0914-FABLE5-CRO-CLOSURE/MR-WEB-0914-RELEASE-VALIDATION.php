@@ -1,0 +1,51 @@
+<?php
+declare(strict_types=1);
+$root = dirname(__DIR__, 3);
+$assetRoot = $root . '/wp-content/mu-plugins/missionmed-mr-0912-assets';
+$files = ['config'=>$assetRoot.'/config/campaign-state.json','css'=>$assetRoot.'/css/mr-0912.css','js'=>$assetRoot.'/js/mr-0912.js','html'=>$assetRoot.'/pages/offer.html','php'=>$root.'/wp-content/mu-plugins/missionmed-mr-p0.php'];
+$source=[];
+foreach($files as $key=>$path){$source[$key]=is_file($path)?(string)file_get_contents($path):'';if($source[$key]===''){fwrite(STDERR,"Missing release file: {$path}\n");exit(1);}}
+$config=json_decode($source['config'],true,512,JSON_THROW_ON_ERROR);
+$failures=[];$assertions=0;
+$check=static function(bool $condition,string $name)use(&$failures,&$assertions):void{$assertions++;if(!$condition)$failures[]=$name;};
+$check(($config['cro']['mission']??'')==='MR-WEB-0914-FABLE5-CRO-CLOSURE','cro-mission');
+$check(($config['cro']['authority']??'')==='DR-253','cro-authority');
+$check(($config['offers']['interview_week']['price']??null)===500,'interview-week-price');
+$check(($config['offers']['complete']['standard_price']??null)===3499,'complete-standard-price');
+$check(($config['payment_options']['early_card_paid_in_full']['amount']??null)===3099,'complete-early-card-price');
+$check(($config['offers']['complete']['includes_interview_week']??false)===true,'complete-includes-interview-week');
+$check(($config['payment_options']['early_zelle_paid_in_full']['public_verified']??true)===false,'zelle-closed');
+$check(($config['payment_options']['early_installments_total']['public_verified']??true)===false,'installments-closed');
+$check(($config['upgrade_credit']['public_verified']??true)===false,'upgrade-credit-closed');
+$check(($config['alumni']['public_verified']??true)===false,'alumni-closed');
+$check(count($config['cro']['method']??[])===6,'six-step-method');
+$check(array_column($config['cro']['method']??[],'title')===['Learn','Practice','Mock','Analyze','Remediate','Repeat'],'method-order');
+$check(count($config['cro']['journey']??[])===5,'season-journey');
+$check(count($config['cro']['testimonials']??[])===8,'eight-testimonials');
+$check(count($config['cro']['faq']??[])>=8,'expanded-faq');
+$check(count($config['cro']['post_enrollment']??[])===5,'post-enrollment-expectations');
+$check(($config['cro']['closed_360']['status']??'')==='Enrollment closed for the current cycle','closed-360');
+$check(str_contains($source['js'],"v.preload='none'"),'video-preload-none');
+$check(!str_contains($source['js'],'.autoplay=true'),'no-video-autoplay');
+$check(str_contains($source['js'],'video-play'),'explicit-video-play-control');
+$check(str_contains($source['js'],'Detailed comparison'),'detailed-comparison');
+$check(str_contains($source['js'],'It is not an additional $500.'),'no-double-charge-copy');
+$check(str_contains($source['js'],'after-enrollment'),'after-enrollment-section');
+$check(str_contains($source['php'],"add_action('woocommerce_thankyou', 'mm_mr_0914_post_enrollment_expectations', 5)"),'thankyou-hook');
+$check(str_contains($source['php'],'Version: 1.3.0'),'plugin-version');
+$check(str_contains($source['php'],'../css/mr-0912.css'),'css-cache-busting');
+$check(str_contains($source['php'],'../js/mr-0912.js'),'js-cache-busting');
+$check(str_contains($source['html'],'cdn.missionmedinstitute.com'),'video-origin-preconnect');
+$check(str_contains($source['css'],'@media(max-width:580px)'),'mobile-layout');
+$check(str_contains($source['css'],'@media(prefers-reduced-motion:reduce)'),'reduced-motion');
+$public=$source['config']."\n".$source['js']."\n".$source['html'];
+foreach(['142 alumni','alumni matched and counting','matched hundreds','MatchFirst','$1,199','$2,799','$3,299','Four Signature Mock Interviews','Unlimited mock','Enrollment opens after verification','OUT OF STOCK','use desktop'] as $needle){$check(stripos($public,$needle)===false,'public-omits-'.$needle);}
+$check(str_contains($source['php'],"'product_id' => 5504"),'interview-product-preserved');
+$check(str_contains($source['php'],"'variation_id' => 5867"),'interview-variation-preserved');
+$check(str_contains($source['php'],"'course_id' => 3646"),'interview-course-preserved');
+$check(str_contains($source['php'],"'product_id' => 3576"),'complete-product-preserved');
+$check(str_contains($source['php'],"'variation_id' => 5865"),'complete-variation-preserved');
+$check(str_contains($source['php'],"'course_id' => 5227"),'complete-course-preserved');
+$check(str_contains($source['php'],"'financial_acceptance_status' => 'waived_by_founder_not_executed'"),'waiver-not-pass');
+if($failures){fwrite(STDERR,'MR-WEB-0914 release validation FAIL: '.implode(', ',$failures)."\n");exit(1);}
+echo 'MR-WEB-0914 Fable 5 release validation PASS ('.$assertions." assertions)\n";
