@@ -1,11 +1,11 @@
 {
   "ticket": "MX-MISSIONACCOUNTS-5404A",
-  "captured_at": "2026-09-14T16:13:00Z",
+  "captured_at": "2026-09-14T16:22:59Z",
   "stage": "FABLE_REMEDIATION_SOURCE_READY_FOR_FRESH_INDEPENDENT_TECHNICAL_VERIFICATION",
   "source_base": "8450144bda8aabb3bac2a671e524b6af9d64b1a4",
   "source_base_missionaccounts_tree": "3133c78ad1228db14b829f608861503fdf4fdc09",
   "branch": "codex/mx-missionaccounts-5404a",
-  "corrective_source_commit": "9e631679b2746c509ff3575ded4369688fb8fd4e",
+  "corrective_source_commit": "46eaca10fb55cbabb3cad3754ce8cad66fa6fe5d",
   "original_fable_candidate": "fefa88587e7692c73c625d3ad388fc50ae7667d3",
   "original_fable_result_sha256": "f0b94f91c87174a1a9b408fe11c13d4c37a50d46e776d36e1fc92dd2bdad7db9",
   "authority": {
@@ -20,7 +20,7 @@
   "fable_findings_disposition": {
     "P0_1_queue_truth": "FIXED: the read-only onboarding queue retains enrolled=true and canonical ExamPrep/LearnDash/course and identity guards, omits valid_until only for queue visibility, and exposes last_seen_at",
     "P1_1_save_recovery": "FIXED: change detection precedes locking; finally restores Save; 400 renders a focused inline field error; 409 renders Reload",
-    "P1_2_country": "FIXED: 249-code ISO 3166 alpha-2 selector shows names and stores codes; invalid codes fail with field context",
+    "P1_2_country": "FIXED: 249-code ISO 3166 alpha-2 selector shows names and stores codes; invalid codes fail with field context; default US persists with the first real edit while an untouched form remains untouched",
     "P1_3_role_guard": "FIXED: authenticated role is stamped on the document and capability guards are reapplied after theme rerender",
     "P1_4_queue_identity": "FIXED: canonical display name is primary and differing preferred name is secondary as goes by",
     "P1_5_truthful_progress": "FIXED: percent counts only actionable applicable steps",
@@ -30,7 +30,7 @@
     "P1_9_no_charge_copy": "FIXED: exact trust sentence is present"
   },
   "source_sha256": {
-    "public/index.production.html": "9ac94f95bb618ad07cbef627eeb995554f1034714a8858e80bc49356db25958f",
+    "public/index.production.html": "439c226df3421d2f61470fee82610b73022032b66d40f877c51391c42aefbb74",
     "public/missionaccounts-auth.js": "46a95e7fc617371dd7bba2bd91ab6252c98606b7691a086ff4d3596b2a960531",
     "public/missionaccounts-countries.js": "9fb769b723f5db8488c789aa61f8c98c0a620fac63d8a5c2773a0821ae15d88d",
     "public/missionaccounts-runtime.js": "5651a00543dc10211e16a8556bb28640fb7711ec12504056bbc3d369cd9e366e",
@@ -40,11 +40,11 @@
     "supabase/migrations/20260914111824_dedicated_examprep_onboarding_5404a.sql": "a6083c0578cf2db0e60508b9b56350dba02aacc428e2a799547c172d7142b49a",
     "supabase/migrations/20260914114700_onboarding_queue_visibility_5404a.sql": "b703959c19455c09218a7c052247f90cbd63092682520f428662d2ab6b382e91",
     "tests/onboarding.test.mjs": "292571d4c5de31d5aadd2a6db73563aaa6db78356eb3950104c1c610964360df",
-    "tests/ui-repair.test.mjs": "d341172bf504027382592659042cf1a1cfe13700e885446b0f8fb1a8ec5d1f25"
+    "tests/ui-repair.test.mjs": "f9fdf8bc9f3a8c64c27db278577977dbdd2a222a382ae3d1693c3c96140f7f4d"
   },
   "validation": {
-    "npm_test": {"result": "PASS", "tests": 221, "failed": 0},
-    "focused_onboarding_ui": {"result": "PASS", "tests": 26, "failed": 0},
+    "npm_test": {"result": "PASS", "tests": 222, "failed": 0},
+    "focused_onboarding_ui": {"result": "PASS", "tests": 27, "failed": 0},
     "source_validation": {"result": "PASS", "attendance_events": 3941, "human_cycle_rows": 498, "identity_nodes": 370, "applied_merge_groups": 63, "unresolved_relationships": 34},
     "postgres_5404a": {"result": "PASS", "proved": ["atomic original migration", "declared forward-migration replay behavior", "forced RLS", "service-role-only RPCs", "subject isolation", "partial saves", "concurrent idempotency", "stale enrolled row visible", "enrolled=false absent", "billing freshness isolated", "zero notifications", "zero charges", "zero invoice dispatch"]},
     "postgres_5403b_non_regression": {"result": "PASS", "automatic_billing_freshness_changed": false},
