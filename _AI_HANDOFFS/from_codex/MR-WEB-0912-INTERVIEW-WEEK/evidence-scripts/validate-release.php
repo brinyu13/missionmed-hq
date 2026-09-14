@@ -72,6 +72,7 @@ $check = static function (bool $condition, string $label) use (&$failures, &$ass
 $configPath = $assetRoot . '/config/campaign-state.json';
 $config = json_decode((string) file_get_contents($configPath), true, flags: JSON_THROW_ON_ERROR);
 $javascript = (string) file_get_contents($assetRoot . '/js/mr-0912.js');
+$pluginSource = (string) file_get_contents($plugin);
 $check($config['mission'] === 'MR-WEB-0912', 'mission');
 $check($config['authority'] === ['DR-246', 'DR-247', 'DR-251'], 'authority');
 $check($config['offers']['interview_week']['price'] === 500, 'interview-week-price');
@@ -87,8 +88,11 @@ $check($config['alumni']['public_verified'] === false, 'alumni-fail-closed');
 $check(array_column($config['schedule'], 'time') === ['Evening', '11 AM-4 PM ET', '11 AM-4 PM ET', 'Evening', 'Evening', '11 AM-4 PM ET'], 'schedule-precision');
 $check(!str_contains($javascript, 'verificationNote'), 'no-customer-visible-verification-note');
 $check(!str_contains($javascript, 'Current operational limits'), 'no-customer-visible-operational-qa');
-$check(str_contains((string) file_get_contents($plugin), 'refund-cancellation-policy'), 'checkout-policy-links');
-$check(str_contains((string) file_get_contents($plugin), 'mission-residency-waitlist'), 'legacy-waitlist-containment');
+$check(str_contains($pluginSource, 'refund-cancellation-policy'), 'checkout-policy-links');
+$check(str_contains($pluginSource, 'mission-residency-waitlist'), 'legacy-waitlist-containment');
+$check(str_contains($pluginSource, 'mm_mr_0912_output_boundary'), 'earliest-output-boundary');
+$check(str_contains($pluginSource, 'GT-PJ7SPCWF'), 'campaign-google-tag-preserved');
+$check(str_contains($pluginSource, "../js/mr-0912.js?v="), 'content-hashed-campaign-javascript');
 
 $runtime = mm_mr_p0_runtime_config();
 $check($runtime['campaign']['go_live_gate']['verified_live_at'] === null, 'old-acceptance-not-inherited');

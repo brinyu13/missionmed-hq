@@ -10,6 +10,7 @@ if (!defined('ABSPATH')) exit;
 
 const MM_MR_P0_ASSET_DIR = WPMU_PLUGIN_DIR . '/missionmed-mr-0912-assets';
 const MM_MR_P0_ASSET_URL = WPMU_PLUGIN_URL . '/missionmed-mr-0912-assets';
+const MM_MR_0912_GOOGLE_TAG_ID = 'GT-PJ7SPCWF';
 
 function mm_mr_p0_enabled(): bool {
     return get_option('mmed_mr_p0_enabled', 'no') === 'yes';
@@ -30,6 +31,90 @@ function mm_mr_p0_launch_product_in_cart(): bool {
 function mm_mr_p0_clean_commercial_chrome(): bool {
     return mm_mr_p0_enabled() || mm_mr_p0_launch_product_in_cart();
 }
+
+function mm_mr_0912_google_tag_markup(): string {
+    return '<script id="mm-mr-0912-google-tag" async src="https://www.googletagmanager.com/gtag/js?id='
+        . MM_MR_0912_GOOGLE_TAG_ID . '"></script><script id="mm-mr-0912-google-tag-config">'
+        . 'window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}'
+        . 'gtag("set","linker",{"domains":["missionmedinstitute.com"]});gtag("js",new Date());'
+        . 'gtag("config","' . MM_MR_0912_GOOGLE_TAG_ID . '");</script>';
+}
+
+function mm_mr_0912_output_boundary(string $html): string {
+    if (!mm_mr_p0_enabled()) return $html;
+    $path = '/' . trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH), '/');
+    $funnel = [
+        '/', '/mission-residency', '/mission-residency-courses', '/compare-programs',
+        '/course-comparison', '/product/match-prep-pro', '/product/iv-prep-complete',
+        '/product/iv-prep-masterclass', '/product/iv-prep-essentials', '/cart', '/checkout',
+        '/mission-residency-waitlist', '/terms-of-agreement', '/refund-cancellation-policy',
+        '/privacy-policy',
+    ];
+    if (!in_array($path, $funnel, true)) return $html;
+
+    if (in_array($path, ['/terms-of-agreement', '/refund-cancellation-policy'], true)) {
+        $html = str_ireplace(
+            [
+                'Match Prep Pro',
+                'Payments, Enrollment, And MatchFirst',
+                'payment plan, MatchFirst, or another approved method',
+                'MatchFirst or deferred-payment arrangements',
+                'MatchFirst And Deferred Payments',
+                'MatchFirst is a specific deferred-payment arrangement when offered in writing.',
+                'MatchFirst enrollment terms',
+                'MatchFirst',
+            ],
+            [
+                'IV Prep Complete',
+                'Payments And Enrollment',
+                'payment plan or another approved method',
+                'Deferred-payment arrangements',
+                'Written Deferred-Payment Arrangements',
+                'A deferred-payment arrangement applies only when offered in writing.',
+                'written enrollment terms',
+                'written deferred payment',
+            ],
+            $html
+        );
+    }
+
+    $javascript = MM_MR_P0_ASSET_DIR . '/js/mr-0912.js';
+    if (is_file($javascript)) {
+        $version = substr((string) hash_file('sha256', $javascript), 0, 12);
+        $html = str_replace('../js/mr-0912.js', '../js/mr-0912.js?v=' . $version, $html);
+    }
+
+    $analyticsPaths = [
+        '/', '/mission-residency', '/mission-residency-courses', '/compare-programs',
+        '/course-comparison', '/product/match-prep-pro', '/product/iv-prep-complete',
+        '/product/iv-prep-masterclass', '/product/iv-prep-essentials', '/cart', '/checkout',
+    ];
+    $tagNeedle = 'googletagmanager.com/gtag/js?id=' . MM_MR_0912_GOOGLE_TAG_ID;
+    if (in_array($path, $analyticsPaths, true) && !str_contains($html, $tagNeedle)) {
+        $html = str_ireplace('</head>', mm_mr_0912_google_tag_markup() . '</head>', $html);
+    }
+
+    if (!str_contains($html, 'mm-mr-0912-output-containment')) {
+        $style = '<style id="mm-mr-0912-output-containment">#mm-mobile-notice,#mm-mobile-notice-styles{display:none!important}</style>';
+        $script = '<script id="mm-mr-0912-output-containment-script">(function(){'
+            . 'function clean(){var n=document.getElementById("mm-mobile-notice");if(n)n.remove();'
+            . 'var s=document.getElementById("mm-mobile-notice-styles");if(s)s.remove();'
+            . 'if(location.pathname==="/"){document.querySelectorAll("a[href]").forEach(function(a){'
+            . 'var t=(a.textContent||"").trim();if((t==="Explore Interview Week and Complete"'
+            . '||t==="View Interview Week and Complete")&&(a.getAttribute("href")==="#"'
+            . '||a.href.indexOf("/mission-residency-waitlist/")!==-1)){a.href="/mission-residency/";}});}}'
+            . 'clean();document.addEventListener("DOMContentLoaded",clean);'
+            . 'new MutationObserver(clean).observe(document.documentElement,{childList:true,subtree:true});}());</script>';
+        $html = str_ireplace('</head>', $style . '</head>', $html);
+        $html = str_ireplace('</body>', $script . '</body>', $html);
+    }
+    return $html;
+}
+
+add_action('template_redirect', static function (): void {
+    if (!mm_mr_p0_enabled()) return;
+    ob_start('mm_mr_0912_output_boundary');
+}, PHP_INT_MIN);
 
 function mm_mr_0912_founder_waiver_valid(): bool {
     return get_option('mmed_mr_0912_financial_test_status', '') === 'waived_by_founder_not_executed'
@@ -294,7 +379,7 @@ add_action('template_redirect', static function (): void {
         '/product/iv-prep-essentials' => 5504,
     ];
     if ($path === '/mission-residency-waitlist') {
-        wp_safe_redirect(home_url('/mission-residency/'), 302, 'MissionMed MR-WEB-0912');
+        wp_safe_redirect(add_query_arg('from', 'legacy-waitlist', home_url('/mission-residency/')), 302, 'MissionMed MR-WEB-0912');
         exit;
     }
     if (isset($aliases[$path])) {
