@@ -247,6 +247,7 @@ test('isolated production packaging cannot include the private Founder preview',
   assert.match(dockerfile, /FROM node:22-alpine/);
   assert.match(dockerfile, /public\/index\.production\.html/);
   assert.match(dockerfile, /public\/missionaccounts-canonical-adapter\.js/);
+  assert.match(dockerfile, /public\/missionaccounts-countries\.js/);
   assert.match(dockerfile, /public\/missionaccounts-stripe\.js/);
   assert.doesNotMatch(dockerfile, /COPY\s+(?:--[^\s]+\s+)*\.\s/);
   assert.doesNotMatch(dockerfile, /COPY[^\n]*public(?:\s|\/\s)/);
@@ -254,6 +255,7 @@ test('isolated production packaging cannot include the private Founder preview',
   assert.match(dockerignore, /^\*$/m);
   assert.match(dockerignore, /!public\/index\.production\.html/);
   assert.match(dockerignore, /!public\/missionaccounts-canonical-adapter\.js/);
+  assert.match(dockerignore, /!public\/missionaccounts-countries\.js/);
   assert.match(dockerignore, /!public\/missionaccounts-stripe\.js/);
   assert.doesNotMatch(dockerignore, /!public\/index\.html|!public\/canon-manifest\.json/);
   const railway = JSON.parse(railwaySource);

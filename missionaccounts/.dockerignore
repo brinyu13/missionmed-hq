@@ -6,6 +6,7 @@
 !public/index.production.html
 !public/missionaccounts-auth.js
 !public/missionaccounts-canonical-adapter.js
+!public/missionaccounts-countries.js
 !public/missionaccounts-runtime.js
 !public/missionaccounts-stripe.js
 !Dockerfile
