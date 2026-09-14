@@ -87,15 +87,69 @@ function mr0912_live_disable_temporary_login(int $userId): void {
     foreach (['_temporary_login', '_temporary_login_token', '_temporary_login_expiration', '_temporary_login_pointer_dismissed'] as $key) {
         delete_user_meta($userId, $key);
     }
+
+    if (class_exists('WP_Session_Tokens')) {
+        WP_Session_Tokens::get_instance($userId)->destroy_all();
+    }
+    if (class_exists('WC_Payment_Tokens')) {
+        foreach (WC_Payment_Tokens::get_customer_tokens($userId) as $paymentToken) {
+            if ($paymentToken instanceof WC_Payment_Token) $paymentToken->delete();
+        }
+    }
+}
+
+function mr0912_live_session_count(int $userId): int {
+    return class_exists('WP_Session_Tokens')
+        ? count(WP_Session_Tokens::get_instance($userId)->get_all())
+        : 0;
+}
+
+function mr0912_live_payment_token_count(int $userId): int {
+    return class_exists('WC_Payment_Tokens')
+        ? count(WC_Payment_Tokens::get_customer_tokens($userId))
+        : 0;
+}
+
+function mr0912_live_read_manifest(): array {
+    if (!is_file(MR0912_LIVE_MANIFEST)) throw new RuntimeException('Private live-card manifest is unavailable.');
+    $manifest = json_decode((string) file_get_contents(MR0912_LIVE_MANIFEST), true);
+    if (!is_array($manifest) || ($manifest['schema'] ?? '') !== 'missionmed.mr_web_0912.live_card_orders.v2') {
+        throw new RuntimeException('Private live-card manifest schema mismatch.');
+    }
+    return $manifest;
+}
+
+function mr0912_live_write_manifest(array $manifest): void {
+    $json = wp_json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    $temporaryPath = is_string($json) ? tempnam(MR0912_LIVE_PRIVATE_DIR, '.live-card-') : false;
+    if (!is_string($json) || $temporaryPath === false
+        || file_put_contents($temporaryPath, $json . "\n", LOCK_EX) === false
+        || !chmod($temporaryPath, 0600)
+        || !rename($temporaryPath, MR0912_LIVE_MANIFEST)) {
+        if (is_string($temporaryPath) && is_file($temporaryPath)) unlink($temporaryPath);
+        throw new RuntimeException('Cannot write private live-card manifest.');
+    }
+}
+
+function mr0912_live_manifest_row(string $offerKey, ?int $orderId = null, ?int $userId = null): array {
+    $manifest = mr0912_live_read_manifest();
+    $row = $manifest['orders'][$offerKey] ?? null;
+    if (!is_array($row) || ($row['offer'] ?? '') !== $offerKey
+        || ($orderId !== null && (int) ($row['order_id'] ?? 0) !== $orderId)
+        || ($userId !== null && (int) ($row['user_id'] ?? 0) !== $userId)) {
+        throw new RuntimeException('Private live-card manifest identity mismatch.');
+    }
+    return [$manifest, $row];
+}
+
+function mr0912_live_update_manifest_row(string $offerKey, array $changes): void {
+    [$manifest] = mr0912_live_manifest_row($offerKey);
+    $manifest['orders'][$offerKey] = array_merge($manifest['orders'][$offerKey], $changes);
+    mr0912_live_write_manifest($manifest);
 }
 
 function mr0912_live_close_manifest(string $offerKey, int $orderId, string $state, ?int $refundId = null): void {
-    if (!is_file(MR0912_LIVE_MANIFEST)) throw new RuntimeException('Private live-card manifest is unavailable.');
-    $manifest = json_decode((string) file_get_contents(MR0912_LIVE_MANIFEST), true);
-    $row = $manifest['orders'][$offerKey] ?? null;
-    if (!is_array($manifest) || !is_array($row) || (int) ($row['order_id'] ?? 0) !== $orderId) {
-        throw new RuntimeException('Private live-card manifest identity mismatch.');
-    }
+    [$manifest] = mr0912_live_manifest_row($offerKey, $orderId);
     unset($manifest['orders'][$offerKey]['login_url'], $manifest['orders'][$offerKey]['pay_url']);
     $manifest['orders'][$offerKey]['temporary_login_expires_utc'] = null;
     $manifest['orders'][$offerKey]['terminal_state'] = $state;
@@ -105,11 +159,7 @@ function mr0912_live_close_manifest(string $offerKey, int $orderId, string $stat
     $closed = true;
     foreach ($manifest['orders'] as $entry) $closed = $closed && isset($entry['terminal_state']);
     $manifest['temporary_mechanism_active'] = !$closed;
-    $json = wp_json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    if (!is_string($json) || file_put_contents(MR0912_LIVE_MANIFEST, $json . "\n", LOCK_EX) === false) {
-        throw new RuntimeException('Cannot close private live-card manifest.');
-    }
-    chmod(MR0912_LIVE_MANIFEST, 0600);
+    mr0912_live_write_manifest($manifest);
 }
 
 function mr0912_live_gateway(): WC_Payment_Gateway {
@@ -139,6 +189,7 @@ function mr0912_live_assert_product(array $spec): WC_Product_Variation {
 }
 
 function mr0912_live_order(string $offerKey, int $orderId): array {
+    mr0912_live_manifest_row($offerKey, $orderId);
     $spec = mr0912_live_spec($offerKey);
     $order = wc_get_order($orderId);
     if (!$order instanceof WC_Order || $order instanceof WC_Order_Refund) {
@@ -153,15 +204,27 @@ function mr0912_live_order(string $offerKey, int $orderId): array {
         && (int) $item->get_product_id() === (int) $spec['product_id']
         && (int) $item->get_variation_id() === (int) $spec['variation_id']
         && (int) $item->get_quantity() === 1;
-    $exact = $metaOffer === $offerKey
+    $exact = $identity
+        && $metaOffer === $offerKey
         && $order->get_created_via() === 'mr-web-0912-live-card'
         && $order->get_currency() === 'USD'
         && abs((float) $order->get_total() - (float) $spec['test_amount']) < 0.001
         && abs((float) $order->get_meta('_mr_web_0912_public_amount', true) - (float) $spec['public_amount']) < 0.001
         && abs((float) $order->get_meta('_mr_web_0912_test_amount', true) - (float) $spec['test_amount']) < 0.001
         && $userId > 0
-        && $identity;
+        && abs((float) $item->get_subtotal() - (float) $spec['public_amount']) < 0.001
+        && abs((float) $item->get_total() - (float) $spec['test_amount']) < 0.001
+        && abs((float) $item->get_subtotal_tax()) < 0.001
+        && abs((float) $item->get_total_tax()) < 0.001
+        && abs((float) $order->get_total_tax()) < 0.001
+        && abs((float) $order->get_shipping_total()) < 0.001
+        && abs((float) $order->get_shipping_tax()) < 0.001
+        && abs((float) $order->get_discount_total() - ((float) $spec['public_amount'] - (float) $spec['test_amount'])) < 0.001
+        && count($order->get_items('coupon')) === 0
+        && count($order->get_items('fee')) === 0
+        && count($order->get_items('shipping')) === 0;
     if (!$exact) throw new RuntimeException('Controlled order identity/amount guard failed.');
+    mr0912_live_manifest_row($offerKey, $orderId, $userId);
     return [$spec, $order, $userId, $item];
 }
 
@@ -174,79 +237,87 @@ function mr0912_live_create(string $offerKey): array {
     $order = null;
     try {
         $userId = wp_insert_user([
-        'user_login' => $login,
-        'user_pass' => wp_generate_password(64, true, true),
-        'user_email' => $login . '@example.invalid',
-        'display_name' => 'MR0912 Live Acceptance ' . $spec['label'],
-        'first_name' => 'MR0912',
-        'last_name' => 'Acceptance',
-        'role' => 'subscriber',
+            'user_login' => $login,
+            'user_pass' => wp_generate_password(64, true, true),
+            'user_email' => $login . '@example.invalid',
+            'display_name' => 'MR0912 Live Acceptance ' . $spec['label'],
+            'first_name' => 'MR0912',
+            'last_name' => 'Acceptance',
+            'role' => 'subscriber',
         ]);
         if (is_wp_error($userId)) throw new RuntimeException('Controlled subscriber creation failed: ' . $userId->get_error_code());
+        mr0912_live_update_manifest_row($offerKey, ['stage' => 'user-created', 'user_id' => (int) $userId]);
         if (mr0912_live_access((int) $userId, (int) $spec['course_id'])
             || mr0912_live_access((int) $userId, (int) $spec['unrelated_course_id'])) {
             throw new RuntimeException('Fresh subscriber has unexpected pre-existing course access.');
         }
 
-    $token = bin2hex(random_bytes(32));
-    update_user_meta((int) $userId, '_temporary_login', 'yes');
-    update_user_meta((int) $userId, '_temporary_login_token', $token);
-    update_user_meta((int) $userId, '_temporary_login_expiration', current_time('timestamp') + 4 * HOUR_IN_SECONDS);
-    update_user_meta((int) $userId, '_temporary_login_pointer_dismissed', 1);
+        $token = bin2hex(random_bytes(32));
+        update_user_meta((int) $userId, '_temporary_login', 'yes');
+        update_user_meta((int) $userId, '_temporary_login_token', $token);
+        update_user_meta((int) $userId, '_temporary_login_expiration', current_time('timestamp') + 4 * HOUR_IN_SECONDS);
+        update_user_meta((int) $userId, '_temporary_login_pointer_dismissed', 1);
 
-    $order = wc_create_order(['customer_id' => (int) $userId, 'created_via' => 'mr-web-0912-live-card']);
-    if (is_wp_error($order)) throw new RuntimeException('Controlled live order creation failed.');
-    $itemId = $order->add_product($variation, 1);
-    $item = $order->get_item($itemId);
-    if (!$item instanceof WC_Order_Item_Product) throw new RuntimeException('Controlled order item creation failed.');
-    $item->set_subtotal((float) $spec['public_amount']);
-    $item->set_total((float) $spec['test_amount']);
-    $item->set_taxes(['subtotal' => [], 'total' => []]);
-    $item->save();
-    $order->set_payment_method('stripe');
-    $order->set_payment_method_title('Credit / Debit Card');
-    $order->set_billing_first_name('MR0912');
-    $order->set_billing_last_name('Acceptance');
-    $order->set_billing_email($login . '@example.invalid');
-    $order->set_billing_country('US');
-    $order->add_meta_data('_mr_web_0912_controlled_live', 'yes', true);
-    $order->add_meta_data('_mr_web_0912_live_offer', $offerKey, true);
-    $order->add_meta_data('_mr_web_0912_public_amount', (string) $spec['public_amount'], true);
-    $order->add_meta_data('_mr_web_0912_test_amount', (string) $spec['test_amount'], true);
-    $order->add_order_note('MR-WEB-0912 admin-only minimum-charge acceptance; public product price unchanged; charge must be Founder-confirmed and immediately refunded.', false, false);
-    $order->calculate_totals(false);
-    $order->save();
-    if (abs((float) $order->get_total() - (float) $spec['test_amount']) > 0.001
-        || abs((float) $variation->get_price() - (float) $spec['public_amount']) > 0.001) {
-        $order->update_status('cancelled', 'MR-WEB-0912 preparation amount guard failed.', false);
-        throw new RuntimeException('Prepared order total mismatch; order contained without payment.');
-    }
+        $order = wc_create_order(['customer_id' => (int) $userId, 'created_via' => 'mr-web-0912-live-card']);
+        if (is_wp_error($order)) throw new RuntimeException('Controlled live order creation failed.');
+        mr0912_live_update_manifest_row($offerKey, ['stage' => 'order-created', 'order_id' => (int) $order->get_id()]);
+        $itemId = $order->add_product($variation, 1);
+        $item = $order->get_item($itemId);
+        if (!$item instanceof WC_Order_Item_Product) throw new RuntimeException('Controlled order item creation failed.');
+        $item->set_subtotal((float) $spec['public_amount']);
+        $item->set_total((float) $spec['test_amount']);
+        $item->set_taxes(['subtotal' => [], 'total' => []]);
+        $item->save();
+        $order->set_payment_method('stripe');
+        $order->set_payment_method_title('Credit / Debit Card');
+        $order->set_billing_first_name('MR0912');
+        $order->set_billing_last_name('Acceptance');
+        $order->set_billing_email($login . '@example.invalid');
+        $order->set_billing_country('US');
+        $order->add_meta_data('_mr_web_0912_controlled_live', 'yes', true);
+        $order->add_meta_data('_mr_web_0912_live_offer', $offerKey, true);
+        $order->add_meta_data('_mr_web_0912_public_amount', (string) $spec['public_amount'], true);
+        $order->add_meta_data('_mr_web_0912_test_amount', (string) $spec['test_amount'], true);
+        $order->add_order_note('MR-WEB-0912 admin-only minimum-charge acceptance; public product price unchanged; charge must be Founder-confirmed and immediately refunded.', false, false);
+        $order->calculate_totals(false);
+        $order->save();
+        if (abs((float) $order->get_total() - (float) $spec['test_amount']) > 0.001
+            || abs((float) $variation->get_price() - (float) $spec['public_amount']) > 0.001) {
+            throw new RuntimeException('Prepared order total mismatch; order contained without payment.');
+        }
 
-    $siteToken = (string) get_option('_temporary_login_site_token', '');
-    if ($siteToken === '') throw new RuntimeException('Temporary Login site token is unavailable.');
-    $loginUrl = add_query_arg([
-        'temp-login-token' => $token,
-        'tl-site' => $siteToken,
-    ], admin_url());
-    $payUrl = $order->get_checkout_payment_url(true);
+        $siteToken = (string) get_option('_temporary_login_site_token', '');
+        if ($siteToken === '') throw new RuntimeException('Temporary Login site token is unavailable.');
+        $loginUrl = add_query_arg([
+            'temp-login-token' => $token,
+            'tl-site' => $siteToken,
+        ], admin_url());
+        $payUrl = $order->get_checkout_payment_url(true);
         return [
-        'offer' => $offerKey,
-        'user_id' => (int) $userId,
-        'order_id' => (int) $order->get_id(),
-        'test_amount' => (float) $order->get_total(),
-        'public_amount_before' => (float) $spec['public_amount'],
-        'public_amount_after' => (float) wc_get_product((int) $spec['variation_id'])->get_price(),
-        'currency' => $order->get_currency(),
-        'status' => $order->get_status(),
-        'login_url' => $loginUrl,
-        'pay_url' => $payUrl,
-        'temporary_login_expires_utc' => gmdate('c', time() + 4 * HOUR_IN_SECONDS),
+            'offer' => $offerKey,
+            'stage' => 'prepared',
+            'user_id' => (int) $userId,
+            'order_id' => (int) $order->get_id(),
+            'test_amount' => (float) $order->get_total(),
+            'public_amount_before' => (float) $spec['public_amount'],
+            'public_amount_after' => (float) wc_get_product((int) $spec['variation_id'])->get_price(),
+            'currency' => $order->get_currency(),
+            'status' => $order->get_status(),
+            'login_url' => $loginUrl,
+            'pay_url' => $payUrl,
+            'temporary_login_expires_utc' => gmdate('c', time() + 4 * HOUR_IN_SECONDS),
         ];
     } catch (Throwable $error) {
         if ($order instanceof WC_Order && !$order->is_paid()) {
             $order->update_status('cancelled', 'MR-WEB-0912 preparation failed; no payment initiated.', false);
         }
         if (is_int($userId) && $userId > 0) mr0912_live_disable_temporary_login($userId);
+        mr0912_live_update_manifest_row($offerKey, [
+            'stage' => 'prepare-failed-contained',
+            'terminal_state' => 'cancelled-unpaid',
+            'prepare_error' => $error->getMessage(),
+            'closed_at_utc' => gmdate('c'),
+        ]);
         throw $error;
     }
 }
@@ -281,7 +352,8 @@ function mr0912_live_stripe_charge(string $transactionId): object {
 }
 
 function mr0912_live_inspect(string $offerKey, int $orderId, bool $final): array {
-    [$spec, $order, $userId] = mr0912_live_order($offerKey, $orderId);
+    [$manifest, $manifestRow] = mr0912_live_manifest_row($offerKey, $orderId);
+    [$spec, $order, $userId, $item] = mr0912_live_order($offerKey, $orderId);
     clean_user_cache($userId);
     $transactionId = (string) $order->get_transaction_id();
     $refunds = $order->get_refunds();
@@ -308,6 +380,19 @@ function mr0912_live_inspect(string $offerKey, int $orderId, bool $final): array
         'public_product_price_preserved' => abs((float) mr0912_live_assert_product($spec)->get_price() - (float) $spec['public_amount']) < 0.001,
         'subscriber_account_bound' => $user instanceof WP_User && in_array('subscriber', $user->roles, true),
         'single_expected_product_no_separate_offer_charge' => count($order->get_items()) === 1,
+        'order_local_override_exact_no_coupon_fee_tax' => abs((float) $item->get_subtotal() - (float) $spec['public_amount']) < 0.001
+            && abs((float) $item->get_total() - (float) $spec['test_amount']) < 0.001
+            && abs((float) $item->get_subtotal_tax()) < 0.001
+            && abs((float) $item->get_total_tax()) < 0.001
+            && abs((float) $order->get_total_tax()) < 0.001
+            && abs((float) $order->get_discount_total() - ((float) $spec['public_amount'] - (float) $spec['test_amount'])) < 0.001
+            && count($order->get_items('coupon')) === 0
+            && count($order->get_items('fee')) === 0
+            && count($order->get_items('shipping')) === 0,
+        'buyer_login_session_state' => $final
+            ? mr0912_live_session_count($userId) === 0
+            : mr0912_live_session_count($userId) > 0,
+        'no_stored_payment_token' => mr0912_live_payment_token_count($userId) === 0,
         'correct_entitlement_state' => $final ? !$access : $access,
         'unrelated_course_excluded' => $excluded,
         'native_order_counter_state' => $final ? $counter === [] : $counter === [$orderId],
@@ -337,11 +422,8 @@ function mr0912_live_inspect(string $offerKey, int $orderId, bool $final): array
 }
 
 function mr0912_live_refund(string $offerKey, int $orderId): array {
+    [$manifest, $manifestRow] = mr0912_live_manifest_row($offerKey, $orderId);
     [$spec, $order, $userId] = mr0912_live_order($offerKey, $orderId);
-    $inspection = mr0912_live_inspect($offerKey, $orderId, false);
-    if ($inspection['pass_count'] !== $inspection['check_count']) {
-        throw new RuntimeException('Paid lifecycle inspection failed; refusing refund mutation.');
-    }
     $transactionId = (string) $order->get_transaction_id();
     $charge = mr0912_live_stripe_charge($transactionId);
     $chargeId = (string) ($charge->id ?? '');
@@ -356,11 +438,51 @@ function mr0912_live_refund(string $offerKey, int $orderId): array {
         && ((int) $charge->amount_refunded === 0 || (bool) $charge->refunded);
     if (!$chargeSafe) throw new RuntimeException('Official live Stripe charge guard failed; refusing refund.');
 
+    $wooRefunded = (float) $order->get_total_refunded();
+    if (abs($wooRefunded) >= 0.001 && abs($wooRefunded - (float) $spec['test_amount']) > 0.001) {
+        throw new RuntimeException('Partial Woo refund state detected; manual containment required.');
+    }
+    if (abs($wooRefunded - (float) $spec['test_amount']) < 0.001
+        && (int) $charge->amount_refunded !== $amountCents) {
+        throw new RuntimeException('Woo/Stripe refund ordering or manifest evidence mismatch; manual containment required.');
+    }
+
+    $inspection = null;
+    if (empty($manifestRow['paid_inspection_recorded_at_utc'])) {
+        try {
+            $inspection = mr0912_live_inspect($offerKey, $orderId, false);
+        } catch (Throwable $inspectionError) {
+            $inspection = [
+                'schema' => 'missionmed.mr_web_0912.live_card_inspection_error.v1',
+                'verified_at_utc' => gmdate('c'),
+                'offer' => $offerKey,
+                'order_id' => $orderId,
+                'error' => $inspectionError->getMessage(),
+            ];
+        }
+        $inspectionPassed = isset($inspection['pass_count'], $inspection['check_count'])
+            && $inspection['pass_count'] === $inspection['check_count'];
+        try {
+            mr0912_live_update_manifest_row($offerKey, [
+                'buyer_login_observed_at_utc' => mr0912_live_session_count($userId) > 0 ? gmdate('c') : null,
+                'paid_inspection_recorded_at_utc' => gmdate('c'),
+                'paid_inspection_result' => $inspectionPassed ? 'PASS' : 'FAIL',
+                'paid_inspection' => $inspection,
+            ]);
+        } catch (Throwable $manifestEvidenceError) {
+            $inspection['manifest_evidence_error'] = $manifestEvidenceError->getMessage();
+        }
+        [, $manifestRow] = mr0912_live_manifest_row($offerKey, $orderId, $userId);
+    } else {
+        $inspection = is_array($manifestRow['paid_inspection'] ?? null) ? $manifestRow['paid_inspection'] : null;
+    }
+
     add_filter('wc_stripe_idempotency_key', static function ($key, $request) use ($orderId) {
         return 'mr-web-0912-order-' . $orderId . '-full-refund';
     }, 999, 2);
     $stripeRefund = null;
     if ((int) $charge->amount_refunded === 0) {
+        mr0912_live_manifest_row($offerKey, $orderId, $userId);
         $stripeRefund = WC_Stripe_API::request([
             'charge' => $chargeId,
             'amount' => $amountCents,
@@ -375,6 +497,10 @@ function mr0912_live_refund(string $offerKey, int $orderId): array {
             throw new RuntimeException('Official live Stripe refund readback failed.');
         }
     }
+    mr0912_live_update_manifest_row($offerKey, [
+        'stripe_refund_verified_at_utc' => gmdate('c'),
+        'stripe_refund_id' => is_object($stripeRefund) ? (string) $stripeRefund->id : (string) ($manifestRow['stripe_refund_id'] ?? 'provider-readback'),
+    ]);
 
     $lineItems = [];
     foreach ($order->get_items() as $itemId => $item) {
@@ -382,6 +508,7 @@ function mr0912_live_refund(string $offerKey, int $orderId): array {
     }
     $wooRefund = null;
     if (abs((float) $order->get_total_refunded()) < 0.001) {
+        mr0912_live_manifest_row($offerKey, $orderId, $userId);
         $wooRefund = wc_create_refund([
             'amount' => (float) $spec['test_amount'],
             'reason' => 'MR-WEB-0912 controlled production payment and entitlement verification',
@@ -395,6 +522,7 @@ function mr0912_live_refund(string $offerKey, int $orderId): array {
         throw new RuntimeException('Partial Woo refund state detected; manual containment required.');
     }
 
+    mr0912_live_manifest_row($offerKey, $orderId, $userId);
     mr0912_live_disable_temporary_login($userId);
 
     $final = mr0912_live_inspect($offerKey, $orderId, true);
@@ -404,15 +532,26 @@ function mr0912_live_refund(string $offerKey, int $orderId): array {
     $final['stripe_refund_created_or_verified'] = true;
     $final['woo_refund_id'] = $refundId;
     $final['temporary_login_removed'] = get_user_meta($userId, '_temporary_login_token', true) === '';
+    $final['paid_acceptance'] = $inspection;
+    $paidAcceptancePassed = is_array($inspection)
+        && isset($inspection['pass_count'], $inspection['check_count'])
+        && $inspection['pass_count'] === $inspection['check_count'];
+    $containmentPassed = $final['pass_count'] === $final['check_count'];
+    $final['paid_acceptance_passed'] = $paidAcceptancePassed;
+    $final['post_refund_containment_passed'] = $containmentPassed;
+    $final['result'] = $paidAcceptancePassed && $containmentPassed ? 'PASS' : 'FAIL';
     return $final;
 }
 
 function mr0912_live_cancel_unpaid(string $offerKey, int $orderId): array {
+    mr0912_live_manifest_row($offerKey, $orderId);
     [$spec, $order, $userId] = mr0912_live_order($offerKey, $orderId);
     if ($order->get_transaction_id() !== '' || $order->is_paid()) {
         throw new RuntimeException('Order has payment evidence; refusing unpaid cleanup.');
     }
+    mr0912_live_manifest_row($offerKey, $orderId, $userId);
     $order->update_status('cancelled', 'MR-WEB-0912 uncharged controlled-order cleanup.', false);
+    mr0912_live_manifest_row($offerKey, $orderId, $userId);
     mr0912_live_disable_temporary_login($userId);
     mr0912_live_close_manifest($offerKey, $orderId, 'cancelled-unpaid', null);
     return ['result' => 'PASS', 'offer' => $offerKey, 'order_id' => $orderId, 'payment_initiated' => false, 'temporary_login_removed' => true];
@@ -473,32 +612,44 @@ try {
         if (file_exists(MR0912_LIVE_MANIFEST)) throw new RuntimeException('Live-card manifest already exists; refusing duplicate orders.');
         mr0912_live_gateway();
         $rows = [];
-        try {
-            foreach (array_keys(mr0912_live_specs()) as $key) $rows[$key] = mr0912_live_create($key);
-        } catch (Throwable $error) {
-            foreach ($rows as $row) {
-                $prepared = wc_get_order((int) $row['order_id']);
-                if ($prepared instanceof WC_Order && !$prepared->is_paid()) {
-                    $prepared->update_status('cancelled', 'MR-WEB-0912 batch preparation failed; no payment initiated.', false);
-                }
-                mr0912_live_disable_temporary_login((int) $row['user_id']);
-            }
-            throw $error;
-        }
         $manifest = [
-            'schema' => 'missionmed.mr_web_0912.live_card_orders.v1',
+            'schema' => 'missionmed.mr_web_0912.live_card_orders.v2',
             'prepared_at_utc' => gmdate('c'),
             'payment_initiated' => false,
             'temporary_mechanism_active' => true,
             'verified_minimum_usd' => MR0912_STRIPE_MINIMUM_USD,
             'authorized_total_required' => 2 * MR0912_STRIPE_MINIMUM_USD,
-            'orders' => $rows,
+            'orders' => [],
         ];
-        $json = wp_json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        if (!is_string($json) || file_put_contents(MR0912_LIVE_MANIFEST, $json . "\n", LOCK_EX) === false) {
-            throw new RuntimeException('Cannot write private live-card manifest.');
+        foreach (array_keys(mr0912_live_specs()) as $key) {
+            $manifest['orders'][$key] = ['offer' => $key, 'stage' => 'pending'];
         }
-        chmod(MR0912_LIVE_MANIFEST, 0600);
+        mr0912_live_write_manifest($manifest);
+        try {
+            foreach (array_keys(mr0912_live_specs()) as $key) {
+                $rows[$key] = mr0912_live_create($key);
+                mr0912_live_update_manifest_row($key, $rows[$key]);
+            }
+        } catch (Throwable $error) {
+            foreach ($rows as $row) {
+                mr0912_live_cancel_unpaid((string) $row['offer'], (int) $row['order_id']);
+            }
+            $failedManifest = mr0912_live_read_manifest();
+            foreach ($failedManifest['orders'] as $key => $entry) {
+                if (($entry['stage'] ?? '') === 'pending') {
+                    $failedManifest['orders'][$key]['stage'] = 'not-created';
+                    $failedManifest['orders'][$key]['terminal_state'] = 'not-created';
+                    $failedManifest['orders'][$key]['closed_at_utc'] = gmdate('c');
+                }
+                unset($failedManifest['orders'][$key]['login_url'], $failedManifest['orders'][$key]['pay_url']);
+                $failedManifest['orders'][$key]['temporary_login_expires_utc'] = null;
+            }
+            $failedManifest['temporary_mechanism_active'] = false;
+            $failedManifest['batch_prepare_error'] = $error->getMessage();
+            mr0912_live_write_manifest($failedManifest);
+            throw $error;
+        }
+        $manifest = mr0912_live_read_manifest();
         echo wp_json_encode([
             'schema' => $manifest['schema'],
             'prepared_at_utc' => $manifest['prepared_at_utc'],
@@ -518,9 +669,9 @@ try {
             ? mr0912_live_cancel_unpaid($offerKey, $orderId)
             : mr0912_live_inspect($offerKey, $orderId, $mode === 'final'));
     echo wp_json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), "\n";
-    exit(isset($result['pass_count']) && isset($result['check_count'])
-        ? ($result['pass_count'] === $result['check_count'] ? 0 : 1)
-        : (($result['result'] ?? '') === 'PASS' ? 0 : 1));
+    exit(isset($result['result'])
+        ? ($result['result'] === 'PASS' ? 0 : 1)
+        : (isset($result['pass_count'], $result['check_count']) && $result['pass_count'] === $result['check_count'] ? 0 : 1));
 } catch (Throwable $error) {
     fwrite(STDERR, wp_json_encode(['result' => 'FAIL', 'error' => $error->getMessage()], JSON_UNESCAPED_SLASHES) . "\n");
     exit(1);
