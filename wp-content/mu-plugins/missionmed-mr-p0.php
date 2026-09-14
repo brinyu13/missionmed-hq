@@ -85,7 +85,11 @@ function mm_mr_0912_output_boundary(string $html): string {
     $javascript = MM_MR_P0_ASSET_DIR . '/js/mr-0912.js';
     if (is_file($javascript)) {
         $version = substr((string) hash_file('sha256', $javascript), 0, 12);
-        $html = str_replace('../js/mr-0912.js', '../js/mr-0912.js?v=' . $version, $html);
+        $html = preg_replace(
+            '~\.\./js/mr-0912\.js(?:\?v=[0-9a-f]{12})*~',
+            '../js/mr-0912.js?v=' . $version,
+            $html
+        ) ?? $html;
     }
 
     $analyticsPaths = [
@@ -355,7 +359,11 @@ function mm_mr_p0_render_asset_page(string $page): never {
     $javascript = MM_MR_P0_ASSET_DIR . '/js/mr-0912.js';
     if (is_file($javascript)) {
         $version = substr((string) hash_file('sha256', $javascript), 0, 12);
-        $html = str_replace('../js/mr-0912.js', '../js/mr-0912.js?v=' . $version, $html);
+        $html = preg_replace(
+            '~\.\./js/mr-0912\.js(?:\?v=[0-9a-f]{12})*~',
+            '../js/mr-0912.js?v=' . $version,
+            $html
+        ) ?? $html;
     }
     $head = '<head>' . "\n" . '<base href="' . esc_url(MM_MR_P0_ASSET_URL . '/pages/') . '">' . "\n"
         . '<script>window.MM_PRODUCTION=true;window.MM_MR_PAGE=' . wp_json_encode($page) . ';window.MM_CONFIG_URL=' . wp_json_encode(rest_url('missionmed/v1/mr-0912-config')) . ';</script>'
