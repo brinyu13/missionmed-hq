@@ -4,7 +4,6 @@
  *   wp eval-file - -- activate|verify|disable
  * It never creates or submits an order, charge, refund, user, coupon or credit.
  */
-declare(strict_types=1);
 if (!defined('ABSPATH')) {
     fwrite(STDERR, "Run through wp eval-file.\n");
     exit(2);
