@@ -329,6 +329,7 @@ function mr0912_safe_summary(array $state, string $mode): array {
             'status' => $row['status'],
             'runtime_price' => $row['runtime_price'],
             'stock_status' => $row['stock_status'],
+            'sold_individually' => $row['sold_individually'],
             'related_course' => $row['related_course'],
             'description_sha256' => hash('sha256', (string) $row['description']),
             'short_description_sha256' => hash('sha256', (string) $row['short_description']),
@@ -391,6 +392,7 @@ if ($mode === 'apply-products-closed') {
         'status' => 'publish',
         'catalog_visibility' => 'visible',
         'stock_status' => 'outofstock',
+        'sold_individually' => true,
         'short_description' => "Mission Residency's live interview-season kickoff. $500 in one payment.",
         'description' => '<p><strong>$500 in one payment.</strong> Orientation and Match Primer plus five live online training days beginning September 24, 2026.</p><p>Interview Week provides foundational interview and communication training. It does not include an individual Signature Mock Interview. IV Prep Complete includes Interview Week.</p>',
     ]);
@@ -402,6 +404,7 @@ if ($mode === 'apply-products-closed') {
         'date_on_sale_from' => null,
         'date_on_sale_to' => null,
         'stock_status' => 'outofstock',
+        'sold_individually' => true,
     ]);
     update_post_meta(5504, '_related_course', [3646]);
     update_post_meta(5867, '_related_course', [3646]);
@@ -410,6 +413,7 @@ if ($mode === 'apply-products-closed') {
         'status' => 'publish',
         'catalog_visibility' => 'visible',
         'stock_status' => 'outofstock',
+        'sold_individually' => true,
         'short_description' => 'Interview Week plus the whole interview season around it.',
         'description' => '<p><strong>Standard full-season tuition: $3,499.</strong> IV Prep Complete includes Interview Week plus continued practice, personalized feedback, debrief and action-plan support, and interview-season coaching.</p>',
     ]);
@@ -421,6 +425,7 @@ if ($mode === 'apply-products-closed') {
         'date_on_sale_from' => null,
         'date_on_sale_to' => strtotime('2026-09-24T03:59:59Z'),
         'stock_status' => 'outofstock',
+        'sold_individually' => true,
     ]);
     update_post_meta(3576, '_related_course', [5227]);
     update_post_meta(5865, '_related_course', [5227]);
@@ -440,11 +445,11 @@ if ($mode === 'apply-onboarding') {
 
 if ($mode === 'open-inventory') {
     if (!is_readable(WPMU_PLUGIN_DIR . '/missionmed-mr-0912-assets/config/campaign-state.json')) throw new RuntimeException('Candidate assets are not deployed.');
-    if (hash_file('sha256', WPMU_PLUGIN_DIR . '/missionmed-mr-p0.php') !== '04ab7d2bbffbd692bec386ac401bf3c24eba4abb8b4289f9938273801e661235') throw new RuntimeException('Candidate plugin hash mismatch.');
-    mr0912_set_product(5504, ['stock_status' => 'instock']);
-    mr0912_set_product(5867, ['stock_status' => 'instock']);
-    mr0912_set_product(3576, ['stock_status' => 'instock']);
-    mr0912_set_product(5865, ['stock_status' => 'instock']);
+    if (hash_file('sha256', WPMU_PLUGIN_DIR . '/missionmed-mr-p0.php') !== '49becfe0224d354b7f999bb4f5f466cf7dd0b0126aac84ae557f1fdce6b38448') throw new RuntimeException('Candidate plugin hash mismatch.');
+    mr0912_set_product(5504, ['stock_status' => 'instock', 'sold_individually' => true]);
+    mr0912_set_product(5867, ['stock_status' => 'instock', 'sold_individually' => true]);
+    mr0912_set_product(3576, ['stock_status' => 'instock', 'sold_individually' => true]);
+    mr0912_set_product(5865, ['stock_status' => 'instock', 'sold_individually' => true]);
     WC_Product_Variable::sync(5504);
     WC_Product_Variable::sync(3576);
 }
@@ -467,6 +472,7 @@ if ($mode === 'rollback-data') {
 $state = mr0912_capture();
 $p = $state['products'];
 $c = $state['courses'];
+$activationExpected = in_array($mode, ['open-inventory', 'verify'], true);
 $checks = [
     'interview_identity' => $p['5504']['name'] === 'IV Prep Essentials: Interview Week' && $p['5867']['parent_id'] === 5504,
     'interview_price' => (float) $p['5867']['runtime_price'] === 500.0,
@@ -474,11 +480,20 @@ $checks = [
     'complete_identity' => $p['3576']['name'] === 'IV Prep Complete' && $p['5865']['parent_id'] === 3576,
     'complete_price' => (float) $p['5865']['regular_price'] === 3499.0 && (float) $p['5865']['runtime_price'] === 3099.0 && $p['5865']['date_on_sale_to_utc'] === '2026-09-24T03:59:59+00:00',
     'complete_mapping' => array_map('intval', (array) $p['3576']['related_course']) === [5227] && array_map('intval', (array) $p['5865']['related_course']) === [5227],
+    'single_quantity_products' => $p['5504']['sold_individually'] && $p['5867']['sold_individually'] && $p['3576']['sold_individually'] && $p['5865']['sold_individually'],
     'course_titles' => $c['3646']['raw_title'] === 'IV Prep Essentials: Interview Week' && $c['5227']['raw_title'] === 'IV Prep Complete',
     'onboarding_present' => strlen($c['3646']['content']) > 100 && strlen($c['5227']['content']) > 100,
     '360_closed' => $p['3575']['stock_status'] === 'outofstock' && $p['5862']['stock_status'] === 'outofstock' && $p['5863']['stock_status'] === 'outofstock',
-    'interview_acceptance_absent' => !$state['options']['mmed_mr_0912_interview_week_verified_live_at']['exists'] && !$state['options']['mmed_mr_0912_interview_week_acceptance_binding_sha256']['exists'],
-    'complete_acceptance_absent' => !$state['options']['mmed_mr_0912_complete_verified_live_at']['exists'] && !$state['options']['mmed_mr_0912_complete_acceptance_binding_sha256']['exists'],
+    'interview_acceptance_' . ($activationExpected ? 'present' : 'absent') => $activationExpected
+        ? $state['options']['mmed_mr_0912_interview_week_verified_live_at']['exists']
+            && preg_match('/^[0-9a-f]{64}$/', (string) $state['options']['mmed_mr_0912_interview_week_acceptance_binding_sha256']['value']) === 1
+        : !$state['options']['mmed_mr_0912_interview_week_verified_live_at']['exists']
+            && !$state['options']['mmed_mr_0912_interview_week_acceptance_binding_sha256']['exists'],
+    'complete_acceptance_' . ($activationExpected ? 'present' : 'absent') => $activationExpected
+        ? $state['options']['mmed_mr_0912_complete_verified_live_at']['exists']
+            && preg_match('/^[0-9a-f]{64}$/', (string) $state['options']['mmed_mr_0912_complete_acceptance_binding_sha256']['value']) === 1
+        : !$state['options']['mmed_mr_0912_complete_verified_live_at']['exists']
+            && !$state['options']['mmed_mr_0912_complete_acceptance_binding_sha256']['exists'],
 ];
 $checks['target_inventory_' . (in_array($mode, ['apply-products-closed', 'apply-onboarding'], true) ? 'closed' : 'open')] =
     in_array($mode, ['apply-products-closed', 'apply-onboarding'], true)

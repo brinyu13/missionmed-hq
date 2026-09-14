@@ -6,11 +6,12 @@ $assetRoot = $root . '/wp-content/mu-plugins/missionmed-mr-0912-assets';
 $plugin = $root . '/wp-content/mu-plugins/missionmed-mr-p0.php';
 
 final class MR0912FakeProduct {
-    public function __construct(private float $price, private int $parentId) {}
+    public function __construct(private float $price, private int $parentId, private bool $soldIndividually) {}
     public function get_price(): string { return (string) $this->price; }
     public function get_parent_id(): int { return $this->parentId; }
     public function is_purchasable(): bool { return true; }
     public function is_in_stock(): bool { return true; }
+    public function is_sold_individually(): bool { return $this->soldIndividually; }
 }
 
 final class MR0912FakeCart {
@@ -35,6 +36,7 @@ $GLOBALS['mr0912_options'] = [
 $GLOBALS['mr0912_prices'] = [5867 => 1199.0, 5865 => 2799.0];
 $GLOBALS['mr0912_parents'] = [5867 => 5504, 5865 => 3576];
 $GLOBALS['mr0912_courses'] = [5867 => [3646], 5865 => [5227]];
+$GLOBALS['mr0912_sold_individually'] = [5867 => true, 5865 => true];
 $GLOBALS['mr0912_woo'] = new MR0912FakeWoo();
 $GLOBALS['mr0912_notices'] = [];
 
@@ -45,7 +47,11 @@ function get_option(string $key, mixed $default = null): mixed {
 }
 function wc_get_product(int $id): ?MR0912FakeProduct {
     return isset($GLOBALS['mr0912_prices'][$id])
-        ? new MR0912FakeProduct($GLOBALS['mr0912_prices'][$id], $GLOBALS['mr0912_parents'][$id] ?? 0)
+        ? new MR0912FakeProduct(
+            $GLOBALS['mr0912_prices'][$id],
+            $GLOBALS['mr0912_parents'][$id] ?? 0,
+            $GLOBALS['mr0912_sold_individually'][$id] ?? false
+        )
         : null;
 }
 function WC(): MR0912FakeWoo { return $GLOBALS['mr0912_woo']; }
@@ -100,6 +106,8 @@ $check($runtime['offers']['interview_week']['runtime']['mapping_verified'] === t
 $check($runtime['offers']['complete']['runtime']['mapping_verified'] === true, 'complete-map');
 $check($runtime['offers']['interview_week']['runtime']['parent_verified'] === true, 'interview-week-parent');
 $check($runtime['offers']['complete']['runtime']['parent_verified'] === true, 'complete-parent');
+$check($runtime['offers']['interview_week']['runtime']['sold_individually'] === true, 'interview-week-single-quantity');
+$check($runtime['offers']['complete']['runtime']['sold_individually'] === true, 'complete-single-quantity');
 $check($runtime['offers']['interview_week']['runtime']['product_eligible'] === false, 'old-interview-week-price-rejected');
 $check($runtime['offers']['complete']['runtime']['product_eligible'] === false, 'old-complete-price-rejected');
 $check($runtime['offers']['interview_week']['runtime']['checkout_allowed'] === false, 'old-interview-week-checkout-blocked');
@@ -140,6 +148,7 @@ $check(mm_mr_0912_validate_add_to_cart(true, 3576, 1, 5865) === false, 'unaccept
 $check(mm_mr_0912_validate_add_to_cart(true, 5504, 1, 5866) === false, 'interview-week-sibling-variation-blocked');
 $check(mm_mr_0912_validate_add_to_cart(true, 3576, 1, 5864) === false, 'complete-sibling-variation-blocked');
 $check(mm_mr_0912_validate_add_to_cart(true, 5504, 1, 0) === false, 'missing-interview-week-variation-blocked');
+$check(mm_mr_0912_validate_add_to_cart(true, 5504, 2, 5867) === false, 'interview-week-quantity-two-blocked');
 $GLOBALS['mr0912_options']['mmed_mr_0912_complete_verified_live_at'] = '2026-09-13T17:05:00Z';
 $GLOBALS['mr0912_options']['mmed_mr_0912_complete_acceptance_binding_sha256'] = mm_mr_0912_acceptance_binding(
     'complete',
@@ -156,13 +165,19 @@ $check($runtime['campaign']['go_live_gate']['financial_acceptance']['passed'] ==
 $check(str_contains((string) $runtime['offers']['interview_week']['runtime']['checkout_url'], 'add-to-cart=5504'), 'interview-week-checkout-identity');
 $check(str_contains((string) $runtime['offers']['complete']['runtime']['checkout_url'], 'add-to-cart=3576'), 'complete-checkout-identity');
 
-$GLOBALS['mr0912_woo']->cart->items = [['product_id' => 5504, 'variation_id' => 5867]];
+$GLOBALS['mr0912_woo']->cart->items = [['product_id' => 5504, 'variation_id' => 5867, 'quantity' => 1]];
 $check(array_keys(mm_mr_0912_card_only_gateways(['stripe' => 'card', 'bacs' => 'manual'])) === ['stripe'], 'mission-residency-card-only');
+$check(mm_mr_0912_cart_is_checkout_safe() === true, 'single-item-cart-safe');
 $check(mm_mr_0912_validate_add_to_cart(true, 3576, 1, 5865) === false, 'double-purchase-add-blocked');
-$GLOBALS['mr0912_woo']->cart->items[] = ['product_id' => 3576, 'variation_id' => 5865];
+$GLOBALS['mr0912_woo']->cart->items[] = ['product_id' => 3576, 'variation_id' => 5865, 'quantity' => 1];
 $GLOBALS['mr0912_notices'] = [];
 mm_mr_0912_validate_cart();
 $check(count($GLOBALS['mr0912_notices']) === 1, 'double-product-cart-blocked');
+$GLOBALS['mr0912_woo']->cart->items = [['product_id' => 3576, 'variation_id' => 5865, 'quantity' => 2]];
+$GLOBALS['mr0912_notices'] = [];
+$check(mm_mr_0912_cart_is_checkout_safe() === false, 'stale-quantity-two-cart-unsafe');
+mm_mr_0912_validate_cart();
+$check(count($GLOBALS['mr0912_notices']) === 1 && str_contains($GLOBALS['mr0912_notices'][0][1], 'one seat'), 'stale-quantity-two-cart-blocked');
 $GLOBALS['mr0912_woo']->cart->items = [];
 
 $GLOBALS['mr0912_courses'][5867] = [3646, 5227];

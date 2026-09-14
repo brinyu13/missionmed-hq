@@ -95,7 +95,21 @@ for (const missingVariation of [
   await send('Network.clearBrowserCookies');
   const state = await navigate(`/cart/?add-to-cart=${missingVariation.product}&mr0912_guard=${missingVariation.key}`);
   state.key = missingVariation.key;
-  state.pass = state.itemCount === 0;
+  state.pass = state.itemCount === 0
+    && state.notices.some((notice) => /selection is not valid|choose product options/i.test(notice))
+    && !/critical error/i.test(state.bodyExcerpt);
+  tests.push(state);
+}
+
+for (const duplicateQuantity of [
+  { key: 'interview_quantity_two', product: 5504, variation: 5867 },
+  { key: 'complete_quantity_two', product: 3576, variation: 5865 },
+]) {
+  await send('Network.clearBrowserCookies');
+  const state = await navigate(`/cart/?add-to-cart=${duplicateQuantity.product}&variation_id=${duplicateQuantity.variation}&attribute_pa_start-date=session-d-start-date&quantity=2&mr0912_guard=${duplicateQuantity.key}`);
+  state.key = duplicateQuantity.key;
+  state.pass = state.itemCount === 0
+    && state.notices.some((notice) => /one seat|only one|cannot add another|only 1/i.test(notice));
   tests.push(state);
 }
 

@@ -138,7 +138,8 @@ function mm_mr_0912_acceptance_binding(string $offerKey, string $verifiedAt, arr
         $runtime['learndash_course_id'],
         $runtime['related_course_ids'],
         $runtime['mapping_verified'],
-        $runtime['parent_verified']
+        $runtime['parent_verified'],
+        $runtime['sold_individually']
     )) {
         return '';
     }
@@ -153,6 +154,7 @@ function mm_mr_0912_acceptance_binding(string $offerKey, string $verifiedAt, arr
         'related_course_ids' => array_map('intval', (array) $runtime['related_course_ids']),
         'mapping_verified' => (bool) $runtime['mapping_verified'],
         'parent_verified' => (bool) $runtime['parent_verified'],
+        'sold_individually' => (bool) $runtime['sold_individually'],
         'financial_acceptance_status' => 'waived_by_founder_not_executed',
         'financial_acceptance_authority' => 'DR-251',
     ];
@@ -189,9 +191,10 @@ function mm_mr_p0_runtime_config(): array {
         $mapped = $relatedCourses === [$identity['course_id']];
         $parentVerified = method_exists($product, 'get_parent_id')
             && (int) $product->get_parent_id() === $identity['product_id'];
+        $soldIndividually = $product->is_sold_individually();
         $eligible = $product->is_purchasable() && $product->is_in_stock()
             && abs($runtimePrice - $identity['expected_price']) < 0.001
-            && $mapped && $parentVerified;
+            && $mapped && $parentVerified && $soldIndividually;
         $checkoutUrl = add_query_arg([
             'add-to-cart' => $identity['product_id'],
             'variation_id' => $identity['variation_id'],
@@ -205,6 +208,7 @@ function mm_mr_p0_runtime_config(): array {
             'related_course_ids' => $relatedCourses,
             'mapping_verified' => $mapped,
             'parent_verified' => $parentVerified,
+            'sold_individually' => $soldIndividually,
             'product_eligible' => $eligible,
             'checkout_allowed' => false,
             'checkout_url' => null,
@@ -292,6 +296,21 @@ function mm_mr_0912_cart_offer_keys(): array {
     return array_keys($keys);
 }
 
+function mm_mr_0912_cart_is_checkout_safe(): bool {
+    if (!function_exists('WC') || !WC()->cart) return true;
+    $offerKeys = [];
+    foreach (WC()->cart->get_cart() as $item) {
+        $offerKey = mm_mr_0912_offer_for_product(
+            (int) ($item['product_id'] ?? 0),
+            (int) ($item['variation_id'] ?? 0)
+        );
+        if ($offerKey === null) continue;
+        if ($offerKey === 'invalid' || (int) ($item['quantity'] ?? 0) !== 1) return false;
+        $offerKeys[$offerKey] = true;
+    }
+    return count($offerKeys) <= 1;
+}
+
 function mm_mr_0912_offer_checkout_allowed(string $offerKey): bool {
     $runtime = mm_mr_p0_runtime_config()['offers'][$offerKey]['runtime'] ?? [];
     return !empty($runtime['checkout_allowed']);
@@ -310,6 +329,10 @@ function mm_mr_0912_validate_add_to_cart(
         if (function_exists('wc_add_notice')) wc_add_notice('This enrollment selection is not valid.', 'error');
         return false;
     }
+    if ((int) $quantity !== 1) {
+        if (function_exists('wc_add_notice')) wc_add_notice('Enrollment is limited to one seat per account.', 'error');
+        return false;
+    }
     if (!mm_mr_0912_offer_checkout_allowed($offerKey)) {
         if (function_exists('wc_add_notice')) wc_add_notice('Enrollment is not yet verified for checkout.', 'error');
         return false;
@@ -324,6 +347,18 @@ function mm_mr_0912_validate_add_to_cart(
 add_filter('woocommerce_add_to_cart_validation', 'mm_mr_0912_validate_add_to_cart', 999, 4);
 
 function mm_mr_0912_validate_cart(): void {
+    if (function_exists('WC') && WC()->cart) {
+        foreach (WC()->cart->get_cart() as $item) {
+            $offerKey = mm_mr_0912_offer_for_product(
+                (int) ($item['product_id'] ?? 0),
+                (int) ($item['variation_id'] ?? 0)
+            );
+            if ($offerKey !== null && (int) ($item['quantity'] ?? 0) !== 1) {
+                if (function_exists('wc_add_notice')) wc_add_notice('Enrollment is limited to one seat per account.', 'error');
+                return;
+            }
+        }
+    }
     $offerKeys = mm_mr_0912_cart_offer_keys();
     foreach ($offerKeys as $offerKey) {
         if (!mm_mr_0912_offer_checkout_allowed($offerKey)) {
@@ -342,9 +377,10 @@ function mm_mr_0912_card_only_gateways(array $gateways): array {
 }
 
 add_filter('woocommerce_available_payment_gateways', static function (array $gateways): array {
-    return mm_mr_p0_launch_product_in_cart()
+    if (!mm_mr_p0_launch_product_in_cart()) return $gateways;
+    return mm_mr_0912_cart_is_checkout_safe()
         ? mm_mr_0912_card_only_gateways($gateways)
-        : $gateways;
+        : [];
 }, 999);
 
 function mm_mr_p0_render_asset_page(string $page): never {

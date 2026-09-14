@@ -1,7 +1,7 @@
 <?php
 /** MR-WEB-0912 DR-251 core-card activation and containment controller.
  * Usage through authenticated production WP-CLI:
- *   wp eval-file - -- activate|verify|disable
+ *   wp eval-file - -- activate|repair-single-quantity|verify|disable
  * It never creates or submits an order, charge, refund, user, coupon or credit.
  */
 if (!defined('ABSPATH')) {
@@ -11,13 +11,13 @@ if (!defined('ABSPATH')) {
 
 const MR0912_WAIVER_PREIMAGE = '/www/theresidencyacademy_209/private/mr-web-0912/20260913T154300-0400-pre-fall-update/object-preimage.json';
 const MR0912_WAIVER_PREIMAGE_SHA256 = 'a13f6001117fd42b71ed7c00c0d165c292cdb9bb9768760e6749d6afe8e54f35';
-const MR0912_WAIVER_PLUGIN_SHA256 = '9ee80e094e78d2c9a091073ff6aceff3d562e477d56e1fe97a0ce55cd53b8925';
+const MR0912_WAIVER_PLUGIN_SHA256 = '49becfe0224d354b7f999bb4f5f466cf7dd0b0126aac84ae557f1fdce6b38448';
 const MR0912_WAIVER_STATUS = 'waived_by_founder_not_executed';
 const MR0912_WAIVER_AUTHORITY = 'DR-251';
 
 $mode = 'verify';
 foreach (($args ?? []) as $arg) {
-    if (in_array($arg, ['activate', 'verify', 'disable'], true)) $mode = $arg;
+    if (in_array($arg, ['activate', 'repair-single-quantity', 'verify', 'disable'], true)) $mode = $arg;
 }
 
 function mr0912_waiver_product(int $id): WC_Product {
@@ -26,10 +26,11 @@ function mr0912_waiver_product(int $id): WC_Product {
     return $product;
 }
 
-function mr0912_waiver_stock(string $status): void {
+function mr0912_waiver_product_state(string $status, bool $soldIndividually): void {
     foreach ([5504, 5867, 3576, 5865] as $id) {
         $product = mr0912_waiver_product($id);
         $product->set_stock_status($status);
+        $product->set_sold_individually($soldIndividually);
         $product->save();
         clean_post_cache($id);
         wc_delete_product_transients($id);
@@ -47,10 +48,10 @@ function mr0912_waiver_clear(): void {
         'mmed_mr_0912_financial_test_status',
         'mmed_mr_0912_financial_test_authority',
     ] as $key) delete_option($key);
-    mr0912_waiver_stock('outofstock');
+    mr0912_waiver_product_state('outofstock', false);
 }
 
-function mr0912_waiver_preflight(): void {
+function mr0912_waiver_preflight(bool $requireSingleQuantity = true): void {
     if (!is_file(MR0912_WAIVER_PREIMAGE)
         || hash_file('sha256', MR0912_WAIVER_PREIMAGE) !== MR0912_WAIVER_PREIMAGE_SHA256) {
         throw new RuntimeException('Exact production preimage is unavailable or drifted.');
@@ -84,6 +85,12 @@ function mr0912_waiver_preflight(): void {
         get_option('woocommerce_enable_guest_checkout') === 'no',
         get_option('woocommerce_enable_signup_and_login_from_checkout') === 'yes',
     ];
+    if ($requireSingleQuantity) {
+        $checks[] = $iwParent->is_sold_individually();
+        $checks[] = $iw->is_sold_individually();
+        $checks[] = $completeParent->is_sold_individually();
+        $checks[] = $complete->is_sold_individually();
+    }
     $gateways = WC()->payment_gateways()->payment_gateways();
     $checks[] = isset($gateways['stripe']) && (string) $gateways['stripe']->enabled === 'yes';
     foreach (get_posts(['post_type' => 'shop_coupon', 'post_status' => 'publish', 'numberposts' => -1, 'fields' => 'ids']) as $id) {
@@ -109,6 +116,7 @@ function mr0912_waiver_readback(string $mode): array {
         'complete_checkout' => !empty($runtime['offers']['complete']['runtime']['checkout_allowed']),
         'interview_stock' => mr0912_waiver_product(5867)->is_in_stock(),
         'complete_stock' => mr0912_waiver_product(5865)->is_in_stock(),
+        'single_quantity_products' => count(array_filter([5504, 5867, 3576, 5865], static fn (int $id): bool => mr0912_waiver_product($id)->is_sold_individually())) === 4,
         'card_only_filter' => array_keys($cardOnly) === ['stripe'],
         'card_price_public' => ($runtime['payment_options']['early_card_paid_in_full']['amount'] ?? null) === 3099,
         'zelle_closed' => ($runtime['payment_options']['early_zelle_paid_in_full'] ?? []) === ['public_verified' => false],
@@ -133,13 +141,24 @@ function mr0912_waiver_readback(string $mode): array {
     ];
 }
 
+function mr0912_waiver_bind_offers(): void {
+    $verifiedAt = gmdate('c');
+    foreach (['interview_week', 'complete'] as $key) {
+        $runtime = mm_mr_p0_runtime_config()['offers'][$key]['runtime'] ?? [];
+        $binding = mm_mr_0912_acceptance_binding($key, $verifiedAt, $runtime);
+        if (!preg_match('/^[0-9a-f]{64}$/', $binding)) throw new RuntimeException('Acceptance binding generation failed.');
+        update_option('mmed_mr_0912_' . $key . '_verified_live_at', $verifiedAt, false);
+        update_option('mmed_mr_0912_' . $key . '_acceptance_binding_sha256', $binding, false);
+    }
+}
+
 if ($mode === 'disable') {
     mr0912_waiver_clear();
     echo wp_json_encode(['mode' => $mode, 'result' => 'PASS', 'inventory' => 'outofstock', 'acceptance' => 'cleared'], JSON_PRETTY_PRINT), "\n";
     exit(0);
 }
 
-mr0912_waiver_preflight();
+mr0912_waiver_preflight($mode === 'verify');
 if ($mode === 'activate') {
     foreach ([
         'mmed_mr_0912_interview_week_verified_live_at',
@@ -154,21 +173,21 @@ if ($mode === 'activate') {
         }
     }
     try {
-        mr0912_waiver_stock('instock');
+        mr0912_waiver_product_state('instock', true);
         update_option('mmed_mr_0912_financial_test_status', MR0912_WAIVER_STATUS, false);
         update_option('mmed_mr_0912_financial_test_authority', MR0912_WAIVER_AUTHORITY, false);
-        $verifiedAt = gmdate('c');
-        foreach (['interview_week', 'complete'] as $key) {
-            $runtime = mm_mr_p0_runtime_config()['offers'][$key]['runtime'] ?? [];
-            $binding = mm_mr_0912_acceptance_binding($key, $verifiedAt, $runtime);
-            if (!preg_match('/^[0-9a-f]{64}$/', $binding)) throw new RuntimeException('Acceptance binding generation failed.');
-            update_option('mmed_mr_0912_' . $key . '_verified_live_at', $verifiedAt, false);
-            update_option('mmed_mr_0912_' . $key . '_acceptance_binding_sha256', $binding, false);
-        }
+        mr0912_waiver_bind_offers();
     } catch (Throwable $error) {
         mr0912_waiver_clear();
         throw $error;
     }
+} elseif ($mode === 'repair-single-quantity') {
+    if (get_option('mmed_mr_0912_financial_test_status', '') !== MR0912_WAIVER_STATUS
+        || get_option('mmed_mr_0912_financial_test_authority', '') !== MR0912_WAIVER_AUTHORITY) {
+        throw new RuntimeException('Founder waiver precondition drift.');
+    }
+    mr0912_waiver_product_state('instock', true);
+    mr0912_waiver_bind_offers();
 }
 $result = mr0912_waiver_readback($mode);
 echo wp_json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), "\n";
