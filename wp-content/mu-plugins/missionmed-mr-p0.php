@@ -298,13 +298,13 @@ function mm_mr_0912_offer_checkout_allowed(string $offerKey): bool {
 }
 
 function mm_mr_0912_validate_add_to_cart(
-    bool $passed,
-    int $productId,
-    int $quantity = 1,
-    int $variationId = 0
+    $passed,
+    $productId,
+    $quantity = 1,
+    $variationId = 0
 ): bool {
-    if (!$passed) return false;
-    $offerKey = mm_mr_0912_offer_for_product($productId, $variationId);
+    if (!(bool) $passed) return false;
+    $offerKey = mm_mr_0912_offer_for_product((int) $productId, (int) $variationId);
     if ($offerKey === null) return true;
     if ($offerKey === 'invalid') {
         if (function_exists('wc_add_notice')) wc_add_notice('This enrollment selection is not valid.', 'error');

@@ -57,6 +57,23 @@ function send(method, params = {}) {
   return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
 }
 
+async function evaluateByValue(expression, attempts = 12) {
+  let lastDiagnostic = 'no Runtime.evaluate response';
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await send('Runtime.evaluate', { expression, returnByValue: true });
+      if (response.result && Object.hasOwn(response.result, 'value')) return response.result.value;
+      lastDiagnostic = response.exceptionDetails?.text
+        || response.result?.description
+        || JSON.stringify(response);
+    } catch (error) {
+      lastDiagnostic = error instanceof Error ? error.message : String(error);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`Runtime.evaluate did not return a value: ${lastDiagnostic}`);
+}
+
 await send('Page.enable');
 await send('Network.enable');
 await send('Network.setCacheDisabled', { cacheDisabled: true });
@@ -206,8 +223,7 @@ if (phase === 'open') {
         if (ready.result?.value === true) break;
       }
       await new Promise((resolve) => setTimeout(resolve, 600));
-      const payload = await send('Runtime.evaluate', {
-        expression: `(() => {
+      const value = await evaluateByValue(`(() => {
           const text = document.body?.innerText || '';
           const lower = text.toLowerCase();
           const hrefs = [...document.querySelectorAll('a[href]')].map((a) => a.href);
@@ -225,9 +241,9 @@ if (phase === 'open') {
             accountCreation: !!document.querySelector('#createaccount, .create-account, #account_password')
               || /create (an )?account|account username|account password/i.test(text),
             policyLinks: {
-              terms: hrefs.some((href) => /\/terms-of-agreement\/?(?:[?#]|$)/.test(href)),
-              refund: hrefs.some((href) => /\/refund-cancellation-policy\/?(?:[?#]|$)/.test(href)),
-              privacy: hrefs.some((href) => /\/privacy-policy\/?(?:[?#]|$)/.test(href)),
+              terms: hrefs.some((href) => href.includes('/terms-of-agreement/')),
+              refund: hrefs.some((href) => href.includes('/refund-cancellation-policy/')),
+              privacy: hrefs.some((href) => href.includes('/privacy-policy/')),
             },
             hasOutOfStock: lower.includes('out of stock'),
             hasInternalQa: ['enrollment opens after verification', 'operational limits', 'commerce safety']
@@ -236,10 +252,7 @@ if (phase === 'open') {
               || lower.includes('get the full missionmed experience on desktop'),
             overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
           };
-        })()`,
-        returnByValue: true,
-      });
-      const value = payload.result.value;
+        })()`);
       value.key = candidate.key;
       value.viewport = viewport.name;
       value.analyticsRequests = observedRequests.filter((requestUrl) => /googletagmanager|google-analytics|\/g\/collect|\/collect\?/i.test(requestUrl));
