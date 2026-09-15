@@ -390,7 +390,8 @@ add_filter('woocommerce_available_payment_gateways', static function (array $gat
 }, 999);
 
 function mm_mr_p0_render_asset_page(string $page): never {
-    $path = MM_MR_P0_ASSET_DIR . '/pages/offer.html';
+    $isB = $page === 'mission-residency';
+    $path = MM_MR_P0_ASSET_DIR . ($isB ? '/b-immersive/index.html' : '/pages/offer.html');
     $html = is_readable($path) ? (string) file_get_contents($path) : '';
     if ($html === '') {
         status_header(503);
@@ -402,6 +403,12 @@ function mm_mr_p0_render_asset_page(string $page): never {
         '../css/mr-0912.css' => MM_MR_P0_ASSET_DIR . '/css/mr-0912.css',
         '../js/mr-0912.js' => MM_MR_P0_ASSET_DIR . '/js/mr-0912.js',
     ];
+    if ($isB) {
+        $versionedAssets = [];
+        foreach (['styles/site.css', 'styles/finalization.css', 'styles/founder-steers.css', 'styles/production.css', 'scripts/site.js', 'scripts/finalization.js'] as $asset) {
+            $versionedAssets['/wp-content/mu-plugins/missionmed-mr-0912-assets/b-immersive/' . $asset] = MM_MR_P0_ASSET_DIR . '/b-immersive/' . $asset;
+        }
+    }
     foreach ($versionedAssets as $reference => $assetPath) {
         if (!is_file($assetPath)) continue;
         $version = substr((string) hash_file('sha256', $assetPath), 0, 12);
@@ -411,7 +418,7 @@ function mm_mr_p0_render_asset_page(string $page): never {
             $html
         ) ?? $html;
     }
-    $head = '<head>' . "\n" . '<base href="' . esc_url(MM_MR_P0_ASSET_URL . '/pages/') . '">' . "\n"
+    $head = '<head>' . "\n" . '<base href="' . esc_url($isB ? home_url('/mission-residency/') : MM_MR_P0_ASSET_URL . '/pages/') . '">' . "\n"
         . '<script>window.MM_PRODUCTION=true;window.MM_MR_PAGE=' . wp_json_encode($page) . ';window.MM_CONFIG_URL=' . wp_json_encode(rest_url('missionmed/v1/mr-0912-config')) . ';</script>'
         . mm_mr_0912_google_tag_markup()
         . '<style id="mm-mr-0912-static-containment">#mm-mobile-notice,#mm-mobile-notice-styles{display:none!important}</style>';
@@ -439,6 +446,10 @@ function mm_mr_0912_render_current_policy(): void {
         ? mm_mr_0912_clean_policy_markup((string) mm_launch_sev1_current_meta_description())
         : $title;
     $content = mm_mr_0912_clean_policy_markup((string) mm_launch_sev1_policy_html($slug));
+    if ($slug === 'terms-of-agreement') {
+        $guarantee = MM_MR_P0_ASSET_DIR . '/b-immersive/guarantee.html';
+        if (is_readable($guarantee)) $content .= (string) file_get_contents($guarantee);
+    }
     status_header(200);
     header('Content-Type: text/html; charset=' . get_option('blog_charset'));
     echo '<!doctype html><html lang="en-US"><head><meta charset="' . esc_attr(get_option('blog_charset'))
