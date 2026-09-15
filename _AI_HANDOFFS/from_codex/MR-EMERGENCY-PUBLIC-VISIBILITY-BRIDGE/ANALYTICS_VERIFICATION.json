@@ -1,0 +1,37 @@
+{
+  "destination": "https://missionmedinstitute.com/contact/?utm_source=whatsapp&utm_medium=message&utm_campaign=mr-emergency-verification&inquiry=emergency-interview-prep",
+  "href": "https://missionmedinstitute.com/contact/?utm_source=whatsapp&utm_medium=message&utm_campaign=mr-emergency-verification&inquiry=emergency-interview-prep",
+  "eventsBeforeClick": [
+    "emergency_offer_view",
+    "emergency_offer_expand",
+    "emergency_vs_complete_compare",
+    "360_sold_out_view"
+  ],
+  "analyticsResponses": [
+    {
+      "status": 204,
+      "events": [
+        "page_view"
+      ]
+    },
+    {
+      "status": 204,
+      "events": [
+        "scroll"
+      ]
+    },
+    {
+      "status": 204,
+      "events": [
+        "emergency_offer_view",
+        "emergency_offer_expand",
+        "emergency_vs_complete_compare",
+        "360_sold_out_view"
+      ]
+    }
+  ],
+  "formCount": 1,
+  "paymentFields": 0,
+  "formSubmitted": false,
+  "paymentSubmitted": false
+}

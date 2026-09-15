@@ -1,0 +1,86 @@
+[
+  {
+    "id": 3575,
+    "title": "360 Match Mentorship",
+    "url": "https://missionmedinstitute.com/product/360-match-mentorship/",
+    "parent": 0,
+    "price": "5499",
+    "stock": "outofstock",
+    "purchasable": true,
+    "related_course": [
+      3893
+    ]
+  },
+  {
+    "id": 5862,
+    "title": "360 Match Mentorship - Session A: June 6th, 2026",
+    "url": "https://missionmedinstitute.com/product/360-match-mentorship/?attribute_pa_start-date=session-a-start-date",
+    "parent": 3575,
+    "price": "5499",
+    "stock": "outofstock",
+    "purchasable": true,
+    "related_course": [
+      3893
+    ]
+  },
+  {
+    "id": 5863,
+    "title": "360 Match Mentorship - Session B: July 4, 2026",
+    "url": "https://missionmedinstitute.com/product/360-match-mentorship/?attribute_pa_start-date=session-b-start-date",
+    "parent": 3575,
+    "price": "5499",
+    "stock": "outofstock",
+    "purchasable": true,
+    "related_course": [
+      3893
+    ]
+  },
+  {
+    "id": 3576,
+    "title": "IV Prep Complete",
+    "url": "https://missionmedinstitute.com/product/match-prep-pro/",
+    "parent": 0,
+    "price": "3099",
+    "stock": "instock",
+    "purchasable": true,
+    "related_course": [
+      5227
+    ]
+  },
+  {
+    "id": 5865,
+    "title": "IV Prep Complete - Session D: Sept 26th, 2026",
+    "url": "https://missionmedinstitute.com/product/match-prep-pro/?attribute_pa_start-date=session-d-start-date",
+    "parent": 3576,
+    "price": "3099",
+    "stock": "instock",
+    "purchasable": true,
+    "related_course": [
+      5227
+    ]
+  },
+  {
+    "id": 5504,
+    "title": "IV Prep Essentials: Interview Week",
+    "url": "https://missionmedinstitute.com/product/iv-prep-masterclass/",
+    "parent": 0,
+    "price": "500",
+    "stock": "instock",
+    "purchasable": true,
+    "related_course": [
+      3646
+    ]
+  },
+  {
+    "id": 5867,
+    "title": "IV Prep Essentials: Interview Week - Session D: Sept 26th, 2026",
+    "url": "https://missionmedinstitute.com/product/iv-prep-masterclass/?attribute_pa_start-date=session-d-start-date",
+    "parent": 5504,
+    "price": "500",
+    "stock": "instock",
+    "purchasable": true,
+    "related_course": [
+      3646
+    ]
+  }
+]
