@@ -389,6 +389,17 @@ add_filter('woocommerce_available_payment_gateways', static function (array $gat
         : [];
 }, 999);
 
+// Presentation only: Complete already includes Interview Week. Do not recommend buying it twice.
+add_filter('woocommerce_cart_crosssell_ids', static function (array $ids): array {
+    if (!mm_mr_p0_enabled() || !function_exists('WC') || !WC()->cart) return $ids;
+    foreach (WC()->cart->get_cart() as $item) {
+        if ((int) ($item['product_id'] ?? 0) === 3576) {
+            return array_values(array_diff($ids, [5504, 5867]));
+        }
+    }
+    return $ids;
+}, 999);
+
 function mm_mr_p0_render_asset_page(string $page): never {
     $isB = $page === 'mission-residency';
     $path = MM_MR_P0_ASSET_DIR . ($isB ? '/b-immersive/index.html' : '/pages/offer.html');

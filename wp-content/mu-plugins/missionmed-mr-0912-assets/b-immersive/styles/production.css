@@ -1,6 +1,7 @@
 
 /* Production-only containment, eligibility and specialized offers. */
 button:disabled{cursor:not-allowed;opacity:.65;transform:none!important;box-shadow:none!important}
+.complete-offer>.eyebrow{color:#efd19e}
 .guarantee{display:grid;grid-template-columns:1fr 1.25fr;gap:9%;border-block:1px solid #708079}
 .guarantee h3{font-size:32px;margin-bottom:24px}.guarantee p{margin-bottom:20px}
 .specialized{background:#101e24;border-block:1px solid #556966}
