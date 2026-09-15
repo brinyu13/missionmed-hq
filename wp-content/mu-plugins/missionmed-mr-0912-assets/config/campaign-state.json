@@ -65,10 +65,65 @@
       "headline": "Physician-led preparation with Dr. Brian.",
       "body": "Dr. Brian teaches the communication framework, listens for the story underneath an answer, and turns observed patterns into the next practice plan."
     },
+    "emergency": {
+      "name": "Emergency Private Interview Intensive",
+      "price": 3999,
+      "authority": "DR-267",
+      "informational_only": true,
+      "contact_url": "https://missionmedinstitute.com/contact/",
+      "contact_explanation": "Online enrollment for Emergency Intensive is being arranged. If your interview is within 7 days, contact us now so we can determine whether Dr Brian can accommodate the emergency timeline.",
+      "faq": [
+        {
+          "question": "What is Emergency Private Interview Intensive?",
+          "answer": "Private, concentrated preparation for a real residency interview 7 days or less away. Tuition is $3,999, subject to confirming that Dr Brian can accommodate your timeline."
+        },
+        {
+          "question": "Who should choose Emergency Intensive?",
+          "answer": "Applicants with a real residency interview within 7 days who need last-minute private preparation. If you still have time to train properly, we recommend IV Prep Complete instead."
+        },
+        {
+          "question": "What does Emergency Intensive include?",
+          "answer": "4 total private 1:1 hours with Dr Brian, including 3 Signature Mock Interviews, personalized strategy and answer/content development, plus interview/program-specific preparation. Each mock uses personalized simulation, structured analysis, debrief and an individualized action plan."
+        },
+        {
+          "question": "Does Emergency include Interview Week?",
+          "answer": "No. Interview Week / Essentials is not included."
+        },
+        {
+          "question": "Does Emergency include IV Prep Complete?",
+          "answer": "No. It does not include Complete, its full-season group pathway or Complete-specific entitlements."
+        },
+        {
+          "question": "Does Emergency include a Match Guarantee?",
+          "answer": "No. Emergency Intensive does not include a Match Guarantee."
+        },
+        {
+          "question": "Why does Emergency cost more than Complete?",
+          "answer": "It requires concentrated, last-minute private access and Dr Brian to clear or rearrange his schedule. It is an emergency option, not our best-value pathway."
+        },
+        {
+          "question": "Should I choose Emergency or Complete?",
+          "answer": "If you still have time to train properly, choose Complete. It costs less at current campaign tuition, includes Interview Week and continues preparation throughout interview season."
+        },
+        {
+          "question": "Can I buy Emergency online right now?",
+          "answer": "Online enrollment is being arranged. Use REQUEST EMERGENCY PREP to contact Mission Residency and determine whether Dr Brian can accommodate your timeline. No appointment is promised until confirmed."
+        },
+        {
+          "question": "What is 360 Match Mentorship?",
+          "answer": "Mission Residency’s highest-touch, one-to-one mentorship model. Tuition is $5,499; it is currently SOLD OUT."
+        },
+        {
+          "question": "Can I enroll in 360 Match Mentorship?",
+          "answer": "No. 360 Match Mentorship is currently SOLD OUT and is not available for purchase."
+        }
+      ]
+    },
     "closed_360": {
       "name": "360 Match Mentorship",
-      "status": "Enrollment closed for the current cycle",
-      "body": "360 is Mission Residency's highest-touch, one-to-one mentorship model. It is shown only to explain the full program family; there is no purchase path or seat promise on this page."
+      "status": "SOLD OUT",
+      "price": 5499,
+      "body": "Mission Residency's highest-touch, one-to-one mentorship model. A premium private pathway, currently sold out."
     },
     "post_enrollment": [
       "Keep the order confirmation for your records.",

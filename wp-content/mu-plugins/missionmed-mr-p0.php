@@ -494,6 +494,7 @@ add_action('template_redirect', static function (): void {
     }
     if (is_singular('product')) {
         $pages = [
+            3575 => 'compare', // DR-267 closed 360 informational presentation only.
             3576 => 'complete',
             5504 => 'interview-week',
         ];
@@ -686,5 +687,14 @@ add_filter('the_content', static function (string $content): string {
         . '<style>.mm-mr-p0-route{background:#081a2f;color:#f8f3e7;padding:clamp(44px,7vw,84px) 24px;font-family:Inter,system-ui,sans-serif}.mm-mr-p0-route__in{max-width:1160px;margin:auto;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:42px;align-items:center}.mm-mr-p0-route__k,.mm-mr-p0-route__card-k{color:#e5bd62;text-transform:uppercase;letter-spacing:.16em;font-size:.78rem;font-weight:800}.mm-mr-p0-route h2{color:#fff;font:600 clamp(2.2rem,5vw,4.3rem)/1.02 Georgia,serif;margin:.35em 0}.mm-mr-p0-route p{font-size:1.1rem;line-height:1.65;max-width:720px}.mm-mr-p0-route__card{background:#102945;border:1px solid rgba(229,189,98,.45);padding:28px;border-radius:18px}.mm-mr-p0-route__card strong{display:block;color:#fff;font:600 1.7rem/1.15 Georgia,serif;margin:.45em 0}.mm-mr-p0-route a{display:inline-block;background:#e5bd62;color:#071626!important;text-decoration:none!important;font-weight:800;padding:14px 22px;border-radius:999px;margin-top:14px}@media(max-width:760px){.mm-mr-p0-route__in{grid-template-columns:1fr}}</style>'
         . '<div class="mm-mr-p0-route__in"><div><span class="mm-mr-p0-route__k">Mission Residency · Fall 2026</span><h2>Don&#8217;t use your real interviews as practice.</h2><p>One expert. Your whole interview season. Learn the framework, practice under pressure, and improve with physician-led feedback before programs see you.</p><a href="' . esc_url(home_url('/mission-residency/')) . '">Explore Mission Residency</a></div>'
         . '<div class="mm-mr-p0-route__card"><span class="mm-mr-p0-route__card-k">Two clear paths</span><strong>Live kickoff or whole-season support.</strong><p>Interview Week builds the live foundation. Complete includes Interview Week and continues the coaching, practice, and feedback.</p><a href="' . esc_url(home_url('/mission-residency-courses/')) . '">Compare the two paths</a></div></div></section>';
+    // DR-267 secondary directory; no product, checkout or payment mutation.
+    $route .= '<section class="mm-mr-p0-route" aria-label="Other ways we can help"><div class="mm-mr-p0-route__in"><div>'
+        . '<span class="mm-mr-p0-route__k">Other ways we can help</span>'
+        . '<h2>Interview in the next 7 days?</h2>'
+        . '<p><strong>Emergency Private Interview Intensive &middot; $3,999</strong><br>4 total private hours with Dr Brian, including 3 Signature Mock Interviews, for a real interview 7 days or less away.</p>'
+        . '<p>Does not include Interview Week, Complete, its season-long pathway or Match Guarantee. If time allows, we recommend Complete instead.</p>'
+        . '<a href="' . esc_url(home_url('/mission-residency/#emergency-prep')) . '">Explore emergency preparation</a></div>'
+        . '<div class="mm-mr-p0-route__card"><span class="mm-mr-p0-route__card-k">SOLD OUT</span>'
+        . '<strong>360 Match Mentorship &middot; $5,499</strong><p>Our highest-touch, one-to-one mentorship model. Currently unavailable for enrollment.</p></div></div></section>';
     return $route . $content;
 }, 20);
