@@ -91,7 +91,9 @@ test('production shell preserves the canon but contains no historical roster pay
   assert.match(html, /MissionAccountsRuntime\.dispatch\('identity-adjudication'/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('device-identity-adjudication'/);
   assert.match(html, /capabilities\.identity_review!==true/);
-  assert.match(html, /Which student record should MissionAccounts keep\?/);
+  assert.match(html, /Confirm these are the same student/);
+  assert.match(html, /id="identityCanonicalConfirm" disabled/);
+  assert.match(html, /Cancel · keep open/);
   assert.doesNotMatch(html, /Identity adjudication is not enabled yet/);
   assert.doesNotMatch(html, /Device identity adjudication is not enabled yet/);
   assert.match(html, /MissionAccountsRuntime\.dispatch\('student-contact'/);

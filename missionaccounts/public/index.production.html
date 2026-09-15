@@ -534,6 +534,7 @@ body[data-lens="student"] .lens button[data-lens="admin"]{opacity:.55}
 .picker button{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--sheet);text-align:left;font-size:16px}
 .picker button:hover{border-color:var(--ink2);background:#fff}
 .picker button small{color:var(--mute)}
+.picker button[aria-pressed="true"],.picker button[aria-pressed="true"]:hover{border-color:var(--amberInk);background:var(--amberSoft);box-shadow:0 0 0 2px var(--amberSoft)}
 
 /* ---------- RESPONSIVE ---------- */
 @media(max-width:1100px){.story{grid-template-columns:1fr 1fr}.story>div:nth-child(3){grid-column:1/-1;border-top:1px solid var(--line);border-right:0}.hero{grid-template-columns:1fr}.hero .rgt{border-left:0;border-top:1px solid rgba(255,255,255,.08);flex-direction:row;flex-wrap:wrap}}
@@ -1252,7 +1253,31 @@ function decide(si, k, t, amt, note){ if(document.documentElement.dataset.missio
   toast(`${e.n} · ${cyc(k).label}: ${label}.`, ()=>{ if(prev) WS.dec[si][k]=prev; else delete WS.dec[si][k]; logIt('undo',`Undo: ${e.n} · ${cyc(k).label}`); touch(); render(); }); }
 function undecide(si,k){ if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('billing-decision-reversal',{si,k}); const e=model().eff[si]; if(WS.dec[si]){ delete WS.dec[si][k]; } if(WS.ready[si]) delete WS.ready[si][k]; logIt('treat',`${e.n} · ${cyc(k).label}: decision cleared`); touch(); }
 function preserveGraceOnSplit(sis){ const m=model(); const canon=m.canonOf(sis[0]); const all=[...new Set(sis.map(x=>m.canonOf(x)).concat(sis))]; all.forEach(a=>all.forEach(b=>{ if(a!==b) copyGraceTo(a,b,'split'); })); }
-function identityCanonicalSheet(cl){ const members=[...cl.members].sort((a,b)=>{ const an=D.students[a.si]?.n||a.alias||''; const bn=D.students[b.si]?.n||b.alias||''; return an.localeCompare(bn)||String(a.si).localeCompare(String(b.si)); }); openSheet(`<div class="t">Which student record should MissionAccounts keep?</div><div class="d">The other source identities will remain preserved and auditable. Choose the record with the correct account and contact details.</div><div class="picker" id="identityCanonicalList" style="margin-top:14px">${members.map(mm=>`<button type="button" data-identity-canonical="${esc(mm.si)}"><span>${esc(D.students[mm.si]?.n||mm.alias)}</span><small>Zoom name: ${esc(mm.alias)} · ${mm.att} ${mm.att===1?'class':'classes'}</small></button>`).join('')}</div><div class="acts"><button type="button" class="btn ghost" id="identityCanonicalCancel">Cancel</button></div>`, w=>{ w.querySelectorAll('[data-identity-canonical]').forEach(button=>button.onclick=async()=>{ if(await decideIdent(cl,'same',Number(button.dataset.identityCanonical))===false)return; closeSheet(); render(); }); w.querySelector('#identityCanonicalCancel').onclick=closeSheet; }); }
+function identityCanonicalSheet(cl){
+  const members=[...cl.members].sort((a,b)=>{ const an=D.students[a.si]?.n||a.alias||''; const bn=D.students[b.si]?.n||b.alias||''; return an.localeCompare(bn)||String(a.si).localeCompare(String(b.si)); });
+  openSheet(`<div class="t">Confirm these are the same student</div><div class="d">Select the student record with the correct account and contact details. The other source identities stay preserved and auditable. Nothing changes until you confirm.</div>
+    <div class="picker" id="identityCanonicalList" style="margin-top:14px">${members.map(mm=>`<button type="button" data-identity-canonical="${esc(mm.si)}" aria-pressed="false"><span>${esc(D.students[mm.si]?.n||mm.alias)}</span><small>Zoom name: ${esc(mm.alias)} · ${mm.att} ${mm.att===1?'class':'classes'}</small></button>`).join('')}</div>
+    <div class="acts"><button type="button" class="btn confirm" id="identityCanonicalConfirm" disabled>Confirm same student</button><button type="button" class="btn ghost" id="identityCanonicalCancel">Cancel · keep open</button></div>`, w=>{
+    const options=[...w.querySelectorAll('[data-identity-canonical]')];
+    const confirm=w.querySelector('#identityCanonicalConfirm');
+    const cancel=w.querySelector('#identityCanonicalCancel');
+    let selected=null, saving=false;
+    options.forEach(button=>button.onclick=()=>{
+      if(saving)return;
+      selected=Number(button.dataset.identityCanonical);
+      options.forEach(option=>option.setAttribute('aria-pressed',String(option===button)));
+      confirm.disabled=false;
+      confirm.textContent=`Confirm same student — keep ${D.students[selected]?.n||members.find(mm=>mm.si===selected)?.alias||'selected record'}`;
+    });
+    confirm.onclick=async()=>{
+      if(selected===null||saving)return;
+      saving=true; confirm.disabled=true; cancel.disabled=true;
+      try{ if(await decideIdent(cl,'same',selected)===false)return; closeSheet(); render(); }
+      finally{ saving=false; confirm.disabled=selected===null; cancel.disabled=false; }
+    };
+    cancel.onclick=()=>{ if(!saving)closeSheet(); };
+  });
+}
 function decideIdent(cl, d, canon){ if(document.documentElement.dataset.missionaccountsBuild==='production' && d==='same' && canon==null) return identityCanonicalSheet(cl); if(document.documentElement.dataset.missionaccountsBuild==='production') return window.MissionAccountsRuntime.dispatch('identity-adjudication',{clusterRef:cl.id,decision:d,canonicalSi:d==='same'?canon:null,note:d==='same'?'Dr J confirmed these source identities belong to the same student and explicitly selected the retained record':d==='different'?'Dr J confirmed these source identities are different people':'Dr J kept this identity question open for more evidence'}); const prev=WS.ident[cl.id]; if(prev && prev.d==='same' && d!=='same') preserveGraceOnSplit(cl.members.map(mm=>mm.si)); WS.ident[cl.id]={d, canon: canon!=null?canon:cl.members[0].si, at:Date.now()};
   const names=cl.members.map(m=>m.alias).join(' / '); const txt = d==='same'?`Same student: ${names}`: d==='different'?`Different people: ${names}`:`Not sure yet: ${names}`;
   logIt('ident', txt, d==='same'? mergePreview(cl).reduce((a,x)=>a+x.delta,0):0); touch();
@@ -2233,9 +2258,38 @@ function confirmGroupSheet(k, which){ if(document.documentElement.dataset.missio
   openSheet(`<div class="t">Confirm ${items.length} ${esc(cyc(k).label)} record${items.length===1?'':'s'} at the suggested amounts?</div><div class="d">Total <b class="money">${money(total)}</b>. Each one can still be changed on the student page, and this can be undone.</div>
     <div class="picker" style="max-height:34vh">${items.slice(0,40).map(x=>`<button type="button" tabindex="-1" style="cursor:default"><span>${esc(x.e.n)} <small>· ${x.att} classes</small></span><b class="money">${money(suggestionFor(x.e,k).amount)}</b></button>`).join('')}${items.length>40?`<div class="muted">…and ${items.length-40} more</div>`:''}</div>
     <div class="acts"><button type="button" class="btn confirm" id="gGo">Confirm ${items.length} · ${money(total)}</button><button type="button" class="btn ghost" id="gNo">Cancel</button></div>`, w=>{ $('#gGo').onclick=async()=>{ const snapshot=items.map(x=>({si:x.e.i, prev: decisionFor(x.e.i,k)})); items.forEach(x=>{ WS.dec[x.e.i]=WS.dec[x.e.i]||{}; WS.dec[x.e.i][k]={t:'confirm',amt:suggestionFor(x.e,k).amount,note:'',at:Date.now(),est:suggestionFor(x.e,k).amount,basis:basisOf(x.e,k)}; }); logIt('treat',`${cyc(k).label}: confirmed ${items.length} clean records (${money(total)})`); touch(); closeSheet(); render(); toast(`Confirmed ${items.length} ${cyc(k).label} records · ${money(total)}.`, ()=>{ snapshot.forEach(s=>{ if(s.prev) WS.dec[s.si][k]=s.prev; else delete WS.dec[s.si][k]; }); logIt('undo',`Undo: ${cyc(k).label} batch confirmation`); touch(); render(); }); }; $('#gNo').onclick=closeSheet; }); }
-function matchSheet(dv){ const m=model(); const people=m.eff.filter(e=>!e.absorbed&&!e.notStudent&&e.k!=='device').sort((a,b)=>a.n.localeCompare(b.n));
-  openSheet(`<div class="t">Who is “${esc(dv.name)}”?</div><div class="d">${dv.att} ${dv.att===1?'class':'classes'} in ${dv.cycles.map(k=>cyc(k).label.replace(' Cycle','')).join(', ')}. Pick the student this device belongs to; their attendance is combined and the total updates.</div>
-    <label class="bigSearch" style="margin-top:14px"><input id="mSearch" placeholder="Type a name"></label><div class="picker" id="mList"></div><div class="acts"><button type="button" class="btn ghost" id="mNo">Cancel</button></div>`, w=>{ const draw=q=>{ const n=(q||'').toLowerCase(); const list=people.filter(p=>!n||p.n.toLowerCase().includes(n)).slice(0,30); $('#mList').innerHTML=list.map(p=>{ const pv=devicePreview(dv,p.i); const delta=pv.reduce((a,x)=>a+x.delta,0); return `<button type="button" data-pick="${p.i}"><span>${esc(p.n)} <small>· ${CYK.filter(k=>p.c[k]).map(k=>cyc(k).label.replace(' Cycle','')+' '+p.c[k].att).join(' · ')}</small></span><small>${delta? (delta<0?'−':'+')+money(Math.abs(delta)) : 'no change'}</small></button>`; }).join(''); $('#mList').querySelectorAll('[data-pick]').forEach(b=>b.onclick=async()=>{ if(await decideDevice(dv,'match',+b.dataset.pick)===false)return; closeSheet(); render(); }); }; draw(''); $('#mSearch').oninput=e=>draw(e.target.value); $('#mSearch').focus(); $('#mNo').onclick=closeSheet; }); }
+function matchSheet(dv){
+  const m=model(); const people=m.eff.filter(e=>!e.absorbed&&!e.notStudent&&e.k!=='device').sort((a,b)=>a.n.localeCompare(b.n));
+  openSheet(`<div class="t">Who is “${esc(dv.name)}”?</div><div class="d">${dv.att} ${dv.att===1?'class':'classes'} in ${dv.cycles.map(k=>cyc(k).label.replace(' Cycle','')).join(', ')}. Select the real student record, then confirm the match. Attendance stays held until you confirm.</div>
+    <label class="bigSearch" style="margin-top:14px"><input id="mSearch" placeholder="Type a name"></label><div class="picker" id="mList"></div>
+    <div class="muted" style="margin-top:10px">Student not listed? Cancel and leave this attendee on hold. A missing student needs a verified Matrix account and ExamPrep link.</div>
+    <div class="acts"><button type="button" class="btn confirm" id="mConfirm" disabled>Confirm attendee match</button><button type="button" class="btn ghost" id="mNo">Cancel · keep on hold</button></div>`, w=>{
+    const search=w.querySelector('#mSearch'), list=w.querySelector('#mList'), confirm=w.querySelector('#mConfirm'), cancel=w.querySelector('#mNo');
+    let selected=null, saving=false;
+    const draw=q=>{
+      selected=null; confirm.disabled=true; confirm.textContent='Confirm attendee match';
+      const n=(q||'').toLowerCase();
+      const picks=people.filter(p=>!n||p.n.toLowerCase().includes(n)).slice(0,30);
+      list.innerHTML=picks.map(p=>{ const pv=devicePreview(dv,p.i); const delta=pv.reduce((a,x)=>a+x.delta,0); return `<button type="button" data-pick="${p.i}" aria-pressed="false"><span>${esc(p.n)} <small>· ${CYK.filter(k=>p.c[k]).map(k=>cyc(k).label.replace(' Cycle','')+' '+p.c[k].att).join(' · ')}</small></span><small>${delta? (delta<0?'−':'+')+money(Math.abs(delta)) : 'no change'}</small></button>`; }).join('');
+      const buttons=[...list.querySelectorAll('[data-pick]')];
+      buttons.forEach(button=>button.onclick=()=>{
+        if(saving)return;
+        selected=Number(button.dataset.pick);
+        buttons.forEach(option=>option.setAttribute('aria-pressed',String(option===button)));
+        confirm.disabled=false;
+        confirm.textContent=`Confirm match to ${people.find(p=>p.i===selected)?.n||'selected student'}`;
+      });
+    };
+    draw(''); search.oninput=e=>{ if(!saving)draw(e.target.value); }; search.focus();
+    confirm.onclick=async()=>{
+      if(selected===null||saving)return;
+      saving=true; confirm.disabled=true; cancel.disabled=true;
+      try{ if(await decideDevice(dv,'match',selected)===false)return; closeSheet(); render(); }
+      finally{ saving=false; confirm.disabled=selected===null; cancel.disabled=false; }
+    };
+    cancel.onclick=()=>{ if(!saving)closeSheet(); };
+  });
+}
 function pickStudentSheet(){ const m=model(); const people=m.eff.filter(e=>!e.absorbed&&!e.notStudent&&e.k!=='device').sort((a,b)=>a.n.localeCompare(b.n));
   openSheet(`<div class="t">Preview the student view as…</div><div class="d">Administrative preview only. A student signs in and only ever sees their own authorized record.</div><label class="bigSearch" style="margin-top:14px"><input id="pSearch" placeholder="Type a name"></label><div class="picker" id="pList"></div><div class="acts"><button type="button" class="btn ghost" id="pNo">Cancel</button></div>`, w=>{ const draw=q=>{ const n=(q||'').toLowerCase(); const list=people.filter(p=>!n||p.n.toLowerCase().includes(n)).slice(0,30); $('#pList').innerHTML=list.map(p=>`<button type="button" data-pick="${p.i}"><span>${esc(p.n)}</span><small>${CYK.filter(k=>p.c[k]).map(k=>cyc(k).label.replace(' Cycle','')+' '+p.c[k].att).join(' · ')}</small></button>`).join(''); $('#pList').querySelectorAll('[data-pick]').forEach(b=>b.onclick=async()=>{ WS.meStudent=+b.dataset.pick; save(); closeSheet(); go('#/me'); render(); }); }; draw(''); $('#pSearch').oninput=e=>draw(e.target.value); $('#pSearch').focus(); $('#pNo').onclick=closeSheet; }); }
 function reportSheet(){ const e=meStudent(); openSheet(`<div class="t">Report a problem</div><div class="d">Tell Dr J what looks wrong. This goes to her private review list.</div><div class="otherForm" style="margin-top:14px"><div class="field"><label>What happened?</label><textarea id="rTxt" rows="4" placeholder="e.g. I attended the Step 2/3 class on Aug 21 but it shows as missed."></textarea></div></div><div class="acts"><button type="button" class="btn confirm" id="rGo">Send to Dr J</button><button type="button" class="btn ghost" id="rNo">Cancel</button></div>`, w=>{ $('#rGo').onclick=async()=>{ const t=$('#rTxt').value.trim(); if(!t){ $('#rTxt').focus(); return; } if(document.documentElement.dataset.missionaccountsBuild==='production'){ const saved=await window.MissionAccountsRuntime.dispatch('attendance-issue-report',{issueText:t}); if(saved===false)return; closeSheet(); render(); toast('Sent to Dr J for review.'); return; } logIt('report',`${e.n} reported: ${t}`); touch(); closeSheet(); toast('Sent to Dr J. (Prototype: recorded in working history.)'); }; $('#rNo').onclick=closeSheet; }); }
