@@ -1,3 +1,111 @@
+# B Immersive — final deployment and acceptance report
+
+**MISSION RESIDENCY B IMMERSIVE FALL LANDING PAGE = BLOCKED BY UNEXECUTED LEAD SUBMISSION/DELIVERY ACCEPTANCE — APPROVED QA IDENTITY NOT PROVIDED.**
+
+B **is deployed and live**. This status is an acceptance hold, not an undeployed-site claim. The independent verifier approves the rendered presentation and non-financial enrollment paths conditionally. The remaining evidence gap must not be described as PASS.
+
+Date: September 15, 2026. Final production source: `16f633d01e701f54fd0e865639fac76a52c8b71e`.
+
+## What is live
+
+- [Mission Residency B landing](https://missionmedinstitute.com/mission-residency/): the locked cinematic design, paired transparent logos, shared physician-led subtitle, approved photo-based Dr Brian composite, motion, teacher/class proof, inclusive audience, comparison, schedule, FAQs, Matrix overview and career-long value.
+- Interview Week remains **$500**, product/variation **5504/5867**, LearnDash **3646**.
+- Complete remains **$3,099 early card PIF through September23**, with **$3,499 standard** anchor, product/variation **3576/5865**, LearnDash **5227**. Interview Week is included, never another$500.
+- Emergency remains **$3,999**, real interview within seven days, **four TOTAL private hours INCLUDING three Signature Mocks**, evaluation/debrief/action plan and personalized preparation. No Interview Week, Complete, full-season pathway or Guarantee. [Request-only contact](https://missionmedinstitute.com/contact/?inquiry=emergency-interview-prep); no payment activation.
+- 360 remains **$5,499 SOLD OUT**, without a purchase CTA.
+- [Complete Match Guarantee terms](https://missionmedinstitute.com/terms-of-agreement/#complete-match-guarantee) are versioned September15 and match DR-269.
+- Complete cart no longer recommends purchasing an additional$500 Interview Week. Existing cart safety guards remain.
+
+Optional Zelle/manual, installments, Dr J coupon and upgrade credit remain closed. No unsupported outcome rate,142-alumni claim, exact evening time, mock count, capacity or replay/refund promise was added.
+
+## Canonical repair, authority and BOOT
+
+Repair commit: `184c0f18efa58dcafb2739b50450a5da428ee38b`.
+
+Exactly four canonical files changed: CURRENT.md, MissionAccounts passport, DR-268 and missions.json. CURRENT82→80 lines by removing two blank lines; six prohibited en dashes became hyphens. Semantic authority remained intact. JSON/schema/path/diff/lint validation passed. Normal commit, push and exact remote readback completed. No validator was weakened.
+
+B authority: **DR-269**, canonical commit `92bffa3b9abef69180103e937c9249367a513acf`. It ratifies the B-only visual exception, next-cycle Guarantee and weekdays while preserving current commerce and Emergency/360 boundaries.
+
+Universal BOOT and exact **MR-B-IMMERSIVE-FALL-2026** BOOT passed again immediately before deployment, against canonical HQ tip `e71b3902f40e82e4d27813cc54aa836bc13d2c35`. OS remote tip remains92bffa3b. REGISTRY and mutation PATH leases were released. Existing nonfatal OS warnings were not broadened into cleanup.
+
+## Dirty-work preservation
+
+The shared root was not repaired, reset, stashed, cleaned or edited during B integration.
+
+Final comparison against the original protected inventory: **525 unrelated paths, zero byte changes**. Shared index and staged-diff hashes unchanged. Shared branch remains `hotfix/Y1-ARENA-3026-branded-login`, HEAD `4d1a8f5950668eed35a619f9a17aca7553c8308c`. The two earlier canonical prerequisite restorations remain, yielding527 current detailed dirty paths.
+
+See [sanitized preservation evidence](evidence/shared-preservation.json). Unrelated filenames are not republished.
+
+## Recovery and deployment custody
+
+MyKinsta MissionMed Institute **Live**: daily recovery point **Sep15,2026,3:50AM**,14-day retention, Restore to available. No note/per-row expiry/timezone was established. No backup was created, deleted, renamed or restored.
+
+Exact private preimages:
+`/www/theresidencyacademy_209/private-backups/mr-b-immersive-20260915232738Z/preimage/`
+
+Captured pre-B PHP, public landing HTML and terms HTML. Initial B preimages also protect the bounded correction. All29 staged files matched source before activation. Final29 origin hashes match the ledger.
+
+Only28 new B files and the existing PHP presentation seam changed. The old renderer/config remain the operational base for other curated routes. There was no full donor overwrite or database-object change. Selective native cache purges returned HTTP200/error0; no global or object-cache flush.
+
+See [rollback ledger](ROLLBACK_LEDGER.md) and [source hashes](evidence/source-ledger.json). Rollback is prepared, not drill-tested.
+
+## Production QA and independent acceptance
+
+Logged-out **1440 desktop,1024 tablet,390 mobile** passed scoped rendered checks. Homepage, both products, comparison,360,contact,terms and refund routes returned200 with no horizontal overflow. No B JavaScript errors or banned/internal customer copy found.
+
+Verified interactions: comparison, curriculum, FAQs, weekday selector, quote controls, native dialogs/Escape/focus return, reduced-motion static fallback, working authentic Match media and actual YouTube playback.
+
+Fresh B→checkout paths show one correct product/variation at$500 or$3,099, secure Stripe/card input and policy links. WhatsApp UTMs survive. Independent mixed-cart and mismatched-variation guards pass.
+
+One bounded repair batch fixed Complete-card contrast and the redundant Interview Week cross-sell. Both independently passed after final stylesheet load.
+
+**LIVE STRIPE FINANCIAL ACCEPTANCE = WAIVED BY FOUNDER / NOT EXECUTED.**
+
+No payment, order, account, entitlement or refund lifecycle was executed. This release does not falsely certify those post-checkout actions.
+
+Independent result: **CONDITIONAL ACCEPTANCE**. See [full independent evidence](INDEPENDENT_ACCEPTANCE.md), [QA report](PRODUCTION_QA.md) and [26-criterion matrix](MASTER_PROMPT_ACCEPTANCE_MATRIX.md).
+
+## Analytics, claims, quotes and motion
+
+Existing Google tag/GTM/GA integration is preserved; no parallel analytics stack. Independent transport observed HTTP204 for page/B, schedule, scroll, Emergency and360 events. Five UTM keys carry to checkout/contact. Event payloads add no contact details.
+
+Eight exact published quote/name/video records match current configuration. Raw transcript timestamps and broader paid-creative clearance are not newly certified.
+
+Guarantee: at least80% participation in formally scheduled assigned-group sessions; formally approved/excused absences do not count against attendance; eligible non-Match student enters an equivalent group in the **NEXT Match Cycle** at no additional training tuition for that group. No extra hurdles or unlimited-year/residency-placement promise.
+
+Weekdays: A360Mondays; B/CWednesdays; D/JFridays. Current Interview Week dates/weekend times retained, no invented evening clock times or November date.
+
+Hero uses the approved intact photo-composite fallback. Independent subject extraction remains unachieved and is not claimed. Matrix/On-Call content is a qualified overview, not blanket entitlement or a new tool deployment. No physical-device FPS, complete WCAG or Core Web Vitals certification is claimed.
+
+## Remaining blocker and risks
+
+**Sole all-26 acceptance blocker:** the real contact form loads and is usable, but a submission, capture, notification/delivery and fulfillment check was not executed because an approved QA identity/recipient was not provided. The asynchronous request remains unanswered. There is no fabricated success screen or delivery assertion.
+
+Preserved baseline friction: checkout still exposes password creation, address/postcode and physical-shipping wording. These were observed, not fixed or hidden in the report; changing account/product flags was outside this presentation mission.
+
+Other disclosed residuals: no live financial lifecycle in this release; hero fallback; raw quote timestamps unknown; global analytics/reporting and physical-device performance not fully certified. GitHub reported pre-existing default-branch dependency alerts; they were not expanded into this mission.
+
+## Exact next step — then stop
+
+Supply an approved MissionMed QA name/email/recipient. Continue from this checkpoint with **one clearly labeled test through the existing contact form**, verify capture and notification/delivery, and request the independent final readback for criteria18/25. Do not request or perform a live Stripe charge.
+
+Do not restart discovery, repeat the Emergency bridge, reopen hero extraction or begin Emergency WooCommerce activation.
+
+## Repository and state delta
+
+- Worktree: `/Users/brianb/MissionMed_worktrees/mr-web-0912-interview-week`
+- Branch: `codex/mr-web-0912-interview-week`
+- Production source: `16f633d01e701f54fd0e865639fac76a52c8b71e`
+Source push/readback: exact remote match. Evidence is filed in a subsequent documentation-only commit; final HEAD/dirty result is supplied in the completion message.
+
+Seven Woo objects/full meta hashes were identical before/after. No changes to products, prices, inventory, mappings, acceptance bindings, rails, credits, student accounts, orders, payments or entitlements. Test carts and QA analytics events were created by non-financial browser checks.
+
+[Full state delta](STATE_DELTA.md) · [object comparison](evidence/commerce-before-after.json)
+
+---
+
+## Preserved prior checkpoint report — historical, superseded above
+
 # B Immersive final resume - blocked preflight report
 
 Date: 2026-09-15. Risk: HIGH. This is a bounded stop, not a deployment or acceptance claim.

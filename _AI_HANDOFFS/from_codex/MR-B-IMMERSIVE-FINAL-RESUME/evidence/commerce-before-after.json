@@ -1,0 +1,163 @@
+{
+  "before": [
+    {
+      "id": 5504,
+      "name": "IV Prep Essentials: Interview Week",
+      "parent": 0,
+      "price": "500",
+      "stock": "instock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "50cff595f71f335f89298b49e55b9dd8e8af574783edefe32caaa8b82361b5b6"
+    },
+    {
+      "id": 5867,
+      "name": "IV Prep Essentials: Interview Week - Session D: Sept 26th, 2026",
+      "parent": 5504,
+      "price": "500",
+      "stock": "instock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "c2a44dee1e2df4a171b5f6cf63723a677a245b7ffc7840df4a58837288a5ff68"
+    },
+    {
+      "id": 3576,
+      "name": "IV Prep Complete",
+      "parent": 0,
+      "price": "3099",
+      "stock": "instock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "52e1edc5098b342d38b792fb548969156e28e28414dfa79a37dcf7c31b97b149"
+    },
+    {
+      "id": 5865,
+      "name": "IV Prep Complete - Session D: Sept 26th, 2026",
+      "parent": 3576,
+      "price": "3099",
+      "stock": "instock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "fbcf792ec7b1ad659c93dd5a964d739cb2c0b93f4e0dd0640432f768c5c61803"
+    },
+    {
+      "id": 3575,
+      "name": "360 Match Mentorship",
+      "parent": 0,
+      "price": "5499",
+      "stock": "outofstock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "1fce10d61c5bbacffe4b36d218818394a4557fe9931fbf8923d8f0b44fe45d5c"
+    },
+    {
+      "id": 5862,
+      "name": "360 Match Mentorship - Session A: June 6th, 2026",
+      "parent": 3575,
+      "price": "5499",
+      "stock": "outofstock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "61533df1308458039d4d473ea579fd2d58c6b9570660c9c18c81781b3d455b2d"
+    },
+    {
+      "id": 5863,
+      "name": "360 Match Mentorship - Session B: July 4, 2026",
+      "parent": 3575,
+      "price": "5499",
+      "stock": "outofstock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "bf2db18ddb3e4fa2366fc9a16bc252755ec3c9cf53cc96fe551dbbab66054a6d"
+    }
+  ],
+  "after": [
+    {
+      "id": 5504,
+      "name": "IV Prep Essentials: Interview Week",
+      "parent": 0,
+      "price": "500",
+      "stock": "instock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "50cff595f71f335f89298b49e55b9dd8e8af574783edefe32caaa8b82361b5b6"
+    },
+    {
+      "id": 5867,
+      "name": "IV Prep Essentials: Interview Week - Session D: Sept 26th, 2026",
+      "parent": 5504,
+      "price": "500",
+      "stock": "instock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "c2a44dee1e2df4a171b5f6cf63723a677a245b7ffc7840df4a58837288a5ff68"
+    },
+    {
+      "id": 3576,
+      "name": "IV Prep Complete",
+      "parent": 0,
+      "price": "3099",
+      "stock": "instock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "52e1edc5098b342d38b792fb548969156e28e28414dfa79a37dcf7c31b97b149"
+    },
+    {
+      "id": 5865,
+      "name": "IV Prep Complete - Session D: Sept 26th, 2026",
+      "parent": 3576,
+      "price": "3099",
+      "stock": "instock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "fbcf792ec7b1ad659c93dd5a964d739cb2c0b93f4e0dd0640432f768c5c61803"
+    },
+    {
+      "id": 3575,
+      "name": "360 Match Mentorship",
+      "parent": 0,
+      "price": "5499",
+      "stock": "outofstock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "1fce10d61c5bbacffe4b36d218818394a4557fe9931fbf8923d8f0b44fe45d5c"
+    },
+    {
+      "id": 5862,
+      "name": "360 Match Mentorship - Session A: June 6th, 2026",
+      "parent": 3575,
+      "price": "5499",
+      "stock": "outofstock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "61533df1308458039d4d473ea579fd2d58c6b9570660c9c18c81781b3d455b2d"
+    },
+    {
+      "id": 5863,
+      "name": "360 Match Mentorship - Session B: July 4, 2026",
+      "parent": 3575,
+      "price": "5499",
+      "stock": "outofstock",
+      "status": "publish",
+      "purchasable": true,
+      "virtual": false,
+      "meta_sha256": "bf2db18ddb3e4fa2366fc9a16bc252755ec3c9cf53cc96fe551dbbab66054a6d"
+    }
+  ],
+  "identical": true,
+  "finalSource": "16f633d01e701f54fd0e865639fac76a52c8b71e",
+  "financial": "WAIVED BY FOUNDER / NOT EXECUTED"
+}

@@ -1,3 +1,11 @@
+# Current checkpoint — B deployed; lead acceptance remains
+
+Final production source `16f633d01e701f54fd0e865639fac76a52c8b71e`. DR-269, canonical repair, BOOT, recovery, source integration, deployment, responsive/non-financial QA and fresh independent review are complete. Independent acceptance is CONDITIONAL only because lead submission/delivery was not tested without an approved QA identity. No further discovery or production redesign is required.
+
+Resume only with an approved MissionMed QA identity/recipient: one existing-form submission, capture/notification/delivery verification, independent final acceptance. No payment test or Emergency commerce activation. See B_FINAL_PRODUCTION_REPORT.md and STATE_DELTA.md.
+
+## Historical task packet — superseded checkpoint states retained
+
 # B final resume - scoped task packet
 
 State: DR-269 authority filed; blocked awaiting authenticated MyKinsta recovery-point verification. This packet is evidence; DR-269 is controlling authority.

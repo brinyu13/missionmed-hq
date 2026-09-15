@@ -1,0 +1,376 @@
+{
+  "phase": "Consolidated builder QA before bounded contrast/cross-sell correction",
+  "source": "d9bba3d6c4fa51bd3b13abaaa41365a94840ee10",
+  "finalCorrectionSource": "16f633d01e701f54fd0e865639fac76a52c8b71e",
+  "finalRecheck": "See INDEPENDENT_ACCEPTANCE.md and PRODUCTION_QA.md",
+  "at": "2026-09-15T23:36:24.820Z",
+  "viewports": [
+    {
+      "width": 390,
+      "status": 200,
+      "errors": [],
+      "analytics": [
+        {
+          "status": 204,
+          "event": "page_view"
+        },
+        {
+          "status": 204,
+          "event": null
+        },
+        {
+          "status": 204,
+          "event": null
+        }
+      ],
+      "screenshots": [
+        "/tmp/mr-b-production-390-top.png",
+        "/tmp/mr-b-production-390-compare.png",
+        "/tmp/mr-b-production-390-guarantee.png",
+        "/tmp/mr-b-production-390-other-ways.png",
+        "/tmp/mr-b-production-390-matrix.png"
+      ],
+      "overflow": {
+        "viewport": 390,
+        "document": 390
+      },
+      "copy": "OTHER WAYS WE CAN HELP\n\nFor a different\nkind of need.\n\nInterview Week and Complete remain the two primary training paths. These specialized options serve different circumstances.\n\nEMERGENCY / PRIVATE\n\nEmergency Private\nInterview Intensive\n\n$3,999\n\nFor a real residency interview 7 days or less away.\n\n4 total private emergency hours with Dr. Brian, including 3 Signature Mock Interviews\nStructured evaluation, debrief and an individualized action plan\nPersonalized strategy, content development and interview/program-specific preparation\n\nIt does not include Interview Week / Essentials, IV Prep Complete, Complete’s full-season pathway or Complete Match Guarantee.\n\nIs Emergency Intensive right for me?\n+\n\nIf your interview is within 7 days, contact us now so we can determine whether Dr. Brian can accommodate your timeline.\n\nRequest Emergency Prep ↗\n\nFLAGSHIP / MENTORSHIP\n\n360 Match Mentorship\n\n$5,499\n\nSOLD OUT\n\nOur flagship mentorship tier. Enrollment is closed.\n\nFor current interview-season training, explore Interview Week or IV Prep Complete above.",
+      "policy": "IV PREP COMPLETE / THE NEXT CYCLE\n\nA commitment\nto keep training.\nComplete Match Guarantee\n\nAttend and participate in at least 80% of formally scheduled sessions for your assigned group. Absences formally excused or approved by Dr. Brian do not count against attendance. If you are eligible and do not Match, you enter an equivalent IV Prep Complete group in the NEXT Match Cycle at no additional training tuition for that equivalent group.\n\nThis is next-cycle equivalent-group training, not guaranteed residency placement, a refund, or unlimited years. It does not cover Interview Week alone or Emergency Intensive.\n\nRead the Complete Match Guarantee terms ↗",
+      "banned": false,
+      "emergencyUrl": "https://missionmedinstitute.com/contact/?inquiry=emergency-interview-prep&utm_source=whatsapp&utm_medium=social&utm_campaign=mr-b-acceptance",
+      "soldOutActions": 0,
+      "scheduleA360": "Session A360 · Mondays",
+      "scheduleB": "Session B · Wednesdays",
+      "scheduleC": "Session C · Wednesdays",
+      "scheduleD": "Session D · Fridays",
+      "scheduleJ": "Session J · Fridays",
+      "upsell": "×\n\nBEFORE YOU CHOOSE\n\nInterview Week is already\ninside Complete.\n\nSame foundation. A different level of support.\n\nINTERVIEW WEEK\n$500\n\nTrain first. Decide later.\n\nOrientation + five live training days.\n\nIV PREP COMPLETE\n$3,099\n\nEarly card tuition through Sept 23.\n\nInterview Week included + continued interview-season support.\n\nSave $400 versus standard $3,499 tuition.\nSee IV Prep Complete ↗\nContinue with Interview Week · $500 ↗\n\nChoose one program. Complete includes Interview Week; there is no separate $500 charge.",
+      "choice": "complete",
+      "curriculum": 6,
+      "focusRestored": true,
+      "video": {
+        "time": 1.164913,
+        "duration": 97.290998,
+        "readyState": 4,
+        "error": null
+      },
+      "videoUnloaded": true,
+      "lead": {
+        "form": true,
+        "bodyChildren": 1,
+        "text": "Contact Us\nName *\nFirst\nLast\nEmail *\nSubject *\nMessage *\nSubmit"
+      },
+      "motionChanged": true,
+      "reduced": {
+        "class": true,
+        "transform": "none",
+        "chapters": true
+      },
+      "events": [
+        "mr_b_page_view",
+        "mr_b_finalization_view",
+        "gtm.dom",
+        "gtm.load",
+        "mr_scroll_depth",
+        "emergency_offer_view",
+        "mr_schedule_open",
+        "mr_complete_schedule_open",
+        "mr_schedule_session_select",
+        "mr_cta_click",
+        "mr_upsell_shown",
+        "mr_upsell_accept",
+        "mr_comparison_toggle",
+        "mr_curriculum_open",
+        "mr_testimonial_open",
+        "mr_video_open",
+        "emergency_offer_expand",
+        "mr_no_memorization_engagement",
+        "mr_matrix_open",
+        "mr_analytics_section_open",
+        "mr_faq_open",
+        "mr_quote_interaction",
+        "mr_lead_capture_open",
+        "mr_lead_form_ready"
+      ],
+      "resourceBytes": 4390451
+    }
+  ],
+  "routes": [
+    {
+      "route": "/",
+      "status": 200,
+      "title": "Home - MissionMed Institute",
+      "overflow": false,
+      "banned": false
+    },
+    {
+      "route": "/mission-residency/",
+      "status": 200,
+      "title": "Mission Residency | Interview Week & IV Prep Complete",
+      "overflow": false,
+      "banned": false
+    },
+    {
+      "route": "/product/iv-prep-masterclass/",
+      "status": 200,
+      "title": "Mission Residency — MissionMed Institute",
+      "overflow": false,
+      "banned": false
+    },
+    {
+      "route": "/product/match-prep-pro/",
+      "status": 200,
+      "title": "Mission Residency — MissionMed Institute",
+      "overflow": false,
+      "banned": false
+    },
+    {
+      "route": "/mission-residency-courses/",
+      "status": 200,
+      "title": "Mission Residency — MissionMed Institute",
+      "overflow": false,
+      "banned": false
+    },
+    {
+      "route": "/product/360-match-mentorship/",
+      "status": 200,
+      "title": "Mission Residency — MissionMed Institute",
+      "overflow": false,
+      "banned": false
+    },
+    {
+      "route": "/contact/?inquiry=emergency-interview-prep",
+      "status": 200,
+      "title": "Contact - MissionMed Institute",
+      "overflow": false,
+      "banned": false
+    },
+    {
+      "route": "/terms-of-agreement/",
+      "status": 200,
+      "title": "Terms of Agreement - MissionMed Institute",
+      "overflow": false,
+      "banned": false
+    },
+    {
+      "route": "/refund-cancellation-policy/",
+      "status": 200,
+      "title": "Refund & Cancellation Policy - MissionMed Institute",
+      "overflow": false,
+      "banned": false
+    }
+  ],
+  "commerce": [
+    {
+      "offer": "iw",
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=5504&variation_id=5867&attribute_pa_start-date=session-d-start-date&utm_source=whatsapp&utm_medium=social&utm_campaign=mr-b-acceptance",
+      "summary": "Product\tSubtotal\n\nIV Prep Essentials: Interview Week - Session D: Sept 26th, 2026 \n× 1\n$500.00\nSubtotal\t$500.00\nShipment\t\nFree shipping\n\nTotal\t$500.00\nCredit / Debit Card \n\n Save payment information to my account for future purchases.\n\nYour personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.\n\n I have read and agree to the Terms of Agreement and Refund & Cancellation Policy. *\n\nTerms of Agreement · Refund & Cancellation Policy · Privacy Policy\n\nPLACE ORDER",
+      "stripe": 1,
+      "frames": [
+        {
+          "title": "Secure payment input frame",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        }
+      ],
+      "fields": [
+        {
+          "name": "billing_first_name",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_last_name",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_address_1",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_address_2",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_city",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_postcode",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_phone",
+          "type": "tel",
+          "required": false
+        },
+        {
+          "name": "billing_email",
+          "type": "email",
+          "required": false
+        },
+        {
+          "name": "account_password",
+          "type": "password",
+          "required": false
+        },
+        {
+          "name": "ship_to_different_address",
+          "type": "checkbox",
+          "required": false
+        },
+        {
+          "name": "",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "wc-stripe-new-payment-method",
+          "type": "checkbox",
+          "required": false
+        },
+        {
+          "name": "terms",
+          "type": "checkbox",
+          "required": false
+        }
+      ],
+      "overflow": false,
+      "cart": "MY MATRIX →\nLOG IN\nSkip to content\nIV Prep Essentials: Interview Week - Session D: Sept 26th, 2026\n$500.00\nIV Prep Essentials: Interview Week - Session D: Sept 26th, 2026 quantity\n$500.00\nAPPLY COUPON\nUPDATE CART\nCart totals\n$500.00\nFree shipping\n\nShipping to NJ.\n\nChange address\n$500.00\nPROCEED TO CHECKOUT\n\nHelping IMGs, DOs, and reapplicants match into U.S. residency programs with strategy, mentorship, and proven systems.\n\nPROGRAMS\nMission:Residency\nExamPrep\nUSCE Clinical Experience\nArena\nSTUDENT RESOURCES\nMy Account\nContact Us\nPOLICIES\nTerms of Agreement\nRefund Policy\nPrivacy Policy\nYouTube\nFacebook\n© 2026 MissionMed Institute. All rights reserved. Mission Global Group LLC."
+    },
+    {
+      "offer": "complete",
+      "url": "https://missionmedinstitute.com/checkout/?add-to-cart=3576&variation_id=5865&attribute_pa_start-date=session-d-start-date&utm_source=whatsapp&utm_medium=social&utm_campaign=mr-b-acceptance",
+      "summary": "Product\tSubtotal\n\nIV Prep Complete - Session D: Sept 26th, 2026 \n× 1\n$3,099.00\nSubtotal\t$3,099.00\nShipment\t\nFree shipping\n\nTotal\t$3,099.00\nCredit / Debit Card \n\n Save payment information to my account for future purchases.\n\nYour personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.\n\n I have read and agree to the Terms of Agreement and Refund & Cancellation Policy. *\n\nTerms of Agreement · Refund & Cancellation Policy · Privacy Policy\n\nPLACE ORDER",
+      "stripe": 1,
+      "frames": [
+        {
+          "title": "Secure payment input frame",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        },
+        {
+          "title": "",
+          "source": "js.stripe.com"
+        }
+      ],
+      "fields": [
+        {
+          "name": "billing_first_name",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_last_name",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_address_1",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_address_2",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_city",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_postcode",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "billing_phone",
+          "type": "tel",
+          "required": false
+        },
+        {
+          "name": "billing_email",
+          "type": "email",
+          "required": false
+        },
+        {
+          "name": "account_password",
+          "type": "password",
+          "required": false
+        },
+        {
+          "name": "ship_to_different_address",
+          "type": "checkbox",
+          "required": false
+        },
+        {
+          "name": "",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "wc-stripe-new-payment-method",
+          "type": "checkbox",
+          "required": false
+        },
+        {
+          "name": "terms",
+          "type": "checkbox",
+          "required": false
+        }
+      ],
+      "overflow": false,
+      "cart": "MY MATRIX →\nLOG IN\nSkip to content\nIV Prep Complete - Session D: Sept 26th, 2026\n$3,099.00\nIV Prep Complete - Session D: Sept 26th, 2026 quantity\n$3,099.00\nAPPLY COUPON\nUPDATE CART\nYou may be interested in…\nMission Residency\nIV Prep Essentials: Interview Week\n$500.00\nSelect options\nThis product has multiple variants. The options may be chosen on the product page\nCart totals\n$3,099.00\nFree shipping\n\nShipping to NJ.\n\nChange address\n$3,099.00\nPROCEED TO CHECKOUT\n\nHelping IMGs, DOs, and reapplicants match into U.S. residency programs with strategy, mentorship, and proven systems.\n\nPROGRAMS\nMission:Residency\nExamPrep\nUSCE Clinical Experience\nArena\nSTUDENT RESOURCES\nMy Account\nContact Us\nPOLICIES\nTerms of Agreement\nRefund Policy\nPrivacy Policy\nYouTube\nFacebook\n© 2026 MissionMed Institute. All rights reserved. Mission Global Group LLC."
+    }
+  ],
+  "financial": "WAIVED BY FOUNDER / NOT EXECUTED"
+}
