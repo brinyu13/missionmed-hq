@@ -172,15 +172,17 @@ test('combined rename/contact follows immutable student identity after alphabeti
  assert.deepEqual(calls,[['name','original'],['contact','original','new@example.invalid','5551234567']]);
 });
 
+function identityFixture(){ const D={students:[{id:'record-aaa',n:'Same Student'},{id:'record-bbb',n:'Same Student'}]}; const contactOf=si=>({0:{email:'one@example.invalid'},1:{email:'two@example.invalid'}})[si]; const identityAccountEvidence=vm.runInNewContext('('+fn('identityAccountEvidence')+')',{D,contactOf,esc:String}); return {D,contactOf,identityAccountEvidence}; }
+
 function identityChoiceHarness(accepted){
  const calls=[];
  const options=[0,1].map(si=>({dataset:{identityCanonical:String(si)},pressed:false,setAttribute(name,value){if(name==='aria-pressed')this.pressed=value==='true';}}));
  const confirm={disabled:true,textContent:'Confirm same student'},cancel={disabled:false};
  const w={querySelectorAll:selector=>selector==='[data-identity-canonical]'?options:[],querySelector:selector=>({'#identityCanonicalConfirm':confirm,'#identityCanonicalCancel':cancel})[selector]};
  let markup='';
- const cl={id:'case-1',members:[{si:0,alias:'Alias A',att:1},{si:1,alias:'Alias B',att:2}]};
+ const cl={id:'case-1',members:[{si:0,alias:'Same Zoom Name',att:1},{si:1,alias:'Same Zoom Name',att:1}]};
  vm.runInNewContext(fn('identityCanonicalSheet')+';identityCanonicalSheet(cl)',{
-  cl,D:{students:[{n:'Student A'},{n:'Student B'}]},esc:String,
+  cl,...identityFixture(),esc:String,
   openSheet:(html,bind)=>{markup=html;bind(w);},
   decideIdent:async(_cl,decision,si)=>{calls.push(['decision',decision,si]);return accepted;},
   closeSheet:()=>calls.push(['close']),render:()=>calls.push(['render']),
@@ -191,6 +193,9 @@ function identityChoiceHarness(accepted){
 test('same-student review selects a named canonical record before a separate confirmation',async()=>{
  const denied=identityChoiceHarness(false);
  assert.match(denied.markup,/Confirm these are the same student/);
+ assert.match(denied.markup,/one@example\.invalid.*record-aaa/s);
+ assert.match(denied.markup,/two@example\.invalid.*record-bbb/s);
+ assert.match(denied.markup,/Same Student.*Same Zoom Name.*1 class.*Account email/s,'duplicate display names still expose distinguishing account evidence');
  assert.match(denied.markup,/aria-pressed="false"/);
  assert.match(denied.markup,/id="identityCanonicalConfirm" disabled/);
  await denied.confirm.onclick();
@@ -199,7 +204,7 @@ test('same-student review selects a named canonical record before a separate con
  assert.deepEqual(denied.calls,[],'selecting a row cannot adjudicate');
  assert.equal(denied.options[1].pressed,true);
  assert.equal(denied.options[0].pressed,false);
- assert.match(denied.confirm.textContent,/Student B/);
+ assert.match(denied.confirm.textContent,/cord-bbb/);
  await denied.confirm.onclick();
  assert.deepEqual(denied.calls,[['decision','same',1]],'a rejected save keeps the sheet open');
  assert.equal(denied.confirm.disabled,false);
@@ -219,36 +224,41 @@ test('same-student review selects a named canonical record before a separate con
 
 test('unidentified attendee match stays on hold until a separate named confirmation',async()=>{
  const calls=[],confirm={disabled:true,textContent:'Confirm attendee match'},cancel={disabled:false},search={focus(){}};
- const list={options:[],querySelectorAll(selector){return selector==='[data-pick]'?this.options:[]}};
- Object.defineProperty(list,'innerHTML',{set(value){this.options=[...value.matchAll(/data-pick="([0-9]+)"/g)].map(match=>({dataset:{pick:match[1]},pressed:false,setAttribute(name,v){if(name==='aria-pressed')this.pressed=v==='true';}}));}});
+ const list={options:[],markup:'',querySelectorAll(selector){return selector==='[data-pick]'?this.options:[]}};
+ Object.defineProperty(list,'innerHTML',{set(value){this.markup=value;this.options=[...value.matchAll(/data-pick="([0-9]+)"/g)].map(match=>({dataset:{pick:match[1]},pressed:false,setAttribute(name,v){if(name==='aria-pressed')this.pressed=v==='true';}}));}});
  const w={querySelector:selector=>({'#mSearch':search,'#mList':list,'#mConfirm':confirm,'#mNo':cancel})[selector]};
  let markup='',accepted=false;
  const dv={id:'alias-1',name:'iPhone',att:1,cycles:['june']};
  vm.runInNewContext(fn('matchSheet')+';matchSheet(dv)',{
-  dv,model:()=>({eff:[{i:1,n:'Student One',absorbed:false,notStudent:false,k:'student',c:{}}]}),
+  dv,...identityFixture(),model:()=>({eff:[0,1].map(i=>({i,n:'Same Student',absorbed:false,notStudent:false,k:'student',c:{}}))}),
   CYK:[],cyc:()=>({label:'June Cycle'}),devicePreview:()=>[],money:value=>'$'+value,esc:String,
   openSheet:(html,bind)=>{markup=html;bind(w);},
   decideDevice:async(_dv,decision,si)=>{calls.push(['decision',decision,si]);return accepted;},
   closeSheet:()=>calls.push(['close']),render:()=>calls.push(['render']),
  });
- assert.match(markup,/Attendance stays held until you confirm/);
+ assert.match(markup,/keep the attendee on hold/);
+ assert.match(list.markup,/one@example\.invalid.*record-aaa/s);
+ assert.match(list.markup,/two@example\.invalid.*record-bbb/s);
+ assert.equal(list.options.length,2,'same-name students each remain visible with distinct account evidence');
  assert.match(markup,/Student not listed\? Cancel/);
  assert.equal(confirm.disabled,true);
  await confirm.onclick();assert.deepEqual(calls,[]);
  list.options[0].onclick();
  assert.deepEqual(calls,[],'selecting a student is read-only');
  assert.equal(list.options[0].pressed,true);
- assert.match(confirm.textContent,/Student One/);
+ assert.match(confirm.textContent,/cord-aaa/);
  await confirm.onclick();
- assert.deepEqual(calls,[['decision','match',1]],'rejected match keeps the held sheet open');
+ assert.deepEqual(calls,[['decision','match',0]],'rejected match keeps the held sheet open');
  assert.equal(confirm.disabled,false);
  search.oninput({target:{value:'No matching student'}});
  assert.equal(confirm.disabled,true,'search changes clear the previous choice');
  assert.equal(list.options.length,0);
- search.oninput({target:{value:''}});
+ search.oninput({target:{value:'two@example.invalid'}});
+ assert.equal(list.options.length,1,'search can find the verified account email instead of an ambiguous name');
+ assert.equal(list.options[0].dataset.pick,'1');
  list.options[0].onclick();accepted=true;
  await confirm.onclick();
- assert.deepEqual(calls,[['decision','match',1],['decision','match',1],['close'],['render']]);
+ assert.deepEqual(calls,[['decision','match',0],['decision','match',1],['close'],['render']]);
 });
 test('manual charge confirmation names the student, cycle, exact amount, masked card, real charge, and both choices',()=>{
  assert.match(html,/function missionAccountsManualChargeSheet\(si,k\)/);
