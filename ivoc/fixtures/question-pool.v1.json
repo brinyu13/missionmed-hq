@@ -1,0 +1,26 @@
+{
+  "snapshot_id": "fixture-question-pool-v1",
+  "schema_version": "1",
+  "items": [
+    {
+      "kind": "question",
+      "canonical_id": "fixture-question-why-program",
+      "version": "1",
+      "weight": 1,
+      "source": "student",
+      "text": "Why are you interested in this residency program?"
+    },
+    {
+      "kind": "question",
+      "canonical_id": "fixture-question-challenge",
+      "version": "1",
+      "weight": 1,
+      "source": "preset",
+      "text": "Tell me about a challenge you handled during training."
+    }
+  ],
+  "expanded_question_ids": [
+    "fixture-question-why-program",
+    "fixture-question-challenge"
+  ]
+}

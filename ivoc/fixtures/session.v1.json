@@ -1,0 +1,27 @@
+{
+  "session_id": "019f-ivoc-f1-session-0001",
+  "schema_version": "1",
+  "actor_id": "fixture-student-001",
+  "subject_id": "fixture-student-001",
+  "role_context": "student",
+  "practice_goal": "individual_question",
+  "pressure_modifier": false,
+  "environment": "missionmed",
+  "interviewer_config_ref": "fixture-interviewer-config-v1",
+  "question_pool_ref": "fixture-question-pool-v1",
+  "target_asked_count": 2,
+  "target_duration_s": 180,
+  "selection_policy": "preference_order",
+  "follow_up_intensity": 0,
+  "context_receipts": [],
+  "transport_profile": "none",
+  "clock": {
+    "origin": "capture_owner",
+    "started_at_wall": "2026-09-16T13:00:00.000Z"
+  },
+  "state": "draft",
+  "state_version": 0,
+  "analytics_config_version": "fixture-analytics-v1",
+  "created_at": "2026-09-16T13:00:00.000Z",
+  "updated_at": "2026-09-16T13:00:00.000Z"
+}

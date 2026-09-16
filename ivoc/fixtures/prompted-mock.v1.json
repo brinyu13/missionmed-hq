@@ -1,0 +1,12 @@
+{
+  "fixture_id": "prompted-mock-f1-v1",
+  "session_ref": "session.v1.json",
+  "question_pool_ref": "question-pool.v1.json",
+  "inputs": ["next", "spacebar"],
+  "expected_question_ids": [
+    "fixture-question-why-program",
+    "fixture-question-challenge"
+  ],
+  "expected_audio_authority": "none",
+  "provider_sessions": 0
+}
