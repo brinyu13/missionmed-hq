@@ -20,7 +20,7 @@ This protocol prevents cross-thread contamination of production workspaces and k
 8. Claude planning/demo/design may continue if outputs stay outside the repo.
 9. Routine AI outputs/logs must stay outside the repo.
 10. Worktrees are optional advanced tools, not default workflow.
-11. New threads must load PRIMER_CORE.md, KNOWLEDGE_INDEX.md, and MISSIONMED_MASTER_KNOWLEDGE.md.
+11. New threads must load `_SYSTEM/PRIMER_CORE.md`, `08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md`, and the current MissionMed OS `BOOT.md` -> `CURRENT.md` -> mission -> authority chain (plus product passport when present). `MISSIONMED_MASTER_KNOWLEDGE.md` is deprecated.
 12. SESSION_PRIMER_V2.md is deprecated for new threads and must not be used as the active primer.
 
 Additional MissionMed defaults:
@@ -102,7 +102,7 @@ Modify these only when explicitly scoped.
 
 ```text
 Load _SYSTEM/PRIMER_CORE.md and apply all rules.
-Load KNOWLEDGE_INDEX.md and MISSIONMED_MASTER_KNOWLEDGE.md for MissionMed knowledge routing.
+Load 08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md for MissionMed knowledge routing, then resolve current authority through MissionMed OS BOOT.md -> CURRENT.md -> mission -> authority index/decision -> product passport when present.
 Use /Users/brianb/MissionMed as the primary repo and follow the MissionMed simple Git workflow.
 Run bash _SYSTEM/scripts/mm-preflight.sh before editing and apply dirty-state triage results.
 Dirty repo does not mean automatic stop; inspect, classify, and proceed only when scope is safe and non-overlapping.

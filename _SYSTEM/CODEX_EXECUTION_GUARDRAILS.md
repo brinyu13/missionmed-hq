@@ -547,8 +547,8 @@ These rules are mandatory for MissionMed Git safety and apply to every Codex exe
 Before implementation edits, load:
 
 - `_SYSTEM/PRIMER_CORE.md` (canonical startup/control)
-- `KNOWLEDGE_INDEX.md` (knowledge routing)
-- `MISSIONMED_MASTER_KNOWLEDGE.md` (knowledge routing)
+- `08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md` (canonical knowledge routing)
+- MissionMed OS `BOOT.md` -> `CURRENT.md` -> mission -> authority index/decision -> product passport when present (current authority routing; `MISSIONMED_MASTER_KNOWLEDGE.md` is deprecated)
 - `_SYSTEM/GIT_WORKSPACE_HYGIENE_PROTOCOL.md`
 
 `SESSION_PRIMER_V2.md` is deprecated for new threads and must not be used as the active primer.
@@ -651,7 +651,7 @@ Do not combine unrelated projects (USCE, Arena, STAT, Dashboard, IV, WordPress r
 
 ```text
 Load _SYSTEM/PRIMER_CORE.md and apply all rules.
-Load KNOWLEDGE_INDEX.md and MISSIONMED_MASTER_KNOWLEDGE.md for MissionMed knowledge routing.
+Load 08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md for MissionMed knowledge routing, then resolve current authority through MissionMed OS BOOT.md -> CURRENT.md -> mission -> authority index/decision -> product passport when present.
 Follow MissionMed simple Git workflow and dirty-state triage protocol.
 Do not use SESSION_PRIMER_V2.md as the active primer for new threads.
 Use /Users/brianb/MissionMed as the primary repo and do not edit directly on main unless explicitly authorized.

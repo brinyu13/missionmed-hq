@@ -477,8 +477,8 @@ function buildThreadName(project_letter, short_title, phase_role):
 {PROMPT_NAME}
 {THREAD_NAME}
 ---
-Load PRIMER_CORE.md
-Load KNOWLEDGE_INDEX.md
+Load _SYSTEM/PRIMER_CORE.md
+Load 08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md
 ---
 TASK TYPE: {TASK_TYPE}
 RISK LEVEL: {RISK_LEVEL}
@@ -709,7 +709,7 @@ Every assembled prompt must pass these checks before commit. A failure aborts ge
 |---|---|
 | Header present | first line starts with `(` and matches NAMING CANON regex |
 | Thread line present | second line starts with `(` and contains `\u2014` |
-| Load lines present | lines 4-5 match `Load PRIMER_CORE.md` and `Load KNOWLEDGE_INDEX.md` |
+| Load lines present | lines 4-5 match `Load _SYSTEM/PRIMER_CORE.md` and `Load 08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md` |
 | Task type tag | body contains exactly one `TASK TYPE: <TOKEN>` line |
 | Risk level tag | body contains exactly one `RISK LEVEL: <LOW|MED|HIGH>` line |
 | Authority tag | body contains exactly one `AUTHORITY:` line with non-empty value |

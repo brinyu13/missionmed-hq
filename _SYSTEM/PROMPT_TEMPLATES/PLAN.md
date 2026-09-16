@@ -1,8 +1,8 @@
 PROMPT NAME: ({PROJECT})-[Feature]_Plan-claude-high-[MR#]
 THREAD NAME: ({PROJECT}) — [Feature] Planning
 ---
-Load PRIMER_CORE.md
-Load KNOWLEDGE_INDEX.md
+Load _SYSTEM/PRIMER_CORE.md
+Load 08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md
 ---
 TASK TYPE: PLAN
 RISK LEVEL: MEDIUM
