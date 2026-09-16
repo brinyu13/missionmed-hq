@@ -50,6 +50,7 @@ function environmentConfig() {
       billableDayCalculation: process.env.MISSIONACCOUNTS_BILLABLE_DAY_CALCULATION === '1',
       autoBillingShadow: process.env.MISSIONACCOUNTS_AUTO_BILLING_SHADOW === '1',
       onboarding: process.env.MISSIONACCOUNTS_ONBOARDING === '1',
+      legacyInvoices: process.env.MISSIONACCOUNTS_LEGACY_INVOICES === '1',
     },
     stripeMode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
     stripeAccountId: process.env.MISSIONACCOUNTS_STRIPE_ACCOUNT_ID || '',
@@ -677,6 +678,7 @@ export function createMissionAccountsServer({
           zoom_shadow: !registeredOnly && Boolean(config.features?.zoomShadow),
           auto_billing_shadow: !registeredOnly && Boolean(config.features?.autoBillingShadow),
           onboarding: !registeredOnly && Boolean(config.features?.onboarding),
+          legacy_invoices: !registeredOnly && Boolean(config.features?.legacyInvoices),
         },
       });
     }
@@ -1562,6 +1564,86 @@ export function createMissionAccountsServer({
       const requestedState = url.searchParams.get('state') || 'open';
       if (!['open', 'resolved', 'all'].includes(requestedState)) throw requestError('Identity state filter is invalid');
       return json(response, 200, { clusters: await store.adminIdentityClusters({ state: requestedState }) });
+    }
+    const legacyInvoiceRoute = url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/legacy-invoices\/(2026-cycle-[123])(?:\/(manual-items|liability|approve))?$/i);
+    if (legacyInvoiceRoute) {
+      requireFeature(config, 'legacyInvoices');
+      const [, studentId, cycleKey, action] = legacyInvoiceRoute;
+      if (request.method === 'GET' && !action) {
+        requireRole(identity, ['missionaccounts_admin', 'founder']);
+        return json(response, 200, await store.legacyInvoicePreview({ studentId, cycleKey }));
+      }
+      if (request.method !== 'POST' || !action) return json(response, 405, { code: 'METHOD_NOT_ALLOWED' });
+      requireRole(identity, ['missionaccounts_admin']);
+      const body = await readJsonBody(request, { limitBytes: 32_768 });
+      const integerBetween = (value, minimum, maximum) =>
+        Number.isInteger(Number(value)) && Number(value) >= minimum && Number(value) <= maximum;
+      const validSha256 = value => value == null || /^[0-9a-f]{64}$/.test(String(value));
+      const validText = (value, maximum, required = false) => {
+        const text = String(value ?? '').trim();
+        return (!required || text.length > 0) && text.length <= maximum;
+      };
+      const common = { studentId, cycleKey, actorId: identity.userId,
+        actorRole: 'missionaccounts_admin', requestId: requestIdFor(request) };
+      let result;
+      if (action === 'manual-items') {
+        const kind = String(body.kind || '');
+        const state = String(body.state || '');
+        const treatment = String(body.treatment || '');
+        const amountCents = Number(body.amount_cents);
+        const durationMinutes = body.duration_minutes == null ? null : Number(body.duration_minutes);
+        const rateCents = body.rate_cents == null ? null : Number(body.rate_cents);
+        if (!['one_on_one', 'credit'].includes(kind)
+          || !['attested', 'withdrawn'].includes(state)
+          || !['none', 'ucc', 'mul', 'waived', 'prepaid', 'already_paid',
+            'already_invoiced', 'guarantee', 'repeat'].includes(treatment)
+          || !/^[A-Za-z0-9._:-]{1,120}$/.test(String(body.service_key || ''))
+          || !integerBetween(body.revision, 1, 1_000_000)
+          || !/^\d{4}-\d{2}-\d{2}$/.test(String(body.service_on || ''))
+          || !integerBetween(amountCents, kind === 'credit' ? 1 : 0, 100_000_000)
+          || !validText(body.reason, 2_000, true)
+          || !validText(body.source_ref, 500)
+          || !validSha256(body.source_sha256)
+          || (kind === 'one_on_one' && (!integerBetween(durationMinutes, 1, 1_440)
+            || (rateCents != null && !integerBetween(rateCents, 1, 10_000_000))))
+          || (kind === 'credit' && (durationMinutes != null || rateCents != null))) {
+          throw requestError('Legacy manual item is invalid');
+        }
+        result = await store.recordLegacyManualItem({ ...common,
+          kind, serviceKey: body.service_key, revision: Number(body.revision),
+          state, serviceOn: body.service_on, durationMinutes, rateCents,
+          amountCents, treatment,
+          sourceRef: body.source_ref || null, sourceSha256: body.source_sha256 || null,
+          reason: String(body.reason).trim() });
+      } else if (action === 'liability') {
+        const classification = String(body.classification || '');
+        if (!['direct_charge', 'hold', 'ucc', 'mul', 'guarantee', 'repeat',
+          'waived', 'prepaid', 'already_paid', 'already_invoiced'].includes(classification)
+          || !integerBetween(body.revision, 1, 1_000_000)
+          || !validText(body.reason, 2_000, true)
+          || !validText(body.source_ref, 500)
+          || !validSha256(body.source_sha256)
+          || (classification === 'direct_charge'
+            && (!validText(body.source_ref, 500, true) || !body.source_sha256))) {
+          throw requestError('Legacy liability review is invalid');
+        }
+        result = await store.recordLegacyLiability({ ...common,
+          revision: Number(body.revision), classification,
+          sourceRef: body.source_ref || null, sourceSha256: body.source_sha256 || null,
+          reason: String(body.reason).trim() });
+      } else {
+        if (!Array.isArray(body.lines) || body.lines.length < 1 || body.lines.length > 100
+          || !integerBetween(body.amount_cents, 1, 100_000_000)
+          || !validSha256(body.preview_digest_sha256) || !body.preview_digest_sha256
+          || !validSha256(body.source_digest_sha256) || !body.source_digest_sha256) {
+          throw requestError('Legacy invoice approval snapshot is invalid');
+        }
+        result = await store.approveLegacyInvoicePreview({ ...common,
+          lines: body.lines, amountCents: Number(body.amount_cents),
+          previewDigestSha256: body.preview_digest_sha256,
+          sourceDigestSha256: body.source_digest_sha256 });
+      }
+      return json(response, result.duplicate ? 200 : 201, result);
     }
     const adminStudentRoute = request.method === 'GET'
       ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i)

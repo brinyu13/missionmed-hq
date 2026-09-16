@@ -1033,6 +1033,15 @@ h1:focus:not(:focus-visible){outline:0}
 .onboardRow .who{font-weight:850;min-width:0}.onboardRow .who small{display:block;color:var(--mute);font-size:12px;margin-top:3px}.onboardRow .missing{font-size:13px;color:var(--mute);min-width:0}.onboardRow .updated{min-width:0;font-size:12px;color:var(--mute);line-height:1.45}
 @media(max-width:960px){.onboardGrid{grid-template-columns:1fr}.onboardRow{grid-template-columns:1fr auto}.onboardRow .missing,.onboardRow .updated{grid-column:1/-1}}
 @media(max-width:640px){.onboardHero{grid-template-columns:1fr}.onboardMeter{min-width:0}.onboardFields{grid-template-columns:1fr}.onboardFields .wide{grid-column:auto}.onboardForm{padding:18px}.onboardStep{grid-template-columns:30px 1fr}.onboardStep .btn{grid-column:2;justify-self:start;min-height:40px}.onboardRow{grid-template-columns:1fr}.onboardRow .missing,.onboardRow .updated{grid-column:auto}}
+.legacyToolbar{display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,.55fr) auto;gap:12px;align-items:end;padding:18px;margin:20px 0}
+.legacyGrid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:18px;align-items:start}
+.legacyStack{display:grid;gap:14px}.legacyForms{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.legacyForm{padding:18px}.legacyForm .otherForm{margin-top:12px}.legacyForm select,.legacyToolbar select{width:100%;min-height:44px;padding:9px 11px;border:1px solid var(--line2);border-radius:10px;background:var(--sheet);color:var(--ink);font:inherit}
+.legacyHash{display:block;max-width:100%;overflow-wrap:anywhere;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink2)}
+.legacyLine{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.legacyLine:last-child{border-bottom:0}.legacyLine .amt{font-weight:750;color:var(--navy)}
+@media(max-width:900px){.legacyGrid,.legacyForms{grid-template-columns:1fr}.legacyToolbar{grid-template-columns:1fr 1fr}.legacyToolbar .btn{grid-column:1/-1}}
+@media(max-width:560px){.legacyToolbar{grid-template-columns:1fr}.legacyToolbar .btn{grid-column:auto}.legacyForm{padding:15px}.legacyLine{grid-template-columns:1fr}.legacyLine .amt{justify-self:start}}
 
 </style>
 </head>
@@ -1083,6 +1092,8 @@ let ACCOUNT_ACCESS_MODE=false;
 let ACCOUNT_USER={};
 let PROGRAM_ACCESS={registered:false,programs:{mission_residency:{enrolled:false},examprep:{enrolled:false},clinicals:{enrolled:false}}};
 let AUTOMATION_SHADOW=null;
+let LEGACY_INVOICE_PREVIEW=null;
+let LEGACY_INVOICE_CONTEXT={studentId:'',cycleKey:'2026-cycle-1'};
 const $ = (s,el=document)=>el.querySelector(s);
 const esc = s => String(s==null?'':s).replace(/\(\s+/g,'(').replace(/\s+\)/g,')').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = n => (n<0?'−':'') + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
@@ -1384,6 +1395,7 @@ const CMD_ROUTES_ADMIN=[
   {keys:['email','emails','missing email'], href:'#/students?missing=1', title:'Add missing emails', why:'People with no email on file — an invoice cannot be sent without one.'},
   {keys:['comp','comped','free days'], href:'#/students', title:'Students', why:'Open a student to set the comp-day allowance.'},
   {keys:['zoom','sync','health'], href:'#/advanced/health', title:'Admin health · Zoom Attendance Sync', why:'Integration status — not connected yet, ready for integration.'},
+  {keys:['legacy','historical','june invoice','july invoice','august invoice'], href:'#/legacy-invoices', title:'Legacy invoice review', why:'Review frozen June–August lines before any provider action.'},
   {keys:['advanced','records','table','everything'], href:'#/advanced', title:'Advanced tools', why:'Every record, every class, the data controls and the working history.'},
   {keys:['find','student','students','search','who is'], href:'#/students', title:'Find a student', why:'Search by any Zoom name.'},
 ];
@@ -1430,6 +1442,71 @@ function openSheet(html, onMount){ hideToast(); const w=$('#sheetWrap'); sheetRe
 function closeSheet(){ const w=$('#sheetWrap'); if(!w)return; w.classList.remove('open'); w.onkeydown=null; w.innerHTML=''; if(sheetReturn && sheetReturn.focus) sheetReturn.focus(); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeSheet(); });
 
+/* ---------------- frozen June-August invoice review ---------------- */
+function legacyInvoiceMoney(cents){ return money(Number(cents||0)/100); }
+function legacyInvoicePeople(){
+  return model().eff.filter(e=>!e.absorbed&&!e.notStudent&&e.k!=='device'&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(D.students[e.i]?.id||'')))
+    .map(e=>({id:D.students[e.i].id,name:e.n})).sort((a,b)=>a.name.localeCompare(b.name));
+}
+function legacyInvoiceLine(line){
+  const kind=line.kind==='frozen_group'?'Frozen group attendance':line.kind==='manual_1on1'?'Verified 1-on-1':'Verified credit';
+  const attendanceDays=Array.isArray(line.attendance_days)?line.attendance_days:[];
+  const detail=line.kind==='frozen_group'
+    ? Number(line.source_events||0)+' source event'+(Number(line.source_events||0)===1?'':'s')+' collapsed to '+attendanceDays.length+' unique billable date'+(attendanceDays.length===1?'':'s')+': '+attendanceDays.map(day=>esc(day)).join(', ')
+    : line.kind==='manual_1on1'
+      ? esc(line.service_on||'Date unavailable')+' · '+Number(line.duration_minutes||0)+' minutes at '+legacyInvoiceMoney(line.rate_cents)+'/hour'
+      : esc(line.reason||'Authorized credit');
+  const source=line.kind==='frozen_group'
+    ? 'Source row '+esc(line.source_id||'missing')+' · ledger '+esc(line.artifact_sha256||'hash unavailable')
+    : line.source_ref?'Source: '+esc(line.source_ref)+' · '+esc(line.source_sha256||'hash unavailable'):'';
+  return `<div class="legacyLine"><div><b>${esc(kind)}</b><div class="muted">${detail}</div>${source?`<small class="legacyHash">${source}</small>`:''}</div><div class="amt">${legacyInvoiceMoney(line.amount_cents)}</div></div>`;
+}
+function viewLegacyInvoices(){
+  if(!missionAccountsCapability('legacy_invoices')) return `<section class="view"><div class="eyebrow">June–August 2026</div><h1 class="h1">Legacy invoice review.</h1><div class="panel" style="padding:20px;margin-top:18px"><span class="chip none">Feature off</span><p class="muted" style="margin-top:10px">The frozen-source review workflow is not enabled in this environment. No provider action is available.</p></div></section>`;
+  const people=legacyInvoicePeople();
+  if(!people.some(person=>person.id===LEGACY_INVOICE_CONTEXT.studentId)) LEGACY_INVOICE_CONTEXT.studentId=people[0]?.id||'';
+  const selected=people.find(person=>person.id===LEGACY_INVOICE_CONTEXT.studentId)||null;
+  const preview=LEGACY_INVOICE_PREVIEW&&LEGACY_INVOICE_PREVIEW.student_id===LEGACY_INVOICE_CONTEXT.studentId&&LEGACY_INVOICE_PREVIEW.cycle_key===LEGACY_INVOICE_CONTEXT.cycleKey?LEGACY_INVOICE_PREVIEW:null;
+  const frozen=preview?.frozen_sources||{};
+  const holds=Array.isArray(preview?.holds)?preview.holds:[];
+  const approved=preview?.state==='approval-ready';
+  const canApprove=Boolean(preview&&preview.state==='needs-drj-approval'&&holds.length===0&&preview.provider_action_allowed===false&&Array.isArray(preview.lines)&&preview.lines.length&&Number(preview.total_cents)>0&&preview.stripe_customer_ready&&preview.preview_digest_sha256&&preview.source_digest_sha256);
+  return `<section class="view legacyInvoiceView"><div class="eyebrow">June–August 2026 · frozen evidence</div><h1 class="h1">Legacy invoice review.</h1><p class="lead">Reconstruct the exact historical lines, record Dr J's source-backed exceptions, and approve the unchanged snapshot. Approval remains internal: it cannot send an invoice, contact Stripe, notify a student, or move money.</p>
+    <div class="panel legacyToolbar">
+      <div class="field"><label for="legacyStudent">Student</label><select id="legacyStudent">${people.map(person=>`<option value="${esc(person.id)}" ${person.id===LEGACY_INVOICE_CONTEXT.studentId?'selected':''}>${esc(person.name)}</option>`).join('')}</select></div>
+      <div class="field"><label for="legacyCycle">Historical cycle</label><select id="legacyCycle">${[['2026-cycle-1','June Cycle'],['2026-cycle-2','July Cycle'],['2026-cycle-3','August Cycle']].map(([value,label])=>`<option value="${value}" ${value===LEGACY_INVOICE_CONTEXT.cycleKey?'selected':''}>${label}</option>`).join('')}</select></div>
+      <button type="button" class="btn primary" data-legacy-load="1" ${selected?'':'disabled'}>Load exact preview</button>
+    </div>
+    ${!people.length?'<div class="panel" style="padding:20px">No canonical student records are available in this source build.</div>':!preview?'<div class="panel" style="padding:24px"><span class="chip future">No snapshot loaded</span><p class="muted" style="margin-top:10px">Choose a student and cycle, then load the server-authoritative preview.</p></div>':`
+    <div class="legacyGrid">
+      <div class="legacyStack">
+        <div class="panel" style="padding:20px"><div class="chHead"><span class="t">Exact preview · ${esc(selected?.name||'Student')}</span><span class="chip ${approved?'approved':canApprove?'ready':'review'}">${approved?'Approved internally':canApprove?'Ready for Dr J review':'Held'}</span></div>
+          <div class="kv" style="margin-top:14px"><span class="k">Recipient</span><span class="v">${esc(preview.recipient_email||'Missing')}</span><span class="k">Payment path</span><span class="v">Stripe-hosted invoice · customer ${preview.stripe_customer_ready?'ready':'missing'} · saved card ${preview.payment_method_on_file?'on file':'not required for hosted invoice'}</span><span class="k">Provider action</span><span class="v"><b>Disabled</b> · preview and approval only</span></div>
+          ${holds.length?`<div class="capabilityNotice" style="margin-top:16px"><b>Approval holds</b>${holds.map(hold=>`<span>${esc(String(hold).replaceAll('_',' '))}</span>`).join(' ')}</div>`:''}
+          <div style="margin-top:18px">${(preview.lines||[]).map(legacyInvoiceLine).join('')||'<p class="muted">No collectible lines were reconstructed.</p>'}</div>
+          <div class="legacyLine"><div><b>Exact total</b><div class="muted">Server recomputed from the frozen lines above.</div></div><div class="amt">${legacyInvoiceMoney(preview.total_cents)}</div></div>
+        </div>
+        <div class="panel" style="padding:20px"><h2 class="h3">Frozen source custody</h2><div class="kv" style="margin-top:12px"><span class="k">Group ledger</span><span class="v"><code class="legacyHash">${esc(frozen.group_ledger_sha256||'missing')}</code></span><span class="k">Identity graph</span><span class="v"><code class="legacyHash">${esc(frozen.identity_graph_sha256||'missing')}</code></span><span class="k">Zoom manifest</span><span class="v"><code class="legacyHash">${esc(frozen.raw_zoom_source_sha256||'missing')}</code></span><span class="k">Source digest</span><span class="v"><code class="legacyHash">${esc(preview.source_digest_sha256||'missing')}</code></span><span class="k">Preview digest</span><span class="v"><code class="legacyHash">${esc(preview.preview_digest_sha256||'missing')}</code></span></div></div>
+      </div>
+      <div class="legacyStack">
+        <div class="panel legacyForm"><span class="chip future">Internal review</span><h2 class="h3" style="margin-top:10px">Record liability.</h2><form data-legacy-liability class="otherForm">
+          <div class="field"><label>Classification</label><select name="classification"><option value="direct_charge">Direct student charge</option><option value="hold">Keep on hold</option><option value="ucc">UCC sponsored</option><option value="mul">MUL sponsored</option><option value="waived">Waived</option><option value="prepaid">Prepaid</option><option value="already_paid">Already paid</option><option value="already_invoiced">Already invoiced</option><option value="guarantee">Guarantee</option><option value="repeat">Repeat</option></select></div>
+          <div class="field"><label>Revision</label><input name="revision" type="number" min="1" value="1" required></div><div class="field"><label>Source reference</label><input name="source_ref" maxlength="500" required></div><div class="field"><label>Source SHA-256</label><input name="source_sha256" pattern="[0-9a-f]{64}" maxlength="64" required></div><div class="field"><label>Reason</label><textarea name="reason" maxlength="2000" required></textarea></div><button class="btn soft" type="submit">Save liability review</button>
+        </form></div>
+        <div class="panel legacyForm"><span class="chip future">Optional exception</span><h2 class="h3" style="margin-top:10px">Add verified 1-on-1.</h2><form data-legacy-manual class="otherForm">
+          <div class="field"><label>Service date</label><input name="service_on" type="date" required></div><div class="field"><label>Duration in minutes</label><input name="duration_minutes" type="number" min="1" max="1440" required></div><div class="field"><label>Historical rate per hour (source-backed)</label><input name="rate_usd" type="number" min=".01" step=".01" required></div><div class="field"><label>Revision</label><input name="revision" type="number" min="1" value="1" required></div><div class="field"><label>Source reference</label><input name="source_ref" maxlength="500" required></div><div class="field"><label>Source SHA-256</label><input name="source_sha256" pattern="[0-9a-f]{64}" maxlength="64" required></div><div class="field"><label>Reason</label><textarea name="reason" maxlength="2000" required></textarea></div><button class="btn soft" type="submit">Add to exact preview</button>
+        </form></div>
+        <div class="panel legacyForm"><span class="chip ${approved?'approved':canApprove?'ready':'none'}">${approved?'Approval recorded':canApprove?'Bounded approval':'Approval held'}</span><h2 class="h3" style="margin-top:10px">Approve this snapshot.</h2><p class="muted">The server will recompute every line, source hash, recipient, financial-custody hold, and total before accepting. This does not create or send a Stripe invoice.</p>${approved?`<p><b>Approved by ${esc(preview.approval?.approved_by||'Dr J')}</b>${preview.approval?.approved_at?' · '+esc(fmtStamp(preview.approval.approved_at)):''}. A source change automatically invalidates this approval.</p>`:`<button type="button" class="btn confirm" data-legacy-approve="1" ${canApprove?'':'disabled'}>Approve exact ${legacyInvoiceMoney(preview.total_cents)} snapshot</button>`}</div>
+      </div>
+    </div>`}
+  </section>`;
+}
+async function legacyInvoiceLoad(studentId,cycleKey){
+  LEGACY_INVOICE_CONTEXT={studentId,cycleKey};
+  LEGACY_INVOICE_PREVIEW=await window.MissionAccountsRuntime.request('/admin/students/'+encodeURIComponent(studentId)+'/legacy-invoices/'+encodeURIComponent(cycleKey));
+  render();
+}
+
 /* ---------------- router ---------------- */
 function go(h){ location.hash=h; }
 function route(){ const h=location.hash.replace(/^#\/?/,''); const routeText=h.split('#')[0]; const question=routeText.indexOf('?'); const pathname=question<0?routeText:routeText.slice(0,question); const qs=question<0?'':routeText.slice(question+1); const parts=pathname.split('/').filter(Boolean); const q=Object.fromEntries(new URLSearchParams(qs)); return {parts,q,raw:h}; }
@@ -1458,7 +1535,7 @@ function shell(){ const m=model(); const openQ = totalQuestions();
     </div>`;
   const railItems = lens==='student'
     ? [['me','Home'],...(missionAccountsCapability('onboarding')?[['me/onboarding','Onboarding']]:[]),['me/attendance','Attendance'],['me/exam','Exam plan'],['me/billing','Billing']]
-    : [['home','Home'],...(missionAccountsCapability('onboarding')?[['onboarding','Onboarding']]:[]),['students','Students'],['exams','Exam dates'],['billing','Billing'],['attendance-issues','Reports']];
+    : [['home','Home'],...(missionAccountsCapability('onboarding')?[['onboarding','Onboarding']]:[]),['students','Students'],['exams','Exam dates'],['billing','Billing'],...(missionAccountsCapability('legacy_invoices')?[['legacy-invoices','Legacy invoices']]:[]),['attendance-issues','Reports']];
   const pendingEx = pendingExams().length;
   $('#rail').innerHTML = railItems.map(([k,l])=>`<button type="button" class="rtab ${top===k.split('/')[0] && (k.includes('/')? r.parts[1]===k.split('/')[1] : (r.parts.length<2 || top!=='me')) ? 'on':''}" data-go="#/${k}">${l}${k==='home'&&openQ?`<span class="badge">${openQ}</span>`:''}${k==='exams'&&pendingEx?`<span class="badge">${pendingEx}</span>`:''}</button>`).join('')
     + `<div class="railFoot"><div class="railWho"><span class="avc ${lens==='admin'?'adm':'stu'}">${lens==='admin'?'J':esc(meStudent().n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase())}</span><div><div class="nm">${lens==='admin'?'Dr J':esc(meStudent().n)}</div><div class="rl">${lens==='admin'?'Exam Prep admin':'Student'}</div></div></div>${lens==='admin'?`<button type="button" class="advLink ${top==='advanced'?'on':''}" data-go="#/advanced">Advanced tools ›</button>`:''}<div class="railNote">MissionAccounts · server-authoritative record</div>${lens==='admin'?`<button type="button" class="advLink" data-reset="1" style="margin-top:6px">Reset prototype changes</button>`:''}</div>`;
@@ -2303,9 +2380,9 @@ function reportSheet(){ const e=meStudent(); openSheet(`<div class="t">Report a 
 /* ---------------- render ---------------- */
 function render(){ if(document.documentElement.dataset.missionaccountsRuntime==='unavailable') return; if(typeof ACCOUNT_ACCESS_MODE!=='undefined'&&ACCOUNT_ACCESS_MODE){renderAccountAccess();return;} let r=route(); if(window.MissionAccountsRuntime?.state?.user?.role==='student'){ WS.lens='student'; if(r.parts[0]==='mr'){WS.ctx='mr';}else{WS.ctx='xp';if(r.parts[0]!=='me'){ history.replaceState(null,'',location.pathname+location.search+'#/me'); r=route(); }} } let top=r.parts[0]||''; if(!top){ top = WS.ctx==='mr'?'mr':(WS.lens==='student'?'me':'home'); }
   if(top==='mr') WS.ctx='mr'; else if(top!=='') WS.ctx='xp';
-  if(top==='me' && WS.lens!=='student'){ WS.lens='student'; } if(['home','cycle','students','student','review','invoice','billing','advanced','exams','attendance-issues','onboarding'].includes(top) && WS.lens!=='admin'){ WS.lens='admin'; }
+  if(top==='me' && WS.lens!=='student'){ WS.lens='student'; } if(['home','cycle','students','student','review','invoice','billing','advanced','exams','attendance-issues','onboarding','legacy-invoices'].includes(top) && WS.lens!=='admin'){ WS.lens='admin'; }
   save(); applyTheme(); shell(); const main=$('#main'); let html=''; try {
-  switch(top){ case 'mr': html=viewMR(); break; case 'home': html=viewHome(); break; case 'onboarding': html=viewAdminOnboarding(); break; case 'cycle': html=viewCycle(r.parts[1]||'june'); break; case 'students': html=viewStudents(r.q.q||'', r.q.missing==='1', r.q.setup==='missing'); break; case 'student': html=viewStudent(+r.parts[1]||0, r.q); break; case 'review': html=viewReview(); break; case 'invoice': html=viewInvoice(+r.parts[1]||0, r.parts[2]||'june'); break; case 'billing': html=viewBilling(r.q.cycle); break; case 'exams': html=viewExams(r.q); break; case 'attendance-issues': html=viewAttendanceIssues(); break; case 'advanced': html=viewAdvanced(r.parts[1], r.q); break; case 'me': html=viewMe(r.parts[1]); break; default: html=viewHome(); }
+  switch(top){ case 'mr': html=viewMR(); break; case 'home': html=viewHome(); break; case 'onboarding': html=viewAdminOnboarding(); break; case 'cycle': html=viewCycle(r.parts[1]||'june'); break; case 'students': html=viewStudents(r.q.q||'', r.q.missing==='1', r.q.setup==='missing'); break; case 'student': html=viewStudent(+r.parts[1]||0, r.q); break; case 'review': html=viewReview(); break; case 'invoice': html=viewInvoice(+r.parts[1]||0, r.parts[2]||'june'); break; case 'billing': html=viewBilling(r.q.cycle); break; case 'legacy-invoices': html=viewLegacyInvoices(); break; case 'exams': html=viewExams(r.q); break; case 'attendance-issues': html=viewAttendanceIssues(); break; case 'advanced': html=viewAdvanced(r.parts[1], r.q); break; case 'me': html=viewMe(r.parts[1]); break; default: html=viewHome(); }
   } catch(error){ main.innerHTML='<section class="view"><h1 class="h1">This view could not open.</h1><p class="lead">Your records are safe. Return to your workspace and try again.</p><a class="btn primary" href="'+(window.MissionAccountsRuntime?.state?.user?.role==='student'?'#/me':'#/home')+'">Return to MyMissionMed Account</a></section>'; document.title='MyMissionMed Account · View unavailable'; return; }
   main.innerHTML=html; main.scrollTop=0; bind(main); missionAccountsHydrateProviderInvoice(main); const capabilityStatus=missionAccountsStatusBanner(); if(capabilityStatus) main.insertAdjacentHTML('afterbegin',capabilityStatus); missionAccountsApplyCapabilityState(document); missionAccountsRenderedRoute=location.hash||'#/'+top; const routeHeading=main.querySelector('h1'); if(routeHeading){ routeHeading.tabIndex=-1; requestAnimationFrame(()=>{ if(document.body.contains(routeHeading)) routeHeading.focus({preventScroll:true}); }); } if(top==='me' && r.q.report==='1'){ history.replaceState(null,'',location.pathname+location.search+'#/me'); setTimeout(reportSheet,50); }
   if(top==='students'){ const inp=$('#dirSearch'); renderStudents(inp.value, false); inp.oninput=()=>renderStudents(inp.value,true); const mo=$('#missingOnly'); if(mo) mo.onchange=()=>renderStudents(inp.value,true); const no=$('#needOnly'); if(no) no.onchange=()=>renderStudents(inp.value,true); const so=$('#setupOnly'); if(so) so.onchange=()=>renderStudents(inp.value,true); if(!r.q.q) inp.focus(); }
@@ -2392,6 +2469,47 @@ function bind(root){
   root.querySelectorAll('[data-pay]').forEach(b=>b.onclick=async()=>{ const [si,mode]=b.dataset.pay.split('|'); if(mode==='remove'){ await window.MissionAccountsRuntime.dispatch('payment-remove',{si:+si}); } else await paymentSheet(+si,mode); });
   root.querySelectorAll('[data-auth]').forEach(b=>b.onclick=()=>authSheet(+b.dataset.auth));
   root.querySelectorAll('[data-auth-off]').forEach(b=>b.onclick=async()=>{ await window.MissionAccountsRuntime.dispatch('billing-authorization-revoke',{si:+b.dataset.authOff}); });
+  const legacyLoad=root.querySelector('[data-legacy-load]');
+  if(legacyLoad) legacyLoad.onclick=async()=>{
+    const studentId=root.querySelector('#legacyStudent')?.value||'';
+    const cycleKey=root.querySelector('#legacyCycle')?.value||'';
+    legacyLoad.disabled=true; const prior=legacyLoad.textContent; legacyLoad.textContent='Loading…';
+    try{ await legacyInvoiceLoad(studentId,cycleKey); }
+    catch(error){ legacyLoad.disabled=false; legacyLoad.textContent=prior; toast(error instanceof Error?error.message:'Legacy preview could not load.'); }
+  };
+  const legacyManual=root.querySelector('[data-legacy-manual]');
+  if(legacyManual) legacyManual.onsubmit=async event=>{
+    event.preventDefault(); if(!legacyManual.reportValidity())return;
+    const data=Object.fromEntries(new FormData(legacyManual).entries());
+    const button=legacyManual.querySelector('button[type="submit"]');
+    const duration=Number(data.duration_minutes); const rateCents=Math.round(Number(data.rate_usd)*100);
+    const body={kind:'one_on_one',service_key:'one_on_one:'+data.service_on,revision:Number(data.revision),state:'attested',service_on:data.service_on,duration_minutes:duration,rate_cents:rateCents,amount_cents:Math.round(rateCents*duration/60),treatment:'none',source_ref:String(data.source_ref).trim(),source_sha256:String(data.source_sha256).trim(),reason:String(data.reason).trim()};
+    button.disabled=true; const prior=button.textContent; button.textContent='Saving…';
+    try{ await window.MissionAccountsRuntime.mutation('/admin/students/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.studentId)+'/legacy-invoices/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.cycleKey)+'/manual-items',{body}); await legacyInvoiceLoad(LEGACY_INVOICE_CONTEXT.studentId,LEGACY_INVOICE_CONTEXT.cycleKey); toast('Verified 1-on-1 recorded in the internal preview.'); }
+    catch(error){ button.disabled=false; button.textContent=prior; toast(error instanceof Error?error.message:'The 1-on-1 could not be recorded.'); }
+  };
+  const legacyLiability=root.querySelector('[data-legacy-liability]');
+  if(legacyLiability) legacyLiability.onsubmit=async event=>{
+    event.preventDefault(); if(!legacyLiability.reportValidity())return;
+    const data=Object.fromEntries(new FormData(legacyLiability).entries());
+    const button=legacyLiability.querySelector('button[type="submit"]');
+    const body={revision:Number(data.revision),classification:data.classification,source_ref:String(data.source_ref).trim(),source_sha256:String(data.source_sha256).trim(),reason:String(data.reason).trim()};
+    button.disabled=true; const prior=button.textContent; button.textContent='Saving…';
+    try{ await window.MissionAccountsRuntime.mutation('/admin/students/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.studentId)+'/legacy-invoices/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.cycleKey)+'/liability',{body}); await legacyInvoiceLoad(LEGACY_INVOICE_CONTEXT.studentId,LEGACY_INVOICE_CONTEXT.cycleKey); toast('Liability review recorded. No invoice was sent.'); }
+    catch(error){ button.disabled=false; button.textContent=prior; toast(error instanceof Error?error.message:'The liability review could not be recorded.'); }
+  };
+  const legacyApprove=root.querySelector('[data-legacy-approve]');
+  if(legacyApprove) legacyApprove.onclick=()=>{
+    const snapshot=LEGACY_INVOICE_PREVIEW;
+    openSheet(`<div class="t">Approve the exact ${legacyInvoiceMoney(snapshot.total_cents)} snapshot?</div><div class="d">The server will recheck the frozen sources, recipient, financial custody, lines, digests, and total. This approval cannot create or send a Stripe invoice, notify anyone, or move money.</div><div class="acts"><button type="button" class="btn confirm" id="legacyApproveYes">Approve internal snapshot</button><button type="button" class="btn ghost" id="legacyApproveNo">Cancel</button></div>`,()=>{
+      $('#legacyApproveNo').onclick=closeSheet;
+      $('#legacyApproveYes').onclick=async()=>{
+        const button=$('#legacyApproveYes'); button.disabled=true; button.textContent='Approving…';
+        try{ await window.MissionAccountsRuntime.mutation('/admin/students/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.studentId)+'/legacy-invoices/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.cycleKey)+'/approve',{body:{lines:snapshot.lines,amount_cents:Number(snapshot.total_cents),preview_digest_sha256:snapshot.preview_digest_sha256,source_digest_sha256:snapshot.source_digest_sha256}}); closeSheet(); await legacyInvoiceLoad(LEGACY_INVOICE_CONTEXT.studentId,LEGACY_INVOICE_CONTEXT.cycleKey); toast('Exact legacy snapshot approved internally. No provider action occurred.'); }
+        catch(error){ button.disabled=false; button.textContent='Approve internal snapshot'; toast(error instanceof Error?error.message:'The snapshot was not approved.'); }
+      };
+    });
+  };
   const sm=$('#showMissed'); if(sm) sm.onchange=()=>{ WS.showMissed=sm.checked; save(); render(); };
   const mp=$('#mePick'); if(mp) mp.onchange=()=>{ WS.meStudent=+mp.value; save(); render(); };
 }
@@ -2402,7 +2520,7 @@ function clearSensitiveState(){
   D.meta={}; D.review_meeting=null; D.id_maps={}; WS=fresh();
   Object.keys(ORIG_TOTAL).forEach(key=>delete ORIG_TOTAL[key]);
   CACHE=null; CACHE_REV=-1; REV++;
-  ACCOUNT_ACCESS_MODE=false; PROGRAM_ACCESS={registered:false,programs:{mission_residency:{enrolled:false},examprep:{enrolled:false},clinicals:{enrolled:false}}}; ACCOUNT_USER={}; AUTOMATION_SHADOW=null;
+  ACCOUNT_ACCESS_MODE=false; PROGRAM_ACCESS={registered:false,programs:{mission_residency:{enrolled:false},examprep:{enrolled:false},clinicals:{enrolled:false}}}; ACCOUNT_USER={}; AUTOMATION_SHADOW=null; LEGACY_INVOICE_PREVIEW=null; LEGACY_INVOICE_CONTEXT={studentId:'',cycleKey:'2026-cycle-1'};
   document.title='MyMissionMed Account · Session ended';
   document.body.querySelectorAll(':scope > :not(#missionaccountsRuntimeGate):not(#missionaccounts-runtime-gate-style)').forEach(node=>node.remove());
 }
