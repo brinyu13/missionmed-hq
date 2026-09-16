@@ -152,12 +152,14 @@ test('hosted foundation defaults to Founder/admin admission with paid provider c
       IVPREP_WORKER_HEALTH_URL: 'https://ivprep-worker.example.test/health',
       IVPREP_VIDEO_ENABLED: 'false',
       IVPREP_PAID_TEST1_ENABLED: 'false',
+      MMHQ_OPENAI_API_KEY: 'synthetic-server-owned-openai-key',
     });
     assert.equal(dependencies.flags.enabled, true);
     assert.equal(dependencies.flags.adminCanaryEnabled, true);
     assert.equal(dependencies.flags.videoEnabled, false);
     assert.equal(dependencies.paidTestGate, null);
     assert.equal(dependencies.providerControllerFactory, null);
+    assert.ok(dependencies.liveSessionBroker);
     assert.deepEqual(await dependencies.runtimeState(), {
       mode: 'hosted',
       workerRegistrationState: 'READY',

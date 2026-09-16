@@ -763,8 +763,12 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
       paidProviderCreationEnabled: paidEnabled,
     });
   };
-  const liveSessionBroker = String(environment.OPENAI_API_KEY || '').trim()
-    ? createOpenAiLiveSessionBroker({ apiKey: environment.OPENAI_API_KEY })
+  // MissionMed HQ already owns its general OpenAI server credential under the
+  // namespaced binding. Keep the generic name as a local/development fallback, but
+  // never require a duplicate production secret or expose either value downstream.
+  const liveApiKey = String(environment.MMHQ_OPENAI_API_KEY || environment.OPENAI_API_KEY || '').trim();
+  const liveSessionBroker = liveApiKey
+    ? createOpenAiLiveSessionBroker({ apiKey: liveApiKey })
     : null;
   if (!paidEnabled) {
     return Object.freeze({
