@@ -112,6 +112,36 @@ test('production opening is branded, animated, accessible, and bootstrap-bound',
  assert.match(html,/data-missionaccounts-runtime="unavailable"\] #missionaccountsRuntimeGate/);
 });
 
+test('stale credentials visibly disable every rendered mutation control and ready credentials restore them',()=>{
+ const applyCapabilityState=vm.runInNewContext('('+fn('missionAccountsApplyCapabilityState')+')');
+ const credentialReason='Connection is being restored. Editing will resume automatically when the secure session refreshes.';
+ const makeControl=()=>({disabled:false,title:'',dataset:{},removeAttribute(name){if(name==='title')this.title='';},setAttribute(){}});
+ const records=[
+  ['[data-onboarding-form] button[type="submit"]',makeControl()],
+  ['[data-legacy-liability] button[type="submit"]',makeControl()],
+  ['[data-legacy-manual] button[type="submit"]',makeControl()],
+  ['[data-legacy-approve]',makeControl()],
+  ['[data-ident]',makeControl()],
+  ['#mcGo',makeControl()],
+ ];
+ const controls=records.map(([,control])=>control);
+ const root={querySelectorAll(selector){
+  if(selector==='[data-credential-disabled="true"]') return controls.filter(control=>control.dataset.credentialDisabled==='true');
+  return records.filter(([token])=>selector.includes(token)).map(([,control])=>control);
+ }};
+ const state={user:{role:'missionaccounts_admin'},authenticated:true,mutationsAvailable:false};
+ const context={
+  window:{MissionAccountsRuntime:{state}},document:{documentElement:{dataset:{missionaccountsBuild:'production'}},body:{}},
+  missionAccountsCapability:()=>true,
+  missionAccountsDisable(control,reason){control.disabled=true;control.title=reason;control.dataset.capabilityDisabled='true';},
+ };
+ vm.runInNewContext('('+fn('missionAccountsApplyCapabilityState')+')(root)',{...context,root});
+ for(const control of controls){assert.equal(control.disabled,true);assert.equal(control.dataset.credentialDisabled,'true');assert.equal(control.title,credentialReason);}
+ state.mutationsAvailable=true;
+ vm.runInNewContext('('+fn('missionAccountsApplyCapabilityState')+')(root)',{...context,root});
+ for(const control of controls){assert.equal(control.disabled,false);assert.equal(control.dataset.credentialDisabled,undefined);assert.equal(control.title,'');}
+});
+
 test('onboarding UI recovers saves, keeps student role guards, and uses truthful copy',()=>{
  const theme=fn('setTheme');
  assert.match(theme,/missionAccountsApplyCapabilityState\(document\)/);

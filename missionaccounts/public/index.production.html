@@ -2167,11 +2167,17 @@ function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRun
   root.querySelectorAll('[data-rule-decision]').forEach(control=>missionAccountsDisable(control,'The Founder rule decision is locked and read-only.'));
 
   if(!missionAccountsCapability('billing_decisions')) root.querySelectorAll('[data-bt],#bSave,[data-etab="billing"],[data-t],#oSave').forEach(control=>missionAccountsDisable(control,'Billing decisions are not enabled for this environment.'));
-  if(!missionAccountsCapability('identity_review')) root.querySelectorAll('[data-identity-canonical]').forEach(control=>missionAccountsDisable(control,'Identity review is not enabled for this environment.'));
+  if(!missionAccountsCapability('identity_review')) root.querySelectorAll('[data-ident],[data-ident-undo],[data-dev],[data-dev-undo],[data-identity-canonical],#identityCanonicalConfirm').forEach(control=>missionAccountsDisable(control,'Identity review is not enabled for this environment.'));
   if(!['student'].includes(window.MissionAccountsRuntime?.state?.user?.role)){
     root.querySelectorAll('[data-pay],[data-auth],[data-auth-off]').forEach(control=>missionAccountsDisable(control,'Only the signed-in student may change payment setup or authorization.'));
   }
-  const credentialMutationSelector=rules.map(([,selector])=>selector).concat(['[data-edit]','[data-bt]','#bSave','[data-t]','#oSave','[data-identity-canonical]']).join(',');
+  const credentialMutationSelector=rules.map(([,selector])=>selector).concat([
+    '[data-edit]','[data-bt]','#bSave','[data-t]','#oSave',
+    '[data-ident]','[data-ident-undo]','[data-dev]','[data-dev-undo]','[data-identity-canonical]','#identityCanonicalConfirm',
+    '[data-onboarding-form] button[type="submit"]',
+    '[data-legacy-liability] button[type="submit"]','[data-legacy-manual] button[type="submit"]','[data-legacy-approve]','#legacyApproveYes',
+    '#exGo','#exdGo','#psYes','#cGo','#eSaveId','#airGo','#gGo','#batchUndo','#mcGo','#rGo'
+  ]).join(',');
   const runtimeState=window.MissionAccountsRuntime?.state;
   if(runtimeState?.authenticated && runtimeState.mutationsAvailable===false){
     root.querySelectorAll(credentialMutationSelector).forEach(control=>{ if(control.disabled) return; missionAccountsDisable(control,credentialReason); control.dataset.credentialDisabled='true'; });
