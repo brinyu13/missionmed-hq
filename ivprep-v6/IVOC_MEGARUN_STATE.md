@@ -1,6 +1,6 @@
 # IVOC end-to-end megarun state
 
-Updated: 2026-09-16 14:47 America/New_York
+Updated: 2026-09-16 14:55 America/New_York
 Mission: `IVOC-CONVERGE-8001`  
 Authority: `DR-288`  
 Branch: `codex/ivoc-converge-8001-production`
@@ -46,6 +46,11 @@ Branch: `codex/ivoc-converge-8001-production`
   `IVPREP_SUPABASE_PROJECT_REF` exactly matches the project URL. This makes the
   sanctioned development branch and the later dedicated production project usable
   without weakening cross-project binding checks.
+- Provider-native readback confirms the sanctioned branch has all five current IVOC
+  migrations, 11 `ivoc_*` tables with RLS enabled, and no table grants to `anon` or
+  `authenticated`. The additive audit-recording foreign-key index is applied and
+  committed at `cca6734a830124096e877e9bf0dbd861c0f2baff`; the Supabase advisor no
+  longer reports that IVOC foreign key as unindexed.
 
 ## Current production evidence and gates
 
