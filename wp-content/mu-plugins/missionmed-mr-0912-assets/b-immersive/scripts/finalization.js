@@ -20,17 +20,18 @@ const qstate=[];
 function quoteIntro(before,ids,theme){
  const node=document.createElement('aside');node.className='quote-intro';
  node.setAttribute('aria-label',theme+' student voices');node.dataset.section=before;
- node.innerHTML='<figure><blockquote></blockquote><figcaption></figcaption></figure><div class="quote-controls"><button class="quote-prev" aria-label="Previous quote">←</button><span class="quote-count"></span><button class="quote-next" aria-label="Next quote">→</button><button class="quote-pause" aria-pressed="false">Pause</button></div>';
+ node.innerHTML='<p class="quote-theme">'+theme+' <span>· Student voices</span></p><figure><blockquote></blockquote><figcaption></figcaption></figure><div class="quote-controls"><button class="quote-prev" aria-label="Previous quote">←</button><span class="quote-count"></span><button class="quote-next" aria-label="Next quote">→</button><button class="quote-pause" aria-pressed="false">Pause</button></div>';
  $(before).before(node);let ix=0,paused=false,hover=false,focused=false,reveal=null;
  const draw=()=>{const q=quotes[ids[ix]];$('blockquote',node).textContent='“'+q.quote+'”';$('figcaption',node).textContent=q.name+' · '+(q.sourceLabel||'MissionMed Match Day');$('.quote-count',node).textContent=(ix+1)+' / '+ids.length;node.dataset.quoteId=q.id};
- const step=n=>{ix=(ix+n+ids.length)%ids.length;draw();reveal?.cancel();if(!document.body.classList.contains('motion-off'))reveal=$('figure',node).animate([{opacity:.15,transform:'translateY(4px)'},{opacity:1,transform:'translateY(0)'}],{duration:280,easing:'ease-out'})};
+ const step=n=>{ix=(ix+n+ids.length)%ids.length;draw();reveal?.cancel();if(!document.body.classList.contains('motion-off'))reveal=$('figure',node).animate([{opacity:0,transform:'translateY(20px)'},{opacity:1,transform:'translateY(0)'}],{duration:650,easing:'cubic-bezier(.2,.7,.2,1)'})};
  $('.quote-prev',node).onclick=()=>{step(-1);ev('mr_quote_interaction',{section:before,quote_id:node.dataset.quoteId,direction:'previous'})};
  $('.quote-next',node).onclick=()=>{step(1);ev('mr_quote_interaction',{section:before,quote_id:node.dataset.quoteId,direction:'next'})};
  $('.quote-pause',node).onclick=()=>{paused=!paused;$('.quote-pause',node).textContent=paused?'Resume':'Pause';$('.quote-pause',node).setAttribute('aria-pressed',String(paused));ev('mr_quote_interaction',{section:before,action:paused?'pause':'resume'})};
  node.onmouseenter=()=>hover=true;node.onmouseleave=()=>hover=false;
  node.addEventListener('focusin',()=>focused=true);
  node.addEventListener('focusout',e=>focused=!!e.relatedTarget&&node.contains(e.relatedTarget));
- qstate.push({node,tick:()=>{if(!paused&&!hover&&!focused&&!document.hidden&&!document.body.classList.contains('motion-off')){const r=node.getBoundingClientRect();if(r.top<innerHeight&&r.bottom>0)step(1)}}});
+ const reserve=()=>{const figure=$('figure',node),probe=figure.cloneNode(true);probe.style.cssText='position:absolute;visibility:hidden;pointer-events:none;min-height:0;width:'+figure.getBoundingClientRect().width+'px';probe.setAttribute('aria-hidden','true');node.append(probe);let height=0;ids.forEach(id=>{const q=quotes[id];$('blockquote',probe).textContent='“'+q.quote+'”';$('figcaption',probe).textContent=q.name+' · '+(q.sourceLabel||'MissionMed Match Day');height=Math.max(height,probe.getBoundingClientRect().height)});probe.remove();figure.style.minHeight=Math.ceil(height)+'px';};
+ qstate.push({node,reserve,tick:()=>{if(!paused&&!hover&&!focused&&!document.hidden&&!document.body.classList.contains('motion-off')){const r=node.getBoundingClientRect();if(r.top<innerHeight&&r.bottom>0)step(1)}}});
  draw();
 }
 $('.brand img').src=asset+'mr-transparent.png';$('.brand>span').textContent='Physician-led preparation from MissionMed Institute';
@@ -97,7 +98,10 @@ quoteIntro('#method',[2,7],'Voice and confidence');quoteIntro('#teacher',[0,1],'
 setInterval(()=>qstate.forEach(q=>q.tick()),9000);
 const motionButton=document.createElement('button');motionButton.className='motion-toggle';motionButton.textContent='Motion on';motionButton.setAttribute('aria-pressed','true');document.body.append(motionButton);
 let scheduled=false;
-function paintDepth(){scheduled=false;const off=document.body.classList.contains('motion-off'),factor=innerWidth<750?.45:1;motionButton.textContent=off?'Motion off':'Motion on';motionButton.setAttribute('aria-pressed',String(!off));if(off)return;const hero=$('.hero-b'),p=Math.max(0,Math.min(1,-hero.getBoundingClientRect().top/hero.offsetHeight));$('.hero-room').style.transform=`translate3d(0,${p*145*factor}px,0) scale(1.12)`;$('.hero-person').style.transform=`translate3d(0,${p*75*factor}px,0) scale(1.12)`;$('.hero-foreground').style.transform=`translate3d(0,${-p*65*factor}px,0) scale(1.12)`;$('.hero-copy').style.transform=`translate3d(0,${-p*65*factor}px,0)`;$('.cinema-ticket').style.transform=`translate3d(0,${-p*25*factor}px,0)`;
+function paintDepth(){scheduled=false;const off=document.body.classList.contains('motion-off'),factor=innerWidth<750?.7:1;motionButton.textContent=off?'Motion off':'Motion on';motionButton.setAttribute('aria-pressed',String(!off));if(off)return;const hero=$('.hero-b'),p=Math.max(0,Math.min(1,-hero.getBoundingClientRect().top/hero.offsetHeight));$('.hero-room').style.transform=`translate3d(0,${p*330*factor}px,0) scale(${1.08+p*.09})`;
+ $('.hero-copy').style.transform=`translate3d(0,${-p*110*factor}px,0)`;$('.cinema-ticket').style.transform=`translate3d(0,${-p*65*factor}px,0)`;
+ $('.viewfinder').style.transform=`translate3d(${p*22*factor}px,${-p*90*factor}px,0)`;
+ hero.style.setProperty('--atmosphere-shift',`${p*180*factor}px`);
  if(window.MRBAAAdepth){window.MRBAAAdepth();return;}
  const r=$('#personalization').getBoundingClientRect(),range=Math.max(1,$('#personalization').offsetHeight-innerHeight),t=Math.max(0,Math.min(1,-r.top/range))-.5;$('.mentor-layer').style.transform=`translate3d(${t*40*factor}px,${t*140*factor}px,0)`;$('.story-layer').style.transform=`translate3d(${-t*60*factor}px,${-t*100*factor}px,0)`;$('.signal-layer').style.transform=`translate3d(${t*25*factor}px,${-t*180*factor}px,0)`;
  const m=$('#matrix').getBoundingClientRect(),mp=Math.max(-.5,Math.min(.5,(innerHeight/2-m.top)/(innerHeight+m.height)));$('.matrix-device').style.transform=`translate3d(0,${mp*100*factor}px,0) rotateX(${mp*-14}deg) rotateY(${mp*5}deg)`;$('.matrix-app-strip').style.transform=`translate3d(${-mp*55*factor}px,${-mp*100*factor}px,60px)`;
@@ -174,7 +178,7 @@ quotes.push(
 {id:'Q11',name:'Sara Habib',quote:'Whatever you learn to talk about on interviews, are stories from your own life.',sourceLabel:'Student review'},
 {id:'Q12',name:'Varun Ravindran',quote:'The classes and the mocks took away so much stress from the day of the interview and just made everything easier.',sourceLabel:'Student review'}
 );
-quoteIntro('#personalization',[0,7],'The person behind the answer');
+quoteIntro('#personalization',[7,0],'Confidence, built together');
 quoteIntro('#strategy',[qStart+2,2],'Your own stories and voice');
 quoteIntro('.career',[qStart,qStart+1],'Communication beyond interviews');
 // Make the mock-specific source visible within its relevant section.
@@ -190,19 +194,54 @@ window.MRBAAAdepth=()=>{
  const pr=$('#personalization').getBoundingClientRect(),range=Math.max(1,$('#personalization').offsetHeight-innerHeight);
  const t=clamp(-pr.top/range);
  if(!manualMetric&&!mobile&&!off)setMetric(Math.min(2,Math.floor(t*3)));
- $('.analytics-browser').style.transform=off?'none':`perspective(1800px) rotateX(${(t-.5)*-5}deg) translateY(${(t-.5)*-30}px)`;
+ const enter=clamp((innerHeight-pr.top)/(innerHeight+250));
+ $('.analytics-browser').style.transform=off?'none':`perspective(1600px) rotateX(${(1-enter)*14-t*4}deg) rotateY(${(1-enter)*-9}deg) translate3d(0,${(1-enter)*80-t*30}px,0) scale(${.91+enter*.09})`;
+ $('#personalization').style.setProperty('--atmosphere-shift',`${t*180}px`);
  const mr=$('#matrix').getBoundingClientRect(),mp=clamp((innerHeight*.75-mr.top)/(mr.height+innerHeight*.25));
  const panelTop=$('.matrix-tool-copy').getBoundingClientRect().top;
  const appProgress=clamp((innerHeight*.55-panelTop)/(innerHeight*.4));
  if(!manualApp&&!off&&!mobile)setApp(Math.min(3,Math.floor(appProgress*4)));
- $('.matrix-device').style.transform=off?'none':`perspective(1800px) translateY(${(mp-.5)*-50}px) rotateX(${(mp-.5)*-9}deg)`;
- $$('.proof-story').forEach((n,i)=>{const r=n.getBoundingClientRect(),p=clamp((innerHeight-r.top)/(innerHeight+r.height));n.style.transform=off?'none':`translateY(${(p-.5)*(mobile?14:36)*(i%2?-1:1)}px)`;});
+ $('.matrix-device').style.transform=off?'none':`perspective(1600px) translate3d(0,${(mp-.5)*-130}px,0) rotateX(${(mp-.5)*-18}deg) rotateY(${(mp-.5)*5}deg)`;
+ $('#matrix').style.setProperty('--atmosphere-shift',`${mp*150}px`);
+ const collage=$('.celebration-image');if(collage){const r=$('#celebration').getBoundingClientRect(),p=clamp((innerHeight-r.top)/(innerHeight+r.height));collage.style.transform=off||mobile?'none':`translate3d(0,${(p-.5)*110}px,0) scale(1.12)`;}
+ $$('.proof-story').forEach((n,i)=>{const r=n.getBoundingClientRect(),p=clamp((innerHeight-r.top)/(innerHeight+r.height));n.style.transform=off?'none':`translateY(${(p-.5)*(mobile?30:70)*(i%2?-1:1)}px)`;});
 };
 const aaPaint=()=>{if(!ticking){ticking=true;requestAnimationFrame(()=>{ticking=false;window.MRBAAAdepth()})}};
 addEventListener('scroll',aaPaint,{passive:true});addEventListener('resize',aaPaint);window.MRBAAAdepth();
 const revealObserver=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('aaa-visible');revealObserver.unobserve(e.target);}}),{threshold:.08});
 $$('.analytics-heading,.matrix-heading,.strategy-heading,.specialized-heading,.proof-heading,.match-wall,.team-photo,.teacher-copy').forEach(n=>{n.classList.add('aaa-reveal');revealObserver.observe(n)});
 ev('mr_b_aaa_mastering_view');
+
+/* Founder surgical V2: exact supplied proof, editorial hierarchy, bounded depth. */
+document.body.classList.add('aaa-correction-v2');
+$('.brand-subtitle').textContent='Physician-led interview preparation';
+const heroVisibility=new IntersectionObserver(entries=>entries.forEach(e=>document.body.classList.toggle('v2-hero-in-view',e.isIntersecting)),{threshold:0});heroVisibility.observe($('.hero-b'));
+$('.hero-person').remove();$('.hero-foreground').remove();
+// The approved portrait stays intact: no guessed subject mask or duplicate desk.
+const wall=$('.match-wall');wall.remove();$('.match-film').remove();
+$('.intro').insertAdjacentHTML('afterend',`<section id="celebration" class="celebration"><div class="celebration-heading"><p class="eyebrow">THE HUMAN PART / MISSION RESIDENCY</p><h2>The moment<br><em>it becomes real.</em></h2><p>Different journeys. Shared joy.<br>The people behind the preparation.</p></div><figure><div class="celebration-window"><img class="celebration-image" src="${asset}student-celebrate-v2.webp" width="1702" height="630" alt="Mission Residency student celebration collage: students and families laughing, cheering and receiving Match news" loading="lazy" decoding="async"></div><figcaption><span>Real Mission Residency celebrations.<br>Individual experiences, not a promise of your outcome.</span><a class="text-link" href="${asset}student-celebrate-v2.webp" target="_blank" rel="noopener">View the full celebration image ↗</a></figcaption></figure><div class="celebration-links"><a class="button" href="#compare">Find your training path ↗</a><a class="text-link" href="#proof">Hear their stories ↗</a><a class="text-link" href="https://www.youtube.com/watch?v=SWFzwGD3nZI" target="_blank" rel="noopener">Watch the celebration ↗</a></div></section>`);
+$('.proof-heading h2').innerHTML='In their<br><em>own words.</em>';
+$('.proof-heading>p:not(.eyebrow)').textContent='Meet Marian, Yamini and Gunjan. Watch their authentic MissionMed Match Day recordings.';
+const decisionQuote=$('.quote-intro[data-section="#compare"]');
+// Distinct, source-verified mock experience at the actual decision point.
+$('blockquote',decisionQuote).textContent='“'+quotes[qStart+3].quote+'”';
+$('figcaption',decisionQuote).textContent=quotes[qStart+3].name+' · Student review';
+decisionQuote.dataset.quoteId='Q12';
+// Keep the existing rotation controls honest: this feature is a single, static source.
+qstate.splice(qstate.findIndex(q=>q.node===decisionQuote),1);$('.quote-controls',decisionQuote).remove();
+$('.quote-theme',decisionQuote).innerHTML='Practice with purpose <span>· Student voice</span>';
+$('.team-testimony').remove();
+const matrixStage=document.createElement('div');matrixStage.className='matrix-stage';$('.matrix-heading').after(matrixStage);['.matrix-display','.matrix-app-strip','.matrix-tool-copy','.matrix-access'].forEach(s=>matrixStage.append($(s)));
+const closingQuote=$('.quote-intro[data-section="#enroll"]');
+qstate.splice(qstate.findIndex(q=>q.node===closingQuote),1);$('.quote-controls',closingQuote).remove();
+$('blockquote',closingQuote).textContent='“'+quotes[5].quote+'”';$('figcaption',closingQuote).textContent=quotes[5].name+' · MissionMed Match Day';closingQuote.dataset.quoteId='Q06';
+const v2Reveal=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('v2-visible');v2Reveal.unobserve(e.target)}}),{threshold:.12});
+$$('.quote-intro,.celebration-heading,.analytics-insight,.matrix-tool-copy').forEach(n=>{n.classList.add('v2-reveal');v2Reveal.observe(n)});
+// Reset all added transforms when the reader disables motion, including dynamic preference changes.
+const resetV2=()=>{if(document.body.classList.contains('motion-off')){$$('.hero-room,.hero-copy,.cinema-ticket,.viewfinder,.celebration-image,.analytics-browser,.matrix-device,.proof-story').forEach(n=>n.style.transform='none');$$('.hero-b,#personalization,#matrix').forEach(n=>n.style.setProperty('--atmosphere-shift','0px'));}};
+new MutationObserver(resetV2).observe(document.body,{attributes:true,attributeFilter:['class']});resetV2();aaPaint();
+const reserveQuotes=()=>qstate.forEach(q=>q.reserve());document.fonts.ready.then(reserveQuotes);let quoteResize;addEventListener('resize',()=>{clearTimeout(quoteResize);quoteResize=setTimeout(reserveQuotes,160)});
+ev('mr_b_aaa_correction_v2_view');
 
 ev('mr_b_finalization_view');
 }, {once:true});
