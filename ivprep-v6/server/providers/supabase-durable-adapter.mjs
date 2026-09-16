@@ -13,7 +13,6 @@ import { createOpenAiLiveSessionBroker } from './openai-live-session.mjs';
 import { PROFILE_B, PROFILE_B_AGENT_NAME, ProviderSessionController } from './provider-session-controller.mjs';
 
 const PRODUCT_PROJECT_REF = 'tufzqxeucfugdovtjyqk';
-const PRODUCT_URL = `https://${PRODUCT_PROJECT_REF}.supabase.co`;
 const HOSTED_ENTITLEMENT_REVISION = 'hosted-3522-matrix-v1';
 const ENTITLEMENT_TTL_MS = 24 * 60 * 60 * 1000;
 const ENTITLEMENT_RENEWAL_WINDOW_MS = 6 * 60 * 60 * 1000;
@@ -39,10 +38,17 @@ const RPCS = new Set([
   'ivprep_trip_provider_kill_switch',
 ]);
 
-function exactProjectUrl(value) {
+function exactProjectRef(value, fallback = PRODUCT_PROJECT_REF) {
+  const ref = String(value || fallback).trim();
+  return /^[a-z]{20}$/u.test(ref) ? ref : null;
+}
+
+function exactProjectUrl(value, expectedProjectRef = PRODUCT_PROJECT_REF) {
   try {
+    const projectRef = exactProjectRef(expectedProjectRef);
+    if (!projectRef) return null;
     const url = new URL(String(value || ''));
-    return url.origin === PRODUCT_URL && url.pathname === '/' && !url.search && !url.hash
+    return url.origin === `https://${projectRef}.supabase.co` && url.pathname === '/' && !url.search && !url.hash
       ? url.origin
       : null;
   } catch {
@@ -131,8 +137,15 @@ function logMilestone(code, detail = {}) {
 }
 
 export class IvPrepSupabaseRest {
-  constructor({ url, serviceRoleKey, fetchImpl = fetch, timeoutMs = 4_000 } = {}) {
-    this.url = exactProjectUrl(url);
+  constructor({
+    url,
+    serviceRoleKey,
+    expectedProjectRef = PRODUCT_PROJECT_REF,
+    fetchImpl = fetch,
+    timeoutMs = 4_000,
+  } = {}) {
+    this.projectRef = exactProjectRef(expectedProjectRef);
+    this.url = exactProjectUrl(url, this.projectRef);
     this.key = String(serviceRoleKey || '');
     this.fetchImpl = fetchImpl;
     this.timeoutMs = Math.max(500, Math.min(5_000, Number(timeoutMs) || 0));
@@ -724,6 +737,7 @@ export function createSupabaseWorkerGateFromEnvironment(environment = process.en
   const rest = new IvPrepSupabaseRest({
     url: environment.IVPREP_SUPABASE_URL,
     serviceRoleKey: environment.IVPREP_SUPABASE_SERVICE_ROLE_KEY,
+    expectedProjectRef: environment.IVPREP_SUPABASE_PROJECT_REF || PRODUCT_PROJECT_REF,
   });
   return createSupabaseWorkerGate({ rest, voice: environment.IVPREP_REALTIME_VOICE });
 }

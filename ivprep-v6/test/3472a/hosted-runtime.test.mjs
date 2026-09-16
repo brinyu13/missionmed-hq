@@ -13,6 +13,8 @@ import { FOUNDER_TEST_AGENT_ID } from '../../server/founder-paid-test-gate.mjs';
 import { PROFILE_B } from '../../server/providers/provider-session-controller.mjs';
 
 const PRODUCT_URL = 'https://tufzqxeucfugdovtjyqk.supabase.co';
+const BRANCH_REF = 'mwyqdupgalpvtupceozz';
+const BRANCH_URL = `https://${BRANCH_REF}.supabase.co`;
 const SERVICE_KEY = 's'.repeat(40);
 const MODULE_ROOT = new URL('../../', import.meta.url);
 
@@ -43,6 +45,23 @@ test('hosted database binding accepts only the exact IV Prep project and handles
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, `${PRODUCT_URL}/rest/v1/rpc/ivprep_bind_provider_dispatch`);
   assert.equal(calls[0].options.redirect, 'error');
+});
+
+test('an explicit server-owned project ref admits the sanctioned branch and rejects ref/url drift', () => {
+  const branch = new IvPrepSupabaseRest({
+    url: BRANCH_URL,
+    expectedProjectRef: BRANCH_REF,
+    serviceRoleKey: SERVICE_KEY,
+    fetchImpl: async () => jsonResponse([]),
+  });
+  assert.equal(branch.projectRef, BRANCH_REF);
+  assert.equal(branch.url, BRANCH_URL);
+  assert.throws(() => new IvPrepSupabaseRest({
+    url: BRANCH_URL,
+    expectedProjectRef: 'tufzqxeucfugdovtjyqk',
+    serviceRoleKey: SERVICE_KEY,
+    fetchImpl: async () => jsonResponse([]),
+  }), /exact IV Prep Supabase/u);
 });
 
 test('hosted entitlement bootstrap preserves an existing durable usage ledger', async () => {

@@ -33,6 +33,10 @@ Branch: `codex/ivoc-converge-8001-production`
   production Supabase project with service-role-only server access, the existing
   IVOC RLS/revocation/audit model, private R2 media, and an explicit migration and
   rollback receipt. No existing unrelated project is to be relabelled or promoted.
+- Hosted IVOC database wiring accepts a non-legacy target only when the server-owned
+  `IVPREP_SUPABASE_PROJECT_REF` exactly matches the project URL. This makes the
+  sanctioned development branch and the later dedicated production project usable
+  without weakening cross-project binding checks.
 
 ## Current production evidence and gates
 
