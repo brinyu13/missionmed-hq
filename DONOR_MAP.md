@@ -40,6 +40,37 @@ unchanged; the sources below inform contracts and later adaptation only.
 | `ivoc/brain/prompted/director.test.mjs` | Fable D11 | Deterministic Next/spacebar ask sequence and close behavior. |
 | `ivoc/README_LANES.md` | DR-282 and Fable section 27 | Lane ownership and held-scope declaration. |
 
+## Wave 1 source map
+
+Wave 1 source commit: `f9a593be39f6eb5b3a2e7678994e2d76e55706f3`.
+No donor code was copied directly. The implementation is original code against
+the accepted Fable contracts, with the existing files below used only as
+read-only behavioral evidence.
+
+| Target path | Evidence source | Use / reason |
+|---|---|---|
+| `ivoc/analytics/descriptors.mjs` | Fable sections 7.1-7.2; `ivprep-v6/public/analytics/metric-contract.mjs` at `c3d6c9c` | Defines the 18-signal M1 registry, reliability tiers, visible limitations and complete forbidden-inference set. |
+| `ivoc/analytics/registry.mjs` | Fable sections 6-7; `ivprep-v6/public/analytics/signal-registry.mjs` at `c3d6c9c` | Original versioned registry/supervisor emitting measured timeline envelopes and explicit availability. |
+| `ivoc/analytics/runtime/audio-analyzer.mjs` | Fable M1 voice signal table; `ivprep-v6/public/analytics/{audio-signal,pitch-f0,syllable-rate}.mjs` at `c3d6c9c` | Original browser-local PCM analysis for real dBFS, F0, pause state and bounded acoustic pace; PCM remains transient. |
+| `ivoc/analytics/runtime/browser-runtime.mjs` | Fable sections 7.3-7.5; existing 3521 admitted-stream design | Uses one real admitted `MediaStream`; audio is measured and missing vision adapters are explicitly degraded rather than fabricated. |
+| `ivoc/analytics/cues/arbiter.mjs` | Fable section 7.4; deployed 6002 `NO_CUE` law | Original dwell, show, refractory, per-answer and fault-bypass selector that owns ids, never coaching copy. |
+| `ivoc/analytics/{registry,runtime/audio-analyzer,cues/arbiter}.test.mjs` | DR-288 Wave 1 acceptance | Deterministic signal truth, real PCM, forbidden-claim, cue timing and fail-closed tests. |
+| `ivoc/media/chunk-manifest.mjs` | Fable sections 14.1 and 6.3 | Original byte-hashed, ordered chunk manifest and immutable seal contract. |
+| `ivoc/media/recorder.mjs` | Fable section 14.1; `ivprep-v6/public/ivoc-standalone/app/recording.mjs` at `c3d6c9c` | Original `MediaRecorder` controller over the same admitted stream with chunk/seal events and no public storage behavior. |
+| `ivoc/media/media.test.mjs` | DR-288 Wave 1 acceptance | Proves real-byte hashing, admitted-stream identity, event sequence and immutable seal. |
+| `ivoc/transcript/canonical.mjs` | Fable section 15.1 | Original strict word-timed canonical transcript validator and speaker filter. |
+| `ivoc/transcript/segmenter.mjs` | Fable section 15.2; F1 `question.*`/`turn.*` events | Sole deterministic M1 segmentation owner; refuses missing boundaries rather than guessing. |
+| `ivoc/transcript/segmenter.test.mjs` | DR-288 Wave 1 acceptance | Proves media-clock Q/A segmentation and fail-closed incomplete-boundary behavior. |
+| `ivoc/projectors/results.mjs` | Fable sections 5.2 and 16; F1 result contract | Original evidence-ref result projection with unavailable-signal limitations. |
+| `ivoc/projectors/flight-recorder.mjs` | Fable section 14.3 | Original one-cursor projection across media, transcript, question, turn, cue and signal lanes with explicit gaps. |
+| `ivoc/projectors/library.mjs` | Fable section 14.4 | Original subject-scoped, list-first search/sort projection. |
+| `ivoc/projectors/projectors.test.mjs` | DR-288 Wave 1 acceptance | Proves measured-only Results, synchronized seek/gaps and subject isolation. |
+| `ivoc/ui/adapters/m1-view-model.mjs` | Fable D9 and sections 21.1-21.2 | Only presentation adapter importing Wave 1 capabilities; exposes plain view state and intents. |
+| `ivoc/ui/runtime.mjs` | Astra candidate.2 presentation separation; Fable section 21 | Thin component wiring through the view-model adapter only. |
+| `ivoc/ui/index.html` | Astra candidate.2 visual canon; Fable D11 | Original M1 Prompted Mock cockpit shell with explicit no-provider and truth-boundary copy. |
+| `ivoc/ui/runtime.css` | Astra candidate.2 visual canon | Original responsive, reduced-motion-aware presentation styling; no capability logic. |
+| `ivoc/ui/ui.test.mjs` | F1 presentation-boundary contract | Proves the UI import boundary and required missing-signal/forbidden-inference copy. |
+
 Later lanes may adapt exact donor files only after updating this map with the
 immutable object, exact source path, target path, contract satisfied and
 reason for selection. A direct port must also carry a `// donor:` header.
