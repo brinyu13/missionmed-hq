@@ -38,11 +38,17 @@ test("student and admin views share one canonical gold-star relationship", async
   const detail = await store.adminRead({ studentKey: "wp:101" });
   assert.equal(detail.records.length, 2);
   assert.equal(detail.records.find(record => record.programSpecialtyId === "ps-a").goldStarred, true);
+  assert.deepEqual(detail.records.map(record => record.priorityPosition), [1, 2]);
+  await store.reorder({ subject: "wp:101", orderedProgramSpecialtyIds: ["ps-b", "ps-a"] });
+  assert.deepEqual((await store.list({ subject: "wp:101" })).map(record => record.programSpecialtyId), ["ps-b", "ps-a"]);
+  await store.delete({ subject: "wp:101", programSpecialtyId: "ps-b" });
+  assert.equal((await store.list({ subject: "wp:101" }))[0].priorityPosition, 1);
 });
 
-test("5014 migration and routes are additive, RLS-bound, and admin read-only", async () => {
-  const [migration, server, app] = await Promise.all([
+test("5014A priority migration and delegated routes are additive, RLS-bound, and priority-only", async () => {
+  const [migration, priorityMigration, server, app] = await Promise.all([
     fs.readFile(new URL("../sql/015_admin_students_application_intelligence.sql", import.meta.url), "utf8"),
+    fs.readFile(new URL("../sql/016_student_program_priority_order.sql", import.meta.url), "utf8"),
     fs.readFile(new URL("../server.mjs", import.meta.url), "utf8"),
     fs.readFile(new URL("../web/app.js", import.meta.url), "utf8"),
   ]);
@@ -50,11 +56,18 @@ test("5014 migration and routes are additive, RLS-bound, and admin read-only", a
   assert.match(migration, /CREATE TABLE IF NOT EXISTS rise_runtime\.student_program_subjects/);
   assert.match(migration, /FORCE ROW LEVEL SECURITY/g);
   assert.match(migration, /current_setting\('rise\.is_admin', true\) = 'true'/);
+  assert.match(priorityMigration, /ADD COLUMN IF NOT EXISTS priority_position integer/);
+  assert.match(priorityMigration, /DEFERRABLE INITIALLY DEFERRED/);
+  assert.match(priorityMigration, /student_program_priority_audit/);
+  assert.match(priorityMigration, /FORCE ROW LEVEL SECURITY/);
+  assert.doesNotMatch(priorityMigration, /GRANT [^;]+ TO (?:anon|authenticated|PUBLIC)/i);
   assert.doesNotMatch(migration, /GRANT [^;]+ TO (?:anon|authenticated|PUBLIC)/i);
   assert.match(server, /GET" && url\.pathname === "\/api\/rise\/v1\/operator\/students"[\s\S]*hasCapability\(session, "rise:operator"\)/);
   assert.match(server, /operatorStudentMatch[\s\S]*request\.method === "GET"/);
-  assert.doesNotMatch(server, /operator\/students[^\n]+(?:PATCH|PUT|DELETE)/);
-  assert.match(app, /Student choices can only be changed by the student/);
+  assert.match(server, /operator\/delegated\/programs/);
+  assert.match(server, /DELEGATED_CONTEXT_INVALID/);
+  assert.match(app, /Student view is read-only except for priority order/);
+  assert.match(app, /Viewing RISE for/);
   assert.match(app, /goldStarred: record\.goldStarred === true/);
 });
 
@@ -84,6 +97,9 @@ test("admin student APIs enforce operator authorization and omit private notes",
       };
     },
     logger: { info() {}, error() {} },
+    adminIdentityResolver: async ({ identities }) => new Map(identities.map(identity => [identity.studentKey, {
+      ...identity, displayName: "Canonical Student", email: "canonical@example.test", identityStatus: "CANONICAL_WORDPRESS",
+    }])),
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -95,12 +111,35 @@ test("admin student APIs enforce operator authorization and omit private notes",
     const index = await indexResponse.json();
     assert.equal(index.total, 1);
     assert.equal(index.records[0].goldStarCount, 1);
+    assert.equal(index.records[0].displayName, "Canonical Student");
     const detailResponse = await fetch(`${baseUrl}/api/rise/v1/operator/students/${studentKey}`, { headers: { "X-Test-Role": "admin" } });
     assert.equal(detailResponse.status, 200);
     const detail = await detailResponse.json();
     assert.equal(detail.records[0].programSpecialtyId, "ps-a");
     assert.equal(detail.records[0].goldStarred, true);
     assert.equal(Object.hasOwn(detail.records[0], "notes"), false);
+
+    const csrfHeaders = { "X-Test-Role": "admin", "X-RISE-CSRF": "csrfTokenForAdminStudentTest000000" };
+    const contextResponse = await fetch(`${baseUrl}/api/rise/v1/operator/students/${studentKey}/context`, { method: "POST", headers: csrfHeaders });
+    assert.equal(contextResponse.status, 200);
+    const context = await contextResponse.json();
+    assert.equal(context.identity.displayName, "Canonical Student");
+    assert.match(context.delegatedContextToken, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+
+    const delegatedHeaders = { ...csrfHeaders, "Content-Type": "application/json", "X-RISE-Delegated-Context": context.delegatedContextToken };
+    const delegatedRead = await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, { headers: delegatedHeaders });
+    assert.equal(delegatedRead.status, 200);
+    const reorderResponse = await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
+      method: "PATCH", headers: delegatedHeaders, body: JSON.stringify({ orderedProgramSpecialtyIds: ["ps-a"] }),
+    });
+    assert.equal(reorderResponse.status, 200);
+    assert.equal((await reorderResponse.json()).records[0].priorityPosition, 1);
+    assert.equal((await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
+      headers: { ...delegatedHeaders, "X-RISE-Delegated-Context": `${context.delegatedContextToken}x` },
+    })).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
+      headers: { "X-Test-Role": "student", "X-RISE-Delegated-Context": context.delegatedContextToken },
+    })).status, 403);
   } finally {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }

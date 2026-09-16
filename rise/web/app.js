@@ -145,7 +145,7 @@ function profileFromMatrix(payload) {
 }
 
 function hasUsableProfile() {
-  return Boolean(D.profile.available && D.profile.personalizationReady);
+  return Boolean(!state.delegated && D.profile.available && D.profile.personalizationReady);
 }
 
 function showRiseLoadingState() {
@@ -176,6 +176,7 @@ async function loadRuntime() {
     state: record.state,
     notes: record.notes || '',
     goldStarred: record.goldStarred === true,
+    priorityPosition: Number(record.priorityPosition || 0),
   }]));
   return {
     session,
@@ -237,6 +238,8 @@ const state = {
   member: runtime.session.capabilities.includes('rise:premium'),
   theme: 'midnight',
   saved: runtime.saved,
+  ownSaved: null,
+  delegated: null,
   compare: [],
   underlying: null,                   // last non-file route
   find: { mode: 'criteria', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlexWithoutUsmle: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, sort: 'name', view: 'list', shown: 50, scroll: 0, moreOpen: false },
@@ -428,6 +431,7 @@ window.unlockSheet = unlockSheet;
 
 /* ---------------- save / compare ---------------- */
 async function persistProgramState(id) {
+  if (state.delegated) throw Object.assign(new Error('Only priority order may be changed while viewing a student.'), { code: 'DELEGATED_READ_ONLY' });
   const record = state.saved.get(id);
   if (!record) {
     await riseFetch('/api/rise/v1/me/programs/' + encodeURIComponent(id), { method: 'DELETE' });
@@ -439,6 +443,7 @@ async function persistProgramState(id) {
 }
 async function toggleSave(id, ev) {
   if (ev) ev.stopPropagation();
+  if (state.delegated) { toast('Student view is read-only except for priority order.'); return; }
   const previous = state.saved.has(id) ? { ...state.saved.get(id) } : null;
   if (previous) { state.saved.delete(id); toast('Removed from My Programs'); }
   else { state.saved.set(id, { state: 'SAVED', notes: '', goldStarred: false }); toast('Saved to My Programs'); }
@@ -452,6 +457,7 @@ async function toggleSave(id, ev) {
 window.toggleSave = toggleSave;
 async function toggleGoldStar(id, ev) {
   if (ev) ev.stopPropagation();
+  if (state.delegated) { toast('Gold stars remain student-owned.'); return; }
   const record = state.saved.get(id);
   if (!record) { toast('Save this program before adding a gold star.'); return; }
   const previous = record.goldStarred === true;
@@ -531,7 +537,7 @@ function renderShell() {
       admin.map(([k, l, ic]) => `<button class="rtab adminTab ${r === k || r.startsWith(k + '/') ? 'on' : ''}" onclick="nav('${k}')">${ic}<span>${l}</span>${k === 'admin/review' ? `<span class="badge">${state.researchAdmin.reviewRecords.length || ''}</span>` : ''}${k === 'admin/students' && state.studentsAdmin.total ? `<span class="badge">${state.studentsAdmin.total}</span>` : ''}</button>`).join('') : ''}
     <div class="railFoot">
       <button class="matrixBack" onclick="toast('Production wiring — Matrix link not wired.')">↩ <span>Back to Matrix</span></button>
-      <div class="roleRow ${state.role}"><span class="roleDot"></span><span class="roleName">${state.role === 'admin' ? 'Admin' : 'Student'}</span></div>
+      <div class="roleRow ${state.role}"><span class="roleDot"></span><span class="roleName">${state.delegated ? 'Delegated student' : state.role === 'admin' ? 'Admin' : 'Student'}</span></div>
       ${state.canAdmin ? `<button class="roleSwitch" onclick="switchRole()">${state.role === 'admin' ? 'View student experience' : 'Admin tools'}</button>` : ''}
       <div class="identity"><span>${esc(D.profile.name)} · ${D.profile.available ? 'Matrix profile' : 'Profile unavailable'}</span></div>
     </div>`;
@@ -539,6 +545,7 @@ function renderShell() {
 }
 function switchRole() {
   if (!state.canAdmin) { toast('Admin access is not available for this account.'); return; }
+  if (state.delegated) { exitDelegatedStudent(); return; }
   if (state.role === 'admin') { state.role = 'student'; nav('home'); }
   else { state.role = 'admin'; nav('admin/research'); }
 }
@@ -668,9 +675,12 @@ function renderMain(route) {
   else if (base === 'soap') main.innerHTML = viewSoapExplorer();
   else if (base === 'my') main.innerHTML = viewMy();
   else if (base === 'rank') main.innerHTML = viewRank();
-  else if (base === 'profile') main.innerHTML = viewProfile();
+  else if (base === 'profile') main.innerHTML = state.delegated
+    ? `<div class="view"><p class="eyebrow">Delegated student view</p><h1 class="h1">Profile remains <em>student-owned</em>.</h1><p class="sub">RISE does not substitute the administrator’s Matrix profile or expose a student profile in delegated mode.</p><button class="rowBtn pri" onclick="nav('my')">Back to My Programs</button></div>`
+    : viewProfile();
   else if (base === 'admin') main.innerHTML = viewAdmin(route.split('/').slice(1).join('/') || 'students');
   else main.innerHTML = viewHome();
+  if (state.delegated) main.insertAdjacentHTML('afterbegin', delegatedChrome());
   afterRender(base);
   const h = $('#main h1'); if (h) { h.setAttribute('tabindex', '-1'); }
 }
@@ -678,6 +688,12 @@ function afterRender(base) {
   if (base === 'home' && $('#heroInput')) lookupBind('#heroInput', '#heroAC', 'home');
   if (base === 'find' || base === 'soap') bindFind();
   if (base === 'admin') bindAdmin();
+  if (base === 'my') bindPriorityRows();
+}
+
+function delegatedChrome() {
+  const label = adminStudentLabel(state.delegated.identity || {});
+  return `<section class="delegatedChrome" aria-label="Delegated student view"><span class="delegatedMode">Administrator view</span><strong>Viewing RISE for ${esc(label)}</strong><span>Priority order is editable. Saves, stars, status, notes, and profile remain student-owned.</span><button class="rowBtn" onclick="exitDelegatedStudent()">← Back to Students</button><button class="rowBtn pri" onclick="exitDelegatedStudent()">Exit Student RISE</button></section>`;
 }
 
 /* ---------------- HOME (doc 06) ---------------- */
@@ -699,7 +715,7 @@ function compactRow(p, f) {
 }
 function viewHome() {
   const { gold, silver } = goldSilver();
-  const prof = D.profile;
+  const prof = state.delegated ? { ...D.profile, name: adminStudentLabel(state.delegated.identity || {}), available: false, personalizationReady: false } : D.profile;
   const savedArr = [...state.saved.keys()].map(id => byId.get(id)).filter(Boolean);
   const soapCount = D.programs.filter(p => p.soap.length).length;
   const tries = hasUsableProfile()
@@ -1240,6 +1256,7 @@ function recordApplicationEvent(eventType, programSpecialtyId = null, dimension 
 const MY_STATES = ['SAVED', 'APPLIED', 'INTERVIEWING', 'RANKED'];
 window.cycleMyState = async (id, ev) => {
   ev.stopPropagation();
+  if (state.delegated) { toast('Application status remains student-owned.'); return; }
   const rec = state.saved.get(id); if (!rec) return;
   const previous = rec.state;
   rec.state = MY_STATES[(MY_STATES.indexOf(rec.state) + 1) % MY_STATES.length];
@@ -1247,34 +1264,82 @@ window.cycleMyState = async (id, ev) => {
   try { await persistProgramState(id); } catch { rec.state = previous; rerender(); toast('Could not sync the program state.'); }
 };
 window.updateProgramNotes = async (id, value) => {
+  if (state.delegated) { toast('Student notes remain private and student-owned.'); return; }
   const rec = state.saved.get(id); if (!rec) return;
   const previous = rec.notes; rec.notes = value;
   try { await persistProgramState(id); } catch { rec.notes = previous; toast('Could not sync these notes.'); }
 };
+function orderedMyItems() {
+  return [...state.saved.entries()].map(([id, rec], index) => ({ p: byId.get(id), rec, fallbackPosition: index + 1 })).filter(x => x.p)
+    .sort((a, b) => (Number(a.rec.priorityPosition) || a.fallbackPosition) - (Number(b.rec.priorityPosition) || b.fallbackPosition) || a.p.name.localeCompare(b.p.name));
+}
+function applyPriorityRecords(records) {
+  for (const record of records || []) {
+    const current = state.saved.get(record.programSpecialtyId);
+    if (current) Object.assign(current, { priorityPosition: Number(record.priorityPosition) });
+  }
+}
+async function persistPriorityOrder(ids) {
+  const path = state.delegated ? '/api/rise/v1/operator/delegated/programs' : '/api/rise/v1/me/program-priorities';
+  const headers = state.delegated ? { 'X-RISE-Delegated-Context': state.delegated.token } : {};
+  const payload = await riseFetch(path, { method: 'PATCH', headers, body: JSON.stringify({ orderedProgramSpecialtyIds: ids }) });
+  applyPriorityRecords(payload.records);
+}
+window.moveProgramPriority = async (id, delta, event) => {
+  if (event) event.stopPropagation();
+  const items = orderedMyItems();
+  const from = items.findIndex(item => item.p.id === id);
+  const to = Math.max(0, Math.min(items.length - 1, from + Number(delta)));
+  if (from < 0 || from === to) return;
+  const before = items.map(item => item.p.id);
+  const next = [...before];
+  next.splice(to, 0, next.splice(from, 1)[0]);
+  next.forEach((programId, index) => { state.saved.get(programId).priorityPosition = index + 1; });
+  rerender();
+  try { await persistPriorityOrder(next); toast(`Priority updated: ${to + 1} of ${next.length}`); }
+  catch (error) {
+    before.forEach((programId, index) => { state.saved.get(programId).priorityPosition = index + 1; });
+    rerender(); toast(error.message || 'Priority order was not saved.');
+  }
+};
+let priorityDragId = null;
+function bindPriorityRows() {
+  $$('.myPriorityRow').forEach(row => {
+    row.addEventListener('dragstart', event => { priorityDragId = row.dataset.priorityId; event.dataTransfer.effectAllowed = 'move'; });
+    row.addEventListener('dragover', event => { event.preventDefault(); row.classList.add('dragTarget'); });
+    row.addEventListener('dragleave', () => row.classList.remove('dragTarget'));
+    row.addEventListener('drop', event => {
+      event.preventDefault(); row.classList.remove('dragTarget');
+      const items = orderedMyItems();
+      const from = items.findIndex(item => item.p.id === priorityDragId), to = items.findIndex(item => item.p.id === row.dataset.priorityId);
+      if (from >= 0 && to >= 0 && from !== to) void window.moveProgramPriority(priorityDragId, to - from, event);
+    });
+  });
+}
 function viewMy() {
-  const items = [...state.saved.entries()].map(([id, rec]) => ({ p: byId.get(id), rec })).filter(x => x.p)
-    .sort((a, b) => Number(b.rec.goldStarred) - Number(a.rec.goldStarred) || a.p.name.localeCompare(b.p.name));
+  const items = orderedMyItems();
   const goldCount = items.filter(item => item.rec.goldStarred).length;
   return `<div class="view" data-view="my">
     <p class="eyebrow">My Programs</p>
-    <h1 class="h1"><em>${items.length}</em> program${items.length === 1 ? '' : 's'} you’re tracking</h1>
-    <p class="sub" style="margin:6px 0 18px">${goldCount} highest-interest · click the state chip to advance saved → applied → interviewing → ranked. Gold stars, status and notes share the same canonical record.</p>
+    <h1 class="h1"><em>${items.length}</em> program${items.length === 1 ? '' : 's'} ${state.delegated ? `${esc(adminStudentLabel(state.delegated.identity))} is tracking` : 'you’re tracking'}</h1>
+    <p class="sub myPriorityHelp">Drag programs or use the arrow buttons to set the application-writing priority. ${state.delegated ? 'As administrator, you may change priority only; all other choices remain locked.' : `${goldCount} highest-interest · stars, status, notes, and priority share one canonical record.`}</p>
     ${state.compare.length >= 2 ? `<button class="rowBtn pri" style="margin-bottom:14px" onclick="openCompare()">Open Compare (${state.compare.length})</button>` : `<p class="sub" style="margin-bottom:14px">Add programs to Compare from any row — up to four.</p>`}
-    ${items.length ? items.map(({ p, rec }) => {
+    ${items.length ? items.map(({ p, rec }, index) => {
       const f = computeFit(p);
-      return `<div class="pRow" style="--tierHue:${tierHue(f.tier)};flex-wrap:wrap" data-open="${p.id}" data-origin="my" role="button" tabindex="0">
-        <button class="starBtn on" aria-label="Remove ${esc(p.name)}" onclick="toggleSave('${p.id}',event)">★</button>
+      return `<div class="pRow myPriorityRow" style="--tierHue:${tierHue(f.tier)}" data-open="${p.id}" data-origin="my" data-priority-id="${p.id}" draggable="true">
+        <div class="priorityPosition" aria-label="Priority ${index + 1}"><span>${index + 1}</span><small>Priority</small></div>
+        <div class="priorityMove"><button aria-label="Move ${esc(p.name)} up" ${index === 0 ? 'disabled' : ''} onclick="moveProgramPriority('${p.id}',-1,event)">↑</button><button aria-label="Move ${esc(p.name)} down" ${index === items.length - 1 ? 'disabled' : ''} onclick="moveProgramPriority('${p.id}',1,event)">↓</button><span aria-hidden="true">⋮⋮</span></div>
+        <button class="starBtn ${rec.goldStarred ? 'on' : ''}" aria-label="${state.delegated ? 'Student-owned saved program' : `Remove ${esc(p.name)}`}" ${state.delegated ? 'disabled' : `onclick="toggleSave('${p.id}',event)"`}>★</button>
         <span class="specTag">${p.spec}</span>
         <span class="rMain"><span class="rTitleLine"><span class="rName">${esc(p.name)}</span>${p.demo ? '<span class="demoTag">Demo</span>' : ''}</span>
           <span class="rSub">${esc(p.city)}, ${p.state} · ${hasUsableProfile() ? esc(f.line) : esc({deep:'Deep research complete',enriched:'Enriched research available',basic:'Basic program profile',pending:'More research needed'}[p.filterIntelligence.researchDepth] || 'More research needed')}</span></span>
         <span class="rMeta">
           ${tierChip(p, f)}
-          <button class="rowBtn goldPriority ${rec.goldStarred ? 'on' : ''}" aria-pressed="${rec.goldStarred ? 'true' : 'false'}" onclick="toggleGoldStar('${p.id}',event)">${rec.goldStarred ? '★ Highest interest' : '☆ Gold star'}</button>
-          <button class="rowBtn" onclick="cycleMyState('${p.id}',event)" title="Click to advance">${rec.state.toLowerCase()}</button>
+          ${state.delegated ? `<span class="rowBtn goldPriority ${rec.goldStarred ? 'on' : ''}">${rec.goldStarred ? '★ Highest interest' : '☆ Not gold starred'}</span><span class="rowBtn">${rec.state.toLowerCase()}</span>` : `<button class="rowBtn goldPriority ${rec.goldStarred ? 'on' : ''}" aria-pressed="${rec.goldStarred ? 'true' : 'false'}" onclick="toggleGoldStar('${p.id}',event)">${rec.goldStarred ? '★ Highest interest' : '☆ Gold star'}</button><button class="rowBtn" onclick="cycleMyState('${p.id}',event)" title="Click to advance">${rec.state.toLowerCase()}</button>`}
           <button class="rowBtn" onclick="event.stopPropagation();toggleCompare('${p.id}')">${state.compare.includes(p.id) ? '✓ Comparing' : '⊞ Compare'}</button>
           <button class="rowBtn pri" onclick="event.stopPropagation();openProgram('${p.id}','overview','my')">Open File</button>
         </span>
-        <textarea placeholder="Notes — interview dates, contacts, gut feel…" style="width:100%;margin-top:8px;background:rgba(13,19,32,.6);border:1px solid var(--edge);border-radius:10px;color:var(--tx);font-family:var(--disp);font-size:15px;padding:10px 12px;min-height:44px;resize:vertical" onclick="event.stopPropagation()" onchange="updateProgramNotes('${p.id}',this.value)">${esc(rec.notes)}</textarea>
+        ${state.delegated ? '<div class="delegatedPrivateNote">Student notes remain private.</div>' : `<textarea placeholder="Notes — interview dates, contacts, gut feel…" onclick="event.stopPropagation()" onchange="updateProgramNotes('${p.id}',this.value)">${esc(rec.notes)}</textarea>`}
       </div>`;
     }).join('') : `<div class="emptyLib"><div class="big">Nothing saved yet.</div>Save a program from any File — the ★ — and it lives here.<div style="margin-top:14px"><button class="rowBtn pri" onclick="nav('find')">Find Programs</button></div></div>`}
   </div>`;
@@ -1575,6 +1640,7 @@ function renderFile(p) {
   const researchedVisa = publishedVisaSummary(p);
   const visaSig = p.demo ? 'Visa: <b>J-1 · H-1B published</b>' : researchedVisa ? `Visa: <b>${esc(researchedVisa)}</b>` : p.intelligence.visaSponsorship != null ? `Visa: <b>${esc(p.intelligence.visaSponsorship)}</b>` : `Visa: <b>${researchStateText(p, 'research.visa')}</b>`;
   return `<div class="fileSheet" role="dialog" aria-modal="true" aria-labelledby="fileTitle">
+    ${state.delegated ? `<section class="delegatedChrome fileDelegatedChrome"><span class="delegatedMode">Administrator view</span><strong>Viewing RISE for ${esc(adminStudentLabel(state.delegated.identity))}</strong><button class="rowBtn" onclick="closeFile()">← Back to Student My Programs</button><button class="rowBtn pri" onclick="closeFile(false);exitDelegatedStudent()">Exit Student RISE</button></section>` : ''}
     <div class="fileTopBar">
       <button class="backBtn" onclick="closeFile()">${backLabel()}</button>
       <div class="fileTopRight">
@@ -1598,7 +1664,7 @@ function renderFile(p) {
         <div class="sigLine"><span>${imgSig}</span><span>${visaSig}</span><span>${soap}</span></div>
       </div>
       <div class="fActs">
-        <button class="fAct pri" onclick="toggleSave('${p.id}',event);this.blur()">${saved ? '★ Saved' : '★ Save'}</button>
+        <button class="fAct pri" ${state.delegated ? 'disabled title="Saving remains student-owned"' : `onclick="toggleSave('${p.id}',event);this.blur()"`}>${saved ? '★ Saved' : '★ Save'}</button>
         <button class="fAct ${state.compare.includes(p.id) ? 'on' : ''}" onclick="toggleCompare('${p.id}')">${state.compare.includes(p.id) ? '✓ In Compare' : '⊞ Add to Compare'}</button>
         <button class="fAct" onclick="askMenu('${p.id}')">Ask about this ▾</button>
         ${researchCtaButton(p)}
@@ -2627,7 +2693,27 @@ window.setAdminStudentFilter = (key, value) => {
   state.studentsAdmin.records = [];
   void loadAdminStudents(true);
 };
-window.openAdminStudent = studentKey => { state.studentsAdmin.detail = null; nav('admin/students/' + studentKey); };
+window.openAdminStudent = async studentKey => {
+  try {
+    const payload = await riseFetch('/api/rise/v1/operator/students/' + encodeURIComponent(studentKey) + '/context', { method: 'POST' });
+    state.ownSaved = state.saved;
+    state.saved = new Map((payload.records || []).map(record => [record.programSpecialtyId, {
+      state: record.state, notes: '', goldStarred: record.goldStarred === true, priorityPosition: Number(record.priorityPosition || 0),
+    }]));
+    state.delegated = { token: payload.delegatedContextToken, identity: payload.identity };
+    state.role = 'student';
+    nav('my');
+    toast(`Opened ${adminStudentLabel(payload.identity)}’s real RISE view.`);
+  } catch (error) { toast(error.message || 'Could not open the student’s RISE view.'); }
+};
+window.exitDelegatedStudent = () => {
+  if (!state.delegated) return;
+  state.saved = state.ownSaved || new Map();
+  state.ownSaved = null;
+  state.delegated = null;
+  state.role = 'admin';
+  nav('admin/students');
+};
 window.setAdminStudentProgramFilter = (key, value) => {
   state.studentsAdmin[key] = key === 'programGoldOnly' ? value === true : value;
   renderMain(currentRoute());
@@ -2640,38 +2726,17 @@ function viewAdminStudents(sub) {
   const admin = state.studentsAdmin;
   const studentKey = sub.split('/')[1] || '';
   if (studentKey) {
-    const detail = admin.detail?.identity?.studentKey === studentKey ? admin.detail : null;
-    if (!detail) return `<div class="view"><button class="rowBtn" onclick="nav('admin/students')">← Students</button><div class="emptyLib"><div class="big">Loading student programs…</div>${esc(admin.error || 'Reading canonical My Programs state.')}</div></div>`;
-    const identity = detail.identity;
-    const allRecords = detail.records || [];
-    const gold = allRecords.filter(record => record.goldStarred).length;
-    const records = allRecords
-      .filter(record => !admin.programState || record.state === admin.programState)
-      .filter(record => !admin.programGoldOnly || record.goldStarred)
-      .sort((a, b) => admin.programSort === 'name'
-        ? String(byId.get(a.programSpecialtyId)?.name || '').localeCompare(String(byId.get(b.programSpecialtyId)?.name || ''))
-        : admin.programSort === 'status'
-          ? a.state.localeCompare(b.state) || String(byId.get(a.programSpecialtyId)?.name || '').localeCompare(String(byId.get(b.programSpecialtyId)?.name || ''))
-          : Number(b.goldStarred) - Number(a.goldStarred) || new Date(b.updatedAt) - new Date(a.updatedAt));
-    return `<div class="view adminStudentsView"><button class="rowBtn" onclick="nav('admin/students')">← Students</button>
-      <p class="eyebrow" style="color:var(--admin);margin-top:18px">Admin · Student application intelligence</p>
-      <h1 class="h1">${esc(adminStudentLabel(identity))}</h1>
-      <p class="sub">Read-only canonical My Programs view. Student choices can only be changed by the student.</p>
-      <div class="sumStrip"><div class="sumStat"><span class="n"><em>${allRecords.length}</em></span><span class="l">Programs</span></div><div class="sumStat"><span class="n">${gold}</span><span class="l">Gold stars</span></div><div class="sumStat"><span class="n">${allRecords.filter(r => r.state === 'APPLIED').length}</span><span class="l">Applied</span></div><div class="sumStat"><span class="n">${allRecords.filter(r => r.state === 'INTERVIEWING').length}</span><span class="l">Interviewing</span></div></div>
-      <div class="studentAdminControls"><select class="fSel" aria-label="Program status" onchange="setAdminStudentProgramFilter('programState',this.value)"><option value="">All statuses</option>${MY_STATES.map(value => `<option ${admin.programState === value ? 'selected' : ''}>${value}</option>`).join('')}</select><select class="fSel" aria-label="Sort programs" onchange="setAdminStudentProgramFilter('programSort',this.value)"><option value="gold" ${admin.programSort === 'gold' ? 'selected' : ''}>Gold and recent</option><option value="name" ${admin.programSort === 'name' ? 'selected' : ''}>Program name</option><option value="status" ${admin.programSort === 'status' ? 'selected' : ''}>Application status</option></select><button type="button" class="rowBtn ${admin.programGoldOnly ? 'pri' : ''}" aria-pressed="${admin.programGoldOnly}" onclick="setAdminStudentProgramFilter('programGoldOnly',${!admin.programGoldOnly})">★ Gold only</button></div>
-      <div class="studentProgramList">${records.length ? records.map(record => {
-        const p = byId.get(record.programSpecialtyId);
-        return `<article class="studentProgramRow ${record.goldStarred ? 'gold' : ''}"><span class="studentGold" aria-label="${record.goldStarred ? 'Highest interest' : 'Not gold starred'}">${record.goldStarred ? '★' : '☆'}</span><div><b>${esc(p?.name || 'Program unavailable in current registry')}</b><span>${esc(p ? `${p.specName} · ${p.city}, ${p.state}` : record.programSpecialtyId)}</span></div><span class="stateTag">${esc(record.state)}</span>${p ? `<button class="rowBtn pri" onclick="openProgram('${p.id}','overview','admin/students/${identity.studentKey}')">Open File</button>` : ''}</article>`;
-      }).join('') : '<div class="emptyLib"><div class="big">No programs match.</div>Adjust the status or gold-star filter.</div>'}</div></div>`;
+    queueMicrotask(() => window.openAdminStudent(studentKey));
+    return `<div class="view"><div class="emptyLib"><div class="big">Opening the student’s true RISE view…</div>Establishing a server-authorized delegated context.</div></div>`;
   }
   const records = admin.records || [];
-  return `<div class="view adminStudentsView"><p class="eyebrow" style="color:var(--admin)">Admin · Students</p><h1 class="h1"><em>${admin.total}</em> student${admin.total === 1 ? '' : 's'} tracking programs</h1>
-    <p class="sub">Search and review canonical My Programs activity. This surface is read-only; students own every saved, application-status and gold-star decision.</p>
+  return `<div class="view adminStudentsView"><p class="eyebrow" style="color:var(--admin)">Admin · 360 student directory</p><h1 class="h1">Open the right <em>student RISE</em>.</h1>
+    <p class="sub">Search canonical student identities, then enter the same My Programs experience the student sees. Administrative priority changes are audited; every other student choice stays locked.</p>
     <form class="studentAdminControls" onsubmit="searchAdminStudents(event)" role="search"><input name="q" value="${esc(admin.q)}" placeholder="Search name, email, or student ID prefix"><button class="rowBtn pri" type="submit">Search</button>
       <select class="fSel" aria-label="Relationship status" onchange="setAdminStudentFilter('relationshipState',this.value)"><option value="">All statuses</option>${MY_STATES.map(value => `<option ${admin.relationshipState === value ? 'selected' : ''}>${value}</option>`).join('')}</select>
       <select class="fSel" aria-label="Sort students" onchange="setAdminStudentFilter('sort',this.value)"><option value="recent" ${admin.sort === 'recent' ? 'selected' : ''}>Recent activity</option><option value="name" ${admin.sort === 'name' ? 'selected' : ''}>Name</option><option value="gold" ${admin.sort === 'gold' ? 'selected' : ''}>Gold stars</option><option value="programs" ${admin.sort === 'programs' ? 'selected' : ''}>Program count</option></select>
       <button type="button" class="rowBtn ${admin.goldOnly ? 'pri' : ''}" aria-pressed="${admin.goldOnly}" onclick="setAdminStudentFilter('goldOnly',${!admin.goldOnly})">★ Gold only</button></form>
-    ${admin.error ? `<div class="emptyLib"><div class="big">Student list unavailable.</div>${esc(admin.error)}</div>` : admin.loading && !records.length ? '<div class="emptyLib"><div class="big">Loading students…</div></div>' : records.length ? `<div class="studentRoster">${records.map(student => `<button class="studentRosterRow" onclick="openAdminStudent('${student.studentKey}')"><span><b>${esc(adminStudentLabel(student))}</b><small>${student.email ? esc(student.email) : 'Identity will resolve on the student’s next RISE session'}</small></span><span><b>${student.programCount}</b><small>programs</small></span><span><b>${student.goldStarCount}</b><small>gold</small></span><span><b>${student.appliedCount + student.interviewingCount + student.rankedCount}</b><small>active</small></span><span aria-hidden="true">›</span></button>`).join('')}</div>` : '<div class="emptyLib"><div class="big">No students match.</div>Adjust the search or filters.</div>'}
+    ${admin.error ? `<div class="emptyLib"><div class="big">Student list unavailable.</div>${esc(admin.error)}</div>` : admin.loading && !records.length ? '<div class="emptyLib"><div class="big">Loading students…</div></div>' : records.length ? `<div class="studentRoster">${records.map(student => `<article class="studentRosterRow"><div class="studentIdentity"><span class="studentAvatar">${esc(adminStudentLabel(student).split(/\s+/).slice(0,2).map(part => part[0]).join('').toUpperCase())}</span><span><b>${esc(adminStudentLabel(student))}</b><small>${student.email ? esc(student.email) : 'Canonical name pending next eligible identity reconciliation'}</small><em>${student.identityStatus === 'CANONICAL_WORDPRESS' ? 'WordPress identity verified' : 'RISE identity active'} · RISE private beta</em></span></div><dl><div><dt>Target specialty</dt><dd>Not yet confirmed</dd></div><div><dt>Programs</dt><dd>${student.programCount}</dd></div><div><dt>Gold stars</dt><dd>${student.goldStarCount}</dd></div><div><dt>Active</dt><dd>${student.appliedCount + student.interviewingCount + student.rankedCount}</dd></div></dl><button class="openRiseBtn" onclick="openAdminStudent('${student.studentKey}')">Open RISE <span>→</span></button></article>`).join('')}</div>` : '<div class="emptyLib"><div class="big">No students match.</div>Adjust the search or filters.</div>'}
   </div>`;
 }
 

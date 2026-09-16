@@ -165,6 +165,48 @@ export async function createRiseStudentStore({
   await pool.query("SELECT 1 FROM rise_runtime.registry_releases LIMIT 1");
   // FK to registry_programs was dropped 2026-09-01 (rise_app_runtime lacks ALTER TABLE).
   // Server validates program existence via byProgramSpecialtyId before any write.
+  async function reorderPrograms({ targetKey, actorKey, orderedProgramSpecialtyIds, actorRole }) {
+    const ordered = [...new Set((orderedProgramSpecialtyIds ?? []).map(value => String(value ?? "").trim()).filter(Boolean))];
+    if (!ordered.length || ordered.length > 500) {
+      const error = new Error("Priority order must contain every saved program exactly once");
+      error.code = "PRIORITY_ORDER_MISMATCH";
+      throw error;
+    }
+    return withSubject(pool, actorKey, async (client) => {
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [targetKey]);
+      const current = await client.query(`
+        SELECT program_specialty_id AS "programSpecialtyId"
+        FROM rise_runtime.student_program_states
+        WHERE subject_key=$1 ORDER BY priority_position, program_specialty_id
+      `, [targetKey]);
+      const prior = current.rows.map(row => row.programSpecialtyId);
+      if (prior.length !== ordered.length || ordered.some(id => !prior.includes(id))) {
+        const error = new Error("Priority order must contain every saved program exactly once");
+        error.code = "PRIORITY_ORDER_MISMATCH";
+        throw error;
+      }
+      await client.query("SET CONSTRAINTS rise_runtime_student_state_subject_priority_key DEFERRED");
+      await client.query(`
+        UPDATE rise_runtime.student_program_states AS state
+        SET priority_position = requested.position::integer, updated_at = now()
+        FROM unnest($2::text[]) WITH ORDINALITY AS requested(program_specialty_id, position)
+        WHERE state.subject_key=$1 AND state.program_specialty_id=requested.program_specialty_id
+      `, [targetKey, ordered]);
+      await client.query(`
+        INSERT INTO rise_runtime.student_program_priority_audit
+          (audit_id, actor_subject_key, target_subject_key, actor_role, prior_order, ordered_program_specialty_ids)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb)
+      `, [randomUUID(), actorKey, targetKey, actorRole, JSON.stringify(prior), JSON.stringify(ordered)]);
+      const result = await client.query(`
+        SELECT program_specialty_id AS "programSpecialtyId", state, notes,
+               gold_starred AS "goldStarred", priority_position AS "priorityPosition",
+               created_at AS "createdAt", updated_at AS "updatedAt"
+        FROM rise_runtime.student_program_states
+        WHERE subject_key=$1 ORDER BY priority_position, program_specialty_id
+      `, [targetKey]);
+      return result.rows;
+    }, { isAdmin: actorKey !== targetKey });
+  }
   return {
     scope: "durable_private",
     async registerIdentity({ subject, displayName = "", email = "" }) {
@@ -193,10 +235,11 @@ export async function createRiseStudentStore({
       return withSubject(pool, key, async (client) => {
         const result = await client.query(`
           SELECT program_specialty_id AS "programSpecialtyId", state, notes,
-                 gold_starred AS "goldStarred", created_at AS "createdAt", updated_at AS "updatedAt"
+                 gold_starred AS "goldStarred", priority_position AS "priorityPosition",
+                 created_at AS "createdAt", updated_at AS "updatedAt"
           FROM rise_runtime.student_program_states
           WHERE subject_key = $1
-          ORDER BY program_specialty_id
+          ORDER BY priority_position, program_specialty_id
         `, [key]);
         return result.rows;
       });
@@ -204,10 +247,12 @@ export async function createRiseStudentStore({
     async put({ subject, releaseId, programSpecialtyId, state, notes, goldStarred }) {
       const key = subjectKey(subject, hmacKey);
       return withSubject(pool, key, async (client) => {
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [key]);
         const result = await client.query(`
           INSERT INTO rise_runtime.student_program_states (
-            subject_key, release_id, program_specialty_id, state, notes, gold_starred
-          ) VALUES ($1, $2, $3, $4, $5, COALESCE($6, false))
+            subject_key, release_id, program_specialty_id, state, notes, gold_starred, priority_position
+          ) VALUES ($1, $2, $3, $4, $5, COALESCE($6, false),
+            (SELECT COALESCE(max(priority_position),0)+1 FROM rise_runtime.student_program_states WHERE subject_key=$1))
           ON CONFLICT (subject_key, program_specialty_id) DO UPDATE SET
             release_id = EXCLUDED.release_id,
             state = EXCLUDED.state,
@@ -215,7 +260,8 @@ export async function createRiseStudentStore({
             gold_starred = COALESCE($6, rise_runtime.student_program_states.gold_starred),
             updated_at = now()
           RETURNING program_specialty_id AS "programSpecialtyId", state, notes,
-                    gold_starred AS "goldStarred", created_at AS "createdAt", updated_at AS "updatedAt"
+                    gold_starred AS "goldStarred", priority_position AS "priorityPosition",
+                    created_at AS "createdAt", updated_at AS "updatedAt"
         `, [key, releaseId, programSpecialtyId, state, notes, goldStarred]);
         return result.rows[0];
       });
@@ -223,12 +269,35 @@ export async function createRiseStudentStore({
     async delete({ subject, programSpecialtyId }) {
       const key = subjectKey(subject, hmacKey);
       return withSubject(pool, key, async (client) => {
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [key]);
+        await client.query("SET CONSTRAINTS rise_runtime_student_state_subject_priority_key DEFERRED");
         const result = await client.query(`
           DELETE FROM rise_runtime.student_program_states
           WHERE subject_key = $1 AND program_specialty_id = $2
         `, [key, programSpecialtyId]);
+        await client.query(`
+          WITH ranked AS (
+            SELECT program_specialty_id, row_number() OVER (ORDER BY priority_position, program_specialty_id)::integer AS position
+            FROM rise_runtime.student_program_states WHERE subject_key=$1
+          )
+          UPDATE rise_runtime.student_program_states AS state
+          SET priority_position=ranked.position
+          FROM ranked
+          WHERE state.subject_key=$1 AND state.program_specialty_id=ranked.program_specialty_id
+        `, [key]);
         return result.rowCount > 0;
       });
+    },
+    async reorder({ subject, orderedProgramSpecialtyIds, actorSubject = subject, actorRole = "student" }) {
+      const targetKey = subjectKey(subject, hmacKey);
+      const actorKey = subjectKey(actorSubject, hmacKey);
+      if (targetKey !== actorKey || actorRole !== "student") throw new Error("Student priority writes must be self-scoped");
+      return reorderPrograms({ targetKey, actorKey, orderedProgramSpecialtyIds, actorRole: "student" });
+    },
+    async adminReorder({ studentKey, actorSubject, actorRole = "admin", orderedProgramSpecialtyIds }) {
+      const targetKey = String(studentKey ?? "").trim();
+      if (!/^[0-9a-f]{64}$/.test(targetKey)) return null;
+      return reorderPrograms({ targetKey, actorKey: subjectKey(actorSubject, hmacKey), orderedProgramSpecialtyIds, actorRole: actorRole === "operator" ? "operator" : "admin" });
     },
     async adminList({ q = "", relationshipState = "", goldOnly = false, sort = "recent", page = 1, pageSize = 50 } = {}) {
       const key = subjectKey("rise-admin-directory", hmacKey);
@@ -245,7 +314,7 @@ export async function createRiseStudentStore({
       return withSubject(pool, key, async (client) => {
         const result = await client.query(`
           WITH summary AS (
-            SELECT trim(s.subject_key) AS "studentKey", i.display_name AS "displayName", i.email,
+            SELECT trim(s.subject_key) AS "studentKey", i.subject_ref AS "subjectRef", i.display_name AS "displayName", i.email,
                    max(s.updated_at) AS "lastActivityAt", count(*)::int AS "programCount",
                    count(*) FILTER (WHERE s.gold_starred)::int AS "goldStarCount",
                    count(*) FILTER (WHERE s.state='SAVED')::int AS "savedCount",
@@ -255,7 +324,7 @@ export async function createRiseStudentStore({
                    bool_or(s.state=$2) AS "hasRequestedState"
             FROM rise_runtime.student_program_states s
             LEFT JOIN rise_runtime.student_program_subjects i ON i.subject_key=s.subject_key
-            GROUP BY s.subject_key, i.display_name, i.email
+            GROUP BY s.subject_key, i.subject_ref, i.display_name, i.email
           )
           SELECT summary.*, count(*) OVER()::int AS "total"
           FROM summary
@@ -276,13 +345,14 @@ export async function createRiseStudentStore({
       const key = subjectKey("rise-admin-directory", hmacKey);
       return withSubject(pool, key, async (client) => {
         const [identity, records] = await Promise.all([
-          client.query(`SELECT trim(subject_key) AS "studentKey", display_name AS "displayName", email,
+          client.query(`SELECT trim(subject_key) AS "studentKey", subject_ref AS "subjectRef", display_name AS "displayName", email,
                                last_seen_at AS "lastSeenAt"
                         FROM rise_runtime.student_program_subjects WHERE subject_key=$1`, [selectedKey]),
           client.query(`SELECT program_specialty_id AS "programSpecialtyId", state,
-                               gold_starred AS "goldStarred", created_at AS "createdAt", updated_at AS "updatedAt"
+                               gold_starred AS "goldStarred", priority_position AS "priorityPosition",
+                               created_at AS "createdAt", updated_at AS "updatedAt"
                         FROM rise_runtime.student_program_states WHERE subject_key=$1
-                        ORDER BY gold_starred DESC, updated_at DESC, program_specialty_id`, [selectedKey]),
+                        ORDER BY priority_position, program_specialty_id`, [selectedKey]),
         ]);
         if (!records.rows.length) return null;
         return { identity: identity.rows[0] ?? { studentKey: selectedKey, displayName: null, email: null, lastSeenAt: null }, records: records.rows };

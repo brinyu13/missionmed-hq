@@ -32,6 +32,7 @@ const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SESSION_ROLES = new Set(["student", "mentor", "operator", "admin"]);
 const STUDENT_PROGRAM_STATES = new Set(["SAVED", "APPLIED", "INTERVIEWING", "RANKED"]);
 const MAX_PROGRAM_NOTES_LENGTH = 4_000;
+const DELEGATED_CONTEXT_LIFETIME_MS = 20 * 60 * 1000;
 const STUDENT_INTEL_CATEGORIES = new Set([
   "Application Requirements", "Visa", "USMLE", "COMLEX", "YOG", "USCE", "Interview",
   "Residents", "Faculty / Leadership", "Fellowships", "Rotations", "Curriculum", "Research",
@@ -153,6 +154,7 @@ function createRuntimeMetrics() {
 export function createMemoryStudentStore() {
   const recordsBySubject = new Map();
   const identities = new Map();
+  const priorityAudit = [];
   const recordsFor = (subject) => {
     if (!recordsBySubject.has(subject)) recordsBySubject.set(subject, new Map());
     return recordsBySubject.get(subject);
@@ -160,29 +162,49 @@ export function createMemoryStudentStore() {
   return {
     scope: "process_local_test_only",
     async registerIdentity({ subject, displayName = "", email = "" }) {
-      const record = { studentKey: subject, displayName: displayName || null, email: email || null, lastSeenAt: new Date().toISOString() };
+      const record = { studentKey: subject, subjectRef: subject, displayName: displayName || null, email: email || null, lastSeenAt: new Date().toISOString() };
       identities.set(subject, record);
       return { ...record };
     },
     async list({ subject }) {
       return [...recordsFor(subject).values()]
         .map((record) => ({ ...record }))
-        .sort((left, right) => left.programSpecialtyId.localeCompare(right.programSpecialtyId));
+        .sort((left, right) => left.priorityPosition - right.priorityPosition || left.programSpecialtyId.localeCompare(right.programSpecialtyId));
     },
     async put({ subject, programSpecialtyId, state, notes, goldStarred }) {
       const updatedAt = new Date().toISOString();
       const prior = recordsFor(subject).get(programSpecialtyId);
-      const record = { programSpecialtyId, state, notes, goldStarred: goldStarred === undefined ? prior?.goldStarred === true : goldStarred === true, createdAt: prior?.createdAt ?? updatedAt, updatedAt };
+      const record = { programSpecialtyId, state, notes, goldStarred: goldStarred === undefined ? prior?.goldStarred === true : goldStarred === true,
+        priorityPosition: prior?.priorityPosition ?? recordsFor(subject).size + 1, createdAt: prior?.createdAt ?? updatedAt, updatedAt };
       recordsFor(subject).set(programSpecialtyId, record);
       return { ...record };
     },
     async delete({ subject, programSpecialtyId }) {
-      return recordsFor(subject).delete(programSpecialtyId);
+      const deleted = recordsFor(subject).delete(programSpecialtyId);
+      if (deleted) [...recordsFor(subject).values()].sort((a, b) => a.priorityPosition - b.priorityPosition)
+        .forEach((record, index) => { record.priorityPosition = index + 1; });
+      return deleted;
+    },
+    async reorder({ subject, orderedProgramSpecialtyIds, actorSubject = subject, actorRole = "student" }) {
+      const records = recordsFor(subject);
+      const prior = [...records.values()].sort((a, b) => a.priorityPosition - b.priorityPosition).map(row => row.programSpecialtyId);
+      const ordered = [...new Set(orderedProgramSpecialtyIds ?? [])];
+      if (ordered.length !== records.size || ordered.some(id => !records.has(id))) {
+        const error = new Error("Priority order must contain every saved program exactly once");
+        error.code = "PRIORITY_ORDER_MISMATCH";
+        throw error;
+      }
+      ordered.forEach((id, index) => { records.get(id).priorityPosition = index + 1; records.get(id).updatedAt = new Date().toISOString(); });
+      priorityAudit.push({ actorSubject, targetSubject: subject, actorRole, priorOrder: prior, orderedProgramSpecialtyIds: ordered, createdAt: new Date().toISOString() });
+      return this.list({ subject });
+    },
+    async adminReorder({ studentKey, actorSubject, orderedProgramSpecialtyIds }) {
+      return this.reorder({ subject: studentKey, actorSubject, actorRole: "admin", orderedProgramSpecialtyIds });
     },
     async adminList({ q = "", relationshipState = "", goldOnly = false, sort = "recent", page = 1, pageSize = 50 } = {}) {
       const needle = String(q).trim().toLocaleLowerCase("en-US");
       let records = [...recordsBySubject.entries()].filter(([, programs]) => programs.size).map(([studentKey, programs]) => {
-        const identity = identities.get(studentKey) ?? { studentKey, displayName: null, email: null };
+        const identity = identities.get(studentKey) ?? { studentKey, subjectRef: null, displayName: null, email: null };
         const rows = [...programs.values()];
         return { ...identity, programCount: rows.length, goldStarCount: rows.filter(row => row.goldStarred).length,
           savedCount: rows.filter(row => row.state === "SAVED").length, appliedCount: rows.filter(row => row.state === "APPLIED").length,
@@ -198,7 +220,7 @@ export function createMemoryStudentStore() {
       return { page: safePage, pageSize: safeSize, total: records.length, records: records.slice((safePage - 1) * safeSize, safePage * safeSize) };
     },
     async adminRead({ studentKey }) {
-      const records = [...recordsFor(studentKey).values()].map(({ notes: _privateNotes, ...row }) => ({ ...row }));
+      const records = [...recordsFor(studentKey).values()].sort((a, b) => a.priorityPosition - b.priorityPosition).map(({ notes: _privateNotes, ...row }) => ({ ...row }));
       return records.length ? { identity: identities.get(studentKey) ?? { studentKey, displayName: null, email: null, lastSeenAt: null }, records } : null;
     },
   };
@@ -554,7 +576,7 @@ export function createMemoryResearchStore() {
 
 function resolveStudentStore(store, { production }) {
   const candidate = store ?? createMemoryStudentStore();
-  if (["registerIdentity", "list", "put", "delete", "adminList", "adminRead"].some((name) => typeof candidate[name] !== "function") ||
+  if (["registerIdentity", "list", "put", "delete", "reorder", "adminList", "adminRead", "adminReorder"].some((name) => typeof candidate[name] !== "function") ||
     (production && candidate.scope !== "durable_private")
   ) {
     throw new Error("RISE student store must provide list(), put(), and delete(); production scope must be durable_private");
@@ -1125,6 +1147,71 @@ function hasCapability(session, capability) {
   return session.capabilities.includes("rise:admin") || session.capabilities.includes(capability);
 }
 
+function validatePriorityOrderInput(payload) {
+  const values = payload?.orderedProgramSpecialtyIds;
+  if (!Array.isArray(values) || !values.length || values.length > 500) {
+    const error = new Error("Priority order must contain every saved program exactly once");
+    error.code = "PRIORITY_ORDER_MISMATCH";
+    throw error;
+  }
+  const orderedProgramSpecialtyIds = values.map(value => String(value ?? "").trim());
+  if (orderedProgramSpecialtyIds.some(value => !value || value.length > 256) || new Set(orderedProgramSpecialtyIds).size !== orderedProgramSpecialtyIds.length) {
+    const error = new Error("Priority order contains an invalid or duplicate program identifier");
+    error.code = "PRIORITY_ORDER_MISMATCH";
+    throw error;
+  }
+  return orderedProgramSpecialtyIds;
+}
+
+function wordpressRequestCredentials(request) {
+  const entries = String(request?.headers?.cookie ?? "").split(";").map(part => part.trim()).filter(Boolean).map(part => {
+    const separator = part.indexOf("=");
+    return separator > 0 ? [part.slice(0, separator).trim(), part.slice(separator + 1).trim()] : ["", ""];
+  });
+  const cookies = entries.filter(([name]) => ["wordpress_", "wordpress_logged_in_", "wordpress_sec_"].some(prefix => name.startsWith(prefix)));
+  const nonce = String(request?.headers?.["x-wp-nonce"] ?? entries.find(([name]) => name === "mmed_rise_wp_nonce")?.[1] ?? "").trim();
+  if (!cookies.length || !/^[A-Za-z0-9_-]{8,64}$/.test(nonce)) return null;
+  return { cookie: cookies.map(([name, value]) => `${name}=${value}`).join("; "), nonce };
+}
+
+async function resolveWordPressAdminIdentities({ request, identities, matrixProfileUrl = process.env.RISE_MATRIX_PROFILE_URL, fetchImpl = globalThis.fetch }) {
+  const fallback = new Map(identities.map(identity => [identity.studentKey, identity]));
+  const candidates = identities.flatMap(identity => {
+    const match = /^wp:([1-9][0-9]{0,19})$/.exec(String(identity.subjectRef ?? ""));
+    return match ? [{ identity, wordpressId: match[1] }] : [];
+  });
+  const credentials = wordpressRequestCredentials(request);
+  if (!candidates.length || !credentials || !matrixProfileUrl || typeof fetchImpl !== "function") return fallback;
+  try {
+    const endpoint = new URL("/wp-json/wp/v2/users", new URL(matrixProfileUrl).origin);
+    endpoint.searchParams.set("include", candidates.map(item => item.wordpressId).join(","));
+    endpoint.searchParams.set("context", "edit");
+    endpoint.searchParams.set("per_page", String(Math.min(100, candidates.length)));
+    endpoint.searchParams.set("_fields", "id,name,email");
+    const response = await fetchImpl(endpoint, {
+      headers: { Accept: "application/json", Cookie: credentials.cookie, "X-WP-Nonce": credentials.nonce },
+      cache: "no-store", redirect: "error", signal: AbortSignal.timeout(7_500),
+    });
+    if (!response.ok) return fallback;
+    const text = await response.text();
+    if (Buffer.byteLength(text) > 256 * 1024) return fallback;
+    const users = JSON.parse(text);
+    if (!Array.isArray(users)) return fallback;
+    const byId = new Map(users.map(user => [String(user.id), user]));
+    for (const { identity, wordpressId } of candidates) {
+      const user = byId.get(wordpressId);
+      if (!user) continue;
+      fallback.set(identity.studentKey, {
+        ...identity,
+        displayName: String(user.name ?? "").trim().slice(0, 120) || identity.displayName,
+        email: String(user.email ?? "").trim().toLowerCase().slice(0, 320) || identity.email,
+        identityStatus: "CANONICAL_WORDPRESS",
+      });
+    }
+  } catch {}
+  return fallback;
+}
+
 export function validateListenConfiguration({
   host,
   authMode,
@@ -1339,6 +1426,7 @@ export function createRiseServer({
   evidenceReviewStore,
   researchStore,
   matrixProfileAdapter,
+  adminIdentityResolver,
   logger = createJsonLogger(),
 } = {}) {
   if (!registryIndex?.programs || !registryIndex?.registryReleaseId) {
@@ -1381,6 +1469,7 @@ export function createRiseServer({
   const evidenceReview = resolveEvidenceReviewStore(evidenceReviewStore, { production });
   const research = resolveResearchStore(researchStore, { production });
   const matrixProfile = resolveMatrixProfileAdapter(matrixProfileAdapter, { production });
+  const resolveAdminIdentities = adminIdentityResolver ?? resolveWordPressAdminIdentities;
   const authorizationSha256s = registryIndex.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [];
   async function assertLiveSourceRights() {
     if (syntheticTestFixture) return true;
@@ -1404,6 +1493,24 @@ export function createRiseServer({
     return decision === true ? { current: true, decisionId: null } : decision;
   }
   const metrics = createRuntimeMetrics();
+  const signDelegatedContext = ({ actorAuditId, sessionId, studentKey }) => {
+    const encoded = Buffer.from(JSON.stringify({ v: 1, actorAuditId, sessionId, studentKey, expiresAt: Date.now() + DELEGATED_CONTEXT_LIFETIME_MS })).toString("base64url");
+    const signature = createHmac("sha256", auditKey).update("rise-delegated-context-v1\0").update(encoded).digest("base64url");
+    return `${encoded}.${signature}`;
+  };
+  const verifyDelegatedContext = ({ request, actorAuditId, sessionId }) => {
+    const token = String(request.headers["x-rise-delegated-context"] ?? "");
+    const [encoded, signature, extra] = token.split(".");
+    if (!encoded || !signature || extra || token.length > 2048) return null;
+    const expected = createHmac("sha256", auditKey).update("rise-delegated-context-v1\0").update(encoded).digest("base64url");
+    if (!safeStringEqual(signature, expected)) return null;
+    try {
+      const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
+      if (payload.v !== 1 || payload.actorAuditId !== actorAuditId || payload.sessionId !== sessionId ||
+          !/^[0-9a-f]{64}$/.test(payload.studentKey) || !Number.isFinite(payload.expiresAt) || payload.expiresAt <= Date.now()) return null;
+      return payload;
+    } catch { return null; }
+  };
   return http.createServer(async (request, response) => {
     const requestId = randomUUID();
     const startedAt = performance.now();
@@ -1671,6 +1778,18 @@ export function createRiseServer({
           records,
           persistence: studentPrograms.scope === "durable_private" ? "durable" : "process_local_test_only",
         }, { cache: "no-store", requestId });
+        return;
+      }
+      if (request.method === "PATCH" && url.pathname === "/api/rise/v1/me/program-priorities") {
+        const orderedProgramSpecialtyIds = validatePriorityOrderInput(await readBody(request));
+        const records = await studentPrograms.reorder({
+          subject: session.subject,
+          actorSubject: session.subject,
+          actorRole: "student",
+          orderedProgramSpecialtyIds,
+        });
+        status = 200;
+        sendJson(response, 200, { records }, { cache: "no-store", requestId });
         return;
       }
       const intelProgramMatch = url.pathname.match(/^\/api\/rise\/v1\/program-specialties\/([^/]+)\/student-intel$/);
@@ -2028,8 +2147,73 @@ export function createRiseServer({
           page: url.searchParams.get("page") ?? "1",
           pageSize: url.searchParams.get("pageSize") ?? "50",
         });
+        const resolved = await resolveAdminIdentities({ request, identities: result.records });
         status = 200;
-        sendJson(response, 200, result, { cache: "no-store", requestId });
+        sendJson(response, 200, {
+          ...result,
+          records: result.records.map(({ subjectRef: _subjectRef, ...record }) => ({
+            ...record,
+            ...(resolved.get(record.studentKey) ?? {}),
+            subjectRef: undefined,
+          })),
+        }, { cache: "no-store", requestId });
+        return;
+      }
+      const operatorStudentContextMatch = url.pathname.match(/^\/api\/rise\/v1\/operator\/students\/([0-9a-f]{64})\/context$/);
+      if (request.method === "POST" && operatorStudentContextMatch) {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const result = await studentPrograms.adminRead({ studentKey: operatorStudentContextMatch[1] });
+        if (!result) {
+          status = 404;
+          apiError(response, 404, "STUDENT_PROGRAMS_NOT_FOUND", "No student program relationships were found", requestId);
+          return;
+        }
+        const resolved = await resolveAdminIdentities({ request, identities: [result.identity] });
+        const { subjectRef: _subjectRef, ...identity } = resolved.get(result.identity.studentKey) ?? result.identity;
+        status = 200;
+        sendJson(response, 200, {
+          delegatedContextToken: signDelegatedContext({ actorAuditId: subjectAuditId, sessionId: session.sessionId, studentKey: result.identity.studentKey }),
+          identity,
+          records: result.records,
+        }, { cache: "no-store", requestId });
+        return;
+      }
+      if (url.pathname === "/api/rise/v1/operator/delegated/programs" && (request.method === "GET" || request.method === "PATCH")) {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const context = verifyDelegatedContext({ request, actorAuditId: subjectAuditId, sessionId: session.sessionId });
+        if (!context) {
+          status = 403;
+          apiError(response, 403, "DELEGATED_CONTEXT_INVALID", "A current server-authorized student context is required", requestId);
+          return;
+        }
+        let result = await studentPrograms.adminRead({ studentKey: context.studentKey });
+        if (!result) {
+          status = 404;
+          apiError(response, 404, "STUDENT_PROGRAMS_NOT_FOUND", "No student program relationships were found", requestId);
+          return;
+        }
+        if (request.method === "PATCH") {
+          const orderedProgramSpecialtyIds = validatePriorityOrderInput(await readBody(request));
+          await studentPrograms.adminReorder({
+            studentKey: context.studentKey,
+            actorSubject: session.subject,
+            actorRole: session.role,
+            orderedProgramSpecialtyIds,
+          });
+          result = await studentPrograms.adminRead({ studentKey: context.studentKey });
+        }
+        const resolved = await resolveAdminIdentities({ request, identities: [result.identity] });
+        const { subjectRef: _subjectRef, ...identity } = resolved.get(result.identity.studentKey) ?? result.identity;
+        status = 200;
+        sendJson(response, 200, { identity, records: result.records }, { cache: "no-store", requestId });
         return;
       }
       const operatorStudentMatch = url.pathname.match(/^\/api\/rise\/v1\/operator\/students\/([0-9a-f]{64})$/);
@@ -2045,9 +2229,11 @@ export function createRiseServer({
           apiError(response, 404, "STUDENT_PROGRAMS_NOT_FOUND", "No student program relationships were found", requestId);
           return;
         }
+        const resolved = await resolveAdminIdentities({ request, identities: [result.identity] });
+        const { subjectRef: _subjectRef, ...identity } = resolved.get(result.identity.studentKey) ?? result.identity;
         status = 200;
         sendJson(response, 200, {
-          identity: result.identity,
+          identity,
           records: result.records.map((record) => ({
             ...record,
             program: byProgramSpecialtyId.has(record.programSpecialtyId)
