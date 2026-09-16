@@ -130,7 +130,9 @@ test("admin student APIs enforce operator authorization and omit private notes",
     const delegatedRead = await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, { headers: delegatedHeaders });
     assert.equal(delegatedRead.status, 200);
     const reorderResponse = await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
-      method: "PATCH", headers: delegatedHeaders, body: JSON.stringify({ orderedProgramSpecialtyIds: ["ps-a"] }),
+      method: "PATCH",
+      headers: { ...csrfHeaders, "Content-Type": "application/json", "X-Test-Session-Id": "2" },
+      body: JSON.stringify({ orderedProgramSpecialtyIds: ["ps-a"], delegatedContextToken: context.delegatedContextToken }),
     });
     assert.equal(reorderResponse.status, 200);
     assert.equal((await reorderResponse.json()).records[0].priorityPosition, 1);
@@ -139,6 +141,11 @@ test("admin student APIs enforce operator authorization and omit private notes",
     })).status, 403);
     assert.equal((await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
       headers: { ...delegatedHeaders, "X-Test-Actor": "different-admin" },
+    })).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
+      method: "PATCH",
+      headers: { ...csrfHeaders, "Content-Type": "application/json", "X-Test-Actor": "different-admin" },
+      body: JSON.stringify({ orderedProgramSpecialtyIds: ["ps-a"], delegatedContextToken: context.delegatedContextToken }),
     })).status, 403);
     assert.equal((await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
       headers: { "X-Test-Role": "student", "X-RISE-Delegated-Context": context.delegatedContextToken },

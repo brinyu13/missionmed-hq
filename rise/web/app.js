@@ -1281,8 +1281,13 @@ function applyPriorityRecords(records) {
 }
 async function persistPriorityOrder(ids) {
   const path = state.delegated ? '/api/rise/v1/operator/delegated/programs' : '/api/rise/v1/me/program-priorities';
-  const headers = state.delegated ? { 'X-RISE-Delegated-Context': state.delegated.token } : {};
-  const payload = await riseFetch(path, { method: 'PATCH', headers, body: JSON.stringify({ orderedProgramSpecialtyIds: ids }) });
+  const payload = await riseFetch(path, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      orderedProgramSpecialtyIds: ids,
+      ...(state.delegated ? { delegatedContextToken: state.delegated.token } : {}),
+    }),
+  });
   applyPriorityRecords(payload.records);
 }
 window.moveProgramPriority = async (id, delta, event) => {

@@ -1498,8 +1498,8 @@ export function createRiseServer({
     const signature = createHmac("sha256", auditKey).update("rise-delegated-context-v1\0").update(encoded).digest("base64url");
     return `${encoded}.${signature}`;
   };
-  const verifyDelegatedContext = ({ request, actorAuditId }) => {
-    const token = String(request.headers["x-rise-delegated-context"] ?? "");
+  const verifyDelegatedContext = ({ request, actorAuditId, bodyToken }) => {
+    const token = String(bodyToken ?? request.headers["x-rise-delegated-context"] ?? "");
     const [encoded, signature, extra] = token.split(".");
     if (!encoded || !signature || extra || token.length > 2048) return null;
     const expected = createHmac("sha256", auditKey).update("rise-delegated-context-v1\0").update(encoded).digest("base64url");
@@ -2188,7 +2188,12 @@ export function createRiseServer({
           apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
           return;
         }
-        const context = verifyDelegatedContext({ request, actorAuditId: subjectAuditId });
+        const delegatedBody = request.method === "PATCH" ? await readBody(request) : null;
+        const context = verifyDelegatedContext({
+          request,
+          actorAuditId: subjectAuditId,
+          bodyToken: delegatedBody?.delegatedContextToken,
+        });
         if (!context) {
           status = 403;
           apiError(response, 403, "DELEGATED_CONTEXT_INVALID", "A current server-authorized student context is required", requestId);
@@ -2201,7 +2206,7 @@ export function createRiseServer({
           return;
         }
         if (request.method === "PATCH") {
-          const orderedProgramSpecialtyIds = validatePriorityOrderInput(await readBody(request));
+          const orderedProgramSpecialtyIds = validatePriorityOrderInput(delegatedBody);
           await studentPrograms.adminReorder({
             studentKey: context.studentKey,
             actorSubject: session.subject,
