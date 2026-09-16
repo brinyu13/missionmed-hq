@@ -1,0 +1,673 @@
+[
+  {
+    "id": "PACK-STANDARD-RESIDENCY",
+    "version": 1,
+    "label": "Standard Residency Interview",
+    "question_ids": [
+      "CORE-01",
+      "CORE-02",
+      "CORE-03",
+      "CORE-04",
+      "CORE-05",
+      "CORE-06",
+      "CORE-07",
+      "CORE-08",
+      "CORE-09",
+      "CORE-10"
+    ],
+    "question_count": 10,
+    "tags_any": [
+      "CORE"
+    ],
+    "settings": {},
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-OPENING",
+    "version": 1,
+    "label": "Opening / Tell Me About Yourself",
+    "question_ids": [
+      "CORE-01"
+    ],
+    "question_count": 1,
+    "tags_any": [
+      "CORE"
+    ],
+    "settings": {
+      "question_ids": [
+        "CORE-01"
+      ]
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-BEHAVIORAL",
+    "version": 1,
+    "label": "Behavioral",
+    "question_ids": [
+      "MR142-008",
+      "MR142-089",
+      "MR142-090",
+      "MR142-103",
+      "MR142-105",
+      "MR142-106",
+      "MR142-138",
+      "BEH-001",
+      "BEH-002",
+      "BEH-003",
+      "BEH-004",
+      "BEH-005",
+      "BEH-006",
+      "BEH-007",
+      "BEH-008",
+      "BEH-009",
+      "BEH-010",
+      "BEH-011",
+      "BEH-012",
+      "BEH-013",
+      "BEH-014",
+      "BEH-015",
+      "BEH-016",
+      "BEH-017",
+      "BEH-018",
+      "BEH-019",
+      "BEH-020",
+      "BEH-021",
+      "BEH-022",
+      "BEH-023",
+      "BEH-024",
+      "BEH-025",
+      "BEH-026",
+      "BEH-027",
+      "BEH-028",
+      "BEH-029",
+      "BEH-030",
+      "BEH-031",
+      "BEH-032",
+      "BEH-033",
+      "BEH-034",
+      "BEH-035",
+      "BEH-036",
+      "BEH-037",
+      "BEH-038",
+      "BEH-039",
+      "BEH-040",
+      "BEH-041"
+    ],
+    "question_count": 48,
+    "tags_any": [
+      "BEHAVIORAL"
+    ],
+    "settings": {},
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-TEAMWORK",
+    "version": 1,
+    "label": "Teamwork",
+    "question_ids": [
+      "MR142-030",
+      "MR142-057",
+      "MR142-058",
+      "MR142-059",
+      "MR142-060",
+      "BEH-004",
+      "BEH-013",
+      "BEH-014",
+      "BEH-030",
+      "BEH-034",
+      "BEH-036"
+    ],
+    "question_count": 11,
+    "tags_any": [
+      "TEAMWORK"
+    ],
+    "settings": {},
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-LEADERSHIP",
+    "version": 1,
+    "label": "Leadership",
+    "question_ids": [
+      "MR142-119"
+    ],
+    "question_count": 1,
+    "tags_any": [
+      "LEADERSHIP"
+    ],
+    "settings": {},
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-CONFLICT",
+    "version": 1,
+    "label": "Conflict",
+    "question_ids": [
+      "MR142-057",
+      "MR142-058",
+      "MR142-061",
+      "MR142-062",
+      "MR142-063",
+      "MR142-105",
+      "BEH-004",
+      "BEH-005",
+      "BEH-007",
+      "BEH-016",
+      "BEH-030",
+      "BEH-031",
+      "BEH-032",
+      "BEH-034",
+      "BEH-036",
+      "BEH-040"
+    ],
+    "question_count": 16,
+    "tags_any": [
+      "CONFLICT"
+    ],
+    "settings": {},
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-STRENGTHS-WEAKNESSES",
+    "version": 1,
+    "label": "Strengths / Weaknesses",
+    "question_ids": [
+      "CORE-05",
+      "CORE-08",
+      "MR142-002",
+      "MR142-013",
+      "MR142-018",
+      "MR142-051",
+      "MR142-056",
+      "MR142-065",
+      "MR142-076",
+      "MR142-080",
+      "MR142-081",
+      "MR142-111",
+      "MR142-112",
+      "MR142-125",
+      "MR142-128",
+      "MR142-132",
+      "BEH-015"
+    ],
+    "question_count": 17,
+    "tags_any": [
+      "STRENGTHS",
+      "WEAKNESSES"
+    ],
+    "settings": {
+      "question_ids": [
+        "CORE-05",
+        "CORE-08"
+      ]
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-FAILURE-ADVERSITY",
+    "version": 1,
+    "label": "Failure / Adversity",
+    "question_ids": [
+      "MR142-034",
+      "MR142-055",
+      "MR142-068",
+      "MR142-088",
+      "MR142-091",
+      "MR142-103",
+      "MR142-106",
+      "MR142-112",
+      "MR142-115",
+      "MR142-138",
+      "BEH-002",
+      "BEH-006",
+      "BEH-008",
+      "BEH-012",
+      "BEH-018",
+      "BEH-020",
+      "BEH-022",
+      "BEH-027",
+      "BEH-028",
+      "BEH-039",
+      "BEH-041"
+    ],
+    "question_count": 21,
+    "tags_any": [
+      "FAILURE",
+      "ADVERSITY"
+    ],
+    "settings": {},
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-RED-FLAGS-GAPS",
+    "version": 1,
+    "label": "Red Flags / Gaps",
+    "question_ids": [
+      "CORE-04",
+      "MR142-015",
+      "MR142-044",
+      "MR142-053",
+      "MR142-054",
+      "MR142-070",
+      "MR142-074",
+      "MR142-092",
+      "MR142-100",
+      "MR142-101",
+      "MR142-122",
+      "BEH-010",
+      "BEH-019",
+      "BEH-038"
+    ],
+    "question_count": 14,
+    "tags_any": [
+      "RED_FLAGS"
+    ],
+    "settings": {
+      "question_ids": [
+        "CORE-04"
+      ]
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-CV-WALKTHROUGH",
+    "version": 1,
+    "label": "CV Walkthrough",
+    "question_ids": [
+      "MR142-001",
+      "MR142-003",
+      "MR142-007",
+      "MR142-010",
+      "MR142-012",
+      "MR142-037",
+      "MR142-043",
+      "MR142-049",
+      "MR142-050",
+      "MR142-051",
+      "MR142-052",
+      "MR142-053",
+      "MR142-054",
+      "MR142-082",
+      "MR142-090",
+      "MR142-104",
+      "MR142-111",
+      "MR142-117",
+      "MR142-119",
+      "MR142-124",
+      "MR142-127",
+      "MR142-133"
+    ],
+    "question_count": 22,
+    "tags_any": [
+      "CV_BASED",
+      "BACKGROUND"
+    ],
+    "settings": {
+      "requires_context": [
+        "CV",
+        "Timeline"
+      ]
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-PERSONAL-STATEMENT",
+    "version": 1,
+    "label": "Personal Statement",
+    "question_ids": [
+      "CORE-01"
+    ],
+    "question_count": 1,
+    "tags_any": [],
+    "settings": {
+      "requires_context": [
+        "PersonalStatement"
+      ],
+      "question_ids": [
+        "CORE-01"
+      ]
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-SPECIALTY-SPECIFIC",
+    "version": 1,
+    "label": "Specialty-specific",
+    "question_ids": [
+      "MR142-002",
+      "MR142-003",
+      "MR142-066",
+      "MR142-067",
+      "MR142-069",
+      "MR142-070",
+      "MR142-076",
+      "MR142-077",
+      "MR142-078",
+      "MR142-096",
+      "MR142-120",
+      "MR142-140",
+      "BEH-023"
+    ],
+    "question_count": 13,
+    "tags_any": [
+      "SPECIALTY"
+    ],
+    "settings": {
+      "requires_context": [
+        "specialty"
+      ],
+      "metadata_note": "Generic specialty-related questions; no canonical per-specialty tagging supplied."
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-PROGRAM-SPECIFIC",
+    "version": 1,
+    "label": "Program-specific",
+    "question_ids": [
+      "MR142-071",
+      "MR142-072",
+      "MR142-073",
+      "MR142-074",
+      "MR142-075",
+      "MR142-080",
+      "MR142-081",
+      "MR142-083",
+      "MR142-126",
+      "MR142-139",
+      "MR142-142"
+    ],
+    "question_count": 11,
+    "tags_any": [
+      "PROGRAM_FIT"
+    ],
+    "settings": {
+      "requires_context": [
+        "RISE"
+      ]
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-PROGRAM-DIRECTOR",
+    "version": 1,
+    "label": "Program Director style",
+    "question_ids": [
+      "MR142-071",
+      "MR142-072",
+      "MR142-073",
+      "MR142-074",
+      "MR142-075",
+      "MR142-080",
+      "MR142-081",
+      "MR142-083",
+      "MR142-093",
+      "MR142-118",
+      "MR142-123",
+      "MR142-126",
+      "MR142-139",
+      "MR142-142"
+    ],
+    "question_count": 14,
+    "tags_any": [
+      "PROGRAM_FIT",
+      "CAREER_GOALS"
+    ],
+    "settings": {
+      "persona_role": "program-director",
+      "requires_context": [
+        "RISE"
+      ]
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-FACULTY",
+    "version": 1,
+    "label": "Faculty style",
+    "question_ids": [
+      "MR142-003",
+      "MR142-059",
+      "MR142-065",
+      "MR142-089",
+      "MR142-108",
+      "MR142-123",
+      "BEH-001",
+      "BEH-002",
+      "BEH-008",
+      "BEH-015",
+      "BEH-021",
+      "BEH-023"
+    ],
+    "question_count": 12,
+    "tags_any": [
+      "CLINICAL_EXPERIENCE",
+      "RESEARCH"
+    ],
+    "settings": {
+      "persona_role": "faculty"
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-CHIEF-RESIDENT",
+    "version": 1,
+    "label": "Chief Resident style",
+    "question_ids": [
+      "MR142-030",
+      "MR142-057",
+      "MR142-058",
+      "MR142-059",
+      "MR142-060",
+      "MR142-061",
+      "MR142-062",
+      "MR142-063",
+      "MR142-105",
+      "BEH-004",
+      "BEH-005",
+      "BEH-007",
+      "BEH-013",
+      "BEH-014",
+      "BEH-016",
+      "BEH-030",
+      "BEH-031",
+      "BEH-032",
+      "BEH-034",
+      "BEH-036",
+      "BEH-040"
+    ],
+    "question_count": 21,
+    "tags_any": [
+      "TEAMWORK",
+      "CONFLICT"
+    ],
+    "settings": {
+      "persona_role": "chief-resident"
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-PRESSURE",
+    "version": 1,
+    "label": "Pressure / Aggressive Follow-Up",
+    "question_ids": [
+      "MR142-015",
+      "MR142-044",
+      "MR142-053",
+      "MR142-054",
+      "MR142-070",
+      "MR142-074",
+      "MR142-086",
+      "MR142-087",
+      "MR142-088",
+      "MR142-092",
+      "MR142-100",
+      "MR142-101",
+      "MR142-122",
+      "BEH-006",
+      "BEH-007",
+      "BEH-010",
+      "BEH-019",
+      "BEH-021",
+      "BEH-024",
+      "BEH-025",
+      "BEH-026",
+      "BEH-032",
+      "BEH-038"
+    ],
+    "question_count": 23,
+    "tags_any": [
+      "STRESS_PRESSURE",
+      "RED_FLAGS"
+    ],
+    "settings": {
+      "pressure": "high",
+      "followup": "probing"
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-CONVERSATIONAL",
+    "version": 1,
+    "label": "Conversational",
+    "question_ids": [
+      "MR142-001",
+      "MR142-005",
+      "MR142-006",
+      "MR142-007",
+      "MR142-008",
+      "MR142-009",
+      "MR142-010",
+      "MR142-011",
+      "MR142-012",
+      "MR142-014",
+      "MR142-016",
+      "MR142-017",
+      "MR142-018",
+      "MR142-020",
+      "MR142-021",
+      "MR142-023",
+      "MR142-024",
+      "MR142-027",
+      "MR142-028",
+      "MR142-029",
+      "MR142-030",
+      "MR142-031",
+      "MR142-032",
+      "MR142-033",
+      "MR142-034",
+      "MR142-035",
+      "MR142-036",
+      "MR142-038",
+      "MR142-039",
+      "MR142-040",
+      "MR142-044",
+      "MR142-047",
+      "MR142-048",
+      "MR142-052",
+      "MR142-056",
+      "MR142-060",
+      "MR142-068",
+      "MR142-084",
+      "MR142-085",
+      "MR142-092",
+      "MR142-108",
+      "MR142-110",
+      "MR142-114",
+      "MR142-116",
+      "MR142-124",
+      "MR142-125",
+      "MR142-127",
+      "MR142-128",
+      "MR142-129",
+      "MR142-130",
+      "MR142-131",
+      "MR142-132",
+      "MR142-134",
+      "MR142-136",
+      "BEH-039"
+    ],
+    "question_count": 55,
+    "tags_any": [
+      "PERSONAL",
+      "HOBBIES"
+    ],
+    "settings": {
+      "style": "conversational"
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-RAPID-FIRE",
+    "version": 1,
+    "label": "Rapid Fire",
+    "question_ids": [
+      "CORE-01",
+      "CORE-02",
+      "CORE-03",
+      "CORE-04",
+      "CORE-05",
+      "CORE-06",
+      "CORE-07",
+      "CORE-08",
+      "CORE-09",
+      "CORE-10"
+    ],
+    "question_count": 10,
+    "tags_any": [
+      "CORE"
+    ],
+    "settings": {
+      "style": "rapid-fire"
+    },
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  },
+  {
+    "id": "PACK-UNUSUAL",
+    "version": 1,
+    "label": "Unusual / Challenging",
+    "question_ids": [
+      "MR142-009",
+      "MR142-014",
+      "MR142-019",
+      "MR142-022",
+      "MR142-023",
+      "MR142-025",
+      "MR142-026",
+      "MR142-041",
+      "MR142-042",
+      "MR142-045",
+      "MR142-069",
+      "MR142-098",
+      "MR142-099",
+      "MR142-135"
+    ],
+    "question_count": 14,
+    "tags_any": [
+      "CREATIVE_UNUSUAL"
+    ],
+    "settings": {},
+    "origin": "ASTRA_7000_PROTOTYPE_CURATED_RULES_FROM_EXISTING_TAGS; not historical canonical pack membership",
+    "corpus_sha256": "656696f9b75890f9cb54fc425e74090054ee479b627b43cb0ec00b798ae83b1c"
+  }
+]

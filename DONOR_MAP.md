@@ -11,6 +11,8 @@ unchanged; the sources below inform contracts and later adaptation only.
 | `ivoc/contracts/session.mjs` | Fable architecture sections 5.1, 5.3, 5.4; deployed `missionmed-hq/ivoc/repository.mjs` at `c3d6c9c` | Canonical session shape, durable states and optimistic version contract; no code copied. |
 | `ivoc/contracts/timeline.mjs` | Fable section 6; `ivprep-v6/public/analytics/event-contract.mjs` at `c3d6c9c` | Versioned event envelope and media ordering; no code copied. |
 | `ivoc/contracts/question-pool.mjs` | Fable sections 5.2, 8 and 9; existing question corpus at `c3d6c9c` | Immutable pool snapshot boundary; corpus data is not copied into F1 fixtures. |
+| `ivoc/contracts/question-library.mjs` | `ivprep-v6/public/questions/mission-residency-corpus.mjs` at `c3d6c9c`; Astra candidate.2 `packs.json` SHA-256 `a3194e51153da1bcceb599ecf401d42d610578fc5ecef20ff404780488403551` | Binds all 193 canonical question ids to 20 versioned prototype-derived packs while preserving the explicit non-historical membership limit. |
+| `ivoc/contracts/presentation-boundary.mjs` | Fable D9 and section 21.1 | Enforceable import rule keeps UI components behind view-model adapters and away from capability implementations. |
 | `ivoc/contracts/results.mjs` | Fable section 5.2; `ivprep-v6/public/ivoc-standalone/app/post-model.mjs` at `a74e9a6` | Result/evidence boundary for later projectors; no code copied. |
 | `ivoc/contracts/conversation-turn.mjs` | Fable sections 5.2 and 6.2 | Canonical speaker, timing, question, relationship and interruption record; original contract validation. |
 | `ivoc/contracts/answer-segment.mjs` | Fable section 15.2 | Deterministic M1 segmentation boundary fixed before L-M implementation; original contract validation. |
@@ -27,6 +29,8 @@ unchanged; the sources below inform contracts and later adaptation only.
 | `ivoc/fixtures/question-pool.v1.json` | Synthetic F1 pool fixture | Two deterministic non-student questions for contract proof only. |
 | `ivoc/fixtures/prompted-mock.v1.json` | Synthetic F1 journey fixture | Next/spacebar, zero-provider and `audio_authority=none` expectations. |
 | `ivoc/fixtures/{conversation-turn,answer-segment,coaching-evidence,result-set,projection-envelope}.v1.json` | Synthetic F1 contract fixtures | Required v1 child-record and projection shapes without production, student or provider data. |
+| `ivoc/fixtures/question-packs.v1.json` | Exact Astra candidate.2 `dist/client/packs.json`, SHA-256 `a3194e51153da1bcceb599ecf401d42d610578fc5ecef20ff404780488403551` | Direct data port of the 20 prototype-derived pack definitions; membership remains explicitly non-historical and every id is checked against the canonical 193-question corpus. |
+| `ivoc/contracts/foundation.test.mjs` | Fable Packet 1/2 acceptance | Proves 193/20 canonical-id binding, provenance limits and the presentation capability-import boundary. |
 | `ivoc/contracts/v1.test.mjs` | Fable Packet 2 contract acceptance | Loads every required v1 fixture and proves fail-closed ownership, time and evidence validation. |
 | `ivoc/core/canonical-clock.test.mjs` | Fable D6 and section 6.4 | Deterministic pause-hole and 120 ms drift-gate proof. |
 | `ivoc/core/event-spine.test.mjs` | Fable section 6.3 | Append, replay, ordering and conflicting-replay proof. |
