@@ -243,5 +243,150 @@ new MutationObserver(resetV2).observe(document.body,{attributes:true,attributeFi
 const reserveQuotes=()=>qstate.forEach(q=>q.reserve());document.fonts.ready.then(reserveQuotes);let quoteResize;addEventListener('resize',()=>{clearTimeout(quoteResize);quoteResize=setTimeout(reserveQuotes,160)});
 ev('mr_b_aaa_correction_v2_view');
 
+/* September 16: Founder-authorized warm-audience enrollment refactor. */
+document.body.classList.add('warm-audience');
+const warmPrice=$('.complete-offer .price')?.childNodes[0]?.nodeValue?.trim()||'$3,099';
+const warmEarly=warmPrice==='$3,099';
+const warmTuition=warmEarly?'$3,099 early card tuition through September 23':'$3,499 standard tuition';
+
+// Student outcome first: reuse the exact supplied collage and the already-bound core CTA.
+const warmHero=$('#top');warmHero.classList.add('warm-hero');
+$('.hero-room').src=asset+'student-celebrate-v2.webp';
+$('.hero-room').alt='Mission Residency students and families celebrating Match news';
+$('.hero-disclosure')?.remove();
+$('.hero-copy>.eyebrow').textContent='MISSION RESIDENCY / LIVE ONLINE / FALL 2026';
+$('.hero-copy .scene-label')?.remove();
+$('.hero-copy h1').innerHTML='Train before<br><em>the interview<br>that matters.</em>';
+$('.hero-copy .hero-intro').innerHTML='Interview Week builds the live foundation.<br>Complete stays with you through interview season.';
+const warmHeroAction=$('.hero-copy [data-action]');warmHeroAction.dataset.action='complete';warmHeroAction.textContent='Choose Complete · '+warmPrice+' ↗';
+const warmNavAction=$('.nav-enroll');warmNavAction.dataset.action='complete';warmNavAction.textContent='Complete · '+warmPrice+' ↗';
+$('.hero-copy .actions .text-link').textContent='Interview Week · $500 / compare both ↗';
+$('.hero-copy .actions .text-link').href='#compare';
+$('.hero-copy .fine').innerHTML='<strong>Interview Week starts September 24.</strong> Complete includes it—never another $500.';
+$('.cinema-ticket').innerHTML='<span>INTERVIEW WEEK<br><b>SEP 24 → OCT 3</b></span><strong>$500<span>LIVE ONLINE</span></strong><p>Complete: '+warmTuition+'.<br>Interview Week included.</p><a href="#dates" aria-label="See the schedule">↓</a>';
+
+// The four-beat 2x2 story is replaced by one short, concrete method section.
+const warmMethod=document.createElement('section');warmMethod.id='method';warmMethod.className='warm-method section';
+warmMethod.innerHTML=`<div class="warm-heading">${eyebrow('THE METHOD / TRAIN BEFORE YOU TEST')}<h2>Build a framework.<br><em>Keep your own voice.</em></h2><p>Real interviews should not be your practice rounds. Learn the skill before the moment asks for it.</p></div><div class="method-steps"><article><span>01</span><h3>Recognize the question</h3><p>Understand what the interviewer is really asking and what a strong answer needs to accomplish.</p></article><article><span>02</span><h3>Choose truthful material</h3><p>Build from your own experiences instead of borrowing language or memorizing a rigid script.</p></article><article><span>03</span><h3>Shape the strategy</h3><p>Connect the question, the content and the impression you want to leave.</p></article><article><span>04</span><h3>Practice adaptability</h3><p>Work on clarity, pacing, presence and follow-up so the answer can move with a real conversation.</p></article></div>`;
+$('#method').replaceWith(warmMethod);
+
+// Verified dates and curriculum are prominent without inventing a day-by-day module assignment.
+const warmDates=document.createElement('section');warmDates.id='dates';warmDates.className='warm-schedule section';
+const warmSessions=[
+ ['SEP 24','Orientation + Match Primer','Evening · exact time confirmed with enrollment'],
+ ['SEP 26','Day 1','11 AM–4 PM Eastern'],['SEP 27','Day 2','11 AM–4 PM Eastern'],
+ ['SEP 29','Day 3','Evening · exact time confirmed with enrollment'],
+ ['OCT 1','Day 4','Evening · exact time confirmed with enrollment'],['OCT 3','Day 5','11 AM–4 PM Eastern']
+];
+const warmCurriculum=[
+ ['Communication & delivery','Practice presence, pacing, voice, body language and making your meaning clear.'],
+ ['Content & question strategy','Recognize the question beneath the question and choose the right experience.'],
+ ['Interviewer types & formats','Adapt to traditional, conversational, behavioral, CV-based, panel and group formats.'],
+ ['Virtual & in-person readiness','Prepare your environment, camera, sound, appearance and approach for the room.'],
+ ['Program research & fit','Use purposeful research to prepare stronger questions and more specific conversations.'],
+ ['During & after the interview','Think about the impression you leave, the questions you ask and what follows.']
+];
+warmDates.innerHTML=`<div class="warm-heading">${eyebrow('INTERVIEW WEEK / $500')}<h2>Six live sessions.<br><em>One usable foundation.</em></h2><p>September 24–October 3, 2026. Primarily live online via Webex.</p></div><div class="warm-session-grid">${warmSessions.map(s=>`<article><time>${s[0]}</time><h3>${s[1]}</h3><p>${s[2]}</p></article>`).join('')}</div><div class="warm-course-work"><div><h3>What you learn across the week</h3><p>The verified curriculum spans all five training days. The current source does not assign a specific module to a specific day, so this page does not invent that sequence.</p></div><div class="warm-curriculum">${warmCurriculum.map((x,i)=>`<details ${i===0?'open':''}><summary><span>0${i+1}</span>${x[0]}<b>+</b></summary><p>${x[1]} <strong>Included in Interview Week and Complete.</strong></p></details>`).join('')}</div></div><p class="warm-boundary">You leave with a repeatable way to recognize questions, choose personal content and adapt your communication. Interview Week does not include an individual Signature Mock Interview or continued Complete support.</p>`;
+$('#dates').replaceWith(warmDates);
+
+// Make the existing guarded buying decision more decisive, without replacing its checkout controls.
+const warmCompare=$('#compare');warmCompare.classList.add('warm-compare');warmCompare.dataset.selected='complete';
+$('.comparison-head>.eyebrow').textContent='ONE FOUNDATION / TWO WAYS FORWARD';
+$('.comparison-head h2').innerHTML='Choose the support<br><em>you want after the foundation.</em>';
+$('.comparison-head>p').innerHTML='Complete includes Interview Week.<br><strong>You never pay an additional $500.</strong>';
+$$('[data-choice]',warmCompare).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.choice==='complete')));
+$('.choice-feedback').textContent='Complete: Interview Week plus continued practice, personalized feedback and season support.';
+$('.complete-offer>.eyebrow').textContent='RECOMMENDED / THE FULL-SEASON PATH';
+$('.complete-offer .offer-boundary').textContent=warmEarly?'Standard tuition $3,499. Choose by September 23 and save $400.':'Current standard tuition $3,499.';
+
+// Rest-of-season truth: ratified weekdays, qualitative cadence and exact Guarantee boundaries.
+const warmComplete=document.createElement('section');warmComplete.id='complete-season';warmComplete.className='warm-complete section';
+warmComplete.innerHTML=`<div class="warm-heading">${eyebrow('WHY CHOOSE COMPLETE FROM THE START?')}<h2>Do the foundation once.<br><em>Keep training all season.</em></h2><p>Interview Week teaches the framework. Complete adds the recurring practice and feedback loop that helps you use it when interviews arrive.</p></div><div class="complete-value"><article><span>01</span><h3>Interview Week included</h3><p>Start with Orientation + Match Primer and all five live training days. There is no separate $500 charge.</p></article><article><span>02</span><h3>Practice → mock → feedback</h3><p>Your turn receives focused analysis. Teammates learn the same framework and carry identified practice areas forward.</p></article><article><span>03</span><h3>Your assigned group</h3><p>A360 meets Mondays; B/C Wednesdays; D/J Fridays. Placement, dates, frequency, capacity, times and joining details come with enrollment.</p></article><article><span>04</span><h3>Interview-specific preparation</h3><p>Interview before October 15? Dr Brian provides program-specific preparation for Complete students; contact Admissions promptly to arrange it.</p></article></div><details class="complete-disclosure" open><summary>Complete Match Guarantee <b>+</b></summary><p>${guarantee}</p><p>This is next-cycle equivalent-group training—not guaranteed residency placement, a refund or unlimited years. It does not cover Interview Week alone or Emergency Intensive.</p><a class="text-link" href="/terms-of-agreement/#complete-match-guarantee">Read the Complete Match Guarantee terms ↗</a></details><details class="complete-disclosure"><summary>What is confirmed—and what is confirmed after enrollment? <b>+</b></summary><p>Confirmed here: the weekday pattern, practice/mock/feedback pathway, personalized season support and pre-October-15 preparation. Your enrollment confirmation controls exact meeting dates, placement, frequency, mock arrangements, joining details and any account-specific tools. No replay, capacity or included-mock count is invented on this page.</p></details><p class="complete-price"><strong>${warmPrice}</strong> ${warmEarly?'early card paid in full through September 23 · ':''}<span>$3,499 standard tuition · Interview Week included</span></p><a class="button warm-jump" href="#enroll">Choose Complete at the final enrollment step ↓</a>`;
+
+// Dr Brian is the teacher, not the outcome hero. Use the established identity-accurate image.
+const warmTeacher=$('#teacher');warmTeacher.classList.add('warm-teacher');
+$('.teacher-visual img').src=asset+'brian-studio-aaa.jpg';$('.teacher-visual img').alt='Dr Brian teaching Mission Residency interview preparation';
+$('.teacher-visual figcaption').textContent='Dr Brian · Mission Residency';
+$('.teacher-copy>.eyebrow').textContent='HOW DR BRIAN TRAINS YOU';
+$('.teacher-copy h2').innerHTML='Personal strategy.<br><em>No memorized script.</em>';
+$$('.teacher-copy>p').forEach(n=>n.remove());
+$('.teacher-copy h2').insertAdjacentHTML('afterend','<p>Dr Brian learns the person behind the application, helps you recognize what the question requires, and develops truthful content you can adapt under pressure.</p><ul class="teacher-points"><li>Personal experience before polished wording</li><li>Question recognition and answer strategy</li><li>Clearer delivery, listening and adaptability</li><li>Communication you can carry beyond interview season</li></ul>');
+$$('.teacher-copy .button,.teacher-copy .text-link').forEach(n=>n.remove());
+
+// Three strategic testimonial modules. Programs/specialties are omitted because current evidence does not verify them.
+const warmTestimonials=document.createElement('section');warmTestimonials.id='testimonials';warmTestimonials.className='warm-testimonials section';
+const warmSets=[
+ {theme:'Dr Brian / personalization',items:[{id:'Q01',name:'Marian',quote:'You made me fall in love with my story.',image:'marian.jpg'},{id:'Q08',name:'Mahabuba',quote:'You are the person who gave me the confidence.'},{id:'Q03',name:'Yamini',quote:'You gave me voice to express myself.',image:'yamini.jpg'}]},
+ {theme:'Complete / team / training',items:[{id:'Q07',name:'Maksura',quote:'It feels like I belong to somewhere.'},{id:'Q02',name:'Chelsey & Danny',quote:"You make a difference in people's life."}]},
+ {theme:'Match / outcome',items:[{id:'Q04',name:'Gunjan',quote:'This is the best feeling right now.',image:'gunjan.jpg'},{id:'Q05',name:'Sana',quote:'Being persistent and just trying harder... it does pay off.'},{id:'Q06',name:'Maisha',quote:'Coming up to you was one of the best decisions in my life.'}]}
+];
+const warmPortrait=q=>q.image?`<img src="${asset}${q.image}" alt="${q.name} in authentic published MissionMed media" loading="lazy" decoding="async">`:`<span class="warm-monogram" aria-hidden="true">${q.name.split(/\s|&/).filter(Boolean).slice(0,2).map(x=>x[0]).join('')}</span>`;
+warmTestimonials.innerHTML=`<div class="warm-heading">${eyebrow('STUDENT VOICES / PUBLISHED MISSIONMED PROOF')}<h2>What the training<br><em>felt like to them.</em></h2><p>Exact published quotes. Individual experiences, never a promise of your outcome.</p></div><div class="warm-quote-grid">${warmSets.map((set,i)=>{const q=set.items[0];return `<article class="warm-quote" data-warm-quote="${i}" tabindex="0"><p class="quote-theme">${set.theme}</p><div class="warm-portrait">${warmPortrait(q)}</div><figure><blockquote>“${q.quote}”</blockquote><figcaption><strong>${q.name}</strong><span>Published MissionMed student voice</span></figcaption></figure><div class="warm-quote-controls"><button data-dir="-1" aria-label="Previous ${set.theme} quote">←</button><span>1 / ${set.items.length}</span><button data-dir="1" aria-label="Next ${set.theme} quote">→</button><button data-pause aria-pressed="false">Pause</button></div></article>`}).join('')}</div><div class="warm-proof"><div><h3>Watch the real moments</h3><p>Marian, Yamini and Gunjan in authentic published MissionMed Match Day recordings.</p></div><div class="warm-proof-cards"></div></div>`;
+const oldProof=$('#proof');const warmProofCards=$('.warm-proof-cards',warmTestimonials);$$('.proof-story',oldProof).forEach(n=>warmProofCards.append(n));
+warmSets.forEach((set,i)=>{const card=$(`[data-warm-quote="${i}"]`,warmTestimonials);let ix=0,paused=false,hover=false,focused=false;
+ const draw=(dir=1)=>{ix=(ix+dir+set.items.length)%set.items.length;const q=set.items[ix],portrait=$('.warm-portrait',card),figure=$('figure',card);portrait.innerHTML=warmPortrait(q);$('blockquote',card).textContent='“'+q.quote+'”';$('figcaption strong',card).textContent=q.name;$('.warm-quote-controls span',card).textContent=(ix+1)+' / '+set.items.length;if(!document.body.classList.contains('motion-off'))figure.animate([{opacity:.12,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:700,easing:'ease-out'});ev('mr_quote_interaction',{section:'warm-'+i,quote_id:q.id,direction:dir>0?'next':'previous'})};
+ $$('[data-dir]',card).forEach(b=>b.onclick=()=>draw(Number(b.dataset.dir)));$('[data-pause]',card).onclick=e=>{paused=!paused;e.currentTarget.textContent=paused?'Resume':'Pause';e.currentTarget.setAttribute('aria-pressed',String(paused))};card.onmouseenter=()=>hover=true;card.onmouseleave=()=>hover=false;card.addEventListener('focusin',()=>focused=true);card.addEventListener('focusout',e=>focused=!!e.relatedTarget&&card.contains(e.relatedTarget));setInterval(()=>{if(!paused&&!hover&&!focused&&!document.hidden&&!document.body.classList.contains('motion-off'))draw(1)},7000);
+});
+
+// Preserve the actual supplied On-Call and Matrix UI nodes and their existing controls, but reduce their footprint.
+const warmTools=document.createElement('section');warmTools.id='tools';warmTools.className='warm-tools section';
+warmTools.innerHTML=`<div class="warm-heading">${eyebrow('SUPPORTING TOOLS / KEPT IN PROPORTION')}<h2>Useful between sessions.<br><em>Never the point of the course.</em></h2><p>Technology organizes observations and preparation. Dr Brian’s judgment, practice and feedback remain central.</p></div><div class="warm-tool-grid"><article class="warm-oncall"><h3>IV Prep On-Call</h3><p>See a concise communication demonstration covering presence, voice and the next practice goal.</p><div class="warm-tool-live"></div><details><summary>What this demo does—and does not prove <b>+</b></summary><p>The pictured candidate and observations are synthetic. Signals can support a mentor conversation; they do not infer personality, honesty or hiring suitability. Confirm current account access with Admissions.</p></details></article><article class="warm-matrix"><h3>MissionMed Matrix</h3><p>Keep stories, files, research and decisions visible in the wider MissionMed environment.</p><div class="warm-tool-live"></div><details><summary>Which tools are included? <b>+</b></summary><p>StoryForge, File Vault, RISE and RankList IQ are shown as the wider environment. Your account and enrollment determine access; the preview is not a promise that every tool is included.</p></details></article></div>`;
+const oldOnCall=$('#personalization'),oldMatrix=$('#matrix');
+['.analytics-browser','.analytics-controls','.analytics-insight'].forEach(s=>{const n=$(s,oldOnCall);if(n)$('.warm-oncall .warm-tool-live',warmTools).append(n)});
+['.matrix-device','.matrix-app-strip','.matrix-tool-copy'].forEach(s=>{const n=$(s,oldMatrix);if(n)$('.warm-matrix .warm-tool-live',warmTools).append(n)});
+
+// Conversion FAQ: eight visible questions; secondary details live behind one clear reveal.
+const warmFaqMain=[
+ ['What exactly is Interview Week?','The $500 live foundation: Orientation + Match Primer and five training days covering communication, truthful content, question strategy, formats, virtual/in-person readiness, program research and interview follow-through.'],
+ ['Is the training live online?','Yes. Mission Residency training is primarily live online via Webex. Your enrollment confirmation provides joining details.'],
+ ['Does Complete include Interview Week?','Yes. Complete includes Interview Week. You never add another $500 and you should not buy both.'],
+ ['Why choose Complete from the start?','You begin with the same foundation and continue into practice, mocks, debrief, personalized feedback and season support. '+(warmEarly?'Early card tuition is $3,099 through September 23; standard tuition is $3,499.':'Current standard tuition is $3,499.')],
+ ['What happens after Interview Week?','Complete students continue the practice and feedback pathway in an assigned group. Interview Week alone ends after the foundation.'],
+ ['What happens after enrollment?','Keep your order confirmation, use the same MissionMed account for My Account and My Courses, then follow the schedule, placement and joining instructions in your confirmation.'],
+ ['What time are the sessions?','Weekend sessions are 11 AM–4 PM Eastern. September 24, September 29 and October 1 are evenings; exact evening times come with enrollment.'],
+ ['What is the Complete Match Guarantee?',guarantee+' It is next-cycle equivalent-group training—not guaranteed placement or a refund.']
+];
+const warmFaqMore=[
+ ['Who is this for?','IMGs, Caribbean graduates, U.S. MD and DO students, reapplicants and strong first-time applicants across specialties.'],
+ ['Does Interview Week include an individual Signature Mock?','No. The $500 Interview Week tuition does not include an individual Signature Mock. Complete adds a mock and feedback pathway; exact arrangements are confirmed with enrollment.'],
+ ['Do you teach memorized answers?','No. The method develops question recognition, strategy, personal content, story selection, adaptability and authentic delivery.'],
+ ['What if my interview is before October 15?','Complete students receive interview-specific preparation with Dr Brian. Contact Admissions promptly to arrange it.'],
+ ['What about recordings and refunds?','This page does not promise replay access, a refund exception or a Match outcome. Review the published refund and cancellation policy.'],
+ ['What if my interview is within seven days?','Emergency Intensive is $3,999 for four TOTAL private hours including three Signature Mocks. It excludes Interview Week, Complete and the Guarantee, and is request-only. If time permits, choose Complete.'],
+ ['Can I enroll in 360 Match Mentorship?','No. 360 Match Mentorship is $5,499 and SOLD OUT.'],
+ ['Are On-Call and every Matrix tool included?','Access depends on your account and enrollment. The previews explain the wider environment; confirm specific tools with Admissions.']
+];
+const warmDetails=([q,a])=>`<details><summary>${q}<b>+</b></summary><p>${a}</p>${q.includes('Guarantee')?'<a class="text-link" href="/terms-of-agreement/#complete-match-guarantee">Read Guarantee terms ↗</a>':q.includes('refunds')?'<a class="text-link" href="/refund-cancellation-policy/">Read refund & cancellation policy ↗</a>':''}</details>`;
+const warmQuestions=$('#questions');warmQuestions.classList.add('warm-questions');warmQuestions.innerHTML=`<div class="warm-heading">${eyebrow('QUESTIONS BEFORE YOU ENROLL')}<h2>Clear answers.<br><em>Then choose.</em></h2><p>The essential questions are open here. Secondary details stay one step away.</p></div><div class="warm-faq-list">${warmFaqMain.map(warmDetails).join('')}<details class="warm-faq-more"><summary>See all questions <b>+</b></summary><div>${warmFaqMore.map(warmDetails).join('')}</div></details></div>`;
+$$('.warm-questions details').forEach(d=>d.addEventListener('toggle',()=>{if(d.open)ev('mr_faq_open',{label:$('summary',d).textContent.trim()})}));
+
+// Specialized offers stay visible, compact and decisively secondary.
+const warmOther=document.createElement('section');warmOther.id='other-ways';warmOther.className='warm-other section';
+warmOther.innerHTML=`<div class="warm-heading">${eyebrow('OTHER WAYS WE CAN HELP')}<h2>Special circumstances.<br><em>Not the normal buying path.</em></h2></div><div class="warm-other-grid"><article><span>EMERGENCY / PRIVATE</span><h3>Emergency Intensive · $3,999</h3><p>For a real residency interview seven days or less away. Four TOTAL private hours with Dr Brian, including three Signature Mocks.</p><details><summary>Scope and exclusions <b>+</b></summary><p>Includes personalized strategy, program-specific preparation, evaluation, debrief and action plan. Excludes Interview Week, Complete, full-season support and the Match Guarantee. If time permits, we recommend Complete.</p></details><a class="text-link" href="${window.MRBcarry('/contact/?inquiry=emergency-interview-prep')}" data-event="emergency_request_click">Request Emergency Prep ↗</a></article><article><span>FLAGSHIP / MENTORSHIP</span><h3>360 Match Mentorship · $5,499</h3><strong class="sold-out">SOLD OUT</strong><p>Visible for context. Enrollment is closed and there is no purchase action.</p></article></div>`;
+$$('a[data-event]',warmOther).forEach(a=>a.onclick=()=>ev(a.dataset.event));
+
+// Complete-first close; reuse the already-bound buttons so eligibility and checkout guards remain unchanged.
+const warmEnroll=$('#enroll');warmEnroll.classList.add('warm-enroll');
+$('.warm-enroll>.eyebrow').textContent='READY TO TRAIN THROUGH THE SEASON?';
+$('.warm-enroll h2').innerHTML='Start with Complete.<br><em>Keep Interview Week inside it.</em>';
+const enrollActions=$('.warm-enroll .actions'),completeButton=$('[data-action="complete"]',enrollActions),iwButton=$('[data-action="iw"]',enrollActions);
+completeButton.classList.remove('secondary');completeButton.textContent='Choose Complete · '+warmPrice+' ↗';iwButton.classList.add('secondary');iwButton.textContent='Interview Week only · $500 ↗';enrollActions.prepend(completeButton);
+$('.warm-enroll>p').textContent='Complete includes Interview Week. Never another $500. Standard tuition is $3,499.';
+$('.warm-enroll .lead-invite')?.remove();
+const mobileButton=$('.mobile-enroll [data-action]');mobileButton.dataset.action='complete';mobileButton.textContent='Complete · '+warmPrice+' ↗';$('.mobile-enroll>a').innerHTML='Compare<br><strong>Week / Complete</strong>';
+
+// Final page order: eleven decision-focused sections. Everything removed below is already merged, cut or moved to FAQ.
+const main=$('#main'),footer=$('.footer'),mobileEnroll=$('.mobile-enroll');
+$$('.quote-intro,.intro,#celebration,#strategy,#team,.career,#guarantee,.curriculum').forEach(n=>n.remove());
+oldOnCall.remove();oldMatrix.remove();oldProof.remove();$('#other-ways')?.remove();
+main.append(warmHero,warmMethod,warmDates,warmCompare,warmComplete,warmTeacher,warmTestimonials,warmTools,warmQuestions,warmOther,warmEnroll,footer,mobileEnroll);
+$$('.site-nav nav a').forEach(a=>{if(a.textContent.includes('Match')){a.textContent='Student stories';a.href='#testimonials'}});
+
+// Keep only restrained motion that supports comprehension.
+window.MRBAAAdepth=()=>{const off=document.body.classList.contains('motion-off'),hero=warmHero,r=hero.getBoundingClientRect(),p=Math.max(0,Math.min(1,-r.top/Math.max(1,hero.offsetHeight)));$('.hero-room').style.transform=off?'none':`translate3d(0,${p*70}px,0) scale(${1.02+p*.03})`;};
+window.MRBAAAdepth();
+const warmObserver=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('warm-visible');warmObserver.unobserve(e.target)}}),{threshold:.08});$$('.warm-audience main>.section').forEach(n=>{n.classList.add('warm-reveal');warmObserver.observe(n)});
+ev('mr_warm_audience_view',{source:'2e397c4d39301de2eaccc4b06d4627f3ee7593db'});
+
 ev('mr_b_finalization_view');
 }, {once:true});
