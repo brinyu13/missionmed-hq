@@ -120,11 +120,21 @@ export class DurableStudioSession {
     this.accountSession = null;
     this.recorder = null;
     this.pendingAnalytics = null;
-    return { persisted: true, analytics, recording, result, envelope };
+    return { persisted: true, analytics, recording, result, envelope, session: accountSession };
   }
 
   async library(scope = 'own') { return this.api.library(scope); }
   async playback(recordingId, disposition = 'inline') { return this.api.playback(recordingId, disposition); }
+  async analyze({ sessionId, recordingId, answerId, questionId, analyticsEvents = [] } = {}) {
+    return this.api.context({
+      action: 'analyze',
+      sessionId,
+      recordingId,
+      answerId,
+      questionId,
+      analyticsEvents,
+    });
+  }
 
   destroy() {
     this.recorder?.destroy?.();

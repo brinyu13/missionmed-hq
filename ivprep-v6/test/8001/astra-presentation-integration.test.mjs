@@ -61,6 +61,9 @@ test('presentation integration preserves the proven analytics and media contract
   assert.match(runtime, /state\.durable\.start/u);
   assert.match(runtime, /state\.durable\.finish/u);
   assert.match(runtime, /state\.durable\.library\('own'\)/u);
+  assert.match(runtime, /state\.durable\.analyze/u);
+  assert.match(html, /id="context-analyze"/u);
+  assert.match(html, /does not persist the transcript or semantic analysis/u);
 });
 
 test('role view controls are bounded by the authenticated MissionMed identity', () => {

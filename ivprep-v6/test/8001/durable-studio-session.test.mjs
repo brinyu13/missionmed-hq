@@ -86,3 +86,21 @@ test('a failed media upload retains analytics and retries the same account trans
   assert.equal(retried.persisted, true);
   assert.equal(stopAttempts, 2);
 });
+
+test('context analysis sends only sealed answer identity and validated student events', async () => {
+  let input = null;
+  const durable = new DurableStudioSession({
+    api: { async context(value) { input = value; return { schema: 'missionmed.ivoc.context.result.v1' }; } },
+  });
+  const result = await durable.analyze({
+    sessionId: 'session-context',
+    recordingId: 'recording-context',
+    answerId: 'answer-context',
+    questionId: 'CORE-01',
+    analyticsEvents: [{ metric: 'answer_duration_ms' }],
+  });
+  assert.equal(input.action, 'analyze');
+  assert.equal(input.recordingId, 'recording-context');
+  assert.deepEqual(input.analyticsEvents, [{ metric: 'answer_duration_ms' }]);
+  assert.equal(result.schema, 'missionmed.ivoc.context.result.v1');
+});

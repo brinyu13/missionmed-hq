@@ -461,6 +461,10 @@ body[data-role="student"] #communication-analytics-test-root .ca-diagnostics { d
 .vault-answer-copy { min-width: 0; flex: 1; }
 .vault-answer-copy .microcap { display: block; margin-top: 5px; }
 .vault-answer-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.context-evidence { display: grid; gap: 12px; }
+.context-evidence blockquote { margin: 0; border-left: 3px solid var(--orange); padding: 10px 14px; color: var(--ink2); background: color-mix(in srgb, var(--orange) 7%, transparent); }
+.context-evidence ul { margin: 0; padding-left: 20px; color: var(--ink2); }
+.context-evidence .unavailable { margin: 0; }
 
 /* ---------- InterviewBrain live room ---------- */
 .live-interviewer-stage { min-height: 230px; display: flex; align-items: center; gap: 22px; background: radial-gradient(circle at 30% 40%, #9e4d323d, #090e1b 64%); }

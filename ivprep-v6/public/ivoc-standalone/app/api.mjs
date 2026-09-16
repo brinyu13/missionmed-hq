@@ -41,6 +41,7 @@ export class IvocApi {
   createRecording(sessionId, input) { return json(`/sessions/${encodeURIComponent(sessionId)}/recordings`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   sealRecording(recordingId, input) { return json(`/recordings/${encodeURIComponent(recordingId)}/seal`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   saveResults(sessionId, input) { return json(`/sessions/${encodeURIComponent(sessionId)}/results`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
+  context(input) { return json('/context', { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   markReviewed(sessionId, input = {}) { return json(`/sessions/${encodeURIComponent(sessionId)}/review`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   library(scope = 'own') { return json(`/library?scope=${encodeURIComponent(scope)}`); }
   session(sessionId) { return json(`/sessions/${encodeURIComponent(sessionId)}`); }

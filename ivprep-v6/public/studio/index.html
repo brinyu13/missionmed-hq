@@ -320,6 +320,16 @@
           <div class="housing"><div class="housing-title">What worked</div><div class="recess" id="post-worked"></div></div>
           <div class="housing"><div class="housing-title">One thing to fix</div><div class="recess" id="post-fix"></div></div>
         </div>
+        <div class="housing" style="margin-top:16px">
+          <div class="housing-title">Transcript + Context Intelligence</div>
+          <div class="recess context-evidence" id="context-evidence">
+            <div class="empty-state"><strong>Optional after a saved answer</strong>The sealed private recording can be transcribed server-side on request. Only evidence-cited answer structure is returned; no hidden traits or program-fit claims are inferred.</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-secondary" type="button" id="context-analyze" disabled><span>Generate transcript + context</span></button>
+          </div>
+          <p class="microcap">Provider processing begins only when you press the button. The Context endpoint does not persist the transcript or semantic analysis.</p>
+        </div>
         <div class="btn-row">
           <button class="btn btn-secondary" type="button" data-goto="filmroom"><span>Open film room</span></button>
           <button class="btn btn-quiet" type="button" data-goto="compare"><span>Compare attempts</span></button>

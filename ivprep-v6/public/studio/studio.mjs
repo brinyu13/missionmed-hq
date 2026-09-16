@@ -1386,6 +1386,7 @@ function wireChrome() {
     state.targetQuestions = Math.max(1, Math.min(30, Number(event.target.value) || 1));
     event.target.value = String(state.targetQuestions);
   });
+  $('#context-analyze')?.addEventListener('click', () => { void analyzeLastAnswer(); });
 }
 
 function renderLoadoutConfig() {
@@ -1448,6 +1449,80 @@ function renderPostAnswer(analytics = null) {
     empty.className = 'empty-state';
     empty.innerHTML = html;
     host.replaceChildren(empty);
+  }
+  const contextButton = $('#context-analyze');
+  if (contextButton) {
+    const recordingId = state.lastSaved?.recording?.recording?.id;
+    const answerId = state.lastSaved?.analytics?.answerId;
+    const questionId = state.lastSaved?.session?.questionId;
+    contextButton.disabled = !(state.lastSaved?.persisted && recordingId && answerId && questionId);
+  }
+}
+
+function renderContextEvidence(result) {
+  const host = $('#context-evidence');
+  if (!host) return;
+  host.replaceChildren();
+  const transcript = result?.transcript;
+  if (transcript?.status !== 'AVAILABLE') {
+    const note = document.createElement('p');
+    note.className = 'unavailable';
+    note.textContent = `TRANSCRIPT UNAVAILABLE — ${String(transcript?.reason || 'PROVIDER UNAVAILABLE').toUpperCase().slice(0, 120)}`;
+    host.append(note);
+    return;
+  }
+  const quote = document.createElement('blockquote');
+  quote.textContent = transcript.text;
+  host.append(quote);
+  const analysis = result?.analysis;
+  if (analysis?.status === 'AVAILABLE' && Array.isArray(analysis.semanticObservations) && analysis.semanticObservations.length) {
+    const label = document.createElement('div');
+    label.className = 'microcap';
+    label.textContent = 'Evidence-cited observations';
+    const list = document.createElement('ul');
+    for (const observation of analysis.semanticObservations) {
+      const item = document.createElement('li');
+      const refs = Array.isArray(observation.transcriptSegmentIds)
+        ? observation.transcriptSegmentIds.join(', ')
+        : 'source cited';
+      item.textContent = `${observation.text} · ${refs}`;
+      list.append(item);
+    }
+    host.append(label, list);
+  } else {
+    const note = document.createElement('p');
+    note.className = 'unavailable';
+    note.textContent = `CONTEXT ANALYSIS UNAVAILABLE — ${String(analysis?.reason || 'NO SUPPORTED OBSERVATIONS').toUpperCase().slice(0, 120)}`;
+    host.append(note);
+  }
+  const privacy = document.createElement('p');
+  privacy.className = 'microcap';
+  privacy.textContent = 'Ephemeral result · transcript and semantic analysis were not persisted by Context.';
+  host.append(privacy);
+}
+
+async function analyzeLastAnswer() {
+  const button = $('#context-analyze');
+  const saved = state.lastSaved;
+  const recordingId = saved?.recording?.recording?.id;
+  const sessionId = saved?.session?.id;
+  const answerId = saved?.analytics?.answerId;
+  const questionId = saved?.session?.questionId;
+  if (!saved?.persisted || !recordingId || !sessionId || !answerId || !questionId) return;
+  if (button) { button.disabled = true; button.innerHTML = '<span>Analyzing sealed answer…</span>'; }
+  try {
+    const result = await state.durable.analyze({
+      sessionId,
+      recordingId,
+      answerId,
+      questionId,
+      analyticsEvents: Array.isArray(saved.analytics.studentEvents) ? saved.analytics.studentEvents : [],
+    });
+    renderContextEvidence(result);
+  } catch (error) {
+    renderContextEvidence({ transcript: { status: 'UNAVAILABLE', reason: String(error?.message || error).slice(0, 120) } });
+  } finally {
+    if (button) { button.disabled = false; button.innerHTML = '<span>Generate transcript + context</span>'; }
   }
 }
 
