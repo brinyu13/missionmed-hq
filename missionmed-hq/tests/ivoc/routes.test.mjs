@@ -44,8 +44,10 @@ function registry() {
 function repository() {
   const inserts = [];
   const updates = [];
+  const upserts = [];
+  const batches = [];
   return {
-    inserts, updates,
+    inserts, updates, upserts, batches,
     single: async () => null,
     request: async (path) => path.startsWith('ivoc_sessions?owner_subject=eq.wp%3A42') ? [] : [],
     insert: async (table, body) => {
@@ -53,6 +55,8 @@ function repository() {
       if (table === 'ivoc_sessions') return { id: '00000000-0000-4000-8000-000000000042', ...body, started_at: new Date().toISOString(), created_at: new Date().toISOString() };
       return { id: 1, ...body };
     },
+    insertMany: async (table, body) => { batches.push({ table, body }); return body; },
+    upsert: async (table, conflict, body) => { upserts.push({ table, conflict, body }); return body; },
     update: async (path, body) => { updates.push({ path, body }); return { ...body }; },
   };
 }
@@ -126,6 +130,95 @@ test('session creation requires same-origin CSRF and persists server identity', 
   await route({ ...base, request: request('POST', { title: 'Take', sessionType: 'question' }, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response: allowed, url: new URL('https://hq.test/api/ivoc/v1/sessions'), hqSession: session() });
   assert.equal(allowed.status, 201);
   assert.equal(repo.inserts.find((row) => row.table === 'ivoc_sessions').body.owner_subject, 'wp:42');
+});
+
+test('owner can append a contract-validated M1 spine without changing server identity', async () => {
+  const repo = repository();
+  const sessionId = '00000000-0000-4000-8000-000000000042';
+  repo.single = async (path) => path.startsWith(`ivoc_sessions?id=eq.${sessionId}`)
+    ? { id: sessionId, owner_subject: 'wp:42' }
+    : null;
+  const { route } = handler(repo);
+  const response = new ResponseCapture();
+  const body = {
+    session: {
+      session_id: sessionId, schema_version: '1', actor_id: 'wp:42', subject_id: 'wp:42',
+      role_context: 'student', practice_goal: 'guided_mock', pressure_modifier: false,
+      transport_profile: 'none', environment: 'missionmed', selection_policy: 'system',
+      follow_up_intensity: 1, target_asked_count: 3, target_duration_s: 300,
+      interviewer_config_ref: 'interviewer:prompted:v1', question_pool_ref: 'pool:student:v1',
+      analytics_config_version: 'analytics:m1', state: 'live', state_version: 1,
+      clock: { origin: 'capture_owner', started_at_wall: '2026-09-16T16:00:00.000Z' },
+      context_receipts: [], created_at: '2026-09-16T16:00:00.000Z', updated_at: '2026-09-16T16:00:00.000Z',
+    },
+    events: [{
+      event_id: 'event:m1:1', session_id: sessionId, schema_version: '1', seq: 1,
+      source: 'client.analytics', type: 'analytics.signal', t_wall: '2026-09-16T16:00:01.000Z',
+      t_media_ms: 1000, reliability: 'measured', availability: 'ok', idempotency_key: 'm1:1',
+      payload: { signal: 'voice.rms', value: 0.2 },
+    }],
+    turns: [{
+      turn_id: 'turn:m1:1', session_id: sessionId, schema_version: '1', speaker: 'student', relation: 'answer',
+      t_start_ms: 1000, t_end_ms: 4000, transcript: { text: 'Synthetic canary.' },
+      question: { origin: 'pool' }, semantic: {}, version: 1,
+    }],
+    segments: [{
+      segment_id: 'segment:m1:1', session_id: sessionId, subject_id: 'wp:42', schema_version: '1',
+      transcript_ref: 'transcript:m1:1', media_ref: 'recording:m1:1',
+      question: { origin: 'pool', text: 'Synthetic?', asked_turn_id: 'turn:q1', t_asked_ms: 0 },
+      answer: { t_start_ms: 1000, t_end_ms: 4000, turn_ids: ['turn:m1:1'], follow_up_turn_ids: [] },
+      coaching_notes_refs: [], version: 1,
+    }],
+    evidence: [{
+      evidence_id: 'evidence:m1:1', session_id: sessionId, subject_id: 'wp:42', schema_version: '1',
+      dimension: 'voice.pacing', refs: [{ kind: 'event', ref: 'event:m1:1' }],
+      interpretation: { text: 'Synthetic canary only.', by: 'ai_draft' }, limitations: ['Synthetic.'], version: 1,
+    }],
+  };
+  await route({
+    ...base,
+    request: request('POST', body, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }),
+    response,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${sessionId}/spine`),
+    hqSession: session(),
+  });
+  assert.equal(response.status, 202);
+  assert.deepEqual(response.json().accepted, { events: 1, turns: 1, segments: 1, evidence: 1 });
+  assert.equal(repo.upserts[0].body.actor_subject, 'wp:42');
+  assert.deepEqual(repo.batches.map((entry) => entry.table), [
+    'ivoc_timeline_events', 'ivoc_conversation_turns', 'ivoc_answer_segments', 'ivoc_coaching_evidence',
+  ]);
+  assert.equal(repo.batches[0].body[0].session_id, sessionId);
+});
+
+test('M1 spine rejects client identity drift before persistence', async () => {
+  const repo = repository();
+  const sessionId = '00000000-0000-4000-8000-000000000042';
+  repo.single = async () => ({ id: sessionId, owner_subject: 'wp:42' });
+  const { route } = handler(repo);
+  const response = new ResponseCapture();
+  await route({
+    ...base,
+    request: request('POST', {
+      session: {
+        session_id: sessionId, schema_version: '1', actor_id: 'wp:7', subject_id: 'wp:7',
+        role_context: 'student', practice_goal: 'guided_mock', pressure_modifier: false,
+        transport_profile: 'none', environment: 'missionmed', selection_policy: 'system', follow_up_intensity: 1,
+        interviewer_config_ref: 'interviewer:prompted:v1', question_pool_ref: 'pool:student:v1',
+        analytics_config_version: 'analytics:m1', state: 'live', state_version: 1,
+        clock: { origin: 'capture_owner', started_at_wall: '2026-09-16T16:00:00.000Z' },
+        context_receipts: [], created_at: '2026-09-16T16:00:00.000Z', updated_at: '2026-09-16T16:00:00.000Z',
+      },
+      events: [], turns: [], segments: [], evidence: [],
+    }, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }),
+    response,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${sessionId}/spine`),
+    hqSession: session(),
+  });
+  assert.equal(response.status, 400);
+  assert.equal(response.json().error, 'spine_identity_invalid');
+  assert.equal(repo.upserts.length, 0);
+  assert.equal(repo.batches.length, 0);
 });
 
 test('results preserve explicit duration vocabulary while the library duration follows playable media', async () => {

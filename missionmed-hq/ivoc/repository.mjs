@@ -5,6 +5,11 @@ const TABLES = Object.freeze([
   'ivoc_reviews',
   'ivoc_preferences',
   'ivoc_access_log',
+  'ivoc_session_contracts',
+  'ivoc_timeline_events',
+  'ivoc_conversation_turns',
+  'ivoc_answer_segments',
+  'ivoc_coaching_evidence',
 ]);
 
 function requireConfig(value, name) {
@@ -46,10 +51,16 @@ export function createIvocRepository({ baseUrl, serviceRoleKey, fetchImpl = fetc
   const insert = async (table, body) => (await request(`${table}?select=*`, {
     method: 'POST', body, prefer: 'return=representation',
   }))?.[0] || null;
+  const insertMany = async (table, body) => request(`${table}?select=*`, {
+    method: 'POST', body, prefer: 'return=representation',
+  });
+  const upsert = async (table, conflict, body) => (await request(
+    `${table}?on_conflict=${encodeURIComponent(conflict)}&select=*`,
+    { method: 'POST', body, prefer: 'resolution=merge-duplicates,return=representation' },
+  ))?.[0] || null;
   const update = async (path, body) => (await request(path, {
     method: 'PATCH', body, prefer: 'return=representation',
   }))?.[0] || null;
 
-  return Object.freeze({ request, single, insert, update });
+  return Object.freeze({ request, single, insert, insertMany, upsert, update });
 }
-

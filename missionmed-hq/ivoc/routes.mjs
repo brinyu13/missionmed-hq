@@ -8,6 +8,13 @@ import { strictProjectHqSession, validateIvPrepMutation } from '../../ivprep-v6/
 import { createContextIntelligenceProvider } from './context-provider.mjs';
 import { createIvocRepository } from './repository.mjs';
 import { createIvocStorage } from './storage.mjs';
+import {
+  assertAnswerSegment,
+  assertCoachingEvidence,
+  assertConversationTurn,
+  assertSession,
+  assertTimelineEvent,
+} from '../../ivoc/contracts/index.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const STATIC_ROOT = normalize(join(MODULE_DIR, '..', '..', 'ivprep-v6', 'public', 'ivoc-standalone'));
@@ -39,6 +46,25 @@ function rolesOf(session) { return Array.isArray(session?.user?.roles) ? session
 function isAdmin(session, admission) { return admission?.entitlement?.founder === true || rolesOf(session).some((r) => ['administrator', 'admin'].includes(r)); }
 function isMentor(session) { return rolesOf(session).some((r) => ['mentor', 'coach', 'faculty', 'teacher'].includes(r)); }
 function displayName(session) { return safeText(session?.user?.displayName || session?.user?.login || 'MissionMed student', 120); }
+function boundedArray(value, label, maximum) {
+  if (!Array.isArray(value) || value.length > maximum) {
+    throw Object.assign(new TypeError(`${label}_invalid`), { status: 400 });
+  }
+  return value;
+}
+
+function contractTimestamp(value, label) {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) throw Object.assign(new TypeError(`${label}_invalid`), { status: 400 });
+  return new Date(parsed).toISOString();
+}
+
+function contractInteger(value, label, minimum = 0) {
+  if (!Number.isSafeInteger(value) || value < minimum) {
+    throw Object.assign(new TypeError(`${label}_invalid`), { status: 400 });
+  }
+  return value;
+}
 
 function securityHeaders(mediaBase, extra = {}) {
   let mediaOrigin = '';
@@ -311,7 +337,128 @@ export function createIvocHandler({
         sendJson(response, 201, publicSession(row), mediaBase); return true;
       }
 
-      let match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})\/recordings$/u);
+      let match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})\/spine$/u);
+      if (request.method === 'POST' && match) {
+        const sessionId = match[1];
+        const sessionRow = await db.single(`ivoc_sessions?id=eq.${sessionId}&select=*&limit=1`);
+        if (!sessionRow || sessionRow.owner_subject !== actor) {
+          await audit({ actor, sessionId, action: 'spine_append', decision: 'deny', reason: 'not_owner' });
+          sendError(response, 404, 'not_found', mediaBase); return true;
+        }
+        const input = await readJson(request);
+        const session = assertSession(input.session);
+        if (session.session_id !== sessionId || session.actor_id !== actor || session.subject_id !== actor) {
+          sendError(response, 400, 'spine_identity_invalid', mediaBase); return true;
+        }
+        const events = boundedArray(input.events, 'spine_events', 512).map((event) => {
+          assertTimelineEvent(event);
+          if (event.session_id !== sessionId) throw Object.assign(new TypeError('spine_identity_invalid'), { status: 400 });
+          return {
+            event_id: event.event_id,
+            session_id: sessionId,
+            seq: contractInteger(event.seq, 'spine_event_seq'),
+            schema_version: 1,
+            source: event.source,
+            event_type: event.type,
+            t_wall: contractTimestamp(event.t_wall, 'spine_event_wall_time'),
+            t_media_ms: contractInteger(event.t_media_ms, 'spine_event_media_time', -1),
+            reliability: event.reliability,
+            availability: event.availability,
+            idempotency_key: event.idempotency_key || null,
+            payload: event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload) ? event.payload : {},
+          };
+        });
+        const turns = boundedArray(input.turns, 'spine_turns', 128).map((turn) => {
+          assertConversationTurn(turn);
+          if (turn.session_id !== sessionId) throw Object.assign(new TypeError('spine_identity_invalid'), { status: 400 });
+          return {
+            turn_id: turn.turn_id,
+            session_id: sessionId,
+            parent_turn_id: turn.parent_turn_id || null,
+            schema_version: 1,
+            speaker: turn.speaker,
+            relation: turn.relation,
+            t_start_ms: Math.trunc(turn.t_start_ms),
+            t_end_ms: turn.t_end_ms === undefined ? null : Math.trunc(turn.t_end_ms),
+            transcript: turn.transcript,
+            question: turn.question,
+            semantic: turn.semantic,
+            interrupted: turn.interrupted || null,
+            version: turn.version,
+          };
+        });
+        const segments = boundedArray(input.segments, 'spine_segments', 128).map((segment) => {
+          assertAnswerSegment(segment);
+          if (segment.session_id !== sessionId || segment.subject_id !== actor) {
+            throw Object.assign(new TypeError('spine_identity_invalid'), { status: 400 });
+          }
+          return {
+            segment_id: segment.segment_id,
+            session_id: sessionId,
+            subject_id: actor,
+            schema_version: 1,
+            transcript_ref: segment.transcript_ref,
+            media_ref: segment.media_ref,
+            question: segment.question,
+            answer: segment.answer,
+            coaching_notes_refs: segment.coaching_notes_refs,
+            scoring: segment.scoring || null,
+            strongest_marker: segment.strongest_marker || null,
+            version: segment.version,
+          };
+        });
+        const evidence = boundedArray(input.evidence, 'spine_evidence', 128).map((item) => {
+          assertCoachingEvidence(item);
+          if (item.session_id !== sessionId || item.subject_id !== actor) {
+            throw Object.assign(new TypeError('spine_identity_invalid'), { status: 400 });
+          }
+          return {
+            evidence_id: item.evidence_id,
+            session_id: sessionId,
+            subject_id: actor,
+            schema_version: 1,
+            dimension: item.dimension,
+            refs: item.refs,
+            interpretation: item.interpretation,
+            score: item.score || null,
+            confidence: item.confidence ?? null,
+            limitations: item.limitations || [],
+            version: item.version,
+          };
+        });
+        await db.upsert('ivoc_session_contracts', 'session_id', {
+          session_id: sessionId,
+          schema_version: 1,
+          actor_subject: actor,
+          role_context: session.role_context,
+          practice_goal: session.practice_goal,
+          pressure_modifier: session.pressure_modifier,
+          transport_profile: session.transport_profile,
+          environment: session.environment,
+          selection_policy: session.selection_policy,
+          follow_up_intensity: session.follow_up_intensity,
+          target_asked_count: session.target_asked_count ?? null,
+          target_duration_s: session.target_duration_s ?? null,
+          interviewer_config_ref: session.interviewer_config_ref,
+          question_pool_ref: session.question_pool_ref,
+          analytics_config_version: session.analytics_config_version,
+          contract_state: session.state,
+          state_version: session.state_version,
+          clock: session.clock,
+          context_receipts: session.context_receipts,
+        });
+        if (events.length) await db.insertMany('ivoc_timeline_events', events);
+        if (turns.length) await db.insertMany('ivoc_conversation_turns', turns);
+        if (segments.length) await db.insertMany('ivoc_answer_segments', segments);
+        if (evidence.length) await db.insertMany('ivoc_coaching_evidence', evidence);
+        await audit({ actor, owner: actor, sessionId, action: 'spine_append', decision: 'allow', reason: 'owner' });
+        sendJson(response, 202, {
+          sessionId,
+          accepted: { events: events.length, turns: turns.length, segments: segments.length, evidence: evidence.length },
+        }, mediaBase); return true;
+      }
+
+      match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})\/recordings$/u);
       if (request.method === 'POST' && match) {
         const sessionId = match[1];
         const sessionRow = await db.single(`ivoc_sessions?id=eq.${sessionId}&select=*&limit=1`);
