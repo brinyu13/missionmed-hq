@@ -2143,7 +2143,16 @@ function missionAccountsHydrateProviderInvoice(root){
   controls.reverse().forEach(control=>row.prepend(control));
 }
 function missionAccountsMutationsAvailable(){ const state=window.MissionAccountsRuntime?.state; return !(state?.authenticated && state.mutationsAvailable===false); }
-function missionAccountsSetMutationControlEnabled(control,enabled){ if(!control)return; if(control.dataset.credentialDisabled==='true'){ control.dataset.credentialDesiredDisabled=String(!enabled); control.disabled=true; return; } control.disabled=!enabled; }
+function missionAccountsSetMutationControlEnabled(control,enabled){
+  if(!control)return;
+  if(control.dataset.capabilityDisabled==='true'){ control.disabled=true; return; }
+  if(!missionAccountsMutationsAvailable()){
+    control.dataset.credentialDesiredDisabled=String(!enabled); control.dataset.credentialDisabled='true';
+    control.disabled=true; control.setAttribute('aria-disabled','true'); control.title='Connection is being restored. Editing will resume automatically when the secure session refreshes.'; return;
+  }
+  if(control.dataset.credentialDisabled==='true'){ control.dataset.credentialDesiredDisabled=String(!enabled); control.disabled=true; return; }
+  control.disabled=!enabled;
+}
 function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRuntime?.state?.user?.role==='student') root.querySelectorAll('.demo,[data-lens]').forEach(node=>{ if(node!==document.body) node.hidden=true; });
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return;
   const credentialReason='Connection is being restored. Editing will resume automatically when the secure session refreshes.';

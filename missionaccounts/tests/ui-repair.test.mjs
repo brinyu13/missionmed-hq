@@ -137,12 +137,15 @@ test('stale credentials visibly disable every rendered mutation control and read
   window:{MissionAccountsRuntime:{state}},document:{documentElement:{dataset:{missionaccountsBuild:'production'}},body:{}},
   missionAccountsCapability:()=>true,
   missionAccountsDisable(control,reason){control.disabled=true;control.title=reason;control.dataset.capabilityDisabled='true';},
+  MISSION_ACCOUNTS_CREDENTIAL_REASON:credentialReason,
  };
  vm.runInNewContext('('+fn('missionAccountsApplyCapabilityState')+')(root)',{...context,root});
  for(const control of controls.filter(control=>control!==capabilityDisabled)){assert.equal(control.disabled,true);assert.equal(control.dataset.credentialDisabled,'true');assert.equal(control.title,credentialReason);}
  assert.equal(capabilityDisabled.disabled,true);assert.equal(capabilityDisabled.dataset.credentialDisabled,undefined);
+ vm.runInNewContext('('+fn('missionAccountsSetMutationControlEnabled')+')(control,true)',{...context,control:capabilityDisabled,missionAccountsMutationsAvailable:()=>true});
+ assert.equal(capabilityDisabled.disabled,true,'a dialog finally path cannot enable a capability-disabled mutation');
  const initiallyDisabled=records.find(([token])=>token==='#mConfirm')[1];
- vm.runInNewContext('('+fn('missionAccountsSetMutationControlEnabled')+')(control,true)',{...context,control:initiallyDisabled});
+ vm.runInNewContext('('+fn('missionAccountsSetMutationControlEnabled')+')(control,true)',{...context,control:initiallyDisabled,missionAccountsMutationsAvailable:()=>false});
  assert.equal(initiallyDisabled.disabled,true);assert.equal(initiallyDisabled.dataset.credentialDesiredDisabled,'false');
  state.mutationsAvailable=true;
  vm.runInNewContext('('+fn('missionAccountsApplyCapabilityState')+')(root)',{...context,root});
