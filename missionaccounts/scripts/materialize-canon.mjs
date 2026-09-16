@@ -7,6 +7,12 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, '..');
 const productionPath = path.join(appRoot, 'public', 'index.production.html');
+const logoPath = path.join(appRoot, 'public', 'missionmed-logo.png');
+const expectedLogoSha256 = 'f091d62ac5842cde0e9e455321839fd98b291598478aae6ce13b09ea3896ff56';
+const logo = await readFile(logoPath);
+const logoSha256 = createHash('sha256').update(logo).digest('hex');
+if (logoSha256 !== expectedLogoSha256) throw new Error(`MissionMed opening logo hash mismatch: ${logoSha256}`);
+const logoDataUri = `data:image/png;base64,${logo.toString('base64')}`;
 if (process.env.MISSIONACCOUNTS_REBUILD_FROM_LEGACY_CANON !== '1') {
   const currentProduction = await readFile(productionPath, 'utf8');
   const requiredMarkers = [
@@ -20,9 +26,7 @@ if (process.env.MISSIONACCOUNTS_REBUILD_FROM_LEGACY_CANON !== '1') {
   const missing = requiredMarkers.filter(marker => !currentProduction.includes(marker));
   if (missing.length) throw new Error(`Current production shell failed preservation validation: ${missing.join(', ')}`);
   if (currentProduction.includes('MX-EXAMPREP-5000B_Reconciled_Ledger.json')) throw new Error('Current production shell contains a private historical-data reference');
-  const logo = await readFile(path.join(appRoot, 'public', 'missionmed-logo.png'));
-  const logoSha256 = createHash('sha256').update(logo).digest('hex');
-  if (logoSha256 !== 'f091d62ac5842cde0e9e455321839fd98b291598478aae6ce13b09ea3896ff56') throw new Error(`MissionMed opening logo hash mismatch: ${logoSha256}`);
+  if (!currentProduction.includes(`<img class="introLogo" src="${logoDataUri}" alt="MissionMed Institute">`)) throw new Error('Current production shell does not embed the verified MissionMed opening logo');
   const productionSha256 = createHash('sha256').update(currentProduction).digest('hex');
   console.log(`Validated and preserved current production shell ${productionSha256} (${Buffer.byteLength(currentProduction)} bytes)`);
   process.exit(0);
@@ -444,7 +448,7 @@ body.motion-enabled .introAccounts{animation:introWordRight .9s .22s cubic-bezie
 @media(prefers-reduced-motion:reduce){.storyforgeOpening:before,.introMissionMed,.introAccounts{animation:none!important}}
 </style>`;
 productionHtml = productionHtml.replace('</head>', opening5404rStyle + '</head>');
-productionHtml = productionHtml.replace(/<img class="introLogo" src="data:image\/png;base64,[^"]+" alt="MissionMed Institute">/, '<img class="introLogo" src="./missionmed-logo.png" alt="MissionMed Institute">');
+productionHtml = productionHtml.replace(/<img class="introLogo" src="(?:data:image\/png;base64,[^"]+|\.\/missionmed-logo\.png)" alt="MissionMed Institute">/, `<img class="introLogo" src="${logoDataUri}" alt="MissionMed Institute">`);
 productionHtml = productionHtml.replace('<h1 class="introProduct" id="maOpeningTitle">MyMissionMed<span> Account</span></h1>', '<h1 class="introProduct" id="maOpeningTitle"><span class="introMissionMed">MissionMed</span><span class="introAccounts">Accounts</span></h1>');
 productionHtml = productionHtml.replace('PROGRAMS. ACCOUNT. PROGRESS. ONE PLACE.', 'EVERY CLASS. EVERY BALANCE. YOUR MISSION, CLEARLY ACCOUNTED FOR.');
 productionHtml = productionHtml.replaceAll('Opening your MyMissionMed Account workspace…', 'Securely opening your account workspace…');

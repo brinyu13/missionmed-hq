@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 const html=await readFile(new URL('../public/index.production.html', import.meta.url),'utf8');
@@ -93,7 +94,10 @@ test('registered account landing provides enrollment-aware program states and re
 });
 
 test('production opening is branded, animated, accessible, and bootstrap-bound',()=>{
- assert.match(html,/src="\.\/missionmed-logo\.png" alt="MissionMed Institute"/);
+ const embeddedLogo=html.match(/src="data:image\/png;base64,([^"]+)" alt="MissionMed Institute"/);
+ assert.ok(embeddedLogo,'verified MissionMed logo must be embedded so the production package cannot omit it');
+ const embeddedLogoBytes=Buffer.from(embeddedLogo[1],'base64');
+ assert.equal(createHash('sha256').update(embeddedLogoBytes).digest('hex'),'f091d62ac5842cde0e9e455321839fd98b291598478aae6ce13b09ea3896ff56');
  assert.match(html,/class="introMissionMed">MissionMed<\/span><span class="introAccounts">Accounts<\/span>/);
  assert.match(html,/EVERY CLASS\. EVERY BALANCE\. YOUR MISSION, CLEARLY ACCOUNTED FOR\./);
  assert.match(html,/@keyframes introWordLeft/);
