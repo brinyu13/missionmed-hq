@@ -66,9 +66,10 @@ read-only behavioral evidence.
 | `ivoc/projectors/library.mjs` | Fable section 14.4 | Original subject-scoped, list-first search/sort projection. |
 | `ivoc/projectors/projectors.test.mjs` | DR-288 Wave 1 acceptance | Proves measured-only Results, synchronized seek/gaps and subject isolation. |
 | `ivoc/ui/adapters/m1-view-model.mjs` | Fable D9 and sections 21.1-21.2 | Only presentation adapter importing Wave 1 capabilities; exposes plain view state and intents. |
-| `ivoc/ui/runtime.mjs` | Astra candidate.2 presentation separation; Fable section 21 | Thin component wiring through the view-model adapter only. |
-| `ivoc/ui/index.html` | Astra candidate.2 visual canon; Fable D11 | Original M1 Prompted Mock cockpit shell with explicit no-provider and truth-boundary copy. |
-| `ivoc/ui/runtime.css` | Astra candidate.2 visual canon | Original responsive, reduced-motion-aware presentation styling; no capability logic. |
+| `ivoc/ui/runtime.mjs` | Fable section 21 and the M1 view-model boundary | Thin component wiring for an internal Analytics diagnostic harness only; it is not a product-presentation donor. |
+| `ivoc/ui/index.html` | M1 Prompted Mock engineering harness | Internal device/Analytics diagnostic surface with explicit no-provider and truth-boundary copy. It is not Founder-facing IVOC product canon. |
+| `ivoc/ui/runtime.css` | M1 diagnostic presentation | Responsive, reduced-motion-aware harness styling only; it is not Astra candidate.2 styling and carries no product-presentation authority. |
+| `ivprep-v6/public/studio/{index.html,studio.css,studio.mjs}` | Astra candidate.2 fingerprint `dedb726bde521a135bec2286ad4cd5a877a68fc7ecd6144fde16b76bc9c09ac4`, advanced in-place by the authorized candidate.3 Founder amendments | Founder-facing product shell. Preserves the candidate.2 navy/orange, editorial typography, dimensional/photo-backed composition and navigation grammar; adds the six-step builder, independent Question Pool target, separate Interviewer and Program steps, RISE/StoryForge seams, Readiness/Calibration and Admin/Student presentation. Existing real media and Analytics hosts remain the capability engine beneath the shell. |
 | `ivoc/ui/ui.test.mjs` | F1 presentation-boundary contract | Proves the UI import boundary and required missing-signal/forbidden-inference copy. |
 
 Later lanes may adapt exact donor files only after updating this map with the
