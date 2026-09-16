@@ -152,25 +152,54 @@ function createRuntimeMetrics() {
 
 export function createMemoryStudentStore() {
   const recordsBySubject = new Map();
+  const identities = new Map();
   const recordsFor = (subject) => {
     if (!recordsBySubject.has(subject)) recordsBySubject.set(subject, new Map());
     return recordsBySubject.get(subject);
   };
   return {
     scope: "process_local_test_only",
+    async registerIdentity({ subject, displayName = "", email = "" }) {
+      const record = { studentKey: subject, displayName: displayName || null, email: email || null, lastSeenAt: new Date().toISOString() };
+      identities.set(subject, record);
+      return { ...record };
+    },
     async list({ subject }) {
       return [...recordsFor(subject).values()]
         .map((record) => ({ ...record }))
         .sort((left, right) => left.programSpecialtyId.localeCompare(right.programSpecialtyId));
     },
-    async put({ subject, programSpecialtyId, state, notes }) {
+    async put({ subject, programSpecialtyId, state, notes, goldStarred }) {
       const updatedAt = new Date().toISOString();
-      const record = { programSpecialtyId, state, notes, updatedAt };
+      const prior = recordsFor(subject).get(programSpecialtyId);
+      const record = { programSpecialtyId, state, notes, goldStarred: goldStarred === undefined ? prior?.goldStarred === true : goldStarred === true, createdAt: prior?.createdAt ?? updatedAt, updatedAt };
       recordsFor(subject).set(programSpecialtyId, record);
       return { ...record };
     },
     async delete({ subject, programSpecialtyId }) {
       return recordsFor(subject).delete(programSpecialtyId);
+    },
+    async adminList({ q = "", relationshipState = "", goldOnly = false, sort = "recent", page = 1, pageSize = 50 } = {}) {
+      const needle = String(q).trim().toLocaleLowerCase("en-US");
+      let records = [...recordsBySubject.entries()].filter(([, programs]) => programs.size).map(([studentKey, programs]) => {
+        const identity = identities.get(studentKey) ?? { studentKey, displayName: null, email: null };
+        const rows = [...programs.values()];
+        return { ...identity, programCount: rows.length, goldStarCount: rows.filter(row => row.goldStarred).length,
+          savedCount: rows.filter(row => row.state === "SAVED").length, appliedCount: rows.filter(row => row.state === "APPLIED").length,
+          interviewingCount: rows.filter(row => row.state === "INTERVIEWING").length, rankedCount: rows.filter(row => row.state === "RANKED").length,
+          lastActivityAt: rows.map(row => row.updatedAt).sort().at(-1) };
+      }).filter(row => !needle || [row.displayName, row.email, row.studentKey.slice(0, 12)].filter(Boolean).join(" ").toLocaleLowerCase("en-US").includes(needle))
+        .filter(row => !relationshipState || [...recordsFor(row.studentKey).values()].some(item => item.state === relationshipState))
+        .filter(row => !goldOnly || row.goldStarCount > 0);
+      records.sort((a, b) => sort === "name" ? String(a.displayName ?? "").localeCompare(String(b.displayName ?? ""))
+        : sort === "gold" ? b.goldStarCount - a.goldStarCount : sort === "programs" ? b.programCount - a.programCount
+        : String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)));
+      const safePage = Math.max(1, Number(page) || 1), safeSize = Math.min(100, Math.max(1, Number(pageSize) || 50));
+      return { page: safePage, pageSize: safeSize, total: records.length, records: records.slice((safePage - 1) * safeSize, safePage * safeSize) };
+    },
+    async adminRead({ studentKey }) {
+      const records = [...recordsFor(studentKey).values()].map(row => ({ ...row }));
+      return records.length ? { identity: identities.get(studentKey) ?? { studentKey, displayName: null, email: null, lastSeenAt: null }, records } : null;
     },
   };
 }
@@ -525,10 +554,7 @@ export function createMemoryResearchStore() {
 
 function resolveStudentStore(store, { production }) {
   const candidate = store ?? createMemoryStudentStore();
-  if (
-    typeof candidate.list !== "function" ||
-    typeof candidate.put !== "function" ||
-    typeof candidate.delete !== "function" ||
+  if (["registerIdentity", "list", "put", "delete", "adminList", "adminRead"].some((name) => typeof candidate[name] !== "function") ||
     (production && candidate.scope !== "durable_private")
   ) {
     throw new Error("RISE student store must provide list(), put(), and delete(); production scope must be durable_private");
@@ -608,7 +634,12 @@ function validateStudentProgramInput(body) {
     error.code = "INVALID_PROGRAM_NOTES";
     throw error;
   }
-  return { state, notes };
+  if (body?.goldStarred !== undefined && typeof body.goldStarred !== "boolean") {
+    const error = new Error("Gold-star priority must be true or false");
+    error.code = "INVALID_GOLD_STAR_STATE";
+    throw error;
+  }
+  return { state, notes, goldStarred: body?.goldStarred };
 }
 
 function validDateOnly(value) {
@@ -1502,6 +1533,7 @@ export function createRiseServer({
         const catalogRecords = searchReadModel.byName.map(listView);
         const deferProfile = url.searchParams.get("profile") === "deferred";
         const includeFilterIntelligence = url.searchParams.get("filterIntelligence") === "true";
+        await studentPrograms.registerIdentity({ subject: session.subject, displayName: session.displayName });
         const [savedResult, betaNotice, profileResult, researchResult, applicationPreferences, dynamicEvidence] = await Promise.all([
           studentPrograms.list({ subject: session.subject, releaseId: registryIndex.registryReleaseId }),
           studentIntel.betaNotice({ subject: session.subject }),
@@ -1629,6 +1661,7 @@ export function createRiseServer({
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/me/programs") {
+        await studentPrograms.registerIdentity({ subject: session.subject, displayName: session.displayName });
         const records = await studentPrograms.list({
           subject: session.subject,
           releaseId: registryIndex.registryReleaseId,
@@ -1979,6 +2012,49 @@ export function createRiseServer({
         const [records, analytics] = await Promise.all([studentIntel.adminList(), studentIntel.analytics()]);
         status = 200;
         sendJson(response, 200, { records, analytics }, { cache: "no-store", requestId });
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/operator/students") {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const result = await studentPrograms.adminList({
+          q: url.searchParams.get("q") ?? "",
+          relationshipState: String(url.searchParams.get("state") ?? "").toUpperCase(),
+          goldOnly: url.searchParams.get("goldOnly") === "true",
+          sort: url.searchParams.get("sort") ?? "recent",
+          page: url.searchParams.get("page") ?? "1",
+          pageSize: url.searchParams.get("pageSize") ?? "50",
+        });
+        status = 200;
+        sendJson(response, 200, result, { cache: "no-store", requestId });
+        return;
+      }
+      const operatorStudentMatch = url.pathname.match(/^\/api\/rise\/v1\/operator\/students\/([0-9a-f]{64})$/);
+      if (request.method === "GET" && operatorStudentMatch) {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        const result = await studentPrograms.adminRead({ studentKey: operatorStudentMatch[1] });
+        if (!result) {
+          status = 404;
+          apiError(response, 404, "STUDENT_PROGRAMS_NOT_FOUND", "No student program relationships were found", requestId);
+          return;
+        }
+        status = 200;
+        sendJson(response, 200, {
+          identity: result.identity,
+          records: result.records.map((record) => ({
+            ...record,
+            program: byProgramSpecialtyId.has(record.programSpecialtyId)
+              ? listView(byProgramSpecialtyId.get(record.programSpecialtyId))
+              : null,
+          })),
+        }, { cache: "no-store", requestId });
         return;
       }
       if (url.pathname === "/api/rise/v1/operator/research/router" && (request.method === "GET" || request.method === "PATCH")) {

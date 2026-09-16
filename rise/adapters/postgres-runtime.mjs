@@ -167,11 +167,33 @@ export async function createRiseStudentStore({
   // Server validates program existence via byProgramSpecialtyId before any write.
   return {
     scope: "durable_private",
+    async registerIdentity({ subject, displayName = "", email = "" }) {
+      const key = subjectKey(subject, hmacKey);
+      const safeName = String(displayName ?? "").trim().slice(0, 120) || null;
+      const safeEmail = String(email ?? "").trim().toLowerCase().slice(0, 320) || null;
+      return withSubject(pool, key, async (client) => {
+        const result = await client.query(`
+          INSERT INTO rise_runtime.student_program_subjects (
+            subject_key, subject_ref, display_name, email
+          ) VALUES ($1, $2, $3, $4)
+          ON CONFLICT (subject_key) DO UPDATE SET
+            subject_ref = EXCLUDED.subject_ref,
+            display_name = COALESCE(EXCLUDED.display_name, rise_runtime.student_program_subjects.display_name),
+            email = COALESCE(EXCLUDED.email, rise_runtime.student_program_subjects.email),
+            updated_at = now(),
+            last_seen_at = now()
+          RETURNING subject_key AS "studentKey", display_name AS "displayName",
+                    email, last_seen_at AS "lastSeenAt"
+        `, [key, String(subject), safeName, safeEmail]);
+        return result.rows[0];
+      });
+    },
     async list({ subject }) {
       const key = subjectKey(subject, hmacKey);
       return withSubject(pool, key, async (client) => {
         const result = await client.query(`
-          SELECT program_specialty_id AS "programSpecialtyId", state, notes, updated_at AS "updatedAt"
+          SELECT program_specialty_id AS "programSpecialtyId", state, notes,
+                 gold_starred AS "goldStarred", created_at AS "createdAt", updated_at AS "updatedAt"
           FROM rise_runtime.student_program_states
           WHERE subject_key = $1
           ORDER BY program_specialty_id
@@ -179,20 +201,22 @@ export async function createRiseStudentStore({
         return result.rows;
       });
     },
-    async put({ subject, releaseId, programSpecialtyId, state, notes }) {
+    async put({ subject, releaseId, programSpecialtyId, state, notes, goldStarred }) {
       const key = subjectKey(subject, hmacKey);
       return withSubject(pool, key, async (client) => {
         const result = await client.query(`
           INSERT INTO rise_runtime.student_program_states (
-            subject_key, release_id, program_specialty_id, state, notes
-          ) VALUES ($1, $2, $3, $4, $5)
+            subject_key, release_id, program_specialty_id, state, notes, gold_starred
+          ) VALUES ($1, $2, $3, $4, $5, COALESCE($6, false))
           ON CONFLICT (subject_key, program_specialty_id) DO UPDATE SET
             release_id = EXCLUDED.release_id,
             state = EXCLUDED.state,
             notes = EXCLUDED.notes,
+            gold_starred = COALESCE($6, rise_runtime.student_program_states.gold_starred),
             updated_at = now()
-          RETURNING program_specialty_id AS "programSpecialtyId", state, notes, updated_at AS "updatedAt"
-        `, [key, releaseId, programSpecialtyId, state, notes]);
+          RETURNING program_specialty_id AS "programSpecialtyId", state, notes,
+                    gold_starred AS "goldStarred", created_at AS "createdAt", updated_at AS "updatedAt"
+        `, [key, releaseId, programSpecialtyId, state, notes, goldStarred]);
         return result.rows[0];
       });
     },
@@ -205,6 +229,64 @@ export async function createRiseStudentStore({
         `, [key, programSpecialtyId]);
         return result.rowCount > 0;
       });
+    },
+    async adminList({ q = "", relationshipState = "", goldOnly = false, sort = "recent", page = 1, pageSize = 50 } = {}) {
+      const key = subjectKey("rise-admin-directory", hmacKey);
+      const safeQuery = String(q).trim().toLocaleLowerCase("en-US").slice(0, 120);
+      const safeState = new Set(["SAVED", "APPLIED", "INTERVIEWING", "RANKED"]).has(relationshipState) ? relationshipState : "";
+      const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
+      const safePageSize = Math.min(100, Math.max(1, Number.parseInt(pageSize, 10) || 50));
+      const order = {
+        recent: 'summary."lastActivityAt" DESC, summary."studentKey"',
+        name: 'lower(COALESCE(summary."displayName", \'\')) ASC, summary."studentKey"',
+        gold: 'summary."goldStarCount" DESC, summary."lastActivityAt" DESC',
+        programs: 'summary."programCount" DESC, summary."lastActivityAt" DESC',
+      }[sort] ?? 'summary."lastActivityAt" DESC, summary."studentKey"';
+      return withSubject(pool, key, async (client) => {
+        const result = await client.query(`
+          WITH summary AS (
+            SELECT trim(s.subject_key) AS "studentKey", i.display_name AS "displayName", i.email,
+                   max(s.updated_at) AS "lastActivityAt", count(*)::int AS "programCount",
+                   count(*) FILTER (WHERE s.gold_starred)::int AS "goldStarCount",
+                   count(*) FILTER (WHERE s.state='SAVED')::int AS "savedCount",
+                   count(*) FILTER (WHERE s.state='APPLIED')::int AS "appliedCount",
+                   count(*) FILTER (WHERE s.state='INTERVIEWING')::int AS "interviewingCount",
+                   count(*) FILTER (WHERE s.state='RANKED')::int AS "rankedCount",
+                   bool_or(s.state=$2) AS "hasRequestedState"
+            FROM rise_runtime.student_program_states s
+            LEFT JOIN rise_runtime.student_program_subjects i ON i.subject_key=s.subject_key
+            GROUP BY s.subject_key, i.display_name, i.email
+          )
+          SELECT summary.*, count(*) OVER()::int AS "total"
+          FROM summary
+          WHERE ($1='' OR lower(COALESCE(summary."displayName",'')) LIKE '%'||$1||'%'
+                     OR lower(COALESCE(summary.email,'')) LIKE '%'||$1||'%'
+                     OR lower(left(summary."studentKey",12)) LIKE $1||'%')
+            AND ($2='' OR summary."hasRequestedState")
+            AND (NOT $3::boolean OR summary."goldStarCount" > 0)
+          ORDER BY ${order}
+          LIMIT $4 OFFSET $5
+        `, [safeQuery, safeState, goldOnly === true, safePageSize, (safePage - 1) * safePageSize]);
+        return { page: safePage, pageSize: safePageSize, total: result.rows[0]?.total ?? 0, records: result.rows };
+      }, { isAdmin: true });
+    },
+    async adminRead({ studentKey }) {
+      const selectedKey = String(studentKey ?? "").trim();
+      if (!/^[0-9a-f]{64}$/.test(selectedKey)) return null;
+      const key = subjectKey("rise-admin-directory", hmacKey);
+      return withSubject(pool, key, async (client) => {
+        const [identity, records] = await Promise.all([
+          client.query(`SELECT trim(subject_key) AS "studentKey", display_name AS "displayName", email,
+                               last_seen_at AS "lastSeenAt"
+                        FROM rise_runtime.student_program_subjects WHERE subject_key=$1`, [selectedKey]),
+          client.query(`SELECT program_specialty_id AS "programSpecialtyId", state,
+                               gold_starred AS "goldStarred", created_at AS "createdAt", updated_at AS "updatedAt"
+                        FROM rise_runtime.student_program_states WHERE subject_key=$1
+                        ORDER BY gold_starred DESC, updated_at DESC, program_specialty_id`, [selectedKey]),
+        ]);
+        if (!records.rows.length) return null;
+        return { identity: identity.rows[0] ?? { studentKey: selectedKey, displayName: null, email: null, lastSeenAt: null }, records: records.rows };
+      }, { isAdmin: true });
     },
   };
 }

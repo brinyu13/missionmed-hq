@@ -175,6 +175,7 @@ async function loadRuntime() {
   const saved = new Map((savedResult.records || []).map(record => [record.programSpecialtyId, {
     state: record.state,
     notes: record.notes || '',
+    goldStarred: record.goldStarred === true,
   }]));
   return {
     session,
@@ -248,6 +249,7 @@ const state = {
   updating: new Set(),                // program ids currently updating from an authorized research job
   changed: [],                        // ingest log for "Updated this week"
   researchAdmin: { loading: false, error: null, control: null, revision: null, providers: [], jobs: [], benchmarks: [], frozenBenchmarkIds: [], reviewStats: null, reviewRecords: [] },
+  studentsAdmin: { loading: false, error: null, records: [], total: 0, q: '', relationshipState: '', goldOnly: false, sort: 'recent', detail: null, programState: '', programGoldOnly: false, programSort: 'gold' },
 };
 
 /* Campaign state is loaded only from an authorized research backend. */
@@ -432,14 +434,14 @@ async function persistProgramState(id) {
     return;
   }
   await riseFetch('/api/rise/v1/me/programs/' + encodeURIComponent(id), {
-    method: 'PUT', body: JSON.stringify({ state: record.state, notes: record.notes }),
+    method: 'PUT', body: JSON.stringify({ state: record.state, notes: record.notes, goldStarred: record.goldStarred === true }),
   });
 }
 async function toggleSave(id, ev) {
   if (ev) ev.stopPropagation();
   const previous = state.saved.has(id) ? { ...state.saved.get(id) } : null;
   if (previous) { state.saved.delete(id); toast('Removed from My Programs'); }
-  else { state.saved.set(id, { state: 'SAVED', notes: '' }); toast('Saved to My Programs'); }
+  else { state.saved.set(id, { state: 'SAVED', notes: '', goldStarred: false }); toast('Saved to My Programs'); }
   rerender();
   try { await persistProgramState(id); }
   catch (error) {
@@ -448,6 +450,23 @@ async function toggleSave(id, ev) {
   }
 }
 window.toggleSave = toggleSave;
+async function toggleGoldStar(id, ev) {
+  if (ev) ev.stopPropagation();
+  const record = state.saved.get(id);
+  if (!record) { toast('Save this program before adding a gold star.'); return; }
+  const previous = record.goldStarred === true;
+  record.goldStarred = !previous;
+  rerender();
+  try {
+    await persistProgramState(id);
+    toast(record.goldStarred ? 'Marked highest interest' : 'Gold star cleared');
+  } catch {
+    record.goldStarred = previous;
+    rerender();
+    toast('Could not sync the gold star — no change was saved.');
+  }
+}
+window.toggleGoldStar = toggleGoldStar;
 function toggleCompare(id, ev) {
   if (ev) ev.stopPropagation();
   const i = state.compare.indexOf(id);
@@ -503,13 +522,13 @@ function renderShell() {
     ['home', 'Home', ICONS.home], ['find', 'Find Programs', ICONS.find], ['soap', 'SOAP Explorer', ICONS.find], ['my', 'My Programs', ICONS.my],
     ['rank', 'Rank List', ICONS.rank], ['profile', 'My Profile', ICONS.prof],
   ];
-  const admin = [['admin/research', 'Research', ICONS.res], ['admin/benchmark', 'Benchmark', ICONS.res], ['admin/queue', 'Queue', ICONS.queue], ['admin/review', 'Review', ICONS.review], ['admin/coverage', 'Coverage', ICONS.cov]];
+  const admin = [['admin/students', 'Students', ICONS.prof], ['admin/research', 'Research', ICONS.res], ['admin/benchmark', 'Benchmark', ICONS.res], ['admin/queue', 'Queue', ICONS.queue], ['admin/review', 'Review', ICONS.review], ['admin/coverage', 'Coverage', ICONS.cov]];
   const savedN = state.saved.size;
   $('#rail').innerHTML = `
     <button class="railCta" onclick="focusLookup()">✦ <span>Tell me about…</span></button>
     ${student.map(([k, l, ic]) => `<button class="rtab ${activeBase === k ? 'on' : ''}" ${activeBase === k ? 'aria-current="page"' : ''} onclick="nav('${k}')">${ic}<span>${l}</span>${k === 'my' && savedN ? `<span class="badge">${savedN}</span>` : ''}</button>`).join('')}
     ${state.role === 'admin' ? `<div class="railSep"></div><div class="railGroupLbl">Research · Admin</div>` +
-      admin.map(([k, l, ic]) => `<button class="rtab adminTab ${r === k || (activeBase === 'admin' && k.endsWith(adminView) && r.startsWith('admin')) ? (r === k ? 'on' : '') : ''} ${r === k ? 'on' : ''}" onclick="nav('${k}')">${ic}<span>${l}</span>${k === 'admin/review' ? `<span class="badge">${state.researchAdmin.reviewRecords.length || ''}</span>` : ''}</button>`).join('') : ''}
+      admin.map(([k, l, ic]) => `<button class="rtab adminTab ${r === k || r.startsWith(k + '/') ? 'on' : ''}" onclick="nav('${k}')">${ic}<span>${l}</span>${k === 'admin/review' ? `<span class="badge">${state.researchAdmin.reviewRecords.length || ''}</span>` : ''}${k === 'admin/students' && state.studentsAdmin.total ? `<span class="badge">${state.studentsAdmin.total}</span>` : ''}</button>`).join('') : ''}
     <div class="railFoot">
       <button class="matrixBack" onclick="toast('Production wiring — Matrix link not wired.')">↩ <span>Back to Matrix</span></button>
       <div class="roleRow ${state.role}"><span class="roleDot"></span><span class="roleName">${state.role === 'admin' ? 'Admin' : 'Student'}</span></div>
@@ -521,7 +540,7 @@ function renderShell() {
 function switchRole() {
   if (!state.canAdmin) { toast('Admin access is not available for this account.'); return; }
   if (state.role === 'admin') { state.role = 'student'; nav('home'); }
-  else { state.role = 'admin'; nav('admin/research'); }
+  else { state.role = 'admin'; nav('admin/students'); }
 }
 window.switchRole = switchRole;
 function focusLookup() {
@@ -650,7 +669,7 @@ function renderMain(route) {
   else if (base === 'my') main.innerHTML = viewMy();
   else if (base === 'rank') main.innerHTML = viewRank();
   else if (base === 'profile') main.innerHTML = viewProfile();
-  else if (base === 'admin') main.innerHTML = viewAdmin(route.split('/')[1] || 'research');
+  else if (base === 'admin') main.innerHTML = viewAdmin(route.split('/').slice(1).join('/') || 'students');
   else main.innerHTML = viewHome();
   afterRender(base);
   const h = $('#main h1'); if (h) { h.setAttribute('tabindex', '-1'); }
@@ -1233,11 +1252,13 @@ window.updateProgramNotes = async (id, value) => {
   try { await persistProgramState(id); } catch { rec.notes = previous; toast('Could not sync these notes.'); }
 };
 function viewMy() {
-  const items = [...state.saved.entries()].map(([id, rec]) => ({ p: byId.get(id), rec })).filter(x => x.p);
+  const items = [...state.saved.entries()].map(([id, rec]) => ({ p: byId.get(id), rec })).filter(x => x.p)
+    .sort((a, b) => Number(b.rec.goldStarred) - Number(a.rec.goldStarred) || a.p.name.localeCompare(b.p.name));
+  const goldCount = items.filter(item => item.rec.goldStarred).length;
   return `<div class="view" data-view="my">
     <p class="eyebrow">My Programs</p>
     <h1 class="h1"><em>${items.length}</em> program${items.length === 1 ? '' : 's'} you’re tracking</h1>
-    <p class="sub" style="margin:6px 0 18px">Click the state chip to advance it: saved → applied → interviewing → ranked. Notes are stored by the configured RISE persistence adapter.</p>
+    <p class="sub" style="margin:6px 0 18px">${goldCount} highest-interest · click the state chip to advance saved → applied → interviewing → ranked. Gold stars, status and notes share the same canonical record.</p>
     ${state.compare.length >= 2 ? `<button class="rowBtn pri" style="margin-bottom:14px" onclick="openCompare()">Open Compare (${state.compare.length})</button>` : `<p class="sub" style="margin-bottom:14px">Add programs to Compare from any row — up to four.</p>`}
     ${items.length ? items.map(({ p, rec }) => {
       const f = computeFit(p);
@@ -1248,6 +1269,7 @@ function viewMy() {
           <span class="rSub">${esc(p.city)}, ${p.state} · ${hasUsableProfile() ? esc(f.line) : esc({deep:'Deep research complete',enriched:'Enriched research available',basic:'Basic program profile',pending:'More research needed'}[p.filterIntelligence.researchDepth] || 'More research needed')}</span></span>
         <span class="rMeta">
           ${tierChip(p, f)}
+          <button class="rowBtn goldPriority ${rec.goldStarred ? 'on' : ''}" aria-pressed="${rec.goldStarred ? 'true' : 'false'}" onclick="toggleGoldStar('${p.id}',event)">${rec.goldStarred ? '★ Highest interest' : '☆ Gold star'}</button>
           <button class="rowBtn" onclick="cycleMyState('${p.id}',event)" title="Click to advance">${rec.state.toLowerCase()}</button>
           <button class="rowBtn" onclick="event.stopPropagation();toggleCompare('${p.id}')">${state.compare.includes(p.id) ? '✓ Comparing' : '⊞ Compare'}</button>
           <button class="rowBtn pri" onclick="event.stopPropagation();openProgram('${p.id}','overview','my')">Open File</button>
@@ -2573,6 +2595,86 @@ async function loadAdminResearch(force = false) {
   if ((currentRoute() || '').startsWith('admin/')) renderMain(currentRoute());
 }
 
+async function loadAdminStudents(force = false) {
+  const admin = state.studentsAdmin;
+  if (admin.loading || (!force && admin.records.length)) return;
+  admin.loading = true; admin.error = null;
+  try {
+    const query = new URLSearchParams({ q: admin.q, state: admin.relationshipState, goldOnly: String(admin.goldOnly), sort: admin.sort, pageSize: '100' });
+    const payload = await riseFetch('/api/rise/v1/operator/students?' + query);
+    Object.assign(admin, { loading: false, records: payload.records || [], total: Number(payload.total || 0) });
+  } catch (error) { Object.assign(admin, { loading: false, error: error.message || 'Student list unavailable' }); }
+  if ((currentRoute() || '').startsWith('admin/students')) renderMain(currentRoute());
+}
+async function loadAdminStudentDetail(studentKey) {
+  const admin = state.studentsAdmin;
+  if (admin.loading || admin.detail?.identity?.studentKey === studentKey) return;
+  admin.loading = true; admin.error = null;
+  try {
+    admin.detail = await riseFetch('/api/rise/v1/operator/students/' + encodeURIComponent(studentKey));
+    admin.loading = false;
+  } catch (error) { admin.loading = false; admin.error = error.message || 'Student program list unavailable'; }
+  if ((currentRoute() || '').startsWith('admin/students/')) renderMain(currentRoute());
+}
+window.searchAdminStudents = event => {
+  event.preventDefault();
+  state.studentsAdmin.q = String(new FormData(event.currentTarget).get('q') || '').trim();
+  state.studentsAdmin.records = [];
+  void loadAdminStudents(true);
+};
+window.setAdminStudentFilter = (key, value) => {
+  state.studentsAdmin[key] = key === 'goldOnly' ? value === true : value;
+  state.studentsAdmin.records = [];
+  void loadAdminStudents(true);
+};
+window.openAdminStudent = studentKey => { state.studentsAdmin.detail = null; nav('admin/students/' + studentKey); };
+window.setAdminStudentProgramFilter = (key, value) => {
+  state.studentsAdmin[key] = key === 'programGoldOnly' ? value === true : value;
+  renderMain(currentRoute());
+};
+
+function adminStudentLabel(identity) {
+  return identity.displayName || identity.email || `RISE student · ${String(identity.studentKey || '').slice(0, 8)}`;
+}
+function viewAdminStudents(sub) {
+  const admin = state.studentsAdmin;
+  const studentKey = sub.split('/')[1] || '';
+  if (studentKey) {
+    const detail = admin.detail?.identity?.studentKey === studentKey ? admin.detail : null;
+    if (!detail) return `<div class="view"><button class="rowBtn" onclick="nav('admin/students')">← Students</button><div class="emptyLib"><div class="big">Loading student programs…</div>${esc(admin.error || 'Reading canonical My Programs state.')}</div></div>`;
+    const identity = detail.identity;
+    const allRecords = detail.records || [];
+    const gold = allRecords.filter(record => record.goldStarred).length;
+    const records = allRecords
+      .filter(record => !admin.programState || record.state === admin.programState)
+      .filter(record => !admin.programGoldOnly || record.goldStarred)
+      .sort((a, b) => admin.programSort === 'name'
+        ? String(byId.get(a.programSpecialtyId)?.name || '').localeCompare(String(byId.get(b.programSpecialtyId)?.name || ''))
+        : admin.programSort === 'status'
+          ? a.state.localeCompare(b.state) || String(byId.get(a.programSpecialtyId)?.name || '').localeCompare(String(byId.get(b.programSpecialtyId)?.name || ''))
+          : Number(b.goldStarred) - Number(a.goldStarred) || new Date(b.updatedAt) - new Date(a.updatedAt));
+    return `<div class="view adminStudentsView"><button class="rowBtn" onclick="nav('admin/students')">← Students</button>
+      <p class="eyebrow" style="color:var(--admin);margin-top:18px">Admin · Student application intelligence</p>
+      <h1 class="h1">${esc(adminStudentLabel(identity))}</h1>
+      <p class="sub">Read-only canonical My Programs view. Student choices can only be changed by the student.</p>
+      <div class="sumStrip"><div class="sumStat"><span class="n"><em>${allRecords.length}</em></span><span class="l">Programs</span></div><div class="sumStat"><span class="n">${gold}</span><span class="l">Gold stars</span></div><div class="sumStat"><span class="n">${allRecords.filter(r => r.state === 'APPLIED').length}</span><span class="l">Applied</span></div><div class="sumStat"><span class="n">${allRecords.filter(r => r.state === 'INTERVIEWING').length}</span><span class="l">Interviewing</span></div></div>
+      <div class="studentAdminControls"><select class="fSel" aria-label="Program status" onchange="setAdminStudentProgramFilter('programState',this.value)"><option value="">All statuses</option>${MY_STATES.map(value => `<option ${admin.programState === value ? 'selected' : ''}>${value}</option>`).join('')}</select><select class="fSel" aria-label="Sort programs" onchange="setAdminStudentProgramFilter('programSort',this.value)"><option value="gold" ${admin.programSort === 'gold' ? 'selected' : ''}>Gold and recent</option><option value="name" ${admin.programSort === 'name' ? 'selected' : ''}>Program name</option><option value="status" ${admin.programSort === 'status' ? 'selected' : ''}>Application status</option></select><button type="button" class="rowBtn ${admin.programGoldOnly ? 'pri' : ''}" aria-pressed="${admin.programGoldOnly}" onclick="setAdminStudentProgramFilter('programGoldOnly',${!admin.programGoldOnly})">★ Gold only</button></div>
+      <div class="studentProgramList">${records.length ? records.map(record => {
+        const p = byId.get(record.programSpecialtyId);
+        return `<article class="studentProgramRow ${record.goldStarred ? 'gold' : ''}"><span class="studentGold" aria-label="${record.goldStarred ? 'Highest interest' : 'Not gold starred'}">${record.goldStarred ? '★' : '☆'}</span><div><b>${esc(p?.name || 'Program unavailable in current registry')}</b><span>${esc(p ? `${p.specName} · ${p.city}, ${p.state}` : record.programSpecialtyId)}</span></div><span class="stateTag">${esc(record.state)}</span>${p ? `<button class="rowBtn pri" onclick="openProgram('${p.id}','overview','admin/students/${identity.studentKey}')">Open File</button>` : ''}</article>`;
+      }).join('') : '<div class="emptyLib"><div class="big">No programs match.</div>Adjust the status or gold-star filter.</div>'}</div></div>`;
+  }
+  const records = admin.records || [];
+  return `<div class="view adminStudentsView"><p class="eyebrow" style="color:var(--admin)">Admin · Students</p><h1 class="h1"><em>${admin.total}</em> student${admin.total === 1 ? '' : 's'} tracking programs</h1>
+    <p class="sub">Search and review canonical My Programs activity. This surface is read-only; students own every saved, application-status and gold-star decision.</p>
+    <form class="studentAdminControls" onsubmit="searchAdminStudents(event)" role="search"><input name="q" value="${esc(admin.q)}" placeholder="Search name, email, or student ID prefix"><button class="rowBtn pri" type="submit">Search</button>
+      <select class="fSel" aria-label="Relationship status" onchange="setAdminStudentFilter('relationshipState',this.value)"><option value="">All statuses</option>${MY_STATES.map(value => `<option ${admin.relationshipState === value ? 'selected' : ''}>${value}</option>`).join('')}</select>
+      <select class="fSel" aria-label="Sort students" onchange="setAdminStudentFilter('sort',this.value)"><option value="recent" ${admin.sort === 'recent' ? 'selected' : ''}>Recent activity</option><option value="name" ${admin.sort === 'name' ? 'selected' : ''}>Name</option><option value="gold" ${admin.sort === 'gold' ? 'selected' : ''}>Gold stars</option><option value="programs" ${admin.sort === 'programs' ? 'selected' : ''}>Program count</option></select>
+      <button type="button" class="rowBtn ${admin.goldOnly ? 'pri' : ''}" aria-pressed="${admin.goldOnly}" onclick="setAdminStudentFilter('goldOnly',${!admin.goldOnly})">★ Gold only</button></form>
+    ${admin.error ? `<div class="emptyLib"><div class="big">Student list unavailable.</div>${esc(admin.error)}</div>` : admin.loading && !records.length ? '<div class="emptyLib"><div class="big">Loading students…</div></div>' : records.length ? `<div class="studentRoster">${records.map(student => `<button class="studentRosterRow" onclick="openAdminStudent('${student.studentKey}')"><span><b>${esc(adminStudentLabel(student))}</b><small>${student.email ? esc(student.email) : 'Identity will resolve on the student’s next RISE session'}</small></span><span><b>${student.programCount}</b><small>programs</small></span><span><b>${student.goldStarCount}</b><small>gold</small></span><span><b>${student.appliedCount + student.interviewingCount + student.rankedCount}</b><small>active</small></span><span aria-hidden="true">›</span></button>`).join('')}</div>` : '<div class="emptyLib"><div class="big">No students match.</div>Adjust the search or filters.</div>'}
+  </div>`;
+}
+
 function viewAdmin(sub) {
   const research = state.researchAdmin;
   const live = research.control;
@@ -2580,6 +2682,7 @@ function viewAdmin(sub) {
     ? `Live production router · ${live.globalEnabled ? 'enabled' : 'paused'} · emergency kill ${live.emergencyKillSwitch ? 'active' : 'clear'} · unapproved spend $0.00`
     : 'Loading the live production research router…';
   const head = `<div class="adminBanner"><b>Admin command center</b><span>${summary}</span></div>`;
+  if (sub === 'students' || sub.startsWith('students/')) return viewAdminStudents(sub);
   if (sub === 'queue') return `<div class="view">${head}${viewQueue()}</div>`;
   if (sub === 'benchmark') return `<div class="view">${head}${viewBenchmarkLab()}</div>`;
   if (sub === 'review') return `<div class="view">${head}${viewReview()}</div>`;
@@ -2783,6 +2886,8 @@ function viewCoverage() {
 }
 function bindAdmin() {
   const route = currentRoute() || '';
+  if (route === 'admin/students') void loadAdminStudents();
+  if (route.startsWith('admin/students/')) void loadAdminStudentDetail(route.split('/')[2] || '');
   if (['admin/research', 'admin/benchmark', 'admin/queue', 'admin/review', 'admin/coverage'].includes(route)) {
     void loadAdminResearch();
   }
