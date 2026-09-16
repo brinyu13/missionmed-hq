@@ -111,6 +111,45 @@ export class SupabaseRestStore {
     });
   }
 
+  async legacyInvoicePreview({ studentId, cycleKey }) {
+    return this.rpc('legacy_invoice_preview_snapshot', {
+      p_student_id: studentId, p_cycle_key: cycleKey,
+    });
+  }
+
+  async recordLegacyManualItem({ studentId, cycleKey, kind, serviceKey, revision,
+    state, serviceOn, durationMinutes, rateCents, amountCents, treatment,
+    sourceRef, sourceSha256, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_record_legacy_manual_item', {
+      p_student_id: studentId, p_cycle_key: cycleKey, p_kind: kind,
+      p_service_key: serviceKey, p_revision: revision, p_state: state,
+      p_service_on: serviceOn, p_duration_minutes: durationMinutes,
+      p_rate_cents: rateCents, p_amount_cents: amountCents, p_treatment: treatment,
+      p_source_ref: sourceRef, p_source_sha256: sourceSha256, p_reason: reason,
+      p_actor_id: actorId, p_actor_role: actorRole, p_request_id: requestId,
+    });
+  }
+
+  async recordLegacyLiability({ studentId, cycleKey, revision, classification,
+    sourceRef, sourceSha256, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_record_legacy_liability', {
+      p_student_id: studentId, p_cycle_key: cycleKey, p_revision: revision,
+      p_classification: classification, p_source_ref: sourceRef,
+      p_source_sha256: sourceSha256, p_reason: reason, p_actor_id: actorId,
+      p_actor_role: actorRole, p_request_id: requestId,
+    });
+  }
+
+  async approveLegacyInvoicePreview({ studentId, cycleKey, lines, amountCents,
+    previewDigestSha256, sourceDigestSha256, actorId, actorRole, requestId }) {
+    return this.rpc('api_approve_legacy_invoice_preview', {
+      p_student_id: studentId, p_cycle_key: cycleKey, p_lines: lines,
+      p_amount_cents: amountCents, p_preview_digest_sha256: previewDigestSha256,
+      p_source_digest_sha256: sourceDigestSha256, p_actor_id: actorId,
+      p_actor_role: actorRole, p_request_id: requestId,
+    });
+  }
+
   async billingCycles() {
     return this.request('cycle?select=key,label,starts_on,ends_on,state&order=starts_on.asc');
   }
@@ -931,6 +970,10 @@ export class PreviewStore {
     this.deviceIdentityDecisions = new Map();
     this.deviceIdentityMutations = new Map();
     this.accountLinkMutations = new Map();
+    this.legacyManualItems = new Map();
+    this.legacyLiabilityReviews = new Map();
+    this.legacyInvoiceApprovals = new Map();
+    this.legacyInvoiceMutations = new Map();
     this.previewStudentRecord = {
       id: '00000000-0000-4000-8000-000000000001',
       matrix_user_ref: '00000000-0000-4000-8000-000000000001',
@@ -1077,6 +1120,102 @@ export class PreviewStore {
       last_seen_at: enrollment.source_observed_at || null,
       last_updated_at: state.last_updated_at,
     }];
+  }
+  legacyInvoiceKey(studentId, cycleKey) { return `${studentId}:${cycleKey}`; }
+  async legacyInvoicePreview({ studentId, cycleKey }) {
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    if (!['2026-cycle-1', '2026-cycle-2', '2026-cycle-3'].includes(cycleKey)) throw Object.assign(new Error('Legacy cycle is invalid'), { status: 400 });
+    const key = this.legacyInvoiceKey(studentId, cycleKey);
+    const group = { kind: 'frozen_group', student_id: studentId, cycle_key: cycleKey,
+      source_id: 'preview-frozen-group', artifact_sha256: '6a38967fcb369ba6b9bb71daee8f66697efee0042ab6ebd421a0edf1aaeba108',
+      source_state: 'READY', source_tier: '1-15 / $25 per attendance',
+      source_events: 2, attendance_days: ['2026-06-09', '2026-06-10'], amount_cents: 5000 };
+    const manual = (this.legacyManualItems.get(key) || []).filter(item => item.state === 'attested')
+      .map(item => ({ kind: 'manual_1on1', student_id: studentId, cycle_key: cycleKey,
+        service_key: item.serviceKey, revision: item.revision, service_on: item.serviceOn,
+        duration_minutes: item.durationMinutes, rate_cents: item.rateCents,
+        amount_cents: item.amountCents, source_ref: item.sourceRef,
+        source_sha256: item.sourceSha256, treatment: item.treatment, reason: item.reason }));
+    const lines = [group, ...manual];
+    const holds = [];
+    if (!this.stripeCustomers.has(studentId)) holds.push('hosted_invoice_customer_required');
+    if (this.legacyLiabilityReviews.get(key)?.classification !== 'direct_charge') holds.push('liability_review_required');
+    const approval = this.legacyInvoiceApprovals.get(key) || null;
+    const approvalMatches = holds.length === 0 && approval
+      && JSON.stringify(approval.lines) === JSON.stringify(lines)
+      && approval.amountCents === lines.reduce((sum, line) => sum + Number(line.amount_cents || 0), 0)
+      && approval.previewDigestSha256 === '2'.repeat(64)
+      && approval.sourceDigestSha256 === '1'.repeat(64);
+    return { student_id: studentId, cycle_key: cycleKey, lines,
+      total_cents: lines.reduce((sum, line) => sum + Number(line.amount_cents || 0), 0),
+      source_digest_sha256: '1'.repeat(64), recipient_email: this.previewStudentRecord.email,
+      frozen_sources: {
+        group_ledger_sha256: '6a38967fcb369ba6b9bb71daee8f66697efee0042ab6ebd421a0edf1aaeba108',
+        identity_graph_sha256: 'c8e89ab0217c5a6df21e4506f133f06d9470c8cd5b51c81eec356de251bce5ee',
+        raw_zoom_source_sha256: '5209775bceca32b4db848154d54b116a5ff9820d409cda648c9c9698ab6a1b60',
+        counts: { total: 498, ready: 320, identity_hold: 107, cap_hold: 69, source_link_hold: 2 },
+      },
+      payment_path: 'hosted_invoice', stripe_customer_ready: this.stripeCustomers.has(studentId),
+      payment_method_on_file: this.paymentMethods.get(studentId)?.status === 'on_file',
+      state: holds.length ? 'held' : approvalMatches ? 'approval-ready' : 'needs-drj-approval', holds,
+      approval: approvalMatches ? { approved_by: approval.actorId,
+        preview_digest_sha256: approval.previewDigestSha256 } : null,
+      preview_digest_sha256: '2'.repeat(64), provider_action_allowed: false };
+  }
+  legacyMutationReceipt(requestId, fingerprint, result) {
+    const prior = this.legacyInvoiceMutations.get(requestId);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...structuredClone(prior.result), duplicate: true };
+    }
+    this.legacyInvoiceMutations.set(requestId, { fingerprint, result: structuredClone(result) });
+    return result;
+  }
+  async recordLegacyManualItem(args) {
+    const { studentId, cycleKey, actorRole, requestId } = args;
+    if (actorRole !== 'missionaccounts_admin' || !args.actorId) throw Object.assign(new Error('Legacy administrator authority required'), { status: 403 });
+    const key = this.legacyInvoiceKey(studentId, cycleKey);
+    const fingerprint = JSON.stringify(args);
+    const prior = this.legacyInvoiceMutations.get(requestId);
+    if (prior) return this.legacyMutationReceipt(requestId, fingerprint, prior.result);
+    const rows = this.legacyManualItems.get(key) || [];
+    rows.push({ ...args }); this.legacyManualItems.set(key, rows);
+    return this.legacyMutationReceipt(requestId, fingerprint, { accepted: true, duplicate: false, revision: args.revision });
+  }
+  async recordLegacyLiability(args) {
+    if (args.actorRole !== 'missionaccounts_admin' || !args.actorId) throw Object.assign(new Error('Legacy administrator authority required'), { status: 403 });
+    const key = this.legacyInvoiceKey(args.studentId, args.cycleKey);
+    const fingerprint = JSON.stringify(args);
+    const prior = this.legacyInvoiceMutations.get(args.requestId);
+    if (prior) return this.legacyMutationReceipt(args.requestId, fingerprint, prior.result);
+    this.legacyLiabilityReviews.set(key, { ...args });
+    return this.legacyMutationReceipt(args.requestId, fingerprint, { accepted: true, duplicate: false, revision: args.revision });
+  }
+  async approveLegacyInvoicePreview(args) {
+    if (args.actorRole !== 'missionaccounts_admin' || !args.actorId) throw Object.assign(new Error('Dr J approval authority required'), { status: 403 });
+    const key = this.legacyInvoiceKey(args.studentId, args.cycleKey);
+    const preview = await this.legacyInvoicePreview(args);
+    const liability = this.legacyLiabilityReviews.get(key);
+    if (!this.stripeCustomers.has(args.studentId) || liability?.classification !== 'direct_charge'
+      || JSON.stringify(args.lines) !== JSON.stringify(preview.lines)
+      || args.amountCents !== preview.total_cents
+      || args.previewDigestSha256 !== preview.preview_digest_sha256
+      || args.sourceDigestSha256 !== preview.source_digest_sha256) {
+      throw Object.assign(new Error('Legacy approval snapshot is held or changed'), { status: 409 });
+    }
+    const existingApproval = this.legacyInvoiceApprovals.get(key);
+    if (existingApproval && JSON.stringify(existingApproval.lines) === JSON.stringify(args.lines)
+      && existingApproval.amountCents === args.amountCents
+      && existingApproval.previewDigestSha256 === args.previewDigestSha256
+      && existingApproval.sourceDigestSha256 === args.sourceDigestSha256) {
+      return { accepted: true, duplicate: true, preview_digest_sha256: args.previewDigestSha256 };
+    }
+    const fingerprint = JSON.stringify(args);
+    const prior = this.legacyInvoiceMutations.get(args.requestId);
+    if (prior) return this.legacyMutationReceipt(args.requestId, fingerprint, prior.result);
+    const result = { accepted: true, duplicate: false, preview_digest_sha256: args.previewDigestSha256 };
+    this.legacyInvoiceApprovals.set(key, { ...args });
+    return this.legacyMutationReceipt(args.requestId, fingerprint, result);
   }
   async billingCycles() {
     return [
