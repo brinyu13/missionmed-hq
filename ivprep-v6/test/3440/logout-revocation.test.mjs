@@ -139,7 +139,13 @@ test('actual HQ logout denies replay only after correct CSRF and preserves cooki
     error.message += `\nBounded HQ child output:\n${output.join('').slice(0, 4_000)}`;
     throw error;
   } finally {
-    child.kill('SIGTERM');
-    await new Promise((resolve) => child.once('exit', resolve));
+    // Attach before signalling. The HQ child can exit synchronously enough that the
+    // old kill-then-listen order missed `exit` and left the aggregate suite pending.
+    if (child.exitCode == null && child.signalCode == null) {
+      await new Promise((resolve) => {
+        child.once('exit', resolve);
+        if (!child.kill('SIGTERM')) resolve();
+      });
+    }
   }
 });

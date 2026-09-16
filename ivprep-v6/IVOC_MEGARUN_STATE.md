@@ -18,6 +18,10 @@ Branch: `codex/ivoc-converge-8001-production`
 - Candidate.2 durable authenticated recording, Analytics-result persistence,
   playback, owner library, and role-bounded views are committed at
   `9701bb0742e65fbf2cdb210265ae4fd0d575dcc4`.
+- Explicit Supabase project-authority binding is committed at
+  `655555a19e4e7f40a0ef5a5492b1f7b6079a24a3`.
+- Candidate.2 opt-in sealed-recording transcription and evidence-bound Context UI is
+  committed at `8e7a76341e6b9688db11a7d8d6185ce030291f36`.
 - LemonSlice remains deferred until realtime conversation and real Analytics have
   live canary evidence.
 
@@ -44,6 +48,9 @@ Branch: `codex/ivoc-converge-8001-production`
 - All required current IVOC database and private-R2 Railway bindings are present.
 - MissionMed HQ owns a server-side `MMHQ_OPENAI_API_KEY`; IVOC uses that existing
   namespaced binding without duplicating or exposing the secret.
+- Production `IVOC_CONTEXT_ENABLED` and `IVOC_TRANSCRIPT_ENABLED` remain absent/off;
+  no transcript, semantic-analysis, or GPT-Live provider call was created by this
+  megarun.
 - Production currently runs Railway deployment
   `fefc56c4-5c0e-41c5-96fc-6493a1d966af`, created 2026-09-08, not the active IVOC
   branch.
