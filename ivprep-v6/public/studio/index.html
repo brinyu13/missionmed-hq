@@ -1,18 +1,20 @@
 <!DOCTYPE html>
-<html lang="en" data-app="ivprep-performance-studio">
+<html lang="en" data-app="ivprep-astra-product">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IV Prep On-Call · MissionMed Performance Studio</title>
-<link rel="stylesheet" href="/iv-prep-on-call/assets/studio/studio.css">
+<meta name="ivoc-presentation-source" content="astra-candidate.2:dedb726bde521a135bec2286ad4cd5a877a68fc7ecd6144fde16b76bc9c09ac4">
+<title>IV Prep On-Call · MissionMed</title>
 <link rel="stylesheet" href="/iv-prep-on-call/assets/analytics/analytics.css">
+<link rel="stylesheet" href="/iv-prep-on-call/assets/studio/studio.css">
 </head>
 <body>
 <!--
-  Y1-Y2-CAM-V6-3506 — approved 3492 Performance Studio shell.
+  IVOC-CONVERGE-8001 — Astra candidate.2 presentation integration.
 
-  This shell REPLACES the pre-Fable 3440 AAA shell as the product surface, but it
-  deliberately reuses the proven runtime rather than reimplementing it. The surface ids
+  The Founder-facing presentation follows the sealed Astra candidate.2 lineage plus
+  its authorized candidate.3 amendments. The existing production runtime remains the
+  capability engine underneath it. The surface ids
   below (founder-student-video / -stage, founder-room-stage, founder-room-wrapper,
   playback, communication-analytics-test-root) are the exact ids
   public/analytics/ui.mjs binds to, so the working camera, face mesh, head, hand and
@@ -22,37 +24,41 @@
   from that attribute (see ownsActiveView in ui.mjs).
 -->
 <div class="studio">
-  <aside class="rail" id="rail" aria-label="Performance Studio navigation">
-    <div class="brand">MissionMed<br><span>IV Prep On-Call</span></div>
-    <div class="brand-sub microcap">Performance Studio</div>
+  <aside class="rail" id="rail" aria-label="IV Prep On-Call navigation">
+    <a class="matrix-brand" href="/member-dashboard/">MissionMed Matrix</a>
+    <div class="brand">IV Prep <span>On-Call</span></div>
+    <div class="brand-sub microcap">Your interview workspace</div>
 
     <button class="new-session btn-new-session" type="button" data-goto="newsession">
-      <span>+ New session</span>
+      <span>Build Interview</span>
     </button>
 
-    <nav class="nav-group" aria-label="Studio">
-      <span class="microcap">Studio</span>
+    <nav class="nav-group" aria-label="Interview workspace">
+      <span class="microcap">Your interview workspace</span>
       <button class="nav-item" type="button" data-nav="home"><i class="ico">⌂</i>Home</button>
-      <button class="nav-item" type="button" data-nav="newsession"><i class="ico">＋</i>New session</button>
-      <button class="nav-item" type="button" data-nav="devicecheck"><i class="ico">◉</i>Device check</button>
-      <button class="nav-item" type="button" data-nav="training"><i class="ico">⌁</i>Delivery training</button>
-      <button class="nav-item" type="button" data-nav="simulation"><i class="ico">▣</i>Simulation</button>
-      <button class="nav-item" type="button" data-nav="postanswer"><i class="ico">✓</i>Post-answer</button>
+      <button class="nav-item" type="button" data-nav="newsession"><i class="ico">＋</i>Build Interview</button>
+      <button class="nav-item" type="button" data-nav="newsession" data-open-mode="loadout"><i class="ico">▤</i>Questions</button>
+      <button class="nav-item" type="button" data-nav="newsession" data-builder-step="3"><i class="ico">◇</i>Program Prep</button>
+      <button class="nav-item" type="button" data-nav="filmroom"><i class="ico">▥</i>Performances</button>
+      <button class="nav-item" type="button" data-nav="progress"><i class="ico">▲</i>My Progress <b class="nav-count">3</b></button>
     </nav>
 
-    <nav class="nav-group" aria-label="Review">
-      <span class="microcap">Review</span>
-      <button class="nav-item" type="button" data-nav="filmroom"><i class="ico">▥</i>Film room</button>
-      <button class="nav-item" type="button" data-nav="compare"><i class="ico">⇄</i>Compare</button>
-      <button class="nav-item" type="button" data-nav="lab"><i class="ico">⌖</i>Analytics lab</button>
-      <button class="nav-item" type="button" data-nav="mentor"><i class="ico">◇</i>Mentor review</button>
+    <nav class="nav-group" aria-label="Intelligence">
+      <span class="microcap">Intelligence</span>
+      <button class="nav-item" type="button" data-nav="lab"><i class="ico">⌖</i>Performance Intelligence</button>
+      <button class="nav-item" type="button" data-nav="vault"><i class="ico">▤</i>Answer History &amp; Clips</button>
+      <button class="nav-item" type="button" data-nav="newsession" data-builder-step="4"><i class="ico">◎</i>My Interview Context</button>
+      <button class="nav-item" type="button" data-nav="postanswer"><i class="ico">✓</i>Real Interview Debrief</button>
     </nav>
 
-    <nav class="nav-group" aria-label="Progression">
-      <span class="microcap">Progression</span>
-      <button class="nav-item" type="button" data-nav="progress"><i class="ico">▲</i>Progress</button>
-      <button class="nav-item" type="button" data-nav="fingerprint"><i class="ico">◈</i>Fingerprint</button>
-      <button class="nav-item" type="button" data-nav="vault"><i class="ico">▤</i>Results / Vault</button>
+    <nav class="nav-group" aria-label="Practice and diagnostics">
+      <span class="microcap">Practice</span>
+      <button class="nav-item" type="button" data-nav="devicecheck"><i class="ico">◉</i>Readiness</button>
+      <button class="nav-item" type="button" data-nav="training"><i class="ico">⌁</i>Coached Practice</button>
+      <button class="nav-item" type="button" data-nav="simulation"><i class="ico">▣</i>Interview Room</button>
+      <button class="nav-item" type="button" data-nav="compare"><i class="ico">⇄</i>Compare Attempts</button>
+      <button class="nav-item" type="button" data-nav="fingerprint"><i class="ico">◈</i>Delivery Fingerprint</button>
+      <button class="nav-item" type="button" data-nav="mentor" data-founder-only><i class="ico">◇</i>Mentor &amp; Admin</button>
     </nav>
 
     <div class="rail-foot">
@@ -61,6 +67,7 @@
         <button type="button" data-role="mentor" aria-pressed="false">Mentor</button>
         <button type="button" data-role="admin" aria-pressed="false">Admin</button>
       </div>
+      <div class="founder-priority"><span>From Dr Brian</span><strong>One rep. One priority.</strong><small>Name your own contribution.</small></div>
       <a class="matrix-return" href="/member-dashboard/">← Back to Matrix</a>
       <div class="identity">
         <div class="identity-mark" id="identity-initials"><span>—</span></div>
@@ -76,11 +83,7 @@
     <header class="topbar">
       <button class="nav-toggle" type="button" id="nav-toggle" aria-label="Open navigation">☰</button>
       <span class="crumb" id="crumb">Home</span>
-      <div class="law-chips">
-        <span class="law-chip">Observable cues only</span>
-        <span class="law-chip">Semitones, never Hz targets</span>
-        <span class="law-chip">Fail closed</span>
-      </div>
+      <div class="topbar-brand">Dr Brian’s · Match Prep On-Call</div>
     </header>
 
     <main id="main-content" tabindex="-1">
@@ -88,49 +91,62 @@
 
       <!-- HOME -->
       <section class="screen" data-view-panel="home" data-active="true">
-        <div class="microcap hero-kick">Your next rep</div>
-        <h1 class="hero">Walk in <em>ready.</em></h1>
-        <p class="lede">Practice the pressure, timing and follow-ups of a real residency interview, with delivery evidence you can replay.</p>
-        <div class="btn-row">
-          <button class="btn btn-primary" type="button" data-goto="newsession"><span>Start a rep ▸</span></button>
-          <button class="btn btn-secondary" type="button" data-goto="devicecheck"><span>Device check</span></button>
-          <button class="btn btn-quiet" type="button" data-goto="filmroom"><span>Film room</span></button>
+        <div class="home-hero">
+          <div class="home-identity"><span class="identity-mark home-mark" aria-hidden="true"><span>AM</span></span><span class="microcap hero-kick">Your next interview starts here</span></div>
+          <h1 class="hero">Good evening, <em id="home-first-name">Doctor.</em></h1>
+          <p class="voice-line">Bring your story. Find your voice.</p>
+          <div class="hero-action">
+            <label for="home-practice">What do you want to practice?</label>
+            <input id="home-practice" type="text" placeholder="Tell me about yourself, behavioral questions, my next program…">
+            <button class="btn btn-primary" type="button" data-goto="newsession"><span>Start an interview ▸</span></button>
+          </div>
+          <div class="quick-prompts">
+            <button type="button" data-goto="newsession">Tell me about yourself</button>
+            <button type="button" data-goto="newsession" data-builder-step="1">Behavioral questions</button>
+            <button type="button" data-goto="newsession" data-builder-step="3">My next program</button>
+          </div>
         </div>
 
-        <div class="grid grid-3" style="margin-top:26px">
-          <div class="housing">
-            <div class="housing-title">Question library</div>
-            <div class="recess">
-              <div class="microcap">Canonical corpus</div>
-              <div style="font-family:var(--font-num);font-size:26px;font-weight:600" id="home-corpus-count">—</div>
-              <div class="microcap" id="home-corpus-breakdown">Loading…</div>
-            </div>
-          </div>
-          <div class="housing">
-            <div class="housing-title">Personal best</div>
-            <div class="recess"><div class="empty-state"><strong>No attempts yet</strong>Record an answer and your best rep per question appears here.</div></div>
-          </div>
-          <div class="housing">
-            <div class="housing-title">Progress</div>
-            <div class="recess"><div class="empty-state"><strong>No progression data</strong>XP, rank and mastery hydrate once the progression engine is connected.</div></div>
-          </div>
+        <div class="practice-cards">
+          <button class="practice-card instant" type="button" data-goto="devicecheck"><img src="/iv-prep-on-call/assets/studio/astra-assets/synthetic-candidate.png" alt=""><span class="card-copy"><span class="microcap">Instant Interview</span><strong>Step into the interview.</strong><small>A focused mock. An interviewer who knows your story.</small><b>Begin now →</b></span></button>
+          <button class="practice-card build" type="button" data-goto="newsession"><img src="/iv-prep-on-call/assets/studio/astra-assets/iv-prep-on-call.png" alt=""><span class="card-copy"><span class="microcap">Build Your Interview</span><strong>Make it your interview.</strong><small>Your questions. Your program. Your level of pressure.</small><b>Open the builder →</b></span></button>
+          <button class="practice-card program" type="button" data-goto="newsession" data-builder-step="3"><img src="/iv-prep-on-call/assets/studio/astra-assets/rise.png" alt=""><span class="card-copy"><span class="microcap">Program Prep · RISE seam</span><strong>Know the room.</strong><small>Practice with the program and role you’ll meet.</small><b>Prepare the room →</b></span></button>
         </div>
+
+        <div class="home-bottom">
+          <div class="housing continue-panel"><div><span class="microcap">Pick up where you left off</span><h2>Opening · Clinic story</h2><p>Saved attempts appear only when real session evidence exists.</p></div><button class="btn btn-secondary" type="button" data-goto="filmroom"><span>Open Film Room</span></button></div>
+          <div class="housing mentor-note"><span class="microcap">From Dr Brian</span><blockquote>“Make your own contribution unmistakable. That’s your next rep.”</blockquote><button class="btn btn-quiet" type="button" data-goto="progress"><span>Open focus areas</span></button></div>
+        </div>
+        <div class="corpus-foot"><strong id="home-corpus-count">—</strong> canonical questions <span id="home-corpus-breakdown">Loading…</span></div>
       </section>
 
       <!-- NEW SESSION -->
       <section class="screen" data-view-panel="newsession">
-        <div class="microcap hero-kick">New session</div>
-        <h1 class="hero">Build the <em>rep.</em></h1>
+        <div class="microcap hero-kick">Build your interview</div>
+        <h1 class="hero">Make it <em>your interview.</em></h1>
+        <p class="lede">Choose the purpose, question pool, interviewer, program, context, and readiness state. Pool size and session target remain separate.</p>
         <div class="btn-row" style="margin-top:10px">
-          <button class="btn btn-primary" type="button" id="mode-wizard" aria-pressed="true"><span>Quick wizard</span></button>
-          <button class="btn btn-quiet" type="button" id="mode-loadout" aria-pressed="false"><span>Pro loadout ↗</span></button>
+          <button class="btn btn-primary" type="button" id="mode-wizard" aria-pressed="true"><span>Six-step builder</span></button>
+          <button class="btn btn-quiet" type="button" id="mode-loadout" aria-pressed="false"><span>Full Question Pool ↗</span></button>
         </div>
 
         <!-- QUICK WIZARD -->
         <div id="wizard" style="margin-top:20px">
-          <div class="housing">
-            <div class="housing-title">Quick wizard</div>
-            <div class="recess" id="wizard-body"></div>
+          <nav class="wizard-progress" id="wizard-progress" aria-label="Interview builder steps"></nav>
+          <div class="builder-layout">
+            <div class="housing builder-stage">
+              <div class="housing-title">Interview builder</div>
+              <div class="recess" id="wizard-body"></div>
+            </div>
+            <aside class="pool-summary" aria-label="Your Question Pool">
+              <span class="microcap">Your Question Pool</span>
+              <div class="pool-total"><strong id="builder-pool-count">0</strong><span>questions in pool</span></div>
+              <label class="field-label" for="builder-target">Target questions this session</label>
+              <input class="q-search" id="builder-target" type="number" min="1" max="30" value="5">
+              <p id="builder-session-note">Target is approximate. Adaptive follow-ups may depart from the pool.</p>
+              <div class="pool-preview" id="builder-pool-preview"></div>
+              <button class="btn btn-quiet" type="button" id="builder-open-pool"><span>Open full Question Pool</span></button>
+            </aside>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-// IV Prep On-Call — Performance Studio shell runtime.
+// IV Prep On-Call — Astra presentation shell on the proven production runtime.
 //
 // Y1-Y2-CAM-V6-3506. This is the approved 3492 cockpit mounted on the EXISTING engine.
 // Nothing about the telemetry is reimplemented here: the media bridge and
@@ -21,10 +21,10 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const CRUMBS = Object.freeze({
-  home: 'Home', newsession: 'New session', devicecheck: 'Device check',
-  training: 'Delivery training', simulation: 'Simulation', postanswer: 'Post-answer',
-  filmroom: 'Film room', compare: 'Compare', lab: 'Analytics lab', mentor: 'Mentor review',
-  progress: 'Progress', fingerprint: 'Fingerprint', vault: 'Results / Vault',
+  home: 'Home', newsession: 'Build Interview', devicecheck: 'Readiness & Calibration',
+  training: 'Coached Practice', simulation: 'Interview Room', postanswer: 'Real Interview Debrief',
+  filmroom: 'Performances', compare: 'Compare Attempts', lab: 'Performance Intelligence', mentor: 'Mentor & Admin',
+  progress: 'My Progress', fingerprint: 'Delivery Fingerprint', vault: 'Answer History & Clips',
 });
 
 const store = createDefaultQuestionStore();
@@ -40,7 +40,8 @@ const state = {
   search: '',
   collection: null,
   wizardStep: 0,
-  wizard: { goal: null, focus: null, interviewer: null, coaching: null },
+  wizard: { goal: null, questions: null, interviewer: null, program: null, environment: null, readiness: null },
+  targetQuestions: 5,
   devices: { cameras: [], microphones: [] },
   selected: { camera: null, microphone: null },
   levelTimer: null,
@@ -224,7 +225,8 @@ function setView(view, { focus = false } = {}) {
     panel.dataset.active = String(panel.dataset.viewPanel === view);
   }
   for (const item of $$('[data-nav]')) {
-    const active = item.dataset.nav === view;
+    const active = item.dataset.nav === view
+      && (view !== 'newsession' || (!item.dataset.builderStep && !item.dataset.openMode));
     if (active) item.setAttribute('aria-current', 'page');
     else item.removeAttribute('aria-current');
   }
@@ -236,6 +238,7 @@ function setView(view, { focus = false } = {}) {
   // live media while its own screen is active.
   state.analytics?.onViewChange?.(view, state.role === 'student' ? 'student' : 'admin');
   if (view === 'devicecheck') renderDeviceCheck();
+  if (view === 'newsession') renderWizard();
   if (view === 'training') bindCockpitVideo();
   if (view === 'lab') mountLabInstruments();
   if (view === 'vault') void renderVault();
@@ -254,6 +257,8 @@ function applyIdentity() {
     name.textContent = 'Not signed in';
     sub.textContent = 'Authentication required';
     mark.innerHTML = '<span>—</span>';
+    const homeName = $('#home-first-name');
+    if (homeName) homeName.textContent = 'Doctor.';
     return;
   }
   const roles = Array.isArray(identity.roles) ? identity.roles : [];
@@ -261,6 +266,8 @@ function applyIdentity() {
   name.textContent = identity.subject || 'Signed in';
   sub.textContent = founder ? 'Founder / Admin' : (roles[0] || 'Student');
   mark.innerHTML = `<span>${founder ? 'DB' : String(identity.wpUserId ?? '?').slice(0, 2)}</span>`;
+  const homeName = $('#home-first-name');
+  if (homeName) homeName.textContent = founder ? 'Dr Brian.' : 'Doctor.';
 }
 
 /* ------------------------------------------------------------------ questions */
@@ -348,6 +355,7 @@ function renderSet() {
     empty.innerHTML = '<strong>Set is empty</strong>Add questions from the library, or use the Core 10 collection for a one-tap set.';
     host.append(empty);
     renderSimProgression();
+    renderPoolSummary();
     return;
   }
   state.interviewSet.forEach((q, index) => {
@@ -372,6 +380,7 @@ function renderSet() {
     host.append(row);
   });
   renderSimProgression();
+  renderPoolSummary();
 }
 
 function renderSimProgression() {
@@ -400,37 +409,92 @@ function renderSimProgression() {
   });
 }
 
-/* ------------------------------------------------------------------ quick wizard */
+/* ------------------------------------------------------------------ Astra six-step builder */
 
 const WIZARD_STEPS = Object.freeze([
-  { key: 'goal', title: 'What do you want to do?', options: ['Quick rep', 'Practice a question', 'Delivery training', 'Full interview'] },
-  { key: 'focus', title: 'What do you want to practise?', options: ['Core 10', 'Behavioural', 'Surprise me', 'Choose from library'] },
-  { key: 'interviewer', title: 'Who is interviewing?', options: ['Voice only', 'Text prompts', 'Dr Kelly (pack pending)', 'Dr Woods (pack pending)'] },
-  { key: 'coaching', title: 'How much coaching?', options: ['None', 'Minimal', 'Standard', 'Coach me'] },
+  { key: 'goal', label: 'Practice Goal', title: 'What kind of room are you preparing for?', options: ['Instant focused rep', 'Individual question', 'Coached practice', 'Full interview simulation'] },
+  { key: 'questions', label: 'Question Plan', title: 'Build your Question Pool.', options: ['Core 10', 'Behavioral questions', 'Balanced mix', 'Choose from full library'] },
+  { key: 'interviewer', label: 'Interviewer', title: 'Who is on the other side?', options: ['Program Director · balanced', 'Faculty · conversational', 'Chief Resident · warm', 'Pressure practice · direct'] },
+  { key: 'program', label: 'Program', title: 'Know the room.', options: ['General residency interview', 'Internal Medicine · RISE seam', 'Family Medicine · RISE seam', 'Program context not available'] },
+  { key: 'environment', label: 'Environment + Context', title: 'What should the interview know?', options: ['MissionMed · interview only', 'MissionMed · coached analytics', 'StoryForge context seam', 'RISE + StoryForge seams'] },
+  { key: 'readiness', label: 'Readiness + Calibration', title: 'Find your signal before you enter.', options: ['Run device calibration', 'Camera + microphone ready', 'Voice-only fallback', 'Review setup without devices'] },
 ]);
+
+function showBuilderMode(which) {
+  const wizard = $('#mode-wizard');
+  const loadout = $('#mode-loadout');
+  $('#wizard').hidden = which !== 'wizard';
+  $('#loadout').hidden = which !== 'loadout';
+  wizard?.setAttribute('aria-pressed', String(which === 'wizard'));
+  loadout?.setAttribute('aria-pressed', String(which === 'loadout'));
+  if (wizard) wizard.className = which === 'wizard' ? 'btn btn-primary' : 'btn btn-quiet';
+  if (loadout) loadout.className = which === 'loadout' ? 'btn btn-primary' : 'btn btn-quiet';
+}
+
+function renderWizardProgress() {
+  const progress = $('#wizard-progress');
+  if (!progress) return;
+  progress.replaceChildren();
+  WIZARD_STEPS.forEach((step, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = index === state.wizardStep ? 'current' : index < state.wizardStep ? 'complete' : '';
+    if (index === state.wizardStep) button.setAttribute('aria-current', 'step');
+    button.innerHTML = `<span>${index < state.wizardStep ? '✓' : index + 1}</span><b>${step.label}</b>`;
+    button.addEventListener('click', () => { state.wizardStep = index; renderWizard(); });
+    progress.append(button);
+  });
+}
+
+function renderPoolSummary() {
+  const count = $('#builder-pool-count');
+  const preview = $('#builder-pool-preview');
+  if (count) count.textContent = String(state.interviewSet.length);
+  if (!preview) return;
+  preview.replaceChildren();
+  if (!state.interviewSet.length) {
+    const empty = document.createElement('span');
+    empty.textContent = 'No questions selected yet. Question Plan can seed a pool, or open the full library.';
+    preview.append(empty);
+    return;
+  }
+  state.interviewSet.slice(0, 5).forEach((question) => {
+    const row = document.createElement('span');
+    row.textContent = `${question.question_id} · ${question.canonical_text}`;
+    preview.append(row);
+  });
+  if (state.interviewSet.length > 5) {
+    const more = document.createElement('span');
+    more.textContent = `+ ${state.interviewSet.length - 5} more in the pool`;
+    preview.append(more);
+  }
+}
 
 function renderWizard() {
   const body = $('#wizard-body');
   if (!body) return;
   body.replaceChildren();
+  renderWizardProgress();
+  renderPoolSummary();
 
   if (state.wizardStep >= WIZARD_STEPS.length) {
     const summary = document.createElement('div');
     summary.innerHTML = `
-      <div class="microcap">Ready</div>
-      <div class="check-row"><span class="check-name">Goal</span><span class="check-state" data-state="ready">${state.wizard.goal}</span></div>
-      <div class="check-row"><span class="check-name">Focus</span><span class="check-state" data-state="ready">${state.wizard.focus}</span></div>
+      <div class="microcap">Your next rep</div>
+      <div class="check-row"><span class="check-name">Practice</span><span class="check-state" data-state="ready">${state.wizard.goal}</span></div>
+      <div class="check-row"><span class="check-name">Question Pool</span><span class="check-state" data-state="${state.interviewSet.length ? 'ready' : 'pending'}">${state.interviewSet.length} in pool · target about ${state.targetQuestions}</span></div>
       <div class="check-row"><span class="check-name">Interviewer</span><span class="check-state" data-state="ready">${state.wizard.interviewer}</span></div>
-      <div class="check-row"><span class="check-name">Coaching</span><span class="check-state" data-state="ready">${state.wizard.coaching}</span></div>
-      <div class="check-row"><span class="check-name">Questions</span><span class="check-state" data-state="${state.interviewSet.length ? 'ready' : 'pending'}">${state.interviewSet.length || 'set on continue'}</span></div>`;
+      <div class="check-row"><span class="check-name">Program</span><span class="check-state" data-state="ready">${state.wizard.program}</span></div>
+      <div class="check-row"><span class="check-name">Environment + context</span><span class="check-state" data-state="ready">${state.wizard.environment}</span></div>
+      <div class="check-row"><span class="check-name">Readiness</span><span class="check-state" data-state="ready">${state.wizard.readiness}</span></div>`;
     const row = document.createElement('div');
     row.className = 'btn-row';
     const go = document.createElement('button');
     go.className = 'btn btn-primary';
     go.type = 'button';
-    go.innerHTML = '<span>Continue to device check ▸</span>';
+    go.innerHTML = '<span>Continue to Readiness ▸</span>';
     go.addEventListener('click', () => {
-      if (!state.interviewSet.length) applyWizardFocus();
+      if (!state.interviewSet.length) applyWizardQuestions('Core 10');
       setView('devicecheck');
     });
     const back = document.createElement('button');
@@ -446,34 +510,53 @@ function renderWizard() {
   const step = WIZARD_STEPS[state.wizardStep];
   const kick = document.createElement('div');
   kick.className = 'microcap';
-  kick.textContent = `Step ${state.wizardStep + 1} of ${WIZARD_STEPS.length}`;
+  kick.textContent = `Step ${state.wizardStep + 1} of ${WIZARD_STEPS.length} · ${step.label}`;
   const title = document.createElement('div');
-  title.className = 'housing-title';
-  title.style.fontSize = '18px';
-  title.style.margin = '6px 0 14px';
+  title.className = 'wizard-question-prompt';
   title.textContent = step.title;
   const row = document.createElement('div');
-  row.className = 'btn-row';
-  row.style.marginTop = '0';
+  row.className = 'wizard-options';
   for (const option of step.options) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'btn btn-secondary';
+    button.className = state.wizard[step.key] === option ? 'btn btn-primary' : 'btn btn-secondary';
     button.innerHTML = `<span>${option}</span>`;
     button.addEventListener('click', () => {
       state.wizard[step.key] = option;
+      if (step.key === 'questions') {
+        if (option === 'Choose from full library') {
+          showBuilderMode('loadout');
+          return;
+        }
+        applyWizardQuestions(option);
+      }
       state.wizardStep += 1;
       renderWizard();
     });
     row.append(button);
   }
-  body.append(kick, title, row);
+  const nav = document.createElement('div');
+  nav.className = 'wizard-nav';
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'btn btn-quiet';
+  back.disabled = state.wizardStep === 0;
+  back.innerHTML = '<span>← Back</span>';
+  back.addEventListener('click', () => { state.wizardStep = Math.max(0, state.wizardStep - 1); renderWizard(); });
+  const selected = state.wizard[step.key];
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'btn btn-quiet';
+  next.disabled = !selected;
+  next.innerHTML = '<span>Continue →</span>';
+  next.addEventListener('click', () => { state.wizardStep += 1; renderWizard(); });
+  nav.append(back, next);
+  body.append(kick, title, row, nav);
 }
 
-function applyWizardFocus() {
-  const focus = state.wizard.focus;
-  if (focus === 'Behavioural') state.interviewSet = store.query({ collection: COLLECTIONS.BEHAVIORAL }).slice(0, 5);
-  else if (focus === 'Surprise me') state.interviewSet = store.all().slice(0, 40).sort(() => 0.5 - Math.sin(state.interviewSet.length + 1)).slice(0, 5);
+function applyWizardQuestions(selection) {
+  if (selection === 'Behavioral questions') state.interviewSet = store.query({ collection: COLLECTIONS.BEHAVIORAL }).slice(0, 8);
+  else if (selection === 'Balanced mix') state.interviewSet = store.all().filter((_, index) => index % 17 === 0).slice(0, 10);
   else state.interviewSet = store.core();
   renderSet();
 }
@@ -1094,6 +1177,16 @@ async function mountAnalytics() {
 function wireChrome() {
   for (const item of $$('[data-nav]')) item.addEventListener('click', () => setView(item.dataset.nav, { focus: true }));
   for (const button of $$('[data-goto]')) button.addEventListener('click', () => setView(button.dataset.goto, { focus: true }));
+  for (const button of $$('[data-builder-step]')) {
+    button.addEventListener('click', () => {
+      state.wizardStep = Math.max(0, Math.min(WIZARD_STEPS.length - 1, Number(button.dataset.builderStep) || 0));
+      showBuilderMode('wizard');
+      renderWizard();
+    });
+  }
+  for (const button of $$('[data-open-mode]')) {
+    button.addEventListener('click', () => showBuilderMode(button.dataset.openMode));
+  }
   $('#nav-toggle')?.addEventListener('click', () => {
     const rail = $('#rail');
     rail.dataset.open = String(rail.dataset.open !== 'true');
@@ -1105,18 +1198,13 @@ function wireChrome() {
   $('#set-clear')?.addEventListener('click', () => { state.interviewSet = []; renderSet(); });
   $('#device-connect')?.addEventListener('click', () => void connectDevices());
 
-  const wizard = $('#mode-wizard');
-  const loadout = $('#mode-loadout');
-  const show = (which) => {
-    $('#wizard').hidden = which !== 'wizard';
-    $('#loadout').hidden = which !== 'loadout';
-    wizard?.setAttribute('aria-pressed', String(which === 'wizard'));
-    loadout?.setAttribute('aria-pressed', String(which === 'loadout'));
-    wizard.className = which === 'wizard' ? 'btn btn-primary' : 'btn btn-quiet';
-    loadout.className = which === 'loadout' ? 'btn btn-primary' : 'btn btn-quiet';
-  };
-  wizard?.addEventListener('click', () => show('wizard'));
-  loadout?.addEventListener('click', () => show('loadout'));
+  $('#mode-wizard')?.addEventListener('click', () => showBuilderMode('wizard'));
+  $('#mode-loadout')?.addEventListener('click', () => showBuilderMode('loadout'));
+  $('#builder-open-pool')?.addEventListener('click', () => showBuilderMode('loadout'));
+  $('#builder-target')?.addEventListener('input', (event) => {
+    state.targetQuestions = Math.max(1, Math.min(30, Number(event.target.value) || 1));
+    event.target.value = String(state.targetQuestions);
+  });
 }
 
 function renderLoadoutConfig() {
