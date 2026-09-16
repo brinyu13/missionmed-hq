@@ -21,7 +21,7 @@ test('smile-pattern event requires a personal baseline, hysteresis, duration, re
   assert.equal(ended.event.kind, 'mouth_corner_elevation_pattern');
   assert.equal(ended.event.state, 'ANSWERING');
   assert.equal(ended.event.durationMs, 400);
-  assert.equal(ended.event.provenance.method, 'PERSONAL_BASELINE_HYSTERESIS');
+  assert.equal(ended.event.provenance.method, 'MOUTH_CORNER_PERSONAL_BASELINE_HYSTERESIS');
   detector.ingest({ atMs: 1_100, bilateral: 0.4, state: 'ANSWERING', confidence: 0.9 });
   assert.equal(detector.summary().eventCount, 1, 'refractory prevents immediate event start');
 });

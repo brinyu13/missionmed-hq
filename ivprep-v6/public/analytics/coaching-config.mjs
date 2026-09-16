@@ -47,16 +47,16 @@ export const COACHING_CONFIG = deepFreeze({
     corridorAboveBaselineSemitones: 5,
   },
   face: {
-    // MediaPipe's physical-camera blendshape scores are materially quieter
-    // than the deterministic fixtures. These remain changes from the same
-    // speaker's neutral baseline; they are not universal anatomy thresholds.
+    // Physical-camera mouth-corner scores are quieter than the deterministic
+    // fixtures. The 3526 cheek and duration gates remain frozen. Every value is
+    // a change from the same speaker's neutral baseline, not an anatomy target.
     smileOnDelta: 0.18,
     smileOffDelta: 0.10,
-    smileCheekOnDelta: 0.06,
-    smileCheekOffDelta: 0.03,
+    smileCheekOnDelta: 0.12,
+    smileCheekOffDelta: 0.06,
     smileMinimumDurationMs: 450,
     smileRefractoryMs: 8_000,
-    smileAnsweringMinimumDurationMs: 600,
+    smileAnsweringMinimumDurationMs: 700,
     smileQualityMinimumConfidence: 0.50,
     smileQualityMaximumPoseDegrees: 30,
     smileQualityMinimumFaceFraction: 0.15,

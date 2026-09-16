@@ -1,6 +1,6 @@
 # IVOC end-to-end megarun state
 
-Updated: 2026-09-16 14:22 America/New_York  
+Updated: 2026-09-16 14:47 America/New_York
 Mission: `IVOC-CONVERGE-8001`  
 Authority: `DR-288`  
 Branch: `codex/ivoc-converge-8001-production`
@@ -22,6 +22,11 @@ Branch: `codex/ivoc-converge-8001-production`
   `655555a19e4e7f40a0ef5a5492b1f7b6079a24a3`.
 - Candidate.2 opt-in sealed-recording transcription and evidence-bound Context UI is
   committed at `8e7a76341e6b9688db11a7d8d6185ce030291f36`.
+- The frozen 3526 smile-event contract again requires simultaneous mouth-corner and
+  cheek/periocular evidence; absent cheek observations are no longer coerced to a
+  numeric sample. The aggregate run reached 613/614 before exposing one later stale
+  mouth-only test; that contradictory expectation was corrected and all affected
+  smile, FACE-family, and convergence tests then passed 32/32.
 - LemonSlice remains deferred until realtime conversation and real Analytics have
   live canary evidence.
 

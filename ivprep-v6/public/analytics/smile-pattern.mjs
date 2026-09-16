@@ -7,6 +7,12 @@ function median(values) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+function optionalFinite(value) {
+  if (value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 /** Claim-safe observable mouth-corner elevation events. No affect is inferred. */
 export class SmilePatternEventDetector {
   constructor({ config = COACHING_CONFIG.face, maximumEvents = 64 } = {}) {
@@ -32,7 +38,7 @@ export class SmilePatternEventDetector {
     const value = median(this.baselineSamples);
     const cheekValue = median(this.cheekBaselineSamples);
     if (Number.isFinite(value)) this.baseline = value;
-    if (Number.isFinite(cheekValue)) this.cheekBaseline = cheekValue;
+    this.cheekBaseline = Number.isFinite(cheekValue) ? cheekValue : null;
     return this.baseline;
   }
 
@@ -40,7 +46,7 @@ export class SmilePatternEventDetector {
     const next = Number(value);
     if (!Number.isFinite(next)) throw new TypeError('A finite personal smile baseline is required.');
     this.baseline = next;
-    if (Number.isFinite(Number(cheekValue))) this.cheekBaseline = Number(cheekValue);
+    this.cheekBaseline = optionalFinite(cheekValue);
     this.baselineCapturing = false;
     return this.baseline;
   }
@@ -67,11 +73,12 @@ export class SmilePatternEventDetector {
       return Object.freeze({ available: false, reason: 'SMILE_GEOMETRY_QUALITY_GATE', active: false, state });
     }
     this.observedFrames += 1;
+    const cheek = optionalFinite(cheekBilateral);
     if (this.baselineCapturing) {
       this.baselineSamples.push(value);
       if (this.baselineSamples.length > 240) this.baselineSamples.shift();
-      if (Number.isFinite(Number(cheekBilateral))) {
-        this.cheekBaselineSamples.push(Number(cheekBilateral));
+      if (Number.isFinite(cheek)) {
+        this.cheekBaselineSamples.push(cheek);
         if (this.cheekBaselineSamples.length > 240) this.cheekBaselineSamples.shift();
       }
     }
@@ -79,13 +86,12 @@ export class SmilePatternEventDetector {
       return Object.freeze({ available: false, reason: 'PERSONAL_BASELINE_REQUIRED', active: false, state });
     }
     const delta = value - this.baseline;
-    const cheek = Number(cheekBilateral);
     const cheekDelta = Number.isFinite(cheek) && Number.isFinite(this.cheekBaseline)
       ? cheek - this.cheekBaseline
       : null;
-    const cheekEvidenceAvailable = Number.isFinite(this.config.smileCheekOnDelta)
-      && Number.isFinite(this.config.smileCheekOffDelta)
-      && Number.isFinite(cheekDelta);
+    const cheekQualificationRequired = Number.isFinite(this.config.smileCheekOnDelta)
+      && Number.isFinite(this.config.smileCheekOffDelta);
+    const cheekEvidenceAvailable = cheekQualificationRequired && Number.isFinite(cheekDelta);
     const cheekActive = cheekEvidenceAvailable
       && cheekDelta >= (this.active ? this.config.smileCheekOffDelta : this.config.smileCheekOnDelta);
     const minimumDurationMs = (this.activeState || state) === 'ANSWERING'
@@ -94,6 +100,7 @@ export class SmilePatternEventDetector {
     let event = null;
     if (!this.active
       && delta >= this.config.smileOnDelta
+      && (!cheekQualificationRequired || cheekActive)
       && time - this.lastEventAtMs >= this.config.smileRefractoryMs) {
       this.active = true;
       this.activeSinceMs = time;
