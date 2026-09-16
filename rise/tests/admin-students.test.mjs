@@ -2,7 +2,27 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import test from "node:test";
 
-import { createMemoryStudentStore } from "../server.mjs";
+import { createMemoryStudentStore, createRiseServer } from "../server.mjs";
+
+const adminRegistryIndex = {
+  schemaVersion: 1,
+  registryReleaseId: "rise_registry_admin_students_test",
+  sourceSnapshotId: "rise_snapshot_admin_students_test",
+  activationStatus: "test_fixture",
+  dataClassification: "synthetic_test_fixture",
+  releaseGate: { sourceRightsApproved: false },
+  counts: { programSpecialties: 1 },
+  filters: { states: ["MN"], specialties: ["Internal Medicine"] },
+  programs: [{
+    id: "program-a", programSpecialtyId: "ps-a", designation: "Internal Medicine", kind: "single",
+    entryFormat: "categorical", components: ["Internal Medicine"],
+    display: { programName: "Fixture Program", institution: "Fixture Health", hospital: "Fixture Hospital", city: "Minneapolis", state: "MN", zip: "55401" },
+    identifiers: [{ namespace: "ACGME_PROGRAM", value: "1400000001" }],
+    browseMemberships: [{ browseSpecialty: "Internal Medicine", relationship: "EXACT_DESIGNATION" }],
+    fields: {}, evidence: { knownClaims: 0, evidenceLabeledClaims: 0, quarantinedClaims: 0, coveragePercent: 0, matchableClaims: 0 },
+    source: { authority: "TEST_FIXTURE", assertionClass: "synthetic", urls: [], retrievedAt: "2026-09-16", sourceUpdatedAt: "2026-09-16" },
+  }],
+};
 
 test("student and admin views share one canonical gold-star relationship", async () => {
   const store = createMemoryStudentStore();
@@ -36,4 +56,52 @@ test("5014 migration and routes are additive, RLS-bound, and admin read-only", a
   assert.doesNotMatch(server, /operator\/students[^\n]+(?:PATCH|PUT|DELETE)/);
   assert.match(app, /Student choices can only be changed by the student/);
   assert.match(app, /goldStarred: record\.goldStarred === true/);
+});
+
+test("admin student APIs enforce operator authorization and omit private notes", async () => {
+  const store = createMemoryStudentStore();
+  const studentKey = "a".repeat(64);
+  await store.registerIdentity({ subject: studentKey, displayName: "Fixture Student", email: "student@example.test" });
+  await store.put({ subject: studentKey, programSpecialtyId: "ps-a", state: "SAVED", notes: "private note", goldStarred: true });
+  const server = createRiseServer({
+    registryIndex: adminRegistryIndex,
+    authMode: "injected",
+    authIssuer: "https://auth.example.test",
+    studentStore: store,
+    authenticator: async (request) => {
+      const role = request.headers["x-test-role"];
+      if (!role) return null;
+      return {
+        subject: role === "admin" ? "fixture-admin" : "fixture-student",
+        role,
+        audience: "rise",
+        issuer: "https://auth.example.test",
+        capabilities: role === "admin" ? ["rise:read", "rise:operator"] : ["rise:read"],
+        sessionId: "1".repeat(64),
+        csrfToken: "csrfTokenForAdminStudentTest000000",
+        validatedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+    },
+    logger: { info() {}, error() {} },
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  try {
+    assert.equal((await fetch(`${baseUrl}/api/rise/v1/operator/students`)).status, 401);
+    assert.equal((await fetch(`${baseUrl}/api/rise/v1/operator/students`, { headers: { "X-Test-Role": "student" } })).status, 403);
+    const indexResponse = await fetch(`${baseUrl}/api/rise/v1/operator/students?goldOnly=true`, { headers: { "X-Test-Role": "admin" } });
+    assert.equal(indexResponse.status, 200);
+    const index = await indexResponse.json();
+    assert.equal(index.total, 1);
+    assert.equal(index.records[0].goldStarCount, 1);
+    const detailResponse = await fetch(`${baseUrl}/api/rise/v1/operator/students/${studentKey}`, { headers: { "X-Test-Role": "admin" } });
+    assert.equal(detailResponse.status, 200);
+    const detail = await detailResponse.json();
+    assert.equal(detail.records[0].programSpecialtyId, "ps-a");
+    assert.equal(detail.records[0].goldStarred, true);
+    assert.equal(Object.hasOwn(detail.records[0], "notes"), false);
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
 });

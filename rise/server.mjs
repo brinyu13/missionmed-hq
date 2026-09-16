@@ -198,7 +198,7 @@ export function createMemoryStudentStore() {
       return { page: safePage, pageSize: safeSize, total: records.length, records: records.slice((safePage - 1) * safeSize, safePage * safeSize) };
     },
     async adminRead({ studentKey }) {
-      const records = [...recordsFor(studentKey).values()].map(row => ({ ...row }));
+      const records = [...recordsFor(studentKey).values()].map(({ notes: _privateNotes, ...row }) => ({ ...row }));
       return records.length ? { identity: identities.get(studentKey) ?? { studentKey, displayName: null, email: null, lastSeenAt: null }, records } : null;
     },
   };
