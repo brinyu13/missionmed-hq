@@ -113,9 +113,8 @@ test('production opening is branded, animated, accessible, and bootstrap-bound',
 });
 
 test('stale credentials visibly disable every rendered mutation control and ready credentials restore them',()=>{
- const applyCapabilityState=vm.runInNewContext('('+fn('missionAccountsApplyCapabilityState')+')');
  const credentialReason='Connection is being restored. Editing will resume automatically when the secure session refreshes.';
- const makeControl=()=>({disabled:false,title:'',dataset:{},removeAttribute(name){if(name==='title')this.title='';},setAttribute(){}});
+ const makeControl=(disabled=false,dataset={})=>({disabled,title:'',dataset:{...dataset},removeAttribute(name){if(name==='title')this.title='';},setAttribute(){}});
  const records=[
   ['[data-onboarding-form] button[type="submit"]',makeControl()],
   ['[data-legacy-liability] button[type="submit"]',makeControl()],
@@ -123,7 +122,11 @@ test('stale credentials visibly disable every rendered mutation control and read
   ['[data-legacy-approve]',makeControl()],
   ['[data-ident]',makeControl()],
   ['#mcGo',makeControl()],
+  ['#mConfirm',makeControl(true)],
+  ['#exGo',makeControl(true)],
  ];
+ const capabilityDisabled=makeControl(true,{capabilityDisabled:'true'});
+ records.push(['[data-save-contact]',capabilityDisabled]);
  const controls=records.map(([,control])=>control);
  const root={querySelectorAll(selector){
   if(selector==='[data-credential-disabled="true"]') return controls.filter(control=>control.dataset.credentialDisabled==='true');
@@ -136,10 +139,15 @@ test('stale credentials visibly disable every rendered mutation control and read
   missionAccountsDisable(control,reason){control.disabled=true;control.title=reason;control.dataset.capabilityDisabled='true';},
  };
  vm.runInNewContext('('+fn('missionAccountsApplyCapabilityState')+')(root)',{...context,root});
- for(const control of controls){assert.equal(control.disabled,true);assert.equal(control.dataset.credentialDisabled,'true');assert.equal(control.title,credentialReason);}
+ for(const control of controls.filter(control=>control!==capabilityDisabled)){assert.equal(control.disabled,true);assert.equal(control.dataset.credentialDisabled,'true');assert.equal(control.title,credentialReason);}
+ assert.equal(capabilityDisabled.disabled,true);assert.equal(capabilityDisabled.dataset.credentialDisabled,undefined);
+ const initiallyDisabled=records.find(([token])=>token==='#mConfirm')[1];
+ vm.runInNewContext('('+fn('missionAccountsSetMutationControlEnabled')+')(control,true)',{...context,control:initiallyDisabled});
+ assert.equal(initiallyDisabled.disabled,true);assert.equal(initiallyDisabled.dataset.credentialDesiredDisabled,'false');
  state.mutationsAvailable=true;
  vm.runInNewContext('('+fn('missionAccountsApplyCapabilityState')+')(root)',{...context,root});
- for(const control of controls){assert.equal(control.disabled,false);assert.equal(control.dataset.credentialDisabled,undefined);assert.equal(control.title,'');}
+ for(const [token,control] of records.filter(([,control])=>control!==capabilityDisabled)){assert.equal(control.disabled,token==='#exGo');assert.equal(control.dataset.credentialDisabled,undefined);assert.equal(control.title,'');}
+ assert.equal(capabilityDisabled.disabled,true);assert.equal(capabilityDisabled.dataset.capabilityDisabled,'true');
 });
 
 test('onboarding UI recovers saves, keeps student role guards, and uses truthful copy',()=>{
@@ -150,7 +158,7 @@ test('onboarding UI recovers saves, keeps student role guards, and uses truthful
  const noChange=bind.indexOf("if(!Object.keys(profile).length)");
  const disable=bind.indexOf("button.disabled=true");
  assert.ok(noChange>0&&disable>noChange);
- assert.match(bind,/finally\{[\s\S]*button\.disabled=false; button\.textContent=prior/);
+ assert.match(bind,/finally\{[\s\S]*missionAccountsSetMutationControlEnabled\(button,true\); button\.textContent=prior/);
  assert.match(bind,/error\?\.status===400&&error\.field/);
  assert.match(bind,/setAttribute\('aria-invalid','true'\)/);
  assert.match(bind,/error\?\.status===409/);
@@ -234,6 +242,7 @@ function identityChoiceHarness(accepted){
  vm.runInNewContext(fn('identityCanonicalSheet')+';identityCanonicalSheet(cl)',{
   cl,...identityFixture(),esc:String,
   openSheet:(html,bind)=>{markup=html;bind(w);},
+  missionAccountsSetMutationControlEnabled:(control,enabled)=>{control.disabled=!enabled;},
   decideIdent:async(_cl,decision,si)=>{calls.push(['decision',decision,si]);return accepted;},
   closeSheet:()=>calls.push(['close']),render:()=>calls.push(['render']),
  });
@@ -283,6 +292,7 @@ test('unidentified attendee match stays on hold until a separate named confirmat
   dv,...identityFixture(),model:()=>({eff:[0,1].map(i=>({i,n:'Same Student',absorbed:false,notStudent:false,k:'student',c:{}}))}),
   CYK:[],cyc:()=>({label:'June Cycle'}),devicePreview:()=>[],money:value=>'$'+value,esc:String,
   openSheet:(html,bind)=>{markup=html;bind(w);},
+  missionAccountsSetMutationControlEnabled:(control,enabled)=>{control.disabled=!enabled;},
   decideDevice:async(_dv,decision,si)=>{calls.push(['decision',decision,si]);return accepted;},
   closeSheet:()=>calls.push(['close']),render:()=>calls.push(['render']),
  });

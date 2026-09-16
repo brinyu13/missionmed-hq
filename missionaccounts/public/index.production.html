@@ -1288,14 +1288,14 @@ function identityCanonicalSheet(cl){
       selected=Number(button.dataset.identityCanonical);
       if(!D.students[selected]?.id){ selected=null; return; }
       options.forEach(option=>option.setAttribute('aria-pressed',String(option===button)));
-      confirm.disabled=false;
+      missionAccountsSetMutationControlEnabled(confirm,true);
       confirm.textContent=`Confirm same student — keep ${D.students[selected]?.n||members.find(mm=>mm.si===selected)?.alias||'selected record'} · Record ${D.students[selected].id.slice(-8)}`;
     });
     confirm.onclick=async()=>{
       if(selected===null||saving)return;
       saving=true; confirm.disabled=true; cancel.disabled=true;
       try{ if(await decideIdent(cl,'same',selected)===false)return; closeSheet(); render(); }
-      finally{ saving=false; confirm.disabled=selected===null; cancel.disabled=false; }
+      finally{ saving=false; missionAccountsSetMutationControlEnabled(confirm,selected!==null); cancel.disabled=false; }
     };
     cancel.onclick=()=>{ if(!saving)closeSheet(); };
   });
@@ -1783,14 +1783,14 @@ function examSheet(si, by){ const m=model(); const e=m.eff[m.canonOf(si)]; const
   openSheet(`<div class="t">${student?'Set my exam date':'Exam plan · '+esc(e.n)}</div><div class="d">${student?'Tell Dr J which exam you are taking and the date you intend to sit it. She will review it and you will see her answer here. Once approved, classes after your exam date are free while you wait for your result.':'Enter the Step / Level and intended date on the student\'s behalf. It goes into your review queue like any submission.'}</div>
     <div class="stepPick" role="radiogroup" aria-label="Which exam">${['s1','s2','s3'].map(st=>`<button type="button" class="opt ${ex&&ex.step===st?'on':''}" data-step="${st}" role="radio" aria-checked="${ex&&ex.step===st?'true':'false'}"><b>${esc(STEP_NAMES[st])}</b><span>${st==='s1'?'Basic sciences':st==='s2'?'Clinical knowledge':'Patient management'}</span></button>`).join('')}</div>
     <div class="field" style="margin-top:14px"><label for="exDate">Intended exam date</label><input id="exDate" type="date" value="${esc(ex?ex.date:'')}" min="2026-06-01"></div>
-    <div class="acts"><button type="button" class="btn primary" id="exGo" disabled>${student?'Send to Dr J':'Save exam plan'}</button><button type="button" class="btn ghost" id="exNo">Cancel</button></div>`, w=>{ let step=ex?ex.step:null; const refresh=()=>{ $('#exGo').disabled=!(step && $('#exDate').value); };
+    <div class="acts"><button type="button" class="btn primary" id="exGo" disabled>${student?'Send to Dr J':'Save exam plan'}</button><button type="button" class="btn ghost" id="exNo">Cancel</button></div>`, w=>{ let step=ex?ex.step:null; const refresh=()=>{ missionAccountsSetMutationControlEnabled($('#exGo'),Boolean(step && $('#exDate').value)); };
       w.querySelectorAll('[data-step]').forEach(b=>b.onclick=async()=>{ step=b.dataset.step; w.querySelectorAll('[data-step]').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-checked',x===b?'true':'false'); }); refresh(); }); $('#exDate').oninput=refresh; refresh();
       $('#exGo').onclick=async()=>{ if(await submitExam(e.i, step, $('#exDate').value, student?'student':'admin')===false)return; closeSheet(); render(); toast(student?'Sent to Dr J. You will see her answer here.':'Exam plan saved to your review queue.'); }; $('#exNo').onclick=closeSheet; }); }
 function examDecideSheet(si, action){ const m=model(); const e=m.eff[m.canonOf(si)]; const ex=examOf(e.i); if(!ex) return;
   const first=e.n.split(' ')[0]; const wasApproved=['approved','completed'].includes(examView(e.i).state);
   if(action==='passed'){ openSheet(`<div class="t">Record ${esc(first)}'s result</div><div class="d">${esc(STEP_NAMES[ex.step])} on <b>${esc(fmtDate(ex.date))}</b>. Classes from ${esc(fmtDate(ex.date,{short:true}))} to today stay free whatever the result — grace is never billed backwards. Billing resumes from the next class.</div>
       <div class="optGrid" style="margin-top:12px"><button type="button" class="opt" data-res="passed"><b>Passed</b><span>${esc(first)} told you she passed</span></button><button type="button" class="opt" data-res="not_passed"><b>Did not pass</b><span>Grace ends today · plan a retake</span></button><button type="button" class="opt" data-res="no_result"><b>No result yet — end grace</b><span>Use when the wait has gone on too long</span></button></div>
-      <div class="field" style="margin-top:12px"><label for="exNote">Note (kept in history)</label><input id="exNote" type="text" placeholder="optional"></div><div class="acts"><button type="button" class="btn confirm" id="exdGo" disabled>Record</button><button type="button" class="btn ghost" id="exdNo">Cancel</button></div>`, w=>{ let res=null; w.querySelectorAll('[data-res]').forEach(b=>b.onclick=async()=>{ res=b.dataset.res; w.querySelectorAll('[data-res]').forEach(x=>x.classList.toggle('on',x===b)); $('#exdGo').disabled=false; }); $('#exdGo').onclick=async()=>{ if(!res) return; const note=$('#exNote').value.trim(); const saved=res==='passed'?await markPassed(e.i,'admin'):await decideExam(e.i,res,note); if(saved===false)return; closeSheet(); render(); toast(res==='passed'?'Passed recorded. Grace ended today.':res==='not_passed'?'Result recorded — did not pass. Grace ended today.':'Grace ended today. No result recorded.'); }; $('#exdNo').onclick=closeSheet; }); return; }
+      <div class="field" style="margin-top:12px"><label for="exNote">Note (kept in history)</label><input id="exNote" type="text" placeholder="optional"></div><div class="acts"><button type="button" class="btn confirm" id="exdGo" disabled>Record</button><button type="button" class="btn ghost" id="exdNo">Cancel</button></div>`, w=>{ let res=null; w.querySelectorAll('[data-res]').forEach(b=>b.onclick=async()=>{ res=b.dataset.res; w.querySelectorAll('[data-res]').forEach(x=>x.classList.toggle('on',x===b)); missionAccountsSetMutationControlEnabled($('#exdGo'),true); }); $('#exdGo').onclick=async()=>{ if(!res) return; const note=$('#exNote').value.trim(); const saved=res==='passed'?await markPassed(e.i,'admin'):await decideExam(e.i,res,note); if(saved===false)return; closeSheet(); render(); toast(res==='passed'?'Passed recorded. Grace ended today.':res==='not_passed'?'Result recorded — did not pass. Grace ended today.':'Grace ended today. No result recorded.'); }; $('#exdNo').onclick=closeSheet; }); return; }
   const titles={approve:'Approve this exam date?', deny:'Ask for another date', speak:'Speak with the student first', followup:'Mark as needs follow-up', reopen:'Reopen this exam plan'};
   const desc={approve:`${esc(STEP_NAMES[ex.step])} on <b>${esc(fmtDate(ex.date))}</b>. Once approved, attendance after that date is recorded but not billed while ${esc(first)} waits for the result. If we have not heard by ${esc(fmtDate(thirdWednesdayAfter(ex.date),{short:true}))} (the third Wednesday after the exam) a check-in reminder goes out.`, deny:`The student will be asked to choose another date. You can suggest one.${wasApproved?' Days already in grace stay free; grace ends today.':''}`, speak:'Puts the request on hold and tells the student you want to talk first. Nothing changes on billing until you decide.', followup:'Use this when the result is overdue or something needs checking. Grace stays on until you record a result.', reopen:`Puts the plan back in your review queue.${wasApproved||ex.state==='passed'?' Days already in grace stay free.':''}`}[action];
   openSheet(`<div class="t">${titles[action]}</div><div class="d">${desc}</div>${action==='deny'?`<div class="field" style="margin-top:12px"><label for="exNew">Suggested date (optional)</label><input id="exNew" type="date"></div>`:''}<div class="field" style="margin-top:12px"><label for="exNote">Note to the student (optional, kept in history)</label><input id="exNote" type="text" placeholder="${action==='speak'?'e.g. Let’s talk about Step 2 timing on Tuesday':'optional'}"></div>
@@ -2142,10 +2142,12 @@ function missionAccountsHydrateProviderInvoice(root){
   }
   controls.reverse().forEach(control=>row.prepend(control));
 }
+function missionAccountsMutationsAvailable(){ const state=window.MissionAccountsRuntime?.state; return !(state?.authenticated && state.mutationsAvailable===false); }
+function missionAccountsSetMutationControlEnabled(control,enabled){ if(!control)return; if(control.dataset.credentialDisabled==='true'){ control.dataset.credentialDesiredDisabled=String(!enabled); control.disabled=true; return; } control.disabled=!enabled; }
 function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRuntime?.state?.user?.role==='student') root.querySelectorAll('.demo,[data-lens]').forEach(node=>{ if(node!==document.body) node.hidden=true; });
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return;
   const credentialReason='Connection is being restored. Editing will resume automatically when the secure session refreshes.';
-  root.querySelectorAll('[data-credential-disabled="true"]').forEach(control=>{ control.disabled=false; control.removeAttribute('aria-disabled'); delete control.dataset.capabilityDisabled; delete control.dataset.credentialDisabled; if(control.title===credentialReason) control.removeAttribute('title'); });
+  root.querySelectorAll('[data-credential-disabled="true"]').forEach(control=>{ control.disabled=control.dataset.credentialDesiredDisabled==='true'; control.removeAttribute('aria-disabled'); delete control.dataset.credentialDesiredDisabled; delete control.dataset.credentialDisabled; if(control.title===credentialReason) control.removeAttribute('title'); });
   const rules=[
     ['student_contacts','[data-save-contact],#eSaveId,[data-etab="identity"]','Student contact editing is not enabled for this environment.'],
     ['billing_decisions','[data-decide],[data-decide-amt],[data-undecide],[data-other],[data-confirm-group],[data-confirm-all],[data-policy],[data-ready]','Billing approval and invoice readiness are not enabled for this environment.'],
@@ -2176,11 +2178,11 @@ function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRun
     '[data-ident]','[data-ident-undo]','[data-dev]','[data-dev-undo]','[data-identity-canonical]','#identityCanonicalConfirm',
     '[data-onboarding-form] button[type="submit"]',
     '[data-legacy-liability] button[type="submit"]','[data-legacy-manual] button[type="submit"]','[data-legacy-approve]','#legacyApproveYes',
-    '#exGo','#exdGo','#psYes','#cGo','#eSaveId','#airGo','#gGo','#batchUndo','#mcGo','#rGo'
+    '#exGo','#exdGo','#psYes','#cGo','#eSaveId','#airGo','#gGo','#batchUndo','#mcGo','#mConfirm','#rGo'
   ]).join(',');
   const runtimeState=window.MissionAccountsRuntime?.state;
   if(runtimeState?.authenticated && runtimeState.mutationsAvailable===false){
-    root.querySelectorAll(credentialMutationSelector).forEach(control=>{ if(control.disabled) return; missionAccountsDisable(control,credentialReason); control.dataset.credentialDisabled='true'; });
+    root.querySelectorAll(credentialMutationSelector).forEach(control=>{ if(control.dataset.capabilityDisabled==='true') return; if(control.dataset.credentialDisabled!=='true') control.dataset.credentialDesiredDisabled=String(Boolean(control.disabled)); control.disabled=true; control.setAttribute('aria-disabled','true'); control.title=credentialReason; control.dataset.credentialDisabled='true'; });
   }
   root.querySelectorAll('[role="tab"]').forEach(tab=>{ const selected=tab.classList.contains('on'); tab.setAttribute('aria-selected',String(selected)); tab.tabIndex=selected?0:-1; });
   root.querySelectorAll('[data-theme-set]').forEach(button=>button.setAttribute('aria-pressed',String(button.classList.contains('on'))));
@@ -2205,7 +2207,7 @@ function missionAccountsBatchOutcome(result,k){
   const rows=(result.results||[]).map(row=>{ const si=Object.entries(window.MissionAccountsRuntime.getCanonicalModel().ids.students).find(([,id])=>id===row.student_id)?.[0]; const student=D.students[Number(si)]; return '<div class="panel" style="padding:12px;margin-top:8px">'+(si==null?'Record unavailable':'<a href="#/student/'+Number(si)+'?cycle='+k+'">'+esc(student?.n||'Record')+'</a>')+' · '+(row.accepted?(reversing?'Reversed':'Confirmed'):('Needs review: '+esc(String(row.reason||'Record changed').replaceAll('_',' '))))+'</div>'; }).join('');
   openSheet('<div class="t">'+count+' '+(reversing?'reversed':'confirmed')+' · '+Number(result.rejected_count||0)+' need review</div><div class="d">Each result is recorded on the server. Held records keep their prior state. No payment was sent or collected.</div><div style="max-height:40vh;overflow:auto">'+rows+'</div><div class="acts">'+(!reversing&&count?'<button class="btn ghost" id="batchUndo">Undo confirmed records</button>':'')+'<button class="btn primary" id="batchDone">Done</button></div>',()=>{
     $('#batchDone').onclick=closeSheet;
-    const undo=$('#batchUndo'); if(undo){ const requestId='ui:'+crypto.randomUUID(); undo.onclick=async()=>{ undo.disabled=true; const receipt=await window.MissionAccountsRuntime.dispatch('billing-batch-reversal',{batchId:result.batch_id,requestId}); if(receipt===false){undo.disabled=false;return;} missionAccountsBatchOutcome(receipt,k); }; }
+    const undo=$('#batchUndo'); if(undo){ const requestId='ui:'+crypto.randomUUID(); undo.onclick=async()=>{ undo.disabled=true; const receipt=await window.MissionAccountsRuntime.dispatch('billing-batch-reversal',{batchId:result.batch_id,requestId}); if(receipt===false){missionAccountsSetMutationControlEnabled(undo,true);return;} missionAccountsBatchOutcome(receipt,k); }; }
   });
 }
 async function missionAccountsConfirmGroupSheet(k,which){
@@ -2223,7 +2225,7 @@ async function missionAccountsConfirmGroupSheet(k,which){
   const total=[...expectedAmounts.values()].reduce((a,b)=>a+b,0)/100;
   const requestId='ui:'+crypto.randomUUID();
   openSheet('<div class="t">Confirm '+items.length+' '+esc(cyc(k).label)+' records?</div><div class="d">Total <b class="money">'+money(total)+'</b>. The server will recheck each record. Changed or held records are reported separately. Nothing is charged.'+(all.length>100?' This batch contains the first 100 of '+all.length+' records; reopen the group for the remainder.':'')+'</div><div class="picker" style="max-height:34vh">'+items.map(x=>'<div style="padding:12px">'+esc(x.e.n)+' · '+money(suggestionFor(x.e,k).amount)+'</div>').join('')+'</div><div class="acts"><button class="btn confirm" id="gGo">Confirm '+items.length+' · '+money(total)+'</button><button class="btn ghost" id="gNo">Cancel</button></div>',()=>{
-    $('#gNo').onclick=closeSheet; $('#gGo').onclick=async()=>{ const button=$('#gGo');button.disabled=true;const result=await window.MissionAccountsRuntime.dispatch('billing-batch',{k,items:requestItems,requestId});if(result===false){button.disabled=false;return;} missionAccountsBatchOutcome(result,k); };
+    $('#gNo').onclick=closeSheet; $('#gGo').onclick=async()=>{ const button=$('#gGo');button.disabled=true;const result=await window.MissionAccountsRuntime.dispatch('billing-batch',{k,items:requestItems,requestId});if(result===false){missionAccountsSetMutationControlEnabled(button,true);return;} missionAccountsBatchOutcome(result,k); };
   });
 }
 function missionAccountsManualChargeHTML(e,k){
@@ -2242,7 +2244,7 @@ function missionAccountsManualChargeSheet(si,k){
   if(e&&(e.sponsor==='UCC'||e.sponsor==='MUL')){toast('Sponsored student direct liability is $0.');return;}
   if(!e||!decision||decision.state!=='approved'||Number(decision.amt)<=0||!method||method.state!=='on_file'){toast('The current approved balance and saved card are required.');return;}
   openSheet('<div class="t">Confirm real charge</div><div class="d">Review every item. This action creates a real LIVE Stripe charge and cannot be treated as a preview.</div><div class="kv" style="margin-top:16px"><span class="k">Student</span><span class="v">'+esc(e.n)+'</span><span class="k">Cycle</span><span class="v">'+esc(cyc(k).label)+'</span><span class="k">Amount</span><span class="v money">'+money(decision.amt)+'</span><span class="k">Payment method</span><span class="v">'+esc(method.brand||'card')+' •••• '+esc(method.last4)+'</span></div><p class="why" style="margin-top:14px"><b>Real charge:</b> MissionAccounts will ask the server to recheck this exact approved balance and saved payment method before contacting Stripe.</p><div class="acts"><button type="button" class="btn confirm" id="mcGo">Confirm charge</button><button type="button" class="btn ghost" id="mcNo">Cancel</button></div>',()=>{
-    $('#mcNo').onclick=closeSheet; $('#mcGo').onclick=async()=>{const button=$('#mcGo');button.disabled=true;const saved=await window.MissionAccountsRuntime.dispatch('manual-cycle-charge',{si,k,decisionId:decision.id,amountCents:Math.round(Number(decision.amt)*100),last4:String(method.last4)});if(saved===false){button.disabled=false;return;}closeSheet();render();toast('Charge submitted. Reloading will show Stripe-confirmed status.');};
+    $('#mcNo').onclick=closeSheet; $('#mcGo').onclick=async()=>{const button=$('#mcGo');button.disabled=true;const saved=await window.MissionAccountsRuntime.dispatch('manual-cycle-charge',{si,k,decisionId:decision.id,amountCents:Math.round(Number(decision.amt)*100),last4:String(method.last4)});if(saved===false){missionAccountsSetMutationControlEnabled(button,true);return;}closeSheet();render();toast('Charge submitted. Reloading will show Stripe-confirmed status.');};
   });
 }
 
@@ -2378,7 +2380,7 @@ function matchSheet(dv){
         selected=Number(button.dataset.pick);
         if(!D.students[selected]?.id){ selected=null; return; }
         buttons.forEach(option=>option.setAttribute('aria-pressed',String(option===button)));
-        confirm.disabled=false;
+        missionAccountsSetMutationControlEnabled(confirm,true);
         confirm.textContent=`Confirm match to ${people.find(p=>p.i===selected)?.n||'selected student'} · Record ${D.students[selected].id.slice(-8)}`;
       });
     };
@@ -2387,7 +2389,7 @@ function matchSheet(dv){
       if(selected===null||saving)return;
       saving=true; confirm.disabled=true; cancel.disabled=true;
       try{ if(await decideDevice(dv,'match',selected)===false)return; closeSheet(); render(); }
-      finally{ saving=false; confirm.disabled=selected===null; cancel.disabled=false; }
+      finally{ saving=false; missionAccountsSetMutationControlEnabled(confirm,selected!==null); cancel.disabled=false; }
     };
     cancel.onclick=()=>{ if(!saving)closeSheet(); };
   });
@@ -2448,7 +2450,7 @@ function bind(root){
       }
       if(error?.status===409) toast(message,{label:'Reload',action:()=>location.reload()}); else toast(message);
     }finally{
-      button.disabled=false; button.textContent=prior;
+      missionAccountsSetMutationControlEnabled(button,true); button.textContent=prior;
     }
   });
   root.querySelectorAll('[data-go]').forEach(el=>{ el.addEventListener('click',e=>{ if(el.tagName==='A') return; go(el.dataset.go); }); if(el.getAttribute('role')==='link') el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') go(el.dataset.go); }); });
@@ -2505,7 +2507,7 @@ function bind(root){
     const body={kind:'one_on_one',service_key:'one_on_one:'+data.service_on,revision:Number(data.revision),state:'attested',service_on:data.service_on,duration_minutes:duration,rate_cents:rateCents,amount_cents:Math.round(rateCents*duration/60),treatment:'none',source_ref:String(data.source_ref).trim(),source_sha256:String(data.source_sha256).trim(),reason:String(data.reason).trim()};
     button.disabled=true; const prior=button.textContent; button.textContent='Saving…';
     try{ await window.MissionAccountsRuntime.mutation('/admin/students/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.studentId)+'/legacy-invoices/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.cycleKey)+'/manual-items',{body}); await legacyInvoiceLoad(LEGACY_INVOICE_CONTEXT.studentId,LEGACY_INVOICE_CONTEXT.cycleKey); toast('Verified 1-on-1 recorded in the internal preview.'); }
-    catch(error){ button.disabled=false; button.textContent=prior; toast(error instanceof Error?error.message:'The 1-on-1 could not be recorded.'); }
+    catch(error){ missionAccountsSetMutationControlEnabled(button,true); button.textContent=prior; toast(error instanceof Error?error.message:'The 1-on-1 could not be recorded.'); }
   };
   const legacyLiability=root.querySelector('[data-legacy-liability]');
   if(legacyLiability) legacyLiability.onsubmit=async event=>{
@@ -2515,7 +2517,7 @@ function bind(root){
     const body={revision:Number(data.revision),classification:data.classification,source_ref:String(data.source_ref).trim(),source_sha256:String(data.source_sha256).trim(),reason:String(data.reason).trim()};
     button.disabled=true; const prior=button.textContent; button.textContent='Saving…';
     try{ await window.MissionAccountsRuntime.mutation('/admin/students/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.studentId)+'/legacy-invoices/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.cycleKey)+'/liability',{body}); await legacyInvoiceLoad(LEGACY_INVOICE_CONTEXT.studentId,LEGACY_INVOICE_CONTEXT.cycleKey); toast('Liability review recorded. No invoice was sent.'); }
-    catch(error){ button.disabled=false; button.textContent=prior; toast(error instanceof Error?error.message:'The liability review could not be recorded.'); }
+    catch(error){ missionAccountsSetMutationControlEnabled(button,true); button.textContent=prior; toast(error instanceof Error?error.message:'The liability review could not be recorded.'); }
   };
   const legacyApprove=root.querySelector('[data-legacy-approve]');
   if(legacyApprove) legacyApprove.onclick=()=>{
@@ -2525,7 +2527,7 @@ function bind(root){
       $('#legacyApproveYes').onclick=async()=>{
         const button=$('#legacyApproveYes'); button.disabled=true; button.textContent='Approving…';
         try{ await window.MissionAccountsRuntime.mutation('/admin/students/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.studentId)+'/legacy-invoices/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.cycleKey)+'/approve',{body:{lines:snapshot.lines,amount_cents:Number(snapshot.total_cents),preview_digest_sha256:snapshot.preview_digest_sha256,source_digest_sha256:snapshot.source_digest_sha256}}); closeSheet(); await legacyInvoiceLoad(LEGACY_INVOICE_CONTEXT.studentId,LEGACY_INVOICE_CONTEXT.cycleKey); toast('Exact legacy snapshot approved internally. No provider action occurred.'); }
-        catch(error){ button.disabled=false; button.textContent='Approve internal snapshot'; toast(error instanceof Error?error.message:'The snapshot was not approved.'); }
+        catch(error){ missionAccountsSetMutationControlEnabled(button,true); button.textContent='Approve internal snapshot'; toast(error instanceof Error?error.message:'The snapshot was not approved.'); }
       };
     });
   };
