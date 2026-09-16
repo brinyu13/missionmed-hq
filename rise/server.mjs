@@ -1493,12 +1493,12 @@ export function createRiseServer({
     return decision === true ? { current: true, decisionId: null } : decision;
   }
   const metrics = createRuntimeMetrics();
-  const signDelegatedContext = ({ actorAuditId, sessionId, studentKey }) => {
-    const encoded = Buffer.from(JSON.stringify({ v: 1, actorAuditId, sessionId, studentKey, expiresAt: Date.now() + DELEGATED_CONTEXT_LIFETIME_MS })).toString("base64url");
+  const signDelegatedContext = ({ actorAuditId, studentKey }) => {
+    const encoded = Buffer.from(JSON.stringify({ v: 1, actorAuditId, studentKey, expiresAt: Date.now() + DELEGATED_CONTEXT_LIFETIME_MS })).toString("base64url");
     const signature = createHmac("sha256", auditKey).update("rise-delegated-context-v1\0").update(encoded).digest("base64url");
     return `${encoded}.${signature}`;
   };
-  const verifyDelegatedContext = ({ request, actorAuditId, sessionId }) => {
+  const verifyDelegatedContext = ({ request, actorAuditId }) => {
     const token = String(request.headers["x-rise-delegated-context"] ?? "");
     const [encoded, signature, extra] = token.split(".");
     if (!encoded || !signature || extra || token.length > 2048) return null;
@@ -1506,7 +1506,7 @@ export function createRiseServer({
     if (!safeStringEqual(signature, expected)) return null;
     try {
       const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
-      if (payload.v !== 1 || payload.actorAuditId !== actorAuditId || payload.sessionId !== sessionId ||
+      if (payload.v !== 1 || payload.actorAuditId !== actorAuditId ||
           !/^[0-9a-f]{64}$/.test(payload.studentKey) || !Number.isFinite(payload.expiresAt) || payload.expiresAt <= Date.now()) return null;
       return payload;
     } catch { return null; }
@@ -2176,7 +2176,7 @@ export function createRiseServer({
         const { subjectRef: _subjectRef, ...identity } = resolved.get(result.identity.studentKey) ?? result.identity;
         status = 200;
         sendJson(response, 200, {
-          delegatedContextToken: signDelegatedContext({ actorAuditId: subjectAuditId, sessionId: session.sessionId, studentKey: result.identity.studentKey }),
+          delegatedContextToken: signDelegatedContext({ actorAuditId: subjectAuditId, studentKey: result.identity.studentKey }),
           identity,
           records: result.records,
         }, { cache: "no-store", requestId });
@@ -2188,7 +2188,7 @@ export function createRiseServer({
           apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
           return;
         }
-        const context = verifyDelegatedContext({ request, actorAuditId: subjectAuditId, sessionId: session.sessionId });
+        const context = verifyDelegatedContext({ request, actorAuditId: subjectAuditId });
         if (!context) {
           status = 403;
           apiError(response, 403, "DELEGATED_CONTEXT_INVALID", "A current server-authorized student context is required", requestId);

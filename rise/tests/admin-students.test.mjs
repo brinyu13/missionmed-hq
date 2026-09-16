@@ -85,12 +85,12 @@ test("admin student APIs enforce operator authorization and omit private notes",
       const role = request.headers["x-test-role"];
       if (!role) return null;
       return {
-        subject: role === "admin" ? "fixture-admin" : "fixture-student",
+        subject: String(request.headers["x-test-actor"] ?? (role === "admin" ? "fixture-admin" : "fixture-student")),
         role,
         audience: "rise",
         issuer: "https://auth.example.test",
         capabilities: role === "admin" ? ["rise:read", "rise:operator"] : ["rise:read"],
-        sessionId: "1".repeat(64),
+        sessionId: String(request.headers["x-test-session-id"] ?? "1").repeat(64),
         csrfToken: "csrfTokenForAdminStudentTest000000",
         validatedAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
@@ -126,7 +126,7 @@ test("admin student APIs enforce operator authorization and omit private notes",
     assert.equal(context.identity.displayName, "Canonical Student");
     assert.match(context.delegatedContextToken, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
 
-    const delegatedHeaders = { ...csrfHeaders, "Content-Type": "application/json", "X-RISE-Delegated-Context": context.delegatedContextToken };
+    const delegatedHeaders = { ...csrfHeaders, "Content-Type": "application/json", "X-RISE-Delegated-Context": context.delegatedContextToken, "X-Test-Session-Id": "2" };
     const delegatedRead = await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, { headers: delegatedHeaders });
     assert.equal(delegatedRead.status, 200);
     const reorderResponse = await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
@@ -136,6 +136,9 @@ test("admin student APIs enforce operator authorization and omit private notes",
     assert.equal((await reorderResponse.json()).records[0].priorityPosition, 1);
     assert.equal((await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
       headers: { ...delegatedHeaders, "X-RISE-Delegated-Context": `${context.delegatedContextToken}x` },
+    })).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
+      headers: { ...delegatedHeaders, "X-Test-Actor": "different-admin" },
     })).status, 403);
     assert.equal((await fetch(`${baseUrl}/api/rise/v1/operator/delegated/programs`, {
       headers: { "X-Test-Role": "student", "X-RISE-Delegated-Context": context.delegatedContextToken },
