@@ -611,28 +611,52 @@ export async function createRiseFilterIntelligenceStore({
       try {
         const result = await withSubject(pool, systemKey, async (client) => {
           const coverage = await client.query(`
-              SELECT
-                s.metadata->>'acgmeId' AS "acgmeId",
-                array_agg(DISTINCT c.field ORDER BY c.field)
-                  FILTER (WHERE r.disposition = 'APPROVED_CURRENT') AS fields,
-                array_agg(DISTINCT c.field ORDER BY c.field)
-                  FILTER (WHERE r.disposition IS NULL OR r.disposition IN (
+              WITH approved AS (
+                SELECT DISTINCT
+                  coalesce(s.metadata->>'acgmeId', i.acgme_id::text) AS acgme_id,
+                  f.field,
+                  'APPROVED'::text AS evidence_state
+                FROM rise_runtime.canonical_current_facts f
+                JOIN rise_runtime.canonical_evidence_sources s USING (source_id)
+                LEFT JOIN rise_runtime.canonical_program_identities i
+                  ON i.program_identity_id = f.subject_id
+                WHERE f.field LIKE 'research.%'
+                  AND f.publication_state IN ('STUDENT_VISIBLE', 'PRIVATE_BETA')
+              ), pending AS (
+                SELECT DISTINCT
+                  coalesce(s.metadata->>'acgmeId', i.acgme_id::text) AS acgme_id,
+                  c.field,
+                  'PENDING'::text AS evidence_state
+                FROM rise_runtime.canonical_evidence_claims c
+                JOIN rise_runtime.canonical_evidence_sources s USING (source_id)
+                LEFT JOIN rise_runtime.canonical_program_identities i
+                  ON i.program_identity_id = c.subject_id
+                LEFT JOIN rise_runtime.evidence_claim_review_current r
+                  ON r.source_claim_id = c.claim_id
+                WHERE c.field LIKE 'research.%'
+                  AND (r.disposition IS NULL OR r.disposition IN (
                     'CONFLICT_REQUIRES_REVIEW', 'IDENTITY_AMBIGUITY'
-                  )) AS "pendingFields",
+                  ))
+                  AND NOT EXISTS (
+                    SELECT 1 FROM rise_runtime.canonical_current_facts f
+                    WHERE f.claim_id = c.claim_id
+                  )
+              ), coverage_signals AS (
+                SELECT * FROM approved
+                UNION ALL
+                SELECT * FROM pending
+              )
+              SELECT
+                acgme_id AS "acgmeId",
+                array_agg(DISTINCT field ORDER BY field)
+                  FILTER (WHERE evidence_state = 'APPROVED') AS fields,
+                array_agg(DISTINCT field ORDER BY field)
+                  FILTER (WHERE evidence_state = 'PENDING') AS "pendingFields",
                 count(*)::integer AS "claimCount"
-              FROM rise_runtime.canonical_evidence_sources s
-              JOIN rise_runtime.canonical_evidence_claims c USING (source_id)
-              LEFT JOIN LATERAL (
-                SELECT e.disposition
-                FROM rise_runtime.evidence_claim_review_events e
-                WHERE e.source_claim_id = c.claim_id
-                ORDER BY e.created_at DESC, e.review_id DESC
-                LIMIT 1
-              ) r ON true
-              WHERE s.source_type = 'completed_research_factory'
-                AND s.metadata->>'acgmeId' ~ '^[0-9]{10}$'
-              GROUP BY s.metadata->>'acgmeId'
-              ORDER BY s.metadata->>'acgmeId'
+              FROM coverage_signals
+              WHERE acgme_id ~ '^[0-9]{10}$'
+              GROUP BY acgme_id
+              ORDER BY acgme_id
             `);
           const facts = await client.query(`
               WITH promoted_source_urls AS MATERIALIZED (
@@ -743,10 +767,15 @@ export async function createRiseFilterIntelligenceStore({
               max(c.retrieved_at) AS "latestRetrievedAt"
             FROM rise_runtime.canonical_evidence_sources s
             JOIN rise_runtime.canonical_evidence_claims c USING (source_id)
+            LEFT JOIN rise_runtime.canonical_program_identities i
+              ON i.program_identity_id = c.subject_id
             LEFT JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id = c.claim_id
-            WHERE s.source_type = 'completed_research_factory'
-              AND s.metadata->>'acgmeId' = $1
+            WHERE coalesce(s.metadata->>'acgmeId', i.acgme_id::text) = $1
               AND (r.disposition IS NULL OR r.disposition <> 'APPROVED_CURRENT')
+              AND NOT EXISTS (
+                SELECT 1 FROM rise_runtime.canonical_current_facts f
+                WHERE f.claim_id = c.claim_id
+              )
             GROUP BY c.field
             ORDER BY c.field
           `, [acgmeId]),
@@ -777,9 +806,10 @@ export async function createRiseFilterIntelligenceStore({
               c.retrieved_at AS "retrievedAt"
             FROM rise_runtime.canonical_evidence_sources s
             JOIN rise_runtime.canonical_evidence_claims c USING (source_id)
+            LEFT JOIN rise_runtime.canonical_program_identities i
+              ON i.program_identity_id = c.subject_id
             LEFT JOIN rise_runtime.evidence_claim_review_current r ON r.source_claim_id = c.claim_id
-            WHERE s.source_type = 'completed_research_factory'
-              AND s.metadata->>'acgmeId' = $1
+            WHERE coalesce(s.metadata->>'acgmeId', i.acgme_id::text) = $1
               AND c.field LIKE 'research.domain.%'
             ORDER BY c.field, c.retrieved_at DESC, c.claim_id DESC
           `, [acgmeId]),

@@ -176,13 +176,13 @@ test("approved structured current facts become filterable without frontend progr
   });
 });
 
-test("Postgres projection reads only domain coverage and approved current facts, then caches", async () => {
+test("Postgres projection derives depth from source-neutral approved current facts, then caches", async () => {
   const calls = [];
   let connects = 0;
   const client = {
     async query(sql) {
       calls.push(String(sql));
-      if (String(sql).includes("completed_research_factory")) {
+      if (String(sql).includes("coverage_signals")) {
         return { rows: [{ acgmeId: "0000000001", fields: ["research.visa", "research.resident_roster"] }] };
       }
       if (String(sql).includes("canonical_current_facts")) {
@@ -213,9 +213,12 @@ test("Postgres projection reads only domain coverage and approved current facts,
   assert.equal(connects, 1);
   assert.ok(calls.some((sql) => sql.includes("SET_CONFIG") || sql.includes("set_config")));
   assert.equal(JSON.stringify(first).includes("canonical_value"), false);
-  const coverageQuery = calls.find((sql) => sql.includes("completed_research_factory"));
+  const coverageQuery = calls.find((sql) => sql.includes("coverage_signals"));
   const factsQuery = calls.find((sql) => sql.includes("canonical_current_facts") && sql.includes("promoted_source_urls"));
-  assert.match(coverageQuery, /disposition = 'APPROVED_CURRENT'/);
+  assert.match(coverageQuery, /canonical_current_facts/);
+  assert.match(coverageQuery, /publication_state IN \('STUDENT_VISIBLE', 'PRIVATE_BETA'\)/);
+  assert.doesNotMatch(coverageQuery, /source_type\s*=/);
+  assert.doesNotMatch(coverageQuery, /provider\s*=/);
   assert.match(factsQuery, /WITH promoted_source_urls AS/);
   assert.doesNotMatch(factsQuery, /WHERE l\.promoted_claim_id = f\.claim_id/);
   assert.equal(first.currentFacts[0].field, "research.visa");
