@@ -22,7 +22,7 @@ function quoteIntro(before,ids,theme){
  node.setAttribute('aria-label',theme+' student voices');node.dataset.section=before;
  node.innerHTML='<figure><blockquote></blockquote><figcaption></figcaption></figure><div class="quote-controls"><button class="quote-prev" aria-label="Previous quote">←</button><span class="quote-count"></span><button class="quote-next" aria-label="Next quote">→</button><button class="quote-pause" aria-pressed="false">Pause</button></div>';
  $(before).before(node);let ix=0,paused=false,hover=false,focused=false,reveal=null;
- const draw=()=>{const q=quotes[ids[ix]];$('blockquote',node).textContent='“'+q.quote+'”';$('figcaption',node).textContent=q.name+' · MissionMed Match Day';$('.quote-count',node).textContent=(ix+1)+' / '+ids.length;node.dataset.quoteId=q.id};
+ const draw=()=>{const q=quotes[ids[ix]];$('blockquote',node).textContent='“'+q.quote+'”';$('figcaption',node).textContent=q.name+' · '+(q.sourceLabel||'MissionMed Match Day');$('.quote-count',node).textContent=(ix+1)+' / '+ids.length;node.dataset.quoteId=q.id};
  const step=n=>{ix=(ix+n+ids.length)%ids.length;draw();reveal?.cancel();if(!document.body.classList.contains('motion-off'))reveal=$('figure',node).animate([{opacity:.15,transform:'translateY(4px)'},{opacity:1,transform:'translateY(0)'}],{duration:280,easing:'ease-out'})};
  $('.quote-prev',node).onclick=()=>{step(-1);ev('mr_quote_interaction',{section:before,quote_id:node.dataset.quoteId,direction:'previous'})};
  $('.quote-next',node).onclick=()=>{step(1);ev('mr_quote_interaction',{section:before,quote_id:node.dataset.quoteId,direction:'next'})};
@@ -98,6 +98,7 @@ setInterval(()=>qstate.forEach(q=>q.tick()),9000);
 const motionButton=document.createElement('button');motionButton.className='motion-toggle';motionButton.textContent='Motion on';motionButton.setAttribute('aria-pressed','true');document.body.append(motionButton);
 let scheduled=false;
 function paintDepth(){scheduled=false;const off=document.body.classList.contains('motion-off'),factor=innerWidth<750?.45:1;motionButton.textContent=off?'Motion off':'Motion on';motionButton.setAttribute('aria-pressed',String(!off));if(off)return;const hero=$('.hero-b'),p=Math.max(0,Math.min(1,-hero.getBoundingClientRect().top/hero.offsetHeight));$('.hero-room').style.transform=`translate3d(0,${p*145*factor}px,0) scale(1.12)`;$('.hero-person').style.transform=`translate3d(0,${p*75*factor}px,0) scale(1.12)`;$('.hero-foreground').style.transform=`translate3d(0,${-p*65*factor}px,0) scale(1.12)`;$('.hero-copy').style.transform=`translate3d(0,${-p*65*factor}px,0)`;$('.cinema-ticket').style.transform=`translate3d(0,${-p*25*factor}px,0)`;
+ if(window.MRBAAAdepth){window.MRBAAAdepth();return;}
  const r=$('#personalization').getBoundingClientRect(),range=Math.max(1,$('#personalization').offsetHeight-innerHeight),t=Math.max(0,Math.min(1,-r.top/range))-.5;$('.mentor-layer').style.transform=`translate3d(${t*40*factor}px,${t*140*factor}px,0)`;$('.story-layer').style.transform=`translate3d(${-t*60*factor}px,${-t*100*factor}px,0)`;$('.signal-layer').style.transform=`translate3d(${t*25*factor}px,${-t*180*factor}px,0)`;
  const m=$('#matrix').getBoundingClientRect(),mp=Math.max(-.5,Math.min(.5,(innerHeight/2-m.top)/(innerHeight+m.height)));$('.matrix-device').style.transform=`translate3d(0,${mp*100*factor}px,0) rotateX(${mp*-14}deg) rotateY(${mp*5}deg)`;$('.matrix-app-strip').style.transform=`translate3d(${-mp*55*factor}px,${-mp*100*factor}px,60px)`;
  $$('.proof-story').forEach((n,i)=>{const a=n.getBoundingClientRect(),progress=Math.max(-.5,Math.min(.5,(innerHeight/2-a.top)/(innerHeight+a.height)));n.style.transform=`translate3d(0,${progress*(i===0?65:i===1?-55:90)*factor}px,0)`});
@@ -123,5 +124,85 @@ $$('#other-ways a[data-event]').forEach(a=>a.addEventListener('click',()=>ev(a.d
 const seen=new Set();const views=new IntersectionObserver(items=>items.forEach(i=>{if(i.isIntersecting&&!seen.has(i.target.id)){seen.add(i.target.id);ev(i.target.id==='emergency-offer'?'emergency_offer_view':'360_sold_out_view');}}),{threshold:.25});['emergency-offer','mentorship-offer'].forEach(id=>views.observe(document.getElementById(id)));
 const depths=new Set();addEventListener('scroll',()=>{const p=100*(scrollY+innerHeight)/document.documentElement.scrollHeight;[25,50,75,90].forEach(n=>{if(p>=n&&!depths.has(n)){depths.add(n);ev('mr_scroll_depth',{percent:n})}})},{passive:true});
 const walker=document.createTreeWalker(document.getElementById('app'),NodeFilter.SHOW_TEXT);while(walker.nextNode()){const n=walker.currentNode;n.nodeValue=window.MRBcopy(n.nodeValue);}
+
+/* September 16: bounded B mastering; presentation only. */
+document.body.classList.add('aaa-mastered');
+const storyFiles=['prepare.jpg','online-class.webp','virtual-interview-aaa.png','inperson-interview-aaa.png'];
+const storyAlts=['Illustrative applicant researching and preparing personal notes at home','Authentic published Mission Residency live online Webex class','Illustrative applicant adapting to a virtual interviewer','Illustrative applicant in an in-person residency interview'];
+$$('.story-image').forEach((n,i)=>{n.src=asset+storyFiles[i];n.alt=storyAlts[i];n.width=1536;n.height=1024;});
+$$('.story-image').forEach((img,i)=>{const frame=document.createElement('div');frame.className='story-visual'+(i===1?' class-frame':'');img.before(frame);frame.append(img);});
+$('.story-caption').textContent='Real online class · Other interview scenes illustrated';
+$$('.story-progress b').forEach((n,i)=>n.textContent=['Prepare','Train','Adapt','Interview'][i]);
+$('.teacher-visual .photo img').src=asset+'brian-studio-aaa.jpg';
+$('.teacher-visual .photo img').alt='Authentic published studio portrait of Dr Brian';
+$('.teacher .art-label').textContent='Dr. Brian · Mission Residency';
+$('.real-inset').remove();
+$('.teacher-copy').insertAdjacentHTML('beforeend','<a class="text-link strategy-preview" href="#strategy">How we build your answers—not a script ↗</a>');
+// Give the supplied UI its own stage. It is a demonstration, not live student data.
+$('#personalization').innerHTML=`<div class="personal-pin"><div class="analytics-heading"><div>${eyebrow('IV PREP ON-CALL / COMMUNICATION IN VIEW')}<h2>First, the person.<br><em>Then, the signal.</em></h2></div><p>Your experiences shape the answer. Your delivery shapes how it lands. Use observations to start a useful conversation with your mentor.</p></div><div class="analytics-stage"><div class="analytics-browser"><div class="device-top"><span>IV Prep On-Call</span><span>Demonstration · synthetic data</span></div><div class="oncall-screen" data-view="0"><img src="${asset}oncall-demo-aaa.jpeg" width="1536" height="915" alt="Supplied On-Call demonstration: interview view with framing, pace, volume, pitch, vocal variety and delivery timeline" loading="eager"><span class="metric-focus" aria-hidden="true"></span></div></div><div class="analytics-controls" role="group" aria-label="Explore the communication demonstration"><button data-metric="0" aria-pressed="true">01 · Your presence</button><button data-metric="1" aria-pressed="false">02 · Your voice</button><button data-metric="2" aria-pressed="false">03 · Your next practice</button></div><div class="analytics-insight"><h3>Your story, in context.</h3><p>Start with your experience and the meaning you want to convey. Framing and hand-position observations concern what is visible—not who you are.</p></div><p class="demo-note">Demonstration interface with a fictional candidate and synthetic observations. It is not a student's result or a promise of access. Confirm current tool access with Admissions.</p></div></div>`;
+const metricCopy=[
+['Your story, in context.','Start with your experience and the meaning you want to convey. Framing and hand-position observations concern what is visible—not who you are.'],
+['Hear how your answer lands.','The demonstration places pace, volume, pitch and vocal variety beside the conversation. These are observable communication signals—not personality, honesty or hiring scores.'],
+['One observation. A useful next step.','Review delivery over time, discuss the context with your mentor, and choose what to practice next. Technology supports judgment; it does not replace the teacher who knows your story.']
+];
+let chosenMetric=0,manualMetric=false;
+function setMetric(i,manual=false){chosenMetric=i;manualMetric=manual;$('.oncall-screen').dataset.view=String(i);$$('[data-metric]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.metric===i)));$('.analytics-insight h3').textContent=metricCopy[i][0];$('.analytics-insight p').textContent=metricCopy[i][1];}
+$$('[data-metric]').forEach(b=>b.onclick=()=>{setMetric(+b.dataset.metric,true);ev('mr_analytics_section_open',{step:+b.dataset.metric,source:'demonstration'})});
+$('#matrix').innerHTML=`<div class="matrix-heading"><div>${eyebrow('MISSIONMED MATRIX / THE WORK BETWEEN SESSIONS')}<h2>Your preparation.<br><em>Connected.</em></h2></div><p>Stories, files, research, decisions. Keep the work of your season in a wider MissionMed environment.</p></div><div class="matrix-display"><div class="matrix-device"><div class="device-top"><span>MissionMed Matrix</span><span>Interface preview</span></div><div class="matrix-window"><img src="${asset}matrix-reference.jpeg" width="1536" height="710" alt="Supplied Matrix interface showing navigation and featured preparation apps" loading="eager"><span class="matrix-source-mask" aria-hidden="true">FEATURED APPS</span></div></div></div><div class="matrix-app-strip" role="group" aria-label="Explore the preparation tools"><button data-app="0" aria-pressed="true">StoryForge</button><button data-app="1" aria-pressed="false">File Vault</button><button data-app="2" aria-pressed="false">RISE</button><button data-app="3" aria-pressed="false">RankList IQ</button></div><div class="matrix-tool-copy"><span>01 / YOUR STORIES</span><h3>Find the experience behind the answer.</h3><p>StoryForge is the story-development part of the wider environment. Connect the moments you remember to the meaning you want to communicate.</p></div><p class="matrix-access">This is the wider MissionMed ecosystem, not a list of everything included in either course. Your account and enrollment determine access; confirm specific tools with Admissions. Preview artwork is not the current training calendar.</p>`;
+const appCopy=[
+['01 / YOUR STORIES','Find the experience behind the answer.','StoryForge is the story-development part of the wider environment. Connect the moments you remember to the meaning you want to communicate.'],
+['02 / YOUR FILES','Keep preparation materials within reach.','File Vault is the file-management part of Matrix. Use the materials available in your authorized account as you prepare.'],
+['03 / YOUR RESEARCH','Bring better context to the conversation.','RISE is the residency-research part of the environment. Use program research to shape more purposeful preparation and questions.'],
+['04 / YOUR DECISIONS','Give your choices room for thought.','RankList IQ is the rank-list planning part of the environment. Keep research and your own priorities in view as you consider decisions.']
+];
+let chosenApp=0,manualApp=false;
+function setApp(i,manual=false){chosenApp=i;manualApp=manual;$$('button[data-app]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.app===i)));const box=$('.matrix-tool-copy');$('span',box).textContent=appCopy[i][0];$('h3',box).textContent=appCopy[i][1];$('p',box).textContent=appCopy[i][2];$('#matrix').dataset.app=String(i);}
+$$('button[data-app]').forEach(b=>b.onclick=()=>{setApp(+b.dataset.app,true);ev('mr_matrix_open',{tool:appCopy[+b.dataset.app][0]})});
+$$('.proof-story img').forEach((n,i)=>{n.src=asset+['frame-marian-aaa.jpg','frame-yamini-aaa.jpg','frame-gunjan-aaa.jpg'][i];n.alt=['Marian','Yamini','Gunjan'][i]+' in an authentic published Match Day recording';});
+$('.proof-heading').insertAdjacentHTML('afterend',`<figure class="match-wall"><img src="${asset}match-wall-aaa.jpg" width="1702" height="630" alt="Authentic MissionMed collage of students and families receiving Match news" loading="lazy"><figcaption>Different journeys. Real moments of joy.</figcaption></figure>`);
+$('.youtube-frame img').src=asset+'match-wall-aaa.jpg';$('.youtube-frame img').alt='Authentic MissionMed Match celebration collage';
+const mockRow=$$('.comparison-table tr').find(r=>r.textContent.includes('Signature Mock pathway'));
+$('td:last-child',mockRow).textContent='Included: mock, debrief and feedback pathway';
+$$('.comparison-table tbody tr').forEach(r=>$$('td',r).forEach((td,i)=>td.dataset.offer=i?'Complete':'Interview Week'));
+$('.full-comparison>p').textContent="Complete's standard tuition is $3,499. During your team mock, the focus is on you; teammates learn from the same framework and feedback. Exact mock arrangements are confirmed with enrollment.";
+const oncallFAQ=$$('.faq-list details').find(n=>$('summary',n).textContent.startsWith('What does IV Prep On-Call analyze?'));
+$('p',oncallFAQ).textContent='The demonstration above shows framing and body/hand observations alongside pace, volume, pitch, vocal variety and a delivery timeline. These signals support mentor-led feedback; they do not infer personality, honesty or hiring suitability. The pictured observations are synthetic. Confirm current features and your account access with Admissions.';
+const qStart=quotes.length;
+quotes.push(
+{id:'Q09',name:'Shamsun Nahar Mita',quote:'His emphasis on effective communication has undoubtedly made me a better communicator, a skill that is indispensable in the medical field.',sourceLabel:'Student review'},
+{id:'Q10',name:'Sara Habib',quote:'This course is not just for interview preparation but you will also get to learn socializing, networking, and being better at communicating with colleagues and patients.',sourceLabel:'Student review'},
+{id:'Q11',name:'Sara Habib',quote:'Whatever you learn to talk about on interviews, are stories from your own life.',sourceLabel:'Student review'},
+{id:'Q12',name:'Varun Ravindran',quote:'The classes and the mocks took away so much stress from the day of the interview and just made everything easier.',sourceLabel:'Student review'}
+);
+quoteIntro('#personalization',[0,7],'The person behind the answer');
+quoteIntro('#strategy',[qStart+2,2],'Your own stories and voice');
+quoteIntro('.career',[qStart,qStart+1],'Communication beyond interviews');
+// Make the mock-specific source visible within its relevant section.
+$('#team>div:last-child').insertAdjacentHTML('beforeend','<figure class="team-testimony"><blockquote>“'+quotes[qStart+3].quote+'”</blockquote><figcaption>'+quotes[qStart+3].name+' · Student review</figcaption></figure>');
+// This is a utility, not a floating obstacle over mobile buying information.
+$('.footer').append(motionButton);
+const introQuote=$('.quote-intro[data-section="#method"]');
+introQuote.querySelector('figcaption').textContent+='';
+let ticking=false;
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+window.MRBAAAdepth=()=>{
+ const off=document.body.classList.contains('motion-off'),mobile=innerWidth<900;
+ const pr=$('#personalization').getBoundingClientRect(),range=Math.max(1,$('#personalization').offsetHeight-innerHeight);
+ const t=clamp(-pr.top/range);
+ if(!manualMetric&&!mobile&&!off)setMetric(Math.min(2,Math.floor(t*3)));
+ $('.analytics-browser').style.transform=off?'none':`perspective(1800px) rotateX(${(t-.5)*-5}deg) translateY(${(t-.5)*-30}px)`;
+ const mr=$('#matrix').getBoundingClientRect(),mp=clamp((innerHeight*.75-mr.top)/(mr.height+innerHeight*.25));
+ const panelTop=$('.matrix-tool-copy').getBoundingClientRect().top;
+ const appProgress=clamp((innerHeight*.55-panelTop)/(innerHeight*.4));
+ if(!manualApp&&!off&&!mobile)setApp(Math.min(3,Math.floor(appProgress*4)));
+ $('.matrix-device').style.transform=off?'none':`perspective(1800px) translateY(${(mp-.5)*-50}px) rotateX(${(mp-.5)*-9}deg)`;
+ $$('.proof-story').forEach((n,i)=>{const r=n.getBoundingClientRect(),p=clamp((innerHeight-r.top)/(innerHeight+r.height));n.style.transform=off?'none':`translateY(${(p-.5)*(mobile?14:36)*(i%2?-1:1)}px)`;});
+};
+const aaPaint=()=>{if(!ticking){ticking=true;requestAnimationFrame(()=>{ticking=false;window.MRBAAAdepth()})}};
+addEventListener('scroll',aaPaint,{passive:true});addEventListener('resize',aaPaint);window.MRBAAAdepth();
+const revealObserver=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('aaa-visible');revealObserver.unobserve(e.target);}}),{threshold:.08});
+$$('.analytics-heading,.matrix-heading,.strategy-heading,.specialized-heading,.proof-heading,.match-wall,.team-photo,.teacher-copy').forEach(n=>{n.classList.add('aaa-reveal');revealObserver.observe(n)});
+ev('mr_b_aaa_mastering_view');
+
 ev('mr_b_finalization_view');
 }, {once:true});
