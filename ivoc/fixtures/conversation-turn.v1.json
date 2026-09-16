@@ -1,0 +1,22 @@
+{
+  "turn_id": "fixture-turn-question-001",
+  "session_id": "019f-ivoc-f1-session-0001",
+  "schema_version": "1",
+  "speaker": "interviewer",
+  "t_start_ms": 1000,
+  "t_end_ms": 1800,
+  "transcript": {
+    "text": "Why are you interested in this residency program?"
+  },
+  "question": {
+    "identity": {
+      "canonical_question_id": "fixture-question-why-program",
+      "version": "1"
+    },
+    "origin": "pool",
+    "text_hash": "fixture-question-why-program-sha256"
+  },
+  "relation": "question",
+  "semantic": {},
+  "version": 1
+}

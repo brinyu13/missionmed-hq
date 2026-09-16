@@ -1,0 +1,32 @@
+{
+  "projection_id": "fixture-projection-001",
+  "owner_app": "rise",
+  "projection_type": "rise.program_cheat_sheet",
+  "schema_version": "1",
+  "subject_id": "fixture-student-001",
+  "source_version": "fixture-source-v1",
+  "produced_at": "2026-09-16T13:00:00.000Z",
+  "fresh_until": "2026-09-23T13:00:00.000Z",
+  "authorization": {
+    "basis": "owner_policy",
+    "scope": ["program.name"]
+  },
+  "minimization": {
+    "fields_included": ["program.name"],
+    "fields_excluded_reason": {
+      "people": "Synthetic fixture does not contain sourced people."
+    }
+  },
+  "payload": {
+    "program_id": "fixture-program-001",
+    "name": "Fixture Residency Program"
+  },
+  "source_receipt": {
+    "owner_ref": "fixture-owner-record-001",
+    "hash": "fixture-owner-record-sha256"
+  },
+  "revocation": {
+    "revocable": true,
+    "check_url": "https://example.invalid/fixture/revocation"
+  }
+}

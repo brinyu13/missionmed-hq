@@ -1,0 +1,22 @@
+{
+  "result_id": "fixture-result-001",
+  "session_id": "019f-ivoc-f1-session-0001",
+  "subject_id": "fixture-student-001",
+  "schema_version": "1",
+  "projector_version": "fixture-projector-v1",
+  "pack_version": "fixture-pack-v1",
+  "analytics_config_version": "fixture-analytics-v1",
+  "status": "provisional",
+  "produced_at": "2026-09-16T13:05:00.000Z",
+  "dimensions": [
+    {
+      "dimension": "answer.specificity",
+      "valid": false,
+      "evidence_refs": ["fixture-coaching-evidence-001"]
+    }
+  ],
+  "segments": ["fixture-answer-segment-001"],
+  "coaching": ["fixture-coaching-evidence-001"],
+  "limitations": ["Synthetic contract fixture; no measured performance."],
+  "evidence_index_ref": "fixture-evidence-index-001"
+}

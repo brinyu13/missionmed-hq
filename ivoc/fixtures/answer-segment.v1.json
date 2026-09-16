@@ -1,0 +1,24 @@
+{
+  "segment_id": "fixture-answer-segment-001",
+  "session_id": "019f-ivoc-f1-session-0001",
+  "subject_id": "fixture-student-001",
+  "schema_version": "1",
+  "question": {
+    "origin": "pool",
+    "canonical_question_id": "fixture-question-why-program",
+    "version": "1",
+    "text": "Why are you interested in this residency program?",
+    "asked_turn_id": "fixture-turn-question-001",
+    "t_asked_ms": 1000
+  },
+  "answer": {
+    "t_start_ms": 2100,
+    "t_end_ms": 12100,
+    "turn_ids": ["fixture-turn-answer-001"],
+    "follow_up_turn_ids": []
+  },
+  "transcript_ref": "fixture-transcript-segment-001",
+  "media_ref": "fixture-media-001",
+  "coaching_notes_refs": [],
+  "version": 1
+}

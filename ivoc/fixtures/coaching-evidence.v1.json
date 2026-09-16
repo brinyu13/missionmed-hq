@@ -1,0 +1,23 @@
+{
+  "evidence_id": "fixture-coaching-evidence-001",
+  "session_id": "019f-ivoc-f1-session-0001",
+  "subject_id": "fixture-student-001",
+  "schema_version": "1",
+  "dimension": "answer.specificity",
+  "refs": [
+    {
+      "kind": "segment",
+      "ref": "fixture-answer-segment-001",
+      "t_start_ms": 2100,
+      "t_end_ms": 12100
+    }
+  ],
+  "interpretation": {
+    "text": "Synthetic fixture evidence only.",
+    "by": "ai_draft",
+    "model_ref": "fixture-none"
+  },
+  "confidence": 1,
+  "limitations": ["Synthetic contract fixture; not a student assessment."],
+  "version": 1
+}
