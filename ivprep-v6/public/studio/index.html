@@ -253,6 +253,7 @@
             <div class="primary-instrument" id="cockpit-primary"></div>
             <div class="status-rail" id="cockpit-rail"></div>
             <div class="microcap" id="cockpit-session">Session idle</div>
+            <div class="microcap" id="cockpit-save" aria-live="polite">Saved answers attach to your authenticated account.</div>
           </div>
         </div>
         <!-- Engineering cockpit host. The analytics module owns this element and calls
@@ -348,7 +349,7 @@
         <h1 class="hero">Attempt <em>versus</em> attempt.</h1>
         <div class="housing" style="margin-top:18px">
           <div class="housing-title">Pair selector</div>
-          <div class="recess"><div class="empty-state"><strong>Needs two saved attempts</strong>Durable answer persistence is not active yet, so there is nothing to compare. This surface is wired for synced playback, phase lanes and metric deltas once AnswerRecords persist.</div></div>
+          <div class="recess"><div class="empty-state"><strong>Needs two saved attempts</strong>Your authenticated Answer History supplies the attempts. Pairwise metric deltas remain unavailable until two real saved answers exist.</div></div>
         </div>
       </section>
 
@@ -377,7 +378,7 @@
         <h1 class="hero">Async <em>review.</em></h1>
         <div class="housing" style="margin-top:18px">
           <div class="housing-title">Unreviewed answers</div>
-          <div class="recess"><div class="empty-state"><strong>No answers awaiting review</strong>Mentor marks (PERFECT · REMEMBER THIS · NEEDS WORK · REVIEWED) and private mentor notes attach to AnswerRecords once durable persistence is active. Private mentor intelligence never renders in the student view.</div></div>
+          <div class="recess"><div class="empty-state"><strong>No answers awaiting review</strong>Assigned mentors and Admins can review authorized AnswerRecords. Private mentor intelligence never renders in the student view.</div></div>
         </div>
       </section>
 

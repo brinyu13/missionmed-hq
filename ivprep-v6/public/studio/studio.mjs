@@ -16,10 +16,10 @@ import {
   createLiveInterview,
   endLiveInterview,
   loadIvPrepSession,
-  loadVault,
 } from '../aaa/api-client.mjs';
 import { COLLECTIONS, createDefaultQuestionStore } from '../questions/question-store.mjs';
 import { LiveInterviewSession } from './live-interview.mjs';
+import { DurableStudioSession } from './durable-session.mjs';
 import { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
 import { InstrumentRack } from './instruments.mjs';
 
@@ -62,6 +62,11 @@ const state = {
   primaryMetric: null,
   overlays: { face: true, bodyHands: true, enabled: true },
   liveInterview: null,
+  durable: new DurableStudioSession(),
+  durableAvailable: false,
+  durableError: null,
+  lastSaved: null,
+  localPlaybackUrl: null,
 };
 
 /* ------------------------------------------------------------------ media bridge
@@ -211,10 +216,23 @@ const bridge = {
  * This is presentation only. Hiding engineering instrumentation never changes what is
  * measured; the pipeline is untouched by this function.
  */
+function permittedRoles() {
+  const identity = state.admission?.identity || null;
+  const roles = Array.isArray(identity?.roles) ? identity.roles.map((role) => String(role).toLowerCase()) : [];
+  const founder = identity?.founder === true || roles.some((role) => ['administrator', 'admin'].includes(role));
+  if (founder) return new Set(['student', 'mentor', 'admin']);
+  if (roles.some((role) => ['mentor', 'coach', 'faculty', 'teacher'].includes(role))) return new Set(['student', 'mentor']);
+  return new Set(['student']);
+}
+
 function applyRole(role) {
-  state.role = role === 'admin' || role === 'mentor' ? role : 'student';
+  const allowed = permittedRoles();
+  state.role = allowed.has(role) ? role : 'student';
   document.body.dataset.role = state.role;
   for (const button of $$('[data-role]')) {
+    const authorized = allowed.has(button.dataset.role);
+    button.hidden = !authorized;
+    button.disabled = !authorized;
     button.setAttribute('aria-pressed', String(button.dataset.role === state.role));
   }
   const banner = $('#debug-banner');
@@ -899,6 +917,25 @@ async function startRep() {
     state.session.answerId = answer?.answerId ?? null;
     state.session.startedAt = Date.now();
     const q = state.interviewSet[0];
+    const save = $('#cockpit-save');
+    if (state.durableAvailable) {
+      try {
+        await state.durable.start({
+          stream: bridge.media.stream,
+          question: q || null,
+          wizard: state.wizard,
+          targetQuestions: state.targetQuestions,
+          interviewerProvider: state.liveInterview?.sessionId ? 'openai-gpt-live' : 'missionmed-static',
+        });
+        if (save) { save.dataset.state = 'active'; save.textContent = 'Secure account recording active.'; }
+      } catch (error) {
+        state.durableError = error;
+        if (save) { save.dataset.state = 'error'; save.textContent = `Account save unavailable for this rep — ${String(error?.message || error).slice(0, 100)}`; }
+      }
+    } else if (save) {
+      save.dataset.state = 'error';
+      save.textContent = 'Account save unavailable in this environment; Analytics remains local to this rep.';
+    }
     const label = $('#cockpit-question');
     if (label) label.textContent = q ? q.canonical_text : 'Free practice';
     setSessionState('RUNNING');
@@ -909,12 +946,37 @@ async function startRep() {
 }
 
 async function finishRep() {
-  if (!['RUNNING', 'STARTING'].includes(state.session.state)) return;
+  const retryingDurableSave = state.session.state === 'BLOCKED'
+    && state.durable?.recorder?.state === 'ERROR'
+    && state.durable?.pendingAnalytics;
+  if (!['RUNNING', 'STARTING'].includes(state.session.state) && !retryingDurableSave) return;
   setSessionState('FINISHING');
   try {
-    await Promise.resolve(state.analytics?.endAnswer?.({}));
+    const analyticsPromise = retryingDurableSave ? null : Promise.resolve().then(() => state.analytics?.endAnswer?.({
+      mediaAvailable: Boolean(state.durable?.recorder),
+    }));
+    const outcome = state.durable?.accountSession
+      ? await state.durable.finish(analyticsPromise)
+      : { persisted: false, analytics: await analyticsPromise, recording: null };
+    state.lastSaved = outcome;
+    if (state.localPlaybackUrl) URL.revokeObjectURL(state.localPlaybackUrl);
+    state.localPlaybackUrl = outcome.recording?.blob ? URL.createObjectURL(outcome.recording.blob) : null;
+    const playback = $('#playback');
+    if (playback && state.localPlaybackUrl) playback.src = state.localPlaybackUrl;
+    const save = $('#cockpit-save');
+    if (save) {
+      save.dataset.state = outcome.persisted ? 'saved' : 'error';
+      save.textContent = outcome.persisted
+        ? 'Saved privately to your authenticated Answer History.'
+        : 'Rep complete, but no durable account record was created.';
+    }
+    renderPostAnswer(outcome.analytics);
+    if (outcome.persisted) void renderVault();
     setSessionState('COMPLETE');
+    setView('postanswer');
   } catch (error) {
+    const save = $('#cockpit-save');
+    if (save) { save.dataset.state = 'error'; save.textContent = `Save failed — ${String(error?.message || error).slice(0, 120)}. Press Finish again to retry the retained capture.`; }
     setSessionState('BLOCKED', `Could not finish cleanly: ${String(error?.message || error).slice(0, 120)}`);
   }
 }
@@ -1190,25 +1252,53 @@ async function renderVault() {
   if (!host) return;
   host.replaceChildren();
   try {
-    const vault = await loadVault();
+    if (!state.durableAvailable) throw state.durableError || new Error('durable_session_unavailable');
+    const vault = await state.durable.library('own');
     const sessions = Array.isArray(vault?.sessions) ? vault.sessions : [];
     if (!sessions.length) {
       const empty = document.createElement('div');
       empty.className = 'empty-state';
-      empty.innerHTML = '<strong>No saved answers</strong>Durable vault persistence is not active for this account yet, so nothing is stored. Question history, attempts, Personal Best and mentor review attach here once AnswerRecords persist.';
+      empty.innerHTML = '<strong>No saved answers</strong>Your authenticated Answer History is empty. Finish a real recorded rep to create the first private AnswerRecord.';
       host.append(empty);
       return;
     }
     for (const session of sessions) {
       const row = document.createElement('div');
-      row.className = 'check-row';
-      row.innerHTML = `<span class="q-text">${session.questionId || session.id || 'Answer'}</span><span class="check-state" data-state="ready">${session.createdAt || ''}</span>`;
+      row.className = 'check-row vault-answer';
+      const copy = document.createElement('div');
+      copy.className = 'vault-answer-copy';
+      const title = document.createElement('span');
+      title.className = 'q-text';
+      title.textContent = session.questionText || session.title || session.questionId || 'Saved answer';
+      const meta = document.createElement('span');
+      meta.className = 'microcap';
+      const when = session.endedAt || session.startedAt || '';
+      meta.textContent = `${session.state || 'saved'}${when ? ` · ${new Date(when).toLocaleString()}` : ''}`;
+      copy.append(title, meta);
+      const actions = document.createElement('div');
+      actions.className = 'vault-answer-actions';
+      if (session.recording?.id && session.recording?.status === 'saved') {
+        const play = document.createElement('button');
+        play.type = 'button';
+        play.className = 'btn btn-quiet';
+        play.innerHTML = '<span>Play</span>';
+        play.addEventListener('click', async () => {
+          play.disabled = true;
+          try {
+            const signed = await state.durable.playback(session.recording.id);
+            const video = $('#playback');
+            if (video) { video.src = signed.url; await video.play().catch(() => {}); setView('filmroom'); }
+          } finally { play.disabled = false; }
+        });
+        actions.append(play);
+      }
+      row.append(copy, actions);
       host.append(row);
     }
-  } catch {
+  } catch (error) {
     const note = document.createElement('p');
     note.className = 'unavailable';
-    note.textContent = 'VAULT UNAVAILABLE — SESSION REQUIRED';
+    note.textContent = `ANSWER HISTORY UNAVAILABLE — ${String(error?.message || 'SESSION REQUIRED').toUpperCase().slice(0, 120)}`;
     host.append(note);
   }
 }
@@ -1306,7 +1396,7 @@ function renderLoadoutConfig() {
     ['Difficulty', ['Standard', 'Pressure'], null],
     ['Follow-ups', ['None', 'Occasional'], 'Hybrid follow-up router pending'],
     ['Overlays', ['Standard', 'Minimal', 'Off'], 'Hiding overlays never stops measurement'],
-    ['Recording', ['On'], 'Durable persistence pending'],
+    ['Recording', ['On'], 'Private account recording + authenticated Answer History'],
     ['Duration', ['90 seconds', '5 minutes'], null],
   ];
   host.replaceChildren();
@@ -1336,16 +1426,27 @@ function renderLoadoutConfig() {
   }
 }
 
-function renderPostAnswer() {
-  for (const [id, text] of [
-    ['#post-worked', 'No answer recorded in this session yet. Nothing is asserted without evidence.'],
-    ['#post-fix', 'A single correction appears here once a recorded answer produces delivery evidence.'],
-  ]) {
+function renderPostAnswer(analytics = null) {
+  const rail = statusRail(state.bus.latest);
+  const worked = rail.find((item) => item.state === 'ok');
+  const correction = selectCorrection(state.bus.latest);
+  const entries = analytics ? [
+    ['#post-worked', worked
+      ? `<strong>${worked.label}</strong>Observed inside your validated session evidence. Open Film Room for the recording and full signal tracks.`
+      : '<strong>No supported positive claim yet</strong>The session saved, but no student-safe signal reached an evidence threshold.'],
+    ['#post-fix', correction.state === 'idle'
+      ? '<strong>No supported correction yet</strong>The evidence does not justify a coaching claim for this answer.'
+      : `<strong>${correction.headline}</strong>${correction.instruction}`],
+  ] : [
+    ['#post-worked', '<strong>Awaiting evidence</strong>No answer recorded in this session yet. Nothing is asserted without evidence.'],
+    ['#post-fix', '<strong>Awaiting evidence</strong>A single correction appears here once a recorded answer produces delivery evidence.'],
+  ];
+  for (const [id, html] of entries) {
     const host = $(id);
     if (!host) continue;
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.innerHTML = `<strong>Awaiting evidence</strong>${text}`;
+    empty.innerHTML = html;
     host.replaceChildren(empty);
   }
 }
@@ -1380,6 +1481,17 @@ async function boot() {
     state.admission = null;
   }
   applyIdentity();
+  applyRole('student');
+
+  if (state.admission?.admitted && state.admission?.runtime?.mode === 'hosted') {
+    try {
+      await state.durable.bootstrap();
+      state.durableAvailable = state.durable.ready;
+    } catch (error) {
+      state.durableAvailable = false;
+      state.durableError = error;
+    }
+  }
 
   wireLiveInterview();
 

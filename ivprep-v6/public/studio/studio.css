@@ -454,6 +454,13 @@ body[data-role="student"] #communication-analytics-test-root .ca-diagnostics { d
 
 @media (max-width: 1180px) { .cockpit { grid-template-columns: 1fr; } }
 #cockpit-session[data-notice="true"] { color: var(--warn); font-weight: 800; }
+#cockpit-save { margin-top: 8px; color: var(--dim); }
+#cockpit-save[data-state="saved"] { color: var(--ok); }
+#cockpit-save[data-state="error"] { color: var(--warn); }
+.vault-answer { align-items: flex-start; }
+.vault-answer-copy { min-width: 0; flex: 1; }
+.vault-answer-copy .microcap { display: block; margin-top: 5px; }
+.vault-answer-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 
 /* ---------- InterviewBrain live room ---------- */
 .live-interviewer-stage { min-height: 230px; display: flex; align-items: center; gap: 22px; background: radial-gradient(circle at 30% 40%, #9e4d323d, #090e1b 64%); }

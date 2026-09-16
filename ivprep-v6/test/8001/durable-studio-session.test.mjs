@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { DurableStudioSession, createDurableResultsEnvelope } from '../../public/studio/durable-session.mjs';
+
+test('durable Studio session creates, records, seals, and persists the validated analytics envelope', async () => {
+  const calls = [];
+  const api = {
+    async bootstrap() { calls.push(['bootstrap']); return { entitlement: { admitted: true }, identity: { displayName: 'Student' } }; },
+    async createSession(input) { calls.push(['createSession', input]); return { id: 'session-1' }; },
+    async saveResults(id, input) { calls.push(['saveResults', id, input]); return { id: 'result-1' }; },
+  };
+  const recorder = {
+    async start() { calls.push(['recording.start']); return true; },
+    async stopAndSeal() {
+      calls.push(['recording.stopAndSeal']);
+      return { recording: { id: 'recording-1', durationMs: 3_050 }, durationMs: 3_050, playableDurationMs: 3_000, recordingStartSessionMs: 25, pausedSpans: [] };
+    },
+  };
+  const durable = new DurableStudioSession({
+    api,
+    recordingFactory: () => recorder,
+    now: () => '2026-09-16T18:00:00.000Z',
+  });
+  await durable.bootstrap();
+  await durable.start({
+    stream: { id: 'shared-media' },
+    question: { question_id: 'CORE-01', canonical_text: 'Tell me about yourself.' },
+    wizard: { interviewer: 'Program Director', program: 'Internal Medicine' },
+    targetQuestions: 5,
+    interviewerProvider: 'openai-gpt-live',
+  });
+  const analytics = { schema: 'missionmed.ivprep.analytics.session.v1', durationMs: 2_950, events: [{ metric: 'answer_duration_ms' }] };
+  const finished = await durable.finish(Promise.resolve(analytics));
+
+  assert.equal(finished.persisted, true);
+  assert.equal(finished.recording.recording.id, 'recording-1');
+  assert.deepEqual(calls.map((call) => call[0]), ['bootstrap', 'createSession', 'recording.start', 'recording.stopAndSeal', 'saveResults']);
+  assert.equal(calls[1][1].context.targetQuestions, 5);
+  assert.equal(calls[4][2].schema, 'ivoc.analytics.v1');
+  assert.equal(calls[4][2].analytics, analytics);
+  assert.deepEqual(calls[4][2].scores, {});
+  assert.equal(calls[4][2].playableDurationMs, 3_000);
+});
+
+test('results envelope remains truthful when recording evidence is unavailable', () => {
+  const envelope = createDurableResultsEnvelope({ sessionId: 'session-2', analytics: { durationMs: 910, events: [] }, recording: null });
+  assert.equal(envelope.durationMs, 910);
+  assert.equal(envelope.recordingDurationMs, null);
+  assert.equal(envelope.playableDurationMs, 910);
+  assert.deepEqual(envelope.scores, {});
+  assert.deepEqual(envelope.counters, {});
+});
+
+test('durable operations require an admitted bootstrap and never impersonate an account', async () => {
+  const durable = new DurableStudioSession({
+    api: { async bootstrap() { return { entitlement: { admitted: false } }; } },
+    recordingFactory: () => { throw new Error('must not construct'); },
+  });
+  await durable.bootstrap();
+  await assert.rejects(() => durable.start({ stream: {} }), /durable_session_not_ready/u);
+});
+
+test('a failed media upload retains analytics and retries the same account transaction', async () => {
+  let stopAttempts = 0;
+  const api = {
+    async bootstrap() { return { entitlement: { admitted: true } }; },
+    async createSession() { return { id: 'session-retry' }; },
+    async saveResults(id, input) { assert.equal(id, 'session-retry'); assert.equal(input.analytics.durationMs, 1_200); return { id: 'result-retry' }; },
+  };
+  const recorder = {
+    state: 'RECORDING',
+    async start() {},
+    async stopAndSeal() {
+      stopAttempts += 1;
+      if (stopAttempts === 1) { this.state = 'ERROR'; throw new Error('recording_upload_503'); }
+      return { recording: { id: 'recording-retry' }, durationMs: 1_210 };
+    },
+  };
+  const durable = new DurableStudioSession({ api, recordingFactory: () => recorder });
+  await durable.bootstrap();
+  await durable.start({ stream: {} });
+  await assert.rejects(() => durable.finish(Promise.resolve({ durationMs: 1_200, events: [] })), /recording_upload_503/u);
+  assert.equal(durable.pendingAnalytics.durationMs, 1_200);
+  const retried = await durable.finish(null);
+  assert.equal(retried.persisted, true);
+  assert.equal(stopAttempts, 2);
+});

@@ -57,6 +57,16 @@ test('presentation integration preserves the proven analytics and media contract
   assert.match(runtime, /initializeAnalyticsUi\(bridge/u);
   assert.match(runtime, /state\.analytics\.onDiagnostic/u);
   assert.match(runtime, /bridge\.primeAudioContext\(\)/u);
+  assert.match(runtime, /DurableStudioSession/u);
+  assert.match(runtime, /state\.durable\.start/u);
+  assert.match(runtime, /state\.durable\.finish/u);
+  assert.match(runtime, /state\.durable\.library\('own'\)/u);
+});
+
+test('role view controls are bounded by the authenticated MissionMed identity', () => {
+  assert.match(runtime, /function permittedRoles\(\)/u);
+  assert.match(runtime, /allowed\.has\(role\) \? role : 'student'/u);
+  assert.match(runtime, /button\.hidden = !authorized/u);
 });
 
 test('the product document has unique element ids', () => {
