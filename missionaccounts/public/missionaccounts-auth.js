@@ -46,7 +46,7 @@ export async function boundedFetch(input, init = {}, timeoutMs = 10_000) {
     return await fetch(input, { ...init, signal: controller.signal });
   } catch (error) {
     if (controller.signal.aborted && !upstreamSignal?.aborted) {
-      const timeout = new Error('MissionAccounts took too long to respond. Return to Matrix and try again.');
+      const timeout = new Error('Connection is taking longer than expected. MissionMed Accounts will keep your workspace open and reconnect automatically.');
       timeout.code = 'request_timeout';
       timeout.state = 'access_unavailable';
       timeout.status = 503;
@@ -59,13 +59,19 @@ export async function boundedFetch(input, init = {}, timeoutMs = 10_000) {
   }
 }
 
-export function createMissionAccountsAuthClient({ onLockout = () => {}, onSessionChanged = () => {} } = {}) {
+export function createMissionAccountsAuthClient({
+  onLockout = () => {},
+  onSessionChanged = () => {},
+  onCredentialState = () => {},
+} = {}) {
   let config = {};
   let token = '';
   let expiresAt = 0;
   let refreshTimer = 0;
   let exchangePromise = null;
   let generation = 0;
+  let refreshFailures = 0;
+  let credentialStatus = 'empty';
 
   function assertCurrent(expected) {
     if (expected !== generation) throw Object.assign(new Error('This session has ended. Reload MissionAccounts.'), { code: 'session_ended', status: 401 });
@@ -89,8 +95,11 @@ export function createMissionAccountsAuthClient({ onLockout = () => {}, onSessio
     generation++;
     token = '';
     expiresAt = 0;
+    refreshFailures = 0;
+    credentialStatus = 'empty';
     window.clearTimeout(refreshTimer);
     refreshTimer = 0;
+    onCredentialState({ status: credentialStatus, canMutate: false, expiresAt: 0 });
   }
 
   async function readJson(response) {
@@ -101,16 +110,45 @@ export function createMissionAccountsAuthClient({ onLockout = () => {}, onSessio
     }
   }
 
-  function scheduleRefresh() {
+  function canMutate() {
+    return config.localAuth === true || Boolean(token && expiresAt > Math.floor(Date.now() / 1000));
+  }
+
+  function publishCredentialState(status = credentialStatus) {
+    credentialStatus = status;
+    onCredentialState({ status, canMutate: canMutate(), expiresAt });
+  }
+
+  function isTransientFailure(error) {
+    const status = Number(error?.status || 0);
+    return error?.code === 'request_timeout'
+      || status === 408
+      || status === 425
+      || status === 429
+      || status >= 500
+      || status === 0;
+  }
+
+  function scheduleRefresh(delayOverrideMs = null) {
     window.clearTimeout(refreshTimer);
     if (!token || config.localAuth) return;
-    const now = Math.floor(Date.now() / 1000);
-    const remaining = Math.max(1, expiresAt - now);
-    const skew = Math.max(1, Number(config.tokenRefreshSkewSeconds || 15));
-    const delaySeconds = Math.max(1, Math.min(Math.floor(remaining * 0.8), remaining - skew));
+    let delayMs = delayOverrideMs == null ? Number.NaN : Number(delayOverrideMs);
+    if (!Number.isFinite(delayMs)) {
+      const now = Math.floor(Date.now() / 1000);
+      const remaining = Math.max(1, expiresAt - now);
+      const skew = Math.max(1, Number(config.tokenRefreshSkewSeconds || 15));
+      delayMs = Math.max(1, Math.min(Math.floor(remaining * 0.8), remaining - skew)) * 1000;
+    }
     refreshTimer = window.setTimeout(() => {
-      exchange().catch(() => {});
-    }, delaySeconds * 1000);
+      exchange({ background: true }).catch(() => {});
+    }, delayMs);
+  }
+
+  function preserveAfterTransientFailure() {
+    refreshFailures += 1;
+    publishCredentialState(canMutate() ? 'refresh_delayed' : 'stale');
+    const retryMs = Math.min(5 * 60_000, 5_000 * (2 ** Math.min(refreshFailures - 1, 6)));
+    scheduleRefresh(retryMs);
   }
 
   function setToken(nextToken, nextExpiresAt = 0) {
@@ -122,6 +160,8 @@ export function createMissionAccountsAuthClient({ onLockout = () => {}, onSessio
     }
     token = String(nextToken || '');
     expiresAt = Number(nextExpiresAt || decodeExpiration(token));
+    refreshFailures = 0;
+    publishCredentialState('ready');
     scheduleRefresh();
   }
 
@@ -173,12 +213,17 @@ export function createMissionAccountsAuthClient({ onLockout = () => {}, onSessio
     return payload.token;
   }
 
-  async function exchange() {
+  async function exchange({ background = false } = {}) {
     if (config.localAuth) return '';
     if (!exchangePromise) {
+      const hadToken = Boolean(token);
       exchangePromise = performExchange()
         .catch(error => {
-          lockout(error.state || error.code, error.message);
+          if (hadToken && isTransientFailure(error)) {
+            preserveAfterTransientFailure();
+          } else {
+            lockout(error.state || error.code, error.message);
+          }
           throw error;
         })
         .finally(() => { exchangePromise = null; });
@@ -208,7 +253,7 @@ export function createMissionAccountsAuthClient({ onLockout = () => {}, onSessio
     assertCurrent(expected);
     if (!response.ok) {
       const error = authError(payload, response.status);
-      if (response.status === 401) lockout(error.state || error.code, error.message);
+      if (response.status === 401 || response.status === 403) lockout(error.state || error.code, error.message);
       throw error;
     }
     return payload;
@@ -220,10 +265,10 @@ export function createMissionAccountsAuthClient({ onLockout = () => {}, onSessio
   });
 
   window.addEventListener('focus', () => {
-    if (token && !config.localAuth) exchange().catch(() => {});
+    if (token && !config.localAuth) exchange({ background: true }).catch(() => {});
   });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && token && !config.localAuth) exchange().catch(() => {});
+    if (document.visibilityState === 'visible' && token && !config.localAuth) exchange({ background: true }).catch(() => {});
   });
 
   return Object.freeze({
@@ -233,5 +278,8 @@ export function createMissionAccountsAuthClient({ onLockout = () => {}, onSessio
     setToken,
     clear,
     get token() { return token; },
+    get canMutate() { return canMutate(); },
+    get credentialStatus() { return credentialStatus; },
+    get expiresAt() { return expiresAt; },
   });
 }

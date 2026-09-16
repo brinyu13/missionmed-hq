@@ -11,12 +11,20 @@ const state = {
   bootstrap: null,
   error: null,
   mutating: false,
+  credentialStatus: 'initializing',
+  mutationsAvailable: false,
   payments: { provider: 'stripe', setupEnabled: false, mode: 'disabled', publishableKey: null },
 };
 
 const pendingMutationKeys = new Map();
 const auth = createMissionAccountsAuthClient({
   onSessionChanged() { window.location.reload(); },
+  onCredentialState(credential) {
+    state.credentialStatus = credential?.status || 'unavailable';
+    state.mutationsAvailable = credential?.canMutate === true;
+    document.documentElement.dataset.missionaccountsCredential = state.credentialStatus;
+    if (state.authenticated) window.__XP?.applyCapabilityState?.(document);
+  },
   onLockout(lockoutState, message) {
     state.mode = lockoutState || 'unavailable';
     state.authenticated = false;
@@ -475,6 +483,12 @@ window.MissionAccountsRuntime = Object.freeze({
   },
   request(path, options = {}) { return auth.request(path, options); },
   async mutation(path, { method = 'POST', body, idempotencyKey } = {}) {
+    if (!auth.canMutate) {
+      const error = new Error('Your workspace is still visible, but changes are paused while MissionMed Accounts reconnects.');
+      error.code = 'credential_stale';
+      error.status = 503;
+      throw error;
+    }
     const fingerprint = JSON.stringify([path, method, body]);
     const key = idempotencyKey || pendingMutationKeys.get(fingerprint) || requestId('ui');
     pendingMutationKeys.set(fingerprint, key);

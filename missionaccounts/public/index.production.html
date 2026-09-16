@@ -816,11 +816,11 @@ html[data-theme="dark"] .band .n.est,html[data-theme="dark"] .row .amt .m.est,ht
 .storyforgeOpening[hidden]{display:none}
 .storyforgeOpening[data-phase="leaving"]{opacity:0;visibility:hidden;pointer-events:none}
 .storyforgeOpening:before,.storyforgeOpening:after{content:"";position:absolute;inset:-18%;pointer-events:none}
-.storyforgeOpening:before{background:repeating-linear-gradient(118deg,transparent 0 64px,rgba(255,255,255,.018) 65px 66px,transparent 67px 132px);mask-image:linear-gradient(to bottom,transparent,#000 26%,#000 76%,transparent);-webkit-mask-image:linear-gradient(to bottom,transparent,#000 26%,#000 76%,transparent)}
+.storyforgeOpening:before{background:repeating-linear-gradient(118deg,transparent 0 64px,rgba(255,255,255,.026) 65px 66px,transparent 67px 132px),radial-gradient(circle at 28% 34%,rgba(255,179,64,.18),transparent 23%),radial-gradient(circle at 74% 68%,rgba(71,125,255,.13),transparent 27%);background-size:auto,72vw 72vw,82vw 82vw;mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 84%,transparent);-webkit-mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 84%,transparent)}
 .storyforgeOpening:after{background:radial-gradient(ellipse at center,transparent 32%,rgba(0,0,0,.76) 78%)}
 .storyforgeIntro{position:relative;z-index:2;width:min(780px,94vw);min-height:min(620px,94vh);display:grid;grid-template-rows:auto 88px auto auto;place-content:center;justify-items:center;padding:42px 24px;text-align:center;isolation:isolate}
 .storyforgeIntro:before{content:"";position:absolute;left:50%;top:50%;width:min(700px,92vw);aspect-ratio:1;translate:-50% -48%;border-radius:50%;z-index:-1;background:radial-gradient(circle,rgba(255,179,64,.11),rgba(255,122,61,.045) 36%,rgba(138,125,255,.035) 51%,transparent 69%);filter:blur(18px)}
-.introLogo{width:min(132px,34vw);height:auto;margin-bottom:24px;opacity:.72;filter:grayscale(1) brightness(1.7) drop-shadow(0 12px 32px rgba(0,0,0,.46))}
+.introLogo{width:min(230px,58vw);height:auto;margin-bottom:24px;opacity:.88;filter:grayscale(1) brightness(0) invert(1) drop-shadow(0 12px 32px rgba(0,0,0,.55))}
 .introForge{position:relative;width:min(520px,78vw);height:88px;margin-bottom:-45px;pointer-events:none}
 .introHeat{position:absolute;left:50%;bottom:6px;width:min(440px,76vw);height:46px;translate:-50% 0;border-radius:50%;background:radial-gradient(ellipse,rgba(255,179,64,.3),rgba(255,122,61,.09) 42%,transparent 70%);filter:blur(12px)}
 .introStrike{position:absolute;left:50%;bottom:31px;width:min(380px,68vw);height:1px;translate:-50% 0;background:linear-gradient(90deg,transparent,rgba(255,215,106,.86) 48%,#fff1c7 50%,rgba(255,122,61,.64) 54%,transparent);box-shadow:0 0 12px rgba(255,179,64,.58),0 0 32px rgba(255,122,61,.3);opacity:.68}
@@ -829,9 +829,9 @@ html[data-theme="dark"] .band .n.est,html[data-theme="dark"] .row .amt .m.est,ht
 .introLockup{position:relative;display:grid;justify-items:center;padding:0 10px}
 .introCreator{font-family:var(--num);font-size:clamp(11px,1.2vw,14px);font-weight:700;letter-spacing:.48em;text-indent:.48em;color:var(--gd);text-shadow:0 0 18px rgba(255,215,106,.16)}
 .introProgram{margin-top:5px;font-family:var(--num);font-size:clamp(14px,1.65vw,19px);font-weight:700;letter-spacing:.24em;text-indent:.24em;color:#d9dfeb}
-.introProduct{position:relative;margin-top:17px;font-family:var(--disp);font-size:clamp(56px,8vw,104px);font-style:italic;font-weight:900;line-height:.85;letter-spacing:-.07em;color:#f3f6fc;text-shadow:0 12px 48px rgba(0,0,0,.68),0 1px 0 rgba(255,255,255,.34);transform:none}
+.introProduct{position:relative;display:flex;align-items:baseline;justify-content:center;gap:.08em;margin-top:17px;font-family:var(--disp);font-size:clamp(40px,7vw,94px);font-style:italic;font-weight:900;line-height:.9;letter-spacing:-.065em;color:#f3f6fc;text-shadow:0 12px 48px rgba(0,0,0,.68),0 1px 0 rgba(255,255,255,.34);white-space:nowrap;transform:none}
 .introProduct:after{content:"";position:absolute;inset:-8px -16px;background:linear-gradient(105deg,transparent 32%,rgba(255,255,255,.23) 47%,rgba(255,215,106,.28) 50%,transparent 64%);mix-blend-mode:screen;clip-path:polygon(0 34%,100% 20%,100% 67%,0 78%);opacity:.55;pointer-events:none}
-.introProduct span{color:var(--em);background:linear-gradient(180deg,#ffe2a0 0%,#ffb340 43%,#ff7138 78%,#b93e18 100%);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:none;filter:drop-shadow(0 8px 24px rgba(255,122,61,.24))}
+.introProduct .introAccounts{color:var(--em);background:linear-gradient(180deg,#ffe2a0 0%,#ffb340 43%,#ff7138 78%,#b93e18 100%);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:none;filter:drop-shadow(0 8px 24px rgba(255,122,61,.24))}
 .introSubtitle{max-width:610px;margin-top:23px;font-family:var(--num);font-size:clamp(11px,1.35vw,15px);font-weight:700;letter-spacing:.22em;line-height:1.6;text-indent:.22em;color:#c7d0df}
 .introStatus{margin-top:27px;color:var(--dim);font-family:var(--voice);font-size:13px;line-height:1.5}
 body.motion-enabled .storyforgeIntro:before{animation:introAtmosphere 1.8s ease-out both}
@@ -839,7 +839,10 @@ body.motion-enabled .introLogo{animation:introResolve .52s cubic-bezier(.2,.9,.3
 body.motion-enabled .introHeat{animation:introHeat 1.45s cubic-bezier(.2,.8,.25,1) both}
 body.motion-enabled .introStrike{animation:introStrike 1.15s .15s ease-out both}
 body.motion-enabled .introSpark{animation:introSpark 1.15s .2s cubic-bezier(.1,.68,.28,1) both}
-body.motion-enabled .introLockup{animation:introResolve .7s .35s cubic-bezier(.2,.9,.3,1) both}
+body.motion-enabled .storyforgeOpening:before{animation:openingFieldDrift 18s ease-in-out infinite alternate}
+body.motion-enabled .storyforgeIntro:before{animation:introAtmosphere 5.8s ease-in-out infinite alternate}
+body.motion-enabled .introMissionMed{animation:introWordLeft .9s .22s cubic-bezier(.16,1,.3,1) both}
+body.motion-enabled .introAccounts{animation:introWordRight .9s .22s cubic-bezier(.16,1,.3,1) both}
 body.motion-enabled .introProduct:after{animation:introGlint .82s .52s ease-out both}
 body.motion-enabled .introSubtitle{animation:introResolve .55s .82s cubic-bezier(.2,.9,.3,1) both}
 body.motion-enabled .introStatus{animation:introResolve .5s 1.02s cubic-bezier(.2,.9,.3,1) both}
@@ -849,8 +852,11 @@ body.motion-enabled .introStatus{animation:introResolve .5s 1.02s cubic-bezier(.
 @keyframes introStrike{0%,18%{opacity:0;transform:scaleX(.12)}38%{opacity:.9}100%{opacity:.45;transform:scaleX(1)}}
 @keyframes introSpark{0%,18%{opacity:0;transform:translate(0,0) scale(.3)}45%{opacity:.9}100%{opacity:0;transform:translate(var(--spark-x),var(--spark-y)) scale(.7)}}
 @keyframes introGlint{from{opacity:0;transform:translateX(-38%)}45%{opacity:.68}to{opacity:0;transform:translateX(38%)}}
-@media(max-width:520px){.storyforgeIntro{min-height:100%;grid-template-rows:auto 70px auto auto;padding:30px 18px}.introLogo{width:112px;margin-bottom:18px}.introForge{height:70px;margin-bottom:-34px}.introProduct{font-size:clamp(50px,18vw,74px)}.introSubtitle{max-width:330px;letter-spacing:.15em;text-indent:.15em}.introSpark.s1{--spark-x:-116px}.introSpark.s2{--spark-x:-76px}.introSpark.s5{--spark-x:78px}.introSpark.s6{--spark-x:118px}}
-@media(prefers-reduced-motion:reduce){.storyforgeOpening{transition:none}.storyforgeIntro:before,.introLogo,.introHeat,.introStrike,.introSpark,.introLockup,.introProduct:after,.introSubtitle,.introStatus{animation:none!important}.introSpark{display:none}.introProduct:after{opacity:.22}.introHeat{opacity:.45}.introStrike{opacity:.4}}
+@keyframes introWordLeft{from{opacity:0;transform:translateX(-42vw);filter:blur(10px)}to{opacity:1;transform:translateX(0);filter:blur(0)}}
+@keyframes introWordRight{from{opacity:0;transform:translateX(42vw);filter:blur(10px)}to{opacity:1;transform:translateX(0);filter:drop-shadow(0 8px 24px rgba(255,122,61,.24))}}
+@keyframes openingFieldDrift{0%{transform:translate3d(-3%,-2%,0) rotate(-1deg) scale(1)}55%{transform:translate3d(4%,2%,0) rotate(1deg) scale(1.06)}100%{transform:translate3d(-1%,5%,0) rotate(0) scale(1.1)}}
+@media(max-width:520px){.storyforgeIntro{min-height:100%;grid-template-rows:auto 70px auto auto;padding:30px 18px}.introLogo{width:min(190px,58vw);margin-bottom:18px}.introForge{height:70px;margin-bottom:-34px}.introProduct{font-size:clamp(30px,8.7vw,43px);gap:.03em}.introSubtitle{max-width:340px;letter-spacing:.11em;text-indent:.11em}.introSpark.s1{--spark-x:-116px}.introSpark.s2{--spark-x:-76px}.introSpark.s5{--spark-x:78px}.introSpark.s6{--spark-x:118px}}
+@media(prefers-reduced-motion:reduce){.storyforgeOpening{transition:none}.storyforgeOpening:before,.storyforgeIntro:before,.introLogo,.introHeat,.introStrike,.introSpark,.introLockup,.introMissionMed,.introAccounts,.introProduct:after,.introSubtitle,.introStatus{animation:none!important}.introSpark{display:none}.introProduct:after{opacity:.22}.introHeat{opacity:.45}.introStrike{opacity:.4}}
 body.opening-active{overflow:hidden}
 body.is-booting #hdr,body.is-booting #rail,body.is-booting #main{visibility:hidden}
 body.opening-active #hdr,body.opening-active #rail,body.opening-active #main{visibility:hidden}
@@ -968,8 +974,7 @@ html[data-theme="dark"] .day.blank .dn small{color:#8f99ad}
 .decidedBox.stale .t{color:var(--ink)}
 .compareBanner{margin-top:12px;padding:10px 14px;border:1px dashed var(--amberInk);border-radius:12px;font-size:14px;color:var(--mute);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .opt:focus:not(:focus-visible),.stepPick .opt:focus:not(:focus-visible){outline:none;box-shadow:none}
-/* opening wordmark: MissionAccounts is 50% longer than StoryForge — stack on narrow screens, same type */
-@media(max-width:520px){.introProduct{font-size:clamp(44px,15vw,74px);line-height:.9}.introProduct span{display:block}}
+/* The product words remain a single converging mark at every supported width. */
 @media(max-width:545px) and (min-width:521px){.introProduct{font-size:48px}}
 /* 1024: icon-only search so the header never overflows */
 @media(max-width:1100px){.hSearch{width:38px;padding:7px 10px;cursor:pointer}.hSearch input{width:0;min-width:0;padding:0;opacity:0}.hSearch:focus-within{width:180px}.hSearch:focus-within input{width:auto;opacity:1}.hActions{min-width:0}}
@@ -1046,7 +1051,8 @@ h1:focus:not(:focus-visible){outline:0}
 </style>
 </head>
 <body data-lens="admin" data-context="xp" class="is-booting"><style id="missionaccounts-runtime-gate-style">
-html[data-missionaccounts-build="production"] #missionaccountsRuntimeGate{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:#0a0d14;color:#f4ead7;font:600 15px/1.5 system-ui,sans-serif;text-align:center}
+html[data-missionaccounts-build="production"] #missionaccountsRuntimeGate{display:none}
+html[data-missionaccounts-build="production"][data-missionaccounts-runtime="unavailable"] #missionaccountsRuntimeGate{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:#0a0d14;color:#f4ead7;font:600 15px/1.5 system-ui,sans-serif;text-align:center}
 html[data-missionaccounts-build="production"][data-missionaccounts-runtime="authenticated-readonly"] #missionaccountsRuntimeGate,html[data-missionaccounts-build="production"][data-missionaccounts-runtime="registered-limited"] #missionaccountsRuntimeGate{display:none}
 html[data-missionaccounts-build="production"] [data-reset],html[data-missionaccounts-build="production"] [data-export]{display:none!important}
 html[data-missionaccounts-build="production"] [data-capability-disabled="true"]{cursor:not-allowed!important;opacity:.56!important;filter:saturate(.5)}
@@ -1070,10 +1076,10 @@ html[data-missionaccounts-build="production"] .capabilityNotice b{display:block;
     <div class="introLockup">
       <p class="introCreator">DR J'S</p>
       <p class="introProgram">YOUR MISSIONMED PROGRAMS</p>
-      <h1 class="introProduct" id="maOpeningTitle">MyMissionMed<span> Account</span></h1>
-      <p class="introSubtitle">PROGRAMS. ACCOUNT. PROGRESS. ONE PLACE.</p>
+      <h1 class="introProduct" id="maOpeningTitle"><span class="introMissionMed">MissionMed</span><span class="introAccounts">Accounts</span></h1>
+      <p class="introSubtitle">EVERY CLASS. EVERY BALANCE. YOUR MISSION, CLEARLY ACCOUNTED FOR.</p>
     </div>
-    <p class="introStatus" data-opening-status>Opening your MyMissionMed Account workspace…</p>
+    <p class="introStatus" data-opening-status>Securely opening your account workspace…</p>
   </section>
 </div>
 <header id="hdr"></header>
@@ -1282,14 +1288,14 @@ function identityCanonicalSheet(cl){
       selected=Number(button.dataset.identityCanonical);
       if(!D.students[selected]?.id){ selected=null; return; }
       options.forEach(option=>option.setAttribute('aria-pressed',String(option===button)));
-      confirm.disabled=false;
+      missionAccountsSetMutationControlEnabled(confirm,true);
       confirm.textContent=`Confirm same student — keep ${D.students[selected]?.n||members.find(mm=>mm.si===selected)?.alias||'selected record'} · Record ${D.students[selected].id.slice(-8)}`;
     });
     confirm.onclick=async()=>{
       if(selected===null||saving)return;
       saving=true; confirm.disabled=true; cancel.disabled=true;
       try{ if(await decideIdent(cl,'same',selected)===false)return; closeSheet(); render(); }
-      finally{ saving=false; confirm.disabled=selected===null; cancel.disabled=false; }
+      finally{ saving=false; missionAccountsSetMutationControlEnabled(confirm,selected!==null); cancel.disabled=false; }
     };
     cancel.onclick=()=>{ if(!saving)closeSheet(); };
   });
@@ -1353,25 +1359,25 @@ const openingNode = document.getElementById('maOpening');
 const OPENING_TAB_KEY = 'missionaccounts_opening_seen_this_tab';
 const OPENING_MINIMUM_MS = 1650;          // donor value
 const OPENING_REDUCED_MOTION_MS = 650;    // donor value
-let openingStartedAt = performance.now(); let openingProgressTimer = 0; let openingDone = false;
+let openingStartedAt = performance.now(); let openingProgressTimer = 0; let openingDone = false; let openingSeenThisTab = false;
 function delay(ms){ return new Promise(r=>window.setTimeout(r, ms)); }
 function reducedMotion(){ return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; }
 function canRevealMissionAccountsShell(){ return document.documentElement.dataset.missionaccountsBuild!=='production' || ['authenticated-readonly','registered-limited'].includes(document.documentElement.dataset.missionaccountsRuntime); }
-function revealAuthoritative(){ if(!canRevealMissionAccountsShell()) return false; document.body.classList.remove('opening-active'); document.body.classList.remove('is-booting'); if(openingNode) openingNode.hidden=true; return true; }
+function revealAuthoritative(){ if(!canRevealMissionAccountsShell()) return false; completeOpeningExperience(); return true; }
 function showOpeningExperience(){ if(!openingNode) return;
-  try{ if(sessionStorage.getItem(OPENING_TAB_KEY)==='1' && !location.hash.includes('replay=1')){ dismissOpeningExperience({immediate:true}); return; } }catch(e){ /* a blocked session store may replay the bounded visual, never block access */ }
+  try{ openingSeenThisTab = sessionStorage.getItem(OPENING_TAB_KEY)==='1' && !location.hash.includes('replay=1'); }catch(e){ openingSeenThisTab=false; /* a blocked session store may replay the bounded visual, never block access */ }
   const alreadyActive = !openingNode.hidden && document.body.classList.contains('opening-active'); if(alreadyActive) return;
   if(openingProgressTimer) window.clearTimeout(openingProgressTimer);
   openingStartedAt = performance.now(); openingNode.hidden=false; openingNode.dataset.phase='forming'; document.body.classList.add('opening-active');
-  const status = openingNode.querySelector('[data-opening-status]'); if(status) status.textContent='Opening your MyMissionMed Account workspace…';
-  openingProgressTimer = window.setTimeout(()=>{ if(!openingNode.hidden && status) status.textContent='Preparing your workspace…'; }, 2100);
-  completeOpeningExperience(); }
+  const status = openingNode.querySelector('[data-opening-status]'); if(status) status.textContent='Securely opening your account workspace…';
+  openingProgressTimer = window.setTimeout(()=>{ if(!openingNode.hidden && status) status.textContent='Connecting your private MissionMed workspace…'; }, 2100); }
 function dismissOpeningExperience({immediate=false}={}){ if(!openingNode) return; if(openingProgressTimer) window.clearTimeout(openingProgressTimer); openingProgressTimer=0; openingNode.dataset.phase = immediate?'idle':'leaving'; document.body.classList.remove('opening-active'); if(canRevealMissionAccountsShell()) document.body.classList.remove('is-booting'); if(immediate) openingNode.hidden=true; }
 async function completeOpeningExperience(){ if(!openingNode || openingNode.hidden || openingDone) return; openingDone=true;
-  const rm=reducedMotion(); const minimum = rm? OPENING_REDUCED_MOTION_MS : OPENING_MINIMUM_MS; const remaining=Math.max(0, minimum-(performance.now()-openingStartedAt)); if(remaining) await delay(remaining);
+  if(!canRevealMissionAccountsShell()){ openingDone=false; return; }
+  const rm=reducedMotion(); const minimum = openingSeenThisTab?0:(rm? OPENING_REDUCED_MOTION_MS : OPENING_MINIMUM_MS); const remaining=Math.max(0, minimum-(performance.now()-openingStartedAt)); if(remaining) await delay(remaining);
   try{ sessionStorage.setItem(OPENING_TAB_KEY,'1'); }catch(e){}
   dismissOpeningExperience(); await delay(rm?0:250); openingNode.hidden=true; if(canRevealMissionAccountsShell()) document.body.classList.remove('is-booting'); }
-function skipOpening(){ if(!openingNode || openingNode.hidden) return; openingStartedAt = -1e9; openingDone=false; completeOpeningExperience(); }
+function skipOpening(){ if(!openingNode || openingNode.hidden) return; openingStartedAt = -1e9; openingDone=false; if(canRevealMissionAccountsShell()) completeOpeningExperience(); }
 if(openingNode){ openingNode.addEventListener('click', skipOpening); document.addEventListener('keydown', e=>{ if((e.key==='Escape'||e.key==='Enter'||e.key===' ') && !openingNode.hidden) skipOpening(); }); }
 document.body.classList.toggle('motion-enabled', !reducedMotion());
 
@@ -1777,14 +1783,14 @@ function examSheet(si, by){ const m=model(); const e=m.eff[m.canonOf(si)]; const
   openSheet(`<div class="t">${student?'Set my exam date':'Exam plan · '+esc(e.n)}</div><div class="d">${student?'Tell Dr J which exam you are taking and the date you intend to sit it. She will review it and you will see her answer here. Once approved, classes after your exam date are free while you wait for your result.':'Enter the Step / Level and intended date on the student\'s behalf. It goes into your review queue like any submission.'}</div>
     <div class="stepPick" role="radiogroup" aria-label="Which exam">${['s1','s2','s3'].map(st=>`<button type="button" class="opt ${ex&&ex.step===st?'on':''}" data-step="${st}" role="radio" aria-checked="${ex&&ex.step===st?'true':'false'}"><b>${esc(STEP_NAMES[st])}</b><span>${st==='s1'?'Basic sciences':st==='s2'?'Clinical knowledge':'Patient management'}</span></button>`).join('')}</div>
     <div class="field" style="margin-top:14px"><label for="exDate">Intended exam date</label><input id="exDate" type="date" value="${esc(ex?ex.date:'')}" min="2026-06-01"></div>
-    <div class="acts"><button type="button" class="btn primary" id="exGo" disabled>${student?'Send to Dr J':'Save exam plan'}</button><button type="button" class="btn ghost" id="exNo">Cancel</button></div>`, w=>{ let step=ex?ex.step:null; const refresh=()=>{ $('#exGo').disabled=!(step && $('#exDate').value); };
+    <div class="acts"><button type="button" class="btn primary" id="exGo" disabled>${student?'Send to Dr J':'Save exam plan'}</button><button type="button" class="btn ghost" id="exNo">Cancel</button></div>`, w=>{ let step=ex?ex.step:null; const refresh=()=>{ missionAccountsSetMutationControlEnabled($('#exGo'),Boolean(step && $('#exDate').value)); };
       w.querySelectorAll('[data-step]').forEach(b=>b.onclick=async()=>{ step=b.dataset.step; w.querySelectorAll('[data-step]').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-checked',x===b?'true':'false'); }); refresh(); }); $('#exDate').oninput=refresh; refresh();
       $('#exGo').onclick=async()=>{ if(await submitExam(e.i, step, $('#exDate').value, student?'student':'admin')===false)return; closeSheet(); render(); toast(student?'Sent to Dr J. You will see her answer here.':'Exam plan saved to your review queue.'); }; $('#exNo').onclick=closeSheet; }); }
 function examDecideSheet(si, action){ const m=model(); const e=m.eff[m.canonOf(si)]; const ex=examOf(e.i); if(!ex) return;
   const first=e.n.split(' ')[0]; const wasApproved=['approved','completed'].includes(examView(e.i).state);
   if(action==='passed'){ openSheet(`<div class="t">Record ${esc(first)}'s result</div><div class="d">${esc(STEP_NAMES[ex.step])} on <b>${esc(fmtDate(ex.date))}</b>. Classes from ${esc(fmtDate(ex.date,{short:true}))} to today stay free whatever the result — grace is never billed backwards. Billing resumes from the next class.</div>
       <div class="optGrid" style="margin-top:12px"><button type="button" class="opt" data-res="passed"><b>Passed</b><span>${esc(first)} told you she passed</span></button><button type="button" class="opt" data-res="not_passed"><b>Did not pass</b><span>Grace ends today · plan a retake</span></button><button type="button" class="opt" data-res="no_result"><b>No result yet — end grace</b><span>Use when the wait has gone on too long</span></button></div>
-      <div class="field" style="margin-top:12px"><label for="exNote">Note (kept in history)</label><input id="exNote" type="text" placeholder="optional"></div><div class="acts"><button type="button" class="btn confirm" id="exdGo" disabled>Record</button><button type="button" class="btn ghost" id="exdNo">Cancel</button></div>`, w=>{ let res=null; w.querySelectorAll('[data-res]').forEach(b=>b.onclick=async()=>{ res=b.dataset.res; w.querySelectorAll('[data-res]').forEach(x=>x.classList.toggle('on',x===b)); $('#exdGo').disabled=false; }); $('#exdGo').onclick=async()=>{ if(!res) return; const note=$('#exNote').value.trim(); const saved=res==='passed'?await markPassed(e.i,'admin'):await decideExam(e.i,res,note); if(saved===false)return; closeSheet(); render(); toast(res==='passed'?'Passed recorded. Grace ended today.':res==='not_passed'?'Result recorded — did not pass. Grace ended today.':'Grace ended today. No result recorded.'); }; $('#exdNo').onclick=closeSheet; }); return; }
+      <div class="field" style="margin-top:12px"><label for="exNote">Note (kept in history)</label><input id="exNote" type="text" placeholder="optional"></div><div class="acts"><button type="button" class="btn confirm" id="exdGo" disabled>Record</button><button type="button" class="btn ghost" id="exdNo">Cancel</button></div>`, w=>{ let res=null; w.querySelectorAll('[data-res]').forEach(b=>b.onclick=async()=>{ res=b.dataset.res; w.querySelectorAll('[data-res]').forEach(x=>x.classList.toggle('on',x===b)); missionAccountsSetMutationControlEnabled($('#exdGo'),true); }); $('#exdGo').onclick=async()=>{ if(!res) return; const note=$('#exNote').value.trim(); const saved=res==='passed'?await markPassed(e.i,'admin'):await decideExam(e.i,res,note); if(saved===false)return; closeSheet(); render(); toast(res==='passed'?'Passed recorded. Grace ended today.':res==='not_passed'?'Result recorded — did not pass. Grace ended today.':'Grace ended today. No result recorded.'); }; $('#exdNo').onclick=closeSheet; }); return; }
   const titles={approve:'Approve this exam date?', deny:'Ask for another date', speak:'Speak with the student first', followup:'Mark as needs follow-up', reopen:'Reopen this exam plan'};
   const desc={approve:`${esc(STEP_NAMES[ex.step])} on <b>${esc(fmtDate(ex.date))}</b>. Once approved, attendance after that date is recorded but not billed while ${esc(first)} waits for the result. If we have not heard by ${esc(fmtDate(thirdWednesdayAfter(ex.date),{short:true}))} (the third Wednesday after the exam) a check-in reminder goes out.`, deny:`The student will be asked to choose another date. You can suggest one.${wasApproved?' Days already in grace stay free; grace ends today.':''}`, speak:'Puts the request on hold and tells the student you want to talk first. Nothing changes on billing until you decide.', followup:'Use this when the result is overdue or something needs checking. Grace stays on until you record a result.', reopen:`Puts the plan back in your review queue.${wasApproved||ex.state==='passed'?' Days already in grace stay free.':''}`}[action];
   openSheet(`<div class="t">${titles[action]}</div><div class="d">${desc}</div>${action==='deny'?`<div class="field" style="margin-top:12px"><label for="exNew">Suggested date (optional)</label><input id="exNew" type="date"></div>`:''}<div class="field" style="margin-top:12px"><label for="exNote">Note to the student (optional, kept in history)</label><input id="exNote" type="text" placeholder="${action==='speak'?'e.g. Let’s talk about Step 2 timing on Tuesday':'optional'}"></div>
@@ -2136,8 +2142,21 @@ function missionAccountsHydrateProviderInvoice(root){
   }
   controls.reverse().forEach(control=>row.prepend(control));
 }
+function missionAccountsMutationsAvailable(){ const state=window.MissionAccountsRuntime?.state; return !(state?.authenticated && state.mutationsAvailable===false); }
+function missionAccountsSetMutationControlEnabled(control,enabled){
+  if(!control)return;
+  if(control.dataset.capabilityDisabled==='true'){ control.disabled=true; return; }
+  if(!missionAccountsMutationsAvailable()){
+    control.dataset.credentialDesiredDisabled=String(!enabled); control.dataset.credentialDisabled='true';
+    control.disabled=true; control.setAttribute('aria-disabled','true'); control.title='Connection is being restored. Editing will resume automatically when the secure session refreshes.'; return;
+  }
+  if(control.dataset.credentialDisabled==='true'){ control.dataset.credentialDesiredDisabled=String(!enabled); control.disabled=true; return; }
+  control.disabled=!enabled;
+}
 function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRuntime?.state?.user?.role==='student') root.querySelectorAll('.demo,[data-lens]').forEach(node=>{ if(node!==document.body) node.hidden=true; });
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return;
+  const credentialReason='Connection is being restored. Editing will resume automatically when the secure session refreshes.';
+  root.querySelectorAll('[data-credential-disabled="true"]').forEach(control=>{ control.disabled=control.dataset.credentialDesiredDisabled==='true'; control.removeAttribute('aria-disabled'); delete control.dataset.credentialDesiredDisabled; delete control.dataset.credentialDisabled; if(control.title===credentialReason) control.removeAttribute('title'); });
   const rules=[
     ['student_contacts','[data-save-contact],#eSaveId,[data-etab="identity"]','Student contact editing is not enabled for this environment.'],
     ['billing_decisions','[data-decide],[data-decide-amt],[data-undecide],[data-other],[data-confirm-group],[data-confirm-all],[data-policy],[data-ready]','Billing approval and invoice readiness are not enabled for this environment.'],
@@ -2159,9 +2178,20 @@ function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRun
   root.querySelectorAll('[data-rule-decision]').forEach(control=>missionAccountsDisable(control,'The Founder rule decision is locked and read-only.'));
 
   if(!missionAccountsCapability('billing_decisions')) root.querySelectorAll('[data-bt],#bSave,[data-etab="billing"],[data-t],#oSave').forEach(control=>missionAccountsDisable(control,'Billing decisions are not enabled for this environment.'));
-  if(!missionAccountsCapability('identity_review')) root.querySelectorAll('[data-identity-canonical]').forEach(control=>missionAccountsDisable(control,'Identity review is not enabled for this environment.'));
+  if(!missionAccountsCapability('identity_review')) root.querySelectorAll('[data-ident],[data-ident-undo],[data-dev],[data-dev-undo],[data-identity-canonical],#identityCanonicalConfirm').forEach(control=>missionAccountsDisable(control,'Identity review is not enabled for this environment.'));
   if(!['student'].includes(window.MissionAccountsRuntime?.state?.user?.role)){
     root.querySelectorAll('[data-pay],[data-auth],[data-auth-off]').forEach(control=>missionAccountsDisable(control,'Only the signed-in student may change payment setup or authorization.'));
+  }
+  const credentialMutationSelector=rules.map(([,selector])=>selector).concat([
+    '[data-edit]','[data-bt]','#bSave','[data-t]','#oSave',
+    '[data-ident]','[data-ident-undo]','[data-dev]','[data-dev-undo]','[data-identity-canonical]','#identityCanonicalConfirm',
+    '[data-onboarding-form] button[type="submit"]',
+    '[data-legacy-liability] button[type="submit"]','[data-legacy-manual] button[type="submit"]','[data-legacy-approve]','#legacyApproveYes',
+    '#exGo','#exdGo','#psYes','#cGo','#eSaveId','#airGo','#gGo','#batchUndo','#mcGo','#mConfirm','#rGo'
+  ]).join(',');
+  const runtimeState=window.MissionAccountsRuntime?.state;
+  if(runtimeState?.authenticated && runtimeState.mutationsAvailable===false){
+    root.querySelectorAll(credentialMutationSelector).forEach(control=>{ if(control.dataset.capabilityDisabled==='true') return; if(control.dataset.credentialDisabled!=='true') control.dataset.credentialDesiredDisabled=String(Boolean(control.disabled)); control.disabled=true; control.setAttribute('aria-disabled','true'); control.title=credentialReason; control.dataset.credentialDisabled='true'; });
   }
   root.querySelectorAll('[role="tab"]').forEach(tab=>{ const selected=tab.classList.contains('on'); tab.setAttribute('aria-selected',String(selected)); tab.tabIndex=selected?0:-1; });
   root.querySelectorAll('[data-theme-set]').forEach(button=>button.setAttribute('aria-pressed',String(button.classList.contains('on'))));
@@ -2186,7 +2216,7 @@ function missionAccountsBatchOutcome(result,k){
   const rows=(result.results||[]).map(row=>{ const si=Object.entries(window.MissionAccountsRuntime.getCanonicalModel().ids.students).find(([,id])=>id===row.student_id)?.[0]; const student=D.students[Number(si)]; return '<div class="panel" style="padding:12px;margin-top:8px">'+(si==null?'Record unavailable':'<a href="#/student/'+Number(si)+'?cycle='+k+'">'+esc(student?.n||'Record')+'</a>')+' · '+(row.accepted?(reversing?'Reversed':'Confirmed'):('Needs review: '+esc(String(row.reason||'Record changed').replaceAll('_',' '))))+'</div>'; }).join('');
   openSheet('<div class="t">'+count+' '+(reversing?'reversed':'confirmed')+' · '+Number(result.rejected_count||0)+' need review</div><div class="d">Each result is recorded on the server. Held records keep their prior state. No payment was sent or collected.</div><div style="max-height:40vh;overflow:auto">'+rows+'</div><div class="acts">'+(!reversing&&count?'<button class="btn ghost" id="batchUndo">Undo confirmed records</button>':'')+'<button class="btn primary" id="batchDone">Done</button></div>',()=>{
     $('#batchDone').onclick=closeSheet;
-    const undo=$('#batchUndo'); if(undo){ const requestId='ui:'+crypto.randomUUID(); undo.onclick=async()=>{ undo.disabled=true; const receipt=await window.MissionAccountsRuntime.dispatch('billing-batch-reversal',{batchId:result.batch_id,requestId}); if(receipt===false){undo.disabled=false;return;} missionAccountsBatchOutcome(receipt,k); }; }
+    const undo=$('#batchUndo'); if(undo){ const requestId='ui:'+crypto.randomUUID(); undo.onclick=async()=>{ undo.disabled=true; const receipt=await window.MissionAccountsRuntime.dispatch('billing-batch-reversal',{batchId:result.batch_id,requestId}); if(receipt===false){missionAccountsSetMutationControlEnabled(undo,true);return;} missionAccountsBatchOutcome(receipt,k); }; }
   });
 }
 async function missionAccountsConfirmGroupSheet(k,which){
@@ -2204,7 +2234,7 @@ async function missionAccountsConfirmGroupSheet(k,which){
   const total=[...expectedAmounts.values()].reduce((a,b)=>a+b,0)/100;
   const requestId='ui:'+crypto.randomUUID();
   openSheet('<div class="t">Confirm '+items.length+' '+esc(cyc(k).label)+' records?</div><div class="d">Total <b class="money">'+money(total)+'</b>. The server will recheck each record. Changed or held records are reported separately. Nothing is charged.'+(all.length>100?' This batch contains the first 100 of '+all.length+' records; reopen the group for the remainder.':'')+'</div><div class="picker" style="max-height:34vh">'+items.map(x=>'<div style="padding:12px">'+esc(x.e.n)+' · '+money(suggestionFor(x.e,k).amount)+'</div>').join('')+'</div><div class="acts"><button class="btn confirm" id="gGo">Confirm '+items.length+' · '+money(total)+'</button><button class="btn ghost" id="gNo">Cancel</button></div>',()=>{
-    $('#gNo').onclick=closeSheet; $('#gGo').onclick=async()=>{ const button=$('#gGo');button.disabled=true;const result=await window.MissionAccountsRuntime.dispatch('billing-batch',{k,items:requestItems,requestId});if(result===false){button.disabled=false;return;} missionAccountsBatchOutcome(result,k); };
+    $('#gNo').onclick=closeSheet; $('#gGo').onclick=async()=>{ const button=$('#gGo');button.disabled=true;const result=await window.MissionAccountsRuntime.dispatch('billing-batch',{k,items:requestItems,requestId});if(result===false){missionAccountsSetMutationControlEnabled(button,true);return;} missionAccountsBatchOutcome(result,k); };
   });
 }
 function missionAccountsManualChargeHTML(e,k){
@@ -2223,7 +2253,7 @@ function missionAccountsManualChargeSheet(si,k){
   if(e&&(e.sponsor==='UCC'||e.sponsor==='MUL')){toast('Sponsored student direct liability is $0.');return;}
   if(!e||!decision||decision.state!=='approved'||Number(decision.amt)<=0||!method||method.state!=='on_file'){toast('The current approved balance and saved card are required.');return;}
   openSheet('<div class="t">Confirm real charge</div><div class="d">Review every item. This action creates a real LIVE Stripe charge and cannot be treated as a preview.</div><div class="kv" style="margin-top:16px"><span class="k">Student</span><span class="v">'+esc(e.n)+'</span><span class="k">Cycle</span><span class="v">'+esc(cyc(k).label)+'</span><span class="k">Amount</span><span class="v money">'+money(decision.amt)+'</span><span class="k">Payment method</span><span class="v">'+esc(method.brand||'card')+' •••• '+esc(method.last4)+'</span></div><p class="why" style="margin-top:14px"><b>Real charge:</b> MissionAccounts will ask the server to recheck this exact approved balance and saved payment method before contacting Stripe.</p><div class="acts"><button type="button" class="btn confirm" id="mcGo">Confirm charge</button><button type="button" class="btn ghost" id="mcNo">Cancel</button></div>',()=>{
-    $('#mcNo').onclick=closeSheet; $('#mcGo').onclick=async()=>{const button=$('#mcGo');button.disabled=true;const saved=await window.MissionAccountsRuntime.dispatch('manual-cycle-charge',{si,k,decisionId:decision.id,amountCents:Math.round(Number(decision.amt)*100),last4:String(method.last4)});if(saved===false){button.disabled=false;return;}closeSheet();render();toast('Charge submitted. Reloading will show Stripe-confirmed status.');};
+    $('#mcNo').onclick=closeSheet; $('#mcGo').onclick=async()=>{const button=$('#mcGo');button.disabled=true;const saved=await window.MissionAccountsRuntime.dispatch('manual-cycle-charge',{si,k,decisionId:decision.id,amountCents:Math.round(Number(decision.amt)*100),last4:String(method.last4)});if(saved===false){missionAccountsSetMutationControlEnabled(button,true);return;}closeSheet();render();toast('Charge submitted. Reloading will show Stripe-confirmed status.');};
   });
 }
 
@@ -2359,7 +2389,7 @@ function matchSheet(dv){
         selected=Number(button.dataset.pick);
         if(!D.students[selected]?.id){ selected=null; return; }
         buttons.forEach(option=>option.setAttribute('aria-pressed',String(option===button)));
-        confirm.disabled=false;
+        missionAccountsSetMutationControlEnabled(confirm,true);
         confirm.textContent=`Confirm match to ${people.find(p=>p.i===selected)?.n||'selected student'} · Record ${D.students[selected].id.slice(-8)}`;
       });
     };
@@ -2368,7 +2398,7 @@ function matchSheet(dv){
       if(selected===null||saving)return;
       saving=true; confirm.disabled=true; cancel.disabled=true;
       try{ if(await decideDevice(dv,'match',selected)===false)return; closeSheet(); render(); }
-      finally{ saving=false; confirm.disabled=selected===null; cancel.disabled=false; }
+      finally{ saving=false; missionAccountsSetMutationControlEnabled(confirm,selected!==null); cancel.disabled=false; }
     };
     cancel.onclick=()=>{ if(!saving)closeSheet(); };
   });
@@ -2429,7 +2459,7 @@ function bind(root){
       }
       if(error?.status===409) toast(message,{label:'Reload',action:()=>location.reload()}); else toast(message);
     }finally{
-      button.disabled=false; button.textContent=prior;
+      missionAccountsSetMutationControlEnabled(button,true); button.textContent=prior;
     }
   });
   root.querySelectorAll('[data-go]').forEach(el=>{ el.addEventListener('click',e=>{ if(el.tagName==='A') return; go(el.dataset.go); }); if(el.getAttribute('role')==='link') el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') go(el.dataset.go); }); });
@@ -2486,7 +2516,7 @@ function bind(root){
     const body={kind:'one_on_one',service_key:'one_on_one:'+data.service_on,revision:Number(data.revision),state:'attested',service_on:data.service_on,duration_minutes:duration,rate_cents:rateCents,amount_cents:Math.round(rateCents*duration/60),treatment:'none',source_ref:String(data.source_ref).trim(),source_sha256:String(data.source_sha256).trim(),reason:String(data.reason).trim()};
     button.disabled=true; const prior=button.textContent; button.textContent='Saving…';
     try{ await window.MissionAccountsRuntime.mutation('/admin/students/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.studentId)+'/legacy-invoices/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.cycleKey)+'/manual-items',{body}); await legacyInvoiceLoad(LEGACY_INVOICE_CONTEXT.studentId,LEGACY_INVOICE_CONTEXT.cycleKey); toast('Verified 1-on-1 recorded in the internal preview.'); }
-    catch(error){ button.disabled=false; button.textContent=prior; toast(error instanceof Error?error.message:'The 1-on-1 could not be recorded.'); }
+    catch(error){ missionAccountsSetMutationControlEnabled(button,true); button.textContent=prior; toast(error instanceof Error?error.message:'The 1-on-1 could not be recorded.'); }
   };
   const legacyLiability=root.querySelector('[data-legacy-liability]');
   if(legacyLiability) legacyLiability.onsubmit=async event=>{
@@ -2496,7 +2526,7 @@ function bind(root){
     const body={revision:Number(data.revision),classification:data.classification,source_ref:String(data.source_ref).trim(),source_sha256:String(data.source_sha256).trim(),reason:String(data.reason).trim()};
     button.disabled=true; const prior=button.textContent; button.textContent='Saving…';
     try{ await window.MissionAccountsRuntime.mutation('/admin/students/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.studentId)+'/legacy-invoices/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.cycleKey)+'/liability',{body}); await legacyInvoiceLoad(LEGACY_INVOICE_CONTEXT.studentId,LEGACY_INVOICE_CONTEXT.cycleKey); toast('Liability review recorded. No invoice was sent.'); }
-    catch(error){ button.disabled=false; button.textContent=prior; toast(error instanceof Error?error.message:'The liability review could not be recorded.'); }
+    catch(error){ missionAccountsSetMutationControlEnabled(button,true); button.textContent=prior; toast(error instanceof Error?error.message:'The liability review could not be recorded.'); }
   };
   const legacyApprove=root.querySelector('[data-legacy-approve]');
   if(legacyApprove) legacyApprove.onclick=()=>{
@@ -2506,7 +2536,7 @@ function bind(root){
       $('#legacyApproveYes').onclick=async()=>{
         const button=$('#legacyApproveYes'); button.disabled=true; button.textContent='Approving…';
         try{ await window.MissionAccountsRuntime.mutation('/admin/students/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.studentId)+'/legacy-invoices/'+encodeURIComponent(LEGACY_INVOICE_CONTEXT.cycleKey)+'/approve',{body:{lines:snapshot.lines,amount_cents:Number(snapshot.total_cents),preview_digest_sha256:snapshot.preview_digest_sha256,source_digest_sha256:snapshot.source_digest_sha256}}); closeSheet(); await legacyInvoiceLoad(LEGACY_INVOICE_CONTEXT.studentId,LEGACY_INVOICE_CONTEXT.cycleKey); toast('Exact legacy snapshot approved internally. No provider action occurred.'); }
-        catch(error){ button.disabled=false; button.textContent='Approve internal snapshot'; toast(error instanceof Error?error.message:'The snapshot was not approved.'); }
+        catch(error){ missionAccountsSetMutationControlEnabled(button,true); button.textContent='Approve internal snapshot'; toast(error instanceof Error?error.message:'The snapshot was not approved.'); }
       };
     });
   };
@@ -2538,7 +2568,7 @@ function hydrateAuthoritative(nextD,nextWS,idMaps,nextProgramAccess){
   return {students:D.students.length,sessions:D.sessions.length,events:D.events.length,lens:WS.lens};
 }
 render(); showOpeningExperience();
-window.__XP = {D, WS:()=>WS, model, cycleStats, render, decide, addCorr, undoCorr, setPM, setAuth, setContact, editSheet, otherSheet, paymentSheet, authSheet, resetSheet, applyTheme, setTheme, submitExam, decideExam, markPassed, withdrawExam, setComp, setRule, recordRuleDecision, graceWindows, basisOf, ORIG_TOTAL, migrate, touch, decideIdent, examView, examSheet, examDecideSheet, passedSheet, compSheet, showOpeningExperience, skipOpening, cmdRoute, meStudent, accountState, suggestionFor, unitsOf, hydrateAuthoritative, hydrateAccountAccess, revealAuthoritative, toast, clearSensitiveState};
+window.__XP = {D, WS:()=>WS, model, cycleStats, render, decide, addCorr, undoCorr, setPM, setAuth, setContact, editSheet, otherSheet, paymentSheet, authSheet, resetSheet, applyTheme, setTheme, submitExam, decideExam, markPassed, withdrawExam, setComp, setRule, recordRuleDecision, graceWindows, basisOf, ORIG_TOTAL, migrate, touch, decideIdent, examView, examSheet, examDecideSheet, passedSheet, compSheet, showOpeningExperience, skipOpening, cmdRoute, meStudent, accountState, suggestionFor, unitsOf, hydrateAuthoritative, hydrateAccountAccess, revealAuthoritative, toast, clearSensitiveState, applyCapabilityState:missionAccountsApplyCapabilityState};
 })();
 
 </script>

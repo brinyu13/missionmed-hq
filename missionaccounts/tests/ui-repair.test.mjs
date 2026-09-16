@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 const html=await readFile(new URL('../public/index.production.html', import.meta.url),'utf8');
@@ -92,6 +93,70 @@ test('registered account landing provides enrollment-aware program states and re
  assert.match(html,/body\.opening-active #hdr,body\.opening-active #rail,body\.opening-active #main\{visibility:hidden\}/);
 });
 
+test('production opening is branded, animated, accessible, and bootstrap-bound',()=>{
+ const embeddedLogo=html.match(/src="data:image\/png;base64,([^"]+)" alt="MissionMed Institute"/);
+ assert.ok(embeddedLogo,'verified MissionMed logo must be embedded so the production package cannot omit it');
+ const embeddedLogoBytes=Buffer.from(embeddedLogo[1],'base64');
+ assert.equal(createHash('sha256').update(embeddedLogoBytes).digest('hex'),'f091d62ac5842cde0e9e455321839fd98b291598478aae6ce13b09ea3896ff56');
+ assert.match(html,/class="introMissionMed">MissionMed<\/span><span class="introAccounts">Accounts<\/span>/);
+ assert.match(html,/EVERY CLASS\. EVERY BALANCE\. YOUR MISSION, CLEARLY ACCOUNTED FOR\./);
+ assert.match(html,/@keyframes introWordLeft/);
+ assert.match(html,/@keyframes introWordRight/);
+ assert.match(html,/@keyframes openingFieldDrift/);
+ assert.match(html,/openingFieldDrift 18s ease-in-out infinite alternate/);
+ assert.match(html,/@media\(max-width:520px\)\{\.storyforgeIntro[\s\S]+\.introProduct\{font-size:clamp\(30px,8\.7vw,43px\);gap:\.03em\}/);
+ assert.match(html,/@media\(prefers-reduced-motion:reduce\)/);
+ assert.match(html,/function revealAuthoritative\(\)\{ if\(!canRevealMissionAccountsShell\(\)\) return false; completeOpeningExperience\(\); return true; \}/);
+ assert.match(html,/if\(!canRevealMissionAccountsShell\(\)\)\{ openingDone=false; return; \}/);
+ assert.doesNotMatch(fn('showOpeningExperience'),/completeOpeningExperience\(\)/);
+ assert.doesNotMatch(fn('showOpeningExperience'),/dismissOpeningExperience/);
+ assert.match(fn('showOpeningExperience'),/openingSeenThisTab = sessionStorage\.getItem/);
+ assert.match(fn('missionAccountsApplyCapabilityState'),/mutationsAvailable===false/);
+ assert.match(fn('missionAccountsApplyCapabilityState'),/data-credential-disabled/);
+ assert.match(html,/data-missionaccounts-runtime="unavailable"\] #missionaccountsRuntimeGate/);
+});
+
+test('stale credentials visibly disable every rendered mutation control and ready credentials restore them',()=>{
+ const credentialReason='Connection is being restored. Editing will resume automatically when the secure session refreshes.';
+ const makeControl=(disabled=false,dataset={})=>({disabled,title:'',dataset:{...dataset},removeAttribute(name){if(name==='title')this.title='';},setAttribute(){}});
+ const records=[
+  ['[data-onboarding-form] button[type="submit"]',makeControl()],
+  ['[data-legacy-liability] button[type="submit"]',makeControl()],
+  ['[data-legacy-manual] button[type="submit"]',makeControl()],
+  ['[data-legacy-approve]',makeControl()],
+  ['[data-ident]',makeControl()],
+  ['#mcGo',makeControl()],
+  ['#mConfirm',makeControl(true)],
+  ['#exGo',makeControl(true)],
+ ];
+ const capabilityDisabled=makeControl(true,{capabilityDisabled:'true'});
+ records.push(['[data-save-contact]',capabilityDisabled]);
+ const controls=records.map(([,control])=>control);
+ const root={querySelectorAll(selector){
+  if(selector==='[data-credential-disabled="true"]') return controls.filter(control=>control.dataset.credentialDisabled==='true');
+  return records.filter(([token])=>selector.includes(token)).map(([,control])=>control);
+ }};
+ const state={user:{role:'missionaccounts_admin'},authenticated:true,mutationsAvailable:false};
+ const context={
+  window:{MissionAccountsRuntime:{state}},document:{documentElement:{dataset:{missionaccountsBuild:'production'}},body:{}},
+  missionAccountsCapability:()=>true,
+  missionAccountsDisable(control,reason){control.disabled=true;control.title=reason;control.dataset.capabilityDisabled='true';},
+  MISSION_ACCOUNTS_CREDENTIAL_REASON:credentialReason,
+ };
+ vm.runInNewContext('('+fn('missionAccountsApplyCapabilityState')+')(root)',{...context,root});
+ for(const control of controls.filter(control=>control!==capabilityDisabled)){assert.equal(control.disabled,true);assert.equal(control.dataset.credentialDisabled,'true');assert.equal(control.title,credentialReason);}
+ assert.equal(capabilityDisabled.disabled,true);assert.equal(capabilityDisabled.dataset.credentialDisabled,undefined);
+ vm.runInNewContext('('+fn('missionAccountsSetMutationControlEnabled')+')(control,true)',{...context,control:capabilityDisabled,missionAccountsMutationsAvailable:()=>true});
+ assert.equal(capabilityDisabled.disabled,true,'a dialog finally path cannot enable a capability-disabled mutation');
+ const initiallyDisabled=records.find(([token])=>token==='#mConfirm')[1];
+ vm.runInNewContext('('+fn('missionAccountsSetMutationControlEnabled')+')(control,true)',{...context,control:initiallyDisabled,missionAccountsMutationsAvailable:()=>false});
+ assert.equal(initiallyDisabled.disabled,true);assert.equal(initiallyDisabled.dataset.credentialDesiredDisabled,'false');
+ state.mutationsAvailable=true;
+ vm.runInNewContext('('+fn('missionAccountsApplyCapabilityState')+')(root)',{...context,root});
+ for(const [token,control] of records.filter(([,control])=>control!==capabilityDisabled)){assert.equal(control.disabled,token==='#exGo');assert.equal(control.dataset.credentialDisabled,undefined);assert.equal(control.title,'');}
+ assert.equal(capabilityDisabled.disabled,true);assert.equal(capabilityDisabled.dataset.capabilityDisabled,'true');
+});
+
 test('onboarding UI recovers saves, keeps student role guards, and uses truthful copy',()=>{
  const theme=fn('setTheme');
  assert.match(theme,/missionAccountsApplyCapabilityState\(document\)/);
@@ -100,7 +165,7 @@ test('onboarding UI recovers saves, keeps student role guards, and uses truthful
  const noChange=bind.indexOf("if(!Object.keys(profile).length)");
  const disable=bind.indexOf("button.disabled=true");
  assert.ok(noChange>0&&disable>noChange);
- assert.match(bind,/finally\{[\s\S]*button\.disabled=false; button\.textContent=prior/);
+ assert.match(bind,/finally\{[\s\S]*missionAccountsSetMutationControlEnabled\(button,true\); button\.textContent=prior/);
  assert.match(bind,/error\?\.status===400&&error\.field/);
  assert.match(bind,/setAttribute\('aria-invalid','true'\)/);
  assert.match(bind,/error\?\.status===409/);
@@ -184,6 +249,7 @@ function identityChoiceHarness(accepted){
  vm.runInNewContext(fn('identityCanonicalSheet')+';identityCanonicalSheet(cl)',{
   cl,...identityFixture(),esc:String,
   openSheet:(html,bind)=>{markup=html;bind(w);},
+  missionAccountsSetMutationControlEnabled:(control,enabled)=>{control.disabled=!enabled;},
   decideIdent:async(_cl,decision,si)=>{calls.push(['decision',decision,si]);return accepted;},
   closeSheet:()=>calls.push(['close']),render:()=>calls.push(['render']),
  });
@@ -233,6 +299,7 @@ test('unidentified attendee match stays on hold until a separate named confirmat
   dv,...identityFixture(),model:()=>({eff:[0,1].map(i=>({i,n:'Same Student',absorbed:false,notStudent:false,k:'student',c:{}}))}),
   CYK:[],cyc:()=>({label:'June Cycle'}),devicePreview:()=>[],money:value=>'$'+value,esc:String,
   openSheet:(html,bind)=>{markup=html;bind(w);},
+  missionAccountsSetMutationControlEnabled:(control,enabled)=>{control.disabled=!enabled;},
   decideDevice:async(_dv,decision,si)=>{calls.push(['decision',decision,si]);return accepted;},
   closeSheet:()=>calls.push(['close']),render:()=>calls.push(['render']),
  });
