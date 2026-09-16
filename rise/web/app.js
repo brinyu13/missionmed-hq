@@ -540,7 +540,7 @@ function renderShell() {
 function switchRole() {
   if (!state.canAdmin) { toast('Admin access is not available for this account.'); return; }
   if (state.role === 'admin') { state.role = 'student'; nav('home'); }
-  else { state.role = 'admin'; nav('admin/students'); }
+  else { state.role = 'admin'; nav('admin/research'); }
 }
 window.switchRole = switchRole;
 function focusLookup() {
