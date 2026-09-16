@@ -48,7 +48,8 @@ const scopedData = {
   review_meeting: null,
 };
 const gate = `<style id="missionaccounts-runtime-gate-style">
-html[data-missionaccounts-build="production"] #missionaccountsRuntimeGate{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:#0a0d14;color:#f4ead7;font:600 15px/1.5 system-ui,sans-serif;text-align:center}
+html[data-missionaccounts-build="production"] #missionaccountsRuntimeGate{display:none}
+html[data-missionaccounts-build="production"][data-missionaccounts-runtime="unavailable"] #missionaccountsRuntimeGate{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:#0a0d14;color:#f4ead7;font:600 15px/1.5 system-ui,sans-serif;text-align:center}
 html[data-missionaccounts-build="production"][data-missionaccounts-runtime="authenticated-readonly"] #missionaccountsRuntimeGate{display:none}
 html[data-missionaccounts-build="production"] [data-reset],html[data-missionaccounts-build="production"] [data-export]{display:none!important}
 html[data-missionaccounts-build="production"] [data-capability-disabled="true"]{cursor:not-allowed!important;opacity:.56!important;filter:saturate(.5)}
@@ -399,6 +400,31 @@ productionHtml = productionHtml.replace("function hideToast(){", "function hideT
 productionHtml = productionHtml.replace("function toast(msg, undo){", "function toast(msg, undo){ if(!$('#toast'))return;");
 productionHtml = productionHtml.replace('unitsOf, hydrateAuthoritative};', 'unitsOf, hydrateAuthoritative, toast, clearSensitiveState};');
 productionHtml = repairCanon5401(productionHtml);
+const opening5404rStyle = \`<style id="missionaccounts-5404r-opening">
+.storyforgeOpening:before{background:repeating-linear-gradient(118deg,transparent 0 64px,rgba(255,255,255,.026) 65px 66px,transparent 67px 132px),radial-gradient(circle at 28% 34%,rgba(255,179,64,.18),transparent 23%),radial-gradient(circle at 74% 68%,rgba(71,125,255,.13),transparent 27%);background-size:auto,72vw 72vw,82vw 82vw}
+.introLogo{width:min(230px,58vw);filter:grayscale(1) brightness(0) invert(1) drop-shadow(0 12px 32px rgba(0,0,0,.55))}
+.introProduct{display:flex;align-items:baseline;justify-content:center;gap:.08em;font-size:clamp(40px,7vw,94px);white-space:nowrap}
+.introProduct .introAccounts{color:var(--em);background:linear-gradient(180deg,#ffe2a0 0%,#ffb340 43%,#ff7138 78%,#b93e18 100%);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+body.motion-enabled .storyforgeOpening:before{animation:openingFieldDrift 18s ease-in-out infinite alternate}
+body.motion-enabled .storyforgeIntro:before{animation:introAtmosphere 5.8s ease-in-out infinite alternate}
+body.motion-enabled .introMissionMed{animation:introWordLeft .9s .22s cubic-bezier(.16,1,.3,1) both}
+body.motion-enabled .introAccounts{animation:introWordRight .9s .22s cubic-bezier(.16,1,.3,1) both}
+@keyframes introWordLeft{from{opacity:0;transform:translateX(-42vw);filter:blur(10px)}to{opacity:1;transform:translateX(0);filter:blur(0)}}
+@keyframes introWordRight{from{opacity:0;transform:translateX(42vw);filter:blur(10px)}to{opacity:1;transform:translateX(0)}}
+@keyframes openingFieldDrift{to{transform:translate3d(4%,5%,0) rotate(1deg) scale(1.1)}}
+@media(max-width:520px){.introLogo{width:min(190px,58vw)}.introProduct{font-size:clamp(34px,10.4vw,48px);gap:.06em}.introSubtitle{letter-spacing:.11em;text-indent:.11em}}
+@media(prefers-reduced-motion:reduce){.storyforgeOpening:before,.introMissionMed,.introAccounts{animation:none!important}}
+</style>\`;
+productionHtml = productionHtml.replace('</head>', opening5404rStyle + '</head>');
+productionHtml = productionHtml.replace(/<img class="introLogo" src="data:image\/png;base64,[^"]+" alt="MissionMed Institute">/, '<img class="introLogo" src="./missionmed-logo.png" alt="MissionMed Institute">');
+productionHtml = productionHtml.replace('<h1 class="introProduct" id="maOpeningTitle">MyMissionMed<span> Account</span></h1>', '<h1 class="introProduct" id="maOpeningTitle"><span class="introMissionMed">MissionMed</span><span class="introAccounts">Accounts</span></h1>');
+productionHtml = productionHtml.replace('PROGRAMS. ACCOUNT. PROGRESS. ONE PLACE.', 'EVERY CLASS. EVERY BALANCE. YOUR MISSION, CLEARLY ACCOUNTED FOR.');
+productionHtml = productionHtml.replaceAll('Opening your MyMissionMed Account workspace…', 'Securely opening your account workspace…');
+productionHtml = productionHtml.replace("function revealAuthoritative(){ if(!canRevealMissionAccountsShell()) return false; document.body.classList.remove('opening-active'); document.body.classList.remove('is-booting'); if(openingNode) openingNode.hidden=true; return true; }", "function revealAuthoritative(){ if(!canRevealMissionAccountsShell()) return false; completeOpeningExperience(); return true; }");
+productionHtml = productionHtml.replace("  openingProgressTimer = window.setTimeout(()=>{ if(!openingNode.hidden && status) status.textContent='Preparing your workspace…'; }, 2100);\\n  completeOpeningExperience(); }", "  openingProgressTimer = window.setTimeout(()=>{ if(!openingNode.hidden && status) status.textContent='Connecting your private MissionMed workspace…'; }, 2100); }");
+productionHtml = productionHtml.replace("async function completeOpeningExperience(){ if(!openingNode || openingNode.hidden || openingDone) return; openingDone=true;", "async function completeOpeningExperience(){ if(!openingNode || openingNode.hidden || openingDone) return; openingDone=true;\\n  if(!canRevealMissionAccountsShell()){ openingDone=false; return; }");
+productionHtml = productionHtml.replace("function skipOpening(){ if(!openingNode || openingNode.hidden) return; openingStartedAt = -1e9; openingDone=false; completeOpeningExperience(); }", "function skipOpening(){ if(!openingNode || openingNode.hidden) return; openingStartedAt = -1e9; openingDone=false; if(canRevealMissionAccountsShell()) completeOpeningExperience(); }");
+productionHtml = productionHtml.replace('unitsOf, hydrateAuthoritative, hydrateAccountAccess, revealAuthoritative, toast, clearSensitiveState};', 'unitsOf, hydrateAuthoritative, hydrateAccountAccess, revealAuthoritative, toast, clearSensitiveState, applyCapabilityState:missionAccountsApplyCapabilityState};');
 if (!productionHtml.includes("MissionAccountsRuntime.dispatch('billing-decision'")) throw new Error('Production action bus was not injected');
 if (!productionHtml.includes('data-missionaccounts-build="production"')) throw new Error('Production build marker was not injected');
 if (!productionHtml.includes('authenticated-role-scoped-runtime')) throw new Error('Production scoped data placeholder was not injected');

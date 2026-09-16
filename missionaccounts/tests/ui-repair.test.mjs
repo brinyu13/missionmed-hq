@@ -92,6 +92,21 @@ test('registered account landing provides enrollment-aware program states and re
  assert.match(html,/body\.opening-active #hdr,body\.opening-active #rail,body\.opening-active #main\{visibility:hidden\}/);
 });
 
+test('production opening is branded, animated, accessible, and bootstrap-bound',()=>{
+ assert.match(html,/src="\.\/missionmed-logo\.png" alt="MissionMed Institute"/);
+ assert.match(html,/class="introMissionMed">MissionMed<\/span><span class="introAccounts">Accounts<\/span>/);
+ assert.match(html,/EVERY CLASS\. EVERY BALANCE\. YOUR MISSION, CLEARLY ACCOUNTED FOR\./);
+ assert.match(html,/@keyframes introWordLeft/);
+ assert.match(html,/@keyframes introWordRight/);
+ assert.match(html,/@keyframes openingFieldDrift/);
+ assert.match(html,/openingFieldDrift 18s ease-in-out infinite alternate/);
+ assert.match(html,/@media\(prefers-reduced-motion:reduce\)/);
+ assert.match(html,/function revealAuthoritative\(\)\{ if\(!canRevealMissionAccountsShell\(\)\) return false; completeOpeningExperience\(\); return true; \}/);
+ assert.match(html,/if\(!canRevealMissionAccountsShell\(\)\)\{ openingDone=false; return; \}/);
+ assert.doesNotMatch(fn('showOpeningExperience'),/completeOpeningExperience\(\)/);
+ assert.match(html,/data-missionaccounts-runtime="unavailable"\] #missionaccountsRuntimeGate/);
+});
+
 test('onboarding UI recovers saves, keeps student role guards, and uses truthful copy',()=>{
  const theme=fn('setTheme');
  assert.match(theme,/missionAccountsApplyCapabilityState\(document\)/);
