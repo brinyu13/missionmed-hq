@@ -24,30 +24,36 @@ export const CONVERSATION_RAILS = Object.freeze([
   }),
   Object.freeze({
     id: CONVERSATION_RAIL_IDS.GPT_LIVE,
-    label: 'FUTURE — GPT-Live',
+    label: 'GPT-Live · WebRTC',
     provider: 'openai',
-    model: null,
-    architecture: 'gpt-live',
-    status: 'unavailable',
-    reason: 'provider_api_not_available',
+    model: 'gpt-live-1',
+    architecture: 'browser-webrtc-server-brokered',
+    status: 'available',
+    maturity: 'supported',
   }),
 ]);
 
-export function publicConversationRailConfig({ realtimeAvailable = false } = {}) {
+export function publicConversationRailConfig({ realtimeAvailable = false, gptLiveAvailable = false } = {}) {
   return {
     founderOnly: true,
-    defaultRailId: realtimeAvailable
-      ? CONVERSATION_RAIL_IDS.OPENAI_REALTIME
-      : CONVERSATION_RAIL_IDS.RESPONSES_SPEECH,
+    defaultRailId: gptLiveAvailable
+      ? CONVERSATION_RAIL_IDS.GPT_LIVE
+      : realtimeAvailable
+        ? CONVERSATION_RAIL_IDS.OPENAI_REALTIME
+        : CONVERSATION_RAIL_IDS.RESPONSES_SPEECH,
     experimentalRailId: CONVERSATION_RAIL_IDS.OPENAI_REALTIME,
     rails: CONVERSATION_RAILS.map((rail) => ({
       ...rail,
-      status: rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME
-        ? (realtimeAvailable ? 'founder-alpha-default' : 'unavailable')
-        : rail.status,
-      reason: rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME && !realtimeAvailable
-        ? 'authenticated_model_unavailable'
-        : rail.reason || null,
+      status: rail.id === CONVERSATION_RAIL_IDS.GPT_LIVE
+        ? (gptLiveAvailable ? 'supported-default' : 'unavailable')
+        : rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME
+          ? (realtimeAvailable ? 'founder-alpha-default' : 'unavailable')
+          : rail.status,
+      reason: rail.id === CONVERSATION_RAIL_IDS.GPT_LIVE && !gptLiveAvailable
+        ? 'server_broker_unavailable'
+        : rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME && !realtimeAvailable
+          ? 'authenticated_model_unavailable'
+          : rail.reason || null,
     })),
   };
 }

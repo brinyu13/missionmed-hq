@@ -99,6 +99,58 @@ test('admitted session projection contains no shared token and vault is empty', 
   assert.deepEqual(vault.body, { sessions: [] });
 });
 
+test('GPT-Live WebRTC creation is same-origin, entitlement-bound, and server-cleaned', async () => {
+  const calls = [];
+  const handler = createIvPrepHqHandler({
+    registry: registry(),
+    now: () => NOW,
+    flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false },
+    liveSessionBroker: {
+      create: async (input) => {
+        calls.push(['create', input]);
+        return { session: { id: 'live_session_123456', model: 'gpt-live-1' }, transport: { type: 'webrtc', sdp: 'v=0\r\no=answer' } };
+      },
+      hangup: async (id) => { calls.push(['hangup', id]); return { ok: true }; },
+    },
+  });
+  const admitted = await invoke(handler);
+  assert.equal(admitted.body.runtime.liveInterviewAvailable, true);
+  const headers = { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF };
+  const context = {
+    goal: 'Full interview simulation', questionIds: ['CORE-001'],
+    interviewer: 'Program Director · balanced', program: 'Internal Medicine',
+    environment: 'RISE + StoryForge seams', targetQuestions: 5,
+  };
+  const created = await invoke(handler, {
+    path: '/api/ivprep-v6/live/sessions', method: 'POST', headers,
+    body: JSON.stringify({ sdp: 'v=0\r\no=offer', voice: 'marin', context }),
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.session.model, 'gpt-live-1');
+  assert.equal(JSON.stringify(created.body).includes('server-only'), false);
+  assert.deepEqual(calls[0], ['create', { sdp: 'v=0\r\no=offer', voice: 'marin', context }]);
+  const switched = await invoke(handler, {
+    path: '/api/ivprep-v6/live/sessions/live_session_123456/end', method: 'POST', headers, body: '{}', fingerprint: 'b'.repeat(64),
+  });
+  assert.equal(switched.status, 409);
+  const ended = await invoke(handler, {
+    path: '/api/ivprep-v6/live/sessions/live_session_123456/end', method: 'POST', headers, body: '{}',
+  });
+  assert.equal(ended.status, 200);
+  assert.deepEqual(calls.at(-1), ['hangup', 'live_session_123456']);
+});
+
+test('GPT-Live creation fails closed when the broker is absent', async () => {
+  const handler = createIvPrepHqHandler({ registry: registry(), now: () => NOW, flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false } });
+  const result = await invoke(handler, {
+    path: '/api/ivprep-v6/live/sessions', method: 'POST',
+    headers: { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF },
+    body: JSON.stringify({ sdp: 'v=0\r\no=offer', voice: 'marin', context: {} }),
+  });
+  assert.equal(result.status, 503);
+  assert.equal(result.body.error, 'ivprep_live_unavailable');
+});
+
 test('live product CSP permits only the sealed LiveKit WSS origin', async () => {
   const live = createIvPrepHqHandler({
     registry: registry(),

@@ -36,9 +36,11 @@ test('rail catalog makes authenticated Realtime the Founder Alpha default and fa
   assert.equal(config.rails.find((rail) => rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME).status, 'founder-alpha-default');
   assert.equal(config.rails.find((rail) => rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME).maturity, 'experimental');
   assert.equal(publicConversationRailConfig({ realtimeAvailable: false }).defaultRailId, CONVERSATION_RAIL_IDS.RESPONSES_SPEECH);
-  assert.deepEqual(config.rails.find((rail) => rail.id === CONVERSATION_RAIL_IDS.GPT_LIVE), {
-    id: 'gpt-live', label: 'FUTURE — GPT-Live', provider: 'openai', model: null,
-    architecture: 'gpt-live', status: 'unavailable', reason: 'provider_api_not_available',
+  const live = publicConversationRailConfig({ realtimeAvailable: true, gptLiveAvailable: true });
+  assert.equal(live.defaultRailId, CONVERSATION_RAIL_IDS.GPT_LIVE);
+  assert.deepEqual(live.rails.find((rail) => rail.id === CONVERSATION_RAIL_IDS.GPT_LIVE), {
+    id: 'gpt-live', label: 'GPT-Live · WebRTC', provider: 'openai', model: 'gpt-live-1',
+    architecture: 'browser-webrtc-server-brokered', status: 'supported-default', maturity: 'supported', reason: null,
   });
 });
 

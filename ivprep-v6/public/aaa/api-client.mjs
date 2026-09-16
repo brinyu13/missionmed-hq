@@ -199,3 +199,21 @@ export async function endInterview(interviewId) {
     body: JSON.stringify({ reason: 'user_ended' }),
   });
 }
+
+export async function createLiveInterview({ sdp, voice = 'marin', context }) {
+  if (!sessionState?.mutationCsrfToken) throw new Error('ivprep_authentication_required');
+  return request('/live/sessions', {
+    method: 'POST',
+    headers: { 'X-MMHQ-CSRF': sessionState.mutationCsrfToken },
+    body: JSON.stringify({ sdp, voice, context }),
+  });
+}
+
+export async function endLiveInterview(sessionId) {
+  if (!sessionState?.mutationCsrfToken) throw new Error('ivprep_authentication_required');
+  return request(`/live/sessions/${encodeURIComponent(sessionId)}/end`, {
+    method: 'POST',
+    headers: { 'X-MMHQ-CSRF': sessionState.mutationCsrfToken },
+    body: JSON.stringify({ reason: 'user_ended' }),
+  });
+}

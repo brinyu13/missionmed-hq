@@ -202,6 +202,7 @@ export function createIvPrepHqHandler({
   },
   providerControllerFactory = null,
   paidTestGate = null,
+  liveSessionBroker = null,
   liveKitSignalOrigin = null,
   runtimeState = async () => Object.freeze({
     mode: 'disabled',
@@ -212,6 +213,7 @@ export function createIvPrepHqHandler({
   wordTimingRuntime = createLocalWordTimingRuntime(),
 } = {}) {
   const interviews = new Map();
+  const liveSessions = new Map();
   const sealedLiveKitSignalOrigin = liveKitSignalOrigin == null ? null : trustedWebSocketOrigin(liveKitSignalOrigin);
   if (liveKitSignalOrigin != null && !sealedLiveKitSignalOrigin) {
     throw new Error('LiveKit browser signal origin is invalid.');
@@ -310,7 +312,7 @@ export function createIvPrepHqHandler({
       }
       sendJson(response, 200, {
         ...publicAdmissionState(admission, { videoEnabled: flags.videoEnabled, founderPaidTest, hqSession }),
-        runtime,
+        runtime: { ...runtime, liveInterviewAvailable: Boolean(liveSessionBroker) },
       });
       return true;
     }
@@ -411,6 +413,99 @@ export function createIvPrepHqHandler({
         return true;
       }
       sendJson(response, issued.status || 201, { authorization: issued.authorization });
+      return true;
+    }
+
+    if (request.method === 'POST' && pathname === `${API_PREFIX}/live/sessions`) {
+      const mutation = validateIvPrepMutation({ request, admission, expectedOrigin: sealedOrigin });
+      if (!mutation.ok) { sendAdmissionError(response, mutation); return true; }
+      if (!liveSessionBroker || admission.entitlement.voice !== true) {
+        sendJson(response, 503, { error: 'ivprep_live_unavailable' });
+        return true;
+      }
+      let body;
+      try { body = await readJson(request); }
+      catch { sendJson(response, 400, { error: 'ivprep_invalid_request' }); return true; }
+      if (Object.keys(body).sort().join(',') !== 'context,sdp,voice') {
+        sendJson(response, 400, { error: 'ivprep_invalid_request' });
+        return true;
+      }
+      const active = [...liveSessions.values()].find((entry) => entry.subject === admission.subject && entry.state !== 'ended');
+      if (active) {
+        sendJson(response, 409, { error: 'ivprep_live_session_active' });
+        return true;
+      }
+      let created;
+      try {
+        created = await liveSessionBroker.create({ sdp: body.sdp, voice: body.voice, context: body.context });
+      } catch (error) {
+        sendJson(response, error instanceof TypeError ? 400 : 503, {
+          error: error instanceof TypeError ? 'ivprep_invalid_request' : 'ivprep_live_start_failed',
+        });
+        return true;
+      }
+      const bindingId = `live:${created.session.id}`;
+      try {
+        await registry.bindInterview({
+          interviewId: bindingId,
+          subject: admission.subject,
+          cookieFingerprint: admission.cookieFingerprint,
+          entitlementRevision: admission.entitlement.revision,
+        });
+      } catch {
+        try { await liveSessionBroker.hangup(created.session.id); } catch { /* cleanup failure remains closed */ }
+        sendJson(response, 503, { error: 'ivprep_live_start_failed' });
+        return true;
+      }
+      const live = {
+        id: created.session.id,
+        bindingId,
+        subject: admission.subject,
+        cookieFingerprint: admission.cookieFingerprint,
+        entitlementRevision: admission.entitlement.revision,
+        state: 'active',
+      };
+      liveSessions.set(live.id, live);
+      registry.setTerminationHandler?.(bindingId, async (reason) => {
+        if (live.state === 'ended') return;
+        live.state = 'terminating';
+        try {
+          await liveSessionBroker.hangup(live.id);
+          live.state = 'ended';
+        } catch {
+          live.state = 'failed_closed';
+        }
+      });
+      sendJson(response, 201, created);
+      return true;
+    }
+
+    const liveEndMatch = pathname.match(new RegExp(`^${API_PREFIX}/live/sessions/([A-Za-z0-9_-]{8,160})/end$`, 'u'));
+    if (request.method === 'POST' && liveEndMatch) {
+      const mutation = validateIvPrepMutation({ request, admission, expectedOrigin: sealedOrigin });
+      if (!mutation.ok) { sendAdmissionError(response, mutation); return true; }
+      const live = liveSessions.get(liveEndMatch[1]);
+      const owner = live ? registry.assertBinding({
+        interviewId: live.bindingId,
+        subject: admission.subject,
+        cookieFingerprint: admission.cookieFingerprint,
+        entitlementRevision: admission.entitlement.revision,
+      }) : null;
+      if (!live || !owner?.ok) {
+        sendJson(response, 409, { error: 'ivprep_session_owner_changed' });
+        return true;
+      }
+      live.state = 'terminating';
+      try {
+        await liveSessionBroker.hangup(live.id);
+        live.state = 'ended';
+      } catch {
+        live.state = 'failed_closed';
+        sendJson(response, 503, { error: 'ivprep_provider_cleanup_unconfirmed' });
+        return true;
+      }
+      registry.clearTerminationHandler?.(live.bindingId);
+      sendJson(response, 200, { session: { id: live.id, state: live.state } });
       return true;
     }
 
@@ -729,6 +824,18 @@ export function createIvPrepHqHandler({
   };
   handler.shutdown = async (reason = 'server_shutdown') => {
     const terminal = [];
+    for (const live of liveSessions.values()) {
+      if (live.state === 'ended') continue;
+      live.state = 'terminating';
+      terminal.push(Promise.resolve(liveSessionBroker?.hangup(live.id)).then(() => {
+        live.state = 'ended';
+        registry.clearTerminationHandler?.(live.bindingId);
+        return true;
+      }).catch(() => {
+        live.state = 'failed_closed';
+        return false;
+      }));
+    }
     for (const interview of interviews.values()) {
       if (['ended', 'failed_closed'].includes(interview.state)) continue;
       interview.state = 'terminating';

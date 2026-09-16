@@ -9,6 +9,7 @@ import {
   founderTestPlanFor,
 } from '../founder-paid-test-gate.mjs';
 import { createLiveKitSessionCoordinator } from './livekit-session-coordinator.mjs';
+import { createOpenAiLiveSessionBroker } from './openai-live-session.mjs';
 import { PROFILE_B, PROFILE_B_AGENT_NAME, ProviderSessionController } from './provider-session-controller.mjs';
 
 const PRODUCT_PROJECT_REF = 'tufzqxeucfugdovtjyqk';
@@ -762,6 +763,9 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
       paidProviderCreationEnabled: paidEnabled,
     });
   };
+  const liveSessionBroker = String(environment.OPENAI_API_KEY || '').trim()
+    ? createOpenAiLiveSessionBroker({ apiKey: environment.OPENAI_API_KEY })
+    : null;
   if (!paidEnabled) {
     return Object.freeze({
       registry,
@@ -769,6 +773,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
       paidTestGate: null,
       providerControllerFactory: null,
       liveKitSignalOrigin: null,
+      liveSessionBroker,
       runtimeState,
     });
   }
@@ -804,6 +809,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
     paidTestGate,
     providerControllerFactory,
     liveKitSignalOrigin: livekit.signalOrigin,
+    liveSessionBroker,
     runtimeState,
   });
 }

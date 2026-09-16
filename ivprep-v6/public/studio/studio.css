@@ -454,3 +454,16 @@ body[data-role="student"] #communication-analytics-test-root .ca-diagnostics { d
 
 @media (max-width: 1180px) { .cockpit { grid-template-columns: 1fr; } }
 #cockpit-session[data-notice="true"] { color: var(--warn); font-weight: 800; }
+
+/* ---------- InterviewBrain live room ---------- */
+.live-interviewer-stage { min-height: 230px; display: flex; align-items: center; gap: 22px; background: radial-gradient(circle at 30% 40%, #9e4d323d, #090e1b 64%); }
+.live-interviewer-stage h2 { margin: 7px 0 0; font: italic 600 23px/1.15 var(--font-editorial); }
+.live-orb { flex: 0 0 112px; width: 112px; height: 112px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffc56f, #f07038 48%, #49233a 75%, #111828); box-shadow: 0 0 0 1px #ffb75f88, 0 0 45px #ef754a52, inset 0 2px 12px #fff4; }
+.live-orb span { color: #231306; font: italic 900 30px/1 var(--font-display); letter-spacing: -.08em; }
+.live-interviewer-controls { display: grid; gap: 12px; }
+.live-transcript { min-height: 86px; max-height: 190px; overflow: auto; display: grid; align-content: start; gap: 7px; border: 1px solid #33435d; background: #070d18; padding: 11px; color: var(--dim); font: 600 11px/1.5 var(--font-num); }
+.live-transcript p { margin: 0; color: var(--ink2); }
+.live-transcript b { color: var(--brand-b); text-transform: uppercase; font-size: 9px; letter-spacing: .08em; }
+.live-interviewer-stage[data-state="active"] .live-orb { animation: live-pulse 2.4s ease-in-out infinite; }
+.live-interviewer-stage[data-state="error"] .live-orb { filter: grayscale(.7); box-shadow: 0 0 0 1px #e5484d99; }
+@keyframes live-pulse { 50% { transform: scale(1.035); box-shadow: 0 0 0 5px #ff9e5530, 0 0 60px #ef754a66, inset 0 2px 12px #fff4; } }

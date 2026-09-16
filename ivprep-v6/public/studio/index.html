@@ -285,17 +285,23 @@
             </div>
           </div>
           <div class="housing">
-            <div class="housing-title">Interviewer</div>
-            <div class="recess" style="padding:0">
-              <div class="stage">
-                <video id="founder-avatar-video" autoplay muted playsinline aria-label="Interviewer video"></video>
-                <div class="stage-tag"><span id="sim-provider-state">Provider unavailable</span></div>
+            <div class="housing-title">InterviewBrain · Live voice</div>
+            <div class="recess live-interviewer-stage">
+              <div class="live-orb" aria-hidden="true"><span>IV</span></div>
+              <div>
+                <div class="microcap">Realtime interviewer</div>
+                <h2 id="sim-provider-state">Checking availability…</h2>
+                <p id="sim-provider-note">A secure session begins only when you press Start live interview.</p>
               </div>
+              <audio id="live-interviewer-audio" autoplay></audio>
             </div>
-            <div class="recess">
-              <div class="microcap">Interviewer state</div>
-              <p class="unavailable" id="sim-provider-note">LEMONSLICE STREAM MOUNTS HERE — NO PROVIDER SESSION AUTHORIZED</p>
-              <p class="microcap" style="margin-top:8px">Structured practice runs without a live avatar. Delivery Intelligence continues regardless of provider state.</p>
+            <div class="recess live-interviewer-controls">
+              <div class="btn-row" style="margin-top:0">
+                <button class="btn btn-primary" type="button" id="live-interview-start"><span>Start live interview ▸</span></button>
+                <button class="btn btn-quiet" type="button" id="live-interview-end" disabled><span>End interview</span></button>
+              </div>
+              <p class="microcap">InterviewBrain uses the same microphone already feeding Delivery Intelligence. LemonSlice remains deferred; live voice and real Analytics do not depend on an avatar.</p>
+              <div class="live-transcript" id="live-transcript" aria-live="polite"><span>Transcript appears here after the session starts.</span></div>
             </div>
           </div>
         </div>

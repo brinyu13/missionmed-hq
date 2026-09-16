@@ -12,8 +12,14 @@
 //   * Identity comes from the authenticated admission payload, never a fixture.
 //   * Questions come from the canonical 193-record store, never a prototype fixture.
 
-import { loadIvPrepSession, loadVault } from '../aaa/api-client.mjs';
+import {
+  createLiveInterview,
+  endLiveInterview,
+  loadIvPrepSession,
+  loadVault,
+} from '../aaa/api-client.mjs';
 import { COLLECTIONS, createDefaultQuestionStore } from '../questions/question-store.mjs';
+import { LiveInterviewSession } from './live-interview.mjs';
 import { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
 import { InstrumentRack } from './instruments.mjs';
 
@@ -55,6 +61,7 @@ const state = {
   labRack: null,
   primaryMetric: null,
   overlays: { face: true, bodyHands: true, enabled: true },
+  liveInterview: null,
 };
 
 /* ------------------------------------------------------------------ media bridge
@@ -1039,6 +1046,90 @@ function startAudioDebug() {
   state.audioDebug.timer = setInterval(renderAudioDebug, 250);
 }
 
+/* ------------------------------------------------------------------ InterviewBrain
+ * Browser WebRTC carries only the already-admitted microphone track and provider
+ * audio. The same-origin API broker owns the OpenAI credential and fixes the model,
+ * instructions and bounded MissionMed context on the server.
+ */
+
+function appendLiveTranscript({ speaker, text }) {
+  const host = $('#live-transcript');
+  if (!host) return;
+  if (host.firstElementChild?.tagName === 'SPAN') host.replaceChildren();
+  const row = document.createElement('p');
+  const label = document.createElement('b');
+  label.textContent = speaker === 'applicant' ? 'You · ' : 'Interviewer · ';
+  row.append(label, document.createTextNode(text));
+  host.append(row);
+  host.scrollTop = host.scrollHeight;
+}
+
+function setLiveInterviewStatus({ state: next, detail }) {
+  const stage = $('.live-interviewer-stage');
+  if (stage) stage.dataset.state = next;
+  const title = $('#sim-provider-state');
+  const note = $('#sim-provider-note');
+  const start = $('#live-interview-start');
+  const end = $('#live-interview-end');
+  if (title) title.textContent = {
+    connecting: 'Connecting…', active: 'Live · listening', closed: 'Interview ended', error: 'Live interview unavailable', unavailable: 'Live voice unavailable', idle: 'Ready when you are',
+  }[next] || next;
+  if (note && detail) note.textContent = detail;
+  if (start) start.disabled = ['connecting', 'active', 'unavailable'].includes(next);
+  if (end) end.disabled = !['connecting', 'active'].includes(next);
+}
+
+function liveInterviewContext() {
+  return {
+    goal: state.wizard.goal || 'Residency interview practice',
+    questionIds: state.interviewSet.map((question) => question.question_id).slice(0, 30),
+    interviewer: state.wizard.interviewer || 'Program Director · balanced',
+    program: state.wizard.program || 'General residency interview',
+    environment: state.wizard.environment || 'MissionMed · interview only',
+    targetQuestions: state.targetQuestions,
+  };
+}
+
+function wireLiveInterview() {
+  if (typeof window.RTCPeerConnection !== 'function') {
+    setLiveInterviewStatus({ state: 'error', detail: 'WebRTC is unavailable in this browser.' });
+    return;
+  }
+  state.liveInterview = new LiveInterviewSession({
+    createSession: createLiveInterview,
+    endSession: endLiveInterview,
+    audioElement: $('#live-interviewer-audio'),
+    onStatus: setLiveInterviewStatus,
+    onTranscript: appendLiveTranscript,
+  });
+  const available = state.admission?.runtime?.liveInterviewAvailable === true;
+  setLiveInterviewStatus({ state: available ? 'idle' : 'unavailable', detail: available
+    ? 'Uses your selected Interviewer, Program, Question Pool, and context seams.'
+    : 'Live voice is not configured in this environment.' });
+  $('#live-interview-start')?.addEventListener('click', async () => {
+    if (!state.admission?.runtime?.liveInterviewAvailable) {
+      setLiveInterviewStatus({ state: 'error', detail: 'Live voice is not configured in this environment.' });
+      return;
+    }
+    try {
+      bridge.primeAudioContext();
+      if (!bridge.media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live')) {
+        await bridge.requestMedia(true, true);
+        bindPreview();
+        renderDeviceCheck();
+      }
+      const track = bridge.media.stream.getAudioTracks()[0];
+      await state.liveInterview.start({ audioTrack: track, voice: 'marin', context: liveInterviewContext() });
+    } catch (error) {
+      setLiveInterviewStatus({ state: 'error', detail: String(error?.message || error).slice(0, 180) });
+    }
+  });
+  $('#live-interview-end')?.addEventListener('click', async () => {
+    try { await state.liveInterview.stop(); }
+    catch (error) { setLiveInterviewStatus({ state: 'error', detail: `Cleanup unconfirmed: ${String(error?.message || error).slice(0, 120)}` }); }
+  });
+}
+
 /* ------------------------------------------------------------------ device check */
 
 function renderDeviceCheck() {
@@ -1290,12 +1381,7 @@ async function boot() {
   }
   applyIdentity();
 
-  const provider = state.admission?.runtime;
-  if (provider) {
-    const label = provider.workerRegistrationState === 'READY' ? 'Provider ready' : 'Provider unavailable';
-    const el = $('#sim-provider-state');
-    if (el) el.textContent = label;
-  }
+  wireLiveInterview();
 
   await mountAnalytics();
 
