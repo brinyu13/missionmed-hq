@@ -6,6 +6,27 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, '..');
+const productionPath = path.join(appRoot, 'public', 'index.production.html');
+if (process.env.MISSIONACCOUNTS_REBUILD_FROM_LEGACY_CANON !== '1') {
+  const currentProduction = await readFile(productionPath, 'utf8');
+  const requiredMarkers = [
+    'data-missionaccounts-build="production"',
+    'function missionAccountsAutomaticBillingShadow()',
+    'MissionAccountsRuntime.dispatch',
+    'missionaccounts_opening_seen_this_tab',
+    'class="introMissionMed">MissionMed</span><span class="introAccounts">Accounts</span>',
+    'EVERY CLASS. EVERY BALANCE. YOUR MISSION, CLEARLY ACCOUNTED FOR.',
+  ];
+  const missing = requiredMarkers.filter(marker => !currentProduction.includes(marker));
+  if (missing.length) throw new Error(`Current production shell failed preservation validation: ${missing.join(', ')}`);
+  if (currentProduction.includes('MX-EXAMPREP-5000B_Reconciled_Ledger.json')) throw new Error('Current production shell contains a private historical-data reference');
+  const logo = await readFile(path.join(appRoot, 'public', 'missionmed-logo.png'));
+  const logoSha256 = createHash('sha256').update(logo).digest('hex');
+  if (logoSha256 !== 'f091d62ac5842cde0e9e455321839fd98b291598478aae6ce13b09ea3896ff56') throw new Error(`MissionMed opening logo hash mismatch: ${logoSha256}`);
+  const productionSha256 = createHash('sha256').update(currentProduction).digest('hex');
+  console.log(`Validated and preserved current production shell ${productionSha256} (${Buffer.byteLength(currentProduction)} bytes)`);
+  process.exit(0);
+}
 const defaultSource = '/Users/brianb/MissionMed/_PROTOTYPES/MISSIONACCOUNTS/MX-MISSIONACCOUNTS-5300A/MX-MISSIONACCOUNTS-5300A_CANON_StoryForge_Prototype.html';
 const source = process.env.MISSIONACCOUNTS_CANON_PATH || defaultSource;
 const expected = '3cd77871f4cb1bc70d71a87d2fa9fe0f85604969e4cbe94d44aa9816386a82d8';
@@ -202,6 +223,8 @@ function missionAccountsHydrateProviderInvoice(root){
 }
 function missionAccountsApplyCapabilityState(root){
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return;
+  const credentialReason='Connection is being restored. Editing will resume automatically when the secure session refreshes.';
+  root.querySelectorAll('[data-credential-disabled="true"]').forEach(control=>{ control.disabled=false; control.removeAttribute('aria-disabled'); delete control.dataset.capabilityDisabled; delete control.dataset.credentialDisabled; if(control.title===credentialReason) control.removeAttribute('title'); });
   const rules=[
     ['student_contacts','[data-save-contact],#eSaveId,[data-etab="identity"]','Student contact editing is not enabled for this environment.'],
     ['billing_decisions','[data-decide],[data-decide-amt],[data-undecide],[data-other],[data-confirm-group],[data-confirm-all],[data-policy],[data-ready]','Billing approval and invoice readiness are not enabled for this environment.'],
@@ -224,6 +247,11 @@ function missionAccountsApplyCapabilityState(root){
   if(!missionAccountsCapability('identity_review')) root.querySelectorAll('[data-identity-canonical]').forEach(control=>missionAccountsDisable(control,'Identity review is not enabled for this environment.'));
   if(!['student'].includes(window.MissionAccountsRuntime?.state?.user?.role)){
     root.querySelectorAll('[data-pay],[data-auth],[data-auth-off]').forEach(control=>missionAccountsDisable(control,'Only the signed-in student may change payment setup or authorization.'));
+  }
+  const credentialMutationSelector=rules.map(([,selector])=>selector).concat(['[data-edit]','[data-bt]','#bSave','[data-t]','#oSave','[data-identity-canonical]']).join(',');
+  const runtimeState=window.MissionAccountsRuntime?.state;
+  if(runtimeState?.authenticated && runtimeState.mutationsAvailable===false){
+    root.querySelectorAll(credentialMutationSelector).forEach(control=>{ if(control.disabled) return; missionAccountsDisable(control,credentialReason); control.dataset.credentialDisabled='true'; });
   }
   root.querySelectorAll('[role="tab"]').forEach(tab=>{ const selected=tab.classList.contains('on'); tab.setAttribute('aria-selected',String(selected)); tab.tabIndex=selected?0:-1; });
   root.querySelectorAll('[data-theme-set]').forEach(button=>button.setAttribute('aria-pressed',String(button.classList.contains('on'))));
@@ -400,7 +428,7 @@ productionHtml = productionHtml.replace("function hideToast(){", "function hideT
 productionHtml = productionHtml.replace("function toast(msg, undo){", "function toast(msg, undo){ if(!$('#toast'))return;");
 productionHtml = productionHtml.replace('unitsOf, hydrateAuthoritative};', 'unitsOf, hydrateAuthoritative, toast, clearSensitiveState};');
 productionHtml = repairCanon5401(productionHtml);
-const opening5404rStyle = \`<style id="missionaccounts-5404r-opening">
+const opening5404rStyle = `<style id="missionaccounts-5404r-opening">
 .storyforgeOpening:before{background:repeating-linear-gradient(118deg,transparent 0 64px,rgba(255,255,255,.026) 65px 66px,transparent 67px 132px),radial-gradient(circle at 28% 34%,rgba(255,179,64,.18),transparent 23%),radial-gradient(circle at 74% 68%,rgba(71,125,255,.13),transparent 27%);background-size:auto,72vw 72vw,82vw 82vw}
 .introLogo{width:min(230px,58vw);filter:grayscale(1) brightness(0) invert(1) drop-shadow(0 12px 32px rgba(0,0,0,.55))}
 .introProduct{display:flex;align-items:baseline;justify-content:center;gap:.08em;font-size:clamp(40px,7vw,94px);white-space:nowrap}
@@ -412,9 +440,9 @@ body.motion-enabled .introAccounts{animation:introWordRight .9s .22s cubic-bezie
 @keyframes introWordLeft{from{opacity:0;transform:translateX(-42vw);filter:blur(10px)}to{opacity:1;transform:translateX(0);filter:blur(0)}}
 @keyframes introWordRight{from{opacity:0;transform:translateX(42vw);filter:blur(10px)}to{opacity:1;transform:translateX(0)}}
 @keyframes openingFieldDrift{to{transform:translate3d(4%,5%,0) rotate(1deg) scale(1.1)}}
-@media(max-width:520px){.introLogo{width:min(190px,58vw)}.introProduct{font-size:clamp(34px,10.4vw,48px);gap:.06em}.introSubtitle{letter-spacing:.11em;text-indent:.11em}}
+@media(max-width:520px){.introLogo{width:min(190px,58vw)}.introProduct{font-size:clamp(30px,8.7vw,43px);gap:.03em}.introSubtitle{letter-spacing:.11em;text-indent:.11em}}
 @media(prefers-reduced-motion:reduce){.storyforgeOpening:before,.introMissionMed,.introAccounts{animation:none!important}}
-</style>\`;
+</style>`;
 productionHtml = productionHtml.replace('</head>', opening5404rStyle + '</head>');
 productionHtml = productionHtml.replace(/<img class="introLogo" src="data:image\/png;base64,[^"]+" alt="MissionMed Institute">/, '<img class="introLogo" src="./missionmed-logo.png" alt="MissionMed Institute">');
 productionHtml = productionHtml.replace('<h1 class="introProduct" id="maOpeningTitle">MyMissionMed<span> Account</span></h1>', '<h1 class="introProduct" id="maOpeningTitle"><span class="introMissionMed">MissionMed</span><span class="introAccounts">Accounts</span></h1>');
@@ -422,7 +450,10 @@ productionHtml = productionHtml.replace('PROGRAMS. ACCOUNT. PROGRESS. ONE PLACE.
 productionHtml = productionHtml.replaceAll('Opening your MyMissionMed Account workspace…', 'Securely opening your account workspace…');
 productionHtml = productionHtml.replace("function revealAuthoritative(){ if(!canRevealMissionAccountsShell()) return false; document.body.classList.remove('opening-active'); document.body.classList.remove('is-booting'); if(openingNode) openingNode.hidden=true; return true; }", "function revealAuthoritative(){ if(!canRevealMissionAccountsShell()) return false; completeOpeningExperience(); return true; }");
 productionHtml = productionHtml.replace("  openingProgressTimer = window.setTimeout(()=>{ if(!openingNode.hidden && status) status.textContent='Preparing your workspace…'; }, 2100);\\n  completeOpeningExperience(); }", "  openingProgressTimer = window.setTimeout(()=>{ if(!openingNode.hidden && status) status.textContent='Connecting your private MissionMed workspace…'; }, 2100); }");
+productionHtml = productionHtml.replace("let openingStartedAt = performance.now(); let openingProgressTimer = 0; let openingDone = false;", "let openingStartedAt = performance.now(); let openingProgressTimer = 0; let openingDone = false; let openingSeenThisTab = false;");
+productionHtml = productionHtml.replace("  try{ if(sessionStorage.getItem(OPENING_TAB_KEY)==='1' && !location.hash.includes('replay=1')){ dismissOpeningExperience({immediate:true}); return; } }catch(e){ /* a blocked session store may replay the bounded visual, never block access */ }", "  try{ openingSeenThisTab = sessionStorage.getItem(OPENING_TAB_KEY)==='1' && !location.hash.includes('replay=1'); }catch(e){ openingSeenThisTab=false; /* a blocked session store may replay the bounded visual, never block access */ }");
 productionHtml = productionHtml.replace("async function completeOpeningExperience(){ if(!openingNode || openingNode.hidden || openingDone) return; openingDone=true;", "async function completeOpeningExperience(){ if(!openingNode || openingNode.hidden || openingDone) return; openingDone=true;\\n  if(!canRevealMissionAccountsShell()){ openingDone=false; return; }");
+productionHtml = productionHtml.replace("const rm=reducedMotion(); const minimum = rm? OPENING_REDUCED_MOTION_MS : OPENING_MINIMUM_MS;", "const rm=reducedMotion(); const minimum = openingSeenThisTab?0:(rm? OPENING_REDUCED_MOTION_MS : OPENING_MINIMUM_MS);");
 productionHtml = productionHtml.replace("function skipOpening(){ if(!openingNode || openingNode.hidden) return; openingStartedAt = -1e9; openingDone=false; completeOpeningExperience(); }", "function skipOpening(){ if(!openingNode || openingNode.hidden) return; openingStartedAt = -1e9; openingDone=false; if(canRevealMissionAccountsShell()) completeOpeningExperience(); }");
 productionHtml = productionHtml.replace('unitsOf, hydrateAuthoritative, hydrateAccountAccess, revealAuthoritative, toast, clearSensitiveState};', 'unitsOf, hydrateAuthoritative, hydrateAccountAccess, revealAuthoritative, toast, clearSensitiveState, applyCapabilityState:missionAccountsApplyCapabilityState};');
 if (!productionHtml.includes("MissionAccountsRuntime.dispatch('billing-decision'")) throw new Error('Production action bus was not injected');

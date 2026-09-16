@@ -100,10 +100,15 @@ test('production opening is branded, animated, accessible, and bootstrap-bound',
  assert.match(html,/@keyframes introWordRight/);
  assert.match(html,/@keyframes openingFieldDrift/);
  assert.match(html,/openingFieldDrift 18s ease-in-out infinite alternate/);
+ assert.match(html,/@media\(max-width:520px\)\{\.storyforgeIntro[\s\S]+\.introProduct\{font-size:clamp\(30px,8\.7vw,43px\);gap:\.03em\}/);
  assert.match(html,/@media\(prefers-reduced-motion:reduce\)/);
  assert.match(html,/function revealAuthoritative\(\)\{ if\(!canRevealMissionAccountsShell\(\)\) return false; completeOpeningExperience\(\); return true; \}/);
  assert.match(html,/if\(!canRevealMissionAccountsShell\(\)\)\{ openingDone=false; return; \}/);
  assert.doesNotMatch(fn('showOpeningExperience'),/completeOpeningExperience\(\)/);
+ assert.doesNotMatch(fn('showOpeningExperience'),/dismissOpeningExperience/);
+ assert.match(fn('showOpeningExperience'),/openingSeenThisTab = sessionStorage\.getItem/);
+ assert.match(fn('missionAccountsApplyCapabilityState'),/mutationsAvailable===false/);
+ assert.match(fn('missionAccountsApplyCapabilityState'),/data-credential-disabled/);
  assert.match(html,/data-missionaccounts-runtime="unavailable"\] #missionaccountsRuntimeGate/);
 });
 

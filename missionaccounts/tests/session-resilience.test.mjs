@@ -40,6 +40,16 @@ function harness() {
   return {
     auth, locks, credentials, events,
     jump(ms) { nowMs += ms; },
+    elapsed() { return nowMs - start; },
+    async runNextTimer() {
+      const next = [...timers.entries()].sort((a, b) => a[1].at - b[1].at)[0];
+      assert.ok(next, 'a credential refresh must remain scheduled');
+      const [id, timer] = next;
+      timers.delete(id);
+      nowMs = Math.max(nowMs, timer.at);
+      timer.fn();
+      for (let turn = 0; turn < 20; turn += 1) await Promise.resolve();
+    },
     setMode(value) { mode = value; },
     setClaims(value) { nextClaims = value; },
   };
@@ -48,12 +58,12 @@ function harness() {
 test('a stable principal can refresh beyond 24 hours without losing the rendered session', async () => {
   const h = harness();
   h.auth.setToken(token(start));
-  for (let hour = 0; hour < 25; hour += 1) {
-    h.jump(50 * 60 * 1000);
-    await h.auth.exchange({ background: true });
+  for (let refresh = 0; refresh < 31; refresh += 1) {
+    await h.runNextTimer();
     assert.equal(h.auth.canMutate, true);
     assert.equal(h.auth.credentialStatus, 'ready');
   }
+  assert.ok(h.elapsed() >= 24 * 60 * 60 * 1000, 'scheduled refresh coverage must exceed 24 hours');
   assert.equal(h.locks.length, 0);
   assert.ok(h.auth.token);
 });

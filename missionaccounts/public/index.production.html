@@ -855,7 +855,7 @@ body.motion-enabled .introStatus{animation:introResolve .5s 1.02s cubic-bezier(.
 @keyframes introWordLeft{from{opacity:0;transform:translateX(-42vw);filter:blur(10px)}to{opacity:1;transform:translateX(0);filter:blur(0)}}
 @keyframes introWordRight{from{opacity:0;transform:translateX(42vw);filter:blur(10px)}to{opacity:1;transform:translateX(0);filter:drop-shadow(0 8px 24px rgba(255,122,61,.24))}}
 @keyframes openingFieldDrift{0%{transform:translate3d(-3%,-2%,0) rotate(-1deg) scale(1)}55%{transform:translate3d(4%,2%,0) rotate(1deg) scale(1.06)}100%{transform:translate3d(-1%,5%,0) rotate(0) scale(1.1)}}
-@media(max-width:520px){.storyforgeIntro{min-height:100%;grid-template-rows:auto 70px auto auto;padding:30px 18px}.introLogo{width:min(190px,58vw);margin-bottom:18px}.introForge{height:70px;margin-bottom:-34px}.introProduct{font-size:clamp(34px,10.4vw,48px);gap:.06em}.introSubtitle{max-width:340px;letter-spacing:.11em;text-indent:.11em}.introSpark.s1{--spark-x:-116px}.introSpark.s2{--spark-x:-76px}.introSpark.s5{--spark-x:78px}.introSpark.s6{--spark-x:118px}}
+@media(max-width:520px){.storyforgeIntro{min-height:100%;grid-template-rows:auto 70px auto auto;padding:30px 18px}.introLogo{width:min(190px,58vw);margin-bottom:18px}.introForge{height:70px;margin-bottom:-34px}.introProduct{font-size:clamp(30px,8.7vw,43px);gap:.03em}.introSubtitle{max-width:340px;letter-spacing:.11em;text-indent:.11em}.introSpark.s1{--spark-x:-116px}.introSpark.s2{--spark-x:-76px}.introSpark.s5{--spark-x:78px}.introSpark.s6{--spark-x:118px}}
 @media(prefers-reduced-motion:reduce){.storyforgeOpening{transition:none}.storyforgeOpening:before,.storyforgeIntro:before,.introLogo,.introHeat,.introStrike,.introSpark,.introLockup,.introMissionMed,.introAccounts,.introProduct:after,.introSubtitle,.introStatus{animation:none!important}.introSpark{display:none}.introProduct:after{opacity:.22}.introHeat{opacity:.45}.introStrike{opacity:.4}}
 body.opening-active{overflow:hidden}
 body.is-booting #hdr,body.is-booting #rail,body.is-booting #main{visibility:hidden}
@@ -1359,13 +1359,13 @@ const openingNode = document.getElementById('maOpening');
 const OPENING_TAB_KEY = 'missionaccounts_opening_seen_this_tab';
 const OPENING_MINIMUM_MS = 1650;          // donor value
 const OPENING_REDUCED_MOTION_MS = 650;    // donor value
-let openingStartedAt = performance.now(); let openingProgressTimer = 0; let openingDone = false;
+let openingStartedAt = performance.now(); let openingProgressTimer = 0; let openingDone = false; let openingSeenThisTab = false;
 function delay(ms){ return new Promise(r=>window.setTimeout(r, ms)); }
 function reducedMotion(){ return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; }
 function canRevealMissionAccountsShell(){ return document.documentElement.dataset.missionaccountsBuild!=='production' || ['authenticated-readonly','registered-limited'].includes(document.documentElement.dataset.missionaccountsRuntime); }
 function revealAuthoritative(){ if(!canRevealMissionAccountsShell()) return false; completeOpeningExperience(); return true; }
 function showOpeningExperience(){ if(!openingNode) return;
-  try{ if(sessionStorage.getItem(OPENING_TAB_KEY)==='1' && !location.hash.includes('replay=1')){ dismissOpeningExperience({immediate:true}); return; } }catch(e){ /* a blocked session store may replay the bounded visual, never block access */ }
+  try{ openingSeenThisTab = sessionStorage.getItem(OPENING_TAB_KEY)==='1' && !location.hash.includes('replay=1'); }catch(e){ openingSeenThisTab=false; /* a blocked session store may replay the bounded visual, never block access */ }
   const alreadyActive = !openingNode.hidden && document.body.classList.contains('opening-active'); if(alreadyActive) return;
   if(openingProgressTimer) window.clearTimeout(openingProgressTimer);
   openingStartedAt = performance.now(); openingNode.hidden=false; openingNode.dataset.phase='forming'; document.body.classList.add('opening-active');
@@ -1374,7 +1374,7 @@ function showOpeningExperience(){ if(!openingNode) return;
 function dismissOpeningExperience({immediate=false}={}){ if(!openingNode) return; if(openingProgressTimer) window.clearTimeout(openingProgressTimer); openingProgressTimer=0; openingNode.dataset.phase = immediate?'idle':'leaving'; document.body.classList.remove('opening-active'); if(canRevealMissionAccountsShell()) document.body.classList.remove('is-booting'); if(immediate) openingNode.hidden=true; }
 async function completeOpeningExperience(){ if(!openingNode || openingNode.hidden || openingDone) return; openingDone=true;
   if(!canRevealMissionAccountsShell()){ openingDone=false; return; }
-  const rm=reducedMotion(); const minimum = rm? OPENING_REDUCED_MOTION_MS : OPENING_MINIMUM_MS; const remaining=Math.max(0, minimum-(performance.now()-openingStartedAt)); if(remaining) await delay(remaining);
+  const rm=reducedMotion(); const minimum = openingSeenThisTab?0:(rm? OPENING_REDUCED_MOTION_MS : OPENING_MINIMUM_MS); const remaining=Math.max(0, minimum-(performance.now()-openingStartedAt)); if(remaining) await delay(remaining);
   try{ sessionStorage.setItem(OPENING_TAB_KEY,'1'); }catch(e){}
   dismissOpeningExperience(); await delay(rm?0:250); openingNode.hidden=true; if(canRevealMissionAccountsShell()) document.body.classList.remove('is-booting'); }
 function skipOpening(){ if(!openingNode || openingNode.hidden) return; openingStartedAt = -1e9; openingDone=false; if(canRevealMissionAccountsShell()) completeOpeningExperience(); }
@@ -2144,6 +2144,8 @@ function missionAccountsHydrateProviderInvoice(root){
 }
 function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRuntime?.state?.user?.role==='student') root.querySelectorAll('.demo,[data-lens]').forEach(node=>{ if(node!==document.body) node.hidden=true; });
   if(document.documentElement.dataset.missionaccountsBuild!=='production') return;
+  const credentialReason='Connection is being restored. Editing will resume automatically when the secure session refreshes.';
+  root.querySelectorAll('[data-credential-disabled="true"]').forEach(control=>{ control.disabled=false; control.removeAttribute('aria-disabled'); delete control.dataset.capabilityDisabled; delete control.dataset.credentialDisabled; if(control.title===credentialReason) control.removeAttribute('title'); });
   const rules=[
     ['student_contacts','[data-save-contact],#eSaveId,[data-etab="identity"]','Student contact editing is not enabled for this environment.'],
     ['billing_decisions','[data-decide],[data-decide-amt],[data-undecide],[data-other],[data-confirm-group],[data-confirm-all],[data-policy],[data-ready]','Billing approval and invoice readiness are not enabled for this environment.'],
@@ -2168,6 +2170,11 @@ function missionAccountsApplyCapabilityState(root){ if(window.MissionAccountsRun
   if(!missionAccountsCapability('identity_review')) root.querySelectorAll('[data-identity-canonical]').forEach(control=>missionAccountsDisable(control,'Identity review is not enabled for this environment.'));
   if(!['student'].includes(window.MissionAccountsRuntime?.state?.user?.role)){
     root.querySelectorAll('[data-pay],[data-auth],[data-auth-off]').forEach(control=>missionAccountsDisable(control,'Only the signed-in student may change payment setup or authorization.'));
+  }
+  const credentialMutationSelector=rules.map(([,selector])=>selector).concat(['[data-edit]','[data-bt]','#bSave','[data-t]','#oSave','[data-identity-canonical]']).join(',');
+  const runtimeState=window.MissionAccountsRuntime?.state;
+  if(runtimeState?.authenticated && runtimeState.mutationsAvailable===false){
+    root.querySelectorAll(credentialMutationSelector).forEach(control=>{ if(control.disabled) return; missionAccountsDisable(control,credentialReason); control.dataset.credentialDisabled='true'; });
   }
   root.querySelectorAll('[role="tab"]').forEach(tab=>{ const selected=tab.classList.contains('on'); tab.setAttribute('aria-selected',String(selected)); tab.tabIndex=selected?0:-1; });
   root.querySelectorAll('[data-theme-set]').forEach(button=>button.setAttribute('aria-pressed',String(button.classList.contains('on'))));
