@@ -283,6 +283,7 @@ function setView(view, { focus = false } = {}) {
   if (view === 'lab') { mountLabInstruments(); void renderLongitudinal(); }
   if (view === 'compare') void renderCompare();
   if (view === 'progress') void renderProgress();
+  if (view === 'filmroom' && state.lastSaved?.sessionDetail) renderFilmRoomSpine(state.lastSaved.sessionDetail);
   if (view === 'vault') void renderVault();
   if (focus) $('#main-content')?.focus?.({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -1741,9 +1742,14 @@ async function renderVault() {
         play.addEventListener('click', async () => {
           play.disabled = true;
           try {
-            const signed = await state.durable.playback(session.recording.id);
+            const [signed, detail] = await Promise.all([
+              state.durable.playback(session.recording.id),
+              state.durable.api.session(session.id),
+            ]);
             const video = $('#playback');
-            state.filmGroups?.ingestResult(session?.results?.payload?.analytics || {});
+            state.lastSaved = { persisted: true, session, sessionDetail: detail };
+            state.filmGroups?.ingestResult(detail?.results?.payload?.analytics || session?.results?.payload?.analytics || {});
+            renderFilmRoomSpine(detail);
             if (video) { video.src = signed.url; await video.play().catch(() => {}); setView('filmroom'); }
           } finally { play.disabled = false; }
         });
@@ -1973,8 +1979,59 @@ function renderContextEvidence(result) {
   }
   const privacy = document.createElement('p');
   privacy.className = 'microcap';
-  privacy.textContent = 'Ephemeral result · transcript and semantic analysis were not persisted by Context.';
+  privacy.textContent = result?.persistence?.transcript
+    ? `Saved privately to this answer${result.persistence.analysis ? ' with evidence-cited analysis' : ''}.`
+    : 'Result was not persisted.';
   host.append(privacy);
+}
+
+function renderFilmRoomSpine(session) {
+  const host = $('#filmroom-spine');
+  if (!host) return;
+  const turns = Array.isArray(session?.spine?.turns)
+    ? session.spine.turns.filter((turn) => turn.speaker === 'student' && turn.transcript?.text)
+    : [];
+  const evidence = Array.isArray(session?.spine?.evidence) ? session.spine.evidence : [];
+  host.replaceChildren();
+  if (!turns.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.innerHTML = '<strong>No persisted transcript yet</strong>Generate transcript + context after this saved answer.';
+    host.append(empty);
+    return;
+  }
+  const timeline = document.createElement('div');
+  timeline.className = 'long-rows';
+  for (const turn of turns) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'long-row';
+    const at = document.createElement('strong');
+    at.textContent = `${(Number(turn.startMs || 0) / 1000).toFixed(1)}s`;
+    const text = document.createElement('span');
+    text.textContent = turn.transcript.text;
+    row.append(at, text);
+    row.addEventListener('click', () => {
+      const video = $('#playback');
+      if (!video || !Number.isFinite(Number(turn.startMs))) return;
+      video.currentTime = Math.max(0, Number(turn.startMs) / 1000);
+      void video.play().catch(() => {});
+    });
+    timeline.append(row);
+  }
+  host.append(timeline);
+  if (evidence.length) {
+    const label = document.createElement('div');
+    label.className = 'microcap';
+    label.textContent = 'Evidence-cited observations';
+    const list = document.createElement('ul');
+    for (const item of evidence) {
+      const row = document.createElement('li');
+      row.textContent = item.interpretation?.text || 'Evidence available';
+      list.append(row);
+    }
+    host.append(label, list);
+  }
 }
 
 async function analyzeLastAnswer() {
@@ -1995,6 +2052,11 @@ async function analyzeLastAnswer() {
       analyticsEvents: Array.isArray(saved.analytics.studentEvents) ? saved.analytics.studentEvents : [],
     });
     renderContextEvidence(result);
+    if (result?.persistence?.transcript) {
+      const detail = await state.durable.api.session(sessionId);
+      state.lastSaved = { ...saved, sessionDetail: detail };
+      renderFilmRoomSpine(detail);
+    }
   } catch (error) {
     renderContextEvidence({ transcript: { status: 'UNAVAILABLE', reason: String(error?.message || error).slice(0, 120) } });
   } finally {

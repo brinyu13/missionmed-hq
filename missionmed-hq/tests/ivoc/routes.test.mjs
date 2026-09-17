@@ -347,6 +347,30 @@ test('assigned mentor can read results without receiving the private object key'
   assert.doesNotMatch(response.body, /storage_object_key|never-return-this/u);
 });
 
+test('authorized session read returns only the private persisted transcript spine projection', async () => {
+  // Readback is deliberately projected and never carries the storage object key.
+  const repo = scopedRepository({ assigned: true });
+  repo.request = async (path) => {
+    if (path.startsWith('ivoc_conversation_turns?')) return [{
+      turn_id: 'turn:1', speaker: 'student', relation: 'answer', t_start_ms: 1200, t_end_ms: 3400,
+      transcript: { canonical_ref: 'transcript:1#seg-1', text: 'A private answer.' }, question: {}, semantic: {}, version: 1,
+    }];
+    if (path.startsWith('ivoc_answer_segments?')) return [{
+      segment_id: 'segment:1', transcript_ref: 'transcript:1', media_ref: `recording:${foreignRecordingId}`,
+      question: {}, answer: { t_start_ms: 1200, t_end_ms: 3400 }, coaching_notes_refs: [], version: 1,
+    }];
+    if (path.startsWith('ivoc_coaching_evidence?')) return [];
+    return [];
+  };
+  const { route } = handler(repo);
+  const response = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response, url: new URL(`https://hq.test/api/ivoc/v1/sessions/${foreignSessionId}`), hqSession: session(42, ['mentor']) });
+  assert.equal(response.status, 200);
+  assert.equal(response.json().spine.turns[0].transcript.text, 'A private answer.');
+  assert.equal(response.json().spine.turns[0].startMs, 1200);
+  assert.doesNotMatch(response.body, /storage_object_key|never-return-this/u);
+});
+
 test('administrator can read any session without receiving the private object key', async () => {
   const { route } = handler(scopedRepository());
   const response = new ResponseCapture();

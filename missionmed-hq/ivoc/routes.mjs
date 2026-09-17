@@ -141,7 +141,7 @@ function publicRecording(row) {
   };
 }
 
-function publicSession(row, recording = null, result = null, review = null) {
+function publicSession(row, recording = null, result = null, review = null, spine = null) {
   return {
     id: row.id, title: row.title, sessionType: row.session_type, questionId: row.question_id,
     questionText: row.question_text, state: row.state, startedAt: row.started_at,
@@ -151,6 +151,117 @@ function publicSession(row, recording = null, result = null, review = null) {
     results: result ? { schema: result.schema_name, schemaVersion: result.schema_version, payload: result.payload, summary: result.summary } : null,
     reviewStatus: review?.status || null,
     review: review ? { status: review.status || null, reviewedAt: review.reviewed_at || null } : null,
+    spine,
+  };
+}
+
+function practiceGoal(row) {
+  const goal = String(row?.context?.goal || '').toLowerCase();
+  if (goal.includes('guided')) return 'guided_mock';
+  if (goal.includes('individual') || row?.session_type === 'question') return 'individual_question';
+  return 'full_simulation';
+}
+
+function contractEnvironment(row) {
+  const environment = String(row?.context?.environment || '').toLowerCase();
+  if (environment.includes('webex')) return 'webex_sim';
+  if (environment.includes('zoom')) return 'zoom_sim';
+  if (environment.includes('teams')) return 'teams_sim';
+  if (environment.includes('studio')) return 'live_mock_studio';
+  return 'missionmed';
+}
+
+async function persistContextSpine({ db, actor, sessionRow, recording, result, nowMs }) {
+  // Server-generated transcript truth is persisted here; the browser never asserts canonical text.
+  if (result?.transcript?.status !== 'AVAILABLE') return { transcript: false, analysis: false };
+  const transcript = result.transcript;
+  const question = result.question;
+  const analysisAvailable = result.analysis?.status === 'AVAILABLE';
+  const startedAt = contractTimestamp(sessionRow.started_at || new Date(nowMs).toISOString(), 'session_started_at');
+  const durationMs = Math.max(0, Math.trunc(Number(
+    recording.duration_ms || result.analysis?.range?.endMs || transcript.segments.at(-1)?.endMs || 0,
+  )));
+  const questionTurnId = `turn:${sessionRow.id}:question`;
+  const transcriptRef = `transcript:${transcript.transcriptId}`;
+  const mediaRef = `recording:${recording.id}`;
+  const answerTurns = transcript.segments.map((segment, index) => ({
+    turn_id: `turn:${sessionRow.id}:answer:${index + 1}`,
+    session_id: sessionRow.id,
+    parent_turn_id: questionTurnId,
+    schema_version: 1,
+    speaker: 'student',
+    relation: 'answer',
+    t_start_ms: Math.max(0, Math.trunc(segment.startMs)),
+    t_end_ms: Math.max(0, Math.trunc(segment.endMs)),
+    transcript: { canonical_ref: `${transcriptRef}#${segment.id}`, text: segment.text },
+    question: {
+      identity: { canonical_question_id: question.questionId, version: String(question.revision || 1) },
+      origin: 'pool',
+      text_hash: createHash('sha256').update(question.canonicalText).digest('hex'),
+    },
+    semantic: analysisAvailable ? {
+      classification: result.analysis.answerStage?.label || 'COMPLETE',
+      coverage: result.analysis.coverage,
+      confidence: result.analysis.score,
+      classifier_version: result.analysis.provenance?.policyVersion || 'context-v1',
+    } : {},
+    interrupted: null,
+    version: 1,
+  }));
+  const evidence = analysisAvailable ? result.analysis.semanticObservations.map((item, index) => ({
+    evidence_id: `evidence:${sessionRow.id}:${index + 1}`,
+    session_id: sessionRow.id,
+    subject_id: actor,
+    schema_version: 1,
+    dimension: `semantic.${String(item.kind || 'supported_claim').toLowerCase()}`,
+    refs: item.transcriptSegmentIds.map((id) => ({ kind: 'transcript_span', ref: `${transcriptRef}#${id}` })),
+    interpretation: { text: item.text, by: 'ai_draft' },
+    confidence: result.analysis.coverage,
+    limitations: result.analysis.limitations || [],
+    version: 1,
+  })) : [];
+  await db.upsert('ivoc_session_contracts', 'session_id', {
+    session_id: sessionRow.id, schema_version: 1, actor_subject: actor, role_context: 'student',
+    practice_goal: practiceGoal(sessionRow), pressure_modifier: sessionRow.context?.pressurePractice === true,
+    transport_profile: 'none', environment: contractEnvironment(sessionRow), selection_policy: 'system',
+    follow_up_intensity: sessionRow.context?.pressurePractice === true ? 2 : 1,
+    target_asked_count: Math.max(1, Math.trunc(Number(sessionRow.context?.targetQuestions) || 1)),
+    target_duration_s: Math.max(1, Math.ceil(durationMs / 1000)),
+    interviewer_config_ref: `interviewer:${safeText(sessionRow.context?.interviewer, 120) || sessionRow.interviewer_provider}`,
+    question_pool_ref: `question:${question.questionId}`, analytics_config_version: sessionRow.analytics_schema || 'ivoc.analytics.v1',
+    contract_state: 'complete', state_version: 1,
+    clock: { origin: 'capture_owner', started_at_wall: startedAt }, context_receipts: [],
+  });
+  await db.upsert('ivoc_conversation_turns', 'turn_id', {
+    turn_id: questionTurnId, session_id: sessionRow.id, parent_turn_id: null, schema_version: 1,
+    speaker: 'interviewer', relation: 'question', t_start_ms: 0, t_end_ms: 0,
+    transcript: { text: question.canonicalText },
+    question: { identity: { canonical_question_id: question.questionId, version: String(question.revision || 1) }, origin: 'pool' },
+    semantic: {}, interrupted: null, version: 1,
+  });
+  for (const turn of answerTurns) await db.upsert('ivoc_conversation_turns', 'turn_id', turn);
+  const evidenceIds = evidence.map((item) => item.evidence_id);
+  await db.upsert('ivoc_answer_segments', 'segment_id', {
+    segment_id: `segment:${sessionRow.id}:primary`, session_id: sessionRow.id, subject_id: actor,
+    schema_version: 1, transcript_ref: transcriptRef, media_ref: mediaRef,
+    question: { origin: 'pool', text: question.canonicalText, asked_turn_id: questionTurnId, t_asked_ms: 0, canonical_question_id: question.questionId, version: String(question.revision || 1) },
+    answer: { t_start_ms: answerTurns[0].t_start_ms, t_end_ms: answerTurns.at(-1).t_end_ms, turn_ids: answerTurns.map((turn) => turn.turn_id), follow_up_turn_ids: [] },
+    coaching_notes_refs: evidenceIds, scoring: null, strongest_marker: null, version: 1,
+  });
+  for (const item of evidence) await db.upsert('ivoc_coaching_evidence', 'evidence_id', item);
+  return { transcript: true, analysis: analysisAvailable };
+}
+
+async function readPublicSpine(db, sessionId) {
+  const turns = await db.request(`ivoc_conversation_turns?session_id=eq.${sessionId}&select=turn_id,speaker,relation,t_start_ms,t_end_ms,transcript,question,semantic,version&order=t_start_ms.asc`);
+  const segments = await db.request(`ivoc_answer_segments?session_id=eq.${sessionId}&select=segment_id,transcript_ref,media_ref,question,answer,coaching_notes_refs,version&order=created_at.asc`);
+  const evidence = await db.request(`ivoc_coaching_evidence?session_id=eq.${sessionId}&select=evidence_id,dimension,refs,interpretation,score,confidence,limitations,version&order=created_at.asc`);
+  if (!turns.length && !segments.length && !evidence.length) return null;
+  return {
+    schema: 'ivoc.session-spine.v1',
+    turns: turns.map((turn) => ({ id: turn.turn_id, speaker: turn.speaker, relation: turn.relation, startMs: turn.t_start_ms, endMs: turn.t_end_ms, transcript: turn.transcript, question: turn.question, semantic: turn.semantic, version: turn.version })),
+    segments: segments.map((segment) => ({ id: segment.segment_id, transcriptRef: segment.transcript_ref, mediaRef: segment.media_ref, question: segment.question, answer: segment.answer, coachingNotesRefs: segment.coaching_notes_refs, version: segment.version })),
+    evidence: evidence.map((item) => ({ id: item.evidence_id, dimension: item.dimension, refs: item.refs, interpretation: item.interpretation, score: item.score, confidence: item.confidence, limitations: item.limitations, version: item.version })),
   };
 }
 
@@ -312,7 +423,11 @@ export function createIvocHandler({
             mimeType: recording.mime_type || 'video/webm',
             transcriptEnabled: contextTranscriptEnabled,
           });
-          sendJson(response, 200, result, mediaBase);
+          const persistence = await persistContextSpine({ db, actor, sessionRow, recording, result, nowMs: now() });
+          if (persistence.transcript) {
+            await audit({ actor, owner: actor, sessionId, recordingId, action: 'context_persist', decision: 'allow', reason: persistence.analysis ? 'transcript_and_analysis' : 'transcript_only' });
+          }
+          sendJson(response, 200, { ...result, persistence: { ...result.persistence, ...persistence } }, mediaBase);
           return true;
         } finally {
           audio?.fill?.(0);
@@ -653,8 +768,9 @@ export function createIvocHandler({
         const recording = await db.single(`ivoc_recordings?session_id=eq.${row.id}&select=*&limit=1`);
         const result = await db.single(`ivoc_results?session_id=eq.${row.id}&select=*&limit=1`);
         const review = await db.single(`ivoc_reviews?session_id=eq.${row.id}&status=neq.revoked&select=status,reviewed_at&limit=1`);
+        const spine = await readPublicSpine(db, row.id);
         await audit({ actor, owner: row.owner_subject, sessionId: row.id, action: 'session_read', decision: 'allow', reason: row.owner_subject === actor ? 'owner' : 'authorized_review' });
-        sendJson(response, 200, publicSession(row, recording, result, review), mediaBase); return true;
+        sendJson(response, 200, publicSession(row, recording, result, review, spine), mediaBase); return true;
       }
 
       match = pathname.match(/^\/api\/ivoc\/v1\/recordings\/([0-9a-f-]{36})\/playback-url$/u);

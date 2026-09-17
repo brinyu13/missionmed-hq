@@ -205,19 +205,22 @@ test('context route inherits auth, entitlement, CSRF, and default-off feature ga
   }
 });
 
-test('analyze route reads only the owner sealed object and persists no context output', async () => {
+test('analyze route reads only the owner sealed object and persists a private canonical transcript spine', async () => {
+  // The provider result remains server-owned through persistence; no client transcript is trusted.
   let inserts = 0;
   let updates = 0;
+  const upserts = [];
   let analyzeInput = null;
   const repository = {
     single: async (path) => {
-      if (path.startsWith(`ivoc_sessions?id=eq.${sessionId}`)) return { id: sessionId, owner_subject: 'wp:42' };
-      if (path.startsWith(`ivoc_recordings?id=eq.${recordingId}`)) return { id: recordingId, session_id: sessionId, owner_subject: 'wp:42', status: 'saved', storage_object_key: 'private/object.webm', mime_type: 'video/webm' };
+      if (path.startsWith(`ivoc_sessions?id=eq.${sessionId}`)) return { id: sessionId, owner_subject: 'wp:42', session_type: 'question', interviewer_provider: 'missionmed-static', analytics_schema: 'ivoc.analytics.v1', context: {}, started_at: '2026-09-17T20:00:00.000Z' };
+      if (path.startsWith(`ivoc_recordings?id=eq.${recordingId}`)) return { id: recordingId, session_id: sessionId, owner_subject: 'wp:42', status: 'saved', storage_object_key: 'private/object.webm', mime_type: 'video/webm', duration_ms: 42_000 };
       return null;
     },
     request: async () => [],
     insert: async () => { inserts += 1; },
     update: async () => { updates += 1; },
+    upsert: async (table, conflict, body) => { upserts.push({ table, conflict, body }); return body; },
   };
   const expected = {
     schema: 'missionmed.ivoc.context.result.v1', sessionId, answerId,
@@ -243,7 +246,13 @@ test('analyze route reads only the owner sealed object and persists no context o
   assert.equal(response.status, 200);
   assert.equal(analyzeInput.questionId, 'CORE-01');
   assert.equal(analyzeInput.transcriptEnabled, true);
-  assert.equal(inserts, 0);
+  assert.equal(response.json().persistence.transcript, true);
+  assert.equal(response.json().persistence.analysis, false);
+  assert.deepEqual(upserts.map((entry) => entry.table), [
+    'ivoc_session_contracts', 'ivoc_conversation_turns', 'ivoc_conversation_turns', 'ivoc_answer_segments',
+  ]);
+  assert.equal(upserts.at(-1).body.subject_id, 'wp:42');
+  assert.equal(inserts, 1);
   assert.equal(updates, 0);
   assert.doesNotMatch(response.body, /storage_object_key|private\/object/u);
 });

@@ -339,7 +339,7 @@
           <div class="btn-row">
             <button class="btn btn-secondary" type="button" id="context-analyze" disabled><span>Generate transcript + context</span></button>
           </div>
-          <p class="microcap">Provider processing begins only when you press the button. The Context endpoint does not persist the transcript or semantic analysis.</p>
+          <p class="microcap">Provider processing begins only when you press the button. Available transcript and evidence-cited analysis are saved privately to this authenticated answer.</p>
         </div>
         <div class="btn-row">
           <button class="btn btn-secondary" type="button" data-goto="filmroom"><span>Open film room</span></button>
@@ -361,6 +361,12 @@
         <div class="housing" style="margin-top:16px">
           <div class="housing-title">Tracks</div>
           <div id="filmroom-groups"></div>
+        </div>
+        <div class="housing" style="margin-top:16px">
+          <div class="housing-title">Transcript timeline</div>
+          <div class="recess context-evidence" id="filmroom-spine">
+            <div class="empty-state"><strong>No persisted transcript yet</strong>Generate transcript + context after a saved answer, or open a transcribed answer from Answer History.</div>
+          </div>
         </div>
       </section>
 
