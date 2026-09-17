@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-16 21:38 America/New_York
+Updated: 2026-09-16 21:53 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -34,6 +34,13 @@ the actual production route and deployment.
   `cca6734a830124096e877e9bf0dbd861c0f2baff`.
 - Source baseline before this completion tranche:
   `84f0adb3235d89de32478700653eec57b278097c`.
+- Hosted-runtime security and explicit production-project binding:
+  `479b1d41b30834593f437f0a8b156b106d6d7493`. The exact LiveKit runtime
+  pins are Agents/OpenAI/LemonSlice `1.9.0` and RTC Node `0.13.34`,
+  resolving `sharp 0.35.4`; the production dependency audit is zero.
+  Hosted HQ now passes the server-owned `IVPREP_SUPABASE_PROJECT_REF` into
+  the durable adapter instead of silently falling back to the historical
+  development project.
 
 ## Production data authority — LIVE VERIFIED
 
@@ -126,6 +133,11 @@ the actual production route and deployment.
 - Runtime bindings must be moved from the historical development target to
   `bscnrgqlwsyygyfrbhfn` without exposing credentials. Context/transcript flags
   and paid-test provider control remain fail-closed until the bounded canary.
+- The security correction passed syntax checks across 65 Analytics modules,
+  16/16 provider reconnect/teardown contracts, 8/8 hosted binding tests, and
+  the previously environment-blocked HQ logout/replay test. The complete IVOC
+  suite reached 613/614 before that root dependency setup correction; the sole
+  failed test then passed 4/4 in its focused rerun.
 - Current canonical IVOC source does not contain the registered StoryForge V5
   and Timeline roots. Live checks previously found sibling-owned StoryForge,
   Timeline/USCE, and Matrix drift. No generic canonical waiver mechanism was
