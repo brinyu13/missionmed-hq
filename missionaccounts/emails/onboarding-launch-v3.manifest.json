@@ -1,0 +1,51 @@
+{
+  "access_enforcement_enabled": false,
+  "automatic_billing_dispatch": false,
+  "credential_method": "existing-account-or-secure-password-recovery",
+  "cta_url": "https://missionmedinstitute.com/missionaccounts/#/me/onboarding",
+  "exact_recipient_bindings": {
+    "Ana Torres": {
+      "email_sha256": "c116bd2917a9deafea68d38367d80520354f47a562b47d7159fef096ce703916",
+      "student_id": "b2a9e055-d55e-5bfc-8c0c-bd38f3b14b5c",
+      "username": "anat2",
+      "wp_user_id": 353
+    },
+    "Raghav Gupta": {
+      "email_sha256": "3fde4e6db365154701acb64909a87d2ab647315acc1788360d175be1406b45fc",
+      "student_id": "5171c2ec-5046-59e0-a22a-7362404bf9ec",
+      "username": "RaghavG",
+      "wp_user_id": 114
+    }
+  },
+  "external_send_authorized": false,
+  "held_recipients": {
+    "Neidy": "canonical_identity_not_resolved",
+    "Subani Dias": "account_link_not_resolved"
+  },
+  "hosted_invoice_sending": false,
+  "html_sha256": "40caf8c4b4a8f70fbe16e347b1357098d397dc50ce313d24ee6a4608d83d4844",
+  "idempotency_claim": "atomic unique WordPress option plus exact compare-and-swap transitions",
+  "money_moved_cents": 0,
+  "notifications_outside_exact_pilot": false,
+  "provider": "wordpress_wp_mail",
+  "provider_controller": "scripts/onboarding-launch/wp_onboarding_pilot.php",
+  "recipient_addresses_stored_in_source": false,
+  "recipient_manifest_builder": "scripts/onboarding-launch/build_pilot_manifest.py",
+  "requested_completion_window_hours": 48,
+  "runtime_preflight": [
+    "exact_named_binding",
+    "canonical_student_id",
+    "wp_user_id",
+    "username",
+    "email_sha256",
+    "WordPress_non_admin",
+    "LearnDash_course_6357_access",
+    "final_Supabase_DIRECT_verification",
+    "not_previously_sent"
+  ],
+  "schema_version": "missionaccounts-onboarding-pilot-manifest-v3",
+  "send_ledger": "atomic wp_options claim mirrored to WordPress user meta _missionmed_onboarding_launch_v1",
+  "subject": "Your MyMissionMed Account is ready",
+  "template_version": "examprep-onboarding-email-2026-09-17-v3",
+  "text_sha256": "22668fae65ad33bcde060a86547a05d400152f0506f376870eb4d6f0193e7282"
+}
