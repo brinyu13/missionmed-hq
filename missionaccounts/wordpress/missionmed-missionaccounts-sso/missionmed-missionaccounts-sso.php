@@ -27,11 +27,23 @@ if ( ! function_exists( 'mma_onboarding_invitation_requested' ) ) {
     function mma_onboarding_invitation_login_redirect( $redirect, $user = null ) {
         return mma_onboarding_invitation_requested() ? mma_onboarding_invitation_target() : $redirect;
     }
+    function mma_onboarding_invitation_return_key( $user_id ) {
+        return 'mma_onboarding_return_' . absint( $user_id );
+    }
+    function mma_onboarding_invitation_mark_login( $user_login, $user ) {
+        if ( mma_onboarding_invitation_requested() && $user instanceof WP_User ) {
+            set_transient( mma_onboarding_invitation_return_key( $user->ID ), 1, 5 * MINUTE_IN_SECONDS );
+        }
+    }
     add_action( 'woocommerce_login_form_start', 'mma_onboarding_invitation_hidden_field' );
     add_filter( 'login_redirect', 'mma_onboarding_invitation_login_redirect', PHP_INT_MAX - 1, 2 );
     add_filter( 'woocommerce_login_redirect', 'mma_onboarding_invitation_login_redirect', PHP_INT_MAX - 1, 2 );
+    add_action( 'wp_login', 'mma_onboarding_invitation_mark_login', 10, 2 );
     add_action( 'template_redirect', static function () {
-        if ( is_user_logged_in() && mma_onboarding_invitation_requested() ) {
+        if ( ! is_user_logged_in() ) return;
+        $return_key = mma_onboarding_invitation_return_key( get_current_user_id() );
+        if ( mma_onboarding_invitation_requested() || get_transient( $return_key ) ) {
+            delete_transient( $return_key );
             wp_safe_redirect( mma_onboarding_invitation_target() );
             exit;
         }
