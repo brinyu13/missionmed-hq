@@ -1212,6 +1212,10 @@ function evaluateReadiness() {
 
 async function startRep() {
   if (['STARTING', 'RUNNING'].includes(state.session.state)) return;
+  // Device connection publishes through the shared bridge asynchronously. Re-adopt
+  // that canonical stream at the action boundary so a late publication can never
+  // leave the visible Astra surface black while the hidden analytics preview works.
+  bindCockpitVideo();
   if (evaluateReadiness() !== 'SESSION_READY') return;
   setSessionState('STARTING');
   try {
@@ -1319,7 +1323,13 @@ function bindCockpitVideo() {
   // permission prompt - Device Check establishes the media session and Delivery
   // Training attaches to the same one.
   const v = $('#cockpit-video');
-  if (v && bridge.media.stream && v.srcObject !== bridge.media.stream) v.srcObject = bridge.media.stream;
+  if (v && bridge.media.stream && v.srcObject !== bridge.media.stream) {
+    v.srcObject = bridge.media.stream;
+    void v.play?.().catch?.(() => {});
+  }
+  // Re-route even when the view did not change. This repairs the overlay/control
+  // nodes if a view render replaced them after the controller first bound.
+  state.analytics?.onViewChange?.(state.view, state.role === 'student' ? 'student' : 'admin');
   const ready = evaluateReadiness();
   const connect = $('#cockpit-connect');
   if (connect) {

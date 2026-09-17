@@ -338,7 +338,8 @@ export class StudentSurfaceOverlayController {
       this.unbindSurface();
       return false;
     }
-    if (this.mode === 'live' && this.video === video && this.stage === stage) {
+    if (this.mode === 'live' && this.video === video && this.stage === stage
+      && this.overlay?.isConnected && this.controls?.isConnected) {
       this.syncSurfaceContract();
       return true;
     }
@@ -358,7 +359,8 @@ export class StudentSurfaceOverlayController {
   bindPlaybackSurface() {
     const video = this.document.getElementById(this.surfaceIds.playback);
     if (!video || !video.parentNode) return false;
-    if (this.mode === 'playback' && this.video === video) {
+    if (this.mode === 'playback' && this.video === video
+      && this.overlay?.isConnected && this.controls?.isConnected) {
       this.syncSurfaceContract();
       return true;
     }
@@ -2194,6 +2196,13 @@ export function initializeAnalyticsUi(bridge, { surfaceIds = {}, overlayPolicy =
     abandonAnswer: (reason) => pipeline.abandonAnswer(reason),
     renderStudentResults: renderStudentAnalytics,
     onViewChange: (view, role) => { studentOverlay.onViewChange(view, role);founder?.onViewChange(view, role); },
+    setInstrumentation: ({ overlayEnabled, faceOverlayEnabled, bodyHandsOverlayEnabled } = {}) => studentOverlay.configure({
+      authorized: studentOverlay.policy.authorized,
+      enabled: overlayEnabled === true,
+      face: faceOverlayEnabled === true,
+      bodyHands: bodyHandsOverlayEnabled === true,
+      studentPrimary: studentOverlay.policy.studentPrimary,
+    }),
     diagnostics: () => pipeline.diagnostics(),
     // Y1-Y2-CAM-V6-3506: the facade exposed no way to observe telemetry, so external
     // surfaces (Film Room, Analytics Lab) had no diagnostic source and rendered every

@@ -484,6 +484,7 @@ test('G/H: the operational overlay stays on the actual student surface through s
     dispatch(type){for(const listener of this.listeners.get(type)||[])listener({type,stopPropagation(){}})}
     querySelector(selector){const match=/^\[data-overlay-control="([^"]+)"\]$/u.exec(selector);if(match&&this.dataset.overlayControl===match[1])return this;for(const child of this.children){const found=child.querySelector?.(selector);if(found)return found}return null}
     getContext(type){return this.tagName==='CANVAS'&&type==='2d'?this.context:null}
+    get isConnected(){return Boolean(this.parentNode)}
   }
   const nodes=new Map();
   const register=(id,tag='div')=>{const node=new FakeNode(tag);node.id=id;nodes.set(id,node);return node};
@@ -560,6 +561,14 @@ test('G/H: the operational overlay stays on the actual student surface through s
   assert.equal(studioController.mode,'live');
   assert.equal(studioController.overlay.parentNode,cockpitStage);
   assert.equal(studioController.overlay.dataset.anchorSurface,'cockpit-video');
+  const removedLiveOverlay=studioController.overlay;
+  const removedLiveControls=studioController.controls;
+  removedLiveOverlay.remove();
+  removedLiveControls.remove();
+  studioController.onViewChange('training','student');
+  assert.notEqual(studioController.overlay,removedLiveOverlay);
+  assert.notEqual(studioController.controls,removedLiveControls);
+  assert.equal(studioController.overlay.parentNode,cockpitStage);
   studioController.onViewChange('filmroom','admin');
   assert.equal(studioController.mode,'playback');
   assert.equal(studioController.overlay.dataset.anchorSurface,'playback');

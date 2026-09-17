@@ -45,6 +45,18 @@ test('the analytics facade exposes a diagnostic subscription', () => {
   assert.match(body, /throw new TypeError/u);
 });
 
+test('the Studio overlay adapter is live and the rep boundary re-adopts late media', () => {
+  assert.match(ui, /setInstrumentation: \(\{ overlayEnabled, faceOverlayEnabled, bodyHandsOverlayEnabled \} = \{\}\)/u,
+    'the Astra overlay controls must reach the canonical overlay controller');
+  const start = studio.slice(studio.indexOf('async function startRep()'), studio.indexOf('async function finishRep()'));
+  assert.ok(start.indexOf('bindCockpitVideo();') < start.indexOf("evaluateReadiness() !== 'SESSION_READY'"),
+    'Start rep must re-adopt a late shared stream before readiness and capture');
+  const bind = studio.slice(studio.indexOf('function bindCockpitVideo()'), studio.indexOf('function wireCockpit()'));
+  assert.match(bind, /v\.srcObject = bridge\.media\.stream/u);
+  assert.match(bind, /state\.analytics\?\.onViewChange\?\.\(state\.view, state\.role === 'student' \? 'student' : 'admin'\)/u,
+    'rebinding the stream must also self-heal the overlay surface');
+});
+
 test('no consumer subscribes through a non-existent facade property', () => {
   // The original defect. `?.pipeline` on the facade is always undefined, so the
   // optional call silently did nothing.
