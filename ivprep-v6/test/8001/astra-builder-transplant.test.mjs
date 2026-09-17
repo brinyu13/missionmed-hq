@@ -15,6 +15,22 @@ test('builder binds the recovered candidate.2 presentation authority', () => {
   assert.match(css, /\.canon-purpose-card/);
 });
 
+test('each canonical step owns a distinct renderer instead of the rejected generic option loop', () => {
+  const renderers = [
+    ['goal', 'renderGoalStep'],
+    ['questions', 'renderQuestionStep'],
+    ['interviewer', 'renderInterviewerStep'],
+    ['program', 'renderProgramStep'],
+    ['environment', 'renderEnvironmentStep'],
+  ];
+  for (const [key, renderer] of renderers) {
+    assert.match(js, new RegExp(`step\\.key === '${key}'\\) ${renderer}\\(content\\)`));
+  }
+  assert.match(js, /else renderReadinessStep\(content\)/);
+  assert.doesNotMatch(js, /for \(const option of step\.options\)/);
+  assert.doesNotMatch(js, /options:\s*\['Core 10',\s*'Behavioral questions'/);
+});
+
 test('question pool preserves progressive category to section to question exploration', () => {
   for (const text of ['QUESTION_CATEGORIES', 'questionCategory', 'questionSection', 'Choose specific questions']) assert.match(js, new RegExp(text));
   assert.match(css, /\.canon-pool-browser/);
