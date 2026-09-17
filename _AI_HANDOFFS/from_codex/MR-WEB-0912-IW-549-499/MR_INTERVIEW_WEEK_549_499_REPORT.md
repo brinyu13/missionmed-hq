@@ -165,6 +165,7 @@ All production file modes are `0644`. Local/remote hashes were identical at fina
 - Added the missing Woo recalculation trigger after payment-method selection.
 - Corrected five staged customer asset modes from accidental `0600` to `0644`; hashes never changed.
 - Final Kinsta cache purge succeeded.
+- Activation epoch `2943` covered the production writes through `15:21:48 UTC` and expired at `15:21:59 UTC` before its release RPC; no competing lease appeared. Subsequent correction/documentation leases were explicitly released, and final provider readback is clear.
 - Final active lease count: zero.
 
 ### Unrelated dirty work
