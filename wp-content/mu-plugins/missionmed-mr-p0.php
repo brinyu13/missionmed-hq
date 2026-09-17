@@ -708,7 +708,7 @@ add_action('woocommerce_review_order_before_payment', static function (): void {
 
 add_action('wp_footer', static function (): void {
     if (!mm_mr_p0_launch_product_in_cart()) return;
-    echo '<script id="mm-mr-0912-payment-analytics">(function(){var last="";function emit(){var n=document.querySelector("input[name=payment_method]:checked");if(!n||n.value===last)return;last=n.value;window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:"mr_payment_method_selected",payment_method:last,offer:"interview_week"});}document.addEventListener("change",function(e){if(!e.target||e.target.name!=="payment_method")return;emit();if(window.jQuery)jQuery(document.body).trigger("update_checkout");});document.addEventListener("DOMContentLoaded",emit);if(window.jQuery)jQuery(document.body).on("updated_checkout",emit);}());</script>';
+    echo '<script id="mm-mr-0912-payment-analytics">(function(){var last="";function emit(){var n=document.querySelector("input[name=payment_method]:checked");if(!n||n.value===last)return;last=n.value;window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:"mr_payment_method_selected",payment_method:last,offer:"interview_week",value:last==="bacs"?499:549,currency:"USD"});}document.addEventListener("change",function(e){if(!e.target||e.target.name!=="payment_method")return;emit();if(window.jQuery)jQuery(document.body).trigger("update_checkout");});document.addEventListener("DOMContentLoaded",emit);if(window.jQuery)jQuery(document.body).on("updated_checkout",emit);}());</script>';
 }, 20);
 
 function mm_mr_0914_post_enrollment_expectations(int $orderId): void {
