@@ -22,9 +22,9 @@ the actual production route and deployment.
 - Candidate.2 presentation integration successor:
   `84e750e4540acd5479ee72291e7b9d1c38f2f351`.
 - Active presentation/runtime deployment:
-  `bd1869fb-a7ac-435d-bc86-70627012ec00`, exact commit
-  `0c9efce6d61b2d68f0ed7e26d5a0e5f5eee205b8`, image
-  `sha256:097c55de617ce9f18b9bbc026f2577c951c73e3012cf93136b145be1b89963bf`.
+  `f68eb15a-56ea-4f1d-bba9-0ad12e8d3fa7`, exact commit
+  `3ff0377858ff0f8a12d6f70cc3cdcf965990281f`, image
+  `sha256:680b11dbffab128dc3558ca6bc37303b12da3ef7add0168ffd880e73ad5e2a8d`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -125,8 +125,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `bd1869fb-a7ac-435d-bc86-70627012ec00` from exact product commit
-  `0c9efce6d61b2d68f0ed7e26d5a0e5f5eee205b8`; health is ready and the
+  `f68eb15a-56ea-4f1d-bba9-0ad12e8d3fa7` from exact product commit
+  `3ff0377858ff0f8a12d6f70cc3cdcf965990281f`; health is ready and the
   unauthenticated product route remains fail-closed at HTTP 401.
 - Runtime bindings must be moved from the historical development target to
   `bscnrgqlwsyygyfrbhfn` without exposing credentials. Context/transcript flags
@@ -150,7 +150,7 @@ the actual production route and deployment.
 - VOICE: `marin`.
 - ACTUAL IVOC PATH: YES — authenticated broker, canonical WebRTC/data-channel session, production microphone and the current InterviewBrain room.
 - CURRENT VALID GPT-LIVE VOICES: `alloy`, `ash`, `ballad`, `beacon`, `bossa`, `cedar`, `cinder`, `coral`, `delta`, `echo`, `gleam`, `marin`, `meridian`, `quartz`, `ripple`, `sage`, `shimmer`, `stone`, `tempo`, `verse`, `vesper`, `willow`; the bounded audition exposes `marin`, `meridian`, `gleam`, `vesper`, `stone`, and `willow`.
-- ADMIN AUDITION AVAILABLE: YES — Admin role → Interview Room → Founder / Admin voice audition; the selected voice uses the same InterviewBrain session/context/audio path and students remain pinned to `marin`.
+- ADMIN AUDITION AVAILABLE: YES — Admin role → Interview Room → Founder / Admin voice audition; production accepted `meridian` through the same InterviewBrain session/context/audio path (1.353 s create, 363 ms confirmed hangup), and students remain pinned to `marin`.
 - CURRENT ARCHITECTURE VS FABLE: Director/orchestration remains outside providers; conversation rail, canonical clock, audio authority, response/item identity, interruption/cancellation, stale-output rejection, ElevenLabs adapter, LemonSlice adapter and LiveKit coordinator/worker already exist. The new Live room currently uses the direct GPT-Live path rather than those legacy avatar/TTS rails.
 - EXTERNAL TTS WORK STILL NEEDED: Deferred; only needed later if native Live voices fail persona/accent/verbatim requirements.
 - RECOMMENDED NEXT ACTION AFTER RESET: Founder auditions the six native voices in the real room, selects a preferred default/profile mapping, then IVOC decides whether any TTS-mediated Actor lane is still justified.
