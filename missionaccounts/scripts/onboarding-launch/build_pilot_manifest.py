@@ -7,9 +7,18 @@ from pathlib import Path
 COHORT = ("Neidy", "Ana Torres", "Raghav Gupta", "Subani Dias")
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 SHA = re.compile(r"^[0-9a-f]{40}$")
-VERSION = "examprep-onboarding-email-2026-09-17-v1"
+VERSION = "examprep-onboarding-email-2026-09-17-v2"
 SUBJECT = "Your MyMissionMed Account is ready"
 CTA = "https://missionmedinstitute.com/missionaccounts/#/me/onboarding"
+HOLD_REASONS = {
+    "canonical_identity_not_resolved",
+    "canonical_wordpress_account_not_resolved",
+    "account_link_not_resolved",
+    "verified_email_not_resolved",
+    "enrollment_not_verified",
+    "authoritative_exclusion",
+    "duplicate_prior_send",
+}
 
 def file_sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -27,6 +36,19 @@ def build(rows: list[dict[str, str]], html: Path, text: Path,
     items = []
     for display_name in COHORT:
         row = by_name[display_name.casefold()]
+        pilot_status = str(row.get("pilot_status", "READY")).strip().upper()
+        hold_reason = str(row.get("hold_reason", "")).strip().lower()
+        if pilot_status == "HELD":
+            if hold_reason not in HOLD_REASONS:
+                raise ValueError(f"pilot_hold_reason_required:{display_name}")
+            items.append({
+                "display_name": display_name,
+                "pilot_status": "HELD",
+                "hold_reason": hold_reason,
+            })
+            continue
+        if pilot_status != "READY" or hold_reason:
+            raise ValueError(f"pilot_status_invalid:{display_name}")
         email = str(row.get("email", "")).strip().lower()
         student_id = str(row.get("student_id", "")).strip().lower()
         username = str(row.get("username", "")).strip()
@@ -40,7 +62,8 @@ def build(rows: list[dict[str, str]], html: Path, text: Path,
                 or prior not in {"", "not_sent"}):
             raise ValueError(f"pilot_recipient_not_eligible:{display_name}")
         items.append({
-            "display_name": display_name, "wp_user_id": int(wp_user_id),
+            "display_name": display_name, "pilot_status": "READY",
+            "wp_user_id": int(wp_user_id),
             "username": username, "student_id": student_id,
             "email_sha256": hashlib.sha256(email.encode()).hexdigest(),
             "sponsor_type": "DIRECT", "enrolled": True,
@@ -74,7 +97,9 @@ def main() -> None:
     fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "wb") as handle:
         handle.write(raw)
-    print(json.dumps({"built": True, "recipient_count": len(payload["items"]),
+    print(json.dumps({"built": True, "pilot_count": len(payload["items"]),
+        "ready_count": sum(item["pilot_status"] == "READY" for item in payload["items"]),
+        "held_count": sum(item["pilot_status"] == "HELD" for item in payload["items"]),
         "external_send_authorized": payload["external_send_authorized"],
         "manifest_sha256": hashlib.sha256(raw).hexdigest()}, sort_keys=True))
 

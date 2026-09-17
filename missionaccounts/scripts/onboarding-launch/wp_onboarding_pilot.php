@@ -14,7 +14,7 @@ function mmdrj_launch_process( $payload, $html_template, $text_template, $mode )
     $cohort = array( 'Neidy', 'Ana Torres', 'Raghav Gupta', 'Subani Dias' );
     if ( ! in_array( $mode, array( 'dry-run', 'send', 'retry-failed' ), true )
         || ! is_array( $payload ) || ( $payload['schema_version'] ?? '' ) !== 'missionaccounts-onboarding-pilot-send-v1'
-        || ( $payload['template_version'] ?? '' ) !== 'examprep-onboarding-email-2026-09-17-v1'
+        || ( $payload['template_version'] ?? '' ) !== 'examprep-onboarding-email-2026-09-17-v2'
         || ( $payload['provider'] ?? '' ) !== 'wordpress_wp_mail'
         || ( $payload['cta_url'] ?? '' ) !== 'https://missionmedinstitute.com/missionaccounts/#/me/onboarding'
         || ! hash_equals( (string) ( $payload['template_html_sha256'] ?? '' ), hash( 'sha256', $html_template ) )
@@ -29,7 +29,20 @@ function mmdrj_launch_process( $payload, $html_template, $text_template, $mode )
     $names = array_map( function( $row ) { return (string) ( $row['display_name'] ?? '' ); }, $payload['items'] );
     if ( $names !== $cohort ) throw new RuntimeException( 'onboarding_pilot_exact_cohort_required' );
     $resolved = array();
+    $hold_reasons = array( 'canonical_identity_not_resolved', 'canonical_wordpress_account_not_resolved',
+        'account_link_not_resolved', 'verified_email_not_resolved', 'enrollment_not_verified',
+        'authoritative_exclusion', 'duplicate_prior_send' );
     foreach ( $payload['items'] as $item ) {
+        if ( 'HELD' === ( $item['pilot_status'] ?? '' ) ) {
+            if ( ! in_array( (string) ( $item['hold_reason'] ?? '' ), $hold_reasons, true ) ) {
+                throw new RuntimeException( 'onboarding_pilot_hold_reason_invalid' );
+            }
+            $resolved[] = array( 'HELD', $item, null );
+            continue;
+        }
+        if ( 'READY' !== ( $item['pilot_status'] ?? '' ) ) {
+            throw new RuntimeException( 'onboarding_pilot_status_invalid' );
+        }
         $user = get_user_by( 'id', absint( $item['wp_user_id'] ?? 0 ) );
         $student_id = strtolower( (string) ( $item['student_id'] ?? '' ) );
         $eligible = $user && ! user_can( $user, 'manage_options' )
@@ -41,10 +54,15 @@ function mmdrj_launch_process( $payload, $html_template, $text_template, $mode )
             && true === ( $item['onboarding_eligible'] ?? false )
             && function_exists( 'sfwd_lms_has_access' ) && sfwd_lms_has_access( 6357, $user->ID );
         if ( ! $eligible ) throw new RuntimeException( 'onboarding_pilot_recipient_preflight_failed' );
-        $resolved[] = array( $item, $user );
+        $resolved[] = array( 'READY', $item, $user );
     }
     $results = array();
-    foreach ( $resolved as list( $item, $user ) ) {
+    foreach ( $resolved as list( $pilot_status, $item, $user ) ) {
+        if ( 'HELD' === $pilot_status ) {
+            $results[] = array( 'display_name'=>$item['display_name'], 'status'=>'held',
+                'hold_reason'=>$item['hold_reason'], 'attempted'=>false );
+            continue;
+        }
         $ledger_key = '_missionmed_onboarding_launch_v1';
         $prior = json_decode( (string) get_user_meta( $user->ID, $ledger_key, true ), true );
         $prior_state = is_array( $prior ) ? (string) ( $prior['state'] ?? '' ) : '';
@@ -70,6 +88,7 @@ function mmdrj_launch_process( $payload, $html_template, $text_template, $mode )
         add_action( 'phpmailer_init', function( $mailer ) use ( $plain ) { $mailer->AltBody = $plain; } );
         $sent = wp_mail( $user->user_email, $payload['subject'], $html, array(
             'Content-Type: text/html; charset=UTF-8',
+            'From: Dr J via MissionMed <' . sanitize_email( get_option( 'admin_email' ) ) . '>',
             'Reply-To: Dr J via MissionMed <' . sanitize_email( get_option( 'admin_email' ) ) . '>',
             'X-MissionMed-Send-Key: ' . $send_key,
         ) );
