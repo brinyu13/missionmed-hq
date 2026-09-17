@@ -104,3 +104,30 @@ test('context analysis sends only sealed answer identity and validated student e
   assert.deepEqual(input.analyticsEvents, [{ metric: 'answer_duration_ms' }]);
   assert.equal(result.schema, 'missionmed.ivoc.context.result.v1');
 });
+
+test('interrupted sessions are abandoned through the authenticated owner API and local capture is destroyed', async () => {
+  const calls = [];
+  const api = {
+    async bootstrap() { return { entitlement: { admitted: true } }; },
+    async createSession() { return { id: 'session-interrupted' }; },
+    async abandonSession(id, input, options) {
+      calls.push(['abandonSession', id, input, options]);
+      return { abandoned: true, session: { id, state: 'abandoned' } };
+    },
+  };
+  const recorder = {
+    async start() {},
+    destroy() { calls.push(['recording.destroy']); },
+  };
+  const durable = new DurableStudioSession({ api, recordingFactory: () => recorder });
+  await durable.bootstrap();
+  await durable.start({ stream: {} });
+  const result = await durable.abandon({ reason: 'pagehide', keepalive: true });
+  assert.equal(result.abandoned, true);
+  assert.deepEqual(calls, [
+    ['abandonSession', 'session-interrupted', { reason: 'pagehide' }, { keepalive: true }],
+    ['recording.destroy'],
+  ]);
+  assert.equal(durable.accountSession, null);
+  assert.equal(durable.recorder, null);
+});

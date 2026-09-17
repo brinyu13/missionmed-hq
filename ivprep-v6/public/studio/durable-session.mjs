@@ -125,6 +125,16 @@ export class DurableStudioSession {
 
   async library(scope = 'own') { return this.api.library(scope); }
   async playback(recordingId, disposition = 'inline') { return this.api.playback(recordingId, disposition); }
+  async abandon({ reason = 'client_exit', keepalive = false } = {}) {
+    const accountSession = this.accountSession;
+    if (!accountSession?.id) return { abandoned: false, reason: 'no_active_session' };
+    const result = await this.api.abandonSession(accountSession.id, { reason }, { keepalive });
+    this.recorder?.destroy?.();
+    this.accountSession = null;
+    this.recorder = null;
+    this.pendingAnalytics = null;
+    return result;
+  }
   async analyze({ sessionId, recordingId, answerId, questionId, analyticsEvents = [] } = {}) {
     return this.api.context({
       action: 'analyze',

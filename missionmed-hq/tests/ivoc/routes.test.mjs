@@ -132,6 +132,71 @@ test('session creation requires same-origin CSRF and persists server identity', 
   assert.equal(repo.inserts.find((row) => row.table === 'ivoc_sessions').body.owner_subject, 'wp:42');
 });
 
+test('owner can abandon an interrupted session without exposing private recording identity', async () => {
+  const repo = repository();
+  const sessionId = '00000000-0000-4000-8000-000000000042';
+  const recordingId = '00000000-0000-4000-8000-000000000043';
+  const nowMs = Date.now();
+  repo.single = async (path) => {
+    if (path.startsWith(`ivoc_sessions?id=eq.${sessionId}`)) {
+      return {
+        id: sessionId, owner_subject: 'wp:42', title: 'Interrupted take',
+        session_type: 'question', state: 'active',
+        started_at: new Date(nowMs - 12_000).toISOString(), interviewer_provider: 'missionmed-static',
+      };
+    }
+    if (path.startsWith(`ivoc_recordings?session_id=eq.${sessionId}`)) {
+      return {
+        id: recordingId, session_id: sessionId, owner_subject: 'wp:42',
+        status: 'uploading', storage_object_key: 'private/never-return.webm',
+      };
+    }
+    return null;
+  };
+  const route = createIvocHandler({
+    registry: registry(), repository: repo,
+    storage: { createUpload: () => { throw new Error('not used'); }, validateUploadToken: () => false },
+    now: () => nowMs,
+    env: { IVPREP_ENABLED: 'true', IVPREP_ADMIN_CANARY_ENABLED: 'true', MMHQ_SESSION_SECRET: 's'.repeat(64) },
+  });
+  const response = new ResponseCapture();
+  await route({
+    ...base,
+    request: request('POST', { reason: 'owner_cleanup' }, {
+      origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24),
+    }),
+    response,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${sessionId}/abandon`),
+    hqSession: session(),
+  });
+  assert.equal(response.status, 200);
+  assert.equal(response.json().abandoned, true);
+  assert.equal(response.json().session.state, 'abandoned');
+  assert.equal(response.json().session.durationMs, 12_000);
+  assert.equal(response.json().session.recording.status, 'error');
+  assert.doesNotMatch(response.body, /storage_object_key|never-return/u);
+  assert.ok(repo.updates.some((entry) => entry.body.state === 'abandoned'));
+  assert.ok(repo.updates.some((entry) => entry.body.status === 'error'));
+  assert.equal(repo.inserts.find((entry) => entry.table === 'ivoc_access_log').body.action, 'session_abandon');
+});
+
+test('a student cannot abandon another student session', async () => {
+  const repo = scopedRepository();
+  const { route } = handler(repo);
+  const response = new ResponseCapture();
+  await route({
+    ...base,
+    request: request('POST', { reason: 'owner_cleanup' }, {
+      origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24),
+    }),
+    response,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${foreignSessionId}/abandon`),
+    hqSession: session(),
+  });
+  assert.equal(response.status, 404);
+  assert.equal(response.json().error, 'not_found');
+});
+
 test('owner can append a contract-validated M1 spine without changing server identity', async () => {
   const repo = repository();
   const sessionId = '00000000-0000-4000-8000-000000000042';

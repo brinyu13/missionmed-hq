@@ -1292,6 +1292,20 @@ async function renderVault() {
         });
         actions.append(play);
       }
+      if (['active', 'processing'].includes(session.state)) {
+        const abandon = document.createElement('button');
+        abandon.type = 'button';
+        abandon.className = 'btn btn-quiet';
+        abandon.innerHTML = '<span>End interrupted session</span>';
+        abandon.addEventListener('click', async () => {
+          abandon.disabled = true;
+          try {
+            await state.durable.api.abandonSession(session.id, { reason: 'owner_cleanup' });
+            await renderVault();
+          } finally { abandon.disabled = false; }
+        });
+        actions.append(abandon);
+      }
       row.append(copy, actions);
       host.append(row);
     }
@@ -1549,6 +1563,9 @@ async function boot() {
   renderDeviceCheck();
   void refreshDevices();
   navigator.mediaDevices?.addEventListener?.('devicechange', () => void refreshDevices());
+  window.addEventListener('pagehide', () => {
+    void state.durable.abandon({ reason: 'pagehide', keepalive: true }).catch(() => {});
+  }, { capture: true });
 
   try {
     state.admission = await loadIvPrepSession();

@@ -337,7 +337,49 @@ export function createIvocHandler({
         sendJson(response, 201, publicSession(row), mediaBase); return true;
       }
 
-      let match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})\/spine$/u);
+      let match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})\/abandon$/u);
+      if (request.method === 'POST' && match) {
+        const sessionId = match[1];
+        const sessionRow = await db.single(`ivoc_sessions?id=eq.${sessionId}&select=*&limit=1`);
+        if (!sessionRow || sessionRow.owner_subject !== actor) {
+          await audit({ actor, sessionId, action: 'session_abandon', decision: 'deny', reason: 'not_owner' });
+          sendError(response, 404, 'not_found', mediaBase); return true;
+        }
+        const input = await readJson(request);
+        const reason = ['pagehide', 'owner_cleanup', 'client_exit'].includes(input.reason)
+          ? input.reason
+          : 'owner_abandon';
+        const endedAt = new Date(now()).toISOString();
+        const startedAtMs = Date.parse(sessionRow.started_at);
+        const durationMs = Number.isFinite(startedAtMs) ? Math.max(0, now() - startedAtMs) : null;
+        const abandoned = ['active', 'processing'].includes(sessionRow.state)
+          ? await db.update(
+            `ivoc_sessions?id=eq.${sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&state=in.(active,processing)&select=*`,
+            { state: 'abandoned', ended_at: endedAt, ...(durationMs == null ? {} : { duration_ms: durationMs }) },
+          )
+          : null;
+        const recording = await db.single(
+          `ivoc_recordings?session_id=eq.${sessionId}&status=in.(pending,uploading)&select=*&limit=1`,
+        );
+        const failedRecording = recording
+          ? await db.update(
+            `ivoc_recordings?id=eq.${recording.id}&owner_subject=eq.${encodeURIComponent(actor)}&status=in.(pending,uploading)&select=*`,
+            { status: 'error' },
+          )
+          : null;
+        await audit({
+          actor, owner: actor, sessionId, recordingId: recording?.id || null,
+          action: 'session_abandon', decision: 'allow',
+          reason: abandoned || sessionRow.state === 'abandoned' ? reason : `state_${sessionRow.state}`,
+        });
+        const finalSession = abandoned || sessionRow;
+        sendJson(response, 200, {
+          session: publicSession(finalSession, failedRecording),
+          abandoned: finalSession.state === 'abandoned',
+        }, mediaBase); return true;
+      }
+
+      match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})\/spine$/u);
       if (request.method === 'POST' && match) {
         const sessionId = match[1];
         const sessionRow = await db.single(`ivoc_sessions?id=eq.${sessionId}&select=*&limit=1`);

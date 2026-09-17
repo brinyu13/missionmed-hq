@@ -1,12 +1,15 @@
 const API = '/api/ivoc/v1';
 
-async function json(path, { method = 'GET', body = null, csrfToken = '', signal = null } = {}) {
+async function json(path, {
+  method = 'GET', body = null, csrfToken = '', signal = null, keepalive = false,
+} = {}) {
   const response = await fetch(`${API}${path}`, {
     method,
     credentials: 'same-origin',
     cache: 'no-store',
     redirect: 'error',
     signal,
+    keepalive,
     headers: {
       Accept: 'application/json',
       ...(body == null ? {} : { 'Content-Type': 'application/json' }),
@@ -38,6 +41,11 @@ export class IvocApi {
   }
 
   createSession(input) { return json('/sessions', { method: 'POST', body: input, csrfToken: this.csrfToken }); }
+  abandonSession(sessionId, input = {}, { keepalive = false } = {}) {
+    return json(`/sessions/${encodeURIComponent(sessionId)}/abandon`, {
+      method: 'POST', body: input, csrfToken: this.csrfToken, keepalive,
+    });
+  }
   createRecording(sessionId, input) { return json(`/sessions/${encodeURIComponent(sessionId)}/recordings`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   sealRecording(recordingId, input) { return json(`/recordings/${encodeURIComponent(recordingId)}/seal`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   saveResults(sessionId, input) { return json(`/sessions/${encodeURIComponent(sessionId)}/results`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
