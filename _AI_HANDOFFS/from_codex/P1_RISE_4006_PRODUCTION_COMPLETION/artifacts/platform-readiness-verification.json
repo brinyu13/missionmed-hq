@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-07-15T15:40:53Z",
+  "branch": "codex/p1-rise-4006-production",
+  "implementationCommit": "8549c84a675a8b8a8026850330a3155bf9ed720a",
+  "runtime": {
+    "node": "v24.14.0",
+    "npm": "11.9.0",
+    "postgresql": "16.13"
+  },
+  "isolatedPackage": {
+    "cleanInstall": "pass_with_disposable_cache",
+    "auditedPackages": 104,
+    "vulnerabilities": 0,
+    "buildId": "rise_web_cc8f346c0ac1"
+  },
+  "tests": {
+    "core": { "passed": 71, "failed": 0 },
+    "browser": { "passed": 26, "failed": 0, "viewports": 5 },
+    "root": { "passed": 0, "failed": 0, "note": "root command exits zero but discovers no tests" }
+  },
+  "syntheticStress": {
+    "programs": 6500,
+    "requests": 100,
+    "successfulRequests": 100,
+    "wallTimeMs": 276.8,
+    "medianLatencyMs": 163.3,
+    "p95LatencyMs": 254.2,
+    "maxLatencyMs": 264.4,
+    "rssMb": 142.6,
+    "classification": "synthetic_test_fixture"
+  },
+  "databaseRehearsal": {
+    "environment": "disposable_local_postgresql",
+    "productionMutation": false,
+    "registryTables": 11,
+    "appTables": 10,
+    "auditTables": 2,
+    "forcedRlsAppTables": 10,
+    "atomicActivation": "pass",
+    "priorReleaseRollback": "pass",
+    "staleCallerRejection": "pass",
+    "authorizationCodeTtl": "61_second_code_rejected",
+    "appendOnlyAudit": "mutation_rejected",
+    "destructiveDownMigration": "rejected_as_designed"
+  },
+  "deploymentBlueprint": {
+    "dockerfileStaticContract": "pass",
+    "dockerImageBuild": "not_run_docker_daemon_unavailable",
+    "railwayServiceExists": false,
+    "railwayDocs": [
+      "https://docs.railway.com/config-as-code/reference",
+      "https://docs.railway.com/builds/build-configuration"
+    ]
+  },
+  "ecosystemGate": {
+    "exitCode": 1,
+    "routeChecksPassed": 7,
+    "cdnHashFailures": 2,
+    "protectedPathWarnings": 2,
+    "outstandingBrowserJourneys": 3
+  },
+  "liveRoute": {
+    "url": "https://missionmedinstitute.com/rise/",
+    "status": 404,
+    "checkedAt": "2026-07-15T15:40:53Z"
+  },
+  "productionDecision": "not_deployed_release_gates_failed"
+}

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "datasetVersion": "rise-freida-2026-07-09",
+  "canonicalGoogleSheetId": "1sHpiFtlQgCZMN9eIR5ZtudyErPP9OkFAeCiXPmQ8uVA",
+  "canonicalWorkbook": "MissionMed_RISE_Residency_Database_EVERY_SPECIALTY_GSHEETS.xlsx",
+  "canonicalContentSha256": "40d86561cf08ff56ede703d999849740bad36ac536518da23495cbada1262494",
+  "referenceLocalWorkbookSha256": "c627397c69d2fad42c07a0b66951f3f3a4957a86c231d93a5bd925cdb2d87b9e",
+  "retrievedAt": "2026-07-09",
+  "canonicalSpecialtyTabs": [
+    "Internal Medicine",
+    "Family Medicine",
+    "Pediatrics",
+    "General Surgery",
+    "Neurology",
+    "Psychiatry",
+    "Aerospace Medicine",
+    "Anesthesiology",
+    "Colon and Rectal Surgery",
+    "Dermatology",
+    "Diagnostic Radiology",
+    "Emergency Medicine",
+    "Interventional Radiology",
+    "Medical Genetics and Genomics",
+    "Neurological Surgery",
+    "Nuclear Medicine",
+    "Obstetrics and Gynecology",
+    "Occup & Environmental Med",
+    "Ophthalmology",
+    "Orthopaedic Surgery",
+    "Osteopathic NMM",
+    "Otolaryngology-HNS",
+    "Pathology",
+    "Physical Medicine & Rehab",
+    "Plastic Surgery",
+    "Public Health-Preventive Med",
+    "Radiation Oncology",
+    "Thoracic Surgery",
+    "Transitional Year",
+    "Urology",
+    "Vascular Surgery"
+  ],
+  "sourceSystem": "FREIDA",
+  "requiredSourceAuthorizations": [
+    {
+      "source": "FREIDA",
+      "required": true,
+      "approvedRecordSha256": null
+    }
+  ],
+  "activationPolicy": "offline_shadow_only_until_source_rights_auth_roles_and_runtime_authority_pass"
+}

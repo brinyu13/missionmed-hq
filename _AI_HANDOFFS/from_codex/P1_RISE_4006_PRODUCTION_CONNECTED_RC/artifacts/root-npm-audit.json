@@ -1,0 +1,20 @@
+{
+  "auditReportVersion": 2,
+  "generatedAt": "2026-07-22T15:31:00Z",
+  "branch": "codex/p1-rise-4006-production",
+  "scope": "root_production_dependencies",
+  "vulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "dependencies": {
+    "prod": 164,
+    "dev": 5,
+    "optional": 28,
+    "total": 195
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "checkedAt": "2026-07-22T15:30:30Z",
+  "repository": "brinyu13/missionmed-hq",
+  "branchContext": "default_branch",
+  "openAlerts": [
+    {
+      "number": 4,
+      "dependency": "form-data",
+      "manifest": "package-lock.json",
+      "scope": "runtime",
+      "severity": "high",
+      "summary": "CRLF injection via unescaped multipart field names and filenames"
+    },
+    {
+      "number": 3,
+      "dependency": "ws",
+      "manifest": "package-lock.json",
+      "scope": "runtime",
+      "severity": "high",
+      "summary": "Memory exhaustion denial of service from tiny fragments and data chunks"
+    },
+    {
+      "number": 1,
+      "dependency": "ws",
+      "manifest": "package-lock.json",
+      "scope": "runtime",
+      "severity": "medium",
+      "summary": "Uninitialized memory disclosure"
+    },
+    {
+      "number": 2,
+      "dependency": "esbuild",
+      "manifest": "package-lock.json",
+      "scope": "runtime",
+      "severity": "low",
+      "summary": "Arbitrary file read when running the development server on Windows"
+    }
+  ],
+  "candidateBranchRootNpmAuditVulnerabilities": 0,
+  "disposition": "shared_repository_owner_review_required"
+}

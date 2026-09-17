@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmedinstitute.com/contracts/rise/activation-receipt.v1.schema.json",
+  "title": "RISE registry activation receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "immutable",
+    "action",
+    "registryReleaseId",
+    "apiIndexSha256",
+    "indexManifestSha256",
+    "decisionRecordId",
+    "approvedBySubject",
+    "approvedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "immutable": { "const": true },
+    "action": { "const": "activate" },
+    "registryReleaseId": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "apiIndexSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "indexManifestSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "decisionRecordId": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "approvedBySubject": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "approvedAt": { "type": "string", "format": "date-time" },
+    "revoked": { "const": false }
+  }
+}
