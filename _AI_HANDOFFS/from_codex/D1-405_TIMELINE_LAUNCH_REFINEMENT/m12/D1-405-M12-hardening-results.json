@@ -1,0 +1,653 @@
+{
+  "schemaVersion": "d1-405.m12-hardening-results.1",
+  "generatedAt": "2026-07-31T04:45:35.606Z",
+  "appUrl": "http://127.0.0.1:8793/web/?entitlement=administrator",
+  "appOrigin": "http://127.0.0.1:8793",
+  "playwrightSource": "/Users/brianb/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright",
+  "executablePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "exactWidths": [
+    1600,
+    1440,
+    1439,
+    1280,
+    1279,
+    1024,
+    1023,
+    768,
+    767
+  ],
+  "performanceBudgets": {
+    "initialReady": 2500,
+    "routeTransition": 500,
+    "builderPreview": 500,
+    "specialtySwitch": 500,
+    "medicalSchoolSearch": 250,
+    "themePreview": 500,
+    "fullPreview": 500,
+    "exportPreview": 500,
+    "autosave": 1400
+  },
+  "performanceEvidence": {
+    "initialReady-1600": 163.17,
+    "initialReady-1440": 152.53,
+    "initialReady-1439": 154.48,
+    "initialReady-1280": 150.15,
+    "initialReady-1279": 150.01,
+    "initialReady-1024": 155.95,
+    "initialReady-1023": 154.86,
+    "initialReady-768": 151.75,
+    "initialReady-767": 171.45,
+    "initialReady": 161.61,
+    "route-command": 0,
+    "route-builder": 105,
+    "route-canvas": 67.08,
+    "route-media": 63.84,
+    "route-export": 65.89,
+    "medicalSchoolSearch": 34.34,
+    "specialtySwitch": 6.86,
+    "fullPreview": 43.94,
+    "themePreview": 41.25,
+    "autosave": 811.82,
+    "exportPreview": 2.26
+  },
+  "results": [
+    {
+      "id": "M12-R-1600",
+      "name": "responsive boundary 1600px",
+      "status": "PASS",
+      "durationMs": 3.5,
+      "detail": {
+        "tier": "full",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-RB-1600",
+      "name": "Builder remains operable at 1600px",
+      "status": "PASS",
+      "durationMs": 3.28,
+      "detail": {
+        "h1": "Core Info",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-R-1440",
+      "name": "responsive boundary 1440px",
+      "status": "PASS",
+      "durationMs": 2.62,
+      "detail": {
+        "tier": "full",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-RB-1440",
+      "name": "Builder remains operable at 1440px",
+      "status": "PASS",
+      "durationMs": 3.2,
+      "detail": {
+        "h1": "Core Info",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-R-1439",
+      "name": "responsive boundary 1439px",
+      "status": "PASS",
+      "durationMs": 3.49,
+      "detail": {
+        "tier": "compressed",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-RB-1439",
+      "name": "Builder remains operable at 1439px",
+      "status": "PASS",
+      "durationMs": 2.97,
+      "detail": {
+        "h1": "Core Info",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-R-1280",
+      "name": "responsive boundary 1280px",
+      "status": "PASS",
+      "durationMs": 2.28,
+      "detail": {
+        "tier": "compressed",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-RB-1280",
+      "name": "Builder remains operable at 1280px",
+      "status": "PASS",
+      "durationMs": 2.8,
+      "detail": {
+        "h1": "Core Info",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-R-1279",
+      "name": "responsive boundary 1279px",
+      "status": "PASS",
+      "durationMs": 2.42,
+      "detail": {
+        "tier": "desktop-overlay",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-RB-1279",
+      "name": "Builder remains operable at 1279px",
+      "status": "PASS",
+      "durationMs": 3.52,
+      "detail": {
+        "h1": "Core Info",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-R-1024",
+      "name": "responsive boundary 1024px",
+      "status": "PASS",
+      "durationMs": 2.7,
+      "detail": {
+        "tier": "desktop-overlay",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-RB-1024",
+      "name": "Builder remains operable at 1024px",
+      "status": "PASS",
+      "durationMs": 2.87,
+      "detail": {
+        "h1": "Core Info",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-R-1023",
+      "name": "responsive boundary 1023px",
+      "status": "PASS",
+      "durationMs": 2.35,
+      "detail": {
+        "tier": "tablet",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-RB-1023",
+      "name": "Builder remains operable at 1023px",
+      "status": "PASS",
+      "durationMs": 2.94,
+      "detail": {
+        "h1": "Core Info",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-R-768",
+      "name": "responsive boundary 768px",
+      "status": "PASS",
+      "durationMs": 2.36,
+      "detail": {
+        "tier": "tablet",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-RB-768",
+      "name": "Builder remains operable at 768px",
+      "status": "PASS",
+      "durationMs": 3.21,
+      "detail": {
+        "h1": "Core Info",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-R-767",
+      "name": "responsive boundary 767px",
+      "status": "PASS",
+      "durationMs": 2.64,
+      "detail": {
+        "tier": "phone",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-RB-767",
+      "name": "Builder remains operable at 767px",
+      "status": "PASS",
+      "durationMs": 2.79,
+      "detail": {
+        "h1": "Core Info",
+        "contentMode": "full"
+      }
+    },
+    {
+      "id": "M12-A11Y-command",
+      "name": "command route accessibility",
+      "status": "PASS",
+      "durationMs": 1.86,
+      "detail": {
+        "route": "command",
+        "visibleH1s": [
+          "Turn your medical journey into an interview-ready timeline."
+        ],
+        "duplicateIds": [],
+        "unnamedControls": [],
+        "unlabeledInputs": [],
+        "missingImageAlternatives": [],
+        "liveRegions": 0,
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "documentOverflow": 0
+      }
+    },
+    {
+      "id": "M12-A11Y-builder",
+      "name": "builder route accessibility",
+      "status": "PASS",
+      "durationMs": 1.49,
+      "detail": {
+        "route": "builder",
+        "visibleH1s": [
+          "Core Info"
+        ],
+        "duplicateIds": [],
+        "unnamedControls": [],
+        "unlabeledInputs": [],
+        "missingImageAlternatives": [],
+        "liveRegions": 3,
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "documentOverflow": 0
+      }
+    },
+    {
+      "id": "M12-A11Y-canvas",
+      "name": "canvas route accessibility",
+      "status": "PASS",
+      "durationMs": 0.96,
+      "detail": {
+        "route": "canvas",
+        "visibleH1s": [
+          "Edit Timeline"
+        ],
+        "duplicateIds": [],
+        "unnamedControls": [],
+        "unlabeledInputs": [],
+        "missingImageAlternatives": [],
+        "liveRegions": 2,
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "documentOverflow": 0
+      }
+    },
+    {
+      "id": "M12-A11Y-media",
+      "name": "media route accessibility",
+      "status": "PASS",
+      "durationMs": 1.02,
+      "detail": {
+        "route": "media",
+        "visibleH1s": [
+          "Your visual asset library."
+        ],
+        "duplicateIds": [],
+        "unnamedControls": [],
+        "unlabeledInputs": [],
+        "missingImageAlternatives": [],
+        "liveRegions": 0,
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "documentOverflow": 0
+      }
+    },
+    {
+      "id": "M12-A11Y-export",
+      "name": "export route accessibility",
+      "status": "PASS",
+      "durationMs": 1.39,
+      "detail": {
+        "route": "export",
+        "visibleH1s": [
+          "Export"
+        ],
+        "duplicateIds": [],
+        "unnamedControls": [],
+        "unlabeledInputs": [],
+        "missingImageAlternatives": [],
+        "liveRegions": 2,
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "documentOverflow": 0
+      }
+    },
+    {
+      "id": "M12-K-SCHOOL",
+      "name": "medical-school keyboard search",
+      "status": "PASS",
+      "durationMs": 40.94,
+      "detail": {
+        "durationMs": 34.34
+      }
+    },
+    {
+      "id": "M12-K-SPECIALTY",
+      "name": "specialty timeline keyboard switch",
+      "status": "PASS",
+      "durationMs": 7.46,
+      "detail": {
+        "durationMs": 6.86
+      }
+    },
+    {
+      "id": "M12-K-PREVIEW",
+      "name": "full preview trap, Escape, and opener focus",
+      "status": "PASS",
+      "durationMs": 67.93,
+      "detail": {
+        "durationMs": 43.94
+      }
+    },
+    {
+      "id": "M12-K-THEME",
+      "name": "theme preview focus and Escape",
+      "status": "PASS",
+      "durationMs": 51.67,
+      "detail": {
+        "durationMs": 41.25
+      }
+    },
+    {
+      "id": "M12-AUTOSAVE",
+      "name": "authorized autosave reaches durable saved state",
+      "status": "PASS",
+      "durationMs": 811.95,
+      "detail": {
+        "durationMs": 811.82
+      }
+    },
+    {
+      "id": "M12-BFCACHE",
+      "name": "exit persistence re-arms after a BFCache restore",
+      "status": "PASS",
+      "durationMs": 2.83,
+      "detail": {
+        "flushCalls": 2
+      }
+    },
+    {
+      "id": "M12-P-EXPORT",
+      "name": "export preview settles within budget",
+      "status": "PASS",
+      "durationMs": 2.39,
+      "detail": {
+        "durationMs": 2.26
+      }
+    },
+    {
+      "id": "M12-MEDIA-reduced",
+      "name": "reduced preference is reflected",
+      "status": "PASS",
+      "durationMs": 1.55,
+      "detail": {
+        "reduced": true,
+        "forced": false,
+        "runtimeReduced": true
+      }
+    },
+    {
+      "id": "M12-MEDIA-forced-colors",
+      "name": "forced-colors preference is reflected",
+      "status": "PASS",
+      "durationMs": 0.83,
+      "detail": {
+        "reduced": false,
+        "forced": true,
+        "runtimeReduced": false
+      }
+    },
+    {
+      "id": "M12-PERF-initialReady",
+      "name": "initialReady remains within 2500ms",
+      "status": "PASS",
+      "durationMs": 0.04,
+      "detail": {
+        "budgetMs": 2500,
+        "maximumMs": 171.45,
+        "samples": [
+          163.17,
+          152.53,
+          154.48,
+          150.15,
+          150.01,
+          155.95,
+          154.86,
+          151.75,
+          171.45,
+          161.61
+        ]
+      }
+    },
+    {
+      "id": "M12-PERF-routeTransition",
+      "name": "routeTransition remains within 500ms",
+      "status": "PASS",
+      "durationMs": 0,
+      "detail": {
+        "budgetMs": 500,
+        "maximumMs": 105,
+        "samples": [
+          0,
+          105,
+          67.08,
+          63.84,
+          65.89
+        ]
+      }
+    },
+    {
+      "id": "M12-PERF-builderPreview",
+      "name": "builderPreview remains within 500ms",
+      "status": "PASS",
+      "durationMs": 0,
+      "detail": {
+        "budgetMs": 500,
+        "maximumMs": 105,
+        "samples": [
+          105
+        ]
+      }
+    },
+    {
+      "id": "M12-PERF-specialtySwitch",
+      "name": "specialtySwitch remains within 500ms",
+      "status": "PASS",
+      "durationMs": 0,
+      "detail": {
+        "budgetMs": 500,
+        "maximumMs": 6.86,
+        "samples": [
+          6.86
+        ]
+      }
+    },
+    {
+      "id": "M12-PERF-medicalSchoolSearch",
+      "name": "medicalSchoolSearch remains within 250ms",
+      "status": "PASS",
+      "durationMs": 0,
+      "detail": {
+        "budgetMs": 250,
+        "maximumMs": 34.34,
+        "samples": [
+          34.34
+        ]
+      }
+    },
+    {
+      "id": "M12-PERF-themePreview",
+      "name": "themePreview remains within 500ms",
+      "status": "PASS",
+      "durationMs": 0,
+      "detail": {
+        "budgetMs": 500,
+        "maximumMs": 41.25,
+        "samples": [
+          41.25
+        ]
+      }
+    },
+    {
+      "id": "M12-PERF-fullPreview",
+      "name": "fullPreview remains within 500ms",
+      "status": "PASS",
+      "durationMs": 0,
+      "detail": {
+        "budgetMs": 500,
+        "maximumMs": 43.94,
+        "samples": [
+          43.94
+        ]
+      }
+    },
+    {
+      "id": "M12-PERF-exportPreview",
+      "name": "exportPreview remains within 500ms",
+      "status": "PASS",
+      "durationMs": 0,
+      "detail": {
+        "budgetMs": 500,
+        "maximumMs": 2.26,
+        "samples": [
+          2.26
+        ]
+      }
+    },
+    {
+      "id": "M12-PERF-autosave",
+      "name": "autosave remains within 1400ms",
+      "status": "PASS",
+      "durationMs": 0,
+      "detail": {
+        "budgetMs": 1400,
+        "maximumMs": 811.82,
+        "samples": [
+          811.82
+        ]
+      }
+    },
+    {
+      "id": "M12-CLEAN-CONSOLE",
+      "name": "browser console and page errors remain zero",
+      "status": "PASS",
+      "durationMs": 0.02,
+      "detail": {
+        "browserErrors": 0,
+        "browserWarnings": 0,
+        "pageErrors": 0,
+        "unhandledRejections": 0
+      }
+    },
+    {
+      "id": "M12-CLEAN-NETWORK",
+      "name": "request failures and unexpected origins remain zero",
+      "status": "PASS",
+      "durationMs": 0.02,
+      "detail": {
+        "requestFailures": 0,
+        "httpErrors": 0,
+        "unexpectedRequests": 0,
+        "unsafeRequests": 0
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "D1-405-M12-responsive-1600.png",
+      "label": "Builder at 1600px",
+      "path": "/Users/brianb/MissionMed_worktrees/D1-MacProTimeline-UXR-002/_AI_HANDOFFS/from_codex/D1-405_TIMELINE_LAUNCH_REFINEMENT/m12/screenshots/D1-405-M12-responsive-1600.png",
+      "viewport": {
+        "width": 1600,
+        "height": 1000
+      },
+      "bytes": 710275,
+      "sha256": "2940b12289c7d5347ffe55fb8336cead3150f6e03afa03353ad5a058b402edb5"
+    },
+    {
+      "name": "D1-405-M12-responsive-1440.png",
+      "label": "Builder at 1440px",
+      "path": "/Users/brianb/MissionMed_worktrees/D1-MacProTimeline-UXR-002/_AI_HANDOFFS/from_codex/D1-405_TIMELINE_LAUNCH_REFINEMENT/m12/screenshots/D1-405-M12-responsive-1440.png",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "bytes": 679923,
+      "sha256": "530353c987630e01d17c1033ecfac09afabe71592e420b13a7b20e4a491cd226"
+    },
+    {
+      "name": "D1-405-M12-responsive-1023.png",
+      "label": "Builder at 1023px",
+      "path": "/Users/brianb/MissionMed_worktrees/D1-MacProTimeline-UXR-002/_AI_HANDOFFS/from_codex/D1-405_TIMELINE_LAUNCH_REFINEMENT/m12/screenshots/D1-405-M12-responsive-1023.png",
+      "viewport": {
+        "width": 1023,
+        "height": 1000
+      },
+      "bytes": 419555,
+      "sha256": "76a2f9c8eccafc513e649a74a0dc962772ea54bf6bd254104edab5b84ac58583"
+    },
+    {
+      "name": "D1-405-M12-responsive-767.png",
+      "label": "Builder at 767px",
+      "path": "/Users/brianb/MissionMed_worktrees/D1-MacProTimeline-UXR-002/_AI_HANDOFFS/from_codex/D1-405_TIMELINE_LAUNCH_REFINEMENT/m12/screenshots/D1-405-M12-responsive-767.png",
+      "viewport": {
+        "width": 767,
+        "height": 960
+      },
+      "bytes": 352285,
+      "sha256": "8aac4af95e32790f1caf026a1531e9f66f2782c154858388473ca83e08c358d9"
+    },
+    {
+      "name": "D1-405-M12-export-desktop.png",
+      "label": "Export at 1440px",
+      "path": "/Users/brianb/MissionMed_worktrees/D1-MacProTimeline-UXR-002/_AI_HANDOFFS/from_codex/D1-405_TIMELINE_LAUNCH_REFINEMENT/m12/screenshots/D1-405-M12-export-desktop.png",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "bytes": 487043,
+      "sha256": "144199fb3bc9ce9c96789aa1230782eb97504a2652ea1a6195f672a0c0dc372b"
+    }
+  ],
+  "browserErrors": [],
+  "browserWarnings": [],
+  "pageErrors": [],
+  "unhandledRejections": [],
+  "requestFailures": [],
+  "httpErrors": [],
+  "unexpectedRequests": [],
+  "unsafeRequests": [],
+  "summary": {
+    "passed": 43,
+    "failed": 0
+  }
+}

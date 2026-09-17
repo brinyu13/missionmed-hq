@@ -1,0 +1,257 @@
+{
+  "schemaVersion": "d1-408-fixtures-1",
+  "generatedBy": "generate_synthetic_pdfs.py",
+  "containsRealStudentData": false,
+  "allFixturesSynthetic": true,
+  "fixtureDirectory": "/Users/brianb/MissionMed_AI_Sandbox/D1_TIMELINE_ENGINE/app_demo_401/tests/fixtures/pdfs",
+  "scenarios": [
+    {
+      "id": "clean_eras_native_text",
+      "files": [
+        "synthetic_eras_clean.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "MEDICAL_DEGREE",
+        "INTERNSHIP_HOUSE_OFFICER",
+        "STEP_1",
+        "STEP_2_CK",
+        "ECFMG_CERTIFICATION",
+        "OBSERVERSHIP",
+        "RESEARCH_EXPERIENCE",
+        "PUBLICATION"
+      ],
+      "notes": "Clean ERAS-style native-text PDF with three pages."
+    },
+    {
+      "id": "traditional_cv",
+      "files": [
+        "synthetic_cv_clean.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "MEDICAL_DEGREE",
+        "INTERNSHIP_HOUSE_OFFICER",
+        "STEP_1",
+        "STEP_2_CK",
+        "USCE_TEACHING_HOSPITAL",
+        "RESEARCH_EXPERIENCE",
+        "PUBLICATION",
+        "VOLUNTEER_EXPERIENCE"
+      ],
+      "notes": "Traditional CV layout."
+    },
+    {
+      "id": "resume_style",
+      "files": [
+        "synthetic_resume.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "WORK_EXPERIENCE",
+        "MEDICAL_DEGREE"
+      ],
+      "notes": "Resume-style headings and open-ended work range."
+    },
+    {
+      "id": "two_document_duplicate",
+      "files": [
+        "synthetic_duplicate_eras.pdf",
+        "synthetic_duplicate_cv.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "OBSERVERSHIP"
+      ],
+      "notes": "Same observership appears in ERAS and CV."
+    },
+    {
+      "id": "step_2_ck_conflict",
+      "files": [
+        "synthetic_conflict_eras.pdf",
+        "synthetic_conflict_cv.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "USMLE_STUDY_PERIOD"
+      ],
+      "notes": "Step 2 CK preparation end dates disagree."
+    },
+    {
+      "id": "missing_date",
+      "files": [
+        "synthetic_missing_date.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "WORK_EXPERIENCE"
+      ],
+      "notes": "Candidate exists but date is missing and cannot be accepted."
+    },
+    {
+      "id": "year_only",
+      "files": [
+        "synthetic_year_only.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "WORK_EXPERIENCE"
+      ],
+      "notes": "Year precision must remain explicit."
+    },
+    {
+      "id": "usce_site_name",
+      "files": [
+        "synthetic_usce_site.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "OBSERVERSHIP"
+      ],
+      "notes": "USCE institution and city/state extraction."
+    },
+    {
+      "id": "research_publication_chain",
+      "files": [
+        "synthetic_research_publication.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "RESEARCH_EXPERIENCE",
+        "PUBLICATION"
+      ],
+      "notes": "Research duration plus publication milestone."
+    },
+    {
+      "id": "work_exam_overlap",
+      "files": [
+        "synthetic_overlap.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "WORK_EXPERIENCE",
+        "USMLE_STUDY_PERIOD"
+      ],
+      "notes": "Work and exam preparation overlap."
+    },
+    {
+      "id": "personal_family",
+      "files": [
+        "synthetic_personal_family.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "PERSONAL_NOT_ON_CV"
+      ],
+      "notes": "Family context requires privacy review."
+    },
+    {
+      "id": "sensitive_private",
+      "files": [
+        "synthetic_sensitive.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "PERSONAL_NOT_ON_CV",
+        "VISA_IMMIGRATION_MILESTONE"
+      ],
+      "notes": "Health and immigration sensitivity flags."
+    },
+    {
+      "id": "scanned_empty_text",
+      "files": [
+        "synthetic_scanned_empty_text.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "OCR_REQUIRED",
+      "expectedCanonicalTypes": [],
+      "notes": "Image-only PDF."
+    },
+    {
+      "id": "corrupted_pdf",
+      "files": [
+        "synthetic_corrupted.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "CORRUPTED",
+      "expectedCanonicalTypes": [],
+      "notes": "Intentionally malformed PDF."
+    },
+    {
+      "id": "password_protected",
+      "files": [
+        "synthetic_password_protected.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "PASSWORD_REQUIRED",
+      "expectedCanonicalTypes": [],
+      "notes": "Password is synthetic-only."
+    },
+    {
+      "id": "long_cv",
+      "files": [
+        "synthetic_long_cv.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "WORK_EXPERIENCE"
+      ],
+      "notes": "Eighteen-page native-text stress fixture."
+    },
+    {
+      "id": "mixed_language",
+      "files": [
+        "synthetic_mixed_language.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "RESEARCH_EXPERIENCE"
+      ],
+      "notes": "Spanish heading plus English event line."
+    },
+    {
+      "id": "unknown_layout",
+      "files": [
+        "synthetic_unknown_layout.pdf"
+      ],
+      "synthetic": true,
+      "deidentified": true,
+      "expectedStatus": "READY_FOR_REVIEW",
+      "expectedCanonicalTypes": [
+        "UNCLASSIFIED"
+      ],
+      "notes": "Unknown/mixed layout with conservative fallback."
+    }
+  ]
+}

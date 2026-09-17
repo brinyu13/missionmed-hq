@@ -1,0 +1,47 @@
+.mission-timeline-appmode-root {
+  min-height: 100vh;
+  background: #090b10;
+}
+
+.timeline-appmode-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 10000;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  color: #dfe9f5;
+  background: #111722;
+  border-bottom: 1px solid #384455;
+  font: 700 11px/1 Archivo, Arial, sans-serif;
+  letter-spacing: 0;
+}
+
+body.mission-timeline-appmode-active header { top: 34px; }
+body.mission-timeline-appmode-active nav#rail { top: 98px; }
+body.mission-timeline-appmode-active main { top: 98px; padding-top: 0; }
+
+.timeline-appmode-return {
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid #ff7139;
+  color: #fff;
+  background: #b8411e;
+  cursor: pointer;
+  font: inherit;
+}
+
+.timeline-appmode-return:focus-visible {
+  outline: 3px solid #56d7ff;
+  outline-offset: 2px;
+}
+
+.timeline-appmode-label { color: #56d7ff; }
+.timeline-appmode-sync { margin-left: auto; color: #f4c65d; }
+
+@media (max-width: 720px) {
+  .timeline-appmode-label { display: none; }
+  .timeline-appmode-bar { padding-inline: 8px; }
+}

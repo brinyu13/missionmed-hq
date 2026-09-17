@@ -1,0 +1,34 @@
+/* 407 layout diagnostics. These are overlays and guardrails, not a redesign. */
+.d1-407-warn-panel{
+  margin-top:12px;
+  border:1px solid rgba(255,191,72,.35);
+  background:rgba(255,191,72,.07);
+  border-radius:8px;
+  padding:10px;
+}
+.d1-407-warn-panel.ok{
+  border-color:rgba(66,211,146,.32);
+  background:rgba(66,211,146,.06);
+}
+.d1-407-warn-row{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  font-size:11.5px;
+  line-height:1.45;
+  color:var(--mid);
+  margin:6px 0;
+}
+.d1-407-warn-row b{
+  color:var(--d1-407-warn);
+  white-space:nowrap;
+}
+.d1-407-warn-row.risk b{color:var(--d1-407-risk)}
+.d1-407-warn-row.info b{color:var(--d1-407-info)}
+.arrow.d1-407-crowded{outline:1px solid rgba(255,191,72,.55);outline-offset:3px}
+.flag.d1-407-crowded .fl8{color:#6f3b00}
+
+#boardMain .arrow:focus-visible,#boardMain .flag:focus-visible,#evList .evRow:focus-visible{outline:3px solid var(--cy);outline-offset:4px}
+#boardMain .arrow .al{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#boardMain .arrow{min-width:78px!important}
+#boardMain .aloc{max-width:130px!important;overflow:hidden!important;text-overflow:ellipsis}

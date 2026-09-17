@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>D1-409H — Timeline Builder AAA Visual Master (FROZEN)</title>
+<!--
+  FROZEN VISUAL MASTER — Founder-review candidate.
+  Authority: Founder decisions > Keynote > PDF > 407H review > 407G reconstruction.
+  Codex: consume verbatim. Every presentation object is an independent node
+  with data-object-id (Advanced Mode seam). Do not restyle, reinterpret,
+  approximate, or re-render. See D1-409H_CODEX_ENGINEERING_ONLY_HANDOFF.md.
+  Companion states: ?density=sparse|dense  ?fit=stress  ?demo=polaroid  ?scale=0.5
+-->
+<link rel="stylesheet" href="D1-409H_VISUAL_MASTER.css">
+</head>
+<body>
+<div id="board">
+  <div class="layer" id="axisLayer" data-object-id="layer-axis"></div>
+  <div class="layer" id="flagLayer" data-object-id="layer-flags"></div>
+  <div class="layer" id="arrowLayer" data-object-id="layer-arrows"></div>
+  <div class="layer" id="photoLayer" data-object-id="layer-photos"></div>
+
+  <!-- Title plaque (hot-press cotton, notched ends, leather corners) -->
+  <div id="titleWrap" data-object-id="title-plaque">
+    <div id="title"><span>Timeline: Dr Brian SAMPLE</span></div>
+  </div>
+
+  <!-- Sticky note + marker pointer (the emotional beat) -->
+  <div id="sticky" data-object-id="sticky-note"><span>Failed, then<br>passed CS</span></div>
+  <div id="redptr" data-object-id="sticky-pointer"></div>
+
+  <!-- Color key (pinned bond sheet) -->
+  <div id="key" data-object-id="color-key">
+    <div id="keyPinShadow"></div><div id="keyPin" data-object-id="color-key-pin"></div>
+    <div class="inner">
+      <h3 id="keyTitle"></h3>
+      <div class="row"><div class="sw c-work"></div><span>Work Experience</span></div>
+      <div class="row"><div class="sw c-personal"></div><span>Personal (Not on CV)</span></div>
+      <div class="row"><div class="sw c-usmle"></div><span>USMLE Studies</span></div>
+      <div class="row"><div class="sw c-usce"></div><span>US Clinical Experience</span></div>
+      <div class="row"><div class="sw c-res"></div><span>Research</span></div>
+    </div>
+  </div>
+
+  <!-- Profile sheet (heavy bond, typewriter, mounted-photo well) -->
+  <div id="profile" data-object-id="profile-sheet">
+    <div class="txt" data-object-id="profile-text">
+      <b class="h">Name:</b> First Last<br>
+      <b class="h">Visa Status:</b> US Citizen<br>
+      <b class="h">AAMC:</b> ##########
+      <div class="gap"></div>
+      <b class="h">Step 1:</b> 252<br>
+      <b class="h">Step 2 CK:</b> 264<br>
+      <b class="h">Step 2 CS:</b> Passed 2nd Attempt<br>
+      <b class="h">Step 3:</b> 233
+      <div class="gap"></div>
+      <b class="h">USCE:</b> Teaching hospitals, # Months<br>
+      <b class="h">Research:</b> # months, # publications<br>
+      <b class="h">Languages fluent in:</b> xxxx, xxxxxx, xxxxx
+      <div class="gap"></div>
+      <b class="h">Hobbies:</b> Photography, Making Balloon<br>Animals, Learning Every Lyric from<br>'Hamilton' (in Progress)
+    </div>
+    <div id="photoMat" data-object-id="profile-photo-well">
+      <div class="well"><i>PHOTOGRAPH</i></div>
+      <small>mount portrait here</small>
+    </div>
+  </div>
+
+  <!-- Program logo mount (embossed museum mat) + curator slip -->
+  <div id="logoMat" data-object-id="logo-mount"><div class="well"><b>PROGRAM LOGO</b></div></div>
+  <div id="logoSlip" data-object-id="logo-slip"><small>drop, paste, or upload program logo</small></div>
+
+  <!-- Interview ribbon (neutral satin; color theme-driven later) -->
+  <div id="ivrWrap" data-object-id="interview-ribbon">
+    <div id="ivrTails"><i class="l"></i><i class="r"></i></div>
+    <div class="fold l"></div><div class="fold r"></div>
+    <div id="ivr"><span>My Big Interview!</span></div>
+  </div>
+  <div id="ivdate" data-object-id="interview-date">Dec 8, 2020</div>
+</div>
+<script src="D1-409H_VISUAL_MASTER.js"></script>
+</body>
+</html>
