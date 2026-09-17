@@ -4,13 +4,13 @@ function mmdrj_launch_exact_cohort() {
     return array(
         'Raghav Gupta' => array( 'pilot_status'=>'READY', 'wp_user_id'=>114,
             'student_id'=>'5171c2ec-5046-59e0-a22a-7362404bf9ec', 'eligibility_basis'=>'learndash_course_6357',
-            'username_sha256'=>'d2f2f304524339536be9260451929ff895805fbe5087918c9a6aecbc3772598a', 'email_sha256'=>'3fde4e6db365154701acb64909a87d2ab647315acc1788360d175be1406b45fc' ),
+            'username_sha256'=>'3ac36dd52c15a334e3d36de5351e74e9eb685c73b32e756e053efabf1b19b77f', 'email_sha256'=>'3fde4e6db365154701acb64909a87d2ab647315acc1788360d175be1406b45fc' ),
         'Subani Dias' => array( 'pilot_status'=>'READY', 'wp_user_id'=>9,
             'student_id'=>'142b08bb-9643-550c-acac-29a8030c7e02', 'eligibility_basis'=>'learndash_course_6357',
-            'username_sha256'=>'1938e527bf376b2a8e17407b6a487e8edbd54effe8b59e2f4f23fe67426e825a', 'email_sha256'=>'37eec1c8bccd263894ff9d8949dda63e4067d25261048ba76280a905fdbf3184' ),
+            'username_sha256'=>'54400a46e12480f7c33d1c1d1216438406b273e846a9474efdae88bc7ed7e55d', 'email_sha256'=>'37eec1c8bccd263894ff9d8949dda63e4067d25261048ba76280a905fdbf3184' ),
         'Neshmaidy Negrón Zeda' => array( 'pilot_status'=>'READY', 'wp_user_id'=>89,
             'student_id'=>'c6843e4d-f163-5f57-b1bd-61d566700444', 'eligibility_basis'=>'drj_drills_student_role',
-            'username_sha256'=>'b5e17ed8dadb265819b4a331aa4dc90a8dcb983b65ffc16fa2343ca92f816cf1', 'email_sha256'=>'8d8c2bd0285d8465f05bd1cd59c866462577b6c2fe668334803ea258a7dbaf53' ),
+            'username_sha256'=>'8d8c2bd0285d8465f05bd1cd59c866462577b6c2fe668334803ea258a7dbaf53', 'email_sha256'=>'8d8c2bd0285d8465f05bd1cd59c866462577b6c2fe668334803ea258a7dbaf53' ),
     );
 }
 function mmdrj_launch_merge_html( $template, $values ) {
