@@ -13,6 +13,8 @@ import { FOUNDER_TEST_AGENT_ID } from '../../server/founder-paid-test-gate.mjs';
 import { PROFILE_B } from '../../server/providers/provider-session-controller.mjs';
 
 const PRODUCT_URL = 'https://tufzqxeucfugdovtjyqk.supabase.co';
+const PRODUCTION_REF = 'bscnrgqlwsyygyfrbhfn';
+const PRODUCTION_URL = `https://${PRODUCTION_REF}.supabase.co`;
 const BRANCH_REF = 'mwyqdupgalpvtupceozz';
 const BRANCH_URL = `https://${BRANCH_REF}.supabase.co`;
 const SERVICE_KEY = 's'.repeat(40);
@@ -164,7 +166,8 @@ test('hosted foundation defaults to Founder/admin admission with paid provider c
   try {
     const dependencies = await createHostedHqDependenciesFromEnvironment({
       IVPREP_HOSTED_RUNTIME: 'true',
-      IVPREP_SUPABASE_URL: PRODUCT_URL,
+      IVPREP_SUPABASE_URL: PRODUCTION_URL,
+      IVPREP_SUPABASE_PROJECT_REF: PRODUCTION_REF,
       IVPREP_SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY,
       IVPREP_FOUNDER_WP_USER_IDS: '3472',
       IVPREP_ADMIN_WP_USER_IDS: '',
@@ -173,6 +176,10 @@ test('hosted foundation defaults to Founder/admin admission with paid provider c
       IVPREP_PAID_TEST1_ENABLED: 'false',
       MMHQ_OPENAI_API_KEY: 'synthetic-server-owned-openai-key',
     });
+    assert.equal(
+      calls.filter((call) => !call.url.endsWith('/health')).every((call) => call.url.startsWith(PRODUCTION_URL)),
+      true,
+    );
     assert.equal(dependencies.flags.enabled, true);
     assert.equal(dependencies.flags.adminCanaryEnabled, true);
     assert.equal(dependencies.flags.videoEnabled, false);
