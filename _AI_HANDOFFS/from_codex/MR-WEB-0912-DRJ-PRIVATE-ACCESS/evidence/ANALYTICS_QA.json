@@ -1,0 +1,30 @@
+{
+  "events": [
+    {
+      "event": "mr_private_access_prompt",
+      "mission": "MR-B-IMMERSIVE-FALL-2026",
+      "offer": "complete",
+      "enrollment_state": "private_early_access",
+      "source": "enrollment_intent"
+    },
+    {
+      "event": "mr_private_access_rejected",
+      "mission": "MR-B-IMMERSIVE-FALL-2026",
+      "offer": "complete",
+      "reason": "invalid_or_unavailable"
+    },
+    {
+      "event": "mr_private_access_accepted",
+      "mission": "MR-B-IMMERSIVE-FALL-2026",
+      "offer": "complete",
+      "enrollment_state": "private_early_access"
+    }
+  ],
+  "checkout_path": "/checkout/",
+  "utm": {
+    "source": "whatsapp",
+    "medium": "email",
+    "campaign": "drj-private-qa"
+  },
+  "raw_code_in_analytics": false
+}

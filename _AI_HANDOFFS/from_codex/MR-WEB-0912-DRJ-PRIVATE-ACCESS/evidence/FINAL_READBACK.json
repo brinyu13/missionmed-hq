@@ -1,0 +1,31 @@
+{
+  "authority": {
+    "decision": "DR-299",
+    "canonical_commit": "231f2544ae769b8cf885ee3160d1a39bfc4815ca",
+    "canonical_decision_sha256": "b17878086c632566e7d2c867e1f35959b4a4811009b05d85f8b2556877f1bf39",
+    "canonical_tip": "b5093476f7a647c1fec3fce41760c978f7fb2ac5"
+  },
+  "boot": {
+    "hq_tip": "0feee579b0a9f2c90529220899f6cf6d21b8cd05",
+    "universal": "PASS",
+    "MR-WEB-0912": "PASS",
+    "os_lint": "PASS_WITH_EXISTING_WARNINGS"
+  },
+  "source": {
+    "branch": "codex/mr-web-0912-interview-week",
+    "commit": "8d620206d055cc9044cda8ddbba27a29d36341bd",
+    "remote_match": true
+  },
+  "production_hashes": {
+    "wp-content/mu-plugins/missionmed-mr-p0.php": "62830aa98855d1b4cf2e0528fec85592a5368a4afa2e922fd5dcf202b4db27ab",
+    "wp-content/mu-plugins/missionmed-mr-0912-assets/b-immersive/scripts/site.js": "a5a1f02eba1302af48af56c63a15bddf985fe12837283f42d96e2f48abe47b08",
+    "wp-content/mu-plugins/missionmed-mr-0912-assets/b-immersive/styles/production.css": "c68ed0c56d702c09908431adebe34fd9df5188329ec026350bd4d661e5294bca"
+  },
+  "latest_woo_order": 9102,
+  "live_financial_acceptance": {
+    "status": "WAIVED BY FOUNDER / NOT EXECUTED",
+    "authority": "DR-296",
+    "passed": false
+  },
+  "active_leases_at_close": 0
+}

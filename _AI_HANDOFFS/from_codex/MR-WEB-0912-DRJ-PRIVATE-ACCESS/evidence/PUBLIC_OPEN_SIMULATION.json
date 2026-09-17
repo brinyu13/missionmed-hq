@@ -1,0 +1,26 @@
+{
+  "injected_epoch": 1789833600,
+  "opens_at": "2026-09-19T12:00:00-04:00",
+  "timezone": "America/New_York",
+  "active": false,
+  "access_granted_without_cookie": true,
+  "mode": "public_open",
+  "required": false,
+  "backend_seat_cap": false,
+  "interview_week": {
+    "add_to_cart_allowed": true,
+    "price": 549,
+    "woo_product_id": 5504,
+    "woo_variation_id": 5867,
+    "learndash_course_id": 3646
+  },
+  "complete": {
+    "add_to_cart_allowed": true,
+    "price": 3099,
+    "woo_product_id": 3576,
+    "woo_variation_id": 5865,
+    "learndash_course_id": 5227
+  },
+  "host_clock_changed": false,
+  "production_state_changed": false
+}

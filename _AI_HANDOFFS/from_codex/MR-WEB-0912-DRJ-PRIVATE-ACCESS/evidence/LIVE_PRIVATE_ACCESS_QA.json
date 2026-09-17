@@ -1,0 +1,163 @@
+{
+  "at": "2026-09-17T17:16:27.753Z",
+  "authority": "DR-299",
+  "financialSubmission": false,
+  "viewports": [
+    {
+      "width": 1440,
+      "status": 200,
+      "publicBrowsingWithoutPrompt": true,
+      "codePublishedOnLanding": false,
+      "forbiddenVisible": false,
+      "overflow": false,
+      "completeTapTarget": {
+        "width": 233,
+        "height": 59
+      },
+      "modal": "× PRIVATE ENROLLMENT Private enrollment is now open for Dr J’s students. Official 2026–27 enrollment opens Saturday at 12 PM ET. Enter your private access code to continue. PRIVATE ACCESS CODE Continue → This is an access code, not a coupon. Your program price does not change.",
+      "input": {
+        "type": "text",
+        "name": "private_access_code",
+        "autocomplete": "one-time-code",
+        "required": true
+      },
+      "events": [
+        "mr_b_page_view",
+        "mr_b_aaa_mastering_view",
+        "mr_b_aaa_correction_v2_view",
+        "mr_warm_audience_view",
+        "mr_b_finalization_view",
+        "gtm.dom",
+        "gtm.load",
+        "mr_cta_click",
+        "mr_private_access_prompt"
+      ],
+      "errors": [],
+      "screenshot": "/Users/brianb/MissionMed_worktrees/mr-web-0912-interview-week/_AI_HANDOFFS/from_codex/MR-WEB-0912-DRJ-PRIVATE-ACCESS/evidence/private-access-1440.png"
+    },
+    {
+      "width": 1024,
+      "status": 200,
+      "publicBrowsingWithoutPrompt": true,
+      "codePublishedOnLanding": false,
+      "forbiddenVisible": false,
+      "overflow": false,
+      "completeTapTarget": {
+        "width": 213,
+        "height": 53
+      },
+      "modal": "× PRIVATE ENROLLMENT Private enrollment is now open for Dr J’s students. Official 2026–27 enrollment opens Saturday at 12 PM ET. Enter your private access code to continue. PRIVATE ACCESS CODE Continue → This is an access code, not a coupon. Your program price does not change.",
+      "input": {
+        "type": "text",
+        "name": "private_access_code",
+        "autocomplete": "one-time-code",
+        "required": true
+      },
+      "events": [
+        "mr_b_page_view",
+        "mr_b_aaa_mastering_view",
+        "mr_b_aaa_correction_v2_view",
+        "mr_warm_audience_view",
+        "mr_b_finalization_view",
+        "gtm.dom",
+        "gtm.load",
+        "mr_cta_click",
+        "mr_private_access_prompt"
+      ],
+      "errors": [],
+      "screenshot": "/Users/brianb/MissionMed_worktrees/mr-web-0912-interview-week/_AI_HANDOFFS/from_codex/MR-WEB-0912-DRJ-PRIVATE-ACCESS/evidence/private-access-1024.png"
+    },
+    {
+      "width": 390,
+      "status": 200,
+      "publicBrowsingWithoutPrompt": true,
+      "codePublishedOnLanding": false,
+      "forbiddenVisible": false,
+      "overflow": false,
+      "completeTapTarget": {
+        "width": 343,
+        "height": 59
+      },
+      "modal": "× PRIVATE ENROLLMENT Private enrollment is now open for Dr J’s students. Official 2026–27 enrollment opens Saturday at 12 PM ET. Enter your private access code to continue. PRIVATE ACCESS CODE Continue → This is an access code, not a coupon. Your program price does not change.",
+      "input": {
+        "type": "text",
+        "name": "private_access_code",
+        "autocomplete": "one-time-code",
+        "required": true
+      },
+      "events": [
+        "mr_b_page_view",
+        "mr_b_aaa_mastering_view",
+        "mr_b_aaa_correction_v2_view",
+        "mr_warm_audience_view",
+        "mr_b_finalization_view",
+        "gtm.dom",
+        "gtm.load",
+        "mr_cta_click",
+        "mr_private_access_prompt"
+      ],
+      "errors": [],
+      "screenshot": "/Users/brianb/MissionMed_worktrees/mr-web-0912-interview-week/_AI_HANDOFFS/from_codex/MR-WEB-0912-DRJ-PRIVATE-ACCESS/evidence/private-access-390.png"
+    }
+  ],
+  "enrollment": [
+    {
+      "offer": "interview_week",
+      "url": "/checkout/",
+      "summary": "Product Subtotal IV Prep Essentials: Interview Week - Session D: Sept 26th, 2026 × 1 $549.00 Subtotal $549.00 Shipment Free shipping Total $549.00 Interview Week payment choice Card: $549. Zelle: $499, a $50 savings. Zelle orders remain on hold and do not receive course access until payment is verified. Credit / Debit Card Save payment information to my account for future purchases. Zelle — $499 total (save $50) Your personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy. I have read and agree to the Terms of Agreement and Refund & Cancellation Policy. * Terms of Agreement · Refund & Cancellation Policy · Privacy Policy PLACE ORDER",
+      "stripe": 1,
+      "zelle": 1,
+      "overflow": false,
+      "screenshot": "/Users/brianb/MissionMed_worktrees/mr-web-0912-interview-week/_AI_HANDOFFS/from_codex/MR-WEB-0912-DRJ-PRIVATE-ACCESS/evidence/checkout-interview_week-390.png",
+      "persistedAccess": {
+        "authority": "DR-299",
+        "mode": "private_early_access",
+        "required": false,
+        "granted": true,
+        "opens_at": "2026-09-19T12:00:00-04:00",
+        "timezone": "America/New_York",
+        "public_code_disclosure": false,
+        "changes_price": false,
+        "backend_seat_cap": false
+      }
+    },
+    {
+      "offer": "complete",
+      "url": "/checkout/",
+      "summary": "Product Subtotal IV Prep Complete - Session D: Sept 26th, 2026 × 1 $3,099.00 Subtotal $3,099.00 Shipment Free shipping Total $3,099.00 Credit / Debit Card Save payment information to my account for future purchases. Your personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy. I have read and agree to the Terms of Agreement and Refund & Cancellation Policy. * Terms of Agreement · Refund & Cancellation Policy · Privacy Policy PLACE ORDER",
+      "stripe": 1,
+      "zelle": 0,
+      "overflow": false,
+      "screenshot": "/Users/brianb/MissionMed_worktrees/mr-web-0912-interview-week/_AI_HANDOFFS/from_codex/MR-WEB-0912-DRJ-PRIVATE-ACCESS/evidence/checkout-complete-390.png",
+      "persistedAccess": {
+        "authority": "DR-299",
+        "mode": "private_early_access",
+        "required": false,
+        "granted": true,
+        "opens_at": "2026-09-19T12:00:00-04:00",
+        "timezone": "America/New_York",
+        "public_code_disclosure": false,
+        "changes_price": false,
+        "backend_seat_cap": false
+      }
+    }
+  ],
+  "directPaths": [
+    {
+      "offer": "interview_week",
+      "status": 200,
+      "landedOn": "/mission-residency/",
+      "promptVisible": true,
+      "signedResumeTokenPresent": true,
+      "copy": "× PRIVATE ENROLLMENT Private enrollment is now open for Dr J’s students. Official 2026–27 enrollment opens Saturday at 12 PM ET. Enter your private access code to continue. PRIVATE ACCESS CODE Continue → This is an access code, not a coupon. Your program price does not change."
+    },
+    {
+      "offer": "complete",
+      "status": 200,
+      "landedOn": "/mission-residency/",
+      "promptVisible": true,
+      "signedResumeTokenPresent": true,
+      "copy": "× PRIVATE ENROLLMENT Private enrollment is now open for Dr J’s students. Official 2026–27 enrollment opens Saturday at 12 PM ET. Enter your private access code to continue. PRIVATE ACCESS CODE Continue → This is an access code, not a coupon. Your program price does not change."
+    }
+  ]
+}
