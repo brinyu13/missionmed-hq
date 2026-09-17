@@ -89,9 +89,9 @@ the actual production route and deployment.
 | 8 | Evidence-grounded Results | LIVE VERIFIED | Production post-answer Results and bounded transcript/context analysis returned evidence-cited observations tied to transcript segments without unsupported scoring. |
 | 8 | Film Room synchronized replay and Flight Recorder timeline | LIVE UNVERIFIED | Production playback and persisted Analytics rehydration passed after fix 0c9efce; complete timestamp-synchronized Flight Recorder traversal remains. |
 | 8 | Durable student Video Library and Admin student-library access | LIVE UNVERIFIED | Owner library persisted across reload and signed private playback passed; Admin student-library and negative-role isolation remain. |
-| 9 | Current supported realtime transport and contextual InterviewBrain | LIVE UNVERIFIED | WebRTC integration is in source; current official API revalidation and paid canary remain. |
-| 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE UNVERIFIED | Requires bounded production conversation canary. |
-| 9 | Pool/context weighting, clean teardown, single audio authority | LIVE UNVERIFIED | Requires production telemetry and teardown proof. |
+| 9 | Current supported realtime transport and contextual InterviewBrain | LIVE VERIFIED | Production `gpt-live-1` WebRTC canary created twice through the authenticated IVOC broker, reached `session.started`, exchanged native audio/transcript events, and ended with provider hangup HTTP 200. |
+| 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE VERIFIED | Production canary retained the discharge/teach-back detail across turns, asked evidence-grounded follow-ups, honored “move to the next question,” and visibly truncated “That gives me a—” on barge-in before continuing. |
+| 9 | Pool/context weighting, clean teardown, single audio authority | LIVE UNVERIFIED | Selected CORE-01 reached the room and both canaries received authoritative provider hangup; exact pool-weighting behavior and explicit single-audio telemetry remain. |
 | 10 | File Vault context/performance-reference seam | NOT STARTED | Exact live owner contract and consented projection still required. |
 | 10 | StoryForge opt-in story/theme and performance evidence | LIVE UNVERIFIED | IVOC source seam exists; live sibling-owner projection remains. |
 | 10 | RISE sourced/fresh program context | NOT STARTED | Exact live owner contract and freshness receipt still required. |
@@ -142,6 +142,18 @@ the actual production route and deployment.
 - Root runtime dependency audit previously reported zero vulnerabilities. Default
   branch repository-security advisories remain separate security-owner work until
   re-triaged against the production commit.
+
+## VOICE OPPORTUNITY
+
+- NATURAL VOICE HEARD: GPT-Live native interviewer audio; synthetic applicant canary phrases separately used macOS Samantha.
+- MODEL: `gpt-live-1`.
+- VOICE: `marin`.
+- ACTUAL IVOC PATH: YES — authenticated broker, canonical WebRTC/data-channel session, production microphone and the current InterviewBrain room.
+- CURRENT VALID GPT-LIVE VOICES: `alloy`, `ash`, `ballad`, `beacon`, `bossa`, `cedar`, `cinder`, `coral`, `delta`, `echo`, `gleam`, `marin`, `meridian`, `quartz`, `ripple`, `sage`, `shimmer`, `stone`, `tempo`, `verse`, `vesper`, `willow`; the bounded audition exposes `marin`, `meridian`, `gleam`, `vesper`, `stone`, and `willow`.
+- ADMIN AUDITION AVAILABLE: YES — Admin role → Interview Room → Founder / Admin voice audition; the selected voice uses the same InterviewBrain session/context/audio path and students remain pinned to `marin`.
+- CURRENT ARCHITECTURE VS FABLE: Director/orchestration remains outside providers; conversation rail, canonical clock, audio authority, response/item identity, interruption/cancellation, stale-output rejection, ElevenLabs adapter, LemonSlice adapter and LiveKit coordinator/worker already exist. The new Live room currently uses the direct GPT-Live path rather than those legacy avatar/TTS rails.
+- EXTERNAL TTS WORK STILL NEEDED: Deferred; only needed later if native Live voices fail persona/accent/verbatim requirements.
+- RECOMMENDED NEXT ACTION AFTER RESET: Founder auditions the six native voices in the real room, selects a preferred default/profile mapping, then IVOC decides whether any TTS-mediated Actor lane is still justified.
 
 ## Next execution lanes
 

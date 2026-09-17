@@ -126,7 +126,7 @@ export class LiveInterviewSession {
     }
   }
 
-  async stop({ notifyServer = true } = {}) {
+  async stop({ notifyServer = true, keepalive = false } = {}) {
     const id = this.sessionId;
     this.sessionId = null;
     clearTimeout(this.startTimer);
@@ -141,7 +141,7 @@ export class LiveInterviewSession {
       this.audioElement.pause?.();
       this.audioElement.srcObject = null;
     }
-    if (notifyServer && id) await this.endSession(id);
+    if (notifyServer && id) await this.endSession(id, { keepalive });
     this.emitStatus('closed', 'Interview ended');
     return Object.freeze({ ok: true });
   }

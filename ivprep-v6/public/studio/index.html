@@ -297,6 +297,17 @@
               <audio id="live-interviewer-audio" autoplay></audio>
             </div>
             <div class="recess live-interviewer-controls">
+              <label id="admin-live-voice-audition" hidden>
+                <span class="microcap">Founder / Admin voice audition</span>
+                <select id="admin-live-voice" aria-label="InterviewBrain voice">
+                  <option value="marin">Marin · current student default</option>
+                  <option value="meridian">Meridian</option>
+                  <option value="gleam">Gleam</option>
+                  <option value="vesper">Vesper</option>
+                  <option value="stone">Stone</option>
+                  <option value="willow">Willow</option>
+                </select>
+              </label>
               <div class="btn-row" style="margin-top:0">
                 <button class="btn btn-primary" type="button" id="live-interview-start"><span>Start live interview ▸</span></button>
                 <button class="btn btn-quiet" type="button" id="live-interview-end" disabled><span>End interview</span></button>

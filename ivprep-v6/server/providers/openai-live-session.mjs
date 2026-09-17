@@ -1,6 +1,9 @@
 const OPENAI_LIVE_SESSIONS_URL = 'https://api.openai.com/v1/live/sessions';
 const MODEL = 'gpt-live-1';
-const SAFE_VOICES = new Set(['marin', 'cedar', 'coral']);
+// Exact built-in Live voice names from the current OpenAI Live API schema.
+// Student sessions remain pinned to marin; the additional voices are available only
+// through the Founder/Admin audition gate in hq-mount.mjs.
+const SAFE_VOICES = new Set(['marin', 'meridian', 'gleam', 'vesper', 'stone', 'willow']);
 const SAFE_CONTEXT = Object.freeze({
   goal: new Set(['Residency interview practice', 'Instant focused rep', 'Individual question', 'Coached practice', 'Full interview simulation']),
   interviewer: new Set(['Program Director · balanced', 'Faculty · conversational', 'Chief Resident · warm', 'Pressure practice · direct']),

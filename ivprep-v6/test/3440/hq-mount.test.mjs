@@ -151,6 +151,27 @@ test('GPT-Live creation fails closed when the broker is absent', async () => {
   assert.equal(result.body.error, 'ivprep_live_unavailable');
 });
 
+test('non-Founder sessions cannot select an Admin audition voice', async () => {
+  const deniedRegistry = new InMemoryAdmissionRegistry({ now: () => NOW });
+  deniedRegistry.grantSyntheticEntitlement({
+    subject: 'wp:2', revision: 'student-1', expiresAtMs: NOW + 120_000,
+    founder: false, voice: true, video: false, grantedVideoSeconds: 0,
+  });
+  const handler = createIvPrepHqHandler({
+    registry: deniedRegistry, now: () => NOW,
+    flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false },
+    liveSessionBroker: { create: async () => { throw new Error('must not run'); } },
+  });
+  const denied = await invoke(handler, {
+    path: '/api/ivprep-v6/live/sessions', method: 'POST',
+    hqSession: { ...session(2), user: { id: 2, roles: ['subscriber'] } },
+    headers: { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF },
+    body: JSON.stringify({ sdp: 'v=0\r\no=offer', voice: 'meridian', context: {} }),
+  });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.body.error, 'ivprep_admin_voice_audition_required');
+});
+
 test('live product CSP permits only the sealed LiveKit WSS origin', async () => {
   const live = createIvPrepHqHandler({
     registry: registry(),

@@ -52,6 +52,25 @@ test('InterviewBrain prompt is bounded to authorized context and refuses malform
   assert.throws(() => new OpenAiLiveSessionBroker({ apiKey: '' }), /not configured/u);
 });
 
+test('current Founder audition voices are accepted while unknown voice names fail closed', async () => {
+  const voices = [];
+  const broker = new OpenAiLiveSessionBroker({
+    apiKey: 'server-only-unit-key',
+    fetchImpl: async (_url, options) => {
+      voices.push(JSON.parse(options.body).session.audio.output.voice);
+      return { ok: true, status: 201, json: async () => ({
+        session: { id: `live_session_${voices.length}2345678` },
+        transport: { type: 'webrtc', sdp: 'v=0\r\no=answer' },
+      }) };
+    },
+  });
+  for (const voice of ['marin', 'meridian', 'gleam', 'vesper', 'stone', 'willow']) {
+    await broker.create({ sdp: 'v=0\r\no=offer', voice, context: CONTEXT });
+  }
+  assert.deepEqual(voices, ['marin', 'meridian', 'gleam', 'vesper', 'stone', 'willow']);
+  await assert.rejects(() => broker.create({ sdp: 'v=0\r\no=offer', voice: 'invented', context: CONTEXT }), /Voice is invalid/u);
+});
+
 test('broker hangup uses the provider endpoint and rejects unsafe IDs', async () => {
   const calls = [];
   const broker = new OpenAiLiveSessionBroker({

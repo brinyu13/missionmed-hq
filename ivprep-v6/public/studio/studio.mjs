@@ -250,6 +250,8 @@ function applyRole(role) {
   }
   const banner = $('#debug-banner');
   if (banner) banner.hidden = state.role !== 'admin';
+  const voiceAudition = $('#admin-live-voice-audition');
+  if (voiceAudition) voiceAudition.hidden = state.role !== 'admin';
   // The analytics cockpit gets the real role so its own founder surfaces follow suit.
   state.analytics?.onViewChange?.(state.view, state.role === 'student' ? 'student' : 'admin');
 }
@@ -1484,7 +1486,10 @@ function wireLiveInterview() {
         renderDeviceCheck();
       }
       const track = bridge.media.stream.getAudioTracks()[0];
-      await state.liveInterview.start({ audioTrack: track, voice: 'marin', context: liveInterviewContext() });
+      const selectedVoice = state.role === 'admin'
+        ? ($('#admin-live-voice')?.value || 'marin')
+        : 'marin';
+      await state.liveInterview.start({ audioTrack: track, voice: selectedVoice, context: liveInterviewContext() });
     } catch (error) {
       setLiveInterviewStatus({ state: 'error', detail: String(error?.message || error).slice(0, 180) });
     }
@@ -1492,6 +1497,9 @@ function wireLiveInterview() {
   $('#live-interview-end')?.addEventListener('click', async () => {
     try { await state.liveInterview.stop(); }
     catch (error) { setLiveInterviewStatus({ state: 'error', detail: `Cleanup unconfirmed: ${String(error?.message || error).slice(0, 120)}` }); }
+  });
+  window.addEventListener('pagehide', () => {
+    if (state.liveInterview?.sessionId) void state.liveInterview.stop({ keepalive: true }).catch(() => {});
   });
 }
 

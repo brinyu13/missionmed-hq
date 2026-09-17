@@ -430,6 +430,15 @@ export function createIvPrepHqHandler({
         sendJson(response, 400, { error: 'ivprep_invalid_request' });
         return true;
       }
+      const roles = Array.isArray(hqSession?.user?.roles)
+        ? hqSession.user.roles.map((role) => String(role).toLowerCase())
+        : [];
+      const canAuditionVoice = admission.entitlement?.founder === true
+        || roles.some((role) => ['administrator', 'admin'].includes(role));
+      if (body.voice !== 'marin' && !canAuditionVoice) {
+        sendJson(response, 403, { error: 'ivprep_admin_voice_audition_required' });
+        return true;
+      }
       const active = [...liveSessions.values()].find((entry) => entry.subject === admission.subject && entry.state !== 'ended');
       if (active) {
         sendJson(response, 409, { error: 'ivprep_live_session_active' });

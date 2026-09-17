@@ -36,7 +36,7 @@ test('browser session reuses the admitted microphone and never stops the shared 
       assert.equal(input.sdp, 'v=0\r\no=offer');
       return { session: { id: 'live_session_123456', model: 'gpt-live-1' }, transport: { type: 'webrtc', sdp: 'v=0\r\no=answer' } };
     },
-    endSession: async (id) => { ended.push(id); },
+    endSession: async (id, options) => { ended.push([id, options]); },
     onStatus: (event) => statuses.push(event.state),
     onTranscript: (event) => transcript.push(event),
   });
@@ -46,8 +46,8 @@ test('browser session reuses the admitted microphone and never stops the shared 
   FakePeerConnection.last.channel.onmessage({ data: JSON.stringify({ type: 'session.output_transcript.delta', delta: 'Tell me about yourself.' }) });
   assert.deepEqual(transcript, [{ speaker: 'interviewer', text: 'Tell me about yourself.', type: 'session.output_transcript.delta' }]);
   const channel = FakePeerConnection.last.channel;
-  await session.stop();
-  assert.deepEqual(ended, ['live_session_123456']);
+  await session.stop({ keepalive: true });
+  assert.deepEqual(ended, [['live_session_123456', { keepalive: true }]]);
   assert.equal(microphone.stopCalls, 0);
   assert.deepEqual(channel.sent, [{ type: 'session.close' }]);
   assert.equal(statuses.includes('active'), true);

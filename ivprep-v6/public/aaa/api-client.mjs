@@ -209,10 +209,11 @@ export async function createLiveInterview({ sdp, voice = 'marin', context }) {
   });
 }
 
-export async function endLiveInterview(sessionId) {
+export async function endLiveInterview(sessionId, { keepalive = false } = {}) {
   if (!sessionState?.mutationCsrfToken) throw new Error('ivprep_authentication_required');
   return request(`/live/sessions/${encodeURIComponent(sessionId)}/end`, {
     method: 'POST',
+    keepalive,
     headers: { 'X-MMHQ-CSRF': sessionState.mutationCsrfToken },
     body: JSON.stringify({ reason: 'user_ended' }),
   });
