@@ -28,6 +28,12 @@ psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 \
   >/dev/null
 
 for migration in "$app_dir"/supabase/migrations/*.sql; do
+  # This one-time production promotion intentionally requires Antonio's
+  # already-provisioned rows. A clean-schema rehearsal has no such fixture;
+  # every schema migration before and after it is still executed below.
+  if [[ "$(basename "$migration")" == "20260909105200_promote_antonio_real_student.sql" ]]; then
+    continue
+  fi
   psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
 done
 
@@ -54,10 +60,19 @@ fi
 student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
   -c "insert into missionaccounts.student(matrix_user_ref,display_name) values ('wp:4242','Integration Test') returning id")
 
+psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -c "
+insert into missionaccounts.program_enrollment_projection(
+  student_id,program_key,provider,course_id,enrolled,source_subject,
+  source_observed_at,verified_at,valid_until,last_request_id
+) values (
+  '$student_id','examprep','learndash',6357,true,'clean-schema-integration',
+  now(),now(),now()+interval '6 hours','clean-schema-enrollment-0001'
+);" >/dev/null
+
 results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 set role service_role;
-select missionaccounts.api_submit_exam_plan('$student_id','s2','2026-10-14','2026-09-01','wp:4242','student','pg-integration-0001')->>'duplicate';
-select missionaccounts.api_submit_exam_plan('$student_id','s2','2026-10-14','2026-09-01','wp:4242','student','pg-integration-0001')->>'duplicate';
+select missionaccounts.api_submit_exam_plan('$student_id','s2','2026-10-14','2026-09-01','$student_id','student','pg-integration-0001')->>'duplicate';
+select missionaccounts.api_submit_exam_plan('$student_id','s2','2026-10-14','2026-09-01','$student_id','student','pg-integration-0001')->>'duplicate';
 select missionaccounts.api_transition_exam_plan((select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),'approved',null,null,'2026-09-01','wp:admin','missionaccounts_admin','pg-integration-0003')->>'accepted';
 select missionaccounts.api_transition_exam_plan((select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),'approved',null,null,'2026-09-01','wp:admin','missionaccounts_admin','pg-integration-0003')->>'duplicate';
 select missionaccounts.api_transition_exam_plan((select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),'followup','not_passed','Verified result','2026-10-20','wp:admin','missionaccounts_admin','pg-integration-0004')->>'accepted';
@@ -88,11 +103,11 @@ student_passed_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR
 set role service_role;
 select missionaccounts.api_transition_exam_plan(
   (select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),
-  'passed','passed','Student reported passing','2026-10-21','wp:4242','student','pg-student-passed-0001'
+  'passed','passed','Student reported passing','2026-10-21','$student_id','student','pg-student-passed-0001'
 )->>'accepted';
 select missionaccounts.api_transition_exam_plan(
   (select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),
-  'passed','passed','Student reported passing','2026-10-21','wp:4242','student','pg-student-passed-0001'
+  'passed','passed','Student reported passing','2026-10-21','$student_id','student','pg-student-passed-0001'
 )->>'duplicate';
 select missionaccounts.api_transition_exam_plan(
   (select id from missionaccounts.exam_plan where student_id='$student_id' and superseded_by_id is null),
@@ -117,7 +132,7 @@ exam_replacement_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERR
 set role service_role;
 select missionaccounts.api_submit_exam_plan(
   '$replacement_student_id','s1','2026-10-14','2026-09-01',
-  'wp:replacement','student','pg-replacement-submit-0001'
+  '$replacement_student_id','student','pg-replacement-submit-0001'
 )->>'duplicate';
 select missionaccounts.api_transition_exam_plan(
   (select id from missionaccounts.exam_plan where student_id='$replacement_student_id' and superseded_by_id is null),
@@ -125,11 +140,11 @@ select missionaccounts.api_transition_exam_plan(
 )->>'accepted';
 select missionaccounts.api_submit_exam_plan(
   '$replacement_student_id','s1','2026-11-11','2026-09-20',
-  'wp:replacement','student','pg-replacement-submit-0002'
+  '$replacement_student_id','student','pg-replacement-submit-0002'
 )->>'closed_grace_windows';
 select missionaccounts.api_submit_exam_plan(
   '$replacement_student_id','s1','2026-11-11','2026-09-20',
-  'wp:replacement','student','pg-replacement-submit-0002'
+  '$replacement_student_id','student','pg-replacement-submit-0002'
 )->>'duplicate';
 reset role;
 select
@@ -154,7 +169,7 @@ reminder_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=
 set role service_role;
 select missionaccounts.api_submit_exam_plan(
   '$reminder_student_id','s1','2026-09-09','2026-09-01',
-  'wp:reminder','student','pg-reminder-submit-0001'
+  '$reminder_student_id','student','pg-reminder-submit-0001'
 )->>'duplicate';
 select missionaccounts.api_transition_exam_plan(
   (select id from missionaccounts.exam_plan where student_id='$reminder_student_id' and superseded_by_id is null),
@@ -195,7 +210,7 @@ cancelled_reminder_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_E
 set role service_role;
 select missionaccounts.api_submit_exam_plan(
   '$cancelled_reminder_student_id','s1','2026-09-09','2026-09-01',
-  'wp:cancelled-reminder','student','pg-cancelled-reminder-submit-0001'
+  '$cancelled_reminder_student_id','student','pg-cancelled-reminder-submit-0001'
 )->>'duplicate';
 select missionaccounts.api_transition_exam_plan(
   (select id from missionaccounts.exam_plan where student_id='$cancelled_reminder_student_id' and superseded_by_id is null),
@@ -205,7 +220,7 @@ select missionaccounts.api_enqueue_due_exam_reminders('2026-09-30','2026-09-30T1
 select missionaccounts.api_transition_exam_plan(
   (select id from missionaccounts.exam_plan where student_id='$cancelled_reminder_student_id' and superseded_by_id is null),
   'passed','passed','Student reported passing','2026-09-30',
-  'wp:cancelled-reminder','student','pg-cancelled-reminder-result-0001'
+  '$cancelled_reminder_student_id','student','pg-cancelled-reminder-result-0001'
 )->>'accepted';
 reset role;
 select
@@ -259,7 +274,7 @@ withdraw_exam_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_
 set role service_role;
 select missionaccounts.api_submit_exam_plan(
   '$withdraw_exam_student_id','s1','2026-09-09','2026-09-01',
-  'wp:withdraw-exam','student','pg-withdraw-exam-submit-0001'
+  '$withdraw_exam_student_id','student','pg-withdraw-exam-submit-0001'
 )->>'duplicate';
 select missionaccounts.api_transition_exam_plan(
   (select id from missionaccounts.exam_plan where student_id='$withdraw_exam_student_id' and superseded_by_id is null),
@@ -268,11 +283,11 @@ select missionaccounts.api_transition_exam_plan(
 )->>'accepted';
 select missionaccounts.api_withdraw_exam_plan(
   (select id from missionaccounts.exam_plan where student_id='$withdraw_exam_student_id' and superseded_by_id is null),
-  '2026-09-30','wp:withdraw-exam','student','Student withdrew exam plan','pg-withdraw-exam-0001'
+  '2026-09-30','$withdraw_exam_student_id','student','Student withdrew exam plan','pg-withdraw-exam-0001'
 )->>'accepted';
 select missionaccounts.api_withdraw_exam_plan(
   (select id from missionaccounts.exam_plan where student_id='$withdraw_exam_student_id' and withdrawn_at is not null),
-  '2026-09-30','wp:withdraw-exam','student','Student withdrew exam plan','pg-withdraw-exam-0001'
+  '2026-09-30','$withdraw_exam_student_id','student','Student withdrew exam plan','pg-withdraw-exam-0001'
 )->>'duplicate';
 reset role;
 select
@@ -714,15 +729,17 @@ delete from missionaccounts.payment_method_private where student_id = '$student_
 set role service_role;
 select missionaccounts.api_set_billing_consent(
   '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms',
-  'wp:4242','student','pg-consent-0001'
+  '$student_id','student','pg-consent-0001'
 )->>'reason';
 reset role;
-insert into missionaccounts.billing_terms(version, summary, body_sha256, status, approved_by, approved_at)
-values ('integration-v1', 'Disposable integration-test terms', repeat('c', 64), 'approved', 'wp:founder', now());
+insert into missionaccounts.billing_terms(version, summary, body_sha256, status, approved_by, approved_at, body_text)
+values ('integration-v1', 'Disposable integration-test terms',
+  encode(extensions.digest(convert_to('Disposable integration-test terms body','UTF8'),'sha256'),'hex'),
+  'approved', 'wp:founder', now(), 'Disposable integration-test terms body');
 set role service_role;
 select missionaccounts.api_set_billing_consent(
   '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms',
-  'wp:4242','student','pg-consent-0002'
+  '$student_id','student','pg-consent-0002'
 )->>'reason';
 reset role;
 insert into missionaccounts.payment_method_private(
@@ -733,27 +750,27 @@ insert into missionaccounts.payment_method_private(
 set role service_role;
 select missionaccounts.api_set_billing_consent(
   '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms',
-  'wp:4242','student','pg-consent-0003'
+  '$student_id','student','pg-consent-0003'
 )->>'accepted';
 select missionaccounts.api_set_billing_consent(
   '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms',
-  'wp:4242','student','pg-consent-0003'
+  '$student_id','student','pg-consent-0003'
 )->>'duplicate';
 select missionaccounts.api_set_billing_consent(
   '$student_id','authorize','integration-v1','127.0.0.1','Student accepted test terms again',
-  'wp:4242','student','pg-consent-0004'
+  '$student_id','student','pg-consent-0004'
 )->>'reason';
 select missionaccounts.api_set_billing_consent(
   '$student_id','revoke',null,null,'Student revoked automatic billing',
-  'wp:4242','student','pg-consent-0005'
+  '$student_id','student','pg-consent-0005'
 )->>'accepted';
 select missionaccounts.api_set_billing_consent(
   '$student_id','revoke',null,null,'Student revoked automatic billing',
-  'wp:4242','student','pg-consent-0005'
+  '$student_id','student','pg-consent-0005'
 )->>'duplicate';
 select missionaccounts.api_set_billing_consent(
   '$student_id','revoke',null,null,'Student revoked automatic billing again',
-  'wp:4242','student','pg-consent-0006'
+  '$student_id','student','pg-consent-0006'
 )->>'reason';
 reset role;
 select count(*) || '|' ||
@@ -773,100 +790,20 @@ if [[ "$consent_results" != "$consent_expected" ]]; then
 fi
 
 charge_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
-set role service_role;
-select missionaccounts.api_set_comp_allowance(
-  '$student_id',0,'2026-09-08','Retroactive integration correction',true,
-  'wp:admin','missionaccounts_admin','pg-comp-zero-0001'
-)->>'duplicate';
-select kind from missionaccounts.attendance_day
-where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null;
-select missionaccounts.api_approve_billing_decision(
-  '$student_id','2026-cycle-1','confirm',null,'Re-approved after verified correction',
-  'wp:admin','missionaccounts_admin','pg-billing-0003'
-)->>'accepted';
-select missionaccounts.api_set_billing_consent(
-  '$student_id','authorize','integration-v1','127.0.0.1','Student reauthorized test billing',
-  'wp:4242','student','pg-consent-0007'
-)->>'accepted';
-select missionaccounts.api_prepare_day_charge(
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
-  'wp:admin','missionaccounts_admin','pg-charge-no-email-0001',false
-)->>'reason';
-select missionaccounts.api_set_student_contact(
-  '$student_id','Verified.Student@Example.org','555-0102','Receipt delivery verified',
-  'wp:admin','missionaccounts_admin','pg-contact-receipt-0001'
-)->>'duplicate';
-select missionaccounts.api_prepare_day_charge(
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
-  'wp:admin','missionaccounts_admin','pg-charge-0001',false
-)->>'accepted';
-select missionaccounts.api_prepare_day_charge(
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
-  'wp:admin','missionaccounts_admin','pg-charge-0001',false
-)->>'receipt_email';
-select missionaccounts.api_prepare_day_charge(
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
-  'wp:admin','missionaccounts_admin','pg-charge-0001',false
-)->>'duplicate';
-select missionaccounts.api_prepare_day_charge(
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
-  'wp:admin','missionaccounts_admin','pg-charge-0002',false
-)->>'reason';
-reset role;
-insert into missionaccounts.provider_event_inbox(
-  provider, provider_event_id, provider_object_id, event_type, payload, signature_verified, state
-) values (
-  'stripe', 'evt_charge_integration', 'pi_test_integration', 'payment_intent.succeeded',
-  jsonb_build_object(
-    'id', 'evt_charge_integration',
-    'type', 'payment_intent.succeeded',
-    'data', jsonb_build_object('object', jsonb_build_object(
-      'id', 'pi_test_integration',
-      'metadata', jsonb_build_object(
-        'student_id', '$student_id',
-        'attendance_day_id', (select id::text from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1)
-      )
-    ))
-  ),
-  true, 'received'
-);
-set role service_role;
-select missionaccounts.api_process_stripe_payment_intent(
-  'evt_charge_integration','payment_intent.succeeded','pi_test_integration','$student_id',
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
-  null,null
-)->>'duplicate';
-select missionaccounts.api_process_stripe_payment_intent(
-  'evt_charge_integration','payment_intent.succeeded','pi_test_integration','$student_id',
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
-  null,null
-)->>'duplicate';
-select missionaccounts.api_prepare_day_charge(
-  (select id from missionaccounts.attendance_day where student_id = '$student_id' and cycle_key = '2026-cycle-1' and superseded_at is null order by day limit 1),
-  'wp:admin','missionaccounts_admin','pg-charge-0003',false
-)->>'reason';
-reset role;
-select count(*) || '|' ||
-  (select count(*) from missionaccounts.charge_attempt) || '|' ||
-  (select state from missionaccounts.charge limit 1) || '|' ||
-  (select count(*) from missionaccounts.audit_event where kind = 'charge.started') || '|' ||
-  (select count(*) from missionaccounts.audit_event where kind = 'charge.succeeded') || '|' ||
-  (select count(*) from missionaccounts.notification_outbox where event_kind = 'charge.succeeded')
-from missionaccounts.charge;
+select live_dispatch_allowed || '|' || (select count(*) from missionaccounts.charge)
+from missionaccounts.automatic_billing_contract where singleton;
 SQL
 )
 
-charge_expected=$'false\nbillable\ntrue\ntrue\nstudent_receipt_email_required\nfalse\ntrue\nverified.student@example.org\ntrue\ncharge_already_pending\nfalse\ntrue\ncharge_already_succeeded\n1|1|succeeded|1|1|1'
-if [[ "$charge_results" != "$charge_expected" ]]; then
-  echo "MissionAccounts automatic day-charge verification returned unexpected controls:" >&2
-  echo "$charge_results" >&2
+if [[ "$charge_results" != 'false|0' ]]; then
+  echo "MissionAccounts automatic-charge default-off verification failed: $charge_results" >&2
   exit 1
 fi
 
 payment_removal_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
 set role service_role;
 select missionaccounts.api_prepare_payment_method_removal(
-  '$student_id','wp:4242','student','pg-payment-remove-0001'
+  '$student_id','$student_id','student','pg-payment-remove-0001'
 )->>'accepted';
 select status from missionaccounts.payment_method_private where student_id = '$student_id';
 select state from missionaccounts.billing_consent where student_id = '$student_id' and superseded_by_id is null;
@@ -874,13 +811,13 @@ select missionaccounts.api_finish_payment_method_removal(
   '$student_id','pg-payment-remove-0001',false,'Disposable provider failure'
 )->'payment_method'->>'status';
 select missionaccounts.api_prepare_payment_method_removal(
-  '$student_id','wp:4242','student','pg-payment-remove-0001'
+  '$student_id','$student_id','student','pg-payment-remove-0001'
 )->>'duplicate';
 select missionaccounts.api_finish_payment_method_removal(
   '$student_id','pg-payment-remove-0001',true,null
 )->'payment_method'->>'status';
 select missionaccounts.api_prepare_payment_method_removal(
-  '$student_id','wp:4242','student','pg-payment-remove-0001'
+  '$student_id','$student_id','student','pg-payment-remove-0001'
 )->>'duplicate';
 reset role;
 select
@@ -1030,61 +967,16 @@ auto_charge_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR
   -c "insert into missionaccounts.student(matrix_user_ref,display_name,email,identity_state) values ('wp:auto-charge','Automatic Charge Test','auto.charge@example.org','verified') returning id")
 
 auto_charge_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
-insert into missionaccounts.engine_run(engine_version, source_digest, state)
-values ('auto-charge-integration-v1', repeat('e', 64), 'succeeded');
-insert into missionaccounts.attendance_day(
-  engine_run_id, student_id, cycle_key, day, kind, engine_version, source_digest, computed_at
-) values (
-  (select id from missionaccounts.engine_run where engine_version='auto-charge-integration-v1'),
-  '$auto_charge_student_id','2026-cycle-1','2026-07-01','billable',
-  'auto-charge-integration-v1',repeat('e',64),'2026-09-09T11:00:00Z'
-);
-insert into missionaccounts.stripe_customer_private(student_id,provider,provider_customer_ref)
-values ('$auto_charge_student_id','stripe','cus_test_auto_charge_pg');
-insert into missionaccounts.payment_method_private(
-  student_id,provider,provider_customer_ref,provider_pm_ref,brand,last4,status,verified_at
-) values (
-  '$auto_charge_student_id','stripe','cus_test_auto_charge_pg','pm_test_auto_charge_pg','visa','4242','on_file','2026-09-09T10:00:00Z'
-);
-set role service_role;
-select missionaccounts.api_approve_billing_decision(
-  '$auto_charge_student_id','2026-cycle-1','confirm',null,null,
-  'wp:admin','missionaccounts_admin','pg-auto-charge-decision-0001'
-)->>'accepted';
-select missionaccounts.api_set_billing_consent(
-  '$auto_charge_student_id','authorize','integration-v1','127.0.0.1',
-  'Student accepted automatic billing terms','wp:auto-charge','student','pg-auto-charge-consent-0001'
-)->>'accepted';
-select jsonb_array_length(result->'claimed') || '|' || (result->'claimed'->0->>'receipt_email')
-from (
-  select missionaccounts.api_claim_due_day_charges(
-    '2026-09-10T12:00:00Z','pg-auto-charge-worker',10
-  ) as result
-) claimed;
-select state from missionaccounts.auto_charge_dispatch where attendance_day_id = (
-  select id from missionaccounts.attendance_day where student_id='$auto_charge_student_id'
-);
-select missionaccounts.api_finish_auto_charge_dispatch(
-  (select id from missionaccounts.auto_charge_dispatch where attendance_day_id = (
-    select id from missionaccounts.attendance_day where student_id='$auto_charge_student_id'
-  )),
-  'pg-auto-charge-worker',true,'pi_test_auto_charge_pg',null,'2026-09-10T12:00:01Z'
-)->'dispatch'->>'state';
-select jsonb_array_length(missionaccounts.api_claim_due_day_charges(
-  '2026-09-10T12:00:02Z','pg-auto-charge-worker',10
-)->'claimed');
-reset role;
-select
-  (select state from missionaccounts.charge where student_id='$auto_charge_student_id') || '|' ||
-  (select provider_ref from missionaccounts.charge where student_id='$auto_charge_student_id') || '|' ||
-  (select count(*) from missionaccounts.audit_event where kind='auto_charge.submitted');
+select live_dispatch_allowed || '|' ||
+  (select count(*) from missionaccounts.auto_charge_dispatch) || '|' ||
+  (select count(*) from missionaccounts.charge)
+from missionaccounts.automatic_billing_contract where singleton;
 SQL
 )
 
-auto_charge_expected=$'true\ntrue\n1|auto.charge@example.org\nclaimed\nsubmitted\n0\npending|pi_test_auto_charge_pg|1'
+auto_charge_expected='false|0|0'
 if [[ "$auto_charge_results" != "$auto_charge_expected" ]]; then
-  echo "MissionAccounts 24-48 hour automatic-charge verification returned unexpected controls:" >&2
-  echo "$auto_charge_results" >&2
+  echo "MissionAccounts default-off automatic-charge verification failed: $auto_charge_results" >&2
   exit 1
 fi
 
@@ -1286,12 +1178,12 @@ set role service_role;
 select missionaccounts.api_submit_attendance_issue(
   '$student_id','I attended the August 21 Step 2/3 class but it is missing.',
   jsonb_build_object('route','#/me/attendance?cycle=august'),
-  'wp:4242','student','pg-attendance-issue-0001'
+  '$student_id','student','pg-attendance-issue-0001'
 )->>'duplicate';
 select missionaccounts.api_submit_attendance_issue(
   '$student_id','I attended the August 21 Step 2/3 class but it is missing.',
   jsonb_build_object('route','#/me/attendance?cycle=august'),
-  'wp:4242','student','pg-attendance-issue-0001'
+  '$student_id','student','pg-attendance-issue-0001'
 )->>'duplicate';
 SQL
 )
@@ -1369,7 +1261,7 @@ set role service_role;
 select missionaccounts.api_resolve_attendance_issue(
   (select id from missionaccounts.attendance_issue where request_id='pg-attendance-issue-0001'),
   'dismissed','Attempted student review.',
-  'wp:4242','student','pg-attendance-issue-review-0002'
+  '$student_id','student','pg-attendance-issue-review-0002'
 )->>'accepted';
 SQL
 )
@@ -1962,9 +1854,92 @@ if [[ "$unhandled_provider_results" != $'false\ntrue\nignored|1|1' ]]; then
   exit 1
 fi
 
+commerce_5404e_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+set role service_role;
+select (state->>'state') || '|' || (state->>'selection_source') || '|' || (state->>'plan_required')
+from (select missionaccounts.api_get_student_commerce(
+  '$student_id','$student_id','student','monthly',true
+) as state) s;
+select missionaccounts.api_grant_student_trial_override(
+  '$student_id','2026-09-17','Dr J approved a disposable repeat-trial fixture',
+  'wp:admin','missionaccounts_admin','pg-5404e-trial-override-0001'
+)->>'duplicate';
+select missionaccounts.api_grant_student_trial_override(
+  '$student_id','2026-09-17','Dr J approved a disposable repeat-trial fixture',
+  'wp:admin','missionaccounts_admin','pg-5404e-trial-override-0001'
+)->>'duplicate';
+select missionaccounts.api_acknowledge_student_onboarding_intro(
+  '$student_id','$student_id','student','pg-5404e-onboarding-intro-0001'
+)->>'duplicate';
+select missionaccounts.api_acknowledge_student_onboarding_intro(
+  '$student_id','$student_id','student','pg-5404e-onboarding-intro-0001'
+)->>'duplicate';
+reset role;
+select
+  (select count(*) from missionaccounts.student_trial_override where student_id='$student_id') || '|' ||
+  (select count(*) from missionaccounts.student_onboarding_intro_ack where student_id='$student_id') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='commerce_trial_override_granted' and subject_student_id='$student_id') || '|' ||
+  (select count(*) from missionaccounts.audit_event where kind='onboarding_intro_acknowledged' and subject_student_id='$student_id');
+SQL
+)
+if [[ "$commerce_5404e_results" != $'MONTHLY|existing_active_arrangement|false\nfalse\ntrue\nfalse\ntrue\n1|1|1|1' ]]; then
+  echo "MissionAccounts 5404E existing-plan, override, onboarding, or idempotency controls failed:" >&2
+  echo "$commerce_5404e_results" >&2
+  exit 1
+fi
+
+commerce_plan_guard_student_id=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 \
+  -c "insert into missionaccounts.student(matrix_user_ref,display_name,identity_state) values ('wp:commerce-plan-guard','Commerce Plan Guard','verified') returning id")
+
+commerce_plan_guard_results=$(psql -h "$pg_tmp" -p 55439 -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+insert into missionaccounts.engine_run(engine_version,source_digest,state)
+values('commerce-plan-guard-v1',repeat('e',64),'succeeded');
+insert into missionaccounts.attendance_day(engine_run_id,student_id,cycle_key,day,kind,engine_version,source_digest)
+values(
+ (select id from missionaccounts.engine_run where engine_version='commerce-plan-guard-v1'),
+ '$commerce_plan_guard_student_id','2026-cycle-3','2026-09-10','billable','commerce-plan-guard-v1',repeat('e',64)
+);
+insert into missionaccounts.auto_charge_dispatch(attendance_day_id,state,idempotency_key)
+select id,'pending','commerce-plan-guard:no-plan' from missionaccounts.attendance_day
+where student_id='$commerce_plan_guard_student_id';
+select count(*) from missionaccounts.auto_charge_dispatch d join missionaccounts.attendance_day ad on ad.id=d.attendance_day_id
+where ad.student_id='$commerce_plan_guard_student_id';
+insert into missionaccounts.student_live_group_plan_selection(
+ student_id,contract_version,plan,request_id,request_sha256,actor_id,actor_role
+) values(
+ '$commerce_plan_guard_student_id','examprep-business-contract-2026-09-16-v1','pay_go',
+ 'commerce-plan-guard-pay-go-0001',repeat('f',64),'$commerce_plan_guard_student_id','student'
+);
+insert into missionaccounts.auto_charge_dispatch(attendance_day_id,state,idempotency_key)
+select id,'pending','commerce-plan-guard:pay-go' from missionaccounts.attendance_day
+where student_id='$commerce_plan_guard_student_id';
+select count(*) || '|' || min(d.state) from missionaccounts.auto_charge_dispatch d join missionaccounts.attendance_day ad on ad.id=d.attendance_day_id
+where ad.student_id='$commerce_plan_guard_student_id';
+update missionaccounts.student_live_group_plan_selection set superseded_at=transaction_timestamp()
+where student_id='$commerce_plan_guard_student_id' and superseded_at is null;
+insert into missionaccounts.student_live_group_plan_selection(
+ student_id,contract_version,plan,request_id,request_sha256,actor_id,actor_role
+) values(
+ '$commerce_plan_guard_student_id','examprep-business-contract-2026-09-16-v1','monthly',
+ 'commerce-plan-guard-monthly-0001',repeat('a',64),'$commerce_plan_guard_student_id','student'
+);
+update missionaccounts.auto_charge_dispatch d set state='held',held_at=transaction_timestamp(),hold_reason='monthly_plan_selected'
+from missionaccounts.attendance_day ad where d.attendance_day_id=ad.id and ad.student_id='$commerce_plan_guard_student_id' and d.state='pending';
+select count(*) || '|' || min(d.state) || '|' || min(d.hold_reason)
+from missionaccounts.auto_charge_dispatch d join missionaccounts.attendance_day ad on ad.id=d.attendance_day_id
+where ad.student_id='$commerce_plan_guard_student_id';
+SQL
+)
+
+if [[ "$commerce_plan_guard_results" != $'0\n1|pending\n1|held|monthly_plan_selected' ]]; then
+  echo "MissionAccounts 5404E pay-go dispatch guard failed:" >&2
+  echo "$commerce_plan_guard_results" >&2
+  exit 1
+fi
+
 psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$app_dir/tests/repair-transactions.sql" >/dev/null
 psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$app_dir/tests/zoom-canonicalization.sql" >/dev/null
 psql -h "$pg_tmp" -p 55439 -d postgres -v ON_ERROR_STOP=1 -f "$app_dir/tests/zoom-bounded-repair.sql" >/dev/null
 python3 "$app_dir/tests/zoom-concurrency.py" "$pg_tmp"
 
-echo "MissionAccounts PostgreSQL migration, account linkage/default comp, identity and device adjudication with split-grace custody, contact custody, invoice readiness, billing and cycle-policy authority, corrections, student attendance issue custody and admin review, exam decisions, comp transactions, Stripe payment setup/removal, billing consent, 24-48 hour automatic-charge dispatch, unhandled-provider exception custody, Zoom source ingestion, one-charge-per-day dispatch, and notification outbox delivery: PASS"
+echo "MissionAccounts PostgreSQL migration, private identity custody, zero-money 5404E commerce/onboarding idempotency, billing default-off controls, Zoom source ingestion, and notification custody: PASS"

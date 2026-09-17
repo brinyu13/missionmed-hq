@@ -1,0 +1,45 @@
+YOUR NEW DR J EXAMPREP HOME IS READY
+
+Hi {{first_name}},
+
+Your ExamPrep experience just got an upgrade.
+
+Dr J ExamPrep now has a new home inside MissionMed Institute — built to keep your preparation organized, your progress visible, and everything you need in one place.
+
+SAME DR J. A MUCH BETTER WAY TO STAY ORGANIZED.
+Dr J is still teaching, pushing you, answering your questions, and helping you get ready for exam day. MissionMed now provides the dedicated workspace around the teaching.
+
+WHAT'S WAITING FOR YOU INSIDE?
+- One home: Your ExamPrep profile, account, attendance, and exam plan together.
+- Your progress: See your recorded attendance and keep your ExamPrep information current.
+- Your account: Manage your account information and complete the setup Dr J needs from you.
+
+MORE TEACHING. LESS ADMIN.
+MissionMed is taking repetitive account and administrative work off Dr J's plate so she can spend more time teaching and helping you prepare.
+
+YOUR NEXT STEP
+Complete your MyMissionMed setup within the next 48 hours.
+1. Sign in
+2. Complete your onboarding checklist
+3. Make sure every required item shows Complete
+
+It only takes a few minutes. You can save and come back if you need to.
+
+COMPLETE MY SETUP:
+{{account_url}}
+
+YOUR MYMISSIONMED LOGIN
+Username: {{username}}
+Use your existing MissionMed password. If you need to set or reset it, use this secure account link:
+{{password_setup_url}}
+
+We built this to make ExamPrep simpler for you and to give Dr J more time to focus on the part that matters most: helping you prepare.
+
+Please complete your setup within the next 48 hours. Once you're in, you'll see exactly what still needs your attention.
+
+Warm Wishes,
+Dr J
+Dr J ExamPrep
+Powered by MissionMed Institute
+
+Need help? Reply to this email or contact {{support_email}}.

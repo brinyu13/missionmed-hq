@@ -201,7 +201,6 @@ function mma_program_access($user, $settings = null) {
     // The existing exact-user MissionAccounts grant is the current ExamPrep
     // authority while the canonical ExamPrep LearnDash option remains unset.
     $exact_examprep_grant = $registered
-        && empty($program_ids['examprep'])
         && mma_user_is_allowlisted($user, $settings)
         && mma_product_user_id((int) $user->ID) !== '';
     $access = array(
@@ -341,6 +340,12 @@ function mma_issue_jwt($user, $access) {
         'wordpress_admin' => user_can($user, 'manage_options'),
         'missionaccounts_eligible' => true,
         'program_access' => $access['program_access'],
+        'missionaccounts_commerce' => apply_filters(
+            'missionmed_missionaccounts_commerce_authority',
+            array('live_group_eligible' => false, 'existing_plan' => null),
+            $user,
+            $access
+        ),
     );
     $encoded_header = mma_base64url(wp_json_encode($header));
     $encoded_payload = mma_base64url(wp_json_encode($payload));
