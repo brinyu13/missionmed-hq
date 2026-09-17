@@ -71,6 +71,11 @@ const actionCapabilities = Object.freeze({
   'student-exam-withdraw': 'exam_plans',
   'exam-transition': 'exam_plans',
   'onboarding-save': 'onboarding',
+  'onboarding-intro-ack': 'onboarding_launch',
+  'commerce-plan-select': 'commerce',
+  'commerce-trial-override': 'commerce',
+  'commerce-private-offer': 'commerce',
+  'commerce-private-offer-revoke': 'commerce',
 });
 
 function notify(message) {
@@ -447,6 +452,31 @@ async function dispatch(action, payload = {}) {
           reverts_id: correction.id,
         },
       });
+    } else if (action === 'onboarding-intro-ack') {
+      if (state.user?.role !== 'student') throw new Error('Only the signed-in student can continue onboarding.');
+      receipt = await window.MissionAccountsRuntime.mutation('/me/onboarding/intro', {
+        body: { acknowledged: true },
+      });
+    } else if (action === 'commerce-plan-select') {
+      if (state.user?.role !== 'student') throw new Error('Only the signed-in student can choose a plan.');
+      if (!['monthly', 'pay_go'].includes(payload.plan)) throw new Error('Choose a valid Live Group plan.');
+      receipt = await window.MissionAccountsRuntime.mutation('/me/commerce/plan', {
+        body: { plan: payload.plan },
+      });
+    } else if (action === 'commerce-trial-override') {
+      if (!['missionaccounts_admin', 'founder'].includes(state.user?.role)) throw new Error('Only Dr J can grant a repeat trial.');
+      receipt = await window.MissionAccountsRuntime.mutation(`/admin/students/${payload.studentId}/commerce/trial-override`, {
+        body: { starts_on: payload.startsOn, reason: payload.reason },
+      });
+    } else if (action === 'commerce-private-offer' || action === 'commerce-private-offer-revoke') {
+      if (!['missionaccounts_admin', 'founder'].includes(state.user?.role)) throw new Error('Only Dr J can manage a private offer.');
+      const endpoint = action.endsWith('-revoke')
+        ? '/wp-json/missionmed/v1/examprep/private-offers/revoke'
+        : '/wp-json/missionmed/v1/examprep/private-offers';
+      receipt = await auth.wordpressRequest(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ student_uuid: payload.studentId, reason: payload.reason }),
+      });
     } else if (action === 'onboarding-save') {
       if (state.user?.role !== 'student') throw new Error('Only the signed-in student can save onboarding details.');
       receipt = await window.MissionAccountsRuntime.mutation('/me/onboarding', {
@@ -455,7 +485,7 @@ async function dispatch(action, payload = {}) {
     } else {
       throw new Error('This MissionAccounts action is not connected.');
     }
-    await refreshCanonical();
+    if (!action.startsWith('commerce-private-offer')) await refreshCanonical();
     if (!receipt?.processed && action !== 'onboarding-save') notify('Saved to MissionAccounts.');
     return receipt || true;
   } catch (error) {

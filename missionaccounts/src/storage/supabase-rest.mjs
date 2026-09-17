@@ -1,6 +1,7 @@
 import { transitionExamPlan as applyExamTransition } from '../domain/exam-engine.mjs';
 import { buildDecisionBasis, calculateCycleAmount } from '../domain/billing-engine.mjs';
 import { buildAutomaticBillingShadow } from '../domain/auto-billing-shadow.mjs';
+import { commercePlanState, contractPublicSummary } from '../domain/business-contract.mjs';
 import { isIsoCountryCode } from '../../public/missionaccounts-countries.js';
 
 function sanitizedPaymentMethod(row) {
@@ -108,6 +109,52 @@ export class SupabaseRestStore {
     return this.rpc('api_admin_onboarding_queue', {
       p_actor_id: actorId,
       p_actor_role: actorRole,
+    });
+  }
+
+  async commerceForStudent({ studentId, actorId, actorRole, existingPlan = null, liveGroupEligible = false }) {
+    return this.rpc('api_get_student_commerce', {
+      p_student_id: studentId,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_existing_plan: existingPlan,
+      p_live_group_eligible: liveGroupEligible === true,
+    });
+  }
+
+  async selectCommercePlan({ studentId, plan, actorId, actorRole, requestId, existingPlan = null, liveGroupEligible = false }) {
+    return this.rpc('api_select_student_commerce_plan', {
+      p_student_id: studentId,
+      p_plan: plan,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
+      p_existing_plan: existingPlan,
+      p_live_group_eligible: liveGroupEligible === true,
+    });
+  }
+
+  async grantTrialOverride({ studentId, startsOn, reason, actorId, actorRole, requestId }) {
+    return this.rpc('api_grant_student_trial_override', {
+      p_student_id: studentId, p_starts_on: startsOn, p_reason: reason,
+      p_actor_id: actorId, p_actor_role: actorRole, p_request_id: requestId,
+    });
+  }
+
+  async onboardingLaunchForStudent({ studentId, actorId, actorRole }) {
+    return this.rpc('api_get_student_onboarding_launch', {
+      p_student_id: studentId,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+    });
+  }
+
+  async acknowledgeOnboardingIntro({ studentId, actorId, actorRole, requestId }) {
+    return this.rpc('api_acknowledge_student_onboarding_intro', {
+      p_student_id: studentId,
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_request_id: requestId,
     });
   }
 
@@ -943,6 +990,12 @@ export class PreviewStore {
     this.enrollmentMutations = new Map();
     this.onboardingProfiles = new Map();
     this.onboardingMutations = new Map();
+    this.commercePlanSelections = new Map();
+    this.commercePlanMutations = new Map();
+    this.trialOverrides = new Map();
+    this.trialOverrideMutations = new Map();
+    this.onboardingLaunchStates = new Map();
+    this.onboardingIntroMutations = new Map();
     this.automaticBillingContract = {
       rollout_cutoff: new Date(0).toISOString(),
       ordinary_dispatch_delay_hours: 24,
@@ -1121,6 +1174,96 @@ export class PreviewStore {
       last_updated_at: state.last_updated_at,
     }];
   }
+  commerceState(studentId, { existingPlan = null, liveGroupEligible = true } = {}) {
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    const attendedDays = [...this.attendanceDays.entries()]
+      .filter(([key]) => key.startsWith(`${studentId}:`))
+      .flatMap(([, days]) => days)
+      .filter(day => day && day.kind !== 'needs_review')
+      .map(day => day.day);
+    const current = this.commercePlanSelections.get(studentId) || null;
+    const override = this.trialOverrides.get(studentId) || null;
+    const qualifyingDays = override
+      ? attendedDays.filter(day => day >= override.starts_on)
+      : attendedDays;
+    return {
+      contract: contractPublicSummary(),
+      ...commercePlanState({ attendedDays: qualifyingDays, selection: current?.plan || null, existingPlan, liveGroupEligible }),
+      selection: current ? { plan: current.plan, selected_at: current.selected_at } : null,
+      trial_override: override ? { starts_on: override.starts_on, granted_at: override.granted_at } : null,
+      private_offer: null,
+      dispatch_enabled: false,
+      charge_authorized: false,
+    };
+  }
+  async commerceForStudent({ studentId, actorId, actorRole, existingPlan = null, liveGroupEligible = true }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Commerce student subject mismatch'), { status: 403 });
+    return this.commerceState(studentId, { existingPlan, liveGroupEligible });
+  }
+  async selectCommercePlan({ studentId, plan, actorId, actorRole, requestId, existingPlan = null, liveGroupEligible = true }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Commerce student subject mismatch'), { status: 403 });
+    const fingerprint = JSON.stringify({ studentId, plan, actorId, actorRole });
+    const prior = this.commercePlanMutations.get(requestId);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...structuredClone(prior.result), duplicate: true };
+    }
+    const state = this.commerceState(studentId, { existingPlan, liveGroupEligible });
+    if (!state.eligible) throw Object.assign(new Error('Live Group enrollment is required.'), { status: 403 });
+    if (state.selection_source === 'existing_active_arrangement') throw Object.assign(new Error('An active Live Group arrangement already exists.'), { status: 409 });
+    if (!state.trial_complete) throw Object.assign(new Error('Plan selection opens after five attended trial days.'), { status: 409 });
+    this.commercePlanSelections.set(studentId, { plan, selected_at: new Date().toISOString() });
+    const result = { accepted: true, duplicate: false, commerce: this.commerceState(studentId, { existingPlan, liveGroupEligible }), provider_action: null, money_moved_cents: 0 };
+    this.commercePlanMutations.set(requestId, { fingerprint, result: structuredClone(result) });
+    return result;
+  }
+  async grantTrialOverride({ studentId, startsOn, reason, actorId, actorRole, requestId }) {
+    if (!['missionaccounts_admin', 'founder'].includes(actorRole) || !actorId) throw Object.assign(new Error('Trial override administrator authority required'), { status: 403 });
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    const fingerprint = JSON.stringify({ studentId, startsOn, reason, actorId, actorRole });
+    const prior = this.trialOverrideMutations.get(requestId);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...structuredClone(prior.result), duplicate: true };
+    }
+    const override = { starts_on: startsOn, reason, granted_at: new Date().toISOString() };
+    this.trialOverrides.set(studentId, override);
+    const result = { accepted: true, duplicate: false, trial_override: { ...override }, commerce: this.commerceState(studentId), provider_action: null, money_moved_cents: 0 };
+    this.trialOverrideMutations.set(requestId, { fingerprint, result: structuredClone(result) });
+    return result;
+  }
+  onboardingLaunchState(studentId) {
+    if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });
+    const saved = this.onboardingLaunchStates.get(studentId) || null;
+    const onboarding = this.onboardingState(studentId);
+    return {
+      version: 'examprep-onboarding-intro-2026-09-17-v1',
+      intro_required: onboarding.status !== 'COMPLETE' && !saved?.acknowledged_at,
+      acknowledged_at: saved?.acknowledged_at || null,
+      onboarding_complete: onboarding.status === 'COMPLETE',
+      enforcement_enabled: false,
+      deadline_at: null,
+      notification_sent: false,
+    };
+  }
+  async onboardingLaunchForStudent({ studentId, actorId, actorRole }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
+    return this.onboardingLaunchState(studentId);
+  }
+  async acknowledgeOnboardingIntro({ studentId, actorId, actorRole, requestId }) {
+    if (actorRole !== 'student' || actorId !== studentId) throw Object.assign(new Error('Onboarding student subject mismatch'), { status: 403 });
+    const fingerprint = JSON.stringify({ studentId, actorId, actorRole });
+    const prior = this.onboardingIntroMutations.get(requestId);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) throw Object.assign(new Error('Idempotency key was already used for another mutation'), { status: 409 });
+      return { ...structuredClone(prior.result), duplicate: true };
+    }
+    this.onboardingLaunchStates.set(studentId, { acknowledged_at: new Date().toISOString() });
+    const result = { accepted: true, duplicate: false, onboarding_launch: this.onboardingLaunchState(studentId), notification_sent: false, money_moved_cents: 0 };
+    this.onboardingIntroMutations.set(requestId, { fingerprint, result: structuredClone(result) });
+    return result;
+  }
+
   legacyInvoiceKey(studentId, cycleKey) { return `${studentId}:${cycleKey}`; }
   async legacyInvoicePreview({ studentId, cycleKey }) {
     if (studentId !== this.previewStudentRecord.id) throw Object.assign(new Error('Student record not found'), { status: 404 });

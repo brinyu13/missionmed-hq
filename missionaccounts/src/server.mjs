@@ -8,6 +8,7 @@ import { readRawBody, readJsonBody, parseJsonBody } from './http/body.mjs';
 import { StripeGateway } from './payments/stripe.mjs';
 import { NotificationGateway } from './notifications/notification-gateway.mjs';
 import { localDayFromIso } from './domain/billing-engine.mjs';
+import { normalizeCommercePlan } from './domain/business-contract.mjs';
 import { ZoomAttendanceProvider, createCycleBoundZoomClassifier } from './domain/zoom-provider.mjs';
 import { ZoomS2SClient, parseZoomMeetingRules } from './providers/zoom-s2s-client.mjs';
 import { authenticate, requireRole } from './security/auth.mjs';
@@ -51,6 +52,8 @@ function environmentConfig() {
       autoBillingShadow: process.env.MISSIONACCOUNTS_AUTO_BILLING_SHADOW === '1',
       onboarding: process.env.MISSIONACCOUNTS_ONBOARDING === '1',
       legacyInvoices: process.env.MISSIONACCOUNTS_LEGACY_INVOICES === '1',
+      commerce: process.env.MISSIONACCOUNTS_COMMERCE === '1',
+      onboardingLaunch: process.env.MISSIONACCOUNTS_ONBOARDING_LAUNCH === '1',
     },
     stripeMode: process.env.MISSIONACCOUNTS_STRIPE_MODE || 'disabled',
     stripeAccountId: process.env.MISSIONACCOUNTS_STRIPE_ACCOUNT_ID || '',
@@ -176,6 +179,63 @@ function onboardingProfileFromBody(body) {
   return { profile, changedFields, expectedRevision };
 }
 
+function commercePlanFromBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => !['plan'].includes(key))) {
+    throw requestError('Commerce plan selection is invalid');
+  }
+  return normalizeCommercePlan(body.plan);
+}
+
+function onboardingIntroFromBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || body.acknowledged !== true
+      || Object.keys(body).some(key => key !== 'acknowledged')) {
+    throw requestError('Onboarding introduction acknowledgement is invalid');
+  }
+  return true;
+}
+
+function commerceAuthority(identity) {
+  const claim = identity?.claims?.missionaccounts_commerce;
+  const existingPlan = ['monthly', 'pay_go'].includes(claim?.existing_plan) ? claim.existing_plan : null;
+  let monthlyCheckoutUrl = null;
+  try {
+    const checkout = new URL(String(claim?.monthly_checkout_url || ''));
+    if (checkout.protocol === 'https:' && checkout.hostname === 'missionmedinstitute.com'
+        && checkout.pathname.startsWith('/checkout/')) monthlyCheckoutUrl = checkout.toString();
+  } catch { /* an absent or invalid signed URL stays unavailable */ }
+  return {
+    existingPlan,
+    liveGroupEligible: claim?.live_group_eligible === true || existingPlan !== null,
+    monthlyCheckoutUrl,
+  };
+}
+
+function commerceWithNextAction(commerce, authority) {
+  if (!commerce) return commerce;
+  const plan = commerce.selected_plan || commerce.selection?.plan || null;
+  let nextAction = null;
+  if (plan === 'monthly') {
+    nextAction = authority.monthlyCheckoutUrl
+      ? { type: 'woocommerce_checkout', url: authority.monthlyCheckoutUrl, label: 'Continue to secure checkout' }
+      : { type: 'checkout_unavailable', label: 'Contact MissionMed support' };
+  } else if (plan === 'pay_go') {
+    nextAction = { type: 'review_billing_authorization', route: '#/me/billing', label: 'Review billing authorization' };
+  }
+  return { ...commerce, next_action: nextAction };
+}
+
+function trialOverrideFromBody(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)
+      || Object.keys(body).some(key => !['starts_on', 'reason'].includes(key))) {
+    throw requestError('Trial override is invalid');
+  }
+  const startsOn = String(body.starts_on || '');
+  const reason = String(body.reason || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) throw requestError('Trial override requires starts_on as YYYY-MM-DD');
+  if (reason.length < 3 || reason.length > 2_000) throw requestError('Trial override requires a 3 to 2000 character reason');
+  return { startsOn, reason };
+}
+
 function secureTokenEqual(actual, expected) {
   const left = Buffer.from(String(actual || ''));
   const right = Buffer.from(String(expected || ''));
@@ -225,6 +285,8 @@ export function createMissionAccountsServer({
       auto_billing_consent_enabled: Boolean(config.features?.autoBillingConsent),
       auto_billing_shadow_enabled: Boolean(config.features?.autoBillingShadow),
       onboarding_enabled: Boolean(config.features?.onboarding),
+      commerce_enabled: Boolean(config.features?.commerce),
+      onboarding_launch_enabled: Boolean(config.features?.onboardingLaunch),
       stripe: stripeState,
     };
   }
@@ -679,6 +741,8 @@ export function createMissionAccountsServer({
           auto_billing_shadow: !registeredOnly && Boolean(config.features?.autoBillingShadow),
           onboarding: !registeredOnly && Boolean(config.features?.onboarding),
           legacy_invoices: !registeredOnly && Boolean(config.features?.legacyInvoices),
+          commerce: !registeredOnly && Boolean(config.features?.commerce),
+          onboarding_launch: !registeredOnly && Boolean(config.features?.onboardingLaunch),
         },
       });
     }
@@ -705,7 +769,8 @@ export function createMissionAccountsServer({
       }
       if (role === 'student') {
         const student = await studentContext(identity);
-        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan, canon, onboarding] = await Promise.all([
+        const commerceAuthorityState = commerceAuthority(identity);
+        const [attendance, billing, payment_method, billing_consent, billing_terms, exam_plan, canon, onboarding, commerce, onboardingLaunch] = await Promise.all([
           store.attendanceForStudent(student.id),
           store.billingForStudent(student.id),
           store.paymentMethodForStudent(student.id),
@@ -716,6 +781,12 @@ export function createMissionAccountsServer({
           config.features?.onboarding
             ? store.onboardingForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student' })
             : Promise.resolve(null),
+          config.features?.commerce
+            ? store.commerceForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student', ...commerceAuthorityState })
+            : Promise.resolve(null),
+          config.features?.onboardingLaunch
+            ? store.onboardingLaunchForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student' })
+            : Promise.resolve(null),
         ]);
         return json(response, 200, {
           schema_version: 'missionaccounts-ui-bootstrap-v1',
@@ -724,6 +795,8 @@ export function createMissionAccountsServer({
           program_access: identity.programAccess,
           account: { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan },
           onboarding,
+          commerce: commerceWithNextAction(commerce, commerceAuthorityState),
+          onboarding_launch: onboardingLaunch,
           canon,
         });
       }
@@ -770,6 +843,48 @@ export function createMissionAccountsServer({
         store.currentExamPlanForStudent(student.id),
       ]);
       return json(response, 200, { student, attendance, billing, payment_method, billing_consent, billing_terms, exam_plan });
+    }
+    if (request.method === 'GET' && url.pathname === '/api/me/commerce') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'commerce');
+      const student = await studentContext(identity);
+      const authority = commerceAuthority(identity);
+      return json(response, 200, {
+        commerce: commerceWithNextAction(await store.commerceForStudent({ studentId: student.id, actorId: identity.userId, actorRole: 'student', ...authority }), authority),
+      });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/me/commerce/plan') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'commerce');
+      const student = await studentContext(identity);
+      const plan = commercePlanFromBody(await readJsonBody(request, { limitBytes: 2_048 }));
+      const authority = commerceAuthority(identity);
+      const result = await store.selectCommercePlan({
+        studentId: student.id,
+        plan,
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId: requestIdFor(request),
+        ...authority,
+      });
+      return json(response, result.duplicate ? 200 : 201, {
+        ...result,
+        commerce: commerceWithNextAction(result.commerce, authority),
+        next_action: commerceWithNextAction(result.commerce, authority)?.next_action || null,
+      });
+    }
+    if (request.method === 'POST' && url.pathname === '/api/me/onboarding/intro') {
+      requireRole(identity, ['student']);
+      requireFeature(config, 'onboardingLaunch');
+      const student = await studentContext(identity);
+      onboardingIntroFromBody(await readJsonBody(request, { limitBytes: 2_048 }));
+      const result = await store.acknowledgeOnboardingIntro({
+        studentId: student.id,
+        actorId: identity.userId,
+        actorRole: 'student',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
     }
     if (request.method === 'GET' && url.pathname === '/api/me/onboarding') {
       requireRole(identity, ['student']);
@@ -1558,6 +1673,21 @@ export function createMissionAccountsServer({
       if (q.length > 200) throw requestError('Student search is too long');
       if (missing && !['email', 'setup'].includes(missing)) throw requestError('Student missing filter is invalid');
       return json(response, 200, { students: await store.adminStudents({ q, missing }) });
+    }
+    const trialOverrideRoute = request.method === 'POST'
+      ? url.pathname.match(/^\/api\/admin\/students\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/commerce\/trial-override$/i)
+      : null;
+    if (trialOverrideRoute) {
+      requireRole(identity, ['missionaccounts_admin', 'founder']);
+      requireFeature(config, 'commerce');
+      const { startsOn, reason } = trialOverrideFromBody(await readJsonBody(request, { limitBytes: 8_192 }));
+      const result = await store.grantTrialOverride({
+        studentId: trialOverrideRoute[1], startsOn, reason,
+        actorId: identity.userId,
+        actorRole: identity.roles.includes('founder') ? 'founder' : 'missionaccounts_admin',
+        requestId: requestIdFor(request),
+      });
+      return json(response, result.duplicate ? 200 : 201, result);
     }
     if (request.method === 'GET' && url.pathname === '/api/admin/identity') {
       requireRole(identity, ['missionaccounts_admin', 'founder']);

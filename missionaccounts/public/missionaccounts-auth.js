@@ -259,6 +259,30 @@ export function createMissionAccountsAuthClient({
     return payload;
   }
 
+  async function wordpressRequest(pathname, options = {}) {
+    if (config.localAuth) throw Object.assign(new Error('WordPress commerce is unavailable in local preview.'), { status: 503 });
+    const expected = generation;
+    const bridge = await bootstrapBridge();
+    assertCurrent(expected);
+    const url = new URL(String(pathname || ''), window.location.origin);
+    if (url.origin !== window.location.origin) throw Object.assign(new Error('WordPress commerce origin is invalid.'), { status: 400 });
+    const response = await boundedFetch(url, {
+      ...options,
+      credentials: 'include',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-WP-Nonce': bridge.nonce,
+        ...(options.headers || {}),
+      },
+    });
+    const payload = await readJson(response);
+    assertCurrent(expected);
+    if (!response.ok) throw authError(payload, response.status);
+    return payload;
+  }
+
   window.addEventListener('pagehide', () => lockout('session_ended', 'Return to Matrix to reopen MissionAccounts.'));
   window.addEventListener('pageshow', event => {
     if (event.persisted) window.location.reload();
@@ -275,6 +299,7 @@ export function createMissionAccountsAuthClient({
     configure,
     exchange,
     request,
+    wordpressRequest,
     setToken,
     clear,
     get token() { return token; },
