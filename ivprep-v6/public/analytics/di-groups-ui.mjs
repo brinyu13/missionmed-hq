@@ -74,6 +74,60 @@ export const DI_GROUPS = Object.freeze([
 
 const fixed = (value, digits = 2) => (Number.isFinite(value) ? value.toFixed(digits) : null);
 
+const knownLaneIds = new Set(DI_GROUPS.flatMap((group) => group.lanes.map((lane) => lane.id)));
+
+/**
+ * Stable Film Room view-model adapter. New captures persist the exact bounded lane
+ * readouts shown at finish; older captures are projected from their evidence events.
+ * Missing evidence stays UNAVAILABLE rather than being reconstructed or guessed.
+ */
+export function resultLaneReadouts(analytics = {}) {
+  const persisted = analytics?.deliveryIntelligence?.schema === 'ivoc.delivery-intelligence.view-model.v1'
+    ? analytics.deliveryIntelligence.readouts
+    : null;
+  if (persisted && typeof persisted === 'object') {
+    return Object.freeze(Object.fromEntries(Object.entries(persisted)
+      .filter(([id, value]) => knownLaneIds.has(id) && typeof value === 'string')
+      .map(([id, value]) => [id, value.slice(0, 160)])));
+  }
+
+  const events = Array.isArray(analytics?.events) ? analytics.events : [];
+  const event = (metric) => events.find((entry) => entry?.metric === metric);
+  const numeric = (metric) => {
+    const value = Number(event(metric)?.observation?.value);
+    return Number.isFinite(value) ? value : null;
+  };
+  const readouts = {};
+  const level = numeric('captured_level_dbfs');
+  const variation = numeric('energy_variation_db');
+  const pauses = events.filter((entry) => entry?.metric === 'pause_episode')
+    .map((entry) => Number(entry?.observation?.value)).filter(Number.isFinite);
+  const cameraFacing = numeric('camera_facing_proxy');
+  const framing = numeric('framing_center');
+  const facePresence = numeric('face_presence');
+  const handPresence = numeric('hand_presence');
+  const head = event('head_orientation_proxy')?.observation?.value;
+  if (level !== null) readouts['VOICE.VOLUME'] = `${fixed(level, 1)} dBFS`;
+  if (variation !== null) readouts['VOICE.VOLUME_VARIATION'] = `${fixed(variation, 1)} dB`;
+  if (pauses.length) readouts['VOICE.PAUSE'] = `${pauses.length} pauses · longest ${(Math.max(...pauses) / 1000).toFixed(1)}s`;
+  if (cameraFacing !== null) {
+    readouts['FACE.GAZE'] = `${Math.round(cameraFacing * 100)}% camera-facing proxy`;
+    readouts['FACE.CAMERA_DWELL'] = `${Math.round(cameraFacing * 100)}% camera-facing proxy`;
+  }
+  if (facePresence !== null) readouts['FACE.MOVEMENT_VARIABILITY'] = `${Math.round(facePresence * 100)}% face-tracked coverage`;
+  if (handPresence !== null) {
+    readouts['HANDS.LEFT'] = `${Math.round(handPresence * 100)}% any-hand coverage`;
+    readouts['HANDS.RIGHT'] = `${Math.round(handPresence * 100)}% any-hand coverage`;
+  }
+  if (head && typeof head === 'object') {
+    if (Number.isFinite(Number(head.yawDeg))) readouts['BODY.YAW'] = `${fixed(Number(head.yawDeg), 1)}°`;
+    if (Number.isFinite(Number(head.pitchDeg))) readouts['BODY.PITCH'] = `${fixed(Number(head.pitchDeg), 1)}°`;
+    if (Number.isFinite(Number(head.rollDeg))) readouts['BODY.ROLL'] = `${fixed(Number(head.rollDeg), 1)}°`;
+  }
+  if (framing !== null) readouts['BODY.FRAMING'] = `${Math.round(framing * 100)}% centered frames`;
+  return Object.freeze(readouts);
+}
+
 /** Pitch, expressed speaker-relative. Never an absolute target. */
 export function pitchLaneReadouts(pitch) {
   const summary = pitch?.summary;
@@ -345,6 +399,15 @@ export class DeliveryIntelligenceGroups {
     for (const [laneId, node] of this.#laneValueNodes) {
       const text = this.#readouts[laneId];
       if (typeof text === 'string') node.textContent = text;
+    }
+    return this;
+  }
+
+  ingestResult(analytics = {}) {
+    this.#readouts = { ...this.#readouts, ...resultLaneReadouts(analytics) };
+    for (const [laneId, node] of this.#laneValueNodes) {
+      const text = this.#readouts[laneId];
+      node.textContent = typeof text === 'string' ? text : UNAVAILABLE;
     }
     return this;
   }

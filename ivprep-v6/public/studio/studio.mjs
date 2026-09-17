@@ -1253,9 +1253,17 @@ async function finishRep() {
   if (!['RUNNING', 'STARTING'].includes(state.session.state) && !retryingDurableSave) return;
   setSessionState('FINISHING');
   try {
-    const analyticsPromise = retryingDurableSave ? null : Promise.resolve().then(() => state.analytics?.endAnswer?.({
-      mediaAvailable: Boolean(state.durable?.recorder),
-    }));
+    const analyticsPromise = retryingDurableSave ? null : Promise.resolve().then(() => {
+      const analytics = state.analytics?.endAnswer?.({ mediaAvailable: Boolean(state.durable?.recorder) });
+      if (!analytics) return analytics;
+      return Object.freeze({
+        ...analytics,
+        deliveryIntelligence: Object.freeze({
+          schema: 'ivoc.delivery-intelligence.view-model.v1',
+          readouts: state.filmGroups?.readouts || Object.freeze({}),
+        }),
+      });
+    });
     const outcome = state.durable?.accountSession
       ? await state.durable.finish(analyticsPromise)
       : { persisted: false, analytics: await analyticsPromise, recording: null };
@@ -1723,6 +1731,7 @@ async function renderVault() {
           try {
             const signed = await state.durable.playback(session.recording.id);
             const video = $('#playback');
+            state.filmGroups?.ingestResult(session?.results?.payload?.analytics || {});
             if (video) { video.src = signed.url; await video.play().catch(() => {}); setView('filmroom'); }
           } finally { play.disabled = false; }
         });
