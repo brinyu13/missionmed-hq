@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-16 21:38 America/New_York
+Updated: 2026-09-17 12:13 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -19,8 +19,11 @@ the actual production route and deployment.
   `dedb726bde521a135bec2286ad4cd5a877a68fc7ecd6144fde16b76bc9c09ac4`.
 - The 7002 M1 surface is diagnostic-only and is not production presentation
   canon.
-- Candidate.2 presentation integration:
-  `b386222490408b88344f81d4c2dfb32a8d9ba5b1`.
+- Candidate.2 presentation integration successor:
+  `84e750e4540acd5479ee72291e7b9d1c38f2f351`.
+- Active presentation deployment:
+  `2317c290-ff6d-4c71-8e1f-400c67a558e5`, image
+  `sha256:b705fc8786e33c5f9071c569af75642bdada2dc167e56372419869cc9c846487`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -70,13 +73,13 @@ the actual production route and deployment.
 
 | Section | Major requirement | Status | Current evidence / next proof |
 |---|---|---|---|
-| 5 | Candidate.2 premium Home visual DNA, hierarchy, contrast, responsive composition | LIVE UNVERIFIED | Candidate.2 source lineage is integrated; production visual acceptance remains. |
-| 5 | Six-step builder and Practice Goal modes | LIVE UNVERIFIED | Source implementation exists; verify exact six-step flow live. |
-| 5 | Question Pool branching, persistent rail, presets, ordering, 193-question corpus | LIVE UNVERIFIED | Candidate.2 builder source exists; verify corpus identity and behavior live. |
-| 5 | Separate Interviewer and Program steps with role/style controls | LIVE UNVERIFIED | Source surface exists; production interaction proof remains. |
+| 5 | Candidate.2 premium Home visual DNA, hierarchy, contrast, responsive composition | LIVE UNVERIFIED | Exact candidate.2 successor is live at 84e750e; Home and Practice Goal visual readback passed. Fresh independent presentation acceptance remains. |
+| 5 | Six-step builder and Practice Goal modes | LIVE UNVERIFIED | All six rich step compositions passed local Chrome traversal; live Practice Goal passed. Live traversal of steps 2-6 remains. |
+| 5 | Question Pool branching, persistent rail, presets, ordering, 193-question corpus | LIVE UNVERIFIED | Progressive category to subcategory to question flow, 193-source count and persistent rail passed focused tests and local Chrome; live interaction proof remains. |
+| 5 | Separate Interviewer and Program steps with role/style controls | LIVE UNVERIFIED | Program Director, Faculty, Chief Resident, APD and Dove/Peacock/Owl/Eagle passed local Chrome; live interaction proof remains. |
 | 5 | RISE-backed Program search, sourced highlights, people, freshness/manual fallback | NOT STARTED | Requires live owner contract and source-receipt proof. |
-| 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE UNVERIFIED | Context UI/source seams exist; owner projections and opt-in behavior remain unverified live. |
-| 5 | Truthful Readiness & Calibration checks | LIVE UNVERIFIED | Real signal code exists; physical camera/mic acceptance remains. |
+| 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE UNVERIFIED | MissionMed/Webex/Zoom/Teams and fail-closed source cards passed local Chrome; owner projections and live opt-in behavior remain. |
+| 5 | Truthful Readiness & Calibration checks | LIVE UNVERIFIED | Real capability-state composition passed local Chrome; physical live camera/mic acceptance remains. |
 | 6 | Real modular camera/mic Analytics with truthful availability states | LIVE UNVERIFIED | Real signal registry/source tests exist; production physical-device acceptance remains. |
 | 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE UNVERIFIED | Analytics/transcript source exists; live calibration and limitations proof remain. |
 | 6 | Admin measurement/visibility controls and prohibited-inference safeguards | LIVE UNVERIFIED | Source controls/contracts exist; live Admin/student proof remains. |
@@ -97,7 +100,7 @@ the actual production route and deployment.
 | 10 | Match Bridge bounded consented clip seam | NOT STARTED | IVOC clip contract and live owner handoff remain. |
 | 11 | Structured evidence-to-coaching pipeline | LIVE UNVERIFIED | Session/transcript/evidence tables exist; live synthesis acceptance remains. |
 | 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE UNVERIFIED | Results source exists; evidence-linked production output remains. |
-| 12 | Longitudinal metrics, deltas, filters and prior-self comparison | NOT STARTED | Requires multi-session model, UI, and production proof. |
+| 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE UNVERIFIED | Role-aware source exists; live actor/subject separation proof remains. |
 | 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Partial source surfaces exist; full production Admin acceptance remains. |
 | 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | NOT STARTED | Full Admin ledger surface is incomplete. |
@@ -120,9 +123,10 @@ the actual production route and deployment.
 
 ## Current production and governance gates
 
-- MissionMed HQ production previously returned HTTP 200, but it still ran Railway
-  deployment `fefc56c4-5c0e-41c5-96fc-6493a1d966af` from 2026-09-08 rather
-  than the active IVOC source branch. This must be refreshed before acceptance.
+- MissionMed HQ production is now Railway deployment
+  `2317c290-ff6d-4c71-8e1f-400c67a558e5` from exact product commit
+  `84e750e4540acd5479ee72291e7b9d1c38f2f351`; health is ready and the
+  unauthenticated product route remains fail-closed at HTTP 401.
 - Runtime bindings must be moved from the historical development target to
   `bscnrgqlwsyygyfrbhfn` without exposing credentials. Context/transcript flags
   and paid-test provider control remain fail-closed until the bounded canary.
@@ -131,9 +135,9 @@ the actual production route and deployment.
   Timeline/USCE, and Matrix drift. No generic canonical waiver mechanism was
   found. IVOC must consume stable owner contracts and must not mutate or waive
   unrelated sibling security/privacy dependencies.
-- Matrix runtime mutation remains prohibited while its lock-hash warning is
-  stale/drifted. Independent IVOC work may proceed only where it does not touch
-  Matrix-owned assets or rely on an unverified Matrix result.
+- The ten-surface Matrix lock was reconciled to verified current owner/runtime
+  identities without mutating owner assets. IVOC remains a consumer; fresh
+  end-to-end Matrix launch acceptance is still required.
 - Root runtime dependency audit previously reported zero vulnerabilities. Default
   branch repository-security advisories remain separate security-owner work until
   re-triaged against the production commit.
