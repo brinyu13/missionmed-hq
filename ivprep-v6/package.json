@@ -31,10 +31,10 @@
     "test:3441r-t1-r3": "node --test --test-concurrency=1 test/3441r/t1-durable-lease-keeper.test.mjs test/3441r/founder-proof-runtime.test.mjs test/3441r/founder-proof-ui.test.mjs"
   },
   "dependencies": {
-    "@livekit/agents": "1.6.2",
-    "@livekit/agents-plugin-lemonslice": "1.6.2",
-    "@livekit/agents-plugin-openai": "1.6.2",
-    "@livekit/rtc-node": "0.13.33",
+    "@livekit/agents": "1.9.0",
+    "@livekit/agents-plugin-lemonslice": "1.9.0",
+    "@livekit/agents-plugin-openai": "1.9.0",
+    "@livekit/rtc-node": "0.13.34",
     "@mediapipe/tasks-vision": "1.0.1",
     "livekit-client": "2.21.0",
     "livekit-server-sdk": "2.17.0",

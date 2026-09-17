@@ -64,6 +64,49 @@ test('an explicit server-owned project ref admits the sanctioned branch and reje
   }), /exact IV Prep Supabase/u);
 });
 
+test('hosted HQ dependencies honor the explicit server-owned project authority', async () => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || 'GET' });
+    if (String(url).includes('/ivprep_entitlements?')) return jsonResponse([]);
+    return new Response('', { status: 201 });
+  };
+  try {
+    const dependencies = await createHostedHqDependenciesFromEnvironment({
+      IVPREP_HOSTED_RUNTIME: 'true',
+      IVPREP_SUPABASE_URL: BRANCH_URL,
+      IVPREP_SUPABASE_PROJECT_REF: BRANCH_REF,
+      IVPREP_SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY,
+      IVPREP_WORKER_HEALTH_URL: 'https://ivprep-worker.example.test/health',
+      IVPREP_FOUNDER_WP_USER_IDS: '3472',
+      IVPREP_ADMIN_WP_USER_IDS: '',
+      IVPREP_VIDEO_ENABLED: 'false',
+      IVPREP_PAID_TEST1_ENABLED: 'false',
+    });
+    assert.equal(dependencies.flags.enabled, true);
+    assert.ok(calls.length > 0);
+    assert.equal(calls.every((call) => call.url.startsWith(BRANCH_URL)), true);
+
+    await assert.rejects(
+      createHostedHqDependenciesFromEnvironment({
+        IVPREP_HOSTED_RUNTIME: 'true',
+        IVPREP_SUPABASE_URL: BRANCH_URL,
+        IVPREP_SUPABASE_PROJECT_REF: 'tufzqxeucfugdovtjyqk',
+        IVPREP_SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY,
+        IVPREP_WORKER_HEALTH_URL: 'https://ivprep-worker.example.test/health',
+        IVPREP_FOUNDER_WP_USER_IDS: '3472',
+        IVPREP_ADMIN_WP_USER_IDS: '',
+        IVPREP_VIDEO_ENABLED: 'false',
+        IVPREP_PAID_TEST1_ENABLED: 'false',
+      }),
+      /exact IV Prep Supabase/u,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('hosted entitlement bootstrap preserves an existing durable usage ledger', async () => {
   const operations = [];
   const rest = {

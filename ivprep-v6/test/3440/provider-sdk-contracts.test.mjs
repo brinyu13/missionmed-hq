@@ -326,12 +326,12 @@ test('OpenAI strict session makes an unexpected clean close fatal and permits in
   assert.equal(wsRuns, 2);
 });
 
-test('pinned OpenAI 1.6.2 loop still dispatches through the strict runWs seam', { skip: !PINNED_OPENAI_AVAILABLE }, async () => {
+test('pinned OpenAI 1.9.0 loop still dispatches through the strict runWs seam', { skip: !PINNED_OPENAI_AVAILABLE }, async () => {
   const [manifest, source] = await Promise.all([
     readFile(new URL('../../node_modules/@livekit/agents-plugin-openai/package.json', import.meta.url), 'utf8').then(JSON.parse),
     readFile(new URL('../../node_modules/@livekit/agents-plugin-openai/dist/realtime/realtime_model.js', import.meta.url), 'utf8'),
   ]);
-  assert.equal(manifest.version, '1.6.2');
+  assert.equal(manifest.version, '1.9.0');
   const mainLoop = source.indexOf('while (!this.#closed && !signal.aborted)');
   const connection = source.indexOf('wsConn = await this.createWsConn()', mainLoop);
   const dispatch = source.indexOf('await this.runWs(wsConn)', connection);
@@ -650,16 +650,23 @@ test('Profile B teardown is bounded when AgentSession start never settles', { sk
 });
 
 test('Profile B teardown completes before the pinned runner reaches shutdown callbacks', { skip: !PINNED_AGENTS_AVAILABLE }, async () => {
-  const [runnerSource, workerSource] = await Promise.all([
+  const [runnerSource, lifecycleSource, workerSource] = await Promise.all([
     readFile(new URL('../../node_modules/@livekit/agents/src/ipc/job_proc_lazy_main.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../../node_modules/@livekit/agents/src/job_lifecycle.ts', import.meta.url), 'utf8'),
     readFile(new URL('../../server/agents/profile-b-agent.mjs', import.meta.url), 'utf8'),
   ]);
-  const runnerSessionClose = runnerSource.indexOf('const sessionClosePromise = ctx._primaryAgentSession.close();');
-  const runnerRoomDisconnect = runnerSource.indexOf('await room.disconnect();', runnerSessionClose);
-  const runnerShutdownCallbacks = runnerSource.indexOf('for (const callback of ctx.shutdownCallbacks)', runnerRoomDisconnect);
-  assert.ok(runnerSessionClose >= 0);
-  assert.ok(runnerSessionClose < runnerRoomDisconnect);
+  const runnerFinalize = runnerSource.indexOf('await finalizeSession(ctx, onSessionEnd, sessionEndTimeout, logger);');
+  const runnerRoomDisconnect = runnerSource.indexOf('await room.disconnect();', runnerFinalize);
+  const runnerShutdownCallbacks = runnerSource.indexOf('await runShutdownCallbacks(ctx.shutdownCallbacks, logger);', runnerRoomDisconnect);
+  const lifecycleSession = lifecycleSource.indexOf('const session = ctx._primaryAgentSession;');
+  const lifecycleClose = lifecycleSource.indexOf('session.close()', lifecycleSession);
+  const lifecycleOnSessionEnd = lifecycleSource.indexOf('onSessionEnd(ctx)', lifecycleClose);
+  assert.ok(runnerFinalize >= 0);
+  assert.ok(runnerFinalize < runnerRoomDisconnect);
   assert.ok(runnerRoomDisconnect < runnerShutdownCallbacks);
+  assert.ok(lifecycleSession >= 0);
+  assert.ok(lifecycleSession < lifecycleClose);
+  assert.ok(lifecycleClose < lifecycleOnSessionEnd);
 
   const beginTeardown = workerSource.indexOf('const beginTeardown =');
   const providerTerminate = workerSource.indexOf("attempt('avatar_terminate'", beginTeardown);

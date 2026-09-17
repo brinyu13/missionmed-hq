@@ -756,6 +756,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
   const rest = new IvPrepSupabaseRest({
     url: environment.IVPREP_SUPABASE_URL,
     serviceRoleKey: environment.IVPREP_SUPABASE_SERVICE_ROLE_KEY,
+    expectedProjectRef: environment.IVPREP_SUPABASE_PROJECT_REF || PRODUCT_PROJECT_REF,
   });
   const registry = new SupabaseAdmissionRegistry({
     rest,
