@@ -2,14 +2,15 @@
 /** Exact-cohort onboarding pilot over the existing wp_mail stack. */
 function mmdrj_launch_exact_cohort() {
     return array(
-        'Neidy' => array( 'pilot_status'=>'HELD', 'hold_reason'=>'canonical_identity_not_resolved' ),
-        'Ana Torres' => array( 'pilot_status'=>'READY', 'wp_user_id'=>353, 'username'=>'anat2',
-            'student_id'=>'b2a9e055-d55e-5bfc-8c0c-bd38f3b14b5c',
-            'email_sha256'=>'c116bd2917a9deafea68d38367d80520354f47a562b47d7159fef096ce703916' ),
-        'Raghav Gupta' => array( 'pilot_status'=>'READY', 'wp_user_id'=>114, 'username'=>'RaghavG',
-            'student_id'=>'5171c2ec-5046-59e0-a22a-7362404bf9ec',
-            'email_sha256'=>'3fde4e6db365154701acb64909a87d2ab647315acc1788360d175be1406b45fc' ),
-        'Subani Dias' => array( 'pilot_status'=>'HELD', 'hold_reason'=>'account_link_not_resolved' ),
+        'Raghav Gupta' => array( 'pilot_status'=>'READY', 'wp_user_id'=>114,
+            'student_id'=>'5171c2ec-5046-59e0-a22a-7362404bf9ec', 'eligibility_basis'=>'learndash_course_6357',
+            'username_sha256'=>'d2f2f304524339536be9260451929ff895805fbe5087918c9a6aecbc3772598a', 'email_sha256'=>'3fde4e6db365154701acb64909a87d2ab647315acc1788360d175be1406b45fc' ),
+        'Subani Dias' => array( 'pilot_status'=>'READY', 'wp_user_id'=>9,
+            'student_id'=>'142b08bb-9643-550c-acac-29a8030c7e02', 'eligibility_basis'=>'learndash_course_6357',
+            'username_sha256'=>'1938e527bf376b2a8e17407b6a487e8edbd54effe8b59e2f4f23fe67426e825a', 'email_sha256'=>'37eec1c8bccd263894ff9d8949dda63e4067d25261048ba76280a905fdbf3184' ),
+        'Neshmaidy Negrón Zeda' => array( 'pilot_status'=>'READY', 'wp_user_id'=>89,
+            'student_id'=>'c6843e4d-f163-5f57-b1bd-61d566700444', 'eligibility_basis'=>'drj_drills_student_role',
+            'username_sha256'=>'b5e17ed8dadb265819b4a331aa4dc90a8dcb983b65ffc16fa2343ca92f816cf1', 'email_sha256'=>'8d8c2bd0285d8465f05bd1cd59c866462577b6c2fe668334803ea258a7dbaf53' ),
     );
 }
 function mmdrj_launch_merge_html( $template, $values ) {
@@ -41,13 +42,13 @@ function mmdrj_launch_process( $payload, $html_template, $text_template, $mode )
     $cohort=mmdrj_launch_exact_cohort();
     if ( ! in_array($mode,array('dry-run','send','retry-failed'),true)
         || ! is_array($payload) || ($payload['schema_version']??'')!=='missionaccounts-onboarding-pilot-send-v1'
-        || ($payload['template_version']??'')!=='examprep-onboarding-email-2026-09-17-v3'
+        || ($payload['template_version']??'')!=='examprep-onboarding-email-2026-09-17-v3r1'
         || ($payload['provider']??'')!=='wordpress_wp_mail'
         || ($payload['subject']??'')!=='Your MyMissionMed Account is ready'
         || ($payload['cta_url']??'')!=='https://missionmedinstitute.com/missionaccounts/#/me/onboarding'
         || ! hash_equals((string)($payload['template_html_sha256']??''),hash('sha256',$html_template))
         || ! hash_equals((string)($payload['template_text_sha256']??''),hash('sha256',$text_template))
-        || count($payload['items']??array())!==4 ) throw new RuntimeException('onboarding_pilot_manifest_invalid');
+        || count($payload['items']??array())!==3 ) throw new RuntimeException('onboarding_pilot_manifest_invalid');
     if ( 'dry-run'!==$mode && (true!==($payload['external_send_authorized']??false)
         || ! preg_match('/^[0-9a-f]{40}$/',(string)($payload['authority_commit']??''))) ) throw new RuntimeException('onboarding_pilot_send_authority_required');
     if ( array_map(fn($row)=>(string)($row['display_name']??''),$payload['items'])!==array_keys($cohort) ) throw new RuntimeException('onboarding_pilot_exact_cohort_required');
@@ -59,17 +60,21 @@ function mmdrj_launch_process( $payload, $html_template, $text_template, $mode )
                 || array_intersect(array('wp_user_id','username','student_id','email_sha256'),array_keys($item))) throw new RuntimeException('onboarding_pilot_held_binding_invalid');
             $resolved[]=array('HELD',$item,null); continue;
         }
-        foreach(array('pilot_status','wp_user_id','username','student_id','email_sha256') as $field){
+        foreach(array('pilot_status','wp_user_id','student_id','eligibility_basis','username_sha256','email_sha256') as $field){
             $actual='wp_user_id'===$field?absint($item[$field]??0):strtolower((string)($item[$field]??''));
             $wanted='wp_user_id'===$field?$expected[$field]:strtolower((string)$expected[$field]);
             if($actual!==$wanted) throw new RuntimeException('onboarding_pilot_named_binding_failed');
         }
         $user=get_user_by('id',$expected['wp_user_id']);
+        $has_course=$user && function_exists('sfwd_lms_has_access') && sfwd_lms_has_access(6357,$user->ID);
+        $has_drills_role=$user && in_array('drj_drills_student',(array)$user->roles,true);
+        $basis_ok=('learndash_course_6357'===$expected['eligibility_basis']&&$has_course)
+            ||('drj_drills_student_role'===$expected['eligibility_basis']&&$has_drills_role);
         $eligible=$user && !user_can($user,'manage_options')
             && hash_equals($expected['email_sha256'],hash('sha256',strtolower(trim($user->user_email))))
-            && $user->user_login===$expected['username']
+            && hash_equals($expected['username_sha256'],hash('sha256',$user->user_login))
             && strtolower((string)get_user_meta($user->ID,'_missionmed_missionaccounts_user_id',true))===$expected['student_id']
-            && function_exists('sfwd_lms_has_access') && sfwd_lms_has_access(6357,$user->ID);
+            && $basis_ok;
         if(!$eligible) throw new RuntimeException('onboarding_pilot_recipient_preflight_failed');
         $resolved[]=array('READY',$item,$user);
     }

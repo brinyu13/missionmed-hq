@@ -4,24 +4,29 @@
   "credential_method": "existing-account-or-secure-password-recovery",
   "cta_url": "https://missionmedinstitute.com/missionaccounts/#/me/onboarding",
   "exact_recipient_bindings": {
-    "Ana Torres": {
-      "email_sha256": "c116bd2917a9deafea68d38367d80520354f47a562b47d7159fef096ce703916",
-      "student_id": "b2a9e055-d55e-5bfc-8c0c-bd38f3b14b5c",
-      "username": "anat2",
-      "wp_user_id": 353
-    },
     "Raghav Gupta": {
       "email_sha256": "3fde4e6db365154701acb64909a87d2ab647315acc1788360d175be1406b45fc",
+      "eligibility_basis": "learndash_course_6357",
       "student_id": "5171c2ec-5046-59e0-a22a-7362404bf9ec",
-      "username": "RaghavG",
+      "username_sha256": "d2f2f304524339536be9260451929ff895805fbe5087918c9a6aecbc3772598a",
       "wp_user_id": 114
+    },
+    "Subani Dias": {
+      "email_sha256": "37eec1c8bccd263894ff9d8949dda63e4067d25261048ba76280a905fdbf3184",
+      "eligibility_basis": "learndash_course_6357",
+      "student_id": "142b08bb-9643-550c-acac-29a8030c7e02",
+      "username_sha256": "1938e527bf376b2a8e17407b6a487e8edbd54effe8b59e2f4f23fe67426e825a",
+      "wp_user_id": 9
+    },
+    "Neshmaidy Negr\u00f3n Zeda": {
+      "email_sha256": "8d8c2bd0285d8465f05bd1cd59c866462577b6c2fe668334803ea258a7dbaf53",
+      "eligibility_basis": "drj_drills_student_role",
+      "student_id": "c6843e4d-f163-5f57-b1bd-61d566700444",
+      "username_sha256": "b5e17ed8dadb265819b4a331aa4dc90a8dcb983b65ffc16fa2343ca92f816cf1",
+      "wp_user_id": 89
     }
   },
   "external_send_authorized": false,
-  "held_recipients": {
-    "Neidy": "canonical_identity_not_resolved",
-    "Subani Dias": "account_link_not_resolved"
-  },
   "hosted_invoice_sending": false,
   "html_sha256": "40caf8c4b4a8f70fbe16e347b1357098d397dc50ce313d24ee6a4608d83d4844",
   "idempotency_claim": "atomic unique WordPress option plus exact compare-and-swap transitions",
@@ -36,16 +41,16 @@
     "exact_named_binding",
     "canonical_student_id",
     "wp_user_id",
-    "username",
+    "username_sha256",
     "email_sha256",
     "WordPress_non_admin",
-    "LearnDash_course_6357_access",
+    "recipient_specific_course_or_role_eligibility",
     "final_Supabase_DIRECT_verification",
     "not_previously_sent"
   ],
-  "schema_version": "missionaccounts-onboarding-pilot-manifest-v3",
+  "schema_version": "missionaccounts-onboarding-pilot-manifest-v3r1",
   "send_ledger": "atomic wp_options claim mirrored to WordPress user meta _missionmed_onboarding_launch_v1",
   "subject": "Your MyMissionMed Account is ready",
-  "template_version": "examprep-onboarding-email-2026-09-17-v3",
+  "template_version": "examprep-onboarding-email-2026-09-17-v3r1",
   "text_sha256": "22668fae65ad33bcde060a86547a05d400152f0506f376870eb4d6f0193e7282"
 }
