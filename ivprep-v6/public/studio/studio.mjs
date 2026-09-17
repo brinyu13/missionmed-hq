@@ -1979,8 +1979,13 @@ function renderContextEvidence(result) {
   }
   const privacy = document.createElement('p');
   privacy.className = 'microcap';
+  const supportedObservationCount = Array.isArray(analysis?.semanticObservations)
+    ? analysis.semanticObservations.length
+    : 0;
   privacy.textContent = result?.persistence?.transcript
-    ? `Saved privately to this answer${result.persistence.analysis ? ' with evidence-cited analysis' : ''}.`
+    ? (supportedObservationCount
+      ? 'Saved privately to this answer with evidence-cited observations.'
+      : 'Transcript saved privately to this answer · no supported semantic observations were produced.')
     : 'Result was not persisted.';
   host.append(privacy);
 }
