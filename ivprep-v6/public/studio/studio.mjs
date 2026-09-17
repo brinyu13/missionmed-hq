@@ -22,6 +22,7 @@ import { LiveInterviewSession } from './live-interview.mjs';
 import { DurableStudioSession } from './durable-session.mjs';
 import { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
 import { InstrumentRack } from './instruments.mjs';
+import { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -67,6 +68,9 @@ const state = {
   durableError: null,
   lastSaved: null,
   localPlaybackUrl: null,
+  longitudinal: null,
+  longitudinalPromise: null,
+  comparePair: [0, 1],
 };
 
 /* ------------------------------------------------------------------ media bridge
@@ -265,7 +269,9 @@ function setView(view, { focus = false } = {}) {
   if (view === 'devicecheck') renderDeviceCheck();
   if (view === 'newsession') renderWizard();
   if (view === 'training') bindCockpitVideo();
-  if (view === 'lab') mountLabInstruments();
+  if (view === 'lab') { mountLabInstruments(); void renderLongitudinal(); }
+  if (view === 'compare') void renderCompare();
+  if (view === 'progress') void renderProgress();
   if (view === 'vault') void renderVault();
   if (focus) $('#main-content')?.focus?.({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -1247,6 +1253,140 @@ async function connectDevices() {
 
 /* ------------------------------------------------------------------ vault */
 
+async function longitudinalModel({ refresh = false } = {}) {
+  if (refresh) { state.longitudinal = null; state.longitudinalPromise = null; }
+  if (state.longitudinal) return state.longitudinal;
+  if (!state.longitudinalPromise) {
+    state.longitudinalPromise = (async () => {
+      if (!state.durableAvailable) throw state.durableError || new Error('durable_session_unavailable');
+      const vault = await state.durable.library('own');
+      state.longitudinal = buildLongitudinalModel(Array.isArray(vault?.sessions) ? vault.sessions : []);
+      return state.longitudinal;
+    })().finally(() => { state.longitudinalPromise = null; });
+  }
+  return state.longitudinalPromise;
+}
+
+function emptyEvidence(host, title, copy) {
+  const empty = document.createElement('div');
+  empty.className = 'empty-state';
+  const strong = document.createElement('strong');
+  strong.textContent = title;
+  empty.append(strong, document.createTextNode(copy));
+  host.replaceChildren(empty);
+}
+
+function formatEvidence(value, unit) {
+  if (value === null || !Number.isFinite(Number(value))) return 'Unavailable';
+  if (unit === 'ms') return `${(Number(value) / 1000).toFixed(1)} s`;
+  if (unit === 'fraction') return `${(Number(value) * 100).toFixed(Number(value) < .01 ? 1 : 0)}%`;
+  if (unit === 'dBFS') return `${Number(value).toFixed(1)} dBFS`;
+  return String(value);
+}
+
+function metricCard(label, value, note) {
+  const card = document.createElement('div');
+  card.className = 'long-card';
+  const cap = document.createElement('div'); cap.className = 'microcap'; cap.textContent = label;
+  const number = document.createElement('strong'); number.textContent = value;
+  const detail = document.createElement('span'); detail.textContent = note;
+  card.append(cap, number, detail);
+  return card;
+}
+
+async function renderProgress() {
+  const host = $('#progress-body');
+  if (!host) return;
+  try {
+    const model = await longitudinalModel();
+    if (!model.totals.savedSessions) {
+      emptyEvidence(host, 'No saved attempts yet', 'Complete and save a real recorded answer to begin your evidence-backed progress history. XP, rank, and badges are not fabricated.');
+      return;
+    }
+    const grid = document.createElement('div'); grid.className = 'long-grid';
+    grid.append(
+      metricCard('Saved answers', String(model.totals.savedSessions), 'Completed durable sessions'),
+      metricCard('Recorded practice', formatEvidence(model.totals.recordedMs, 'ms'), 'Private saved media time'),
+      metricCard('Question breadth', String(model.totals.uniqueQuestions), 'Distinct practiced questions'),
+      metricCard('Active days', String(model.totals.activeDays), 'Calendar days with saved work'),
+    );
+    const note = document.createElement('p'); note.className = 'microcap long-note';
+    note.textContent = 'Personal history only · no population rank, seeded XP, or inferred mastery.';
+    host.replaceChildren(grid, note);
+  } catch (error) {
+    emptyEvidence(host, 'Progress unavailable', String(error?.message || 'Authenticated Answer History required').toUpperCase().slice(0, 120));
+  }
+}
+
+async function renderLongitudinal() {
+  const host = $('#longitudinal-body');
+  if (!host) return;
+  try {
+    const model = await longitudinalModel();
+    if (!model.attempts.length) {
+      emptyEvidence(host, 'No validated trend evidence yet', 'A saved answer with validated student-safe analytics creates the first personal evidence point.');
+      return;
+    }
+    const rows = document.createElement('div'); rows.className = 'long-rows';
+    for (const attempt of model.attempts.slice(0, 6)) {
+      const row = document.createElement('div'); row.className = 'long-row';
+      const identity = document.createElement('div');
+      const title = document.createElement('strong'); title.textContent = attempt.title;
+      const when = document.createElement('span'); when.className = 'microcap'; when.textContent = attempt.at === null ? 'DATE UNAVAILABLE' : new Date(attempt.at).toLocaleString();
+      identity.append(title, when);
+      const evidence = document.createElement('span'); evidence.className = 'long-values';
+      evidence.textContent = `${formatEvidence(attempt.metrics.answerDurationMs, 'ms')} · ${formatEvidence(attempt.metrics.capturedLevelDbfs, 'dBFS')} · ${formatEvidence(attempt.metrics.digitalClippingFraction, 'fraction')} clipping`;
+      row.append(identity, evidence); rows.append(row);
+    }
+    const note = document.createElement('p'); note.className = 'microcap long-note';
+    note.textContent = 'Validated student-safe observations only · unavailable means the evidence did not support a value.';
+    host.replaceChildren(rows, note);
+  } catch (error) {
+    emptyEvidence(host, 'Longitudinal evidence unavailable', String(error?.message || 'Authenticated Answer History required').toUpperCase().slice(0, 120));
+  }
+}
+
+async function renderCompare() {
+  const host = $('#compare-body');
+  if (!host) return;
+  try {
+    const model = await longitudinalModel();
+    if (model.attempts.length < 2) {
+      emptyEvidence(host, 'Needs two saved attempts', 'Your authenticated Answer History supplies the attempts. No pairwise delta is shown until two real saved answers exist.');
+      return;
+    }
+    const makeSelect = (selected, otherIndex) => {
+      const select = document.createElement('select'); select.className = 'q-search';
+      model.attempts.forEach((attempt, index) => {
+        const option = document.createElement('option'); option.value = String(index);
+        option.textContent = `${attempt.title} · ${attempt.at === null ? 'date unavailable' : new Date(attempt.at).toLocaleDateString()}`;
+        option.selected = index === selected; option.disabled = index === otherIndex; select.append(option);
+      });
+      return select;
+    };
+    const selectors = document.createElement('div'); selectors.className = 'compare-selectors';
+    const left = makeSelect(state.comparePair[0], state.comparePair[1]);
+    const right = makeSelect(state.comparePair[1], state.comparePair[0]);
+    const bind = (select, slot) => select.addEventListener('change', () => { state.comparePair[slot] = Number(select.value); void renderCompare(); });
+    bind(left, 0); bind(right, 1); selectors.append(left, right);
+    const comparison = compareAttempts(model.attempts[state.comparePair[0]], model.attempts[state.comparePair[1]]);
+    const table = document.createElement('div'); table.className = 'compare-table';
+    for (const metric of comparison.metrics) {
+      const row = document.createElement('div'); row.className = 'compare-row';
+      const label = document.createElement('strong'); label.textContent = metric.label;
+      const before = document.createElement('span'); before.textContent = formatEvidence(metric.left, metric.unit);
+      const after = document.createElement('span'); after.textContent = formatEvidence(metric.right, metric.unit);
+      const delta = document.createElement('span'); delta.textContent = metric.delta === null ? 'No comparable evidence' : `${metric.delta > 0 ? '+' : ''}${formatEvidence(metric.delta, metric.unit)}`;
+      row.append(label, before, after, delta); table.append(row);
+    }
+    const note = document.createElement('p'); note.className = 'microcap long-note';
+    note.textContent = 'Signed deltas are descriptive, not good/bad judgments. Captured mic level is device signal, not calibrated loudness.';
+    host.replaceChildren(selectors, table, note);
+  } catch (error) {
+    emptyEvidence(host, 'Comparison unavailable', String(error?.message || 'Authenticated Answer History required').toUpperCase().slice(0, 120));
+  }
+}
+
 async function renderVault() {
   const host = $('#vault-body');
   if (!host) return;
@@ -1255,6 +1395,7 @@ async function renderVault() {
     if (!state.durableAvailable) throw state.durableError || new Error('durable_session_unavailable');
     const vault = await state.durable.library('own');
     const sessions = Array.isArray(vault?.sessions) ? vault.sessions : [];
+    state.longitudinal = buildLongitudinalModel(sessions);
     if (!sessions.length) {
       const empty = document.createElement('div');
       empty.className = 'empty-state';

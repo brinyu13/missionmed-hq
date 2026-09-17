@@ -466,6 +466,30 @@ body[data-role="student"] #communication-analytics-test-root .ca-diagnostics { d
 .context-evidence ul { margin: 0; padding-left: 20px; color: var(--ink2); }
 .context-evidence .unavailable { margin: 0; }
 
+/* ---------- longitudinal evidence ---------- */
+.long-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px; }
+.long-card { min-height: 112px; display: grid; align-content: space-between; gap: 7px; padding: 14px; border: 1px solid var(--line); background: linear-gradient(145deg, color-mix(in srgb, var(--orange) 7%, var(--s2)), var(--s2)); box-shadow: var(--bevel); }
+.long-card strong { color: var(--ink); font: italic 800 24px/1 var(--font-editorial); }
+.long-card span { color: var(--dim); font-size: 11px; }
+.long-note { margin: 14px 0 0; color: var(--dim); }
+.long-rows { display: grid; }
+.long-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.long-row:last-child { border-bottom: 0; }
+.long-row strong, .long-row .microcap { display: block; }
+.long-row .microcap { margin-top: 5px; }
+.long-values { color: var(--ink2); font: 600 10px/1.45 var(--font-num); text-align: right; }
+.compare-selectors { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.compare-table { display: grid; border-top: 1px solid var(--line); }
+.compare-row { display: grid; grid-template-columns: minmax(150px, 1.3fr) repeat(3, minmax(110px, 1fr)); gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.compare-row span { color: var(--ink2); font: 600 10px/1.4 var(--font-num); }
+.compare-row span:last-child { color: var(--brand-b); }
+@media (max-width: 720px) {
+  .compare-selectors { grid-template-columns: 1fr; }
+  .compare-row { grid-template-columns: 1fr 1fr; }
+  .long-row { grid-template-columns: 1fr; gap: 6px; }
+  .long-values { text-align: left; }
+}
+
 /* ---------- InterviewBrain live room ---------- */
 .live-interviewer-stage { min-height: 230px; display: flex; align-items: center; gap: 22px; background: radial-gradient(circle at 30% 40%, #9e4d323d, #090e1b 64%); }
 .live-interviewer-stage h2 { margin: 7px 0 0; font: italic 600 23px/1.15 var(--font-editorial); }
