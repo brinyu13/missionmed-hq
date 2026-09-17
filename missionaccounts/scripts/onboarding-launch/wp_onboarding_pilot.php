@@ -113,7 +113,7 @@ function mmdrj_launch_process( $payload, $html_template, $text_template, $mode )
         $finalized=mmdrj_launch_cas_option($claim_key,$sending_raw,$final_raw)&&mmdrj_launch_mirror_ledger($user->ID,$ledger_key,$final_raw);
         $results[]=array('wp_user_id'=>$user->ID,'email_sha256'=>$item['email_sha256'],'status'=>$finalized?($sent?'sent':'failed'):'uncertain_hold','attempted'=>true);
     }
-    return array('schema_version'=>'missionaccounts-onboarding-pilot-results-v1','mode'=>$mode,'population'=>4,'counts'=>array_count_values(array_column($results,'status')),'results'=>$results);
+    return array('schema_version'=>'missionaccounts-onboarding-pilot-results-v1','mode'=>$mode,'population'=>count($cohort),'counts'=>array_count_values(array_column($results,'status')),'results'=>$results);
 }
 if(!defined('MMDRJ_ONBOARDING_LAUNCH_TEST')){
     if(PHP_SAPI!=='cli'||5!==count($argv))throw new RuntimeException('onboarding_pilot_cli_arguments_required');
