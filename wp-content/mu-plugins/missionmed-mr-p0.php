@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Mission Residency P0
  * Description: Reversible MR-WEB-0912 commerce activation with the bounded MR-WEB-0914 Fable 5 customer journey.
- * Version: 1.3.0
+ * Version: 1.4.0
  */
 declare(strict_types=1);
 
@@ -11,6 +11,9 @@ if (!defined('ABSPATH')) exit;
 const MM_MR_P0_ASSET_DIR = WPMU_PLUGIN_DIR . '/missionmed-mr-0912-assets';
 const MM_MR_P0_ASSET_URL = WPMU_PLUGIN_URL . '/missionmed-mr-0912-assets';
 const MM_MR_0912_GOOGLE_TAG_ID = 'GT-PJ7SPCWF';
+const MM_MR_0912_FINANCIAL_WAIVER_AUTHORITY = 'DR-296';
+const MM_MR_0912_IW_CARD_PRICE = 549.0;
+const MM_MR_0912_IW_ZELLE_PRICE = 499.0;
 
 function mm_mr_p0_enabled(): bool {
     return get_option('mmed_mr_p0_enabled', 'no') === 'yes';
@@ -132,7 +135,7 @@ add_action('template_redirect', static function (): void {
 
 function mm_mr_0912_founder_waiver_valid(): bool {
     return get_option('mmed_mr_0912_financial_test_status', '') === 'waived_by_founder_not_executed'
-        && get_option('mmed_mr_0912_financial_test_authority', '') === 'DR-251';
+        && get_option('mmed_mr_0912_financial_test_authority', '') === MM_MR_0912_FINANCIAL_WAIVER_AUTHORITY;
 }
 
 function mm_mr_0912_acceptance_binding(string $offerKey, string $verifiedAt, array $runtime): string {
@@ -162,7 +165,7 @@ function mm_mr_0912_acceptance_binding(string $offerKey, string $verifiedAt, arr
         'parent_verified' => (bool) $runtime['parent_verified'],
         'sold_individually' => (bool) $runtime['sold_individually'],
         'financial_acceptance_status' => 'waived_by_founder_not_executed',
-        'financial_acceptance_authority' => 'DR-251',
+        'financial_acceptance_authority' => MM_MR_0912_FINANCIAL_WAIVER_AUTHORITY,
     ];
     return hash('sha256', (string) wp_json_encode($facts, JSON_UNESCAPED_SLASHES));
 }
@@ -177,7 +180,7 @@ function mm_mr_p0_runtime_config(): array {
             'product_id' => 5504,
             'variation_id' => 5867,
             'course_id' => 3646,
-            'expected_price' => 500.0,
+            'expected_price' => MM_MR_0912_IW_CARD_PRICE,
         ],
         'complete' => [
             'product_id' => 3576,
@@ -236,7 +239,7 @@ function mm_mr_p0_runtime_config(): array {
         $allAccepted = $allAccepted && $acceptanceBound;
         $config['campaign']['go_live_gate']['offers'][$key] = [
             'verified_live_at' => $acceptanceBound ? $verifiedAt : null,
-            'verified_by' => $acceptanceBound ? 'MR-WEB-0912 DR-251 Founder waiver plus independent non-financial production acceptance' : null,
+            'verified_by' => $acceptanceBound ? 'MR-WEB-0912 DR-296 Founder waiver plus non-financial production acceptance' : null,
         ];
         if ($acceptanceBound && !empty($runtime['product_eligible'])) {
             $config['offers'][$key]['runtime']['checkout_allowed'] = true;
@@ -245,10 +248,10 @@ function mm_mr_p0_runtime_config(): array {
         unset($config['offers'][$key]['runtime']['checkout_candidate_url']);
     }
     $config['campaign']['go_live_gate']['verified_live_at'] = $allAccepted ? 'per-offer' : null;
-    $config['campaign']['go_live_gate']['verified_by'] = $allAccepted ? 'MR-WEB-0912 DR-251 Founder waiver plus independent non-financial production acceptance' : null;
+    $config['campaign']['go_live_gate']['verified_by'] = $allAccepted ? 'MR-WEB-0912 DR-296 Founder waiver plus non-financial production acceptance' : null;
     $config['campaign']['go_live_gate']['financial_acceptance'] = [
         'status' => mm_mr_0912_founder_waiver_valid() ? 'waived_by_founder_not_executed' : 'not_executed',
-        'authority' => mm_mr_0912_founder_waiver_valid() ? 'DR-251' : null,
+        'authority' => mm_mr_0912_founder_waiver_valid() ? MM_MR_0912_FINANCIAL_WAIVER_AUTHORITY : null,
         'passed' => false,
     ];
     if (!empty($config['offers']['complete']['runtime']['checkout_allowed'])) {
@@ -256,6 +259,20 @@ function mm_mr_p0_runtime_config(): array {
             ? 'early_card_paid_in_full'
             : 'standard';
         $config['payment_options'][$verifiedPriceKey]['public_verified'] = true;
+    }
+    if (!empty($config['offers']['interview_week']['runtime']['checkout_allowed'])) {
+        $config['payment_options']['interview_week_card'] = [
+            'amount' => MM_MR_0912_IW_CARD_PRICE,
+            'rail' => 'stripe',
+            'public_verified' => true,
+        ];
+        $config['payment_options']['interview_week_zelle'] = [
+            'amount' => MM_MR_0912_IW_ZELLE_PRICE,
+            'savings' => MM_MR_0912_IW_CARD_PRICE - MM_MR_0912_IW_ZELLE_PRICE,
+            'rail' => 'bacs',
+            'settlement' => 'manual_verification_required_before_access',
+            'public_verified' => get_option('mmed_mr_0912_iw_zelle_enabled', 'no') === 'yes',
+        ];
     }
     foreach (($config['payment_options'] ?? []) as $key => $option) {
         if (empty($option['public_verified'])) {
@@ -378,16 +395,79 @@ function mm_mr_0912_validate_cart(): void {
 }
 add_action('woocommerce_check_cart_items', 'mm_mr_0912_validate_cart', 999);
 
-function mm_mr_0912_card_only_gateways(array $gateways): array {
-    return isset($gateways['stripe']) ? ['stripe' => $gateways['stripe']] : [];
+function mm_mr_0912_cart_is_zelle_eligible(): bool {
+    if (!function_exists('WC') || !WC()->cart) return false;
+    $items = WC()->cart->get_cart();
+    if (count($items) !== 1 || count(WC()->cart->get_applied_coupons()) !== 0) return false;
+    $item = reset($items);
+    return is_array($item)
+        && (int) ($item['product_id'] ?? 0) === 5504
+        && (int) ($item['variation_id'] ?? 0) === 5867
+        && (int) ($item['quantity'] ?? 0) === 1
+        && mm_mr_0912_offer_checkout_allowed('interview_week')
+        && get_option('mmed_mr_0912_iw_zelle_enabled', 'no') === 'yes';
+}
+
+function mm_mr_0912_selected_gateway(): string {
+    if (!function_exists('WC') || !WC()->session) return '';
+    return sanitize_key((string) WC()->session->get('chosen_payment_method', ''));
+}
+
+function mm_mr_0912_allowed_gateways(array $gateways): array {
+    $allowed = [];
+    if (isset($gateways['stripe'])) $allowed['stripe'] = $gateways['stripe'];
+    if (mm_mr_0912_cart_is_zelle_eligible() && isset($gateways['bacs'])) {
+        $gateways['bacs']->title = 'Zelle — $499 total (save $50)';
+        $gateways['bacs']->description = 'Place the order for $499 and follow the secure Zelle instructions. Your order stays on hold and access is not granted until MissionMed verifies receipt.';
+        $allowed['bacs'] = $gateways['bacs'];
+    }
+    return $allowed;
 }
 
 add_filter('woocommerce_available_payment_gateways', static function (array $gateways): array {
     if (!mm_mr_p0_launch_product_in_cart()) return $gateways;
     return mm_mr_0912_cart_is_checkout_safe()
-        ? mm_mr_0912_card_only_gateways($gateways)
+        ? mm_mr_0912_allowed_gateways($gateways)
         : [];
 }, 999);
+
+add_action('woocommerce_checkout_update_order_review', static function (string $postData): void {
+    if (!function_exists('WC') || !WC()->session) return;
+    parse_str($postData, $fields);
+    if (isset($fields['payment_method'])) {
+        WC()->session->set('chosen_payment_method', sanitize_key((string) $fields['payment_method']));
+    }
+}, 1);
+
+add_action('woocommerce_before_calculate_totals', static function ($cart): void {
+    if (!is_object($cart) || !method_exists($cart, 'get_cart')) return;
+    $zelle = mm_mr_0912_selected_gateway() === 'bacs' && mm_mr_0912_cart_is_zelle_eligible();
+    foreach ($cart->get_cart() as $item) {
+        if ((int) ($item['product_id'] ?? 0) !== 5504 || (int) ($item['variation_id'] ?? 0) !== 5867) continue;
+        $product = $item['data'] ?? null;
+        if (is_object($product) && method_exists($product, 'set_price')) {
+            $product->set_price($zelle ? MM_MR_0912_IW_ZELLE_PRICE : MM_MR_0912_IW_CARD_PRICE);
+        }
+    }
+}, 999);
+
+add_action('woocommerce_checkout_process', static function (): void {
+    $method = isset($_POST['payment_method']) ? sanitize_key(wp_unslash((string) $_POST['payment_method'])) : '';
+    if ($method === 'bacs' && !mm_mr_0912_cart_is_zelle_eligible() && function_exists('wc_add_notice')) {
+        wc_add_notice('Zelle savings are available only for one Interview Week enrollment with no coupon or other cart item.', 'error');
+    }
+}, 999);
+
+add_filter('woocommerce_bacs_process_payment_order_status', static function (string $status, $order): string {
+    if (!is_object($order) || !method_exists($order, 'get_items')) return $status;
+    foreach ($order->get_items() as $item) {
+        if (method_exists($item, 'get_product_id') && (int) $item->get_product_id() === 5504
+            && method_exists($item, 'get_variation_id') && (int) $item->get_variation_id() === 5867) {
+            return 'on-hold';
+        }
+    }
+    return $status;
+}, 999, 2);
 
 // Presentation only: Complete already includes Interview Week. Do not recommend buying it twice.
 add_filter('woocommerce_cart_crosssell_ids', static function (array $ids): array {
@@ -620,6 +700,16 @@ add_action('woocommerce_review_order_before_submit', static function (): void {
     if (!mm_mr_p0_launch_product_in_cart()) return;
     echo '<p class="mm-mr-0912-policy-links"><a href="' . esc_url(home_url('/terms-of-agreement/')) . '" target="_blank" rel="noopener">Terms of Agreement</a> · <a href="' . esc_url(home_url('/refund-cancellation-policy/')) . '" target="_blank" rel="noopener">Refund &amp; Cancellation Policy</a> · <a href="' . esc_url(home_url('/privacy-policy/')) . '" target="_blank" rel="noopener">Privacy Policy</a></p>';
 }, 8);
+
+add_action('woocommerce_review_order_before_payment', static function (): void {
+    if (!mm_mr_0912_cart_is_zelle_eligible()) return;
+    echo '<div class="mm-mr-0912-payment-choice"><strong>Interview Week payment choice</strong><p>Card: $549. Zelle: $499, a $50 savings. Zelle orders remain on hold and do not receive course access until payment is verified.</p></div>';
+}, 8);
+
+add_action('wp_footer', static function (): void {
+    if (!mm_mr_p0_launch_product_in_cart()) return;
+    echo '<script id="mm-mr-0912-payment-analytics">(function(){var last="";function emit(){var n=document.querySelector("input[name=payment_method]:checked");if(!n||n.value===last)return;last=n.value;window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:"mr_payment_method_selected",payment_method:last,offer:"interview_week"});}document.addEventListener("change",function(e){if(e.target&&e.target.name==="payment_method")emit();});document.addEventListener("DOMContentLoaded",emit);if(window.jQuery)jQuery(document.body).on("updated_checkout",emit);}());</script>';
+}, 20);
 
 function mm_mr_0914_post_enrollment_expectations(int $orderId): void {
     if (!mm_mr_p0_enabled() || !function_exists('wc_get_order')) return;

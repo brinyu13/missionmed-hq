@@ -135,7 +135,7 @@
     "faq": [
       {"question": "Which option should I choose?", "answer": "Choose Interview Week for the live foundational kickoff. Choose Complete when you want Interview Week plus continued practice, personalized feedback, and interview-season coaching."},
       {"question": "Do I buy both programs?", "answer": "No. IV Prep Complete includes Interview Week. The two prices are never added together."},
-      {"question": "Does Interview Week include an individual Signature Mock?", "answer": "No individual Signature Mock Interview is included in the $500 tuition. A limited standalone reservation opportunity may be offered separately."},
+      {"question": "Does Interview Week include an individual Signature Mock?", "answer": "No individual Signature Mock Interview is included in Interview Week tuition. A limited standalone reservation opportunity may be offered separately."},
       {"question": "What is a Signature Mock?", "answer": "A live, personalized interview simulation followed by structured analysis, a debrief, and an individualized action plan. Your confirmation states the exact details included in your enrollment."},
       {"question": "What happens after I enroll?", "answer": "Keep your confirmation, use the same MissionMed account for My Account and My Courses, and follow the approved schedule and placement details supplied with your enrollment."},
       {"question": "Are the evening times final?", "answer": "No exact evening clock time is published yet. Use only the approved schedule supplied with your enrollment."},
@@ -164,8 +164,9 @@
     "interview_week": {
       "name": "IV Prep Essentials: Interview Week",
       "descriptor": "Mission Residency's Live Interview-Season Kickoff",
-      "price": 500,
-      "payment_label": "one payment",
+      "price": 549,
+      "zelle_price": 499,
+      "payment_label": "$549 card or $499 Zelle",
       "includes": ["Orientation + Match Primer", "Five live online training days", "Foundational interview and communication curriculum", "Priority opportunity to request a limited standalone mock-IV reservation"],
       "excludes": ["An included individual Signature Mock Interview", "Complete's season-long small-group coaching, debriefs, practice, and support"],
       "complete_includes_this": true,
