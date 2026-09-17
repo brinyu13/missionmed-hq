@@ -23,6 +23,7 @@ import { DurableStudioSession } from './durable-session.mjs';
 import { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
 import { InstrumentRack } from './instruments.mjs';
 import { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mjs';
+import { createLiveContext } from './live-context-adapter.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -1451,14 +1452,7 @@ function setLiveInterviewStatus({ state: next, detail }) {
 }
 
 function liveInterviewContext() {
-  return {
-    goal: state.wizard.goal || 'Residency interview practice',
-    questionIds: state.interviewSet.map((question) => question.question_id).slice(0, 30),
-    interviewer: state.wizard.interviewer || 'Program Director · balanced',
-    program: state.wizard.program || 'General residency interview',
-    environment: state.wizard.environment || 'MissionMed · interview only',
-    targetQuestions: state.targetQuestions,
-  };
+  return createLiveContext({ wizard: state.wizard, interviewSet: state.interviewSet, targetQuestions: state.targetQuestions });
 }
 
 function wireLiveInterview() {
