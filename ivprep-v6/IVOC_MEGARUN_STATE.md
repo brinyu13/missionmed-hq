@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-17 12:13 America/New_York
+Updated: 2026-09-17 13:14 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -21,9 +21,10 @@ the actual production route and deployment.
   canon.
 - Candidate.2 presentation integration successor:
   `84e750e4540acd5479ee72291e7b9d1c38f2f351`.
-- Active presentation deployment:
-  `2317c290-ff6d-4c71-8e1f-400c67a558e5`, image
-  `sha256:b705fc8786e33c5f9071c569af75642bdada2dc167e56372419869cc9c846487`.
+- Active presentation/runtime deployment:
+  `bd1869fb-a7ac-435d-bc86-70627012ec00`, exact commit
+  `0c9efce6d61b2d68f0ed7e26d5a0e5f5eee205b8`, image
+  `sha256:097c55de617ce9f18b9bbc026f2577c951c73e3012cf93136b145be1b89963bf`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -79,15 +80,15 @@ the actual production route and deployment.
 | 5 | Separate Interviewer and Program steps with role/style controls | LIVE UNVERIFIED | Program Director, Faculty, Chief Resident, APD and Dove/Peacock/Owl/Eagle passed local Chrome; live interaction proof remains. |
 | 5 | RISE-backed Program search, sourced highlights, people, freshness/manual fallback | NOT STARTED | Requires live owner contract and source-receipt proof. |
 | 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE UNVERIFIED | MissionMed/Webex/Zoom/Teams and fail-closed source cards passed local Chrome; owner projections and live opt-in behavior remain. |
-| 5 | Truthful Readiness & Calibration checks | LIVE UNVERIFIED | Real capability-state composition passed local Chrome; physical live camera/mic acceptance remains. |
-| 6 | Real modular camera/mic Analytics with truthful availability states | LIVE UNVERIFIED | Real signal registry/source tests exist; production physical-device acceptance remains. |
-| 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE UNVERIFIED | Analytics/transcript source exists; live calibration and limitations proof remain. |
+| 5 | Truthful Readiness & Calibration checks | LIVE VERIFIED | Production Chrome proved physical FaceTime HD camera, built-in microphone, running audio context, live level and bound video surface. |
+| 6 | Real modular camera/mic Analytics with truthful availability states | LIVE VERIFIED | Physical production rep produced real microphone PCM plus face, hands, head and framing telemetry; unavailable signals continued to fail closed. |
+| 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE UNVERIFIED | The physical production rep proved live volume, variation, pitch, pace, cadence and pause states plus a real generated transcript; filler and persisted transcript-boundary acceptance remain. |
 | 6 | Admin measurement/visibility controls and prohibited-inference safeguards | LIVE UNVERIFIED | Source controls/contracts exist; live Admin/student proof remains. |
-| 7 | Canonical clock across recording, transcript, Q/A, Analytics, Results and clips | LIVE UNVERIFIED | Durable event/session spine is migrated; end-to-end reload proof remains. |
-| 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE UNVERIFIED | Production schema is live; signed playback, seal, reload and explicit-gap acceptance remain. |
-| 8 | Evidence-grounded Results | LIVE UNVERIFIED | Source capability and production tables exist; production session proof remains. |
-| 8 | Film Room synchronized replay and Flight Recorder timeline | LIVE UNVERIFIED | Source surfaces exist; synchronized production-media proof remains. |
-| 8 | Durable student Video Library and Admin student-library access | LIVE UNVERIFIED | Source storage/library paths exist; role/private-media proof remains. |
+| 7 | Canonical clock across recording, transcript, Q/A, Analytics, Results and clips | LIVE UNVERIFIED | Production session/recording duration matched at 21,821 ms with 16 persisted Analytics events and reload-safe playback; transcript/Q&A range persistence remains. |
+| 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE UNVERIFIED | Owner capture, two-part upload, seal, signed playback and reload passed with audit receipts; generated transcript/context remains intentionally ephemeral and canonical range/gap persistence remains. |
+| 8 | Evidence-grounded Results | LIVE VERIFIED | Production post-answer Results and bounded transcript/context analysis returned evidence-cited observations tied to transcript segments without unsupported scoring. |
+| 8 | Film Room synchronized replay and Flight Recorder timeline | LIVE UNVERIFIED | Production playback and persisted Analytics rehydration passed after fix 0c9efce; complete timestamp-synchronized Flight Recorder traversal remains. |
+| 8 | Durable student Video Library and Admin student-library access | LIVE UNVERIFIED | Owner library persisted across reload and signed private playback passed; Admin student-library and negative-role isolation remain. |
 | 9 | Current supported realtime transport and contextual InterviewBrain | LIVE UNVERIFIED | WebRTC integration is in source; current official API revalidation and paid canary remain. |
 | 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE UNVERIFIED | Requires bounded production conversation canary. |
 | 9 | Pool/context weighting, clean teardown, single audio authority | LIVE UNVERIFIED | Requires production telemetry and teardown proof. |
@@ -124,8 +125,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `2317c290-ff6d-4c71-8e1f-400c67a558e5` from exact product commit
-  `84e750e4540acd5479ee72291e7b9d1c38f2f351`; health is ready and the
+  `bd1869fb-a7ac-435d-bc86-70627012ec00` from exact product commit
+  `0c9efce6d61b2d68f0ed7e26d5a0e5f5eee205b8`; health is ready and the
   unauthenticated product route remains fail-closed at HTTP 401.
 - Runtime bindings must be moved from the historical development target to
   `bscnrgqlwsyygyfrbhfn` without exposing credentials. Context/transcript flags
@@ -144,11 +145,10 @@ the actual production route and deployment.
 
 ## Next execution lanes
 
-1. Commit and remotely read back this migration/state tranche; release its lease.
-2. Under a fresh narrow lease, bind the dedicated production project and deploy a
-   canary from the exact remotely read-back IVOC commit with rollback identity.
-3. Run physical camera/mic Analytics, authenticated role/privacy/private-media,
-   durable session/reload, Results/Film Room/Library, and bounded GPT-Live canaries.
+1. Run the bounded GPT-Live contextual conversation canary, including answer-grounded
+   follow-up, move-on, barge-in where supported, teardown and single-audio authority.
+2. Run authenticated second-Admin, entitled-360 and negative-role/private-media canaries.
+3. Complete timestamp-synchronized Film Room traversal and canonical transcript/Q&A ranges.
 4. Continue fix-forward implementation across every `NOT STARTED` or
    `LIVE UNVERIFIED` ledger row, respecting sibling-owner boundaries.
 5. Run fresh independent acceptance against the actual production route.
