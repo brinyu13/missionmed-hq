@@ -1,0 +1,62 @@
+{
+  "schema": "missionmed.ivprep.analytics.fixtures.v1",
+  "mission": "Y1-Y2-CAM-V6-3420R",
+  "dataPolicy": "synthetic-only",
+  "validatedScope": [
+    "answer_duration_ms",
+    "captured_level_dbfs",
+    "digital_clipping_fraction"
+  ],
+  "excludedFromStudentValidation": [
+    "speech_active_ratio",
+    "pause_episode",
+    "word_rate_wpm",
+    "filler_token_count",
+    "hand_presence",
+    "hand_motion_episode",
+    "gesture_zone",
+    "torso_presence",
+    "lateral_torso_lean",
+    "body_sway_episode",
+    "face_presence",
+    "head_orientation_proxy",
+    "camera_facing_proxy",
+    "sustained_head_turn_episode",
+    "facial_movement_episode",
+    "framing_center"
+  ],
+  "fixtures": [
+    {
+      "path": "audio/level-clipping-grid.v1.json",
+      "sha256": "a1c979a333c8ad46d927a4e0d049801d56d9877828349a98acca68072ef1efc6"
+    },
+    {
+      "path": "audio/pause-grid.v1.json",
+      "sha256": "11b5674957511c6442ee864e784a293295581a1d1ba6c5ef5134fc5eeff27774"
+    },
+    {
+      "path": "timeline/synchronized-events.v1.json",
+      "sha256": "4ea8503c9922cb146c0a31863c4f505c7818bd0692bc33368b88cae28a74775f"
+    },
+    {
+      "path": "vision/compact-episodes.v1.json",
+      "sha256": "433178c378c9537933069d233e797ef51ec6bb149329753876af8c2b45dc19ea"
+    },
+    {
+      "path": "security/transcript-injection.v1.json",
+      "sha256": "2e32a9445a3640f145d535a13b5a24f541ffbb79e218a6588362bf75fb65bb2f"
+    }
+  ],
+  "acceptance": {
+    "deterministicCases": "100%",
+    "levelAbsoluteErrorDb": 0.5,
+    "clippingPrecision": 1,
+    "clippingRecall": 1,
+    "clockAbsoluteErrorMs": 1,
+    "studentProjectionDefault": "hide-unvalidated"
+  },
+  "limitations": [
+    "Synthetic validation does not promote voice-activity, pause, transcript, or visual interpretation.",
+    "Visual and pause signals remain Founder-only until held-out consented media and independent rater gates pass."
+  ]
+}

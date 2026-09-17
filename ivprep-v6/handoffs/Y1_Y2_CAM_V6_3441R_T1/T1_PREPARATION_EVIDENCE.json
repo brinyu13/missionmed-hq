@@ -1,0 +1,92 @@
+{
+  "schema": "missionmed.ivprep.3441r_t1.preparation_evidence.v1",
+  "mission": "Y1-Y2-CAM-V6-3441R-T1",
+  "status": "TEST #1 ARMED - WAITING FOR FOUNDER PAID-TEST AUTHORIZATION",
+  "verified_at_utc": "2026-08-14T13:54:00.000Z",
+  "custody": {
+    "authority_commit": "9a59ade563a5ad83c4f9912a42d45300bdc7b177",
+    "product_base_commit": "f030773e352237bc774459a8506041658c15620f",
+    "branch": "codex/y1-y2-cam-v6-3440-aaa-unified-production-admin-canary",
+    "tracked_base_clean": true,
+    "preserved_untracked_coordination_packets": 2
+  },
+  "lease": {
+    "superseded_scope_lease": {
+      "lease_id": "d64800c9-3519-4078-be91-76f96dea5139",
+      "fencing_epoch": 20,
+      "binding_sha256": "121c79bacfb356f35fe7ea5ecca2839505883de1d12d42a74659ba04dc908f65",
+      "disposition": "RELEASED_WITH_ZERO_WRITES_AFTER_SCOPE_EXPANSION"
+    },
+    "expired_precommit_review_lease": {
+      "lease_id": "8b3ae934-e778-4cd7-8232-0e053d6f1943",
+      "fencing_epoch": 21,
+      "binding_sha256": "a10d6910fd55476a4dc70be5163a314a30dc150b3457498248aefbff7667231d",
+      "nonce_sha256": "780f5d316523af41da8e315d439db988f62fa221c0f804c7afee29b01c9419e5",
+      "disposition": "EXPIRED_FAIL_CLOSED_DURING_PRECOMMIT_REVIEW_WITHOUT_COMMIT_OR_PUSH"
+    },
+    "released_exposed_nonce_lease": {
+      "lease_id": "5b82a9de-8b52-4530-965f-cbfbd5e0d2d0",
+      "fencing_epoch": 22,
+      "binding_sha256": "a10d6910fd55476a4dc70be5163a314a30dc150b3457498248aefbff7667231d",
+      "nonce_sha256": "cc5ce79126812f201d4bffc5433f637742483ec2811fc7640cb39c9e257e033e",
+      "disposition": "RELEASED_AFTER_PRECOMMIT_SECURITY_BLOCK_WITHOUT_COMMIT_OR_PUSH"
+    },
+    "resource": "PRODUCT:IV-PREP-ON-CALL",
+    "lease_id": "917adf38-189c-424b-8772-71768450ae73",
+    "fencing_epoch": 23,
+    "binding_sha256": "a10d6910fd55476a4dc70be5163a314a30dc150b3457498248aefbff7667231d",
+    "nonce_sha256": "d6f666a033e86a8476402ed21397c992c5bd7149bc64bf0f46bf9dfb0e24c628",
+    "write_path_count": 6,
+    "keeper": "ACTIVE_AT_FREEZE_MUST_REMAIN_LIVE_THROUGH_PUBLICATION_AND_POST_PUSH_VERIFICATION",
+    "release_gate": "RELEASE_AFTER_PUSH_AND_FRESH_POST_PUSH_VERIFICATION"
+  },
+  "correction": {
+    "code": "FOUNDER_HARNESS_SESSION_TTL_SINGLE_CLOCK_ANCHOR",
+    "reason": "Separate issue and expiry clock reads could exceed the exact 1800-second session TTL by one millisecond and deny the local Founder room.",
+    "source_sha256": "618ea86cb43742bde8bbf4f3e0e618eda5dce43f600f132bc107254b1a3ce61e",
+    "regression_test_sha256": "782cfd195a7a8ef57fa672228bfa5052d78b8bf00ed48b8b3b9ca16568f0cf79"
+  },
+  "tests": {
+    "command": "node --test --test-concurrency=1 ivprep-v6/test/3441r/*.test.mjs ivprep-v6/test/3440/*.test.mjs",
+    "total": 61,
+    "passed": 53,
+    "failed": 0,
+    "skipped": 8,
+    "skip_classification": "EXPECTED_REPOSITORY_NODE_MODULES_ABSENT",
+    "syntax_checks_passed": true,
+    "diff_check_passed": true
+  },
+  "browser_observation": {
+    "url": "http://127.0.0.1:49700/iv-prep-on-call/#room",
+    "mode": "SYNTHETIC_ZERO_COST",
+    "page_visible": true,
+    "browser_errors_or_warnings": 0,
+    "authorization_clicked": false,
+    "start_clicked": false,
+    "public_state": "NOT AUTHORIZED",
+    "agent": "agent_9bdfc50ec0086043",
+    "voices": ["marin", "coral", "shimmer"],
+    "maximum_seconds": 45,
+    "audible_interviewer_audio_surfaces": 1
+  },
+  "future_test_contract": {
+    "agent": "agent_9bdfc50ec0086043",
+    "avatar": "Dr Kelly",
+    "model": "gpt-realtime-2.1",
+    "profile": "PROFILE_B_OPENAI_NATIVE_AUDIO",
+    "maximum_lemonslice_sessions": 1,
+    "maximum_openai_realtime_sessions": 1,
+    "maximum_livekit_room_dispatches": 1,
+    "automatic_paid_retries": 0,
+    "automatic_reconnects": 0,
+    "avatar_recreations": 0,
+    "founder_authorization_phrase": "AUTHORIZE DR KELLY TEST #1"
+  },
+  "provider_evidence": {
+    "provider_network_attempted": false,
+    "provider_sessions_created": 0,
+    "lemonslice_credits_consumed": 0,
+    "lemonslice_balance": "NOT_OBSERVED_PROVIDER_GATE_CLOSED",
+    "worst_case_exposure": "ONE_SESSION_MAXIMUM_45_SECONDS_CREDIT_CONVERSION_UNRESOLVED"
+  }
+}

@@ -1,0 +1,3 @@
+# Preserve these two accepted donor artifacts byte-for-byte.
+"baseline/IV Prep OnCall_V6.html" whitespace=-trailing-space
+public/index.html whitespace=-trailing-space

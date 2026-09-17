@@ -1,0 +1,47 @@
+{
+  "runtime": {
+    "name": "sherpa-onnx",
+    "version": "1.13.6",
+    "gitSha1": "1cb484af",
+    "onnxruntimeVersion": "1.27.1",
+    "license": "Apache-2.0"
+  },
+  "model": {
+    "repository": "csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26",
+    "revision": "672fbf1b30579d6585301139bb363f42a0ad4a24",
+    "license": "Apache-2.0",
+    "sampleRate": 16000,
+    "chunkSize": 16,
+    "leftContext": 128
+  },
+  "files": {
+    "sherpa-onnx-asr.js": {
+      "bytes": 53867,
+      "sha256": "d51ae8e8b756ee5e53423ffada0c9702973f154f561aca7984fe0b12f4060178"
+    },
+    "sherpa-onnx-wasm-nodejs.js": {
+      "bytes": 102175,
+      "sha256": "50c696eecee59a8d88723f1eebff5f684453dfc27698189180cd744e21e144d5"
+    },
+    "sherpa-onnx-wasm-nodejs.wasm": {
+      "bytes": 14865880,
+      "sha256": "28d2936ad35807d27ff294bf73cd2825b18ff64e01ff681bbbb0d5dc0f8b9fb4"
+    },
+    "models/streaming-zipformer-en-2023-06-26/encoder.int8.onnx": {
+      "bytes": 71083163,
+      "sha256": "563fde436d16cf7607cf408cd6b30909819d03162652ef389c2450ced3f45ac1"
+    },
+    "models/streaming-zipformer-en-2023-06-26/decoder.int8.onnx": {
+      "bytes": 1307236,
+      "sha256": "98da299f471e38bb4e1a8df579b8cc9122d6039576a77e357b3c60f17dd83b02"
+    },
+    "models/streaming-zipformer-en-2023-06-26/joiner.int8.onnx": {
+      "bytes": 259335,
+      "sha256": "d944208d660d67c8d72cd2acaeac971fa5ceb8c80e76c1968148846fedd6e297"
+    },
+    "models/streaming-zipformer-en-2023-06-26/vocabulary.txt": {
+      "bytes": 5048,
+      "sha256": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb"
+    }
+  }
+}

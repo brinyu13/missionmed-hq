@@ -1,0 +1,37 @@
+# Y1-Y2-CAM-V6-3493 — FEATURE COMPLETENESS MATRIX
+
+Legend: **LOCKED** · **PROTOTYPED** (working in 3493 NorthStar w/ mock data) · **PARTIAL** · **NOT IMPLEMENTED** · **NEEDS WIRING** (frontend done, real data pending) · **NEEDS HUMAN QA**. Owner: CC = Claude Code (frontend), CX = Codex (runtime/adapters/providers), MM = MissionMed content/validation, F = Founder decision.
+
+| # | Feature | Requirement | 3492 | 3493 | Frontend | Backend | Real data | Engineering required | Owner |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | Question Library (browse/search/filter/favorite/multi-select/save sets) | §1 | NOT IMPLEMENTED | **PROTOTYPED** | PROTOTYPED | NOT IMPLEMENTED | mock | Question DB + metadata schema (type, difficulty, freq, SAF(e), stories, attempts, PB, last) + saved-set store | CC+CX+MM |
+| 2 | Interview presets (11 incl. MMI-like, Founder-authorable) | §2 | NOT IMPLEMENTED | **PROTOTYPED** | PROTOTYPED | NOT IMPLEMENTED | mock | Preset schema driving mix/sequencing/follow-ups/difficulty/pace/style/length; authoring UI for MM | CC+MM |
+| 3 | Interview Builder (loadout summary → START) | §3 | NOT IMPLEMENTED | **PROTOTYPED** | PROTOTYPED | NOT IMPLEMENTED | mock | Session-config contract consumed by session engine | CC+CX |
+| 4 | Interviewer Builder (presentation/age/role/style/behavior sliders; "SIMULATED INTERVIEW STYLE") | §4 | NOT IMPLEMENTED | **PROTOTYPED** | PROTOTYPED | NOT IMPLEMENTED | mock | Map behavior params → realtime prompt/policy for interviewer cognition; embodiment-independent (§22) | CX |
+| 5 | RISE program-simulation seam | §5 | NOT IMPLEMENTED | **PROTOTYPED** (seam card, contract note) | SEAM | NOT IMPLEMENTED | none | Interface contract only; RISE hydration later; no claims today | CX (later) |
+| 6 | VC environment simulation (Meetlink/Conference Grid/Webmeet/Hospital/Desk) | §6 | NOT IMPLEMENTED | **PROTOTYPED** (5 environments re-skin Simulation live) | PROTOTYPED | n/a | n/a | Asset polish; legal review of approximations | CC |
+| 7 | Answer Video Library (MY ANSWERS: search/filter/sort/fav/compare/replay/practice-again, full metadata) | §7 | PARTIAL (vault) | **PROTOTYPED** | PROTOTYPED | NOT IMPLEMENTED | mock | Recording store + metadata index; single recording addressable via multiple views (§23) | CX+CC |
+| 8 | Question-centric history (all attempts per question, PB star) | §8 | NOT IMPLEMENTED | **PROTOTYPED** | PROTOTYPED | NOT IMPLEMENTED | mock | Query by question id over answer store | CX |
+| 9 | Async Mentor/Admin answer review (queue, video, transcript, DI, marks, notes, status) | §9 | NOT IMPLEMENTED | **PROTOTYPED** | PROTOTYPED | NOT IMPLEMENTED | mock | Review records, attribution, notifications; StoryForge review precedent | CX+CC |
+| 10 | StoryForge → prep hydration (candidates, USE/REMIND/ignore) | §10 | PARTIAL (chips) | **PROTOTYPED** | PROTOTYPED | NOT IMPLEMENTED | mock | StoryForge query API by question semantics | CX |
+| 11 | IV Prep → StoryForge evidence loop (used-in, attempts, best delivery, Film links) | §11 | PARTIAL | **PROTOTYPED** | PROTOTYPED | NOT IMPLEMENTED | mock | Usage-relationship records; StoryForge "Interview Performance History" surface | CX+MM |
+| 12 | MatchBridge consent seam (PRIVATE ↔ eligible, revoke, audit) | §12 | NOT IMPLEMENTED | **PROTOTYPED** (UI seam + consent language) | SEAM | NOT IMPLEMENTED | none | Consent/scope/revocation/audit data model; no MatchBridge build | CX (later) |
+| 13 | Full beta HUD (14 metrics, peripheral states + one active correction) | §13 | PARTIAL (7) | **PROTOTYPED** (14) | PROTOTYPED | — | NEEDS WIRING | Real telemetry per wiring contract | CX |
+| 14 | HUD customization (CORE/ADVANCED/CUSTOM; display-only) | §14 | NOT IMPLEMENTED | **PROTOTYPED** | PROTOTYPED | — | n/a | Persist per-user HUD config | CC |
+| 15 | Face/body/hand wireframe overlays (7 toggles; OFF/MINIMAL/FULL) | §15 | NOT IMPLEMENTED | **PROTOTYPED** | PROTOTYPED | — | NEEDS WIRING | Bind to real landmark streams (prior engineering exists) | CX |
+| 16 | Display ≠ measurement separation | §16 | implied | **LOCKED** (architectural: HUDCFG/OVL are render-only; SIM runs regardless) | LOCKED | — | — | Keep separation in production stores | CC/CX |
+| 17 | Delivery Training (mission target + all sensors + priority coaching) | §17 | PROTOTYPED | **PROTOTYPED+** (mission header, full HUD, overlays) | PROTOTYPED | — | NEEDS WIRING | — | CX |
+| 18 | Quick Rep (seconds-to-start loop) | §18 | PARTIAL (home CTA) | **PROTOTYPED** (question→record→read→again→save) | PROTOTYPED | NOT IMPLEMENTED | mock | Answer save + daily question feed | CC+CX |
+| 19 | Guided Practice (type/skill → filtered set) | §19 | NOT IMPLEMENTED | **PROTOTYPED** | PROTOTYPED | NOT IMPLEMENTED | mock | Skill→question mapping | MM+CC |
+| 20 | Full Simulation (set/preset/count/duration/interviewer/platform/follow-ups; zero HUD; background telemetry) | §20 | PARTIAL | **PROTOTYPED** | PROTOTYPED | PARTIAL | NEEDS WIRING | Session engine consuming BUILD config | CX |
+| 21 | Dr Kelly avatar + Admin AVATAR TEST panel (human-only loop) | §21 | CONTRACT | **PROTOTYPED** (status lights + simulated loop, human-press gated) | PROTOTYPED | PARTIAL | **NEEDS HUMAN QA** | Natural initiation fix; repeatable loop ×5; fallback ladder verification | CX+F |
+| 22 | Embodiment-independent interviewer (cognition/voice/visual layers) | §22 | NOTED | **PROTOTYPED** (builder decoupled; Kelly = today's premium embodiment) | LOCKED (architecture) | NOT IMPLEMENTED | — | Layered interviewer service | CX |
+| 23 | Storage taxonomy (one recording, many views) | §23 | PARTIAL | **PROTOTYPED** (ALL/SESSIONS/QUESTIONS/PB/MENTOR/SAVED/FAV) | PROTOTYPED | NOT IMPLEMENTED | mock | Canonical record + view indexes | CX |
+| 24 | Progression/game system (missions, streak, mastery, challenges) | §24 | PARTIAL | **PROTOTYPED** (4 missions live on HOME/PROGRESS) | PROTOTYPED | NOT IMPLEMENTED | mock | Mission engine off limiting contributors | CX+MM |
+| 25 | Beta priority: real telemetry into selected gauges before visual polish | §25 | — | **ACKNOWLEDGED — governs slice order (F first among UI slices)** | — | — | NEEDS WIRING | See implementation map slice F | CX |
+| 26 | Film Room persistence (lanes, chips, marks per answer) | — | PROTOTYPED | PROTOTYPED | PROTOTYPED | NOT IMPLEMENTED | mock | Lane/event store per recording | CX |
+| 27 | Fingerprint baseline flow (capture→extract→compare→recover; expiry) | — | PROTOTYPED | PROTOTYPED | PROTOTYPED | NOT IMPLEMENTED | mock | Baseline session type + store | CX |
+| 28 | Gesture Field final pick / Mentor final pick | 3492 ledger | FOUNDER CHOICE | **FOUNDER CHOICE (still open: GF-B/C/D · MENT-A2/C/D)** | built | — | — | Founder returns two IDs | F |
+| 29 | Claim safety / composite law / coverage honesty | 3471C/3472 | LOCKED | **LOCKED** | LOCKED | CI lint pending | — | String-lint in CI | CX |
+
+**Founder final-standard checklist:** every YES-question in the 3493 ticket maps to a PROTOTYPED row above and is walkable in the NorthStar — question choice (1), custom interview (3), presets (2), interviewer config (4), platform sim (6), HUD choice (14), overlay toggles (15), hidden-still-recording (16), quick single-question practice (18), full interview (20), replay all answers (7), all attempts per question (8), async mentor review (9), StoryForge suggestions (10), StoryForge evidence (11), DI evidence (13/26), compare (FILM-B), Personal Best (7/24), MatchBridge consent (12), Kelly stage readiness (21), one product (shell + system throughout).

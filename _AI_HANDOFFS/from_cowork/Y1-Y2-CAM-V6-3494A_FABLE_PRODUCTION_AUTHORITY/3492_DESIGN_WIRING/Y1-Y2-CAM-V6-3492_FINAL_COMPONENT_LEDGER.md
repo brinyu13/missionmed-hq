@@ -1,0 +1,28 @@
+# Y1-Y2-CAM-V6-3492 — FINAL COMPONENT LEDGER
+
+Every major component, categorized per the freeze standard. "REFINED-LOCKED" = Founder REFINE disposition executed in the NorthStar prototype; frozen unless the Founder objects to the specific refinement on review.
+
+| Component | 3491 ID | Status | Run 3 result |
+|---|---|---|---|
+| App shell / Performance Studio | SHELL-A | **LOCKED** | Polished: tactile rail, angular gold selection, role switcher, Matrix return. No structural change. |
+| Speaking Pace performance arc | SPD-C | **LOCKED** | Equipment-grade housing: tick ring, gold hub needle, sliding phase window with label flash, 3s dwell → PACE LOCKED snap, PAUSE — OWN IT neutral state. |
+| Delivery Training stage | ST-B | **REFINED-LOCKED** | Cinematic workspace: question plate, session plate, full-bleed student stage w/ Dr Kelly mini-feed, right instrument column (SPD-C + VOL-E), adaptive rail beneath. Video is the center; instruments are furniture. |
+| Simulation stage | (ST-A rejected) | **REFINED-LOCKED** | Derived from finalized ST-B architecture: same chrome, HUD removed, Dr Kelly + student two-panel composition, fallback demos wired. |
+| Live HUD adaptive rail | HUD-C | **REFINED-LOCKED** | Dimensional chamfered plates; active plate expands to 3.4× with imperative + mini-corridor; contracts on fix; 4s dwell arbitration; setup pre-empts; UNAV plates marked. |
+| Voice Volume | VOL-E | **REFINED-LOCKED** | Final hybrid: pressure column + target window (primary) + 12s trace memory (VV-EKG learning) + hold-charge bar (VV2 learning) → LOCKED — HOLD gold snap. Corrections unchanged: LOUDER / SOFTER / IN THE WINDOW / LOCKED. |
+| Pitch registers | PIT-A | **REFINED-LOCKED** | Musical register instrument: active register glows, dwell fills, decay drains, median line, range + registers-used readout, honest PITCH — UNAVAILABLE. No "higher is better" anywhere. |
+| Gesture Field | GF-A **REJECTED** | **FOUNDER DECISION REQUIRED** | Three genuinely new concepts in DESIGN REVIEW: **GF-B Performance Territory** (L/R territory pools), **GF-C Motion Ribbons** (physical gesture paths), **GF-D Live Envelope ★ Fable pick** (expanding hull vs dashed baseline hull — answers all six live questions and ties directly to the Fingerprint). |
+| Gesture territory topology | HT-B | **REFINED-LOCKED** | Contour topology with toggles LEFT/RIGHT/BOTH × INTERVIEW/NATURAL/DELTA, silhouette anchor, fact plates (most-used, unused, suppression −34%, face intrusion, below-frame loss). Post/Film Room + Fingerprint screen. |
+| Gesture Event Registry | REG-A | **REFINED-LOCKED** | Premium evidence registry: counts + confidence + moments (Mentor), single live toast, every row jumps to Film Room. Language: GESTURE CANDIDATES DETECTED — evidence, not achievements. |
+| Camera silhouette fit | CAM-C | **REFINED-LOCKED** | Zoned silhouette (head/shoulders/torso + dotted hands zone), mode targets INTERVIEW/TRAINING/BASELINE, directive verbs (MOVE BACK…GET BOTH HANDS IN FRAME), 2s hold → CAMERA READY gold snap. No fake fit %. |
+| Delivery Congruence mixer | CON-B | **REFINED-LOCKED** | Five-channel performance mixer: faders w/ target zones + knobs, LIMITING channel lit, master fader + coverage denominator, **CORE PROFILE (🔒 governed) vs TODAY'S TRAINING MIX (⇄ radial loadout)** hard separation. |
+| Cue Profile system | COMP/WARM/CRED/CHAR-A | **REFINED-LOCKED** | One mixer chassis, four identities; CRED ships as Mentor/LAB lens; CHAR is canonical (Warmth-Cue, Competence-Cue, Congruence, Gesture Effectiveness under cap law) with the training mix explicitly non-canonical; "why is it 78 / what limits it / what to change" answered by master + LIMITING + channel fix. |
+| Warmth × Competence field | (restored) | **REFINED-LOCKED** | 2-axis field + trajectory trail + target zone, cue-bounded copy. POST / Mentor / Film Room. |
+| Flight Recorder | FR-C | **REFINED-LOCKED** | Split recorder: video left; grouped tracks (VOICE / FACE-BODY / HANDS / GESTURES / COMPOSITES / COACHING / MENTOR) with 👁/S/collapse, zoom ±, click-scrub, chips seek −2s w/ evidence panel, hatched pitch + R-hand coverage gaps. Drag-reorder deferred to build (noted in frontend contract). |
+| Compare Room | FILM-B | **REFINED-LOCKED** | Five comparison pairs (Baseline/Today, A1/A4, Natural/Interview, Before/After coaching, Baseline/Best), synchronized playhead, phase-aligned envelope lanes, delta read, OPEN FULL FLIGHT RECORDER per side. |
+| Mentor / Admin | MENT-A donor | **FOUNDER DECISION REQUIRED** | Three concepts in DESIGN REVIEW: **MENT-A2 Sideline Studio evolved ★ Fable pick**, **MENT-C Performance Coach Booth** (profiles + hotkeys), **MENT-D Film Director Live Desk** (multi-feed + mark strip). Privacy law identical in all three. |
+| Post-answer card | AR (3490) | **REFINED-LOCKED** | Worked/Fix with replay chips + SAF(e) structure cards, visually separate, qualitative. |
+| Home / New Session / Device Check / Progress / Fingerprint / Vault / StoryForge / Admin | — | **REFINED-LOCKED** | Production screens in the system (see prototype); Fingerprint has its full capture→extract→compare→recover flow with the topology instrument. |
+| Dr Kelly stage | — | **REFINED-LOCKED** | Designed placeholder figure + stream mount marker + state plate (READY/CONNECTING/ASKING/LISTENING/REACTING/FOLLOW-UP/ENDING) + VOICE-ONLY and AVATAR UNAVAILABLE first-class fallbacks. Real LemonSlice track drops into the mount per the Avatar contract. |
+
+**Remaining Founder decisions: exactly two — GESTURE FIELD (GF-B / GF-C / GF-D) and MENTOR (MENT-A2 / MENT-C / MENT-D).** Everything else is LOCKED or REFINED-LOCKED. Return via the DESIGN REVIEW screen's COPY DECISIONS button.

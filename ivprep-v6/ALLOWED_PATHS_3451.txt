@@ -1,0 +1,12 @@
+ivprep-v6/ALLOWED_PATHS_3451.txt
+ivprep-v6/README.md
+ivprep-v6/public/aaa/index.html
+ivprep-v6/public/aaa/styles.css
+ivprep-v6/public/aaa/app.mjs
+ivprep-v6/public/aaa/fixtures.mjs
+ivprep-v6/test/aaa-prototype.test.mjs
+ivprep-v6/test/aaa-ux-accessibility.test.mjs
+_AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3451/Y1_Y2_CAM_V6_3451_PRODUCT_UX_FINDINGS.md
+_AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3451/Y1_Y2_CAM_V6_3451_VISUAL_AUTHORITY_MAP.md
+_AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3451/Y1_Y2_CAM_V6_3451_INTEGRATION_CONTRACT.md
+_AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3451/Y1_Y2_CAM_V6_3451_COMPLETE_COMBINED_HANDOFF.md

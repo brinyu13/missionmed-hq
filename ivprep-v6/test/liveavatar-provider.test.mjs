@@ -1,0 +1,495 @@
+import { EventEmitter } from 'node:events';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { NullAvatarProvider } from '../providers/avatar-provider.mjs';
+import { ProviderError, publicProviderError } from '../providers/errors.mjs';
+import {
+  LIVEAVATAR_AUDIO_CONTRACT,
+  LiveAvatarProvider,
+  createAvatarProviderFromEnv,
+  liveAvatarConfigFromEnv,
+} from '../providers/liveavatar-provider.mjs';
+
+const TEST_ENV = Object.freeze({
+  LIVEAVATAR_API_KEY: 'unit-test-api-key',
+  LIVEAVATAR_AVATAR_ID: 'bd43ce31-7425-4379-8407-60f029548e61',
+  LIVEAVATAR_SANDBOX: 'false',
+  LIVEAVATAR_MAX_SESSION_SECONDS: '120',
+});
+
+class FakeWebSocket extends EventEmitter {
+  static instances = [];
+
+  constructor(url) {
+    super();
+    this.url = url;
+    this.readyState = 0;
+    this.sent = [];
+    FakeWebSocket.instances.push(this);
+    queueMicrotask(() => {
+      this.readyState = 1;
+      this.emit('message', JSON.stringify({ type: 'session.state_updated', state: 'connected' }));
+    });
+  }
+
+  send(value) {
+    if (this.readyState !== 1) throw new Error('socket not open');
+    const event = JSON.parse(value);
+    this.sent.push(event);
+    if (event.type === 'agent.speak_end') {
+      queueMicrotask(() => this.emit('message', JSON.stringify({
+        type: 'agent.speak_ended',
+        event_id: event.event_id,
+      })));
+    }
+  }
+
+  close() {
+    if (this.readyState === 3) return;
+    this.readyState = 3;
+    this.emit('close');
+  }
+}
+
+function response(data, { ok = true, status = 200 } = {}) {
+  return { ok, status, async json() { return data; } };
+}
+
+function providerHarness({
+  stopFailure = false,
+  stopFailures = stopFailure ? Number.POSITIVE_INFINITY : 0,
+  startData = null,
+} = {}) {
+  const calls = [];
+  let remainingStopFailures = stopFailures;
+  let mintedSessions = 0;
+  let currentSessionId = null;
+  const fetchImpl = async (url, init) => {
+    const path = new URL(url).pathname;
+    calls.push({ path, init });
+    if (path === '/v1/sessions/token') {
+      mintedSessions += 1;
+      currentSessionId = mintedSessions === 1
+        ? '77777777-7777-4777-8777-777777777777'
+        : `88888888-8888-4888-8888-${String(mintedSessions).padStart(12, '0')}`;
+      return response({
+        code: 100,
+        data: {
+          session_id: currentSessionId,
+          session_token: 'unit-test-session-token',
+        },
+      });
+    }
+    if (path === '/v1/sessions/start') {
+      return response({
+        code: 100,
+        data: startData || {
+          session_id: currentSessionId,
+          livekit_url: 'wss://unit.test/livekit',
+          livekit_client_token: 'unit-test-client-token',
+          livekit_agent_token: 'must-not-be-retained',
+          ws_url: 'wss://unit.test/control?ephemeral=1',
+          max_session_duration: 120,
+        },
+      }, { status: 201 });
+    }
+    if (path === '/v1/sessions/stop') {
+      if (remainingStopFailures > 0) {
+        remainingStopFailures -= 1;
+        return response({}, { ok: false, status: 503 });
+      }
+      return response({ code: 100, data: null });
+    }
+    throw new Error(`unexpected test path: ${path}`);
+  };
+
+  FakeWebSocket.instances = [];
+  let now = Date.parse('2026-08-02T12:00:00.000Z');
+  const provider = new LiveAvatarProvider({
+    env: TEST_ENV,
+    fetchImpl,
+    WebSocketImpl: FakeWebSocket,
+    now: () => now,
+    randomUUIDImpl: () => '99999999-9999-4999-8999-999999999999',
+    setIntervalImpl: () => ({ unref() {} }),
+    clearIntervalImpl() {},
+    connectTimeoutMs: 100,
+    stopRetryDelays: [0, 0, 0],
+  });
+  return {
+    provider,
+    calls,
+    advance(milliseconds) { now += milliseconds; },
+  };
+}
+
+test('environment configuration is fail-closed, uses the locked production avatar, and is capped at two beta minutes', () => {
+  const empty = liveAvatarConfigFromEnv({});
+  assert.equal(empty.configured, false);
+  assert.equal(empty.avatarId, TEST_ENV.LIVEAVATAR_AVATAR_ID);
+  assert.equal(empty.sandbox, false);
+  assert.match(empty.unavailableReason, /voice-only/i);
+
+  const capped = liveAvatarConfigFromEnv({ ...TEST_ENV, LIVEAVATAR_MAX_SESSION_SECONDS: '99999' });
+  assert.equal(capped.configured, true);
+  assert.equal(capped.hasServerAuthorization, true);
+  assert.equal(Object.hasOwn(capped, 'apiKey'), false);
+  assert.equal(capped.maxSessionDuration, 120);
+  assert.equal(capped.videoEncoding, 'H264');
+  assert.equal(capped.lockedVoiceTargetId, 'a33a57ab-8388-49fc-a069-dbcfd1bc5405');
+  assert.equal(capped.lockedVoiceCompatibility, 'unverified-until-authenticated-provider-proof');
+  const keyOnly = liveAvatarConfigFromEnv({ LIVEAVATAR_API_KEY: 'present' });
+  assert.equal(keyOnly.configured, true);
+  assert.equal(keyOnly.avatarId, TEST_ENV.LIVEAVATAR_AVATAR_ID);
+  assert.throws(() => liveAvatarConfigFromEnv({
+    LIVEAVATAR_API_KEY: 'present',
+    LIVEAVATAR_AVATAR_ID: '11111111-1111-4111-8111-111111111111',
+  }), /Founder-locked Dexter/);
+});
+
+test('factory selects a truthful inactive provider without complete server configuration', async () => {
+  const provider = createAvatarProviderFromEnv({ env: { LIVEAVATAR_AVATAR_ID: TEST_ENV.LIVEAVATAR_AVATAR_ID } });
+  assert.ok(provider instanceof NullAvatarProvider);
+  assert.match((await provider.start()).reason, /server authorization is unavailable/i);
+});
+
+test('LITE session uses the authenticated API contract and keeps control credentials out of diagnostics', async () => {
+  const { provider, calls } = providerHarness();
+  assert.deepEqual(await provider.configure(), {
+    provider: 'liveavatar',
+    status: 'configured',
+    mode: 'LITE',
+    deliveryProfileId: 'liveavatar-lite-supplied-pcm',
+    capabilityVersion: 1,
+    implemented: true,
+    blockedReason: null,
+    capabilities: provider.capabilities(),
+    providerAdvertisedCapabilities: {
+      supportsSuppliedAudio: true,
+      supportsProviderVoice: false,
+      supportsProviderAgent: false,
+      supportsInterrupt: true,
+      supportsListeningState: true,
+      supportsRealtimeVideo: true,
+      supportsReconnect: true,
+    },
+    avatarId: TEST_ENV.LIVEAVATAR_AVATAR_ID,
+    voiceTargetId: 'a33a57ab-8388-49fc-a069-dbcfd1bc5405',
+    voiceSelectionApplied: false,
+    audioAuthority: 'liveavatar-livekit',
+    intelligenceOwner: 'conversation-rail',
+  });
+  await assert.rejects(
+    provider.configure({ avatarId: '11111111-1111-4111-8111-111111111111' }),
+    /Founder-locked Dexter/,
+  );
+  const created = await provider.createSession();
+  const started = await provider.start();
+
+  assert.deepEqual(created, {
+    provider: 'liveavatar',
+    status: 'created',
+    mode: 'LITE',
+    deliveryProfileId: 'liveavatar-lite-supplied-pcm',
+    capabilities: provider.capabilities(),
+    sessionId: '77777777-7777-4777-8777-777777777777',
+    avatarId: TEST_ENV.LIVEAVATAR_AVATAR_ID,
+    sandbox: false,
+    maxSessionDuration: 120,
+  });
+  assert.equal(started.status, 'connected');
+  assert.equal(started.media.transport, 'livekit');
+  assert.deepEqual(started.audioInput, {
+    encoding: 'pcm_s16le',
+    sampleRateHz: 24000,
+    channels: 1,
+  });
+
+  const tokenCall = calls.find((call) => call.path === '/v1/sessions/token');
+  const tokenBody = JSON.parse(tokenCall.init.body);
+  assert.equal(tokenCall.init.headers['X-API-KEY'], TEST_ENV.LIVEAVATAR_API_KEY);
+  assert.deepEqual(tokenBody, {
+    mode: 'LITE',
+    avatar_id: TEST_ENV.LIVEAVATAR_AVATAR_ID,
+    is_sandbox: false,
+    video_settings: { quality: 'high', encoding: 'H264' },
+    max_session_duration: 120,
+  });
+  const startCall = calls.find((call) => call.path === '/v1/sessions/start');
+  assert.equal(startCall.init.headers.authorization, 'Bearer unit-test-session-token');
+
+  const diagnostics = JSON.stringify({ health: provider.health(), usage: provider.usage() });
+  assert.equal(diagnostics.includes(TEST_ENV.LIVEAVATAR_API_KEY), false);
+  assert.equal(diagnostics.includes('unit-test-session-token'), false);
+  assert.equal(diagnostics.includes('must-not-be-retained'), false);
+  assert.equal(diagnostics.includes('ephemeral=1'), false);
+  await provider.stop({ reason: 'completed' });
+  const stopCall = calls.find((call) => call.path === '/v1/sessions/stop');
+  assert.deepEqual(JSON.parse(stopCall.init.body), {
+    session_id: '77777777-7777-4777-8777-777777777777',
+    reason: 'USER_CLOSED',
+  });
+  await provider.close();
+});
+
+test('insufficient credits remain a fixed public condition and an unstarted token is not stopped as active media', async () => {
+  const paths = [];
+  const provider = new LiveAvatarProvider({
+    env: TEST_ENV,
+    WebSocketImpl: FakeWebSocket,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname;
+      paths.push(path);
+      if (path === '/v1/sessions/token') return response({
+        code: 1000,
+        data: { session_id: '77777777-7777-4777-8777-777777777777', session_token: 'unit-test-session-token' },
+      });
+      if (path === '/v1/sessions/start') return response({ code: 4033, data: null, message: 'not exposed' }, { ok: false, status: 403 });
+      throw new Error(`unexpected test path: ${path}`);
+    },
+  });
+  await assert.rejects(provider.start(), (error) => (
+    error.code === 'liveavatar_insufficient_credits'
+    && /insufficient credits/i.test(error.publicMessage)
+  ));
+  assert.deepEqual(paths, ['/v1/sessions/token', '/v1/sessions/start']);
+  await provider.close();
+});
+
+test('finished 24 kHz PCM is sent as synchronized speak/speak_end and can be interrupted', async () => {
+  const { provider, advance } = providerHarness();
+  await provider.start();
+  const socket = FakeWebSocket.instances.at(-1);
+  const pcm = Buffer.alloc(48_000, 7);
+
+  const result = await provider.enqueueAudio(pcm);
+  assert.deepEqual(result, {
+    accepted: true,
+    eventId: '99999999-9999-4999-8999-999999999999',
+    bytes: 48_000,
+    final: true,
+    playbackEnded: true,
+    reason: 'provider-event',
+  });
+  assert.deepEqual(socket.sent.slice(0, 2), [
+    {
+      type: 'agent.speak',
+      event_id: '99999999-9999-4999-8999-999999999999',
+      audio: pcm.toString('base64'),
+    },
+    { type: 'agent.speak_end', event_id: '99999999-9999-4999-8999-999999999999' },
+  ]);
+
+  assert.deepEqual(await provider.interrupt(), { interrupted: true, eventId: null, cancelledEvents: 0 });
+  assert.deepEqual(socket.sent.at(-1), { type: 'agent.interrupt' });
+  advance(90_000);
+  assert.deepEqual(provider.usage(), {
+    provider: 'liveavatar',
+    mode: 'LITE',
+    usageClass: 'liveavatar-lite-session-minute',
+    sessions: 1,
+    active: true,
+    sessionId: '77777777-7777-4777-8777-777777777777',
+    createdAt: '2026-08-02T12:00:00.000Z',
+    startedAt: '2026-08-02T12:00:00.000Z',
+    endedAt: null,
+    estimatedMinutes: 1.5,
+    audioBytes: 48_000,
+    audioChunks: 1,
+    audioSeconds: 1,
+    interruptions: 1,
+    reconnects: 0,
+  });
+  await provider.close();
+});
+
+test('async PCM streams preserve one utterance event and close it once', async () => {
+  const { provider } = providerHarness();
+  await provider.start();
+  const socket = FakeWebSocket.instances.at(-1);
+
+  async function* audio() {
+    yield Buffer.alloc(4_800, 1);
+    yield Buffer.alloc(9_600, 2);
+  }
+
+  const result = await provider.attachAudioStream(audio());
+  assert.equal(result.chunks, 2);
+  assert.equal(result.bytes, 14_400);
+  assert.deepEqual(socket.sent.map((event) => event.type), [
+    'agent.speak',
+    'agent.speak',
+    'agent.speak_end',
+  ]);
+  assert.equal(new Set(socket.sent.map((event) => event.event_id)).size, 1);
+  await provider.close();
+});
+
+test('interrupt invalidates an utterance ID so stale audio cannot resume after barge-in', async () => {
+  const { provider } = providerHarness();
+  await provider.start();
+  const pcm = Buffer.alloc(4_800, 3);
+  const eventId = '88888888-8888-4888-8888-888888888888';
+
+  const first = await provider.enqueueAudio(pcm, { eventId, final: false });
+  assert.equal(first.accepted, true);
+  assert.deepEqual(await provider.interrupt({ eventId }), {
+    interrupted: true,
+    eventId,
+    cancelledEvents: 1,
+  });
+  await assert.rejects(
+    provider.enqueueAudio(pcm, { eventId, final: true }),
+    (error) => error instanceof ProviderError && error.code === 'liveavatar_audio_cancelled',
+  );
+  const sent = FakeWebSocket.instances.at(-1).sent;
+  assert.deepEqual(sent.map((event) => event.type), ['agent.speak', 'agent.interrupt']);
+  await provider.close();
+});
+
+test('only the explicit production-avatar endurance harness may raise duration above the product cap', async () => {
+  const endurance = new LiveAvatarProvider({
+    env: TEST_ENV,
+    fetchImpl: async () => response({ code: 100, data: {} }),
+    WebSocketImpl: FakeWebSocket,
+    enduranceHarness: true,
+    enduranceDurationSeconds: 600,
+  });
+  assert.equal(endurance.health().configured, true);
+  await endurance.close();
+  assert.throws(() => new LiveAvatarProvider({
+    env: { ...TEST_ENV, LIVEAVATAR_SANDBOX: 'true' },
+    enduranceHarness: true,
+    enduranceDurationSeconds: 600,
+  }), /production mode/);
+  assert.throws(() => new LiveAvatarProvider({
+    env: TEST_ENV,
+    enduranceHarness: true,
+    enduranceDurationSeconds: 901,
+  }), /600–900/);
+});
+
+test('audio contract rejects wrong formats and unsafe packet sizes before socket transmission', async () => {
+  const { provider } = providerHarness();
+  await provider.start();
+  const socket = FakeWebSocket.instances.at(-1);
+
+  await assert.rejects(
+    provider.enqueueAudio(Buffer.alloc(100), { format: 'mp3' }),
+    (error) => error instanceof ProviderError && error.code === 'liveavatar_invalid_audio',
+  );
+  await assert.rejects(
+    provider.enqueueAudio(Buffer.alloc(LIVEAVATAR_AUDIO_CONTRACT.maxRawChunkBytes + 2)),
+    (error) => error instanceof ProviderError && error.code === 'liveavatar_audio_too_large',
+  );
+  assert.equal(socket.sent.length, 0);
+  await provider.close();
+});
+
+test('reconnect replaces only the control socket and does not mint a duplicate provider session', async () => {
+  const { provider, calls } = providerHarness();
+  await provider.start();
+  const first = FakeWebSocket.instances.at(-1);
+  const result = await provider.reconnect();
+
+  assert.equal(result.reconnected, true);
+  assert.equal(first.readyState, 3);
+  assert.equal(FakeWebSocket.instances.length, 2);
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/token').length, 1);
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/start').length, 1);
+  assert.equal(provider.usage().reconnects, 1);
+  await provider.close();
+});
+
+test('transient remote stop failure is retried without creating another provider session', async () => {
+  const { provider, calls } = providerHarness({ stopFailures: 1 });
+  await provider.start();
+  const result = await provider.stop();
+
+  assert.deepEqual(result, { stopped: true, reason: 'USER_CLOSED' });
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/stop').length, 2);
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/token').length, 1);
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/start').length, 1);
+  assert.equal(provider.health().sessionId, null);
+});
+
+test('remote stop is acknowledged before the local control socket is closed', async () => {
+  const { provider, calls } = providerHarness();
+  await provider.start();
+  const socket = FakeWebSocket.instances.at(-1);
+  let socketOpenAtStop = false;
+  const originalFetch = calls;
+  assert.ok(originalFetch);
+  const stopPromise = provider.stop({ reason: 'USER_CLOSED' });
+  socketOpenAtStop = socket.readyState === 1;
+  await stopPromise;
+  assert.equal(socketOpenAtStop, true);
+  assert.equal(socket.readyState, 3);
+});
+
+test('provider-success start with malformed media data is remotely stopped before ownership is cleared', async () => {
+  const { provider, calls } = providerHarness({
+    startData: {
+      session_id: '77777777-7777-4777-8777-777777777777',
+      livekit_url: 'wss://unit.test/livekit',
+      // Deliberately omit the client token and control URL after provider success.
+    },
+  });
+
+  await assert.rejects(
+    provider.start(),
+    (error) => error instanceof ProviderError
+      && error.code === 'liveavatar_start_failed'
+      && /omitted required LITE session data/.test(error.cause?.message || ''),
+  );
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/stop').length, 1);
+  assert.equal(provider.health().sessionId, null);
+  await provider.close();
+});
+
+test('two sequential sessions mint independent provider sessions and clean local transport between runs', async () => {
+  const { provider, calls } = providerHarness();
+  await provider.start();
+  const firstSessionId = provider.health().sessionId;
+  const firstSocket = FakeWebSocket.instances.at(-1);
+  await provider.stop({ reason: 'completed' });
+  assert.equal(firstSocket.readyState, 3);
+  assert.equal(provider.health().sessionId, null);
+
+  await provider.start();
+  const secondSessionId = provider.health().sessionId;
+  const secondSocket = FakeWebSocket.instances.at(-1);
+  assert.notEqual(secondSocket, firstSocket);
+  assert.notEqual(secondSessionId, firstSessionId);
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/token').length, 2);
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/start').length, 2);
+  assert.equal(provider.usage().sessions, 2);
+  await provider.close();
+  assert.equal(secondSocket.readyState, 3);
+});
+
+test('remote stop failure closes local media, preserves retry context, and returns a sanitized error', async () => {
+  const { provider } = providerHarness({ stopFailure: true });
+  await provider.start();
+  const socket = FakeWebSocket.instances.at(-1);
+
+  await assert.rejects(
+    provider.stop(),
+    (error) => {
+      assert.equal(error instanceof ProviderError, true);
+      assert.equal(error.code, 'liveavatar_stop_failed');
+      assert.deepEqual(publicProviderError(error), {
+        error: 'The live avatar is unavailable. Continue in voice-only mode.',
+        code: 'liveavatar_stop_failed',
+        provider: 'liveavatar',
+        retryable: true,
+      });
+      return true;
+    },
+  );
+  assert.equal(socket.readyState, 3);
+  assert.equal(provider.health().connected, false);
+  assert.equal(provider.health().fallback, 'voice-only');
+  assert.equal(provider.health().sessionId, '77777777-7777-4777-8777-777777777777');
+});

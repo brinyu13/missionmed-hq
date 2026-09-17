@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0a0d14">
+  <title>IV Prep On-Call · MissionMed</title>
+  <link rel="stylesheet" href="/iv-prep-on-call/assets/aaa/styles.css">
+  <link rel="stylesheet" href="/iv-prep-on-call/assets/analytics/analytics.css">
+</head>
+<body data-active-view="intro">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <section class="intro" id="intro" aria-labelledby="intro-title">
+    <div class="intro-atmosphere" aria-hidden="true">
+      <div class="conversation-ribbon ribbon-a"></div>
+      <div class="conversation-ribbon ribbon-b"></div>
+      <div class="conversation-ribbon ribbon-c"></div>
+      <div class="pulse-field pulse-field-a"></div>
+      <div class="pulse-field pulse-field-b"></div>
+      <div class="room-light room-light-a"></div>
+      <div class="room-light room-light-b"></div>
+      <div class="energy-grid"></div>
+    </div>
+    <header class="intro-masthead">
+      <a class="matrix-return" href="/member-dashboard/" aria-label="Return to MissionMed Matrix">← MATRIX</a>
+      <div class="brand-lockup" aria-label="MissionMed Institute, Mission Residency Division">
+        <span class="brand-parent">MissionMed</span><span class="brand-slash">//</span><span class="brand-product">IV Prep On-Call</span>
+        <span class="brand-division">MISSION:RESIDENCY DIVISION</span>
+      </div>
+      <button class="sound-control" id="intro-motion-toggle" type="button" aria-pressed="false">Reduce motion</button>
+    </header>
+    <div class="intro-content">
+      <p class="eyebrow gold">YOUR PRIVATE INTERVIEW COACH</p>
+      <h1 id="intro-title">Walk in ready.<br><span>Answer like yourself.</span></h1>
+      <p class="intro-lede">Practice the pressure, timing, and follow-ups of a real residency interview—with a coach who remembers the whole conversation.</p>
+      <div class="intro-actions">
+        <button class="btn btn-primary btn-xl" id="enter-product" type="button">ENTER IV PREP <span aria-hidden="true">▸</span></button>
+        <button class="btn btn-quiet" id="preview-today" type="button">See today's assignment</button>
+      </div>
+      <div class="intro-proof" aria-label="Product capabilities">
+        <span><i class="proof-dot live"></i> Contextual conversation</span>
+        <span><i class="proof-dot"></i> Program-specific practice</span>
+        <span><i class="proof-dot"></i> Evidence you can replay</span>
+      </div>
+    </div>
+    <div class="intro-call-response" aria-hidden="true">
+      <span class="call">TELL ME ABOUT YOURSELF</span>
+      <span class="response">I'M READY</span>
+    </div>
+  </section>
+
+  <div class="product-shell" id="product-shell" hidden>
+    <header class="global-masthead">
+      <button class="mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+      <a class="compact-brand" href="#home" data-nav="home" aria-label="IV Prep On-Call home">
+        <span>MissionMed<span class="brand-slash">//</span></span><strong>IV Prep On-Call</strong>
+        <small>MISSION:RESIDENCY DIVISION</small>
+      </a>
+      <div class="journey-context" aria-live="polite">
+        <span class="context-kicker" id="context-kicker">TODAY'S PRACTICE</span>
+        <strong id="context-title">Your private interview coach</strong>
+      </div>
+      <div class="system-state">
+        <span class="state-pill"><i class="proof-dot live"></i> Coach ready</span>
+        <span class="state-pill" id="hosted-runtime-state" hidden><i class="proof-dot"></i> Hosted worker checking</span>
+        <button class="icon-button" type="button" aria-label="Open notifications">●</button>
+        <button class="avatar-button" type="button" aria-label="Open account menu">—</button>
+      </div>
+    </header>
+
+    <aside class="left-rail" id="left-rail" aria-label="IV Prep navigation">
+      <nav>
+        <p class="nav-section-label">PRACTICE</p>
+        <button class="nav-item active" type="button" data-nav="home" aria-current="page"><span>⌂</span><b>Home</b></button>
+        <button class="nav-item" type="button" data-nav="instant"><span>⚡</span><b>Instant Interview</b></button>
+        <button class="nav-item" type="button" data-nav="custom"><span>＋</span><b>Build an Interview</b></button>
+
+        <p class="nav-section-label">REVIEW</p>
+        <button class="nav-item" type="button" data-nav="results"><span>▥</span><b>Your Results</b><em>New</em></button>
+        <button class="nav-item" type="button" data-nav="vault"><span>▣</span><b>Interview Vault</b></button>
+        <button class="nav-item" type="button" data-nav="mentor"><span>◇</span><b>Mentor Review</b></button>
+        <button class="nav-item" type="button" data-nav="debrief"><span>◉</span><b>Real Interview Debrief</b></button>
+        <button class="nav-item" id="delivery-intelligence-nav" type="button" data-nav="delivery" hidden><span>⌁</span><b>Delivery Intelligence</b></button>
+
+        <p class="nav-section-label">PREP SOURCES</p>
+        <button class="nav-item" type="button" data-nav="file"><span>▤</span><b>Your File</b></button>
+        <button class="nav-item" type="button" data-nav="program"><span>⌖</span><b>Program Intel</b></button>
+      </nav>
+      <a class="nav-item" href="/member-dashboard/" style="margin-top:auto"><span>←</span><b>Back to Matrix</b></a>
+      <div class="rail-profile">
+        <div class="profile-mark" id="identity-initials">—</div>
+        <div><strong id="identity-name">Loading…</strong><span id="identity-sub">SESSION</span></div>
+      </div>
+    </aside>
+    <button class="nav-backdrop" id="nav-backdrop" type="button" aria-label="Close navigation" hidden></button>
+
+    <main id="main-content" tabindex="-1">
+      <section class="view active" data-view-panel="home" aria-labelledby="home-title">
+        <div class="page-head home-head">
+          <div>
+            <p class="eyebrow">MONDAY · AUGUST 10</p>
+            <h1 id="home-title">What should I practice today?</h1>
+            <p id="home-greeting">Welcome back. Your focused reps are ready.</p>
+          </div>
+          <div class="streak-chip" aria-label="Three day practice streak"><strong>3</strong><span>day<br>streak</span></div>
+        </div>
+
+        <section class="assignment-hero" aria-labelledby="assignment-title">
+          <div class="assignment-copy">
+            <div class="coach-tag"><span>DB</span> DR BRIAN'S ORDER</div>
+            <p class="eyebrow gold">TODAY · 3 REPS · ABOUT 12 MINUTES</p>
+            <h2 id="assignment-title">Own the opening.<br>Then make them lean in.</h2>
+            <p class="coach-note">Your content is there. Today we're slowing the first thirty seconds and making the transition into your clinical story feel intentional.</p>
+            <div class="hero-actions">
+              <button class="btn btn-primary btn-xl" type="button" data-action="start-assigned">START TODAY'S INTERVIEW <span>▸</span></button>
+              <button class="btn btn-secondary" type="button" data-nav="custom">Build my own instead</button>
+            </div>
+          </div>
+          <ol class="rep-plan" aria-label="Today's practice plan">
+            <li class="current"><span>01</span><div><strong>Tell me about yourself</strong><small>2 reps · Slow the opening</small></div><em>NOW</em></li>
+            <li><span>02</span><div><strong>Why internal medicine?</strong><small>1 rep · Make the transition</small></div><em>04 MIN</em></li>
+            <li><span>03</span><div><strong>Your closing question</strong><small>1 rep · Own the pause</small></div><em>03 MIN</em></li>
+          </ol>
+        </section>
+
+        <div class="home-grid">
+          <section class="panel progress-panel" aria-labelledby="progress-title">
+            <div class="panel-heading"><div><p class="eyebrow">YOUR ARC</p><h2 id="progress-title">Interview-ready, one rep at a time.</h2></div><button class="text-action" type="button" data-nav="vault">View history →</button></div>
+            <div class="stage-track" aria-label="Practice progression">
+              <div class="stage complete"><b>1</b><span>Build your answers</span></div>
+              <div class="stage active"><b>2</b><span>Handle follow-ups</span></div>
+              <div class="stage"><b>3</b><span>Own the room</span></div>
+              <div class="stage"><b>4</b><span>Interview week</span></div>
+            </div>
+          </section>
+          <section class="panel last-rep" aria-labelledby="last-rep-title">
+            <div class="panel-heading"><div><p class="eyebrow">LAST REP · YESTERDAY</p><h2 id="last-rep-title">Stronger pace. Sharper close.</h2></div><span class="trend">↑ 8%</span></div>
+            <div class="two-column-feedback">
+              <div><h3>What worked</h3><ul><li>Clear reason for choosing IM</li><li>Purposeful pause before the example</li></ul></div>
+              <div><h3>Next priority</h3><ul><li>Answer the question before adding context</li><li>End on the program, not yourself</li></ul></div>
+            </div>
+            <button class="text-action" type="button" data-nav="results">Open the full review →</button>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" data-view-panel="instant" aria-labelledby="instant-title">
+        <div class="page-head">
+          <div><p class="eyebrow">FAST PRACTICE</p><h1 id="instant-title">Start an interview in under a minute.</h1><p>Choose only what matters. We'll handle the rest.</p></div>
+          <span class="page-number">01</span>
+        </div>
+        <div class="instant-layout">
+          <form class="panel setup-form" id="instant-form">
+            <fieldset><legend>Specialty</legend><div class="choice-grid compact"><label class="choice selected"><input type="radio" name="specialty" value="Internal Medicine" checked><span>Internal Medicine</span></label><label class="choice"><input type="radio" name="specialty" value="Family Medicine"><span>Family Medicine</span></label><label class="choice"><input type="radio" name="specialty" value="Pediatrics"><span>Pediatrics</span></label></div></fieldset>
+            <fieldset><legend>Practice length</legend><div class="segmented"><label><input type="radio" name="length" value="8"><span>8 min</span></label><label><input type="radio" name="length" value="15" checked><span>15 min</span></label><label><input type="radio" name="length" value="20"><span>20 min</span></label></div></fieldset>
+            <fieldset><legend>Pressure</legend><div class="segmented"><label><input type="radio" name="pressure" value="Supportive"><span>Supportive</span></label><label><input type="radio" name="pressure" value="Realistic" checked><span>Realistic</span></label><label><input type="radio" name="pressure" value="High"><span>High</span></label></div></fieldset>
+            <button class="btn btn-primary btn-xl full" type="submit">READY TO INTERVIEW <span>▸</span></button>
+          </form>
+          <aside class="interviewer-card">
+            <div class="interviewer-portrait" aria-hidden="true"><span>PD</span><i></i></div>
+            <p class="eyebrow gold">YOUR INTERVIEWER</p>
+            <h2 id="instant-interviewer">Interviewer not yet assigned</h2><p id="instant-interviewer-sub">Prerecorded and live interviewer packs arrive with Dr Kelly / Dr Woods.</p>
+            <dl><div><dt>Style</dt><dd>Direct, calm, curious</dd></div><div><dt>Format</dt><dd>Conversational</dd></div><div><dt>Focus</dt><dd>Your path to IM</dd></div></dl>
+            <p class="truth-note"><i class="proof-dot live"></i> The assigned role and behavior are ready. Visual avatar availability is confirmed only inside the accepted live alpha room.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" data-view-panel="custom" aria-labelledby="custom-title">
+        <div class="page-head custom-head">
+          <div><p class="eyebrow">INTERVIEW DESIGNER</p><h1 id="custom-title">Build the interview you need.</h1><p>Start with a question, or let your MissionMed profile build the first draft.</p></div>
+          <button class="btn btn-profile" type="button" id="open-source-chooser">✦ BUILD FROM MY PROFILE <span>▾</span></button>
+        </div>
+
+        <div class="source-status" id="source-status" hidden><span>PROFILE SOURCE</span><strong>MissionMed Profile connected for this prototype</strong><button type="button" id="clear-source">Clear</button></div>
+
+        <div class="builder-toolbar">
+          <label class="search-field"><span class="sr-only">Search questions</span><b aria-hidden="true">⌕</b><input id="question-search" type="search" placeholder="Search any question…" autocomplete="off"></label>
+          <button class="btn btn-secondary" id="filter-toggle" type="button" aria-expanded="false" aria-controls="filter-drawer">FILTER <span id="filter-count">0</span></button>
+          <button class="btn btn-secondary" type="button" id="surprise-build">SURPRISE ME</button>
+        </div>
+        <div class="mobile-builder-tabs" role="tablist" aria-label="Interview builder sections">
+          <button class="active" type="button" role="tab" aria-selected="true" data-builder-tab="questions">QUESTIONS</button>
+          <button type="button" role="tab" aria-selected="false" data-builder-tab="plan">YOUR INTERVIEW <span id="mobile-plan-count">0</span></button>
+        </div>
+        <button class="sheet-backdrop" id="question-filter-backdrop" type="button" aria-label="Close question filters" hidden></button>
+        <div class="filter-drawer" id="filter-drawer" hidden>
+          <div class="mobile-sheet-head"><strong>Filter questions</strong><button type="button" id="filter-done">Done</button></div>
+          <div><strong>Question type</strong><div id="category-filters" class="filter-options"></div></div>
+          <button class="text-action" id="clear-filters" type="button">Clear filters</button>
+        </div>
+
+        <div class="builder-grid" id="builder-grid" data-mobile-pane="questions">
+          <section class="question-library" aria-labelledby="library-title" data-drop-zone="library">
+            <div class="section-heading"><div><p class="eyebrow">QUESTION LIBRARY</p><h2 id="library-title">Choose what they ask.</h2></div><span id="question-count" aria-live="polite">0 questions</span></div>
+            <div class="question-list" id="question-list"></div>
+          </section>
+          <section class="interview-plan" aria-labelledby="plan-title" data-drop-zone="plan">
+            <div class="section-heading"><div><p class="eyebrow gold">YOUR INTERVIEW</p><h2 id="plan-title">Question plan</h2></div><span id="plan-duration">0 min</span></div>
+            <div class="drop-instruction">Drag questions here, or use <strong>Add</strong>. Drag back to the library to remove.</div>
+            <ol class="plan-list" id="plan-list" aria-live="polite"></ol>
+            <div class="plan-empty" id="plan-empty"><span>＋</span><strong>Your interview starts here.</strong><p>Add a question from the library or build from your profile.</p></div>
+            <div class="plan-footer">
+              <label><span>Interviewer</span><select id="plan-interviewer"><option value="unassigned">Not yet assigned</option><option value="kelly">Dr Kelly · pack pending</option><option value="woods">Dr Woods · pack pending</option></select></label>
+              <button class="btn btn-primary full" id="review-interview" type="button">REVIEW & START <span>▸</span></button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view room-view" id="founder-room-wrapper" data-view-panel="room" aria-labelledby="room-title">
+        <div class="room-topline"><span class="mobile-room-brand">MissionMed<span>//</span> IV Prep On-Call</span><div><p class="eyebrow">LIVE PRACTICE · INTERNAL MEDICINE</p><h1 id="room-title">Your interview</h1></div><div class="room-clock"><span id="room-time">00:00</span><small>of 15:00</small></div></div>
+        <div class="room-stage" id="founder-room-stage">
+          <div class="student-stage" aria-label="Student primary video surface" id="founder-student-stage">
+            <video id="founder-student-video" autoplay muted playsinline></video>
+            <div class="student-stage-placeholder" aria-hidden="true"><span>YOU</span><small>Student primary</small></div>
+          </div>
+          <div class="interviewer-stage">
+            <video id="founder-avatar-video" autoplay muted playsinline aria-label="Dr Kelly interviewer video"></video>
+            <audio id="founder-avatar-audio" autoplay></audio>
+            <div class="interviewer-orbit" aria-hidden="true"><span>DK</span><i></i><i></i><i></i></div>
+            <div class="speaker-label"><strong>Dr Kelly</strong><span>Program Director · interviewer inset</span></div>
+            <div class="room-status" id="room-status" aria-live="polite">Ready when you are.</div>
+          </div>
+          <div class="room-prompt" id="room-prompt">“Tell me about yourself, and what brought you to internal medicine.”</div>
+        </div>
+        <div class="room-controls" aria-label="Interview controls">
+          <button type="button" id="room-mute"><span>♩</span>Mute</button>
+          <button type="button" id="room-type"><span>⌨</span>Type instead</button>
+          <button type="button" id="room-swap" aria-pressed="false"><span>⇄</span>Swap layout</button>
+          <button class="primary-control" type="button" id="room-start"><span>●</span>Start interview</button>
+          <button type="button" id="room-interrupt"><span>↯</span>Interrupt</button>
+          <button class="danger-control" type="button" id="room-end"><span>■</span>End</button>
+        </div>
+        <section class="founder-proof-panel" id="founder-proof-panel" aria-labelledby="founder-proof-title" hidden>
+          <div><p class="eyebrow gold">FOUNDER TEST #1 · ONE SHOT</p><h2 id="founder-proof-title">Self-managed physical proof</h2><p>Authorization alone creates no provider session. Start remains a separate explicit action.</p></div>
+          <dl><div><dt>Agent</dt><dd id="founder-proof-agent">—</dd></div><div><dt>Pipeline</dt><dd>gpt-realtime-2.1 native speech → LiveKit → LemonSlice</dd></div><div><dt>Limit</dt><dd id="founder-proof-duration">45s hard maximum</dd></div><div><dt>Lease</dt><dd id="founder-lease-state">NOT_ACQUIRED</dd></div><div><dt>State</dt><dd id="founder-proof-state">NOT AUTHORIZED</dd></div></dl>
+          <label><span>Session-pinned Realtime voice</span><select id="founder-proof-voice" aria-describedby="founder-proof-voice-note"></select></label>
+          <p id="founder-proof-voice-note" class="truth-note">Cedar is prohibited. The selected voice is bound into the one-shot authorization and cannot change mid-session.</p>
+          <div class="founder-lease-control"><button class="btn btn-secondary" type="button" id="founder-acquire-lease">START LEASE KEEPER</button><span id="founder-lease-detail" aria-live="polite">Founder may start the keeper when physically ready.</span></div>
+          <button class="btn btn-primary" type="button" id="founder-authorize-test">AUTHORIZE TEST #1 ONCE</button>
+          <strong id="founder-proof-selected" aria-live="polite">No paid authorization exists.</strong>
+          <div class="proof-milestones" aria-label="Proof milestones"><span>Authorization <b data-proof-milestone="authorization">Waiting</b></span><span>Dispatch <b data-proof-milestone="dispatch">Waiting</b></span><span>Worker <b data-proof-milestone="worker">Waiting</b></span><span>Media <b data-proof-milestone="media">Waiting</b></span></div>
+        </section>
+        <div class="typed-room-answer" id="typed-room-answer" role="dialog" aria-modal="true" aria-labelledby="room-answer-title" hidden><div class="room-type-head"><strong id="room-answer-title">Type your answer</strong><button class="room-type-close" id="room-type-close" type="button" aria-label="Close typed answer">×</button></div><label class="sr-only" for="room-answer">Type your answer</label><textarea id="room-answer" rows="3" placeholder="Type your response…"></textarea><button class="btn btn-primary" id="send-room-answer" type="button">SEND ANSWER</button></div>
+        <div class="live-rail-link"><div><strong>Want to test the accepted full-duplex interviewer?</strong><span>This prototype preserves the live 3410 rail separately so the working AI system is not redesigned here.</span></div><a class="btn btn-secondary" href="/">OPEN LIVE ALPHA ROOM ↗</a></div>
+      </section>
+
+      <section class="view" data-view-panel="results" aria-labelledby="results-title">
+        <div class="page-head results-head"><div><p class="eyebrow">PRACTICE COMPLETE · 14:32</p><h1 id="results-title">Good interview. Two things to tighten.</h1><p>You sounded prepared without sounding memorized. Your strongest moment was the clinical transition.</p></div><div class="result-mark"><strong>Strong</strong><span>better than your last rep</span></div></div>
+        <div class="result-actions"><button class="btn btn-primary" type="button" data-action="start-assigned">PRACTICE AGAIN <span>▸</span></button><button class="btn btn-secondary" type="button" data-nav="vault">SAVE & OPEN VAULT</button></div>
+        <section class="mobile-results-summary" aria-label="Results overview"><article><span>HOW DID I DO?</span><strong>Strong</strong></article><article><span>KEEP</span><strong>Direct opening</strong></article><article><span>FIX NEXT</span><strong>Shorten the research setup</strong></article></section>
+        <div class="results-grid">
+          <section class="panel feedback-panel"><p class="eyebrow success">WHAT WORKED</p><h2>Three moments to keep.</h2><article><span>01</span><div><strong>You answered before explaining.</strong><p>Your opening was direct, then added context.</p><button type="button" data-moment="0:42">Watch at 0:42 →</button></div></article><article><span>02</span><div><strong>The clinical example felt specific.</strong><p>You named your role and the decision you made.</p><button type="button" data-moment="4:18">Watch at 4:18 →</button></div></article><article><span>03</span><div><strong>You owned the pause.</strong><p>Two seconds of silence made the close land.</p><button type="button" data-moment="11:03">Watch at 11:03 →</button></div></article></section>
+          <section class="panel feedback-panel priority"><p class="eyebrow coral">WHAT TO WORK ON NEXT</p><h2>Two changes for your next rep.</h2><article><span>01</span><div><strong>Shorten the research setup.</strong><p>The context took 24 seconds before your contribution was clear.</p><button type="button" data-moment="6:12">Watch at 6:12 →</button></div></article><article><span>02</span><div><strong>Make the final sentence about them.</strong><p>Connect your goal back to what the program offers.</p><button type="button" data-moment="12:47">Watch at 12:47 →</button></div></article></section>
+        </div>
+        <div id="communication-results-anchor" aria-live="polite"></div>
+        <section class="moments-panel panel" aria-labelledby="moments-title"><div class="panel-heading"><div><p class="eyebrow">SHOW ME WHERE</p><h2 id="moments-title">Watch the moments that matter.</h2></div><button class="text-action" type="button" id="toggle-analysis" aria-expanded="false">Full analysis ↓</button></div><div class="moment-timeline" id="moment-timeline"><button style="--at:9%" data-moment="0:42"><span>0:42</span><b>Direct opening</b></button><button style="--at:35%" data-moment="4:18"><span>4:18</span><b>Clinical story</b></button><button class="needs-work" style="--at:58%" data-moment="6:12"><span>6:12</span><b>Long setup</b></button><button style="--at:81%" data-moment="11:03"><span>11:03</span><b>Owned pause</b></button><button class="needs-work" style="--at:94%" data-moment="12:47"><span>12:47</span><b>Close</b></button></div><div class="analysis-drawer" id="analysis-drawer" hidden><div><span>Pacing</span><strong>Clear and measured</strong><p>One dense section during research.</p></div><div><span>Purposeful pauses</span><strong>3 useful moments</strong><p>Observable timing only—not confidence scoring.</p></div><div><span>Framing</span><strong>Camera-ready</strong><p>Prototype slot for 3420R evidence after integration.</p></div><div><span>Gesture</span><strong>Not connected</strong><p>Requires the separately accepted analytics lane.</p></div></div></section>
+      </section>
+
+      <section class="view" id="communication-analytics-test-root" data-view-panel="delivery" aria-labelledby="communication-analytics-title" hidden>
+        <div class="page-head"><div><p class="eyebrow gold">FOUNDER / ADMIN · DELIVERY INTELLIGENCE</p><h1 id="communication-analytics-title">Observable communication evidence.</h1><p>Local derived cues only. No identity, emotion, personality, honesty, confidence, gaze, intent, demographic, psychometric, diagnostic, or hidden-trait inference.</p></div></div>
+      </section>
+
+      <section class="view" data-view-panel="vault" aria-labelledby="vault-title">
+        <div class="page-head"><div><p class="eyebrow">YOUR PRACTICE LIBRARY</p><h1 id="vault-title">Every answer. Every improvement.</h1><p>Find a full interview, revisit one question, or jump to a word in your transcript.</p></div><button class="btn btn-primary" type="button" data-nav="instant">NEW INTERVIEW <span>▸</span></button></div>
+        <div class="vault-toolbar"><label class="search-field"><span class="sr-only">Search the interview vault</span><b>⌕</b><input id="vault-search" type="search" placeholder="Search interviews, questions, stories, or transcript words…"></label><div class="view-switch" role="group" aria-label="Vault view"><button class="active" type="button" data-vault-mode="interviews" aria-pressed="true">Full interviews</button><button type="button" data-vault-mode="questions" aria-pressed="false">Question history</button></div><button class="mobile-vault-filter" id="mobile-vault-filter" type="button" aria-expanded="false" aria-controls="vault-filters">FILTERS</button></div>
+        <div class="transcript-hits" id="transcript-hits" hidden></div>
+        <button class="sheet-backdrop" id="vault-filter-backdrop" type="button" aria-label="Close Vault filters" hidden></button>
+        <div class="vault-layout"><aside class="vault-filters" id="vault-filters"><div class="mobile-sheet-head"><strong>Filter your Vault</strong><button type="button" id="vault-filter-done">Done</button></div><strong>Filter</strong><label>Date<select id="vault-date"><option>Any time</option><option>Last 7 days</option><option>Last 30 days</option></select></label><label>Interview type<select><option>All types</option><option>Instant</option><option>Customized</option></select></label><label>Program<select><option>All programs</option><option>Riverside University</option><option>North Harbor Medical</option></select></label><label>Mentor review<select><option>Any status</option><option>Reviewed</option><option>Requested</option></select></label></aside><div class="vault-list" id="vault-list"></div></div>
+      </section>
+
+      <section class="view" data-view-panel="mentor" aria-labelledby="mentor-title">
+        <div class="page-head"><div><p class="eyebrow">MENTOR REVIEW</p><h1 id="mentor-title">Put the right moment in front of your mentor.</h1><p>Request feedback on one exact answer—not an entire transcript dump.</p></div><span class="page-number">02</span></div>
+        <div class="mentor-layout"><section class="panel"><div class="panel-heading"><div><p class="eyebrow">SELECT AN ATTEMPT</p><h2>Recent answers</h2></div><span>3 available</span></div><div class="attempt-list" id="mentor-attempts"><label class="attempt selected"><input type="radio" name="mentor-attempt" checked><span class="attempt-play">▶</span><div><strong>Tell me about yourself</strong><p>Yesterday · 1:34 · Riverside practice</p></div><em>STRONG OPEN</em></label><label class="attempt"><input type="radio" name="mentor-attempt"><span class="attempt-play">▶</span><div><strong>Tell me about a conflict</strong><p>Aug 6 · 2:11 · Behavioral set</p></div><em>NEEDS REVIEW</em></label><label class="attempt"><input type="radio" name="mentor-attempt"><span class="attempt-play">▶</span><div><strong>Why our program?</strong><p>Aug 3 · 1:08 · North Harbor</p></div><em>NEW</em></label></div></section><section class="panel mentor-request"><p class="eyebrow gold">REQUEST REVIEW</p><h2>What should your mentor focus on?</h2><label for="mentor-note">Add a note</label><textarea id="mentor-note" rows="6">Does my opening sound natural, or does it still feel rehearsed?</textarea><div class="review-includes"><strong>This request includes</strong><span>✓ Exact replay moment</span><span>✓ Transcript</span><span>✓ Your self-review</span><span>✓ Evidence-backed delivery notes</span></div><button class="btn btn-primary full" id="request-review" type="button">REQUEST MENTOR REVIEW <span>▸</span></button><p class="request-state" id="request-state" aria-live="polite"></p></section></div>
+        <section class="panel mentor-feedback"><div><p class="eyebrow">LATEST MENTOR FEEDBACK</p><h2>Dr Brian on your clinical transition</h2><p>“This is much better. Keep the first sentence exactly this direct, then give yourself one breath before the example.”</p></div><button class="btn btn-secondary" type="button" id="play-mentor-feedback">▶ PLAY 0:28</button><span class="truth-note">Prototype playback. StoryForge's proven mentor audio seam remains the integration owner.</span></section>
+      </section>
+
+      <section class="view" data-view-panel="file" aria-labelledby="file-title">
+        <div class="page-head"><div><p class="eyebrow">YOUR INTERVIEW FILE</p><h1 id="file-title">What will interviewers notice?</h1><p>Turn your application into a preparation plan—not another document viewer.</p></div><button class="btn btn-profile" type="button" data-open-source="profile">UPDATE MY PROFILE <span>▸</span></button></div>
+        <section class="file-hero"><div><span class="file-score">8<span>/10</span></span><div><p class="eyebrow gold">INTERVIEW PROFILE READINESS</p><h2>Your story is coherent. Two transitions need sharper language.</h2><p>Based on the synthetic prototype profile shown here. Real hydration remains owned by Matrix, File Vault, Timeline, and StoryForge.</p></div></div><button class="btn btn-secondary" type="button" data-nav="custom">BUILD A CV-BASED INTERVIEW</button></section>
+        <div class="file-grid"><article class="insight-card attention"><span>01</span><p class="eyebrow coral">BE READY TO EXPLAIN</p><h2>Eight-month transition before USCE</h2><p>Prepare a factual, forward-looking answer that accounts for the time without sounding defensive.</p><button type="button" data-add-question="gap-transition">Practice this →</button></article><article class="insight-card"><span>02</span><p class="eyebrow">KNOW COLD</p><h2>Your sepsis research contribution</h2><p>Interviewers may ask what you personally designed, analyzed, and learned.</p><button type="button" data-add-question="research-contribution">Practice this →</button></article><article class="insight-card"><span>03</span><p class="eyebrow success">STORY READY</p><h2>Leadership during a difficult handoff</h2><p>Your “Night Shift Turnaround” StoryForge story maps well to teamwork and conflict questions.</p><button type="button" data-nav="custom">Use this story →</button></article><article class="insight-card"><span>04</span><p class="eyebrow gold">TIMELINE QUESTION</p><h2>Why the move from surgery to IM?</h2><p>The chronology is clear. Make the intellectual transition as clear as the dates.</p><button type="button" data-add-question="specialty-transition">Practice this →</button></article></div>
+      </section>
+
+      <section class="view" data-view-panel="program" aria-labelledby="program-title">
+        <div class="page-head program-head"><div><p class="eyebrow">PROGRAM PREP</p><h1 id="program-title">Your interview at Riverside University.</h1><p>Wednesday, September 23 · 9:00 AM · Internal Medicine</p></div><button class="btn btn-primary" type="button" id="practice-program">PRACTICE THIS PROGRAM <span>▸</span></button></div>
+        <div class="program-brief"><article class="program-feature"><p class="eyebrow gold">WHAT THEY CARE ABOUT</p><h2>Ownership, clinical reasoning, and serving a diverse urban community.</h2><div class="program-points"><span>Resident autonomy with close faculty support</span><span>Strong ambulatory curriculum</span><span>Community-facing quality improvement</span></div></article><article class="panel"><p class="eyebrow">HOW THE INTERVIEW WORKS</p><ol class="interview-day"><li><span>08:45</span><div><strong>Welcome</strong><p>Program leadership · 15 min</p></div></li><li><span>09:15</span><div><strong>Faculty interview</strong><p>Conversational · 25 min</p></div></li><li><span>09:50</span><div><strong>Resident interview</strong><p>Behavioral · 20 min</p></div></li><li><span>10:20</span><div><strong>Resident Q&A</strong><p>Open discussion · 30 min</p></div></li></ol></article></div>
+        <div class="program-grid"><section class="panel"><p class="eyebrow">WHAT THEY MAY NOTICE</p><h2>Your community clinic work fits their mission.</h2><p>Be ready to connect your longitudinal clinic experience to a concrete way you hope to contribute.</p></section><section class="panel"><p class="eyebrow">STORIES TO HAVE READY</p><h2>Three useful StoryForge options</h2><div class="story-tags"><span>Night Shift Turnaround</span><span>The Interpreter Gap</span><span>Clinic Follow-through</span></div></section><section class="panel"><p class="eyebrow">QUESTIONS THEY'VE ASKED</p><h2>Practice the pattern, not a script.</h2><ul><li>What does service mean in residency?</li><li>Tell me about a time you changed your mind.</li><li>Why this city?</li></ul></section><section class="panel"><p class="eyebrow">QUESTIONS YOU SHOULD ASK</p><h2>Show informed curiosity.</h2><ul><li>How does resident autonomy change across PGY years?</li><li>Where have residents shaped the ambulatory curriculum?</li></ul></section></div>
+        <p class="source-boundary">Program intelligence shown here is synthetic prototype content. RISE remains the canonical owner of verified program intelligence.</p>
+      </section>
+
+      <section class="view" data-view-panel="debrief" aria-labelledby="debrief-title">
+        <div class="page-head debrief-head"><div><p class="eyebrow">AFTER YOUR REAL INTERVIEW</p><h1 id="debrief-title">Let's reconstruct what happened.</h1><p>Talk it through naturally. We'll ask one useful follow-up at a time and never invent a missing detail.</p></div><button class="btn btn-secondary founder-mobile-hidden" id="open-playbook" type="button">ADMIN PLAYBOOK</button></div>
+        <button class="sheet-backdrop" id="debrief-review-backdrop" type="button" aria-label="Close debrief review" hidden></button>
+        <div class="debrief-layout"><section class="debrief-conversation" aria-label="Interview debrief conversation"><div class="debrief-status"><span><i class="proof-dot live"></i> Debrief in progress</span><strong id="debrief-progress">1 of 8 topics captured</strong><button class="mobile-debrief-review" id="mobile-debrief-review" type="button" aria-expanded="false" aria-controls="debrief-record-panel">Review details</button></div><div class="conversation-log" id="conversation-log" aria-live="polite"><article class="ai-message"><span>DB</span><div><p>Okay. Start from the beginning. What happened?</p><small>I’ll help you reconstruct the day one piece at a time.</small></div></article></div><div class="debrief-compose"><div class="mode-tabs" role="group" aria-label="Response mode"><button class="active" type="button" data-debrief-mode="type" aria-pressed="true">⌨ TYPE</button><button type="button" data-debrief-mode="talk" aria-pressed="false">● TALK</button></div><label class="sr-only" for="debrief-answer">Your answer</label><textarea id="debrief-answer" rows="4" placeholder="I logged in around 8:45, and the program coordinator…"></textarea><div class="talk-disabled" id="talk-disabled" hidden><strong>Talk joins with the live rail in 3440.</strong><p>This visual prototype does not create a second microphone.</p></div><button class="btn btn-primary" id="send-debrief" type="button">CONTINUE <span>▸</span></button></div><p class="truth-note">Prototype conversation reducer · synthetic entries only · student recollection stays distinct from verified program intelligence.</p></section><aside class="debrief-record" id="debrief-record-panel"><div class="mobile-sheet-head"><strong>Debrief details</strong><button type="button" id="debrief-review-done">Done</button></div><p class="eyebrow gold">CHRONOLOGY SO FAR</p><h2>Riverside University</h2><dl id="debrief-record"><div><dt>Interview date</dt><dd>September 23</dd></div><div><dt>Arrival / login</dt><dd class="pending">Waiting</dd></div><div><dt>Interviewers</dt><dd class="pending">Waiting</dd></div><div><dt>Questions</dt><dd class="pending">Waiting</dd></div><div><dt>Stories used</dt><dd class="pending">Waiting</dd></div><div><dt>Your questions</dt><dd class="pending">Waiting</dd></div><div><dt>Closing</dt><dd class="pending">Waiting</dd></div></dl><button class="btn btn-secondary full" id="finish-debrief" type="button">FINISH & ORGANIZE</button></aside></div>
+      </section>
+    </main>
+
+    <nav class="mobile-nav" aria-label="Mobile navigation"><button class="active" type="button" data-nav="home"><span>⌂</span>Home</button><button type="button" data-nav="instant"><span>⚡</span>Practice</button><button type="button" data-nav="custom"><span>＋</span>Build</button><button type="button" data-nav="vault"><span>▣</span>Vault</button><button type="button" data-nav="debrief"><span>◉</span>Debrief</button></nav>
+  </div>
+
+  <dialog class="countdown-overlay" id="countdown-overlay" aria-labelledby="countdown-title">
+    <div class="countdown-atmosphere" aria-hidden="true"></div>
+    <button class="countdown-cancel" id="countdown-cancel" type="button">Cancel</button>
+    <div class="countdown-content"><p class="eyebrow">YOUR INTERVIEWER IS JOINING</p><h2 id="countdown-title">Take one breath.</h2><div class="countdown-number" id="countdown-number">10</div><p id="countdown-prompt">Interviewer pack pending · realistic pressure</p><div><button class="btn btn-primary" id="countdown-skip" type="button">SKIP COUNTDOWN <span>▸</span></button><button class="btn btn-quiet" id="countdown-sound" type="button" aria-pressed="true">♪ Sound on</button></div></div>
+  </dialog>
+
+  <div class="modal-backdrop" id="modal-backdrop" hidden></div>
+  <dialog class="workspace-modal" id="workspace-modal" aria-labelledby="modal-title">
+    <button class="modal-close" id="modal-close" type="button" aria-label="Close workspace">×</button>
+    <div id="modal-content"></div>
+  </dialog>
+
+  <dialog class="playbook-modal" id="playbook-modal" aria-labelledby="playbook-title">
+    <div class="playbook-head"><div><p class="eyebrow">FOUNDER / ADMIN</p><h2 id="playbook-title">Debrief Playbook</h2><p>Change what the debrief elicits without changing code.</p></div><div><span>Version <strong id="playbook-version">3</strong></span><button class="modal-close" id="playbook-close" type="button" aria-label="Close playbook">×</button></div></div>
+    <div class="playbook-toolbar"><button class="btn btn-primary" id="add-playbook-topic" type="button">＋ ADD TOPIC</button><button class="btn btn-secondary" id="publish-playbook" type="button">SAVE NEW VERSION</button></div>
+    <div class="playbook-list" id="playbook-list"></div>
+    <p class="truth-note">Local prototype configuration only. No production prompts, provider state, or student data are changed.</p>
+  </dialog>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script type="module" src="/iv-prep-on-call/assets/aaa/app.mjs"></script>
+</body>
+</html>

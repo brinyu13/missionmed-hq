@@ -1,0 +1,17 @@
+Y1-Y2-CAM-V6-3522C self-only browser VAD footprint
+
+@ricky0123/vad-web 0.0.30
+License: ISC
+Source: https://www.npmjs.com/package/@ricky0123/vad-web/v/0.0.30
+Vendored files: bundle.min.js, bundle.min.js.LICENSE.txt,
+vad.worklet.bundle.min.js, silero_vad_v5.onnx
+
+onnxruntime-web 1.22.0
+License: MIT
+Source: https://www.npmjs.com/package/onnxruntime-web/v/1.22.0
+Vendored files: ort.min.js, ort-wasm-simd-threaded.mjs,
+ort-wasm-simd-threaded.wasm
+
+These files are loaded only from the MissionMed origin. The runtime does not fetch a
+model or WebAssembly binary from a third-party CDN and does not open a provider
+session.
