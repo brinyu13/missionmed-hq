@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-17 17:19 America/New_York
+Updated: 2026-09-17 17:31 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -22,9 +22,9 @@ the actual production route and deployment.
 - Candidate.2 presentation integration successor:
   `84e750e4540acd5479ee72291e7b9d1c38f2f351`.
 - Active presentation/runtime deployment:
-  `102ce3c4-4a89-48e5-83c6-1e93c0ce4fb4`, exact commit
+  `72a3867e-6f46-4c95-ad6b-2701d26cba1a`, exact commit
   `2540e448df24e026f38ac5d1fb731b14e443fb13`, image
-  `sha256:1ebfaeecd03b8618df26e6ba987eef9f8a3112c6621312af79b398c11d24d408`.
+  `sha256:7716a06f8f3d2d708f32b53d50ccddf2651a85289cca679e36456f7585c10b22`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -95,7 +95,7 @@ the actual production route and deployment.
 | 9 | Current supported realtime transport and contextual InterviewBrain | LIVE VERIFIED | Production `gpt-live-1` WebRTC canary created twice through the authenticated IVOC broker, reached `session.started`, exchanged native audio/transcript events, and ended with provider hangup HTTP 200. |
 | 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE VERIFIED | Production canary retained the discharge/teach-back detail across turns, asked evidence-grounded follow-ups, honored “move to the next question,” and visibly truncated “That gives me a—” on barge-in before continuing. |
 | 9 | Pool/context weighting, clean teardown, single audio authority | LIVE UNVERIFIED | Selected CORE-01 reached the room and both canaries received authoritative provider hangup; exact pool-weighting behavior and explicit single-audio telemetry remain. |
-| 10 | File Vault context/performance-reference seam | NOT STARTED | Exact live owner contract and consented projection still required. |
+| 10 | File Vault context/performance-reference seam | EXTERNAL DEPENDENCY | Current owner source is `J1-FILEVAULT-1019`; its live `/wp-json/mmed/v2/file-vault/bootstrap` contract requires same-origin WordPress cookie + `X-WP-Nonce` and rejects authorization-header/cross-origin use. IVOC fails closed with disabled “Not connected” cards. A consented server projection must be opened through File Vault owner authority; IVOC must not weaken or mutate the owner contract. |
 | 10 | StoryForge opt-in story/theme and performance evidence | LIVE UNVERIFIED | IVOC source seam exists; live sibling-owner projection remains. |
 | 10 | RISE sourced/fresh program context | NOT STARTED | Exact live owner contract and freshness receipt still required. |
 | 10 | MCC / Top 3 / Mentor owner projections | NOT STARTED | Exact live owner contracts still required. |
@@ -120,7 +120,7 @@ the actual production route and deployment.
 | 17 | Flush/interruption/motion contract, Admin preview and cost controls | NOT STARTED | Neutral contract/control surface remains. |
 | 17 | Fictional 10–15 avatar configuration model | NOT STARTED | Configuration/catalog only; no real-person cloning/inference. |
 | 17 | Active LemonSlice provider integration | DEFERRED LEMONSLICE ONLY | Founder explicitly deferred active provider/spend. |
-| 18 | Dr Brian/brinyu Admin and second authorized Admin | LIVE UNVERIFIED | Requires actual authenticated production acceptance. |
+| 18 | Dr Brian/brinyu Admin and second authorized Admin | LIVE UNVERIFIED | `wp:1` Founder/Admin is live accepted. Current WordPress authority verifies `wp:107` (`brian_test`) as an administrator; the production IVOC allowlist and dedicated entitlement now include `wp:107`. Final acceptance still requires a genuine authenticated `wp:107` browser session; no session was forged. |
 | 18 | Entitled 360 student and non-entitled/revoked/expired denials | LIVE UNVERIFIED | Fail-closed contracts exist; actual role/entitlement canaries remain. |
 | 18 | Wrong-role/wrong-mentor denial and actor/subject separation | LIVE UNVERIFIED | Requires authenticated production negative-path acceptance. |
 | 18 | Private media, signed/revocable playback, no public leakage, audit trail | LIVE UNVERIFIED | Owner signed playback, reload, transcript-spine authorization, `context_persist` audit and anonymous HTTP 401 passed. Wrong-owner/negative-role denial and revocation remain. |
@@ -128,10 +128,11 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `102ce3c4-4a89-48e5-83c6-1e93c0ce4fb4` from exact product commit
+  `72a3867e-6f46-4c95-ad6b-2701d26cba1a` from exact product commit
   `2540e448df24e026f38ac5d1fb731b14e443fb13`; runtime source bytes match
-  the commit, health is ready, repository source is disconnected, and the
-  unauthenticated product route remains fail-closed at HTTP 401.
+  the commit, health is ready, repository source is disconnected, the
+  unauthenticated product route remains fail-closed at HTTP 401, and the
+  verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
   exposing credentials. Context/transcript flags are enabled for the bounded
   production path; paid-test provider controls remain server-only and fail closed.
@@ -161,11 +162,12 @@ the actual production route and deployment.
 
 ## Next execution lanes
 
-1. Run authenticated second-Admin, entitled-360 and negative-role/private-media canaries.
+1. Run authenticated second-Admin, entitled-360 and negative-role/private-media
+   canaries when genuine sessions are available; never manufacture identities.
 2. Exercise a real multi-turn follow-up/gap range and a transcript that produces
    supported semantic evidence, without fabricating either result.
-3. Continue fix-forward implementation across every `NOT STARTED` or
-   `LIVE UNVERIFIED` ledger row, respecting sibling-owner boundaries.
+3. Continue IVOC-owned Admin question governance, Analytics/AI controls and
+   credit accounting while sibling-owner projections remain fail-closed.
 4. Run fresh independent acceptance against the actual production route.
 5. Create `IVOC_MEGARUN_FINAL_HANDOFF.md`, release every lease, and stop only
    at `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`.
