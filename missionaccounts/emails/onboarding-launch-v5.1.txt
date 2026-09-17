@@ -11,7 +11,7 @@ Complete your setup within the next 48 hours.
 
 Complete my setup: {{onboarding_url}}
 
-Same Dr J. A much better experience around her.
+Same Dr J. A whole new ExamPrep experience.
 
 Dr J is still doing what she does best: teaching, challenging you, answering your questions, and helping you prepare for exam day.
 
@@ -44,4 +44,3 @@ Powered by MissionMed Institute
 
 Need help? Reply to this email or contact {{support_email}}.
 Private student communication from MissionMed Institute. Please do not forward this email.
-
