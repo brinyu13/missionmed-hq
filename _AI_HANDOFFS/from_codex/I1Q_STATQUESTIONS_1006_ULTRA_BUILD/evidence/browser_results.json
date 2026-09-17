@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-07-14T01:17:48.747Z",
+  "status": "pass_local_synthetic_app",
+  "workflows": 12,
+  "viewport_workflow_checks": 36,
+  "viewport_widths": [
+    390,
+    1024,
+    1440
+  ],
+  "page_level_horizontal_overflow_failures": 0,
+  "console_warning_or_error_count": 0,
+  "keyboard_checks": {
+    "enter_navigation": "pass",
+    "space_navigation": "pass",
+    "explicit_keydown_handler": "pass"
+  },
+  "state_checks": {
+    "autosave_unsaved_then_saved": "pass",
+    "physician_approve_disabled": "pass",
+    "release_assemble_disabled": "pass"
+  },
+  "screenshot_counts": {
+    "desktop": 12,
+    "tablet": 3,
+    "mobile": 4
+  }
+}

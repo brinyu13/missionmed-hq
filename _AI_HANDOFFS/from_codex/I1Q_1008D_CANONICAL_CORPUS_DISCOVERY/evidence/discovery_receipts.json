@@ -1,0 +1,128 @@
+{
+  "schema_version": "missionmed.i1q-1008d.discovery-receipts.v1",
+  "generated_at": "2026-07-17T05:52:52-04:00",
+  "safety": {
+    "raw_transcript_retention": "none",
+    "raw_identifier_retention": "none",
+    "credential_access": "none",
+    "mutation_count": 0,
+    "question_extraction_count": 0
+  },
+  "live_receipt_binding": {
+    "probe_tool_sha256": "24dc6eef094a9d38d17799289f76a010272bc48cb6d1b6e46964993dcd291a04",
+    "probe_test_sha256": "f08a1908f1be9ac4d6c110dc28dab66941963a57b23c1c3f04c90f099824c69b",
+    "live_receipt_sha256": "2c662642392f7fb4435c05ffb517f73c38bd8530065a3cb9044d2283189a252e",
+    "live_receipt_generated_at": "2026-07-17T09:51:03.475Z",
+    "independent_fixture_suite": {
+      "passed": 6,
+      "failed": 0,
+      "live_network_calls": 0
+    }
+  },
+  "predecessor_binding": {
+    "source_mission": "I1Q-1008C",
+    "legacy_audit_sha256": "0daed9523762e65d988fed3bfb80d287c9856253d41616dfd8817bd03ae0f9ee",
+    "legacy_row_count": 845,
+    "relationship": "carried_forward_secondary_reference_only"
+  },
+  "lower_authority_local_surfaces": {
+    "runtime_baseline_registry": {
+      "record_count": 303,
+      "candidate_count_under_unratified_division_predicate": 95,
+      "live_intersection_count": 303,
+      "local_only_count": 0,
+      "live_only_count": 10
+    },
+    "transcript_store": {
+      "transcript_json_count": 286,
+      "transcript_unique_raw_hash_count": 286,
+      "nodes_json_count": 87,
+      "nodes_unique_raw_hash_count": 87,
+      "total_json_bytes": 101040264,
+      "authority_class": "lower_authority_local_mirror"
+    },
+    "question_named_export": {
+      "json_count": 19,
+      "json_unique_raw_hash_count": 19,
+      "json_exact_overlap_with_local_transcript_store_count": 18,
+      "json_not_exact_overlap_count": 1,
+      "vtt_count": 2,
+      "vtt_unique_raw_hash_count": 2,
+      "nonoverlap_json_source_present_in_current_live_registry": true,
+      "authority_class": "historical_export_not_a_universe"
+    }
+  },
+  "historical_surfaces": {
+    "master_directory": {
+      "file_count": 510,
+      "total_bytes": 18624656,
+      "minimum_file_bytes": 614,
+      "median_file_bytes": 2117,
+      "maximum_file_bytes": 13174047,
+      "files_over_one_megabyte": 1
+    },
+    "master_index": {
+      "indexed_entry_count": 40197,
+      "reported_source_count": 509,
+      "authority_class": "broad_historical_not_drj_scoped"
+    },
+    "historical_database": {
+      "immutable_read_integrity": "ok",
+      "video_count": 509,
+      "segment_count": 40197,
+      "distinct_segment_video_count": 509,
+      "nonempty_segment_speaker_count": 40197,
+      "distinct_segment_speaker_label_count": 59,
+      "speaker_label_set_sha256": "e630b08a38fa84eae1cbadb0ab0415e32834e62e975065f8786333c069fa42b0",
+      "existing_video_flag_count": 242,
+      "nonempty_classification_count": 328,
+      "classification_bucket_counts_descending": [263, 64, 1],
+      "distinct_source_transcript_count": 509,
+      "authority_class": "historical_backup_not_speaker_authority"
+    },
+    "legacy_pdf_bytes": 10227414
+  },
+  "access_attempts": [
+    {
+      "surface_class": "current_runtime_full_registry",
+      "result": "observed_twice_stable",
+      "authority_effect": "current_universe_candidate_surface"
+    },
+    {
+      "surface_class": "current_runtime_consumer_projection",
+      "result": "observed_twice_stable",
+      "authority_effect": "consumer_projection_only"
+    },
+    {
+      "surface_class": "canonical_cdn_artifacts",
+      "result": "bounded_head_get_probe_complete",
+      "authority_effect": "availability_and_byte_identity_only"
+    },
+    {
+      "surface_class": "first_party_consumer_proxy",
+      "result": "redirected_to_html_consumer_surface",
+      "retry_policy": "not_retried_after_shape_mismatch"
+    },
+    {
+      "surface_class": "hq_media_api",
+      "result": "unauthenticated_access_denied",
+      "health_surface": "observed",
+      "blocker_class": "authenticated_external_authority"
+    },
+    {
+      "surface_class": "signed_in_browser_session",
+      "result": "no_existing_session_and_direct_api_view_blocked_by_client",
+      "credential_or_cookie_inspection": false
+    },
+    {
+      "surface_class": "supabase_media_indexes",
+      "result": "not_queried",
+      "blocker_class": "unresolved_project_owner_authority_conflict"
+    },
+    {
+      "surface_class": "r2_object_listing",
+      "result": "not_attempted_without_mediated_read_authority",
+      "individual_cdn_object_reads": "completed_under_sanitized_probe"
+    }
+  ]
+}

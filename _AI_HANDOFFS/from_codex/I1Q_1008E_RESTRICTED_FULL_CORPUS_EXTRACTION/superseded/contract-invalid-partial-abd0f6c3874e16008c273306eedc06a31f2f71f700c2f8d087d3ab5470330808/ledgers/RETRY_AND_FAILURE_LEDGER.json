@@ -1,0 +1,177 @@
+{
+  "schema_version": "missionmed.i1q1008e.retry_and_failure_ledger.v1",
+  "acquisition_retry_count": 0,
+  "extraction_retry_count": 2,
+  "failed_artifact_count": 2,
+  "events": [
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_8OBgsC1JW0I9YCkzOj3jrP1lv6kIgZ-69rGIt1Et2Jc",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_vKvzsaoICxmgwHVzviiI3YzLVszKhtAEUTUgzZwAgqY",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_KUXSbiEmQ5vij8TIpYlhWfLIfqZHpBmwO0ADlT9YwD4",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_zIzeiDjALJM1TmapggQS_J3SBxbAYMGYP4X07XNlm3Y",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_9pti0uX736-1Av1zCVoHxOknUWJbVZKjsev3IFd79wA",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_YSe66FCZ3WeLgyOrFyATgYsJ0iR92mq4rXsJzV4Lr68",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_xTmkEam1Lhna5ys9Iq5Fj4HR9ukzlQUCvvuiMTjeIw4",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_wmCkcosQhEGYlneL17A8gkgmBV3Xu0-MNF6XrlI797I",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_6L_382Ja_uGss12Yn_EXN0gWv6MeP_f6l9wfQfPMWTQ",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_lZiru_xjQ0OouE91uOmqQtZ3TljYXrDaxYlt30fjgO4",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_0WfuWp5Vo68KW3mNR4os6mYLDL4hbHqLkolBzeQun0s",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_rBBWMBE9CKCyyIc9RlAqajB1ToXAJgH6I7GJ2g7dbew",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_RrrCa-Mx9_Nf-JEbh6Nkol3Ld6S3KSIFJAJdq0fomqs",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "ARTIFACT_HEAD",
+      "artifact_alias": "opaque_artifact_bfVpuR3HbsEI3fCD-51Pv6P9fFMwcLtBsWGq2IOv0nM",
+      "invocation_ordinal": 1,
+      "attempt_number": 1,
+      "controlled_error_class": "not_found",
+      "recovery_action": "NONE"
+    },
+    {
+      "phase": "EXTRACTION_ATTEMPT_FAILURE",
+      "artifact_alias": "opaque_artifact_GgglkUkrb6gGC2LKXuZRA9B0o0k-UuRALSw2Cfoc-6s",
+      "attempt_number": 1,
+      "controlled_error_class": "SCHEMA_INSTANCE_REJECTED",
+      "recovery_action": "BOUNDED_ARTIFACT_RETRY",
+      "safe_diagnostic_hash": "bf0976e8f244a4eb3453aa647854d4f86b1baf246f1047a5809bbafcf665cbf1",
+      "evidence_receipt_id": "receipt_sha256_6b3fcadc1f4fd3fe87420df9fe07c7c4413b4f4ed3d8ae60db8518c1da5e80a5"
+    },
+    {
+      "phase": "EXTRACTION_ATTEMPT_FAILURE",
+      "artifact_alias": "opaque_artifact_GgglkUkrb6gGC2LKXuZRA9B0o0k-UuRALSw2Cfoc-6s",
+      "attempt_number": 2,
+      "controlled_error_class": "SCHEMA_INSTANCE_REJECTED",
+      "recovery_action": "NONE",
+      "safe_diagnostic_hash": "530de1087434b4e855c2630a0a6efe8f23cb5970d943137ac053be657ee730e2",
+      "evidence_receipt_id": "receipt_sha256_b0d7c2d189bd3a21096610695845f08696aa0f75576482529edba95d5b351596"
+    },
+    {
+      "phase": "EXTRACTION_ATTEMPT_FAILURE",
+      "artifact_alias": "opaque_artifact_MoJr_WM2wZ1YYSMZwIDuzeNtiYa6_ynpltGz-8oGAys",
+      "attempt_number": 1,
+      "controlled_error_class": "SCHEMA_INSTANCE_REJECTED",
+      "recovery_action": "BOUNDED_ARTIFACT_RETRY",
+      "safe_diagnostic_hash": "c5afb3e379b94d456f023c284ff64a253c79be87e40ba3ea111d5bd18d1de1c5",
+      "evidence_receipt_id": "receipt_sha256_2b052311caec0e463b630e15491ee63e173585fea2f09d27189b178d435cf260"
+    },
+    {
+      "phase": "EXTRACTION_ATTEMPT_FAILURE",
+      "artifact_alias": "opaque_artifact_MoJr_WM2wZ1YYSMZwIDuzeNtiYa6_ynpltGz-8oGAys",
+      "attempt_number": 2,
+      "controlled_error_class": "SCHEMA_INSTANCE_REJECTED",
+      "recovery_action": "NONE",
+      "safe_diagnostic_hash": "354eca7caca9dc89e0e013bf4fc94ea8c0055354f20c4c69d9b4f4e057005f55",
+      "evidence_receipt_id": "receipt_sha256_bb8b4f308eedbf5514e43bac5ba6fdd26953f3f684ac1ab7435b0284e8536054"
+    },
+    {
+      "phase": "EXTRACTION_FAILURE",
+      "artifact_alias": "opaque_artifact_GgglkUkrb6gGC2LKXuZRA9B0o0k-UuRALSw2Cfoc-6s",
+      "attempt_number": 2,
+      "controlled_error_class": "SCHEMA_INSTANCE_REJECTED",
+      "recovery_action": "RESUME_FROM_PROTECTED_ACQUISITION_CHECKPOINT",
+      "safe_diagnostic_hash": "530de1087434b4e855c2630a0a6efe8f23cb5970d943137ac053be657ee730e2",
+      "evidence_receipt_id": "receipt_sha256_b0d7c2d189bd3a21096610695845f08696aa0f75576482529edba95d5b351596",
+      "retry_count": 1
+    },
+    {
+      "phase": "EXTRACTION_FAILURE",
+      "artifact_alias": "opaque_artifact_MoJr_WM2wZ1YYSMZwIDuzeNtiYa6_ynpltGz-8oGAys",
+      "attempt_number": 2,
+      "controlled_error_class": "SCHEMA_INSTANCE_REJECTED",
+      "recovery_action": "RESUME_FROM_PROTECTED_ACQUISITION_CHECKPOINT",
+      "safe_diagnostic_hash": "354eca7caca9dc89e0e013bf4fc94ea8c0055354f20c4c69d9b4f4e057005f55",
+      "evidence_receipt_id": "receipt_sha256_bb8b4f308eedbf5514e43bac5ba6fdd26953f3f684ac1ab7435b0284e8536054",
+      "retry_count": 1
+    }
+  ],
+  "content_hash": "e564283ab63d907b648dd10fe5698b43e5947f5a549d0515c2ee7569676ce763"
+}

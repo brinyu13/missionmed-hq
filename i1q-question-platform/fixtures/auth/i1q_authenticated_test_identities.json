@@ -1,0 +1,78 @@
+{
+  "fixture_contract": "i1q.auth-fixtures.v1",
+  "medical_content": false,
+  "identities": [
+    {
+      "fixture_id": "platform_administrator",
+      "actor_id": "10000000-0000-4000-8000-000000000001",
+      "roles": ["platform_admin"],
+      "credential_status": "not_applicable",
+      "expected_access": "internal_admin"
+    },
+    {
+      "fixture_id": "editorial_reviewer",
+      "actor_id": "10000000-0000-4000-8000-000000000002",
+      "roles": ["editorial_reviewer"],
+      "credential_status": "not_applicable",
+      "expected_access": "assigned_editorial_only"
+    },
+    {
+      "fixture_id": "physician_reviewer_placeholder",
+      "actor_id": "10000000-0000-4000-8000-000000000003",
+      "roles": ["physician_reviewer"],
+      "credential_status": "unverified",
+      "expected_access": "no_medical_approval"
+    },
+    {
+      "fixture_id": "privacy_reviewer",
+      "actor_id": "10000000-0000-4000-8000-000000000004",
+      "roles": ["privacy_officer"],
+      "credential_status": "not_applicable",
+      "expected_access": "privacy_workflow"
+    },
+    {
+      "fixture_id": "release_manager",
+      "actor_id": "10000000-0000-4000-8000-000000000005",
+      "roles": ["release_manager"],
+      "credential_status": "not_applicable",
+      "expected_access": "internal_release_assembly"
+    },
+    {
+      "fixture_id": "read_only_auditor",
+      "actor_id": "10000000-0000-4000-8000-000000000006",
+      "roles": ["read_only"],
+      "credential_status": "not_applicable",
+      "expected_access": "privacy_safe_read_only"
+    },
+    {
+      "fixture_id": "unauthorized_student",
+      "actor_id": "10000000-0000-4000-8000-000000000007",
+      "roles": [],
+      "credential_status": "not_applicable",
+      "expected_access": "denied"
+    },
+    {
+      "fixture_id": "unauthenticated_visitor",
+      "actor_id": null,
+      "roles": [],
+      "credential_status": "not_applicable",
+      "expected_access": "denied"
+    },
+    {
+      "fixture_id": "revoked_user",
+      "actor_id": "10000000-0000-4000-8000-000000000008",
+      "roles": ["read_only"],
+      "credential_status": "not_applicable",
+      "revoked": true,
+      "expected_access": "denied"
+    },
+    {
+      "fixture_id": "expired_session",
+      "actor_id": "10000000-0000-4000-8000-000000000009",
+      "roles": ["read_only"],
+      "credential_status": "not_applicable",
+      "session_state": "expired",
+      "expected_access": "denied"
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "schema": "missionmed.i1q.usability_scorecard.v2",
+  "ticket": "I1Q-1008A",
+  "assessment_id": "I1Q-1008A-UX-BEFORE-FD7DDCD",
+  "assessment_status": "SIMULATED",
+  "source_commit": "483b0f76f42bc3a1da674ccd4f61432aab84668b",
+  "source_tree_state": "IMMEDIATE_PREDECESSOR_IMMUTABLE_PRODUCT_COMMIT",
+  "scope": "Immediate predecessor before table containing-block repair, full physician attestation hash, and mobile environment spacing",
+  "method": "SIMULATED expert review using exact-commit source, 287 local tests, 19 focused UI tests, a 17 by 11 local browser workflow matrix, a 16 by 11 local browser state matrix, a 17 by 4 mobile context matrix, semantic scans, direct horizontal scroll gestures, and local visual inspection. No authenticated staging, real identity, assistive technology, cross-browser, or human validation was used.",
+  "source_fingerprints_sha256": {
+    "public/index.html": "63b4f2b3006179ca571ca5ab5665c0d65e4a3bc2eac00f06c2445b4cd3293f29",
+    "public/app.js": "0b087a42c783599df764c9dd6e3d1097d4578af3befbddfb554983ce75176945",
+    "public/styles.css": "e6ad9b465734971e906ee57604bcc82e66e709f4e03fe8e71e305f0a6e455f1c",
+    "src/server.mjs": "f0088ad814e3747bfe1316bc41a7c2f86b70f5ec3aceb51c22417a8d6135d6aa",
+    "src/platform.mjs": "7cef0f9132822bb918df5f8be02d4a5a9ed4d057389ad79abde7f545638512ba",
+    "tests/ui.test.mjs": "432950935b4827598dd2bc3707fe95b908ec68be1799da45cbeedbf159761d54",
+    "tests/api.test.mjs": "855905f3566d91abb18d023a1411ba80f01d34194ff6ba2c781f923d6a00ff16"
+  },
+  "score_scale": {
+    "minimum": 0.0,
+    "maximum": 10.0,
+    "target_aggregate": 9.0,
+    "target_category_floor": 8.5
+  },
+  "evidence_summary": {
+    "npm_tests_total": 287,
+    "npm_tests_passed": 285,
+    "npm_tests_failed": 0,
+    "npm_tests_skipped": 2,
+    "ui_tests_total": 19,
+    "ui_tests_passed": 19,
+    "browser_workflow_viewport_combinations": 187,
+    "browser_state_viewport_combinations": 176,
+    "mobile_context_combinations": 68,
+    "root_horizontal_overflow_combinations": 20,
+    "maximum_root_horizontal_overflow_pixels": 406,
+    "clipped_search_pagination_combinations": 0,
+    "mobile_context_missing_combinations": 0,
+    "title_only_hash_disclosures": 0,
+    "abbreviated_exact_physician_hash_present": true,
+    "browser_console_warnings_or_errors": 0
+  },
+  "repair_verdicts": {
+    "root_overflow": "OPEN",
+    "pagination_clipping": "CLOSED_LOCALLY",
+    "mobile_actor_and_environment_context": "CLOSED_LOCALLY",
+    "title_only_hash_disclosure": "CLOSED_LOCALLY",
+    "exact_physician_hash_consistency": "OPEN",
+    "mobile_environment_spacing": "OPEN"
+  },
+  "required_categories": [
+    {
+      "category": "visual_hierarchy",
+      "score": 8.5,
+      "basis": "Operational hierarchy, status wrapping, badges, panels, and controls were coherent, while root table overflow and wide layouts remained."
+    },
+    {
+      "category": "workflow_clarity",
+      "score": 8.2,
+      "basis": "Exact authoring, comparison, release, logout, and session-state paths were clear, while several governed workflows remained absent or read only."
+    },
+    {
+      "category": "cognitive_load",
+      "score": 7.2,
+      "basis": "Recovery copy and stable structure helped, but every role still received seventeen top-level destinations and dense expert terminology."
+    },
+    {
+      "category": "discoverability",
+      "score": 7.7,
+      "basis": "Named navigation, explicit selection, and retained mobile context were strong; role-based starts, deep links, and guided queues remained absent."
+    },
+    {
+      "category": "task_speed",
+      "score": 6.8,
+      "basis": "Cursor draining removed silent 200-row truncation, but the browser could still aggregate up to 50000 rows and lacked server-side search, cancellation, saved views, deep links, bulk work, and shortcuts."
+    },
+    {
+      "category": "evidence_visibility",
+      "score": 8.2,
+      "basis": "Full source, privacy, revision, and audit hashes were visible without title reliance; the duplicate Physician attestation hash remained abbreviated."
+    },
+    {
+      "category": "source_traceability",
+      "score": 8.2,
+      "basis": "Source joins, exact item comparison, and exact release selection were strong, while protected comparison and claim-to-anchor navigation remained incomplete."
+    },
+    {
+      "category": "error_prevention",
+      "score": 8.6,
+      "basis": "Fail-closed access, readiness, exact If-Match, correct-option rules, same-item comparison, exact release selection, and session distinctions reduced consequential errors."
+    },
+    {
+      "category": "error_recovery",
+      "score": 8.1,
+      "basis": "Focused expired, revoked, outage, signed-out, and deterministic recovery states were strong; protected compare-and-reapply and canonical staging return remained open."
+    },
+    {
+      "category": "consistency",
+      "score": 8.4,
+      "basis": "Controls, panels, states, focus, pagination, and safety language were coherent, with remaining inconsistency in role text and duplicate hash presentation."
+    },
+    {
+      "category": "responsive_behavior",
+      "score": 7.8,
+      "basis": "Pagination, mobile context, badges, controls, and state views passed, but four table workflows still created twenty page-root overflow failures."
+    },
+    {
+      "category": "accessibility",
+      "score": 8.0,
+      "basis": "Semantics, focus, contrast, targets, pagination, and mobile context were strong locally; WCAG reflow failed and assistive-technology evidence was absent."
+    },
+    {
+      "category": "trust",
+      "score": 8.5,
+      "basis": "Consequential work bound exact immutable identity and session failures remained explicit and fail closed; authenticated staging and real role evidence remained external."
+    },
+    {
+      "category": "visual_quality",
+      "score": 8.4,
+      "basis": "The restrained operational design was polished on phone and desktop apart from root table overflow, tight mobile environment spacing, and wide reading measures."
+    }
+  ],
+  "aggregate_score": 8.04,
+  "aggregate_basis": "Equal-weight mean of the fourteen required categories, rounded to two decimals.",
+  "minimum_required_category": "task_speed",
+  "minimum_required_category_score": 6.8,
+  "target_met": false,
+  "category_floor_met": false,
+  "simulated_only": true,
+  "authenticated_staging_tested": false,
+  "real_identities_tested": false,
+  "assistive_technology_tested": false,
+  "cross_browser_tested": false,
+  "human_validation_completed": false,
+  "wcag_2_2_aa_proven": false,
+  "responsive_certification_proven": false,
+  "release_verdict": "BLOCK"
+}

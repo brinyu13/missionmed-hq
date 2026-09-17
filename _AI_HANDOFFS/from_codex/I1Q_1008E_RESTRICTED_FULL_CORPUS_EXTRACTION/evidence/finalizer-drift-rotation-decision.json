@@ -1,0 +1,244 @@
+{
+  "schema_version": "missionmed.i1q1008e.finalizer_drift_rotation_decision.v1",
+  "decision": "SUPERSEDE_FINALIZED_RUN_FOR_FINALIZER_HASH_DRIFT",
+  "authority_ticket_sha256": "99a5c0d9f13c77fbcd20fbd57a6e1186fdf467f35e3657269fe99b23efeddb03",
+  "extraction_run_id": "opaque_run_i2IwFt-nc8yUknV2OcX47LKN7Ibxoqh2WLuNZIrma5M",
+  "old_run_contract_root": "01e5c2d8db992e47ca08aab3652dd6e753d20c973cfad8874492f941ccdf34ab",
+  "current_run_contract_root": "9526a16bcd4dd0073adb2aae961c91b1e91b2f6c0f4d28228aeacf107cf959f6",
+  "old_finalizer_sha256": "6177e3cf0b3208ea2f435a83eb0819eae7ec5b9e9c59993ac9c208b2060f15c2",
+  "corrected_finalizer_sha256": "5d5ccd4f18eb11fbf6025b7eca65ed5753e86fab30fb74e034188abb1dbcd879",
+  "old_run_contract_manifest": [
+    {
+      "relative_path": "tools/acquire.mjs",
+      "sha256": "578fd8be9ce3ba0986440419a18b6670f08b22fddb2e179895b5c5936bc7df36"
+    },
+    {
+      "relative_path": "tools/boundary.mjs",
+      "sha256": "70162f93f2711767b5da20ebb3bf55c75c211d546256a95a25ced94cd5529288"
+    },
+    {
+      "relative_path": "tools/canonical.mjs",
+      "sha256": "d24a676ba6b3acbfa5fecda5c1cf08a3ca06a4c1733be4677604b52dbe8eea09"
+    },
+    {
+      "relative_path": "tools/constants.mjs",
+      "sha256": "26962ec815f52ddccc0f09e18dec163b9334c7ef73a2df05e5144b069eb391c7"
+    },
+    {
+      "relative_path": "tools/extraction-operation-lock.mjs",
+      "sha256": "f31283427de2519d459a3e2ed6b7a4abce5aaac6f2424aafedf41287e5366a80"
+    },
+    {
+      "relative_path": "tools/ledger.mjs",
+      "sha256": "399718c423aa9157faa5989c441b63f917d0e97d6e0f611546d79198effc3988"
+    },
+    {
+      "relative_path": "tools/parsers.mjs",
+      "sha256": "ea2e5b700157ac701f44c12f042daab7d038eed0a5efbcc58bd71368be94e5d2"
+    },
+    {
+      "relative_path": "tools/passes.mjs",
+      "sha256": "8e5254b2222e6ac4c7b93879aec2942128af6742a6f9aa3a7c4e7e1172561ce6"
+    },
+    {
+      "relative_path": "tools/provisional-dedupe.mjs",
+      "sha256": "df0e1484ef8d285bd7877e2ae0273eb51814c2eec259fbaa14a9848d05a63b9a"
+    },
+    {
+      "relative_path": "tools/run-extraction.mjs",
+      "sha256": "ef6147d978de89292c795e4fccbf1d46759d3b20622bc3086d94dc4d1f3d9204"
+    },
+    {
+      "relative_path": "tools/safe-export.mjs",
+      "sha256": "fc0613fea4c189890bcc26b8f336d02f0d2b5b0ff6a2154e2ba3c011208e836a"
+    },
+    {
+      "relative_path": "tools/schema-validator.mjs",
+      "sha256": "779e9da336d1b8fb58e6855b783562328cb17129c9f4a4176f4d87e190c36b97"
+    },
+    {
+      "relative_path": "tools/specialist-review.mjs",
+      "sha256": "dc49d48d813a4d557151468f3010464953173661191ab7ae4a1d0eb382256ce1"
+    },
+    {
+      "relative_path": "tools/finalize-specialist-role-batches.mjs",
+      "sha256": "6177e3cf0b3208ea2f435a83eb0819eae7ec5b9e9c59993ac9c208b2060f15c2"
+    },
+    {
+      "relative_path": "schemas/restricted-occurrence.schema.json",
+      "sha256": "fc018bbd267695ad0236a944fc3c5726468faed0140aee66c29e6db471196318"
+    },
+    {
+      "relative_path": "schemas/provisional-concept.schema.json",
+      "sha256": "dcaf61df74707d5454c306ece214296a7e31809812936a1262ab02a5965876ee"
+    },
+    {
+      "relative_path": "schemas/artifact-processing-ledger.schema.json",
+      "sha256": "279f128a102a42de8dc4b037d31fe4e14b0a50ad6b62b4719eee16c29b6b7296"
+    },
+    {
+      "relative_path": "schemas/specialist-review-receipt.schema.json",
+      "sha256": "5d71d1b3fd8baf9ea0b76c9d90f38b1ac6d4803a447bc0ca0872247443b98935"
+    },
+    {
+      "relative_path": "worktree/i1q-question-platform/src/source-factory/legacy-v4.mjs",
+      "sha256": "49b9b95947b5f3f24be73d4006d75be5ea465a96d6bdf776ab5a9702f605eb8b"
+    },
+    {
+      "relative_path": "worktree/supabase/migrations/20260420111000_stat_dataset_ingest.sql",
+      "sha256": "9bbd46e329933f1ebe5642e48238f9e0ac9f29bd772ad40675123e1d2c313f0e"
+    }
+  ],
+  "old_manifest_root": "55819ac6b1d5f101a2975cd27b1b1ae74a212bd5d72c6d72a51eb1cf374a0094",
+  "current_run_contract_manifest": [
+    {
+      "relative_path": "tools/acquire.mjs",
+      "sha256": "578fd8be9ce3ba0986440419a18b6670f08b22fddb2e179895b5c5936bc7df36"
+    },
+    {
+      "relative_path": "tools/boundary.mjs",
+      "sha256": "70162f93f2711767b5da20ebb3bf55c75c211d546256a95a25ced94cd5529288"
+    },
+    {
+      "relative_path": "tools/canonical.mjs",
+      "sha256": "d24a676ba6b3acbfa5fecda5c1cf08a3ca06a4c1733be4677604b52dbe8eea09"
+    },
+    {
+      "relative_path": "tools/constants.mjs",
+      "sha256": "26962ec815f52ddccc0f09e18dec163b9334c7ef73a2df05e5144b069eb391c7"
+    },
+    {
+      "relative_path": "tools/extraction-operation-lock.mjs",
+      "sha256": "f31283427de2519d459a3e2ed6b7a4abce5aaac6f2424aafedf41287e5366a80"
+    },
+    {
+      "relative_path": "tools/ledger.mjs",
+      "sha256": "399718c423aa9157faa5989c441b63f917d0e97d6e0f611546d79198effc3988"
+    },
+    {
+      "relative_path": "tools/parsers.mjs",
+      "sha256": "ea2e5b700157ac701f44c12f042daab7d038eed0a5efbcc58bd71368be94e5d2"
+    },
+    {
+      "relative_path": "tools/passes.mjs",
+      "sha256": "8e5254b2222e6ac4c7b93879aec2942128af6742a6f9aa3a7c4e7e1172561ce6"
+    },
+    {
+      "relative_path": "tools/provisional-dedupe.mjs",
+      "sha256": "df0e1484ef8d285bd7877e2ae0273eb51814c2eec259fbaa14a9848d05a63b9a"
+    },
+    {
+      "relative_path": "tools/run-extraction.mjs",
+      "sha256": "ef6147d978de89292c795e4fccbf1d46759d3b20622bc3086d94dc4d1f3d9204"
+    },
+    {
+      "relative_path": "tools/safe-export.mjs",
+      "sha256": "fc0613fea4c189890bcc26b8f336d02f0d2b5b0ff6a2154e2ba3c011208e836a"
+    },
+    {
+      "relative_path": "tools/schema-validator.mjs",
+      "sha256": "779e9da336d1b8fb58e6855b783562328cb17129c9f4a4176f4d87e190c36b97"
+    },
+    {
+      "relative_path": "tools/specialist-review.mjs",
+      "sha256": "dc49d48d813a4d557151468f3010464953173661191ab7ae4a1d0eb382256ce1"
+    },
+    {
+      "relative_path": "tools/finalize-specialist-role-batches.mjs",
+      "sha256": "5d5ccd4f18eb11fbf6025b7eca65ed5753e86fab30fb74e034188abb1dbcd879"
+    },
+    {
+      "relative_path": "schemas/restricted-occurrence.schema.json",
+      "sha256": "fc018bbd267695ad0236a944fc3c5726468faed0140aee66c29e6db471196318"
+    },
+    {
+      "relative_path": "schemas/provisional-concept.schema.json",
+      "sha256": "dcaf61df74707d5454c306ece214296a7e31809812936a1262ab02a5965876ee"
+    },
+    {
+      "relative_path": "schemas/artifact-processing-ledger.schema.json",
+      "sha256": "279f128a102a42de8dc4b037d31fe4e14b0a50ad6b62b4719eee16c29b6b7296"
+    },
+    {
+      "relative_path": "schemas/specialist-review-receipt.schema.json",
+      "sha256": "5d71d1b3fd8baf9ea0b76c9d90f38b1ac6d4803a447bc0ca0872247443b98935"
+    },
+    {
+      "relative_path": "worktree/i1q-question-platform/src/source-factory/legacy-v4.mjs",
+      "sha256": "49b9b95947b5f3f24be73d4006d75be5ea465a96d6bdf776ab5a9702f605eb8b"
+    },
+    {
+      "relative_path": "worktree/supabase/migrations/20260420111000_stat_dataset_ingest.sql",
+      "sha256": "9bbd46e329933f1ebe5642e48238f9e0ac9f29bd772ad40675123e1d2c313f0e"
+    }
+  ],
+  "current_manifest_root": "244baa6593fb6cfaee199805b3195f809ce2cedeb3fdca0eaacd6cdd6136168d",
+  "rotation_tcb_hashes": [
+    {
+      "relative_path": "tools/rotate-superseded-extraction.mjs",
+      "sha256": "e56a750758fd76e6db94bbff625575bc47721d41c19bffe600ee71a372f35e76"
+    },
+    {
+      "relative_path": "tests/test_finalizer_drift_rotation.mjs",
+      "sha256": "95c19c2a26349876e70e0abebdccab780604b679a2d108aadee3a561661db887"
+    },
+    {
+      "relative_path": "tools/build-finalizer-drift-decision.mjs",
+      "sha256": "11d3cd0a7764a73f5e167efece495c5adc70ecfb87c338f679088623f67cd33c"
+    },
+    {
+      "relative_path": "tools/extraction-operation-lock.mjs",
+      "sha256": "f31283427de2519d459a3e2ed6b7a4abce5aaac6f2424aafedf41287e5366a80"
+    },
+    {
+      "relative_path": "tools/boundary.mjs",
+      "sha256": "70162f93f2711767b5da20ebb3bf55c75c211d546256a95a25ced94cd5529288"
+    },
+    {
+      "relative_path": "tools/canonical.mjs",
+      "sha256": "d24a676ba6b3acbfa5fecda5c1cf08a3ca06a4c1733be4677604b52dbe8eea09"
+    },
+    {
+      "relative_path": "tools/ledger.mjs",
+      "sha256": "399718c423aa9157faa5989c441b63f917d0e97d6e0f611546d79198effc3988"
+    },
+    {
+      "relative_path": "tools/constants.mjs",
+      "sha256": "26962ec815f52ddccc0f09e18dec163b9334c7ef73a2df05e5144b069eb391c7"
+    }
+  ],
+  "rotation_tcb_root": "0272b8d087fcf7635ba7fe6a8123b46b30b081b63cfe3b02e465664866277890",
+  "approved_roots": {
+    "extraction_state_root": "49efd341d950c3b3f139a227377406bd4c64cf4e59f3a512213fcd4cccc93262",
+    "journal_root": "77bab12652485991c51921f6fa835b63ab05cddde0ada9961642d51e03bab1a0",
+    "extraction_receipt_root": "94e14b2e44bd24e9d203b77b948307ac004680e74dbd64bfbd8c826957212eae",
+    "working_tree_root": "9a15bfeb0188222549a60736c53a6e6d3b5dfe9c52c258356bfdc85cd19520c8",
+    "reviews_tree_root": "cdae761b9f8212608a5a9f5bf1ceecc60c42d134d63b8e48974c41d5fa5aab28",
+    "processing_receipts_tree_root": "25ac38b2e0f1f996521bc6bac59368d6dd1529e9dba1ec98ea3138fe4d30134d",
+    "retrieval_receipts_tree_root": "d06630503359b4273421d9e5c7d370b29d375788b75372117e137dddb3b51fed",
+    "artifact_failures_tree_root": "67a65699c4dbb5fb759f68b980f5c657b47be14b986ff363289b2e3a6552ed74",
+    "move_unit_set_root": "fef47e940db26fd64da7802d1852d11d7b9557f687ca7288a7a5622dbfad25e1",
+    "artifact_ledger_root": "67b017b104ee874aa25be313079f687d4dcea0d36be49660dce429599a2cef20",
+    "coverage_receipt_root": "ae8d2223797cc7e95da51a47d0dbbb895272a513d2e5d9a1f89ecda8b05cda6b",
+    "finalization_completion_root": "cc51fe134e36afe2a579acc3ff6bd0ffdb5ea2daa96071fda200b3099c8b5523",
+    "packet_set_root": "277ab575809acdb16c6ea83beda1b00db8bcdd2e91232bf893dfc350fddbe8ba",
+    "submission_set_root": "251e23a1582eab63a6627396f22c9a3b5079f37c51d3bb70e7fcb8a56f03327a",
+    "receipt_set_root": "0f2c232b945b9d2c5f82df1a50696069181276a735edcb734e70ade0ebd55245",
+    "finalizer_contract_root": "9e60cbb90a68032ddb68efab191fda4a5e15ac9db67ccf395e6dd20d3526f6a9"
+  },
+  "archive_scope": [
+    "WORKING_TREE",
+    "REVIEWS_TREE",
+    "EXTRACTION_STATE",
+    "EXTRACTION_JOURNAL",
+    "EXTRACTION_RECEIPT",
+    "PROCESSING_RECEIPTS",
+    "RETRIEVAL_RECEIPTS",
+    "ARTIFACT_FAILURES"
+  ],
+  "non_destructive_archive": true,
+  "raw_acquisition_alias_decisions_preserved": true,
+  "production_mutation_authorized": false,
+  "release_or_final_approval_authority": false,
+  "content_hash": "40ab77f8c3c0f35b87b6762f4db0f2a6511da6478aebe6e0b9aace4d3d016f9b"
+}

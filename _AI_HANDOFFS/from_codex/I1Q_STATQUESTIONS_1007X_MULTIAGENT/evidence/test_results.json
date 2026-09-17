@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-07-15T16:39:34.024Z",
+  "status": "pass",
+  "exit_code": 0,
+  "test_files": [
+    "tests/adapters-security.test.mjs",
+    "tests/api.test.mjs",
+    "tests/evidence-validator.test.mjs",
+    "tests/exports-class-c.test.mjs",
+    "tests/migration-1007x.test.mjs",
+    "tests/migration.test.mjs",
+    "tests/performance.test.mjs",
+    "tests/platform.test.mjs",
+    "tests/postgres-migration.test.mjs",
+    "tests/postgres-repository.test.mjs",
+    "tests/privacy-regressions.test.mjs",
+    "tests/security-regressions.test.mjs",
+    "tests/ui.test.mjs"
+  ],
+  "passed_assertions": 227,
+  "failed_assertions": 0,
+  "output_sha256": "e2defc083570054e01d15e0b7a6ee05eb71cebf10e21dfd808bed0a681453d75"
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": "missionmed.i1q1008e.test_results.v1",
+  "result": "pass",
+  "suite_count": 5,
+  "test_count": 127,
+  "pass_count": 127,
+  "failure_count": 0,
+  "cancelled_count": 0,
+  "skipped_count": 0,
+  "todo_count": 0,
+  "production_mutation_count": 0,
+  "suites": [
+    {
+      "name": "extraction",
+      "test_count": 63,
+      "pass_count": 63,
+      "result": "pass"
+    },
+    {
+      "name": "safe_metrics",
+      "test_count": 2,
+      "pass_count": 2,
+      "result": "pass"
+    },
+    {
+      "name": "specialist_finalizer",
+      "test_count": 17,
+      "pass_count": 17,
+      "result": "pass"
+    },
+    {
+      "name": "finalizer_drift_rotation",
+      "test_count": 5,
+      "pass_count": 5,
+      "result": "pass"
+    },
+    {
+      "name": "rotation_and_recovery",
+      "test_count": 40,
+      "pass_count": 40,
+      "result": "pass"
+    }
+  ],
+  "content_hash": "24a16b726df28ae3bb1a07f71543716ef1999f886f7429d38b18cac4b40a578a"
+}
