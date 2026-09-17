@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-17 13:14 America/New_York
+Updated: 2026-09-17 16:43 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -22,9 +22,9 @@ the actual production route and deployment.
 - Candidate.2 presentation integration successor:
   `84e750e4540acd5479ee72291e7b9d1c38f2f351`.
 - Active presentation/runtime deployment:
-  `f68eb15a-56ea-4f1d-bba9-0ad12e8d3fa7`, exact commit
-  `3ff0377858ff0f8a12d6f70cc3cdcf965990281f`, image
-  `sha256:680b11dbffab128dc3558ca6bc37303b12da3ef7add0168ffd880e73ad5e2a8d`.
+  `02628804-8c40-451d-884b-bb3343deef9e`, exact commit
+  `79fa1e7749ffe0881cfde82ac16b40716790ef4a`, image
+  `sha256:c8eb20fce55335e8ae8d6f52ca60f3a3edb5522770bbd9e889eae05e3faf1590`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -83,11 +83,11 @@ the actual production route and deployment.
 | 5 | Truthful Readiness & Calibration checks | LIVE VERIFIED | Production Chrome proved physical FaceTime HD camera, built-in microphone, running audio context, live level and bound video surface. |
 | 6 | Real modular camera/mic Analytics with truthful availability states | LIVE VERIFIED | Physical production rep produced real microphone PCM plus face, hands, head and framing telemetry; unavailable signals continued to fail closed. |
 | 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE UNVERIFIED | The physical production rep proved live volume, variation, pitch, pace, cadence and pause states plus a real generated transcript; filler and persisted transcript-boundary acceptance remain. |
-| 6 | Admin measurement/visibility controls and prohibited-inference safeguards | LIVE UNVERIFIED | Production Admin live face/head, hand/finger, body/pose and framing/head-orientation overlays were visually aligned and independently toggleable; measurement continued while hidden. Student Coached Practice binding remains required until deployed and live verified. True eye-gaze visualization is unsupported; the product exposes only defensible camera-facing/head-orientation proxies. |
+| 6 | Admin measurement/visibility controls and prohibited-inference safeguards | LIVE VERIFIED | Production Admin and Student Coached Practice face/head, hand/finger, body/pose and framing/head-orientation overlays were visibly aligned to the real camera surface and independently toggleable; measurement continued while hidden. True eye-gaze visualization remains unsupported; the product exposes only defensible camera-facing/head-orientation proxies. |
 | 7 | Canonical clock across recording, transcript, Q/A, Analytics, Results and clips | LIVE UNVERIFIED | Production session/recording duration matched at 21,821 ms with 16 persisted Analytics events and reload-safe playback; transcript/Q&A range persistence remains. |
 | 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE UNVERIFIED | Owner capture, two-part upload, seal, signed playback and reload passed with audit receipts; generated transcript/context remains intentionally ephemeral and canonical range/gap persistence remains. |
 | 8 | Evidence-grounded Results | LIVE VERIFIED | Production post-answer Results and bounded transcript/context analysis returned evidence-cited observations tied to transcript segments without unsupported scoring. |
-| 8 | Film Room synchronized replay and Flight Recorder timeline | LIVE UNVERIFIED | Production playback and persisted Analytics rehydration passed after fix 0c9efce. Persisted replay overlay rendering/toggles are required and now scheduled in this lane; complete timestamp-synchronized Flight Recorder traversal remains. |
+| 8 | Film Room synchronized replay and Flight Recorder timeline | LIVE UNVERIFIED | A newly saved private rep survived reload, reopened through signed owner playback, and visibly rendered aligned replay overlays with independent Face and Body/Hands toggles while Analytics tracks remained populated. Complete timestamp-synchronized Flight Recorder traversal remains. |
 | 8 | Durable student Video Library and Admin student-library access | LIVE UNVERIFIED | Owner library persisted across reload and signed private playback passed; Admin student-library and negative-role isolation remain. |
 | 9 | Current supported realtime transport and contextual InterviewBrain | LIVE VERIFIED | Production `gpt-live-1` WebRTC canary created twice through the authenticated IVOC broker, reached `session.started`, exchanged native audio/transcript events, and ended with provider hangup HTTP 200. |
 | 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE VERIFIED | Production canary retained the discharge/teach-back detail across turns, asked evidence-grounded follow-ups, honored “move to the next question,” and visibly truncated “That gives me a—” on barge-in before continuing. |
@@ -109,7 +109,7 @@ the actual production route and deployment.
 | 14 | Credits, allowances, overrides, reset and balance | NOT STARTED | Production accounting/control model remains. |
 | 14 | Versioned Analytics/InterviewBrain/coaching controls | NOT STARTED | Production Admin configuration/version receipt remains. |
 | 15 | Live Mock Studio Hot Seat workflow and real student media | NOT STARTED | Product surface and production workflow remain. |
-| 15 | Canonical recording/Analytics/replay/overlay/scoring/library save | IN PROGRESS | Admin live overlays and hidden-measurement continuity are verified. Student Coached Practice and Film Room persisted overlay binding are required before completion; true eye-gaze remains unsupported absent a defensible detector. |
+| 15 | Canonical recording/Analytics/replay/overlay/scoring/library save | LIVE VERIFIED | One production Student Coached Practice rep completed the full camera/mic → Analytics → private recording → Results → Film Room overlay → Answer History → reload → signed private playback lifecycle. Overlay toggles and hidden-measurement continuity passed; true eye-gaze remains unsupported absent a defensible detector. |
 | 15 | Deepest viable Webex or staged supervised adapter | NOT STARTED | Owner/provider constraint and shipped seam remain. |
 | 16 | Per-question semantic Answer History | NOT STARTED | Ranges exist in schema; product history surface and proof remain. |
 | 16 | Match Bridge Ready promotion with consent/audience/revocation/version | NOT STARTED | Bounded clip contract and production proof remain. |
@@ -125,8 +125,9 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `f68eb15a-56ea-4f1d-bba9-0ad12e8d3fa7` from exact product commit
-  `3ff0377858ff0f8a12d6f70cc3cdcf965990281f`; health is ready and the
+  `02628804-8c40-451d-884b-bb3343deef9e` from exact product commit
+  `79fa1e7749ffe0881cfde82ac16b40716790ef4a`; runtime source bytes match
+  the commit, health is ready, repository source is disconnected, and the
   unauthenticated product route remains fail-closed at HTTP 401.
 - Runtime bindings must be moved from the historical development target to
   `bscnrgqlwsyygyfrbhfn` without exposing credentials. Context/transcript flags
@@ -157,12 +158,10 @@ the actual production route and deployment.
 
 ## Next execution lanes
 
-1. Run the bounded GPT-Live contextual conversation canary, including answer-grounded
-   follow-up, move-on, barge-in where supported, teardown and single-audio authority.
-2. Run authenticated second-Admin, entitled-360 and negative-role/private-media canaries.
-3. Complete timestamp-synchronized Film Room traversal and canonical transcript/Q&A ranges.
-4. Continue fix-forward implementation across every `NOT STARTED` or
+1. Run authenticated second-Admin, entitled-360 and negative-role/private-media canaries.
+2. Complete timestamp-synchronized Film Room traversal and canonical transcript/Q&A ranges.
+3. Continue fix-forward implementation across every `NOT STARTED` or
    `LIVE UNVERIFIED` ledger row, respecting sibling-owner boundaries.
-5. Run fresh independent acceptance against the actual production route.
-6. Create `IVOC_MEGARUN_FINAL_HANDOFF.md`, release every lease, and stop only
+4. Run fresh independent acceptance against the actual production route.
+5. Create `IVOC_MEGARUN_FINAL_HANDOFF.md`, release every lease, and stop only
    at `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`.
