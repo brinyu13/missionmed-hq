@@ -1,0 +1,455 @@
+.mmed-session-admin {
+	max-width: 1320px;
+	position: relative;
+}
+
+.mmed-session-header {
+	align-items: center;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+	display: flex;
+	justify-content: space-between;
+	margin: 20px 0;
+	padding: 22px 24px;
+}
+
+.mmed-session-header h1 {
+	font-size: 28px;
+	line-height: 1.2;
+	margin: 0 0 6px;
+}
+
+.mmed-session-header p {
+	color: #50575e;
+	font-size: 14px;
+	margin: 0;
+}
+
+.mmed-session-eyebrow {
+	color: #2271b1 !important;
+	font-size: 11px !important;
+	font-weight: 700;
+	letter-spacing: 0;
+	margin-bottom: 6px !important;
+	text-transform: uppercase;
+}
+
+.mmed-session-card {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+	overflow: hidden;
+}
+
+.mmed-webex-card {
+	margin-bottom: 20px;
+}
+
+.mmed-feature-flags-card {
+	margin-bottom: 20px;
+}
+
+.mmed-session-card-head {
+	align-items: center;
+	border-bottom: 1px solid #dcdcde;
+	display: flex;
+	justify-content: space-between;
+	padding: 16px 18px;
+}
+
+.mmed-session-card-head h2 {
+	font-size: 18px;
+	margin: 0;
+}
+
+.mmed-session-muted {
+	color: #646970;
+	margin: 6px 0 0;
+}
+
+.mmed-webex-status {
+	border-radius: 999px;
+	display: inline-flex;
+	font-size: 12px;
+	font-weight: 700;
+	padding: 5px 10px;
+	white-space: nowrap;
+}
+
+.mmed-webex-status.is-connected {
+	background: #edfaef;
+	color: #008a20;
+}
+
+.mmed-webex-status.is-disconnected {
+	background: #fcf0f1;
+	color: #b32d2e;
+}
+
+.mmed-webex-status.is-checking {
+	background: #f6f7f7;
+	color: #50575e;
+}
+
+.mmed-webex-settings {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	padding: 18px;
+}
+
+.mmed-webex-settings label {
+	display: flex;
+	flex-direction: column;
+	font-weight: 600;
+	gap: 6px;
+}
+
+.mmed-webex-settings input {
+	max-width: none;
+	width: 100%;
+}
+
+.mmed-webex-wide,
+.mmed-webex-actions {
+	grid-column: 1 / -1;
+}
+
+.mmed-webex-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.mmed-feature-flag-list {
+	display: grid;
+	gap: 0;
+}
+
+.mmed-feature-flag {
+	align-items: center;
+	border-bottom: 1px solid #f0f0f1;
+	display: flex;
+	gap: 16px;
+	justify-content: space-between;
+	padding: 14px 18px;
+}
+
+.mmed-feature-flag:last-child {
+	border-bottom: 0;
+}
+
+.mmed-feature-flag-copy {
+	display: grid;
+	gap: 4px;
+}
+
+.mmed-feature-flag-copy strong {
+	font-family: Consolas, Monaco, monospace;
+}
+
+.mmed-feature-flag-copy span {
+	color: #646970;
+}
+
+.mmed-feature-switch {
+	display: inline-flex;
+	flex: 0 0 auto;
+	position: relative;
+}
+
+.mmed-feature-switch input {
+	opacity: 0;
+	position: absolute;
+}
+
+.mmed-feature-switch span {
+	background: #8c8f94;
+	border-radius: 999px;
+	cursor: pointer;
+	display: block;
+	height: 24px;
+	position: relative;
+	transition: background 0.16s ease;
+	width: 44px;
+}
+
+.mmed-feature-switch span::before {
+	background: #fff;
+	border-radius: 50%;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+	content: "";
+	height: 18px;
+	left: 3px;
+	position: absolute;
+	top: 3px;
+	transition: transform 0.16s ease;
+	width: 18px;
+}
+
+.mmed-feature-switch input:checked + span {
+	background: #2271b1;
+}
+
+.mmed-feature-switch input:checked + span::before {
+	transform: translateX(20px);
+}
+
+.mmed-feature-switch input:focus + span {
+	box-shadow: 0 0 0 2px #fff, 0 0 0 4px #2271b1;
+}
+
+.mmed-session-table-wrap {
+	overflow-x: auto;
+}
+
+.mmed-session-table th,
+.mmed-session-table td {
+	vertical-align: middle;
+}
+
+.mmed-session-table td {
+	padding-bottom: 14px;
+	padding-top: 14px;
+}
+
+.mmed-session-sub {
+	color: #646970;
+	display: block;
+	font-size: 12px;
+	margin-top: 4px;
+}
+
+.mmed-session-platform {
+	background: #f0f6fc;
+	border: 1px solid #c5d9ed;
+	border-radius: 999px;
+	color: #0a4b78;
+	display: inline-block;
+	font-size: 12px;
+	font-weight: 600;
+	padding: 3px 9px;
+}
+
+.mmed-session-url {
+	display: inline-block;
+	font-family: Consolas, Monaco, monospace;
+	max-width: 280px;
+	vertical-align: middle;
+}
+
+.mmed-session-copy {
+	margin-left: 8px;
+}
+
+.mmed-session-toggle {
+	font-weight: 700;
+}
+
+.mmed-session-toggle.is-active {
+	color: #008a20;
+}
+
+.mmed-session-toggle.is-inactive {
+	color: #8c8f94;
+}
+
+.mmed-session-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.mmed-session-loading,
+.mmed-session-empty {
+	color: #646970;
+	padding: 28px;
+}
+
+.mmed-session-loading .spinner {
+	float: none;
+	margin: 0 8px 0 0;
+	vertical-align: middle;
+}
+
+.mmed-session-modal {
+	bottom: 0;
+	left: 0;
+	position: fixed;
+	right: 0;
+	top: 0;
+	z-index: 100000;
+}
+
+.mmed-session-backdrop {
+	background: rgba(0, 0, 0, 0.42);
+	bottom: 0;
+	left: 0;
+	position: absolute;
+	right: 0;
+	top: 0;
+}
+
+.mmed-session-dialog {
+	background: #fff;
+	border-left: 1px solid #c3c4c7;
+	bottom: 0;
+	box-shadow: -8px 0 30px rgba(0, 0, 0, 0.18);
+	display: flex;
+	flex-direction: column;
+	max-width: 720px;
+	position: absolute;
+	right: 0;
+	top: 0;
+	width: min(720px, 100%);
+}
+
+.mmed-session-dialog-head {
+	align-items: center;
+	border-bottom: 1px solid #dcdcde;
+	display: flex;
+	justify-content: space-between;
+	padding: 18px 22px;
+}
+
+.mmed-session-dialog-head h2 {
+	font-size: 20px;
+	margin: 0;
+}
+
+.mmed-session-form-grid {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	overflow: auto;
+	padding: 22px;
+}
+
+.mmed-session-form-grid label {
+	color: #1d2327;
+	display: flex;
+	flex-direction: column;
+	font-weight: 600;
+	gap: 6px;
+}
+
+.mmed-session-form-grid input,
+.mmed-session-form-grid select,
+.mmed-session-form-grid textarea {
+	max-width: none;
+	width: 100%;
+}
+
+.mmed-session-span {
+	grid-column: 1 / -1;
+}
+
+.mmed-session-inline-field {
+	display: flex;
+	gap: 8px;
+}
+
+.mmed-session-inline-field input {
+	flex: 1;
+}
+
+.mmed-session-check {
+	align-items: center;
+	flex-direction: row !important;
+	gap: 8px !important;
+}
+
+.mmed-session-check input {
+	width: auto;
+}
+
+.mmed-session-dialog-actions {
+	align-items: center;
+	border-top: 1px solid #dcdcde;
+	display: flex;
+	justify-content: space-between;
+	margin-top: auto;
+	padding: 16px 22px;
+}
+
+.mmed-session-toast-tray {
+	position: fixed;
+	right: 24px;
+	top: 48px;
+	z-index: 100001;
+}
+
+.mmed-session-toast {
+	background: #fff;
+	border-left: 4px solid #00a32a;
+	box-shadow: 0 3px 18px rgba(0, 0, 0, 0.16);
+	color: #1d2327;
+	margin-bottom: 10px;
+	min-width: 260px;
+	padding: 12px 14px;
+	transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.mmed-session-toast.is-error {
+	border-left-color: #d63638;
+}
+
+.mmed-session-toast.is-hiding {
+	opacity: 0;
+	transform: translateY(-6px);
+}
+
+.mmed-action-dialog {
+	max-width: 760px;
+}
+
+.mmed-action-list {
+	display: grid;
+	gap: 10px;
+	margin: 14px 0;
+}
+
+.mmed-action-item {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	padding: 12px;
+}
+
+.mmed-action-item p {
+	color: #50575e;
+	margin: 8px 0;
+}
+
+.mmed-action-form {
+	border-top: 1px solid #dcdcde;
+	display: grid;
+	gap: 10px;
+	margin-top: 14px;
+	padding-top: 14px;
+}
+
+@media (max-width: 782px) {
+	.mmed-session-header,
+	.mmed-session-card-head,
+	.mmed-session-dialog-actions {
+		align-items: stretch;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.mmed-session-form-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.mmed-webex-settings {
+		grid-template-columns: 1fr;
+	}
+
+	.mmed-session-inline-field {
+		flex-direction: column;
+	}
+}

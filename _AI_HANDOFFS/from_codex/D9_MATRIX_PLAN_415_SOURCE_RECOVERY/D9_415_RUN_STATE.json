@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.2",
+  "ticket": "D9-MATRIX-PLAN-415",
+  "result": "COMPLETE",
+  "verdict": "A_CODE_SOURCE_AUTHORITY_RECOVERED",
+  "current_phase": "PHASE_11_D9_415F_CLOSEOUT",
+  "founder_decisions_applied": [
+    "D9-415-FOUNDATION-001",
+    "D9-415-FOUNDATION-002"
+  ],
+  "canonical_repository": "https://github.com/brinyu13/missionmed-hq.git",
+  "canonical_branch": "d9-matrix-plan-415-source-recovery",
+  "canonical_worktree": "/Users/brianb/MissionMed_worktrees/D9-MatrixPlan-415",
+  "base_commit": "9c1fa72e6b056db8b6fe0e17031fcaa688f78569",
+  "commits": {
+    "observed_baseline_A": "c340a3a87732f7dc4afb06c01e4586239a050495",
+    "source_quarantine_B": "9469437d2ac5010563e59b6fdc00a9fe48548a80",
+    "runtime_provenance_C": "e12cd99aa9c019a6f99325c0b961aa50db945472",
+    "validation_pipeline_D": "a81a3afc9d7b1f40295d0a1585045293326b0387",
+    "review_fixes_E": "030fe1071b76dfa7e37757eb70ba9c3aa1e41b00",
+    "handoff_F": "SELF_D9_415F_RESOLVE_FROM_BRANCH_HEAD"
+  },
+  "baseline_tag": {
+    "name": "d9-matrix-observed-production-baseline-NOT-DEPLOYABLE-20260713",
+    "tag_object": "6e2f5e32830f06b9015b9eee1870ccfab62b2a49",
+    "commit": "c340a3a87732f7dc4afb06c01e4586239a050495",
+    "deployable": false
+  },
+  "controller_hashes": {
+    "authorized_current_observed_production": "23da5c033e8d9ffcf3e9512fb385a8a0a0e88b592cae5e375941d43372cefe29",
+    "historical_rollback_only": "c0a538d3454ff4a05822e00ace01ebf933a8bbfcf1722fc2be382527743d78cb",
+    "entitlement_behavior": "OBSERVED_AND_PRESERVED_NOT_APPROVED"
+  },
+  "snapshot_cutoff": {
+    "status": "PASS_QUIESCENT",
+    "t0": "2026-07-14T00:31:00.453619187Z",
+    "t1": "2026-07-14T00:31:03.315562100Z",
+    "comparison": "IDENTICAL",
+    "normalized_manifest_sha256": "88c8be901df41ba260d5c3091f08dc87cd6d4ad9b36423e24e437373ea2b2a61",
+    "total_entries": 287,
+    "plugin_files": 125,
+    "selected_mu_files": 10,
+    "local_copy_mismatch_count": 0
+  },
+  "package": {
+    "runtime_source_commit": "e12cd99aa9c019a6f99325c0b961aa50db945472",
+    "source_file_count": 129,
+    "source_manifest_sha256": "a650686889a6ddc22664ed890b6ff7b80fc3c1e475282723b8542d05f3967bc5",
+    "package_sha256": "afd9a1e6a236413552c6477b1f959ac5d750233724ceb14dd2351393430dae5f",
+    "reproducible": true,
+    "deployable": false
+  },
+  "subagents": {
+    "wave_1": {"required": 4, "complete": 4, "status": "COMPLETE"},
+    "wave_2": {"required": 4, "complete": 4, "status": "COMPLETE_ZERO_UNRESOLVED_P0_P1"}
+  },
+  "publication": {
+    "remote_branch_verified_at_E": true,
+    "remote_tag_verified": true,
+    "draft_pr": 9,
+    "draft_pr_url": "https://github.com/brinyu13/missionmed-hq/pull/9",
+    "hosted_ci_at_E": "PASS",
+    "final_F_remote_verification": "REQUIRED_IMMEDIATELY_AFTER_SELF_COMMIT"
+  },
+  "mutation_counts": {
+    "production": 0,
+    "database": 0,
+    "cache": 0,
+    "feature_flag": 0,
+    "authentication": 0,
+    "entitlement": 0,
+    "deployment": 0
+  },
+  "gates": {
+    "G-D9-4": "OPEN",
+    "G-D9-5A": "PASS_SUBJECT_TO_FINAL_F_REMOTE_AND_MIRROR_EQUALITY",
+    "G-D9-5B": "OPEN_D9_416_REQUIRED",
+    "G-D9-5": "PARTIAL",
+    "D9-416": "READY_AFTER_FINAL_F_VERIFICATION",
+    "D9-420": "BLOCKED"
+  },
+  "current_blockers": [],
+  "next_action": "Commit D9-415F, push and verify the exact remote head, verify hosted CI, mirror the tracked handoff set, append the canonical activity log, and report the immutable hashes."
+}

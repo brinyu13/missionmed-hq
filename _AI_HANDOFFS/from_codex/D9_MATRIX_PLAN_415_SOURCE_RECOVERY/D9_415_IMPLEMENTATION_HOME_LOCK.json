@@ -1,0 +1,145 @@
+{
+  "schema_version": "1.0",
+  "status": "ACTIVE_BRANCH_LOCAL_SOURCE_RECOVERY_LOCK",
+  "ticket": "D9-MATRIX-PLAN-415",
+  "authority": [
+    "D9-415-FOUNDATION-001",
+    "D9-415-FOUNDATION-002"
+  ],
+  "canonical_repository": "https://github.com/brinyu13/missionmed-hq.git",
+  "canonical_base_branch": "origin/main",
+  "canonical_base_commit": "9c1fa72e6b056db8b6fe0e17031fcaa688f78569",
+  "canonical_recovery_branch": "d9-matrix-plan-415-source-recovery",
+  "canonical_worktree": "/Users/brianb/MissionMed_worktrees/D9-MatrixPlan-415",
+  "canonical_plugin_root": "wp-content/plugins/missionmed-hub",
+  "canonical_mu_source_root": "wp-content/mu-plugins",
+  "observed_production": {
+    "plugin_root": "/www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub",
+    "mu_root": "/www/theresidencyacademy_209/public/wp-content/mu-plugins",
+    "t0_completed_at": "2026-07-14T00:31:00.453619187Z",
+    "t1_completed_at": "2026-07-14T00:31:03.315562100Z",
+    "normalized_manifest_sha256": "88c8be901df41ba260d5c3091f08dc87cd6d4ad9b36423e24e437373ea2b2a61",
+    "quiescent": true,
+    "production_mutation_count": 0
+  },
+  "observed_baseline": {
+    "commit": "c340a3a87732f7dc4afb06c01e4586239a050495",
+    "tree": "2a43327429214fdf1c161aa9adf297fabac155bd",
+    "tag": "d9-matrix-observed-production-baseline-NOT-DEPLOYABLE-20260713",
+    "tag_object": "6e2f5e32830f06b9015b9eee1870ccfab62b2a49",
+    "plugin_file_count": 125,
+    "selected_mu_file_count": 10,
+    "selected_source_byte_count": 10590108,
+    "plugin_version": "1.5.1",
+    "deployable": false
+  },
+  "safe_source_at_phase_7": {
+    "commit": "9469437d2ac5010563e59b6fdc00a9fe48548a80",
+    "tree": "d5d3fc057ce47f3af46774541de1faca059defb1",
+    "source_only_mu_quarantine": true,
+    "production_still_contains_quarantined_backup": true,
+    "deployable": false
+  },
+  "protected_assets": {
+    "student_os_js": {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os.js",
+      "observed_sha256": "646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a",
+      "active_lock_disposition": "MATCH"
+    },
+    "student_os_css": {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os.css",
+      "observed_sha256": "111942c48eb8fd5dbe4132f17b4a6df89eb6a30044b1cb076db190c0da794a33",
+      "active_lock_disposition": "MATCH"
+    },
+    "class_mmed_student_os_php": {
+      "path": "wp-content/plugins/missionmed-hub/includes/class-mmed-student-os.php",
+      "observed_sha256": "23da5c033e8d9ffcf3e9512fb385a8a0a0e88b592cae5e375941d43372cefe29",
+      "former_lock_sha256": "c0a538d3454ff4a05822e00ace01ebf933a8bbfcf1722fc2be382527743d78cb",
+      "active_lock_disposition": "EXACT_HASH_EXCEPTION_UNDER_D9-415-FOUNDATION-002",
+      "entitlement_behavior_approved": false
+    },
+    "calendar_v4_js": {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.js",
+      "observed_sha256": "e9ef490cd15b10c2d43726d9249c1b623dbd5077a1728b128c50e10ca11010aa",
+      "active_lock_disposition": "MATCH"
+    },
+    "calendar_v4_css": {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.css",
+      "observed_sha256": "6e519195f199b3f545690530bf78ffc35897b7ca70ca66428e72873714f4547e",
+      "former_lock_sha256": "41b3a29530f23253827a707433e36fe48a121cd63aa39ed8433bef42e12ba385",
+      "active_lock_disposition": "MATCH_CURRENT_OBSERVED"
+    },
+    "scheduler_mount_js": {
+      "path": "wp-content/plugins/missionmed-hub/assets/scheduler-mount.js",
+      "observed_sha256": "2a47b847c52ed53dbffe51bef85c45efb2eecabe9246b821bce8b54f218e7578",
+      "active_lock_disposition": "MATCH",
+      "mutable_cdn_dependency_authority": "OPEN_D9-416"
+    },
+    "file_vault_js": {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault.js",
+      "observed_sha256": "f1639c41d32ffe74d6d2712c93a321abd67c36ef12adb75b36061b2b39331edd",
+      "active_lock_disposition": "MATCH"
+    },
+    "file_vault_css": {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault.css",
+      "observed_sha256": "6daeaf25071f0850dbedfd522e9f0819f46fcf0e5c7a8ffc5ad3abba73ef0990",
+      "active_lock_disposition": "MATCH"
+    },
+    "storyforge_js": {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-storyforge.js",
+      "observed_sha256": "a4aa9665012206771fc8549c897cb5d22801899347c706626062dbafb29c81fa",
+      "active_lock_disposition": "MATCH"
+    },
+    "storyforge_css": {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-storyforge.css",
+      "observed_sha256": "5b0426a7af9dbc36a1401c5d2829ca8cf7827e8070b783fbfe64875c847af7d8",
+      "active_lock_disposition": "MATCH"
+    }
+  },
+  "rollback_evidence": {
+    "former_calendar_css": {
+      "path": "_SYSTEM/FORENSICS/D9_415/CALENDAR_CSS_ROLLBACK/former-lock-student-os-calendar-v4.css",
+      "sha256": "41b3a29530f23253827a707433e36fe48a121cd63aa39ed8433bef42e12ba385",
+      "byte_size": 66743
+    },
+    "former_controller": {
+      "path": "_SYSTEM/FORENSICS/D9_415/CONTROLLER_ROLLBACK/former-lock-class-mmed-student-os.php",
+      "sha256": "c0a538d3454ff4a05822e00ace01ebf933a8bbfcf1722fc2be382527743d78cb",
+      "byte_size": 32189
+    },
+    "observed_mu_backup": {
+      "path": "_SYSTEM/FORENSICS/D9_415/MU_PLUGIN_BACKUPS/missionmed-mr-legacy-popup_BACKUP_PRE004.php",
+      "sha256": "725790239f0dacc344e8a349c0d095ee57d069d00f254f54f1b2b6dff009a52b",
+      "byte_size": 14800
+    }
+  },
+  "mu_active_manifest": "_SYSTEM/BASELINES/D9_MATRIX_RUNTIME_2026_07_13/D9_MATRIX_MU_INTENDED_ACTIVE.json",
+  "global_protected_lock": {
+    "path": "/Users/brianb/MissionMed/_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json",
+    "modified_by_d9_415": false
+  },
+  "authority_boundaries": {
+    "source_recovery": "PASS_BRANCH_LOCAL",
+    "product_behavior": "D9-360",
+    "database": "OPEN_D9-416",
+    "authentication": "OPEN_D9-416",
+    "entitlement": "OPEN_D9-416",
+    "feature_flags": "OPEN_D9-416",
+    "staging_and_deployment": "OPEN_D9-416"
+  },
+  "gates": {
+    "G-D9-4": "OPEN",
+    "G-D9-5A": "PENDING_CI_REVIEW_REMOTE_VERIFICATION",
+    "G-D9-5B": "OPEN_D9-416_REQUIRED",
+    "G-D9-5": "PARTIAL",
+    "D9-420": "BLOCKED"
+  },
+  "prohibitions": [
+    "DO_NOT_DEPLOY",
+    "DO_NOT_MUTATE_PRODUCTION",
+    "DO_NOT_MUTATE_DATABASE",
+    "DO_NOT_CHANGE_AUTHENTICATION_OR_ENTITLEMENT",
+    "DO_NOT_MODIFY_PROTECTED_GLOBAL_LOCK",
+    "DO_NOT_TREAT_OBSERVED_BEHAVIOR_AS_APPROVED"
+  ]
+}

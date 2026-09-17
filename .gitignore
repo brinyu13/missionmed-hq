@@ -61,6 +61,9 @@ _AI_HANDOFFS/**
 !_AI_HANDOFFS/**/
 !_AI_HANDOFFS/*.md
 !_AI_HANDOFFS/**/*.md
+# Keep the permission-restricted raw production transport outside Git even
+# when it contains Markdown that the general handoff rule would unignore.
+_AI_HANDOFFS/**/evidence/forensic_snapshot_raw/**
 !_SYSTEM_LOGS/
 !_SYSTEM_LOGS/MM_ACTIVITY_LOG.md
 !_SYSTEM_LOGS/LEARNINGS_LOG.jsonl

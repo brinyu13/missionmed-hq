@@ -1,0 +1,8 @@
+{
+  "directory_size_comparison": "omitted_cross_filesystem",
+  "expected_entries": 287,
+  "mismatch_count": 0,
+  "mismatches": [],
+  "observed_entries": 287,
+  "schema_version": "1.0"
+}

@@ -1,0 +1,13 @@
+MATRIX RUNTIME LOCK PREFLIGHT
+manifest: /Users/brianb/MissionMed/_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json
+worktree: /Users/brianb/MissionMed_worktrees/D9-MatrixPlan-415/_AI_HANDOFFS/from_codex/D9_MATRIX_PLAN_415_SOURCE_RECOVERY/evidence/forensic_snapshot_raw
+
+[class_mmed_student_os_php] matrix-shell :: WordPress enqueue/localization/runtime-v2 asset map
+  approved: c0a538d3454ff4a05822e00ace01ebf933a8bbfcf1722fc2be382527743d78cb
+  local:    23da5c033e8d9ffcf3e9512fb385a8a0a0e88b592cae5e375941d43372cefe29
+
+WARNING: You are about to work from an old Matrix runtime version. Do not edit or deploy without Brian approval.
+  - class_mmed_student_os_php: local source hash differs from approved lock
+
+Required override phrase:
+Brian explicitly approves Matrix runtime lock override for <ticket> and <asset keys>.

@@ -84,6 +84,36 @@ if ( ! function_exists( 'mm_arena_route_proxy_build_login_return_url' ) ) {
 	}
 }
 
+if ( ! function_exists( 'mm_arena_route_proxy_build_handoff_url' ) ) {
+	/**
+	 * Build the signed WordPress -> HQ handoff entry used by Arena auth.
+	 *
+	 * The handoff route already handles logged-out users by sending them to
+	 * My Account and returning here after login. Keeping the Arena CTA on this
+	 * route prevents plain My Account redirects from landing back on /arena
+	 * without the signed token the runtime needs to bootstrap.
+	 *
+	 * @return string
+	 */
+	function mm_arena_route_proxy_build_handoff_url() {
+		$arena_base = esc_url_raw( home_url( '/arena' ) );
+		$return_to  = $arena_base;
+		$final      = add_query_arg( 'just_logged_in', '1', $arena_base );
+		$action = defined( 'MMHQ_HANDOFF_ACTION' ) ? (string) MMHQ_HANDOFF_ACTION : 'mmac_hq_auth_redirect';
+
+		return esc_url_raw(
+			add_query_arg(
+				array(
+					'action'    => $action,
+					'return_to' => $return_to,
+					'final'     => $final,
+				),
+				admin_url( 'admin-post.php' )
+			)
+		);
+	}
+}
+
 if ( ! function_exists( 'mm_arena_route_proxy_build_auth_config' ) ) {
 	/**
 	 * Build server-side Arena auth config for client rendering.
@@ -96,7 +126,7 @@ if ( ! function_exists( 'mm_arena_route_proxy_build_auth_config' ) ) {
 		$query_args       = array();
 		$login_return_url = mm_arena_route_proxy_build_login_return_url();
 		$logged_out_url   = add_query_arg( 'logged_out', '1', home_url( '/arena' ) );
-		$login_url        = add_query_arg( 'redirect_to', $login_return_url, home_url( '/my-account/' ) );
+		$login_url        = mm_arena_route_proxy_build_handoff_url();
 		$register_url     = add_query_arg(
 			array(
 				'action'      => 'register',
@@ -122,7 +152,7 @@ if ( ! function_exists( 'mm_arena_route_proxy_build_auth_config' ) ) {
 				array(
 					'echo'           => true,
 					'remember'       => true,
-					'redirect'       => $login_return_url,
+					'redirect'       => $login_url,
 					'label_username' => __( 'Email or Username' ),
 					'label_password' => __( 'Password' ),
 					'label_remember' => __( 'Remember Me' ),
@@ -147,6 +177,144 @@ if ( ! function_exists( 'mm_arena_route_proxy_build_auth_config' ) ) {
 			'site_origin'    => esc_url_raw( home_url() ),
 			'loginFormHtml'  => $login_form_html,
 		);
+	}
+}
+
+if ( ! function_exists( 'mm_arena_route_proxy_shell_mode' ) ) {
+	/**
+	 * Resolve the Arena anonymous shell rollout mode.
+	 *
+	 * @return string
+	 */
+	function mm_arena_route_proxy_shell_mode() {
+		$mode = defined( 'MM_ARENA_ANON_SHELL_MODE' ) ? (string) MM_ARENA_ANON_SHELL_MODE : '';
+		if ( '' === trim( $mode ) ) {
+			$env_mode = getenv( 'MM_ARENA_ANON_SHELL_MODE' );
+			$mode     = is_string( $env_mode ) ? $env_mode : '';
+		}
+		if ( '' === trim( $mode ) ) {
+			$mode = 'ANONYMOUS_SHELL';
+		}
+
+		$mode = strtoupper( trim( $mode ) );
+		return in_array( $mode, array( 'OFF', 'DRY_RUN', 'ANONYMOUS_SHELL' ), true ) ? $mode : 'OFF';
+	}
+}
+
+if ( ! function_exists( 'mm_arena_route_proxy_has_private_context' ) ) {
+	/**
+	 * Detect requests that must remain on the private no-cache proxy path.
+	 *
+	 * @return bool
+	 */
+	function mm_arena_route_proxy_has_private_context() {
+		$auth_header = isset( $_SERVER['HTTP_AUTHORIZATION'] ) ? trim( (string) $_SERVER['HTTP_AUTHORIZATION'] ) : '';
+		if ( '' !== $auth_header ) {
+			return true;
+		}
+
+		foreach ( array_keys( $_COOKIE ) as $cookie_name ) {
+			$name = strtolower( (string) $cookie_name );
+			if (
+				0 === strpos( $name, 'wordpress_logged_in_' ) ||
+				0 === strpos( $name, 'wordpress_sec_' ) ||
+				0 === strpos( $name, 'wp-postpass_' ) ||
+				0 === strpos( $name, 'wp_woocommerce_session_' ) ||
+				0 === strpos( $name, 'woocommerce_' ) ||
+				'phpsessid' === $name
+			) {
+				return true;
+			}
+		}
+
+		return function_exists( 'is_user_logged_in' ) && is_user_logged_in();
+	}
+}
+
+if ( ! function_exists( 'mm_arena_route_proxy_build_anonymous_auth_config' ) ) {
+	/**
+	 * Build a cache-safe anonymous auth config.
+	 *
+	 * @return array<string,mixed>
+	 */
+	function mm_arena_route_proxy_build_anonymous_auth_config() {
+		$arena_url    = home_url( '/arena' );
+		$logged_out   = add_query_arg( 'logged_out', '1', $arena_url );
+		$register_url = add_query_arg(
+			array(
+				'action'      => 'register',
+				'redirect_to' => $arena_url,
+			),
+			home_url( '/my-account/' )
+		);
+
+		return array(
+			'loginUrl'       => esc_url_raw( mm_arena_route_proxy_build_handoff_url() ),
+			'registerUrl'    => esc_url_raw( $register_url ),
+			'logoutUrl'      => esc_url_raw( $logged_out ),
+			'loginReturnUrl' => esc_url_raw( $arena_url ),
+			'isLoggedIn'     => false,
+			'loggedOutParam' => false,
+			'just_logged_in' => false,
+			'site_url'       => esc_url_raw( home_url( '/' ) ),
+			'site_origin'    => esc_url_raw( home_url() ),
+			'loginFormHtml'  => '',
+		);
+	}
+}
+
+if ( ! function_exists( 'mm_arena_route_proxy_should_serve_anonymous_shell' ) ) {
+	/**
+	 * Determine whether this request may receive the cacheable anonymous shell.
+	 *
+	 * @param string $path Current normalized path.
+	 * @param string $query_string Current raw query string.
+	 * @return bool
+	 */
+	function mm_arena_route_proxy_should_serve_anonymous_shell( $path, $query_string ) {
+		if ( 'ANONYMOUS_SHELL' !== mm_arena_route_proxy_shell_mode() ) {
+			return false;
+		}
+
+		$normalized_path = rtrim( (string) $path, '/' );
+		if ( '' === $normalized_path ) {
+			$normalized_path = '/';
+		}
+
+		if ( '/arena' !== $normalized_path || '' !== trim( (string) $query_string ) ) {
+			return false;
+		}
+
+		return ! mm_arena_route_proxy_has_private_context();
+	}
+}
+
+if ( ! function_exists( 'mm_arena_route_proxy_send_anonymous_shell_headers' ) ) {
+	/**
+	 * Emit public cache headers for the anonymous Arena shell.
+	 *
+	 * @param int    $status_code Upstream status code.
+	 * @param string $transport Fetch transport label.
+	 * @return void
+	 */
+	function mm_arena_route_proxy_send_anonymous_shell_headers( $status_code, $transport ) {
+		header_remove( 'Set-Cookie' );
+		header_remove( 'Pragma' );
+		header_remove( 'Expires' );
+
+		status_header( 200 );
+		header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
+		header( 'Cache-Control: public, max-age=0, s-maxage=900' );
+		header( 'CDN-Cache-Control: public, max-age=900' );
+		header( 'Cloudflare-CDN-Cache-Control: public, max-age=900' );
+		header( 'Surrogate-Control: max-age=900' );
+		header( 'X-Accel-Expires: 900' );
+		header( 'Vary: Accept-Encoding, Cookie, Authorization' );
+		header( 'X-MissionMed-Route: arena-anonymous-shell' );
+		header( 'X-MissionMed-Arena-Shell-Mode: ANONYMOUS_SHELL' );
+		header( 'X-MissionMed-Arena-Auth-Mode: async-anonymous' );
+		header( 'X-MissionMed-Upstream-Status: ' . (string) $status_code );
+		header( 'X-MissionMed-Upstream-Transport: ' . (string) $transport );
 	}
 }
 
@@ -362,9 +530,44 @@ if ( ! function_exists( 'mm_arena_route_proxy_handle_request' ) ) {
 			return;
 		}
 
+		$path          = mm_arena_route_proxy_request_path();
 		$upstream_base = 'https://cdn.missionmedinstitute.com/html-system/LIVE/arena.html';
 		$query_string  = isset( $_SERVER['QUERY_STRING'] ) ? trim( (string) $_SERVER['QUERY_STRING'] ) : '';
 		$upstream_url  = $upstream_base;
+
+		$normalized_path = rtrim( (string) $path, '/' );
+		if ( '' === $normalized_path ) {
+			$normalized_path = '/';
+		}
+
+		if ( 'DRY_RUN' === mm_arena_route_proxy_shell_mode() && '/arena' === $normalized_path && '' === $query_string && ! mm_arena_route_proxy_has_private_context() ) {
+			header( 'X-MissionMed-Arena-Shell-Dry-Run: eligible', true );
+		}
+
+		if ( mm_arena_route_proxy_should_serve_anonymous_shell( $path, $query_string ) ) {
+			$fetch_result = mm_arena_route_proxy_fetch_upstream_html( $upstream_base );
+			if ( $fetch_result['ok'] ) {
+				$status_code   = (int) $fetch_result['status'];
+				$body          = (string) $fetch_result['body'];
+				$body_fixed    = mm_arena_route_proxy_force_same_origin_auth( $body );
+				$auth_config   = mm_arena_route_proxy_build_anonymous_auth_config();
+				$body_injected = mm_arena_route_proxy_inject_auth_config( $body_fixed, $auth_config );
+
+				if ( $status_code >= 200 && $status_code < 400 && '' !== $body_injected ) {
+					mm_arena_route_proxy_send_anonymous_shell_headers( $status_code, (string) $fetch_result['transport'] );
+					if ( $body_fixed !== $body ) {
+						header( 'X-MissionMed-Arena-Auth-Rewrite: true' );
+					}
+					if ( $body_injected !== $body_fixed ) {
+						header( 'X-MissionMed-Arena-Auth-Config: anonymous' );
+					}
+					echo $body_injected;
+					exit;
+				}
+			}
+
+			header( 'X-MissionMed-Arena-Shell-Fallback: private-proxy' );
+		}
 
 		if ( '' !== $query_string ) {
 			$upstream_url .= '?' . $query_string;
@@ -409,6 +612,22 @@ if ( ! function_exists( 'mm_arena_route_proxy_handle_request' ) ) {
 			}
 			echo 'MissionMed arena upstream returned invalid response.';
 			exit;
+		}
+
+		$body_filtered = apply_filters(
+			'mm_arena_route_proxy_html',
+			$body,
+			array(
+				'path'          => $path,
+				'query_string'  => $query_string,
+				'upstream_url'  => $upstream_url,
+				'status_code'   => $status_code,
+				'transport'     => (string) $fetch_result['transport'],
+				'auth_injected' => $cfg_injected,
+			)
+		);
+		if ( is_string( $body_filtered ) && '' !== $body_filtered ) {
+			$body = $body_filtered;
 		}
 
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {

@@ -1,0 +1,41 @@
+MATRIX RUNTIME LOCK PREFLIGHT
+manifest: /Users/brianb/MissionMed/_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json
+worktree: /Users/brianb/MissionMed_worktrees/D9-MatrixPlan-415/_AI_HANDOFFS/from_codex/D9_MATRIX_PLAN_415_SOURCE_RECOVERY/evidence/forensic_snapshot_raw
+
+[student_os_js] matrix-shell :: student Matrix router, App Mode protocol, Dashboard widgets, Messages/StoryForge shell routes
+  approved: 646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a
+  local:    646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a
+
+[student_os_css] matrix-shell :: student Matrix shell, Dashboard widgets, App Mode chrome/isolation CSS
+  approved: 111942c48eb8fd5dbe4132f17b4a6df89eb6a30044b1cb076db190c0da794a33
+  local:    111942c48eb8fd5dbe4132f17b4a6df89eb6a30044b1cb076db190c0da794a33
+
+[calendar_v4_js] calendar :: Brian-approved Prototype v4 Calendar App Mode runtime
+  approved: e9ef490cd15b10c2d43726d9249c1b623dbd5077a1728b128c50e10ca11010aa
+  local:    e9ef490cd15b10c2d43726d9249c1b623dbd5077a1728b128c50e10ca11010aa
+
+[calendar_v4_css] calendar :: Brian-approved Prototype v4 Calendar App Mode CSS
+  approved: 6e519195f199b3f545690530bf78ffc35897b7ca70ca66428e72873714f4547e
+  local:    6e519195f199b3f545690530bf78ffc35897b7ca70ca66428e72873714f4547e
+
+[scheduler_mount_js] scheduler :: Matrix-owned Scheduler App Mode adapter for CDN Scheduler source
+  approved: 2a47b847c52ed53dbffe51bef85c45efb2eecabe9246b821bce8b54f218e7578
+  local:    2a47b847c52ed53dbffe51bef85c45efb2eecabe9246b821bce8b54f218e7578
+
+[file_vault_js] filevault :: Matrix-owned File Vault 006D App Mode runtime
+  approved: f1639c41d32ffe74d6d2712c93a321abd67c36ef12adb75b36061b2b39331edd
+  local:    f1639c41d32ffe74d6d2712c93a321abd67c36ef12adb75b36061b2b39331edd
+
+[file_vault_css] filevault :: Matrix-owned File Vault 006D App Mode CSS
+  approved: 6daeaf25071f0850dbedfd522e9f0819f46fcf0e5c7a8ffc5ad3abba73ef0990
+  local:    6daeaf25071f0850dbedfd522e9f0819f46fcf0e5c7a8ffc5ad3abba73ef0990
+
+[storyforge_js] storyforge :: Matrix-owned StoryForge locked bootstrap Runtime v2 app runtime
+  approved: a4aa9665012206771fc8549c897cb5d22801899347c706626062dbafb29c81fa
+  local:    a4aa9665012206771fc8549c897cb5d22801899347c706626062dbafb29c81fa
+
+[storyforge_css] storyforge :: Matrix-owned StoryForge locked bootstrap Runtime v2 app CSS
+  approved: 5b0426a7af9dbc36a1401c5d2829ca8cf7827e8070b783fbfe64875c847af7d8
+  local:    5b0426a7af9dbc36a1401c5d2829ca8cf7827e8070b783fbfe64875c847af7d8
+
+PASS: local/source, production origin, and requested public checks match the Matrix runtime lock.

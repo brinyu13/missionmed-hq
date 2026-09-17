@@ -1,0 +1,35 @@
+Ticket: D9-MATRIX-PLAN-415
+Captured: 2026-07-13T15:19:17-0400 EDT
+
+pwd
+/Users/brianb/MissionMed_worktrees/D9-MatrixPlan-415
+
+git rev-parse --show-toplevel
+/Users/brianb/MissionMed_worktrees/D9-MatrixPlan-415
+
+git branch --show-current
+d9-matrix-plan-415-source-recovery
+
+git rev-parse HEAD
+9c1fa72e6b056db8b6fe0e17031fcaa688f78569
+
+git rev-parse origin/main
+9c1fa72e6b056db8b6fe0e17031fcaa688f78569
+
+git merge-base HEAD origin/main
+9c1fa72e6b056db8b6fe0e17031fcaa688f78569
+
+git remote get-url origin
+https://github.com/brinyu13/missionmed-hq.git
+
+git rev-parse --abbrev-ref --symbolic-full-name @{upstream}
+origin/main
+
+git status --short --branch
+## d9-matrix-plan-415-source-recovery...origin/main
+
+git ls-remote origin refs/heads/main
+9c1fa72e6b056db8b6fe0e17031fcaa688f78569 refs/heads/main
+
+Result: PASS. Initial worktree was clean, the remote was exact, and HEAD/base/merge-base/current remote main were identical.
+

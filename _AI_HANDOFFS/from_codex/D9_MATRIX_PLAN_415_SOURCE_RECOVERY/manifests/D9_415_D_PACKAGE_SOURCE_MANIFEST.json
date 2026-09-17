@@ -1,0 +1,912 @@
+{
+  "entries": [
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-analytics.css",
+      "byte_size": 1596,
+      "mode": "0644",
+      "sha256": "626a3fbf0d37cfe87ac76df53bc16137a5280c5d81a240a798d72faebabd0487",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-analytics.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-analytics.js",
+      "byte_size": 7375,
+      "mode": "0644",
+      "sha256": "349c824d3dadbe117300e57426c7d53360f4ab7a43b8144671d92d085ea0ee4c",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-analytics.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-arena-battles.css",
+      "byte_size": 3286,
+      "mode": "0644",
+      "sha256": "aba6464bd718a34590752e93d42ef6271284a2b5b104624d373355079e353e7a",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-arena-battles.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-arena-battles.js",
+      "byte_size": 16623,
+      "mode": "0644",
+      "sha256": "aa04fecdc1fb49546ffc1b906dc39b502f9cb4a08459fc34b079f9d19ec7a3f0",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-arena-battles.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-office-hours.css",
+      "byte_size": 3038,
+      "mode": "0644",
+      "sha256": "ff3525f6247f0c811c560fb56b32ffe9e9ae83cb07c821668ce30e02aa8e463d",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-office-hours.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-office-hours.js",
+      "byte_size": 10163,
+      "mode": "0644",
+      "sha256": "c8c42b9cbeb0c1d4aa2bd03793efcec97e1056e7b5f5e605cbf4ddbf622c86e2",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-office-hours.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-os.css",
+      "byte_size": 74869,
+      "mode": "0644",
+      "sha256": "ec212f42fd3bd23923a27775700f8790cae8dba401cdf4d80ea69afcbba58133",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-os.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-os.js",
+      "byte_size": 273225,
+      "mode": "0644",
+      "sha256": "9a0289b52079f0425d68a070d7f999f0813ff793206f9b582f61bb300faff7c5",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-os.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-session-manager.css",
+      "byte_size": 7183,
+      "mode": "0644",
+      "sha256": "3b8edc9d79fffb64b520a3ec5db07eae7c23584884f930aec61fa61f518dd48a",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-session-manager.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-session-manager.js",
+      "byte_size": 25850,
+      "mode": "0644",
+      "sha256": "4922ea7ce021fc06a0ac9bed467bb5ffb573ea1b9f7eb02f2f4894960562c049",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-session-manager.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-sources/matrix-calendar-prototype-v4.html",
+      "byte_size": 94362,
+      "mode": "0644",
+      "sha256": "a3088d61a1294a70882bfadcc66ddb7365ec86d1ea91bc2977cd5b892aa9c131",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-sources/matrix-calendar-prototype-v4.html"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-sources/mx-filevault-006d-nexus-clarity-final-demo.html",
+      "byte_size": 77438,
+      "mode": "0644",
+      "sha256": "a4b74d1479ebb2e9fb4d048ee2ff2883c0d3c4430d978c7723e0c90254837575",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-sources/mx-filevault-006d-nexus-clarity-final-demo.html"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-sources/scheduler-admin-source.html",
+      "byte_size": 132681,
+      "mode": "0644",
+      "sha256": "dd96fbaca1ab8fadb6c7f894fe10626a51112c7c8a26b49b49e00d0e17b8c51c",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-sources/scheduler-admin-source.html"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin-sources/storyforge-admin-source.html",
+      "byte_size": 85688,
+      "mode": "0644",
+      "sha256": "2c9d368d8d2acb5eb9d90cd7f93c876ade52b6ec169dbbe47acd0e125f430c02",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin-sources/storyforge-admin-source.html"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin.css",
+      "byte_size": 7814,
+      "mode": "0644",
+      "sha256": "140875566f72fd9e09bdb2a6a078760455f1c7cbbcff6f93a4fd18bb620a935c",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/admin.js",
+      "byte_size": 2961,
+      "mode": "0644",
+      "sha256": "eb518c007c04f456dff88bbd6c64c83423d843193a5ceeada2efb82df96cb693",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/admin.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-embed.js",
+      "byte_size": 45645,
+      "mode": "0644",
+      "sha256": "bfcb542b0034e6872da00b547806fe872a5aa0e2cd7165254fe921af283f0575",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-embed.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-preview.html",
+      "byte_size": 39541,
+      "mode": "0644",
+      "sha256": "a3224c7df50f35ccbbda8ab53a358e64032da8c2c960c8fce6be0f3e6fcfdae4",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-preview.html"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js",
+      "byte_size": 159267,
+      "mode": "0644",
+      "sha256": "3c40979791673333706bc7fa1fa536c33f35a0b258cebc3330342c962699edaa",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js",
+      "byte_size": 54721,
+      "mode": "0644",
+      "sha256": "036897b3f3ef8d381383225a81178362dd6cc052bd6144d64129232edafe552f",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3.html",
+      "byte_size": 7228,
+      "mode": "0644",
+      "sha256": "ce5c606dfa55671c21334041c2bc5e59cb49d2b949d9e0008187b6402dbe0f4b",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3.html"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-matrix-entry.js",
+      "byte_size": 4744,
+      "mode": "0644",
+      "sha256": "fd1692ce0ed149a5d975e2d80a4965a05281df0db05287b79e0ece5d5b4ba67d",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-matrix-entry.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-action.php",
+      "byte_size": 12666,
+      "mode": "0644",
+      "sha256": "b8e0023ee44c65d9373a5354965df765558fad4fcbb661bc1f0d61bc265f945b",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-action.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-autojoin.js",
+      "byte_size": 224640,
+      "mode": "0644",
+      "sha256": "bb0424e429b043ee911b61744ad7e54ba18cd55e0fbce047e129f80f4cb12a72",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-autojoin.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-studentflow.js",
+      "byte_size": 268275,
+      "mode": "0644",
+      "sha256": "c26cf6777b3390638e42cc381e57ce1d2c8d8cbf68953d184fd5174425b85678",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-studentflow.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-worker.js",
+      "byte_size": 4282,
+      "mode": "0644",
+      "sha256": "721ef0a79d3fe5a91d28e27aa28db903d86babcf7b3ed3e102b0fb91aa2ab6c7",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-worker.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3.js",
+      "byte_size": 222304,
+      "mode": "0644",
+      "sha256": "2fd945408c5266827f20b6bd5762cd195e7905d57a70dc1cfb39be656e892ad4",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge.js",
+      "byte_size": 111953,
+      "mode": "0644",
+      "sha256": "65ddd863a4ef820a802a34cbc5cb110c3c1315b0c2f5bf9ecd965b3ce0971ebe",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/email/360-name-brush-underline.png",
+      "byte_size": 14674,
+      "mode": "0644",
+      "sha256": "e9649a9b85651c6e847fdff3df7ab40f5878a626c9d29aacd0d0ad85f64c6180",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/email/360-name-brush-underline.png"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/hub.css",
+      "byte_size": 67706,
+      "mode": "0644",
+      "sha256": "f7dfd2eaf6e2ea80b16f20a634ff0730ce3c557d3d3fffd218adb9a3e1bcd62a",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/hub.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/hub.js",
+      "byte_size": 39699,
+      "mode": "0644",
+      "sha256": "a810b4ec34e0e52919f4d5596727da50ceab72941c05c15fc1c0891ad28d0338",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/hub.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/learndash-reskin.css",
+      "byte_size": 65560,
+      "mode": "0644",
+      "sha256": "c989f761b4d0e15031e51d1d3e2421316c69f3878c2d59aadd679e8c9d2e15b9",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/learndash-reskin.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/mmed-webex-widget-adapter.js",
+      "byte_size": 4963199,
+      "mode": "0644",
+      "sha256": "f6a3205fb28998a797892446374d9f298484a9c361d582a73e1f8320a7c82427",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/mmed-webex-widget-adapter.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/scheduler-mount.js",
+      "byte_size": 61339,
+      "mode": "0644",
+      "sha256": "2a47b847c52ed53dbffe51bef85c45efb2eecabe9246b821bce8b54f218e7578",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/scheduler-mount.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-arena-battle.css",
+      "byte_size": 5746,
+      "mode": "0644",
+      "sha256": "981eacc2e9daab5b3dedf760217163774745fb375bcb922b25a02b3a1f833c12",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-arena-battle.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-arena-battle.js",
+      "byte_size": 13143,
+      "mode": "0644",
+      "sha256": "f2659f15075101ace42d0eec8475a0e7ecfad14f5103e24f4c2aaa9b9ca5e435",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-arena-battle.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.css",
+      "byte_size": 67041,
+      "mode": "0644",
+      "sha256": "6e519195f199b3f545690530bf78ffc35897b7ca70ca66428e72873714f4547e",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.js",
+      "byte_size": 102614,
+      "mode": "0644",
+      "sha256": "e9ef490cd15b10c2d43726d9249c1b623dbd5077a1728b128c50e10ca11010aa",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-drill-game.css",
+      "byte_size": 2720,
+      "mode": "0644",
+      "sha256": "c6edb0de1ead9cdc1097120d34cfd67dd98be1ae694d1b1f01c6eb02bdc80941",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-drill-game.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-drill-game.js",
+      "byte_size": 6248,
+      "mode": "0644",
+      "sha256": "fa773a158a865d580bfd89e80d8753d32a15e5539afd274da9e258f734070def",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-drill-game.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-file-vault.css",
+      "byte_size": 74647,
+      "mode": "0644",
+      "sha256": "6daeaf25071f0850dbedfd522e9f0819f46fcf0e5c7a8ffc5ad3abba73ef0990",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-file-vault.js",
+      "byte_size": 57912,
+      "mode": "0644",
+      "sha256": "f1639c41d32ffe74d6d2712c93a321abd67c36ef12adb75b36061b2b39331edd",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-interview-prep.css",
+      "byte_size": 6880,
+      "mode": "0644",
+      "sha256": "5d6a70c798f6eb86e9a59cb3c5164550e037881a5cac3ac7cc472f4c6297d4f6",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-interview-prep.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-interview-prep.js",
+      "byte_size": 20577,
+      "mode": "0644",
+      "sha256": "6623c792e4d1ef803707aa61dbf0fa3b90bec8e10f0b9fd6d209261d75ef2d8c",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-interview-prep.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-live-session.css",
+      "byte_size": 8512,
+      "mode": "0644",
+      "sha256": "4b782ec26b8d62b3988f68fc5b33a1adf018bdafc7b966c84a5dca1a33463e9b",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-live-session.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-live-session.js",
+      "byte_size": 25496,
+      "mode": "0644",
+      "sha256": "f4044fedc6785fb41494491f8bed8d974d584b06d54231b29594fdf4d9a64ec9",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-live-session.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-office-hours.css",
+      "byte_size": 3096,
+      "mode": "0644",
+      "sha256": "c0006659376b3fb23929caef869c893cea8ec6bc6182ed3585c26177c4bfa5ce",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-office-hours.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-office-hours.js",
+      "byte_size": 7614,
+      "mode": "0644",
+      "sha256": "e75716caa9913d86795f134a1f846f60bd887e6df187d19babd67d9f00e717f4",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-office-hours.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-storyforge.css",
+      "byte_size": 18092,
+      "mode": "0644",
+      "sha256": "5b0426a7af9dbc36a1401c5d2829ca8cf7827e8070b783fbfe64875c847af7d8",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-storyforge.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os-storyforge.js",
+      "byte_size": 27456,
+      "mode": "0644",
+      "sha256": "a4aa9665012206771fc8549c897cb5d22801899347c706626062dbafb29c81fa",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-storyforge.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os.646e3598d284fff3.js",
+      "byte_size": 268367,
+      "mode": "0644",
+      "sha256": "646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os.646e3598d284fff3.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os.css",
+      "byte_size": 211321,
+      "mode": "0644",
+      "sha256": "111942c48eb8fd5dbe4132f17b4a6df89eb6a30044b1cb076db190c0da794a33",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/student-os.js",
+      "byte_size": 268367,
+      "mode": "0644",
+      "sha256": "646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-01.webp",
+      "byte_size": 28790,
+      "mode": "0644",
+      "sha256": "b8507e6767481e7ea9e0c753e6a266a578a18bdc48d5f60b30a06c5adf289373",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-01.webp"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-02.webp",
+      "byte_size": 35434,
+      "mode": "0644",
+      "sha256": "fa813a4fa98dbf52913986e00a41cb0add2cd6c9eab11a18ba7af321a9aff652",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-02.webp"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-03.webp",
+      "byte_size": 31038,
+      "mode": "0644",
+      "sha256": "1022f804c584a47d5da7c9fae38f7c2985480c6841d2bb34221bf6bb9c3ceff9",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-03.webp"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-04.webp",
+      "byte_size": 41380,
+      "mode": "0644",
+      "sha256": "4aad2e17ebc33200c0fd468efd68a3797bf87b353be8315eec8a064ce09009e5",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-04.webp"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-05.webp",
+      "byte_size": 41380,
+      "mode": "0644",
+      "sha256": "4aad2e17ebc33200c0fd468efd68a3797bf87b353be8315eec8a064ce09009e5",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-05.webp"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-06.webp",
+      "byte_size": 45122,
+      "mode": "0644",
+      "sha256": "3da7fd6b5e943df584ab8bba7e3ffea98c896b821837175f0ec12dd0d474b055",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-06.webp"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-male-01.webp",
+      "byte_size": 36108,
+      "mode": "0644",
+      "sha256": "19aea1c07e19bd728ae5dd7c0330306045a7ea2d39edf4f0c2e751e9bf27323c",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-male-01.webp"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-male-02.webp",
+      "byte_size": 36108,
+      "mode": "0644",
+      "sha256": "19aea1c07e19bd728ae5dd7c0330306045a7ea2d39edf4f0c2e751e9bf27323c",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-male-02.webp"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/superhero-female-01.webp",
+      "byte_size": 55028,
+      "mode": "0644",
+      "sha256": "cbf7c9a4d5d69a5c0ecde0ea15acb9826c805be1a433c88bfb73116dc7262ba7",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/superhero-female-01.webp"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/superhero-female-02.webp",
+      "byte_size": 45122,
+      "mode": "0644",
+      "sha256": "3da7fd6b5e943df584ab8bba7e3ffea98c896b821837175f0ec12dd0d474b055",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/superhero-female-02.webp"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/video-inserter.css",
+      "byte_size": 15183,
+      "mode": "0644",
+      "sha256": "a216e568fc0de765deed7613b20ead8374019a7714ac3a395c1f886ce0584d10",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/video-inserter.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/video-inserter.js",
+      "byte_size": 26962,
+      "mode": "0644",
+      "sha256": "5552f955467c846b98930d22e5438e07963fa97d4549b4caf33bd3b6e052335b",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/video-inserter.js"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/assets/webex-widgets.css",
+      "byte_size": 93522,
+      "mode": "0644",
+      "sha256": "433c5ff2e7246f5379f81c31c2c6c0ed66205e80f495ceb7910d808dd404e41a",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/webex-widgets.css"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/class-mmed-access-audit.php",
+      "byte_size": 45389,
+      "mode": "0644",
+      "sha256": "f70a434f7d1a0518dc4793f970efa911db6c5546070e91f36d6e282bec3d7d45",
+      "source_path": "wp-content/plugins/missionmed-hub/class-mmed-access-audit.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-access-audit.php",
+      "byte_size": 45389,
+      "mode": "0644",
+      "sha256": "f70a434f7d1a0518dc4793f970efa911db6c5546070e91f36d6e282bec3d7d45",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-access-audit.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-access-gate.php",
+      "byte_size": 19641,
+      "mode": "0644",
+      "sha256": "9a833ea0c061a28972c1db3454552b458ddebe8cc26f97768e8d9c24b8c3f514",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-access-gate.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-action-items.php",
+      "byte_size": 11123,
+      "mode": "0644",
+      "sha256": "1079ab31217ce26b3675a96b0e9139eeb659be8f6e20d7afbf8949c493340023",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-action-items.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-admin-os.php",
+      "byte_size": 7423,
+      "mode": "0644",
+      "sha256": "2669cd8af849c8fb6a96988b6b3cf9691d98d6c8114abffbe7d1fa22dd166891",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-admin-os.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-arena-live.php",
+      "byte_size": 38100,
+      "mode": "0644",
+      "sha256": "436343f4f03f493c2dfe01981d68a5864f8bbc429e00bf1fe89f55e1ae6c7ccc",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-arena-live.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-arena.php",
+      "byte_size": 15410,
+      "mode": "0644",
+      "sha256": "f75c27b63ed0ae50c80f3cc4f1281d7fb045817376451ed5e63a7931f1ae66da",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-arena.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-attendance.php",
+      "byte_size": 28877,
+      "mode": "0644",
+      "sha256": "7802d5f8c38d6d64e310278d87bcc305f72cbc26b5f9e7cef51700d74ee2252e",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-attendance.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-calendar-engine.php",
+      "byte_size": 31284,
+      "mode": "0644",
+      "sha256": "b97bef169a25ca77bba93a8e27bbb40f3055bcc63ab85d1d864512353cdc56cb",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-calendar-engine.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-calendar-enrollment.php",
+      "byte_size": 20191,
+      "mode": "0644",
+      "sha256": "8230621cb363451f8341c2c9153a2cb7819626b6527e47c24aef681627849b2f",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-calendar-enrollment.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-communications.php",
+      "byte_size": 46890,
+      "mode": "0644",
+      "sha256": "c790d67e46a3fc8d8b1cabe170f60d8aad128628c144eb9ffb8eedb05ff6e295",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-communications.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-drill-game.php",
+      "byte_size": 11946,
+      "mode": "0644",
+      "sha256": "5dca0ab4251c33d64877f8fd462d6132ff934d5a58aa79d6fed57abac9e00eb3",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-drill-game.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-feature-flags.php",
+      "byte_size": 6969,
+      "mode": "0644",
+      "sha256": "587c83235032490f03485932dc0e305bbad06627743b1bcc529cd037c16c40ab",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-feature-flags.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-file-upload.php",
+      "byte_size": 9361,
+      "mode": "0644",
+      "sha256": "bb73c45441ef4f658e23ba7fb254532c43b78fc52cc86f6e83ac6a45d7c2d735",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-file-upload.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault.php",
+      "byte_size": 27648,
+      "mode": "0644",
+      "sha256": "c5ffbcdc62a83936539c044729f0b81e3b24dccb32403667d0adcf1eb27352e9",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-hub-page.php",
+      "byte_size": 101120,
+      "mode": "0644",
+      "sha256": "66147f0117ef3bee5d9e52fd820b5e84f0e41445794094d08c7833f608119753",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-hub-page.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-interview-prep.php",
+      "byte_size": 38073,
+      "mode": "0644",
+      "sha256": "f901b648caa032e3f1b1d69a550518f883d343ca851c1ab7e2d5bf41e271be98",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-interview-prep.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-learndash-reskin.php",
+      "byte_size": 22883,
+      "mode": "0644",
+      "sha256": "727b8d94518e05a63f798cf69608f7b0a3fa07f0880f084b4453e88b6a8fb54e",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-learndash-reskin.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-lifecycle.php",
+      "byte_size": 6501,
+      "mode": "0644",
+      "sha256": "8949d03c9219f733ec622d81e44d72ef95e2902903fe3e6ad703a67f437ccd52",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-lifecycle.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-preview.php",
+      "byte_size": 106853,
+      "mode": "0644",
+      "sha256": "7f20dfdf565fd7a07bf984473cdb65800f4a1d168e22ae8cadbe754e589b44c4",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-preview.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-sdk-v3.php",
+      "byte_size": 151838,
+      "mode": "0644",
+      "sha256": "7f0622c06a411bcaca2622f2ce35576cd26e742fc97ef9abd040120650f0d190",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-sdk-v3.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-state-contract.php",
+      "byte_size": 21581,
+      "mode": "0644",
+      "sha256": "a6235ac26e63733fe814ef76c3966bde6f44a0d985f7fbac2fec888fc29d22f9",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-state-contract.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-lor-writer.php",
+      "byte_size": 14724,
+      "mode": "0644",
+      "sha256": "1eaf0f3d08583e1e5e061696a4f828e79436b7191b76230ed80c956e948bc2dc",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-lor-writer.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-notifications.php",
+      "byte_size": 5899,
+      "mode": "0644",
+      "sha256": "498192e226e4af5cc408c9fa63c84533c11e7e108fd1a8c2c975b011e4d8262b",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-notifications.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-office-hours.php",
+      "byte_size": 19809,
+      "mode": "0644",
+      "sha256": "d90ff2cbd5ceb5e08f50bc8a541d523b4c667546175d05990dcf86953f166556",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-office-hours.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-priority-engine.php",
+      "byte_size": 24226,
+      "mode": "0644",
+      "sha256": "13faf5966220f6b15873d8bfadcf300c5fbcc0ad20417de4a6bca68bd0bdb522",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-priority-engine.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-ranklist.php",
+      "byte_size": 15426,
+      "mode": "0644",
+      "sha256": "91f737468563feeb2e3f64846fe2d443101fe3ee92e1b10279916bf5b2c3a92b",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-ranklist.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-rest-api.php",
+      "byte_size": 70853,
+      "mode": "0644",
+      "sha256": "2e2a282d05ac876c658b0c5717e4412989b362ce63cc0731f7f97f8187126b16",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-rest-api.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-session-analytics.php",
+      "byte_size": 7515,
+      "mode": "0644",
+      "sha256": "a18322189d3687e6ab972cd10cb221d90a5273a9cd85167e6ea3315816d828d8",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-session-analytics.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-session-chat.php",
+      "byte_size": 12385,
+      "mode": "0644",
+      "sha256": "489c3ee150a1994af97ea0fadefbc49bdb733cf1b46aa7e30e087c4c0ada911c",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-session-chat.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-session-manager.php",
+      "byte_size": 46651,
+      "mode": "0644",
+      "sha256": "d5519adfeec29c923896fc75f3da0c7e2a5a30a15fdae13445ca6036dfce9e64",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-session-manager.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-session-reminders.php",
+      "byte_size": 10753,
+      "mode": "0644",
+      "sha256": "81079e2e234418b3501f6a8b8a9094f925d17c05a6601307e3b8028eb71dbc2f",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-session-reminders.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-ssa-adapter.php",
+      "byte_size": 16651,
+      "mode": "0644",
+      "sha256": "2a4902dd5ef589b09850b5703ba56512d6ef732e7fb2335894113542d970b2a8",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-ssa-adapter.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-student-os.php",
+      "byte_size": 32786,
+      "mode": "0644",
+      "sha256": "23da5c033e8d9ffcf3e9512fb385a8a0a0e88b592cae5e375941d43372cefe29",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-student-os.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-study-schedule.php",
+      "byte_size": 7439,
+      "mode": "0644",
+      "sha256": "2356d2369007db715849a3e2ba5959ac0e4323a04a8c4206b9f8b50bd97c3234",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-study-schedule.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-supabase-bridge.php",
+      "byte_size": 10236,
+      "mode": "0644",
+      "sha256": "69f7a05b859439e0660ef2828d1c1e24706a78caa22e16f4e3fcc13ee1a892b7",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-supabase-bridge.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-task-cpt.php",
+      "byte_size": 21946,
+      "mode": "0644",
+      "sha256": "0fa8cf3b3e5ce54427b40db396cd68e1a84d4a036efeb93271fee46f32685567",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-task-cpt.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-templates.php",
+      "byte_size": 9113,
+      "mode": "0644",
+      "sha256": "998f090d7c8ab1c8a092b3be2e00476e6b66a187f5a7246a47cb7340c16d554e",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-templates.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-todo-engine.php",
+      "byte_size": 9615,
+      "mode": "0644",
+      "sha256": "39ec30bacdebac5c69d05ca13588764a0ab8c6c079d9cdc4bb203b35117a52ae",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-todo-engine.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-user-meta.php",
+      "byte_size": 12765,
+      "mode": "0644",
+      "sha256": "b4866c64aa47423fec20f4908523e7d9069471a6142761f24e673eb5d7fc4549",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-user-meta.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-webex-client.php",
+      "byte_size": 22941,
+      "mode": "0644",
+      "sha256": "5e3b18e79ee3168f0cdbc71894275de58fd86fe7730d83ea83939e35c6feaffc",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-webex-client.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/class-mmed-welcome-email-admin.php",
+      "byte_size": 39438,
+      "mode": "0644",
+      "sha256": "7270f420ac8b4176d4ba1acf2f0e9ad455d3e43fd946ec73e28dd99e9ef087e1",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-welcome-email-admin.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/video-dashboard.php",
+      "byte_size": 20698,
+      "mode": "0644",
+      "sha256": "0ce005cdce253c4e045a26c867d00bd76aabd77ac78e50cf8a019c1e344492dc",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/video-dashboard.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/video-inserter-ui.php",
+      "byte_size": 22113,
+      "mode": "0644",
+      "sha256": "91088cf1b86aa98f9e85c5c055b37be8a874709621e34515c1f4cd8ecf77ddeb",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/video-inserter-ui.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/video-player.php",
+      "byte_size": 14673,
+      "mode": "0644",
+      "sha256": "a4fdf28ce759b59bb161b244872c47e36ef5be8f19a5bcd67a2aca5d1501b6d9",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/video-player.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/video-resolver.php",
+      "byte_size": 12421,
+      "mode": "0644",
+      "sha256": "24cc4058315ee0457c072000c5485a5020838fbeec6c59e333a221f38eb0bf4b",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/video-resolver.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/includes/video-shortcode.php",
+      "byte_size": 12106,
+      "mode": "0644",
+      "sha256": "d52f63e8d626288f9929660573ee013534b383080417aa78fb37b1d26ae25ad3",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/video-shortcode.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/missionmed-hub.php",
+      "byte_size": 60812,
+      "mode": "0644",
+      "sha256": "ed02cd301205557b656cb4758e9ba2848d3938a2429647825606da6230c96cad",
+      "source_path": "wp-content/plugins/missionmed-hub/missionmed-hub.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/readme.txt",
+      "byte_size": 3339,
+      "mode": "0644",
+      "sha256": "0f130ef2adfaee093f0a83c6cc7753222ea1db294ce27f7435045a1f44df6e31",
+      "source_path": "wp-content/plugins/missionmed-hub/readme.txt"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/templates/admin-os-shell.php",
+      "byte_size": 2045,
+      "mode": "0644",
+      "sha256": "aa4b71acff4161d81b1da78e702c861589553be251c5c1001d1785c20090ff54",
+      "source_path": "wp-content/plugins/missionmed-hub/templates/admin-os-shell.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/templates/emails/welcome-360.html",
+      "byte_size": 44189,
+      "mode": "0644",
+      "sha256": "340dbeb88c9260632c5d471592dab50ee78f7450500c3f818d1dae9bbcf6d3ff",
+      "source_path": "wp-content/plugins/missionmed-hub/templates/emails/welcome-360.html"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/templates/emails/welcome-drj-drills.html",
+      "byte_size": 15057,
+      "mode": "0644",
+      "sha256": "7768bc3fb93cd2e48e383d0450aead912dae4db95e2a075ebeef9c34278f8d54",
+      "source_path": "wp-content/plugins/missionmed-hub/templates/emails/welcome-drj-drills.html"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/templates/student-os-shell.php",
+      "byte_size": 905,
+      "mode": "0644",
+      "sha256": "efef5d88413924c981e475a678edae083de10cd9d664ab4f057ed9bcc398aea3",
+      "source_path": "wp-content/plugins/missionmed-hub/templates/student-os-shell.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/plugins/missionmed-hub/templates/template-hub.php",
+      "byte_size": 786,
+      "mode": "0644",
+      "sha256": "00f2a04ce7962b4e8e4d375514fc4ed9f2b20b82cea6420ba75bc34874cc200c",
+      "source_path": "wp-content/plugins/missionmed-hub/templates/template-hub.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/mu-plugins/arena-route-proxy.php",
+      "byte_size": 25209,
+      "mode": "0644",
+      "sha256": "536cbeb8896f0e92fee992a790c5126cfc5ce826da50e697a8420c9e470420ca",
+      "source_path": "wp-content/mu-plugins/arena-route-proxy.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/mu-plugins/missionmed-drj-drills-access.php",
+      "byte_size": 26210,
+      "mode": "0644",
+      "sha256": "ffab495c8d591d2bb500838334090b816282bcee73c6f55524c0c50b31db43ce",
+      "source_path": "wp-content/mu-plugins/missionmed-drj-drills-access.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/mu-plugins/missionmed-hq-auth-handoff.php",
+      "byte_size": 24719,
+      "mode": "0644",
+      "sha256": "f8c14ce4c833174fd1f7837e7a669f390a9cfc03fabcbf4db66d29b1b69ed4b3",
+      "source_path": "wp-content/mu-plugins/missionmed-hq-auth-handoff.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/mu-plugins/missionmed-hq-proxy.php",
+      "byte_size": 8308,
+      "mode": "0644",
+      "sha256": "85e155f7f5e00ac465e1e5d61b4160d0d7a4d2fa97178bbb52adb8d811d3ccb3",
+      "source_path": "wp-content/mu-plugins/missionmed-hq-proxy.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/mu-plugins/missionmed-matrix-account-entry.php",
+      "byte_size": 21023,
+      "mode": "0644",
+      "sha256": "4c0a10ba39c0dab81d97a5ff4d0a5d6f235e3f778493b6f78d89aae269b712ba",
+      "source_path": "wp-content/mu-plugins/missionmed-matrix-account-entry.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/mu-plugins/missionmed-mr-legacy-popup.php",
+      "byte_size": 14800,
+      "mode": "0644",
+      "sha256": "725790239f0dacc344e8a349c0d095ee57d069d00f254f54f1b2b6dff009a52b",
+      "source_path": "wp-content/mu-plugins/missionmed-mr-legacy-popup.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/mu-plugins/missionmed-performance-boost.php",
+      "byte_size": 52078,
+      "mode": "0644",
+      "sha256": "00a51063b4f56366568c96bf3bf276b441875d536c509099e05492d683808ba1",
+      "source_path": "wp-content/mu-plugins/missionmed-performance-boost.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/mu-plugins/missionmed-supabase-session-cookie-auth.php",
+      "byte_size": 3077,
+      "mode": "0644",
+      "sha256": "d343f7581e3c131bc9a4f5e6a1f2c2c8966c82b9e88d01e92430989e505dc26f",
+      "source_path": "wp-content/mu-plugins/missionmed-supabase-session-cookie-auth.php"
+    },
+    {
+      "archive_path": "missionmed-matrix-source/wp-content/mu-plugins/mm-scheduler-webex-broker.php",
+      "byte_size": 31173,
+      "mode": "0644",
+      "sha256": "5544dccf9504266db42105fea048db6687ad28cd53865b3df8aaeff6c4154455",
+      "source_path": "wp-content/mu-plugins/mm-scheduler-webex-broker.php"
+    }
+  ],
+  "file_count": 129,
+  "schema_version": "1.0",
+  "source_commit": "e12cd99aa9c019a6f99325c0b961aa50db945472",
+  "source_tree": "9e0408d93a37c0d6f73a4d06aa9da135b79c9b90",
+  "total_bytes": 10560023
+}

@@ -1,0 +1,189 @@
+.mmed-office-admin {
+	margin-top: 24px;
+}
+
+.mmed-office-admin-head {
+	align-items: center;
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 16px;
+}
+
+.mmed-office-admin-head h2 {
+	font-size: 24px;
+	margin: 0 0 4px;
+}
+
+.mmed-office-admin-head p {
+	margin: 0;
+}
+
+.mmed-office-toolbar {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	display: grid;
+	gap: 12px;
+	grid-template-columns: minmax(280px, 1fr) 220px;
+	margin-bottom: 18px;
+	padding: 16px;
+}
+
+.mmed-office-toolbar label,
+.mmed-office-panel label {
+	color: #1d2327;
+	display: flex;
+	flex-direction: column;
+	font-weight: 700;
+	gap: 6px;
+}
+
+.mmed-office-toolbar select,
+.mmed-office-toolbar input {
+	max-width: none;
+	width: 100%;
+}
+
+.mmed-office-admin-grid {
+	display: grid;
+	gap: 18px;
+	grid-template-columns: minmax(260px, 0.35fr) minmax(480px, 1fr);
+}
+
+.mmed-office-panel {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+	margin-bottom: 18px;
+	padding: 18px;
+}
+
+.mmed-office-panel-head {
+	align-items: center;
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 14px;
+}
+
+.mmed-office-panel-head h3 {
+	font-size: 18px;
+	margin: 0;
+}
+
+.mmed-office-panel-head span {
+	color: #646970;
+	font-size: 12px;
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
+.mmed-office-stat-grid {
+	display: grid;
+	gap: 10px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mmed-office-stat {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	padding: 12px;
+}
+
+.mmed-office-stat strong {
+	display: block;
+	font-size: 24px;
+	line-height: 1;
+}
+
+.mmed-office-stat span {
+	color: #646970;
+	display: block;
+	font-weight: 700;
+	margin-top: 6px;
+}
+
+.mmed-office-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+.mmed-office-table td {
+	vertical-align: middle;
+}
+
+.mmed-office-status {
+	border-radius: 999px;
+	display: inline-flex;
+	font-size: 11px;
+	font-weight: 800;
+	padding: 4px 8px;
+	text-transform: uppercase;
+}
+
+.mmed-office-status.is-waiting {
+	background: #fff8e5;
+	color: #7a4b00;
+}
+
+.mmed-office-status.is-admitted {
+	background: #edfaef;
+	color: #1b7f38;
+}
+
+.mmed-office-status.is-completed {
+	background: #f0f6fc;
+	color: #0a4b78;
+}
+
+.mmed-office-status.is-left,
+.mmed-office-status.is-skipped {
+	background: #f0f0f1;
+	color: #50575e;
+}
+
+.mmed-office-toast-tray {
+	bottom: 24px;
+	display: grid;
+	gap: 8px;
+	position: fixed;
+	right: 24px;
+	z-index: 100000;
+}
+
+.mmed-office-toast {
+	background: #1f7a3a;
+	border-radius: 8px;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+	color: #fff;
+	font-weight: 800;
+	max-width: 320px;
+	padding: 12px 14px;
+}
+
+.mmed-office-toast.is-error {
+	background: #b42318;
+}
+
+@media (max-width: 1180px) {
+	.mmed-office-admin-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 720px) {
+	.mmed-office-admin-head,
+	.mmed-office-panel-head {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.mmed-office-toolbar,
+	.mmed-office-stat-grid {
+		grid-template-columns: 1fr;
+	}
+}

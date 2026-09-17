@@ -1,0 +1,359 @@
+/**
+ * MissionMed Hub — Admin CSS.
+ *
+ * Styling for task list badges, status dropdowns, meta boxes.
+ */
+
+/* ── Status Badges ───────────────────────────────────────────────── */
+.mmed-status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.mmed-status-badge:hover {
+    opacity: 0.85;
+}
+
+/* ── Status Dropdown ─────────────────────────────────────────────── */
+.mmed-status-dropdown {
+    position: absolute;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    margin-top: 4px;
+    min-width: 150px;
+}
+
+.mmed-status-dropdown .mmed-status-option {
+    display: block;
+    padding: 6px 12px;
+    color: #23282d;
+    text-decoration: none;
+    font-size: 12px;
+    line-height: 1.5;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.mmed-status-dropdown .mmed-status-option:last-child {
+    border-bottom: none;
+}
+
+.mmed-status-dropdown .mmed-status-option:hover {
+    background: #f0f0f1;
+    color: #0073aa;
+}
+
+/* ── Division Badges ─────────────────────────────────────────────── */
+.mmed-division-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* ── Due Date ────────────────────────────────────────────────────── */
+.mmed-overdue {
+    color: #d63638;
+    font-weight: 600;
+}
+
+/* ── File Icon ───────────────────────────────────────────────────── */
+.mmed-file-icon {
+    font-size: 16px;
+    text-decoration: none;
+}
+
+/* ── Task Meta Boxes ─────────────────────────────────────────────── */
+#mmed_task_details .inside label {
+    display: block;
+    margin-bottom: 12px;
+}
+
+#mmed_task_details .inside label span {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+#mmed_task_details .inside select,
+#mmed_task_details .inside input[type="text"],
+#mmed_task_details .inside input[type="number"],
+#mmed_task_details .inside input[type="date"] {
+    width: 100%;
+    max-width: 300px;
+}
+
+/* ── User List Columns ───────────────────────────────────────────── */
+.column-mmed_program {
+    width: 100px;
+}
+
+.column-mmed_tasks {
+    width: 70px;
+}
+
+.column-mmed_placement {
+    width: 80px;
+}
+
+/* ── Access Audit ────────────────────────────────────────────────── */
+.mmed-access-wrap {
+    max-width: 1380px;
+}
+
+.mmed-access-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 24px;
+    margin: 18px 0;
+    background: linear-gradient(135deg, #0f2a44 0%, #163c61 58%, #c9a84c 100%);
+    border-radius: 16px;
+    color: #fff;
+    box-shadow: 0 18px 36px rgba(15, 42, 68, 0.16);
+}
+
+.mmed-access-kicker {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.mmed-access-intro {
+    margin: 0;
+    max-width: 720px;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.mmed-access-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.mmed-access-card-grid,
+.mmed-access-system-grid {
+    display: grid;
+    gap: 14px;
+    margin: 16px 0;
+}
+
+.mmed-access-card-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.mmed-access-system-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.mmed-access-card,
+.mmed-access-panel {
+    background: #fff;
+    border: 1px solid #d7dde4;
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(15, 42, 68, 0.06);
+}
+
+.mmed-access-card {
+    padding: 18px 20px;
+}
+
+.mmed-access-card strong {
+    display: block;
+    margin-top: 6px;
+    font-size: 28px;
+    line-height: 1.1;
+    color: #0f2a44;
+}
+
+.mmed-access-card-label {
+    display: block;
+    color: #51606f;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.mmed-access-card-alert {
+    border-color: rgba(214, 54, 56, 0.2);
+    background: linear-gradient(180deg, #fff 0%, #fff5f5 100%);
+}
+
+.mmed-access-card-warning {
+    border-color: rgba(191, 126, 7, 0.2);
+    background: linear-gradient(180deg, #fff 0%, #fffbeb 100%);
+}
+
+.mmed-access-panel {
+    padding: 20px 22px;
+    margin: 16px 0;
+}
+
+.mmed-access-panel h2 {
+    margin-top: 0;
+}
+
+.mmed-access-panel ol {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.mmed-access-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin: 18px 0;
+    padding: 16px 18px;
+    background: #fff;
+    border: 1px solid #d7dde4;
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(15, 42, 68, 0.05);
+}
+
+.mmed-access-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 180px;
+}
+
+.mmed-access-filters label span {
+    color: #51606f;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.mmed-access-filters input,
+.mmed-access-filters select {
+    min-height: 38px;
+}
+
+.mmed-access-map-table td,
+.mmed-access-table td {
+    vertical-align: top;
+}
+
+.mmed-access-item + .mmed-access-item {
+    margin-top: 12px;
+}
+
+.mmed-access-chip {
+    display: inline-block;
+    margin: 0 6px 6px 0;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.mmed-access-chip-product {
+    background: #0f2a44;
+    color: #fff;
+}
+
+.mmed-access-chip-course {
+    background: #e8f4ee;
+    color: #146c43;
+}
+
+.mmed-access-chip-neutral {
+    background: #eef2f6;
+    color: #415365;
+}
+
+.mmed-access-meta {
+    margin-top: 4px;
+    color: #5f6b78;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.mmed-access-empty {
+    color: #7a8693;
+    font-style: italic;
+}
+
+.mmed-access-alert {
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 600;
+}
+
+.mmed-access-alert-danger {
+    background: #fff1f1;
+    color: #a61b1b;
+    border: 1px solid rgba(214, 54, 56, 0.18);
+}
+
+.mmed-access-alert-warning {
+    background: #fff8e6;
+    color: #8a5b00;
+    border: 1px solid rgba(191, 126, 7, 0.18);
+}
+
+.mmed-access-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.mmed-access-status-healthy {
+    background: #e8f4ee;
+    color: #146c43;
+}
+
+.mmed-access-status-purchase_gap {
+    background: #fff1f1;
+    color: #a61b1b;
+}
+
+.mmed-access-status-orphaned_access {
+    background: #fff8e6;
+    color: #8a5b00;
+}
+
+.mmed-access-status-mixed {
+    background: #eef2f6;
+    color: #0f2a44;
+}
+
+@media (max-width: 900px) {
+    .mmed-access-hero {
+        flex-direction: column;
+    }
+
+    .mmed-access-filters label {
+        min-width: 100%;
+    }
+}
