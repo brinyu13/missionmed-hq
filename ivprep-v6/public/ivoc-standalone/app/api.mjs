@@ -54,6 +54,9 @@ export class IvocApi {
   library(scope = 'own') { return json(`/library?scope=${encodeURIComponent(scope)}`); }
   session(sessionId) { return json(`/sessions/${encodeURIComponent(sessionId)}`); }
   playback(recordingId, disposition = 'inline') { return json(`/recordings/${encodeURIComponent(recordingId)}/playback-url?disposition=${encodeURIComponent(disposition)}`); }
+  questions() { return json('/questions'); }
+  addQuestion(input) { return json('/admin/questions', { method: 'POST', body: input, csrfToken: this.csrfToken }); }
+  updateQuestion(questionId, input) { return json(`/admin/questions/${encodeURIComponent(questionId)}`, { method: 'PATCH', body: input, csrfToken: this.csrfToken }); }
   preferences() { return json('/preferences'); }
   savePreferences(value) { return json('/preferences', { method: 'PUT', body: value, csrfToken: this.csrfToken }); }
 }

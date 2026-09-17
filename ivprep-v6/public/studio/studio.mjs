@@ -32,7 +32,7 @@ const CRUMBS = Object.freeze({
   home: 'Home', newsession: 'Build Interview', devicecheck: 'Readiness & Calibration',
   training: 'Coached Practice', simulation: 'Interview Room', postanswer: 'Real Interview Debrief',
   filmroom: 'Performances', compare: 'Compare Attempts', lab: 'Performance Intelligence', mentor: 'Mentor & Admin',
-  progress: 'My Progress', fingerprint: 'Delivery Fingerprint', vault: 'Answer History & Clips',
+  governance: 'Question Governance', progress: 'My Progress', fingerprint: 'Delivery Fingerprint', vault: 'Answer History & Clips',
 });
 
 const store = createDefaultQuestionStore();
@@ -80,6 +80,7 @@ const state = {
   longitudinal: null,
   longitudinalPromise: null,
   comparePair: [0, 1],
+  governedQuestions: [],
 };
 
 /* ------------------------------------------------------------------ media bridge
@@ -283,6 +284,7 @@ function setView(view, { focus = false } = {}) {
   if (view === 'lab') { mountLabInstruments(); void renderLongitudinal(); }
   if (view === 'compare') void renderCompare();
   if (view === 'progress') void renderProgress();
+  if (view === 'governance') void refreshQuestionGovernance();
   if (view === 'filmroom' && state.lastSaved?.sessionDetail) renderFilmRoomSpine(state.lastSaved.sessionDetail);
   if (view === 'vault') void renderVault();
   if (focus) $('#main-content')?.focus?.({ preventScroll: true });
@@ -311,6 +313,109 @@ function applyIdentity() {
   mark.innerHTML = `<span>${founder ? 'DB' : String(identity.wpUserId ?? '?').slice(0, 2)}</span>`;
   const homeName = $('#home-first-name');
   if (homeName) homeName.textContent = founder ? 'Dr Brian.' : 'Doctor.';
+}
+
+function governanceStatus(message, stateName = '') {
+  const node = $('#question-governance-status');
+  if (!node) return;
+  node.textContent = message;
+  node.dataset.state = stateName;
+}
+
+function questionPayloadFromCard(card, status = null) {
+  return {
+    expectedVersion: Number(card.dataset.version),
+    status: status || card.querySelector('[data-field="status"]').value,
+    canonicalText: card.querySelector('[data-field="canonicalText"]').value,
+    category: card.querySelector('[data-field="category"]').value,
+    tags: card.querySelector('[data-field="tags"]').value.split(',').map((tag) => tag.trim()).filter(Boolean),
+    source: card.querySelector('[data-field="source"]').value,
+    changeReason: card.querySelector('[data-field="changeReason"]').value,
+  };
+}
+
+function renderQuestionGovernance() {
+  const host = $('#question-governance-list');
+  if (!host) return;
+  host.replaceChildren();
+  if (!state.governedQuestions.length) {
+    const empty = el('div', 'empty-state');
+    empty.append(el('strong', '', 'No governed overrides yet'), document.createTextNode('The 193 canonical seed questions remain active. Add or override a stable ID without deleting its history.'));
+    host.append(empty); return;
+  }
+  for (const record of state.governedQuestions) {
+    const card = el('article', 'governance-card');
+    card.dataset.questionId = record.questionId;
+    card.dataset.version = String(record.version);
+    const head = el('div', 'governance-card-head');
+    head.append(el('strong', '', record.questionId), el('span', 'microcap', `${record.status} · version ${record.version}`));
+    const fields = el('div', 'governance-card-fields');
+    const makeField = (label, field, value, className = '') => {
+      const wrapper = el('label', `field-label ${className}`.trim(), label);
+      const input = field === 'canonicalText' ? document.createElement('textarea') : document.createElement('input');
+      input.className = 'q-search'; input.dataset.field = field; input.value = value || '';
+      wrapper.append(input); return wrapper;
+    };
+    fields.append(
+      makeField('Question', 'canonicalText', record.canonicalText, 'question-copy'),
+      makeField('Category', 'category', record.category),
+      makeField('Tags', 'tags', record.tags.join(', ')),
+      makeField('Source', 'source', record.source),
+      makeField('Change reason', 'changeReason', record.changeReason),
+    );
+    const status = document.createElement('select');
+    status.className = 'q-search'; status.dataset.field = 'status';
+    for (const value of ['active', 'hidden', 'retired']) {
+      const option = document.createElement('option'); option.value = value; option.textContent = value; option.selected = record.status === value; status.append(option);
+    }
+    const statusField = el('label', 'field-label', 'Visibility'); statusField.append(status); fields.append(statusField);
+    const actions = el('div', 'governance-actions');
+    const save = el('button', 'btn btn-secondary', 'Save new version'); save.type = 'button';
+    save.disabled = record.status === 'retired';
+    save.addEventListener('click', async () => {
+      save.disabled = true;
+      try { await state.durable.api.updateQuestion(record.questionId, questionPayloadFromCard(card)); await refreshQuestionGovernance(); governanceStatus(`${record.questionId} version saved.`, 'saved'); }
+      catch (error) { governanceStatus(String(error?.message || error), 'error'); save.disabled = false; }
+    });
+    const retire = el('button', 'btn btn-quiet', 'Retire'); retire.type = 'button'; retire.disabled = record.status === 'retired';
+    retire.addEventListener('click', async () => {
+      retire.disabled = true;
+      try { await state.durable.api.updateQuestion(record.questionId, questionPayloadFromCard(card, 'retired')); await refreshQuestionGovernance(); governanceStatus(`${record.questionId} retired with history preserved.`, 'saved'); }
+      catch (error) { governanceStatus(String(error?.message || error), 'error'); retire.disabled = false; }
+    });
+    actions.append(save, retire); card.append(head, fields, actions); host.append(card);
+  }
+}
+
+async function refreshQuestionGovernance() {
+  if (!state.durable.ready) return;
+  try {
+    const payload = await state.durable.api.questions();
+    state.governedQuestions = Array.isArray(payload.questions) ? payload.questions : [];
+    store.applyGovernance(state.governedQuestions);
+    renderQuestionGovernance(); collectionChips(); renderQuestions(); renderSet(); renderWizard(); renderHomeCorpus();
+  } catch (error) {
+    governanceStatus(String(error?.message || error), 'error');
+  }
+}
+
+function wireQuestionGovernance() {
+  $('#question-create-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    governanceStatus('Saving version 1…');
+    try {
+      await state.durable.api.addQuestion({
+        questionId: String(data.get('questionId') || '').trim().toUpperCase(), expectedVersion: 0, status: 'active',
+        canonicalText: String(data.get('canonicalText') || ''), category: String(data.get('category') || ''),
+        tags: String(data.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean),
+        source: String(data.get('source') || '').trim().toLowerCase(), changeReason: String(data.get('changeReason') || ''),
+      });
+      form.reset(); form.elements.source.value = 'admin_custom';
+      await refreshQuestionGovernance(); governanceStatus('Question added with immutable version 1.', 'saved');
+    } catch (error) { governanceStatus(String(error?.message || error), 'error'); }
+  });
 }
 
 /* ------------------------------------------------------------------ questions */
@@ -1838,6 +1943,7 @@ async function mountAnalytics() {
 /* ------------------------------------------------------------------ boot */
 
 function wireChrome() {
+  wireQuestionGovernance();
   for (const item of $$('[data-nav]')) item.addEventListener('click', () => setView(item.dataset.nav, { focus: true }));
   for (const button of $$('[data-goto]')) button.addEventListener('click', () => setView(button.dataset.goto, { focus: true }));
   for (const button of $$('[data-builder-step]')) {
@@ -2108,6 +2214,7 @@ async function boot() {
     try {
       await state.durable.bootstrap();
       state.durableAvailable = state.durable.ready;
+      await refreshQuestionGovernance();
     } catch (error) {
       state.durableAvailable = false;
       state.durableError = error;

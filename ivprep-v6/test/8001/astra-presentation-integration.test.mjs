@@ -25,7 +25,7 @@ test('the Founder-facing root declares the sealed Astra candidate.2 presentation
 });
 
 test('the amended six-step builder and independent Question Pool survive integration', () => {
-  for (const label of ['Practice Goal', 'Question Plan', 'Interviewer', 'Program',
+  for (const label of ['Practice Goal', 'Question Pool', 'Interviewer', 'Program',
     'Environment + Context', 'Readiness + Calibration']) {
     assert.match(runtime, new RegExp(`label: '${label.replace('+', '\\+')}'`, 'u'), `${label} step is missing`);
   }
@@ -63,7 +63,7 @@ test('presentation integration preserves the proven analytics and media contract
   assert.match(runtime, /state\.durable\.library\('own'\)/u);
   assert.match(runtime, /state\.durable\.analyze/u);
   assert.match(html, /id="context-analyze"/u);
-  assert.match(html, /does not persist the transcript or semantic analysis/u);
+  assert.match(html, /Available transcript and evidence-cited analysis are saved privately/u);
 });
 
 test('role view controls are bounded by the authenticated MissionMed identity', () => {

@@ -46,8 +46,9 @@ function repository() {
   const updates = [];
   const upserts = [];
   const batches = [];
+  const rpcs = [];
   return {
-    inserts, updates, upserts, batches,
+    inserts, updates, upserts, batches, rpcs,
     single: async () => null,
     request: async (path) => path.startsWith('ivoc_sessions?owner_subject=eq.wp%3A42') ? [] : [],
     insert: async (table, body) => {
@@ -58,6 +59,16 @@ function repository() {
     insertMany: async (table, body) => { batches.push({ table, body }); return body; },
     upsert: async (table, conflict, body) => { upserts.push({ table, conflict, body }); return body; },
     update: async (path, body) => { updates.push({ path, body }); return { ...body }; },
+    rpc: async (name, body) => {
+      rpcs.push({ name, body });
+      return {
+        question_id: body.p_question_id, status: body.p_status,
+        current_version: body.p_expected_version + 1,
+        canonical_text: body.p_canonical_text, category: body.p_category,
+        tags: body.p_tags, source: body.p_source, change_reason: body.p_change_reason,
+        changed_by: body.p_actor, updated_at: new Date().toISOString(),
+      };
+    },
   };
 }
 
@@ -118,6 +129,58 @@ test('entitled owner bootstraps without exposing credentials', async () => {
   assert.equal(response.json().identity.subject, 'wp:42');
   assert.equal(response.json().csrfToken, 'a'.repeat(24));
   assert.ok(!/service|secret|objectKey/u.test(response.body));
+});
+
+test('question catalog exposes active overrides to students and all lifecycle states to Admins', async () => {
+  const repo = repository();
+  repo.request = async (path) => {
+    assert.match(path, /ivoc_question_catalog\?/u);
+    if (path.includes('status=eq.active')) return [{
+      question_id: 'CUSTOM-001', status: 'active', current_version: 1,
+      canonical_text: 'What contribution are you proudest of?', category: 'Program Fit',
+      tags: ['CUSTOM'], source: 'admin_custom', change_reason: 'Founder addition',
+      changed_by: 'wp:1', updated_at: new Date().toISOString(),
+    }];
+    return [];
+  };
+  const { route } = handler(repo);
+  const student = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response: student, url: new URL('https://hq.test/api/ivoc/v1/questions'), hqSession: session() });
+  assert.equal(student.status, 200);
+  assert.equal(student.json().questions[0].questionId, 'CUSTOM-001');
+  assert.equal(student.json().admin, false);
+
+  const admin = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response: admin, url: new URL('https://hq.test/api/ivoc/v1/questions'), hqSession: session(1, ['administrator']) });
+  assert.equal(admin.status, 200);
+  assert.equal(admin.json().admin, true);
+});
+
+test('question governance is Admin-only, version-checked, and actor-stamped server-side', async () => {
+  const { route, repo } = handler();
+  const input = {
+    questionId: 'CUSTOM-001', expectedVersion: 0, status: 'active',
+    canonicalText: 'What contribution are you proudest of?', category: 'Program Fit',
+    tags: ['CUSTOM'], source: 'admin_custom', changeReason: 'Founder addition',
+  };
+  const denied = new ResponseCapture();
+  await route({ ...base, request: request('POST', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response: denied, url: new URL('https://hq.test/api/ivoc/v1/admin/questions'), hqSession: session() });
+  assert.equal(denied.status, 403);
+  assert.equal(repo.rpcs.length, 0);
+
+  const allowed = new ResponseCapture();
+  await route({ ...base, request: request('POST', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response: allowed, url: new URL('https://hq.test/api/ivoc/v1/admin/questions'), hqSession: session(1, ['administrator']) });
+  assert.equal(allowed.status, 201);
+  assert.equal(allowed.json().question.version, 1);
+  assert.deepEqual(repo.rpcs[0], {
+    name: 'ivoc_write_question_version',
+    body: {
+      p_question_id: 'CUSTOM-001', p_expected_version: 0, p_status: 'active',
+      p_canonical_text: input.canonicalText, p_category: input.category,
+      p_tags: input.tags, p_source: input.source, p_change_reason: input.changeReason,
+      p_actor: 'wp:1',
+    },
+  });
 });
 
 test('session creation requires same-origin CSRF and persists server identity', async () => {

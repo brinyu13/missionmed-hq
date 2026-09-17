@@ -202,6 +202,32 @@ test('drawer search and behavioral collection behave', () => {
   assert.throws(() => store.query({ sort: 'nope' }), /Unknown sort/u);
 });
 
+test('governance overlays preserve stable IDs, add custom questions, and hide without deletion', () => {
+  const store = createDefaultQuestionStore();
+  store.applyGovernance([
+    {
+      questionId: 'CORE-01', status: 'active', version: 2,
+      canonicalText: 'Tell me about yourself in two minutes.', category: 'Core / Opening',
+      tags: ['CORE'], source: 'founder_core',
+    },
+    {
+      questionId: 'CORE-02', status: 'hidden', version: 2,
+      canonicalText: 'What are your hobbies?', category: 'Core / Opening',
+      tags: ['CORE'], source: 'founder_core',
+    },
+    {
+      questionId: 'CUSTOM-001', status: 'active', version: 1,
+      canonicalText: 'What contribution are you proudest of?', category: 'Program Fit',
+      tags: ['CUSTOM'], source: 'admin_custom',
+    },
+  ]);
+  assert.equal(store.count, 193);
+  assert.equal(store.all().find((q) => q.question_id === 'CORE-01').canonical_text, 'Tell me about yourself in two minutes.');
+  assert.equal(store.all().some((q) => q.question_id === 'CORE-02'), false);
+  assert.equal(store.all().find((q) => q.question_id === 'CUSTOM-001').governance_version, 1);
+  assert.throws(() => store.applyGovernance([{ questionId: 'bad', status: 'active' }]), /invalid/u);
+});
+
 test('the provider registry is the only source list', () => {
   const registry = new QuestionProviderRegistry();
   assert.deepEqual(registry.ids, []);

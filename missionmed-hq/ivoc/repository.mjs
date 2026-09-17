@@ -10,6 +10,11 @@ const TABLES = Object.freeze([
   'ivoc_conversation_turns',
   'ivoc_answer_segments',
   'ivoc_coaching_evidence',
+  'ivoc_question_catalog',
+]);
+
+const RPCS = Object.freeze([
+  'ivoc_write_question_version',
 ]);
 
 function requireConfig(value, name) {
@@ -61,6 +66,25 @@ export function createIvocRepository({ baseUrl, serviceRoleKey, fetchImpl = fetc
   const update = async (path, body) => (await request(path, {
     method: 'PATCH', body, prefer: 'return=representation',
   }))?.[0] || null;
+  const rpc = async (name, body) => {
+    if (!RPCS.includes(name)) throw new Error('ivoc_rpc_not_allowed');
+    const response = await fetchImpl(`${root}/rest/v1/rpc/${name}`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json', apikey: key, Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json', Prefer: 'return=representation',
+      },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = new Error('ivoc_persistence_failed');
+      error.status = response.status;
+      error.detail = payload?.message || payload?.code || null;
+      throw error;
+    }
+    return Array.isArray(payload) ? payload[0] || null : payload;
+  };
 
-  return Object.freeze({ request, single, insert, insertMany, upsert, update });
+  return Object.freeze({ request, single, insert, insertMany, upsert, update, rpc });
 }

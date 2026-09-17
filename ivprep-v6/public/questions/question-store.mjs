@@ -105,6 +105,7 @@ function statsIndex(answerRecords) {
 
 export class QuestionStore {
   #registry;
+  #governance = new Map();
 
   constructor(registry = new QuestionProviderRegistry().register(MissionResidencyQuestionProvider)) {
     this.#registry = registry;
@@ -112,12 +113,48 @@ export class QuestionStore {
 
   get registry() { return this.#registry; }
 
-  /** All questions, CORE pinned first, then provider/source order. */
-  all() {
-    return this.#registry.questions().slice().sort(compareCoreFirst);
+  applyGovernance(records = []) {
+    if (!Array.isArray(records)) throw new TypeError('Question governance records must be an array.');
+    const next = new Map();
+    for (const record of records) {
+      const id = String(record?.questionId || '').trim();
+      if (!/^[A-Z0-9][A-Z0-9._:-]{1,119}$/u.test(id)
+          || !['active', 'hidden', 'retired'].includes(record?.status)) {
+        throw new TypeError('Question governance record is invalid.');
+      }
+      next.set(id, Object.freeze({ ...record, questionId: id }));
+    }
+    this.#governance = next;
+    return this;
   }
 
-  get count() { return this.#registry.questions().length; }
+  /** All questions, CORE pinned first, then provider/source order. */
+  all() {
+    const rows = new Map(this.#registry.questions().map((question) => [question.question_id, question]));
+    for (const record of this.#governance.values()) {
+      if (record.status !== 'active') {
+        rows.delete(record.questionId);
+        continue;
+      }
+      const prior = rows.get(record.questionId) || {};
+      rows.set(record.questionId, Object.freeze({
+        ...prior,
+        question_id: record.questionId,
+        canonical_text: record.canonicalText,
+        category: record.category,
+        tags: Object.freeze(record.tags.slice()),
+        source: record.source,
+        source_number: prior.source_number ?? Number.MAX_SAFE_INTEGER,
+        core_priority: prior.core_priority === true,
+        behavioral: prior.behavioral === true,
+        difficulty: prior.difficulty ?? 3,
+        governance_version: record.version,
+      }));
+    }
+    return [...rows.values()].sort(compareCoreFirst);
+  }
+
+  get count() { return this.all().length; }
 
   /**
    * Read-time join. Returns questions with a computed `stats` object. Never

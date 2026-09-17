@@ -155,6 +155,41 @@ function publicSession(row, recording = null, result = null, review = null, spin
   };
 }
 
+function publicQuestion(row) {
+  return {
+    questionId: row.question_id,
+    status: row.status,
+    version: row.current_version,
+    canonicalText: row.canonical_text,
+    category: row.category,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    source: row.source,
+    changeReason: row.change_reason,
+    changedBy: row.changed_by,
+    updatedAt: row.updated_at,
+  };
+}
+
+function questionWrite(input, questionId = input?.questionId) {
+  const id = safeText(questionId, 120).toUpperCase();
+  const status = safeText(input?.status, 20).toLowerCase();
+  const expectedVersion = Number(input?.expectedVersion);
+  const canonicalText = safeText(input?.canonicalText, 1000);
+  const category = safeText(input?.category, 120);
+  const source = safeText(input?.source, 80).toLowerCase();
+  const changeReason = safeText(input?.changeReason, 400);
+  const tags = boundedArray(input?.tags, 'question_tags', 24).map((tag) => safeText(tag, 80)).filter(Boolean);
+  if (!/^[A-Z0-9][A-Z0-9._:-]{1,119}$/u.test(id)
+      || !Number.isSafeInteger(expectedVersion) || expectedVersion < 0
+      || !['active', 'hidden', 'retired'].includes(status)
+      || canonicalText.length < 3 || !category
+      || !/^[a-z0-9][a-z0-9_-]{0,79}$/u.test(source)
+      || changeReason.length < 3) {
+    throw Object.assign(new TypeError('ivoc_question_input_invalid'), { status: 400 });
+  }
+  return { id, expectedVersion, status, canonicalText, category, tags, source, changeReason };
+}
+
 function practiceGoal(row) {
   const goal = String(row?.context?.goal || '').toLowerCase();
   if (goal.includes('guided')) return 'guided_mock';
@@ -364,6 +399,55 @@ export function createIvocHandler({
           csrfToken: admission.csrfToken,
           preferences: preferences ? { calibration: preferences.calibration, visibility: preferences.visibility, coachingEnabled: preferences.coaching_enabled, recordingDefault: preferences.recording_default } : null,
         }, mediaBase);
+        return true;
+      }
+
+      if (request.method === 'GET' && pathname === `${API_PREFIX}/questions`) {
+        const admin = isAdmin(hqSession, admission);
+        const filter = admin ? '' : 'status=eq.active&';
+        const rows = await db.request(`ivoc_question_catalog?${filter}select=question_id,status,current_version,canonical_text,category,tags,source,change_reason,changed_by,updated_at&order=question_id.asc`);
+        sendJson(response, 200, { admin, questions: rows.map(publicQuestion) }, mediaBase);
+        return true;
+      }
+
+      const questionMutationMatch = pathname.match(/^\/api\/ivoc\/v1\/admin\/questions(?:\/([A-Z0-9][A-Z0-9._:-]{1,119}))?$/u);
+      if ((request.method === 'POST' || request.method === 'PATCH') && questionMutationMatch) {
+        if (!isAdmin(hqSession, admission)) {
+          await audit({ actor, action: 'question_governance_write', decision: 'deny', reason: 'admin_required' });
+          sendError(response, 403, 'ivoc_admin_required', mediaBase); return true;
+        }
+        const input = await readJson(request);
+        const suppliedId = request.method === 'PATCH' ? questionMutationMatch[1] : input.questionId;
+        const write = questionWrite(input, suppliedId);
+        if ((request.method === 'POST' && questionMutationMatch[1])
+            || (request.method === 'PATCH' && (!questionMutationMatch[1] || input.questionId != null))) {
+          sendError(response, 400, 'ivoc_question_input_invalid', mediaBase); return true;
+        }
+        let row;
+        try {
+          row = await db.rpc('ivoc_write_question_version', {
+            p_question_id: write.id,
+            p_expected_version: write.expectedVersion,
+            p_status: write.status,
+            p_canonical_text: write.canonicalText,
+            p_category: write.category,
+            p_tags: write.tags,
+            p_source: write.source,
+            p_change_reason: write.changeReason,
+            p_actor: actor,
+          });
+        } catch (error) {
+          const detail = String(error?.detail || '');
+          if (detail.includes('ivoc_question_version_conflict')) {
+            throw Object.assign(new Error('ivoc_question_version_conflict'), { status: 409 });
+          }
+          if (detail.includes('ivoc_question_retired')) {
+            throw Object.assign(new Error('ivoc_question_retired'), { status: 409 });
+          }
+          throw error;
+        }
+        await audit({ actor, action: 'question_governance_write', decision: 'allow', reason: `${write.status}:v${row.current_version}` });
+        sendJson(response, request.method === 'POST' ? 201 : 200, { question: publicQuestion(row) }, mediaBase);
         return true;
       }
 

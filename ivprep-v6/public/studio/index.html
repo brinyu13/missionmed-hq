@@ -59,6 +59,7 @@
       <button class="nav-item" type="button" data-nav="compare"><i class="ico">⇄</i>Compare Attempts</button>
       <button class="nav-item" type="button" data-nav="fingerprint"><i class="ico">◈</i>Delivery Fingerprint</button>
       <button class="nav-item" type="button" data-nav="mentor" data-founder-only><i class="ico">◇</i>Mentor &amp; Admin</button>
+      <button class="nav-item" type="button" data-nav="governance" data-founder-only><i class="ico">⚙</i>Question Governance</button>
     </nav>
 
     <div class="rail-foot">
@@ -410,6 +411,32 @@
         <div class="housing" style="margin-top:18px">
           <div class="housing-title">Unreviewed answers</div>
           <div class="recess"><div class="empty-state"><strong>No answers awaiting review</strong>Assigned mentors and Admins can review authorized AnswerRecords. Private mentor intelligence never renders in the student view.</div></div>
+        </div>
+      </section>
+
+      <!-- ADMIN QUESTION GOVERNANCE -->
+      <section class="screen" data-view-panel="governance">
+        <div class="microcap hero-kick">Admin controls</div>
+        <h1 class="hero">Question <em>governance.</em></h1>
+        <p class="lede">Stable IDs, append-only versions, explicit visibility, and no destructive deletion.</p>
+        <div class="grid grid-2" style="margin-top:18px">
+          <form class="housing" id="question-create-form">
+            <div class="housing-title">Add a governed question</div>
+            <div class="recess governance-form">
+              <label class="field-label">Stable question ID<input class="q-search" name="questionId" required pattern="[A-Z0-9][A-Z0-9._:-]{1,119}" placeholder="CUSTOM-001"></label>
+              <label class="field-label">Question<textarea class="q-search" name="canonicalText" required minlength="3" maxlength="1000"></textarea></label>
+              <label class="field-label">Category<input class="q-search" name="category" required maxlength="120" placeholder="Program Fit"></label>
+              <label class="field-label">Tags<input class="q-search" name="tags" placeholder="PROGRAM_FIT, CUSTOM"></label>
+              <label class="field-label">Source<input class="q-search" name="source" required pattern="[a-z0-9][a-z0-9_-]{0,79}" value="admin_custom"></label>
+              <label class="field-label">Change reason<input class="q-search" name="changeReason" required minlength="3" maxlength="400"></label>
+              <button class="btn btn-primary" type="submit"><span>Add version 1</span></button>
+              <p class="microcap" id="question-governance-status" aria-live="polite"></p>
+            </div>
+          </form>
+          <div class="housing">
+            <div class="housing-title">Governed catalog</div>
+            <div class="recess governance-list" id="question-governance-list"><div class="empty-state"><strong>Loading governed questions</strong>Canonical seed questions remain active unless an Admin creates an override.</div></div>
+          </div>
         </div>
       </section>
 
