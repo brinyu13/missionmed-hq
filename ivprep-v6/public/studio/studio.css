@@ -283,8 +283,11 @@ body {
 .wizard-progress button span { flex: 0 0 auto; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid #56657c; border-radius: 50%; font: 700 11px/1 var(--font-num); }
 .wizard-progress button.current { border-color: #ff985f; background: linear-gradient(145deg, #5e302a, #201a27); color: #ffe0b6; }
 .wizard-progress button.complete span { background: var(--gold); color: #251406; border-color: transparent; }
-.builder-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
-.builder-stage { min-height: 390px; }
+.builder-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.builder-layout > .pool-summary { display: none; }
+.builder-layout[data-step="questions"] { grid-template-columns: minmax(0, 1fr) 320px; }
+.builder-layout[data-step="questions"] > .pool-summary { display: grid; }
+.builder-stage { min-height: 540px; overflow: visible; }
 .pool-summary { position: sticky; top: 72px; border: 1px solid #8d4c38; border-radius: 16px; background: linear-gradient(145deg, #21283c, #10192a); box-shadow: 0 15px 35px #0005; padding: 19px; display: grid; gap: 12px; }
 .pool-summary > .microcap { color: #ffd0a2; }
 .pool-total { display: flex; align-items: center; gap: 12px; }
@@ -299,6 +302,109 @@ body {
 .wizard-options .btn { min-height: 58px; text-align: left; transform: none; clip-path: none; border-radius: 10px; font-style: normal; text-transform: none; }
 .wizard-options .btn > span { transform: none; }
 .wizard-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; }
+
+/* ---------- candidate.2 builder transplant ---------- */
+.canon-wizard-title { margin: 5px 0 20px; color: var(--ink); font: italic 650 clamp(28px, 4vw, 48px)/.98 var(--font-editorial); letter-spacing: -.035em; }
+.canon-wizard-title em { display: block; color: var(--brand-b); font-weight: 500; }
+.canon-step { animation: canon-enter .28s ease both; }
+@keyframes canon-enter { from { opacity: 0; transform: translateY(8px); } }
+.canon-muted { color: var(--dim); font: 500 12px/1.55 var(--font-display); }
+.canon-tactile, .canon-role-card, .canon-bird-card, .canon-source-card, .canon-room-card, .canon-mini-choice, .canon-tab, .canon-toggle {
+  position: relative; border: 1px solid #3b4960; border-bottom-width: 4px; border-radius: 12px;
+  background: linear-gradient(155deg, #19263a, #0d1626); color: var(--ink); box-shadow: 0 14px 28px #02050b70, inset 0 1px #ffffff12;
+  padding: 13px; text-align: left; cursor: pointer; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.canon-tactile:hover, .canon-role-card:hover, .canon-bird-card:hover, .canon-source-card:hover, .canon-room-card:hover, .canon-mini-choice:hover, .canon-tab:hover, .canon-toggle:hover { transform: translateY(-2px); border-color: #d87a4d; }
+.canon-tactile.selected, .canon-role-card.selected, .canon-bird-card.selected, .canon-source-card.selected, .canon-room-card.selected, .canon-mini-choice.selected, .canon-tab.selected, .canon-toggle.selected { border-color: #ff9a5d; background: linear-gradient(145deg, #5b312a, #1a1c2b); box-shadow: 0 16px 36px #0008, inset 0 1px #ffc89455; }
+.canon-tactile strong, .canon-role-card strong, .canon-bird-card strong, .canon-source-card strong, .canon-room-card strong, .canon-mini-choice strong, .canon-tab strong, .canon-toggle strong { display: block; font: 800 12px/1.25 var(--font-display); }
+.canon-tactile small, .canon-role-card small, .canon-bird-card small, .canon-source-card small, .canon-room-card small, .canon-toggle small { display: block; margin-top: 7px; color: var(--dim); font: 500 11px/1.4 var(--font-display); }
+.canon-tactile:disabled, .canon-source-card:disabled { cursor: not-allowed; opacity: .48; transform: none; }
+.canon-purpose-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
+.canon-purpose-card { min-height: 300px; position: relative; isolation: isolate; overflow: hidden; border: 1px solid #425168; border-radius: 18px; background: #0b1322; color: var(--ink); box-shadow: 0 22px 48px #0009, inset 0 1px #ffffff14; padding: 0; text-align: left; cursor: pointer; transition: transform .2s ease, border-color .2s ease; }
+.canon-purpose-card:hover { transform: translateY(-5px); border-color: #ff9c63; }
+.canon-purpose-card.selected { border-color: #ff9b5d; box-shadow: 0 24px 52px #0009, 0 0 0 2px #ff9b5d55; }
+.canon-goal-photo { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; opacity: .68; }
+.canon-purpose-card::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(0deg, #07101dfd 8%, #0b1423db 52%, #0b142337); }
+.canon-purpose-card strong, .canon-purpose-card small { position: absolute; left: 22px; right: 22px; }
+.canon-purpose-card strong { bottom: 64px; font: italic 700 25px/1.05 var(--font-editorial); }
+.canon-purpose-card small { bottom: 21px; color: #d1d8e4; font: 500 11px/1.45 var(--font-display); }
+.canon-card-number { position: absolute; top: 18px; left: 20px; color: #ffd0a1; font: 800 12px/1 var(--font-num); letter-spacing: .13em; }
+.canon-goal-options { display: grid; grid-template-columns: minmax(260px, 1fr) auto; gap: 14px; align-items: stretch; margin-top: 16px; padding: 14px; border: 1px solid #34445b; border-radius: 14px; background: #0d1626c7; }
+.canon-length { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.canon-length .microcap { margin-right: 5px; }
+.canon-mini-choice, .canon-tab { border-bottom-width: 2px; padding: 9px 12px; text-align: center; }
+.canon-mini-choice strong, .canon-tab strong { font-size: 10px; }
+.canon-field, .canon-search { display: grid; gap: 7px; margin-top: 14px; color: var(--ink2); font: 700 10px/1.2 var(--font-num); letter-spacing: .08em; text-transform: uppercase; }
+.canon-field input, .canon-field select, .canon-search input, .canon-pool-toolbar input { width: 100%; min-width: 0; border: 1px solid #3c4b62; border-radius: 9px; background: #08111f; color: var(--ink); padding: 11px 12px; font: 600 12px/1.2 var(--font-display); text-transform: none; letter-spacing: 0; }
+.canon-pool-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) auto; gap: 10px; align-items: center; }
+.canon-presets, .canon-inline-actions, .canon-segment { display: flex; flex-wrap: wrap; gap: 8px; }
+.canon-pool-browser { display: grid; grid-template-columns: minmax(175px, .7fr) minmax(0, 1.6fr); gap: 13px; margin-top: 14px; }
+.canon-categories, .canon-sections, .canon-question-list { display: grid; gap: 8px; align-content: start; }
+.canon-categories { max-height: 540px; overflow: auto; padding-right: 4px; }
+.canon-categories .canon-tactile { padding: 10px 11px; }
+.canon-branches { min-width: 0; border: 1px solid #324158; border-radius: 14px; background: #0a1322; padding: 14px; }
+.canon-branches h2, .canon-branches h3 { margin: 0 0 12px; font: italic 700 19px/1.15 var(--font-editorial); }
+.canon-branches h3 { margin-top: 16px; font-size: 14px; }
+.canon-sections { grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); margin-top: 12px; }
+.canon-question-list { max-height: 390px; overflow: auto; padding-right: 4px; }
+.canon-question { display: flex; flex-direction: column-reverse; gap: 4px; padding: 11px 12px; }
+.canon-question strong { font-size: 11px; text-transform: none; }
+.canon-question small { margin: 0; color: #f4aa73; font: 700 8px/1.2 var(--font-num); letter-spacing: .07em; text-transform: uppercase; }
+.canon-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 15px; }
+.canon-role-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.canon-role-card { min-height: 142px; display: grid; align-content: end; background: radial-gradient(circle at 50% 20%, #9253373b, transparent 45%), linear-gradient(155deg, #19263a, #0d1626); }
+.canon-role-card strong { font: italic 700 18px/1.1 var(--font-editorial); }
+.canon-section-heading { display: flex; justify-content: space-between; gap: 15px; align-items: end; margin: 22px 0 10px; }
+.canon-section-heading h3 { margin: 0; font: italic 700 18px/1.1 var(--font-editorial); }
+.canon-section-heading p { margin: 0; }
+.canon-bird-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.canon-bird-card { min-height: 115px; }
+.canon-bird-card strong { color: #ffc287; font: italic 800 20px/1 var(--font-editorial); }
+.canon-presence { min-height: 300px; display: grid; grid-template-columns: 170px 1fr; align-items: center; gap: 28px; padding: 28px; border: 1px solid #3f4f66; border-radius: 18px; background: radial-gradient(circle at 18% 50%, #e7774e2b, transparent 42%), #0a1322; }
+.canon-presence-orb { width: 150px; height: 150px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffc56f, #f07038 48%, #49233a 75%, #111828); box-shadow: 0 0 0 1px #ffb75f88, 0 0 55px #ef754a4f; }
+.canon-presence-orb span { color: #291507; font: italic 900 38px/1 var(--font-display); }
+.canon-presence h2, .canon-name-coaching h2 { margin: 7px 0; font: italic 700 28px/1.05 var(--font-editorial); }
+.canon-presence em { color: var(--brand-b); }
+.canon-name-windows { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 17px; }
+.canon-name-windows span { display: grid; gap: 5px; padding: 15px; border: 1px solid #3a4960; background: #0a1322; color: var(--dim); font-size: 11px; }
+.canon-name-windows strong { color: var(--ink); }
+.canon-photo-heading { position: relative; min-height: 150px; display: flex; align-items: end; overflow: hidden; border: 1px solid #405069; border-radius: 16px; margin-bottom: 15px; padding: 22px; isolation: isolate; }
+.canon-photo-heading img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; opacity: .52; }
+.canon-photo-heading::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #07101df6, #0a1421b0 68%, #0a142143); }
+.canon-photo-heading h2 { margin: 0; font: italic 700 30px/1 var(--font-editorial); }
+.canon-photo-heading p { margin: 8px 0 0; color: var(--ink2); }
+.canon-program-filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.canon-program-result { margin-top: 14px; border: 1px solid #45536a; border-radius: 14px; background: linear-gradient(145deg, #172339, #0a1321); padding: 16px; box-shadow: var(--bevel); }
+.canon-program-result h3 { margin: 7px 0; font: italic 700 21px/1.1 var(--font-editorial); }
+.canon-cheat-sheet { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 13px; }
+.canon-cheat-sheet > div { display: grid; gap: 6px; padding: 12px; border: 1px solid #34435a; background: #09111f; }
+.canon-cheat-sheet strong { color: #f3aa74; font: 800 9px/1 var(--font-num); text-transform: uppercase; letter-spacing: .07em; }
+.canon-cheat-sheet span { color: var(--dim); font-size: 11px; }
+.canon-environment-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.canon-panel { border: 1px solid #3a4960; border-radius: 16px; background: linear-gradient(145deg, #151f31, #091220); padding: 16px; }
+.canon-panel > h2 { margin: 0 0 13px; font: italic 700 22px/1.1 var(--font-editorial); }
+.canon-room-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.canon-room-card { padding: 8px; }
+.canon-room-preview { position: relative; height: 88px; overflow: hidden; border: 1px solid #33435a; border-radius: 8px; margin-bottom: 9px; background: radial-gradient(circle at 50% 38%, #754831, #141c2a 45%, #070d17); }
+.room-webex { background: radial-gradient(circle at 45% 38%, #355f82, #111b2a 52%, #070d17); }
+.room-zoom { background: radial-gradient(circle at 45% 38%, #3d5b97, #10192b 52%, #070d17); }
+.room-teams { background: radial-gradient(circle at 45% 38%, #564d91, #12172b 52%, #070d17); }
+.room-person { position: absolute; width: 30px; height: 30px; border-radius: 50%; background: #f0a26d; left: calc(50% - 15px); top: 18px; box-shadow: 0 24px 0 9px #263852; }
+.room-self { position: absolute; right: 7px; bottom: 16px; width: 32px; height: 23px; border: 1px solid #91a0b7; background: #152338; }
+.room-controls { position: absolute; left: 0; right: 0; bottom: 3px; color: #d2d9e4; font: 700 7px/1 var(--font-num); text-align: center; letter-spacing: .2em; }
+.canon-segment { margin-top: 13px; }
+.canon-source-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+.canon-source-card { min-height: 90px; }
+.canon-readiness-layout { display: grid; grid-template-columns: minmax(340px, 1.1fr) minmax(320px, 1fr); gap: 14px; }
+.canon-readiness-preview { padding: 12px; border: 1px solid #405069; border-radius: 15px; background: #08111e; }
+.canon-readiness-preview .stage { min-height: 310px; }
+.canon-live-meter { height: 12px; overflow: hidden; margin: 11px 0 7px; border: 1px solid #38475d; background: #050b14; }
+.live-mic-fill { display: block; width: 0; height: 100%; background: linear-gradient(90deg, #43c88b, #efbf59, #f07847); transition: width .08s linear; }
+.canon-signal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; align-content: start; }
+.canon-signal-tile { min-height: 70px; display: grid; align-content: center; gap: 6px; border: 1px solid #35445a; border-left: 3px solid #65748a; border-radius: 9px; background: #0b1423; padding: 10px; }
+.canon-signal-tile[data-ready="true"] { border-left-color: var(--ok); background: linear-gradient(90deg, #1c7d5a16, #0b1423); }
+.canon-signal-tile strong { font: italic 800 12px/1 var(--font-display); text-transform: uppercase; }
+.canon-signal-tile span { color: var(--dim); font: 600 9px/1.25 var(--font-num); }
 
 /* ---------- device check ---------- */
 
@@ -379,8 +485,10 @@ body {
   .screen { padding: 18px 14px 90px; }
   .practice-cards { grid-template-columns: 1fr 1fr; }
   .practice-card.program { grid-column: 1 / -1; min-height: 220px; }
-  .builder-layout { grid-template-columns: 1fr; }
+  .builder-layout, .builder-layout[data-step="questions"] { grid-template-columns: 1fr; }
   .pool-summary { position: static; }
+  .canon-purpose-cards, .canon-role-cards, .canon-bird-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .canon-environment-layout, .canon-readiness-layout { grid-template-columns: 1fr; }
   .wizard-progress { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 1025px) { .nav-toggle { display: none !important; } }
@@ -398,6 +506,16 @@ body {
   .wizard-progress { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wizard-progress button { min-height: 44px; }
   .wizard-options { grid-template-columns: 1fr; }
+  .canon-purpose-cards, .canon-role-cards, .canon-bird-grid, .canon-program-filters, .canon-cheat-sheet, .canon-environment-layout, .canon-room-grid, .canon-source-grid, .canon-signal-grid, .canon-name-windows { grid-template-columns: 1fr; }
+  .canon-purpose-card { min-height: 245px; }
+  .canon-goal-options, .canon-pool-toolbar, .canon-pool-browser, .canon-presence, .canon-readiness-layout { grid-template-columns: 1fr; }
+  .canon-presence-orb { width: 110px; height: 110px; }
+}
+
+@media (min-width: 1100px) and (min-height: 760px) {
+  .canon-step-goal .canon-purpose-card { min-height: min(34vh, 310px); }
+  .canon-step-interviewer .canon-role-card { min-height: min(17vh, 150px); }
+  .canon-step-environment .canon-room-preview { height: min(11vh, 94px); }
 }
 
 .nav-toggle {

@@ -35,6 +35,7 @@ const CRUMBS = Object.freeze({
 });
 
 const store = createDefaultQuestionStore();
+const ASTRA_PRESENTATION_CANON = 'dedb726bde521a135bec2286ad4cd5a877a68fc7ecd6144fde16b76bc9c09ac4';
 
 const state = {
   view: 'home',
@@ -47,7 +48,14 @@ const state = {
   search: '',
   collection: null,
   wizardStep: 0,
-  wizard: { goal: null, questions: null, interviewer: null, program: null, environment: null, readiness: null },
+  wizard: {
+    goal: 'Full IV Simulation', duration: 15, pressurePractice: false, focus: '',
+    questions: null, questionCategory: 'Core / Opening', questionSection: 'CORE', questionSearch: '',
+    interviewer: 'Program Director', interviewerStyle: 'Owl', interviewerTab: 'Role & style', interviewerName: '',
+    program: '', programSpecialty: '', programState: '', programType: '',
+    environment: 'MissionMed', interviewMode: 'Interview Mode', analyticsEnabled: true,
+    contextSources: [], readiness: null,
+  },
   targetQuestions: 5,
   devices: { cameras: [], microphones: [] },
   selected: { camera: null, microphone: null },
@@ -443,13 +451,65 @@ function renderSimProgression() {
 /* ------------------------------------------------------------------ Astra six-step builder */
 
 const WIZARD_STEPS = Object.freeze([
-  { key: 'goal', label: 'Practice Goal', title: 'What kind of room are you preparing for?', options: ['Instant focused rep', 'Individual question', 'Coached practice', 'Full interview simulation'] },
-  { key: 'questions', label: 'Question Plan', title: 'Build your Question Pool.', options: ['Core 10', 'Behavioral questions', 'Balanced mix', 'Choose from full library'] },
-  { key: 'interviewer', label: 'Interviewer', title: 'Who is on the other side?', options: ['Program Director · balanced', 'Faculty · conversational', 'Chief Resident · warm', 'Pressure practice · direct'] },
-  { key: 'program', label: 'Program', title: 'Know the room.', options: ['General residency interview', 'Internal Medicine · RISE seam', 'Family Medicine · RISE seam', 'Program context not available'] },
-  { key: 'environment', label: 'Environment + Context', title: 'What should the interview know?', options: ['MissionMed · interview only', 'MissionMed · coached analytics', 'StoryForge context seam', 'RISE + StoryForge seams'] },
-  { key: 'readiness', label: 'Readiness + Calibration', title: 'Find your signal before you enter.', options: ['Run device calibration', 'Camera + microphone ready', 'Voice-only fallback', 'Review setup without devices'] },
+  { key: 'goal', label: 'Practice Goal', title: ['What are you', 'practicing for?'] },
+  { key: 'questions', label: 'Question Pool', title: ['Start broad.', 'Make it yours.'] },
+  { key: 'interviewer', label: 'Interviewer', title: ['Who is on', 'the other side?'] },
+  { key: 'program', label: 'Program', title: ['Know', 'the room.'] },
+  { key: 'environment', label: 'Environment + Context', title: ['Set the scene.', 'Bring your context.'] },
+  { key: 'readiness', label: 'Readiness + Calibration', title: ['Find your signal.', 'Enter with confidence.'] },
 ]);
+
+const QUESTION_CATEGORIES = Object.freeze([
+  ['Core / Opening', ['CORE', 'TRADITIONAL', 'BACKGROUND', 'CV_BASED', 'CLOSING']],
+  ['Behavioral', ['BEHAVIORAL', 'SITUATIONAL']],
+  ['Clinical & Judgment', ['CLINICAL_EXPERIENCE', 'MISTAKE_SAFETY', 'HEALTHCARE_POLICY']],
+  ['Teamwork & Communication', ['TEAMWORK', 'COMMUNICATION', 'PATIENT_INTERACTION']],
+  ['Leadership', ['LEADERSHIP']],
+  ['Conflict / Difficult Situations', ['CONFLICT', 'STRESS_PRESSURE']],
+  ['Strengths / Weaknesses / Growth', ['STRENGTHS', 'WEAKNESSES', 'RED_FLAGS']],
+  ['Failure / Adversity', ['FAILURE', 'ADVERSITY']],
+  ['Program Fit / Why Us', ['PROGRAM_FIT']],
+  ['Career Goals / Specialty Fit', ['CAREER_GOALS', 'SPECIALTY', 'MOTIVATION', 'RESEARCH']],
+  ['Ethics / Professionalism', ['ETHICS']],
+  ['Personal / Outside Medicine', ['PERSONAL', 'HOBBIES', 'CREATIVE_UNUSUAL']],
+]);
+const QUESTION_TAGS = new Set(QUESTION_CATEGORIES.flatMap(([, tags]) => tags));
+const BIRD_STYLES = Object.freeze({
+  Dove: 'Warm, patient, supportive', Peacock: 'Expressive, energetic, conversational',
+  Owl: 'Measured, analytical, evidence-focused', Eagle: 'Direct, concise, outcome-focused',
+});
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function choiceButton({ className = 'canon-tactile', selected = false, label, detail, onClick }) {
+  const button = el('button', `${className}${selected ? ' selected' : ''}`);
+  button.type = 'button';
+  button.setAttribute('aria-pressed', String(selected));
+  const strong = el('strong', '', label);
+  button.append(strong);
+  if (detail) button.append(el('small', '', detail));
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function questionSection(question) {
+  if (question.core_priority) return 'CORE';
+  return question.tags.find((tag) => QUESTION_TAGS.has(tag)) || 'TRADITIONAL';
+}
+
+function categoryForQuestion(question) {
+  const section = questionSection(question);
+  return QUESTION_CATEGORIES.find(([, tags]) => tags.includes(section))?.[0] || 'Core / Opening';
+}
+
+function sectionLabel(value) {
+  return String(value || '').toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
 
 function showBuilderMode(which) {
   const wizard = $('#mode-wizard');
@@ -501,23 +561,270 @@ function renderPoolSummary() {
   }
 }
 
+function renderGoalStep(host) {
+  const choices = [
+    ['Full IV Simulation', 'A realistic start-to-finish residency interview.', 'synthetic-candidate.png'],
+    ['Guided Mock IV Practice', 'Structured support around one or more priorities.', 'storyforge.png'],
+    ['Individual Question', 'Give one specific answer your full attention.', 'iv-prep-on-call.png'],
+  ];
+  const cards = el('div', 'canon-purpose-cards');
+  choices.forEach(([name, detail, image], index) => {
+    const button = choiceButton({
+      className: 'canon-purpose-card', selected: state.wizard.goal === name, label: name, detail,
+      onClick: () => { state.wizard.goal = name; if (name === 'Individual Question') state.targetQuestions = 1; renderWizard(); },
+    });
+    const img = el('img', 'canon-goal-photo');
+    img.src = `/iv-prep-on-call/assets/studio/astra-assets/${image}`;
+    img.alt = '';
+    button.prepend(img, el('span', 'canon-card-number', `0${index + 1}`));
+    cards.append(button);
+  });
+  const options = el('div', 'canon-goal-options');
+  if (state.wizard.goal !== 'Individual Question') {
+    const pressure = choiceButton({
+      className: 'canon-toggle', selected: state.wizard.pressurePractice,
+      label: 'Pressure Practice', detail: 'More persistent follow-ups, shorter recovery time, deliberate challenge.',
+      onClick: () => { state.wizard.pressurePractice = !state.wizard.pressurePractice; renderWizard(); },
+    });
+    options.append(pressure);
+  } else options.append(el('p', 'canon-muted', 'Choose one question, or let a category surprise you.'));
+  const length = el('div', 'canon-length');
+  length.append(el('span', 'microcap', 'Time for this rep'));
+  [5, 10, 15, 25].forEach((minutes) => length.append(choiceButton({
+    className: 'canon-mini-choice', selected: state.wizard.duration === minutes, label: `${minutes} min`,
+    onClick: () => { state.wizard.duration = minutes; renderWizard(); },
+  })));
+  options.append(length);
+  host.append(cards, options);
+  if (state.wizard.goal === 'Guided Mock IV Practice') {
+    const label = el('label', 'canon-field');
+    label.append(el('span', '', 'Your focus for this practice'));
+    const input = el('input'); input.type = 'text'; input.maxLength = 200; input.value = state.wizard.focus;
+    input.placeholder = 'For example: name my contribution, then explain the impact';
+    input.addEventListener('input', () => { state.wizard.focus = input.value; });
+    label.append(input); host.append(label);
+  }
+}
+
+function renderQuestionStep(host) {
+  const toolbar = el('div', 'canon-pool-toolbar');
+  const search = el('input'); search.type = 'search'; search.value = state.wizard.questionSearch;
+  search.placeholder = 'Search every question or source ID…'; search.setAttribute('aria-label', 'Search question pool');
+  search.addEventListener('input', () => { state.wizard.questionSearch = search.value; renderWizard(); });
+  toolbar.append(search);
+  const presets = el('div', 'canon-presets');
+  [['Core 10', 'Core 10'], ['Behavioral', 'Behavioral questions'], ['Balanced mix', 'Balanced mix']].forEach(([label, value]) => {
+    presets.append(choiceButton({ className: 'canon-mini-choice', label, onClick: () => { applyWizardQuestions(value); state.wizard.questions = label; renderWizard(); } }));
+  });
+  toolbar.append(presets);
+  const count = el('p', 'canon-muted', `${store.count} source questions preserved. Browse branches, add a whole section, or choose specific questions.`);
+  const grid = el('div', 'canon-pool-browser');
+  const categories = el('nav', 'canon-categories'); categories.setAttribute('aria-label', 'Question categories');
+  QUESTION_CATEGORIES.forEach(([name]) => categories.append(choiceButton({
+    selected: state.wizard.questionCategory === name, label: name,
+    onClick: () => { state.wizard.questionCategory = name; state.wizard.questionSection = ''; state.wizard.questionSearch = ''; renderWizard(); },
+  })));
+  const branch = el('section', 'canon-branches');
+  branch.append(el('h2', '', state.wizard.questionSearch ? 'Search results' : state.wizard.questionCategory));
+  const branchActions = el('div', 'canon-inline-actions');
+  const categoryQuestions = store.all().filter((question) => categoryForQuestion(question) === state.wizard.questionCategory);
+  branchActions.append(choiceButton({ className: 'canon-mini-choice', label: 'Add entire category', onClick: () => { categoryQuestions.forEach(addToSet); renderWizard(); } }));
+  branch.append(branchActions);
+  if (!state.wizard.questionSearch) {
+    const sections = el('div', 'canon-sections');
+    const tags = QUESTION_CATEGORIES.find(([name]) => name === state.wizard.questionCategory)?.[1] || [];
+    tags.filter((tag) => store.all().some((question) => questionSection(question) === tag)).forEach((tag) => sections.append(choiceButton({
+      selected: state.wizard.questionSection === tag, label: sectionLabel(tag),
+      onClick: () => { state.wizard.questionSection = tag; renderWizard(); },
+    })));
+    branch.append(sections);
+  }
+  let visible = store.all();
+  if (state.wizard.questionSearch.trim()) {
+    const needle = state.wizard.questionSearch.toLowerCase();
+    visible = visible.filter((question) => `${question.question_id} ${question.canonical_text}`.toLowerCase().includes(needle));
+  } else {
+    visible = visible.filter((question) => categoryForQuestion(question) === state.wizard.questionCategory)
+      .filter((question) => !state.wizard.questionSection || questionSection(question) === state.wizard.questionSection);
+  }
+  branch.append(el('h3', '', 'Choose specific questions'));
+  const list = el('div', 'canon-question-list');
+  visible.forEach((question) => {
+    const selected = state.interviewSet.some((entry) => entry.question_id === question.question_id);
+    const button = choiceButton({
+      className: 'canon-question canon-tactile', selected,
+      label: question.canonical_text, detail: `${question.question_id} · ${sectionLabel(questionSection(question))}`,
+      onClick: () => {
+        state.interviewSet = selected
+          ? state.interviewSet.filter((entry) => entry.question_id !== question.question_id)
+          : [...state.interviewSet, question];
+        state.wizard.questions = state.interviewSet.length ? 'Custom Question Pool' : null;
+        renderSet(); renderWizard();
+      },
+    });
+    list.append(button);
+  });
+  if (!visible.length) list.append(el('p', 'canon-muted', 'No questions match. Clear search or choose another branch.'));
+  branch.append(list); grid.append(categories, branch); host.append(toolbar, count, grid);
+}
+
+function renderInterviewerStep(host) {
+  const tabs = el('div', 'canon-tabs');
+  ['Role & style', 'Voice & presence', 'Name-use coaching'].forEach((tab) => tabs.append(choiceButton({
+    className: 'canon-tab', selected: state.wizard.interviewerTab === tab, label: tab,
+    onClick: () => { state.wizard.interviewerTab = tab; renderWizard(); },
+  })));
+  host.append(tabs);
+  if (state.wizard.interviewerTab === 'Role & style') {
+    const roles = el('div', 'canon-role-cards');
+    ['Program Director', 'Faculty', 'Chief Resident', 'Associate Program Director'].forEach((role) => roles.append(choiceButton({
+      className: 'canon-role-card', selected: state.wizard.interviewer === role, label: role,
+      detail: role === 'Program Director' ? 'Leadership, fit, and vision' : role === 'Chief Resident' ? 'Culture, teamwork, and real life' : 'Clinical judgment and conversation',
+      onClick: () => { state.wizard.interviewer = role; renderWizard(); },
+    })));
+    const heading = el('div', 'canon-section-heading'); heading.append(el('h3', '', 'Conversation style'), el('p', 'canon-muted', 'Style shapes tone and follow-ups. It is not a personality assessment.'));
+    const birds = el('div', 'canon-bird-grid');
+    Object.entries(BIRD_STYLES).forEach(([name, detail]) => birds.append(choiceButton({
+      className: 'canon-bird-card', selected: state.wizard.interviewerStyle === name, label: name, detail,
+      onClick: () => { state.wizard.interviewerStyle = name; renderWizard(); },
+    })));
+    host.append(roles, heading, birds);
+  } else if (state.wizard.interviewerTab === 'Voice & presence') {
+    const panel = el('div', 'canon-presence');
+    panel.innerHTML = '<div class="canon-presence-orb" aria-hidden="true"><span>IV</span></div><div><div class="microcap">Future-ready presence</div><h2>Give the conversation <em>a presence.</em></h2><p>InterviewBrain voice is available when your account is entitled. Animated avatar delivery remains deferred.</p></div>';
+    host.append(panel);
+  } else {
+    const panel = el('div', 'canon-name-coaching');
+    panel.append(el('h2', '', 'Make it personal.'));
+    const label = el('label', 'canon-field'); label.append(el('span', '', 'Interviewer name (optional)'));
+    const input = el('input'); input.value = state.wizard.interviewerName; input.placeholder = 'Enter a verified name when known'; input.maxLength = 100;
+    input.addEventListener('input', () => { state.wizard.interviewerName = input.value; }); label.append(input); panel.append(label);
+    const windows = el('div', 'canon-name-windows');
+    [['Opening', 'First ~60s'], ['Middle', 'When it fits'], ['Close', 'A natural thank-you']].forEach(([name, detail]) => { const cell = el('span'); cell.append(el('strong', '', name), document.createTextNode(detail)); windows.append(cell); });
+    panel.append(windows, el('p', 'canon-muted', 'Rapport matters more than exact counts. Coaching stays observational and contextual.')); host.append(panel);
+  }
+}
+
+function renderProgramStep(host) {
+  const photo = el('div', 'canon-photo-heading');
+  const image = el('img'); image.src = '/iv-prep-on-call/assets/studio/astra-assets/rise.png'; image.alt = '';
+  const copy = el('div'); copy.append(el('h2', '', 'Know the room.'), el('p', '', 'Search and select verified program intelligence, or continue with a manual entry.'));
+  photo.append(image, copy); host.append(photo);
+  const search = el('label', 'canon-search'); search.append(el('span', 'microcap', 'Program name'));
+  const input = el('input'); input.type = 'search'; input.placeholder = 'Search program name…'; input.value = state.wizard.program;
+  input.addEventListener('input', () => { state.wizard.program = input.value; }); search.append(input); host.append(search);
+  const filters = el('div', 'canon-program-filters');
+  [['Specialty', 'All specialties', 'programSpecialty', 'Internal Medicine,Family Medicine,Pediatrics,Surgery,Psychiatry'], ['State', 'All states', 'programState', 'Massachusetts,New York,California,Texas,Florida'], ['Program type', 'All program types', 'programType', 'University,Community,University-affiliated']].forEach(([labelText, placeholder, key, values]) => {
+    const label = el('label', 'canon-field'); label.append(el('span', '', labelText)); const select = el('select');
+    select.append(new Option(placeholder, ''));
+    values.split(',').forEach((value) => select.append(new Option(value, value)));
+    select.value = state.wizard[key]; select.addEventListener('change', () => { state.wizard[key] = select.value; }); label.append(select); filters.append(label);
+  });
+  host.append(filters);
+  const result = el('div', 'canon-program-result');
+  result.append(el('div', 'microcap', state.wizard.program ? 'Selected program' : 'Program search'));
+  result.append(el('h3', '', state.wizard.program || 'Choose a program or enter one manually'));
+  result.append(el('p', 'canon-muted', state.wizard.program
+    ? `${state.wizard.programSpecialty || 'Specialty not selected'} · ${state.wizard.programState || 'State not selected'} · ${state.wizard.programType || 'Type not selected'}`
+    : 'Verified RISE program intelligence will hydrate the cheat sheet when available. No program facts are invented.'));
+  const facts = el('div', 'canon-cheat-sheet');
+  ['Training focus', 'Leadership and interviewers', 'Curriculum and pathways', 'Research, facilities, and fellowships'].forEach((fact) => {
+    const row = el('div'); row.append(el('strong', '', fact), el('span', '', 'Not available until verified program intelligence is selected.')); facts.append(row);
+  });
+  result.append(facts); host.append(result);
+}
+
+function renderEnvironmentStep(host) {
+  const layout = el('div', 'canon-environment-layout');
+  const environment = el('section', 'canon-panel'); environment.append(el('h2', '', 'Your interview environment.'));
+  const rooms = el('div', 'canon-room-grid');
+  ['MissionMed', 'Webex', 'Zoom', 'Teams'].forEach((name) => {
+    const button = choiceButton({ className: 'canon-room-card', selected: state.wizard.environment === name, label: name, detail: name === 'MissionMed' ? 'Interview workspace' : 'Training simulation', onClick: () => { state.wizard.environment = name; renderWizard(); } });
+    const preview = el('div', `canon-room-preview room-${name.toLowerCase()}`); preview.innerHTML = '<span class="room-person"></span><span class="room-self"></span><span class="room-controls">● ● —</span>'; button.prepend(preview); rooms.append(button);
+  });
+  environment.append(rooms);
+  const modes = el('div', 'canon-segment');
+  ['Interview Mode', 'Coached / Live Analytics Mode'].forEach((mode) => modes.append(choiceButton({ className: 'canon-tab', selected: state.wizard.interviewMode === mode, label: mode, onClick: () => { state.wizard.interviewMode = mode; renderWizard(); } })));
+  environment.append(modes, el('p', 'canon-muted', state.wizard.interviewMode === 'Interview Mode' ? 'A clean interview view. Enabled measurements continue in the background.' : 'Selected coaching overlays stay visible during practice.'));
+  const context = el('section', 'canon-panel'); context.append(el('h2', '', 'Bring the right context.'), el('p', 'canon-muted', 'Only sources authorized for your account can be included. Unavailable sources remain off.'));
+  const sourceGrid = el('div', 'canon-source-grid');
+  const sources = [
+    ['StoryForge', false, 'Your authorized stories'], ['RISE', false, 'Verified program intelligence'], ['CV', false, 'Your current curriculum vitae'],
+    ['File Vault', false, 'Selected private files'], ['MCC', false, 'MissionMed context'], ['Top 3', false, 'Mentor priorities'], ['Prior IVOC', state.durableAvailable, 'Your own prior practice'],
+  ];
+  sources.forEach(([name, available, detail]) => sourceGrid.append(choiceButton({
+    className: 'canon-source-card', selected: state.wizard.contextSources.includes(name), label: name,
+    detail: `${detail} · ${available ? 'Available' : 'Not connected'}`,
+    onClick: () => {
+      if (!available) return;
+      state.wizard.contextSources = state.wizard.contextSources.includes(name)
+        ? state.wizard.contextSources.filter((entry) => entry !== name) : [...state.wizard.contextSources, name];
+      renderWizard();
+    },
+  })));
+  [...sourceGrid.children].forEach((button, index) => { if (!sources[index][1]) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); } });
+  context.append(sourceGrid); layout.append(environment, context); host.append(layout);
+}
+
+function readinessRows() {
+  const media = bridge.media;
+  const analyticsReady = Boolean(state.analytics);
+  const live = Boolean(media.stream);
+  return [
+    ['Camera', media.cam, media.cam ? 'Live' : 'Connect to check'], ['Microphone', media.mic, media.mic ? 'Live' : 'Connect to check'],
+    ['Framing', analyticsReady && live, live ? 'Measured in session' : 'Awaiting camera'], ['Face / head', analyticsReady && live, live ? 'Measured in session' : 'Awaiting camera'],
+    ['Hands / gestures', analyticsReady && live, live ? 'Measured in session' : 'Awaiting camera'], ['Smile / expression', analyticsReady && live, live ? 'Measured in session' : 'Awaiting camera'],
+    ['Volume', media.mic, media.mic ? 'Live meter' : 'Awaiting microphone'], ['Pace', analyticsReady && media.mic, media.mic ? 'Measured in session' : 'Awaiting microphone'],
+    ['Pitch', analyticsReady && media.mic, media.mic ? 'Measured in session' : 'Awaiting microphone'], ['Pauses', analyticsReady && media.mic, media.mic ? 'Measured in session' : 'Awaiting microphone'],
+    ['Transcript', state.durableAvailable, state.durableAvailable ? 'Available after a saved answer' : 'Unavailable'],
+    ['Recording', typeof MediaRecorder !== 'undefined', typeof MediaRecorder !== 'undefined' ? 'Browser supported' : 'Unavailable'],
+  ];
+}
+
+function renderReadinessStep(host) {
+  const intro = el('div', 'canon-photo-heading'); const image = el('img'); image.src = '/iv-prep-on-call/assets/studio/astra-assets/synthetic-candidate.png'; image.alt = '';
+  const copy = el('div'); copy.append(el('h2', '', 'Find your signal.'), el('p', '', 'Real capability states from the same camera, microphone, and analytics pipeline used in practice.')); intro.append(image, copy); host.append(intro);
+  const layout = el('div', 'canon-readiness-layout');
+  state.wizard.readiness = bridge.media.cam && bridge.media.mic
+    ? 'Camera and microphone connected'
+    : 'Calibration available';
+  const preview = el('section', 'canon-readiness-preview');
+  const stage = el('div', 'stage'); stage.id = 'builder-readiness-stage'; stage.innerHTML = '<div class="stage-tag"><span>You</span></div>'; preview.append(stage);
+  const meter = el('div', 'canon-live-meter'); meter.innerHTML = '<span class="live-mic-fill"></span>'; preview.append(meter, el('p', 'microcap', bridge.media.mic ? 'Speak to test your live microphone level' : 'Connect camera + microphone to begin'));
+  const actions = el('div', 'canon-inline-actions');
+  const connect = choiceButton({ className: 'btn btn-primary', label: bridge.media.stream ? 'Reconnect camera + mic' : 'Connect camera + mic', onClick: async () => { await connectDevices(); renderWizard(); } });
+  const full = choiceButton({ className: 'btn btn-secondary', label: 'Open full calibration', onClick: () => setView('devicecheck') }); actions.append(connect, full); preview.append(actions);
+  const signals = el('section', 'canon-signal-grid');
+  readinessRows().forEach(([name, ready, detail]) => { const tile = el('div', 'canon-signal-tile'); tile.dataset.ready = String(Boolean(ready)); tile.append(el('strong', '', name), el('span', '', detail)); signals.append(tile); });
+  layout.append(preview, signals); host.append(layout);
+  bindPreview(); if (bridge.media.mic) startLevelMeter();
+}
+
 function renderWizard() {
   const body = $('#wizard-body');
   if (!body) return;
   body.replaceChildren();
   renderWizardProgress();
   renderPoolSummary();
+  const layout = body.closest('.builder-layout');
+  if (layout) layout.dataset.step = state.wizardStep === 1 ? 'questions' : WIZARD_STEPS[state.wizardStep]?.key || 'summary';
 
   if (state.wizardStep >= WIZARD_STEPS.length) {
     const summary = document.createElement('div');
-    summary.innerHTML = `
-      <div class="microcap">Your next rep</div>
-      <div class="check-row"><span class="check-name">Practice</span><span class="check-state" data-state="ready">${state.wizard.goal}</span></div>
-      <div class="check-row"><span class="check-name">Question Pool</span><span class="check-state" data-state="${state.interviewSet.length ? 'ready' : 'pending'}">${state.interviewSet.length} in pool · target about ${state.targetQuestions}</span></div>
-      <div class="check-row"><span class="check-name">Interviewer</span><span class="check-state" data-state="ready">${state.wizard.interviewer}</span></div>
-      <div class="check-row"><span class="check-name">Program</span><span class="check-state" data-state="ready">${state.wizard.program}</span></div>
-      <div class="check-row"><span class="check-name">Environment + context</span><span class="check-state" data-state="ready">${state.wizard.environment}</span></div>
-      <div class="check-row"><span class="check-name">Readiness</span><span class="check-state" data-state="ready">${state.wizard.readiness}</span></div>`;
+    summary.append(el('div', 'microcap', 'Your next rep'));
+    const addSummaryRow = (name, value, ready = true) => {
+      const item = el('div', 'check-row');
+      const status = el('span', 'check-state', value);
+      status.dataset.state = ready ? 'ready' : 'pending';
+      item.append(el('span', 'check-name', name), status);
+      summary.append(item);
+    };
+    addSummaryRow('Practice', state.wizard.goal);
+    addSummaryRow('Question Pool', `${state.interviewSet.length} in pool · target about ${state.targetQuestions}`, state.interviewSet.length > 0);
+    addSummaryRow('Interviewer', state.wizard.interviewer);
+    addSummaryRow('Program', state.wizard.program || 'No program selected', Boolean(state.wizard.program));
+    addSummaryRow('Environment + context', state.wizard.environment);
+    addSummaryRow('Readiness', state.wizard.readiness);
     const row = document.createElement('div');
     row.className = 'btn-row';
     const go = document.createElement('button');
@@ -542,30 +849,16 @@ function renderWizard() {
   const kick = document.createElement('div');
   kick.className = 'microcap';
   kick.textContent = `Step ${state.wizardStep + 1} of ${WIZARD_STEPS.length} · ${step.label}`;
-  const title = document.createElement('div');
-  title.className = 'wizard-question-prompt';
-  title.textContent = step.title;
-  const row = document.createElement('div');
-  row.className = 'wizard-options';
-  for (const option of step.options) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = state.wizard[step.key] === option ? 'btn btn-primary' : 'btn btn-secondary';
-    button.innerHTML = `<span>${option}</span>`;
-    button.addEventListener('click', () => {
-      state.wizard[step.key] = option;
-      if (step.key === 'questions') {
-        if (option === 'Choose from full library') {
-          showBuilderMode('loadout');
-          return;
-        }
-        applyWizardQuestions(option);
-      }
-      state.wizardStep += 1;
-      renderWizard();
-    });
-    row.append(button);
-  }
+  const title = document.createElement('h2');
+  title.className = 'canon-wizard-title';
+  title.append(document.createTextNode(`${step.title[0]} `), el('em', '', step.title[1]));
+  const content = el('div', `canon-step canon-step-${step.key}`);
+  if (step.key === 'goal') renderGoalStep(content);
+  else if (step.key === 'questions') renderQuestionStep(content);
+  else if (step.key === 'interviewer') renderInterviewerStep(content);
+  else if (step.key === 'program') renderProgramStep(content);
+  else if (step.key === 'environment') renderEnvironmentStep(content);
+  else renderReadinessStep(content);
   const nav = document.createElement('div');
   nav.className = 'wizard-nav';
   const back = document.createElement('button');
@@ -574,15 +867,17 @@ function renderWizard() {
   back.disabled = state.wizardStep === 0;
   back.innerHTML = '<span>← Back</span>';
   back.addEventListener('click', () => { state.wizardStep = Math.max(0, state.wizardStep - 1); renderWizard(); });
-  const selected = state.wizard[step.key];
+  const selected = step.key === 'questions' ? state.interviewSet.length > 0
+    : step.key === 'readiness' ? true
+      : Boolean(state.wizard[step.key]);
   const next = document.createElement('button');
   next.type = 'button';
   next.className = 'btn btn-quiet';
   next.disabled = !selected;
-  next.innerHTML = '<span>Continue →</span>';
+  next.innerHTML = `<span>${state.wizardStep === 5 ? 'Review interview' : 'Continue'} →</span>`;
   next.addEventListener('click', () => { state.wizardStep += 1; renderWizard(); });
   nav.append(back, next);
-  body.append(kick, title, row, nav);
+  body.append(kick, title, content, nav);
 }
 
 function applyWizardQuestions(selection) {
@@ -705,7 +1000,7 @@ async function switchDevice(kind, deviceId) {
 }
 
 function bindPreview() {
-  for (const stage of ['#devicecheck-stage']) {
+  for (const stage of ['#devicecheck-stage', '#builder-readiness-stage']) {
     const host = $(stage);
     if (!host) continue;
     let video = host.querySelector('video');
@@ -721,19 +1016,19 @@ function bindPreview() {
 /** Live input meter so the student can SEE the microphone working before a session. */
 function startLevelMeter() {
   if (state.levelTimer) clearInterval(state.levelTimer);
-  const bar = $('#mic-level-fill');
+  const bars = [$('#mic-level-fill'), ...$$('.live-mic-fill')].filter(Boolean);
   const readout = $('#mic-level-readout');
-  if (!bar) return;
+  if (!bars.length) return;
   state.levelTimer = setInterval(() => {
     const { analyser, data } = bridge.media;
-    if (!analyser || !data) { bar.style.width = '0%'; if (readout) readout.textContent = 'UNAVAILABLE'; return; }
+    if (!analyser || !data) { bars.forEach((bar) => { bar.style.width = '0%'; }); if (readout) readout.textContent = 'UNAVAILABLE'; return; }
     analyser.getFloatTimeDomainData(data);
     let peak = 0;
     let sum = 0;
     for (let i = 0; i < data.length; i += 1) { const v = Math.abs(data[i]); if (v > peak) peak = v; sum += data[i] * data[i]; }
     const rms = Math.sqrt(sum / data.length);
     const dbfs = rms > 0 ? 20 * Math.log10(rms) : -Infinity;
-    bar.style.width = `${Math.max(0, Math.min(100, (dbfs + 60) / 60 * 100))}%`;
+    bars.forEach((bar) => { bar.style.width = `${Math.max(0, Math.min(100, (dbfs + 60) / 60 * 100))}%`; });
     if (readout) {
       readout.textContent = Number.isFinite(dbfs)
         ? `${dbfs.toFixed(1)} dBFS · peak ${peak.toFixed(3)}`
@@ -1172,7 +1467,7 @@ function wireLiveInterview() {
   });
   const available = state.admission?.runtime?.liveInterviewAvailable === true;
   setLiveInterviewStatus({ state: available ? 'idle' : 'unavailable', detail: available
-    ? 'Uses your selected Interviewer, Program, Question Pool, and context seams.'
+    ? 'Uses your selected interviewer, program, Question Pool, and authorized context.'
     : 'Live voice is not configured in this environment.' });
   $('#live-interview-start')?.addEventListener('click', async () => {
     if (!state.admission?.runtime?.liveInterviewAvailable) {
