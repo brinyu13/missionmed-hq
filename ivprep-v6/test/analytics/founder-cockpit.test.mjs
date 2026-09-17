@@ -545,6 +545,26 @@ test('G/H: the operational overlay stays on the actual student surface through s
   assert.equal(playback.parentNode,resultPanel);
   assert.equal(livePipeline.consumer,null);
   assert.equal(playbackPipeline.consumer,null);
+
+  const cockpitStage=register('cockpit-stage');const cockpitVideo=register('cockpit-video','video');cockpitStage.append(cockpitVideo);
+  const studioLivePipeline=pipeline();const studioPlaybackPipeline=pipeline();
+  const studioController=new StudentSurfaceOverlayController({
+    pipeline:studioLivePipeline,playbackPipeline:studioPlaybackPipeline,documentRef,scheduleMicrotask:(callback)=>callback(),
+    surfaceIds:{
+      playback:'playback',playbackViews:['filmroom'],
+      liveRoutes:{training:{video:'cockpit-video',stage:'cockpit-stage',room:'cockpit-stage',wrapper:'cockpit-stage'}},
+    },
+  });
+  studioController.configure({authorized:true,enabled:true,face:true,bodyHands:true,studentPrimary:true});
+  studioController.onViewChange('training','student');
+  assert.equal(studioController.mode,'live');
+  assert.equal(studioController.overlay.parentNode,cockpitStage);
+  assert.equal(studioController.overlay.dataset.anchorSurface,'cockpit-video');
+  studioController.onViewChange('filmroom','admin');
+  assert.equal(studioController.mode,'playback');
+  assert.equal(studioController.overlay.dataset.anchorSurface,'playback');
+  assert.equal(studioController.controls.getAttribute('aria-label'),'Student tracking overlay controls');
+  studioController.destroy();
 });
 
 test('student overlay geometry cover-fits worker bitmaps without exposing coordinates',()=>{

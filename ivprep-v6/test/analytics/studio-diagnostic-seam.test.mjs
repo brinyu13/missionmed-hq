@@ -68,7 +68,7 @@ test('the Studio shell declares the approved Performance Studio hierarchy', () =
   // The surface ids the proven analytics cockpit binds to must be present, or the
   // working telemetry silently detaches.
   for (const id of ['founder-student-video', 'founder-student-stage', 'founder-room-stage',
-    'founder-room-wrapper', 'playback', 'communication-analytics-test-root']) {
+    'founder-room-wrapper', 'cockpit-video', 'cockpit-stage', 'playback', 'communication-analytics-test-root']) {
     assert.match(studioHtml, new RegExp(`id="${id}"`, 'u'), `surface id ${id} missing`);
   }
   // Y1-Y2-CAM-V6-3509: these were the SAME element, which meant the analytics module's
@@ -80,6 +80,10 @@ test('the Studio shell declares the approved Performance Studio hierarchy', () =
   assert.match(studioHtml, /id="communication-analytics-test-root" data-founder-only/u);
   assert.doesNotMatch(studioHtml, /data-view-panel="training" id="communication-analytics-test-root"/u,
     'the analytics root must not be the training panel itself');
+  assert.match(studio, /liveRoutes:\s*\{\s*training:/su, 'Coached Practice must bind the real student overlay controller');
+  assert.match(studio, /playbackViews:\s*\['filmroom'\]/u, 'Film Room must bind persisted playback overlays');
+  assert.match(studio, /video:\s*'cockpit-video'/u);
+  assert.match(studio, /stage:\s*'cockpit-stage'/u);
 });
 
 test('the Studio shell uses the canonical corpus and never the retired fixture', async () => {

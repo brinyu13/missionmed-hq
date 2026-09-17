@@ -1772,11 +1772,16 @@ async function mountAnalytics() {
   const { initializeAnalyticsUi } = await import('../analytics/ui.mjs');
   state.analytics = initializeAnalyticsUi(bridge, {
     surfaceIds: {
-      video: 'founder-student-video',
-      stage: 'founder-student-stage',
-      room: 'founder-room-stage',
-      wrapper: 'founder-room-wrapper',
       playback: 'playback',
+      playbackViews: ['filmroom'],
+      liveRoutes: {
+        training: {
+          video: 'cockpit-video',
+          stage: 'cockpit-stage',
+          room: 'cockpit-stage',
+          wrapper: 'cockpit-stage',
+        },
+      },
     },
     overlayPolicy: { authorized: true, enabled: true, face: true, bodyHands: true, studentPrimary: true },
   });
