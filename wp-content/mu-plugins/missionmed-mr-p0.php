@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Mission Residency P0
  * Description: Reversible MR-WEB-0912 commerce activation with the bounded MR-WEB-0914 Fable 5 customer journey.
- * Version: 1.4.0
+ * Version: 1.5.0
  */
 declare(strict_types=1);
 
@@ -12,11 +12,116 @@ const MM_MR_P0_ASSET_DIR = WPMU_PLUGIN_DIR . '/missionmed-mr-0912-assets';
 const MM_MR_P0_ASSET_URL = WPMU_PLUGIN_URL . '/missionmed-mr-0912-assets';
 const MM_MR_0912_GOOGLE_TAG_ID = 'GT-PJ7SPCWF';
 const MM_MR_0912_FINANCIAL_WAIVER_AUTHORITY = 'DR-296';
+const MM_MR_0912_PRIVATE_ACCESS_AUTHORITY = 'DR-299';
+const MM_MR_0912_PRIVATE_ACCESS_CODE_SHA256 = 'f312b8b76ebd1840de756111e7ad8a6181dba9ee0916d15dd59723aa27838507';
+const MM_MR_0912_PRIVATE_ACCESS_COOKIE = 'mm_mr_drj_access';
 const MM_MR_0912_IW_CARD_PRICE = 549.0;
 const MM_MR_0912_IW_ZELLE_PRICE = 499.0;
 
 function mm_mr_p0_enabled(): bool {
     return get_option('mmed_mr_p0_enabled', 'no') === 'yes';
+}
+
+function mm_mr_0912_private_open_timestamp(): int {
+    static $timestamp = null;
+    if (is_int($timestamp)) return $timestamp;
+    $open = new DateTimeImmutable('2026-09-19 12:00:00', new DateTimeZone('America/New_York'));
+    $timestamp = $open->getTimestamp();
+    return $timestamp;
+}
+
+function mm_mr_0912_private_now(): int {
+    return (int) apply_filters('mm_mr_0912_private_access_now', time());
+}
+
+function mm_mr_0912_private_window_active(): bool {
+    return mm_mr_0912_private_now() < mm_mr_0912_private_open_timestamp();
+}
+
+function mm_mr_0912_private_access_admin_bypass(): bool {
+    return is_user_logged_in() && current_user_can('manage_woocommerce');
+}
+
+function mm_mr_0912_private_access_signature(string $value): string {
+    return hash_hmac('sha256', $value, wp_salt('auth'));
+}
+
+function mm_mr_0912_private_access_granted(): bool {
+    if (!mm_mr_0912_private_window_active() || mm_mr_0912_private_access_admin_bypass()) return true;
+    $cookie = isset($_COOKIE[MM_MR_0912_PRIVATE_ACCESS_COOKIE])
+        ? sanitize_text_field(wp_unslash((string) $_COOKIE[MM_MR_0912_PRIVATE_ACCESS_COOKIE]))
+        : '';
+    $parts = explode('.', $cookie, 3);
+    if (count($parts) !== 3 || $parts[0] !== 'v1' || !ctype_digit($parts[1])) return false;
+    $expires = (int) $parts[1];
+    if ($expires !== mm_mr_0912_private_open_timestamp() || mm_mr_0912_private_now() >= $expires) return false;
+    return hash_equals(mm_mr_0912_private_access_signature('v1.' . $parts[1]), $parts[2]);
+}
+
+function mm_mr_0912_set_private_access_cookie(): bool {
+    if (headers_sent()) return false;
+    $expires = mm_mr_0912_private_open_timestamp();
+    $value = 'v1.' . $expires . '.' . mm_mr_0912_private_access_signature('v1.' . $expires);
+    $options = [
+        'expires' => $expires,
+        'path' => '/',
+        'secure' => is_ssl(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ];
+    if (defined('COOKIE_DOMAIN') && is_string(COOKIE_DOMAIN) && COOKIE_DOMAIN !== '') {
+        $options['domain'] = COOKIE_DOMAIN;
+    }
+    $stored = setcookie(MM_MR_0912_PRIVATE_ACCESS_COOKIE, $value, $options);
+    if ($stored) $_COOKIE[MM_MR_0912_PRIVATE_ACCESS_COOKIE] = $value;
+    return $stored;
+}
+
+function mm_mr_0912_base64url_encode(string $value): string {
+    return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+}
+
+function mm_mr_0912_base64url_decode(string $value): string {
+    if ($value === '' || preg_match('/^[A-Za-z0-9_-]+$/', $value) !== 1) return '';
+    $decoded = base64_decode(strtr($value, '-_', '+/'), true);
+    return is_string($decoded) ? $decoded : '';
+}
+
+function mm_mr_0912_private_resume_token(string $relativeUrl, string $offer): string {
+    if (!in_array($offer, ['interview_week', 'complete'], true) || !str_starts_with($relativeUrl, '/')) return '';
+    $payload = mm_mr_0912_base64url_encode((string) wp_json_encode([
+        'url' => $relativeUrl,
+        'offer' => $offer,
+        'expires' => mm_mr_0912_private_open_timestamp(),
+    ], JSON_UNESCAPED_SLASHES));
+    return $payload . '.' . mm_mr_0912_private_access_signature('resume.' . $payload);
+}
+
+function mm_mr_0912_private_resume_from_token(string $token): ?array {
+    $parts = explode('.', $token, 2);
+    if (count($parts) !== 2 || !hash_equals(mm_mr_0912_private_access_signature('resume.' . $parts[0]), $parts[1])) {
+        return null;
+    }
+    $payload = json_decode(mm_mr_0912_base64url_decode($parts[0]), true);
+    if (!is_array($payload)
+        || !in_array(($payload['offer'] ?? ''), ['interview_week', 'complete'], true)
+        || (int) ($payload['expires'] ?? 0) !== mm_mr_0912_private_open_timestamp()
+        || !is_string($payload['url'] ?? null)
+        || !str_starts_with($payload['url'], '/')
+        || str_starts_with($payload['url'], '//')) {
+        return null;
+    }
+    $absolute = home_url($payload['url']);
+    if (wp_validate_redirect($absolute, '') !== $absolute) return null;
+    return ['offer' => $payload['offer'], 'url' => $absolute];
+}
+
+function mm_mr_0912_private_gate_url(string $offer, string $relativeUrl): string {
+    $token = mm_mr_0912_private_resume_token($relativeUrl, $offer);
+    return add_query_arg([
+        'mr_private_access' => '1',
+        'mr_private_access_token' => $token,
+    ], home_url('/mission-residency/'));
 }
 
 function mm_mr_p0_launch_product_in_cart(): bool {
@@ -285,6 +390,19 @@ function mm_mr_p0_runtime_config(): array {
     if (empty($config['alumni']['public_verified'])) {
         $config['alumni'] = ['public_verified' => false];
     }
+    $privateWindow = mm_mr_0912_private_window_active();
+    $privateGranted = mm_mr_0912_private_access_granted();
+    $config['private_access'] = [
+        'authority' => MM_MR_0912_PRIVATE_ACCESS_AUTHORITY,
+        'mode' => $privateWindow ? 'private_early_access' : 'public_open',
+        'required' => $privateWindow && !$privateGranted,
+        'granted' => $privateGranted,
+        'opens_at' => '2026-09-19T12:00:00-04:00',
+        'timezone' => 'America/New_York',
+        'public_code_disclosure' => false,
+        'changes_price' => false,
+        'backend_seat_cap' => false,
+    ];
     $config['production'] = [
         'mission' => 'MR-WEB-0912',
         'woo_price_authoritative' => true,
@@ -305,6 +423,63 @@ function mm_mr_0912_offer_for_product(int $productId, int $variationId = 0): ?st
     }
     return null;
 }
+
+function mm_mr_0912_private_offer_for_ids(int $productId, int $variationId = 0): ?string {
+    if (in_array($productId, [5504, 5867], true) || in_array($variationId, [5504, 5867], true)) {
+        return 'interview_week';
+    }
+    if (in_array($productId, [3576, 5865], true) || in_array($variationId, [3576, 5865], true)) {
+        return 'complete';
+    }
+    return null;
+}
+
+function mm_mr_0912_relative_request_uri(): string {
+    $uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash((string) $_SERVER['REQUEST_URI']) : '/';
+    if (!str_starts_with($uri, '/') || str_starts_with($uri, '//') || preg_match('/[\r\n]/', $uri) === 1) return '/';
+    return $uri;
+}
+
+function mm_mr_0912_redirect_to_private_access(string $offer): never {
+    nocache_headers();
+    wp_safe_redirect(mm_mr_0912_private_gate_url($offer, mm_mr_0912_relative_request_uri()), 303, 'MissionMed DR-299');
+    exit;
+}
+
+add_action('wp_loaded', static function (): void {
+    if (!mm_mr_p0_enabled() || !mm_mr_0912_private_window_active() || mm_mr_0912_private_access_granted()
+        || is_admin() || wp_doing_ajax() || strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'GET') {
+        return;
+    }
+    $productId = isset($_GET['add-to-cart']) ? absint(wp_unslash((string) $_GET['add-to-cart'])) : 0;
+    $variationId = isset($_GET['variation_id']) ? absint(wp_unslash((string) $_GET['variation_id'])) : 0;
+    $offer = mm_mr_0912_private_offer_for_ids($productId, $variationId);
+    if ($offer !== null) mm_mr_0912_redirect_to_private_access($offer);
+}, 1);
+
+add_action('template_redirect', static function (): void {
+    if (!mm_mr_p0_enabled() || !mm_mr_0912_private_window_active() || mm_mr_0912_private_access_granted()) return;
+    $path = '/' . trim((string) parse_url(mm_mr_0912_relative_request_uri(), PHP_URL_PATH), '/');
+    $protectedPaths = [
+        '/product/iv-prep-essentials' => 'interview_week',
+        '/product/iv-prep-masterclass' => 'interview_week',
+        '/product/iv-prep-complete' => 'complete',
+        '/product/match-prep-pro' => 'complete',
+    ];
+    $offer = $protectedPaths[$path] ?? null;
+    if ($offer === null && is_singular('product')) {
+        $offer = mm_mr_0912_private_offer_for_ids((int) get_queried_object_id());
+    }
+    if ($offer === null && (is_cart() || is_checkout())) {
+        foreach (mm_mr_0912_cart_offer_keys() as $cartOffer) {
+            if (in_array($cartOffer, ['interview_week', 'complete'], true)) {
+                $offer = $cartOffer;
+                break;
+            }
+        }
+    }
+    if (is_string($offer)) mm_mr_0912_redirect_to_private_access($offer);
+}, -20);
 
 function mm_mr_0912_cart_offer_keys(): array {
     if (!function_exists('WC') || !WC()->cart) return [];
@@ -352,6 +527,12 @@ function mm_mr_0912_validate_add_to_cart(
         if (function_exists('wc_add_notice')) wc_add_notice('This enrollment selection is not valid.', 'error');
         return false;
     }
+    if (mm_mr_0912_private_window_active() && !mm_mr_0912_private_access_granted()) {
+        if (function_exists('wc_add_notice')) {
+            wc_add_notice('Official enrollment for the 2026–27 season opens Saturday at 12:00 PM ET. Dr J students with private early access may enter their enrollment code to continue.', 'error');
+        }
+        return false;
+    }
     if ((int) $quantity !== 1) {
         if (function_exists('wc_add_notice')) wc_add_notice('Enrollment is limited to one seat per account.', 'error');
         return false;
@@ -383,6 +564,12 @@ function mm_mr_0912_validate_cart(): void {
         }
     }
     $offerKeys = mm_mr_0912_cart_offer_keys();
+    if ($offerKeys && mm_mr_0912_private_window_active() && !mm_mr_0912_private_access_granted()) {
+        if (function_exists('wc_add_notice')) {
+            wc_add_notice('Private early-access authorization is required before enrollment.', 'error');
+        }
+        return;
+    }
     foreach ($offerKeys as $offerKey) {
         if (!mm_mr_0912_offer_checkout_allowed($offerKey)) {
             if (function_exists('wc_add_notice')) wc_add_notice('Enrollment verification expired. Remove the item before checkout.', 'error');
@@ -426,6 +613,7 @@ function mm_mr_0912_allowed_gateways(array $gateways): array {
 
 add_filter('woocommerce_available_payment_gateways', static function (array $gateways): array {
     if (!mm_mr_p0_launch_product_in_cart()) return $gateways;
+    if (mm_mr_0912_private_window_active() && !mm_mr_0912_private_access_granted()) return [];
     return mm_mr_0912_cart_is_checkout_safe()
         ? mm_mr_0912_allowed_gateways($gateways)
         : [];
@@ -452,6 +640,13 @@ add_action('woocommerce_before_calculate_totals', static function ($cart): void 
 }, 999);
 
 add_action('woocommerce_checkout_process', static function (): void {
+    if (mm_mr_p0_launch_product_in_cart()
+        && mm_mr_0912_private_window_active()
+        && !mm_mr_0912_private_access_granted()
+        && function_exists('wc_add_notice')) {
+        wc_add_notice('Private early-access authorization is required before enrollment.', 'error');
+        return;
+    }
     $method = isset($_POST['payment_method']) ? sanitize_key(wp_unslash((string) $_POST['payment_method'])) : '';
     if ($method === 'bacs' && !mm_mr_0912_cart_is_zelle_eligible() && function_exists('wc_add_notice')) {
         wc_add_notice('Zelle savings are available only for one Interview Week enrollment with no coupon or other cart item.', 'error');
@@ -562,6 +757,66 @@ add_action('rest_api_init', static function (): void {
         'permission_callback' => '__return_true',
         'callback' => static function () {
             $response = new WP_REST_Response(mm_mr_p0_runtime_config());
+            $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            return $response;
+        },
+    ]);
+    register_rest_route('missionmed/v1', '/mr-0912-private-access', [
+        'methods' => 'POST',
+        'permission_callback' => '__return_true',
+        'callback' => static function (WP_REST_Request $request) {
+            $offer = sanitize_key((string) $request->get_param('offer'));
+            if (!in_array($offer, ['interview_week', 'complete'], true)) $offer = '';
+            $token = sanitize_text_field((string) $request->get_param('resume_token'));
+            $resume = $token !== '' ? mm_mr_0912_private_resume_from_token($token) : null;
+            if ($token !== '' && $resume === null) {
+                return new WP_REST_Response(['ok' => false, 'reason' => 'invalid_destination'], 400);
+            }
+            if (is_array($resume)) $offer = (string) $resume['offer'];
+
+            $clientFingerprint = hash_hmac(
+                'sha256',
+                (string) ($_SERVER['REMOTE_ADDR'] ?? '') . '|' . (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
+                wp_salt('nonce')
+            );
+            $attemptKey = 'mmed_mr_private_attempt_' . substr($clientFingerprint, 0, 24);
+            $attempts = max(0, (int) get_transient($attemptKey));
+            if (mm_mr_0912_private_window_active() && $attempts >= 10) {
+                return new WP_REST_Response(['ok' => false, 'reason' => 'try_later'], 429);
+            }
+
+            if (mm_mr_0912_private_window_active()) {
+                $code = strtoupper(trim(sanitize_text_field((string) $request->get_param('code'))));
+                $valid = hash_equals(MM_MR_0912_PRIVATE_ACCESS_CODE_SHA256, hash('sha256', $code));
+                if (!$valid) {
+                    set_transient($attemptKey, $attempts + 1, 10 * MINUTE_IN_SECONDS);
+                    $response = new WP_REST_Response(['ok' => false, 'reason' => 'invalid_code'], 403);
+                    $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+                    return $response;
+                }
+                delete_transient($attemptKey);
+                if (!mm_mr_0912_set_private_access_cookie()) {
+                    return new WP_REST_Response(['ok' => false, 'reason' => 'session_unavailable'], 500);
+                }
+            }
+
+            $resumeUrl = is_array($resume) ? (string) $resume['url'] : '';
+            if ($resumeUrl === '' && $offer !== '') {
+                $runtime = mm_mr_p0_runtime_config()['offers'][$offer]['runtime'] ?? [];
+                if (!empty($runtime['checkout_allowed']) && is_string($runtime['checkout_url'] ?? null)) {
+                    $resumeUrl = (string) $runtime['checkout_url'];
+                }
+            }
+            if ($resumeUrl === '') {
+                return new WP_REST_Response(['ok' => false, 'reason' => 'offer_unavailable'], 409);
+            }
+            $response = new WP_REST_Response([
+                'ok' => true,
+                'mode' => mm_mr_0912_private_window_active() ? 'private_early_access' : 'public_open',
+                'offer' => $offer,
+                'resume_url' => $resumeUrl,
+                'changes_price' => false,
+            ]);
             $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
             return $response;
         },

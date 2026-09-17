@@ -717,3 +717,18 @@ html:has(body.motion-off){scroll-behavior:auto}
  .aaa-correction-v2.warm-audience .warm-hero .hero-scene{order:2;width:100%;height:330px;min-height:0;margin:0}
  .aaa-correction-v2.warm-audience .warm-hero .cinema-ticket{order:3;position:relative;inset:auto;width:auto;margin:0 6vw 34px}
 }
+
+/* DR-299: restrained enrollment-intent access prompt; never presented as a coupon. */
+.private-access-modal{width:min(620px,calc(100vw - 32px));border-top-color:#dfbb80!important}
+.private-access-modal .modal-intro{font-size:17px;color:#f2ebd8;margin:22px 0 8px}
+.private-access-form{display:grid;gap:12px;margin:28px 0 20px}
+.private-access-form label{font:700 12px/1.4 Archivo,Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#e6c58f}
+.private-access-form input{width:100%;min-height:54px;border:1px solid #78918a;background:#f9f5eb;color:#14272d;padding:13px 15px;font:600 18px/1.2 Archivo,Arial,sans-serif;letter-spacing:.08em;border-radius:0;text-transform:uppercase}
+.private-access-form input:focus-visible{outline:3px solid #dfb976;outline-offset:3px}
+.private-access-form .button{justify-self:start;min-width:180px;margin-top:4px}
+.private-access-error{min-height:1.5em;margin:0;color:#ffd2c9!important;font-weight:700}
+@media(max-width:750px){
+ .private-access-modal{padding:40px 24px 28px}
+ .private-access-modal h2{font-size:34px}
+ .private-access-form .button{width:100%;justify-self:stretch}
+}
