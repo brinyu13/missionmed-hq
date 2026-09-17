@@ -38,6 +38,10 @@ function mmdrj_launch_cas_option( $key, $expected, $replacement ) {
 function mmdrj_launch_mirror_ledger( $user_id, $ledger_key, $value ) {
     return false !== update_user_meta($user_id,$ledger_key,$value);
 }
+function mmdrj_launch_cli_arguments( $wp_cli_args, $php_argv ) {
+    if ( is_array($wp_cli_args) ) return array_values($wp_cli_args);
+    return is_array($php_argv) ? array_slice($php_argv,1) : array();
+}
 function mmdrj_launch_process( $payload, $html_template, $text_template, $mode ) {
     $cohort=mmdrj_launch_exact_cohort();
     if ( ! in_array($mode,array('dry-run','send','retry-failed'),true)
@@ -116,8 +120,9 @@ function mmdrj_launch_process( $payload, $html_template, $text_template, $mode )
     return array('schema_version'=>'missionaccounts-onboarding-pilot-results-v1','mode'=>$mode,'population'=>count($cohort),'counts'=>array_count_values(array_column($results,'status')),'results'=>$results);
 }
 if(!defined('MMDRJ_ONBOARDING_LAUNCH_TEST')){
-    if(PHP_SAPI!=='cli'||5!==count($argv))throw new RuntimeException('onboarding_pilot_cli_arguments_required');
-    $payload=json_decode(file_get_contents($argv[1]),true,32,JSON_THROW_ON_ERROR);
-    $result=mmdrj_launch_process($payload,file_get_contents($argv[2]),file_get_contents($argv[3]),$argv[4]);
+    $cli_args=mmdrj_launch_cli_arguments($args??null,$argv??null);
+    if(PHP_SAPI!=='cli'||4!==count($cli_args))throw new RuntimeException('onboarding_pilot_cli_arguments_required');
+    $payload=json_decode(file_get_contents($cli_args[0]),true,32,JSON_THROW_ON_ERROR);
+    $result=mmdrj_launch_process($payload,file_get_contents($cli_args[1]),file_get_contents($cli_args[2]),$cli_args[3]);
     echo wp_json_encode($result,JSON_UNESCAPED_SLASHES)."\n";
 }
