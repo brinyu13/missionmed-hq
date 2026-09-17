@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmed.internal/contracts/i1q/auth-bootstrap/v1",
+  "title": "I1Q Auth Bootstrap Payload v1",
+  "description": "Closed-world output of the dedicated server-side I1Q identity resolver. This schema is proposed and remains gated by the OPEN canonical auth authority items in identity_resolver_contract.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "validated",
+    "actor",
+    "session",
+    "request_security"
+  ],
+  "properties": {
+    "validated": {
+      "const": true
+    },
+    "actor": {
+      "$ref": "#/$defs/actor"
+    },
+    "session": {
+      "$ref": "#/$defs/resolverSession"
+    },
+    "request_security": {
+      "$ref": "#/$defs/requestSecurity"
+    }
+  },
+  "$defs": {
+    "actorId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "platform_admin",
+        "content_operator",
+        "author",
+        "editorial_reviewer",
+        "physician_reviewer",
+        "release_manager",
+        "privacy_officer",
+        "incident_owner",
+        "read_only",
+        "system"
+      ]
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "roles"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/actorId"
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/role"
+          }
+        }
+      }
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "resolverSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "expires_at",
+        "validated_at",
+        "revoked"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/sessionId"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "validated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revoked": {
+          "const": false
+        }
+      }
+    },
+    "httpsOrigin": {
+      "type": "string",
+      "pattern": "^https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?$"
+    },
+    "requestSecurity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "csrf_token",
+        "trusted_origins"
+      ],
+      "properties": {
+        "session_id": {
+          "$ref": "#/$defs/sessionId"
+        },
+        "csrf_token": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 512
+        },
+        "trusted_origins": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/httpsOrigin"
+          }
+        }
+      }
+    },
+    "browserSessionResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor",
+        "session"
+      ],
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/actor"
+        },
+        "session": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expires_at",
+            "csrf_token"
+          ],
+          "properties": {
+            "expires_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "csrf_token": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 512
+            }
+          }
+        }
+      }
+    },
+    "publicError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "error"
+      ],
+      "properties": {
+        "error": {
+          "type": "string",
+          "enum": [
+            "authentication_required",
+            "request_verification_failed",
+            "role_not_permitted",
+            "internal_platform_disabled",
+            "internal_review_disabled"
+          ]
+        }
+      }
+    },
+    "roleMembership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "actor_id",
+        "role_name",
+        "valid_from",
+        "valid_until",
+        "revoked_at",
+        "grant_evidence_hash"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "actor_id": {
+          "$ref": "#/$defs/actorId"
+        },
+        "role_name": {
+          "$ref": "#/$defs/role"
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "revoked_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "grant_evidence_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  },
+  "x-invariants": [
+    "actor.id is the verified RANKLISTIQ Supabase Auth UUID and equals database auth.uid()",
+    "session.id equals request_security.session_id",
+    "roles are resolved only from active i1q.actor_role_memberships rows",
+    "roles are sorted in the canonical role order and contain no duplicates",
+    "expires_at is strictly later than evaluation time",
+    "validated_at is no more than 300000 milliseconds old and no more than 30000 milliseconds in the future",
+    "revocation evidence is explicit and revoked is exactly false",
+    "trusted_origins are exact registered HTTPS origins for the selected environment",
+    "system is never issued to an ordinary browser identity",
+    "no token, cookie, email, WordPress role, credential, source text, answer, or database secret is present"
+  ],
+  "x-observed-source-boundaries": [
+    "WordPress signed handoff",
+    "MissionMed HQ Railway session",
+    "RANKLISTIQ Supabase Auth user",
+    "I1Q database-owned role membership"
+  ],
+  "x-observed-in-flight-candidates": [
+    "a shared-worktree adapter accepts a standard RANKLISTIQ Supabase Auth bearer with authenticated audience and resolves roles through a proposed self-profile RPC",
+    "the candidate emits session.issued_at, an identity object, bearer transport, and an empty CSRF token, so it does not conform to this closed schema",
+    "the candidate is unratified and undeployed and does not independently close the WordPress binding or durable HQ revocation gaps",
+    "candidate credential metadata is not credential authority and cannot authorize medical approval"
+  ],
+  "x-open-authority-gaps": [
+    "MM-AUTH-ARCH-001 is referenced but absent",
+    "versioned I1Q issuer and audience assertion is not published",
+    "durable canonical session ID and revocation lookup are not published",
+    "authoritative WordPress to RANKLISTIQ UUID binding export is not published",
+    "authenticated staging test identities and registered staging origin are not available",
+    "cookie plus CSRF versus direct bearer transport profile is not ratified"
+  ]
+}

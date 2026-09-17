@@ -1,0 +1,128 @@
+{
+  "schema": "missionmed.i1q.privacy_redaction_results.v1",
+  "as_of": "2026-07-15",
+  "artifact_zone": "evidence_only",
+  "authority": {
+    "mission_id": "I1Q-1006",
+    "execution_id": "I1Q-1007X-MA",
+    "authority_commit": "93c0404794fe105235b80514c75fffc3177f140b",
+    "decision_id": "DR-006"
+  },
+  "evidence": {
+    "authorized_registry_export": {
+      "sha256": "d78910d22ed3b428fd38129ec60140b70673a804a31ae3119e465d75b53631a1",
+      "record_count": 97,
+      "integrity_verified": true
+    },
+    "sanitized_artifact_probes": {
+      "sha256": "ede9cc62aee72868cb4e2c96a9125bbc7be3403dbb7f3afe6b77c493bb79dae0",
+      "source_count": 97,
+      "integrity_verified": true
+    },
+    "hashed_speaker_probes": {
+      "sha256": "f7d1edb339d7a2821007439f97bb70d74c2d213c8596ed43dec5b30187b87db4",
+      "source_count": 97,
+      "integrity_verified": true
+    }
+  },
+  "source_attribution": {
+    "source_count": 97,
+    "verified_drj_source_level": 97,
+    "explicit_drj_speaker_evidence_sources": 96,
+    "generic_only_speaker_evidence_sources": 1,
+    "multi_speaker_sources": 97,
+    "segment_mapping_unresolved_sources": 1,
+    "source_classification_implies_segment_attribution": false
+  },
+  "redaction_run": {
+    "status": "NOT_RUN",
+    "governed_working_copies_created": 0,
+    "sources_passed_for_extraction": 0,
+    "sources_blocked_from_extraction": 97,
+    "all_sources_blocked": true,
+    "candidate_implementation_accepted": false,
+    "known_candidate_defects": [
+      "RAW_AND_REDACTED_TEXT_COEXPOSED",
+      "NON_DRJ_SPEECH_NOT_REQUIRED",
+      "STUDENT_SPEECH_CLASS_OMITTED",
+      "IDENTIFYING_CLINICAL_ANECDOTE_CLASS_OMITTED",
+      "ZERO_RECALL_CLASS_CAN_BE_MASKED_BY_AGGREGATION"
+    ]
+  },
+  "pilot": {
+    "status": "NOT_RUN",
+    "gate_passed": false,
+    "speaker_attribution_accuracy": null,
+    "patient_privacy_aggregate_recall": null,
+    "student_name_recall": null,
+    "required_classes": {
+      "NON_DRJ_SPEECH": {
+        "minimum_gold_positives": 970,
+        "minimum_per_source": 10,
+        "recall_threshold": 1.0,
+        "precision_threshold": 0.9,
+        "observed": null
+      },
+      "STUDENT_NAME": {
+        "minimum_gold_positives": 300,
+        "recall_threshold": 0.99,
+        "recall_lower_bound_threshold": 0.99,
+        "precision_threshold": 0.9,
+        "observed": null
+      },
+      "STUDENT_OTHER_IDENTIFIER": {
+        "minimum_gold_positives": 300,
+        "recall_threshold": 0.99,
+        "recall_lower_bound_threshold": 0.99,
+        "precision_threshold": 0.9,
+        "observed": null
+      },
+      "PATIENT_DIRECT_IDENTIFIER": {
+        "minimum_gold_positives": 600,
+        "recall_threshold": 0.995,
+        "recall_lower_bound_threshold": 0.995,
+        "precision_threshold": 0.9,
+        "observed": null
+      },
+      "PATIENT_QUASI_IDENTIFIER": {
+        "minimum_gold_positives": 600,
+        "recall_threshold": 0.995,
+        "recall_lower_bound_threshold": 0.995,
+        "precision_threshold": 0.9,
+        "observed": null
+      },
+      "THIRD_PARTY_IDENTITY": {
+        "minimum_gold_positives": 300,
+        "recall_threshold": 0.99,
+        "recall_lower_bound_threshold": 0.99,
+        "precision_threshold": 0.9,
+        "observed": null
+      },
+      "IDENTIFYING_CLINICAL_ANECDOTE": {
+        "minimum_gold_positives": 600,
+        "recall_threshold": 0.995,
+        "recall_lower_bound_threshold": 0.995,
+        "precision_threshold": 0.9,
+        "observed": null
+      },
+      "SOURCE_METADATA": {
+        "minimum_gold_positives": 300,
+        "recall_threshold": 1.0,
+        "precision_threshold": 0.9,
+        "observed": null
+      }
+    }
+  },
+  "rights": {
+    "internal_derivation_authorized": true,
+    "public_rights_cleared": false,
+    "public_excerpts_enabled": false,
+    "public_quotations_enabled": false,
+    "public_media_clips_enabled": false
+  },
+  "verdict": {
+    "status": "BLOCK",
+    "scope": "ALL_97_SOURCES_FROM_EXTRACTION",
+    "confidence": "HIGH"
+  }
+}

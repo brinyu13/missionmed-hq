@@ -1,0 +1,9 @@
+{
+  "generated_at": "2026-07-15T16:39:34.024Z",
+  "status": "INCOMPLETE_NOT_CLEARED",
+  "real_sources_processed": 0,
+  "provisional_benchmark_sources": 0,
+  "metrics": null,
+  "reason": "The witnessed aggregate inventory is complete for the 2026-07-15 source response, but every source remains privacy blocked and no working redacted transcript exists.",
+  "pipeline_unit_contracts": "pass"
+}

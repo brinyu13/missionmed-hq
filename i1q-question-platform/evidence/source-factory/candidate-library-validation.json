@@ -1,0 +1,22 @@
+{
+  "schema_version": "missionmed.i1q.source_factory.validation.v1",
+  "as_of_date": "2026-07-16",
+  "status": "pass_quarantined_candidate_contract_only",
+  "candidate_count": 24,
+  "answer_distribution": {
+    "A": 6,
+    "B": 6,
+    "C": 6,
+    "D": 6
+  },
+  "answer_sequence": "ABCDBCDADBACACBDBADCCDAB",
+  "periodic_answer_sequence_windows": [],
+  "distinct_candidate_ids": 24,
+  "distinct_content_hashes": 24,
+  "distinct_question_texts": 24,
+  "cross_item_key_text_reuse_count": 0,
+  "medical_accuracy_validated": false,
+  "physician_review_complete": false,
+  "release_eligible": false,
+  "validator_errors": []
+}

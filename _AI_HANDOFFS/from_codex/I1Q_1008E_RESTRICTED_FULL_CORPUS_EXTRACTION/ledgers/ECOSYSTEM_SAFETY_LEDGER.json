@@ -1,0 +1,123 @@
+{
+  "schema_version": "missionmed.i1q1008e.ecosystem_safety_ledger.v1",
+  "mission_id": "I1Q-1008E",
+  "status": "RESTRICTED_EXTRACTION_COMPLETE_RELEASE_PROHIBITED",
+  "claim_class": "C1_OBSERVED",
+  "historical_universe_claimed": false,
+  "acquisition": {
+    "observed_candidate_count": 105,
+    "transcript_count": 97,
+    "nodes_count": 99,
+    "paired_count": 97,
+    "nodes_only_count": 2,
+    "neither_count": 6,
+    "network_request_count": 411,
+    "retry_count": 0
+  },
+  "final_coverage": {
+    "transcript_artifacts_required": 97,
+    "transcript_artifacts_complete": 97,
+    "automated_pass_cells_required": 873,
+    "automated_pass_cells_complete": 873,
+    "specialist_verification_cells_required": 194,
+    "specialist_verification_cells_complete": 194,
+    "specialist_role_reviews_required": 388,
+    "specialist_role_reviews_complete": 388,
+    "integration_success_count": 2,
+    "extraction_complete": true,
+    "no_silent_omission": true
+  },
+  "recovery_history": [
+    {
+      "kind": "FULL_SUPERSESSION",
+      "identifier": "8b5d419ee1c40c8d8c3aca0f2f7346a3a109b30b8476561c714313132cf325d9",
+      "status": "COMPLETE",
+      "non_destructive": true
+    },
+    {
+      "kind": "CONTRACT_INVALID_PARTIAL_RECOVERY",
+      "identifier": "abd0f6c3874e16008c273306eedc06a31f2f71f700c2f8d087d3ab5470330808",
+      "partial_artifacts_complete": 95,
+      "partial_artifacts_blocked": 2,
+      "completed_pass_cells": 855,
+      "blocked_pass_cells": 18,
+      "status": "COMPLETE",
+      "non_destructive": true
+    },
+    {
+      "kind": "FINALIZER_CONTRACT_DRIFT_SUPERSESSION",
+      "identifier": "9509acc7b9fa7f1373b54e1543af5056430f5c1fd6b921cf3e835948ccd80d08",
+      "completion_root": "9dec3ee57bb1ebbb936303c70679a8f75a8eb2d3135c5f32ff555126a31af977",
+      "status": "COMPLETE",
+      "non_destructive": true
+    }
+  ],
+  "integrity_controls": {
+    "restricted_directory_mode": "0700",
+    "protected_file_mode": "0600",
+    "shared_kernel_operation_lock": true,
+    "stable_lock_identity_revalidation": true,
+    "no_clobber_publication": true,
+    "crash_resume_verified": true,
+    "source_and_destination_manifest_verification": true,
+    "immutable_input_preservation_verified": true,
+    "packet_submission_receipt_completion_cross_binding": true,
+    "dependency_closed_correction_tcb_file_count": 11,
+    "semantic_rebind_role_count": 4,
+    "corruption_visibility_verified": true
+  },
+  "privacy_and_release": {
+    "privacy_precedence_rows": 2,
+    "privacy_precedence_status": "QUARANTINED",
+    "rights_review_required_occurrence_count": 117893,
+    "release_prohibited_occurrence_count": 117893,
+    "release_overclaim_count": 0,
+    "source_mutation_count": 0,
+    "production_mutation_count": 0
+  },
+  "leakage_audit": {
+    "safe_files_scanned": 62,
+    "protected_raw_files_scanned": 200,
+    "finding_count": 0,
+    "result": "PASS",
+    "audit_root": "d6590857164d7e36c6c06ea88ac25d158c5f4e4a3972ae9081c94884cee02705"
+  },
+  "contained_incidents": [
+    {
+      "code": "HELP_ARGUMENT_ENTERED_LIVE_READ_ONLY_AUDIT",
+      "state_change": false,
+      "protected_output_emitted": false,
+      "resolution": "EXPLICIT_ZERO_IO_HELP_AND_ARGUMENT_REJECTION",
+      "status": "RESOLVED"
+    },
+    {
+      "code": "SAFE_ROSTER_ORDER_FALSE_REJECTION",
+      "integrity_bypass": false,
+      "resolution": "VALIDATE_POSITIONS_AND_SEMANTICS_BEFORE_CANONICAL_SORT",
+      "status": "RESOLVED"
+    },
+    {
+      "code": "FINALIZER_RUN_CONTRACT_DRIFT",
+      "unsafe_integration_performed": false,
+      "resolution": "FAIL_CLOSED_SUPERSEDE_REEXTRACT_AND_REBIND",
+      "status": "RESOLVED"
+    }
+  ],
+  "prohibitions": {
+    "learner_release": false,
+    "credentialed_medical_approval": false,
+    "final_assessment_approval": false,
+    "final_mcq_generation": false,
+    "production_mutation": false,
+    "protected_content_in_git_safe_outputs": false
+  },
+  "evidence_roots": {
+    "coverage_receipt": "dc878857d099276b4ceb653c44426addc38a061a541eade8868b08495dca28ec",
+    "artifact_processing_ledger": "6b1d50a01856ef69a1634ee5b6abd44b4c77e5080e6001a46bdbe327337c232f",
+    "verified_specialist_receipt_set": "4893eed8c385869923ff0ed927a9e6d46a990fdd721eb0709e5ed82415af57ca",
+    "run_manifest": "3570edf516007205740483f385317532de4769fe29dbd5ca00788f4ac9af8837",
+    "processing_roster": "97d3c16b449b51f7382f8784707f4fd476e77ac558d4e9b622425a3baf5ec7cc",
+    "finalizer_drift_decision": "40ab77f8c3c0f35b87b6762f4db0f2a6511da6478aebe6e0b9aace4d3d016f9b"
+  },
+  "content_hash": "8d234ce13ee348d7e4f64456eac053ff33bea656f1358a86f40487c35f864bcf"
+}

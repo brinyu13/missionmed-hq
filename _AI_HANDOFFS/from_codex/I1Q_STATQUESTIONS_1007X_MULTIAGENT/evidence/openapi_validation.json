@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-07-15T16:39:34.024Z",
+  "status": "pass_json_and_contract_shape",
+  "openapi": "3.1.0",
+  "path_count": 20,
+  "security_scheme": [
+    "MissionMedInternalSession"
+  ],
+  "production_identity_url_status": "OPEN"
+}

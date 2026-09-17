@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>MissionMed Question Platform</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to workspace</a>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Question Platform">
+      <div class="brand-row">
+        <div class="brand-block">
+          <strong>MissionMed</strong>
+          <span>Question Platform</span>
+        </div>
+        <button
+          class="nav-toggle"
+          type="button"
+          id="nav-toggle"
+          aria-expanded="false"
+          aria-controls="primary-nav"
+        >Workflows</button>
+      </div>
+
+      <nav id="primary-nav" aria-label="Question Platform workflows">
+        <button class="nav-item is-active" type="button" data-screen="dashboard" aria-current="page">Dashboard</button>
+        <button class="nav-item" type="button" data-screen="inventory">Corpus inventory</button>
+        <button class="nav-item" type="button" data-screen="source">Source detail</button>
+        <button class="nav-item" type="button" data-screen="privacy">Privacy status</button>
+        <button class="nav-item" type="button" data-screen="transcript">Transcript evidence</button>
+        <button class="nav-item" type="button" data-screen="extraction">Extraction runs</button>
+        <button class="nav-item" type="button" data-screen="triage">Candidate triage</button>
+        <button class="nav-item" type="button" data-screen="editor">Question authoring</button>
+        <button class="nav-item" type="button" data-screen="distractors">Distractor review</button>
+        <button class="nav-item" type="button" data-screen="evidence">Evidence claims</button>
+        <button class="nav-item" type="button" data-screen="editorial">Editorial review</button>
+        <button class="nav-item" type="button" data-screen="physician">Physician review</button>
+        <button class="nav-item" type="button" data-screen="diff">Revision comparison</button>
+        <button class="nav-item" type="button" data-screen="search">Search and filters</button>
+        <button class="nav-item" type="button" data-screen="release">Release assembly</button>
+        <button class="nav-item" type="button" data-screen="incidents">Incidents</button>
+        <button class="nav-item" type="button" data-screen="audit">Audit trail</button>
+      </nav>
+
+      <div class="environment-label">
+        <span class="status-dot status-amber" aria-hidden="true"></span>
+        <span><strong>Internal only</strong><small id="environment-mode">Verifying environment</small></span>
+      </div>
+    </aside>
+
+    <main id="workspace" tabindex="-1">
+      <header class="topbar">
+        <div class="title-block">
+          <p class="eyebrow" id="screen-kicker">Operations</p>
+          <h1 id="screen-title" tabindex="-1">Dashboard</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="scenario-control" id="scenario-control" hidden>
+            <label for="state-scenario">Synthetic state</label>
+            <select id="state-scenario" aria-describedby="scenario-help"></select>
+            <span class="sr-only" id="scenario-help">Replaces the current view with a deterministic local state fixture.</span>
+          </div>
+          <span class="identity" id="actor-identity">Verifying role</span>
+          <button class="icon-button" type="button" id="refresh-button" aria-label="Refresh current view" title="Refresh current view">&#8635;</button>
+          <button class="button logout-button" type="button" id="logout-button" hidden>Log out</button>
+        </div>
+      </header>
+
+      <div id="global-status" class="status-banner status-warning" role="status" aria-live="polite" aria-atomic="true">
+        <strong>Internal release controls locked</strong>
+        <span>Student, STAT, and Drills consumers remain off.</span>
+      </div>
+
+      <section id="record-context" class="record-context" aria-label="Selected record context" hidden></section>
+
+      <div id="action-status" class="action-status" role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden></div>
+
+      <section id="screen" class="screen" aria-labelledby="screen-title" aria-busy="true">
+        <div class="loading-state" data-state="loading" role="status">Loading dashboard</div>
+      </section>
+    </main>
+  </div>
+
+  <div id="polite-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+  <div id="assertive-announcer" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

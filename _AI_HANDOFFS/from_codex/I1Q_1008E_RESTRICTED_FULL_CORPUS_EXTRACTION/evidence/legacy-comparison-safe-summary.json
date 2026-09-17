@@ -1,0 +1,15 @@
+{
+  "schema_version": "missionmed.i1q.1008e.legacy_comparison_safe_summary.v1",
+  "extraction_run_id": "opaque_run_i2IwFt-nc8yUknV2OcX47LKN7Ibxoqh2WLuNZIrma5M",
+  "legacy_row_count": 845,
+  "likely_overlap_count": 0,
+  "transcript_concepts_absent_from_legacy_count": 57688,
+  "legacy_rows_with_possible_transcript_support_count": 0,
+  "legacy_rows_without_established_transcript_support_count": 845,
+  "unresolved_comparison_count": 58533,
+  "legacy_promotion_count": 0,
+  "destructive_merge_performed": false,
+  "comparison_root": "afbd2615da452f7fc59b720cb1e5bcae86a943fdd3e2f5a53312bfa028144035",
+  "qualification": "PRELIMINARY_NONPROMOTING_COMPARISON_FOR_I1Q_1008F",
+  "content_hash": "6b3ffcfc5a86df8ddf78bb633d1baa0229c2a0ff9c08bd434f1aea31fcbf7274"
+}

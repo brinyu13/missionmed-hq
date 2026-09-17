@@ -1,0 +1,17 @@
+{
+  "schema_version": "missionmed.i1q.1008e.source_content_safe_summary.v1",
+  "extraction_run_id": "opaque_run_i2IwFt-nc8yUknV2OcX47LKN7Ibxoqh2WLuNZIrma5M",
+  "transcript_segment_count": 81604,
+  "nodes_record_count": 82510,
+  "transcript_byte_count": 34939049,
+  "artifact_retry_count": 0,
+  "malformed_record_count": 0,
+  "repaired_record_count": 0,
+  "unrecoverable_record_count": 0,
+  "newly_recovered_transcript_count": 0,
+  "newly_recovered_nodes_count": 0,
+  "repaired_record_definition": "PIPELINE_RECORD_REPAIR_PERFORMED",
+  "unrecoverable_record_definition": "PARSER_ERRORS_NOT_REPAIRED_IN_THIS_RUN",
+  "transcript_byte_count_is_safe_aggregate": true,
+  "content_hash": "7ed32874cc95bc67119cb05a55dd25ff21622bd4288ce491bc39c565fc847ece"
+}

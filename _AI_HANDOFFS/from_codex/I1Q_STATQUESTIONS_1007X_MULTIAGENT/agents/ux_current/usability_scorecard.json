@@ -1,0 +1,166 @@
+{
+  "schema": "missionmed.i1q.usability_scorecard.v1",
+  "ticket": "I1Q-1007X-MA",
+  "candidate_commit": "ccb8b73899c81ba0d028638be0d79b6a351f0ceb",
+  "ui_source_commit": "4b154e8deb60ddf9a002f8a01a8fec90518b8966",
+  "scope": "Current local synthetic internal Question Platform build",
+  "method": "Simulated expert review from source inspection, deterministic tests, and JSDOM rendering. No browser, assistive-technology, or human execution.",
+  "score_scale": {
+    "minimum": 0.0,
+    "maximum": 10.0,
+    "release_aggregate_threshold": 9.0,
+    "release_category_floor": 8.5
+  },
+  "personas_considered": [
+    "physician_reviewer",
+    "medical_educator",
+    "assessment_scientist",
+    "editorial_reviewer",
+    "privacy_officer",
+    "novice_operator",
+    "power_operator",
+    "assistive_technology_user",
+    "release_manager",
+    "incident_responder"
+  ],
+  "scores": [
+    {
+      "category": "clarity",
+      "score": 7.4,
+      "finding": "Workflow names, blockers, safe data boundaries, and recovery text are generally explicit, but selected-record identity can be wrong."
+    },
+    {
+      "category": "hierarchy",
+      "score": 6.8,
+      "finding": "Landmarks, headings, panels, context, and tables are structured, while many rendered component classes have no styling."
+    },
+    {
+      "category": "cognitive_load",
+      "score": 6.4,
+      "finding": "Consistent templates help, but 17 top-level destinations and dense authoring controls need grouping and browser validation."
+    },
+    {
+      "category": "discoverability",
+      "score": 6.3,
+      "finding": "All workflows are named in navigation, but mobile discovery relies on a conflicting horizontal navigation strip."
+    },
+    {
+      "category": "task_speed",
+      "score": 5.8,
+      "finding": "Filters and direct cross-links exist, but no shortcuts, bulk operations, durable views, or server-scale navigation exist."
+    },
+    {
+      "category": "error_prevention",
+      "score": 6.2,
+      "finding": "Revision hashes, blocked commands, and release gates are strong, but expired evidence can leave editorial decisions enabled."
+    },
+    {
+      "category": "recovery",
+      "score": 6.1,
+      "finding": "Sixteen explicit fixtures include owners and remedies, but action feedback and focus can be cleared by rerender and drafts lack durable recovery."
+    },
+    {
+      "category": "trust",
+      "score": 6.0,
+      "finding": "Synthetic boundaries and protected-data limits are explicit, but source, inventory, privacy, and transcript selection can drift."
+    },
+    {
+      "category": "consistency",
+      "score": 6.2,
+      "finding": "Rendering patterns are consistent, but missing CSS selectors and mixed read-only versus active controls weaken system consistency."
+    },
+    {
+      "category": "responsiveness",
+      "score": 5.2,
+      "finding": "Two breakpoints and table scrolling exist, but mobile navigation state conflicts and no browser matrix was executed."
+    },
+    {
+      "category": "visual_quality",
+      "score": 4.8,
+      "finding": "The base palette is restrained and work-focused, but core components are unstyled and no visual execution was available."
+    },
+    {
+      "category": "accessibility",
+      "score": 5.6,
+      "finding": "Landmarks, names, live regions, native controls, and focus targets are present, but focus continuity, contrast, browser, and AT evidence remain open."
+    },
+    {
+      "category": "keyboard_efficiency",
+      "score": 4.5,
+      "finding": "Native controls are keyboard-capable, but 17 navigation tab stops, rerender focus loss, and no complete keyboard run limit efficiency."
+    },
+    {
+      "category": "evidence_visibility",
+      "score": 6.5,
+      "finding": "IDs, hashes, claims, roles, assignments, and gate states are visible, but visual styling and natural state paths are incomplete."
+    },
+    {
+      "category": "source_traceability",
+      "score": 4.3,
+      "finding": "The UI exposes lineage fields, but selected inventory, source, transcript, privacy, and rights data are not reliably joined."
+    }
+  ],
+  "aggregate_score": 5.87,
+  "minimum_category_score": 4.3,
+  "minimum_category": "source_traceability",
+  "gate_pass": false,
+  "simulated_only": true,
+  "human_validation_completed": false,
+  "wcag_2_2_aa_proven": false,
+  "responsive_certification_proven": false,
+  "current_findings": [
+    "All 17 workflows rendered in deterministic local synthetic DOM simulation.",
+    "All 16 required state fixtures rendered with focus, recovery, and synthetic-boundary metadata.",
+    "Selected-record lineage is unsafe across inventory, source, privacy, and transcript workflows.",
+    "Expired evidence is omitted from editorial control eligibility.",
+    "Core rendered components lack CSS selectors.",
+    "Action feedback and focus continuity are not stable across rerenders.",
+    "Real browser, assistive-technology, and human validation are absent."
+  ],
+  "changes": "No product change. Scorecard documentation only.",
+  "tests": {
+    "ui": {
+      "passed": 6,
+      "failed": 0
+    },
+    "full_local": {
+      "passed": 196,
+      "failed": 0,
+      "skipped": 1
+    },
+    "workflow_dom_simulation": {
+      "rendered": 17,
+      "required": 17
+    },
+    "state_dom_simulation": {
+      "rendered": 16,
+      "required": 16
+    },
+    "evidence_validator": {
+      "status": "fail",
+      "error_count": 19
+    }
+  },
+  "risks": [
+    "Wrong source context can undermine reviewer decisions.",
+    "An expired-evidence contradiction can invite an invalid decision attempt.",
+    "Unverified responsive and accessibility behavior can exclude required operators."
+  ],
+  "blockers": [
+    "Repair source lineage joins.",
+    "Repair expired-evidence decision gating.",
+    "Complete component and responsive styling.",
+    "Repair focus and status continuity.",
+    "Pass real browser, accessibility, and human validation."
+  ],
+  "confidence": {
+    "source_and_dom_findings": 0.96,
+    "simulated_scores": 0.76,
+    "human_validation_claim": 0.0
+  },
+  "paths": {
+    "application": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform",
+    "report_directory": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/ux_current"
+  },
+  "root_handoff": "Keep the simulated UX gate red. Repair P0 issues, execute browser and human protocols, then commission an independent rescore."
+}

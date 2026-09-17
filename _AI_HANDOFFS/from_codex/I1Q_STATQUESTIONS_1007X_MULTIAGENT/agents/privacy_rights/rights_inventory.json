@@ -1,0 +1,102 @@
+{
+  "schema": "missionmed.i1q.rights_inventory.v1",
+  "as_of": "2026-07-15",
+  "artifact_zone": "evidence_only",
+  "authority": {
+    "mission_id": "I1Q-1006",
+    "execution_id": "I1Q-1007X-MA",
+    "authority_commit": "93c0404794fe105235b80514c75fffc3177f140b",
+    "decision_id": "DR-006",
+    "interim_privacy_owner": "Brian",
+    "internal_derivation_decider": "Brian"
+  },
+  "corpus": {
+    "source_count": 97,
+    "verified_drj_source_level": 97,
+    "classification_basis": "AUTHORITATIVE_REGISTRY_METADATA",
+    "classification_scope": "INTERNAL_CORPUS_ATTRIBUTION_ONLY",
+    "classification_is_public_rights_clearance": false,
+    "classification_is_segment_attribution": false
+  },
+  "speaker_segment_status": {
+    "explicit_mapping_evidence_sources": 96,
+    "generic_only_mapping_evidence_sources": 1,
+    "unresolved_mapping_sources": 1,
+    "default_for_unresolved_or_ambiguous_segments": "REMOVE",
+    "retained_segments_from_unresolved_sources": 0
+  },
+  "authorized_uses": [
+    {
+      "use": "READ_ONLY_INTERNAL_INVENTORY",
+      "status": "AUTHORIZED",
+      "source_count": 97,
+      "basis": "DR-006_INTERNAL_DERIVATION_AUTHORITY"
+    },
+    {
+      "use": "RESTRICTED_TRANSCRIPT_PROCESSING",
+      "status": "AUTHORIZED_WITH_PRIVACY_CONTROLS",
+      "source_count": 97,
+      "basis": "DR-006_INTERNAL_DERIVATION_AUTHORITY"
+    },
+    {
+      "use": "PRIVACY_SAFE_CONCEPT_EXTRACTION",
+      "status": "AUTHORIZED_BUT_CURRENTLY_PRIVACY_BLOCKED",
+      "source_count": 97,
+      "basis": "DR-006_INTERNAL_DERIVATION_AUTHORITY"
+    },
+    {
+      "use": "QUARANTINED_INTERNAL_CANDIDATE_GENERATION",
+      "status": "AUTHORIZED_BUT_CURRENTLY_PRIVACY_BLOCKED",
+      "source_count": 97,
+      "basis": "DR-006_INTERNAL_DERIVATION_AUTHORITY"
+    },
+    {
+      "use": "SOURCE_LINKED_INTERNAL_TIMESTAMP_EVIDENCE",
+      "status": "AUTHORIZED_WITH_RESTRICTED_PROVENANCE",
+      "source_count": 97,
+      "basis": "DR-006_INTERNAL_DERIVATION_AUTHORITY"
+    }
+  ],
+  "uncleared_uses": [
+    {
+      "use": "PUBLIC_TRANSCRIPT_EXCERPTS",
+      "status": "NOT_CLEARED",
+      "required_evidence": "CURRENT_RIGHTS_RECORD"
+    },
+    {
+      "use": "PUBLIC_QUOTATIONS",
+      "status": "NOT_CLEARED",
+      "required_evidence": "CURRENT_RIGHTS_RECORD"
+    },
+    {
+      "use": "PUBLIC_MEDIA_CLIPS",
+      "status": "NOT_CLEARED",
+      "required_evidence": "CURRENT_RIGHTS_RECORD"
+    },
+    {
+      "use": "STUDENT_FACING_PUBLICATION",
+      "status": "BLOCKED",
+      "required_evidence": "ALL_PASSPORT_AND_DR_006_RELEASE_GATES"
+    }
+  ],
+  "supplemental_source_observations": {
+    "notes_metadata": {
+      "sources_with_metadata": 46,
+      "topic_entry_count": 651,
+      "content_status": "RESTRICTED_AND_EXCLUDED_FROM_EXTRACTION",
+      "public_rights_status": "NOT_CLEARED"
+    },
+    "drive_discovery": {
+      "additional_corpus_sources_observed": 0,
+      "interpretation": "NO_ADDITIONAL_SOURCES_OBSERVED_NOT_PROOF_OF_ABSENCE",
+      "rights_determination": "NONE"
+    }
+  },
+  "aggregate_source_disposition": {
+    "internally_authorized_sources": 97,
+    "sources_with_evidenced_public_clearance": 0,
+    "public_clearance_evidenced": false,
+    "privacy_blocked_from_extraction": 97,
+    "eligible_for_extraction_now": 0
+  }
+}

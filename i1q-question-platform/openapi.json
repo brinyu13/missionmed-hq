@@ -1,0 +1,928 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MissionMed I1Q Question Platform API",
+    "version": "0.1.0-1006",
+    "description": "Internal candidate API. Production identity adapter and canonical datastore binding are required before deployment."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:4176",
+      "description": "Local synthetic demonstration only"
+    }
+  ],
+  "security": [
+    {
+      "MissionMedInternalSession": []
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "security": [],
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service health without protected data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "security": [],
+        "operationId": "getReadiness",
+        "responses": {
+          "200": {
+            "description": "All required runtime adapters and backing services are ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Runtime is not eligible for deployment promotion"
+          }
+        }
+      }
+    },
+    "/api/v1/session": {
+      "get": {
+        "operationId": "getSessionContext",
+        "responses": {
+          "200": {
+            "description": "Safe actor, role, expiry, and CSRF bootstrap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserSession"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          }
+        }
+      }
+    },
+    "/api/v1/logout": {
+      "post": {
+        "operationId": "logoutSession",
+        "description": "Invokes the injected canonical session revocation adapter. No local-only logout fallback is permitted.",
+        "responses": {
+          "200": {
+            "description": "Canonical session was revoked"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "503": {
+            "description": "Canonical logout adapter is unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard": {
+      "get": {
+        "operationId": "getDashboard",
+        "responses": {
+          "200": {
+            "description": "Internal operational summary"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          }
+        }
+      }
+    },
+    "/api/v1/governance": {
+      "get": {
+        "operationId": "getGovernanceSlots",
+        "responses": {
+          "200": {
+            "description": "Current role-slot assignments"
+          }
+        }
+      }
+    },
+    "/api/v1/governance/{slot}": {
+      "put": {
+        "operationId": "assignGovernanceSlot",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Governance slot assigned by an administrator"
+          },
+          "422": {
+            "description": "Unknown slot or reviewer does not meet role requirements"
+          }
+        }
+      }
+    },
+    "/api/v1/reviewers": {
+      "post": {
+        "operationId": "registerReviewer",
+        "responses": {
+          "201": {
+            "description": "Reviewer registered by an administrator"
+          }
+        }
+      }
+    },
+    "/api/v1/feature-flags/{key}": {
+      "put": {
+        "operationId": "setFeatureFlag",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "internal_platform_enabled",
+                "internal_review_enabled",
+                "student_content_enabled",
+                "stat_adapter_enabled",
+                "drills_adapter_enabled",
+                "student_release_enabled"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feature flag changed by an administrator"
+          }
+        }
+      }
+    },
+    "/api/v1/resources/{entityType}": {
+      "get": {
+        "operationId": "listResources",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EntityType"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor page"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createResource",
+        "description": "Creates mutable non-workflow resources. Reviewers, revisions, reviews, releases, artifacts, flags, audit events, and idempotency records require dedicated workflows.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EntityType"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/api/v1/resources/{entityType}/{id}": {
+      "get": {
+        "operationId": "getResource",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EntityType"
+          },
+          {
+            "$ref": "#/components/parameters/ResourceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resource"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMutableResource",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EntityType"
+          },
+          {
+            "$ref": "#/components/parameters/ResourceId"
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated mutable resource"
+          },
+          "409": {
+            "description": "Immutable resource or optimistic lock conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/item-revisions": {
+      "post": {
+        "operationId": "createImmutableItemRevision",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemRevisionDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable AI draft revision"
+          },
+          "422": {
+            "description": "Question or lineage validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/item-revisions/{itemRevisionId}/draft": {
+      "patch": {
+        "operationId": "editDraftItemRevision",
+        "parameters": [
+          {
+            "name": "itemRevisionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exact SHA-256 content hash observed when the draft was loaded.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Guarded update to an author-owned draft"
+          },
+          "409": {
+            "description": "Observed draft hash is stale"
+          },
+          "422": {
+            "description": "Revision is frozen, unauthorized, invalid, or missing an exact hash"
+          }
+        }
+      }
+    },
+    "/api/v1/item-revisions/{itemRevisionId}/submit-candidate": {
+      "post": {
+        "operationId": "submitItemRevisionCandidate",
+        "parameters": [
+          {
+            "name": "itemRevisionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Draft frozen and submitted as a candidate"
+          },
+          "422": {
+            "description": "Revision is not an author-owned draft"
+          }
+        }
+      }
+    },
+    "/api/v1/item-revisions/{itemRevisionId}/review-content": {
+      "get": {
+        "operationId": "getAssignedReviewContent",
+        "description": "Returns answer-bearing content only to the accepted reviewer for the exact immutable revision and declared review purpose.",
+        "parameters": [
+          {
+            "name": "itemRevisionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignment_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "purpose",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "editorial_review",
+                "medical_review"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Purpose-scoped protected content for the accepted exact-revision assignment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignedReviewContent"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Assignment, actor, role, purpose, credential, workflow, or feature gate failed"
+          },
+          "503": {
+            "description": "Canonical protected-content adapter is unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/review-assignments": {
+      "post": {
+        "operationId": "createReviewAssignment",
+        "responses": {
+          "201": {
+            "description": "Review assignment created"
+          }
+        }
+      }
+    },
+    "/api/v1/review-assignments/{assignmentId}/accept": {
+      "post": {
+        "operationId": "acceptReviewAssignment",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Assigned reviewer accepts the exact revision"
+          },
+          "422": {
+            "description": "Actor, role, credential, assignment, or state gate failed"
+          }
+        }
+      }
+    },
+    "/api/v1/review-events": {
+      "post": {
+        "operationId": "appendImmutableReviewEvent",
+        "responses": {
+          "201": {
+            "description": "Immutable exact-revision review event"
+          },
+          "422": {
+            "description": "Review order, credential, self-review, or governance gate failed"
+          }
+        }
+      }
+    },
+    "/api/v1/releases": {
+      "post": {
+        "operationId": "assembleRelease",
+        "responses": {
+          "201": {
+            "description": "Immutable single-manifest release assembled"
+          },
+          "422": {
+            "description": "One or more exact revisions are not eligible"
+          }
+        }
+      }
+    },
+    "/api/v1/releases/{releaseId}/validations": {
+      "post": {
+        "operationId": "recordReleaseValidation",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Official artifact-bound validation result recorded"
+          },
+          "422": {
+            "description": "Official check set, artifact set, or evidence hash failed"
+          }
+        }
+      }
+    },
+    "/api/v1/releases/{releaseId}/promotions": {
+      "post": {
+        "operationId": "promoteRelease",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Immutable promotion record appended"
+          },
+          "422": {
+            "description": "Release or feature-flag gate failed"
+          }
+        }
+      }
+    },
+    "/api/v1/releases/{releaseId}/artifacts/{channel}": {
+      "get": {
+        "operationId": "getReleaseArtifact",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feature-gated artifact authorized by server-derived finalization context"
+          },
+          "403": {
+            "description": "Answer-bearing artifact requested before finalization"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "MissionMedInternalSession": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Canonical MissionMed-issued access token resolved to the closed i1q.identity.v1 contract. Application roles are always database-owned."
+      }
+    },
+    "parameters": {
+      "EntityType": {
+        "name": "entityType",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ResourceId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 200
+        }
+      }
+    },
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "required": [
+          "ok",
+          "service",
+          "version",
+          "mode"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "service": {
+            "const": "i1q-question-platform"
+          },
+          "version": {
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "LOCAL_SYNTHETIC_DEMO",
+              "INJECTED_AUTH_ADAPTER",
+              "AUTH_ADAPTER_REQUIRED"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "Readiness": {
+        "type": "object",
+        "required": [
+          "ready",
+          "service",
+          "version",
+          "mode"
+        ],
+        "properties": {
+          "ready": {
+            "type": "boolean"
+          },
+          "service": {
+            "const": "i1q-question-platform"
+          },
+          "version": {
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "LOCAL_SYNTHETIC_DEMO",
+              "AUTHENTICATED_RUNTIME_READY",
+              "RUNTIME_NOT_READY"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BrowserSession": {
+        "type": "object",
+        "required": [
+          "actor",
+          "session"
+        ],
+        "properties": {
+          "actor": {
+            "type": "object",
+            "required": [
+              "id",
+              "roles"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "roles": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "session": {
+            "type": "object",
+            "required": [
+              "expires_at",
+              "csrf_token"
+            ],
+            "properties": {
+              "expires_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "csrf_token": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemRevisionDraft": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "concept_id",
+          "source_ids",
+          "prompt",
+          "choices",
+          "answer",
+          "explanation",
+          "correct_answer_rationale"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string"
+          },
+          "concept_id": {
+            "type": "string"
+          },
+          "source_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "choices": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object"
+            }
+          },
+          "answer": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "correct_answer_rationale": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": true
+      },
+      "AssignedReviewContent": {
+        "type": "object",
+        "required": [
+          "item_revision_id",
+          "assignment_id",
+          "exact_revision_hash",
+          "review_type",
+          "prompt",
+          "choices",
+          "answer",
+          "explanation",
+          "correct_answer_rationale",
+          "source_ids",
+          "evidence_claim_ids"
+        ],
+        "properties": {
+          "item_revision_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assignment_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "exact_revision_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "review_type": {
+            "enum": [
+              "editorial",
+              "medical"
+            ]
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "choices": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/AssignedReviewChoice"
+            }
+          },
+          "answer": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "correct_answer_rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "evidence_claim_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "AssignedReviewChoice": {
+        "type": "object",
+        "required": [
+          "key",
+          "text",
+          "why_tempting",
+          "why_wrong",
+          "misconception_id"
+        ],
+        "properties": {
+          "key": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "why_tempting": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "why_wrong": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "misconception_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "responses": {
+      "Unauthenticated": {
+        "description": "Canonical internal identity is required"
+      },
+      "NotFound": {
+        "description": "Resource not found or not visible to actor"
+      }
+    }
+  }
+}

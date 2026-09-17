@@ -1,0 +1,102 @@
+{
+  "schema": "missionmed.i1q.registration_patch.v1",
+  "status": "PROPOSED_NOT_APPLIED",
+  "reason_not_applied": [
+    "MissionMed_OS has a pre-existing index.lock and unrelated dirty changes.",
+    "I1Q is absent from the routed mission and product indexes.",
+    "No current decision record authorizes protected product integration."
+  ],
+  "proposed_defaults_are_open_until_ratified": true,
+  "operations": [
+    {
+      "target": "/Users/brianb/MissionMed_OS/missions.json",
+      "operation": "append_if_id_absent",
+      "key": "I1Q-1006",
+      "value": {
+        "id": "I1Q-1006",
+        "title": "MissionMed Question Platform ultra build",
+        "product": "question-platform",
+        "owner": "brian",
+        "builder": "codex",
+        "verifier": null,
+        "state": "blocked",
+        "gate": "registration_auth_database_privacy_medical_governance",
+        "worktree": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000",
+        "branch": "i1q-question-platform-ultra-1006",
+        "track": "local_candidate",
+        "demo": true,
+        "issue": null,
+        "packets": [
+          "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD/I1Q_1006_COMBINED_HANDOFF.md"
+        ],
+        "next_action": "Ratify registration and protected integration decision, assign privacy and medical governance owners, then run I1Q-1007 release audit.",
+        "updated_at": "2026-07-13T20:51:08-04:00"
+      }
+    },
+    {
+      "target": "/Users/brianb/MissionMed_OS/products_index.json",
+      "operation": "append_product_if_name_absent",
+      "key": "MissionMed Question Platform",
+      "value": {
+        "name": "MissionMed Question Platform",
+        "status": "candidate_blocked_governance",
+        "passport_path": "PRODUCT_PASSPORTS/question-platform.md"
+      }
+    },
+    {
+      "target": "/Users/brianb/MissionMed_OS/PRODUCT_PASSPORTS/question-platform.md",
+      "operation": "create_if_absent",
+      "content_lines": [
+        "# MissionMed Question Platform Passport",
+        "",
+        "Status: PROPOSED, not filed authority until ratified.",
+        "",
+        "Owner: Brian. Builder: Codex. Verifier: OPEN.",
+        "",
+        "Purpose: Govern immutable reusable medical question revisions, source lineage, review, releases, and channel artifacts for STAT, Drills, and future consumers.",
+        "",
+        "Protected dependencies: STAT, Drills, Daily Drills, Arena, MissionMed HQ, auth/session, RANKLISTIQ Supabase, media registry, Stream, R2/CDN, and student data.",
+        "",
+        "Hard gates: no source inventory without privacy ownership and authorization; no medical approval without a verified physician assignment; no student release without exact-revision physician approval; no consumer cutover without sealed-pack, rollback, and canary proof.",
+        "",
+        "Repository: /Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000",
+        "",
+        "Candidate application: i1q-question-platform/",
+        "",
+        "Handoff: _AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD/I1Q_1006_COMBINED_HANDOFF.md"
+      ]
+    }
+  ],
+  "governance_slots": {
+    "medical_governance_lead": null,
+    "editorial_lead": null,
+    "taxonomy_owner": null,
+    "misconception_vocabulary_owner": null,
+    "release_manager": null,
+    "incident_owner": null,
+    "privacy_owner": null,
+    "assessment_science_owner": null
+  },
+  "validation": {
+    "mission_id_unique_required": true,
+    "product_name_unique_required": true,
+    "append_only_required": true,
+    "backup_before_apply_required": true,
+    "current_regeneration_required": true,
+    "post_apply_boot_validation_required": true
+  },
+  "open_policy_choices": [
+    {
+      "question": "Should the mission ID use I1Q-1006 or an MM-prefixed ID?",
+      "proposed_default": "I1Q-1006 to match the ticket and established project prompts."
+    },
+    {
+      "question": "Should the product slug be question-platform or stat-questions?",
+      "proposed_default": "question-platform because the pool serves multiple consumers."
+    },
+    {
+      "question": "Who is the independent verifier?",
+      "proposed_default": "Remain null until Brian assigns a person or separate verification thread."
+    }
+  ]
+}
