@@ -141,16 +141,16 @@
       {"question": "Are the evening times final?", "answer": "No exact evening clock time is published yet. Use only the approved schedule supplied with your enrollment."},
       {"question": "Is September the last training opportunity?", "answer": "No. The next foundational training is anticipated around November 8, 2026."},
       {"question": "Do you guarantee a Match?", "answer": "No. No coach can guarantee a Match. Mission Residency provides preparation, practice, feedback, and strategy."},
-      {"question": "How can I pay?", "answer": "The currently verified public checkout for these offers is card only. Any other payment option remains unavailable unless MissionMed separately confirms it."}
+      {"question": "How can I pay?", "answer": "Interview Week is $549 by card or $499 by Zelle; choose Zelle at checkout. A Zelle order stays on hold, and course access opens once MissionMed confirms receipt of your payment. Complete checkout is by card."}
     ]
   },
   "schedule": [
     {"date": "Thu Sep 24", "label": "Orientation + Match Primer", "time": "Evening"},
-    {"date": "Sat Sep 26", "label": "Day 1", "time": "11 AM-4 PM ET"},
-    {"date": "Sun Sep 27", "label": "Day 2", "time": "11 AM-4 PM ET"},
-    {"date": "Tue Sep 29", "label": "Day 3", "time": "Evening"},
-    {"date": "Thu Oct 1", "label": "Day 4", "time": "Evening"},
-    {"date": "Sat Oct 3", "label": "Day 5", "time": "11 AM-4 PM ET"}
+    {"date": "Sun Sep 27", "label": "Day 1", "time": "11 AM-4 PM ET"},
+    {"date": "Tue Sep 29", "label": "Day 2", "time": "Evening"},
+    {"date": "Thu Oct 1", "label": "Day 3", "time": "Evening"},
+    {"date": "Sat Oct 3", "label": "Day 4", "time": "11 AM-4 PM ET"},
+    {"date": "Sun Oct 4", "label": "Day 5", "time": "Full day"}
   ],
   "curriculum": [
     "Communication & Delivery",
