@@ -88,7 +88,7 @@ function mm_mr_0912_base64url_decode(string $value): string {
 }
 
 function mm_mr_0912_private_resume_token(string $relativeUrl, string $offer): string {
-    if (!in_array($offer, ['interview_week', 'complete'], true) || !str_starts_with($relativeUrl, '/')) return '';
+    if (!in_array($offer, ['interview_week', 'complete', 'complete_installment'], true) || !str_starts_with($relativeUrl, '/')) return '';
     $payload = mm_mr_0912_base64url_encode((string) wp_json_encode([
         'url' => $relativeUrl,
         'offer' => $offer,
@@ -104,7 +104,7 @@ function mm_mr_0912_private_resume_from_token(string $token): ?array {
     }
     $payload = json_decode(mm_mr_0912_base64url_decode($parts[0]), true);
     if (!is_array($payload)
-        || !in_array(($payload['offer'] ?? ''), ['interview_week', 'complete'], true)
+        || !in_array(($payload['offer'] ?? ''), ['interview_week', 'complete', 'complete_installment'], true)
         || (int) ($payload['expires'] ?? 0) !== mm_mr_0912_private_open_timestamp()
         || !is_string($payload['url'] ?? null)
         || !str_starts_with($payload['url'], '/')
@@ -129,7 +129,7 @@ function mm_mr_p0_launch_product_in_cart(): bool {
     foreach (WC()->cart->get_cart() as $item) {
         $productId = (int) ($item['product_id'] ?? 0);
         $variationId = (int) ($item['variation_id'] ?? 0);
-        if (in_array($productId, [3576, 5504], true) || in_array($variationId, [5865, 5867], true)) {
+        if (in_array($productId, [3576, 5504, 5513], true) || in_array($variationId, [5865, 5867, 5873], true)) {
             return true;
         }
     }
@@ -329,6 +329,53 @@ function mm_mr_p0_runtime_config(): array {
             'checkout_candidate_url' => $checkoutUrl,
         ];
     }
+    // Installment enrichment: tied to Complete PIF acceptance (same founder authorization).
+    $installmentIdentity = [
+        'product_id' => 5513,
+        'variation_id' => 5873,
+        'course_id' => 5227,
+        'expected_recurring' => 399.84,
+        'expected_signup_fee' => 1000.0,
+    ];
+    $installmentProduct = function_exists('wc_get_product') ? wc_get_product($installmentIdentity['variation_id']) : null;
+    if ($installmentProduct && isset($config['offers']['complete_installment'])) {
+        $relatedCourses = array_values(array_unique(array_map('intval', (array) get_post_meta($installmentIdentity['variation_id'], '_related_course', true))));
+        sort($relatedCourses, SORT_NUMERIC);
+        $recurringPrice = (float) $installmentProduct->get_price();
+        $signupFee = (float) get_post_meta($installmentIdentity['variation_id'], '_subscription_sign_up_fee', true);
+        $mapped = $relatedCourses === [$installmentIdentity['course_id']];
+        $parentVerified = method_exists($installmentProduct, 'get_parent_id')
+            && (int) $installmentProduct->get_parent_id() === $installmentIdentity['product_id'];
+        $soldIndividually = $installmentProduct->is_sold_individually();
+        $installmentEligible = $installmentProduct->is_purchasable() && $installmentProduct->is_in_stock()
+            && abs($recurringPrice - $installmentIdentity['expected_recurring']) < 0.01
+            && abs($signupFee - $installmentIdentity['expected_signup_fee']) < 0.01
+            && $mapped && $parentVerified && $soldIndividually;
+        $installmentCheckoutUrl = add_query_arg([
+            'add-to-cart' => $installmentIdentity['product_id'],
+            'variation_id' => $installmentIdentity['variation_id'],
+            'attribute_pa_start-date' => 'session-d-start-date',
+        ], wc_get_checkout_url());
+        $config['offers']['complete_installment']['runtime'] = [
+            'woo_product_id' => $installmentIdentity['product_id'],
+            'woo_variation_id' => $installmentIdentity['variation_id'],
+            'woo_price' => $recurringPrice,
+            'woo_signup_fee' => $signupFee,
+            'learndash_course_id' => $installmentIdentity['course_id'],
+            'related_course_ids' => $relatedCourses,
+            'mapping_verified' => $mapped,
+            'parent_verified' => $parentVerified,
+            'sold_individually' => $soldIndividually,
+            'product_eligible' => $installmentEligible,
+            'checkout_allowed' => false,
+            'checkout_url' => null,
+            'checkout_candidate_url' => $installmentCheckoutUrl,
+            'subscription' => true,
+            'installment_count' => 6,
+            'contractual_total' => round($signupFee + $recurringPrice * 6, 2),
+        ];
+    }
+
     // The prior campaign's acceptance must never activate this campaign. The
     // new timestamp is bound to exact product, variation, price, course, and
     // mapping facts so a later price change also fails closed.
@@ -354,6 +401,14 @@ function mm_mr_p0_runtime_config(): array {
     }
     $config['campaign']['go_live_gate']['verified_live_at'] = $allAccepted ? 'per-offer' : null;
     $config['campaign']['go_live_gate']['verified_by'] = $allAccepted ? 'MR-WEB-0912 DR-296 Founder waiver plus non-financial production acceptance' : null;
+    // Installment checkout activates when Complete PIF is accepted and installment product is eligible.
+    if (!empty($config['offers']['complete']['runtime']['checkout_allowed'])
+        && !empty($config['offers']['complete_installment']['runtime']['product_eligible'])) {
+        $config['offers']['complete_installment']['runtime']['checkout_allowed'] = true;
+        $config['offers']['complete_installment']['runtime']['checkout_url'] = $config['offers']['complete_installment']['runtime']['checkout_candidate_url'];
+    }
+    unset($config['offers']['complete_installment']['runtime']['checkout_candidate_url']);
+
     $config['campaign']['go_live_gate']['financial_acceptance'] = [
         'status' => mm_mr_0912_founder_waiver_valid() ? 'waived_by_founder_not_executed' : 'not_executed',
         'authority' => mm_mr_0912_founder_waiver_valid() ? MM_MR_0912_FINANCIAL_WAIVER_AUTHORITY : null,
@@ -418,7 +473,8 @@ function mm_mr_p0_runtime_config(): array {
 function mm_mr_0912_offer_for_product(int $productId, int $variationId = 0): ?string {
     if ($productId === 5504 && $variationId === 5867) return 'interview_week';
     if ($productId === 3576 && $variationId === 5865) return 'complete';
-    if (in_array($productId, [5504, 3576], true) || in_array($variationId, [5867, 5865], true)) {
+    if ($productId === 5513 && $variationId === 5873) return 'complete_installment';
+    if (in_array($productId, [5504, 3576, 5513], true) || in_array($variationId, [5867, 5865, 5873], true)) {
         return 'invalid';
     }
     return null;
@@ -430,6 +486,9 @@ function mm_mr_0912_private_offer_for_ids(int $productId, int $variationId = 0):
     }
     if (in_array($productId, [3576, 5865], true) || in_array($variationId, [3576, 5865], true)) {
         return 'complete';
+    }
+    if (in_array($productId, [5513, 5873], true) || in_array($variationId, [5513, 5873], true)) {
+        return 'complete_installment';
     }
     return null;
 }
@@ -541,10 +600,13 @@ function mm_mr_0912_validate_add_to_cart(
         if (function_exists('wc_add_notice')) wc_add_notice('Enrollment is not yet verified for checkout.', 'error');
         return false;
     }
-    $otherOffer = $offerKey === 'complete' ? 'interview_week' : 'complete';
-    if (in_array($otherOffer, mm_mr_0912_cart_offer_keys(), true)) {
-        if (function_exists('wc_add_notice')) wc_add_notice('Choose either Interview Week or IV Prep Complete; Complete already includes Interview Week.', 'error');
-        return false;
+    $cartKeys = mm_mr_0912_cart_offer_keys();
+    $conflicts = array_values(array_diff(['interview_week', 'complete', 'complete_installment'], [$offerKey]));
+    foreach ($conflicts as $conflict) {
+        if (in_array($conflict, $cartKeys, true)) {
+            if (function_exists('wc_add_notice')) wc_add_notice('Choose either Interview Week or IV Prep Complete; Complete already includes Interview Week.', 'error');
+            return false;
+        }
     }
     return true;
 }
@@ -668,7 +730,7 @@ add_filter('woocommerce_bacs_process_payment_order_status', static function (str
 add_filter('woocommerce_cart_crosssell_ids', static function (array $ids): array {
     if (!mm_mr_p0_enabled() || !function_exists('WC') || !WC()->cart) return $ids;
     foreach (WC()->cart->get_cart() as $item) {
-        if ((int) ($item['product_id'] ?? 0) === 3576) {
+        if (in_array((int) ($item['product_id'] ?? 0), [3576, 5513], true)) {
             return array_values(array_diff($ids, [5504, 5867]));
         }
     }
@@ -766,7 +828,7 @@ add_action('rest_api_init', static function (): void {
         'permission_callback' => '__return_true',
         'callback' => static function (WP_REST_Request $request) {
             $offer = sanitize_key((string) $request->get_param('offer'));
-            if (!in_array($offer, ['interview_week', 'complete'], true)) $offer = '';
+            if (!in_array($offer, ['interview_week', 'complete', 'complete_installment'], true)) $offer = '';
             $token = sanitize_text_field((string) $request->get_param('resume_token'));
             $resume = $token !== '' ? mm_mr_0912_private_resume_from_token($token) : null;
             if ($token !== '' && $resume === null) {
@@ -977,7 +1039,7 @@ function mm_mr_0914_post_enrollment_expectations(int $orderId): void {
             (int) $item->get_product_id(),
             method_exists($item, 'get_variation_id') ? (int) $item->get_variation_id() : 0
         );
-        if (in_array($offer, ['interview_week', 'complete'], true)) $offers[$offer] = true;
+        if (in_array($offer, ['interview_week', 'complete', 'complete_installment'], true)) $offers[$offer] = true;
     }
     if (!$offers) return;
     $confirmed = method_exists($order, 'is_paid') && $order->is_paid();
@@ -986,7 +1048,7 @@ function mm_mr_0914_post_enrollment_expectations(int $orderId): void {
         . '</h2><ol><li>Keep this order confirmation for your records.</li>'
         . '<li>Use the same MissionMed account in <a href="' . esc_url(wc_get_page_permalink('myaccount')) . '">My Account</a> and My Courses.</li>'
         . '<li>Your enrollment confirmation provides the approved schedule, placement, and Signature Mock details for your program.</li>';
-    if (isset($offers['complete'])) {
+    if (isset($offers['complete']) || isset($offers['complete_installment'])) {
         echo '<li>IV Prep Complete includes Interview Week. There is no separate Interview Week charge.</li>';
     }
     echo '<li>If confirmed access does not appear as expected, <a href="' . esc_url(home_url('/contact/')) . '">contact Admissions</a>.</li>'
