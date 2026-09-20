@@ -59,3 +59,45 @@ export function projectContextResults(result = {}) {
   });
 }
 
+const evidenceRefs = (row = {}) => Object.freeze([...(Array.isArray(row.refs) ? row.refs : [])]
+  .map((item) => boundedText(String(item?.ref || '').split('#').at(-1), 96))
+  .filter(Boolean).slice(0, 8));
+
+export function contextResultFromSessionSpine(session = {}) {
+  const spine = session?.spine || {};
+  const turns = (Array.isArray(spine.turns) ? spine.turns : [])
+    .filter((turn) => turn?.speaker === 'student' && turn?.transcript?.canonical_ref && boundedText(turn?.transcript?.text));
+  if (!turns.length) return Object.freeze({ transcript: Object.freeze({ status: 'UNAVAILABLE', reason: 'NO_PERSISTED_TRANSCRIPT' }) });
+  const evidence = Array.isArray(spine.evidence) ? spine.evidence : [];
+  const semanticObservations = evidence
+    .filter((row) => ['semantic.supported_claim', 'semantic.answer_structure'].includes(row?.dimension))
+    .map((row) => Object.freeze({
+      kind: row.dimension === 'semantic.answer_structure' ? 'ANSWER_STRUCTURE' : 'SUPPORTED_CLAIM',
+      text: boundedText(row?.interpretation?.text),
+      transcriptSegmentIds: evidenceRefs(row),
+    })).filter((item) => item.text && item.transcriptSegmentIds.length);
+  const coachingPatterns = evidence
+    .filter((row) => row?.dimension === 'semantic.coaching_pattern')
+    .map((row) => Object.freeze({
+      facet: boundedText(row?.interpretation?.facet, 40).toLowerCase(),
+      polarity: boundedText(row?.interpretation?.polarity, 40).toLowerCase(),
+      text: boundedText(row?.interpretation?.text),
+      transcriptSegmentIds: evidenceRefs(row),
+    })).filter((item) => item.text && item.transcriptSegmentIds.length);
+  const scored = evidence.map((row) => Number(row?.score?.value)).filter(Number.isFinite);
+  const covered = evidence.map((row) => Number(row?.confidence)).filter(Number.isFinite);
+  const limitations = [...new Set(evidence.flatMap((row) => Array.isArray(row?.limitations) ? row.limitations : [])
+    .map((item) => boundedText(item, 240)).filter(Boolean))].slice(0, 8);
+  return Object.freeze({
+    transcript: Object.freeze({ status: 'AVAILABLE', text: turns.map((turn) => boundedText(turn.transcript.text)).join(' ') }),
+    analysis: Object.freeze({
+      status: semanticObservations.length || coachingPatterns.length ? 'AVAILABLE' : 'UNAVAILABLE',
+      semanticObservations: Object.freeze(semanticObservations),
+      coachingPatterns: Object.freeze(coachingPatterns),
+      score: scored.length ? Math.min(...scored) : 0,
+      coverage: covered.length ? Math.min(...covered) : 0,
+      limitations: Object.freeze(limitations),
+    }),
+    persistence: Object.freeze({ transcript: true }),
+  });
+}

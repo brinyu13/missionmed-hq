@@ -26,7 +26,7 @@ import { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mj
 import { createLiveContext } from './live-context-adapter.mjs';
 import { AdminStudentLibraryCapability } from '../capabilities/admin-student-library.mjs';
 import { InterviewCalendarCapability } from '../capabilities/calendar-context.mjs';
-import { projectContextResults } from '../capabilities/context-results.mjs';
+import { contextResultFromSessionSpine, projectContextResults } from '../capabilities/context-results.mjs';
 import { LiveMockStudioCapability } from '../capabilities/live-mock-studio.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -401,6 +401,7 @@ async function openAdminStudentSession(session, destination, action) {
     state.filmGroups?.ingestResult(analytics || {});
     if (destination === 'postanswer') {
       renderPostAnswer(analytics);
+      renderContextEvidence(contextResultFromSessionSpine(detail));
       setView('postanswer');
       return;
     }
