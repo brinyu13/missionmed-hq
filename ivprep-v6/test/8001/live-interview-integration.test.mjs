@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { LiveInterviewSession } from '../../public/studio/live-interview.mjs';
+import { LiveInterviewSession } from '../../public/capabilities/live-interview.mjs';
 
 class FakeDataChannel {
   readyState = 'open';

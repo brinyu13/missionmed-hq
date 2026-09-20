@@ -6,10 +6,12 @@ import test from 'node:test';
 const htmlUrl = new URL('../../public/studio/index.html', import.meta.url);
 const cssUrl = new URL('../../public/studio/studio.css', import.meta.url);
 const runtimeUrl = new URL('../../public/studio/studio.mjs', import.meta.url);
+const liveCompatibilityUrl = new URL('../../public/studio/live-interview.mjs', import.meta.url);
 
 const html = await readFile(htmlUrl, 'utf8');
 const css = await readFile(cssUrl, 'utf8');
 const runtime = await readFile(runtimeUrl, 'utf8');
+const liveCompatibility = await readFile(liveCompatibilityUrl, 'utf8');
 
 const digest = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -64,6 +66,13 @@ test('presentation integration preserves the proven analytics and media contract
   assert.match(runtime, /state\.durable\.analyze/u);
   assert.match(html, /id="context-analyze"/u);
   assert.match(html, /Available transcript and evidence-cited analysis are saved privately/u);
+});
+
+test('GPT-Live remains behind a presentation-neutral capability adapter', () => {
+  assert.match(liveCompatibility, /\.\.\/capabilities\/live-interview\.mjs/u);
+  assert.match(runtime, /new LiveInterviewSession\(/u);
+  assert.match(runtime, /createSession: createLiveInterview/u);
+  assert.match(runtime, /endSession: endLiveInterview/u);
 });
 
 test('role view controls are bounded by the authenticated MissionMed identity', () => {
