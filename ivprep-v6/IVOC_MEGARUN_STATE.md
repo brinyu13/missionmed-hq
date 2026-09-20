@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 10:58 America/New_York
+Updated: 2026-09-20 11:37 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `cc96b5de-ce91-43ec-9b47-bf86d4cceaba`, exact commit
-  `5a76d861290d5d6453cfbccde3be7d3b4f07d0d7`, image
-  `sha256:bd43e5670b0f1c554f4e3595e377cb8c923c8cac8b49cb619fc3139acfcded80`.
+  `892a005d-401c-495f-8f41-4a40d2f69c76`, exact commit
+  `16b3284adea43ff4bfe320f1d71544710856b631`, image
+  `sha256:100645b9f4b3a65a0dbd1f842b82e6693f2cb7579809e7e5d19eaad0ba146a46`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -48,9 +48,10 @@ the actual production route and deployment.
 - Application Intelligence pure domain core:
   `8b52db79fab6cfc50c94624ca08656d0c9cf22a9`; 47/47 focused tests and
   10/10 F1 regression tests pass. Server-only Context Pack persistence and
-  ready-check receipt hydration are production-deployed at
-  `5a76d861290d5d6453cfbccde3be7d3b4f07d0d7`; owner projections, runtime
-  Director relay and authenticated live-session acceptance remain.
+  ready-check receipt hydration are production-deployed. The bounded Actor
+  block is resolved server-side and injected into GPT-Live at
+  `16b3284adea43ff4bfe320f1d71544710856b631`; it and the private receipt never
+  cross the browser boundary. Owner projections remain.
 
 ## Production data authority — LIVE VERIFIED
 
@@ -59,21 +60,25 @@ the actual production route and deployment.
 - MissionMed organization: `jolimsgwkmssvhegrdfx`.
 - Region: `us-east-2`.
 - Provider status: `ACTIVE_HEALTHY`.
-- Eight production migrations are present:
+- Nine production migrations are present:
   `ivprep_3440_admin_canary`,
   `ivprep_3472c_t1_three_test_lifecycle`,
   `ivoc_3528c_session_recording_results`,
   `ivoc_m1_event_spine`,
   `ivoc_access_log_recording_index`, and
   `ivoc_production_privilege_hardening`,
-  `ivoc_question_governance`, and
-  `ivoc_application_intelligence_context_packs`.
+  `ivoc_question_governance`,
+  `ivoc_application_intelligence_context_packs`, and
+  `ivoc_question_governance_fail_fast`.
 - Provider readback after the hardening migration:
   17/17 IVOC/IV Prep tables have RLS enabled and forced; browser/public table
   grants = 0; excess `service_role` grants
   (`DELETE`/`TRUNCATE`/`TRIGGER`/`REFERENCES`) = 0; the composite
   reservation foreign-key covering index is present.
-- All user/session/media tables are empty. The single
+- Bounded acceptance rows now exist: all GPT-Live canary sessions are
+  abandoned, and one clearly labeled retired Admin-governance canary preserves
+  four immutable versions. No production recording/media was created by these
+  canaries. The single
   `ivprep_provider_control` row remains fail-closed:
   `paid_tests_enabled=false`, `kill_switch_tripped=true`.
 - Security advisor reports only the expected informational
@@ -107,7 +112,7 @@ the actual production route and deployment.
 | 9 | Current supported realtime transport and contextual InterviewBrain | LIVE VERIFIED | Production `gpt-live-1` WebRTC canary created twice through the authenticated IVOC broker, reached `session.started`, exchanged native audio/transcript events, and ended with provider hangup HTTP 200. |
 | 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE VERIFIED | Production canary retained the discharge/teach-back detail across turns, asked evidence-grounded follow-ups, honored “move to the next question,” and visibly truncated “That gives me a—” on barge-in before continuing. |
 | 9 | Pool/context weighting, clean teardown, single audio authority | LIVE UNVERIFIED | Selected CORE-01 reached the room and both canaries received authoritative provider hangup; exact pool-weighting behavior and explicit single-audio telemetry remain. |
-| 10 | Server-owned Application Intelligence Context Pack hydration | LIVE UNVERIFIED | Production migration and runtime are live at `5a76d86`: every new canonical session builds a bounded fail-closed pack, persists its private Actor block under forced RLS, and pins only the server-owned `ctxpack:` receipt. Focused route/domain tests pass 21/21 and donor plus F1 regression tests pass 57/57. A genuine authenticated production session receipt readback remains. |
+| 10 | Server-owned Application Intelligence Context Pack hydration | LIVE VERIFIED | Genuine `brinyu` production session `1b973235-de3b-4d2c-a39a-c51e49df38e8` persisted one owner-bound private pack and `ctxpack:` receipt. Two authenticated `gpt-live-1` WebRTC canaries resolved that same server-only contract, reached live audio/transcript exchange and clean teardown; neither Actor block nor receipt crossed the browser boundary. |
 | 10 | File Vault context/performance-reference seam | EXTERNAL DEPENDENCY | Current owner source is `J1-FILEVAULT-1019`; its live `/wp-json/mmed/v2/file-vault/bootstrap` contract requires same-origin WordPress cookie + `X-WP-Nonce` and rejects authorization-header/cross-origin use. IVOC fails closed with disabled “Not connected” cards. A consented server projection must be opened through File Vault owner authority; IVOC must not weaken or mutate the owner contract. |
 | 10 | StoryForge opt-in story/theme and performance evidence | LIVE UNVERIFIED | IVOC source seam exists; live sibling-owner projection remains. |
 | 10 | RISE sourced/fresh program context | NOT STARTED | Exact live owner contract and freshness receipt still required. |
@@ -121,7 +126,7 @@ the actual production route and deployment.
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE UNVERIFIED | Role-aware source exists; live actor/subject separation proof remains. |
 | 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Partial source surfaces exist; full production Admin acceptance remains. |
 | 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | NOT STARTED | Full Admin ledger surface is incomplete. |
-| 14 | Versioned question governance | LIVE UNVERIFIED | Add/edit/hide/retire source, immutable IDs/history and the dedicated production migration are live at `d65dfaa`; provider tables exist and are empty. A genuine authenticated Admin lifecycle canary remains. |
+| 14 | Versioned question governance | LIVE VERIFIED | Genuine `brinyu` production canary `CANARY-ADMIN-20260920-E92A09` completed active v1 → edited v2 → hidden v3 → retired v4 with immutable `wp:1` actor-stamped history. Stale version and retired-reactivation writes fail fast at HTTP 409; the retry-class SQLSTATE defect found during the canary was corrected by `ivoc_question_governance_fail_fast`. |
 | 14 | Credits, allowances, overrides, reset and balance | NOT STARTED | Production accounting/control model remains. |
 | 14 | Versioned Analytics/InterviewBrain/coaching controls | NOT STARTED | Production Admin configuration/version receipt remains. |
 | 15 | Live Mock Studio Hot Seat workflow and real student media | NOT STARTED | Product surface and production workflow remain. |
@@ -141,8 +146,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `cc96b5de-ce91-43ec-9b47-bf86d4cceaba` from exact product commit
-  `5a76d861290d5d6453cfbccde3be7d3b4f07d0d7`; `/health` is HTTP 200, the
+  `892a005d-401c-495f-8f41-4a40d2f69c76` from exact product commit
+  `16b3284adea43ff4bfe320f1d71544710856b631`; `/health` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -159,9 +164,10 @@ the actual production route and deployment.
 - Application Intelligence contracts, provenance, signals, Context Pack and
   Director arbitration are integrated. Production now builds and persists a
   server-only Context Pack during session creation, preserves its receipt
-  across Spine/context writes, and never returns the full pack or Actor block
-  to the browser. Owner contracts, authenticated live-session readback and the
-  server-side Director/Actor relay remain explicit gates.
+  across Spine/context writes, never returns the full pack or Actor block to
+  the browser, and resolves the bounded Actor block directly into the trusted
+  GPT-Live startup path. Genuine authenticated session/readback and live native
+  audio acceptance passed; owner projections remain explicit gates.
 - Root runtime dependency audit previously reported zero vulnerabilities. Default
   branch repository-security advisories remain separate security-owner work until
   re-triaged against the production commit.
@@ -180,20 +186,13 @@ the actual production route and deployment.
 
 ## Next execution lanes
 
-1. Run the genuine authenticated Admin question-governance lifecycle canary
-   when a browser session can reach the production domain; the current Chrome
-   profile returns client-side `ERR_BLOCKED_BY_CLIENT`, so no identity or
-   result was manufactured.
-2. Complete Application Intelligence runtime wiring with authenticated
-   production receipt readback and the bounded server-side Director hint relay,
-   without coupling it to Astra page composition.
-3. Resolve owner projection contracts in dependency order: File Vault/CV,
+1. Resolve owner projection contracts in dependency order: File Vault/CV,
    StoryForge, RISE, then MCC/Top 3; keep unavailable sources fail-closed.
-4. Run authenticated second-Admin, entitled-360 and negative-role/private-media
+2. Run authenticated second-Admin, entitled-360 and negative-role/private-media
    canaries when genuine sessions are available; never manufacture identities.
-5. Exercise a real multi-turn follow-up/gap range and a transcript that produces
+3. Exercise a real multi-turn follow-up/gap range and a transcript that produces
    supported semantic evidence, without fabricating either result.
-6. Complete Admin Analytics/AI controls and credit accounting, then run fresh
+4. Complete Admin Analytics/AI controls and credit accounting, then run fresh
    independent acceptance against the actual production route.
-7. Create `IVOC_MEGARUN_FINAL_HANDOFF.md`, release every lease, and stop only
+5. Create `IVOC_MEGARUN_FINAL_HANDOFF.md`, release every lease, and stop only
    at `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`.
