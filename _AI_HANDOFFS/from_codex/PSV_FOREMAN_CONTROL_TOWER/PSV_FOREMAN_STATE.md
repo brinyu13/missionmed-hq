@@ -1,6 +1,6 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-20T22:43:27Z
+Updated: 2026-09-20T23:18:00Z
 
 ## Product and outcome
 
@@ -20,7 +20,7 @@ Updated: 2026-09-20T22:43:27Z
 - Upstream at initialization: `origin/main` at the same base HEAD
 - Preserved dirty state: untracked `_AI_HANDOFFS/from_fable/` package only
 - Git index lock: absent
-- Workers: independent M2 production verifier passed exact commit `981f0d16fc091abb4f54132c15c917c640021c34` against live v0.2.1. The first M3 verifier correctly failed commit `fa41f382a284c171735ef8b93ee6ef9cd1b6d84d`; the second independently failed `8647f2557b65a5a1a592ddefbd8af97600aba83f` on a stale-counter race, LSH false-clear, similarity fail-open paths and unchecked item transitions. Each finding is now narrowly repaired with independent-process concurrency and commit-failure recovery coverage. Astra 6 completed the required read-only presentation review; Codex implemented its bounded reconciliation without changing contracts or authority boundaries.
+- Workers: independent M2 production verifier passed exact commit `981f0d16fc091abb4f54132c15c917c640021c34` against live v0.2.1. The first M3 verifier correctly failed commit `fa41f382a284c171735ef8b93ee6ef9cd1b6d84d`; the second independently failed `8647f2557b65a5a1a592ddefbd8af97600aba83f` on a stale-counter race, LSH false-clear, similarity fail-open paths and unchecked item transitions; the third rejected `a7807bfb44c1df5299d682fd7335fc54ea8377ac` solely because one host-suffix helper was PHP 8+ despite the PHP 7.4 compatibility contract. The helper is now expressed with PHP 7.4-compatible `substr_compare`; all prior hardening remains intact. Astra 6 completed the required read-only presentation review; Codex implemented its bounded reconciliation without changing contracts or authority boundaries.
 
 ## Authority and continuity
 
@@ -128,3 +128,4 @@ Updated: 2026-09-20T22:43:27Z
 - 2026-09-20T22:43:27Z — Astra 6 completed its required read-only Presentation Director review. Codex fixed grid rhythm, progress colors, candidate overflow, phone header/navigation, current-step semantics, persistent save/research states, task-first hierarchy and user-facing copy. Final local gates: API 123/123, UX 36/36, all M2-M5 contract/runtime suites green, validator scenarios green, PHP/JS/JSON lint green. Production remains sealed M2 v0.2.1 and unmodified by M3-M5.
 - 2026-09-20T23:00:00Z — Independent verification of exact commit `8647f2557b65a5a1a592ddefbd8af97600aba83f` returned FAIL on four P1s: stale recovery could overwrite a concurrent slot count, four-value LSH bands could miss an above-threshold match, similarity reads/backfill could fail open, and several item/counter transitions ignored persistence results. It also identified self-asserted research source authority and salt-rotation/test-depth P2s. No production action was taken.
 - 2026-09-20T23:10:00Z — Foreman repair pass completed locally. Claim+slot and completion+release are transactional; stale recovery decrements only recovered leases; all transition/refresh writes fail closed; independent PHP processes prove the two-worker ceiling; injected commit failure proves stale-slot recovery and provider idempotency. Similarity now has complete per-position retrieval, no candidate truncation, exhaustive bounded backfill, fail-closed reads, and salt-keyed re-hydration. Research authority is host-bound to the current RISE official domain or acgme.org. Gates: M3 29/29+8/8, M4 14/14+9/9, M5 16/16+7/7, API 126/126, UX 36/36. Production remains sealed M2 v0.2.1 and unmodified.
+- 2026-09-20T23:18:00Z — Exact-commit verifier rejected `a7807bfb44c1df5299d682fd7335fc54ea8377ac` for one PHP 7.4 compatibility defect (`str_ends_with`); every other exact-object gate passed (contracts/runtimes 119/119, API 126/126, UI 36/36). Foreman replaced it with equivalent PHP 7.4-compatible suffix checks before any production action.

@@ -37,7 +37,11 @@ class MMPS_Research {
 		$left  = strtolower( trim( (string) $left, ". \t\n\r\0\x0B" ) );
 		$right = strtolower( trim( (string) $right, ". \t\n\r\0\x0B" ) );
 		if ( '' === $left || '' === $right ) { return false; }
-		return $left === $right || str_ends_with( $left, '.' . $right ) || str_ends_with( $right, '.' . $left );
+		$left_parent  = '.' . $right;
+		$right_parent = '.' . $left;
+		return $left === $right
+			|| ( strlen( $left ) > strlen( $left_parent ) && 0 === substr_compare( $left, $left_parent, -strlen( $left_parent ) ) )
+			|| ( strlen( $right ) > strlen( $right_parent ) && 0 === substr_compare( $right, $right_parent, -strlen( $right_parent ) ) );
 	}
 
 	/** A source label is accepted only when RISE identity can substantiate its host. */
