@@ -1922,13 +1922,17 @@ async function renderCompare() {
   }
 }
 
+let vaultRenderId = 0;
+
 async function renderVault() {
   const host = $('#vault-body');
   if (!host) return;
+  const renderId = ++vaultRenderId;
   host.replaceChildren();
   try {
     if (!state.durableAvailable) throw state.durableError || new Error('durable_session_unavailable');
     const vault = await state.durable.library('own');
+    if (renderId !== vaultRenderId || state.view !== 'vault') return;
     const sessions = Array.isArray(vault?.sessions) ? vault.sessions : [];
     state.longitudinal = buildLongitudinalModel(sessions);
     if (!sessions.length) {
@@ -2050,6 +2054,7 @@ async function renderVault() {
     host.append(toolbar, rows);
     paint();
   } catch (error) {
+    if (renderId !== vaultRenderId || state.view !== 'vault') return;
     const note = document.createElement('p');
     note.className = 'unavailable';
     note.textContent = `ANSWER HISTORY UNAVAILABLE — ${String(error?.message || 'SESSION REQUIRED').toUpperCase().slice(0, 120)}`;

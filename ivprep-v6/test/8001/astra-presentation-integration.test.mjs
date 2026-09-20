@@ -86,6 +86,7 @@ test('Answer History exposes question and evidence filters without inventing sem
   assert.match(runtime, /Supported semantic evidence/u);
   assert.match(runtime, /supportedObservationCount/u);
   assert.match(runtime, /Transcript · no supported semantic observations/u);
+  assert.match(runtime, /renderId !== vaultRenderId \|\| state\.view !== 'vault'/u);
 });
 
 test('the product document has unique element ids', () => {
