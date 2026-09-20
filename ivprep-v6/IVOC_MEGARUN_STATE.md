@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 14:04 America/New_York
+Updated: 2026-09-20 14:47 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,16 +26,15 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `1db116d8-afe0-41d7-8713-324a021bd2c6`, exact commit
-  `331b049318e17fd0d5e823ae3fbba8033f90e1ce`, image
-  `sha256:4366d334f3af81e5ed206984672151ff82da66e50042fbed8c41a68be96287c3`.
+  `61908224-a5b6-47e6-a433-b4063f7c911c`, exact commit
+  `cfdf74202b69cfac1f6634a157fd291a698f202b`, image
+  `sha256:6a33a0d6c4a80a29e5e0a09c70c9fdce156847af804dad55d42f4d96cc8f490d`.
 - Admin operational-control presentation: `268cd4be2265e7cd1ee6b05247ab5e148312a260`.
   The existing candidate.2 Mentor & Admin surface now consumes the versioned
   Admin-config, authenticated credit-account and governed-question adapters,
   while showing Match Bridge, Live Mock, owner-projection and LemonSlice states
-  without inventing availability. The Admin-only boundary passed focused tests
-  and local browser acceptance; authenticated production visual traversal is
-  still required before the row is promoted to LIVE VERIFIED.
+  without inventing availability. Authenticated production `wp:1` visual
+  traversal passed through the candidate.2 Admin surface.
   Protected custody was forward-reconciled without history rewrite as
   `aa425b6` → `3f4d9bd` under confirmed product lease epoch `3191`; the final
   product bytes and focused-test result are identical to the accepted source.
@@ -46,6 +45,14 @@ the actual production route and deployment.
   shows one toolbar, filters 14 owner-bound answers to the one transcript-backed
   answer, and truthfully reports zero supported semantic observations rather
   than inventing evidence.
+- Live Mock Studio owner adapter: `c9b88701ca29e63b7d2faac2bf3b243ddaf8b39b`.
+  The browser-native fetch receiver correction and honest owner-declared
+  recording-state mapping were forward-reconciled as `6049a9c` → `cfdf742`
+  under continuously confirmed product lease epoch `3206`, followed by exact
+  remote readback and normal release. Production `wp:1` lists 11 authorized
+  Webex appointments and the first readiness lookup truthfully reports
+  `RECORDING PROCESSING`; IVOC never receives or exposes a playback/download
+  URL in that state.
 - GPT-Live presentation boundary extraction: `feb19f06651c7d9da27d930cf5495b218f9625ab`.
   The proven browser WebRTC transport now lives in
   `public/capabilities/live-interview.mjs`; the active presentation imports that
@@ -170,13 +177,13 @@ the actual production route and deployment.
 | 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE VERIFIED | Authenticated production `wp:1` switched Student → Admin while retaining the same actor/subject identity; Admin-only navigation and diagnostics appeared without impersonating another user. |
 | 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Versioned Top 3 write/read/redaction and Context Pack binding are production accepted. Student selector and full production Admin traversal remain. |
-| 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE VERIFIED | Authenticated production `wp:1` visibly read policy v3, `ivoc.analytics.v1`, `gpt-live-1:marin`, follow-up intensity 1, credit account v11, governed catalog status, Match Bridge readiness, owner-projection requirements, deferred LemonSlice and honest `NOT CONNECTED` Live Mock state through the candidate.2 Admin surface. |
+| 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE VERIFIED | Authenticated production `wp:1` visibly read policy v3, `ivoc.analytics.v1`, `gpt-live-1:marin`, follow-up intensity 1, credit account v11, governed catalog status, Match Bridge readiness, owner-projection requirements, deferred LemonSlice and `SCHEDULER CONNECTED · 11 WEBEX` through the candidate.2 Admin surface. |
 | 14 | Versioned question governance | LIVE VERIFIED | Genuine `brinyu` production canary `CANARY-ADMIN-20260920-E92A09` completed active v1 → edited v2 → hidden v3 → retired v4 with immutable `wp:1` actor-stamped history. Stale version and retired-reactivation writes fail fast at HTTP 409; the retry-class SQLSTATE defect found during the canary was corrected by `ivoc_question_governance_fail_fast`. |
 | 14 | Credits, allowances, overrides, reset and balance | LIVE VERIFIED | Genuine `brinyu` production acceptance exercised allowance, override, atomic server-only consumption, idempotent replay, insufficient-balance denial, reset and zero-balance restoration. The authenticated Admin API advanced `wp:1` from v6 through v11, owner readback returned zero, and a stale write failed at HTTP 409. Eleven append-only events remain actor-stamped `wp:1`; browser clients cannot invoke consumption. |
 | 14 | Versioned Analytics/InterviewBrain/coaching controls | LIVE VERIFIED | Genuine `brinyu` production writes created bounded v2 and restored-baseline v3 with stale-write HTTP 409. Session `66a60fec-398f-413b-a74c-3d0d8d3168da` pinned Admin config v2, `ivoc.analytics.v1`, `gpt-live-1:marin`, AIS `2026-09-18.1`, and follow-up intensity 2; the active configuration is restored v3. |
-| 15 | Live Mock Studio Hot Seat workflow and real student media | NOT STARTED | Product surface and production workflow remain. |
+| 15 | Live Mock Studio Hot Seat workflow and real student media | LIVE UNVERIFIED | Production Admin now lists 11 authorized Webex appointments through the stable owner adapter and reads recording readiness without claiming sibling media. End-to-end supervised Hot Seat execution with real student media remains. |
 | 15 | Canonical recording/Analytics/replay/overlay/scoring/library save | LIVE VERIFIED | One production Student Coached Practice rep completed the full camera/mic → Analytics → private recording → Results → Film Room overlay → Answer History → reload → signed private playback lifecycle. Overlay toggles and hidden-measurement continuity passed; true eye-gaze remains unsupported absent a defensible detector. |
-| 15 | Deepest viable Webex or staged supervised adapter | NOT STARTED | Owner/provider constraint and shipped seam remain. |
+| 15 | Deepest viable Webex or staged supervised adapter | LIVE UNVERIFIED | The same-origin Scheduler/Webex adapter is deployed, authenticated and visibly lists owner appointments; the first production readiness check truthfully returned `RECORDING PROCESSING`. A completed owner recording with private playback pickup remains required for promotion. |
 | 16 | Per-question semantic Answer History | LIVE UNVERIFIED | Production now projects question-bound transcript/evidence summaries without raw interpretation leakage and supports question, transcript, supported-semantic and pending-evidence filters. Authenticated `wp:1` filtered 14 owner answers to the one transcript-backed CORE-01 answer; the supported-semantic filter honestly returned 0/14. A real answer that produces supported semantic evidence remains required before promotion. |
 | 16 | Match Bridge Ready promotion with consent/audience/revocation/version | LIVE VERIFIED | Genuine `brinyu` production lifecycle used saved session `4571e86c-3d99-4ba4-bf19-bee1f972a699`: private v1 playback returned 200, explicit bounded-clip consent plus `student`/`match_bridge` audience produced v2, stale mutation returned 409, and owner revocation produced v3 with empty audience and playback 404. |
 | 17 | Provider-neutral embodiment adapter and Brain/session separation | LIVE VERIFIED | Production Admin readback returns `missionmed.ivoc.embodiment.v1`: MissionMed InterviewBrain is the Director, providers are Actor-only, students select profiles rather than engines, and the adapter contract requires one audio authority plus generation/response identities. |
@@ -191,8 +198,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `1db116d8-afe0-41d7-8713-324a021bd2c6` from exact product commit
-  `331b049318e17fd0d5e823ae3fbba8033f90e1ce`; `/health/lor-studio` is HTTP 200, the
+  `61908224-a5b6-47e6-a433-b4063f7c911c` from exact product commit
+  `cfdf74202b69cfac1f6634a157fd291a698f202b`; `/health/lor-studio` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -239,7 +246,7 @@ the actual production route and deployment.
    canaries when genuine sessions are available; never manufacture identities.
 3. Exercise a real multi-turn follow-up/gap range and a transcript that produces
    supported semantic evidence, without fabricating either result.
-4. Complete Live Mock Studio / supervised adapter work without coupling it to
-   current page composition; keep unavailable provider capabilities fail closed.
+4. Exercise one completed owner-backed Webex mock through recording pickup and
+   private IVOC review; keep unavailable provider capabilities fail closed.
 5. Create `IVOC_MEGARUN_FINAL_HANDOFF.md`, release every lease, and stop only
    at `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`.
