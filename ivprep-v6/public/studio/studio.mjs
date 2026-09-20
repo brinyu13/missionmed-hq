@@ -1594,6 +1594,7 @@ function wireLiveInterview() {
       setLiveInterviewStatus({ state: 'error', detail: 'Live voice is not configured in this environment.' });
       return;
     }
+    let preparedForLive = false;
     try {
       bridge.primeAudioContext();
       if (!bridge.media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live')) {
@@ -1605,13 +1606,34 @@ function wireLiveInterview() {
       const selectedVoice = state.role === 'admin'
         ? ($('#admin-live-voice')?.value || 'marin')
         : 'marin';
-      await state.liveInterview.start({ audioTrack: track, voice: selectedVoice, context: liveInterviewContext() });
+      if (!state.durableAvailable) throw new Error('Secure account context is unavailable.');
+      preparedForLive = !state.durable.accountSession;
+      const prepared = await state.durable.prepare({
+        question: state.interviewSet[0] || null,
+        wizard: state.wizard,
+        targetQuestions: state.targetQuestions,
+        interviewerProvider: 'openai-gpt-live',
+      });
+      await state.liveInterview.start({
+        audioTrack: track,
+        voice: selectedVoice,
+        context: liveInterviewContext(),
+        ivocSessionId: prepared.id,
+      });
     } catch (error) {
+      if (preparedForLive && !state.durable.recorder) {
+        void state.durable.abandon({ reason: 'client_exit' }).catch(() => {});
+      }
       setLiveInterviewStatus({ state: 'error', detail: String(error?.message || error).slice(0, 180) });
     }
   });
   $('#live-interview-end')?.addEventListener('click', async () => {
-    try { await state.liveInterview.stop(); }
+    try {
+      await state.liveInterview.stop();
+      if (state.durable?.accountSession && !state.durable.recorder) {
+        await state.durable.abandon({ reason: 'client_exit' });
+      }
+    }
     catch (error) { setLiveInterviewStatus({ state: 'error', detail: `Cleanup unconfirmed: ${String(error?.message || error).slice(0, 120)}` }); }
   });
   window.addEventListener('pagehide', () => {

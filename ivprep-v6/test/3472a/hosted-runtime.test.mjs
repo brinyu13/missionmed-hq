@@ -186,6 +186,7 @@ test('hosted foundation defaults to Founder/admin admission with paid provider c
     assert.equal(dependencies.paidTestGate, null);
     assert.equal(dependencies.providerControllerFactory, null);
     assert.ok(dependencies.liveSessionBroker);
+    assert.equal(typeof dependencies.liveContextResolver, 'function');
     assert.deepEqual(await dependencies.runtimeState(), {
       mode: 'hosted',
       workerRegistrationState: 'READY',

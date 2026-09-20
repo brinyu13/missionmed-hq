@@ -75,7 +75,7 @@ export class LiveInterviewSession {
     }
   }
 
-  async start({ audioTrack, voice = 'marin', context } = {}) {
+  async start({ audioTrack, voice = 'marin', context, ivocSessionId } = {}) {
     if (this.state !== 'idle' && this.state !== 'closed') throw new Error('A live interview is already active.');
     if (!audioTrack || audioTrack.kind !== 'audio' || audioTrack.readyState === 'ended') {
       throw new TypeError('A live microphone track is required.');
@@ -111,6 +111,7 @@ export class LiveInterviewSession {
         sdp: peer.localDescription?.sdp || offer.sdp,
         voice,
         context,
+        ivocSessionId,
       });
       this.sessionId = created.session.id;
       await peer.setRemoteDescription({ type: 'answer', sdp: created.transport.sdp });

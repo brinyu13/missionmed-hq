@@ -52,6 +52,28 @@ test('results envelope remains truthful when recording evidence is unavailable',
   assert.deepEqual(envelope.counters, {});
 });
 
+test('a prepared canonical session is reused when the same rep begins recording', async () => {
+  const calls = [];
+  const api = {
+    async bootstrap() { return { entitlement: { admitted: true } }; },
+    async createSession(input) { calls.push(['createSession', input]); return { id: 'session-prepared' }; },
+  };
+  const recorder = { async start() { calls.push(['recording.start']); } };
+  const durable = new DurableStudioSession({ api, recordingFactory: () => recorder });
+  await durable.bootstrap();
+  const options = {
+    question: { question_id: 'CORE-01', canonical_text: 'Tell me about yourself.' },
+    wizard: { goal: 'Full interview simulation', interviewer: 'Program Director' },
+    targetQuestions: 5,
+    interviewerProvider: 'openai-gpt-live',
+  };
+  const prepared = await durable.prepare(options);
+  const started = await durable.start({ ...options, stream: { id: 'shared-media' } });
+  assert.equal(prepared, started);
+  assert.deepEqual(calls.map((call) => call[0]), ['createSession', 'recording.start']);
+  await assert.rejects(() => durable.prepare({ ...options, targetQuestions: 6 }), /context_changed/u);
+});
+
 test('durable operations require an admitted bootstrap and never impersonate an account', async () => {
   const durable = new DurableStudioSession({
     api: { async bootstrap() { return { entitlement: { admitted: false } }; } },

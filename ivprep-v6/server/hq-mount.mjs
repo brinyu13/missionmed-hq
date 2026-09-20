@@ -203,6 +203,7 @@ export function createIvPrepHqHandler({
   providerControllerFactory = null,
   paidTestGate = null,
   liveSessionBroker = null,
+  liveContextResolver = null,
   liveKitSignalOrigin = null,
   runtimeState = async () => Object.freeze({
     mode: 'disabled',
@@ -312,7 +313,7 @@ export function createIvPrepHqHandler({
       }
       sendJson(response, 200, {
         ...publicAdmissionState(admission, { videoEnabled: flags.videoEnabled, founderPaidTest, hqSession }),
-        runtime: { ...runtime, liveInterviewAvailable: Boolean(liveSessionBroker) },
+        runtime: { ...runtime, liveInterviewAvailable: Boolean(liveSessionBroker && liveContextResolver) },
       });
       return true;
     }
@@ -419,14 +420,14 @@ export function createIvPrepHqHandler({
     if (request.method === 'POST' && pathname === `${API_PREFIX}/live/sessions`) {
       const mutation = validateIvPrepMutation({ request, admission, expectedOrigin: sealedOrigin });
       if (!mutation.ok) { sendAdmissionError(response, mutation); return true; }
-      if (!liveSessionBroker || admission.entitlement.voice !== true) {
+      if (!liveSessionBroker || !liveContextResolver || admission.entitlement.voice !== true) {
         sendJson(response, 503, { error: 'ivprep_live_unavailable' });
         return true;
       }
       let body;
       try { body = await readJson(request); }
       catch { sendJson(response, 400, { error: 'ivprep_invalid_request' }); return true; }
-      if (Object.keys(body).sort().join(',') !== 'context,sdp,voice') {
+      if (Object.keys(body).sort().join(',') !== 'context,ivocSessionId,sdp,voice') {
         sendJson(response, 400, { error: 'ivprep_invalid_request' });
         return true;
       }
@@ -446,7 +447,17 @@ export function createIvPrepHqHandler({
       }
       let created;
       try {
-        created = await liveSessionBroker.create({ sdp: body.sdp, voice: body.voice, context: body.context });
+        const actorContext = await liveContextResolver({
+          subject: admission.subject,
+          sessionId: body.ivocSessionId,
+        });
+        if (!actorContext) throw new Error('IVOC context pack is unavailable.');
+        created = await liveSessionBroker.create({
+          sdp: body.sdp,
+          voice: body.voice,
+          context: body.context,
+          actorContext,
+        });
       } catch (error) {
         sendJson(response, error instanceof TypeError ? 400 : 503, {
           error: error instanceof TypeError ? 'ivprep_invalid_request' : 'ivprep_live_start_failed',

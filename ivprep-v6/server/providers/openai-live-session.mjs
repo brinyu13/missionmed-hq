@@ -12,6 +12,7 @@ const SAFE_CONTEXT = Object.freeze({
 });
 const MAX_SDP_BYTES = 256 * 1024;
 const MAX_CONTEXT_BYTES = 16 * 1024;
+const MAX_ACTOR_BLOCK_BYTES = 6 * 1024;
 
 function boundedText(value, name, allowed, maximum = 240) {
   const text = String(value || '').trim();
@@ -55,16 +56,33 @@ export function normalizeLiveInterviewContext(value) {
   return context;
 }
 
-export function buildLiveInterviewInstructions(context) {
+function normalizeActorContext(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || Object.keys(value).sort().join(',') !== 'actorBlock,receipt') {
+    throw new TypeError('Application context is invalid.');
+  }
+  const receipt = String(value.receipt || '').trim();
+  const actorBlock = String(value.actorBlock || '');
+  if (!/^ctxpack:[0-9a-f-]{36}@[0-9a-f]{64}$/u.test(receipt)
+    || !actorBlock.startsWith('AUTHORIZED APPLICATION CONTEXT\n')
+    || Buffer.byteLength(actorBlock, 'utf8') > MAX_ACTOR_BLOCK_BYTES) {
+    throw new TypeError('Application context is invalid.');
+  }
+  return Object.freeze({ receipt, actorBlock });
+}
+
+export function buildLiveInterviewInstructions(context, actorContext) {
   const authorizedContext = JSON.stringify(normalizeLiveInterviewContext(context));
+  const applicationContext = normalizeActorContext(actorContext);
   return [
     'You are InterviewBrain, a calm, professional residency interviewer for IV Prep On-Call.',
     'Conduct a realistic spoken interview. Ask one question at a time and follow up only on what the applicant actually says.',
     'Keep each turn concise. Use sparse, natural backchannels only when they do not steal the floor.',
     'If the applicant interrupts, stop speaking and listen. A thoughtful pause, restart, or word search is not automatically a finished answer.',
     'Never infer emotion, personality, diagnosis, protected traits, or facts absent from the authorized context or the applicant response.',
-    'RISE and StoryForge are context seams only. Never claim access to records not present below.',
+    'Never claim access to records or facts not present below.',
     `AUTHORIZED SESSION CONTEXT: ${authorizedContext}`,
+    applicationContext.actorBlock,
   ].join('\n');
 }
 
@@ -108,7 +126,7 @@ export class OpenAiLiveSessionBroker {
     }
   }
 
-  async create({ sdp, voice = 'marin', context } = {}) {
+  async create({ sdp, voice = 'marin', context, actorContext } = {}) {
     const offer = String(sdp || '');
     if (!offer.startsWith('v=0') || Buffer.byteLength(offer, 'utf8') > MAX_SDP_BYTES) {
       throw new TypeError('WebRTC offer SDP is invalid.');
@@ -119,7 +137,7 @@ export class OpenAiLiveSessionBroker {
       body: JSON.stringify({
         session: {
           model: MODEL,
-          instructions: buildLiveInterviewInstructions(context),
+          instructions: buildLiveInterviewInstructions(context, actorContext),
           audio: { output: { voice } },
           store: false,
         },

@@ -56,6 +56,7 @@ export class DurableStudioSession {
     this.accountSession = null;
     this.recorder = null;
     this.pendingAnalytics = null;
+    this.preparedSessionKey = null;
   }
 
   get ready() { return Boolean(this.bootstrapPayload?.entitlement?.admitted); }
@@ -65,11 +66,9 @@ export class DurableStudioSession {
     return this.bootstrapPayload;
   }
 
-  async start({ stream, question = null, wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
-    if (!this.ready) throw new Error('durable_session_not_ready');
-    if (this.accountSession) throw new Error('durable_session_already_active');
+  sessionInput({ question = null, wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
     const title = question?.canonical_text || 'IV Prep practice session';
-    this.accountSession = await this.api.createSession({
+    return {
       title: title.split(/\s+/u).slice(0, 10).join(' '),
       sessionType: targetQuestions > 1 ? 'mock' : 'question',
       questionId: question?.question_id || null,
@@ -85,7 +84,26 @@ export class DurableStudioSession {
         readiness: wizard.readiness || null,
         targetQuestions: Math.max(1, Math.min(30, Number(targetQuestions) || 1)),
       },
-    });
+    };
+  }
+
+  async prepare(options = {}) {
+    if (!this.ready) throw new Error('durable_session_not_ready');
+    const input = this.sessionInput(options);
+    const key = JSON.stringify(input);
+    if (this.accountSession) {
+      if (this.preparedSessionKey !== key) throw new Error('durable_session_context_changed');
+      return this.accountSession;
+    }
+    this.accountSession = await this.api.createSession(input);
+    this.preparedSessionKey = key;
+    return this.accountSession;
+  }
+
+  async start({ stream, question = null, wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
+    const title = question?.canonical_text || 'IV Prep practice session';
+    await this.prepare({ question, wizard, targetQuestions, interviewerProvider });
+    if (this.recorder) throw new Error('durable_session_already_active');
     this.recorder = this.recordingFactory({
       api: this.api,
       stream,
@@ -120,6 +138,7 @@ export class DurableStudioSession {
     this.accountSession = null;
     this.recorder = null;
     this.pendingAnalytics = null;
+    this.preparedSessionKey = null;
     return { persisted: true, analytics, recording, result, envelope, session: accountSession };
   }
 
@@ -133,6 +152,7 @@ export class DurableStudioSession {
     this.accountSession = null;
     this.recorder = null;
     this.pendingAnalytics = null;
+    this.preparedSessionKey = null;
     return result;
   }
   async analyze({ sessionId, recordingId, answerId, questionId, analyticsEvents = [] } = {}) {
@@ -151,5 +171,6 @@ export class DurableStudioSession {
     this.accountSession = null;
     this.recorder = null;
     this.pendingAnalytics = null;
+    this.preparedSessionKey = null;
   }
 }

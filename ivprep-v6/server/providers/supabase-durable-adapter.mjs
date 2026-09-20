@@ -9,6 +9,7 @@ import {
   founderTestPlanFor,
 } from '../founder-paid-test-gate.mjs';
 import { createLiveKitSessionCoordinator } from './livekit-session-coordinator.mjs';
+import { createIvocContextPackResolver } from './ivoc-context-pack-resolver.mjs';
 import { createOpenAiLiveSessionBroker } from './openai-live-session.mjs';
 import { PROFILE_B, PROFILE_B_AGENT_NAME, ProviderSessionController } from './provider-session-controller.mjs';
 
@@ -19,6 +20,7 @@ const ENTITLEMENT_RENEWAL_WINDOW_MS = 6 * 60 * 60 * 1000;
 const TERMINAL_STATES = new Set(['CLOSED', 'FAILED_CLOSED']);
 const SAFE_VOICES = new Set(['marin', 'coral', 'shimmer']);
 const TABLES = new Set([
+  'ivoc_context_packs',
   'ivprep_cookie_revocations',
   'ivprep_entitlements',
   'ivprep_interview_bindings',
@@ -785,6 +787,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
   const liveSessionBroker = liveApiKey
     ? createOpenAiLiveSessionBroker({ apiKey: liveApiKey })
     : null;
+  const liveContextResolver = createIvocContextPackResolver({ rest });
   if (!paidEnabled) {
     return Object.freeze({
       registry,
@@ -793,6 +796,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
       providerControllerFactory: null,
       liveKitSignalOrigin: null,
       liveSessionBroker,
+      liveContextResolver,
       runtimeState,
     });
   }
@@ -829,6 +833,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
     providerControllerFactory,
     liveKitSignalOrigin: livekit.signalOrigin,
     liveSessionBroker,
+    liveContextResolver,
     runtimeState,
   });
 }

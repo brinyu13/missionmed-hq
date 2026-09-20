@@ -101,6 +101,11 @@ test('admitted session projection contains no shared token and vault is empty', 
 
 test('GPT-Live WebRTC creation is same-origin, entitlement-bound, and server-cleaned', async () => {
   const calls = [];
+  const ivocSessionId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const actorContext = {
+    receipt: `ctxpack:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb@${'c'.repeat(64)}`,
+    actorBlock: 'AUTHORIZED APPLICATION CONTEXT\nPROGRAM: none',
+  };
   const handler = createIvPrepHqHandler({
     registry: registry(),
     now: () => NOW,
@@ -112,6 +117,7 @@ test('GPT-Live WebRTC creation is same-origin, entitlement-bound, and server-cle
       },
       hangup: async (id) => { calls.push(['hangup', id]); return { ok: true }; },
     },
+    liveContextResolver: async (input) => { calls.push(['resolve', input]); return actorContext; },
   });
   const admitted = await invoke(handler);
   assert.equal(admitted.body.runtime.liveInterviewAvailable, true);
@@ -123,12 +129,13 @@ test('GPT-Live WebRTC creation is same-origin, entitlement-bound, and server-cle
   };
   const created = await invoke(handler, {
     path: '/api/ivprep-v6/live/sessions', method: 'POST', headers,
-    body: JSON.stringify({ sdp: 'v=0\r\no=offer', voice: 'marin', context }),
+    body: JSON.stringify({ sdp: 'v=0\r\no=offer', voice: 'marin', context, ivocSessionId }),
   });
   assert.equal(created.status, 201);
   assert.equal(created.body.session.model, 'gpt-live-1');
   assert.equal(JSON.stringify(created.body).includes('server-only'), false);
-  assert.deepEqual(calls[0], ['create', { sdp: 'v=0\r\no=offer', voice: 'marin', context }]);
+  assert.deepEqual(calls[0], ['resolve', { subject: 'wp:1', sessionId: ivocSessionId }]);
+  assert.deepEqual(calls[1], ['create', { sdp: 'v=0\r\no=offer', voice: 'marin', context, actorContext }]);
   const switched = await invoke(handler, {
     path: '/api/ivprep-v6/live/sessions/live_session_123456/end', method: 'POST', headers, body: '{}', fingerprint: 'b'.repeat(64),
   });
@@ -161,12 +168,16 @@ test('non-Founder sessions cannot select an Admin audition voice', async () => {
     registry: deniedRegistry, now: () => NOW,
     flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false },
     liveSessionBroker: { create: async () => { throw new Error('must not run'); } },
+    liveContextResolver: async () => { throw new Error('must not run'); },
   });
   const denied = await invoke(handler, {
     path: '/api/ivprep-v6/live/sessions', method: 'POST',
     hqSession: { ...session(2), user: { id: 2, roles: ['subscriber'] } },
     headers: { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF },
-    body: JSON.stringify({ sdp: 'v=0\r\no=offer', voice: 'meridian', context: {} }),
+    body: JSON.stringify({
+      sdp: 'v=0\r\no=offer', voice: 'meridian', context: {},
+      ivocSessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    }),
   });
   assert.equal(denied.status, 403);
   assert.equal(denied.body.error, 'ivprep_admin_voice_audition_required');
