@@ -17,6 +17,35 @@ const boundedScore = (value) => Number.isFinite(Number(value))
   ? Math.max(0, Math.min(1, Number(value)))
   : 0;
 
+const FILLER_TOKEN_PATTERN = /\b(?:um+|uh+|erm+|like|you know|i mean)\b/giu;
+
+export function projectTranscriptMetrics(result = {}) {
+  const transcript = result?.transcript || {};
+  const text = boundedText(transcript.text, 20_000);
+  if (transcript.status !== 'AVAILABLE' || !text) return Object.freeze({ status: 'UNAVAILABLE' });
+  const segments = (Array.isArray(transcript.segments) ? transcript.segments : [])
+    .map((segment, index) => ({
+      id: boundedText(segment?.id || `seg-${index + 1}`, 96),
+      startMs: Math.max(0, Math.trunc(Number(segment?.startMs) || 0)),
+      endMs: Math.max(0, Math.trunc(Number(segment?.endMs) || 0)),
+    }))
+    .filter((segment) => segment.id && segment.endMs >= segment.startMs);
+  const words = text.split(/\s+/u).filter(Boolean);
+  const matches = [...text.matchAll(FILLER_TOKEN_PATTERN)];
+  const startMs = segments.length ? Math.min(...segments.map((segment) => segment.startMs)) : null;
+  const endMs = segments.length ? Math.max(...segments.map((segment) => segment.endMs)) : null;
+  return Object.freeze({
+    status: 'AVAILABLE',
+    wordCount: words.length,
+    fillerTokenCount: matches.length,
+    segmentCount: segments.length,
+    startMs,
+    endMs,
+    basis: 'CANONICAL_PERSISTED_TRANSCRIPT',
+    limitations: Object.freeze(['bounded_lexical_candidates_not_all_disfluencies']),
+  });
+}
+
 function patternView(pattern = {}) {
   const facet = Object.hasOwn(FACET_LABELS, pattern.facet) ? pattern.facet : null;
   const polarity = ['strength', 'weakness'].includes(pattern.polarity) ? pattern.polarity : null;
@@ -89,7 +118,15 @@ export function contextResultFromSessionSpine(session = {}) {
   const limitations = [...new Set(evidence.flatMap((row) => Array.isArray(row?.limitations) ? row.limitations : [])
     .map((item) => boundedText(item, 240)).filter(Boolean))].slice(0, 8);
   return Object.freeze({
-    transcript: Object.freeze({ status: 'AVAILABLE', text: turns.map((turn) => boundedText(turn.transcript.text)).join(' ') }),
+    transcript: Object.freeze({
+      status: 'AVAILABLE',
+      text: turns.map((turn) => boundedText(turn.transcript.text)).join(' '),
+      segments: Object.freeze(turns.map((turn, index) => Object.freeze({
+        id: boundedText(String(turn.transcript.canonical_ref).split('#').at(-1) || `seg-${index + 1}`, 96),
+        startMs: Math.max(0, Math.trunc(Number(turn.startMs) || 0)),
+        endMs: Math.max(0, Math.trunc(Number(turn.endMs) || 0)),
+      }))),
+    }),
     analysis: Object.freeze({
       status: semanticObservations.length || coachingPatterns.length ? 'AVAILABLE' : 'UNAVAILABLE',
       semanticObservations: Object.freeze(semanticObservations),

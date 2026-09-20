@@ -4,7 +4,34 @@ import test from 'node:test';
 import {
   contextResultFromSessionSpine,
   projectContextResults,
+  projectTranscriptMetrics,
 } from '../../public/capabilities/context-results.mjs';
+
+test('canonical transcript metrics count bounded fillers and retain segment boundaries', () => {
+  const metrics = projectTranscriptMetrics({ transcript: {
+    status: 'AVAILABLE',
+    text: 'Um, I mean, I learned to pause. Like, I can be more specific.',
+    segments: [
+      { id: 'seg-1', startMs: 450, endMs: 3_200 },
+      { id: 'seg-2', startMs: 3_300, endMs: 6_750 },
+    ],
+  } });
+  assert.equal(metrics.status, 'AVAILABLE');
+  assert.equal(metrics.fillerTokenCount, 3);
+  assert.equal(metrics.segmentCount, 2);
+  assert.equal(metrics.startMs, 450);
+  assert.equal(metrics.endMs, 6_750);
+  assert.equal(metrics.basis, 'CANONICAL_PERSISTED_TRANSCRIPT');
+});
+
+test('canonical transcript metrics truthfully retain a zero filler count', () => {
+  const metrics = projectTranscriptMetrics({ transcript: {
+    status: 'AVAILABLE', text: 'I coordinated follow-up and explained the plan.', segments: [],
+  } });
+  assert.equal(metrics.fillerTokenCount, 0);
+  assert.equal(metrics.wordCount, 7);
+  assert.equal(metrics.startMs, null);
+});
 
 test('context results project cited strengths, improvements, a deterministic drill, and confidence', () => {
   const view = projectContextResults({ analysis: {
@@ -61,6 +88,10 @@ test('persisted session spine rehydrates the same bounded Results adapter after 
 
   assert.equal(result.transcript.status, 'AVAILABLE');
   assert.equal(result.transcript.text, 'I coordinated follow-up. I explained my contribution.');
+  assert.deepEqual(result.transcript.segments, [
+    { id: 'seg-1', startMs: 0, endMs: 0 },
+    { id: 'seg-2', startMs: 0, endMs: 0 },
+  ]);
   assert.deepEqual(result.analysis.semanticObservations[0].transcriptSegmentIds, ['seg-1']);
   assert.equal(projectContextResults(result).strongest.facetLabel, 'Specificity');
   assert.deepEqual(result.analysis.limitations, ['Only this answer was analyzed.']);

@@ -26,7 +26,7 @@ import { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mj
 import { createLiveContext } from './live-context-adapter.mjs';
 import { AdminStudentLibraryCapability } from '../capabilities/admin-student-library.mjs';
 import { InterviewCalendarCapability } from '../capabilities/calendar-context.mjs';
-import { contextResultFromSessionSpine, projectContextResults } from '../capabilities/context-results.mjs';
+import { contextResultFromSessionSpine, projectContextResults, projectTranscriptMetrics } from '../capabilities/context-results.mjs';
 import { LiveMockStudioCapability } from '../capabilities/live-mock-studio.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -2473,6 +2473,40 @@ function renderContextEvidence(result) {
   const quote = document.createElement('blockquote');
   quote.textContent = transcript.text;
   host.append(quote);
+  const transcriptMetrics = projectTranscriptMetrics(result);
+  if (transcriptMetrics.status === 'AVAILABLE') {
+    const label = document.createElement('div');
+    label.className = 'microcap';
+    label.textContent = 'Canonical transcript signals';
+    const grid = document.createElement('div');
+    grid.className = 'context-assessment-grid';
+    const summary = document.createElement('article');
+    summary.className = 'context-assessment-card';
+    const summaryHeading = document.createElement('span');
+    summaryHeading.className = 'microcap';
+    summaryHeading.textContent = 'Transcript boundary';
+    const summaryValue = document.createElement('strong');
+    summaryValue.textContent = transcriptMetrics.segmentCount
+      ? `${transcriptMetrics.segmentCount} segments · ${transcriptMetrics.wordCount} words`
+      : `${transcriptMetrics.wordCount} words`;
+    const summaryCopy = document.createElement('p');
+    summaryCopy.textContent = transcriptMetrics.startMs === null
+      ? 'Canonical text is available; timestamp boundaries are unavailable.'
+      : `${Math.round(transcriptMetrics.startMs / 100) / 10}s–${Math.round(transcriptMetrics.endMs / 100) / 10}s on the capture-owner clock.`;
+    summary.append(summaryHeading, summaryValue, summaryCopy);
+    const fillers = document.createElement('article');
+    fillers.className = 'context-assessment-card';
+    const fillersHeading = document.createElement('span');
+    fillersHeading.className = 'microcap';
+    fillersHeading.textContent = 'Bounded filler tokens';
+    const fillersValue = document.createElement('strong');
+    fillersValue.textContent = String(transcriptMetrics.fillerTokenCount);
+    const fillersCopy = document.createElement('p');
+    fillersCopy.textContent = 'Counted from the canonical transcript using the disclosed um / uh / erm / like / you know / I mean lexicon; this is not a hidden-trait inference.';
+    fillers.append(fillersHeading, fillersValue, fillersCopy);
+    grid.append(summary, fillers);
+    host.append(label, grid);
+  }
   const analysis = result?.analysis;
   if (analysis?.status === 'AVAILABLE' && Array.isArray(analysis.semanticObservations) && analysis.semanticObservations.length) {
     const label = document.createElement('div');
