@@ -13,11 +13,13 @@ const TABLES = Object.freeze([
   'ivoc_question_catalog',
   'ivoc_context_packs',
   'ivoc_mentor_priority_sets',
+  'ivoc_admin_config_versions',
 ]);
 
 const RPCS = Object.freeze([
   'ivoc_write_question_version',
   'ivoc_write_mentor_priorities',
+  'ivoc_write_admin_config',
 ]);
 
 function requireConfig(value, name) {

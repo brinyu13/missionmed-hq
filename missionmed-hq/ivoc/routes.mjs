@@ -227,6 +227,92 @@ function publicMentorPriorities(row, { includeMentorNotes = false } = {}) {
   };
 }
 
+function adminConfigWrite(input) {
+  const expectedVersion = Number(input?.expectedVersion);
+  const analyticsConfigVersion = safeText(input?.analyticsConfigVersion, 80);
+  const brainPackVersion = safeText(input?.brainPackVersion, 80);
+  const aisRulesVersion = safeText(input?.aisRulesVersion, 80);
+  const changeReason = safeText(input?.changeReason, 400);
+  const pressure = input?.pressureDefaults;
+  const budgets = input?.proactiveBudgetOverrides;
+  const credits = input?.credits;
+  const safeVersion = (value) => /^[A-Za-z0-9._:-]{1,80}$/u.test(value);
+  const pressureValid = pressure && typeof pressure === 'object' && !Array.isArray(pressure)
+    && Number.isSafeInteger(pressure.defaultFollowUpIntensity)
+    && pressure.defaultFollowUpIntensity >= 0 && pressure.defaultFollowUpIntensity <= 3
+    && typeof pressure.defaultPressureEnabled === 'boolean'
+    && Number.isSafeInteger(pressure.maxFollowUpsPerAnswer)
+    && pressure.maxFollowUpsPerAnswer >= 0 && pressure.maxFollowUpsPerAnswer <= 5;
+  const budgetsValid = budgets && typeof budgets === 'object' && !Array.isArray(budgets)
+    && Number.isSafeInteger(budgets.maxProactivePerSession)
+    && budgets.maxProactivePerSession >= 0 && budgets.maxProactivePerSession <= 20
+    && Number.isSafeInteger(budgets.maxReactivePerAnswer)
+    && budgets.maxReactivePerAnswer >= 0 && budgets.maxReactivePerAnswer <= 5
+    && Number.isSafeInteger(budgets.maxApplicationProbesPerAnswer)
+    && budgets.maxApplicationProbesPerAnswer >= 0 && budgets.maxApplicationProbesPerAnswer <= 1;
+  const creditsValid = credits && typeof credits === 'object' && !Array.isArray(credits)
+    && Number.isSafeInteger(credits.defaultAllowanceSeconds)
+    && credits.defaultAllowanceSeconds >= 0 && credits.defaultAllowanceSeconds <= 10_000_000
+    && Number.isSafeInteger(credits.maxOverrideSeconds)
+    && credits.maxOverrideSeconds >= 0 && credits.maxOverrideSeconds <= 10_000_000
+    && Number.isSafeInteger(credits.resetPeriodDays)
+    && credits.resetPeriodDays >= 1 && credits.resetPeriodDays <= 366;
+  if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1
+      || !safeVersion(analyticsConfigVersion) || !safeVersion(brainPackVersion)
+      || !safeVersion(aisRulesVersion) || changeReason.length < 3
+      || !pressureValid || !budgetsValid || !creditsValid) {
+    throw Object.assign(new TypeError('ivoc_admin_config_input_invalid'), { status: 400 });
+  }
+  return {
+    expectedVersion, analyticsConfigVersion, brainPackVersion, aisRulesVersion,
+    pressureDefaults: {
+      default_follow_up_intensity: pressure.defaultFollowUpIntensity,
+      default_pressure_enabled: pressure.defaultPressureEnabled,
+      max_follow_ups_per_answer: pressure.maxFollowUpsPerAnswer,
+    },
+    proactiveBudgetOverrides: {
+      max_proactive_per_session: budgets.maxProactivePerSession,
+      max_reactive_per_answer: budgets.maxReactivePerAnswer,
+      max_application_probes_per_answer: budgets.maxApplicationProbesPerAnswer,
+    },
+    credits: {
+      default_allowance_seconds: credits.defaultAllowanceSeconds,
+      max_override_seconds: credits.maxOverrideSeconds,
+      reset_period_days: credits.resetPeriodDays,
+    },
+    changeReason,
+  };
+}
+
+function publicAdminConfig(row) {
+  if (!row) return null;
+  return {
+    schema: row.schema_name,
+    version: row.version,
+    analyticsConfigVersion: row.analytics_config_version,
+    brainPackVersion: row.brain_pack_version,
+    aisRulesVersion: row.ais_rules_version,
+    pressureDefaults: {
+      defaultFollowUpIntensity: row.pressure_defaults?.default_follow_up_intensity,
+      defaultPressureEnabled: row.pressure_defaults?.default_pressure_enabled,
+      maxFollowUpsPerAnswer: row.pressure_defaults?.max_follow_ups_per_answer,
+    },
+    proactiveBudgetOverrides: {
+      maxProactivePerSession: row.proactive_budget_overrides?.max_proactive_per_session,
+      maxReactivePerAnswer: row.proactive_budget_overrides?.max_reactive_per_answer,
+      maxApplicationProbesPerAnswer: row.proactive_budget_overrides?.max_application_probes_per_answer,
+    },
+    credits: {
+      defaultAllowanceSeconds: row.credits?.default_allowance_seconds,
+      maxOverrideSeconds: row.credits?.max_override_seconds,
+      resetPeriodDays: row.credits?.reset_period_days,
+    },
+    changeReason: row.change_reason,
+    changedBy: row.changed_by,
+    createdAt: row.created_at,
+  };
+}
+
 function practiceGoal(row) {
   const goal = String(row?.context?.goal || '').toLowerCase();
   if (goal.includes('guided')) return 'guided_mock';
@@ -495,6 +581,47 @@ export function createIvocHandler({
         }
         await audit({ actor, owner: write.subjectId, action: 'mentor_priorities_write', decision: 'allow', reason: `v${row.version}` });
         sendJson(response, 200, publicMentorPriorities(row, { includeMentorNotes: true }), mediaBase);
+        return true;
+      }
+
+      if (request.method === 'GET' && pathname === `${API_PREFIX}/admin/config`) {
+        if (!isAdmin(hqSession, admission)) {
+          await audit({ actor, action: 'admin_config_read', decision: 'deny', reason: 'admin_required' });
+          sendError(response, 403, 'ivoc_admin_required', mediaBase); return true;
+        }
+        const row = await db.single('ivoc_admin_config_versions?select=*&order=version.desc&limit=1');
+        await audit({ actor, action: 'admin_config_read', decision: 'allow', reason: `v${row?.version || 0}` });
+        sendJson(response, 200, publicAdminConfig(row), mediaBase);
+        return true;
+      }
+
+      if (request.method === 'PUT' && pathname === `${API_PREFIX}/admin/config`) {
+        if (!isAdmin(hqSession, admission)) {
+          await audit({ actor, action: 'admin_config_write', decision: 'deny', reason: 'admin_required' });
+          sendError(response, 403, 'ivoc_admin_required', mediaBase); return true;
+        }
+        const write = adminConfigWrite(await readJson(request));
+        let row;
+        try {
+          row = await db.rpc('ivoc_write_admin_config', {
+            p_expected_version: write.expectedVersion,
+            p_analytics_config_version: write.analyticsConfigVersion,
+            p_brain_pack_version: write.brainPackVersion,
+            p_ais_rules_version: write.aisRulesVersion,
+            p_pressure_defaults: write.pressureDefaults,
+            p_proactive_budget_overrides: write.proactiveBudgetOverrides,
+            p_credits: write.credits,
+            p_change_reason: write.changeReason,
+            p_actor: actor,
+          });
+        } catch (error) {
+          if (String(error?.detail || '').includes('ivoc_admin_config_version_conflict')) {
+            throw Object.assign(new Error('ivoc_admin_config_version_conflict'), { status: 409 });
+          }
+          throw error;
+        }
+        await audit({ actor, action: 'admin_config_write', decision: 'allow', reason: `v${row.version}` });
+        sendJson(response, 200, publicAdminConfig(row), mediaBase);
         return true;
       }
 

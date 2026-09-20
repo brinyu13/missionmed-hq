@@ -42,9 +42,12 @@ function programRef(row) {
   return safeText(row?.context?.programRef || row?.context?.programId || row?.context?.program?.id, 200) || null;
 }
 
-function initialContract(row, actor, receipt) {
+function initialContract(row, actor, receipt, adminConfig = null) {
   const goal = practiceGoal(row);
   const targetAsked = Math.max(1, Math.trunc(Number(row?.context?.targetQuestions) || 1));
+  const configuredFollowUp = Number(adminConfig?.pressure_defaults?.default_follow_up_intensity);
+  const defaultFollowUp = Number.isSafeInteger(configuredFollowUp) && configuredFollowUp >= 0 && configuredFollowUp <= 3
+    ? configuredFollowUp : 1;
   return {
     session_id: row.id,
     schema_version: 1,
@@ -55,12 +58,16 @@ function initialContract(row, actor, receipt) {
     transport_profile: 'none',
     environment: environment(row),
     selection_policy: 'system',
-    follow_up_intensity: row?.context?.pressurePractice === true ? 2 : 1,
+    follow_up_intensity: row?.context?.pressurePractice === true ? Math.max(2, defaultFollowUp) : defaultFollowUp,
     target_asked_count: targetAsked,
     target_duration_s: null,
     interviewer_config_ref: `interviewer:${safeText(row?.context?.interviewer, 120) || safeText(row?.interviewer_provider, 80) || 'missionmed-static'}`,
     question_pool_ref: poolSnapshotRef(row),
-    analytics_config_version: safeText(row?.analytics_schema, 80) || 'ivoc.analytics.v1',
+    analytics_config_version: safeText(adminConfig?.analytics_config_version, 80)
+      || safeText(row?.analytics_schema, 80) || 'ivoc.analytics.v1',
+    admin_config_version: Number.isSafeInteger(adminConfig?.version) ? adminConfig.version : 1,
+    brain_pack_version: safeText(adminConfig?.brain_pack_version, 80) || 'gpt-live-1:marin',
+    ais_rules_version: safeText(adminConfig?.ais_rules_version, 80) || '2026-09-18.1',
     contract_state: 'ready_check',
     state_version: 0,
     clock: { origin: 'capture_owner', started_at_wall: new Date(row.started_at).toISOString() },
@@ -139,7 +146,10 @@ export function createIvocApplicationIntelligence({ repository, now = () => Date
   return Object.freeze({
     async prepareSession({ actor, sessionRow }) {
       if (!actor || !sessionRow?.id) throw new TypeError('ivoc_application_intelligence_session_required');
-      const projections = await resolveProjections({ actor, session: sessionRow });
+      const [projections, adminConfig] = await Promise.all([
+        resolveProjections({ actor, session: sessionRow }),
+        repository.single('ivoc_admin_config_versions?select=*&order=version.desc&limit=1'),
+      ]);
       if (!Array.isArray(projections)) throw new TypeError('ivoc_application_intelligence_projection_invalid');
       const builtAt = new Date(now()).toISOString();
       const pack = assembleContextPack({
@@ -169,7 +179,7 @@ export function createIvocApplicationIntelligence({ repository, now = () => Date
         invalidated_at: null,
         invalidation_reason: null,
       });
-      await repository.upsert('ivoc_session_contracts', 'session_id', initialContract(sessionRow, actor, receipt));
+      await repository.upsert('ivoc_session_contracts', 'session_id', initialContract(sessionRow, actor, receipt, adminConfig));
       return Object.freeze({ receipt, packId: pack.pack_id, packVersion: pack.pack_version });
     },
 

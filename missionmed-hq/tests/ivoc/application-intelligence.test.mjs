@@ -106,3 +106,25 @@ test('repository-backed Mentor Top 3 becomes a provenance-bound interviewer atte
   assert.match(pack.actor_block, /Can you give me one concrete example that shows your leadership\?/u);
   assert.doesNotMatch(pack.actor_block, /bury the point/u);
 });
+
+test('session contract pins the exact versioned Admin Analytics and InterviewBrain configuration', async () => {
+  const repo = repository();
+  const originalSingle = repo.single;
+  repo.single = async (path) => path.startsWith('ivoc_admin_config_versions?')
+    ? {
+      version: 4,
+      analytics_config_version: 'ivoc.analytics.v4',
+      brain_pack_version: 'gpt-live-1:meridian',
+      ais_rules_version: '2026-09-18.2',
+      pressure_defaults: { default_follow_up_intensity: 2 },
+    }
+    : originalSingle(path);
+  const service = createIvocApplicationIntelligence({ repository: repo, now: () => Date.parse(NOW) });
+  await service.prepareSession({ actor: 'wp:42', sessionRow: sessionRow() });
+  const contract = repo.upserts.find((entry) => entry.table === 'ivoc_session_contracts').body;
+  assert.equal(contract.admin_config_version, 4);
+  assert.equal(contract.analytics_config_version, 'ivoc.analytics.v4');
+  assert.equal(contract.brain_pack_version, 'gpt-live-1:meridian');
+  assert.equal(contract.ais_rules_version, '2026-09-18.2');
+  assert.equal(contract.follow_up_intensity, 2);
+});

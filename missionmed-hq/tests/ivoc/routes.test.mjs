@@ -71,6 +71,21 @@ function repository() {
           created_at: new Date().toISOString(),
         };
       }
+      if (name === 'ivoc_write_admin_config') {
+        return {
+          version: body.p_expected_version + 1,
+          schema_name: 'ivoc.admin_config.v1',
+          analytics_config_version: body.p_analytics_config_version,
+          brain_pack_version: body.p_brain_pack_version,
+          ais_rules_version: body.p_ais_rules_version,
+          pressure_defaults: body.p_pressure_defaults,
+          proactive_budget_overrides: body.p_proactive_budget_overrides,
+          credits: body.p_credits,
+          change_reason: body.p_change_reason,
+          changed_by: body.p_actor,
+          created_at: new Date().toISOString(),
+        };
+      }
       return {
         question_id: body.p_question_id, status: body.p_status,
         current_version: body.p_expected_version + 1,
@@ -230,6 +245,47 @@ test('Mentor Top 3 is Admin-written, actor-stamped, and student reads hide mento
   await route({ ...base, request: request('GET'), response: studentRead, url: new URL('https://hq.test/api/ivoc/v1/mentor-priorities'), hqSession: session() });
   assert.equal(studentRead.status, 200);
   assert.deepEqual(studentRead.json().mentorNotes.map((note) => note.id), ['shared']);
+});
+
+test('versioned Analytics and InterviewBrain config is Admin-only and actor-stamped', async () => {
+  const { route, repo } = handler();
+  const input = {
+    expectedVersion: 1,
+    analyticsConfigVersion: 'ivoc.analytics.v1',
+    brainPackVersion: 'gpt-live-1:marin',
+    aisRulesVersion: '2026-09-18.1',
+    pressureDefaults: {
+      defaultFollowUpIntensity: 1, defaultPressureEnabled: false, maxFollowUpsPerAnswer: 2,
+    },
+    proactiveBudgetOverrides: {
+      maxProactivePerSession: 3, maxReactivePerAnswer: 1, maxApplicationProbesPerAnswer: 1,
+    },
+    credits: { defaultAllowanceSeconds: 0, maxOverrideSeconds: 36_000, resetPeriodDays: 30 },
+    changeReason: 'Bounded config write test',
+  };
+  const denied = new ResponseCapture();
+  await route({ ...base, request: request('PUT', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response: denied, url: new URL('https://hq.test/api/ivoc/v1/admin/config'), hqSession: session() });
+  assert.equal(denied.status, 403);
+
+  const allowed = new ResponseCapture();
+  await route({ ...base, request: request('PUT', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response: allowed, url: new URL('https://hq.test/api/ivoc/v1/admin/config'), hqSession: session(1, ['administrator']) });
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.json().version, 2);
+  assert.equal(allowed.json().changedBy, 'wp:1');
+  assert.deepEqual(repo.rpcs.at(-1), {
+    name: 'ivoc_write_admin_config',
+    body: {
+      p_expected_version: 1,
+      p_analytics_config_version: 'ivoc.analytics.v1',
+      p_brain_pack_version: 'gpt-live-1:marin',
+      p_ais_rules_version: '2026-09-18.1',
+      p_pressure_defaults: { default_follow_up_intensity: 1, default_pressure_enabled: false, max_follow_ups_per_answer: 2 },
+      p_proactive_budget_overrides: { max_proactive_per_session: 3, max_reactive_per_answer: 1, max_application_probes_per_answer: 1 },
+      p_credits: { default_allowance_seconds: 0, max_override_seconds: 36_000, reset_period_days: 30 },
+      p_change_reason: 'Bounded config write test',
+      p_actor: 'wp:1',
+    },
+  });
 });
 
 test('session creation requires same-origin CSRF and persists server identity', async () => {
