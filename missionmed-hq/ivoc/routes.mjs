@@ -781,7 +781,11 @@ export function createIvocHandler({
     if (!admission.ok) { sendError(response, admission.status || 401, admission.code || 'ivprep_authentication_required', mediaBase); return true; }
     const actor = admission.subject;
 
-    if (pathname === UI_PREFIX) { response.writeHead(308, securityHeaders(mediaBase, { Location: `${UI_PREFIX}/` })); response.end(); return true; }
+    if (pathname === UI_PREFIX || pathname === `${UI_PREFIX}/`) {
+      response.writeHead(302, securityHeaders(mediaBase, { Location: '/iv-prep-on-call/' }));
+      response.end();
+      return true;
+    }
     if (pathname.startsWith(`${UI_PREFIX}/`)) {
       if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405, securityHeaders(mediaBase, { Allow: 'GET, HEAD' })); response.end(); return true; }
       const file = staticPath(pathname);

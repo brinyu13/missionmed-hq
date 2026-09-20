@@ -863,11 +863,13 @@ test('administrator can read any session without receiving the private object ke
   assert.doesNotMatch(response.body, /storage_object_key|never-return-this/u);
 });
 
-test('authenticated UI response carries camera, microphone, and font policy', async () => {
+test('authenticated legacy Matrix launch redirects to the Founder-facing IVOC route', async () => {
   const { route } = handler();
   const response = new ResponseCapture();
   await route({ ...base, request: request('HEAD'), response, url: new URL('https://hq.test/iv-prep-analytics/'), hqSession: session() });
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.Location, '/iv-prep-on-call/');
+  assert.equal(response.headers['Cache-Control'], 'no-store');
   assert.match(response.headers['Permissions-Policy'], /camera=\(self\).*microphone=\(self\)/u);
   assert.match(response.headers['Content-Security-Policy'], /fonts\.googleapis\.com.*fonts\.gstatic\.com/u);
 });
