@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 19:32 America/New_York
+Updated: 2026-09-20 19:41 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Latest functionality-accepted presentation/runtime deployment:
-  `a939a70c-18b4-4a38-bb16-1cefdc578251`, exact commit
-  `5bd3580c39176eeb110baf5b86d9d79c50c19d59`, image
-  `sha256:ee70d3e89dacfd68075f5b0cf9588ef8ff0b04dbd84c640176cacf131f09a240`.
+  `d94bf8fa-4c80-4cd5-bdf8-1cc8ae390270`, exact commit
+  `e78ae757e1afe19bc60080109230a306b808b0d1`, image
+  `sha256:030fefbc2a2947f54064ddadeda2e59085b01d56bc1e25381a305a9d54f9ec54`.
   `/health` is HTTP 200 and anonymous `/iv-prep-on-call/` remains fail-closed
   at HTTP 401. Authenticated production Results reconstructed three canonical
   transcript segments, 36 words and a 0 s–18 s capture-owner boundary, then
@@ -206,11 +206,11 @@ the actual production route and deployment.
 |---|---|---|---|
 | 5 | Candidate.2 premium Home visual DNA, hierarchy, contrast, responsive composition | LIVE UNVERIFIED | Exact candidate.2 successor is live at 84e750e; Home and Practice Goal visual readback passed. Fresh independent presentation acceptance remains. |
 | 5 | Six-step builder and Practice Goal modes | LIVE VERIFIED | Authenticated production Chrome traversed all six distinct candidate.2 step compositions without collapsing them into the rejected generic-card builder. |
-| 5 | Question Pool branching, persistent rail, presets, ordering, 193-question corpus | LIVE UNVERIFIED | Independent presentation review found the rail hidden outside the Question step and not editable/orderable. The source correction keeps it persistent, adds ordered remove/move actions and enforces category → subcategory → question disclosure; production readback is next. |
+| 5 | Question Pool branching, persistent rail, presets, ordering, 193-question corpus | LIVE VERIFIED | Deployment `d94bf8fa…` visibly preserved the right rail on Practice Goal and Question Pool, enforced category → subcategory → question progression for Behavioral, selected real `BEH-001` from the 193-question corpus, and exposed ordered move/remove controls in the rail. |
 | 5 | Separate Interviewer and Program steps with role/style controls | LIVE VERIFIED | Authenticated production traversed the independent Program and Interviewer compositions with Program Director, Faculty, Chief Resident, APD and Dove/Peacock/Owl/Eagle controls. RISE hydration remains a separate owner projection. |
 | 5 | RISE-backed Program search, sourced highlights, people, freshness/manual fallback | EXTERNAL DEPENDENCY | IVOC's fail-closed `rise.program_cheat_sheet` normalizer and UI seam are complete. Current RISE program/research routes require RISE-owned auth and program identity; the visible “Use for Interview Prep” control is still a toast-only CAM handoff and no minimized, signed WP-subject projection/source receipt exists for IVOC. RISE owner authority must publish that contract. |
 | 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE UNVERIFIED | MissionMed/Webex/Zoom/Teams and fail-closed source cards passed local Chrome; owner projections and live opt-in behavior remain. |
-| 5 | Truthful Readiness & Calibration checks | LIVE UNVERIFIED | The physical camera/mic pipeline remains accepted, but independent review found presentation state promoted visual signals from stream presence alone. The source correction now requires each MetricBus signal's own evidence and otherwise reports “Awaiting measured evidence”; production readback is next. |
+| 5 | Truthful Readiness & Calibration checks | LIVE VERIFIED | Deployment `d94bf8fa…` now derives each readiness row from its own MetricBus evidence. Live authenticated readback truthfully showed camera/visual signals awaiting camera and voice signals awaiting microphone, while transcript and recording reported only their real capability states; 26 focused adapter/presentation/durable tests passed. |
 | 6 | Real modular camera/mic Analytics with truthful availability states | LIVE VERIFIED | Physical production rep produced real microphone PCM plus face, hands, head and framing telemetry; unavailable signals continued to fail closed. |
 | 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE VERIFIED | Physical production reps proved live volume, variation, pitch, pace, cadence and pause states. Authenticated saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` then cold-reconstructed three canonical transcript segments, 36 words, the 0 s–18 s capture-owner boundary and zero bounded filler candidates on deployment `6b5bad11…`; the UI discloses the bounded lexicon and explicitly rejects hidden-trait inference. |
 | 6 | Admin measurement/visibility controls and prohibited-inference safeguards | LIVE VERIFIED | Production Admin and Student Coached Practice face/head, hand/finger, body/pose and framing/head-orientation overlays were visibly aligned to the real camera surface and independently toggleable; measurement continued while hidden. True eye-gaze visualization remains unsupported; the product exposes only defensible camera-facing/head-orientation proxies. |
@@ -256,8 +256,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - Latest functionality-accepted MissionMed HQ production is Railway deployment
-  `a939a70c-18b4-4a38-bb16-1cefdc578251` from exact product commit
-  `5bd3580c39176eeb110baf5b86d9d79c50c19d59`; `/health` is HTTP 200, the
+  `d94bf8fa-4c80-4cd5-bdf8-1cc8ae390270` from exact product commit
+  `e78ae757e1afe19bc60080109230a306b808b0d1`; `/health` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -302,9 +302,9 @@ the actual production route and deployment.
 
 ## Next execution lanes
 
-1. Deploy and accept the bounded presentation-adapter correction, then open the
-   smallest sanctioned owner-scoped File Vault CV projection and connect its
-   IVOC consumer. Continue to StoryForge and RISE projections in owner order.
+1. Open the smallest sanctioned owner-scoped File Vault CV projection and
+   connect its IVOC consumer. Continue to StoryForge and RISE projections in
+   owner order.
 2. Continue remaining executable Admin, Answer History, Performance Intelligence,
    browser-native Live Mock and embodiment/null-renderer requirements without
    re-polling unchanged external conditions.
