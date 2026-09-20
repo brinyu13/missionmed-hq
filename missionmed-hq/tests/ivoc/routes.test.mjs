@@ -102,6 +102,28 @@ function repository() {
           event_action: body.p_action,
         };
       }
+      if (name === 'ivoc_write_answer_asset') {
+        return {
+          asset_id: body.p_asset_id,
+          version: body.p_expected_version + 1,
+          schema_name: 'ivoc.answer_asset.v1',
+          owner_subject: body.p_owner_subject,
+          session_id: body.p_session_id,
+          recording_id: body.p_recording_id,
+          answer_segment_id: body.p_answer_segment_id,
+          question_id: body.p_question_id,
+          title: body.p_title,
+          start_ms: body.p_start_ms,
+          end_ms: body.p_end_ms,
+          status: body.p_status,
+          audiences: body.p_audiences,
+          consent: body.p_consent,
+          strongest_answer: body.p_strongest_answer,
+          change_reason: body.p_change_reason,
+          changed_by: body.p_actor,
+          created_at: new Date().toISOString(),
+        };
+      }
       return {
         question_id: body.p_question_id, status: body.p_status,
         current_version: body.p_expected_version + 1,
@@ -355,6 +377,70 @@ test('credit consumption is not exposed as a browser-owned Admin mutation', asyn
       idempotencyKey: '0f28e0fb-2a51-441c-b866-2fe4a443e643', reason: 'Browser consume attempt',
     }, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }),
     response, url: new URL('https://hq.test/api/ivoc/v1/admin/credits'), hqSession: session(1, ['administrator']),
+  });
+  assert.equal(response.status, 400);
+  assert.equal(repo.rpcs.length, 0);
+});
+
+test('owner creates a bounded private AnswerAsset without exposing recording storage identity', async () => {
+  const { route, repo } = handler();
+  const sessionId = '00000000-0000-4000-8000-000000000142';
+  const recordingId = '00000000-0000-4000-8000-000000000143';
+  const segmentId = `segment:${sessionId}:primary`;
+  repo.single = async (path) => {
+    if (path.startsWith(`ivoc_sessions?id=eq.${sessionId}&owner_subject=eq.wp%3A42`)) {
+      return { id: sessionId, owner_subject: 'wp:42', question_id: 'CORE-01' };
+    }
+    if (path.startsWith(`ivoc_recordings?id=eq.${recordingId}&owner_subject=eq.wp%3A42`)) {
+      return { id: recordingId, session_id: sessionId, owner_subject: 'wp:42', duration_ms: 12_000 };
+    }
+    if (path.startsWith(`ivoc_answer_segments?segment_id=eq.${encodeURIComponent(segmentId)}`)) {
+      return {
+        segment_id: segmentId, session_id: sessionId, subject_id: 'wp:42',
+        question: { canonical_question_id: 'CORE-01' },
+        answer: { t_start_ms: 1_000, t_end_ms: 10_000 }, media_ref: `recording:${recordingId}`,
+      };
+    }
+    return null;
+  };
+  const input = {
+    expectedVersion: 0, sessionId, recordingId, answerSegmentId: segmentId,
+    questionId: 'CORE-01', title: 'Leadership answer', startMs: 1_500, endMs: 8_500,
+    status: 'private', audiences: ['student'],
+    consent: { granted: false, scope: 'bounded_clip', grantedAt: null },
+    strongestAnswer: true, changeReason: 'Save private answer clip',
+  };
+  const response = new ResponseCapture();
+  await route({
+    ...base,
+    request: request('POST', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }),
+    response, url: new URL('https://hq.test/api/ivoc/v1/answer-assets'), hqSession: session(),
+  });
+  assert.equal(response.status, 201);
+  assert.equal(response.json().asset.ownerSubject, 'wp:42');
+  assert.equal(response.json().asset.status, 'private');
+  assert.doesNotMatch(response.body, /storage_object_key|never-return/u);
+  assert.equal(repo.rpcs.at(-1).name, 'ivoc_write_answer_asset');
+  assert.equal(repo.rpcs.at(-1).body.p_actor, 'wp:42');
+  assert.deepEqual(repo.rpcs.at(-1).body.p_audiences, ['student']);
+});
+
+test('Match Bridge Ready is rejected without bounded owner consent', async () => {
+  const { route, repo } = handler();
+  const response = new ResponseCapture();
+  await route({
+    ...base,
+    request: request('POST', {
+      expectedVersion: 0,
+      sessionId: '00000000-0000-4000-8000-000000000142',
+      recordingId: '00000000-0000-4000-8000-000000000143',
+      answerSegmentId: 'segment:00000000-0000-4000-8000-000000000142:primary',
+      questionId: 'CORE-01', title: 'Unconsented clip', startMs: 1_500, endMs: 8_500,
+      status: 'match_bridge_ready', audiences: ['student', 'match_bridge'],
+      consent: { granted: false, scope: 'bounded_clip', grantedAt: null },
+      strongestAnswer: false, changeReason: 'Invalid promotion attempt',
+    }, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }),
+    response, url: new URL('https://hq.test/api/ivoc/v1/answer-assets'), hqSession: session(),
   });
   assert.equal(response.status, 400);
   assert.equal(repo.rpcs.length, 0);

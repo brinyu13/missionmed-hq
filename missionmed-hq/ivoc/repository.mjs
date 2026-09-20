@@ -16,6 +16,7 @@ const TABLES = Object.freeze([
   'ivoc_admin_config_versions',
   'ivoc_credit_accounts',
   'ivoc_credit_events',
+  'ivoc_answer_asset_versions',
 ]);
 
 const RPCS = Object.freeze([
@@ -23,6 +24,7 @@ const RPCS = Object.freeze([
   'ivoc_write_mentor_priorities',
   'ivoc_write_admin_config',
   'ivoc_mutate_user_credits',
+  'ivoc_write_answer_asset',
 ]);
 
 function requireConfig(value, name) {

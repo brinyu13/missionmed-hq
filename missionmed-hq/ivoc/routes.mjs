@@ -11,10 +11,12 @@ import { createIvocRepository } from './repository.mjs';
 import { createIvocStorage } from './storage.mjs';
 import {
   assertAnswerSegment,
+  assertAnswerAssetOwner,
   assertCoachingEvidence,
   assertConversationTurn,
   assertSession,
   assertTimelineEvent,
+  normalizeAnswerAssetWrite,
 } from '../../ivoc/contracts/index.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -379,6 +381,93 @@ async function currentCreditAccount(db, subjectId) {
     subject_id: subjectId, version: 0, allowance_seconds: allowance,
     override_seconds: 0, consumed_seconds: 0, balance_seconds: allowance,
   };
+}
+
+function publicAnswerAsset(row) {
+  return {
+    schema: row.schema_name,
+    assetId: row.asset_id,
+    version: row.version,
+    ownerSubject: row.owner_subject,
+    sessionId: row.session_id,
+    recordingId: row.recording_id,
+    answerSegmentId: row.answer_segment_id,
+    questionId: row.question_id,
+    title: row.title,
+    startMs: Number(row.start_ms),
+    endMs: Number(row.end_ms),
+    status: row.status,
+    audiences: Array.isArray(row.audiences) ? row.audiences : [],
+    consent: {
+      granted: row.consent?.granted === true,
+      scope: row.consent?.scope || 'bounded_clip',
+      grantedAt: row.consent?.granted_at || null,
+    },
+    strongestAnswer: row.strongest_answer === true,
+    changeReason: row.change_reason,
+    changedBy: row.changed_by,
+    createdAt: row.created_at,
+  };
+}
+
+async function writeAnswerAsset({ db, actor, assetId, input, existing = null }) {
+  let write;
+  try {
+    write = assertAnswerAssetOwner(normalizeAnswerAssetWrite({
+      ...input, assetId, ownerSubject: actor,
+    }), actor);
+  } catch (error) {
+    throw Object.assign(error, { status: 400 });
+  }
+  if (!(write.status === 'revoked' && existing)) {
+    const [sessionRow, recording, segment] = await Promise.all([
+      db.single(`ivoc_sessions?id=eq.${write.sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&select=id,owner_subject,question_id&limit=1`),
+      db.single(`ivoc_recordings?id=eq.${write.recordingId}&owner_subject=eq.${encodeURIComponent(actor)}&status=eq.saved&select=id,session_id,owner_subject,duration_ms&limit=1`),
+      db.single(`ivoc_answer_segments?segment_id=eq.${encodeURIComponent(write.answerSegmentId)}&subject_id=eq.${encodeURIComponent(actor)}&select=segment_id,session_id,subject_id,question,answer,media_ref&limit=1`),
+    ]);
+    if (!sessionRow || !recording || !segment
+        || recording.session_id !== sessionRow.id || segment.session_id !== sessionRow.id
+        || segment.media_ref !== `recording:${recording.id}`
+        || write.endMs > Number(recording.duration_ms || -1)
+        || write.startMs < Number(segment.answer?.t_start_ms ?? -1)
+        || write.endMs > Number(segment.answer?.t_end_ms ?? -1)
+        || write.questionId !== (segment.question?.canonical_question_id || sessionRow.question_id)) {
+      throw Object.assign(new Error('ivoc_answer_asset_source_invalid'), { status: 404 });
+    }
+  }
+  try {
+    return await db.rpc('ivoc_write_answer_asset', {
+      p_asset_id: write.assetId,
+      p_expected_version: write.expectedVersion,
+      p_owner_subject: actor,
+      p_session_id: write.sessionId,
+      p_recording_id: write.recordingId,
+      p_answer_segment_id: write.answerSegmentId,
+      p_question_id: write.questionId,
+      p_title: write.title,
+      p_start_ms: write.startMs,
+      p_end_ms: write.endMs,
+      p_status: write.status,
+      p_audiences: [...write.audiences],
+      p_consent: {
+        granted: write.consent.granted,
+        scope: write.consent.scope,
+        granted_at: write.consent.grantedAt,
+      },
+      p_strongest_answer: write.strongestAnswer,
+      p_change_reason: write.changeReason,
+      p_actor: actor,
+    });
+  } catch (error) {
+    const detail = String(error?.detail || '');
+    if (detail.includes('ivoc_answer_asset_version_conflict')
+        || detail.includes('ivoc_answer_asset_revoked')
+        || detail.includes('ivoc_answer_asset_source_immutable')
+        || detail.includes('ivoc_answer_asset_ready_requires_revocation')) {
+      throw Object.assign(new Error(detail), { status: 409 });
+    }
+    throw error;
+  }
 }
 
 function practiceGoal(row) {
@@ -749,6 +838,62 @@ export function createIvocHandler({
         }
         await audit({ actor, owner: write.subjectId, action: 'credit_admin_write', decision: 'allow', reason: `${write.action}:v${row.version}` });
         sendJson(response, 200, { account: publicCreditAccount(row, write.subjectId) }, mediaBase);
+        return true;
+      }
+
+      if (request.method === 'GET' && pathname === `${API_PREFIX}/answer-assets`) {
+        const rows = await db.request(`ivoc_answer_asset_versions?owner_subject=eq.${encodeURIComponent(actor)}&select=*&order=asset_id.asc,version.desc&limit=500`);
+        const latest = [];
+        const seen = new Set();
+        for (const row of rows) {
+          if (seen.has(row.asset_id)) continue;
+          seen.add(row.asset_id);
+          latest.push(publicAnswerAsset(row));
+        }
+        await audit({ actor, owner: actor, action: 'answer_assets_read', decision: 'allow', reason: 'owner' });
+        sendJson(response, 200, { assets: latest }, mediaBase);
+        return true;
+      }
+
+      if (request.method === 'POST' && pathname === `${API_PREFIX}/answer-assets`) {
+        const input = await readJson(request);
+        const row = await writeAnswerAsset({ db, actor, assetId: randomUUID(), input });
+        await audit({ actor, owner: actor, sessionId: row.session_id, recordingId: row.recording_id, action: 'answer_asset_write', decision: 'allow', reason: `${row.status}:v${row.version}` });
+        sendJson(response, 201, { asset: publicAnswerAsset(row) }, mediaBase);
+        return true;
+      }
+
+      let answerAssetMatch = pathname.match(/^\/api\/ivoc\/v1\/answer-assets\/([0-9a-f-]{36})$/u);
+      if (request.method === 'PATCH' && answerAssetMatch) {
+        const assetId = answerAssetMatch[1];
+        const existing = await db.single(`ivoc_answer_asset_versions?asset_id=eq.${assetId}&owner_subject=eq.${encodeURIComponent(actor)}&select=*&order=version.desc&limit=1`);
+        if (!existing) {
+          await audit({ actor, action: 'answer_asset_write', decision: 'deny', reason: 'not_owner' });
+          sendError(response, 404, 'not_found', mediaBase); return true;
+        }
+        const row = await writeAnswerAsset({ db, actor, assetId, input: await readJson(request), existing });
+        await audit({ actor, owner: actor, sessionId: row.session_id, recordingId: row.recording_id, action: 'answer_asset_write', decision: 'allow', reason: `${row.status}:v${row.version}` });
+        sendJson(response, 200, { asset: publicAnswerAsset(row) }, mediaBase);
+        return true;
+      }
+
+      answerAssetMatch = pathname.match(/^\/api\/ivoc\/v1\/answer-assets\/([0-9a-f-]{36})\/playback-url$/u);
+      if (request.method === 'GET' && answerAssetMatch) {
+        const asset = await db.single(`ivoc_answer_asset_versions?asset_id=eq.${answerAssetMatch[1]}&owner_subject=eq.${encodeURIComponent(actor)}&select=*&order=version.desc&limit=1`);
+        const recording = asset?.status !== 'revoked'
+          ? await db.single(`ivoc_recordings?id=eq.${asset.recording_id}&owner_subject=eq.${encodeURIComponent(actor)}&status=eq.saved&select=*&limit=1`)
+          : null;
+        if (!asset || !recording) {
+          await audit({ actor, owner: asset?.owner_subject, recordingId: asset?.recording_id, action: 'answer_asset_playback', decision: 'deny', reason: asset?.status === 'revoked' ? 'revoked' : 'not_owner' });
+          sendError(response, 404, 'not_found', mediaBase); return true;
+        }
+        const playback = media.createPlayback({ recordingId: recording.id, objectKey: recording.storage_object_key, disposition: 'inline' });
+        const playbackUrl = `${API_PREFIX}/recordings/${recording.id}/playback?token=${encodeURIComponent(playback.token)}&expires=${playback.expiresAtMs}&disposition=inline`;
+        await audit({ actor, owner: actor, sessionId: asset.session_id, recordingId: recording.id, action: 'answer_asset_playback', decision: 'allow', reason: asset.status });
+        sendJson(response, 200, {
+          assetId: asset.asset_id, version: asset.version, startMs: Number(asset.start_ms),
+          endMs: Number(asset.end_ms), url: playbackUrl, expiresAt: playback.expiresAt,
+        }, mediaBase);
         return true;
       }
 

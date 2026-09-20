@@ -7,3 +7,4 @@ export * from './answer-segment.mjs';
 export * from './projection-envelope.mjs';
 export * from './question-library.mjs';
 export * from './presentation-boundary.mjs';
+export * from './answer-asset.mjs';
