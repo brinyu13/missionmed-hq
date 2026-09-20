@@ -1,6 +1,6 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-20T17:32:13Z
+Updated: 2026-09-20T17:35:45Z
 
 ## Product and outcome
 
@@ -45,10 +45,18 @@ Updated: 2026-09-20T17:32:13Z
 - Prototype deployed: NO
 - Target plugin directory: ABSENT
 - Prototype active: NO
+- Prototype tables and documented options: ABSENT
 - PHP: `8.2.29`
 - Required extensions `zip`, `dom`, `mbstring`, `json`: PASS
+- `wp-config.php` PHP lint: PASS; canonical insertion marker count: 1
+- Private rollback directory: present and writable
 - RISE origin: configured
 - File Vault class: loaded
+- File Vault mode: `on`
+- Public home and login: HTTP 200 at `https://missionmedinstitute.com`
+- Logged-out PSV REST bootstrap and namespace: HTTP 404
+- Authenticated browser baseline: File Vault rendered successfully for `brinyu` in administrator view
+- MMPS log lines: 0; recent fatal lines: 0
 - Dedicated PSV key: ABSENT as a boolean presence check; value never inspected
 - `MMED_PS_PROTO_ALLOW_USER_IDS`: ABSENT
 - `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI`: UNDEFINED
@@ -57,7 +65,7 @@ Updated: 2026-09-20T17:32:13Z
 ## Health and accepted capabilities
 
 - Existing File Vault and RISE: preserved; predeployment regression proof remains required immediately before mutation and after activation
-- Package/hash/manifest and production prerequisites: accepted for M0 subject to final pre-mutation refresh
+- Package/hash/manifest, rollback surface and non-key production prerequisites: accepted for M0 subject to final pre-mutation refresh
 - Live RISE, live OpenAI, generation, reconstruction, save and DOCX: not yet proven because deployment has not occurred
 
 ## Provider and privacy state
@@ -91,3 +99,4 @@ Updated: 2026-09-20T17:32:13Z
 ## State delta log
 
 - 2026-09-20T17:32:13Z — Foreman packet adopted; volatile truth refreshed; dedicated key remains the sole external dependency; production remains unmodified.
+- 2026-09-20T17:35:45Z — Read-only M0 refresh confirmed absent PSV tables/options, File Vault mode on, protected runtime hashes unchanged, public negative routes closed and authenticated File Vault healthy. Kinsta-shell DNS could not resolve the obsolete hostname `theresidencyacademy.com`; authoritative WordPress home/site URL is `https://missionmedinstitute.com`, which passed locally.
