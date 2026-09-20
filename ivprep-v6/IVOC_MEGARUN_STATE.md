@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-17 17:31 America/New_York
+Updated: 2026-09-20 10:27 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -21,10 +21,14 @@ the actual production route and deployment.
   canon.
 - Candidate.2 presentation integration successor:
   `84e750e4540acd5479ee72291e7b9d1c38f2f351`.
+- Durable presentation boundary: Astra canonical components consume stable
+  view-model/capability adapters; canonical business, session, database and
+  provider behavior remains below that boundary. Current page composition is
+  not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `72a3867e-6f46-4c95-ad6b-2701d26cba1a`, exact commit
-  `2540e448df24e026f38ac5d1fb731b14e443fb13`, image
-  `sha256:7716a06f8f3d2d708f32b53d50ccddf2651a85289cca679e36456f7585c10b22`.
+  `f32086e6-5937-4998-b479-f0e08e38a85c`, exact commit
+  `8b52db79fab6cfc50c94624ca08656d0c9cf22a9`, image
+  `sha256:e1d86ffbdd77492043f07dd573a5bd10704a63bec76bcebbbde5120bb61dd723`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -41,6 +45,10 @@ the actual production route and deployment.
   `cca6734a830124096e877e9bf0dbd861c0f2baff`.
 - Source baseline before this completion tranche:
   `84f0adb3235d89de32478700653eec57b278097c`.
+- Application Intelligence pure domain core:
+  `8b52db79fab6cfc50c94624ca08656d0c9cf22a9`; 47/47 focused tests and
+  10/10 F1 regression tests pass. Persistence, owner projections, runtime
+  Director relay and live acceptance remain unimplemented.
 
 ## Production data authority — LIVE VERIFIED
 
@@ -49,13 +57,14 @@ the actual production route and deployment.
 - MissionMed organization: `jolimsgwkmssvhegrdfx`.
 - Region: `us-east-2`.
 - Provider status: `ACTIVE_HEALTHY`.
-- Six production migrations are present:
+- Seven production migrations are present:
   `ivprep_3440_admin_canary`,
   `ivprep_3472c_t1_three_test_lifecycle`,
   `ivoc_3528c_session_recording_results`,
   `ivoc_m1_event_spine`,
   `ivoc_access_log_recording_index`, and
-  `ivoc_production_privilege_hardening`.
+  `ivoc_production_privilege_hardening`, and
+  `ivoc_question_governance`.
 - Provider readback after the hardening migration:
   17/17 IVOC/IV Prep tables have RLS enabled and forced; browser/public table
   grants = 0; excess `service_role` grants
@@ -108,7 +117,7 @@ the actual production route and deployment.
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE UNVERIFIED | Role-aware source exists; live actor/subject separation proof remains. |
 | 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Partial source surfaces exist; full production Admin acceptance remains. |
 | 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | NOT STARTED | Full Admin ledger surface is incomplete. |
-| 14 | Versioned question governance | NOT STARTED | Add/hide/edit/retire with preserved IDs/history remains. |
+| 14 | Versioned question governance | LIVE UNVERIFIED | Add/edit/hide/retire source, immutable IDs/history and the dedicated production migration are live at `d65dfaa`; provider tables exist and are empty. A genuine authenticated Admin lifecycle canary remains. |
 | 14 | Credits, allowances, overrides, reset and balance | NOT STARTED | Production accounting/control model remains. |
 | 14 | Versioned Analytics/InterviewBrain/coaching controls | NOT STARTED | Production Admin configuration/version receipt remains. |
 | 15 | Live Mock Studio Hot Seat workflow and real student media | NOT STARTED | Product surface and production workflow remain. |
@@ -128,9 +137,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `72a3867e-6f46-4c95-ad6b-2701d26cba1a` from exact product commit
-  `2540e448df24e026f38ac5d1fb731b14e443fb13`; runtime source bytes match
-  the commit, health is ready, repository source is disconnected, the
+  `f32086e6-5937-4998-b479-f0e08e38a85c` from exact product commit
+  `8b52db79fab6cfc50c94624ca08656d0c9cf22a9`; health is ready, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -144,6 +152,10 @@ the actual production route and deployment.
 - The ten-surface Matrix lock was reconciled to verified current owner/runtime
   identities without mutating owner assets. IVOC remains a consumer; fresh
   end-to-end Matrix launch acceptance is still required.
+- Application Intelligence contracts, provenance, signals, Context Pack and
+  Director arbitration are integrated as a dormant domain core. Production
+  does not yet import them; owner contracts, persistence and runtime wiring
+  remain explicit gates.
 - Root runtime dependency audit previously reported zero vulnerabilities. Default
   branch repository-security advisories remain separate security-owner work until
   re-triaged against the production commit.
@@ -162,12 +174,20 @@ the actual production route and deployment.
 
 ## Next execution lanes
 
-1. Run authenticated second-Admin, entitled-360 and negative-role/private-media
+1. Run the genuine authenticated Admin question-governance lifecycle canary
+   when a browser session can reach the production domain; the current Chrome
+   profile returns client-side `ERR_BLOCKED_BY_CLIENT`, so no identity or
+   result was manufactured.
+2. Wire the integrated Application Intelligence core through additive,
+   RLS-forced persistence, ready-check hydration and the bounded server-side
+   Director hint relay without coupling it to Astra page composition.
+3. Resolve owner projection contracts in dependency order: File Vault/CV,
+   StoryForge, RISE, then MCC/Top 3; keep unavailable sources fail-closed.
+4. Run authenticated second-Admin, entitled-360 and negative-role/private-media
    canaries when genuine sessions are available; never manufacture identities.
-2. Exercise a real multi-turn follow-up/gap range and a transcript that produces
+5. Exercise a real multi-turn follow-up/gap range and a transcript that produces
    supported semantic evidence, without fabricating either result.
-3. Continue IVOC-owned Admin question governance, Analytics/AI controls and
-   credit accounting while sibling-owner projections remain fail-closed.
-4. Run fresh independent acceptance against the actual production route.
-5. Create `IVOC_MEGARUN_FINAL_HANDOFF.md`, release every lease, and stop only
+6. Complete Admin Analytics/AI controls and credit accounting, then run fresh
+   independent acceptance against the actual production route.
+7. Create `IVOC_MEGARUN_FINAL_HANDOFF.md`, release every lease, and stop only
    at `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`.
