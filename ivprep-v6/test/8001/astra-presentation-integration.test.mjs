@@ -4,12 +4,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const htmlUrl = new URL('../../public/studio/index.html', import.meta.url);
+const legacyHtmlUrl = new URL('../../public/aaa/index.html', import.meta.url);
 const cssUrl = new URL('../../public/studio/studio.css', import.meta.url);
 const runtimeUrl = new URL('../../public/studio/studio.mjs', import.meta.url);
 const liveCompatibilityUrl = new URL('../../public/studio/live-interview.mjs', import.meta.url);
 const adminLibraryUrl = new URL('../../public/capabilities/admin-student-library.mjs', import.meta.url);
 
 const html = await readFile(htmlUrl, 'utf8');
+const legacyHtml = await readFile(legacyHtmlUrl, 'utf8');
 const css = await readFile(cssUrl, 'utf8');
 const runtime = await readFile(runtimeUrl, 'utf8');
 const liveCompatibility = await readFile(liveCompatibilityUrl, 'utf8');
@@ -25,6 +27,13 @@ test('the Founder-facing root declares the sealed Astra candidate.2 presentation
     'My Progress', 'Performance Intelligence', 'Answer History &amp; Clips',
     'My Interview Context', 'Real Interview Debrief']) {
     assert.match(html, new RegExp(`>${label}(?:\\s|<)`, 'u'), `${label} navigation is missing`);
+  }
+});
+
+test('Matrix return links cross the hosted IVOC boundary to the canonical WordPress Matrix', () => {
+  for (const document of [html, legacyHtml]) {
+    assert.match(document, /href="https:\/\/missionmedinstitute\.com\/member-dashboard\/"/u);
+    assert.doesNotMatch(document, /href="\/member-dashboard\/"/u);
   }
 });
 
