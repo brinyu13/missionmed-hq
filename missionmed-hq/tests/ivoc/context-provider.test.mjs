@@ -281,6 +281,9 @@ test('analyze route reads only the owner sealed object and persists a private ca
   assert.deepEqual(upserts.at(-1).body.interpretation, {
     text: 'The answer gives a concrete example.', by: 'ai_draft', facet: 'specificity', polarity: 'strength',
   });
+  assert.deepEqual(upserts.at(-1).body.score, {
+    value: 0.86, scale: '0..1', basis: 'context_analysis',
+  });
   assert.equal(upserts.at(-1).body.subject_id, 'wp:42');
   assert.equal(inserts, 1);
   assert.equal(updates, 0);

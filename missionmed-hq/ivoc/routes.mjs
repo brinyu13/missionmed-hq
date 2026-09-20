@@ -653,7 +653,7 @@ async function persistContextSpine({ db, actor, sessionRow, recording, result, n
     dimension: 'semantic.coaching_pattern',
     refs: item.transcriptSegmentIds.map((id) => ({ kind: 'transcript_span', ref: `${transcriptRef}#${id}` })),
     interpretation: { text: item.text, by: 'ai_draft', facet: item.facet, polarity: item.polarity },
-    score: result.analysis.score,
+    score: { value: result.analysis.score, scale: '0..1', basis: 'context_analysis' },
     confidence: result.analysis.coverage,
     limitations: result.analysis.limitations || [],
     version: 1,

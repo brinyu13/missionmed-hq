@@ -128,6 +128,11 @@ function validIso(value) {
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
 }
 
+function evidenceScoreValue(value) {
+  const numeric = Number(value && typeof value === 'object' ? value.value : value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
 export function longitudinalProjection(rows, subjectId) {
   if (!/^wp:[1-9][0-9]{0,19}$/u.test(String(subjectId || '')) || !Array.isArray(rows)) return null;
   const groups = new Map();
@@ -135,7 +140,7 @@ export function longitudinalProjection(rows, subjectId) {
     const facet = String(row?.interpretation?.facet || '').toLowerCase();
     const polarity = String(row?.interpretation?.polarity || '').toLowerCase();
     const confidence = Number(row?.confidence);
-    const score = Number(row?.score);
+    const score = evidenceScoreValue(row?.score);
     const createdAt = validIso(row?.created_at);
     const evidenceId = safeText(row?.evidence_id, 160);
     const sessionId = safeText(row?.session_id, 120);

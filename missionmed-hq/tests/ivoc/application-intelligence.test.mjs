@@ -115,25 +115,25 @@ test('prior-IVOC projection requires two distinct saved sessions and bounded str
       evidence_id: 'evidence:a:1', session_id: 'session-a', subject_id: 'wp:42',
       dimension: 'semantic.coaching_pattern', refs: [{ kind: 'transcript_span', ref: 'transcript:a#seg-1' }],
       interpretation: { facet: 'structure', polarity: 'weakness', text: 'The main point arrives after the detail.' },
-      score: 0.82, confidence: 0.88, limitations: [], version: 1, created_at: '2026-09-18T10:00:00.000Z',
+      score: { value: 0.82, scale: '0..1', basis: 'context_analysis' }, confidence: 0.88, limitations: [], version: 1, created_at: '2026-09-18T10:00:00.000Z',
     },
     {
       evidence_id: 'evidence:b:1', session_id: 'session-b', subject_id: 'wp:42',
       dimension: 'semantic.coaching_pattern', refs: [{ kind: 'transcript_span', ref: 'transcript:b#seg-1' }],
       interpretation: { facet: 'structure', polarity: 'weakness', text: 'The main point arrives after the detail.' },
-      score: 0.84, confidence: 0.9, limitations: [], version: 1, created_at: '2026-09-19T10:00:00.000Z',
+      score: { value: 0.84, scale: '0..1', basis: 'context_analysis' }, confidence: 0.9, limitations: [], version: 1, created_at: '2026-09-19T10:00:00.000Z',
     },
     {
       evidence_id: 'evidence:c:1', session_id: 'session-c', subject_id: 'wp:42',
       dimension: 'semantic.coaching_pattern', refs: [{ kind: 'transcript_span', ref: 'transcript:c#seg-1' }],
       interpretation: { facet: 'specificity', polarity: 'strength', text: 'A concrete example is present.' },
-      score: 0.9, confidence: 0.91, limitations: [], version: 1, created_at: '2026-09-19T11:00:00.000Z',
+      score: { value: 0.9, scale: '0..1', basis: 'context_analysis' }, confidence: 0.91, limitations: [], version: 1, created_at: '2026-09-19T11:00:00.000Z',
     },
     {
       evidence_id: 'evidence:low:1', session_id: 'session-d', subject_id: 'wp:42',
       dimension: 'semantic.coaching_pattern', refs: [{ kind: 'transcript_span', ref: 'transcript:d#seg-1' }],
       interpretation: { facet: 'structure', polarity: 'weakness', text: 'Low-confidence observation.' },
-      score: 0.4, confidence: 0.4, limitations: [], version: 1, created_at: '2026-09-19T12:00:00.000Z',
+      score: { value: 0.4, scale: '0..1', basis: 'context_analysis' }, confidence: 0.4, limitations: [], version: 1, created_at: '2026-09-19T12:00:00.000Z',
     },
   ];
   const projection = longitudinalProjection(rows, 'wp:42');
@@ -157,12 +157,12 @@ test('provider excludes the active session and emits prior-IVOC context only fro
       {
         evidence_id: 'evidence:a', session_id: 'session-a', subject_id: 'wp:42', dimension: 'semantic.coaching_pattern',
         refs: [{ kind: 'transcript_span', ref: 'a#1' }], interpretation: { facet: 'evidence', polarity: 'weakness' },
-        score: 0.9, confidence: 0.9, limitations: [], version: 1, created_at: '2026-09-18T10:00:00Z',
+        score: { value: 0.9, scale: '0..1', basis: 'context_analysis' }, confidence: 0.9, limitations: [], version: 1, created_at: '2026-09-18T10:00:00Z',
       },
       {
         evidence_id: 'evidence:b', session_id: 'session-b', subject_id: 'wp:42', dimension: 'semantic.coaching_pattern',
         refs: [{ kind: 'transcript_span', ref: 'b#1' }], interpretation: { facet: 'evidence', polarity: 'weakness' },
-        score: 0.9, confidence: 0.9, limitations: [], version: 1, created_at: '2026-09-19T10:00:00Z',
+        score: { value: 0.9, scale: '0..1', basis: 'context_analysis' }, confidence: 0.9, limitations: [], version: 1, created_at: '2026-09-19T10:00:00Z',
       },
     ];
     return [];
