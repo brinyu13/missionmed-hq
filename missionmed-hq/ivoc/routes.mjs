@@ -16,7 +16,9 @@ import {
   assertConversationTurn,
   assertSession,
   assertTimelineEvent,
+  EMBODIMENT_SCHEMA,
   normalizeAnswerAssetWrite,
+  publicEmbodimentConfig,
 } from '../../ivoc/contracts/index.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -749,6 +751,16 @@ export function createIvocHandler({
         const row = await db.single('ivoc_admin_config_versions?select=*&order=version.desc&limit=1');
         await audit({ actor, action: 'admin_config_read', decision: 'allow', reason: `v${row?.version || 0}` });
         sendJson(response, 200, publicAdminConfig(row), mediaBase);
+        return true;
+      }
+
+      if (request.method === 'GET' && pathname === `${API_PREFIX}/admin/embodiment`) {
+        if (!isAdmin(hqSession, admission)) {
+          await audit({ actor, action: 'embodiment_config_read', decision: 'deny', reason: 'admin_required' });
+          sendError(response, 403, 'ivoc_admin_required', mediaBase); return true;
+        }
+        await audit({ actor, action: 'embodiment_config_read', decision: 'allow', reason: EMBODIMENT_SCHEMA });
+        sendJson(response, 200, publicEmbodimentConfig(), mediaBase);
         return true;
       }
 

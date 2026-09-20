@@ -326,6 +326,30 @@ test('versioned Analytics and InterviewBrain config is Admin-only and actor-stam
   });
 });
 
+test('provider-neutral embodiment contract is Admin-only and keeps external providers inactive', async () => {
+  const { route } = handler();
+  const denied = new ResponseCapture();
+  await route({
+    ...base, request: request('GET'), response: denied,
+    url: new URL('https://hq.test/api/ivoc/v1/admin/embodiment'), hqSession: session(),
+  });
+  assert.equal(denied.status, 403);
+
+  const allowed = new ResponseCapture();
+  await route({
+    ...base, request: request('GET'), response: allowed,
+    url: new URL('https://hq.test/api/ivoc/v1/admin/embodiment'), hqSession: session(1, ['administrator']),
+  });
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.json().schema, 'missionmed.ivoc.embodiment.v1');
+  assert.equal(allowed.json().profiles.length, 12);
+  assert.equal(allowed.json().runtime.directorAuthority, 'missionmed-interviewbrain');
+  assert.equal(allowed.json().runtime.providerRole, 'actor-only');
+  assert.equal(allowed.json().runtime.providerSelectionExposedToStudent, false);
+  assert.equal(allowed.json().adminPolicy.providers.lemonSlice, 'deferred');
+  assert.equal(allowed.json().adminPolicy.activation.externalSpendAllowed, false);
+});
+
 test('per-user credits are owner-readable and Admin mutations are versioned, idempotent, and actor-stamped', async () => {
   const { route, repo } = handler();
   repo.single = async (path) => {
