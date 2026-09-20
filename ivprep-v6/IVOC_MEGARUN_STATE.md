@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 11:48 America/New_York
+Updated: 2026-09-20 11:57 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `445508af-ad4d-443e-a33b-3a70ce5bbb03`, exact commit
-  `1df61a5ed1547a9c97feaf86679589ff5bf5ca6d`, image
-  `sha256:3918bcb971ee6e0501bd027619377a06b3bbbe3831edfa5f7f5fb61e5b57a375`.
+  `f3b30234-7d56-4ef3-af21-0dd4708b5b81`, exact commit
+  `34ba6b98dbeb795e732d1b08f635a289149a8c5d`, image
+  `sha256:3a2b3c2467e12e8febef02e7699327412690a9c60de89e3413cb20175ee06372`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -60,7 +60,7 @@ the actual production route and deployment.
 - MissionMed organization: `jolimsgwkmssvhegrdfx`.
 - Region: `us-east-2`.
 - Provider status: `ACTIVE_HEALTHY`.
-- Ten production migrations are present:
+- Eleven production migrations are present:
   `ivprep_3440_admin_canary`,
   `ivprep_3472c_t1_three_test_lifecycle`,
   `ivoc_3528c_session_recording_results`,
@@ -69,8 +69,9 @@ the actual production route and deployment.
   `ivoc_production_privilege_hardening`,
   `ivoc_question_governance`,
   `ivoc_application_intelligence_context_packs`,
-  `ivoc_question_governance_fail_fast`, and
-  `ivoc_mentor_priorities`.
+  `ivoc_question_governance_fail_fast`,
+  `ivoc_mentor_priorities`, and
+  `ivoc_admin_config`.
 - Provider readback after the hardening migration:
   17/17 IVOC/IV Prep tables have RLS enabled and forced; browser/public table
   grants = 0; excess `service_role` grants
@@ -80,8 +81,9 @@ the actual production route and deployment.
   abandoned, and one clearly labeled retired Admin-governance canary preserves
   four immutable versions. The Mentor Top 3 canary preserves one populated and
   one cleared append-only version, both actor-stamped `wp:1`; both associated
-  sessions are abandoned. No production recording/media was created by these
-  canaries. The single
+  sessions are abandoned. The Admin-config canary preserves baseline v1,
+  bounded pressure-policy v2 and restored-baseline v3; its session is
+  abandoned. No production recording/media was created by these canaries. The single
   `ivprep_provider_control` row remains fail-closed:
   `paid_tests_enabled=false`, `kill_switch_tripped=true`.
 - Security advisor reports only the expected informational
@@ -128,10 +130,10 @@ the actual production route and deployment.
 | 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE UNVERIFIED | Role-aware source exists; live actor/subject separation proof remains. |
 | 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Versioned Top 3 write/read/redaction and Context Pack binding are production accepted. Student selector and full production Admin traversal remain. |
-| 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | NOT STARTED | Full Admin ledger surface is incomplete. |
+| 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE UNVERIFIED | Question governance and versioned Analytics/InterviewBrain/AIS/pressure/default-credit configuration are production accepted. Per-user credit accounting, consolidated Settings presentation, Match Bridge and Live Mock status remain. |
 | 14 | Versioned question governance | LIVE VERIFIED | Genuine `brinyu` production canary `CANARY-ADMIN-20260920-E92A09` completed active v1 → edited v2 → hidden v3 → retired v4 with immutable `wp:1` actor-stamped history. Stale version and retired-reactivation writes fail fast at HTTP 409; the retry-class SQLSTATE defect found during the canary was corrected by `ivoc_question_governance_fail_fast`. |
 | 14 | Credits, allowances, overrides, reset and balance | NOT STARTED | Production accounting/control model remains. |
-| 14 | Versioned Analytics/InterviewBrain/coaching controls | NOT STARTED | Production Admin configuration/version receipt remains. |
+| 14 | Versioned Analytics/InterviewBrain/coaching controls | LIVE VERIFIED | Genuine `brinyu` production writes created bounded v2 and restored-baseline v3 with stale-write HTTP 409. Session `66a60fec-398f-413b-a74c-3d0d8d3168da` pinned Admin config v2, `ivoc.analytics.v1`, `gpt-live-1:marin`, AIS `2026-09-18.1`, and follow-up intensity 2; the active configuration is restored v3. |
 | 15 | Live Mock Studio Hot Seat workflow and real student media | NOT STARTED | Product surface and production workflow remain. |
 | 15 | Canonical recording/Analytics/replay/overlay/scoring/library save | LIVE VERIFIED | One production Student Coached Practice rep completed the full camera/mic → Analytics → private recording → Results → Film Room overlay → Answer History → reload → signed private playback lifecycle. Overlay toggles and hidden-measurement continuity passed; true eye-gaze remains unsupported absent a defensible detector. |
 | 15 | Deepest viable Webex or staged supervised adapter | NOT STARTED | Owner/provider constraint and shipped seam remain. |
@@ -149,8 +151,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `445508af-ad4d-443e-a33b-3a70ce5bbb03` from exact product commit
-  `1df61a5ed1547a9c97feaf86679589ff5bf5ca6d`; `/health` is HTTP 200, the
+  `f3b30234-7d56-4ef3-af21-0dd4708b5b81` from exact product commit
+  `34ba6b98dbeb795e732d1b08f635a289149a8c5d`; `/health` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -197,7 +199,7 @@ the actual production route and deployment.
    canaries when genuine sessions are available; never manufacture identities.
 3. Exercise a real multi-turn follow-up/gap range and a transcript that produces
    supported semantic evidence, without fabricating either result.
-4. Complete Admin Analytics/AI controls and credit accounting, then run fresh
-   independent acceptance against the actual production route.
+4. Complete per-user credit accounting and remaining Admin control presentation,
+   then run fresh independent acceptance against the actual production route.
 5. Create `IVOC_MEGARUN_FINAL_HANDOFF.md`, release every lease, and stop only
    at `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`.
