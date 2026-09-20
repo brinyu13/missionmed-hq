@@ -36,6 +36,9 @@ the actual production route and deployment.
   without inventing availability. The Admin-only boundary passed focused tests
   and local browser acceptance; authenticated production visual traversal is
   still required before the row is promoted to LIVE VERIFIED.
+  Protected custody was forward-reconciled without history rewrite as
+  `aa425b6` → `3f4d9bd` under confirmed product lease epoch `3191`; the final
+  product bytes and focused-test result are identical to the accepted source.
 - GPT-Live presentation boundary extraction: `feb19f06651c7d9da27d930cf5495b218f9625ab`.
   The proven browser WebRTC transport now lives in
   `public/capabilities/live-interview.mjs`; the active presentation imports that
