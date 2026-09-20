@@ -6,6 +6,10 @@ const migrationUrl = new URL(
   '../../../supabase/migrations/20260920170000_ivoc_user_credits.sql',
   import.meta.url,
 );
+const conflictFixUrl = new URL(
+  '../../../supabase/migrations/20260920171000_ivoc_user_credits_conflict_fix.sql',
+  import.meta.url,
+);
 
 test('per-user credit accounting is atomic, idempotent, append-only, and fail-fast', async () => {
   const migration = await readFile(migrationUrl, 'utf8');
@@ -22,4 +26,14 @@ test('per-user credit accounting is atomic, idempotent, append-only, and fail-fa
   assert.match(migration, /alter table public\.ivoc_credit_events force row level security/u);
   assert.doesNotMatch(migration, /grant .* to (anon|authenticated)/u);
   assert.match(migration, /grant execute on function public\.ivoc_mutate_user_credits/u);
+});
+
+test('credit-account upsert conflict target is repaired without rewriting ledger history', async () => {
+  const migration = await readFile(conflictFixUrl, 'utf8');
+
+  assert.match(migration, /pg_get_functiondef\(procedure\.oid\)/u);
+  assert.match(migration, /on conflict on constraint ivoc_credit_accounts_pkey do update set/u);
+  assert.match(migration, /ivoc_credit_conflict_target_not_found' using errcode = 'P0001'/u);
+  assert.doesNotMatch(migration, /delete from public\.ivoc_credit/u);
+  assert.doesNotMatch(migration, /truncate/u);
 });
