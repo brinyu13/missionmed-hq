@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 15:13 America/New_York
+Updated: 2026-09-20 15:22 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `ebaf3ae1-d241-4a87-9a7e-157303e5b014`, exact commit
-  `c8e473aadb2abec8e9fe6bb33af58dda2e733a19`, image
-  `sha256:20ba89c749c13bf57f51f43df8e4ac4083307ca0ae91967b918c736e7ac183d4`.
+  `d198991c-9537-4c1e-9483-68e965bc2f12`, exact commit
+  `759cca71f4203569dba3cde99f9a18060c05e376`, image
+  `sha256:36a2d34b02aa7be4bb81720867d4ab590cb38001d3857a0dcd5bc7582638ce0d`.
 - Admin operational-control presentation: `268cd4be2265e7cd1ee6b05247ab5e148312a260`.
   The existing candidate.2 Mentor & Admin surface now consumes the versioned
   Admin-config, authenticated credit-account and governed-question adapters,
@@ -57,6 +57,12 @@ the actual production route and deployment.
   The candidate.2 Program step consumes only the minimized Scheduler projection;
   production authenticated readback returned seven authorized appointments and
   zero upcoming interviews, without exposing owner URLs or inventing an event.
+- Admin student-library adapter: `759cca71f4203569dba3cde99f9a18060c05e376`.
+  Production Admin `wp:1` grouped 14 authorized sessions under the stable
+  student identity, opened the persisted Results surface, then opened the
+  transcript-backed Film Room through a signed private-media URL. Playback
+  reached ready state 4 and advanced; switching to Student view hid both the
+  selector and Mentor/Admin navigation while retaining the same actor identity.
 - GPT-Live presentation boundary extraction: `feb19f06651c7d9da27d930cf5495b218f9625ab`.
   The proven browser WebRTC transport now lives in
   `public/capabilities/live-interview.mjs`; the active presentation imports that
@@ -180,7 +186,7 @@ the actual production route and deployment.
 | 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE UNVERIFIED | Results source exists; evidence-linked production output remains. |
 | 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE VERIFIED | Authenticated production `wp:1` switched Student → Admin while retaining the same actor/subject identity; Admin-only navigation and diagnostics appeared without impersonating another user. |
-| 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Versioned Top 3 write/read/redaction and Context Pack binding are production accepted. The Admin student-library selector and authorized Results/Film Room traversal are implemented behind a stable capability adapter and pass focused privacy/presentation tests; live deployment acceptance remains. |
+| 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE VERIFIED | Production Admin `wp:1` selected the authorized student library, traversed Results and transcript-backed Film Room, and played the signed private recording. Student view hid the selector without actor impersonation. Top 3, Progress and longitudinal views retain their separately accepted evidence. |
 | 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE VERIFIED | Authenticated production `wp:1` visibly read policy v3, `ivoc.analytics.v1`, `gpt-live-1:marin`, follow-up intensity 1, credit account v11, governed catalog status, Match Bridge readiness, owner-projection requirements, deferred LemonSlice and `SCHEDULER CONNECTED · 11 WEBEX` through the candidate.2 Admin surface. |
 | 14 | Versioned question governance | LIVE VERIFIED | Genuine `brinyu` production canary `CANARY-ADMIN-20260920-E92A09` completed active v1 → edited v2 → hidden v3 → retired v4 with immutable `wp:1` actor-stamped history. Stale version and retired-reactivation writes fail fast at HTTP 409; the retry-class SQLSTATE defect found during the canary was corrected by `ivoc_question_governance_fail_fast`. |
 | 14 | Credits, allowances, overrides, reset and balance | LIVE VERIFIED | Genuine `brinyu` production acceptance exercised allowance, override, atomic server-only consumption, idempotent replay, insufficient-balance denial, reset and zero-balance restoration. The authenticated Admin API advanced `wp:1` from v6 through v11, owner readback returned zero, and a stale write failed at HTTP 409. Eleven append-only events remain actor-stamped `wp:1`; browser clients cannot invoke consumption. |
@@ -202,8 +208,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `ebaf3ae1-d241-4a87-9a7e-157303e5b014` from exact product commit
-  `c8e473aadb2abec8e9fe6bb33af58dda2e733a19`; `/health/lor-studio` is HTTP 200, the
+  `d198991c-9537-4c1e-9483-68e965bc2f12` from exact product commit
+  `759cca71f4203569dba3cde99f9a18060c05e376`; `/health/lor-studio` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
