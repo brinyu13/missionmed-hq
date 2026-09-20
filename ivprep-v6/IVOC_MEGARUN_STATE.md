@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 17:47 America/New_York
+Updated: 2026-09-20 18:06 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,11 +26,14 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Latest functionality-accepted presentation/runtime deployment:
-  `cd7195da-456f-4bf6-846e-e2d39f6dd212`, exact commit
-  `875637536f7ada69ccb06c7bc8a96466aa6d44bc`, image
-  `sha256:ae5dba63dd152a64ccc69ce8e7201eeed353072669f0ba6e01332be8e4606c3a`.
-  `/health/lor-studio` is HTTP 200 and anonymous `/iv-prep-on-call/` remains
-  fail-closed at HTTP 401.
+  `6b5bad11-590b-4646-b470-71d233fafea4`, exact commit
+  `d1be75bec0de35c86bdec05557776833cab9edc9`, image
+  `sha256:84b5d6cb2f634b6736efcdb0e2747c5df2fda2adc87e2ead94d6f3853b1c962a`.
+  `/health` is HTTP 200 and anonymous `/iv-prep-on-call/` remains fail-closed
+  at HTTP 401. Authenticated production Results reconstructed three canonical
+  transcript segments, 36 words and a 0 s–18 s capture-owner boundary, then
+  truthfully rendered zero bounded filler candidates from its disclosed
+  lexicon without a provider re-call or hidden-trait inference.
 - Admin operational-control presentation: `268cd4be2265e7cd1ee6b05247ab5e148312a260`.
   The existing candidate.2 Mentor & Admin surface now consumes the versioned
   Admin-config, authenticated credit-account and governed-question adapters,
@@ -187,7 +190,7 @@ the actual production route and deployment.
 | 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE UNVERIFIED | MissionMed/Webex/Zoom/Teams and fail-closed source cards passed local Chrome; owner projections and live opt-in behavior remain. |
 | 5 | Truthful Readiness & Calibration checks | LIVE VERIFIED | Production Chrome proved physical FaceTime HD camera, built-in microphone, running audio context, live level and bound video surface. |
 | 6 | Real modular camera/mic Analytics with truthful availability states | LIVE VERIFIED | Physical production rep produced real microphone PCM plus face, hands, head and framing telemetry; unavailable signals continued to fail closed. |
-| 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE UNVERIFIED | Physical production reps proved live volume, variation, pitch, pace, cadence and pause states; the newest private rep persisted eight timestamped transcript segments plus its question turn and survived reload. Filler acceptance remains. |
+| 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE VERIFIED | Physical production reps proved live volume, variation, pitch, pace, cadence and pause states. Authenticated saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` then cold-reconstructed three canonical transcript segments, 36 words, the 0 s–18 s capture-owner boundary and zero bounded filler candidates on deployment `6b5bad11…`; the UI discloses the bounded lexicon and explicitly rejects hidden-trait inference. |
 | 6 | Admin measurement/visibility controls and prohibited-inference safeguards | LIVE VERIFIED | Production Admin and Student Coached Practice face/head, hand/finger, body/pose and framing/head-orientation overlays were visibly aligned to the real camera surface and independently toggleable; measurement continued while hidden. True eye-gaze visualization remains unsupported; the product exposes only defensible camera-facing/head-orientation proxies. |
 | 7 | Canonical clock across recording, transcript, Q/A, Analytics, Results and clips | LIVE VERIFIED | A production CORE-01 rep persisted one complete session contract, nine timestamped conversation turns and one answer segment; the Film Room transcript row sought private replay to 2.26 s after reload. |
 | 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE UNVERIFIED | Owner capture, upload, seal, canonical transcript/answer range persistence, signed playback, reload and `context_persist` audit passed. Deployed canary `f89dc627…` proved five provisional GPT-Live turns and structural follow-up linkage survive private reload without becoming canonical. A real recorded multi-turn exchange with canonical answer/follow-up/gap ranges remains to be accepted. |
@@ -231,8 +234,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - Latest functionality-accepted MissionMed HQ production is Railway deployment
-  `cd7195da-456f-4bf6-846e-e2d39f6dd212` from exact product commit
-  `875637536f7ada69ccb06c7bc8a96466aa6d44bc`; `/health/lor-studio` is HTTP 200, the
+  `6b5bad11-590b-4646-b470-71d233fafea4` from exact product commit
+  `d1be75bec0de35c86bdec05557776833cab9edc9`; `/health` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
