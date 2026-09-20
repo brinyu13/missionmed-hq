@@ -178,6 +178,22 @@ function mmdrj_validate_restricted_add_to_cart( $passed, $product_id ) {
 }
 add_filter( 'woocommerce_add_to_cart_validation', 'mmdrj_validate_restricted_add_to_cart', 20, 2 );
 
+/**
+ * Keep the ExamPrep buying journey explicit: a successful Add to Cart action
+ * lands on the real WooCommerce cart instead of a product or home page.
+ */
+function mmdrj_redirect_successful_add_to_cart( $url ) {
+	$requested_id = isset( $_REQUEST['add-to-cart'] ) ? absint( wp_unslash( $_REQUEST['add-to-cart'] ) ) : 0;
+	if ( ! $requested_id || ! function_exists( 'wc_get_product' ) ) {
+		return $url;
+	}
+	$product = wc_get_product( $requested_id );
+	$parent_id = $product && method_exists( $product, 'get_parent_id' ) ? absint( $product->get_parent_id() ) : 0;
+	$product_id = $parent_id ?: $requested_id;
+	return in_array( $product_id, mmdrj_product_ids(), true ) ? wc_get_cart_url() : $url;
+}
+add_filter( 'woocommerce_add_to_cart_redirect', 'mmdrj_redirect_successful_add_to_cart', 99 );
+
 function mmdrj_course_preexisting_meta( $course_id ) {
 	return '_mmdrj_course_access_preexisting_' . absint( $course_id );
 }
@@ -541,13 +557,14 @@ function mmdrj_public_pricing_panel( $content ) {
 	$html .= '</div><p><strong>Special qualifying rate:</strong> approved Exam Guarantee, UCC, and MUL students may receive Daily Rounds for $49.99/month through an account-bound arrangement.</p><div class="mmdrj-service-links"><a href="' . esc_url( get_permalink( MMDRJ_TUTORING_PRODUCT_ID ) ) . '">1-on-1 tutoring — $85/hour</a><a href="' . esc_url( get_permalink( MMDRJ_PLANNING_PRODUCT_ID ) ) . '">Study planning — $50/30 minutes</a><a href="' . esc_url( get_permalink( MMDRJ_TUTORING_PACK_PRODUCT_ID ) ) . '">Ten tutoring sessions — $800</a></div></section>';
 	return $content . $html;
 }
-add_filter( 'the_content', 'mmdrj_public_pricing_panel', 40 );
+// WPCode snippet 5973 owns the rendered pricing matrix. Keep this builder as
+// an audited fallback, but do not append a second matrix to the same page.
 
 function mmdrj_public_styles() {
 	if ( ! is_page( 5687 ) ) {
 		return;
 	}
-	echo '<style id="mmdrj-5404e-pricing-css">.mmdrj-5404e-pricing{max-width:1180px;margin:56px auto;padding:40px 24px;color:#132434}.mmdrj-pricing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0}.mmdrj-pricing-grid article{padding:22px;border:1px solid #d9d1c1;border-radius:16px;background:#fff}.mmdrj-pricing-grid a,.mmdrj-disabled-cta{display:inline-block;margin-top:8px;font-weight:700}.mmdrj-pricing-grid a{color:#8b4c16}.mmdrj-locked-card{background:#f5f5f3!important}.mmdrj-lock{font-size:1.35rem}.mmdrj-disabled-cta{padding:10px 14px;border-radius:8px;background:#d8d8d4;color:#555;cursor:not-allowed}.mmdrj-service-links{display:flex;flex-wrap:wrap;gap:16px;margin-top:22px}.mmdrj-service-links a{color:#8b4c16;font-weight:700}@media(max-width:760px){.mmdrj-pricing-grid{grid-template-columns:1fr}.mmdrj-5404e-pricing{padding:28px 18px}.mm-compare-table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}}</style>';
+	echo '<style id="mmdrj-5404e-pricing-css">.mmdrj-5404e-pricing{max-width:1180px;margin:56px auto;padding:40px 24px;color:#132434}.mmdrj-pricing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0}.mmdrj-pricing-grid article{padding:22px;border:1px solid #d9d1c1;border-radius:16px;background:#fff}.mmdrj-pricing-grid a,.mmdrj-disabled-cta{display:inline-block;margin-top:8px;font-weight:700}.mmdrj-pricing-grid a{color:#8b4c16}.mmdrj-locked-card{background:#f5f5f3!important}.mmdrj-lock{font-size:1.35rem}.mmdrj-disabled-cta{padding:10px 14px;border-radius:8px;background:#d8d8d4;color:#555;cursor:not-allowed}.mmdrj-service-links{display:flex;flex-wrap:wrap;gap:16px;margin-top:22px}.mmdrj-service-links a{color:#8b4c16;font-weight:700}@media(max-width:760px){.mmdrj-pricing-grid{grid-template-columns:1fr}.mmdrj-5404e-pricing{padding:28px 18px}.mm-compare-table{display:block!important;width:100%!important;max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch}}</style>';
 }
 add_action( 'wp_head', 'mmdrj_public_styles', 40 );
 
@@ -569,6 +586,19 @@ function mmdrj_cart_contains_examprep_product() {
 	}
 	return false;
 }
+
+/**
+ * The site's bank-transfer gateway is a Mission Residency Zelle arrangement
+ * with fixed $499 copy. It is not a valid payment method for Dr J ExamPrep
+ * carts, whose supported checkout route is the dedicated Stripe division.
+ */
+function mmdrj_examprep_payment_gateways( $gateways ) {
+	if ( mmdrj_cart_contains_examprep_product() ) {
+		unset( $gateways['bacs'] );
+	}
+	return $gateways;
+}
+add_filter( 'woocommerce_available_payment_gateways', 'mmdrj_examprep_payment_gateways', 999 );
 
 function mmdrj_direct_examprep_checkout_url( $checkout_url ) {
 	return mmdrj_cart_contains_examprep_product() ? home_url( '/checkout/' ) : $checkout_url;
@@ -726,6 +756,27 @@ function mmdrj_render_header_cart_control() {
 		.mm-l5__right .mmdrj-header-cart svg { width: 17px; height: 17px; }
 		@media (max-width: 900px) {
 			.mm-l5__right .mmdrj-header-cart { min-height: 38px; padding: 0 13px; font-size: 11px; }
+		}
+		@media (max-width: 600px) {
+			.mm-l5__right { min-width: 0; }
+			.mm-l5__right .mmdrj-header-cart {
+				width: 38px;
+				min-width: 38px;
+				padding: 0;
+				justify-content: center;
+				gap: 0;
+			}
+			.mm-l5__right .mmdrj-header-cart span {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				padding: 0;
+				margin: -1px;
+				overflow: hidden;
+				clip: rect(0, 0, 0, 0);
+				white-space: nowrap;
+				border: 0;
+			}
 		}
 	</style>
 	<script id="mmdrj-header-cart-js">
