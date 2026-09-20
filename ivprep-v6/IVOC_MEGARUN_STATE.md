@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 15:42 America/New_York
+Updated: 2026-09-20 16:11 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,12 +26,11 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Latest functionality-accepted presentation/runtime deployment:
-  `7ad89899-57f7-414d-aafb-28110918db1c`, exact commit
-  `23d119076768a6c6eb19153a0a6e3c69e1f15539`, image
-  `sha256:1d7f99d7ee0cfb2bfa3526aa2f89e73d7d1e79a6bdbe2158f0f827d1df655090`.
-  Its ledger-only successor `5d85af51-55bd-4ee3-b12a-087979cc422c` from
-  `0471543ace1014d5cc19760d932af666730dc533` is healthy and carries identical
-  application code.
+  `68a57f16-0e6a-4536-ba1c-9e0e99ca9143`, exact commit
+  `7145a88406e7d5e9c4978d952f0ba9d10aae3460`, image
+  `sha256:2f37b58aac487b476aef5796613204bac298b28e3afec11286a2a52d2eb4e7e2`.
+  `/health/lor-studio` is HTTP 200 and anonymous `/iv-prep-on-call/` remains
+  fail-closed at HTTP 401.
 - Admin operational-control presentation: `268cd4be2265e7cd1ee6b05247ab5e148312a260`.
   The existing candidate.2 Mentor & Admin surface now consumes the versioned
   Admin-config, authenticated credit-account and governed-question adapters,
@@ -44,10 +43,9 @@ the actual production route and deployment.
 - Question-bound Answer History projection and evidence filters:
   `d5c502ef8c47623a09979e014ca27db1fdaa5b80`; authenticated production found
   one concurrent-render race during rollout, corrected at
-  `331b049318e17fd0d5e823ae3fbba8033f90e1ce`. The final production surface
-  shows one toolbar, filters 14 owner-bound answers to the one transcript-backed
-  answer, and truthfully reports zero supported semantic observations rather
-  than inventing evidence.
+  `331b049318e17fd0d5e823ae3fbba8033f90e1ce`. Production now filters 14
+  owner-bound answers to the one answer with supported semantic evidence and
+  truthfully displays its three persisted observations.
 - Live Mock Studio owner adapter: `c9b88701ca29e63b7d2faac2bf3b243ddaf8b39b`.
   The browser-native fetch receiver correction and honest owner-declared
   recording-state mapping were forward-reconciled as `6049a9c` → `cfdf742`
@@ -111,6 +109,12 @@ the actual production route and deployment.
   require score and coverage of at least 0.65, and require the same facet in at
   least two distinct sessions. Production currently has zero qualifying rows,
   so the runtime emits no longitudinal claim rather than manufacturing one.
+- Canonical coaching-evidence score contract repair:
+  `7145a88406e7d5e9c4978d952f0ba9d10aae3460`. Production session
+  `4571e86c-3d99-4ba4-bf19-bee1f972a699` persisted the real sealed transcript,
+  one answer-structure row and two coaching-pattern rows whose score is the
+  required JSON object. Results rendered cited observations; cold reload,
+  Answer History and signed Film Room playback all read them back.
 
 ## Production data authority — LIVE VERIFIED
 
@@ -181,7 +185,7 @@ the actual production route and deployment.
 | 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE UNVERIFIED | Owner capture, upload, seal, canonical transcript/answer range persistence, signed playback, reload and `context_persist` audit passed. Deployed canary `f89dc627…` proved five provisional GPT-Live turns and structural follow-up linkage survive private reload without becoming canonical. A real recorded multi-turn exchange with canonical answer/follow-up/gap ranges remains to be accepted. |
 | 8 | Evidence-grounded Results | LIVE VERIFIED | Production post-answer Results and bounded transcript/context analysis returned evidence-cited observations tied to transcript segments without unsupported scoring. |
 | 8 | Film Room synchronized replay and Flight Recorder timeline | LIVE VERIFIED | A private production rep survived reload, reopened through signed owner playback, visibly rendered aligned replay overlays, and its timestamped transcript row sought replay to 2.26 s. |
-| 8 | Durable student Video Library and Admin student-library access | LIVE UNVERIFIED | Owner library, transcript spine and signed private playback persisted across reload; Admin student-library and negative-role isolation remain. |
+| 8 | Durable student Video Library and Admin student-library access | LIVE VERIFIED | Cold production reload returned 14 owner-bound sessions to authenticated Admin `wp:1`; the semantic CORE-01 answer reopened through signed private playback with its timestamped transcript spine and three persisted observations. Student view still hides the Admin selector. Negative-role isolation remains tracked separately. |
 | 9 | Current supported realtime transport and contextual InterviewBrain | LIVE VERIFIED | Production `gpt-live-1` WebRTC canary created twice through the authenticated IVOC broker, reached `session.started`, exchanged native audio/transcript events, and ended with provider hangup HTTP 200. |
 | 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE VERIFIED | Production canary retained the discharge/teach-back detail across turns, asked evidence-grounded follow-ups, honored “move to the next question,” and visibly truncated “That gives me a—” on barge-in before continuing. |
 | 9 | Pool/context weighting, clean teardown, single audio authority | LIVE UNVERIFIED | Production deployment `db562b38…` at source `b6b0a92` resolves the selected canonical corpus entries into an exact ordered server prompt, keeps pressure as a modifier instead of replacing interviewer identity, rejects a surplus provider audio track, and persists the strict `configured -> bound -> released` `ivoc.audio-authority.v1` lifecycle. Deployed synthetic contract canary `f89dc627…` returned `audioAuthorityVerified=true`; authenticated reload preserved five turns, and provider readback plus `audio_authority_persist` audit confirmed single native audio. One real recorded, pool-ordered multi-question exchange remains for behavioral acceptance. |
@@ -193,7 +197,7 @@ the actual production route and deployment.
 | 10 | Prior-IVOC longitudinal context | LIVE UNVERIFIED | Deployment `7ad89899…` persists and projects only structured, transcript-cited patterns from prior saved owner sessions, excluding the active session and requiring the same bounded facet in at least two sessions. Production readback found 0 qualifying rows, so no recurring claim was emitted; real multi-session proof remains. |
 | 10 | Calendar interview adapter | LIVE VERIFIED | The deployed stable adapter consumes the Scheduler owner projection, strips owner URLs and rendered the authenticated connected state: seven authorized appointments, none upcoming. |
 | 10 | Match Bridge bounded consented clip seam | LIVE VERIFIED | Real saved `CORE-01` media was bound only to a 0–14 s answer range, promoted from private v1 to consented `match_bridge_ready` v2, then revoked at v3. Whole-mock sharing remains prohibited by the contract; cross-product pickup is an external owner integration, not an IVOC clip-seam gap. |
-| 11 | Structured evidence-to-coaching pipeline | LIVE UNVERIFIED | Deployment `7ad89899…` added cited, scored and confidence-bounded coaching-pattern evidence plus deterministic prior-session projection. Focused server and Application Intelligence acceptance passed; a real recorded semantic session and live synthesis acceptance remain. |
+| 11 | Structured evidence-to-coaching pipeline | LIVE VERIFIED | Deployment `68a57f16…` accepted real sealed session `4571e86c-3d99-4ba4-bf19-bee1f972a699`, rendered transcript-cited semantic observations, and persisted one answer-structure plus two confidence-bounded coaching-pattern rows. Canonical readback proved object-shaped `score.value=0.02`, eight segment references per row and clean cold-reload synthesis. |
 | 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE UNVERIFIED | Results source exists; evidence-linked production output remains. |
 | 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE VERIFIED | Authenticated production `wp:1` switched Student → Admin while retaining the same actor/subject identity; Admin-only navigation and diagnostics appeared without impersonating another user. |
@@ -205,7 +209,7 @@ the actual production route and deployment.
 | 15 | Live Mock Studio Hot Seat workflow and real student media | LIVE UNVERIFIED | Production Admin now lists 11 authorized Webex appointments through the stable owner adapter and reads recording readiness without claiming sibling media. End-to-end supervised Hot Seat execution with real student media remains. |
 | 15 | Canonical recording/Analytics/replay/overlay/scoring/library save | LIVE VERIFIED | One production Student Coached Practice rep completed the full camera/mic → Analytics → private recording → Results → Film Room overlay → Answer History → reload → signed private playback lifecycle. Overlay toggles and hidden-measurement continuity passed; true eye-gaze remains unsupported absent a defensible detector. |
 | 15 | Deepest viable Webex or staged supervised adapter | LIVE UNVERIFIED | The same-origin Scheduler/Webex adapter is deployed, authenticated and visibly lists owner appointments; the first production readiness check truthfully returned `RECORDING PROCESSING`. A completed owner recording with private playback pickup remains required for promotion. |
-| 16 | Per-question semantic Answer History | LIVE UNVERIFIED | Production now projects question-bound transcript/evidence summaries without raw interpretation leakage and supports question, transcript, supported-semantic and pending-evidence filters. Authenticated `wp:1` filtered 14 owner answers to the one transcript-backed CORE-01 answer; the supported-semantic filter honestly returned 0/14. A real answer that produces supported semantic evidence remains required before promotion. |
+| 16 | Per-question semantic Answer History | LIVE VERIFIED | After a cold production reload, authenticated `wp:1` selected “Supported semantic evidence” and the projection filtered 14 owner answers to the one CORE-01 answer with three persisted supported observations. The list remains question-bound and does not leak raw private interpretation data. |
 | 16 | Match Bridge Ready promotion with consent/audience/revocation/version | LIVE VERIFIED | Genuine `brinyu` production lifecycle used saved session `4571e86c-3d99-4ba4-bf19-bee1f972a699`: private v1 playback returned 200, explicit bounded-clip consent plus `student`/`match_bridge` audience produced v2, stale mutation returned 409, and owner revocation produced v3 with empty audience and playback 404. |
 | 17 | Provider-neutral embodiment adapter and Brain/session separation | LIVE VERIFIED | Production Admin readback returns `missionmed.ivoc.embodiment.v1`: MissionMed InterviewBrain is the Director, providers are Actor-only, students select profiles rather than engines, and the adapter contract requires one audio authority plus generation/response identities. |
 | 17 | Flush/interruption/motion contract, Admin preview and cost controls | LIVE UNVERIFIED | The deployed neutral gate rejects stale generations and regressing session-clock events, flushes audio/motion and cancels the provider response on interruption, and exposes Admin-only 45 s/no-retry/reservation controls. Real embodiment motion/preview execution remains unverified while external activation is deferred. |
@@ -219,8 +223,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - Latest functionality-accepted MissionMed HQ production is Railway deployment
-  `7ad89899-57f7-414d-aafb-28110918db1c` from exact product commit
-  `23d119076768a6c6eb19153a0a6e3c69e1f15539`; `/health/lor-studio` is HTTP 200, the
+  `68a57f16-0e6a-4536-ba1c-9e0e99ca9143` from exact product commit
+  `7145a88406e7d5e9c4978d952f0ba9d10aae3460`; `/health/lor-studio` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
