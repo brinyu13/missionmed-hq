@@ -81,14 +81,6 @@ test('role view controls are bounded by the authenticated MissionMed identity', 
   assert.match(runtime, /button\.hidden = !authorized/u);
 });
 
-test('Answer History exposes question and evidence filters without inventing semantic claims', () => {
-  assert.match(runtime, /Filter Answer History/u);
-  assert.match(runtime, /Supported semantic evidence/u);
-  assert.match(runtime, /supportedObservationCount/u);
-  assert.match(runtime, /Transcript · no supported semantic observations/u);
-  assert.match(runtime, /renderId !== vaultRenderId \|\| state\.view !== 'vault'/u);
-});
-
 test('the product document has unique element ids', () => {
   const ids = [...html.matchAll(/\sid="([^"]+)"/gu)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);

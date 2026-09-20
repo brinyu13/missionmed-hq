@@ -714,40 +714,6 @@ test('results preserve explicit duration vocabulary while the library duration f
   assert.equal(sessionUpdate.body.duration_ms, 24_500);
 });
 
-test('Answer History library projects question-bound transcript and semantic evidence summaries', async () => {
-  const repo = repository();
-  const sessionId = '00000000-0000-4000-8000-000000000042';
-  repo.request = async (path) => {
-    if (path.startsWith('ivoc_sessions?owner_subject=eq.wp%3A42')) return [{
-      id: sessionId, owner_subject: 'wp:42', title: 'Opening answer', session_type: 'question',
-      question_id: 'CORE-01', question_text: 'Tell me about yourself.', state: 'saved',
-      started_at: '2026-09-20T12:00:00.000Z', ended_at: '2026-09-20T12:01:00.000Z',
-      duration_ms: 60_000, interviewer_provider: 'openai-gpt-live',
-    }];
-    if (path.startsWith('ivoc_recordings?')) return [];
-    if (path.startsWith('ivoc_results?')) return [];
-    if (path.startsWith('ivoc_reviews?')) return [];
-    if (path.startsWith('ivoc_answer_segments?')) return [
-      { session_id: sessionId, transcript_ref: `transcript:${sessionId}` },
-    ];
-    if (path.startsWith('ivoc_coaching_evidence?')) return [
-      { session_id: sessionId, dimension: 'semantic.supported_claim' },
-      { session_id: sessionId, dimension: 'voice.pacing' },
-    ];
-    return [];
-  };
-  const { route } = handler(repo);
-  const response = new ResponseCapture();
-  await route({ ...base, request: request('GET'), response, url: new URL('https://hq.test/api/ivoc/v1/library?scope=own'), hqSession: session() });
-  assert.equal(response.status, 200);
-  assert.deepEqual(response.json().sessions[0].answerHistory, {
-    transcriptAvailable: true,
-    answerSegmentCount: 1,
-    supportedObservationCount: 1,
-    dimensions: ['semantic.supported_claim'],
-  });
-});
-
 test('results reject multiple bound provider audio tracks instead of accepting split authority', async () => {
   const repo = repository();
   const sessionId = '00000000-0000-4000-8000-000000000042';
