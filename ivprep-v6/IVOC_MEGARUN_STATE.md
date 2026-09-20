@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 18:06 America/New_York
+Updated: 2026-09-20 18:18 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Latest functionality-accepted presentation/runtime deployment:
-  `6b5bad11-590b-4646-b470-71d233fafea4`, exact commit
-  `d1be75bec0de35c86bdec05557776833cab9edc9`, image
-  `sha256:84b5d6cb2f634b6736efcdb0e2747c5df2fda2adc87e2ead94d6f3853b1c962a`.
+  `a939a70c-18b4-4a38-bb16-1cefdc578251`, exact commit
+  `5bd3580c39176eeb110baf5b86d9d79c50c19d59`, image
+  `sha256:ee70d3e89dacfd68075f5b0cf9588ef8ff0b04dbd84c640176cacf131f09a240`.
   `/health` is HTTP 200 and anonymous `/iv-prep-on-call/` remains fail-closed
   at HTTP 401. Authenticated production Results reconstructed three canonical
   transcript segments, 36 words and a 0 s–18 s capture-owner boundary, then
@@ -234,8 +234,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - Latest functionality-accepted MissionMed HQ production is Railway deployment
-  `6b5bad11-590b-4646-b470-71d233fafea4` from exact product commit
-  `d1be75bec0de35c86bdec05557776833cab9edc9`; `/health` is HTTP 200, the
+  `a939a70c-18b4-4a38-bb16-1cefdc578251` from exact product commit
+  `5bd3580c39176eeb110baf5b86d9d79c50c19d59`; `/health` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -247,8 +247,12 @@ the actual production route and deployment.
   found. IVOC must consume stable owner contracts and must not mutate or waive
   unrelated sibling security/privacy dependencies.
 - The ten-surface Matrix lock was reconciled to verified current owner/runtime
-  identities without mutating owner assets. IVOC remains a consumer; fresh
-  end-to-end Matrix launch acceptance is still required.
+  identities without mutating owner assets. Authenticated production `wp:1`
+  completed Founder-facing IVOC → canonical WordPress Matrix → the existing
+  Matrix `IV Prep On-Call` module → Founder-facing IVOC. The stale Matrix final
+  path is adapted inside IVOC with an authenticated no-store redirect; the
+  sibling Matrix source remains untouched. Entitled-360 launch acceptance
+  remains tracked with the role canaries.
 - Application Intelligence contracts, provenance, signals, Context Pack and
   Director arbitration are integrated. Production now builds and persists a
   server-only Context Pack during session creation, preserves its receipt
