@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 12:35 America/New_York
+Updated: 2026-09-20 12:51 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,15 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `b4af1d5e-49c4-421c-9986-b7ba7af53ded`, exact commit
-  `5f07f288a7bcf60c778276dff1d55dc70b164bd5`, image
-  `sha256:9c96dcae378b74d2fe82dc65b297d04cc837efab0785658b3cf8f5469abd0508`.
+  `00913b6e-71c8-46f7-a19d-46acba43c7e7`, exact commit
+  `feb19f06651c7d9da27d930cf5495b218f9625ab`, image
+  `sha256:a6a7387a880c7d6afe399040bf3f0887687a13a03d56b2f8eeb5288e6fe50deb`.
+- GPT-Live presentation boundary extraction: `feb19f06651c7d9da27d930cf5495b218f9625ab`.
+  The proven browser WebRTC transport now lives in
+  `public/capabilities/live-interview.mjs`; the active presentation imports that
+  adapter rather than owning provider/session logic. Production authenticated
+  `wp:1` readback returned the candidate.2 fingerprint, compatibility module,
+  shared capability export and `liveInterviewAvailable=true`, all at HTTP 200.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
