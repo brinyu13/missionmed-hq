@@ -228,17 +228,6 @@ export class DurableStudioSession {
 
   async library(scope = 'own') { return this.api.library(scope); }
   async playback(recordingId, disposition = 'inline') { return this.api.playback(recordingId, disposition); }
-  async adminOverview() {
-    if (!this.ready || this.bootstrapPayload?.identity?.admin !== true) {
-      throw new Error('ivoc_admin_required');
-    }
-    const [config, credits, questions] = await Promise.all([
-      this.api.adminConfig(),
-      this.api.credits(),
-      this.api.questions(),
-    ]);
-    return Object.freeze({ config, credits, questions });
-  }
   async abandon({ reason = 'client_exit', keepalive = false } = {}) {
     const accountSession = this.accountSession;
     if (!accountSession?.id) return { abandoned: false, reason: 'no_active_session' };
