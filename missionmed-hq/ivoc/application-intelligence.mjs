@@ -1,4 +1,4 @@
-import { canonicalJson, sha256Hex } from '../../ivoc/intelligence/index.mjs';
+import { canonicalJson, hashValue, sha256Hex } from '../../ivoc/intelligence/index.mjs';
 import { assembleContextPack, contextReceiptRef } from '../../ivoc/intelligence/pack/assemble.mjs';
 
 const CONTEXT_PACK_SCHEMA = 'ivoc.interview_context_pack.v1';
@@ -68,6 +68,62 @@ function initialContract(row, actor, receipt) {
   };
 }
 
+function mentorPriorityProjection(row) {
+  const priorities = Array.isArray(row?.priorities) ? row.priorities : [];
+  const mentorNotes = Array.isArray(row?.mentor_notes) ? row.mentor_notes : [];
+  if (!row?.subject_id || !Number.isSafeInteger(row?.version) || (!priorities.length && !mentorNotes.length)) return null;
+  const producedAt = new Date(row.created_at).toISOString();
+  const sourceVersion = `mp-v${row.version}`;
+  const payload = {
+    top3: priorities.map((item) => ({
+      id: item.id,
+      text: item.text,
+      rank: item.rank,
+      set_by: row.set_by,
+      set_at: producedAt,
+    })),
+    mentor_notes: mentorNotes.map((item) => ({
+      id: item.id,
+      text: item.text,
+      visibility: item.visibility,
+    })),
+  };
+  const receiptHash = hashValue({
+    subject_id: row.subject_id,
+    source_version: sourceVersion,
+    payload,
+  });
+  return Object.freeze({
+    projection_id: `ivoc-mentor-priorities:${row.subject_id}`,
+    owner_app: 'ivoc',
+    projection_type: 'ivoc.mentor_priorities',
+    schema_version: '1',
+    subject_id: row.subject_id,
+    source_version: sourceVersion,
+    produced_at: producedAt,
+    authorization: { basis: 'admin', scope: ['top3', 'mentor_notes'] },
+    minimization: { fields_included: ['top3', 'mentor_notes'] },
+    payload,
+    source_receipt: {
+      owner_ref: `ivoc:${row.subject_id}@${sourceVersion}`,
+      hash: receiptHash,
+    },
+    revocation: { revocable: true },
+  });
+}
+
+export function createIvocProjectionProvider({ repository } = {}) {
+  if (!repository) throw new TypeError('ivoc_projection_repository_required');
+  return async function projectionProvider({ actor } = {}) {
+    if (!/^wp:[1-9][0-9]{0,19}$/u.test(String(actor || ''))) return [];
+    const row = await repository.single(
+      `ivoc_mentor_priority_sets?subject_id=eq.${encodeURIComponent(actor)}&select=*&order=version.desc&limit=1`,
+    );
+    const projection = mentorPriorityProjection(row);
+    return projection ? [projection] : [];
+  };
+}
+
 export async function readSessionContextReceipts(repository, sessionId) {
   const row = await repository.single(
     `ivoc_session_contracts?session_id=eq.${encodeURIComponent(sessionId)}&select=context_receipts&limit=1`,
@@ -76,13 +132,14 @@ export async function readSessionContextReceipts(repository, sessionId) {
   return [...new Set(receipts.filter((value) => typeof value === 'string' && value.startsWith('ctxpack:')))];
 }
 
-export function createIvocApplicationIntelligence({ repository, now = () => Date.now(), projectionProvider = async () => [] } = {}) {
+export function createIvocApplicationIntelligence({ repository, now = () => Date.now(), projectionProvider = null } = {}) {
   if (!repository) throw new TypeError('ivoc_application_intelligence_repository_required');
+  const resolveProjections = projectionProvider || createIvocProjectionProvider({ repository });
 
   return Object.freeze({
     async prepareSession({ actor, sessionRow }) {
       if (!actor || !sessionRow?.id) throw new TypeError('ivoc_application_intelligence_session_required');
-      const projections = await projectionProvider({ actor, session: sessionRow });
+      const projections = await resolveProjections({ actor, session: sessionRow });
       if (!Array.isArray(projections)) throw new TypeError('ivoc_application_intelligence_projection_invalid');
       const builtAt = new Date(now()).toISOString();
       const pack = assembleContextPack({

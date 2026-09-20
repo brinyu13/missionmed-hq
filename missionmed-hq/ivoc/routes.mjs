@@ -191,6 +191,42 @@ function questionWrite(input, questionId = input?.questionId) {
   return { id, expectedVersion, status, canonicalText, category, tags, source, changeReason };
 }
 
+function mentorPriorityWrite(input) {
+  const subjectId = safeText(input?.subjectId, 32);
+  const expectedVersion = Number(input?.expectedVersion);
+  const priorities = boundedArray(input?.priorities, 'mentor_priorities', 3).map((item, index) => ({
+    id: safeText(item?.id, 80) || `priority-${index + 1}`,
+    text: safeText(item?.text, 500),
+    rank: index + 1,
+  }));
+  const mentorNotes = boundedArray(input?.mentorNotes || [], 'mentor_notes', 12).map((item, index) => ({
+    id: safeText(item?.id, 80) || `note-${index + 1}`,
+    text: safeText(item?.text, 500),
+    visibility: safeText(item?.visibility, 20) || 'mentor_only',
+  }));
+  if (!/^wp:[1-9][0-9]{0,19}$/u.test(subjectId)
+      || !Number.isSafeInteger(expectedVersion) || expectedVersion < 0
+      || priorities.some((item) => !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u.test(item.id) || item.text.length < 3)
+      || mentorNotes.some((item) => !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u.test(item.id)
+        || item.text.length < 3 || !['shared', 'mentor_only'].includes(item.visibility))) {
+    throw Object.assign(new TypeError('ivoc_mentor_priorities_input_invalid'), { status: 400 });
+  }
+  return { subjectId, expectedVersion, priorities, mentorNotes };
+}
+
+function publicMentorPriorities(row, { includeMentorNotes = false } = {}) {
+  const priorities = Array.isArray(row?.priorities) ? row.priorities : [];
+  const notes = Array.isArray(row?.mentor_notes) ? row.mentor_notes : [];
+  return {
+    subjectId: row?.subject_id || null,
+    version: Number(row?.version || 0),
+    priorities,
+    mentorNotes: includeMentorNotes ? notes : notes.filter((note) => note.visibility === 'shared'),
+    setBy: row?.set_by || null,
+    setAt: row?.created_at || null,
+  };
+}
+
 function practiceGoal(row) {
   const goal = String(row?.context?.goal || '').toLowerCase();
   if (goal.includes('guided')) return 'guided_mock';
@@ -412,6 +448,53 @@ export function createIvocHandler({
         const filter = admin ? '' : 'status=eq.active&';
         const rows = await db.request(`ivoc_question_catalog?${filter}select=question_id,status,current_version,canonical_text,category,tags,source,change_reason,changed_by,updated_at&order=question_id.asc`);
         sendJson(response, 200, { admin, questions: rows.map(publicQuestion) }, mediaBase);
+        return true;
+      }
+
+      if (request.method === 'GET' && pathname === `${API_PREFIX}/mentor-priorities`) {
+        const row = await db.single(`ivoc_mentor_priority_sets?subject_id=eq.${encodeURIComponent(actor)}&select=*&order=version.desc&limit=1`);
+        sendJson(response, 200, publicMentorPriorities(row || { subject_id: actor }), mediaBase);
+        return true;
+      }
+
+      if (request.method === 'GET' && pathname === `${API_PREFIX}/admin/mentor-priorities`) {
+        if (!isAdmin(hqSession, admission)) {
+          await audit({ actor, action: 'mentor_priorities_read', decision: 'deny', reason: 'admin_required' });
+          sendError(response, 403, 'ivoc_admin_required', mediaBase); return true;
+        }
+        const subjectId = safeText(url.searchParams.get('subjectId'), 32);
+        if (!/^wp:[1-9][0-9]{0,19}$/u.test(subjectId)) {
+          sendError(response, 400, 'ivoc_mentor_priorities_input_invalid', mediaBase); return true;
+        }
+        const row = await db.single(`ivoc_mentor_priority_sets?subject_id=eq.${encodeURIComponent(subjectId)}&select=*&order=version.desc&limit=1`);
+        await audit({ actor, owner: subjectId, action: 'mentor_priorities_read', decision: 'allow', reason: 'admin' });
+        sendJson(response, 200, publicMentorPriorities(row || { subject_id: subjectId }, { includeMentorNotes: true }), mediaBase);
+        return true;
+      }
+
+      if (request.method === 'PUT' && pathname === `${API_PREFIX}/admin/mentor-priorities`) {
+        if (!isAdmin(hqSession, admission)) {
+          await audit({ actor, action: 'mentor_priorities_write', decision: 'deny', reason: 'admin_required' });
+          sendError(response, 403, 'ivoc_admin_required', mediaBase); return true;
+        }
+        const write = mentorPriorityWrite(await readJson(request));
+        let row;
+        try {
+          row = await db.rpc('ivoc_write_mentor_priorities', {
+            p_subject_id: write.subjectId,
+            p_expected_version: write.expectedVersion,
+            p_priorities: write.priorities,
+            p_mentor_notes: write.mentorNotes,
+            p_actor: actor,
+          });
+        } catch (error) {
+          if (String(error?.detail || '').includes('ivoc_mentor_priorities_version_conflict')) {
+            throw Object.assign(new Error('ivoc_mentor_priorities_version_conflict'), { status: 409 });
+          }
+          throw error;
+        }
+        await audit({ actor, owner: write.subjectId, action: 'mentor_priorities_write', decision: 'allow', reason: `v${row.version}` });
+        sendJson(response, 200, publicMentorPriorities(row, { includeMentorNotes: true }), mediaBase);
         return true;
       }
 

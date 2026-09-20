@@ -61,6 +61,16 @@ function repository() {
     update: async (path, body) => { updates.push({ path, body }); return { ...body }; },
     rpc: async (name, body) => {
       rpcs.push({ name, body });
+      if (name === 'ivoc_write_mentor_priorities') {
+        return {
+          subject_id: body.p_subject_id,
+          version: body.p_expected_version + 1,
+          priorities: body.p_priorities,
+          mentor_notes: body.p_mentor_notes,
+          set_by: body.p_actor,
+          created_at: new Date().toISOString(),
+        };
+      }
       return {
         question_id: body.p_question_id, status: body.p_status,
         current_version: body.p_expected_version + 1,
@@ -181,6 +191,45 @@ test('question governance is Admin-only, version-checked, and actor-stamped serv
       p_actor: 'wp:1',
     },
   });
+});
+
+test('Mentor Top 3 is Admin-written, actor-stamped, and student reads hide mentor-only notes', async () => {
+  const { route, repo } = handler();
+  const input = {
+    subjectId: 'wp:42', expectedVersion: 0,
+    priorities: [{ id: 'leadership', text: 'Give one concrete example that shows your leadership.' }],
+    mentorNotes: [
+      { id: 'shared', text: 'Lead with the result.', visibility: 'shared' },
+      { id: 'private', text: 'The student tends to bury the point.', visibility: 'mentor_only' },
+    ],
+  };
+  const denied = new ResponseCapture();
+  await route({ ...base, request: request('PUT', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response: denied, url: new URL('https://hq.test/api/ivoc/v1/admin/mentor-priorities'), hqSession: session() });
+  assert.equal(denied.status, 403);
+
+  const allowed = new ResponseCapture();
+  await route({ ...base, request: request('PUT', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response: allowed, url: new URL('https://hq.test/api/ivoc/v1/admin/mentor-priorities'), hqSession: session(1, ['administrator']) });
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.json().version, 1);
+  assert.deepEqual(repo.rpcs.at(-1), {
+    name: 'ivoc_write_mentor_priorities',
+    body: {
+      p_subject_id: 'wp:42', p_expected_version: 0,
+      p_priorities: [{ id: 'leadership', text: input.priorities[0].text, rank: 1 }],
+      p_mentor_notes: input.mentorNotes,
+      p_actor: 'wp:1',
+    },
+  });
+
+  repo.single = async (path) => path.startsWith('ivoc_mentor_priority_sets?subject_id=eq.wp%3A42')
+    ? {
+      subject_id: 'wp:42', version: 1, priorities: repo.rpcs.at(-1).body.p_priorities,
+      mentor_notes: input.mentorNotes, set_by: 'wp:1', created_at: new Date().toISOString(),
+    } : null;
+  const studentRead = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response: studentRead, url: new URL('https://hq.test/api/ivoc/v1/mentor-priorities'), hqSession: session() });
+  assert.equal(studentRead.status, 200);
+  assert.deepEqual(studentRead.json().mentorNotes.map((note) => note.id), ['shared']);
 });
 
 test('session creation requires same-origin CSRF and persists server identity', async () => {

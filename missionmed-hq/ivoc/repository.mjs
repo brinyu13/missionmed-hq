@@ -12,10 +12,12 @@ const TABLES = Object.freeze([
   'ivoc_coaching_evidence',
   'ivoc_question_catalog',
   'ivoc_context_packs',
+  'ivoc_mentor_priority_sets',
 ]);
 
 const RPCS = Object.freeze([
   'ivoc_write_question_version',
+  'ivoc_write_mentor_priorities',
 ]);
 
 function requireConfig(value, name) {
