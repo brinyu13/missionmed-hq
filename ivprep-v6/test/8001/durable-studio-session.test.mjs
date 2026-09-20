@@ -158,6 +158,30 @@ test('durable operations require an admitted bootstrap and never impersonate an 
   await assert.rejects(() => durable.start({ stream: {} }), /durable_session_not_ready/u);
 });
 
+test('Admin overview stays behind the authenticated capability boundary', async () => {
+  const calls = [];
+  const durable = new DurableStudioSession({
+    api: {
+      async bootstrap() { return { entitlement: { admitted: true }, identity: { admin: true } }; },
+      async adminConfig() { calls.push('config'); return { version: 3 }; },
+      async credits() { calls.push('credits'); return { account: { subjectId: 'wp:1', balanceSeconds: 0 } }; },
+      async questions() { calls.push('questions'); return { admin: true, questions: [{ questionId: 'CORE-01', status: 'active' }] }; },
+    },
+  });
+  await durable.bootstrap();
+  const overview = await durable.adminOverview();
+  assert.deepEqual(calls.sort(), ['config', 'credits', 'questions']);
+  assert.equal(overview.config.version, 3);
+  assert.equal(overview.credits.account.subjectId, 'wp:1');
+  assert.equal(overview.questions.questions[0].questionId, 'CORE-01');
+
+  const student = new DurableStudioSession({
+    api: { async bootstrap() { return { entitlement: { admitted: true }, identity: { admin: false } }; } },
+  });
+  await student.bootstrap();
+  await assert.rejects(() => student.adminOverview(), /ivoc_admin_required/u);
+});
+
 test('a failed media upload retains analytics and retries the same account transaction', async () => {
   let stopAttempts = 0;
   const api = {
