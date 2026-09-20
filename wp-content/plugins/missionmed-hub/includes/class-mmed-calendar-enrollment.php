@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class MMED_Calendar_Enrollment {
 
-	const DEFAULT_EVENTS_VERSION = '20260518.1';
+	const DEFAULT_EVENTS_VERSION = '20260920.1';
 
 	/**
 	 * Initialize hooks.
@@ -148,10 +148,12 @@ class MMED_Calendar_Enrollment {
 					'priority'    => absint( $event['priority'] ?? 0 ),
 					'status'      => 'active',
 					'meta_json'   => ! empty( $event['meta'] ) ? wp_json_encode( self::sanitize_event_meta( $event['meta'] ) ) : null,
+					'meeting_url'      => ! empty( $event['meeting_url'] ) ? esc_url_raw( $event['meeting_url'] ) : null,
+					'meeting_platform' => sanitize_key( $event['meeting_platform'] ?? '' ),
 					'created_at'  => $now,
 					'updated_at'  => $now,
 				),
-				array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
+				array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s' )
 			);
 
 			if ( false !== $inserted ) {
@@ -229,44 +231,44 @@ class MMED_Calendar_Enrollment {
 	 */
 	private static function dr_j_drill_events() {
 		$rows = array(
-			array( '2026-05-11', '13:00:00', 'Immuno', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-11', '14:15:00', 'Preventative / Vaccines / Vitamins', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-12', '13:00:00', 'Muscle / Rheum', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-12', '14:15:00', 'Rheum', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-13', '13:00:00', 'Endocrine', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-13', '14:15:00', 'Endocrine', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-14', '13:00:00', 'Neuro', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-14', '14:15:00', 'Neuro', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-15', '13:00:00', 'Derm / Ophtho', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-15', '14:15:00', 'Derm / Ophtho', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-18', '13:00:00', 'Micro / Inf. Disease', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-18', '14:15:00', 'Inf. Disease', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-19', '13:00:00', 'Viruses / Protozoa / Parasites', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-19', '14:15:00', 'Surgery', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-20', '13:00:00', 'GIT / HEP', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-20', '14:15:00', 'GIT / HEP', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-21', '13:00:00', 'Psych', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-21', '14:15:00', 'Psych', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-22', '13:00:00', 'Ethics', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-22', '14:15:00', 'Ethics', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-26', '13:00:00', 'Repro / GYN / OB', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-26', '14:15:00', 'OB / GYN', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-27', '13:00:00', 'Biochem / Genetics / Vitamins', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-27', '14:15:00', 'Peds', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-28', '13:00:00', 'Renal / GU', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-28', '14:15:00', 'Renal / GU / Electrolytes', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-05-29', '13:00:00', 'ER Medicine (Bites / Hypo-Hyperthermia / Toxicology / Overdose)', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-05-29', '14:15:00', 'ER Medicine (Bites / Hypo-Hyperthermia / Toxicology / Overdose)', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-06-01', '13:00:00', 'Heme / Onc', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-06-01', '14:15:00', 'Heme / Onc', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-06-02', '13:00:00', 'Cardio', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-06-02', '14:15:00', 'Cardio', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-06-03', '13:00:00', 'Biostats / Public Safety', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-06-03', '14:15:00', 'Biostats / Public Safety', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-06-04', '13:00:00', 'Pulmonary', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-06-04', '14:15:00', 'Pulmonary', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
-			array( '2026-06-05', '13:00:00', 'MIXED REVIEW', 'Step 1 / COMLEX 1', 'drill_step1' ),
-			array( '2026-06-05', '14:15:00', 'MIXED REVIEW', 'Step 2-3 / COMLEX 2-3', 'drill_step23' ),
+			array( '2026-09-08', '13:00:00', 'Muscle / Rheum', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-08', '14:15:00', 'Rheum', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-09', '13:00:00', 'Endocrine', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-09', '14:15:00', 'Endocrine', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-10', '13:00:00', 'Neuro', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-10', '14:15:00', 'Neuro', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-11', '13:00:00', 'ER', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-11', '14:15:00', 'ER', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-14', '13:00:00', 'Micro. / Inf. Disease', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-14', '14:15:00', 'Inf. Disease', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-15', '13:00:00', 'Viruses / Protozoa / Parasites', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-15', '14:15:00', 'Surgery', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-16', '13:00:00', 'GIT / HEP', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-16', '14:15:00', 'GIT / HEP', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-17', '13:00:00', 'Psych', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-17', '14:15:00', 'Psych', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-18', '13:00:00', 'Ethics', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-18', '14:15:00', 'Ethics', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-21', '13:00:00', 'Onc by systems', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-21', '14:15:00', 'OB', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-22', '13:00:00', 'Repro / GYN / OB', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-22', '14:15:00', 'GYN', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-23', '13:00:00', 'Biochem / Genetics / Vitamins', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-23', '14:15:00', 'Peds', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-24', '13:00:00', 'Renal / GU', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-24', '14:15:00', 'Renal / GU / Electrolytes', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-25', '13:00:00', 'Immuno', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-25', '14:15:00', 'Preventative / Vaccines', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-28', '13:00:00', 'Heme / Onc', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-28', '14:15:00', 'Heme / Onc', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-29', '13:00:00', 'Cardio', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-29', '14:15:00', 'Cardio', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-09-30', '13:00:00', 'Biostats / Public Safety', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-09-30', '14:15:00', 'Biostats / Public Safety', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-10-01', '13:00:00', 'Pulmonary', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-10-01', '14:15:00', 'Pulmonary', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
+			array( '2026-10-02', '13:00:00', 'MIXED Review', 'Step 1 / COMLEX Level 1', 'drill_step1' ),
+			array( '2026-10-02', '14:15:00', 'Mixed Review', 'Step 2 & 3 / COMLEX Level 2 & 3', 'drill_step23' ),
 		);
 
 		$events = array(
@@ -296,7 +298,8 @@ class MMED_Calendar_Enrollment {
 				'event_type'  => $row[4],
 				'category'    => $row[4],
 				'priority'    => 5,
-				'source_id'   => 'drj_2026_' . ( $index + 1 ),
+				'source_id'   => 'drj_fall_2026_' . ( $index + 1 ),
+				'meeting_platform' => 'zoom',
 				'meta'        => array(
 					'drj_default' => true,
 					'subtitle'    => $row[3],
@@ -407,34 +410,6 @@ class MMED_Calendar_Enrollment {
 				'event_type'       => 'mr_session',
 				'meeting_url'      => 'https://missionmedinstitute.my.webex.com/meet/missionmedtv',
 				'meeting_platform' => 'webex',
-			);
-		}
-
-		// Dr. J Drills - Step 1 (Zoom, Thursdays at 7 PM ET).
-		$drill1_dates = self::get_weekly_dates( 'Thursday', '2026-06-04', '2026-12-17' );
-		foreach ( $drill1_dates as $date ) {
-			$sessions[] = array(
-				'title'            => "Dr. J's Drill - Step/Level 1",
-				'description'      => 'Medical knowledge drill session. Rapid-fire Q&A format targeting high-yield Step 1 topics.',
-				'start_at'         => $date . ' 19:00:00',
-				'end_at'           => $date . ' 20:00:00',
-				'event_type'       => 'drill_step1',
-				'meeting_url'      => 'https://us06web.zoom.us/j/missionmeddrills',
-				'meeting_platform' => 'zoom',
-			);
-		}
-
-		// Dr. J Drills - Step 2/3 (Zoom, Fridays at 7 PM ET).
-		$drill23_dates = self::get_weekly_dates( 'Friday', '2026-06-05', '2026-12-18' );
-		foreach ( $drill23_dates as $date ) {
-			$sessions[] = array(
-				'title'            => "Dr. J's Drill - Step/Level 2/3",
-				'description'      => 'Clinical knowledge drill session. Case-based format targeting CK/Step 3 concepts.',
-				'start_at'         => $date . ' 19:00:00',
-				'end_at'           => $date . ' 20:00:00',
-				'event_type'       => 'drill_step23',
-				'meeting_url'      => 'https://us06web.zoom.us/j/missionmeddrills',
-				'meeting_platform' => 'zoom',
 			);
 		}
 

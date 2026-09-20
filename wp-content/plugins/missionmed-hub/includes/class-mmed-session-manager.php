@@ -128,28 +128,6 @@ class MMED_Session_Manager {
 				'end_time'            => '11:30:00',
 				'meeting_platform'    => 'webex',
 			),
-			array(
-				'group_slug'          => 'drill_step1',
-				'group_name'          => "Dr. J's Drill - Step/Level 1",
-				'description'         => 'Live drill session with Dr. J.',
-				'enrollment_template' => '360elite',
-				'event_type'          => 'drill_step1',
-				'day_of_week'         => 'Thursday',
-				'start_time'          => '19:00:00',
-				'end_time'            => '20:00:00',
-				'meeting_platform'    => 'webex',
-			),
-			array(
-				'group_slug'          => 'drill_step23',
-				'group_name'          => "Dr. J's Drill - Step/Level 2/3",
-				'description'         => 'Live drill session with Dr. J.',
-				'enrollment_template' => '360elite',
-				'event_type'          => 'drill_step23',
-				'day_of_week'         => 'Friday',
-				'start_time'          => '19:00:00',
-				'end_time'            => '20:00:00',
-				'meeting_platform'    => 'webex',
-			),
 		);
 
 		foreach ( $defaults as $default ) {
