@@ -115,9 +115,6 @@ class MMPS_Generator {
 				return self::preview_from_stored( $existing, $root );
 			}
 		}
-		if ( MMPS_Store::runs_today( $user_id ) >= self::DAILY_RUN_CAP ) {
-			return new WP_Error( 'mmps_daily_cap', 'Prototype daily generation cap reached (' . self::DAILY_RUN_CAP . ').', array( 'status' => 429 ) );
-		}
 		if ( empty( $root['region']['mode'] ) ) {
 			return new WP_Error( 'mmps_region_required', 'Confirm the editable region first.', array( 'status' => 409 ) );
 		}
@@ -140,7 +137,9 @@ class MMPS_Generator {
 		if ( $plan['deepNeeded'] ) {
 			// Honest stop: no AI call, nothing invented.
 			$run = self::run_record( $run_uuid, $root, $program_specialty_id, $tier_requested, 'DEEP_RESEARCH_NEEDED', '', $ordinal, 'none', '', 'RESEARCH_NEEDED', $bundle, array(), array( 'reasons' => $plan['reasons'], 'region' => self::region_snapshot( $root ) ), 0, array(), $idempotency_key );
-			MMPS_Store::insert_run( $user_id, $run );
+			if ( ! MMPS_Store::insert_run( $user_id, $run ) ) {
+				return new WP_Error( 'mmps_run_store', 'The research-needed run could not be stored durably.', array( 'status' => 500 ) );
+			}
 			return self::preview( $run, $root, $bundle, $plan, null );
 		}
 
@@ -162,7 +161,12 @@ class MMPS_Generator {
 			if ( is_wp_error( $safe_payload ) ) {
 				return $safe_payload;                       // Fail closed: nothing was sent.
 			}
-			$attempt = MMPS_Provider::complete( $system, $safe_payload, $schema );
+			$attempt = MMPS_Provider::complete(
+				$system,
+				$safe_payload,
+				$schema,
+				array( 'userId' => $user_id, 'rootId' => $root['id'], 'programSpecialtyId' => $program_specialty_id, 'idempotencyKey' => $idempotency_key )
+			);
 			if ( is_wp_error( $attempt ) ) {
 				if ( null === $result ) {
 					return $attempt;                        // First attempt failed: nothing to keep.
@@ -195,7 +199,9 @@ class MMPS_Generator {
 
 		$status = $validation['blocking'] ? 'NEEDS_ATTENTION' : 'OK';
 		$run    = self::run_record( $run_uuid, $root, $program_specialty_id, $tier_requested, $plan['tierEffective'], (string) ( $output['strategy'] ?? '' ), $ordinal, $result['provider'], $result['model'], $status, $bundle, $output, $validation, $latency, $usage, $idempotency_key );
-		MMPS_Store::insert_run( $user_id, $run );
+		if ( ! MMPS_Store::insert_run( $user_id, $run ) ) {
+			return new WP_Error( 'mmps_run_store', 'The generated run could not be stored durably. No batch item was marked ready.', array( 'status' => 500 ) );
+		}
 		MMPS_Store::audit( $user_id, 'generate', $run_uuid, array( 'program' => $program_specialty_id, 'tier' => $plan['tierEffective'], 'status' => $status, 'provider' => $result['provider'], 'bundle' => $bundle['bundleSha256'], 'candidateCount' => count( (array) ( $output['candidates'] ?? array() ) ) ) );
 		return self::preview( $run, $root, $bundle, $plan, $output );
 	}

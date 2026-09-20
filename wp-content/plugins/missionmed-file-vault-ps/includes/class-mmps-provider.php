@@ -46,10 +46,10 @@ class MMPS_Provider {
 		return 'https://api.openai.com/v1/responses';
 	}
 
-	public static function complete( $system, $user_payload, $schema ) {
+	public static function complete( $system, $user_payload, $schema, $attempt_context = array() ) {
 		$status = self::status();
 		if ( 'openai-responses' === $status['provider'] ) {
-			return self::openai( $system, $user_payload, $schema );
+			return self::openai( $system, $user_payload, $schema, $attempt_context );
 		}
 		if ( 'simulator' === $status['provider'] ) {
 			return MMPS_Provider_Simulator::complete( $user_payload );
@@ -57,7 +57,7 @@ class MMPS_Provider {
 		return new WP_Error( 'mmps_provider_not_configured', 'The AI provider is not configured on this site yet. Define MMED_PS_PROTO_OPENAI_API_KEY in wp-config.php.', array( 'status' => 503 ) );
 	}
 
-	protected static function openai( $system, $user_payload, $schema ) {
+	protected static function openai( $system, $user_payload, $schema, $attempt_context ) {
 		$body = array(
 			'model'             => self::model(),
 			'store'             => false,
@@ -70,10 +70,10 @@ class MMPS_Provider {
 			'reasoning'         => array( 'effort' => 'medium' ),
 		);
 		$started = microtime( true );
-		$result  = self::post( $body );
+		$result  = self::post( $body, $attempt_context );
 		if ( is_wp_error( $result ) && 'mmps_provider_bad_request' === $result->get_error_code() ) {
 			unset( $body['reasoning'] );            // Some models reject the reasoning block; retry once without it.
-			$result = self::post( $body );
+			$result = self::post( $body, $attempt_context );
 		}
 		if ( is_wp_error( $result ) ) {
 			return $result;
@@ -105,7 +105,17 @@ class MMPS_Provider {
 		);
 	}
 
-	protected static function post( $body ) {
+	protected static function post( $body, $attempt_context ) {
+		$reservation = MMPS_Store::reserve_provider_attempt(
+			absint( $attempt_context['userId'] ?? 0 ),
+			absint( $attempt_context['rootId'] ?? 0 ),
+			(string) ( $attempt_context['programSpecialtyId'] ?? '' ),
+			(string) ( $attempt_context['idempotencyKey'] ?? '' ),
+			MMPS_Generator::DAILY_RUN_CAP
+		);
+		if ( is_wp_error( $reservation ) ) {
+			return $reservation;
+		}
 		$response = wp_remote_post(
 			self::endpoint(),
 			array(
@@ -119,9 +129,11 @@ class MMPS_Provider {
 			)
 		);
 		if ( is_wp_error( $response ) ) {
+			MMPS_Store::finish_provider_attempt( absint( $attempt_context['userId'] ?? 0 ), $reservation, $response->get_error_code() );
 			return new WP_Error( 'mmps_provider_unreachable', 'The AI provider could not be reached. Try again.', array( 'status' => 502 ) );
 		}
 		$code = (int) wp_remote_retrieve_response_code( $response );
+		MMPS_Store::finish_provider_attempt( absint( $attempt_context['userId'] ?? 0 ), $reservation, 'http_' . $code );
 		if ( 400 === $code ) {
 			return new WP_Error( 'mmps_provider_bad_request', 'The AI provider rejected the request (400). Check the configured model name.', array( 'status' => 502 ) );
 		}

@@ -98,7 +98,7 @@ class MMPS_Page {
 <div id="mmps-app" class="app" data-state="loading">
 	<div class="boot"><span class="bootMark">MissionMed</span><span class="bootLine">Opening Program-Specific PS…</span></div>
 </div>
-<noscript><p style="padding:40px;color:#e9eefb;font-family:system-ui">This page needs JavaScript.</p></noscript>
+<noscript><p class="noscript">This page needs JavaScript.</p></noscript>
 <script type="application/json" id="mmps-config"><?php echo wp_json_encode( $config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ); ?></script>
 <script src="<?php echo esc_url( self::asset( 'mmps-app.js' ) ); ?>" defer></script>
 </body>

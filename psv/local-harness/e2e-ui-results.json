@@ -65,6 +65,18 @@
    "pass": true
   },
   {
+   "name": "near similarity produces an opaque review choice without exposing another student",
+   "pass": true
+  },
+  {
+   "name": "research artifact uploads into validated quarantine without claiming RISE hydration",
+   "pass": true
+  },
+  {
+   "name": "validated research owner handoff downloads as Markdown",
+   "pass": true
+  },
+  {
    "name": "Research Needed -> Essential fallback works",
    "pass": true
   },
@@ -77,7 +89,51 @@
    "pass": true
   },
   {
+   "name": "batch imports the full RISE list without private notes",
+   "pass": true
+  },
+  {
+   "name": "batch defaults priority programs to Deep and lower programs to Essential",
+   "pass": true
+  },
+  {
+   "name": "batch finishes with durable per-program statuses and capped attempts",
+   "pass": true
+  },
+  {
+   "name": "batch surfaces clean outputs separately from research/attention exceptions",
+   "pass": true
+  },
+  {
+   "name": "recommended defaults can be approved without opening every clean item",
+   "pass": true
+  },
+  {
+   "name": "selected statements download as a ZIP",
+   "pass": true
+  },
+  {
+   "name": "Download All approved creates a ZIP",
+   "pass": true
+  },
+  {
    "name": "no horizontal overflow at 820px",
+   "pass": true
+  },
+  {
+   "name": "390px preview keeps header navigation, current step and actions usable",
+   "pass": true
+  },
+  {
+   "name": "no horizontal overflow at 390px preview",
+   "pass": true
+  },
+  {
+   "name": "no horizontal overflow at 390px batch",
+   "pass": true
+  },
+  {
+   "name": "no horizontal overflow at 390px library",
    "pass": true
   },
   {

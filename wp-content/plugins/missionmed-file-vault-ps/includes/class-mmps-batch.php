@@ -58,6 +58,7 @@ class MMPS_Batch {
 		}
 		$job_uuid = MMPS_Store::uuid();
 		$now      = MMPS_Store::now();
+		$wpdb->query( 'START TRANSACTION' );
 		$ok       = $wpdb->insert(
 			self::jobs_table(),
 			array(
@@ -73,12 +74,13 @@ class MMPS_Batch {
 			)
 		);
 		if ( ! $ok ) {
+			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'mmps_batch_create', 'The batch could not be created.', array( 'status' => 500 ) );
 		}
 		$job_id = absint( $wpdb->insert_id );
 		foreach ( $clean as $program ) {
 			$item_uuid = MMPS_Store::uuid();
-			$wpdb->insert(
+			$inserted = $wpdb->insert(
 				self::items_table(),
 				array(
 					'item_uuid'             => $item_uuid,
@@ -96,6 +98,14 @@ class MMPS_Batch {
 					'updated_at'            => $now,
 				)
 			);
+			if ( ! $inserted ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'mmps_batch_item_create', 'The complete batch could not be stored atomically. No partial batch was kept.', array( 'status' => 500 ) );
+			}
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'mmps_batch_commit', 'The complete batch could not be committed.', array( 'status' => 500 ) );
 		}
 		self::refresh_job( $job_id );
 		MMPS_Store::audit( $user_id, 'batch_create', $job_uuid, array( 'rootId' => $root['id'], 'programCount' => count( $clean ) ) );
@@ -159,22 +169,42 @@ class MMPS_Batch {
 		if ( 1 !== $claimed ) {
 			return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => null, 'contended' => true );
 		}
+		$slot = $wpdb->query(
+			$wpdb->prepare(
+				'UPDATE ' . self::jobs_table() . ' SET active_items=active_items+1,updated_at=%s WHERE id=%d AND user_id=%d AND active_items < %d',
+				MMPS_Store::now(), absint( $job['id'] ), absint( $user_id ), self::CLIENT_WORKERS
+			)
+		);
+		if ( 1 !== $slot ) {
+			$wpdb->query( $wpdb->prepare( "UPDATE " . self::items_table() . " SET status='QUEUED',attempt_count=GREATEST(attempt_count-1,0),lock_token='',locked_until=NULL,updated_at=%s WHERE id=%d AND user_id=%d AND lock_token=%s", MMPS_Store::now(), absint( $row['id'] ), absint( $user_id ), $token ) );
+			return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => null, 'saturated' => true );
+		}
 		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::items_table() . ' WHERE id=%d AND lock_token=%s', absint( $row['id'] ), $token ), ARRAY_A );
 		$run = MMPS_Generator::generate( $user_id, $root, $row['program_specialty_id'], $row['tier_requested'], array(), $row['idempotency_key'] );
 		if ( is_wp_error( $run ) ) {
+			if ( 'mmps_daily_cap' === $run->get_error_code() ) {
+				$wpdb->query( $wpdb->prepare( "UPDATE " . self::items_table() . " SET status='QUEUED',attempt_count=GREATEST(attempt_count-1,0),last_error_code='DAILY_CAP_PAUSED',lock_token='',locked_until=NULL,updated_at=%s WHERE id=%d AND user_id=%d AND lock_token=%s", MMPS_Store::now(), absint( $row['id'] ), absint( $user_id ), $token ) );
+				self::release_slot( absint( $job['id'] ), $user_id );
+				self::refresh_job( absint( $job['id'] ) );
+				return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => self::shape_item_by_id( $user_id, absint( $row['id'] ) ), 'paused' => true, 'pauseCode' => 'DAILY_CAP' );
+			}
 			$terminal = absint( $row['attempt_count'] ) >= absint( $row['max_attempts'] );
-			$wpdb->update(
+			$updated = $wpdb->update(
 				self::items_table(),
 				array( 'status' => $terminal ? 'FAILED' : 'QUEUED', 'last_error_code' => $run->get_error_code(), 'lock_token' => '', 'locked_until' => null, 'updated_at' => MMPS_Store::now() ),
 				array( 'id' => absint( $row['id'] ), 'user_id' => absint( $user_id ), 'lock_token' => $token )
 			);
+			self::release_slot( absint( $job['id'] ), $user_id );
+			if ( 1 !== $updated ) {
+				return new WP_Error( 'mmps_batch_error_persist', 'The failed item state could not be stored safely. It will recover after its lease expires.', array( 'status' => 503 ) );
+			}
 			self::refresh_job( absint( $job['id'] ) );
 			MMPS_Store::audit( $user_id, 'batch_item_error', $row['item_uuid'], array( 'code' => $run->get_error_code(), 'terminal' => $terminal ) );
 			return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => self::shape_item_by_id( $user_id, absint( $row['id'] ) ), 'retryable' => ! $terminal );
 		}
 		$status = 'OK' === $run['status'] ? 'READY' : ( 'RESEARCH_NEEDED' === $run['status'] ? 'RESEARCH_NEEDED' : 'NEEDS_ATTENTION' );
 		$program = (array) ( $run['program'] ?? array() );
-		$wpdb->update(
+		$updated = $wpdb->update(
 			self::items_table(),
 			array(
 				'acgme_id'        => (string) ( $program['acgmeId'] ?? '' ),
@@ -190,6 +220,10 @@ class MMPS_Batch {
 			),
 			array( 'id' => absint( $row['id'] ), 'user_id' => absint( $user_id ), 'lock_token' => $token )
 		);
+		self::release_slot( absint( $job['id'] ), $user_id );
+		if ( 1 !== $updated ) {
+			return new WP_Error( 'mmps_batch_result_persist', 'The completed run exists, but the batch item could not link to it. Retry after the item lease recovers; provider work will be reused idempotently.', array( 'status' => 503 ) );
+		}
 		self::refresh_job( absint( $job['id'] ) );
 		MMPS_Store::audit( $user_id, 'batch_item_done', $row['item_uuid'], array( 'run' => $run['runId'], 'status' => $status ) );
 		return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => self::shape_item_by_id( $user_id, absint( $row['id'] ) ), 'run' => $run );
@@ -258,6 +292,13 @@ class MMPS_Batch {
 		global $wpdb;
 		$now = MMPS_Store::now();
 		$wpdb->query( $wpdb->prepare( "UPDATE " . self::items_table() . " SET status=IF(attempt_count>=max_attempts,'FAILED','QUEUED'),lock_token='',locked_until=NULL,last_error_code='STALE_LOCK_RECOVERED',updated_at=%s WHERE job_id=%d AND user_id=%d AND status='PROCESSING' AND locked_until IS NOT NULL AND locked_until < %s", $now, absint( $job_id ), absint( $user_id ), $now ) );
+		$active = absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . self::items_table() . " WHERE job_id=%d AND user_id=%d AND status='PROCESSING' AND locked_until >= %s", absint( $job_id ), absint( $user_id ), $now ) ) );
+		$wpdb->update( self::jobs_table(), array( 'active_items' => min( self::CLIENT_WORKERS, $active ) ), array( 'id' => absint( $job_id ), 'user_id' => absint( $user_id ) ) );
+	}
+
+	protected static function release_slot( $job_id, $user_id ) {
+		global $wpdb;
+		$wpdb->query( $wpdb->prepare( 'UPDATE ' . self::jobs_table() . ' SET active_items=GREATEST(active_items-1,0),updated_at=%s WHERE id=%d AND user_id=%d', MMPS_Store::now(), absint( $job_id ), absint( $user_id ) ) );
 	}
 
 	protected static function refresh_job( $job_id ) {
@@ -270,7 +311,7 @@ class MMPS_Batch {
 		$processed = $counts['READY'] + $counts['RESEARCH_NEEDED'] + $counts['NEEDS_ATTENTION'] + $counts['FAILED'];
 		$status    = $counts['PROCESSING'] ? 'RUNNING' : ( $counts['QUEUED'] ? ( $processed ? 'PAUSED' : 'QUEUED' ) : ( $counts['FAILED'] || $counts['NEEDS_ATTENTION'] || $counts['RESEARCH_NEEDED'] ? 'COMPLETE_WITH_EXCEPTIONS' : 'READY_FOR_APPROVAL' ) );
 		$approved  = absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . self::items_table() . " WHERE job_id=%d AND approved_doc_uuid<>''", absint( $job_id ) ) ) );
-		if ( $total > 0 && $approved === $total ) {
+		if ( $total > 0 && 0 === $counts['QUEUED'] && 0 === $counts['PROCESSING'] && $approved === $total ) {
 			$status = 'COMPLETE';
 		}
 		$wpdb->update(

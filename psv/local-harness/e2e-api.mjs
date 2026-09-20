@@ -29,6 +29,14 @@ class Session {
     const text = await res.text(); let json = null; try { json = JSON.parse(text); } catch {}
     return { status: res.status, json, text, headers: res.headers };
   }
+	async upload(path, fields, fileName, text) {
+		const form = new FormData();
+		for (const [key, value] of Object.entries(fields)) form.append(key, String(value));
+		form.append('file', new Blob([text], { type: 'text/markdown' }), fileName);
+		const res = await this.raw('/wp-json/mmed-ps-proto/v1' + path, { method: 'POST', body: form, headers: { ...(this.nonce ? { 'X-WP-Nonce': this.nonce } : {}), Origin: BASE, Accept: 'application/json' } });
+		const body = await res.text(); let json = null; try { json = JSON.parse(body); } catch {}
+		return { status: res.status, json, text: body, headers: res.headers };
+	}
 }
 const php = (code) => { const f = `${HARNESS}/.snippet.php`; fs.writeFileSync(f, `<?php $_SERVER['HTTP_HOST']='127.0.0.1:8088';$_SERVER['REQUEST_URI']='/';require '${SITE}/wp-load.php';` + code); return execSync('php ' + f + ' 2>/dev/null', { encoding: 'utf8' }); };
 const aiLog = async () => (await fetch('http://127.0.0.1:4012/__log')).json();
@@ -161,7 +169,23 @@ const callsBefore = (await aiLog()).length;
 r = await t.api('POST', '/generate', { rootId: root.id, programSpecialtyId: 'ps_thin_002', tier: 'DEEP', otherProgramIds: others });
 ok('unsupported DEEP -> Research Needed, AI never called, nothing invented', r.status === 200 && r.json.status === 'RESEARCH_NEEDED' && r.json.tierEffective === 'DEEP_RESEARCH_NEEDED' && !r.json.replacement && (await aiLog()).length === callsBefore, r.text.slice(0, 300));
 r = await t.api('POST', '/research-prompt', { programSpecialtyId: 'ps_thin_002' });
-ok('research prompt (planned UX): program data only, flagged as not built', r.json.planned === true && r.json.ingestion === 'PHASE_2_NOT_BUILT' && r.json.prompt.includes('Riverbend') && !/Corridor|Émile|glucometer/.test(r.json.prompt));
+ok('M4 research prompt: optimized exact artifact contract with program data only', r.json.planned === false && r.json.ingestion === 'QUARANTINE_AVAILABLE_RISE_OWNER_REQUIRED' && r.json.schema === 'missionmed.rise.research-artifact.v1' && r.json.prompt.includes('FACT-001') && r.json.prompt.includes('Riverbend') && !/Corridor|Émile|glucometer/.test(r.json.prompt));
+const researchedAt = new Date().toISOString().slice(0, 10);
+const validResearch = `---\nschema: missionmed.rise.research-artifact.v1\nprogram_specialty_id: ps_thin_002\nacgme_id: 1403821002\nprogram_name: Riverbend Community Hospital Internal Medicine Residency\nresearched_at: ${researchedAt}\nresearch_agent: Astra Research Test\n---\n# MissionMed Program Research Evidence\n\n## Evidence records\n### FACT-001\n- field: research.curriculum\n- claim: The official curriculum page describes a longitudinal ambulatory experience integrated throughout residency training.\n- source_url: https://riverbend.example.org/im/curriculum\n- source_type: PROGRAM_OFFICIAL\n- accessed_at: ${researchedAt}\n\n### FACT-002\n- field: research.facilities_patient_population\n- claim: The sponsoring institution page identifies Riverbend Community Hospital as the primary inpatient training site.\n- source_url: https://riverbend.example.org/im/sites\n- source_type: SPONSOR_OFFICIAL\n- accessed_at: ${researchedAt}\n`;
+const rejectedResearch = validResearch.replace('1403821002', '9999999999').replace('The official curriculum page', 'Applicant email student@example.com says the official curriculum page');
+r = await t.upload('/research-artifacts', { programSpecialtyId: 'ps_thin_002', rootId: root.id }, 'unsafe.md', rejectedResearch);
+ok('M4 upload: unsafe or identity-mismatched artifact is retained only as rejected quarantine', r.status === 200 && r.json.artifact.status === 'QUARANTINED_REJECTED' && r.json.riseHydrated === false && r.json.artifact.validation.errors.some(e => e.code === 'APPLICANT_DATA') && r.json.artifact.validation.errors.some(e => e.code === 'IDENTITY_ACGME_ID'));
+const rejectedArtifact = r.json.artifact;
+r = await t.api('GET', `/research-artifacts/${rejectedArtifact.artifactUuid}/download?inline=1`);
+ok('M4 quarantine: rejected artifact cannot be exported as an owner handoff', r.status === 409 && r.json.code === 'mmps_research_not_validated');
+r = await t.upload('/research-artifacts', { programSpecialtyId: 'ps_thin_002', rootId: root.id }, 'riverbend-evidence.md', validResearch);
+ok('M4 upload: valid artifact is validated but remains pending the RISE owner', r.status === 200 && r.json.artifact.status === 'VALIDATED_PENDING_RISE_OWNER' && r.json.riseHydrated === false && r.json.artifact.validation.factCount === 2 && r.json.artifact.validation.errors.length === 0, r.text.slice(0, 300));
+const validArtifact = r.json.artifact;
+r = await t.api('GET', `/research-artifacts/${validArtifact.artifactUuid}/download?inline=1`);
+ok('M4 owner handoff: validated artifact exports byte-for-byte by owner-scoped route', r.status === 200 && r.json.bytes === Buffer.byteLength(validResearch) && r.json.sha256 === validArtifact.sha256);
+const callsAfterResearchUpload = (await aiLog()).length;
+r = await t.api('POST', '/generate', { rootId: root.id, programSpecialtyId: 'ps_thin_002', tier: 'DEEP', otherProgramIds: others });
+ok('M4 authority boundary: quarantined upload cannot hydrate generation or bypass RISE', r.status === 200 && r.json.status === 'RESEARCH_NEEDED' && (await aiLog()).length === callsAfterResearchUpload);
 r = await t.api('POST', '/generate', { rootId: root.id, programSpecialtyId: 'ps_deep_001', tier: 'DEEP', otherProgramIds: others });
 ok('regenerate creates a fresh validated five-choice run without overwriting the prior run', r.json.runId !== deep.runId && r.json.candidates.length === 5 && deep.candidates.length === 5 && r.json.canApprove === true, deep.runId + ' -> ' + r.json.runId);
 
@@ -216,9 +240,20 @@ ok('DEEP without a named fellowship: no fellowship fact is supplied', r.json.tie
 
 // ---------- 8. save, library, download ----------
 const chosenDeep = deep.candidates.find(c => !c.isRecommended && c.canApprove);
+const exactFixture = Buffer.from(chosenDeep.replacement, 'utf8').toString('base64');
+php(`MMPS_Similarity::store(2,'10000000-0000-4000-8000-000000000001',MMPS_Similarity::fingerprint(base64_decode('${exactFixture}')));`);
 r = await t.api('POST', '/library', { runId: deep.runId, candidateId: chosenDeep.candidateId, status: 'APPROVED' });
+ok('M5 exact cross-student protection blocks verbatim reuse without exposing matched prose or identity', r.status === 409 && r.json.code === 'mmps_cross_student_exact' && !/student@example|user_id|10000000-0000/.test(r.text));
+php(`global $wpdb; $wpdb->delete($wpdb->prefix.'mmed_ps_proto_similarity_buckets',array('doc_uuid'=>'10000000-0000-4000-8000-000000000001')); $wpdb->delete($wpdb->prefix.'mmed_ps_proto_similarity_fingerprints',array('doc_uuid'=>'10000000-0000-4000-8000-000000000001'));`);
+const nearText = chosenDeep.replacement.replace(/\b([A-Za-z]+)([.!?])$/, 'reflection$2');
+const nearFixture = Buffer.from(nearText, 'utf8').toString('base64');
+php(`MMPS_Similarity::store(2,'20000000-0000-4000-8000-000000000002',MMPS_Similarity::fingerprint(base64_decode('${nearFixture}')));`);
+r = await t.api('POST', '/library', { runId: deep.runId, candidateId: chosenDeep.candidateId, status: 'APPROVED' });
+ok('M5 near-duplicate protection requests an opaque quality review without showing other prose', r.status === 409 && r.json.code === 'mmps_similarity_review' && ['MODERATE','HIGH'].includes(r.json.data.similarity) && !r.text.includes(nearText));
+r = await t.api('POST', '/library', { runId: deep.runId, candidateId: chosenDeep.candidateId, status: 'APPROVED', acknowledgeSimilarity: true });
 const doc = r.json.document;
-ok('save selected alternative as complete PS with candidate provenance', r.status === 200 && doc.status === 'APPROVED' && doc.tier === 'DEEP' && doc.acgmeId === '1403511001' && doc.programSpecialtyId === 'ps_deep_001' && doc.specialtyLabel === 'Internal Medicine' && doc.versionNumber === 1 && doc.metadata.rootTextSha256 === root.textSha256 && doc.metadata.candidateId === chosenDeep.candidateId && doc.fullText.includes(chosenDeep.replacement) && doc.fullText.split('\n\n').length === 6, r.text.slice(0, 300));
+ok('save selected alternative after explicit review with candidate and similarity provenance', r.status === 200 && doc.status === 'APPROVED' && doc.tier === 'DEEP' && doc.acgmeId === '1403511001' && doc.programSpecialtyId === 'ps_deep_001' && doc.specialtyLabel === 'Internal Medicine' && doc.versionNumber === 1 && doc.metadata.rootTextSha256 === root.textSha256 && doc.metadata.candidateId === chosenDeep.candidateId && doc.metadata.similarityAcknowledged === true && doc.fullText.includes(chosenDeep.replacement) && doc.fullText.split('\n\n').length === 6, r.text.slice(0, 300));
+php(`global $wpdb; $wpdb->delete($wpdb->prefix.'mmed_ps_proto_similarity_buckets',array('doc_uuid'=>'20000000-0000-4000-8000-000000000002')); $wpdb->delete($wpdb->prefix.'mmed_ps_proto_similarity_fingerprints',array('doc_uuid'=>'20000000-0000-4000-8000-000000000002'));`);
 r = await t.api('POST', '/library', { runId: deep.runId, status: 'DRAFT' });
 ok('save is idempotent per run', r.json.alreadySaved === true && r.json.document.docUuid === doc.docUuid);
 r = await t.api('POST', '/library', { runId: ess.runId, status: 'DRAFT' });
@@ -239,6 +274,12 @@ ok('TXT download works', dlt.status === 200 && (await dlt.text()).includes('Lake
 r = await t.api('GET', '/rise/my-program-index');
 const batchIndex = r.json.programs;
 ok('M3 import: full RISE index is privacy-minimized with priority-based defaults', r.status === 200 && batchIndex.length === 4 && batchIndex.every(x => !('notes' in x)) && batchIndex.find(x => x.programSpecialtyId === 'ps_deep_001').defaultTier === 'DEEP' && batchIndex.find(x => x.programSpecialtyId === 'ps_ess_003').defaultTier === 'ESSENTIAL');
+const jobsBeforeInjectedFailure = Number(php(`global $wpdb; echo $wpdb->get_var('SELECT COUNT(*) FROM '.$wpdb->prefix.'mmed_ps_proto_jobs');`));
+execSync(`sqlite3 ${SITE}/wp-content/database/test.sqlite "CREATE TRIGGER mmps_test_fail_item BEFORE INSERT ON wp_mmed_ps_proto_job_items BEGIN SELECT RAISE(ABORT, 'test'); END"`);
+r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: batchIndex.map(x => ({ ...x, tier: x.defaultTier })) });
+execSync(`sqlite3 ${SITE}/wp-content/database/test.sqlite "DROP TRIGGER IF EXISTS mmps_test_fail_item"`);
+const jobsAfterInjectedFailure = Number(php(`global $wpdb; echo $wpdb->get_var('SELECT COUNT(*) FROM '.$wpdb->prefix.'mmed_ps_proto_jobs');`));
+ok('M3 atomic create: injected item failure leaves no partial job or items', r.status === 500 && r.json.code === 'mmps_batch_item_create' && jobsAfterInjectedFailure === jobsBeforeInjectedFailure);
 r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: batchIndex.map(x => ({ ...x, tier: x.defaultTier })) });
 let job = r.json.job;
 ok('M3 batch create: specialty-isolated durable job with one item per program', r.status === 200 && job.rootId === root.id && job.specialtyLabel === 'Internal Medicine' && job.total === 4 && job.items.length === 4 && job.items.every(x => x.status === 'QUEUED'));
@@ -252,17 +293,37 @@ ok('M3 deep shortage: Deep Research Needed remains an exception without hallucin
 const readyItem = job.items.find(x => x.status === 'READY');
 r = await t.api('GET', `/batch/jobs/${job.jobUuid}/items/${readyItem.itemUuid}/run`);
 ok('M3 resume: stored run reconstructs five choices without another provider call', r.status === 200 && r.json.runId === readyItem.runId && r.json.candidates.length === 5 && r.json.canApprove === true);
+const recommendedForReady = r.json.recommendedCandidateId;
+const nondefaultForReady = r.json.candidates.find(x => x.candidateId !== recommendedForReady && x.canApprove);
+r = await t.api('POST', '/library', { runId: readyItem.runId, candidateId: nondefaultForReady.candidateId, status: 'DRAFT' });
+const nondefaultDraft = r.json.document;
+ok('M3 candidate custody fixture: a nonrecommended batch alternative can be saved explicitly', r.status === 200 && nondefaultDraft.metadata.candidateId === nondefaultForReady.candidateId && nondefaultDraft.status === 'DRAFT');
 r = await t.api('POST', `/batch/jobs/${job.jobUuid}/approve-ready`, {});
 job = r.json.job;
-ok('M3 exception-focused approval: all clean recommended defaults approve together', r.status === 200 && r.json.approved === 2 && job.items.filter(x => x.status === 'READY').every(x => x.approvedDocUuid));
+ok('M3 exception-focused approval: clean defaults approve, but a saved alternative is never relabeled as default', r.status === 200 && r.json.approved === 1 && r.json.errors.length === 1 && job.items.find(x => x.itemUuid === readyItem.itemUuid).approvedDocUuid === '');
+r = await t.api('GET', `/library/${nondefaultDraft.docUuid}`);
+ok('M3 saved alternative remains its original DRAFT candidate after bulk default approval', r.json.document.status === 'DRAFT' && r.json.document.metadata.candidateId === nondefaultForReady.candidateId);
 r = await t.api('POST', '/library/bulk-download', { allApproved: true, inline: true });
-ok('M3 Download All: approved complete statements produce one ZIP and manifest', r.status === 200 && r.json.documents >= 2 && r.json.fileName.endsWith('.zip') && r.json.bytes > 500 && /^[a-f0-9]{64}$/.test(r.json.sha256), r.text.slice(0, 300));
+ok('M3 Download All: approved complete statements produce one ZIP and manifest', r.status === 200 && r.json.documents >= 1 && r.json.fileName.endsWith('.zip') && r.json.bytes > 500 && /^[a-f0-9]{64}$/.test(r.json.sha256), r.text.slice(0, 300));
 const preserved = job.items.find(x => x.status === 'READY' && x.approvedDocUuid);
 const newTier = preserved.tierRequested === 'DEEP' ? 'ESSENTIAL' : 'DEEP';
 r = await t.api('PUT', `/batch/jobs/${job.jobUuid}/items/${preserved.itemUuid}/tier`, { tier: newTier });
 job = r.json.job;
 const requeued = job.items.find(x => x.itemUuid === preserved.itemUuid);
-ok('M3 selective regeneration preserves the approved document while requeueing only one item', requeued.status === 'QUEUED' && requeued.tierRequested === newTier && requeued.approvedDocUuid === preserved.approvedDocUuid && job.items.filter(x => x.itemUuid !== preserved.itemUuid).every(x => x.status !== 'QUEUED'));
+ok('M3 selective regeneration preserves the approved document and reports a non-complete job while requeueing one item', requeued.status === 'QUEUED' && requeued.tierRequested === newTier && requeued.approvedDocUuid === preserved.approvedDocUuid && job.status !== 'COMPLETE' && job.items.filter(x => x.itemUuid !== preserved.itemUuid).every(x => x.status !== 'QUEUED'));
+r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: [
+  { programSpecialtyId: 'ps_deep_001', priorityPosition: 1, goldStarred: true, tier: 'ESSENTIAL' },
+  { programSpecialtyId: 'ps_thin_002', priorityPosition: 2, goldStarred: false, tier: 'ESSENTIAL' },
+  { programSpecialtyId: 'ps_ess_003', priorityPosition: 30, goldStarred: false, tier: 'ESSENTIAL' }
+] });
+const capJob = r.json.job;
+php(`global $wpdb; $until=gmdate('Y-m-d H:i:s',time()+300); $rows=$wpdb->get_col($wpdb->prepare('SELECT id FROM '.$wpdb->prefix.'mmed_ps_proto_job_items WHERE job_id=%d ORDER BY id LIMIT 2',${capJob.id})); foreach($rows as $id){$wpdb->update($wpdb->prefix.'mmed_ps_proto_job_items',array('status'=>'PROCESSING','lock_token'=>wp_generate_uuid4(),'locked_until'=>$until),array('id'=>$id));} $wpdb->update($wpdb->prefix.'mmed_ps_proto_jobs',array('active_items'=>2),array('job_uuid'=>'${capJob.jobUuid}'));`);
+r = await t.api('POST', `/batch/jobs/${capJob.jobUuid}/process`, {});
+ok('M3 server concurrency: a third claimant is refused without consuming an item attempt', r.status === 200 && r.json.saturated === true && r.json.job.items.find(x => x.status === 'QUEUED').attemptCount === 0, r.text.slice(0, 300));
+php(`global $wpdb; $wpdb->query($wpdb->prepare("UPDATE ".$wpdb->prefix."mmed_ps_proto_job_items SET status='FAILED',lock_token='',locked_until=NULL WHERE job_id=%d AND status='PROCESSING'",${capJob.id})); $wpdb->update($wpdb->prefix.'mmed_ps_proto_jobs',array('active_items'=>0),array('job_uuid'=>'${capJob.jobUuid}')); $day=gmdate('Y-m-d'); $n=(int)$wpdb->get_var($wpdb->prepare('SELECT MAX(attempt_no) FROM '.$wpdb->prefix.'mmed_ps_proto_provider_attempts WHERE user_id=%d AND day_key=%s',3,$day)); for($i=$n+1;$i<=150;$i++){$wpdb->insert($wpdb->prefix.'mmed_ps_proto_provider_attempts',array('attempt_uuid'=>wp_generate_uuid4(),'user_id'=>3,'root_id'=>${root.id},'program_specialty_id'=>'cap-fixture','idempotency_key'=>'cap-'.$i,'day_key'=>$day,'attempt_no'=>$i,'outcome_code'=>'TEST_FIXTURE','created_at'=>gmdate('Y-m-d H:i:s'),'updated_at'=>gmdate('Y-m-d H:i:s')));}`);
+r = await t.api('POST', `/batch/jobs/${capJob.jobUuid}/process`, {});
+ok('M3 daily provider cap: batch pauses without spending retries or losing resumability', r.status === 200 && r.json.paused === true && r.json.pauseCode === 'DAILY_CAP' && r.json.item.status === 'QUEUED' && r.json.item.attemptCount === 0 && r.json.item.lastErrorCode === 'DAILY_CAP_PAUSED', r.text.slice(0, 300));
+php(`global $wpdb; $wpdb->delete($wpdb->prefix.'mmed_ps_proto_provider_attempts',array('outcome_code'=>'TEST_FIXTURE'));`);
 
 // ---------- 9. isolation between users + CSRF ----------
 const admin = new Session();
@@ -275,6 +336,8 @@ r = await admin.api('GET', `/library/${doc.docUuid}`);
 ok('another allowlisted user cannot read tester\'s saved PS', r.status === 404);
 r = await admin.api('POST', '/library', { runId: deep.runId });
 ok('another allowlisted user cannot save tester\'s run', r.status === 404);
+r = await admin.api('GET', `/research-artifacts/${validArtifact.artifactUuid}/download?inline=1`);
+ok('another allowlisted user cannot read or export tester\'s quarantined research', r.status === 404 && r.json.code === 'mmps_research_not_found');
 r = await t.api('POST', '/roots', { source: 'SYNTHETIC', specialtyLabel: 'X' }, { Origin: 'https://evil.example' });
 ok('cross-origin write refused', r.status === 403 && r.json.code === 'mmps_bad_origin');
 r = await t.api('POST', '/roots', { source: 'SYNTHETIC', specialtyLabel: 'X' }, { 'X-WP-Nonce': 'bad' });
@@ -285,9 +348,11 @@ const after = JSON.parse(php(`global $wpdb; echo json_encode(array('fv'=>$wpdb->
 ok('File Vault table untouched (row count + content hash identical)', after.fv === B.fv && after.fvsum === B.fvsum);
 ok('no posts, users or user meta created', after.posts === B.posts && after.users === B.users && after.usermeta === B.usermeta, JSON.stringify([B, after]));
 const tables = php(`global $wpdb; echo json_encode($wpdb->get_col("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%mmed%'"));`);
-ok('only namespaced prototype tables exist besides the stub FV table', JSON.parse(tables).sort().join() === ['wp_mmed_file_vault_stub', 'wp_mmed_ps_proto_audit', 'wp_mmed_ps_proto_job_items', 'wp_mmed_ps_proto_jobs', 'wp_mmed_ps_proto_library', 'wp_mmed_ps_proto_roots', 'wp_mmed_ps_proto_runs'].join(), tables);
+ok('only namespaced prototype tables exist besides the stub FV table', JSON.parse(tables).sort().join() === ['wp_mmed_file_vault_stub', 'wp_mmed_ps_proto_audit', 'wp_mmed_ps_proto_job_items', 'wp_mmed_ps_proto_jobs', 'wp_mmed_ps_proto_library', 'wp_mmed_ps_proto_provider_attempts', 'wp_mmed_ps_proto_research_artifacts', 'wp_mmed_ps_proto_roots', 'wp_mmed_ps_proto_runs', 'wp_mmed_ps_proto_similarity_buckets', 'wp_mmed_ps_proto_similarity_fingerprints'].join(), tables);
+const fingerprintText = php(`global $wpdb; echo json_encode($wpdb->get_results('SELECT * FROM '.$wpdb->prefix.'mmed_ps_proto_similarity_fingerprints'));`);
+ok('M5 fingerprint store contains keyed digests/signatures only, never Personal Statement prose', !/glucometer|Lakeshore|careful clinical reasoning|replacement_region|full_text/i.test(fingerprintText));
 const auditText = php(`global $wpdb; echo json_encode($wpdb->get_col('SELECT detail_json FROM '.$wpdb->prefix.'mmed_ps_proto_audit'));`);
-ok('audit log holds ids/codes/hashes only, never statement text', !/glucometer|Lakeshore University|residents take real/.test(auditText));
+ok('audit log holds ids/codes/hashes only, never statement or research text', !/glucometer|Lakeshore University|residents take real|longitudinal ambulatory|student@example/.test(auditText));
 
 // ---------- 11. kill switches ----------
 php(`update_option('mmed_ps_proto_mode','off');`);

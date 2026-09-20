@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class MMPS_Install {
 
-	const DB_VERSION        = '2';
+	const DB_VERSION        = '5';
 	const OPTION_DB_VERSION = 'mmed_ps_proto_db_version';
 
 	public static function table( $name ) {
@@ -105,6 +105,7 @@ class MMPS_Install {
 			ready_items int(11) NOT NULL DEFAULT 0,
 			attention_items int(11) NOT NULL DEFAULT 0,
 			failed_items int(11) NOT NULL DEFAULT 0,
+			active_items int(11) NOT NULL DEFAULT 0,
 			config_json longtext NOT NULL,
 			created_at datetime NOT NULL,
 			updated_at datetime NOT NULL,
@@ -112,6 +113,25 @@ class MMPS_Install {
 			UNIQUE KEY job_uuid (job_uuid),
 			KEY user_root (user_id,root_id),
 			KEY user_status (user_id,status)
+		) $c;" );
+
+		/* Every provider call, including a failed call, consumes one daily slot. */
+		dbDelta( 'CREATE TABLE ' . self::table( 'provider_attempts' ) . " (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			attempt_uuid char(36) NOT NULL,
+			user_id bigint(20) unsigned NOT NULL,
+			root_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			program_specialty_id varchar(191) NOT NULL DEFAULT '',
+			idempotency_key varchar(191) NOT NULL DEFAULT '',
+			day_key char(10) NOT NULL,
+			attempt_no int(11) unsigned NOT NULL,
+			outcome_code varchar(80) NOT NULL DEFAULT 'STARTED',
+			created_at datetime NOT NULL,
+			updated_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY attempt_uuid (attempt_uuid),
+			UNIQUE KEY user_day_slot (user_id,day_key,attempt_no),
+			KEY user_created (user_id,created_at)
 		) $c;" );
 
 		dbDelta( 'CREATE TABLE ' . self::table( 'job_items' ) . " (
@@ -144,6 +164,66 @@ class MMPS_Install {
 			UNIQUE KEY idempotency_key (idempotency_key),
 			KEY user_status (user_id,status),
 			KEY job_status (job_id,status)
+		) $c;" );
+
+		/*
+		 * M4 uploads remain quarantined here. They are never read by generation
+		 * and never written into RISE by this plugin.
+		 */
+		dbDelta( 'CREATE TABLE ' . self::table( 'research_artifacts' ) . " (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			artifact_uuid char(36) NOT NULL,
+			user_id bigint(20) unsigned NOT NULL,
+			root_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			program_specialty_id varchar(191) NOT NULL DEFAULT '',
+			acgme_id varchar(32) NOT NULL DEFAULT '',
+			program_name varchar(255) NOT NULL DEFAULT '',
+			status varchar(40) NOT NULL DEFAULT 'QUARANTINED_REJECTED',
+			original_filename varchar(255) NOT NULL DEFAULT '',
+			byte_size int(11) unsigned NOT NULL DEFAULT 0,
+			sha256 char(64) NOT NULL DEFAULT '',
+			validation_json longtext NOT NULL,
+			artifact_markdown longtext NOT NULL,
+			created_at datetime NOT NULL,
+			updated_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY artifact_uuid (artifact_uuid),
+			KEY user_program (user_id,program_specialty_id),
+			KEY status (status)
+		) $c;" );
+
+		/* M5 stores only keyed fingerprints; no student prose or shingles. */
+		dbDelta( 'CREATE TABLE ' . self::table( 'similarity_fingerprints' ) . " (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			doc_uuid char(36) NOT NULL,
+			user_id bigint(20) unsigned NOT NULL,
+			algorithm varchar(40) NOT NULL DEFAULT '',
+			exact_hmac char(64) NOT NULL DEFAULT '',
+			bucket_a char(32) NOT NULL DEFAULT '',
+			bucket_b char(32) NOT NULL DEFAULT '',
+			bucket_c char(32) NOT NULL DEFAULT '',
+			bucket_d char(32) NOT NULL DEFAULT '',
+			signature_json text NOT NULL,
+			created_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY doc_uuid (doc_uuid),
+			KEY exact_cross_user (exact_hmac,user_id),
+			KEY bucket_a (bucket_a),
+			KEY bucket_b (bucket_b),
+			KEY bucket_c (bucket_c),
+			KEY bucket_d (bucket_d)
+		) $c;" );
+
+		dbDelta( 'CREATE TABLE ' . self::table( 'similarity_buckets' ) . " (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			doc_uuid char(36) NOT NULL,
+			user_id bigint(20) unsigned NOT NULL,
+			bucket_index tinyint(3) unsigned NOT NULL,
+			bucket_hash char(32) NOT NULL DEFAULT '',
+			created_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY doc_bucket (doc_uuid,bucket_index),
+			KEY bucket_user (bucket_hash,user_id)
 		) $c;" );
 
 		dbDelta( 'CREATE TABLE ' . self::table( 'library' ) . " (
@@ -187,13 +267,43 @@ class MMPS_Install {
 			KEY user_id (user_id)
 		) $c;" );
 
-		// Record the version only when all four tables really exist, so a failed install is retried, not hidden.
-		foreach ( array( 'roots', 'runs', 'library', 'audit', 'jobs', 'job_items' ) as $name ) {
+		// Record the version only when all ten tables really exist, so a failed install is retried, not hidden.
+		foreach ( array( 'roots', 'runs', 'library', 'audit', 'jobs', 'job_items', 'provider_attempts', 'research_artifacts', 'similarity_fingerprints', 'similarity_buckets' ) as $name ) {
 			$table = self::table( $name );
 			if ( $table !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) ) ) {
 				return;
 			}
 		}
+		// M3 upgrades depend on these additive columns; table existence alone is
+		// not a sufficient migration postcondition.
+		$previous = $wpdb->suppress_errors( true );
+		$run_probe = $wpdb->get_results( 'SELECT idempotency_key FROM ' . self::table( 'runs' ) . ' LIMIT 0' );
+		$job_probe = $wpdb->get_results( 'SELECT active_items FROM ' . self::table( 'jobs' ) . ' LIMIT 0' );
+		$research_probe = $wpdb->get_results( 'SELECT validation_json,artifact_markdown FROM ' . self::table( 'research_artifacts' ) . ' LIMIT 0' );
+		$similarity_probe = $wpdb->get_results( 'SELECT exact_hmac,signature_json FROM ' . self::table( 'similarity_fingerprints' ) . ' LIMIT 0' );
+		$bucket_probe = $wpdb->get_results( 'SELECT bucket_index,bucket_hash FROM ' . self::table( 'similarity_buckets' ) . ' LIMIT 0' );
+		$wpdb->suppress_errors( $previous );
+		if ( false === $run_probe || false === $job_probe || false === $research_probe || false === $similarity_probe || false === $bucket_probe || ! self::has_unique_index( self::table( 'runs' ), 'idempotency_key' ) || ! self::has_unique_index( self::table( 'provider_attempts' ), 'user_day_slot' ) || ! self::has_unique_index( self::table( 'similarity_fingerprints' ), 'doc_uuid' ) || ! self::has_unique_index( self::table( 'similarity_buckets' ), 'doc_bucket' ) ) {
+			return;
+		}
 		update_option( self::OPTION_DB_VERSION, self::DB_VERSION, true );
+	}
+
+	protected static function has_unique_index( $table, $name ) {
+		global $wpdb;
+		$previous = $wpdb->suppress_errors( true );
+		if ( isset( $wpdb->is_mysql ) && ! $wpdb->is_mysql ) {
+			$rows = $wpdb->get_results( 'PRAGMA index_list(' . $table . ')', ARRAY_A );
+			$ok   = false;
+			foreach ( (array) $rows as $row ) {
+				if ( $name === (string) ( $row['name'] ?? '' ) && ! empty( $row['unique'] ) ) { $ok = true; break; }
+			}
+		} else {
+			$rows = $wpdb->get_results( $wpdb->prepare( 'SHOW INDEX FROM ' . $table . ' WHERE Key_name=%s', $name ), ARRAY_A );
+			$ok   = ! empty( $rows );
+			foreach ( (array) $rows as $row ) { if ( 0 !== absint( $row['Non_unique'] ?? 1 ) ) { $ok = false; } }
+		}
+		$wpdb->suppress_errors( $previous );
+		return $ok;
 	}
 }

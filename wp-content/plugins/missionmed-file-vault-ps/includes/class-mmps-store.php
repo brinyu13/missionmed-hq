@@ -120,6 +120,55 @@ class MMPS_Store {
 		return absint( $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . MMPS_Install::table( 'runs' ) . ' WHERE user_id = %d AND created_at >= %s', absint( $user_id ), gmdate( 'Y-m-d 00:00:00' ) ) ) );
 	}
 
+	/**
+	 * Atomically reserve one provider-attempt slot. A unique (user, day, number)
+	 * key resolves concurrent reservations without a shared-text log or option.
+	 */
+	public static function reserve_provider_attempt( $user_id, $root_id, $program_id, $idempotency_key, $limit ) {
+		global $wpdb;
+		$day   = gmdate( 'Y-m-d' );
+		$table = MMPS_Install::table( 'provider_attempts' );
+		for ( $try = 0; $try < 8; $try++ ) {
+			$next = 1 + absint( $wpdb->get_var( $wpdb->prepare( 'SELECT MAX(attempt_no) FROM ' . $table . ' WHERE user_id=%d AND day_key=%s', absint( $user_id ), $day ) ) );
+			if ( $next > absint( $limit ) ) {
+				return new WP_Error( 'mmps_daily_cap', 'Daily AI provider-attempt cap reached (' . absint( $limit ) . '). The batch is paused and can resume after the UTC day changes.', array( 'status' => 429 ) );
+			}
+			$uuid = self::uuid();
+			$ok   = $wpdb->insert(
+				$table,
+				array(
+					'attempt_uuid'          => $uuid,
+					'user_id'              => absint( $user_id ),
+					'root_id'              => absint( $root_id ),
+					'program_specialty_id' => (string) $program_id,
+					'idempotency_key'       => (string) $idempotency_key,
+					'day_key'               => $day,
+					'attempt_no'            => $next,
+					'outcome_code'          => 'STARTED',
+					'created_at'            => self::now(),
+					'updated_at'            => self::now(),
+				)
+			);
+			if ( $ok ) { return $uuid; }
+			// A concurrent insert may have taken the same slot. Re-read and retry.
+		}
+		return new WP_Error( 'mmps_attempt_reservation', 'The AI attempt could not be reserved safely. Try again.', array( 'status' => 503 ) );
+	}
+
+	public static function finish_provider_attempt( $user_id, $attempt_uuid, $outcome_code ) {
+		global $wpdb;
+		return false !== $wpdb->update(
+			MMPS_Install::table( 'provider_attempts' ),
+			array( 'outcome_code' => substr( sanitize_key( (string) $outcome_code ), 0, 80 ), 'updated_at' => self::now() ),
+			array( 'attempt_uuid' => (string) $attempt_uuid, 'user_id' => absint( $user_id ) )
+		);
+	}
+
+	public static function provider_attempts_today( $user_id ) {
+		global $wpdb;
+		return absint( $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . MMPS_Install::table( 'provider_attempts' ) . ' WHERE user_id=%d AND day_key=%s', absint( $user_id ), gmdate( 'Y-m-d' ) ) ) );
+	}
+
 	public static function insert_run( $user_id, $run ) {
 		global $wpdb;
 		$previous = $wpdb->suppress_errors( true ); // The row carries generated text; keep it out of the PHP error log.
@@ -187,14 +236,24 @@ class MMPS_Store {
 		return 1 + absint( $wpdb->get_var( $wpdb->prepare( 'SELECT MAX(version_number) FROM ' . MMPS_Install::table( 'library' ) . ' WHERE user_id = %d AND root_id = %d AND program_specialty_id = %s', absint( $user_id ), absint( $root_id ), (string) $program_id ) ) );
 	}
 
-	public static function insert_document( $user_id, $doc ) {
+	public static function insert_document( $user_id, $doc, $fingerprint = null ) {
 		global $wpdb;
 		$doc['user_id']    = absint( $user_id );
 		$doc['created_at'] = self::now();
 		$doc['updated_at'] = self::now();
-		return self::quiet( function ( $db ) use ( $doc ) {
+		$wpdb->query( 'START TRANSACTION' );
+		$id = self::quiet( function ( $db ) use ( $doc ) {
 			return $db->insert( MMPS_Install::table( 'library' ), $doc ) ? absint( $db->insert_id ) : 0;
 		} );
+		if ( ! $id || ( is_array( $fingerprint ) && ! MMPS_Similarity::store( $user_id, $doc['doc_uuid'], $fingerprint ) ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return 0;
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return 0;
+		}
+		return $id;
 	}
 
 	public static function get_document( $user_id, $doc_uuid ) {
@@ -231,7 +290,7 @@ class MMPS_Store {
 			$marks  = implode( ',', array_fill( 0, count( $uuids ), '%s' ) );
 			$where .= $wpdb->prepare( " AND doc_uuid IN ($marks)", $uuids ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders are generated, values prepared.
 		}
-		$rows = $wpdb->get_results( 'SELECT * FROM ' . MMPS_Install::table( 'library' ) . ' WHERE ' . $where . ' ORDER BY specialty_label,program_name,version_number DESC LIMIT 250', ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- owner/status/uuid predicates are prepared above.
+		$rows = $wpdb->get_results( 'SELECT * FROM ' . MMPS_Install::table( 'library' ) . ' WHERE ' . $where . ' ORDER BY specialty_label,program_name,version_number DESC LIMIT 1000', ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- owner/status/uuid predicates are prepared above.
 		return array_map( function ( $row ) {
 			return self::shape_document( $row, true );
 		}, (array) $rows );

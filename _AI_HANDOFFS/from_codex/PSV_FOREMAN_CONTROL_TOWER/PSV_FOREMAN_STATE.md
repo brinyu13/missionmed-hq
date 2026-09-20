@@ -1,12 +1,12 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-20T22:01:40Z
+Updated: 2026-09-20T22:43:27Z
 
 ## Product and outcome
 
 - Mission: `PSV-PROTOTYPE-0001`
 - Product: Program-Specific Personal Statement capability inside File Vault
-- Current milestone: M3 production batch core — 50% engineering gate in progress; M2 is live and independently sealed
+- Current milestone: M5 release candidate — M2 remains live and independently sealed; M3-M5 are locally complete and awaiting exact-commit independent verification
 - Terminal condition: Continue through M2-M5 to independently verified, production-ready AAA completion, stopping only for a true human-only privacy or sibling-owner authority gate on the critical path
 
 ## Repository truth
@@ -20,7 +20,7 @@ Updated: 2026-09-20T22:01:40Z
 - Upstream at initialization: `origin/main` at the same base HEAD
 - Preserved dirty state: untracked `_AI_HANDOFFS/from_fable/` package only
 - Git index lock: absent
-- Workers: independent M2 production verifier passed exact commit `981f0d16fc091abb4f54132c15c917c640021c34` against live v0.2.1 with no P0/P1 or unverified condition; P2 only noted the Foreman's later uncommitted M3 work in the shared worktree
+- Workers: independent M2 production verifier passed exact commit `981f0d16fc091abb4f54132c15c917c640021c34` against live v0.2.1. The first M3 verifier correctly failed commit `fa41f382a284c171735ef8b93ee6ef9cd1b6d84d` on four P1 durability/concurrency defects; the Foreman repaired each and added adversarial coverage. Astra 6 then completed the required read-only presentation review; Codex implemented its bounded reconciliation without changing contracts or authority boundaries.
 
 ## Authority and continuity
 
@@ -35,15 +35,18 @@ Updated: 2026-09-20T22:01:40Z
 
 ## Candidate
 
-- Live plugin: `missionmed-file-vault-ps` version `0.2.1`; local M3 release candidate: `0.3.0`
+- Live plugin: `missionmed-file-vault-ps` version `0.2.1`; local M3-M5 release candidate: `0.5.0`
 - Live ZIP SHA-256: `71c922b64d7c5e3c0a54bb7bf195ff7304076b741cb0ea62e3b9206f84645376`
 - ZIP integrity: PASS
 - Manifest: 21/21 PASS at initialization
-- Candidate delta: one new plugin directory plus the two documented server-only constants; four new namespaced tables and documented namespaced options on activation
+- Candidate delta from live M2: additive isolated batch, provider-attempt, research-quarantine, and privacy-fingerprint storage; no existing File Vault or RISE code/table mutation
 - Tracked M2 source: `wp-content/plugins/missionmed-file-vault-ps/`, materialized byte-for-byte from the sealed v0.1.0 package; 21/21 manifest hashes PASS before editing
 - Tracked validation surface: `psv/local-harness/`, `psv/contracts/` and `psv/docs/`, copied from the sealed evidence package without changing the preserved Fable handoff
 - M2 release gate: PHP/JS/JSON lint PASS; M2 contract 24/24; M2 runtime 12/12; disposable WordPress API 100/100; Playwright/Chrome UX 22/22; production package/deployed manifest 21/21; independent production verification PASS
-- M3 current gate: durable owner-scoped specialty jobs/items, 100-item import, Deep/Essential defaults and overrides, two bounded client workers, three-attempt retry ceiling, stale-lock recovery, provider idempotency, partial failures, exception review, clean-default approval, selective regeneration preservation and selected/all-approved ZIP export implemented; M3 contract 21/21, runtime 8/8 and expanded browser journey 29/29 PASS with zero console/page/CSP errors
+- M3-M5 release gate: M2 contract 24/24 + runtime 12/12; M3 contract 26/26 + runtime 8/8; M4 contract 14/14 + runtime 7/7; M5 contract 13/13 + runtime 6/6; disposable WordPress API 123/123; Playwright UX 36/36 across desktop, 820px and 390px with zero console/page/CSP errors; validator scenarios PASS; all plugin PHP lint PASS; manifest JSON and JavaScript parse PASS
+- M3 repaired findings: server-side two-worker ceiling; every real provider call atomically consumes a daily slot; cap exhaustion pauses without retry loss; transactional job creation; checked run/item persistence; candidate-custody protection; correct requeue status; migration column/index postconditions; checked ZIP construction
+- M4: exact program research prompt, strict Markdown/provenance validation, rejected/validated quarantine, owner-scoped handoff, immediate Essential fallback, and no direct RISE write
+- M5: keyed exact and near-duplicate protection using opaque HMAC/MinHash material only, explicit quality-first near review, atomic document/fingerprint persistence, responsive/accessibility/performance hardening, and Astra-directed StoryForge/RISE-family presentation reconciliation
 
 ## Current production truth
 
@@ -94,15 +97,14 @@ Updated: 2026-09-20T22:01:40Z
 
 ## Waiting dependency
 
-- No M3 engineering blocker. Production transmission of real-student ROOT prose remains a deferred Founder privacy decision and is not authorized by DR-314/DR-315.
+- No remaining local engineering blocker. Production transmission of real-student ROOT prose remains a genuine Founder privacy decision and is not authorized by DR-314/DR-315.
 - Writes into existing File Vault or RISE code/data remain deferred unless a proven owner contract or separate owner authority permits the exact integration.
 
 ## Next critical path
 
-1. Finish the M3 expanded API/regression gate and seal the batch core while live M2 remains untouched.
-2. Build M4's fail-closed Deep Research Needed upload/quarantine/validation workflow and RISE-owner handoff without writing RISE.
-3. Build M5 privacy-safe similarity protection and hardening; request the authorized read-only Astra 6 presentation direction only after functionality is stable, then implement it in Codex.
-4. Promote only after fresh BOOT/authority/preflight, exact backup/rollback, synthetic-only live acceptance and fresh independent verification; keep the real-student AI gate closed and do not mutate sibling-owned surfaces without authority.
+1. Seal and push the exact v0.5.0 release-candidate commit.
+2. Obtain fresh independent verification, including explicit retest of every prior M3 P1 and the M4/M5 privacy/owner boundaries.
+3. Promote only after fresh BOOT/authority/preflight, exact backup/rollback, synthetic-only live acceptance and a final independent production readback; keep the real-student AI gate closed and do not mutate sibling-owned surfaces without authority.
 
 ## State delta log
 
@@ -120,3 +122,7 @@ Updated: 2026-09-20T22:01:40Z
 - 2026-09-20T20:08:09Z — M2 25% checkpoint sealed locally. Implemented complete-ROOT read-only editorial context, five distinct evidence-bounded strategies, recommended/default plus accessible alternatives, server-resolved candidate selection, complete-PS reconstruction and truthful per-candidate/set-level validation. Independent review found and the Foreman repaired a false-PASS display condition, legacy prompt-provenance drift, stale strategy labels and weak copied-opening detection. Final gates: contract 24/24, runtime 11/11, disposable WordPress API 100/100, browser UX 22/22, no console/page/CSP errors. Production remains on accepted M1 v0.1.0 and unchanged by this M2 continuation.
 - 2026-09-20T21:20:00Z — Guardedly promoted exact M2 commit `981f0d16fc091abb4f54132c15c917c640021c34` as v0.2.1 after fresh BOOT/authority/preflight and package checks. Synthetic ROOT plus real RISE/OpenAI returned five valid candidates; a non-default candidate was selected, reconstructed, approved, saved and downloaded. Existing File Vault and RISE behavior and protected hashes remained unchanged. Fresh independent production verification passed with no P0/P1 or unverified condition.
 - 2026-09-20T22:01:40Z — M3 batch core reached its 50% functional gate locally. Added 100-program specialty-isolated jobs, durable items/claims/idempotency/retries, Deep/Essential defaults/overrides, exception-focused approval, selective regeneration preservation and selected/all-approved ZIP export. Static contract 21/21, runtime scale 8/8 and full browser journey 29/29 passed; a CSP-unsafe inline progress style found by the first expanded walkthrough was replaced with a semantic `<progress>` control. Live production remains sealed M2 v0.2.1 and unmodified by M3.
+- 2026-09-20T22:12:00Z — Independent verification of M3 commit `fa41f382a284c171735ef8b93ee6ef9cd1b6d84d` returned FAIL on four P1s: browser-only concurrency, incorrect provider-attempt accounting/cap behavior, candidate relabel custody, and unchecked/non-atomic persistence. No production action was taken.
+- 2026-09-20T22:30:00Z — Foreman repaired all four P1s plus the verifier's P2 migration/status/ZIP evidence findings. Expanded adversarial coverage proved server concurrency, per-network-call cap accounting with pause/resume, atomic creation, fail-closed result linkage, and saved-alternative custody.
+- 2026-09-20T22:38:00Z — M4 and M5 functional scope completed locally: authority-safe research prompt/upload/quarantine/owner handoff; Essential fallback; no RISE write; keyed opaque cross-student exact/near protection; explicit quality-first near review; atomic fingerprint persistence; File Vault/RISE/ProgramEvidenceBundle boundaries preserved.
+- 2026-09-20T22:43:27Z — Astra 6 completed its required read-only Presentation Director review. Codex fixed grid rhythm, progress colors, candidate overflow, phone header/navigation, current-step semantics, persistent save/research states, task-first hierarchy and user-facing copy. Final local gates: API 123/123, UX 36/36, all M2-M5 contract/runtime suites green, validator scenarios green, PHP/JS/JSON lint green. Production remains sealed M2 v0.2.1 and unmodified by M3-M5.

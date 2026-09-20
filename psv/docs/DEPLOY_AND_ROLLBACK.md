@@ -34,7 +34,7 @@ define( 'MMED_PS_PROTO_OPENAI_API_KEY', '<set on the server only>' );
 Do **not** define `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` until the Founder has recorded the privacy decision (PSV-0002 decision 2). Without it, real statement text is never sent to the AI provider; the synthetic ROOT is used for the AI step.
 Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_PS_PROTO_TEST_OPENAI_BASE` on production; they exist for the local harness only.
 
-5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades six isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items`) and the three namespaced options (`mmed_ps_proto_mode`, `mmed_ps_proto_allow_admins`, `mmed_ps_proto_db_version = 2`). Nothing outside the PSV namespace is written.
+5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades ten isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items|provider_attempts|research_artifacts|similarity_fingerprints|similarity_buckets`) and four namespaced options (`mmed_ps_proto_mode`, `mmed_ps_proto_allow_admins`, `mmed_ps_proto_allow_users`, `mmed_ps_proto_db_version = 5`). The installer records version 5 only after probing required columns and unique indexes. Nothing outside the PSV namespace is written.
 6. To restrict the prototype to the listed user ids only (no other administrators): `wp option update mmed_ps_proto_allow_admins 0`.
 
 ## 3. Verify on production (5 minutes)
@@ -59,7 +59,7 @@ Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_
 | 2. Hard off | add `define( 'MMED_PS_PROTO_DISABLE', true );` to `wp-config.php` | nothing of the prototype loads beyond two small class files | kept |
 | 3. Deactivate | `wp plugin deactivate missionmed-file-vault-ps` | plugin not loaded at all | kept |
 | 4. Remove | deactivate first (level 3), then delete the directory `wp-content/plugins/missionmed-file-vault-ps/` | code gone | kept |
-| 5. Purge (Founder decision only) | drop only `{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items`, then delete only the documented `mmed_ps_proto_*` options | saved prototype statements and batch history are destroyed | destroyed |
+| 5. Purge (Founder decision only) | drop only `{prefix}mmed_ps_proto_{similarity_buckets,similarity_fingerprints,research_artifacts,provider_attempts,job_items,jobs,audit,library,runs,roots}`, then delete only the documented `mmed_ps_proto_*` options | saved statements, jobs, research quarantine, attempt accounting and privacy fingerprints are destroyed | destroyed |
 
 Re-enable after 1 to 3 by reversing the step; the saved library returns intact.
 
@@ -74,3 +74,5 @@ The plugin has no uninstall hook on purpose: removing it never drops the saved s
 - The launcher script lives in its own shadow root appended to `<body>`. It never inserts into `#sos-content` or the File Vault stage, so File Vault's mutation observers and renderers never see it.
 - No request can hold a PHP worker for a whole batch: RISE reads time out at 6 s, one authenticated batch request atomically claims and processes one item, two browser workers bound concurrency, and a reload resumes from durable item state. A provider call remains bounded by the existing generation timeout/revision budget.
 - Statement text never reaches a log: writes that carry text run with `wpdb` error output suppressed, the audit table holds ids, codes and hashes only, and REST answers are `no-store`.
+- Cross-student protection stores only server-keyed exact HMACs, compact MinHash signatures and opaque lookup buckets. A near match yields only a severity band and an explicit quality-first review choice; another student's prose, identity and document id are never returned.
+- Uploaded research stays in a PSV quarantine table. A validated artifact can be downloaded as an owner handoff, but only a separately authorized RISE-owner contract may accept and hydrate reusable program intelligence.
