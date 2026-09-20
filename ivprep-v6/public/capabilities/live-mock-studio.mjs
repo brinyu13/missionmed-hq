@@ -32,6 +32,16 @@ async function json(response) {
   return body?.data || body || {};
 }
 
+async function recordingJson(response) {
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(safeText(body?.error || body?.message || `live_mock_http_${response.status}`, 120));
+    error.status = response.status;
+    throw error;
+  }
+  return body?.data || body || {};
+}
+
 /**
  * Presentation-neutral bridge to the existing MissionMed Scheduler/Webex owner.
  * It reads authorized projections only: no sibling mutation, provider secret,
@@ -64,12 +74,12 @@ export class LiveMockStudioCapability {
     const response = await this.fetchImpl(`${this.base}/appointments/${encodeURIComponent(id)}/recording`, {
       method: 'GET', credentials: 'same-origin', headers: { Accept: 'application/json' },
     });
-    const payload = await json(response);
+    const payload = await recordingJson(response);
     const recording = payload.recording || {};
     return Object.freeze({
       schema: 'ivoc.live-mock.recording.v1',
       appointmentId: id,
-      status: safeText(payload.status || 'unavailable', 40).toLowerCase(),
+      status: safeText(payload.status || payload.error || 'unavailable', 80).toLowerCase(),
       provider: safeText(payload.meeting_provider || 'webex', 40).toLowerCase(),
       playbackAvailable: payload.has_recording === true && Boolean(payload.playback_url || recording.playback_url),
       downloadAllowed: false,

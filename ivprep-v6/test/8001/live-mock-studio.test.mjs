@@ -52,6 +52,19 @@ test('recording readiness exposes availability but never a Webex URL or download
   assert.doesNotMatch(JSON.stringify(status), /webex\.example/u);
 });
 
+test('owner-declared missing recording remains an unavailable state, not an adapter outage', async () => {
+  const capability = new LiveMockStudioCapability({ fetchImpl: async () => response({
+    ok: false,
+    error: 'scheduler_recording_meeting_missing',
+    status: 'unavailable',
+    has_recording: false,
+  }) });
+  const status = await capability.recordingStatus('appt-1');
+  assert.equal(status.status, 'unavailable');
+  assert.equal(status.playbackAvailable, false);
+  assert.equal(status.downloadAllowed, false);
+});
+
 test('Scheduler denial fails closed instead of manufacturing Live Mock readiness', async () => {
   const capability = new LiveMockStudioCapability({ fetchImpl: async () => response({ ok: false, error: 'scheduler_admin_required' }, 403) });
   await assert.rejects(capability.adminQueue(), /scheduler_admin_required/u);
