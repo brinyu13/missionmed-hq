@@ -553,6 +553,12 @@ body:not([data-role="admin"]) [data-admin-only] { display: none !important; }
 .admin-fact dd[data-state="ready"] { color: var(--ok); }
 .admin-fact dd[data-state="limited"] { color: var(--warn); }
 @media (max-width: 900px) { .admin-status-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Answer History filters ---------- */
+.vault-toolbar { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(210px, auto) auto; gap: 10px; align-items: center; margin-bottom: 14px; }
+.vault-result-count { color: var(--brand-b); text-align: right; }
+.vault-rows { display: grid; gap: 10px; }
+@media (max-width: 760px) { .vault-toolbar { grid-template-columns: 1fr; } .vault-result-count { text-align: left; } }
 body[data-role="student"] #communication-analytics-test-root .ca-founder,
 body[data-role="student"] #communication-analytics-test-root .ca-timeline,
 body[data-role="student"] #communication-analytics-test-root .ca-diagnostics { display: none !important; }
