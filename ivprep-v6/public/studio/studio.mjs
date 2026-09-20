@@ -13,21 +13,28 @@
 //   * Questions come from the canonical 193-record store, never a prototype fixture.
 
 import {
+  AdminStudentLibraryCapability,
+  buildLongitudinalModel,
+  COLLECTIONS,
+  compareAttempts,
+  contextResultFromSessionSpine,
+  createDefaultQuestionStore,
+  createLiveContext,
   createLiveInterview,
+  DurableStudioSession,
   endLiveInterview,
+  InstrumentRack,
+  InterviewCalendarCapability,
+  LiveInterviewSession,
+  LiveMockStudioCapability,
   loadIvPrepSession,
-} from '../aaa/api-client.mjs';
-import { COLLECTIONS, createDefaultQuestionStore } from '../questions/question-store.mjs';
-import { LiveInterviewSession } from './live-interview.mjs';
-import { DurableStudioSession } from './durable-session.mjs';
-import { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
-import { InstrumentRack } from './instruments.mjs';
-import { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mjs';
-import { createLiveContext } from './live-context-adapter.mjs';
-import { AdminStudentLibraryCapability } from '../capabilities/admin-student-library.mjs';
-import { InterviewCalendarCapability } from '../capabilities/calendar-context.mjs';
-import { contextResultFromSessionSpine, projectContextResults, projectTranscriptMetrics } from '../capabilities/context-results.mjs';
-import { LiveMockStudioCapability } from '../capabilities/live-mock-studio.mjs';
+  MetricBus,
+  projectContextResults,
+  projectTranscriptMetrics,
+  selectCorrection,
+  statusRail,
+} from './capability-adapter.mjs';
+import { buildContextSources, buildHomeViewModel, buildReadinessRows } from './presentation-view-model.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -92,6 +99,8 @@ const state = {
   calendarState: 'idle',
   liveMock: new LiveMockStudioCapability(),
   vaultFilter: { query: '', evidence: 'all' },
+  mentorPriorities: null,
+  homeLibrary: [],
 };
 
 /* ------------------------------------------------------------------ media bridge
@@ -580,6 +589,43 @@ function applyIdentity() {
   if (homeName) homeName.textContent = founder ? 'Dr Brian.' : 'Doctor.';
 }
 
+function applyHomeModel() {
+  const model = buildHomeViewModel({
+    identity: state.admission?.identity || null,
+    sessions: state.homeLibrary,
+    mentorPriorities: state.mentorPriorities,
+  });
+  const values = {
+    '#home-initials': model.initials,
+    '#home-first-name': model.greetingName,
+    '#home-continue-title': model.continueTitle,
+    '#home-continue-note': model.continueNote,
+    '#home-mentor-label': model.mentorLabel,
+    '#home-mentor-priority': `“${model.mentorPriority}”`,
+  };
+  Object.entries(values).forEach(([selector, value]) => {
+    const node = $(selector);
+    if (node) node.textContent = value;
+  });
+}
+
+async function hydrateHome() {
+  if (!state.durableAvailable) {
+    applyHomeModel();
+    return;
+  }
+  const [library, priorities] = await Promise.allSettled([
+    state.durable.library('own'),
+    state.durable.mentorPriorities(),
+  ]);
+  state.homeLibrary = library.status === 'fulfilled' && Array.isArray(library.value?.sessions)
+    ? library.value.sessions
+    : [];
+  state.mentorPriorities = priorities.status === 'fulfilled' ? priorities.value : null;
+  applyHomeModel();
+  if (state.view === 'newsession' && WIZARD_STEPS[state.wizardStep]?.key === 'environment') renderWizard();
+}
+
 function governanceStatus(message, stateName = '') {
   const node = $('#question-governance-status');
   if (!node) return;
@@ -923,16 +969,32 @@ function renderPoolSummary() {
     preview.append(empty);
     return;
   }
-  state.interviewSet.slice(0, 5).forEach((question) => {
-    const row = document.createElement('span');
-    row.textContent = `${question.question_id} · ${question.canonical_text}`;
-    preview.append(row);
+  state.interviewSet.forEach((question, index) => {
+    const row = el('div', 'pool-preview-row');
+    row.append(el('span', '', `${question.question_id} · ${question.canonical_text}`));
+    const controls = el('div', 'pool-preview-controls');
+    const move = (offset) => {
+      const nextIndex = index + offset;
+      if (nextIndex < 0 || nextIndex >= state.interviewSet.length) return;
+      const next = [...state.interviewSet];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      state.interviewSet = next;
+      renderSet(); renderWizard();
+    };
+    [['↑', 'Move earlier', -1], ['↓', 'Move later', 1], ['×', 'Remove', 0]].forEach(([label, action, offset]) => {
+      const button = el('button', '', label); button.type = 'button'; button.setAttribute('aria-label', `${action}: ${question.canonical_text}`);
+      button.disabled = (offset === -1 && index === 0) || (offset === 1 && index === state.interviewSet.length - 1);
+      button.addEventListener('click', () => {
+        if (action === 'Remove') {
+          state.interviewSet = state.interviewSet.filter((entry) => entry.question_id !== question.question_id);
+          state.wizard.questions = state.interviewSet.length ? 'Custom Question Pool' : null;
+          renderSet(); renderWizard();
+        } else move(offset);
+      });
+      controls.append(button);
+    });
+    row.append(controls); preview.append(row);
   });
-  if (state.interviewSet.length > 5) {
-    const more = document.createElement('span');
-    more.textContent = `+ ${state.interviewSet.length - 5} more in the pool`;
-    preview.append(more);
-  }
 }
 
 function renderGoalStep(host) {
@@ -1017,11 +1079,15 @@ function renderQuestionStep(host) {
   if (state.wizard.questionSearch.trim()) {
     const needle = state.wizard.questionSearch.toLowerCase();
     visible = visible.filter((question) => `${question.question_id} ${question.canonical_text}`.toLowerCase().includes(needle));
+  } else if (!state.wizard.questionSection) {
+    visible = [];
   } else {
     visible = visible.filter((question) => categoryForQuestion(question) === state.wizard.questionCategory)
-      .filter((question) => !state.wizard.questionSection || questionSection(question) === state.wizard.questionSection);
+      .filter((question) => questionSection(question) === state.wizard.questionSection);
   }
-  branch.append(el('h3', '', 'Choose specific questions'));
+  branch.append(el('h3', '', state.wizard.questionSearch || state.wizard.questionSection
+    ? 'Choose specific questions'
+    : 'Choose a subcategory to see its questions'));
   const list = el('div', 'canon-question-list');
   visible.forEach((question) => {
     const selected = state.interviewSet.some((entry) => entry.question_id === question.question_id);
@@ -1038,7 +1104,7 @@ function renderQuestionStep(host) {
     });
     list.append(button);
   });
-  if (!visible.length) list.append(el('p', 'canon-muted', 'No questions match. Clear search or choose another branch.'));
+  if (!visible.length && (state.wizard.questionSearch || state.wizard.questionSection)) list.append(el('p', 'canon-muted', 'No questions match. Clear search or choose another branch.'));
   branch.append(list); grid.append(categories, branch); host.append(toolbar, count, grid);
 }
 
@@ -1065,7 +1131,7 @@ function renderInterviewerStep(host) {
     host.append(roles, heading, birds);
   } else if (state.wizard.interviewerTab === 'Voice & presence') {
     const panel = el('div', 'canon-presence');
-    panel.innerHTML = '<div class="canon-presence-orb" aria-hidden="true"><span>IV</span></div><div><div class="microcap">Future-ready presence</div><h2>Give the conversation <em>a presence.</em></h2><p>InterviewBrain voice is available when your account is entitled. Animated avatar delivery remains deferred.</p></div>';
+    panel.innerHTML = '<div class="canon-presence-orb" aria-hidden="true"><span>IV</span></div><div><div class="microcap">Interviewer voice</div><h2>Give the conversation <em>a presence.</em></h2><p>Choose an available interviewer voice for a natural spoken practice conversation.</p></div>';
     host.append(panel);
   } else {
     const panel = el('div', 'canon-name-coaching');
@@ -1102,7 +1168,7 @@ function renderProgramCalendar(host) {
   panel.append(el('div', 'microcap', 'Interview calendar'));
   if (state.calendarState === 'idle') void refreshInterviewCalendar();
   if (state.calendarState === 'idle' || state.calendarState === 'loading') {
-    panel.append(el('h3', '', 'Checking your authorized schedule…'), el('p', 'canon-muted', 'Reading the student-scoped Scheduler projection.'));
+    panel.append(el('h3', '', 'Checking your authorized schedule…'), el('p', 'canon-muted', 'Looking for interviews already connected to your MissionMed account.'));
   } else if (state.calendarState === 'unavailable') {
     panel.dataset.state = 'unavailable';
     panel.append(el('h3', '', 'Calendar unavailable'), el('p', 'canon-muted', 'No interview timing was inferred. You can continue with manual program preparation.'));
@@ -1167,13 +1233,10 @@ function renderEnvironmentStep(host) {
   environment.append(modes, el('p', 'canon-muted', state.wizard.interviewMode === 'Interview Mode' ? 'A clean interview view. Enabled measurements continue in the background.' : 'Selected coaching overlays stay visible during practice.'));
   const context = el('section', 'canon-panel'); context.append(el('h2', '', 'Bring the right context.'), el('p', 'canon-muted', 'Only sources authorized for your account can be included. Unavailable sources remain off.'));
   const sourceGrid = el('div', 'canon-source-grid');
-  const sources = [
-    ['StoryForge', false, 'Your authorized stories'], ['RISE', false, 'Verified program intelligence'], ['CV', false, 'Your current curriculum vitae'],
-    ['File Vault', false, 'Selected private files'], ['MCC', false, 'MissionMed context'], ['Top 3', false, 'Mentor priorities'], ['Prior IVOC', state.durableAvailable, 'Your own prior practice'],
-  ];
-  sources.forEach(([name, available, detail]) => sourceGrid.append(choiceButton({
+  const sources = buildContextSources({ mentorPriorities: state.mentorPriorities, durableAvailable: state.durableAvailable });
+  sources.forEach(({ name, available, detail, connected = false }) => sourceGrid.append(choiceButton({
     className: 'canon-source-card', selected: state.wizard.contextSources.includes(name), label: name,
-    detail: `${detail} · ${available ? 'Available' : 'Not connected'}`,
+    detail: `${detail} · ${available ? 'Available' : connected ? 'Nothing selected yet' : 'Not connected'}`,
     onClick: () => {
       if (!available) return;
       state.wizard.contextSources = state.wizard.contextSources.includes(name)
@@ -1181,23 +1244,17 @@ function renderEnvironmentStep(host) {
       renderWizard();
     },
   })));
-  [...sourceGrid.children].forEach((button, index) => { if (!sources[index][1]) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); } });
+  [...sourceGrid.children].forEach((button, index) => { if (!sources[index].available) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); } });
   context.append(sourceGrid); layout.append(environment, context); host.append(layout);
 }
 
 function readinessRows() {
-  const media = bridge.media;
-  const analyticsReady = Boolean(state.analytics);
-  const live = Boolean(media.stream);
-  return [
-    ['Camera', media.cam, media.cam ? 'Live' : 'Connect to check'], ['Microphone', media.mic, media.mic ? 'Live' : 'Connect to check'],
-    ['Framing', analyticsReady && live, live ? 'Measured in session' : 'Awaiting camera'], ['Face / head', analyticsReady && live, live ? 'Measured in session' : 'Awaiting camera'],
-    ['Hands / gestures', analyticsReady && live, live ? 'Measured in session' : 'Awaiting camera'], ['Smile / expression', analyticsReady && live, live ? 'Measured in session' : 'Awaiting camera'],
-    ['Volume', media.mic, media.mic ? 'Live meter' : 'Awaiting microphone'], ['Pace', analyticsReady && media.mic, media.mic ? 'Measured in session' : 'Awaiting microphone'],
-    ['Pitch', analyticsReady && media.mic, media.mic ? 'Measured in session' : 'Awaiting microphone'], ['Pauses', analyticsReady && media.mic, media.mic ? 'Measured in session' : 'Awaiting microphone'],
-    ['Transcript', state.durableAvailable, state.durableAvailable ? 'Available after a saved answer' : 'Unavailable'],
-    ['Recording', typeof MediaRecorder !== 'undefined', typeof MediaRecorder !== 'undefined' ? 'Browser supported' : 'Unavailable'],
-  ];
+  return buildReadinessRows({
+    media: bridge.media,
+    metrics: state.bus.latest,
+    durableAvailable: state.durableAvailable,
+    mediaRecorderSupported: typeof MediaRecorder !== 'undefined',
+  });
 }
 
 function renderReadinessStep(host) {
@@ -2477,7 +2534,7 @@ function renderContextEvidence(result) {
   if (transcriptMetrics.status === 'AVAILABLE') {
     const label = document.createElement('div');
     label.className = 'microcap';
-    label.textContent = 'Canonical transcript signals';
+    label.textContent = 'Transcript signals';
     const grid = document.createElement('div');
     grid.className = 'context-assessment-grid';
     const summary = document.createElement('article');
@@ -2502,7 +2559,7 @@ function renderContextEvidence(result) {
     const fillersValue = document.createElement('strong');
     fillersValue.textContent = String(transcriptMetrics.fillerTokenCount);
     const fillersCopy = document.createElement('p');
-    fillersCopy.textContent = 'Counted from the canonical transcript using the disclosed um / uh / erm / like / you know / I mean lexicon; this is not a hidden-trait inference.';
+    fillersCopy.textContent = 'Counted from your transcript using the disclosed um / uh / erm / like / you know / I mean list. No personality or emotion is inferred.';
     fillers.append(fillersHeading, fillersValue, fillersCopy);
     grid.append(summary, fillers);
     host.append(label, grid);
@@ -2716,6 +2773,7 @@ async function boot() {
     state.admission = null;
   }
   applyIdentity();
+  applyHomeModel();
   applyRole('student');
 
   if (state.admission?.admitted && state.admission?.runtime?.mode === 'hosted') {
@@ -2723,6 +2781,7 @@ async function boot() {
       await state.durable.bootstrap();
       state.durableAvailable = state.durable.ready;
       await refreshQuestionGovernance();
+      await hydrateHome();
     } catch (error) {
       state.durableAvailable = false;
       state.durableError = error;

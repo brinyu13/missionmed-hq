@@ -93,7 +93,7 @@
       <!-- HOME -->
       <section class="screen" data-view-panel="home" data-active="true">
         <div class="home-hero">
-          <div class="home-identity"><span class="identity-mark home-mark" aria-hidden="true"><span>AM</span></span><span class="microcap hero-kick">Your next interview starts here</span></div>
+          <div class="home-identity"><span class="identity-mark home-mark" aria-hidden="true"><span id="home-initials">—</span></span><span class="microcap hero-kick">Your next interview starts here</span></div>
           <h1 class="hero">Good evening, <em id="home-first-name">Doctor.</em></h1>
           <p class="voice-line">Bring your story. Find your voice.</p>
           <div class="hero-action">
@@ -115,8 +115,8 @@
         </div>
 
         <div class="home-bottom">
-          <div class="housing continue-panel"><div><span class="microcap">Pick up where you left off</span><h2>Opening · Clinic story</h2><p>Saved attempts appear only when real session evidence exists.</p></div><button class="btn btn-secondary" type="button" data-goto="filmroom"><span>Open Film Room</span></button></div>
-          <div class="housing mentor-note"><span class="microcap">From Dr Brian</span><blockquote>“Make your own contribution unmistakable. That’s your next rep.”</blockquote><button class="btn btn-quiet" type="button" data-goto="progress"><span>Open focus areas</span></button></div>
+          <div class="housing continue-panel"><div><span class="microcap">Pick up where you left off</span><h2 id="home-continue-title">No saved practice yet</h2><p id="home-continue-note">Your saved attempts will appear here after your first practice.</p></div><button class="btn btn-secondary" type="button" data-goto="filmroom"><span>Open Film Room</span></button></div>
+          <div class="housing mentor-note"><span class="microcap" id="home-mentor-label">Mentor focus</span><blockquote id="home-mentor-priority">“No mentor priority has been set yet.”</blockquote><button class="btn btn-quiet" type="button" data-goto="progress"><span>Open focus areas</span></button></div>
         </div>
         <div class="corpus-foot"><strong id="home-corpus-count">—</strong> canonical questions <span id="home-corpus-breakdown">Loading…</span></div>
       </section>
@@ -287,7 +287,7 @@
             </div>
           </div>
           <div class="housing">
-            <div class="housing-title">InterviewBrain · Live voice</div>
+            <div class="housing-title">Live interviewer · Voice</div>
             <div class="recess live-interviewer-stage">
               <div class="live-orb" aria-hidden="true"><span>IV</span></div>
               <div>
@@ -300,7 +300,7 @@
             <div class="recess live-interviewer-controls">
               <label id="admin-live-voice-audition" hidden>
                 <span class="microcap">Founder / Admin voice audition</span>
-                <select id="admin-live-voice" aria-label="InterviewBrain voice">
+                <select id="admin-live-voice" aria-label="Interviewer voice">
                   <option value="marin">Marin · current student default</option>
                   <option value="meridian">Meridian</option>
                   <option value="gleam">Gleam</option>
@@ -313,7 +313,7 @@
                 <button class="btn btn-primary" type="button" id="live-interview-start"><span>Start live interview ▸</span></button>
                 <button class="btn btn-quiet" type="button" id="live-interview-end" disabled><span>End interview</span></button>
               </div>
-              <p class="microcap">InterviewBrain uses the same microphone already feeding Delivery Intelligence. LemonSlice remains deferred; live voice and real Analytics do not depend on an avatar.</p>
+              <p class="microcap">The live interviewer uses the same microphone as Delivery Intelligence, with one secure audio path for the conversation.</p>
               <div class="live-transcript" id="live-transcript" aria-live="polite"><span>Transcript appears here after the session starts.</span></div>
             </div>
           </div>

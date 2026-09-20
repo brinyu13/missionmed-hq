@@ -79,6 +79,21 @@ test('presentation integration preserves the proven analytics and media contract
   assert.match(html, /Available transcript and evidence-cited analysis are saved privately/u);
 });
 
+test('the active presentation consumes production behavior through the stable capability boundary', () => {
+  assert.match(runtime, /from '\.\/capability-adapter\.mjs'/u);
+  assert.match(runtime, /from '\.\/presentation-view-model\.mjs'/u);
+  for (const implementation of [
+    '../aaa/api-client.mjs', '../questions/question-store.mjs', './durable-session.mjs',
+    './metric-bus.mjs', './live-interview.mjs', './longitudinal-model.mjs',
+  ]) assert.doesNotMatch(runtime, new RegExp(`from '${implementation.replaceAll('.', '\\.')}'`, 'u'));
+  assert.match(css, /\.builder-layout > \.pool-summary \{ display: grid; \}/u);
+  assert.doesNotMatch(css, /\.builder-layout > \.pool-summary \{ display: none; \}/u);
+  for (const studentJargon of ['student-scoped Scheduler projection', 'Canonical transcript signals', 'hidden-trait inference']) {
+    assert.doesNotMatch(runtime, new RegExp(studentJargon, 'u'));
+  }
+  assert.doesNotMatch(html, /InterviewBrain · Live voice/u);
+});
+
 test('GPT-Live remains behind a presentation-neutral capability adapter', () => {
   assert.match(liveCompatibility, /\.\.\/capabilities\/live-interview\.mjs/u);
   assert.match(runtime, /new LiveInterviewSession\(/u);

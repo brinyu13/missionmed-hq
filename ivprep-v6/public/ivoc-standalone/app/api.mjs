@@ -52,6 +52,7 @@ export class IvocApi {
   context(input) { return json('/context', { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   markReviewed(sessionId, input = {}) { return json(`/sessions/${encodeURIComponent(sessionId)}/review`, { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   library(scope = 'own') { return json(`/library?scope=${encodeURIComponent(scope)}`); }
+  mentorPriorities() { return json('/mentor-priorities'); }
   session(sessionId) { return json(`/sessions/${encodeURIComponent(sessionId)}`); }
   playback(recordingId, disposition = 'inline') { return json(`/recordings/${encodeURIComponent(recordingId)}/playback-url?disposition=${encodeURIComponent(disposition)}`); }
   questions() { return json('/questions'); }

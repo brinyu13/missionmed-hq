@@ -227,6 +227,7 @@ export class DurableStudioSession {
   }
 
   async library(scope = 'own') { return this.api.library(scope); }
+  async mentorPriorities() { return this.api.mentorPriorities(); }
   async playback(recordingId, disposition = 'inline') { return this.api.playback(recordingId, disposition); }
   async adminOverview() {
     if (!this.ready || this.bootstrapPayload?.identity?.admin !== true) {
