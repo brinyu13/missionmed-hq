@@ -205,6 +205,12 @@ pre.prompt{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,mo
 .lib tr:last-child td{border-bottom:0}
 .libTitle{font-weight:700;line-height:1.3}
 .tblWrap{overflow-x:auto}
+.batchProgress{display:block;width:100%;height:8px;border:0;border-radius:999px;background:var(--edge);overflow:hidden;appearance:none}
+.batchProgress::-webkit-progress-bar{background:var(--edge);border-radius:999px}
+.batchProgress::-webkit-progress-value{background:linear-gradient(90deg,var(--gold),var(--cyan));border-radius:999px;transition:width .25s ease}
+.batchProgress::-moz-progress-bar{background:linear-gradient(90deg,var(--gold),var(--cyan));border-radius:999px}
+.batchTable td{vertical-align:middle}
+.srOnly{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* tier explainer */
 .tierCard{border:1px solid var(--edge);border-radius:14px;padding:18px;background:rgba(18,25,39,.7)}

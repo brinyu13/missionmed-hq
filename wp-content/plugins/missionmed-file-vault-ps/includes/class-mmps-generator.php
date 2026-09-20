@@ -11,7 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MMPS_Generator {
 
 	const PROMPT_VERSION = 'mmps-prompt.v2';
-	const DAILY_RUN_CAP  = 60;
+	// One full 100-program batch plus bounded retries/review regeneration must fit
+	// inside a normal production day without weakening the per-user ceiling.
+	const DAILY_RUN_CAP  = 150;
 	const RETRY_BUDGET_MS = 40000; // A second attempt starts only if the first used less than this, so one request stays under ~90 s.
 
 	/** Legitimate shapes for a candidate set. Every shape must make a different rhetorical move. */
@@ -104,8 +106,15 @@ class MMPS_Generator {
 	/**
 	 * @return array|WP_Error Preview payload for the client.
 	 */
-	public static function generate( $user_id, $root, $program_specialty_id, $tier_requested, $other_program_ids = array() ) {
+	public static function generate( $user_id, $root, $program_specialty_id, $tier_requested, $other_program_ids = array(), $idempotency_key = '' ) {
 		$t0 = microtime( true );
+		$idempotency_key = sanitize_text_field( (string) $idempotency_key );
+		if ( '' !== $idempotency_key ) {
+			$existing = MMPS_Store::get_run_by_idempotency( $user_id, $idempotency_key );
+			if ( $existing ) {
+				return self::preview_from_stored( $existing, $root );
+			}
+		}
 		if ( MMPS_Store::runs_today( $user_id ) >= self::DAILY_RUN_CAP ) {
 			return new WP_Error( 'mmps_daily_cap', 'Prototype daily generation cap reached (' . self::DAILY_RUN_CAP . ').', array( 'status' => 429 ) );
 		}
@@ -130,7 +139,7 @@ class MMPS_Generator {
 
 		if ( $plan['deepNeeded'] ) {
 			// Honest stop: no AI call, nothing invented.
-			$run = self::run_record( $run_uuid, $root, $program_specialty_id, $tier_requested, 'DEEP_RESEARCH_NEEDED', '', $ordinal, 'none', '', 'RESEARCH_NEEDED', $bundle, array(), array( 'reasons' => $plan['reasons'], 'region' => self::region_snapshot( $root ) ), 0, array() );
+			$run = self::run_record( $run_uuid, $root, $program_specialty_id, $tier_requested, 'DEEP_RESEARCH_NEEDED', '', $ordinal, 'none', '', 'RESEARCH_NEEDED', $bundle, array(), array( 'reasons' => $plan['reasons'], 'region' => self::region_snapshot( $root ) ), 0, array(), $idempotency_key );
 			MMPS_Store::insert_run( $user_id, $run );
 			return self::preview( $run, $root, $bundle, $plan, null );
 		}
@@ -185,7 +194,7 @@ class MMPS_Generator {
 		$output                 = self::with_selected_candidate( $result['json'], (string) ( $validation['recommendedCandidateId'] ?? '' ) );
 
 		$status = $validation['blocking'] ? 'NEEDS_ATTENTION' : 'OK';
-		$run    = self::run_record( $run_uuid, $root, $program_specialty_id, $tier_requested, $plan['tierEffective'], (string) ( $output['strategy'] ?? '' ), $ordinal, $result['provider'], $result['model'], $status, $bundle, $output, $validation, $latency, $usage );
+		$run    = self::run_record( $run_uuid, $root, $program_specialty_id, $tier_requested, $plan['tierEffective'], (string) ( $output['strategy'] ?? '' ), $ordinal, $result['provider'], $result['model'], $status, $bundle, $output, $validation, $latency, $usage, $idempotency_key );
 		MMPS_Store::insert_run( $user_id, $run );
 		MMPS_Store::audit( $user_id, 'generate', $run_uuid, array( 'program' => $program_specialty_id, 'tier' => $plan['tierEffective'], 'status' => $status, 'provider' => $result['provider'], 'bundle' => $bundle['bundleSha256'], 'candidateCount' => count( (array) ( $output['candidates'] ?? array() ) ) ) );
 		return self::preview( $run, $root, $bundle, $plan, $output );
@@ -714,7 +723,7 @@ class MMPS_Generator {
 
 	/* ---------- records and preview ---------- */
 
-	protected static function run_record( $uuid, $root, $program_id, $tier_req, $tier_eff, $strategy, $ordinal, $provider, $model, $status, $bundle, $output, $validation, $latency, $usage ) {
+	protected static function run_record( $uuid, $root, $program_id, $tier_req, $tier_eff, $strategy, $ordinal, $provider, $model, $status, $bundle, $output, $validation, $latency, $usage, $idempotency_key = '' ) {
 		return array(
 			'run_uuid'             => $uuid,
 			'root_id'              => $root['id'],
@@ -727,13 +736,30 @@ class MMPS_Generator {
 			'model'                => $model,
 			'status'               => $status,
 			'bundle_sha256'        => $bundle['bundleSha256'],
-			'bundle'               => array( 'schema' => $bundle['schema'], 'registryReleaseId' => $bundle['registryReleaseId'], 'program' => $bundle['program'], 'essential' => $bundle['essential'], 'deepFacts' => $bundle['deepFacts'], 'bundleSha256' => $bundle['bundleSha256'], 'nameForms' => $bundle['nameForms'] ),
+			'bundle'               => array( 'schema' => $bundle['schema'], 'registryReleaseId' => $bundle['registryReleaseId'], 'program' => $bundle['program'], 'essential' => $bundle['essential'], 'deepFacts' => $bundle['deepFacts'], 'evidenceQuality' => $bundle['evidenceQuality'], 'bundleSha256' => $bundle['bundleSha256'], 'nameForms' => $bundle['nameForms'] ),
 			'output'               => $output,
 			'validation'           => $validation,
 			'latency_ms'           => $latency,
 			'tokens_in'            => $usage['in'] ?? 0,
 			'tokens_out'           => $usage['out'] ?? 0,
+			'idempotency_key'      => (string) $idempotency_key,
 		);
+	}
+
+	/** Rebuild an idempotent run preview from stored data; no provider call. */
+	public static function preview_from_stored( $run, $root ) {
+		$bundle = (array) $run['bundle'];
+		if ( empty( $bundle['evidenceQuality'] ) ) {
+			$count = count( (array) ( $bundle['deepFacts'] ?? array() ) );
+			$bundle['evidenceQuality'] = array(
+				'deepEligibleCount' => $count,
+				'deepFields'        => array_values( array_unique( wp_list_pluck( (array) ( $bundle['deepFacts'] ?? array() ), 'field' ) ) ),
+				'deepSupported'     => $count >= MMPS_Tiers::DEEP_MIN_FACTS,
+				'label'             => $count >= MMPS_Tiers::DEEP_MIN_FACTS ? 'DEEP_READY' : ( 1 === $count ? 'ONE_DEEP_FACT' : 'ESSENTIAL_ONLY' ),
+			);
+		}
+		$plan = MMPS_Tiers::plan( $bundle, $root['prefs'], (string) $run['tier_requested'] );
+		return self::preview( $run, $root, $bundle, $plan, 'RESEARCH_NEEDED' === $run['status'] ? null : (array) $run['output'] );
 	}
 
 	public static function preview( $run, $root, $bundle, $plan, $output ) {

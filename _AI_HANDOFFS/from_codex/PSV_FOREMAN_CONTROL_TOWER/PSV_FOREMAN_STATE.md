@@ -1,12 +1,12 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-20T20:08:09Z
+Updated: 2026-09-20T22:01:40Z
 
 ## Product and outcome
 
 - Mission: `PSV-PROTOTYPE-0001`
 - Product: Program-Specific Personal Statement capability inside File Vault
-- Current milestone: M2 accepted writing and choice UX — 25% local engineering gate sealed; guarded production promotion pending
+- Current milestone: M3 production batch core — 50% engineering gate in progress; M2 is live and independently sealed
 - Terminal condition: Continue through M2-M5 to independently verified, production-ready AAA completion, stopping only for a true human-only privacy or sibling-owner authority gate on the critical path
 
 ## Repository truth
@@ -15,12 +15,12 @@ Updated: 2026-09-20T20:08:09Z
 - Repository: `https://github.com/brinyu13/missionmed-hq.git`
 - Branch: `codex/psv-prototype-foreman`
 - Base HEAD: `0feee579b0a9f2c90529220899f6cf6d21b8cd05`
-- Current HEAD at M2 initialization: `29c0ebc8d2ee51dcf263ec6abddfffa3b2a33f66`
+- M2 sealed/pushed HEAD: `981f0d16fc091abb4f54132c15c917c640021c34`
 - Prior branch: `fable/program-specific-ps-engine-architecture`
 - Upstream at initialization: `origin/main` at the same base HEAD
 - Preserved dirty state: untracked `_AI_HANDOFFS/from_fable/` package only
 - Git index lock: absent
-- Workers: standing independent verifier completed two read-only M2 passes; first correctly blocked a false-PASS presentation flaw, second approved the corrected frozen tree with no P0-P2 findings
+- Workers: independent M2 production verifier passed exact commit `981f0d16fc091abb4f54132c15c917c640021c34` against live v0.2.1 with no P0/P1 or unverified condition; P2 only noted the Foreman's later uncommitted M3 work in the shared worktree
 
 ## Authority and continuity
 
@@ -35,14 +35,15 @@ Updated: 2026-09-20T20:08:09Z
 
 ## Candidate
 
-- Live plugin: `missionmed-file-vault-ps` version `0.1.0`; local M2 release candidate: `0.2.0`
-- ZIP SHA-256: `93ba87efb5f4883bb7b0ceca9226a23ccec415136ffb2638d058990cd45f3f25`
+- Live plugin: `missionmed-file-vault-ps` version `0.2.1`; local M3 release candidate: `0.3.0`
+- Live ZIP SHA-256: `71c922b64d7c5e3c0a54bb7bf195ff7304076b741cb0ea62e3b9206f84645376`
 - ZIP integrity: PASS
 - Manifest: 21/21 PASS at initialization
 - Candidate delta: one new plugin directory plus the two documented server-only constants; four new namespaced tables and documented namespaced options on activation
 - Tracked M2 source: `wp-content/plugins/missionmed-file-vault-ps/`, materialized byte-for-byte from the sealed v0.1.0 package; 21/21 manifest hashes PASS before editing
 - Tracked validation surface: `psv/local-harness/`, `psv/contracts/` and `psv/docs/`, copied from the sealed evidence package without changing the preserved Fable handoff
-- M2 local release gate: PHP/JS/JSON lint PASS; M2 contract 24/24; M2 runtime 11/11; disposable WordPress API 100/100; Playwright/Chrome UX 22/22 with zero console/page/CSP problems
+- M2 release gate: PHP/JS/JSON lint PASS; M2 contract 24/24; M2 runtime 12/12; disposable WordPress API 100/100; Playwright/Chrome UX 22/22; production package/deployed manifest 21/21; independent production verification PASS
+- M3 current gate: durable owner-scoped specialty jobs/items, 100-item import, Deep/Essential defaults and overrides, two bounded client workers, three-attempt retry ceiling, stale-lock recovery, provider idempotency, partial failures, exception review, clean-default approval, selective regeneration preservation and selected/all-approved ZIP export implemented; M3 contract 21/21, runtime 8/8 and expanded browser journey 29/29 PASS with zero console/page/CSP errors
 
 ## Current production truth
 
@@ -66,7 +67,7 @@ Updated: 2026-09-20T20:08:09Z
 - `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI`: UNDEFINED
 - Production testing constants: UNDEFINED
 - Prototype access: `allowlist`; `mmed_ps_proto_allow_admins=0`
-- Prototype rows: one synthetic ROOT, five runs, one approved library document
+- Prototype rows at latest independent M2 readback: two synthetic ROOTs, eleven runs, two library documents; no real ROOT
 - Real provider: `openai-responses` / `gpt-5.6-terra`; Essential PASS; Deep PASS; Deep Research Needed PASS
 - Independent verdict: PASS — the prior hash finding was resolved as stale-baseline interpretation: live File Vault controller/repository/scanner and mutable assets exactly match canonical commit `264293554a4f9b152ffb98ce8d707045c6bf5993`, which DR-308 and the current passport register as clean current custody; `15962cbc…ec3d1b5` is the accepted 1018 baseline, not the later controller pin
 - Production mutation by this Foreman run: exact new plugin directory, two documented `wp-config.php` constants, four namespaced tables, documented namespaced options, isolated synthetic prototype rows only
@@ -75,7 +76,7 @@ Updated: 2026-09-20T20:08:09Z
 
 - Existing File Vault and RISE: preserved after activation and live use; File Vault roster/upload dialog and live RISE registry rendered normally
 - Package/hash/manifest, rollback surface and production prerequisites: PASS
-- Live RISE, live OpenAI, generation, reconstruction, isolated save and DOCX download handler: PASS
+- Live RISE, live OpenAI, five-candidate generation, non-default selection, reconstruction, isolated save and DOCX download: PASS
 
 ## Provider and privacy state
 
@@ -93,15 +94,15 @@ Updated: 2026-09-20T20:08:09Z
 
 ## Waiting dependency
 
-- No M2 engineering blocker. Production transmission of real-student ROOT prose remains a deferred Founder privacy decision and is not authorized by DR-314/DR-315.
+- No M3 engineering blocker. Production transmission of real-student ROOT prose remains a deferred Founder privacy decision and is not authorized by DR-314/DR-315.
 - Writes into existing File Vault or RISE code/data remain deferred unless a proven owner contract or separate owner authority permits the exact integration.
 
 ## Next critical path
 
-1. Implement M2 whole-ROOT read context with strict region-only writes, a strong recommended candidate and four-to-five genuinely distinct evidence-grounded alternatives.
-2. Add preview, candidate selection, full-PS reconstruction, approval/save and regression coverage while preserving live M1.
-3. Promote M2 only after local/security/privacy gates, guarded preflight, exact plugin backup/replacement, synthetic-only live acceptance and fresh independent verification.
-4. Continue through M3-M5 under DR-314/DR-315; keep the real-student AI gate closed and do not mutate sibling-owned surfaces without authority.
+1. Finish the M3 expanded API/regression gate and seal the batch core while live M2 remains untouched.
+2. Build M4's fail-closed Deep Research Needed upload/quarantine/validation workflow and RISE-owner handoff without writing RISE.
+3. Build M5 privacy-safe similarity protection and hardening; request the authorized read-only Astra 6 presentation direction only after functionality is stable, then implement it in Codex.
+4. Promote only after fresh BOOT/authority/preflight, exact backup/rollback, synthetic-only live acceptance and fresh independent verification; keep the real-student AI gate closed and do not mutate sibling-owned surfaces without authority.
 
 ## State delta log
 
@@ -117,3 +118,5 @@ Updated: 2026-09-20T20:08:09Z
 - 2026-09-20T19:42:00Z — Founder accepted live M1 and authorized autonomous M2-M5 continuation. MissionMed OS registered DR-314/DR-315 at canonical commit `f02766ba11cfa10203775b316de1e2cdb2f337c3`; GitHub readback, universal BOOT and PSV mission BOOT passed; registry lease epoch 3219 released, and the default OS checkout was safely fast-forwarded under registry lease epoch 3222 with unrelated dirty state preserved.
 - 2026-09-20T19:45:00Z — Materialized the sealed v0.1.0 plugin, local harness, contracts and deployment documentation into tracked product paths without altering the preserved Fable handoff. Baseline plugin manifest verification passed 21/21. M2 implementation is active; production has not changed in this continuation.
 - 2026-09-20T20:08:09Z — M2 25% checkpoint sealed locally. Implemented complete-ROOT read-only editorial context, five distinct evidence-bounded strategies, recommended/default plus accessible alternatives, server-resolved candidate selection, complete-PS reconstruction and truthful per-candidate/set-level validation. Independent review found and the Foreman repaired a false-PASS display condition, legacy prompt-provenance drift, stale strategy labels and weak copied-opening detection. Final gates: contract 24/24, runtime 11/11, disposable WordPress API 100/100, browser UX 22/22, no console/page/CSP errors. Production remains on accepted M1 v0.1.0 and unchanged by this M2 continuation.
+- 2026-09-20T21:20:00Z — Guardedly promoted exact M2 commit `981f0d16fc091abb4f54132c15c917c640021c34` as v0.2.1 after fresh BOOT/authority/preflight and package checks. Synthetic ROOT plus real RISE/OpenAI returned five valid candidates; a non-default candidate was selected, reconstructed, approved, saved and downloaded. Existing File Vault and RISE behavior and protected hashes remained unchanged. Fresh independent production verification passed with no P0/P1 or unverified condition.
+- 2026-09-20T22:01:40Z — M3 batch core reached its 50% functional gate locally. Added 100-program specialty-isolated jobs, durable items/claims/idempotency/retries, Deep/Essential defaults/overrides, exception-focused approval, selective regeneration preservation and selected/all-approved ZIP export. Static contract 21/21, runtime scale 8/8 and full browser journey 29/29 passed; a CSP-unsafe inline progress style found by the first expanded walkthrough was replaced with a semantic `<progress>` control. Live production remains sealed M2 v0.2.1 and unmodified by M3.

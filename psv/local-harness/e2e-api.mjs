@@ -235,6 +235,35 @@ ok('DOCX download: attachment, valid zip, body text only (no metadata in the bod
 const dlt = await t.raw(`/wp-json/mmed-ps-proto/v1/library/${doc.docUuid}/download?format=txt&_wpnonce=${t.nonce}`);
 ok('TXT download works', dlt.status === 200 && (await dlt.text()).includes('Lakeshore'));
 
+// ---------- 8b. M3 durable batch, default approval and bulk export ----------
+r = await t.api('GET', '/rise/my-program-index');
+const batchIndex = r.json.programs;
+ok('M3 import: full RISE index is privacy-minimized with priority-based defaults', r.status === 200 && batchIndex.length === 4 && batchIndex.every(x => !('notes' in x)) && batchIndex.find(x => x.programSpecialtyId === 'ps_deep_001').defaultTier === 'DEEP' && batchIndex.find(x => x.programSpecialtyId === 'ps_ess_003').defaultTier === 'ESSENTIAL');
+r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: batchIndex.map(x => ({ ...x, tier: x.defaultTier })) });
+let job = r.json.job;
+ok('M3 batch create: specialty-isolated durable job with one item per program', r.status === 200 && job.rootId === root.id && job.specialtyLabel === 'Internal Medicine' && job.total === 4 && job.items.length === 4 && job.items.every(x => x.status === 'QUEUED'));
+for (let i = 0; i < 8 && job.processed < job.total; i++) {
+  r = await t.api('POST', `/batch/jobs/${job.jobUuid}/process`, {});
+  job = r.json.job;
+}
+ok('M3 batch process: partial failures do not stop clean, research-needed or later items', job.processed === 4 && job.ready === 2 && job.attention === 1 && job.failed === 1 && job.status === 'COMPLETE_WITH_EXCEPTIONS', JSON.stringify(job.items.map(x => [x.programSpecialtyId,x.status,x.attemptCount])));
+ok('M3 retries: unavailable program exhausts exactly three bounded attempts', job.items.find(x => x.programSpecialtyId === 'ps_missing_999').status === 'FAILED' && job.items.find(x => x.programSpecialtyId === 'ps_missing_999').attemptCount === 3);
+ok('M3 deep shortage: Deep Research Needed remains an exception without hallucination', job.items.find(x => x.programSpecialtyId === 'ps_thin_002').status === 'RESEARCH_NEEDED' && job.items.find(x => x.programSpecialtyId === 'ps_thin_002').runId);
+const readyItem = job.items.find(x => x.status === 'READY');
+r = await t.api('GET', `/batch/jobs/${job.jobUuid}/items/${readyItem.itemUuid}/run`);
+ok('M3 resume: stored run reconstructs five choices without another provider call', r.status === 200 && r.json.runId === readyItem.runId && r.json.candidates.length === 5 && r.json.canApprove === true);
+r = await t.api('POST', `/batch/jobs/${job.jobUuid}/approve-ready`, {});
+job = r.json.job;
+ok('M3 exception-focused approval: all clean recommended defaults approve together', r.status === 200 && r.json.approved === 2 && job.items.filter(x => x.status === 'READY').every(x => x.approvedDocUuid));
+r = await t.api('POST', '/library/bulk-download', { allApproved: true, inline: true });
+ok('M3 Download All: approved complete statements produce one ZIP and manifest', r.status === 200 && r.json.documents >= 2 && r.json.fileName.endsWith('.zip') && r.json.bytes > 500 && /^[a-f0-9]{64}$/.test(r.json.sha256), r.text.slice(0, 300));
+const preserved = job.items.find(x => x.status === 'READY' && x.approvedDocUuid);
+const newTier = preserved.tierRequested === 'DEEP' ? 'ESSENTIAL' : 'DEEP';
+r = await t.api('PUT', `/batch/jobs/${job.jobUuid}/items/${preserved.itemUuid}/tier`, { tier: newTier });
+job = r.json.job;
+const requeued = job.items.find(x => x.itemUuid === preserved.itemUuid);
+ok('M3 selective regeneration preserves the approved document while requeueing only one item', requeued.status === 'QUEUED' && requeued.tierRequested === newTier && requeued.approvedDocUuid === preserved.approvedDocUuid && job.items.filter(x => x.itemUuid !== preserved.itemUuid).every(x => x.status !== 'QUEUED'));
+
 // ---------- 9. isolation between users + CSRF ----------
 const admin = new Session();
 ok('admin login', await admin.login('founder', 'Founder-Local-1!'));
@@ -256,7 +285,7 @@ const after = JSON.parse(php(`global $wpdb; echo json_encode(array('fv'=>$wpdb->
 ok('File Vault table untouched (row count + content hash identical)', after.fv === B.fv && after.fvsum === B.fvsum);
 ok('no posts, users or user meta created', after.posts === B.posts && after.users === B.users && after.usermeta === B.usermeta, JSON.stringify([B, after]));
 const tables = php(`global $wpdb; echo json_encode($wpdb->get_col("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%mmed%'"));`);
-ok('only namespaced prototype tables exist besides the stub FV table', JSON.parse(tables).sort().join() === ['wp_mmed_file_vault_stub', 'wp_mmed_ps_proto_audit', 'wp_mmed_ps_proto_library', 'wp_mmed_ps_proto_roots', 'wp_mmed_ps_proto_runs'].join(), tables);
+ok('only namespaced prototype tables exist besides the stub FV table', JSON.parse(tables).sort().join() === ['wp_mmed_file_vault_stub', 'wp_mmed_ps_proto_audit', 'wp_mmed_ps_proto_job_items', 'wp_mmed_ps_proto_jobs', 'wp_mmed_ps_proto_library', 'wp_mmed_ps_proto_roots', 'wp_mmed_ps_proto_runs'].join(), tables);
 const auditText = php(`global $wpdb; echo json_encode($wpdb->get_col('SELECT detail_json FROM '.$wpdb->prefix.'mmed_ps_proto_audit'));`);
 ok('audit log holds ids/codes/hashes only, never statement text', !/glucometer|Lakeshore University|residents take real/.test(auditText));
 
@@ -274,7 +303,7 @@ r = await t.api('GET', '/bootstrap'); p = await t.page(); hub = await (await t.r
 ok('KILL 3 (deactivate): nothing loads, File Vault stage intact', r.status === 404 && !p.html.includes('mmps-app') && !hub.includes('mmps-entry') && hub.includes('fv-canary'));
 php(`require_once ABSPATH.'wp-admin/includes/plugin.php'; activate_plugin('missionmed-file-vault-ps/missionmed-file-vault-ps.php');`);
 p = await t.page(); r = await t.api('GET', '/library');
-ok('re-enable: prototype and its saved library return intact', p.html.includes('mmps-app') && r.json.documents.length === 2);
+ok('re-enable: prototype and its saved library return intact', p.html.includes('mmps-app') && r.json.documents.length >= 4);
 
 // KILL 4: a corrupted prototype file must not hurt the site
 const gen = `${SITE}/wp-content/plugins/missionmed-file-vault-ps/includes/class-mmps-generator.php`;

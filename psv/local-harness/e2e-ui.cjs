@@ -148,10 +148,45 @@ const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond }); 
 	await page.waitForSelector('.paper');
 	await shot('16-library-document');
 
+	// M3 durable batch: import, default tiers, bounded/resumable processing,
+	// exception-focused approval and bulk ZIPs.
+	await page.click('.hdr [data-view="batch"]');
+	await page.waitForSelector('[data-act="batch-create"]');
+	ok('batch imports the full RISE list without private notes', /programs ready/.test(await page.locator('.h2').filter({ hasText: 'programs ready' }).innerText()));
+	await page.click('[data-act="batch-create"]');
+	await page.waitForSelector('.batchTable');
+	ok('batch defaults priority programs to Deep and lower programs to Essential', await page.locator('.batchTable [data-tier="DEEP"].on').count() >= 1 && await page.locator('.batchTable [data-tier="ESSENTIAL"].on').count() >= 1);
+	await shot('17-batch-created');
+	await page.click('[data-act="batch-run"]');
+	await page.waitForFunction(() => {
+		const el = [...document.querySelectorAll('.h2')].find((n) => /processed/.test(n.textContent));
+		const m = el && el.textContent.match(/(\d+) of (\d+) processed/);
+		return m && m[1] === m[2];
+	}, null, { timeout: 90000 });
+	ok('batch finishes with durable per-program statuses and capped attempts', await page.locator('.batchTable tbody tr').count() >= 4 && await page.locator('.batchTable td:nth-child(4)').evaluateAll((els) => els.every((e) => /\d+ \/ 3/.test(e.textContent))));
+	ok('batch surfaces clean outputs separately from research/attention exceptions', await page.locator('.batchTable .tag:has-text("Ready")').count() >= 1 && await page.locator('.batchTable .tag:has-text("Research")').count() >= 1);
+	await shot('18-batch-complete');
+	const approveClean = page.locator('[data-act="batch-approve-ready"]');
+	if (await approveClean.count()) { await approveClean.click(); await page.waitForTimeout(900); }
+	ok('recommended defaults can be approved without opening every clean item', await page.locator('.batchTable .tag:has-text("Approved")').count() >= 1);
+
+	await page.click('.hdr [data-view="library"]');
+	await page.waitForSelector('[data-doc-select]');
+	const checkboxes = page.locator('[data-doc-select]');
+	await checkboxes.nth(0).check();
+	await checkboxes.nth(1).check();
+	const [selectedZip] = await Promise.all([page.waitForEvent('download'), page.click('[data-act="bulk-selected"]')]);
+	const selectedZipFile = `${SHOTS}/../files/ui-selected.zip`; await selectedZip.saveAs(selectedZipFile);
+	ok('selected statements download as a ZIP', fs.statSync(selectedZipFile).size > 500 && fs.readFileSync(selectedZipFile).subarray(0, 2).toString() === 'PK');
+	const [allZip] = await Promise.all([page.waitForEvent('download'), page.click('[data-act="bulk-approved"]')]);
+	const allZipFile = `${SHOTS}/../files/ui-all-approved.zip`; await allZip.saveAs(allZipFile);
+	ok('Download All approved creates a ZIP', fs.statSync(allZipFile).size > 500 && fs.readFileSync(allZipFile).subarray(0, 2).toString() === 'PK');
+	await shot('19-library-bulk');
+
 	// responsive
 	await page.setViewportSize({ width: 820, height: 1100 });
 	await page.click('.rail [data-view="home"]');
-	await shot('17-tablet-home');
+	await shot('20-tablet-home');
 	ok('no horizontal overflow at 820px', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
 
 	// RISE session missing state
@@ -163,7 +198,7 @@ const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond }); 
 	await page.locator('[data-act="open-root"]').first().click();
 	await page.waitForSelector('.prog, .notice');
 	await page.waitForSelector('text=Open RISE once in this browser');
-	await shot('18-rise-session-needed');
+	await shot('21-rise-session-needed');
 	ok('missing RISE session -> clear guidance, no crash', true);
 
 	ok('no console errors, page errors or CSP violations', problems.length === 0, problems.slice(0, 5).join(' | '));

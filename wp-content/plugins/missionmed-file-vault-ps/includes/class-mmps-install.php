@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class MMPS_Install {
 
-	const DB_VERSION        = '1';
+	const DB_VERSION        = '2';
 	const OPTION_DB_VERSION = 'mmed_ps_proto_db_version';
 
 	public static function table( $name ) {
@@ -80,10 +80,70 @@ class MMPS_Install {
 			latency_ms int(11) NOT NULL DEFAULT 0,
 			tokens_in int(11) NOT NULL DEFAULT 0,
 			tokens_out int(11) NOT NULL DEFAULT 0,
+			idempotency_key varchar(191) NULL,
 			created_at datetime NOT NULL,
 			PRIMARY KEY  (id),
 			UNIQUE KEY run_uuid (run_uuid),
+			UNIQUE KEY idempotency_key (idempotency_key),
 			KEY user_root (user_id,root_id)
+		) $c;" );
+
+		/*
+		 * M3 client-driven jobs are durable and resumable without WP-Cron. The
+		 * signed-in browser asks for one bounded item at a time; optimistic locks
+		 * and idempotency keys prevent duplicate provider work across reloads.
+		 */
+		dbDelta( 'CREATE TABLE ' . self::table( 'jobs' ) . " (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			job_uuid char(36) NOT NULL,
+			user_id bigint(20) unsigned NOT NULL,
+			root_id bigint(20) unsigned NOT NULL,
+			specialty_label varchar(120) NOT NULL DEFAULT '',
+			status varchar(24) NOT NULL DEFAULT 'QUEUED',
+			total_items int(11) NOT NULL DEFAULT 0,
+			processed_items int(11) NOT NULL DEFAULT 0,
+			ready_items int(11) NOT NULL DEFAULT 0,
+			attention_items int(11) NOT NULL DEFAULT 0,
+			failed_items int(11) NOT NULL DEFAULT 0,
+			config_json longtext NOT NULL,
+			created_at datetime NOT NULL,
+			updated_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY job_uuid (job_uuid),
+			KEY user_root (user_id,root_id),
+			KEY user_status (user_id,status)
+		) $c;" );
+
+		dbDelta( 'CREATE TABLE ' . self::table( 'job_items' ) . " (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			item_uuid char(36) NOT NULL,
+			job_id bigint(20) unsigned NOT NULL,
+			user_id bigint(20) unsigned NOT NULL,
+			program_specialty_id varchar(191) NOT NULL DEFAULT '',
+			acgme_id varchar(32) NOT NULL DEFAULT '',
+			program_name varchar(255) NOT NULL DEFAULT '',
+			tier_requested varchar(12) NOT NULL DEFAULT 'ESSENTIAL',
+			tier_effective varchar(24) NOT NULL DEFAULT '',
+			status varchar(24) NOT NULL DEFAULT 'QUEUED',
+			attempt_count int(11) NOT NULL DEFAULT 0,
+			max_attempts int(11) NOT NULL DEFAULT 3,
+			run_uuid char(36) NOT NULL DEFAULT '',
+			approved_doc_uuid char(36) NOT NULL DEFAULT '',
+			idempotency_key varchar(191) NOT NULL DEFAULT '',
+			last_error_code varchar(80) NOT NULL DEFAULT '',
+			lock_token char(36) NOT NULL DEFAULT '',
+			locked_until datetime NULL,
+			priority_position int(11) NULL,
+			gold_starred tinyint(1) NOT NULL DEFAULT 0,
+			evidence_json longtext NOT NULL,
+			created_at datetime NOT NULL,
+			updated_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY item_uuid (item_uuid),
+			UNIQUE KEY job_program (job_id,program_specialty_id),
+			UNIQUE KEY idempotency_key (idempotency_key),
+			KEY user_status (user_id,status),
+			KEY job_status (job_id,status)
 		) $c;" );
 
 		dbDelta( 'CREATE TABLE ' . self::table( 'library' ) . " (
@@ -128,7 +188,7 @@ class MMPS_Install {
 		) $c;" );
 
 		// Record the version only when all four tables really exist, so a failed install is retried, not hidden.
-		foreach ( array( 'roots', 'runs', 'library', 'audit' ) as $name ) {
+		foreach ( array( 'roots', 'runs', 'library', 'audit', 'jobs', 'job_items' ) as $name ) {
 			$table = self::table( $name );
 			if ( $table !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) ) ) {
 				return;

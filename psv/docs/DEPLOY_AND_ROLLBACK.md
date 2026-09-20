@@ -10,7 +10,7 @@ For Codex (Builder) or Dr Brian. Fable built and tested this locally; Fable has 
 
 | Check | Expect | If not |
 |---|---|---|
-| `wp-content/plugins/missionmed-file-vault-ps/` | does not exist | stop and report; do not overwrite |
+| `wp-content/plugins/missionmed-file-vault-ps/` | absent for first install, or exactly the currently approved live version for an upgrade | stop and report; do not overwrite unknown custody |
 | PHP version | 7.4 or newer (built and tested on 8.4; written to 7.4 syntax, not executed on 7.x) | stop |
 | PHP extensions `zip`, `dom`, `mbstring`, `json` | loaded | DOCX read and download will report "unsupported"; the rest works |
 | `MMED_RISE_ORIGIN` constant | already defined (the existing `/rise/` route proxy uses it) | RISE steps show "not configured"; the synthetic flow up to program choice still works |
@@ -18,8 +18,8 @@ For Codex (Builder) or Dr Brian. Fable built and tested this locally; Fable has 
 
 ## 2. Install (guarded helper, same method as File Vault releases)
 
-1. Upload the directory `missionmed-file-vault-ps/` (code and assets only; the docs, contracts and evidence in this package are **not** uploaded) to `wp-content/plugins/` with the guarded apply helper. There is no preimage because every path is new; record that in the apply log.
-2. Verify the upload against `missionmed-file-vault-ps-0.1.0.MANIFEST.sha256`. Put the manifest in a private, non-web directory (for example the guard's `private/` area), then run `cd wp-content/plugins/missionmed-file-vault-ps && sha256sum -c /path/to/missionmed-file-vault-ps-0.1.0.MANIFEST.sha256`. Every file must report OK.
+1. Take a private, byte-exact rollback copy when upgrading. Then upload the directory `missionmed-file-vault-ps/` (code and assets only; the docs, contracts and evidence in this package are **not** uploaded) to `wp-content/plugins/` with the guarded apply helper. Record an absent preimage for a first install or the exact approved version/hash for an upgrade.
+2. Verify the upload against the version-matched `missionmed-file-vault-ps-<version>.MANIFEST.sha256` supplied with the release. Put the manifest in a private, non-web directory, then run `cd wp-content/plugins/missionmed-file-vault-ps && sha256sum -c /private/path/missionmed-file-vault-ps-<version>.MANIFEST.sha256`. Every file must report OK and there must be no extra deployed file.
 3. On the server, lint with the production PHP binary: `find . -name '*.php' -print0 | xargs -0 -n1 php -l` must report no errors.
 4. Add constants to `wp-config.php` on the server (above "That's all, stop editing"). Set them directly on the server. Never commit them, never paste the key anywhere else.
 
@@ -34,7 +34,7 @@ define( 'MMED_PS_PROTO_OPENAI_API_KEY', '<set on the server only>' );
 Do **not** define `MMED_PS_PROTO_ALLOW_REAL_ROOT_AI` until the Founder has recorded the privacy decision (PSV-0002 decision 2). Without it, real statement text is never sent to the AI provider; the synthetic ROOT is used for the AI step.
 Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_PS_PROTO_TEST_OPENAI_BASE` on production; they exist for the local harness only.
 
-5. Activate: `wp plugin activate missionmed-file-vault-ps`. Activation creates four tables (`{prefix}mmed_ps_proto_roots|runs|library|audit`) with `dbDelta` and three options (`mmed_ps_proto_mode = allowlist`, `mmed_ps_proto_allow_admins = 1`, `mmed_ps_proto_db_version = 1`). Nothing else is written.
+5. Activate, or load the already-active upgraded plugin. `dbDelta` creates/upgrades six isolated tables (`{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items`) and the three namespaced options (`mmed_ps_proto_mode`, `mmed_ps_proto_allow_admins`, `mmed_ps_proto_db_version = 2`). Nothing outside the PSV namespace is written.
 6. To restrict the prototype to the listed user ids only (no other administrators): `wp option update mmed_ps_proto_allow_admins 0`.
 
 ## 3. Verify on production (5 minutes)
@@ -59,7 +59,7 @@ Never define `MMED_PS_PROTO_TESTING`, `MMED_PS_PROTO_TEST_RISE_ORIGIN` or `MMED_
 | 2. Hard off | add `define( 'MMED_PS_PROTO_DISABLE', true );` to `wp-config.php` | nothing of the prototype loads beyond two small class files | kept |
 | 3. Deactivate | `wp plugin deactivate missionmed-file-vault-ps` | plugin not loaded at all | kept |
 | 4. Remove | deactivate first (level 3), then delete the directory `wp-content/plugins/missionmed-file-vault-ps/` | code gone | kept |
-| 5. Purge (Founder decision only) | `DROP TABLE {prefix}mmed_ps_proto_roots, {prefix}mmed_ps_proto_runs, {prefix}mmed_ps_proto_library, {prefix}mmed_ps_proto_audit;` then `wp option delete mmed_ps_proto_mode mmed_ps_proto_allow_admins mmed_ps_proto_allow_user_ids mmed_ps_proto_db_version` | saved prototype statements are destroyed | destroyed |
+| 5. Purge (Founder decision only) | drop only `{prefix}mmed_ps_proto_roots|runs|library|audit|jobs|job_items`, then delete only the documented `mmed_ps_proto_*` options | saved prototype statements and batch history are destroyed | destroyed |
 
 Re-enable after 1 to 3 by reversing the step; the saved library returns intact.
 
@@ -72,5 +72,5 @@ The plugin has no uninstall hook on purpose: removing it never drops the saved s
 - File Vault is reached only through a subclass that is declared lazily, after reflection proves the parent class is non-final and has the five static members used. Any drift means "File Vault not available", never a fatal. The bridge is read-only and owner-scoped.
 - RISE is reached only by GET, through the student's own session. RISE cannot tell the prototype exists.
 - The launcher script lives in its own shadow root appended to `<body>`. It never inserts into `#sos-content` or the File Vault stage, so File Vault's mutation observers and renderers never see it.
-- No request can hold a PHP worker for long: RISE reads time out at 6 s, the program list stops hydrating after 12 s and hands the rest to "Load more", and generation stays under about 90 s (50 s provider timeout; a second attempt starts only if less than 40 s have passed since the request began, RISE read included), below the usual 100 s edge timeout.
+- No request can hold a PHP worker for a whole batch: RISE reads time out at 6 s, one authenticated batch request atomically claims and processes one item, two browser workers bound concurrency, and a reload resumes from durable item state. A provider call remains bounded by the existing generation timeout/revision budget.
 - Statement text never reaches a log: writes that carry text run with `wpdb` error output suppressed, the audit table holds ids, codes and hashes only, and REST answers are `no-store`.

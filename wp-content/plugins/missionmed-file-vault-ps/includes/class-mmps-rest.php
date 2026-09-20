@@ -40,12 +40,23 @@ class MMPS_Rest {
 			array( '/roots/(?P<id>\d+)/region', 'PUT', 'put_region' ),
 			array( '/roots/(?P<id>\d+)/prefs', 'PUT', 'put_prefs' ),
 			array( '/rise/my-programs', 'GET', 'my_programs' ),
+			array( '/rise/my-program-index', 'GET', 'my_program_index' ),
 			array( '/rise/search', 'GET', 'search' ),
 			array( '/rise/bundle', 'GET', 'bundle' ),
 			array( '/generate', 'POST', 'generate' ),
+			array( '/runs/(?P<uuid>[a-f0-9-]{36})', 'GET', 'run' ),
 			array( '/research-prompt', 'POST', 'research_prompt' ),
+			array( '/batch/jobs', 'GET', 'batch_jobs' ),
+			array( '/batch/jobs', 'POST', 'batch_create' ),
+			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})', 'GET', 'batch_job' ),
+			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/process', 'POST', 'batch_process' ),
+			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/items/(?P<item>[a-f0-9-]{36})/run', 'GET', 'batch_item_run' ),
+			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/items/(?P<item>[a-f0-9-]{36})/tier', 'PUT', 'batch_item_tier' ),
+			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/items/(?P<item>[a-f0-9-]{36})/approve', 'POST', 'batch_item_approve' ),
+			array( '/batch/jobs/(?P<uuid>[a-f0-9-]{36})/approve-ready', 'POST', 'batch_approve_ready' ),
 			array( '/library', 'GET', 'library' ),
 			array( '/library', 'POST', 'save' ),
+			array( '/library/bulk-download', 'POST', 'bulk_download' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})', 'GET', 'document' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})/status', 'POST', 'set_status' ),
 			array( '/library/(?P<uuid>[a-f0-9-]{36})/download', 'GET', 'download' ),
@@ -121,12 +132,15 @@ class MMPS_Rest {
 				'fileVault' => array( 'available' => MMPS_Root_Source::file_vault_available() ),
 				'roots'     => array_map( array( __CLASS__, 'root_summary' ), MMPS_Store::list_roots( $uid ) ),
 				'library'   => MMPS_Store::list_documents( $uid ),
+				'batches'   => MMPS_Batch::list_jobs( $uid ),
 				'limits'    => array(
 					'dailyRunCap'        => MMPS_Generator::DAILY_RUN_CAP,
 					'runsToday'          => MMPS_Store::runs_today( $uid ),
 					'deepMinFacts'       => MMPS_Tiers::DEEP_MIN_FACTS,
 					'deepMaxFacts'       => MMPS_Tiers::DEEP_MAX_FACTS,
 					'priorityDeepCutoff' => MMPS_Tiers::PRIORITY_DEEP_CUTOFF,
+					'batchItemCap'       => MMPS_Batch::MAX_ITEMS,
+					'batchWorkers'       => MMPS_Batch::CLIENT_WORKERS,
 				),
 				'contract'  => array( 'schema' => MMPS_Evidence_Bundle::SCHEMA, 'transport' => MMPS_Rise_Client::TRANSPORT, 'normalizationRule' => MMPS_Region::RULE ),
 			)
@@ -238,6 +252,32 @@ class MMPS_Rest {
 		return rest_ensure_response( array( 'total' => count( $list ), 'offset' => $offset, 'limit' => count( $out ), 'programs' => $out ) );
 	}
 
+	/** Fast full-list import: priorities and IDs only; private RISE notes are dropped by my_list(). */
+	public static function my_program_index() {
+		$list = MMPS_Evidence_Bundle::my_list();
+		if ( is_wp_error( $list ) ) {
+			return $list;
+		}
+		usort( $list, function ( $a, $b ) {
+			$pa = $a['priorityPosition'] ? $a['priorityPosition'] : PHP_INT_MAX;
+			$pb = $b['priorityPosition'] ? $b['priorityPosition'] : PHP_INT_MAX;
+			return $pa === $pb ? strcmp( $a['programSpecialtyId'], $b['programSpecialtyId'] ) : ( $pa < $pb ? -1 : 1 );
+		} );
+		return rest_ensure_response(
+			array(
+				'programs' => array_values( array_map( function ( $entry ) {
+					return array(
+						'programSpecialtyId' => $entry['programSpecialtyId'],
+						'goldStarred'        => $entry['goldStarred'],
+						'priorityPosition'   => $entry['priorityPosition'],
+						'defaultTier'        => MMPS_Tiers::default_tier( $entry ),
+					);
+				}, $list ) ),
+				'limit'    => MMPS_Batch::MAX_ITEMS,
+			)
+		);
+	}
+
 	public static function search( $request ) {
 		$q = trim( sanitize_text_field( (string) $request['q'] ) );
 		if ( mb_strlen( $q ) < 3 ) {
@@ -265,6 +305,106 @@ class MMPS_Rest {
 		}
 		$others = array_slice( array_values( array_filter( array_map( 'strval', (array) ( $params['otherProgramIds'] ?? array() ) ) ) ), 0, 12 );
 		return rest_ensure_response( MMPS_Generator::generate( self::uid(), $root, (string) ( $params['programSpecialtyId'] ?? '' ), (string) ( $params['tier'] ?? 'ESSENTIAL' ), $others ) );
+	}
+
+	public static function run( $request ) {
+		$run = MMPS_Store::get_run( self::uid(), (string) $request['uuid'] );
+		if ( ! $run ) {
+			return new WP_Error( 'mmps_run_not_found', 'That generation run was not found.', array( 'status' => 404 ) );
+		}
+		$root = MMPS_Store::get_root( self::uid(), absint( $run['root_id'] ) );
+		return $root ? rest_ensure_response( MMPS_Generator::preview_from_stored( $run, $root ) ) : new WP_Error( 'mmps_root_not_found', 'The ROOT behind this run is unavailable.', array( 'status' => 409 ) );
+	}
+
+	/* ---------------- M3 durable batch ---------------- */
+
+	public static function batch_jobs() {
+		return rest_ensure_response( array( 'jobs' => MMPS_Batch::list_jobs( self::uid() ) ) );
+	}
+
+	public static function batch_create( $request ) {
+		$params = (array) $request->get_json_params();
+		$root   = MMPS_Store::get_root( self::uid(), absint( $params['rootId'] ?? 0 ) );
+		if ( ! $root ) {
+			return new WP_Error( 'mmps_root_not_found', 'That ROOT was not found for your account.', array( 'status' => 404 ) );
+		}
+		$result = MMPS_Batch::create( self::uid(), $root, (array) ( $params['programs'] ?? array() ) );
+		return is_wp_error( $result ) ? $result : rest_ensure_response( array( 'job' => $result ) );
+	}
+
+	public static function batch_job( $request ) {
+		$result = MMPS_Batch::get( self::uid(), (string) $request['uuid'] );
+		return is_wp_error( $result ) ? $result : rest_ensure_response( array( 'job' => $result ) );
+	}
+
+	public static function batch_process( $request ) {
+		$result = MMPS_Batch::process_next( self::uid(), (string) $request['uuid'] );
+		return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
+	}
+
+	public static function batch_item_run( $request ) {
+		$result = MMPS_Batch::preview_item( self::uid(), (string) $request['uuid'], (string) $request['item'] );
+		return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
+	}
+
+	public static function batch_item_tier( $request ) {
+		$params = (array) $request->get_json_params();
+		$result = MMPS_Batch::set_tier_and_queue( self::uid(), (string) $request['uuid'], (string) $request['item'], (string) ( $params['tier'] ?? 'ESSENTIAL' ) );
+		return is_wp_error( $result ) ? $result : rest_ensure_response( array( 'job' => $result ) );
+	}
+
+	protected static function approve_batch_item( $job_uuid, $item_uuid ) {
+		$preview = MMPS_Batch::preview_item( self::uid(), $job_uuid, $item_uuid );
+		if ( is_wp_error( $preview ) ) {
+			return $preview;
+		}
+		if ( 'OK' !== ( $preview['status'] ?? '' ) ) {
+			return new WP_Error( 'mmps_batch_item_not_ready', 'Only a clean generated item can be approved.', array( 'status' => 409 ) );
+		}
+		$internal = new WP_REST_Request( 'POST', '/' . MMPS_REST_NS . '/library' );
+		$internal->set_header( 'content-type', 'application/json' );
+		$internal->set_body( wp_json_encode( array( 'runId' => $preview['runId'], 'candidateId' => $preview['recommendedCandidateId'], 'status' => 'APPROVED' ) ) );
+		$response = self::save( $internal );
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+		$data = $response instanceof WP_REST_Response ? $response->get_data() : (array) $response;
+		$doc  = (array) ( $data['document'] ?? array() );
+		if ( empty( $doc['docUuid'] ) ) {
+			return new WP_Error( 'mmps_batch_approve', 'The approved document could not be resolved.', array( 'status' => 500 ) );
+		}
+		if ( 'APPROVED' !== ( $doc['status'] ?? '' ) ) {
+			MMPS_Store::set_document_status( self::uid(), $doc['docUuid'], 'APPROVED' );
+			$doc = MMPS_Store::get_document( self::uid(), $doc['docUuid'] );
+		}
+		MMPS_Batch::mark_approved( self::uid(), $job_uuid, $item_uuid, $doc['docUuid'] );
+		return $doc;
+	}
+
+	public static function batch_item_approve( $request ) {
+		$doc = self::approve_batch_item( (string) $request['uuid'], (string) $request['item'] );
+		return is_wp_error( $doc ) ? $doc : rest_ensure_response( array( 'document' => $doc, 'job' => MMPS_Batch::get( self::uid(), (string) $request['uuid'] ) ) );
+	}
+
+	public static function batch_approve_ready( $request ) {
+		$job = MMPS_Batch::get( self::uid(), (string) $request['uuid'] );
+		if ( is_wp_error( $job ) ) {
+			return $job;
+		}
+		$approved = array();
+		$errors   = array();
+		foreach ( (array) $job['items'] as $item ) {
+			if ( 'READY' !== $item['status'] || $item['approvedDocUuid'] ) {
+				continue;
+			}
+			$doc = self::approve_batch_item( $job['jobUuid'], $item['itemUuid'] );
+			if ( is_wp_error( $doc ) ) {
+				$errors[] = array( 'itemUuid' => $item['itemUuid'], 'code' => $doc->get_error_code() );
+			} else {
+				$approved[] = $doc['docUuid'];
+			}
+		}
+		return rest_ensure_response( array( 'approved' => count( $approved ), 'errors' => $errors, 'job' => MMPS_Batch::get( self::uid(), $job['jobUuid'] ) ) );
 	}
 
 	/**
@@ -477,6 +617,56 @@ class MMPS_Rest {
 		}
 		nocache_headers();
 		header( 'Content-Type: ' . $type );
+		header( 'Content-Disposition: attachment; filename="' . $name . '"' );
+		header( 'Content-Length: ' . strlen( $bytes ) );
+		header( 'X-Content-Type-Options: nosniff' );
+		header( 'X-Robots-Tag: noindex, nofollow' );
+		echo $bytes; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- binary download.
+		exit;
+	}
+
+	/** Selected or all-approved DOCX documents in one ZIP. */
+	public static function bulk_download( $request ) {
+		$params        = (array) $request->get_json_params();
+		$uuids         = array_slice( array_values( array_filter( array_map( 'strval', (array) ( $params['docUuids'] ?? array() ) ) ) ), 0, 100 );
+		$approved_only = ! empty( $params['allApproved'] );
+		$docs          = MMPS_Store::documents_for_export( self::uid(), $uuids, $approved_only );
+		if ( ! $docs ) {
+			return new WP_Error( 'mmps_bulk_empty', 'No documents matched this export.', array( 'status' => 422 ) );
+		}
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			return new WP_Error( 'mmps_docx_unsupported', 'This server cannot build a ZIP.', array( 'status' => 501 ) );
+		}
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		$tmp = wp_tempnam( 'mmps-bulk' );
+		$zip = new ZipArchive();
+		if ( true !== $zip->open( $tmp, ZipArchive::OVERWRITE ) ) {
+			return new WP_Error( 'mmps_bulk_write', 'The ZIP could not be created.', array( 'status' => 500 ) );
+		}
+		$manifest = array( 'MissionMed Program-Specific Personal Statements', 'Generated: ' . gmdate( 'c' ), 'Documents: ' . count( $docs ), '' );
+		foreach ( $docs as $doc ) {
+			$bytes = MMPS_Docx::bytes_from_paragraphs( MMPS_Region::split_text( $doc['fullText'] ) );
+			if ( is_wp_error( $bytes ) ) {
+				$zip->close();
+				@unlink( $tmp );
+				return $bytes;
+			}
+			$base = sanitize_file_name( preg_replace( '/[^A-Za-z0-9]+/', '_', $doc['specialtyLabel'] . '_PS_' . $doc['programName'] . '_v' . $doc['versionNumber'] ) );
+			$name = $base . '_' . substr( $doc['docUuid'], 0, 8 ) . '.docx';
+			$zip->addFromString( $name, $bytes );
+			$manifest[] = $name . ' | ' . $doc['status'] . ' | ' . $doc['programSpecialtyId'] . ' | ACGME ' . $doc['acgmeId'];
+		}
+		$zip->addFromString( 'MANIFEST.txt', implode( "\r\n", $manifest ) . "\r\n" );
+		$zip->close();
+		$bytes = file_get_contents( $tmp );
+		@unlink( $tmp );
+		MMPS_Store::audit( self::uid(), 'library_bulk_download', 'count:' . count( $docs ), array( 'count' => count( $docs ), 'sha256' => hash( 'sha256', $bytes ) ) );
+		$name = 'MissionMed_Program_Specific_PS_' . gmdate( 'Y-m-d' ) . '.zip';
+		if ( MMPS_Gate::testing() && ! empty( $params['inline'] ) ) {
+			return rest_ensure_response( array( 'fileName' => $name, 'documents' => count( $docs ), 'bytes' => strlen( $bytes ), 'sha256' => hash( 'sha256', $bytes ) ) );
+		}
+		nocache_headers();
+		header( 'Content-Type: application/zip' );
 		header( 'Content-Disposition: attachment; filename="' . $name . '"' );
 		header( 'Content-Length: ' . strlen( $bytes ) );
 		header( 'X-Content-Type-Options: nosniff' );

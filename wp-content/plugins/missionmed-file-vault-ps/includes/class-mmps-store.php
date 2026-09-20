@@ -144,6 +144,7 @@ class MMPS_Store {
 				'latency_ms'           => absint( $run['latency_ms'] ),
 				'tokens_in'            => absint( $run['tokens_in'] ),
 				'tokens_out'           => absint( $run['tokens_out'] ),
+				'idempotency_key'       => ! empty( $run['idempotency_key'] ) ? (string) $run['idempotency_key'] : null,
 				'created_at'           => self::now(),
 			)
 		);
@@ -155,6 +156,21 @@ class MMPS_Store {
 	public static function get_run( $user_id, $run_uuid ) {
 		global $wpdb;
 		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . MMPS_Install::table( 'runs' ) . ' WHERE run_uuid = %s AND user_id = %d', (string) $run_uuid, absint( $user_id ) ), ARRAY_A );
+		if ( ! $row ) {
+			return null;
+		}
+		$row['bundle']     = self::decode( $row['bundle_json'] );
+		$row['output']     = self::decode( $row['output_json'] );
+		$row['validation'] = self::decode( $row['validation_json'] );
+		return $row;
+	}
+
+	public static function get_run_by_idempotency( $user_id, $idempotency_key ) {
+		global $wpdb;
+		if ( '' === (string) $idempotency_key ) {
+			return null;
+		}
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . MMPS_Install::table( 'runs' ) . ' WHERE idempotency_key = %s AND user_id = %d', (string) $idempotency_key, absint( $user_id ) ), ARRAY_A );
 		if ( ! $row ) {
 			return null;
 		}
@@ -201,6 +217,24 @@ class MMPS_Store {
 			$out[] = self::shape_document( $row, false );
 		}
 		return $out;
+	}
+
+	/** Owner-scoped complete documents for selected/bulk export. */
+	public static function documents_for_export( $user_id, $uuids = array(), $approved_only = false ) {
+		global $wpdb;
+		$uuids = array_values( array_unique( array_filter( array_map( 'strval', (array) $uuids ) ) ) );
+		$where = $wpdb->prepare( 'user_id = %d', absint( $user_id ) );
+		if ( $approved_only ) {
+			$where .= " AND status = 'APPROVED'";
+		}
+		if ( $uuids ) {
+			$marks  = implode( ',', array_fill( 0, count( $uuids ), '%s' ) );
+			$where .= $wpdb->prepare( " AND doc_uuid IN ($marks)", $uuids ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders are generated, values prepared.
+		}
+		$rows = $wpdb->get_results( 'SELECT * FROM ' . MMPS_Install::table( 'library' ) . ' WHERE ' . $where . ' ORDER BY specialty_label,program_name,version_number DESC LIMIT 250', ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- owner/status/uuid predicates are prepared above.
+		return array_map( function ( $row ) {
+			return self::shape_document( $row, true );
+		}, (array) $rows );
 	}
 
 	public static function set_document_status( $user_id, $doc_uuid, $status ) {
