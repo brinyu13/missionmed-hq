@@ -26,6 +26,7 @@ import { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mj
 import { createLiveContext } from './live-context-adapter.mjs';
 import { AdminStudentLibraryCapability } from '../capabilities/admin-student-library.mjs';
 import { InterviewCalendarCapability } from '../capabilities/calendar-context.mjs';
+import { projectContextResults } from '../capabilities/context-results.mjs';
 import { LiveMockStudioCapability } from '../capabilities/live-mock-studio.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -2491,6 +2492,65 @@ function renderContextEvidence(result) {
     note.className = 'unavailable';
     note.textContent = `CONTEXT ANALYSIS UNAVAILABLE — ${String(analysis?.reason || 'NO SUPPORTED OBSERVATIONS').toUpperCase().slice(0, 120)}`;
     host.append(note);
+  }
+  const assessment = projectContextResults(result);
+  if (assessment.status === 'AVAILABLE') {
+    const label = document.createElement('div');
+    label.className = 'microcap';
+    label.textContent = 'Evidence-grounded debrief';
+    const grid = document.createElement('div');
+    grid.className = 'context-assessment-grid';
+    const cards = [
+      ['Strongest supported moment', assessment.strongest, 'strength'],
+      ['Highest-value improvement', assessment.improvement, 'improvement'],
+      ['Next drill', assessment.drill, 'drill'],
+    ];
+    for (const [title, item, tone] of cards) {
+      const card = document.createElement('article');
+      card.className = 'context-assessment-card';
+      card.dataset.tone = tone;
+      const heading = document.createElement('span');
+      heading.className = 'microcap';
+      heading.textContent = title;
+      const facet = document.createElement('strong');
+      facet.textContent = item?.facetLabel || 'Not supported yet';
+      const copy = document.createElement('p');
+      copy.textContent = item?.text || 'This answer does not contain enough cited evidence for this claim.';
+      card.append(heading, facet, copy);
+      if (item?.refs?.length) {
+        const refs = document.createElement('span');
+        refs.className = 'context-assessment-refs';
+        refs.textContent = `Evidence · ${item.refs.join(', ')}`;
+        card.append(refs);
+      }
+      grid.append(card);
+    }
+    const confidence = document.createElement('article');
+    confidence.className = 'context-assessment-card context-confidence';
+    const confidenceHeading = document.createElement('span');
+    confidenceHeading.className = 'microcap';
+    confidenceHeading.textContent = 'Confidence and limits';
+    const confidenceValue = document.createElement('strong');
+    confidenceValue.textContent = `${assessment.confidence.label} · ${Math.round(assessment.confidence.score * 100)}% SCORE · ${Math.round(assessment.confidence.coverage * 100)}% COVERAGE`;
+    const confidenceCopy = document.createElement('p');
+    confidenceCopy.textContent = assessment.confidence.limitations.length
+      ? assessment.confidence.limitations.join(' · ')
+      : 'No additional provider limitation was returned; every claim still remains bounded to the cited transcript spans.';
+    confidence.append(confidenceHeading, confidenceValue, confidenceCopy);
+    host.append(label, grid, confidence);
+
+    for (const [selector, item] of [['#post-worked', assessment.strongest], ['#post-fix', assessment.improvement]]) {
+      if (!item) continue;
+      const summaryHost = $(selector);
+      if (!summaryHost) continue;
+      const summary = document.createElement('div');
+      summary.className = 'empty-state';
+      const heading = document.createElement('strong');
+      heading.textContent = item.facetLabel;
+      const copy = document.createTextNode(`${item.text} · ${item.refs.join(', ')}`);
+      summary.append(heading, copy);
+      summaryHost.replaceChildren(summary);
+    }
   }
   const privacy = document.createElement('p');
   privacy.className = 'microcap';
