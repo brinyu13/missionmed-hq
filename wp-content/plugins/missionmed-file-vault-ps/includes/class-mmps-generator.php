@@ -322,6 +322,23 @@ class MMPS_Generator {
 		return false;
 	}
 
+	/**
+	 * Remove required program-name forms before comparing rhetorical diversity.
+	 *
+	 * Every valid candidate must name the program. Long formal names can exceed
+	 * the copied-scaffold window by themselves, so comparing the raw paragraphs
+	 * makes five genuinely different candidates fail simply for satisfying the
+	 * same naming requirement. Evidence validation still runs against the
+	 * original text; this normalization is used only for set-level diversity.
+	 */
+	protected static function candidate_diversity_text( $text, $bundle ) {
+		$forms = array_filter( array_map( 'strval', (array) ( $bundle['nameForms'] ?? array() ) ) );
+		usort( $forms, function ( $left, $right ) {
+			return mb_strlen( $right ) - mb_strlen( $left );
+		} );
+		return str_ireplace( $forms, ' program_identity ', self::plain( (string) $text ) );
+	}
+
 	public static function validate_candidate_set( $out, $bundle, $plan, $root, $other_program_ids = array() ) {
 		$blocking   = array();
 		$advisory   = array();
@@ -351,8 +368,8 @@ class MMPS_Generator {
 		}
 		for ( $i = 0; $i < count( $candidates ); $i++ ) {
 			for ( $j = $i + 1; $j < count( $candidates ); $j++ ) {
-				$left       = (string) ( $candidates[ $i ]['replacement_region'] ?? '' );
-				$right      = (string) ( $candidates[ $j ]['replacement_region'] ?? '' );
+				$left       = self::candidate_diversity_text( (string) ( $candidates[ $i ]['replacement_region'] ?? '' ), $bundle );
+				$right      = self::candidate_diversity_text( (string) ( $candidates[ $j ]['replacement_region'] ?? '' ), $bundle );
 				$similarity = self::candidate_similarity( $left, $right );
 				$opening    = self::candidate_similarity( self::candidate_opening( $left ), self::candidate_opening( $right ) );
 				if ( $similarity > 0.62 || $opening > 0.55 || self::candidate_has_shared_phrase( $left, $right ) ) {

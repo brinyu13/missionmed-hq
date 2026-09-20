@@ -62,7 +62,7 @@
  {
   "name": "bootstrap ok",
   "pass": true,
-  "detail": "{\"version\":\"0.2.0\",\"user\":{\"id\":3,\"name\":\"\\u00c9mile Corridor\"},\"gate\":{\"mode\":\"allowlist\",\"testing\":true},\"provider\":{\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"configured\":true,\"simulato"
+  "detail": "{\"version\":\"0.2.1\",\"user\":{\"id\":3,\"name\":\"\\u00c9mile Corridor\"},\"gate\":{\"mode\":\"allowlist\",\"testing\":true},\"provider\":{\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"configured\":true,\"simulato"
  },
  {
   "name": "bootstrap: privacy gate closed by default",
@@ -167,7 +167,7 @@
  {
   "name": "FV ROOT v1 read + parsed",
   "pass": true,
-  "detail": "{\"root\":{\"id\":1,\"specialtyLabel\":\"Internal Medicine\",\"sourceKind\":\"FILE_VAULT\",\"isSynthetic\":false,\"fvFileId\":1,\"fvVersionNumber\":1,\"fvVersionUuid\":\"172b1250-bcf7-40c0-b241-4b3945651181\",\"rootLabel\":\""
+  "detail": "{\"root\":{\"id\":1,\"specialtyLabel\":\"Internal Medicine\",\"sourceKind\":\"FILE_VAULT\",\"isSynthetic\":false,\"fvFileId\":1,\"fvVersionNumber\":1,\"fvVersionUuid\":\"6b3351c2-1794-40fb-a330-df6ce90b4d2b\",\"rootLabel\":\""
  },
  {
   "name": "FV ROOT v2 (not verified clean) refused",
@@ -227,7 +227,7 @@
  {
   "name": "ESSENTIAL output succeeds",
   "pass": true,
-  "detail": "{\"runId\":\"c83fe188-e1e4-469e-849b-2640a54eb51c\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"prog"
+  "detail": "{\"runId\":\"af912fc2-84ad-48c5-af24-5f8af2eec7fc\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"prog"
  },
  {
   "name": "ESSENTIAL: five distinct choices with an explicit recommended default",
@@ -252,7 +252,7 @@
  {
   "name": "DEEP output succeeds with verified deep facts",
   "pass": true,
-  "detail": "{\"runId\":\"7e834844-9b60-44b9-882c-9a5680281bb0\",\"status\":\"OK\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Cente"
+  "detail": "{\"runId\":\"511e1ba2-1f1b-44b2-9f3b-6f282ee3a844\",\"status\":\"OK\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Cente"
  },
  {
   "name": "DEEP: 2-3 deep facts, preference-matched (cardiology fellowship chosen; planned GI never)",
@@ -272,7 +272,7 @@
  {
   "name": "unsupported DEEP -> Research Needed, AI never called, nothing invented",
   "pass": true,
-  "detail": "{\"runId\":\"b15afcb1-3629-418f-a9ea-9db40154916a\",\"status\":\"RESEARCH_NEEDED\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP_RESEARCH_NEEDED\",\"strategy\":\"\",\"provider\":\"none\",\"model\":\"\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_thin_002\",\"acgmeId\":\"1403821002\",\"programName\":\"Riverbend Communit"
+  "detail": "{\"runId\":\"353c90e4-733a-4cc8-9fdc-f555e15dbee4\",\"status\":\"RESEARCH_NEEDED\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP_RESEARCH_NEEDED\",\"strategy\":\"\",\"provider\":\"none\",\"model\":\"\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_thin_002\",\"acgmeId\":\"1403821002\",\"programName\":\"Riverbend Communit"
  },
  {
   "name": "research prompt (planned UX): program data only, flagged as not built",
@@ -282,7 +282,7 @@
  {
   "name": "regenerate creates a fresh validated five-choice run without overwriting the prior run",
   "pass": true,
-  "detail": "7e834844-9b60-44b9-882c-9a5680281bb0 -> 5164f990-01af-4fed-8289-f0d0da5ad66a"
+  "detail": "511e1ba2-1f1b-44b2-9f3b-6f282ee3a844 -> 2c1f893f-6bcf-43a3-ba41-9abb858365c7"
  },
  {
   "name": "hallucination on attempt 1 is caught, revised on attempt 2",
@@ -337,7 +337,7 @@
  {
   "name": "INSERT mode: 7 paragraphs, all 6 ROOT paragraphs unchanged",
   "pass": true,
-  "detail": "{\"runId\":\"5bd266a6-fc8c-4a8e-ad32-16ce4f1de854\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"prog"
+  "detail": "{\"runId\":\"7bfe8ad2-a6c9-47e1-849a-971279b87b77\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"prog"
  },
  {
   "name": "region changed after generation -> save refused (409)",
@@ -352,7 +352,7 @@
  {
   "name": "save selected alternative as complete PS with candidate provenance",
   "pass": true,
-  "detail": "{\"document\":{\"docUuid\":\"2c393917-ad89-4e92-9bd1-ff261b68ea0d\",\"rootId\":2,\"specialtyLabel\":\"Internal Medicine\",\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Center\",\"city\":\"Rochest"
+  "detail": "{\"document\":{\"docUuid\":\"6e4d48ff-6550-4155-bc1b-9285bfcb56b0\",\"rootId\":2,\"specialtyLabel\":\"Internal Medicine\",\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Center\",\"city\":\"Rochest"
  },
  {
   "name": "save is idempotent per run",
@@ -427,7 +427,7 @@
  {
   "name": "no posts, users or user meta created",
   "pass": true,
-  "detail": "[{\"fv\":\"3\",\"fvsum\":\"8a99814c8c3dadd23cb5989c3a68d82e\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"},{\"fv\":\"3\",\"fvsum\":\"8a99814c8c3dadd23cb5989c3a68d82e\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"}]"
+  "detail": "[{\"fv\":\"3\",\"fvsum\":\"ce1a36033e0e78865f3560340e26b4c0\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"},{\"fv\":\"3\",\"fvsum\":\"ce1a36033e0e78865f3560340e26b4c0\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"}]"
  },
  {
   "name": "only namespaced prototype tables exist besides the stub FV table",
@@ -497,6 +497,6 @@
  {
   "name": "simulator output is labelled SIMULATED and still passes integrity",
   "pass": true,
-  "detail": "{\"runId\":\"72b2cf74-dad5-4847-9d8d-43303b3172ed\",\"status\":\"NEEDS_ATTENTION\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"simulator\",\"model\":\"offline-simulator\",\"simulated\":true,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"14019310"
+  "detail": "{\"runId\":\"68ea7000-2df5-4d1d-8703-2aa4dcfb179d\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"simulator\",\"model\":\"offline-simulator\",\"simulated\":true,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"programN"
  }
 ]

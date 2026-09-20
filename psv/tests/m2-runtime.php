@@ -117,6 +117,25 @@ $sharedOpening['candidates'][1]['replacement_region'] = implode(' ', wp_list_plu
 $sharedOpeningCheck = MMPS_Generator::validate_candidate_set($sharedOpening, $bundle, $plan, $root);
 check(in_array('CANDIDATES_TOO_SIMILAR', wp_list_pluck($sharedOpeningCheck['blocking'], 'code'), true), 'shared opening scaffold is blocked even when the remaining wording differs');
 
+$longName = 'HCA Florida Healthcare University School of Medicine Graduate Medical Education Tampa South Brandon Hospital Program';
+$longBundle = $bundle;
+$longBundle['program']['programName'] = $longName;
+$longBundle['program']['institution'] = 'HCA Florida Healthcare University School of Medicine';
+$longBundle['nameForms'] = array($longName);
+$longPlan = $plan;
+$longPlan['allowedFacts'][0]['text'] = 'The program is ' . $longName . '.';
+$longNameSet = $set;
+foreach ($longNameSet['candidates'] as &$candidate) {
+	$candidate['replacement_region'] = str_replace('Lakeview Internal Medicine Residency', $longName, $candidate['replacement_region']);
+	foreach ($candidate['segments'] as &$segment) {
+		$segment['text'] = str_replace('Lakeview Internal Medicine Residency', $longName, $segment['text']);
+	}
+	unset($segment);
+}
+unset($candidate);
+$longNameCheck = MMPS_Generator::validate_candidate_set($longNameSet, $longBundle, $longPlan, $root);
+check(empty($longNameCheck['blocking']), 'required long program name is excluded from copied-scaffold diversity checks');
+
 $select = new ReflectionMethod(MMPS_Generator::class, 'with_selected_candidate');
 if (PHP_VERSION_ID < 80100) { $select->setAccessible(true); }
 $badOutput = $select->invoke(null, $duplicate, 'BALANCED_QUIET_SPECIFIC');
