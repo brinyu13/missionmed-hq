@@ -7,6 +7,21 @@ function response(body, status = 200) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
 }
 
+test('default browser fetch keeps its required global receiver', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = function boundBrowserFetch() {
+    assert.equal(this, globalThis);
+    return Promise.resolve(response({ ok: true, data: { appointments: [] } }));
+  };
+  try {
+    const capability = new LiveMockStudioCapability();
+    const queue = await capability.adminQueue();
+    assert.deepEqual(queue.appointments, []);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('Live Mock Studio projects the Scheduler owner queue without provider secrets', async () => {
   const calls = [];
   const capability = new LiveMockStudioCapability({ fetchImpl: async (url, init) => {

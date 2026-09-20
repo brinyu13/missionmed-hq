@@ -38,9 +38,11 @@ async function json(response) {
  * direct-download URL, or IVOC media claim crosses this boundary.
  */
 export class LiveMockStudioCapability {
-  constructor({ fetchImpl = globalThis.fetch, base = '/api/scheduler' } = {}) {
-    if (typeof fetchImpl !== 'function') throw new TypeError('Live Mock Studio requires fetch.');
-    this.fetchImpl = fetchImpl;
+  constructor({ fetchImpl, base = '/api/scheduler' } = {}) {
+    const resolvedFetch = fetchImpl
+      || (typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : null);
+    if (typeof resolvedFetch !== 'function') throw new TypeError('Live Mock Studio requires fetch.');
+    this.fetchImpl = resolvedFetch;
     this.base = String(base || '/api/scheduler').replace(/\/$/u, '');
   }
 
@@ -75,4 +77,3 @@ export class LiveMockStudioCapability {
     });
   }
 }
-
