@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 13:14 America/New_York
+Updated: 2026-09-20 13:44 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,16 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `86c641ac-8c77-4b9f-883d-28a02d80247e`, exact commit
-  `6d28af1a6cc39f466c0893d0703b955e690961aa`, image
-  `sha256:e9c4664bd7abb7549658b16327a8af2266a38fb8dcf706330be1ccb9042bac4a`.
+  `d5917341-5802-46f4-8aa2-a83d8c15e488`, exact commit
+  `268cd4be2265e7cd1ee6b05247ab5e148312a260`, image
+  `sha256:4c41234f00b0025ad0878974367a857d284e4d70628edfee7b880bec595bcf53`.
+- Admin operational-control presentation: `268cd4be2265e7cd1ee6b05247ab5e148312a260`.
+  The existing candidate.2 Mentor & Admin surface now consumes the versioned
+  Admin-config, authenticated credit-account and governed-question adapters,
+  while showing Match Bridge, Live Mock, owner-projection and LemonSlice states
+  without inventing availability. The Admin-only boundary passed focused tests
+  and local browser acceptance; authenticated production visual traversal is
+  still required before the row is promoted to LIVE VERIFIED.
 - GPT-Live presentation boundary extraction: `feb19f06651c7d9da27d930cf5495b218f9625ab`.
   The proven browser WebRTC transport now lives in
   `public/capabilities/live-interview.mjs`; the active presentation imports that
@@ -153,7 +160,7 @@ the actual production route and deployment.
 | 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE UNVERIFIED | Role-aware source exists; live actor/subject separation proof remains. |
 | 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Versioned Top 3 write/read/redaction and Context Pack binding are production accepted. Student selector and full production Admin traversal remain. |
-| 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE UNVERIFIED | Question governance, versioned Analytics/InterviewBrain/AIS/pressure/default-credit configuration, per-user credit accounting, and the owner-consented Match Bridge clip lifecycle are production accepted. Consolidated Settings presentation and Live Mock status remain. |
+| 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE UNVERIFIED | Deployment `d5917341…` now exposes the authenticated versioned configuration, current credit account, governed catalog count, Match Bridge readiness and an honest `NOT CONNECTED` Live Mock state through the candidate.2 Admin surface. The underlying controls and clip lifecycle are production accepted; authenticated production visual traversal remains. |
 | 14 | Versioned question governance | LIVE VERIFIED | Genuine `brinyu` production canary `CANARY-ADMIN-20260920-E92A09` completed active v1 → edited v2 → hidden v3 → retired v4 with immutable `wp:1` actor-stamped history. Stale version and retired-reactivation writes fail fast at HTTP 409; the retry-class SQLSTATE defect found during the canary was corrected by `ivoc_question_governance_fail_fast`. |
 | 14 | Credits, allowances, overrides, reset and balance | LIVE VERIFIED | Genuine `brinyu` production acceptance exercised allowance, override, atomic server-only consumption, idempotent replay, insufficient-balance denial, reset and zero-balance restoration. The authenticated Admin API advanced `wp:1` from v6 through v11, owner readback returned zero, and a stale write failed at HTTP 409. Eleven append-only events remain actor-stamped `wp:1`; browser clients cannot invoke consumption. |
 | 14 | Versioned Analytics/InterviewBrain/coaching controls | LIVE VERIFIED | Genuine `brinyu` production writes created bounded v2 and restored-baseline v3 with stale-write HTTP 409. Session `66a60fec-398f-413b-a74c-3d0d8d3168da` pinned Admin config v2, `ivoc.analytics.v1`, `gpt-live-1:marin`, AIS `2026-09-18.1`, and follow-up intensity 2; the active configuration is restored v3. |
@@ -174,8 +181,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `86c641ac-8c77-4b9f-883d-28a02d80247e` from exact product commit
-  `6d28af1a6cc39f466c0893d0703b955e690961aa`; `/health` is HTTP 200, the
+  `d5917341-5802-46f4-8aa2-a83d8c15e488` from exact product commit
+  `268cd4be2265e7cd1ee6b05247ab5e148312a260`; `/health/lor-studio` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
