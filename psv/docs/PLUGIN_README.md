@@ -4,8 +4,9 @@ An isolated, allowlisted vertical slice of the Program-Specific Personal Stateme
 
 - **Owns nothing it should not.** File Vault owns PS documents; RISE owns program intelligence. This module reads both, writes to neither, and keeps its outputs in its own four tables.
 - **Entry:** File Vault → launcher "Personal Statements · Program-Specific PS" (allowlisted users only) → `/?mmed_ps_proto=1`.
-- **Flow:** ROOT → confirm region → preferences → RISE programs → Essential or Deep → generate → preview with diff, facts and sources → save → download.
-- **Contract:** `contracts/program-evidence-bundle.v1.schema.json`; manifest in `docs/INTEGRATION_COMPATIBILITY_MANIFEST.md` (both live beside the plugin in the handoff package and in the repository, never in the deployed directory).
+- **Flow:** ROOT → confirm region → preferences → RISE programs → Essential or Deep → generate five evidence-bounded rhetorical alternatives → use the recommended default or preview another choice → reconstruct the complete PS → save → download.
+- **Writing boundary:** the complete ROOT is sent as read-only editorial context. The provider returns replacement-region candidates only; the server resolves the chosen candidate and reconstructs the document while proving every protected ROOT paragraph is unchanged.
+- **Contracts:** `contracts/program-evidence-bundle.v1.schema.json` and `contracts/generation-candidate-set.v2.schema.json`; manifest in `docs/INTEGRATION_COMPATIBILITY_MANIFEST.md` (all live beside the plugin in the handoff package and in the repository, never in the deployed directory).
 - **Deploy, disable, rollback:** `docs/DEPLOY_AND_ROLLBACK.md`.
 
 | Path | Role |
@@ -17,7 +18,7 @@ An isolated, allowlisted vertical slice of the Program-Specific Personal Stateme
 | `includes/class-mmps-region.php` | region detection, reconstruction, protected-text proof |
 | `includes/class-mmps-rise-client.php`, `class-mmps-evidence-bundle.php` | replaceable RISE transport + ProgramEvidenceBundle v1 projection |
 | `includes/class-mmps-tiers.php` | preferences, Essential / Deep / Deep research needed |
-| `includes/class-mmps-provider.php`, `class-mmps-generator.php` | AI adapter (store:false, strict schema), prompt, strategies, deterministic validators, privacy gate |
+| `includes/class-mmps-provider.php`, `class-mmps-generator.php` | AI adapter (store:false, strict schema), complete-ROOT read-only prompt, five-strategy candidate set, deterministic evidence/diversity validators, privacy gate |
 | `includes/class-mmps-rest.php`, `class-mmps-page.php` | REST `mmed-ps-proto/v1`; standalone page with strict CSP; File Vault launcher |
 | `assets/` | UI in the StoryForge / RISE token family; no external requests |
 

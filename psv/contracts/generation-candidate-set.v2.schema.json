@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "missionmed.ps.candidate-set.v2",
+  "title": "Program-specific region candidate set v2",
+  "description": "Five evidence-bounded rhetorical alternatives generated from the complete read-only ROOT. Only one selected replacement region may be reconstructed and saved; protected ROOT paragraphs remain immutable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["recommended_candidate_id", "candidates"],
+  "properties": {
+    "recommended_candidate_id": {
+      "enum": ["TRAINING_ENVIRONMENT", "STUDENT_GOAL_FORWARD", "RESEARCH_FELLOWSHIP", "LOCATION_PROGRAM_TYPE", "BALANCED_QUIET_SPECIFIC"]
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "replacement_region", "segments", "facts_used", "strategy", "rhetorical_focus", "self_check"],
+        "properties": {
+          "candidate_id": { "enum": ["TRAINING_ENVIRONMENT", "STUDENT_GOAL_FORWARD", "RESEARCH_FELLOWSHIP", "LOCATION_PROGRAM_TYPE", "BALANCED_QUIET_SPECIFIC"] },
+          "replacement_region": { "type": "string" },
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["text", "kind", "fact_ids"],
+              "properties": {
+                "text": { "type": "string" },
+                "kind": { "enum": ["program_fact", "student_link", "connective"] },
+                "fact_ids": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "facts_used": { "type": "array", "items": { "type": "string" } },
+          "strategy": { "enum": ["TRAINING_ENVIRONMENT", "STUDENT_GOAL_FORWARD", "RESEARCH_FELLOWSHIP", "LOCATION_PROGRAM_TYPE", "BALANCED_QUIET_SPECIFIC"] },
+          "rhetorical_focus": { "type": "string" },
+          "self_check": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name_swap_would_still_work", "possible_unsupported_claims", "generic_phrases"],
+            "properties": {
+              "name_swap_would_still_work": { "type": "boolean" },
+              "possible_unsupported_claims": { "type": "array", "items": { "type": "string" } },
+              "generic_phrases": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

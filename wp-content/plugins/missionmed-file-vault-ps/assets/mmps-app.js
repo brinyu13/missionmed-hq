@@ -24,7 +24,7 @@
 		{ key: 'other', title: 'Other differentiators', hint: 'Anything else RISE might hold evidence for.', options: [] }
 	];
 	var STATES = { AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', DC: 'District of Columbia', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', PR: 'Puerto Rico', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming' };
-	var STRATEGY = { TRAINING_ENVIRONMENT_FIRST: 'Training environment first', BRIDGE_FROM_EXPERIENCE: 'Bridge from experience', GOAL_FORWARD: 'Goal forward', QUIET_SPECIFIC: 'Quiet and specific', PLACE_AND_PEOPLE: 'Place and people' };
+	var STRATEGY = { TRAINING_ENVIRONMENT: 'Training environment', STUDENT_GOAL_FORWARD: 'Your goals first', RESEARCH_FELLOWSHIP: 'Research or fellowship', LOCATION_PROGRAM_TYPE: 'Location and program setting', BALANCED_QUIET_SPECIFIC: 'Balanced and quietly specific', TRAINING_ENVIRONMENT_FIRST: 'Training environment first', BRIDGE_FROM_EXPERIENCE: 'Bridge from experience', GOAL_FORWARD: 'Goal forward', QUIET_SPECIFIC: 'Quiet and specific', PLACE_AND_PEOPLE: 'Place and people' };
 	var MAX_PROGRAMS = 5;
 
 	var S = {
@@ -183,6 +183,20 @@
 			S.runs[id] = data; delete S.prompt[id]; busy('gen:' + id, false); return data;
 		}).catch(function (e) { busy('gen:' + id, false); fail(e); throw e; });
 	}
+	function selectCandidate(run, candidateId) {
+		var chosen = (run.candidates || []).filter(function (candidate) { return candidate.candidateId === candidateId; })[0];
+		if (!chosen || !chosen.canApprove) { toast('That alternative did not pass every server-side check.', 'err'); return; }
+		run.selectedCandidateId = chosen.candidateId;
+		run.strategy = chosen.strategy;
+		run.replacement = chosen.replacement;
+		run.segments = chosen.segments;
+		run.paragraphs = chosen.paragraphs;
+		run.facts = chosen.facts;
+		run.selectedValidation = chosen.validation;
+		run.rootIntegrity = chosen.rootIntegrity;
+		run.canApprove = chosen.canApprove;
+		render();
+	}
 	function generateAll() {
 		var queue = S.selected.filter(function (id) { return !S.runs[id]; });
 		busy('all', true);
@@ -194,7 +208,7 @@
 	function save(status) {
 		var run = S.runs[S.current];
 		busy('save', true);
-		api('POST', '/library', { runId: run.runId, status: status }).then(function (data) {
+		api('POST', '/library', { runId: run.runId, candidateId: run.selectedCandidateId || run.recommendedCandidateId || run.strategy, status: status }).then(function (data) {
 			run.saved = data.document; busy('save', false);
 			toast(data.alreadySaved ? 'This run is already in your prototype library.' : 'Saved to your prototype library as ' + data.document.status + '.', 'ok');
 			refreshBoot();
@@ -391,6 +405,12 @@
 		if (!run) { return html + '<div class="notice mt">Generate at least one program first.</div>'; }
 		html += '<div class="chips mtS">' + ids.map(function (id) { return '<button class="chip' + (id === S.current ? ' on' : '') + '" data-act="open-run" data-id="' + esc(id) + '">' + esc(programLabel(S.runs[id].program)) + '</button>'; }).join('') + '</div>';
 		if (run.status === 'RESEARCH_NEEDED') { return html + researchNeeded(run); }
+		if (run.candidates && run.candidates.length) {
+			html += '<section class="candidatePanel mt" aria-labelledby="candidate-heading"><div class="spread"><div><div class="eyebrow">Writing choices</div><div class="h2" id="candidate-heading">Choose the paragraph that sounds most like you</div></div><span class="tag">' + run.candidates.length + ' distinct approaches</span></div><p class="small mid mtS">The recommended choice is the strongest unattended default. Alternatives change the rhetorical emphasis, not just the wording.</p><div class="candidateChoices mtS" role="radiogroup" aria-label="Program-specific paragraph alternatives">' + run.candidates.map(function (candidate, index) {
+				var selected = candidate.candidateId === run.selectedCandidateId;
+				return '<button class="candidateChoice' + (selected ? ' on' : '') + '" role="radio" aria-checked="' + (selected ? 'true' : 'false') + '" data-act="select-candidate" data-candidate="' + esc(candidate.candidateId) + '"' + (candidate.canApprove ? '' : ' disabled') + '><span class="candidateNumber">' + (index + 1) + '</span><span><strong>' + esc(STRATEGY[candidate.strategy] || candidate.strategy) + '</strong>' + (candidate.isRecommended ? ' <span class="tag gold">Recommended</span>' : ' <span class="tag">Alternative</span>') + '<br><span class="small mid">' + esc(candidate.rhetoricalFocus) + '</span></span></button>';
+			}).join('') + '</div></section>';
+		}
 		var flags = (run.validation.blocking || []).map(function (f) { return '<div class="flag block"><strong>' + esc(f.code) + '</strong><span>' + esc(f.message) + '</span></div>'; }).join('') + (run.validation.advisory || []).map(function (f) { return '<div class="flag adv"><strong>' + esc(f.code) + '</strong><span>' + esc(f.message) + '</span></div>'; }).join('');
 		if (!flags) { flags = '<div class="flag good"><strong>PASS</strong><span>Every program claim cites a supplied RISE fact. No unsupported names or numbers.</span></div>'; }
 		var paper = '<div class="paper">';
@@ -474,6 +494,7 @@
 		else if (act === 'generate-essential') { S.tiers[id] = 'ESSENTIAL'; generate(id, 'ESSENTIAL').then(function () { render(); }, function () {}); }
 		else if (act === 'generate-all') { generateAll(); }
 		else if (act === 'open-run') { S.current = id; go('preview'); }
+		else if (act === 'select-candidate') { selectCandidate(S.runs[S.current], el.getAttribute('data-candidate')); }
 		else if (act === 'save') { save(el.getAttribute('data-status')); }
 		else if (act === 'research-prompt') { researchPrompt(id); }
 		else if (act === 'copy-prompt') { copyText(S.prompt[id] || ''); }

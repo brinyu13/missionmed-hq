@@ -3,6 +3,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 
+const HARNESS_ROOT = process.env.MMPS_HARNESS_ROOT || '/home/claude/wpdev';
+
 const day = 86400000, iso = (d) => new Date(Date.now() - d * day).toISOString();
 const claim = (value, ageDays = 40) => ({ knowledge: { state: 'known', value }, claimId: 'clm_' + Buffer.from(String(value)).toString('hex').slice(0, 10), authority: 'REGISTRY_IMPORT', sourceUrl: '', retrievedAt: iso(ageDays), contentSha256: 'a'.repeat(64) });
 const rec = (id, acgme, programName, institution, city, state, type, pd, pdAge = 40, srcAge = 40) => ({
@@ -77,22 +79,53 @@ http.createServer((req, res) => {
     const name = payload.program.programName, loc = by('Location'), type = by('Program type'), pd = by('Program director');
     const deep = F.filter(f => f.category !== 'identity');
     const bad = mode === 'hallucinate-always' || (mode === 'hallucinate-once' && !payload.revision_notes);
-    const segs = [];
-    const open = { TRAINING_ENVIRONMENT_FIRST: 'The training I am looking for puts residents in charge of their own patients from the first month.', BRIDGE_FROM_EXPERIENCE: 'The man who could not afford his diuretic is the reason I read residency websites the way I do.', GOAL_FORWARD: 'I want to become a cardiologist who still thinks like a general internist.', QUIET_SPECIFIC: 'I have tried to be specific about what I need from the next three years.', PLACE_AND_PEOPLE: 'Where I train matters to me as much as how.' }[payload.strategy.key] || 'I have thought carefully about where to train.';
-    segs.push({ text: open, kind: 'student_link', fact_ids: [] });
-    const idIds = [by('Program name'), loc, type].filter(Boolean).map(f => f.fact_id);
-    segs.push({ text: `${name}${loc ? ', in ' + loc.text.replace(/^The program is located in /, '').replace(/\.$/, '') : ''}, fits that description.`, kind: 'program_fact', fact_ids: idIds });
-    for (const f of deep) segs.push({ text: `I was drawn to this detail in particular: ${f.text.replace(/\.$/, '')}.`, kind: 'program_fact', fact_ids: [f.fact_id] });
-    if (pd && payload.strategy.key !== 'QUIET_SPECIFIC') segs.push({ text: `${pd.text.replace(/^The current program director is /, 'The program is led by ')}`, kind: 'program_fact', fact_ids: [pd.fact_id] });
-    if (bad) { segs.push({ text: 'With 42 residents per class and the mentorship of Dr. Alan Whitmore, it is better than any other option.', kind: 'program_fact', fact_ids: [] }); }
-    segs.push({ text: 'I would bring the same habit of measuring a gap, closing it and checking that it stayed closed.', kind: 'student_link', fact_ids: [] });
-    const out = { replacement_region: segs.map(s => s.text).join(' '), segments: segs, facts_used: [...new Set(segs.flatMap(s => s.fact_ids))], strategy: payload.strategy.key, self_check: { name_swap_would_still_work: false, possible_unsupported_claims: [], generic_phrases: [] } };
+    const openings = {
+      TRAINING_ENVIRONMENT: 'I learn best when close observation, direct feedback, and shared responsibility turn uncertainty into better clinical judgment.',
+      STUDENT_GOAL_FORWARD: 'I want residency to make me the kind of internist who can connect careful decisions with practical improvement for patients.',
+      RESEARCH_FELLOWSHIP: 'My quality work taught me that inquiry matters most when its answer changes what happens at the bedside.',
+      LOCATION_PROGRAM_TYPE: 'Where I train will shape which needs I learn to see and how I understand the community around each patient.',
+      BALANCED_QUIET_SPECIFIC: 'I am looking for a place where thoughtful care and steady growth remain connected in the ordinary work of residency.'
+    };
+    const closings = {
+      TRAINING_ENVIRONMENT: 'I would contribute curiosity, steadiness, and a willingness to revise my habits as the work asks more of me.',
+      STUDENT_GOAL_FORWARD: 'I would carry that goal forward by listening first, asking useful questions, and remaining accountable for what follows.',
+      RESEARCH_FELLOWSHIP: 'That discipline would let me keep investigation close to the relationships that give it purpose.',
+      LOCATION_PROGRAM_TYPE: 'I would enter ready to learn local priorities rather than assume them and to contribute through consistent clinical work.',
+      BALANCED_QUIET_SPECIFIC: 'I would bring follow-through, reflection, and respect for the people who make difficult work possible.'
+    };
+    const candidates = (payload.requested_strategies || []).map((requested, index) => {
+      const key = requested.key;
+      const segs = [{ text: openings[key] || 'I have thought carefully about the next stage of training.', kind: 'student_link', fact_ids: [] }];
+      const nameFact = by('Program name');
+      const identityFact = key === 'LOCATION_PROGRAM_TYPE' ? (loc || type) : key === 'BALANCED_QUIET_SPECIFIC' ? null : type;
+      const identityIds = [nameFact, identityFact].filter(Boolean).map(f => f.fact_id);
+      const identityText = key === 'LOCATION_PROGRAM_TYPE' && loc
+        ? `${name}, ${loc.text.replace(/^The program is located in /, 'located in ').replace(/\.$/, '')}, would give that next stage a concrete setting.`
+        : key === 'TRAINING_ENVIRONMENT' && type
+          ? `${name} is ${type.text.replace(/^The program describes its setting as:\s*/, '').replace(/^The program is /, '').replace(/\.$/, '')}, a verified context for that work.`
+          : key === 'STUDENT_GOAL_FORWARD'
+            ? `${name} would make that next step concrete.`
+            : key === 'RESEARCH_FELLOWSHIP'
+              ? `I would bring that habit of inquiry to ${name}.`
+              : `At ${name}, I could keep those priorities together without overstating what the evidence promises.`;
+      segs.push({ text: identityText, kind: 'program_fact', fact_ids: identityIds });
+      if (deep.length && ['TRAINING_ENVIRONMENT', 'RESEARCH_FELLOWSHIP', 'BALANCED_QUIET_SPECIFIC'].includes(key)) {
+        const f = deep[index % deep.length];
+        const lead = key === 'TRAINING_ENVIRONMENT' ? 'The training connection is grounded in this verified detail' : key === 'RESEARCH_FELLOWSHIP' ? 'My interest has a specific point of contact here' : 'One understated reason for that choice is';
+        segs.push({ text: `${lead}: ${f.text.replace(/\.$/, '')}.`, kind: 'program_fact', fact_ids: [f.fact_id] });
+      }
+      if (pd && key === 'STUDENT_GOAL_FORWARD') segs.push({ text: pd.text, kind: 'program_fact', fact_ids: [pd.fact_id] });
+      if (bad && index === 0) segs.push({ text: 'With 42 residents per class and the mentorship of Dr. Alan Whitmore, it is better than any other option.', kind: 'program_fact', fact_ids: [] });
+      segs.push({ text: closings[key] || 'I would bring the same deliberate approach to the work ahead.', kind: 'student_link', fact_ids: [] });
+      return { candidate_id: key, replacement_region: segs.map(s => s.text).join(' '), segments: segs, facts_used: [...new Set(segs.flatMap(s => s.fact_ids))], strategy: key, rhetorical_focus: `Stub fixture for ${key}`, self_check: { name_swap_would_still_work: false, possible_unsupported_claims: [], generic_phrases: [] } };
+    });
+    const out = { recommended_candidate_id: 'BALANCED_QUIET_SPECIFIC', candidates };
     send(res, 200, { id: 'resp_stub', output: [{ type: 'reasoning', summary: [] }, { type: 'message', content: [{ type: 'output_text', text: JSON.stringify(out) }] }], usage: { input_tokens: 1800, output_tokens: 260 } });
   });
 }).listen(4012, '127.0.0.1');
 
 http.createServer((req, res) => {
-  const file = path.join('/home/claude/wpdev/harness/files', path.basename(decodeURIComponent(req.url.split('?')[0])));
+  const file = path.join(HARNESS_ROOT, 'harness/files', path.basename(decodeURIComponent(req.url.split('?')[0])));
   if (!fs.existsSync(file)) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { 'Content-Type': 'application/octet-stream' }); res.end(fs.readFileSync(file));
 }).listen(4013, '127.0.0.1');

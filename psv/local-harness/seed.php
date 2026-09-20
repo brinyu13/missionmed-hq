@@ -1,6 +1,7 @@
 <?php
 $_SERVER['HTTP_HOST'] = '127.0.0.1:8088'; $_SERVER['REQUEST_URI'] = '/';
-require '/home/claude/wpdev/site/wp-load.php';
+$harness_root = getenv( 'MMPS_HARNESS_ROOT' ) ?: '/home/claude/wpdev';
+require $harness_root . '/site/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 $r = activate_plugin( 'missionmed-file-vault-ps/missionmed-file-vault-ps.php' );
 echo 'activate: ' . ( is_wp_error( $r ) ? $r->get_error_message() : 'ok' ) . "\n";
@@ -8,9 +9,9 @@ foreach ( array( 'store', 'docx', 'region', 'root-source' ) as $p ) { require_on
 $paras = MMPS_Root_Source::synthetic_paragraphs();
 $paras[0] = 'FILE VAULT COPY. ' . $paras[0];
 $bytes = MMPS_Docx::bytes_from_paragraphs( $paras );
-file_put_contents( '/home/claude/wpdev/harness/files/ps-root-v1.docx', $bytes );
+file_put_contents( $harness_root . '/harness/files/ps-root-v1.docx', $bytes );
 // A DOCX with a tracked insertion must be refused.
-$tmp = '/home/claude/wpdev/harness/files/ps-tracked.docx'; copy( '/home/claude/wpdev/harness/files/ps-root-v1.docx', $tmp );
+$tmp = $harness_root . '/harness/files/ps-tracked.docx'; copy( $harness_root . '/harness/files/ps-root-v1.docx', $tmp );
 $zip = new ZipArchive(); $zip->open( $tmp ); $xml = $zip->getFromName( 'word/document.xml' );
 $xml = preg_replace( '#<w:r>#', '<w:ins w:id="1" w:author="x"><w:r>', $xml, 1 ); $xml = preg_replace( '#</w:r>#', '</w:r></w:ins>', $xml, 1 );
 $zip->addFromString( 'word/document.xml', $xml ); $zip->close();

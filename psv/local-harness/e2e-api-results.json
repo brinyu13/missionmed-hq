@@ -62,7 +62,7 @@
  {
   "name": "bootstrap ok",
   "pass": true,
-  "detail": "{\"version\":\"0.1.0\",\"user\":{\"id\":3,\"name\":\"\\u00c9mile Corridor\"},\"gate\":{\"mode\":\"allowlist\",\"testing\":true},\"provider\":{\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"configured\":true,\"simulato"
+  "detail": "{\"version\":\"0.2.0\",\"user\":{\"id\":3,\"name\":\"\\u00c9mile Corridor\"},\"gate\":{\"mode\":\"allowlist\",\"testing\":true},\"provider\":{\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"configured\":true,\"simulato"
  },
  {
   "name": "bootstrap: privacy gate closed by default",
@@ -167,7 +167,7 @@
  {
   "name": "FV ROOT v1 read + parsed",
   "pass": true,
-  "detail": "{\"root\":{\"id\":1,\"specialtyLabel\":\"Internal Medicine\",\"sourceKind\":\"FILE_VAULT\",\"isSynthetic\":false,\"fvFileId\":1,\"fvVersionNumber\":1,\"fvVersionUuid\":\"e6477dc1-49a8-4e81-a7a8-556f20730110\",\"rootLabel\":\""
+  "detail": "{\"root\":{\"id\":1,\"specialtyLabel\":\"Internal Medicine\",\"sourceKind\":\"FILE_VAULT\",\"isSynthetic\":false,\"fvFileId\":1,\"fvVersionNumber\":1,\"fvVersionUuid\":\"172b1250-bcf7-40c0-b241-4b3945651181\",\"rootLabel\":\""
  },
  {
   "name": "FV ROOT v2 (not verified clean) refused",
@@ -227,7 +227,12 @@
  {
   "name": "ESSENTIAL output succeeds",
   "pass": true,
-  "detail": "{\"runId\":\"0497f0ca-4b8b-4a2d-8f3b-8dfdc0dbdbf1\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BRIDGE_FROM_EXPERIENCE\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"progr"
+  "detail": "{\"runId\":\"c83fe188-e1e4-469e-849b-2640a54eb51c\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"prog"
+ },
+ {
+  "name": "ESSENTIAL: five distinct choices with an explicit recommended default",
+  "pass": true,
+  "detail": ""
  },
  {
   "name": "ESSENTIAL: only identity facts supplied; no PD (stale)",
@@ -247,7 +252,7 @@
  {
   "name": "DEEP output succeeds with verified deep facts",
   "pass": true,
-  "detail": "{\"runId\":\"d649f6e6-6c4c-4ea7-a05b-df82a9902b52\",\"status\":\"OK\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP\",\"strategy\":\"QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Center\",\"hospi"
+  "detail": "{\"runId\":\"7e834844-9b60-44b9-882c-9a5680281bb0\",\"status\":\"OK\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Cente"
  },
  {
   "name": "DEEP: 2-3 deep facts, preference-matched (cardiology fellowship chosen; planned GI never)",
@@ -267,7 +272,7 @@
  {
   "name": "unsupported DEEP -> Research Needed, AI never called, nothing invented",
   "pass": true,
-  "detail": "{\"runId\":\"cbf844a4-d788-4348-9685-3aff0436f668\",\"status\":\"RESEARCH_NEEDED\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP_RESEARCH_NEEDED\",\"strategy\":\"\",\"provider\":\"none\",\"model\":\"\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_thin_002\",\"acgmeId\":\"1403821002\",\"programName\":\"Riverbend Communit"
+  "detail": "{\"runId\":\"b15afcb1-3629-418f-a9ea-9db40154916a\",\"status\":\"RESEARCH_NEEDED\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP_RESEARCH_NEEDED\",\"strategy\":\"\",\"provider\":\"none\",\"model\":\"\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_thin_002\",\"acgmeId\":\"1403821002\",\"programName\":\"Riverbend Communit"
  },
  {
   "name": "research prompt (planned UX): program data only, flagged as not built",
@@ -275,14 +280,14 @@
   "detail": ""
  },
  {
-  "name": "regenerate rotates the rhetorical strategy (controlled variation)",
+  "name": "regenerate creates a fresh validated five-choice run without overwriting the prior run",
   "pass": true,
-  "detail": "QUIET_SPECIFIC -> PLACE_AND_PEOPLE"
+  "detail": "7e834844-9b60-44b9-882c-9a5680281bb0 -> 5164f990-01af-4fed-8289-f0d0da5ad66a"
  },
  {
   "name": "hallucination on attempt 1 is caught, revised on attempt 2",
   "pass": true,
-  "detail": "{\"blocking\":[],\"advisory\":[],\"factsUsed\":[\"F-08a50a945716\",\"F-8303ff160534\",\"F-e666dbcff9bb\",\"F-532d6bd9737f\",\"F-f5379f882242\",\"F-6f8eabe89f20\",\"F-49539d922e7b\"],\"attempts\":2,\"region\":{\"mode\":\"REPLACE_PARAGRAPH\",\"paragraphIndex\":4,\"confirmedAt\":\"2026-09-20T14:05:54+00:00\",\"rootTextSha256\":\"4dbb7ff4b"
+  "detail": "{\"blocking\":[],\"advisory\":[],\"factsUsed\":[\"F-08a50a945716\",\"F-f5379f882242\"],\"candidateResults\":{\"TRAINING_ENVIRONMENT\":{\"blocking\":[],\"advisory\":[],\"factsUsed\":[\"F-08a50a945716\",\"F-e666dbcff9bb\",\"F-532d6bd9737f\"]},\"STUDENT_GOAL_FORWARD\":{\"blocking\":[],\"advisory\":[],\"factsUsed\":[\"F-08a50a945716\",\"F-"
  },
  {
   "name": "persistent hallucination -> NEEDS_ATTENTION with precise flags",
@@ -332,7 +337,7 @@
  {
   "name": "INSERT mode: 7 paragraphs, all 6 ROOT paragraphs unchanged",
   "pass": true,
-  "detail": "{\"runId\":\"20653b3e-3152-4eaf-8841-22679f9f6931\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BRIDGE_FROM_EXPERIENCE\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"progr"
+  "detail": "{\"runId\":\"5bd266a6-fc8c-4a8e-ad32-16ce4f1de854\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"prog"
  },
  {
   "name": "region changed after generation -> save refused (409)",
@@ -345,9 +350,9 @@
   "detail": "[\"Program name\",\"Location\",\"Program type\",\"Program director\",\"Required quality improvement project with protected time\",\"4+1 block schedule\"]"
  },
  {
-  "name": "save complete PS to isolated library with metadata",
+  "name": "save selected alternative as complete PS with candidate provenance",
   "pass": true,
-  "detail": "{\"document\":{\"docUuid\":\"de3417fe-c558-4ac0-8c07-4a8cd86a145f\",\"rootId\":2,\"specialtyLabel\":\"Internal Medicine\",\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Center\",\"city\":\"Rochest"
+  "detail": "{\"document\":{\"docUuid\":\"2c393917-ad89-4e92-9bd1-ff261b68ea0d\",\"rootId\":2,\"specialtyLabel\":\"Internal Medicine\",\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Center\",\"city\":\"Rochest"
  },
  {
   "name": "save is idempotent per run",
@@ -422,7 +427,7 @@
  {
   "name": "no posts, users or user meta created",
   "pass": true,
-  "detail": "[{\"fv\":\"3\",\"fvsum\":\"53ece3d989ae329fb939bbd1e9c450a2\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"},{\"fv\":\"3\",\"fvsum\":\"53ece3d989ae329fb939bbd1e9c450a2\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"}]"
+  "detail": "[{\"fv\":\"3\",\"fvsum\":\"8a99814c8c3dadd23cb5989c3a68d82e\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"},{\"fv\":\"3\",\"fvsum\":\"8a99814c8c3dadd23cb5989c3a68d82e\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"}]"
  },
  {
   "name": "only namespaced prototype tables exist besides the stub FV table",
@@ -492,6 +497,6 @@
  {
   "name": "simulator output is labelled SIMULATED and still passes integrity",
   "pass": true,
-  "detail": "{\"runId\":\"9e8a6594-0260-4ad8-b44f-4ddc60e2cc11\",\"status\":\"NEEDS_ATTENTION\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"GOAL_FORWARD\",\"provider\":\"simulator\",\"model\":\"offline-simulator\",\"simulated\":true,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"progra"
+  "detail": "{\"runId\":\"72b2cf74-dad5-4847-9d8d-43303b3172ed\",\"status\":\"NEEDS_ATTENTION\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BALANCED_QUIET_SPECIFIC\",\"provider\":\"simulator\",\"model\":\"offline-simulator\",\"simulated\":true,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"14019310"
  }
 ]

@@ -4,6 +4,9 @@ import { execSync } from 'node:child_process';
 import zlib from 'node:zlib';
 
 const BASE = 'http://127.0.0.1:8088';
+const HARNESS_ROOT = process.env.MMPS_HARNESS_ROOT || '/home/claude/wpdev';
+const SITE = `${HARNESS_ROOT}/site`;
+const HARNESS = `${HARNESS_ROOT}/harness`;
 const results = [];
 const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond, detail }); console.log((cond ? 'PASS ' : 'FAIL ') + name + (detail && !cond ? '  -> ' + detail : '')); };
 
@@ -27,10 +30,10 @@ class Session {
     return { status: res.status, json, text, headers: res.headers };
   }
 }
-const php = (code) => { const f = '/home/claude/wpdev/harness/.snippet.php'; fs.writeFileSync(f, `<?php $_SERVER['HTTP_HOST']='127.0.0.1:8088';$_SERVER['REQUEST_URI']='/';require '/home/claude/wpdev/site/wp-load.php';` + code); return execSync('php ' + f + ' 2>/dev/null', { encoding: 'utf8' }); };
+const php = (code) => { const f = `${HARNESS}/.snippet.php`; fs.writeFileSync(f, `<?php $_SERVER['HTTP_HOST']='127.0.0.1:8088';$_SERVER['REQUEST_URI']='/';require '${SITE}/wp-load.php';` + code); return execSync('php ' + f + ' 2>/dev/null', { encoding: 'utf8' }); };
 const aiLog = async () => (await fetch('http://127.0.0.1:4012/__log')).json();
 const aiMode = async (m) => fetch('http://127.0.0.1:4012/__mode?m=' + m);
-const flags = (extra) => fs.writeFileSync('/home/claude/wpdev/site/harness-flags.php', `<?php\ndefine( 'MMED_PS_PROTO_OPENAI_API_KEY', 'local-stub-not-a-real-key' );\n${extra}\n`);
+const flags = (extra) => fs.writeFileSync(`${SITE}/harness-flags.php`, `<?php\ndefine( 'MMED_PS_PROTO_OPENAI_API_KEY', 'local-stub-not-a-real-key' );\n${extra}\n`);
 
 // ---------- 0. baseline fingerprints (blast radius) ----------
 const before = php(`global $wpdb; echo json_encode(array('fv'=>$wpdb->get_var('SELECT COUNT(*) FROM '.MMED_File_Vault::table_name()),'fvsum'=>md5(json_encode($wpdb->get_results('SELECT * FROM '.MMED_File_Vault::table_name()))),'posts'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts}"),'users'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->users}"),'usermeta'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key NOT LIKE 'session_tokens' AND meta_key NOT LIKE '%user-settings%'")));`);
@@ -143,6 +146,7 @@ const others = ['ps_deep_001', 'ps_thin_002', 'ps_ess_003'];
 r = await t.api('POST', '/generate', { rootId: root.id, programSpecialtyId: 'ps_ess_003', tier: 'ESSENTIAL', otherProgramIds: others });
 const ess = r.json;
 ok('ESSENTIAL output succeeds', r.status === 200 && ess.status === 'OK' && ess.tierEffective === 'ESSENTIAL' && ess.canApprove === true, r.text.slice(0, 300));
+ok('ESSENTIAL: five distinct choices with an explicit recommended default', ess.candidates.length === 5 && new Set(ess.candidates.map(c => c.candidateId)).size === 5 && ess.selectedCandidateId === ess.recommendedCandidateId && ess.candidates.filter(c => c.isRecommended).length === 1);
 ok('ESSENTIAL: only identity facts supplied; no PD (stale)', ess.facts.every(f => f.category === 'identity') && !ess.facts.some(f => f.label === 'Program director'));
 ok('ESSENTIAL: full PS reconstructed, protected paragraphs byte-equal to ROOT', ess.paragraphs.length === 6 && ess.paragraphs.every((x, i) => i === 4 || x === root.paragraphs[i]) && ess.paragraphs[4] !== root.paragraphs[4] && ess.rootIntegrity.ok === true && ess.rootIntegrity.protectedParagraphs === 5);
 ok('ESSENTIAL: structured output has run id, strategy, facts used, provenance', /^[a-f0-9-]{36}$/.test(ess.runId) && !!ess.strategy && ess.validation.factsUsed.length >= 1 && ess.facts.every(f => f.provenance && f.provenance.origin));
@@ -159,7 +163,7 @@ ok('unsupported DEEP -> Research Needed, AI never called, nothing invented', r.s
 r = await t.api('POST', '/research-prompt', { programSpecialtyId: 'ps_thin_002' });
 ok('research prompt (planned UX): program data only, flagged as not built', r.json.planned === true && r.json.ingestion === 'PHASE_2_NOT_BUILT' && r.json.prompt.includes('Riverbend') && !/Corridor|Émile|glucometer/.test(r.json.prompt));
 r = await t.api('POST', '/generate', { rootId: root.id, programSpecialtyId: 'ps_deep_001', tier: 'DEEP', otherProgramIds: others });
-ok('regenerate rotates the rhetorical strategy (controlled variation)', r.json.strategy !== deep.strategy && r.json.replacement !== deep.replacement, deep.strategy + ' -> ' + r.json.strategy);
+ok('regenerate creates a fresh validated five-choice run without overwriting the prior run', r.json.runId !== deep.runId && r.json.candidates.length === 5 && deep.candidates.length === 5 && r.json.canApprove === true, deep.runId + ' -> ' + r.json.runId);
 
 await aiMode('hallucinate-once');
 r = await t.api('POST', '/generate', { rootId: root.id, programSpecialtyId: 'ps_deep_001', tier: 'DEEP', otherProgramIds: others });
@@ -211,9 +215,10 @@ r = await t.api('POST', '/generate', { rootId: r2.id, programSpecialtyId: 'ps_de
 ok('DEEP without a named fellowship: no fellowship fact is supplied', r.json.tierEffective === 'DEEP' && !r.json.facts.some(f => f.category === 'fellowship') && r.json.facts.some(f => /quality improvement/i.test(f.text)), JSON.stringify((r.json.facts || []).map(f => f.label)));
 
 // ---------- 8. save, library, download ----------
-r = await t.api('POST', '/library', { runId: deep.runId, status: 'APPROVED' });
+const chosenDeep = deep.candidates.find(c => !c.isRecommended && c.canApprove);
+r = await t.api('POST', '/library', { runId: deep.runId, candidateId: chosenDeep.candidateId, status: 'APPROVED' });
 const doc = r.json.document;
-ok('save complete PS to isolated library with metadata', r.status === 200 && doc.status === 'APPROVED' && doc.tier === 'DEEP' && doc.acgmeId === '1403511001' && doc.programSpecialtyId === 'ps_deep_001' && doc.specialtyLabel === 'Internal Medicine' && doc.versionNumber === 1 && doc.metadata.rootTextSha256 === root.textSha256 && doc.fullText.split('\n\n').length === 6, r.text.slice(0, 300));
+ok('save selected alternative as complete PS with candidate provenance', r.status === 200 && doc.status === 'APPROVED' && doc.tier === 'DEEP' && doc.acgmeId === '1403511001' && doc.programSpecialtyId === 'ps_deep_001' && doc.specialtyLabel === 'Internal Medicine' && doc.versionNumber === 1 && doc.metadata.rootTextSha256 === root.textSha256 && doc.metadata.candidateId === chosenDeep.candidateId && doc.fullText.includes(chosenDeep.replacement) && doc.fullText.split('\n\n').length === 6, r.text.slice(0, 300));
 r = await t.api('POST', '/library', { runId: deep.runId, status: 'DRAFT' });
 ok('save is idempotent per run', r.json.alreadySaved === true && r.json.document.docUuid === doc.docUuid);
 r = await t.api('POST', '/library', { runId: ess.runId, status: 'DRAFT' });
@@ -224,8 +229,8 @@ r = await t.api('POST', `/library/${doc.docUuid}/status`, { status: 'ARCHIVED' }
 ok('status change works', r.json.document.status === 'ARCHIVED');
 const dl = await t.raw(`/wp-json/mmed-ps-proto/v1/library/${doc.docUuid}/download?format=docx&_wpnonce=${t.nonce}`);
 const bytes = Buffer.from(await dl.arrayBuffer());
-fs.writeFileSync('/home/claude/wpdev/harness/files/download.docx', bytes);
-const xml = execSync(`unzip -p /home/claude/wpdev/harness/files/download.docx word/document.xml`, { encoding: 'utf8' });
+fs.writeFileSync(`${HARNESS}/files/download.docx`, bytes);
+const xml = execSync(`unzip -p ${HARNESS}/files/download.docx word/document.xml`, { encoding: 'utf8' });
 ok('DOCX download: attachment, valid zip, body text only (no metadata in the body)', dl.status === 200 && /attachment; filename="Internal_Medicine_PS_.*\.docx"/.test(dl.headers.get('content-disposition')) && bytes.slice(0, 2).toString() === 'PK' && xml.includes('glucometer') && xml.includes('Lakeshore') && !/ACGME 14|1403511001|runId|F-[a-f0-9]{12}|SYNTHETIC|bundle|ps_deep_001/i.test(xml), dl.headers.get('content-disposition'));
 const dlt = await t.raw(`/wp-json/mmed-ps-proto/v1/library/${doc.docUuid}/download?format=txt&_wpnonce=${t.nonce}`);
 ok('TXT download works', dlt.status === 200 && (await dlt.text()).includes('Lakeshore'));
@@ -272,7 +277,7 @@ p = await t.page(); r = await t.api('GET', '/library');
 ok('re-enable: prototype and its saved library return intact', p.html.includes('mmps-app') && r.json.documents.length === 2);
 
 // KILL 4: a corrupted prototype file must not hurt the site
-const gen = '/home/claude/wpdev/site/wp-content/plugins/missionmed-file-vault-ps/includes/class-mmps-generator.php';
+const gen = `${SITE}/wp-content/plugins/missionmed-file-vault-ps/includes/class-mmps-generator.php`;
 const genOk = fs.readFileSync(gen, 'utf8');
 fs.writeFileSync(gen, genOk.replace('class MMPS_Generator {', 'class MMPS_Generator {{{ broken'));
 const home = await t.raw('/'); hub = await (await t.raw('/member-dashboard/')).text(); r = await t.api('GET', '/bootstrap'); const login = await anon.raw('/wp-login.php');
@@ -291,12 +296,12 @@ await aiMode('bad-model');
 r = await t.api('POST', '/generate', { rootId: root.id, programSpecialtyId: 'ps_ess_003', tier: 'ESSENTIAL' });
 ok('provider 400 -> clear error, no crash', r.status === 502 && r.json.code === 'mmps_provider_bad_request');
 await aiMode('good');
-fs.writeFileSync('/home/claude/wpdev/site/harness-flags.php', `<?php\n`);
+fs.writeFileSync(`${SITE}/harness-flags.php`, `<?php\n`);
 r = await t.api('GET', '/bootstrap');
 ok('no AI key -> provider "none" (simulator is opt-in only)', r.json.provider.provider === 'none' && r.json.provider.configured === false);
 r = await t.api('POST', '/generate', { rootId: root.id, programSpecialtyId: 'ps_ess_003', tier: 'ESSENTIAL' });
 ok('no AI key -> generation refuses cleanly', r.status === 503 && r.json.code === 'mmps_provider_not_configured');
-fs.writeFileSync('/home/claude/wpdev/site/harness-flags.php', `<?php\ndefine( 'MMED_PS_PROTO_ALLOW_SIMULATOR', true );\n`);
+fs.writeFileSync(`${SITE}/harness-flags.php`, `<?php\ndefine( 'MMED_PS_PROTO_ALLOW_SIMULATOR', true );\n`);
 r = await t.api('GET', '/bootstrap');
 ok('simulator is opt-in and reported as such', r.json.provider.provider === 'simulator');
 r = await t.api('POST', '/generate', { rootId: root.id, programSpecialtyId: 'ps_ess_003', tier: 'ESSENTIAL' });
@@ -305,5 +310,5 @@ flags('');
 
 const failed = results.filter(x => !x.pass);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);
-fs.writeFileSync('/home/claude/wpdev/harness/e2e-api-results.json', JSON.stringify(results, null, 1));
+fs.writeFileSync(`${HARNESS}/e2e-api-results.json`, JSON.stringify(results, null, 1));
 process.exit(failed.length ? 1 : 0);

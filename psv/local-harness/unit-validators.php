@@ -1,6 +1,6 @@
 <?php
 // Validator scenarios from the adversarial review. LOCAL HARNESS ONLY.
-$_SERVER['HTTP_HOST']='127.0.0.1:8088';$_SERVER['REQUEST_URI']='/';require '/home/claude/wpdev/site/wp-load.php';
+$_SERVER['HTTP_HOST']='127.0.0.1:8088';$_SERVER['REQUEST_URI']='/';$harness_root=getenv('MMPS_HARNESS_ROOT')?:'/home/claude/wpdev';require $harness_root.'/site/wp-load.php';
 $root = array( 'paragraphs' => array( 'I cooked in the kitchen of a district hospital for 12 months.', 'Second paragraph about patients who lack access.', 'I hope to train at your program.' ), 'specialtyLabel' => 'Internal Medicine' );
 $F = function ( $id, $label, $text, $cat = 'identity' ) { return array( 'factId' => $id, 'label' => $label, 'text' => $text, 'category' => $cat ); };
 $bundle = array( 'nameForms' => array( "St. Christopher's Hospital Internal Medicine Residency", "St. Christopher's Hospital", 'Cleveland Clinic Foundation' ), 'program' => array( 'programName' => "St. Christopher's Hospital Internal Medicine Residency", 'city' => 'Philadelphia', 'state' => 'PA', 'programSpecialtyId' => 'x' ) );

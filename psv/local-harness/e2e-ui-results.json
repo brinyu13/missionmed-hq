@@ -41,15 +41,23 @@
    "pass": true
   },
   {
+   "name": "preview: five accessible writing choices with one recommended default",
+   "pass": true
+  },
+  {
    "name": "preview: verified-fact underlines rendered from segments",
    "pass": true
   },
   {
-   "name": "preview: ROOT check Unchanged + facts with sources",
+   "name": "preview: ROOT check Unchanged + selected facts with sources",
    "pass": true
   },
   {
    "name": "preview: diff shows the replaced ROOT paragraph",
+   "pass": true
+  },
+  {
+   "name": "choosing an alternative reconstructs a different complete-PS preview",
    "pass": true
   },
   {

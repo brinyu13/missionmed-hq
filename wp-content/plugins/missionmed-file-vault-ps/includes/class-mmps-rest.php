@@ -350,6 +350,17 @@ class MMPS_Rest {
 		if ( 'OK' !== $run['status'] || empty( $run['output']['replacement_region'] ) ) {
 			return new WP_Error( 'mmps_run_not_savable', 'Only a run that passed every blocking check can be saved.', array( 'status' => 409 ) );
 		}
+		$candidate_id = strtoupper( sanitize_text_field( (string) ( $params['candidateId'] ?? $run['output']['selected_candidate_id'] ?? $run['output']['recommended_candidate_id'] ?? '' ) ) );
+		$candidate    = MMPS_Generator::candidate_by_id( $run['output'], $candidate_id );
+		if ( ! empty( $run['output']['candidates'] ) ) {
+			$valid_ids = (array) ( $run['validation']['validCandidateIds'] ?? array() );
+			if ( ! $candidate || ! in_array( $candidate_id, $valid_ids, true ) ) {
+				return new WP_Error( 'mmps_candidate_not_savable', 'Choose a candidate that passed every server-side check.', array( 'status' => 409 ) );
+			}
+		} else {
+			$candidate    = $run['output']; // Backward-compatible M1 run.
+			$candidate_id = (string) ( $run['strategy_key'] ?? '' );
+		}
 		$root = MMPS_Store::get_root( $uid, absint( $run['root_id'] ) );
 		if ( ! $root || ! MMPS_Region::root_still_matches( $root['paragraphs'], $root['region'] ) ) {
 			return new WP_Error( 'mmps_root_changed', 'The ROOT behind this run is no longer available unchanged.', array( 'status' => 409 ) );
@@ -358,7 +369,7 @@ class MMPS_Rest {
 		if ( (array) ( $run['validation']['region'] ?? array() ) !== MMPS_Generator::region_snapshot( $root ) ) {
 			return new WP_Error( 'mmps_region_changed', 'The editable region was changed after this version was written. Generate it again.', array( 'status' => 409 ) );
 		}
-		$paragraphs = MMPS_Region::reconstruct( $root['paragraphs'], $root['region'], (string) $run['output']['replacement_region'] );
+		$paragraphs = MMPS_Region::reconstruct( $root['paragraphs'], $root['region'], (string) $candidate['replacement_region'] );
 		$integrity  = MMPS_Region::verify_protected( $paragraphs, $root['region'] );
 		if ( is_wp_error( $integrity ) ) {
 			return $integrity;
@@ -403,14 +414,17 @@ class MMPS_Rest {
 						'regionMode'        => $root['region']['mode'],
 						'regionIndex'       => $root['region']['paragraphIndex'],
 						'normalizationRule' => MMPS_Region::RULE,
-						'strategy'          => $run['strategy_key'],
+						'candidateId'       => $candidate_id,
+						'recommendedCandidateId' => (string) ( $run['output']['recommended_candidate_id'] ?? $run['strategy_key'] ),
+						'candidateCount'    => count( (array) ( $run['output']['candidates'] ?? array( $candidate ) ) ),
+						'strategy'          => (string) ( $candidate['strategy'] ?? $run['strategy_key'] ),
 						'provider'          => $run['provider'],
 						'model'             => $run['model'],
-						'promptVersion'     => MMPS_Generator::PROMPT_VERSION,
+						'promptVersion'     => (string) ( $run['validation']['promptVersion'] ?? ( ! empty( $run['output']['candidates'] ) ? MMPS_Generator::PROMPT_VERSION : 'mmps-prompt.v1' ) ),
 						'bundleSchema'      => (string) ( $run['bundle']['schema'] ?? '' ),
 						'bundleSha256'      => $run['bundle_sha256'],
 						'registryReleaseId' => (string) ( $run['bundle']['registryReleaseId'] ?? '' ),
-						'factsUsed'         => (array) ( $run['validation']['factsUsed'] ?? array() ),
+						'factsUsed'         => (array) ( $run['validation']['candidateResults'][ $candidate_id ]['factsUsed'] ?? $run['validation']['factsUsed'] ?? array() ),
 					)
 				),
 			)
@@ -418,7 +432,8 @@ class MMPS_Rest {
 		if ( ! $id ) {
 			return new WP_Error( 'mmps_doc_save', 'The statement could not be saved.', array( 'status' => 500 ) );
 		}
-		MMPS_Store::audit( $uid, 'library_save', $doc_uuid, array( 'run' => $run['run_uuid'], 'status' => $status, 'sha256' => MMPS_Region::text_hash( $paragraphs ) ) );
+		MMPS_Store::audit( $uid, 'candidate_select', $run['run_uuid'], array( 'candidateId' => $candidate_id, 'recommended' => $candidate_id === (string) ( $run['output']['recommended_candidate_id'] ?? '' ) ) );
+		MMPS_Store::audit( $uid, 'library_save', $doc_uuid, array( 'run' => $run['run_uuid'], 'candidateId' => $candidate_id, 'status' => $status, 'sha256' => MMPS_Region::text_hash( $paragraphs ) ) );
 		return rest_ensure_response( array( 'document' => MMPS_Store::get_document( $uid, $doc_uuid ), 'alreadySaved' => false ) );
 	}
 

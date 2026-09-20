@@ -1,7 +1,8 @@
 <?php
 define( 'WP_INSTALLING', true );
 $_SERVER['HTTP_HOST'] = '127.0.0.1:8088'; $_SERVER['REQUEST_URI'] = '/';
-require '/home/claude/wpdev/site/wp-load.php';
+$harness_root = getenv( 'MMPS_HARNESS_ROOT' ) ?: '/home/claude/wpdev';
+require $harness_root . '/site/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 if ( ! is_blog_installed() ) { wp_install( 'MM Local', 'founder', 'founder@example.test', false, '', 'Founder-Local-1!' ); }

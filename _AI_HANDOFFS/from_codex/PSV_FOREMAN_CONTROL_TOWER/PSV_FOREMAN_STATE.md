@@ -1,12 +1,12 @@
 # PSV Foreman Control-Tower State
 
-Updated: 2026-09-20T19:45:00Z
+Updated: 2026-09-20T20:08:09Z
 
 ## Product and outcome
 
 - Mission: `PSV-PROTOTYPE-0001`
 - Product: Program-Specific Personal Statement capability inside File Vault
-- Current milestone: M2 accepted writing and choice UX — implementation active
+- Current milestone: M2 accepted writing and choice UX — 25% local engineering gate sealed; guarded production promotion pending
 - Terminal condition: Continue through M2-M5 to independently verified, production-ready AAA completion, stopping only for a true human-only privacy or sibling-owner authority gate on the critical path
 
 ## Repository truth
@@ -20,7 +20,7 @@ Updated: 2026-09-20T19:45:00Z
 - Upstream at initialization: `origin/main` at the same base HEAD
 - Preserved dirty state: untracked `_AI_HANDOFFS/from_fable/` package only
 - Git index lock: absent
-- Workers: none at M2 initialization; up to two bounded workers permitted by the Foreman packet after truth is sealed
+- Workers: standing independent verifier completed two read-only M2 passes; first correctly blocked a false-PASS presentation flaw, second approved the corrected frozen tree with no P0-P2 findings
 
 ## Authority and continuity
 
@@ -35,13 +35,14 @@ Updated: 2026-09-20T19:45:00Z
 
 ## Candidate
 
-- Plugin: `missionmed-file-vault-ps` version `0.1.0`
+- Live plugin: `missionmed-file-vault-ps` version `0.1.0`; local M2 release candidate: `0.2.0`
 - ZIP SHA-256: `93ba87efb5f4883bb7b0ceca9226a23ccec415136ffb2638d058990cd45f3f25`
 - ZIP integrity: PASS
 - Manifest: 21/21 PASS at initialization
 - Candidate delta: one new plugin directory plus the two documented server-only constants; four new namespaced tables and documented namespaced options on activation
 - Tracked M2 source: `wp-content/plugins/missionmed-file-vault-ps/`, materialized byte-for-byte from the sealed v0.1.0 package; 21/21 manifest hashes PASS before editing
 - Tracked validation surface: `psv/local-harness/`, `psv/contracts/` and `psv/docs/`, copied from the sealed evidence package without changing the preserved Fable handoff
+- M2 local release gate: PHP/JS/JSON lint PASS; M2 contract 24/24; M2 runtime 11/11; disposable WordPress API 100/100; Playwright/Chrome UX 22/22 with zero console/page/CSP problems
 
 ## Current production truth
 
@@ -115,3 +116,4 @@ Updated: 2026-09-20T19:45:00Z
 - 2026-09-20T18:44:48Z — Foreman blocker loop located the exact later custody: all current protected File Vault hashes match canonical commit `264293554a4f9b152ffb98ce8d707045c6bf5993`, which DR-308 and the current passport register as clean current production custody. A fresh non-builder independently confirmed that `15962cbc…ec3d1b5` is the accepted 1018 baseline rather than the current pin, rechecked package/config/synthetic-only data/File Vault REST/RISE health/log/lease gates, and returned PASS. M1 is sealed; STOP for Founder review; no M2 work started.
 - 2026-09-20T19:42:00Z — Founder accepted live M1 and authorized autonomous M2-M5 continuation. MissionMed OS registered DR-314/DR-315 at canonical commit `f02766ba11cfa10203775b316de1e2cdb2f337c3`; GitHub readback, universal BOOT and PSV mission BOOT passed; registry lease epoch 3219 released, and the default OS checkout was safely fast-forwarded under registry lease epoch 3222 with unrelated dirty state preserved.
 - 2026-09-20T19:45:00Z — Materialized the sealed v0.1.0 plugin, local harness, contracts and deployment documentation into tracked product paths without altering the preserved Fable handoff. Baseline plugin manifest verification passed 21/21. M2 implementation is active; production has not changed in this continuation.
+- 2026-09-20T20:08:09Z — M2 25% checkpoint sealed locally. Implemented complete-ROOT read-only editorial context, five distinct evidence-bounded strategies, recommended/default plus accessible alternatives, server-resolved candidate selection, complete-PS reconstruction and truthful per-candidate/set-level validation. Independent review found and the Foreman repaired a false-PASS display condition, legacy prompt-provenance drift, stale strategy labels and weak copied-opening detection. Final gates: contract 24/24, runtime 11/11, disposable WordPress API 100/100, browser UX 22/22, no console/page/CSP errors. Production remains on accepted M1 v0.1.0 and unchanged by this M2 continuation.

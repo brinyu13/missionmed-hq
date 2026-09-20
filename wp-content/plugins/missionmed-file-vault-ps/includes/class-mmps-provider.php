@@ -65,8 +65,8 @@ class MMPS_Provider {
 				array( 'role' => 'system', 'content' => $system ),
 				array( 'role' => 'user', 'content' => wp_json_encode( $user_payload ) ),
 			),
-			'text'              => array( 'format' => array( 'type' => 'json_schema', 'name' => 'ps_region_v1', 'strict' => true, 'schema' => $schema ) ),
-			'max_output_tokens' => 9000,   // Hidden reasoning tokens count against this cap.
+			'text'              => array( 'format' => array( 'type' => 'json_schema', 'name' => 'ps_candidate_set_v2', 'strict' => true, 'schema' => $schema ) ),
+			'max_output_tokens' => 16000,  // Five polished alternatives plus hidden reasoning share this cap.
 			'reasoning'         => array( 'effort' => 'medium' ),
 		);
 		$started = microtime( true );
@@ -148,29 +148,63 @@ class MMPS_Provider_Simulator {
 
 	public static function complete( $payload ) {
 		$name     = (string) ( $payload['program']['programName'] ?? 'this program' );
-		$segments = array();
-		$used     = array();
-		$segments[] = array( 'text' => '[SIMULATED placeholder text, not AI writing.] What I have described above is the kind of physician I am trying to become, and it shapes where I hope to train.', 'kind' => 'connective', 'fact_ids' => array() );
+		$name_fact = '';
 		foreach ( (array) ( $payload['allowed_facts'] ?? array() ) as $fact ) {
 			if ( 'Program name' === ( $fact['label'] ?? '' ) ) {
-				$segments[] = array( 'text' => 'I would be glad to continue that work at ' . $name . '.', 'kind' => 'program_fact', 'fact_ids' => array( $fact['fact_id'] ) );
-				$used[]     = $fact['fact_id'];
-			} elseif ( 'identity' !== ( $fact['category'] ?? '' ) ) {
-				$segments[] = array( 'text' => '[simulated] A verified detail would be woven in here: ' . rtrim( (string) $fact['text'], '.' ) . '.', 'kind' => 'program_fact', 'fact_ids' => array( $fact['fact_id'] ) );
-				$used[]     = $fact['fact_id'];
+				$name_fact = (string) $fact['fact_id'];
+				break;
 			}
 		}
-		$segments[] = array( 'text' => 'I would bring the same habit of measuring the gap and closing it to your residents and your patients.', 'kind' => 'student_link', 'fact_ids' => array() );
-		$text       = implode( ' ', array_map( function ( $s ) {
-			return $s['text'];
-		}, $segments ) );
+		$fixtures = array(
+			'TRAINING_ENVIRONMENT'    => array(
+				'Training is most useful to me when close observation becomes deliberate practice and feedback changes what I do next.',
+				'In this simulated fixture, ' . $name . ' is the named setting where I would continue that cycle of listening, testing, and improving.',
+				'I would enter the work with curiosity, steadiness, and a willingness to revise my habits as responsibility grows.',
+			),
+			'STUDENT_GOAL_FORWARD'    => array(
+				'My next step is to turn careful clinical reasoning into decisions that remain humane when the path is uncertain.',
+				'This simulated fixture connects that goal with ' . $name . ' without claiming any feature beyond the supplied program name.',
+				'I hope to keep building judgment that is both rigorous in the moment and accountable to the person living with its consequences.',
+			),
+			'RESEARCH_FELLOWSHIP'     => array(
+				'I have learned to treat unanswered questions as invitations to examine assumptions rather than decorate them with confidence.',
+				'For this simulated fixture, I name ' . $name . ' only as the place where that habit of inquiry would accompany daily clinical work.',
+				'The value I would bring is patience with evidence, candor about its limits, and discipline in carrying lessons back to patients.',
+			),
+			'LOCATION_PROGRAM_TYPE'   => array(
+				'The communities surrounding a residency shape which problems become visible and how physicians learn to respond.',
+				'This simulated fixture places ' . $name . ' within that reflection while making no unsupported statement about its location or structure.',
+				'I would approach each encounter ready to learn the context behind a concern and to adapt care without losing clinical precision.',
+			),
+			'BALANCED_QUIET_SPECIFIC' => array(
+				'What I want from residency is a place where attention, responsibility, and growth remain connected in ordinary clinical work.',
+				'In this simulated fixture, ' . $name . ' supplies only the verified program identity and no invented promise about the experience.',
+				'I would bring a reflective approach, respect for the people around me, and the persistence to become more useful over time.',
+			),
+		);
+		$candidates = array();
+		foreach ( (array) ( $payload['requested_strategies'] ?? array() ) as $index => $strategy ) {
+			$key      = (string) ( $strategy['key'] ?? '' );
+			$texts    = $fixtures[ $key ] ?? array( 'This is simulated pipeline text.', 'The verified program name is ' . $name . '.', 'No writing-quality conclusion should be drawn from it.' );
+			$segments = array(
+				array( 'text' => $texts[0], 'kind' => 'student_link', 'fact_ids' => array() ),
+				array( 'text' => $texts[1], 'kind' => 'program_fact', 'fact_ids' => $name_fact ? array( $name_fact ) : array() ),
+				array( 'text' => $texts[2], 'kind' => 'student_link', 'fact_ids' => array() ),
+			);
+			$candidates[] = array(
+				'candidate_id'       => $key,
+				'replacement_region' => implode( ' ', wp_list_pluck( $segments, 'text' ) ),
+				'segments'           => $segments,
+				'facts_used'         => $name_fact ? array( $name_fact ) : array(),
+				'strategy'           => $key,
+				'rhetorical_focus'   => 'Simulated ' . $key . ' pipeline fixture.',
+				'self_check'         => array( 'name_swap_would_still_work' => true, 'possible_unsupported_claims' => array(), 'generic_phrases' => array() ),
+			);
+		}
 		return array(
 			'json'      => array(
-				'replacement_region' => $text,
-				'segments'           => $segments,
-				'facts_used'         => $used,
-				'strategy'           => (string) ( $payload['strategy']['key'] ?? '' ),
-				'self_check'         => array( 'name_swap_would_still_work' => true, 'possible_unsupported_claims' => array(), 'generic_phrases' => array() ),
+				'recommended_candidate_id' => 'BALANCED_QUIET_SPECIFIC',
+				'candidates'               => $candidates,
 			),
 			'usage'     => array( 'in' => 0, 'out' => 0 ),
 			'latencyMs' => 1,
