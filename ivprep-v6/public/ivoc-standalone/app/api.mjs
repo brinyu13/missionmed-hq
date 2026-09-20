@@ -55,6 +55,8 @@ export class IvocApi {
   session(sessionId) { return json(`/sessions/${encodeURIComponent(sessionId)}`); }
   playback(recordingId, disposition = 'inline') { return json(`/recordings/${encodeURIComponent(recordingId)}/playback-url?disposition=${encodeURIComponent(disposition)}`); }
   questions() { return json('/questions'); }
+  adminConfig() { return json('/admin/config'); }
+  credits() { return json('/credits'); }
   addQuestion(input) { return json('/admin/questions', { method: 'POST', body: input, csrfToken: this.csrfToken }); }
   updateQuestion(questionId, input) { return json(`/admin/questions/${encodeURIComponent(questionId)}`, { method: 'PATCH', body: input, csrfToken: this.csrfToken }); }
   preferences() { return json('/preferences'); }

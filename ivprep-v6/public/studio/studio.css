@@ -534,6 +534,25 @@ body {
 /* ---------- student vs founder debug ---------- */
 /* Display state only. Hiding engineering instrumentation never stops measurement. */
 body[data-role="student"] [data-founder-only] { display: none !important; }
+body:not([data-role="admin"]) [data-admin-only] { display: none !important; }
+
+/* ---------- Admin operational control ---------- */
+.admin-status-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;
+  margin-top: 18px;
+}
+.admin-status-card .recess { min-height: 154px; }
+.admin-fact-list { display: grid; gap: 10px; margin: 0; }
+.admin-fact {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px;
+  align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.admin-fact:last-child { border-bottom: 0; padding-bottom: 0; }
+.admin-fact dt { color: var(--dim); font: 700 10px/1.25 var(--font-num); letter-spacing: .1em; text-transform: uppercase; }
+.admin-fact dd { margin: 0; color: var(--ink2); font: 700 12px/1.25 var(--font-num); text-align: right; }
+.admin-fact dd[data-state="ready"] { color: var(--ok); }
+.admin-fact dd[data-state="limited"] { color: var(--warn); }
+@media (max-width: 900px) { .admin-status-grid { grid-template-columns: 1fr; } }
 body[data-role="student"] #communication-analytics-test-root .ca-founder,
 body[data-role="student"] #communication-analytics-test-root .ca-timeline,
 body[data-role="student"] #communication-analytics-test-root .ca-diagnostics { display: none !important; }

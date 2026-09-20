@@ -81,6 +81,7 @@ const state = {
   longitudinalPromise: null,
   comparePair: [0, 1],
   governedQuestions: [],
+  adminOverview: null,
 };
 
 /* ------------------------------------------------------------------ media bridge
@@ -253,6 +254,7 @@ function applyRole(role) {
   if (banner) banner.hidden = state.role !== 'admin';
   const voiceAudition = $('#admin-live-voice-audition');
   if (voiceAudition) voiceAudition.hidden = state.role !== 'admin';
+  if (state.role === 'admin' && state.view === 'mentor') void renderAdminOverview();
   // The analytics cockpit gets the real role so its own founder surfaces follow suit.
   state.analytics?.onViewChange?.(state.view, state.role === 'student' ? 'student' : 'admin');
 }
@@ -285,10 +287,83 @@ function setView(view, { focus = false } = {}) {
   if (view === 'compare') void renderCompare();
   if (view === 'progress') void renderProgress();
   if (view === 'governance') void refreshQuestionGovernance();
+  if (view === 'mentor') void renderAdminOverview();
   if (view === 'filmroom' && state.lastSaved?.sessionDetail) renderFilmRoomSpine(state.lastSaved.sessionDetail);
   if (view === 'vault') void renderVault();
   if (focus) $('#main-content')?.focus?.({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+function renderAdminFacts(host, facts) {
+  if (!host) return;
+  const list = document.createElement('dl');
+  list.className = 'admin-fact-list';
+  for (const fact of facts) {
+    const row = document.createElement('div');
+    row.className = 'admin-fact';
+    const key = document.createElement('dt');
+    key.textContent = fact.label;
+    const value = document.createElement('dd');
+    value.textContent = fact.value;
+    if (fact.state) value.dataset.state = fact.state;
+    row.append(key, value);
+    list.append(row);
+  }
+  host.replaceChildren(list);
+}
+
+async function renderAdminOverview() {
+  if (state.role !== 'admin') return;
+  const configHost = $('[data-admin-summary="config"]');
+  const creditHost = $('[data-admin-summary="credits"]');
+  const questionHost = $('[data-admin-summary="questions"]');
+  const integrationHost = $('[data-admin-summary="integrations"]');
+  if (!configHost || !creditHost || !questionHost || !integrationHost) return;
+
+  renderAdminFacts(integrationHost, [
+    { label: 'Match Bridge', value: 'BOUNDED CLIPS READY', state: 'ready' },
+    { label: 'Live Mock Studio', value: 'NOT CONNECTED', state: 'limited' },
+    { label: 'File Vault / RISE / StoryForge', value: 'OWNER PROJECTION REQUIRED', state: 'limited' },
+    { label: 'LemonSlice', value: 'DEFERRED', state: 'limited' },
+  ]);
+
+  try {
+    const overview = state.adminOverview || await state.durable.adminOverview();
+    state.adminOverview = overview;
+    const config = overview.config || {};
+    const account = overview.credits?.account || {};
+    const questions = Array.isArray(overview.questions?.questions) ? overview.questions.questions : [];
+    const active = questions.filter((item) => item.status === 'active').length;
+    const retired = questions.filter((item) => item.status === 'retired').length;
+    renderAdminFacts(configHost, [
+      { label: 'Policy version', value: config.version ? `v${config.version}` : 'UNAVAILABLE', state: config.version ? 'ready' : 'limited' },
+      { label: 'Analytics', value: config.analyticsConfigVersion || 'UNAVAILABLE', state: config.analyticsConfigVersion ? 'ready' : 'limited' },
+      { label: 'InterviewBrain', value: config.brainPackVersion || 'UNAVAILABLE', state: config.brainPackVersion ? 'ready' : 'limited' },
+      { label: 'Follow-up intensity', value: Number.isInteger(config.pressureDefaults?.defaultFollowUpIntensity) ? String(config.pressureDefaults.defaultFollowUpIntensity) : 'UNAVAILABLE' },
+    ]);
+    renderAdminFacts(creditHost, [
+      { label: 'Subject', value: account.subjectId || 'UNAVAILABLE' },
+      { label: 'Account version', value: `v${Number(account.version || 0)}` },
+      { label: 'Balance', value: `${Math.max(0, Number(account.balanceSeconds || 0))} SEC`, state: Number(account.balanceSeconds || 0) > 0 ? 'ready' : 'limited' },
+      { label: 'Consumed', value: `${Math.max(0, Number(account.consumedSeconds || 0))} SEC` },
+    ]);
+    renderAdminFacts(questionHost, [
+      { label: 'Catalog authority', value: overview.questions?.admin === true ? 'ADMIN VERSIONED' : 'READ ONLY', state: overview.questions?.admin === true ? 'ready' : 'limited' },
+      { label: 'Total governed', value: String(questions.length) },
+      { label: 'Active', value: String(active), state: active > 0 ? 'ready' : 'limited' },
+      { label: 'Retired / hidden', value: String(retired) },
+    ]);
+  } catch (error) {
+    const reason = String(error?.message || 'ADMIN CAPABILITY UNAVAILABLE').toUpperCase().slice(0, 90);
+    for (const host of [configHost, creditHost, questionHost]) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      const strong = document.createElement('strong');
+      strong.textContent = 'Admin data unavailable';
+      empty.append(strong, document.createTextNode(reason));
+      host.replaceChildren(empty);
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ identity */
