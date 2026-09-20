@@ -14,12 +14,15 @@ const TABLES = Object.freeze([
   'ivoc_context_packs',
   'ivoc_mentor_priority_sets',
   'ivoc_admin_config_versions',
+  'ivoc_credit_accounts',
+  'ivoc_credit_events',
 ]);
 
 const RPCS = Object.freeze([
   'ivoc_write_question_version',
   'ivoc_write_mentor_priorities',
   'ivoc_write_admin_config',
+  'ivoc_mutate_user_credits',
 ]);
 
 function requireConfig(value, name) {

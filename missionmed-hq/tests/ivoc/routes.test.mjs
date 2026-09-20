@@ -86,6 +86,22 @@ function repository() {
           created_at: new Date().toISOString(),
         };
       }
+      if (name === 'ivoc_mutate_user_credits') {
+        return {
+          subject_id: body.p_subject_id,
+          version: body.p_expected_version + 1,
+          allowance_seconds: body.p_action === 'set_allowance' ? body.p_amount_seconds : 0,
+          override_seconds: body.p_action === 'set_override' ? body.p_amount_seconds : 0,
+          consumed_seconds: 0,
+          balance_seconds: body.p_amount_seconds,
+          period_started_at: new Date().toISOString(),
+          period_ends_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+          updated_by: body.p_actor,
+          updated_at: new Date().toISOString(),
+          event_id: body.p_idempotency_key,
+          event_action: body.p_action,
+        };
+      }
       return {
         question_id: body.p_question_id, status: body.p_status,
         current_version: body.p_expected_version + 1,
@@ -286,6 +302,62 @@ test('versioned Analytics and InterviewBrain config is Admin-only and actor-stam
       p_actor: 'wp:1',
     },
   });
+});
+
+test('per-user credits are owner-readable and Admin mutations are versioned, idempotent, and actor-stamped', async () => {
+  const { route, repo } = handler();
+  repo.single = async (path) => {
+    if (path.startsWith('ivoc_credit_accounts?subject_id=eq.wp%3A42')) {
+      return {
+        subject_id: 'wp:42', version: 3, allowance_seconds: 900,
+        override_seconds: 120, consumed_seconds: 300, balance_seconds: 720,
+        period_started_at: '2026-09-20T00:00:00.000Z', period_ends_at: '2026-10-20T00:00:00.000Z',
+        updated_by: 'wp:1', updated_at: '2026-09-20T00:00:00.000Z',
+      };
+    }
+    return null;
+  };
+  const ownerRead = new ResponseCapture();
+  await route({ ...base, request: request('GET'), response: ownerRead, url: new URL('https://hq.test/api/ivoc/v1/credits'), hqSession: session() });
+  assert.equal(ownerRead.status, 200);
+  assert.equal(ownerRead.json().account.balanceSeconds, 720);
+  assert.equal(ownerRead.json().account.subjectId, 'wp:42');
+
+  const input = {
+    subjectId: 'wp:42', expectedVersion: 3, action: 'set_override', amountSeconds: 180,
+    idempotencyKey: 'f401da3f-c517-4cee-9a60-1e8133c3a1cc', reason: 'Bounded Admin override test',
+  };
+  const denied = new ResponseCapture();
+  await route({ ...base, request: request('PUT', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response: denied, url: new URL('https://hq.test/api/ivoc/v1/admin/credits'), hqSession: session() });
+  assert.equal(denied.status, 403);
+
+  const allowed = new ResponseCapture();
+  await route({ ...base, request: request('PUT', input, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response: allowed, url: new URL('https://hq.test/api/ivoc/v1/admin/credits'), hqSession: session(1, ['administrator']) });
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.json().account.version, 4);
+  assert.deepEqual(repo.rpcs.at(-1), {
+    name: 'ivoc_mutate_user_credits',
+    body: {
+      p_subject_id: 'wp:42', p_expected_version: 3, p_action: 'set_override',
+      p_amount_seconds: 180, p_idempotency_key: input.idempotencyKey,
+      p_reason: input.reason, p_actor: 'wp:1',
+    },
+  });
+});
+
+test('credit consumption is not exposed as a browser-owned Admin mutation', async () => {
+  const { route, repo } = handler();
+  const response = new ResponseCapture();
+  await route({
+    ...base,
+    request: request('PUT', {
+      subjectId: 'wp:42', expectedVersion: 0, action: 'consume', amountSeconds: 60,
+      idempotencyKey: '0f28e0fb-2a51-441c-b866-2fe4a443e643', reason: 'Browser consume attempt',
+    }, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }),
+    response, url: new URL('https://hq.test/api/ivoc/v1/admin/credits'), hqSession: session(1, ['administrator']),
+  });
+  assert.equal(response.status, 400);
+  assert.equal(repo.rpcs.length, 0);
 });
 
 test('session creation requires same-origin CSRF and persists server identity', async () => {

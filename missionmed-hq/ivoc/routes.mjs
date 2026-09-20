@@ -313,6 +313,74 @@ function publicAdminConfig(row) {
   };
 }
 
+function creditWrite(input) {
+  const subjectId = safeText(input?.subjectId, 32);
+  const expectedVersion = Number(input?.expectedVersion);
+  const action = safeText(input?.action, 24).toLowerCase();
+  const amountSeconds = Number(input?.amountSeconds);
+  const idempotencyKey = safeText(input?.idempotencyKey, 40).toLowerCase();
+  const reason = safeText(input?.reason, 400);
+  if (!/^wp:[1-9][0-9]{0,19}$/u.test(subjectId)
+      || !Number.isSafeInteger(expectedVersion) || expectedVersion < 0
+      || !['set_allowance', 'set_override', 'reset'].includes(action)
+      || !Number.isSafeInteger(amountSeconds) || amountSeconds < 0 || amountSeconds > 10_000_000
+      || (action === 'reset' && amountSeconds !== 0)
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(idempotencyKey)
+      || reason.length < 3) {
+    throw Object.assign(new TypeError('ivoc_credit_input_invalid'), { status: 400 });
+  }
+  return { subjectId, expectedVersion, action, amountSeconds, idempotencyKey, reason };
+}
+
+function publicCreditAccount(row, subjectId = row?.subject_id) {
+  const allowance = Number(row?.allowance_seconds || 0);
+  const override = Number(row?.override_seconds || 0);
+  const consumed = Number(row?.consumed_seconds || 0);
+  return {
+    subjectId: subjectId || null,
+    version: Number(row?.version || 0),
+    allowanceSeconds: allowance,
+    overrideSeconds: override,
+    consumedSeconds: consumed,
+    balanceSeconds: Number(row?.balance_seconds ?? Math.max(0, allowance + override - consumed)),
+    periodStartedAt: row?.period_started_at || null,
+    periodEndsAt: row?.period_ends_at || null,
+    updatedBy: row?.updated_by || null,
+    updatedAt: row?.updated_at || null,
+    eventId: row?.event_id || null,
+    eventAction: row?.event_action || null,
+  };
+}
+
+function publicCreditEvent(row) {
+  return {
+    eventId: row.event_id,
+    accountVersion: row.account_version,
+    action: row.action,
+    amountSeconds: Number(row.amount_seconds),
+    allowanceAfter: Number(row.allowance_after),
+    overrideAfter: Number(row.override_after),
+    consumedAfter: Number(row.consumed_after),
+    balanceAfter: Number(row.balance_after),
+    periodStartedAt: row.period_started_at,
+    periodEndsAt: row.period_ends_at,
+    reason: row.reason,
+    actorSubject: row.actor_subject,
+    createdAt: row.created_at,
+  };
+}
+
+async function currentCreditAccount(db, subjectId) {
+  const row = await db.single(`ivoc_credit_accounts?subject_id=eq.${encodeURIComponent(subjectId)}&select=*&limit=1`);
+  if (row) return row;
+  const config = await db.single('ivoc_admin_config_versions?select=credits&order=version.desc&limit=1');
+  const allowance = Number(config?.credits?.default_allowance_seconds || 0);
+  return {
+    subject_id: subjectId, version: 0, allowance_seconds: allowance,
+    override_seconds: 0, consumed_seconds: 0, balance_seconds: allowance,
+  };
+}
+
 function practiceGoal(row) {
   const goal = String(row?.context?.goal || '').toLowerCase();
   if (goal.includes('guided')) return 'guided_mock';
@@ -622,6 +690,65 @@ export function createIvocHandler({
         }
         await audit({ actor, action: 'admin_config_write', decision: 'allow', reason: `v${row.version}` });
         sendJson(response, 200, publicAdminConfig(row), mediaBase);
+        return true;
+      }
+
+      if (request.method === 'GET' && pathname === `${API_PREFIX}/credits`) {
+        const row = await currentCreditAccount(db, actor);
+        await audit({ actor, owner: actor, action: 'credit_balance_read', decision: 'allow', reason: 'owner' });
+        sendJson(response, 200, { account: publicCreditAccount(row, actor) }, mediaBase);
+        return true;
+      }
+
+      if (request.method === 'GET' && pathname === `${API_PREFIX}/admin/credits`) {
+        if (!isAdmin(hqSession, admission)) {
+          await audit({ actor, action: 'credit_admin_read', decision: 'deny', reason: 'admin_required' });
+          sendError(response, 403, 'ivoc_admin_required', mediaBase); return true;
+        }
+        const subjectId = safeText(url.searchParams.get('subjectId'), 32);
+        if (!/^wp:[1-9][0-9]{0,19}$/u.test(subjectId)) {
+          sendError(response, 400, 'ivoc_credit_input_invalid', mediaBase); return true;
+        }
+        const [row, events] = await Promise.all([
+          currentCreditAccount(db, subjectId),
+          db.request(`ivoc_credit_events?subject_id=eq.${encodeURIComponent(subjectId)}&select=*&order=account_version.desc&limit=100`),
+        ]);
+        await audit({ actor, owner: subjectId, action: 'credit_admin_read', decision: 'allow', reason: 'admin' });
+        sendJson(response, 200, {
+          account: publicCreditAccount(row, subjectId), events: events.map(publicCreditEvent),
+        }, mediaBase);
+        return true;
+      }
+
+      if (request.method === 'PUT' && pathname === `${API_PREFIX}/admin/credits`) {
+        if (!isAdmin(hqSession, admission)) {
+          await audit({ actor, action: 'credit_admin_write', decision: 'deny', reason: 'admin_required' });
+          sendError(response, 403, 'ivoc_admin_required', mediaBase); return true;
+        }
+        const write = creditWrite(await readJson(request));
+        let row;
+        try {
+          row = await db.rpc('ivoc_mutate_user_credits', {
+            p_subject_id: write.subjectId,
+            p_expected_version: write.expectedVersion,
+            p_action: write.action,
+            p_amount_seconds: write.amountSeconds,
+            p_idempotency_key: write.idempotencyKey,
+            p_reason: write.reason,
+            p_actor: actor,
+          });
+        } catch (error) {
+          const detail = String(error?.detail || '');
+          if (detail.includes('ivoc_credit_version_conflict')
+              || detail.includes('ivoc_credit_idempotency_conflict')
+              || detail.includes('ivoc_credit_override_exceeds_limit')
+              || detail.includes('ivoc_credit_balance_insufficient')) {
+            throw Object.assign(new Error(detail), { status: 409 });
+          }
+          throw error;
+        }
+        await audit({ actor, owner: write.subjectId, action: 'credit_admin_write', decision: 'allow', reason: `${write.action}:v${row.version}` });
+        sendJson(response, 200, { account: publicCreditAccount(row, write.subjectId) }, mediaBase);
         return true;
       }
 
