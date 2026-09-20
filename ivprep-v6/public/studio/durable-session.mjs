@@ -10,6 +10,7 @@ export function createDurableResultsEnvelope({
   analytics,
   recording = null,
   liveConversation = null,
+  audioAuthority = null,
   capturedAt = new Date().toISOString(),
 } = {}) {
   const sessionDurationMs = finiteMs(analytics?.durationMs);
@@ -42,6 +43,7 @@ export function createDurableResultsEnvelope({
     behavior: null,
     analytics: analytics || null,
     ...(liveConversation?.turns?.length ? { liveConversation } : {}),
+    ...(audioAuthority?.events?.length ? { audioAuthority } : {}),
   });
 }
 
@@ -64,6 +66,7 @@ export class DurableStudioSession {
     this.liveConversationTurns = new Map();
     this.liveConversationSequence = 0;
     this.conversationCaptureStartedAtMs = null;
+    this.liveAudioAuthorityEvents = [];
   }
 
   get ready() { return Boolean(this.bootstrapPayload?.entitlement?.admitted); }
@@ -73,7 +76,7 @@ export class DurableStudioSession {
     return this.bootstrapPayload;
   }
 
-  sessionInput({ question = null, wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
+  sessionInput({ question = null, interviewSet = [], wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
     const title = question?.canonical_text || 'IV Prep practice session';
     return {
       title: title.split(/\s+/u).slice(0, 10).join(' '),
@@ -89,6 +92,8 @@ export class DurableStudioSession {
         program: wizard.program || null,
         environment: wizard.environment || null,
         readiness: wizard.readiness || null,
+        pressurePractice: wizard.pressurePractice === true,
+        questionIds: interviewSet.map((item) => String(item?.question_id || '')).filter(Boolean).slice(0, 30),
         targetQuestions: Math.max(1, Math.min(30, Number(targetQuestions) || 1)),
       },
     };
@@ -102,14 +107,18 @@ export class DurableStudioSession {
       if (this.preparedSessionKey !== key) throw new Error('durable_session_context_changed');
       return this.accountSession;
     }
+    this.liveConversationTurns.clear();
+    this.liveConversationSequence = 0;
+    this.conversationCaptureStartedAtMs = null;
+    this.liveAudioAuthorityEvents = [];
     this.accountSession = await this.api.createSession(input);
     this.preparedSessionKey = key;
     return this.accountSession;
   }
 
-  async start({ stream, question = null, wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
+  async start({ stream, question = null, interviewSet = [], wizard = {}, targetQuestions = 1, interviewerProvider = 'missionmed-static' } = {}) {
     const title = question?.canonical_text || 'IV Prep practice session';
-    await this.prepare({ question, wizard, targetQuestions, interviewerProvider });
+    await this.prepare({ question, interviewSet, wizard, targetQuestions, interviewerProvider });
     if (this.recorder) throw new Error('durable_session_already_active');
     this.recorder = this.recordingFactory({
       api: this.api,
@@ -151,6 +160,26 @@ export class DurableStudioSession {
     return true;
   }
 
+  recordLiveAudioTelemetry(event = {}) {
+    if (!this.accountSession || event.schema !== 'ivoc.audio-authority.event.v1'
+        || event.authority !== 'openai-gpt-live-native' || event.mode !== 'single'
+        || !['configured', 'bound', 'surplus_rejected', 'released'].includes(event.state)) return false;
+    const observedAtMs = finiteMs(event.observedAtMs) ?? 0;
+    this.liveAudioAuthorityEvents.push(Object.freeze({ state: event.state, observedAtMs }));
+    this.liveAudioAuthorityEvents = this.liveAudioAuthorityEvents.slice(-64);
+    return true;
+  }
+
+  liveAudioAuthoritySnapshot() {
+    if (!this.liveAudioAuthorityEvents.length) return null;
+    return Object.freeze({
+      schema: 'ivoc.audio-authority.v1',
+      mode: 'single',
+      authority: 'openai-gpt-live-native',
+      events: Object.freeze(this.liveAudioAuthorityEvents.map((event) => Object.freeze({ ...event }))),
+    });
+  }
+
   liveConversationSnapshot() {
     const turns = [...this.liveConversationTurns.values()]
       .filter((turn) => turn.final && turn.text)
@@ -183,6 +212,7 @@ export class DurableStudioSession {
       analytics,
       recording,
       liveConversation,
+      audioAuthority: this.liveAudioAuthoritySnapshot(),
       capturedAt: this.now(),
     });
     const result = await this.api.saveResults(accountSession.id, envelope);
@@ -191,6 +221,7 @@ export class DurableStudioSession {
     this.pendingAnalytics = null;
     this.preparedSessionKey = null;
     this.liveConversationTurns.clear();
+    this.liveAudioAuthorityEvents = [];
     this.conversationCaptureStartedAtMs = null;
     return { persisted: true, analytics, recording, result, envelope, session: accountSession };
   }
@@ -207,6 +238,7 @@ export class DurableStudioSession {
     this.pendingAnalytics = null;
     this.preparedSessionKey = null;
     this.liveConversationTurns.clear();
+    this.liveAudioAuthorityEvents = [];
     this.conversationCaptureStartedAtMs = null;
     return result;
   }
@@ -228,6 +260,7 @@ export class DurableStudioSession {
     this.pendingAnalytics = null;
     this.preparedSessionKey = null;
     this.liveConversationTurns.clear();
+    this.liveAudioAuthorityEvents = [];
     this.conversationCaptureStartedAtMs = null;
   }
 }

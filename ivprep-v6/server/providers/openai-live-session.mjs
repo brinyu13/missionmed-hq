@@ -1,3 +1,5 @@
+import { createDefaultQuestionStore } from '../../public/questions/question-store.mjs';
+
 const OPENAI_LIVE_SESSIONS_URL = 'https://api.openai.com/v1/live/sessions';
 const MODEL = 'gpt-live-1';
 // Exact built-in Live voice names from the current OpenAI Live API schema.
@@ -6,7 +8,7 @@ const MODEL = 'gpt-live-1';
 const SAFE_VOICES = new Set(['marin', 'meridian', 'gleam', 'vesper', 'stone', 'willow']);
 const SAFE_CONTEXT = Object.freeze({
   goal: new Set(['Residency interview practice', 'Instant focused rep', 'Individual question', 'Coached practice', 'Full interview simulation']),
-  interviewer: new Set(['Program Director · balanced', 'Faculty · conversational', 'Chief Resident · warm', 'Pressure practice · direct']),
+  interviewer: new Set(['Program Director · balanced', 'Faculty · conversational', 'Chief Resident · warm']),
   program: new Set(['General residency interview', 'Internal Medicine · RISE seam', 'Family Medicine · RISE seam', 'Program context not available']),
   environment: new Set(['MissionMed · interview only', 'MissionMed · coached analytics', 'StoryForge context seam', 'RISE + StoryForge seams']),
 });
@@ -29,7 +31,7 @@ export function normalizeLiveInterviewContext(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError('Interview context must be an object.');
   }
-  const expected = ['environment', 'goal', 'interviewer', 'program', 'questionIds', 'targetQuestions'];
+  const expected = ['environment', 'goal', 'interviewer', 'pressurePractice', 'program', 'questionIds', 'targetQuestions'];
   if (Object.keys(value).sort().join(',') !== expected.join(',')) {
     throw new TypeError('Interview context has unexpected fields.');
   }
@@ -41,6 +43,7 @@ export function normalizeLiveInterviewContext(value) {
     interviewer: boundedText(value.interviewer, 'Interviewer', SAFE_CONTEXT.interviewer),
     program: boundedText(value.program, 'Program', SAFE_CONTEXT.program),
     environment: boundedText(value.environment, 'Environment', SAFE_CONTEXT.environment),
+    pressurePractice: value.pressurePractice === true,
     targetQuestions: Number.isInteger(value.targetQuestions) && value.targetQuestions >= 1 && value.targetQuestions <= 30
       ? value.targetQuestions
       : 1,
@@ -54,6 +57,20 @@ export function normalizeLiveInterviewContext(value) {
     throw new TypeError('Interview context is too large.');
   }
   return context;
+}
+
+function selectedQuestionPool(questionIds) {
+  const catalog = new Map(createDefaultQuestionStore().all()
+    .filter((question) => !question.is_collection_description)
+    .map((question) => [question.question_id, question]));
+  return questionIds.map((questionId, index) => {
+    const question = catalog.get(questionId);
+    return Object.freeze({
+      order: index + 1,
+      questionId,
+      canonicalText: question ? String(question.canonical_text || '').slice(0, 1_000) : null,
+    });
+  });
 }
 
 function normalizeActorContext(value) {
@@ -72,16 +89,24 @@ function normalizeActorContext(value) {
 }
 
 export function buildLiveInterviewInstructions(context, actorContext) {
-  const authorizedContext = JSON.stringify(normalizeLiveInterviewContext(context));
+  const normalized = normalizeLiveInterviewContext(context);
+  const authorizedContext = JSON.stringify(normalized);
+  const questionPool = JSON.stringify(selectedQuestionPool(normalized.questionIds));
   const applicationContext = normalizeActorContext(actorContext);
   return [
     'You are InterviewBrain, a calm, professional residency interviewer for IV Prep On-Call.',
     'Conduct a realistic spoken interview. Ask one question at a time and follow up only on what the applicant actually says.',
     'Keep each turn concise. Use sparse, natural backchannels only when they do not steal the floor.',
+    'QUESTION POOL POLICY: Use selected questions in the exact listed order. Ask each selected base question once before repeating or substituting another base question. Follow-ups must be grounded in the applicant answer or authorized application context. A follow-up does not consume a base-question slot.',
+    'If a selected question has no canonical text, identify the missing question data and do not invent a replacement.',
+    normalized.pressurePractice
+      ? 'PRESSURE MODIFIER: Be direct and appropriately skeptical, while remaining professional. This modifies follow-up intensity; it does not change interviewer identity.'
+      : 'PRESSURE MODIFIER: Off. Maintain the selected interviewer identity and a realistic, supportive level of challenge.',
     'If the applicant interrupts, stop speaking and listen. A thoughtful pause, restart, or word search is not automatically a finished answer.',
     'Never infer emotion, personality, diagnosis, protected traits, or facts absent from the authorized context or the applicant response.',
     'Never claim access to records or facts not present below.',
     `AUTHORIZED SESSION CONTEXT: ${authorizedContext}`,
+    `AUTHORIZED ORDERED QUESTION POOL: ${questionPool}`,
     applicationContext.actorBlock,
   ].join('\n');
 }
@@ -153,6 +178,11 @@ export class OpenAiLiveSessionBroker {
     return Object.freeze({
       session: Object.freeze({ id, model: MODEL }),
       transport: Object.freeze({ type: 'webrtc', sdp: answer }),
+      audioAuthority: Object.freeze({
+        schema: 'ivoc.audio-authority.v1',
+        mode: 'single',
+        authority: 'openai-gpt-live-native',
+      }),
     });
   }
 

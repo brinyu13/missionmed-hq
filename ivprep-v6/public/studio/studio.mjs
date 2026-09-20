@@ -1337,6 +1337,7 @@ async function startRep() {
         await state.durable.start({
           stream: bridge.media.stream,
           question: q || null,
+          interviewSet: state.interviewSet,
           wizard: state.wizard,
           targetQuestions: state.targetQuestions,
           interviewerProvider: state.liveInterview?.sessionId ? 'openai-gpt-live' : 'missionmed-static',
@@ -1597,6 +1598,7 @@ function wireLiveInterview() {
     audioElement: $('#live-interviewer-audio'),
     onStatus: setLiveInterviewStatus,
     onTranscript: appendLiveTranscript,
+    onTelemetry: (event) => state.durable?.recordLiveAudioTelemetry?.(event),
   });
   const available = state.admission?.runtime?.liveInterviewAvailable === true;
   setLiveInterviewStatus({ state: available ? 'idle' : 'unavailable', detail: available
@@ -1623,6 +1625,7 @@ function wireLiveInterview() {
       preparedForLive = !state.durable.accountSession;
       const prepared = await state.durable.prepare({
         question: state.interviewSet[0] || null,
+        interviewSet: state.interviewSet,
         wizard: state.wizard,
         targetQuestions: state.targetQuestions,
         interviewerProvider: 'openai-gpt-live',

@@ -28,11 +28,27 @@ test('durable Studio session creates, records, seals, and persists the validated
   await durable.start({
     stream: { id: 'shared-media' },
     question: { question_id: 'CORE-01', canonical_text: 'Tell me about yourself.' },
+    interviewSet: [
+      { question_id: 'CORE-01', canonical_text: 'Tell me about yourself.' },
+      { question_id: 'MR142-001', canonical_text: 'Why this specialty?' },
+    ],
     wizard: { interviewer: 'Program Director', program: 'Internal Medicine' },
     targetQuestions: 5,
     interviewerProvider: 'openai-gpt-live',
   });
   nowMs = 220;
+  assert.equal(durable.recordLiveAudioTelemetry({
+    schema: 'ivoc.audio-authority.event.v1', authority: 'openai-gpt-live-native', mode: 'single',
+    state: 'configured', observedAtMs: 10,
+  }), true);
+  assert.equal(durable.recordLiveAudioTelemetry({
+    schema: 'ivoc.audio-authority.event.v1', authority: 'openai-gpt-live-native', mode: 'single',
+    state: 'bound', observedAtMs: 25,
+  }), true);
+  assert.equal(durable.recordLiveAudioTelemetry({
+    schema: 'ivoc.audio-authority.event.v1', authority: 'openai-gpt-live-native', mode: 'single',
+    state: 'released', observedAtMs: 2_900,
+  }), true);
   assert.equal(durable.recordLiveTranscript({
     identity: 'response-1', speaker: 'interviewer', text: 'Tell me about yourself.',
     type: 'session.output_transcript.done', final: true,
@@ -49,6 +65,7 @@ test('durable Studio session creates, records, seals, and persists the validated
   assert.equal(finished.recording.recording.id, 'recording-1');
   assert.deepEqual(calls.map((call) => call[0]), ['bootstrap', 'createSession', 'recording.start', 'recording.stopAndSeal', 'saveResults']);
   assert.equal(calls[1][1].context.targetQuestions, 5);
+  assert.deepEqual(calls[1][1].context.questionIds, ['CORE-01', 'MR142-001']);
   assert.equal(calls[4][2].schema, 'ivoc.analytics.v1');
   assert.equal(calls[4][2].analytics, analytics);
   assert.deepEqual(calls[4][2].scores, {});
@@ -58,6 +75,14 @@ test('durable Studio session creates, records, seals, and persists the validated
     turns: [
       { id: 'response-1', speaker: 'interviewer', startMs: 120, endMs: 120, text: 'Tell me about yourself.', final: true, providerEventType: 'session.output_transcript.done' },
       { id: 'item-1', speaker: 'student', startMs: 1_320, endMs: 1_320, text: 'I value careful listening.', final: true, providerEventType: 'session.input_transcript.done' },
+    ],
+  });
+  assert.deepEqual(calls[4][2].audioAuthority, {
+    schema: 'ivoc.audio-authority.v1', mode: 'single', authority: 'openai-gpt-live-native',
+    events: [
+      { state: 'configured', observedAtMs: 10 },
+      { state: 'bound', observedAtMs: 25 },
+      { state: 'released', observedAtMs: 2_900 },
     ],
   });
 });
@@ -113,8 +138,13 @@ test('a prepared canonical session is reused when the same rep begins recording'
     interviewerProvider: 'openai-gpt-live',
   };
   const prepared = await durable.prepare(options);
+  durable.recordLiveAudioTelemetry({
+    schema: 'ivoc.audio-authority.event.v1', authority: 'openai-gpt-live-native', mode: 'single',
+    state: 'configured', observedAtMs: 0,
+  });
   const started = await durable.start({ ...options, stream: { id: 'shared-media' } });
   assert.equal(prepared, started);
+  assert.deepEqual(durable.liveAudioAuthoritySnapshot().events, [{ state: 'configured', observedAtMs: 0 }]);
   assert.deepEqual(calls.map((call) => call[0]), ['createSession', 'recording.start']);
   await assert.rejects(() => durable.prepare({ ...options, targetQuestions: 6 }), /context_changed/u);
 });

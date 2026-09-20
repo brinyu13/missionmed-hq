@@ -549,6 +549,39 @@ function liveConversationTurns(value, sessionId) {
   });
 }
 
+function audioAuthorityEvidence(value) {
+  if (value == null) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+      || value.schema !== 'ivoc.audio-authority.v1'
+      || value.mode !== 'single'
+      || value.authority !== 'openai-gpt-live-native') {
+    throw Object.assign(new TypeError('audio_authority_invalid'), { status: 400 });
+  }
+  const events = boundedArray(value.events, 'audio_authority_events', 64).map((event) => {
+    if (!event || typeof event !== 'object' || Array.isArray(event)
+        || !['configured', 'bound', 'surplus_rejected', 'released'].includes(event.state)) {
+      throw Object.assign(new TypeError('audio_authority_event_invalid'), { status: 400 });
+    }
+    return { state: event.state, observedAtMs: contractInteger(event.observedAtMs, 'audio_authority_observed_at') };
+  });
+  const states = events.map((event) => event.state);
+  const configuredAt = states.indexOf('configured');
+  const boundAt = states.indexOf('bound');
+  const releasedAt = states.indexOf('released');
+  const timestampsAdvance = events.every((event, index) => index === 0
+    || event.observedAtMs >= events[index - 1].observedAtMs);
+  if (states.filter((state) => state === 'configured').length !== 1
+      || states.filter((state) => state === 'bound').length !== 1
+      || states.filter((state) => state === 'released').length !== 1
+      || !(configuredAt < boundAt && boundAt < releasedAt)
+      || !timestampsAdvance) {
+    throw Object.assign(new TypeError('audio_authority_evidence_invalid'), { status: 400 });
+  }
+  return Object.freeze({
+    schema: 'ivoc.audio-authority.v1', mode: 'single', authority: 'openai-gpt-live-native', events,
+  });
+}
+
 async function persistContextSpine({ db, actor, sessionRow, recording, result, nowMs }) {
   // Server-generated transcript truth is persisted here; the browser never asserts canonical text.
   if (result?.transcript?.status !== 'AVAILABLE') return { transcript: false, analysis: false };
@@ -1365,6 +1398,7 @@ export function createIvocHandler({
         const input = await readJson(request);
         if (input.schema !== 'ivoc.analytics.v1' || Number(input.schemaVersion) !== 1) { sendError(response, 400, 'analytics_schema_invalid', mediaBase); return true; }
         const providerTurns = liveConversationTurns(input.liveConversation, sessionId);
+        const audioAuthority = audioAuthorityEvidence(input.audioAuthority);
         const existing = await db.single(`ivoc_results?session_id=eq.${sessionId}&select=id&limit=1`);
         const summaryDurations = {
           sessionDurationMs: optionalDurationMs(input.sessionDurationMs),
@@ -1377,7 +1411,7 @@ export function createIvocHandler({
           owner_subject: actor,
           schema_name: input.schema,
           schema_version: 1,
-          payload: input,
+          payload: { ...input, ...(audioAuthority ? { audioAuthority } : {}) },
           summary: { scores: input.scores || {}, counters: input.counters || {}, durations: summaryDurations },
         };
         const result = existing
@@ -1387,9 +1421,15 @@ export function createIvocHandler({
         if (providerTurns.length) {
           await audit({ actor, owner: actor, sessionId, action: 'live_conversation_persist', decision: 'allow', reason: `${providerTurns.length}_provisional_turns` });
         }
+        if (audioAuthority) {
+          await audit({ actor, owner: actor, sessionId, action: 'audio_authority_persist', decision: 'allow', reason: 'single_native_audio_released' });
+        }
         const durationMs = Math.max(0, Math.trunc(Number(input.playableDurationMs ?? input.durationMs ?? input.history?.at(-1)?.t * 1000) || 0));
         await db.update(`ivoc_sessions?id=eq.${sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&select=*`, { state: 'saved', ended_at: new Date(now()).toISOString(), duration_ms: durationMs });
-        sendJson(response, 200, { id: result.id, sessionId, schema: result.schema_name, schemaVersion: result.schema_version, liveConversationTurns: providerTurns.length }, mediaBase); return true;
+        sendJson(response, 200, {
+          id: result.id, sessionId, schema: result.schema_name, schemaVersion: result.schema_version,
+          liveConversationTurns: providerTurns.length, audioAuthorityVerified: Boolean(audioAuthority),
+        }, mediaBase); return true;
       }
 
       match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})\/review$/u);

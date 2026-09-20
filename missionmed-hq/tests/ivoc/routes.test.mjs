@@ -673,6 +673,14 @@ test('results preserve explicit duration vocabulary while the library duration f
         { id: 'response-2', speaker: 'interviewer', startMs: 8_300, endMs: 9_100, text: 'How did that change your work?', final: true, providerEventType: 'session.output_transcript.done' },
       ],
     },
+    audioAuthority: {
+      schema: 'ivoc.audio-authority.v1', mode: 'single', authority: 'openai-gpt-live-native',
+      events: [
+        { state: 'configured', observedAtMs: 0 },
+        { state: 'bound', observedAtMs: 120 },
+        { state: 'released', observedAtMs: 24_500 },
+      ],
+    },
   };
   await route({
     ...base,
@@ -700,8 +708,39 @@ test('results preserve explicit duration vocabulary while the library duration f
   assert.match(liveTurns[0].transcript.provisional_ref, /^provider:gpt-live-1:/u);
   assert.equal(Object.hasOwn(liveTurns[0].transcript, 'canonical_ref'), false);
   assert.equal(response.json().liveConversationTurns, 3);
+  assert.equal(response.json().audioAuthorityVerified, true);
+  assert.equal(resultInsert.body.payload.audioAuthority.mode, 'single');
   const sessionUpdate = repo.updates.find((entry) => entry.path.startsWith(`ivoc_sessions?id=eq.${sessionId}`));
   assert.equal(sessionUpdate.body.duration_ms, 24_500);
+});
+
+test('results reject multiple bound provider audio tracks instead of accepting split authority', async () => {
+  const repo = repository();
+  const sessionId = '00000000-0000-4000-8000-000000000042';
+  repo.single = async (path) => path.startsWith(`ivoc_sessions?id=eq.${sessionId}`)
+    ? { id: sessionId, owner_subject: 'wp:42' }
+    : null;
+  const { route } = handler(repo);
+  const response = new ResponseCapture();
+  await route({
+    ...base,
+    request: request('POST', {
+      schema: 'ivoc.analytics.v1', schemaVersion: 1, durationMs: 1_000,
+      audioAuthority: {
+        schema: 'ivoc.audio-authority.v1', mode: 'single', authority: 'openai-gpt-live-native',
+        events: [
+          { state: 'configured', observedAtMs: 0 },
+          { state: 'bound', observedAtMs: 10 },
+          { state: 'bound', observedAtMs: 20 },
+        ],
+      },
+    }, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }),
+    response,
+    url: new URL(`https://hq.test/api/ivoc/v1/sessions/${sessionId}/results`),
+    hqSession: session(),
+  });
+  assert.equal(response.status, 400);
+  assert.equal(repo.inserts.some((entry) => entry.table === 'ivoc_results'), false);
 });
 
 test('student cannot read another student session', async () => {

@@ -41,6 +41,7 @@ export class LiveInterviewSession {
     onStatus = () => {},
     onTranscript = () => {},
     onEvent = () => {},
+    onTelemetry = () => {},
     now = () => performance.now(),
   } = {}) {
     if (typeof createSession !== 'function' || typeof endSession !== 'function'
@@ -52,6 +53,7 @@ export class LiveInterviewSession {
     this.onStatus = onStatus;
     this.onTranscript = onTranscript;
     this.onEvent = onEvent;
+    this.onTelemetry = onTelemetry;
     this.now = now;
     this.peer = null;
     this.channel = null;
@@ -63,11 +65,35 @@ export class LiveInterviewSession {
     this.startedAtMs = null;
     this.transcriptSequence = 0;
     this.activeTranscriptIds = { applicant: null, interviewer: null };
+    this.audioAuthority = null;
+    this.remoteAudioTrackId = null;
   }
 
   emitStatus(state, detail = null) {
     this.state = state;
     this.onStatus(Object.freeze({ state, detail }));
+  }
+
+  emitTelemetry(state) {
+    const event = Object.freeze({
+      schema: 'ivoc.audio-authority.event.v1',
+      authority: 'openai-gpt-live-native',
+      mode: 'single',
+      state,
+      observedAtMs: this.startedAtMs == null ? 0 : Math.max(0, Math.round(this.now() - this.startedAtMs)),
+    });
+    this.onTelemetry(event);
+    return event;
+  }
+
+  diagnostics() {
+    return Object.freeze({
+      schema: 'ivoc.audio-authority.v1',
+      mode: 'single',
+      authority: 'openai-gpt-live-native',
+      state: this.audioAuthority || 'idle',
+      remoteTrackBound: Boolean(this.remoteAudioTrackId),
+    });
   }
 
   handleEvent(raw) {
@@ -120,12 +146,26 @@ export class LiveInterviewSession {
     this.startedAtMs = this.now();
     this.transcriptSequence = 0;
     this.activeTranscriptIds = { applicant: null, interviewer: null };
+    this.audioAuthority = 'configured';
+    this.remoteAudioTrackId = null;
+    this.emitTelemetry('configured');
     const peer = new this.PeerConnection();
     this.peer = peer;
     peer.addTrack(audioTrack);
     peer.ontrack = (event) => {
+      const track = event.track;
+      const trackId = String(track?.id || 'provider-audio').slice(0, 160);
+      if (this.remoteAudioTrackId && this.remoteAudioTrackId !== trackId) {
+        track?.stop?.();
+        this.emitTelemetry('surplus_rejected');
+        return;
+      }
+      if (this.remoteAudioTrackId === trackId) return;
+      this.remoteAudioTrackId = trackId;
+      this.audioAuthority = 'bound';
+      this.emitTelemetry('bound');
       if (!this.audioElement) return;
-      const stream = event.streams?.[0] || new MediaStream([event.track]);
+      const stream = event.streams?.[0] || new MediaStream([track]);
       this.audioElement.srcObject = stream;
       void this.audioElement.play?.().catch?.(() => {});
     };
@@ -153,9 +193,13 @@ export class LiveInterviewSession {
         ivocSessionId,
       });
       this.sessionId = created.session.id;
+      if (created.audioAuthority?.mode !== 'single'
+          || created.audioAuthority?.authority !== 'openai-gpt-live-native') {
+        throw new Error('InterviewBrain audio authority is invalid.');
+      }
       await peer.setRemoteDescription({ type: 'answer', sdp: created.transport.sdp });
       await started;
-      return Object.freeze({ id: this.sessionId, model: created.session.model });
+      return Object.freeze({ id: this.sessionId, model: created.session.model, audioAuthority: this.diagnostics() });
     } catch (error) {
       clearTimeout(this.startTimer);
       this.startedResolve = null;
@@ -177,12 +221,15 @@ export class LiveInterviewSession {
     try { this.peer?.close?.(); } catch {}
     this.channel = null;
     this.peer = null;
-    this.startedAtMs = null;
+    if (this.audioAuthority) this.emitTelemetry('released');
+    this.audioAuthority = 'released';
+    this.remoteAudioTrackId = null;
     if (this.audioElement) {
       this.audioElement.pause?.();
       this.audioElement.srcObject = null;
     }
     if (notifyServer && id) await this.endSession(id, { keepalive });
+    this.startedAtMs = null;
     this.emitStatus('closed', 'Interview ended');
     return Object.freeze({ ok: true });
   }

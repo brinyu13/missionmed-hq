@@ -15,6 +15,7 @@ test('adapts frozen Astra labels to the bounded InterviewBrain contract', () => 
     goal: 'Full interview simulation',
     questionIds: ['CORE-01'],
     interviewer: 'Program Director · balanced',
+    pressurePractice: false,
     program: 'General residency interview',
     environment: 'MissionMed · coached analytics',
     targetQuestions: 5,
@@ -24,6 +25,7 @@ test('adapts frozen Astra labels to the bounded InterviewBrain contract', () => 
 test('maps Founder pressure practice without exposing UI implementation terms', () => {
   const context = createLiveContext({ wizard: { goal: 'Individual Question', pressurePractice: true }, targetQuestions: 99 });
   assert.equal(context.goal, 'Individual question');
-  assert.equal(context.interviewer, 'Pressure practice · direct');
+  assert.equal(context.interviewer, 'Program Director · balanced');
+  assert.equal(context.pressurePractice, true);
   assert.equal(context.targetQuestions, 30);
 });

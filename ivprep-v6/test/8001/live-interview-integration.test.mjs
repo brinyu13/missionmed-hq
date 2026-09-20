@@ -26,6 +26,7 @@ class FakePeerConnection {
 test('browser session reuses the admitted microphone and never stops the shared Analytics track', async () => {
   const statuses = [];
   const transcript = [];
+  const telemetry = [];
   const ended = [];
   const audio = { srcObject: null, play: async () => {}, pause() { this.paused = true; } };
   const microphone = { kind: 'audio', readyState: 'live', stopCalls: 0, stop() { this.stopCalls += 1; } };
@@ -35,16 +36,34 @@ test('browser session reuses the admitted microphone and never stops the shared 
     audioElement: audio,
     createSession: async (input) => {
       assert.equal(input.sdp, 'v=0\r\no=offer');
-      return { session: { id: 'live_session_123456', model: 'gpt-live-1' }, transport: { type: 'webrtc', sdp: 'v=0\r\no=answer' } };
+      return {
+        session: { id: 'live_session_123456', model: 'gpt-live-1' },
+        transport: { type: 'webrtc', sdp: 'v=0\r\no=answer' },
+        audioAuthority: { schema: 'ivoc.audio-authority.v1', mode: 'single', authority: 'openai-gpt-live-native' },
+      };
     },
     endSession: async (id, options) => { ended.push([id, options]); },
     onStatus: (event) => statuses.push(event.state),
     onTranscript: (event) => transcript.push(event),
+    onTelemetry: (event) => telemetry.push(event),
     now: () => nowMs,
   });
-  assert.deepEqual(await session.start({ audioTrack: microphone, context: {} }), { id: 'live_session_123456', model: 'gpt-live-1' });
+  assert.deepEqual(await session.start({ audioTrack: microphone, context: {} }), {
+    id: 'live_session_123456', model: 'gpt-live-1',
+    audioAuthority: {
+      schema: 'ivoc.audio-authority.v1', mode: 'single', authority: 'openai-gpt-live-native',
+      state: 'configured', remoteTrackBound: false,
+    },
+  });
   assert.equal(FakePeerConnection.last.track, microphone);
   assert.equal(FakePeerConnection.last.channelLabel, 'oai-events');
+  const remote = { id: 'remote-audio-1', stopCalls: 0, stop() { this.stopCalls += 1; } };
+  FakePeerConnection.last.ontrack({ track: remote, streams: [{ id: 'provider-stream' }] });
+  FakePeerConnection.last.ontrack({ track: remote, streams: [{ id: 'provider-stream' }] });
+  const surplus = { id: 'remote-audio-2', stopCalls: 0, stop() { this.stopCalls += 1; } };
+  FakePeerConnection.last.ontrack({ track: surplus, streams: [{ id: 'surplus-stream' }] });
+  assert.deepEqual(telemetry.map((event) => event.state), ['configured', 'bound', 'surplus_rejected']);
+  assert.equal(surplus.stopCalls, 1);
   nowMs = 1_125;
   FakePeerConnection.last.channel.onmessage({ data: JSON.stringify({ type: 'session.output_transcript.delta', response_id: 'response-1', delta: 'Tell me about yourself.' }) });
   nowMs = 1_250;
@@ -61,6 +80,7 @@ test('browser session reuses the admitted microphone and never stops the shared 
   ]);
   const channel = FakePeerConnection.last.channel;
   await session.stop({ keepalive: true });
+  assert.deepEqual(telemetry.map((event) => event.state), ['configured', 'bound', 'surplus_rejected', 'released']);
   assert.deepEqual(ended, [['live_session_123456', { keepalive: true }]]);
   assert.equal(microphone.stopCalls, 0);
   assert.deepEqual(channel.sent, [{ type: 'session.close' }]);

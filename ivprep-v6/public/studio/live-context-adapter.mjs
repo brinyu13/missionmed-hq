@@ -21,9 +21,8 @@ export function createLiveContext({ wizard = {}, interviewSet = [], targetQuesti
   return Object.freeze({
     goal: GOALS[wizard.goal] || 'Residency interview practice',
     questionIds: Object.freeze(interviewSet.map((question) => question?.question_id).filter(Boolean).slice(0, 30)),
-    interviewer: wizard.pressurePractice
-      ? 'Pressure practice · direct'
-      : (INTERVIEWERS[wizard.interviewer] || 'Program Director · balanced'),
+    interviewer: INTERVIEWERS[wizard.interviewer] || 'Program Director · balanced',
+    pressurePractice: wizard.pressurePractice === true,
     program: 'General residency interview',
     environment: wizard.analyticsEnabled === true
       ? 'MissionMed · coached analytics'
