@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 12:11 America/New_York
+Updated: 2026-09-20 12:25 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `13453f5b-1454-40f4-afaf-0b8ae8830832`, exact commit
-  `c1a51549ccfcfe88acfafd206b9fba3cb6689bf5`, image
-  `sha256:7e02fd0faae196fa9bee68f2097c748007b7ef5a474150aeba7bc55d940bd590`.
+  `53181212-dba0-4f71-89b1-4ce5eaa75f4a`, exact commit
+  `e8db96cb43ad2b1d64ff25958e477688214f0630`, image
+  `sha256:b6a387bcc869d8c4fdfa30ffadbc00957b1092a07d1443cbe9392f3f9824815b`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -60,7 +60,7 @@ the actual production route and deployment.
 - MissionMed organization: `jolimsgwkmssvhegrdfx`.
 - Region: `us-east-2`.
 - Provider status: `ACTIVE_HEALTHY`.
-- Thirteen production migrations are present:
+- Fourteen production migrations are present:
   `ivprep_3440_admin_canary`,
   `ivprep_3472c_t1_three_test_lifecycle`,
   `ivoc_3528c_session_recording_results`,
@@ -72,10 +72,11 @@ the actual production route and deployment.
   `ivoc_question_governance_fail_fast`,
   `ivoc_mentor_priorities`,
   `ivoc_admin_config`,
-  `ivoc_user_credits`, and
-  `ivoc_user_credits_conflict_fix`.
+  `ivoc_user_credits`,
+  `ivoc_user_credits_conflict_fix`, and
+  `ivoc_answer_assets`.
 - Provider readback after the credit migrations:
-  24/24 IVOC/IV Prep tables have RLS enabled and forced; browser/public table
+  25/25 IVOC/IV Prep tables have RLS enabled and forced; browser/public table
   grants = 0; excess `service_role` grants
   (`DELETE`/`TRUNCATE`/`TRIGGER`/`REFERENCES`) = 0; the composite
   reservation foreign-key covering index is present.
@@ -87,8 +88,11 @@ the actual production route and deployment.
   bounded pressure-policy v2 and restored-baseline v3; its session is
   abandoned. The credit canary preserves eleven immutable actor-stamped events
   covering allowance, override, consumption, idempotent replay, insufficient-
-  balance denial, reset and zero-balance restore. No production recording/media
-  was created by these canaries. The single
+  balance denial, reset and zero-balance restore. One real saved `CORE-01`
+  answer produced a bounded AnswerAsset canary with private v1, explicitly
+  consented `match_bridge_ready` v2 and terminal revoked v3; stale mutation
+  failed at HTTP 409 and revoked playback failed closed at HTTP 404. No new
+  production recording/media was created by these canaries. The single
   `ivprep_provider_control` row remains fail-closed:
   `paid_tests_enabled=false`, `kill_switch_tripped=true`.
 - Security advisor reports only the expected informational
@@ -129,13 +133,13 @@ the actual production route and deployment.
 | 10 | MCC / Top 3 / Mentor owner projections | LIVE VERIFIED | With no MCC owner authority present, IVOC now owns the versioned Mentor Top 3 contract. Genuine `brinyu` production v1 generated one `ivoc.mentor_priorities` receipt, two bounded facts and one `AIS-R09` signal in session `4e275dac-a613-45a2-85d5-1d35413c8e47`; the Actor received the shared priority and not the mentor-only note. Append-only v2 cleared the projection, a stale write returned 409, and cleared-state session `f378c2a0-0cc0-4422-b042-f4cbfe334261` had zero leaked inputs. |
 | 10 | Prior-IVOC longitudinal context | LIVE UNVERIFIED | Production schema supports it; multi-session production proof remains. |
 | 10 | Calendar interview adapter | NOT STARTED | Owner capability and contract must be resolved without mutating sibling assets. |
-| 10 | Match Bridge bounded consented clip seam | NOT STARTED | IVOC clip contract and live owner handoff remain. |
+| 10 | Match Bridge bounded consented clip seam | LIVE VERIFIED | Real saved `CORE-01` media was bound only to a 0–14 s answer range, promoted from private v1 to consented `match_bridge_ready` v2, then revoked at v3. Whole-mock sharing remains prohibited by the contract; cross-product pickup is an external owner integration, not an IVOC clip-seam gap. |
 | 11 | Structured evidence-to-coaching pipeline | LIVE UNVERIFIED | Session/transcript/evidence tables exist; live synthesis acceptance remains. |
 | 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE UNVERIFIED | Results source exists; evidence-linked production output remains. |
 | 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE UNVERIFIED | Role-aware source exists; live actor/subject separation proof remains. |
 | 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Versioned Top 3 write/read/redaction and Context Pack binding are production accepted. Student selector and full production Admin traversal remain. |
-| 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE UNVERIFIED | Question governance, versioned Analytics/InterviewBrain/AIS/pressure/default-credit configuration, and per-user credit accounting are production accepted. Consolidated Settings presentation, Match Bridge and Live Mock status remain. |
+| 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE UNVERIFIED | Question governance, versioned Analytics/InterviewBrain/AIS/pressure/default-credit configuration, per-user credit accounting, and the owner-consented Match Bridge clip lifecycle are production accepted. Consolidated Settings presentation and Live Mock status remain. |
 | 14 | Versioned question governance | LIVE VERIFIED | Genuine `brinyu` production canary `CANARY-ADMIN-20260920-E92A09` completed active v1 → edited v2 → hidden v3 → retired v4 with immutable `wp:1` actor-stamped history. Stale version and retired-reactivation writes fail fast at HTTP 409; the retry-class SQLSTATE defect found during the canary was corrected by `ivoc_question_governance_fail_fast`. |
 | 14 | Credits, allowances, overrides, reset and balance | LIVE VERIFIED | Genuine `brinyu` production acceptance exercised allowance, override, atomic server-only consumption, idempotent replay, insufficient-balance denial, reset and zero-balance restoration. The authenticated Admin API advanced `wp:1` from v6 through v11, owner readback returned zero, and a stale write failed at HTTP 409. Eleven append-only events remain actor-stamped `wp:1`; browser clients cannot invoke consumption. |
 | 14 | Versioned Analytics/InterviewBrain/coaching controls | LIVE VERIFIED | Genuine `brinyu` production writes created bounded v2 and restored-baseline v3 with stale-write HTTP 409. Session `66a60fec-398f-413b-a74c-3d0d8d3168da` pinned Admin config v2, `ivoc.analytics.v1`, `gpt-live-1:marin`, AIS `2026-09-18.1`, and follow-up intensity 2; the active configuration is restored v3. |
@@ -143,7 +147,7 @@ the actual production route and deployment.
 | 15 | Canonical recording/Analytics/replay/overlay/scoring/library save | LIVE VERIFIED | One production Student Coached Practice rep completed the full camera/mic → Analytics → private recording → Results → Film Room overlay → Answer History → reload → signed private playback lifecycle. Overlay toggles and hidden-measurement continuity passed; true eye-gaze remains unsupported absent a defensible detector. |
 | 15 | Deepest viable Webex or staged supervised adapter | NOT STARTED | Owner/provider constraint and shipped seam remain. |
 | 16 | Per-question semantic Answer History | LIVE UNVERIFIED | Production CORE-01 history now reloads its private timestamped transcript and answer segment with synchronized playback. This rep truthfully produced no supported semantic observations; broader per-question semantic/filter acceptance remains. |
-| 16 | Match Bridge Ready promotion with consent/audience/revocation/version | NOT STARTED | Bounded clip contract and production proof remain. |
+| 16 | Match Bridge Ready promotion with consent/audience/revocation/version | LIVE VERIFIED | Genuine `brinyu` production lifecycle used saved session `4571e86c-3d99-4ba4-bf19-bee1f972a699`: private v1 playback returned 200, explicit bounded-clip consent plus `student`/`match_bridge` audience produced v2, stale mutation returned 409, and owner revocation produced v3 with empty audience and playback 404. |
 | 17 | Provider-neutral embodiment adapter and Brain/session separation | NOT STARTED | Active provider integration remains prohibited; neutral seam is still required. |
 | 17 | Flush/interruption/motion contract, Admin preview and cost controls | NOT STARTED | Neutral contract/control surface remains. |
 | 17 | Fictional 10–15 avatar configuration model | NOT STARTED | Configuration/catalog only; no real-person cloning/inference. |
@@ -156,8 +160,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `13453f5b-1454-40f4-afaf-0b8ae8830832` from exact product commit
-  `c1a51549ccfcfe88acfafd206b9fba3cb6689bf5`; `/health` is HTTP 200, the
+  `53181212-dba0-4f71-89b1-4ce5eaa75f4a` from exact product commit
+  `e8db96cb43ad2b1d64ff25958e477688214f0630`; `/health` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
