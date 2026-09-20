@@ -82,6 +82,7 @@ const state = {
   comparePair: [0, 1],
   governedQuestions: [],
   adminOverview: null,
+  vaultFilter: { query: '', evidence: 'all' },
 };
 
 /* ------------------------------------------------------------------ media bridge
@@ -1921,13 +1922,17 @@ async function renderCompare() {
   }
 }
 
+let vaultRenderId = 0;
+
 async function renderVault() {
   const host = $('#vault-body');
   if (!host) return;
+  const renderId = ++vaultRenderId;
   host.replaceChildren();
   try {
     if (!state.durableAvailable) throw state.durableError || new Error('durable_session_unavailable');
     const vault = await state.durable.library('own');
+    if (renderId !== vaultRenderId || state.view !== 'vault') return;
     const sessions = Array.isArray(vault?.sessions) ? vault.sessions : [];
     state.longitudinal = buildLongitudinalModel(sessions);
     if (!sessions.length) {
@@ -1937,7 +1942,56 @@ async function renderVault() {
       host.append(empty);
       return;
     }
-    for (const session of sessions) {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'vault-toolbar';
+    const query = document.createElement('input');
+    query.className = 'q-search';
+    query.type = 'search';
+    query.placeholder = 'Filter by question or answer title';
+    query.setAttribute('aria-label', 'Filter Answer History');
+    query.value = state.vaultFilter.query;
+    const evidence = document.createElement('select');
+    evidence.className = 'q-search';
+    evidence.setAttribute('aria-label', 'Filter by evidence availability');
+    for (const [value, label] of [
+      ['all', 'All evidence states'],
+      ['semantic', 'Supported semantic evidence'],
+      ['transcript', 'Transcript available'],
+      ['pending', 'Evidence pending'],
+    ]) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      option.selected = state.vaultFilter.evidence === value;
+      evidence.append(option);
+    }
+    const count = document.createElement('span');
+    count.className = 'microcap vault-result-count';
+    toolbar.append(query, evidence, count);
+    const rows = document.createElement('div');
+    rows.className = 'vault-rows';
+
+    const paint = () => {
+      rows.replaceChildren();
+      const needle = state.vaultFilter.query.trim().toLowerCase();
+      const filtered = sessions.filter((session) => {
+        const history = session.answerHistory || {};
+        const haystack = [session.questionId, session.questionText, session.title].filter(Boolean).join(' ').toLowerCase();
+        if (needle && !haystack.includes(needle)) return false;
+        if (state.vaultFilter.evidence === 'semantic') return Number(history.supportedObservationCount || 0) > 0;
+        if (state.vaultFilter.evidence === 'transcript') return history.transcriptAvailable === true;
+        if (state.vaultFilter.evidence === 'pending') return history.transcriptAvailable !== true;
+        return true;
+      });
+      count.textContent = `${filtered.length} OF ${sessions.length} ANSWERS`;
+      if (!filtered.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.innerHTML = '<strong>No matching answers</strong>Change the question or evidence filter. Saved evidence is never inferred.';
+        rows.append(empty);
+        return;
+      }
+      for (const session of filtered) {
       const row = document.createElement('div');
       row.className = 'check-row vault-answer';
       const copy = document.createElement('div');
@@ -1948,7 +2002,11 @@ async function renderVault() {
       const meta = document.createElement('span');
       meta.className = 'microcap';
       const when = session.endedAt || session.startedAt || '';
-      meta.textContent = `${session.state || 'saved'}${when ? ` · ${new Date(when).toLocaleString()}` : ''}`;
+      const history = session.answerHistory || {};
+      const evidenceLabel = Number(history.supportedObservationCount || 0) > 0
+        ? `${history.supportedObservationCount} supported observation${history.supportedObservationCount === 1 ? '' : 's'}`
+        : (history.transcriptAvailable ? 'Transcript · no supported semantic observations' : 'Evidence pending');
+      meta.textContent = `${session.questionId || 'QUESTION ID UNAVAILABLE'} · ${evidenceLabel}${when ? ` · ${new Date(when).toLocaleString()}` : ''}`;
       copy.append(title, meta);
       const actions = document.createElement('div');
       actions.className = 'vault-answer-actions';
@@ -1988,9 +2046,15 @@ async function renderVault() {
         actions.append(abandon);
       }
       row.append(copy, actions);
-      host.append(row);
-    }
+        rows.append(row);
+      }
+    };
+    query.addEventListener('input', () => { state.vaultFilter.query = query.value; paint(); });
+    evidence.addEventListener('change', () => { state.vaultFilter.evidence = evidence.value; paint(); });
+    host.append(toolbar, rows);
+    paint();
   } catch (error) {
+    if (renderId !== vaultRenderId || state.view !== 'vault') return;
     const note = document.createElement('p');
     note.className = 'unavailable';
     note.textContent = `ANSWER HISTORY UNAVAILABLE — ${String(error?.message || 'SESSION REQUIRED').toUpperCase().slice(0, 120)}`;

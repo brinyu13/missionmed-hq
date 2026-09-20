@@ -146,7 +146,19 @@ function publicRecording(row) {
   };
 }
 
-function publicSession(row, recording = null, result = null, review = null, spine = null) {
+function publicAnswerHistory(sessionId, segments = [], evidence = []) {
+  const sessionSegments = segments.filter((row) => row.session_id === sessionId);
+  const sessionEvidence = evidence.filter((row) => row.session_id === sessionId);
+  const semantic = sessionEvidence.filter((row) => String(row.dimension || '').startsWith('semantic.'));
+  return {
+    transcriptAvailable: sessionSegments.some((row) => Boolean(row.transcript_ref)),
+    answerSegmentCount: sessionSegments.length,
+    supportedObservationCount: semantic.length,
+    dimensions: [...new Set(semantic.map((row) => safeText(row.dimension, 120)).filter(Boolean))].slice(0, 24),
+  };
+}
+
+function publicSession(row, recording = null, result = null, review = null, spine = null, answerHistory = null) {
   return {
     id: row.id, title: row.title, sessionType: row.session_type, questionId: row.question_id,
     questionText: row.question_text, state: row.state, startedAt: row.started_at,
@@ -157,6 +169,7 @@ function publicSession(row, recording = null, result = null, review = null, spin
     reviewStatus: review?.status || null,
     review: review ? { status: review.status || null, reviewedAt: review.reviewed_at || null } : null,
     spine,
+    answerHistory,
   };
 }
 
@@ -1463,7 +1476,16 @@ export function createIvocHandler({
         const recordings = ids.length ? await db.request(`ivoc_recordings?session_id=in.(${ids.join(',')})&select=*`) : [];
         const results = ids.length ? await db.request(`ivoc_results?session_id=in.(${ids.join(',')})&select=*`) : [];
         const reviews = ids.length ? await db.request(`ivoc_reviews?session_id=in.(${ids.join(',')})&status=neq.revoked&select=session_id,status,mentor_subject,reviewed_at,assigned_by_subject`) : [];
-        sendJson(response, 200, { sessions: rows.map((row) => publicSession(row, recordings.find((x) => x.session_id === row.id), results.find((x) => x.session_id === row.id), reviews.find((x) => x.session_id === row.id))) }, mediaBase); return true;
+        const segments = ids.length ? await db.request(`ivoc_answer_segments?session_id=in.(${ids.join(',')})&select=session_id,transcript_ref`) : [];
+        const evidence = ids.length ? await db.request(`ivoc_coaching_evidence?session_id=in.(${ids.join(',')})&select=session_id,dimension`) : [];
+        sendJson(response, 200, { sessions: rows.map((row) => publicSession(
+          row,
+          recordings.find((x) => x.session_id === row.id),
+          results.find((x) => x.session_id === row.id),
+          reviews.find((x) => x.session_id === row.id),
+          null,
+          publicAnswerHistory(row.id, segments, evidence),
+        )) }, mediaBase); return true;
       }
 
       match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})$/u);
