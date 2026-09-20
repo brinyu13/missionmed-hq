@@ -96,6 +96,13 @@ test('Live Mock Studio stays behind the Scheduler owner capability boundary', ()
   assert.match(html, /id="live-mock-studio" data-admin-only/u);
 });
 
+test('Calendar context stays behind a minimized Scheduler capability adapter', () => {
+  assert.match(runtime, /InterviewCalendarCapability/u);
+  assert.match(runtime, /state\.calendar\.studentCalendar\(\)/u);
+  assert.match(runtime, /IVOC does not store the owner URL/u);
+  assert.match(runtime, /renderProgramCalendar\(host\)/u);
+});
+
 test('the product document has unique element ids', () => {
   const ids = [...html.matchAll(/\sid="([^"]+)"/gu)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);

@@ -24,6 +24,7 @@ import { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
 import { InstrumentRack } from './instruments.mjs';
 import { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mjs';
 import { createLiveContext } from './live-context-adapter.mjs';
+import { InterviewCalendarCapability } from '../capabilities/calendar-context.mjs';
 import { LiveMockStudioCapability } from '../capabilities/live-mock-studio.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -83,6 +84,9 @@ const state = {
   comparePair: [0, 1],
   governedQuestions: [],
   adminOverview: null,
+  calendar: new InterviewCalendarCapability(),
+  calendarProjection: null,
+  calendarState: 'idle',
   liveMock: new LiveMockStudioCapability(),
   vaultFilter: { query: '', evidence: 'all' },
 };
@@ -952,6 +956,51 @@ function renderInterviewerStep(host) {
   }
 }
 
+let calendarLoadId = 0;
+
+async function refreshInterviewCalendar() {
+  const loadId = ++calendarLoadId;
+  state.calendarState = 'loading';
+  try {
+    const projection = await state.calendar.studentCalendar();
+    if (loadId !== calendarLoadId) return;
+    state.calendarProjection = projection;
+    state.calendarState = 'ready';
+  } catch {
+    if (loadId !== calendarLoadId) return;
+    state.calendarProjection = null;
+    state.calendarState = 'unavailable';
+  }
+  if (state.view === 'newsession' && WIZARD_STEPS[state.wizardStep]?.key === 'program') renderWizard();
+}
+
+function renderProgramCalendar(host) {
+  const panel = el('section', 'canon-program-result canon-calendar-context');
+  panel.append(el('div', 'microcap', 'Interview calendar'));
+  if (state.calendarState === 'idle') void refreshInterviewCalendar();
+  if (state.calendarState === 'idle' || state.calendarState === 'loading') {
+    panel.append(el('h3', '', 'Checking your authorized schedule…'), el('p', 'canon-muted', 'Reading the student-scoped Scheduler projection.'));
+  } else if (state.calendarState === 'unavailable') {
+    panel.dataset.state = 'unavailable';
+    panel.append(el('h3', '', 'Calendar unavailable'), el('p', 'canon-muted', 'No interview timing was inferred. You can continue with manual program preparation.'));
+  } else if (!state.calendarProjection?.nextEvent) {
+    panel.dataset.state = 'ready';
+    panel.append(
+      el('h3', '', 'Calendar connected'),
+      el('p', 'canon-muted', `${state.calendarProjection?.eventCount || 0} authorized appointment${state.calendarProjection?.eventCount === 1 ? '' : 's'} found · none upcoming.`),
+    );
+  } else {
+    const next = state.calendarProjection.nextEvent;
+    panel.dataset.state = 'ready';
+    panel.append(
+      el('h3', '', next.title),
+      el('p', 'canon-muted', `${new Date(next.startsAt).toLocaleString()} · ${next.provider.toUpperCase()} · ${next.status.toUpperCase()}`),
+      el('p', 'admin-boundary-note', `Join ${next.joinAvailable ? 'is available through Scheduler' : 'is not yet available'}; IVOC does not store the owner URL.`),
+    );
+  }
+  host.append(panel);
+}
+
 function renderProgramStep(host) {
   const photo = el('div', 'canon-photo-heading');
   const image = el('img'); image.src = '/iv-prep-on-call/assets/studio/astra-assets/rise.png'; image.alt = '';
@@ -978,7 +1027,7 @@ function renderProgramStep(host) {
   ['Training focus', 'Leadership and interviewers', 'Curriculum and pathways', 'Research, facilities, and fellowships'].forEach((fact) => {
     const row = el('div'); row.append(el('strong', '', fact), el('span', '', 'Not available until verified program intelligence is selected.')); facts.append(row);
   });
-  result.append(facts); host.append(result);
+  result.append(facts); host.append(result); renderProgramCalendar(host);
 }
 
 function renderEnvironmentStep(host) {

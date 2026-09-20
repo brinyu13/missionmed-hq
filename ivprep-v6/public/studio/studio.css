@@ -380,6 +380,8 @@ body {
 .canon-cheat-sheet > div { display: grid; gap: 6px; padding: 12px; border: 1px solid #34435a; background: #09111f; }
 .canon-cheat-sheet strong { color: #f3aa74; font: 800 9px/1 var(--font-num); text-transform: uppercase; letter-spacing: .07em; }
 .canon-cheat-sheet span { color: var(--dim); font-size: 11px; }
+.canon-calendar-context[data-state="ready"] { border-color: #3f765b; }
+.canon-calendar-context[data-state="unavailable"] { border-color: #7b5f38; }
 .canon-environment-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .canon-panel { border: 1px solid #3a4960; border-radius: 16px; background: linear-gradient(145deg, #151f31, #091220); padding: 16px; }
 .canon-panel > h2 { margin: 0 0 13px; font: italic 700 22px/1.1 var(--font-editorial); }
