@@ -11,6 +11,7 @@ const TABLES = Object.freeze([
   'ivoc_answer_segments',
   'ivoc_coaching_evidence',
   'ivoc_question_catalog',
+  'ivoc_context_packs',
 ]);
 
 const RPCS = Object.freeze([

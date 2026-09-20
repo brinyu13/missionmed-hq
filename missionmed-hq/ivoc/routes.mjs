@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { admissionRegistry } from '../../ivprep-v6/server/admission-registry.mjs';
 import { strictProjectHqSession, validateIvPrepMutation } from '../../ivprep-v6/server/admission-contract.mjs';
 import { createContextIntelligenceProvider } from './context-provider.mjs';
+import { createIvocApplicationIntelligence, readSessionContextReceipts } from './application-intelligence.mjs';
 import { createIvocRepository } from './repository.mjs';
 import { createIvocStorage } from './storage.mjs';
 import {
@@ -255,9 +256,11 @@ async function persistContextSpine({ db, actor, sessionRow, recording, result, n
     limitations: result.analysis.limitations || [],
     version: 1,
   })) : [];
+  const contextReceipts = await readSessionContextReceipts(db, sessionRow.id);
   await db.upsert('ivoc_session_contracts', 'session_id', {
     session_id: sessionRow.id, schema_version: 1, actor_subject: actor, role_context: 'student',
-    practice_goal: practiceGoal(sessionRow), pressure_modifier: sessionRow.context?.pressurePractice === true,
+    practice_goal: practiceGoal(sessionRow),
+    pressure_modifier: practiceGoal(sessionRow) === 'individual_question' ? false : sessionRow.context?.pressurePractice === true,
     transport_profile: 'none', environment: contractEnvironment(sessionRow), selection_policy: 'system',
     follow_up_intensity: sessionRow.context?.pressurePractice === true ? 2 : 1,
     target_asked_count: Math.max(1, Math.trunc(Number(sessionRow.context?.targetQuestions) || 1)),
@@ -265,7 +268,7 @@ async function persistContextSpine({ db, actor, sessionRow, recording, result, n
     interviewer_config_ref: `interviewer:${safeText(sessionRow.context?.interviewer, 120) || sessionRow.interviewer_provider}`,
     question_pool_ref: `question:${question.questionId}`, analytics_config_version: sessionRow.analytics_schema || 'ivoc.analytics.v1',
     contract_state: 'complete', state_version: 1,
-    clock: { origin: 'capture_owner', started_at_wall: startedAt }, context_receipts: [],
+    clock: { origin: 'capture_owner', started_at_wall: startedAt }, context_receipts: contextReceipts,
   });
   await db.upsert('ivoc_conversation_turns', 'turn_id', {
     turn_id: questionTurnId, session_id: sessionRow.id, parent_turn_id: null, schema_version: 1,
@@ -310,6 +313,7 @@ export function createIvocHandler({
   env = process.env,
   fetchImpl = fetch,
   contextProvider = null,
+  applicationIntelligence = null,
 } = {}) {
   const mediaBase = '';
   const db = repository || createIvocRepository({
@@ -326,6 +330,7 @@ export function createIvocHandler({
     sessionSecret: env.MMHQ_SESSION_SECRET,
     fetchImpl,
   });
+  const appIntelligence = applicationIntelligence || createIvocApplicationIntelligence({ repository: db, now });
   const enabled = bool(env.IVPREP_ENABLED) && bool(env.IVPREP_ADMIN_CANARY_ENABLED);
   const contextEnabled = bool(env.IVOC_CONTEXT_CANDIDATE_ENABLED);
   const contextTranscriptEnabled = bool(env.IVOC_CONTEXT_TRANSCRIPT_ENABLED);
@@ -532,6 +537,13 @@ export function createIvocHandler({
           calibration_snapshot: input.calibration && typeof input.calibration === 'object' ? input.calibration : {},
           context: input.context && typeof input.context === 'object' ? input.context : {},
         });
+        try {
+          await appIntelligence.prepareSession({ actor, sessionRow: row });
+        } catch (error) {
+          await db.update(`ivoc_sessions?id=eq.${row.id}&owner_subject=eq.${encodeURIComponent(actor)}&select=*`, { state: 'error' }).catch(() => null);
+          await audit({ actor, owner: actor, sessionId: row.id, action: 'session_create', decision: 'deny', reason: 'context_pack_failed' });
+          throw error;
+        }
         await audit({ actor, owner: actor, sessionId: row.id, action: 'session_create', decision: 'allow', reason: 'owner' });
         sendJson(response, 201, publicSession(row), mediaBase); return true;
       }
@@ -667,6 +679,7 @@ export function createIvocHandler({
             version: item.version,
           };
         });
+        const contextReceipts = await readSessionContextReceipts(db, sessionId);
         await db.upsert('ivoc_session_contracts', 'session_id', {
           session_id: sessionId,
           schema_version: 1,
@@ -686,7 +699,7 @@ export function createIvocHandler({
           contract_state: session.state,
           state_version: session.state_version,
           clock: session.clock,
-          context_receipts: session.context_receipts,
+          context_receipts: contextReceipts,
         });
         if (events.length) await db.insertMany('ivoc_timeline_events', events);
         if (turns.length) await db.insertMany('ivoc_conversation_turns', turns);

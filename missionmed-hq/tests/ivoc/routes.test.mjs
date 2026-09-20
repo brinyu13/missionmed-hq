@@ -193,6 +193,12 @@ test('session creation requires same-origin CSRF and persists server identity', 
   await route({ ...base, request: request('POST', { title: 'Take', sessionType: 'question' }, { origin: 'https://hq.test', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': 'a'.repeat(24) }), response: allowed, url: new URL('https://hq.test/api/ivoc/v1/sessions'), hqSession: session() });
   assert.equal(allowed.status, 201);
   assert.equal(repo.inserts.find((row) => row.table === 'ivoc_sessions').body.owner_subject, 'wp:42');
+  const contextPack = repo.upserts.find((row) => row.table === 'ivoc_context_packs');
+  const contract = repo.upserts.find((row) => row.table === 'ivoc_session_contracts');
+  assert.equal(contextPack.body.owner_subject, 'wp:42');
+  assert.deepEqual(contextPack.body.pack.facts, []);
+  assert.match(contract.body.context_receipts[0], /^ctxpack:/u);
+  assert.doesNotMatch(allowed.body, /actor_block|source_receipts|"facts"/u);
 });
 
 test('owner can abandon an interrupted session without exposing private recording identity', async () => {
@@ -263,9 +269,13 @@ test('a student cannot abandon another student session', async () => {
 test('owner can append a contract-validated M1 spine without changing server identity', async () => {
   const repo = repository();
   const sessionId = '00000000-0000-4000-8000-000000000042';
-  repo.single = async (path) => path.startsWith(`ivoc_sessions?id=eq.${sessionId}`)
-    ? { id: sessionId, owner_subject: 'wp:42' }
-    : null;
+  repo.single = async (path) => {
+    if (path.startsWith(`ivoc_sessions?id=eq.${sessionId}`)) return { id: sessionId, owner_subject: 'wp:42' };
+    if (path.startsWith(`ivoc_session_contracts?session_id=eq.${sessionId}`)) {
+      return { context_receipts: ['ctxpack:server-pack@server-version'] };
+    }
+    return null;
+  };
   const { route } = handler(repo);
   const response = new ResponseCapture();
   const body = {
@@ -277,7 +287,7 @@ test('owner can append a contract-validated M1 spine without changing server ide
       interviewer_config_ref: 'interviewer:prompted:v1', question_pool_ref: 'pool:student:v1',
       analytics_config_version: 'analytics:m1', state: 'live', state_version: 1,
       clock: { origin: 'capture_owner', started_at_wall: '2026-09-16T16:00:00.000Z' },
-      context_receipts: [], created_at: '2026-09-16T16:00:00.000Z', updated_at: '2026-09-16T16:00:00.000Z',
+      context_receipts: ['ctxpack:forged-browser@forged-version'], created_at: '2026-09-16T16:00:00.000Z', updated_at: '2026-09-16T16:00:00.000Z',
     },
     events: [{
       event_id: 'event:m1:1', session_id: sessionId, schema_version: '1', seq: 1,
@@ -313,6 +323,7 @@ test('owner can append a contract-validated M1 spine without changing server ide
   assert.equal(response.status, 202);
   assert.deepEqual(response.json().accepted, { events: 1, turns: 1, segments: 1, evidence: 1 });
   assert.equal(repo.upserts[0].body.actor_subject, 'wp:42');
+  assert.deepEqual(repo.upserts[0].body.context_receipts, ['ctxpack:server-pack@server-version']);
   assert.deepEqual(repo.batches.map((entry) => entry.table), [
     'ivoc_timeline_events', 'ivoc_conversation_turns', 'ivoc_answer_segments', 'ivoc_coaching_evidence',
   ]);
