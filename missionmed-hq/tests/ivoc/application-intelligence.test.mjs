@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   createIvocApplicationIntelligence,
   createIvocProjectionProvider,
+  longitudinalProjection,
   readSessionContextReceipts,
 } from '../../ivoc/application-intelligence.mjs';
 
@@ -18,6 +19,7 @@ function repository() {
       upserts.push({ table, conflict, body });
       return body;
     },
+    request: async () => [],
     single: async (path) => {
       const pack = upserts.find((entry) => entry.table === 'ivoc_context_packs')?.body;
       if (path.startsWith(`ivoc_context_packs?session_id=eq.${SESSION_ID}`)
@@ -105,6 +107,77 @@ test('repository-backed Mentor Top 3 becomes a provenance-bound interviewer atte
   assert.ok(pack.signals.some((signal) => signal.rule_id === 'AIS-R09'));
   assert.match(pack.actor_block, /Can you give me one concrete example that shows your leadership\?/u);
   assert.doesNotMatch(pack.actor_block, /bury the point/u);
+});
+
+test('prior-IVOC projection requires two distinct saved sessions and bounded structured evidence', async () => {
+  const rows = [
+    {
+      evidence_id: 'evidence:a:1', session_id: 'session-a', subject_id: 'wp:42',
+      dimension: 'semantic.coaching_pattern', refs: [{ kind: 'transcript_span', ref: 'transcript:a#seg-1' }],
+      interpretation: { facet: 'structure', polarity: 'weakness', text: 'The main point arrives after the detail.' },
+      score: 0.82, confidence: 0.88, limitations: [], version: 1, created_at: '2026-09-18T10:00:00.000Z',
+    },
+    {
+      evidence_id: 'evidence:b:1', session_id: 'session-b', subject_id: 'wp:42',
+      dimension: 'semantic.coaching_pattern', refs: [{ kind: 'transcript_span', ref: 'transcript:b#seg-1' }],
+      interpretation: { facet: 'structure', polarity: 'weakness', text: 'The main point arrives after the detail.' },
+      score: 0.84, confidence: 0.9, limitations: [], version: 1, created_at: '2026-09-19T10:00:00.000Z',
+    },
+    {
+      evidence_id: 'evidence:c:1', session_id: 'session-c', subject_id: 'wp:42',
+      dimension: 'semantic.coaching_pattern', refs: [{ kind: 'transcript_span', ref: 'transcript:c#seg-1' }],
+      interpretation: { facet: 'specificity', polarity: 'strength', text: 'A concrete example is present.' },
+      score: 0.9, confidence: 0.91, limitations: [], version: 1, created_at: '2026-09-19T11:00:00.000Z',
+    },
+    {
+      evidence_id: 'evidence:low:1', session_id: 'session-d', subject_id: 'wp:42',
+      dimension: 'semantic.coaching_pattern', refs: [{ kind: 'transcript_span', ref: 'transcript:d#seg-1' }],
+      interpretation: { facet: 'structure', polarity: 'weakness', text: 'Low-confidence observation.' },
+      score: 0.4, confidence: 0.4, limitations: [], version: 1, created_at: '2026-09-19T12:00:00.000Z',
+    },
+  ];
+  const projection = longitudinalProjection(rows, 'wp:42');
+  assert.equal(projection.projection_type, 'ivoc.longitudinal_summary');
+  assert.deepEqual(projection.payload.recurring.weaknesses, [{
+    facet: 'structure', sessions: ['session-a', 'session-b'], evidence_refs: ['evidence:a:1', 'evidence:b:1'],
+  }]);
+  assert.deepEqual(projection.payload.recurring.strengths, []);
+  assert.equal(projection.produced_at, '2026-09-19T10:00:00.000Z');
+  assert.match(projection.source_receipt.hash, /^[0-9a-f]{64}$/u);
+  assert.equal(longitudinalProjection(rows.slice(0, 1), 'wp:42'), null);
+});
+
+test('provider excludes the active session and emits prior-IVOC context only from saved owner evidence', async () => {
+  const repo = repository();
+  const calls = [];
+  repo.request = async (path) => {
+    calls.push(path);
+    if (path.startsWith('ivoc_sessions?')) return [{ id: SESSION_ID }, { id: 'session-a' }, { id: 'session-b' }];
+    if (path.startsWith('ivoc_coaching_evidence?')) return [
+      {
+        evidence_id: 'evidence:a', session_id: 'session-a', subject_id: 'wp:42', dimension: 'semantic.coaching_pattern',
+        refs: [{ kind: 'transcript_span', ref: 'a#1' }], interpretation: { facet: 'evidence', polarity: 'weakness' },
+        score: 0.9, confidence: 0.9, limitations: [], version: 1, created_at: '2026-09-18T10:00:00Z',
+      },
+      {
+        evidence_id: 'evidence:b', session_id: 'session-b', subject_id: 'wp:42', dimension: 'semantic.coaching_pattern',
+        refs: [{ kind: 'transcript_span', ref: 'b#1' }], interpretation: { facet: 'evidence', polarity: 'weakness' },
+        score: 0.9, confidence: 0.9, limitations: [], version: 1, created_at: '2026-09-19T10:00:00Z',
+      },
+    ];
+    return [];
+  };
+  const provider = createIvocProjectionProvider({ repository: repo });
+  const projections = await provider({ actor: 'wp:42', session: sessionRow() });
+  assert.equal(projections.length, 1);
+  assert.equal(projections[0].projection_type, 'ivoc.longitudinal_summary');
+  assert.ok(calls[1].includes('session_id=in.(session-a,session-b)'));
+
+  const service = createIvocApplicationIntelligence({ repository: repo, now: () => Date.parse(NOW) });
+  await service.prepareSession({ actor: 'wp:42', sessionRow: sessionRow() });
+  const pack = repo.upserts.find((entry) => entry.table === 'ivoc_context_packs').body.pack;
+  assert.ok(pack.signals.some((signal) => signal.rule_id === 'AIS-R10'));
+  assert.doesNotMatch(pack.actor_block, /session-a|session-b/u);
 });
 
 test('session contract pins the exact versioned Admin Analytics and InterviewBrain configuration', async () => {

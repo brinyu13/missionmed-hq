@@ -39,11 +39,12 @@ function realTranscript(text = 'I grew up in a family that valued careful listen
   };
 }
 
-function semantic(text = 'The answer explicitly connects a family value of listening with the student’s approach to patients.') {
+function semantic(text = 'The answer explicitly connects a family value of listening with the student’s approach to patients.', coachingPatterns = []) {
   return {
     questionIntent: { label: 'PERSONAL_NARRATIVE', score: 0.94 },
     answerStage: { label: 'EVIDENCE', score: 0.83 },
     semanticObservations: [{ kind: 'SUPPORTED_CLAIM', text, transcriptSegmentIds: ['seg-1'] }],
+    coachingPatterns,
     contextTags: ['PERSONAL_BACKGROUND'], score: 0.86, coverage: 0.91,
     limitations: ['Only the final answer transcript was analyzed.'], providerModel: 'test-context-model',
   };
@@ -89,6 +90,23 @@ test('Context provider uses only student-safe events, derives pace above Analyti
   assert.equal(result.persistence.transcript, false);
   assert.equal(result.persistence.analysis, false);
   assert.equal(result.persistence.coachCommand, false);
+});
+
+test('Context provider keeps longitudinal coaching evidence structured, cited, and bounded', async () => {
+  const provider = createContextIntelligenceProvider({
+    transcriptionProvider: { transcribeAnswer: async () => realTranscript() },
+    semanticProvider: { analyze: async () => semantic(undefined, [{
+      facet: 'specificity', polarity: 'strength',
+      text: 'The answer gives one concrete family example.', transcriptSegmentIds: ['seg-1'],
+    }]) },
+  });
+  const result = await provider.analyze({
+    sessionId, answerId, analyticsEvents: [analyticsEvent()], audio: Buffer.from('audio'), transcriptEnabled: true,
+  });
+  assert.deepEqual(result.analysis.coachingPatterns, [{
+    facet: 'specificity', polarity: 'strength',
+    text: 'The answer gives one concrete family example.', transcriptSegmentIds: ['seg-1'],
+  }]);
 });
 
 test('mock transcript never reaches semantic analysis', async () => {
@@ -225,9 +243,14 @@ test('analyze route reads only the owner sealed object and persists a private ca
   const expected = {
     schema: 'missionmed.ivoc.context.result.v1', sessionId, answerId,
     question: resolveContextQuestion(), transcript: realTranscript(), analysis: {
-      status: 'UNAVAILABLE', schema: 'missionmed.ivoc.context.analysis.v1', analysisId: null,
-      reason: 'TEST', semanticObservations: [], contextTags: [], limitations: ['TEST'], score: 0, coverage: 0,
-      provenance: { provider: 'server-only', model: null, policyVersion: 'context-v1', truthLabel: 'UNAVAILABLE' },
+      status: 'AVAILABLE', schema: 'missionmed.ivoc.context.analysis.v1', analysisId: 'analysis-1',
+      range: { startMs: 0, endMs: 42_000 },
+      questionIntent: { label: 'PERSONAL_NARRATIVE', score: 0.9 },
+      answerStage: { label: 'EVIDENCE', score: 0.8 },
+      semanticObservations: [{ kind: 'SUPPORTED_CLAIM', text: 'The answer cites a family value.', transcriptSegmentIds: ['seg-1'] }],
+      coachingPatterns: [{ facet: 'specificity', polarity: 'strength', text: 'The answer gives a concrete example.', transcriptSegmentIds: ['seg-1'] }],
+      contextTags: ['PERSONAL_BACKGROUND'], limitations: ['Only the final transcript was analyzed.'], score: 0.86, coverage: 0.91,
+      provenance: { provider: 'openai', model: 'test-context-model', policyVersion: 'context-v1', truthLabel: 'REAL' },
     },
     analyticsObservations: [], masterDerived: null,
     coachCommand: { cue: 'NO_CUE' },
@@ -247,10 +270,17 @@ test('analyze route reads only the owner sealed object and persists a private ca
   assert.equal(analyzeInput.questionId, 'CORE-01');
   assert.equal(analyzeInput.transcriptEnabled, true);
   assert.equal(response.json().persistence.transcript, true);
-  assert.equal(response.json().persistence.analysis, false);
+  assert.equal(response.json().persistence.analysis, true);
   assert.deepEqual(upserts.map((entry) => entry.table), [
     'ivoc_session_contracts', 'ivoc_conversation_turns', 'ivoc_conversation_turns', 'ivoc_answer_segments',
+    'ivoc_coaching_evidence', 'ivoc_coaching_evidence',
   ]);
+  assert.deepEqual(upserts.slice(-2).map((entry) => entry.body.dimension), [
+    'semantic.supported_claim', 'semantic.coaching_pattern',
+  ]);
+  assert.deepEqual(upserts.at(-1).body.interpretation, {
+    text: 'The answer gives a concrete example.', by: 'ai_draft', facet: 'specificity', polarity: 'strength',
+  });
   assert.equal(upserts.at(-1).body.subject_id, 'wp:42');
   assert.equal(inserts, 1);
   assert.equal(updates, 0);

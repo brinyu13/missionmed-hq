@@ -2,6 +2,10 @@ import { canonicalJson, hashValue, sha256Hex } from '../../ivoc/intelligence/ind
 import { assembleContextPack, contextReceiptRef } from '../../ivoc/intelligence/pack/assemble.mjs';
 
 const CONTEXT_PACK_SCHEMA = 'ivoc.interview_context_pack.v1';
+const LONGITUDINAL_DIMENSION = 'semantic.coaching_pattern';
+const LONGITUDINAL_FACETS = Object.freeze(['structure', 'evidence', 'specificity', 'concision']);
+const LONGITUDINAL_POLARITIES = Object.freeze(['strength', 'weakness']);
+const MIN_LONGITUDINAL_CONFIDENCE = 0.65;
 
 function safeText(value, maximum = 200) {
   return String(value || '').trim().slice(0, maximum);
@@ -119,15 +123,97 @@ function mentorPriorityProjection(row) {
   });
 }
 
+function validIso(value) {
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
+}
+
+export function longitudinalProjection(rows, subjectId) {
+  if (!/^wp:[1-9][0-9]{0,19}$/u.test(String(subjectId || '')) || !Array.isArray(rows)) return null;
+  const groups = new Map();
+  for (const row of rows) {
+    const facet = String(row?.interpretation?.facet || '').toLowerCase();
+    const polarity = String(row?.interpretation?.polarity || '').toLowerCase();
+    const confidence = Number(row?.confidence);
+    const score = Number(row?.score);
+    const createdAt = validIso(row?.created_at);
+    const evidenceId = safeText(row?.evidence_id, 160);
+    const sessionId = safeText(row?.session_id, 120);
+    if (row?.subject_id !== subjectId || row?.dimension !== LONGITUDINAL_DIMENSION
+      || !LONGITUDINAL_FACETS.includes(facet) || !LONGITUDINAL_POLARITIES.includes(polarity)
+      || !Number.isFinite(confidence) || confidence < MIN_LONGITUDINAL_CONFIDENCE
+      || !Number.isFinite(score) || score < MIN_LONGITUDINAL_CONFIDENCE
+      || !Array.isArray(row?.refs) || !row.refs.length || !evidenceId || !sessionId || !createdAt
+      || !Number.isSafeInteger(row?.version) || row.version < 1) continue;
+    const key = `${polarity}:${facet}`;
+    const group = groups.get(key) || { facet, polarity, sessions: new Set(), evidence: new Set(), producedAt: createdAt };
+    group.sessions.add(sessionId);
+    group.evidence.add(evidenceId);
+    if (createdAt > group.producedAt) group.producedAt = createdAt;
+    groups.set(key, group);
+  }
+  const recurring = { weaknesses: [], strengths: [] };
+  let producedAt = null;
+  for (const group of [...groups.values()].sort((a, b) => `${a.polarity}:${a.facet}`.localeCompare(`${b.polarity}:${b.facet}`))) {
+    if (group.sessions.size < 2) continue;
+    const item = {
+      facet: group.facet,
+      sessions: [...group.sessions].sort(),
+      evidence_refs: [...group.evidence].sort(),
+    };
+    recurring[group.polarity === 'weakness' ? 'weaknesses' : 'strengths'].push(item);
+    if (!producedAt || group.producedAt > producedAt) producedAt = group.producedAt;
+  }
+  if (!recurring.weaknesses.length && !recurring.strengths.length) return null;
+  const payload = { recurring };
+  const sourceVersion = `long-${hashValue(payload).slice(0, 16)}`;
+  return Object.freeze({
+    projection_id: `ivoc-longitudinal:${subjectId}`,
+    owner_app: 'ivoc',
+    projection_type: 'ivoc.longitudinal_summary',
+    schema_version: '1',
+    subject_id: subjectId,
+    source_version: sourceVersion,
+    produced_at: producedAt,
+    authorization: { basis: 'owner_policy', scope: ['recurring'] },
+    minimization: { fields_included: ['recurring'] },
+    payload,
+    source_receipt: {
+      owner_ref: `ivoc:${subjectId}@${sourceVersion}`,
+      hash: hashValue({ subject_id: subjectId, source_version: sourceVersion, payload }),
+    },
+    revocation: { revocable: true },
+  });
+}
+
+async function readLongitudinalProjection(repository, actor, currentSessionId = null) {
+  if (typeof repository.request !== 'function') return null;
+  const saved = await repository.request(
+    `ivoc_sessions?owner_subject=eq.${encodeURIComponent(actor)}&state=eq.saved&select=id&order=ended_at.desc&limit=50`,
+  );
+  const sessionIds = [...new Set((saved || []).map((row) => safeText(row?.id, 120)).filter(Boolean))]
+    .filter((id) => id !== currentSessionId);
+  if (sessionIds.length < 2) return null;
+  const evidence = await repository.request(
+    `ivoc_coaching_evidence?subject_id=eq.${encodeURIComponent(actor)}&session_id=in.(${sessionIds.join(',')})`
+      + `&dimension=eq.${LONGITUDINAL_DIMENSION}`
+      + '&select=evidence_id,session_id,subject_id,dimension,refs,interpretation,score,confidence,limitations,version,created_at'
+      + '&order=created_at.desc&limit=200',
+  );
+  return longitudinalProjection(evidence, actor);
+}
+
 export function createIvocProjectionProvider({ repository } = {}) {
   if (!repository) throw new TypeError('ivoc_projection_repository_required');
-  return async function projectionProvider({ actor } = {}) {
+  return async function projectionProvider({ actor, session = null } = {}) {
     if (!/^wp:[1-9][0-9]{0,19}$/u.test(String(actor || ''))) return [];
-    const row = await repository.single(
-      `ivoc_mentor_priority_sets?subject_id=eq.${encodeURIComponent(actor)}&select=*&order=version.desc&limit=1`,
-    );
-    const projection = mentorPriorityProjection(row);
-    return projection ? [projection] : [];
+    const [row, priorIvoc] = await Promise.all([
+      repository.single(
+        `ivoc_mentor_priority_sets?subject_id=eq.${encodeURIComponent(actor)}&select=*&order=version.desc&limit=1`,
+      ),
+      readLongitudinalProjection(repository, actor, safeText(session?.id, 120) || null),
+    ]);
+    return [mentorPriorityProjection(row), priorIvoc].filter(Boolean);
   };
 }
 

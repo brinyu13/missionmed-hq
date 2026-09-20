@@ -633,7 +633,7 @@ async function persistContextSpine({ db, actor, sessionRow, recording, result, n
     interrupted: null,
     version: 1,
   }));
-  const evidence = analysisAvailable ? result.analysis.semanticObservations.map((item, index) => ({
+  const semanticEvidence = analysisAvailable ? result.analysis.semanticObservations.map((item, index) => ({
     evidence_id: `evidence:${sessionRow.id}:${index + 1}`,
     session_id: sessionRow.id,
     subject_id: actor,
@@ -645,6 +645,20 @@ async function persistContextSpine({ db, actor, sessionRow, recording, result, n
     limitations: result.analysis.limitations || [],
     version: 1,
   })) : [];
+  const coachingEvidence = analysisAvailable ? (result.analysis.coachingPatterns || []).map((item, index) => ({
+    evidence_id: `evidence:${sessionRow.id}:pattern:${index + 1}`,
+    session_id: sessionRow.id,
+    subject_id: actor,
+    schema_version: 1,
+    dimension: 'semantic.coaching_pattern',
+    refs: item.transcriptSegmentIds.map((id) => ({ kind: 'transcript_span', ref: `${transcriptRef}#${id}` })),
+    interpretation: { text: item.text, by: 'ai_draft', facet: item.facet, polarity: item.polarity },
+    score: result.analysis.score,
+    confidence: result.analysis.coverage,
+    limitations: result.analysis.limitations || [],
+    version: 1,
+  })) : [];
+  const evidence = [...semanticEvidence, ...coachingEvidence];
   const contextReceipts = await readSessionContextReceipts(db, sessionRow.id);
   await db.upsert('ivoc_session_contracts', 'session_id', {
     session_id: sessionRow.id, schema_version: 1, actor_subject: actor, role_context: 'student',
