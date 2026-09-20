@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 16:11 America/New_York
+Updated: 2026-09-20 17:47 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Latest functionality-accepted presentation/runtime deployment:
-  `68a57f16-0e6a-4536-ba1c-9e0e99ca9143`, exact commit
-  `7145a88406e7d5e9c4978d952f0ba9d10aae3460`, image
-  `sha256:2f37b58aac487b476aef5796613204bac298b28e3afec11286a2a52d2eb4e7e2`.
+  `cd7195da-456f-4bf6-846e-e2d39f6dd212`, exact commit
+  `875637536f7ada69ccb06c7bc8a96466aa6d44bc`, image
+  `sha256:ae5dba63dd152a64ccc69ce8e7201eeed353072669f0ba6e01332be8e4606c3a`.
   `/health/lor-studio` is HTTP 200 and anonymous `/iv-prep-on-call/` remains
   fail-closed at HTTP 401.
 - Admin operational-control presentation: `268cd4be2265e7cd1ee6b05247ab5e148312a260`.
@@ -115,6 +115,14 @@ the actual production route and deployment.
   one answer-structure row and two coaching-pattern rows whose score is the
   required JSON object. Results rendered cited observations; cold reload,
   Answer History and signed Film Room playback all read them back.
+- Cold-reload evidence-grounded Results reconstruction:
+  `875637536f7ada69ccb06c7bc8a96466aa6d44bc`. Production Admin `wp:1`
+  reopened saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` without a
+  provider re-call. The live Results surface reconstructed the canonical
+  transcript, four evidence-cited observations, Structure as the strongest
+  supported moment, Specificity as the highest-value improvement, a cited next
+  drill, and MODERATE confidence with 61% score, 90% coverage and explicit
+  limitations.
 
 ## Production data authority — LIVE VERIFIED
 
@@ -198,7 +206,7 @@ the actual production route and deployment.
 | 10 | Calendar interview adapter | LIVE VERIFIED | The deployed stable adapter consumes the Scheduler owner projection, strips owner URLs and rendered the authenticated connected state: seven authorized appointments, none upcoming. |
 | 10 | Match Bridge bounded consented clip seam | LIVE VERIFIED | Real saved `CORE-01` media was bound only to a 0–14 s answer range, promoted from private v1 to consented `match_bridge_ready` v2, then revoked at v3. Whole-mock sharing remains prohibited by the contract; cross-product pickup is an external owner integration, not an IVOC clip-seam gap. |
 | 11 | Structured evidence-to-coaching pipeline | LIVE VERIFIED | Deployment `68a57f16…` accepted real sealed session `4571e86c-3d99-4ba4-bf19-bee1f972a699`, rendered transcript-cited semantic observations, and persisted one answer-structure plus two confidence-bounded coaching-pattern rows. Canonical readback proved object-shaped `score.value=0.02`, eight segment references per row and clean cold-reload synthesis. |
-| 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE UNVERIFIED | Results source exists; evidence-linked production output remains. |
+| 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE VERIFIED | Production Admin `wp:1` cold-opened saved session `0d250e0c-1011-48bc-a416-f9ae4c2c735f` after deployment `cd7195da…`; the live Results surface reconstructed four cited observations, strongest Structure, Specificity improvement, the cited next drill, MODERATE confidence, 61% score, 90% coverage and explicit limitations without a provider re-call. |
 | 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE VERIFIED | Authenticated production `wp:1` switched Student → Admin while retaining the same actor/subject identity; Admin-only navigation and diagnostics appeared without impersonating another user. |
 | 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE VERIFIED | Production Admin `wp:1` selected the authorized student library, traversed Results and transcript-backed Film Room, and played the signed private recording. Student view hid the selector without actor impersonation. Top 3, Progress and longitudinal views retain their separately accepted evidence. |
@@ -223,8 +231,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - Latest functionality-accepted MissionMed HQ production is Railway deployment
-  `68a57f16-0e6a-4536-ba1c-9e0e99ca9143` from exact product commit
-  `7145a88406e7d5e9c4978d952f0ba9d10aae3460`; `/health/lor-studio` is HTTP 200, the
+  `cd7195da-456f-4bf6-846e-e2d39f6dd212` from exact product commit
+  `875637536f7ada69ccb06c7bc8a96466aa6d44bc`; `/health/lor-studio` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
