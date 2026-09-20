@@ -9,6 +9,7 @@ export function createDurableResultsEnvelope({
   sessionId,
   analytics,
   recording = null,
+  liveConversation = null,
   capturedAt = new Date().toISOString(),
 } = {}) {
   const sessionDurationMs = finiteMs(analytics?.durationMs);
@@ -40,6 +41,7 @@ export function createDurableResultsEnvelope({
     metrics: null,
     behavior: null,
     analytics: analytics || null,
+    ...(liveConversation?.turns?.length ? { liveConversation } : {}),
   });
 }
 
@@ -48,15 +50,20 @@ export class DurableStudioSession {
     api = new IvocApi(),
     recordingFactory = (options) => new AccountRecordingController(options),
     now = () => new Date().toISOString(),
+    nowMs = () => performance.now(),
   } = {}) {
     this.api = api;
     this.recordingFactory = recordingFactory;
     this.now = now;
+    this.nowMs = nowMs;
     this.bootstrapPayload = null;
     this.accountSession = null;
     this.recorder = null;
     this.pendingAnalytics = null;
     this.preparedSessionKey = null;
+    this.liveConversationTurns = new Map();
+    this.liveConversationSequence = 0;
+    this.conversationCaptureStartedAtMs = null;
   }
 
   get ready() { return Boolean(this.bootstrapPayload?.entitlement?.admitted); }
@@ -113,7 +120,49 @@ export class DurableStudioSession {
       questionId: question?.question_id || null,
     });
     await this.recorder.start();
+    this.liveConversationTurns.clear();
+    this.liveConversationSequence = 0;
+    this.conversationCaptureStartedAtMs = this.nowMs();
     return this.accountSession;
+  }
+
+  recordLiveTranscript(event = {}) {
+    if (!this.recorder || this.conversationCaptureStartedAtMs == null) return false;
+    const speaker = event.speaker === 'applicant' ? 'student' : event.speaker;
+    if (!['student', 'interviewer'].includes(speaker)) return false;
+    const rawText = String(event.text || '').slice(0, 8_000);
+    const text = event.final ? rawText.trim() : rawText;
+    const id = String(event.identity || `${speaker}:${++this.liveConversationSequence}`).slice(0, 240);
+    const observedAtMs = Math.max(0, Math.round(this.nowMs() - this.conversationCaptureStartedAtMs));
+    const current = this.liveConversationTurns.get(id) || {
+      id,
+      speaker,
+      startMs: observedAtMs,
+      endMs: observedAtMs,
+      text: '',
+      final: false,
+      providerEventType: null,
+    };
+    current.endMs = observedAtMs;
+    current.providerEventType = String(event.type || '').slice(0, 200) || current.providerEventType;
+    current.text = event.final ? (text || current.text) : `${current.text}${text}`.slice(0, 8_000);
+    current.final = current.final || event.final === true;
+    this.liveConversationTurns.set(id, current);
+    return true;
+  }
+
+  liveConversationSnapshot() {
+    const turns = [...this.liveConversationTurns.values()]
+      .filter((turn) => turn.final && turn.text)
+      .sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs)
+      .slice(0, 128)
+      .map((turn) => Object.freeze({ ...turn }));
+    return Object.freeze({
+      schema: 'ivoc.live-conversation.v1',
+      provider: 'openai-gpt-live',
+      clock: 'recording-observed',
+      turns: Object.freeze(turns),
+    });
   }
 
   async finish(analyticsPromise) {
@@ -128,10 +177,12 @@ export class DurableStudioSession {
       });
     const recordingPromise = recorder?.stopAndSeal?.() || Promise.resolve(null);
     const [analytics, recording] = await Promise.all([resolvedAnalytics, recordingPromise]);
+    const liveConversation = this.liveConversationSnapshot();
     const envelope = createDurableResultsEnvelope({
       sessionId: accountSession.id,
       analytics,
       recording,
+      liveConversation,
       capturedAt: this.now(),
     });
     const result = await this.api.saveResults(accountSession.id, envelope);
@@ -139,6 +190,8 @@ export class DurableStudioSession {
     this.recorder = null;
     this.pendingAnalytics = null;
     this.preparedSessionKey = null;
+    this.liveConversationTurns.clear();
+    this.conversationCaptureStartedAtMs = null;
     return { persisted: true, analytics, recording, result, envelope, session: accountSession };
   }
 
@@ -153,6 +206,8 @@ export class DurableStudioSession {
     this.recorder = null;
     this.pendingAnalytics = null;
     this.preparedSessionKey = null;
+    this.liveConversationTurns.clear();
+    this.conversationCaptureStartedAtMs = null;
     return result;
   }
   async analyze({ sessionId, recordingId, answerId, questionId, analyticsEvents = [] } = {}) {
@@ -172,5 +227,7 @@ export class DurableStudioSession {
     this.recorder = null;
     this.pendingAnalytics = null;
     this.preparedSessionKey = null;
+    this.liveConversationTurns.clear();
+    this.conversationCaptureStartedAtMs = null;
   }
 }

@@ -17,10 +17,12 @@ test('durable Studio session creates, records, seals, and persists the validated
       return { recording: { id: 'recording-1', durationMs: 3_050 }, durationMs: 3_050, playableDurationMs: 3_000, recordingStartSessionMs: 25, pausedSpans: [] };
     },
   };
+  let nowMs = 100;
   const durable = new DurableStudioSession({
     api,
     recordingFactory: () => recorder,
     now: () => '2026-09-16T18:00:00.000Z',
+    nowMs: () => nowMs,
   });
   await durable.bootstrap();
   await durable.start({
@@ -29,6 +31,16 @@ test('durable Studio session creates, records, seals, and persists the validated
     wizard: { interviewer: 'Program Director', program: 'Internal Medicine' },
     targetQuestions: 5,
     interviewerProvider: 'openai-gpt-live',
+  });
+  nowMs = 220;
+  assert.equal(durable.recordLiveTranscript({
+    identity: 'response-1', speaker: 'interviewer', text: 'Tell me about yourself.',
+    type: 'session.output_transcript.done', final: true,
+  }), true);
+  nowMs = 1_420;
+  durable.recordLiveTranscript({
+    identity: 'item-1', speaker: 'applicant', text: 'I value careful listening.',
+    type: 'session.input_transcript.done', final: true,
   });
   const analytics = { schema: 'missionmed.ivprep.analytics.session.v1', durationMs: 2_950, events: [{ metric: 'answer_duration_ms' }] };
   const finished = await durable.finish(Promise.resolve(analytics));
@@ -41,6 +53,39 @@ test('durable Studio session creates, records, seals, and persists the validated
   assert.equal(calls[4][2].analytics, analytics);
   assert.deepEqual(calls[4][2].scores, {});
   assert.equal(calls[4][2].playableDurationMs, 3_000);
+  assert.deepEqual(calls[4][2].liveConversation, {
+    schema: 'ivoc.live-conversation.v1', provider: 'openai-gpt-live', clock: 'recording-observed',
+    turns: [
+      { id: 'response-1', speaker: 'interviewer', startMs: 120, endMs: 120, text: 'Tell me about yourself.', final: true, providerEventType: 'session.output_transcript.done' },
+      { id: 'item-1', speaker: 'student', startMs: 1_320, endMs: 1_320, text: 'I value careful listening.', final: true, providerEventType: 'session.input_transcript.done' },
+    ],
+  });
+});
+
+test('live transcript deltas collapse into final provider turns and incomplete text is not persisted', async () => {
+  let nowMs = 0;
+  const durable = new DurableStudioSession({
+    nowMs: () => nowMs,
+    api: {
+      async bootstrap() { return { entitlement: { admitted: true } }; },
+      async createSession() { return { id: 'session-live-turns' }; },
+    },
+    recordingFactory: () => ({ async start() {} }),
+  });
+  await durable.bootstrap();
+  await durable.start({ stream: {} });
+  nowMs = 100;
+  durable.recordLiveTranscript({ identity: 'r1', speaker: 'interviewer', text: 'Why ', type: 'response.output_audio_transcript.delta', final: false });
+  nowMs = 180;
+  durable.recordLiveTranscript({ identity: 'r1', speaker: 'interviewer', text: 'this program?', type: 'response.output_audio_transcript.delta', final: false });
+  nowMs = 220;
+  durable.recordLiveTranscript({ identity: 'r1', speaker: 'interviewer', text: 'Why this program?', type: 'response.output_audio_transcript.done', final: true });
+  nowMs = 300;
+  durable.recordLiveTranscript({ identity: 'partial', speaker: 'applicant', text: 'Still speaking', type: 'conversation.item.input_audio_transcription.delta', final: false });
+  assert.deepEqual(durable.liveConversationSnapshot().turns, [{
+    id: 'r1', speaker: 'interviewer', startMs: 100, endMs: 220,
+    text: 'Why this program?', final: true, providerEventType: 'response.output_audio_transcript.done',
+  }]);
 });
 
 test('results envelope remains truthful when recording evidence is unavailable', () => {

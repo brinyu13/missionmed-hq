@@ -488,6 +488,67 @@ function contractEnvironment(row) {
   return 'missionmed';
 }
 
+function liveConversationTurns(value, sessionId) {
+  if (value == null) return [];
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+      || value.schema !== 'ivoc.live-conversation.v1'
+      || value.provider !== 'openai-gpt-live'
+      || value.clock !== 'recording-observed') {
+    throw Object.assign(new TypeError('live_conversation_invalid'), { status: 400 });
+  }
+  const seen = new Set();
+  let sawStudent = false;
+  let interviewerCount = 0;
+  return boundedArray(value.turns, 'live_conversation_turns', 128).map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item) || item.final !== true) {
+      throw Object.assign(new TypeError('live_conversation_turn_invalid'), { status: 400 });
+    }
+    const sourceId = String(item.id || '');
+    const text = String(item.text || '').trim();
+    const sourceType = String(item.providerEventType || '');
+    if (!sourceId || sourceId.length > 240 || seen.has(sourceId)
+        || !text || text.length > 8_000 || sourceType.length > 200
+        || !['student', 'interviewer'].includes(item.speaker)) {
+      throw Object.assign(new TypeError('live_conversation_turn_invalid'), { status: 400 });
+    }
+    seen.add(sourceId);
+    const startMs = contractInteger(item.startMs, 'live_conversation_start');
+    const endMs = contractInteger(item.endMs, 'live_conversation_end');
+    if (endMs < startMs || endMs > 43_200_000) {
+      throw Object.assign(new TypeError('live_conversation_time_invalid'), { status: 400 });
+    }
+    const digest = createHash('sha256').update(sourceId).digest('hex');
+    let relation = 'answer';
+    if (item.speaker === 'interviewer') {
+      relation = interviewerCount === 0 && !sawStudent ? 'opening' : (sawStudent ? 'follow_up' : 'question');
+      interviewerCount += 1;
+    } else {
+      sawStudent = true;
+    }
+    return {
+      turn_id: `turn:${sessionId}:live:${digest.slice(0, 24)}`,
+      session_id: sessionId,
+      parent_turn_id: null,
+      schema_version: 1,
+      speaker: item.speaker,
+      relation,
+      t_start_ms: startMs,
+      t_end_ms: endMs,
+      // Provider-delivered text is useful private continuity evidence, but is
+      // explicitly provisional. Only server transcription may set canonical_ref.
+      transcript: {
+        provisional_ref: `provider:gpt-live-1:${digest}`,
+        text,
+        provider_event_type: sourceType || null,
+      },
+      question: item.speaker === 'interviewer' ? { origin: 'generated' } : {},
+      semantic: {},
+      interrupted: null,
+      version: 1,
+    };
+  });
+}
+
 async function persistContextSpine({ db, actor, sessionRow, recording, result, nowMs }) {
   // Server-generated transcript truth is persisted here; the browser never asserts canonical text.
   if (result?.transcript?.status !== 'AVAILABLE') return { transcript: false, analysis: false };
@@ -559,12 +620,20 @@ async function persistContextSpine({ db, actor, sessionRow, recording, result, n
     semantic: {}, interrupted: null, version: 1,
   });
   for (const turn of answerTurns) await db.upsert('ivoc_conversation_turns', 'turn_id', turn);
+  const providerFollowUps = await db.request(
+    `ivoc_conversation_turns?session_id=eq.${sessionRow.id}&speaker=eq.interviewer&relation=eq.follow_up&select=turn_id&order=t_start_ms.asc`,
+  );
   const evidenceIds = evidence.map((item) => item.evidence_id);
   await db.upsert('ivoc_answer_segments', 'segment_id', {
     segment_id: `segment:${sessionRow.id}:primary`, session_id: sessionRow.id, subject_id: actor,
     schema_version: 1, transcript_ref: transcriptRef, media_ref: mediaRef,
     question: { origin: 'pool', text: question.canonicalText, asked_turn_id: questionTurnId, t_asked_ms: 0, canonical_question_id: question.questionId, version: String(question.revision || 1) },
-    answer: { t_start_ms: answerTurns[0].t_start_ms, t_end_ms: answerTurns.at(-1).t_end_ms, turn_ids: answerTurns.map((turn) => turn.turn_id), follow_up_turn_ids: [] },
+    answer: {
+      t_start_ms: answerTurns[0].t_start_ms,
+      t_end_ms: answerTurns.at(-1).t_end_ms,
+      turn_ids: answerTurns.map((turn) => turn.turn_id),
+      follow_up_turn_ids: providerFollowUps.map((turn) => turn.turn_id),
+    },
     coaching_notes_refs: evidenceIds, scoring: null, strongest_marker: null, version: 1,
   });
   for (const item of evidence) await db.upsert('ivoc_coaching_evidence', 'evidence_id', item);
@@ -1295,6 +1364,7 @@ export function createIvocHandler({
         if (!sessionRow || sessionRow.owner_subject !== actor) { sendError(response, 404, 'not_found', mediaBase); return true; }
         const input = await readJson(request);
         if (input.schema !== 'ivoc.analytics.v1' || Number(input.schemaVersion) !== 1) { sendError(response, 400, 'analytics_schema_invalid', mediaBase); return true; }
+        const providerTurns = liveConversationTurns(input.liveConversation, sessionId);
         const existing = await db.single(`ivoc_results?session_id=eq.${sessionId}&select=id&limit=1`);
         const summaryDurations = {
           sessionDurationMs: optionalDurationMs(input.sessionDurationMs),
@@ -1313,9 +1383,13 @@ export function createIvocHandler({
         const result = existing
           ? await db.update(`ivoc_results?id=eq.${existing.id}&select=*`, payload)
           : await db.insert('ivoc_results', { session_id: sessionId, ...payload });
+        for (const turn of providerTurns) await db.upsert('ivoc_conversation_turns', 'turn_id', turn);
+        if (providerTurns.length) {
+          await audit({ actor, owner: actor, sessionId, action: 'live_conversation_persist', decision: 'allow', reason: `${providerTurns.length}_provisional_turns` });
+        }
         const durationMs = Math.max(0, Math.trunc(Number(input.playableDurationMs ?? input.durationMs ?? input.history?.at(-1)?.t * 1000) || 0));
         await db.update(`ivoc_sessions?id=eq.${sessionId}&owner_subject=eq.${encodeURIComponent(actor)}&select=*`, { state: 'saved', ended_at: new Date(now()).toISOString(), duration_ms: durationMs });
-        sendJson(response, 200, { id: result.id, sessionId, schema: result.schema_name, schemaVersion: result.schema_version }, mediaBase); return true;
+        sendJson(response, 200, { id: result.id, sessionId, schema: result.schema_name, schemaVersion: result.schema_version, liveConversationTurns: providerTurns.length }, mediaBase); return true;
       }
 
       match = pathname.match(/^\/api\/ivoc\/v1\/sessions\/([0-9a-f-]{36})\/review$/u);

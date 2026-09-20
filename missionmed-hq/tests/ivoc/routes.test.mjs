@@ -665,6 +665,14 @@ test('results preserve explicit duration vocabulary while the library duration f
     recordingStartSessionMs: 8_000,
     pausedSpans: [{ startMs: 11_000, endMs: 13_000 }],
     scores: { pace: 7.4, volume: 7.8, variety: 8.1 }, counters: { gestures: 4 }, history: [],
+    liveConversation: {
+      schema: 'ivoc.live-conversation.v1', provider: 'openai-gpt-live', clock: 'recording-observed',
+      turns: [
+        { id: 'response-1', speaker: 'interviewer', startMs: 0, endMs: 1_200, text: 'Tell me about yourself.', final: true, providerEventType: 'session.output_transcript.done' },
+        { id: 'item-1', speaker: 'student', startMs: 1_500, endMs: 8_000, text: 'I value careful listening.', final: true, providerEventType: 'session.input_transcript.done' },
+        { id: 'response-2', speaker: 'interviewer', startMs: 8_300, endMs: 9_100, text: 'How did that change your work?', final: true, providerEventType: 'session.output_transcript.done' },
+      ],
+    },
   };
   await route({
     ...base,
@@ -684,6 +692,14 @@ test('results preserve explicit duration vocabulary while the library duration f
   });
   assert.equal(resultInsert.body.payload.recordingStartSessionMs, 8_000);
   assert.deepEqual(resultInsert.body.payload.pausedSpans, [{ startMs: 11_000, endMs: 13_000 }]);
+  const liveTurns = repo.upserts.filter((entry) => entry.table === 'ivoc_conversation_turns').map((entry) => entry.body);
+  assert.deepEqual(liveTurns.map((turn) => [turn.speaker, turn.relation]), [
+    ['interviewer', 'opening'], ['student', 'answer'], ['interviewer', 'follow_up'],
+  ]);
+  assert.equal(liveTurns[0].transcript.text, 'Tell me about yourself.');
+  assert.match(liveTurns[0].transcript.provisional_ref, /^provider:gpt-live-1:/u);
+  assert.equal(Object.hasOwn(liveTurns[0].transcript, 'canonical_ref'), false);
+  assert.equal(response.json().liveConversationTurns, 3);
   const sessionUpdate = repo.updates.find((entry) => entry.path.startsWith(`ivoc_sessions?id=eq.${sessionId}`));
   assert.equal(sessionUpdate.body.duration_ms, 24_500);
 });

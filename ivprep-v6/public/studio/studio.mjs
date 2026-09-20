@@ -1377,6 +1377,9 @@ async function finishRep() {
         }),
       });
     });
+    if (!retryingDurableSave && state.liveInterview?.sessionId) {
+      await state.liveInterview.stop();
+    }
     const outcome = state.durable?.accountSession
       ? await state.durable.finish(analyticsPromise)
       : { persisted: false, analytics: await analyticsPromise, recording: null };
@@ -1542,15 +1545,25 @@ function startAudioDebug() {
  * instructions and bounded MissionMed context on the server.
  */
 
-function appendLiveTranscript({ speaker, text }) {
+function appendLiveTranscript(event) {
+  const { speaker, text, identity, final } = event;
+  state.durable?.recordLiveTranscript?.(event);
+  if (!text) return;
   const host = $('#live-transcript');
   if (!host) return;
   if (host.firstElementChild?.tagName === 'SPAN') host.replaceChildren();
-  const row = document.createElement('p');
-  const label = document.createElement('b');
-  label.textContent = speaker === 'applicant' ? 'You · ' : 'Interviewer · ';
-  row.append(label, document.createTextNode(text));
-  host.append(row);
+  let row = [...host.children].find((item) => item.dataset?.transcriptId === identity);
+  if (!row) {
+    row = document.createElement('p');
+    row.dataset.transcriptId = identity;
+    const label = document.createElement('b');
+    label.textContent = speaker === 'applicant' ? 'You · ' : 'Interviewer · ';
+    const value = document.createElement('span');
+    row.append(label, value);
+    host.append(row);
+  }
+  const value = row.lastElementChild;
+  if (value) value.textContent = final ? text : `${value.textContent || ''}${text}`;
   host.scrollTop = host.scrollHeight;
 }
 
@@ -2121,9 +2134,13 @@ function renderContextEvidence(result) {
 function renderFilmRoomSpine(session) {
   const host = $('#filmroom-spine');
   if (!host) return;
-  const turns = Array.isArray(session?.spine?.turns)
-    ? session.spine.turns.filter((turn) => turn.speaker === 'student' && turn.transcript?.text)
+  const allTurns = Array.isArray(session?.spine?.turns)
+    ? session.spine.turns.filter((turn) => turn.transcript?.text)
     : [];
+  const hasCanonicalStudentTurns = allTurns.some((turn) => turn.speaker === 'student' && turn.transcript?.canonical_ref);
+  const turns = allTurns.filter((turn) => turn.speaker !== 'student'
+    || !hasCanonicalStudentTurns
+    || Boolean(turn.transcript?.canonical_ref));
   const evidence = Array.isArray(session?.spine?.evidence) ? session.spine.evidence : [];
   host.replaceChildren();
   if (!turns.length) {
@@ -2142,7 +2159,7 @@ function renderFilmRoomSpine(session) {
     const at = document.createElement('strong');
     at.textContent = `${(Number(turn.startMs || 0) / 1000).toFixed(1)}s`;
     const text = document.createElement('span');
-    text.textContent = turn.transcript.text;
+    text.textContent = `${turn.speaker === 'student' ? 'You' : 'Interviewer'} · ${turn.transcript.text}`;
     row.append(at, text);
     row.addEventListener('click', () => {
       const video = $('#playback');

@@ -1,5 +1,16 @@
 const START_TIMEOUT_MS = 15_000;
 
+function transcriptEvent(event) {
+  const type = String(event?.type || '');
+  if (!type.includes('transcript')) return null;
+  const speaker = type.includes('input') ? 'applicant' : 'interviewer';
+  const final = /(?:[.]done|[.]completed)$/u.test(type)
+    || (!Object.hasOwn(event, 'delta') && typeof event.transcript === 'string');
+  const rawText = String(event.delta ?? event.text ?? event.transcript ?? '');
+  const text = final ? rawText.trim() : rawText;
+  return { speaker, final, text, type };
+}
+
 function waitForIce(peer, timeoutMs = 5_000) {
   if (peer.iceGatheringState === 'complete') return Promise.resolve();
   return new Promise((resolve) => {
@@ -30,6 +41,7 @@ export class LiveInterviewSession {
     onStatus = () => {},
     onTranscript = () => {},
     onEvent = () => {},
+    now = () => performance.now(),
   } = {}) {
     if (typeof createSession !== 'function' || typeof endSession !== 'function'
       || typeof PeerConnection !== 'function') throw new TypeError('Live interview dependencies are required.');
@@ -40,6 +52,7 @@ export class LiveInterviewSession {
     this.onStatus = onStatus;
     this.onTranscript = onTranscript;
     this.onEvent = onEvent;
+    this.now = now;
     this.peer = null;
     this.channel = null;
     this.sessionId = null;
@@ -47,6 +60,9 @@ export class LiveInterviewSession {
     this.startedResolve = null;
     this.startedReject = null;
     this.startTimer = null;
+    this.startedAtMs = null;
+    this.transcriptSequence = 0;
+    this.activeTranscriptIds = { applicant: null, interviewer: null };
   }
 
   emitStatus(state, detail = null) {
@@ -75,10 +91,23 @@ export class LiveInterviewSession {
       this.emitStatus('error', event.error?.message || 'InterviewBrain reported an error');
       return;
     }
-    if (String(event.type || '').includes('transcript')) {
-      const speaker = String(event.type).includes('input') ? 'applicant' : 'interviewer';
-      const text = String(event.delta || event.text || event.transcript || '').trim();
-      if (text) this.onTranscript(Object.freeze({ speaker, text, type: event.type }));
+    const transcript = transcriptEvent(event);
+    if (transcript) {
+      const providerIdentity = event.item_id || event.item?.id || event.response_id || event.response?.id || null;
+      const identity = providerIdentity || this.activeTranscriptIds[transcript.speaker]
+        || `local:${transcript.speaker}:${++this.transcriptSequence}`;
+      this.activeTranscriptIds[transcript.speaker] = identity;
+      const observedAtMs = this.startedAtMs == null ? 0 : Math.max(0, Math.round(this.now() - this.startedAtMs));
+      if (transcript.text.trim() || transcript.final) {
+        this.onTranscript(Object.freeze({
+          ...transcript,
+          identity,
+          observedAtMs,
+          responseId: event.response_id || event.response?.id || null,
+          itemId: event.item_id || event.item?.id || null,
+        }));
+      }
+      if (transcript.final) this.activeTranscriptIds[transcript.speaker] = null;
     }
   }
 
@@ -88,6 +117,9 @@ export class LiveInterviewSession {
       throw new TypeError('A live microphone track is required.');
     }
     this.emitStatus('connecting', 'Creating a secure WebRTC session');
+    this.startedAtMs = this.now();
+    this.transcriptSequence = 0;
+    this.activeTranscriptIds = { applicant: null, interviewer: null };
     const peer = new this.PeerConnection();
     this.peer = peer;
     peer.addTrack(audioTrack);
@@ -145,6 +177,7 @@ export class LiveInterviewSession {
     try { this.peer?.close?.(); } catch {}
     this.channel = null;
     this.peer = null;
+    this.startedAtMs = null;
     if (this.audioElement) {
       this.audioElement.pause?.();
       this.audioElement.srcObject = null;
