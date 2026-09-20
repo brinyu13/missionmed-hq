@@ -1,0 +1,61 @@
+{
+  "projection_id": "fx-long-001",
+  "owner_app": "ivoc",
+  "projection_type": "ivoc.longitudinal_summary",
+  "schema_version": "1",
+  "subject_id": "stu-fixture-0001",
+  "source_version": "long-2026-09-15",
+  "produced_at": "2026-09-10T12:00:00.000Z",
+  "fresh_until": "2026-12-31T00:00:00.000Z",
+  "authorization": {
+    "basis": "owner_policy",
+    "scope": [
+      "recurring"
+    ]
+  },
+  "minimization": {
+    "fields_included": [
+      "recurring"
+    ]
+  },
+  "payload": {
+    "recurring": {
+      "weaknesses": [
+        {
+          "facet": "structure",
+          "sessions": [
+            "sess-a",
+            "sess-b"
+          ],
+          "evidence_refs": [
+            "ev-1",
+            "ev-2"
+          ]
+        },
+        {
+          "facet": "once-only",
+          "sessions": [
+            "sess-a"
+          ]
+        }
+      ],
+      "strengths": [
+        {
+          "facet": "warmth",
+          "sessions": [
+            "sess-a",
+            "sess-b",
+            "sess-c"
+          ]
+        }
+      ]
+    }
+  },
+  "source_receipt": {
+    "owner_ref": "ivoc:fx-long-001@long-2026-09-15",
+    "hash": "f0c4bbf686a543dedf7c915482ae91894ec19a58d1dbe2aa56d6d532d4b058ed"
+  },
+  "revocation": {
+    "revocable": true
+  }
+}

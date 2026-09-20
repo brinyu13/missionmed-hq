@@ -1,0 +1,43 @@
+{
+  "projection_id": "fx-mspe-001",
+  "owner_app": "filevault",
+  "projection_type": "filevault.document_projection",
+  "schema_version": "1",
+  "subject_id": "stu-fixture-0001",
+  "source_version": "mspe-v1",
+  "produced_at": "2026-09-10T12:00:00.000Z",
+  "fresh_until": "2026-12-31T00:00:00.000Z",
+  "authorization": {
+    "basis": "student_consent",
+    "scope": [
+      "statements"
+    ],
+    "consent_ref": "consent-fx-mspe-001"
+  },
+  "minimization": {
+    "fields_included": [
+      "statements"
+    ]
+  },
+  "payload": {
+    "doc_id": "doc-mspe-0001",
+    "kind": "mspe",
+    "version": "1",
+    "content_hash": "44e7d813fde917053c968931bfe93c41b54944a19036e437a1f48996b4bc645d",
+    "as_of": "2026-09-01",
+    "statements": [
+      {
+        "statement_id": "s1",
+        "text": "The student led a departmental quality improvement initiative on discharge communication with measurable follow-through.",
+        "topic": "quality improvement"
+      }
+    ]
+  },
+  "source_receipt": {
+    "owner_ref": "filevault:fx-mspe-001@mspe-v1",
+    "hash": "488f0dcfbf8db90b809787af844ee62ec328fe83e29efc978aafb2233084798b"
+  },
+  "revocation": {
+    "revocable": true
+  }
+}

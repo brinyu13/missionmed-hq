@@ -1,0 +1,118 @@
+{
+  "projection_id": "fx-cv-001",
+  "owner_app": "filevault",
+  "projection_type": "filevault.document_projection",
+  "schema_version": "1",
+  "subject_id": "stu-fixture-0001",
+  "source_version": "cv-v3",
+  "produced_at": "2026-09-10T12:00:00.000Z",
+  "fresh_until": "2026-12-31T00:00:00.000Z",
+  "authorization": {
+    "basis": "student_consent",
+    "scope": [
+      "entries"
+    ],
+    "consent_ref": "consent-fx-cv-001"
+  },
+  "minimization": {
+    "fields_included": [
+      "entries"
+    ]
+  },
+  "payload": {
+    "doc_id": "doc-cv-0001",
+    "kind": "cv",
+    "version": "3",
+    "content_hash": "5589bf55daf7f08964178bacb1a28d34cca9739ba55bae5c2f14e3bc4c6f3cad",
+    "as_of": "2026-09-10",
+    "entries": [
+      {
+        "entry_id": "e1",
+        "entry_type": "research_item",
+        "title": "Variant interpretation in hereditary cardiomyopathy",
+        "field": "genetics",
+        "role": "first author",
+        "institution": "Northlake University",
+        "start": "2025-01",
+        "end": "2025-12",
+        "specialty_tags": [
+          "genetics",
+          "internal medicine",
+          "cardiology"
+        ]
+      },
+      {
+        "entry_id": "e2",
+        "entry_type": "clinical_experience",
+        "subtype": "observership",
+        "setting": "inpatient internal medicine",
+        "institution": "Riverbend General Hospital",
+        "country": "US",
+        "start": "2024-06",
+        "end": "2024-08",
+        "supervisor_role": "attending"
+      },
+      {
+        "entry_id": "e3",
+        "entry_type": "education",
+        "degree": "MBBS",
+        "institution": "Harbor Point Medical College",
+        "country": "Fictionland",
+        "start": "2017-08",
+        "end": "2023-05"
+      },
+      {
+        "entry_id": "e4",
+        "entry_type": "chronology_period",
+        "role": "medical officer",
+        "organization": "Harbor Point District Clinic",
+        "kind": "clinical",
+        "country": "Fictionland",
+        "start": "2023-06",
+        "end": "2024-05"
+      },
+      {
+        "entry_id": "e5",
+        "entry_type": "exam",
+        "name": "Step 2 CK",
+        "attempt_count": 2,
+        "outcome": "pass"
+      },
+      {
+        "entry_id": "e6",
+        "entry_type": "publication",
+        "title": "Quality improvement in discharge communication",
+        "field": "quality improvement",
+        "role": "lead",
+        "institution": "Riverbend General Hospital",
+        "year": 2026,
+        "specialty_tags": [
+          "quality improvement",
+          "internal medicine"
+        ]
+      },
+      {
+        "entry_id": "e7",
+        "entry_type": "research_item",
+        "title": "Household survey of hypertension awareness",
+        "field": "public health",
+        "role": "contributor",
+        "institution": "Harbor Point Medical College",
+        "start": "2019-01",
+        "end": "2019-06",
+        "specialty_tags": [
+          "public health"
+        ],
+        "ethnicity": "should-be-dropped",
+        "favorite_color": "should-be-dropped"
+      }
+    ]
+  },
+  "source_receipt": {
+    "owner_ref": "filevault:fx-cv-001@cv-v3",
+    "hash": "05aa5cec9157504ff7ffea135ec57bad51940e2f054e8039a1fe38ee46488de1"
+  },
+  "revocation": {
+    "revocable": true
+  }
+}

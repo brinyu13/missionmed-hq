@@ -1,0 +1,53 @@
+{
+  "snapshot_id": "fx-pool-v1",
+  "schema_version": "1",
+  "items": [
+    {
+      "kind": "question",
+      "canonical_id": "Q-TELL-ME",
+      "version": "1",
+      "weight": 1,
+      "source": "student",
+      "text": "Tell me about yourself."
+    },
+    {
+      "kind": "question",
+      "canonical_id": "Q-WHY-IM",
+      "version": "1",
+      "weight": 1,
+      "source": "student",
+      "text": "Why internal medicine?"
+    },
+    {
+      "kind": "question",
+      "canonical_id": "Q-CHALLENGE",
+      "version": "1",
+      "weight": 0.8,
+      "source": "preset",
+      "text": "Tell me about a challenge you handled during training."
+    },
+    {
+      "kind": "question",
+      "canonical_id": "Q-WHY-PROGRAM",
+      "version": "1",
+      "weight": 0.9,
+      "source": "student",
+      "text": "Why are you interested in this residency program?"
+    },
+    {
+      "kind": "question",
+      "canonical_id": "Q-WEAKNESS",
+      "version": "1",
+      "weight": 0.7,
+      "source": "preset",
+      "text": "What is one area you are actively working to improve?"
+    }
+  ],
+  "expanded_question_ids": [
+    "Q-TELL-ME",
+    "Q-WHY-IM",
+    "Q-CHALLENGE",
+    "Q-WHY-PROGRAM",
+    "Q-WEAKNESS"
+  ]
+}

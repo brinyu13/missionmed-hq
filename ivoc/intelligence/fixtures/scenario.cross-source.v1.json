@@ -1,0 +1,21 @@
+{
+  "name": "Cross-source synthesis",
+  "now": "2026-09-18T12:00:00.000Z",
+  "subject_id": "stu-fixture-0001",
+  "projections": [
+    "projections.filevault-cv.v1.json",
+    "projections.filevault-ps.v1.json",
+    "projections.filevault-mspe.v1.json",
+    "projections.rise-program.v1.json"
+  ],
+  "practice_goal": "full_simulation",
+  "style": "peacock",
+  "pressure_modifier": false,
+  "follow_up_intensity": 2,
+  "target_asked_count": 4,
+  "answer_text": "The biggest lesson came from the quality improvement work on discharge communication.",
+  "expect": {
+    "min_salience": 0.9,
+    "min_sources": 3
+  }
+}

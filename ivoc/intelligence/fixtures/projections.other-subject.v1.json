@@ -1,0 +1,37 @@
+{
+  "projection_id": "fx-cv-other",
+  "owner_app": "filevault",
+  "projection_type": "filevault.document_projection",
+  "schema_version": "1",
+  "subject_id": "stu-fixture-9999",
+  "source_version": "cv-v1",
+  "produced_at": "2026-09-10T12:00:00.000Z",
+  "fresh_until": "2026-12-31T00:00:00.000Z",
+  "authorization": {
+    "basis": "student_consent",
+    "scope": [
+      "entries"
+    ],
+    "consent_ref": "consent-fx-cv-other"
+  },
+  "minimization": {
+    "fields_included": [
+      "entries"
+    ]
+  },
+  "payload": {
+    "doc_id": "doc-cv-9999",
+    "kind": "cv",
+    "version": "1",
+    "content_hash": "d9298a10d1b0735837dc4bd85dac641b0f3cef27a47e5d53a54f2f3f5b2fcffa",
+    "as_of": "2026-09-10",
+    "entries": []
+  },
+  "source_receipt": {
+    "owner_ref": "filevault:fx-cv-other@cv-v1",
+    "hash": "696871a0e8349b202991c0803c5d6bc73387202c14660316ec45fb13e50438a4"
+  },
+  "revocation": {
+    "revocable": true
+  }
+}

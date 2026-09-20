@@ -1,0 +1,48 @@
+{
+  "projection_id": "fx-mcc-001",
+  "owner_app": "ivoc",
+  "projection_type": "ivoc.mentor_priorities",
+  "schema_version": "1",
+  "subject_id": "stu-fixture-0001",
+  "source_version": "mp-v1",
+  "produced_at": "2026-09-10T12:00:00.000Z",
+  "fresh_until": "2026-12-31T00:00:00.000Z",
+  "authorization": {
+    "basis": "mentor_assignment",
+    "scope": [
+      "top3",
+      "mentor_notes"
+    ]
+  },
+  "minimization": {
+    "fields_included": [
+      "top3",
+      "mentor_notes"
+    ]
+  },
+  "payload": {
+    "top3": [
+      {
+        "id": "p1",
+        "text": "Can you give me one concrete example that shows your leadership?",
+        "set_by": "mentor:fx-01",
+        "set_at": "2026-09-12T10:00:00.000Z",
+        "rank": 1
+      }
+    ],
+    "mentor_notes": [
+      {
+        "id": "n1",
+        "text": "Tends to bury the point in a long preamble.",
+        "visibility": "mentor_only"
+      }
+    ]
+  },
+  "source_receipt": {
+    "owner_ref": "ivoc:fx-mcc-001@mp-v1",
+    "hash": "cacb897c0c6e2bdfb212eb143a8f3d6ea6652ab0d50f8eb34f58486cd3648837"
+  },
+  "revocation": {
+    "revocable": true
+  }
+}

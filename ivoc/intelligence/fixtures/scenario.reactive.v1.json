@@ -1,0 +1,20 @@
+{
+  "name": "Reactive probe",
+  "now": "2026-09-18T12:00:00.000Z",
+  "subject_id": "stu-fixture-0001",
+  "projections": [
+    "projections.filevault-cv.v1.json",
+    "projections.filevault-ps.v1.json",
+    "projections.rise-program.v1.json"
+  ],
+  "practice_goal": "full_simulation",
+  "style": "owl",
+  "pressure_modifier": false,
+  "follow_up_intensity": 2,
+  "target_asked_count": 4,
+  "answer_text": "After graduating I spent a year in a research lab working on cardiomyopathy genetics.",
+  "expect": {
+    "rule_id": "AIS-R01",
+    "field": "genetics"
+  }
+}

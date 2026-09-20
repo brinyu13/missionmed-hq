@@ -1,0 +1,56 @@
+{
+  "projection_id": "fx-sf-001",
+  "owner_app": "storyforge",
+  "projection_type": "storyforge.approved_stories",
+  "schema_version": "1",
+  "subject_id": "stu-fixture-0001",
+  "source_version": "sf-v5",
+  "produced_at": "2026-09-10T12:00:00.000Z",
+  "fresh_until": "2026-12-31T00:00:00.000Z",
+  "authorization": {
+    "basis": "student_consent",
+    "scope": [
+      "stories"
+    ],
+    "consent_ref": "consent-fx-sf-001"
+  },
+  "minimization": {
+    "fields_included": [
+      "stories"
+    ]
+  },
+  "payload": {
+    "stories": [
+      {
+        "story_id": "st-1",
+        "version": "2",
+        "title": "The night the discharge plan fell apart",
+        "themes": [
+          "teamwork",
+          "communication"
+        ],
+        "summary": "A late-evening handoff failure and the checklist that came out of it.",
+        "maturity": "ready",
+        "consent_state": "granted"
+      },
+      {
+        "story_id": "st-2",
+        "version": "1",
+        "title": "A story not yet shared",
+        "themes": [
+          "resilience"
+        ],
+        "summary": "Pending consent.",
+        "maturity": "draft",
+        "consent_state": "pending"
+      }
+    ]
+  },
+  "source_receipt": {
+    "owner_ref": "storyforge:fx-sf-001@sf-v5",
+    "hash": "44ca0ac776fbbcfd706265589046df3ed030d9fe75202fb71b85c5088c7153aa"
+  },
+  "revocation": {
+    "revocable": true
+  }
+}

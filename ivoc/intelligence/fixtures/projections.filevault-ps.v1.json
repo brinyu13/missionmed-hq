@@ -1,0 +1,66 @@
+{
+  "projection_id": "fx-ps-001",
+  "owner_app": "filevault",
+  "projection_type": "filevault.document_projection",
+  "schema_version": "1",
+  "subject_id": "stu-fixture-0001",
+  "source_version": "ps-v2",
+  "produced_at": "2026-09-10T12:00:00.000Z",
+  "fresh_until": "2026-12-31T00:00:00.000Z",
+  "authorization": {
+    "basis": "student_consent",
+    "scope": [
+      "claims"
+    ],
+    "consent_ref": "consent-fx-ps-001"
+  },
+  "minimization": {
+    "fields_included": [
+      "claims"
+    ]
+  },
+  "payload": {
+    "doc_id": "doc-ps-0001",
+    "kind": "ps",
+    "version": "2",
+    "content_hash": "af6b76679d38f26f2ff5cbc98c2f007bc94f480231952a49e19bfce818a43974",
+    "as_of": "2026-09-08",
+    "claims": [
+      {
+        "claim_id": "c1",
+        "text": "Leading a quality improvement project on discharge communication taught me to listen before I redesign.",
+        "themes": [
+          "quality improvement",
+          "communication"
+        ],
+        "claim_type": "defining_experience"
+      },
+      {
+        "claim_id": "c2",
+        "text": "My genetics research on cardiomyopathy variants showed me how uncertainty reaches the bedside.",
+        "themes": [
+          "genetics",
+          "research"
+        ]
+      },
+      {
+        "claim_id": "c3",
+        "text": "Six months observing inpatient medicine at Riverbend General Hospital reshaped my view of teamwork.",
+        "themes": [
+          "teamwork"
+        ],
+        "asserts": {
+          "experience_key": "observership:riverbend general hospital",
+          "duration_months": 6
+        }
+      }
+    ]
+  },
+  "source_receipt": {
+    "owner_ref": "filevault:fx-ps-001@ps-v2",
+    "hash": "c8d18f7ade487f2fb89938a5e01ea493d81af05f49b0f0ca7b267e126836321e"
+  },
+  "revocation": {
+    "revocable": true
+  }
+}

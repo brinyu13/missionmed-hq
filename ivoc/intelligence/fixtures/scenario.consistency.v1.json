@@ -1,0 +1,19 @@
+{
+  "name": "Consistency clarification",
+  "now": "2026-09-18T12:00:00.000Z",
+  "subject_id": "stu-fixture-0001",
+  "projections": [
+    "projections.filevault-cv.v1.json",
+    "projections.filevault-ps.v1.json"
+  ],
+  "practice_goal": "guided_mock",
+  "style": "owl",
+  "pressure_modifier": false,
+  "follow_up_intensity": 2,
+  "target_asked_count": 4,
+  "answer_text": "I spent six months at Riverbend General Hospital and it changed how I see teamwork.",
+  "expect": {
+    "relation": "date_range_mismatch",
+    "stance": "interviewer_plausible"
+  }
+}

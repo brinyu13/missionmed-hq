@@ -1,0 +1,56 @@
+{
+  "projection_id": "fx-rise-001",
+  "owner_app": "rise",
+  "projection_type": "rise.program_cheat_sheet",
+  "schema_version": "1",
+  "subject_id": "stu-fixture-0001",
+  "source_version": "rise-2026-09-01",
+  "produced_at": "2026-09-10T12:00:00.000Z",
+  "fresh_until": "2026-12-31T00:00:00.000Z",
+  "authorization": {
+    "basis": "owner_policy",
+    "scope": [
+      "program"
+    ]
+  },
+  "minimization": {
+    "fields_included": [
+      "program"
+    ]
+  },
+  "payload": {
+    "program_id": "prog-cedar-valley-im",
+    "name": "Cedar Valley Internal Medicine Residency",
+    "specialty": "Internal Medicine",
+    "state": "Fictionland",
+    "type": "university",
+    "high_yield_facts": [
+      {
+        "fact": "Resident-led quality improvement curriculum with a dedicated QI month",
+        "source_ref": "rise:prog-cedar-valley-im:qi",
+        "as_of": "2026-09-01"
+      },
+      {
+        "fact": "Active genetics and cardiovascular research collaborations",
+        "source_ref": "rise:prog-cedar-valley-im:research",
+        "as_of": "2026-09-01"
+      },
+      {
+        "fact": "Unsourced claim that must be dropped"
+      }
+    ],
+    "people": [
+      {
+        "role": "Program Director",
+        "source_ref": "rise:prog-cedar-valley-im:pd"
+      }
+    ]
+  },
+  "source_receipt": {
+    "owner_ref": "rise:fx-rise-001@rise-2026-09-01",
+    "hash": "837e5b55f8a34f98973e038286f55149216b5bfb50a32e23c15625cb5f693b25"
+  },
+  "revocation": {
+    "revocable": true
+  }
+}
