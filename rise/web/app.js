@@ -89,6 +89,7 @@ function toFableProgram(record, filterIntelligence, flagBits) {
     searchTerms: Array.isArray(filterIntelligence?.searchTerms) ? filterIntelligence.searchTerms : [],
     application: filterIntelligence?.application || null,
     applicationMatch: filterIntelligence?.applicationMatch || null,
+    accreditation: record.accreditation || null,
     filterIntelligence: {
       visa: { j1, h1b, j1OrH1b: j1 || h1b, any: enabled('anyVisa') },
       residentEvidence: { img: enabled('img'), do: enabled('do'), caribbean: enabled('caribbean'), usmd: enabled('usmd') },
@@ -242,7 +243,7 @@ const state = {
   delegated: null,
   compare: [],
   underlying: null,                   // last non-file route
-  find: { mode: 'criteria', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlexWithoutUsmle: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, sort: 'name', view: 'list', shown: 50, scroll: 0, moreOpen: false },
+  find: { mode: 'criteria', q: '', state: '', specialty: '', residentSchool: '', soap: false, soapTrack: '', newlyAccredited: false, abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlexWithoutUsmle: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, sort: 'name', view: 'list', shown: 50, scroll: 0, moreOpen: false },
   applicationPreferences: D.applicationPreferences,
   fileTab: 'overview',
   fileFrom: 'find',
@@ -813,6 +814,7 @@ function matchingPrograms(f = state.find) {
     list = list.filter(p => (p.application?.roster?.schools || []).some(item => residentSchoolMatches(item, f.residentSchool)));
   }
   if (f.soap) list = list.filter(p => p.soap.length && (!f.soapTrack || p.soap.some(s => s.track === f.soapTrack)));
+  if (f.newlyAccredited) list = list.filter(p => p.accreditation?.newlyAccredited === true);
   if (f.abim) list = list.filter(p => p.filterIntelligence.abim);
   if (f.depth) list = list.filter(p => p.filterIntelligence.researchDepth === f.depth);
   if (f.visaMode) list = list.filter(p => ({
@@ -869,6 +871,7 @@ function filteredPrograms() {
     abim: (a, b) => (b.abim.passRate || -1) - (a.abim.passRate || -1),
     updated: (a, b) => new Date(b.verified) - new Date(a.verified),
     soap: (a, b) => soapN(b) - soapN(a),
+    newest: (a, b) => (Date.parse(b.accreditation?.effectiveDate || '') || 0) - (Date.parse(a.accreditation?.effectiveDate || '') || 0) || a.name.localeCompare(b.name),
   }[f.sort] || ((a, b) => a.name.localeCompare(b.name));
   if (f.sameSchool) {
     list.sort((a, b) => Number(b.application?.roster?.sameSchoolCount || 0) - Number(a.application?.roster?.sameSchoolCount || 0) || cmp(a, b));
@@ -907,6 +910,7 @@ function activePills() {
   if (f.state) pills.push({ k: 'state', label: stateNames[f.state] || f.state });
   if (f.residentSchool) pills.push({ k: 'residentSchool', label: 'Resident school: ' + f.residentSchool });
   if (f.soap) pills.push({ k: 'soap', label: 'SOAP 2026' + (f.soapTrack ? ' · ' + f.soapTrack : '') });
+  if (f.newlyAccredited) pills.push({ k: 'newlyAccredited', label: 'Newly accredited' });
   if (f.abim) pills.push({ k: 'abim', label: 'ABIM verified' });
   if (f.depth) pills.push({ k: 'depth', label: { deep: 'Deep Research', enriched: 'Enriched Research', basic: 'Basic Profile', pending: 'Research Pending' }[f.depth] });
   if (f.visaMode) pills.push({ k: 'visaMode', label: { j1: 'J-1 sponsorship published', h1b: 'H-1B sponsorship published', either: 'J-1 or H-1B published', any: 'Any visa evidence' }[f.visaMode] });
@@ -935,13 +939,20 @@ function activePills() {
 window.dropPill = k => {
   const f = state.find;
   if (k === 'q') f.q = ''; if (k === 'specialty') f.specialty = ''; if (k === 'state') f.state = ''; if (k === 'residentSchool') f.residentSchool = ''; if (k === 'soap') { f.soap = false; f.soapTrack = ''; }
+  if (k === 'newlyAccredited') f.newlyAccredited = false;
   if (k === 'abim') f.abim = false; if (k === 'depth') f.depth = ''; if (k === 'visaMode') f.visaMode = '';
   if (k === 'imgEv') f.imgEv = false; if (k === 'doEv') f.doEv = false; if (k === 'caribbeanEv') f.caribbeanEv = false; if (k === 'usmdEv') f.usmdEv = false; if (k === 'fresh') f.fresh = '';
   if (['step1Policy','step1FailureMode','step2Minimum','comlex2Minimum','step2TimingMode','attemptsMaximum','yogWindow','usceMode','minImgPct','minDoPct'].includes(k)) f[k] = '';
   if (['comlex2','comlexWithoutUsmle','sameSchool','sameCountry','fellowships'].includes(k)) f[k] = false;
   state.find.shown = 50; rerender();
 };
-window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlexWithoutUsmle: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, shown: 50 }); rerender(); };
+window.clearFilters = () => { Object.assign(state.find, { q: '', specialty: '', state: '', residentSchool: '', soap: false, soapTrack: '', newlyAccredited: false, abim: false, depth: '', fresh: '', visaMode: '', imgEv: false, doEv: false, caribbeanEv: false, usmdEv: false, step1Policy: '', step1FailureMode: '', step2Minimum: '', step2TimingMode: '', comlex2: false, comlexWithoutUsmle: false, comlex2Minimum: '', attemptsMaximum: '', yogWindow: '', usceMode: '', minImgPct: '', minDoPct: '', sameSchool: false, sameCountry: false, fellowships: false, shown: 50 }); rerender(); };
+
+function newlyAccreditedBadge(p) {
+  return p.accreditation?.newlyAccredited === true
+    ? '<span class="newAccreditedBadge" title="Initial accreditation in the 2025–26 or 2026–27 application-relevant academic year">Newly Accredited</span>'
+    : '';
+}
 
 function sigIMG(p, f) {
   if (p.filterIntelligence.residentEvidence.img) return `<span class="sig" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not admissions policy."><b>IMG ✓</b><span style="color:var(--dim)"> ${esc(p.intelligence.imgGraduatesPercent || 'reported')}</span></span>`;
@@ -1060,7 +1071,7 @@ function programRow(p, origin) {
     <span class="pRowHead">
       <button class="starBtn ${state.saved.has(p.id) ? 'on' : ''}" aria-pressed="${state.saved.has(p.id)}" aria-label="Save ${esc(p.name)}" onclick="toggleSave('${p.id}',event)">★</button>
       <span class="specTag">${p.spec}</span>
-      <span class="rIdentity"><span class="rTitleLine"><span class="rName">${esc(p.name)}</span>${p.demo ? '<span class="demoTag">Demo</span>' : ''}${p.depth === 'gold' ? '<span class="demoTag" style="color:var(--gd);border-color:rgba(255,215,106,.5)">Gold dossier</span>' : ''}</span>
+      <span class="rIdentity"><span class="rTitleLine"><span class="rName">${esc(p.name)}</span>${newlyAccreditedBadge(p)}${p.demo ? '<span class="demoTag">Demo</span>' : ''}${p.depth === 'gold' ? '<span class="demoTag" style="color:var(--gd);border-color:rgba(255,215,106,.5)">Gold dossier</span>' : ''}</span>
       <span class="rSub">${esc(p.inst)} · ${esc(p.city)}, ${p.state}${p.type ? ' · ' + esc(p.type) : ''}</span></span>
       <span class="rMeta">
         ${freshPill(p)}
@@ -1079,7 +1090,7 @@ function programRow(p, origin) {
 function programCard(p, origin) {
   const f = computeFit(p);
   return `<div class="pCard" role="button" tabindex="0" style="--tierHue:${tierHue(f.tier) === 'transparent' ? 'var(--edge2)' : tierHue(f.tier)}" data-open="${p.id}" data-origin="${origin}">
-    <span class="cTop"><span class="specTag">${p.spec}</span>${hasUsableProfile() && state.find.mode === 'profile' ? tierChip(p, f) : ''}${p.demo ? '<span class="demoTag">Demo</span>' : ''}
+    <span class="cTop"><span class="specTag">${p.spec}</span>${newlyAccreditedBadge(p)}${hasUsableProfile() && state.find.mode === 'profile' ? tierChip(p, f) : ''}${p.demo ? '<span class="demoTag">Demo</span>' : ''}
       <button class="starBtn ${state.saved.has(p.id) ? 'on' : ''}" aria-pressed="${state.saved.has(p.id)}" aria-label="Save ${esc(p.name)}" onclick="toggleSave('${p.id}',event)">★</button></span>
     <span class="cName">${esc(p.name)}</span>
     <span class="cSub">${esc(p.inst)}<br>${esc(p.city)}, ${p.state}</span>
@@ -1119,6 +1130,7 @@ function viewFind() {
         <option value="">All states</option>${STATES.map(s => `<option value="${s}" ${f.state === s ? 'selected' : ''}>${stateNames[s] || s}</option>`).join('')}</select>
       <button class="fBtn ${f.imgEv ? 'on' : ''}" onclick="state.find.imgEv=!state.find.imgEv;state.find.shown=50;rerender()" title="Program-reported resident or graduate composition, or approved roster evidence. Observation, not policy.">IMG evidence <span class="fCount">${filterOptionCount({ imgEv: true }).toLocaleString()}</span></button>
       <button class="fBtn ${f.visaMode === 'any' ? 'on' : ''}" onclick="state.find.visaMode=state.find.visaMode==='any'?'':'any';state.find.shown=50;rerender()">Visa published <span class="fCount">${filterOptionCount({ visaMode: 'any' }).toLocaleString()}</span></button>
+      <button class="fBtn ${f.newlyAccredited ? 'on' : ''}" onclick="state.find.newlyAccredited=!state.find.newlyAccredited;state.find.shown=50;rerender()">Newly accredited <span class="fCount">${filterOptionCount({ newlyAccredited: true }).toLocaleString()}</span></button>
       <button class="fBtn" onclick="openFilterDrawer()">More filters ${pills.length > (f.q ? 1 : 0) + (f.state ? 1 : 0) ? `<span class="badge">${pills.length}</span>` : ''}</button>
       ${pills.length ? `<button class="clearF" onclick="clearFilters()">Clear filters</button>` : ''}
     </div>
@@ -1492,6 +1504,10 @@ window.openFilterDrawer = () => {
     <div class="fGroup filterSoap"><div class="fLbl">SOAP</div>
       <button class="tgl ${f.soap ? 'on' : ''}" onclick="state.find.soap=!state.find.soap;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>SOAP 2026 history<span class="cav">Historical cycle evidence; no future availability or match-likelihood inference.</span></span>${count({ soap: true })}</button>
     </div>
+    <div class="fGroup filterAccreditation"><div class="fLbl">Accreditation</div>
+      <button class="tgl ${f.newlyAccredited ? 'on' : ''}" onclick="state.find.newlyAccredited=!state.find.newlyAccredited;openFilterDrawer();rerenderKeepDrawer()"><span class="box">✓</span><span>Newly accredited<span class="cav">Initial Accreditation in AY 2025–26 or current AY 2026–27, from ACGME ADS Public.</span></span>${count({ newlyAccredited: true })}</button>
+      <button class="tgl ${f.sort === 'newest' ? 'on' : ''}" onclick="state.find.sort=state.find.sort==='newest'?'name':'newest';openFilterDrawer();rerenderKeepDrawer()"><span class="box">⇅</span><span>Newest accreditation first<span class="cav">Sorts supported accreditation effective dates descending.</span></span></button>
+    </div>
     <div class="fGroup filterResearch"><div class="fLbl">Research depth</div>
       ${[
         ['', 'Any research depth', 'All current canonical programs.'],
@@ -1659,6 +1675,7 @@ function renderFile(p) {
       <div class="fIdent">
         <div class="fEyebrow">${esc(p.specName)} · ${esc(p.track)} ${p.demo ? '<span class="demoTag">Representative demo data</span>' : ''}${p.depth === 'gold' ? '<span class="demoTag" style="color:var(--gd);border-color:rgba(255,215,106,.5)">Gold dossier · 267 refs</span>' : ''}${p.researchProjection?.dossier?.dossierOutcome === 'DEEP' ? `<span class="demoTag deepCurrent">Deep Research Current ✓ · ${esc(String(p.researchProjection.dossier.researchTimestamp || '').slice(0,10))}</span>` : ''}</div>
         <h1 class="fName" id="fileTitle">${esc(p.name)}</h1>
+        ${p.accreditation?.newlyAccredited ? '<div class="fileAccreditationBadge">' + newlyAccreditedBadge(p) + ' <span>Initial accreditation · ' + esc(p.accreditation.effectiveDate || p.accreditation.academicYear || 'date not published') + '</span></div>' : ''}
         <div class="fSub">${esc(p.inst)} · ${esc(p.city)}, ${p.state}${p.type ? ' · ' + esc(p.type) : ''}${p.positions ? ' · ' + esc(p.positions) : ''}</div>
         <div class="forYou">
           <div class="fyLbl">${hasUsableProfile() && state.find.mode === 'profile' ? 'For you' : 'Research status'}</div>
@@ -2016,6 +2033,9 @@ function atAGlanceSection(p) {
     ['First-year positions', fieldValue(p, 'First Year Positions') || p.intelligence.firstYearPositions || 'Not published'],
     ['Total residents', fieldValue(p, 'Total Residents') || p.intelligence.totalResidents || p.application?.roster?.total || 'Not published'],
     ['Program director', pd?.name || fieldValue(p, 'Program Director') || 'Not yet verified'],
+    ['Accreditation', p.accreditation?.status || 'Not yet verified'],
+    ['Accreditation effective', p.accreditation?.effectiveDate || 'Not published'],
+    ['Accreditation source check', p.accreditation?.sourceCheckedAt || 'Not published'],
     ['Resident background', residentCompositionPresentation(p)],
     ['Research coverage', `${{deep:'Deep Research',enriched:'Enriched Research',basic:'Basic Profile',pending:'Research Pending'}[p.filterIntelligence.researchDepth] || 'Research Pending'} · ${p.filterIntelligence.approvedDomainCount} approved domains`],
   ];

@@ -739,3 +739,5 @@ body[data-theme="daylight"] .intelFormGrid input,body[data-theme="daylight"] .in
 @media (max-width:860px){
   .delegatedChrome{position:relative;flex-wrap:wrap;padding:10px 14px}.delegatedChrome>span:not(.delegatedMode){width:100%;flex-basis:100%}.studentAdminControls{display:flex;flex-wrap:wrap}.studentAdminControls input{width:100%}.studentRosterRow{grid-template-columns:1fr;padding:16px}.studentRosterRow dl{grid-column:1;grid-template-columns:1fr 1fr}.openRiseBtn{width:100%}.myPriorityRow{grid-template-columns:54px 34px 34px 1fr!important}.myPriorityRow .specTag{display:none}.myPriorityRow .rMain{grid-column:4}.myPriorityRow .rMeta{grid-column:1/-1}.priorityPosition{width:50px;height:50px}.priorityPosition span{font-size:24px}
 }
+.newAccreditedBadge{display:inline-flex;align-items:center;padding:4px 8px;border:1px solid rgba(69,212,255,.5);border-radius:999px;background:rgba(69,212,255,.09);color:var(--cy);font-family:var(--num);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+.fileAccreditationBadge{display:flex;align-items:center;gap:8px;margin:8px 0 4px;color:var(--muted);font-size:12px}

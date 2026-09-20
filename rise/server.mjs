@@ -773,6 +773,15 @@ function listView(record) {
       wording: record.soap2026.wording,
       context: record.soap2026.context,
     } : null,
+    accreditation: record.accreditation ? {
+      currentUniverseState: record.accreditation.currentUniverseState ?? null,
+      status: record.accreditation.status ?? null,
+      effectiveDate: record.accreditation.effectiveDate ?? null,
+      academicYear: record.accreditation.academicYear ?? null,
+      newlyAccredited: record.accreditation.newlyAccredited === true,
+      sourceCheckedAt: record.accreditation.sourceCheckedAt ?? null,
+      sourceUrl: record.accreditation.sourceUrl ?? null,
+    } : null,
     source: {
       authority: record.source.authority,
       retrievedAt: record.source.retrievedAt,
@@ -811,6 +820,8 @@ function buildSearchReadModel(programs) {
       h1b: knownValue(record.fields.H1B) === true,
       evidence: evidenceBand(record.evidence.coveragePercent),
       soap2026: record.soap2026?.appeared === true,
+      newlyAccredited: record.accreditation?.newlyAccredited === true,
+      accreditationEffectiveDate: Date.parse(record.accreditation?.effectiveDate ?? "") || 0,
       soapPositions: (record.soap2026?.tracks ?? []).reduce((sum, track) => sum + Number(track.availablePositions ?? 0), 0),
       specialtyRelationships: new Map(record.browseMemberships.map((membership) =>
         [membership.browseSpecialty, membership.relationship])),
@@ -838,6 +849,7 @@ function searchPrograms(readModel, searchParams) {
   const evidence = String(searchParams.get("evidence") ?? "").trim().toLowerCase();
   const includeCombined = searchParams.get("includeCombined") === "true";
   const soap2026 = searchParams.get("soap2026") === "true";
+  const newlyAccredited = searchParams.get("newlyAccredited") === "true";
   const sort = String(searchParams.get("sort") ?? "name");
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number.parseInt(searchParams.get("pageSize") ?? "24", 10) || 24));
@@ -853,9 +865,10 @@ function searchPrograms(readModel, searchParams) {
     if (visa === "H1B" && !metadata.h1b) return false;
     if (evidence && metadata.evidence !== evidence) return false;
     if (soap2026 && !metadata.soap2026) return false;
+    if (newlyAccredited && !metadata.newlyAccredited) return false;
     return !query || metadata.haystack.includes(query);
   });
-  if (sort === "jurisdiction" || sort === "evidence" || sort === "soap_positions") records = [...records].sort((left, right) => {
+  if (sort === "jurisdiction" || sort === "evidence" || sort === "soap_positions" || sort === "newest_accreditation") records = [...records].sort((left, right) => {
     if (sort === "jurisdiction") {
       return String(left.display.state).localeCompare(String(right.display.state)) ||
         String(left.display.programName).localeCompare(String(right.display.programName));
@@ -868,13 +881,17 @@ function searchPrograms(readModel, searchParams) {
       return readModel.metadata.get(right).soapPositions - readModel.metadata.get(left).soapPositions ||
         String(left.display.programName).localeCompare(String(right.display.programName));
     }
+    if (sort === "newest_accreditation") {
+      return readModel.metadata.get(right).accreditationEffectiveDate - readModel.metadata.get(left).accreditationEffectiveDate ||
+        String(left.display.programName).localeCompare(String(right.display.programName));
+    }
     return String(left.display.programName).localeCompare(String(right.display.programName));
   });
   const total = records.length;
   const start = (page - 1) * pageSize;
   const pageRecords = records.slice(start, start + pageSize).map(listView);
   return {
-    query: { q: query, specialty, designation, jurisdiction, region, programType, visa, evidence, includeCombined, soap2026, sort },
+    query: { q: query, specialty, designation, jurisdiction, region, programType, visa, evidence, includeCombined, soap2026, newlyAccredited, sort },
     page,
     pageSize,
     total,

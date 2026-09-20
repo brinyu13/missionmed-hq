@@ -278,7 +278,15 @@ async function readPackage(root) {
 export async function loadNormalizedHydrationPackage(root, { registryPath } = {}) {
   const data = await readPackage(root);
   const registry = JSON.parse(await fs.readFile(registryPath, "utf8"));
-  if (registry?.counts?.uniquePrograms !== 6139 || registry?.counts?.specialtyTabs !== 31) throw new Error("Full registry contract drifted from 6,139 programs / 31 specialties");
+  const registryCount = registry?.counts?.uniquePrograms;
+  const registryPrograms = Array.isArray(registry?.programs) ? registry.programs : [];
+  if (!Number.isInteger(registryCount) || registryCount < 6139 || registryPrograms.length !== registryCount || registry?.counts?.specialtyTabs !== 31) {
+    throw new Error(`Full registry contract is inconsistent: ${registryCount}/${registryPrograms.length} programs and ${registry?.counts?.specialtyTabs} specialties`);
+  }
+  const registryIds = registryPrograms.map((program) => program?.id);
+  if (registryIds.some((id) => typeof id !== "string" || !id) || new Set(registryIds).size !== registryIds.length) {
+    throw new Error("Full registry contains a missing or duplicate canonical program identity");
+  }
   for (const [key, expected] of Object.entries(EXPECTED_PACKAGE_COUNTS)) {
     if (["programs", "programDirectors", "retractions"].includes(key)) continue;
     if (data[key].length !== expected) throw new Error(`Hydration package ${key} count drifted: ${data[key].length}/${expected}`);
