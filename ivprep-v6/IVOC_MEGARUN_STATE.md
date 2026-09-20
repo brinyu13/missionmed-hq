@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 15:22 America/New_York
+Updated: 2026-09-20 15:40 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `d198991c-9537-4c1e-9483-68e965bc2f12`, exact commit
-  `759cca71f4203569dba3cde99f9a18060c05e376`, image
-  `sha256:36a2d34b02aa7be4bb81720867d4ab590cb38001d3857a0dcd5bc7582638ce0d`.
+  `7ad89899-57f7-414d-aafb-28110918db1c`, exact commit
+  `23d119076768a6c6eb19153a0a6e3c69e1f15539`, image
+  `sha256:1d7f99d7ee0cfb2bfa3526aa2f89e73d7d1e79a6bdbe2158f0f827d1df655090`.
 - Admin operational-control presentation: `268cd4be2265e7cd1ee6b05247ab5e148312a260`.
   The existing candidate.2 Mentor & Admin surface now consumes the versioned
   Admin-config, authenticated credit-account and governed-question adapters,
@@ -100,6 +100,14 @@ the actual production route and deployment.
   block is resolved server-side and injected into GPT-Live at
   `16b3284adea43ff4bfe320f1d71544710856b631`; it and the private receipt never
   cross the browser boundary. Owner projections remain.
+- Evidence-bound prior-IVOC runtime projection:
+  `23d119076768a6c6eb19153a0a6e3c69e1f15539`. New semantic analyses persist
+  only structured, transcript-cited `structure`, `evidence`, `specificity` or
+  `concision` patterns with explicit strength/weakness polarity. Context Packs
+  read only the same owner's prior saved sessions, exclude the active session,
+  require score and coverage of at least 0.65, and require the same facet in at
+  least two distinct sessions. Production currently has zero qualifying rows,
+  so the runtime emits no longitudinal claim rather than manufacturing one.
 
 ## Production data authority — LIVE VERIFIED
 
@@ -179,10 +187,10 @@ the actual production route and deployment.
 | 10 | StoryForge opt-in story/theme and performance evidence | LIVE UNVERIFIED | IVOC source seam exists; live sibling-owner projection remains. |
 | 10 | RISE sourced/fresh program context | NOT STARTED | Exact live owner contract and freshness receipt still required. |
 | 10 | MCC / Top 3 / Mentor owner projections | LIVE VERIFIED | With no MCC owner authority present, IVOC now owns the versioned Mentor Top 3 contract. Genuine `brinyu` production v1 generated one `ivoc.mentor_priorities` receipt, two bounded facts and one `AIS-R09` signal in session `4e275dac-a613-45a2-85d5-1d35413c8e47`; the Actor received the shared priority and not the mentor-only note. Append-only v2 cleared the projection, a stale write returned 409, and cleared-state session `f378c2a0-0cc0-4422-b042-f4cbfe334261` had zero leaked inputs. |
-| 10 | Prior-IVOC longitudinal context | LIVE UNVERIFIED | Production schema supports it; multi-session production proof remains. |
+| 10 | Prior-IVOC longitudinal context | LIVE UNVERIFIED | Deployment `7ad89899…` persists and projects only structured, transcript-cited patterns from prior saved owner sessions, excluding the active session and requiring the same bounded facet in at least two sessions. Production readback found 0 qualifying rows, so no recurring claim was emitted; real multi-session proof remains. |
 | 10 | Calendar interview adapter | LIVE VERIFIED | The deployed stable adapter consumes the Scheduler owner projection, strips owner URLs and rendered the authenticated connected state: seven authorized appointments, none upcoming. |
 | 10 | Match Bridge bounded consented clip seam | LIVE VERIFIED | Real saved `CORE-01` media was bound only to a 0–14 s answer range, promoted from private v1 to consented `match_bridge_ready` v2, then revoked at v3. Whole-mock sharing remains prohibited by the contract; cross-product pickup is an external owner integration, not an IVOC clip-seam gap. |
-| 11 | Structured evidence-to-coaching pipeline | LIVE UNVERIFIED | Session/transcript/evidence tables exist; live synthesis acceptance remains. |
+| 11 | Structured evidence-to-coaching pipeline | LIVE UNVERIFIED | Deployment `7ad89899…` added cited, scored and confidence-bounded coaching-pattern evidence plus deterministic prior-session projection. Focused server and Application Intelligence acceptance passed; a real recorded semantic session and live synthesis acceptance remain. |
 | 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE UNVERIFIED | Results source exists; evidence-linked production output remains. |
 | 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE VERIFIED | Authenticated production `wp:1` switched Student → Admin while retaining the same actor/subject identity; Admin-only navigation and diagnostics appeared without impersonating another user. |
