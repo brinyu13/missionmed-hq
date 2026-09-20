@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 10:27 America/New_York
+Updated: 2026-09-20 10:58 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `f32086e6-5937-4998-b479-f0e08e38a85c`, exact commit
-  `8b52db79fab6cfc50c94624ca08656d0c9cf22a9`, image
-  `sha256:e1d86ffbdd77492043f07dd573a5bd10704a63bec76bcebbbde5120bb61dd723`.
+  `cc96b5de-ce91-43ec-9b47-bf86d4cceaba`, exact commit
+  `5a76d861290d5d6453cfbccde3be7d3b4f07d0d7`, image
+  `sha256:bd43e5670b0f1c554f4e3595e377cb8c923c8cac8b49cb619fc3139acfcded80`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -47,8 +47,10 @@ the actual production route and deployment.
   `84f0adb3235d89de32478700653eec57b278097c`.
 - Application Intelligence pure domain core:
   `8b52db79fab6cfc50c94624ca08656d0c9cf22a9`; 47/47 focused tests and
-  10/10 F1 regression tests pass. Persistence, owner projections, runtime
-  Director relay and live acceptance remain unimplemented.
+  10/10 F1 regression tests pass. Server-only Context Pack persistence and
+  ready-check receipt hydration are production-deployed at
+  `5a76d861290d5d6453cfbccde3be7d3b4f07d0d7`; owner projections, runtime
+  Director relay and authenticated live-session acceptance remain.
 
 ## Production data authority — LIVE VERIFIED
 
@@ -57,14 +59,15 @@ the actual production route and deployment.
 - MissionMed organization: `jolimsgwkmssvhegrdfx`.
 - Region: `us-east-2`.
 - Provider status: `ACTIVE_HEALTHY`.
-- Seven production migrations are present:
+- Eight production migrations are present:
   `ivprep_3440_admin_canary`,
   `ivprep_3472c_t1_three_test_lifecycle`,
   `ivoc_3528c_session_recording_results`,
   `ivoc_m1_event_spine`,
   `ivoc_access_log_recording_index`, and
-  `ivoc_production_privilege_hardening`, and
-  `ivoc_question_governance`.
+  `ivoc_production_privilege_hardening`,
+  `ivoc_question_governance`, and
+  `ivoc_application_intelligence_context_packs`.
 - Provider readback after the hardening migration:
   17/17 IVOC/IV Prep tables have RLS enabled and forced; browser/public table
   grants = 0; excess `service_role` grants
@@ -104,6 +107,7 @@ the actual production route and deployment.
 | 9 | Current supported realtime transport and contextual InterviewBrain | LIVE VERIFIED | Production `gpt-live-1` WebRTC canary created twice through the authenticated IVOC broker, reached `session.started`, exchanged native audio/transcript events, and ended with provider hangup HTTP 200. |
 | 9 | Natural turns, answer-grounded follow-up, memory, move-on and barge-in | LIVE VERIFIED | Production canary retained the discharge/teach-back detail across turns, asked evidence-grounded follow-ups, honored “move to the next question,” and visibly truncated “That gives me a—” on barge-in before continuing. |
 | 9 | Pool/context weighting, clean teardown, single audio authority | LIVE UNVERIFIED | Selected CORE-01 reached the room and both canaries received authoritative provider hangup; exact pool-weighting behavior and explicit single-audio telemetry remain. |
+| 10 | Server-owned Application Intelligence Context Pack hydration | LIVE UNVERIFIED | Production migration and runtime are live at `5a76d86`: every new canonical session builds a bounded fail-closed pack, persists its private Actor block under forced RLS, and pins only the server-owned `ctxpack:` receipt. Focused route/domain tests pass 21/21 and donor plus F1 regression tests pass 57/57. A genuine authenticated production session receipt readback remains. |
 | 10 | File Vault context/performance-reference seam | EXTERNAL DEPENDENCY | Current owner source is `J1-FILEVAULT-1019`; its live `/wp-json/mmed/v2/file-vault/bootstrap` contract requires same-origin WordPress cookie + `X-WP-Nonce` and rejects authorization-header/cross-origin use. IVOC fails closed with disabled “Not connected” cards. A consented server projection must be opened through File Vault owner authority; IVOC must not weaken or mutate the owner contract. |
 | 10 | StoryForge opt-in story/theme and performance evidence | LIVE UNVERIFIED | IVOC source seam exists; live sibling-owner projection remains. |
 | 10 | RISE sourced/fresh program context | NOT STARTED | Exact live owner contract and freshness receipt still required. |
@@ -137,8 +141,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `f32086e6-5937-4998-b479-f0e08e38a85c` from exact product commit
-  `8b52db79fab6cfc50c94624ca08656d0c9cf22a9`; health is ready, the
+  `cc96b5de-ce91-43ec-9b47-bf86d4cceaba` from exact product commit
+  `5a76d861290d5d6453cfbccde3be7d3b4f07d0d7`; `/health` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -153,9 +157,11 @@ the actual production route and deployment.
   identities without mutating owner assets. IVOC remains a consumer; fresh
   end-to-end Matrix launch acceptance is still required.
 - Application Intelligence contracts, provenance, signals, Context Pack and
-  Director arbitration are integrated as a dormant domain core. Production
-  does not yet import them; owner contracts, persistence and runtime wiring
-  remain explicit gates.
+  Director arbitration are integrated. Production now builds and persists a
+  server-only Context Pack during session creation, preserves its receipt
+  across Spine/context writes, and never returns the full pack or Actor block
+  to the browser. Owner contracts, authenticated live-session readback and the
+  server-side Director/Actor relay remain explicit gates.
 - Root runtime dependency audit previously reported zero vulnerabilities. Default
   branch repository-security advisories remain separate security-owner work until
   re-triaged against the production commit.
@@ -178,9 +184,9 @@ the actual production route and deployment.
    when a browser session can reach the production domain; the current Chrome
    profile returns client-side `ERR_BLOCKED_BY_CLIENT`, so no identity or
    result was manufactured.
-2. Wire the integrated Application Intelligence core through additive,
-   RLS-forced persistence, ready-check hydration and the bounded server-side
-   Director hint relay without coupling it to Astra page composition.
+2. Complete Application Intelligence runtime wiring with authenticated
+   production receipt readback and the bounded server-side Director hint relay,
+   without coupling it to Astra page composition.
 3. Resolve owner projection contracts in dependency order: File Vault/CV,
    StoryForge, RISE, then MCC/Top 3; keep unavailable sources fail-closed.
 4. Run authenticated second-Admin, entitled-360 and negative-role/private-media
