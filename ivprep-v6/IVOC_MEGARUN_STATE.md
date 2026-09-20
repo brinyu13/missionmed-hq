@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 15:40 America/New_York
+Updated: 2026-09-20 15:42 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -25,10 +25,13 @@ the actual production route and deployment.
   view-model/capability adapters; canonical business, session, database and
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
-- Active presentation/runtime deployment:
+- Latest functionality-accepted presentation/runtime deployment:
   `7ad89899-57f7-414d-aafb-28110918db1c`, exact commit
   `23d119076768a6c6eb19153a0a6e3c69e1f15539`, image
   `sha256:1d7f99d7ee0cfb2bfa3526aa2f89e73d7d1e79a6bdbe2158f0f827d1df655090`.
+  Its ledger-only successor `5d85af51-55bd-4ee3-b12a-087979cc422c` from
+  `0471543ace1014d5cc19760d932af666730dc533` is healthy and carries identical
+  application code.
 - Admin operational-control presentation: `268cd4be2265e7cd1ee6b05247ab5e148312a260`.
   The existing candidate.2 Mentor & Admin surface now consumes the versioned
   Admin-config, authenticated credit-account and governed-question adapters,
@@ -168,7 +171,7 @@ the actual production route and deployment.
 | 5 | Six-step builder and Practice Goal modes | LIVE VERIFIED | Authenticated production Chrome traversed all six distinct candidate.2 step compositions without collapsing them into the rejected generic-card builder. |
 | 5 | Question Pool branching, persistent rail, presets, ordering, 193-question corpus | LIVE VERIFIED | Authenticated production traversed category → subcategory → question, retained the persistent right rail, and read the canonical 193-question corpus. |
 | 5 | Separate Interviewer and Program steps with role/style controls | LIVE VERIFIED | Authenticated production traversed the independent Program and Interviewer compositions with Program Director, Faculty, Chief Resident, APD and Dove/Peacock/Owl/Eagle controls. RISE hydration remains a separate owner projection. |
-| 5 | RISE-backed Program search, sourced highlights, people, freshness/manual fallback | NOT STARTED | Requires live owner contract and source-receipt proof. |
+| 5 | RISE-backed Program search, sourced highlights, people, freshness/manual fallback | EXTERNAL DEPENDENCY | IVOC's fail-closed `rise.program_cheat_sheet` normalizer and UI seam are complete. Current RISE program/research routes require RISE-owned auth and program identity; the visible “Use for Interview Prep” control is still a toast-only CAM handoff and no minimized, signed WP-subject projection/source receipt exists for IVOC. RISE owner authority must publish that contract. |
 | 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE UNVERIFIED | MissionMed/Webex/Zoom/Teams and fail-closed source cards passed local Chrome; owner projections and live opt-in behavior remain. |
 | 5 | Truthful Readiness & Calibration checks | LIVE VERIFIED | Production Chrome proved physical FaceTime HD camera, built-in microphone, running audio context, live level and bound video surface. |
 | 6 | Real modular camera/mic Analytics with truthful availability states | LIVE VERIFIED | Physical production rep produced real microphone PCM plus face, hands, head and framing telemetry; unavailable signals continued to fail closed. |
@@ -184,8 +187,8 @@ the actual production route and deployment.
 | 9 | Pool/context weighting, clean teardown, single audio authority | LIVE UNVERIFIED | Production deployment `db562b38…` at source `b6b0a92` resolves the selected canonical corpus entries into an exact ordered server prompt, keeps pressure as a modifier instead of replacing interviewer identity, rejects a surplus provider audio track, and persists the strict `configured -> bound -> released` `ivoc.audio-authority.v1` lifecycle. Deployed synthetic contract canary `f89dc627…` returned `audioAuthorityVerified=true`; authenticated reload preserved five turns, and provider readback plus `audio_authority_persist` audit confirmed single native audio. One real recorded, pool-ordered multi-question exchange remains for behavioral acceptance. |
 | 10 | Server-owned Application Intelligence Context Pack hydration | LIVE VERIFIED | Genuine `brinyu` production session `1b973235-de3b-4d2c-a39a-c51e49df38e8` persisted one owner-bound private pack and `ctxpack:` receipt. Two authenticated `gpt-live-1` WebRTC canaries resolved that same server-only contract, reached live audio/transcript exchange and clean teardown; neither Actor block nor receipt crossed the browser boundary. |
 | 10 | File Vault context/performance-reference seam | EXTERNAL DEPENDENCY | Current owner source is `J1-FILEVAULT-1019`; its live `/wp-json/mmed/v2/file-vault/bootstrap` contract requires same-origin WordPress cookie + `X-WP-Nonce` and rejects authorization-header/cross-origin use. IVOC fails closed with disabled “Not connected” cards. A consented server projection must be opened through File Vault owner authority; IVOC must not weaken or mutate the owner contract. |
-| 10 | StoryForge opt-in story/theme and performance evidence | LIVE UNVERIFIED | IVOC source seam exists; live sibling-owner projection remains. |
-| 10 | RISE sourced/fresh program context | NOT STARTED | Exact live owner contract and freshness receipt still required. |
+| 10 | StoryForge opt-in story/theme and performance evidence | EXTERNAL DEPENDENCY | IVOC's fail-closed `storyforge.approved_stories` normalizer and presentation seam are complete. Current owner `/api/interview-intelligence` returns question-readiness metadata, requires a StoryForge-signed JWT plus StoryForge UUID identity, and does not expose a consented approved-story/theme projection bound to the IVOC WordPress subject. StoryForge owner authority must publish that minimized projection. |
+| 10 | RISE sourced/fresh program context | EXTERNAL DEPENDENCY | IVOC's normalizer and fail-closed Program/context surfaces are complete. Current owner program and research routes remain RISE-authenticated and the CAM handoff is nonfunctional toast copy; no signed `rise.program_cheat_sheet` projection with freshness/source receipts and WP-subject binding exists. RISE owner authority must publish it. |
 | 10 | MCC / Top 3 / Mentor owner projections | LIVE VERIFIED | With no MCC owner authority present, IVOC now owns the versioned Mentor Top 3 contract. Genuine `brinyu` production v1 generated one `ivoc.mentor_priorities` receipt, two bounded facts and one `AIS-R09` signal in session `4e275dac-a613-45a2-85d5-1d35413c8e47`; the Actor received the shared priority and not the mentor-only note. Append-only v2 cleared the projection, a stale write returned 409, and cleared-state session `f378c2a0-0cc0-4422-b042-f4cbfe334261` had zero leaked inputs. |
 | 10 | Prior-IVOC longitudinal context | LIVE UNVERIFIED | Deployment `7ad89899…` persists and projects only structured, transcript-cited patterns from prior saved owner sessions, excluding the active session and requiring the same bounded facet in at least two sessions. Production readback found 0 qualifying rows, so no recurring claim was emitted; real multi-session proof remains. |
 | 10 | Calendar interview adapter | LIVE VERIFIED | The deployed stable adapter consumes the Scheduler owner projection, strips owner URLs and rendered the authenticated connected state: seven authorized appointments, none upcoming. |
@@ -215,9 +218,9 @@ the actual production route and deployment.
 
 ## Current production and governance gates
 
-- MissionMed HQ production is now Railway deployment
-  `d198991c-9537-4c1e-9483-68e965bc2f12` from exact product commit
-  `759cca71f4203569dba3cde99f9a18060c05e376`; `/health/lor-studio` is HTTP 200, the
+- Latest functionality-accepted MissionMed HQ production is Railway deployment
+  `7ad89899-57f7-414d-aafb-28110918db1c` from exact product commit
+  `23d119076768a6c6eb19153a0a6e3c69e1f15539`; `/health/lor-studio` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -258,8 +261,8 @@ the actual production route and deployment.
 
 ## Next execution lanes
 
-1. Resolve owner projection contracts in dependency order: File Vault/CV,
-   StoryForge, then RISE; keep unavailable sources fail-closed.
+1. Monitor the exact File Vault, StoryForge and RISE owner-contract gaps; keep
+   their completed IVOC projection seams fail-closed and do not mutate siblings.
 2. Run authenticated second-Admin, entitled-360 and negative-role/private-media
    canaries when genuine sessions are available; never manufacture identities.
 3. Exercise a real multi-turn follow-up/gap range and a transcript that produces
