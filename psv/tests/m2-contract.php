@@ -198,6 +198,14 @@ contract_assert(
 );
 
 contract_assert(
+	has_pattern('/credit_balance_exhausted/', $provider)
+		&& has_pattern('/mmps_provider_credits/', $provider)
+		&& has_pattern('/mmps_provider_rate/', $provider),
+	'provider distinguishes exhausted project credits from transient rate limiting',
+	'A billing gate requires project-owner action and must not be presented as a retryable rate limit.'
+);
+
+contract_assert(
 	has_pattern('/selectedCandidateId|selected_candidate_id/', $ui)
 		&& has_pattern('/data-act=[\'\"](?:select-candidate|choose-candidate)[\'\"]|data-candidate-id=/', $ui),
 	'UI provides an explicit alternative-selection control',

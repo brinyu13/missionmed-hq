@@ -132,8 +132,11 @@ class MMPS_Provider {
 			MMPS_Store::finish_provider_attempt( absint( $attempt_context['userId'] ?? 0 ), $reservation, $response->get_error_code() );
 			return new WP_Error( 'mmps_provider_unreachable', 'The AI provider could not be reached. Try again.', array( 'status' => 502 ) );
 		}
-		$code = (int) wp_remote_retrieve_response_code( $response );
-		MMPS_Store::finish_provider_attempt( absint( $attempt_context['userId'] ?? 0 ), $reservation, 'http_' . $code );
+		$code          = (int) wp_remote_retrieve_response_code( $response );
+		$data          = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		$provider_code = is_array( $data ) ? sanitize_key( (string) ( $data['error']['code'] ?? '' ) ) : '';
+		$attempt_code  = 'http_' . $code . ( $provider_code ? '_' . $provider_code : '' );
+		MMPS_Store::finish_provider_attempt( absint( $attempt_context['userId'] ?? 0 ), $reservation, $attempt_code );
 		if ( 400 === $code ) {
 			return new WP_Error( 'mmps_provider_bad_request', 'The AI provider rejected the request (400). Check the configured model name.', array( 'status' => 502 ) );
 		}
@@ -141,12 +144,17 @@ class MMPS_Provider {
 			return new WP_Error( 'mmps_provider_auth', 'The AI provider rejected the configured key.', array( 'status' => 502 ) );
 		}
 		if ( 429 === $code ) {
+			if ( 'credit_balance_exhausted' === $provider_code ) {
+				return new WP_Error( 'mmps_provider_credits', 'The dedicated PSV OpenAI project has no available API credits. A project owner must add credits before generation can continue.', array( 'status' => 503 ) );
+			}
+			if ( in_array( $provider_code, array( 'project_spend_limit_exceeded', 'organization_spend_limit_exceeded', 'organization_usage_limit_exceeded' ), true ) ) {
+				return new WP_Error( 'mmps_provider_limit', 'The dedicated PSV OpenAI project has reached an account spending or usage limit. A project owner must raise the approved limit before generation can continue.', array( 'status' => 503 ) );
+			}
 			return new WP_Error( 'mmps_provider_rate', 'The AI provider is rate limiting. Wait a minute and try again.', array( 'status' => 429 ) );
 		}
 		if ( 200 !== $code ) {
 			return new WP_Error( 'mmps_provider_error', 'The AI provider answered with an error (' . $code . ').', array( 'status' => 502 ) );
 		}
-		$data = json_decode( (string) wp_remote_retrieve_body( $response ), true );
 		return is_array( $data ) ? $data : new WP_Error( 'mmps_provider_output', 'Unreadable answer from the AI provider.', array( 'status' => 502 ) );
 	}
 }
