@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 12:51 America/New_York
+Updated: 2026-09-20 13:14 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,15 +26,23 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `00913b6e-71c8-46f7-a19d-46acba43c7e7`, exact commit
-  `feb19f06651c7d9da27d930cf5495b218f9625ab`, image
-  `sha256:a6a7387a880c7d6afe399040bf3f0887687a13a03d56b2f8eeb5288e6fe50deb`.
+  `86c641ac-8c77-4b9f-883d-28a02d80247e`, exact commit
+  `6d28af1a6cc39f466c0893d0703b955e690961aa`, image
+  `sha256:e9c4664bd7abb7549658b16327a8af2266a38fb8dcf706330be1ccb9042bac4a`.
 - GPT-Live presentation boundary extraction: `feb19f06651c7d9da27d930cf5495b218f9625ab`.
   The proven browser WebRTC transport now lives in
   `public/capabilities/live-interview.mjs`; the active presentation imports that
   adapter rather than owning provider/session logic. Production authenticated
   `wp:1` readback returned the candidate.2 fingerprint, compatibility module,
   shared capability export and `liveInterviewAvailable=true`, all at HTTP 200.
+- Private GPT-Live turn-sequence persistence: `6d28af1a6cc39f466c0893d0703b955e690961aa`.
+  Final provider transcript events now cross the presentation boundary through
+  the durable session adapter, are timed on the recording-observed clock, and
+  persist as explicitly provisional private turns. Server transcription remains
+  the only canonical transcript authority. Production canary session
+  `f89dc627-965a-48fb-9181-0b4681916dfd` round-tripped five synthetic contract
+  turns as opening → answer → follow-up → answer → follow-up with zero canonical
+  references; this proves deployment/persistence, not a real applicant exchange.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -125,7 +133,7 @@ the actual production route and deployment.
 | 6 | Volume, pace, pauses, pitch, fillers and transcript boundaries | LIVE UNVERIFIED | Physical production reps proved live volume, variation, pitch, pace, cadence and pause states; the newest private rep persisted eight timestamped transcript segments plus its question turn and survived reload. Filler acceptance remains. |
 | 6 | Admin measurement/visibility controls and prohibited-inference safeguards | LIVE VERIFIED | Production Admin and Student Coached Practice face/head, hand/finger, body/pose and framing/head-orientation overlays were visibly aligned to the real camera surface and independently toggleable; measurement continued while hidden. True eye-gaze visualization remains unsupported; the product exposes only defensible camera-facing/head-orientation proxies. |
 | 7 | Canonical clock across recording, transcript, Q/A, Analytics, Results and clips | LIVE VERIFIED | A production CORE-01 rep persisted one complete session contract, nine timestamped conversation turns and one answer segment; the Film Room transcript row sought private replay to 2.26 s after reload. |
-| 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE UNVERIFIED | Owner capture, upload, seal, canonical transcript/answer range persistence, signed playback, reload and `context_persist` audit passed. A real multi-turn follow-up/gap range remains to be accepted. |
+| 7 | Private durable capture, canonical transcript, answer/follow-up ranges and gaps | LIVE UNVERIFIED | Owner capture, upload, seal, canonical transcript/answer range persistence, signed playback, reload and `context_persist` audit passed. Deployed canary `f89dc627…` proved five provisional GPT-Live turns and structural follow-up linkage survive private reload without becoming canonical. A real recorded multi-turn exchange with canonical answer/follow-up/gap ranges remains to be accepted. |
 | 8 | Evidence-grounded Results | LIVE VERIFIED | Production post-answer Results and bounded transcript/context analysis returned evidence-cited observations tied to transcript segments without unsupported scoring. |
 | 8 | Film Room synchronized replay and Flight Recorder timeline | LIVE VERIFIED | A private production rep survived reload, reopened through signed owner playback, visibly rendered aligned replay overlays, and its timestamped transcript row sought replay to 2.26 s. |
 | 8 | Durable student Video Library and Admin student-library access | LIVE UNVERIFIED | Owner library, transcript spine and signed private playback persisted across reload; Admin student-library and negative-role isolation remain. |
@@ -166,8 +174,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `b4af1d5e-49c4-421c-9986-b7ba7af53ded` from exact product commit
-  `5f07f288a7bcf60c778276dff1d55dc70b164bd5`; `/health` is HTTP 200, the
+  `86c641ac-8c77-4b9f-883d-28a02d80247e` from exact product commit
+  `6d28af1a6cc39f466c0893d0703b955e690961aa`; `/health` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
