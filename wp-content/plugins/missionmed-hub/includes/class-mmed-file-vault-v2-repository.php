@@ -29,6 +29,8 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	const OWNER_DOCUMENT_LIMIT = 250;
 	const OWNER_META_BYTES_LIMIT = 4194304;
 	const DISPLAY_NAME_LENGTH_LIMIT = 160;
+	const OUTPUT_FILENAME_LENGTH_LIMIT = 180;
+	const VERSION_LABEL_LENGTH_LIMIT = 80;
 	const NOTE_LENGTH_LIMIT = 2000;
 	const MAX_VERSIONS = 100;
 	const MAX_COMMENTS = 100;
@@ -104,14 +106,59 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 */
 	public static function accepted_files() {
 		return array(
-			'pdf'  => array( 'application/pdf' ),
-			'docx' => array( 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ),
-			'png'  => array( 'image/png' ),
-			'jpg'  => array( 'image/jpeg' ),
-			'jpeg' => array( 'image/jpeg' ),
-			'mp4'  => array( 'video/mp4' ),
-			'webm' => array( 'video/webm' ),
+			'pdf'     => array( 'application/pdf' ),
+			'doc'     => array( 'application/msword', 'application/octet-stream' ),
+			'docx'    => array( 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ),
+			'xlsx'    => array( 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ),
+			'pptx'    => array( 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ),
+			'pages'   => array( 'application/vnd.apple.pages', 'application/x-iwork-pages-sffpages', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+			'numbers' => array( 'application/vnd.apple.numbers', 'application/x-iwork-numbers-sffnumbers', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+			'keynote' => array( 'application/vnd.apple.keynote', 'application/x-iwork-keynote-sffkey', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+			'odt'     => array( 'application/vnd.oasis.opendocument.text' ),
+			'ods'     => array( 'application/vnd.oasis.opendocument.spreadsheet' ),
+			'odp'     => array( 'application/vnd.oasis.opendocument.presentation' ),
+			'rtf'     => array( 'application/rtf', 'text/rtf' ),
+			'txt'     => array( 'text/plain' ),
+			'csv'     => array( 'text/csv', 'application/csv', 'text/plain' ),
+			'md'      => array( 'text/markdown', 'text/plain' ),
+			'png'     => array( 'image/png' ),
+			'jpg'     => array( 'image/jpeg' ),
+			'jpeg'    => array( 'image/jpeg' ),
+			'gif'     => array( 'image/gif' ),
+			'webp'    => array( 'image/webp' ),
+			'mp4'     => array( 'video/mp4' ),
+			'webm'    => array( 'video/webm' ),
+			'mov'     => array( 'video/quicktime' ),
+			'mp3'     => array( 'audio/mpeg' ),
+			'wav'     => array( 'audio/wav', 'audio/x-wav' ),
+			'zip'     => array( 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+			'7z'      => array( 'application/x-7z-compressed', 'application/octet-stream' ),
+			'rar'     => array( 'application/vnd.rar', 'application/x-rar-compressed', 'application/octet-stream' ),
+			'tar'     => array( 'application/x-tar', 'application/octet-stream' ),
+			'gz'      => array( 'application/gzip', 'application/x-gzip', 'application/octet-stream' ),
+			'tgz'     => array( 'application/gzip', 'application/x-gzip', 'application/octet-stream' ),
 		);
+	}
+
+	/**
+	 * Return the narrow extension denylist for active or directly executable content.
+	 *
+	 * Other ordinary extensions remain eligible and are still content-scanned before
+	 * promotion. Downloads are private and forced to attachment disposition.
+	 *
+	 * @return array
+	 */
+	public static function blocked_extensions() {
+		return array( 'app', 'apk', 'bat', 'bin', 'cgi', 'cmd', 'com', 'cpl', 'dll', 'dmg', 'docm', 'dotm', 'exe', 'gadget', 'hta', 'htm', 'html', 'iso', 'jar', 'js', 'jse', 'lnk', 'mjs', 'msi', 'pif', 'php', 'phar', 'ppam', 'potm', 'pptm', 'ps1', 'py', 'rb', 'scr', 'sh', 'sldm', 'svg', 'vbe', 'vbs', 'wsf', 'wsh', 'xlam', 'xlsm', 'xltm' );
+	}
+
+	/**
+	 * Return MIME declarations that cannot be signed as general File Vault uploads.
+	 *
+	 * @return array
+	 */
+	public static function blocked_mime_types() {
+		return array( 'application/java-archive', 'application/javascript', 'application/vnd.android.package-archive', 'application/vnd.microsoft.portable-executable', 'application/vnd.ms-excel.addin.macroenabled.12', 'application/vnd.ms-excel.sheet.macroenabled.12', 'application/vnd.ms-excel.template.macroenabled.12', 'application/vnd.ms-powerpoint.addin.macroenabled.12', 'application/vnd.ms-powerpoint.presentation.macroenabled.12', 'application/vnd.ms-powerpoint.slideshow.macroenabled.12', 'application/vnd.ms-powerpoint.template.macroenabled.12', 'application/vnd.ms-word.document.macroenabled.12', 'application/vnd.ms-word.template.macroenabled.12', 'application/x-dosexec', 'application/x-elf', 'application/x-executable', 'application/x-httpd-php', 'application/x-java-archive', 'application/x-mach-binary', 'application/x-msdos-program', 'application/x-msdownload', 'application/x-php', 'application/x-sharedlib', 'application/x-shellscript', 'image/svg+xml', 'text/html', 'text/javascript', 'text/x-php', 'text/x-shellscript' );
 	}
 
 	/**
@@ -122,12 +169,16 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	public static function upload_contracts() {
 		return array(
 			'default' => array(
-				'extensions'    => array( 'pdf', 'docx', 'png', 'mp4', 'webm' ),
-				'max_file_size' => self::MAX_FILE_SIZE,
+				'extensions'         => array_keys( self::accepted_files() ),
+				'allow_other_extensions' => true,
+				'blocked_extensions' => self::blocked_extensions(),
+				'max_file_size'      => self::MAX_FILE_SIZE,
 			),
 			'application_photo' => array(
-				'extensions'    => array( 'jpg', 'jpeg' ),
-				'max_file_size' => self::APPLICATION_PHOTO_MAX_FILE_SIZE,
+				'extensions'         => array( 'jpg', 'jpeg' ),
+				'allow_other_extensions' => false,
+				'blocked_extensions' => array(),
+				'max_file_size'      => self::APPLICATION_PHOTO_MAX_FILE_SIZE,
 			),
 		);
 	}
@@ -318,7 +369,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				array(
 					'Bucket'                     => MMED_R2_BUCKET,
 					'Key'                        => $r2_key,
-					'ResponseContentDisposition' => "attachment; filename*=UTF-8''" . rawurlencode( sanitize_file_name( $filename ) ),
+					'ResponseContentDisposition' => "attachment; filename*=UTF-8''" . rawurlencode( sanitize_text_field( $filename ) ),
 				)
 			);
 			return (string) $client->createPresignedRequest( $command, '+' . self::DOWNLOAD_URL_TTL . ' seconds' )->getUri();
@@ -363,7 +414,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 					'Bucket'                     => MMED_R2_BUCKET,
 					'Key'                        => $r2_key,
 					'ResponseContentType'        => $mime_type,
-					'ResponseContentDisposition' => "inline; filename*=UTF-8''" . rawurlencode( sanitize_file_name( $filename ) ),
+					'ResponseContentDisposition' => "inline; filename*=UTF-8''" . rawurlencode( sanitize_text_field( $filename ) ),
 				)
 			);
 			return (string) $client->createPresignedRequest( $command, '+' . self::PREVIEW_URL_TTL . ' seconds' )->getUri();
@@ -585,11 +636,15 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( $requested_version && $requested_version !== $expected_version ) {
 			return new WP_Error( 'mmed_file_vault_v2_version_invalid', 'Choose the next server-assigned document version.', array( 'status' => 409 ) );
 		}
-		$version_label   = 'Version' . str_pad( (string) $expected_version, 2, '0', STR_PAD_LEFT );
+		$internal_version_label = 'Version' . str_pad( (string) $expected_version, 2, '0', STR_PAD_LEFT );
 		$legacy_draft    = 'Draft' . str_pad( (string) $expected_version, 2, '0', STR_PAD_LEFT );
 		$requested_draft = trim( sanitize_text_field( $params['draft_label'] ?? '' ) );
-		if ( $requested_draft && ! in_array( $requested_draft, array( $version_label, $legacy_draft, 'Final' ), true ) ) {
+		if ( $requested_draft && ! in_array( $requested_draft, array( $internal_version_label, $legacy_draft, 'Final' ), true ) ) {
 			return new WP_Error( 'mmed_file_vault_v2_draft_label_invalid', 'Choose the next server-assigned document version.', array( 'status' => 422 ) );
+		}
+		$version_label = self::normalize_version_label( $params['version_label'] ?? '', $internal_version_label );
+		if ( is_wp_error( $version_label ) ) {
+			return $version_label;
 		}
 		$is_final        = rest_sanitize_boolean( $params['is_final'] ?? false ) || 'Final' === $requested_draft;
 		$submission_date = gmdate( 'Y-m-d' );
@@ -601,7 +656,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			'program'         => $program,
 			'session_letter'  => $session,
 			'document_label'  => $document_label,
-			'draft_label'     => $version_label,
+			'draft_label'     => $internal_version_label,
 			'version_label'   => $version_label,
 			'is_final'        => $is_final,
 			'submission_date' => $submission_date,
@@ -628,6 +683,57 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$submission_date,
 		);
 		return sanitize_file_name( implode( '_', $segments ) . '.' . strtolower( $extension ) );
+	}
+
+	/**
+	 * Normalize a user-visible filename while keeping its final extension authoritative.
+	 *
+	 * Object identity never uses this value; R2 keys remain UUID based. Ordinary
+	 * Unicode, spaces, hyphens, underscores, parentheses, and multiple periods are
+	 * retained. Path separators, controls, bidi overrides, ambiguous dot segments,
+	 * and extension changes fail closed.
+	 *
+	 * @param mixed  $value Raw proposed filename.
+	 * @param string $required_extension Required final extension, when known.
+	 * @return string|WP_Error
+	 */
+	protected static function normalize_visible_filename( $value, $required_extension = '' ) {
+		$raw = html_entity_decode( (string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $raw, 'UTF-8' ) : strlen( $raw );
+		if ( $length < 3 || $length > self::OUTPUT_FILENAME_LENGTH_LIMIT || preg_match( '/[\x00-\x1F\x7F]/', $raw ) || false !== strpos( $raw, '/' ) || false !== strpos( $raw, '\\' ) || preg_match( '/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', $raw ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_file_name', 'Choose a safe filename of 180 characters or fewer.', array( 'status' => 422 ) );
+		}
+		$filename = trim( sanitize_text_field( $raw ) );
+		$extension = strtolower( (string) pathinfo( $filename, PATHINFO_EXTENSION ) );
+		$stem = $extension ? substr( $filename, 0, -( strlen( $extension ) + 1 ) ) : '';
+		if ( '' === $stem || '.' === $stem || '..' === $stem || '.' === substr( $stem, 0, 1 ) || rtrim( $stem, ". \t" ) !== $stem || false !== strpos( $stem, '..' ) || ! preg_match( '/^[a-z0-9]{1,12}$/', $extension ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_file_name', 'Choose a safe filename with one final extension.', array( 'status' => 422 ) );
+		}
+		$required_extension = strtolower( sanitize_key( $required_extension ) );
+		if ( $required_extension && $required_extension !== $extension ) {
+			return new WP_Error( 'mmed_file_vault_v2_output_extension', 'The saved filename must keep the selected file extension.', array( 'status' => 422 ) );
+		}
+		return $stem . '.' . $extension;
+	}
+
+	/**
+	 * Resolve a safe visible label independently from the immutable revision number.
+	 *
+	 * @param mixed  $value Requested visible label.
+	 * @param string $fallback Server-owned immutable revision label.
+	 * @return string|WP_Error
+	 */
+	protected static function normalize_version_label( $value, $fallback ) {
+		$raw = (string) $value;
+		if ( '' === trim( $raw ) ) {
+			return $fallback;
+		}
+		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $raw, 'UTF-8' ) : strlen( $raw );
+		if ( $length > self::VERSION_LABEL_LENGTH_LIMIT || preg_match( '/[\x00-\x1F\x7F]/', $raw ) || preg_match( '/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', $raw ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_version_label_invalid', 'Version labels must be safe text of 80 characters or fewer.', array( 'status' => 422 ) );
+		}
+		$label = trim( sanitize_text_field( $raw ) );
+		return '' === $label ? $fallback : $label;
 	}
 
 	/**
@@ -838,8 +944,12 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				if ( is_wp_error( $upload_metadata ) ) {
 					return $upload_metadata;
 				}
-				$display_name  = sanitize_text_field( $upload_metadata['document_label'] );
-				$filename      = self::canonical_upload_filename( $upload_metadata, $extension );
+				$display_name    = sanitize_text_field( $upload_metadata['document_label'] );
+				$default_filename = self::canonical_upload_filename( $upload_metadata, $extension );
+				$filename        = self::normalize_visible_filename( $params['output_filename'] ?? $default_filename, $extension );
+				if ( is_wp_error( $filename ) ) {
+					return $filename;
+				}
 			$r2_key        = 'student-files/v2/staging/' . $upload_id . '.' . $extension;
 			$intent        = array(
 				'upload_id'        => $upload_id,
@@ -903,6 +1013,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			'confirm_token' => $confirm_token,
 			'upload_url' => $upload_url,
 			'canonical_name' => $filename,
+			'version_label' => sanitize_text_field( $upload_metadata['version_label'] ),
 			'expires'    => 600,
 			'version'    => $version,
 			'max_size'   => $validated['max_size'],
@@ -1197,7 +1308,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			return new WP_Error( 'mmed_file_vault_v2_download_unverified', 'This legacy or unverified file is available only through the unchanged V1 fallback.', array( 'status' => 409 ) );
 		}
 
-		$download_name = sanitize_file_name( $selected['canonical_name'] ?? $row->filename ?? $selected['original_name'] ?? $row->original_name );
+		$download_name = sanitize_text_field( $selected['canonical_name'] ?? $row->filename ?? $selected['original_name'] ?? $row->original_name );
 		$url = self::presign_download_url( $selected['r2_key'], $download_name );
 		if ( '' === $url ) {
 			return new WP_Error( 'mmed_file_vault_v2_r2_adapter_unavailable', 'A private download URL could not be issued.', array( 'status' => 503 ) );
@@ -1245,7 +1356,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			return new WP_Error( 'mmed_file_vault_v2_preview_unavailable', 'A verified preview is unavailable for this version.', array( 'status' => 409 ) );
 		}
 		$mime_type = sanitize_text_field( $selected['mime_type'] ?? $row->mime_type );
-		$filename  = sanitize_file_name( $selected['canonical_name'] ?? $row->filename );
+		$filename  = sanitize_text_field( $selected['canonical_name'] ?? $row->filename );
 		$url       = self::presign_preview_url( $selected['r2_key'], $filename, $mime_type );
 		return array(
 			'previewable' => '' !== $url,
@@ -2123,12 +2234,13 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		return array(
 			'id'                => absint( $row->id ),
 			'name'              => sanitize_text_field( $meta['display_name'] ?: $row->original_name ),
-			'original_name'     => sanitize_file_name( $row->original_name ),
-			'canonical_name'    => sanitize_file_name( $row->filename ),
+			'original_name'     => sanitize_text_field( $row->original_name ),
+			'canonical_name'    => sanitize_text_field( $row->filename ),
 			'division'          => sanitize_text_field( $meta['division'] ?? '' ),
 			'program'           => sanitize_text_field( $meta['program'] ?? '' ),
 			'session_letter'    => sanitize_text_field( $meta['session_letter'] ?? '' ),
 			'draft_label'       => sanitize_text_field( $current_version['draft_label'] ?? '' ),
+			'version_label'     => sanitize_text_field( $current_version['version_label'] ?? $current_version['draft_label'] ?? '' ),
 			'is_final'          => rest_sanitize_boolean( $current_version['is_final'] ?? false ),
 			'submission_date'   => sanitize_text_field( $current_version['submission_date'] ?? '' ),
 			'document_type'     => self::normalize_document_type( $meta['document_type'] ),
@@ -2227,8 +2339,8 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$versions[] = array(
 				'number'        => max( 1, absint( $row->version ) ),
 				'r2_key'        => (string) $row->r2_key,
-				'original_name' => sanitize_file_name( $row->original_name ),
-				'canonical_name'=> sanitize_file_name( $row->filename ),
+				'original_name' => sanitize_text_field( $row->original_name ),
+				'canonical_name'=> sanitize_text_field( $row->filename ),
 				'mime_type'     => sanitize_text_field( $row->mime_type ),
 				'file_size'     => absint( $row->file_size ),
 				'uploaded_at'   => mysql_to_rfc3339( $row->created_at ),
@@ -2253,8 +2365,8 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		return array(
 			'number'        => absint( $intent['version'] ),
 			'r2_key'        => (string) $intent['r2_key'],
-			'original_name' => sanitize_file_name( $intent['original_name'] ),
-			'canonical_name'=> sanitize_file_name( $intent['filename'] ?? '' ),
+			'original_name' => sanitize_text_field( $intent['original_name'] ),
+			'canonical_name'=> sanitize_text_field( $intent['filename'] ?? '' ),
 			'division'      => sanitize_text_field( $intent['division'] ?? '' ),
 			'program'       => sanitize_text_field( $intent['program'] ?? '' ),
 			'session_letter'=> sanitize_text_field( $intent['session_letter'] ?? '' ),
@@ -2561,7 +2673,10 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 */
 	protected static function validate_upload( $params, $document_type ) {
 		$raw_name          = (string) ( $params['filename'] ?? '' );
-		$filename          = sanitize_file_name( $raw_name );
+		$filename          = self::normalize_visible_filename( $raw_name );
+		if ( is_wp_error( $filename ) ) {
+			return $filename;
+		}
 		$mime              = sanitize_text_field( $params['mime_type'] ?? 'application/octet-stream' );
 		$size              = absint( $params['file_size'] ?? 0 );
 		$sha256            = strtolower( sanitize_text_field( $params['sha256'] ?? '' ) );
@@ -2571,17 +2686,19 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		$document_type     = self::normalize_document_type( $document_type );
 		$contract          = $contracts[ $document_type ] ?? $contracts['default'];
 		$allowed_extensions = array_values( array_filter( array_map( 'sanitize_key', (array) ( $contract['extensions'] ?? array() ) ) ) );
+		$allow_other       = ! empty( $contract['allow_other_extensions'] );
+		$blocked_extensions = array_values( array_filter( array_map( 'sanitize_key', (array) ( $contract['blocked_extensions'] ?? self::blocked_extensions() ) ) ) );
 		$max_size          = max( 1, absint( $contract['max_file_size'] ?? self::MAX_FILE_SIZE ) );
-		$stem              = pathinfo( $filename, PATHINFO_FILENAME );
-		if ( strlen( $raw_name ) > 180 || preg_match( '/[\\x00-\\x1F\\x7F\\\\\/]/', $raw_name ) || preg_match( '/[\\x{202A}-\\x{202E}\\x{2066}-\\x{2069}]/u', $raw_name ) || false !== strpos( $stem, '.' ) ) {
-			return new WP_Error( 'mmed_file_vault_v2_file_name', 'Choose a filename with one safe approved extension.', array( 'status' => 422 ) );
-		}
-		if ( ! $filename || ! in_array( $ext, $allowed_extensions, true ) || ! isset( $accepted[ $ext ] ) || ! in_array( $mime, $accepted[ $ext ], true ) ) {
-			$message = 'application_photo' === $document_type ? 'Choose a JPEG application photo.' : 'Choose a PDF, DOCX, or PNG file.';
+		$known_mime_match  = ! isset( $accepted[ $ext ] ) || in_array( $mime, $accepted[ $ext ], true );
+		$type_allowed      = $allow_other
+			? ! in_array( $ext, $blocked_extensions, true ) && ! in_array( strtolower( $mime ), self::blocked_mime_types(), true ) && $known_mime_match
+			: in_array( $ext, $allowed_extensions, true ) && isset( $accepted[ $ext ] ) && in_array( $mime, $accepted[ $ext ], true );
+		if ( ! $filename || ! $type_allowed ) {
+			$message = 'application_photo' === $document_type ? 'Choose a JPEG application photo.' : 'Choose a supported document, image, or video file.';
 			return new WP_Error( 'mmed_file_vault_v2_file_type', $message, array( 'status' => 415 ) );
 		}
 		if ( $size < 1 || $size > $max_size ) {
-			$message = 'application_photo' === $document_type ? 'Application photo size must be between 1 byte and 150 KB.' : 'File size must be between 1 byte and 25 MB.';
+			$message = 'application_photo' === $document_type ? 'Application photo size must be between 1 byte and 150 KB.' : 'File size must be between 1 byte and ' . max( 1, (int) floor( $max_size / 1048576 ) ) . ' MB.';
 			return new WP_Error( 'mmed_file_vault_v2_file_size', $message, array( 'status' => 413 ) );
 		}
 		if ( ! preg_match( '/^[a-f0-9]{64}$/', $sha256 ) ) {
@@ -3748,7 +3865,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			return $access;
 		}
 		list( $share, $row, $version ) = $access;
-		$filename = sanitize_file_name( $version['canonical_name'] ?? $row->filename );
+		$filename = sanitize_text_field( $version['canonical_name'] ?? $row->filename );
 		$url      = self::presign_download_url( $version['r2_key'], $filename );
 		if ( '' === $url ) {
 			return new WP_Error( 'mmed_file_vault_v2_r2_adapter_unavailable', 'A private download URL could not be issued.', array( 'status' => 503 ) );
@@ -3768,7 +3885,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		}
 		list( $share, $row, $version ) = $access;
 		$mime_type = sanitize_text_field( $version['mime_type'] ?? $row->mime_type );
-		$filename  = sanitize_file_name( $version['canonical_name'] ?? $row->filename );
+		$filename  = sanitize_text_field( $version['canonical_name'] ?? $row->filename );
 		$url       = self::presign_preview_url( $version['r2_key'], $filename, $mime_type );
 		return array( 'previewable' => '' !== $url, 'url' => $url, 'expires' => '' !== $url ? self::PREVIEW_URL_TTL : 0, 'mime_type' => $mime_type, 'filename' => $filename, 'version' => absint( $version['number'] ?? $row->version ) );
 	}
@@ -3947,7 +4064,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			'has_update'        => absint( $row->version ) > absint( $share->source_revision ),
 			'mime_type'        => $shared_mime_type,
 			'file_size'        => absint( $shared_version['file_size'] ?? $document['file_size'] ),
-			'filename'         => sanitize_file_name( $shared_version['canonical_name'] ?? $document['canonical_name'] ),
+			'filename'         => sanitize_text_field( $shared_version['canonical_name'] ?? $document['canonical_name'] ),
 			'document_type'    => $document['document_type'],
 			'previewable'      => in_array( strtolower( $shared_mime_type ), array( 'application/pdf', 'image/png', 'image/jpeg', 'video/mp4', 'video/webm' ), true ),
 		);

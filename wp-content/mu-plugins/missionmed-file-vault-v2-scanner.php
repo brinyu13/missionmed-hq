@@ -89,7 +89,7 @@ function mmed_fv2_scan_staged_object( $result, $intent, $probe ) {
 		return new WP_Error( 'mmed_fv2_scan_tmp', 'Scanner could not write temporary file.', array( 'status' => 503 ) );
 	}
 
-	$scan_result = mmed_fv2_inspect_content( $tmp, $body, $declared_mime );
+	$scan_result = mmed_fv2_inspect_content( $tmp, $body, $declared_mime, $intent['original_name'] ?? '' );
 
 	@unlink( $tmp );
 
@@ -106,9 +106,10 @@ function mmed_fv2_scan_staged_object( $result, $intent, $probe ) {
  * @param string $tmp_path  Path to the temporary file.
  * @param string $body      Raw file content.
  * @param string $declared  Declared MIME type from the upload intent.
+ * @param string $filename  Validated original filename.
  * @return true|WP_Error
  */
-function mmed_fv2_inspect_content( $tmp_path, $body, $declared ) {
+function mmed_fv2_inspect_content( $tmp_path, $body, $declared, $filename = '' ) {
 	if ( ! function_exists( 'finfo_open' ) ) {
 		return new WP_Error( 'mmed_fv2_scan_no_finfo', 'The fileinfo extension is required for content scanning.', array( 'status' => 503 ) );
 	}
@@ -118,7 +119,9 @@ function mmed_fv2_inspect_content( $tmp_path, $body, $declared ) {
 		return new WP_Error( 'mmed_fv2_scan_no_finfo', 'Could not initialize the fileinfo scanner.', array( 'status' => 503 ) );
 	}
 	$detected_mime = (string) finfo_file( $finfo, $tmp_path );
-	finfo_close( $finfo );
+	if ( PHP_VERSION_ID < 80500 ) {
+		finfo_close( $finfo );
+	}
 
 	$reject_mimes = array(
 		'application/x-executable',
@@ -137,14 +140,10 @@ function mmed_fv2_inspect_content( $tmp_path, $body, $declared ) {
 		'application/x-java-archive',
 		'application/javascript',
 		'text/javascript',
-		'application/x-tar',
-		'application/gzip',
-		'application/x-gzip',
-		'application/x-bzip2',
-		'application/x-xz',
-		'application/x-7z-compressed',
-		'application/x-rar-compressed',
-		'application/vnd.rar',
+		'application/vnd.android.package-archive',
+		'application/vnd.microsoft.portable-executable',
+		'image/svg+xml',
+		'text/html',
 		'application/x-iso9660-image',
 		'application/vnd.ms-cab-compressed',
 		'application/vnd.ms-excel.sheet.macroEnabled.12',
@@ -152,30 +151,51 @@ function mmed_fv2_inspect_content( $tmp_path, $body, $declared ) {
 		'application/vnd.ms-powerpoint.presentation.macroEnabled.12',
 	);
 
-	if ( $detected_mime && in_array( $detected_mime, $reject_mimes, true ) ) {
+	if ( in_array( strtolower( $declared ), $reject_mimes, true ) || ( $detected_mime && in_array( $detected_mime, $reject_mimes, true ) ) ) {
 		return new WP_Error( 'mmed_fv2_scan_rejected_type', 'File content detected as a rejected format: ' . $detected_mime, array( 'status' => 422 ) );
 	}
 
+	$extension = strtolower( (string) pathinfo( $filename, PATHINFO_EXTENSION ) );
+	$blocked_extensions = array( 'app', 'apk', 'bat', 'bin', 'cgi', 'cmd', 'com', 'cpl', 'dll', 'dmg', 'docm', 'dotm', 'exe', 'gadget', 'hta', 'htm', 'html', 'iso', 'jar', 'js', 'jse', 'lnk', 'mjs', 'msi', 'pif', 'php', 'phar', 'ppam', 'potm', 'pptm', 'ps1', 'py', 'rb', 'scr', 'sh', 'sldm', 'svg', 'vbe', 'vbs', 'wsf', 'wsh', 'xlam', 'xlsm', 'xltm' );
+	if ( in_array( $extension, $blocked_extensions, true ) ) {
+		return new WP_Error( 'mmed_fv2_scan_rejected_extension', 'Active or executable file extensions cannot be stored in File Vault.', array( 'status' => 422 ) );
+	}
 	$allowed_map = array(
-		'application/pdf' => array( 'application/pdf' ),
-		'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => array(
-			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-			'application/zip',
-			'application/x-zip-compressed',
-			'application/octet-stream',
-		),
-		'image/png'  => array( 'image/png' ),
-		'image/jpeg' => array( 'image/jpeg' ),
-		'video/mp4'  => array( 'video/mp4', 'application/mp4', 'application/octet-stream' ),
-		'video/webm' => array( 'video/webm', 'audio/webm', 'application/octet-stream' ),
+		'pdf'     => array( 'application/pdf' ),
+		'doc'     => array( 'application/msword', 'application/CDFV2', 'application/x-ole-storage', 'application/octet-stream', 'text/rtf' ),
+		'docx'    => array( 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+		'xlsx'    => array( 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+		'pptx'    => array( 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+		'pages'   => array( 'application/vnd.apple.pages', 'application/x-iwork-pages-sffpages', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+		'numbers' => array( 'application/vnd.apple.numbers', 'application/x-iwork-numbers-sffnumbers', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+		'keynote' => array( 'application/vnd.apple.keynote', 'application/x-iwork-keynote-sffkey', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+		'odt'     => array( 'application/vnd.oasis.opendocument.text', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+		'ods'     => array( 'application/vnd.oasis.opendocument.spreadsheet', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+		'odp'     => array( 'application/vnd.oasis.opendocument.presentation', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+		'rtf'     => array( 'application/rtf', 'text/rtf', 'text/plain' ),
+		'txt'     => array( 'text/plain', 'application/octet-stream' ),
+		'csv'     => array( 'text/csv', 'application/csv', 'text/plain', 'application/octet-stream' ),
+		'md'      => array( 'text/markdown', 'text/plain', 'application/octet-stream' ),
+		'png'     => array( 'image/png' ),
+		'jpg'     => array( 'image/jpeg' ),
+		'jpeg'    => array( 'image/jpeg' ),
+		'gif'     => array( 'image/gif' ),
+		'webp'    => array( 'image/webp' ),
+		'mp4'     => array( 'video/mp4', 'application/mp4', 'application/octet-stream' ),
+		'webm'    => array( 'video/webm', 'audio/webm', 'application/octet-stream' ),
+		'mov'     => array( 'video/quicktime', 'application/octet-stream' ),
+		'mp3'     => array( 'audio/mpeg', 'audio/mp3', 'application/octet-stream' ),
+		'wav'     => array( 'audio/wav', 'audio/x-wav', 'audio/vnd.wave', 'application/octet-stream' ),
+		'zip'     => array( 'application/zip', 'application/x-zip-compressed', 'application/octet-stream' ),
+		'7z'      => array( 'application/x-7z-compressed', 'application/octet-stream' ),
+		'rar'     => array( 'application/vnd.rar', 'application/x-rar-compressed', 'application/octet-stream' ),
+		'tar'     => array( 'application/x-tar', 'application/octet-stream' ),
+		'gz'      => array( 'application/gzip', 'application/x-gzip', 'application/octet-stream' ),
+		'tgz'     => array( 'application/gzip', 'application/x-gzip', 'application/octet-stream' ),
 	);
 
-	if ( ! isset( $allowed_map[ $declared ] ) ) {
-		return new WP_Error( 'mmed_fv2_scan_unsupported_type', 'Declared MIME type is not in the accepted list.', array( 'status' => 422 ) );
-	}
-
-	$acceptable = $allowed_map[ $declared ];
-	if ( $detected_mime && ! in_array( $detected_mime, $acceptable, true ) ) {
+	$acceptable = $allowed_map[ $extension ] ?? array();
+	if ( $acceptable && $detected_mime && ! in_array( $detected_mime, $acceptable, true ) ) {
 		return new WP_Error(
 			'mmed_fv2_scan_mime_mismatch',
 			'Declared type ' . $declared . ' but content detected as ' . $detected_mime . '.',
@@ -185,7 +205,11 @@ function mmed_fv2_inspect_content( $tmp_path, $body, $declared ) {
 
 	$header = substr( $body, 0, 16 );
 
-	if ( 'application/pdf' === $declared ) {
+	if ( 'doc' === $extension && "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1" !== substr( $header, 0, 8 ) && '{\\rtf' !== substr( $body, 0, 5 ) ) {
+		return new WP_Error( 'mmed_fv2_scan_doc_header', 'Legacy Word document does not begin with a valid OLE or RTF header.', array( 'status' => 422 ) );
+	}
+
+	if ( 'pdf' === $extension ) {
 		if ( '%PDF' !== substr( $header, 0, 4 ) ) {
 			return new WP_Error( 'mmed_fv2_scan_pdf_header', 'File does not begin with a valid PDF header.', array( 'status' => 422 ) );
 		}
@@ -197,20 +221,28 @@ function mmed_fv2_inspect_content( $tmp_path, $body, $declared ) {
 		}
 	}
 
-	if ( 'image/png' === $declared ) {
+	if ( 'png' === $extension ) {
 		$png_magic = "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A";
 		if ( substr( $header, 0, 8 ) !== $png_magic ) {
 			return new WP_Error( 'mmed_fv2_scan_png_header', 'File does not begin with a valid PNG signature.', array( 'status' => 422 ) );
 		}
 	}
 
-	if ( 'image/jpeg' === $declared ) {
+	if ( in_array( $extension, array( 'jpg', 'jpeg' ), true ) ) {
 		if ( "\xFF\xD8\xFF" !== substr( $header, 0, 3 ) ) {
 			return new WP_Error( 'mmed_fv2_scan_jpeg_header', 'File does not begin with a valid JPEG signature.', array( 'status' => 422 ) );
 		}
 	}
 
-	if ( 'video/mp4' === $declared ) {
+	if ( 'gif' === $extension && ! in_array( substr( $header, 0, 6 ), array( 'GIF87a', 'GIF89a' ), true ) ) {
+		return new WP_Error( 'mmed_fv2_scan_gif_header', 'GIF file does not begin with a valid signature.', array( 'status' => 422 ) );
+	}
+
+	if ( 'webp' === $extension && ( 'RIFF' !== substr( $header, 0, 4 ) || 'WEBP' !== substr( $header, 8, 4 ) ) ) {
+		return new WP_Error( 'mmed_fv2_scan_webp_header', 'WebP file does not begin with a valid signature.', array( 'status' => 422 ) );
+	}
+
+	if ( 'mp4' === $extension ) {
 		if ( strlen( $body ) < 12 || 'ftyp' !== substr( $body, 4, 4 ) ) {
 			return new WP_Error( 'mmed_fv2_scan_mp4_header', 'MP4 file does not contain a valid ISO media header.', array( 'status' => 422 ) );
 		}
@@ -220,11 +252,11 @@ function mmed_fv2_inspect_content( $tmp_path, $body, $declared ) {
 		}
 	}
 
-	if ( 'video/webm' === $declared && "\x1A\x45\xDF\xA3" !== substr( $header, 0, 4 ) ) {
+	if ( 'webm' === $extension && "\x1A\x45\xDF\xA3" !== substr( $header, 0, 4 ) ) {
 		return new WP_Error( 'mmed_fv2_scan_webm_header', 'WebM file does not begin with a valid EBML signature.', array( 'status' => 422 ) );
 	}
 
-	if ( in_array( $declared, array( 'image/png', 'image/jpeg' ), true ) ) {
+	if ( in_array( $extension, array( 'png', 'jpg', 'jpeg', 'gif', 'webp' ), true ) ) {
 		if ( false !== strpos( $body, "\x50\x4B\x03\x04" ) ) {
 			return new WP_Error( 'mmed_fv2_scan_polyglot', 'Image file contains an embedded ZIP archive.', array( 'status' => 422 ) );
 		}
@@ -233,18 +265,67 @@ function mmed_fv2_inspect_content( $tmp_path, $body, $declared ) {
 		}
 	}
 
-	if ( 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' === $declared ) {
+	$zip_formats = array( 'docx', 'xlsx', 'pptx', 'pages', 'numbers', 'keynote', 'odt', 'ods', 'odp' );
+	if ( in_array( $extension, $zip_formats, true ) ) {
 		$zip_magic = "\x50\x4B\x03\x04";
 		if ( substr( $header, 0, 4 ) !== $zip_magic ) {
-			return new WP_Error( 'mmed_fv2_scan_docx_header', 'DOCX file does not begin with a valid ZIP signature.', array( 'status' => 422 ) );
+			return new WP_Error( 'mmed_fv2_scan_package_header', 'Document package does not begin with a valid ZIP signature.', array( 'status' => 422 ) );
 		}
-		$has_content_types = mmed_fv2_zip_contains_entry( $body, '[Content_Types].xml' );
-		if ( ! $has_content_types ) {
-			return new WP_Error( 'mmed_fv2_scan_docx_structure', 'DOCX file is missing required [Content_Types].xml entry.', array( 'status' => 422 ) );
+		$required_entries = array(
+			'docx' => array( '[Content_Types].xml', 'word/document.xml' ),
+			'xlsx' => array( '[Content_Types].xml', 'xl/workbook.xml' ),
+			'pptx' => array( '[Content_Types].xml', 'ppt/presentation.xml' ),
+			'odt'  => array( 'mimetype', 'content.xml' ),
+			'ods'  => array( 'mimetype', 'content.xml' ),
+			'odp'  => array( 'mimetype', 'content.xml' ),
+		);
+		foreach ( $required_entries[ $extension ] ?? array() as $required_entry ) {
+			if ( ! mmed_fv2_zip_contains_entry( $body, $required_entry ) ) {
+				return new WP_Error( 'mmed_fv2_scan_package_structure', 'Document package is missing a required structure entry.', array( 'status' => 422 ) );
+			}
 		}
-		if ( mmed_fv2_zip_contains_entry( $body, 'word/vbaProject.bin' ) || mmed_fv2_zip_contains_entry( $body, 'word/vbaData.xml' ) ) {
-			return new WP_Error( 'mmed_fv2_scan_docx_macro', 'DOCX file contains embedded macros and cannot be accepted.', array( 'status' => 422 ) );
+		if ( in_array( $extension, array( 'pages', 'numbers', 'keynote' ), true ) && ! mmed_fv2_zip_contains_entry( $body, 'Index/Document.iwa' ) && ! mmed_fv2_zip_contains_entry( $body, 'index.xml' ) ) {
+			return new WP_Error( 'mmed_fv2_scan_iwork_structure', 'iWork document package is missing its required document index.', array( 'status' => 422 ) );
 		}
+		$dangerous_entries = array( 'vbaProject.bin', 'vbaData.xml', '/activeX/', '/embeddings/' );
+		foreach ( $dangerous_entries as $dangerous_entry ) {
+			if ( mmed_fv2_zip_contains_fragment( $body, $dangerous_entry ) ) {
+				return new WP_Error( 'mmed_fv2_scan_package_active_content', 'Document package contains active or embedded content and cannot be accepted.', array( 'status' => 422 ) );
+			}
+		}
+	}
+
+	if ( 'zip' === $extension ) {
+		if ( "\x50\x4B\x03\x04" !== substr( $header, 0, 4 ) || false === strrpos( $body, "\x50\x4B\x05\x06" ) ) {
+			return new WP_Error( 'mmed_fv2_scan_zip_structure', 'ZIP archive does not contain a valid local header and central directory.', array( 'status' => 422 ) );
+		}
+		if ( mmed_fv2_zip_has_unsafe_entry( $body, $blocked_extensions ) ) {
+			return new WP_Error( 'mmed_fv2_scan_zip_unsafe_entry', 'ZIP archive contains an unsafe path or active file type.', array( 'status' => 422 ) );
+		}
+	}
+
+	if ( '7z' === $extension && "\x37\x7A\xBC\xAF\x27\x1C" !== substr( $header, 0, 6 ) ) {
+		return new WP_Error( 'mmed_fv2_scan_archive_header', '7z archive does not begin with a valid signature.', array( 'status' => 422 ) );
+	}
+
+	if ( 'rar' === $extension && "Rar!\x1A\x07" !== substr( $header, 0, 6 ) ) {
+		return new WP_Error( 'mmed_fv2_scan_archive_header', 'RAR archive does not begin with a valid signature.', array( 'status' => 422 ) );
+	}
+
+	if ( in_array( $extension, array( 'gz', 'tgz' ), true ) && "\x1F\x8B" !== substr( $header, 0, 2 ) ) {
+		return new WP_Error( 'mmed_fv2_scan_archive_header', 'Gzip archive does not begin with a valid signature.', array( 'status' => 422 ) );
+	}
+
+	if ( 'tar' === $extension && ( strlen( $body ) < 265 || 'ustar' !== substr( $body, 257, 5 ) ) ) {
+		return new WP_Error( 'mmed_fv2_scan_archive_header', 'TAR archive does not contain a valid ustar header.', array( 'status' => 422 ) );
+	}
+
+	if ( 'rtf' === $extension && '{\\rtf' !== substr( $body, 0, 5 ) ) {
+		return new WP_Error( 'mmed_fv2_scan_rtf_header', 'RTF file does not begin with a valid header.', array( 'status' => 422 ) );
+	}
+
+	if ( in_array( $extension, array( 'txt', 'csv', 'md' ), true ) && ( false !== strpos( $body, "\x00" ) || 1 !== preg_match( '//u', $body ) ) ) {
+		return new WP_Error( 'mmed_fv2_scan_text_encoding', 'Text file must contain valid UTF-8 text without binary content.', array( 'status' => 422 ) );
 	}
 
 	$exe_signatures = array(
@@ -309,6 +390,83 @@ function mmed_fv2_zip_contains_entry( $zip_data, $entry ) {
 	}
 
 	return false;
+}
+
+/**
+ * Check ZIP central-directory entry names for one dangerous fragment.
+ *
+ * @param string $zip_data Raw ZIP file content.
+ * @param string $fragment Case-insensitive filename fragment.
+ * @return bool
+ */
+function mmed_fv2_zip_contains_fragment( $zip_data, $fragment ) {
+	$eocd_pos = strrpos( $zip_data, "\x50\x4B\x05\x06" );
+	if ( false === $eocd_pos ) {
+		return false;
+	}
+	$cd_offset = unpack( 'Voffset', substr( $zip_data, $eocd_pos + 16, 4 ) );
+	$cd_size   = unpack( 'Vsize', substr( $zip_data, $eocd_pos + 12, 4 ) );
+	if ( ! $cd_offset || ! $cd_size ) {
+		return false;
+	}
+	$pos    = $cd_offset['offset'];
+	$cd_end = $pos + $cd_size['size'];
+	while ( $pos + 46 <= $cd_end && $pos + 46 <= strlen( $zip_data ) ) {
+		if ( "\x50\x4B\x01\x02" !== substr( $zip_data, $pos, 4 ) ) {
+			break;
+		}
+		$name_len  = unpack( 'vlen', substr( $zip_data, $pos + 28, 2 ) );
+		$extra_len = unpack( 'vlen', substr( $zip_data, $pos + 30, 2 ) );
+		$comm_len  = unpack( 'vlen', substr( $zip_data, $pos + 32, 2 ) );
+		if ( ! $name_len || ! $extra_len || ! $comm_len ) {
+			break;
+		}
+		$name = substr( $zip_data, $pos + 46, $name_len['len'] );
+		if ( false !== stripos( $name, $fragment ) ) {
+			return true;
+		}
+		$pos += 46 + $name_len['len'] + $extra_len['len'] + $comm_len['len'];
+	}
+	return false;
+}
+
+/**
+ * Reject archive entries that could traverse paths or carry active file types.
+ *
+ * @param string $zip_data            Raw ZIP file content.
+ * @param array  $blocked_extensions  Active or executable suffixes.
+ * @return bool
+ */
+function mmed_fv2_zip_has_unsafe_entry( $zip_data, $blocked_extensions ) {
+	$eocd_pos = strrpos( $zip_data, "\x50\x4B\x05\x06" );
+	if ( false === $eocd_pos ) {
+		return true;
+	}
+	$cd_offset = unpack( 'Voffset', substr( $zip_data, $eocd_pos + 16, 4 ) );
+	$cd_size   = unpack( 'Vsize', substr( $zip_data, $eocd_pos + 12, 4 ) );
+	if ( ! $cd_offset || ! $cd_size ) {
+		return true;
+	}
+	$pos    = $cd_offset['offset'];
+	$cd_end = $pos + $cd_size['size'];
+	while ( $pos + 46 <= $cd_end && $pos + 46 <= strlen( $zip_data ) ) {
+		if ( "\x50\x4B\x01\x02" !== substr( $zip_data, $pos, 4 ) ) {
+			return true;
+		}
+		$name_len  = unpack( 'vlen', substr( $zip_data, $pos + 28, 2 ) );
+		$extra_len = unpack( 'vlen', substr( $zip_data, $pos + 30, 2 ) );
+		$comm_len  = unpack( 'vlen', substr( $zip_data, $pos + 32, 2 ) );
+		if ( ! $name_len || ! $extra_len || ! $comm_len ) {
+			return true;
+		}
+		$name = str_replace( '\\', '/', substr( $zip_data, $pos + 46, $name_len['len'] ) );
+		$entry_extension = strtolower( (string) pathinfo( rtrim( $name, '/' ), PATHINFO_EXTENSION ) );
+		if ( '' === $name || false !== strpos( $name, "\0" ) || '/' === substr( $name, 0, 1 ) || preg_match( '#(^|/)\.\.(/|$)#', $name ) || in_array( $entry_extension, $blocked_extensions, true ) ) {
+			return true;
+		}
+		$pos += 46 + $name_len['len'] + $extra_len['len'] + $comm_len['len'];
+	}
+	return $pos !== $cd_end;
 }
 
 add_action( 'mmed_fv2_staging_cleanup', 'mmed_fv2_run_staging_cleanup' );

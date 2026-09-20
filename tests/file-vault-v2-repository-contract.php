@@ -371,18 +371,53 @@ function fv2_repo_assert( $condition, $message ) {
 
 $missing_checksum = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'draft.pdf', 'mime_type' => 'application/pdf', 'file_size' => 10 ) );
 fv2_repo_assert( is_wp_error( $missing_checksum ) && 'mmed_file_vault_v2_checksum' === $missing_checksum->get_error_code(), 'upload requires a browser SHA-256 checksum' );
-$unsafe_type = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'draft.rtf', 'mime_type' => 'application/rtf', 'file_size' => 10, 'sha256' => str_repeat( 'a', 64 ) ) );
-fv2_repo_assert( is_wp_error( $unsafe_type ) && 'mmed_file_vault_v2_file_type' === $unsafe_type->get_error_code(), 'only the approved PDF, DOCX, and PNG types are accepted' );
+$unsafe_type = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'draft.exe', 'mime_type' => 'application/x-dosexec', 'file_size' => 10, 'sha256' => str_repeat( 'a', 64 ) ) );
+fv2_repo_assert( is_wp_error( $unsafe_type ) && 'mmed_file_vault_v2_file_type' === $unsafe_type->get_error_code(), 'executable types remain on the narrow denylist' );
+$legacy_doc = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'Personal Statement.doc', 'mime_type' => 'application/msword', 'file_size' => 10, 'sha256' => str_repeat( 'b', 64 ) ) );
+fv2_repo_assert( ! is_wp_error( $legacy_doc ), 'legacy Word documents are accepted through the complete signing path' );
+unset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $legacy_doc['upload_id']] );
+$zip_intent = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'application materials.zip', 'mime_type' => 'application/zip', 'file_size' => 10, 'sha256' => str_repeat( 'b', 64 ) ) );
+fv2_repo_assert( ! is_wp_error( $zip_intent ), 'ordinary ZIP archives are accepted through the complete signing path' );
+unset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $zip_intent['upload_id']] );
+$ordinary_unknown = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'research-data.dta', 'mime_type' => 'application/octet-stream', 'file_size' => 10, 'sha256' => str_repeat( 'b', 64 ) ) );
+fv2_repo_assert( ! is_wp_error( $ordinary_unknown ), 'ordinary unknown extensions use broad allowance and remain subject to content scanning' );
+unset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $ordinary_unknown['upload_id']] );
 $double_extension = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'draft.pdf.png', 'mime_type' => 'image/png', 'file_size' => 10, 'sha256' => str_repeat( 'a', 64 ) ) );
-fv2_repo_assert( is_wp_error( $double_extension ) && 'mmed_file_vault_v2_file_name' === $double_extension->get_error_code(), 'double-extension filenames are rejected' );
+fv2_repo_assert( ! is_wp_error( $double_extension ), 'legitimate multi-period filenames use the final extension as authoritative' );
+unset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $double_extension['upload_id']] );
+$GLOBALS['fv2_transients']['mmed_fv2_pending_10'] = array();
+$pages_intent = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'PS_VERSION_9.2_CleanFinal.pages', 'output_filename' => 'PS VERSION 9.2 – Clean Final.pages', 'mime_type' => 'application/vnd.apple.pages', 'file_size' => 100, 'document_type' => 'other', 'display_name' => 'Personal statement source', 'version_label' => 'Clean final 9.2', 'sha256' => str_repeat( 'c', 64 ) ) );
+fv2_repo_assert( ! is_wp_error( $pages_intent ) && 'PS VERSION 9.2 – Clean Final.pages' === $pages_intent['canonical_name'] && 'Clean final 9.2' === $pages_intent['version_label'], 'Pages, Unicode visible filenames, spaces, and independent visible version labels survive intent creation' );
+$pages_internal = $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $pages_intent['upload_id']];
+fv2_repo_assert( 'Version01' === $pages_internal['draft_label'] && 'Clean final 9.2' === $pages_internal['version_label'] && false === strpos( $pages_internal['r2_key'], 'PS VERSION' ), 'visible overrides do not alter the immutable revision label or UUID storage identity' );
+$duplicate_visible = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'another.pages', 'output_filename' => 'PS VERSION 9.2 – Clean Final.pages', 'mime_type' => 'application/vnd.apple.pages', 'file_size' => 101, 'document_type' => 'other', 'display_name' => 'Second source', 'sha256' => str_repeat( 'd', 64 ) ) );
+$duplicate_internal = $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $duplicate_visible['upload_id']];
+fv2_repo_assert( ! is_wp_error( $duplicate_visible ) && $pages_intent['canonical_name'] === $duplicate_visible['canonical_name'] && $pages_internal['r2_key'] !== $duplicate_internal['r2_key'] && $pages_internal['final_r2_key'] !== $duplicate_internal['final_r2_key'], 'duplicate visible names retain collision-safe independent object identities' );
+unset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $pages_intent['upload_id']] );
+unset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $duplicate_visible['upload_id']] );
+$GLOBALS['fv2_transients']['mmed_fv2_pending_12'] = array();
+$wrong_output_extension = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'draft.pdf', 'output_filename' => 'draft.docx', 'mime_type' => 'application/pdf', 'file_size' => 10, 'sha256' => str_repeat( 'a', 64 ) ) );
+fv2_repo_assert( is_wp_error( $wrong_output_extension ) && 'mmed_file_vault_v2_output_extension' === $wrong_output_extension->get_error_code(), 'visible output filenames cannot change the source extension' );
+$traversal_name = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => '../draft.pdf', 'mime_type' => 'application/pdf', 'file_size' => 10, 'sha256' => str_repeat( 'a', 64 ) ) );
+fv2_repo_assert( is_wp_error( $traversal_name ) && 'mmed_file_vault_v2_file_name' === $traversal_name->get_error_code(), 'path traversal filenames fail closed' );
+$long_output_name = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'draft.pdf', 'output_filename' => str_repeat( 'x', MMED_File_Vault_V2_Repository::OUTPUT_FILENAME_LENGTH_LIMIT ) . '.pdf', 'mime_type' => 'application/pdf', 'file_size' => 10, 'sha256' => str_repeat( 'a', 64 ) ) );
+fv2_repo_assert( is_wp_error( $long_output_name ) && 'mmed_file_vault_v2_file_name' === $long_output_name->get_error_code(), 'oversized visible filenames fail closed' );
+$long_version_label = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'draft.pdf', 'version_label' => str_repeat( 'x', MMED_File_Vault_V2_Repository::VERSION_LABEL_LENGTH_LIMIT + 1 ), 'mime_type' => 'application/pdf', 'file_size' => 10, 'sha256' => str_repeat( 'a', 64 ) ) );
+fv2_repo_assert( is_wp_error( $long_version_label ) && 'mmed_file_vault_v2_version_label_invalid' === $long_version_label->get_error_code(), 'oversized visible version labels fail closed' );
 $oversized = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'draft.pdf', 'mime_type' => 'application/pdf', 'file_size' => MMED_File_Vault_V2_Repository::MAX_FILE_SIZE + 1, 'sha256' => str_repeat( 'a', 64 ) ) );
 fv2_repo_assert( is_wp_error( $oversized ) && 413 === $oversized->get_error_data()['status'], '25 MB limit is enforced before signing' );
+$size_boundary = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'boundary.pdf', 'mime_type' => 'application/pdf', 'file_size' => MMED_File_Vault_V2_Repository::MAX_FILE_SIZE, 'program' => 'IV Prep Essentials', 'session_letter' => 'B', 'sha256' => str_repeat( 'a', 64 ) ) );
+fv2_repo_assert( ! is_wp_error( $size_boundary ) && MMED_File_Vault_V2_Repository::MAX_FILE_SIZE === $size_boundary['max_size'], 'the retained 25 MB ceiling accepts its exact boundary' );
+unset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $size_boundary['upload_id']] );
+$GLOBALS['fv2_transients']['mmed_fv2_pending_12'] = array();
 $photo_png = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'photo.png', 'mime_type' => 'image/png', 'file_size' => 100, 'document_type' => 'application_photo', 'sha256' => str_repeat( 'a', 64 ) ) );
 fv2_repo_assert( is_wp_error( $photo_png ) && 'mmed_file_vault_v2_file_type' === $photo_png->get_error_code(), 'IMG application photos reject PNG despite the default document allowlist' );
 $photo_oversized = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'photo.jpg', 'mime_type' => 'image/jpeg', 'file_size' => MMED_File_Vault_V2_Repository::APPLICATION_PHOTO_MAX_FILE_SIZE + 1, 'document_type' => 'application_photo', 'sha256' => str_repeat( 'a', 64 ) ) );
 fv2_repo_assert( is_wp_error( $photo_oversized ) && 413 === $photo_oversized->get_error_data()['status'], 'IMG application photos enforce the 150 KB cap before signing' );
 $default_jpeg = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'document.jpg', 'mime_type' => 'image/jpeg', 'file_size' => 100, 'document_type' => 'other', 'sha256' => str_repeat( 'a', 64 ) ) );
-fv2_repo_assert( is_wp_error( $default_jpeg ) && 'mmed_file_vault_v2_file_type' === $default_jpeg->get_error_code(), 'JPEG does not widen the ordinary document contract' );
+fv2_repo_assert( ! is_wp_error( $default_jpeg ), 'ordinary image files are accepted outside the stricter application-photo contract' );
+unset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $default_jpeg['upload_id']] );
+$GLOBALS['fv2_transients']['mmed_fv2_pending_12'] = array();
 $photo_intent = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'photo.jpeg', 'mime_type' => 'image/jpeg', 'file_size' => 153600, 'document_type' => 'application_photo', 'sha256' => str_repeat( 'a', 64 ) ) );
 fv2_repo_assert( ! is_wp_error( $photo_intent ) && 153600 === $photo_intent['max_size'], 'valid IMG JPEG application photo receives its type-specific signed-upload contract' );
 $long_display_name = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'draft.pdf', 'mime_type' => 'application/pdf', 'file_size' => 100, 'display_name' => str_repeat( 'x', MMED_File_Vault_V2_Repository::DISPLAY_NAME_LENGTH_LIMIT + 1 ), 'sha256' => str_repeat( 'a', 64 ) ) );
@@ -513,7 +548,9 @@ $version_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 		'file_size' => 222,
 		'note' => 'Reworked closing paragraph.',
 		'ready_for_review' => true,
-		'draft_label' => 'Version02',
+			'draft_label' => 'Version02',
+			'version_label' => 'Advisor clean final',
+			'output_filename' => 'PS_VERSION_9.2_CleanFinal.docx',
 		'version_number' => 2,
 		'is_final' => true,
 		'program' => 'PS-Only',
@@ -524,7 +561,7 @@ $version_intent = MMED_File_Vault_V2_Repository::create_upload_intent(
 );
 $versioned = MMED_File_Vault_V2_Repository::confirm_upload_intent( $version_intent['upload_id'], $version_intent['confirm_token'], 10 );
 fv2_repo_assert( ! is_wp_error( $versioned ) && 2 === $versioned['version'] && 2 === count( $versioned['versions'] ), 'new upload creates immutable version history' );
-fv2_repo_assert( 'Avery_Rivera_PSOnly_G_PersonalStatement_Version02_' . gmdate( 'Y-m-d' ) . '.docx' === $versioned['canonical_name'] && 'Version02' === $versioned['versions'][1]['draft_label'] && true === $versioned['versions'][1]['is_final'], 'replacement upload keeps selected metadata, a numbered immutable version, and a separate Final marker' );
+fv2_repo_assert( 'PS_VERSION_9.2_CleanFinal.docx' === $versioned['canonical_name'] && 'Version02' === $versioned['versions'][1]['draft_label'] && 'Advisor clean final' === $versioned['versions'][1]['version_label'] && true === $versioned['versions'][1]['is_final'], 'replacement upload keeps an editable visible filename and label beside the numbered immutable version and separate Final marker' );
 $invalid_draft_label = MMED_File_Vault_V2_Repository::create_upload_intent( 10, 10, array( 'filename' => 'invalid-label.docx', 'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'file_size' => 64, 'draft_label' => 'Draft99', 'sha256' => str_repeat( 'e', 64 ) ), 1 );
 fv2_repo_assert( is_wp_error( $invalid_draft_label ) && 'mmed_file_vault_v2_draft_label_invalid' === $invalid_draft_label->get_error_code(), 'server rejects a draft label that does not match the next immutable version' );
 fv2_repo_assert( 'submitted' === $versioned['status'], 'version can submit for review at confirmation' );
@@ -884,9 +921,14 @@ fv2_repo_assert( is_wp_error( $student_republish ) && 'mmed_file_vault_v2_share_
 $admin_reactivated = MMED_File_Vault_V2_Repository::update_share_status( $student_share['id'], 20, 'admin', 'active' );
 fv2_repo_assert( 'active' === $admin_reactivated['status'] && '' === $admin_reactivated['moderation_status'], 'authorized staff can deliberately clear the moderation lock' );
 
+$GLOBALS['fv2_transients']['mmed_fv2_pending_12'] = array();
+unset( $GLOBALS['fv2_transients']['mmed_fv2_rate_12'] );
 $video_intent = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'interview-clip.mp4', 'mime_type' => 'video/mp4', 'file_size' => 1024, 'document_type' => 'other', 'display_name' => 'Interview Clip', 'sha256' => str_repeat( 'b', 64 ) ) );
-$unsafe_video = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'interview-clip.mov', 'mime_type' => 'video/quicktime', 'file_size' => 1024, 'document_type' => 'other', 'display_name' => 'Unsafe Clip', 'sha256' => str_repeat( 'a', 64 ) ) );
-fv2_repo_assert( ! is_wp_error( $video_intent ) && is_wp_error( $unsafe_video ) && 'mmed_file_vault_v2_file_type' === $unsafe_video->get_error_code(), 'MP4/WebM preview formats are accepted without widening uploads to unsupported video types' );
+$ordinary_video = MMED_File_Vault_V2_Repository::create_upload_intent( 12, 12, array( 'filename' => 'interview-clip.mov', 'mime_type' => 'video/quicktime', 'file_size' => 1024, 'document_type' => 'other', 'display_name' => 'QuickTime Clip', 'sha256' => str_repeat( 'a', 64 ) ) );
+fv2_repo_assert( ! is_wp_error( $video_intent ) && ! is_wp_error( $ordinary_video ), 'ordinary MP4 and QuickTime videos are accepted while inline preview remains separately constrained' );
+unset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $video_intent['upload_id']] );
+unset( $GLOBALS['fv2_transients']['mmed_fv2_intent_' . $ordinary_video['upload_id']] );
+$GLOBALS['fv2_transients']['mmed_fv2_pending_12'] = array();
 
 // Cold audience discovery must scan each candidate batch only once.
 $GLOBALS['fv2_users'] = array();

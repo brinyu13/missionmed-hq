@@ -23,7 +23,7 @@ class MMED_File_Vault_V2 {
 	const CAP_FINALIZE      = 'mmed_finalize_file_vault';
 	const CAP_AUDIT         = 'mmed_view_file_vault_audit';
 	const ASSET_CSS         = 'student-os-file-vault-v2.87c932a3b20b5e6b.css';
-	const ASSET_JS          = 'student-os-file-vault-v2.0a3caa654d9b6724.js';
+	const ASSET_JS          = 'student-os-file-vault-v2.3f9f0152e8bfbc03.js';
 
 	/**
 	 * Register runtime hooks.
@@ -727,6 +727,7 @@ class MMED_File_Vault_V2 {
 	protected static function upload_args( $include_student ) {
 		$args = array(
 			'filename'         => array( 'required' => true, 'type' => 'string' ),
+			'output_filename'  => array( 'type' => 'string', 'maxLength' => MMED_File_Vault_V2_Repository::OUTPUT_FILENAME_LENGTH_LIMIT ),
 			'mime_type'        => array( 'required' => true, 'type' => 'string' ),
 			'file_size'        => array( 'required' => true, 'type' => 'integer', 'minimum' => 1 ),
 			'document_type'    => array( 'type' => 'string' ),
@@ -734,6 +735,7 @@ class MMED_File_Vault_V2 {
 			'program'          => array( 'type' => 'string', 'maxLength' => 180, 'enum' => MMED_File_Vault_V2_Repository::approved_programs() ),
 			'session_letter'   => array( 'type' => 'string', 'pattern' => '^[A-Ga-g]$' ),
 			'draft_label'      => array( 'type' => 'string', 'pattern' => '^(?:(?:Draft|Version)[0-9]{2,3}|Final)$' ),
+			'version_label'    => array( 'type' => 'string', 'maxLength' => MMED_File_Vault_V2_Repository::VERSION_LABEL_LENGTH_LIMIT ),
 			'version_number'   => array( 'type' => 'integer', 'minimum' => 1 ),
 			'is_final'         => array( 'type' => 'boolean' ),
 			'note'             => array( 'type' => 'string' ),

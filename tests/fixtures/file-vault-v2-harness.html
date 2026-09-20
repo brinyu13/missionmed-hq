@@ -164,8 +164,8 @@
 							verification_state: "ready_clean",
 						open_comment_count: 1,
 							versions: [
-								{ number: 1, original_name: "avery_personal_statement_v1.docx", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-07-01T16:20:00Z", file_size: 45192, note: "Initial draft", score: 68, score_max: 100 },
-								{ number: 2, original_name: "avery_personal_statement_v2.docx", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-07-14T18:40:00Z", file_size: 48219, note: "Focused revision", score: 76, score_max: 100 }
+								{ number: 1, draft_label: "Version01", version_label: "Initial draft", original_name: "avery_personal_statement_v1.docx", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-07-01T16:20:00Z", file_size: 45192, note: "Initial draft", score: 68, score_max: 100 },
+								{ number: 2, draft_label: "Version02", version_label: "Advisor clean final", original_name: "avery_personal_statement_v2.docx", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-07-14T18:40:00Z", file_size: 48219, note: "Focused revision", score: 76, score_max: 100 }
 						],
 						comments: [
 							{ id: "comment-fixture-1", author_name: "Mentor Quinn (Fixture)", author_role: "mentor", version: 2, created_at: "2026-07-14T19:10:00Z", body: "The opening is clear. Please make the closing connection more specific.", resolved: false }
@@ -460,8 +460,8 @@
 					user_quota_bytes: 524288000,
 					user_usage_bytes: 957559,
 					contracts: {
-						default: { extensions: ["pdf", "docx", "png", "mp4", "webm"], max_file_size: 26214400 },
-						application_photo: { extensions: ["jpg", "jpeg"], max_file_size: 153600 }
+						default: { extensions: ["pdf", "doc", "docx", "xlsx", "pptx", "pages", "numbers", "keynote", "odt", "ods", "odp", "rtf", "txt", "csv", "md", "png", "jpg", "jpeg", "gif", "webp", "mp4", "webm", "mov", "mp3", "wav", "zip", "7z", "rar", "tar", "gz", "tgz"], allow_other_extensions: true, blocked_extensions: ["app", "apk", "bat", "bin", "cgi", "cmd", "com", "cpl", "dll", "dmg", "docm", "dotm", "exe", "gadget", "hta", "htm", "html", "iso", "jar", "js", "jse", "lnk", "mjs", "msi", "pif", "php", "phar", "ppam", "potm", "pptm", "ps1", "py", "rb", "scr", "sh", "sldm", "svg", "vbe", "vbs", "wsf", "wsh", "xlam", "xlsm", "xltm"], max_file_size: 26214400 },
+						application_photo: { extensions: ["jpg", "jpeg"], allow_other_extensions: false, blocked_extensions: [], max_file_size: 153600 }
 					}
 				};
 			}
@@ -807,12 +807,14 @@
 						confirmed.canonical_name = pending.canonicalName;
 							confirmed.program = pending.body.program;
 							confirmed.session_letter = pending.body.session_letter;
-							confirmed.draft_label = "Version" + String(confirmed.version).padStart(2, "0");
-							confirmed.is_final = !!pending.body.is_final;
+						confirmed.draft_label = "Version" + String(confirmed.version).padStart(2, "0");
+						confirmed.version_label = pending.body.version_label || confirmed.draft_label;
+						confirmed.is_final = !!pending.body.is_final;
 						confirmed.file_size = pending.body.file_size;
 						confirmed.updated_at = now;
 						confirmed.status = pending.body.ready_for_review ? "submitted" : "uploaded";
 						confirmed.status_label = pending.body.ready_for_review ? "Submitted" : "Uploaded";
+						confirmed.versions.push({ number: confirmed.version, draft_label: confirmed.draft_label, version_label: confirmed.version_label, original_name: pending.body.filename, canonical_name: pending.canonicalName, uploader_name: role === "student" ? "Avery Rivera (Fixture)" : "Admin Fixture", uploaded_at: now, file_size: pending.body.file_size, note: pending.body.note || "", is_final: !!pending.body.is_final });
 					} else {
 						confirmed = {
 							id: 1199,
@@ -823,6 +825,7 @@
 								program: pending.body.program,
 								session_letter: pending.body.session_letter,
 								draft_label: "Version01",
+								version_label: pending.body.version_label || "Version01",
 								is_final: !!pending.body.is_final,
 							document_type: pending.body.document_type || "other",
 							category: pending.body.share_as_mission_file ? "admin" : "student",
@@ -840,7 +843,7 @@
 								download_available: true,
 								verification_state: "ready_clean",
 							open_comment_count: 0,
-								versions: [{ number: 1, original_name: pending.body.filename, canonical_name: pending.canonicalName, uploader_name: role === "student" ? "Avery Rivera (Fixture)" : "Admin Fixture", uploaded_at: now, file_size: pending.body.file_size, note: pending.body.note || "", is_final: !!pending.body.is_final }],
+								versions: [{ number: 1, draft_label: "Version01", version_label: pending.body.version_label || "Version01", original_name: pending.body.filename, canonical_name: pending.canonicalName, uploader_name: role === "student" ? "Avery Rivera (Fixture)" : "Admin Fixture", uploaded_at: now, file_size: pending.body.file_size, note: pending.body.note || "", is_final: !!pending.body.is_final }],
 							comments: [],
 							scores: [],
 							latest_score: null

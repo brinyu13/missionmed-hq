@@ -138,6 +138,9 @@ fv2_assert( 'pending_review' === MMED_File_Vault_V2_Repository::legacy_status( '
 fv2_assert( 'verified' === MMED_File_Vault_V2_Repository::legacy_status( 'final' ), 'final maps to the legacy verified database state' );
 fv2_assert( 26214400 === MMED_File_Vault_V2_Repository::MAX_FILE_SIZE, 'server owns the 25 MB limit' );
 fv2_assert( 153600 === MMED_File_Vault_V2_Repository::APPLICATION_PHOTO_MAX_FILE_SIZE, 'server owns the IMG application photo 150 KB limit' );
+fv2_assert( 180 === MMED_File_Vault_V2_Repository::OUTPUT_FILENAME_LENGTH_LIMIT && 80 === MMED_File_Vault_V2_Repository::VERSION_LABEL_LENGTH_LIMIT, 'visible filename and version-label overrides have explicit server bounds' );
+fv2_assert( isset( MMED_File_Vault_V2_Repository::accepted_files()['pages'] ) && isset( MMED_File_Vault_V2_Repository::accepted_files()['pdf'] ) && isset( MMED_File_Vault_V2_Repository::accepted_files()['doc'] ) && isset( MMED_File_Vault_V2_Repository::accepted_files()['zip'] ) && ! isset( MMED_File_Vault_V2_Repository::accepted_files()['exe'] ), 'ordinary Pages, PDF, legacy Word, and archive files are known while executable types remain denied' );
+fv2_assert( true === MMED_File_Vault_V2_Repository::upload_contracts()['default']['allow_other_extensions'] && in_array( 'exe', MMED_File_Vault_V2_Repository::blocked_extensions(), true ), 'general uploads use broad allowance with an explicit active-content denylist' );
 fv2_assert( array( 'jpg', 'jpeg' ) === MMED_File_Vault_V2_Repository::upload_contracts()['application_photo']['extensions'], 'application photo contract is JPEG-only' );
 fv2_assert( 50 === MMED_File_Vault_V2_Repository::STAFF_PAGE_SIZE && 1000 === MMED_File_Vault_V2_Repository::STAFF_DOCUMENT_LIMIT, 'staff scope has explicit roster and document bounds' );
 fv2_assert( 8388608 === MMED_File_Vault_V2_Repository::STAFF_META_BYTES_LIMIT, 'staff scope has an explicit metadata byte ceiling' );
@@ -188,6 +191,7 @@ fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/shares/(?P<id>\d+)
 fv2_assert( isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/shares/(?P<id>\d+)/recipients'] ) && isset( $GLOBALS['fv2_routes']['mmed/v2/file-vault/downloads'] ), 'staff recipient and normalized download evidence routes are registered' );
 $upload_route_args = $GLOBALS['fv2_routes']['mmed/v2/file-vault/uploads']['args'];
 fv2_assert( 'string' === $upload_route_args['filename']['type'] && 'integer' === $upload_route_args['file_size']['type'] && 'boolean' === $upload_route_args['ready_for_review']['type'], 'upload request bodies have explicit scalar schemas' );
+fv2_assert( 180 === $upload_route_args['output_filename']['maxLength'] && 80 === $upload_route_args['version_label']['maxLength'], 'visible output filename and version label have bounded request schemas' );
 fv2_assert( 'string' === $upload_route_args['program']['type'] && MMED_File_Vault_V2_Repository::approved_programs() === $upload_route_args['program']['enum'] && '^[A-Ga-g]$' === $upload_route_args['session_letter']['pattern'], 'Founder-approved programs and sessions A through G have bounded route schemas' );
 fv2_assert( '^(?:(?:Draft|Version)[0-9]{2,3}|Final)$' === $upload_route_args['draft_label']['pattern'], 'legacy and numbered version labels have an explicit request schema' );
 fv2_assert( 'integer' === $upload_route_args['version_number']['type'] && 1 === $upload_route_args['version_number']['minimum'] && 'boolean' === $upload_route_args['is_final']['type'], 'numbered versions and Final status are separate bounded fields' );
