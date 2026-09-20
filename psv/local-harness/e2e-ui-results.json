@@ -1,0 +1,85 @@
+{
+ "results": [
+  {
+   "name": "launcher visible on the File Vault page",
+   "pass": true
+  },
+  {
+   "name": "File Vault stage DOM untouched by the launcher",
+   "pass": true
+  },
+  {
+   "name": "prototype opens from File Vault",
+   "pass": true
+  },
+  {
+   "name": "File Vault PS versions listed; unverified version disabled",
+   "pass": true
+  },
+  {
+   "name": "program paragraph pre-highlighted (paragraph 5)",
+   "pass": true
+  },
+  {
+   "name": "user can re-mark the region by clicking another paragraph",
+   "pass": true
+  },
+  {
+   "name": "RISE list shows differing evidence quality",
+   "pass": true
+  },
+  {
+   "name": "default tiers: Gold/top = Deep, priority 30 = Essential",
+   "pass": true
+  },
+  {
+   "name": "statuses: Ready + Deep research needed both present",
+   "pass": true
+  },
+  {
+   "name": "preview: full PS (6 paragraphs), one highlighted region",
+   "pass": true
+  },
+  {
+   "name": "preview: verified-fact underlines rendered from segments",
+   "pass": true
+  },
+  {
+   "name": "preview: ROOT check Unchanged + facts with sources",
+   "pass": true
+  },
+  {
+   "name": "preview: diff shows the replaced ROOT paragraph",
+   "pass": true
+  },
+  {
+   "name": "regenerate produces a different paragraph",
+   "pass": true
+  },
+  {
+   "name": "Research Needed -> Essential fallback works",
+   "pass": true
+  },
+  {
+   "name": "library lists saved statements",
+   "pass": true
+  },
+  {
+   "name": "DOCX downloads from the library",
+   "pass": true
+  },
+  {
+   "name": "no horizontal overflow at 820px",
+   "pass": true
+  },
+  {
+   "name": "missing RISE session -> clear guidance, no crash",
+   "pass": true
+  },
+  {
+   "name": "no console errors, page errors or CSP violations",
+   "pass": true
+  }
+ ],
+ "problems": []
+}

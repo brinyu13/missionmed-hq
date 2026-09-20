@@ -1,0 +1,23 @@
+PASS curly apostrophe still names the program; supported PD; clean
+PASS short unsupported name "Dr. Amy Lee"
+PASS "Dr. Wei Chen" must not pass because ROOT says "kitchen"
+PASS accented name "Dr. José Núñez"
+PASS single proper noun "Harvard" mid-sentence
+PASS sentence-initial multiword proper noun
+PASS numbers and acronyms must be whole tokens ("1" vs ROOT "12"; "ICU" unsupported)
+PASS supported number and acronym from a fact
+PASS possessive of a supported name
+PASS "without a mentor" and "lack access" are about the applicant, not the program
+PASS absence about the program
+PASS comparison
+PASS student_link may cite a student fact id
+PASS unknown fact id
+PASS ordinary sentence-initial capital is not a proper noun
+PASS invented family tie
+PASS leftover placeholder
+PASS sentence outside segments is blocking
+PASS redaction: unicode first name, whole-word last name, 'annually' untouched -> I am [[APPLICANT_1]] [[APPLICANT_2]]. My plan changed annually. [[APPLICANT_1]] wrote this.
+PASS restore: placeholders restored even with quotes in the display name -> I, Łukasz "Luke" Ann, and Łukasz.
+PASS year-only date is not fresh; fellowship program director is not the PD
+
+all validator scenarios passed

@@ -1,0 +1,32 @@
+{
+  "manifest": "missionmed.integration-compatibility-manifest.v1",
+  "id": "ICM-PSV-0001",
+  "status": "PROTOTYPE",
+  "updated": "2026-09-20",
+  "provider": { "system": "RISE", "role": "Residency-program intelligence: program identity, stable IDs, evidence, provenance, freshness" },
+  "consumer": { "system": "File Vault · Program-Specific PS", "module": "missionmed-file-vault-ps (WordPress sibling plugin, behind File Vault)" },
+  "contract": { "name": "ProgramEvidenceBundle", "version": "v1", "schemaId": "missionmed.rise.program-evidence-bundle.v1", "schemaFile": "contracts/program-evidence-bundle.v1.schema.json" },
+  "authority": { "programFacts": "RISE", "programIdentifiers": "RISE", "personalStatementDocuments": "File Vault", "duplicateAuthority": "NONE: the consumer caches bundles for 10 minutes and stores, per run, the exact bundle it wrote from as an audit snapshot; it never edits, re-ranks or republishes program facts" },
+  "dataDirection": { "riseToFileVault": "program data only (identity, facts, provenance, exclusions by code)", "fileVaultToRise": "NOTHING. Requests carry a program id or a search string and the student's own RISE session; no statement text, preferences, run data or File Vault identifiers" },
+  "psTextAllowedIntoRise": false,
+  "studentDataInBundle": false,
+  "currentTransport": {
+    "id": "FILE_VAULT_SESSION_FORWARDED_GET_V1",
+    "description": "Server-side GET from WordPress to the existing RISE student routes, forwarding the signed-in user's own RISE session (browser cookie mmhq_rise_session sent upstream as mmhq_session), exactly as the existing /rise/ route proxy does. The consumer projects the responses into ProgramEvidenceBundle v1.",
+    "riseRoutesRead": ["GET /api/rise/v1/me/programs", "GET /api/rise/v1/programs?q=&pageSize=&sort=", "GET /api/rise/v1/program-specialties/:id"],
+    "riseChangesRequired": "NONE (no RISE deploy, no RISE code change, no RISE table access)",
+    "knownGaps": ["Research facts arrive without claim ids on this transport; provenance is factId + field + provider + sourceUrl + retrievedAt", "Student notes on the RISE list are received by the adapter and dropped before anything is stored or returned"]
+  },
+  "transportReplaceable": true,
+  "replacementPath": ["RISE-native GET /api/rise/v1/me/ps-evidence/:id returning the same schema (PSV-0002 PKT-3)", "Matrix ecosystem bus or gateway delivering the same schema"],
+  "adapterBoundary": "missionmed-file-vault-ps/includes/class-mmps-rise-client.php (transport) + missionmed-file-vault-ps/includes/class-mmps-evidence-bundle.php::project() (projection). Nothing else in the consumer knows how RISE is reached.",
+  "auth": { "model": "The end user's own RISE student session, forwarded. No service credential, no shared secret, no cross-app database access.", "consumerGate": "WordPress login + prototype allowlist; REST answers 404 outside the allowlist", "failureMode": "No or expired RISE session -> 409 mmps_rise_session_required with guidance to open RISE once" },
+  "identifiers": { "program": "programSpecialtyId (RISE, stable) + acgmeId (ACGME) when held", "fact": "factId = 'F-' + first 12 hex of sha256(field + content); deterministic", "bundle": "bundleSha256", "run": "runId (UUID v4)", "document": "docUuid (UUID v4)", "root": "rootId + textSha256 (+ File Vault file id, version number, version uuid and storage sha256 when the ROOT came from File Vault)" },
+  "idempotency": { "reads": "All provider calls are GET and safe to repeat", "save": "POST /library is idempotent per runId: one run, at most one saved document", "versions": "UNIQUE(user_id, root_id, program_specialty_id, version_number)" },
+  "provenance": { "perFact": ["origin", "authority or provider", "sourceUrl(s)", "retrievedAt", "ageDays", "claimId and contentSha256 where the transport supplies them", "rightsNote"], "perRun": ["bundleSha256", "bundle snapshot", "promptVersion", "strategy", "provider", "model", "validation result"], "perDocument": ["runId", "rootTextSha256", "bundleSha256", "registryReleaseId", "factsUsed", "normalizationRule"] },
+  "versioning": { "rule": "Additive changes keep v1. Removing or renaming a field, changing a meaning, or changing fact id derivation requires v2 with a new schemaId. Consumers must ignore unknown keys.", "deprecation": "A superseded version is served in parallel for at least one release cycle; its retirement date is recorded in this manifest before removal.", "negotiation": "The consumer refuses a cached or received bundle whose schema string is not the one it was built for." },
+  "namespaces": { "restRoutes": "mmed-ps-proto/v1", "tables": "{prefix}mmed_ps_proto_{roots,runs,library,audit}", "options": "mmed_ps_proto_*", "constants": "MMED_PS_PROTO_*", "transients": "mmps_bundle_*", "events": "none emitted in the prototype; reserved prefix ps.program_specific.*" },
+  "sharedTables": "NONE",
+  "crossAppDatabaseAccess": "NONE",
+  "futureMatrixCompatibility": { "ready": ["contract-first schema with stable ids and explicit provenance", "single replaceable transport adapter", "no shared tables or cross-app DB access", "one-way data direction with an explicit NO for PS text into RISE", "namespaced routes, tables, options and constants"], "toDoWhenMatrixLands": ["register this manifest with the ecosystem registry", "swap the transport adapter", "emit ps.program_specific.* events through the ecosystem bus if the ecosystem wants them", "move the allowlist to the ecosystem's entitlement service"] }
+}

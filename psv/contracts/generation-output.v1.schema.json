@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "missionmed.ps.region-output.v1",
+  "title": "Program-specific region, structured writer output v1",
+  "description": "What the AI writer must return (strict JSON schema, enforced by the provider). The prototype adds runId, validation flags and provenance on its own side; the writer is never trusted to report those.",
+  "type": "object", "additionalProperties": false,
+  "required": ["replacement_region", "segments", "facts_used", "strategy", "self_check"],
+  "properties": {
+    "replacement_region": { "type": "string", "description": "The one paragraph that replaces (or is inserted at) the authorized region." },
+    "segments": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["text", "kind", "fact_ids"], "properties": { "text": { "type": "string" }, "kind": { "enum": ["program_fact", "student_link", "connective"] }, "fact_ids": { "type": "array", "items": { "type": "string" } } } }, "description": "The paragraph split into consecutive pieces. Every program_fact piece must cite allowed fact ids." },
+    "facts_used": { "type": "array", "items": { "type": "string" } },
+    "strategy": { "type": "string" },
+    "self_check": { "type": "object", "additionalProperties": false, "required": ["name_swap_would_still_work", "possible_unsupported_claims", "generic_phrases"], "properties": { "name_swap_would_still_work": { "type": "boolean" }, "possible_unsupported_claims": { "type": "array", "items": { "type": "string" } }, "generic_phrases": { "type": "array", "items": { "type": "string" } } } }
+  }
+}

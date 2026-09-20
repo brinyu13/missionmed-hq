@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "missionmed.rise.program-evidence-bundle.v1",
+  "title": "ProgramEvidenceBundle v1",
+  "description": "Program-only, prose-safe evidence about ONE residency program-specialty. Provider and authority: RISE. Consumer: File Vault Program-Specific PS. Contains no student data of any kind. Every fact carries provenance. Absence of a key means 'not verified', never 'false'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "registryReleaseId", "generatedAt", "transport", "program", "nameForms", "essential", "deepFacts", "exclusions", "evidenceQuality", "bundleSha256"],
+  "properties": {
+    "schema": { "const": "missionmed.rise.program-evidence-bundle.v1" },
+    "registryReleaseId": { "type": "string", "description": "RISE registry release the identity facts came from." },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "transport": { "type": "string", "description": "Which adapter produced this bundle. Informational only; consumers must not branch on it.", "examples": ["FILE_VAULT_SESSION_FORWARDED_GET_V1", "RISE_NATIVE_PS_EVIDENCE_V1", "MATRIX_BUS_V1"] },
+    "program": {
+      "type": "object", "additionalProperties": false,
+      "required": ["programSpecialtyId", "acgmeId", "programName", "institution", "hospital", "city", "state", "designation", "officialUrl"],
+      "properties": {
+        "programSpecialtyId": { "type": "string", "minLength": 1, "description": "Stable RISE identifier. The join key everywhere." },
+        "acgmeId": { "type": "string", "description": "ACGME program id when RISE holds one, else empty." },
+        "programName": { "type": "string" }, "institution": { "type": "string" }, "hospital": { "type": "string" },
+        "city": { "type": "string" }, "state": { "type": "string" }, "designation": { "type": "string" },
+        "officialUrl": { "type": "string", "description": "https URL or empty." }
+      }
+    },
+    "nameForms": { "type": "array", "items": { "type": "string" }, "description": "Accepted ways to name the program in prose. Used to check that the right program, and no other, is named." },
+    "essential": {
+      "type": "object", "additionalProperties": false, "required": ["programName"],
+      "properties": {
+        "programName": { "$ref": "#/$defs/fact" }, "location": { "$ref": "#/$defs/fact" },
+        "programType": { "$ref": "#/$defs/fact" }, "programDirector": { "$ref": "#/$defs/fact" }
+      },
+      "description": "Identity ingredients. programDirector is present only with current evidence (<= 365 days) from RISE research leadership or, failing that, a fresh registry field."
+    },
+    "deepFacts": { "type": "array", "items": { "$ref": "#/$defs/deepFact" } },
+    "exclusions": {
+      "type": "array",
+      "items": { "type": "object", "required": ["field", "code"], "properties": { "field": { "type": "string" }, "code": { "enum": ["PEER_SOURCE", "TERMINAL_STATE", "CONFLICT", "ABSENCE_ROW", "RETRACTED", "FELLOWSHIP_NOT_AVAILABLE", "FELLOWSHIP_AFFILIATED_ONLY", "SECOND_PERSON_TEXT", "NO_SOURCE", "STALE", "UNREADABLE_ROW"] }, "state": { "type": "string" }, "ageDays": { "type": ["integer", "null"] } }, "additionalProperties": false },
+      "description": "Evidence RISE holds but which may not be used in prose, by reason code. Never contains the excluded text."
+    },
+    "evidenceQuality": {
+      "type": "object", "additionalProperties": false,
+      "required": ["deepEligibleCount", "deepFields", "deepSupported", "label", "excludedCount"],
+      "properties": {
+        "deepEligibleCount": { "type": "integer", "minimum": 0 }, "deepFields": { "type": "array", "items": { "type": "string" } },
+        "deepSupported": { "type": "boolean" }, "label": { "enum": ["DEEP_READY", "ONE_DEEP_FACT", "ESSENTIAL_ONLY"] }, "excludedCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "bundleSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "sha256 over program + essential + deepFacts. Stored with every generation run so a saved statement can always be traced to the exact evidence it was written from." }
+  },
+  "$defs": {
+    "provenance": {
+      "type": "object", "required": ["origin", "retrievedAt", "ageDays"],
+      "properties": {
+        "origin": { "enum": ["RISE_REGISTRY", "RISE_RESEARCH"] }, "authority": { "type": "string" }, "claimId": { "type": "string" }, "contentSha256": { "type": "string" },
+        "field": { "type": "string" }, "provider": { "type": "string" }, "sourceUrl": { "type": "string" }, "sourceUrls": { "type": "array", "items": { "type": "string" } },
+        "retrievedAt": { "type": "string" }, "ageDays": { "type": ["integer", "null"] }, "fresh": { "type": "boolean" }, "itemSource": { "type": "boolean" },
+        "rightsNote": { "enum": ["REGISTRY_SURVEY_FIELD"], "description": "Set on facts that come from registry survey fields whose prose-use rights decision is not yet recorded." }
+      }
+    },
+    "fact": {
+      "type": "object", "additionalProperties": false, "required": ["factId", "category", "label", "value", "text", "provenance"],
+      "properties": { "factId": { "type": "string", "pattern": "^F-[a-f0-9]{12}$", "description": "Deterministic: same fact, same id." }, "category": { "const": "identity" }, "label": { "type": "string" }, "value": {}, "text": { "type": "string" }, "provenance": { "$ref": "#/$defs/provenance" } }
+    },
+    "deepFact": {
+      "type": "object", "additionalProperties": false, "required": ["factId", "category", "field", "label", "text", "provenance"],
+      "properties": { "factId": { "type": "string", "pattern": "^F-[a-f0-9]{12}$" }, "category": { "enum": ["differentiator", "fellowship", "curriculum", "research", "population", "mission", "teaching"] }, "field": { "type": "string", "pattern": "^research\\." }, "label": { "type": "string" }, "text": { "type": "string", "maxLength": 420 }, "provenance": { "$ref": "#/$defs/provenance" } }
+    }
+  }
+}

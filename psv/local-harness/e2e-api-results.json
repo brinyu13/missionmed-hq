@@ -1,0 +1,497 @@
+[
+ {
+  "name": "anon: page URL serves the normal site, not the prototype",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "anon: REST answers 404 rest_no_route",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "anon: the REST namespace does not exist publicly (no index, not listed)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "student login",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "student: page URL serves the normal site",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "student (valid nonce): REST answers 404",
+  "pass": true,
+  "detail": "{\"code\":\"rest_no_route\",\"message\":\"No route was found matching the URL and request method.\",\"data\":{\"status\":404}}"
+ },
+ {
+  "name": "student: the REST namespace is not listed either",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "student: Hub page renders File Vault stage, no prototype script",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "tester login",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "tester: prototype page renders with config + strict CSP",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "tester: page has no inline script or style (CSP-safe)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "tester: Hub page gets the entry launcher script, File Vault stage intact",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "bootstrap ok",
+  "pass": true,
+  "detail": "{\"version\":\"0.1.0\",\"user\":{\"id\":3,\"name\":\"\\u00c9mile Corridor\"},\"gate\":{\"mode\":\"allowlist\",\"testing\":true},\"provider\":{\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"configured\":true,\"simulato"
+ },
+ {
+  "name": "bootstrap: privacy gate closed by default",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "bootstrap: no-store header on REST",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "bootstrap: File Vault readable through reflection-checked bridge",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "RISE: no session cookie -> 409 session required",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "RISE: upstream 401 -> 409 session required",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "RISE: my list retrieved, Gold first then priority",
+  "pass": true,
+  "detail": "[\"ps_deep_001\",\"ps_thin_002\",\"ps_ess_003\",\"ps_missing_999\"]"
+ },
+ {
+  "name": "RISE: private notes never leave RISE",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "RISE: default tiers (Gold/top -> DEEP, priority 30 -> ESSENTIAL)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "RISE: evidence labels differ",
+  "pass": true,
+  "detail": "[{\"deepEligibleCount\":5,\"deepFields\":[\"research.program_differentiators\",\"research.fellowship_inventory\",\"research.curriculum\",\"research.facilities_patient_population\"],\"deepSupported\":true,\"label\":\"DEEP_READY\",\"excludedCount\":4},{\"deepEligibleCount\":1,\"deepFields\":[\"research.curriculum\"],\"deepSupported\":false,\"label\":\"ONE_DEEP_FACT\",\"excludedCount\":0},{\"deepEligibleCount\":0,\"deepFields\":[],\"deepSupported\":false,\"label\":\"ESSENTIAL_ONLY\",\"excludedCount\":0},null]"
+ },
+ {
+  "name": "RISE: unknown program on the list is reported, not fatal",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "RISE transport: GET only, cookie renamed to mmhq_session, forwarded host set",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "bundle: schema + hash + transport",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "bundle: PD from current research leadership beats registry; associate PD ignored",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "bundle: exclusions recorded (second person, planned + affiliated fellowship, peer source)",
+  "pass": true,
+  "detail": "[\"SECOND_PERSON_TEXT\",\"FELLOWSHIP_NOT_AVAILABLE\",\"FELLOWSHIP_AFFILIATED_ONLY\",\"PEER_SOURCE\"]"
+ },
+ {
+  "name": "bundle: no peer or second-person text in facts",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "search finds a program not on the list",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "bundle(dirty): terminal, stale, conflict, absence, no-source all excluded; 1 usable fact",
+  "pass": true,
+  "detail": "[\"TERMINAL_STATE\",\"STALE\",\"CONFLICT\",\"ABSENCE_ROW\",\"NO_SOURCE\"]"
+ },
+ {
+  "name": "bundle(essential): stale registry PD is absent, not guessed",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "FV candidates: own PS versions only (no CV, no other student)",
+  "pass": true,
+  "detail": "[[1,1,true],[1,2,false],[1,3,true],[1,4,true]]"
+ },
+ {
+  "name": "FV candidates: unverified version not usable",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "FV ROOT v1 read + parsed",
+  "pass": true,
+  "detail": "{\"root\":{\"id\":1,\"specialtyLabel\":\"Internal Medicine\",\"sourceKind\":\"FILE_VAULT\",\"isSynthetic\":false,\"fvFileId\":1,\"fvVersionNumber\":1,\"fvVersionUuid\":\"e6477dc1-49a8-4e81-a7a8-556f20730110\",\"rootLabel\":\""
+ },
+ {
+  "name": "FV ROOT v2 (not verified clean) refused",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "FV ROOT v3 (tracked changes) refused",
+  "pass": true,
+  "detail": "{\"code\":\"mmps_docx_tracked_changes\",\"message\":\"This file still has tracked changes. Accept or reject all changes in Word, save, upload the clean version to File"
+ },
+ {
+  "name": "FV ROOT v4 (storage hash mismatch) refused",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "FV ROOT of ANOTHER student refused (owner scoped)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "region confirmed on real ROOT",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "PRIVACY GATE: real ROOT is not sent to the AI provider",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "synthetic ROOT created; program paragraph detected",
+  "pass": true,
+  "detail": "{\"proposedIndex\":4,\"confidence\":\"HIGH\",\"rule\":\"cue-phrases-v1\"}"
+ },
+ {
+  "name": "generate before region confirm -> 409",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "opening paragraph can never be the region",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "region stored with hashes + normalization rule",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "prefs saved + sanitized",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "ESSENTIAL output succeeds",
+  "pass": true,
+  "detail": "{\"runId\":\"0497f0ca-4b8b-4a2d-8f3b-8dfdc0dbdbf1\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BRIDGE_FROM_EXPERIENCE\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"progr"
+ },
+ {
+  "name": "ESSENTIAL: only identity facts supplied; no PD (stale)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "ESSENTIAL: full PS reconstructed, protected paragraphs byte-equal to ROOT",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "ESSENTIAL: structured output has run id, strategy, facts used, provenance",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "DEEP output succeeds with verified deep facts",
+  "pass": true,
+  "detail": "{\"runId\":\"d649f6e6-6c4c-4ea7-a05b-df82a9902b52\",\"status\":\"OK\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP\",\"strategy\":\"QUIET_SPECIFIC\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Center\",\"hospi"
+ },
+ {
+  "name": "DEEP: 2-3 deep facts, preference-matched (cardiology fellowship chosen; planned GI never)",
+  "pass": true,
+  "detail": "[\"Required quality improvement project with protected time\",\"Safety-net teaching hospital\",\"Cardiovascular Disease fellowship\"]"
+ },
+ {
+  "name": "DEEP: every program_fact segment cites supplied fact ids",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "DEEP: deep facts carry https sources",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "unsupported DEEP -> Research Needed, AI never called, nothing invented",
+  "pass": true,
+  "detail": "{\"runId\":\"cbf844a4-d788-4348-9685-3aff0436f668\",\"status\":\"RESEARCH_NEEDED\",\"tierRequested\":\"DEEP\",\"tierEffective\":\"DEEP_RESEARCH_NEEDED\",\"strategy\":\"\",\"provider\":\"none\",\"model\":\"\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_thin_002\",\"acgmeId\":\"1403821002\",\"programName\":\"Riverbend Communit"
+ },
+ {
+  "name": "research prompt (planned UX): program data only, flagged as not built",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "regenerate rotates the rhetorical strategy (controlled variation)",
+  "pass": true,
+  "detail": "QUIET_SPECIFIC -> PLACE_AND_PEOPLE"
+ },
+ {
+  "name": "hallucination on attempt 1 is caught, revised on attempt 2",
+  "pass": true,
+  "detail": "{\"blocking\":[],\"advisory\":[],\"factsUsed\":[\"F-08a50a945716\",\"F-8303ff160534\",\"F-e666dbcff9bb\",\"F-532d6bd9737f\",\"F-f5379f882242\",\"F-6f8eabe89f20\",\"F-49539d922e7b\"],\"attempts\":2,\"region\":{\"mode\":\"REPLACE_PARAGRAPH\",\"paragraphIndex\":4,\"confirmedAt\":\"2026-09-20T14:05:54+00:00\",\"rootTextSha256\":\"4dbb7ff4b"
+ },
+ {
+  "name": "persistent hallucination -> NEEDS_ATTENTION with precise flags",
+  "pass": true,
+  "detail": "[\"FACT_WITHOUT_EVIDENCE\",\"UNSUPPORTED_NUMBER\",\"UNSUPPORTED_NAME\",\"ABSENCE_OR_COMPARISON\"]"
+ },
+ {
+  "name": "a flagged run cannot be saved",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "AI request: bearer auth, store:false, strict schema, configured model",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "AI payload: signed-in user's name tokens are redacted (unicode-safe, case-insensitive) before leaving the site",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "protected ROOT text is untouched by redaction",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "AI payload: no WordPress ids, emails or RISE notes",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "pasted ROOT is stored as non-synthetic even when the client claims otherwise",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "PRIVACY GATE: pasted text never reaches the AI provider with the gate closed",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "synthetic ROOT B (Family Medicine voice) carries its own specialty",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "INSERT mode: 7 paragraphs, all 6 ROOT paragraphs unchanged",
+  "pass": true,
+  "detail": "{\"runId\":\"20653b3e-3152-4eaf-8841-22679f9f6931\",\"status\":\"OK\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"BRIDGE_FROM_EXPERIENCE\",\"provider\":\"openai-responses\",\"model\":\"gpt-5.6-terra\",\"simulated\":false,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"progr"
+ },
+ {
+  "name": "region changed after generation -> save refused (409)",
+  "pass": true,
+  "detail": "{\"code\":\"mmps_region_changed\",\"message\":\"The editable region was changed after this version was written. Generate it again.\",\"data\":{\"status\":409}}"
+ },
+ {
+  "name": "DEEP without a named fellowship: no fellowship fact is supplied",
+  "pass": true,
+  "detail": "[\"Program name\",\"Location\",\"Program type\",\"Program director\",\"Required quality improvement project with protected time\",\"4+1 block schedule\"]"
+ },
+ {
+  "name": "save complete PS to isolated library with metadata",
+  "pass": true,
+  "detail": "{\"document\":{\"docUuid\":\"de3417fe-c558-4ac0-8c07-4a8cd86a145f\",\"rootId\":2,\"specialtyLabel\":\"Internal Medicine\",\"programSpecialtyId\":\"ps_deep_001\",\"acgmeId\":\"1403511001\",\"programName\":\"Lakeshore University Internal Medicine Residency\",\"institution\":\"Lakeshore University Medical Center\",\"city\":\"Rochest"
+ },
+ {
+  "name": "save is idempotent per run",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "second program saved as DRAFT",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "library lists both",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "status change works",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "DOCX download: attachment, valid zip, body text only (no metadata in the body)",
+  "pass": true,
+  "detail": "attachment; filename=\"Internal_Medicine_PS_Lakeshore_University_Internal_Medicine_Residency_v1.docx\""
+ },
+ {
+  "name": "TXT download works",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "admin login",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "admin (allow_admins) sees the prototype",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "another allowlisted user cannot read tester's ROOT",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "another allowlisted user cannot read tester's saved PS",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "another allowlisted user cannot save tester's run",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "cross-origin write refused",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "bad nonce refused",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "File Vault table untouched (row count + content hash identical)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "no posts, users or user meta created",
+  "pass": true,
+  "detail": "[{\"fv\":\"3\",\"fvsum\":\"53ece3d989ae329fb939bbd1e9c450a2\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"},{\"fv\":\"3\",\"fvsum\":\"53ece3d989ae329fb939bbd1e9c450a2\",\"posts\":\"5\",\"users\":\"3\",\"usermeta\":\"46\"}]"
+ },
+ {
+  "name": "only namespaced prototype tables exist besides the stub FV table",
+  "pass": true,
+  "detail": "[\"wp_mmed_file_vault_stub\",\"wp_mmed_ps_proto_roots\",\"wp_mmed_ps_proto_runs\",\"wp_mmed_ps_proto_library\",\"wp_mmed_ps_proto_audit\"]"
+ },
+ {
+  "name": "audit log holds ids/codes/hashes only, never statement text",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "KILL 1 (option off): REST 404, page inert, no Hub script, File Vault stage intact",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "KILL 2 (wp-config constant): nothing loads",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "KILL 3 (deactivate): nothing loads, File Vault stage intact",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "re-enable: prototype and its saved library return intact",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "BLAST RADIUS: corrupted prototype file -> site, Hub/File Vault page and login all still 200; prototype inert",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "BLAST RADIUS: missing prototype file (partial upload) -> site and Hub page still 200; prototype inert",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "restored file -> prototype back",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "provider 400 -> clear error, no crash",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "no AI key -> provider \"none\" (simulator is opt-in only)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "no AI key -> generation refuses cleanly",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "simulator is opt-in and reported as such",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "simulator output is labelled SIMULATED and still passes integrity",
+  "pass": true,
+  "detail": "{\"runId\":\"9e8a6594-0260-4ad8-b44f-4ddc60e2cc11\",\"status\":\"NEEDS_ATTENTION\",\"tierRequested\":\"ESSENTIAL\",\"tierEffective\":\"ESSENTIAL\",\"strategy\":\"GOAL_FORWARD\",\"provider\":\"simulator\",\"model\":\"offline-simulator\",\"simulated\":true,\"program\":{\"programSpecialtyId\":\"ps_ess_003\",\"acgmeId\":\"1401931003\",\"progra"
+ }
+]
