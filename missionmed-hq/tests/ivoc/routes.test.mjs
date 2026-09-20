@@ -748,6 +748,40 @@ test('Answer History library projects question-bound transcript and semantic evi
   });
 });
 
+test('Admin all-student library exposes stable owner identity without leaking it to owner scope', async () => {
+  const repo = repository();
+  const sessionId = '00000000-0000-4000-8000-000000000042';
+  const row = {
+    id: sessionId, owner_subject: 'wp:42', owner_display_name: 'Student 42', title: 'Opening answer',
+    session_type: 'question', question_id: 'CORE-01', question_text: 'Tell me about yourself.',
+    state: 'saved', started_at: '2026-09-20T12:00:00.000Z', ended_at: '2026-09-20T12:01:00.000Z',
+    duration_ms: 60_000, interviewer_provider: 'openai-gpt-live',
+  };
+  repo.request = async (path) => {
+    if (path.startsWith('ivoc_sessions?select=*')) return [row];
+    if (path.startsWith('ivoc_sessions?owner_subject=eq.wp%3A42')) return [row];
+    return [];
+  };
+  const { route } = handler(repo);
+  const adminResponse = new ResponseCapture();
+  await route({
+    ...base, request: request('GET'), response: adminResponse,
+    url: new URL('https://hq.test/api/ivoc/v1/library?scope=all'),
+    hqSession: session(1, ['administrator']),
+  });
+  assert.equal(adminResponse.status, 200);
+  assert.equal(adminResponse.json().sessions[0].ownerSubject, 'wp:42');
+
+  const ownerResponse = new ResponseCapture();
+  await route({
+    ...base, request: request('GET'), response: ownerResponse,
+    url: new URL('https://hq.test/api/ivoc/v1/library?scope=own'),
+    hqSession: session(),
+  });
+  assert.equal(ownerResponse.status, 200);
+  assert.equal(Object.hasOwn(ownerResponse.json().sessions[0], 'ownerSubject'), false);
+});
+
 test('results reject multiple bound provider audio tracks instead of accepting split authority', async () => {
   const repo = repository();
   const sessionId = '00000000-0000-4000-8000-000000000042';

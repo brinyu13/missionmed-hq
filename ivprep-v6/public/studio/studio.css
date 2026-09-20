@@ -559,6 +559,16 @@ body:not([data-role="admin"]) [data-admin-only] { display: none !important; }
 .live-mock-row > div { display: grid; gap: 5px; }
 .admin-boundary-note { margin: 12px 0 0; color: var(--dim); font: 600 11px/1.5 var(--font-body); }
 @media (max-width: 680px) { .live-mock-row { grid-template-columns: 1fr; } }
+.admin-library-toolbar { display: grid; grid-template-columns: minmax(240px, 1fr) auto; gap: 14px; align-items: center; margin-bottom: 8px; }
+.admin-library-rows { display: grid; }
+.admin-library-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.admin-library-row > div:first-child { display: grid; gap: 6px; min-width: 0; }
+.admin-library-row strong { color: var(--ink); font-family: Lora, Georgia, serif; font-size: 16px; }
+.admin-library-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+@media (max-width: 760px) {
+  .admin-library-toolbar, .admin-library-row { grid-template-columns: 1fr; }
+  .admin-library-actions { justify-content: flex-start; }
+}
 
 /* ---------- Answer History filters ---------- */
 .vault-toolbar { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(210px, auto) auto; gap: 10px; align-items: center; margin-bottom: 14px; }

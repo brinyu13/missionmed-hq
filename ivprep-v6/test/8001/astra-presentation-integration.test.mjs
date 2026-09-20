@@ -7,11 +7,13 @@ const htmlUrl = new URL('../../public/studio/index.html', import.meta.url);
 const cssUrl = new URL('../../public/studio/studio.css', import.meta.url);
 const runtimeUrl = new URL('../../public/studio/studio.mjs', import.meta.url);
 const liveCompatibilityUrl = new URL('../../public/studio/live-interview.mjs', import.meta.url);
+const adminLibraryUrl = new URL('../../public/capabilities/admin-student-library.mjs', import.meta.url);
 
 const html = await readFile(htmlUrl, 'utf8');
 const css = await readFile(cssUrl, 'utf8');
 const runtime = await readFile(runtimeUrl, 'utf8');
 const liveCompatibility = await readFile(liveCompatibilityUrl, 'utf8');
+const adminLibrary = await readFile(adminLibraryUrl, 'utf8');
 
 const digest = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -101,6 +103,17 @@ test('Calendar context stays behind a minimized Scheduler capability adapter', (
   assert.match(runtime, /state\.calendar\.studentCalendar\(\)/u);
   assert.match(runtime, /IVOC does not store the owner URL/u);
   assert.match(runtime, /renderProgramCalendar\(host\)/u);
+});
+
+test('Admin student traversal stays behind the stable private-library capability boundary', () => {
+  assert.match(runtime, /AdminStudentLibraryCapability/u);
+  assert.match(runtime, /state\.adminLibrary\.overview\(\)/u);
+  assert.match(runtime, /state\.adminLibrary\.session\(session\.id\)/u);
+  assert.match(runtime, /state\.adminLibrary\.playback\(session\.recording\.id\)/u);
+  assert.match(adminLibrary, /this\.api\.library\('all'\)/u);
+  assert.match(adminLibrary, /this\.api\.session\(id\)/u);
+  assert.match(adminLibrary, /this\.api\.playback\(id\)/u);
+  assert.match(html, /id="admin-student-library" data-admin-only/u);
 });
 
 test('the product document has unique element ids', () => {

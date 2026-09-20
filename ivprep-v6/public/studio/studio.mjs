@@ -24,6 +24,7 @@ import { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
 import { InstrumentRack } from './instruments.mjs';
 import { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mjs';
 import { createLiveContext } from './live-context-adapter.mjs';
+import { AdminStudentLibraryCapability } from '../capabilities/admin-student-library.mjs';
 import { InterviewCalendarCapability } from '../capabilities/calendar-context.mjs';
 import { LiveMockStudioCapability } from '../capabilities/live-mock-studio.mjs';
 
@@ -84,6 +85,7 @@ const state = {
   comparePair: [0, 1],
   governedQuestions: [],
   adminOverview: null,
+  adminLibrary: new AdminStudentLibraryCapability(),
   calendar: new InterviewCalendarCapability(),
   calendarProjection: null,
   calendarState: 'idle',
@@ -335,10 +337,12 @@ async function renderAdminOverview() {
   const questionHost = $('[data-admin-summary="questions"]');
   const integrationHost = $('[data-admin-summary="integrations"]');
   const liveMockHost = $('#live-mock-studio');
+  const studentLibraryHost = $('#admin-student-library');
   if (!configHost || !creditHost || !questionHost || !integrationHost) return;
 
   renderIntegrationFacts(integrationHost);
   if (liveMockHost) void renderLiveMockStudio(liveMockHost, integrationHost);
+  if (studentLibraryHost) void renderAdminStudentLibrary(studentLibraryHost);
 
   try {
     const overview = state.adminOverview || await state.durable.adminOverview();
@@ -376,6 +380,123 @@ async function renderAdminOverview() {
       empty.append(strong, document.createTextNode(reason));
       host.replaceChildren(empty);
     }
+  }
+}
+
+let adminStudentLibraryRenderId = 0;
+
+async function openAdminStudentSession(session, destination, action) {
+  action.disabled = true;
+  try {
+    const detail = await state.adminLibrary.session(session.id);
+    const analytics = detail?.results?.payload?.analytics || null;
+    state.lastSaved = {
+      persisted: true,
+      session,
+      sessionDetail: detail,
+      analytics,
+      recording: detail?.recording ? { recording: detail.recording } : null,
+    };
+    state.filmGroups?.ingestResult(analytics || {});
+    if (destination === 'postanswer') {
+      renderPostAnswer(analytics);
+      setView('postanswer');
+      return;
+    }
+    const playback = await state.adminLibrary.playback(session.recording.id);
+    const video = $('#playback');
+    renderFilmRoomSpine(detail);
+    if (video) {
+      video.src = playback.url;
+      await video.play().catch(() => {});
+    }
+    setView('filmroom');
+  } finally {
+    action.disabled = false;
+  }
+}
+
+async function renderAdminStudentLibrary(host) {
+  const renderId = ++adminStudentLibraryRenderId;
+  host.replaceChildren();
+  try {
+    const library = await state.adminLibrary.overview();
+    if (renderId !== adminStudentLibraryRenderId || state.role !== 'admin' || state.view !== 'mentor') return;
+    if (!library.students.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<strong>No authorized practice yet</strong>Student sessions appear here only after they are durably saved.';
+      host.append(empty);
+      return;
+    }
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'admin-library-toolbar';
+    const selector = document.createElement('select');
+    selector.className = 'q-search';
+    selector.setAttribute('aria-label', 'Authorized student');
+    for (const student of library.students) {
+      const option = document.createElement('option');
+      option.value = student.subject;
+      option.textContent = `${student.displayName} · ${student.sessions.length} session${student.sessions.length === 1 ? '' : 's'}`;
+      selector.append(option);
+    }
+    const summary = document.createElement('span');
+    summary.className = 'microcap';
+    summary.textContent = `${library.studentCount} AUTHORIZED STUDENT${library.studentCount === 1 ? '' : 'S'} · ${library.sessionCount} SESSIONS`;
+    toolbar.append(selector, summary);
+
+    const rows = document.createElement('div');
+    rows.className = 'admin-library-rows';
+    const paint = () => {
+      rows.replaceChildren();
+      const student = library.students.find((item) => item.subject === selector.value) || library.students[0];
+      for (const session of student.sessions) {
+        const row = document.createElement('div');
+        row.className = 'admin-library-row';
+        const copy = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = session.title;
+        const meta = document.createElement('span');
+        meta.className = 'microcap';
+        const when = session.endedAt ? new Date(session.endedAt).toLocaleString() : 'DATE UNAVAILABLE';
+        const evidence = session.answerHistory.supportedObservationCount
+          ? `${session.answerHistory.supportedObservationCount} SUPPORTED OBSERVATION${session.answerHistory.supportedObservationCount === 1 ? '' : 'S'}`
+          : (session.answerHistory.transcriptAvailable ? 'TRANSCRIPT AVAILABLE' : 'EVIDENCE PENDING');
+        meta.textContent = `${session.questionId || session.state.toUpperCase()} · ${evidence} · ${when}`;
+        copy.append(title, meta);
+        const actions = document.createElement('div');
+        actions.className = 'admin-library-actions';
+        if (session.resultsAvailable) {
+          const results = document.createElement('button');
+          results.type = 'button'; results.className = 'btn btn-quiet'; results.innerHTML = '<span>Open Results</span>';
+          results.addEventListener('click', () => void openAdminStudentSession(session, 'postanswer', results));
+          actions.append(results);
+        }
+        if (session.recording) {
+          const film = document.createElement('button');
+          film.type = 'button'; film.className = 'btn btn-quiet'; film.innerHTML = '<span>Open Film Room</span>';
+          film.addEventListener('click', () => void openAdminStudentSession(session, 'filmroom', film));
+          actions.append(film);
+        }
+        if (!actions.childElementCount) {
+          const pending = document.createElement('span');
+          pending.className = 'microcap'; pending.textContent = 'SESSION EVIDENCE PENDING';
+          actions.append(pending);
+        }
+        row.append(copy, actions);
+        rows.append(row);
+      }
+    };
+    selector.addEventListener('change', paint);
+    host.append(toolbar, rows);
+    paint();
+  } catch (error) {
+    if (renderId !== adminStudentLibraryRenderId || state.role !== 'admin' || state.view !== 'mentor') return;
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.innerHTML = '<strong>Student library unavailable</strong>The Admin capability failed closed; no private session was inferred.';
+    host.append(empty);
   }
 }
 

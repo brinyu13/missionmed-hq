@@ -158,11 +158,12 @@ function publicAnswerHistory(sessionId, segments = [], evidence = []) {
   };
 }
 
-function publicSession(row, recording = null, result = null, review = null, spine = null, answerHistory = null) {
+function publicSession(row, recording = null, result = null, review = null, spine = null, answerHistory = null, { includeOwnerSubject = false } = {}) {
   return {
     id: row.id, title: row.title, sessionType: row.session_type, questionId: row.question_id,
     questionText: row.question_text, state: row.state, startedAt: row.started_at,
     endedAt: row.ended_at, durationMs: row.duration_ms,
+    ...(includeOwnerSubject ? { ownerSubject: safeText(row.owner_subject, 240) || null } : {}),
     ownerDisplayName: safeText(row.owner_display_name, 200) || null,
     interviewerProvider: row.interviewer_provider, recording: publicRecording(recording),
     results: result ? { schema: result.schema_name, schemaVersion: result.schema_version, payload: result.payload, summary: result.summary } : null,
@@ -1463,8 +1464,9 @@ export function createIvocHandler({
 
       if (request.method === 'GET' && pathname === `${API_PREFIX}/library`) {
         const scope = url.searchParams.get('scope') || 'own';
+        const adminAll = scope === 'all' && isAdmin(hqSession, admission);
         let rows;
-        if (scope === 'all' && isAdmin(hqSession, admission)) rows = await db.request('ivoc_sessions?select=*&order=created_at.desc&limit=200');
+        if (adminAll) rows = await db.request('ivoc_sessions?select=*&order=created_at.desc&limit=200');
         else if (scope === 'assigned' && (isMentor(hqSession) || isAdmin(hqSession, admission))) {
           const reviews = isAdmin(hqSession, admission)
             ? await db.request('ivoc_reviews?status=neq.revoked&select=session_id')
@@ -1485,6 +1487,7 @@ export function createIvocHandler({
           reviews.find((x) => x.session_id === row.id),
           null,
           publicAnswerHistory(row.id, segments, evidence),
+          { includeOwnerSubject: adminAll },
         )) }, mediaBase); return true;
       }
 

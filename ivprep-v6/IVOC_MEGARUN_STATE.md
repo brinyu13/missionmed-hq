@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 14:47 America/New_York
+Updated: 2026-09-20 15:13 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `61908224-a5b6-47e6-a433-b4063f7c911c`, exact commit
-  `cfdf74202b69cfac1f6634a157fd291a698f202b`, image
-  `sha256:6a33a0d6c4a80a29e5e0a09c70c9fdce156847af804dad55d42f4d96cc8f490d`.
+  `ebaf3ae1-d241-4a87-9a7e-157303e5b014`, exact commit
+  `c8e473aadb2abec8e9fe6bb33af58dda2e733a19`, image
+  `sha256:20ba89c749c13bf57f51f43df8e4ac4083307ca0ae91967b918c736e7ac183d4`.
 - Admin operational-control presentation: `268cd4be2265e7cd1ee6b05247ab5e148312a260`.
   The existing candidate.2 Mentor & Admin surface now consumes the versioned
   Admin-config, authenticated credit-account and governed-question adapters,
@@ -53,6 +53,10 @@ the actual production route and deployment.
   Webex appointments and the first readiness lookup truthfully reports
   `RECORDING PROCESSING`; IVOC never receives or exposes a playback/download
   URL in that state.
+- Calendar owner adapter: `c8e473aadb2abec8e9fe6bb33af58dda2e733a19`.
+  The candidate.2 Program step consumes only the minimized Scheduler projection;
+  production authenticated readback returned seven authorized appointments and
+  zero upcoming interviews, without exposing owner URLs or inventing an event.
 - GPT-Live presentation boundary extraction: `feb19f06651c7d9da27d930cf5495b218f9625ab`.
   The proven browser WebRTC transport now lives in
   `public/capabilities/live-interview.mjs`; the active presentation imports that
@@ -147,9 +151,9 @@ the actual production route and deployment.
 | Section | Major requirement | Status | Current evidence / next proof |
 |---|---|---|---|
 | 5 | Candidate.2 premium Home visual DNA, hierarchy, contrast, responsive composition | LIVE UNVERIFIED | Exact candidate.2 successor is live at 84e750e; Home and Practice Goal visual readback passed. Fresh independent presentation acceptance remains. |
-| 5 | Six-step builder and Practice Goal modes | LIVE UNVERIFIED | All six rich step compositions passed local Chrome traversal; live Practice Goal passed. Live traversal of steps 2-6 remains. |
-| 5 | Question Pool branching, persistent rail, presets, ordering, 193-question corpus | LIVE UNVERIFIED | Progressive category to subcategory to question flow, 193-source count and persistent rail passed focused tests and local Chrome; live interaction proof remains. |
-| 5 | Separate Interviewer and Program steps with role/style controls | LIVE UNVERIFIED | Program Director, Faculty, Chief Resident, APD and Dove/Peacock/Owl/Eagle passed local Chrome; live interaction proof remains. |
+| 5 | Six-step builder and Practice Goal modes | LIVE VERIFIED | Authenticated production Chrome traversed all six distinct candidate.2 step compositions without collapsing them into the rejected generic-card builder. |
+| 5 | Question Pool branching, persistent rail, presets, ordering, 193-question corpus | LIVE VERIFIED | Authenticated production traversed category → subcategory → question, retained the persistent right rail, and read the canonical 193-question corpus. |
+| 5 | Separate Interviewer and Program steps with role/style controls | LIVE VERIFIED | Authenticated production traversed the independent Program and Interviewer compositions with Program Director, Faculty, Chief Resident, APD and Dove/Peacock/Owl/Eagle controls. RISE hydration remains a separate owner projection. |
 | 5 | RISE-backed Program search, sourced highlights, people, freshness/manual fallback | NOT STARTED | Requires live owner contract and source-receipt proof. |
 | 5 | Environment + Context sources and opt-in StoryForge reveal | LIVE UNVERIFIED | MissionMed/Webex/Zoom/Teams and fail-closed source cards passed local Chrome; owner projections and live opt-in behavior remain. |
 | 5 | Truthful Readiness & Calibration checks | LIVE VERIFIED | Production Chrome proved physical FaceTime HD camera, built-in microphone, running audio context, live level and bound video surface. |
@@ -170,13 +174,13 @@ the actual production route and deployment.
 | 10 | RISE sourced/fresh program context | NOT STARTED | Exact live owner contract and freshness receipt still required. |
 | 10 | MCC / Top 3 / Mentor owner projections | LIVE VERIFIED | With no MCC owner authority present, IVOC now owns the versioned Mentor Top 3 contract. Genuine `brinyu` production v1 generated one `ivoc.mentor_priorities` receipt, two bounded facts and one `AIS-R09` signal in session `4e275dac-a613-45a2-85d5-1d35413c8e47`; the Actor received the shared priority and not the mentor-only note. Append-only v2 cleared the projection, a stale write returned 409, and cleared-state session `f378c2a0-0cc0-4422-b042-f4cbfe334261` had zero leaked inputs. |
 | 10 | Prior-IVOC longitudinal context | LIVE UNVERIFIED | Production schema supports it; multi-session production proof remains. |
-| 10 | Calendar interview adapter | NOT STARTED | Owner capability and contract must be resolved without mutating sibling assets. |
+| 10 | Calendar interview adapter | LIVE VERIFIED | The deployed stable adapter consumes the Scheduler owner projection, strips owner URLs and rendered the authenticated connected state: seven authorized appointments, none upcoming. |
 | 10 | Match Bridge bounded consented clip seam | LIVE VERIFIED | Real saved `CORE-01` media was bound only to a 0–14 s answer range, promoted from private v1 to consented `match_bridge_ready` v2, then revoked at v3. Whole-mock sharing remains prohibited by the contract; cross-product pickup is an external owner integration, not an IVOC clip-seam gap. |
 | 11 | Structured evidence-to-coaching pipeline | LIVE UNVERIFIED | Session/transcript/evidence tables exist; live synthesis acceptance remains. |
 | 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE UNVERIFIED | Results source exists; evidence-linked production output remains. |
 | 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE VERIFIED | Authenticated production `wp:1` switched Student → Admin while retaining the same actor/subject identity; Admin-only navigation and diagnostics appeared without impersonating another user. |
-| 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Versioned Top 3 write/read/redaction and Context Pack binding are production accepted. Student selector and full production Admin traversal remain. |
+| 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Versioned Top 3 write/read/redaction and Context Pack binding are production accepted. The Admin student-library selector and authorized Results/Film Room traversal are implemented behind a stable capability adapter and pass focused privacy/presentation tests; live deployment acceptance remains. |
 | 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | LIVE VERIFIED | Authenticated production `wp:1` visibly read policy v3, `ivoc.analytics.v1`, `gpt-live-1:marin`, follow-up intensity 1, credit account v11, governed catalog status, Match Bridge readiness, owner-projection requirements, deferred LemonSlice and `SCHEDULER CONNECTED · 11 WEBEX` through the candidate.2 Admin surface. |
 | 14 | Versioned question governance | LIVE VERIFIED | Genuine `brinyu` production canary `CANARY-ADMIN-20260920-E92A09` completed active v1 → edited v2 → hidden v3 → retired v4 with immutable `wp:1` actor-stamped history. Stale version and retired-reactivation writes fail fast at HTTP 409; the retry-class SQLSTATE defect found during the canary was corrected by `ivoc_question_governance_fail_fast`. |
 | 14 | Credits, allowances, overrides, reset and balance | LIVE VERIFIED | Genuine `brinyu` production acceptance exercised allowance, override, atomic server-only consumption, idempotent replay, insufficient-balance denial, reset and zero-balance restoration. The authenticated Admin API advanced `wp:1` from v6 through v11, owner readback returned zero, and a stale write failed at HTTP 409. Eleven append-only events remain actor-stamped `wp:1`; browser clients cannot invoke consumption. |
@@ -198,8 +202,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `61908224-a5b6-47e6-a433-b4063f7c911c` from exact product commit
-  `cfdf74202b69cfac1f6634a157fd291a698f202b`; `/health/lor-studio` is HTTP 200, the
+  `ebaf3ae1-d241-4a87-9a7e-157303e5b014` from exact product commit
+  `c8e473aadb2abec8e9fe6bb33af58dda2e733a19`; `/health/lor-studio` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
