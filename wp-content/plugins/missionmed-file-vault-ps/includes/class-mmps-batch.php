@@ -107,7 +107,10 @@ class MMPS_Batch {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'mmps_batch_commit', 'The complete batch could not be committed.', array( 'status' => 500 ) );
 		}
-		self::refresh_job( $job_id );
+		$refreshed = self::refresh_job( $job_id );
+		if ( is_wp_error( $refreshed ) ) {
+			return $refreshed;
+		}
 		MMPS_Store::audit( $user_id, 'batch_create', $job_uuid, array( 'rootId' => $root['id'], 'programCount' => count( $clean ) ) );
 		return self::get( $user_id, $job_uuid );
 	}
@@ -125,10 +128,19 @@ class MMPS_Batch {
 		if ( ! $job ) {
 			return new WP_Error( 'mmps_batch_not_found', 'That batch was not found for your account.', array( 'status' => 404 ) );
 		}
-		self::recover_stale( absint( $job['id'] ), $user_id );
-		self::refresh_job( absint( $job['id'] ) );
+		$recovered = self::recover_stale( absint( $job['id'] ), $user_id );
+		if ( is_wp_error( $recovered ) ) {
+			return $recovered;
+		}
+		$refreshed = self::refresh_job( absint( $job['id'] ) );
+		if ( is_wp_error( $refreshed ) ) {
+			return $refreshed;
+		}
 		$job   = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::jobs_table() . ' WHERE id = %d', absint( $job['id'] ) ), ARRAY_A );
 		$items = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . self::items_table() . ' WHERE job_id = %d AND user_id = %d ORDER BY COALESCE(priority_position,2147483647),id', absint( $job['id'] ), absint( $user_id ) ), ARRAY_A );
+		if ( ! is_array( $job ) || ! is_array( $items ) ) {
+			return new WP_Error( 'mmps_batch_read', 'The batch state could not be read safely.', array( 'status' => 503 ) );
+		}
 		$out          = self::shape_job_summary( $job );
 		$out['items'] = array_map( array( __CLASS__, 'shape_item' ), (array) $items );
 		return $out;
@@ -156,6 +168,9 @@ class MMPS_Batch {
 		if ( ! $row ) {
 			return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => null, 'idle' => true );
 		}
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'mmps_batch_claim_begin', 'The batch item lease could not begin safely.', array( 'status' => 503 ) );
+		}
 		$claimed = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE " . self::items_table() . " SET status='PROCESSING',attempt_count=attempt_count+1,lock_token=%s,locked_until=%s,updated_at=%s WHERE id=%d AND user_id=%d AND status='QUEUED'",
@@ -167,6 +182,7 @@ class MMPS_Batch {
 			)
 		);
 		if ( 1 !== $claimed ) {
+			$wpdb->query( 'ROLLBACK' );
 			return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => null, 'contended' => true );
 		}
 		$slot = $wpdb->query(
@@ -176,36 +192,53 @@ class MMPS_Batch {
 			)
 		);
 		if ( 1 !== $slot ) {
-			$wpdb->query( $wpdb->prepare( "UPDATE " . self::items_table() . " SET status='QUEUED',attempt_count=GREATEST(attempt_count-1,0),lock_token='',locked_until=NULL,updated_at=%s WHERE id=%d AND user_id=%d AND lock_token=%s", MMPS_Store::now(), absint( $row['id'] ), absint( $user_id ), $token ) );
+			$wpdb->query( 'ROLLBACK' );
 			return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => null, 'saturated' => true );
 		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'mmps_batch_claim_commit', 'The batch item lease could not be committed safely.', array( 'status' => 503 ) );
+		}
 		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::items_table() . ' WHERE id=%d AND lock_token=%s', absint( $row['id'] ), $token ), ARRAY_A );
+		if ( ! is_array( $row ) ) {
+			return new WP_Error( 'mmps_batch_claim_read', 'The claimed item could not be read safely. Its lease will recover automatically.', array( 'status' => 503 ) );
+		}
 		$run = MMPS_Generator::generate( $user_id, $root, $row['program_specialty_id'], $row['tier_requested'], array(), $row['idempotency_key'] );
 		if ( is_wp_error( $run ) ) {
 			if ( 'mmps_daily_cap' === $run->get_error_code() ) {
-				$wpdb->query( $wpdb->prepare( "UPDATE " . self::items_table() . " SET status='QUEUED',attempt_count=GREATEST(attempt_count-1,0),last_error_code='DAILY_CAP_PAUSED',lock_token='',locked_until=NULL,updated_at=%s WHERE id=%d AND user_id=%d AND lock_token=%s", MMPS_Store::now(), absint( $row['id'] ), absint( $user_id ), $token ) );
-				self::release_slot( absint( $job['id'] ), $user_id );
-				self::refresh_job( absint( $job['id'] ) );
+				$stored = self::persist_claim_transition(
+					absint( $job['id'] ),
+					$user_id,
+					absint( $row['id'] ),
+					$token,
+					array( 'status' => 'QUEUED', 'attempt_count' => max( 0, absint( $row['attempt_count'] ) - 1 ), 'last_error_code' => 'DAILY_CAP_PAUSED', 'lock_token' => '', 'locked_until' => null, 'updated_at' => MMPS_Store::now() )
+				);
+				if ( is_wp_error( $stored ) ) { return $stored; }
+				$refreshed = self::refresh_job( absint( $job['id'] ) );
+				if ( is_wp_error( $refreshed ) ) { return $refreshed; }
 				return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => self::shape_item_by_id( $user_id, absint( $row['id'] ) ), 'paused' => true, 'pauseCode' => 'DAILY_CAP' );
 			}
 			$terminal = absint( $row['attempt_count'] ) >= absint( $row['max_attempts'] );
-			$updated = $wpdb->update(
-				self::items_table(),
+			$stored = self::persist_claim_transition(
+				absint( $job['id'] ),
+				$user_id,
+				absint( $row['id'] ),
+				$token,
 				array( 'status' => $terminal ? 'FAILED' : 'QUEUED', 'last_error_code' => $run->get_error_code(), 'lock_token' => '', 'locked_until' => null, 'updated_at' => MMPS_Store::now() ),
-				array( 'id' => absint( $row['id'] ), 'user_id' => absint( $user_id ), 'lock_token' => $token )
 			);
-			self::release_slot( absint( $job['id'] ), $user_id );
-			if ( 1 !== $updated ) {
-				return new WP_Error( 'mmps_batch_error_persist', 'The failed item state could not be stored safely. It will recover after its lease expires.', array( 'status' => 503 ) );
-			}
-			self::refresh_job( absint( $job['id'] ) );
+			if ( is_wp_error( $stored ) ) { return $stored; }
+			$refreshed = self::refresh_job( absint( $job['id'] ) );
+			if ( is_wp_error( $refreshed ) ) { return $refreshed; }
 			MMPS_Store::audit( $user_id, 'batch_item_error', $row['item_uuid'], array( 'code' => $run->get_error_code(), 'terminal' => $terminal ) );
 			return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => self::shape_item_by_id( $user_id, absint( $row['id'] ) ), 'retryable' => ! $terminal );
 		}
 		$status = 'OK' === $run['status'] ? 'READY' : ( 'RESEARCH_NEEDED' === $run['status'] ? 'RESEARCH_NEEDED' : 'NEEDS_ATTENTION' );
 		$program = (array) ( $run['program'] ?? array() );
-		$updated = $wpdb->update(
-			self::items_table(),
+		$stored = self::persist_claim_transition(
+			absint( $job['id'] ),
+			$user_id,
+			absint( $row['id'] ),
+			$token,
 			array(
 				'acgme_id'        => (string) ( $program['acgmeId'] ?? '' ),
 				'program_name'    => mb_substr( (string) ( $program['programName'] ?? $program['institution'] ?? '' ), 0, 255 ),
@@ -217,14 +250,11 @@ class MMPS_Batch {
 				'locked_until'    => null,
 				'evidence_json'   => wp_json_encode( array( 'bundleSha256' => $run['bundleSha256'], 'quality' => $run['evidenceQuality'], 'candidateCount' => count( (array) ( $run['candidates'] ?? array() ) ) ) ),
 				'updated_at'      => MMPS_Store::now(),
-			),
-			array( 'id' => absint( $row['id'] ), 'user_id' => absint( $user_id ), 'lock_token' => $token )
+			)
 		);
-		self::release_slot( absint( $job['id'] ), $user_id );
-		if ( 1 !== $updated ) {
-			return new WP_Error( 'mmps_batch_result_persist', 'The completed run exists, but the batch item could not link to it. Retry after the item lease recovers; provider work will be reused idempotently.', array( 'status' => 503 ) );
-		}
-		self::refresh_job( absint( $job['id'] ) );
+		if ( is_wp_error( $stored ) ) { return $stored; }
+		$refreshed = self::refresh_job( absint( $job['id'] ) );
+		if ( is_wp_error( $refreshed ) ) { return $refreshed; }
 		MMPS_Store::audit( $user_id, 'batch_item_done', $row['item_uuid'], array( 'run' => $run['runId'], 'status' => $status ) );
 		return array( 'job' => self::get( $user_id, $job_uuid ), 'item' => self::shape_item_by_id( $user_id, absint( $row['id'] ) ), 'run' => $run );
 	}
@@ -252,12 +282,16 @@ class MMPS_Batch {
 			return new WP_Error( 'mmps_batch_item_busy', 'Wait for this item to finish before changing its tier.', array( 'status' => 409 ) );
 		}
 		$tier = 'DEEP' === strtoupper( (string) $tier ) ? 'DEEP' : 'ESSENTIAL';
-		$wpdb->update(
+		$updated = $wpdb->update(
 			self::items_table(),
 			array( 'tier_requested' => $tier, 'tier_effective' => '', 'status' => 'QUEUED', 'attempt_count' => 0, 'run_uuid' => '', 'last_error_code' => '', 'idempotency_key' => 'regen:' . $item_uuid . ':' . strtolower( $tier ) . ':' . substr( MMPS_Store::uuid(), 0, 8 ), 'updated_at' => MMPS_Store::now() ),
 			array( 'id' => absint( $item['id'] ), 'user_id' => absint( $user_id ) )
 		);
-		self::refresh_job( absint( $item['job_id'] ) );
+		if ( false === $updated ) {
+			return new WP_Error( 'mmps_batch_requeue_persist', 'The tier change could not be stored safely.', array( 'status' => 503 ) );
+		}
+		$refreshed = self::refresh_job( absint( $item['job_id'] ) );
+		if ( is_wp_error( $refreshed ) ) { return $refreshed; }
 		MMPS_Store::audit( $user_id, 'batch_requeue', $item_uuid, array( 'tier' => $tier, 'approvedPreserved' => '' !== $item['approved_doc_uuid'] ) );
 		return self::get( $user_id, $job_uuid );
 	}
@@ -268,8 +302,12 @@ class MMPS_Batch {
 		if ( is_wp_error( $item ) ) {
 			return $item;
 		}
-		$wpdb->update( self::items_table(), array( 'approved_doc_uuid' => (string) $doc_uuid, 'updated_at' => MMPS_Store::now() ), array( 'id' => absint( $item['id'] ), 'user_id' => absint( $user_id ) ) );
-		self::refresh_job( absint( $item['job_id'] ) );
+		$updated = $wpdb->update( self::items_table(), array( 'approved_doc_uuid' => (string) $doc_uuid, 'updated_at' => MMPS_Store::now() ), array( 'id' => absint( $item['id'] ), 'user_id' => absint( $user_id ) ) );
+		if ( false === $updated ) {
+			return new WP_Error( 'mmps_batch_approval_persist', 'The approved document link could not be stored safely.', array( 'status' => 503 ) );
+		}
+		$refreshed = self::refresh_job( absint( $item['job_id'] ) );
+		if ( is_wp_error( $refreshed ) ) { return $refreshed; }
 		return self::get( $user_id, $job_uuid );
 	}
 
@@ -291,34 +329,78 @@ class MMPS_Batch {
 	protected static function recover_stale( $job_id, $user_id ) {
 		global $wpdb;
 		$now = MMPS_Store::now();
-		$wpdb->query( $wpdb->prepare( "UPDATE " . self::items_table() . " SET status=IF(attempt_count>=max_attempts,'FAILED','QUEUED'),lock_token='',locked_until=NULL,last_error_code='STALE_LOCK_RECOVERED',updated_at=%s WHERE job_id=%d AND user_id=%d AND status='PROCESSING' AND locked_until IS NOT NULL AND locked_until < %s", $now, absint( $job_id ), absint( $user_id ), $now ) );
-		$active = absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . self::items_table() . " WHERE job_id=%d AND user_id=%d AND status='PROCESSING' AND locked_until >= %s", absint( $job_id ), absint( $user_id ), $now ) ) );
-		$wpdb->update( self::jobs_table(), array( 'active_items' => min( self::CLIENT_WORKERS, $active ) ), array( 'id' => absint( $job_id ), 'user_id' => absint( $user_id ) ) );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'mmps_batch_recovery_begin', 'Stale work could not be recovered safely.', array( 'status' => 503 ) );
+		}
+		$recovered = $wpdb->query( $wpdb->prepare( "UPDATE " . self::items_table() . " SET status=IF(attempt_count>=max_attempts,'FAILED','QUEUED'),lock_token='',locked_until=NULL,last_error_code='STALE_LOCK_RECOVERED',updated_at=%s WHERE job_id=%d AND user_id=%d AND status='PROCESSING' AND locked_until IS NOT NULL AND locked_until < %s", $now, absint( $job_id ), absint( $user_id ), $now ) );
+		if ( false === $recovered ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'mmps_batch_recovery_items', 'Stale work could not be recovered safely.', array( 'status' => 503 ) );
+		}
+		if ( $recovered > 0 ) {
+			$released = $wpdb->query( $wpdb->prepare( 'UPDATE ' . self::jobs_table() . ' SET active_items=GREATEST(active_items-%d,0),updated_at=%s WHERE id=%d AND user_id=%d', absint( $recovered ), $now, absint( $job_id ), absint( $user_id ) ) );
+			if ( false === $released ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'mmps_batch_recovery_counter', 'Stale work could not be reconciled safely.', array( 'status' => 503 ) );
+			}
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'mmps_batch_recovery_commit', 'Stale work could not be committed safely.', array( 'status' => 503 ) );
+		}
+		return true;
 	}
 
-	protected static function release_slot( $job_id, $user_id ) {
+	/** Persist a claimed item transition and release its job slot as one unit. */
+	protected static function persist_claim_transition( $job_id, $user_id, $item_id, $token, $data ) {
 		global $wpdb;
-		$wpdb->query( $wpdb->prepare( 'UPDATE ' . self::jobs_table() . ' SET active_items=GREATEST(active_items-1,0),updated_at=%s WHERE id=%d AND user_id=%d', MMPS_Store::now(), absint( $job_id ), absint( $user_id ) ) );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'mmps_batch_transition_begin', 'The batch item transition could not begin safely.', array( 'status' => 503 ) );
+		}
+		$updated = $wpdb->update( self::items_table(), $data, array( 'id' => absint( $item_id ), 'user_id' => absint( $user_id ), 'lock_token' => (string) $token, 'status' => 'PROCESSING' ) );
+		$released = 1 === $updated ? $wpdb->query( $wpdb->prepare( 'UPDATE ' . self::jobs_table() . ' SET active_items=active_items-1,updated_at=%s WHERE id=%d AND user_id=%d AND active_items>0', MMPS_Store::now(), absint( $job_id ), absint( $user_id ) ) ) : false;
+		if ( 1 !== $updated || 1 !== $released ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'mmps_batch_transition_persist', 'The item state and worker slot could not be stored atomically. Its lease will recover automatically.', array( 'status' => 503 ) );
+		}
+		if ( MMPS_Gate::testing() && get_option( 'mmed_ps_proto_test_fail_transition_commit', false ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'mmps_batch_transition_commit', 'The item state and worker slot could not be committed safely.', array( 'status' => 503 ) );
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'mmps_batch_transition_commit', 'The item state and worker slot could not be committed safely.', array( 'status' => 503 ) );
+		}
+		return true;
 	}
 
 	protected static function refresh_job( $job_id ) {
 		global $wpdb;
 		$counts = array_fill_keys( array( 'QUEUED', 'PROCESSING', 'READY', 'RESEARCH_NEEDED', 'NEEDS_ATTENTION', 'FAILED' ), 0 );
-		foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT status,COUNT(*) n FROM ' . self::items_table() . ' WHERE job_id=%d GROUP BY status', absint( $job_id ) ), ARRAY_A ) as $row ) {
+		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT status,COUNT(*) n FROM ' . self::items_table() . ' WHERE job_id=%d GROUP BY status', absint( $job_id ) ), ARRAY_A );
+		if ( ! is_array( $rows ) ) {
+			return new WP_Error( 'mmps_batch_refresh_counts', 'The batch counters could not be read safely.', array( 'status' => 503 ) );
+		}
+		foreach ( $rows as $row ) {
 			$counts[ $row['status'] ] = absint( $row['n'] );
 		}
 		$total     = array_sum( $counts );
 		$processed = $counts['READY'] + $counts['RESEARCH_NEEDED'] + $counts['NEEDS_ATTENTION'] + $counts['FAILED'];
 		$status    = $counts['PROCESSING'] ? 'RUNNING' : ( $counts['QUEUED'] ? ( $processed ? 'PAUSED' : 'QUEUED' ) : ( $counts['FAILED'] || $counts['NEEDS_ATTENTION'] || $counts['RESEARCH_NEEDED'] ? 'COMPLETE_WITH_EXCEPTIONS' : 'READY_FOR_APPROVAL' ) );
-		$approved  = absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . self::items_table() . " WHERE job_id=%d AND approved_doc_uuid<>''", absint( $job_id ) ) ) );
+		$approved_value = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM " . self::items_table() . " WHERE job_id=%d AND approved_doc_uuid<>''", absint( $job_id ) ) );
+		if ( null === $approved_value ) {
+			return new WP_Error( 'mmps_batch_refresh_approved', 'The approval counter could not be read safely.', array( 'status' => 503 ) );
+		}
+		$approved = absint( $approved_value );
 		if ( $total > 0 && 0 === $counts['QUEUED'] && 0 === $counts['PROCESSING'] && $approved === $total ) {
 			$status = 'COMPLETE';
 		}
-		$wpdb->update(
+		$updated = $wpdb->update(
 			self::jobs_table(),
 			array( 'status' => $status, 'total_items' => $total, 'processed_items' => $processed, 'ready_items' => $counts['READY'], 'attention_items' => $counts['RESEARCH_NEEDED'] + $counts['NEEDS_ATTENTION'], 'failed_items' => $counts['FAILED'], 'updated_at' => MMPS_Store::now() ),
 			array( 'id' => absint( $job_id ) )
 		);
+		return false === $updated ? new WP_Error( 'mmps_batch_refresh_persist', 'The batch counters could not be stored safely.', array( 'status' => 503 ) ) : true;
 	}
 
 	protected static function shape_job_summary( $row ) {

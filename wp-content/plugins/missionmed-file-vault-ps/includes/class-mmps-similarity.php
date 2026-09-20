@@ -21,6 +21,11 @@ class MMPS_Similarity {
 		return hash( 'sha256', wp_salt( 'auth' ) . '|MissionMed|PSV|similarity|v1' );
 	}
 
+	/** Salt rotations create a new auditable algorithm identity and trigger re-keying. */
+	protected static function algorithm_id() {
+		return self::VERSION . ':' . substr( hash_hmac( 'sha256', 'key-id', self::key() ), 0, 16 );
+	}
+
 	protected static function normalize( $text ) {
 		$text = mb_strtolower( html_entity_decode( (string) $text, ENT_QUOTES | ENT_HTML5, 'UTF-8' ), 'UTF-8' );
 		$text = preg_replace( '/[^\p{L}\p{N}]+/u', ' ', $text );
@@ -47,12 +52,15 @@ class MMPS_Similarity {
 			}
 			$signature[] = null === $minimum ? '-' : $minimum;
 		}
-		$buckets   = array();
-		for ( $band = 0; $band < 16; $band++ ) {
-			$buckets[] = substr( hash_hmac( 'sha256', implode( '|', array_slice( $signature, $band * 4, 4 ) ), self::key() ), 0, 32 );
+		// One keyed bucket per MinHash position makes candidate retrieval complete:
+		// every score above zero shares at least one bucket. The previous four-value
+		// bands could miss genuine near duplicates whose equal values were dispersed.
+		$buckets = array();
+		foreach ( $signature as $index => $value ) {
+			$buckets[] = substr( hash_hmac( 'sha256', $index . '|' . $value, self::key() ), 0, 32 );
 		}
 		return array(
-			'version'   => self::VERSION,
+			'version'   => self::algorithm_id(),
 			'exactHmac' => hash_hmac( 'sha256', $normalized, self::key() ),
 			'signature' => $signature,
 			'buckets'   => $buckets,
@@ -72,20 +80,30 @@ class MMPS_Similarity {
 
 	public static function assess( $user_id, $region_text ) {
 		global $wpdb;
-		self::backfill();
+		$backfilled = self::backfill();
+		if ( is_wp_error( $backfilled ) ) {
+			return $backfilled;
+		}
 		$fingerprint = self::fingerprint( $region_text );
 		$table       = MMPS_Install::table( 'similarity_fingerprints' );
-		$exact       = absint( $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . $table . ' WHERE user_id<>%d AND exact_hmac=%s', absint( $user_id ), $fingerprint['exactHmac'] ) ) );
+		$exact_value = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . $table . ' WHERE algorithm=%s AND user_id<>%d AND exact_hmac=%s', self::algorithm_id(), absint( $user_id ), $fingerprint['exactHmac'] ) );
+		if ( null === $exact_value ) {
+			return new WP_Error( 'mmps_similarity_read', 'Cross-student protection could not be verified. Saving is paused safely.', array( 'status' => 503 ) );
+		}
+		$exact = absint( $exact_value );
 		if ( $exact ) {
 			return array( 'status' => 'EXACT_BLOCKED', 'band' => 'EXACT', 'fingerprint' => $fingerprint );
 		}
 		$b = $fingerprint['buckets'];
 		$marks = implode( ',', array_fill( 0, count( $b ), '%s' ) );
-		$args  = array_merge( array( absint( $user_id ) ), $b );
+		$args  = array_merge( array( self::algorithm_id(), absint( $user_id ) ), $b );
 		$rows = $wpdb->get_results(
-			$wpdb->prepare( 'SELECT DISTINCT f.signature_json FROM ' . MMPS_Install::table( 'similarity_buckets' ) . ' b INNER JOIN ' . $table . ' f ON f.doc_uuid=b.doc_uuid WHERE b.user_id<>%d AND b.bucket_hash IN (' . $marks . ') LIMIT 500', $args ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders are generated and all values prepared.
+			$wpdb->prepare( 'SELECT DISTINCT f.signature_json FROM ' . MMPS_Install::table( 'similarity_buckets' ) . ' b INNER JOIN ' . $table . ' f ON f.doc_uuid=b.doc_uuid WHERE f.algorithm=%s AND b.user_id<>%d AND b.bucket_hash IN (' . $marks . ')', $args ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders are generated and all values prepared.
 			ARRAY_A
 		);
+		if ( ! is_array( $rows ) ) {
+			return new WP_Error( 'mmps_similarity_read', 'Cross-student protection could not be verified. Saving is paused safely.', array( 'status' => 503 ) );
+		}
 		$max = 0.0;
 		foreach ( (array) $rows as $row ) {
 			$other = json_decode( (string) $row['signature_json'], true );
@@ -103,10 +121,41 @@ class MMPS_Similarity {
 		global $wpdb;
 		$library = MMPS_Install::table( 'library' );
 		$table   = MMPS_Install::table( 'similarity_fingerprints' );
-		$rows    = $wpdb->get_results( 'SELECT l.doc_uuid,l.user_id,l.region_text FROM ' . $library . ' l LEFT JOIN ' . $table . ' f ON f.doc_uuid=l.doc_uuid WHERE f.id IS NULL ORDER BY l.id LIMIT 250', ARRAY_A );
-		foreach ( (array) $rows as $row ) {
-			self::store( absint( $row['user_id'] ), $row['doc_uuid'], self::fingerprint( $row['region_text'] ) );
+		for ( $page = 0; $page < 40; $page++ ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare( 'SELECT l.doc_uuid,l.user_id,l.region_text FROM ' . $library . ' l LEFT JOIN ' . $table . ' f ON f.doc_uuid=l.doc_uuid WHERE f.id IS NULL OR f.algorithm<>%s ORDER BY l.id LIMIT 250', self::algorithm_id() ),
+				ARRAY_A
+			);
+			if ( ! is_array( $rows ) ) {
+				return new WP_Error( 'mmps_similarity_backfill_read', 'Cross-student protection could not be refreshed. Saving is paused safely.', array( 'status' => 503 ) );
+			}
+			if ( ! $rows ) {
+				return true;
+			}
+			foreach ( $rows as $row ) {
+				if ( ! self::replace_stored( absint( $row['user_id'] ), $row['doc_uuid'], self::fingerprint( $row['region_text'] ) ) ) {
+					return new WP_Error( 'mmps_similarity_backfill_write', 'Cross-student protection could not be refreshed. Saving is paused safely.', array( 'status' => 503 ) );
+				}
+			}
 		}
+		return new WP_Error( 'mmps_similarity_backfill_capacity', 'Cross-student protection is still refreshing a large library. Saving is paused safely; retry shortly.', array( 'status' => 503 ) );
+	}
+
+	/** Re-key one existing document atomically when the server-side salt changes. */
+	protected static function replace_stored( $user_id, $doc_uuid, $fingerprint ) {
+		global $wpdb;
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) { return false; }
+		$deleted_buckets = $wpdb->delete( MMPS_Install::table( 'similarity_buckets' ), array( 'doc_uuid' => (string) $doc_uuid ) );
+		$deleted_fingerprint = $wpdb->delete( MMPS_Install::table( 'similarity_fingerprints' ), array( 'doc_uuid' => (string) $doc_uuid ) );
+		if ( false === $deleted_buckets || false === $deleted_fingerprint || ! self::store( $user_id, $doc_uuid, $fingerprint ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return false;
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return false;
+		}
+		return true;
 	}
 
 	public static function store( $user_id, $doc_uuid, $fingerprint ) {
@@ -117,7 +166,7 @@ class MMPS_Similarity {
 			array(
 				'doc_uuid'       => (string) $doc_uuid,
 				'user_id'        => absint( $user_id ),
-				'algorithm'      => self::VERSION,
+				'algorithm'      => self::algorithm_id(),
 				'exact_hmac'     => (string) $fingerprint['exactHmac'],
 				'bucket_a'       => (string) ( $b[0] ?? '' ),
 				'bucket_b'       => (string) ( $b[1] ?? '' ),

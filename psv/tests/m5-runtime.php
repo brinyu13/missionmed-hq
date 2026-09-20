@@ -16,5 +16,6 @@ m5runtime(MMPS_Similarity::score($a['signature'],$n['signature'])>=MMPS_Similari
 m5runtime(MMPS_Similarity::score($a['signature'],$o['signature'])<MMPS_Similarity::NEAR_THRESHOLD,'different valid rhetoric is not penalized as near duplication');
 $serialized=json_encode($a);
 m5runtime(!str_contains($serialized,'careful clinical')&&!str_contains($serialized,'Lakeview'),'fingerprint payload contains no source phrase');
-m5runtime(count($a['signature'])===MMPS_Similarity::SIGNATURE_SIZE&&count($a['buckets'])===16,'signature and privacy-safe lookup buckets are bounded');
+m5runtime(count($a['signature'])===MMPS_Similarity::SIGNATURE_SIZE&&count($a['buckets'])===MMPS_Similarity::SIGNATURE_SIZE,'every MinHash position has a privacy-safe lookup bucket');
+m5runtime(MMPS_Similarity::score($a['signature'],$n['signature'])<MMPS_Similarity::NEAR_THRESHOLD||count(array_intersect($a['buckets'],$n['buckets']))>0,'every above-threshold near match is retrievable by at least one bucket');
 fwrite(STDOUT,"PSV M5 RUNTIME: PASS ({$pass} assertions)\n");

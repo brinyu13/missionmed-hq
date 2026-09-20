@@ -1,6 +1,6 @@
 // API-level end-to-end checks against the local WordPress + stub RISE/AI. LOCAL HARNESS ONLY.
 import fs from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import zlib from 'node:zlib';
 
 const BASE = 'http://127.0.0.1:8088';
@@ -42,6 +42,13 @@ const php = (code) => { const f = `${HARNESS}/.snippet.php`; fs.writeFileSync(f,
 const aiLog = async () => (await fetch('http://127.0.0.1:4012/__log')).json();
 const aiMode = async (m) => fetch('http://127.0.0.1:4012/__mode?m=' + m);
 const flags = (extra) => fs.writeFileSync(`${SITE}/harness-flags.php`, `<?php\ndefine( 'MMED_PS_PROTO_OPENAI_API_KEY', 'local-stub-not-a-real-key' );\n${extra}\n`);
+const concurrentWorker = (jobUuid, waitMs = 0) => new Promise((resolve) => setTimeout(() => {
+  const child = spawn('php', [`${HARNESS}/concurrent-worker.php`, jobUuid], { env: { ...process.env, MMPS_HARNESS_ROOT: HARNESS_ROOT } });
+  let stdout = '', stderr = '';
+  child.stdout.on('data', chunk => { stdout += chunk; });
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  child.on('close', code => { let json = null; try { json = JSON.parse(stdout); } catch {} resolve({ code, json, stdout, stderr }); });
+}, waitMs));
 
 // ---------- 0. baseline fingerprints (blast radius) ----------
 const before = php(`global $wpdb; echo json_encode(array('fv'=>$wpdb->get_var('SELECT COUNT(*) FROM '.MMED_File_Vault::table_name()),'fvsum'=>md5(json_encode($wpdb->get_results('SELECT * FROM '.MMED_File_Vault::table_name()))),'posts'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts}"),'users'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->users}"),'usermeta'=>$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key NOT LIKE 'session_tokens' AND meta_key NOT LIKE '%user-settings%'")));`);
@@ -171,7 +178,7 @@ ok('unsupported DEEP -> Research Needed, AI never called, nothing invented', r.s
 r = await t.api('POST', '/research-prompt', { programSpecialtyId: 'ps_thin_002' });
 ok('M4 research prompt: optimized exact artifact contract with program data only', r.json.planned === false && r.json.ingestion === 'QUARANTINE_AVAILABLE_RISE_OWNER_REQUIRED' && r.json.schema === 'missionmed.rise.research-artifact.v1' && r.json.prompt.includes('FACT-001') && r.json.prompt.includes('Riverbend') && !/Corridor|Émile|glucometer/.test(r.json.prompt));
 const researchedAt = new Date().toISOString().slice(0, 10);
-const validResearch = `---\nschema: missionmed.rise.research-artifact.v1\nprogram_specialty_id: ps_thin_002\nacgme_id: 1403821002\nprogram_name: Riverbend Community Hospital Internal Medicine Residency\nresearched_at: ${researchedAt}\nresearch_agent: Astra Research Test\n---\n# MissionMed Program Research Evidence\n\n## Evidence records\n### FACT-001\n- field: research.curriculum\n- claim: The official curriculum page describes a longitudinal ambulatory experience integrated throughout residency training.\n- source_url: https://riverbend.example.org/im/curriculum\n- source_type: PROGRAM_OFFICIAL\n- accessed_at: ${researchedAt}\n\n### FACT-002\n- field: research.facilities_patient_population\n- claim: The sponsoring institution page identifies Riverbend Community Hospital as the primary inpatient training site.\n- source_url: https://riverbend.example.org/im/sites\n- source_type: SPONSOR_OFFICIAL\n- accessed_at: ${researchedAt}\n`;
+const validResearch = `---\nschema: missionmed.rise.research-artifact.v1\nprogram_specialty_id: ps_thin_002\nacgme_id: 1403821002\nprogram_name: Riverbend Community Hospital Internal Medicine Residency\nresearched_at: ${researchedAt}\nresearch_agent: Astra Research Test\n---\n# MissionMed Program Research Evidence\n\n## Evidence records\n### FACT-001\n- field: research.curriculum\n- claim: The official curriculum page describes a longitudinal ambulatory experience integrated throughout residency training.\n- source_url: https://im.ps-thin-002.example.org/curriculum\n- source_type: PROGRAM_OFFICIAL\n- accessed_at: ${researchedAt}\n\n### FACT-002\n- field: research.facilities_patient_population\n- claim: The sponsoring institution page identifies Riverbend Community Hospital as the primary inpatient training site.\n- source_url: https://im.ps-thin-002.example.org/sites\n- source_type: SPONSOR_OFFICIAL\n- accessed_at: ${researchedAt}\n`;
 const rejectedResearch = validResearch.replace('1403821002', '9999999999').replace('The official curriculum page', 'Applicant email student@example.com says the official curriculum page');
 r = await t.upload('/research-artifacts', { programSpecialtyId: 'ps_thin_002', rootId: root.id }, 'unsafe.md', rejectedResearch);
 ok('M4 upload: unsafe or identity-mismatched artifact is retained only as rejected quarantine', r.status === 200 && r.json.artifact.status === 'QUARANTINED_REJECTED' && r.json.riseHydrated === false && r.json.artifact.validation.errors.some(e => e.code === 'APPLICANT_DATA') && r.json.artifact.validation.errors.some(e => e.code === 'IDENTITY_ACGME_ID'));
@@ -311,6 +318,33 @@ r = await t.api('PUT', `/batch/jobs/${job.jobUuid}/items/${preserved.itemUuid}/t
 job = r.json.job;
 const requeued = job.items.find(x => x.itemUuid === preserved.itemUuid);
 ok('M3 selective regeneration preserves the approved document and reports a non-complete job while requeueing one item', requeued.status === 'QUEUED' && requeued.tierRequested === newTier && requeued.approvedDocUuid === preserved.approvedDocUuid && job.status !== 'COMPLETE' && job.items.filter(x => x.itemUuid !== preserved.itemUuid).every(x => x.status !== 'QUEUED'));
+r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: [
+  { programSpecialtyId: 'ps_deep_001', priorityPosition: 1, goldStarred: true, tier: 'ESSENTIAL' },
+  { programSpecialtyId: 'ps_ess_003', priorityPosition: 30, goldStarred: false, tier: 'ESSENTIAL' },
+  { programSpecialtyId: 'ps_dirty_004', priorityPosition: 31, goldStarred: false, tier: 'ESSENTIAL' }
+] });
+const liveConcurrencyJob = r.json.job;
+await aiMode('slow-good');
+const simultaneous = await Promise.all([0, 50, 100].map(ms => concurrentWorker(liveConcurrencyJob.jobUuid, ms)));
+await aiMode('good');
+r = await t.api('GET', `/batch/jobs/${liveConcurrencyJob.jobUuid}`);
+const concurrentJob = r.json.job;
+ok('M3 live concurrency: independent workers admit exactly two and roll the saturated claim back cleanly', simultaneous.filter(x => x.code === 0 && x.json?.run).length === 2 && simultaneous.filter(x => x.code === 0 && x.json?.saturated).length === 1 && concurrentJob.items.filter(x => x.status === 'READY').length === 2 && concurrentJob.items.filter(x => x.status === 'QUEUED' && x.attemptCount === 0).length === 1 && Number(php(`global $wpdb; echo $wpdb->get_var($wpdb->prepare('SELECT active_items FROM '.$wpdb->prefix.'mmed_ps_proto_jobs WHERE job_uuid=%s','${liveConcurrencyJob.jobUuid}'));`)) === 0, JSON.stringify(simultaneous.map(x => [x.code, !!x.json?.run, !!x.json?.saturated, x.json?.error, x.stderr.slice(0, 120)])));
+
+r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: [
+  { programSpecialtyId: 'ps_ess_003', priorityPosition: 30, goldStarred: false, tier: 'ESSENTIAL' }
+] });
+const commitFailureJob = r.json.job;
+php(`update_option('mmed_ps_proto_test_fail_transition_commit',1);`);
+const callsBeforeCommitFailure = (await aiLog()).length;
+r = await t.api('POST', `/batch/jobs/${commitFailureJob.jobUuid}/process`, {});
+ok('M3 injected transition commit failure returns 503 and leaves the claimed state recoverable', r.status === 503 && r.json.code === 'mmps_batch_transition_commit' && Number(php(`global $wpdb; echo $wpdb->get_var($wpdb->prepare('SELECT active_items FROM '.$wpdb->prefix.'mmed_ps_proto_jobs WHERE job_uuid=%s','${commitFailureJob.jobUuid}'));`)) === 1, r.text.slice(0, 300));
+php(`delete_option('mmed_ps_proto_test_fail_transition_commit'); global $wpdb; $wpdb->query($wpdb->prepare("UPDATE ".$wpdb->prefix."mmed_ps_proto_job_items SET locked_until=%s WHERE job_id=%d AND status='PROCESSING'",gmdate('Y-m-d H:i:s',time()-30),${commitFailureJob.id}));`);
+r = await t.api('GET', `/batch/jobs/${commitFailureJob.jobUuid}`);
+const recoveredFailureJob = r.json.job;
+const callsBeforeRetry = (await aiLog()).length;
+r = await t.api('POST', `/batch/jobs/${commitFailureJob.jobUuid}/process`, {});
+ok('M3 failed commit recovery releases the exact stale slot and reuses provider work idempotently', recoveredFailureJob.items[0].status === 'QUEUED' && recoveredFailureJob.items[0].lastErrorCode === 'STALE_LOCK_RECOVERED' && r.status === 200 && r.json.run && Number(php(`global $wpdb; echo $wpdb->get_var($wpdb->prepare('SELECT active_items FROM '.$wpdb->prefix.'mmed_ps_proto_jobs WHERE job_uuid=%s','${commitFailureJob.jobUuid}'));`)) === 0 && (await aiLog()).length === callsBeforeRetry && callsBeforeRetry === callsBeforeCommitFailure + 1, r.text.slice(0, 300));
 r = await t.api('POST', '/batch/jobs', { rootId: root.id, programs: [
   { programSpecialtyId: 'ps_deep_001', priorityPosition: 1, goldStarred: true, tier: 'ESSENTIAL' },
   { programSpecialtyId: 'ps_thin_002', priorityPosition: 2, goldStarred: false, tier: 'ESSENTIAL' },

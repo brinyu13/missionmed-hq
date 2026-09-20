@@ -480,6 +480,21 @@
   "detail": ""
  },
  {
+  "name": "M3 live concurrency: independent workers admit exactly two and roll the saturated claim back cleanly",
+  "pass": true,
+  "detail": "[[0,true,false,null,\"\"],[0,true,false,null,\"\"],[0,false,true,null,\"\"]]"
+ },
+ {
+  "name": "M3 injected transition commit failure returns 503 and leaves the claimed state recoverable",
+  "pass": true,
+  "detail": "mmps_batch_transition_commit"
+ },
+ {
+  "name": "M3 failed commit recovery releases the exact stale slot and reuses provider work idempotently",
+  "pass": true,
+  "detail": "stale slot released; provider request count unchanged on retry"
+ },
+ {
   "name": "M3 server concurrency: a third claimant is refused without consuming an item attempt",
   "pass": true,
   "detail": "{\"job\":{\"id\":2,\"jobUuid\":\"cfbc55c4-f97c-4d1a-bcad-0f4f51d6df0d\",\"rootId\":2,\"specialtyLabel\":\"Internal Medicine\",\"status\":\"RUNNING\",\"total\":3,\"processed\":0,\"ready\":0,\"attention\":0,\"failed\":0,\"config\":{\"defaultDeepCutoff\":25,\"workers\":2,\"rootTextSha256\":\"4dbb7ff4bfe2338185835183fe33dcb65643d35dd15973d"

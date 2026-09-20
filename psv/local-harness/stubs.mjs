@@ -120,7 +120,9 @@ http.createServer((req, res) => {
       return { candidate_id: key, replacement_region: segs.map(s => s.text).join(' '), segments: segs, facts_used: [...new Set(segs.flatMap(s => s.fact_ids))], strategy: key, rhetorical_focus: `Stub fixture for ${key}`, self_check: { name_swap_would_still_work: false, possible_unsupported_claims: [], generic_phrases: [] } };
     });
     const out = { recommended_candidate_id: 'BALANCED_QUIET_SPECIFIC', candidates };
-    send(res, 200, { id: 'resp_stub', output: [{ type: 'reasoning', summary: [] }, { type: 'message', content: [{ type: 'output_text', text: JSON.stringify(out) }] }], usage: { input_tokens: 1800, output_tokens: 260 } });
+    const finish = () => send(res, 200, { id: 'resp_stub', output: [{ type: 'reasoning', summary: [] }, { type: 'message', content: [{ type: 'output_text', text: JSON.stringify(out) }] }], usage: { input_tokens: 1800, output_tokens: 260 } });
+    if (mode === 'slow-good') return setTimeout(finish, 800);
+    finish();
   });
 }).listen(4012, '127.0.0.1');
 

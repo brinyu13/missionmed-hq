@@ -33,6 +33,22 @@ class MMPS_Research {
 		return array( 'PROGRAM_OFFICIAL', 'SPONSOR_OFFICIAL', 'ACGME_PUBLIC' );
 	}
 
+	protected static function related_host( $left, $right ) {
+		$left  = strtolower( trim( (string) $left, ". \t\n\r\0\x0B" ) );
+		$right = strtolower( trim( (string) $right, ". \t\n\r\0\x0B" ) );
+		if ( '' === $left || '' === $right ) { return false; }
+		return $left === $right || str_ends_with( $left, '.' . $right ) || str_ends_with( $right, '.' . $left );
+	}
+
+	/** A source label is accepted only when RISE identity can substantiate its host. */
+	protected static function source_host_allowed( $host, $source_type, $program ) {
+		if ( 'ACGME_PUBLIC' === $source_type ) {
+			return self::related_host( $host, 'acgme.org' );
+		}
+		$official_host = strtolower( (string) parse_url( (string) ( $program['officialUrl'] ?? '' ), PHP_URL_HOST ) );
+		return in_array( $source_type, array( 'PROGRAM_OFFICIAL', 'SPONSOR_OFFICIAL' ), true ) && self::related_host( $host, $official_host );
+	}
+
 	public static function upload( $user_id, $root_id, $program, $file ) {
 		global $wpdb;
 		MMPS_Install::maybe_install();
@@ -167,6 +183,7 @@ class MMPS_Research {
 			$host = strtolower( (string) parse_url( $url, PHP_URL_HOST ) );
 			if ( preg_match( '/(?:^|\.)(?:reddit\.com|studentdoctor\.net|facebook\.com|instagram\.com|x\.com|twitter\.com)$/', $host ) ) { $add( $prefix . 'SOURCE_BLOCKED', 'Forums and social platforms are not accepted sources.' ); }
 			if ( ! in_array( $stype, self::source_types(), true ) ) { $add( $prefix . 'SOURCE_TYPE', 'source_type must be PROGRAM_OFFICIAL, SPONSOR_OFFICIAL or ACGME_PUBLIC.' ); }
+			elseif ( ! self::source_host_allowed( $host, $stype, $program ) ) { $add( $prefix . 'SOURCE_AUTHORITY_UNVERIFIED', 'The claimed source authority does not match the current RISE official program domain or ACGME public domain.' ); }
 			if ( ! self::valid_date( $date ) ) { $add( $prefix . 'ACCESS_DATE', 'Every fact needs a valid accessed_at date.' ); }
 			$key = hash( 'sha256', strtolower( $field . '|' . preg_replace( '/\s+/u', ' ', $claim ) . '|' . $url ) );
 			if ( isset( $seen[ $key ] ) ) { $add( $prefix . 'DUPLICATE', 'Duplicate evidence records are prohibited.' ); }

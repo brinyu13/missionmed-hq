@@ -379,7 +379,10 @@ class MMPS_Rest {
 			MMPS_Store::set_document_status( self::uid(), $doc['docUuid'], 'APPROVED' );
 			$doc = MMPS_Store::get_document( self::uid(), $doc['docUuid'] );
 		}
-		MMPS_Batch::mark_approved( self::uid(), $job_uuid, $item_uuid, $doc['docUuid'] );
+		$linked = MMPS_Batch::mark_approved( self::uid(), $job_uuid, $item_uuid, $doc['docUuid'] );
+		if ( is_wp_error( $linked ) ) {
+			return $linked;
+		}
 		return $doc;
 	}
 
@@ -416,8 +419,10 @@ class MMPS_Rest {
 		if ( is_wp_error( $bundle ) ) {
 			return $bundle;
 		}
-		$p       = $bundle['program'];
-		$have    = $bundle['evidenceQuality']['deepFields'];
+		$p              = $bundle['program'];
+		$have           = $bundle['evidenceQuality']['deepFields'];
+		$example_source = $p['officialUrl'] ? rtrim( $p['officialUrl'], '/' ) . '/exact-page' : 'https://apps.acgme.org/ads/Public/Programs/' . rawurlencode( $p['acgmeId'] );
+		$example_type   = $p['officialUrl'] ? 'PROGRAM_OFFICIAL' : 'ACGME_PUBLIC';
 		$domains = array(
 			'research.program_differentiators'        => 'What the program itself says sets it apart',
 			'research.curriculum'                     => 'Curriculum and training structure (tracks, rotations, sites, schedule model)',
@@ -449,6 +454,7 @@ class MMPS_Rest {
 			'',
 			'## Rules',
 			'- Use the program\'s own pages, its sponsoring institution and ACGME public data. Do not use forums, review sites or applicant spreadsheets.',
+			'- For PROGRAM_OFFICIAL or SPONSOR_OFFICIAL, use only the current RISE official program domain shown above (including its parent or subdomains). For ACGME_PUBLIC, use only acgme.org. Other hosts will be quarantined as unverified authority.',
 			'- Record only what the cited source states. No inference, no marketing or praise language, and no comparison with other programs.',
 			'- Every fact needs its exact https source URL and the date you read it.',
 			'- If a domain has nothing public, say "not publicly available". Do not fill the gap.',
@@ -472,15 +478,15 @@ class MMPS_Rest {
 			'### FACT-001',
 			'- field: research.curriculum',
 			'- claim: One source-faithful factual claim of 20–600 characters.',
-			'- source_url: https://official.example.edu/exact-page',
-			'- source_type: PROGRAM_OFFICIAL',
+			'- source_url: ' . $example_source,
+			'- source_type: ' . $example_type,
 			'- accessed_at: YYYY-MM-DD',
 			'',
 			'### FACT-002',
 			'- field: research.facilities_patient_population',
 			'- claim: A second source-faithful factual claim.',
-			'- source_url: https://official.example.edu/exact-page',
-			'- source_type: PROGRAM_OFFICIAL',
+			'- source_url: ' . $example_source,
+			'- source_type: ' . $example_type,
 			'- accessed_at: YYYY-MM-DD',
 			'```',
 			'',
@@ -601,6 +607,9 @@ class MMPS_Rest {
 			return $integrity;
 		}
 		$similarity = MMPS_Similarity::assess( $uid, (string) $candidate['replacement_region'] );
+		if ( is_wp_error( $similarity ) ) {
+			return $similarity;
+		}
 		if ( 'EXACT_BLOCKED' === $similarity['status'] ) {
 			return new WP_Error( 'mmps_cross_student_exact', 'This paragraph exactly matches another protected student output. No other student prose is exposed; choose another candidate or regenerate.', array( 'status' => 409, 'similarity' => 'EXACT' ) );
 		}
