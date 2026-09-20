@@ -1,6 +1,6 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-09-20 11:37 America/New_York
+Updated: 2026-09-20 11:48 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`
 Branch: `codex/ivoc-converge-8001-production`
@@ -26,9 +26,9 @@ the actual production route and deployment.
   provider behavior remains below that boundary. Current page composition is
   not presentation canon merely because a capability is wired into it.
 - Active presentation/runtime deployment:
-  `892a005d-401c-495f-8f41-4a40d2f69c76`, exact commit
-  `16b3284adea43ff4bfe320f1d71544710856b631`, image
-  `sha256:100645b9f4b3a65a0dbd1f842b82e6693f2cb7579809e7e5d19eaad0ba146a46`.
+  `445508af-ad4d-443e-a33b-3a70ce5bbb03`, exact commit
+  `1df61a5ed1547a9c97feaf86679589ff5bf5ca6d`, image
+  `sha256:3918bcb971ee6e0501bd027619377a06b3bbbe3831edfa5f7f5fb61e5b57a375`.
 - GPT-Live WebRTC InterviewBrain integration:
   `0b272bbc8f1ea168b05603c0da5a0cd7f154bee3`.
 - Durable authenticated recording, Analytics-result persistence, playback,
@@ -60,7 +60,7 @@ the actual production route and deployment.
 - MissionMed organization: `jolimsgwkmssvhegrdfx`.
 - Region: `us-east-2`.
 - Provider status: `ACTIVE_HEALTHY`.
-- Nine production migrations are present:
+- Ten production migrations are present:
   `ivprep_3440_admin_canary`,
   `ivprep_3472c_t1_three_test_lifecycle`,
   `ivoc_3528c_session_recording_results`,
@@ -68,8 +68,9 @@ the actual production route and deployment.
   `ivoc_access_log_recording_index`, and
   `ivoc_production_privilege_hardening`,
   `ivoc_question_governance`,
-  `ivoc_application_intelligence_context_packs`, and
-  `ivoc_question_governance_fail_fast`.
+  `ivoc_application_intelligence_context_packs`,
+  `ivoc_question_governance_fail_fast`, and
+  `ivoc_mentor_priorities`.
 - Provider readback after the hardening migration:
   17/17 IVOC/IV Prep tables have RLS enabled and forced; browser/public table
   grants = 0; excess `service_role` grants
@@ -77,7 +78,9 @@ the actual production route and deployment.
   reservation foreign-key covering index is present.
 - Bounded acceptance rows now exist: all GPT-Live canary sessions are
   abandoned, and one clearly labeled retired Admin-governance canary preserves
-  four immutable versions. No production recording/media was created by these
+  four immutable versions. The Mentor Top 3 canary preserves one populated and
+  one cleared append-only version, both actor-stamped `wp:1`; both associated
+  sessions are abandoned. No production recording/media was created by these
   canaries. The single
   `ivprep_provider_control` row remains fail-closed:
   `paid_tests_enabled=false`, `kill_switch_tripped=true`.
@@ -116,7 +119,7 @@ the actual production route and deployment.
 | 10 | File Vault context/performance-reference seam | EXTERNAL DEPENDENCY | Current owner source is `J1-FILEVAULT-1019`; its live `/wp-json/mmed/v2/file-vault/bootstrap` contract requires same-origin WordPress cookie + `X-WP-Nonce` and rejects authorization-header/cross-origin use. IVOC fails closed with disabled “Not connected” cards. A consented server projection must be opened through File Vault owner authority; IVOC must not weaken or mutate the owner contract. |
 | 10 | StoryForge opt-in story/theme and performance evidence | LIVE UNVERIFIED | IVOC source seam exists; live sibling-owner projection remains. |
 | 10 | RISE sourced/fresh program context | NOT STARTED | Exact live owner contract and freshness receipt still required. |
-| 10 | MCC / Top 3 / Mentor owner projections | NOT STARTED | Exact live owner contracts still required. |
+| 10 | MCC / Top 3 / Mentor owner projections | LIVE VERIFIED | With no MCC owner authority present, IVOC now owns the versioned Mentor Top 3 contract. Genuine `brinyu` production v1 generated one `ivoc.mentor_priorities` receipt, two bounded facts and one `AIS-R09` signal in session `4e275dac-a613-45a2-85d5-1d35413c8e47`; the Actor received the shared priority and not the mentor-only note. Append-only v2 cleared the projection, a stale write returned 409, and cleared-state session `f378c2a0-0cc0-4422-b042-f4cbfe334261` had zero leaked inputs. |
 | 10 | Prior-IVOC longitudinal context | LIVE UNVERIFIED | Production schema supports it; multi-session production proof remains. |
 | 10 | Calendar interview adapter | NOT STARTED | Owner capability and contract must be resolved without mutating sibling assets. |
 | 10 | Match Bridge bounded consented clip seam | NOT STARTED | IVOC clip contract and live owner handoff remain. |
@@ -124,7 +127,7 @@ the actual production route and deployment.
 | 11 | Assessments, strongest moments, improvements, drills, confidence/limitations | LIVE UNVERIFIED | Results source exists; evidence-linked production output remains. |
 | 12 | Longitudinal metrics, deltas, filters and prior-self comparison | LIVE VERIFIED | Evidence-backed Progress, Compare and Performance Intelligence shipped at 30fb859 and remain present in 84e750e; live authenticated readback proved honest single-attempt gating and measured duration/volume evidence. |
 | 13 | Admin View / Student View presentation switch without impersonation | LIVE UNVERIFIED | Role-aware source exists; live actor/subject separation proof remains. |
-| 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Partial source surfaces exist; full production Admin acceptance remains. |
+| 13 | Student selector, libraries, Results, Film Room, Progress and Top 3 | LIVE UNVERIFIED | Versioned Top 3 write/read/redaction and Context Pack binding are production accepted. Student selector and full production Admin traversal remain. |
 | 13 | Usage/credits, Settings, AI controls, question governance, Match Bridge and Live Mock status | NOT STARTED | Full Admin ledger surface is incomplete. |
 | 14 | Versioned question governance | LIVE VERIFIED | Genuine `brinyu` production canary `CANARY-ADMIN-20260920-E92A09` completed active v1 → edited v2 → hidden v3 → retired v4 with immutable `wp:1` actor-stamped history. Stale version and retired-reactivation writes fail fast at HTTP 409; the retry-class SQLSTATE defect found during the canary was corrected by `ivoc_question_governance_fail_fast`. |
 | 14 | Credits, allowances, overrides, reset and balance | NOT STARTED | Production accounting/control model remains. |
@@ -146,8 +149,8 @@ the actual production route and deployment.
 ## Current production and governance gates
 
 - MissionMed HQ production is now Railway deployment
-  `892a005d-401c-495f-8f41-4a40d2f69c76` from exact product commit
-  `16b3284adea43ff4bfe320f1d71544710856b631`; `/health` is HTTP 200, the
+  `445508af-ad4d-443e-a33b-3a70ce5bbb03` from exact product commit
+  `1df61a5ed1547a9c97feaf86679589ff5bf5ca6d`; `/health` is HTTP 200, the
   unauthenticated product route remains fail-closed at HTTP 401, and the
   verified second-Admin allowlist is `wp:1,wp:107`.
 - Runtime bindings point to dedicated project `bscnrgqlwsyygyfrbhfn` without
@@ -167,7 +170,9 @@ the actual production route and deployment.
   across Spine/context writes, never returns the full pack or Actor block to
   the browser, and resolves the bounded Actor block directly into the trusted
   GPT-Live startup path. Genuine authenticated session/readback and live native
-  audio acceptance passed; owner projections remain explicit gates.
+  audio acceptance passed. IVOC-owned Mentor Top 3 is now a live versioned
+  projection; File Vault, StoryForge and RISE owner projections remain explicit
+  external gates.
 - Root runtime dependency audit previously reported zero vulnerabilities. Default
   branch repository-security advisories remain separate security-owner work until
   re-triaged against the production commit.
@@ -187,7 +192,7 @@ the actual production route and deployment.
 ## Next execution lanes
 
 1. Resolve owner projection contracts in dependency order: File Vault/CV,
-   StoryForge, RISE, then MCC/Top 3; keep unavailable sources fail-closed.
+   StoryForge, then RISE; keep unavailable sources fail-closed.
 2. Run authenticated second-Admin, entitled-360 and negative-role/private-media
    canaries when genuine sessions are available; never manufacture identities.
 3. Exercise a real multi-turn follow-up/gap range and a transcript that produces
