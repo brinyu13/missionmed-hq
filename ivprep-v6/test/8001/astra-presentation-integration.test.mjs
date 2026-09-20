@@ -89,6 +89,13 @@ test('Answer History exposes question and evidence filters without inventing sem
   assert.match(runtime, /renderId !== vaultRenderId \|\| state\.view !== 'vault'/u);
 });
 
+test('Live Mock Studio stays behind the Scheduler owner capability boundary', () => {
+  assert.match(runtime, /LiveMockStudioCapability/u);
+  assert.match(runtime, /Scheduler\/Webex remains the owner/u);
+  assert.match(runtime, /renderId !== liveMockRenderId \|\| state\.role !== 'admin'/u);
+  assert.match(html, /id="live-mock-studio" data-admin-only/u);
+});
+
 test('the product document has unique element ids', () => {
   const ids = [...html.matchAll(/\sid="([^"]+)"/gu)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);

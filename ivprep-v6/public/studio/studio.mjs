@@ -24,6 +24,7 @@ import { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
 import { InstrumentRack } from './instruments.mjs';
 import { buildLongitudinalModel, compareAttempts } from './longitudinal-model.mjs';
 import { createLiveContext } from './live-context-adapter.mjs';
+import { LiveMockStudioCapability } from '../capabilities/live-mock-studio.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -82,6 +83,7 @@ const state = {
   comparePair: [0, 1],
   governedQuestions: [],
   adminOverview: null,
+  liveMock: new LiveMockStudioCapability(),
   vaultFilter: { query: '', evidence: 'all' },
 };
 
@@ -313,20 +315,26 @@ function renderAdminFacts(host, facts) {
   host.replaceChildren(list);
 }
 
+function renderIntegrationFacts(host, { liveMock = 'CHECKING OWNER', liveMockReady = false } = {}) {
+  renderAdminFacts(host, [
+    { label: 'Match Bridge', value: 'BOUNDED CLIPS READY', state: 'ready' },
+    { label: 'Live Mock Studio', value: liveMock, state: liveMockReady ? 'ready' : 'limited' },
+    { label: 'File Vault / RISE / StoryForge', value: 'OWNER PROJECTION REQUIRED', state: 'limited' },
+    { label: 'LemonSlice', value: 'DEFERRED', state: 'limited' },
+  ]);
+}
+
 async function renderAdminOverview() {
   if (state.role !== 'admin') return;
   const configHost = $('[data-admin-summary="config"]');
   const creditHost = $('[data-admin-summary="credits"]');
   const questionHost = $('[data-admin-summary="questions"]');
   const integrationHost = $('[data-admin-summary="integrations"]');
+  const liveMockHost = $('#live-mock-studio');
   if (!configHost || !creditHost || !questionHost || !integrationHost) return;
 
-  renderAdminFacts(integrationHost, [
-    { label: 'Match Bridge', value: 'BOUNDED CLIPS READY', state: 'ready' },
-    { label: 'Live Mock Studio', value: 'NOT CONNECTED', state: 'limited' },
-    { label: 'File Vault / RISE / StoryForge', value: 'OWNER PROJECTION REQUIRED', state: 'limited' },
-    { label: 'LemonSlice', value: 'DEFERRED', state: 'limited' },
-  ]);
+  renderIntegrationFacts(integrationHost);
+  if (liveMockHost) void renderLiveMockStudio(liveMockHost, integrationHost);
 
   try {
     const overview = state.adminOverview || await state.durable.adminOverview();
@@ -364,6 +372,60 @@ async function renderAdminOverview() {
       empty.append(strong, document.createTextNode(reason));
       host.replaceChildren(empty);
     }
+  }
+}
+
+let liveMockRenderId = 0;
+
+async function renderLiveMockStudio(host, integrationHost) {
+  const renderId = ++liveMockRenderId;
+  host.replaceChildren();
+  try {
+    const queue = await state.liveMock.adminQueue();
+    if (renderId !== liveMockRenderId || state.role !== 'admin' || state.view !== 'mentor') return;
+    const eligible = queue.appointments.filter((item) => item.recordingEligible);
+    renderIntegrationFacts(integrationHost, {
+      liveMock: `SCHEDULER CONNECTED · ${eligible.length} WEBEX`, liveMockReady: true,
+    });
+    if (!eligible.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<strong>No Webex mocks ready</strong>The Scheduler owner is connected; no authorized Webex appointment is currently eligible for recording pickup.';
+      host.append(empty);
+      return;
+    }
+    for (const appointment of eligible.slice(0, 6)) {
+      const row = document.createElement('div');
+      row.className = 'live-mock-row';
+      const copy = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = appointment.label;
+      const meta = document.createElement('span');
+      meta.className = 'microcap';
+      meta.textContent = `${appointment.status.toUpperCase()}${appointment.startsAt ? ` · ${new Date(appointment.startsAt).toLocaleString()}` : ''}`;
+      copy.append(title, meta);
+      const action = document.createElement('button');
+      action.type = 'button'; action.className = 'btn btn-quiet'; action.innerHTML = '<span>Check recording</span>';
+      action.addEventListener('click', async () => {
+        action.disabled = true;
+        try {
+          const status = await state.liveMock.recordingStatus(appointment.id);
+          action.innerHTML = `<span>${status.playbackAvailable ? 'Private playback available' : status.status === 'processing' ? 'Recording processing' : 'Recording unavailable'}</span>`;
+        } catch { action.innerHTML = '<span>Owner adapter unavailable</span>'; }
+      });
+      row.append(copy, action); host.append(row);
+    }
+    const note = document.createElement('p');
+    note.className = 'admin-boundary-note';
+    note.textContent = 'Scheduler/Webex remains the owner. IVOC checks authorized recording readiness without downloading or claiming sibling media.';
+    host.append(note);
+  } catch {
+    if (renderId !== liveMockRenderId || state.role !== 'admin' || state.view !== 'mentor') return;
+    renderIntegrationFacts(integrationHost, { liveMock: 'OWNER ADAPTER UNAVAILABLE' });
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.innerHTML = '<strong>Live Mock owner unavailable</strong>The supervised adapter failed closed. No appointment or recording state was inferred.';
+    host.append(empty);
   }
 }
 

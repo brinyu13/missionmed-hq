@@ -553,6 +553,10 @@ body:not([data-role="admin"]) [data-admin-only] { display: none !important; }
 .admin-fact dd[data-state="ready"] { color: var(--ok); }
 .admin-fact dd[data-state="limited"] { color: var(--warn); }
 @media (max-width: 900px) { .admin-status-grid { grid-template-columns: 1fr; } }
+.live-mock-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.live-mock-row > div { display: grid; gap: 5px; }
+.admin-boundary-note { margin: 12px 0 0; color: var(--dim); font: 600 11px/1.5 var(--font-body); }
+@media (max-width: 680px) { .live-mock-row { grid-template-columns: 1fr; } }
 
 /* ---------- Answer History filters ---------- */
 .vault-toolbar { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(210px, auto) auto; gap: 10px; align-items: center; margin-bottom: 14px; }
