@@ -22,7 +22,7 @@ test("sanitized base contains no plaintext developer unlock credential", async (
 
 test("full build has one balanced marker pair per seam and embeds exact config", async () => {
   const result = await buildHtml({ buildId: "unit-test", sourceCommit: "test-sha" });
-  for (const seam of ["S1", "S2", "S3", "S4", "S5", "S5_BRIDGE"]) {
+  for (const seam of ["S1", "S2", "S3", "S4", "S5", "S5_BRIDGE", "S6"]) {
     assert.equal((result.html.match(new RegExp(`RLQ_DUAL:${seam} START`, "g")) || []).length, 1);
     assert.equal((result.html.match(new RegExp(`RLQ_DUAL:${seam} END`, "g")) || []).length, 1);
   }
@@ -31,4 +31,8 @@ test("full build has one balanced marker pair per seam and embeds exact config",
   assert.ok(result.html.includes(`window.RLQ_SIGNAL_CONFIG = ${JSON.stringify(JSON.parse(configText))};`));
   assert.ok(result.html.includes("window.RLQ_ENGINE = {"));
   assert.ok(result.html.includes('window.__RANKLISTIQ_BUILD__ = {"id":"unit-test"'));
+  assert.ok(result.html.includes("window.dataService.saveRankList = async function(rankListPayload)"));
+  assert.ok(result.html.includes("return saveRanklistToSupabase(nextPayload);"));
+  assert.ok(result.html.indexOf("async function saveRanklistToSupabase") < result.html.indexOf("RLQ_DUAL:S6 START"));
+  assert.ok(result.html.indexOf("RLQ_DUAL:S6 END") < result.html.indexOf("function collectFinalizeStatsPayload"));
 });

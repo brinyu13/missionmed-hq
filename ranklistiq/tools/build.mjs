@@ -106,6 +106,22 @@ export async function buildHtml({ zero = false, buildId = "test", sourceCommit =
     "    updateRankOutputSummary();\n    refreshStorageStatusUi();\n    " + seam("S5", "if(window.RLQ_DUAL && typeof window.RLQ_DUAL.afterRender === \"function\") window.RLQ_DUAL.afterRender();").replaceAll("\n", "\n    ") + "\n  }\n\n  " + seam("S5_BRIDGE", "window.RLQ_ENGINE = { getState:function(){return state;}, upsertProgramFromPayload:upsertProgramFromPayload, rankedPrograms:rankedPrograms, totalScore:totalScore, activeFactors:activeFactors, saveState:saveState, renderAll:renderAll, showToast:showToast, exportCsvEscape:exportCsvEscape };").replaceAll("\n", "\n  ") + "\n\n  /* Buttons */",
     "S5"
   );
+  html = replaceOne(
+    html,
+    "  function collectFinalizeStatsPayload(){",
+    "  " + seam("S6", [
+      "if(window.dataService){",
+      "  window.dataService.saveRankList = async function(rankListPayload){",
+      "    var nextPayload = (rankListPayload && typeof rankListPayload === \"object\") ? rankListPayload : {};",
+      "    return saveRanklistToSupabase(nextPayload);",
+      "  };",
+      "  window.dataService.loadRankList = async function(){",
+      "    return loadRanklistFromSupabase.apply(this, arguments);",
+      "  };",
+      "}"
+    ].join("\n")).replaceAll("\n", "\n  ") + "\n\n  function collectFinalizeStatsPayload(){",
+    "S6"
+  );
 
   return { html, basePath, baseSha256: sha256(base), configSha256: sha256(configText), stamp };
 }
@@ -133,4 +149,3 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const result = await writeBuild({ buildId });
   process.stdout.write(JSON.stringify(result) + "\n");
 }
-
