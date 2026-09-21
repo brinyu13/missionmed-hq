@@ -417,7 +417,7 @@ body {
 .canon-readiness-layout > * { min-width: 0; }
 .canon-readiness-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: -3px 0 12px; }
 .canon-readiness-preview { padding: 12px; border: 1px solid #405069; border-radius: 15px; background: #08111e; }
-.canon-readiness-preview .stage { min-height: clamp(220px, 28vw, 310px); }
+.canon-readiness-preview .stage { width: 100%; min-height: 0; height: clamp(220px, 28vw, 310px); aspect-ratio: auto; }
 .canon-frame-guide { position: absolute; inset: 14% 19% 12%; border: 1px solid #6fd7e3a8; border-radius: 46% 46% 28% 28%; pointer-events: none; }
 .canon-frame-guide::before, .canon-frame-guide::after { content: ''; position: absolute; background: #6fd7e35e; }
 .canon-frame-guide::before { left: 50%; top: -10%; bottom: -10%; width: 1px; }

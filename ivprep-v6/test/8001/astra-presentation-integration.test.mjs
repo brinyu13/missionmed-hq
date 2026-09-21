@@ -146,6 +146,7 @@ test('Founder-amended StoryForge consent and flagship readiness compositions rem
   assert.match(runtime, /Know what is actually ready/u);
   assert.match(css, /grid-template-columns: minmax\(0, 1\.08fr\) minmax\(0, \.92fr\)/u);
   assert.match(css, /\.canon-signal-pick, \.canon-story-include/u);
+  assert.match(css, /\.canon-readiness-preview \.stage \{ width: 100%; min-height: 0; height: clamp\(220px, 28vw, 310px\); aspect-ratio: auto; \}/u);
 });
 
 test('student presentation does not expose implementation status residue', () => {
