@@ -117,6 +117,18 @@ test('Answer History exposes question and evidence filters without inventing sem
   assert.match(runtime, /supportedObservationCount/u);
   assert.match(runtime, /Transcript · no supported semantic observations/u);
   assert.match(runtime, /renderId !== vaultRenderId \|\| state\.view !== 'vault'/u);
+  assert.match(runtime, /results\.innerHTML = '<span>Open Results<\/span>'/u);
+  assert.match(runtime, /if \(session\.results\) \{/u);
+  assert.match(runtime, /renderFullAnalyticsReport\(analytics\)/u);
+  assert.match(html, /id="post-analytics-report"/u);
+  assert.match(html, /id="post-analytics-report" aria-live="polite"/u);
+  assert.match(html, /no emotion, personality, or program-fit inference/u);
+});
+
+test('verified program search becomes actionable when the visible query changes', () => {
+  assert.match(runtime, /const updateProgramSearchAvailability = \(\) =>/u);
+  assert.match(runtime, /input\.addEventListener\('input',[\s\S]*updateProgramSearchAvailability\(\)/u);
+  assert.match(runtime, /state\.durable\.programs\(\{/u);
 });
 
 test('Live Mock Studio stays behind the Scheduler owner capability boundary', () => {

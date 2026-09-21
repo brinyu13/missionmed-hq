@@ -1064,6 +1064,13 @@ function renderProgramCalendar(host) {
 }
 
 function renderProgramStep(host) {
+  let searchButton;
+  const updateProgramSearchAvailability = () => {
+    if (!searchButton) return;
+    searchButton.disabled = state.programSearch.status === 'loading' || !state.durableAvailable
+      || ![state.wizard.program, state.wizard.programSpecialty, state.wizard.programState]
+        .some((value) => String(value || '').trim());
+  };
   const photo = el('div', 'canon-photo-heading');
   const image = el('img'); image.src = '/iv-prep-on-call/assets/studio/astra-assets/rise.png'; image.alt = '';
   const copy = el('div'); copy.append(el('h2', '', 'Know the room.'), el('p', '', 'Search and select verified program intelligence, or continue with a manual entry.'));
@@ -1075,6 +1082,7 @@ function renderProgramStep(host) {
     state.wizard.programId = null; state.wizard.programReleaseId = null; state.wizard.programVerified = false;
     state.wizard.contextSources = state.wizard.contextSources.filter((entry) => entry !== 'RISE');
     state.programSearch = { status: 'idle', records: [], total: 0, error: null };
+    updateProgramSearchAvailability();
   }); search.append(input); host.append(search);
   const filters = el('div', 'canon-program-filters');
   [['Specialty', 'All specialties', 'programSpecialty', 'Internal Medicine,Family Medicine,Pediatrics,Surgery,Psychiatry'], ['State', 'All states', 'programState', 'Massachusetts,New York,California,Texas,Florida'], ['Program type', 'All program types', 'programType', 'University,Community,University-affiliated']].forEach(([labelText, placeholder, key, values]) => {
@@ -1086,11 +1094,12 @@ function renderProgramStep(host) {
       state.wizard.programId = null; state.wizard.programReleaseId = null; state.wizard.programVerified = false;
       state.wizard.contextSources = state.wizard.contextSources.filter((entry) => entry !== 'RISE');
       state.programSearch = { status: 'idle', records: [], total: 0, error: null };
+      updateProgramSearchAvailability();
     }); label.append(select); filters.append(label);
   });
   host.append(filters);
   const searchActions = el('div', 'canon-inline-actions');
-  const searchButton = choiceButton({ className: 'btn btn-primary', label: state.programSearch.status === 'loading' ? 'Searching…' : 'Search verified programs', onClick: async () => {
+  searchButton = choiceButton({ className: 'btn btn-primary', label: state.programSearch.status === 'loading' ? 'Searching…' : 'Search verified programs', onClick: async () => {
     if (state.programSearch.status === 'loading') return;
     state.programSearch = { status: 'loading', records: [], total: 0, error: null };
     renderWizard();
@@ -1107,8 +1116,7 @@ function renderProgramStep(host) {
     }
     renderWizard();
   } });
-  searchButton.disabled = state.programSearch.status === 'loading' || !state.durableAvailable
-    || ![state.wizard.program, state.wizard.programSpecialty, state.wizard.programState].some((value) => String(value || '').trim());
+  updateProgramSearchAvailability();
   searchActions.append(searchButton); host.append(searchActions);
 
   if (state.programSearch.status === 'ready') {
@@ -2388,6 +2396,31 @@ async function renderVault() {
       copy.append(title, meta);
       const actions = document.createElement('div');
       actions.className = 'vault-answer-actions';
+      if (session.results) {
+        const results = document.createElement('button');
+        results.type = 'button';
+        results.className = 'btn btn-quiet';
+        results.innerHTML = '<span>Open Results</span>';
+        results.addEventListener('click', async () => {
+          results.disabled = true;
+          try {
+            const detail = await state.durable.api.session(session.id);
+            const analytics = detail?.results?.payload?.analytics || null;
+            state.lastSaved = {
+              persisted: true,
+              session,
+              sessionDetail: detail,
+              analytics,
+              recording: detail?.recording ? { recording: detail.recording } : null,
+            };
+            state.filmGroups?.ingestResult(analytics || {});
+            renderPostAnswer(analytics);
+            renderContextEvidence(contextResultFromSessionSpine(detail));
+            setView('postanswer');
+          } finally { results.disabled = false; }
+        });
+        actions.append(results);
+      }
       if (session.recording?.id && session.recording?.status === 'saved') {
         const play = document.createElement('button');
         play.type = 'button';
@@ -2606,12 +2639,80 @@ function renderPostAnswer(analytics = null) {
     empty.innerHTML = html;
     host.replaceChildren(empty);
   }
+  renderFullAnalyticsReport(analytics);
   const contextButton = $('#context-analyze');
   if (contextButton) {
     const recordingId = state.lastSaved?.recording?.recording?.id;
     const answerId = state.lastSaved?.analytics?.answerId;
     const questionId = state.lastSaved?.session?.questionId;
     contextButton.disabled = !(state.lastSaved?.persisted && recordingId && answerId && questionId);
+  }
+}
+
+function supportedAnalyticsEvent(events, metric) {
+  return [...events].reverse().find((event) => event?.metric === metric
+    && event?.maturity === 'VALIDATED_STUDENT_SAFE') || null;
+}
+
+function renderFullAnalyticsReport(analytics = null) {
+  const host = $('#post-analytics-report');
+  if (!host) return;
+  host.replaceChildren();
+  const events = Array.isArray(analytics?.studentEvents) ? analytics.studentEvents : [];
+  const event = (metric) => supportedAnalyticsEvent(events, metric);
+  const numericEventValue = (metric) => {
+    const value = Number(event(metric)?.observation?.value);
+    return Number.isFinite(value) ? value : null;
+  };
+  const unavailable = 'Unavailable — not enough supported evidence';
+  const durationMs = numericEventValue('answer_duration_ms');
+  const voiceLevel = numericEventValue('captured_level_dbfs');
+  const variation = numericEventValue('energy_variation_db');
+  const clipping = numericEventValue('digital_clipping_fraction');
+  const pauses = events.filter((item) => item?.metric === 'pause_episode'
+    && item?.maturity === 'VALIDATED_STUDENT_SAFE');
+  const face = event('face_presence');
+  const torso = event('torso_presence');
+  const hands = event('hand_presence');
+  const framing = numericEventValue('framing_center');
+  const cameraFacing = numericEventValue('camera_facing_proxy');
+  const head = event('head_orientation_proxy')?.observation?.value;
+  const headText = head && typeof head === 'object'
+    ? ['yawDeg', 'pitchDeg', 'rollDeg'].filter((key) => Number.isFinite(Number(head[key])))
+      .map((key) => `${key.replace('Deg', '')} ${Number(head[key]).toFixed(1)}°`).join(' · ')
+    : null;
+  const transcriptTurns = Array.isArray(state.lastSaved?.sessionDetail?.spine?.turns)
+    ? state.lastSaved.sessionDetail.spine.turns.filter((turn) => turn?.transcript?.text).length
+    : 0;
+  const recordingState = state.lastSaved?.recording?.recording?.status
+    || state.lastSaved?.sessionDetail?.recording?.status
+    || (state.lastSaved?.recording?.blob ? 'captured locally' : null);
+  const rows = [
+    ['Timing', durationMs === null ? unavailable : `${(durationMs / 1000).toFixed(1)} seconds of supported answer evidence`],
+    ['Voice delivery', voiceLevel === null && variation === null
+      ? unavailable
+      : [voiceLevel === null ? null : `${voiceLevel.toFixed(1)} dBFS captured level`, variation === null ? null : `${variation.toFixed(1)} dB volume variation`].filter(Boolean).join(' · ')],
+    ['Clipping + pauses', clipping === null && !pauses.length
+      ? unavailable
+      : [clipping === null ? null : `${(clipping * 100).toFixed(2)}% digital clipping`, pauses.length ? `${pauses.length} supported pause${pauses.length === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')],
+    ['Face + head', !face && !headText ? unavailable : [face ? 'Face presence measured' : null, headText].filter(Boolean).join(' · ')],
+    ['Body + hands', !torso && !hands ? unavailable : [torso ? 'Torso presence measured' : null, hands ? 'Hand presence measured' : null].filter(Boolean).join(' · ')],
+    ['Framing', framing === null && cameraFacing === null
+      ? unavailable
+      : [framing === null ? null : `${Math.round(framing * 100)}% centered frames`, cameraFacing === null ? null : `${Math.round(cameraFacing * 100)}% camera-facing proxy`].filter(Boolean).join(' · ')],
+    ['Transcript', transcriptTurns ? `${transcriptTurns} persisted transcript turn${transcriptTurns === 1 ? '' : 's'}` : 'Unavailable until transcript + context processing completes'],
+    ['Recording', recordingState ? `Private recording ${recordingState}` : 'Unavailable — no persisted recording evidence'],
+  ];
+  for (const [label, detail] of rows) {
+    const card = document.createElement('article');
+    card.className = 'context-assessment-card';
+    const heading = document.createElement('span');
+    heading.className = 'microcap';
+    heading.textContent = label;
+    const copy = document.createElement('p');
+    copy.textContent = detail;
+    card.append(heading, copy);
+    host.append(card);
   }
 }
 
