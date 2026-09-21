@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
     exit(2);
 }
 
-const MR0912_LIVE_PRIVATE_DIR = '/www/theresidencyacademy_209/private/mr-web-0912/20260913T154300-0400-pre-fall-update';
+const MR0912_LIVE_PRIVATE_DIR = '/www/theresidencyacademy_209/private/mr-web-0912/20260921-founder-reversal-live-card';
 const MR0912_LIVE_MANIFEST = MR0912_LIVE_PRIVATE_DIR . '/live-card-orders.json';
 const MR0912_STRIPE_MINIMUM_USD = 0.50;
 
@@ -51,7 +51,7 @@ function mr0912_live_specs(): array {
             'variation_id' => 5867,
             'course_id' => 3646,
             'unrelated_course_id' => 5227,
-            'public_amount' => 500.0,
+            'public_amount' => 549.0,
             'test_amount' => MR0912_STRIPE_MINIMUM_USD,
             'label' => 'Interview Week',
         ],
@@ -579,15 +579,15 @@ try {
             'temporary_login_plugin_active' => is_plugin_active('temporary-login/temporary-login.php')
                 && (string) get_option('_temporary_login_site_token', '') !== '',
             'live_order_manifest_absent' => !file_exists(MR0912_LIVE_MANIFEST),
-            'legacy_acceptance_cannot_open_campaign' => ($runtime['campaign']['go_live_gate']['verified_live_at'] ?? null) === null
-                && empty($runtime['production']['acceptance_binding_valid']),
+            'current_campaign_acceptance_bound' => !empty($runtime['offers']['interview_week']['runtime']['checkout_allowed'])
+                && !empty($runtime['offers']['complete']['runtime']['checkout_allowed']),
         ];
         foreach (mr0912_live_specs() as $key => $spec) {
             $variation = mr0912_live_assert_product($spec);
             $checks[$key . '_exact_price_mapping_parent'] = $variation instanceof WC_Product_Variation;
-            $checks[$key . '_still_fail_closed'] = !$variation->is_in_stock()
-                && (string) get_option('mmed_mr_0912_' . $key . '_verified_live_at', '') === ''
-                && (string) get_option('mmed_mr_0912_' . $key . '_acceptance_binding_sha256', '') === '';
+            $checks[$key . '_active_exact_binding'] = $variation->is_in_stock()
+                && (string) get_option('mmed_mr_0912_' . $key . '_verified_live_at', '') !== ''
+                && preg_match('/^[0-9a-f]{64}$/', (string) get_option('mmed_mr_0912_' . $key . '_acceptance_binding_sha256', '')) === 1;
         }
         $failed = array_keys(array_filter($checks, static fn($value) => $value !== true));
         echo wp_json_encode([
@@ -598,7 +598,7 @@ try {
             'minimum_source' => 'https://docs.stripe.com/currencies#minimum-and-maximum-charge-amounts',
             'per_offer_test_amount' => MR0912_STRIPE_MINIMUM_USD,
             'two_offer_total' => 2 * MR0912_STRIPE_MINIMUM_USD,
-            'public_prices' => ['interview_week' => 500, 'complete_early_card' => 3099],
+            'public_prices' => ['interview_week' => 549, 'complete_early_card' => 3099],
             'mechanism' => 'private authenticated WP-CLI creates exact product/variation orders with an order-local line-total override; no product price, coupon, route, or public filter changes',
             'checks' => $checks,
             'pass_count' => count($checks) - count($failed),
